@@ -1,0 +1,30 @@
+import React from "react";
+import { css } from "@emotion/react";
+
+interface IconProps {
+  type: string;
+}
+
+const Icon: React.FC<IconProps> = ({ type }) => {
+  const iconStyle = css`
+    font-size: 1.5rem;
+  `;
+
+  const containerStyle = css`
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 5px;
+    cursor: pointer;
+  `;
+
+  return (
+    <div css={containerStyle}>
+      <span css={iconStyle} className="material-symbols-outlined">
+        {type}
+      </span>
+    </div>
+  );
+};
+
+export default Icon;
