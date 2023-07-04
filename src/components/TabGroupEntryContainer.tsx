@@ -10,6 +10,7 @@ export default function TabGroupEntryContainer() {
     border: 1px solid black;
     margin: 8px 0;
     overflow: auto;
+    user-select: none;
   `;
 
   const sampleTabGroups = [

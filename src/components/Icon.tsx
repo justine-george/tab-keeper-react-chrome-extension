@@ -16,6 +16,7 @@ const Icon: React.FC<IconProps> = ({ type }) => {
     align-items: center;
     margin: 5px;
     cursor: pointer;
+    user-select: none;
   `;
 
   return (
