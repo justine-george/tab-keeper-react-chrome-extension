@@ -3,9 +3,10 @@ import { css } from "@emotion/react";
 
 interface IconProps {
   type: string;
+  style?: string;
 }
 
-const Icon: React.FC<IconProps> = ({ type }) => {
+const Icon: React.FC<IconProps> = ({ type, style }) => {
   const iconStyle = css`
     font-size: 1.5rem;
   `;
@@ -17,6 +18,7 @@ const Icon: React.FC<IconProps> = ({ type }) => {
     margin: 5px;
     cursor: pointer;
     user-select: none;
+    ${style && style}
   `;
 
   return (

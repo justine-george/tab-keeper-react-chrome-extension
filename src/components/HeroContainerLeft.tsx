@@ -10,6 +10,7 @@ export default function HeroContainer() {
     align-items: center;
     font-family: "Libre Franklin", sans-serif;
     font-size: 1.25rem;
+    padding: 16px 0px;
     user-select: none;
   `;
 

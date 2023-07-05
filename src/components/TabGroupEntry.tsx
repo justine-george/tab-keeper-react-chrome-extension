@@ -1,6 +1,9 @@
 import React from "react";
 import { css } from "@emotion/react";
 import Icon from "./Icon";
+import { GLOBAL } from "../utils/Constants";
+import { NormalLabel } from "./Label";
+import { Tag } from "./Tag";
 
 interface TabGroupEntryProps {
   title: string;
@@ -8,6 +11,7 @@ interface TabGroupEntryProps {
   tabCount: number;
   createdTime: string;
   isAutoSave: boolean;
+  isSelected: boolean;
 }
 
 const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
@@ -16,6 +20,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
   tabCount,
   createdTime,
   isAutoSave,
+  isSelected,
 }) => {
   const containerStyle = css`
     display: flex;
@@ -23,6 +28,12 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
     align-items: center;
     font-family: "Libre Franklin", sans-serif;
     cursor: pointer;
+    transition: background-color 0.3s;
+    &:hover {
+      background-color: ${!isSelected && GLOBAL.HOVER_COLOR};
+    }
+    background-color: ${isSelected && GLOBAL.SELECTION_COLOR};
+    padding: 2px 0px;
   `;
 
   const leftStyle = css`
@@ -44,29 +55,14 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
   return (
     <div css={containerStyle}>
       <div css={leftStyle}>
-        <div>{title}</div>
-        <div
-          css={css`
-            color: #2d2d2d;
-            font-size: 0.7rem;
-            margin-top: 2px;
-          `}
-        >
-          {windowCount} Windows - {tabCount} Tabs
-        </div>
-        {isAutoSave && (
-          <div
-            css={css`
-              background-color: #d3d3d3;
-              border: 1px solid #c0c0c0;
-              font-size: 0.7rem;
-              padding: 2px 5px;
-              margin-top: 5px;
-            `}
-          >
-            AUTOSAVE
-          </div>
-        )}
+        <NormalLabel value={title} color="black" />
+        <NormalLabel
+          value={`${windowCount} Windows - ${tabCount} Tabs`}
+          color="#2d2d2d"
+          size="0.7rem"
+          style="margin-top: 2px;"
+        />
+        {isAutoSave && <Tag value="AUTOSAVE" style="margin-top: 5px;" />}
         <div
           css={css`
             color: #4a4a4a;

@@ -1,6 +1,6 @@
 import { css } from "@emotion/react";
 import MainContainer from "./components/MainContainer";
-import { GLOBAL } from "./utils/constants";
+import { GLOBAL } from "./utils/Constants";
 import "./App.css";
 
 function App() {

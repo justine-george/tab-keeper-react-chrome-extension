@@ -1,6 +1,7 @@
 import { css } from "@emotion/react";
 import TabGroupEntry from "./TabGroupEntry";
 import Divider from "./Divider";
+import { NormalLabel } from "./Label";
 
 export default function TabGroupEntryContainer() {
   const containerStyle = css`
@@ -13,7 +14,19 @@ export default function TabGroupEntryContainer() {
     user-select: none;
   `;
 
-  const sampleTabGroups = [
+  const emptyContainerStyle = css`
+    display: flex;
+    height: 100%;
+    justify-content: center;
+    align-items: center;
+  `;
+
+  const filledContainerStyle = css`
+    display: flex;
+    flex-direction: column;
+  `;
+
+  let sampleTabGroups = [
     {
       title: "Youtube - Sample",
       windowCount: 2,
@@ -65,24 +78,38 @@ export default function TabGroupEntryContainer() {
     },
   ];
 
+  // sampleTabGroups = [];
+
   return (
     <div css={containerStyle}>
-      {sampleTabGroups.map(
-        ({ title, windowCount, tabCount, createdTime, isAutoSave }, index) => {
-          return (
-            <>
-              <TabGroupEntry
-                title={title}
-                windowCount={windowCount}
-                tabCount={tabCount}
-                createdTime={createdTime}
-                isAutoSave={isAutoSave}
-              />
-              {/* <Divider /> */}
-              {index != sampleTabGroups.length - 1 && <Divider />}
-            </>
-          );
-        }
+      {sampleTabGroups.length === 0 ? (
+        <div css={emptyContainerStyle}>
+          <NormalLabel value="Empty" />
+        </div>
+      ) : (
+        <div css={filledContainerStyle}>
+          {sampleTabGroups.map(
+            (
+              { title, windowCount, tabCount, createdTime, isAutoSave },
+              index
+            ) => {
+              return (
+                <>
+                  <TabGroupEntry
+                    title={title}
+                    windowCount={windowCount}
+                    tabCount={tabCount}
+                    createdTime={createdTime}
+                    isAutoSave={isAutoSave}
+                    isSelected={index === 0 ? true : false}
+                  />
+                  {/* <Divider /> */}
+                  {index != sampleTabGroups.length - 1 && <Divider />}
+                </>
+              );
+            }
+          )}
+        </div>
       )}
     </div>
   );

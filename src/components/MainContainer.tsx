@@ -16,7 +16,7 @@ export default function MainContainer() {
           width: 50%;
           height: 600px;
           border: 1px solid black;
-          margin: 8px 4px 8px 8px;
+          margin: 4px 4px 4px 4px;
         `}
       >
         <LeftPane />
@@ -26,7 +26,7 @@ export default function MainContainer() {
           width: 50%;
           height: 600px;
           border: 1px solid black;
-          margin: 8px 8px 8px 4px;
+          margin: 4px 4px 4px 4px;
         `}
       >
         <RightPane />
