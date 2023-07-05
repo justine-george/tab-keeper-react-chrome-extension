@@ -14,7 +14,7 @@ TabKeeper is a user-friendly Chrome extension that helps users save and organize
 
 
 ### Installation
-1. Install the TabKeeper Chrome extension from the Chrome Web Store.
+1. Install the TabKeeper Chrome extension from the Chrome Web Store. [(link)](https://chrome.google.com/webstore/detail/tabhound-tab-manager/dhmeglggkjfgbinodfdphenmodhancbd) (Updated version in the works!)
 2. Sign up or log in to your account within the extension.
 3. Start saving and organizing your tabs efficiently.
 
