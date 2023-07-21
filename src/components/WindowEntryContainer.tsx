@@ -2,6 +2,7 @@ import React from "react";
 import { css } from "@emotion/react";
 import Icon from "./Icon";
 import { NormalLabel } from "./Label";
+import { GLOBAL } from "../utils/constants";
 
 interface WindowEntryContainerProps {
   title: string;
@@ -25,6 +26,10 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   const parentStyle = css`
     display: flex;
     justify-content: space-between;
+    transition: background-color 0.3s;
+    &:hover {
+      background-color: ${GLOBAL.HOVER_COLOR};
+    }
   `;
 
   const childrenStyle = css`
@@ -68,6 +73,10 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                 display: flex;
                 align-items: center;
                 justify-content: space-between;
+                transition: background-color 0.3s;
+                &:hover {
+                  background-color: ${GLOBAL.HOVER_COLOR};
+                }
                 // border: 1px solid black;
               `}
             >

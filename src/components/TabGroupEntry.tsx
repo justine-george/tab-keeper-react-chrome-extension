@@ -1,7 +1,7 @@
 import React from "react";
 import { css } from "@emotion/react";
 import Icon from "./Icon";
-import { GLOBAL } from "../utils/Constants";
+import { GLOBAL } from "../utils/constants";
 import { NormalLabel } from "./Label";
 import { Tag } from "./Tag";
 

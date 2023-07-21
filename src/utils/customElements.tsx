@@ -1,5 +1,5 @@
 import styled from "@emotion/styled";
-import { GLOBAL } from "./Constants";
+import { GLOBAL } from "./constants";
 
 export const TextInput = styled.input`
   background-color: ${GLOBAL.PRIMARY_COLOR};
@@ -22,4 +22,8 @@ export const Button = styled.button`
   font-family: "Libre Franklin", sans-serif;
   font-size: 0.9rem;
   cursor: pointer;
+  transition: background-color 0.3s;
+  &:hover {
+    background-color: ${GLOBAL.ICON_HOVER_COLOR};
+  }
 `;

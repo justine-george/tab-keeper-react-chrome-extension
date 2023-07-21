@@ -1,7 +1,8 @@
 import { css } from "@emotion/react";
 import Icon from "./Icon";
-import { GLOBAL } from "../utils/Constants";
+import { GLOBAL } from "../utils/constants";
 import { Tag } from "./Tag";
+import { NormalLabel } from "./Label";
 
 export default function HeroContainerRight() {
   const containerStyle = css`
@@ -16,7 +17,6 @@ export default function HeroContainerRight() {
   `;
 
   const topStyle = css`
-    font-size: 1.125rem;
     padding: 8px;
     padding-bottom: unset;
   `;
@@ -40,25 +40,19 @@ export default function HeroContainerRight() {
   return (
     <div css={containerStyle}>
       <div css={topStyle}>
-        <div>{title}</div>
-        <div
-          css={css`
-            color: #2d2d2d;
-            font-size: 0.75rem;
-            padding-top: 2px;
-          `}
-        >
-          {windowCount} Windows - {tabCount} Tabs
-        </div>
-        <div
-          css={css`
-            color: #4a4a4a;
-            font-size: 0.7rem;
-            padding-top: 2px;
-          `}
-        >
-          {createdTime}
-        </div>
+        <NormalLabel value={title} size="1.125rem" color="black;" />
+        <NormalLabel
+          value={`${windowCount} Windows - ${tabCount} Tabs`}
+          size="0.75rem"
+          color="#2d2d2d;"
+          style="padding-top: 2px;"
+        />
+        <NormalLabel
+          value={createdTime}
+          size="0.7rem"
+          color="#4a4a4a;"
+          style="padding-top: 2px;"
+        />
       </div>
       <div css={bottomStyle}>
         <div

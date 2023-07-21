@@ -1,5 +1,5 @@
 import { css } from "@emotion/react";
-import { Button, TextInput } from "../utils/CustomElements";
+import { Button, TextInput } from "../utils/customElements";
 
 export default function UserInputContainer() {
   const containerStyle = css`

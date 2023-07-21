@@ -1,7 +1,7 @@
 import { css } from "@emotion/react";
 import { NormalLabel } from "./Label";
 import WindowEntryContainer from "./WindowEntryContainer";
-import { isEmptyObject } from "../utils/HelperFunctions";
+import { isEmptyObject } from "../utils/helperFunctions";
 
 export default function TabGroupDetailsContainer() {
   const containerStyle = css`
