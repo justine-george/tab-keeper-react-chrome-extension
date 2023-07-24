@@ -51,7 +51,19 @@ const SettingsDetailsContainer: React.FC<SettingsDetailsContainerProps> = ({
           <Button
             text={settingsData.isDarkMode ? `Light` : `Dark`}
             onClick={() => dispatch(toggleDarkMode())}
-            style="margin-left: 16px; width: 120px;"
+            style={`
+              margin-left: 16px;
+              width: 120px;
+              &:hover {
+                background-color: ${
+                  settingsData.isDarkMode ? "#FFFFFF" : "#000000"
+                };
+                color: ${settingsData.isDarkMode ? "#000000" : "#FFFFFF"};
+                border: 1px solid ${
+                  settingsData.isDarkMode ? "#FFFFFF" : "#000000"
+                };
+              }
+            `}
           />
         </div>
       </>
