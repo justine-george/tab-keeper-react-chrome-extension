@@ -1,9 +1,5 @@
-// App.tsx
-export const GLOBAL = {
-  PRIMARY_COLOR: "#E0E0E0",
-  SECONDARY_COLOR: "#CACACA",
-  SELECTION_COLOR: "#A8A8A8",
-  HOVER_COLOR: "#CACACA",
-  ICON_HOVER_COLOR: "#FFFFFF",
-  DELETE_ICON_HOVER_COLOR: "#FF5733",
-};
+// Constants related to colors moved to hook/useThemeColors
+
+// For plain icons with no interactivity
+export const nonInteractIconStyle =
+  "cursor: unset; &:hover {background-color: unset;}";

@@ -1,12 +1,15 @@
 import { css } from "@emotion/react";
 import MenuContainer from "./MenuContainer";
+import { useThemeColors } from "../hook/useThemeColors";
+import { NormalLabel } from "../common/Label";
 
 export default function HeroContainer() {
+  const COLORS = useThemeColors();
+
   const containerStyle = css`
     display: flex;
     justify-content: space-between;
     height: 60px;
-    // border: 1px solid black;
     align-items: center;
     font-family: "Libre Franklin", sans-serif;
     font-size: 1.25rem;
@@ -16,7 +19,11 @@ export default function HeroContainer() {
 
   return (
     <div css={containerStyle}>
-      <div>Tab Keeper</div>
+      <NormalLabel
+        value="Tab Keeper"
+        size="1.125rem"
+        color={COLORS.TEXT_COLOR}
+      />
       <div>
         <MenuContainer />
       </div>

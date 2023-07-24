@@ -1,8 +1,9 @@
 import React from "react";
 import { css } from "@emotion/react";
-import Icon from "./Icon";
-import { NormalLabel } from "./Label";
-import { GLOBAL } from "../utils/constants";
+import Icon from "../common/Icon";
+import { NormalLabel } from "../common/Label";
+import { useThemeColors } from "../hook/useThemeColors";
+import { nonInteractIconStyle } from "../../utils/constants";
 
 interface WindowEntryContainerProps {
   title: string;
@@ -16,6 +17,8 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   title,
   tabs,
 }) => {
+  const COLORS = useThemeColors();
+
   const containerStyle = css`
     display: flex;
     flex-direction: column;
@@ -28,7 +31,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     justify-content: space-between;
     transition: background-color 0.3s;
     &:hover {
-      background-color: ${GLOBAL.HOVER_COLOR};
+      background-color: ${COLORS.HOVER_COLOR};
     }
   `;
 
@@ -46,10 +49,10 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
           `}
         >
           <Icon type="expand_more" />
-          <Icon type="ad" style="cursor: auto;" />
+          <Icon type="ad" style={nonInteractIconStyle} />
           <NormalLabel
             value={title}
-            color="black"
+            color={COLORS.TEXT_COLOR}
             size="0.9rem"
             style="padding-left: 8px; cursor: pointer;"
           />
@@ -75,9 +78,8 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                 justify-content: space-between;
                 transition: background-color 0.3s;
                 &:hover {
-                  background-color: ${GLOBAL.HOVER_COLOR};
+                  background-color: ${COLORS.HOVER_COLOR};
                 }
-                // border: 1px solid black;
               `}
             >
               <div
@@ -86,10 +88,10 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                   align-items: center;
                 `}
               >
-                <Icon type="app_badging" />
+                <Icon type="app_badging" style={nonInteractIconStyle} />
                 <NormalLabel
                   value={title}
-                  color="black"
+                  color={COLORS.TEXT_COLOR}
                   size="0.9rem"
                   style="padding-left: 8px; cursor: pointer;"
                 />

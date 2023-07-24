@@ -1,7 +1,7 @@
 import { css } from "@emotion/react";
-import Icon from "./Icon";
+import Icon from "../common/Icon";
 import { useDispatch } from "react-redux";
-import { openSettingsPage } from "./globalStateSlice";
+import { openSettingsPage } from "../slice/globalStateSlice";
 
 export default function MenuContainer() {
   const containerStyle = css`

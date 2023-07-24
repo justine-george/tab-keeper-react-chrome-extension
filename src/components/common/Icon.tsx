@@ -1,6 +1,6 @@
 import React from "react";
 import { css } from "@emotion/react";
-import { GLOBAL } from "../utils/constants";
+import { useThemeColors } from "../hook/useThemeColors";
 
 interface IconProps {
   type: string;
@@ -9,14 +9,17 @@ interface IconProps {
 }
 
 const Icon: React.FC<IconProps> = ({ type, onClick, style }) => {
+  const COLORS = useThemeColors();
+
   const iconStyle = css`
     font-size: 1.5rem;
+    color: ${COLORS.TEXT_COLOR};
   `;
 
   const hoverColor =
     type === "delete"
-      ? GLOBAL.DELETE_ICON_HOVER_COLOR
-      : GLOBAL.ICON_HOVER_COLOR;
+      ? COLORS.DELETE_ICON_HOVER_COLOR
+      : COLORS.ICON_HOVER_COLOR;
 
   const containerStyle = css`
     display: flex;

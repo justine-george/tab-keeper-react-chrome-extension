@@ -1,5 +1,6 @@
 import { css } from "@emotion/react";
-import { Button, TextInput } from "../utils/customElements";
+import Button from "../common/Button";
+import TextBox from "../common/TextBox";
 
 export default function UserInputContainer() {
   const containerStyle = css`
@@ -10,17 +11,14 @@ export default function UserInputContainer() {
 
   return (
     <div css={containerStyle}>
-      <TextInput
-        css={css`
-          margin-right: 8px;
-        `}
-        type="text"
+      <TextBox
         id="name"
         name="name"
         placeholder="New Group"
         autoComplete="off"
+        style="margin-right: 8px;"
       />
-      <Button>Add</Button>
+      <Button text="Add" />
     </div>
   );
 }

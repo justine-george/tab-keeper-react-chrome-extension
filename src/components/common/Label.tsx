@@ -1,4 +1,5 @@
 import { css } from "@emotion/react";
+import { useThemeColors } from "../hook/useThemeColors";
 
 interface LabelProps {
   value: string;
@@ -13,10 +14,12 @@ export const NormalLabel: React.FC<LabelProps> = ({
   color,
   style,
 }) => {
+  const COLORS = useThemeColors();
+
   const textStyle = css`
     font-family: "Libre Franklin", sans-serif;
     font-size: ${size ? size : "1rem"};
-    color: ${color ? color : "#808080"};
+    color: ${color ? color : COLORS.LABEL_L3_COLOR};
     ${style && style}
   `;
 

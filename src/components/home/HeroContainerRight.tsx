@@ -1,19 +1,21 @@
 import { css } from "@emotion/react";
-import Icon from "./Icon";
-import { GLOBAL } from "../utils/constants";
-import { Tag } from "./Tag";
-import { NormalLabel } from "./Label";
+import Icon from "../common/Icon";
+import { Tag } from "../common/Tag";
+import { NormalLabel } from "../common/Label";
+import { useThemeColors } from "../hook/useThemeColors";
 
 export default function HeroContainerRight() {
+  const COLORS = useThemeColors();
+
   const containerStyle = css`
     display: flex;
     flex-direction: column;
     align-items: flex-start;
     justify-content: space-between;
-    border: 1px solid black;
+    border: 1px solid ${COLORS.BORDER_COLOR};
     font-family: "Libre Franklin", sans-serif;
     user-select: none;
-    background-color: ${GLOBAL.SECONDARY_COLOR};
+    background-color: ${COLORS.SECONDARY_COLOR};
   `;
 
   const topStyle = css`
@@ -27,7 +29,6 @@ export default function HeroContainerRight() {
     margin-bottom: 2px;
     margin-top: 8px;
     width: 100%;
-    // justify-content: space-between;
     align-items: center;
   `;
 
@@ -40,17 +41,17 @@ export default function HeroContainerRight() {
   return (
     <div css={containerStyle}>
       <div css={topStyle}>
-        <NormalLabel value={title} size="1.125rem" color="black;" />
+        <NormalLabel value={title} size="1.125rem" color={COLORS.TEXT_COLOR} />
         <NormalLabel
           value={`${windowCount} Windows - ${tabCount} Tabs`}
           size="0.75rem"
-          color="#2d2d2d;"
+          color={COLORS.LABEL_L1_COLOR}
           style="padding-top: 2px;"
         />
         <NormalLabel
           value={createdTime}
           size="0.7rem"
-          color="#4a4a4a;"
+          color={COLORS.LABEL_L2_COLOR}
           style="padding-top: 2px;"
         />
       </div>

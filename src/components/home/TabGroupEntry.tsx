@@ -1,9 +1,9 @@
 import React from "react";
 import { css } from "@emotion/react";
-import Icon from "./Icon";
-import { GLOBAL } from "../utils/constants";
-import { NormalLabel } from "./Label";
-import { Tag } from "./Tag";
+import Icon from "../common/Icon";
+import { NormalLabel } from "../common/Label";
+import { Tag } from "../common/Tag";
+import { useThemeColors } from "../hook/useThemeColors";
 
 interface TabGroupEntryProps {
   title: string;
@@ -22,6 +22,8 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
   isAutoSave,
   isSelected,
 }) => {
+  const COLORS = useThemeColors();
+
   const containerStyle = css`
     display: flex;
     justify-content: space-between;
@@ -30,9 +32,9 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
     cursor: pointer;
     transition: background-color 0.3s;
     &:hover {
-      background-color: ${!isSelected && GLOBAL.HOVER_COLOR};
+      background-color: ${!isSelected && COLORS.HOVER_COLOR};
     }
-    background-color: ${isSelected && GLOBAL.SELECTION_COLOR};
+    background-color: ${isSelected && COLORS.SELECTION_COLOR};
     padding: 2px 0px;
   `;
 
@@ -55,17 +57,17 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
   return (
     <div css={containerStyle}>
       <div css={leftStyle}>
-        <NormalLabel value={title} color="black" />
+        <NormalLabel value={title} color={COLORS.TEXT_COLOR} />
         <NormalLabel
           value={`${windowCount} Windows - ${tabCount} Tabs`}
-          color="#2d2d2d"
+          color={COLORS.LABEL_L1_COLOR}
           size="0.7rem"
           style="margin-top: 2px;"
         />
         {isAutoSave && <Tag value="AUTOSAVE" style="margin-top: 5px;" />}
         <div
           css={css`
-            color: #4a4a4a;
+            color: ${COLORS.LABEL_L2_COLOR};
             font-size: 0.625rem;
             margin-top: 5px;
           `}

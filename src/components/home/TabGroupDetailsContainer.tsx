@@ -1,9 +1,12 @@
 import { css } from "@emotion/react";
-import { NormalLabel } from "./Label";
+import { NormalLabel } from "../common/Label";
 import WindowEntryContainer from "./WindowEntryContainer";
-import { isEmptyObject } from "../utils/helperFunctions";
+import { isEmptyObject } from "../../utils/helperFunctions";
+import { useThemeColors } from "../hook/useThemeColors";
 
 export default function TabGroupDetailsContainer() {
+  const COLORS = useThemeColors();
+
   const containerStyle = css`
     display: flex;
     flex-direction: column;
@@ -11,7 +14,7 @@ export default function TabGroupDetailsContainer() {
     // height: 100%;
     flex-grow: 1;
     margin-top: 8px;
-    border: 1px solid black;
+    border: 1px solid ${COLORS.BORDER_COLOR};
     overflow: auto;
     user-select: none;
   `;
@@ -165,7 +168,7 @@ export default function TabGroupDetailsContainer() {
         </div>
       ) : (
         <div css={filledContainerStyle}>
-          {tabGroupEntry.windows.map(({ title, tabs }, index) => {
+          {tabGroupEntry.windows.map(({ title, tabs }, _) => {
             return (
               <>
                 <WindowEntryContainer title={title} tabs={tabs} />

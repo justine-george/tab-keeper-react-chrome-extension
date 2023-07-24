@@ -1,13 +1,15 @@
 import { css } from "@emotion/react";
 import MainContainer from "./components/MainContainer";
-import { GLOBAL } from "./utils/constants";
 import "./App.css";
+import { useThemeColors } from "./components/hook/useThemeColors";
 
 function App() {
+  const COLORS = useThemeColors();
+
   const containerStyle = css`
-    background-color: ${GLOBAL.PRIMARY_COLOR};
+    background-color: ${COLORS.PRIMARY_COLOR};
     width: 800px;
-    border: 1px solid black;
+    border: 1px solid ${COLORS.BORDER_COLOR};
   `;
 
   return (

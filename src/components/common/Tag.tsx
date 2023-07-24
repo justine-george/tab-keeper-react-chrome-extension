@@ -1,4 +1,5 @@
 import { css } from "@emotion/react";
+import { useThemeColors } from "../hook/useThemeColors";
 
 interface TagProps {
   value: string;
@@ -6,11 +7,14 @@ interface TagProps {
 }
 
 export const Tag: React.FC<TagProps> = ({ value, style }) => {
+  const COLORS = useThemeColors();
+
   const tagStyle = css`
-    background-color: #d3d3d3;
-    border: 1px solid #c0c0c0;
+    background-color: ${COLORS.TAG_BG_COLOR};
+    border: 1px solid ${COLORS.TAG_BORDER_COLOR};
     font-size: 0.7rem;
     padding: 2px 5px;
+    color: ${COLORS.TEXT_COLOR};
     ${style && style}
   `;
 

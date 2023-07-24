@@ -1,14 +1,17 @@
 import { css } from "@emotion/react";
 import TabGroupEntry from "./TabGroupEntry";
-import Divider from "./Divider";
-import { NormalLabel } from "./Label";
+import Divider from "../common/Divider";
+import { NormalLabel } from "../common/Label";
+import { useThemeColors } from "../hook/useThemeColors";
 
 export default function TabGroupEntryContainer() {
+  const COLORS = useThemeColors();
+
   const containerStyle = css`
     display: flex;
     flex-direction: column;
     height: 100%;
-    border: 1px solid black;
+    border: 1px solid ${COLORS.BORDER_COLOR};
     margin: 8px 0;
     overflow: auto;
     user-select: none;
