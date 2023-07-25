@@ -1,9 +1,9 @@
 import { css } from "@emotion/react";
 import { SettingsDetailsContainerProps } from "../../utils/interfaces";
 import { useDispatch, useSelector } from "react-redux";
-import { RootState } from "../../utils/store";
+import { RootState } from "../../redux/store";
 import { NormalLabel } from "../common/Label";
-import { toggleDarkMode } from "../slice/settingsDataStateSlice";
+import { toggleDarkMode } from "../../redux/slice/settingsDataStateSlice";
 import Button from "../common/Button";
 import { useThemeColors } from "../hook/useThemeColors";
 

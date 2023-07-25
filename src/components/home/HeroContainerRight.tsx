@@ -3,9 +3,20 @@ import Icon from "../common/Icon";
 import { Tag } from "../common/Tag";
 import { NormalLabel } from "../common/Label";
 import { useThemeColors } from "../hook/useThemeColors";
+import { useSelector } from "react-redux";
+import { RootState } from "../../redux/store";
 
 export default function HeroContainerRight() {
   const COLORS = useThemeColors();
+
+  const tabContainerDataList = useSelector(
+    (state: RootState) => state.tabContainerDataState
+  );
+
+  // assumption is there is only one selected tabGroup
+  const selectedTabGroup = tabContainerDataList.filter(
+    (tabGroup) => tabGroup.isSelected
+  )[0];
 
   const containerStyle = css`
     display: flex;
@@ -32,11 +43,8 @@ export default function HeroContainerRight() {
     align-items: center;
   `;
 
-  const title = "Youtube - Sample";
-  const windowCount = 2;
-  const tabCount = 5;
-  const createdTime = "2023-06-23 13:02:03";
-  const isAutoSave = true;
+  const { title, windowCount, tabCount, createdTime, isAutoSave } =
+    selectedTabGroup;
 
   return (
     <div css={containerStyle}>

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { MouseEventHandler } from "react";
 import { css } from "@emotion/react";
 import Icon from "../common/Icon";
 import { NormalLabel } from "../common/Label";
@@ -12,6 +12,8 @@ interface TabGroupEntryProps {
   createdTime: string;
   isAutoSave: boolean;
   isSelected: boolean;
+  onTabGroupClick: MouseEventHandler;
+  onDeleteClick: MouseEventHandler;
 }
 
 const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
@@ -21,6 +23,8 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
   createdTime,
   isAutoSave,
   isSelected,
+  onTabGroupClick,
+  onDeleteClick,
 }) => {
   const COLORS = useThemeColors();
 
@@ -55,7 +59,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
   `;
 
   return (
-    <div css={containerStyle}>
+    <div css={containerStyle} onClick={onTabGroupClick}>
       <div css={leftStyle}>
         <NormalLabel value={title} color={COLORS.TEXT_COLOR} />
         <NormalLabel
@@ -77,7 +81,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
       </div>
       <div css={rightStyle}>
         <Icon type="open_in_new" />
-        <Icon type="delete" />
+        <Icon type="delete" onClick={onDeleteClick} />
       </div>
     </div>
   );

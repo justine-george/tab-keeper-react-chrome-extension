@@ -4,8 +4,8 @@ import { NormalLabel } from "../common/Label";
 import { SettingsCategory } from "../../utils/interfaces";
 import { useThemeColors } from "../hook/useThemeColors";
 import { useDispatch, useSelector } from "react-redux";
-import { RootState } from "../../utils/store";
-import { selectCategory } from "../slice/settingsCategoryStateSlice";
+import { RootState } from "../../redux/store";
+import { selectCategory } from "../../redux/slice/settingsCategoryStateSlice";
 
 interface SettingsCategoryContainerProps {
   // settingsCategoryList: SettingsCategory[];

@@ -2,7 +2,7 @@ import { css } from "@emotion/react";
 import { useDispatch } from "react-redux";
 import Icon from "../common/Icon";
 import { NormalLabel } from "../common/Label";
-import { openSettingsPage } from "../slice/globalStateSlice";
+import { openSettingsPage } from "../../redux/slice/globalStateSlice";
 import { useThemeColors } from "../hook/useThemeColors";
 
 export default function MenuContainer() {

@@ -1,15 +1,15 @@
 import { css } from "@emotion/react";
 import Icon from "../common/Icon";
 import { useDispatch } from "react-redux";
-import { openSettingsPage } from "../slice/globalStateSlice";
+import { openSettingsPage } from "../../redux/slice/globalStateSlice";
 
 export default function MenuContainer() {
+  const dispatch = useDispatch();
+
   const containerStyle = css`
     display: flex;
     justify-content: space-around;
   `;
-
-  const dispatch = useDispatch();
 
   return (
     <div css={containerStyle}>

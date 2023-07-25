@@ -3,9 +3,21 @@ import TabGroupEntry from "./TabGroupEntry";
 import Divider from "../common/Divider";
 import { NormalLabel } from "../common/Label";
 import { useThemeColors } from "../hook/useThemeColors";
+import { useDispatch, useSelector } from "react-redux";
+import { RootState } from "../../redux/store";
+import {
+  deleteTabContainer,
+  selectTabContainer,
+} from "../../redux/slice/tabContainerDataStateSlice";
 
 export default function TabGroupEntryContainer() {
   const COLORS = useThemeColors();
+
+  const dispatch = useDispatch();
+
+  const tabContainerDataList = useSelector(
+    (state: RootState) => state.tabContainerDataState
+  );
 
   const containerStyle = css`
     display: flex;
@@ -29,85 +41,42 @@ export default function TabGroupEntryContainer() {
     flex-direction: column;
   `;
 
-  let sampleTabGroups = [
-    {
-      title: "Youtube - Sample",
-      windowCount: 2,
-      tabCount: 5,
-      createdTime: "2023-06-23 13:02:03",
-      isAutoSave: false,
-    },
-    {
-      title: "Bottles Corp",
-      windowCount: 2,
-      tabCount: 5,
-      createdTime: "2023-06-23 13:02:03",
-      isAutoSave: false,
-    },
-    {
-      title: "Sample Website",
-      windowCount: 2,
-      tabCount: 5,
-      createdTime: "2023-06-23 13:02:03",
-      isAutoSave: true,
-    },
-    {
-      title: "Leetcode",
-      windowCount: 2,
-      tabCount: 5,
-      createdTime: "2023-06-23 13:02:03",
-      isAutoSave: false,
-    },
-    {
-      title: "Wikipedia",
-      windowCount: 2,
-      tabCount: 5,
-      createdTime: "2023-06-23 13:02:03",
-      isAutoSave: true,
-    },
-    {
-      title: "Youtube - Sample",
-      windowCount: 2,
-      tabCount: 5,
-      createdTime: "2023-06-23 13:02:03",
-      isAutoSave: true,
-    },
-    {
-      title: "Facebook - Home",
-      windowCount: 2,
-      tabCount: 5,
-      createdTime: "2023-06-23 13:02:03",
-      isAutoSave: true,
-    },
-  ];
-
-  // sampleTabGroups = [];
-
   return (
     <div css={containerStyle}>
-      {sampleTabGroups.length === 0 ? (
+      {tabContainerDataList.length === 0 ? (
         <div css={emptyContainerStyle}>
           <NormalLabel value="Empty" />
         </div>
       ) : (
         <div css={filledContainerStyle}>
-          {sampleTabGroups.map(
+          {tabContainerDataList.map(
             (
-              { title, windowCount, tabCount, createdTime, isAutoSave },
+              {
+                id,
+                title,
+                windowCount,
+                tabCount,
+                createdTime,
+                isAutoSave,
+                isSelected,
+              },
               index
             ) => {
               return (
                 <>
                   <TabGroupEntry
+                    key={id}
                     title={title}
                     windowCount={windowCount}
                     tabCount={tabCount}
                     createdTime={createdTime}
                     isAutoSave={isAutoSave}
-                    isSelected={index === 0 ? true : false}
+                    isSelected={isSelected}
+                    onTabGroupClick={() => dispatch(selectTabContainer(id))}
+                    onDeleteClick={() => dispatch(deleteTabContainer(id))}
                   />
                   {/* <Divider /> */}
-                  {index != sampleTabGroups.length - 1 && <Divider />}
+                  {index != tabContainerDataList.length - 1 && <Divider />}
                 </>
               );
             }

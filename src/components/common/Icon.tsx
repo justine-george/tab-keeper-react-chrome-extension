@@ -1,10 +1,10 @@
-import React from "react";
+import React, { MouseEventHandler } from "react";
 import { css } from "@emotion/react";
 import { useThemeColors } from "../hook/useThemeColors";
 
 interface IconProps {
   type: string;
-  onClick?: () => void;
+  onClick?: MouseEventHandler;
   style?: string;
 }
 

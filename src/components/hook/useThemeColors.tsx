@@ -1,5 +1,5 @@
 import { useSelector } from "react-redux";
-import { RootState } from "../../utils/store";
+import { RootState } from "../../redux/store";
 
 export function useThemeColors() {
   const settingsData = useSelector((state: RootState) => state.settingsDataState);

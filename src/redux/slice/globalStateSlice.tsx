@@ -1,11 +1,11 @@
 import { PayloadAction, createSlice } from "@reduxjs/toolkit";
 
-export interface GlobalState {
+export interface Global {
   isSettingsPage: boolean;
   value: number;
 }
 
-const initialState: GlobalState = {
+const initialState: Global = {
   isSettingsPage: false,
   value: 0,
 };
