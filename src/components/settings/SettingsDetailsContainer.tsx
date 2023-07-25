@@ -1,16 +1,26 @@
 import { css } from "@emotion/react";
-import { SettingsDetailsContainerProps } from "../../utils/Interfaces";
+import { SettingsDetailsContainerProps } from "../../utils/interfaces";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "../../utils/store";
 import { NormalLabel } from "../common/Label";
-import { toggleDarkMode } from "../slice/settingsStateSlice";
+import { toggleDarkMode } from "../slice/settingsDataStateSlice";
 import Button from "../common/Button";
 import { useThemeColors } from "../hook/useThemeColors";
 
-const SettingsDetailsContainer: React.FC<SettingsDetailsContainerProps> = ({
-  settingsCategoryList,
-}) => {
+const SettingsDetailsContainer: React.FC<
+  SettingsDetailsContainerProps
+> = ({}) => {
   const COLORS = useThemeColors();
+
+  const dispatch = useDispatch();
+
+  const settingsCategoryList = useSelector(
+    (state: RootState) => state.settingsCategoryState
+  );
+
+  const settingsData = useSelector(
+    (state: RootState) => state.settingsDataState
+  );
 
   const containerStyle = css`
     display: flex;
@@ -24,15 +34,11 @@ const SettingsDetailsContainer: React.FC<SettingsDetailsContainerProps> = ({
     user-select: none;
   `;
 
-  const dispatch = useDispatch();
-
   const settingsItemStyle = css`
     display: flex;
     align-items: center;
     padding: 4px;
   `;
-
-  const settingsData = useSelector((state: RootState) => state.settingsState);
 
   const settingsCategoryName: string = settingsCategoryList.filter(
     (settings) => settings.isSelected

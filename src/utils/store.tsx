@@ -1,11 +1,13 @@
 import { configureStore } from "@reduxjs/toolkit";
 import globalStateReducer from "../components/slice/globalStateSlice";
-import settingsStateReducer from "../components/slice/settingsStateSlice";
+import settingsDataStateReducer from "../components/slice/settingsDataStateSlice";
+import settingsCategoryStateReducer from "../components/slice/settingsCategoryStateSlice";
 
 export const store = configureStore({
   reducer: {
     globalState: globalStateReducer,
-    settingsState: settingsStateReducer,
+    settingsDataState: settingsDataStateReducer,
+    settingsCategoryState: settingsCategoryStateReducer,
   },
 });
 

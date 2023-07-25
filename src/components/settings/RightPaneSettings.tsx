@@ -1,11 +1,9 @@
 import { css } from "@emotion/react";
 import HeroContainerRightSettings from "./HeroContainerRightSettings";
 import SettingsDetailsContainer from "./SettingsDetailsContainer";
-import { SettingsDetailsContainerProps } from "../../utils/Interfaces";
+import { SettingsDetailsContainerProps } from "../../utils/interfaces";
 
-const RightPaneSettings: React.FC<SettingsDetailsContainerProps> = ({
-  settingsCategoryList,
-}) => {
+const RightPaneSettings: React.FC<SettingsDetailsContainerProps> = ({}) => {
   const containerStyle = css`
     display: flex;
     flex-direction: column;
@@ -16,7 +14,7 @@ const RightPaneSettings: React.FC<SettingsDetailsContainerProps> = ({
   return (
     <div css={containerStyle}>
       <HeroContainerRightSettings />
-      <SettingsDetailsContainer settingsCategoryList={settingsCategoryList} />
+      <SettingsDetailsContainer />
     </div>
   );
 };

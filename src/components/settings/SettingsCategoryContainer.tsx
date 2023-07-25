@@ -1,19 +1,30 @@
 import { css } from "@emotion/react";
 import Divider from "../common/Divider";
 import { NormalLabel } from "../common/Label";
-import { SettingsCategory } from "../../utils/Interfaces";
+import { SettingsCategory } from "../../utils/interfaces";
 import { useThemeColors } from "../hook/useThemeColors";
+import { useDispatch, useSelector } from "react-redux";
+import { RootState } from "../../utils/store";
+import { selectCategory } from "../slice/settingsCategoryStateSlice";
 
 interface SettingsCategoryContainerProps {
-  settingsCategoryList: SettingsCategory[];
-  onUpdateSettingsCategoryList: Function;
+  // settingsCategoryList: SettingsCategory[];
+  // onUpdateSettingsCategoryList: Function;
 }
 
-const SettingsCategoryContainer: React.FC<SettingsCategoryContainerProps> = ({
-  settingsCategoryList,
-  onUpdateSettingsCategoryList,
-}) => {
+const SettingsCategoryContainer: React.FC<SettingsCategoryContainerProps> = (
+  {
+    // settingsCategoryList,
+    // onUpdateSettingsCategoryList,
+  }
+) => {
   const COLORS = useThemeColors();
+
+  const settingsCategoryList = useSelector(
+    (state: RootState) => state.settingsCategoryState
+  );
+
+  const dispatch = useDispatch();
 
   const containerStyle = css`
     display: flex;
@@ -44,7 +55,7 @@ const SettingsCategoryContainer: React.FC<SettingsCategoryContainerProps> = ({
           <>
             <div
               css={selectableStyle(isSelected)}
-              onClick={() => onUpdateSettingsCategoryList(name)}
+              onClick={() => dispatch(selectCategory(name))}
             >
               <NormalLabel
                 value={name}

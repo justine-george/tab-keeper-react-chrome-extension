@@ -2,7 +2,7 @@ import { useSelector } from "react-redux";
 import { RootState } from "../../utils/store";
 
 export function useThemeColors() {
-  const settingsData = useSelector((state: RootState) => state.settingsState);
+  const settingsData = useSelector((state: RootState) => state.settingsDataState);
 
   return settingsData.isDarkMode
     ? {

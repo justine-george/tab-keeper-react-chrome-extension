@@ -4,5 +4,5 @@ export interface SettingsCategory {
 }
 
 export interface SettingsDetailsContainerProps {
-  settingsCategoryList: SettingsCategory[];
+  // settingsCategoryList: SettingsCategory[];
 }

@@ -1,16 +1,16 @@
 import { createSlice } from "@reduxjs/toolkit";
 
-export interface SettingsState {
+export interface SettingsDataState {
   isDarkMode: boolean;
   footerText: string;
 }
 
-const initialState: SettingsState = {
+const initialState: SettingsDataState = {
   isDarkMode: false,
   footerText: "Made by Justine George.",
 };
 
-export const settingsStateSlice = createSlice({
+export const settingsDataStateSlice = createSlice({
   name: "global",
   initialState,
   reducers: {
@@ -20,6 +20,6 @@ export const settingsStateSlice = createSlice({
   },
 });
 
-export const { toggleDarkMode } = settingsStateSlice.actions;
+export const { toggleDarkMode } = settingsDataStateSlice.actions;
 
-export default settingsStateSlice.reducer;
+export default settingsDataStateSlice.reducer;

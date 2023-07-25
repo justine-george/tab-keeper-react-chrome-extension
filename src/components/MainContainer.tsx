@@ -5,7 +5,6 @@ import { useSelector } from "react-redux";
 import { RootState } from "../utils/store";
 import LeftPaneSettings from "./settings/LeftPaneSettings";
 import RightPaneSettings from "./settings/RightPaneSettings";
-import { useState } from "react";
 import { useThemeColors } from "./hook/useThemeColors";
 
 export default function MainContainer() {
@@ -20,28 +19,6 @@ export default function MainContainer() {
   const isSettingsPage = useSelector(
     (state: RootState) => state.globalState.isSettingsPage
   );
-
-  const [settingsCategoryList, setSettingsCategoryList] = useState([
-    {
-      name: "General",
-      isSelected: true, // to be updated
-    },
-    {
-      name: "Credits",
-      isSelected: false, // to be updated
-    },
-  ]);
-
-  // select the settings category
-  function onUpdateSettingsCategoryList(categoryToSelect: string) {
-    const newList = settingsCategoryList.map((settingsCategory) => {
-      return {
-        name: settingsCategory.name,
-        isSelected: settingsCategory.name === categoryToSelect ? true : false,
-      };
-    });
-    setSettingsCategoryList(newList);
-  }
 
   return (
     <div>
@@ -78,10 +55,7 @@ export default function MainContainer() {
               margin: 4px 4px 4px 4px;
             `}
           >
-            <LeftPaneSettings
-              settingsCategoryList={settingsCategoryList}
-              onUpdateSettingsCategoryList={onUpdateSettingsCategoryList}
-            />
+            <LeftPaneSettings />
           </div>
           <div
             css={css`
@@ -91,7 +65,7 @@ export default function MainContainer() {
               margin: 4px 4px 4px 4px;
             `}
           >
-            <RightPaneSettings settingsCategoryList={settingsCategoryList} />
+            <RightPaneSettings />
           </div>
         </div>
       )}
