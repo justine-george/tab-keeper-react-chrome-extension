@@ -60,7 +60,9 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
       <div css={leftStyle}>
         <NormalLabel value={title} color={COLORS.TEXT_COLOR} />
         <NormalLabel
-          value={`${windowCount} Windows - ${tabCount} Tabs`}
+          value={`${windowCount} ${
+            windowCount > 1 ? "Windows" : "Window"
+          } - ${tabCount} ${tabCount > 1 ? "Tabs" : "Tab"}`}
           color={COLORS.LABEL_L1_COLOR}
           size="0.7rem"
           style="margin-top: 2px;"
