@@ -53,62 +53,63 @@ export const tabContainerDataStateSlice = createSlice({
       const newTabGroupId = uuidv4();
       const dummyValue = {
         tabGroupId: newTabGroupId,
-        title: title,
+        // TODO: this should be current window -> current tab title
+        title: title || "Youtube - Home",
         createdTime: getCurrentDateString(),
         isAutoSave: false,
         isSelected: true,
         windows: [
           {
             windowId: uuidv4(),
-            title: "Youtube - Sample",
+            title: "Youtube - Home",
             tabs: [
               {
                 tabId: uuidv4(),
                 favicon:
                   "https://cdn.sstatic.net/Sites/stackoverflow/Img/favicon.ico?v=ec617d715196",
-                title: "Youtube - Sample",
-                url: "http://www.google.com/",
+                title: "Youtube - Home",
+                url: "https://www.youtube.com/",
               },
               {
                 tabId: uuidv4(),
                 favicon:
                   "https://cdn.sstatic.net/Sites/stackoverflow/Img/favicon.ico?v=ec617d715196",
-                title: "Youtube - Sample",
-                url: "http://www.google.com/",
+                title: "Wikipedia",
+                url: "https://www.wikipedia.org/",
               },
               {
                 tabId: uuidv4(),
                 favicon:
                   "https://cdn.sstatic.net/Sites/stackoverflow/Img/favicon.ico?v=ec617d715196",
-                title: "Youtube - Sample",
-                url: "http://www.google.com/",
+                title: "React",
+                url: "https://react.dev/",
               },
             ],
           },
           {
             windowId: uuidv4(),
-            title: "Youtube - Sample",
+            title: "Proton Mail",
             tabs: [
               {
                 tabId: uuidv4(),
                 favicon:
                   "https://cdn.sstatic.net/Sites/stackoverflow/Img/favicon.ico?v=ec617d715196",
-                title: "Youtube - Sample",
-                url: "http://www.google.com/",
+                title: "Proton Mail",
+                url: "https://mail.proton.me/",
               },
               {
                 tabId: uuidv4(),
                 favicon:
                   "https://cdn.sstatic.net/Sites/stackoverflow/Img/favicon.ico?v=ec617d715196",
-                title: "Youtube - Sample",
-                url: "http://www.google.com/",
+                title: "MuscleWiki",
+                url: "https://musclewiki.com/",
               },
               {
                 tabId: uuidv4(),
                 favicon:
                   "https://cdn.sstatic.net/Sites/stackoverflow/Img/favicon.ico?v=ec617d715196",
-                title: "Youtube - Sample",
-                url: "http://www.google.com/",
+                title: "Home / Twitter",
+                url: "https://twitter.com/home",
               },
             ],
           },

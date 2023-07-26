@@ -21,10 +21,7 @@ export default function UserInputContainer() {
   }
 
   function createTabGroup() {
-    // TODO: this should be current window -> current tab title
-    const groupName = newTitle || "New Group";
-
-    dispatch(saveToTabContainer(groupName));
+    dispatch(saveToTabContainer(newTitle));
     setNewTitle("");
   }
 
