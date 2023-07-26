@@ -4,29 +4,26 @@ import Icon from "../common/Icon";
 import { NormalLabel } from "../common/Label";
 import { Tag } from "../common/Tag";
 import { useThemeColors } from "../hook/useThemeColors";
+import { tabContainerData } from "../../redux/slice/tabContainerDataStateSlice";
+import { getTabCount, getWindowCount } from "../../utils/helperFunctions";
 
 interface TabGroupEntryProps {
-  title: string;
-  windowCount: number;
-  tabCount: number;
-  createdTime: string;
-  isAutoSave: boolean;
-  isSelected: boolean;
+  tabGroupData: tabContainerData;
   onTabGroupClick: MouseEventHandler;
   onDeleteClick: MouseEventHandler;
 }
 
 const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
-  title,
-  windowCount,
-  tabCount,
-  createdTime,
-  isAutoSave,
-  isSelected,
+  tabGroupData,
   onTabGroupClick,
   onDeleteClick,
 }) => {
   const COLORS = useThemeColors();
+
+  const { title, createdTime, isAutoSave, isSelected } = tabGroupData;
+
+  const windowCount = getWindowCount(tabGroupData);
+  const tabCount = getTabCount(tabGroupData);
 
   const containerStyle = css`
     display: flex;
@@ -81,7 +78,13 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
       </div>
       <div css={rightStyle}>
         <Icon type="open_in_new" />
-        <Icon type="delete" onClick={onDeleteClick} />
+        <Icon
+          type="delete"
+          onClick={(e) => {
+            e.stopPropagation();
+            onDeleteClick(e);
+          }}
+        />
       </div>
     </div>
   );

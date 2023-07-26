@@ -3,20 +3,25 @@ import { NormalLabel } from "../common/Label";
 import WindowEntryContainer from "./WindowEntryContainer";
 import { isEmptyObject } from "../../utils/helperFunctions";
 import { useThemeColors } from "../hook/useThemeColors";
-import { useSelector } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "../../redux/store";
+import { deleteWindow } from "../../redux/slice/tabContainerDataStateSlice";
 
 export default function TabGroupDetailsContainer() {
   const COLORS = useThemeColors();
+
+  const dispatch = useDispatch();
 
   const tabContainerDataList = useSelector(
     (state: RootState) => state.tabContainerDataState
   );
 
-  // assumption is there is only one selected tabGroup
+  // assumption is there is, at max, one selected tabGroup
   const selectedTabGroup = tabContainerDataList.filter(
     (tabGroup) => tabGroup.isSelected
   )[0];
+
+  const tabGroupId = selectedTabGroup.tabGroupId;
 
   const containerStyle = css`
     display: flex;
@@ -39,8 +44,6 @@ export default function TabGroupDetailsContainer() {
 
   const filledContainerStyle = css``;
 
-  // selectedTabGroup = {};
-
   return (
     <div css={containerStyle}>
       {isEmptyObject(selectedTabGroup) ? (
@@ -49,13 +52,23 @@ export default function TabGroupDetailsContainer() {
         </div>
       ) : (
         <div css={filledContainerStyle}>
-          {selectedTabGroup.windows.map(({ title, tabs }, _) => {
+          {selectedTabGroup.windows.map(({ windowId, title, tabs }, _) => {
             return (
-              <>
-                <WindowEntryContainer title={title} tabs={tabs} />
+              <div
+              // key={windowId}
+              >
+                <WindowEntryContainer
+                  title={title}
+                  tabs={tabs}
+                  tabGroupId={tabGroupId}
+                  windowId={windowId}
+                  onDeleteClick={() =>
+                    dispatch(deleteWindow({ tabGroupId, windowId }))
+                  }
+                />
                 {/* <Divider /> */}
                 {/* {index != selectedTabGroup.windows.length - 1 && <Divider />} */}
-              </>
+              </div>
             );
           })}
         </div>

@@ -3,11 +3,15 @@ import Icon from "../common/Icon";
 import { Tag } from "../common/Tag";
 import { NormalLabel } from "../common/Label";
 import { useThemeColors } from "../hook/useThemeColors";
-import { useSelector } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "../../redux/store";
+import { deleteTabContainer } from "../../redux/slice/tabContainerDataStateSlice";
+import { getTabCount, getWindowCount } from "../../utils/helperFunctions";
 
 export default function HeroContainerRight() {
   const COLORS = useThemeColors();
+
+  const dispatch = useDispatch();
 
   const tabContainerDataList = useSelector(
     (state: RootState) => state.tabContainerDataState
@@ -43,15 +47,19 @@ export default function HeroContainerRight() {
     align-items: center;
   `;
 
-  const { title, windowCount, tabCount, createdTime, isAutoSave } =
-    selectedTabGroup;
+  const { tabGroupId, title, createdTime, isAutoSave } = selectedTabGroup;
+
+  const windowCount = getWindowCount(selectedTabGroup);
+  const tabCount = getTabCount(selectedTabGroup);
 
   return (
     <div css={containerStyle}>
       <div css={topStyle}>
         <NormalLabel value={title} size="1.125rem" color={COLORS.TEXT_COLOR} />
         <NormalLabel
-          value={`${windowCount} Windows - ${tabCount} Tabs`}
+          value={`${windowCount} ${
+            windowCount > 1 ? "Windows" : "Window"
+          } - ${tabCount} ${tabCount > 1 ? "Tabs" : "Tab"}`}
           size="0.75rem"
           color={COLORS.LABEL_L1_COLOR}
           style="padding-top: 2px;"
@@ -70,7 +78,10 @@ export default function HeroContainerRight() {
           `}
         >
           <Icon type="open_in_new" />
-          <Icon type="delete" />
+          <Icon
+            type="delete"
+            onClick={() => dispatch(deleteTabContainer(tabGroupId))}
+          />
         </div>
         <div
           css={css`

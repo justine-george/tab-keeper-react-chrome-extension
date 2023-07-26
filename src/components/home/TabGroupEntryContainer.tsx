@@ -49,38 +49,25 @@ export default function TabGroupEntryContainer() {
         </div>
       ) : (
         <div css={filledContainerStyle}>
-          {tabContainerDataList.map(
-            (
-              {
-                id,
-                title,
-                windowCount,
-                tabCount,
-                createdTime,
-                isAutoSave,
-                isSelected,
-              },
-              index
-            ) => {
-              return (
-                <>
-                  <TabGroupEntry
-                    key={id}
-                    title={title}
-                    windowCount={windowCount}
-                    tabCount={tabCount}
-                    createdTime={createdTime}
-                    isAutoSave={isAutoSave}
-                    isSelected={isSelected}
-                    onTabGroupClick={() => dispatch(selectTabContainer(id))}
-                    onDeleteClick={() => dispatch(deleteTabContainer(id))}
-                  />
-                  {/* <Divider /> */}
-                  {index != tabContainerDataList.length - 1 && <Divider />}
-                </>
-              );
-            }
-          )}
+          {tabContainerDataList.map((tabGroupData, index) => {
+            return (
+              <div
+              // key={tabGroupData.tabGroupId}
+              >
+                <TabGroupEntry
+                  tabGroupData={tabGroupData}
+                  onTabGroupClick={() =>
+                    dispatch(selectTabContainer(tabGroupData.tabGroupId))
+                  }
+                  onDeleteClick={() =>
+                    dispatch(deleteTabContainer(tabGroupData.tabGroupId))
+                  }
+                />
+                {/* <Divider /> */}
+                {index != tabContainerDataList.length - 1 && <Divider />}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
