@@ -4,15 +4,19 @@ import { useThemeColors } from "../hook/useThemeColors";
 
 interface IconProps {
   type: string;
+  faviconUrl?: string;
   onClick?: MouseEventHandler;
   style?: string;
 }
 
-const Icon: React.FC<IconProps> = ({ type, onClick, style }) => {
+const Icon: React.FC<IconProps> = ({ type, faviconUrl, onClick, style }) => {
   const COLORS = useThemeColors();
 
   const iconStyle = css`
     font-size: 1.5rem;
+    width: 1.5rem;
+    height: 1.5rem;
+    object-fit: contain;
     color: ${COLORS.TEXT_COLOR};
   `;
 
@@ -37,9 +41,13 @@ const Icon: React.FC<IconProps> = ({ type, onClick, style }) => {
 
   return (
     <div css={containerStyle} onClick={onClick}>
-      <span css={iconStyle} className="material-symbols-outlined">
-        {type}
-      </span>
+      {faviconUrl ? (
+        <img src={faviconUrl} alt="favicon" css={iconStyle} />
+      ) : (
+        <span css={iconStyle} className="material-symbols-outlined">
+          {type}
+        </span>
+      )}
     </div>
   );
 };

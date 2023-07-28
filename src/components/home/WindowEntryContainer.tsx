@@ -48,14 +48,27 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     }
   `;
 
-  const childrenStyle = css`
-    padding-left: 70px;
-  `;
-
   const parentRightStyle = css`
     &.parent-right-style-content {
       opacity: 0;
       transition: opacity 0.1s ease-out;
+    }
+  `;
+
+  const childrenContainerStyle = css`
+    padding-left: 70px;
+  `;
+
+  const childrenStyle = css`
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: background-color 0.3s;
+    &:hover {
+      background-color: ${COLORS.HOVER_COLOR};
+      .child-right-style-content {
+        opacity: 1;
+      }
     }
   `;
 
@@ -94,23 +107,12 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
           />
         </div>
       </div>
-      <div css={childrenStyle}>
+      <div css={childrenContainerStyle}>
         {tabs.map(({ tabId, favicon, title, url }, _) => {
           return (
             <div
               // key={tabId}
-              css={css`
-                display: flex;
-                align-items: center;
-                justify-content: space-between;
-                transition: background-color 0.3s;
-                &:hover {
-                  background-color: ${COLORS.HOVER_COLOR};
-                  .child-right-style-content {
-                    opacity: 1;
-                  }
-                }
-              `}
+              css={childrenStyle}
             >
               <div
                 css={css`
@@ -118,7 +120,11 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                   align-items: center;
                 `}
               >
-                <Icon type="app_badging" style={nonInteractIconStyle} />
+                <Icon
+                  faviconUrl={favicon}
+                  type="app_badging"
+                  style={nonInteractIconStyle}
+                />
                 <a
                   href={url}
                   target="_blank"

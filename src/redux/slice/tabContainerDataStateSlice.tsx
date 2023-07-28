@@ -1,7 +1,7 @@
 import { PayloadAction, createSlice } from "@reduxjs/toolkit";
 
 import { v4 as uuidv4 } from "uuid";
-import { getCurrentDateString } from "../../utils/helperFunctions";
+import { getCurrentDateString, isLotteryWon } from "../../utils/helperFunctions";
 
 export interface tabData {
   tabId: string; // TODO: use ULID, 48bit timestamp + 80 bits random data: 128bit key
@@ -61,7 +61,7 @@ export const tabContainerDataStateSlice = createSlice({
         createdTime: getCurrentDateString(),
         windowCount: 2, // keep track of this count while adding/removing
         tabCount: 6, // keep track of this count while adding/removing
-        isAutoSave: false,
+        isAutoSave: isLotteryWon(),
         isSelected: true,
         windows: [
           {
@@ -71,22 +71,19 @@ export const tabContainerDataStateSlice = createSlice({
             tabs: [
               {
                 tabId: uuidv4(),
-                favicon:
-                  "https://cdn.sstatic.net/Sites/stackoverflow/Img/favicon.ico?v=ec617d715196",
+                favicon: "https://www.youtube.com/favicon.ico",
                 title: "Youtube - Home",
                 url: "https://www.youtube.com/",
               },
               {
                 tabId: uuidv4(),
-                favicon:
-                  "https://cdn.sstatic.net/Sites/stackoverflow/Img/favicon.ico?v=ec617d715196",
+                favicon: "https://en.wikipedia.org/favicon.ico",
                 title: "Wikipedia",
                 url: "https://www.wikipedia.org/",
               },
               {
                 tabId: uuidv4(),
-                favicon:
-                  "https://cdn.sstatic.net/Sites/stackoverflow/Img/favicon.ico?v=ec617d715196",
+                favicon: "https://react.dev/favicon.ico",
                 title: "React",
                 url: "https://react.dev/",
               },
@@ -99,22 +96,19 @@ export const tabContainerDataStateSlice = createSlice({
             tabs: [
               {
                 tabId: uuidv4(),
-                favicon:
-                  "https://cdn.sstatic.net/Sites/stackoverflow/Img/favicon.ico?v=ec617d715196",
+                favicon: "https://proton.me/favicon.ico",
                 title: "Proton Mail",
                 url: "https://mail.proton.me/",
               },
               {
                 tabId: uuidv4(),
-                favicon:
-                  "https://cdn.sstatic.net/Sites/stackoverflow/Img/favicon.ico?v=ec617d715196",
+                favicon: "https://musclewiki.com/static//images/favicon.ico",
                 title: "MuscleWiki",
                 url: "https://musclewiki.com/",
               },
               {
                 tabId: uuidv4(),
-                favicon:
-                  "https://cdn.sstatic.net/Sites/stackoverflow/Img/favicon.ico?v=ec617d715196",
+                favicon: "https://twitter.com/favicon.ico",
                 title: "Home / Twitter",
                 url: "https://twitter.com/home",
               },
