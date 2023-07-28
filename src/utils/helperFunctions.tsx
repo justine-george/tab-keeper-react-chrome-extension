@@ -16,18 +16,3 @@ export function getCurrentDateString(): string {
 
   return `${year}-${month}-${day} ${hour}:${minute}:${second}`;
 }
-
-export function getWindowCount(tabGroup: tabContainerData): number {
-  return tabGroup.windows.length;
-}
-
-export function getTabCount(tabGroup: tabContainerData): number {
-  const windows = tabGroup.windows;
-
-  let tabCount = 0;
-  windows.forEach((window) => {
-    tabCount += window.tabs.length;
-  });
-
-  return tabCount;
-}

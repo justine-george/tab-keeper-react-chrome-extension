@@ -12,6 +12,7 @@ export interface tabData {
 
 export interface windowGroupData {
   windowId: string;
+  tabCount: number; // keep track of this count while adding/removing
   title: string;
   tabs: tabData[];
 }
@@ -20,6 +21,8 @@ export interface tabContainerData {
   tabGroupId: string;
   title: string;
   createdTime: string; // TODO: conversion to Date might be needed
+  windowCount: number; // keep track of this count while adding/removing
+  tabCount: number; // keep track of this count while adding/removing
   isAutoSave: boolean;
   isSelected: boolean;
   windows: windowGroupData[];
@@ -56,11 +59,14 @@ export const tabContainerDataStateSlice = createSlice({
         // TODO: this should be current window -> current tab title
         title: title || "Youtube - Home",
         createdTime: getCurrentDateString(),
+        windowCount: 2, // keep track of this count while adding/removing
+        tabCount: 6, // keep track of this count while adding/removing
         isAutoSave: false,
         isSelected: true,
         windows: [
           {
             windowId: uuidv4(),
+            tabCount: 3, // keep track of this count while adding/removing
             title: "Youtube - Home",
             tabs: [
               {
@@ -88,6 +94,7 @@ export const tabContainerDataStateSlice = createSlice({
           },
           {
             windowId: uuidv4(),
+            tabCount: 3, // keep track of this count while adding/removing
             title: "Proton Mail",
             tabs: [
               {
@@ -158,10 +165,16 @@ export const tabContainerDataStateSlice = createSlice({
           (window) => window.windowId === windowId
         );
         if (windowIndex !== -1) {
+          // decrement tabGroup's window count by 1
+          state[tabGroupIndex].windowCount -= 1;
+          // decrement tabGroup's tab count by tab count of the window that's been deleted
+          state[tabGroupIndex].tabCount -=
+            state[tabGroupIndex].windows[windowIndex].tabCount;
+
           state[tabGroupIndex].windows.splice(windowIndex, 1);
         }
         // if this was the last window in the tabGroup, delete this tabGroup
-        if (state[tabGroupIndex].windows.length === 0) {
+        if (state[tabGroupIndex].windowCount === 0) {
           state.splice(tabGroupIndex, 1);
         }
       }
@@ -182,15 +195,25 @@ export const tabContainerDataStateSlice = createSlice({
             windowIndex
           ].tabs.findIndex((tab) => tab.tabId === tabId);
           if (tabIndex !== -1) {
+            // decrement window's and tabGroup's tab count by 1
+            state[tabGroupIndex].windows[windowIndex].tabCount -= 1;
+            state[tabGroupIndex].tabCount -= 1;
+
             state[tabGroupIndex].windows[windowIndex].tabs.splice(tabIndex, 1);
           }
           // if this was the last tab in the window, delete this window
-          if (state[tabGroupIndex].windows[windowIndex].tabs.length === 0) {
+          if (state[tabGroupIndex].windows[windowIndex].tabCount === 0) {
+            // decrement tabGroup's window count by 1
+            state[tabGroupIndex].windowCount -= 1;
+            // decrement tabGroup's tab count by tab count of the window that's been deleted
+            state[tabGroupIndex].tabCount -=
+              state[tabGroupIndex].windows[windowIndex].tabCount;
+
             state[tabGroupIndex].windows.splice(windowIndex, 1);
           }
         }
         // if this was the last window in the tabGroup, delete this tabGroup
-        if (state[tabGroupIndex].windows.length === 0) {
+        if (state[tabGroupIndex].windowCount === 0) {
           state.splice(tabGroupIndex, 1);
         }
       }

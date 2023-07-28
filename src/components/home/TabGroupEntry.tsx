@@ -5,7 +5,6 @@ import { NormalLabel } from "../common/Label";
 import { Tag } from "../common/Tag";
 import { useThemeColors } from "../hook/useThemeColors";
 import { tabContainerData } from "../../redux/slice/tabContainerDataStateSlice";
-import { getTabCount, getWindowCount } from "../../utils/helperFunctions";
 
 interface TabGroupEntryProps {
   tabGroupData: tabContainerData;
@@ -20,10 +19,8 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
 }) => {
   const COLORS = useThemeColors();
 
-  const { title, createdTime, isAutoSave, isSelected } = tabGroupData;
-
-  const windowCount = getWindowCount(tabGroupData);
-  const tabCount = getTabCount(tabGroupData);
+  const { title, createdTime, isAutoSave, windowCount, tabCount, isSelected } =
+    tabGroupData;
 
   const containerStyle = css`
     display: flex;

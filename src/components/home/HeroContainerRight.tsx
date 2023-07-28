@@ -6,7 +6,6 @@ import { useThemeColors } from "../hook/useThemeColors";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "../../redux/store";
 import { deleteTabContainer } from "../../redux/slice/tabContainerDataStateSlice";
-import { getTabCount, getWindowCount } from "../../utils/helperFunctions";
 
 export default function HeroContainerRight() {
   const COLORS = useThemeColors();
@@ -47,10 +46,8 @@ export default function HeroContainerRight() {
     align-items: center;
   `;
 
-  const { tabGroupId, title, createdTime, isAutoSave } = selectedTabGroup;
-
-  const windowCount = getWindowCount(selectedTabGroup);
-  const tabCount = getTabCount(selectedTabGroup);
+  const { tabGroupId, title, createdTime, windowCount, tabCount, isAutoSave } =
+    selectedTabGroup;
 
   return (
     <div css={containerStyle}>
