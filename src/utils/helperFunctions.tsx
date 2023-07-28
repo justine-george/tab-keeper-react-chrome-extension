@@ -16,3 +16,9 @@ export function getCurrentDateString(): string {
 
   return `${year}-${month}-${day} ${hour}:${minute}:${second}`;
 }
+
+// returns true if lottery is won, else false
+export function isLotteryWon(): boolean {
+  const number = Math.floor(Math.random() * 2); // this could be 0 or 1
+  return number === 1;
+}

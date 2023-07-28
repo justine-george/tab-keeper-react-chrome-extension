@@ -1,4 +1,5 @@
 import { createSlice } from "@reduxjs/toolkit";
+import { isLotteryWon } from "../../utils/helperFunctions";
 
 export interface SettingsData {
   isDarkMode: boolean;
@@ -6,7 +7,7 @@ export interface SettingsData {
 }
 
 const initialState: SettingsData = {
-  isDarkMode: false,
+  isDarkMode: isLotteryWon(),
   footerText: "Made by Justine George.",
 };
 
