@@ -22,20 +22,6 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
   const { title, createdTime, isAutoSave, windowCount, tabCount, isSelected } =
     tabGroupData;
 
-  const containerStyle = css`
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-family: "Libre Franklin", sans-serif;
-    cursor: pointer;
-    transition: background-color 0.3s;
-    &:hover {
-      background-color: ${!isSelected && COLORS.HOVER_COLOR};
-    }
-    background-color: ${isSelected && COLORS.SELECTION_COLOR};
-    padding: 2px 0px;
-  `;
-
   const leftStyle = css`
     display: flex;
     flex-direction: column;
@@ -45,11 +31,32 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
   `;
 
   const rightStyle = css`
+    &.right-style-content {
+      display: flex;
+      flex-direction: row;
+      height: 100%;
+      justify-content: flex-start;
+      align-items: flex-start;
+      opacity: 0;
+      transition: opacity 0.1s ease-out;
+    }
+  `;
+
+  const containerStyle = css`
     display: flex;
-    flex-direction: row;
-    height: 100%;
-    justify-content: flex-start;
-    align-items: flex-start;
+    justify-content: space-between;
+    align-items: center;
+    font-family: "Libre Franklin", sans-serif;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    &:hover {
+      background-color: ${!isSelected && COLORS.HOVER_COLOR};
+      .right-style-content {
+        opacity: 1;
+      }
+    }
+    background-color: ${isSelected && COLORS.SELECTION_COLOR};
+    padding: 2px 0px;
   `;
 
   return (
@@ -75,7 +82,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
           {createdTime}
         </div>
       </div>
-      <div css={rightStyle}>
+      <div css={rightStyle} className="right-style-content">
         <Icon type="open_in_new" />
         <Icon
           type="delete"

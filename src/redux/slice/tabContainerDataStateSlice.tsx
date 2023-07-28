@@ -176,6 +176,9 @@ export const tabContainerDataStateSlice = createSlice({
         // if this was the last window in the tabGroup, delete this tabGroup
         if (state[tabGroupIndex].windowCount === 0) {
           state.splice(tabGroupIndex, 1);
+        } else {
+          // update tabGroup title, use first window's title
+          state[tabGroupIndex].title = state[tabGroupIndex].windows[0].title;
         }
       }
     },
@@ -210,11 +213,18 @@ export const tabContainerDataStateSlice = createSlice({
               state[tabGroupIndex].windows[windowIndex].tabCount;
 
             state[tabGroupIndex].windows.splice(windowIndex, 1);
+          } else {
+            // update window title, use first tab's title
+            state[tabGroupIndex].windows[windowIndex].title =
+              state[tabGroupIndex].windows[windowIndex].tabs[0].title;
           }
         }
         // if this was the last window in the tabGroup, delete this tabGroup
         if (state[tabGroupIndex].windowCount === 0) {
           state.splice(tabGroupIndex, 1);
+        } else {
+          // update tabGroup's title, use first window's title
+          state[tabGroupIndex].title = state[tabGroupIndex].windows[0].title;
         }
       }
     },

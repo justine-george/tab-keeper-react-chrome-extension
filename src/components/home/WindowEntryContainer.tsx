@@ -42,11 +42,28 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     transition: background-color 0.3s;
     &:hover {
       background-color: ${COLORS.HOVER_COLOR};
+      .parent-right-style-content {
+        opacity: 1;
+      }
     }
   `;
 
   const childrenStyle = css`
     padding-left: 70px;
+  `;
+
+  const parentRightStyle = css`
+    &.parent-right-style-content {
+      opacity: 0;
+      transition: opacity 0.1s ease-out;
+    }
+  `;
+
+  const childRightStyle = css`
+    &.child-right-style-content {
+      opacity: 0;
+      transition: opacity 0.1s ease-out;
+    }
   `;
 
   return (
@@ -67,14 +84,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
             style="padding-left: 8px; cursor: pointer;"
           />
         </div>
-        <div
-          css={css`
-            // display: none;
-            // &:hover {
-            //   display: block;
-            }
-          `}
-        >
+        <div css={parentRightStyle} className="parent-right-style-content">
           <Icon
             type="delete"
             onClick={(e) => {
@@ -96,6 +106,9 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                 transition: background-color 0.3s;
                 &:hover {
                   background-color: ${COLORS.HOVER_COLOR};
+                  .child-right-style-content {
+                    opacity: 1;
+                  }
                 }
               `}
             >
@@ -119,14 +132,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                   />
                 </a>
               </div>
-              <div
-                css={css`
-                  // display: none;
-                  // &:hover {
-                  //   display: block;
-                  }
-                `}
-              >
+              <div css={childRightStyle} className="child-right-style-content">
                 <Icon
                   type="delete"
                   onClick={(e) => {
