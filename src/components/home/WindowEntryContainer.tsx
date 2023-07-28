@@ -1,4 +1,4 @@
-import React, { MouseEventHandler } from "react";
+import React, { MouseEventHandler, useEffect, useState } from "react";
 import { css } from "@emotion/react";
 import Icon from "../common/Icon";
 import { NormalLabel } from "../common/Label";
@@ -28,6 +28,12 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   const COLORS = useThemeColors();
 
   const dispatch = useDispatch();
+
+  const [windowOpenState, setWindowOpenState] = useState(true);
+
+  function handleAccordionClick() {
+    setWindowOpenState((state) => !state);
+  }
 
   const containerStyle = css`
     display: flex;
@@ -88,7 +94,10 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
             align-items: center;
           `}
         >
-          <Icon type="expand_more" />
+          <Icon
+            type={windowOpenState ? "expand_less" : "expand_more"}
+            onClick={handleAccordionClick}
+          />
           <Icon type="ad" style={nonInteractIconStyle} />
           <NormalLabel
             value={title}
@@ -107,50 +116,55 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
           />
         </div>
       </div>
-      <div css={childrenContainerStyle}>
-        {tabs.map(({ tabId, favicon, title, url }, _) => {
-          return (
-            <div
-              // key={tabId}
-              css={childrenStyle}
-            >
+      {windowOpenState && (
+        <div css={childrenContainerStyle}>
+          {tabs.map(({ tabId, favicon, title, url }, _) => {
+            return (
               <div
-                css={css`
-                  display: flex;
-                  align-items: center;
-                `}
+                // key={tabId}
+                css={childrenStyle}
               >
-                <Icon
-                  faviconUrl={favicon}
-                  type="app_badging"
-                  style={nonInteractIconStyle}
-                />
-                <a
-                  href={url}
-                  target="_blank"
-                  style={{ textDecoration: "none", color: "inherit" }}
+                <div
+                  css={css`
+                    display: flex;
+                    align-items: center;
+                  `}
                 >
-                  <NormalLabel
-                    value={title}
-                    color={COLORS.TEXT_COLOR}
-                    size="0.9rem"
-                    style="padding-left: 8px; cursor: pointer;"
+                  <Icon
+                    faviconUrl={favicon}
+                    type="app_badging"
+                    style={nonInteractIconStyle}
                   />
-                </a>
+                  <a
+                    href={url}
+                    target="_blank"
+                    style={{ textDecoration: "none", color: "inherit" }}
+                  >
+                    <NormalLabel
+                      value={title}
+                      color={COLORS.TEXT_COLOR}
+                      size="0.9rem"
+                      style="padding-left: 8px; cursor: pointer;"
+                    />
+                  </a>
+                </div>
+                <div
+                  css={childRightStyle}
+                  className="child-right-style-content"
+                >
+                  <Icon
+                    type="delete"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      dispatch(deleteTab({ tabGroupId, windowId, tabId }));
+                    }}
+                  />
+                </div>
               </div>
-              <div css={childRightStyle} className="child-right-style-content">
-                <Icon
-                  type="delete"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    dispatch(deleteTab({ tabGroupId, windowId, tabId }));
-                  }}
-                />
-              </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };
