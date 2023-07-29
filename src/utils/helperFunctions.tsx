@@ -1,5 +1,3 @@
-import { tabContainerData } from "../redux/slice/tabContainerDataStateSlice";
-
 export function isEmptyObject(obj: any): boolean {
   return typeof obj === "object" && Object.keys(obj).length === 0;
 }

@@ -1,7 +1,10 @@
 import { PayloadAction, createSlice } from "@reduxjs/toolkit";
 
 import { v4 as uuidv4 } from "uuid";
-import { getCurrentDateString, isLotteryWon } from "../../utils/helperFunctions";
+import {
+  getCurrentDateString,
+  isLotteryWon,
+} from "../../utils/helperFunctions";
 
 export interface tabData {
   tabId: string; // TODO: use ULID, 48bit timestamp + 80 bits random data: 128bit key
