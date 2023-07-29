@@ -6,6 +6,22 @@ import { openSettingsPage } from "../../redux/slice/globalStateSlice";
 export default function MenuContainer() {
   const dispatch = useDispatch();
 
+  function handleClickUndo() {
+    // dispatch(undo()); TODO
+  }
+
+  function handleClickRedo() {
+    // dispatch(redo()); TODO
+  }
+
+  function handleClickSync() {
+    // dispatch(sync()); TODO
+  }
+
+  function handleClickSettings() {
+    dispatch(openSettingsPage());
+  }
+
   const containerStyle = css`
     display: flex;
     justify-content: space-around;
@@ -13,10 +29,10 @@ export default function MenuContainer() {
 
   return (
     <div css={containerStyle}>
-      <Icon type="undo" />
-      <Icon type="redo" />
-      <Icon type="sync" />
-      <Icon type="settings" onClick={() => dispatch(openSettingsPage())} />
+      <Icon type="undo" onClick={handleClickUndo} />
+      <Icon type="redo" onClick={handleClickRedo} />
+      <Icon type="sync" onClick={handleClickSync} />
+      <Icon type="settings" onClick={handleClickSettings} />
     </div>
   );
 }
