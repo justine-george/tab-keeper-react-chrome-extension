@@ -1,4 +1,4 @@
-import React, { MouseEventHandler } from "react";
+import React, { MouseEventHandler, useState } from "react";
 import { css } from "@emotion/react";
 import Icon from "../common/Icon";
 import { NormalLabel } from "../common/Label";
@@ -19,6 +19,11 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
 }) => {
   const COLORS = useThemeColors();
 
+  const [isHovered, setIsHovered] = useState(false);
+
+  const handleMouseEnter = () => setIsHovered(true);
+  const handleMouseLeave = () => setIsHovered(false);
+
   const { title, createdTime, isAutoSave, windowCount, tabCount, isSelected } =
     tabGroupData;
 
@@ -37,15 +42,13 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
   `;
 
   const rightStyle = css`
-    &.right-style-content {
-      display: flex;
-      flex-direction: row;
-      height: 100%;
-      justify-content: flex-start;
-      align-items: flex-start;
-      opacity: 0;
-      transition: opacity 0.1s ease-out;
-    }
+    display: flex;
+    flex-direction: row;
+    height: 100%;
+    justify-content: flex-start;
+    align-items: flex-start;
+    opacity: ${isHovered ? 1 : 0};
+    transition: opacity 0.1s ease-out;
   `;
 
   const containerStyle = css`
@@ -57,13 +60,14 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
     transition: background-color 0.3s;
     &:hover {
       background-color: ${!isSelected && COLORS.HOVER_COLOR};
-      .right-style-content {
-        opacity: 1;
-      }
     }
     background-color: ${isSelected && COLORS.SELECTION_COLOR};
     padding: 2px 0px;
   `;
+
+  function handleOpenAllWindowsClick() {
+    // TODO: open all windows under this tab group in separate windows, with corresponding tabs inside
+  }
 
   return (
     <div
@@ -71,9 +75,15 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
       css={containerStyle}
       onClick={onTabGroupClick}
       onKeyDown={(e) => handleKeyPress(e)}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
     >
       <div css={leftStyle}>
-        <NormalLabel value={title} color={COLORS.TEXT_COLOR} />
+        <NormalLabel
+          style="max-width: 265px;"
+          value={title}
+          color={COLORS.TEXT_COLOR}
+        />
         <NormalLabel
           value={`${windowCount} ${
             windowCount > 1 ? "Windows" : "Window"
@@ -93,14 +103,21 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
           {createdTime}
         </div>
       </div>
-      <div css={rightStyle} className="right-style-content">
-        <Icon type="open_in_new" />
+      <div css={rightStyle}>
+        <Icon
+          type="open_in_new"
+          focusable={isHovered ? true : false}
+          onClick={handleOpenAllWindowsClick}
+          style="padding: 16px 8px;"
+        />
         <Icon
           type="delete"
+          focusable={isHovered ? true : false}
           onClick={(e) => {
             e.stopPropagation();
             onDeleteClick(e);
           }}
+          style="padding: 16px 8px; margin-right: 8px;"
         />
       </div>
     </div>

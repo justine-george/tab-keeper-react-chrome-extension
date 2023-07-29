@@ -17,9 +17,14 @@ export const NormalLabel: React.FC<LabelProps> = ({
   const COLORS = useThemeColors();
 
   const textStyle = css`
+    display: flex;
+    align-items: center;
     font-family: "Libre Franklin", sans-serif;
     font-size: ${size ? size : "1rem"};
     color: ${color ? color : COLORS.LABEL_L3_COLOR};
+    overflow: hidden;
+    white-space: nowrap;
+    // text-overflow: ellipsis;
     ${style && style}
   `;
 

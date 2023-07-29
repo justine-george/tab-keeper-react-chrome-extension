@@ -49,10 +49,19 @@ export default function HeroContainerRight() {
   const { tabGroupId, title, createdTime, windowCount, tabCount, isAutoSave } =
     selectedTabGroup;
 
+  function handleOpenAllWindowsClick() {
+    // TODO: open all windows under this tab group in separate windows, with corresponding tabs inside
+  }
+
   return (
     <div css={containerStyle}>
       <div css={topStyle}>
-        <NormalLabel value={title} size="1.125rem" color={COLORS.TEXT_COLOR} />
+        <NormalLabel
+          value={title}
+          size="1.125rem"
+          color={COLORS.TEXT_COLOR}
+          style="max-width: 350px;"
+        />
         <NormalLabel
           value={`${windowCount} ${
             windowCount > 1 ? "Windows" : "Window"
@@ -74,7 +83,7 @@ export default function HeroContainerRight() {
             display: flex;
           `}
         >
-          <Icon type="open_in_new" />
+          <Icon type="open_in_new" onClick={handleOpenAllWindowsClick} />
           <Icon
             type="delete"
             onClick={() => dispatch(deleteTabContainer(tabGroupId))}

@@ -6,10 +6,17 @@ interface IconProps {
   type: string;
   faviconUrl?: string;
   onClick?: MouseEventHandler;
+  focusable?: boolean;
   style?: string;
 }
 
-const Icon: React.FC<IconProps> = ({ type, faviconUrl, onClick, style }) => {
+const Icon: React.FC<IconProps> = ({
+  type,
+  faviconUrl,
+  onClick,
+  focusable = true,
+  style,
+}) => {
   const COLORS = useThemeColors();
 
   function handleKeyPress(e: React.KeyboardEvent<HTMLDivElement>) {
@@ -49,7 +56,7 @@ const Icon: React.FC<IconProps> = ({ type, faviconUrl, onClick, style }) => {
     // tab-focus only if the icon is clickable
     // set role as button for accessibility
     <div
-      tabIndex={onClick ? 0 : -1}
+      tabIndex={onClick && focusable ? 0 : -1}
       css={containerStyle}
       onClick={onClick}
       onKeyDown={(e) => handleKeyPress(e)}

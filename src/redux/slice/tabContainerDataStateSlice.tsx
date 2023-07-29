@@ -80,6 +80,12 @@ export const tabContainerDataStateSlice = createSlice({
               },
               {
                 tabId: uuidv4(),
+                favicon: "https://firebase.google.com/favicon.ico",
+                title: "Choose a data structure | Firestore | Firebase",
+                url: "https://firebase.google.com/docs/firestore/manage-data/structure-data",
+              },
+              {
+                tabId: uuidv4(),
                 favicon: "https://en.wikipedia.org/favicon.ico",
                 title: "Wikipedia",
                 url: "https://www.wikipedia.org/",
