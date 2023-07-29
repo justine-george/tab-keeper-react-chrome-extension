@@ -31,6 +31,11 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
 
   const [windowOpenState, setWindowOpenState] = useState(true);
 
+  // reset the 'windowOpenState' to true whenever a different tabGroup is selected.
+  useEffect(() => {
+    setWindowOpenState(true);
+  }, [tabGroupId]);
+
   function handleAccordionClick() {
     setWindowOpenState((state) => !state);
   }
