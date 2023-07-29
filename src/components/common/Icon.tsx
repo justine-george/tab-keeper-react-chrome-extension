@@ -12,6 +12,17 @@ interface IconProps {
 const Icon: React.FC<IconProps> = ({ type, faviconUrl, onClick, style }) => {
   const COLORS = useThemeColors();
 
+  function handleKeyPress(e: React.KeyboardEvent<HTMLDivElement>) {
+    if (e.key === "Enter" && onClick) {
+      onClick(e as any);
+    }
+  }
+
+  const hoverColor =
+    type === "delete"
+      ? COLORS.DELETE_ICON_HOVER_COLOR
+      : COLORS.ICON_HOVER_COLOR;
+
   const iconStyle = css`
     font-size: 1.5rem;
     width: 1.5rem;
@@ -19,11 +30,6 @@ const Icon: React.FC<IconProps> = ({ type, faviconUrl, onClick, style }) => {
     object-fit: contain;
     color: ${COLORS.TEXT_COLOR};
   `;
-
-  const hoverColor =
-    type === "delete"
-      ? COLORS.DELETE_ICON_HOVER_COLOR
-      : COLORS.ICON_HOVER_COLOR;
 
   const containerStyle = css`
     display: flex;
@@ -39,20 +45,14 @@ const Icon: React.FC<IconProps> = ({ type, faviconUrl, onClick, style }) => {
     ${style && style}
   `;
 
-  function handleKeyPress(e: React.KeyboardEvent<HTMLDivElement>) {
-    if (e.key === "Enter" && onClick) {
-      onClick(e as any);
-    }
-  }
-
   return (
     // tab-focus only if the icon is clickable
     // set role as button for accessibility
     <div
       tabIndex={onClick ? 0 : -1}
       css={containerStyle}
-      onKeyDown={(e) => handleKeyPress(e)}
       onClick={onClick}
+      onKeyDown={(e) => handleKeyPress(e)}
       role={onClick ? "button" : undefined}
     >
       {faviconUrl ? (

@@ -22,6 +22,12 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
   const { title, createdTime, isAutoSave, windowCount, tabCount, isSelected } =
     tabGroupData;
 
+  function handleKeyPress(e: React.KeyboardEvent<HTMLDivElement>) {
+    if (e.key === "Enter") {
+      onTabGroupClick(e as any);
+    }
+  }
+
   const leftStyle = css`
     display: flex;
     flex-direction: column;
@@ -60,7 +66,12 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
   `;
 
   return (
-    <div css={containerStyle} onClick={onTabGroupClick}>
+    <div
+      tabIndex={0}
+      css={containerStyle}
+      onClick={onTabGroupClick}
+      onKeyDown={(e) => handleKeyPress(e)}
+    >
       <div css={leftStyle}>
         <NormalLabel value={title} color={COLORS.TEXT_COLOR} />
         <NormalLabel

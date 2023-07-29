@@ -25,6 +25,12 @@ const TextBox: React.FC<TextBoxProps> = ({
 }) => {
   const COLORS = useThemeColors();
 
+  function handleKeyPress(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter") {
+      onKeyEnter();
+    }
+  }
+
   const textInputStyle = css`
     background-color: ${COLORS.PRIMARY_COLOR};
     border: 1px solid ${COLORS.BORDER_COLOR};
@@ -39,12 +45,6 @@ const TextBox: React.FC<TextBoxProps> = ({
     }
     ${style && style}
   `;
-
-  function handleKeyPress(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === "Enter") {
-      onKeyEnter();
-    }
-  }
 
   return (
     <input
