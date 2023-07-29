@@ -9,6 +9,7 @@ interface TextBoxProps {
   placeholder: string;
   autoComplete: string;
   onChange: Function;
+  onKeyEnter: Function;
   style?: string;
 }
 
@@ -19,6 +20,7 @@ const TextBox: React.FC<TextBoxProps> = ({
   placeholder,
   autoComplete,
   onChange,
+  onKeyEnter,
   style,
 }) => {
   const COLORS = useThemeColors();
@@ -38,6 +40,12 @@ const TextBox: React.FC<TextBoxProps> = ({
     ${style && style}
   `;
 
+  function handleKeyPress(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter") {
+      onKeyEnter();
+    }
+  }
+
   return (
     <input
       type="text"
@@ -46,8 +54,9 @@ const TextBox: React.FC<TextBoxProps> = ({
       value={value}
       placeholder={placeholder}
       autoComplete={autoComplete}
-      css={textInputStyle}
+      onKeyDown={(e) => handleKeyPress(e)}
       onChange={(e) => onChange(e)}
+      css={textInputStyle}
     />
   );
 };

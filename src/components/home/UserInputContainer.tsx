@@ -34,6 +34,7 @@ export default function UserInputContainer() {
         placeholder="New Group"
         autoComplete="off"
         onChange={updateUserInput}
+        onKeyEnter={createTabGroup}
         style="margin-right: 8px;"
       />
       <Button text="Add" onClick={createTabGroup} />

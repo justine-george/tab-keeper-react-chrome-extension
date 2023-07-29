@@ -39,8 +39,22 @@ const Icon: React.FC<IconProps> = ({ type, faviconUrl, onClick, style }) => {
     ${style && style}
   `;
 
+  function handleKeyPress(e: React.KeyboardEvent<HTMLDivElement>) {
+    if (e.key === "Enter" && onClick) {
+      onClick(e as any);
+    }
+  }
+
   return (
-    <div css={containerStyle} onClick={onClick}>
+    // tab-focus only if the icon is clickable
+    // set role as button for accessibility
+    <div
+      tabIndex={onClick ? 0 : -1}
+      css={containerStyle}
+      onKeyDown={(e) => handleKeyPress(e)}
+      onClick={onClick}
+      role={onClick ? "button" : undefined}
+    >
       {faviconUrl ? (
         <img src={faviconUrl} alt="favicon" css={iconStyle} />
       ) : (
