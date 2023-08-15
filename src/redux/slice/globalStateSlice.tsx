@@ -1,29 +1,70 @@
-import { PayloadAction, createSlice } from "@reduxjs/toolkit";
+import { PayloadAction, createAsyncThunk, createSlice } from "@reduxjs/toolkit";
+import { RootState } from "../store";
+import { simulateNetworkDelay } from "../../utils/helperFunctions";
 
 export interface Global {
   isSettingsPage: boolean;
-  value: number;
+  syncStatus: "idle" | "loading" | "success" | "error";
 }
 
-const initialState: Global = {
+export const initialState: Global = {
   isSettingsPage: false,
-  value: 0,
+  syncStatus: "idle",
 };
 
+export const syncWithThunk = createAsyncThunk(
+  "global/syncWithThunk",
+  async (_, thunkAPI) => {
+    const tabContainerData = (thunkAPI.getState() as RootState)
+      .tabContainerDataState;
+    try {
+      // // update a document in Firestore
+      // const docRef = firestore.collection("yourCollectionName").doc("yourDocumentId");
+      // await docRef.set({ ...tabContainerData }, { merge: true });
+
+      // simulate a network call delay of 2s
+      await simulateNetworkDelay(2000);
+
+      console.log(tabContainerData);
+
+      // return data to handle in the fulfilled reducer
+      return { status: "success" };
+    } catch (error) {
+      console.error("Error updating Firestore: ", error);
+      throw error;
+    }
+  }
+);
+
 export const globalStateSlice = createSlice({
-  name: "global",
+  name: "globalState",
   initialState,
   reducers: {
+    // open settings page
     openSettingsPage: (state) => {
       state.isSettingsPage = !state.isSettingsPage;
     },
-    // action: {type: "global/incrementByAmount", payload: <value passed as args>}
-    incrementByAmount: (state, action: PayloadAction<number>) => {
-      state.value += action.payload;
-    },
+
+    replaceState: (state, action: PayloadAction<typeof state>) =>
+      action.payload,
+  },
+
+  extraReducers: (builder) => {
+    builder
+      .addCase(syncWithThunk.pending, (state) => {
+        state.syncStatus = "loading";
+      })
+      .addCase(syncWithThunk.fulfilled, (state, action) => {
+        state.syncStatus = "success";
+        // Handle data returned from the thunk
+        // state.value = action.payload.value;
+      })
+      .addCase(syncWithThunk.rejected, (state) => {
+        state.syncStatus = "error";
+      });
   },
 });
 
-export const { openSettingsPage, incrementByAmount } = globalStateSlice.actions;
+export const { openSettingsPage } = globalStateSlice.actions;
 
 export default globalStateSlice.reducer;

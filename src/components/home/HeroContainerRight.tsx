@@ -5,7 +5,10 @@ import { NormalLabel } from "../common/Label";
 import { useThemeColors } from "../hook/useThemeColors";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "../../redux/store";
-import { deleteTabContainer } from "../../redux/slice/tabContainerDataStateSlice";
+import {
+  deleteTabContainer,
+  openAllTabContainer,
+} from "../../redux/slice/tabContainerDataStateSlice";
 
 export default function HeroContainerRight() {
   const COLORS = useThemeColors();
@@ -49,10 +52,6 @@ export default function HeroContainerRight() {
   const { tabGroupId, title, createdTime, windowCount, tabCount, isAutoSave } =
     selectedTabGroup;
 
-  function handleOpenAllWindowsClick() {
-    // TODO: open all windows under this tab group in separate windows, with corresponding tabs inside
-  }
-
   return (
     <div css={containerStyle}>
       <div css={topStyle}>
@@ -83,7 +82,10 @@ export default function HeroContainerRight() {
             display: flex;
           `}
         >
-          <Icon type="open_in_new" onClick={handleOpenAllWindowsClick} />
+          <Icon
+            type="open_in_new"
+            onClick={() => dispatch(openAllTabContainer(tabGroupId))}
+          />
           <Icon
             type="delete"
             onClick={() => dispatch(deleteTabContainer(tabGroupId))}

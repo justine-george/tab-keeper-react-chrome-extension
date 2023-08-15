@@ -7,6 +7,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "../../redux/store";
 import {
   deleteTabContainer,
+  openAllTabContainer,
   selectTabContainer,
 } from "../../redux/slice/tabContainerDataStateSlice";
 
@@ -58,6 +59,9 @@ export default function TabGroupEntryContainer() {
                   tabGroupData={tabGroupData}
                   onTabGroupClick={() =>
                     dispatch(selectTabContainer(tabGroupData.tabGroupId))
+                  }
+                  onOpenAllClick={() =>
+                    dispatch(openAllTabContainer(tabGroupData.tabGroupId))
                   }
                   onDeleteClick={() =>
                     dispatch(deleteTabContainer(tabGroupData.tabGroupId))

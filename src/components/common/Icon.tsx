@@ -6,6 +6,7 @@ interface IconProps {
   type: string;
   faviconUrl?: string;
   onClick?: MouseEventHandler;
+  disable?: boolean;
   focusable?: boolean;
   style?: string;
 }
@@ -14,6 +15,7 @@ const Icon: React.FC<IconProps> = ({
   type,
   faviconUrl,
   onClick,
+  disable,
   focusable = true,
   style,
 }) => {
@@ -43,12 +45,13 @@ const Icon: React.FC<IconProps> = ({
     justify-content: center;
     align-items: center;
     padding: 4px;
-    cursor: pointer;
+    cursor: ${focusable ? "pointer" : "default"};
     user-select: none;
     transition: background-color 0.3s;
-    &:hover {
+    ${focusable &&
+    `&:hover {
       background-color: ${hoverColor};
-    }
+    }`}
     ${style && style}
   `;
 
@@ -58,7 +61,7 @@ const Icon: React.FC<IconProps> = ({
     <div
       tabIndex={onClick && focusable ? 0 : -1}
       css={containerStyle}
-      onClick={onClick}
+      onClick={!disable ? onClick : undefined}
       onKeyDown={(e) => handleKeyPress(e)}
       role={onClick ? "button" : undefined}
     >

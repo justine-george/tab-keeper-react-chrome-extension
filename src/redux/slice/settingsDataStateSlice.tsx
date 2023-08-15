@@ -1,22 +1,25 @@
-import { createSlice } from "@reduxjs/toolkit";
+import { PayloadAction, createSlice } from "@reduxjs/toolkit";
 
 export interface SettingsData {
   isDarkMode: boolean;
   footerText: string;
 }
 
-const initialState: SettingsData = {
+export const initialState: SettingsData = {
   isDarkMode: false,
   footerText: "Made by Justine George.",
 };
 
 export const settingsDataStateSlice = createSlice({
-  name: "settingsData",
+  name: "settingsDataState",
   initialState,
   reducers: {
     toggleDarkMode: (state) => {
       state.isDarkMode = !state.isDarkMode;
     },
+
+    replaceState: (state, action: PayloadAction<typeof state>) =>
+      action.payload,
   },
 });
 

@@ -1,11 +1,13 @@
 import { css } from "@emotion/react";
 import { useThemeColors } from "../hook/useThemeColors";
+import { MouseEventHandler } from "react";
 
 interface LabelProps {
   value: string;
   size?: string;
   color?: string;
   style?: string;
+  onClick?: MouseEventHandler;
 }
 
 export const NormalLabel: React.FC<LabelProps> = ({
@@ -13,6 +15,7 @@ export const NormalLabel: React.FC<LabelProps> = ({
   size,
   color,
   style,
+  onClick,
 }) => {
   const COLORS = useThemeColors();
 
@@ -28,5 +31,9 @@ export const NormalLabel: React.FC<LabelProps> = ({
     ${style && style}
   `;
 
-  return <div css={textStyle}>{value}</div>;
+  return (
+    <div css={textStyle} onClick={onClick}>
+      {value}
+    </div>
+  );
 };

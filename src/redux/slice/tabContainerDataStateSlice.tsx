@@ -42,10 +42,15 @@ export interface deleteTabParams {
   tabId: string;
 }
 
-const initialState: tabContainerData[] = [];
+export interface openWindowParams {
+  tabGroupId: string;
+  windowId: string;
+}
+
+export const initialState: tabContainerData[] = [];
 
 export const tabContainerDataStateSlice = createSlice({
-  name: "tabContainerData",
+  name: "tabContainerDataState",
   initialState,
   reducers: {
     // TODO: receive tabContainerData object ready to push to the state
@@ -231,6 +236,19 @@ export const tabContainerDataStateSlice = createSlice({
         }
       }
     },
+
+    // open all windows under this tab group in separate windows, with corresponding tabs inside
+    openAllTabContainer: (state, action: PayloadAction<string>) => {
+      // TODO
+    },
+
+    // open all tabs under this section in a single window
+    openTabsInAWindow: (state, action: PayloadAction<openWindowParams>) => {
+      // TODO
+    },
+
+    replaceState: (state, action: PayloadAction<typeof state>) =>
+      action.payload,
   },
 });
 
@@ -240,6 +258,8 @@ export const {
   deleteTabContainer,
   deleteWindow,
   deleteTab,
+  openAllTabContainer,
+  openTabsInAWindow,
 } = tabContainerDataStateSlice.actions;
 
 export default tabContainerDataStateSlice.reducer;

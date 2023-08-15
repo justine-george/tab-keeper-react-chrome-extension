@@ -15,6 +15,7 @@ interface WindowEntryContainerProps {
   tabs: tabData[];
   tabGroupId: string;
   windowId: string;
+  onWindowTitleClick: MouseEventHandler;
   onDeleteClick: MouseEventHandler;
 }
 
@@ -23,6 +24,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   tabs,
   tabGroupId,
   windowId,
+  onWindowTitleClick,
   onDeleteClick,
 }) => {
   const COLORS = useThemeColors();
@@ -148,6 +150,10 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
               color={COLORS.TEXT_COLOR}
               size="0.9rem"
               style="padding-left: 8px; cursor: pointer; height: 100%; max-width: 240px;"
+              onClick={(e) => {
+                e.stopPropagation();
+                onWindowTitleClick(e);
+              }}
             />
           </div>
         </div>

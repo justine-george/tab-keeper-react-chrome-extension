@@ -20,3 +20,8 @@ export function isLotteryWon(): boolean {
   const number = Math.floor(Math.random() * 2); // this could be 0 or 1
   return number === 1;
 }
+
+// simulate network delay for testing
+export function simulateNetworkDelay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}

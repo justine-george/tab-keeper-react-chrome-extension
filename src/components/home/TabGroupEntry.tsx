@@ -9,12 +9,14 @@ import { tabContainerData } from "../../redux/slice/tabContainerDataStateSlice";
 interface TabGroupEntryProps {
   tabGroupData: tabContainerData;
   onTabGroupClick: MouseEventHandler;
+  onOpenAllClick: MouseEventHandler;
   onDeleteClick: MouseEventHandler;
 }
 
 const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
   tabGroupData,
   onTabGroupClick,
+  onOpenAllClick,
   onDeleteClick,
 }) => {
   const COLORS = useThemeColors();
@@ -65,10 +67,6 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
     padding: 2px 0px;
   `;
 
-  function handleOpenAllWindowsClick() {
-    // TODO: open all windows under this tab group in separate windows, with corresponding tabs inside
-  }
-
   return (
     <div
       tabIndex={0}
@@ -107,7 +105,10 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
         <Icon
           type="open_in_new"
           focusable={isHovered ? true : false}
-          onClick={handleOpenAllWindowsClick}
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpenAllClick(e);
+          }}
           style="padding: 16px 8px;"
         />
         <Icon

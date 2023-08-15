@@ -5,7 +5,10 @@ import { isEmptyObject } from "../../utils/helperFunctions";
 import { useThemeColors } from "../hook/useThemeColors";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "../../redux/store";
-import { deleteWindow } from "../../redux/slice/tabContainerDataStateSlice";
+import {
+  deleteWindow,
+  openTabsInAWindow,
+} from "../../redux/slice/tabContainerDataStateSlice";
 
 export default function TabGroupDetailsContainer() {
   const COLORS = useThemeColors();
@@ -64,6 +67,9 @@ export default function TabGroupDetailsContainer() {
                   windowId={windowId}
                   onDeleteClick={() =>
                     dispatch(deleteWindow({ tabGroupId, windowId }))
+                  }
+                  onWindowTitleClick={() =>
+                    dispatch(openTabsInAWindow({ tabGroupId, windowId }))
                   }
                 />
                 {/* <Divider /> */}

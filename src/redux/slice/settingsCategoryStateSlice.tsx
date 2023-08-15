@@ -5,7 +5,7 @@ export interface SettingsCategory {
   isSelected: boolean;
 }
 
-const initialState: SettingsCategory[] = [
+export const initialState: SettingsCategory[] = [
   {
     name: "General",
     isSelected: true,
@@ -17,7 +17,7 @@ const initialState: SettingsCategory[] = [
 ];
 
 export const settingsCategoryStateSlice = createSlice({
-  name: "settingsCategory",
+  name: "settingsCategoryState",
   initialState,
   reducers: {
     selectCategory: (state, action: PayloadAction<string>) => {
@@ -32,6 +32,9 @@ export const settingsCategoryStateSlice = createSlice({
         }
       });
     },
+
+    replaceState: (state, action: PayloadAction<typeof state>) =>
+      action.payload,
   },
 });
 
