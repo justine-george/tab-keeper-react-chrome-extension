@@ -62,7 +62,8 @@ export const undoRedoSlice = createSlice({
 export const { set, undo, redo } = undoRedoSlice.actions;
 
 // selectors
-export const isUndoableSelector = (state: RootState) => state.undoRedo.past.length > 0;
+export const isUndoableSelector = (state: RootState) =>
+  state.undoRedo.past.length > 0;
 export const isRedoableSelector = (state: RootState) =>
   state.undoRedo.future.length > 0;
 

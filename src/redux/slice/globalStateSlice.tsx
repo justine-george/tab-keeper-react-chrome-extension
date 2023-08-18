@@ -58,6 +58,7 @@ export const globalStateSlice = createSlice({
         state.syncStatus = "success";
         // Handle data returned from the thunk
         // state.value = action.payload.value;
+        console.log(action);
       })
       .addCase(syncWithThunk.rejected, (state) => {
         state.syncStatus = "error";

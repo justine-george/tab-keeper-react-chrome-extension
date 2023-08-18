@@ -31,13 +31,10 @@ export const undoRedoMiddleware: Middleware = (store) => (next) => (action) => {
   const nextState = store.getState();
 
   if (action.type === undo.type || action.type === redo.type) {
-    console.log("Captured state:" + action.type);
     const presentState = nextState.undoRedo.present;
     if (presentState) {
-      console.log("Present state:" + presentState);
       // Restore all slices from present state
       Object.keys(presentState).forEach((sliceName) => {
-        console.log("Slice name:" + sliceName);
         store.dispatch({
           type: `${sliceName}/replaceState`,
           payload: presentState[sliceName],
@@ -51,9 +48,7 @@ export const undoRedoMiddleware: Middleware = (store) => (next) => (action) => {
       prevState !== nextState &&
       !actionsToIgnoreForSet.includes(action.type)
     ) {
-      console.log("Dispatching set with new state snapshot");
       const { undoRedo, ...restOfState } = nextState;
-      console.log(undoRedo);
       store.dispatch(set(restOfState));
     }
   }

@@ -6,6 +6,7 @@ import { RootState } from "../redux/store";
 import LeftPaneSettings from "./settings/LeftPaneSettings";
 import RightPaneSettings from "./settings/RightPaneSettings";
 import { useThemeColors } from "./hook/useThemeColors";
+import { appHeight } from "../utils/constants";
 
 export default function MainContainer() {
   const COLORS = useThemeColors();
@@ -22,30 +23,32 @@ export default function MainContainer() {
 
   const leftPaneStyle = css`
     width: 50%;
-    height: 600px;
+    height: ${appHeight};
     border: 1px solid ${COLORS.BORDER_COLOR};
-    margin: 4px 4px 4px 4px;
+    border-right: none;
+    // margin: 2px 0px 2px 2px;
   `;
 
   const rightPaneStyle = css`
     width: 50%;
-    height: 600px;
+    height: ${appHeight};
     border: 1px solid ${COLORS.BORDER_COLOR};
-    margin: 4px 4px 4px 4px;
+    // margin: 2px 2px 2px 0px;
   `;
 
   const leftPaneSettingsStyle = css`
     width: 30%;
-    height: 600px;
+    height: ${appHeight};
     border: 1px solid ${COLORS.BORDER_COLOR};
-    margin: 4px 4px 4px 4px;
+    border-right: none;
+    // margin: 2px 0px 2px 2px;
   `;
 
   const rightPaneSettingsStyle = css`
     width: 70%;
-    height: 600px;
+    height: ${appHeight};
     border: 1px solid ${COLORS.BORDER_COLOR};
-    margin: 4px 4px 4px 4px;
+    // margin: 2px 2px 2px 0px;
   `;
 
   return (

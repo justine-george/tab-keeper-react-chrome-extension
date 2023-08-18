@@ -24,12 +24,10 @@ export default function MenuContainer() {
   const isRedoable = useSelector(isRedoableSelector);
 
   function handleClickUndo() {
-    console.log("undo dispatch");
     dispatch(undo());
   }
 
   function handleClickRedo() {
-    console.log("redo dispatch");
     dispatch(redo());
   }
 

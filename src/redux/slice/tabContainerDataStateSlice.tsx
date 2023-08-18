@@ -240,11 +240,15 @@ export const tabContainerDataStateSlice = createSlice({
     // open all windows under this tab group in separate windows, with corresponding tabs inside
     openAllTabContainer: (state, action: PayloadAction<string>) => {
       // TODO
+      console.log(state);
+      console.log(action);
     },
 
     // open all tabs under this section in a single window
     openTabsInAWindow: (state, action: PayloadAction<openWindowParams>) => {
       // TODO
+      console.log(state);
+      console.log(action);
     },
 
     replaceState: (state, action: PayloadAction<typeof state>) =>

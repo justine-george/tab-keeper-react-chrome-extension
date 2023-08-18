@@ -3,3 +3,7 @@
 // for plain icons with no interactivity
 export const nonInteractIconStyle =
   "cursor: unset; &:hover {background-color: unset;}";
+
+// app container dimensions
+export const appHeight = "550px";
+export const appWidth = "790px";
