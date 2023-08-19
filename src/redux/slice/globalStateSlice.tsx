@@ -3,11 +3,13 @@ import { RootState } from "../store";
 import { simulateNetworkDelay } from "../../utils/helperFunctions";
 
 export interface Global {
+  isSignedIn: boolean;
   isSettingsPage: boolean;
   syncStatus: "idle" | "loading" | "success" | "error";
 }
 
 export const initialState: Global = {
+  isSignedIn: false,
   isSettingsPage: false,
   syncStatus: "idle",
 };
@@ -45,6 +47,14 @@ export const globalStateSlice = createSlice({
       state.isSettingsPage = !state.isSettingsPage;
     },
 
+    setSignedIn: (state) => {
+      state.isSignedIn = true;
+    },
+
+    setLoggedOut: (state) => {
+      state.isSignedIn = false;
+    },
+
     replaceState: (state, action: PayloadAction<typeof state>) =>
       action.payload,
   },
@@ -66,6 +76,7 @@ export const globalStateSlice = createSlice({
   },
 });
 
-export const { openSettingsPage } = globalStateSlice.actions;
+export const { openSettingsPage, setSignedIn, setLoggedOut } =
+  globalStateSlice.actions;
 
 export default globalStateSlice.reducer;

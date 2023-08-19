@@ -1,12 +1,13 @@
 import { css } from "@emotion/react";
 import LeftPane from "./home/LeftPane";
-import RightPane from "./home/RightPane";
+// import RightPane from "./home/RightPane";
 import { useSelector } from "react-redux";
 import { RootState } from "../redux/store";
 import LeftPaneSettings from "./settings/LeftPaneSettings";
 import RightPaneSettings from "./settings/RightPaneSettings";
 import { useThemeColors } from "./hook/useThemeColors";
-import { appHeight } from "../utils/constants";
+import { APP_HEIGHT } from "../utils/constants/common";
+import { Auth } from "./auth";
 
 export default function MainContainer() {
   const COLORS = useThemeColors();
@@ -23,7 +24,7 @@ export default function MainContainer() {
 
   const leftPaneStyle = css`
     width: 50%;
-    height: ${appHeight};
+    height: ${APP_HEIGHT};
     border: 1px solid ${COLORS.BORDER_COLOR};
     border-right: none;
     // margin: 2px 0px 2px 2px;
@@ -31,14 +32,14 @@ export default function MainContainer() {
 
   const rightPaneStyle = css`
     width: 50%;
-    height: ${appHeight};
+    height: ${APP_HEIGHT};
     border: 1px solid ${COLORS.BORDER_COLOR};
     // margin: 2px 2px 2px 0px;
   `;
 
   const leftPaneSettingsStyle = css`
     width: 30%;
-    height: ${appHeight};
+    height: ${APP_HEIGHT};
     border: 1px solid ${COLORS.BORDER_COLOR};
     border-right: none;
     // margin: 2px 0px 2px 2px;
@@ -46,7 +47,7 @@ export default function MainContainer() {
 
   const rightPaneSettingsStyle = css`
     width: 70%;
-    height: ${appHeight};
+    height: ${APP_HEIGHT};
     border: 1px solid ${COLORS.BORDER_COLOR};
     // margin: 2px 2px 2px 0px;
   `;
@@ -59,7 +60,8 @@ export default function MainContainer() {
             <LeftPane />
           </div>
           <div css={rightPaneStyle}>
-            <RightPane />
+            {/* <RightPane /> */}
+            <Auth />
           </div>
         </div>
       ) : (

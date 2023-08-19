@@ -11,6 +11,10 @@ export const initialState: SettingsCategory[] = [
     isSelected: true,
   },
   {
+    name: "Account",
+    isSelected: false,
+  },
+  {
     name: "Credits",
     isSelected: false,
   },

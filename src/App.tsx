@@ -2,14 +2,14 @@ import { css } from "@emotion/react";
 import MainContainer from "./components/MainContainer";
 import "./App.css";
 import { useThemeColors } from "./components/hook/useThemeColors";
-import { appWidth } from "./utils/constants";
+import { APP_WIDTH } from "./utils/constants/common";
 
 function App() {
   const COLORS = useThemeColors();
 
   const containerStyle = css`
     background-color: ${COLORS.PRIMARY_COLOR};
-    width: ${appWidth};
+    width: ${APP_WIDTH};
     // border: 1px solid ${COLORS.BORDER_COLOR};
   `;
 

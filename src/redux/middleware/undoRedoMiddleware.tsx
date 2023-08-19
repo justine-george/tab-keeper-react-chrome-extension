@@ -1,56 +1,70 @@
 import { Middleware } from "@reduxjs/toolkit";
-import { set, undo, redo } from "../slice/undoRedoSlice";
+import { set } from "../slice/undoRedoSlice";
 import {
-  deleteTab,
-  deleteTabContainer,
-  deleteWindow,
-  saveToTabContainer,
-} from "../slice/tabContainerDataStateSlice";
+  DELETE_TAB_ACTION,
+  DELETE_TAB_CONTAINER_ACTION,
+  DELETE_WINDOW_ACTION,
+  REDO_ACTION,
+  SAVE_TAB_CONTAINER_ACTION,
+  SET_ACTION,
+  TAB_CONTAINER_REPLACE_STATE_ACTION,
+  UNDO_ACTION,
+} from "../../utils/constants/actionTypes";
 
 // add actions to capture under undo/redo
 const actionsToCapture = [
-  set.type,
-  undo.type,
-  redo.type,
+  SET_ACTION,
+  UNDO_ACTION,
+  REDO_ACTION,
 
   // actions in tabContainerDataStateSlice
-  saveToTabContainer.type,
-  deleteTabContainer.type,
-  deleteWindow.type,
-  deleteTab.type,
+  SAVE_TAB_CONTAINER_ACTION,
+  DELETE_TAB_CONTAINER_ACTION,
+  DELETE_WINDOW_ACTION,
+  DELETE_TAB_ACTION,
 ];
+
+const isCapturableAction = (type: string) => actionsToCapture.includes(type);
+
+const isUndoRedoAction = (type: string) =>
+  [UNDO_ACTION, REDO_ACTION].includes(type);
+
+const isDataStateChangeAction = (
+  type: string,
+  prevState: any,
+  nextState: any
+) => {
+  const actionsToIgnoreForSet = [
+    SET_ACTION,
+    TAB_CONTAINER_REPLACE_STATE_ACTION,
+  ];
+  return (
+    prevState.tabContainerDataState !== nextState.tabContainerDataState &&
+    !actionsToIgnoreForSet.includes(type)
+  );
+};
 
 export const undoRedoMiddleware: Middleware = (store) => (next) => (action) => {
   console.log("Action received in undoRedoMiddleware:", action.type);
 
-  if (!actionsToCapture.includes(action.type)) {
+  if (!isCapturableAction(action.type)) {
     return next(action);
   }
+
   const prevState = store.getState();
   const result = next(action);
   const nextState = store.getState();
 
-  if (action.type === undo.type || action.type === redo.type) {
+  if (isUndoRedoAction(action.type)) {
     const presentState = nextState.undoRedo.present;
-    if (presentState) {
-      // Restore all slices from present state
-      Object.keys(presentState).forEach((sliceName) => {
-        store.dispatch({
-          type: `${sliceName}/replaceState`,
-          payload: presentState[sliceName],
-        });
-      });
-    }
-  } else {
-    const actionsToIgnoreForSet = [set.type, "replaceState"];
-
-    if (
-      prevState !== nextState &&
-      !actionsToIgnoreForSet.includes(action.type)
-    ) {
-      const { undoRedo, ...restOfState } = nextState;
-      store.dispatch(set(restOfState));
-    }
+    // update tabContainerDataState from the latest presentState
+    store.dispatch({
+      type: TAB_CONTAINER_REPLACE_STATE_ACTION,
+      payload: presentState.tabContainerDataState,
+    });
+  } else if (isDataStateChangeAction(action.type, prevState, nextState)) {
+    const { tabContainerDataState } = nextState;
+    store.dispatch(set({ tabContainerDataState: tabContainerDataState }));
   }
 
   return result;

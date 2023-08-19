@@ -1,23 +1,18 @@
 import { PayloadAction, createSlice } from "@reduxjs/toolkit";
-import { IndividualStates } from "../../utils/types";
-import { initialState as globalInitialState } from "./globalStateSlice";
-import { initialState as settingsCategoryInitialState } from "./settingsCategoryStateSlice";
-import { initialState as settingsDataInitialState } from "./settingsDataStateSlice";
+import { UndoableStates } from "../../utils/types";
 import { initialState as tabContainerDataInitialState } from "./tabContainerDataStateSlice";
 import { RootState } from "../store";
+import { STACK_LEVEL } from "../../utils/constants/common";
 
 export interface undoRedoState {
-  past: IndividualStates[];
-  present: IndividualStates | null;
-  future: IndividualStates[];
+  past: UndoableStates[];
+  present: UndoableStates;
+  future: UndoableStates[];
 }
 
 const initialState: undoRedoState = {
   past: [],
   present: {
-    globalState: globalInitialState,
-    settingsCategoryState: settingsCategoryInitialState,
-    settingsDataState: settingsDataInitialState,
     tabContainerDataState: tabContainerDataInitialState,
   },
   future: [],
@@ -27,34 +22,26 @@ export const undoRedoSlice = createSlice({
   name: "undoRedo",
   initialState,
   reducers: {
-    set: (state, action: PayloadAction<IndividualStates>) => {
-      console.log("Inside set reducer");
-      console.log(action);
-      if (state.present) {
-        console.log("Already present");
-        state.past.push(state.present);
-        // if past has more than 10 states, remove the oldest one.
-        if (state.past.length > 10) {
-          state.past.shift();
-        }
-        state.present = action.payload;
-        state.future = [];
+    set: (state, action: PayloadAction<UndoableStates>) => {
+      state.past.push(state.present);
+      // if past has more than STACK_LEVEL states, remove the oldest one.
+      if (state.past.length > STACK_LEVEL) {
+        state.past.shift();
       }
+      state.present = action.payload;
+      state.future = [];
     },
     undo: (state) => {
-      console.log("Inside undo reducer");
       if (state.past.length !== 0) {
         state.future.unshift(state.present!);
-        state.present = state.past.pop() || null;
+        state.present = state.past.pop()!;
       }
-      console.log(state);
     },
     redo: (state) => {
       if (state.future.length !== 0) {
         state.past.push(state.present!);
-        state.present = state.future.shift() || null;
+        state.present = state.future.shift()!;
       }
-      console.log(state);
     },
   },
 });

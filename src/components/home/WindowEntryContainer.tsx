@@ -3,7 +3,7 @@ import { css } from "@emotion/react";
 import Icon from "../common/Icon";
 import { NormalLabel } from "../common/Label";
 import { useThemeColors } from "../hook/useThemeColors";
-import { nonInteractIconStyle } from "../../utils/constants";
+import { NON_INTERACTIVE_ICON_STYLE } from "../../utils/constants/common";
 import { useDispatch } from "react-redux";
 import {
   deleteTab,
@@ -139,7 +139,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
             type={windowOpenState ? "expand_less" : "expand_more"}
             onClick={handleAccordionClick}
           />
-          <Icon type="ad" style={nonInteractIconStyle} />
+          <Icon type="ad" style={NON_INTERACTIVE_ICON_STYLE} />
           <div
             onClick={handleWindowTitleClick}
             css={parentLinkStyle}
@@ -182,7 +182,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                   <Icon
                     faviconUrl={favicon}
                     type="app_badging"
-                    style={nonInteractIconStyle}
+                    style={NON_INTERACTIVE_ICON_STYLE}
                   />
                   <a
                     href={url}

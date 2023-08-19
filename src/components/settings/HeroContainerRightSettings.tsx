@@ -1,7 +1,7 @@
 import { css } from "@emotion/react";
 import Icon from "../common/Icon";
 import { NormalLabel } from "../common/Label";
-import { nonInteractIconStyle } from "../../utils/constants";
+import { NON_INTERACTIVE_ICON_STYLE } from "../../utils/constants/common";
 import { useThemeColors } from "../hook/useThemeColors";
 
 export default function HeroContainerRightSettings() {
@@ -21,7 +21,7 @@ export default function HeroContainerRightSettings() {
 
   return (
     <div css={containerStyle}>
-      <Icon type="settings" style={nonInteractIconStyle} />
+      <Icon type="settings" style={NON_INTERACTIVE_ICON_STYLE} />
       <NormalLabel
         value="Settings"
         size="1.125rem"
