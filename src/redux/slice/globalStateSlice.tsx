@@ -1,39 +1,75 @@
 import { PayloadAction, createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import { RootState } from "../store";
-import { simulateNetworkDelay } from "../../utils/helperFunctions";
+import { selectCategory } from "./settingsCategoryStateSlice";
+import { auth, db } from "../../config/firebase";
+import { doc, setDoc } from "firebase/firestore";
 
 export interface Global {
   isSignedIn: boolean;
+  isDirty: boolean;
   isSettingsPage: boolean;
   syncStatus: "idle" | "loading" | "success" | "error";
+  isToastOpen: boolean;
+  toastText: string;
 }
 
 export const initialState: Global = {
   isSignedIn: false,
+  isDirty: false,
   isSettingsPage: false,
-  syncStatus: "idle",
+  syncStatus: "error",
+  isToastOpen: false,
+  toastText: "",
 };
 
 export const syncWithThunk = createAsyncThunk(
   "global/syncWithThunk",
   async (_, thunkAPI) => {
-    const tabContainerData = (thunkAPI.getState() as RootState)
-      .tabContainerDataState;
-    try {
-      // // update a document in Firestore
-      // const docRef = firestore.collection("yourCollectionName").doc("yourDocumentId");
-      // await docRef.set({ ...tabContainerData }, { merge: true });
+    const state = thunkAPI.getState() as RootState;
 
-      // simulate a network call delay of 2s
-      await simulateNetworkDelay(2000);
+    if (!state.globalState.isSignedIn) {
+      thunkAPI.dispatch(openSettingsPage("Account"));
+    } else if (state.globalState.isDirty) {
+      try {
+        console.log("updating data cloud firestore");
+        await setDoc(doc(db, "tabGroupData", auth.currentUser!.uid), {
+          ...state.tabContainerDataState,
+        });
 
-      console.log(tabContainerData);
+        thunkAPI.dispatch(setIsNotDirty());
 
-      // return data to handle in the fulfilled reducer
-      return { status: "success" };
-    } catch (error) {
-      console.error("Error updating Firestore: ", error);
-      throw error;
+        return { status: "success" };
+      } catch (error) {
+        console.error("Error updating Firestore: ", error);
+        throw error;
+      }
+    }
+  }
+);
+
+export const openSettingsPage = createAsyncThunk(
+  "global/openSettingsPage",
+  async (settingsName: string | undefined, thunkAPI) => {
+    if (settingsName) thunkAPI.dispatch(selectCategory(settingsName));
+  }
+);
+
+interface ShowToastPayload {
+  toastText: string;
+  duration?: number;
+}
+
+export const showToast = createAsyncThunk(
+  "global/showToast",
+  async ({ toastText, duration = 5000 }: ShowToastPayload, thunkAPI) => {
+    if (toastText) {
+      thunkAPI.dispatch(setToastText(toastText));
+      thunkAPI.dispatch(openToast());
+
+      // default to 5000ms
+      setTimeout(() => {
+        thunkAPI.dispatch(closeToast());
+      }, duration);
     }
   }
 );
@@ -42,9 +78,29 @@ export const globalStateSlice = createSlice({
   name: "globalState",
   initialState,
   reducers: {
-    // open settings page
-    openSettingsPage: (state) => {
-      state.isSettingsPage = !state.isSettingsPage;
+    openToast: (state) => {
+      state.isToastOpen = true;
+    },
+
+    closeToast: (state) => {
+      state.isToastOpen = false;
+    },
+
+    setToastText: (state, action: PayloadAction<string>) => {
+      state.toastText = action.payload;
+    },
+
+    backToHome: (state) => {
+      state.isSettingsPage = false;
+    },
+
+    setIsNotDirty: (state) => {
+      state.isDirty = false;
+    },
+
+    setIsDirty: (state) => {
+      state.isDirty = true;
+      state.syncStatus = "error";
     },
 
     setSignedIn: (state) => {
@@ -64,19 +120,37 @@ export const globalStateSlice = createSlice({
       .addCase(syncWithThunk.pending, (state) => {
         state.syncStatus = "loading";
       })
-      .addCase(syncWithThunk.fulfilled, (state, action) => {
-        state.syncStatus = "success";
+      .addCase(syncWithThunk.fulfilled, (state, _) => {
+        if (state.isSignedIn && !state.isDirty) {
+          state.syncStatus = "success";
+        } else {
+          state.syncStatus = "error";
+        }
         // Handle data returned from the thunk
         // state.value = action.payload.value;
-        console.log(action);
+        // console.log(action);
       })
       .addCase(syncWithThunk.rejected, (state) => {
         state.syncStatus = "error";
+      })
+      .addCase(openSettingsPage.fulfilled, (state) => {
+        state.isSettingsPage = true;
+      })
+      .addCase(showToast.fulfilled, (_) => {
+        // console.log(state);
       });
   },
 });
 
-export const { openSettingsPage, setSignedIn, setLoggedOut } =
-  globalStateSlice.actions;
+export const {
+  openToast,
+  closeToast,
+  setToastText,
+  backToHome,
+  setIsDirty,
+  setIsNotDirty,
+  setSignedIn,
+  setLoggedOut,
+} = globalStateSlice.actions;
 
 export default globalStateSlice.reducer;

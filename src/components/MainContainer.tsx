@@ -1,16 +1,20 @@
 import { css } from "@emotion/react";
 import LeftPane from "./home/LeftPane";
-// import RightPane from "./home/RightPane";
+import RightPane from "./home/RightPane";
 import { useSelector } from "react-redux";
 import { RootState } from "../redux/store";
 import LeftPaneSettings from "./settings/LeftPaneSettings";
 import RightPaneSettings from "./settings/RightPaneSettings";
 import { useThemeColors } from "./hook/useThemeColors";
 import { APP_HEIGHT } from "../utils/constants/common";
-import { Auth } from "./auth";
+import { Toast } from "./common/Toast";
 
 export default function MainContainer() {
   const COLORS = useThemeColors();
+
+  const isToastOpen = useSelector(
+    (state: RootState) => state.globalState.isToastOpen
+  );
 
   const isSettingsPage = useSelector(
     (state: RootState) => state.globalState.isSettingsPage
@@ -60,8 +64,7 @@ export default function MainContainer() {
             <LeftPane />
           </div>
           <div css={rightPaneStyle}>
-            {/* <RightPane /> */}
-            <Auth />
+            <RightPane />
           </div>
         </div>
       ) : (
@@ -74,6 +77,7 @@ export default function MainContainer() {
           </div>
         </div>
       )}
+      {isToastOpen && <Toast />}
     </div>
   );
 }

@@ -6,6 +6,7 @@ import { useThemeColors } from "../hook/useThemeColors";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "../../redux/store";
 import { selectCategory } from "../../redux/slice/settingsCategoryStateSlice";
+// import { useEffect } from "react";
 
 interface SettingsCategoryContainerProps {
   // settingsCategoryList: SettingsCategory[];
@@ -25,6 +26,10 @@ const SettingsCategoryContainer: React.FC<SettingsCategoryContainerProps> = (
   );
 
   const dispatch = useDispatch();
+
+  // useEffect(() => {
+  //   dispatch(selectCategory("General"));
+  // }, []);
 
   const containerStyle = css`
     display: flex;

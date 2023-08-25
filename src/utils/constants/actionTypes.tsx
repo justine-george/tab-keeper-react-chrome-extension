@@ -12,3 +12,5 @@ export const DELETE_TAB_CONTAINER_ACTION =
   "tabContainerDataState/deleteTabContainer";
 export const DELETE_WINDOW_ACTION = "tabContainerDataState/deleteWindow";
 export const DELETE_TAB_ACTION = "tabContainerDataState/deleteTab";
+
+export const IS_DIRTY_ACTION = "globalState/setIsDirty";

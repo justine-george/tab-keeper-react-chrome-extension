@@ -4,7 +4,7 @@ import settingsDataStateReducer from "./slice/settingsDataStateSlice";
 import settingsCategoryStateReducer from "./slice/settingsCategoryStateSlice";
 import tabContainerDataStateReducer from "./slice/tabContainerDataStateSlice";
 import undoRedoReducer from "./slice/undoRedoSlice";
-import { undoRedoMiddleware } from "./middleware/undoRedoMiddleware";
+import { customMiddleware } from "./middleware/customMiddleware";
 
 export const store = configureStore({
   reducer: {
@@ -15,7 +15,7 @@ export const store = configureStore({
     tabContainerDataState: tabContainerDataStateReducer,
   },
   middleware: (getDefaultMiddleware) =>
-    getDefaultMiddleware().concat(undoRedoMiddleware),
+    getDefaultMiddleware().concat(customMiddleware),
 });
 
 export type RootState = ReturnType<typeof store.getState>;

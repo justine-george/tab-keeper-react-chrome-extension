@@ -1,12 +1,11 @@
-// Import the functions you need from the SDKs you need
 import { initializeApp } from "firebase/app";
-// import { getAnalytics } from "firebase/analytics";
-import { GoogleAuthProvider, getAuth } from "firebase/auth";
-// TODO: Add SDKs for Firebase products that you want to use
+import { getFirestore } from "firebase/firestore";
+import { GoogleAuthProvider, getAuth, onAuthStateChanged } from "firebase/auth";
+import { setLoggedOut, setSignedIn } from "../redux/slice/globalStateSlice";
+import { AppDispatch } from "../redux/store";
 // https://firebase.google.com/docs/web/setup#available-libraries
 
-// Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+// Firebase configuration
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
@@ -19,7 +18,22 @@ const firebaseConfig = {
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
-// const analytics = getAnalytics(app);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const googleProvider = new GoogleAuthProvider();
 
-export const auth = getAuth(app);
-export const googleProvider = new GoogleAuthProvider();
+export { auth, googleProvider, db };
+
+export const observeAuthState = (dispatch: AppDispatch) => {
+  onAuthStateChanged(auth, (user) => {
+    if (user) {
+      // User is signed in
+      console.log(user.uid + " signed in!");
+      dispatch(setSignedIn());
+    } else {
+      // User is signed out
+      console.log("Signed out!");
+      dispatch(setLoggedOut());
+    }
+  });
+};

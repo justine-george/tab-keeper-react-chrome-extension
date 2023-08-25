@@ -6,6 +6,7 @@ import { NormalLabel } from "../common/Label";
 import { toggleDarkMode } from "../../redux/slice/settingsDataStateSlice";
 import Button from "../common/Button";
 import { useThemeColors } from "../hook/useThemeColors";
+import { Account } from "./Account";
 
 const SettingsDetailsContainer: React.FC<
   SettingsDetailsContainerProps
@@ -26,7 +27,6 @@ const SettingsDetailsContainer: React.FC<
     display: flex;
     flex-direction: column;
     padding: 8px;
-    // height: 100%;
     flex-grow: 1;
     margin-top: 8px;
     border: 1px solid ${COLORS.BORDER_COLOR};
@@ -36,6 +36,8 @@ const SettingsDetailsContainer: React.FC<
 
   const settingsItemStyle = css`
     display: flex;
+    margin-top: 40px;
+    justify-content: center;
     align-items: center;
     padding: 4px;
   `;
@@ -61,13 +63,9 @@ const SettingsDetailsContainer: React.FC<
               margin-left: 16px;
               width: 120px;
               &:hover {
-                background-color: ${
-                  settingsData.isDarkMode ? "#FFFFFF" : "#000000"
-                };
-                color: ${settingsData.isDarkMode ? "#000000" : "#FFFFFF"};
-                border: 1px solid ${
-                  settingsData.isDarkMode ? "#FFFFFF" : "#000000"
-                };
+                background-color: ${COLORS.INVERSE_PRIMARY_COLOR};
+                border: 1px solid ${COLORS.INVERSE_PRIMARY_COLOR};
+                color: ${COLORS.PRIMARY_COLOR};
               }
             `}
           />
@@ -81,10 +79,23 @@ const SettingsDetailsContainer: React.FC<
           display: flex;
           justify-content: center;
           align-items: center;
-          height: 100%;
+          margin-top: 40px;
         `}
       >
         <NormalLabel value={settingsData.footerText} />
+      </div>
+    );
+  } else if (settingsCategoryName === "Account") {
+    settingsOptionsDiv = (
+      <div
+        css={css`
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          margin-top: 40px;
+        `}
+      >
+        <Account />
       </div>
     );
   }

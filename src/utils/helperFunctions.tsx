@@ -25,3 +25,28 @@ export function isLotteryWon(): boolean {
 export function simulateNetworkDelay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
+// debounce
+export function debounce(func: Function, delay: number) {
+  let timeoutId: number | null | undefined;
+  return (...args: any[]) => {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+    timeoutId = setTimeout(() => {
+      func(...args);
+      timeoutId = null;
+    }, delay);
+  };
+}
+
+// validates email
+export function isValidEmail(email: string) {
+  const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return regex.test(email);
+}
+
+// validates password
+export function isValidPassword(password: string) {
+  return password.length >= 6;
+}

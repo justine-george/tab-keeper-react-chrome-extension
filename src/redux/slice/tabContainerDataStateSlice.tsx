@@ -1,5 +1,4 @@
 import { PayloadAction, createSlice } from "@reduxjs/toolkit";
-
 import { v4 as uuidv4 } from "uuid";
 import {
   getCurrentDateString,
@@ -68,13 +67,13 @@ export const tabContainerDataStateSlice = createSlice({
         title: title || "Youtube - Home",
         createdTime: getCurrentDateString(),
         windowCount: 2, // keep track of this count while adding/removing
-        tabCount: 6, // keep track of this count while adding/removing
+        tabCount: 7, // keep track of this count while adding/removing
         isAutoSave: isLotteryWon(),
         isSelected: true,
         windows: [
           {
             windowId: uuidv4(),
-            tabCount: 3, // keep track of this count while adding/removing
+            tabCount: 4, // keep track of this count while adding/removing
             title: "Youtube - Home",
             tabs: [
               {

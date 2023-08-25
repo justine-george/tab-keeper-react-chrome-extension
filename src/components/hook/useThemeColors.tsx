@@ -21,6 +21,7 @@ export function useThemeColors() {
         TAG_BORDER_COLOR: "#1E202B",
         BORDER_COLOR: "#DADCE4",
         TEXT_COLOR: "#EDEFF2",
+        INVERSE_PRIMARY_COLOR: "#F0F2F5",
       }
     : {
         PRIMARY_COLOR: "#F0F2F5",
@@ -36,5 +37,6 @@ export function useThemeColors() {
         TAG_BORDER_COLOR: "#D4D6D9",
         BORDER_COLOR: "#2E3136",
         TEXT_COLOR: "#1A1B1E",
+        INVERSE_PRIMARY_COLOR: "#252839",
       };
 }

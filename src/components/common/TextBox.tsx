@@ -6,10 +6,11 @@ interface TextBoxProps {
   id: string;
   name: string;
   value: string;
+  type?: string;
   placeholder: string;
-  autoComplete: string;
+  autoComplete?: string;
   onChange: Function;
-  onKeyEnter: Function;
+  onKeyEnter?: Function;
   style?: string;
 }
 
@@ -17,6 +18,7 @@ const TextBox: React.FC<TextBoxProps> = ({
   id,
   name,
   value,
+  type,
   placeholder,
   autoComplete,
   onChange,
@@ -26,7 +28,7 @@ const TextBox: React.FC<TextBoxProps> = ({
   const COLORS = useThemeColors();
 
   function handleKeyPress(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === "Enter") {
+    if (onKeyEnter && e.key === "Enter") {
       onKeyEnter();
     }
   }
@@ -48,7 +50,7 @@ const TextBox: React.FC<TextBoxProps> = ({
 
   return (
     <input
-      type="text"
+      type={type ? type : "text"}
       id={id}
       name={name}
       value={value}

@@ -3,7 +3,7 @@ import { useThemeColors } from "../hook/useThemeColors";
 import { MouseEventHandler } from "react";
 
 interface LabelProps {
-  value: string;
+  value?: string;
   size?: string;
   color?: string;
   style?: string;

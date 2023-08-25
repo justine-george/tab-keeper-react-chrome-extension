@@ -36,7 +36,7 @@ export default function MenuContainer() {
   }
 
   function handleClickSettings() {
-    dispatch(openSettingsPage());
+    dispatch(openSettingsPage("General"));
   }
 
   // sync icon change with syncStatus
