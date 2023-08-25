@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from "uuid";
 import {
   getCurrentDateString,
   isLotteryWon,
+  saveToLocalStorage,
 } from "../../utils/helperFunctions";
 
 export interface tabData {
@@ -131,6 +132,9 @@ export const tabContainerDataStateSlice = createSlice({
       };
       state.unshift(dummyValue);
 
+      // update localstorage
+      saveToLocalStorage("tabContainerData", state);
+
       // select this tabGroup
       tabContainerDataStateSlice.caseReducers.selectTabContainer(state, {
         payload: newTabGroupId,
@@ -147,6 +151,9 @@ export const tabContainerDataStateSlice = createSlice({
           tabGroup.isSelected = false;
         }
       });
+
+      // update localstorage
+      saveToLocalStorage("tabContainerData", state);
     },
 
     // delete tab group by tabGroupId
@@ -159,6 +166,9 @@ export const tabContainerDataStateSlice = createSlice({
       if (tabGroupIndex !== -1) {
         state.splice(tabGroupIndex, 1);
       }
+
+      // update localstorage
+      saveToLocalStorage("tabContainerData", state);
     },
 
     // delete window by (tabGroupId, windowId)
@@ -188,6 +198,9 @@ export const tabContainerDataStateSlice = createSlice({
           state[tabGroupIndex].title = state[tabGroupIndex].windows[0].title;
         }
       }
+
+      // update localstorage
+      saveToLocalStorage("tabContainerData", state);
     },
 
     // delete tab by (tabGroupId, windowId, tabId)
@@ -234,6 +247,9 @@ export const tabContainerDataStateSlice = createSlice({
           state[tabGroupIndex].title = state[tabGroupIndex].windows[0].title;
         }
       }
+
+      // update localstorage
+      saveToLocalStorage("tabContainerData", state);
     },
 
     // open all windows under this tab group in separate windows, with corresponding tabs inside
@@ -250,8 +266,11 @@ export const tabContainerDataStateSlice = createSlice({
       console.log(action);
     },
 
-    replaceState: (state, action: PayloadAction<typeof state>) =>
-      action.payload,
+    replaceState: (state, action: PayloadAction<typeof state>) => {
+      // update localstorage
+      saveToLocalStorage("tabContainerData", action.payload);
+      return action.payload;
+    },
   },
 });
 

@@ -1,3 +1,6 @@
+import { showToast } from "../redux/slice/globalStateSlice";
+import { AppDispatch } from "../redux/store";
+
 export function isEmptyObject(obj: any): boolean {
   return typeof obj === "object" && Object.keys(obj).length === 0;
 }
@@ -50,3 +53,28 @@ export function isValidEmail(email: string) {
 export function isValidPassword(password: string) {
   return password.length >= 6;
 }
+
+export const displayToast = (
+  dispatch: AppDispatch,
+  text: string,
+  duration?: number,
+  error?: any
+) => {
+  const displayText = error ? error.message || "An error occurred." : text;
+  dispatch(
+    showToast({
+      toastText: displayText,
+      duration: duration || 3000,
+    })
+  );
+};
+
+// saves to local storage
+export const saveToLocalStorage = (key: string, data: any) => {
+  try {
+    localStorage.setItem(key, JSON.stringify(data));
+    console.log("Saved to localStorage!");
+  } catch (error) {
+    console.error("Failed to save to localStorage:", error);
+  }
+};

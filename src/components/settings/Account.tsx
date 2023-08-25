@@ -13,23 +13,7 @@ import { NormalLabel } from "../common/Label";
 import { useThemeColors } from "../hook/useThemeColors";
 import TextBox from "../common/TextBox";
 import { useState } from "react";
-import { isValidEmail, isValidPassword } from "../../utils/helperFunctions";
-import { showToast } from "../../redux/slice/globalStateSlice";
-
-const displayToast = (
-  dispatch: AppDispatch,
-  text: string,
-  duration?: number,
-  error?: any
-) => {
-  const displayText = error ? error.message || "An error occurred." : text;
-  dispatch(
-    showToast({
-      toastText: displayText,
-      duration: duration || 3000,
-    })
-  );
-};
+import { displayToast, isValidEmail, isValidPassword } from "../../utils/helperFunctions";
 
 export const Account = () => {
   const [email, setEmail] = useState<string>("");
@@ -50,7 +34,6 @@ export const Account = () => {
       await createUserWithEmailAndPassword(auth, email, password);
       setEmail("");
       setPassword("");
-      // displayToast(dispatch, `Welcome ${auth.currentUser?.email} !`);
     } catch (err) {
       displayToast(dispatch, "Failed to create account", undefined, err);
     }
@@ -60,7 +43,6 @@ export const Account = () => {
       await signInWithEmailAndPassword(auth, email, password);
       setEmail("");
       setPassword("");
-      // displayToast(dispatch, `Welcome ${auth.currentUser?.email} !`);
     } catch (err) {
       displayToast(dispatch, "Failed to sign in", undefined, err);
     }
@@ -88,13 +70,6 @@ export const Account = () => {
       signInEmailPassword();
     }
   };
-  // const signInGoogle = async () => {
-  //   try {
-  //     await signInWithPopup(auth, googleProvider);
-  //   } catch (err) {
-  //     console.error(err);
-  //   }
-  // };
   const logOut = async () => {
     try {
       await signOut(auth);

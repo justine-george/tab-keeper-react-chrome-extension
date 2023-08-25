@@ -3,6 +3,7 @@ import { RootState } from "../store";
 import { selectCategory } from "./settingsCategoryStateSlice";
 import { auth, db } from "../../config/firebase";
 import { doc, setDoc } from "firebase/firestore";
+import { saveToLocalStorage } from "../../utils/helperFunctions";
 
 export interface Global {
   isSignedIn: boolean;
@@ -17,7 +18,7 @@ export const initialState: Global = {
   isSignedIn: false,
   isDirty: false,
   isSettingsPage: false,
-  syncStatus: "error",
+  syncStatus: "idle",
   isToastOpen: false,
   toastText: "",
 };
@@ -35,6 +36,9 @@ export const syncWithThunk = createAsyncThunk(
         await setDoc(doc(db, "tabGroupData", auth.currentUser!.uid), {
           ...state.tabContainerDataState,
         });
+
+        // Save to localStorage after successful Firestore update
+        saveToLocalStorage("tabContainerData", state.tabContainerDataState);
 
         thunkAPI.dispatch(setIsNotDirty());
 
@@ -100,7 +104,7 @@ export const globalStateSlice = createSlice({
 
     setIsDirty: (state) => {
       state.isDirty = true;
-      state.syncStatus = "error";
+      state.syncStatus = "idle";
     },
 
     setSignedIn: (state) => {
