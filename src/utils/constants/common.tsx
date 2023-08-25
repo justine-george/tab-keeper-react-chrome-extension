@@ -10,3 +10,6 @@ export const APP_WIDTH = "790px";
 
 // max undo stack size
 export const STACK_LEVEL = 10;
+
+// debounce window
+export const DEBOUNCE_TIME_WINDOW = 2000;

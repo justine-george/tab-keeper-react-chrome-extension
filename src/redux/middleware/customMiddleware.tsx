@@ -13,6 +13,7 @@ import {
   IS_DIRTY_ACTION,
 } from "../../utils/constants/actionTypes";
 import { debounce } from "../../utils/helperFunctions";
+import { DEBOUNCE_TIME_WINDOW } from "../../utils/constants/common";
 
 // add actions to capture under undo/redo
 const actionsToCapture = [
@@ -54,7 +55,7 @@ export const customMiddleware: Middleware = (store) => {
   const debouncedSync = debounce(() => {
     console.log("debounced sync");
     store.dispatch(syncWithThunk() as any);
-  }, 2000);
+  }, DEBOUNCE_TIME_WINDOW);
 
   return (next) => (action) => {
     // console.log("Action received in customMiddleware:", action.type);
@@ -71,7 +72,8 @@ export const customMiddleware: Middleware = (store) => {
     if (
       action.type === setIsDirty.type &&
       nextState.globalState.isDirty &&
-      nextState.globalState.isSignedIn
+      nextState.globalState.isSignedIn &&
+      nextState.settingsDataState.isAutoSync
     ) {
       debouncedSync();
     }

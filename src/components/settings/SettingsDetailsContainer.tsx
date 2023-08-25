@@ -3,7 +3,11 @@ import { SettingsDetailsContainerProps } from "../../utils/interfaces";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "../../redux/store";
 import { NormalLabel } from "../common/Label";
-import { toggleDarkMode } from "../../redux/slice/settingsDataStateSlice";
+import {
+  toggleAutoSave,
+  toggleAutoSync,
+  toggleDarkMode,
+} from "../../redux/slice/settingsDataStateSlice";
 import Button from "../common/Button";
 import { useThemeColors } from "../hook/useThemeColors";
 import { Account } from "./Account";
@@ -36,10 +40,10 @@ const SettingsDetailsContainer: React.FC<
 
   const settingsItemStyle = css`
     display: flex;
-    margin-top: 40px;
-    justify-content: center;
+    justify-content: space-between;
     align-items: center;
-    padding: 4px;
+    width: 250px;
+    margin-bottom: 16px;
   `;
 
   const settingsCategoryName: string = settingsCategoryList.filter(
@@ -49,7 +53,15 @@ const SettingsDetailsContainer: React.FC<
   let settingsOptionsDiv;
   if (settingsCategoryName === "General") {
     settingsOptionsDiv = (
-      <>
+      <div
+        css={css`
+          display: flex;
+          flex-direction: column;
+          justify-content: flex-start;
+          align-items: center;
+          margin-top: 40px;
+        `}
+      >
         <div css={settingsItemStyle}>
           <NormalLabel
             value="Toggle Theme"
@@ -70,7 +82,37 @@ const SettingsDetailsContainer: React.FC<
             `}
           />
         </div>
-      </>
+        <div css={settingsItemStyle}>
+          <NormalLabel
+            value="Auto Sync"
+            size="1rem"
+            color={COLORS.LABEL_L1_COLOR}
+          />
+          <Button
+            text={settingsData.isAutoSync ? `On` : `Off`}
+            onClick={() => dispatch(toggleAutoSync())}
+            style={`
+              margin-left: 16px;
+              width: 120px;
+            `}
+          />
+        </div>
+        <div css={settingsItemStyle}>
+          <NormalLabel
+            value="Auto Save"
+            size="1rem"
+            color={COLORS.LABEL_L1_COLOR}
+          />
+          <Button
+            text={settingsData.isAutoSave ? `On` : `Off`}
+            onClick={() => dispatch(toggleAutoSave())}
+            style={`
+              margin-left: 16px;
+              width: 120px;
+            `}
+          />
+        </div>
+      </div>
     );
   } else if (settingsCategoryName === "Credits") {
     settingsOptionsDiv = (
