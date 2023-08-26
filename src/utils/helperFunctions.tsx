@@ -1,4 +1,5 @@
 import { showToast } from "../redux/slice/globalStateSlice";
+import { tabContainerData } from "../redux/slice/tabContainerDataStateSlice";
 import { AppDispatch } from "../redux/store";
 
 export function isEmptyObject(obj: any): boolean {
@@ -69,12 +70,57 @@ export const displayToast = (
   );
 };
 
-// saves to local storage
+// save to local storage
 export const saveToLocalStorage = (key: string, data: any) => {
   try {
     localStorage.setItem(key, JSON.stringify(data));
-    console.log("Saved to localStorage!");
   } catch (error) {
     console.error("Failed to save to localStorage:", error);
   }
+};
+
+// load from local storage
+export const loadFromLocalStorage = (key: string) => {
+  try {
+    const serializedState = localStorage.getItem(key);
+    if (serializedState === null) return undefined;
+    return JSON.parse(serializedState);
+  } catch (e) {
+    console.warn("Error loading state from localStorage:", e);
+    return undefined;
+  }
+};
+
+// convert firebase data to tabContainer format
+export const convertDataToTabContainer = (data: any): tabContainerData[] => {
+  const result: tabContainerData[] = [];
+
+  for (const key in data) {
+    const item = data[key];
+
+    const newTabContainer: tabContainerData = {
+      tabGroupId: item.tabGroupId,
+      title: item.title,
+      createdTime: item.createdTime,
+      windowCount: item.windowCount,
+      tabCount: item.tabCount,
+      isAutoSave: item.isAutoSave,
+      isSelected: item.isSelected,
+      windows: item.windows.map((window: any) => ({
+        windowId: window.windowId,
+        tabCount: window.tabCount,
+        title: window.title,
+        tabs: window.tabs.map((tab: any) => ({
+          tabId: tab.tabId,
+          favicon: tab.favicon,
+          title: tab.title,
+          url: tab.url,
+        })),
+      })),
+    };
+
+    result.push(newTabContainer);
+  }
+
+  return result;
 };

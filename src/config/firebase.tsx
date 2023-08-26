@@ -1,7 +1,12 @@
 import { initializeApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
+import { doc, getDoc, getFirestore } from "firebase/firestore";
 import { GoogleAuthProvider, getAuth, onAuthStateChanged } from "firebase/auth";
-import { setLoggedOut, setSignedIn } from "../redux/slice/globalStateSlice";
+import {
+  removeUserId,
+  setLoggedOut,
+  setSignedIn,
+  setUserId,
+} from "../redux/slice/globalStateSlice";
 import { AppDispatch } from "../redux/store";
 // https://firebase.google.com/docs/web/setup#available-libraries
 
@@ -30,10 +35,23 @@ export const observeAuthState = (dispatch: AppDispatch) => {
       // User is signed in
       console.log(user.uid + " signed in!");
       dispatch(setSignedIn());
+      dispatch(setUserId(user.uid));
     } else {
       // User is signed out
       console.log("Signed out!");
       dispatch(setLoggedOut());
+      dispatch(removeUserId());
     }
   });
+};
+
+export const fetchDataFromFirestore = async (userId: string) => {
+  // Fetch your data based on the signed-in user's ID
+  // Return the data
+  console.log("reading data from cloud firestore");
+  const tabData = await getDoc(doc(db, "tabGroupData", userId));
+  if (!tabData.exists()) {
+    console.error("No document found for userId: " + userId);
+  }
+  return tabData.data();
 };

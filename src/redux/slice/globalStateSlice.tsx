@@ -1,12 +1,17 @@
 import { PayloadAction, createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import { RootState } from "../store";
 import { selectCategory } from "./settingsCategoryStateSlice";
-import { auth, db } from "../../config/firebase";
+import { auth, db, fetchDataFromFirestore } from "../../config/firebase";
 import { doc, setDoc } from "firebase/firestore";
-import { saveToLocalStorage } from "../../utils/helperFunctions";
+import {
+  convertDataToTabContainer,
+  saveToLocalStorage,
+} from "../../utils/helperFunctions";
+import { replaceState, tabContainerData } from "./tabContainerDataStateSlice";
 
 export interface Global {
   isSignedIn: boolean;
+  userId: string | null;
   isDirty: boolean;
   isSettingsPage: boolean;
   syncStatus: "idle" | "loading" | "success" | "error";
@@ -16,6 +21,7 @@ export interface Global {
 
 export const initialState: Global = {
   isSignedIn: false,
+  userId: null,
   isDirty: false,
   isSettingsPage: false,
   syncStatus: "idle",
@@ -39,6 +45,7 @@ export const syncWithThunk = createAsyncThunk(
 
         // Save to localStorage after successful Firestore update
         saveToLocalStorage("tabContainerData", state.tabContainerDataState);
+        console.log("Saved to localStorage after successful Firestore update!");
 
         thunkAPI.dispatch(setIsNotDirty());
 
@@ -48,6 +55,25 @@ export const syncWithThunk = createAsyncThunk(
         throw error;
       }
     }
+  }
+);
+
+// load data from Firestore
+export const loadStateFromFirestore = createAsyncThunk(
+  "globalState/loadStateFromFirestore",
+  async (userId: string, thunkAPI) => {
+    const rawData = await fetchDataFromFirestore(userId);
+    console.log("rawData:");
+    console.log(rawData);
+
+    const formattedData: tabContainerData[] =
+      convertDataToTabContainer(rawData);
+
+    console.log("formattedData:");
+    console.log(formattedData);
+
+    thunkAPI.dispatch(replaceState(formattedData));
+    thunkAPI.dispatch(setIsNotDirty());
   }
 );
 
@@ -113,6 +139,15 @@ export const globalStateSlice = createSlice({
 
     setLoggedOut: (state) => {
       state.isSignedIn = false;
+      state.syncStatus = "idle";
+    },
+
+    setUserId: (state, action: PayloadAction<string>) => {
+      state.userId = action.payload;
+    },
+
+    removeUserId: (state) => {
+      state.userId = null;
     },
 
     replaceState: (state, action: PayloadAction<typeof state>) =>
@@ -130,9 +165,6 @@ export const globalStateSlice = createSlice({
         } else {
           state.syncStatus = "error";
         }
-        // Handle data returned from the thunk
-        // state.value = action.payload.value;
-        // console.log(action);
       })
       .addCase(syncWithThunk.rejected, (state) => {
         state.syncStatus = "error";
@@ -142,6 +174,14 @@ export const globalStateSlice = createSlice({
       })
       .addCase(showToast.fulfilled, (_) => {
         // console.log(state);
+      })
+      .addCase(loadStateFromFirestore.fulfilled, (state) => {
+        console.log("load from firestore fulfilled:");
+        if (state.isSignedIn && !state.isDirty) {
+          state.syncStatus = "success";
+        } else {
+          state.syncStatus = "error";
+        }
       });
   },
 });
@@ -155,6 +195,8 @@ export const {
   setIsNotDirty,
   setSignedIn,
   setLoggedOut,
+  setUserId,
+  removeUserId,
 } = globalStateSlice.actions;
 
 export default globalStateSlice.reducer;

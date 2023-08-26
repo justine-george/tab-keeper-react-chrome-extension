@@ -114,19 +114,6 @@ const SettingsDetailsContainer: React.FC<
         </div>
       </div>
     );
-  } else if (settingsCategoryName === "Credits") {
-    settingsOptionsDiv = (
-      <div
-        css={css`
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          margin-top: 40px;
-        `}
-      >
-        <NormalLabel value={settingsData.footerText} />
-      </div>
-    );
   } else if (settingsCategoryName === "Account") {
     settingsOptionsDiv = (
       <div
@@ -138,6 +125,32 @@ const SettingsDetailsContainer: React.FC<
         `}
       >
         <Account />
+      </div>
+    );
+  } else if (settingsCategoryName === "Credits") {
+    settingsOptionsDiv = (
+      <div
+        css={css`
+          display: flex;
+          height: 100%;
+          flex-direction: column;
+          justify-content: flex-start;
+          align-items: center;
+          margin-top: 40px;
+        `}
+      >
+        <NormalLabel
+          color={COLORS.LABEL_L1_COLOR}
+          value={settingsData.footerText}
+        />
+        <NormalLabel
+          onClick={() =>
+            (window.location.href = "mailto:justinegeo96@gmail.com")
+          }
+          size="0.9rem"
+          style={`margin-top: 20px; cursor: pointer; padding: 20px;`}
+          value={"Share Your Thoughts"}
+        />
       </div>
     );
   }

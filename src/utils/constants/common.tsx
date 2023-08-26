@@ -12,4 +12,4 @@ export const APP_WIDTH = "790px";
 export const STACK_LEVEL = 10;
 
 // debounce window
-export const DEBOUNCE_TIME_WINDOW = 2000;
+export const DEBOUNCE_TIME_WINDOW = 500;

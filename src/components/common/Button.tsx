@@ -46,7 +46,7 @@ const Button: React.FC<ButtonProps> = ({
           <Icon
             type={iconType}
             disable={true}
-            focusable={false}
+            focusable={true}
             style="padding-right: 8px;"
           />
         )}

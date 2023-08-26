@@ -282,6 +282,7 @@ export const {
   deleteTab,
   openAllTabContainer,
   openTabsInAWindow,
+  replaceState,
 } = tabContainerDataStateSlice.actions;
 
 export default tabContainerDataStateSlice.reducer;
