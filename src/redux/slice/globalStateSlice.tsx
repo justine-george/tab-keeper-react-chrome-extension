@@ -5,9 +5,11 @@ import { auth, db, fetchDataFromFirestore } from "../../config/firebase";
 import { doc, setDoc } from "firebase/firestore";
 import {
   convertDataToTabContainer,
+  loadFromLocalStorage,
   saveToLocalStorage,
 } from "../../utils/helperFunctions";
 import { replaceState, tabContainerData } from "./tabContainerDataStateSlice";
+import { setPresentStartup } from "./undoRedoSlice";
 
 export interface Global {
   isSignedIn: boolean;
@@ -17,6 +19,9 @@ export interface Global {
   syncStatus: "idle" | "loading" | "success" | "error";
   isToastOpen: boolean;
   toastText: string;
+  isConflictModalOpen: boolean;
+  tabDataLocal: tabContainerData[] | null;
+  tabDataCloud: tabContainerData[] | null;
 }
 
 export const initialState: Global = {
@@ -27,13 +32,16 @@ export const initialState: Global = {
   syncStatus: "idle",
   isToastOpen: false,
   toastText: "",
+  isConflictModalOpen: false,
+  tabDataLocal: null,
+  tabDataCloud: null,
 };
 
 export const syncWithThunk = createAsyncThunk(
   "global/syncWithThunk",
   async (_, thunkAPI) => {
     const state = thunkAPI.getState() as RootState;
-
+    console.log("sync with thunk");
     if (!state.globalState.isSignedIn) {
       thunkAPI.dispatch(openSettingsPage("Account"));
     } else if (state.globalState.isDirty) {
@@ -63,17 +71,73 @@ export const loadStateFromFirestore = createAsyncThunk(
   "globalState/loadStateFromFirestore",
   async (userId: string, thunkAPI) => {
     const rawData = await fetchDataFromFirestore(userId);
-    console.log("rawData:");
-    console.log(rawData);
 
-    const formattedData: tabContainerData[] =
+    const formattedDBData: tabContainerData[] =
       convertDataToTabContainer(rawData);
 
-    console.log("formattedData:");
-    console.log(formattedData);
+    // compare localstorage data and cloud db data
+    const tabDataFromLocalStorage: tabContainerData[] =
+      loadFromLocalStorage("tabContainerData");
+    console.log("local:");
+    console.log(tabDataFromLocalStorage);
+    console.log("cloud:");
+    console.log(formattedDBData);
+    console.log(
+      JSON.stringify(tabDataFromLocalStorage) !==
+        JSON.stringify(formattedDBData)
+    );
+    if (
+      JSON.stringify(tabDataFromLocalStorage) !==
+      JSON.stringify(formattedDBData)
+    ) {
+      if (tabDataFromLocalStorage.length > 0 || formattedDBData.length > 0) {
+        // if both have some value present, conflict
+        if (tabDataFromLocalStorage.length > 0 && formattedDBData.length > 0) {
+          console.log("2 non-empty");
+          thunkAPI.dispatch(
+            openConflictModal({
+              tabDataLocal: tabDataFromLocalStorage,
+              tabDataCloud: formattedDBData,
+            })
+          );
+        } else if (tabDataFromLocalStorage.length > 0) {
+          console.log("local non-empty");
+          // local storage has tabData
+          // save back to firestore
+          thunkAPI.dispatch(replaceState(tabDataFromLocalStorage));
+          thunkAPI.dispatch(setIsDirty());
+          thunkAPI.dispatch(syncWithThunk());
+          // reset presentState in the undoRedoState
+          thunkAPI.dispatch(
+            setPresentStartup({
+              tabContainerDataState: tabDataFromLocalStorage,
+            })
+          );
+        } else {
+          console.log("cloud non-empty");
+          // cloud db has tabData
+          thunkAPI.dispatch(replaceState(formattedDBData));
+          thunkAPI.dispatch(setIsNotDirty());
+          // reset presentState in the undoRedoState
+          thunkAPI.dispatch(
+            setPresentStartup({
+              tabContainerDataState: tabDataFromLocalStorage,
+            })
+          );
+        }
+      } else {
+        // both are empty
+      }
+    } else {
+      // proceed as normal
+      thunkAPI.dispatch(replaceState(formattedDBData));
+      thunkAPI.dispatch(setIsNotDirty());
 
-    thunkAPI.dispatch(replaceState(formattedData));
-    thunkAPI.dispatch(setIsNotDirty());
+      // reset presentState in the undoRedoState
+      thunkAPI.dispatch(
+        setPresentStartup({ tabContainerDataState: formattedDBData })
+      );
+    }
   }
 );
 
@@ -104,10 +168,25 @@ export const showToast = createAsyncThunk(
   }
 );
 
+interface ConflictModalPayload {
+  tabDataLocal: tabContainerData[];
+  tabDataCloud: tabContainerData[];
+}
+
 export const globalStateSlice = createSlice({
   name: "globalState",
   initialState,
   reducers: {
+    openConflictModal: (state, action: PayloadAction<ConflictModalPayload>) => {
+      state.tabDataLocal = action.payload.tabDataLocal;
+      state.tabDataCloud = action.payload.tabDataCloud;
+      state.isConflictModalOpen = true;
+    },
+
+    closeConflictModal: (state) => {
+      state.isConflictModalOpen = false;
+    },
+
     openToast: (state) => {
       state.isToastOpen = true;
     },
@@ -187,6 +266,8 @@ export const globalStateSlice = createSlice({
 });
 
 export const {
+  openConflictModal,
+  closeConflictModal,
   openToast,
   closeToast,
   setToastText,

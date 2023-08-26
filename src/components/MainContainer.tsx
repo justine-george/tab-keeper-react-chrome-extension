@@ -8,6 +8,7 @@ import RightPaneSettings from "./settings/RightPaneSettings";
 import { useThemeColors } from "./hook/useThemeColors";
 import { APP_HEIGHT } from "../utils/constants/common";
 import { Toast } from "./common/Toast";
+import { ConflictModal } from "./common/ConflictModal";
 
 export default function MainContainer() {
   const COLORS = useThemeColors();
@@ -18,6 +19,10 @@ export default function MainContainer() {
 
   const isSettingsPage = useSelector(
     (state: RootState) => state.globalState.isSettingsPage
+  );
+
+  const isConflictModalOpen = useSelector(
+    (state: RootState) => state.globalState.isConflictModalOpen
   );
 
   const containerStyle = css`
@@ -78,6 +83,7 @@ export default function MainContainer() {
         </div>
       )}
       {isToastOpen && <Toast />}
+      {isConflictModalOpen && <ConflictModal />}
     </div>
   );
 }

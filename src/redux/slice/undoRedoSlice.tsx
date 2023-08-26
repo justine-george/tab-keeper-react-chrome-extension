@@ -43,10 +43,13 @@ export const undoRedoSlice = createSlice({
         state.present = state.future.shift()!;
       }
     },
+    setPresentStartup: (state, action: PayloadAction<UndoableStates>) => {
+      state.present = action.payload;
+    },
   },
 });
 
-export const { set, undo, redo } = undoRedoSlice.actions;
+export const { set, undo, redo, setPresentStartup } = undoRedoSlice.actions;
 
 // selectors
 export const isUndoableSelector = (state: RootState) =>

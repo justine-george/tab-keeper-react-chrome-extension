@@ -4,7 +4,6 @@ import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "../../redux/store";
 import { NormalLabel } from "../common/Label";
 import {
-  toggleAutoSave,
   toggleAutoSync,
   toggleDarkMode,
 } from "../../redux/slice/settingsDataStateSlice";
@@ -91,21 +90,6 @@ const SettingsDetailsContainer: React.FC<
           <Button
             text={settingsData.isAutoSync ? `On` : `Off`}
             onClick={() => dispatch(toggleAutoSync())}
-            style={`
-              margin-left: 16px;
-              width: 120px;
-            `}
-          />
-        </div>
-        <div css={settingsItemStyle}>
-          <NormalLabel
-            value="Auto Save"
-            size="1rem"
-            color={COLORS.LABEL_L1_COLOR}
-          />
-          <Button
-            text={settingsData.isAutoSave ? `On` : `Off`}
-            onClick={() => dispatch(toggleAutoSave())}
             style={`
               margin-left: 16px;
               width: 120px;

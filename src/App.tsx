@@ -11,6 +11,7 @@ import { loadFromLocalStorage } from "./utils/helperFunctions";
 
 import { replaceState } from "./redux/slice/tabContainerDataStateSlice";
 import { loadStateFromFirestore } from "./redux/slice/globalStateSlice";
+import { setPresentStartup } from "./redux/slice/undoRedoSlice";
 
 function App() {
   const COLORS = useThemeColors();
@@ -25,12 +26,18 @@ function App() {
 
     // if signed in, fetch data from Firestore
     if (isSignedIn && userId) {
+      console.log("fire off loadStateFromFirestore");
       dispatch(loadStateFromFirestore(userId));
     } else {
       // load from local storage
       const tabDataFromLocalStorage = loadFromLocalStorage("tabContainerData");
       if (tabDataFromLocalStorage) {
         dispatch(replaceState(tabDataFromLocalStorage));
+
+        // reset presentState in the undoRedoState
+        dispatch(
+          setPresentStartup({ tabContainerDataState: tabDataFromLocalStorage })
+        );
       }
     }
   }, [dispatch, isSignedIn, userId]);

@@ -13,7 +13,11 @@ import { NormalLabel } from "../common/Label";
 import { useThemeColors } from "../hook/useThemeColors";
 import TextBox from "../common/TextBox";
 import { useState } from "react";
-import { displayToast, isValidEmail, isValidPassword } from "../../utils/helperFunctions";
+import {
+  displayToast,
+  isValidEmail,
+  isValidPassword,
+} from "../../utils/helperFunctions";
 
 export const Account = () => {
   const [email, setEmail] = useState<string>("");
@@ -25,9 +29,6 @@ export const Account = () => {
   );
 
   const dispatch: AppDispatch = useDispatch();
-
-  console.log("Auth var:");
-  console.log(auth);
 
   const createUserEmailPassword = async () => {
     try {

@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "version": "0.1.0",
+  "version": "1.0.0",
   "name": "TabKeeper - Tab Manager Extension",
   "description": "TabKeeper allows you to save and manage your tabs in a organized way.",
   "action": {

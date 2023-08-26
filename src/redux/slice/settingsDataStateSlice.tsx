@@ -3,14 +3,12 @@ import { PayloadAction, createSlice } from "@reduxjs/toolkit";
 export interface SettingsData {
   isDarkMode: boolean;
   isAutoSync: boolean;
-  isAutoSave: boolean;
   footerText: string;
 }
 
 export const initialState: SettingsData = {
   isDarkMode: false,
   isAutoSync: true,
-  isAutoSave: true,
   footerText: "Made by Justine George.",
 };
 
@@ -26,16 +24,12 @@ export const settingsDataStateSlice = createSlice({
       state.isAutoSync = !state.isAutoSync;
     },
 
-    toggleAutoSave: (state) => {
-      state.isAutoSave = !state.isAutoSave;
-    },
-
     replaceState: (state, action: PayloadAction<typeof state>) =>
       action.payload,
   },
 });
 
-export const { toggleDarkMode, toggleAutoSync, toggleAutoSave } =
+export const { toggleDarkMode, toggleAutoSync } =
   settingsDataStateSlice.actions;
 
 export default settingsDataStateSlice.reducer;

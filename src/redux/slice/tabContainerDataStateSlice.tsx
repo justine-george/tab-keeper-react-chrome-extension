@@ -2,7 +2,6 @@ import { PayloadAction, createSlice } from "@reduxjs/toolkit";
 import { v4 as uuidv4 } from "uuid";
 import {
   getCurrentDateString,
-  isLotteryWon,
   saveToLocalStorage,
 } from "../../utils/helperFunctions";
 
@@ -69,7 +68,7 @@ export const tabContainerDataStateSlice = createSlice({
         createdTime: getCurrentDateString(),
         windowCount: 2, // keep track of this count while adding/removing
         tabCount: 7, // keep track of this count while adding/removing
-        isAutoSave: isLotteryWon(),
+        isAutoSave: false, // not gonna happen
         isSelected: true,
         windows: [
           {
