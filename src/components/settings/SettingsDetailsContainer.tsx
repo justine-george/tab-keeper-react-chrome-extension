@@ -10,6 +10,11 @@ import {
 import Button from "../common/Button";
 import { useThemeColors } from "../hook/useThemeColors";
 import { Account } from "./Account";
+import {
+  APP_VERSION,
+  DEV_EMAIL,
+  FEEDBACK_MAIL_SUBJECT,
+} from "../../utils/constants/common";
 
 const SettingsDetailsContainer: React.FC<
   SettingsDetailsContainerProps
@@ -128,11 +133,16 @@ const SettingsDetailsContainer: React.FC<
           value={settingsData.footerText}
         />
         <NormalLabel
+          color={COLORS.LABEL_L3_COLOR}
+          value={`v${APP_VERSION}`}
+          style={`margin-top: 60px;`}
+        />
+        <NormalLabel
           onClick={() =>
-            (window.location.href = "mailto:justinegeo96@gmail.com")
+            (window.location.href = `mailto:${DEV_EMAIL}?subject=${FEEDBACK_MAIL_SUBJECT}`)
           }
           size="0.9rem"
-          style={`margin-top: 20px; cursor: pointer; padding: 20px;`}
+          style={`margin-top: 10px; cursor: pointer; padding: 10px;`}
           value={"Share Your Thoughts"}
         />
       </div>

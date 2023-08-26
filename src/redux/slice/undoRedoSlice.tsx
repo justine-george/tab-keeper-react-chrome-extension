@@ -1,8 +1,14 @@
 import { PayloadAction, createSlice } from "@reduxjs/toolkit";
-import { UndoableStates } from "../../utils/types";
-import { initialState as tabContainerDataInitialState } from "./tabContainerDataStateSlice";
+import {
+  TabMasterContainer,
+  initialState as tabContainerDataInitialState,
+} from "./tabContainerDataStateSlice";
 import { RootState } from "../store";
 import { STACK_LEVEL } from "../../utils/constants/common";
+
+export interface UndoableStates {
+  tabContainerDataState: TabMasterContainer;
+}
 
 export interface undoRedoState {
   past: UndoableStates[];

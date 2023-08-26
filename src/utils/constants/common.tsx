@@ -13,3 +13,12 @@ export const STACK_LEVEL = 10;
 
 // debounce window
 export const DEBOUNCE_TIME_WINDOW = 500;
+
+// version
+export const APP_VERSION = "1.0.0";
+
+// developer email
+export const DEV_EMAIL = "justinegeo96@gmail.com";
+
+// feedback mail subject
+export const FEEDBACK_MAIL_SUBJECT = `Feedback: Tab Keeper v${APP_VERSION}`;

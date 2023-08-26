@@ -20,7 +20,7 @@ export default function HeroContainerRight() {
   );
 
   // assumption is there is only one selected tabGroup
-  const selectedTabGroup = tabContainerDataList.filter(
+  const selectedTabGroup = tabContainerDataList.tabGroups.filter(
     (tabGroup) => tabGroup.isSelected
   )[0];
 

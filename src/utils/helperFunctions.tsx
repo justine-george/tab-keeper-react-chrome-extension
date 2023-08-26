@@ -1,20 +1,18 @@
 import { showToast } from "../redux/slice/globalStateSlice";
-import { tabContainerData } from "../redux/slice/tabContainerDataStateSlice";
 import { AppDispatch } from "../redux/store";
 
 export function isEmptyObject(obj: any): boolean {
   return typeof obj === "object" && Object.keys(obj).length === 0;
 }
 
-export function getCurrentDateString(): string {
-  const now = new Date();
-  const year = now.getFullYear();
+export function getStringDate(inputDate: Date): string {
+  const year = inputDate.getFullYear();
   // Month is 0-indexed, so +1
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  const hour = String(now.getHours()).padStart(2, "0");
-  const minute = String(now.getMinutes()).padStart(2, "0");
-  const second = String(now.getSeconds()).padStart(2, "0");
+  const month = String(inputDate.getMonth() + 1).padStart(2, "0");
+  const day = String(inputDate.getDate()).padStart(2, "0");
+  const hour = String(inputDate.getHours()).padStart(2, "0");
+  const minute = String(inputDate.getMinutes()).padStart(2, "0");
+  const second = String(inputDate.getSeconds()).padStart(2, "0");
 
   return `${year}-${month}-${day} ${hour}:${minute}:${second}`;
 }
@@ -89,38 +87,4 @@ export const loadFromLocalStorage = (key: string) => {
     console.warn("Error loading state from localStorage:", e);
     return undefined;
   }
-};
-
-// convert firebase data to tabContainer format
-export const convertDataToTabContainer = (data: any): tabContainerData[] => {
-  const result: tabContainerData[] = [];
-
-  for (const key in data) {
-    const item = data[key];
-
-    const newTabContainer: tabContainerData = {
-      tabGroupId: item.tabGroupId,
-      title: item.title,
-      createdTime: item.createdTime,
-      windowCount: item.windowCount,
-      tabCount: item.tabCount,
-      isAutoSave: item.isAutoSave,
-      isSelected: item.isSelected,
-      windows: item.windows.map((window: any) => ({
-        windowId: window.windowId,
-        tabCount: window.tabCount,
-        title: window.title,
-        tabs: window.tabs.map((tab: any) => ({
-          tabId: tab.tabId,
-          favicon: tab.favicon,
-          title: tab.title,
-          url: tab.url,
-        })),
-      })),
-    };
-
-    result.push(newTabContainer);
-  }
-
-  return result;
 };

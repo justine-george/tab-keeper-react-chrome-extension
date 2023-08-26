@@ -20,7 +20,7 @@ export default function TabGroupDetailsContainer() {
   );
 
   // assumption is there is, at max, one selected tabGroup
-  const selectedTabGroup = tabContainerDataList.filter(
+  const selectedTabGroup = tabContainerDataList.tabGroups.filter(
     (tabGroup) => tabGroup.isSelected
   )[0];
 

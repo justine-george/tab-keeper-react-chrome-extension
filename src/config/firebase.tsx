@@ -8,6 +8,7 @@ import {
   setUserId,
 } from "../redux/slice/globalStateSlice";
 import { AppDispatch } from "../redux/store";
+import { TabMasterContainer } from "../redux/slice/tabContainerDataStateSlice";
 // https://firebase.google.com/docs/web/setup#available-libraries
 
 // Firebase configuration
@@ -45,13 +46,18 @@ export const observeAuthState = (dispatch: AppDispatch) => {
   });
 };
 
-export const fetchDataFromFirestore = async (userId: string) => {
+export const fetchDataFromFirestore = async (
+  userId: string
+): Promise<TabMasterContainer> => {
   // Fetch your data based on the signed-in user's ID
-  // Return the data
-  console.log("reading data from cloud firestore");
   const tabData = await getDoc(doc(db, "tabGroupData", userId));
   if (!tabData.exists()) {
     console.error("No document found for userId: " + userId);
+    throw new Error("Document does not exist for userId: " + userId);
+  } else {
+    return {
+      lastModified: tabData.data().lastModified,
+      tabGroups: tabData.data().tabGroups,
+    };
   }
-  return tabData.data();
 };

@@ -26,7 +26,6 @@ function App() {
 
     // if signed in, fetch data from Firestore
     if (isSignedIn && userId) {
-      console.log("fire off loadStateFromFirestore");
       dispatch(loadStateFromFirestore(userId));
     } else {
       // load from local storage

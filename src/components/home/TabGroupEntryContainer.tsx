@@ -44,13 +44,13 @@ export default function TabGroupEntryContainer() {
 
   return (
     <div css={containerStyle}>
-      {tabContainerDataList.length === 0 ? (
+      {tabContainerDataList.tabGroups.length === 0 ? (
         <div css={emptyContainerStyle}>
           <NormalLabel value="Empty" />
         </div>
       ) : (
         <div css={filledContainerStyle}>
-          {tabContainerDataList.map((tabGroupData, index) => {
+          {tabContainerDataList.tabGroups.map((tabGroupData, index) => {
             return (
               <div
               // key={tabGroupData.tabGroupId}
@@ -68,7 +68,9 @@ export default function TabGroupEntryContainer() {
                   }
                 />
                 {/* <Divider /> */}
-                {index != tabContainerDataList.length - 1 && <Divider />}
+                {index != tabContainerDataList.tabGroups.length - 1 && (
+                  <Divider />
+                )}
               </div>
             );
           })}

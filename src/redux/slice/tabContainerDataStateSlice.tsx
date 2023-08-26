@@ -1,9 +1,6 @@
 import { PayloadAction, createSlice } from "@reduxjs/toolkit";
 import { v4 as uuidv4 } from "uuid";
-import {
-  getCurrentDateString,
-  saveToLocalStorage,
-} from "../../utils/helperFunctions";
+import { getStringDate, saveToLocalStorage } from "../../utils/helperFunctions";
 
 export interface tabData {
   tabId: string; // TODO: use ULID, 48bit timestamp + 80 bits random data: 128bit key
@@ -46,7 +43,18 @@ export interface openWindowParams {
   windowId: string;
 }
 
-export const initialState: tabContainerData[] = [];
+export interface TabMasterContainer {
+  // metadata
+  lastModified: number;
+
+  // data
+  tabGroups: tabContainerData[];
+}
+
+export const initialState: TabMasterContainer = {
+  lastModified: Date.now(), // timestamp
+  tabGroups: [],
+};
 
 export const tabContainerDataStateSlice = createSlice({
   name: "tabContainerDataState",
@@ -65,7 +73,7 @@ export const tabContainerDataStateSlice = createSlice({
         tabGroupId: newTabGroupId,
         // TODO: this should be current window -> current tab title
         title: title || "Youtube - Home",
-        createdTime: getCurrentDateString(),
+        createdTime: getStringDate(new Date()),
         windowCount: 2, // keep track of this count while adding/removing
         tabCount: 7, // keep track of this count while adding/removing
         isAutoSave: false, // not gonna happen
@@ -129,7 +137,8 @@ export const tabContainerDataStateSlice = createSlice({
           },
         ],
       };
-      state.unshift(dummyValue);
+      state.tabGroups.unshift(dummyValue);
+      state.lastModified = Date.now();
 
       // update localstorage
       saveToLocalStorage("tabContainerData", state);
@@ -143,7 +152,7 @@ export const tabContainerDataStateSlice = createSlice({
     // select tab group by tabGroupId
     selectTabContainer: (state, action: PayloadAction<string>) => {
       const selectedTabGroupId = action.payload;
-      state.forEach((tabGroup) => {
+      state.tabGroups.forEach((tabGroup) => {
         if (tabGroup.tabGroupId === selectedTabGroupId) {
           tabGroup.isSelected = true;
         } else {
@@ -159,12 +168,13 @@ export const tabContainerDataStateSlice = createSlice({
     deleteTabContainer: (state, action: PayloadAction<string>) => {
       const toBeDeletedTabGroupId = action.payload;
       // find the index and delete when id is a match with toBeDeletedId
-      const tabGroupIndex = state.findIndex(
+      const tabGroupIndex = state.tabGroups.findIndex(
         (tabGroup) => tabGroup.tabGroupId === toBeDeletedTabGroupId
       );
       if (tabGroupIndex !== -1) {
-        state.splice(tabGroupIndex, 1);
+        state.tabGroups.splice(tabGroupIndex, 1);
       }
+      state.lastModified = Date.now();
 
       // update localstorage
       saveToLocalStorage("tabContainerData", state);
@@ -173,30 +183,32 @@ export const tabContainerDataStateSlice = createSlice({
     // delete window by (tabGroupId, windowId)
     deleteWindow: (state, action: PayloadAction<deleteWindowParams>) => {
       const { tabGroupId, windowId } = action.payload;
-      const tabGroupIndex = state.findIndex(
+      const tabGroupIndex = state.tabGroups.findIndex(
         (tabGroup) => tabGroup.tabGroupId === tabGroupId
       );
       if (tabGroupIndex !== -1) {
-        const windowIndex = state[tabGroupIndex].windows.findIndex(
+        const windowIndex = state.tabGroups[tabGroupIndex].windows.findIndex(
           (window) => window.windowId === windowId
         );
         if (windowIndex !== -1) {
           // decrement tabGroup's window count by 1
-          state[tabGroupIndex].windowCount -= 1;
+          state.tabGroups[tabGroupIndex].windowCount -= 1;
           // decrement tabGroup's tab count by tab count of the window that's been deleted
-          state[tabGroupIndex].tabCount -=
-            state[tabGroupIndex].windows[windowIndex].tabCount;
+          state.tabGroups[tabGroupIndex].tabCount -=
+            state.tabGroups[tabGroupIndex].windows[windowIndex].tabCount;
 
-          state[tabGroupIndex].windows.splice(windowIndex, 1);
+          state.tabGroups[tabGroupIndex].windows.splice(windowIndex, 1);
         }
         // if this was the last window in the tabGroup, delete this tabGroup
-        if (state[tabGroupIndex].windowCount === 0) {
-          state.splice(tabGroupIndex, 1);
+        if (state.tabGroups[tabGroupIndex].windowCount === 0) {
+          state.tabGroups.splice(tabGroupIndex, 1);
         } else {
           // update tabGroup title, use first window's title
-          state[tabGroupIndex].title = state[tabGroupIndex].windows[0].title;
+          state.tabGroups[tabGroupIndex].title =
+            state.tabGroups[tabGroupIndex].windows[0].title;
         }
       }
+      state.lastModified = Date.now();
 
       // update localstorage
       saveToLocalStorage("tabContainerData", state);
@@ -205,47 +217,54 @@ export const tabContainerDataStateSlice = createSlice({
     // delete tab by (tabGroupId, windowId, tabId)
     deleteTab: (state, action: PayloadAction<deleteTabParams>) => {
       const { tabGroupId, windowId, tabId } = action.payload;
-      const tabGroupIndex = state.findIndex(
+      const tabGroupIndex = state.tabGroups.findIndex(
         (tabGroup) => tabGroup.tabGroupId === tabGroupId
       );
       if (tabGroupIndex !== -1) {
-        const windowIndex = state[tabGroupIndex].windows.findIndex(
+        const windowIndex = state.tabGroups[tabGroupIndex].windows.findIndex(
           (window) => window.windowId === windowId
         );
         if (windowIndex !== -1) {
-          const tabIndex = state[tabGroupIndex].windows[
+          const tabIndex = state.tabGroups[tabGroupIndex].windows[
             windowIndex
           ].tabs.findIndex((tab) => tab.tabId === tabId);
           if (tabIndex !== -1) {
             // decrement window's and tabGroup's tab count by 1
-            state[tabGroupIndex].windows[windowIndex].tabCount -= 1;
-            state[tabGroupIndex].tabCount -= 1;
+            state.tabGroups[tabGroupIndex].windows[windowIndex].tabCount -= 1;
+            state.tabGroups[tabGroupIndex].tabCount -= 1;
 
-            state[tabGroupIndex].windows[windowIndex].tabs.splice(tabIndex, 1);
+            state.tabGroups[tabGroupIndex].windows[windowIndex].tabs.splice(
+              tabIndex,
+              1
+            );
           }
           // if this was the last tab in the window, delete this window
-          if (state[tabGroupIndex].windows[windowIndex].tabCount === 0) {
+          if (
+            state.tabGroups[tabGroupIndex].windows[windowIndex].tabCount === 0
+          ) {
             // decrement tabGroup's window count by 1
-            state[tabGroupIndex].windowCount -= 1;
+            state.tabGroups[tabGroupIndex].windowCount -= 1;
             // decrement tabGroup's tab count by tab count of the window that's been deleted
-            state[tabGroupIndex].tabCount -=
-              state[tabGroupIndex].windows[windowIndex].tabCount;
+            state.tabGroups[tabGroupIndex].tabCount -=
+              state.tabGroups[tabGroupIndex].windows[windowIndex].tabCount;
 
-            state[tabGroupIndex].windows.splice(windowIndex, 1);
+            state.tabGroups[tabGroupIndex].windows.splice(windowIndex, 1);
           } else {
             // update window title, use first tab's title
-            state[tabGroupIndex].windows[windowIndex].title =
-              state[tabGroupIndex].windows[windowIndex].tabs[0].title;
+            state.tabGroups[tabGroupIndex].windows[windowIndex].title =
+              state.tabGroups[tabGroupIndex].windows[windowIndex].tabs[0].title;
           }
         }
         // if this was the last window in the tabGroup, delete this tabGroup
-        if (state[tabGroupIndex].windowCount === 0) {
-          state.splice(tabGroupIndex, 1);
+        if (state.tabGroups[tabGroupIndex].windowCount === 0) {
+          state.tabGroups.splice(tabGroupIndex, 1);
         } else {
           // update tabGroup's title, use first window's title
-          state[tabGroupIndex].title = state[tabGroupIndex].windows[0].title;
+          state.tabGroups[tabGroupIndex].title =
+            state.tabGroups[tabGroupIndex].windows[0].title;
         }
       }
+      state.lastModified = Date.now();
 
       // update localstorage
       saveToLocalStorage("tabContainerData", state);

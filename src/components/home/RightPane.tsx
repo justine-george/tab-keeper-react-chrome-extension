@@ -11,7 +11,8 @@ export default function RightPane() {
 
   // to identify whether no tab groups are selected
   const isNoneSelected =
-    tabContainerDataList.filter((tabGroup) => tabGroup.isSelected).length === 0;
+    tabContainerDataList.tabGroups.filter((tabGroup) => tabGroup.isSelected)
+      .length === 0;
 
   const containerStyle = css`
     display: flex;
