@@ -62,7 +62,7 @@ export const syncWithThunk = createAsyncThunk(
         throw error;
       }
     }
-  }
+  },
 );
 
 // load data from Firestore
@@ -70,9 +70,8 @@ export const loadStateFromFirestore = createAsyncThunk(
   "globalState/loadStateFromFirestore",
   async (userId: string, thunkAPI) => {
     try {
-      const tabDataFromCloud: TabMasterContainer = await fetchDataFromFirestore(
-        userId
-      );
+      const tabDataFromCloud: TabMasterContainer =
+        await fetchDataFromFirestore(userId);
 
       const tabDataFromLocalStorage: TabMasterContainer =
         loadFromLocalStorage("tabContainerData");
@@ -95,7 +94,7 @@ export const loadStateFromFirestore = createAsyncThunk(
               openConflictModal({
                 tabDataLocal: tabDataFromLocalStorage,
                 tabDataCloud: tabDataFromCloud,
-              })
+              }),
             );
           } else if (tabDataFromLocalStorage.tabGroups.length > 0) {
             console.log("local non-empty");
@@ -108,7 +107,7 @@ export const loadStateFromFirestore = createAsyncThunk(
             thunkAPI.dispatch(
               setPresentStartup({
                 tabContainerDataState: tabDataFromLocalStorage,
-              })
+              }),
             );
           } else {
             console.log("cloud non-empty");
@@ -119,7 +118,7 @@ export const loadStateFromFirestore = createAsyncThunk(
             thunkAPI.dispatch(
               setPresentStartup({
                 tabContainerDataState: tabDataFromLocalStorage,
-              })
+              }),
             );
           }
         } else {
@@ -132,7 +131,7 @@ export const loadStateFromFirestore = createAsyncThunk(
 
         // reset presentState in the undoRedoState
         thunkAPI.dispatch(
-          setPresentStartup({ tabContainerDataState: tabDataFromCloud })
+          setPresentStartup({ tabContainerDataState: tabDataFromCloud }),
         );
       }
     } catch (error: any) {
@@ -141,14 +140,14 @@ export const loadStateFromFirestore = createAsyncThunk(
         thunkAPI.dispatch(syncWithThunk());
       }
     }
-  }
+  },
 );
 
 export const openSettingsPage = createAsyncThunk(
   "global/openSettingsPage",
   async (settingsName: string | undefined, thunkAPI) => {
     if (settingsName) thunkAPI.dispatch(selectCategory(settingsName));
-  }
+  },
 );
 
 interface ShowToastPayload {
@@ -168,7 +167,7 @@ export const showToast = createAsyncThunk(
         thunkAPI.dispatch(closeToast());
       }, duration);
     }
-  }
+  },
 );
 
 interface ConflictModalPayload {

@@ -15,7 +15,7 @@ import {
 
 export default function MenuContainer() {
   const syncStatus = useSelector(
-    (state: RootState) => state.globalState.syncStatus
+    (state: RootState) => state.globalState.syncStatus,
   );
 
   const dispatch: AppDispatch = useDispatch();

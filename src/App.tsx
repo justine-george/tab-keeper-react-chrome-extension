@@ -16,12 +16,12 @@ function App() {
   const COLORS = useThemeColors();
   const dispatch: AppDispatch = useDispatch();
   const isSignedIn = useSelector(
-    (state: RootState) => state.globalState.isSignedIn
+    (state: RootState) => state.globalState.isSignedIn,
   );
   const userId = useSelector((state: RootState) => state.globalState.userId);
 
   useEffect(() => {
-    observeAuthState(dispatch);
+      observeAuthState(dispatch);
 
     // if signed in, fetch data from Firestore
     if (isSignedIn && userId) {
@@ -34,7 +34,7 @@ function App() {
 
         // reset presentState in the undoRedoState
         dispatch(
-          setPresentStartup({ tabContainerDataState: tabDataFromLocalStorage })
+          setPresentStartup({ tabContainerDataState: tabDataFromLocalStorage }),
         );
       }
     }

@@ -60,14 +60,14 @@ export const displayToast = (
   dispatch: AppDispatch,
   text: string,
   duration?: number,
-  error?: any
+  error?: any,
 ) => {
   const displayText = error ? error.message || "An error occurred." : text;
   dispatch(
     showToast({
       toastText: displayText,
       duration: duration || 3000,
-    })
+    }),
   );
 };
 

@@ -39,7 +39,7 @@ const isUndoRedoAction = (type: string) =>
 const isDataStateChangeAction = (
   type: string,
   prevState: any,
-  nextState: any
+  nextState: any,
 ) => {
   const actionsToIgnoreForSet = [
     SET_ACTION,

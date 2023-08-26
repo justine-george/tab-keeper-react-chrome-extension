@@ -17,7 +17,7 @@ export default function TabGroupEntryContainer() {
   const dispatch = useDispatch();
 
   const tabContainerDataList = useSelector(
-    (state: RootState) => state.tabContainerDataState
+    (state: RootState) => state.tabContainerDataState,
   );
 
   const containerStyle = css`

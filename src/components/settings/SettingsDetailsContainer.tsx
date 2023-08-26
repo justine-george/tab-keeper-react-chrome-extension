@@ -25,11 +25,11 @@ const SettingsDetailsContainer: React.FC = () => {
   const dispatch: AppDispatch = useDispatch();
 
   const settingsCategoryList = useSelector(
-    (state: RootState) => state.settingsCategoryState
+    (state: RootState) => state.settingsCategoryState,
   );
 
   const settingsData = useSelector(
-    (state: RootState) => state.settingsDataState
+    (state: RootState) => state.settingsDataState,
   );
 
   const containerStyle = css`
@@ -52,7 +52,7 @@ const SettingsDetailsContainer: React.FC = () => {
   `;
 
   const settingsCategoryName: string = settingsCategoryList.filter(
-    (settings) => settings.isSelected
+    (settings) => settings.isSelected,
   )[0].name;
 
   const handleToggleAutoSync = () => {

@@ -11,10 +11,10 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
   const COLORS = useThemeColors();
 
   const toastText = useSelector(
-    (state: RootState) => state.globalState.toastText
+    (state: RootState) => state.globalState.toastText,
   );
   const isToastOpen = useSelector(
-    (state: RootState) => state.globalState.isToastOpen
+    (state: RootState) => state.globalState.isToastOpen,
   );
 
   if (!isToastOpen) return null;

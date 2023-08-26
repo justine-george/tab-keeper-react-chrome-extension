@@ -23,15 +23,15 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({ style }) => {
   const dispatch: AppDispatch = useDispatch();
 
   const isConflictModalOpen = useSelector(
-    (state: RootState) => state.globalState.isConflictModalOpen
+    (state: RootState) => state.globalState.isConflictModalOpen,
   );
 
   const tabDataLocal = useSelector(
-    (state: RootState) => state.globalState.tabDataLocal
+    (state: RootState) => state.globalState.tabDataLocal,
   );
 
   const tabDataCloud = useSelector(
-    (state: RootState) => state.globalState.tabDataCloud
+    (state: RootState) => state.globalState.tabDataCloud,
   );
 
   if (!isConflictModalOpen) return null;
@@ -95,7 +95,9 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({ style }) => {
     padding: 20px;
     border: 1px solid ${COLORS.BORDER_COLOR};
     cursor: pointer;
-    transition: background-color 0.3s, color 0.3s;
+    transition:
+      background-color 0.3s,
+      color 0.3s;
 
     &:hover {
       background-color: ${COLORS.SELECTION_COLOR};
@@ -143,7 +145,7 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({ style }) => {
           </div>
           <NormalLabel
             value={`Last updated: ${getStringDate(
-              new Date(tabDataLocal!.lastModified)
+              new Date(tabDataLocal!.lastModified),
             )}`}
             size="0.9rem"
             color={COLORS.TEXT_COLOR}
@@ -169,7 +171,7 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({ style }) => {
           </div>
           <NormalLabel
             value={`Last updated: ${getStringDate(
-              new Date(tabDataCloud!.lastModified)
+              new Date(tabDataCloud!.lastModified),
             )}`}
             size="0.9rem"
             color={COLORS.TEXT_COLOR}

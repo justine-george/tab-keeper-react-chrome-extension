@@ -35,7 +35,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
 
   const [isParentHovered, setIsParentHovered] = useState(false);
   const [hoveredChildIndex, setHoveredChildIndex] = useState<number | null>(
-    null
+    null,
   );
 
   // reset the 'windowOpenState' to true whenever a different tabGroup is selected.

@@ -25,7 +25,7 @@ export const Account = () => {
   const COLORS = useThemeColors();
 
   const isSignedIn = useSelector(
-    (state: RootState) => state.globalState.isSignedIn
+    (state: RootState) => state.globalState.isSignedIn,
   );
 
   const dispatch: AppDispatch = useDispatch();
@@ -58,7 +58,7 @@ export const Account = () => {
         dispatch,
         "Failed to send password reset email",
         undefined,
-        err
+        err,
       );
     }
   };

@@ -6,7 +6,7 @@ import { RootState } from "../../redux/store";
 
 export default function RightPane() {
   const tabContainerDataList = useSelector(
-    (state: RootState) => state.tabContainerDataState
+    (state: RootState) => state.tabContainerDataState,
   );
 
   // to identify whether no tab groups are selected

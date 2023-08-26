@@ -3,7 +3,7 @@ import { RootState } from "../../redux/store";
 
 export function useThemeColors() {
   const settingsData = useSelector(
-    (state: RootState) => state.settingsDataState
+    (state: RootState) => state.settingsDataState,
   );
 
   return settingsData.isDarkMode

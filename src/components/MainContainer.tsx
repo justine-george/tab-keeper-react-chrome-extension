@@ -14,15 +14,15 @@ export default function MainContainer() {
   const COLORS = useThemeColors();
 
   const isToastOpen = useSelector(
-    (state: RootState) => state.globalState.isToastOpen
+    (state: RootState) => state.globalState.isToastOpen,
   );
 
   const isSettingsPage = useSelector(
-    (state: RootState) => state.globalState.isSettingsPage
+    (state: RootState) => state.globalState.isSettingsPage,
   );
 
   const isConflictModalOpen = useSelector(
-    (state: RootState) => state.globalState.isConflictModalOpen
+    (state: RootState) => state.globalState.isConflictModalOpen,
   );
 
   const containerStyle = css`

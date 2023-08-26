@@ -47,7 +47,7 @@ export const observeAuthState = (dispatch: AppDispatch) => {
 };
 
 export const fetchDataFromFirestore = async (
-  userId: string
+  userId: string,
 ): Promise<TabMasterContainer> => {
   // Fetch your data based on the signed-in user's ID
   const tabData = await getDoc(doc(db, "tabGroupData", userId));

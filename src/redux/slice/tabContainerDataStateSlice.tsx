@@ -169,7 +169,7 @@ export const tabContainerDataStateSlice = createSlice({
       const toBeDeletedTabGroupId = action.payload;
       // find the index and delete when id is a match with toBeDeletedId
       const tabGroupIndex = state.tabGroups.findIndex(
-        (tabGroup) => tabGroup.tabGroupId === toBeDeletedTabGroupId
+        (tabGroup) => tabGroup.tabGroupId === toBeDeletedTabGroupId,
       );
       if (tabGroupIndex !== -1) {
         state.tabGroups.splice(tabGroupIndex, 1);
@@ -184,11 +184,11 @@ export const tabContainerDataStateSlice = createSlice({
     deleteWindow: (state, action: PayloadAction<deleteWindowParams>) => {
       const { tabGroupId, windowId } = action.payload;
       const tabGroupIndex = state.tabGroups.findIndex(
-        (tabGroup) => tabGroup.tabGroupId === tabGroupId
+        (tabGroup) => tabGroup.tabGroupId === tabGroupId,
       );
       if (tabGroupIndex !== -1) {
         const windowIndex = state.tabGroups[tabGroupIndex].windows.findIndex(
-          (window) => window.windowId === windowId
+          (window) => window.windowId === windowId,
         );
         if (windowIndex !== -1) {
           // decrement tabGroup's window count by 1
@@ -218,11 +218,11 @@ export const tabContainerDataStateSlice = createSlice({
     deleteTab: (state, action: PayloadAction<deleteTabParams>) => {
       const { tabGroupId, windowId, tabId } = action.payload;
       const tabGroupIndex = state.tabGroups.findIndex(
-        (tabGroup) => tabGroup.tabGroupId === tabGroupId
+        (tabGroup) => tabGroup.tabGroupId === tabGroupId,
       );
       if (tabGroupIndex !== -1) {
         const windowIndex = state.tabGroups[tabGroupIndex].windows.findIndex(
-          (window) => window.windowId === windowId
+          (window) => window.windowId === windowId,
         );
         if (windowIndex !== -1) {
           const tabIndex = state.tabGroups[tabGroupIndex].windows[
@@ -235,7 +235,7 @@ export const tabContainerDataStateSlice = createSlice({
 
             state.tabGroups[tabGroupIndex].windows[windowIndex].tabs.splice(
               tabIndex,
-              1
+              1,
             );
           }
           // if this was the last tab in the window, delete this window

@@ -15,7 +15,7 @@ const SettingsCategoryContainer: React.FC = () => {
   const COLORS = useThemeColors();
 
   const settingsCategoryList = useSelector(
-    (state: RootState) => state.settingsCategoryState
+    (state: RootState) => state.settingsCategoryState,
   );
 
   const dispatch = useDispatch();
