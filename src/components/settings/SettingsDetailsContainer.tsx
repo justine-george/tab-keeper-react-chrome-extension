@@ -1,7 +1,6 @@
 import { css } from "@emotion/react";
-import { SettingsDetailsContainerProps } from "../../utils/interfaces";
 import { useDispatch, useSelector } from "react-redux";
-import { RootState } from "../../redux/store";
+import { AppDispatch, RootState } from "../../redux/store";
 import { NormalLabel } from "../common/Label";
 import {
   toggleAutoSync,
@@ -18,13 +17,12 @@ import {
   FEEDBACK_REQUEST,
   SHARE_TWITTER_TEXT,
 } from "../../utils/constants/common";
+import { syncWithThunk } from "../../redux/slice/globalStateSlice";
 
-const SettingsDetailsContainer: React.FC<
-  SettingsDetailsContainerProps
-> = ({}) => {
+const SettingsDetailsContainer: React.FC = () => {
   const COLORS = useThemeColors();
 
-  const dispatch = useDispatch();
+  const dispatch: AppDispatch = useDispatch();
 
   const settingsCategoryList = useSelector(
     (state: RootState) => state.settingsCategoryState
@@ -56,6 +54,13 @@ const SettingsDetailsContainer: React.FC<
   const settingsCategoryName: string = settingsCategoryList.filter(
     (settings) => settings.isSelected
   )[0].name;
+
+  const handleToggleAutoSync = () => {
+    if (!settingsData.isAutoSync) {
+      dispatch(syncWithThunk());
+    }
+    dispatch(toggleAutoSync());
+  };
 
   let settingsOptionsDiv;
   if (settingsCategoryName === "General") {
@@ -97,7 +102,7 @@ const SettingsDetailsContainer: React.FC<
           />
           <Button
             text={settingsData.isAutoSync ? `On` : `Off`}
-            onClick={() => dispatch(toggleAutoSync())}
+            onClick={handleToggleAutoSync}
             style={`
               margin-left: 16px;
               width: 120px;

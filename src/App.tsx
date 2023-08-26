@@ -5,13 +5,12 @@ import { APP_WIDTH } from "./utils/constants/common";
 import { useDispatch, useSelector } from "react-redux";
 import { useEffect } from "react";
 import { observeAuthState } from "./config/firebase";
-import "./App.css";
 import { AppDispatch, RootState } from "./redux/store";
 import { loadFromLocalStorage } from "./utils/helperFunctions";
-
 import { replaceState } from "./redux/slice/tabContainerDataStateSlice";
 import { loadStateFromFirestore } from "./redux/slice/globalStateSlice";
 import { setPresentStartup } from "./redux/slice/undoRedoSlice";
+import "./App.css";
 
 function App() {
   const COLORS = useThemeColors();

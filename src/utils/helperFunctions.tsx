@@ -1,34 +1,36 @@
 import { showToast } from "../redux/slice/globalStateSlice";
 import { AppDispatch } from "../redux/store";
 
+// Check if an object is empty
 export function isEmptyObject(obj: any): boolean {
   return typeof obj === "object" && Object.keys(obj).length === 0;
 }
 
+// Convert Date object to formatted string
 export function getStringDate(inputDate: Date): string {
-  const year = inputDate.getFullYear();
-  // Month is 0-indexed, so +1
-  const month = String(inputDate.getMonth() + 1).padStart(2, "0");
-  const day = String(inputDate.getDate()).padStart(2, "0");
-  const hour = String(inputDate.getHours()).padStart(2, "0");
-  const minute = String(inputDate.getMinutes()).padStart(2, "0");
-  const second = String(inputDate.getSeconds()).padStart(2, "0");
+  const [year, month, day, hour, minute, second] = [
+    inputDate.getFullYear(),
+    inputDate.getMonth() + 1, // Month is 0-indexed
+    inputDate.getDate(),
+    inputDate.getHours(),
+    inputDate.getMinutes(),
+    inputDate.getSeconds(),
+  ].map((val) => String(val).padStart(2, "0"));
 
   return `${year}-${month}-${day} ${hour}:${minute}:${second}`;
 }
 
-// returns true if lottery is won, else false
+// Simulate a lottery win based on random number
 export function isLotteryWon(): boolean {
-  const number = Math.floor(Math.random() * 2); // this could be 0 or 1
-  return number === 1;
+  return Math.floor(Math.random() * 2) === 1;
 }
 
-// simulate network delay for testing
+// Simulate a network delay
 export function simulateNetworkDelay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-// debounce
+// Debounce a function
 export function debounce(func: Function, delay: number) {
   let timeoutId: number | null | undefined;
   return (...args: any[]) => {
@@ -42,17 +44,18 @@ export function debounce(func: Function, delay: number) {
   };
 }
 
-// validates email
-export function isValidEmail(email: string) {
+// Validate an email format
+export function isValidEmail(email: string): boolean {
   const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return regex.test(email);
 }
 
-// validates password
-export function isValidPassword(password: string) {
+// Validate password length
+export function isValidPassword(password: string): boolean {
   return password.length >= 6;
 }
 
+// Display a toast message
 export const displayToast = (
   dispatch: AppDispatch,
   text: string,
@@ -68,23 +71,23 @@ export const displayToast = (
   );
 };
 
-// save to local storage
-export const saveToLocalStorage = (key: string, data: any) => {
+// Save data to local storage
+export const saveToLocalStorage = (key: string, data: any): void => {
   try {
     localStorage.setItem(key, JSON.stringify(data));
   } catch (error) {
-    console.error("Failed to save to localStorage:", error);
+    console.error("Failed to save to localStorage: ", error);
   }
 };
 
-// load from local storage
-export const loadFromLocalStorage = (key: string) => {
+// Load data from local storage
+export const loadFromLocalStorage = (key: string): any | undefined => {
   try {
     const serializedState = localStorage.getItem(key);
-    if (serializedState === null) return undefined;
+    if (!serializedState) return undefined;
     return JSON.parse(serializedState);
-  } catch (e) {
-    console.warn("Error loading state from localStorage:", e);
+  } catch (error) {
+    console.warn("Error loading state from localStorage:", error);
     return undefined;
   }
 };

@@ -1,24 +1,17 @@
 import { css } from "@emotion/react";
 import Divider from "../common/Divider";
 import { NormalLabel } from "../common/Label";
-import { SettingsCategory } from "../../utils/interfaces";
 import { useThemeColors } from "../hook/useThemeColors";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "../../redux/store";
 import { selectCategory } from "../../redux/slice/settingsCategoryStateSlice";
-// import { useEffect } from "react";
 
-interface SettingsCategoryContainerProps {
-  // settingsCategoryList: SettingsCategory[];
-  // onUpdateSettingsCategoryList: Function;
+export interface SettingsCategory {
+  name: string;
+  isSelected: boolean;
 }
 
-const SettingsCategoryContainer: React.FC<SettingsCategoryContainerProps> = (
-  {
-    // settingsCategoryList,
-    // onUpdateSettingsCategoryList,
-  }
-) => {
+const SettingsCategoryContainer: React.FC = () => {
   const COLORS = useThemeColors();
 
   const settingsCategoryList = useSelector(
@@ -26,10 +19,6 @@ const SettingsCategoryContainer: React.FC<SettingsCategoryContainerProps> = (
   );
 
   const dispatch = useDispatch();
-
-  // useEffect(() => {
-  //   dispatch(selectCategory("General"));
-  // }, []);
 
   const containerStyle = css`
     display: flex;

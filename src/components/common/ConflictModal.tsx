@@ -5,6 +5,7 @@ import { AppDispatch, RootState } from "../../redux/store";
 import { replaceState } from "../../redux/slice/tabContainerDataStateSlice";
 import {
   closeConflictModal,
+  setIsDirty,
   setIsNotDirty,
   syncWithThunk,
 } from "../../redux/slice/globalStateSlice";
@@ -42,6 +43,7 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({ style }) => {
 
   const chooseLocalData = () => {
     dispatch(replaceState(tabDataLocal!));
+    dispatch(setIsDirty());
     dispatch(syncWithThunk());
     // reset presentState in the undoRedoState
     dispatch(setPresentStartup({ tabContainerDataState: tabDataLocal! }));

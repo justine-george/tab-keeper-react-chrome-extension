@@ -9,8 +9,8 @@ interface TextBoxProps {
   type?: string;
   placeholder: string;
   autoComplete?: string;
-  onChange: Function;
-  onKeyEnter?: Function;
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onKeyEnter?: () => void;
   style?: string;
 }
 

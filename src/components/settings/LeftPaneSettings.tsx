@@ -1,19 +1,8 @@
 import { css } from "@emotion/react";
 import HeroContainerLeftSettings from "./HeroContainerLeftSettings";
 import SettingsCategoryContainer from "./SettingsCategoryContainer";
-// import { SettingsCategory } from "../../utils/interfaces";
 
-interface SettingsCategoryContainerProps {
-  // settingsCategoryList: SettingsCategory[];
-  // onUpdateSettingsCategoryList: Function;
-}
-
-const LeftPaneSettings: React.FC<SettingsCategoryContainerProps> = (
-  {
-    // settingsCategoryList,
-    // onUpdateSettingsCategoryList,
-  }
-) => {
+const LeftPaneSettings: React.FC = () => {
   const containerStyle = css`
     display: flex;
     flex-direction: column;
