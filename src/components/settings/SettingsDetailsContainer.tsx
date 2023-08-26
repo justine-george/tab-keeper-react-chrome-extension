@@ -12,8 +12,10 @@ import { useThemeColors } from "../hook/useThemeColors";
 import { Account } from "./Account";
 import {
   APP_VERSION,
+  DEV_CREDITS,
   DEV_EMAIL,
   FEEDBACK_MAIL_SUBJECT,
+  FEEDBACK_REQUEST,
 } from "../../utils/constants/common";
 
 const SettingsDetailsContainer: React.FC<
@@ -128,10 +130,7 @@ const SettingsDetailsContainer: React.FC<
           margin-top: 40px;
         `}
       >
-        <NormalLabel
-          color={COLORS.LABEL_L1_COLOR}
-          value={settingsData.footerText}
-        />
+        <NormalLabel color={COLORS.LABEL_L1_COLOR} value={DEV_CREDITS} />
         <NormalLabel
           color={COLORS.LABEL_L3_COLOR}
           value={`v${APP_VERSION}`}
@@ -143,7 +142,7 @@ const SettingsDetailsContainer: React.FC<
           }
           size="0.9rem"
           style={`margin-top: 10px; cursor: pointer; padding: 10px;`}
-          value={"Share Your Thoughts"}
+          value={FEEDBACK_REQUEST}
         />
       </div>
     );

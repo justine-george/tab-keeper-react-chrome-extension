@@ -1,16 +1,23 @@
 import { PayloadAction, createSlice } from "@reduxjs/toolkit";
+import {
+  loadFromLocalStorage,
+  saveToLocalStorage,
+} from "../../utils/helperFunctions";
 
 export interface SettingsData {
   isDarkMode: boolean;
   isAutoSync: boolean;
-  footerText: string;
 }
 
-export const initialState: SettingsData = {
-  isDarkMode: false,
-  isAutoSync: true,
-  footerText: "Made by Justine George.",
-};
+// Retrieve settings from localStorage
+const settingsDataLocal = loadFromLocalStorage("settingsData");
+
+export const initialState: SettingsData = settingsDataLocal
+  ? settingsDataLocal
+  : {
+      isDarkMode: false,
+      isAutoSync: true,
+    };
 
 export const settingsDataStateSlice = createSlice({
   name: "settingsDataState",
@@ -18,14 +25,24 @@ export const settingsDataStateSlice = createSlice({
   reducers: {
     toggleDarkMode: (state) => {
       state.isDarkMode = !state.isDarkMode;
+
+      // Save updated state to localStorage
+      saveToLocalStorage("settingsData", state);
     },
 
     toggleAutoSync: (state) => {
       state.isAutoSync = !state.isAutoSync;
+
+      // Save updated state to localStorage
+      saveToLocalStorage("settingsData", state);
     },
 
-    replaceState: (state, action: PayloadAction<typeof state>) =>
-      action.payload,
+    replaceState: (state, action: PayloadAction<typeof state>) => {
+      // Save updated state to localStorage
+      saveToLocalStorage("settingsData", state);
+
+      return action.payload;
+    },
   },
 });
 

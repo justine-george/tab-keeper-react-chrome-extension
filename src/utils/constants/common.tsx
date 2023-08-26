@@ -14,11 +14,17 @@ export const STACK_LEVEL = 10;
 // debounce window
 export const DEBOUNCE_TIME_WINDOW = 500;
 
-// version
+// app version
 export const APP_VERSION = "1.0.0";
+
+// developer details
+export const DEV_CREDITS = "Made by Justine George.";
 
 // developer email
 export const DEV_EMAIL = "justinegeo96@gmail.com";
 
 // feedback mail subject
 export const FEEDBACK_MAIL_SUBJECT = `Feedback: Tab Keeper v${APP_VERSION}`;
+
+// feedback request text
+export const FEEDBACK_REQUEST = "Share Your Thoughts";
