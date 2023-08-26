@@ -23,6 +23,12 @@ export const DEV_CREDITS = "Made by Justine George.";
 // developer email
 export const DEV_EMAIL = "justinegeo96@gmail.com";
 
+export const APP_CHROME_WEBSTORE_LINK =
+  "https://chrome.google.com/webstore/detail/tabhound-tab-manager/dhmeglggkjfgbinodfdphenmodhancbd";
+
+// Twitter (X) share text
+export const SHARE_TWITTER_TEXT = `https://twitter.com/intent/tweet?text=A%20shoutout%20to%20my%20new%20fav%20Chrome%20extension%20%23TabKeeper&url=${APP_CHROME_WEBSTORE_LINK}`;
+
 // feedback mail subject
 export const FEEDBACK_MAIL_SUBJECT = `Feedback: Tab Keeper v${APP_VERSION}`;
 

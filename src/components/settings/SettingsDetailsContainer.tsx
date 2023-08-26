@@ -16,6 +16,7 @@ import {
   DEV_EMAIL,
   FEEDBACK_MAIL_SUBJECT,
   FEEDBACK_REQUEST,
+  SHARE_TWITTER_TEXT,
 } from "../../utils/constants/common";
 
 const SettingsDetailsContainer: React.FC<
@@ -123,26 +124,33 @@ const SettingsDetailsContainer: React.FC<
       <div
         css={css`
           display: flex;
-          height: 100%;
           flex-direction: column;
           justify-content: flex-start;
+          height: 100%;
           align-items: center;
           margin-top: 40px;
+          flex-grow: 1;
         `}
       >
         <NormalLabel color={COLORS.LABEL_L1_COLOR} value={DEV_CREDITS} />
-        <NormalLabel
-          color={COLORS.LABEL_L3_COLOR}
-          value={`v${APP_VERSION}`}
-          style={`margin-top: 60px;`}
-        />
-        <NormalLabel
+        <Button
+          text={FEEDBACK_REQUEST}
+          iconType="mail"
           onClick={() =>
             (window.location.href = `mailto:${DEV_EMAIL}?subject=${FEEDBACK_MAIL_SUBJECT}`)
           }
-          size="0.9rem"
-          style={`margin-top: 10px; cursor: pointer; padding: 10px;`}
-          value={FEEDBACK_REQUEST}
+          style="width: 250px; justify-content: center; margin-top: 16px;"
+        />
+        <Button
+          text={"Share on Twitter (X)"}
+          iconType="send"
+          onClick={() => window.open(SHARE_TWITTER_TEXT)}
+          style="width: 250px; justify-content: center; margin-top: 16px;"
+        />
+        <NormalLabel
+          color={COLORS.LABEL_L3_COLOR}
+          value={`v${APP_VERSION}`}
+          style={`margin: auto auto 30px;`}
         />
       </div>
     );

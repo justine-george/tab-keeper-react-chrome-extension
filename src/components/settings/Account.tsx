@@ -96,7 +96,7 @@ export const Account = () => {
             value={"Welcome " + auth?.currentUser?.email + "!"}
             size="1rem"
             color={COLORS.TEXT_COLOR}
-            style="max-width: 350px; margin-bottom: 8px;"
+            style="max-width: 350px; margin-bottom: 16px;"
           />
           <Button
             iconType="logout"
