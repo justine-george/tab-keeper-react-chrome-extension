@@ -1,6 +1,6 @@
-import React, { MouseEventHandler } from "react";
-import { css } from "@emotion/react";
-import { useThemeColors } from "../hook/useThemeColors";
+import React, { MouseEventHandler } from 'react';
+import { css } from '@emotion/react';
+import { useThemeColors } from '../hook/useThemeColors';
 
 interface IconProps {
   type: string;
@@ -22,13 +22,13 @@ const Icon: React.FC<IconProps> = ({
   const COLORS = useThemeColors();
 
   function handleKeyPress(e: React.KeyboardEvent<HTMLDivElement>) {
-    if (e.key === "Enter" && onClick) {
+    if (e.key === 'Enter' && onClick) {
       onClick(e as any);
     }
   }
 
   const hoverColor =
-    type === "delete"
+    type === 'delete'
       ? COLORS.DELETE_ICON_HOVER_COLOR
       : COLORS.ICON_HOVER_COLOR;
 
@@ -45,7 +45,7 @@ const Icon: React.FC<IconProps> = ({
     justify-content: center;
     align-items: center;
     padding: 4px;
-    cursor: ${focusable ? "pointer" : "default"};
+    cursor: ${focusable ? 'pointer' : 'default'};
     user-select: none;
     transition: background-color 0.3s;
     ${focusable &&
@@ -63,7 +63,7 @@ const Icon: React.FC<IconProps> = ({
       css={containerStyle}
       onClick={!disable ? onClick : undefined}
       onKeyDown={(e) => handleKeyPress(e)}
-      role={onClick ? "button" : undefined}
+      role={onClick ? 'button' : undefined}
     >
       {faviconUrl ? (
         <img src={faviconUrl} alt="favicon" css={iconStyle} />

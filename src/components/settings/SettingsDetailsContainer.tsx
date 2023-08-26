@@ -1,14 +1,14 @@
-import { css } from "@emotion/react";
-import { useDispatch, useSelector } from "react-redux";
-import { AppDispatch, RootState } from "../../redux/store";
-import { NormalLabel } from "../common/Label";
+import { css } from '@emotion/react';
+import { useDispatch, useSelector } from 'react-redux';
+import { AppDispatch, RootState } from '../../redux/store';
+import { NormalLabel } from '../common/Label';
 import {
   toggleAutoSync,
   toggleDarkMode,
-} from "../../redux/slice/settingsDataStateSlice";
-import Button from "../common/Button";
-import { useThemeColors } from "../hook/useThemeColors";
-import { Account } from "./Account";
+} from '../../redux/slice/settingsDataStateSlice';
+import Button from '../common/Button';
+import { useThemeColors } from '../hook/useThemeColors';
+import { Account } from './Account';
 import {
   APP_VERSION,
   DEV_CREDITS,
@@ -16,8 +16,8 @@ import {
   FEEDBACK_MAIL_SUBJECT,
   FEEDBACK_REQUEST,
   SHARE_TWITTER_TEXT,
-} from "../../utils/constants/common";
-import { syncWithThunk } from "../../redux/slice/globalStateSlice";
+} from '../../utils/constants/common';
+import { syncWithThunk } from '../../redux/slice/globalStateSlice';
 
 const SettingsDetailsContainer: React.FC = () => {
   const COLORS = useThemeColors();
@@ -25,11 +25,11 @@ const SettingsDetailsContainer: React.FC = () => {
   const dispatch: AppDispatch = useDispatch();
 
   const settingsCategoryList = useSelector(
-    (state: RootState) => state.settingsCategoryState,
+    (state: RootState) => state.settingsCategoryState
   );
 
   const settingsData = useSelector(
-    (state: RootState) => state.settingsDataState,
+    (state: RootState) => state.settingsDataState
   );
 
   const containerStyle = css`
@@ -52,7 +52,7 @@ const SettingsDetailsContainer: React.FC = () => {
   `;
 
   const settingsCategoryName: string = settingsCategoryList.filter(
-    (settings) => settings.isSelected,
+    (settings) => settings.isSelected
   )[0].name;
 
   const handleToggleAutoSync = () => {
@@ -63,7 +63,7 @@ const SettingsDetailsContainer: React.FC = () => {
   };
 
   let settingsOptionsDiv;
-  if (settingsCategoryName === "General") {
+  if (settingsCategoryName === 'General') {
     settingsOptionsDiv = (
       <div
         css={css`
@@ -111,7 +111,7 @@ const SettingsDetailsContainer: React.FC = () => {
         </div>
       </div>
     );
-  } else if (settingsCategoryName === "Account") {
+  } else if (settingsCategoryName === 'Account') {
     settingsOptionsDiv = (
       <div
         css={css`
@@ -124,7 +124,7 @@ const SettingsDetailsContainer: React.FC = () => {
         <Account />
       </div>
     );
-  } else if (settingsCategoryName === "Credits") {
+  } else if (settingsCategoryName === 'Credits') {
     settingsOptionsDiv = (
       <div
         css={css`
@@ -147,7 +147,7 @@ const SettingsDetailsContainer: React.FC = () => {
           style="width: 250px; justify-content: center; margin-top: 16px;"
         />
         <Button
-          text={"Share on Twitter (X)"}
+          text={'Share on Twitter (X)'}
           iconType="send"
           onClick={() => window.open(SHARE_TWITTER_TEXT)}
           style="width: 250px; justify-content: center; margin-top: 16px;"

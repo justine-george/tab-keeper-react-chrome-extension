@@ -1,4 +1,4 @@
-import { PayloadAction, createSlice } from "@reduxjs/toolkit";
+import { PayloadAction, createSlice } from '@reduxjs/toolkit';
 
 export interface SettingsCategory {
   name: string;
@@ -7,21 +7,21 @@ export interface SettingsCategory {
 
 export const initialState: SettingsCategory[] = [
   {
-    name: "General",
+    name: 'General',
     isSelected: true,
   },
   {
-    name: "Account",
+    name: 'Account',
     isSelected: false,
   },
   {
-    name: "Credits",
+    name: 'Credits',
     isSelected: false,
   },
 ];
 
 export const settingsCategoryStateSlice = createSlice({
-  name: "settingsCategoryState",
+  name: 'settingsCategoryState',
   initialState,
   reducers: {
     selectCategory: (state, action: PayloadAction<string>) => {

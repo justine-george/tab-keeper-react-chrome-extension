@@ -1,8 +1,8 @@
-import { css } from "@emotion/react";
-import Icon from "../common/Icon";
-import { NormalLabel } from "../common/Label";
-import { NON_INTERACTIVE_ICON_STYLE } from "../../utils/constants/common";
-import { useThemeColors } from "../hook/useThemeColors";
+import { css } from '@emotion/react';
+import Icon from '../common/Icon';
+import { NormalLabel } from '../common/Label';
+import { NON_INTERACTIVE_ICON_STYLE } from '../../utils/constants/common';
+import { useThemeColors } from '../hook/useThemeColors';
 
 export default function HeroContainerRightSettings() {
   const COLORS = useThemeColors();
@@ -13,7 +13,7 @@ export default function HeroContainerRightSettings() {
     align-items: center;
     // justify-content: space-between;
     border: 1px solid ${COLORS.BORDER_COLOR};
-    font-family: "Libre Franklin", sans-serif;
+    font-family: 'Libre Franklin', sans-serif;
     user-select: none;
     background-color: ${COLORS.SECONDARY_COLOR};
     padding: 8px 8px;

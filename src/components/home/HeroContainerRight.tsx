@@ -1,14 +1,14 @@
-import { css } from "@emotion/react";
-import Icon from "../common/Icon";
-import { Tag } from "../common/Tag";
-import { NormalLabel } from "../common/Label";
-import { useThemeColors } from "../hook/useThemeColors";
-import { useDispatch, useSelector } from "react-redux";
-import { RootState } from "../../redux/store";
+import { css } from '@emotion/react';
+import Icon from '../common/Icon';
+import { Tag } from '../common/Tag';
+import { NormalLabel } from '../common/Label';
+import { useThemeColors } from '../hook/useThemeColors';
+import { useDispatch, useSelector } from 'react-redux';
+import { RootState } from '../../redux/store';
 import {
   deleteTabContainer,
   openAllTabContainer,
-} from "../../redux/slice/tabContainerDataStateSlice";
+} from '../../redux/slice/tabContainerDataStateSlice';
 
 export default function HeroContainerRight() {
   const COLORS = useThemeColors();
@@ -16,12 +16,12 @@ export default function HeroContainerRight() {
   const dispatch = useDispatch();
 
   const tabContainerDataList = useSelector(
-    (state: RootState) => state.tabContainerDataState,
+    (state: RootState) => state.tabContainerDataState
   );
 
   // assumption is there is only one selected tabGroup
   const selectedTabGroup = tabContainerDataList.tabGroups.filter(
-    (tabGroup) => tabGroup.isSelected,
+    (tabGroup) => tabGroup.isSelected
   )[0];
 
   const containerStyle = css`
@@ -30,7 +30,7 @@ export default function HeroContainerRight() {
     align-items: flex-start;
     justify-content: space-between;
     border: 1px solid ${COLORS.BORDER_COLOR};
-    font-family: "Libre Franklin", sans-serif;
+    font-family: 'Libre Franklin', sans-serif;
     user-select: none;
     background-color: ${COLORS.SECONDARY_COLOR};
   `;
@@ -63,8 +63,8 @@ export default function HeroContainerRight() {
         />
         <NormalLabel
           value={`${windowCount} ${
-            windowCount > 1 ? "Windows" : "Window"
-          } - ${tabCount} ${tabCount > 1 ? "Tabs" : "Tab"}`}
+            windowCount > 1 ? 'Windows' : 'Window'
+          } - ${tabCount} ${tabCount > 1 ? 'Tabs' : 'Tab'}`}
           size="0.75rem"
           color={COLORS.LABEL_L1_COLOR}
           style="padding-top: 2px;"

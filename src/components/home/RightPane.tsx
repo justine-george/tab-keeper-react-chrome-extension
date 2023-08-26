@@ -1,12 +1,12 @@
-import { css } from "@emotion/react";
-import HeroContainerRight from "./HeroContainerRight";
-import TabGroupDetailsContainer from "./TabGroupDetailsContainer";
-import { useSelector } from "react-redux";
-import { RootState } from "../../redux/store";
+import { css } from '@emotion/react';
+import HeroContainerRight from './HeroContainerRight';
+import TabGroupDetailsContainer from './TabGroupDetailsContainer';
+import { useSelector } from 'react-redux';
+import { RootState } from '../../redux/store';
 
 export default function RightPane() {
   const tabContainerDataList = useSelector(
-    (state: RootState) => state.tabContainerDataState,
+    (state: RootState) => state.tabContainerDataState
   );
 
   // to identify whether no tab groups are selected

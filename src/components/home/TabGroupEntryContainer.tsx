@@ -1,15 +1,15 @@
-import { css } from "@emotion/react";
-import TabGroupEntry from "./TabGroupEntry";
-import Divider from "../common/Divider";
-import { NormalLabel } from "../common/Label";
-import { useThemeColors } from "../hook/useThemeColors";
-import { useDispatch, useSelector } from "react-redux";
-import { RootState } from "../../redux/store";
+import { css } from '@emotion/react';
+import TabGroupEntry from './TabGroupEntry';
+import Divider from '../common/Divider';
+import { NormalLabel } from '../common/Label';
+import { useThemeColors } from '../hook/useThemeColors';
+import { useDispatch, useSelector } from 'react-redux';
+import { RootState } from '../../redux/store';
 import {
   deleteTabContainer,
   openAllTabContainer,
   selectTabContainer,
-} from "../../redux/slice/tabContainerDataStateSlice";
+} from '../../redux/slice/tabContainerDataStateSlice';
 
 export default function TabGroupEntryContainer() {
   const COLORS = useThemeColors();
@@ -17,7 +17,7 @@ export default function TabGroupEntryContainer() {
   const dispatch = useDispatch();
 
   const tabContainerDataList = useSelector(
-    (state: RootState) => state.tabContainerDataState,
+    (state: RootState) => state.tabContainerDataState
   );
 
   const containerStyle = css`

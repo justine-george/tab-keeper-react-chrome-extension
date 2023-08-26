@@ -1,5 +1,5 @@
-import { css } from "@emotion/react";
-import MenuContainerSettings from "./MenuContainerSettings";
+import { css } from '@emotion/react';
+import MenuContainerSettings from './MenuContainerSettings';
 
 export default function HeroContainer() {
   const containerStyle = css`
@@ -7,7 +7,7 @@ export default function HeroContainer() {
     justify-content: space-between;
     height: 60px;
     align-items: center;
-    font-family: "Libre Franklin", sans-serif;
+    font-family: 'Libre Franklin', sans-serif;
     font-size: 1.25rem;
     padding: 16px 0px;
     user-select: none;

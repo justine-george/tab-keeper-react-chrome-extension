@@ -1,6 +1,6 @@
-import { css } from "@emotion/react";
-import HeroContainerLeftSettings from "./HeroContainerLeftSettings";
-import SettingsCategoryContainer from "./SettingsCategoryContainer";
+import { css } from '@emotion/react';
+import HeroContainerLeftSettings from './HeroContainerLeftSettings';
+import SettingsCategoryContainer from './SettingsCategoryContainer';
 
 const LeftPaneSettings: React.FC = () => {
   const containerStyle = css`

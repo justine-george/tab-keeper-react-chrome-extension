@@ -1,7 +1,7 @@
-import { css } from "@emotion/react";
-import HeroContainerLeft from "./HeroContainerLeft";
-import UserInputContainer from "./UserInputContainer";
-import TabGroupEntryContainer from "./TabGroupEntryContainer";
+import { css } from '@emotion/react';
+import HeroContainerLeft from './HeroContainerLeft';
+import UserInputContainer from './UserInputContainer';
+import TabGroupEntryContainer from './TabGroupEntryContainer';
 
 export default function LeftPane() {
   const containerStyle = css`

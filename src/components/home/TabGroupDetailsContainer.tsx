@@ -1,14 +1,14 @@
-import { css } from "@emotion/react";
-import { NormalLabel } from "../common/Label";
-import WindowEntryContainer from "./WindowEntryContainer";
-import { isEmptyObject } from "../../utils/helperFunctions";
-import { useThemeColors } from "../hook/useThemeColors";
-import { useDispatch, useSelector } from "react-redux";
-import { RootState } from "../../redux/store";
+import { css } from '@emotion/react';
+import { NormalLabel } from '../common/Label';
+import WindowEntryContainer from './WindowEntryContainer';
+import { isEmptyObject } from '../../utils/helperFunctions';
+import { useThemeColors } from '../hook/useThemeColors';
+import { useDispatch, useSelector } from 'react-redux';
+import { RootState } from '../../redux/store';
 import {
   deleteWindow,
   openTabsInAWindow,
-} from "../../redux/slice/tabContainerDataStateSlice";
+} from '../../redux/slice/tabContainerDataStateSlice';
 
 export default function TabGroupDetailsContainer() {
   const COLORS = useThemeColors();
@@ -16,12 +16,12 @@ export default function TabGroupDetailsContainer() {
   const dispatch = useDispatch();
 
   const tabContainerDataList = useSelector(
-    (state: RootState) => state.tabContainerDataState,
+    (state: RootState) => state.tabContainerDataState
   );
 
   // assumption is there is, at max, one selected tabGroup
   const selectedTabGroup = tabContainerDataList.tabGroups.filter(
-    (tabGroup) => tabGroup.isSelected,
+    (tabGroup) => tabGroup.isSelected
   )[0];
 
   const tabGroupId = selectedTabGroup.tabGroupId;

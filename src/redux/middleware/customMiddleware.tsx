@@ -1,6 +1,6 @@
-import { Middleware } from "@reduxjs/toolkit";
-import { set } from "../slice/undoRedoSlice";
-import { setIsDirty, syncWithThunk } from "../slice/globalStateSlice";
+import { Middleware } from '@reduxjs/toolkit';
+import { set } from '../slice/undoRedoSlice';
+import { setIsDirty, syncWithThunk } from '../slice/globalStateSlice';
 import {
   DELETE_TAB_ACTION,
   DELETE_TAB_CONTAINER_ACTION,
@@ -11,9 +11,9 @@ import {
   TAB_CONTAINER_REPLACE_STATE_ACTION,
   UNDO_ACTION,
   IS_DIRTY_ACTION,
-} from "../../utils/constants/actionTypes";
-import { debounce } from "../../utils/helperFunctions";
-import { DEBOUNCE_TIME_WINDOW } from "../../utils/constants/common";
+} from '../../utils/constants/actionTypes';
+import { debounce } from '../../utils/helperFunctions';
+import { DEBOUNCE_TIME_WINDOW } from '../../utils/constants/common';
 
 // add actions to capture under undo/redo
 const actionsToCapture = [
@@ -39,7 +39,7 @@ const isUndoRedoAction = (type: string) =>
 const isDataStateChangeAction = (
   type: string,
   prevState: any,
-  nextState: any,
+  nextState: any
 ) => {
   const actionsToIgnoreForSet = [
     SET_ACTION,
@@ -53,7 +53,7 @@ const isDataStateChangeAction = (
 
 export const customMiddleware: Middleware = (store) => {
   const debouncedSync = debounce(() => {
-    console.log("debounced sync");
+    console.log('debounced sync');
     store.dispatch(syncWithThunk() as any);
   }, DEBOUNCE_TIME_WINDOW);
 
@@ -85,13 +85,13 @@ export const customMiddleware: Middleware = (store) => {
         type: TAB_CONTAINER_REPLACE_STATE_ACTION,
         payload: presentState.tabContainerDataState,
       });
-      console.log("Dispatch undoRedo dirty!!!!!!");
+      console.log('Dispatch undoRedo dirty!!!!!!');
       store.dispatch(setIsDirty());
     } else if (isDataStateChangeAction(action.type, prevState, nextState)) {
       const { tabContainerDataState } = nextState;
       store.dispatch(set({ tabContainerDataState: tabContainerDataState }));
 
-      console.log("Dispatch set dirty!!!!!!");
+      console.log('Dispatch set dirty!!!!!!');
       store.dispatch(setIsDirty());
     }
 

@@ -1,28 +1,28 @@
-import { css } from "@emotion/react";
-import LeftPane from "./home/LeftPane";
-import RightPane from "./home/RightPane";
-import { useSelector } from "react-redux";
-import { RootState } from "../redux/store";
-import LeftPaneSettings from "./settings/LeftPaneSettings";
-import RightPaneSettings from "./settings/RightPaneSettings";
-import { useThemeColors } from "./hook/useThemeColors";
-import { APP_HEIGHT } from "../utils/constants/common";
-import { Toast } from "./common/Toast";
-import { ConflictModal } from "./common/ConflictModal";
+import { css } from '@emotion/react';
+import LeftPane from './home/LeftPane';
+import RightPane from './home/RightPane';
+import { useSelector } from 'react-redux';
+import { RootState } from '../redux/store';
+import LeftPaneSettings from './settings/LeftPaneSettings';
+import RightPaneSettings from './settings/RightPaneSettings';
+import { useThemeColors } from './hook/useThemeColors';
+import { APP_HEIGHT } from '../utils/constants/common';
+import { Toast } from './common/Toast';
+import { ConflictModal } from './common/ConflictModal';
 
 export default function MainContainer() {
   const COLORS = useThemeColors();
 
   const isToastOpen = useSelector(
-    (state: RootState) => state.globalState.isToastOpen,
+    (state: RootState) => state.globalState.isToastOpen
   );
 
   const isSettingsPage = useSelector(
-    (state: RootState) => state.globalState.isSettingsPage,
+    (state: RootState) => state.globalState.isSettingsPage
   );
 
   const isConflictModalOpen = useSelector(
-    (state: RootState) => state.globalState.isConflictModalOpen,
+    (state: RootState) => state.globalState.isConflictModalOpen
   );
 
   const containerStyle = css`

@@ -1,7 +1,7 @@
-import React from "react";
-import { css } from "@emotion/react";
-import { useThemeColors } from "../hook/useThemeColors";
-import Icon from "./Icon";
+import React from 'react';
+import { css } from '@emotion/react';
+import { useThemeColors } from '../hook/useThemeColors';
+import Icon from './Icon';
 
 interface ButtonProps {
   text?: string;
@@ -28,7 +28,7 @@ const Button: React.FC<ButtonProps> = ({
     display: flex;
     align-items: center;
     justify-content: space-around;
-    font-family: "Libre Franklin", sans-serif;
+    font-family: 'Libre Franklin', sans-serif;
     font-size: 0.9rem;
     cursor: pointer;
     transition: background-color 0.3s;
@@ -64,7 +64,7 @@ const Button: React.FC<ButtonProps> = ({
         {text && (
           <span
             css={css`
-              ${imageSrc && "padding-left: 8px;"}
+              ${imageSrc && 'padding-left: 8px;'}
             `}
           >
             {text}

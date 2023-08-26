@@ -1,10 +1,10 @@
-import { css } from "@emotion/react";
-import Divider from "../common/Divider";
-import { NormalLabel } from "../common/Label";
-import { useThemeColors } from "../hook/useThemeColors";
-import { useDispatch, useSelector } from "react-redux";
-import { RootState } from "../../redux/store";
-import { selectCategory } from "../../redux/slice/settingsCategoryStateSlice";
+import { css } from '@emotion/react';
+import Divider from '../common/Divider';
+import { NormalLabel } from '../common/Label';
+import { useThemeColors } from '../hook/useThemeColors';
+import { useDispatch, useSelector } from 'react-redux';
+import { RootState } from '../../redux/store';
+import { selectCategory } from '../../redux/slice/settingsCategoryStateSlice';
 
 export interface SettingsCategory {
   name: string;
@@ -15,7 +15,7 @@ const SettingsCategoryContainer: React.FC = () => {
   const COLORS = useThemeColors();
 
   const settingsCategoryList = useSelector(
-    (state: RootState) => state.settingsCategoryState,
+    (state: RootState) => state.settingsCategoryState
   );
 
   const dispatch = useDispatch();

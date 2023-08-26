@@ -1,10 +1,10 @@
-import { PayloadAction, createSlice } from "@reduxjs/toolkit";
+import { PayloadAction, createSlice } from '@reduxjs/toolkit';
 import {
   TabMasterContainer,
   initialState as tabContainerDataInitialState,
-} from "./tabContainerDataStateSlice";
-import { RootState } from "../store";
-import { STACK_LEVEL } from "../../utils/constants/common";
+} from './tabContainerDataStateSlice';
+import { RootState } from '../store';
+import { STACK_LEVEL } from '../../utils/constants/common';
 
 export interface UndoableStates {
   tabContainerDataState: TabMasterContainer;
@@ -25,7 +25,7 @@ const initialState: undoRedoState = {
 };
 
 export const undoRedoSlice = createSlice({
-  name: "undoRedo",
+  name: 'undoRedo',
   initialState,
   reducers: {
     set: (state, action: PayloadAction<UndoableStates>) => {

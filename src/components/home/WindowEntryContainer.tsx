@@ -1,14 +1,14 @@
-import React, { MouseEventHandler, useEffect, useState } from "react";
-import { css } from "@emotion/react";
-import Icon from "../common/Icon";
-import { NormalLabel } from "../common/Label";
-import { useThemeColors } from "../hook/useThemeColors";
-import { NON_INTERACTIVE_ICON_STYLE } from "../../utils/constants/common";
-import { useDispatch } from "react-redux";
+import React, { MouseEventHandler, useEffect, useState } from 'react';
+import { css } from '@emotion/react';
+import Icon from '../common/Icon';
+import { NormalLabel } from '../common/Label';
+import { useThemeColors } from '../hook/useThemeColors';
+import { NON_INTERACTIVE_ICON_STYLE } from '../../utils/constants/common';
+import { useDispatch } from 'react-redux';
 import {
   deleteTab,
   tabData,
-} from "../../redux/slice/tabContainerDataStateSlice";
+} from '../../redux/slice/tabContainerDataStateSlice';
 
 interface WindowEntryContainerProps {
   title: string;
@@ -35,7 +35,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
 
   const [isParentHovered, setIsParentHovered] = useState(false);
   const [hoveredChildIndex, setHoveredChildIndex] = useState<number | null>(
-    null,
+    null
   );
 
   // reset the 'windowOpenState' to true whenever a different tabGroup is selected.
@@ -50,7 +50,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   const containerStyle = css`
     display: flex;
     flex-direction: column;
-    font-family: "Libre Franklin", sans-serif;
+    font-family: 'Libre Franklin', sans-serif;
     margin-bottom: 8px;
   `;
 
@@ -136,7 +136,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
       >
         <div css={parentLeftStyle}>
           <Icon
-            type={windowOpenState ? "expand_less" : "expand_more"}
+            type={windowOpenState ? 'expand_less' : 'expand_more'}
             onClick={handleAccordionClick}
           />
           <Icon type="ad" style={NON_INTERACTIVE_ICON_STYLE} />

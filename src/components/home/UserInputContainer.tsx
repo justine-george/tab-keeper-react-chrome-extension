@@ -1,14 +1,14 @@
-import { css } from "@emotion/react";
-import Button from "../common/Button";
-import TextBox from "../common/TextBox";
-import { useDispatch } from "react-redux";
-import { useState } from "react";
-import { saveToTabContainer } from "../../redux/slice/tabContainerDataStateSlice";
+import { css } from '@emotion/react';
+import Button from '../common/Button';
+import TextBox from '../common/TextBox';
+import { useDispatch } from 'react-redux';
+import { useState } from 'react';
+import { saveToTabContainer } from '../../redux/slice/tabContainerDataStateSlice';
 
 export default function UserInputContainer() {
   const dispatch = useDispatch();
 
-  const [newTitle, setNewTitle] = useState<string>("");
+  const [newTitle, setNewTitle] = useState<string>('');
 
   const containerStyle = css`
     display: flex;
@@ -22,7 +22,7 @@ export default function UserInputContainer() {
 
   function createTabGroup() {
     dispatch(saveToTabContainer(newTitle));
-    setNewTitle("");
+    setNewTitle('');
   }
 
   return (

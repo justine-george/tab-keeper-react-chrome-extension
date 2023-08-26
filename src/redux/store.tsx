@@ -1,10 +1,10 @@
-import { configureStore } from "@reduxjs/toolkit";
-import globalStateReducer from "./slice/globalStateSlice";
-import settingsDataStateReducer from "./slice/settingsDataStateSlice";
-import settingsCategoryStateReducer from "./slice/settingsCategoryStateSlice";
-import tabContainerDataStateReducer from "./slice/tabContainerDataStateSlice";
-import undoRedoReducer from "./slice/undoRedoSlice";
-import { customMiddleware } from "./middleware/customMiddleware";
+import { configureStore } from '@reduxjs/toolkit';
+import globalStateReducer from './slice/globalStateSlice';
+import settingsDataStateReducer from './slice/settingsDataStateSlice';
+import settingsCategoryStateReducer from './slice/settingsCategoryStateSlice';
+import tabContainerDataStateReducer from './slice/tabContainerDataStateSlice';
+import undoRedoReducer from './slice/undoRedoSlice';
+import { customMiddleware } from './middleware/customMiddleware';
 
 export const store = configureStore({
   reducer: {

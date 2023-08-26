@@ -1,31 +1,31 @@
-import { auth } from "../../config/firebase";
+import { auth } from '../../config/firebase';
 import {
   createUserWithEmailAndPassword,
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signOut,
-} from "firebase/auth";
-import Button from "../common/Button";
-import { useDispatch, useSelector } from "react-redux";
-import { AppDispatch, RootState } from "../../redux/store";
-import { css } from "@emotion/react";
-import { NormalLabel } from "../common/Label";
-import { useThemeColors } from "../hook/useThemeColors";
-import TextBox from "../common/TextBox";
-import { useState } from "react";
+} from 'firebase/auth';
+import Button from '../common/Button';
+import { useDispatch, useSelector } from 'react-redux';
+import { AppDispatch, RootState } from '../../redux/store';
+import { css } from '@emotion/react';
+import { NormalLabel } from '../common/Label';
+import { useThemeColors } from '../hook/useThemeColors';
+import TextBox from '../common/TextBox';
+import { useState } from 'react';
 import {
   displayToast,
   isValidEmail,
   isValidPassword,
-} from "../../utils/helperFunctions";
+} from '../../utils/helperFunctions';
 
 export const Account = () => {
-  const [email, setEmail] = useState<string>("");
-  const [password, setPassword] = useState<string>("");
+  const [email, setEmail] = useState<string>('');
+  const [password, setPassword] = useState<string>('');
   const COLORS = useThemeColors();
 
   const isSignedIn = useSelector(
-    (state: RootState) => state.globalState.isSignedIn,
+    (state: RootState) => state.globalState.isSignedIn
   );
 
   const dispatch: AppDispatch = useDispatch();
@@ -33,40 +33,40 @@ export const Account = () => {
   const createUserEmailPassword = async () => {
     try {
       await createUserWithEmailAndPassword(auth, email, password);
-      setEmail("");
-      setPassword("");
+      setEmail('');
+      setPassword('');
     } catch (err) {
-      displayToast(dispatch, "Failed to create account", undefined, err);
+      displayToast(dispatch, 'Failed to create account', undefined, err);
     }
   };
   const signInEmailPassword = async () => {
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      setEmail("");
-      setPassword("");
+      setEmail('');
+      setPassword('');
     } catch (err) {
-      displayToast(dispatch, "Failed to sign in", undefined, err);
+      displayToast(dispatch, 'Failed to sign in', undefined, err);
     }
   };
   const forgotPassword = async () => {
     try {
       await sendPasswordResetEmail(auth, email);
-      setEmail("");
-      displayToast(dispatch, "Password Reset Email Sent, Check your Inbox");
+      setEmail('');
+      displayToast(dispatch, 'Password Reset Email Sent, Check your Inbox');
     } catch (err) {
       displayToast(
         dispatch,
-        "Failed to send password reset email",
+        'Failed to send password reset email',
         undefined,
-        err,
+        err
       );
     }
   };
   const validateCredentials = () => {
     if (!isValidEmail(email)) {
-      displayToast(dispatch, "Invalid Email");
+      displayToast(dispatch, 'Invalid Email');
     } else if (!isValidPassword(password)) {
-      displayToast(dispatch, "Invalid Password");
+      displayToast(dispatch, 'Invalid Password');
     } else {
       signInEmailPassword();
     }
@@ -74,9 +74,9 @@ export const Account = () => {
   const logOut = async () => {
     try {
       await signOut(auth);
-      displayToast(dispatch, "Logged out!");
+      displayToast(dispatch, 'Logged out!');
     } catch (err) {
-      displayToast(dispatch, "Failed to Logout", undefined, err);
+      displayToast(dispatch, 'Failed to Logout', undefined, err);
     }
   };
 
@@ -93,7 +93,7 @@ export const Account = () => {
       {isSignedIn ? (
         <>
           <NormalLabel
-            value={"Welcome " + auth?.currentUser?.email + "!"}
+            value={'Welcome ' + auth?.currentUser?.email + '!'}
             size="1rem"
             color={COLORS.TEXT_COLOR}
             style="max-width: 350px; margin-bottom: 16px;"

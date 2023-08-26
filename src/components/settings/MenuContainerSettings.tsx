@@ -1,9 +1,9 @@
-import { css } from "@emotion/react";
-import { useDispatch } from "react-redux";
-import Icon from "../common/Icon";
-import { NormalLabel } from "../common/Label";
-import { useThemeColors } from "../hook/useThemeColors";
-import { backToHome } from "../../redux/slice/globalStateSlice";
+import { css } from '@emotion/react';
+import { useDispatch } from 'react-redux';
+import Icon from '../common/Icon';
+import { NormalLabel } from '../common/Label';
+import { useThemeColors } from '../hook/useThemeColors';
+import { backToHome } from '../../redux/slice/globalStateSlice';
 
 export default function MenuContainer() {
   const COLORS = useThemeColors();

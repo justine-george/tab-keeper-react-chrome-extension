@@ -1,18 +1,18 @@
-import { css } from "@emotion/react";
-import { useThemeColors } from "../hook/useThemeColors";
-import { useDispatch, useSelector } from "react-redux";
-import { AppDispatch, RootState } from "../../redux/store";
-import { replaceState } from "../../redux/slice/tabContainerDataStateSlice";
+import { css } from '@emotion/react';
+import { useThemeColors } from '../hook/useThemeColors';
+import { useDispatch, useSelector } from 'react-redux';
+import { AppDispatch, RootState } from '../../redux/store';
+import { replaceState } from '../../redux/slice/tabContainerDataStateSlice';
 import {
   closeConflictModal,
   setIsDirty,
   setIsNotDirty,
   syncWithThunk,
-} from "../../redux/slice/globalStateSlice";
-import { setPresentStartup } from "../../redux/slice/undoRedoSlice";
-import { getStringDate } from "../../utils/helperFunctions";
-import { Tag } from "./Tag";
-import { NormalLabel } from "./Label";
+} from '../../redux/slice/globalStateSlice';
+import { setPresentStartup } from '../../redux/slice/undoRedoSlice';
+import { getStringDate } from '../../utils/helperFunctions';
+import { Tag } from './Tag';
+import { NormalLabel } from './Label';
 
 interface ConflictModalProps {
   style?: string;
@@ -23,15 +23,15 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({ style }) => {
   const dispatch: AppDispatch = useDispatch();
 
   const isConflictModalOpen = useSelector(
-    (state: RootState) => state.globalState.isConflictModalOpen,
+    (state: RootState) => state.globalState.isConflictModalOpen
   );
 
   const tabDataLocal = useSelector(
-    (state: RootState) => state.globalState.tabDataLocal,
+    (state: RootState) => state.globalState.tabDataLocal
   );
 
   const tabDataCloud = useSelector(
-    (state: RootState) => state.globalState.tabDataCloud,
+    (state: RootState) => state.globalState.tabDataCloud
   );
 
   if (!isConflictModalOpen) return null;
@@ -66,7 +66,7 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({ style }) => {
     height: 100%;
     background: rgba(0, 0, 0, 0.6);
     z-index: 999;
-    font-family: "Libre Franklin", sans-serif;
+    font-family: 'Libre Franklin', sans-serif;
     font-size: 0.9rem;
     ${style && style}
   `;
@@ -145,7 +145,7 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({ style }) => {
           </div>
           <NormalLabel
             value={`Last updated: ${getStringDate(
-              new Date(tabDataLocal!.lastModified),
+              new Date(tabDataLocal!.lastModified)
             )}`}
             size="0.9rem"
             color={COLORS.TEXT_COLOR}
@@ -153,7 +153,7 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({ style }) => {
           />
           <NormalLabel
             value={`${tabDataLocalLength} Tab Group${
-              tabDataLocalLength > 1 ? "s" : ""
+              tabDataLocalLength > 1 ? 's' : ''
             }`}
             size="0.9rem"
             color={COLORS.TEXT_COLOR}
@@ -171,7 +171,7 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({ style }) => {
           </div>
           <NormalLabel
             value={`Last updated: ${getStringDate(
-              new Date(tabDataCloud!.lastModified),
+              new Date(tabDataCloud!.lastModified)
             )}`}
             size="0.9rem"
             color={COLORS.TEXT_COLOR}
@@ -179,7 +179,7 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({ style }) => {
           />
           <NormalLabel
             value={`${tabDataCloudLength} Tab Group${
-              tabDataCloudLength > 1 ? "s" : ""
+              tabDataCloudLength > 1 ? 's' : ''
             }`}
             size="0.9rem"
             color={COLORS.TEXT_COLOR}

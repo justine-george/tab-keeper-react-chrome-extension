@@ -1,9 +1,9 @@
-import { showToast } from "../redux/slice/globalStateSlice";
-import { AppDispatch } from "../redux/store";
+import { showToast } from '../redux/slice/globalStateSlice';
+import { AppDispatch } from '../redux/store';
 
 // Check if an object is empty
 export function isEmptyObject(obj: any): boolean {
-  return typeof obj === "object" && Object.keys(obj).length === 0;
+  return typeof obj === 'object' && Object.keys(obj).length === 0;
 }
 
 // Convert Date object to formatted string
@@ -15,7 +15,7 @@ export function getStringDate(inputDate: Date): string {
     inputDate.getHours(),
     inputDate.getMinutes(),
     inputDate.getSeconds(),
-  ].map((val) => String(val).padStart(2, "0"));
+  ].map((val) => String(val).padStart(2, '0'));
 
   return `${year}-${month}-${day} ${hour}:${minute}:${second}`;
 }
@@ -31,7 +31,7 @@ export function simulateNetworkDelay(ms: number): Promise<void> {
 }
 
 // Debounce a function
-export function debounce(func: Function, delay: number) {
+export function debounce(func: any, delay: number) {
   let timeoutId: number | null | undefined;
   return (...args: any[]) => {
     if (timeoutId) {
@@ -60,14 +60,14 @@ export const displayToast = (
   dispatch: AppDispatch,
   text: string,
   duration?: number,
-  error?: any,
+  error?: any
 ) => {
-  const displayText = error ? error.message || "An error occurred." : text;
+  const displayText = error ? error.message || 'An error occurred.' : text;
   dispatch(
     showToast({
       toastText: displayText,
       duration: duration || 3000,
-    }),
+    })
   );
 };
 
@@ -76,7 +76,7 @@ export const saveToLocalStorage = (key: string, data: any): void => {
   try {
     localStorage.setItem(key, JSON.stringify(data));
   } catch (error) {
-    console.error("Failed to save to localStorage: ", error);
+    console.error('Failed to save to localStorage: ', error);
   }
 };
 
@@ -87,7 +87,7 @@ export const loadFromLocalStorage = (key: string): any | undefined => {
     if (!serializedState) return undefined;
     return JSON.parse(serializedState);
   } catch (error) {
-    console.warn("Error loading state from localStorage:", error);
+    console.warn('Error loading state from localStorage:', error);
     return undefined;
   }
 };

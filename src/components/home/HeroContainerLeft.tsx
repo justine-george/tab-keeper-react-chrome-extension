@@ -1,7 +1,7 @@
-import { css } from "@emotion/react";
-import MenuContainer from "./MenuContainer";
-import { useThemeColors } from "../hook/useThemeColors";
-import { NormalLabel } from "../common/Label";
+import { css } from '@emotion/react';
+import MenuContainer from './MenuContainer';
+import { useThemeColors } from '../hook/useThemeColors';
+import { NormalLabel } from '../common/Label';
 
 export default function HeroContainer() {
   const COLORS = useThemeColors();
@@ -11,7 +11,7 @@ export default function HeroContainer() {
     justify-content: space-between;
     height: 60px;
     align-items: center;
-    font-family: "Libre Franklin", sans-serif;
+    font-family: 'Libre Franklin', sans-serif;
     font-size: 1.25rem;
     padding: 16px 0px;
     user-select: none;

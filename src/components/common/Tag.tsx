@@ -1,5 +1,5 @@
-import { css } from "@emotion/react";
-import { useThemeColors } from "../hook/useThemeColors";
+import { css } from '@emotion/react';
+import { useThemeColors } from '../hook/useThemeColors';
 
 interface TagProps {
   value: string;

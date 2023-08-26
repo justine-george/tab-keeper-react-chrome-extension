@@ -1,6 +1,6 @@
-import React from "react";
-import { css } from "@emotion/react";
-import { useThemeColors } from "../hook/useThemeColors";
+import React from 'react';
+import { css } from '@emotion/react';
+import { useThemeColors } from '../hook/useThemeColors';
 
 interface TextBoxProps {
   id: string;
@@ -28,7 +28,7 @@ const TextBox: React.FC<TextBoxProps> = ({
   const COLORS = useThemeColors();
 
   function handleKeyPress(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (onKeyEnter && e.key === "Enter") {
+    if (onKeyEnter && e.key === 'Enter') {
       onKeyEnter();
     }
   }
@@ -39,7 +39,7 @@ const TextBox: React.FC<TextBoxProps> = ({
     padding: 10px;
     height: 3.5rem;
     flex-grow: 1;
-    font-family: "Libre Franklin", sans-serif;
+    font-family: 'Libre Franklin', sans-serif;
     font-size: 0.9rem;
     color: ${COLORS.LABEL_L3_COLOR};
     &:focus {
@@ -50,7 +50,7 @@ const TextBox: React.FC<TextBoxProps> = ({
 
   return (
     <input
-      type={type ? type : "text"}
+      type={type ? type : 'text'}
       id={id}
       name={name}
       value={value}

@@ -1,10 +1,10 @@
-import React, { MouseEventHandler, useState } from "react";
-import { css } from "@emotion/react";
-import Icon from "../common/Icon";
-import { NormalLabel } from "../common/Label";
-import { Tag } from "../common/Tag";
-import { useThemeColors } from "../hook/useThemeColors";
-import { tabContainerData } from "../../redux/slice/tabContainerDataStateSlice";
+import React, { MouseEventHandler, useState } from 'react';
+import { css } from '@emotion/react';
+import Icon from '../common/Icon';
+import { NormalLabel } from '../common/Label';
+import { Tag } from '../common/Tag';
+import { useThemeColors } from '../hook/useThemeColors';
+import { tabContainerData } from '../../redux/slice/tabContainerDataStateSlice';
 
 interface TabGroupEntryProps {
   tabGroupData: tabContainerData;
@@ -30,7 +30,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
     tabGroupData;
 
   function handleKeyPress(e: React.KeyboardEvent<HTMLDivElement>) {
-    if (e.key === "Enter") {
+    if (e.key === 'Enter') {
       onTabGroupClick(e as any);
     }
   }
@@ -57,7 +57,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
     display: flex;
     justify-content: space-between;
     align-items: center;
-    font-family: "Libre Franklin", sans-serif;
+    font-family: 'Libre Franklin', sans-serif;
     cursor: pointer;
     transition: background-color 0.3s;
     &:hover {
@@ -84,8 +84,8 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
         />
         <NormalLabel
           value={`${windowCount} ${
-            windowCount > 1 ? "Windows" : "Window"
-          } - ${tabCount} ${tabCount > 1 ? "Tabs" : "Tab"}`}
+            windowCount > 1 ? 'Windows' : 'Window'
+          } - ${tabCount} ${tabCount > 1 ? 'Tabs' : 'Tab'}`}
           color={COLORS.LABEL_L1_COLOR}
           size="0.7rem"
           style="margin-top: 2px;"

@@ -1,14 +1,14 @@
-import { initializeApp } from "firebase/app";
-import { doc, getDoc, getFirestore } from "firebase/firestore";
-import { GoogleAuthProvider, getAuth, onAuthStateChanged } from "firebase/auth";
+import { initializeApp } from 'firebase/app';
+import { doc, getDoc, getFirestore } from 'firebase/firestore';
+import { GoogleAuthProvider, getAuth, onAuthStateChanged } from 'firebase/auth';
 import {
   removeUserId,
   setLoggedOut,
   setSignedIn,
   setUserId,
-} from "../redux/slice/globalStateSlice";
-import { AppDispatch } from "../redux/store";
-import { TabMasterContainer } from "../redux/slice/tabContainerDataStateSlice";
+} from '../redux/slice/globalStateSlice';
+import { AppDispatch } from '../redux/store';
+import { TabMasterContainer } from '../redux/slice/tabContainerDataStateSlice';
 // https://firebase.google.com/docs/web/setup#available-libraries
 
 // Firebase configuration
@@ -34,12 +34,12 @@ export const observeAuthState = (dispatch: AppDispatch) => {
   onAuthStateChanged(auth, (user) => {
     if (user) {
       // User is signed in
-      console.log(user.uid + " signed in!");
+      console.log(user.uid + ' signed in!');
       dispatch(setSignedIn());
       dispatch(setUserId(user.uid));
     } else {
       // User is signed out
-      console.log("Signed out!");
+      console.log('Signed out!');
       dispatch(setLoggedOut());
       dispatch(removeUserId());
     }
@@ -47,13 +47,13 @@ export const observeAuthState = (dispatch: AppDispatch) => {
 };
 
 export const fetchDataFromFirestore = async (
-  userId: string,
+  userId: string
 ): Promise<TabMasterContainer> => {
   // Fetch your data based on the signed-in user's ID
-  const tabData = await getDoc(doc(db, "tabGroupData", userId));
+  const tabData = await getDoc(doc(db, 'tabGroupData', userId));
   if (!tabData.exists()) {
-    console.error("No document found for userId: " + userId);
-    throw new Error("Document does not exist for userId: " + userId);
+    console.error('No document found for userId: ' + userId);
+    throw new Error('Document does not exist for userId: ' + userId);
   } else {
     return {
       lastModified: tabData.data().lastModified,
