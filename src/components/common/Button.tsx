@@ -8,6 +8,7 @@ interface ButtonProps {
   onClick?: () => void;
   imageSrc?: string;
   iconType?: string;
+  ariaLabel?: string;
   style?: string;
 }
 
@@ -16,6 +17,7 @@ const Button: React.FC<ButtonProps> = ({
   onClick,
   imageSrc,
   iconType,
+  ariaLabel,
   style,
 }) => {
   const COLORS = useThemeColors();
@@ -41,7 +43,7 @@ const Button: React.FC<ButtonProps> = ({
 
   return (
     <div>
-      <button css={buttonStyle} onClick={onClick}>
+      <button aria-label={ariaLabel} css={buttonStyle} onClick={onClick}>
         {iconType && (
           <Icon
             type={iconType}

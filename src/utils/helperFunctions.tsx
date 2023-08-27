@@ -44,15 +44,17 @@ export function debounce(func: any, delay: number) {
   };
 }
 
-// Validate an email format
+// Validate email format
 export function isValidEmail(email: string): boolean {
   const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return regex.test(email);
 }
 
-// Validate password length
+// Validate password format
 export function isValidPassword(password: string): boolean {
-  return password.length >= 6;
+  const hasLetters = /[a-zA-Z]/.test(password);
+  const hasNumbers = /\d/.test(password);
+  return password.length >= 8 && hasLetters && hasNumbers;
 }
 
 // Display a toast message

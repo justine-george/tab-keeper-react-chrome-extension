@@ -30,7 +30,7 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
     border-radius: 0px;
     z-index: 1000;
     width: 300px;
-    height: 50px;
+    min-height: 50px;
     display: flex;
     justify-content: center;
     font-family: "Libre Franklin", sans-serif;

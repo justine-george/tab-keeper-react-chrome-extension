@@ -8,7 +8,6 @@ import {
 } from '../../redux/slice/settingsDataStateSlice';
 import Button from '../common/Button';
 import { useThemeColors } from '../hook/useThemeColors';
-import { Account } from './Account';
 import {
   APP_VERSION,
   DEV_CREDITS,
@@ -18,6 +17,7 @@ import {
   SHARE_TWITTER_TEXT,
 } from '../../utils/constants/common';
 import { syncToFirestore } from '../../redux/slice/globalStateSlice';
+import Account from './Account';
 
 const SettingsDetailsContainer: React.FC = () => {
   const COLORS = useThemeColors();
@@ -117,8 +117,9 @@ const SettingsDetailsContainer: React.FC = () => {
         css={css`
           display: flex;
           justify-content: center;
-          align-items: center;
+          align-items: flex-start;
           margin-top: 40px;
+          height: 100%;
         `}
       >
         <Account />

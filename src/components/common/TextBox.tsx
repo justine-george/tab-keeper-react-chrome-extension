@@ -9,6 +9,7 @@ interface TextBoxProps {
   type?: string;
   placeholder: string;
   autoComplete?: string;
+  title?: string;
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onKeyEnter?: () => void;
   style?: string;
@@ -21,6 +22,7 @@ const TextBox: React.FC<TextBoxProps> = ({
   type,
   placeholder,
   autoComplete,
+  title,
   onChange,
   onKeyEnter,
   style,
@@ -50,6 +52,7 @@ const TextBox: React.FC<TextBoxProps> = ({
 
   return (
     <input
+      title={title}
       type={type ? type : 'text'}
       id={id}
       name={name}
