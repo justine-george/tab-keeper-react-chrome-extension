@@ -17,7 +17,7 @@ import {
   FEEDBACK_REQUEST,
   SHARE_TWITTER_TEXT,
 } from '../../utils/constants/common';
-import { syncWithThunk } from '../../redux/slice/globalStateSlice';
+import { syncToFirestore } from '../../redux/slice/globalStateSlice';
 
 const SettingsDetailsContainer: React.FC = () => {
   const COLORS = useThemeColors();
@@ -57,7 +57,7 @@ const SettingsDetailsContainer: React.FC = () => {
 
   const handleToggleAutoSync = () => {
     if (!settingsData.isAutoSync) {
-      dispatch(syncWithThunk());
+      dispatch(syncToFirestore());
     }
     dispatch(toggleAutoSync());
   };

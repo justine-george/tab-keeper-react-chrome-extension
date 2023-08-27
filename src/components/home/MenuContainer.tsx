@@ -3,7 +3,7 @@ import Icon from '../common/Icon';
 import { useDispatch, useSelector } from 'react-redux';
 import {
   openSettingsPage,
-  syncWithThunk,
+  syncToFirestore,
 } from '../../redux/slice/globalStateSlice';
 import { AppDispatch, RootState } from '../../redux/store';
 import {
@@ -32,7 +32,7 @@ export default function MenuContainer() {
   }
 
   function handleClickSync() {
-    dispatch(syncWithThunk());
+    dispatch(syncToFirestore());
   }
 
   function handleClickSettings() {
@@ -52,7 +52,6 @@ export default function MenuContainer() {
   } else if (syncStatus === 'success') {
     syncIconType = 'cloud_done';
   }
-  // console.log(syncIconType);
 
   const containerStyle = css`
     display: flex;

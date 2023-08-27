@@ -1,6 +1,6 @@
 import { Middleware } from '@reduxjs/toolkit';
 import { set } from '../slice/undoRedoSlice';
-import { setIsDirty, syncWithThunk } from '../slice/globalStateSlice';
+import { setIsDirty, syncToFirestore } from '../slice/globalStateSlice';
 import {
   DELETE_TAB_ACTION,
   DELETE_TAB_CONTAINER_ACTION,
@@ -53,13 +53,10 @@ const isDataStateChangeAction = (
 
 export const customMiddleware: Middleware = (store) => {
   const debouncedSync = debounce(() => {
-    console.log('debounced sync');
-    store.dispatch(syncWithThunk() as any);
+    store.dispatch(syncToFirestore() as any);
   }, DEBOUNCE_TIME_WINDOW);
 
   return (next) => (action) => {
-    // console.log("Action received in customMiddleware:", action.type);
-
     if (!isCapturableAction(action.type)) {
       return next(action);
     }
@@ -85,13 +82,10 @@ export const customMiddleware: Middleware = (store) => {
         type: TAB_CONTAINER_REPLACE_STATE_ACTION,
         payload: presentState.tabContainerDataState,
       });
-      console.log('Dispatch undoRedo dirty!!!!!!');
       store.dispatch(setIsDirty());
     } else if (isDataStateChangeAction(action.type, prevState, nextState)) {
       const { tabContainerDataState } = nextState;
       store.dispatch(set({ tabContainerDataState: tabContainerDataState }));
-
-      console.log('Dispatch set dirty!!!!!!');
       store.dispatch(setIsDirty());
     }
 

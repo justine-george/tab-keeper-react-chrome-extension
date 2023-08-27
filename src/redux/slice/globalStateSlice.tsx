@@ -36,24 +36,21 @@ export const initialState: Global = {
   tabDataCloud: null,
 };
 
-export const syncWithThunk = createAsyncThunk(
-  'global/syncWithThunk',
+// save data to Firestore if local data is dirty
+export const syncToFirestore = createAsyncThunk(
+  'global/syncToFirestore',
   async (_, thunkAPI) => {
     const state = thunkAPI.getState() as RootState;
-    console.log('sync with thunk');
     if (!state.globalState.isSignedIn) {
       thunkAPI.dispatch(openSettingsPage('Account'));
     } else if (state.globalState.isDirty) {
       try {
-        console.log('updating data cloud firestore');
         await setDoc(doc(db, 'tabGroupData', auth.currentUser!.uid), {
           ...state.tabContainerDataState,
         });
 
         // Save to localStorage after successful Firestore update
         saveToLocalStorage('tabContainerData', state.tabContainerDataState);
-        console.log('Saved to localStorage after successful Firestore update!');
-
         thunkAPI.dispatch(setIsNotDirty());
 
         return { status: 'success' };
@@ -76,7 +73,7 @@ export const loadStateFromFirestore = createAsyncThunk(
       const tabDataFromLocalStorage: TabMasterContainer =
         loadFromLocalStorage('tabContainerData');
 
-      // compare localstorage data and cloud db data
+      // compare localstorage data and Firestore data
       if (
         tabDataFromLocalStorage!.lastModified !== tabDataFromCloud!.lastModified
       ) {
@@ -89,7 +86,6 @@ export const loadStateFromFirestore = createAsyncThunk(
             tabDataFromLocalStorage.tabGroups.length > 0 &&
             tabDataFromCloud.tabGroups.length > 0
           ) {
-            console.log('2 non-empty');
             thunkAPI.dispatch(
               openConflictModal({
                 tabDataLocal: tabDataFromLocalStorage,
@@ -97,12 +93,11 @@ export const loadStateFromFirestore = createAsyncThunk(
               })
             );
           } else if (tabDataFromLocalStorage.tabGroups.length > 0) {
-            console.log('local non-empty');
             // local storage has tabData
-            // save back to firestore
+            // save back to Firestore
             thunkAPI.dispatch(replaceState(tabDataFromLocalStorage));
             thunkAPI.dispatch(setIsDirty());
-            thunkAPI.dispatch(syncWithThunk());
+            thunkAPI.dispatch(syncToFirestore());
             // reset presentState in the undoRedoState
             thunkAPI.dispatch(
               setPresentStartup({
@@ -110,8 +105,7 @@ export const loadStateFromFirestore = createAsyncThunk(
               })
             );
           } else {
-            console.log('cloud non-empty');
-            // cloud db has tabData
+            // Firestore has tabData
             thunkAPI.dispatch(replaceState(tabDataFromCloud));
             thunkAPI.dispatch(setIsNotDirty());
             // reset presentState in the undoRedoState
@@ -137,7 +131,7 @@ export const loadStateFromFirestore = createAsyncThunk(
     } catch (error: any) {
       if (error.message === 'Document does not exist for userId: ' + userId) {
         thunkAPI.dispatch(setIsDirty());
-        thunkAPI.dispatch(syncWithThunk());
+        thunkAPI.dispatch(syncToFirestore());
       }
     }
   }
@@ -237,27 +231,24 @@ export const globalStateSlice = createSlice({
 
   extraReducers: (builder) => {
     builder
-      .addCase(syncWithThunk.pending, (state) => {
+      .addCase(syncToFirestore.pending, (state) => {
         state.syncStatus = 'loading';
       })
-      .addCase(syncWithThunk.fulfilled, (state, _) => {
+      .addCase(syncToFirestore.fulfilled, (state, _) => {
         if (state.isSignedIn && !state.isDirty) {
           state.syncStatus = 'success';
         } else {
           state.syncStatus = 'error';
         }
       })
-      .addCase(syncWithThunk.rejected, (state) => {
+      .addCase(syncToFirestore.rejected, (state) => {
         state.syncStatus = 'error';
       })
       .addCase(openSettingsPage.fulfilled, (state) => {
         state.isSettingsPage = true;
       })
-      .addCase(showToast.fulfilled, (_) => {
-        // console.log(state);
-      })
+      .addCase(showToast.fulfilled, () => {})
       .addCase(loadStateFromFirestore.fulfilled, (state) => {
-        console.log('load from firestore fulfilled:');
         if (state.isSignedIn && !state.isDirty) {
           state.syncStatus = 'success';
         } else {

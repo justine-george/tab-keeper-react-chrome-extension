@@ -34,12 +34,10 @@ export const observeAuthState = (dispatch: AppDispatch) => {
   onAuthStateChanged(auth, (user) => {
     if (user) {
       // User is signed in
-      console.log(user.uid + ' signed in!');
       dispatch(setSignedIn());
       dispatch(setUserId(user.uid));
     } else {
       // User is signed out
-      console.log('Signed out!');
       dispatch(setLoggedOut());
       dispatch(removeUserId());
     }
