@@ -67,6 +67,7 @@ export const TOOLTIP_MESSAGES = {
   EMAIL: 'Enter your email address',
   PASSWORD: 'Enter your password',
   NEW_ACCOUNT_EMAIL: 'Enter your preferred email address',
-  NEW_ACCOUNT_PASSWORD: 'Password must be at least 8 characters long and contain both letters and numbers',
+  NEW_ACCOUNT_PASSWORD:
+    'Password must be at least 8 characters long and contain both letters and numbers',
   NEW_ACCOUNT_CONFIRM_PASSWORD: 'Re-enter your password to confirm it',
 };
