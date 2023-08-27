@@ -4,6 +4,7 @@ import Icon from '../common/Icon';
 import { NormalLabel } from '../common/Label';
 import { useThemeColors } from '../hook/useThemeColors';
 import { backToHome } from '../../redux/slice/globalStateSlice';
+import { AppDispatch } from '../../redux/store';
 
 export default function MenuContainer() {
   const COLORS = useThemeColors();
@@ -14,7 +15,7 @@ export default function MenuContainer() {
     align-items: center;
   `;
 
-  const dispatch = useDispatch();
+  const dispatch: AppDispatch = useDispatch();
 
   return (
     <div css={containerStyle}>

@@ -4,7 +4,7 @@ import WindowEntryContainer from './WindowEntryContainer';
 import { isEmptyObject } from '../../utils/helperFunctions';
 import { useThemeColors } from '../hook/useThemeColors';
 import { useDispatch, useSelector } from 'react-redux';
-import { RootState } from '../../redux/store';
+import { AppDispatch, RootState } from '../../redux/store';
 import {
   deleteWindow,
   openTabsInAWindow,
@@ -13,7 +13,7 @@ import {
 export default function TabGroupDetailsContainer() {
   const COLORS = useThemeColors();
 
-  const dispatch = useDispatch();
+  const dispatch: AppDispatch = useDispatch();
 
   const tabContainerDataList = useSelector(
     (state: RootState) => state.tabContainerDataState

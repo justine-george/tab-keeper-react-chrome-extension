@@ -4,9 +4,10 @@ import TextBox from '../common/TextBox';
 import { useDispatch } from 'react-redux';
 import { useState } from 'react';
 import { saveToTabContainer } from '../../redux/slice/tabContainerDataStateSlice';
+import { AppDispatch } from '../../redux/store';
 
 export default function UserInputContainer() {
-  const dispatch = useDispatch();
+  const dispatch: AppDispatch = useDispatch();
 
   const [newTitle, setNewTitle] = useState<string>('');
 

@@ -4,7 +4,7 @@ import { Tag } from '../common/Tag';
 import { NormalLabel } from '../common/Label';
 import { useThemeColors } from '../hook/useThemeColors';
 import { useDispatch, useSelector } from 'react-redux';
-import { RootState } from '../../redux/store';
+import { AppDispatch, RootState } from '../../redux/store';
 import {
   deleteTabContainer,
   openAllTabContainer,
@@ -13,7 +13,7 @@ import {
 export default function HeroContainerRight() {
   const COLORS = useThemeColors();
 
-  const dispatch = useDispatch();
+  const dispatch: AppDispatch = useDispatch();
 
   const tabContainerDataList = useSelector(
     (state: RootState) => state.tabContainerDataState

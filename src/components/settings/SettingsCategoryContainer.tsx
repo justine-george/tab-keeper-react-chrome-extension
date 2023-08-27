@@ -3,7 +3,7 @@ import Divider from '../common/Divider';
 import { NormalLabel } from '../common/Label';
 import { useThemeColors } from '../hook/useThemeColors';
 import { useDispatch, useSelector } from 'react-redux';
-import { RootState } from '../../redux/store';
+import { AppDispatch, RootState } from '../../redux/store';
 import { selectCategory } from '../../redux/slice/settingsCategoryStateSlice';
 
 export interface SettingsCategory {
@@ -18,7 +18,7 @@ const SettingsCategoryContainer: React.FC = () => {
     (state: RootState) => state.settingsCategoryState
   );
 
-  const dispatch = useDispatch();
+  const dispatch: AppDispatch = useDispatch();
 
   const containerStyle = css`
     display: flex;

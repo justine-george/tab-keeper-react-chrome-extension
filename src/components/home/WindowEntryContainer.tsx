@@ -9,6 +9,7 @@ import {
   deleteTab,
   tabData,
 } from '../../redux/slice/tabContainerDataStateSlice';
+import { AppDispatch } from '../../redux/store';
 
 interface WindowEntryContainerProps {
   title: string;
@@ -29,7 +30,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
 }) => {
   const COLORS = useThemeColors();
 
-  const dispatch = useDispatch();
+  const dispatch: AppDispatch = useDispatch();
 
   const [windowOpenState, setWindowOpenState] = useState(true);
 
