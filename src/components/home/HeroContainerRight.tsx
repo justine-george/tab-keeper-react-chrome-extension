@@ -43,7 +43,7 @@ export default function HeroContainerRight() {
   const bottomStyle = css`
     display: flex;
     padding-left: 8px;
-    margin-bottom: 2px;
+    margin-bottom: 4px;
     margin-top: 8px;
     width: 100%;
     align-items: center;

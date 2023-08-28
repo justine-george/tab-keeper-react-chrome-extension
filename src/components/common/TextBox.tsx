@@ -43,7 +43,10 @@ const TextBox: React.FC<TextBoxProps> = ({
     flex-grow: 1;
     font-family: 'Libre Franklin', sans-serif;
     font-size: 0.9rem;
-    color: ${COLORS.LABEL_L3_COLOR};
+    color: ${COLORS.LABEL_L1_COLOR};
+    &::placeholder {
+      color: ${COLORS.LABEL_L3_COLOR};
+    }
     &:focus {
       outline: none;
     }

@@ -46,6 +46,7 @@ export interface openWindowParams {
 export interface TabMasterContainer {
   // metadata
   lastModified: number;
+  selectedTabGroupId: string | null;
 
   // data
   tabGroups: tabContainerData[];
@@ -53,6 +54,7 @@ export interface TabMasterContainer {
 
 export const initialState: TabMasterContainer = {
   lastModified: Date.now(), // timestamp
+  selectedTabGroupId: null,
   tabGroups: [],
 };
 
@@ -151,9 +153,9 @@ export const tabContainerDataStateSlice = createSlice({
 
     // select tab group by tabGroupId
     selectTabContainer: (state, action: PayloadAction<string>) => {
-      const selectedTabGroupId = action.payload;
+      state.selectedTabGroupId = action.payload;
       state.tabGroups.forEach((tabGroup) => {
-        if (tabGroup.tabGroupId === selectedTabGroupId) {
+        if (tabGroup.tabGroupId === state.selectedTabGroupId) {
           tabGroup.isSelected = true;
         } else {
           tabGroup.isSelected = false;
@@ -175,6 +177,9 @@ export const tabContainerDataStateSlice = createSlice({
         state.tabGroups.splice(tabGroupIndex, 1);
       }
       state.lastModified = Date.now();
+      if (state.selectedTabGroupId === toBeDeletedTabGroupId) {
+        state.selectedTabGroupId = null;
+      }
 
       // update localstorage
       saveToLocalStorage('tabContainerData', state);
@@ -201,6 +206,13 @@ export const tabContainerDataStateSlice = createSlice({
         }
         // if this was the last window in the tabGroup, delete this tabGroup
         if (state.tabGroups[tabGroupIndex].windowCount === 0) {
+          // update selected tab group id
+          if (
+            state.selectedTabGroupId ===
+            state.tabGroups[tabGroupIndex].tabGroupId
+          ) {
+            state.selectedTabGroupId = null;
+          }
           state.tabGroups.splice(tabGroupIndex, 1);
         } else {
           // update tabGroup title, use first window's title
@@ -257,6 +269,14 @@ export const tabContainerDataStateSlice = createSlice({
         }
         // if this was the last window in the tabGroup, delete this tabGroup
         if (state.tabGroups[tabGroupIndex].windowCount === 0) {
+          // update selected tab group id
+          if (
+            state.selectedTabGroupId ===
+            state.tabGroups[tabGroupIndex].tabGroupId
+          ) {
+            state.selectedTabGroupId = null;
+          }
+
           state.tabGroups.splice(tabGroupIndex, 1);
         } else {
           // update tabGroup's title, use first window's title

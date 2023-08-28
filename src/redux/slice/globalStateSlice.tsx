@@ -10,11 +10,18 @@ import {
 import { TabMasterContainer, replaceState } from './tabContainerDataStateSlice';
 import { setPresentStartup } from './undoRedoSlice';
 
+interface ConflictModalPayload {
+  tabDataLocal: TabMasterContainer;
+  tabDataCloud: TabMasterContainer;
+}
+
 export interface Global {
   isSignedIn: boolean;
   userId: string | null;
   isDirty: boolean;
   isSettingsPage: boolean;
+  isSearchPanel: boolean;
+  searchInputText: string;
   syncStatus: 'idle' | 'loading' | 'success' | 'error';
   isToastOpen: boolean;
   toastText: string;
@@ -28,6 +35,8 @@ export const initialState: Global = {
   userId: null,
   isDirty: false,
   isSettingsPage: false,
+  isSearchPanel: false,
+  searchInputText: '',
   syncStatus: 'idle',
   isToastOpen: false,
   toastText: '',
@@ -164,11 +173,6 @@ export const showToast = createAsyncThunk(
   }
 );
 
-interface ConflictModalPayload {
-  tabDataLocal: TabMasterContainer;
-  tabDataCloud: TabMasterContainer;
-}
-
 export const globalStateSlice = createSlice({
   name: 'globalState',
   initialState,
@@ -183,6 +187,18 @@ export const globalStateSlice = createSlice({
       state.isConflictModalOpen = false;
     },
 
+    openSearchPanel: (state) => {
+      state.isSearchPanel = true;
+    },
+
+    closeSearchPanel: (state) => {
+      state.isSearchPanel = false;
+    },
+
+    setSearchInputText: (state, action: PayloadAction<string>) => {
+      state.searchInputText = action.payload;
+    },
+
     openToast: (state) => {
       state.isToastOpen = true;
     },
@@ -195,7 +211,7 @@ export const globalStateSlice = createSlice({
       state.toastText = action.payload;
     },
 
-    backToHome: (state) => {
+    closeSettingsPage: (state) => {
       state.isSettingsPage = false;
     },
 
@@ -261,10 +277,13 @@ export const globalStateSlice = createSlice({
 export const {
   openConflictModal,
   closeConflictModal,
+  openSearchPanel,
+  closeSearchPanel,
+  setSearchInputText,
   openToast,
   closeToast,
   setToastText,
-  backToHome,
+  closeSettingsPage,
   setIsDirty,
   setIsNotDirty,
   setSignedIn,

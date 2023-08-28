@@ -49,7 +49,7 @@ const Button: React.FC<ButtonProps> = ({
             type={iconType}
             disable={true}
             focusable={true}
-            style="padding-right: 8px;"
+            style={(imageSrc || text) && 'padding-right: 8px;'}
           />
         )}
         {imageSrc && (

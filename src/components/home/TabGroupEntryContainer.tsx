@@ -9,16 +9,48 @@ import {
   deleteTabContainer,
   openAllTabContainer,
   selectTabContainer,
+  tabContainerData,
 } from '../../redux/slice/tabContainerDataStateSlice';
 
 export default function TabGroupEntryContainer() {
   const COLORS = useThemeColors();
-
   const dispatch: AppDispatch = useDispatch();
 
   const tabContainerDataList = useSelector(
     (state: RootState) => state.tabContainerDataState
   );
+
+  const isSearchPanel = useSelector(
+    (state: RootState) => state.globalState.isSearchPanel
+  );
+
+  const searchInputText = useSelector(
+    (state: RootState) => state.globalState.searchInputText
+  );
+
+  // filter the tab group list
+  let filteredTabGroups: tabContainerData[] = tabContainerDataList.tabGroups;
+  if (isSearchPanel && searchInputText) {
+    const loweredSearchText = searchInputText.toLowerCase();
+
+    filteredTabGroups = filteredTabGroups.filter((tabGroup) => {
+      if (tabGroup.title.toLowerCase().includes(loweredSearchText)) {
+        return true;
+      }
+
+      return tabGroup.windows.some(
+        (window) =>
+          window.title.toLowerCase().includes(loweredSearchText) ||
+          window.tabs.some((tab) =>
+            tab.title.toLowerCase().includes(loweredSearchText)
+          )
+      );
+    });
+
+    if (filteredTabGroups.length !== 0) {
+      dispatch(selectTabContainer(filteredTabGroups[0].tabGroupId));
+    }
+  }
 
   const containerStyle = css`
     display: flex;
@@ -44,13 +76,13 @@ export default function TabGroupEntryContainer() {
 
   return (
     <div css={containerStyle}>
-      {tabContainerDataList.tabGroups.length === 0 ? (
+      {filteredTabGroups.length === 0 ? (
         <div css={emptyContainerStyle}>
           <NormalLabel value="Empty" />
         </div>
       ) : (
         <div css={filledContainerStyle}>
-          {tabContainerDataList.tabGroups.map((tabGroupData, index) => {
+          {filteredTabGroups.map((tabGroupData, index) => {
             return (
               <div
               // key={tabGroupData.tabGroupId}
@@ -68,9 +100,7 @@ export default function TabGroupEntryContainer() {
                   }
                 />
                 {/* <Divider /> */}
-                {index != tabContainerDataList.tabGroups.length - 1 && (
-                  <Divider />
-                )}
+                {index != filteredTabGroups.length - 1 && <Divider />}
               </div>
             );
           })}
