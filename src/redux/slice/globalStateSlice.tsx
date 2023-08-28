@@ -64,7 +64,7 @@ export const syncToFirestore = createAsyncThunk(
 
         return { status: 'success' };
       } catch (error) {
-        console.error('Error updating Firestore: ', error);
+        console.warn('Error updating Firestore: ', error);
         throw error;
       }
     }

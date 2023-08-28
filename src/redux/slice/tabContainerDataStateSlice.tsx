@@ -1,6 +1,6 @@
-import { PayloadAction, createSlice } from '@reduxjs/toolkit';
-import { v4 as uuidv4 } from 'uuid';
-import { getStringDate, saveToLocalStorage } from '../../utils/helperFunctions';
+import { PayloadAction, createAsyncThunk, createSlice } from '@reduxjs/toolkit';
+import { saveToLocalStorage } from '../../utils/helperFunctions';
+import { RootState } from '../store';
 
 export interface tabData {
   tabId: string; // TODO: use ULID, 48bit timestamp + 80 bits random data: 128bit key
@@ -11,7 +11,7 @@ export interface tabData {
 
 export interface windowGroupData {
   windowId: string;
-  tabCount: number; // keep track of this count while adding/removing
+  tabCount: number;
   title: string;
   tabs: tabData[];
 }
@@ -19,9 +19,9 @@ export interface windowGroupData {
 export interface tabContainerData {
   tabGroupId: string;
   title: string;
-  createdTime: string; // TODO: conversion to Date might be needed
-  windowCount: number; // keep track of this count while adding/removing
-  tabCount: number; // keep track of this count while adding/removing
+  createdTime: string;
+  windowCount: number;
+  tabCount: number;
   isAutoSave: boolean;
   isSelected: boolean;
   windows: windowGroupData[];
@@ -58,88 +58,108 @@ export const initialState: TabMasterContainer = {
   tabGroups: [],
 };
 
+const placeholderDataURI =
+  'data:text/html,<html><body><h1>Click to load</h1></body></html>';
+const tabURLMap: { [key: number]: string } = {};
+
+chrome.tabs.onActivated.addListener((activeInfo) => {
+  const tabId = activeInfo.tabId;
+  if (tabURLMap[tabId]) {
+    chrome.tabs.update(tabId, { url: tabURLMap[tabId] });
+    delete tabURLMap[tabId]; // clean up the map entry
+  }
+});
+
+// open all windows under this tab group in separate windows, with corresponding tabs inside
+export const openAllTabContainer = createAsyncThunk(
+  'global/openAllTabContainer',
+  async (tabGroupId: string, thunkAPI) => {
+    const state: TabMasterContainer = (thunkAPI.getState() as RootState)
+      .tabContainerDataState;
+    const tabGroup = state.tabGroups.find(
+      (group) => group.tabGroupId === tabGroupId
+    );
+
+    if (tabGroup) {
+      let isFirstWindow = true;
+
+      for (const windowGroup of tabGroup.windows) {
+        chrome.windows.create(
+          {
+            url: windowGroup.tabs[0].url, // load only the first tab directly
+            focused: isFirstWindow,
+          },
+          (newWindow) => {
+            for (let i = 1; i < windowGroup.tabs.length; i++) {
+              chrome.tabs.create(
+                {
+                  windowId: newWindow!.id,
+                  url: placeholderDataURI,
+                  active: false,
+                },
+                (tab) => {
+                  tabURLMap[tab.id!] = windowGroup.tabs[i].url; // Store the actual URL for later loading
+                }
+              );
+            }
+          }
+        );
+
+        isFirstWindow = false;
+      }
+    }
+  }
+);
+
+interface openTabsInAWindowParams {
+  tabGroupId: string;
+  windowId: string;
+}
+
+// open all tabs under this section in a single window
+export const openTabsInAWindow = createAsyncThunk(
+  'global/openTabsInAWindow',
+  async (params: openTabsInAWindowParams, thunkAPI) => {
+    const state: TabMasterContainer = (thunkAPI.getState() as RootState)
+      .tabContainerDataState;
+
+    const tabGroup = state.tabGroups.find(
+      (group) => group.tabGroupId === params.tabGroupId
+    );
+
+    if (tabGroup) {
+      const windowGroup = tabGroup.windows.find(
+        (window) => window.windowId === params.windowId
+      );
+
+      if (windowGroup) {
+        const firstTabUrl = windowGroup.tabs[0].url;
+        chrome.windows.create({ url: firstTabUrl }, (newWindow) => {
+          for (let i = 1; i < windowGroup.tabs.length; i++) {
+            chrome.tabs.create(
+              {
+                windowId: newWindow!.id,
+                url: placeholderDataURI,
+                active: false,
+              },
+              (tab) => {
+                tabURLMap[tab.id!] = windowGroup.tabs[i].url; // Store the actual URL for later loading
+              }
+            );
+          }
+        });
+      }
+    }
+  }
+);
+
 export const tabContainerDataStateSlice = createSlice({
   name: 'tabContainerDataState',
   initialState,
   reducers: {
-    // TODO: receive tabContainerData object ready to push to the state
-    // saveToTabContainer: (state, action: PayloadAction<tabContainerData>) => {
-    //   state.unshift(action.payload);
-    // },
-
-    // add new tab group to the container list
-    saveToTabContainer: (state, action: PayloadAction<string>) => {
-      const title = action.payload;
-      const newTabGroupId = uuidv4();
-      const dummyValue = {
-        tabGroupId: newTabGroupId,
-        // TODO: this should be current window -> current tab title
-        title: title || 'Youtube - Home',
-        createdTime: getStringDate(new Date()),
-        windowCount: 2, // keep track of this count while adding/removing
-        tabCount: 7, // keep track of this count while adding/removing
-        isAutoSave: false, // not gonna happen
-        isSelected: true,
-        windows: [
-          {
-            windowId: uuidv4(),
-            tabCount: 4, // keep track of this count while adding/removing
-            title: 'Youtube - Home',
-            tabs: [
-              {
-                tabId: uuidv4(),
-                favicon: 'https://www.youtube.com/favicon.ico',
-                title: 'Youtube - Home',
-                url: 'https://www.youtube.com/',
-              },
-              {
-                tabId: uuidv4(),
-                favicon: 'https://firebase.google.com/favicon.ico',
-                title: 'Choose a data structure | Firestore | Firebase',
-                url: 'https://firebase.google.com/docs/firestore/manage-data/structure-data',
-              },
-              {
-                tabId: uuidv4(),
-                favicon: 'https://en.wikipedia.org/favicon.ico',
-                title: 'Wikipedia',
-                url: 'https://www.wikipedia.org/',
-              },
-              {
-                tabId: uuidv4(),
-                favicon: 'https://react.dev/favicon.ico',
-                title: 'React',
-                url: 'https://react.dev/',
-              },
-            ],
-          },
-          {
-            windowId: uuidv4(),
-            tabCount: 3, // keep track of this count while adding/removing
-            title: 'Proton Mail',
-            tabs: [
-              {
-                tabId: uuidv4(),
-                favicon: 'https://proton.me/favicon.ico',
-                title: 'Proton Mail',
-                url: 'https://mail.proton.me/',
-              },
-              {
-                tabId: uuidv4(),
-                favicon: 'https://musclewiki.com/static//images/favicon.ico',
-                title: 'MuscleWiki',
-                url: 'https://musclewiki.com/',
-              },
-              {
-                tabId: uuidv4(),
-                favicon: 'https://twitter.com/favicon.ico',
-                title: 'Home / Twitter',
-                url: 'https://twitter.com/home',
-              },
-            ],
-          },
-        ],
-      };
-      state.tabGroups.unshift(dummyValue);
+    saveToTabContainer: (state, action: PayloadAction<tabContainerData>) => {
+      const newTabGroupId = action.payload.tabGroupId;
+      state.tabGroups.unshift(action.payload);
       state.lastModified = Date.now();
 
       // update localstorage
@@ -290,20 +310,6 @@ export const tabContainerDataStateSlice = createSlice({
       saveToLocalStorage('tabContainerData', state);
     },
 
-    // open all windows under this tab group in separate windows, with corresponding tabs inside
-    openAllTabContainer: (state, action: PayloadAction<string>) => {
-      // TODO
-      console.log(state);
-      console.log(action);
-    },
-
-    // open all tabs under this section in a single window
-    openTabsInAWindow: (state, action: PayloadAction<openWindowParams>) => {
-      // TODO
-      console.log(state);
-      console.log(action);
-    },
-
     replaceState: (state, action: PayloadAction<typeof state>) => {
       // update localstorage
       saveToLocalStorage('tabContainerData', action.payload);
@@ -318,8 +324,6 @@ export const {
   deleteTabContainer,
   deleteWindow,
   deleteTab,
-  openAllTabContainer,
-  openTabsInAWindow,
   replaceState,
 } = tabContainerDataStateSlice.actions;
 

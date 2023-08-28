@@ -50,12 +50,13 @@ export const fetchDataFromFirestore = async (
   // Fetch your data based on the signed-in user's ID
   const tabData = await getDoc(doc(db, 'tabGroupData', userId));
   if (!tabData.exists()) {
-    console.error('No document found for userId: ' + userId);
+    console.warn('No document found for userId: ' + userId);
     throw new Error('Document does not exist for userId: ' + userId);
   } else {
     return {
       lastModified: tabData.data().lastModified,
       tabGroups: tabData.data().tabGroups,
+      selectedTabGroupId: tabData.data().selectedTabGroupId,
     };
   }
 };

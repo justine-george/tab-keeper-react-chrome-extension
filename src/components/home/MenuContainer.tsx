@@ -79,7 +79,12 @@ export default function MenuContainer() {
         onClick={handleClickSync}
         disable={isDisabled}
       />
-      <Icon type="settings" onClick={handleClickSettings} />
+      <Icon
+        type="settings"
+        onClick={handleClickSettings}
+        animationFrom={`transform: rotate(0deg);`}
+        animationTo={`transform: rotate(120deg);`}
+      />
     </div>
   );
 }

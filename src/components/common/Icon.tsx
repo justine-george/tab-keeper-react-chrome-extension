@@ -1,5 +1,5 @@
 import React, { MouseEventHandler } from 'react';
-import { css } from '@emotion/react';
+import { css, keyframes } from '@emotion/react';
 import { useThemeColors } from '../hook/useThemeColors';
 
 interface IconProps {
@@ -8,6 +8,9 @@ interface IconProps {
   onClick?: MouseEventHandler;
   disable?: boolean;
   focusable?: boolean;
+  animationFrom?: string;
+  animationTo?: string;
+  animationDuration?: string;
   style?: string;
 }
 
@@ -17,6 +20,9 @@ const Icon: React.FC<IconProps> = ({
   onClick,
   disable,
   focusable = true,
+  animationFrom,
+  animationTo,
+  animationDuration,
   style,
 }) => {
   const COLORS = useThemeColors();
@@ -26,6 +32,23 @@ const Icon: React.FC<IconProps> = ({
       onClick(e as any);
     }
   }
+
+  // Define keyframe animation
+  const hoverAnimation =
+    animationFrom &&
+    animationTo &&
+    css`
+      &:hover {
+        animation: ${keyframes`
+      from {
+        ${animationFrom}
+      }
+      to {
+        ${animationTo}
+      }
+    `} ${animationDuration ? animationDuration : `0.25s`} linear 1;
+      }
+    `;
 
   const hoverColor =
     type === 'delete'
@@ -38,6 +61,7 @@ const Icon: React.FC<IconProps> = ({
     height: 1.5rem;
     object-fit: contain;
     color: ${COLORS.TEXT_COLOR};
+    ${hoverAnimation}
   `;
 
   const containerStyle = css`
