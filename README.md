@@ -1,6 +1,6 @@
 # TabKeeper - Tab Session Manager
 
-TabKeeper is a user-friendly Chrome extension that helps users save and organize their tabs efficiently. It integrates Firebase Authentication for secure sign-up and provides seamless synchronization of tab data with Cloud Firestore. With features like tab grouping and search functionality, users can easily manage and locate their saved tabs. TabKeeper is built using React, Emotion CSS, Cloud Firestore, and the Firebase SDK. [Try it out today! (Chrome Web Store link)](https://chrome.google.com/webstore/detail/tabkeeper-tab-session-manager-for-chrome/gpibgniomobngodpnikhheifblbpbbah)
+TabKeeper is a user-friendly Chrome extension that helps users save and organize their tabs efficiently. It integrates Firebase Authentication for secure sign-up and provides seamless synchronization of tab data with Cloud Firestore. With features like tab grouping and search functionality, users can easily manage and locate their saved tabs. TabKeeper is built using React, Emotion CSS, Cloud Firestore, and the Firebase SDK.<br><br>[Try it out today! (Chrome Web Store link)](https://chrome.google.com/webstore/detail/tabkeeper-tab-session-manager-for-chrome/gpibgniomobngodpnikhheifblbpbbah)<br>
 
 ![App Banner](https://github.com/justinegeo96/tab-keeper-react-chrome-extension/blob/main/store-screenshots/alt.png?raw=true)
 
