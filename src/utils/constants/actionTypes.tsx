@@ -9,11 +9,12 @@ export const TAB_CONTAINER_REPLACE_STATE_ACTION =
 export const SELECT_TAB_CONTAINER_ACTION =
   'tabContainerDataState/selectTabContainer';
 export const SAVE_TAB_CONTAINER_ACTION =
-  'tabContainerDataState/saveToTabContainer';
+  'tabContainerDataState/saveToTabContainerInternal';
 export const DELETE_TAB_CONTAINER_ACTION =
-  'tabContainerDataState/deleteTabContainer';
-export const DELETE_WINDOW_ACTION = 'tabContainerDataState/deleteWindow';
-export const DELETE_TAB_ACTION = 'tabContainerDataState/deleteTab';
+  'tabContainerDataState/deleteTabContainerInternal';
+export const DELETE_WINDOW_ACTION =
+  'tabContainerDataState/deleteWindowInternal';
+export const DELETE_TAB_ACTION = 'tabContainerDataState/deleteTabInternal';
 
 // global actions
 export const IS_DIRTY_ACTION = 'globalState/setIsDirty';

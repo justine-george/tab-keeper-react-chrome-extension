@@ -4,6 +4,8 @@ import {
   saveToLocalStorage,
 } from '../../utils/helperFunctions';
 import { RootState } from '../store';
+import { showToast } from './globalStateSlice';
+import { TOAST_MESSAGES } from '../../utils/constants/common';
 
 export interface tabData {
   tabId: string; // TODO: use ULID, 48bit timestamp + 80 bits random data: 128bit key
@@ -173,17 +175,82 @@ export const openAllTabContainer = createAsyncThunk(
   }
 );
 
+// save to tab container and display a toast message
+export const saveToTabContainer = createAsyncThunk(
+  'global/saveToTabContainer',
+  async (tabContainerData: tabContainerData, thunkAPI) => {
+    thunkAPI.dispatch(saveToTabContainerInternal(tabContainerData));
+
+    thunkAPI.dispatch(
+      showToast({
+        toastText: TOAST_MESSAGES.SAVE_TAB_CONTAINER_SUCCESS,
+        duration: 3000,
+      })
+    );
+  }
+);
+
+// delete tab group by tabGroupId
+export const deleteTabContainer = createAsyncThunk(
+  'global/deleteTabContainer',
+  async (toBeDeletedTabGroupId: string, thunkAPI) => {
+    thunkAPI.dispatch(deleteTabContainerInternal(toBeDeletedTabGroupId));
+
+    thunkAPI.dispatch(
+      showToast({
+        toastText: TOAST_MESSAGES.DELETE_TAB_CONTAINER_SUCCESS,
+        duration: 3000,
+      })
+    );
+  }
+);
+
+// delete window by (tabGroupId, windowId)
+export const deleteWindow = createAsyncThunk(
+  'global/deleteWindow',
+  async (params: deleteWindowParams, thunkAPI) => {
+    thunkAPI.dispatch(deleteWindowInternal(params));
+
+    thunkAPI.dispatch(
+      showToast({
+        toastText: TOAST_MESSAGES.DELETE_WINDOW_SUCCESS,
+        duration: 3000,
+      })
+    );
+  }
+);
+
+// delete tab by (tabGroupId, windowId, tabId)
+export const deleteTab = createAsyncThunk(
+  'global/deleteTab',
+  async (params: deleteTabParams, thunkAPI) => {
+    thunkAPI.dispatch(deleteTabInternal(params));
+
+    thunkAPI.dispatch(
+      showToast({
+        toastText: TOAST_MESSAGES.DELETE_TAB_SUCCESS,
+        duration: 3000,
+      })
+    );
+  }
+);
+
 export const tabContainerDataStateSlice = createSlice({
   name: 'tabContainerDataState',
   initialState,
   reducers: {
-    saveToTabContainer: (state, action: PayloadAction<tabContainerData>) => {
+    saveToTabContainerInternal: (
+      state,
+      action: PayloadAction<tabContainerData>
+    ) => {
       const newTabGroupId = action.payload.tabGroupId;
       state.tabGroups.unshift(action.payload);
       state.lastModified = Date.now();
 
       // update localstorage
       saveToLocalStorage('tabContainerData', state);
+
+      // display toast
 
       // select this tabGroup
       tabContainerDataStateSlice.caseReducers.selectTabContainer(state, {
@@ -207,7 +274,7 @@ export const tabContainerDataStateSlice = createSlice({
     },
 
     // delete tab group by tabGroupId
-    deleteTabContainer: (state, action: PayloadAction<string>) => {
+    deleteTabContainerInternal: (state, action: PayloadAction<string>) => {
       const toBeDeletedTabGroupId = action.payload;
       // find the index and delete when id is a match with toBeDeletedId
       const tabGroupIndex = state.tabGroups.findIndex(
@@ -226,7 +293,10 @@ export const tabContainerDataStateSlice = createSlice({
     },
 
     // delete window by (tabGroupId, windowId)
-    deleteWindow: (state, action: PayloadAction<deleteWindowParams>) => {
+    deleteWindowInternal: (
+      state,
+      action: PayloadAction<deleteWindowParams>
+    ) => {
       const { tabGroupId, windowId } = action.payload;
       const tabGroupIndex = state.tabGroups.findIndex(
         (tabGroup) => tabGroup.tabGroupId === tabGroupId
@@ -267,7 +337,7 @@ export const tabContainerDataStateSlice = createSlice({
     },
 
     // delete tab by (tabGroupId, windowId, tabId)
-    deleteTab: (state, action: PayloadAction<deleteTabParams>) => {
+    deleteTabInternal: (state, action: PayloadAction<deleteTabParams>) => {
       const { tabGroupId, windowId, tabId } = action.payload;
       const tabGroupIndex = state.tabGroups.findIndex(
         (tabGroup) => tabGroup.tabGroupId === tabGroupId
@@ -339,11 +409,11 @@ export const tabContainerDataStateSlice = createSlice({
 });
 
 export const {
-  saveToTabContainer,
+  saveToTabContainerInternal,
   selectTabContainer,
-  deleteTabContainer,
-  deleteWindow,
-  deleteTab,
+  deleteTabContainerInternal,
+  deleteWindowInternal,
+  deleteTabInternal,
   replaceState,
 } = tabContainerDataStateSlice.actions;
 

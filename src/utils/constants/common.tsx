@@ -61,6 +61,10 @@ export const TOAST_MESSAGES = {
   LOGOUT_SUCCESS: 'You have successfully logged out.',
   LOGOUT_FAIL:
     'Oops! We encountered an issue while logging you out. Please try again.',
+  SAVE_TAB_CONTAINER_SUCCESS: 'Session saved. ',
+  DELETE_TAB_CONTAINER_SUCCESS: 'Session deleted. ',
+  DELETE_WINDOW_SUCCESS: 'Session window deleted. ',
+  DELETE_TAB_SUCCESS: 'Session tab deleted. ',
 };
 
 export const TOOLTIP_MESSAGES = {

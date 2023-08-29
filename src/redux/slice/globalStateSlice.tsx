@@ -166,15 +166,22 @@ interface ShowToastPayload {
   duration?: number;
 }
 
+let toastTimeout: number | null = null;
 export const showToast = createAsyncThunk(
   'global/showToast',
   async ({ toastText, duration = 5000 }: ShowToastPayload, thunkAPI) => {
     if (toastText) {
+      // If there's an existing toast timeout, clear it
+      if (toastTimeout !== null) {
+        clearTimeout(toastTimeout);
+        toastTimeout = null;
+      }
+
       thunkAPI.dispatch(setToastText(toastText));
       thunkAPI.dispatch(openToast());
 
-      // default to 5000ms
-      setTimeout(() => {
+      // Set the new timeout for the current toast
+      toastTimeout = setTimeout(() => {
         thunkAPI.dispatch(closeToast());
       }, duration);
     }
