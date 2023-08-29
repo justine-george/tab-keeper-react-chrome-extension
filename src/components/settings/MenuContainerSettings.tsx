@@ -3,7 +3,10 @@ import { useDispatch } from 'react-redux';
 import Icon from '../common/Icon';
 import { NormalLabel } from '../common/Label';
 import { useThemeColors } from '../hook/useThemeColors';
-import { closeSettingsPage } from '../../redux/slice/globalStateSlice';
+import {
+  closeSettingsPage,
+  closeToast,
+} from '../../redux/slice/globalStateSlice';
 import { AppDispatch } from '../../redux/store';
 
 export default function MenuContainer() {
@@ -17,9 +20,14 @@ export default function MenuContainer() {
 
   const dispatch: AppDispatch = useDispatch();
 
+  const handleBackClick = () => {
+    dispatch(closeSettingsPage());
+    dispatch(closeToast());
+  };
+
   return (
     <div css={containerStyle}>
-      <Icon type="arrow_back" onClick={() => dispatch(closeSettingsPage())} />
+      <Icon type="arrow_back" onClick={handleBackClick} />
       <NormalLabel
         value="Back"
         size="1.125rem"

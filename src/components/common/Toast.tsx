@@ -16,13 +16,16 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
   const isToastOpen = useSelector(
     (state: RootState) => state.globalState.isToastOpen
   );
+  const isSettingsPage = useSelector(
+    (state: RootState) => state.globalState.isSettingsPage
+  );
 
   if (!isToastOpen) return null;
 
   const toastStyle = css`
     position: fixed;
     bottom: 20px;
-    right: 20px;
+    ${isSettingsPage ? `right: 20px` : `left: 20px`};
     background-color: ${COLORS.INVERSE_PRIMARY_COLOR};
     color: ${COLORS.PRIMARY_COLOR};
     padding: 10px;
