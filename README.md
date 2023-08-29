@@ -2,9 +2,7 @@
 
 TabKeeper is a user-friendly Chrome extension that helps users save and organize their tabs efficiently. It integrates Firebase Authentication for secure sign-up and provides seamless synchronization of tab data with Cloud Firestore. With features like tab grouping and search functionality, users can easily manage and locate their saved tabs. TabKeeper is built using React, Emotion CSS, Cloud Firestore, and the Firebase SDK.
 
-![Light Theme Screenshot](https://github.com/justinegeo96/tab-keeper-react-chrome-extension/blob/main/src/assets/light-theme.png?raw=true)
-
-![Dark Theme Screenshot](https://github.com/justinegeo96/tab-keeper-react-chrome-extension/blob/main/src/assets/dark-theme.png?raw=true)
+![App Banner](https://github.com/justinegeo96/tab-keeper-react-chrome-extension/blob/main/store-screenshots/alt.png?raw=true)
 
 ## 🌱 Features:
 
