@@ -2,6 +2,7 @@ import { css } from '@emotion/react';
 import Icon from '../common/Icon';
 import { useDispatch, useSelector } from 'react-redux';
 import {
+  closeToast,
   openSettingsPage,
   syncToFirestore,
 } from '../../redux/slice/globalStateSlice';
@@ -37,6 +38,7 @@ export default function MenuContainer() {
 
   function handleClickSettings() {
     dispatch(openSettingsPage('General'));
+    dispatch(closeToast());
   }
 
   // sync icon change with syncStatus

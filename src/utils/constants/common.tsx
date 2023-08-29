@@ -1,3 +1,5 @@
+import manifest from '../../../public/manifest.json';
+
 // Constants related to colors moved to hook/useThemeColors
 
 // for plain icons with no interactivity
@@ -15,7 +17,7 @@ export const STACK_LEVEL = 10;
 export const DEBOUNCE_TIME_WINDOW = 500;
 
 // app version
-export const APP_VERSION = '1.0.1';
+export const APP_VERSION = manifest.version;
 
 // developer details
 export const DEV_CREDITS = 'Made by Justine George.';
