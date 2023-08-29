@@ -132,9 +132,9 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     margin-right: 4px;
   `;
 
-  function handleWindowTitleClick() {
-    // TODO: open all the tabs in this context in a new window
-  }
+  const handleTabClick = (url: string) => {
+    chrome.tabs.create({ url: url });
+  };
 
   return (
     <div css={containerStyle}>
@@ -149,11 +149,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
             onClick={handleAccordionClick}
           />
           <Icon type="ad" style={NON_INTERACTIVE_ICON_STYLE} />
-          <div
-            onClick={handleWindowTitleClick}
-            css={parentLinkStyle}
-            tabIndex={0}
-          >
+          <div css={parentLinkStyle} tabIndex={0}>
             <NormalLabel
               value={title}
               color={COLORS.TEXT_COLOR}
@@ -194,11 +190,9 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                     type="app_badging"
                     style={NON_INTERACTIVE_ICON_STYLE}
                   />
-                  <a
-                    href={url}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <div
                     css={windowChildLinkStyle}
+                    onClick={() => handleTabClick(url)}
                   >
                     <NormalLabel
                       value={title}
@@ -206,7 +200,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                       size="0.9rem"
                       style="padding-left: 4px; cursor: pointer; height: 100%; max-width: 245px;"
                     />
-                  </a>
+                  </div>
                 </div>
                 <div css={childRightStyle(index)}>
                   <Icon

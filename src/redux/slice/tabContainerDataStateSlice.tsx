@@ -8,7 +8,7 @@ import { showToast } from './globalStateSlice';
 import { TOAST_MESSAGES } from '../../utils/constants/common';
 
 export interface tabData {
-  tabId: string; // TODO: use ULID, 48bit timestamp + 80 bits random data: 128bit key
+  tabId: string;
   favicon: string;
   title: string;
   url: string;
