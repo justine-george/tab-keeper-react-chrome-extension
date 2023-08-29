@@ -19,7 +19,6 @@ export default function TabGroupDetailsContainer() {
     (state: RootState) => state.tabContainerDataState
   );
 
-  // assumption is there is, at max, one selected tabGroup
   const selectedTabGroup = tabContainerDataList.tabGroups.filter(
     (tabGroup) => tabGroup.isSelected
   )[0];
@@ -29,8 +28,6 @@ export default function TabGroupDetailsContainer() {
   const containerStyle = css`
     display: flex;
     flex-direction: column;
-    // padding: 8px;
-    // height: 100%;
     flex-grow: 1;
     margin-top: 8px;
     border: 1px solid ${COLORS.BORDER_COLOR};
@@ -57,9 +54,7 @@ export default function TabGroupDetailsContainer() {
         <div css={filledContainerStyle}>
           {selectedTabGroup.windows.map(({ windowId, title, tabs }, _) => {
             return (
-              <div
-              // key={windowId}
-              >
+              <div>
                 <WindowEntryContainer
                   title={title}
                   tabs={tabs}

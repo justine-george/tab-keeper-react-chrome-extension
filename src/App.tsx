@@ -19,12 +19,15 @@ function App() {
     (state: RootState) => state.globalState.isSignedIn
   );
   const userId = useSelector((state: RootState) => state.globalState.userId);
+  const isAutoSync = useSelector(
+    (state: RootState) => state.settingsDataState.isAutoSync
+  );
 
   useEffect(() => {
     observeAuthState(dispatch);
 
-    // if signed in, fetch data from Firestore
-    if (isSignedIn && userId) {
+    // fetch data from Firestore
+    if (isSignedIn && userId && isAutoSync) {
       dispatch(loadStateFromFirestore(userId));
     } else {
       // load from local storage
@@ -43,7 +46,6 @@ function App() {
   const containerStyle = css`
     background-color: ${COLORS.PRIMARY_COLOR};
     width: ${APP_WIDTH};
-    // border: 1px solid ${COLORS.BORDER_COLOR};
   `;
 
   return (

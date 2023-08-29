@@ -124,8 +124,6 @@ export const loadStateFromFirestore = createAsyncThunk(
               })
             );
           }
-        } else {
-          // both are empty
         }
       } else {
         // proceed as normal

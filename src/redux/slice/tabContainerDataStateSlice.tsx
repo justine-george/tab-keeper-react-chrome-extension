@@ -67,7 +67,7 @@ chrome.tabs.onActivated.addListener(({ tabId }) => {
   const tabData = tabURLMap[tabId];
   if (tabData) {
     chrome.tabs.update(tabId, { url: tabData.url });
-    delete tabURLMap[tabId]; // clean up the map entry
+    delete tabURLMap[tabId];
   }
 });
 
@@ -249,8 +249,6 @@ export const tabContainerDataStateSlice = createSlice({
 
       // update localstorage
       saveToLocalStorage('tabContainerData', state);
-
-      // display toast
 
       // select this tabGroup
       tabContainerDataStateSlice.caseReducers.selectTabContainer(state, {
