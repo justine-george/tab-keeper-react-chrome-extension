@@ -70,7 +70,6 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
       background-color: ${!isSelected && COLORS.HOVER_COLOR};
     }
     background-color: ${isSelected && COLORS.SELECTION_COLOR};
-    // padding: 2px 0px;
   `;
 
   return (

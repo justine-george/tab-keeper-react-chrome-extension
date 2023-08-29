@@ -179,7 +179,6 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
           {tabs.map(({ tabId, favicon, title, url }, index) => {
             return (
               <div
-                // key={tabId}
                 css={childrenStyle}
                 onMouseEnter={() => setHoveredChildIndex(index)}
                 onMouseLeave={() => setHoveredChildIndex(null)}

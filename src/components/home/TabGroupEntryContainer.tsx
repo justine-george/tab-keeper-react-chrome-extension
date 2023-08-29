@@ -87,9 +87,7 @@ export default function TabGroupEntryContainer() {
         <div css={filledContainerStyle}>
           {filteredTabGroups.map((tabGroupData, index) => {
             return (
-              <div
-              // key={tabGroupData.tabGroupId}
-              >
+              <div>
                 <TabGroupEntry
                   tabGroupData={tabGroupData}
                   onTabGroupClick={() =>

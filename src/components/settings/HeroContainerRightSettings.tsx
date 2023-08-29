@@ -11,7 +11,6 @@ export default function HeroContainerRightSettings() {
     display: flex;
     flex-direction: row;
     align-items: center;
-    // justify-content: space-between;
     border: 1px solid ${COLORS.BORDER_COLOR};
     font-family: 'Libre Franklin', sans-serif;
     user-select: none;

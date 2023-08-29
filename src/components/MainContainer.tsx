@@ -36,14 +36,12 @@ export default function MainContainer() {
     height: ${APP_HEIGHT};
     border: 1px solid ${COLORS.BORDER_COLOR};
     border-right: none;
-    // margin: 2px 0px 2px 2px;
   `;
 
   const rightPaneStyle = css`
     width: 50%;
     height: ${APP_HEIGHT};
     border: 1px solid ${COLORS.BORDER_COLOR};
-    // margin: 2px 2px 2px 0px;
   `;
 
   const leftPaneSettingsStyle = css`
@@ -51,14 +49,12 @@ export default function MainContainer() {
     height: ${APP_HEIGHT};
     border: 1px solid ${COLORS.BORDER_COLOR};
     border-right: none;
-    // margin: 2px 0px 2px 2px;
   `;
 
   const rightPaneSettingsStyle = css`
     width: 70%;
     height: ${APP_HEIGHT};
     border: 1px solid ${COLORS.BORDER_COLOR};
-    // margin: 2px 2px 2px 0px;
   `;
 
   return (

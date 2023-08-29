@@ -27,7 +27,6 @@ export const NormalLabel: React.FC<LabelProps> = ({
     color: ${color ? color : COLORS.LABEL_L3_COLOR};
     overflow: hidden;
     white-space: nowrap;
-    // text-overflow: ellipsis;
     ${style && style}
   `;
 

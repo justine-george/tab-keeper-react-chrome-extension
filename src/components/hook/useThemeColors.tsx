@@ -22,6 +22,9 @@ export function useThemeColors() {
         BORDER_COLOR: '#DADCE4',
         TEXT_COLOR: '#EDEFF2',
         INVERSE_PRIMARY_COLOR: '#F0F2F5',
+        SCROLLBAR_TRACK: '#1E2128',
+        SCROLLBAR_THUMB: '#2C2F3E',
+        SCROLLBAR_THUMB_HOVER: '#343648',
       }
     : {
         PRIMARY_COLOR: '#F0F2F5',
@@ -38,5 +41,8 @@ export function useThemeColors() {
         BORDER_COLOR: '#2E3136',
         TEXT_COLOR: '#1A1B1E',
         INVERSE_PRIMARY_COLOR: '#252839',
+        SCROLLBAR_TRACK: '#D9DCDF',
+        SCROLLBAR_THUMB: '#E1E4E8',
+        SCROLLBAR_THUMB_HOVER: '#D9DCDF',
       };
 }
