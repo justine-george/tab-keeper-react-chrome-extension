@@ -41,9 +41,14 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
     justify-content: center;
     padding: 8px;
     align-items: flex-start;
+    width: 100%;
   `;
 
   const rightStyle = css`
+    position: absolute;
+    top: 50%;
+    right: 0;
+    transform: translateY(-50%);
     display: flex;
     flex-direction: row;
     height: 100%;
@@ -54,6 +59,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
   `;
 
   const containerStyle = css`
+    position: relative;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -64,7 +70,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
       background-color: ${!isSelected && COLORS.HOVER_COLOR};
     }
     background-color: ${isSelected && COLORS.SELECTION_COLOR};
-    padding: 2px 0px;
+    // padding: 2px 0px;
   `;
 
   return (
@@ -78,7 +84,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
     >
       <div css={leftStyle}>
         <NormalLabel
-          style="max-width: 265px;"
+          style="max-width: 360px;"
           value={title}
           color={COLORS.TEXT_COLOR}
         />
@@ -104,21 +110,27 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
       <div css={rightStyle}>
         <Icon
           type="open_in_new"
+          backgroundColor={
+            isSelected ? COLORS.SELECTION_COLOR : COLORS.HOVER_COLOR
+          }
           focusable={isHovered ? true : false}
           onClick={(e) => {
             e.stopPropagation();
             onOpenAllClick(e);
           }}
-          style="padding: 16px 8px;"
+          style="padding: 22px 10px;"
         />
         <Icon
           type="delete"
+          backgroundColor={
+            isSelected ? COLORS.SELECTION_COLOR : COLORS.HOVER_COLOR
+          }
           focusable={isHovered ? true : false}
           onClick={(e) => {
             e.stopPropagation();
             onDeleteClick(e);
           }}
-          style="padding: 16px 8px; margin-right: 8px;"
+          style="padding: 22px 10px;"
         />
       </div>
     </div>

@@ -11,7 +11,6 @@ TabKeeper is a user-friendly Chrome extension that helps users save and organize
 - Save and organize tabs: Efficiently save and categorize tabs for easy management.
 - Secure sign-up process: Firebase Authentication ensures a secure sign-up and login experience.
 - Synchronization across devices: Sync tab data seamlessly with Cloud Firestore for access on multiple devices.
-- Advanced tab grouping: Categorize and group saved tabs based on user preferences.
 - Efficient search functionality: Quickly locate tabs using the search feature.
 
 ## 🛠️ Installation

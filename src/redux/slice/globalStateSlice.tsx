@@ -141,6 +141,14 @@ export const loadStateFromFirestore = createAsyncThunk(
       if (error.message === 'Document does not exist for userId: ' + userId) {
         thunkAPI.dispatch(setIsDirty());
         thunkAPI.dispatch(syncToFirestore());
+      } else {
+        // Handle other types of Firestore errors
+        thunkAPI.dispatch(
+          showToast({
+            toastText: 'Error fetching data:' + error.message,
+            duration: 3000,
+          })
+        );
       }
     }
   }

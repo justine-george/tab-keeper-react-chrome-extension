@@ -11,6 +11,7 @@ import {
   selectTabContainer,
   tabContainerData,
 } from '../../redux/slice/tabContainerDataStateSlice';
+import { useEffect } from 'react';
 
 export default function TabGroupEntryContainer() {
   const COLORS = useThemeColors();
@@ -46,11 +47,13 @@ export default function TabGroupEntryContainer() {
           )
       );
     });
+  }
 
+  useEffect(() => {
     if (filteredTabGroups.length !== 0) {
       dispatch(selectTabContainer(filteredTabGroups[0].tabGroupId));
     }
-  }
+  }, [searchInputText]);
 
   const containerStyle = css`
     display: flex;

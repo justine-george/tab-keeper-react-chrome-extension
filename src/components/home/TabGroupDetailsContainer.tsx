@@ -29,7 +29,7 @@ export default function TabGroupDetailsContainer() {
   const containerStyle = css`
     display: flex;
     flex-direction: column;
-    padding: 8px;
+    // padding: 8px;
     // height: 100%;
     flex-grow: 1;
     margin-top: 8px;

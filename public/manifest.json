@@ -1,12 +1,12 @@
 {
   "manifest_version": 3,
-  "version": "1.0.0",
-  "name": "TabKeeper - Tab Manager Extension",
-  "description": "TabKeeper allows you to save and manage your tabs in a organized way.",
+  "version": "1.0.1",
+  "name": "TabKeeper - Tab Session Manager for Chrome",
+  "description": "Your ultimate tool for saving, organizing, and syncing browser tabs seamlessly! 🌐",
   "action": {
     "default_popup": "index.html",
     "default_icon": "icon128.png",
-    "default_title": "TabKeeper - Tab Manager Extension"
+    "default_title": "TabKeeper - Tab Session Manager for Chrome"
   },
   "permissions": ["tabs"],
   "icons": {

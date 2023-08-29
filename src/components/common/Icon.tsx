@@ -11,6 +11,7 @@ interface IconProps {
   animationFrom?: string;
   animationTo?: string;
   animationDuration?: string;
+  backgroundColor?: string;
   style?: string;
 }
 
@@ -23,6 +24,7 @@ const Icon: React.FC<IconProps> = ({
   animationFrom,
   animationTo,
   animationDuration,
+  backgroundColor,
   style,
 }) => {
   const COLORS = useThemeColors();
@@ -72,6 +74,7 @@ const Icon: React.FC<IconProps> = ({
     cursor: ${focusable ? 'pointer' : 'default'};
     user-select: none;
     transition: background-color 0.3s;
+    background-color: ${backgroundColor};
     ${focusable &&
     `&:hover {
       background-color: ${hoverColor};

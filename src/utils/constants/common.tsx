@@ -15,7 +15,7 @@ export const STACK_LEVEL = 10;
 export const DEBOUNCE_TIME_WINDOW = 500;
 
 // app version
-export const APP_VERSION = '1.0.0';
+export const APP_VERSION = '1.0.1';
 
 // developer details
 export const DEV_CREDITS = 'Made by Justine George.';

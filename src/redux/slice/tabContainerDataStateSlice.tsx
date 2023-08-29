@@ -1,5 +1,8 @@
 import { PayloadAction, createAsyncThunk, createSlice } from '@reduxjs/toolkit';
-import { saveToLocalStorage } from '../../utils/helperFunctions';
+import {
+  generatePlaceholderURL,
+  saveToLocalStorage,
+} from '../../utils/helperFunctions';
 import { RootState } from '../store';
 
 export interface tabData {
@@ -58,58 +61,17 @@ export const initialState: TabMasterContainer = {
   tabGroups: [],
 };
 
-const placeholderDataURI =
-  'data:text/html,<html><body><h1>Click to load</h1></body></html>';
-const tabURLMap: { [key: number]: string } = {};
-
-chrome.tabs.onActivated.addListener((activeInfo) => {
-  const tabId = activeInfo.tabId;
-  if (tabURLMap[tabId]) {
-    chrome.tabs.update(tabId, { url: tabURLMap[tabId] });
+chrome.tabs.onActivated.addListener(({ tabId }) => {
+  const tabData = tabURLMap[tabId];
+  if (tabData) {
+    chrome.tabs.update(tabId, { url: tabData.url });
     delete tabURLMap[tabId]; // clean up the map entry
   }
 });
 
-// open all windows under this tab group in separate windows, with corresponding tabs inside
-export const openAllTabContainer = createAsyncThunk(
-  'global/openAllTabContainer',
-  async (tabGroupId: string, thunkAPI) => {
-    const state: TabMasterContainer = (thunkAPI.getState() as RootState)
-      .tabContainerDataState;
-    const tabGroup = state.tabGroups.find(
-      (group) => group.tabGroupId === tabGroupId
-    );
-
-    if (tabGroup) {
-      let isFirstWindow = true;
-
-      for (const windowGroup of tabGroup.windows) {
-        chrome.windows.create(
-          {
-            url: windowGroup.tabs[0].url, // load only the first tab directly
-            focused: isFirstWindow,
-          },
-          (newWindow) => {
-            for (let i = 1; i < windowGroup.tabs.length; i++) {
-              chrome.tabs.create(
-                {
-                  windowId: newWindow!.id,
-                  url: placeholderDataURI,
-                  active: false,
-                },
-                (tab) => {
-                  tabURLMap[tab.id!] = windowGroup.tabs[i].url; // Store the actual URL for later loading
-                }
-              );
-            }
-          }
-        );
-
-        isFirstWindow = false;
-      }
-    }
-  }
-);
+const tabURLMap: {
+  [key: number]: { url: string; title: string; favicon: string };
+} = {};
 
 interface openTabsInAWindowParams {
   tabGroupId: string;
@@ -127,29 +89,87 @@ export const openTabsInAWindow = createAsyncThunk(
       (group) => group.tabGroupId === params.tabGroupId
     );
 
-    if (tabGroup) {
-      const windowGroup = tabGroup.windows.find(
-        (window) => window.windowId === params.windowId
-      );
+    const windowGroup = tabGroup?.windows.find(
+      (window) => window.windowId === params.windowId
+    );
 
-      if (windowGroup) {
-        const firstTabUrl = windowGroup.tabs[0].url;
-        chrome.windows.create({ url: firstTabUrl }, (newWindow) => {
-          for (let i = 1; i < windowGroup.tabs.length; i++) {
+    if (!windowGroup) return;
+
+    const { tabs } = windowGroup;
+    chrome.windows.create({ url: tabs[0].url }, (newWindow) => {
+      tabs.slice(1).forEach((tabInfo) => {
+        const placeholder = generatePlaceholderURL(
+          tabInfo.title,
+          tabInfo.favicon || '/images/favicon.ico',
+          tabInfo.url
+        );
+
+        chrome.tabs.create(
+          {
+            windowId: newWindow!.id,
+            url: placeholder,
+            active: false,
+          },
+          (tab) => {
+            tabURLMap[tab.id!] = {
+              url: tabInfo.url,
+              title: tabInfo.title,
+              favicon: tabInfo.favicon || '/images/favicon.ico',
+            };
+          }
+        );
+      });
+    });
+  }
+);
+
+// open all windows under this tab group in separate windows, with corresponding tabs inside
+export const openAllTabContainer = createAsyncThunk(
+  'global/openAllTabContainer',
+  async (tabGroupId: string, thunkAPI) => {
+    const state: TabMasterContainer = (thunkAPI.getState() as RootState)
+      .tabContainerDataState;
+    const tabGroup = state.tabGroups.find(
+      (group) => group.tabGroupId === tabGroupId
+    );
+
+    if (!tabGroup) return;
+
+    let isFirstWindow = true;
+
+    tabGroup.windows.forEach((windowGroup) => {
+      chrome.windows.create(
+        {
+          url: windowGroup.tabs[0].url, // load only the first tab directly
+          focused: isFirstWindow,
+        },
+        (newWindow) => {
+          windowGroup.tabs.slice(1).forEach((tabInfo) => {
+            const placeholder = generatePlaceholderURL(
+              tabInfo.title,
+              tabInfo.favicon || '/images/favicon.ico',
+              tabInfo.url
+            );
+
             chrome.tabs.create(
               {
                 windowId: newWindow!.id,
-                url: placeholderDataURI,
+                url: placeholder,
                 active: false,
               },
               (tab) => {
-                tabURLMap[tab.id!] = windowGroup.tabs[i].url; // Store the actual URL for later loading
+                tabURLMap[tab.id!] = {
+                  url: tabInfo.url,
+                  title: tabInfo.title,
+                  favicon: tabInfo.favicon || '/images/favicon.ico',
+                };
               }
             );
-          }
-        });
-      }
-    }
+          });
+        }
+      );
+      isFirstWindow = false;
+    });
   }
 );
 

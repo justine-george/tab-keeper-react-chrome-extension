@@ -56,6 +56,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   `;
 
   const parentStyle = css`
+    position: relative;
     display: flex;
     justify-content: space-between;
     transition: background-color 0.3s;
@@ -71,6 +72,10 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   `;
 
   const parentRightStyle = css`
+    position: absolute;
+    top: 50%;
+    right: 0;
+    transform: translateY(-50%);
     opacity: ${isParentHovered ? 1 : 0};
     transition: opacity 0.1s ease-out;
   `;
@@ -80,6 +85,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   `;
 
   const childrenStyle = css`
+    position: relative;
     display: flex;
     align-items: stretch;
     justify-content: space-between;
@@ -96,6 +102,10 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   `;
 
   const childRightStyle = (index: number) => css`
+    position: absolute;
+    top: 50%;
+    right: 0;
+    transform: translateY(-50%);
     opacity: ${hoveredChildIndex === index ? 1 : 0};
     transition: opacity 0.1s ease-out;
   `;
@@ -108,7 +118,6 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     height: 100%;
     flex-grow: 1;
     padding-right: 9px;
-    max-width: 248px;
     cursor: pointer;
   `;
 
@@ -121,7 +130,6 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     flex-grow: 1;
     margin-left: 4px;
     margin-right: 4px;
-    max-width: 205px;
   `;
 
   function handleWindowTitleClick() {
@@ -150,7 +158,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
               value={title}
               color={COLORS.TEXT_COLOR}
               size="0.9rem"
-              style="padding-left: 8px; cursor: pointer; height: 100%; max-width: 240px;"
+              style="padding-left: 8px; cursor: pointer; height: 100%; max-width: 285px;"
               onClick={(e) => {
                 e.stopPropagation();
                 onWindowTitleClick(e);
@@ -161,6 +169,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
         <div css={parentRightStyle}>
           <Icon
             type="delete"
+            backgroundColor={COLORS.HOVER_COLOR}
             onClick={(e) => {
               e.stopPropagation();
               onDeleteClick(e);
@@ -195,13 +204,14 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                       value={title}
                       color={COLORS.TEXT_COLOR}
                       size="0.9rem"
-                      style="padding-left: 4px; cursor: pointer; height: 100%; max-width: 200px;"
+                      style="padding-left: 4px; cursor: pointer; height: 100%; max-width: 245px;"
                     />
                   </a>
                 </div>
                 <div css={childRightStyle(index)}>
                   <Icon
                     type="delete"
+                    backgroundColor={COLORS.HOVER_COLOR}
                     onClick={(e) => {
                       e.stopPropagation();
                       dispatch(deleteTab({ tabGroupId, windowId, tabId }));
