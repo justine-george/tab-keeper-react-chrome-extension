@@ -63,6 +63,8 @@ export default function MenuContainer() {
   return (
     <div css={containerStyle}>
       <Icon
+        ariaLabel="undo"
+        tooltipText="Undo"
         type="undo"
         onClick={handleClickUndo}
         style={isUndoable ? 'opacity: 1;' : 'opacity: 0.3;'}
@@ -70,6 +72,8 @@ export default function MenuContainer() {
         focusable={isUndoable}
       />
       <Icon
+        ariaLabel="redo"
+        tooltipText="Redo"
         type="redo"
         onClick={handleClickRedo}
         style={isRedoable ? 'opacity: 1;' : 'opacity: 0.3;'}
@@ -77,11 +81,15 @@ export default function MenuContainer() {
         focusable={isRedoable}
       />
       <Icon
+        ariaLabel="sync"
+        tooltipText="Sync now"
         type={syncIconType}
         onClick={handleClickSync}
         disable={isDisabled}
       />
       <Icon
+        ariaLabel="settings"
+        tooltipText="Settings"
         type="settings"
         onClick={handleClickSettings}
         animationFrom={`transform: rotate(0deg);`}

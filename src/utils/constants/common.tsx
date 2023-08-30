@@ -26,7 +26,7 @@ export const DEV_CREDITS = 'Made by Justine George.';
 export const DEV_EMAIL = 'justinegeo96@gmail.com';
 
 export const APP_CHROME_WEBSTORE_LINK =
-  'https://chrome.google.com/webstore/detail/tabhound-tab-manager/dhmeglggkjfgbinodfdphenmodhancbd';
+  'https://chrome.google.com/webstore/detail/tabkeeper-tab-session-man/gpibgniomobngodpnikhheifblbpbbah';
 
 // twitter (X) share text
 export const SHARE_TWITTER_TEXT = `https://twitter.com/intent/tweet?text=A%20shoutout%20to%20my%20new%20fav%20Chrome%20extension%20%23TabKeeper&url=${APP_CHROME_WEBSTORE_LINK}`;
@@ -63,10 +63,11 @@ export const TOAST_MESSAGES = {
   LOGOUT_SUCCESS: 'You have successfully logged out.',
   LOGOUT_FAIL:
     'Oops! We encountered an issue while logging you out. Please try again.',
-  SAVE_TAB_CONTAINER_SUCCESS: 'Session saved. ',
-  DELETE_TAB_CONTAINER_SUCCESS: 'Session deleted. ',
-  DELETE_WINDOW_SUCCESS: 'Session window deleted. ',
-  DELETE_TAB_SUCCESS: 'Session tab deleted. ',
+  SAVE_TAB_CONTAINER_SUCCESS: 'Session saved.',
+  ADD_CURR_TAB_TO_WINDOW_SUCCESS: 'Current tab saved.',
+  DELETE_TAB_CONTAINER_SUCCESS: 'Session deleted.',
+  DELETE_WINDOW_SUCCESS: 'Session window deleted.',
+  DELETE_TAB_SUCCESS: 'Session tab deleted.',
 };
 
 export const TOOLTIP_MESSAGES = {

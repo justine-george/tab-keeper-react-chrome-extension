@@ -12,6 +12,8 @@ interface IconProps {
   animationTo?: string;
   animationDuration?: string;
   backgroundColor?: string;
+  ariaLabel?: string;
+  tooltipText?: string;
   style?: string;
 }
 
@@ -25,6 +27,8 @@ const Icon: React.FC<IconProps> = ({
   animationTo,
   animationDuration,
   backgroundColor,
+  ariaLabel,
+  tooltipText,
   style,
 }) => {
   const COLORS = useThemeColors();
@@ -86,6 +90,8 @@ const Icon: React.FC<IconProps> = ({
     // tab-focus only if the icon is clickable
     // set role as button for accessibility
     <div
+      title={tooltipText}
+      aria-label={ariaLabel}
       tabIndex={onClick && focusable ? 0 : -1}
       css={containerStyle}
       onClick={!disable ? onClick : undefined}

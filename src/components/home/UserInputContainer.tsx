@@ -113,7 +113,9 @@ export default function UserInputContainer() {
       />
       {/* <Button text="Search" onClick={createTabGroup} /> */}
       <Button
+        tooltipText="Search"
         iconType="search"
+        ariaLabel="search"
         onClick={filterResults}
         style="padding: 12px;"
       />
@@ -131,7 +133,13 @@ export default function UserInputContainer() {
         style="margin-right: 8px;"
       />
       {/* <Button text="Save" onClick={createTabGroup} /> */}
-      <Button iconType="add" onClick={createTabGroup} style="padding: 12px;" />
+      <Button
+        tooltipText="Save all windows"
+        ariaLabel="add"
+        iconType="add"
+        onClick={createTabGroup}
+        style="padding: 12px;"
+      />
     </div>
   );
 }

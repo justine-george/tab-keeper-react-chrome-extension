@@ -81,10 +81,14 @@ export default function HeroContainerRight() {
           `}
         >
           <Icon
+            tooltipText="Open in new window"
+            ariaLabel="open all windows"
             type="open_in_new"
             onClick={() => dispatch(openAllTabContainer(tabGroupId))}
           />
           <Icon
+            tooltipText="Delete"
+            ariaLabel="delete"
             type="delete"
             onClick={() => dispatch(deleteTabContainer(tabGroupId))}
           />

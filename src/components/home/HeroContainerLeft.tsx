@@ -45,7 +45,12 @@ export default function HeroContainer() {
           display: flex;
         `}
       >
-        <Icon type="arrow_back" onClick={handleBackClick} />
+        <Icon
+          tooltipText="Go back"
+          ariaLabel="back"
+          type="arrow_back"
+          onClick={handleBackClick}
+        />
         <NormalLabel
           value="Back"
           size="1.125rem"
@@ -61,7 +66,12 @@ export default function HeroContainer() {
           display: flex;
         `}
       >
-        <Icon type="search" onClick={handleClickSearch} />
+        <Icon
+          tooltipText="Search"
+          ariaLabel="search"
+          type="search"
+          onClick={handleClickSearch}
+        />
         <NormalLabel
           value="Tab Keeper"
           size="1.125rem"

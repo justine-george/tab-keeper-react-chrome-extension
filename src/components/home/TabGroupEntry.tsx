@@ -108,6 +108,8 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
       </div>
       <div css={rightStyle}>
         <Icon
+          tooltipText="Open in new window"
+          ariaLabel="open all windows"
           type="open_in_new"
           backgroundColor={
             isSelected ? COLORS.SELECTION_COLOR : COLORS.HOVER_COLOR
@@ -120,6 +122,8 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
           style="padding: 22px 10px;"
         />
         <Icon
+          tooltipText="Delete"
+          ariaLabel="delete"
           type="delete"
           backgroundColor={
             isSelected ? COLORS.SELECTION_COLOR : COLORS.HOVER_COLOR
