@@ -12,6 +12,7 @@ import {
   TAB_CONTAINER_REPLACE_STATE_ACTION,
   UNDO_ACTION,
   IS_DIRTY_ACTION,
+  ADD_CURR_TAB_TO_WINDOW_ACTION,
 } from '../../utils/constants/actionTypes';
 import { debounce } from '../../utils/helperFunctions';
 import { DEBOUNCE_TIME_WINDOW } from '../../utils/constants/common';
@@ -25,6 +26,7 @@ const actionsToCapture = [
 
   // actions in tabContainerDataStateSlice
   SAVE_TAB_CONTAINER_ACTION,
+  ADD_CURR_TAB_TO_WINDOW_ACTION,
   DELETE_TAB_CONTAINER_ACTION,
   DELETE_WINDOW_ACTION,
   DELETE_TAB_ACTION,

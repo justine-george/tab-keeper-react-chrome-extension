@@ -7,6 +7,7 @@ interface LabelProps {
   size?: string;
   color?: string;
   style?: string;
+  tooltipText?: string;
   onClick?: MouseEventHandler;
 }
 
@@ -15,6 +16,7 @@ export const NormalLabel: React.FC<LabelProps> = ({
   size,
   color,
   style,
+  tooltipText,
   onClick,
 }) => {
   const COLORS = useThemeColors();
@@ -31,7 +33,7 @@ export const NormalLabel: React.FC<LabelProps> = ({
   `;
 
   return (
-    <div css={textStyle} onClick={onClick}>
+    <div title={tooltipText} css={textStyle} onClick={onClick}>
       {value}
     </div>
   );

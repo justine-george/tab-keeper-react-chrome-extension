@@ -17,6 +17,7 @@ interface WindowEntryContainerProps {
   tabGroupId: string;
   windowId: string;
   onWindowTitleClick: MouseEventHandler;
+  onAddCurrTabToWindowClick: MouseEventHandler;
   onDeleteClick: MouseEventHandler;
 }
 
@@ -26,6 +27,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   tabGroupId,
   windowId,
   onWindowTitleClick,
+  onAddCurrTabToWindowClick,
   onDeleteClick,
 }) => {
   const COLORS = useThemeColors();
@@ -72,6 +74,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   `;
 
   const parentRightStyle = css`
+    display: flex;
     position: absolute;
     top: 50%;
     right: 0;
@@ -145,12 +148,15 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
       >
         <div css={parentLeftStyle}>
           <Icon
+            tooltipText={windowOpenState ? 'Collapse' : 'Expand'}
+            ariaLabel={windowOpenState ? 'collapse' : 'expand'}
             type={windowOpenState ? 'expand_less' : 'expand_more'}
             onClick={handleAccordionClick}
           />
           <Icon type="ad" style={NON_INTERACTIVE_ICON_STYLE} />
           <div css={parentLinkStyle} tabIndex={0}>
             <NormalLabel
+              tooltipText="Open in new window"
               value={title}
               color={COLORS.TEXT_COLOR}
               size="0.9rem"
@@ -164,6 +170,19 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
         </div>
         <div css={parentRightStyle}>
           <Icon
+            tooltipText="Add current tab"
+            ariaLabel="add current tab"
+            type="add"
+            backgroundColor={COLORS.HOVER_COLOR}
+            onClick={(e) => {
+              e.stopPropagation();
+              onAddCurrTabToWindowClick(e);
+            }}
+            focusable={isParentHovered}
+          />
+          <Icon
+            tooltipText="Delete"
+            ariaLabel="delete"
             type="delete"
             backgroundColor={COLORS.HOVER_COLOR}
             onClick={(e) => {
@@ -194,6 +213,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                     onClick={() => handleTabClick(url)}
                   >
                     <NormalLabel
+                      tooltipText="Open in new tab"
                       value={title}
                       color={COLORS.TEXT_COLOR}
                       size="0.9rem"
@@ -203,6 +223,8 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                 </div>
                 <div css={childRightStyle(index)}>
                   <Icon
+                    tooltipText="Delete"
+                    ariaLabel="delete"
                     type="delete"
                     backgroundColor={COLORS.HOVER_COLOR}
                     onClick={(e) => {

@@ -9,6 +9,7 @@ interface ButtonProps {
   imageSrc?: string;
   iconType?: string;
   ariaLabel?: string;
+  tooltipText?: string;
   style?: string;
 }
 
@@ -18,6 +19,7 @@ const Button: React.FC<ButtonProps> = ({
   imageSrc,
   iconType,
   ariaLabel,
+  tooltipText,
   style,
 }) => {
   const COLORS = useThemeColors();
@@ -43,7 +45,12 @@ const Button: React.FC<ButtonProps> = ({
 
   return (
     <div>
-      <button aria-label={ariaLabel} css={buttonStyle} onClick={onClick}>
+      <button
+        title={tooltipText}
+        aria-label={ariaLabel}
+        css={buttonStyle}
+        onClick={onClick}
+      >
         {iconType && (
           <Icon
             type={iconType}

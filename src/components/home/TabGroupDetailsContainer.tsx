@@ -5,9 +5,12 @@ import { isEmptyObject } from '../../utils/helperFunctions';
 import { useThemeColors } from '../hook/useThemeColors';
 import { useDispatch, useSelector } from 'react-redux';
 import { AppDispatch, RootState } from '../../redux/store';
+import { v4 as uuidv4 } from 'uuid';
 import {
+  addCurrTabToWindow,
   deleteWindow,
   openTabsInAWindow,
+  tabData,
 } from '../../redux/slice/tabContainerDataStateSlice';
 
 export default function TabGroupDetailsContainer() {
@@ -44,6 +47,23 @@ export default function TabGroupDetailsContainer() {
 
   const filledContainerStyle = css``;
 
+  async function handleAddCurrTabToWindowClick(
+    tabGroupId: string,
+    windowId: string
+  ) {
+    let [tab] = await chrome.tabs.query({
+      active: true,
+      lastFocusedWindow: true,
+    });
+    const tabData: tabData = {
+      tabId: uuidv4(),
+      favicon: tab.favIconUrl || '',
+      title: tab.title || '',
+      url: tab.url || '',
+    };
+    dispatch(addCurrTabToWindow({ tabGroupId, windowId, tabData }));
+  }
+
   return (
     <div css={containerStyle}>
       {isEmptyObject(selectedTabGroup) ? (
@@ -60,6 +80,9 @@ export default function TabGroupDetailsContainer() {
                   tabs={tabs}
                   tabGroupId={tabGroupId}
                   windowId={windowId}
+                  onAddCurrTabToWindowClick={() =>
+                    handleAddCurrTabToWindowClick(tabGroupId, windowId)
+                  }
                   onDeleteClick={() =>
                     dispatch(deleteWindow({ tabGroupId, windowId }))
                   }
@@ -67,8 +90,6 @@ export default function TabGroupDetailsContainer() {
                     dispatch(openTabsInAWindow({ tabGroupId, windowId }))
                   }
                 />
-                {/* <Divider /> */}
-                {/* {index != selectedTabGroup.windows.length - 1 && <Divider />} */}
               </div>
             );
           })}

@@ -27,7 +27,12 @@ export default function MenuContainer() {
 
   return (
     <div css={containerStyle}>
-      <Icon type="arrow_back" onClick={handleBackClick} />
+      <Icon
+        tooltipText="Go back"
+        ariaLabel="go back"
+        type="arrow_back"
+        onClick={handleBackClick}
+      />
       <NormalLabel
         value="Back"
         size="1.125rem"

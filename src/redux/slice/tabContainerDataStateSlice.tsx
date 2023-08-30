@@ -32,6 +32,12 @@ export interface tabContainerData {
   windows: windowGroupData[];
 }
 
+export interface addCurrTabToWindowParams {
+  tabGroupId: string;
+  windowId: string;
+  tabData: tabData;
+}
+
 export interface deleteWindowParams {
   tabGroupId: string;
   windowId: string;
@@ -190,6 +196,21 @@ export const saveToTabContainer = createAsyncThunk(
   }
 );
 
+// add current tab to the specified window container and  display a toast message
+export const addCurrTabToWindow = createAsyncThunk(
+  'global/addCurrTabToWindow',
+  async (params: addCurrTabToWindowParams, thunkAPI) => {
+    thunkAPI.dispatch(addCurrTabToWindowInternal(params));
+
+    thunkAPI.dispatch(
+      showToast({
+        toastText: TOAST_MESSAGES.ADD_CURR_TAB_TO_WINDOW_SUCCESS,
+        duration: 3000,
+      })
+    );
+  }
+);
+
 // delete tab group by tabGroupId
 export const deleteTabContainer = createAsyncThunk(
   'global/deleteTabContainer',
@@ -271,6 +292,43 @@ export const tabContainerDataStateSlice = createSlice({
       saveToLocalStorage('tabContainerData', state);
     },
 
+    addCurrTabToWindowInternal: (
+      state,
+      action: PayloadAction<addCurrTabToWindowParams>
+    ) => {
+      const { tabGroupId, windowId, tabData: currentTabData } = action.payload;
+
+      const tabGroupIndex = state.tabGroups.findIndex(
+        (tabGroup) => tabGroup.tabGroupId === tabGroupId
+      );
+
+      if (tabGroupIndex !== -1) {
+        const windowIndex = state.tabGroups[tabGroupIndex].windows.findIndex(
+          (window) => window.windowId === windowId
+        );
+        if (windowIndex !== -1) {
+          // increment tab count of tabGroup and windowGroup
+          state.tabGroups[tabGroupIndex].tabCount += 1;
+          state.tabGroups[tabGroupIndex].windows[windowIndex].tabCount += 1;
+          // add to windowGroup
+          state.tabGroups[tabGroupIndex].windows[windowIndex].tabs.unshift(
+            currentTabData
+          );
+          // // update titles
+          // state.tabGroups[tabGroupIndex].windows[windowIndex].title =
+          //   currentTabData.title;
+          // if (windowIndex === 0) {
+          //   state.tabGroups[tabGroupIndex].title =
+          //     state.tabGroups[tabGroupIndex].windows[0].title;
+          // }
+        }
+      }
+      state.lastModified = Date.now();
+
+      // update localstorage
+      saveToLocalStorage('tabContainerData', state);
+    },
+
     // delete tab group by tabGroupId
     deleteTabContainerInternal: (state, action: PayloadAction<string>) => {
       const toBeDeletedTabGroupId = action.payload;
@@ -323,9 +381,9 @@ export const tabContainerDataStateSlice = createSlice({
           }
           state.tabGroups.splice(tabGroupIndex, 1);
         } else {
-          // update tabGroup title, use first window's title
-          state.tabGroups[tabGroupIndex].title =
-            state.tabGroups[tabGroupIndex].windows[0].title;
+          // // update tabGroup title, use first window's title
+          // state.tabGroups[tabGroupIndex].title =
+          //   state.tabGroups[tabGroupIndex].windows[0].title;
         }
       }
       state.lastModified = Date.now();
@@ -370,9 +428,9 @@ export const tabContainerDataStateSlice = createSlice({
 
             state.tabGroups[tabGroupIndex].windows.splice(windowIndex, 1);
           } else {
-            // update window title, use first tab's title
-            state.tabGroups[tabGroupIndex].windows[windowIndex].title =
-              state.tabGroups[tabGroupIndex].windows[windowIndex].tabs[0].title;
+            // // update window title, use first tab's title
+            // state.tabGroups[tabGroupIndex].windows[windowIndex].title =
+            //   state.tabGroups[tabGroupIndex].windows[windowIndex].tabs[0].title;
           }
         }
         // if this was the last window in the tabGroup, delete this tabGroup
@@ -387,9 +445,9 @@ export const tabContainerDataStateSlice = createSlice({
 
           state.tabGroups.splice(tabGroupIndex, 1);
         } else {
-          // update tabGroup's title, use first window's title
-          state.tabGroups[tabGroupIndex].title =
-            state.tabGroups[tabGroupIndex].windows[0].title;
+          // // update tabGroup's title, use first window's title
+          // state.tabGroups[tabGroupIndex].title =
+          //   state.tabGroups[tabGroupIndex].windows[0].title;
         }
       }
       state.lastModified = Date.now();
@@ -409,6 +467,7 @@ export const tabContainerDataStateSlice = createSlice({
 export const {
   saveToTabContainerInternal,
   selectTabContainer,
+  addCurrTabToWindowInternal,
   deleteTabContainerInternal,
   deleteWindowInternal,
   deleteTabInternal,
