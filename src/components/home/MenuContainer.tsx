@@ -26,10 +26,12 @@ export default function MenuContainer() {
 
   function handleClickUndo() {
     dispatch(undo());
+    dispatch(closeToast());
   }
 
   function handleClickRedo() {
     dispatch(redo());
+    dispatch(closeToast());
   }
 
   function handleClickSync() {

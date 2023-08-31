@@ -3,16 +3,30 @@ import HeroContainerRight from './HeroContainerRight';
 import TabGroupDetailsContainer from './TabGroupDetailsContainer';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../redux/store';
+import { filterTabGroups } from '../../utils/helperFunctions';
 
 export default function RightPane() {
   const tabContainerDataList = useSelector(
     (state: RootState) => state.tabContainerDataState
   );
 
+  const isSearchPanel = useSelector(
+    (state: RootState) => state.globalState.isSearchPanel
+  );
+
+  const searchInputText = useSelector(
+    (state: RootState) => state.globalState.searchInputText
+  );
+
+  let filteredTabGroups = tabContainerDataList.tabGroups.filter(
+    (tabGroup) => tabGroup.isSelected
+  );
+  if (isSearchPanel && searchInputText) {
+    filteredTabGroups = filterTabGroups(searchInputText, filteredTabGroups);
+  }
+
   // to identify whether no tab groups are selected
-  const isNoneSelected =
-    tabContainerDataList.tabGroups.filter((tabGroup) => tabGroup.isSelected)
-      .length === 0;
+  const isNoneSelected = filteredTabGroups.length === 0;
 
   const containerStyle = css`
     display: flex;

@@ -1,7 +1,7 @@
 import { css } from '@emotion/react';
 import { NormalLabel } from '../common/Label';
 import WindowEntryContainer from './WindowEntryContainer';
-import { isEmptyObject } from '../../utils/helperFunctions';
+import { filterTabGroups, isEmptyObject } from '../../utils/helperFunctions';
 import { useThemeColors } from '../hook/useThemeColors';
 import { useDispatch, useSelector } from 'react-redux';
 import { AppDispatch, RootState } from '../../redux/store';
@@ -15,16 +15,28 @@ import {
 
 export default function TabGroupDetailsContainer() {
   const COLORS = useThemeColors();
-
   const dispatch: AppDispatch = useDispatch();
 
   const tabContainerDataList = useSelector(
     (state: RootState) => state.tabContainerDataState
   );
 
-  const selectedTabGroup = tabContainerDataList.tabGroups.filter(
+  const isSearchPanel = useSelector(
+    (state: RootState) => state.globalState.isSearchPanel
+  );
+
+  const searchInputText = useSelector(
+    (state: RootState) => state.globalState.searchInputText
+  );
+
+  // filter the tab group list
+  let filteredTabGroups = tabContainerDataList.tabGroups.filter(
     (tabGroup) => tabGroup.isSelected
-  )[0];
+  );
+  if (isSearchPanel && searchInputText) {
+    filteredTabGroups = filterTabGroups(searchInputText, filteredTabGroups);
+  }
+  const selectedTabGroup = filteredTabGroups[0];
 
   const tabGroupId = selectedTabGroup.tabGroupId;
 

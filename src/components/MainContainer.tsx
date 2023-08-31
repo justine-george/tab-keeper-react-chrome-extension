@@ -1,17 +1,21 @@
 import { css } from '@emotion/react';
 import LeftPane from './home/LeftPane';
 import RightPane from './home/RightPane';
-import { useSelector } from 'react-redux';
-import { RootState } from '../redux/store';
+import { useDispatch, useSelector } from 'react-redux';
+import { AppDispatch, RootState } from '../redux/store';
 import LeftPaneSettings from './settings/LeftPaneSettings';
 import RightPaneSettings from './settings/RightPaneSettings';
 import { useThemeColors } from './hook/useThemeColors';
 import { APP_HEIGHT } from '../utils/constants/common';
 import { Toast } from './common/Toast';
 import { ConflictModal } from './common/ConflictModal';
+import { useEffect } from 'react';
+import { redo, undo } from '../redux/slice/undoRedoSlice';
+import { closeToast } from '../redux/slice/globalStateSlice';
 
 export default function MainContainer() {
   const COLORS = useThemeColors();
+  const dispatch: AppDispatch = useDispatch();
 
   const isToastOpen = useSelector(
     (state: RootState) => state.globalState.isToastOpen
@@ -24,6 +28,36 @@ export default function MainContainer() {
   const isConflictModalOpen = useSelector(
     (state: RootState) => state.globalState.isConflictModalOpen
   );
+
+  // Keyboard shortcut listener for undo/redo
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (!isSettingsPage) {
+        // check for ctrl+z
+        if (event.ctrlKey && event.key === 'z') {
+          dispatch(undo());
+          dispatch(closeToast());
+          event.preventDefault();
+        }
+
+        // check for ctrl+y or ctrl+shift+z
+        if (
+          (event.ctrlKey && event.key === 'y') ||
+          (event.ctrlKey && event.shiftKey && event.key === 'z')
+        ) {
+          dispatch(redo());
+          dispatch(closeToast());
+          event.preventDefault();
+        }
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown);
+
+    // cleanup
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isSettingsPage, dispatch]);
 
   const containerStyle = css`
     display: flex;

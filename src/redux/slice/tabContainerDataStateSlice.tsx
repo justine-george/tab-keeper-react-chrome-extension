@@ -38,6 +38,11 @@ export interface addCurrTabToWindowParams {
   tabData: tabData;
 }
 
+export interface updateTabGroupTitleParams {
+  tabGroupId: string;
+  editableTitle: string;
+}
+
 export interface deleteWindowParams {
   tabGroupId: string;
   windowId: string;
@@ -314,17 +319,27 @@ export const tabContainerDataStateSlice = createSlice({
           state.tabGroups[tabGroupIndex].windows[windowIndex].tabs.unshift(
             currentTabData
           );
-          // // update titles
-          // state.tabGroups[tabGroupIndex].windows[windowIndex].title =
-          //   currentTabData.title;
-          // if (windowIndex === 0) {
-          //   state.tabGroups[tabGroupIndex].title =
-          //     state.tabGroups[tabGroupIndex].windows[0].title;
-          // }
         }
       }
       state.lastModified = Date.now();
 
+      // update localstorage
+      saveToLocalStorage('tabContainerData', state);
+    },
+
+    // update tabGroup title
+    updateTabGroupTitle: (
+      state,
+      action: PayloadAction<updateTabGroupTitleParams>
+    ) => {
+      const { tabGroupId, editableTitle: newTitle } = action.payload;
+      const tabGroupIndex = state.tabGroups.findIndex(
+        (tabGroup) => tabGroup.tabGroupId === tabGroupId
+      );
+      if (tabGroupIndex !== -1) {
+        state.tabGroups[tabGroupIndex].title = newTitle;
+      }
+      state.lastModified = Date.now();
       // update localstorage
       saveToLocalStorage('tabContainerData', state);
     },
@@ -380,10 +395,6 @@ export const tabContainerDataStateSlice = createSlice({
             state.selectedTabGroupId = null;
           }
           state.tabGroups.splice(tabGroupIndex, 1);
-        } else {
-          // // update tabGroup title, use first window's title
-          // state.tabGroups[tabGroupIndex].title =
-          //   state.tabGroups[tabGroupIndex].windows[0].title;
         }
       }
       state.lastModified = Date.now();
@@ -427,10 +438,6 @@ export const tabContainerDataStateSlice = createSlice({
               state.tabGroups[tabGroupIndex].windows[windowIndex].tabCount;
 
             state.tabGroups[tabGroupIndex].windows.splice(windowIndex, 1);
-          } else {
-            // // update window title, use first tab's title
-            // state.tabGroups[tabGroupIndex].windows[windowIndex].title =
-            //   state.tabGroups[tabGroupIndex].windows[windowIndex].tabs[0].title;
           }
         }
         // if this was the last window in the tabGroup, delete this tabGroup
@@ -444,10 +451,6 @@ export const tabContainerDataStateSlice = createSlice({
           }
 
           state.tabGroups.splice(tabGroupIndex, 1);
-        } else {
-          // // update tabGroup's title, use first window's title
-          // state.tabGroups[tabGroupIndex].title =
-          //   state.tabGroups[tabGroupIndex].windows[0].title;
         }
       }
       state.lastModified = Date.now();
@@ -468,6 +471,7 @@ export const {
   saveToTabContainerInternal,
   selectTabContainer,
   addCurrTabToWindowInternal,
+  updateTabGroupTitle,
   deleteTabContainerInternal,
   deleteWindowInternal,
   deleteTabInternal,

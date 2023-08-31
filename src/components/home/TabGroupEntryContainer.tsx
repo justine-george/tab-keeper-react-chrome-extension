@@ -12,6 +12,7 @@ import {
   tabContainerData,
 } from '../../redux/slice/tabContainerDataStateSlice';
 import { useEffect } from 'react';
+import { filterTabGroups } from '../../utils/helperFunctions';
 
 export default function TabGroupEntryContainer() {
   const COLORS = useThemeColors();
@@ -32,21 +33,7 @@ export default function TabGroupEntryContainer() {
   // filter the tab group list
   let filteredTabGroups: tabContainerData[] = tabContainerDataList.tabGroups;
   if (isSearchPanel && searchInputText) {
-    const loweredSearchText = searchInputText.toLowerCase();
-
-    filteredTabGroups = filteredTabGroups.filter((tabGroup) => {
-      if (tabGroup.title.toLowerCase().includes(loweredSearchText)) {
-        return true;
-      }
-
-      return tabGroup.windows.some(
-        (window) =>
-          window.title.toLowerCase().includes(loweredSearchText) ||
-          window.tabs.some((tab) =>
-            tab.title.toLowerCase().includes(loweredSearchText)
-          )
-      );
-    });
+    filteredTabGroups = filterTabGroups(searchInputText, filteredTabGroups);
   }
 
   useEffect(() => {

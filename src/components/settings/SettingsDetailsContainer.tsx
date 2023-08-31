@@ -10,6 +10,7 @@ import Button from '../common/Button';
 import { useThemeColors } from '../hook/useThemeColors';
 import {
   APP_VERSION,
+  DEV_APPRECIATION,
   DEV_CREDITS,
   DEV_EMAIL,
   FEEDBACK_MAIL_SUBJECT,
@@ -138,7 +139,16 @@ const SettingsDetailsContainer: React.FC = () => {
           flex-grow: 1;
         `}
       >
-        <NormalLabel color={COLORS.LABEL_L1_COLOR} value={DEV_CREDITS} />
+        <NormalLabel
+          color={COLORS.LABEL_L1_COLOR}
+          value={DEV_APPRECIATION}
+          size="1.2rem"
+        />
+        <NormalLabel
+          color={COLORS.LABEL_L1_COLOR}
+          value={DEV_CREDITS}
+          style="margin-top: 30px;"
+        />
         <Button
           text={FEEDBACK_REQUEST}
           iconType="mail"
