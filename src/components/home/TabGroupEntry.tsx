@@ -55,7 +55,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
     flex-direction: row;
     height: 100%;
     justify-content: flex-start;
-    align-items: flex-start;
+    align-items: center;
     opacity: ${isHovered ? 1 : 0};
     transition: opacity 0.1s ease-out;
   `;
@@ -111,6 +111,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
       <div css={rightStyle}>
         <Icon
           tooltipText="Open in new window"
+          text="Restore"
           ariaLabel="open all windows"
           type="open_in_new"
           backgroundColor={
@@ -121,10 +122,11 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
             e.stopPropagation();
             onOpenAllClick(e);
           }}
-          style="padding: 22px 10px;"
+          style="padding: 14px 10px; width: 57px;"
         />
         <Icon
           tooltipText="Delete"
+          text="Delete"
           ariaLabel="delete"
           type="delete"
           backgroundColor={
@@ -135,7 +137,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
             e.stopPropagation();
             onDeleteClick(e);
           }}
-          style="padding: 22px 10px;"
+          style="padding: 14px 10px; width: 57px;"
         />
       </div>
     </div>
