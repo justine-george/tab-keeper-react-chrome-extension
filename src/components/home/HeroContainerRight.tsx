@@ -1,17 +1,20 @@
+import { useEffect, useState } from 'react';
+
+import { useDispatch, useSelector } from 'react-redux';
+
 import { css } from '@emotion/react';
+
 import Icon from '../common/Icon';
 import { Tag } from '../common/Tag';
 import { NormalLabel } from '../common/Label';
 import { useThemeColors } from '../hook/useThemeColors';
-import { useDispatch, useSelector } from 'react-redux';
 import { AppDispatch, RootState } from '../../redux/store';
+import { filterTabGroups } from '../../utils/helperFunctions';
 import {
   deleteTabContainer,
   openAllTabContainer,
   updateTabGroupTitle,
 } from '../../redux/slice/tabContainerDataStateSlice';
-import { useEffect, useState } from 'react';
-import { filterTabGroups } from '../../utils/helperFunctions';
 
 export default function HeroContainerRight() {
   const COLORS = useThemeColors();
@@ -117,7 +120,7 @@ export default function HeroContainerRight() {
             value={title}
             size="1.125rem"
             color={COLORS.TEXT_COLOR}
-            style="max-width: 350px;"
+            style="max-width: 350px; height: 21px;"
             onClick={handleTabGroupTitleClick}
           />
         )}

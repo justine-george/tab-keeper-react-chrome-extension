@@ -1,7 +1,13 @@
-import { css } from '@emotion/react';
-import { useThemeColors } from '../hook/useThemeColors';
 import { useDispatch, useSelector } from 'react-redux';
+
+import { css } from '@emotion/react';
+
+import { Tag } from './Tag';
+import { NormalLabel } from './Label';
+import { useThemeColors } from '../hook/useThemeColors';
 import { AppDispatch, RootState } from '../../redux/store';
+import { getStringDate } from '../../utils/helperFunctions';
+import { setPresentStartup } from '../../redux/slice/undoRedoSlice';
 import { replaceState } from '../../redux/slice/tabContainerDataStateSlice';
 import {
   closeConflictModal,
@@ -9,10 +15,6 @@ import {
   setIsNotDirty,
   syncToFirestore,
 } from '../../redux/slice/globalStateSlice';
-import { setPresentStartup } from '../../redux/slice/undoRedoSlice';
-import { getStringDate } from '../../utils/helperFunctions';
-import { Tag } from './Tag';
-import { NormalLabel } from './Label';
 
 interface ConflictModalProps {
   style?: string;

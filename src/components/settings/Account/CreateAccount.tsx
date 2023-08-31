@@ -1,18 +1,21 @@
+import React, { useState } from 'react';
+
+import { useDispatch } from 'react-redux';
+
 import { css } from '@emotion/react';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
+
 import Button from '../../common/Button';
 import TextBox from '../../common/TextBox';
+import { AccountChildProps } from '../Account';
+import { auth } from '../../../config/firebase';
+import { AppDispatch } from '../../../redux/store';
 import { useThemeColors } from '../../hook/useThemeColors';
-import React, { useState } from 'react';
 import {
   displayToast,
   isValidEmail,
   isValidPassword,
 } from '../../../utils/helperFunctions';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '../../../config/firebase';
-import { AppDispatch } from '../../../redux/store';
-import { useDispatch } from 'react-redux';
-import { AccountChildProps } from '../Account';
 import {
   TEXTBOX_PLACEHOLDERS,
   TOAST_MESSAGES,

@@ -1,14 +1,15 @@
 import { initializeApp } from 'firebase/app';
 import { doc, getDoc, getFirestore } from 'firebase/firestore';
-import { GoogleAuthProvider, getAuth, onAuthStateChanged } from 'firebase/auth';
+import { getAuth, GoogleAuthProvider, onAuthStateChanged } from 'firebase/auth';
+
+import { AppDispatch } from '../redux/store';
+import { TabMasterContainer } from '../redux/slice/tabContainerDataStateSlice';
 import {
   removeUserId,
   setLoggedOut,
   setSignedIn,
   setUserId,
 } from '../redux/slice/globalStateSlice';
-import { AppDispatch } from '../redux/store';
-import { TabMasterContainer } from '../redux/slice/tabContainerDataStateSlice';
 // https://firebase.google.com/docs/web/setup#available-libraries
 
 // Firebase configuration

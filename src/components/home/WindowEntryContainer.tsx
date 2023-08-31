@@ -1,15 +1,18 @@
 import React, { MouseEventHandler, useEffect, useState } from 'react';
+
+import { useDispatch, useSelector } from 'react-redux';
+
 import { css } from '@emotion/react';
+
 import Icon from '../common/Icon';
 import { NormalLabel } from '../common/Label';
 import { useThemeColors } from '../hook/useThemeColors';
+import { AppDispatch, RootState } from '../../redux/store';
 import { NON_INTERACTIVE_ICON_STYLE } from '../../utils/constants/common';
-import { useDispatch, useSelector } from 'react-redux';
 import {
   deleteTab,
   tabData,
 } from '../../redux/slice/tabContainerDataStateSlice';
-import { AppDispatch, RootState } from '../../redux/store';
 
 interface WindowEntryContainerProps {
   title: string;
@@ -49,14 +52,6 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   useEffect(() => {
     setWindowOpenState(true);
   }, [tabGroupId]);
-
-  function handleAccordionClick() {
-    setWindowOpenState((state) => !state);
-  }
-
-  const handleTabClick = (url: string) => {
-    chrome.tabs.create({ url: url });
-  };
 
   const containerStyle = css`
     display: flex;
@@ -142,7 +137,38 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     flex-grow: 1;
     margin-left: 4px;
     margin-right: 4px;
+    cursor: pointer;
   `;
+
+  const handleWindowClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    if (!isSearchPanel) {
+      onWindowTitleClick(e);
+    }
+  };
+
+  const handleTabClick = (url: string) => {
+    chrome.tabs.create({ url: url });
+  };
+
+  function handleAccordionClick() {
+    setWindowOpenState((state) => !state);
+  }
+
+  function handleKeyPressOnWindow(e: React.KeyboardEvent<HTMLDivElement>) {
+    if (e.key === 'Enter') {
+      handleWindowClick(e as any);
+    }
+  }
+
+  function handleKeyPressOnTab(
+    e: React.KeyboardEvent<HTMLDivElement>,
+    url: string
+  ) {
+    if (e.key === 'Enter') {
+      handleTabClick(url);
+    }
+  }
 
   return (
     <div css={containerStyle}>
@@ -159,21 +185,21 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
             onClick={handleAccordionClick}
           />
           <Icon type="ad" style={NON_INTERACTIVE_ICON_STYLE} />
-          <div css={parentLinkStyle} tabIndex={0}>
+          <div
+            css={parentLinkStyle}
+            tabIndex={0}
+            onClick={(e) => handleWindowClick(e)}
+            onKeyDown={(e) => handleKeyPressOnWindow(e)}
+            title={!isSearchPanel ? 'Open in new window' : undefined}
+          >
             <NormalLabel
-              tooltipText={!isSearchPanel ? 'Open in new window' : undefined}
               value={title}
               color={COLORS.TEXT_COLOR}
               size="0.9rem"
-              style={`padding-left: 8px; ${
-                !isSearchPanel && 'cursor: pointer'
-              }; height: 100%; max-width: 285px;`}
-              onClick={(e) => {
-                e.stopPropagation();
-                if (!isSearchPanel) {
-                  onWindowTitleClick(e);
-                }
-              }}
+              style={`
+                padding-left: 8px;
+                ${!isSearchPanel && 'cursor: pointer'};
+                height: 100%; max-width: 285px;`}
             />
           </div>
         </div>
@@ -211,22 +237,24 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                 onMouseEnter={() => setHoveredChildIndex(index)}
                 onMouseLeave={() => setHoveredChildIndex(null)}
               >
-                <div css={childLeftStyle}>
+                <div
+                  css={childLeftStyle}
+                  tabIndex={0}
+                  onClick={() => handleTabClick(url)}
+                  onKeyDown={(e) => handleKeyPressOnTab(e, url)}
+                  title="Open in new tab"
+                >
                   <Icon
                     faviconUrl={favicon}
                     type="app_badging"
-                    style={NON_INTERACTIVE_ICON_STYLE}
+                    style={`&:hover {background-color: unset;}`}
                   />
-                  <div
-                    css={windowChildLinkStyle}
-                    onClick={() => handleTabClick(url)}
-                  >
+                  <div css={windowChildLinkStyle}>
                     <NormalLabel
-                      tooltipText="Open in new tab"
                       value={title}
                       color={COLORS.TEXT_COLOR}
                       size="0.9rem"
-                      style="padding-left: 4px; cursor: pointer; height: 100%; max-width: 245px;"
+                      style="padding-left: 4px; height: 100%; max-width: 245px;"
                     />
                   </div>
                 </div>

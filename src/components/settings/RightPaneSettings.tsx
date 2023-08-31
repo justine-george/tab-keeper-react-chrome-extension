@@ -1,6 +1,7 @@
 import { css } from '@emotion/react';
-import HeroContainerRightSettings from './HeroContainerRightSettings';
+
 import SettingsDetailsContainer from './SettingsDetailsContainer';
+import HeroContainerRightSettings from './HeroContainerRightSettings';
 
 const RightPaneSettings: React.FC = () => {
   const containerStyle = css`

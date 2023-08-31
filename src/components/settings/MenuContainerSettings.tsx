@@ -1,13 +1,15 @@
-import { css } from '@emotion/react';
 import { useDispatch } from 'react-redux';
+
+import { css } from '@emotion/react';
+
 import Icon from '../common/Icon';
 import { NormalLabel } from '../common/Label';
+import { AppDispatch } from '../../redux/store';
 import { useThemeColors } from '../hook/useThemeColors';
 import {
   closeSettingsPage,
   closeToast,
 } from '../../redux/slice/globalStateSlice';
-import { AppDispatch } from '../../redux/store';
 
 export default function MenuContainer() {
   const COLORS = useThemeColors();

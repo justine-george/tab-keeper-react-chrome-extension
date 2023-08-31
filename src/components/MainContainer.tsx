@@ -1,16 +1,19 @@
-import { css } from '@emotion/react';
-import LeftPane from './home/LeftPane';
-import RightPane from './home/RightPane';
+import { useEffect } from 'react';
+
 import { useDispatch, useSelector } from 'react-redux';
-import { AppDispatch, RootState } from '../redux/store';
-import LeftPaneSettings from './settings/LeftPaneSettings';
-import RightPaneSettings from './settings/RightPaneSettings';
+
+import { css } from '@emotion/react';
+
+import LeftPane from './home/LeftPane';
+import { Toast } from './common/Toast';
+import RightPane from './home/RightPane';
 import { useThemeColors } from './hook/useThemeColors';
 import { APP_HEIGHT } from '../utils/constants/common';
-import { Toast } from './common/Toast';
 import { ConflictModal } from './common/ConflictModal';
-import { useEffect } from 'react';
+import { AppDispatch, RootState } from '../redux/store';
 import { redo, undo } from '../redux/slice/undoRedoSlice';
+import LeftPaneSettings from './settings/LeftPaneSettings';
+import RightPaneSettings from './settings/RightPaneSettings';
 import { closeToast } from '../redux/slice/globalStateSlice';
 
 export default function MainContainer() {

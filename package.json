@@ -1,11 +1,12 @@
 {
   "name": "tab-keeper-react-chrome-extension",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.5",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && npx prettier -w . && vite build",
+    "build": "tsc && vite build",
+    "release": "tsc && npx prettier -w . && vite build && cd dist && node ../zip.cjs",
     "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview"
   },

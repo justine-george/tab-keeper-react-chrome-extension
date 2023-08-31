@@ -1,9 +1,11 @@
-import { css } from '@emotion/react';
-import HeroContainerRight from './HeroContainerRight';
-import TabGroupDetailsContainer from './TabGroupDetailsContainer';
 import { useSelector } from 'react-redux';
+
+import { css } from '@emotion/react';
+
 import { RootState } from '../../redux/store';
+import HeroContainerRight from './HeroContainerRight';
 import { filterTabGroups } from '../../utils/helperFunctions';
+import TabGroupDetailsContainer from './TabGroupDetailsContainer';
 
 export default function RightPane() {
   const tabContainerDataList = useSelector(

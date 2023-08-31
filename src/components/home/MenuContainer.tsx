@@ -1,12 +1,14 @@
-import { css } from '@emotion/react';
-import Icon from '../common/Icon';
 import { useDispatch, useSelector } from 'react-redux';
+
+import { css } from '@emotion/react';
+
+import Icon from '../common/Icon';
+import { AppDispatch, RootState } from '../../redux/store';
 import {
   closeToast,
   openSettingsPage,
   syncToFirestore,
 } from '../../redux/slice/globalStateSlice';
-import { AppDispatch, RootState } from '../../redux/store';
 import {
   isRedoableSelector,
   isUndoableSelector,

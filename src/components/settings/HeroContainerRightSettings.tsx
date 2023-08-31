@@ -1,8 +1,9 @@
 import { css } from '@emotion/react';
+
 import Icon from '../common/Icon';
 import { NormalLabel } from '../common/Label';
-import { NON_INTERACTIVE_ICON_STYLE } from '../../utils/constants/common';
 import { useThemeColors } from '../hook/useThemeColors';
+import { NON_INTERACTIVE_ICON_STYLE } from '../../utils/constants/common';
 
 export default function HeroContainerRightSettings() {
   const COLORS = useThemeColors();

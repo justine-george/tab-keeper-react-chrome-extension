@@ -1,17 +1,20 @@
+import { useEffect, useState } from 'react';
+
+import { v4 as uuidv4 } from 'uuid';
+import { useDispatch, useSelector } from 'react-redux';
+
 import { css } from '@emotion/react';
+
 import Button from '../common/Button';
 import TextBox from '../common/TextBox';
-import { useDispatch, useSelector } from 'react-redux';
-import { useEffect, useState } from 'react';
-import { v4 as uuidv4 } from 'uuid';
+import { AppDispatch, RootState } from '../../redux/store';
+import { getStringDate } from '../../utils/helperFunctions';
+import { setSearchInputText } from '../../redux/slice/globalStateSlice';
 import {
   saveToTabContainer,
   tabContainerData,
   windowGroupData,
 } from '../../redux/slice/tabContainerDataStateSlice';
-import { AppDispatch, RootState } from '../../redux/store';
-import { setSearchInputText } from '../../redux/slice/globalStateSlice';
-import { getStringDate } from '../../utils/helperFunctions';
 
 export default function UserInputContainer() {
   const dispatch: AppDispatch = useDispatch();

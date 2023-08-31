@@ -1,13 +1,15 @@
+import { useDispatch } from 'react-redux';
+
+import { css } from '@emotion/react';
 import { signOut } from 'firebase/auth';
-import { auth } from '../../../config/firebase';
+
 import Button from '../../common/Button';
+import { auth } from '../../../config/firebase';
 import { NormalLabel } from '../../common/Label';
+import { AppDispatch } from '../../../redux/store';
 import { useThemeColors } from '../../hook/useThemeColors';
 import { displayToast } from '../../../utils/helperFunctions';
-import { AppDispatch } from '../../../redux/store';
-import { useDispatch } from 'react-redux';
 import { TOAST_MESSAGES } from '../../../utils/constants/common';
-import { css } from '@emotion/react';
 
 const LoggedIn: React.FC = () => {
   const COLORS = useThemeColors();

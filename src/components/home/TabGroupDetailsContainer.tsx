@@ -1,11 +1,13 @@
-import { css } from '@emotion/react';
-import { NormalLabel } from '../common/Label';
-import WindowEntryContainer from './WindowEntryContainer';
-import { filterTabGroups, isEmptyObject } from '../../utils/helperFunctions';
-import { useThemeColors } from '../hook/useThemeColors';
-import { useDispatch, useSelector } from 'react-redux';
-import { AppDispatch, RootState } from '../../redux/store';
 import { v4 as uuidv4 } from 'uuid';
+import { useDispatch, useSelector } from 'react-redux';
+
+import { css } from '@emotion/react';
+
+import { NormalLabel } from '../common/Label';
+import { useThemeColors } from '../hook/useThemeColors';
+import WindowEntryContainer from './WindowEntryContainer';
+import { AppDispatch, RootState } from '../../redux/store';
+import { filterTabGroups, isEmptyObject } from '../../utils/helperFunctions';
 import {
   addCurrTabToWindow,
   deleteWindow,

@@ -1,13 +1,17 @@
-import { css } from '@emotion/react';
 import { useDispatch, useSelector } from 'react-redux';
-import { AppDispatch, RootState } from '../../redux/store';
+
+import { css } from '@emotion/react';
+
+import Account from './Account';
+import Button from '../common/Button';
 import { NormalLabel } from '../common/Label';
+import { useThemeColors } from '../hook/useThemeColors';
+import { AppDispatch, RootState } from '../../redux/store';
+import { syncToFirestore } from '../../redux/slice/globalStateSlice';
 import {
   toggleAutoSync,
   toggleDarkMode,
 } from '../../redux/slice/settingsDataStateSlice';
-import Button from '../common/Button';
-import { useThemeColors } from '../hook/useThemeColors';
 import {
   APP_VERSION,
   DEV_APPRECIATION,
@@ -17,8 +21,6 @@ import {
   FEEDBACK_REQUEST,
   SHARE_TWITTER_TEXT,
 } from '../../utils/constants/common';
-import { syncToFirestore } from '../../redux/slice/globalStateSlice';
-import Account from './Account';
 
 const SettingsDetailsContainer: React.FC = () => {
   const COLORS = useThemeColors();

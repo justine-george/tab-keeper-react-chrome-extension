@@ -1,7 +1,9 @@
 import React from 'react';
+
 import { css } from '@emotion/react';
-import { useThemeColors } from '../hook/useThemeColors';
+
 import Icon from './Icon';
+import { useThemeColors } from '../hook/useThemeColors';
 
 interface ButtonProps {
   text?: string;

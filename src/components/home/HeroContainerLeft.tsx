@@ -1,10 +1,12 @@
-import { css } from '@emotion/react';
-import MenuContainer from './MenuContainer';
-import { useThemeColors } from '../hook/useThemeColors';
-import { NormalLabel } from '../common/Label';
 import { useDispatch, useSelector } from 'react-redux';
-import { AppDispatch, RootState } from '../../redux/store';
+
+import { css } from '@emotion/react';
+
 import Icon from '../common/Icon';
+import MenuContainer from './MenuContainer';
+import { NormalLabel } from '../common/Label';
+import { useThemeColors } from '../hook/useThemeColors';
+import { AppDispatch, RootState } from '../../redux/store';
 import {
   closeSearchPanel,
   openSearchPanel,

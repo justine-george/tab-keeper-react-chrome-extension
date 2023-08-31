@@ -1,22 +1,23 @@
 import { Middleware } from '@reduxjs/toolkit';
+
 import { set } from '../slice/undoRedoSlice';
+import { debounce } from '../../utils/helperFunctions';
+import { DEBOUNCE_TIME_WINDOW } from '../../utils/constants/common';
 import { setIsDirty, syncToFirestore } from '../slice/globalStateSlice';
 import {
+  ADD_CURR_TAB_TO_WINDOW_ACTION,
   DELETE_TAB_ACTION,
   DELETE_TAB_CONTAINER_ACTION,
   DELETE_WINDOW_ACTION,
+  EDIT_TABGROUP_TITLE_ACTION,
+  IS_DIRTY_ACTION,
   REDO_ACTION,
-  SELECT_TAB_CONTAINER_ACTION,
   SAVE_TAB_CONTAINER_ACTION,
+  SELECT_TAB_CONTAINER_ACTION,
   SET_ACTION,
   TAB_CONTAINER_REPLACE_STATE_ACTION,
   UNDO_ACTION,
-  IS_DIRTY_ACTION,
-  ADD_CURR_TAB_TO_WINDOW_ACTION,
-  EDIT_TABGROUP_TITLE_ACTION,
 } from '../../utils/constants/actionTypes';
-import { debounce } from '../../utils/helperFunctions';
-import { DEBOUNCE_TIME_WINDOW } from '../../utils/constants/common';
 
 // add actions to capture under undo/redo
 const actionsToCapture = [
