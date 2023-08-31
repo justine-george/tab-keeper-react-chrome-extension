@@ -8,10 +8,15 @@ import { AppDispatch, RootState } from '../../redux/store';
 import {
   deleteTabContainer,
   openAllTabContainer,
+  updateTabGroupTitle,
 } from '../../redux/slice/tabContainerDataStateSlice';
+import { useEffect, useState } from 'react';
+import { filterTabGroups } from '../../utils/helperFunctions';
 
 export default function HeroContainerRight() {
   const COLORS = useThemeColors();
+  const [isEditing, setIsEditing] = useState(false);
+  const [editableTitle, setEditableTitle] = useState('');
 
   const dispatch: AppDispatch = useDispatch();
 
@@ -19,10 +24,42 @@ export default function HeroContainerRight() {
     (state: RootState) => state.tabContainerDataState
   );
 
-  // assumption is there is only one selected tabGroup
-  const selectedTabGroup = tabContainerDataList.tabGroups.filter(
+  const isSearchPanel = useSelector(
+    (state: RootState) => state.globalState.isSearchPanel
+  );
+
+  const searchInputText = useSelector(
+    (state: RootState) => state.globalState.searchInputText
+  );
+
+  let filteredTabGroups = tabContainerDataList.tabGroups.filter(
     (tabGroup) => tabGroup.isSelected
-  )[0];
+  );
+  if (isSearchPanel && searchInputText) {
+    filteredTabGroups = filterTabGroups(searchInputText, filteredTabGroups);
+  }
+  const selectedTabGroup = filteredTabGroups[0];
+
+  useEffect(() => {
+    setEditableTitle(selectedTabGroup.title);
+  }, [selectedTabGroup]);
+
+  const handleTabGroupTitleClick = () => {
+    if (!isSearchPanel) {
+      setIsEditing(true);
+    }
+  };
+
+  const handleBlur = () => {
+    setIsEditing(false);
+    if (selectedTabGroup.title !== editableTitle) {
+      dispatch(updateTabGroupTitle({ tabGroupId, editableTitle }));
+    }
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setEditableTitle(e.target.value);
+  };
 
   const containerStyle = css`
     display: flex;
@@ -36,13 +73,16 @@ export default function HeroContainerRight() {
   `;
 
   const topStyle = css`
+    display: flex;
+    flex-direction: column;
+    width: 100%;
     padding: 8px;
     padding-bottom: unset;
   `;
 
   const bottomStyle = css`
     display: flex;
-    margin-top: 12px;
+    margin-top: '12px'
     width: 100%;
     align-items: center;
   `;
@@ -53,19 +93,41 @@ export default function HeroContainerRight() {
   return (
     <div css={containerStyle}>
       <div css={topStyle}>
-        <NormalLabel
-          value={title}
-          size="1.125rem"
-          color={COLORS.TEXT_COLOR}
-          style="max-width: 350px;"
-        />
+        {isEditing && !isSearchPanel ? (
+          <input
+            value={editableTitle}
+            onBlur={handleBlur}
+            onChange={handleChange}
+            autoFocus
+            css={css`
+              background-color: ${COLORS.PRIMARY_COLOR};
+              border: 1px solid ${COLORS.BORDER_COLOR};
+              display: flex;
+              align-items: center;
+              font-family: 'Libre Franklin', sans-serif;
+              font-size: 1.1rem;
+              &:focus {
+                outline: none;
+              }
+            `}
+          />
+        ) : (
+          <NormalLabel
+            tooltipText={title}
+            value={title}
+            size="1.125rem"
+            color={COLORS.TEXT_COLOR}
+            style="max-width: 350px;"
+            onClick={handleTabGroupTitleClick}
+          />
+        )}
         <NormalLabel
           value={`${windowCount} ${
             windowCount > 1 ? 'Windows' : 'Window'
           } - ${tabCount} ${tabCount > 1 ? 'Tabs' : 'Tab'}`}
           size="0.75rem"
           color={COLORS.LABEL_L1_COLOR}
-          style="padding-top: 2px;"
+          style={`padding-top: ${isEditing ? '2px' : '6px'};`}
         />
         <NormalLabel
           value={createdTime}
@@ -78,6 +140,8 @@ export default function HeroContainerRight() {
         <div
           css={css`
             display: flex;
+            padding-top: 8px;
+            ${isSearchPanel && 'visibility: hidden'}
           `}
         >
           <Icon

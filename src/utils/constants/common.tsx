@@ -20,7 +20,8 @@ export const DEBOUNCE_TIME_WINDOW = 500;
 export const APP_VERSION = manifest.version;
 
 // developer details
-export const DEV_CREDITS = 'Made by Justine George.';
+export const DEV_APPRECIATION = 'Thank you for using this app!';
+export const DEV_CREDITS = `Crafted with ❤️ by Justine George`;
 
 // developer email
 export const DEV_EMAIL = 'justinegeo96@gmail.com';

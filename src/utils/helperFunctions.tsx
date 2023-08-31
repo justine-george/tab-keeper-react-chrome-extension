@@ -1,5 +1,9 @@
 import { showToast } from '../redux/slice/globalStateSlice';
 import { AppDispatch } from '../redux/store';
+import {
+  tabContainerData,
+  windowGroupData,
+} from '../redux/slice/tabContainerDataStateSlice';
 
 // Check if an object is empty
 export function isEmptyObject(obj: any): boolean {
@@ -71,6 +75,50 @@ export const displayToast = (
       duration: duration || 3000,
     })
   );
+};
+
+// filter tabGroup
+export const filterTabGroups = (
+  searchText: string,
+  tabGroups: tabContainerData[]
+): tabContainerData[] => {
+  const loweredSearchText = searchText.toLowerCase();
+
+  return tabGroups.reduce((acc: tabContainerData[], tabGroup) => {
+    let matchedWindows = tabGroup.windows.reduce(
+      (windowAcc: windowGroupData[], window) => {
+        let matchedTabs = window.tabs.filter((tab) =>
+          tab.title.toLowerCase().includes(loweredSearchText)
+        );
+
+        if (matchedTabs.length) {
+          windowAcc.push({
+            ...window,
+            tabs: matchedTabs,
+            tabCount: matchedTabs.length,
+            title: matchedTabs[0].title,
+          });
+        }
+
+        return windowAcc;
+      },
+      []
+    );
+
+    if (matchedWindows.length) {
+      acc.push({
+        ...tabGroup,
+        windows: matchedWindows,
+        windowCount: matchedWindows.length,
+        tabCount: matchedWindows.reduce(
+          (total, win) => total + win.tabCount,
+          0
+        ),
+      });
+    }
+
+    return acc;
+  }, []);
 };
 
 // Save data to local storage

@@ -4,12 +4,12 @@ import Icon from '../common/Icon';
 import { NormalLabel } from '../common/Label';
 import { useThemeColors } from '../hook/useThemeColors';
 import { NON_INTERACTIVE_ICON_STYLE } from '../../utils/constants/common';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import {
   deleteTab,
   tabData,
 } from '../../redux/slice/tabContainerDataStateSlice';
-import { AppDispatch } from '../../redux/store';
+import { AppDispatch, RootState } from '../../redux/store';
 
 interface WindowEntryContainerProps {
   title: string;
@@ -41,6 +41,10 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     null
   );
 
+  const isSearchPanel = useSelector(
+    (state: RootState) => state.globalState.isSearchPanel
+  );
+
   // reset the 'windowOpenState' to true whenever a different tabGroup is selected.
   useEffect(() => {
     setWindowOpenState(true);
@@ -49,6 +53,10 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   function handleAccordionClick() {
     setWindowOpenState((state) => !state);
   }
+
+  const handleTabClick = (url: string) => {
+    chrome.tabs.create({ url: url });
+  };
 
   const containerStyle = css`
     display: flex;
@@ -81,6 +89,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     transform: translateY(-50%);
     opacity: ${isParentHovered ? 1 : 0};
     transition: opacity 0.1s ease-out;
+    ${isSearchPanel && 'visibility: hidden;'}
   `;
 
   const childrenContainerStyle = css`
@@ -121,7 +130,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     height: 100%;
     flex-grow: 1;
     padding-right: 9px;
-    cursor: pointer;
+    ${!isSearchPanel && 'cursor: pointer;'}
   `;
 
   const windowChildLinkStyle = css`
@@ -134,10 +143,6 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     margin-left: 4px;
     margin-right: 4px;
   `;
-
-  const handleTabClick = (url: string) => {
-    chrome.tabs.create({ url: url });
-  };
 
   return (
     <div css={containerStyle}>
@@ -156,14 +161,18 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
           <Icon type="ad" style={NON_INTERACTIVE_ICON_STYLE} />
           <div css={parentLinkStyle} tabIndex={0}>
             <NormalLabel
-              tooltipText="Open in new window"
+              tooltipText={!isSearchPanel ? 'Open in new window' : undefined}
               value={title}
               color={COLORS.TEXT_COLOR}
               size="0.9rem"
-              style="padding-left: 8px; cursor: pointer; height: 100%; max-width: 285px;"
+              style={`padding-left: 8px; ${
+                !isSearchPanel && 'cursor: pointer'
+              }; height: 100%; max-width: 285px;`}
               onClick={(e) => {
                 e.stopPropagation();
-                onWindowTitleClick(e);
+                if (!isSearchPanel) {
+                  onWindowTitleClick(e);
+                }
               }}
             />
           </div>
