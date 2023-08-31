@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "version": "1.0.5",
+  "version": "1.0.6",
   "name": "TabKeeper - Tab Session Manager for Chrome",
   "packageName": "tabkeeper",
   "description": "Your ultimate tool for saving, organizing, and syncing browser tabs seamlessly! 🌐",

@@ -16,6 +16,7 @@ interface IconProps {
   backgroundColor?: string;
   ariaLabel?: string;
   tooltipText?: string;
+  text?: string;
   style?: string;
 }
 
@@ -31,6 +32,7 @@ const Icon: React.FC<IconProps> = ({
   backgroundColor,
   ariaLabel,
   tooltipText,
+  text,
   style,
 }) => {
   const COLORS = useThemeColors();
@@ -74,6 +76,7 @@ const Icon: React.FC<IconProps> = ({
 
   const containerStyle = css`
     display: flex;
+    flex-direction: column;
     justify-content: center;
     align-items: center;
     padding: 4px;
@@ -103,9 +106,27 @@ const Icon: React.FC<IconProps> = ({
       {faviconUrl ? (
         <img src={faviconUrl} alt="favicon" css={iconStyle} />
       ) : (
-        <span css={iconStyle} className="material-symbols-outlined">
-          {type}
-        </span>
+        <div
+          css={css`
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+          `}
+        >
+          <span css={iconStyle} className="material-symbols-outlined">
+            {type}
+          </span>
+          {text && (
+            <p
+              css={css`
+                margin: 0;
+              `}
+            >
+              {text}
+            </p>
+          )}
+        </div>
       )}
     </div>
   );
