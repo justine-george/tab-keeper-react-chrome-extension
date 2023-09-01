@@ -69,14 +69,14 @@ export default function MainContainer() {
   `;
 
   const leftPaneStyle = css`
-    width: 50%;
+    width: 45%;
     height: ${APP_HEIGHT};
     border: 1px solid ${COLORS.BORDER_COLOR};
     border-right: none;
   `;
 
   const rightPaneStyle = css`
-    width: 50%;
+    width: 55%;
     height: ${APP_HEIGHT};
     border: 1px solid ${COLORS.BORDER_COLOR};
   `;

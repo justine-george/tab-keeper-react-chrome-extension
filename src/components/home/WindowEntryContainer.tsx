@@ -199,7 +199,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
               style={`
                 padding-left: 8px;
                 ${!isSearchPanel && 'cursor: pointer'};
-                height: 100%; max-width: 285px;`}
+                height: 100%; max-width: 330px;`}
             />
           </div>
         </div>
@@ -254,7 +254,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                       value={title}
                       color={COLORS.TEXT_COLOR}
                       size="0.9rem"
-                      style="padding-left: 4px; height: 100%; max-width: 245px;"
+                      style="padding-left: 4px; height: 100%; max-width: 289px;"
                     />
                   </div>
                 </div>
