@@ -4,7 +4,7 @@ Tab Keeper is an intuitive Chrome extension crafted to redefine the way users sa
 
 At its core, Tab Keeper uses technologies like React, Emotion CSS, Cloud Firestore, Firebase SDK, and Firebase Authentication to offer a seamless, efficient, and user-centric experience.<br><br>
 
-![App Banner](https://github.com/justinegeo96/tab-keeper-react-chrome-extension/blob/main/store-assets/screenshots/screenshot-1.png?raw=true)
+![App Banner](https://github.com/justinegeo96/tab-keeper-react-chrome-extension/blob/main/store-assets/screenshots/tab-keeper-screenshot-1.png?raw=true)
 
 ## 🌱 Features:
 
