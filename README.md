@@ -16,7 +16,7 @@ At its core, TabKeeper uses technologies like React, Emotion CSS, Cloud Firestor
 
 ## 🛠️ Installation
 
-<a href="https://chrome.google.com/webstore/detail/tabkeeper-tab-session-man/gpibgniomobngodpnikhheifblbpbbah"><img src="https://github.com/justinegeo96/tab-keeper-react-chrome-extension/blob/main/store-assets/banners/chrome_web_store_download_button.png" width="250"></a>
+<a href="https://chrome.google.com/webstore/detail/tabkeeper-tab-session-man/gpibgniomobngodpnikhheifblbpbbah" target="_blank"><img src="https://github.com/justinegeo96/tab-keeper-react-chrome-extension/blob/main/store-assets/banners/chrome_web_store_download_button.png" width="250"></a>
 
 1. Install the "TabKeeper - Tab Session Manager for Chrome" from the [Chrome Web Store.](https://chrome.google.com/webstore/detail/tabkeeper-tab-session-manager-for-chrome/gpibgniomobngodpnikhheifblbpbbah)
 2. No sign-up is needed! Dive straight into the application and start organizing your tabs.
