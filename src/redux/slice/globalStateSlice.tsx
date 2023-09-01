@@ -1,14 +1,15 @@
-import { PayloadAction, createAsyncThunk, createSlice } from '@reduxjs/toolkit';
-import { RootState } from '../store';
-import { selectCategory } from './settingsCategoryStateSlice';
-import { auth, db, fetchDataFromFirestore } from '../../config/firebase';
 import { doc, setDoc } from 'firebase/firestore';
+import { createAsyncThunk, createSlice, PayloadAction } from '@reduxjs/toolkit';
+
+import { RootState } from '../store';
+import { setPresentStartup } from './undoRedoSlice';
+import { selectCategory } from './settingsCategoryStateSlice';
+import { db, fetchDataFromFirestore } from '../../config/firebase';
+import { replaceState, TabMasterContainer } from './tabContainerDataStateSlice';
 import {
   loadFromLocalStorage,
   saveToLocalStorage,
 } from '../../utils/helperFunctions';
-import { TabMasterContainer, replaceState } from './tabContainerDataStateSlice';
-import { setPresentStartup } from './undoRedoSlice';
 
 interface ConflictModalPayload {
   tabDataLocal: TabMasterContainer;
@@ -54,7 +55,7 @@ export const syncToFirestore = createAsyncThunk(
       thunkAPI.dispatch(openSettingsPage('Account'));
     } else if (state.globalState.isDirty) {
       try {
-        await setDoc(doc(db, 'tabGroupData', auth.currentUser!.uid), {
+        await setDoc(doc(db, 'tabGroupData', state.globalState.userId!), {
           ...state.tabContainerDataState,
         });
 

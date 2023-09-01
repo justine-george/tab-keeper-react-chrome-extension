@@ -121,6 +121,7 @@ const Icon: React.FC<IconProps> = ({
             <p
               css={css`
                 margin: 0;
+                color: ${COLORS.TEXT_COLOR};
               `}
             >
               {text}

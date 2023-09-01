@@ -114,7 +114,7 @@ const SettingsDetailsContainer: React.FC = () => {
         </div>
       </div>
     );
-  } else if (settingsCategoryName === 'Account') {
+  } else if (settingsCategoryName === 'Sync & Privacy') {
     settingsOptionsDiv = (
       <div
         css={css`
@@ -157,7 +157,7 @@ const SettingsDetailsContainer: React.FC = () => {
           onClick={() =>
             (window.location.href = `mailto:${DEV_EMAIL}?subject=${FEEDBACK_MAIL_SUBJECT}`)
           }
-          style="width: 250px; justify-content: center; margin-top: 16px;"
+          style="width: 250px; justify-content: center; margin-top: 24px;"
         />
         <Button
           text={'Share on Twitter (X)'}

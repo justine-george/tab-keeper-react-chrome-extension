@@ -1,15 +1,10 @@
 import { initializeApp } from 'firebase/app';
 import { doc, getDoc, getFirestore } from 'firebase/firestore';
-import { getAuth, GoogleAuthProvider, onAuthStateChanged } from 'firebase/auth';
+import { getAuth, onAuthStateChanged, signInAnonymously } from 'firebase/auth';
 
 import { AppDispatch } from '../redux/store';
+import { setLoggedOut, setSignedIn } from '../redux/slice/globalStateSlice';
 import { TabMasterContainer } from '../redux/slice/tabContainerDataStateSlice';
-import {
-  removeUserId,
-  setLoggedOut,
-  setSignedIn,
-  setUserId,
-} from '../redux/slice/globalStateSlice';
 // https://firebase.google.com/docs/web/setup#available-libraries
 
 // Firebase configuration
@@ -27,22 +22,34 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-const googleProvider = new GoogleAuthProvider();
 
-export { auth, googleProvider, db };
+export { auth, db };
 
 export const observeAuthState = (dispatch: AppDispatch) => {
   onAuthStateChanged(auth, (user) => {
     if (user) {
       // User is signed in
       dispatch(setSignedIn());
-      dispatch(setUserId(user.uid));
     } else {
-      // User is signed out
+      // User is signed out, anonymous sign them back in
       dispatch(setLoggedOut());
-      dispatch(removeUserId());
+      signInUserAnonymously();
     }
   });
+};
+
+export const signInUserAnonymously = () => {
+  return signInAnonymously(auth)
+    .then((userCredential) => {
+      // Signed in successfully
+      const user = userCredential.user;
+      return user.uid;
+    })
+    .catch((error) => {
+      const errorCode = error.code;
+      const errorMessage = error.message;
+      console.error(`Error (${errorCode}): ${errorMessage}`);
+    });
 };
 
 export const fetchDataFromFirestore = async (

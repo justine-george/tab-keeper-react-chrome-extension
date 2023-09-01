@@ -144,6 +144,7 @@ export const loadFromLocalStorage = (key: string): any | undefined => {
   }
 };
 
+// placeholder URL for quicker session loads and lesser memory consumption
 export function generatePlaceholderURL(
   title: string,
   faviconURL: string,

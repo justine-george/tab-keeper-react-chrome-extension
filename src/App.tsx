@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 
+import { v4 as uuidv4 } from 'uuid';
 import { useDispatch, useSelector } from 'react-redux';
 
 import { css } from '@emotion/react';
@@ -12,7 +13,13 @@ import { loadFromLocalStorage } from './utils/helperFunctions';
 import { setPresentStartup } from './redux/slice/undoRedoSlice';
 import { useThemeColors } from './components/hook/useThemeColors';
 import { replaceState } from './redux/slice/tabContainerDataStateSlice';
-import { loadStateFromFirestore } from './redux/slice/globalStateSlice';
+import {
+  loadStateFromFirestore,
+  removeUserId,
+  setLoggedOut,
+  setSignedIn,
+  setUserId,
+} from './redux/slice/globalStateSlice';
 
 import './App.css';
 
@@ -27,9 +34,51 @@ function App() {
     (state: RootState) => state.settingsDataState.isAutoSync
   );
 
-  useEffect(() => {
-    observeAuthState(dispatch);
+  //
+  function getUserTokenFromChromeStorageSync() {
+    // check tokenValue in chrome storage sync
+    // this token is the documentId
+    chrome.storage.sync.get(['tokenValue']).then((result) => {
+      const token = result.tokenValue;
 
+      if (!token) {
+        // No token found in chrome storage sync (new user)
+        chrome.storage.sync
+          .set({ tokenValue: uuidv4() })
+          .then(() => {
+            chrome.storage.sync
+              .get(['tokenValue'])
+              .then((result) => {
+                // New token issued
+                const newToken = result.tokenValue;
+                dispatch(setSignedIn());
+                dispatch(setUserId(newToken));
+              })
+              .catch(() => {
+                // unable to load token from chrome storage sync
+                dispatch(setLoggedOut());
+                dispatch(removeUserId());
+              });
+          })
+          .catch(() => {
+            // unable to save new token in chrome storage sync
+            dispatch(setLoggedOut());
+            dispatch(removeUserId());
+          });
+      } else {
+        // Token found in chrome storage sync (existing user)
+        dispatch(setSignedIn());
+        dispatch(setUserId(token));
+      }
+    });
+  }
+
+  useEffect(() => {
+    getUserTokenFromChromeStorageSync();
+    observeAuthState(dispatch);
+  }, []);
+
+  useEffect(() => {
     // fetch data from Firestore
     if (isSignedIn && userId && isAutoSync) {
       dispatch(loadStateFromFirestore(userId));
@@ -45,7 +94,7 @@ function App() {
         );
       }
     }
-  }, [dispatch, isSignedIn, userId]);
+  }, [isSignedIn, userId]);
 
   const containerStyle = css`
     background-color: ${COLORS.PRIMARY_COLOR};

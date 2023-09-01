@@ -11,7 +11,7 @@ export const initialState: SettingsCategory[] = [
     isSelected: true,
   },
   {
-    name: 'Account',
+    name: 'Sync & Privacy',
     isSelected: false,
   },
   {

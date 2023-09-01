@@ -1,14 +1,10 @@
-import { useState } from 'react';
-
 import { useSelector } from 'react-redux';
 
 import { css } from '@emotion/react';
 
-import SignIn from './Account/SignIn';
 import LoggedIn from './Account/LoggedIn';
 import { RootState } from '../../redux/store';
-import CreateAccount from './Account/CreateAccount';
-import ForgotPassword from './Account/ForgotPassword';
+import NotLoggedIn from './Account/NotLoggedIn';
 
 export type AccountPage = 'signIn' | 'createAccount' | 'forgotPassword';
 
@@ -17,31 +13,9 @@ export interface AccountChildProps {
 }
 
 const Account: React.FC = () => {
-  const [currentPage, setCurrentPage] = useState<AccountPage>('signIn');
   const isSignedIn = useSelector(
     (state: RootState) => state.globalState.isSignedIn
   );
-
-  const handleCurrentPageChange = (newPage: AccountPage) => {
-    setCurrentPage(newPage);
-  };
-
-  const renderContentBasedOnPage = () => {
-    switch (currentPage) {
-      case 'signIn':
-        return <SignIn handleCurrentPageChange={handleCurrentPageChange} />;
-      case 'createAccount':
-        return (
-          <CreateAccount handleCurrentPageChange={handleCurrentPageChange} />
-        );
-      case 'forgotPassword':
-        return (
-          <ForgotPassword handleCurrentPageChange={handleCurrentPageChange} />
-        );
-      default:
-        return null;
-    }
-  };
 
   return (
     <div
@@ -50,11 +24,11 @@ const Account: React.FC = () => {
         flex-direction: column;
         justify-content: flex-start;
         align-items: center;
-        width: 250px;
+        width: 350px;
         height: 100%;
       `}
     >
-      {isSignedIn ? <LoggedIn /> : renderContentBasedOnPage()}
+      {isSignedIn ? <LoggedIn /> : <NotLoggedIn />}
     </div>
   );
 };

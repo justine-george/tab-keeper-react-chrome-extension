@@ -27,7 +27,7 @@ const SettingsCategoryContainer: React.FC = () => {
     flex-direction: column;
     height: 100%;
     border: 1px solid ${COLORS.BORDER_COLOR};
-    margin: 0 0 8px 0;
+    margin: 6px 0 8px 0;
     overflow: auto;
     user-select: none;
   `;
