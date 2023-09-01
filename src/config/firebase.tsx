@@ -48,23 +48,29 @@ export const signInUserAnonymously = () => {
     .catch((error) => {
       const errorCode = error.code;
       const errorMessage = error.message;
-      console.error(`Error (${errorCode}): ${errorMessage}`);
+      console.warn(`Error (${errorCode}): ${errorMessage}`);
     });
 };
 
 export const fetchDataFromFirestore = async (
   userId: string
 ): Promise<TabMasterContainer> => {
-  // Fetch your data based on the signed-in user's ID
-  const tabData = await getDoc(doc(db, 'tabGroupData', userId));
-  if (!tabData.exists()) {
-    console.warn('No document found for userId: ' + userId);
-    throw new Error('Document does not exist for userId: ' + userId);
-  } else {
-    return {
-      lastModified: tabData.data().lastModified,
-      tabGroups: tabData.data().tabGroups,
-      selectedTabGroupId: tabData.data().selectedTabGroupId,
-    };
+  try {
+    // Fetch your data based on the signed-in user's ID
+    const tabData = await getDoc(doc(db, 'tabGroupData', userId));
+
+    if (!tabData.exists()) {
+      console.warn('No document found for userId: ' + userId);
+      throw new Error('Document does not exist for userId: ' + userId);
+    } else {
+      return {
+        lastModified: tabData.data().lastModified,
+        tabGroups: tabData.data().tabGroups,
+        selectedTabGroupId: tabData.data().selectedTabGroupId,
+      };
+    }
+  } catch (error) {
+    console.warn('fetchDataFromFirestore: Error fetching data:', error);
+    throw error;
   }
 };

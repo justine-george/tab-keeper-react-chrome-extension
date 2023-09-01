@@ -79,3 +79,9 @@ export const TOOLTIP_MESSAGES = {
     'Password must be at least 8 characters long and contain both letters and numbers',
   NEW_ACCOUNT_CONFIRM_PASSWORD: 'Re-enter your password to confirm it',
 };
+
+export const SETTINGS_CATEGORIES = {
+  GENERAL: 'General',
+  SYNC: 'Sync & Privacy',
+  CREDITS: 'Credits',
+};

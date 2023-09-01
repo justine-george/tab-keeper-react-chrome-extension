@@ -51,6 +51,10 @@ function App() {
               .then((result) => {
                 // New token issued
                 const newToken = result.tokenValue;
+
+                // log newToken
+                console.log('newToken: ' + newToken);
+
                 dispatch(setSignedIn());
                 dispatch(setUserId(newToken));
               })
@@ -67,6 +71,9 @@ function App() {
           });
       } else {
         // Token found in chrome storage sync (existing user)
+        // log newToken
+        console.log('loaded Token: ' + token);
+
         dispatch(setSignedIn());
         dispatch(setUserId(token));
       }

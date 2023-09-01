@@ -1,4 +1,5 @@
 import { PayloadAction, createSlice } from '@reduxjs/toolkit';
+import { SETTINGS_CATEGORIES } from '../../utils/constants/common';
 
 export interface SettingsCategory {
   name: string;
@@ -7,15 +8,15 @@ export interface SettingsCategory {
 
 export const initialState: SettingsCategory[] = [
   {
-    name: 'General',
+    name: SETTINGS_CATEGORIES.GENERAL,
     isSelected: true,
   },
   {
-    name: 'Sync & Privacy',
+    name: SETTINGS_CATEGORIES.SYNC,
     isSelected: false,
   },
   {
-    name: 'Credits',
+    name: SETTINGS_CATEGORIES.CREDITS,
     isSelected: false,
   },
 ];

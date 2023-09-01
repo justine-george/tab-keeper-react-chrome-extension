@@ -19,8 +19,10 @@ import {
   DEV_EMAIL,
   FEEDBACK_MAIL_SUBJECT,
   FEEDBACK_REQUEST,
+  SETTINGS_CATEGORIES,
   SHARE_TWITTER_TEXT,
 } from '../../utils/constants/common';
+import { SettingsCategory } from './SettingsCategoryContainer';
 
 const SettingsDetailsContainer: React.FC = () => {
   const COLORS = useThemeColors();
@@ -54,9 +56,12 @@ const SettingsDetailsContainer: React.FC = () => {
     margin-bottom: 16px;
   `;
 
-  const settingsCategoryName: string = settingsCategoryList.filter(
-    (settings) => settings.isSelected
-  )[0].name;
+  const selectedSettingsCategory: SettingsCategory =
+    settingsCategoryList.filter((settings) => settings.isSelected)[0];
+
+  if (!selectedSettingsCategory) {
+    return null;
+  }
 
   const handleToggleAutoSync = () => {
     if (!settingsData.isAutoSync) {
@@ -66,7 +71,7 @@ const SettingsDetailsContainer: React.FC = () => {
   };
 
   let settingsOptionsDiv;
-  if (settingsCategoryName === 'General') {
+  if (selectedSettingsCategory.name === SETTINGS_CATEGORIES.GENERAL) {
     settingsOptionsDiv = (
       <div
         css={css`
@@ -114,7 +119,7 @@ const SettingsDetailsContainer: React.FC = () => {
         </div>
       </div>
     );
-  } else if (settingsCategoryName === 'Sync & Privacy') {
+  } else if (selectedSettingsCategory.name === SETTINGS_CATEGORIES.SYNC) {
     settingsOptionsDiv = (
       <div
         css={css`
@@ -128,7 +133,7 @@ const SettingsDetailsContainer: React.FC = () => {
         <Account />
       </div>
     );
-  } else if (settingsCategoryName === 'Credits') {
+  } else if (selectedSettingsCategory.name === SETTINGS_CATEGORIES.CREDITS) {
     settingsOptionsDiv = (
       <div
         css={css`
