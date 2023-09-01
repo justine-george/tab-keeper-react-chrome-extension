@@ -128,7 +128,7 @@ export const saveToLocalStorage = (key: string, data: any): void => {
   try {
     localStorage.setItem(key, JSON.stringify(data));
   } catch (error) {
-    console.warn('Failed to save to localStorage: ', error);
+    console.error('Failed to save to localStorage: ', error);
   }
 };
 
@@ -139,7 +139,7 @@ export const loadFromLocalStorage = (key: string): any | undefined => {
     if (!serializedState) return undefined;
     return JSON.parse(serializedState);
   } catch (error) {
-    console.warn('Error loading state from localStorage:', error);
+    console.error('Error loading state from localStorage: ', error);
     return undefined;
   }
 };
