@@ -106,6 +106,7 @@ export const syncStateWithFirestore = createAsyncThunk(
 
       if (localTimestamp !== cloudTimestamp) {
         if (localTimestamp > cloudTimestamp) {
+          console.log(`Local is the latest, write this to cloud`);
           thunkAPI.dispatch(replaceState(tabDataFromLocalStorage));
           thunkAPI.dispatch(setIsDirty());
           thunkAPI.dispatch(saveToFirestoreIfDirty());
@@ -134,6 +135,10 @@ export const syncStateWithFirestore = createAsyncThunk(
           );
         }
       } else {
+        console.log(`No data conflict.`);
+        // No data conflict
+        thunkAPI.dispatch(replaceState(tabDataFromLocalStorage));
+        thunkAPI.dispatch(saveToFirestoreIfDirty());
         thunkAPI.dispatch(setHasSyncedBefore());
       }
     } else if (tabDataFromCloud) {
@@ -291,30 +296,20 @@ export const globalStateSlice = createSlice({
 
   extraReducers: (builder) => {
     builder
-      .addCase(syncStateWithFirestore.pending, (state) => {
-        state.syncStatus = 'loading';
-      })
-      .addCase(syncStateWithFirestore.fulfilled, (state) => {
-        if (state.isSignedIn && !state.isDirty) {
-          state.syncStatus = 'success';
-        } else {
-          state.syncStatus = 'error';
-        }
-      })
-      .addCase(syncStateWithFirestore.rejected, (state) => {
-        state.syncStatus = 'error';
-      })
       .addCase(saveToFirestoreIfDirty.pending, (state) => {
+        console.log('saveToFirestoreIfDirty pending');
         state.syncStatus = 'loading';
       })
       .addCase(saveToFirestoreIfDirty.fulfilled, (state) => {
+        console.log('saveToFirestoreIfDirty fulfilled');
         if (state.isSignedIn && !state.isDirty) {
           state.syncStatus = 'success';
         } else {
-          state.syncStatus = 'error';
+          state.syncStatus = 'idle';
         }
       })
       .addCase(saveToFirestoreIfDirty.rejected, (state) => {
+        console.log('saveToFirestoreIfDirty rejected');
         state.syncStatus = 'error';
       })
       .addCase(openSettingsPage.fulfilled, (state) => {

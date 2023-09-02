@@ -292,6 +292,7 @@ export const tabContainerDataStateSlice = createSlice({
           tabGroup.isSelected = false;
         }
       });
+      state.lastModified = Date.now();
 
       // update localstorage
       saveToLocalStorage('tabContainerData', state);
