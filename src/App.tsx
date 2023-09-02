@@ -14,11 +14,11 @@ import { setPresentStartup } from './redux/slice/undoRedoSlice';
 import { useThemeColors } from './components/hook/useThemeColors';
 import { replaceState } from './redux/slice/tabContainerDataStateSlice';
 import {
-  loadStateFromFirestore,
   removeUserId,
   setLoggedOut,
   setSignedIn,
   setUserId,
+  syncStateWithFirestore,
 } from './redux/slice/globalStateSlice';
 
 import './App.css';
@@ -33,8 +33,11 @@ function App() {
   const isAutoSync = useSelector(
     (state: RootState) => state.settingsDataState.isAutoSync
   );
+  const hasSyncedBefore = useSelector(
+    (state: RootState) => state.globalState.hasSyncedBefore
+  );
 
-  //
+  // handle userToken issue from chrome storage sync
   function getUserTokenFromChromeStorageSync() {
     // check tokenValue in chrome storage sync
     // this token is the documentId
@@ -86,19 +89,22 @@ function App() {
   }, []);
 
   useEffect(() => {
-    // fetch data from Firestore
     if (isSignedIn && userId && isAutoSync) {
-      dispatch(loadStateFromFirestore(userId));
+      dispatch(syncStateWithFirestore());
     } else {
       // load from local storage
       const tabDataFromLocalStorage = loadFromLocalStorage('tabContainerData');
       if (tabDataFromLocalStorage) {
         dispatch(replaceState(tabDataFromLocalStorage));
 
-        // reset presentState in the undoRedoState
-        dispatch(
-          setPresentStartup({ tabContainerDataState: tabDataFromLocalStorage })
-        );
+        if (!hasSyncedBefore) {
+          // reset presentState in the undoRedoState
+          dispatch(
+            setPresentStartup({
+              tabContainerDataState: tabDataFromLocalStorage,
+            })
+          );
+        }
       }
     }
   }, [isSignedIn, userId]);

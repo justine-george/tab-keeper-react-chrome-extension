@@ -3,7 +3,7 @@ import { Middleware } from '@reduxjs/toolkit';
 import { set } from '../slice/undoRedoSlice';
 import { debounce } from '../../utils/helperFunctions';
 import { DEBOUNCE_TIME_WINDOW } from '../../utils/constants/common';
-import { setIsDirty, syncToFirestore } from '../slice/globalStateSlice';
+import { setIsDirty, syncStateWithFirestore } from '../slice/globalStateSlice';
 import {
   ADD_CURR_TAB_TO_WINDOW_ACTION,
   DELETE_TAB_ACTION,
@@ -60,7 +60,7 @@ const isDataStateChangeAction = (
 
 export const customMiddleware: Middleware = (store) => {
   const debouncedSync = debounce(() => {
-    store.dispatch(syncToFirestore() as any);
+    store.dispatch(syncStateWithFirestore() as any);
   }, DEBOUNCE_TIME_WINDOW);
 
   return (next) => (action) => {

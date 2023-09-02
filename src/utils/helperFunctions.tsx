@@ -1,9 +1,16 @@
 import { AppDispatch } from '../redux/store';
-import { showToast } from '../redux/slice/globalStateSlice';
 import {
+  saveToFirestoreIfDirty,
+  setIsDirty,
+  showToast,
+} from '../redux/slice/globalStateSlice';
+import {
+  TabMasterContainer,
   tabContainerData,
   windowGroupData,
 } from '../redux/slice/tabContainerDataStateSlice';
+import { db, fetchDataFromFirestore } from '../config/firebase';
+import { doc, setDoc } from 'firebase/firestore';
 
 // Check if an object is empty
 export function isEmptyObject(obj: any): boolean {
@@ -153,4 +160,57 @@ export function generatePlaceholderURL(
   const html = `<html><head><meta charset="UTF-8" /><link rel="icon" type="image/x-icon" href="${faviconURL}" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title>${title}</title><style>body {background-color: #181818;color: #ffffff;font-family: "Libre Franklin", sans-serif;display: flex;margin: 20px;flex-direction: column;justify-content: flex-start;align-items: flex-start;height: 100vh;}#copyButton {cursor: pointer;background-color: #2c2c2c;padding: 10px 20px;border: none;border-radius: 10px;color: #ffffff;font-family: "Libre Franklin", sans-serif;font-size: 12px;transition: background-color 0.125s ease, color 0.125s ease;}#copyButton.copied {background-color: #77dd77;color: black;}h1,h2,p {margin: 10px 0;}a {text-decoration: none;color: inherit;}p {font-size: 0.9rem;}</style></head><body><h2>${title}</h2><a href="${url}"><p>${url}</p></a><button id="copyButton" onclick="copyToClipboard()">Copy URL</button><script>function copyToClipboard() {navigator.clipboard.writeText("${url}").then(() => {const button = document.getElementById("copyButton");button.innerHTML = "URL copied!";button.classList.add("copied");setTimeout(() => {button.classList.remove("copied");button.innerHTML = "Copy URL";}, 2000);});}</script></body></html>`;
   const blob = new Blob([html], { type: 'text/html' });
   return URL.createObjectURL(blob);
+}
+
+// load data from Firestore
+export async function loadFromFirestore(
+  userId: string,
+  thunkAPI: any
+): Promise<TabMasterContainer | undefined> {
+  try {
+    const tabDataFromCloud: TabMasterContainer =
+      await fetchDataFromFirestore(userId);
+    return tabDataFromCloud;
+  } catch (error: any) {
+    if (error.message === 'Document does not exist for userId: ' + userId) {
+      console.log('handled error: ' + error.message);
+      console.log(error);
+      thunkAPI.dispatch(setIsDirty());
+      thunkAPI.dispatch(saveToFirestoreIfDirty());
+    } else if (error.message === `Missing or insufficient permissions.`) {
+      console.log('handled error: ' + error.message);
+      console.log(error);
+      thunkAPI.dispatch(setIsDirty());
+      thunkAPI.dispatch(saveToFirestoreIfDirty());
+    } else {
+      // Handle other types of Firestore errors
+      console.log('unexpected error: ' + error.message);
+      console.log(error);
+      thunkAPI.dispatch(
+        showToast({
+          toastText: 'Error fetching data:' + error.message,
+          duration: 3000,
+        })
+      );
+    }
+  }
+}
+
+// save data to Firestore
+export async function saveToFirestore(
+  userId: string,
+  data: TabMasterContainer,
+  thunkAPI: any
+): Promise<void> {
+  try {
+    await setDoc(doc(db, 'tabGroupData', userId), data);
+  } catch (error: any) {
+    console.warn('Error updating Firestore: ', error.message);
+    thunkAPI.dispatch(
+      showToast({
+        toastText: 'Sync error:' + error.message,
+        duration: 3000,
+      })
+    );
+  }
 }

@@ -1,13 +1,13 @@
-import { doc, setDoc } from 'firebase/firestore';
 import { createAsyncThunk, createSlice, PayloadAction } from '@reduxjs/toolkit';
 
 import { RootState } from '../store';
 import { setPresentStartup } from './undoRedoSlice';
 import { selectCategory } from './settingsCategoryStateSlice';
-import { db, fetchDataFromFirestore } from '../../config/firebase';
 import { replaceState, TabMasterContainer } from './tabContainerDataStateSlice';
 import {
+  loadFromFirestore,
   loadFromLocalStorage,
+  saveToFirestore,
   saveToLocalStorage,
 } from '../../utils/helperFunctions';
 
@@ -17,6 +17,7 @@ interface ConflictModalPayload {
 }
 
 export interface Global {
+  hasSyncedBefore: boolean;
   isSignedIn: boolean;
   userId: string | null;
   isDirty: boolean;
@@ -32,6 +33,7 @@ export interface Global {
 }
 
 export const initialState: Global = {
+  hasSyncedBefore: false,
   isSignedIn: false,
   userId: null,
   isDirty: false,
@@ -46,99 +48,83 @@ export const initialState: Global = {
   tabDataCloud: null,
 };
 
-// save data to Firestore if local data is dirty
-export const syncToFirestore = createAsyncThunk(
-  'global/syncToFirestore',
+// save data to Firestore if dirty, saves latest to localStorage at the end
+export const saveToFirestoreIfDirty = createAsyncThunk(
+  'global/saveToFirestoreIfDirty',
   async (_, thunkAPI) => {
     const state = thunkAPI.getState() as RootState;
 
-    if (state.globalState.isDirty) {
-      try {
-        await setDoc(doc(db, 'tabGroupData', state.globalState.userId!), {
-          ...state.tabContainerDataState,
-        });
-
+    try {
+      if (state.globalState.isDirty) {
+        await saveToFirestore(
+          state.globalState.userId!,
+          state.tabContainerDataState,
+          thunkAPI
+        );
         // Save to localStorage after successful Firestore update
         saveToLocalStorage('tabContainerData', state.tabContainerDataState);
         thunkAPI.dispatch(setIsNotDirty());
-
-        return { status: 'success' };
-      } catch (error) {
-        console.warn('Error updating Firestore: ', error);
-        throw error;
       }
+    } catch (error: any) {
+      console.warn('Error updating Firestore: ', error.message);
+      thunkAPI.dispatch(
+        showToast({
+          toastText: 'Sync error:' + error.message,
+          duration: 3000,
+        })
+      );
     }
   }
 );
 
-// load data from Firestore
-export const loadStateFromFirestore = createAsyncThunk(
-  'globalState/loadStateFromFirestore',
-  async (userId: string, thunkAPI) => {
-    try {
-      // log chrome sync token
-      chrome.storage.sync.get(null, function (Items) {
-        console.log(Items);
-      });
-      // log userId
-      console.log('userId: ' + userId);
+// syncs data with Firestore
+export const syncStateWithFirestore = createAsyncThunk(
+  'global/syncStateWithFirestore',
+  async (_, thunkAPI) => {
+    const state = thunkAPI.getState() as RootState;
 
-      const tabDataFromCloud: TabMasterContainer =
-        await fetchDataFromFirestore(userId);
+    // load from Firestore
+    const tabDataFromCloud: TabMasterContainer | undefined =
+      await loadFromFirestore(state.globalState.userId!, thunkAPI);
+    // log data loaded from cloud
+    console.log(`from cloud`);
+    console.log(tabDataFromCloud);
 
-      // log data loaded from cloud
-      console.log(`from cloud`);
-      console.log(tabDataFromCloud);
+    const tabDataFromLocalStorage: TabMasterContainer =
+      loadFromLocalStorage('tabContainerData');
+    // log data loaded from localStorage
+    console.log(`from localStorage`);
+    console.log(tabDataFromLocalStorage);
 
-      const tabDataFromLocalStorage: TabMasterContainer =
-        loadFromLocalStorage('tabContainerData');
+    if (tabDataFromCloud && tabDataFromLocalStorage) {
+      console.log(
+        `data present on both local and cloud, possiblity of conflict`
+      );
+      // data present on both local and cloud, possiblity of conflict
+      const cloudTimestamp = tabDataFromCloud.lastModified;
+      const localTimestamp = tabDataFromLocalStorage.lastModified;
 
-      // log data loaded from localStorage
-      console.log(`from localStorage`);
-      console.log(tabDataFromLocalStorage);
-
-      // new user - hey there!
-      if (!tabDataFromLocalStorage && !tabDataFromCloud) {
-        console.log(`new user - hey there!`);
-        thunkAPI.dispatch(setIsDirty());
-        thunkAPI.dispatch(syncToFirestore());
-      } else if (!tabDataFromLocalStorage) {
-        console.log(
-          `newly installed returning user - data present only on cloud`
-        );
-        // newly installed returning user - data present only on cloud
-        thunkAPI.dispatch(replaceState(tabDataFromCloud));
-        thunkAPI.dispatch(setIsNotDirty());
-        // reset presentState in the undoRedoState
-        thunkAPI.dispatch(
-          setPresentStartup({
-            tabContainerDataState: tabDataFromCloud,
-          })
-        );
-      } else if (!tabDataFromCloud) {
-        console.log(`data only on localStorage - least likely`);
-        // data only on localStorage - least likely
-        // local storage has tabData
-        // save back to Firestore
-        thunkAPI.dispatch(replaceState(tabDataFromLocalStorage));
-        thunkAPI.dispatch(setIsDirty());
-        thunkAPI.dispatch(syncToFirestore());
-        // reset presentState in the undoRedoState
-        thunkAPI.dispatch(
-          setPresentStartup({
-            tabContainerDataState: tabDataFromLocalStorage,
-          })
-        );
-      } else {
-        // data present on both local and cloud, possiblity of conflict
-        console.log(
-          `data present on both local and cloud, possiblity of conflict`
-        );
-        if (
-          tabDataFromLocalStorage!.lastModified !==
-          tabDataFromCloud!.lastModified
-        ) {
-          console.log(`data conflict!`);
+      if (localTimestamp !== cloudTimestamp) {
+        if (localTimestamp > cloudTimestamp) {
+          thunkAPI.dispatch(replaceState(tabDataFromLocalStorage));
+          thunkAPI.dispatch(setIsDirty());
+          thunkAPI.dispatch(saveToFirestoreIfDirty());
+          if (!state.globalState.hasSyncedBefore) {
+            // reset presentState in the undoRedoState
+            thunkAPI.dispatch(
+              setPresentStartup({
+                tabContainerDataState: tabDataFromLocalStorage,
+              })
+            );
+          }
+          thunkAPI.dispatch(setHasSyncedBefore());
+        } else {
+          console.log(`cloud is latest, let user decide.`);
+          if (!state.globalState.isDirty) {
+            console.log(
+              `local is not dirty, so might want to overwrite it with cloud data. Still let user decide.`
+            );
+          }
           // data conflict!
           thunkAPI.dispatch(
             openConflictModal({
@@ -147,29 +133,48 @@ export const loadStateFromFirestore = createAsyncThunk(
             })
           );
         }
-      }
-    } catch (error: any) {
-      if (error.message === 'Document does not exist for userId: ' + userId) {
-        console.log('handled error: ' + error.message);
-        console.log(error);
-        thunkAPI.dispatch(setIsDirty());
-        thunkAPI.dispatch(syncToFirestore());
-      } else if (error.message === `Missing or insufficient permissions.`) {
-        console.log('handled error: ' + error.message);
-        console.log(error);
-        thunkAPI.dispatch(setIsDirty());
-        thunkAPI.dispatch(syncToFirestore());
       } else {
-        // Handle other types of Firestore errors
-        console.log('unexpected error: ' + error.message);
-        console.log(error);
+        thunkAPI.dispatch(setHasSyncedBefore());
+      }
+    } else if (tabDataFromCloud) {
+      console.log(
+        `newly installed returning user - data present only on cloud`
+      );
+      // newly installed returning user - data present only on cloud
+      thunkAPI.dispatch(replaceState(tabDataFromCloud!));
+      thunkAPI.dispatch(setIsNotDirty());
+      if (!state.globalState.hasSyncedBefore) {
+        // reset presentState in the undoRedoState
         thunkAPI.dispatch(
-          showToast({
-            toastText: 'Error fetching data:' + error.message,
-            duration: 3000,
+          setPresentStartup({
+            tabContainerDataState: tabDataFromCloud!,
           })
         );
       }
+      thunkAPI.dispatch(setHasSyncedBefore());
+    } else if (tabDataFromLocalStorage) {
+      console.log(`data only on localStorage`);
+      // data only on localStorage - least likely
+      // local storage has tabData
+      // save back to Firestore
+      thunkAPI.dispatch(replaceState(tabDataFromLocalStorage));
+      thunkAPI.dispatch(setIsDirty());
+      thunkAPI.dispatch(saveToFirestoreIfDirty());
+      if (!state.globalState.hasSyncedBefore) {
+        // reset presentState in the undoRedoState
+        thunkAPI.dispatch(
+          setPresentStartup({
+            tabContainerDataState: tabDataFromLocalStorage,
+          })
+        );
+      }
+      thunkAPI.dispatch(setHasSyncedBefore());
+    } else {
+      console.log(`new user - hey there!`);
+      // new user - hey there!
+      thunkAPI.dispatch(setIsDirty());
+      thunkAPI.dispatch(saveToFirestoreIfDirty());
+      thunkAPI.dispatch(setHasSyncedBefore());
     }
   }
 );
@@ -263,6 +268,10 @@ export const globalStateSlice = createSlice({
       state.isSignedIn = true;
     },
 
+    setHasSyncedBefore: (state) => {
+      state.hasSyncedBefore = true;
+    },
+
     setLoggedOut: (state) => {
       state.isSignedIn = false;
       state.syncStatus = 'idle';
@@ -282,30 +291,36 @@ export const globalStateSlice = createSlice({
 
   extraReducers: (builder) => {
     builder
-      .addCase(syncToFirestore.pending, (state) => {
+      .addCase(syncStateWithFirestore.pending, (state) => {
         state.syncStatus = 'loading';
       })
-      .addCase(syncToFirestore.fulfilled, (state, _) => {
+      .addCase(syncStateWithFirestore.fulfilled, (state) => {
         if (state.isSignedIn && !state.isDirty) {
           state.syncStatus = 'success';
         } else {
           state.syncStatus = 'error';
         }
       })
-      .addCase(syncToFirestore.rejected, (state) => {
+      .addCase(syncStateWithFirestore.rejected, (state) => {
+        state.syncStatus = 'error';
+      })
+      .addCase(saveToFirestoreIfDirty.pending, (state) => {
+        state.syncStatus = 'loading';
+      })
+      .addCase(saveToFirestoreIfDirty.fulfilled, (state) => {
+        if (state.isSignedIn && !state.isDirty) {
+          state.syncStatus = 'success';
+        } else {
+          state.syncStatus = 'error';
+        }
+      })
+      .addCase(saveToFirestoreIfDirty.rejected, (state) => {
         state.syncStatus = 'error';
       })
       .addCase(openSettingsPage.fulfilled, (state) => {
         state.isSettingsPage = true;
       })
-      .addCase(showToast.fulfilled, () => {})
-      .addCase(loadStateFromFirestore.fulfilled, (state) => {
-        if (state.isSignedIn && !state.isDirty) {
-          state.syncStatus = 'success';
-        } else {
-          state.syncStatus = 'error';
-        }
-      });
+      .addCase(showToast.fulfilled, () => {});
   },
 });
 
@@ -322,6 +337,7 @@ export const {
   setIsDirty,
   setIsNotDirty,
   setSignedIn,
+  setHasSyncedBefore,
   setLoggedOut,
   setUserId,
   removeUserId,

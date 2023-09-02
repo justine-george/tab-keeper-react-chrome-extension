@@ -11,9 +11,10 @@ import { setPresentStartup } from '../../redux/slice/undoRedoSlice';
 import { replaceState } from '../../redux/slice/tabContainerDataStateSlice';
 import {
   closeConflictModal,
+  saveToFirestoreIfDirty,
+  setHasSyncedBefore,
   setIsDirty,
   setIsNotDirty,
-  syncToFirestore,
 } from '../../redux/slice/globalStateSlice';
 
 interface ConflictModalProps {
@@ -36,6 +37,10 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({ style }) => {
     (state: RootState) => state.globalState.tabDataCloud
   );
 
+  const hasSyncedBefore = useSelector(
+    (state: RootState) => state.globalState.hasSyncedBefore
+  );
+
   if (!isConflictModalOpen) return null;
 
   const isLocalRecent = tabDataLocal!.lastModified > tabDataCloud!.lastModified;
@@ -43,20 +48,26 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({ style }) => {
   const tabDataLocalLength = tabDataLocal!.tabGroups.length;
   const tabDataCloudLength = tabDataCloud!.tabGroups.length;
 
-  const chooseLocalData = () => {
+  const handleChooseLocalData = () => {
     dispatch(replaceState(tabDataLocal!));
     dispatch(setIsDirty());
-    dispatch(syncToFirestore());
-    // reset presentState in the undoRedoState
-    dispatch(setPresentStartup({ tabContainerDataState: tabDataLocal! }));
+    dispatch(saveToFirestoreIfDirty());
+    if (!hasSyncedBefore) {
+      // reset presentState in the undoRedoState
+      dispatch(setPresentStartup({ tabContainerDataState: tabDataLocal! }));
+      dispatch(setHasSyncedBefore());
+    }
     dispatch(closeConflictModal());
   };
 
-  const chooseCloudData = () => {
+  const handleChooseCloudData = () => {
     dispatch(replaceState(tabDataCloud!));
     dispatch(setIsNotDirty());
-    // reset presentState in the undoRedoState
-    dispatch(setPresentStartup({ tabContainerDataState: tabDataCloud! }));
+    if (!hasSyncedBefore) {
+      // reset presentState in the undoRedoState
+      dispatch(setPresentStartup({ tabContainerDataState: tabDataCloud! }));
+      dispatch(setHasSyncedBefore());
+    }
     dispatch(closeConflictModal());
   };
 
@@ -137,7 +148,7 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({ style }) => {
   return (
     <div css={overlayStyle}>
       <div css={modalContentStyle}>
-        <div css={paneStyle} onClick={chooseLocalData}>
+        <div css={paneStyle} onClick={handleChooseLocalData}>
           <div css={topRowStyle}>
             <span css={iconStyle} className="material-symbols-outlined">
               storage
@@ -163,7 +174,7 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({ style }) => {
           />
         </div>
 
-        <div css={paneStyle} onClick={chooseCloudData}>
+        <div css={paneStyle} onClick={handleChooseCloudData}>
           <div css={topRowStyle}>
             <span css={iconStyle} className="material-symbols-outlined">
               cloud
