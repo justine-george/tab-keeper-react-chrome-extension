@@ -148,6 +148,7 @@ export const syncStateWithFirestore = createAsyncThunk(
       // newly installed returning user - data present only on cloud
       thunkAPI.dispatch(replaceState(tabDataFromCloud!));
       thunkAPI.dispatch(setIsNotDirty());
+      thunkAPI.dispatch(setSyncStatus(`success`));
       if (!state.globalState.hasSyncedBefore) {
         // reset presentState in the undoRedoState
         thunkAPI.dispatch(
@@ -282,6 +283,13 @@ export const globalStateSlice = createSlice({
       state.syncStatus = 'idle';
     },
 
+    setSyncStatus: (
+      state,
+      action: PayloadAction<'idle' | 'loading' | 'success' | 'error'>
+    ) => {
+      state.syncStatus = action.payload;
+    },
+
     setUserId: (state, action: PayloadAction<string>) => {
       state.userId = action.payload;
     },
@@ -302,6 +310,8 @@ export const globalStateSlice = createSlice({
       })
       .addCase(saveToFirestoreIfDirty.fulfilled, (state) => {
         console.log('saveToFirestoreIfDirty fulfilled');
+        console.log('isSignedIn: ' + state.isSignedIn);
+        console.log('isDirty: ' + state.isDirty);
         if (state.isSignedIn && !state.isDirty) {
           state.syncStatus = 'success';
         } else {
@@ -334,6 +344,7 @@ export const {
   setSignedIn,
   setHasSyncedBefore,
   setLoggedOut,
+  setSyncStatus,
   setUserId,
   removeUserId,
 } = globalStateSlice.actions;
