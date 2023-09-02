@@ -41,12 +41,18 @@ export const undoRedoSlice = createSlice({
       if (state.past.length !== 0) {
         state.future.unshift(state.present!);
         state.present = state.past.pop()!;
+
+        // update lastModified when undoing
+        state.present.tabContainerDataState.lastModified = Date.now();
       }
     },
     redo: (state) => {
       if (state.future.length !== 0) {
         state.past.push(state.present!);
         state.present = state.future.shift()!;
+
+        // update lastModified when redoing
+        state.present.tabContainerDataState.lastModified = Date.now();
       }
     },
     setPresentStartup: (state, action: PayloadAction<UndoableStates>) => {
