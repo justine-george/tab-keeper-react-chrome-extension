@@ -7,7 +7,7 @@ import Button from '../common/Button';
 import { NormalLabel } from '../common/Label';
 import { useThemeColors } from '../hook/useThemeColors';
 import { AppDispatch, RootState } from '../../redux/store';
-import { syncToFirestore } from '../../redux/slice/globalStateSlice';
+import { syncStateWithFirestore } from '../../redux/slice/globalStateSlice';
 import {
   toggleAutoSync,
   toggleDarkMode,
@@ -65,7 +65,7 @@ const SettingsDetailsContainer: React.FC = () => {
 
   const handleToggleAutoSync = () => {
     if (!settingsData.isAutoSync) {
-      dispatch(syncToFirestore());
+      dispatch(syncStateWithFirestore());
     }
     dispatch(toggleAutoSync());
   };

@@ -7,7 +7,7 @@ import { AppDispatch, RootState } from '../../redux/store';
 import {
   closeToast,
   openSettingsPage,
-  syncToFirestore,
+  syncStateWithFirestore,
 } from '../../redux/slice/globalStateSlice';
 import {
   isRedoableSelector,
@@ -37,7 +37,7 @@ export default function MenuContainer() {
   }
 
   function handleClickSync() {
-    dispatch(syncToFirestore());
+    dispatch(syncStateWithFirestore());
   }
 
   function handleClickSettings() {
