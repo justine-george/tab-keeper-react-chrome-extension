@@ -1,0 +1,33 @@
+name: Build and Release tab-keeper-react-chrome-extension
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    name: Build and Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Setup Node
+        uses: actions/setup-node@v3
+
+      - name: Install dependencies
+        uses: bahmutov/npm-install@v1
+
+      - name: Install zip dependency
+        run: npm install --save-dev bestzip
+
+      - name: Run release script
+        run: npm run release
+
+      - name: Upload zip file for the extension
+        uses: actions/upload-artifact@v3
+        with:
+          name: extension-zip
+          path: ./*.zip
