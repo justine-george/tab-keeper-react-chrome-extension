@@ -16,6 +16,10 @@ export const initialState: SettingsCategory[] = [
     isSelected: false,
   },
   {
+    name: SETTINGS_CATEGORIES.DATA_MANAGEMENT,
+    isSelected: false,
+  },
+  {
     name: SETTINGS_CATEGORIES.CREDITS,
     isSelected: false,
   },

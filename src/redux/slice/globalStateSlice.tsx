@@ -58,8 +58,7 @@ export const saveToFirestoreIfDirty = createAsyncThunk(
       if (state.globalState.isDirty) {
         await saveToFirestore(
           state.globalState.userId!,
-          state.tabContainerDataState,
-          thunkAPI
+          state.tabContainerDataState
         );
         // Save to localStorage after successful Firestore update
         saveToLocalStorage('tabContainerData', state.tabContainerDataState);

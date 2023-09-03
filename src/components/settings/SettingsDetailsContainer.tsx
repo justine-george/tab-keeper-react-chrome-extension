@@ -7,7 +7,12 @@ import Button from '../common/Button';
 import { NormalLabel } from '../common/Label';
 import { useThemeColors } from '../hook/useThemeColors';
 import { AppDispatch, RootState } from '../../redux/store';
-import { syncStateWithFirestore } from '../../redux/slice/globalStateSlice';
+import {
+  saveToFirestoreIfDirty,
+  setIsDirty,
+  showToast,
+  syncStateWithFirestore,
+} from '../../redux/slice/globalStateSlice';
 import {
   toggleAutoSync,
   toggleDarkMode,
@@ -23,6 +28,12 @@ import {
   SHARE_TWITTER_TEXT,
 } from '../../utils/constants/common';
 import { SettingsCategory } from './SettingsCategoryContainer';
+import {
+  TabMasterContainer,
+  replaceState,
+} from '../../redux/slice/tabContainerDataStateSlice';
+import { setPresentStartup } from '../../redux/slice/undoRedoSlice';
+import { isValidTabMasterContainer } from '../../utils/helperFunctions';
 
 const SettingsDetailsContainer: React.FC = () => {
   const COLORS = useThemeColors();
@@ -35,6 +46,10 @@ const SettingsDetailsContainer: React.FC = () => {
 
   const settingsData = useSelector(
     (state: RootState) => state.settingsDataState
+  );
+
+  const tabMasterContainer: TabMasterContainer = useSelector(
+    (state: RootState) => state.tabContainerDataState
   );
 
   const containerStyle = css`
@@ -68,6 +83,74 @@ const SettingsDetailsContainer: React.FC = () => {
       dispatch(syncStateWithFirestore());
     }
     dispatch(toggleAutoSync());
+  };
+
+  const handleExportJSON = () => {
+    const dataStr =
+      'data:text/json;charset=utf-8,' +
+      encodeURIComponent(JSON.stringify(tabMasterContainer));
+    const downloadAnchorNode = document.createElement('a');
+    downloadAnchorNode.setAttribute('href', dataStr);
+    downloadAnchorNode.setAttribute(
+      'download',
+      `tabkeeper_backup_${APP_VERSION}_${Date.now().toString()}.json`
+    );
+    document.body.appendChild(downloadAnchorNode);
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
+  };
+
+  const handleImportJSON = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+
+    input.onchange = (event) => {
+      const file = (event.target as HTMLInputElement).files![0];
+      const reader = new FileReader();
+
+      reader.onload = (fileEvent) => {
+        try {
+          const content = fileEvent.target!.result as string;
+          const tabDataFromJSON: TabMasterContainer = JSON.parse(content);
+          // validate read JSON
+          if (!isValidTabMasterContainer(tabDataFromJSON)) {
+            throw new Error('Invalid JSON structure.');
+          }
+
+          // update timestamp
+          tabDataFromJSON.lastModified = Date.now();
+
+          // Dispatch the action to replace the current state
+          dispatch(replaceState(tabDataFromJSON));
+          dispatch(setIsDirty());
+          dispatch(saveToFirestoreIfDirty());
+          // reset presentState in the undoRedoState
+          dispatch(
+            setPresentStartup({
+              tabContainerDataState: tabDataFromJSON,
+            })
+          );
+          dispatch(
+            showToast({
+              toastText: `Restored tabs successfully!`,
+              duration: 3000,
+            })
+          );
+        } catch (error: any) {
+          console.warn('Error importing tabs', error);
+          dispatch(
+            showToast({
+              toastText: `Error restoring tabs: ${error.message}`,
+              duration: 3000,
+            })
+          );
+        }
+      };
+      reader.readAsText(file);
+    };
+
+    input.click();
   };
 
   let settingsOptionsDiv;
@@ -131,6 +214,35 @@ const SettingsDetailsContainer: React.FC = () => {
         `}
       >
         <Account />
+      </div>
+    );
+  } else if (
+    selectedSettingsCategory.name === SETTINGS_CATEGORIES.DATA_MANAGEMENT
+  ) {
+    settingsOptionsDiv = (
+      <div
+        css={css`
+          display: flex;
+          flex-direction: column;
+          justify-content: flex-start;
+          height: 100%;
+          align-items: center;
+          margin-top: 40px;
+          flex-grow: 1;
+        `}
+      >
+        <Button
+          text={`Backup to File`}
+          iconType="publish"
+          onClick={handleExportJSON}
+          style="width: 250px; justify-content: center;"
+        />
+        <Button
+          text={'Restore from File'}
+          iconType="get_app"
+          onClick={handleImportJSON}
+          style="width: 250px; justify-content: center; margin-top: 16px;"
+        />
       </div>
     );
   } else if (selectedSettingsCategory.name === SETTINGS_CATEGORIES.CREDITS) {
