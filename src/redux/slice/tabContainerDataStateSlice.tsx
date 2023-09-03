@@ -32,6 +32,15 @@ export interface tabContainerData {
   windows: windowGroupData[];
 }
 
+export interface TabMasterContainer {
+  // metadata
+  lastModified: number;
+  selectedTabGroupId: string | null;
+
+  // data
+  tabGroups: tabContainerData[];
+}
+
 export interface addCurrTabToWindowParams {
   tabGroupId: string;
   windowId: string;
@@ -57,15 +66,6 @@ export interface deleteTabParams {
 export interface openWindowParams {
   tabGroupId: string;
   windowId: string;
-}
-
-export interface TabMasterContainer {
-  // metadata
-  lastModified: number;
-  selectedTabGroupId: string | null;
-
-  // data
-  tabGroups: tabContainerData[];
 }
 
 export const initialState: TabMasterContainer = {

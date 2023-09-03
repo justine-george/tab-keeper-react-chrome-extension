@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "version": "1.0.9",
+  "version": "1.1.0",
   "name": "Tab Keeper - Tab Session Manager for Chrome",
   "description": "Efficiently save and synchronize tabs across devices without the need for personal logins.",
   "action": {

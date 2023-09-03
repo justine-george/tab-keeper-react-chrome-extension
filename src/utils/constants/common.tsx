@@ -83,5 +83,6 @@ export const TOOLTIP_MESSAGES = {
 export const SETTINGS_CATEGORIES = {
   GENERAL: 'General',
   SYNC: 'Sync & Privacy',
+  DATA_MANAGEMENT: 'Data Management',
   CREDITS: 'Credits',
 };
