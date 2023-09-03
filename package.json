@@ -8,7 +8,7 @@
     "build": "tsc && vite build",
     "build-pretty": "tsc && npx prettier -w . && vite build",
     "sync-versions": "node package_to_manifest.cjs",
-    "prebuild": "npm version patch --no-git-tag-version && npm run sync-versions",
+    "prebuild-patch": "npm version patch --no-git-tag-version && npm run sync-versions",
     "release-local": "tsc && npx prettier -w . && vite build && cd dist && node ../zip.cjs",
     "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview"

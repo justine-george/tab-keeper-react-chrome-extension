@@ -20,6 +20,9 @@ jobs:
       - name: Install dependencies
         uses: bahmutov/npm-install@v1
 
+      - name: Bump up the patch version and sync package and manifest JSON
+        run: npm run prebuild-patch
+
       - name: Get version from manifest
         id: version
         uses: notiz-dev/github-action-json-property@release
@@ -27,8 +30,8 @@ jobs:
           path: 'public/manifest.json'
           prop_path: 'version'
 
-      - name: Bump up the patch version and generate dist folder
-        run: npm run build # this runs prebuild first then build
+      - name: Generate dist folder
+        run: npm run build
 
       - name: Upload release zip file ready for Chrome Web Store
         uses: actions/upload-artifact@v3
