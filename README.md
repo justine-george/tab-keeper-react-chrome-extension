@@ -13,7 +13,7 @@ At its core, Tab Keeper uses technologies like React, Emotion CSS, Cloud Firesto
 1. Install the "Tab Keeper - Tab Session Manager for Chrome" from the [Chrome Web Store.](https://chrome.google.com/webstore/detail/tabkeeper-tab-session-manager-for-chrome/gpibgniomobngodpnikhheifblbpbbah)
 2. No sign-up is needed! Dive straight into the application and start organizing your tabs.
 3. Benefit from an organized, seamless, and clutter-free browsing experience.
-<br>
+   <br>
 
 ## 🌱 Features:
 
@@ -26,14 +26,15 @@ At its core, Tab Keeper uses technologies like React, Emotion CSS, Cloud Firesto
 - 🔍 Efficient Search & Retrieval of Saved Tabs: Dive directly into your saved tabs. With our optimized search functionality, you can locate and access your archived tabs with unparalleled ease.
 
 - 🌓 Customizable Themes with Light & Dark Modes: Align your browsing space with your aesthetic preferences. Whether it's the crispness of light mode or the elegance of dark mode, our theme options cater to every user.
-<br>
+  <br>
 
-## 📜 Changelog: 
+## 📜 Changelog:
 
 v.1.0.9
+
 - Enhanced Privacy: We've eliminated the need for emails. Tab Keeper now syncs using the inbuilt browser sync feature, fortifying privacy.
 - Sync Collision Improvements: Enhanced handling of sync collisions, especially when operating across multiple machines.
-<br>
+  <br>
 
 ## 🙌 Contributing
 

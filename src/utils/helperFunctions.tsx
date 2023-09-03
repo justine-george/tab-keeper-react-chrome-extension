@@ -7,6 +7,7 @@ import {
 import {
   TabMasterContainer,
   tabContainerData,
+  tabData,
   windowGroupData,
 } from '../redux/slice/tabContainerDataStateSlice';
 import { db, fetchDataFromFirestore } from '../config/firebase';
@@ -173,25 +174,19 @@ export async function loadFromFirestore(
     return tabDataFromCloud;
   } catch (error: any) {
     if (error.message === 'Document does not exist for userId: ' + userId) {
-      console.log('handled error: ' + error.message);
-      console.log(error);
+      console.warn('handled error: ' + error.message);
+      console.warn(error);
       thunkAPI.dispatch(setIsDirty());
       thunkAPI.dispatch(saveToFirestoreIfDirty());
     } else if (error.message === `Missing or insufficient permissions.`) {
-      console.log('handled error: ' + error.message);
-      console.log(error);
+      console.warn('handled error: ' + error.message);
+      console.warn(error);
       thunkAPI.dispatch(setIsDirty());
       thunkAPI.dispatch(saveToFirestoreIfDirty());
     } else {
       // Handle other types of Firestore errors
-      console.log('unexpected error: ' + error.message);
-      console.log(error);
-      thunkAPI.dispatch(
-        showToast({
-          toastText: 'Error fetching data:' + error.message,
-          duration: 3000,
-        })
-      );
+      console.warn('unexpected error: ' + error.message);
+      console.warn(error);
     }
   }
 }
@@ -199,18 +194,60 @@ export async function loadFromFirestore(
 // save data to Firestore
 export async function saveToFirestore(
   userId: string,
-  data: TabMasterContainer,
-  thunkAPI: any
+  data: TabMasterContainer
 ): Promise<void> {
   try {
     await setDoc(doc(db, 'tabGroupData', userId), data);
   } catch (error: any) {
     console.warn('Error updating Firestore: ', error.message);
-    thunkAPI.dispatch(
-      showToast({
-        toastText: 'Sync error:' + error.message,
-        duration: 3000,
-      })
-    );
   }
 }
+
+// validate import JSON structure - TabMasterContainer
+export const isValidTabMasterContainer = (
+  data: any
+): data is TabMasterContainer => {
+  return (
+    typeof data.lastModified === 'number' &&
+    (typeof data.selectedTabGroupId === 'string' ||
+      data.selectedTabGroupId === null) &&
+    Array.isArray(data.tabGroups) &&
+    data.tabGroups.every(isValidTabContainerData)
+  );
+};
+
+// validate import JSON structure - tabContainerData
+const isValidTabContainerData = (data: any): data is tabContainerData => {
+  return (
+    typeof data.tabGroupId === 'string' &&
+    typeof data.title === 'string' &&
+    typeof data.createdTime === 'string' &&
+    typeof data.windowCount === 'number' &&
+    typeof data.tabCount === 'number' &&
+    typeof data.isAutoSave === 'boolean' &&
+    typeof data.isSelected === 'boolean' &&
+    Array.isArray(data.windows) &&
+    data.windows.every(isValidWindowGroupData)
+  );
+};
+
+// validate import JSON structure - windowGroupData
+const isValidWindowGroupData = (data: any): data is windowGroupData => {
+  return (
+    typeof data.windowId === 'string' &&
+    typeof data.tabCount === 'number' &&
+    typeof data.title === 'string' &&
+    Array.isArray(data.tabs) &&
+    data.tabs.every(isValidTabData)
+  );
+};
+
+// validate import JSON structure - tabData
+const isValidTabData = (data: any): data is tabData => {
+  return (
+    typeof data.tabId === 'string' &&
+    typeof data.favicon === 'string' &&
+    typeof data.title === 'string' &&
+    typeof data.url === 'string'
+  );
+};
