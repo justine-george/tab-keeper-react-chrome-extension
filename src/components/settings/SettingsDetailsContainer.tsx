@@ -138,7 +138,8 @@ const SettingsDetailsContainer: React.FC = () => {
             })
           );
         } catch (error: any) {
-          console.warn('Error importing tabs', error);
+          console.warn('Error restoring tabs', error);
+          // Error restoring tabs
           dispatch(
             showToast({
               toastText: `Error restoring tabs: ${error.message}`,

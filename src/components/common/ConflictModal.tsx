@@ -41,9 +41,6 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({ style }) => {
     (state: RootState) => state.globalState.hasSyncedBefore
   );
 
-  const isDirty = useSelector((state: RootState) => state.globalState.isDirty);
-  console.log('isDirty: ' + isDirty);
-
   if (!isConflictModalOpen) return null;
 
   const isLocalRecent = tabDataLocal!.lastModified > tabDataCloud!.lastModified;

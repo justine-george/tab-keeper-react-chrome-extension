@@ -175,18 +175,15 @@ export async function loadFromFirestore(
   } catch (error: any) {
     if (error.message === 'Document does not exist for userId: ' + userId) {
       console.warn('handled error: ' + error.message);
-      console.warn(error);
       thunkAPI.dispatch(setIsDirty());
       thunkAPI.dispatch(saveToFirestoreIfDirty());
     } else if (error.message === `Missing or insufficient permissions.`) {
       console.warn('handled error: ' + error.message);
-      console.warn(error);
       thunkAPI.dispatch(setIsDirty());
       thunkAPI.dispatch(saveToFirestoreIfDirty());
     } else {
       // Handle other types of Firestore errors
       console.warn('unexpected error: ' + error.message);
-      console.warn(error);
     }
   }
 }
