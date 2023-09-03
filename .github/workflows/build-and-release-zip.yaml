@@ -20,13 +20,20 @@ jobs:
       - name: Install dependencies
         uses: bahmutov/npm-install@v1
 
+      - name: Get version from manifest
+        id: version
+        uses: notiz-dev/github-action-json-property@release
+        with:
+          path: 'public/manifest.json'
+          prop_path: 'version'
+
       - name: Install zip dependency
         run: npm install --save-dev bestzip
 
       - name: Run release script
         run: npm run release
 
-      - name: Upload original zip file ready for Chrome Web Store
-        uses: actions/upload-artifact@v3
+      - name: Upload zip file
+        uses: actions/upload-artifact@v2
         with:
-          path: ./*.zip
+          path: tab-keeper-react-chrome-extension-v${{steps.version.outputs.prop}}.zip
