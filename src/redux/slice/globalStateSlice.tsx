@@ -66,12 +66,6 @@ export const saveToFirestoreIfDirty = createAsyncThunk(
       }
     } catch (error: any) {
       console.warn('Error updating Firestore: ', error.message);
-      thunkAPI.dispatch(
-        showToast({
-          toastText: 'Sync error:' + error.message,
-          duration: 3000,
-        })
-      );
     }
   }
 );
@@ -85,27 +79,19 @@ export const syncStateWithFirestore = createAsyncThunk(
     // load from Firestore
     const tabDataFromCloud: TabMasterContainer | undefined =
       await loadFromFirestore(state.globalState.userId!, thunkAPI);
-    // log data loaded from cloud
-    console.log(`from cloud`);
-    console.log(tabDataFromCloud);
 
+    // log data loaded from localStorage
     const tabDataFromLocalStorage: TabMasterContainer =
       loadFromLocalStorage('tabContainerData');
-    // log data loaded from localStorage
-    console.log(`from localStorage`);
-    console.log(tabDataFromLocalStorage);
 
     if (tabDataFromCloud && tabDataFromLocalStorage) {
-      console.log(
-        `data present on both local and cloud, possiblity of conflict`
-      );
       // data present on both local and cloud, possiblity of conflict
       const cloudTimestamp = tabDataFromCloud.lastModified;
       const localTimestamp = tabDataFromLocalStorage.lastModified;
 
       if (localTimestamp !== cloudTimestamp) {
         if (localTimestamp > cloudTimestamp) {
-          console.log(`Local is the latest, write this to cloud`);
+          // Local is the latest, write this to cloud
           thunkAPI.dispatch(replaceState(tabDataFromLocalStorage));
           thunkAPI.dispatch(setIsDirty());
           thunkAPI.dispatch(saveToFirestoreIfDirty());
@@ -119,11 +105,9 @@ export const syncStateWithFirestore = createAsyncThunk(
           }
           thunkAPI.dispatch(setHasSyncedBefore());
         } else {
-          console.log(`cloud is latest, let user decide.`);
+          // cloud is latest, let user decide.
           if (!state.globalState.isDirty) {
-            console.log(
-              `local is not dirty, so might want to overwrite it with cloud data. Still let user decide.`
-            );
+            // local is not dirty, so might want to overwrite it with cloud data. Still let user decide.
           }
           // data conflict!
           thunkAPI.dispatch(
@@ -134,16 +118,12 @@ export const syncStateWithFirestore = createAsyncThunk(
           );
         }
       } else {
-        console.log(`No data conflict.`);
         // No data conflict
         thunkAPI.dispatch(replaceState(tabDataFromLocalStorage));
         thunkAPI.dispatch(saveToFirestoreIfDirty());
         thunkAPI.dispatch(setHasSyncedBefore());
       }
     } else if (tabDataFromCloud) {
-      console.log(
-        `newly installed returning user - data present only on cloud`
-      );
       // newly installed returning user - data present only on cloud
       thunkAPI.dispatch(replaceState(tabDataFromCloud!));
       thunkAPI.dispatch(setIsNotDirty());
@@ -158,9 +138,7 @@ export const syncStateWithFirestore = createAsyncThunk(
       }
       thunkAPI.dispatch(setHasSyncedBefore());
     } else if (tabDataFromLocalStorage) {
-      console.log(`data only on localStorage`);
-      // data only on localStorage - least likely
-      // local storage has tabData
+      // data only on localStorage
       // save back to Firestore
       thunkAPI.dispatch(replaceState(tabDataFromLocalStorage));
       thunkAPI.dispatch(setIsDirty());
@@ -175,7 +153,6 @@ export const syncStateWithFirestore = createAsyncThunk(
       }
       thunkAPI.dispatch(setHasSyncedBefore());
     } else {
-      console.log(`new user - hey there!`);
       // new user - hey there!
       thunkAPI.dispatch(setIsDirty());
       thunkAPI.dispatch(saveToFirestoreIfDirty());
@@ -304,13 +281,9 @@ export const globalStateSlice = createSlice({
   extraReducers: (builder) => {
     builder
       .addCase(saveToFirestoreIfDirty.pending, (state) => {
-        console.log('saveToFirestoreIfDirty pending');
         state.syncStatus = 'loading';
       })
       .addCase(saveToFirestoreIfDirty.fulfilled, (state) => {
-        console.log('saveToFirestoreIfDirty fulfilled');
-        console.log('isSignedIn: ' + state.isSignedIn);
-        console.log('isDirty: ' + state.isDirty);
         if (state.isSignedIn && !state.isDirty) {
           state.syncStatus = 'success';
         } else {
@@ -318,7 +291,6 @@ export const globalStateSlice = createSlice({
         }
       })
       .addCase(saveToFirestoreIfDirty.rejected, (state) => {
-        console.log('saveToFirestoreIfDirty rejected');
         state.syncStatus = 'error';
       })
       .addCase(openSettingsPage.fulfilled, (state) => {

@@ -20,9 +20,6 @@ jobs:
       - name: Install dependencies
         uses: bahmutov/npm-install@v1
 
-      - name: Bump up the patch version and sync package and manifest JSON
-        run: npm run prebuild-patch
-
       - name: Get version from manifest
         id: version
         uses: notiz-dev/github-action-json-property@release
