@@ -26,8 +26,7 @@ jobs:
       - name: Run release script
         run: npm run release
 
-      - name: Upload zip file for the extension
+      - name: Upload original zip file ready for Chrome Web Store
         uses: actions/upload-artifact@v3
         with:
-          name: extension-zip
           path: ./*.zip
