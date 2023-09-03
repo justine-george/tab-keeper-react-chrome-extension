@@ -6,10 +6,13 @@ import Divider from '../common/Divider';
 import { NormalLabel } from '../common/Label';
 import { useThemeColors } from '../hook/useThemeColors';
 import { AppDispatch, RootState } from '../../redux/store';
-import { selectCategory } from '../../redux/slice/settingsCategoryStateSlice';
+import {
+  SettingsCategory,
+  selectCategory,
+} from '../../redux/slice/settingsCategoryStateSlice';
 
-export interface SettingsCategory {
-  name: string;
+export interface SettingsCategoryContainer {
+  name: SettingsCategory;
   isSelected: boolean;
 }
 
@@ -21,6 +24,19 @@ const SettingsCategoryContainer: React.FC = () => {
   );
 
   const dispatch: AppDispatch = useDispatch();
+
+  const handleSelectCategoryClick = (name: SettingsCategory) => {
+    dispatch(selectCategory(name));
+  };
+
+  function handleKeyPress(
+    e: React.KeyboardEvent<HTMLDivElement>,
+    name: SettingsCategory
+  ) {
+    if (e.key === 'Enter') {
+      handleSelectCategoryClick(name);
+    }
+  }
 
   const containerStyle = css`
     display: flex;
@@ -34,35 +50,39 @@ const SettingsCategoryContainer: React.FC = () => {
 
   const selectableStyle = (isSelected: boolean) => css`
     cursor: pointer;
-    transition: background-color 0.3s;
+    transition: background-color 0.2s;
     &:hover {
       background-color: ${!isSelected && COLORS.HOVER_COLOR};
     }
     background-color: ${isSelected
       ? COLORS.SELECTION_COLOR
       : COLORS.PRIMARY_COLOR};
-    padding: 10px 38px;
+    padding: 15px 38px;
   `;
 
   return (
     <div css={containerStyle}>
-      {settingsCategoryList.map(({ name, isSelected }: SettingsCategory) => {
-        return (
-          <>
-            <div
-              css={selectableStyle(isSelected)}
-              onClick={() => dispatch(selectCategory(name))}
-            >
-              <NormalLabel
-                value={name}
-                size="1rem"
-                color={COLORS.LABEL_L1_COLOR}
-              />
-            </div>
-            <Divider />
-          </>
-        );
-      })}
+      {settingsCategoryList.map(
+        ({ name, isSelected }: SettingsCategoryContainer) => {
+          return (
+            <>
+              <div
+                css={selectableStyle(isSelected)}
+                onClick={() => handleSelectCategoryClick(name)}
+                onKeyDown={(e) => handleKeyPress(e, name)}
+                tabIndex={0}
+              >
+                <NormalLabel
+                  value={name}
+                  size="1rem"
+                  color={COLORS.LABEL_L1_COLOR}
+                />
+              </div>
+              <Divider />
+            </>
+          );
+        }
+      )}
     </div>
   );
 };

@@ -1,26 +1,32 @@
 import { PayloadAction, createSlice } from '@reduxjs/toolkit';
-import { SETTINGS_CATEGORIES } from '../../utils/constants/common';
 
-export interface SettingsCategory {
-  name: string;
+export enum SettingsCategory {
+  DISPLAY = 'Display',
+  SYNC = 'Sync & Privacy',
+  DATA_MANAGEMENT = 'Data Management',
+  ABOUT = 'About',
+}
+
+export interface SettingsCategoryContainer {
+  name: SettingsCategory;
   isSelected: boolean;
 }
 
-export const initialState: SettingsCategory[] = [
+export const initialState: SettingsCategoryContainer[] = [
   {
-    name: SETTINGS_CATEGORIES.GENERAL,
+    name: SettingsCategory.DISPLAY,
     isSelected: true,
   },
   {
-    name: SETTINGS_CATEGORIES.SYNC,
+    name: SettingsCategory.SYNC,
     isSelected: false,
   },
   {
-    name: SETTINGS_CATEGORIES.DATA_MANAGEMENT,
+    name: SettingsCategory.DATA_MANAGEMENT,
     isSelected: false,
   },
   {
-    name: SETTINGS_CATEGORIES.CREDITS,
+    name: SettingsCategory.ABOUT,
     isSelected: false,
   },
 ];
@@ -29,7 +35,7 @@ export const settingsCategoryStateSlice = createSlice({
   name: 'settingsCategoryState',
   initialState,
   reducers: {
-    selectCategory: (state, action: PayloadAction<string>) => {
+    selectCategory: (state, action: PayloadAction<SettingsCategory>) => {
       const name = action.payload;
       // mutate the state such that if name matches state[].name,
       // set isSelected as true and if no match, set as false

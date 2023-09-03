@@ -64,7 +64,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     position: relative;
     display: flex;
     justify-content: space-between;
-    transition: background-color 0.3s;
+    transition: background-color 0.2s;
     &:hover {
       background-color: ${COLORS.HOVER_COLOR};
     }
@@ -96,7 +96,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     display: flex;
     align-items: stretch;
     justify-content: space-between;
-    transition: background-color 0.3s;
+    transition: background-color 0.2s;
     &:hover {
       background-color: ${COLORS.HOVER_COLOR};
     }

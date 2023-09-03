@@ -109,12 +109,12 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({ style }) => {
     border: 1px solid ${COLORS.BORDER_COLOR};
     cursor: pointer;
     transition:
-      background-color 0.3s,
-      color 0.3s;
+      background-color 0.2s,
+      color 0.2s;
 
     &:hover {
       background-color: ${COLORS.SELECTION_COLOR};
-      color: ${COLORS.INVERSE_PRIMARY_COLOR};
+      color: ${COLORS.CONTRAST_COLOR};
     }
   `;
 

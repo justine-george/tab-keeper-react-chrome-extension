@@ -2,10 +2,16 @@ import { useDispatch, useSelector } from 'react-redux';
 
 import { css } from '@emotion/react';
 
-import Account from './Account';
 import Button from '../common/Button';
 import { NormalLabel } from '../common/Label';
-import { useThemeColors } from '../hook/useThemeColors';
+import {
+  DARK_THEME,
+  LIGHT_THEME,
+  // CORPORATE_THEME,
+  // DARCULA_THEME,
+  // SOLARIZED_LIGHT_THEME,
+  useThemeColors,
+} from '../hook/useThemeColors';
 import { AppDispatch, RootState } from '../../redux/store';
 import {
   saveToFirestoreIfDirty,
@@ -14,26 +20,29 @@ import {
   syncStateWithFirestore,
 } from '../../redux/slice/globalStateSlice';
 import {
+  Theme,
+  setTheme,
   toggleAutoSync,
-  toggleDarkMode,
 } from '../../redux/slice/settingsDataStateSlice';
 import {
   APP_VERSION,
   DEV_APPRECIATION,
-  DEV_CREDITS,
   DEV_EMAIL,
   FEEDBACK_MAIL_SUBJECT,
   FEEDBACK_REQUEST,
-  SETTINGS_CATEGORIES,
   SHARE_TWITTER_TEXT,
 } from '../../utils/constants/common';
-import { SettingsCategory } from './SettingsCategoryContainer';
+import { SettingsCategoryContainer } from './SettingsCategoryContainer';
 import {
   TabMasterContainer,
   replaceState,
 } from '../../redux/slice/tabContainerDataStateSlice';
 import { setPresentStartup } from '../../redux/slice/undoRedoSlice';
 import { isValidTabMasterContainer } from '../../utils/helperFunctions';
+import { SettingsCategory } from '../../redux/slice/settingsCategoryStateSlice';
+import LoggedIn from './Account/LoggedIn';
+import NotLoggedIn from './Account/NotLoggedIn';
+import Icon from '../common/Icon';
 
 const SettingsDetailsContainer: React.FC = () => {
   const COLORS = useThemeColors();
@@ -48,6 +57,10 @@ const SettingsDetailsContainer: React.FC = () => {
     (state: RootState) => state.settingsDataState
   );
 
+  const isSignedIn = useSelector(
+    (state: RootState) => state.globalState.isSignedIn
+  );
+
   const tabMasterContainer: TabMasterContainer = useSelector(
     (state: RootState) => state.tabContainerDataState
   );
@@ -59,19 +72,11 @@ const SettingsDetailsContainer: React.FC = () => {
     flex-grow: 1;
     margin-top: 8px;
     border: 1px solid ${COLORS.BORDER_COLOR};
-    overflow: auto;
+    // overflow: auto;
     user-select: none;
   `;
 
-  const settingsItemStyle = css`
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    width: 250px;
-    margin-bottom: 16px;
-  `;
-
-  const selectedSettingsCategory: SettingsCategory =
+  const selectedSettingsCategory: SettingsCategoryContainer =
     settingsCategoryList.filter((settings) => settings.isSelected)[0];
 
   if (!selectedSettingsCategory) {
@@ -155,7 +160,7 @@ const SettingsDetailsContainer: React.FC = () => {
   };
 
   let settingsOptionsDiv;
-  if (selectedSettingsCategory.name === SETTINGS_CATEGORIES.GENERAL) {
+  if (selectedSettingsCategory.name === SettingsCategory.DISPLAY) {
     settingsOptionsDiv = (
       <div
         css={css`
@@ -163,62 +168,189 @@ const SettingsDetailsContainer: React.FC = () => {
           flex-direction: column;
           justify-content: flex-start;
           align-items: center;
-          margin-top: 40px;
         `}
       >
-        <div css={settingsItemStyle}>
-          <NormalLabel
-            value="Toggle Theme"
-            size="1rem"
-            color={COLORS.LABEL_L1_COLOR}
-          />
-          <Button
-            text={settingsData.isDarkMode ? `Light` : `Dark`}
-            onClick={() => dispatch(toggleDarkMode())}
-            style={`
-              margin-left: 16px;
-              width: 120px;
+        {/* Theme Section */}
+        <div
+          css={css`
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            margin-left: 72px;
+            width: 100%;
+            margin-top: 20px;
+          `}
+        >
+          <div
+            css={css`
+              display: flex;
+              align-items: flex-start;
+              width: 100%;
+            `}
+          >
+            <NormalLabel
+              value="Themes"
+              size="1rem"
+              color={COLORS.LABEL_L1_COLOR}
+            />
+          </div>
+
+          <div
+            css={css`
+              display: flex;
+              justify-content: flex-start;
+              align-items: center;
+              width: 250px;
+              margin-top: 8px;
+            `}
+          >
+            <Button
+              onClick={() => dispatch(setTheme(Theme.LIGHT))}
+              style={`
+              width: 60px;
+              border: 1px solid ${COLORS.BORDER_COLOR};
+              background-color: ${LIGHT_THEME.PRIMARY_COLOR};
               &:hover {
-                background-color: ${COLORS.INVERSE_PRIMARY_COLOR};
-                border: 1px solid ${COLORS.INVERSE_PRIMARY_COLOR};
-                color: ${COLORS.PRIMARY_COLOR};
+                background-color: ${LIGHT_THEME.PRIMARY_COLOR};
               }
             `}
-          />
-        </div>
-        <div css={settingsItemStyle}>
-          <NormalLabel
-            value="Auto Sync"
-            size="1rem"
-            color={COLORS.LABEL_L1_COLOR}
-          />
-          <Button
-            text={settingsData.isAutoSync ? `On` : `Off`}
-            onClick={handleToggleAutoSync}
-            style={`
+            />
+            <Button
+              onClick={() => dispatch(setTheme(Theme.DARK))}
+              style={`
               margin-left: 16px;
-              width: 120px;
+              width: 60px;
+              border: 1px solid ${COLORS.BORDER_COLOR};
+              background-color: ${DARK_THEME.PRIMARY_COLOR};
+              &:hover {
+                background-color: ${DARK_THEME.PRIMARY_COLOR};
+              }
             `}
-          />
+            />
+            {/* <Button
+              onClick={() => dispatch(setTheme(Theme.CORPORATE))}
+              style={`
+              margin-left: 16px;
+              width: 60px;
+              border: 1px solid ${COLORS.BORDER_COLOR};
+              background-color: ${CORPORATE_THEME.PRIMARY_COLOR};
+              &:hover {
+                background-color: ${CORPORATE_THEME.PRIMARY_COLOR};
+              }
+            `}
+            />
+            <Button
+              onClick={() => dispatch(setTheme(Theme.SOLARIZED_LIGHT))}
+              style={`
+              margin-left: 16px;
+              width: 60px;
+              border: 1px solid ${COLORS.BORDER_COLOR};
+              background-color: ${SOLARIZED_LIGHT_THEME.PRIMARY_COLOR};
+              &:hover {
+                background-color: ${SOLARIZED_LIGHT_THEME.PRIMARY_COLOR};
+              }
+            `}
+            />
+            <Button
+              onClick={() => dispatch(setTheme(Theme.DARCULA))}
+              style={`
+              margin-left: 16px;
+              width: 60px;
+              border: 1px solid ${COLORS.BORDER_COLOR};
+              background-color: ${DARCULA_THEME.PRIMARY_COLOR};
+              &:hover {
+                background-color: ${DARCULA_THEME.PRIMARY_COLOR};
+              }
+            `}
+            /> */}
+          </div>
         </div>
       </div>
     );
-  } else if (selectedSettingsCategory.name === SETTINGS_CATEGORIES.SYNC) {
+  } else if (selectedSettingsCategory.name === SettingsCategory.SYNC) {
     settingsOptionsDiv = (
       <div
         css={css`
           display: flex;
-          justify-content: center;
-          align-items: flex-start;
-          margin-top: 40px;
-          height: 100%;
+          flex-direction: column;
+          justify-content: flex-start;
+          align-items: center;
         `}
       >
-        <Account />
+        {/* Auto Sync */}
+        <div
+          css={css`
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            margin-left: 72px;
+            width: 100%;
+            margin-top: 20px;
+          `}
+        >
+          <div
+            css={css`
+              display: flex;
+              align-items: flex-start;
+              width: 100%;
+            `}
+          >
+            <NormalLabel
+              value="Auto Sync"
+              size="1rem"
+              color={COLORS.LABEL_L1_COLOR}
+            />
+          </div>
+
+          <div
+            css={css`
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              width: 250px;
+              margin-top: 8px;
+            `}
+          >
+            <Button
+              text={settingsData.isAutoSync ? `On` : `Off`}
+              onClick={handleToggleAutoSync}
+              style={`
+              width: 120px;
+            `}
+            />
+          </div>
+        </div>
+
+        {/* Sync Status */}
+        <div
+          css={css`
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            margin-left: 72px;
+            width: 100%;
+            margin-top: 20px;
+          `}
+        >
+          <div
+            css={css`
+              display: flex;
+              align-items: flex-start;
+              width: 100%;
+            `}
+          >
+            <NormalLabel
+              value="Sync Status"
+              size="1rem"
+              color={COLORS.LABEL_L1_COLOR}
+            />
+          </div>
+          {isSignedIn ? <LoggedIn /> : <NotLoggedIn />}
+        </div>
       </div>
     );
   } else if (
-    selectedSettingsCategory.name === SETTINGS_CATEGORIES.DATA_MANAGEMENT
+    selectedSettingsCategory.name === SettingsCategory.DATA_MANAGEMENT
   ) {
     settingsOptionsDiv = (
       <div
@@ -226,27 +358,60 @@ const SettingsDetailsContainer: React.FC = () => {
           display: flex;
           flex-direction: column;
           justify-content: flex-start;
-          height: 100%;
           align-items: center;
-          margin-top: 40px;
-          flex-grow: 1;
         `}
       >
-        <Button
-          text={`Backup to File`}
-          iconType="publish"
-          onClick={handleExportJSON}
-          style="width: 250px; justify-content: center;"
-        />
-        <Button
-          text={'Restore from File'}
-          iconType="get_app"
-          onClick={handleImportJSON}
-          style="width: 250px; justify-content: center; margin-top: 16px;"
-        />
+        {/* Backup & Restore */}
+        <div
+          css={css`
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            margin-left: 72px;
+            width: 100%;
+            margin-top: 20px;
+          `}
+        >
+          <div
+            css={css`
+              display: flex;
+              align-items: flex-start;
+              width: 100%;
+            `}
+          >
+            <NormalLabel
+              value="Backup & Restore"
+              size="1rem"
+              color={COLORS.LABEL_L1_COLOR}
+            />
+          </div>
+
+          <div
+            css={css`
+              display: flex;
+              flex-direction: column;
+              justify-content: space-between;
+              align-items: center;
+              margin-top: 8px;
+            `}
+          >
+            <Button
+              text={`Backup App Data to File`}
+              iconType="publish"
+              onClick={handleExportJSON}
+              style="width: 260px; justify-content: center;"
+            />
+            <Button
+              text={'Restore App Data from File'}
+              iconType="get_app"
+              onClick={handleImportJSON}
+              style="width: 260px; justify-content: center; margin-top: 12px;"
+            />
+          </div>
+        </div>
       </div>
     );
-  } else if (selectedSettingsCategory.name === SETTINGS_CATEGORIES.CREDITS) {
+  } else if (selectedSettingsCategory.name === SettingsCategory.ABOUT) {
     settingsOptionsDiv = (
       <div
         css={css`
@@ -264,11 +429,29 @@ const SettingsDetailsContainer: React.FC = () => {
           value={DEV_APPRECIATION}
           size="1.2rem"
         />
-        <NormalLabel
-          color={COLORS.LABEL_L1_COLOR}
-          value={DEV_CREDITS}
-          style="margin-top: 30px;"
-        />
+        <div
+          css={css`
+            display: flex;
+            flex-direction: row;
+            margin-top: 30px;
+          `}
+        >
+          <NormalLabel color={COLORS.LABEL_L1_COLOR} value={`Crafted with`} />
+          <Icon
+            type="favorite"
+            disable={true}
+            focusable={false}
+            size="1.1rem"
+            style={`
+            color: ${COLORS.LABEL_L1_COLOR}
+            `}
+          />
+          <NormalLabel
+            color={COLORS.LABEL_L1_COLOR}
+            value={`by Justine George`}
+          />
+        </div>
+
         <Button
           text={FEEDBACK_REQUEST}
           iconType="mail"
