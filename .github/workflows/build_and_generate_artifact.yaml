@@ -1,4 +1,4 @@
-name: Build and Release tab-keeper-react-chrome-extension
+name: Build and release artifact tab-keeper-react-chrome-extension
 
 on:
   push:
