@@ -26,14 +26,15 @@ jobs:
         with:
           path: 'public/manifest.json'
           prop_path: 'version'
-      
-      - run: echo ${{steps.version.outputs.prop}}
 
       - name: Install zip dependency
         run: npm install --save-dev bestzip
 
       - name: Run release script
         run: npm run release
+
+      - name: Move zip to known location
+        run: mv *.zip tab-keeper-react-chrome-extension-v${{steps.version.outputs.prop}}.zip
 
       - name: Upload original zip file ready for Chrome Web Store
         uses: actions/upload-artifact@v3
