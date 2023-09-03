@@ -28,7 +28,7 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
     position: fixed;
     bottom: 20px;
     ${isSettingsPage ? `right: 20px` : `left: 20px`};
-    background-color: ${COLORS.INVERSE_PRIMARY_COLOR};
+    background-color: ${COLORS.CONTRAST_COLOR};
     color: ${COLORS.PRIMARY_COLOR};
     padding: 10px;
     border: 1px solid ${COLORS.BORDER_COLOR}

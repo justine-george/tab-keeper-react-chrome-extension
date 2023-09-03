@@ -2,7 +2,7 @@ import { createAsyncThunk, createSlice, PayloadAction } from '@reduxjs/toolkit';
 
 import { RootState } from '../store';
 import { setPresentStartup } from './undoRedoSlice';
-import { selectCategory } from './settingsCategoryStateSlice';
+import { selectCategory, SettingsCategory } from './settingsCategoryStateSlice';
 import { replaceState, TabMasterContainer } from './tabContainerDataStateSlice';
 import {
   loadFromFirestore,
@@ -163,7 +163,7 @@ export const syncStateWithFirestore = createAsyncThunk(
 
 export const openSettingsPage = createAsyncThunk(
   'global/openSettingsPage',
-  async (settingsName: string | undefined, thunkAPI) => {
+  async (settingsName: SettingsCategory | undefined, thunkAPI) => {
     if (settingsName) thunkAPI.dispatch(selectCategory(settingsName));
   }
 );

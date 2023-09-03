@@ -29,6 +29,12 @@ export default function HeroContainer() {
     dispatch(closeSearchPanel());
   };
 
+  function handleKeyPress(e: React.KeyboardEvent<HTMLDivElement>) {
+    if (e.key === 'Enter') {
+      handleClickSearch();
+    }
+  }
+
   const containerStyle = css`
     display: flex;
     justify-content: space-between;
@@ -46,18 +52,17 @@ export default function HeroContainer() {
         css={css`
           display: flex;
         `}
+        onClick={handleBackClick}
+        onKeyDown={(e) => handleKeyPress(e)}
+        title="Go back"
+        tabIndex={0}
       >
-        <Icon
-          tooltipText="Go back"
-          ariaLabel="back"
-          type="arrow_back"
-          onClick={handleBackClick}
-        />
+        <Icon ariaLabel="back" type="arrow_back" />
         <NormalLabel
           value="Back"
           size="1.125rem"
           color={COLORS.TEXT_COLOR}
-          style="padding-left: 8px;"
+          style="padding-left: 8px; cursor: pointer;"
         />
       </div>
     </div>
@@ -67,17 +72,17 @@ export default function HeroContainer() {
         css={css`
           display: flex;
         `}
+        onClick={handleClickSearch}
+        onKeyDown={(e) => handleKeyPress(e)}
+        title="Search"
+        tabIndex={0}
       >
-        <Icon
-          tooltipText="Search"
-          ariaLabel="search"
-          type="search"
-          onClick={handleClickSearch}
-        />
+        <Icon ariaLabel="search" type="search" />
         <NormalLabel
           value="Tab Keeper"
           size="1.125rem"
           color={COLORS.TEXT_COLOR}
+          style="cursor: pointer;"
         />
       </div>
       <div>

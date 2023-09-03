@@ -15,6 +15,7 @@ import {
   redo,
   undo,
 } from '../../redux/slice/undoRedoSlice';
+import { SettingsCategory } from '../../redux/slice/settingsCategoryStateSlice';
 
 export default function MenuContainer() {
   const syncStatus = useSelector(
@@ -41,7 +42,7 @@ export default function MenuContainer() {
   }
 
   function handleClickSettings() {
-    dispatch(openSettingsPage('General'));
+    dispatch(openSettingsPage(SettingsCategory.DISPLAY));
     dispatch(closeToast());
   }
 

@@ -17,6 +17,7 @@ interface IconProps {
   ariaLabel?: string;
   tooltipText?: string;
   text?: string;
+  size?: string;
   style?: string;
 }
 
@@ -33,6 +34,7 @@ const Icon: React.FC<IconProps> = ({
   ariaLabel,
   tooltipText,
   text,
+  size = '1.5rem',
   style,
 }) => {
   const COLORS = useThemeColors();
@@ -66,9 +68,9 @@ const Icon: React.FC<IconProps> = ({
       : COLORS.ICON_HOVER_COLOR;
 
   const iconStyle = css`
-    font-size: 1.5rem;
-    width: 1.5rem;
-    height: 1.5rem;
+    font-size: ${size};
+    width: ${size};
+    height: ${size};
     object-fit: contain;
     color: ${COLORS.TEXT_COLOR};
     ${hoverAnimation}
@@ -82,7 +84,7 @@ const Icon: React.FC<IconProps> = ({
     padding: 4px;
     cursor: ${focusable ? 'pointer' : 'default'};
     user-select: none;
-    transition: background-color 0.3s;
+    transition: background-color 0.2s;
     background-color: ${backgroundColor};
     ${focusable &&
     `&:hover {

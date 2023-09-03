@@ -12,7 +12,10 @@ const NotLoggedIn: React.FC = () => {
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    padding: 8px;
+    padding: 22px 64px 32px;
+    border: 1px solid ${COLORS.BORDER_COLOR};
+    margin-top: 8px;
+    border-radius: 0px;
   `;
 
   const iconLabelContainer = css`

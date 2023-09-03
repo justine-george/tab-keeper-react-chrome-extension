@@ -28,18 +28,18 @@ export default function MenuContainer() {
   };
 
   return (
-    <div css={containerStyle}>
-      <Icon
-        tooltipText="Go back"
-        ariaLabel="go back"
-        type="arrow_back"
-        onClick={handleBackClick}
-      />
+    <div
+      css={containerStyle}
+      onClick={handleBackClick}
+      title="Go back"
+      tabIndex={0}
+    >
+      <Icon ariaLabel="go back" type="arrow_back" />
       <NormalLabel
         value="Back"
         size="1.125rem"
         color={COLORS.TEXT_COLOR}
-        style="padding-left: 8px;"
+        style="padding-left: 8px; cursor: pointer;"
       />
     </div>
   );

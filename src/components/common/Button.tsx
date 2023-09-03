@@ -37,7 +37,7 @@ const Button: React.FC<ButtonProps> = ({
     font-family: 'Libre Franklin', sans-serif;
     font-size: 0.9rem;
     cursor: pointer;
-    transition: background-color 0.3s;
+    transition: background-color 0.2s;
     color: ${COLORS.TEXT_COLOR};
     &:hover {
       background-color: ${COLORS.ICON_HOVER_COLOR};
