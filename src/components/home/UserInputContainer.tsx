@@ -82,6 +82,10 @@ export default function UserInputContainer() {
 
       return {
         windowId: uuidv4(),
+        windowHeight: window.height!,
+        windowWidth: window.width!,
+        windowOffsetTop: window.top!,
+        windowOffsetLeft: window.left!,
         tabCount: tabsData.length,
         title: tabsData[0].title,
         tabs: tabsData,

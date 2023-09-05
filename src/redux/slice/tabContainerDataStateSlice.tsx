@@ -5,7 +5,13 @@ import {
 } from '../../utils/helperFunctions';
 import { RootState } from '../store';
 import { showToast } from './globalStateSlice';
-import { TOAST_MESSAGES } from '../../utils/constants/common';
+import {
+  DEFAULT_WINDOW_HEIGHT,
+  DEFAULT_WINDOW_OFFSET_LEFT,
+  DEFAULT_WINDOW_OFFSET_TOP,
+  DEFAULT_WINDOW_WIDTH,
+  TOAST_MESSAGES,
+} from '../../utils/constants/common';
 
 export interface tabData {
   tabId: string;
@@ -16,6 +22,10 @@ export interface tabData {
 
 export interface windowGroupData {
   windowId: string;
+  windowHeight: number;
+  windowWidth: number;
+  windowOffsetTop: number;
+  windowOffsetLeft: number;
   tabCount: number;
   title: string;
   tabs: tabData[];
@@ -109,30 +119,39 @@ export const openTabsInAWindow = createAsyncThunk(
     if (!windowGroup) return;
 
     const { tabs } = windowGroup;
-    chrome.windows.create({ url: tabs[0].url }, (newWindow) => {
-      tabs.slice(1).forEach((tabInfo) => {
-        const placeholder = generatePlaceholderURL(
-          tabInfo.title,
-          tabInfo.favicon || '/images/favicon.ico',
-          tabInfo.url
-        );
+    chrome.windows.create(
+      {
+        url: tabs[0].url,
+        height: windowGroup.windowHeight || DEFAULT_WINDOW_HEIGHT,
+        width: windowGroup.windowWidth || DEFAULT_WINDOW_WIDTH,
+        top: windowGroup.windowOffsetTop || DEFAULT_WINDOW_OFFSET_TOP,
+        left: windowGroup.windowOffsetLeft || DEFAULT_WINDOW_OFFSET_LEFT,
+      },
+      (newWindow) => {
+        tabs.slice(1).forEach((tabInfo) => {
+          const placeholder = generatePlaceholderURL(
+            tabInfo.title,
+            tabInfo.favicon || '/images/favicon.ico',
+            tabInfo.url
+          );
 
-        chrome.tabs.create(
-          {
-            windowId: newWindow!.id,
-            url: placeholder,
-            active: false,
-          },
-          (tab) => {
-            tabURLMap[tab.id!] = {
-              url: tabInfo.url,
-              title: tabInfo.title,
-              favicon: tabInfo.favicon || '/images/favicon.ico',
-            };
-          }
-        );
-      });
-    });
+          chrome.tabs.create(
+            {
+              windowId: newWindow!.id,
+              url: placeholder,
+              active: false,
+            },
+            (tab) => {
+              tabURLMap[tab.id!] = {
+                url: tabInfo.url,
+                title: tabInfo.title,
+                favicon: tabInfo.favicon || '/images/favicon.ico',
+              };
+            }
+          );
+        });
+      }
+    );
   }
 );
 
@@ -155,6 +174,10 @@ export const openAllTabContainer = createAsyncThunk(
         {
           url: windowGroup.tabs[0].url, // load only the first tab directly
           focused: isFirstWindow,
+          height: windowGroup.windowHeight || DEFAULT_WINDOW_HEIGHT,
+          width: windowGroup.windowWidth || DEFAULT_WINDOW_WIDTH,
+          top: windowGroup.windowOffsetTop || DEFAULT_WINDOW_OFFSET_TOP,
+          left: windowGroup.windowOffsetLeft || DEFAULT_WINDOW_OFFSET_LEFT,
         },
         (newWindow) => {
           windowGroup.tabs.slice(1).forEach((tabInfo) => {
