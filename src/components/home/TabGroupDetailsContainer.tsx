@@ -13,6 +13,7 @@ import {
   deleteWindow,
   openTabsInAWindow,
   tabData,
+  updateWindowGroupTitle,
 } from '../../redux/slice/tabContainerDataStateSlice';
 
 export default function TabGroupDetailsContainer() {
@@ -78,6 +79,14 @@ export default function TabGroupDetailsContainer() {
     dispatch(addCurrTabToWindow({ tabGroupId, windowId, tabData }));
   }
 
+  const handleUpdateWindowGroupTitle = async (
+    tabGroupId: string,
+    windowId: string,
+    editableTitle: string
+  ) => {
+    dispatch(updateWindowGroupTitle({ tabGroupId, windowId, editableTitle }));
+  };
+
   return (
     <div css={containerStyle}>
       {isEmptyObject(selectedTabGroup) ? (
@@ -94,6 +103,9 @@ export default function TabGroupDetailsContainer() {
                   tabs={tabs}
                   tabGroupId={tabGroupId}
                   windowId={windowId}
+                  onUpdateWindowGroupTitle={(newTitle) =>
+                    handleUpdateWindowGroupTitle(tabGroupId, windowId, newTitle)
+                  }
                   onAddCurrTabToWindowClick={() =>
                     handleAddCurrTabToWindowClick(tabGroupId, windowId)
                   }

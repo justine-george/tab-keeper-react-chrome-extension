@@ -5,6 +5,7 @@ import { debounce } from '../../utils/helperFunctions';
 import { DEBOUNCE_TIME_WINDOW } from '../../utils/constants/common';
 import { setIsDirty, syncStateWithFirestore } from '../slice/globalStateSlice';
 import {
+  ADD_CURR_WINDOW_TO_TABGROUP_ACTION,
   ADD_CURR_TAB_TO_WINDOW_ACTION,
   DELETE_TAB_ACTION,
   DELETE_TAB_CONTAINER_ACTION,
@@ -28,6 +29,7 @@ const actionsToCapture = [
 
   // actions in tabContainerDataStateSlice
   SAVE_TAB_CONTAINER_ACTION,
+  ADD_CURR_WINDOW_TO_TABGROUP_ACTION,
   ADD_CURR_TAB_TO_WINDOW_ACTION,
   EDIT_TABGROUP_TITLE_ACTION,
   DELETE_TAB_CONTAINER_ACTION,

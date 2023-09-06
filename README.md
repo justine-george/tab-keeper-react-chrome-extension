@@ -25,7 +25,7 @@ At its core, Tab Keeper uses technologies like React, Emotion CSS, Cloud Firesto
 
 - 🔍 Efficient Search & Retrieval of Saved Tabs: Dive directly into your saved tabs. With our optimized search functionality, you can locate and access your archived tabs with unparalleled ease.
 
-- 🌓 Customizable Themes with Light & Dark Modes: Align your browsing space with your aesthetic preferences. Whether it's the crispness of light mode or the elegance of dark mode, our theme options cater to every user.
+- 🌓 Multiple Customizable Themes: Tailor your browsing experience with our range of aesthetic themes, from light to dark and everything in between. Choose a theme that aligns with your mood and preference.
   <br>
 
 ## 📜 Changelog:

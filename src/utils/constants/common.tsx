@@ -10,6 +10,14 @@ export const NON_INTERACTIVE_ICON_STYLE =
 export const APP_HEIGHT = '550px';
 export const APP_WIDTH = '790px';
 
+// default dimensions for a new window
+export const DEFAULT_WINDOW_HEIGHT = window.screen.height * 0.9;
+export const DEFAULT_WINDOW_WIDTH = window.screen.width * 0.8;
+export const DEFAULT_WINDOW_OFFSET_TOP =
+  (window.screen.height - DEFAULT_WINDOW_HEIGHT) / 2;
+export const DEFAULT_WINDOW_OFFSET_LEFT =
+  (window.screen.width - DEFAULT_WINDOW_WIDTH) / 2;
+
 // max undo stack size
 export const STACK_LEVEL = 10;
 
@@ -66,6 +74,7 @@ export const TOAST_MESSAGES = {
     'Oops! We encountered an issue while logging you out. Please try again.',
   SAVE_TAB_CONTAINER_SUCCESS: 'Session saved.',
   ADD_CURR_TAB_TO_WINDOW_SUCCESS: 'Current tab saved.',
+  ADD_CURR_WINDOW_TO_TABGROUP_SUCCESS: 'Current window saved.',
   DELETE_TAB_CONTAINER_SUCCESS: 'Session deleted.',
   DELETE_WINDOW_SUCCESS: 'Session window deleted.',
   DELETE_TAB_SUCCESS: 'Session tab deleted.',

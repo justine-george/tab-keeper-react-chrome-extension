@@ -6,10 +6,10 @@ import {
 
 export enum Theme {
   LIGHT = 'Light',
-  DARK = 'Dark',
-  CORPORATE = 'Corporate',
-  SOLARIZED_LIGHT = 'Solarized Light',
-  DARCULA = 'Darcula',
+  WARM_LIGHT = 'WarmLight',
+  BB_PINK = 'BBPink',
+  DARKENHEIMER = 'Darkenheimer',
+  BLUE = 'Blue',
 }
 
 export interface SettingsData {

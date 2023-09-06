@@ -3,10 +3,10 @@ import React, { MouseEventHandler, useState } from 'react';
 import { css } from '@emotion/react';
 
 import Icon from '../common/Icon';
-import { Tag } from '../common/Tag';
 import { NormalLabel } from '../common/Label';
 import { useThemeColors } from '../hook/useThemeColors';
 import { tabContainerData } from '../../redux/slice/tabContainerDataStateSlice';
+import { getPrettyDate } from '../../utils/helperFunctions';
 
 interface TabGroupEntryProps {
   tabGroupData: tabContainerData;
@@ -28,7 +28,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
   const handleMouseEnter = () => setIsHovered(true);
   const handleMouseLeave = () => setIsHovered(false);
 
-  const { title, createdTime, isAutoSave, windowCount, tabCount, isSelected } =
+  const { title, createdTime, windowCount, tabCount, isSelected } =
     tabGroupData;
 
   function handleKeyPress(e: React.KeyboardEvent<HTMLDivElement>) {
@@ -88,6 +88,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
           style="max-width: 319px;"
           value={title}
           color={COLORS.TEXT_COLOR}
+          size="0.95rem;"
         />
         <NormalLabel
           value={`${windowCount} ${
@@ -97,15 +98,14 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
           size="0.7rem"
           style="margin-top: 2px;"
         />
-        {isAutoSave && <Tag value="AUTOSAVE" style="margin-top: 5px;" />}
         <div
           css={css`
             color: ${COLORS.LABEL_L2_COLOR};
-            font-size: 0.625rem;
+            font-size: 0.635rem;
             margin-top: 5px;
           `}
         >
-          {createdTime}
+          {getPrettyDate(createdTime)}
         </div>
       </div>
       <div css={rightStyle}>

@@ -5,7 +5,13 @@ import {
 } from '../../utils/helperFunctions';
 import { RootState } from '../store';
 import { showToast } from './globalStateSlice';
-import { TOAST_MESSAGES } from '../../utils/constants/common';
+import {
+  DEFAULT_WINDOW_HEIGHT,
+  DEFAULT_WINDOW_OFFSET_LEFT,
+  DEFAULT_WINDOW_OFFSET_TOP,
+  DEFAULT_WINDOW_WIDTH,
+  TOAST_MESSAGES,
+} from '../../utils/constants/common';
 
 export interface tabData {
   tabId: string;
@@ -16,6 +22,10 @@ export interface tabData {
 
 export interface windowGroupData {
   windowId: string;
+  windowHeight: number;
+  windowWidth: number;
+  windowOffsetTop: number;
+  windowOffsetLeft: number;
   tabCount: number;
   title: string;
   tabs: tabData[];
@@ -41,6 +51,11 @@ export interface TabMasterContainer {
   tabGroups: tabContainerData[];
 }
 
+export interface addCurrWindowToTabGroupParams {
+  tabGroupId: string;
+  window: windowGroupData;
+}
+
 export interface addCurrTabToWindowParams {
   tabGroupId: string;
   windowId: string;
@@ -49,6 +64,12 @@ export interface addCurrTabToWindowParams {
 
 export interface updateTabGroupTitleParams {
   tabGroupId: string;
+  editableTitle: string;
+}
+
+export interface updateWindowGroupTitleParams {
+  tabGroupId: string;
+  windowId: string;
   editableTitle: string;
 }
 
@@ -109,30 +130,39 @@ export const openTabsInAWindow = createAsyncThunk(
     if (!windowGroup) return;
 
     const { tabs } = windowGroup;
-    chrome.windows.create({ url: tabs[0].url }, (newWindow) => {
-      tabs.slice(1).forEach((tabInfo) => {
-        const placeholder = generatePlaceholderURL(
-          tabInfo.title,
-          tabInfo.favicon || '/images/favicon.ico',
-          tabInfo.url
-        );
+    chrome.windows.create(
+      {
+        url: tabs[0].url,
+        height: windowGroup.windowHeight || DEFAULT_WINDOW_HEIGHT,
+        width: windowGroup.windowWidth || DEFAULT_WINDOW_WIDTH,
+        top: windowGroup.windowOffsetTop || DEFAULT_WINDOW_OFFSET_TOP,
+        left: windowGroup.windowOffsetLeft || DEFAULT_WINDOW_OFFSET_LEFT,
+      },
+      (newWindow) => {
+        tabs.slice(1).forEach((tabInfo) => {
+          const placeholder = generatePlaceholderURL(
+            tabInfo.title,
+            tabInfo.favicon || '/images/favicon.ico',
+            tabInfo.url
+          );
 
-        chrome.tabs.create(
-          {
-            windowId: newWindow!.id,
-            url: placeholder,
-            active: false,
-          },
-          (tab) => {
-            tabURLMap[tab.id!] = {
-              url: tabInfo.url,
-              title: tabInfo.title,
-              favicon: tabInfo.favicon || '/images/favicon.ico',
-            };
-          }
-        );
-      });
-    });
+          chrome.tabs.create(
+            {
+              windowId: newWindow!.id,
+              url: placeholder,
+              active: false,
+            },
+            (tab) => {
+              tabURLMap[tab.id!] = {
+                url: tabInfo.url,
+                title: tabInfo.title,
+                favicon: tabInfo.favicon || '/images/favicon.ico',
+              };
+            }
+          );
+        });
+      }
+    );
   }
 );
 
@@ -155,6 +185,10 @@ export const openAllTabContainer = createAsyncThunk(
         {
           url: windowGroup.tabs[0].url, // load only the first tab directly
           focused: isFirstWindow,
+          height: windowGroup.windowHeight || DEFAULT_WINDOW_HEIGHT,
+          width: windowGroup.windowWidth || DEFAULT_WINDOW_WIDTH,
+          top: windowGroup.windowOffsetTop || DEFAULT_WINDOW_OFFSET_TOP,
+          left: windowGroup.windowOffsetLeft || DEFAULT_WINDOW_OFFSET_LEFT,
         },
         (newWindow) => {
           windowGroup.tabs.slice(1).forEach((tabInfo) => {
@@ -201,7 +235,22 @@ export const saveToTabContainer = createAsyncThunk(
   }
 );
 
-// add current tab to the specified window container and  display a toast message
+// add current window to the specified tabgroup and display a toast message
+export const addCurrWindowToTabGroup = createAsyncThunk(
+  'global/saveToTabContainer',
+  async (params: addCurrWindowToTabGroupParams, thunkAPI) => {
+    thunkAPI.dispatch(addCurrWindowToTabGroupInternal(params));
+
+    thunkAPI.dispatch(
+      showToast({
+        toastText: TOAST_MESSAGES.ADD_CURR_WINDOW_TO_TABGROUP_SUCCESS,
+        duration: 3000,
+      })
+    );
+  }
+);
+
+// add current tab to the specified window container and display a toast message
 export const addCurrTabToWindow = createAsyncThunk(
   'global/addCurrTabToWindow',
   async (params: addCurrTabToWindowParams, thunkAPI) => {
@@ -298,6 +347,27 @@ export const tabContainerDataStateSlice = createSlice({
       saveToLocalStorage('tabContainerData', state);
     },
 
+    addCurrWindowToTabGroupInternal: (
+      state,
+      action: PayloadAction<addCurrWindowToTabGroupParams>
+    ) => {
+      const { tabGroupId, window } = action.payload;
+
+      const tabGroupIndex = state.tabGroups.findIndex(
+        (tabGroup) => tabGroup.tabGroupId === tabGroupId
+      );
+
+      if (tabGroupIndex !== -1) {
+        state.tabGroups[tabGroupIndex].windowCount += 1;
+        state.tabGroups[tabGroupIndex].tabCount += window.tabCount;
+        state.tabGroups[tabGroupIndex].windows.unshift(window);
+      }
+      state.lastModified = Date.now();
+
+      // update localstorage
+      saveToLocalStorage('tabContainerData', state);
+    },
+
     addCurrTabToWindowInternal: (
       state,
       action: PayloadAction<addCurrTabToWindowParams>
@@ -339,6 +409,28 @@ export const tabContainerDataStateSlice = createSlice({
       );
       if (tabGroupIndex !== -1) {
         state.tabGroups[tabGroupIndex].title = newTitle;
+      }
+      state.lastModified = Date.now();
+      // update localstorage
+      saveToLocalStorage('tabContainerData', state);
+    },
+
+    // update window group title
+    updateWindowGroupTitle: (
+      state,
+      action: PayloadAction<updateWindowGroupTitleParams>
+    ) => {
+      const { tabGroupId, windowId, editableTitle: newTitle } = action.payload;
+      const tabGroupIndex = state.tabGroups.findIndex(
+        (tabGroup) => tabGroup.tabGroupId === tabGroupId
+      );
+      if (tabGroupIndex !== -1) {
+        const windowIndex = state.tabGroups[tabGroupIndex].windows.findIndex(
+          (window) => window.windowId === windowId
+        );
+        if (windowIndex !== -1) {
+          state.tabGroups[tabGroupIndex].windows[windowIndex].title = newTitle;
+        }
       }
       state.lastModified = Date.now();
       // update localstorage
@@ -471,8 +563,10 @@ export const tabContainerDataStateSlice = createSlice({
 export const {
   saveToTabContainerInternal,
   selectTabContainer,
+  addCurrWindowToTabGroupInternal,
   addCurrTabToWindowInternal,
   updateTabGroupTitle,
+  updateWindowGroupTitle,
   deleteTabContainerInternal,
   deleteWindowInternal,
   deleteTabInternal,
