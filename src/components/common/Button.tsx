@@ -12,6 +12,8 @@ interface ButtonProps {
   iconType?: string;
   ariaLabel?: string;
   tooltipText?: string;
+  iconSize?: string;
+  iconStyle?: string;
   style?: string;
 }
 
@@ -22,6 +24,8 @@ const Button: React.FC<ButtonProps> = ({
   iconType,
   ariaLabel,
   tooltipText,
+  iconSize,
+  iconStyle,
   style,
 }) => {
   const COLORS = useThemeColors();
@@ -45,6 +49,8 @@ const Button: React.FC<ButtonProps> = ({
     ${style && style}
   `;
 
+  iconStyle;
+
   return (
     <div>
       <button
@@ -58,7 +64,8 @@ const Button: React.FC<ButtonProps> = ({
             type={iconType}
             disable={true}
             focusable={true}
-            style={(imageSrc || text) && 'padding-right: 8px;'}
+            size={iconSize}
+            style={(imageSrc || text) && 'padding-right: 8px;' && iconStyle}
           />
         )}
         {imageSrc && (

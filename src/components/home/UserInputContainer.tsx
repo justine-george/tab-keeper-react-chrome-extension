@@ -62,13 +62,13 @@ export default function UserInputContainer() {
   async function createTabGroup() {
     let tabCount = 0;
 
-    // Fetch all the windows.
+    // fetch all the windows
     const windows = await new Promise<chrome.windows.Window[]>((resolve) =>
       chrome.windows.getAll({ populate: true }, (result) => resolve(result))
     );
 
     const windowsGroupData: windowGroupData[] = windows.map((window) => {
-      // For each window, map its tabs.
+      // for each window, map its tabs
       const tabsData = window.tabs!.map((tab) => {
         return {
           tabId: uuidv4(),

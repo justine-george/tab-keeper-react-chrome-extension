@@ -74,6 +74,7 @@ export const TOAST_MESSAGES = {
     'Oops! We encountered an issue while logging you out. Please try again.',
   SAVE_TAB_CONTAINER_SUCCESS: 'Session saved.',
   ADD_CURR_TAB_TO_WINDOW_SUCCESS: 'Current tab saved.',
+  ADD_CURR_WINDOW_TO_TABGROUP_SUCCESS: 'Current window saved.',
   DELETE_TAB_CONTAINER_SUCCESS: 'Session deleted.',
   DELETE_WINDOW_SUCCESS: 'Session window deleted.',
   DELETE_TAB_SUCCESS: 'Session tab deleted.',

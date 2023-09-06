@@ -51,6 +51,11 @@ export interface TabMasterContainer {
   tabGroups: tabContainerData[];
 }
 
+export interface addCurrWindowToTabGroupParams {
+  tabGroupId: string;
+  window: windowGroupData;
+}
+
 export interface addCurrTabToWindowParams {
   tabGroupId: string;
   windowId: string;
@@ -224,7 +229,22 @@ export const saveToTabContainer = createAsyncThunk(
   }
 );
 
-// add current tab to the specified window container and  display a toast message
+// add current window to the specified tabgroup and display a toast message
+export const addCurrWindowToTabGroup = createAsyncThunk(
+  'global/saveToTabContainer',
+  async (params: addCurrWindowToTabGroupParams, thunkAPI) => {
+    thunkAPI.dispatch(addCurrWindowToTabGroupInternal(params));
+
+    thunkAPI.dispatch(
+      showToast({
+        toastText: TOAST_MESSAGES.ADD_CURR_WINDOW_TO_TABGROUP_SUCCESS,
+        duration: 3000,
+      })
+    );
+  }
+);
+
+// add current tab to the specified window container and display a toast message
 export const addCurrTabToWindow = createAsyncThunk(
   'global/addCurrTabToWindow',
   async (params: addCurrTabToWindowParams, thunkAPI) => {
@@ -315,6 +335,27 @@ export const tabContainerDataStateSlice = createSlice({
           tabGroup.isSelected = false;
         }
       });
+      state.lastModified = Date.now();
+
+      // update localstorage
+      saveToLocalStorage('tabContainerData', state);
+    },
+
+    addCurrWindowToTabGroupInternal: (
+      state,
+      action: PayloadAction<addCurrWindowToTabGroupParams>
+    ) => {
+      const { tabGroupId, window } = action.payload;
+
+      const tabGroupIndex = state.tabGroups.findIndex(
+        (tabGroup) => tabGroup.tabGroupId === tabGroupId
+      );
+
+      if (tabGroupIndex !== -1) {
+        state.tabGroups[tabGroupIndex].windowCount += 1;
+        state.tabGroups[tabGroupIndex].tabCount += window.tabCount;
+        state.tabGroups[tabGroupIndex].windows.unshift(window);
+      }
       state.lastModified = Date.now();
 
       // update localstorage
@@ -494,6 +535,7 @@ export const tabContainerDataStateSlice = createSlice({
 export const {
   saveToTabContainerInternal,
   selectTabContainer,
+  addCurrWindowToTabGroupInternal,
   addCurrTabToWindowInternal,
   updateTabGroupTitle,
   deleteTabContainerInternal,
