@@ -248,3 +248,35 @@ const isValidTabData = (data: any): data is tabData => {
     typeof data.url === 'string'
   );
 };
+
+// Convert date from "YYYY-MM-DD HH:MM:SS" to "H:MM:SS AM/PM (Month D, YYYY)"
+export const getPrettyDate = (dateString: string): string => {
+  const months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sept',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+
+  const date = new Date(dateString);
+
+  const year = date.getFullYear();
+  const month = months[date.getMonth()];
+  const day = date.getDate();
+  const hours = date.getHours();
+  const minutes = date.getMinutes().toString().padStart(2, '0');
+  const seconds = date.getSeconds().toString().padStart(2, '0');
+
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  const formattedHours = hours > 12 ? hours - 12 : hours === 0 ? 12 : hours;
+
+  return `${month} ${day}, ${year} at ${formattedHours}:${minutes}:${seconds} ${ampm}`;
+};

@@ -9,7 +9,7 @@ import Icon from '../common/Icon';
 import { NormalLabel } from '../common/Label';
 import { useThemeColors } from '../hook/useThemeColors';
 import { AppDispatch, RootState } from '../../redux/store';
-import { filterTabGroups } from '../../utils/helperFunctions';
+import { filterTabGroups, getPrettyDate } from '../../utils/helperFunctions';
 import {
   addCurrWindowToTabGroup,
   deleteTabContainer,
@@ -132,6 +132,12 @@ export default function HeroContainerRight() {
     dispatch(addCurrWindowToTabGroup({ tabGroupId, window }));
   };
 
+  function handleKeyPressOnEditTitle(e: React.KeyboardEvent<HTMLDivElement>) {
+    if (e.key === 'Enter') {
+      handleBlur();
+    }
+  }
+
   return (
     <div
       css={containerStyle}
@@ -154,6 +160,7 @@ export default function HeroContainerRight() {
               value={editableTitle}
               onBlur={handleBlur}
               onChange={handleChange}
+              onKeyDown={(e) => handleKeyPressOnEditTitle(e)}
               autoFocus
               css={css`
                 color: ${COLORS.TEXT_COLOR};
@@ -215,7 +222,7 @@ export default function HeroContainerRight() {
           style={`padding-top: 2px; padding-left: 8px;`}
         />
         <NormalLabel
-          value={createdTime}
+          value={getPrettyDate(createdTime)}
           size="0.7rem"
           color={COLORS.LABEL_L2_COLOR}
           style="padding-top: 2px; padding-left: 8px;"

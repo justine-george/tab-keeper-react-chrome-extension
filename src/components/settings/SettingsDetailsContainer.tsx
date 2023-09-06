@@ -5,11 +5,11 @@ import { css } from '@emotion/react';
 import Button from '../common/Button';
 import { NormalLabel } from '../common/Label';
 import {
-  DARK_THEME,
+  BB_PINK_THEME,
+  WARM_LIGHT_THEME,
+  BLUE_THEME,
   LIGHT_THEME,
-  // CORPORATE_THEME,
-  // DARCULA_THEME,
-  // SOLARIZED_LIGHT_THEME,
+  DARKENHEIMER_THEME,
   useThemeColors,
 } from '../hook/useThemeColors';
 import { AppDispatch, RootState } from '../../redux/store';
@@ -205,6 +205,7 @@ const SettingsDetailsContainer: React.FC = () => {
             `}
           >
             <Button
+              tooltipText="Light"
               onClick={() => dispatch(setTheme(Theme.LIGHT))}
               style={`
               width: 60px;
@@ -216,53 +217,58 @@ const SettingsDetailsContainer: React.FC = () => {
             `}
             />
             <Button
-              onClick={() => dispatch(setTheme(Theme.DARK))}
+              tooltipText="Warm Light"
+              onClick={() => dispatch(setTheme(Theme.WARM_LIGHT))}
               style={`
               margin-left: 16px;
               width: 60px;
               border: 1px solid ${COLORS.BORDER_COLOR};
-              background-color: ${DARK_THEME.PRIMARY_COLOR};
+              background-color: ${WARM_LIGHT_THEME.PRIMARY_COLOR};
               &:hover {
-                background-color: ${DARK_THEME.PRIMARY_COLOR};
+                background-color: ${WARM_LIGHT_THEME.PRIMARY_COLOR};
               }
             `}
             />
-            {/* <Button
-              onClick={() => dispatch(setTheme(Theme.CORPORATE))}
+
+            <Button
+              tooltipText="BB Pink"
+              onClick={() => dispatch(setTheme(Theme.BB_PINK))}
               style={`
               margin-left: 16px;
               width: 60px;
               border: 1px solid ${COLORS.BORDER_COLOR};
-              background-color: ${CORPORATE_THEME.PRIMARY_COLOR};
+              background-color: ${BB_PINK_THEME.PRIMARY_COLOR};
               &:hover {
-                background-color: ${CORPORATE_THEME.PRIMARY_COLOR};
+                background-color: ${BB_PINK_THEME.PRIMARY_COLOR};
               }
             `}
             />
             <Button
-              onClick={() => dispatch(setTheme(Theme.SOLARIZED_LIGHT))}
+              tooltipText="Darkenheimer"
+              onClick={() => dispatch(setTheme(Theme.DARKENHEIMER))}
               style={`
               margin-left: 16px;
               width: 60px;
               border: 1px solid ${COLORS.BORDER_COLOR};
-              background-color: ${SOLARIZED_LIGHT_THEME.PRIMARY_COLOR};
+              background-color: ${DARKENHEIMER_THEME.PRIMARY_COLOR};
               &:hover {
-                background-color: ${SOLARIZED_LIGHT_THEME.PRIMARY_COLOR};
+                background-color: ${DARKENHEIMER_THEME.PRIMARY_COLOR};
               }
             `}
             />
             <Button
-              onClick={() => dispatch(setTheme(Theme.DARCULA))}
+              tooltipText="Blue"
+              onClick={() => dispatch(setTheme(Theme.BLUE))}
               style={`
               margin-left: 16px;
               width: 60px;
               border: 1px solid ${COLORS.BORDER_COLOR};
-              background-color: ${DARCULA_THEME.PRIMARY_COLOR};
+              background-color: ${BLUE_THEME.PRIMARY_COLOR};
               &:hover {
-                background-color: ${DARCULA_THEME.PRIMARY_COLOR};
+                background-color: ${BLUE_THEME.PRIMARY_COLOR};
               }
             `}
-            /> */}
+            />
           </div>
         </div>
       </div>

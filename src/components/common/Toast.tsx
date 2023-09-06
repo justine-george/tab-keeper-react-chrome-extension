@@ -28,17 +28,17 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
     position: fixed;
     bottom: 20px;
     ${isSettingsPage ? `right: 20px` : `left: 20px`};
-    background-color: ${COLORS.CONTRAST_COLOR};
-    color: ${COLORS.PRIMARY_COLOR};
+    background-color: ${COLORS.PRIMARY_COLOR};
+    color: ${COLORS.TEXT_COLOR};
     padding: 10px;
-    border: 1px solid ${COLORS.BORDER_COLOR}
+    border: 1px solid ${COLORS.BORDER_COLOR};
     border-radius: 0px;
     z-index: 1000;
     width: 300px;
     min-height: 50px;
     display: flex;
     justify-content: center;
-    font-family: "Libre Franklin", sans-serif;
+    font-family: 'Libre Franklin', sans-serif;
     font-size: 0.9rem;
     align-items: center;
     user-select: none;
