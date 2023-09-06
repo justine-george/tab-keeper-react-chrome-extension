@@ -30,11 +30,35 @@ At its core, Tab Keeper uses technologies like React, Emotion CSS, Cloud Firesto
 
 ## 📜 Changelog:
 
-v.1.0.9
+### v.1.1.5
 
-- Enhanced Privacy: We've eliminated the need for emails. Tab Keeper now syncs using the inbuilt browser sync feature, fortifying privacy.
-- Sync Collision Improvements: Enhanced handling of sync collisions, especially when operating across multiple machines.
-  <br>
+#### New Features:
+- Window Management: The application now recalls window positions and sizes for a seamless restoration experience.
+- Tab Groups: Easily add the current window to an existing tab group.
+- Renaming: Capability to rename tab groups and window groups.
+- Themes: Expanded selection of customizable themes for enhanced user experience.
+
+#### Improvements:
+- Various bug fixes and optimizations.
+
+### v.1.1.2
+
+#### Enhancements:
+- Settings UI: Overhauled settings categories for improved navigation.
+- User Experience: Multiple tweaks and adjustments for an enriched user experience.
+
+#### Improvements:
+- Addressed multiple bugs for better stability.
+
+### v.1.0.9
+
+#### New Features:
+- Privacy Boost: Eliminated email requirements. Tab Keeper now utilizes the browser's inbuilt sync feature for enhanced privacy.
+
+#### Improvements:
+- Syncing: Improved handling of sync collisions, ensuring smoother operation across multiple devices.
+
+<br>
 
 ## 🙌 Contributing
 
