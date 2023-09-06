@@ -20,6 +20,7 @@ interface WindowEntryContainerProps {
   tabGroupId: string;
   windowId: string;
   onWindowTitleClick: MouseEventHandler;
+  onUpdateWindowGroupTitle: (newTitle: string) => void;
   onAddCurrTabToWindowClick: MouseEventHandler;
   onDeleteClick: MouseEventHandler;
 }
@@ -30,6 +31,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   tabGroupId,
   windowId,
   onWindowTitleClick,
+  onUpdateWindowGroupTitle,
   onAddCurrTabToWindowClick,
   onDeleteClick,
 }) => {
@@ -38,7 +40,8 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   const dispatch: AppDispatch = useDispatch();
 
   const [windowOpenState, setWindowOpenState] = useState(true);
-
+  const [newTitle, setNewTitle] = useState(title);
+  const [isEditing, setIsEditing] = useState(false);
   const [isParentHovered, setIsParentHovered] = useState(false);
   const [hoveredChildIndex, setHoveredChildIndex] = useState<number | null>(
     null
@@ -140,9 +143,20 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     cursor: pointer;
   `;
 
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setNewTitle(e.target.value);
+  };
+
+  const handleBlur = () => {
+    setIsEditing(false);
+    if (title !== newTitle) {
+      onUpdateWindowGroupTitle(newTitle);
+    }
+  };
+
   const handleWindowClick = (e: React.MouseEvent<HTMLDivElement>) => {
     e.stopPropagation();
-    if (!isSearchPanel) {
+    if (!isSearchPanel && !isEditing) {
       onWindowTitleClick(e);
     }
   };
@@ -158,6 +172,12 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   function handleKeyPressOnWindow(e: React.KeyboardEvent<HTMLDivElement>) {
     if (e.key === 'Enter') {
       handleWindowClick(e as any);
+    }
+  }
+
+  function handleKeyPressOnEditDone(e: React.KeyboardEvent<HTMLDivElement>) {
+    if (e.key === 'Enter') {
+      handleBlur();
     }
   }
 
@@ -192,40 +212,95 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
             onKeyDown={(e) => handleKeyPressOnWindow(e)}
             title={!isSearchPanel ? 'Open in new window' : undefined}
           >
-            <NormalLabel
-              value={title}
-              color={COLORS.TEXT_COLOR}
-              size="0.9rem"
-              style={`
+            {isEditing && !isSearchPanel ? (
+              <input
+                value={newTitle}
+                onBlur={handleBlur}
+                onChange={handleChange}
+                onKeyDown={(e) => handleKeyPressOnEditDone(e)}
+                autoFocus
+                css={css`
+                  color: ${COLORS.TEXT_COLOR};
+                  background-color: ${COLORS.PRIMARY_COLOR};
+                  border: 1px solid ${COLORS.BORDER_COLOR};
+                  display: flex;
+                  align-items: center;
+                  font-family: 'Libre Franklin', sans-serif;
+                  font-size: 0.9rem;
+                  padding-left: 8px;
+                  height: 100%;
+                  width: 310px;
+                  &:focus {
+                    outline: none;
+                  }
+                `}
+              />
+            ) : (
+              <NormalLabel
+                value={title}
+                color={COLORS.TEXT_COLOR}
+                size="0.9rem"
+                style={`
                 padding-left: 8px;
                 ${!isSearchPanel && 'cursor: pointer'};
                 height: 100%; max-width: 330px;`}
-            />
+              />
+            )}
           </div>
         </div>
         <div css={parentRightStyle}>
-          <Icon
-            tooltipText="Add current tab"
-            ariaLabel="add current tab"
-            type="add"
-            backgroundColor={COLORS.HOVER_COLOR}
-            onClick={(e) => {
-              e.stopPropagation();
-              onAddCurrTabToWindowClick(e);
-            }}
-            focusable={isParentHovered}
-          />
-          <Icon
-            tooltipText="Delete"
-            ariaLabel="delete"
-            type="delete"
-            backgroundColor={COLORS.HOVER_COLOR}
-            onClick={(e) => {
-              e.stopPropagation();
-              onDeleteClick(e);
-            }}
-            focusable={isParentHovered}
-          />
+          {isEditing && !isSearchPanel ? (
+            <Icon
+              tooltipText="Save changes"
+              ariaLabel="save changes"
+              type="done"
+              backgroundColor={COLORS.HOVER_COLOR}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleBlur();
+              }}
+              focusable={isParentHovered}
+            />
+          ) : (
+            <Icon
+              tooltipText="Rename window group"
+              ariaLabel="rename window group"
+              type="edit"
+              backgroundColor={COLORS.HOVER_COLOR}
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsEditing(true);
+              }}
+              focusable={isParentHovered}
+            />
+          )}
+
+          {!isEditing && !isSearchPanel && (
+            <Icon
+              tooltipText="Add current tab"
+              ariaLabel="add current tab"
+              type="add"
+              backgroundColor={COLORS.HOVER_COLOR}
+              onClick={(e) => {
+                e.stopPropagation();
+                onAddCurrTabToWindowClick(e);
+              }}
+              focusable={isParentHovered}
+            />
+          )}
+          {!isEditing && !isSearchPanel && (
+            <Icon
+              tooltipText="Delete"
+              ariaLabel="delete"
+              type="delete"
+              backgroundColor={COLORS.HOVER_COLOR}
+              onClick={(e) => {
+                e.stopPropagation();
+                onDeleteClick(e);
+              }}
+              focusable={isParentHovered}
+            />
+          )}
         </div>
       </div>
       {windowOpenState && (

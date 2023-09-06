@@ -67,6 +67,12 @@ export interface updateTabGroupTitleParams {
   editableTitle: string;
 }
 
+export interface updateWindowGroupTitleParams {
+  tabGroupId: string;
+  windowId: string;
+  editableTitle: string;
+}
+
 export interface deleteWindowParams {
   tabGroupId: string;
   windowId: string;
@@ -409,6 +415,28 @@ export const tabContainerDataStateSlice = createSlice({
       saveToLocalStorage('tabContainerData', state);
     },
 
+    // update window group title
+    updateWindowGroupTitle: (
+      state,
+      action: PayloadAction<updateWindowGroupTitleParams>
+    ) => {
+      const { tabGroupId, windowId, editableTitle: newTitle } = action.payload;
+      const tabGroupIndex = state.tabGroups.findIndex(
+        (tabGroup) => tabGroup.tabGroupId === tabGroupId
+      );
+      if (tabGroupIndex !== -1) {
+        const windowIndex = state.tabGroups[tabGroupIndex].windows.findIndex(
+          (window) => window.windowId === windowId
+        );
+        if (windowIndex !== -1) {
+          state.tabGroups[tabGroupIndex].windows[windowIndex].title = newTitle;
+        }
+      }
+      state.lastModified = Date.now();
+      // update localstorage
+      saveToLocalStorage('tabContainerData', state);
+    },
+
     // delete tab group by tabGroupId
     deleteTabContainerInternal: (state, action: PayloadAction<string>) => {
       const toBeDeletedTabGroupId = action.payload;
@@ -538,6 +566,7 @@ export const {
   addCurrWindowToTabGroupInternal,
   addCurrTabToWindowInternal,
   updateTabGroupTitle,
+  updateWindowGroupTitle,
   deleteTabContainerInternal,
   deleteWindowInternal,
   deleteTabInternal,

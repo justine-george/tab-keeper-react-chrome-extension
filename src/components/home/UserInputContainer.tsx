@@ -125,6 +125,7 @@ export default function UserInputContainer() {
         ariaLabel="search"
         onClick={filterResults}
         style="padding: 12px;"
+        focusableButton={true}
       />
     </div>
   ) : (
@@ -146,6 +147,7 @@ export default function UserInputContainer() {
         iconType="add"
         onClick={createTabGroup}
         style="padding: 12px;"
+        focusableButton={true}
       />
     </div>
   );

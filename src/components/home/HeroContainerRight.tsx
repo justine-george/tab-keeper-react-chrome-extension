@@ -85,8 +85,6 @@ export default function HeroContainerRight() {
     display: flex;
     flex-direction: column;
     width: 100%;
-    padding: 8px;
-    padding-bottom: unset;
   `;
 
   const bottomStyle = css`
@@ -141,48 +139,86 @@ export default function HeroContainerRight() {
       onMouseLeave={() => setIsContainerHovered(false)}
     >
       <div css={topStyle}>
-        {isEditing && !isSearchPanel ? (
-          <input
-            value={editableTitle}
-            onBlur={handleBlur}
-            onChange={handleChange}
-            autoFocus
+        <div
+          css={css`
+            position: relative;
+            display: flex;
+            flex-direction: row;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+          `}
+        >
+          {isEditing && !isSearchPanel ? (
+            <input
+              value={editableTitle}
+              onBlur={handleBlur}
+              onChange={handleChange}
+              autoFocus
+              css={css`
+                color: ${COLORS.TEXT_COLOR};
+                background-color: ${COLORS.PRIMARY_COLOR};
+                border: 1px solid ${COLORS.BORDER_COLOR};
+                display: flex;
+                align-items: center;
+                font-family: 'Libre Franklin', sans-serif;
+                font-size: 1.125rem;
+                height: 32px;
+                padding-left: 8px;
+                flex-grow: 1;
+                &:focus {
+                  outline: none;
+                }
+              `}
+            />
+          ) : (
+            <NormalLabel
+              tooltipText={title}
+              value={title}
+              size="1.125rem"
+              color={COLORS.TEXT_COLOR}
+              style="height: 32px; padding-left: 8px;"
+              onClick={handleTabGroupTitleClick}
+            />
+          )}
+          <div
             css={css`
-              color: ${COLORS.TEXT_COLOR};
-              background-color: ${COLORS.PRIMARY_COLOR};
-              border: 1px solid ${COLORS.BORDER_COLOR};
-              display: flex;
-              align-items: center;
-              font-family: 'Libre Franklin', sans-serif;
-              font-size: 1.1rem;
-              &:focus {
-                outline: none;
-              }
+              position: absolute;
+              top: 50%;
+              right: 0;
+              transform: translateY(-50%);
+              opacity: ${isContainerHovered ? 1 : 0};
+              transition: opacity 0.1s ease-out;
+              ${isSearchPanel && 'visibility: hidden;'}
             `}
-          />
-        ) : (
-          <NormalLabel
-            tooltipText={title}
-            value={title}
-            size="1.125rem"
-            color={COLORS.TEXT_COLOR}
-            style="height: 21px;"
-            onClick={handleTabGroupTitleClick}
-          />
-        )}
+          >
+            {!isEditing && !isSearchPanel && (
+              <Icon
+                tooltipText="Rename window group"
+                ariaLabel="rename window group"
+                type="edit"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsEditing(true);
+                }}
+                focusable={isContainerHovered}
+              />
+            )}
+          </div>
+        </div>
         <NormalLabel
           value={`${windowCount} ${
             windowCount > 1 ? 'Windows' : 'Window'
           } - ${tabCount} ${tabCount > 1 ? 'Tabs' : 'Tab'}`}
           size="0.75rem"
           color={COLORS.LABEL_L1_COLOR}
-          style={`padding-top: ${isEditing ? '2px' : '6px'};`}
+          style={`padding-top: 2px; padding-left: 8px;`}
         />
         <NormalLabel
           value={createdTime}
           size="0.7rem"
           color={COLORS.LABEL_L2_COLOR}
-          style="padding-top: 2px;"
+          style="padding-top: 2px; padding-left: 8px;"
         />
       </div>
       <div css={bottomStyle}>
@@ -208,8 +244,6 @@ export default function HeroContainerRight() {
         <div
           css={css`
             display: flex;
-            opacity: ${isContainerHovered ? 1 : 0};
-            transition: opacity 0.1s ease-out;
           `}
         >
           <Button
@@ -217,17 +251,18 @@ export default function HeroContainerRight() {
             tooltipText="Add current window"
             ariaLabel="add current window"
             iconType="add"
+            focusableButton={isContainerHovered}
             onClick={handleAddCurrWindowClick}
-            iconSize="1.4rem"
+            iconSize="1.3rem"
             iconStyle={`
-              padding: 4px;
+              padding: 4px 4px 2px 4px;
             `}
             style={`
               border: none;
-              height: 2.4rem;
+              height: 32px;
               font-size: 0.8rem;
-              padding: 2px 10px 0px 4px;
-              background-color: ${COLORS.HOVER_COLOR};
+              padding: 4px 9px 3px 2px;
+              background-color: ${COLORS.HOVER_COLOR || '#e3e6e9'};
             `}
           />
         </div>

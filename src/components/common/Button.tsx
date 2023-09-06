@@ -14,6 +14,7 @@ interface ButtonProps {
   tooltipText?: string;
   iconSize?: string;
   iconStyle?: string;
+  focusableButton?: boolean;
   style?: string;
 }
 
@@ -26,6 +27,7 @@ const Button: React.FC<ButtonProps> = ({
   tooltipText,
   iconSize,
   iconStyle,
+  focusableButton,
   style,
 }) => {
   const COLORS = useThemeColors();
@@ -58,6 +60,7 @@ const Button: React.FC<ButtonProps> = ({
         aria-label={ariaLabel}
         css={buttonStyle}
         onClick={onClick}
+        tabIndex={onClick && focusableButton ? 0 : -1}
       >
         {iconType && (
           <Icon
