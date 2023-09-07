@@ -54,14 +54,27 @@ export default function UserInputContainer() {
   }
 
   async function createTabGroup() {
-    let tabCount = 0;
-
     // fetch all the windows
-    const windows = await new Promise<chrome.windows.Window[]>((resolve) =>
+    const allWindows = await new Promise<chrome.windows.Window[]>((resolve) =>
       chrome.windows.getAll({ populate: true }, (result) => resolve(result))
     );
 
-    const windowsGroupData: windowGroupData[] = windows.map((window) => {
+    // fetch current window
+    const currentWindow = await new Promise<chrome.windows.Window>((resolve) =>
+      chrome.windows.getCurrent({ populate: true }, (result) => resolve(result))
+    );
+
+    // filter out current window
+    let windowList = allWindows.filter(
+      (window) => window.id !== currentWindow.id
+    );
+
+    // add current window to the beginning
+    windowList.unshift(currentWindow);
+
+    let tabCount = 0;
+
+    const windowsGroupData: windowGroupData[] = windowList.map((window) => {
       // for each window, map its tabs
       const tabsData = window.tabs!.map((tab) => {
         return {
@@ -90,7 +103,7 @@ export default function UserInputContainer() {
       tabGroupId: uuidv4(),
       title: newTitle || currentTabName,
       createdTime: getStringDate(new Date()),
-      windowCount: windows.length,
+      windowCount: windowList.length,
       tabCount: tabCount,
       isAutoSave: false,
       isSelected: true,
