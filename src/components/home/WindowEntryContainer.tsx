@@ -8,6 +8,7 @@ import Icon from '../common/Icon';
 import { NormalLabel } from '../common/Label';
 import { useThemeColors } from '../hook/useThemeColors';
 import { AppDispatch, RootState } from '../../redux/store';
+import { decodeDataUrl } from '../../utils/helperFunctions';
 import { NON_INTERACTIVE_ICON_STYLE } from '../../utils/constants/common';
 import {
   deleteTab,
@@ -162,7 +163,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   };
 
   const handleTabClick = (url: string) => {
-    chrome.tabs.create({ url: url });
+    chrome.tabs.create({ url: decodeDataUrl(url) });
   };
 
   function handleAccordionClick() {

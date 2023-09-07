@@ -7,7 +7,11 @@ import { NormalLabel } from '../common/Label';
 import { useThemeColors } from '../hook/useThemeColors';
 import WindowEntryContainer from './WindowEntryContainer';
 import { AppDispatch, RootState } from '../../redux/store';
-import { filterTabGroups, isEmptyObject } from '../../utils/helperFunctions';
+import {
+  decodeDataUrl,
+  filterTabGroups,
+  isEmptyObject,
+} from '../../utils/helperFunctions';
 import {
   addCurrTabToWindow,
   deleteWindow,
@@ -43,6 +47,31 @@ export default function TabGroupDetailsContainer() {
 
   const tabGroupId = selectedTabGroup.tabGroupId;
 
+  async function handleAddCurrTabToWindowClick(
+    tabGroupId: string,
+    windowId: string
+  ) {
+    let [tab] = await chrome.tabs.query({
+      active: true,
+      lastFocusedWindow: true,
+    });
+    const tabData: tabData = {
+      tabId: uuidv4(),
+      favicon: tab.favIconUrl || '',
+      title: tab.title || '',
+      url: decodeDataUrl(tab.url || ''),
+    };
+    dispatch(addCurrTabToWindow({ tabGroupId, windowId, tabData }));
+  }
+
+  const handleUpdateWindowGroupTitle = async (
+    tabGroupId: string,
+    windowId: string,
+    editableTitle: string
+  ) => {
+    dispatch(updateWindowGroupTitle({ tabGroupId, windowId, editableTitle }));
+  };
+
   const containerStyle = css`
     display: flex;
     flex-direction: column;
@@ -61,31 +90,6 @@ export default function TabGroupDetailsContainer() {
   `;
 
   const filledContainerStyle = css``;
-
-  async function handleAddCurrTabToWindowClick(
-    tabGroupId: string,
-    windowId: string
-  ) {
-    let [tab] = await chrome.tabs.query({
-      active: true,
-      lastFocusedWindow: true,
-    });
-    const tabData: tabData = {
-      tabId: uuidv4(),
-      favicon: tab.favIconUrl || '',
-      title: tab.title || '',
-      url: tab.url || '',
-    };
-    dispatch(addCurrTabToWindow({ tabGroupId, windowId, tabData }));
-  }
-
-  const handleUpdateWindowGroupTitle = async (
-    tabGroupId: string,
-    windowId: string,
-    editableTitle: string
-  ) => {
-    dispatch(updateWindowGroupTitle({ tabGroupId, windowId, editableTitle }));
-  };
 
   return (
     <div css={containerStyle}>

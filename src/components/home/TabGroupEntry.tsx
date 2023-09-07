@@ -5,8 +5,8 @@ import { css } from '@emotion/react';
 import Icon from '../common/Icon';
 import { NormalLabel } from '../common/Label';
 import { useThemeColors } from '../hook/useThemeColors';
-import { tabContainerData } from '../../redux/slice/tabContainerDataStateSlice';
 import { getPrettyDate } from '../../utils/helperFunctions';
+import { tabContainerData } from '../../redux/slice/tabContainerDataStateSlice';
 
 interface TabGroupEntryProps {
   tabGroupData: tabContainerData;

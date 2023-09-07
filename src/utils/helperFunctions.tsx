@@ -1,24 +1,25 @@
+import { doc, setDoc } from 'firebase/firestore';
+
 import { AppDispatch } from '../redux/store';
+import { db, fetchDataFromFirestore } from '../config/firebase';
 import {
   saveToFirestoreIfDirty,
   setIsDirty,
   showToast,
 } from '../redux/slice/globalStateSlice';
 import {
-  TabMasterContainer,
   tabContainerData,
   tabData,
+  TabMasterContainer,
   windowGroupData,
 } from '../redux/slice/tabContainerDataStateSlice';
-import { db, fetchDataFromFirestore } from '../config/firebase';
-import { doc, setDoc } from 'firebase/firestore';
 
-// Check if an object is empty
+// check if an object is empty
 export function isEmptyObject(obj: any): boolean {
   return typeof obj === 'object' && Object.keys(obj).length === 0;
 }
 
-// Convert Date object to formatted string
+// convert Date object to formatted string
 export function getStringDate(inputDate: Date): string {
   const [year, month, day, hour, minute, second] = [
     inputDate.getFullYear(),
@@ -32,17 +33,17 @@ export function getStringDate(inputDate: Date): string {
   return `${year}-${month}-${day} ${hour}:${minute}:${second}`;
 }
 
-// Simulate a lottery win based on random number
+// simulate a lottery win based on random number
 export function isLotteryWon(): boolean {
   return Math.floor(Math.random() * 2) === 1;
 }
 
-// Simulate a network delay
+// simulate a network delay
 export function simulateNetworkDelay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-// Debounce a function
+// debounce a function
 export function debounce(func: any, delay: number) {
   let timeoutId: number | null | undefined;
   return (...args: any[]) => {
@@ -56,20 +57,20 @@ export function debounce(func: any, delay: number) {
   };
 }
 
-// Validate email format
+// validate email format
 export function isValidEmail(email: string): boolean {
   const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return regex.test(email);
 }
 
-// Validate password format
+// validate password format
 export function isValidPassword(password: string): boolean {
   const hasLetters = /[a-zA-Z]/.test(password);
   const hasNumbers = /\d/.test(password);
   return password.length >= 8 && hasLetters && hasNumbers;
 }
 
-// Display a toast message
+// display a toast message
 export const displayToast = (
   dispatch: AppDispatch,
   text: string,
@@ -131,7 +132,7 @@ export const filterTabGroups = (
   }, []);
 };
 
-// Save data to local storage
+// save data to local storage
 export const saveToLocalStorage = (key: string, data: any): void => {
   try {
     localStorage.setItem(key, JSON.stringify(data));
@@ -140,7 +141,7 @@ export const saveToLocalStorage = (key: string, data: any): void => {
   }
 };
 
-// Load data from local storage
+// load data from local storage
 export const loadFromLocalStorage = (key: string): any | undefined => {
   try {
     const serializedState = localStorage.getItem(key);
@@ -152,15 +153,30 @@ export const loadFromLocalStorage = (key: string): any | undefined => {
   }
 };
 
-// placeholder URL for quicker session loads and lesser memory consumption
+// generate placeholder URL for quicker session loads and lesser memory consumption
 export function generatePlaceholderURL(
   title: string,
   faviconURL: string,
   url: string
 ) {
   const html = `<html><head><meta charset="UTF-8" /><link rel="icon" type="image/x-icon" href="${faviconURL}" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title>${title}</title><style>body {background-color: #181818;color: #ffffff;font-family: "Libre Franklin", sans-serif;display: flex;margin: 20px;flex-direction: column;justify-content: flex-start;align-items: flex-start;height: 100vh;}#copyButton {cursor: pointer;background-color: #2c2c2c;padding: 10px 20px;border: none;border-radius: 10px;color: #ffffff;font-family: "Libre Franklin", sans-serif;font-size: 12px;transition: background-color 0.125s ease, color 0.125s ease;}#copyButton.copied {background-color: #77dd77;color: black;}h1,h2,p {margin: 10px 0;}a {text-decoration: none;color: inherit;}p {font-size: 0.9rem;}</style></head><body><h2>${title}</h2><a href="${url}"><p>${url}</p></a><button id="copyButton" onclick="copyToClipboard()">Copy URL</button><script>function copyToClipboard() {navigator.clipboard.writeText("${url}").then(() => {const button = document.getElementById("copyButton");button.innerHTML = "URL copied!";button.classList.add("copied");setTimeout(() => {button.classList.remove("copied");button.innerHTML = "Copy URL";}, 2000);});}</script></body></html>`;
-  const blob = new Blob([html], { type: 'text/html' });
-  return URL.createObjectURL(blob);
+  const base64Html = btoa(html);
+  return `data:text/html;base64,${base64Html}`;
+}
+
+// decode dataurl before saving - bugfix to prevent saving base64 encoded urls
+export function decodeDataUrl(url: string): string {
+  if (url.startsWith('data:text/html;base64,')) {
+    const base64Data = url.replace('data:text/html;base64,', '');
+    const decodedHtml = atob(base64Data);
+
+    // extract the actual URL from the HTML content
+    const urlMatch = decodedHtml.match(/<a href="([^"]+)">/);
+    if (urlMatch && urlMatch[1]) {
+      return urlMatch[1];
+    }
+  }
+  return url;
 }
 
 // load data from Firestore
@@ -249,7 +265,7 @@ const isValidTabData = (data: any): data is tabData => {
   );
 };
 
-// Convert date from "YYYY-MM-DD HH:MM:SS" to "H:MM:SS AM/PM (Month D, YYYY)"
+// convert date from "YYYY-MM-DD HH:MM:SS" to "H:MM:SS AM/PM (Month D, YYYY)"
 export const getPrettyDate = (dateString: string): string => {
   const months = [
     'Jan',

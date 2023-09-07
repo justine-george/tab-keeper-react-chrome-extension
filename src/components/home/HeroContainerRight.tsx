@@ -1,15 +1,20 @@
 import { useEffect, useState } from 'react';
 
+import { v4 as uuidv4 } from 'uuid';
 import { useDispatch, useSelector } from 'react-redux';
 
 import { css } from '@emotion/react';
-import { v4 as uuidv4 } from 'uuid';
 
 import Icon from '../common/Icon';
+import Button from '../common/Button';
 import { NormalLabel } from '../common/Label';
 import { useThemeColors } from '../hook/useThemeColors';
 import { AppDispatch, RootState } from '../../redux/store';
-import { filterTabGroups, getPrettyDate } from '../../utils/helperFunctions';
+import {
+  decodeDataUrl,
+  filterTabGroups,
+  getPrettyDate,
+} from '../../utils/helperFunctions';
 import {
   addCurrWindowToTabGroup,
   deleteTabContainer,
@@ -17,15 +22,13 @@ import {
   updateTabGroupTitle,
   windowGroupData,
 } from '../../redux/slice/tabContainerDataStateSlice';
-import Button from '../common/Button';
 
 export default function HeroContainerRight() {
   const COLORS = useThemeColors();
   const [isEditing, setIsEditing] = useState(false);
   const [editableTitle, setEditableTitle] = useState('');
-
+  const [currentTabName, setCurrentTabName] = useState<string>('New Tab');
   const [isContainerHovered, setIsContainerHovered] = useState<boolean>(false);
-  console.log(isContainerHovered);
   const dispatch: AppDispatch = useDispatch();
 
   const tabContainerDataList = useSelector(
@@ -39,6 +42,17 @@ export default function HeroContainerRight() {
   const searchInputText = useSelector(
     (state: RootState) => state.globalState.searchInputText
   );
+
+  useEffect(() => {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      const currentTab = tabs[0];
+      if (currentTab && currentTab.title) {
+        setCurrentTabName(currentTab.title);
+      } else {
+        setCurrentTabName('New Tab');
+      }
+    });
+  }, []);
 
   let filteredTabGroups = tabContainerDataList.tabGroups.filter(
     (tabGroup) => tabGroup.isSelected
@@ -69,6 +83,48 @@ export default function HeroContainerRight() {
     setEditableTitle(e.target.value);
   };
 
+  const { tabGroupId, title, createdTime, windowCount, tabCount } =
+    selectedTabGroup;
+
+  const handleAddCurrWindowClick = async () => {
+    // fetch current window
+    const windowData = await new Promise<chrome.windows.Window>((resolve) =>
+      chrome.windows.getCurrent({ populate: true }, (result) => resolve(result))
+    );
+
+    // map its tabs
+    let tabCount = 0;
+    const tabsData = windowData.tabs!.map((tab) => {
+      return {
+        tabId: uuidv4(),
+        favicon: tab.favIconUrl || '',
+        title: tab.title || '',
+        url: decodeDataUrl(tab.url || ''),
+      };
+    });
+
+    tabCount += tabsData.length;
+
+    const window: windowGroupData = {
+      windowId: uuidv4(),
+      windowHeight: windowData.height!,
+      windowWidth: windowData.width!,
+      windowOffsetTop: windowData.top!,
+      windowOffsetLeft: windowData.left!,
+      tabCount: tabsData.length,
+      title: currentTabName,
+      tabs: tabsData,
+    };
+
+    dispatch(addCurrWindowToTabGroup({ tabGroupId, window }));
+  };
+
+  function handleKeyPressOnEditTitle(e: React.KeyboardEvent<HTMLDivElement>) {
+    if (e.key === 'Enter') {
+      handleBlur();
+    }
+  }
+
   const containerStyle = css`
     display: flex;
     flex-direction: column;
@@ -95,48 +151,6 @@ export default function HeroContainerRight() {
     width: 100%;
     ${isSearchPanel && 'visibility: hidden;'}
   `;
-
-  const { tabGroupId, title, createdTime, windowCount, tabCount } =
-    selectedTabGroup;
-
-  const handleAddCurrWindowClick = async () => {
-    // fetch current window
-    const windowData = await new Promise<chrome.windows.Window>((resolve) =>
-      chrome.windows.getCurrent({ populate: true }, (result) => resolve(result))
-    );
-
-    // map its tabs
-    let tabCount = 0;
-    const tabsData = windowData.tabs!.map((tab) => {
-      return {
-        tabId: uuidv4(),
-        favicon: tab.favIconUrl || '',
-        title: tab.title || '',
-        url: tab.url || '',
-      };
-    });
-
-    tabCount += tabsData.length;
-
-    const window: windowGroupData = {
-      windowId: uuidv4(),
-      windowHeight: windowData.height!,
-      windowWidth: windowData.width!,
-      windowOffsetTop: windowData.top!,
-      windowOffsetLeft: windowData.left!,
-      tabCount: tabsData.length,
-      title: tabsData[0].title,
-      tabs: tabsData,
-    };
-
-    dispatch(addCurrWindowToTabGroup({ tabGroupId, window }));
-  };
-
-  function handleKeyPressOnEditTitle(e: React.KeyboardEvent<HTMLDivElement>) {
-    if (e.key === 'Enter') {
-      handleBlur();
-    }
-  }
 
   return (
     <div
@@ -204,6 +218,7 @@ export default function HeroContainerRight() {
                 tooltipText="Rename window group"
                 ariaLabel="rename window group"
                 type="edit"
+                backgroundColor={COLORS.SECONDARY_COLOR}
                 onClick={(e) => {
                   e.stopPropagation();
                   setIsEditing(true);
