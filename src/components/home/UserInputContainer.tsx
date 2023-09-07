@@ -8,8 +8,8 @@ import { css } from '@emotion/react';
 import Button from '../common/Button';
 import TextBox from '../common/TextBox';
 import { AppDispatch, RootState } from '../../redux/store';
-import { getStringDate } from '../../utils/helperFunctions';
 import { setSearchInputText } from '../../redux/slice/globalStateSlice';
+import { decodeDataUrl, getStringDate } from '../../utils/helperFunctions';
 import {
   saveToTabContainer,
   tabContainerData,
@@ -40,12 +40,6 @@ export default function UserInputContainer() {
     });
   }, []);
 
-  const containerStyle = css`
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  `;
-
   function updateUserInput(e: React.ChangeEvent<HTMLInputElement>) {
     setNewTitle(e.target.value);
   }
@@ -60,21 +54,34 @@ export default function UserInputContainer() {
   }
 
   async function createTabGroup() {
-    let tabCount = 0;
-
     // fetch all the windows
-    const windows = await new Promise<chrome.windows.Window[]>((resolve) =>
+    const allWindows = await new Promise<chrome.windows.Window[]>((resolve) =>
       chrome.windows.getAll({ populate: true }, (result) => resolve(result))
     );
 
-    const windowsGroupData: windowGroupData[] = windows.map((window) => {
+    // fetch current window
+    const currentWindow = await new Promise<chrome.windows.Window>((resolve) =>
+      chrome.windows.getCurrent({ populate: true }, (result) => resolve(result))
+    );
+
+    // filter out current window
+    let windowList = allWindows.filter(
+      (window) => window.id !== currentWindow.id
+    );
+
+    // add current window to the beginning
+    windowList.unshift(currentWindow);
+
+    let tabCount = 0;
+
+    const windowsGroupData: windowGroupData[] = windowList.map((window) => {
       // for each window, map its tabs
       const tabsData = window.tabs!.map((tab) => {
         return {
           tabId: uuidv4(),
           favicon: tab.favIconUrl || '',
           title: tab.title || '',
-          url: tab.url || '',
+          url: decodeDataUrl(tab.url || ''),
         };
       });
 
@@ -96,7 +103,7 @@ export default function UserInputContainer() {
       tabGroupId: uuidv4(),
       title: newTitle || currentTabName,
       createdTime: getStringDate(new Date()),
-      windowCount: windows.length,
+      windowCount: windowList.length,
       tabCount: tabCount,
       isAutoSave: false,
       isSelected: true,
@@ -105,6 +112,12 @@ export default function UserInputContainer() {
 
     dispatch(saveToTabContainer(containerData));
   }
+
+  const containerStyle = css`
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  `;
 
   return isSearchPanel ? (
     <div css={containerStyle}>

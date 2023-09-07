@@ -1,12 +1,15 @@
 import React, { MouseEventHandler, useState } from 'react';
 
+import { useSelector } from 'react-redux';
+
 import { css } from '@emotion/react';
 
 import Icon from '../common/Icon';
 import { NormalLabel } from '../common/Label';
+import { RootState } from '../../redux/store';
 import { useThemeColors } from '../hook/useThemeColors';
-import { tabContainerData } from '../../redux/slice/tabContainerDataStateSlice';
 import { getPrettyDate } from '../../utils/helperFunctions';
+import { tabContainerData } from '../../redux/slice/tabContainerDataStateSlice';
 
 interface TabGroupEntryProps {
   tabGroupData: tabContainerData;
@@ -24,6 +27,10 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
   const COLORS = useThemeColors();
 
   const [isHovered, setIsHovered] = useState(false);
+
+  const isSearchPanel = useSelector(
+    (state: RootState) => state.globalState.isSearchPanel
+  );
 
   const handleMouseEnter = () => setIsHovered(true);
   const handleMouseLeave = () => setIsHovered(false);
@@ -108,38 +115,40 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
           {getPrettyDate(createdTime)}
         </div>
       </div>
-      <div css={rightStyle}>
-        <Icon
-          tooltipText="Open in new window"
-          text="Restore"
-          ariaLabel="open all windows"
-          type="open_in_new"
-          backgroundColor={
-            isSelected ? COLORS.SELECTION_COLOR : COLORS.HOVER_COLOR
-          }
-          focusable={isHovered ? true : false}
-          onClick={(e) => {
-            e.stopPropagation();
-            onOpenAllClick(e);
-          }}
-          style="padding: 14px 10px; width: 57px;"
-        />
-        <Icon
-          tooltipText="Delete"
-          text="Delete"
-          ariaLabel="delete"
-          type="delete"
-          backgroundColor={
-            isSelected ? COLORS.SELECTION_COLOR : COLORS.HOVER_COLOR
-          }
-          focusable={isHovered ? true : false}
-          onClick={(e) => {
-            e.stopPropagation();
-            onDeleteClick(e);
-          }}
-          style="padding: 14px 10px; width: 57px;"
-        />
-      </div>
+      {!isSearchPanel && (
+        <div css={rightStyle}>
+          <Icon
+            tooltipText="Open in new window"
+            text="Restore"
+            ariaLabel="open all windows"
+            type="open_in_new"
+            backgroundColor={
+              isSelected ? COLORS.SELECTION_COLOR : COLORS.HOVER_COLOR
+            }
+            focusable={isHovered ? true : false}
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenAllClick(e);
+            }}
+            style="padding: 14px 10px; width: 57px;"
+          />
+          <Icon
+            tooltipText="Delete"
+            text="Delete"
+            ariaLabel="delete"
+            type="delete"
+            backgroundColor={
+              isSelected ? COLORS.SELECTION_COLOR : COLORS.HOVER_COLOR
+            }
+            focusable={isHovered ? true : false}
+            onClick={(e) => {
+              e.stopPropagation();
+              onDeleteClick(e);
+            }}
+            style="padding: 14px 10px; width: 57px;"
+          />
+        </div>
+      )}
     </div>
   );
 };

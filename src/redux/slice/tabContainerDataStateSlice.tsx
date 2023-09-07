@@ -1,10 +1,12 @@
-import { PayloadAction, createAsyncThunk, createSlice } from '@reduxjs/toolkit';
+import { createAsyncThunk, createSlice, PayloadAction } from '@reduxjs/toolkit';
+
+import { RootState } from '../store';
+import { showToast } from './globalStateSlice';
 import {
+  decodeDataUrl,
   generatePlaceholderURL,
   saveToLocalStorage,
 } from '../../utils/helperFunctions';
-import { RootState } from '../store';
-import { showToast } from './globalStateSlice';
 import {
   DEFAULT_WINDOW_HEIGHT,
   DEFAULT_WINDOW_OFFSET_LEFT,
@@ -140,10 +142,11 @@ export const openTabsInAWindow = createAsyncThunk(
       },
       (newWindow) => {
         tabs.slice(1).forEach((tabInfo) => {
+          const decodedUrl = decodeDataUrl(tabInfo.url);
           const placeholder = generatePlaceholderURL(
             tabInfo.title,
             tabInfo.favicon || '/images/favicon.ico',
-            tabInfo.url
+            decodedUrl
           );
 
           chrome.tabs.create(
@@ -154,7 +157,7 @@ export const openTabsInAWindow = createAsyncThunk(
             },
             (tab) => {
               tabURLMap[tab.id!] = {
-                url: tabInfo.url,
+                url: decodedUrl,
                 title: tabInfo.title,
                 favicon: tabInfo.favicon || '/images/favicon.ico',
               };
@@ -192,10 +195,11 @@ export const openAllTabContainer = createAsyncThunk(
         },
         (newWindow) => {
           windowGroup.tabs.slice(1).forEach((tabInfo) => {
+            const decodedUrl = decodeDataUrl(tabInfo.url);
             const placeholder = generatePlaceholderURL(
               tabInfo.title,
               tabInfo.favicon || '/images/favicon.ico',
-              tabInfo.url
+              decodedUrl
             );
 
             chrome.tabs.create(
@@ -206,7 +210,7 @@ export const openAllTabContainer = createAsyncThunk(
               },
               (tab) => {
                 tabURLMap[tab.id!] = {
-                  url: tabInfo.url,
+                  url: decodedUrl,
                   title: tabInfo.title,
                   favicon: tabInfo.favicon || '/images/favicon.ico',
                 };
