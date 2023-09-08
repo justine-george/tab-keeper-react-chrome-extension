@@ -6,6 +6,8 @@ At its core, Tab Keeper uses technologies like React, Emotion CSS, Cloud Firesto
 
 <a href="https://chrome.google.com/webstore/detail/tabkeeper-tab-session-man/gpibgniomobngodpnikhheifblbpbbah" target="_blank"><img src="https://github.com/justinegeo96/tab-keeper-react-chrome-extension/blob/main/store-assets/marquee%20promo%20tile/tab-keeper-marquee-promo-tile.png"></a>
 
+<a href="https://chrome.google.com/webstore/detail/tabkeeper-tab-session-man/gpibgniomobngodpnikhheifblbpbbah" target="_blank"><img src="https://github.com/justinegeo96/tab-keeper-react-chrome-extension/blob/main/store-assets/screenshots/tab-keeper-screenshot-2.png"></a>
+
 ## 🛠️ Installation
 
 <a href="https://chrome.google.com/webstore/detail/tabkeeper-tab-session-man/gpibgniomobngodpnikhheifblbpbbah" target="_blank"><img src="https://github.com/justinegeo96/tab-keeper-react-chrome-extension/blob/main/store-assets/banners/chrome_web_store_download_button.png" width="250"></a>
