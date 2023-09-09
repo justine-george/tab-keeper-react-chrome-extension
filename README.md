@@ -8,6 +8,8 @@ At its core, Tab Keeper uses technologies like React, Emotion CSS, Cloud Firesto
 
 <a href="https://chrome.google.com/webstore/detail/tabkeeper-tab-session-man/gpibgniomobngodpnikhheifblbpbbah" target="_blank"><img src="https://github.com/justinegeo96/tab-keeper-react-chrome-extension/blob/main/store-assets/screenshots/tab-keeper-screenshot-2.png"></a>
 
+<a href="https://www.producthunt.com/posts/tab-keeper-tab-manager-for-chrome?utm_source=badge-featured&utm_medium=badge&utm_souce=badge-tab&#0045;keeper&#0045;tab&#0045;manager&#0045;for&#0045;chrome" target="_blank"><img src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=413719&theme=neutral" alt="Tab&#0032;Keeper&#0032;&#0045;&#0032;Tab&#0032;Manager&#0032;for&#0032;Chrome - Sync&#0032;tabs&#0032;effortlessly&#0032;across&#0032;devices&#0044;&#0032;no&#0032;login&#0032;needed&#0046; | Product Hunt" style="width: 250px; height: 54px;" width="250" height="54" /></a>
+
 ## 🛠️ Installation
 
 <a href="https://chrome.google.com/webstore/detail/tabkeeper-tab-session-man/gpibgniomobngodpnikhheifblbpbbah" target="_blank"><img src="https://github.com/justinegeo96/tab-keeper-react-chrome-extension/blob/main/store-assets/banners/chrome_web_store_download_button.png" width="250"></a>
