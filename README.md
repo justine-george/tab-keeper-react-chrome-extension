@@ -32,6 +32,11 @@ At its core, Tab Keeper uses technologies like React, Emotion CSS, Cloud Firesto
 
 ## 📜 Changelog:
 
+### v.1.1.6
+
+#### Improvements:
+- Various bug fixes and optimizations.
+
 ### v.1.1.5
 
 #### New Features:
