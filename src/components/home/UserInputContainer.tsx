@@ -15,8 +15,10 @@ import {
   tabContainerData,
   windowGroupData,
 } from '../../redux/slice/tabContainerDataStateSlice';
+import { useTranslation } from 'react-i18next';
 
 export default function UserInputContainer() {
+  const { t } = useTranslation();
   const dispatch: AppDispatch = useDispatch();
 
   const [newTitle, setNewTitle] = useState<string>('');
@@ -125,7 +127,7 @@ export default function UserInputContainer() {
         id="searchInput"
         name="searchInput"
         value={searchInput}
-        placeholder="Search tab groups"
+        placeholder={t('Search among sessions')}
         autoComplete="off"
         onChange={handleSearchInputChange}
         onKeyEnter={filterResults}
@@ -133,7 +135,7 @@ export default function UserInputContainer() {
       />
       {/* <Button text="Search" onClick={createTabGroup} /> */}
       <Button
-        tooltipText="Search"
+        tooltipText={t('Search')}
         iconType="search"
         ariaLabel="search"
         onClick={filterResults}
@@ -147,7 +149,7 @@ export default function UserInputContainer() {
         id="name"
         name="name"
         value={newTitle}
-        placeholder="Save all open windows as a tab group"
+        placeholder={t('Save all open windows as a session')}
         autoComplete="off"
         onChange={updateUserInput}
         onKeyEnter={createTabGroup}
@@ -155,7 +157,7 @@ export default function UserInputContainer() {
       />
       {/* <Button text="Save" onClick={createTabGroup} /> */}
       <Button
-        tooltipText="Save all windows"
+        tooltipText={t('Save all windows')}
         ariaLabel="add"
         iconType="add"
         onClick={createTabGroup}

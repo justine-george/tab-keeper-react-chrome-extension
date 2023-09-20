@@ -4,6 +4,7 @@ export enum SettingsCategory {
   DISPLAY = 'Display',
   SYNC = 'Sync & Privacy',
   DATA_MANAGEMENT = 'Data Management',
+  LANGUAGE = 'Language',
   ABOUT = 'About',
 }
 
@@ -23,6 +24,10 @@ export const initialState: SettingsCategoryContainer[] = [
   },
   {
     name: SettingsCategory.DATA_MANAGEMENT,
+    isSelected: false,
+  },
+  {
+    name: SettingsCategory.LANGUAGE,
     isSelected: false,
   },
   {

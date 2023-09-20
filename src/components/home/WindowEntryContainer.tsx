@@ -6,6 +6,7 @@ import { css } from '@emotion/react';
 
 import Icon from '../common/Icon';
 import { NormalLabel } from '../common/Label';
+import { useFontFamily } from '../hook/useFontFamily';
 import { useThemeColors } from '../hook/useThemeColors';
 import { AppDispatch, RootState } from '../../redux/store';
 import { decodeDataUrl } from '../../utils/helperFunctions';
@@ -14,6 +15,7 @@ import {
   deleteTab,
   tabData,
 } from '../../redux/slice/tabContainerDataStateSlice';
+import { useTranslation } from 'react-i18next';
 
 interface WindowEntryContainerProps {
   title: string;
@@ -37,6 +39,8 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   onDeleteClick,
 }) => {
   const COLORS = useThemeColors();
+  const FONT_FAMILY = useFontFamily();
+  const { t } = useTranslation();
 
   const dispatch: AppDispatch = useDispatch();
 
@@ -60,7 +64,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   const containerStyle = css`
     display: flex;
     flex-direction: column;
-    font-family: 'Libre Franklin', sans-serif;
+    font-family: ${FONT_FAMILY};
     margin-bottom: 8px;
   `;
 
@@ -200,7 +204,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
       >
         <div css={parentLeftStyle}>
           <Icon
-            tooltipText={windowOpenState ? 'Collapse' : 'Expand'}
+            tooltipText={windowOpenState ? t('Collapse') : t('Expand')}
             ariaLabel={windowOpenState ? 'collapse' : 'expand'}
             type={windowOpenState ? 'expand_less' : 'expand_more'}
             onClick={handleAccordionClick}
@@ -211,7 +215,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
             tabIndex={0}
             onClick={(e) => handleWindowClick(e)}
             onKeyDown={(e) => handleKeyPressOnWindow(e)}
-            title={!isSearchPanel ? 'Open in new window' : undefined}
+            title={!isSearchPanel ? t('Open in new window') : undefined}
           >
             {isEditing && !isSearchPanel ? (
               <input
@@ -226,7 +230,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                   border: 1px solid ${COLORS.BORDER_COLOR};
                   display: flex;
                   align-items: center;
-                  font-family: 'Libre Franklin', sans-serif;
+                  font-family: ${FONT_FAMILY};
                   font-size: 0.9rem;
                   padding-left: 8px;
                   height: 100%;
@@ -264,7 +268,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
             />
           ) : (
             <Icon
-              tooltipText="Rename window group"
+              tooltipText={t('Rename window group')}
               ariaLabel="rename window group"
               type="edit"
               backgroundColor={COLORS.HOVER_COLOR}
@@ -278,7 +282,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
 
           {!isEditing && !isSearchPanel && (
             <Icon
-              tooltipText="Add current tab"
+              tooltipText={t('Add current tab')}
               ariaLabel="add current tab"
               type="add"
               backgroundColor={COLORS.HOVER_COLOR}
@@ -291,7 +295,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
           )}
           {!isEditing && !isSearchPanel && (
             <Icon
-              tooltipText="Delete"
+              tooltipText={t('Delete')}
               ariaLabel="delete"
               type="delete"
               backgroundColor={COLORS.HOVER_COLOR}
@@ -318,7 +322,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                   tabIndex={0}
                   onClick={() => handleTabClick(url)}
                   onKeyDown={(e) => handleKeyPressOnTab(e, url)}
-                  title="Open in new tab"
+                  title={t('Open in new tab')}
                 >
                   <Icon
                     faviconUrl={favicon}
@@ -336,7 +340,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                 </div>
                 <div css={childRightStyle(index)}>
                   <Icon
-                    tooltipText="Delete"
+                    tooltipText={t('Delete')}
                     ariaLabel="delete"
                     type="delete"
                     backgroundColor={COLORS.HOVER_COLOR}

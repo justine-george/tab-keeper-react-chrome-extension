@@ -2,18 +2,22 @@ import { css } from '@emotion/react';
 
 import Icon from '../common/Icon';
 import { NormalLabel } from '../common/Label';
+import { useFontFamily } from '../hook/useFontFamily';
 import { useThemeColors } from '../hook/useThemeColors';
 import { NON_INTERACTIVE_ICON_STYLE } from '../../utils/constants/common';
+import { useTranslation } from 'react-i18next';
 
 export default function HeroContainerRightSettings() {
   const COLORS = useThemeColors();
+  const FONT_FAMILY = useFontFamily();
+  const { t } = useTranslation();
 
   const containerStyle = css`
     display: flex;
     flex-direction: row;
     align-items: center;
     border: 1px solid ${COLORS.BORDER_COLOR};
-    font-family: 'Libre Franklin', sans-serif;
+    font-family: ${FONT_FAMILY};
     user-select: none;
     background-color: ${COLORS.SECONDARY_COLOR};
     padding: 8px 8px;
@@ -23,7 +27,7 @@ export default function HeroContainerRightSettings() {
     <div css={containerStyle}>
       <Icon type="settings" style={NON_INTERACTIVE_ICON_STYLE} />
       <NormalLabel
-        value="Settings"
+        value={t('Settings')}
         size="1.125rem"
         color={COLORS.TEXT_COLOR}
         style="padding-left: 4px;"

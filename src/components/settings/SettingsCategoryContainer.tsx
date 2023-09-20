@@ -10,6 +10,7 @@ import {
   SettingsCategory,
   selectCategory,
 } from '../../redux/slice/settingsCategoryStateSlice';
+import { useTranslation } from 'react-i18next';
 
 export interface SettingsCategoryContainer {
   name: SettingsCategory;
@@ -18,6 +19,7 @@ export interface SettingsCategoryContainer {
 
 const SettingsCategoryContainer: React.FC = () => {
   const COLORS = useThemeColors();
+  const { t } = useTranslation();
 
   const settingsCategoryList = useSelector(
     (state: RootState) => state.settingsCategoryState
@@ -73,7 +75,7 @@ const SettingsCategoryContainer: React.FC = () => {
                 tabIndex={0}
               >
                 <NormalLabel
-                  value={name}
+                  value={t(name)}
                   size="1rem"
                   color={COLORS.LABEL_L1_COLOR}
                 />

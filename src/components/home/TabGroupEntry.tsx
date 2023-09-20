@@ -7,9 +7,11 @@ import { css } from '@emotion/react';
 import Icon from '../common/Icon';
 import { NormalLabel } from '../common/Label';
 import { RootState } from '../../redux/store';
+import { useFontFamily } from '../hook/useFontFamily';
 import { useThemeColors } from '../hook/useThemeColors';
 import { getPrettyDate } from '../../utils/helperFunctions';
 import { tabContainerData } from '../../redux/slice/tabContainerDataStateSlice';
+import { useTranslation } from 'react-i18next';
 
 interface TabGroupEntryProps {
   tabGroupData: tabContainerData;
@@ -25,6 +27,8 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
   onDeleteClick,
 }) => {
   const COLORS = useThemeColors();
+  const FONT_FAMILY = useFontFamily();
+  const { t } = useTranslation();
 
   const [isHovered, setIsHovered] = useState(false);
 
@@ -72,7 +76,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
     display: flex;
     justify-content: space-between;
     align-items: center;
-    font-family: 'Libre Franklin', sans-serif;
+    font-family: ${FONT_FAMILY};
     cursor: pointer;
     transition: background-color 0.2s;
     &:hover {
@@ -99,8 +103,8 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
         />
         <NormalLabel
           value={`${windowCount} ${
-            windowCount > 1 ? 'Windows' : 'Window'
-          } - ${tabCount} ${tabCount > 1 ? 'Tabs' : 'Tab'}`}
+            windowCount > 1 ? t('Windows') : t('Window')
+          } - ${tabCount} ${tabCount > 1 ? t('Tabs') : t('Tab')}`}
           color={COLORS.LABEL_L1_COLOR}
           size="0.7rem"
           style="margin-top: 2px;"
@@ -118,8 +122,8 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
       {!isSearchPanel && (
         <div css={rightStyle}>
           <Icon
-            tooltipText="Open in new window"
-            text="Restore"
+            tooltipText={t('Open in new window')}
+            text={t('Restore')}
             ariaLabel="open all windows"
             type="open_in_new"
             backgroundColor={
@@ -133,8 +137,8 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
             style="padding: 14px 10px; width: 57px;"
           />
           <Icon
-            tooltipText="Delete"
-            text="Delete"
+            tooltipText={t('Delete')}
+            text={t('Delete')}
             ariaLabel="delete"
             type="delete"
             backgroundColor={

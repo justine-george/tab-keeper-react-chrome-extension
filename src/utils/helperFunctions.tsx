@@ -1,3 +1,5 @@
+import { Base64 } from 'js-base64';
+
 import { doc, setDoc } from 'firebase/firestore';
 
 import { AppDispatch } from '../redux/store';
@@ -160,7 +162,7 @@ export function generatePlaceholderURL(
   url: string
 ) {
   const html = `<html><head><meta charset="UTF-8" /><link rel="icon" type="image/x-icon" href="${faviconURL}" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title>${title}</title><style>body {background-color: #181818;color: #ffffff;font-family: "Libre Franklin", sans-serif;display: flex;margin: 20px;flex-direction: column;justify-content: flex-start;align-items: flex-start;height: 100vh;}#copyButton {cursor: pointer;background-color: #2c2c2c;padding: 10px 20px;border: none;border-radius: 10px;color: #ffffff;font-family: "Libre Franklin", sans-serif;font-size: 12px;transition: background-color 0.125s ease, color 0.125s ease;}#copyButton.copied {background-color: #77dd77;color: black;}h1,h2,p {margin: 10px 0;}a {text-decoration: none;color: inherit;}p {font-size: 0.9rem;}</style></head><body><h2>${title}</h2><a href="${url}"><p>${url}</p></a><button id="copyButton" onclick="copyToClipboard()">Copy URL</button><script>function copyToClipboard() {navigator.clipboard.writeText("${url}").then(() => {const button = document.getElementById("copyButton");button.innerHTML = "URL copied!";button.classList.add("copied");setTimeout(() => {button.classList.remove("copied");button.innerHTML = "Copy URL";}, 2000);});}</script></body></html>`;
-  const base64Html = btoa(html);
+  const base64Html = Base64.encode(html);
   return `data:text/html;base64,${base64Html}`;
 }
 
@@ -168,7 +170,7 @@ export function generatePlaceholderURL(
 export function decodeDataUrl(url: string): string {
   if (url.startsWith('data:text/html;base64,')) {
     const base64Data = url.replace('data:text/html;base64,', '');
-    const decodedHtml = atob(base64Data);
+    const decodedHtml = Base64.decode(base64Data);
 
     // extract the actual URL from the HTML content
     const urlMatch = decodedHtml.match(/<a href="([^"]+)">/);

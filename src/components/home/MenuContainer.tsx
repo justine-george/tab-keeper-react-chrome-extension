@@ -16,12 +16,14 @@ import {
   undo,
 } from '../../redux/slice/undoRedoSlice';
 import { SettingsCategory } from '../../redux/slice/settingsCategoryStateSlice';
+import { useTranslation } from 'react-i18next';
 
 export default function MenuContainer() {
   const syncStatus = useSelector(
     (state: RootState) => state.globalState.syncStatus
   );
 
+  const { t } = useTranslation();
   const dispatch: AppDispatch = useDispatch();
 
   const isUndoable = useSelector(isUndoableSelector);
@@ -69,7 +71,7 @@ export default function MenuContainer() {
     <div css={containerStyle}>
       <Icon
         ariaLabel="undo"
-        tooltipText="Undo"
+        tooltipText={t('Undo')}
         type="undo"
         onClick={handleClickUndo}
         style={isUndoable ? 'opacity: 1;' : 'opacity: 0.3;'}
@@ -78,7 +80,7 @@ export default function MenuContainer() {
       />
       <Icon
         ariaLabel="redo"
-        tooltipText="Redo"
+        tooltipText={t('Redo')}
         type="redo"
         onClick={handleClickRedo}
         style={isRedoable ? 'opacity: 1;' : 'opacity: 0.3;'}
@@ -87,14 +89,14 @@ export default function MenuContainer() {
       />
       <Icon
         ariaLabel="sync"
-        tooltipText="Sync now"
+        tooltipText={t('Sync now')}
         type={syncIconType}
         onClick={handleClickSync}
         disable={isDisabled}
       />
       <Icon
         ariaLabel="settings"
-        tooltipText="Settings"
+        tooltipText={t('Settings')}
         type="settings"
         onClick={handleClickSettings}
         animationFrom={`transform: rotate(0deg);`}

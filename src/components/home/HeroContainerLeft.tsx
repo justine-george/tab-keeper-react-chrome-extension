@@ -5,15 +5,19 @@ import { css } from '@emotion/react';
 import Icon from '../common/Icon';
 import MenuContainer from './MenuContainer';
 import { NormalLabel } from '../common/Label';
+import { useFontFamily } from '../hook/useFontFamily';
 import { useThemeColors } from '../hook/useThemeColors';
 import { AppDispatch, RootState } from '../../redux/store';
 import {
   closeSearchPanel,
   openSearchPanel,
 } from '../../redux/slice/globalStateSlice';
+import { useTranslation } from 'react-i18next';
 
 export default function HeroContainer() {
   const COLORS = useThemeColors();
+  const FONT_FAMILY = useFontFamily();
+  const { t } = useTranslation();
 
   const isSearchPanel = useSelector(
     (state: RootState) => state.globalState.isSearchPanel
@@ -40,7 +44,7 @@ export default function HeroContainer() {
     justify-content: space-between;
     height: 60px;
     align-items: center;
-    font-family: 'Libre Franklin', sans-serif;
+    font-family: ${FONT_FAMILY};
     font-size: 1.25rem;
     padding: 16px 0px;
     user-select: none;
@@ -54,12 +58,12 @@ export default function HeroContainer() {
         `}
         onClick={handleBackClick}
         onKeyDown={(e) => handleKeyPress(e)}
-        title="Go back"
+        title={t('Go back')}
         tabIndex={0}
       >
         <Icon ariaLabel="back" type="arrow_back" />
         <NormalLabel
-          value="Back"
+          value={t('Back')}
           size="1.125rem"
           color={COLORS.TEXT_COLOR}
           style="padding-left: 8px; cursor: pointer;"
@@ -74,12 +78,12 @@ export default function HeroContainer() {
         `}
         onClick={handleClickSearch}
         onKeyDown={(e) => handleKeyPress(e)}
-        title="Search"
+        title={t('Search')}
         tabIndex={0}
       >
         <Icon ariaLabel="search" type="search" />
         <NormalLabel
-          value="Tab Keeper"
+          value={t('Tab Keeper')}
           size="1.125rem"
           color={COLORS.TEXT_COLOR}
           style="cursor: pointer;"

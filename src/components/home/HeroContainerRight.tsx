@@ -8,6 +8,7 @@ import { css } from '@emotion/react';
 import Icon from '../common/Icon';
 import Button from '../common/Button';
 import { NormalLabel } from '../common/Label';
+import { useFontFamily } from '../hook/useFontFamily';
 import { useThemeColors } from '../hook/useThemeColors';
 import { AppDispatch, RootState } from '../../redux/store';
 import {
@@ -22,9 +23,12 @@ import {
   updateTabGroupTitle,
   windowGroupData,
 } from '../../redux/slice/tabContainerDataStateSlice';
+import { useTranslation } from 'react-i18next';
 
 export default function HeroContainerRight() {
   const COLORS = useThemeColors();
+  const FONT_FAMILY = useFontFamily();
+  const { t } = useTranslation();
   const [isEditing, setIsEditing] = useState(false);
   const [editableTitle, setEditableTitle] = useState('');
   const [currentTabName, setCurrentTabName] = useState<string>('New Tab');
@@ -131,7 +135,7 @@ export default function HeroContainerRight() {
     align-items: flex-start;
     justify-content: space-between;
     border: 1px solid ${COLORS.BORDER_COLOR};
-    font-family: 'Libre Franklin', sans-serif;
+    font-family: ${FONT_FAMILY};
     user-select: none;
     background-color: ${COLORS.SECONDARY_COLOR};
     width: 100%;
@@ -182,7 +186,7 @@ export default function HeroContainerRight() {
                 border: 1px solid ${COLORS.BORDER_COLOR};
                 display: flex;
                 align-items: center;
-                font-family: 'Libre Franklin', sans-serif;
+                font-family: ${FONT_FAMILY};
                 font-size: 1.125rem;
                 height: 32px;
                 padding-left: 8px;
@@ -215,8 +219,8 @@ export default function HeroContainerRight() {
           >
             {!isEditing && !isSearchPanel && (
               <Icon
-                tooltipText="Rename window group"
-                ariaLabel="rename window group"
+                tooltipText={t('Rename session')}
+                ariaLabel="rename session"
                 type="edit"
                 backgroundColor={COLORS.SECONDARY_COLOR}
                 onClick={(e) => {
@@ -230,8 +234,8 @@ export default function HeroContainerRight() {
         </div>
         <NormalLabel
           value={`${windowCount} ${
-            windowCount > 1 ? 'Windows' : 'Window'
-          } - ${tabCount} ${tabCount > 1 ? 'Tabs' : 'Tab'}`}
+            windowCount > 1 ? t('Windows') : t('Window')
+          } - ${tabCount} ${tabCount > 1 ? t('Tabs') : t('Tab')}`}
           size="0.75rem"
           color={COLORS.LABEL_L1_COLOR}
           style={`padding-top: 2px; padding-left: 8px;`}
@@ -251,13 +255,13 @@ export default function HeroContainerRight() {
           `}
         >
           <Icon
-            tooltipText="Open in new window"
+            tooltipText={t('Open in new window')}
             ariaLabel="open all windows"
             type="open_in_new"
             onClick={() => dispatch(openAllTabContainer(tabGroupId))}
           />
           <Icon
-            tooltipText="Delete"
+            tooltipText={t('Delete')}
             ariaLabel="delete"
             type="delete"
             onClick={() => dispatch(deleteTabContainer(tabGroupId))}
@@ -269,8 +273,8 @@ export default function HeroContainerRight() {
           `}
         >
           <Button
-            text="Add window"
-            tooltipText="Add current window"
+            text={t('Add window')}
+            tooltipText={t('Add current window')}
             ariaLabel="add current window"
             iconType="add"
             focusableButton={isContainerHovered}

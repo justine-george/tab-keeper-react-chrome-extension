@@ -2,6 +2,7 @@ import React from 'react';
 
 import { css } from '@emotion/react';
 
+import { useFontFamily } from '../hook/useFontFamily';
 import { useThemeColors } from '../hook/useThemeColors';
 
 interface TextBoxProps {
@@ -30,6 +31,7 @@ const TextBox: React.FC<TextBoxProps> = ({
   style,
 }) => {
   const COLORS = useThemeColors();
+  const FONT_FAMILY = useFontFamily();
 
   function handleKeyPress(e: React.KeyboardEvent<HTMLInputElement>) {
     if (onKeyEnter && e.key === 'Enter') {
@@ -43,7 +45,7 @@ const TextBox: React.FC<TextBoxProps> = ({
     padding: 10px;
     height: 3.5rem;
     flex-grow: 1;
-    font-family: 'Libre Franklin', sans-serif;
+    font-family: ${FONT_FAMILY};
     font-size: 0.9rem;
     color: ${COLORS.LABEL_L1_COLOR};
     &::placeholder {
