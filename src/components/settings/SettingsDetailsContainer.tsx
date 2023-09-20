@@ -20,16 +20,17 @@ import {
   syncStateWithFirestore,
 } from '../../redux/slice/globalStateSlice';
 import {
+  Language,
   Theme,
+  setLanguage,
   setTheme,
   toggleAutoSync,
 } from '../../redux/slice/settingsDataStateSlice';
 import {
+  APP_CHROME_WEBSTORE_LINK,
   APP_VERSION,
-  DEV_APPRECIATION,
   DEV_EMAIL,
   FEEDBACK_MAIL_SUBJECT,
-  FEEDBACK_REQUEST,
   SHARE_TWITTER_TEXT,
 } from '../../utils/constants/common';
 import { SettingsCategoryContainer } from './SettingsCategoryContainer';
@@ -42,10 +43,12 @@ import { isValidTabMasterContainer } from '../../utils/helperFunctions';
 import { SettingsCategory } from '../../redux/slice/settingsCategoryStateSlice';
 import LoggedIn from './Account/LoggedIn';
 import NotLoggedIn from './Account/NotLoggedIn';
-import Icon from '../common/Icon';
+import { useTranslation } from 'react-i18next';
 
 const SettingsDetailsContainer: React.FC = () => {
   const COLORS = useThemeColors();
+  const { i18n } = useTranslation();
+  const { t } = useTranslation();
 
   const dispatch: AppDispatch = useDispatch();
 
@@ -189,7 +192,7 @@ const SettingsDetailsContainer: React.FC = () => {
             `}
           >
             <NormalLabel
-              value="Themes"
+              value={t('Themes')}
               size="1rem"
               color={COLORS.LABEL_L1_COLOR}
             />
@@ -205,7 +208,7 @@ const SettingsDetailsContainer: React.FC = () => {
             `}
           >
             <Button
-              tooltipText="Light"
+              tooltipText={t('Light')}
               onClick={() => dispatch(setTheme(Theme.LIGHT))}
               style={`
               width: 60px;
@@ -217,7 +220,7 @@ const SettingsDetailsContainer: React.FC = () => {
             `}
             />
             <Button
-              tooltipText="Warm Light"
+              tooltipText={t('Warm Light')}
               onClick={() => dispatch(setTheme(Theme.WARM_LIGHT))}
               style={`
               margin-left: 16px;
@@ -231,7 +234,7 @@ const SettingsDetailsContainer: React.FC = () => {
             />
 
             <Button
-              tooltipText="BB Pink"
+              tooltipText={t('BB Pink')}
               onClick={() => dispatch(setTheme(Theme.BB_PINK))}
               style={`
               margin-left: 16px;
@@ -244,7 +247,7 @@ const SettingsDetailsContainer: React.FC = () => {
             `}
             />
             <Button
-              tooltipText="Darkenheimer"
+              tooltipText={t('Darkenheimer')}
               onClick={() => dispatch(setTheme(Theme.DARKENHEIMER))}
               style={`
               margin-left: 16px;
@@ -257,7 +260,7 @@ const SettingsDetailsContainer: React.FC = () => {
             `}
             />
             <Button
-              tooltipText="Blue"
+              tooltipText={t('Blue')}
               onClick={() => dispatch(setTheme(Theme.BLUE))}
               style={`
               margin-left: 16px;
@@ -302,7 +305,7 @@ const SettingsDetailsContainer: React.FC = () => {
             `}
           >
             <NormalLabel
-              value="Auto Sync"
+              value={t('Auto Sync')}
               size="1rem"
               color={COLORS.LABEL_L1_COLOR}
             />
@@ -318,7 +321,7 @@ const SettingsDetailsContainer: React.FC = () => {
             `}
           >
             <Button
-              text={settingsData.isAutoSync ? `On` : `Off`}
+              text={settingsData.isAutoSync ? t(`On`) : t(`Off`)}
               onClick={handleToggleAutoSync}
               style={`
               width: 120px;
@@ -346,7 +349,7 @@ const SettingsDetailsContainer: React.FC = () => {
             `}
           >
             <NormalLabel
-              value="Sync Status"
+              value={t('Sync Status')}
               size="1rem"
               color={COLORS.LABEL_L1_COLOR}
             />
@@ -386,7 +389,7 @@ const SettingsDetailsContainer: React.FC = () => {
             `}
           >
             <NormalLabel
-              value="Backup & Restore"
+              value={t('Backup & Restore')}
               size="1rem"
               color={COLORS.LABEL_L1_COLOR}
             />
@@ -402,16 +405,144 @@ const SettingsDetailsContainer: React.FC = () => {
             `}
           >
             <Button
-              text={`Backup App Data to File`}
+              text={t(`Backup App Data to File`)}
               iconType="publish"
               onClick={handleExportJSON}
               style="width: 260px; justify-content: center;"
             />
             <Button
-              text={'Restore App Data from File'}
+              text={t('Restore App Data from File')}
               iconType="get_app"
               onClick={handleImportJSON}
               style="width: 260px; justify-content: center; margin-top: 12px;"
+            />
+          </div>
+        </div>
+      </div>
+    );
+  } else if (selectedSettingsCategory.name === SettingsCategory.LANGUAGE) {
+    settingsOptionsDiv = (
+      <div
+        css={css`
+          display: flex;
+          flex-direction: column;
+          justify-content: flex-start;
+          align-items: center;
+        `}
+      >
+        {/* Language Switcher */}
+        <div
+          css={css`
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            margin-left: 72px;
+            width: 100%;
+            margin-top: 20px;
+          `}
+        >
+          <div
+            css={css`
+              display: flex;
+              align-items: flex-start;
+              width: 100%;
+            `}
+          >
+            <NormalLabel
+              value={t('Choose Language')}
+              size="1rem"
+              color={COLORS.LABEL_L1_COLOR}
+            />
+          </div>
+
+          <div
+            css={css`
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 12px;
+              align-items: center;
+              margin-top: 8px;
+            `}
+          >
+            <Button
+              text={t(`English`)}
+              onClick={() => {
+                i18n.changeLanguage('en');
+                dispatch(setLanguage(Language.EN));
+              }}
+              style="width: 217px; justify-content: center;"
+            />
+            <Button
+              text={t(`German`)}
+              onClick={() => {
+                i18n.changeLanguage('de');
+                dispatch(setLanguage(Language.DE));
+              }}
+              style="width: 217px; justify-content: center;"
+            />
+            <Button
+              text={t('Chinese')}
+              onClick={() => {
+                i18n.changeLanguage('zh');
+                dispatch(setLanguage(Language.ZH));
+              }}
+              style="width: 217px; justify-content: center;"
+            />
+            <Button
+              text={t('Japanese')}
+              onClick={() => {
+                i18n.changeLanguage('ja');
+                dispatch(setLanguage(Language.JA));
+              }}
+              style="width: 217px; justify-content: center;"
+            />
+            <Button
+              text={t(`French`)}
+              onClick={() => {
+                i18n.changeLanguage('fr');
+                dispatch(setLanguage(Language.FR));
+              }}
+              style="width: 217px; justify-content: center;"
+            />
+            <Button
+              text={t(`Portuguese`)}
+              onClick={() => {
+                i18n.changeLanguage('pt');
+                dispatch(setLanguage(Language.PT));
+              }}
+              style="width: 217px; justify-content: center;"
+            />
+            <Button
+              text={t(`Russian`)}
+              onClick={() => {
+                i18n.changeLanguage('ru');
+                dispatch(setLanguage(Language.RU));
+              }}
+              style="width: 217px; justify-content: center;"
+            />
+            <Button
+              text={t(`Spanish`)}
+              onClick={() => {
+                i18n.changeLanguage('es');
+                dispatch(setLanguage(Language.ES));
+              }}
+              style="width: 217px; justify-content: center;"
+            />
+            <Button
+              text={t(`Italian`)}
+              onClick={() => {
+                i18n.changeLanguage('it');
+                dispatch(setLanguage(Language.IT));
+              }}
+              style="width: 217px; justify-content: center;"
+            />
+            <Button
+              text={t(`Hindi`)}
+              onClick={() => {
+                i18n.changeLanguage('hi');
+                dispatch(setLanguage(Language.HI));
+              }}
+              style="width: 217px; justify-content: center;"
             />
           </div>
         </div>
@@ -432,8 +563,8 @@ const SettingsDetailsContainer: React.FC = () => {
       >
         <NormalLabel
           color={COLORS.LABEL_L1_COLOR}
-          value={DEV_APPRECIATION}
-          size="1.2rem"
+          value={t('Thank you for using this app!')}
+          size="1.15rem"
         />
         <div
           css={css`
@@ -442,32 +573,28 @@ const SettingsDetailsContainer: React.FC = () => {
             margin-top: 30px;
           `}
         >
-          <NormalLabel color={COLORS.LABEL_L1_COLOR} value={`Crafted with`} />
-          <Icon
-            type="favorite"
-            disable={true}
-            focusable={false}
-            size="1.1rem"
-            style={`
-            color: ${COLORS.LABEL_L1_COLOR}
-            `}
-          />
           <NormalLabel
             color={COLORS.LABEL_L1_COLOR}
-            value={`by Justine George`}
+            value={t(`Crafted with ❤️ by Justine George`)}
           />
         </div>
 
         <Button
-          text={FEEDBACK_REQUEST}
+          text={t('Rate this app')}
+          iconType="thumb_up"
+          onClick={() => window.open(APP_CHROME_WEBSTORE_LINK)}
+          style="width: 250px; justify-content: center; margin-top: 40px;"
+        />
+        <Button
+          text={t('Share your thoughts')}
           iconType="mail"
           onClick={() =>
             (window.location.href = `mailto:${DEV_EMAIL}?subject=${FEEDBACK_MAIL_SUBJECT}`)
           }
-          style="width: 250px; justify-content: center; margin-top: 24px;"
+          style="width: 250px; justify-content: center; margin-top: 16px;"
         />
         <Button
-          text={'Share on Twitter (X)'}
+          text={t('Share on Twitter (X)')}
           iconType="send"
           onClick={() => window.open(SHARE_TWITTER_TEXT)}
           style="width: 250px; justify-content: center; margin-top: 16px;"

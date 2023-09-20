@@ -10,9 +10,11 @@ import {
   closeSettingsPage,
   closeToast,
 } from '../../redux/slice/globalStateSlice';
+import { useTranslation } from 'react-i18next';
 
 export default function MenuContainer() {
   const COLORS = useThemeColors();
+  const { t } = useTranslation();
 
   const containerStyle = css`
     display: flex;
@@ -31,12 +33,12 @@ export default function MenuContainer() {
     <div
       css={containerStyle}
       onClick={handleBackClick}
-      title="Go back"
+      title={t('Go back')}
       tabIndex={0}
     >
       <Icon ariaLabel="go back" type="arrow_back" />
       <NormalLabel
-        value="Back"
+        value={t('Back')}
         size="1.125rem"
         color={COLORS.TEXT_COLOR}
         style="padding-left: 8px; cursor: pointer;"

@@ -12,8 +12,22 @@ export enum Theme {
   BLUE = 'Blue',
 }
 
+export enum Language {
+  DE = 'de',
+  EN = 'en',
+  ES = 'es',
+  FR = 'fr',
+  HI = 'hi',
+  IT = 'it',
+  JA = 'ja',
+  PT = 'pt',
+  RU = 'ru',
+  ZH = 'zh',
+}
+
 export interface SettingsData {
   theme: Theme;
+  language: Language;
   isAutoSync: boolean;
 }
 
@@ -23,6 +37,7 @@ const settingsDataLocal = loadFromLocalStorage('settingsData');
 export const initialState: SettingsData = settingsDataLocal
   ? settingsDataLocal
   : {
+      language: 'en', // Default language is 'en'
       theme: Theme.LIGHT,
       isAutoSync: true,
     };
@@ -36,6 +51,14 @@ export const settingsDataStateSlice = createSlice({
 
       // Save updated state to localStorage
       saveToLocalStorage('settingsData', state);
+    },
+
+    setLanguage: (state, action: PayloadAction<Language>) => {
+      state.language = action.payload;
+
+      // Save updated state to localStorage
+      saveToLocalStorage('settingsData', state);
+      saveToLocalStorage('i18nextLng', action.payload);
     },
 
     toggleAutoSync: (state) => {
@@ -54,6 +77,7 @@ export const settingsDataStateSlice = createSlice({
   },
 });
 
-export const { setTheme, toggleAutoSync } = settingsDataStateSlice.actions;
+export const { setTheme, setLanguage, toggleAutoSync } =
+  settingsDataStateSlice.actions;
 
 export default settingsDataStateSlice.reducer;

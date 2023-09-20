@@ -4,6 +4,7 @@ import { css } from '@emotion/react';
 
 import { Tag } from './Tag';
 import { NormalLabel } from './Label';
+import { useFontFamily } from '../hook/useFontFamily';
 import { useThemeColors } from '../hook/useThemeColors';
 import { AppDispatch, RootState } from '../../redux/store';
 import { getStringDate } from '../../utils/helperFunctions';
@@ -16,6 +17,7 @@ import {
   setIsDirty,
   setIsNotDirty,
 } from '../../redux/slice/globalStateSlice';
+import { useTranslation } from 'react-i18next';
 
 interface ConflictModalProps {
   style?: string;
@@ -23,6 +25,8 @@ interface ConflictModalProps {
 
 export const ConflictModal: React.FC<ConflictModalProps> = ({ style }) => {
   const COLORS = useThemeColors();
+  const FONT_FAMILY = useFontFamily();
+  const { t } = useTranslation();
   const dispatch: AppDispatch = useDispatch();
 
   const isConflictModalOpen = useSelector(
@@ -79,7 +83,7 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({ style }) => {
     height: 100%;
     background: rgba(0, 0, 0, 0.6);
     z-index: 999;
-    font-family: 'Libre Franklin', sans-serif;
+    font-family: ${FONT_FAMILY};
     font-size: 0.9rem;
     ${style && style}
   `;
@@ -153,11 +157,13 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({ style }) => {
             <span css={iconStyle} className="material-symbols-outlined">
               storage
             </span>
-            <h2 css={h2Style}>Local Data</h2>
-            {isLocalRecent && <Tag value="LATEST" style={latestTagStyle} />}
+            <h2 css={h2Style}>{t('Local Data')}</h2>
+            {isLocalRecent && (
+              <Tag value={t('LATEST')} style={latestTagStyle} />
+            )}
           </div>
           <NormalLabel
-            value={`Last updated: ${getStringDate(
+            value={`${t('Last updated')}: ${getStringDate(
               new Date(tabDataLocal!.lastModified)
             )}`}
             size="0.9rem"
@@ -165,8 +171,8 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({ style }) => {
             style="margin-top: 40px; align-self: flex-start;"
           />
           <NormalLabel
-            value={`${tabDataLocalLength} Tab Group${
-              tabDataLocalLength > 1 ? 's' : ''
+            value={`${tabDataLocalLength} ${
+              tabDataLocalLength > 1 ? t('Saved sessions') : t('Saved session')
             }`}
             size="0.9rem"
             color={COLORS.TEXT_COLOR}
@@ -179,11 +185,13 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({ style }) => {
             <span css={iconStyle} className="material-symbols-outlined">
               cloud
             </span>
-            <h2 css={h2Style}>Cloud Data</h2>
-            {!isLocalRecent && <Tag value="LATEST" style={latestTagStyle} />}
+            <h2 css={h2Style}>{t('Cloud Data')}</h2>
+            {!isLocalRecent && (
+              <Tag value={t('LATEST')} style={latestTagStyle} />
+            )}
           </div>
           <NormalLabel
-            value={`Last updated: ${getStringDate(
+            value={`${t('Last updated')}: ${getStringDate(
               new Date(tabDataCloud!.lastModified)
             )}`}
             size="0.9rem"
@@ -191,8 +199,8 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({ style }) => {
             style="margin-top: 40px;  align-self: flex-start;"
           />
           <NormalLabel
-            value={`${tabDataCloudLength} Tab Group${
-              tabDataCloudLength > 1 ? 's' : ''
+            value={`${tabDataCloudLength} ${
+              tabDataCloudLength > 1 ? t('Saved sessions') : t('Saved session')
             }`}
             size="0.9rem"
             color={COLORS.TEXT_COLOR}

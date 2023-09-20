@@ -3,6 +3,7 @@ import React from 'react';
 import { css } from '@emotion/react';
 
 import Icon from './Icon';
+import { useFontFamily } from '../hook/useFontFamily';
 import { useThemeColors } from '../hook/useThemeColors';
 
 interface ButtonProps {
@@ -31,6 +32,7 @@ const Button: React.FC<ButtonProps> = ({
   style,
 }) => {
   const COLORS = useThemeColors();
+  const FONT_FAMILY = useFontFamily();
 
   const buttonStyle = css`
     background-color: ${COLORS.PRIMARY_COLOR};
@@ -40,7 +42,7 @@ const Button: React.FC<ButtonProps> = ({
     display: flex;
     align-items: center;
     justify-content: space-around;
-    font-family: 'Libre Franklin', sans-serif;
+    font-family: ${FONT_FAMILY};
     font-size: 0.9rem;
     cursor: pointer;
     transition: background-color 0.2s;

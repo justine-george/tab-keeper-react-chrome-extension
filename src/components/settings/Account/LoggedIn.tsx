@@ -3,9 +3,11 @@ import { css } from '@emotion/react';
 import Icon from '../../common/Icon';
 import { NormalLabel } from '../../common/Label';
 import { useThemeColors } from '../../hook/useThemeColors';
+import { useTranslation } from 'react-i18next';
 
 const LoggedIn: React.FC = () => {
   const COLORS = useThemeColors();
+  const { t } = useTranslation();
 
   const containerStyle = css`
     display: flex;
@@ -36,7 +38,7 @@ const LoggedIn: React.FC = () => {
           style={'padding-right: 4px;'}
         />
         <NormalLabel
-          value={`Cloud Sync Active`}
+          value={t(`Cloud Sync Active`)}
           size="1.1rem"
           color={COLORS.TEXT_COLOR}
           style="justify-content: center; align-items: center;"
@@ -44,7 +46,7 @@ const LoggedIn: React.FC = () => {
       </div>
 
       <NormalLabel
-        value={`Secure token sync. No emails. Full privacy.`}
+        value={t(`Secure token sync. No emails. Full privacy.`)}
         size="0.9rem"
         color={COLORS.LABEL_L3_COLOR}
         style="text-align: center;"

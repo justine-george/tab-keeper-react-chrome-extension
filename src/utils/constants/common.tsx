@@ -28,7 +28,6 @@ export const DEBOUNCE_TIME_WINDOW = 500;
 export const APP_VERSION = manifest.version;
 
 // developer details
-export const DEV_APPRECIATION = 'Thank you for using this app!';
 export const DEV_CREDITS = `Crafted with ❤️ by Justine George`;
 
 // developer email
@@ -42,9 +41,6 @@ export const SHARE_TWITTER_TEXT = `https://twitter.com/intent/tweet?text=A%20sho
 
 // feedback mail subject
 export const FEEDBACK_MAIL_SUBJECT = `Feedback: Tab Keeper v${APP_VERSION}`;
-
-// feedback request text
-export const FEEDBACK_REQUEST = 'Share Your Thoughts';
 
 // textbox placeholders
 export const TEXTBOX_PLACEHOLDERS = {
@@ -73,8 +69,8 @@ export const TOAST_MESSAGES = {
   LOGOUT_FAIL:
     'Oops! We encountered an issue while logging you out. Please try again.',
   SAVE_TAB_CONTAINER_SUCCESS: 'Session saved.',
-  ADD_CURR_TAB_TO_WINDOW_SUCCESS: 'Current tab saved.',
   ADD_CURR_WINDOW_TO_TABGROUP_SUCCESS: 'Current window saved.',
+  ADD_CURR_TAB_TO_WINDOW_SUCCESS: 'Current tab saved.',
   DELETE_TAB_CONTAINER_SUCCESS: 'Session deleted.',
   DELETE_WINDOW_SUCCESS: 'Session window deleted.',
   DELETE_TAB_SUCCESS: 'Session tab deleted.',

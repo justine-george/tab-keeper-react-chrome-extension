@@ -2,7 +2,7 @@
 
 Tab Keeper is an intuitive Chrome extension crafted to redefine the way users save, organize, and interact with their browser tabs. With the smart integration of the Chrome Storage API for token generation, Tab Keeper ensures that users can seamlessly sync their data without the need for signing up. This token serves as a unique key to Cloud Firestore, providing a secure and hassle-free experience.
 
-At its core, Tab Keeper uses technologies like React, Emotion CSS, Cloud Firestore, Firebase SDK, and Firebase Authentication to offer a seamless, efficient, and user-centric experience.<br><br>
+At its core, Tab Keeper uses technologies like React, Emotion CSS, Cloud Firestore, Firebase SDK, Firebase Authentication, and i18n React for internationalization, to offer a seamless, efficient, and user-centric experience.<br><br>
 
 <a href="https://chrome.google.com/webstore/detail/tabkeeper-tab-session-man/gpibgniomobngodpnikhheifblbpbbah" target="_blank"><img src="https://github.com/justinegeo96/tab-keeper-react-chrome-extension/blob/main/store-assets/marquee%20promo%20tile/tab-keeper-marquee-promo-tile.png"></a>
 
@@ -21,6 +21,8 @@ At its core, Tab Keeper uses technologies like React, Emotion CSS, Cloud Firesto
 
 - 🔖 Organized Tab Management: Efficiently archive, categorize, and access your saved tabs. Transition from a chaotic archive to a structured and streamlined browsing collection.
 
+- 🌍 Multilingual Support: With i18n React, Tab Keeper now offers internationalization, supporting languages such as English, German, Chinese, Japanese, French, Portuguese, Russian, Spanish, Italian, and Hindi.
+
 - 🌐 Seamless Synchronization: Reap the benefits of our advanced Chrome integration. Ensure consistent synchronization of your saved tabs across all devices without the hassles of manual setups or redundant logins. Your archived data is synchronized and ready when you need it.
 
 - 🔒 Uncompromised Privacy: Tab Keeper places user privacy at its core. No separate user login is required. Synchronize your data seamlessly via Chrome without sharing personal or email details. A straightforward, yet secure browsing experience awaits you.
@@ -32,37 +34,54 @@ At its core, Tab Keeper uses technologies like React, Emotion CSS, Cloud Firesto
 
 ## 📜 Changelog:
 
+### v.1.1.7
+
+#### New Features:
+
+- Translation Support: The application now supports multiple languages including English, German, Chinese, Japanese, French, Portuguese, Russian, Spanish, Italian, and Hindi.
+
+#### Improvements:
+
+- Various bug fixes and optimizations.
+
 ### v.1.1.6
 
 #### Improvements:
+
 - Various bug fixes and optimizations.
 
 ### v.1.1.5
 
 #### New Features:
+
 - Window Management: The application now recalls window positions and sizes for a seamless restoration experience.
 - Tab Groups: Easily add the current window to an existing tab group.
 - Renaming: Capability to rename tab groups and window groups.
 - Themes: Expanded selection of customizable themes for enhanced user experience.
 
 #### Improvements:
+
 - Various bug fixes and optimizations.
 
 ### v.1.1.2
 
 #### Enhancements:
+
 - Settings UI: Overhauled settings categories for improved navigation.
 - User Experience: Multiple tweaks and adjustments for an enriched user experience.
 
 #### Improvements:
+
 - Addressed multiple bugs for better stability.
 
 ### v.1.0.9
 
 #### New Features:
+
 - Privacy Boost: Eliminated email requirements. Tab Keeper now utilizes the browser's inbuilt sync feature for enhanced privacy.
 
 #### Improvements:
+
 - Syncing: Improved handling of sync collisions, ensuring smoother operation across multiple devices.
 
 <br>

@@ -3,7 +3,9 @@ import { useSelector } from 'react-redux';
 import { css } from '@emotion/react';
 
 import { RootState } from '../../redux/store';
+import { useFontFamily } from '../hook/useFontFamily';
 import { useThemeColors } from '../hook/useThemeColors';
+import { useTranslation } from 'react-i18next';
 
 interface ToastProps {
   style?: string;
@@ -11,6 +13,8 @@ interface ToastProps {
 
 export const Toast: React.FC<ToastProps> = ({ style }) => {
   const COLORS = useThemeColors();
+  const FONT_FAMILY = useFontFamily();
+  const { t } = useTranslation();
 
   const toastText = useSelector(
     (state: RootState) => state.globalState.toastText
@@ -38,12 +42,12 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
     min-height: 50px;
     display: flex;
     justify-content: center;
-    font-family: 'Libre Franklin', sans-serif;
+    font-family: ${FONT_FAMILY};
     font-size: 0.9rem;
     align-items: center;
     user-select: none;
     ${style && style}
   `;
 
-  return <div css={toastStyle}>{toastText}</div>;
+  return <div css={toastStyle}>{t(toastText)}</div>;
 };
