@@ -1,17 +1,24 @@
 import i18n from 'i18next';
-import { initReactI18next } from 'react-i18next';
 import HttpBackend from 'i18next-http-backend';
-import LanguageDetector from 'i18next-browser-languagedetector';
+import { initReactI18next } from 'react-i18next';
+
+import { DEFAULT_LANG } from './utils/constants/common';
+import { loadFromLocalStorage } from './utils/helperFunctions';
+import { Language } from './redux/slice/settingsDataStateSlice';
+
+// retrieve language from localStorage
+const { language: storedLanguage } = loadFromLocalStorage('settingsData') || {};
+const userLang: Language = (storedLanguage || DEFAULT_LANG).replace(/"/g, '');
 
 i18n
   .use(HttpBackend)
-  .use(LanguageDetector)
   .use(initReactI18next)
   .init({
     backend: {
       loadPath: '/locales/{{lng}}/{{ns}}.json',
     },
-    fallbackLng: 'en', // default language
+    lng: userLang,
+    fallbackLng: 'en',
     detection: {
       order: [
         'querystring',

@@ -56,6 +56,5 @@ export function useFontFamily() {
       break;
   }
 
-  console.log(currentLanguage);
   return font;
 }
