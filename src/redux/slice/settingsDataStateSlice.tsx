@@ -1,4 +1,5 @@
-import { PayloadAction, createSlice } from '@reduxjs/toolkit';
+import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+
 import {
   loadFromLocalStorage,
   saveToLocalStorage,
@@ -58,7 +59,6 @@ export const settingsDataStateSlice = createSlice({
 
       // Save updated state to localStorage
       saveToLocalStorage('settingsData', state);
-      saveToLocalStorage('tabkeeper-language', action.payload);
     },
 
     toggleAutoSync: (state) => {

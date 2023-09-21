@@ -1,11 +1,14 @@
 import i18n from 'i18next';
-import { initReactI18next } from 'react-i18next';
 import HttpBackend from 'i18next-http-backend';
-import { DEFAULT_LANG } from './utils/constants/common';
+import { initReactI18next } from 'react-i18next';
 
-const userLang = (
-  localStorage.getItem('tabkeeper-language') || DEFAULT_LANG
-).replace(/"/g, '');
+import { DEFAULT_LANG } from './utils/constants/common';
+import { loadFromLocalStorage } from './utils/helperFunctions';
+import { Language } from './redux/slice/settingsDataStateSlice';
+
+// retrieve language from localStorage
+const { language: storedLanguage } = loadFromLocalStorage('settingsData') || {};
+const userLang: Language = (storedLanguage || DEFAULT_LANG).replace(/"/g, '');
 
 i18n
   .use(HttpBackend)
