@@ -1,10 +1,14 @@
 import manifest from '../../../public/manifest.json';
+import { Language } from '../../redux/slice/settingsDataStateSlice';
 
 // Constants related to colors moved to hook/useThemeColors
 
 // for plain icons with no interactivity
 export const NON_INTERACTIVE_ICON_STYLE =
   'cursor: unset; &:hover {background-color: unset;}';
+
+// default language
+export const DEFAULT_LANG = Language.EN;
 
 // app container dimensions
 export const APP_HEIGHT = '550px';

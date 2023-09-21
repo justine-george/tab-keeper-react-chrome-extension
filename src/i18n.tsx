@@ -1,17 +1,21 @@
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import HttpBackend from 'i18next-http-backend';
-import LanguageDetector from 'i18next-browser-languagedetector';
+import { DEFAULT_LANG } from './utils/constants/common';
+
+const userLang = (
+  localStorage.getItem('tabkeeper-language') || DEFAULT_LANG
+).replace(/"/g, '');
 
 i18n
   .use(HttpBackend)
-  .use(LanguageDetector)
   .use(initReactI18next)
   .init({
     backend: {
       loadPath: '/locales/{{lng}}/{{ns}}.json',
     },
-    fallbackLng: 'en', // default language
+    lng: userLang,
+    fallbackLng: 'en',
     detection: {
       order: [
         'querystring',

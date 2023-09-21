@@ -58,7 +58,7 @@ export const settingsDataStateSlice = createSlice({
 
       // Save updated state to localStorage
       saveToLocalStorage('settingsData', state);
-      saveToLocalStorage('i18nextLng', action.payload);
+      saveToLocalStorage('tabkeeper-language', action.payload);
     },
 
     toggleAutoSync: (state) => {
