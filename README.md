@@ -1,10 +1,10 @@
 # Tab Keeper - Tab Session Manager
 
+<a href="https://chrome.google.com/webstore/detail/tabkeeper-tab-session-man/gpibgniomobngodpnikhheifblbpbbah" target="_blank"><img src="https://github.com/justinegeo96/tab-keeper-react-chrome-extension/blob/main/store-assets/marquee%20promo%20tile/tab-keeper-marquee-promo-tile.png"></a>
+
 Tab Keeper is an intuitive Chrome extension crafted to redefine the way users save, organize, and interact with their browser tabs. With the smart integration of the Chrome Storage API for token generation, Tab Keeper ensures that users can seamlessly sync their data without the need for signing up. This token serves as a unique key to Cloud Firestore, providing a secure and hassle-free experience.
 
 At its core, Tab Keeper uses technologies like React, Emotion CSS, Cloud Firestore, Firebase SDK, Firebase Authentication, and i18n React for internationalization, to offer a seamless, efficient, and user-centric experience.<br><br>
-
-<a href="https://chrome.google.com/webstore/detail/tabkeeper-tab-session-man/gpibgniomobngodpnikhheifblbpbbah" target="_blank"><img src="https://github.com/justinegeo96/tab-keeper-react-chrome-extension/blob/main/store-assets/marquee%20promo%20tile/tab-keeper-marquee-promo-tile.png"></a>
 
 <a href="https://chrome.google.com/webstore/detail/tabkeeper-tab-session-man/gpibgniomobngodpnikhheifblbpbbah" target="_blank"><img src="https://github.com/justinegeo96/tab-keeper-react-chrome-extension/blob/main/store-assets/screenshots/tab-keeper-screenshot-2.png"></a>
 
