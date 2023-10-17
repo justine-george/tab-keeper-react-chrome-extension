@@ -15,6 +15,7 @@ import { redo, undo } from '../redux/slice/undoRedoSlice';
 import LeftPaneSettings from './settings/LeftPaneSettings';
 import RightPaneSettings from './settings/RightPaneSettings';
 import { closeToast } from '../redux/slice/globalStateSlice';
+import { RateAndReviewModal } from './common/RateAndReviewModal';
 
 export default function MainContainer() {
   const COLORS = useThemeColors();
@@ -32,6 +33,10 @@ export default function MainContainer() {
     (state: RootState) => state.globalState.isConflictModalOpen
   );
 
+  const isRateAndReviewModalOpen = useSelector(
+    (state: RootState) => state.globalState.isRateAndReviewModalOpen
+  );
+
   // Keyboard shortcut listener for undo/redo
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -43,10 +48,27 @@ export default function MainContainer() {
           event.preventDefault();
         }
 
+        // check for command+z
+        if (event.metaKey && event.key === 'z') {
+          dispatch(undo());
+          dispatch(closeToast());
+          event.preventDefault();
+        }
+
         // check for ctrl+y or ctrl+shift+z
         if (
           (event.ctrlKey && event.key === 'y') ||
           (event.ctrlKey && event.shiftKey && event.key === 'z')
+        ) {
+          dispatch(redo());
+          dispatch(closeToast());
+          event.preventDefault();
+        }
+
+        // check for command+y or command+shift+z
+        if (
+          (event.metaKey && event.key === 'y') ||
+          (event.metaKey && event.shiftKey && event.key === 'z')
         ) {
           dispatch(redo());
           dispatch(closeToast());
@@ -117,6 +139,7 @@ export default function MainContainer() {
       )}
       {isToastOpen && <Toast />}
       {isConflictModalOpen && <ConflictModal />}
+      {isRateAndReviewModalOpen && <RateAndReviewModal />}
     </div>
   );
 }
