@@ -582,7 +582,7 @@ const SettingsDetailsContainer: React.FC = () => {
         <Button
           text={t('Rate this app')}
           iconType="thumb_up"
-          onClick={() => window.open(APP_CHROME_WEBSTORE_LINK)}
+          onClick={() => window.open(APP_CHROME_WEBSTORE_LINK + '/reviews')}
           style="width: 250px; justify-content: center; margin-top: 40px;"
         />
         <Button
