@@ -9,11 +9,12 @@ import { APP_WIDTH } from './utils/constants/common';
 import { observeAuthState } from './config/firebase';
 import MainContainer from './components/MainContainer';
 import { AppDispatch, RootState } from './redux/store';
-import { loadFromLocalStorage } from './utils/helperFunctions';
+import { isValidDate, loadFromLocalStorage } from './utils/helperFunctions';
 import { setPresentStartup } from './redux/slice/undoRedoSlice';
 import { useThemeColors } from './components/hook/useThemeColors';
 import { replaceState } from './redux/slice/tabContainerDataStateSlice';
 import {
+  openRateAndReviewModal,
   removeUserId,
   setLoggedOut,
   setSignedIn,
@@ -22,6 +23,7 @@ import {
 } from './redux/slice/globalStateSlice';
 
 import './App.css';
+import { setExtensionInstalledTime } from './redux/slice/settingsDataStateSlice';
 
 function App() {
   const COLORS = useThemeColors();
@@ -77,8 +79,53 @@ function App() {
     });
   }
 
+  // ask user to rate and review the extension
+  function askUserToRateAndReview() {
+    // load from localstorage to check if user has already rated and reviewed
+    const {
+      extensionInstalledTime = '',
+      isUserRatedAndReviewed = false,
+      isNeverAskAgainToRate = false,
+      lastReviewRequestTime = '',
+    } = loadFromLocalStorage('settingsData') || {};
+
+    // if user has already rated and reviewed, then don't ask again
+    if (isUserRatedAndReviewed || isNeverAskAgainToRate) {
+      return;
+    }
+
+    // if user is first time user, then wait till he/she uses the extension for a day
+    if (!isValidDate(extensionInstalledTime)) {
+      dispatch(setExtensionInstalledTime());
+      return;
+    }
+    const ONE_DAY_IN_MS = 24 * 60 * 60 * 1000;
+    const currentTimeInMs = new Date().getTime();
+    const extensionInstalledTimeInMs = new Date(
+      extensionInstalledTime
+    ).getTime();
+    if (currentTimeInMs - extensionInstalledTimeInMs < ONE_DAY_IN_MS) {
+      return;
+    }
+
+    // if user has already been asked to rate and review, then wait for 3 days to ask again
+    if (isValidDate(lastReviewRequestTime)) {
+      const lastReviewRequestTimeInMs = new Date(
+        lastReviewRequestTime
+      ).getTime();
+      const THREE_DAYS_IN_MS = 3 * ONE_DAY_IN_MS;
+      if (currentTimeInMs - lastReviewRequestTimeInMs < THREE_DAYS_IN_MS) {
+        return;
+      }
+    }
+
+    // It's to ask the user to rate and review!
+    dispatch(openRateAndReviewModal());
+  }
+
   useEffect(() => {
     getUserTokenFromChromeStorageSync();
+    askUserToRateAndReview();
     observeAuthState(dispatch);
   }, []);
 

@@ -28,6 +28,7 @@ export interface Global {
   isToastOpen: boolean;
   toastText: string;
   isConflictModalOpen: boolean;
+  isRateAndReviewModalOpen: boolean;
   tabDataLocal: TabMasterContainer | null;
   tabDataCloud: TabMasterContainer | null;
 }
@@ -44,6 +45,7 @@ export const initialState: Global = {
   isToastOpen: false,
   toastText: '',
   isConflictModalOpen: false,
+  isRateAndReviewModalOpen: false,
   tabDataLocal: null,
   tabDataCloud: null,
 };
@@ -209,6 +211,14 @@ export const globalStateSlice = createSlice({
       state.isConflictModalOpen = false;
     },
 
+    openRateAndReviewModal: (state) => {
+      state.isRateAndReviewModalOpen = true;
+    },
+
+    closeRateAndReviewModal: (state) => {
+      state.isRateAndReviewModalOpen = false;
+    },
+
     openSearchPanel: (state) => {
       state.isSearchPanel = true;
     },
@@ -303,6 +313,8 @@ export const globalStateSlice = createSlice({
 export const {
   openConflictModal,
   closeConflictModal,
+  openRateAndReviewModal,
+  closeRateAndReviewModal,
   openSearchPanel,
   closeSearchPanel,
   setSearchInputText,

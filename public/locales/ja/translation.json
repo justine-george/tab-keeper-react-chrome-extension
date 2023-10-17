@@ -83,5 +83,10 @@
   "Crafted with ❤️ by Justine George": "Justine Georgeの手作り❤️",
   "Rate this app": "この拡張機能を評価する",
   "Share your thoughts": "意見を共有する",
-  "Share on Twitter (X)": "Twitterで共有する (X)"
+  "Share on Twitter (X)": "Twitterで共有する (X)",
+
+  "RequestUserReviewHeader": "タブキーパーをお楽しみいただけていますか？",
+  "RequestUserReviewText": "ポジティブなレビューをいただけませんか？",
+  "Maybe Later": "後で",
+  "Never Remind Again": "再度お知らせしない"
 }

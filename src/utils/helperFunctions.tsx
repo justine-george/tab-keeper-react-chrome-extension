@@ -35,6 +35,15 @@ export function getStringDate(inputDate: Date): string {
   return `${year}-${month}-${day} ${hour}:${minute}:${second}`;
 }
 
+// check validity of the timestamp
+export function isValidDate(param: any) {
+  if (typeof param === 'number' || param === '') {
+      const date = new Date(param);
+      return date instanceof Date && !isNaN(date.getTime());
+  }
+  return false;
+}
+
 // simulate a lottery win based on random number
 export function isLotteryWon(): boolean {
   return Math.floor(Math.random() * 2) === 1;

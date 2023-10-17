@@ -30,6 +30,11 @@ export interface SettingsData {
   theme: Theme;
   language: Language;
   isAutoSync: boolean;
+  extensionInstalledTime: number | '';
+  isSkippedUserReviewOnce: boolean;
+  isUserRatedAndReviewed: boolean;
+  isNeverAskAgainToRate: boolean;
+  lastReviewRequestTime: number | '';
 }
 
 // Retrieve settings from localStorage
@@ -41,6 +46,11 @@ export const initialState: SettingsData = settingsDataLocal
       language: 'en', // Default language is 'en'
       theme: Theme.LIGHT,
       isAutoSync: true,
+      extensionInstalledTime: '',
+      isSkippedUserReviewOnce: false,
+      isUserRatedAndReviewed: false,
+      isNeverAskAgainToRate: false,
+      lastReviewRequestTime: '',
     };
 
 export const settingsDataStateSlice = createSlice({
@@ -68,6 +78,41 @@ export const settingsDataStateSlice = createSlice({
       saveToLocalStorage('settingsData', state);
     },
 
+    setExtensionInstalledTime: (state) => {
+      state.extensionInstalledTime = Date.now();
+
+      // Save updated state to localStorage
+      saveToLocalStorage('settingsData', state);
+    },
+
+    setSkippedUserReviewOnce: (state) => {
+      state.isSkippedUserReviewOnce = true;
+
+      // Save updated state to localStorage
+      saveToLocalStorage('settingsData', state);
+    },
+
+    setUserRatedAndReviewed: (state) => {
+      state.isUserRatedAndReviewed = true;
+
+      // Save updated state to localStorage
+      saveToLocalStorage('settingsData', state);
+    },
+
+    setNeverAskAgainToRate: (state) => {
+      state.isNeverAskAgainToRate = true;
+
+      // Save updated state to localStorage
+      saveToLocalStorage('settingsData', state);
+    },
+
+    updateLastReviewRequestTime: (state) => {
+      state.lastReviewRequestTime = Date.now();
+
+      // Save updated state to localStorage
+      saveToLocalStorage('settingsData', state);
+    },
+
     replaceState: (state, action: PayloadAction<typeof state>) => {
       // Save updated state to localStorage
       saveToLocalStorage('settingsData', state);
@@ -77,7 +122,15 @@ export const settingsDataStateSlice = createSlice({
   },
 });
 
-export const { setTheme, setLanguage, toggleAutoSync } =
-  settingsDataStateSlice.actions;
+export const {
+  setTheme,
+  setLanguage,
+  toggleAutoSync,
+  setNeverAskAgainToRate,
+  setUserRatedAndReviewed,
+  setSkippedUserReviewOnce,
+  setExtensionInstalledTime,
+  updateLastReviewRequestTime,
+} = settingsDataStateSlice.actions;
 
 export default settingsDataStateSlice.reducer;

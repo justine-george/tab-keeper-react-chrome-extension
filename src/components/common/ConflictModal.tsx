@@ -81,7 +81,7 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({ style }) => {
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.6);
+    background: rgba(0, 0, 0, 0.8);
     z-index: 999;
     font-family: ${FONT_FAMILY};
     font-size: 0.9rem;
