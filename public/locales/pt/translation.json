@@ -20,6 +20,7 @@
   "Rename window group": "Renomear grupo de janelas",
   "Add current tab": "Adicionar aba atual",
   "Open in new tab": "Abrir em nova aba",
+  "Go to URL": "Visitar site",
 
   "Windows": "Janelas",
   "Window": "Janela",
@@ -78,9 +79,9 @@
   "Restore App Data from File": "Restaurar do arquivo",
   "Choose Language": "Escolher Língua",
 
-  "Thank you for using this app!": "Obrigado por usar este app!",
+  "Thank you for using this app!": "Fico feliz que você esteja usando o Tab Keeper! Obrigado!",
   "Crafted with ❤️ by Justine George": "Feito com ❤️ por Justine George",
-  "Rate this app": "Avalie este app",
+  "Rate this app": "Avalie esta extensão",
   "Share your thoughts": "Compartilhe ideias",
   "Share on Twitter (X)": "Compartilhar no Twitter"
 }

@@ -258,7 +258,10 @@ export default function HeroContainerRight() {
             tooltipText={t('Open in new window')}
             ariaLabel="open all windows"
             type="open_in_new"
-            onClick={() => dispatch(openAllTabContainer(tabGroupId))}
+            onClick={() => {
+              const goToURLText: string = t('Go to URL');
+              dispatch(openAllTabContainer({ tabGroupId, goToURLText }));
+            }}
           />
           <Icon
             tooltipText={t('Delete')}

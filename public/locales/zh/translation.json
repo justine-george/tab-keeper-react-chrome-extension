@@ -20,6 +20,7 @@
   "Rename window group": "重命名窗口组",
   "Add current tab": "添加当前标签",
   "Open in new tab": "在新标签中打开",
+  "Go to URL": "访问网站",
 
   "Windows": "窗口",
   "Window": "窗口",
@@ -78,9 +79,9 @@
   "Restore App Data from File": "从文件恢复应用数据",
   "Choose Language": "选择语言",
 
-  "Thank you for using this app!": "非常感谢您使用这款应用！",
+  "Thank you for using this app!": "感谢您选择使用选项卡管理器！",
   "Crafted with ❤️ by Justine George": "Justine George 用心打造❤️",
-  "Rate this app": "评价此应用",
+  "Rate this app": "评价此扩展",
   "Share your thoughts": "分享您的想法",
   "Share on Twitter (X)": "在 Twitter 上分享 (X)"
 }

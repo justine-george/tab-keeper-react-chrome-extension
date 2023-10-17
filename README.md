@@ -8,7 +8,7 @@ At its core, Tab Keeper uses technologies like React, Emotion CSS, Cloud Firesto
 
 <a href="https://chrome.google.com/webstore/detail/tabkeeper-tab-session-man/gpibgniomobngodpnikhheifblbpbbah" target="_blank"><img src="https://github.com/justinegeo96/tab-keeper-react-chrome-extension/blob/main/store-assets/screenshots/tab-keeper-screenshot-2.png"></a>
 
-## 🛠️ Installation
+## Installation
 
 <a href="https://chrome.google.com/webstore/detail/tabkeeper-tab-session-man/gpibgniomobngodpnikhheifblbpbbah" target="_blank"><img src="https://github.com/justinegeo96/tab-keeper-react-chrome-extension/blob/main/store-assets/banners/chrome_web_store_download_button.png" width="250"></a>
 
@@ -17,7 +17,7 @@ At its core, Tab Keeper uses technologies like React, Emotion CSS, Cloud Firesto
 3. Benefit from an organized, seamless, and clutter-free browsing experience.
    <br>
 
-## 🌱 Features:
+## Features:
 
 - 🔖 Organized Tab Management: Efficiently archive, categorize, and access your saved tabs. Transition from a chaotic archive to a structured and streamlined browsing collection.
 
@@ -32,7 +32,13 @@ At its core, Tab Keeper uses technologies like React, Emotion CSS, Cloud Firesto
 - 🌓 Multiple Customizable Themes: Tailor your browsing experience with our range of aesthetic themes, from light to dark and everything in between. Choose a theme that aligns with your mood and preference.
   <br>
 
-## 📜 Changelog:
+## Changelog:
+
+### v.1.1.9
+
+#### Improvements:
+
+- Various bug fixes and optimizations.
 
 ### v.1.1.8
 
@@ -86,11 +92,11 @@ At its core, Tab Keeper uses technologies like React, Emotion CSS, Cloud Firesto
 
 <br>
 
-## 🙌 Contributing
+## Contributing
 
 Contributions are welcome! Feel free to open issues or submit pull requests following the established coding style and guidelines.
 <br>
 
-## 🔐 License
+## License
 
 Tab Keeper is released under the MIT License.

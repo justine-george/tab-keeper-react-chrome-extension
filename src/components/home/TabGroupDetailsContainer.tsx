@@ -19,9 +19,11 @@ import {
   tabData,
   updateWindowGroupTitle,
 } from '../../redux/slice/tabContainerDataStateSlice';
+import { useTranslation } from 'react-i18next';
 
 export default function TabGroupDetailsContainer() {
   const COLORS = useThemeColors();
+  const { t } = useTranslation();
   const dispatch: AppDispatch = useDispatch();
 
   const tabContainerDataList = useSelector(
@@ -116,9 +118,12 @@ export default function TabGroupDetailsContainer() {
                   onDeleteClick={() =>
                     dispatch(deleteWindow({ tabGroupId, windowId }))
                   }
-                  onWindowTitleClick={() =>
-                    dispatch(openTabsInAWindow({ tabGroupId, windowId }))
-                  }
+                  onWindowTitleClick={() => {
+                    const goToURLText: string = t('Go to URL');
+                    dispatch(
+                      openTabsInAWindow({ tabGroupId, windowId, goToURLText })
+                    );
+                  }}
                 />
               </div>
             );
