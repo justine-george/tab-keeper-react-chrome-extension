@@ -112,6 +112,7 @@ const tabURLMap: {
 interface openTabsInAWindowParams {
   tabGroupId: string;
   windowId: string;
+  goToURLText: string;
 }
 
 // open all tabs under this section in a single window
@@ -146,7 +147,8 @@ export const openTabsInAWindow = createAsyncThunk(
           const placeholder = generatePlaceholderURL(
             tabInfo.title,
             tabInfo.favicon || '/images/favicon.ico',
-            decodedUrl
+            decodedUrl,
+            params.goToURLText
           );
 
           chrome.tabs.create(
@@ -169,14 +171,19 @@ export const openTabsInAWindow = createAsyncThunk(
   }
 );
 
+interface openAllTabContainerParams {
+  tabGroupId: string;
+  goToURLText: string;
+}
+
 // open all windows under this tab group in separate windows, with corresponding tabs inside
 export const openAllTabContainer = createAsyncThunk(
   'global/openAllTabContainer',
-  async (tabGroupId: string, thunkAPI) => {
+  async (params: openAllTabContainerParams, thunkAPI) => {
     const state: TabMasterContainer = (thunkAPI.getState() as RootState)
       .tabContainerDataState;
     const tabGroup = state.tabGroups.find(
-      (group) => group.tabGroupId === tabGroupId
+      (group) => group.tabGroupId === params.tabGroupId
     );
 
     if (!tabGroup) return;
@@ -199,7 +206,8 @@ export const openAllTabContainer = createAsyncThunk(
             const placeholder = generatePlaceholderURL(
               tabInfo.title,
               tabInfo.favicon || '/images/favicon.ico',
-              decodedUrl
+              decodedUrl,
+              params.goToURLText
             );
 
             chrome.tabs.create(

@@ -20,6 +20,7 @@
   "Rename window group": "ウィンドウグループの名前を変更",
   "Add current tab": "現在のタブを追加",
   "Open in new tab": "新しいタブで開く",
+  "Go to URL": "サイトを訪問",
 
   "Windows": "ウィンドウ",
   "Window": "ウィンドウ",
@@ -78,9 +79,9 @@
   "Restore App Data from File": "ファイルからアプリデータを復元",
   "Choose Language": "言語を選択",
 
-  "Thank you for using this app!": "このアプリをご利用いただき、心より感謝いたします！",
+  "Thank you for using this app!": "タブキーパーを選んでいただき、ありがとうございます！",
   "Crafted with ❤️ by Justine George": "Justine Georgeの手作り❤️",
-  "Rate this app": "このアプリを評価する",
+  "Rate this app": "この拡張機能を評価する",
   "Share your thoughts": "意見を共有する",
   "Share on Twitter (X)": "Twitterで共有する (X)"
 }

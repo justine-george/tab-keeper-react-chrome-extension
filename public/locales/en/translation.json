@@ -20,6 +20,7 @@
   "Rename window group": "Rename window group",
   "Add current tab": "Add current tab",
   "Open in new tab": "Open in new tab",
+  "Go to URL": "Visit Site",
 
   "Windows": "Windows",
   "Window": "Window",
@@ -78,9 +79,9 @@
   "Restore App Data from File": "Restore App Data from File",
   "Choose Language": "Choose Language",
 
-  "Thank you for using this app!": "Thank you for using this app!",
+  "Thank you for using this app!": "Thank you for using Tab Keeper!",
   "Crafted with ❤️ by Justine George": "Crafted with ❤️ by Justine George",
-  "Rate this app": "Rate this app",
+  "Rate this app": "Rate this extension",
   "Share your thoughts": "Share your thoughts",
   "Share on Twitter (X)": "Share on Twitter (X)"
 }

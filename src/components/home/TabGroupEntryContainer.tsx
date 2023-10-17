@@ -16,9 +16,11 @@ import {
   selectTabContainer,
   tabContainerData,
 } from '../../redux/slice/tabContainerDataStateSlice';
+import { useTranslation } from 'react-i18next';
 
 export default function TabGroupEntryContainer() {
   const COLORS = useThemeColors();
+  const { t } = useTranslation();
   const dispatch: AppDispatch = useDispatch();
 
   const tabContainerDataList = useSelector(
@@ -83,9 +85,15 @@ export default function TabGroupEntryContainer() {
                   onTabGroupClick={() =>
                     dispatch(selectTabContainer(tabGroupData.tabGroupId))
                   }
-                  onOpenAllClick={() =>
-                    dispatch(openAllTabContainer(tabGroupData.tabGroupId))
-                  }
+                  onOpenAllClick={() => {
+                    const goToURLText: string = t('Go to URL');
+                    dispatch(
+                      openAllTabContainer({
+                        tabGroupId: tabGroupData.tabGroupId,
+                        goToURLText,
+                      })
+                    );
+                  }}
                   onDeleteClick={() =>
                     dispatch(deleteTabContainer(tabGroupData.tabGroupId))
                   }
