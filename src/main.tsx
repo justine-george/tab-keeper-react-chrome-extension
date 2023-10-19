@@ -5,7 +5,7 @@ import { I18nextProvider } from 'react-i18next';
 
 import ReactDOM from 'react-dom/client';
 
-import i18n from './i18n';
+import i18n from './config/i18n.tsx';
 import App from './App.tsx';
 import { store } from './redux/store.tsx';
 

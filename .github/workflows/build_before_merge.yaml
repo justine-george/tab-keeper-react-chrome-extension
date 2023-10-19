@@ -20,5 +20,8 @@ jobs:
       - name: Install dependencies
         uses: bahmutov/npm-install@v1
 
+      - name: Run tests
+        run: npm run test
+
       - name: Generate dist folder
         run: npm run build

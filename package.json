@@ -1,5 +1,7 @@
 {
   "name": "tab-keeper-react-chrome-extension",
+  "author": "Justine George",
+  "description": "Efficiently save and synchronize tabs across devices without the need for personal logins.",
   "private": true,
   "version": "1.2.0",
   "type": "module",
@@ -11,7 +13,8 @@
     "bump-version": "npm version patch --no-git-tag-version && npm run sync-versions",
     "release-local": "tsc && npx prettier -w . && vite build && cd dist && node ../zip.cjs",
     "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest"
   },
   "dependencies": {
     "@emotion/react": "^11.11.1",
@@ -45,6 +48,8 @@
     "eslint-plugin-react-refresh": "^0.3.4",
     "prettier": "^3.0.2",
     "typescript": "^5.0.2",
-    "vite": "^4.3.9"
+    "vite": "^4.3.9",
+    "vitest": "^0.34.6",
+    "vitest-localstorage-mock": "^0.0.1"
   }
 }

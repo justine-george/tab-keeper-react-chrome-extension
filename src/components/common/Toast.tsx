@@ -3,8 +3,8 @@ import { useSelector } from 'react-redux';
 import { css } from '@emotion/react';
 
 import { RootState } from '../../redux/store';
-import { useFontFamily } from '../hook/useFontFamily';
-import { useThemeColors } from '../hook/useThemeColors';
+import { useFontFamily } from '../../hooks/useFontFamily';
+import { useThemeColors } from '../../hooks/useThemeColors';
 import { useTranslation } from 'react-i18next';
 
 interface ToastProps {

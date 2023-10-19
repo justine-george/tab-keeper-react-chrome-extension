@@ -4,18 +4,18 @@ import { useDispatch, useSelector } from 'react-redux';
 
 import { css } from '@emotion/react';
 
-import LeftPane from './home/LeftPane';
+import LeftPane from './home/leftpane/LeftPane';
 import { Toast } from './common/Toast';
-import RightPane from './home/RightPane';
-import { useThemeColors } from './hook/useThemeColors';
+import RightPane from './home/rightpane/RightPane';
+import { useThemeColors } from '../hooks/useThemeColors';
 import { APP_HEIGHT } from '../utils/constants/common';
-import { ConflictModal } from './common/ConflictModal';
+import { ConflictModal } from './modals/ConflictModal';
 import { AppDispatch, RootState } from '../redux/store';
-import { redo, undo } from '../redux/slice/undoRedoSlice';
-import LeftPaneSettings from './settings/LeftPaneSettings';
-import RightPaneSettings from './settings/RightPaneSettings';
-import { closeToast } from '../redux/slice/globalStateSlice';
-import { RateAndReviewModal } from './common/RateAndReviewModal';
+import { redo, undo } from '../redux/slices/undoRedoSlice';
+import LeftPaneSettings from './settings/leftpane/LeftPaneSettings';
+import RightPaneSettings from './settings/rightpane/RightPaneSettings';
+import { closeToast } from '../redux/slices/globalStateSlice';
+import { RateAndReviewModal } from './modals/RateAndReviewModal';
 
 export default function MainContainer() {
   const COLORS = useThemeColors();

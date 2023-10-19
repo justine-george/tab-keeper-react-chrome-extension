@@ -3,8 +3,8 @@ import React from 'react';
 import { css } from '@emotion/react';
 
 import Icon from './Icon';
-import { useFontFamily } from '../hook/useFontFamily';
-import { useThemeColors } from '../hook/useThemeColors';
+import { useFontFamily } from '../../hooks/useFontFamily';
+import { useThemeColors } from '../../hooks/useThemeColors';
 
 interface ButtonProps {
   text?: string;

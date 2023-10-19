@@ -2,7 +2,7 @@ import React, { MouseEventHandler } from 'react';
 
 import { css, keyframes } from '@emotion/react';
 
-import { useThemeColors } from '../hook/useThemeColors';
+import { useThemeColors } from '../../hooks/useThemeColors';
 
 interface IconProps {
   type: string;
