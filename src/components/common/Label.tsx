@@ -2,8 +2,8 @@ import { MouseEventHandler } from 'react';
 
 import { css } from '@emotion/react';
 
-import { useFontFamily } from '../hook/useFontFamily';
-import { useThemeColors } from '../hook/useThemeColors';
+import { useFontFamily } from '../../hooks/useFontFamily';
+import { useThemeColors } from '../../hooks/useThemeColors';
 
 interface LabelProps {
   value?: string;

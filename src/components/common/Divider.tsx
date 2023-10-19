@@ -1,6 +1,6 @@
 import { css } from '@emotion/react';
 
-import { useThemeColors } from '../hook/useThemeColors';
+import { useThemeColors } from '../../hooks/useThemeColors';
 
 export default function Divider() {
   const COLORS = useThemeColors();

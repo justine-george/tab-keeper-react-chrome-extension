@@ -9,10 +9,9 @@ import { APP_WIDTH } from './utils/constants/common';
 import { observeAuthState } from './config/firebase';
 import MainContainer from './components/MainContainer';
 import { AppDispatch, RootState } from './redux/store';
-import { isValidDate, loadFromLocalStorage } from './utils/helperFunctions';
-import { setPresentStartup } from './redux/slice/undoRedoSlice';
-import { useThemeColors } from './components/hook/useThemeColors';
-import { replaceState } from './redux/slice/tabContainerDataStateSlice';
+import { setPresentStartup } from './redux/slices/undoRedoSlice';
+import { useThemeColors } from './hooks/useThemeColors';
+import { replaceState } from './redux/slices/tabContainerDataStateSlice';
 import {
   openRateAndReviewModal,
   removeUserId,
@@ -20,10 +19,11 @@ import {
   setSignedIn,
   setUserId,
   syncStateWithFirestore,
-} from './redux/slice/globalStateSlice';
+} from './redux/slices/globalStateSlice';
 
 import './App.css';
-import { setExtensionInstalledTime } from './redux/slice/settingsDataStateSlice';
+import { setExtensionInstalledTime } from './redux/slices/settingsDataStateSlice';
+import { isValidDate, loadFromLocalStorage } from './utils/functions/local';
 
 function App() {
   const COLORS = useThemeColors();

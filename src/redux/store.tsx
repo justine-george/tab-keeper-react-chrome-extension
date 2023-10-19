@@ -1,9 +1,9 @@
 import { configureStore } from '@reduxjs/toolkit';
-import globalStateReducer from './slice/globalStateSlice';
-import settingsDataStateReducer from './slice/settingsDataStateSlice';
-import settingsCategoryStateReducer from './slice/settingsCategoryStateSlice';
-import tabContainerDataStateReducer from './slice/tabContainerDataStateSlice';
-import undoRedoReducer from './slice/undoRedoSlice';
+import globalStateReducer from './slices/globalStateSlice';
+import settingsDataStateReducer from './slices/settingsDataStateSlice';
+import settingsCategoryStateReducer from './slices/settingsCategoryStateSlice';
+import tabContainerDataStateReducer from './slices/tabContainerDataStateSlice';
+import undoRedoReducer from './slices/undoRedoSlice';
 import { customMiddleware } from './middleware/customMiddleware';
 
 export const store = configureStore({
