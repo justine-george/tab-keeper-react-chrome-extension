@@ -53,7 +53,7 @@ Tab Keeper is an intuitive Chrome extension crafted to redefine the way users sa
 
 #### New Features
 
-- Added "Optimize Memory Usage While Restoring" toggle in Data Management settings to enabl memory-optimized restore mode
+- Added "Optimize Memory Usage While Restoring" toggle in Data Management settings to enable memory-optimized restore mode
 
 #### Improvements
 
