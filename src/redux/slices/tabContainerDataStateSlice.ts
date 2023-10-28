@@ -14,6 +14,7 @@ import {
   DEFAULT_WINDOW_WIDTH,
   TOAST_MESSAGES,
 } from '../../utils/constants/common';
+import { SettingsData } from './settingsDataStateSlice';
 
 export interface tabData {
   tabId: string;
@@ -97,13 +98,16 @@ export const initialState: TabMasterContainer = {
   tabGroups: [],
 };
 
-chrome.tabs.onActivated.addListener(({ tabId }) => {
-  const tabData = tabURLMap[tabId];
-  if (tabData) {
-    chrome.tabs.update(tabId, { url: tabData.url });
-    delete tabURLMap[tabId];
-  }
-});
+function setupTabActivationListener(isLazyLoad: boolean) {
+  if (!isLazyLoad) return;
+  chrome.tabs.onActivated.addListener(({ tabId }) => {
+    const tabData = tabURLMap[tabId];
+    if (tabData) {
+      chrome.tabs.update(tabId, { url: tabData.url });
+      delete tabURLMap[tabId];
+    }
+  });
+}
 
 const tabURLMap: {
   [key: number]: { url: string; title: string; favicon: string };
@@ -122,6 +126,9 @@ export const openTabsInAWindow = createAsyncThunk(
     const state: TabMasterContainer = (thunkAPI.getState() as RootState)
       .tabContainerDataState;
 
+    const settingsDataState: SettingsData = (thunkAPI.getState() as RootState)
+      .settingsDataState;
+
     const tabGroup = state.tabGroups.find(
       (group) => group.tabGroupId === params.tabGroupId
     );
@@ -131,6 +138,8 @@ export const openTabsInAWindow = createAsyncThunk(
     );
 
     if (!windowGroup) return;
+
+    setupTabActivationListener(settingsDataState.isLazyLoad);
 
     const { tabs } = windowGroup;
     chrome.windows.create(
@@ -144,25 +153,30 @@ export const openTabsInAWindow = createAsyncThunk(
       (newWindow) => {
         tabs.slice(1).forEach((tabInfo) => {
           const decodedUrl = decodeDataUrl(tabInfo.url);
-          const placeholder = generatePlaceholderURL(
-            tabInfo.title,
-            tabInfo.favicon || '/images/favicon.ico',
-            decodedUrl,
-            params.goToURLText
-          );
+          let placeholder;
+          if (settingsDataState.isLazyLoad) {
+            placeholder = generatePlaceholderURL(
+              tabInfo.title,
+              tabInfo.favicon || '/images/favicon.ico',
+              decodedUrl,
+              params.goToURLText
+            );
+          }
 
           chrome.tabs.create(
             {
               windowId: newWindow!.id,
-              url: placeholder,
+              url: settingsDataState.isLazyLoad ? placeholder : decodedUrl,
               active: false,
             },
             (tab) => {
-              tabURLMap[tab.id!] = {
-                url: decodedUrl,
-                title: tabInfo.title,
-                favicon: tabInfo.favicon || '/images/favicon.ico',
-              };
+              if (settingsDataState.isLazyLoad) {
+                tabURLMap[tab.id!] = {
+                  url: decodedUrl,
+                  title: tabInfo.title,
+                  favicon: tabInfo.favicon || '/images/favicon.ico',
+                };
+              }
             }
           );
         });
@@ -182,11 +196,15 @@ export const openAllTabContainer = createAsyncThunk(
   async (params: openAllTabContainerParams, thunkAPI) => {
     const state: TabMasterContainer = (thunkAPI.getState() as RootState)
       .tabContainerDataState;
+    const settingsDataState: SettingsData = (thunkAPI.getState() as RootState)
+      .settingsDataState;
     const tabGroup = state.tabGroups.find(
       (group) => group.tabGroupId === params.tabGroupId
     );
 
     if (!tabGroup) return;
+
+    setupTabActivationListener(settingsDataState.isLazyLoad);
 
     let isFirstWindow = true;
 
@@ -203,25 +221,30 @@ export const openAllTabContainer = createAsyncThunk(
         (newWindow) => {
           windowGroup.tabs.slice(1).forEach((tabInfo) => {
             const decodedUrl = decodeDataUrl(tabInfo.url);
-            const placeholder = generatePlaceholderURL(
-              tabInfo.title,
-              tabInfo.favicon || '/images/favicon.ico',
-              decodedUrl,
-              params.goToURLText
-            );
+            let placeholder;
+            if (settingsDataState.isLazyLoad) {
+              placeholder = generatePlaceholderURL(
+                tabInfo.title,
+                tabInfo.favicon || '/images/favicon.ico',
+                decodedUrl,
+                params.goToURLText
+              );
+            }
 
             chrome.tabs.create(
               {
                 windowId: newWindow!.id,
-                url: placeholder,
+                url: settingsDataState.isLazyLoad ? placeholder : decodedUrl,
                 active: false,
               },
               (tab) => {
-                tabURLMap[tab.id!] = {
-                  url: decodedUrl,
-                  title: tabInfo.title,
-                  favicon: tabInfo.favicon || '/images/favicon.ico',
-                };
+                if (settingsDataState.isLazyLoad) {
+                  tabURLMap[tab.id!] = {
+                    url: decodedUrl,
+                    title: tabInfo.title,
+                    favicon: tabInfo.favicon || '/images/favicon.ico',
+                  };
+                }
               }
             );
           });

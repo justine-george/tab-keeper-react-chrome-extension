@@ -11,7 +11,10 @@ import { AccountChildProps } from '../Account';
 import { auth } from '../../../../config/firebase';
 import { AppDispatch } from '../../../../redux/store';
 import { useThemeColors } from '../../../../hooks/useThemeColors';
-import { isValidEmail, isValidPassword } from '../../../../utils/functions/local';
+import {
+  isValidEmail,
+  isValidPassword,
+} from '../../../../utils/functions/local';
 import {
   TEXTBOX_PLACEHOLDERS,
   TOAST_MESSAGES,

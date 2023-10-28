@@ -17,7 +17,10 @@ import {
   TOAST_MESSAGES,
   TOOLTIP_MESSAGES,
 } from '../../../../utils/constants/common';
-import { isValidEmail, isValidPassword } from '../../../../utils/functions/local';
+import {
+  isValidEmail,
+  isValidPassword,
+} from '../../../../utils/functions/local';
 
 const CreateAccount: React.FC<AccountChildProps> = ({
   handleCurrentPageChange,
