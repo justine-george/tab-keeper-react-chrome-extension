@@ -30,6 +30,7 @@ export interface SettingsData {
   theme: Theme;
   language: Language;
   isAutoSync: boolean;
+  isLazyLoad: boolean;
   extensionInstalledTime: number | '';
   isSkippedUserReviewOnce: boolean;
   isUserRatedAndReviewed: boolean;
@@ -40,18 +41,22 @@ export interface SettingsData {
 // Retrieve settings from localStorage
 const settingsDataLocal = loadFromLocalStorage('settingsData');
 
-export const initialState: SettingsData = settingsDataLocal
-  ? settingsDataLocal
-  : {
-      language: 'en', // Default language is 'en'
-      theme: Theme.LIGHT,
-      isAutoSync: true,
-      extensionInstalledTime: '',
-      isSkippedUserReviewOnce: false,
-      isUserRatedAndReviewed: false,
-      isNeverAskAgainToRate: false,
-      lastReviewRequestTime: '',
-    };
+const defaultSettings: SettingsData = {
+  language: Language.EN, // Default language is 'en'
+  theme: Theme.LIGHT,
+  isAutoSync: true,
+  isLazyLoad: true,
+  extensionInstalledTime: '',
+  isSkippedUserReviewOnce: false,
+  isUserRatedAndReviewed: false,
+  isNeverAskAgainToRate: false,
+  lastReviewRequestTime: '',
+};
+
+export const initialState: SettingsData = {
+  ...defaultSettings,
+  ...settingsDataLocal,
+};
 
 export const settingsDataStateSlice = createSlice({
   name: 'settingsDataState',
@@ -73,6 +78,13 @@ export const settingsDataStateSlice = createSlice({
 
     toggleAutoSync: (state) => {
       state.isAutoSync = !state.isAutoSync;
+
+      // Save updated state to localStorage
+      saveToLocalStorage('settingsData', state);
+    },
+
+    toggleLazyLoad: (state) => {
+      state.isLazyLoad = !state.isLazyLoad;
 
       // Save updated state to localStorage
       saveToLocalStorage('settingsData', state);
@@ -126,6 +138,7 @@ export const {
   setTheme,
   setLanguage,
   toggleAutoSync,
+  toggleLazyLoad,
   setNeverAskAgainToRate,
   setUserRatedAndReviewed,
   setSkippedUserReviewOnce,

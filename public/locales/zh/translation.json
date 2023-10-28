@@ -69,6 +69,7 @@
   "Darkenheimer": "暗黑风",
   "Blue": "蓝色",
   "Auto Sync": "自动同步",
+  "Lazy Load Tabs": "在恢复过程中优化内存使用",
   "Sync Status": "同步状态",
   "Cloud Sync Active": "云同步已激活",
   "Secure token sync. No emails. Full privacy.": "安全令牌同步。无电子邮件。完全隐私。",

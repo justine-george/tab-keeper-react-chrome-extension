@@ -69,6 +69,7 @@
   "Darkenheimer": "Darkenheimer",
   "Blue": "Синяя",
   "Auto Sync": "Авто синхронизация",
+  "Lazy Load Tabs": "Оптимизация памяти при восстановлении",
   "Sync Status": "Статус синхронизации",
   "Cloud Sync Active": "Облачная синхронизация активна",
   "Secure token sync. No emails. Full privacy.": "Безопасная синхро. Без писем. Приватность.",

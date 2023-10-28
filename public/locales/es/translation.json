@@ -69,6 +69,7 @@
   "Darkenheimer": "Oscurecerheimer",
   "Blue": "Azul",
   "Auto Sync": "Sincronización automática",
+  "Lazy Load Tabs": "Optimizar Uso de Memoria Durante la Restauración",
   "Sync Status": "Estado de sincronización",
   "Cloud Sync Active": "Sincronización en la nube activa",
   "Secure token sync. No emails. Full privacy.": "Sincronización segura sin correos.",

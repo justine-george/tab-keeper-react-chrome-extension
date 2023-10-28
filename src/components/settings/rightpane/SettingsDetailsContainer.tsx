@@ -25,6 +25,7 @@ import {
   setLanguage,
   setTheme,
   toggleAutoSync,
+  toggleLazyLoad,
 } from '../../../redux/slices/settingsDataStateSlice';
 import {
   APP_CHROME_WEBSTORE_LINK,
@@ -91,6 +92,10 @@ const SettingsDetailsContainer: React.FC = () => {
       dispatch(syncStateWithFirestore());
     }
     dispatch(toggleAutoSync());
+  };
+
+  const handleToggleLazyLoadTabs = () => {
+    dispatch(toggleLazyLoad());
   };
 
   const handleExportJSON = () => {
@@ -370,6 +375,50 @@ const SettingsDetailsContainer: React.FC = () => {
           align-items: center;
         `}
       >
+        {/* Lazy Load Tabs */}
+        <div
+          css={css`
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            margin-left: 72px;
+            width: 100%;
+            margin-top: 20px;
+          `}
+        >
+          <div
+            css={css`
+              display: flex;
+              align-items: flex-start;
+              width: 100%;
+            `}
+          >
+            <NormalLabel
+              value={t('Lazy Load Tabs')}
+              size="1rem"
+              color={COLORS.LABEL_L1_COLOR}
+            />
+          </div>
+
+          <div
+            css={css`
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              width: 250px;
+              margin-top: 8px;
+            `}
+          >
+            <Button
+              text={settingsData.isLazyLoad ? t(`On`) : t(`Off`)}
+              onClick={handleToggleLazyLoadTabs}
+              style={`
+              width: 120px;
+            `}
+            />
+          </div>
+        </div>
+
         {/* Backup & Restore */}
         <div
           css={css`
