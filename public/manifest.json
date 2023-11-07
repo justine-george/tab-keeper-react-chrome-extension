@@ -1,12 +1,12 @@
 {
   "manifest_version": 3,
-  "version": "1.2.1",
-  "name": "Tab Keeper - Tab Session Manager for Chrome",
+  "version": "1.2.2",
+  "name": "Tab Keeper - Chrome Tab Manager & Sync Tool",
   "description": "Efficiently save and synchronize tabs across devices without the need for personal logins.",
   "action": {
     "default_popup": "index.html",
     "default_icon": "icon128.png",
-    "default_title": "TabKeeper - Tab Session Manager for Chrome"
+    "default_title": "Tab Keeper - Chrome Tab Manager & Sync Tool"
   },
   "permissions": ["tabs", "storage"],
   "icons": {

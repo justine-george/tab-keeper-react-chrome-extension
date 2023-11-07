@@ -1,4 +1,4 @@
-# Tab Keeper - Tab Session Manager
+# Tab Keeper - Chrome Tab Manager & Sync Tool
 
 <a href="https://chrome.google.com/webstore/detail/tabkeeper-tab-session-man/gpibgniomobngodpnikhheifblbpbbah" target="_blank"><img src="https://github.com/justinegeo96/tab-keeper-react-chrome-extension/blob/main/store-assets/marquee%20promo%20tile/tab-keeper-marquee-promo-tile.png"></a>
 
@@ -49,7 +49,7 @@ Tab Keeper is an intuitive Chrome extension crafted to redefine the way users sa
 
 ## Changelog
 
-### v.1.2.1 (Latest)
+### v.1.2.2 (Latest)
 
 #### New Features
 
