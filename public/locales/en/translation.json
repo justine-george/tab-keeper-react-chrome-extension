@@ -69,7 +69,7 @@
   "Darkenheimer": "Darkenheimer",
   "Blue": "Blue",
   "Auto Sync": "Auto Sync",
-  "Lazy Load Tabs": "Optimize Memory Usage While Restoring",
+  "Lazy Load Tabs": "Optimize Memory Usage On Session Restore",
   "Sync Status": "Sync Status",
   "Cloud Sync Active": "Cloud Sync Active",
   "Secure token sync. No emails. Full privacy.": "Secure token sync. No emails. Full privacy.",
