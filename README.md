@@ -1,6 +1,6 @@
 # Tab Keeper - Chrome Tab Manager & Sync Tool
 
-<a href="https://chrome.google.com/webstore/detail/tabkeeper-tab-session-man/gpibgniomobngodpnikhheifblbpbbah" target="_blank"><img src="https://github.com/justinegeo96/tab-keeper-react-chrome-extension/blob/main/store-assets/marquee%20promo%20tile/tab-keeper-marquee-promo-tile.png"></a>
+<a href="https://chromewebstore.google.com/detail/tab-keeper-chrome-tab-man/gpibgniomobngodpnikhheifblbpbbah?ref=github" target="_blank"><img src="store-assets/marquee promo tile/tab-keeper-marquee-promo-tile.png"></a>
 
 Tab Keeper is an intuitive Chrome extension crafted to redefine the way users save, organize, and interact with their browser tabs. With the smart integration of the Chrome Storage API for token generation, Tab Keeper ensures that users can seamlessly sync their data without the need for signing up. This token serves as a unique key to Cloud Firestore, providing a secure and hassle-free experience.
 <br><br>
@@ -24,13 +24,13 @@ Tab Keeper is an intuitive Chrome extension crafted to redefine the way users sa
 
 ## Get Started
 
-<a href="https://chrome.google.com/webstore/detail/tabkeeper-tab-session-man/gpibgniomobngodpnikhheifblbpbbah" target="_blank"><img src="https://github.com/justinegeo96/tab-keeper-react-chrome-extension/blob/main/store-assets/banners/chrome_web_store_download_button.png" width="350"></a>
+<a href="https://chromewebstore.google.com/detail/tab-keeper-chrome-tab-man/gpibgniomobngodpnikhheifblbpbbah?ref=github" target="_blank"><img src="store-assets/banners/chrome_web_store_download_button.png" width="350"></a>
 
-#### [Get Tab Keeper from the Chrome Web Store](https://chrome.google.com/webstore/detail/tabkeeper-tab-session-manager-for-chrome/gpibgniomobngodpnikhheifblbpbbah)
+#### [Get Tab Keeper from the Chrome Web Store](https://chromewebstore.google.com/detail/tab-keeper-chrome-tab-man/gpibgniomobngodpnikhheifblbpbbah?ref=github)
 
 <br>
 
-<a href="https://chrome.google.com/webstore/detail/tabkeeper-tab-session-man/gpibgniomobngodpnikhheifblbpbbah" target="_blank"><img src="https://github.com/justinegeo96/tab-keeper-react-chrome-extension/blob/main/store-assets/screenshots/tab-keeper-screenshot-2.png"></a>
+<a href="https://chromewebstore.google.com/detail/tab-keeper-chrome-tab-man/gpibgniomobngodpnikhheifblbpbbah?ref=github" target="_blank"><img src="store-assets/screenshots/tab-keeper-screenshot-2.png"></a>
 
 ## Features
 
@@ -49,7 +49,15 @@ Tab Keeper is an intuitive Chrome extension crafted to redefine the way users sa
 
 ## Changelog
 
-### v.1.2.2 (Latest)
+### v.1.2.3 (Latest)
+
+#### Improvements
+
+- Improved iconography
+- Updated translations
+- Bug fixes and stability improvements
+
+### v.1.2.2
 
 #### New Features
 
