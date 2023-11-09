@@ -62,10 +62,7 @@ export default function HeroContainerRight() {
     (tabGroup) => tabGroup.isSelected
   );
   if (isSearchPanel && searchInputText) {
-    console.log('searchInputText', searchInputText);
-    console.log('before filter', filteredTabGroups);
     filteredTabGroups = filterTabGroups(searchInputText, filteredTabGroups);
-    console.log('after filter', filteredTabGroups);
   }
   const selectedTabGroup = filteredTabGroups[0];
 
@@ -258,17 +255,17 @@ export default function HeroContainerRight() {
           `}
         >
           <Icon
-            tooltipText={t('Open in new window')}
+            tooltipText={t('Restore all windows')}
             ariaLabel="open all windows"
-            type="open_in_new"
+            type="reopen_window"
             onClick={() => {
               const goToURLText: string = t('Go to URL');
               dispatch(openAllTabContainer({ tabGroupId, goToURLText }));
             }}
           />
           <Icon
-            tooltipText={t('Delete')}
-            ariaLabel="delete"
+            tooltipText={t('Delete session')}
+            ariaLabel="delete session"
             type="delete"
             onClick={() => dispatch(deleteTabContainer(tabGroupId))}
           />

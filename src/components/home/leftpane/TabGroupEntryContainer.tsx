@@ -35,17 +35,26 @@ export default function TabGroupEntryContainer() {
     (state: RootState) => state.globalState.searchInputText
   );
 
-  // filter the tab group list
-  let filteredTabGroups: tabContainerData[] = tabContainerDataList.tabGroups;
-  if (isSearchPanel && searchInputText) {
-    filteredTabGroups = filterTabGroups(searchInputText, filteredTabGroups);
-  }
+  let filteredTabGroups: tabContainerData[] =
+    isSearchPanel && searchInputText
+      ? filterTabGroups(searchInputText, tabContainerDataList.tabGroups)
+      : tabContainerDataList.tabGroups;
+
+  let selectedTabGroupId: string | undefined = filteredTabGroups.find(
+    (tabGroup) => tabGroup.isSelected
+  )?.tabGroupId;
 
   useEffect(() => {
-    if (filteredTabGroups.length !== 0) {
+    if (selectedTabGroupId) {
+      dispatch(selectTabContainer(selectedTabGroupId));
+    }
+  }, [selectedTabGroupId, dispatch]);
+
+  useEffect(() => {
+    if (!selectedTabGroupId && filteredTabGroups.length > 0) {
       dispatch(selectTabContainer(filteredTabGroups[0].tabGroupId));
     }
-  }, [searchInputText]);
+  }, [searchInputText, filteredTabGroups, dispatch]);
 
   const containerStyle = css`
     display: flex;
@@ -82,9 +91,11 @@ export default function TabGroupEntryContainer() {
               <div>
                 <TabGroupEntry
                   tabGroupData={tabGroupData}
-                  onTabGroupClick={() =>
-                    dispatch(selectTabContainer(tabGroupData.tabGroupId))
-                  }
+                  onTabGroupClick={() => {
+                    if (tabGroupData.tabGroupId !== selectedTabGroupId) {
+                      dispatch(selectTabContainer(tabGroupData.tabGroupId));
+                    }
+                  }}
                   onOpenAllClick={() => {
                     const goToURLText: string = t('Go to URL');
                     dispatch(
