@@ -190,6 +190,7 @@ export default function HeroContainerRight() {
                 font-size: 1.125rem;
                 height: 32px;
                 padding-left: 8px;
+                padding-right: 8px;
                 flex-grow: 1;
                 &:focus {
                   outline: none;
@@ -202,7 +203,7 @@ export default function HeroContainerRight() {
               value={title}
               size="1.125rem"
               color={COLORS.TEXT_COLOR}
-              style="height: 32px; padding-left: 8px;"
+              style="height: 32px; padding-left: 8px; margin-right: 8px;"
               onClick={handleTabGroupTitleClick}
             />
           )}
