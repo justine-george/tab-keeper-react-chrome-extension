@@ -209,7 +209,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
             type={windowOpenState ? 'expand_less' : 'expand_more'}
             onClick={handleAccordionClick}
           />
-          <Icon type="ad" style={NON_INTERACTIVE_ICON_STYLE} />
+          <Icon type="web_asset" style={NON_INTERACTIVE_ICON_STYLE} />
           <div
             css={parentLinkStyle}
             tabIndex={0}
@@ -295,8 +295,8 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
           )}
           {!isEditing && !isSearchPanel && (
             <Icon
-              tooltipText={t('Delete')}
-              ariaLabel="delete"
+              tooltipText={t('Delete window group')}
+              ariaLabel="delete window group"
               type="delete"
               backgroundColor={COLORS.HOVER_COLOR}
               onClick={(e) => {
@@ -322,11 +322,11 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                   tabIndex={0}
                   onClick={() => handleTabClick(url)}
                   onKeyDown={(e) => handleKeyPressOnTab(e, url)}
-                  title={t('Open in new tab')}
+                  title={t('Open in new tab') + ': ' + title}
                 >
                   <Icon
                     faviconUrl={favicon}
-                    type="app_badging"
+                    type="globe"
                     style={`&:hover {background-color: unset;}`}
                   />
                   <div css={windowChildLinkStyle}>
@@ -340,7 +340,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                 </div>
                 <div css={childRightStyle(index)}>
                   <Icon
-                    tooltipText={t('Delete')}
+                    tooltipText={t('Delete tab')}
                     ariaLabel="delete"
                     type="delete"
                     backgroundColor={COLORS.HOVER_COLOR}

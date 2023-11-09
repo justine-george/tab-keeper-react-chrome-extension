@@ -158,7 +158,7 @@ export default function UserInputContainer() {
       {/* <Button text="Save" onClick={createTabGroup} /> */}
       <Button
         tooltipText={t('Save all windows')}
-        ariaLabel="add"
+        ariaLabel="save session"
         iconType="add"
         onClick={createTabGroup}
         style="padding: 12px;"

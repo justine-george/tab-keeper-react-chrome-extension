@@ -96,10 +96,11 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
     >
       <div css={leftStyle}>
         <NormalLabel
-          style="max-width: 319px;"
+          style="max-width: 318px;"
           value={title}
           color={COLORS.TEXT_COLOR}
           size="0.95rem;"
+          tooltipText={title}
         />
         <NormalLabel
           value={`${windowCount} ${
@@ -122,10 +123,10 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
       {!isSearchPanel && (
         <div css={rightStyle}>
           <Icon
-            tooltipText={t('Open in new window')}
+            tooltipText={t('Restore all windows')}
             text={t('Restore')}
             ariaLabel="open all windows"
-            type="open_in_new"
+            type="reopen_window"
             backgroundColor={
               isSelected ? COLORS.SELECTION_COLOR : COLORS.HOVER_COLOR
             }
@@ -137,9 +138,9 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
             style="padding: 14px 10px; width: 57px;"
           />
           <Icon
-            tooltipText={t('Delete')}
+            tooltipText={t('Delete session')}
             text={t('Delete')}
-            ariaLabel="delete"
+            ariaLabel="delete session"
             type="delete"
             backgroundColor={
               isSelected ? COLORS.SELECTION_COLOR : COLORS.HOVER_COLOR
