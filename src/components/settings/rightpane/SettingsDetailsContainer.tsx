@@ -39,7 +39,6 @@ import {
   TabMasterContainer,
   replaceState,
 } from '../../../redux/slices/tabContainerDataStateSlice';
-import { setPresentStartup } from '../../../redux/slices/undoRedoSlice';
 import { isValidTabMasterContainer } from '../../../utils/functions/local';
 import { SettingsCategory } from '../../../redux/slices/settingsCategoryStateSlice';
 import LoggedIn from './Account/LoggedIn';
@@ -138,12 +137,7 @@ const SettingsDetailsContainer: React.FC = () => {
           dispatch(replaceState(tabDataFromJSON));
           dispatch(setIsDirty());
           dispatch(saveToFirestoreIfDirty());
-          // reset presentState in the undoRedoState
-          dispatch(
-            setPresentStartup({
-              tabContainerDataState: tabDataFromJSON,
-            })
-          );
+
           dispatch(
             showToast({
               toastText: `Restored tabs successfully!`,

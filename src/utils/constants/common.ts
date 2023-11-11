@@ -29,7 +29,7 @@ export const DEFAULT_WINDOW_OFFSET_LEFT: number = Math.round(
 );
 
 // max undo stack size
-export const STACK_LEVEL = 10;
+export const STACK_LEVEL = 15;
 
 // debounce window
 export const DEBOUNCE_TIME_WINDOW = 500;

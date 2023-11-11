@@ -35,6 +35,8 @@ export default function TabGroupEntryContainer() {
     (state: RootState) => state.globalState.searchInputText
   );
 
+  const selectedTabGroupId = tabContainerDataList.selectedTabGroupId;
+
   // filter the tab group list
   let filteredTabGroups: tabContainerData[] = tabContainerDataList.tabGroups;
   if (isSearchPanel && searchInputText) {
@@ -82,9 +84,12 @@ export default function TabGroupEntryContainer() {
               <div>
                 <TabGroupEntry
                   tabGroupData={tabGroupData}
-                  onTabGroupClick={() =>
-                    dispatch(selectTabContainer(tabGroupData.tabGroupId))
-                  }
+                  onTabGroupClick={() => {
+                    if (selectedTabGroupId === tabGroupData.tabGroupId) {
+                      return;
+                    }
+                    dispatch(selectTabContainer(tabGroupData.tabGroupId));
+                  }}
                   onOpenAllClick={() => {
                     const goToURLText: string = t('Go to URL');
                     dispatch(

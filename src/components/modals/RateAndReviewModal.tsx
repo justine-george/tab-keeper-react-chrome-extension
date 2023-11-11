@@ -45,7 +45,14 @@ export const RateAndReviewModal: React.FC<RateAndReviewModalProps> = ({
   };
 
   const handleRateExtension = () => {
-    chrome.tabs.create({ url: APP_CHROME_WEBSTORE_LINK + '/reviews' });
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      const currentTabIndex = tabs[0].index;
+      chrome.tabs.create({
+        url: APP_CHROME_WEBSTORE_LINK + '/reviews',
+        active: true,
+        index: currentTabIndex + 1,
+      });
+    });
     dispatch(setUserRatedAndReviewed());
     cleanUp();
   };
