@@ -15,15 +15,21 @@ export const APP_HEIGHT = '550px';
 export const APP_WIDTH = '790px';
 
 // default dimensions for a new window
-export const DEFAULT_WINDOW_HEIGHT = window.screen.height * 0.9;
-export const DEFAULT_WINDOW_WIDTH = window.screen.width * 0.8;
-export const DEFAULT_WINDOW_OFFSET_TOP =
-  (window.screen.height - DEFAULT_WINDOW_HEIGHT) / 2;
-export const DEFAULT_WINDOW_OFFSET_LEFT =
-  (window.screen.width - DEFAULT_WINDOW_WIDTH) / 2;
+export const DEFAULT_WINDOW_HEIGHT: number = Math.round(
+  window.screen.height * 0.9
+);
+export const DEFAULT_WINDOW_WIDTH: number = Math.round(
+  window.screen.width * 0.8
+);
+export const DEFAULT_WINDOW_OFFSET_TOP: number = Math.round(
+  (window.screen.height - DEFAULT_WINDOW_HEIGHT) / 2
+);
+export const DEFAULT_WINDOW_OFFSET_LEFT: number = Math.round(
+  (window.screen.width - DEFAULT_WINDOW_WIDTH) / 2
+);
 
 // max undo stack size
-export const STACK_LEVEL = 10;
+export const STACK_LEVEL = 15;
 
 // debounce window
 export const DEBOUNCE_TIME_WINDOW = 500;

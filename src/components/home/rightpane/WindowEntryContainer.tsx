@@ -167,7 +167,14 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   };
 
   const handleTabClick = (url: string) => {
-    chrome.tabs.create({ url: decodeDataUrl(url) });
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      const currentTabIndex = tabs[0].index;
+      chrome.tabs.create({
+        url: decodeDataUrl(url),
+        active: true,
+        index: currentTabIndex + 1,
+      });
+    });
   };
 
   function handleAccordionClick() {
