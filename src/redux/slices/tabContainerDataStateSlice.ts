@@ -113,6 +113,78 @@ const tabURLMap: {
   [key: number]: { url: string; title: string; favicon: string };
 } = {};
 
+function createWindowWithRetries(
+  tabs: tabData[],
+  isFirstWindow: boolean,
+  goToURLText: string,
+  isLazyLoad: boolean,
+  height: number | null,
+  width: number | null,
+  top: number | null,
+  left: number | null,
+  retryCount: number
+) {
+  if (retryCount == 0) {
+    return;
+  }
+
+  chrome.windows.create(
+    {
+      url: tabs[0].url,
+      focused: isFirstWindow,
+      height: height || DEFAULT_WINDOW_HEIGHT,
+      width: width || DEFAULT_WINDOW_WIDTH,
+      top: top || DEFAULT_WINDOW_OFFSET_TOP,
+      left: left || DEFAULT_WINDOW_OFFSET_LEFT,
+    },
+    (newWindow) => {
+      if (newWindow === undefined || newWindow === null) {
+        createWindowWithRetries(
+          tabs,
+          isFirstWindow,
+          goToURLText,
+          isLazyLoad,
+          null,
+          null,
+          null,
+          null,
+          retryCount - 1
+        );
+      } else {
+        tabs.slice(1).forEach((tabInfo) => {
+          const decodedUrl = decodeDataUrl(tabInfo.url);
+          let placeholder;
+          if (isLazyLoad) {
+            placeholder = generatePlaceholderURL(
+              tabInfo.title,
+              tabInfo.favicon || '/images/favicon.ico',
+              decodedUrl,
+              goToURLText
+            );
+          }
+
+          chrome.tabs.create(
+            {
+              windowId: newWindow!.id,
+              url: isLazyLoad ? placeholder : decodedUrl,
+              active: false,
+            },
+            (tab) => {
+              if (isLazyLoad) {
+                tabURLMap[tab.id!] = {
+                  url: decodedUrl,
+                  title: tabInfo.title,
+                  favicon: tabInfo.favicon || '/images/favicon.ico',
+                };
+              }
+            }
+          );
+        });
+      }
+    }
+  );
+}
+
 interface openTabsInAWindowParams {
   tabGroupId: string;
   windowId: string;
@@ -142,45 +214,17 @@ export const openTabsInAWindow = createAsyncThunk(
     setupTabActivationListener(settingsDataState.isLazyLoad);
 
     const { tabs } = windowGroup;
-    chrome.windows.create(
-      {
-        url: tabs[0].url,
-        height: windowGroup.windowHeight || DEFAULT_WINDOW_HEIGHT,
-        width: windowGroup.windowWidth || DEFAULT_WINDOW_WIDTH,
-        top: windowGroup.windowOffsetTop || DEFAULT_WINDOW_OFFSET_TOP,
-        left: windowGroup.windowOffsetLeft || DEFAULT_WINDOW_OFFSET_LEFT,
-      },
-      (newWindow) => {
-        tabs.slice(1).forEach((tabInfo) => {
-          const decodedUrl = decodeDataUrl(tabInfo.url);
-          let placeholder;
-          if (settingsDataState.isLazyLoad) {
-            placeholder = generatePlaceholderURL(
-              tabInfo.title,
-              tabInfo.favicon || '/images/favicon.ico',
-              decodedUrl,
-              params.goToURLText
-            );
-          }
 
-          chrome.tabs.create(
-            {
-              windowId: newWindow!.id,
-              url: settingsDataState.isLazyLoad ? placeholder : decodedUrl,
-              active: false,
-            },
-            (tab) => {
-              if (settingsDataState.isLazyLoad) {
-                tabURLMap[tab.id!] = {
-                  url: decodedUrl,
-                  title: tabInfo.title,
-                  favicon: tabInfo.favicon || '/images/favicon.ico',
-                };
-              }
-            }
-          );
-        });
-      }
+    createWindowWithRetries(
+      tabs,
+      true,
+      params.goToURLText,
+      settingsDataState.isLazyLoad,
+      windowGroup.windowHeight,
+      windowGroup.windowWidth,
+      windowGroup.windowOffsetTop,
+      windowGroup.windowOffsetLeft,
+      2
     );
   }
 );
@@ -209,46 +253,16 @@ export const openAllTabContainer = createAsyncThunk(
     let isFirstWindow = true;
 
     tabGroup.windows.forEach((windowGroup) => {
-      chrome.windows.create(
-        {
-          url: windowGroup.tabs[0].url, // load only the first tab directly
-          focused: isFirstWindow,
-          height: windowGroup.windowHeight || DEFAULT_WINDOW_HEIGHT,
-          width: windowGroup.windowWidth || DEFAULT_WINDOW_WIDTH,
-          top: windowGroup.windowOffsetTop || DEFAULT_WINDOW_OFFSET_TOP,
-          left: windowGroup.windowOffsetLeft || DEFAULT_WINDOW_OFFSET_LEFT,
-        },
-        (newWindow) => {
-          windowGroup.tabs.slice(1).forEach((tabInfo) => {
-            const decodedUrl = decodeDataUrl(tabInfo.url);
-            let placeholder;
-            if (settingsDataState.isLazyLoad) {
-              placeholder = generatePlaceholderURL(
-                tabInfo.title,
-                tabInfo.favicon || '/images/favicon.ico',
-                decodedUrl,
-                params.goToURLText
-              );
-            }
-
-            chrome.tabs.create(
-              {
-                windowId: newWindow!.id,
-                url: settingsDataState.isLazyLoad ? placeholder : decodedUrl,
-                active: false,
-              },
-              (tab) => {
-                if (settingsDataState.isLazyLoad) {
-                  tabURLMap[tab.id!] = {
-                    url: decodedUrl,
-                    title: tabInfo.title,
-                    favicon: tabInfo.favicon || '/images/favicon.ico',
-                  };
-                }
-              }
-            );
-          });
-        }
+      createWindowWithRetries(
+        windowGroup.tabs,
+        isFirstWindow,
+        params.goToURLText,
+        settingsDataState.isLazyLoad,
+        windowGroup.windowHeight,
+        windowGroup.windowWidth,
+        windowGroup.windowOffsetTop,
+        windowGroup.windowOffsetLeft,
+        2
       );
       isFirstWindow = false;
     });

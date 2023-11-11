@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "version": "1.2.5",
+  "version": "1.2.6",
   "name": "Tab Keeper - Chrome Tab Manager & Sync Tool",
   "description": "Efficiently save and synchronize tabs across devices without the need for personal logins.",
   "action": {
