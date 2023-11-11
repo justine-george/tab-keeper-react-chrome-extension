@@ -41,6 +41,11 @@ jobs:
           VITE_FIREBASE_MEASUREMENT_ID: ${{ secrets.VITE_FIREBASE_MEASUREMENT_ID }}
         run: npm run build
 
+      - name: Prune unused remotely hosted Firebase JS SDK calls
+        run: |
+          INDEX_FILE=$(find ./dist/assets -name 'index-*.js')
+          sed -i 's|https://apis.google.com/js/api.js?onload=${a}||g' $INDEX_FILE
+
       - name: Upload release zip file ready for Chrome Web Store
         uses: actions/upload-artifact@v3
         with:
