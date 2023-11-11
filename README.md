@@ -53,7 +53,8 @@ Tab Keeper is an intuitive Chrome extension crafted to redefine the way users sa
 
 #### Improvements
 
-- Bug fixes and stability improvements
+- Newly created chrome tab now opens right next to the current tab
+- Bug fixes and stability improvements (No restore on multi-monitor setup bug fixed)
 
 ### v.1.2.5
 
