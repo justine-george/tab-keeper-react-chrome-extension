@@ -1,9 +1,22 @@
+## Table of Contents
+1. [Introduction](#tab-keeper---chrome-tab-manager--sync-tool)
+2. [Built With](#built-with)
+3. [Get Started](#get-started)
+4. [Features](#features)
+5. [Changelog](#changelog)
+6. [Contributing](#contributing)
+7. [License](#license)
+8. [Support](#support)
+
 # Tab Keeper - Chrome Tab Manager & Sync Tool
 
 <a href="https://chromewebstore.google.com/detail/tab-keeper-chrome-tab-man/gpibgniomobngodpnikhheifblbpbbah?ref=github" target="_blank"><img src="store-assets/marquee promo tile/tab-keeper-marquee-promo-tile.png"></a>
 
 Tab Keeper is an intuitive Chrome extension crafted to redefine the way users save, organize, and interact with their browser tabs. With the smart integration of the Chrome Storage API for token generation, Tab Keeper ensures that users can seamlessly sync their data without the need for signing up. This token serves as a unique key to Cloud Firestore, providing a secure and hassle-free experience.
 <br><br>
+![Static Badge](https://img.shields.io/badge/Version-1.2.6-blue)
+![Static Badge](https://img.shields.io/badge/Featured_on-Chrome_Web_Store-blue)
+![Static Badge](https://img.shields.io/badge/License-MIT-green)
 
 ## Built With
 
@@ -134,7 +147,7 @@ Tab Keeper is an intuitive Chrome extension crafted to redefine the way users sa
 #### Improvements
 
 - Syncing: Improved handling of sync collisions, ensuring smoother operation across multiple devices
-  <br>
+  <br><br>
 
 ## Contributing
 
@@ -145,3 +158,7 @@ Contributions are welcome! Feel free to open issues or submit pull requests foll
 
 Tab Keeper is released under the [MIT License](https://raw.githubusercontent.com/justine-george/tab-keeper-react-chrome-extension/main/LICENSE).
 <br><br>
+
+## Support
+
+- Report bugs or request features via [GitHub Issues](https://github.com/justine-george/tab-keeper-react-chrome-extension/issues)
