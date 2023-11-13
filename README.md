@@ -161,4 +161,4 @@ Tab Keeper is released under the [MIT License](https://raw.githubusercontent.com
 
 ## Support
 
-- Report bugs or request features via [GitHub Issues](https://github.com/justine-george/tab-keeper-react-chrome-extension/issues)
+Report bugs or request features via [GitHub Issues](https://github.com/justine-george/tab-keeper-react-chrome-extension/issues)
