@@ -14,9 +14,9 @@
 
 Tab Keeper is an intuitive Chrome extension crafted to redefine the way users save, organize, and interact with their browser tabs. With the smart integration of the Chrome Storage API for token generation, Tab Keeper ensures that users can seamlessly sync their data without the need for signing up. This token serves as a unique key to Cloud Firestore, providing a secure and hassle-free experience.
 <br><br>
-![Static Badge](https://img.shields.io/badge/Version-1.2.6-blue)
-![Static Badge](https://img.shields.io/badge/Featured_on-Chrome_Web_Store-blue)
-![Static Badge](https://img.shields.io/badge/License-MIT-green)
+[![Static Badge](https://img.shields.io/badge/Version-1.2.6-blue)](#changelog)
+[![Static Badge](https://img.shields.io/badge/Featured_on-Chrome_Web_Store-blue)](https://chromewebstore.google.com/detail/tab-keeper-chrome-tab-man/gpibgniomobngodpnikhheifblbpbbah?ref=github)
+[![Static Badge](https://img.shields.io/badge/License-MIT-green)](https://raw.githubusercontent.com/justine-george/tab-keeper-react-chrome-extension/main/LICENSE)
 
 ## Built With
 
