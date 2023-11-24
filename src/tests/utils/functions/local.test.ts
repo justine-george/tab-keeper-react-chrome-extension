@@ -483,7 +483,7 @@ describe('isValidTabMasterContainer', () => {
   });
 });
 
-describe('should convert date from "YYYY-MM-DD HH:MM:SS" to "H:MM:SS AM/PM (Month D, YYYY)', () => {
+describe('should convert datestring to "mmm DD, yyyy at H:MM:SS AM/PM" format', () => {
   test('should return formatted date string', () => {
     const inputDateString = '2023-10-17 22:01:23';
     const expectedOutputString = 'Oct 17, 2023 at 10:01:23 PM';
@@ -506,5 +506,31 @@ describe('should convert date from "YYYY-MM-DD HH:MM:SS" to "H:MM:SS AM/PM (Mont
     const inputDateString = '2023-10-17 00:00:00';
     const expectedOutputString = 'Oct 17, 2023 at 12:00:00 AM';
     expect(getPrettyDate(inputDateString)).toBe(expectedOutputString);
+  });
+});
+
+describe('should convert timestamp to "mmm DD, yyyy at H:MM:SS AM/PM" format', () => {
+  test('should return formatted date string', () => {
+    const inputTimestamp = new Date('2023-10-17 22:01:23').getTime();
+    const expectedOutputString = 'Oct 17, 2023 at 10:01:23 PM';
+    expect(getPrettyDate(inputTimestamp)).toBe(expectedOutputString);
+  });
+
+  test('should handle AM time correctly', () => {
+    const inputTimestamp = new Date('2023-10-17 09:05:03').getTime();
+    const expectedOutputString = 'Oct 17, 2023 at 9:05:03 AM';
+    expect(getPrettyDate(inputTimestamp)).toBe(expectedOutputString);
+  });
+
+  test('should handle noon correctly', () => {
+    const inputTimestamp = new Date('2023-10-17 12:00:00').getTime();
+    const expectedOutputString = 'Oct 17, 2023 at 12:00:00 PM';
+    expect(getPrettyDate(inputTimestamp)).toBe(expectedOutputString);
+  });
+
+  test('should handle midnight correctly', () => {
+    const inputTimestamp = new Date('2023-10-17 00:00:00').getTime();
+    const expectedOutputString = 'Oct 17, 2023 at 12:00:00 AM';
+    expect(getPrettyDate(inputTimestamp)).toBe(expectedOutputString);
   });
 });

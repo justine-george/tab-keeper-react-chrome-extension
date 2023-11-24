@@ -5,6 +5,7 @@ import { showToast } from './globalStateSlice';
 import {
   decodeDataUrl,
   generatePlaceholderURL,
+  getStringDate,
   saveToLocalStorage,
 } from '../../utils/functions/local';
 import {
@@ -409,6 +410,7 @@ export const tabContainerDataStateSlice = createSlice({
       if (tabGroupIndex !== -1) {
         state.tabGroups[tabGroupIndex].windowCount += 1;
         state.tabGroups[tabGroupIndex].tabCount += window.tabCount;
+        state.tabGroups[tabGroupIndex].createdTime = getStringDate(new Date());
         state.tabGroups[tabGroupIndex].windows.unshift(window);
       }
       state.lastModified = Date.now();
@@ -434,6 +436,9 @@ export const tabContainerDataStateSlice = createSlice({
         if (windowIndex !== -1) {
           // increment tab count of tabGroup and windowGroup
           state.tabGroups[tabGroupIndex].tabCount += 1;
+          state.tabGroups[tabGroupIndex].createdTime = getStringDate(
+            new Date()
+          );
           state.tabGroups[tabGroupIndex].windows[windowIndex].tabCount += 1;
           // add to windowGroup
           state.tabGroups[tabGroupIndex].windows[windowIndex].tabs.unshift(
@@ -521,6 +526,9 @@ export const tabContainerDataStateSlice = createSlice({
         if (windowIndex !== -1) {
           // decrement tabGroup's window count by 1
           state.tabGroups[tabGroupIndex].windowCount -= 1;
+          state.tabGroups[tabGroupIndex].createdTime = getStringDate(
+            new Date()
+          );
           // decrement tabGroup's tab count by tab count of the window that's been deleted
           state.tabGroups[tabGroupIndex].tabCount -=
             state.tabGroups[tabGroupIndex].windows[windowIndex].tabCount;
@@ -563,6 +571,9 @@ export const tabContainerDataStateSlice = createSlice({
             // decrement window's and tabGroup's tab count by 1
             state.tabGroups[tabGroupIndex].windows[windowIndex].tabCount -= 1;
             state.tabGroups[tabGroupIndex].tabCount -= 1;
+            state.tabGroups[tabGroupIndex].createdTime = getStringDate(
+              new Date()
+            );
 
             state.tabGroups[tabGroupIndex].windows[windowIndex].tabs.splice(
               tabIndex,
