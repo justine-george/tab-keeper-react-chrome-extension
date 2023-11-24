@@ -7,14 +7,19 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "pretty": "npx prettier -w .",
     "build": "tsc && vite build",
-    "build-pretty": "tsc && npx prettier -w . && vite build",
+    "test-build": "npm run test && npm run build",
+    "pretty-build": "npm run pretty && npm run build",
     "sync-versions": "node package_to_manifest.cjs",
-    "bump-version": "npm version patch --no-git-tag-version && npm run sync-versions",
-    "release-local": "tsc && npx prettier -w . && vite build && cd dist && node ../zip.cjs",
-    "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "bump-patch-version": "npm version patch && npm run sync-versions",
+    "bump-minor-version": "npm version minor && npm run sync-versions",
+    "bump-major-version": "npm version major && npm run sync-versions",
+    "release": "npm run pretty-build && cd dist && node ../zip.cjs",
+    "lint": "eslint src --ext ts,tsx --max-warnings 0",
     "preview": "vite preview",
-    "test": "vitest"
+    "test-dev": "vitest",
+    "test": "vitest run"
   },
   "dependencies": {
     "@emotion/react": "^11.11.1",
@@ -43,7 +48,7 @@
     "bestzip": "^2.2.1",
     "eslint": "^8.53.0",
     "eslint-config-prettier": "^9.0.0",
-    "eslint-plugin-prettier": "^5.0.0",
+    "eslint-plugin-prettier": "^5.0.1",
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-react-refresh": "^0.3.4",
     "prettier": "^3.1.0",
