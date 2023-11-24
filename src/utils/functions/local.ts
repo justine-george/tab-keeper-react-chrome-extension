@@ -214,9 +214,9 @@ const isValidTabData = (data: any): data is tabData => {
   );
 };
 
-// convert date from "YYYY-MM-DD HH:MM:SS" to "H:MM:SS AM/PM (Month D, YYYY)"
-export const getPrettyDate = (dateString: string): string => {
-  const months = [
+// convert datestring and timestamp to "mmm DD, yyyy at H:MM:SS AM/PM" format
+export const getPrettyDate = (dateOrTimeStamp: string | number): string => {
+  const MONTHS = [
     'Jan',
     'Feb',
     'Mar',
@@ -231,10 +231,10 @@ export const getPrettyDate = (dateString: string): string => {
     'Dec',
   ];
 
-  const date = new Date(dateString);
+  const date = new Date(dateOrTimeStamp);
 
   const year = date.getFullYear();
-  const month = months[date.getMonth()];
+  const month = MONTHS[date.getMonth()];
   const day = date.getDate();
   const hours = date.getHours();
   const minutes = date.getMinutes().toString().padStart(2, '0');
