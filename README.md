@@ -1,4 +1,5 @@
 ## Table of Contents
+
 1. [Introduction](#tab-keeper---chrome-tab-manager--sync-tool)
 2. [Built With](#built-with)
 3. [Get Started](#get-started)
@@ -62,7 +63,14 @@ Tab Keeper is an intuitive Chrome extension crafted to redefine the way users sa
 
 ## Changelog
 
-### v.1.2.6 (Latest)
+### v.1.2.7 (Latest)
+
+#### Improvements
+
+- Timestamp shown in tab group cards now reflects the time of update
+- Dependent packages updated to latest versions
+
+### v.1.2.6
 
 #### Improvements
 
