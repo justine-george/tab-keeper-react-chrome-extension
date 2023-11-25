@@ -60,7 +60,14 @@ Tab Keeper is an intuitive Chrome extension crafted to redefine the way users sa
 
 ## Changelog
 
-### v.1.2.7 (Latest)
+### v.1.3.0 (Latest)
+
+#### Improvements
+
+- Search functionality now supports searching by tab group and window titles
+- Bug fixes and stability improvements
+
+### v.1.2.7
 
 #### Improvements
 
