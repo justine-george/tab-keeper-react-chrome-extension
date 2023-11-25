@@ -11,16 +11,16 @@ function writeJsonFile(filename, data) {
 }
 
 // Read package.json to get the version
-const packageData = readJsonFile('package.json');
+const packageData = readJsonFile('../package.json');
 const packageVersion = packageData.version;
 
 // Read manifest.json
-const manifestData = readJsonFile('public/manifest.json');
+const manifestData = readJsonFile('../public/manifest.json');
 
 // Update the version in manifest.json if it's different
 if (manifestData.version !== packageVersion) {
   manifestData.version = packageVersion;
-  writeJsonFile('public/manifest.json', manifestData);
+  writeJsonFile('../public/manifest.json', manifestData);
   console.log(`Updated manifest.json to version: ${packageVersion}`);
 } else {
   console.log('Versions are already in sync!');
