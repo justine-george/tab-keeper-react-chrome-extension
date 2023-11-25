@@ -47,7 +47,7 @@ export const APP_CHROME_WEBSTORE_LINK =
   'https://chromewebstore.google.com/detail/tab-keeper-chrome-tab-man/gpibgniomobngodpnikhheifblbpbbah';
 
 // twitter (X) share text
-export const SHARE_TWITTER_TEXT = `https://twitter.com/intent/tweet?text=A%20shoutout%20to%20my%20new%20fav%20Chrome%20extension%20%23TabKeeper&url=${APP_CHROME_WEBSTORE_LINK}`;
+export const SHARE_TWITTER_TEXT = `https://twitter.com/intent/tweet?text=Tab%20Keeper%20-%20Chrome%20Extension&hashtags=TabKeeper&url=${APP_CHROME_WEBSTORE_LINK}`;
 
 // feedback mail subject
 export const FEEDBACK_MAIL_SUBJECT = `Feedback: Tab Keeper v${APP_VERSION}`;
