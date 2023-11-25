@@ -16,7 +16,7 @@
     "bump-minor-version": "npm version minor --no-git-tag-version && npm run sync-versions",
     "bump-major-version": "npm version major --no-git-tag-version && npm run sync-versions",
     "create-tag-and-push": "git tag v$(node -p \"require('./package.json').version\") && git push origin v$(node -p \"require('./package.json').version\")",
-    "release": "npm run pretty-build && cd dist && node ../config/zip.cjs",
+    "release-local": "npm run pretty-build && cd dist && node ../config/zip.cjs",
     "lint": "eslint src --ext ts,tsx --max-warnings 0",
     "preview": "vite preview",
     "test-dev": "vitest",
