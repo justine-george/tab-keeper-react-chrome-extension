@@ -67,7 +67,7 @@ export default function UserInputContainer() {
     );
 
     // filter out current window
-    let windowList = allWindows.filter(
+    const windowList = allWindows.filter(
       (window) => window.id !== currentWindow.id
     );
 

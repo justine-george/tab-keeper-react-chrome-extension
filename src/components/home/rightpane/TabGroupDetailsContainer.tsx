@@ -53,7 +53,7 @@ export default function TabGroupDetailsContainer() {
     tabGroupId: string,
     windowId: string
   ) {
-    let [tab] = await chrome.tabs.query({
+    const [tab] = await chrome.tabs.query({
       active: true,
       lastFocusedWindow: true,
     });

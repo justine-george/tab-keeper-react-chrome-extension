@@ -97,7 +97,6 @@ export default function HeroContainerRight() {
     );
 
     // map its tabs
-    let tabCount = 0;
     const tabsData = windowData.tabs!.map((tab) => {
       return {
         tabId: uuidv4(),
@@ -106,8 +105,6 @@ export default function HeroContainerRight() {
         url: decodeDataUrl(tab.url || ''),
       };
     });
-
-    tabCount += tabsData.length;
 
     const window: windowGroupData = {
       windowId: uuidv4(),

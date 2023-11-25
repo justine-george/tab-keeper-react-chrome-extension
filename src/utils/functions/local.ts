@@ -79,9 +79,9 @@ export const filterTabGroups = (
   const loweredSearchText = searchText.toLowerCase();
 
   return tabGroups.reduce((acc: tabContainerData[], tabGroup) => {
-    let matchedWindows = tabGroup.windows.reduce(
+    const matchedWindows = tabGroup.windows.reduce(
       (windowAcc: windowGroupData[], window) => {
-        let matchedTabs = window.tabs.filter(
+        const matchedTabs = window.tabs.filter(
           (tab) =>
             tab.title.toLowerCase().includes(loweredSearchText) ||
             (tab.url && tab.url.toLowerCase().includes(loweredSearchText))

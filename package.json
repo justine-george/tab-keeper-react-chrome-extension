@@ -15,7 +15,7 @@
     "bump-patch-version": "npm version patch && npm run sync-versions",
     "bump-minor-version": "npm version minor && npm run sync-versions",
     "bump-major-version": "npm version major && npm run sync-versions",
-    "release": "npm run pretty-build && cd dist && node ../zip.cjs",
+    "release": "npm run pretty-build && cd dist && node ../config/zip.cjs",
     "lint": "eslint src --ext ts,tsx --max-warnings 0",
     "preview": "vite preview",
     "test-dev": "vitest",
