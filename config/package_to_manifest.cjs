@@ -6,22 +6,24 @@ function readJsonFile(filename) {
 }
 
 function writeJsonFile(filename, data) {
-  const stringifiedData = JSON.stringify(data, null, 2); // with 2 spaces indentation
+  const stringifiedData = JSON.stringify(data, null, 2);
   fs.writeFileSync(filename, stringifiedData, 'utf-8');
 }
 
-// Read package.json to get the version
+function updateReadmeVersion(version) {
+  let readmeContent = fs.readFileSync('README.md', 'utf-8');
+  const versionBadgeRegex =
+    /(\[!\[Static Badge]\(https:\/\/img\.shields\.io\/badge\/Version-)([\d.]+)(-blue\?style=for-the-badge\))/;
+  readmeContent = readmeContent.replace(versionBadgeRegex, `$1${version}$3`);
+  fs.writeFileSync('README.md', readmeContent, 'utf-8');
+}
+
 const packageData = readJsonFile('package.json');
 const packageVersion = packageData.version;
 
-// Read manifest.json
 const manifestData = readJsonFile('public/manifest.json');
 
-// Update the version in manifest.json if it's different
-if (manifestData.version !== packageVersion) {
-  manifestData.version = packageVersion;
-  writeJsonFile('public/manifest.json', manifestData);
-  console.log(`Updated manifest.json to version: ${packageVersion}`);
-} else {
-  console.log('Versions are already in sync!');
-}
+manifestData.version = packageVersion;
+writeJsonFile('public/manifest.json', manifestData);
+updateReadmeVersion(packageVersion);
+console.log(`Updated manifest.json and README.md to version ${packageVersion}`);
