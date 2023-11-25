@@ -79,38 +79,49 @@ export const filterTabGroups = (
   const loweredSearchText = searchText.toLowerCase();
 
   return tabGroups.reduce((acc: tabContainerData[], tabGroup) => {
-    const matchedWindows = tabGroup.windows.reduce(
-      (windowAcc: windowGroupData[], window) => {
-        const matchedTabs = window.tabs.filter(
-          (tab) =>
-            tab.title.toLowerCase().includes(loweredSearchText) ||
-            (tab.url && tab.url.toLowerCase().includes(loweredSearchText))
-        );
+    // add all windows if tabGroup title matches
+    if (tabGroup.title.toLowerCase().includes(loweredSearchText)) {
+      acc.push(tabGroup);
+    } else {
+      // add only matched windows if tabGroup title doesn't match
+      const matchedWindows = tabGroup.windows.reduce(
+        (windowAcc: windowGroupData[], window) => {
+          // add all tabs if window title matches
+          if (window.title.toLowerCase().includes(loweredSearchText)) {
+            windowAcc.push(window);
+          } else {
+            // add only matched tabs if window title doesn't match
+            const matchedTabs = window.tabs.filter(
+              (tab) =>
+                tab.title.toLowerCase().includes(loweredSearchText) ||
+                (tab.url && tab.url.toLowerCase().includes(loweredSearchText))
+            );
 
-        if (matchedTabs.length) {
-          windowAcc.push({
-            ...window,
-            tabs: matchedTabs,
-            tabCount: matchedTabs.length,
-            title: matchedTabs[0].title,
-          });
-        }
+            if (matchedTabs.length) {
+              windowAcc.push({
+                ...window,
+                tabs: matchedTabs,
+                tabCount: matchedTabs.length,
+                title: matchedTabs[0].title,
+              });
+            }
+          }
+          return windowAcc;
+        },
+        []
+      );
 
-        return windowAcc;
-      },
-      []
-    );
-
-    if (matchedWindows.length) {
-      acc.push({
-        ...tabGroup,
-        windows: matchedWindows,
-        windowCount: matchedWindows.length,
-        tabCount: matchedWindows.reduce(
-          (total, win) => total + win.tabCount,
-          0
-        ),
-      });
+      if (matchedWindows.length) {
+        acc.push({
+          ...tabGroup,
+          windows: matchedWindows,
+          windowCount: matchedWindows.length,
+          tabCount: matchedWindows.reduce(
+            (total, win) => total + win.tabCount,
+            0
+          ),
+        });
+      }
     }
 
     return acc;
