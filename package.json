@@ -19,7 +19,7 @@
     "create-tag": "git tag v$(node -p \"require('./package.json').version\")",
     "push-tag": "git push origin v$(node -p \"require('./package.json').version\")",
     "create-tag-and-push": "npm run create-tag && npm run push-tag",
-    "release": "node ./scripts/release.js",
+    "release": "node ./scripts/release.cjs",
     "release-local": "npm run pretty-build && cd dist && node ../scripts/zip.cjs"
   },
   "dependencies": {
