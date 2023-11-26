@@ -21,7 +21,7 @@ function hasChanges() {
   }
 }
 
-function release(type) {
+function bumpVersion(type) {
   runCommand(`npm run test`);
   runCommand(`npm run build`);
   runCommand(`npm version ${type} --no-git-tag-version`);
@@ -36,16 +36,14 @@ function release(type) {
   } else {
     console.log('No changes to commit');
   }
-
-  runCommand(`npm run create-tag-and-push`);
 }
 
 const args = process.argv.slice(2);
-const releaseType = args[0];
+const bumpVersionType = args[0];
 
-if (!['patch', 'minor', 'major'].includes(releaseType)) {
-  console.error('Invalid release type. Use "patch", "minor", or "major".');
+if (!['patch', 'minor', 'major'].includes(bumpVersionType)) {
+  console.error('Invalid argument. Use "patch", "minor", or "major".');
   process.exit(1);
 }
 
-release(releaseType);
+bumpVersion(bumpVersionType);

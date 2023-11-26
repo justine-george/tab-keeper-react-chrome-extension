@@ -2,8 +2,8 @@ name: Build and release artifact tab-keeper-react-chrome-extension
 
 on:
   push:
-    branches:
-      - main
+    tags:
+      - 'v*'
 
 jobs:
   build:

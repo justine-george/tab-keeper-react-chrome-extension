@@ -16,10 +16,10 @@
     "pretty-build": "npm run pretty && npm run build",
     "lint": "eslint src --ext ts,tsx --max-warnings 0",
     "sync-versions": "node ./scripts/package_to_manifest.cjs",
+    "bump-version": "node ./scripts/bump_version.cjs",
     "create-tag": "git tag v$(node -p \"require('./package.json').version\")",
     "push-tag": "git push origin v$(node -p \"require('./package.json').version\")",
-    "create-tag-and-push": "npm run create-tag && npm run push-tag",
-    "release": "node ./scripts/release.cjs",
+    "release-artifact": "npm run create-tag && npm run push-tag",
     "release-local": "npm run pretty-build && cd dist && node ../scripts/zip.cjs"
   },
   "dependencies": {
