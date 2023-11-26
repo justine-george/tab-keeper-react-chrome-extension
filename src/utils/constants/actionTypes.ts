@@ -16,6 +16,8 @@ export const ADD_CURR_TAB_TO_WINDOW_ACTION =
   'tabContainerDataState/addCurrTabToWindowInternal';
 export const EDIT_TABGROUP_TITLE_ACTION =
   'tabContainerDataState/updateTabGroupTitle';
+export const EDIT_WINDOWGROUP_TITLE_ACTION =
+  'tabContainerDataState/updateWindowGroupTitle';
 export const DELETE_TAB_CONTAINER_ACTION =
   'tabContainerDataState/deleteTabContainerInternal';
 export const DELETE_WINDOW_ACTION =

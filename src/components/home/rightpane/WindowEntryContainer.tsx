@@ -52,6 +52,10 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     null
   );
 
+  useEffect(() => {
+    setNewTitle(title);
+  }, [title]);
+
   const isSearchPanel = useSelector(
     (state: RootState) => state.globalState.isSearchPanel
   );

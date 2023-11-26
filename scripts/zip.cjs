@@ -1,6 +1,6 @@
 var zip = require('bestzip');
-const { version } = require('./public/manifest.json');
-const { name } = require('./package.json');
+const { version } = require('../public/manifest.json');
+const { name } = require('../package.json');
 
 const fileName = `${name}-v${version}.zip`;
 
