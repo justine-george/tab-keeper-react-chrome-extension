@@ -22,6 +22,8 @@ function hasChanges() {
 }
 
 function release(type) {
+  runCommand(`npm run test`);
+  runCommand(`npm run build`);
   runCommand(`npm version ${type} --no-git-tag-version`);
   runCommand(`npm run sync-versions`);
   runCommand(`npm run pretty-build`);
