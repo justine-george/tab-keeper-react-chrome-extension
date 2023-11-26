@@ -60,7 +60,7 @@ Tab Keeper is an intuitive Chrome extension crafted to redefine the way users sa
 
 ## Changelog
 
-### v.1.3.0 (Latest)
+### v.1.3.1 (Latest)
 
 #### Improvements
 
