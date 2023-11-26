@@ -15,18 +15,12 @@
     "pretty": "npx prettier -w .",
     "pretty-build": "npm run pretty && npm run build",
     "lint": "eslint src --ext ts,tsx --max-warnings 0",
-    "sync-versions": "node ./config/package_to_manifest.cjs",
-    "bump-patch-version": "npm version patch --no-git-tag-version && npm run sync-versions",
-    "bump-minor-version": "npm version minor --no-git-tag-version && npm run sync-versions",
-    "bump-major-version": "npm version major --no-git-tag-version && npm run sync-versions",
+    "sync-versions": "node ./scripts/package_to_manifest.cjs",
     "create-tag": "git tag v$(node -p \"require('./package.json').version\")",
     "push-tag": "git push origin v$(node -p \"require('./package.json').version\")",
     "create-tag-and-push": "npm run create-tag && npm run push-tag",
-    "commit-after-bump-version": "git add -A && git commit -m \"Bump version to $(node -p \"require('./package.json').version\")\"",
-    "patch-release-process": "npm run bump-patch-version && npm run pretty-build && npm run commit-after-bump-version && npm run create-tag-and-push",
-    "minor-release-process": "npm run bump-minor-version && npm run pretty-build && npm run commit-after-bump-version && npm run create-tag-and-push",
-    "major-release-process": "npm run bump-major-version && npm run pretty-build && npm run commit-after-bump-version && npm run create-tag-and-push",
-    "release-local": "npm run pretty-build && cd dist && node ../config/zip.cjs"
+    "release": "node ./scripts/release.js",
+    "release-local": "npm run pretty-build && cd dist && node ../scripts/zip.cjs"
   },
   "dependencies": {
     "@emotion/react": "^11.11.1",
