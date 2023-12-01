@@ -36,13 +36,13 @@
     "react-i18next": "^13.2.2",
     "react-redux": "^8.1.1",
     "redux-thunk": "^2.4.2",
-    "uuid": "^9.0.0"
+    "uuid": "^9.0.1"
   },
   "devDependencies": {
     "@types/chrome": "^0.0.243",
     "@types/react": "^18.0.37",
     "@types/react-dom": "^18.0.11",
-    "@types/uuid": "^9.0.2",
+    "@types/uuid": "^9.0.7",
     "@typescript-eslint/eslint-plugin": "^6.12.0",
     "@typescript-eslint/parser": "^6.12.0",
     "@vitejs/plugin-react": "^4.1.1",
