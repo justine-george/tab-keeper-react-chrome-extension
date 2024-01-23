@@ -1,23 +1,29 @@
 ## Table of Contents
 
-1. [Introduction](#tab-keeper---chrome-tab-manager--sync-tool)
-2. [Built With](#built-with)
-3. [Get Started](#get-started)
-4. [Features](#features)
-5. [Changelog](#changelog)
-6. [Contributing](#contributing)
-7. [License](#license)
-8. [Support](#support)
+- [Introduction](#tab-keeper---chrome-tab-manager--sync-tool)
+- [Built With](#built-with)
+- [Screenshots](#screenshots)
+- [Features](#features)
+- [Blog Posts](#blog-posts)
+- [Changelog](#changelog)
+- [Contributing](#contributing)
+- [License](#license)
+- [Support](#support)
 
 # Tab Keeper - Chrome Tab Manager & Sync Tool
 
 <a href="https://chromewebstore.google.com/detail/tab-keeper-chrome-tab-man/gpibgniomobngodpnikhheifblbpbbah?ref=github" target="_blank"><img src="store-assets/marquee promo tile/tab-keeper-marquee-promo-tile.png"></a>
 
-Tab Keeper is an intuitive Chrome extension crafted to redefine the way users save, organize, and interact with their browser tabs. With the smart integration of the Chrome Storage API for token generation, Tab Keeper ensures that users can seamlessly sync their data without the need for signing up. This token serves as a unique key to Cloud Firestore, providing a secure and hassle-free experience.
+Tab Keeper is an intuitive Chrome extension crafted to redefine the way users save, organize, and interact with their browser tabs. With the smart integration of the Chrome Storage API as a shared token storage, Tab Keeper ensures that users can seamlessly sync their data across devices without signing up with their personal emails. 
 <br><br>
-[![Static Badge](https://img.shields.io/badge/Version-1.3.1-blue?style=for-the-badge)](#changelog)
 [![Static Badge](https://img.shields.io/badge/Featured_on-Chrome_Web_Store-cce7e8?style=for-the-badge)](https://chromewebstore.google.com/detail/tab-keeper-chrome-tab-man/gpibgniomobngodpnikhheifblbpbbah?ref=github)
+[![Dynamic JSON Badge](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fjustine-george%2Ftab-keeper-react-chrome-extension%2Fmain%2Fpackage.json&query=version&style=for-the-badge&label=Version
+)](#changelog)
+![Dynamic JSON Badge](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fproject-metrics-flask.fly.dev%2Fprojects%2Fusercount%3Fname%3Dtab-keeper-react-chrome-extension&query=users&style=for-the-badge&label=Users)
 [![Static Badge](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)](https://raw.githubusercontent.com/justine-george/tab-keeper-react-chrome-extension/main/LICENSE)
+
+<a href="https://chromewebstore.google.com/detail/tab-keeper-chrome-tab-man/gpibgniomobngodpnikhheifblbpbbah?ref=github" target="_blank"><img src="store-assets/banners/chrome_web_store_download_button.png" width="300"></a>
+<br>
 
 ## Built With
 
@@ -34,14 +40,14 @@ Tab Keeper is an intuitive Chrome extension crafted to redefine the way users sa
 - [Emotion CSS](https://emotion.sh/docs/introduction)
 - [base64.js](https://github.com/dankogai/js-base64)
 - [uuid](https://github.com/uuidjs/uuid)
-  <br><br>
+  <br>
 
-## Get Started
-
-<a href="https://chromewebstore.google.com/detail/tab-keeper-chrome-tab-man/gpibgniomobngodpnikhheifblbpbbah?ref=github" target="_blank"><img src="store-assets/banners/chrome_web_store_download_button.png" width="300"></a>
-<br>
+## Screenshots
 
 <a href="https://chromewebstore.google.com/detail/tab-keeper-chrome-tab-man/gpibgniomobngodpnikhheifblbpbbah?ref=github" target="_blank"><img src="store-assets/screenshots/tab-keeper-screenshot-2.png" width="800"></a>
+
+[View All Screenshots →](https://github.com/justine-george/tab-keeper-react-chrome-extension/wiki/Screenshots)
+<br><br>
 
 ## Features
 
@@ -57,6 +63,11 @@ Tab Keeper is an intuitive Chrome extension crafted to redefine the way users sa
 
 - 🌓 Multiple Themes: Personalize your interface by selecting from a variety of themes.
   <br><br>
+
+## Blog Posts
+
+[View All Posts →](https://github.com/justine-george/tab-keeper-react-chrome-extension/wiki/Blog-Posts)
+<br><br>
 
 ## Changelog
 
@@ -81,85 +92,8 @@ Tab Keeper is an intuitive Chrome extension crafted to redefine the way users sa
 - Newly created chrome tab now opens right next to the current tab
 - Bug fixes and stability improvements (Sessions saved using multi-monitor setup now restorable)
 
-### v.1.2.5
-
-#### Improvements
-
-- Improved iconography
-- Updated translations
-- Bug fixes and stability improvements
-
-### v.1.2.2
-
-#### New Features
-
-- Added "Optimize Memory Usage While Restoring" toggle in Data Management settings to enable memory-optimized restore mode
-
-#### Improvements
-
-- Various bug fixes and stability improvements
-- Updated translations
-
-### v.1.2.0
-
-#### New Features
-
-- Mac Shortcut Support: Integrated Mac shortcut keys for enhanced undo/redo functionality
-
-#### Improvements
-
-- Various bug fixes and optimizations
-
-### v.1.1.8
-
-#### New Features
-
-- Translation Support: The application now supports multiple languages including English, German, Chinese, Japanese, French, Portuguese, Russian, Spanish, Italian, and Hindi
-
-#### Improvements
-
-- Various bug fixes and optimizations
-
-### v.1.1.6
-
-#### Improvements
-
-- Various bug fixes and optimizations
-
-### v.1.1.5
-
-#### New Features
-
-- Window Management: The application now recalls window positions and sizes for a seamless restoration experience
-- Tab Groups: Easily add the current window to an existing tab group
-- Renaming: Capability to rename tab groups and window groups
-- Themes: Expanded selection of customizable themes for enhanced user experience
-
-#### Improvements
-
-- Various bug fixes and optimizations
-
-### v.1.1.2
-
-#### Enhancements
-
-- Settings UI: Overhauled settings categories for improved navigation
-- User Experience: Multiple tweaks and adjustments for an enriched user experience
-
-#### Improvements
-
-- Addressed multiple bugs for better stability
-
-### v.1.0.9
-
-#### New Features
-
-- Privacy Boost: Tab Keeper now utilizes the browser's inbuilt sync feature for enhanced privacy, thus eliminating the need for a separate user login or email
-
-#### Improvements
-
-- Syncing: Improved handling of sync collisions, ensuring smoother operation across multiple devices
-  <br><br>
+[View All Changelog →](https://github.com/justine-george/tab-keeper-react-chrome-extension/wiki/Changelog)
+<br><br>
 
 ## Contributing
 
