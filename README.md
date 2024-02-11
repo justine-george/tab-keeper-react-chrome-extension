@@ -1,15 +1,3 @@
-## Table of Contents
-
-- [Introduction](#tab-keeper---chrome-tab-manager--sync-tool)
-- [Built With](#built-with)
-- [Screenshots](#screenshots)
-- [Features](#features)
-- [Blog Posts](#blog-posts)
-- [Changelog](#changelog)
-- [Contributing](#contributing)
-- [License](#license)
-- [Support](#support)
-
 # Tab Keeper - Chrome Tab Manager & Sync Tool
 
 <a href="https://chromewebstore.google.com/detail/tab-keeper-chrome-tab-man/gpibgniomobngodpnikhheifblbpbbah?ref=github" target="_blank"><img src="store-assets/marquee promo tile/tab-keeper-marquee-promo-tile.png"></a>
