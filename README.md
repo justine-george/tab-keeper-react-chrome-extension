@@ -2,7 +2,7 @@
 
 <a href="https://chromewebstore.google.com/detail/tab-keeper-chrome-tab-man/gpibgniomobngodpnikhheifblbpbbah?ref=github" target="_blank"><img src="store-assets/marquee promo tile/tab-keeper-marquee-promo-tile.png"></a>
 
-Tab Keeper is an intuitive Chrome extension crafted to redefine the way users save, organize, and interact with their browser tabs. With the smart integration of the Chrome Storage API as a shared token storage, Tab Keeper ensures that users can seamlessly sync their data across devices without signing up with their personal emails. 
+Tab Keeper is an intuitive Chrome extension crafted to redefine the way users save, organize, and interact with their browser tabs. With the smart integration of the Chrome Storage API as a shared token storage, Tab Keeper ensures that users can seamlessly sync their data across Chrome browsers on desktop devices without signing up with their personal emails.
 <br><br>
 [![Static Badge](https://img.shields.io/badge/Featured_on-Chrome_Web_Store-cce7e8?style=for-the-badge)](https://chromewebstore.google.com/detail/tab-keeper-chrome-tab-man/gpibgniomobngodpnikhheifblbpbbah?ref=github)
 [![Dynamic JSON Badge](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fjustine-george%2Ftab-keeper-react-chrome-extension%2Fmain%2Fpackage.json&query=version&style=for-the-badge&label=Version
@@ -43,7 +43,7 @@ Tab Keeper is an intuitive Chrome extension crafted to redefine the way users sa
 
 - 🌍 Multilingual Support: With i18n React, Tab Keeper now offers internationalization, supporting languages such as English, German, Chinese, Japanese, French, Portuguese, Russian, Spanish, Italian, and Hindi.
 
-- 🌐 Sync Across Devices: Utilize the advanced Chrome integration to synchronize your saved tabs across multiple devices effortlessly. No more manual setups or repetitive logins.
+- 🌐 Sync Across Devices: Utilize the advanced Chrome sync integration to synchronize your saved tabs across Chrome browsers on desktop devices. No more manual setups or repetitive logins.
 
 - 🔒 Uncompromised Privacy: Your privacy is paramount. Tab Keeper operates without requiring a separate user login, ensuring that your data is protected.
 
