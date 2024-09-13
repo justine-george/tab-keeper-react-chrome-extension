@@ -7,7 +7,7 @@ Tab Keeper is an intuitive Chrome extension crafted to redefine the way users sa
 [![Static Badge](https://img.shields.io/badge/Featured_on-Chrome_Web_Store-cce7e8?style=for-the-badge)](https://chromewebstore.google.com/detail/tab-keeper-chrome-tab-man/gpibgniomobngodpnikhheifblbpbbah?ref=github)
 [![Dynamic JSON Badge](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fjustine-george%2Ftab-keeper-react-chrome-extension%2Fmain%2Fpackage.json&query=version&style=for-the-badge&label=Version
 )](#changelog)
-![Dynamic JSON Badge](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fproject-metrics-flask.onrender.com%2Fextensions%2Fgpibgniomobngodpnikhheifblbpbbah%2Fusercount&query=users&style=for-the-badge&label=Users)
+![Dynamic JSON Badge](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fproject-metrics-flask.fly.dev%2Fextensions%2Fgpibgniomobngodpnikhheifblbpbbah%2Fusercount&query=users&style=for-the-badge&label=Users)
 [![Static Badge](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)](https://raw.githubusercontent.com/justine-george/tab-keeper-react-chrome-extension/main/LICENSE)
 
 <a href="https://chromewebstore.google.com/detail/tab-keeper-chrome-tab-man/gpibgniomobngodpnikhheifblbpbbah?ref=github" target="_blank"><img src="store-assets/banners/chrome_web_store_download_button.png" width="300"></a>
