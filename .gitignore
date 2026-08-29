@@ -24,3 +24,8 @@ dist-ssr
 *.sw?
 *.zip
 .build_local_instructions
+.env
+.env.local
+.env.*.local
+.env.development
+.env.production
