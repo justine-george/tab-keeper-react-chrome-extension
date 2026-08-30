@@ -9,6 +9,7 @@
     "dev": "vite",
     "preview": "vite preview",
     "build": "tsc && vite build",
+    "build:dev": "tsc && vite build --mode development",
     "test": "vitest run",
     "test-dev": "vitest",
     "test-build": "npm run test && npm run build",
