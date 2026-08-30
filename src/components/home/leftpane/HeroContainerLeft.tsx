@@ -75,6 +75,8 @@ export default function HeroContainer() {
       <div
         css={css`
           display: flex;
+          align-items: center;
+          min-width: 0;
         `}
         onClick={handleClickSearch}
         onKeyDown={(e) => handleKeyPress(e)}
@@ -89,7 +91,11 @@ export default function HeroContainer() {
           style="cursor: pointer;"
         />
       </div>
-      <div>
+      <div
+        css={css`
+          flex-shrink: 0;
+        `}
+      >
         <MenuContainer />
       </div>
     </div>

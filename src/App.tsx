@@ -153,6 +153,9 @@ function App() {
   const containerStyle = css`
     background-color: ${COLORS.PRIMARY_COLOR};
     width: ${APP_WIDTH};
+    /* Chrome applies the browser's default page zoom to extension popups, so
+       the 800x600 allowance shrinks with it. Adapt rather than overflow. */
+    max-width: 100%;
   `;
 
   return (

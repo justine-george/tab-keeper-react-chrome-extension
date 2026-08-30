@@ -24,7 +24,8 @@ const Account: React.FC = () => {
         flex-direction: column;
         justify-content: flex-start;
         align-items: center;
-        width: 350px;
+        width: 100%;
+        max-width: 350px;
         height: 100%;
       `}
     >

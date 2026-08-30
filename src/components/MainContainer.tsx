@@ -93,6 +93,7 @@ export default function MainContainer() {
   const leftPaneStyle = css`
     width: 45%;
     height: ${APP_HEIGHT};
+    min-width: 0;
     border: 1px solid ${COLORS.BORDER_COLOR};
     border-right: none;
   `;
@@ -100,12 +101,14 @@ export default function MainContainer() {
   const rightPaneStyle = css`
     width: 55%;
     height: ${APP_HEIGHT};
+    min-width: 0;
     border: 1px solid ${COLORS.BORDER_COLOR};
   `;
 
   const leftPaneSettingsStyle = css`
     width: 30%;
     height: ${APP_HEIGHT};
+    min-width: 0;
     border: 1px solid ${COLORS.BORDER_COLOR};
     border-right: none;
   `;
@@ -113,6 +116,7 @@ export default function MainContainer() {
   const rightPaneSettingsStyle = css`
     width: 70%;
     height: ${APP_HEIGHT};
+    min-width: 0;
     border: 1px solid ${COLORS.BORDER_COLOR};
   `;
 

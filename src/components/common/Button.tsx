@@ -55,46 +55,47 @@ const Button: React.FC<ButtonProps> = ({
 
   iconStyle;
 
+  // No wrapper element: the button must be the flex child itself, otherwise a
+  // width: 100% passed through `style` resolves against a shrink-wrapped div
+  // and collapses back to the button's own text width.
   return (
-    <div>
-      <button
-        title={tooltipText}
-        aria-label={ariaLabel}
-        css={buttonStyle}
-        onClick={onClick}
-        tabIndex={onClick && focusableButton ? 0 : -1}
-      >
-        {iconType && (
-          <Icon
-            type={iconType}
-            disable={true}
-            focusable={true}
-            size={iconSize}
-            style={(imageSrc || text) && 'padding-right: 8px;' && iconStyle}
-          />
-        )}
-        {imageSrc && (
-          <img
-            src={imageSrc}
-            alt="icon"
-            css={css`
-              width: 30px;
-              height: 30px;
-              object-fit: contain;
-            `}
-          />
-        )}
-        {text && (
-          <span
-            css={css`
-              ${imageSrc && 'padding-left: 8px;'}
-            `}
-          >
-            {text}
-          </span>
-        )}
-      </button>
-    </div>
+    <button
+      title={tooltipText}
+      aria-label={ariaLabel}
+      css={buttonStyle}
+      onClick={onClick}
+      tabIndex={onClick && focusableButton ? 0 : -1}
+    >
+      {iconType && (
+        <Icon
+          type={iconType}
+          disable={true}
+          focusable={true}
+          size={iconSize}
+          style={(imageSrc || text) && 'padding-right: 8px;' && iconStyle}
+        />
+      )}
+      {imageSrc && (
+        <img
+          src={imageSrc}
+          alt="icon"
+          css={css`
+            width: 30px;
+            height: 30px;
+            object-fit: contain;
+          `}
+        />
+      )}
+      {text && (
+        <span
+          css={css`
+            ${imageSrc && 'padding-left: 8px;'}
+          `}
+        >
+          {text}
+        </span>
+      )}
+    </button>
   );
 };
 

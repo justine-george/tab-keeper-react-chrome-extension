@@ -14,7 +14,9 @@ const LoggedIn: React.FC = () => {
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    padding: 22px 83px 32px;
+    width: 100%;
+    min-width: 0;
+    padding: 22px clamp(12px, 10%, 83px) 32px;
     border: 1px solid ${COLORS.BORDER_COLOR};
     margin-top: 8px;
     border-radius: 0px;
@@ -25,6 +27,8 @@ const LoggedIn: React.FC = () => {
     flex-direction: column;
     justify-content: center;
     align-items: center;
+    max-width: 100%;
+    min-width: 0;
     margin-bottom: 16px;
   `;
 

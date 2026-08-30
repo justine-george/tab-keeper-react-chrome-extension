@@ -139,7 +139,7 @@ export default function UserInputContainer() {
         iconType="search"
         ariaLabel="search"
         onClick={filterResults}
-        style="padding: 12px;"
+        style="padding: 12px; flex-shrink: 0;"
         focusableButton={true}
       />
     </div>
@@ -161,7 +161,7 @@ export default function UserInputContainer() {
         ariaLabel="save session"
         iconType="add"
         onClick={createTabGroup}
-        style="padding: 12px;"
+        style="padding: 12px; flex-shrink: 0;"
         focusableButton={true}
       />
     </div>

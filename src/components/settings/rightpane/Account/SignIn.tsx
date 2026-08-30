@@ -104,7 +104,7 @@ const SignIn: React.FC<AccountChildProps> = ({ handleCurrentPageChange }) => {
           iconType="login"
           onClick={validateCredentials}
           ariaLabel="Sign In to your account"
-          style="width: 250px; justify-content: center;"
+          style="width: 100%; max-width: 250px; justify-content: center;"
         />
       </div>
 
@@ -118,14 +118,14 @@ const SignIn: React.FC<AccountChildProps> = ({ handleCurrentPageChange }) => {
           <Button
             text="Trouble logging in?"
             onClick={handleForgotPasswordClick}
-            style={`border: none; width: 250px; justify-content: center; color: ${COLORS.LABEL_L3_COLOR}`}
+            style={`border: none; width: 100%; max-width: 250px; justify-content: center; color: ${COLORS.LABEL_L3_COLOR}`}
           />
         </div>
         <div>
           <Button
             text="New here? Create an account"
             onClick={handleCreateAccountClick}
-            style={`border: none; width: 250px; justify-content: center; color: ${COLORS.LABEL_L3_COLOR}`}
+            style={`border: none; width: 100%; max-width: 250px; justify-content: center; color: ${COLORS.LABEL_L3_COLOR}`}
           />
         </div>
       </div>
