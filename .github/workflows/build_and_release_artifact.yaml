@@ -16,6 +16,8 @@ jobs:
 
       - name: Setup Node
         uses: actions/setup-node@v7
+        with:
+          node-version: 22
 
       - name: Install dependencies
         uses: bahmutov/npm-install@v1
@@ -42,7 +44,24 @@ jobs:
       - name: Prune unused remotely hosted Firebase JS SDK calls
         run: |
           INDEX_FILE=$(find ./dist/assets -name 'index-*.js')
-          sed -i 's|https://apis.google.com/js/api.js?onload=${a}||g' $INDEX_FILE
+          # Firebase Auth carries script URLs for sign-in flows this extension
+          # never uses (Google popup, phone/reCAPTCHA). Manifest V3 forbids
+          # remotely hosted code, so blank them out. The trailing [^`"]* absorbs
+          # any query string the SDK appends, which differs between versions.
+          sed -i \
+            -e 's|https://apis\.google\.com/js/api\.js[^`"]*||g' \
+            -e 's|https://www\.google\.com/recaptcha/[^`"]*||g' \
+            "$INDEX_FILE"
+
+      - name: Verify no remotely hosted code remains
+        run: |
+          INDEX_FILE=$(find ./dist/assets -name 'index-*.js')
+          if grep -oE 'https://(apis\.google\.com|www\.google\.com/recaptcha)[^`"]*' "$INDEX_FILE"; then
+            echo "::error::Remotely hosted script URLs survived the prune step above."
+            echo "::error::A Firebase upgrade likely changed their shape. Update the sed patterns."
+            exit 1
+          fi
+          echo "No remotely hosted script URLs remain in the bundle."
 
       - name: Upload release zip file ready for Chrome Web Store
         uses: actions/upload-artifact@v7
