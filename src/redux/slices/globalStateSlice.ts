@@ -70,6 +70,10 @@ export const saveToFirestoreIfDirty = createAsyncThunk(
       }
     } catch (error: any) {
       console.warn('Error updating Firestore: ', error.message);
+      // Reject so the `saveToFirestoreIfDirty.rejected` case sets syncStatus to
+      // 'error'. Catching here left the write silently failed while the UI
+      // reported success.
+      throw error;
     }
   }
 );

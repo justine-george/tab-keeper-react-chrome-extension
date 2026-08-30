@@ -12,7 +12,10 @@ import {
   isValidTabMasterContainer,
   loadFromLocalStorage,
   saveToLocalStorage,
+  stripEmbeddedFavicons,
+  FIRESTORE_MAX_DOCUMENT_BYTES,
 } from '../../../utils/functions/local';
+import { TabMasterContainer } from '../../../redux/slices/tabContainerDataStateSlice';
 
 describe('isValidDate', () => {
   // Valid dates
@@ -532,5 +535,109 @@ describe('should convert timestamp to "mmm DD, yyyy at H:MM:SS AM/PM" format', (
     const inputTimestamp = new Date('2023-10-17 00:00:00').getTime();
     const expectedOutputString = 'Oct 17, 2023 at 12:00:00 AM';
     expect(getPrettyDate(inputTimestamp)).toBe(expectedOutputString);
+  });
+});
+
+describe('stripEmbeddedFavicons', () => {
+  const EMBEDDED = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUg';
+  const REMOTE = 'https://github.githubassets.com/favicons/favicon.svg';
+
+  const buildContainer = (
+    tabsPerWindow: number,
+    favicon: string
+  ): TabMasterContainer => ({
+    lastModified: 1785312544441,
+    selectedTabGroupId: 'group-0',
+    tabGroups: [
+      {
+        tabGroupId: 'group-0',
+        title: 'Extensions',
+        createdTime: '2026-07-27 04:08:12',
+        windowCount: 1,
+        tabCount: tabsPerWindow,
+        isAutoSave: false,
+        isSelected: true,
+        windows: [
+          {
+            windowId: 'window-0',
+            windowHeight: 550,
+            windowWidth: 790,
+            windowOffsetTop: 0,
+            windowOffsetLeft: 0,
+            tabCount: tabsPerWindow,
+            title: 'first tab title',
+            tabs: Array.from({ length: tabsPerWindow }, (_, i) => ({
+              tabId: `tab-${i}`,
+              favicon,
+              title: `Repository ${i}`,
+              url: `https://github.com/user/repo-${i}`,
+            })),
+          },
+        ],
+      },
+    ],
+  });
+
+  test('should replace embedded data: favicons with an empty string', () => {
+    const result = stripEmbeddedFavicons(buildContainer(3, EMBEDDED));
+    const favicons = result.tabGroups[0].windows[0].tabs.map((t) => t.favicon);
+    expect(favicons).toEqual(['', '', '']);
+  });
+
+  test('should leave remote favicon URLs untouched', () => {
+    const result = stripEmbeddedFavicons(buildContainer(3, REMOTE));
+    const favicons = result.tabGroups[0].windows[0].tabs.map((t) => t.favicon);
+    expect(favicons).toEqual([REMOTE, REMOTE, REMOTE]);
+  });
+
+  test('should preserve every field other than the favicon', () => {
+    const input = buildContainer(2, EMBEDDED);
+    const result = stripEmbeddedFavicons(input);
+
+    expect(result.lastModified).toBe(input.lastModified);
+    expect(result.selectedTabGroupId).toBe(input.selectedTabGroupId);
+    expect(result.tabGroups[0].tabCount).toBe(input.tabGroups[0].tabCount);
+    expect(result.tabGroups[0].windows[0].windowHeight).toBe(550);
+    expect(result.tabGroups[0].windows[0].tabs[1]).toEqual({
+      tabId: 'tab-1',
+      favicon: '',
+      title: 'Repository 1',
+      url: 'https://github.com/user/repo-1',
+    });
+  });
+
+  test('should not mutate the input container', () => {
+    const input = buildContainer(2, EMBEDDED);
+    stripEmbeddedFavicons(input);
+    expect(input.tabGroups[0].windows[0].tabs[0].favicon).toBe(EMBEDDED);
+  });
+
+  test('should bring an oversized container under the Firestore limit', () => {
+    // 12KB embedded favicon x 120 tabs - a plausible heavy session
+    const heavyFavicon = 'data:image/png;base64,' + 'A'.repeat(12000);
+    const oversized = buildContainer(120, heavyFavicon);
+
+    expect(JSON.stringify(oversized).length).toBeGreaterThan(
+      FIRESTORE_MAX_DOCUMENT_BYTES
+    );
+    expect(
+      JSON.stringify(stripEmbeddedFavicons(oversized)).length
+    ).toBeLessThan(FIRESTORE_MAX_DOCUMENT_BYTES);
+  });
+
+  test('should handle a container with no tab groups', () => {
+    const empty: TabMasterContainer = {
+      lastModified: 1,
+      selectedTabGroupId: null,
+      tabGroups: [],
+    };
+    expect(stripEmbeddedFavicons(empty)).toEqual(empty);
+  });
+
+  test('should not throw when a favicon field is missing', () => {
+    const malformed = buildContainer(1, EMBEDDED);
+    // simulates data written before the favicon field was guaranteed
+    delete (malformed.tabGroups[0].windows[0].tabs[0] as any).favicon;
+    expect(() => stripEmbeddedFavicons(malformed)).not.toThrow();
   });
 });

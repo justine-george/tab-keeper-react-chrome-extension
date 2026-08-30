@@ -7,6 +7,7 @@ import {
 } from '../../redux/slices/globalStateSlice';
 import { TabMasterContainer } from '../../redux/slices/tabContainerDataStateSlice';
 import { AppDispatch } from '../../redux/store';
+import { stripEmbeddedFavicons } from './local';
 
 // display a toast message
 export const displayToast = (
@@ -32,7 +33,8 @@ export async function loadFromFirestore(
   try {
     const tabDataFromCloud: TabMasterContainer =
       await fetchDataFromFirestore(userId);
-    return tabDataFromCloud;
+    // documents written before favicons were stripped still carry them
+    return stripEmbeddedFavicons(tabDataFromCloud);
   } catch (error: any) {
     if (error.message === 'Document does not exist for userId: ' + userId) {
       console.warn('handled error: ' + error.message);
@@ -55,8 +57,11 @@ export async function saveToFirestore(
   data: TabMasterContainer
 ): Promise<void> {
   try {
-    await setDoc(doc(db, 'tabGroupData', userId), data);
+    await setDoc(doc(db, 'tabGroupData', userId), stripEmbeddedFavicons(data));
   } catch (error: any) {
+    // Rethrow so the caller leaves isDirty set and the sync indicator shows the
+    // real state. Swallowing here reported success while nothing was written.
     console.warn('Error updating Firestore: ', error.message);
+    throw error;
   }
 }
