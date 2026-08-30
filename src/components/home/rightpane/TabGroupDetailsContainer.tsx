@@ -8,7 +8,7 @@ import { useThemeColors } from '../../../hooks/useThemeColors';
 import WindowEntryContainer from './WindowEntryContainer';
 import { AppDispatch, RootState } from '../../../redux/store';
 import {
-  decodeDataUrl,
+  resolveTabUrl,
   filterTabGroups,
   isEmptyObject,
 } from '../../../utils/functions/local';
@@ -61,7 +61,7 @@ export default function TabGroupDetailsContainer() {
       tabId: uuidv4(),
       favicon: tab.favIconUrl || '',
       title: tab.title || '',
-      url: decodeDataUrl(tab.url || ''),
+      url: resolveTabUrl(tab.url || ''),
     };
     dispatch(addCurrTabToWindow({ tabGroupId, windowId, tabData }));
   }

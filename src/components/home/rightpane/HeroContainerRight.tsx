@@ -12,7 +12,7 @@ import { useFontFamily } from '../../../hooks/useFontFamily';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { AppDispatch, RootState } from '../../../redux/store';
 import {
-  decodeDataUrl,
+  resolveTabUrl,
   filterTabGroups,
   getPrettyDate,
 } from '../../../utils/functions/local';
@@ -102,7 +102,7 @@ export default function HeroContainerRight() {
         tabId: uuidv4(),
         favicon: tab.favIconUrl || '',
         title: tab.title || '',
-        url: decodeDataUrl(tab.url || ''),
+        url: resolveTabUrl(tab.url || ''),
       };
     });
 
