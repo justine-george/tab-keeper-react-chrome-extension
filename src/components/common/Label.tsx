@@ -36,9 +36,19 @@ export const NormalLabel: React.FC<LabelProps> = ({
     ${style && style}
   `;
 
+  // The wrapper stays a flex container so callers can keep centring it and
+  // passing height: 100%. text-overflow does not apply to flex containers, so
+  // the ellipsis has to live on an inner box.
+  const truncateStyle = css`
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  `;
+
   return (
     <div title={tooltipText} css={textStyle} onClick={onClick}>
-      {value}
+      <span css={truncateStyle}>{value}</span>
     </div>
   );
 };

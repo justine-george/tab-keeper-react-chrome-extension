@@ -59,7 +59,7 @@ const SettingsCategoryContainer: React.FC = () => {
     background-color: ${isSelected
       ? COLORS.SELECTION_COLOR
       : COLORS.PRIMARY_COLOR};
-    padding: 15px 38px;
+    padding: 15px clamp(10px, 12%, 38px);
   `;
 
   return (

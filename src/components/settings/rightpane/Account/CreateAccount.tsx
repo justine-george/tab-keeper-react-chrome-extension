@@ -121,7 +121,7 @@ const CreateAccount: React.FC<AccountChildProps> = ({
           text="Create an Account"
           iconType="person_add"
           onClick={validateCredentials}
-          style="width: 250px; justify-content: center;"
+          style="width: 100%; max-width: 250px; justify-content: center;"
         />
       </div>
 
@@ -135,7 +135,7 @@ const CreateAccount: React.FC<AccountChildProps> = ({
           <Button
             text="Already have an account? Sign In"
             onClick={handleBackToSignInClick}
-            style={`border: none; padding: 2px; width: 250px; justify-content: center; color: ${COLORS.LABEL_L3_COLOR}`}
+            style={`border: none; padding: 2px; width: 100%; max-width: 250px; justify-content: center; color: ${COLORS.LABEL_L3_COLOR}`}
           />
         </div>
       </div>

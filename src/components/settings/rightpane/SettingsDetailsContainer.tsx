@@ -75,7 +75,11 @@ const SettingsDetailsContainer: React.FC = () => {
     flex-grow: 1;
     margin-top: 8px;
     border: 1px solid ${COLORS.BORDER_COLOR};
-    // overflow: auto;
+    /* Contain this pane's content. Several settings rows are still laid out at
+       fixed pixel widths, so without this they push the whole popup wide
+       instead of scrolling within the pane. */
+    overflow: auto;
+    min-width: 0;
     user-select: none;
   `;
 
@@ -178,7 +182,7 @@ const SettingsDetailsContainer: React.FC = () => {
             display: flex;
             flex-direction: column;
             align-items: flex-start;
-            margin-left: 72px;
+            padding-left: clamp(16px, 8%, 72px);
             width: 100%;
             margin-top: 20px;
           `}
@@ -202,7 +206,9 @@ const SettingsDetailsContainer: React.FC = () => {
               display: flex;
               justify-content: flex-start;
               align-items: center;
-              width: 250px;
+              flex-wrap: wrap;
+              gap: 4px;
+              max-width: 100%;
               margin-top: 8px;
             `}
           >
@@ -222,7 +228,6 @@ const SettingsDetailsContainer: React.FC = () => {
               tooltipText={t('Warm Light')}
               onClick={() => dispatch(setTheme(Theme.WARM_LIGHT))}
               style={`
-              margin-left: 16px;
               width: 60px;
               border: 1px solid ${COLORS.BORDER_COLOR};
               background-color: ${WARM_LIGHT_THEME.PRIMARY_COLOR};
@@ -236,7 +241,6 @@ const SettingsDetailsContainer: React.FC = () => {
               tooltipText={t('BB Pink')}
               onClick={() => dispatch(setTheme(Theme.BB_PINK))}
               style={`
-              margin-left: 16px;
               width: 60px;
               border: 1px solid ${COLORS.BORDER_COLOR};
               background-color: ${BB_PINK_THEME.PRIMARY_COLOR};
@@ -249,7 +253,6 @@ const SettingsDetailsContainer: React.FC = () => {
               tooltipText={t('Darkenheimer')}
               onClick={() => dispatch(setTheme(Theme.DARKENHEIMER))}
               style={`
-              margin-left: 16px;
               width: 60px;
               border: 1px solid ${COLORS.BORDER_COLOR};
               background-color: ${DARKENHEIMER_THEME.PRIMARY_COLOR};
@@ -262,7 +265,6 @@ const SettingsDetailsContainer: React.FC = () => {
               tooltipText={t('Blue')}
               onClick={() => dispatch(setTheme(Theme.BLUE))}
               style={`
-              margin-left: 16px;
               width: 60px;
               border: 1px solid ${COLORS.BORDER_COLOR};
               background-color: ${BLUE_THEME.PRIMARY_COLOR};
@@ -291,7 +293,7 @@ const SettingsDetailsContainer: React.FC = () => {
             display: flex;
             flex-direction: column;
             align-items: flex-start;
-            margin-left: 72px;
+            padding-left: clamp(16px, 8%, 72px);
             width: 100%;
             margin-top: 20px;
           `}
@@ -315,7 +317,8 @@ const SettingsDetailsContainer: React.FC = () => {
               display: flex;
               justify-content: space-between;
               align-items: center;
-              width: 250px;
+              width: 100%;
+              max-width: 250px;
               margin-top: 8px;
             `}
           >
@@ -323,7 +326,7 @@ const SettingsDetailsContainer: React.FC = () => {
               text={settingsData.isAutoSync ? t(`On`) : t(`Off`)}
               onClick={handleToggleAutoSync}
               style={`
-              width: 120px;
+              width: 100%;
             `}
             />
           </div>
@@ -335,7 +338,7 @@ const SettingsDetailsContainer: React.FC = () => {
             display: flex;
             flex-direction: column;
             align-items: flex-start;
-            margin-left: 72px;
+            padding-left: clamp(16px, 8%, 72px);
             width: 100%;
             margin-top: 20px;
           `}
@@ -375,7 +378,7 @@ const SettingsDetailsContainer: React.FC = () => {
             display: flex;
             flex-direction: column;
             align-items: flex-start;
-            margin-left: 72px;
+            padding-left: clamp(16px, 8%, 72px);
             width: 100%;
             margin-top: 20px;
           `}
@@ -399,7 +402,8 @@ const SettingsDetailsContainer: React.FC = () => {
               display: flex;
               justify-content: space-between;
               align-items: center;
-              width: 250px;
+              width: 100%;
+              max-width: 250px;
               margin-top: 8px;
             `}
           >
@@ -407,7 +411,7 @@ const SettingsDetailsContainer: React.FC = () => {
               text={settingsData.isLazyLoad ? t(`On`) : t(`Off`)}
               onClick={handleToggleLazyLoadTabs}
               style={`
-              width: 120px;
+              width: 100%;
             `}
             />
           </div>
@@ -419,7 +423,7 @@ const SettingsDetailsContainer: React.FC = () => {
             display: flex;
             flex-direction: column;
             align-items: flex-start;
-            margin-left: 72px;
+            padding-left: clamp(16px, 8%, 72px);
             width: 100%;
             margin-top: 20px;
           `}
@@ -443,7 +447,10 @@ const SettingsDetailsContainer: React.FC = () => {
               display: flex;
               flex-direction: column;
               justify-content: space-between;
-              align-items: center;
+              /* A definite width, so the buttons' width: 100% resolves against
+                 the row rather than against their own text. */
+              width: 100%;
+              align-items: flex-start;
               margin-top: 8px;
             `}
           >
@@ -451,13 +458,15 @@ const SettingsDetailsContainer: React.FC = () => {
               text={t(`Backup App Data to File`)}
               iconType="publish"
               onClick={handleExportJSON}
-              style="width: 260px; justify-content: center;"
+              style="width: 100%;
+              max-width: 260px; justify-content: center;"
             />
             <Button
               text={t('Restore App Data from File')}
               iconType="get_app"
               onClick={handleImportJSON}
-              style="width: 260px; justify-content: center; margin-top: 12px;"
+              style="width: 100%;
+              max-width: 260px; justify-content: center; margin-top: 12px;"
             />
           </div>
         </div>
@@ -479,7 +488,7 @@ const SettingsDetailsContainer: React.FC = () => {
             display: flex;
             flex-direction: column;
             align-items: flex-start;
-            margin-left: 72px;
+            padding-left: clamp(16px, 8%, 72px);
             width: 100%;
             margin-top: 20px;
           `}
@@ -501,7 +510,10 @@ const SettingsDetailsContainer: React.FC = () => {
           <div
             css={css`
               display: grid;
+              /* Two columns at every size. Without a definite width the grid
+                 shrink-wraps and auto-fit collapses to a single column. */
               grid-template-columns: 1fr 1fr;
+              width: 100%;
               gap: 12px;
               align-items: center;
               margin-top: 8px;
@@ -513,7 +525,7 @@ const SettingsDetailsContainer: React.FC = () => {
                 i18n.changeLanguage('en');
                 dispatch(setLanguage(Language.EN));
               }}
-              style="width: 217px; justify-content: center;"
+              style="width: 100%; min-width: 0; justify-content: center;"
             />
             <Button
               text={t(`German`)}
@@ -521,7 +533,7 @@ const SettingsDetailsContainer: React.FC = () => {
                 i18n.changeLanguage('de');
                 dispatch(setLanguage(Language.DE));
               }}
-              style="width: 217px; justify-content: center;"
+              style="width: 100%; min-width: 0; justify-content: center;"
             />
             <Button
               text={t('Chinese')}
@@ -529,7 +541,7 @@ const SettingsDetailsContainer: React.FC = () => {
                 i18n.changeLanguage('zh');
                 dispatch(setLanguage(Language.ZH));
               }}
-              style="width: 217px; justify-content: center;"
+              style="width: 100%; min-width: 0; justify-content: center;"
             />
             <Button
               text={t('Japanese')}
@@ -537,7 +549,7 @@ const SettingsDetailsContainer: React.FC = () => {
                 i18n.changeLanguage('ja');
                 dispatch(setLanguage(Language.JA));
               }}
-              style="width: 217px; justify-content: center;"
+              style="width: 100%; min-width: 0; justify-content: center;"
             />
             <Button
               text={t(`French`)}
@@ -545,7 +557,7 @@ const SettingsDetailsContainer: React.FC = () => {
                 i18n.changeLanguage('fr');
                 dispatch(setLanguage(Language.FR));
               }}
-              style="width: 217px; justify-content: center;"
+              style="width: 100%; min-width: 0; justify-content: center;"
             />
             <Button
               text={t(`Portuguese`)}
@@ -553,7 +565,7 @@ const SettingsDetailsContainer: React.FC = () => {
                 i18n.changeLanguage('pt');
                 dispatch(setLanguage(Language.PT));
               }}
-              style="width: 217px; justify-content: center;"
+              style="width: 100%; min-width: 0; justify-content: center;"
             />
             <Button
               text={t(`Russian`)}
@@ -561,7 +573,7 @@ const SettingsDetailsContainer: React.FC = () => {
                 i18n.changeLanguage('ru');
                 dispatch(setLanguage(Language.RU));
               }}
-              style="width: 217px; justify-content: center;"
+              style="width: 100%; min-width: 0; justify-content: center;"
             />
             <Button
               text={t(`Spanish`)}
@@ -569,7 +581,7 @@ const SettingsDetailsContainer: React.FC = () => {
                 i18n.changeLanguage('es');
                 dispatch(setLanguage(Language.ES));
               }}
-              style="width: 217px; justify-content: center;"
+              style="width: 100%; min-width: 0; justify-content: center;"
             />
             <Button
               text={t(`Italian`)}
@@ -577,7 +589,7 @@ const SettingsDetailsContainer: React.FC = () => {
                 i18n.changeLanguage('it');
                 dispatch(setLanguage(Language.IT));
               }}
-              style="width: 217px; justify-content: center;"
+              style="width: 100%; min-width: 0; justify-content: center;"
             />
             <Button
               text={t(`Hindi`)}
@@ -585,7 +597,7 @@ const SettingsDetailsContainer: React.FC = () => {
                 i18n.changeLanguage('hi');
                 dispatch(setLanguage(Language.HI));
               }}
-              style="width: 217px; justify-content: center;"
+              style="width: 100%; min-width: 0; justify-content: center;"
             />
           </div>
         </div>
@@ -599,6 +611,9 @@ const SettingsDetailsContainer: React.FC = () => {
           flex-direction: column;
           justify-content: flex-start;
           height: 100%;
+          /* Definite width, so the buttons below size to the column rather
+             than each to its own label. */
+          width: 100%;
           align-items: center;
           margin-top: 40px;
           flex-grow: 1;
@@ -626,7 +641,8 @@ const SettingsDetailsContainer: React.FC = () => {
           text={t('Rate this app')}
           iconType="thumb_up"
           onClick={() => window.open(APP_CHROME_WEBSTORE_LINK + '/reviews')}
-          style="width: 250px; justify-content: center; margin-top: 40px;"
+          style="width: 100%;
+              max-width: 250px; justify-content: center; margin-top: 40px;"
         />
         <Button
           text={t('Share your thoughts')}
@@ -634,13 +650,15 @@ const SettingsDetailsContainer: React.FC = () => {
           onClick={() =>
             (window.location.href = `mailto:${DEV_EMAIL}?subject=${FEEDBACK_MAIL_SUBJECT}`)
           }
-          style="width: 250px; justify-content: center; margin-top: 16px;"
+          style="width: 100%;
+              max-width: 250px; justify-content: center; margin-top: 16px;"
         />
         <Button
           text={t('Share on Twitter (X)')}
           iconType="send"
           onClick={() => window.open(SHARE_TWITTER_TEXT)}
-          style="width: 250px; justify-content: center; margin-top: 16px;"
+          style="width: 100%;
+              max-width: 250px; justify-content: center; margin-top: 16px;"
         />
         <NormalLabel
           color={COLORS.LABEL_L3_COLOR}

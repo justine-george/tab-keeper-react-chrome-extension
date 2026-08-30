@@ -85,7 +85,7 @@ const ForgotPassword: React.FC<AccountChildProps> = ({
           text="Reset Password"
           iconType="lock_reset"
           onClick={validateCredentials}
-          style="width: 250px; justify-content: center;"
+          style="width: 100%; max-width: 250px; justify-content: center;"
         />
       </div>
 
@@ -99,14 +99,14 @@ const ForgotPassword: React.FC<AccountChildProps> = ({
           <Button
             text="Return to Sign In"
             onClick={handleBackToSignInClick}
-            style={`border: none; width: 250px; justify-content: center; color: ${COLORS.LABEL_L3_COLOR}`}
+            style={`border: none; width: 100%; max-width: 250px; justify-content: center; color: ${COLORS.LABEL_L3_COLOR}`}
           />
         </div>
         <div>
           <Button
             text="New here? Create an account"
             onClick={handleCreateAccountClick}
-            style={`border: none; width: 250px; justify-content: center; color: ${COLORS.LABEL_L3_COLOR}`}
+            style={`border: none; width: 100%; max-width: 250px; justify-content: center; color: ${COLORS.LABEL_L3_COLOR}`}
           />
         </div>
       </div>
