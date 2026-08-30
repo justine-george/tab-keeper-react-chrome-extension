@@ -84,6 +84,8 @@ export const TOAST_MESSAGES = {
   DELETE_TAB_CONTAINER_SUCCESS: 'Session deleted.',
   DELETE_WINDOW_SUCCESS: 'Session window deleted.',
   DELETE_TAB_SUCCESS: 'Session tab deleted.',
+  UNREADABLE_ACCOUNT_TOKEN:
+    'Sync unavailable: your saved account token could not be read.',
 };
 
 export const TOOLTIP_MESSAGES = {

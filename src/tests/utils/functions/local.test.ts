@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, test } from 'vitest';
 import {
+  classifyStoredToken,
   decodeDataUrl,
   filterTabGroups,
+  isUsableToken,
   generatePlaceholderURL,
   getPrettyDate,
   getStringDate,
@@ -692,5 +694,65 @@ describe('resolveFaviconUrl', () => {
     // chrome is undefined here - afterEach removed it
     expect(() => resolveFaviconUrl('', 'https://github.com')).not.toThrow();
     expect(resolveFaviconUrl('', 'https://github.com')).toBe('');
+  });
+});
+
+describe('isUsableToken', () => {
+  test('should return true for a non-empty string', () => {
+    expect(isUsableToken('7f8d1e2a-3b4c-4d5e-8f90-a1b2c3d4e5f6')).toBe(true);
+    expect(isUsableToken('any-non-empty-string')).toBe(true);
+  });
+
+  test('should return false for an empty string', () => {
+    expect(isUsableToken('')).toBe(false);
+  });
+
+  test('should return false for absent values', () => {
+    expect(isUsableToken(undefined)).toBe(false);
+    expect(isUsableToken(null)).toBe(false);
+  });
+
+  test('should return false for non-string values', () => {
+    expect(isUsableToken(0)).toBe(false);
+    expect(isUsableToken(1)).toBe(false);
+    expect(isUsableToken(false)).toBe(false);
+    expect(isUsableToken(true)).toBe(false);
+    expect(isUsableToken({})).toBe(false);
+    expect(isUsableToken([])).toBe(false);
+    expect(isUsableToken(['a-token'])).toBe(false);
+  });
+});
+
+describe('classifyStoredToken', () => {
+  test('should mint when nothing is stored yet', () => {
+    expect(classifyStoredToken(undefined)).toBe('mint');
+    expect(classifyStoredToken(null)).toBe('mint');
+    expect(classifyStoredToken('')).toBe('mint');
+  });
+
+  test('should use a stored non-empty string as the documentId', () => {
+    expect(classifyStoredToken('7f8d1e2a-3b4c-4d5e-8f90-a1b2c3d4e5f6')).toBe(
+      'use'
+    );
+    expect(classifyStoredToken('legacy-token-format')).toBe('use');
+  });
+
+  test('should reject a stored value that is not a usable documentId', () => {
+    expect(classifyStoredToken(0)).toBe('reject');
+    expect(classifyStoredToken(false)).toBe('reject');
+    expect(classifyStoredToken(true)).toBe('reject');
+    expect(classifyStoredToken({})).toBe('reject');
+    expect(classifyStoredToken([])).toBe('reject');
+    expect(classifyStoredToken({ tokenValue: 'nested' })).toBe('reject');
+  });
+
+  // worst path: minting overwrites the documentId, which strands every tab
+  // group already saved under the existing one. A malformed stored value must
+  // never be treated as "absent".
+  test('should never mint over a value that is already stored', () => {
+    const alreadyStored = [0, false, true, {}, [], 42, { a: 1 }, ['x']];
+    for (const value of alreadyStored) {
+      expect(classifyStoredToken(value)).not.toBe('mint');
+    }
   });
 });

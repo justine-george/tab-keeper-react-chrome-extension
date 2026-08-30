@@ -71,6 +71,25 @@ export function isValidPassword(password: string): boolean {
   return password.length >= 8 && hasLetters && hasNumbers;
 }
 
+// a value read back from chrome.storage.sync is only usable as the Firestore
+// documentId if it is a non-empty string
+export function isUsableToken(value: unknown): value is string {
+  return typeof value === 'string' && value.length > 0;
+}
+
+// decide what to do with the tokenValue read from chrome.storage.sync:
+//   'mint'   - nothing stored yet, issue a new token (new user)
+//   'use'    - a usable documentId is stored (existing user)
+//   'reject' - something is stored but it is not a usable documentId; the
+//              caller must not overwrite it, that would strand the data
+//              already saved under the existing documentId
+export type TokenAction = 'mint' | 'use' | 'reject';
+
+export function classifyStoredToken(value: unknown): TokenAction {
+  if (value === undefined || value === null || value === '') return 'mint';
+  return isUsableToken(value) ? 'use' : 'reject';
+}
+
 // filter tabGroup
 export const filterTabGroups = (
   searchText: string,

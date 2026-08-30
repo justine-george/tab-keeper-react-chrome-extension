@@ -19,18 +19,6 @@ i18n
     },
     lng: userLang,
     fallbackLng: 'en',
-    detection: {
-      order: [
-        'querystring',
-        'cookie',
-        'localStorage',
-        'navigator',
-        'htmlTag',
-        'path',
-        'subdomain',
-      ],
-      caches: ['cookie'],
-    },
     interpolation: {
       escapeValue: false,
     },
