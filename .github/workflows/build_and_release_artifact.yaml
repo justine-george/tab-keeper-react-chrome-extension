@@ -25,10 +25,8 @@ jobs:
 
       - name: Get version from manifest
         id: version
-        uses: notiz-dev/github-action-json-property@release
-        with:
-          path: 'public/manifest.json'
-          prop_path: 'version'
+        run: |
+          echo "prop=$(node -p "require('./public/manifest.json').version")" >> "$GITHUB_OUTPUT"
 
       - name: Generate dist folder
         env:
