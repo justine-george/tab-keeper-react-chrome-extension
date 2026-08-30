@@ -1,0 +1,20 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // The document id is a client-generated uuid v4, minted in App.tsx and
+    // persisted in chrome.storage.sync. It is NOT a Firebase auth uid, so
+    // `request.auth.uid == docId` would match nothing and break all sync.
+    //
+    // The id itself is the capability: 122 bits of randomness is what keeps
+    // one user's tabs private from another. That only holds while the
+    // collection cannot be enumerated, so `list` must stay denied - `read`
+    // grants get + list, and would hand every document to any anonymous
+    // caller. The client only ever does exact-path getDoc/setDoc.
+    match /tabGroupData/{docId} {
+      allow get, write: if request.auth != null;
+      allow list: if false;
+    }
+  }
+}
