@@ -10,7 +10,7 @@ import { useFontFamily } from '../../../hooks/useFontFamily';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { AppDispatch, RootState } from '../../../redux/store';
 import {
-  decodeDataUrl,
+  resolveTabUrl,
   resolveFaviconUrl,
 } from '../../../utils/functions/local';
 import { NON_INTERACTIVE_ICON_STYLE } from '../../../utils/constants/common';
@@ -181,7 +181,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       const currentTabIndex = tabs[0].index;
       chrome.tabs.create({
-        url: decodeDataUrl(url),
+        url: resolveTabUrl(url),
         active: true,
         index: currentTabIndex + 1,
       });

@@ -3,7 +3,7 @@ import { createAsyncThunk, createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { RootState } from '../store';
 import { showToast } from './globalStateSlice';
 import {
-  decodeDataUrl,
+  resolveTabUrl,
   generatePlaceholderURL,
   getStringDate,
   saveToLocalStorage,
@@ -131,7 +131,7 @@ function createWindowWithRetries(
 
   chrome.windows.create(
     {
-      url: tabs[0].url,
+      url: resolveTabUrl(tabs[0].url),
       focused: isFirstWindow,
       height: height || DEFAULT_WINDOW_HEIGHT,
       width: width || DEFAULT_WINDOW_WIDTH,
@@ -153,7 +153,7 @@ function createWindowWithRetries(
         );
       } else {
         tabs.slice(1).forEach((tabInfo) => {
-          const decodedUrl = decodeDataUrl(tabInfo.url);
+          const decodedUrl = resolveTabUrl(tabInfo.url);
           let placeholder;
           if (isLazyLoad) {
             placeholder = generatePlaceholderURL(

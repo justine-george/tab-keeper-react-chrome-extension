@@ -195,6 +195,80 @@ export function decodeDataUrl(url: string): string {
   return url;
 }
 
+// Parameter names that tab suspenders use to carry the page they stand for.
+const SUSPENDED_URL_PARAMS = ['url', 'uri'];
+
+// Only http(s) is worth restoring. This also stops a crafted extension page
+// from redirecting a restore to javascript:, data: or another extension.
+function isRestorablePageUrl(value: string): boolean {
+  try {
+    const { protocol } = new URL(value);
+    return protocol === 'http:' || protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+// A suspended tab's real page survives only inside the suspender's own URL, so
+// a session saved while tabs were suspended stores placeholders - and becomes
+// unrecoverable if that suspender is ever removed. Recover the page instead.
+//
+// The two families encode it differently. Tab Suspender uses a percent-encoded
+// `url` query parameter, while the Great Suspender family uses a hash fragment
+// whose `uri=` is raw and deliberately last, because the page's own URL may
+// contain '&' - splitting the fragment on '&' would truncate it.
+export function unwrapSuspendedUrl(url: string): string {
+  if (!url.startsWith('chrome-extension://')) return url;
+
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return url;
+  }
+
+  const fragment = parsed.hash.slice(1);
+  const rawUriIndex = fragment.indexOf('uri=');
+  if (rawUriIndex >= 0) {
+    const candidate = fragment.slice(rawUriIndex + 4);
+    if (isRestorablePageUrl(candidate)) return candidate;
+  }
+
+  const params = [...parsed.searchParams, ...new URLSearchParams(fragment)];
+
+  for (const name of SUSPENDED_URL_PARAMS) {
+    const match = params.find(([key]) => key === name);
+    if (match && isRestorablePageUrl(match[1])) return match[1];
+  }
+
+  // An unrecognised suspender may name its parameter anything, so fall back to
+  // any restorable value - but only on a page that presents itself as a
+  // suspend page, so an ordinary extension page that merely references a URL
+  // (an onboarding screen with ?ref=, say) is never rewritten.
+  if (/suspend/i.test(parsed.pathname)) {
+    const match = params.find(([, value]) => isRestorablePageUrl(value));
+    if (match) return match[1];
+  }
+
+  return url;
+}
+
+// Give the real page for a captured or stored tab URL. A tab can be wrapped
+// more than once - a suspended tab saved while lazy load was on carries Tab
+// Keeper's placeholder around the suspender's URL - so unwrap until the URL
+// stops changing, bounded so a pathological input cannot loop.
+export function resolveTabUrl(url: string): string {
+  let current = url;
+
+  for (let unwraps = 0; unwraps < 3; unwraps++) {
+    const next = unwrapSuspendedUrl(decodeDataUrl(current));
+    if (next === current) break;
+    current = next;
+  }
+
+  return current;
+}
+
 // Firestore rejects any document larger than 1 MiB.
 export const FIRESTORE_MAX_DOCUMENT_BYTES = 1048576;
 

@@ -4,6 +4,8 @@ import {
   decodeDataUrl,
   filterTabGroups,
   isUsableToken,
+  resolveTabUrl,
+  unwrapSuspendedUrl,
   generatePlaceholderURL,
   getPrettyDate,
   getStringDate,
@@ -754,5 +756,116 @@ describe('classifyStoredToken', () => {
     for (const value of alreadyStored) {
       expect(classifyStoredToken(value)).not.toBe('mint');
     }
+  });
+});
+
+// Real capture from Tab Suspender (extension laameccjpleogmfhilmffpdbiibgbekf),
+// which wraps the page in a percent-encoded `url` query parameter.
+const TAB_SUSPENDER_REAL =
+  'chrome-extension://laameccjpleogmfhilmffpdbiibgbekf/suspended.html?title=justine-george%2Ftab-keeper-react-chrome-extension%3A%20Chrome%20extension&url=https%3A%2F%2Fgithub.com%2Fjustine-george%2Ftab-keeper-react-chrome-extension&time=1788097428448';
+
+// The Great Suspender / Marvellous Suspender family instead put the page in the
+// hash fragment as a raw, unencoded `uri=` placed last.
+const MARVELLOUS_SUSPENDER =
+  'chrome-extension://noogafoofpebimajpfpamcfhoaifemoa/suspended.html#ttl=Google&pos=0&uri=https://www.google.com/search?q=tabs&hl=en';
+
+describe('unwrapSuspendedUrl', () => {
+  test('should recover the page from a Tab Suspender url parameter', () => {
+    expect(unwrapSuspendedUrl(TAB_SUSPENDER_REAL)).toBe(
+      'https://github.com/justine-george/tab-keeper-react-chrome-extension'
+    );
+  });
+
+  test('should recover the page from a hash-fragment uri parameter', () => {
+    expect(unwrapSuspendedUrl(MARVELLOUS_SUSPENDER)).toBe(
+      'https://www.google.com/search?q=tabs&hl=en'
+    );
+  });
+
+  // the hash `uri=` value is unencoded and runs to the end of the string, so
+  // splitting the fragment on '&' would silently truncate the page's own query
+  test('should not truncate a hash uri that contains its own query string', () => {
+    const page = 'https://example.com/s?a=1&b=2&c=3';
+    const wrapped = `chrome-extension://abc/suspended.html#ttl=T&pos=0&uri=${page}`;
+    expect(unwrapSuspendedUrl(wrapped)).toBe(page);
+  });
+
+  test('should not truncate an encoded query url that contains its own query string', () => {
+    const page = 'https://example.com/s?a=1&b=2&c=3';
+    const wrapped = `chrome-extension://abc/suspended.html?url=${encodeURIComponent(
+      page
+    )}`;
+    expect(unwrapSuspendedUrl(wrapped)).toBe(page);
+  });
+
+  test('should recover an unknown suspender parameter on a suspend-like page', () => {
+    const page = 'https://example.com/article';
+    const wrapped = `chrome-extension://zzz/suspended.html?target=${encodeURIComponent(
+      page
+    )}`;
+    expect(unwrapSuspendedUrl(wrapped)).toBe(page);
+  });
+
+  test('should leave non-extension urls untouched', () => {
+    expect(unwrapSuspendedUrl('https://example.com/a?b=1')).toBe(
+      'https://example.com/a?b=1'
+    );
+    expect(unwrapSuspendedUrl('chrome://extensions/')).toBe(
+      'chrome://extensions/'
+    );
+    expect(unwrapSuspendedUrl('file:///Users/j/x.pdf')).toBe(
+      'file:///Users/j/x.pdf'
+    );
+    expect(unwrapSuspendedUrl('')).toBe('');
+  });
+
+  // worst path: an extension page that merely mentions a url must not be
+  // rewritten into that url - the user would be sent somewhere they never saved
+  test('should not rewrite an ordinary extension page that carries a url parameter', () => {
+    const welcome =
+      'chrome-extension://abc/welcome.html?ref=https://tracker.example.com/x';
+    expect(unwrapSuspendedUrl(welcome)).toBe(welcome);
+  });
+
+  test('should refuse to unwrap to a non-http scheme', () => {
+    const hostile = `chrome-extension://abc/suspended.html?url=${encodeURIComponent(
+      'javascript:alert(1)'
+    )}`;
+    expect(unwrapSuspendedUrl(hostile)).toBe(hostile);
+  });
+
+  test('should return malformed input unchanged', () => {
+    expect(unwrapSuspendedUrl('chrome-extension://')).toBe(
+      'chrome-extension://'
+    );
+  });
+});
+
+describe('resolveTabUrl', () => {
+  test('should unwrap a suspended url', () => {
+    expect(resolveTabUrl(TAB_SUSPENDER_REAL)).toBe(
+      'https://github.com/justine-george/tab-keeper-react-chrome-extension'
+    );
+  });
+
+  test('should still decode a Tab Keeper lazy-load placeholder', () => {
+    const url = 'https://github.com/justine-george';
+    const placeholder = generatePlaceholderURL('title', 'favicon', url, 'go');
+    expect(resolveTabUrl(placeholder)).toBe(url);
+  });
+
+  // a suspended tab that was itself saved under lazy load is wrapped twice
+  test('should unwrap a placeholder wrapped around a suspended url', () => {
+    const page = 'https://example.com/deep?x=1&y=2';
+    const suspended = `chrome-extension://abc/suspended.html?url=${encodeURIComponent(
+      page
+    )}`;
+    const placeholder = generatePlaceholderURL('t', 'f', suspended, 'go');
+    expect(resolveTabUrl(placeholder)).toBe(page);
+  });
+
+  test('should leave an ordinary url untouched', () => {
+    expect(resolveTabUrl('https://example.com')).toBe('https://example.com');
+    expect(resolveTabUrl('')).toBe('');
   });
 });

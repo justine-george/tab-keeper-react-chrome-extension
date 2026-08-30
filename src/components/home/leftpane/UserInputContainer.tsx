@@ -9,7 +9,7 @@ import Button from '../../common/Button';
 import TextBox from '../../common/TextBox';
 import { AppDispatch, RootState } from '../../../redux/store';
 import { setSearchInputText } from '../../../redux/slices/globalStateSlice';
-import { decodeDataUrl, getStringDate } from '../../../utils/functions/local';
+import { getStringDate, resolveTabUrl } from '../../../utils/functions/local';
 import {
   saveToTabContainer,
   tabContainerData,
@@ -83,7 +83,7 @@ export default function UserInputContainer() {
           tabId: uuidv4(),
           favicon: tab.favIconUrl || '',
           title: tab.title || '',
-          url: decodeDataUrl(tab.url || ''),
+          url: resolveTabUrl(tab.url || ''),
         };
       });
 
