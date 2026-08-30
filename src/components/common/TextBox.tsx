@@ -45,6 +45,7 @@ const TextBox: React.FC<TextBoxProps> = ({
     padding: 10px;
     height: 3.5rem;
     flex-grow: 1;
+    min-width: 0;
     font-family: ${FONT_FAMILY};
     font-size: 0.9rem;
     color: ${COLORS.LABEL_L1_COLOR};

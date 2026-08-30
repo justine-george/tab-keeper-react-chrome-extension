@@ -55,6 +55,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
     padding: 8px;
     align-items: flex-start;
     width: 100%;
+    min-width: 0;
   `;
 
   const rightStyle = css`
@@ -96,7 +97,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
     >
       <div css={leftStyle}>
         <NormalLabel
-          style="max-width: 318px;"
+          style="max-width: 100%;"
           value={title}
           color={COLORS.TEXT_COLOR}
           size="0.95rem;"

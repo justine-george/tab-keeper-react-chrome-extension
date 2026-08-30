@@ -89,6 +89,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     display: flex;
     align-items: center;
     flex-grow: 1;
+    min-width: 0;
   `;
 
   const parentRightStyle = css`
@@ -140,6 +141,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     align-items: center;
     height: 100%;
     flex-grow: 1;
+    min-width: 0;
     padding-right: 9px;
     ${!isSearchPanel && 'cursor: pointer;'}
   `;
@@ -250,7 +252,8 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                   font-size: 0.9rem;
                   padding-left: 8px;
                   height: 100%;
-                  width: 310px;
+                  width: 100%;
+                  min-width: 0;
                   &:focus {
                     outline: none;
                   }
@@ -264,7 +267,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                 style={`
                 padding-left: 8px;
                 ${!isSearchPanel && 'cursor: pointer'};
-                height: 100%; max-width: 330px;`}
+                height: 100%; max-width: 100%;`}
               />
             )}
           </div>
@@ -350,7 +353,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                       value={title}
                       color={COLORS.TEXT_COLOR}
                       size="0.9rem"
-                      style="padding-left: 4px; height: 100%; max-width: 289px;"
+                      style="padding-left: 4px; height: 100%; max-width: 100%;"
                     />
                   </div>
                 </div>
