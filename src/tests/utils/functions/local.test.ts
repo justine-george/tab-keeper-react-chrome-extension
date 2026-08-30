@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'vitest';
+import { afterEach, describe, expect, test } from 'vitest';
 import {
   decodeDataUrl,
   filterTabGroups,
@@ -12,7 +12,11 @@ import {
   isValidTabMasterContainer,
   loadFromLocalStorage,
   saveToLocalStorage,
+  stripEmbeddedFavicons,
+  resolveFaviconUrl,
+  FIRESTORE_MAX_DOCUMENT_BYTES,
 } from '../../../utils/functions/local';
+import { TabMasterContainer } from '../../../redux/slices/tabContainerDataStateSlice';
 
 describe('isValidDate', () => {
   // Valid dates
@@ -532,5 +536,159 @@ describe('should convert timestamp to "mmm DD, yyyy at H:MM:SS AM/PM" format', (
     const inputTimestamp = new Date('2023-10-17 00:00:00').getTime();
     const expectedOutputString = 'Oct 17, 2023 at 12:00:00 AM';
     expect(getPrettyDate(inputTimestamp)).toBe(expectedOutputString);
+  });
+});
+
+describe('stripEmbeddedFavicons', () => {
+  const EMBEDDED = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUg';
+  const REMOTE = 'https://github.githubassets.com/favicons/favicon.svg';
+
+  const buildContainer = (
+    tabsPerWindow: number,
+    favicon: string
+  ): TabMasterContainer => ({
+    lastModified: 1785312544441,
+    selectedTabGroupId: 'group-0',
+    tabGroups: [
+      {
+        tabGroupId: 'group-0',
+        title: 'Extensions',
+        createdTime: '2026-07-27 04:08:12',
+        windowCount: 1,
+        tabCount: tabsPerWindow,
+        isAutoSave: false,
+        isSelected: true,
+        windows: [
+          {
+            windowId: 'window-0',
+            windowHeight: 550,
+            windowWidth: 790,
+            windowOffsetTop: 0,
+            windowOffsetLeft: 0,
+            tabCount: tabsPerWindow,
+            title: 'first tab title',
+            tabs: Array.from({ length: tabsPerWindow }, (_, i) => ({
+              tabId: `tab-${i}`,
+              favicon,
+              title: `Repository ${i}`,
+              url: `https://github.com/user/repo-${i}`,
+            })),
+          },
+        ],
+      },
+    ],
+  });
+
+  test('should replace embedded data: favicons with an empty string', () => {
+    const result = stripEmbeddedFavicons(buildContainer(3, EMBEDDED));
+    const favicons = result.tabGroups[0].windows[0].tabs.map((t) => t.favicon);
+    expect(favicons).toEqual(['', '', '']);
+  });
+
+  test('should leave remote favicon URLs untouched', () => {
+    const result = stripEmbeddedFavicons(buildContainer(3, REMOTE));
+    const favicons = result.tabGroups[0].windows[0].tabs.map((t) => t.favicon);
+    expect(favicons).toEqual([REMOTE, REMOTE, REMOTE]);
+  });
+
+  test('should preserve every field other than the favicon', () => {
+    const input = buildContainer(2, EMBEDDED);
+    const result = stripEmbeddedFavicons(input);
+
+    expect(result.lastModified).toBe(input.lastModified);
+    expect(result.selectedTabGroupId).toBe(input.selectedTabGroupId);
+    expect(result.tabGroups[0].tabCount).toBe(input.tabGroups[0].tabCount);
+    expect(result.tabGroups[0].windows[0].windowHeight).toBe(550);
+    expect(result.tabGroups[0].windows[0].tabs[1]).toEqual({
+      tabId: 'tab-1',
+      favicon: '',
+      title: 'Repository 1',
+      url: 'https://github.com/user/repo-1',
+    });
+  });
+
+  test('should not mutate the input container', () => {
+    const input = buildContainer(2, EMBEDDED);
+    stripEmbeddedFavicons(input);
+    expect(input.tabGroups[0].windows[0].tabs[0].favicon).toBe(EMBEDDED);
+  });
+
+  test('should bring an oversized container under the Firestore limit', () => {
+    // 12KB embedded favicon x 120 tabs - a plausible heavy session
+    const heavyFavicon = 'data:image/png;base64,' + 'A'.repeat(12000);
+    const oversized = buildContainer(120, heavyFavicon);
+
+    expect(JSON.stringify(oversized).length).toBeGreaterThan(
+      FIRESTORE_MAX_DOCUMENT_BYTES
+    );
+    expect(
+      JSON.stringify(stripEmbeddedFavicons(oversized)).length
+    ).toBeLessThan(FIRESTORE_MAX_DOCUMENT_BYTES);
+  });
+
+  test('should handle a container with no tab groups', () => {
+    const empty: TabMasterContainer = {
+      lastModified: 1,
+      selectedTabGroupId: null,
+      tabGroups: [],
+    };
+    expect(stripEmbeddedFavicons(empty)).toEqual(empty);
+  });
+
+  test('should not throw when a favicon field is missing', () => {
+    const malformed = buildContainer(1, EMBEDDED);
+    // simulates data written before the favicon field was guaranteed
+    delete (malformed.tabGroups[0].windows[0].tabs[0] as any).favicon;
+    expect(() => stripEmbeddedFavicons(malformed)).not.toThrow();
+  });
+});
+
+describe('resolveFaviconUrl', () => {
+  const EXT = 'chrome-extension://abcdefghijklmnop';
+  const withChrome = () => {
+    (globalThis as any).chrome = {
+      runtime: { getURL: (path: string) => `${EXT}${path}` },
+    };
+  };
+
+  afterEach(() => {
+    delete (globalThis as any).chrome;
+  });
+
+  test('should return the stored favicon when there is one', () => {
+    withChrome();
+    const stored = 'https://github.githubassets.com/favicons/favicon.svg';
+    expect(resolveFaviconUrl(stored, 'https://github.com')).toBe(stored);
+  });
+
+  test('should derive from the page URL when the favicon is empty', () => {
+    withChrome();
+    const result = resolveFaviconUrl('', 'https://github.com/user/repo');
+    expect(result).toBe(
+      `${EXT}/_favicon/?pageUrl=https%3A%2F%2Fgithub.com%2Fuser%2Frepo&size=32`
+    );
+  });
+
+  test('should derive for http as well as https', () => {
+    withChrome();
+    expect(resolveFaviconUrl('', 'http://example.com')).toContain('/_favicon/');
+  });
+
+  test('should not derive for non-http schemes', () => {
+    withChrome();
+    expect(resolveFaviconUrl('', 'chrome://extensions/')).toBe('');
+    expect(resolveFaviconUrl('', 'chrome-extension://x/suspended.html')).toBe('');
+    expect(resolveFaviconUrl('', 'file:///tmp/page.html')).toBe('');
+  });
+
+  test('should return empty string when there is no page URL', () => {
+    withChrome();
+    expect(resolveFaviconUrl('', '')).toBe('');
+  });
+
+  test('should not throw when the chrome API is unavailable', () => {
+    // chrome is undefined here - afterEach removed it
+    expect(() => resolveFaviconUrl('', 'https://github.com')).not.toThrow();
+    expect(resolveFaviconUrl('', 'https://github.com')).toBe('');
   });
 });

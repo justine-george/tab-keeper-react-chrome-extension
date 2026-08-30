@@ -9,7 +9,10 @@ import { NormalLabel } from '../../common/Label';
 import { useFontFamily } from '../../../hooks/useFontFamily';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { AppDispatch, RootState } from '../../../redux/store';
-import { decodeDataUrl } from '../../../utils/functions/local';
+import {
+  decodeDataUrl,
+  resolveFaviconUrl,
+} from '../../../utils/functions/local';
 import { NON_INTERACTIVE_ICON_STYLE } from '../../../utils/constants/common';
 import {
   deleteTab,
@@ -336,7 +339,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                   title={t('Open in new tab') + ': ' + title}
                 >
                   <Icon
-                    faviconUrl={favicon}
+                    faviconUrl={resolveFaviconUrl(favicon, url)}
                     type="globe"
                     style={`&:hover {background-color: unset;}`}
                   />

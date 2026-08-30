@@ -176,6 +176,47 @@ export function decodeDataUrl(url: string): string {
   return url;
 }
 
+// Firestore rejects any document larger than 1 MiB.
+export const FIRESTORE_MAX_DOCUMENT_BYTES = 1048576;
+
+// Chrome hands back some favicons as `data:image/png;base64,...` URIs weighing
+// 5-20KB each, rather than a remote URL of ~60 bytes. Stored verbatim, a large
+// session pushes the document past the Firestore ceiling and the write is
+// rejected outright. Dropping the embedded ones keeps remote URLs intact, so
+// most favicons still render.
+export function stripEmbeddedFavicons(
+  data: TabMasterContainer
+): TabMasterContainer {
+  return {
+    ...data,
+    tabGroups: data.tabGroups.map((tabGroup) => ({
+      ...tabGroup,
+      windows: tabGroup.windows.map((window) => ({
+        ...window,
+        tabs: window.tabs.map((tab) =>
+          tab.favicon?.startsWith('data:') ? { ...tab, favicon: '' } : tab
+        ),
+      })),
+    })),
+  };
+}
+
+// Chrome keeps a favicon cache for pages the user has visited, reachable through
+// the `favicon` permission. Deriving the icon from the page URL costs no storage,
+// so a tab whose embedded favicon was dropped by stripEmbeddedFavicons still
+// renders. Only http(s) pages are derived; anything else keeps the caller's own
+// fallback so behaviour there is unchanged.
+export function resolveFaviconUrl(favicon: string, pageUrl: string): string {
+  if (favicon) return favicon;
+  if (!pageUrl || !/^https?:\/\//i.test(pageUrl)) return '';
+  if (typeof chrome === 'undefined' || !chrome?.runtime?.getURL) return '';
+
+  const url = new URL(chrome.runtime.getURL('/_favicon/'));
+  url.searchParams.set('pageUrl', pageUrl);
+  url.searchParams.set('size', '32');
+  return url.toString();
+}
+
 // validate import JSON structure - TabMasterContainer
 export const isValidTabMasterContainer = (
   data: any
