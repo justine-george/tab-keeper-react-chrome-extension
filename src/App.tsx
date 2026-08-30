@@ -5,7 +5,7 @@ import { useDispatch, useSelector } from 'react-redux';
 
 import { css } from '@emotion/react';
 
-import { APP_WIDTH } from './utils/constants/common';
+import { APP_WIDTH, TOAST_MESSAGES } from './utils/constants/common';
 import { observeAuthState } from './config/firebase';
 import MainContainer from './components/MainContainer';
 import { AppDispatch, RootState } from './redux/store';
@@ -18,12 +18,18 @@ import {
   setLoggedOut,
   setSignedIn,
   setUserId,
+  showToast,
   syncStateWithFirestore,
 } from './redux/slices/globalStateSlice';
 
 import './App.css';
 import { setExtensionInstalledTime } from './redux/slices/settingsDataStateSlice';
-import { isValidDate, loadFromLocalStorage } from './utils/functions/local';
+import {
+  classifyStoredToken,
+  isUsableToken,
+  isValidDate,
+  loadFromLocalStorage,
+} from './utils/functions/local';
 
 function App() {
   const COLORS = useThemeColors();
@@ -46,7 +52,7 @@ function App() {
     chrome.storage.sync.get(['tokenValue']).then((result) => {
       const token = result.tokenValue;
 
-      if (!token) {
+      if (classifyStoredToken(token) === 'mint') {
         // No token found in chrome storage sync (new user)
         chrome.storage.sync
           .set({ tokenValue: uuidv4() })
@@ -56,6 +62,13 @@ function App() {
               .then((result) => {
                 // New token issued
                 const newToken = result.tokenValue;
+
+                if (!isUsableToken(newToken)) {
+                  // read-back did not return what was just written
+                  dispatch(setLoggedOut());
+                  dispatch(removeUserId());
+                  return;
+                }
 
                 dispatch(setSignedIn());
                 dispatch(setUserId(newToken));
@@ -71,10 +84,21 @@ function App() {
             dispatch(setLoggedOut());
             dispatch(removeUserId());
           });
-      } else {
+      } else if (isUsableToken(token)) {
         // Token found in chrome storage sync (existing user)
         dispatch(setSignedIn());
         dispatch(setUserId(token));
+      } else {
+        // Token is present but is not a usable documentId. Do not mint a
+        // replacement: that would point the user at a fresh, empty Firestore
+        // document and strand whatever is stored under the existing one.
+        dispatch(setLoggedOut());
+        dispatch(removeUserId());
+        dispatch(
+          showToast({
+            toastText: TOAST_MESSAGES.UNREADABLE_ACCOUNT_TOKEN,
+          })
+        );
       }
     });
   }

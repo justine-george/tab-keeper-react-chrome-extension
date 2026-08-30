@@ -25,22 +25,18 @@
   "Add current tab": "Add current tab",
   "Open in new tab": "Open in new tab",
   "Go to URL": "Visit Site",
-
   "Windows": "Windows",
   "Window": "Window",
   "Tabs": "Tabs",
   "Tab": "Tab",
-
   "Go back": "Go back",
   "Search among sessions": "Search among sessions",
-
   "Session saved.": "Session saved.",
   "Current tab saved.": "Current tab saved.",
   "Current window saved.": "Current window saved.",
   "Session deleted.": "Session deleted.",
   "Session window deleted.": "Session window deleted.",
   "Session tab deleted.": "Session tab deleted.",
-
   "English": "English",
   "German": "German",
   "Chinese": "Chinese",
@@ -51,21 +47,18 @@
   "Spanish": "Spanish",
   "Italian": "Italian",
   "Hindi": "Hindi",
-
   "Local Data": "Local Data",
   "LATEST": "LATEST",
   "Last updated": "Last updated",
   "Saved sessions": "Saved sessions",
   "Saved session": "Saved session",
   "Cloud Data": "Cloud Data",
-
   "Back": "Back",
   "Display": "Display",
   "Sync & Privacy": "Sync & Privacy",
   "Data Management": "Data Management",
   "Language": "Language",
   "About": "About",
-
   "Themes": "Themes",
   "Light": "Light",
   "Warm Light": "Warm Light",
@@ -83,15 +76,14 @@
   "Backup App Data to File": "Backup App Data to File",
   "Restore App Data from File": "Restore App Data from File",
   "Choose Language": "Choose Language",
-
   "Thank you for using this app!": "Thank you for using Tab Keeper!",
   "Crafted with ❤️ by Justine George": "Crafted with ❤️ by Justine George",
   "Rate this app": "Rate this extension",
   "Share your thoughts": "Share your thoughts",
   "Share on Twitter (X)": "Share on Twitter (X)",
-
   "RequestUserReviewHeader": "Enjoying Tab Keeper?",
   "RequestUserReviewText": "Please consider helping me out with a good review!",
   "Maybe Later": "Maybe Later",
-  "Never Remind Again": "Never Remind Again"
+  "Never Remind Again": "Never Remind Again",
+  "Sync unavailable: your saved account token could not be read.": "Sync unavailable: your saved account token could not be read."
 }
