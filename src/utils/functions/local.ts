@@ -201,6 +201,22 @@ export function stripEmbeddedFavicons(
   };
 }
 
+// Chrome keeps a favicon cache for pages the user has visited, reachable through
+// the `favicon` permission. Deriving the icon from the page URL costs no storage,
+// so a tab whose embedded favicon was dropped by stripEmbeddedFavicons still
+// renders. Only http(s) pages are derived; anything else keeps the caller's own
+// fallback so behaviour there is unchanged.
+export function resolveFaviconUrl(favicon: string, pageUrl: string): string {
+  if (favicon) return favicon;
+  if (!pageUrl || !/^https?:\/\//i.test(pageUrl)) return '';
+  if (typeof chrome === 'undefined' || !chrome?.runtime?.getURL) return '';
+
+  const url = new URL(chrome.runtime.getURL('/_favicon/'));
+  url.searchParams.set('pageUrl', pageUrl);
+  url.searchParams.set('size', '32');
+  return url.toString();
+}
+
 // validate import JSON structure - TabMasterContainer
 export const isValidTabMasterContainer = (
   data: any

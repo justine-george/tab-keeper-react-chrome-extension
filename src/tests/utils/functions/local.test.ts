@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'vitest';
+import { afterEach, describe, expect, test } from 'vitest';
 import {
   decodeDataUrl,
   filterTabGroups,
@@ -13,6 +13,7 @@ import {
   loadFromLocalStorage,
   saveToLocalStorage,
   stripEmbeddedFavicons,
+  resolveFaviconUrl,
   FIRESTORE_MAX_DOCUMENT_BYTES,
 } from '../../../utils/functions/local';
 import { TabMasterContainer } from '../../../redux/slices/tabContainerDataStateSlice';
@@ -639,5 +640,55 @@ describe('stripEmbeddedFavicons', () => {
     // simulates data written before the favicon field was guaranteed
     delete (malformed.tabGroups[0].windows[0].tabs[0] as any).favicon;
     expect(() => stripEmbeddedFavicons(malformed)).not.toThrow();
+  });
+});
+
+describe('resolveFaviconUrl', () => {
+  const EXT = 'chrome-extension://abcdefghijklmnop';
+  const withChrome = () => {
+    (globalThis as any).chrome = {
+      runtime: { getURL: (path: string) => `${EXT}${path}` },
+    };
+  };
+
+  afterEach(() => {
+    delete (globalThis as any).chrome;
+  });
+
+  test('should return the stored favicon when there is one', () => {
+    withChrome();
+    const stored = 'https://github.githubassets.com/favicons/favicon.svg';
+    expect(resolveFaviconUrl(stored, 'https://github.com')).toBe(stored);
+  });
+
+  test('should derive from the page URL when the favicon is empty', () => {
+    withChrome();
+    const result = resolveFaviconUrl('', 'https://github.com/user/repo');
+    expect(result).toBe(
+      `${EXT}/_favicon/?pageUrl=https%3A%2F%2Fgithub.com%2Fuser%2Frepo&size=32`
+    );
+  });
+
+  test('should derive for http as well as https', () => {
+    withChrome();
+    expect(resolveFaviconUrl('', 'http://example.com')).toContain('/_favicon/');
+  });
+
+  test('should not derive for non-http schemes', () => {
+    withChrome();
+    expect(resolveFaviconUrl('', 'chrome://extensions/')).toBe('');
+    expect(resolveFaviconUrl('', 'chrome-extension://x/suspended.html')).toBe('');
+    expect(resolveFaviconUrl('', 'file:///tmp/page.html')).toBe('');
+  });
+
+  test('should return empty string when there is no page URL', () => {
+    withChrome();
+    expect(resolveFaviconUrl('', '')).toBe('');
+  });
+
+  test('should not throw when the chrome API is unavailable', () => {
+    // chrome is undefined here - afterEach removed it
+    expect(() => resolveFaviconUrl('', 'https://github.com')).not.toThrow();
+    expect(resolveFaviconUrl('', 'https://github.com')).toBe('');
   });
 });
