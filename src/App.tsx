@@ -153,6 +153,7 @@ function App() {
   const containerStyle = css`
     background-color: ${COLORS.PRIMARY_COLOR};
     width: ${APP_WIDTH};
+    max-width: 100%;
   `;
 
   return (

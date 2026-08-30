@@ -121,6 +121,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     display: flex;
     align-items: center;
     flex-grow: 1;
+    min-width: 0;
   `;
 
   const childRightStyle = (index: number) => css`
@@ -150,6 +151,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     align-items: center;
     height: 100%;
     flex-grow: 1;
+    min-width: 0;
     margin-left: 4px;
     margin-right: 4px;
     cursor: pointer;
