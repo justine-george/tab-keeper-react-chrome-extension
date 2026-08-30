@@ -677,7 +677,9 @@ describe('resolveFaviconUrl', () => {
   test('should not derive for non-http schemes', () => {
     withChrome();
     expect(resolveFaviconUrl('', 'chrome://extensions/')).toBe('');
-    expect(resolveFaviconUrl('', 'chrome-extension://x/suspended.html')).toBe('');
+    expect(resolveFaviconUrl('', 'chrome-extension://x/suspended.html')).toBe(
+      ''
+    );
     expect(resolveFaviconUrl('', 'file:///tmp/page.html')).toBe('');
   });
 
