@@ -1,0 +1,7 @@
+{
+  "projects": {
+    "default": "tab-keeper-extension-dev",
+    "dev": "tab-keeper-extension-dev",
+    "prod": "tab-keeper-extension-web"
+  }
+}
