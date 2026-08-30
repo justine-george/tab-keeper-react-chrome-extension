@@ -33,8 +33,12 @@ export async function loadFromFirestore(
   try {
     const tabDataFromCloud: TabMasterContainer =
       await fetchDataFromFirestore(userId);
-    // documents written before favicons were stripped still carry them
-    return stripEmbeddedFavicons(tabDataFromCloud);
+    // Deliberately not stripped on read. Documents written before the write-side
+    // strip still carry embedded favicons, and those render fine locally - a
+    // document is capped at 1 MiB while localStorage holds far more, so there is
+    // nothing to gain by discarding them, and doing so would blank icons that
+    // still work.
+    return tabDataFromCloud;
   } catch (error: any) {
     if (error.message === 'Document does not exist for userId: ' + userId) {
       console.warn('handled error: ' + error.message);
