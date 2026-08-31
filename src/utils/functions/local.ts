@@ -186,6 +186,10 @@ export const asPartialSettings = <T>(value: unknown): Partial<T> =>
     ? (value as Partial<T>)
     : {};
 
+// Every lazy-load placeholder is a base64 data document, and both the save path
+// and the background worker recognise one by this prefix.
+const PLACEHOLDER_URL_PREFIX = 'data:text/html;base64,';
+
 // generate placeholder URL for quicker session loads and lesser memory consumption
 export function generatePlaceholderURL(
   title: string,
@@ -195,13 +199,13 @@ export function generatePlaceholderURL(
 ) {
   const html = `<html> <head> <meta charset="UTF-8" /> <link rel="icon" type="image/x-icon" href="${faviconURL}" /> <meta name="viewport" content="width=device-width, initial-scale=1.0" /> <title>${title}</title> <style> body { background-color: #181818; color: #ffffff; font-family: "Libre Franklin", sans-serif; display: flex; margin: 20px; flex-direction: column; justify-content: flex-start; align-items: flex-start; height: 100vh; } #copyButton { cursor: pointer; background-color: #2c2c2c; padding: 10px 20px; border: none; border-radius: 10px; color: #ffffff; font-family: "Libre Franklin", sans-serif; font-size: 14px; transition: background-color 0.125s ease, color 0.125s ease; } #copyButton:hover { background-color: #77dd77; color: black; } h1,h2,p { margin: 10px 3px; } a { text-decoration: none; color: inherit; } p { font-size: 0.9rem; margin-bottom: 15px; } </style> </head> <body> <h2>${title}</h2> <a href="${url}"><p>${url}</p></a> <a href="${url}"><button id="copyButton">${goToURLText}</button></a> </body></html>`;
   const base64Html = Base64.encode(html);
-  return `data:text/html;base64,${base64Html}`;
+  return `${PLACEHOLDER_URL_PREFIX}${base64Html}`;
 }
 
 // decode dataurl before saving - bugfix to prevent saving base64 encoded urls
 export function decodeDataUrl(url: string): string {
-  if (url.startsWith('data:text/html;base64,')) {
-    const base64Data = url.replace('data:text/html;base64,', '');
+  if (url.startsWith(PLACEHOLDER_URL_PREFIX)) {
+    const base64Data = url.replace(PLACEHOLDER_URL_PREFIX, '');
     const decodedHtml = Base64.decode(base64Data);
 
     // extract the actual URL from the HTML content
@@ -285,6 +289,24 @@ export function resolveTabUrl(url: string): string {
   }
 
   return current;
+}
+
+// A lazy-load placeholder carries its own real page, so nothing has to remember
+// what a restore opened: the background worker reads the answer off the tab it
+// was handed. That matters because the popup is destroyed the moment the
+// restored window takes focus, taking any record it was holding with it.
+//
+// Returns null for everything that is not one of our placeholders. The worker
+// asks this of every tab the user activates, and a wrong answer would navigate
+// a page they were reading, so a foreign data: document, a decode that yields
+// nothing, and any non-http(s) target all decline.
+export function placeholderTarget(tabUrl: string): string | null {
+  if (!tabUrl.startsWith(PLACEHOLDER_URL_PREFIX)) return null;
+
+  const resolved = resolveTabUrl(tabUrl);
+  if (resolved === tabUrl) return null;
+
+  return isRestorablePageUrl(resolved) ? resolved : null;
 }
 
 // Firestore rejects any document larger than 1 MiB.

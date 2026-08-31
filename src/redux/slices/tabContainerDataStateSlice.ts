@@ -111,21 +111,6 @@ export const initialState: TabMasterContainer = {
   tabGroups: [],
 };
 
-function setupTabActivationListener(isLazyLoad: boolean) {
-  if (!isLazyLoad) return;
-  chrome.tabs.onActivated.addListener(({ tabId }) => {
-    const tabData = tabURLMap[tabId];
-    if (tabData) {
-      chrome.tabs.update(tabId, { url: tabData.url });
-      delete tabURLMap[tabId];
-    }
-  });
-}
-
-const tabURLMap: {
-  [key: number]: { url: string; title: string; favicon: string };
-} = {};
-
 function createWindowWithRetries(
   tabs: tabData[],
   isFirstWindow: boolean,
@@ -176,22 +161,14 @@ function createWindowWithRetries(
             );
           }
 
-          chrome.tabs.create(
-            {
-              windowId: newWindow!.id,
-              url: isLazyLoad ? placeholder : decodedUrl,
-              active: false,
-            },
-            (tab) => {
-              if (isLazyLoad) {
-                tabURLMap[tab.id!] = {
-                  url: decodedUrl,
-                  title: tabInfo.title,
-                  favicon: tabInfo.favicon || '/images/favicon.ico',
-                };
-              }
-            }
-          );
+          // No record of what was opened is kept: the placeholder carries its
+          // own page, and the background worker reads it back when the user
+          // activates the tab. See placeholderTarget in utils/functions/local.
+          chrome.tabs.create({
+            windowId: newWindow!.id,
+            url: isLazyLoad ? placeholder : decodedUrl,
+            active: false,
+          });
         });
       }
     }
@@ -223,8 +200,6 @@ export const openTabsInAWindow = createAsyncThunk(
     );
 
     if (!windowGroup) return;
-
-    setupTabActivationListener(settingsDataState.isLazyLoad);
 
     const { tabs } = windowGroup;
 
@@ -260,8 +235,6 @@ export const openAllTabContainer = createAsyncThunk(
     );
 
     if (!tabGroup) return;
-
-    setupTabActivationListener(settingsDataState.isLazyLoad);
 
     let isFirstWindow = true;
 
