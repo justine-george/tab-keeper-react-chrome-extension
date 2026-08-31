@@ -666,6 +666,52 @@ export const tabContainerDataStateSlice = createSlice({
       saveToLocalStorage('tabContainerData', action.payload);
       return action.payload;
     },
+
+    // Undo/redo replaces the container with a snapshot from history. Kept
+    // separate from replaceState, which the sync uses for merged results and
+    // must not touch timestamps.
+    //
+    // A snapshot taken before a delete brings the session back and carries no
+    // tombstone for it - but the cloud may already hold the tombstone that
+    // delete pushed up, and it is newer than the restored session's untouched
+    // timestamp, so the next merge would simply delete it again. Undo would
+    // appear to work and then silently reverse itself, with no way to recover
+    // the session.
+    //
+    // Stamping the restored session now is not a workaround: un-deleting it IS
+    // a change to that session, made on this device at this moment, which is
+    // exactly what the per-session timestamp records. Only sessions whose
+    // tombstone is being withdrawn are stamped - an unrelated session that
+    // happens to be in the snapshot keeps its own history.
+    restoreFromHistory: (state, action: PayloadAction<typeof state>) => {
+      const withdrawnAt = new Map(
+        (state.deletedTabGroups ?? []).map((grave) => [
+          grave.tabGroupId,
+          grave.deletedAt,
+        ])
+      );
+      const restored: TabMasterContainer = {
+        ...action.payload,
+        tabGroups: action.payload.tabGroups.map((tabGroup) => {
+          const buriedAt = withdrawnAt.get(tabGroup.tabGroupId);
+          if (buriedAt === undefined) return tabGroup;
+          return {
+            ...tabGroup,
+            // Strictly after the tombstone, not merely Date.now(). Undoing a
+            // delete promptly enough lands in the same millisecond, and the
+            // merge gives exact ties to cloud - so an equal timestamp loses to
+            // the very tombstone this is withdrawing. The un-delete happened
+            // after the delete by definition; encode that rather than trusting
+            // clock granularity.
+            lastModified: Math.max(Date.now(), buriedAt + 1),
+          };
+        }),
+      };
+
+      // update localstorage
+      saveToLocalStorage('tabContainerData', restored);
+      return restored;
+    },
   },
 });
 
@@ -680,6 +726,7 @@ export const {
   deleteWindowInternal,
   deleteTabInternal,
   replaceState,
+  restoreFromHistory,
 } = tabContainerDataStateSlice.actions;
 
 export default tabContainerDataStateSlice.reducer;

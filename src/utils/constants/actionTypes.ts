@@ -6,6 +6,11 @@ export const REDO_ACTION = 'undoRedo/redo';
 // tabContainerDataState actions
 export const TAB_CONTAINER_REPLACE_STATE_ACTION =
   'tabContainerDataState/replaceState';
+
+// Undo/redo restores a snapshot, and unlike replaceState it may need to
+// withdraw a tombstone; see restoreFromHistory in tabContainerDataStateSlice.
+export const TAB_CONTAINER_RESTORE_FROM_HISTORY_ACTION =
+  'tabContainerDataState/restoreFromHistory';
 export const SELECT_TAB_CONTAINER_ACTION =
   'tabContainerDataState/selectTabContainer';
 export const SAVE_TAB_CONTAINER_ACTION =
