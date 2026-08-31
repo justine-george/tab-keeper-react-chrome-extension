@@ -290,3 +290,61 @@ describe('mergeTabContainers - tombstones', () => {
     expect(merged.deletedTabGroups![0].tabGroupId).toBe('g0');
   });
 });
+
+// The two flags drive a Firestore write and a toast, so they have to describe
+// the document that is actually persisted. collectTombstones drops entries
+// past the TTL or beyond the cap, so a signature computed from the unfiltered
+// event set claims a difference the written document does not contain - a
+// write that changes nothing, repeated on every sync until the stale entry
+// finally leaves localStorage.
+describe('mergeTabContainers - the flags describe what is written', () => {
+  const withTombstones = (
+    c: TabMasterContainer,
+    t: { tabGroupId: string; deletedAt: number }[]
+  ): TabMasterContainer => ({ ...c, deletedTabGroups: t });
+
+  const FAR_FUTURE = 5_000_000_000_000;
+
+  it('does not ask for a write when the only difference is a TTL-dropped tombstone', () => {
+    const expired = FAR_FUTURE - TOMBSTONE_TTL_MS - 1;
+    const local = withTombstones(container(100, []), [
+      { tabGroupId: 'ancient', deletedAt: expired },
+    ]);
+    const cloud = withTombstones(container(100, []), []);
+
+    const r = mergeTabContainers(local, cloud, FAR_FUTURE);
+    expect(r.merged.deletedTabGroups).toEqual([]);
+    // merged equals cloud in every persisted respect, so nothing to write
+    expect(r.changedFromCloud).toBe(false);
+  });
+
+  it('does not ask for a write when the only difference is a capped tombstone', () => {
+    const many = Array.from({ length: TOMBSTONE_MAX + 10 }, (_, i) => ({
+      tabGroupId: `g${i}`,
+      deletedAt: FAR_FUTURE - i,
+    }));
+    const kept = many.slice(0, TOMBSTONE_MAX);
+
+    const local = withTombstones(container(100, []), many);
+    const cloud = withTombstones(container(100, []), kept);
+
+    const r = mergeTabContainers(local, cloud, FAR_FUTURE);
+    expect(r.merged.deletedTabGroups).toHaveLength(TOMBSTONE_MAX);
+    // cloud already holds exactly the tombstones that survive the cap
+    expect(r.changedFromCloud).toBe(false);
+  });
+
+  // The converse still has to hold: if the cloud is the side carrying the
+  // stale entry, one write is needed to clean it up.
+  it('still asks for a write when the cloud holds the expired tombstone', () => {
+    const expired = FAR_FUTURE - TOMBSTONE_TTL_MS - 1;
+    const local = withTombstones(container(100, []), []);
+    const cloud = withTombstones(container(100, []), [
+      { tabGroupId: 'ancient', deletedAt: expired },
+    ]);
+
+    const r = mergeTabContainers(local, cloud, FAR_FUTURE);
+    expect(r.merged.deletedTabGroups).toEqual([]);
+    expect(r.changedFromCloud).toBe(true);
+  });
+});

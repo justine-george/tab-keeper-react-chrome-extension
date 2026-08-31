@@ -136,11 +136,15 @@ describe('sync converges', () => {
   });
 
   it('does not write again once local and cloud agree', async () => {
+    // A live tombstone, not an ancient one: the thunk passes the real
+    // Date.now() to the merge, so a fixed small deletedAt would be decades
+    // past the TTL and would correctly provoke a one-off cleanup write.
+    const recently = Date.now() - 60_000;
     const start = (): TabMasterContainer => ({
       lastModified: 1000,
       selectedTabGroupId: null,
       tabGroups: [group('keep', 1000)],
-      deletedTabGroups: [{ tabGroupId: 'gone', deletedAt: 900 }],
+      deletedTabGroups: [{ tabGroupId: 'gone', deletedAt: recently }],
     });
 
     const { store } = makeTestStore();

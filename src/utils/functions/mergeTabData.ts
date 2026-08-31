@@ -74,18 +74,43 @@ function collect(events: Map<string, Event>, side: TabMasterContainer): void {
 export const TOMBSTONE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 export const TOMBSTONE_MAX = 500;
 
-function collectTombstones(
+// Garbage-collect tombstones, and drop the pruned ones from `events` as well.
+//
+// Removing them from the map is the load-bearing part. Both flags are derived
+// from `events`, so a tombstone left there but omitted from the output would
+// report "the cloud needs updating" for a document identical to what the cloud
+// already holds - a write that changes nothing, repeated on every sync until
+// the stale entry finally leaves localStorage. The flags have to describe what
+// is actually persisted.
+//
+// A pruned id ends up with no event at all, so a session the tombstone was
+// suppressing becomes eligible to return from a device that still has it.
+// That is the documented TTL tradeoff: the failure reappears data, never
+// loses it.
+function pruneTombstones(
   events: Map<string, Event>,
   now: number
 ): deletedTabGroup[] {
   const graves: deletedTabGroup[] = [];
   for (const [tabGroupId, event] of events) {
-    if (event.kind === 'deleted' && now - event.at <= TOMBSTONE_TTL_MS) {
+    if (event.kind === 'deleted') {
       graves.push({ tabGroupId, deletedAt: event.at });
     }
   }
   graves.sort((a, b) => b.deletedAt - a.deletedAt);
-  return graves.slice(0, TOMBSTONE_MAX);
+
+  const kept = graves
+    .filter((g) => now - g.deletedAt <= TOMBSTONE_TTL_MS)
+    .slice(0, TOMBSTONE_MAX);
+  const keptIds = new Set(kept.map((g) => g.tabGroupId));
+
+  for (const [tabGroupId, event] of [...events]) {
+    if (event.kind === 'deleted' && !keptIds.has(tabGroupId)) {
+      events.delete(tabGroupId);
+    }
+  }
+
+  return kept;
 }
 
 // A side's own view, for the changed-from comparisons. Comparing event sets
@@ -118,6 +143,10 @@ export function mergeTabContainers(
   collect(events, local);
   collect(events, cloud);
 
+  // Before anything is derived from `events`, so the output and both flags all
+  // describe the same document.
+  const deletedTabGroups = pruneTombstones(events, now);
+
   const survivors: tabContainerData[] = [];
   for (const event of events.values()) {
     if (event.kind === 'present') {
@@ -143,7 +172,7 @@ export function mergeTabContainers(
       ...g,
       isSelected: g.tabGroupId === selectedTabGroupId,
     })),
-    deletedTabGroups: collectTombstones(events, now),
+    deletedTabGroups,
   };
 
   const mergedSig = signature(events);
