@@ -22,10 +22,14 @@ const sources = import.meta.glob('/src/**/*.{ts,tsx}', {
   eager: true,
 }) as Record<string, string>;
 
-// Matches t('...') and t("..."). Template literals and computed keys are not
-// matched and would be missed; there are none today, and adding one should be
-// a deliberate decision rather than a silent gap.
-const KEY_PATTERN = /\bt\(\s*['"]([^'"]+)['"]/g;
+// Matches t('...'), t("..."), and t(`...`) -- backticked keys are common in
+// the settings pane and review modal and are matched just like quoted ones.
+// What this cannot see is a genuinely computed key: t(name) at
+// SettingsCategoryContainer.tsx:78 passes a variable, not a literal, so no
+// regex can recover the key from the source text. That call is therefore
+// invisible to this scan and must be covered by other means (e.g. a render
+// test). This test is a floor on coverage, not a complete census.
+const KEY_PATTERN = /\bt\(\s*['"`]([^'"`]+)['"`]/g;
 
 describe('translation key coverage', () => {
   test('every t() key used in src exists in the en locale', () => {
