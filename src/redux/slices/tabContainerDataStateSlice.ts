@@ -1,13 +1,15 @@
 import { createAsyncThunk, createSlice, PayloadAction } from '@reduxjs/toolkit';
 
 import { RootState } from '../store';
-import { showToast } from './globalStateSlice';
+import { closeFocusModal, openFocusModal, showToast } from './globalStateSlice';
+import { getStringDate, saveToLocalStorage } from '../../utils/functions/local';
+import { captureOpenWindows } from '../../utils/functions/capture';
 import {
-  resolveTabUrl,
-  generatePlaceholderURL,
-  getStringDate,
-  saveToLocalStorage,
-} from '../../utils/functions/local';
+  createWindowWithRetries,
+  FOCUS_SESSION_MESSAGE,
+  FocusSessionRequest,
+  WindowSpec,
+} from '../../utils/functions/windows';
 import {
   DEFAULT_WINDOW_HEIGHT,
   DEFAULT_WINDOW_OFFSET_LEFT,
@@ -111,68 +113,23 @@ export const initialState: TabMasterContainer = {
   tabGroups: [],
 };
 
-function createWindowWithRetries(
-  tabs: tabData[],
-  isFirstWindow: boolean,
-  goToURLText: string,
-  isLazyLoad: boolean,
-  height: number | null,
-  width: number | null,
-  top: number | null,
-  left: number | null,
-  retryCount: number
-) {
-  if (retryCount == 0) {
-    return;
-  }
-
-  chrome.windows.create(
-    {
-      url: resolveTabUrl(tabs[0].url),
-      focused: isFirstWindow,
-      height: height || DEFAULT_WINDOW_HEIGHT,
-      width: width || DEFAULT_WINDOW_WIDTH,
-      top: top || DEFAULT_WINDOW_OFFSET_TOP,
-      left: left || DEFAULT_WINDOW_OFFSET_LEFT,
+// Bounds are resolved here rather than inside createWindowWithRetries because
+// the defaults come from `window.screen`, which the service worker that shares
+// that helper does not have.
+function toWindowSpec(
+  windowGroup: windowGroupData,
+  focused: boolean
+): WindowSpec {
+  return {
+    tabs: windowGroup.tabs,
+    focused,
+    bounds: {
+      height: windowGroup.windowHeight || DEFAULT_WINDOW_HEIGHT,
+      width: windowGroup.windowWidth || DEFAULT_WINDOW_WIDTH,
+      top: windowGroup.windowOffsetTop || DEFAULT_WINDOW_OFFSET_TOP,
+      left: windowGroup.windowOffsetLeft || DEFAULT_WINDOW_OFFSET_LEFT,
     },
-    (newWindow) => {
-      if (newWindow === undefined || newWindow === null) {
-        createWindowWithRetries(
-          tabs,
-          isFirstWindow,
-          goToURLText,
-          isLazyLoad,
-          null,
-          null,
-          null,
-          null,
-          retryCount - 1
-        );
-      } else {
-        tabs.slice(1).forEach((tabInfo) => {
-          const decodedUrl = resolveTabUrl(tabInfo.url);
-          let placeholder;
-          if (isLazyLoad) {
-            placeholder = generatePlaceholderURL(
-              tabInfo.title,
-              tabInfo.favicon || '/images/favicon.ico',
-              decodedUrl,
-              goToURLText
-            );
-          }
-
-          // No record of what was opened is kept: the placeholder carries its
-          // own page, and the background worker reads it back when the user
-          // activates the tab. See placeholderTarget in utils/functions/local.
-          chrome.tabs.create({
-            windowId: newWindow!.id,
-            url: isLazyLoad ? placeholder : decodedUrl,
-            active: false,
-          });
-        });
-      }
-    }
-  );
+  };
 }
 
 interface openTabsInAWindowParams {
@@ -201,17 +158,10 @@ export const openTabsInAWindow = createAsyncThunk(
 
     if (!windowGroup) return;
 
-    const { tabs } = windowGroup;
-
     createWindowWithRetries(
-      tabs,
-      true,
+      toWindowSpec(windowGroup, true),
       params.goToURLText,
       settingsDataState.isLazyLoad,
-      windowGroup.windowHeight,
-      windowGroup.windowWidth,
-      windowGroup.windowOffsetTop,
-      windowGroup.windowOffsetLeft,
       2
     );
   }
@@ -236,22 +186,94 @@ export const openAllTabContainer = createAsyncThunk(
 
     if (!tabGroup) return;
 
-    let isFirstWindow = true;
-
-    tabGroup.windows.forEach((windowGroup) => {
+    tabGroup.windows.forEach((windowGroup, index) => {
       createWindowWithRetries(
-        windowGroup.tabs,
-        isFirstWindow,
+        toWindowSpec(windowGroup, index === 0),
         params.goToURLText,
         settingsDataState.isLazyLoad,
-        windowGroup.windowHeight,
-        windowGroup.windowWidth,
-        windowGroup.windowOffsetTop,
-        windowGroup.windowOffsetLeft,
         2
       );
-      isFirstWindow = false;
     });
+  }
+);
+
+interface focusTabContainerParams {
+  tabGroupId: string;
+  goToURLText: string;
+  saveTitle: string;
+}
+
+// Ask to switch to a session. Opens the confirmation unless there is nothing
+// to close, in which case switching is indistinguishable from restoring and
+// the prompt would be asking about windows that do not exist.
+export const requestFocusTabContainer = createAsyncThunk(
+  'global/requestFocusTabContainer',
+  async (params: focusTabContainerParams, thunkAPI) => {
+    const openWindows = await new Promise<chrome.windows.Window[]>((resolve) =>
+      chrome.windows.getAll({ windowTypes: ['normal'] }, (result) =>
+        resolve(result)
+      )
+    );
+
+    if (openWindows.length === 0) {
+      thunkAPI.dispatch(focusTabContainer(params));
+      return;
+    }
+
+    thunkAPI.dispatch(
+      openFocusModal({
+        tabGroupId: params.tabGroupId,
+        windowCount: openWindows.length,
+      })
+    );
+  }
+);
+
+// Switch to a session: save what is open now, restore the session, then close
+// the windows that were open before.
+//
+// Only the saving half can happen here. chrome.windows.create({focused: true})
+// destroys the popup, so anything sequenced after the restore -- above all the
+// closing -- would be racing a JS context Chrome has already torn down. The
+// worker outlives the popup, so it owns everything from the restore onward.
+// Nothing is toasted for the same reason: there would be no popup left to
+// show it.
+export const focusTabContainer = createAsyncThunk(
+  'global/focusTabContainer',
+  async (params: focusTabContainerParams, thunkAPI) => {
+    const state: TabMasterContainer = (thunkAPI.getState() as RootState)
+      .tabContainerDataState;
+    const settingsDataState: SettingsData = (thunkAPI.getState() as RootState)
+      .settingsDataState;
+    const tabGroup = state.tabGroups.find(
+      (group) => group.tabGroupId === params.tabGroupId
+    );
+
+    thunkAPI.dispatch(closeFocusModal());
+
+    if (!tabGroup) return;
+
+    // Saving comes first, and entirely before the handoff: it is the only
+    // thing making this reversible, and it is the last moment the popup is
+    // guaranteed to be alive to do it.
+    const captured = await captureOpenWindows(params.saveTitle);
+    if (captured) {
+      thunkAPI.dispatch(saveToTabContainerInternal(captured));
+      // Saving selects what it just saved. The user asked to switch to the
+      // other session, so hand the selection back.
+      thunkAPI.dispatch(selectTabContainer(params.tabGroupId));
+    }
+
+    const request: FocusSessionRequest = {
+      type: FOCUS_SESSION_MESSAGE,
+      specs: tabGroup.windows.map((windowGroup, index) =>
+        toWindowSpec(windowGroup, index === 0)
+      ),
+      goToURLText: params.goToURLText,
+      isLazyLoad: settingsDataState.isLazyLoad,
+    };
+
+    chrome.runtime.sendMessage(request);
   }
 );
 

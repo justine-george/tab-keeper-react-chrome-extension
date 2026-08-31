@@ -13,6 +13,7 @@ import { filterTabGroups } from '../../../utils/functions/local';
 import {
   deleteTabContainer,
   openAllTabContainer,
+  requestFocusTabContainer,
   selectTabContainer,
   tabContainerData,
 } from '../../../redux/slices/tabContainerDataStateSlice';
@@ -96,6 +97,15 @@ export default function TabGroupEntryContainer() {
                       openAllTabContainer({
                         tabGroupId: tabGroupData.tabGroupId,
                         goToURLText,
+                      })
+                    );
+                  }}
+                  onFocusClick={() => {
+                    dispatch(
+                      requestFocusTabContainer({
+                        tabGroupId: tabGroupData.tabGroupId,
+                        goToURLText: t('Go to URL'),
+                        saveTitle: t('FocusAutoSaveTitle'),
                       })
                     );
                   }}
