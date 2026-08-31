@@ -196,7 +196,9 @@ describe('filterTabGroups', () => {
             windowOffsetTop: 25,
             windowOffsetLeft: 0,
             tabCount: 2,
-            title: 'Unit testing Chrome Extensions - Chrome for Developers',
+            // KAN-23: the window keeps the title it was captured with; this
+            // previously asserted the first matched tab's title instead
+            title: 'Test Group',
             tabs: [
               {
                 tabId: '410ef43b-4726-4f5c-8746-3832327ba5ea',
@@ -217,6 +219,57 @@ describe('filterTabGroups', () => {
       },
     ];
     expect(filterTabGroups('chrome', tabGroups)).toEqual(filteredTabGroups);
+  });
+
+  // KAN-23: a window's title is its identity and is user-editable, so a search
+  // must not replace it with the title of whichever tab happened to match. The
+  // counts alongside it are derived view values and are expected to narrow.
+  test('should keep the window title when only its tabs match', () => {
+    const tabGroups = [
+      {
+        tabGroupId: 'e6b1a5b8-0000-4000-8000-000000000001',
+        title: 'Research',
+        createdTime: '2026-08-31 09:00:00',
+        windowCount: 1,
+        tabCount: 2,
+        isAutoSave: false,
+        isSelected: true,
+        windows: [
+          {
+            windowId: 'e6b1a5b8-0000-4000-8000-000000000002',
+            windowHeight: 1080,
+            windowWidth: 1920,
+            windowOffsetTop: 0,
+            windowOffsetLeft: 0,
+            tabCount: 2,
+            title: 'Morning reading',
+            tabs: [
+              {
+                tabId: 'e6b1a5b8-0000-4000-8000-000000000003',
+                favicon: '',
+                title: 'Kagi Search',
+                url: 'https://kagi.com/',
+              },
+              {
+                tabId: 'e6b1a5b8-0000-4000-8000-000000000004',
+                favicon: '',
+                title: 'Hacker News',
+                url: 'https://news.ycombinator.com/',
+              },
+            ],
+          },
+        ],
+      },
+    ];
+
+    // 'kagi' matches neither the session title nor the window title, so the
+    // filter descends to the tabs and rebuilds the window from the one match.
+    const [matchedGroup] = filterTabGroups('kagi', tabGroups);
+    const [matchedWindow] = matchedGroup.windows;
+
+    expect(matchedWindow.title).toBe('Morning reading');
+    expect(matchedWindow.tabs.map((tab) => tab.title)).toEqual(['Kagi Search']);
+    expect(matchedWindow.tabCount).toBe(1);
   });
 });
 

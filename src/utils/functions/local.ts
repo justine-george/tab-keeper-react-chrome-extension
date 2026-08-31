@@ -118,11 +118,13 @@ export const filterTabGroups = (
             );
 
             if (matchedTabs.length) {
+              // the counts narrow to describe the filtered view, but the window
+              // keeps its own title: it is the identity the user recognises and
+              // renames, not a value derived from whichever tab matched
               windowAcc.push({
                 ...window,
                 tabs: matchedTabs,
                 tabCount: matchedTabs.length,
-                title: matchedTabs[0].title,
               });
             }
           }
