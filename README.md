@@ -58,7 +58,21 @@ Tab Keeper is an intuitive Chrome extension crafted to redefine the way users sa
 
 ## Changelog
 
-### v.1.3.2 (Latest)
+### v.1.3.3 (Latest)
+
+#### Fixes
+
+- Saving a suspended tab now stores the real page instead of the suspending extension's placeholder address. Sessions already saved this way are repaired automatically the next time they are restored
+- Restoring a window now opens its first tab at the correct address
+- The popup no longer overflows or shows scrollbars at browser zoom levels other than 100%
+
+#### Improvements
+
+- The extension is roughly a quarter smaller, so the popup opens faster
+- A sync status message that always appeared in English is now translated
+- Dependent packages updated to latest versions
+
+### v.1.3.2
 
 #### Improvements
 
