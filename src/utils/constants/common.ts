@@ -86,6 +86,11 @@ export const TOAST_MESSAGES = {
   DELETE_TAB_SUCCESS: 'Session tab deleted.',
   UNREADABLE_ACCOUNT_TOKEN:
     'Sync unavailable: your saved account token could not be read.',
+  // Shown only when a merge actually brought something new to this device.
+  // Divergence between devices used to be visible as a blocking prompt; this
+  // replaces it with a notification, and stays silent when the merge is a
+  // no-op, which is the common case.
+  SYNC_MERGED: 'Synced changes from another device.',
 };
 
 export const TOOLTIP_MESSAGES = {

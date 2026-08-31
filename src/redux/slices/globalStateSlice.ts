@@ -13,6 +13,8 @@ import {
   loadFromLocalStorage,
   saveToLocalStorage,
 } from '../../utils/functions/local';
+import { mergeTabContainers } from '../../utils/functions/mergeTabData';
+import { TOAST_MESSAGES } from '../../utils/constants/common';
 
 interface ConflictModalPayload {
   tabDataLocal: TabMasterContainer;
@@ -103,44 +105,36 @@ export const syncStateWithFirestore = createAsyncThunk(
     }
 
     if (tabDataFromCloud && tabDataFromLocalStorage) {
-      // data present on both local and cloud, possiblity of conflict
-      const cloudTimestamp = tabDataFromCloud.lastModified;
-      const localTimestamp = tabDataFromLocalStorage.lastModified;
+      // Both sides hold data. Merge per session rather than making the user
+      // discard one side: the old prompt only appeared when the cloud was
+      // newer, while a newer local silently overwrote the cloud, so a whole
+      // side was already being dropped without asking in one direction.
+      const { merged, changedFromLocal, changedFromCloud } = mergeTabContainers(
+        tabDataFromLocalStorage,
+        tabDataFromCloud,
+        Date.now()
+      );
 
-      if (localTimestamp !== cloudTimestamp) {
-        if (localTimestamp > cloudTimestamp) {
-          // Local is the latest, write this to cloud
-          thunkAPI.dispatch(replaceState(tabDataFromLocalStorage));
-          thunkAPI.dispatch(setIsDirty());
-          thunkAPI.dispatch(saveToFirestoreIfDirty());
-          if (!state.globalState.hasSyncedBefore) {
-            // reset presentState in the undoRedoState
-            thunkAPI.dispatch(
-              setPresentStartup({
-                tabContainerDataState: tabDataFromLocalStorage,
-              })
-            );
-          }
-          thunkAPI.dispatch(setHasSyncedBefore());
-        } else {
-          // cloud is latest, let user decide.
-          if (!state.globalState.isDirty) {
-            // local is not dirty, so might want to overwrite it with cloud data. Still let user decide.
-          }
-          // data conflict!
-          thunkAPI.dispatch(
-            openConflictModal({
-              tabDataLocal: tabDataFromLocalStorage,
-              tabDataCloud: tabDataFromCloud,
-            })
-          );
-        }
-      } else {
-        // No data conflict
-        thunkAPI.dispatch(replaceState(tabDataFromLocalStorage));
+      thunkAPI.dispatch(replaceState(merged));
+
+      if (changedFromCloud) {
+        thunkAPI.dispatch(setIsDirty());
         thunkAPI.dispatch(saveToFirestoreIfDirty());
-        thunkAPI.dispatch(setHasSyncedBefore());
+      } else {
+        thunkAPI.dispatch(setIsNotDirty());
       }
+
+      if (changedFromLocal) {
+        thunkAPI.dispatch(
+          showToast({ toastText: TOAST_MESSAGES.SYNC_MERGED, duration: 3000 })
+        );
+      }
+
+      if (!state.globalState.hasSyncedBefore) {
+        // reset presentState in the undoRedoState
+        thunkAPI.dispatch(setPresentStartup({ tabContainerDataState: merged }));
+      }
+      thunkAPI.dispatch(setHasSyncedBefore());
     } else if (tabDataFromCloud) {
       // newly installed returning user - data present only on cloud
       thunkAPI.dispatch(replaceState(tabDataFromCloud!));
