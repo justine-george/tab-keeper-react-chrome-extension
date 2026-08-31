@@ -15,6 +15,7 @@ import {
   isValidPassword,
   isValidTabMasterContainer,
   loadFromLocalStorage,
+  placeholderTarget,
   saveToLocalStorage,
   stripEmbeddedFavicons,
   resolveFaviconUrl,
@@ -948,5 +949,57 @@ describe('resolveTabUrl', () => {
   test('should leave an ordinary url untouched', () => {
     expect(resolveTabUrl('https://example.com')).toBe('https://example.com');
     expect(resolveTabUrl('')).toBe('');
+  });
+});
+
+// The background service worker asks this of every tab the user activates, so
+// it has to be certain: a wrong "yes" navigates a tab the user was reading.
+describe('placeholderTarget', () => {
+  test('should give the real page for a lazy-load placeholder', () => {
+    const url = 'https://github.com/justine-george';
+    const placeholder = generatePlaceholderURL('title', 'favicon', url, 'go');
+    expect(placeholderTarget(placeholder)).toBe(url);
+  });
+
+  test('should give the final page for a placeholder around a suspended url', () => {
+    const page = 'https://example.com/deep?x=1&y=2';
+    const suspended = `chrome-extension://abc/suspended.html?url=${encodeURIComponent(
+      page
+    )}`;
+    const placeholder = generatePlaceholderURL('t', 'f', suspended, 'go');
+    expect(placeholderTarget(placeholder)).toBe(page);
+  });
+
+  // the common case by far - every ordinary tab switch reaches this
+  test('should return null for a page the user is actually reading', () => {
+    expect(placeholderTarget('https://example.com/article')).toBeNull();
+    expect(placeholderTarget('chrome://extensions/')).toBeNull();
+    expect(placeholderTarget('file:///Users/j/x.pdf')).toBeNull();
+    expect(placeholderTarget('')).toBeNull();
+  });
+
+  // worst path: a data: tab that is not ours must never be navigated
+  test('should return null for a data url that is not a placeholder', () => {
+    const foreign = `data:text/html;base64,${btoa(
+      '<html><body>hello</body></html>'
+    )}`;
+    expect(placeholderTarget(foreign)).toBeNull();
+  });
+
+  test('should refuse a placeholder wrapping a non-http scheme', () => {
+    const hostile = generatePlaceholderURL(
+      't',
+      'f',
+      'javascript:alert(1)',
+      'go'
+    );
+    expect(placeholderTarget(hostile)).toBeNull();
+  });
+
+  test('should return null rather than throw on malformed base64', () => {
+    expect(placeholderTarget('data:text/html;base64,!!!not!!base64!!!')).toBe(
+      null
+    );
+    expect(placeholderTarget('data:text/html;base64,')).toBeNull();
   });
 });

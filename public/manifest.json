@@ -8,6 +8,10 @@
     "default_icon": "icons/icon128.png",
     "default_title": "Tab Keeper - Chrome Tab Manager & Sync Tool"
   },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
   "permissions": ["tabs", "storage", "favicon"],
   "icons": {
     "16": "icons/icon16.png",
