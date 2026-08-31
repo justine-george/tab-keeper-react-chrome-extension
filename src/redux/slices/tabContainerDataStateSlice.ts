@@ -691,6 +691,18 @@ export const tabContainerDataStateSlice = createSlice({
           grave.deletedAt,
         ])
       );
+      // The mirror direction: a payload can also re-introduce a tombstone for a
+      // session that is currently live - redoing a delete after undoing it. The
+      // restored tombstone carries the original delete time, which the undo
+      // above has already stamped the session past, so without this the redo
+      // silently fails to delete anything.
+      const liveAt = new Map(
+        state.tabGroups.map((tabGroup) => [
+          tabGroup.tabGroupId,
+          tabGroup.lastModified ?? state.lastModified,
+        ])
+      );
+
       const restored: TabMasterContainer = {
         ...action.payload,
         tabGroups: action.payload.tabGroups.map((tabGroup) => {
@@ -706,6 +718,12 @@ export const tabContainerDataStateSlice = createSlice({
             // clock granularity.
             lastModified: Math.max(Date.now(), buriedAt + 1),
           };
+        }),
+        deletedTabGroups: action.payload.deletedTabGroups?.map((grave) => {
+          const aliveAt = liveAt.get(grave.tabGroupId);
+          if (aliveAt === undefined) return grave;
+          // Same reasoning, other way round.
+          return { ...grave, deletedAt: Math.max(Date.now(), aliveAt + 1) };
         }),
       };
 

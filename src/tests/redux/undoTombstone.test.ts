@@ -31,7 +31,7 @@ import {
   deleteTabContainerInternal,
   restoreContainer,
 } from '../../redux/slices/tabContainerDataStateSlice';
-import { undo } from '../../redux/slices/undoRedoSlice';
+import { undo, redo } from '../../redux/slices/undoRedoSlice';
 import { makeTestStore } from '../setup/makeStore';
 import type { tabContainerData } from '../../redux/slices/tabContainerDataStateSlice';
 
@@ -181,5 +181,88 @@ describe('importing a backup that predates a delete', () => {
       'archived',
       'keep',
     ]);
+  });
+});
+
+// The mirror of the undo case. Undoing a delete stamps the session strictly
+// after the tombstone, so redoing that delete must stamp the tombstone
+// strictly after the session - otherwise the restored tombstone still carries
+// the original delete time, loses to the session the undo just re-stamped, and
+// the redo silently fails to delete anything.
+describe('redoing a delete survives the next sync', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    mocks.loadFromFirestore.mockReset();
+    mocks.saveToFirestore.mockReset().mockResolvedValue(undefined);
+  });
+
+  it('re-deletes the session and keeps it deleted', async () => {
+    const { store } = makeTestStore();
+    store.dispatch(setSignedIn());
+    store.dispatch(setUserId('u1'));
+    store.dispatch(saveToTabContainerInternal(group('keep')));
+    store.dispatch(saveToTabContainerInternal(group('oops')));
+
+    store.dispatch(deleteTabContainerInternal('oops'));
+    store.dispatch(undo());
+    // the undo reached the cloud, so the cloud holds the re-stamped session
+    const cloudAfterUndo = JSON.parse(
+      JSON.stringify(store.getState().tabContainerDataState)
+    );
+    expect(ids(cloudAfterUndo.tabGroups)).toEqual(['keep', 'oops']);
+
+    store.dispatch(redo());
+    const afterRedo = store.getState().tabContainerDataState;
+    expect(ids(afterRedo.tabGroups)).toEqual(['keep']);
+
+    mocks.loadFromFirestore.mockResolvedValue(cloudAfterUndo);
+    localStorage.setItem('tabContainerData', JSON.stringify(afterRedo));
+    await store.dispatch(syncStateWithFirestore() as never);
+
+    expect(ids(store.getState().tabContainerDataState.tabGroups)).toEqual([
+      'keep',
+    ]);
+  });
+});
+
+// Restoring must withdraw only the tombstones for what it actually brings
+// back. A session deleted separately, and absent from the backup, stays gone.
+describe('restoring leaves unrelated tombstones alone', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    mocks.loadFromFirestore.mockReset();
+    mocks.saveToFirestore.mockReset().mockResolvedValue(undefined);
+  });
+
+  it('keeps a session deleted when the backup does not contain it', async () => {
+    const { store } = makeTestStore();
+    store.dispatch(setSignedIn());
+    store.dispatch(setUserId('u1'));
+    store.dispatch(saveToTabContainerInternal(group('keep')));
+    store.dispatch(saveToTabContainerInternal(group('gone')));
+    store.dispatch(saveToTabContainerInternal(group('archived')));
+    store.dispatch(deleteTabContainerInternal('gone'));
+    store.dispatch(deleteTabContainerInternal('archived'));
+    const cloud = JSON.parse(
+      JSON.stringify(store.getState().tabContainerDataState)
+    );
+
+    // the backup contains 'archived' but not 'gone'
+    store.dispatch(
+      restoreContainer({
+        lastModified: Date.now(),
+        selectedTabGroupId: null,
+        tabGroups: [group('keep'), group('archived')],
+      })
+    );
+    const imported = store.getState().tabContainerDataState;
+
+    mocks.loadFromFirestore.mockResolvedValue(cloud);
+    localStorage.setItem('tabContainerData', JSON.stringify(imported));
+    await store.dispatch(syncStateWithFirestore() as never);
+
+    const final = store.getState().tabContainerDataState;
+    expect(ids(final.tabGroups)).toEqual(['archived', 'keep']);
+    expect(final.deletedTabGroups?.map((t) => t.tabGroupId)).toEqual(['gone']);
   });
 });
