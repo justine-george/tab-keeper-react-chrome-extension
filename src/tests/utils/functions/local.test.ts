@@ -1,10 +1,13 @@
 import { afterEach, describe, expect, test } from 'vitest';
+import { Base64 } from 'js-base64';
 import {
   classifyStoredToken,
   decodeDataUrl,
+  escapeHtml,
   filterTabGroups,
   isUsableToken,
   resolveTabUrl,
+  unescapeHtml,
   unwrapSuspendedUrl,
   generatePlaceholderURL,
   getPrettyDate,
@@ -252,6 +255,133 @@ describe('placeholderURL', () => {
 
   test('should load url properly even if it is not encoded', () => {
     expect(decodeDataUrl(url)).toBe(url);
+  });
+});
+
+describe('placeholder HTML escaping', () => {
+  const PREFIX = 'data:text/html;base64,';
+
+  function decodePlaceholder(placeholder: string): string {
+    return Base64.decode(placeholder.slice(PREFIX.length));
+  }
+
+  // A page picks its own <title>, and Chrome hands it to us verbatim.
+  test('neutralises a script tag injected through the tab title', () => {
+    const hostileTitle = '</h2><script>alert(1)</script>';
+    const html = decodePlaceholder(
+      generatePlaceholderURL(hostileTitle, 'f', 'https://example.com', 'go')
+    );
+
+    expect(html).not.toContain('<script>');
+    expect(html).not.toContain('</h2><script>');
+    expect(html).toContain('&lt;/h2&gt;&lt;script&gt;alert(1)&lt;/script&gt;');
+  });
+
+  test('stops a title from breaking out of the <title> element', () => {
+    const html = decodePlaceholder(
+      generatePlaceholderURL(
+        '</title><img src=x onerror=alert(1)>',
+        'f',
+        'https://example.com',
+        'go'
+      )
+    );
+
+    expect(html).not.toContain('</title><img');
+    expect(html).not.toContain('onerror=alert(1)>');
+  });
+
+  test('stops a url from escaping the href attribute', () => {
+    const html = decodePlaceholder(
+      generatePlaceholderURL(
+        't',
+        'f',
+        'https://example.com/"><script>x</script>',
+        'go'
+      )
+    );
+
+    expect(html).not.toContain('"><script>');
+    expect(html).toContain('&quot;&gt;');
+  });
+
+  test('escapes the favicon url, which is also attacker supplied', () => {
+    const html = decodePlaceholder(
+      generatePlaceholderURL(
+        't',
+        'https://e.com/i.ico" onload="alert(1)',
+        'https://example.com',
+        'go'
+      )
+    );
+
+    expect(html).not.toContain('onload="alert(1)"');
+    expect(html).toContain('&quot; onload=&quot;alert(1)');
+  });
+
+  // Escaping the href would corrupt every query string if the read side did
+  // not undo it -- a worse bug than the one being fixed.
+  test('round-trips a url whose query string contains an ampersand', () => {
+    const withAmpersand = 'https://example.com/search?a=1&b=2&c=3';
+    const placeholder = generatePlaceholderURL('t', 'f', withAmpersand, 'go');
+
+    expect(decodeDataUrl(placeholder)).toBe(withAmpersand);
+  });
+
+  // The path the service worker actually uses when the user activates a
+  // lazily-restored tab.
+  test('placeholderTarget returns an ampersand url unchanged', () => {
+    const withAmpersand = 'https://example.com/search?a=1&b=2';
+    const placeholder = generatePlaceholderURL('t', 'f', withAmpersand, 'go');
+
+    expect(placeholderTarget(placeholder)).toBe(withAmpersand);
+  });
+
+  test('round-trips a url containing a literal escaped entity', () => {
+    const tricky = 'https://example.com/?q=a&amp;b';
+    const placeholder = generatePlaceholderURL('t', 'f', tricky, 'go');
+
+    expect(decodeDataUrl(placeholder)).toBe(tricky);
+  });
+
+  // Placeholders written before escaping existed carry raw hrefs. Unescaping a
+  // string with no entities in it is a no-op, so they still decode.
+  test('still decodes a placeholder written before escaping existed', () => {
+    const legacyHtml =
+      '<html> <body> <a href="https://example.com/x?a=1&b=2"><p>x</p></a> </body></html>';
+    const legacy = PREFIX + Base64.encode(legacyHtml);
+
+    expect(decodeDataUrl(legacy)).toBe('https://example.com/x?a=1&b=2');
+  });
+
+  describe('escapeHtml / unescapeHtml', () => {
+    test('replaces the ampersand first, so entities are not double escaped', () => {
+      expect(escapeHtml('<')).toBe('&lt;');
+      expect(escapeHtml('&')).toBe('&amp;');
+      expect(escapeHtml('&<')).toBe('&amp;&lt;');
+    });
+
+    test('escapes every character that can break markup', () => {
+      expect(escapeHtml(`<>&"'`)).toBe('&lt;&gt;&amp;&quot;&#39;');
+    });
+
+    test('unescapes the ampersand last, mirroring the escape order', () => {
+      expect(unescapeHtml('&amp;lt;')).toBe('&lt;');
+    });
+
+    test('is a round trip for anything escapeHtml produced', () => {
+      const raw = `a<b>c&d"e'f&amp;g`;
+      expect(unescapeHtml(escapeHtml(raw))).toBe(raw);
+    });
+
+    test('leaves a string with nothing to escape untouched', () => {
+      expect(escapeHtml('https://example.com/plain')).toBe(
+        'https://example.com/plain'
+      );
+      expect(unescapeHtml('https://example.com/plain')).toBe(
+        'https://example.com/plain'
+      );
+    });
   });
 });
 
