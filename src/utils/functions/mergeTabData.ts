@@ -65,6 +65,29 @@ function collect(events: Map<string, Event>, side: TabMasterContainer): void {
   }
 }
 
+// A tombstone is ~60 bytes, so the cap costs about 30 KB against Firestore's
+// 1 MiB ceiling. Bounded on both axes deliberately: a TTL alone leaves a heavy
+// churner unbounded within the window, and a cap alone keeps dead ids forever.
+// Accepted tradeoff: a device offline longer than the TTL can resurrect a
+// session deleted while it was away. That failure reappears data; it never
+// loses any.
+export const TOMBSTONE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+export const TOMBSTONE_MAX = 500;
+
+function collectTombstones(
+  events: Map<string, Event>,
+  now: number
+): deletedTabGroup[] {
+  const graves: deletedTabGroup[] = [];
+  for (const [tabGroupId, event] of events) {
+    if (event.kind === 'deleted' && now - event.at <= TOMBSTONE_TTL_MS) {
+      graves.push({ tabGroupId, deletedAt: event.at });
+    }
+  }
+  graves.sort((a, b) => b.deletedAt - a.deletedAt);
+  return graves.slice(0, TOMBSTONE_MAX);
+}
+
 // A side's own view, for the changed-from comparisons. Comparing event sets
 // rather than deep-equalling containers keeps the flags insensitive to field
 // order and to selectedTabGroupId, which is per-device view state.
@@ -85,11 +108,8 @@ export function mergeTabContainers(
   local: TabMasterContainer,
   cloud: TabMasterContainer,
   // Injected rather than read from Date.now() so tombstone garbage collection
-  // is deterministic under test. Unused until GC lands in the next commit;
-  // ESLint does not honour the `_` prefix that tsconfig's noUnusedParameters
-  // does, so the disable goes with it and is removed there.
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  _now: number
+  // is deterministic under test.
+  now: number
 ): MergeResult {
   // Local first, then cloud, with `>=` in collect(): cloud takes exact ties.
   // That is the only convergent choice - if local won ties, each device would
@@ -123,6 +143,7 @@ export function mergeTabContainers(
       ...g,
       isSelected: g.tabGroupId === selectedTabGroupId,
     })),
+    deletedTabGroups: collectTombstones(events, now),
   };
 
   const mergedSig = signature(events);

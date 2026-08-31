@@ -1,6 +1,10 @@
 import { describe, it, expect } from 'vitest';
 
-import { mergeTabContainers } from '../../../utils/functions/mergeTabData';
+import {
+  mergeTabContainers,
+  TOMBSTONE_MAX,
+  TOMBSTONE_TTL_MS,
+} from '../../../utils/functions/mergeTabData';
 import type {
   TabMasterContainer,
   tabContainerData,
@@ -220,5 +224,69 @@ describe('mergeTabContainers - union and per-session LWW', () => {
     );
     expect(r.changedFromLocal).toBe(true);
     expect(r.changedFromCloud).toBe(false);
+  });
+});
+
+describe('mergeTabContainers - tombstones', () => {
+  const withTombstones = (
+    c: TabMasterContainer,
+    t: { tabGroupId: string; deletedAt: number }[]
+  ): TabMasterContainer => ({ ...c, deletedTabGroups: t });
+
+  it('a delete on one side removes the session held by the other', () => {
+    const local = withTombstones(container(90, []), [
+      { tabGroupId: 'a', deletedAt: 90 },
+    ]);
+    const cloud = container(50, [group('a', 50)]);
+    const { merged } = mergeTabContainers(local, cloud, NOW);
+    expect(ids(merged)).toEqual([]);
+    expect(merged.deletedTabGroups).toEqual([
+      { tabGroupId: 'a', deletedAt: 90 },
+    ]);
+  });
+
+  it('an edit later than the delete wins and the session comes back', () => {
+    const local = withTombstones(container(50, []), [
+      { tabGroupId: 'a', deletedAt: 50 },
+    ]);
+    const cloud = container(90, [{ ...group('a', 90), title: 'EDITED' }]);
+    const { merged } = mergeTabContainers(local, cloud, NOW);
+    expect(ids(merged)).toEqual(['a']);
+    expect(merged.tabGroups[0].title).toBe('EDITED');
+    expect(merged.deletedTabGroups ?? []).toEqual([]);
+  });
+
+  it('is idempotent - a second round trip does not resurrect', () => {
+    const local = withTombstones(container(90, []), [
+      { tabGroupId: 'a', deletedAt: 90 },
+    ]);
+    const cloud = container(50, [group('a', 50)]);
+    const once = mergeTabContainers(local, cloud, NOW).merged;
+    const twice = mergeTabContainers(once, cloud, NOW).merged;
+    expect(ids(twice)).toEqual([]);
+    expect(twice.deletedTabGroups).toEqual(once.deletedTabGroups);
+  });
+
+  it('drops tombstones older than the TTL', () => {
+    const stale = NOW - TOMBSTONE_TTL_MS - 1;
+    const local = withTombstones(container(NOW, []), [
+      { tabGroupId: 'old', deletedAt: stale },
+      { tabGroupId: 'fresh', deletedAt: NOW - 1000 },
+    ]);
+    const { merged } = mergeTabContainers(local, container(1, []), NOW);
+    expect(merged.deletedTabGroups!.map((t) => t.tabGroupId)).toEqual([
+      'fresh',
+    ]);
+  });
+
+  it('caps tombstones at TOMBSTONE_MAX, keeping the newest', () => {
+    const many = Array.from({ length: TOMBSTONE_MAX + 50 }, (_, i) => ({
+      tabGroupId: `g${i}`,
+      deletedAt: NOW - i, // g0 newest
+    }));
+    const local = withTombstones(container(NOW, []), many);
+    const { merged } = mergeTabContainers(local, container(1, []), NOW);
+    expect(merged.deletedTabGroups).toHaveLength(TOMBSTONE_MAX);
+    expect(merged.deletedTabGroups![0].tabGroupId).toBe('g0');
   });
 });
