@@ -53,6 +53,8 @@
   "Saved sessions": "Saved sessions",
   "Saved session": "Saved session",
   "Cloud Data": "Cloud Data",
+  "SyncConflictHeader": "Sync conflict: choose which copy of your sessions to keep",
+  "SyncConflictDismissLabel": "Dismiss and decide later",
   "Back": "Back",
   "Display": "Display",
   "Sync & Privacy": "Sync & Privacy",
