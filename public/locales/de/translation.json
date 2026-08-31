@@ -25,21 +25,18 @@
   "Add current tab": "Aktuellen Tab hinzufügen",
   "Open in new tab": "In neuem Tab öffnen",
   "Go to URL": "Webseite besuchen",
-
   "Windows": "Fenster",
   "Window": "Fenster",
   "Tabs": "Tabs",
   "Tab": "Tab",
   "Go back": "Zurück",
   "Search among sessions": "Unter Sitzungen suchen",
-
   "Session saved.": "Sitzung gespeichert.",
   "Current tab saved.": "Aktueller Tab gespeichert.",
   "Current window saved.": "Aktuelles Fenster gespeichert.",
   "Session deleted.": "Sitzung gelöscht.",
   "Session window deleted.": "Sitzungsfenster gelöscht.",
   "Session tab deleted.": "Sitzungstab gelöscht.",
-
   "English": "Englisch",
   "German": "Deutsch",
   "Chinese": "Chinesisch",
@@ -50,14 +47,6 @@
   "Spanish": "Spanisch",
   "Italian": "Italienisch",
   "Hindi": "Hindi",
-
-  "Local Data": "Lokale Daten",
-  "LATEST": "NEUESTE",
-  "Last updated": "Zuletzt aktualisiert",
-  "Saved sessions": "Gespeicherte Sitzungen",
-  "Saved session": "Gespeicherte Sitzung",
-  "Cloud Data": "Cloud-Daten",
-
   "Back": "Zurück",
   "Display": "Anzeige",
   "Sync & Privacy": "Sync & Datschutz",
@@ -86,7 +75,6 @@
   "Rate this app": "Bewerten Sie diese Erweiterung",
   "Share your thoughts": "Teilen Sie Ihre Gedanken",
   "Share on Twitter (X)": "Auf Twitter teilen (X)",
-
   "RequestUserReviewHeader": "Gefällt Ihnen Tab Keeper?",
   "RequestUserReviewText": "Würden Sie uns eine positive Bewertung hinterlassen?",
   "Maybe Later": "Vielleicht später",

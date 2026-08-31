@@ -25,22 +25,18 @@
   "Add current tab": "वर्तमान टैब जोड़ें",
   "Open in new tab": "नई टैब में खोलें",
   "Go to URL": "साइट पर जाएं",
-
   "Windows": "विंडोज़",
   "Window": "विंडो",
   "Tabs": "टैब्स",
   "Tab": "टैब",
-
   "Go back": "वापस जाएं",
   "Search among sessions": "सत्रों में खोजें",
-
   "Session saved.": "सत्र सहेजा गया।",
   "Current tab saved.": "वर्तमान टैब सहेजी गई।",
   "Current window saved.": "वर्तमान विंडो सहेजी गई।",
   "Session deleted.": "सत्र हटा दिया गया।",
   "Session window deleted.": "सत्र विंडो हटाई गई।",
   "Session tab deleted.": "सत्र टैब हटाई गई।",
-
   "English": "अंग्रेज़ी",
   "German": "जर्मन",
   "Chinese": "चीनी",
@@ -51,21 +47,12 @@
   "Spanish": "स्पैनिश",
   "Italian": "इतालवी",
   "Hindi": "हिंदी",
-
-  "Local Data": "स्थानीय डाटा",
-  "LATEST": "नवीनतम",
-  "Last updated": "आखिरी अपडेट",
-  "Saved sessions": "सहेजे गए सत्र",
-  "Saved session": "सहेजा गया सत्र",
-  "Cloud Data": "क्लाउड डाटा",
-
   "Back": "वापस",
   "Display": "प्रदर्शन",
   "Sync & Privacy": "सिंक और गोपनीयता",
   "Data Management": "डेटा प्रबंधन",
   "Language": "भाषा",
   "About": "के बारे में",
-
   "Themes": "विषय-वस्तु",
   "Light": "प्रकाश",
   "Warm Light": "गर्म प्रकाश",
@@ -83,13 +70,11 @@
   "Backup App Data to File": "फ़ाइल में ऐप डेटा बैकअप करें",
   "Restore App Data from File": "फ़ाइल से ऐप डेटा पुनर्स्थापित करें",
   "Choose Language": "भाषा चुनें",
-
   "Thank you for using this app!": "टैब कीपर का उपयोग करने के लिए धन्यवाद!",
   "Crafted with ❤️ by Justine George": "जस्टिन जॉर्ज की ओर से ❤️ संग बनाया गया",
   "Rate this app": "इस एक्सटेंशन को मूल्यांकन करें",
   "Share your thoughts": "अपने विचारों को साझा करें",
   "Share on Twitter (X)": "ट्विटर पर साझा करें (एक्स)",
-
   "RequestUserReviewHeader": "टैब कीपर को पसंद कर रहे हैं?",
   "RequestUserReviewText": "क्या आप हमें एक सकारात्मक समीक्षा देंगे?",
   "Maybe Later": "बाद में",

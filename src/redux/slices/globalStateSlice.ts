@@ -16,11 +16,6 @@ import {
 import { mergeTabContainers } from '../../utils/functions/mergeTabData';
 import { TOAST_MESSAGES } from '../../utils/constants/common';
 
-interface ConflictModalPayload {
-  tabDataLocal: TabMasterContainer;
-  tabDataCloud: TabMasterContainer;
-}
-
 export interface Global {
   hasSyncedBefore: boolean;
   isSignedIn: boolean;
@@ -32,10 +27,7 @@ export interface Global {
   syncStatus: 'idle' | 'loading' | 'success' | 'error';
   isToastOpen: boolean;
   toastText: string;
-  isConflictModalOpen: boolean;
   isRateAndReviewModalOpen: boolean;
-  tabDataLocal: TabMasterContainer | null;
-  tabDataCloud: TabMasterContainer | null;
 }
 
 export const initialState: Global = {
@@ -49,10 +41,7 @@ export const initialState: Global = {
   syncStatus: 'idle',
   isToastOpen: false,
   toastText: '',
-  isConflictModalOpen: false,
   isRateAndReviewModalOpen: false,
-  tabDataLocal: null,
-  tabDataCloud: null,
 };
 
 // save data to Firestore if dirty, saves latest to localStorage at the end
@@ -211,16 +200,6 @@ export const globalStateSlice = createSlice({
   name: 'globalState',
   initialState,
   reducers: {
-    openConflictModal: (state, action: PayloadAction<ConflictModalPayload>) => {
-      state.tabDataLocal = action.payload.tabDataLocal;
-      state.tabDataCloud = action.payload.tabDataCloud;
-      state.isConflictModalOpen = true;
-    },
-
-    closeConflictModal: (state) => {
-      state.isConflictModalOpen = false;
-    },
-
     openRateAndReviewModal: (state) => {
       state.isRateAndReviewModalOpen = true;
     },
@@ -321,8 +300,6 @@ export const globalStateSlice = createSlice({
 });
 
 export const {
-  openConflictModal,
-  closeConflictModal,
   openRateAndReviewModal,
   closeRateAndReviewModal,
   openSearchPanel,

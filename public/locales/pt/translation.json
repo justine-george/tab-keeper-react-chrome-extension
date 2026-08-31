@@ -25,22 +25,18 @@
   "Add current tab": "Adicionar aba atual",
   "Open in new tab": "Abrir em nova aba",
   "Go to URL": "Visitar site",
-
   "Windows": "Janelas",
   "Window": "Janela",
   "Tabs": "Abas",
   "Tab": "Aba",
-
   "Go back": "Voltar",
   "Search among sessions": "Pesquisar entre sessões",
-
   "Session saved.": "Sessão salva.",
   "Current tab saved.": "Aba atual salva.",
   "Current window saved.": "Janela atual salva.",
   "Session deleted.": "Sessão deletada.",
   "Session window deleted.": "Janela da sessão deletada.",
   "Session tab deleted.": "Aba da sessão deletada.",
-
   "English": "Inglês",
   "German": "Alemão",
   "Chinese": "Chinês",
@@ -51,21 +47,12 @@
   "Spanish": "Espanhol",
   "Italian": "Italiano",
   "Hindi": "Hindi",
-
-  "Local Data": "Dados Locais",
-  "LATEST": "MAIS RECENTES",
-  "Last updated": "Última atualização",
-  "Saved sessions": "Sessões salvas",
-  "Saved session": "Sessão salva",
-  "Cloud Data": "Dados na Nuvem",
-
   "Back": "Voltar",
   "Display": "Exibir",
   "Sync & Privacy": "Sync & Privacidade",
   "Data Management": "Gestão de Dados",
   "Language": "Língua",
   "About": "Sobre",
-
   "Themes": "Temas",
   "Light": "Claro",
   "Warm Light": "Luz Quente",
@@ -83,13 +70,11 @@
   "Backup App Data to File": "Backup para arquivo",
   "Restore App Data from File": "Restaurar do arquivo",
   "Choose Language": "Escolher Língua",
-
   "Thank you for using this app!": "Fico feliz que você esteja usando o Tab Keeper! Obrigado!",
   "Crafted with ❤️ by Justine George": "Feito com ❤️ por Justine George",
   "Rate this app": "Avalie esta extensão",
   "Share your thoughts": "Compartilhe ideias",
   "Share on Twitter (X)": "Compartilhar no Twitter (X)",
-
   "RequestUserReviewHeader": "Está gostando do Tab Keeper?",
   "RequestUserReviewText": "Você se importaria de nos deixar uma avaliação positiva?",
   "Maybe Later": "Mais tarde",
