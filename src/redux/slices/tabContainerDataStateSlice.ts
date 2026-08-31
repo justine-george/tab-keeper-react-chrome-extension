@@ -667,23 +667,24 @@ export const tabContainerDataStateSlice = createSlice({
       return action.payload;
     },
 
-    // Undo/redo replaces the container with a snapshot from history. Kept
-    // separate from replaceState, which the sync uses for merged results and
-    // must not touch timestamps.
+    // Replace the container with one the user is explicitly asserting: an
+    // undo/redo snapshot, or an imported backup file. Kept separate from
+    // replaceState, which the sync uses for merged results and must not touch
+    // timestamps.
     //
-    // A snapshot taken before a delete brings the session back and carries no
-    // tombstone for it - but the cloud may already hold the tombstone that
-    // delete pushed up, and it is newer than the restored session's untouched
-    // timestamp, so the next merge would simply delete it again. Undo would
-    // appear to work and then silently reverse itself, with no way to recover
-    // the session.
+    // Either source can bring back a session that has since been deleted, and
+    // neither carries a tombstone for it - but the cloud may still hold the one
+    // that delete pushed up, and it is newer than the restored session's
+    // untouched timestamp. Without help the next merge simply re-applies the
+    // delete: the undo or the import appears to work and then silently reverses
+    // itself, with no way to recover the session.
     //
-    // Stamping the restored session now is not a workaround: un-deleting it IS
-    // a change to that session, made on this device at this moment, which is
+    // Stamping the restored session now is not a workaround: bringing it back
+    // IS a change to that session, made on this device at this moment, which is
     // exactly what the per-session timestamp records. Only sessions whose
-    // tombstone is being withdrawn are stamped - an unrelated session that
-    // happens to be in the snapshot keeps its own history.
-    restoreFromHistory: (state, action: PayloadAction<typeof state>) => {
+    // tombstone is being withdrawn are stamped - anything else in the payload
+    // keeps its own history.
+    restoreContainer: (state, action: PayloadAction<typeof state>) => {
       const withdrawnAt = new Map(
         (state.deletedTabGroups ?? []).map((grave) => [
           grave.tabGroupId,
@@ -726,7 +727,7 @@ export const {
   deleteWindowInternal,
   deleteTabInternal,
   replaceState,
-  restoreFromHistory,
+  restoreContainer,
 } = tabContainerDataStateSlice.actions;
 
 export default tabContainerDataStateSlice.reducer;

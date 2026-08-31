@@ -17,7 +17,7 @@ import {
   SELECT_TAB_CONTAINER_ACTION,
   SET_ACTION,
   TAB_CONTAINER_REPLACE_STATE_ACTION,
-  TAB_CONTAINER_RESTORE_FROM_HISTORY_ACTION,
+  TAB_CONTAINER_RESTORE_ACTION,
   UNDO_ACTION,
   EDIT_WINDOWGROUP_TITLE_ACTION,
 } from '../../utils/constants/actionTypes';
@@ -58,7 +58,7 @@ const isDataStateChangeAction = (
     TAB_CONTAINER_REPLACE_STATE_ACTION,
     // Restoring history is not a new edit to capture; capturing it would push
     // the restored state back onto the undo stack.
-    TAB_CONTAINER_RESTORE_FROM_HISTORY_ACTION,
+    TAB_CONTAINER_RESTORE_ACTION,
   ];
   return (
     prevState.tabContainerDataState !== nextState.tabContainerDataState &&
@@ -94,13 +94,13 @@ export const customMiddleware: Middleware = (store) => {
       const presentState = nextState.undoRedo.present;
       // update tabContainerDataState from the latest presentState
       //
-      // restoreFromHistory rather than replaceState: a snapshot taken before a
+      // restoreContainer rather than replaceState: a snapshot taken before a
       // delete brings the session back with no tombstone, but the cloud may
       // still hold the one that delete pushed up. Restoring blind lets the next
       // merge re-apply the delete, so undo appears to work and then reverses
       // itself.
       store.dispatch({
-        type: TAB_CONTAINER_RESTORE_FROM_HISTORY_ACTION,
+        type: TAB_CONTAINER_RESTORE_ACTION,
         payload: presentState.tabContainerDataState,
       });
       store.dispatch(setIsDirty());

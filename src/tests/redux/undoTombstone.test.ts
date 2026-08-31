@@ -29,6 +29,7 @@ import {
 import {
   saveToTabContainerInternal,
   deleteTabContainerInternal,
+  restoreContainer,
 } from '../../redux/slices/tabContainerDataStateSlice';
 import { undo } from '../../redux/slices/undoRedoSlice';
 import { makeTestStore } from '../setup/makeStore';
@@ -133,5 +134,52 @@ describe('undoing a delete survives the next sync', () => {
     const final = store.getState().tabContainerDataState;
     expect(ids(final.tabGroups)).toEqual(['keep', 'second']);
     expect(final.deletedTabGroups?.map((t) => t.tabGroupId)).toEqual(['first']);
+  });
+});
+
+// The import path restores a container the user is explicitly asserting, so it
+// has the same problem as undo: a backup written before a session was deleted
+// still contains it and carries no tombstone, while the cloud may still hold
+// the one that delete pushed up. On main an import restores everything;
+// tombstones broke that, and the import is the newer user action so it wins.
+describe('importing a backup that predates a delete', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    mocks.loadFromFirestore.mockReset();
+    mocks.saveToFirestore.mockReset().mockResolvedValue(undefined);
+  });
+
+  it('restores the deleted session and keeps it through the next sync', async () => {
+    const { store } = makeTestStore();
+    store.dispatch(setSignedIn());
+    store.dispatch(setUserId('u1'));
+    store.dispatch(saveToTabContainerInternal(group('keep')));
+    store.dispatch(saveToTabContainerInternal(group('archived')));
+
+    store.dispatch(deleteTabContainerInternal('archived'));
+    const cloud = JSON.parse(
+      JSON.stringify(store.getState().tabContainerDataState)
+    );
+    expect(ids(cloud.tabGroups)).toEqual(['keep']);
+
+    // an older export file: contains the session, has no deletedTabGroups
+    store.dispatch(
+      restoreContainer({
+        lastModified: Date.now(),
+        selectedTabGroupId: null,
+        tabGroups: [group('keep'), group('archived')],
+      })
+    );
+    const imported = store.getState().tabContainerDataState;
+    expect(ids(imported.tabGroups)).toEqual(['archived', 'keep']);
+
+    mocks.loadFromFirestore.mockResolvedValue(cloud);
+    localStorage.setItem('tabContainerData', JSON.stringify(imported));
+    await store.dispatch(syncStateWithFirestore() as never);
+
+    expect(ids(store.getState().tabContainerDataState.tabGroups)).toEqual([
+      'archived',
+      'keep',
+    ]);
   });
 });
