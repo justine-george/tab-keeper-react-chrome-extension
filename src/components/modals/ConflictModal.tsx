@@ -151,13 +151,15 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({ style }) => {
     font-size: inherit;
     text-align: left;
     cursor: pointer;
-    transition:
-      background-color 0.2s,
-      color 0.2s;
+    transition: background-color 0.2s;
 
+    /* Only the background shifts on hover. Recolouring the text here used to
+       set CONTRAST_COLOR, which is an accent value rather than a foreground:
+       it does not track each theme's light/dark polarity, so the heading and
+       icon dropped to 1.32-1.56:1 in every theme except LIGHT. Inheriting
+       LABEL_L1_COLOR instead keeps them at 5.13:1 or better everywhere. */
     &:hover {
       background-color: ${COLORS.SELECTION_COLOR};
-      color: ${COLORS.CONTRAST_COLOR};
     }
 
     /* TEXT_COLOR is the theme's foreground, so it contrasts with every pane
