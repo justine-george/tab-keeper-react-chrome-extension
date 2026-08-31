@@ -88,10 +88,13 @@ export const TOMBSTONE_MAX = 500;
 // the stale entry finally leaves localStorage. The flags have to describe what
 // is actually persisted.
 //
-// A pruned id ends up with no event at all, so a session the tombstone was
-// suppressing becomes eligible to return from a device that still has it.
-// That is the documented TTL tradeoff: the failure reappears data, never
-// loses it.
+// A pruned id ends up with no event at all - neither present nor deleted. So
+// the documented TTL tradeoff plays out in two steps, not one: in the round
+// where an expired tombstone still outranks the session it suppresses, both
+// disappear and the delete wins a final time. Only afterwards, with the
+// tombstone forgotten everywhere, does a device that was offline and still
+// holds the session re-add it. The failure reappears data; it never loses any.
+// Both steps are pinned in src/tests/redux/tombstoneLifecycle.test.ts.
 function pruneTombstones(
   events: Map<string, Event>,
   now: number
