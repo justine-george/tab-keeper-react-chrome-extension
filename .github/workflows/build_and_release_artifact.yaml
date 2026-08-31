@@ -4,6 +4,11 @@ on:
   push:
     tags:
       - 'v*'
+  # Manual dry run. Lets the whole release path - build, remote-code prune,
+  # and the verification that no remotely hosted URLs survive - be exercised
+  # without cutting a tag. Nothing here publishes: the job only uploads an
+  # artifact, so a dispatch run is side-effect free.
+  workflow_dispatch:
 
 jobs:
   build:
@@ -66,5 +71,8 @@ jobs:
       - name: Upload release zip file ready for Chrome Web Store
         uses: actions/upload-artifact@v7
         with:
-          name: tab-keeper-react-chrome-extension-v${{steps.version.outputs.prop}}
+          # A dry run builds the same artifact but is not a release, so mark it
+          # to keep it from being mistaken for the package that goes to the
+          # Web Store. github.event_name is a trusted context value.
+          name: tab-keeper-react-chrome-extension-v${{steps.version.outputs.prop}}${{ github.event_name == 'workflow_dispatch' && '-dryrun' || '' }}
           path: ./dist/
