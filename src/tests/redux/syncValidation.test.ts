@@ -11,7 +11,11 @@ vi.hoisted(() => {
 
 const mocks = vi.hoisted(() => ({
   loadFromFirestore: vi.fn(async (): Promise<unknown> => undefined),
-  saveToFirestore: vi.fn(async () => undefined),
+  // Typed so a test can read back what would have been written to the cloud,
+  // not merely whether the write happened.
+  saveToFirestore: vi.fn<(userId: string, data: unknown) => Promise<void>>(
+    async () => undefined
+  ),
 }));
 
 vi.mock('../../utils/functions/external', () => ({
@@ -115,4 +119,52 @@ describe('sync with invalid localStorage', () => {
     ).toEqual(['local-1']);
     expect(mocks.saveToFirestore).toHaveBeenCalled();
   });
+});
+
+// The argument for landing KAN-33 ahead of the automatic merge is not that a
+// corrupt container is *displayed*, it is that it *replicates*: the
+// local-is-newer branch dispatches saveToFirestoreIfDirty, so an unvalidated
+// object is written back over an intact cloud copy with no user present.
+//
+// That deserves its own assertion. Checked after the Redux check in the same
+// test, it never executes on unguarded code - the earlier assertion fails
+// first and shadows it, so reverting the guard proves only half the claim.
+describe('invalid localStorage is not replicated to the cloud', () => {
+  // Only shapes carrying a timestamp newer than the cloud copy reach the write
+  // branch at all; the rest fall into the comparison's else arm and were never
+  // going to write, so including them would weaken the assertion.
+  const newerThanCloud: [string, string][] = [
+    ['missing tabGroups', '{"lastModified":9999,"selectedTabGroupId":null}'],
+    [
+      'tabGroups not an array',
+      '{"lastModified":9999,"selectedTabGroupId":null,"tabGroups":"x"}',
+    ],
+    [
+      'a group missing isAutoSave',
+      '{"lastModified":9999,"selectedTabGroupId":null,"tabGroups":[{"tabGroupId":"bad","title":"CORRUPT","createdTime":"c","windowCount":1,"tabCount":1,"isSelected":false,"windows":[]}]}',
+    ],
+  ];
+
+  beforeEach(() => {
+    localStorage.clear();
+    mocks.loadFromFirestore.mockReset().mockResolvedValue(goodCloud);
+    mocks.saveToFirestore.mockReset().mockResolvedValue(undefined);
+  });
+
+  it.each(newerThanCloud)(
+    'writes nothing to Firestore for %s, though it is newer than cloud',
+    async (_label, raw) => {
+      localStorage.setItem('tabContainerData', raw);
+
+      const { store } = makeTestStore();
+      store.dispatch(setSignedIn());
+      store.dispatch(setUserId('u1'));
+      await store.dispatch(syncStateWithFirestore() as never);
+
+      // Asserted on the payloads rather than the call count so that reverting
+      // the guard prints the object that would have replaced the cloud copy.
+      const written = mocks.saveToFirestore.mock.calls.map((call) => call[1]);
+      expect(written).toEqual([]);
+    }
+  );
 });
