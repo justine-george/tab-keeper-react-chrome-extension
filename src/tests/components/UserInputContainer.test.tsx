@@ -1,12 +1,6 @@
-import { describe, expect, test, vi } from 'vitest';
+import { describe, expect, test } from 'vitest';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-
-vi.mock('../../utils/functions/external', () => ({
-  loadFromFirestore: vi.fn(),
-  saveToFirestore: vi.fn(),
-  displayToast: vi.fn(),
-}));
 
 import UserInputContainer from '../../components/home/leftpane/UserInputContainer';
 import { renderWithProviders } from '../setup/renderWithProviders';

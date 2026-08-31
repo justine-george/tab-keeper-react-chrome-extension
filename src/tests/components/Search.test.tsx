@@ -1,11 +1,5 @@
-import { describe, expect, test, vi } from 'vitest';
+import { describe, expect, test } from 'vitest';
 import { screen } from '@testing-library/react';
-
-vi.mock('../../utils/functions/external', () => ({
-  loadFromFirestore: vi.fn(),
-  saveToFirestore: vi.fn(),
-  displayToast: vi.fn(),
-}));
 
 import TabGroupEntryContainer from '../../components/home/leftpane/TabGroupEntryContainer';
 import { renderWithProviders } from '../setup/renderWithProviders';
