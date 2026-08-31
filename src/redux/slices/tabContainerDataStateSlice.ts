@@ -372,6 +372,27 @@ export const deleteTab = createAsyncThunk(
   }
 );
 
+// Only content changes advance a session's timestamp. Selection must not:
+// selectTabContainer already bumps the container-wide lastModified on every
+// click and on every search keystroke, and letting that reach per-session
+// timestamps would make browsing on one device outrank a real edit on another.
+function touch(group: tabContainerData): void {
+  group.lastModified = Date.now();
+}
+
+// A removed session has to leave a trace, or the device that still holds it
+// re-adds it on the next merge and the user can never delete it anywhere.
+// Re-deleting an id refreshes its timestamp rather than appending a duplicate.
+function bury(state: TabMasterContainer, tabGroupId: string): void {
+  const graves = (state.deletedTabGroups ??= []);
+  const existing = graves.find((g) => g.tabGroupId === tabGroupId);
+  if (existing) {
+    existing.deletedAt = Date.now();
+  } else {
+    graves.push({ tabGroupId, deletedAt: Date.now() });
+  }
+}
+
 export const tabContainerDataStateSlice = createSlice({
   name: 'tabContainerDataState',
   initialState,
@@ -382,6 +403,7 @@ export const tabContainerDataStateSlice = createSlice({
     ) => {
       const newTabGroupId = action.payload.tabGroupId;
       state.tabGroups.unshift(action.payload);
+      touch(state.tabGroups[0]);
       state.lastModified = Date.now();
 
       // update localstorage
@@ -424,6 +446,7 @@ export const tabContainerDataStateSlice = createSlice({
         state.tabGroups[tabGroupIndex].tabCount += window.tabCount;
         state.tabGroups[tabGroupIndex].createdTime = getStringDate(new Date());
         state.tabGroups[tabGroupIndex].windows.unshift(window);
+        touch(state.tabGroups[tabGroupIndex]);
       }
       state.lastModified = Date.now();
 
@@ -456,6 +479,7 @@ export const tabContainerDataStateSlice = createSlice({
           state.tabGroups[tabGroupIndex].windows[windowIndex].tabs.unshift(
             currentTabData
           );
+          touch(state.tabGroups[tabGroupIndex]);
         }
       }
       state.lastModified = Date.now();
@@ -475,6 +499,7 @@ export const tabContainerDataStateSlice = createSlice({
       );
       if (tabGroupIndex !== -1) {
         state.tabGroups[tabGroupIndex].title = newTitle;
+        touch(state.tabGroups[tabGroupIndex]);
       }
       state.lastModified = Date.now();
       // update localstorage
@@ -496,6 +521,7 @@ export const tabContainerDataStateSlice = createSlice({
         );
         if (windowIndex !== -1) {
           state.tabGroups[tabGroupIndex].windows[windowIndex].title = newTitle;
+          touch(state.tabGroups[tabGroupIndex]);
         }
       }
       state.lastModified = Date.now();
@@ -511,6 +537,7 @@ export const tabContainerDataStateSlice = createSlice({
         (tabGroup) => tabGroup.tabGroupId === toBeDeletedTabGroupId
       );
       if (tabGroupIndex !== -1) {
+        bury(state, toBeDeletedTabGroupId);
         state.tabGroups.splice(tabGroupIndex, 1);
       }
       state.lastModified = Date.now();
@@ -556,7 +583,12 @@ export const tabContainerDataStateSlice = createSlice({
           ) {
             state.selectedTabGroupId = null;
           }
+          // Emptying a group removes it just as surely as deleting it, so it
+          // needs the same tombstone or the other device re-adds it.
+          bury(state, state.tabGroups[tabGroupIndex].tabGroupId);
           state.tabGroups.splice(tabGroupIndex, 1);
+        } else {
+          touch(state.tabGroups[tabGroupIndex]);
         }
       }
       state.lastModified = Date.now();
@@ -615,7 +647,12 @@ export const tabContainerDataStateSlice = createSlice({
             state.selectedTabGroupId = null;
           }
 
+          // Same cascade as deleteWindowInternal: the group is gone, so it
+          // needs a tombstone rather than just a new timestamp.
+          bury(state, state.tabGroups[tabGroupIndex].tabGroupId);
           state.tabGroups.splice(tabGroupIndex, 1);
+        } else {
+          touch(state.tabGroups[tabGroupIndex]);
         }
       }
       state.lastModified = Date.now();
