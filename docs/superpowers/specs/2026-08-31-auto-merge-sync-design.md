@@ -253,8 +253,14 @@ The other three branches (cloud-only, local-only, new user) are untouched.
 **User-visible signal.** Divergence between devices becomes invisible once the
 modal is gone. A merge that actually changed the local side shows a toast via
 the existing `showToast` — no decision, no blocking. Silent when the merge is a
-no-op, which is the common case. One new i18n key, `en` only, matching how
-KAN-31 added its two.
+no-op, which is the common case.
+
+The mechanism is a new entry in `TOAST_MESSAGES` (`common.ts:63`), not a locale
+key. `Toast.tsx:52` renders `{t(toastText)}`, but no existing `TOAST_MESSAGES`
+value appears in any locale file — checked — so they all fall through i18next's
+missing-key fallback and render as their literal English. Follow that pattern
+rather than inventing a second one; translating toasts is a separate change and
+would need all 17 existing messages, not just this one.
 
 ## 7. Deletions
 
