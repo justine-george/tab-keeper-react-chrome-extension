@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 
-import { v4 as uuidv4 } from 'uuid';
 import { useDispatch, useSelector } from 'react-redux';
 
 import { css } from '@emotion/react';
@@ -9,12 +8,8 @@ import Button from '../../common/Button';
 import TextBox from '../../common/TextBox';
 import { AppDispatch, RootState } from '../../../redux/store';
 import { setSearchInputText } from '../../../redux/slices/globalStateSlice';
-import { getStringDate, resolveTabUrl } from '../../../utils/functions/local';
-import {
-  saveToTabContainer,
-  tabContainerData,
-  windowGroupData,
-} from '../../../redux/slices/tabContainerDataStateSlice';
+import { captureOpenWindows } from '../../../utils/functions/capture';
+import { saveToTabContainer } from '../../../redux/slices/tabContainerDataStateSlice';
 import { useTranslation } from 'react-i18next';
 
 export default function UserInputContainer() {
@@ -56,61 +51,8 @@ export default function UserInputContainer() {
   }
 
   async function createTabGroup() {
-    // fetch all the windows
-    const allWindows = await new Promise<chrome.windows.Window[]>((resolve) =>
-      chrome.windows.getAll({ populate: true }, (result) => resolve(result))
-    );
-
-    // fetch current window
-    const currentWindow = await new Promise<chrome.windows.Window>((resolve) =>
-      chrome.windows.getCurrent({ populate: true }, (result) => resolve(result))
-    );
-
-    // filter out current window
-    const windowList = allWindows.filter(
-      (window) => window.id !== currentWindow.id
-    );
-
-    // add current window to the beginning
-    windowList.unshift(currentWindow);
-
-    let tabCount = 0;
-
-    const windowsGroupData: windowGroupData[] = windowList.map((window) => {
-      // for each window, map its tabs
-      const tabsData = window.tabs!.map((tab) => {
-        return {
-          tabId: uuidv4(),
-          favicon: tab.favIconUrl || '',
-          title: tab.title || '',
-          url: resolveTabUrl(tab.url || ''),
-        };
-      });
-
-      tabCount += tabsData.length;
-
-      return {
-        windowId: uuidv4(),
-        windowHeight: window.height!,
-        windowWidth: window.width!,
-        windowOffsetTop: window.top!,
-        windowOffsetLeft: window.left!,
-        tabCount: tabsData.length,
-        title: tabsData[0].title,
-        tabs: tabsData,
-      };
-    });
-
-    const containerData: tabContainerData = {
-      tabGroupId: uuidv4(),
-      title: newTitle || currentTabName,
-      createdTime: getStringDate(new Date()),
-      windowCount: windowList.length,
-      tabCount: tabCount,
-      isAutoSave: false,
-      isSelected: true,
-      windows: windowsGroupData,
-    };
+    const containerData = await captureOpenWindows(newTitle || currentTabName);
+    if (!containerData) return;
 
     dispatch(saveToTabContainer(containerData));
   }

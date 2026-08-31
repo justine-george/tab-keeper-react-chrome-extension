@@ -17,6 +17,7 @@ interface TabGroupEntryProps {
   tabGroupData: tabContainerData;
   onTabGroupClick: MouseEventHandler;
   onOpenAllClick: MouseEventHandler;
+  onFocusClick: MouseEventHandler;
   onDeleteClick: MouseEventHandler;
 }
 
@@ -24,6 +25,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
   tabGroupData,
   onTabGroupClick,
   onOpenAllClick,
+  onFocusClick,
   onDeleteClick,
 }) => {
   const COLORS = useThemeColors();
@@ -124,8 +126,8 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
       {!isSearchPanel && (
         <div css={rightStyle}>
           <Icon
-            tooltipText={t('Restore all windows')}
-            text={t('Restore')}
+            tooltipText={t('Open session')}
+            text={t('Open')}
             ariaLabel="open all windows"
             type="reopen_window"
             backgroundColor={
@@ -135,6 +137,21 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
             onClick={(e) => {
               e.stopPropagation();
               onOpenAllClick(e);
+            }}
+            style="padding: 14px 10px; width: 57px;"
+          />
+          <Icon
+            tooltipText={t('Switch to session')}
+            text={t('Switch')}
+            ariaLabel="switch to session"
+            type="filter_center_focus"
+            backgroundColor={
+              isSelected ? COLORS.SELECTION_COLOR : COLORS.HOVER_COLOR
+            }
+            focusable={isHovered ? true : false}
+            onClick={(e) => {
+              e.stopPropagation();
+              onFocusClick(e);
             }}
             style="padding: 14px 10px; width: 57px;"
           />

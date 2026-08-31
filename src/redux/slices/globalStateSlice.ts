@@ -28,6 +28,19 @@ export interface Global {
   isToastOpen: boolean;
   toastText: string;
   isRateAndReviewModalOpen: boolean;
+  focusRequest: FocusRequest | null;
+}
+
+// The session a pending "switch to this session?" confirmation is about, how
+// many windows it would close, and whether closing them would save anything
+// first -- it does not when those windows are already stored as a session, and
+// the dialog has to say which of the two is about to happen. Null when no
+// confirmation is open, so the fields can never disagree about whether there
+// is something to confirm.
+export interface FocusRequest {
+  tabGroupId: string;
+  windowCount: number;
+  willSave: boolean;
 }
 
 export const initialState: Global = {
@@ -42,6 +55,7 @@ export const initialState: Global = {
   isToastOpen: false,
   toastText: '',
   isRateAndReviewModalOpen: false,
+  focusRequest: null,
 };
 
 // save data to Firestore if dirty, saves latest to localStorage at the end
@@ -213,6 +227,14 @@ export const globalStateSlice = createSlice({
       state.isRateAndReviewModalOpen = false;
     },
 
+    openFocusModal: (state, action: PayloadAction<FocusRequest>) => {
+      state.focusRequest = action.payload;
+    },
+
+    closeFocusModal: (state) => {
+      state.focusRequest = null;
+    },
+
     openSearchPanel: (state) => {
       state.isSearchPanel = true;
     },
@@ -321,6 +343,8 @@ export const globalStateSlice = createSlice({
 export const {
   openRateAndReviewModal,
   closeRateAndReviewModal,
+  openFocusModal,
+  closeFocusModal,
   openSearchPanel,
   closeSearchPanel,
   setSearchInputText,

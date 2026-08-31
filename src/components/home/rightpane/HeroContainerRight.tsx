@@ -20,6 +20,7 @@ import {
   addCurrWindowToTabGroup,
   deleteTabContainer,
   openAllTabContainer,
+  requestFocusTabContainer,
   updateTabGroupTitle,
   windowGroupData,
 } from '../../../redux/slices/tabContainerDataStateSlice';
@@ -253,12 +254,26 @@ export default function HeroContainerRight() {
           `}
         >
           <Icon
-            tooltipText={t('Restore all windows')}
+            tooltipText={t('Open session')}
             ariaLabel="open all windows"
             type="reopen_window"
             onClick={() => {
               const goToURLText: string = t('Go to URL');
               dispatch(openAllTabContainer({ tabGroupId, goToURLText }));
+            }}
+          />
+          <Icon
+            tooltipText={t('Switch to session')}
+            ariaLabel="switch to session"
+            type="filter_center_focus"
+            onClick={() => {
+              dispatch(
+                requestFocusTabContainer({
+                  tabGroupId,
+                  goToURLText: t('Go to URL'),
+                  saveTitle: t('FocusAutoSaveTitle'),
+                })
+              );
             }}
           />
           <Icon

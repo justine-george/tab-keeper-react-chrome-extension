@@ -15,6 +15,7 @@ import LeftPaneSettings from './settings/leftpane/LeftPaneSettings';
 import RightPaneSettings from './settings/rightpane/RightPaneSettings';
 import { closeToast } from '../redux/slices/globalStateSlice';
 import { RateAndReviewModal } from './modals/RateAndReviewModal';
+import { FocusConfirmModal } from './modals/FocusConfirmModal';
 
 export default function MainContainer() {
   const COLORS = useThemeColors();
@@ -30,6 +31,10 @@ export default function MainContainer() {
 
   const isRateAndReviewModalOpen = useSelector(
     (state: RootState) => state.globalState.isRateAndReviewModalOpen
+  );
+
+  const focusRequest = useSelector(
+    (state: RootState) => state.globalState.focusRequest
   );
 
   // Keyboard shortcut listener for undo/redo
@@ -138,6 +143,7 @@ export default function MainContainer() {
       )}
       {isToastOpen && <Toast />}
       {isRateAndReviewModalOpen && <RateAndReviewModal />}
+      {focusRequest && <FocusConfirmModal />}
     </div>
   );
 }
