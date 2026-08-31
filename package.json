@@ -15,7 +15,7 @@
     "test-build": "npm run test && npm run build",
     "pretty": "npx prettier -w .",
     "pretty-build": "npm run pretty && npm run build",
-    "lint": "eslint src --ext ts,tsx --max-warnings 0",
+    "lint": "eslint src --ext ts,tsx",
     "sync-versions": "node ./scripts/package_to_manifest.cjs",
     "bump-version": "node ./scripts/bump_version.cjs",
     "create-tag": "git tag v$(node -p \"require('./package.json').version\")",

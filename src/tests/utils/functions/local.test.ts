@@ -295,6 +295,32 @@ describe('isValidTabMasterContainer', () => {
     expect(isValidTabMasterContainer(validData)).toBe(true);
   });
 
+  // A .json file containing any of these is valid JSON, so the import path can
+  // hand them straight to the validator. It must reject them, not throw - the
+  // caller shows error.message to the user, so a TypeError leaks
+  // "Cannot read properties of null" instead of "Invalid JSON structure."
+  test.each([
+    ['null', null],
+    ['undefined', undefined],
+    ['a number', 42],
+    ['a string', 'not an object'],
+    ['a boolean', true],
+    ['an array', []],
+  ])('should return false for %s rather than throwing', (_label, input) => {
+    expect(() => isValidTabMasterContainer(input)).not.toThrow();
+    expect(isValidTabMasterContainer(input)).toBe(false);
+  });
+
+  test('should return false when a nested tab group is null', () => {
+    const invalidData = {
+      lastModified: Date.now(),
+      selectedTabGroupId: null,
+      tabGroups: [null],
+    };
+    expect(() => isValidTabMasterContainer(invalidData)).not.toThrow();
+    expect(isValidTabMasterContainer(invalidData)).toBe(false);
+  });
+
   test('should return false for invalid TabMasterContainer structure', () => {
     const invalidData = {
       selectedTabGroupId: 'sample-id',

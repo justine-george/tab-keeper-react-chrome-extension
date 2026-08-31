@@ -22,6 +22,12 @@ jobs:
       - name: Install dependencies
         uses: bahmutov/npm-install@v1
 
+      # Fails on lint errors only; `any` and exhaustive-deps are warnings and
+      # are reported without blocking. Without this step the lint script was
+      # never run by anything, so violations accumulated unnoticed.
+      - name: Run lint
+        run: npm run lint
+
       - name: Run tests
         run: npm run test
 
