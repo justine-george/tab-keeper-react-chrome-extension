@@ -2,10 +2,12 @@
 // over a mock on purpose: tests assert on resulting state rather than on the
 // fact that a function was invoked.
 //
-// Covers the 17 members in use as of 2026-08-31 -- tabs.query/create/update/
-// get/onActivated, windows.getAll/getCurrent/create/remove,
-// storage.sync.get/set/remove/clear, runtime.sendMessage/onMessage/getURL/
-// lastError. Widen this when the app calls something new.
+// Covers 15 members production code calls as of 2026-08-31 --
+// tabs.query/create/update/get/onActivated, windows.getAll/getCurrent/
+// create/remove, storage.sync.get/set, runtime.sendMessage/onMessage/getURL/
+// lastError -- plus storage.sync.remove/clear, which have no production call
+// site today but are implemented for API fidelity and exercised by this
+// fake's own tests. Widen this when the app calls something new.
 
 export type ChromeSeed = {
   tabs?: Partial<chrome.tabs.Tab>[];
@@ -61,8 +63,10 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
     },
   };
 
-  // `get` accepts an array of keys or an object of defaults. App.tsx relies on
-  // the defaults form, so both are implemented rather than only the easy one.
+  // `get` accepts an array of keys or an object of defaults. Production code
+  // only ever calls the array form (App.tsx:57, :66); the defaults form is
+  // implemented for API fidelity and is exercised by this fake's own tests,
+  // not by anything production calls today.
   const readStorage = (
     keys?: string[] | Record<string, unknown> | null
   ): Record<string, unknown> => {
