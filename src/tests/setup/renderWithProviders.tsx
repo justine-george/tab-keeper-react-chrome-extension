@@ -40,6 +40,13 @@ export async function renderWithProviders(
   // before a caller could ever reach a post-render dispatch. seedStore runs
   // synchronously here, before the first render, so callers can put the
   // store in the state a component expects to see on mount.
+  //
+  // seedStore MUST be synchronous. Anything deferred -- a promise, a
+  // setTimeout, an await inside the callback -- runs after render() has
+  // already fired, silently defeating this seam: the component still mounts
+  // against an empty store with no compiler or runtime error to flag it. The
+  // `(store) => void` type signature does not enforce this; only this
+  // convention does, so keep every seedStore call site synchronous.
   seedStore?.(store);
 
   const result = render(
