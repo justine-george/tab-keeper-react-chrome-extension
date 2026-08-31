@@ -101,7 +101,7 @@ export default function TabGroupDetailsContainer() {
         </div>
       ) : (
         <div css={filledContainerStyle}>
-          {selectedTabGroup.windows.map(({ windowId, title, tabs }, _) => {
+          {selectedTabGroup.windows.map(({ windowId, title, tabs }) => {
             return (
               <div>
                 <WindowEntryContainer

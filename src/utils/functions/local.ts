@@ -310,11 +310,22 @@ export function resolveFaviconUrl(favicon: string, pageUrl: string): string {
   return url.toString();
 }
 
+// These validators run on whatever JSON a user hands the import dialog, so the
+// input is genuinely unknown rather than merely untyped. Taking `unknown` is
+// what forces the null check below: `typeof null.lastModified` throws, and the
+// import handler prints error.message straight to a toast, so a missing guard
+// surfaced as "Cannot read properties of null" instead of "Invalid JSON
+// structure." Arrays are excluded too - every field lookup on one is undefined,
+// so they would fall through as merely invalid rather than the wrong shape.
+const isRecord = (data: unknown): data is Record<string, unknown> =>
+  typeof data === 'object' && data !== null && !Array.isArray(data);
+
 // validate import JSON structure - TabMasterContainer
 export const isValidTabMasterContainer = (
-  data: any
+  data: unknown
 ): data is TabMasterContainer => {
   return (
+    isRecord(data) &&
     typeof data.lastModified === 'number' &&
     (typeof data.selectedTabGroupId === 'string' ||
       data.selectedTabGroupId === null) &&
@@ -324,8 +335,9 @@ export const isValidTabMasterContainer = (
 };
 
 // validate import JSON structure - tabContainerData
-const isValidTabContainerData = (data: any): data is tabContainerData => {
+const isValidTabContainerData = (data: unknown): data is tabContainerData => {
   return (
+    isRecord(data) &&
     typeof data.tabGroupId === 'string' &&
     typeof data.title === 'string' &&
     typeof data.createdTime === 'string' &&
@@ -339,8 +351,9 @@ const isValidTabContainerData = (data: any): data is tabContainerData => {
 };
 
 // validate import JSON structure - windowGroupData
-const isValidWindowGroupData = (data: any): data is windowGroupData => {
+const isValidWindowGroupData = (data: unknown): data is windowGroupData => {
   return (
+    isRecord(data) &&
     typeof data.windowId === 'string' &&
     typeof data.tabCount === 'number' &&
     typeof data.title === 'string' &&
@@ -350,8 +363,9 @@ const isValidWindowGroupData = (data: any): data is windowGroupData => {
 };
 
 // validate import JSON structure - tabData
-const isValidTabData = (data: any): data is tabData => {
+const isValidTabData = (data: unknown): data is tabData => {
   return (
+    isRecord(data) &&
     typeof data.tabId === 'string' &&
     typeof data.favicon === 'string' &&
     typeof data.title === 'string' &&
