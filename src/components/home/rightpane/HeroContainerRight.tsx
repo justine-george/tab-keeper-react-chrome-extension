@@ -254,7 +254,7 @@ export default function HeroContainerRight() {
           `}
         >
           <Icon
-            tooltipText={t('Restore all windows')}
+            tooltipText={t('Open session')}
             ariaLabel="open all windows"
             type="reopen_window"
             onClick={() => {

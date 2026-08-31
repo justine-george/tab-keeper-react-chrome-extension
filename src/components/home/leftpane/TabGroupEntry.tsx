@@ -126,8 +126,8 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
       {!isSearchPanel && (
         <div css={rightStyle}>
           <Icon
-            tooltipText={t('Restore all windows')}
-            text={t('Restore')}
+            tooltipText={t('Open session')}
+            text={t('Open')}
             ariaLabel="open all windows"
             type="reopen_window"
             backgroundColor={
