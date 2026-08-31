@@ -190,6 +190,41 @@ export const asPartialSettings = <T>(value: unknown): Partial<T> =>
 // and the background worker recognise one by this prefix.
 const PLACEHOLDER_URL_PREFIX = 'data:text/html;base64,';
 
+// A page controls its own title, and the title is interpolated straight into
+// the placeholder document. Unescaped, a title of `</h2><script>...</script>`
+// closes the heading and runs as markup. Escaping is applied to every
+// interpolated value rather than only the obviously hostile ones, because
+// which values are attacker-controlled is not a property worth tracking
+// per-field.
+//
+// `&` must be replaced first: doing it later would re-escape the ampersands
+// introduced by the other replacements.
+export function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// The inverse, needed because the placeholder's href is not just markup -- it
+// is where decodeDataUrl and placeholderTarget read the real page back from.
+// Escaping the href without unescaping it here would hand every caller a URL
+// with `&amp;` in place of `&`, corrupting every query string the moment it
+// round-tripped.
+//
+// `&amp;` must be replaced last, mirroring escapeHtml: undoing it first would
+// turn `&amp;lt;` into `<` rather than the literal `&lt;` it stands for.
+export function unescapeHtml(value: string): string {
+  return value
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, '&');
+}
+
 // generate placeholder URL for quicker session loads and lesser memory consumption
 export function generatePlaceholderURL(
   title: string,
@@ -197,7 +232,12 @@ export function generatePlaceholderURL(
   url: string,
   goToURLText: string
 ) {
-  const html = `<html> <head> <meta charset="UTF-8" /> <link rel="icon" type="image/x-icon" href="${faviconURL}" /> <meta name="viewport" content="width=device-width, initial-scale=1.0" /> <title>${title}</title> <style> body { background-color: #181818; color: #ffffff; font-family: "Libre Franklin", sans-serif; display: flex; margin: 20px; flex-direction: column; justify-content: flex-start; align-items: flex-start; height: 100vh; } #copyButton { cursor: pointer; background-color: #2c2c2c; padding: 10px 20px; border: none; border-radius: 10px; color: #ffffff; font-family: "Libre Franklin", sans-serif; font-size: 14px; transition: background-color 0.125s ease, color 0.125s ease; } #copyButton:hover { background-color: #77dd77; color: black; } h1,h2,p { margin: 10px 3px; } a { text-decoration: none; color: inherit; } p { font-size: 0.9rem; margin-bottom: 15px; } </style> </head> <body> <h2>${title}</h2> <a href="${url}"><p>${url}</p></a> <a href="${url}"><button id="copyButton">${goToURLText}</button></a> </body></html>`;
+  const safeTitle = escapeHtml(title);
+  const safeFaviconURL = escapeHtml(faviconURL);
+  const safeUrl = escapeHtml(url);
+  const safeGoToURLText = escapeHtml(goToURLText);
+
+  const html = `<html> <head> <meta charset="UTF-8" /> <link rel="icon" type="image/x-icon" href="${safeFaviconURL}" /> <meta name="viewport" content="width=device-width, initial-scale=1.0" /> <title>${safeTitle}</title> <style> body { background-color: #181818; color: #ffffff; font-family: "Libre Franklin", sans-serif; display: flex; margin: 20px; flex-direction: column; justify-content: flex-start; align-items: flex-start; height: 100vh; } #copyButton { cursor: pointer; background-color: #2c2c2c; padding: 10px 20px; border: none; border-radius: 10px; color: #ffffff; font-family: "Libre Franklin", sans-serif; font-size: 14px; transition: background-color 0.125s ease, color 0.125s ease; } #copyButton:hover { background-color: #77dd77; color: black; } h1,h2,p { margin: 10px 3px; } a { text-decoration: none; color: inherit; } p { font-size: 0.9rem; margin-bottom: 15px; } </style> </head> <body> <h2>${safeTitle}</h2> <a href="${safeUrl}"><p>${safeUrl}</p></a> <a href="${safeUrl}"><button id="copyButton">${safeGoToURLText}</button></a> </body></html>`;
   const base64Html = Base64.encode(html);
   return `${PLACEHOLDER_URL_PREFIX}${base64Html}`;
 }
@@ -209,9 +249,14 @@ export function decodeDataUrl(url: string): string {
     const decodedHtml = Base64.decode(base64Data);
 
     // extract the actual URL from the HTML content
+    //
+    // The href is HTML-escaped by generatePlaceholderURL, so it has to be
+    // unescaped here to give back the URL that went in. Placeholders written
+    // before escaping existed are unaffected: unescaping a string with no
+    // entities in it is a no-op.
     const urlMatch = decodedHtml.match(/<a href="([^"]+)">/);
     if (urlMatch && urlMatch[1]) {
-      return urlMatch[1];
+      return unescapeHtml(urlMatch[1]);
     }
   }
   return url;
