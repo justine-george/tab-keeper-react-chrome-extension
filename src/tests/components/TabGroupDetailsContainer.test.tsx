@@ -1,7 +1,6 @@
 import { describe, expect, test, vi } from 'vitest';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { useDispatch } from 'react-redux';
 
 vi.mock('../../utils/functions/external', () => ({
   loadFromFirestore: vi.fn(),
@@ -15,7 +14,6 @@ import {
   saveToTabContainerInternal,
   selectTabContainer,
 } from '../../redux/slices/tabContainerDataStateSlice';
-import { AppDispatch } from '../../redux/store';
 
 // A factory, not a shared constant: saveToTabContainerInternal's reducer
 // mutates and Immer freezes whatever object it is given, so a session reused
@@ -56,26 +54,14 @@ const buildSession = () => ({
   ],
 });
 
-// TabGroupDetailsContainer dereferences the selected tab group on its very
-// first render (filteredTabGroups[0].tabGroupId) -- KAN-39, a known, open,
-// deliberately unfixed bug. Mounting it against an empty store therefore
-// throws immediately, before a test body would ever get a chance to dispatch
-// afterwards -- render() throws synchronously and no post-render dispatch is
-// reachable. Seeding via a wrapper that dispatches during its own render body
-// keeps the crash path from ever being entered: the dispatches run to
-// completion before React renders TabGroupDetailsContainer as this
-// component's child in the same synchronous pass, so its first `useSelector`
-// read already sees the populated, selected session. Not a component change.
-function Seeded() {
-  const dispatch: AppDispatch = useDispatch();
-  dispatch(saveToTabContainerInternal(buildSession()));
-  dispatch(selectTabContainer('group-1'));
-  return <TabGroupDetailsContainer />;
-}
-
 describe('TabGroupDetailsContainer', () => {
   test('renders the window and its tabs from store state', async () => {
-    await renderWithProviders(<Seeded />);
+    await renderWithProviders(<TabGroupDetailsContainer />, {
+      seedStore: (store) => {
+        store.dispatch(saveToTabContainerInternal(buildSession()));
+        store.dispatch(selectTabContainer('group-1'));
+      },
+    });
 
     expect(await screen.findByText('Morning reading')).toBeTruthy();
     expect(screen.getByText('Kagi Search')).toBeTruthy();
@@ -83,8 +69,12 @@ describe('TabGroupDetailsContainer', () => {
   });
 
   test('clicking a tab opens it via the chrome fake', async () => {
-    const { chrome } = await renderWithProviders(<Seeded />, {
+    const { chrome } = await renderWithProviders(<TabGroupDetailsContainer />, {
       seed: { tabs: [{ id: 1, index: 0, active: true }] },
+      seedStore: (store) => {
+        store.dispatch(saveToTabContainerInternal(buildSession()));
+        store.dispatch(selectTabContainer('group-1'));
+      },
     });
 
     await userEvent.click(await screen.findByText('Kagi Search'));
