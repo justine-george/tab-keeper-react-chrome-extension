@@ -1,4 +1,6 @@
-import { doc, setDoc } from 'firebase/firestore';
+// Lite build - see the note in src/config/firebase.ts. Must match the import
+// there, since db is created by that module's getFirestore.
+import { doc, setDoc } from 'firebase/firestore/lite';
 import { db, fetchDataFromFirestore } from '../../config/firebase';
 import {
   saveToFirestoreIfDirty,
@@ -8,6 +10,7 @@ import {
 import { TabMasterContainer } from '../../redux/slices/tabContainerDataStateSlice';
 import { AppDispatch } from '../../redux/store';
 import { stripEmbeddedFavicons } from './local';
+import { isMissingDocumentError, isPermissionDenied } from './firestoreErrors';
 
 // display a toast message
 export const displayToast = (
@@ -40,11 +43,16 @@ export async function loadFromFirestore(
     // still work.
     return tabDataFromCloud;
   } catch (error: any) {
-    if (error.message === 'Document does not exist for userId: ' + userId) {
-      console.warn('handled error: ' + error.message);
-      thunkAPI.dispatch(setIsDirty());
-      thunkAPI.dispatch(saveToFirestoreIfDirty());
-    } else if (error.message === `Missing or insufficient permissions.`) {
+    // Both of these mean "no usable cloud document for this user yet": either
+    // none exists, or the rules rejected the read because anonymous sign-in
+    // has not landed. Either way the recovery is the same - seed the document
+    // from local state.
+    //
+    // Match the permission failure on error.code, not on the message. The lite
+    // build reports it as "Request failed with error: Missing or insufficient
+    // permissions.", so comparing against the bare message silently fell
+    // through to the unexpected branch and skipped the retry entirely.
+    if (isMissingDocumentError(error, userId) || isPermissionDenied(error)) {
       console.warn('handled error: ' + error.message);
       thunkAPI.dispatch(setIsDirty());
       thunkAPI.dispatch(saveToFirestoreIfDirty());

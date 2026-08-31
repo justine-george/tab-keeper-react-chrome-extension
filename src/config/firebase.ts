@@ -1,5 +1,11 @@
 import { initializeApp } from 'firebase/app';
-import { doc, getDoc, getFirestore } from 'firebase/firestore';
+// The lite build, not the full SDK. Sync is a single getDoc on open and a
+// single setDoc on save - no realtime listeners, and offline persistence was
+// never enabled here. The full SDK's cache and write queue only pay off on
+// long-lived pages, and a popup is destroyed before either is used twice.
+// Switching costs ~106 kB gzipped. Moving back to 'firebase/firestore' means
+// paying that again, so only do it if onSnapshot or offline reads are needed.
+import { doc, getDoc, getFirestore } from 'firebase/firestore/lite';
 import { getAuth, onAuthStateChanged, signInAnonymously } from 'firebase/auth';
 
 import { AppDispatch } from '../redux/store';
