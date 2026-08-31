@@ -9,6 +9,7 @@ import {
   saveToFirestore,
 } from '../../utils/functions/external';
 import {
+  isValidTabMasterContainer,
   loadFromLocalStorage,
   saveToLocalStorage,
 } from '../../utils/functions/local';
@@ -88,9 +89,18 @@ export const syncStateWithFirestore = createAsyncThunk(
     const tabDataFromCloud: TabMasterContainer | undefined =
       await loadFromFirestore(state.globalState.userId!, thunkAPI);
 
-    // log data loaded from localStorage
-    const tabDataFromLocalStorage: TabMasterContainer =
-      loadFromLocalStorage('tabContainerData');
+    // localStorage is user-writable and survives extension updates, so whatever
+    // comes back here is genuinely unknown. Validate before the sync can act on
+    // it: an invalid container is treated as absent, which falls through to the
+    // cloud-only branch below and leaves the intact cloud copy alone.
+    const localCandidate = loadFromLocalStorage('tabContainerData');
+    const tabDataFromLocalStorage: TabMasterContainer | undefined =
+      isValidTabMasterContainer(localCandidate) ? localCandidate : undefined;
+    if (localCandidate !== undefined && tabDataFromLocalStorage === undefined) {
+      console.warn(
+        'Ignoring unreadable tabContainerData in localStorage; using cloud copy.'
+      );
+    }
 
     if (tabDataFromCloud && tabDataFromLocalStorage) {
       // data present on both local and cloud, possiblity of conflict

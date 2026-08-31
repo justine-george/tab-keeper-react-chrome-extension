@@ -3,12 +3,22 @@ import HttpBackend from 'i18next-http-backend';
 import { initReactI18next } from 'react-i18next';
 
 import { DEFAULT_LANG } from '../utils/constants/common';
-import { loadFromLocalStorage } from '../utils/functions/local';
-import { Language } from '../redux/slices/settingsDataStateSlice';
+import {
+  asPartialSettings,
+  loadFromLocalStorage,
+} from '../utils/functions/local';
+import { Language, SettingsData } from '../redux/slices/settingsDataStateSlice';
 
 // retrieve language from localStorage
-const { language: storedLanguage } = loadFromLocalStorage('settingsData') || {};
-const userLang: Language = (storedLanguage || DEFAULT_LANG).replace(/"/g, '');
+const { language: storedLanguage } = asPartialSettings<SettingsData>(
+  loadFromLocalStorage('settingsData')
+);
+// This runs at module load, so a non-string here would throw on .replace and
+// take the whole app down before it renders. Fall back instead.
+const userLang: Language =
+  typeof storedLanguage === 'string' && storedLanguage
+    ? (storedLanguage.replace(/"/g, '') as Language)
+    : DEFAULT_LANG;
 
 i18n
   .use(HttpBackend)

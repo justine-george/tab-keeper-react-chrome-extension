@@ -1,0 +1,155 @@
+{
+  "lastModified": 1788171081798,
+  "tabGroups": [
+    {
+      "tabGroupId": "cc8a148a-cfb4-4ce7-9023-2f3b00874b47",
+      "title": "TabKeeper - Tab Manager Extension",
+      "createdTime": "2026-08-31 03:11:21",
+      "windowCount": 1,
+      "tabCount": 4,
+      "isAutoSave": false,
+      "isSelected": true,
+      "windows": [
+        {
+          "windowId": "b0cc12a9-bdff-4cd6-9a3a-c56b19c9e370",
+          "windowHeight": 1410,
+          "windowWidth": 1280,
+          "windowOffsetTop": 30,
+          "windowOffsetLeft": 1279,
+          "tabCount": 4,
+          "title": "about:blank",
+          "tabs": [
+            {
+              "tabId": "c72cf4b4-5624-4182-b540-bf367dc0ab26",
+              "favicon": "",
+              "title": "about:blank",
+              "url": "about:blank"
+            },
+            {
+              "tabId": "c0e03e15-9590-4b21-bb5e-1ef06e05dd7e",
+              "favicon": "",
+              "title": "Example Domain",
+              "url": "https://example.com/"
+            },
+            {
+              "tabId": "adcc44d7-2b3d-4ec9-aec5-afbc3a5791c0",
+              "favicon": "",
+              "title": "TabKeeper - Tab Manager Extension",
+              "url": "chrome-extension://pdgdobjafppemhdancfbljjekkafophe/index.html"
+            },
+            {
+              "tabId": "3e0ad614-e3dc-4b5a-bd63-bf24940bf6a2",
+              "favicon": "https://developer.mozilla.org/favicon.svg",
+              "title": "MDN Web Docs",
+              "url": "https://developer.mozilla.org/en-US/"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "tabGroupId": "27fb0bcb-7d75-439f-9609-5ff736cb068d",
+      "title": "TabKeeper - Tab Manager Extension",
+      "createdTime": "2026-08-31 03:11:14",
+      "windowCount": 1,
+      "tabCount": 3,
+      "isAutoSave": false,
+      "isSelected": false,
+      "windows": [
+        {
+          "windowId": "b2ab58a8-358d-4d51-892b-6e3e24792bbf",
+          "windowHeight": 1410,
+          "windowWidth": 1280,
+          "windowOffsetTop": 30,
+          "windowOffsetLeft": 1279,
+          "tabCount": 3,
+          "title": "about:blank",
+          "tabs": [
+            {
+              "tabId": "3335eb95-b139-4329-8886-90db7cfa7e0d",
+              "favicon": "",
+              "title": "about:blank",
+              "url": "about:blank"
+            },
+            {
+              "tabId": "eb896fcf-c7a2-40f4-8355-8ebc62d55a8f",
+              "favicon": "",
+              "title": "Example Domain",
+              "url": "https://example.com/"
+            },
+            {
+              "tabId": "aca5dd3e-20e5-4b58-8588-597edbee4ce1",
+              "favicon": "",
+              "title": "TabKeeper - Tab Manager Extension",
+              "url": "chrome-extension://pdgdobjafppemhdancfbljjekkafophe/index.html"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "tabGroupId": "3553c746-a972-4a36-a971-c1b4fd6d9e24",
+      "title": "TabKeeper - Tab Manager Extension",
+      "createdTime": "2026-08-31 03:11:02",
+      "windowCount": 2,
+      "tabCount": 5,
+      "isAutoSave": false,
+      "isSelected": false,
+      "windows": [
+        {
+          "windowId": "f832f741-d931-4591-a0da-3641c579d228",
+          "windowHeight": 1410,
+          "windowWidth": 1280,
+          "windowOffsetTop": 30,
+          "windowOffsetLeft": 1279,
+          "tabCount": 3,
+          "title": "about:blank",
+          "tabs": [
+            {
+              "tabId": "1f8dae80-69b7-4d59-9adf-0e7fd4b84403",
+              "favicon": "",
+              "title": "about:blank",
+              "url": "about:blank"
+            },
+            {
+              "tabId": "dd2ac187-9053-4c43-8440-1b5dbfd9f98a",
+              "favicon": "",
+              "title": "Example Domain",
+              "url": "https://example.com/"
+            },
+            {
+              "tabId": "74c2423e-f022-427e-b091-b5f3d641f173",
+              "favicon": "",
+              "title": "TabKeeper - Tab Manager Extension",
+              "url": "chrome-extension://pdgdobjafppemhdancfbljjekkafophe/index.html"
+            }
+          ]
+        },
+        {
+          "windowId": "52c1e792-422f-4980-ab35-da7c4691ab69",
+          "windowHeight": 1410,
+          "windowWidth": 1280,
+          "windowOffsetTop": 30,
+          "windowOffsetLeft": 0,
+          "tabCount": 2,
+          "title": "Example Domain",
+          "tabs": [
+            {
+              "tabId": "69749fc7-c65f-409e-814a-977f912a84f1",
+              "favicon": "",
+              "title": "Example Domain",
+              "url": "https://example.org/"
+            },
+            {
+              "tabId": "b6314d72-193c-40c5-bb31-d23eb1d6e1ab",
+              "favicon": "https://www.wikipedia.org/static/favicon/wikipedia.ico",
+              "title": "Wikipedia",
+              "url": "https://www.wikipedia.org/"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "selectedTabGroupId": "cc8a148a-cfb4-4ce7-9023-2f3b00874b47"
+}

@@ -13,10 +13,14 @@ import {
   setSkippedUserReviewOnce,
   setUserRatedAndReviewed,
   updateLastReviewRequestTime,
+  SettingsData,
 } from '../../redux/slices/settingsDataStateSlice';
 import { APP_CHROME_WEBSTORE_LINK } from '../../utils/constants/common';
 import Button from '../common/Button';
-import { loadFromLocalStorage } from '../../utils/functions/local';
+import {
+  asPartialSettings,
+  loadFromLocalStorage,
+} from '../../utils/functions/local';
 
 interface RateAndReviewModalProps {
   style?: string;
@@ -36,8 +40,9 @@ export const RateAndReviewModal: React.FC<RateAndReviewModalProps> = ({
 
   if (!isRateAndReviewModalOpen) return null;
 
-  const { isSkippedUserReviewOnce = false } =
-    loadFromLocalStorage('settingsData') || {};
+  const { isSkippedUserReviewOnce = false } = asPartialSettings<SettingsData>(
+    loadFromLocalStorage('settingsData')
+  );
 
   const cleanUp = () => {
     dispatch(updateLastReviewRequestTime());
