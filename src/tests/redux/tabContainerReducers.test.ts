@@ -25,8 +25,12 @@ import reducer, {
   saveToTabContainerInternal,
   selectTabContainer,
   updateTabGroupTitle,
+  updateWindowGroupTitle,
+  addCurrWindowToTabGroupInternal,
+  addCurrTabToWindowInternal,
   deleteTabContainerInternal,
   deleteWindowInternal,
+  deleteTabInternal,
 } from '../../redux/slices/tabContainerDataStateSlice';
 import type {
   tabContainerData,
@@ -148,6 +152,118 @@ describe('tombstones', () => {
   it('records a tombstone when deleting the last window removes the group', () => {
     let s = reducer(base(), saveToTabContainerInternal(group('a')));
     s = reducer(s, deleteWindowInternal({ tabGroupId: 'a', windowId: 'w-a' }));
+    expect(s.tabGroups).toEqual([]);
+    expect(s.deletedTabGroups!.map((t) => t.tabGroupId)).toEqual(['a']);
+  });
+});
+
+// Every reducer that gained a touch() or bury() call, so none of them is
+// modified-but-unexercised. The two cascade paths matter most: they are the
+// only places a group disappears without deleteTabContainerInternal running,
+// and a missing tombstone there means the other device re-adds the session.
+describe('every content mutation stamps its session', () => {
+  beforeEach(() => localStorage.clear());
+
+  const stamped = (
+    action: Parameters<typeof reducer>[1],
+    setup: TabMasterContainer = reducer(
+      base(),
+      saveToTabContainerInternal(group('a'))
+    )
+  ) => {
+    const before = byId(setup, 'a').lastModified;
+    vi.spyOn(Date, 'now').mockReturnValue(9_999_999);
+    const after = reducer(setup, action);
+    vi.restoreAllMocks();
+    return { before, after };
+  };
+
+  it('adding a window stamps the session', () => {
+    const { after } = stamped(
+      addCurrWindowToTabGroupInternal({
+        tabGroupId: 'a',
+        window: {
+          windowId: 'w-new',
+          windowHeight: 100,
+          windowWidth: 100,
+          windowOffsetTop: 0,
+          windowOffsetLeft: 0,
+          tabCount: 1,
+          title: 't',
+          tabs: [
+            { tabId: 't-new', favicon: '', title: 't', url: 'https://b.co' },
+          ],
+        },
+      })
+    );
+    expect(byId(after, 'a').lastModified).toBe(9_999_999);
+  });
+
+  it('adding a tab stamps the session', () => {
+    const { after } = stamped(
+      addCurrTabToWindowInternal({
+        tabGroupId: 'a',
+        windowId: 'w-a',
+        tabData: {
+          tabId: 't-new',
+          favicon: '',
+          title: 't',
+          url: 'https://b.co',
+        },
+      })
+    );
+    expect(byId(after, 'a').lastModified).toBe(9_999_999);
+  });
+
+  it('renaming a window group stamps the session', () => {
+    const { after } = stamped(
+      updateWindowGroupTitle({
+        tabGroupId: 'a',
+        windowId: 'w-a',
+        editableTitle: 'renamed window',
+      })
+    );
+    expect(byId(after, 'a').lastModified).toBe(9_999_999);
+  });
+
+  it('deleting a tab stamps the session when the group survives', () => {
+    // two tabs, so removing one leaves the group standing
+    let s = reducer(base(), saveToTabContainerInternal(group('a')));
+    s = reducer(
+      s,
+      addCurrTabToWindowInternal({
+        tabGroupId: 'a',
+        windowId: 'w-a',
+        tabData: {
+          tabId: 't-extra',
+          favicon: '',
+          title: 't',
+          url: 'https://b.co',
+        },
+      })
+    );
+
+    vi.spyOn(Date, 'now').mockReturnValue(9_999_999);
+    s = reducer(
+      s,
+      deleteTabInternal({ tabGroupId: 'a', windowId: 'w-a', tabId: 't-extra' })
+    );
+    vi.restoreAllMocks();
+
+    expect(byId(s, 'a').lastModified).toBe(9_999_999);
+    expect(s.deletedTabGroups ?? []).toEqual([]);
+  });
+
+  // The second cascade. Removing the last tab removes its window, which
+  // removes the group - so it needs a tombstone just as much as an explicit
+  // delete does, or the deletion never reaches the other device.
+  it('records a tombstone when deleting the last tab removes the group', () => {
+    let s = reducer(base(), saveToTabContainerInternal(group('a')));
+    s = reducer(
+      s,
+      deleteTabInternal({ tabGroupId: 'a', windowId: 'w-a', tabId: 't-a' })
+    );
+
     expect(s.tabGroups).toEqual([]);
     expect(s.deletedTabGroups!.map((t) => t.tabGroupId)).toEqual(['a']);
   });
