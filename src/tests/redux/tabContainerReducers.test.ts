@@ -9,6 +9,18 @@ vi.hoisted(() => {
   (g.window as { screen?: unknown }).screen = { height: 1080, width: 1920 };
 });
 
+// Not optional, and not about this test's subject. Importing the slice reaches
+// globalStateSlice -> utils/functions/external -> config/firebase, which calls
+// getAuth() at module load and throws `auth/invalid-api-key` when no Firebase
+// config is present. A developer machine has a .env and never sees it; CI has
+// none, so without this the suite passes locally and fails only on the runner.
+// Every other slice-importing test stubs the same module for the same reason.
+vi.mock('../../utils/functions/external', () => ({
+  loadFromFirestore: vi.fn(async () => undefined),
+  saveToFirestore: vi.fn(async () => undefined),
+  displayToast: vi.fn(),
+}));
+
 import reducer, {
   saveToTabContainerInternal,
   selectTabContainer,
