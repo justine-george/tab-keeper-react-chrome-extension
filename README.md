@@ -58,7 +58,26 @@ Tab Keeper is an intuitive Chrome extension crafted to redefine the way users sa
 
 ## Changelog
 
-### v.1.3.3 (Latest)
+### v.1.4.0 (Latest)
+
+#### Features
+
+- A new Switch action on each saved session opens that session and clears your other windows out of the way. Whatever was open is saved as a session first, so nothing is lost — and if those windows were already saved, no duplicate is created
+
+#### Improvements
+
+- Sync no longer stops to ask which device is right. Changes made on different devices are merged automatically, and a session you delete on one device stays deleted on the others
+- The session Restore button is now called Open, and both it and Switch say in their tooltip what will happen to the windows you already have
+
+#### Fixes
+
+- Lazy-loaded tabs now open the page they stand for as soon as you click them. Previously every tab after the first in a restored window stayed on a placeholder and had to be opened by hand
+- If something goes wrong, the popup now shows an explanation and a reload button instead of appearing empty
+- A page whose title contains unusual characters no longer breaks the placeholder shown for a lazy-loaded tab
+- Damaged saved data is now spotted before syncing rather than surfacing later as a confusing error
+- Restoring sessions repeatedly no longer leaves unused listeners behind
+
+### v.1.3.3
 
 #### Fixes
 
