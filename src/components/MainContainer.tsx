@@ -9,7 +9,6 @@ import { Toast } from './common/Toast';
 import RightPane from './home/rightpane/RightPane';
 import { useThemeColors } from '../hooks/useThemeColors';
 import { APP_HEIGHT } from '../utils/constants/common';
-import { ConflictModal } from './modals/ConflictModal';
 import { AppDispatch, RootState } from '../redux/store';
 import { redo, undo } from '../redux/slices/undoRedoSlice';
 import LeftPaneSettings from './settings/leftpane/LeftPaneSettings';
@@ -27,10 +26,6 @@ export default function MainContainer() {
 
   const isSettingsPage = useSelector(
     (state: RootState) => state.globalState.isSettingsPage
-  );
-
-  const isConflictModalOpen = useSelector(
-    (state: RootState) => state.globalState.isConflictModalOpen
   );
 
   const isRateAndReviewModalOpen = useSelector(
@@ -142,7 +137,6 @@ export default function MainContainer() {
         </div>
       )}
       {isToastOpen && <Toast />}
-      {isConflictModalOpen && <ConflictModal />}
       {isRateAndReviewModalOpen && <RateAndReviewModal />}
     </div>
   );

@@ -44,6 +44,17 @@ export interface tabContainerData {
   isAutoSave: boolean;
   isSelected: boolean;
   windows: windowGroupData[];
+  // Optional because every document written before this change lacks it.
+  // Readers fall back to the container's lastModified; see mergeTabData.ts.
+  lastModified?: number;
+}
+
+// A deleted session has to leave a trace. Merging by tabGroupId alone would
+// let the device that still holds a session re-add it on every sync, so the
+// user could never delete it from either device.
+export interface deletedTabGroup {
+  tabGroupId: string;
+  deletedAt: number;
 }
 
 export interface TabMasterContainer {
@@ -53,6 +64,7 @@ export interface TabMasterContainer {
 
   // data
   tabGroups: tabContainerData[];
+  deletedTabGroups?: deletedTabGroup[];
 }
 
 export interface addCurrWindowToTabGroupParams {
@@ -360,6 +372,27 @@ export const deleteTab = createAsyncThunk(
   }
 );
 
+// Only content changes advance a session's timestamp. Selection must not:
+// selectTabContainer already bumps the container-wide lastModified on every
+// click and on every search keystroke, and letting that reach per-session
+// timestamps would make browsing on one device outrank a real edit on another.
+function touch(group: tabContainerData): void {
+  group.lastModified = Date.now();
+}
+
+// A removed session has to leave a trace, or the device that still holds it
+// re-adds it on the next merge and the user can never delete it anywhere.
+// Re-deleting an id refreshes its timestamp rather than appending a duplicate.
+function bury(state: TabMasterContainer, tabGroupId: string): void {
+  const graves = (state.deletedTabGroups ??= []);
+  const existing = graves.find((g) => g.tabGroupId === tabGroupId);
+  if (existing) {
+    existing.deletedAt = Date.now();
+  } else {
+    graves.push({ tabGroupId, deletedAt: Date.now() });
+  }
+}
+
 export const tabContainerDataStateSlice = createSlice({
   name: 'tabContainerDataState',
   initialState,
@@ -370,6 +403,7 @@ export const tabContainerDataStateSlice = createSlice({
     ) => {
       const newTabGroupId = action.payload.tabGroupId;
       state.tabGroups.unshift(action.payload);
+      touch(state.tabGroups[0]);
       state.lastModified = Date.now();
 
       // update localstorage
@@ -412,6 +446,7 @@ export const tabContainerDataStateSlice = createSlice({
         state.tabGroups[tabGroupIndex].tabCount += window.tabCount;
         state.tabGroups[tabGroupIndex].createdTime = getStringDate(new Date());
         state.tabGroups[tabGroupIndex].windows.unshift(window);
+        touch(state.tabGroups[tabGroupIndex]);
       }
       state.lastModified = Date.now();
 
@@ -444,6 +479,7 @@ export const tabContainerDataStateSlice = createSlice({
           state.tabGroups[tabGroupIndex].windows[windowIndex].tabs.unshift(
             currentTabData
           );
+          touch(state.tabGroups[tabGroupIndex]);
         }
       }
       state.lastModified = Date.now();
@@ -463,6 +499,7 @@ export const tabContainerDataStateSlice = createSlice({
       );
       if (tabGroupIndex !== -1) {
         state.tabGroups[tabGroupIndex].title = newTitle;
+        touch(state.tabGroups[tabGroupIndex]);
       }
       state.lastModified = Date.now();
       // update localstorage
@@ -484,6 +521,7 @@ export const tabContainerDataStateSlice = createSlice({
         );
         if (windowIndex !== -1) {
           state.tabGroups[tabGroupIndex].windows[windowIndex].title = newTitle;
+          touch(state.tabGroups[tabGroupIndex]);
         }
       }
       state.lastModified = Date.now();
@@ -499,6 +537,7 @@ export const tabContainerDataStateSlice = createSlice({
         (tabGroup) => tabGroup.tabGroupId === toBeDeletedTabGroupId
       );
       if (tabGroupIndex !== -1) {
+        bury(state, toBeDeletedTabGroupId);
         state.tabGroups.splice(tabGroupIndex, 1);
       }
       state.lastModified = Date.now();
@@ -544,7 +583,12 @@ export const tabContainerDataStateSlice = createSlice({
           ) {
             state.selectedTabGroupId = null;
           }
+          // Emptying a group removes it just as surely as deleting it, so it
+          // needs the same tombstone or the other device re-adds it.
+          bury(state, state.tabGroups[tabGroupIndex].tabGroupId);
           state.tabGroups.splice(tabGroupIndex, 1);
+        } else {
+          touch(state.tabGroups[tabGroupIndex]);
         }
       }
       state.lastModified = Date.now();
@@ -603,7 +647,12 @@ export const tabContainerDataStateSlice = createSlice({
             state.selectedTabGroupId = null;
           }
 
+          // Same cascade as deleteWindowInternal: the group is gone, so it
+          // needs a tombstone rather than just a new timestamp.
+          bury(state, state.tabGroups[tabGroupIndex].tabGroupId);
           state.tabGroups.splice(tabGroupIndex, 1);
+        } else {
+          touch(state.tabGroups[tabGroupIndex]);
         }
       }
       state.lastModified = Date.now();
@@ -616,6 +665,71 @@ export const tabContainerDataStateSlice = createSlice({
       // update localstorage
       saveToLocalStorage('tabContainerData', action.payload);
       return action.payload;
+    },
+
+    // Replace the container with one the user is explicitly asserting: an
+    // undo/redo snapshot, or an imported backup file. Kept separate from
+    // replaceState, which the sync uses for merged results and must not touch
+    // timestamps.
+    //
+    // Either source can bring back a session that has since been deleted, and
+    // neither carries a tombstone for it - but the cloud may still hold the one
+    // that delete pushed up, and it is newer than the restored session's
+    // untouched timestamp. Without help the next merge simply re-applies the
+    // delete: the undo or the import appears to work and then silently reverses
+    // itself, with no way to recover the session.
+    //
+    // Stamping the restored session now is not a workaround: bringing it back
+    // IS a change to that session, made on this device at this moment, which is
+    // exactly what the per-session timestamp records. Only sessions whose
+    // tombstone is being withdrawn are stamped - anything else in the payload
+    // keeps its own history.
+    restoreContainer: (state, action: PayloadAction<typeof state>) => {
+      const withdrawnAt = new Map(
+        (state.deletedTabGroups ?? []).map((grave) => [
+          grave.tabGroupId,
+          grave.deletedAt,
+        ])
+      );
+      // The mirror direction: a payload can also re-introduce a tombstone for a
+      // session that is currently live - redoing a delete after undoing it. The
+      // restored tombstone carries the original delete time, which the undo
+      // above has already stamped the session past, so without this the redo
+      // silently fails to delete anything.
+      const liveAt = new Map(
+        state.tabGroups.map((tabGroup) => [
+          tabGroup.tabGroupId,
+          tabGroup.lastModified ?? state.lastModified,
+        ])
+      );
+
+      const restored: TabMasterContainer = {
+        ...action.payload,
+        tabGroups: action.payload.tabGroups.map((tabGroup) => {
+          const buriedAt = withdrawnAt.get(tabGroup.tabGroupId);
+          if (buriedAt === undefined) return tabGroup;
+          return {
+            ...tabGroup,
+            // Strictly after the tombstone, not merely Date.now(). Undoing a
+            // delete promptly enough lands in the same millisecond, and the
+            // merge gives exact ties to cloud - so an equal timestamp loses to
+            // the very tombstone this is withdrawing. The un-delete happened
+            // after the delete by definition; encode that rather than trusting
+            // clock granularity.
+            lastModified: Math.max(Date.now(), buriedAt + 1),
+          };
+        }),
+        deletedTabGroups: action.payload.deletedTabGroups?.map((grave) => {
+          const aliveAt = liveAt.get(grave.tabGroupId);
+          if (aliveAt === undefined) return grave;
+          // Same reasoning, other way round.
+          return { ...grave, deletedAt: Math.max(Date.now(), aliveAt + 1) };
+        }),
+      };
+
+      // update localstorage
+      saveToLocalStorage('tabContainerData', restored);
+      return restored;
     },
   },
 });
@@ -631,6 +745,7 @@ export const {
   deleteWindowInternal,
   deleteTabInternal,
   replaceState,
+  restoreContainer,
 } = tabContainerDataStateSlice.actions;
 
 export default tabContainerDataStateSlice.reducer;

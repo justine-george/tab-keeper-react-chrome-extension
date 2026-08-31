@@ -1,6 +1,7 @@
 import { Base64 } from 'js-base64';
 import {
   TabMasterContainer,
+  deletedTabGroup,
   tabContainerData,
   tabData,
   windowGroupData,
@@ -337,6 +338,20 @@ export function resolveFaviconUrl(favicon: string, pageUrl: string): string {
 const isRecord = (data: unknown): data is Record<string, unknown> =>
   typeof data === 'object' && data !== null && !Array.isArray(data);
 
+// validate import JSON structure - deletedTabGroup
+const isValidDeletedTabGroup = (data: unknown): data is deletedTabGroup =>
+  isRecord(data) &&
+  typeof data.tabGroupId === 'string' &&
+  typeof data.deletedAt === 'number';
+
+// Absent is valid: every container written before tombstones existed lacks the
+// field, and rejecting those would discard every pre-migration session. Present
+// but malformed is not - the merge iterates this list, and a string would be
+// walked character by character.
+const hasValidTombstones = (value: unknown): boolean =>
+  value === undefined ||
+  (Array.isArray(value) && value.every(isValidDeletedTabGroup));
+
 // validate import JSON structure - TabMasterContainer
 export const isValidTabMasterContainer = (
   data: unknown
@@ -347,7 +362,8 @@ export const isValidTabMasterContainer = (
     (typeof data.selectedTabGroupId === 'string' ||
       data.selectedTabGroupId === null) &&
     Array.isArray(data.tabGroups) &&
-    data.tabGroups.every(isValidTabContainerData)
+    data.tabGroups.every(isValidTabContainerData) &&
+    hasValidTombstones(data.deletedTabGroups)
   );
 };
 

@@ -25,22 +25,18 @@
   "Add current tab": "Aggiungi tab",
   "Open in new tab": "Apri in nuovo tab",
   "Go to URL": "Visita il sito",
-
   "Windows": "Finestre",
   "Window": "Finestra",
   "Tabs": "Tabs",
   "Tab": "Tab",
-
   "Go back": "Indietro",
   "Search among sessions": "Cerca sessioni",
-
   "Session saved.": "Sessione salvata.",
   "Current tab saved.": "Tab salvato.",
   "Current window saved.": "Finestra salvata.",
   "Session deleted.": "Sessione eliminata.",
   "Session window deleted.": "Finestra eliminata.",
   "Session tab deleted.": "Tab eliminato.",
-
   "English": "Inglese",
   "German": "Tedesco",
   "Chinese": "Cinese",
@@ -51,21 +47,12 @@
   "Spanish": "Spagnolo",
   "Italian": "Italiano",
   "Hindi": "Hindi",
-
-  "Local Data": "Dati locali",
-  "LATEST": "ULTIMO",
-  "Last updated": "Ultimo aggiornamento",
-  "Saved sessions": "Sessioni salvate",
-  "Saved session": "Sessione salvata",
-  "Cloud Data": "Dati cloud",
-
   "Back": "Indietro",
   "Display": "Mostra",
   "Sync & Privacy": "Sync e Privacy",
   "Data Management": "Gestione dati",
   "Language": "Lingua",
   "About": "Informazioni",
-
   "Themes": "Temi",
   "Light": "Chiaro",
   "Warm Light": "Luce calda",
@@ -83,13 +70,11 @@
   "Backup App Data to File": "Backup dati app",
   "Restore App Data from File": "Ripristina dati app",
   "Choose Language": "Scegli lingua",
-
   "Thank you for using this app!": "Grazie di cuore per aver scelto Tab Keeper!",
   "Crafted with ❤️ by Justine George": "Realizzato con amore da Justine George",
   "Rate this app": "Valuta questa estensione",
   "Share your thoughts": "Condividi opinioni",
   "Share on Twitter (X)": "Condividi su Twitter (X)",
-
   "RequestUserReviewHeader": "Ti sta piacendo Tab Keeper?",
   "RequestUserReviewText": "Ti dispiacerebbe lasciarci una recensione positiva?",
   "Maybe Later": "Più tardi",

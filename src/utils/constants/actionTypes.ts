@@ -6,6 +6,12 @@ export const REDO_ACTION = 'undoRedo/redo';
 // tabContainerDataState actions
 export const TAB_CONTAINER_REPLACE_STATE_ACTION =
   'tabContainerDataState/replaceState';
+
+// Undo/redo and import both restore a container the user is asserting, and
+// unlike replaceState they may need to withdraw a tombstone; see
+// restoreContainer in tabContainerDataStateSlice.
+export const TAB_CONTAINER_RESTORE_ACTION =
+  'tabContainerDataState/restoreContainer';
 export const SELECT_TAB_CONTAINER_ACTION =
   'tabContainerDataState/selectTabContainer';
 export const SAVE_TAB_CONTAINER_ACTION =

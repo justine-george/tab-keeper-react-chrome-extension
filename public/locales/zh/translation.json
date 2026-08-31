@@ -25,22 +25,18 @@
   "Add current tab": "添加当前标签",
   "Open in new tab": "在新标签中打开",
   "Go to URL": "访问网站",
-
   "Windows": "窗口",
   "Window": "窗口",
   "Tabs": "标签",
   "Tab": "标签",
-
   "Go back": "返回",
   "Search among sessions": "在会话中搜索",
-
   "Session saved.": "会话已保存。",
   "Current tab saved.": "当前标签已保存。",
   "Current window saved.": "当前窗口已保存。",
   "Session deleted.": "会话已删除。",
   "Session window deleted.": "会话窗口已删除。",
   "Session tab deleted.": "会话标签已删除。",
-
   "English": "英语",
   "German": "德语",
   "Chinese": "中文",
@@ -51,21 +47,12 @@
   "Spanish": "西班牙语",
   "Italian": "意大利语",
   "Hindi": "印地语",
-
-  "Local Data": "本地数据",
-  "LATEST": "最新",
-  "Last updated": "最后更新",
-  "Saved sessions": "保存的会话",
-  "Saved session": "保存的单一会话",
-  "Cloud Data": "云数据",
-
   "Back": "后退",
   "Display": "显示",
   "Sync & Privacy": "同步和隐私",
   "Data Management": "数据管理",
   "Language": "语言",
   "About": "关于",
-
   "Themes": "主题",
   "Light": "明亮",
   "Warm Light": "温暖灯光",
@@ -83,13 +70,11 @@
   "Backup App Data to File": "将应用数据备份到文件",
   "Restore App Data from File": "从文件恢复应用数据",
   "Choose Language": "选择语言",
-
   "Thank you for using this app!": "感谢您选择使用选项卡管理器！",
   "Crafted with ❤️ by Justine George": "Justine George 用心打造❤️",
   "Rate this app": "评价此扩展",
   "Share your thoughts": "分享您的想法",
   "Share on Twitter (X)": "在 Twitter 上分享 (X)",
-
   "RequestUserReviewHeader": "喜欢Tab Keeper吗？",
   "RequestUserReviewText": "您介意给我们一个好评吗？",
   "Maybe Later": "稍后再说",

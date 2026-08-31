@@ -98,6 +98,11 @@ describe('sync with invalid localStorage', () => {
   // The guard must not change the behaviour it is not aimed at: a valid local
   // container still has to reach Redux and still has to be written to the
   // cloud when it is the newer side.
+  //
+  // Since KAN-32 that path is a union, not a replacement - both sessions
+  // survive. The assertion is that the valid local one is not discarded, which
+  // is what this test exists to protect; it deliberately does not pin down the
+  // whole result, which mergeTabData.test.ts covers directly.
   it('leaves a valid newer local container on its existing path', async () => {
     const validLocal = {
       ...goodCloud,
@@ -116,7 +121,7 @@ describe('sync with invalid localStorage', () => {
 
     expect(
       store.getState().tabContainerDataState.tabGroups.map((g) => g.tabGroupId)
-    ).toEqual(['local-1']);
+    ).toContain('local-1');
     expect(mocks.saveToFirestore).toHaveBeenCalled();
   });
 });

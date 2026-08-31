@@ -37,7 +37,7 @@ import {
 import { SettingsCategoryContainer } from '../leftpane/SettingsCategoryContainer';
 import {
   TabMasterContainer,
-  replaceState,
+  restoreContainer,
 } from '../../../redux/slices/tabContainerDataStateSlice';
 import { isValidTabMasterContainer } from '../../../utils/functions/local';
 import { SettingsCategory } from '../../../redux/slices/settingsCategoryStateSlice';
@@ -137,8 +137,12 @@ const SettingsDetailsContainer: React.FC = () => {
           // update timestamp
           tabDataFromJSON.lastModified = Date.now();
 
-          // Dispatch the action to replace the current state
-          dispatch(replaceState(tabDataFromJSON));
+          // restoreContainer, not replaceState: a backup written before a
+          // session was deleted still contains it and carries no tombstone,
+          // but the cloud may hold the one that delete pushed up. Replacing
+          // blind lets the next merge re-apply the delete, so the import
+          // appears to work and then silently drops that session.
+          dispatch(restoreContainer(tabDataFromJSON));
           dispatch(setIsDirty());
           dispatch(saveToFirestoreIfDirty());
 

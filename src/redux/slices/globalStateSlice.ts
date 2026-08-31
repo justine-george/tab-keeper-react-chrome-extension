@@ -13,11 +13,8 @@ import {
   loadFromLocalStorage,
   saveToLocalStorage,
 } from '../../utils/functions/local';
-
-interface ConflictModalPayload {
-  tabDataLocal: TabMasterContainer;
-  tabDataCloud: TabMasterContainer;
-}
+import { mergeTabContainers } from '../../utils/functions/mergeTabData';
+import { TOAST_MESSAGES } from '../../utils/constants/common';
 
 export interface Global {
   hasSyncedBefore: boolean;
@@ -30,10 +27,7 @@ export interface Global {
   syncStatus: 'idle' | 'loading' | 'success' | 'error';
   isToastOpen: boolean;
   toastText: string;
-  isConflictModalOpen: boolean;
   isRateAndReviewModalOpen: boolean;
-  tabDataLocal: TabMasterContainer | null;
-  tabDataCloud: TabMasterContainer | null;
 }
 
 export const initialState: Global = {
@@ -47,10 +41,7 @@ export const initialState: Global = {
   syncStatus: 'idle',
   isToastOpen: false,
   toastText: '',
-  isConflictModalOpen: false,
   isRateAndReviewModalOpen: false,
-  tabDataLocal: null,
-  tabDataCloud: null,
 };
 
 // save data to Firestore if dirty, saves latest to localStorage at the end
@@ -103,44 +94,36 @@ export const syncStateWithFirestore = createAsyncThunk(
     }
 
     if (tabDataFromCloud && tabDataFromLocalStorage) {
-      // data present on both local and cloud, possiblity of conflict
-      const cloudTimestamp = tabDataFromCloud.lastModified;
-      const localTimestamp = tabDataFromLocalStorage.lastModified;
+      // Both sides hold data. Merge per session rather than making the user
+      // discard one side: the old prompt only appeared when the cloud was
+      // newer, while a newer local silently overwrote the cloud, so a whole
+      // side was already being dropped without asking in one direction.
+      const { merged, changedFromLocal, changedFromCloud } = mergeTabContainers(
+        tabDataFromLocalStorage,
+        tabDataFromCloud,
+        Date.now()
+      );
 
-      if (localTimestamp !== cloudTimestamp) {
-        if (localTimestamp > cloudTimestamp) {
-          // Local is the latest, write this to cloud
-          thunkAPI.dispatch(replaceState(tabDataFromLocalStorage));
-          thunkAPI.dispatch(setIsDirty());
-          thunkAPI.dispatch(saveToFirestoreIfDirty());
-          if (!state.globalState.hasSyncedBefore) {
-            // reset presentState in the undoRedoState
-            thunkAPI.dispatch(
-              setPresentStartup({
-                tabContainerDataState: tabDataFromLocalStorage,
-              })
-            );
-          }
-          thunkAPI.dispatch(setHasSyncedBefore());
-        } else {
-          // cloud is latest, let user decide.
-          if (!state.globalState.isDirty) {
-            // local is not dirty, so might want to overwrite it with cloud data. Still let user decide.
-          }
-          // data conflict!
-          thunkAPI.dispatch(
-            openConflictModal({
-              tabDataLocal: tabDataFromLocalStorage,
-              tabDataCloud: tabDataFromCloud,
-            })
-          );
-        }
-      } else {
-        // No data conflict
-        thunkAPI.dispatch(replaceState(tabDataFromLocalStorage));
+      thunkAPI.dispatch(replaceState(merged));
+
+      if (changedFromCloud) {
+        thunkAPI.dispatch(setIsDirtyWithoutSync());
         thunkAPI.dispatch(saveToFirestoreIfDirty());
-        thunkAPI.dispatch(setHasSyncedBefore());
+      } else {
+        thunkAPI.dispatch(setIsNotDirty());
       }
+
+      if (changedFromLocal) {
+        thunkAPI.dispatch(
+          showToast({ toastText: TOAST_MESSAGES.SYNC_MERGED, duration: 3000 })
+        );
+      }
+
+      if (!state.globalState.hasSyncedBefore) {
+        // reset presentState in the undoRedoState
+        thunkAPI.dispatch(setPresentStartup({ tabContainerDataState: merged }));
+      }
+      thunkAPI.dispatch(setHasSyncedBefore());
     } else if (tabDataFromCloud) {
       // newly installed returning user - data present only on cloud
       thunkAPI.dispatch(replaceState(tabDataFromCloud!));
@@ -159,7 +142,7 @@ export const syncStateWithFirestore = createAsyncThunk(
       // data only on localStorage
       // save back to Firestore
       thunkAPI.dispatch(replaceState(tabDataFromLocalStorage));
-      thunkAPI.dispatch(setIsDirty());
+      thunkAPI.dispatch(setIsDirtyWithoutSync());
       thunkAPI.dispatch(saveToFirestoreIfDirty());
       if (!state.globalState.hasSyncedBefore) {
         // reset presentState in the undoRedoState
@@ -172,7 +155,7 @@ export const syncStateWithFirestore = createAsyncThunk(
       thunkAPI.dispatch(setHasSyncedBefore());
     } else {
       // new user - hey there!
-      thunkAPI.dispatch(setIsDirty());
+      thunkAPI.dispatch(setIsDirtyWithoutSync());
       thunkAPI.dispatch(saveToFirestoreIfDirty());
       thunkAPI.dispatch(setHasSyncedBefore());
     }
@@ -213,20 +196,15 @@ export const showToast = createAsyncThunk(
   }
 );
 
+function markDirty(state: Global): void {
+  state.isDirty = true;
+  state.syncStatus = 'idle';
+}
+
 export const globalStateSlice = createSlice({
   name: 'globalState',
   initialState,
   reducers: {
-    openConflictModal: (state, action: PayloadAction<ConflictModalPayload>) => {
-      state.tabDataLocal = action.payload.tabDataLocal;
-      state.tabDataCloud = action.payload.tabDataCloud;
-      state.isConflictModalOpen = true;
-    },
-
-    closeConflictModal: (state) => {
-      state.isConflictModalOpen = false;
-    },
-
     openRateAndReviewModal: (state) => {
       state.isRateAndReviewModalOpen = true;
     },
@@ -267,9 +245,23 @@ export const globalStateSlice = createSlice({
       state.isDirty = false;
     },
 
+    // "The user changed something." customMiddleware watches for this action
+    // and schedules a debounced sync, so it must only be dispatched from
+    // outside a sync.
     setIsDirty: (state) => {
-      state.isDirty = true;
-      state.syncStatus = 'idle';
+      markDirty(state);
+    },
+
+    // The same flag, deliberately a different action type.
+    //
+    // The three branches of syncStateWithFirestore that persist something all
+    // need isDirty set, because that is what saveToFirestoreIfDirty checks -
+    // but they run *inside* a sync. Dispatching setIsDirty there makes the
+    // middleware schedule another full sync, so every write costs an extra
+    // round trip, and any state the two sides keep disagreeing on becomes an
+    // unbounded write loop.
+    setIsDirtyWithoutSync: (state) => {
+      markDirty(state);
     },
 
     setSignedIn: (state) => {
@@ -327,8 +319,6 @@ export const globalStateSlice = createSlice({
 });
 
 export const {
-  openConflictModal,
-  closeConflictModal,
   openRateAndReviewModal,
   closeRateAndReviewModal,
   openSearchPanel,
@@ -339,6 +329,7 @@ export const {
   setToastText,
   closeSettingsPage,
   setIsDirty,
+  setIsDirtyWithoutSync,
   setIsNotDirty,
   setSignedIn,
   setHasSyncedBefore,
