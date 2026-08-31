@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from 'vitest';
+import { afterEach, describe, expect, test, vi } from 'vitest';
 
 import { setupChromeFake } from './chrome.fake';
 
@@ -106,5 +106,15 @@ describe('chrome.runtime fake', () => {
     handle = undefined;
 
     expect((globalThis as { chrome?: unknown }).chrome).toBeUndefined();
+  });
+
+  test('sendMessage invokes a callback when one is given', () => {
+    handle = setupChromeFake();
+    const cb = vi.fn();
+
+    chrome.runtime.sendMessage({ type: 'FOCUS_TAB_CONTAINER' }, cb);
+
+    expect(cb).toHaveBeenCalledTimes(1);
+    expect(handle.sentMessages).toEqual([{ type: 'FOCUS_TAB_CONTAINER' }]);
   });
 });

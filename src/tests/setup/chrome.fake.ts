@@ -182,9 +182,9 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
     },
 
     runtime: {
-      sendMessage: (message: unknown) => {
+      sendMessage: (message: unknown, cb?: (response: unknown) => void) => {
         handle.sentMessages.push(message);
-        return Promise.resolve();
+        return settle(undefined, cb);
       },
       onMessage: {
         addListener: () => undefined,
