@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 
 import { css } from '@emotion/react';
@@ -19,6 +20,8 @@ import {
 import { useTranslation } from 'react-i18next';
 import { getStringDate } from '../../utils/functions/local';
 
+const TITLE_ID = 'conflict-modal-title';
+
 interface ConflictModalProps {
   style?: string;
 }
@@ -28,6 +31,8 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({ style }) => {
   const FONT_FAMILY = useFontFamily();
   const { t } = useTranslation();
   const dispatch: AppDispatch = useDispatch();
+
+  const dialogRef = useRef<HTMLDialogElement>(null);
 
   const isConflictModalOpen = useSelector(
     (state: RootState) => state.globalState.isConflictModalOpen
@@ -45,61 +50,89 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({ style }) => {
     (state: RootState) => state.globalState.hasSyncedBefore
   );
 
-  if (!isConflictModalOpen) return null;
+  const hasConflictToResolve =
+    isConflictModalOpen && tabDataLocal !== null && tabDataCloud !== null;
 
-  const isLocalRecent = tabDataLocal!.lastModified > tabDataCloud!.lastModified;
+  // showModal() is what makes this modal rather than merely visible: the
+  // browser moves the dialog to the top layer, confines Tab to the controls
+  // inside it, marks the panes behind it inert so a screen reader cannot walk
+  // into UI the user can neither see nor use, and closes it on Escape.
+  // Rendering the element with the `open` attribute instead would give none of
+  // that. The effect must sit above the early return to keep hook order fixed.
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (dialog && !dialog.open) {
+      dialog.showModal();
+    }
+  }, [hasConflictToResolve]);
 
-  const tabDataLocalLength = tabDataLocal!.tabGroups.length;
-  const tabDataCloudLength = tabDataCloud!.tabGroups.length;
+  // Narrowing rather than asserting: both fields really are
+  // `TabMasterContainer | null`, and there is nothing to show without them.
+  // This is what lets the body below read them without `!`.
+  if (!hasConflictToResolve) return null;
+
+  const isLocalRecent = tabDataLocal.lastModified > tabDataCloud.lastModified;
+
+  const tabDataLocalLength = tabDataLocal.tabGroups.length;
+  const tabDataCloudLength = tabDataCloud.tabGroups.length;
 
   const handleChooseLocalData = () => {
-    dispatch(replaceState(tabDataLocal!));
+    dispatch(replaceState(tabDataLocal));
     dispatch(setIsDirty());
     dispatch(saveToFirestoreIfDirty());
     if (!hasSyncedBefore) {
       // reset presentState in the undoRedoState
-      dispatch(setPresentStartup({ tabContainerDataState: tabDataLocal! }));
+      dispatch(setPresentStartup({ tabContainerDataState: tabDataLocal }));
       dispatch(setHasSyncedBefore());
     }
     dispatch(closeConflictModal());
   };
 
   const handleChooseCloudData = () => {
-    dispatch(replaceState(tabDataCloud!));
+    dispatch(replaceState(tabDataCloud));
     dispatch(setIsNotDirty());
     if (!hasSyncedBefore) {
       // reset presentState in the undoRedoState
-      dispatch(setPresentStartup({ tabContainerDataState: tabDataCloud! }));
+      dispatch(setPresentStartup({ tabContainerDataState: tabDataCloud }));
       dispatch(setHasSyncedBefore());
     }
     dispatch(closeConflictModal());
   };
 
-  const overlayStyle = css`
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.8);
-    z-index: 999;
-    font-family: ${FONT_FAMILY};
-    font-size: 0.9rem;
-    ${style && style}
-  `;
+  // Leaving the conflict unresolved writes nothing; the next sync re-offers it.
+  const handleDismiss = () => {
+    dispatch(closeConflictModal());
+  };
 
-  const modalContentStyle = css`
+  const dialogStyle = css`
+    /* The UA gives <dialog> its own box; reset it back to the modal's geometry. */
     position: fixed;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
+    margin: 0;
+    padding: 0;
+    width: 80%;
+    height: 50%;
+    max-width: none;
+    max-height: none;
     background-color: ${COLORS.PRIMARY_COLOR};
     color: ${COLORS.LABEL_L1_COLOR};
     border: 1px solid ${COLORS.BORDER_COLOR};
-    width: 80%;
-    height: 50%;
-    z-index: 1000;
-    display: flex;
+    font-family: ${FONT_FAMILY};
+    font-size: 0.9rem;
+
+    /* Scoped to [open] so the dialog stays hidden until showModal() runs,
+       rather than flashing as a non-modal box for a frame. */
+    &[open] {
+      display: flex;
+    }
+
+    &::backdrop {
+      background: rgba(0, 0, 0, 0.8);
+    }
+
+    ${style && style}
   `;
 
   const paneStyle = css`
@@ -110,7 +143,13 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({ style }) => {
     width: 50%;
     height: 100%;
     padding: 20px;
+    margin: 0;
     border: 1px solid ${COLORS.BORDER_COLOR};
+    background: none;
+    color: inherit;
+    font-family: inherit;
+    font-size: inherit;
+    text-align: left;
     cursor: pointer;
     transition:
       background-color 0.2s,
@@ -119,6 +158,40 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({ style }) => {
     &:hover {
       background-color: ${COLORS.SELECTION_COLOR};
       color: ${COLORS.CONTRAST_COLOR};
+    }
+
+    /* TEXT_COLOR is the theme's foreground, so it contrasts with every pane
+       background by construction, hover included. Inset so the ring is not
+       clipped by the neighbouring pane's border. */
+    &:focus-visible {
+      outline: 2px solid ${COLORS.TEXT_COLOR};
+      outline-offset: -4px;
+    }
+  `;
+
+  const closeButtonStyle = css`
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    background: none;
+    border: none;
+    color: ${COLORS.TEXT_COLOR};
+    font-family: inherit;
+    cursor: pointer;
+
+    &:hover {
+      background-color: ${COLORS.HOVER_COLOR};
+    }
+
+    &:focus-visible {
+      outline: 2px solid ${COLORS.TEXT_COLOR};
+      outline-offset: -2px;
     }
   `;
 
@@ -145,69 +218,105 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({ style }) => {
     margin-right: 4px;
   `;
 
-  const h2Style = css`
+  // Deliberately not iconStyle: that carries a margin-right to space the pane
+  // glyphs from their headings, which would push this one off-centre.
+  const closeIconStyle = css`
+    font-size: 1.5rem;
+  `;
+
+  // Was an <h2>, which is invalid inside a <button>. The UA's h2 sizing
+  // (1.5em of the dialog's 0.9rem) is restated here so the panes look unchanged.
+  const paneHeadingStyle = css`
+    font-size: 1.35rem;
     font-weight: 500;
   `;
 
-  return (
-    <div css={overlayStyle}>
-      <div css={modalContentStyle}>
-        <div css={paneStyle} onClick={handleChooseLocalData}>
-          <div css={topRowStyle}>
-            <span css={iconStyle} className="material-symbols-outlined">
-              storage
-            </span>
-            <h2 css={h2Style}>{t('Local Data')}</h2>
-            {isLocalRecent && (
-              <Tag value={t('LATEST')} style={latestTagStyle} />
-            )}
-          </div>
-          <NormalLabel
-            value={`${t('Last updated')}: ${getStringDate(
-              new Date(tabDataLocal!.lastModified)
-            )}`}
-            size="0.9rem"
-            color={COLORS.TEXT_COLOR}
-            style="margin-top: 40px; align-self: flex-start;"
-          />
-          <NormalLabel
-            value={`${tabDataLocalLength} ${
-              tabDataLocalLength > 1 ? t('Saved sessions') : t('Saved session')
-            }`}
-            size="0.9rem"
-            color={COLORS.TEXT_COLOR}
-            style="margin-top: 40px; align-self: flex-start;"
-          />
-        </div>
+  // Names the dialog for assistive tech without altering the visual layout.
+  const visuallyHiddenStyle = css`
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  `;
 
-        <div css={paneStyle} onClick={handleChooseCloudData}>
-          <div css={topRowStyle}>
-            <span css={iconStyle} className="material-symbols-outlined">
-              cloud
-            </span>
-            <h2 css={h2Style}>{t('Cloud Data')}</h2>
-            {!isLocalRecent && (
-              <Tag value={t('LATEST')} style={latestTagStyle} />
-            )}
-          </div>
-          <NormalLabel
-            value={`${t('Last updated')}: ${getStringDate(
-              new Date(tabDataCloud!.lastModified)
-            )}`}
-            size="0.9rem"
-            color={COLORS.TEXT_COLOR}
-            style="margin-top: 40px;  align-self: flex-start;"
-          />
-          <NormalLabel
-            value={`${tabDataCloudLength} ${
-              tabDataCloudLength > 1 ? t('Saved sessions') : t('Saved session')
-            }`}
-            size="0.9rem"
-            color={COLORS.TEXT_COLOR}
-            style="margin-top: 40px; align-self: flex-start;"
-          />
+  return (
+    <dialog
+      ref={dialogRef}
+      css={dialogStyle}
+      aria-labelledby={TITLE_ID}
+      onCancel={handleDismiss}
+    >
+      <h2 id={TITLE_ID} css={visuallyHiddenStyle}>
+        {t('SyncConflictHeader')}
+      </h2>
+
+      <button
+        type="button"
+        css={closeButtonStyle}
+        onClick={handleDismiss}
+        aria-label={t('SyncConflictDismissLabel')}
+      >
+        <span css={closeIconStyle} className="material-symbols-outlined">
+          close
+        </span>
+      </button>
+
+      <button type="button" css={paneStyle} onClick={handleChooseLocalData}>
+        <div css={topRowStyle}>
+          <span css={iconStyle} className="material-symbols-outlined">
+            storage
+          </span>
+          <span css={paneHeadingStyle}>{t('Local Data')}</span>
+          {isLocalRecent && <Tag value={t('LATEST')} style={latestTagStyle} />}
         </div>
-      </div>
-    </div>
+        <NormalLabel
+          value={`${t('Last updated')}: ${getStringDate(
+            new Date(tabDataLocal.lastModified)
+          )}`}
+          size="0.9rem"
+          color={COLORS.TEXT_COLOR}
+          style="margin-top: 40px; align-self: flex-start;"
+        />
+        <NormalLabel
+          value={`${tabDataLocalLength} ${
+            tabDataLocalLength > 1 ? t('Saved sessions') : t('Saved session')
+          }`}
+          size="0.9rem"
+          color={COLORS.TEXT_COLOR}
+          style="margin-top: 40px; align-self: flex-start;"
+        />
+      </button>
+
+      <button type="button" css={paneStyle} onClick={handleChooseCloudData}>
+        <div css={topRowStyle}>
+          <span css={iconStyle} className="material-symbols-outlined">
+            cloud
+          </span>
+          <span css={paneHeadingStyle}>{t('Cloud Data')}</span>
+          {!isLocalRecent && <Tag value={t('LATEST')} style={latestTagStyle} />}
+        </div>
+        <NormalLabel
+          value={`${t('Last updated')}: ${getStringDate(
+            new Date(tabDataCloud.lastModified)
+          )}`}
+          size="0.9rem"
+          color={COLORS.TEXT_COLOR}
+          style="margin-top: 40px;  align-self: flex-start;"
+        />
+        <NormalLabel
+          value={`${tabDataCloudLength} ${
+            tabDataCloudLength > 1 ? t('Saved sessions') : t('Saved session')
+          }`}
+          size="0.9rem"
+          color={COLORS.TEXT_COLOR}
+          style="margin-top: 40px; align-self: flex-start;"
+        />
+      </button>
+    </dialog>
   );
 };
