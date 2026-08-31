@@ -17,6 +17,8 @@
   "FocusConfirmTitle": "切换到“{{title}}”？",
   "FocusConfirmBodyOne": "您打开的窗口将保存为一个会话，然后关闭。",
   "FocusConfirmBodyOther": "您打开的 {{count}} 个窗口将保存为一个会话，然后关闭。",
+  "FocusConfirmBodySavedOne": "您打开的窗口已保存，将被关闭。",
+  "FocusConfirmBodySavedOther": "您打开的 {{count}} 个窗口已保存，将被关闭。",
   "FocusConfirmCancel": "取消",
   "FocusConfirmConfirm": "切换",
   "Restore": "恢复",

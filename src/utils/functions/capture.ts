@@ -6,6 +6,43 @@ import type {
   windowGroupData,
 } from '../../redux/slices/tabContainerDataStateSlice';
 
+// A window reduced to the thing that decides whether it is already saved: the
+// URLs it holds, in order. JSON rather than a join so that a URL containing
+// the separator cannot forge a different window's signature.
+function windowSignatures(windows: windowGroupData[]): string[] {
+  return windows
+    .map((window) => JSON.stringify(window.tabs.map((tab) => tab.url)))
+    .sort();
+}
+
+// Whether what is open right now is already stored as one of these sessions.
+//
+// Focus mode uses this to avoid saving a duplicate: switching back and forth
+// between two sessions would otherwise mint a near-copy of one of them on
+// every switch, since the windows it is about to close are the ones it just
+// restored.
+//
+// The comparison is deliberately strict -- same window count, same URLs, same
+// order within each window. Anything less exact counts as unsaved work, so the
+// only way to be wrong is to save a session that was not strictly needed.
+// Getting it wrong the other way would discard the user's windows.
+//
+// Window order is ignored because chrome.windows.getAll does not promise one.
+export function isAlreadySaved(
+  captured: tabContainerData,
+  sessions: tabContainerData[]
+): boolean {
+  const target = windowSignatures(captured.windows);
+
+  return sessions.some((session) => {
+    const candidate = windowSignatures(session.windows);
+    return (
+      candidate.length === target.length &&
+      candidate.every((signature, index) => signature === target[index])
+    );
+  });
+}
+
 // Snapshots every open window as a session. Extracted from UserInputContainer
 // so focus mode can save what it is about to close using exactly the same
 // capture the "Save current session" button uses -- two captures that drifted

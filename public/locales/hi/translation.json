@@ -17,6 +17,8 @@
   "FocusConfirmTitle": "\"{{title}}\" पर जाएँ?",
   "FocusConfirmBodyOne": "आपकी खुली विंडो एक सत्र के रूप में सहेजी जाएगी, फिर बंद कर दी जाएगी।",
   "FocusConfirmBodyOther": "आपकी {{count}} खुली विंडो एक सत्र के रूप में सहेजी जाएँगी, फिर बंद कर दी जाएँगी।",
+  "FocusConfirmBodySavedOne": "आपकी खुली विंडो पहले से सहेजी गई है। इसे बंद कर दिया जाएगा।",
+  "FocusConfirmBodySavedOther": "आपकी {{count}} खुली विंडो पहले से सहेजी गई हैं। उन्हें बंद कर दिया जाएगा।",
   "FocusConfirmCancel": "रद्द करें",
   "FocusConfirmConfirm": "बदलें",
   "Restore": "पुनर्स्थापित",

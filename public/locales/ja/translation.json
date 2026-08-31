@@ -17,6 +17,8 @@
   "FocusConfirmTitle": "「{{title}}」に切り替えますか?",
   "FocusConfirmBodyOne": "開いているウィンドウをセッションとして保存してから閉じます。",
   "FocusConfirmBodyOther": "開いている {{count}} 個のウィンドウをセッションとして保存してから閉じます。",
+  "FocusConfirmBodySavedOne": "開いているウィンドウは保存済みです。閉じます。",
+  "FocusConfirmBodySavedOther": "開いている {{count}} 個のウィンドウは保存済みです。閉じます。",
   "FocusConfirmCancel": "キャンセル",
   "FocusConfirmConfirm": "切り替え",
   "Restore": "復元",

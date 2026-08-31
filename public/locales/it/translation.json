@@ -17,6 +17,8 @@
   "FocusConfirmTitle": "Passare a \"{{title}}\"?",
   "FocusConfirmBodyOne": "La tua finestra aperta verrà salvata come sessione e poi chiusa.",
   "FocusConfirmBodyOther": "Le tue {{count}} finestre aperte verranno salvate come sessione e poi chiuse.",
+  "FocusConfirmBodySavedOne": "La tua finestra aperta è già salvata. Verrà chiusa.",
+  "FocusConfirmBodySavedOther": "Le tue {{count}} finestre aperte sono già salvate. Verranno chiuse.",
   "FocusConfirmCancel": "Annulla",
   "FocusConfirmConfirm": "Passa",
   "Restore": "Ripristina",

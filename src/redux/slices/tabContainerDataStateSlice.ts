@@ -3,7 +3,10 @@ import { createAsyncThunk, createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { RootState } from '../store';
 import { closeFocusModal, openFocusModal, showToast } from './globalStateSlice';
 import { getStringDate, saveToLocalStorage } from '../../utils/functions/local';
-import { captureOpenWindows } from '../../utils/functions/capture';
+import {
+  captureOpenWindows,
+  isAlreadySaved,
+} from '../../utils/functions/capture';
 import {
   createWindowWithRetries,
   FOCUS_SESSION_MESSAGE,
@@ -209,6 +212,9 @@ interface focusTabContainerParams {
 export const requestFocusTabContainer = createAsyncThunk(
   'global/requestFocusTabContainer',
   async (params: focusTabContainerParams, thunkAPI) => {
+    const state: TabMasterContainer = (thunkAPI.getState() as RootState)
+      .tabContainerDataState;
+
     const openWindows = await new Promise<chrome.windows.Window[]>((resolve) =>
       chrome.windows.getAll({ windowTypes: ['normal'] }, (result) =>
         resolve(result)
@@ -220,10 +226,17 @@ export const requestFocusTabContainer = createAsyncThunk(
       return;
     }
 
+    // Worked out here as well as at the moment of switching, because the
+    // dialog must not promise a save that will not happen.
+    const captured = await captureOpenWindows(params.saveTitle);
+    const willSave =
+      captured !== null && !isAlreadySaved(captured, state.tabGroups);
+
     thunkAPI.dispatch(
       openFocusModal({
         tabGroupId: params.tabGroupId,
         windowCount: openWindows.length,
+        willSave,
       })
     );
   }
@@ -256,13 +269,21 @@ export const focusTabContainer = createAsyncThunk(
     // Saving comes first, and entirely before the handoff: it is the only
     // thing making this reversible, and it is the last moment the popup is
     // guaranteed to be alive to do it.
+    //
+    // Unless there is nothing to save. Switching back and forth between two
+    // sessions would otherwise mint a near-duplicate on every switch, because
+    // the windows being closed are the ones the last switch restored. Saving
+    // only genuinely unsaved work keeps the round trip free.
     const captured = await captureOpenWindows(params.saveTitle);
-    if (captured) {
+    if (captured && !isAlreadySaved(captured, state.tabGroups)) {
       thunkAPI.dispatch(saveToTabContainerInternal(captured));
-      // Saving selects what it just saved. The user asked to switch to the
-      // other session, so hand the selection back.
-      thunkAPI.dispatch(selectTabContainer(params.tabGroupId));
     }
+
+    // Unconditional, and after the save rather than inside it: saving selects
+    // what it just saved, so the selection has to be handed back -- but the
+    // session switched to is the selected one either way, whether or not
+    // anything needed saving.
+    thunkAPI.dispatch(selectTabContainer(params.tabGroupId));
 
     const request: FocusSessionRequest = {
       type: FOCUS_SESSION_MESSAGE,

@@ -17,6 +17,8 @@
   "FocusConfirmTitle": "Перейти к «{{title}}»?",
   "FocusConfirmBodyOne": "Ваше открытое окно будет сохранено как сеанс, а затем закрыто.",
   "FocusConfirmBodyOther": "Ваши открытые окна ({{count}}) будут сохранены как сеанс, а затем закрыты.",
+  "FocusConfirmBodySavedOne": "Ваше открытое окно уже сохранено. Оно будет закрыто.",
+  "FocusConfirmBodySavedOther": "Ваши открытые окна ({{count}}) уже сохранены. Они будут закрыты.",
   "FocusConfirmCancel": "Отмена",
   "FocusConfirmConfirm": "Перейти",
   "Restore": "Вернуть",

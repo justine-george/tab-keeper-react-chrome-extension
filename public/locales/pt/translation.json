@@ -17,6 +17,8 @@
   "FocusConfirmTitle": "Mudar para \"{{title}}\"?",
   "FocusConfirmBodyOne": "Sua janela aberta será salva como sessão e depois fechada.",
   "FocusConfirmBodyOther": "Suas {{count}} janelas abertas serão salvas como sessão e depois fechadas.",
+  "FocusConfirmBodySavedOne": "Sua janela aberta já está salva. Ela será fechada.",
+  "FocusConfirmBodySavedOther": "Suas {{count}} janelas abertas já estão salvas. Elas serão fechadas.",
   "FocusConfirmCancel": "Cancelar",
   "FocusConfirmConfirm": "Mudar",
   "Restore": "Restaurar",

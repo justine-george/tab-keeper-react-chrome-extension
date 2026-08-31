@@ -17,6 +17,8 @@
   "FocusConfirmTitle": "Basculer vers « {{title}} » ?",
   "FocusConfirmBodyOne": "Votre fenêtre ouverte sera enregistrée comme session, puis fermée.",
   "FocusConfirmBodyOther": "Vos {{count}} fenêtres ouvertes seront enregistrées comme session, puis fermées.",
+  "FocusConfirmBodySavedOne": "Votre fenêtre ouverte est déjà enregistrée. Elle sera fermée.",
+  "FocusConfirmBodySavedOther": "Vos {{count}} fenêtres ouvertes sont déjà enregistrées. Elles seront fermées.",
   "FocusConfirmCancel": "Annuler",
   "FocusConfirmConfirm": "Basculer",
   "Restore": "Rétablir",

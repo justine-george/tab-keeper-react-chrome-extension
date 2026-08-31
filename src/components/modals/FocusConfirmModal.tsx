@@ -54,7 +54,15 @@ export const FocusConfirmModal: React.FC<FocusConfirmModalProps> = ({
   // longer there has nothing to confirm.
   if (!focusRequest || !tabGroup) return null;
 
-  const { windowCount } = focusRequest;
+  const { windowCount, willSave } = focusRequest;
+
+  const bodyKey = willSave
+    ? windowCount > 1
+      ? 'FocusConfirmBodyOther'
+      : 'FocusConfirmBodyOne'
+    : windowCount > 1
+      ? 'FocusConfirmBodySavedOther'
+      : 'FocusConfirmBodySavedOne';
 
   const handleCancel = () => {
     dispatch(closeFocusModal());
@@ -160,9 +168,7 @@ export const FocusConfirmModal: React.FC<FocusConfirmModalProps> = ({
       </h2>
 
       <p id={BODY_ID} css={bodyStyle}>
-        {windowCount > 1
-          ? t('FocusConfirmBodyOther', { count: windowCount })
-          : t('FocusConfirmBodyOne')}
+        {t(bodyKey, { count: windowCount })}
       </p>
 
       <div css={actionsStyle}>

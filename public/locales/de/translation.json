@@ -17,6 +17,8 @@
   "FocusConfirmTitle": "Zu \"{{title}}\" wechseln?",
   "FocusConfirmBodyOne": "Ihr offenes Fenster wird als Sitzung gespeichert und dann geschlossen.",
   "FocusConfirmBodyOther": "Ihre {{count}} offenen Fenster werden als Sitzung gespeichert und dann geschlossen.",
+  "FocusConfirmBodySavedOne": "Ihr offenes Fenster ist bereits gespeichert. Es wird geschlossen.",
+  "FocusConfirmBodySavedOther": "Ihre {{count}} offenen Fenster sind bereits gespeichert. Sie werden geschlossen.",
   "FocusConfirmCancel": "Abbrechen",
   "FocusConfirmConfirm": "Wechseln",
   "Restore": "Restore",

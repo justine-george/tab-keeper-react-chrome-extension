@@ -31,12 +31,16 @@ export interface Global {
   focusRequest: FocusRequest | null;
 }
 
-// The session a pending "switch to this session?" confirmation is about, and
-// how many windows it would close. Null when no confirmation is open, so the
-// two can never disagree about whether there is something to confirm.
+// The session a pending "switch to this session?" confirmation is about, how
+// many windows it would close, and whether closing them would save anything
+// first -- it does not when those windows are already stored as a session, and
+// the dialog has to say which of the two is about to happen. Null when no
+// confirmation is open, so the fields can never disagree about whether there
+// is something to confirm.
 export interface FocusRequest {
   tabGroupId: string;
   windowCount: number;
+  willSave: boolean;
 }
 
 export const initialState: Global = {

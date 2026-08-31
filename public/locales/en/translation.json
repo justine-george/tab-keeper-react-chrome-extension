@@ -17,6 +17,8 @@
   "FocusConfirmTitle": "Switch to \"{{title}}\"?",
   "FocusConfirmBodyOne": "Your open window will be saved as a session, then closed.",
   "FocusConfirmBodyOther": "Your {{count}} open windows will be saved as a session, then closed.",
+  "FocusConfirmBodySavedOne": "Your open window is already saved. It will be closed.",
+  "FocusConfirmBodySavedOther": "Your {{count}} open windows are already saved. They will be closed.",
   "FocusConfirmCancel": "Cancel",
   "FocusConfirmConfirm": "Switch",
   "Restore": "Restore",

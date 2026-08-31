@@ -17,6 +17,8 @@
   "FocusConfirmTitle": "¿Cambiar a \"{{title}}\"?",
   "FocusConfirmBodyOne": "Tu ventana abierta se guardará como sesión y luego se cerrará.",
   "FocusConfirmBodyOther": "Tus {{count}} ventanas abiertas se guardarán como sesión y luego se cerrarán.",
+  "FocusConfirmBodySavedOne": "Tu ventana abierta ya está guardada. Se cerrará.",
+  "FocusConfirmBodySavedOther": "Tus {{count}} ventanas abiertas ya están guardadas. Se cerrarán.",
   "FocusConfirmCancel": "Cancelar",
   "FocusConfirmConfirm": "Cambiar",
   "Restore": "Restaurar",
