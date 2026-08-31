@@ -175,13 +175,63 @@ describe('mergeTabContainers - union and per-session LWW', () => {
     expect(merged.lastModified).toBe(20);
   });
 
-  it('sorts newest first', () => {
+  // Ordered by createdTime, which is the date the UI actually displays.
+  // Sorting by lastModified instead put a renamed session at the top of the
+  // list above sessions showing visibly newer dates.
+  it('sorts newest first by the date shown in the UI', () => {
+    const dated = (id: string, createdTime: string, lastModified: number) => ({
+      ...group(id, lastModified),
+      createdTime,
+    });
     const { merged } = mergeTabContainers(
-      container(30, [group('old', 1), group('new', 30)]),
-      container(20, [group('mid', 20)]),
+      container(30, [
+        dated('old', '2026-08-01 00:00:00', 1),
+        dated('new', '2026-08-30 00:00:00', 30),
+      ]),
+      container(20, [dated('mid', '2026-08-20 00:00:00', 20)]),
       NOW
     );
     expect(ids(merged)).toEqual(['new', 'mid', 'old']);
+  });
+
+  it('does not move a renamed session above visibly newer ones', () => {
+    // Renaming bumps lastModified but deliberately not createdTime, so an
+    // edit to the oldest session must not send it to the top of the list.
+    const dated = (id: string, createdTime: string, lastModified: number) => ({
+      ...group(id, lastModified),
+      createdTime,
+    });
+    const sides = (oldestLastModified: number) =>
+      container(5000, [
+        dated('A', '2026-08-30 10:00:00', 1000),
+        dated('B', '2026-08-29 10:00:00', 900),
+        dated('C', '2026-08-01 09:00:00', oldestLastModified),
+      ]);
+
+    // C is the oldest session and has just been renamed on this device
+    const { merged } = mergeTabContainers(sides(9999), sides(800), NOW);
+    expect(ids(merged)).toEqual(['A', 'B', 'C']);
+  });
+
+  it('orders identical createdTimes deterministically, without locale', () => {
+    // Two devices must agree on the order, so the tiebreak cannot depend on
+    // localeCompare, whose result varies by the device's locale.
+    const same = (id: string) => ({
+      ...group(id, 100),
+      createdTime: '2026-08-31 00:00:00',
+    });
+    const first = mergeTabContainers(
+      container(10, [same('b'), same('a')]),
+      container(10, [same('c')]),
+      NOW
+    );
+    const second = mergeTabContainers(
+      container(10, [same('c')]),
+      container(10, [same('a'), same('b')]),
+      NOW
+    );
+    expect(ids(first.merged)).toEqual(['a', 'b', 'c']);
+    expect(ids(second.merged)).toEqual(['a', 'b', 'c']);
   });
 
   it('keeps the local selection when its session survives', () => {

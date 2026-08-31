@@ -39,6 +39,11 @@ function sessionTimestamp(
   return group.lastModified ?? container.lastModified;
 }
 
+const compareAsc = (a: string, b: string): number =>
+  a < b ? -1 : a > b ? 1 : 0;
+
+const compareDesc = (a: string, b: string): number => compareAsc(b, a);
+
 type Event =
   | { kind: 'present'; at: number; group: tabContainerData }
   | { kind: 'deleted'; at: number };
@@ -153,7 +158,20 @@ export function mergeTabContainers(
       survivors.push({ ...event.group, lastModified: event.at });
     }
   }
-  survivors.sort((a, b) => b.lastModified! - a.lastModified!);
+  // Ordered by createdTime, not lastModified, because createdTime is the date
+  // the UI displays. Sorting by edit time while showing save time sent a
+  // renamed session to the top of the list, above sessions whose visible dates
+  // were newer - the list read Aug 1, Aug 30, Aug 29.
+  //
+  // Plain comparisons rather than localeCompare: the two devices have to agree
+  // on the order, and localeCompare varies with the device's locale.
+  // tabGroupId breaks exact ties so the result is total and stable.
+  // getStringDate zero-pads, so `YYYY-MM-DD HH:MM:SS` sorts correctly as text.
+  survivors.sort(
+    (a, b) =>
+      compareDesc(a.createdTime, b.createdTime) ||
+      compareAsc(a.tabGroupId, b.tabGroupId)
+  );
 
   // Selection is per-device view state; pushing the other device's selection
   // across is pure churn. Keep this device's, unless its session lost.
