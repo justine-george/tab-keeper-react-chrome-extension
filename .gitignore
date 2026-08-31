@@ -33,3 +33,6 @@ dist-ssr
 # Agent tooling - vendored skills are restorable from skills-lock.json
 .agents/
 CODEBASE.md
+
+# Design docs and plans are kept local, not tracked
+docs/
