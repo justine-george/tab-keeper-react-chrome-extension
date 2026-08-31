@@ -24,8 +24,33 @@ export default defineConfig({
     },
   },
   test: {
-    globals: true,
-    setupFiles: ['vitest-localstorage-mock'],
-    mockReset: false,
+    // Split by file EXTENSION, not directory. src/tests/components/
+    // ErrorBoundary.test.ts is a .ts node test that lives in the components
+    // directory and must keep running under node -- it tests a static pure
+    // function, not a render.
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: 'unit',
+          environment: 'node',
+          globals: true,
+          setupFiles: ['vitest-localstorage-mock'],
+          mockReset: false,
+          include: ['src/tests/**/*.test.ts'],
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: 'components',
+          environment: 'jsdom',
+          globals: true,
+          setupFiles: ['vitest-localstorage-mock'],
+          mockReset: false,
+          include: ['src/tests/**/*.test.tsx'],
+        },
+      },
+    ],
   },
 });
