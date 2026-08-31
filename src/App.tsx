@@ -23,11 +23,16 @@ import {
 } from './redux/slices/globalStateSlice';
 
 import './App.css';
-import { setExtensionInstalledTime } from './redux/slices/settingsDataStateSlice';
 import {
+  setExtensionInstalledTime,
+  SettingsData,
+} from './redux/slices/settingsDataStateSlice';
+import {
+  asPartialSettings,
   classifyStoredToken,
   isUsableToken,
   isValidDate,
+  isValidTabMasterContainer,
   loadFromLocalStorage,
 } from './utils/functions/local';
 
@@ -111,7 +116,7 @@ function App() {
       isUserRatedAndReviewed = false,
       isNeverAskAgainToRate = false,
       lastReviewRequestTime = '',
-    } = loadFromLocalStorage('settingsData') || {};
+    } = asPartialSettings<SettingsData>(loadFromLocalStorage('settingsData'));
 
     // if user has already rated and reviewed, then don't ask again
     if (isUserRatedAndReviewed || isNeverAskAgainToRate) {
@@ -158,7 +163,15 @@ function App() {
       dispatch(syncStateWithFirestore());
     } else {
       // load from local storage
-      const tabDataFromLocalStorage = loadFromLocalStorage('tabContainerData');
+      // Session data, so it gets validated rather than asserted: this is the
+      // same object the signed-in path replicates to Firestore.
+      const candidate = loadFromLocalStorage('tabContainerData');
+      const tabDataFromLocalStorage = isValidTabMasterContainer(candidate)
+        ? candidate
+        : undefined;
+      if (candidate !== undefined && tabDataFromLocalStorage === undefined) {
+        console.warn('Ignoring unreadable tabContainerData in localStorage.');
+      }
       if (tabDataFromLocalStorage) {
         dispatch(replaceState(tabDataFromLocalStorage));
 

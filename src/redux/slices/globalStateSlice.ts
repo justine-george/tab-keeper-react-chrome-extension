@@ -89,8 +89,11 @@ export const syncStateWithFirestore = createAsyncThunk(
       await loadFromFirestore(state.globalState.userId!, thunkAPI);
 
     // log data loaded from localStorage
-    const tabDataFromLocalStorage: TabMasterContainer =
-      loadFromLocalStorage('tabContainerData');
+    // Still asserted rather than validated - this commit only changes types.
+    // Replaced with a real check in the following commit (KAN-33).
+    const tabDataFromLocalStorage = loadFromLocalStorage(
+      'tabContainerData'
+    ) as TabMasterContainer;
 
     if (tabDataFromCloud && tabDataFromLocalStorage) {
       // data present on both local and cloud, possiblity of conflict

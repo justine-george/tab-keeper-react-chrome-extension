@@ -157,7 +157,12 @@ export const saveToLocalStorage = (key: string, data: any): void => {
 };
 
 // load data from local storage
-export const loadFromLocalStorage = (key: string): any | undefined => {
+//
+// Returns `unknown` rather than `any`: the parsed value is whatever happens to
+// be in localStorage, which a caller must narrow before use. Under automatic
+// sync merging an unvalidated container is written back to Firestore, so an
+// implicit `any` here silently propagates local corruption to the cloud copy.
+export const loadFromLocalStorage = (key: string): unknown => {
   try {
     const serializedState = localStorage.getItem(key);
     if (!serializedState) return undefined;
@@ -167,6 +172,18 @@ export const loadFromLocalStorage = (key: string): any | undefined => {
     return undefined;
   }
 };
+
+// Narrow a value read back from localStorage to the caller's settings shape.
+//
+// This is a boundary assertion, and a deliberately limited one: every settings
+// reader defaults each field it pulls off, and none of them is on the path that
+// writes back to Firestore. Session data gets the real treatment instead - it
+// goes through isValidTabMasterContainer, which checks every field, because
+// that is the object the sync merge replicates to the cloud.
+export const asPartialSettings = <T>(value: unknown): Partial<T> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? (value as Partial<T>)
+    : {};
 
 // generate placeholder URL for quicker session loads and lesser memory consumption
 export function generatePlaceholderURL(

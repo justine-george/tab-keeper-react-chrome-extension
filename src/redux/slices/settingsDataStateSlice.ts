@@ -1,6 +1,7 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 
 import {
+  asPartialSettings,
   loadFromLocalStorage,
   saveToLocalStorage,
 } from '../../utils/functions/local';
@@ -39,7 +40,9 @@ export interface SettingsData {
 }
 
 // Retrieve settings from localStorage
-const settingsDataLocal = loadFromLocalStorage('settingsData');
+const settingsDataLocal = asPartialSettings<SettingsData>(
+  loadFromLocalStorage('settingsData')
+);
 
 const defaultSettings: SettingsData = {
   language: Language.EN, // Default language is 'en'
