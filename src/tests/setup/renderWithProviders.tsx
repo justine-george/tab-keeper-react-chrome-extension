@@ -1,4 +1,4 @@
-import { ReactElement } from 'react';
+import { ReactElement, ReactNode } from 'react';
 import { Provider } from 'react-redux';
 import { render, RenderResult } from '@testing-library/react';
 import { I18nextProvider } from 'react-i18next';
@@ -49,11 +49,19 @@ export async function renderWithProviders(
   // convention does, so keep every seedStore call site synchronous.
   seedStore?.(store);
 
-  const result = render(
+  // Providers go in a `wrapper`, not inlined around `ui`, so that RTL's
+  // `rerender` -- which re-renders only the element it was given and wraps
+  // it with `wrapper` again -- keeps the Provider in the tree. Inlining the
+  // providers into the initial element meant `rerender(newUi)` replaced the
+  // whole tree with the bare element, dropping the Provider and making
+  // useSelector throw.
+  const Wrapper = ({ children }: { children: ReactNode }) => (
     <Provider store={store}>
-      <I18nextProvider i18n={testI18n}>{ui}</I18nextProvider>
+      <I18nextProvider i18n={testI18n}>{children}</I18nextProvider>
     </Provider>
   );
+
+  const result = render(ui, { wrapper: Wrapper });
 
   return { ...result, store, seen, chrome };
 }
