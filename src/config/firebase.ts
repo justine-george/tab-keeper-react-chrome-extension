@@ -69,10 +69,21 @@ export const fetchDataFromFirestore = async (
       console.warn('No document found for userId: ' + userId);
       throw new Error('Document does not exist for userId: ' + userId);
     } else {
+      // Field-by-field rather than returning data() wholesale, so the shape is
+      // explicit. That makes this a whitelist: any field added to the
+      // persisted container must be added here too, or it is written to
+      // Firestore and then silently dropped on the way back in.
+      //
+      // deletedTabGroups was exactly that. Tombstones reached the document but
+      // never came back, so every merge saw a cloud with no record of the
+      // delete, recomputed changedFromCloud as true, wrote again, and looped -
+      // and the deletion never propagated to the other device.
+      const data = tabData.data();
       return {
-        lastModified: tabData.data().lastModified,
-        tabGroups: tabData.data().tabGroups,
-        selectedTabGroupId: tabData.data().selectedTabGroupId,
+        lastModified: data.lastModified,
+        tabGroups: data.tabGroups,
+        selectedTabGroupId: data.selectedTabGroupId,
+        deletedTabGroups: data.deletedTabGroups,
       };
     }
   } catch (error) {
