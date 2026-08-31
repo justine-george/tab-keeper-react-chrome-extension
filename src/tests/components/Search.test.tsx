@@ -32,7 +32,14 @@ const session = (title: string, tabTitle: string) => ({
       windowOffsetLeft: 0,
       tabCount: 1,
       title: 'A window',
-      tabs: [{ tabId: `tab-${title}`, favicon: '', title: tabTitle, url: 'https://example.com/' }],
+      tabs: [
+        {
+          tabId: `tab-${title}`,
+          favicon: '',
+          title: tabTitle,
+          url: 'https://example.com/',
+        },
+      ],
     },
   ],
 });
@@ -41,8 +48,12 @@ describe('search filtering', () => {
   test('narrows the rendered sessions to those that match', async () => {
     const { store } = await renderWithProviders(<TabGroupEntryContainer />);
 
-    store.dispatch(saveToTabContainerInternal(session('Research', 'Kagi Search')));
-    store.dispatch(saveToTabContainerInternal(session('Errands', 'Grocery list')));
+    store.dispatch(
+      saveToTabContainerInternal(session('Research', 'Kagi Search'))
+    );
+    store.dispatch(
+      saveToTabContainerInternal(session('Errands', 'Grocery list'))
+    );
     store.dispatch(openSearchPanel());
 
     expect(await screen.findByText('Research')).toBeTruthy();
@@ -57,7 +68,9 @@ describe('search filtering', () => {
   test('is case-insensitive', async () => {
     const { store } = await renderWithProviders(<TabGroupEntryContainer />);
 
-    store.dispatch(saveToTabContainerInternal(session('Research', 'Kagi Search')));
+    store.dispatch(
+      saveToTabContainerInternal(session('Research', 'Kagi Search'))
+    );
     store.dispatch(openSearchPanel());
     store.dispatch(setSearchInputText('KAGI'));
 
