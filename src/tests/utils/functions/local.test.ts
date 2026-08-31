@@ -295,6 +295,61 @@ describe('isValidTabMasterContainer', () => {
     expect(isValidTabMasterContainer(validData)).toBe(true);
   });
 
+  // Tombstones arrived with the automatic merge. The merge iterates this list
+  // and writes the result back to Firestore, so a malformed value must be
+  // rejected here rather than walked - a string would be iterated character by
+  // character. Absent must stay valid: every container written before
+  // tombstones existed lacks the field.
+  describe('deletedTabGroups', () => {
+    const withTombstones = (deletedTabGroups: unknown) => ({
+      lastModified: 1,
+      selectedTabGroupId: null,
+      tabGroups: [],
+      deletedTabGroups,
+    });
+
+    test('accepts a container with no deletedTabGroups at all', () => {
+      expect(
+        isValidTabMasterContainer({
+          lastModified: 1,
+          selectedTabGroupId: null,
+          tabGroups: [],
+        })
+      ).toBe(true);
+    });
+
+    test('accepts an empty tombstone list', () => {
+      expect(isValidTabMasterContainer(withTombstones([]))).toBe(true);
+    });
+
+    test('accepts well-formed tombstones', () => {
+      expect(
+        isValidTabMasterContainer(
+          withTombstones([{ tabGroupId: 'a', deletedAt: 123 }])
+        )
+      ).toBe(true);
+    });
+
+    test.each([
+      ['a bare string', 'garbage'],
+      ['a number', 42],
+      ['null', null],
+      ['an object', { tabGroupId: 'a', deletedAt: 1 }],
+      ['an entry missing deletedAt', [{ tabGroupId: 'a' }]],
+      ['an entry missing tabGroupId', [{ deletedAt: 1 }]],
+      [
+        'an entry with a non-numeric deletedAt',
+        [{ tabGroupId: 'a', deletedAt: 'x' }],
+      ],
+      ['an entry that is null', [null]],
+    ])('rejects %s', (_label, value) => {
+      expect(() =>
+        isValidTabMasterContainer(withTombstones(value))
+      ).not.toThrow();
+      expect(isValidTabMasterContainer(withTombstones(value))).toBe(false);
+    });
+  });
+
   // A .json file containing any of these is valid JSON, so the import path can
   // hand them straight to the validator. It must reject them, not throw - the
   // caller shows error.message to the user, so a TypeError leaks
