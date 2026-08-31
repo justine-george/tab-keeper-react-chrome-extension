@@ -107,7 +107,7 @@ export const syncStateWithFirestore = createAsyncThunk(
       thunkAPI.dispatch(replaceState(merged));
 
       if (changedFromCloud) {
-        thunkAPI.dispatch(setIsDirty());
+        thunkAPI.dispatch(setIsDirtyWithoutSync());
         thunkAPI.dispatch(saveToFirestoreIfDirty());
       } else {
         thunkAPI.dispatch(setIsNotDirty());
@@ -142,7 +142,7 @@ export const syncStateWithFirestore = createAsyncThunk(
       // data only on localStorage
       // save back to Firestore
       thunkAPI.dispatch(replaceState(tabDataFromLocalStorage));
-      thunkAPI.dispatch(setIsDirty());
+      thunkAPI.dispatch(setIsDirtyWithoutSync());
       thunkAPI.dispatch(saveToFirestoreIfDirty());
       if (!state.globalState.hasSyncedBefore) {
         // reset presentState in the undoRedoState
@@ -155,7 +155,7 @@ export const syncStateWithFirestore = createAsyncThunk(
       thunkAPI.dispatch(setHasSyncedBefore());
     } else {
       // new user - hey there!
-      thunkAPI.dispatch(setIsDirty());
+      thunkAPI.dispatch(setIsDirtyWithoutSync());
       thunkAPI.dispatch(saveToFirestoreIfDirty());
       thunkAPI.dispatch(setHasSyncedBefore());
     }
@@ -195,6 +195,11 @@ export const showToast = createAsyncThunk(
     }
   }
 );
+
+function markDirty(state: Global): void {
+  state.isDirty = true;
+  state.syncStatus = 'idle';
+}
 
 export const globalStateSlice = createSlice({
   name: 'globalState',
@@ -240,9 +245,23 @@ export const globalStateSlice = createSlice({
       state.isDirty = false;
     },
 
+    // "The user changed something." customMiddleware watches for this action
+    // and schedules a debounced sync, so it must only be dispatched from
+    // outside a sync.
     setIsDirty: (state) => {
-      state.isDirty = true;
-      state.syncStatus = 'idle';
+      markDirty(state);
+    },
+
+    // The same flag, deliberately a different action type.
+    //
+    // The three branches of syncStateWithFirestore that persist something all
+    // need isDirty set, because that is what saveToFirestoreIfDirty checks -
+    // but they run *inside* a sync. Dispatching setIsDirty there makes the
+    // middleware schedule another full sync, so every write costs an extra
+    // round trip, and any state the two sides keep disagreeing on becomes an
+    // unbounded write loop.
+    setIsDirtyWithoutSync: (state) => {
+      markDirty(state);
     },
 
     setSignedIn: (state) => {
@@ -310,6 +329,7 @@ export const {
   setToastText,
   closeSettingsPage,
   setIsDirty,
+  setIsDirtyWithoutSync,
   setIsNotDirty,
   setSignedIn,
   setHasSyncedBefore,
