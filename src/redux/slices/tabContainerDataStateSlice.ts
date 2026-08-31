@@ -44,6 +44,17 @@ export interface tabContainerData {
   isAutoSave: boolean;
   isSelected: boolean;
   windows: windowGroupData[];
+  // Optional because every document written before this change lacks it.
+  // Readers fall back to the container's lastModified; see mergeTabData.ts.
+  lastModified?: number;
+}
+
+// A deleted session has to leave a trace. Merging by tabGroupId alone would
+// let the device that still holds a session re-add it on every sync, so the
+// user could never delete it from either device.
+export interface deletedTabGroup {
+  tabGroupId: string;
+  deletedAt: number;
 }
 
 export interface TabMasterContainer {
@@ -53,6 +64,7 @@ export interface TabMasterContainer {
 
   // data
   tabGroups: tabContainerData[];
+  deletedTabGroups?: deletedTabGroup[];
 }
 
 export interface addCurrWindowToTabGroupParams {
