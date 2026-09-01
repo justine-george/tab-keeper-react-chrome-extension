@@ -30,7 +30,7 @@
     "firebase": "^12.18.0",
     "i18next": "^26.4.0",
     "i18next-http-backend": "^4.0.1",
-    "js-base64": "^3.7.5",
+    "js-base64": "^3.9.3",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-i18next": "^17.0.12",
