@@ -82,7 +82,9 @@ export default function TabGroupEntryContainer() {
         <div css={filledContainerStyle}>
           {filteredTabGroups.map((tabGroupData, index) => {
             return (
-              <div>
+              // tabGroupId, not index: this list is filtered by search and
+              // reordered by save, so positions are not stable identities.
+              <div key={tabGroupData.tabGroupId}>
                 <TabGroupEntry
                   tabGroupData={tabGroupData}
                   onTabGroupClick={() => {
