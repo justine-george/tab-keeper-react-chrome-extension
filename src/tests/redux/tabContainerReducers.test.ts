@@ -31,6 +31,7 @@ import reducer, {
   deleteTabContainerInternal,
   deleteWindowInternal,
   deleteTabInternal,
+  restoreContainer,
 } from '../../redux/slices/tabContainerDataStateSlice';
 import type {
   tabContainerData,
@@ -266,5 +267,55 @@ describe('every content mutation stamps its session', () => {
 
     expect(s.tabGroups).toEqual([]);
     expect(s.deletedTabGroups!.map((t) => t.tabGroupId)).toEqual(['a']);
+  });
+});
+
+// KAN-48. Firestore's setDoc walks own enumerable properties and rejects any
+// whose value is `undefined` -- an explicit `key: undefined` is not the same as
+// an absent key, even though JSON.stringify erases the difference. So a reducer
+// that writes one silently poisons the next cloud write.
+describe('restoreContainer produces a Firestore-writable container', () => {
+  beforeEach(() => localStorage.clear());
+
+  // A backup exported before tombstones existed: no deletedTabGroups field at
+  // all. This is exactly what "Restore App Data from File" is for.
+  const legacyBackup = (): TabMasterContainer => ({
+    lastModified: 2,
+    selectedTabGroupId: null,
+    tabGroups: [group('a')],
+  });
+
+  it('defaults a missing deletedTabGroups to an empty array', () => {
+    const state = reducer(base(), restoreContainer(legacyBackup()));
+
+    expect(state.deletedTabGroups).toEqual([]);
+  });
+
+  // Broader than the case above, and stated the way Firestore states it: the
+  // constraint is "no field is undefined", not "deletedTabGroups is an array".
+  // Any future optional field spread through this reducer fails here too,
+  // rather than being found again in a console warning.
+  it('leaves no explicitly-undefined field for setDoc to reject', () => {
+    const state = reducer(base(), restoreContainer(legacyBackup()));
+
+    const undefinedKeys = Object.keys(state).filter(
+      (key) => state[key as keyof TabMasterContainer] === undefined
+    );
+    expect(undefinedKeys).toEqual([]);
+  });
+
+  // The control: a backup that does carry tombstones must still keep them,
+  // otherwise "default it to []" could be implemented by discarding them.
+  it('keeps tombstones that the backup does carry', () => {
+    const withGraves: TabMasterContainer = {
+      ...legacyBackup(),
+      deletedTabGroups: [{ tabGroupId: 'gone', deletedAt: 5 }],
+    };
+
+    const state = reducer(base(), restoreContainer(withGraves));
+
+    expect(state.deletedTabGroups).toEqual([
+      { tabGroupId: 'gone', deletedAt: 5 },
+    ]);
   });
 });

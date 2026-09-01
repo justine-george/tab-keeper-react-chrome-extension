@@ -735,12 +735,22 @@ export const tabContainerDataStateSlice = createSlice({
             lastModified: Math.max(Date.now(), buriedAt + 1),
           };
         }),
-        deletedTabGroups: action.payload.deletedTabGroups?.map((grave) => {
-          const aliveAt = liveAt.get(grave.tabGroupId);
-          if (aliveAt === undefined) return grave;
-          // Same reasoning, other way round.
-          return { ...grave, deletedAt: Math.max(Date.now(), aliveAt + 1) };
-        }),
+        // `?? []` before the map, not `?.map`. The optional call yields
+        // undefined for a payload with no tombstones - a backup exported before
+        // they existed - but the key is still written, and an explicit
+        // `deletedTabGroups: undefined` is not the same as an absent key.
+        // JSON.stringify erases that difference; Firestore does not. setDoc
+        // walks own enumerable properties and rejects undefined values, so the
+        // next cloud write failed with "Unsupported field value: undefined"
+        // (KAN-48).
+        deletedTabGroups: (action.payload.deletedTabGroups ?? []).map(
+          (grave) => {
+            const aliveAt = liveAt.get(grave.tabGroupId);
+            if (aliveAt === undefined) return grave;
+            // Same reasoning, other way round.
+            return { ...grave, deletedAt: Math.max(Date.now(), aliveAt + 1) };
+          }
+        ),
       };
 
       // update localstorage
