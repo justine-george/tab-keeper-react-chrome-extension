@@ -1,6 +1,10 @@
-import { describe, expect, test } from 'vitest';
+import { afterEach, describe, expect, test } from 'vitest';
 
-import { isAlreadySaved } from '../../../utils/functions/capture';
+import {
+  captureOpenWindows,
+  isAlreadySaved,
+} from '../../../utils/functions/capture';
+import { setupChromeFake } from '../../setup/chrome.fake';
 import type {
   tabContainerData,
   windowGroupData,
@@ -121,5 +125,62 @@ describe('isAlreadySaved', () => {
 
   test('is false when nothing has been saved yet', () => {
     expect(isAlreadySaved(sessionOf(windowOf(A)), [])).toBe(false);
+  });
+});
+
+// These run captureOpenWindows against the fake rather than a pure input,
+// because the defect they guard was in the seam between the two: the fake held
+// tabs in a flat list while every window reported `tabs: []`, and line 74 of
+// capture.ts drops a window with no tabs. Every call still answered, so the
+// only visible symptom was captureOpenWindows quietly returning null.
+describe('captureOpenWindows against the chrome fake', () => {
+  let handle: ReturnType<typeof setupChromeFake> | undefined;
+
+  afterEach(() => {
+    handle?.restore();
+    handle = undefined;
+  });
+
+  test('captures a seeded window with its tabs', async () => {
+    handle = setupChromeFake({
+      windows: [
+        {
+          id: 1,
+          tabs: [
+            { id: 1, url: A, title: 'A' },
+            { id: 2, url: B, title: 'B' },
+          ] as chrome.tabs.Tab[],
+        },
+      ],
+    });
+
+    const captured = await captureOpenWindows('probe');
+
+    expect(captured).not.toBeNull();
+    expect(captured!.windows).toHaveLength(1);
+    expect(captured!.windows[0].tabs.map((tab) => tab.url)).toEqual([A, B]);
+  });
+
+  test('captures a tab added through tabs.create', async () => {
+    handle = setupChromeFake({ windows: [{ id: 1 }] });
+
+    await chrome.tabs.create({ windowId: 1, url: B });
+    const captured = await captureOpenWindows('probe');
+
+    expect(captured).not.toBeNull();
+    expect(captured!.windows[0].tabs.map((tab) => tab.url)).toEqual([B]);
+  });
+
+  test('captures a window opened through windows.create, first tab included', async () => {
+    handle = setupChromeFake();
+
+    const created = await new Promise<chrome.windows.Window | undefined>(
+      (resolve) => chrome.windows.create({ url: A }, resolve)
+    );
+    await chrome.tabs.create({ windowId: created!.id, url: B });
+    const captured = await captureOpenWindows('probe');
+
+    expect(captured).not.toBeNull();
+    expect(captured!.windows[0].tabs.map((tab) => tab.url)).toEqual([A, B]);
   });
 });

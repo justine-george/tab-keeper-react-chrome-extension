@@ -24,8 +24,43 @@ export default defineConfig({
     },
   },
   test: {
-    globals: true,
-    setupFiles: ['vitest-localstorage-mock'],
-    mockReset: false,
+    // Split by file EXTENSION, not directory. src/tests/components/
+    // ErrorBoundary.test.ts is a .ts node test that lives in the components
+    // directory and must keep running under node -- it tests a static pure
+    // function, not a render.
+    //
+    // The globs span all of src/, not just src/tests/, and match .spec as well
+    // as .test. Scoping them to src/tests/**/*.test.* meant a colocated test
+    // (src/components/Foo.test.tsx) or any *.spec file was collected by no
+    // project at all: vitest reported success having silently run none of it,
+    // so a failing test could not turn CI red. configIncludes.test.ts guards
+    // both dimensions.
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: 'unit',
+          environment: 'node',
+          globals: true,
+          setupFiles: ['vitest-localstorage-mock'],
+          mockReset: false,
+          include: ['src/**/*.{test,spec}.ts'],
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: 'components',
+          environment: 'jsdom',
+          globals: true,
+          setupFiles: [
+            'vitest-localstorage-mock',
+            './src/tests/setup/componentSetup.ts',
+          ],
+          mockReset: false,
+          include: ['src/**/*.{test,spec}.tsx'],
+        },
+      },
+    ],
   },
 });

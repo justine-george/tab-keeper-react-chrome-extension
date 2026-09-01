@@ -2,11 +2,16 @@ import { describe, expect, test } from 'vitest';
 
 import { ErrorBoundary } from '../../components/ErrorBoundary';
 
-// There is no jsdom or React Testing Library in this project (KAN-2), so the
-// rendered fallback is verified by driving the real popup in Chrome. What is
-// unit-testable without a DOM is the decision itself: getDerivedStateFromError
-// is a static pure function, and it is the piece that decides whether the user
-// sees a fallback or a blank rectangle.
+// This file stays a node test on purpose. getDerivedStateFromError is a static
+// pure function -- the piece that decides whether the user sees a fallback or a
+// blank rectangle -- and it needs no DOM.
+//
+// Note the .ts extension is load-bearing: the vitest projects split by
+// extension, so this runs under `unit` despite living in the components
+// directory. Component tests are .tsx and run under jsdom.
+//
+// KAN-2 added jsdom and RTL, so the rendered fallback IS now testable. That
+// test belongs to KAN-17's follow-up, not here.
 describe('ErrorBoundary.getDerivedStateFromError', () => {
   test('switches into the fallback for a thrown Error', () => {
     const state = ErrorBoundary.getDerivedStateFromError(
