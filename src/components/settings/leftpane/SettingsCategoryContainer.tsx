@@ -1,3 +1,5 @@
+import { Fragment } from 'react';
+
 import { useDispatch, useSelector } from 'react-redux';
 
 import { css } from '@emotion/react';
@@ -67,7 +69,11 @@ const SettingsCategoryContainer: React.FC = () => {
       {settingsCategoryList.map(
         ({ name, isSelected }: SettingsCategoryContainer) => {
           return (
-            <>
+            // A named Fragment, not <>: the shorthand cannot take a key, and
+            // this row is a div plus its Divider, so there is no single
+            // element to hang the key on. `name` is the SettingsCategory enum
+            // value, unique across the list by construction.
+            <Fragment key={name}>
               <div
                 css={selectableStyle(isSelected)}
                 onClick={() => handleSelectCategoryClick(name)}
@@ -81,7 +87,7 @@ const SettingsCategoryContainer: React.FC = () => {
                 />
               </div>
               <Divider />
-            </>
+            </Fragment>
           );
         }
       )}

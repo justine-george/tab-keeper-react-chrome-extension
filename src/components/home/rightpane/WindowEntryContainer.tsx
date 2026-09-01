@@ -331,7 +331,11 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
         <div css={childrenContainerStyle}>
           {tabs.map(({ tabId, favicon, title, url }, index) => {
             return (
+              // `index` below is hover bookkeeping against hoveredChildIndex,
+              // which is this component's own state -- it is not an identity
+              // for the row and must not be used as the key.
               <div
+                key={tabId}
                 css={childrenStyle}
                 onMouseEnter={() => setHoveredChildIndex(index)}
                 onMouseLeave={() => setHoveredChildIndex(null)}

@@ -108,7 +108,11 @@ export default function TabGroupDetailsContainer() {
         <div css={filledContainerStyle}>
           {selectedTabGroup.windows.map(({ windowId, title, tabs }) => {
             return (
-              <div>
+              // Keyed by windowId, not by index: WindowEntryContainer owns
+              // collapse and rename state, and an index key is identical to
+              // the positional default React already uses, so it would leave
+              // that state bleeding onto the wrong window after a deletion.
+              <div key={windowId}>
                 <WindowEntryContainer
                   title={title}
                   tabs={tabs}
