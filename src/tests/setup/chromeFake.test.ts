@@ -76,6 +76,49 @@ describe('chrome.windows fake', () => {
 
     expect(windows).toHaveLength(1);
     expect(windows[0].id).toBe(7);
+    // Asserting the tabs, not just the window: without this the test passed
+    // against a fake that reported `tabs: []` for every window, which is the
+    // exact defect that made captureOpenWindows return null.
+    expect(windows[0].tabs?.map((tab) => tab.title)).toEqual(['One']);
+  });
+
+  test('omits tabs when populate was not asked for', async () => {
+    handle = setupChromeFake({
+      windows: [
+        { id: 7, tabs: [{ id: 1, title: 'One' }] as chrome.tabs.Tab[] },
+      ],
+    });
+
+    const windows = await new Promise<chrome.windows.Window[]>((resolve) =>
+      chrome.windows.getAll({}, resolve)
+    );
+
+    expect(windows[0].tabs).toBeUndefined();
+  });
+
+  test('a tab created against a window shows up inside that window', async () => {
+    handle = setupChromeFake({ windows: [{ id: 7 }, { id: 8 }] });
+
+    await chrome.tabs.create({ windowId: 7, url: 'https://kagi.com/' });
+
+    const windows = await new Promise<chrome.windows.Window[]>((resolve) =>
+      chrome.windows.getAll({ populate: true }, resolve)
+    );
+
+    expect(windows[0].tabs?.map((tab) => tab.url)).toEqual([
+      'https://kagi.com/',
+    ]);
+    expect(windows[1].tabs).toEqual([]);
+  });
+
+  test('create opens its url as the new window first tab', async () => {
+    handle = setupChromeFake();
+
+    const created = await new Promise<chrome.windows.Window | undefined>(
+      (resolve) => chrome.windows.create({ url: 'https://kagi.com/' }, resolve)
+    );
+
+    expect(created!.tabs?.map((tab) => tab.url)).toEqual(['https://kagi.com/']);
   });
 
   test('remove deletes the window from a subsequent getAll', async () => {
