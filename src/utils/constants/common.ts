@@ -91,6 +91,12 @@ export const TOAST_MESSAGES = {
   // replaces it with a notification, and stays silent when the merge is a
   // no-op, which is the common case.
   SYNC_MERGED: 'Synced changes from another device.',
+  IMPORT_SUCCESS: 'Restored tabs successfully!',
+  // Deliberately not "Error restoring tabs": by the time the cloud write is
+  // attempted the restore has already succeeded on this device, so telling the
+  // user it failed would be as wrong as the success toast this replaces
+  // (KAN-43). isDirty stays set, so the next sync retries the write.
+  IMPORT_SYNC_FAILED: 'Restored on this device, but syncing failed.',
 };
 
 export const TOOLTIP_MESSAGES = {

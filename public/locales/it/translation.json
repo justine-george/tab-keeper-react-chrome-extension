@@ -88,5 +88,6 @@
   "RequestUserReviewHeader": "Ti sta piacendo Tab Keeper?",
   "RequestUserReviewText": "Ti dispiacerebbe lasciarci una recensione positiva?",
   "Maybe Later": "Più tardi",
-  "Never Remind Again": "Non ricordare più"
+  "Never Remind Again": "Non ricordare più",
+  "Restored on this device, but syncing failed.": "Ripristinato su questo dispositivo, ma la sincronizzazione non è riuscita."
 }

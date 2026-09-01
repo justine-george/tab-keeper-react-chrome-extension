@@ -9,6 +9,8 @@ import {
   selectCategory,
 } from '../../redux/slices/settingsCategoryStateSlice';
 import { TabMasterContainer } from '../../redux/slices/tabContainerDataStateSlice';
+import { saveToFirestore } from '../../utils/functions/external';
+import { TOAST_MESSAGES } from '../../utils/constants/common';
 
 // KAN-27, the wiring half. local.test.ts proves readImportedContainer refuses an
 // oversized backup; these prove the import handler actually calls it, and that a
@@ -153,5 +155,57 @@ describe('import size guard (KAN-27)', () => {
       expect(store.getState().tabContainerDataState.tabGroups).toHaveLength(1);
     });
     expect(store.getState().globalState.toastText).toMatch(/successfully/i);
+  });
+});
+
+// KAN-43. The import handler dispatched saveToFirestoreIfDirty and immediately
+// claimed success, so a failed cloud write produced a centre-screen "Restored
+// tabs successfully!" at the same moment as the sync_problem glyph in the menu
+// bar. The two assertions below are the two halves of that contradiction: the
+// store really is in the error state, and the toast has to agree with it.
+describe('import sync failure (KAN-43)', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    // saveToFirestore is a bare vi.fn() from componentSetup rather than a spy,
+    // so restoreAllMocks does not necessarily clear an implementation set on
+    // it. Reset explicitly: a leaked rejection would turn the KAN-27 control
+    // test above red for the wrong reason.
+    vi.mocked(saveToFirestore).mockReset();
+  });
+
+  test('reports a sync failure rather than success when the cloud write rejects', async () => {
+    vi.mocked(saveToFirestore).mockRejectedValue(
+      new Error('permission-denied')
+    );
+
+    const inputs = captureFileInput();
+    const { store } = await renderDataManagement();
+
+    await userEvent.click(
+      await screen.findByText('Restore App Data from File')
+    );
+    dropFile(inputs[0], buildSmallBackup());
+
+    // The local half genuinely succeeded -- this is not data loss, and the
+    // message must not say the restore failed.
+    await waitFor(() => {
+      expect(store.getState().tabContainerDataState.tabGroups).toHaveLength(1);
+    });
+
+    // Proves the write actually failed, so the toast assertion below is not
+    // passing against a successful sync.
+    await waitFor(() => {
+      expect(store.getState().globalState.syncStatus).toBe('error');
+    });
+
+    await waitFor(() => {
+      expect(store.getState().globalState.toastText).toBe(
+        TOAST_MESSAGES.IMPORT_SYNC_FAILED
+      );
+    });
+
+    // isDirty stays set, so the next sync retries the write. That is why this
+    // is a warning about syncing and not an error about restoring.
+    expect(store.getState().globalState.isDirty).toBe(true);
   });
 });
