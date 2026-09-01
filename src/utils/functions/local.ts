@@ -276,7 +276,25 @@ export function generatePlaceholderURL(
 export function decodeDataUrl(url: string): string {
   if (url.startsWith(PLACEHOLDER_URL_PREFIX)) {
     const base64Data = url.replace(PLACEHOLDER_URL_PREFIX, '');
-    const decodedHtml = Base64.decode(base64Data);
+
+    // Guarded because the caller cannot afford a throw: placeholderTarget runs
+    // this inside chrome.tabs.onActivated in the service worker, on every tab
+    // the user activates, and an exception there aborts the handler so the
+    // placeholder never resolves to its real page (KAN-45).
+    //
+    // The guard has to live here rather than in the test's expectations: this
+    // used not to throw only because js-base64 3.7.5 decoded malformed input to
+    // garbage. 3.9.3 raises InvalidCharacterError instead, so the no-throw
+    // guarantee was the dependency's, not ours.
+    let decodedHtml: string;
+    try {
+      decodedHtml = Base64.decode(base64Data);
+    } catch {
+      // Undecodable, so there is no page hiding in it. Handing the url back
+      // unchanged is what the rest of this path already does with input it
+      // cannot make sense of.
+      return url;
+    }
 
     // extract the actual URL from the HTML content
     //
