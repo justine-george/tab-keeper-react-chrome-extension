@@ -9,8 +9,8 @@ import WindowEntryContainer from './WindowEntryContainer';
 import { AppDispatch, RootState } from '../../../redux/store';
 import {
   resolveTabUrl,
-  filterTabGroups,
   isEmptyObject,
+  selectVisibleTabGroups,
 } from '../../../utils/functions/local';
 import {
   addCurrTabToWindow,
@@ -38,14 +38,19 @@ export default function TabGroupDetailsContainer() {
     (state: RootState) => state.globalState.searchInputText
   );
 
-  // filter the tab group list
-  let filteredTabGroups = tabContainerDataList.tabGroups.filter(
-    (tabGroup) => tabGroup.isSelected
-  );
-  if (isSearchPanel && searchInputText) {
-    filteredTabGroups = filterTabGroups(searchInputText, filteredTabGroups);
-  }
-  const selectedTabGroup = filteredTabGroups[0];
+  // the same list RightPane derives its mount guard from
+  const selectedTabGroup = selectVisibleTabGroups(
+    tabContainerDataList.tabGroups,
+    isSearchPanel,
+    searchInputText
+  )[0];
+
+  // Belt and braces: RightPane does not mount this component when the list is
+  // empty, so this should be unreachable -- but it is what makes the component
+  // safe on its own terms rather than safe because of its only caller (KAN-39).
+  // Must stay below every hook: an early return above one would change the hook
+  // count between renders and React would throw on the transition.
+  if (!selectedTabGroup) return null;
 
   const tabGroupId = selectedTabGroup.tabGroupId;
 

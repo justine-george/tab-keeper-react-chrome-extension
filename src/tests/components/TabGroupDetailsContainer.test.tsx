@@ -5,6 +5,10 @@ import userEvent from '@testing-library/user-event';
 import TabGroupDetailsContainer from '../../components/home/rightpane/TabGroupDetailsContainer';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import {
+  openSearchPanel,
+  setSearchInputText,
+} from '../../redux/slices/globalStateSlice';
+import {
   saveToTabContainerInternal,
   selectTabContainer,
 } from '../../redux/slices/tabContainerDataStateSlice';
@@ -76,5 +80,35 @@ describe('TabGroupDetailsContainer', () => {
     expect(chrome.createdTabs.map((tab) => tab.url)).toContain(
       'https://kagi.com/'
     );
+  });
+
+  // KAN-39, the sibling of KAN-16 in the component rendered beside it. Not
+  // reachable through the app: RightPane will not mount this component with
+  // nothing selected. Rendering it in isolation is what proves it is safe on
+  // its own terms.
+  test('renders nothing when no session is selected', async () => {
+    const { container } = await renderWithProviders(
+      <TabGroupDetailsContainer />
+    );
+
+    expect(container.innerHTML).toBe('');
+  });
+
+  // The other way the list empties: a session is selected but the search
+  // filters it away.
+  test('renders nothing when the search filters the selected session away', async () => {
+    const { container } = await renderWithProviders(
+      <TabGroupDetailsContainer />,
+      {
+        seedStore: (store) => {
+          store.dispatch(saveToTabContainerInternal(buildSession()));
+          store.dispatch(selectTabContainer('group-1'));
+          store.dispatch(openSearchPanel());
+          store.dispatch(setSearchInputText('nothing matches this'));
+        },
+      }
+    );
+
+    expect(container.innerHTML).toBe('');
   });
 });

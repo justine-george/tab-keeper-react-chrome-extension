@@ -150,6 +150,34 @@ export const filterTabGroups = (
   }, []);
 };
 
+// The sessions the right pane shows: the selected one, narrowed by the search
+// box while the search panel is open.
+//
+// This lives in one place because three components depend on it agreeing with
+// itself. RightPane derives its mount guard from the length of this list, and
+// both of the children it mounts read element [0] of it. While each of them
+// built the list itself, that agreement held only by coincidence of three
+// copies of the predicate matching -- and the day one copy changed (a pinned
+// sessions rule, a change to search behaviour) the parent would have mounted
+// children against an empty list and [0] would have been undefined. KAN-16 and
+// KAN-39 are that crash, found before it went live.
+//
+// It takes the state it needs rather than RootState so it stays pure and
+// node-testable, and so callers keep their existing useSelector subscriptions:
+// passing this to useSelector directly would return a new array on every store
+// update and re-render all three components on every unrelated action.
+export const selectVisibleTabGroups = (
+  tabGroups: tabContainerData[],
+  isSearchPanel: boolean,
+  searchInputText: string
+): tabContainerData[] => {
+  const selectedTabGroups = tabGroups.filter((tabGroup) => tabGroup.isSelected);
+
+  return isSearchPanel && searchInputText
+    ? filterTabGroups(searchInputText, selectedTabGroups)
+    : selectedTabGroups;
+};
+
 // save data to local storage
 export const saveToLocalStorage = (key: string, data: any): void => {
   try {
