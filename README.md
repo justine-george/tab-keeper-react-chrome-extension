@@ -58,7 +58,23 @@ Tab Keeper is an intuitive Chrome extension crafted to redefine the way users sa
 
 ## Changelog
 
-### v.1.4.0 (Latest)
+### v.1.4.1 (Latest)
+
+#### Fixes
+
+- Search results now show a window's own title when only its tabs match, instead of borrowing the title of one of those tabs
+- Collapsing or renaming a window no longer affects the wrong row after a window or tab is added to a session
+- Switching themes now applies the new colors immediately instead of fading through the old ones, and the scrollbar changes with them
+- The Auto Sync button no longer flashes as you move between settings sections
+- A backup too large to sync is now refused when you restore it, with an explanation, instead of being loaded and leaving sync stuck
+- Restoring a backup now tells you when it could not be saved to the cloud, instead of always reporting success
+- Restoring a backup saved by an older version no longer fails to sync on its first attempt
+
+#### Improvements
+
+- Dependent packages updated to latest versions
+
+### v.1.4.0
 
 #### Features
 
