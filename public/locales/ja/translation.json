@@ -88,5 +88,6 @@
   "RequestUserReviewHeader": "タブキーパーをお楽しみいただけていますか？",
   "RequestUserReviewText": "ポジティブなレビューをいただけませんか？",
   "Maybe Later": "後で",
-  "Never Remind Again": "再度お知らせしない"
+  "Never Remind Again": "再度お知らせしない",
+  "Restored on this device, but syncing failed.": "このデバイスに復元しましたが、同期に失敗しました。"
 }

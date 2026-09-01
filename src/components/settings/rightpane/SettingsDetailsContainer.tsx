@@ -35,6 +35,7 @@ import {
   DEV_EMAIL,
   FEEDBACK_MAIL_SUBJECT,
   SHARE_TWITTER_TEXT,
+  TOAST_MESSAGES,
 } from '../../../utils/constants/common';
 import { SettingsCategoryContainer } from '../leftpane/SettingsCategoryContainer';
 import {
@@ -127,7 +128,10 @@ const SettingsDetailsContainer: React.FC = () => {
       const file = (event.target as HTMLInputElement).files![0];
       const reader = new FileReader();
 
-      reader.onload = (fileEvent) => {
+      // async so the cloud write below can be awaited. Its rejection used to
+      // land after this callback had already returned, which put it outside
+      // the try and left the success toast already fired (KAN-43).
+      reader.onload = async (fileEvent) => {
         try {
           const content = fileEvent.target!.result as string;
           // Parses, validates the structure, and refuses anything that would
@@ -146,11 +150,20 @@ const SettingsDetailsContainer: React.FC = () => {
           // appears to work and then silently drops that session.
           dispatch(restoreContainer(tabDataFromJSON));
           dispatch(setIsDirty());
-          dispatch(saveToFirestoreIfDirty());
+
+          // The restore is already done and persisted at this point, so what
+          // is being reported below is the state of the *cloud write*, not of
+          // the import. requestStatus rather than .unwrap(): unwrap would
+          // throw into the catch and produce "Error restoring tabs", which is
+          // the one thing that is definitely untrue here.
+          const saveResult = await dispatch(saveToFirestoreIfDirty());
+          const syncFailed = saveResult.meta.requestStatus === 'rejected';
 
           dispatch(
             showToast({
-              toastText: `Restored tabs successfully!`,
+              toastText: syncFailed
+                ? TOAST_MESSAGES.IMPORT_SYNC_FAILED
+                : TOAST_MESSAGES.IMPORT_SUCCESS,
               duration: 3000,
             })
           );
