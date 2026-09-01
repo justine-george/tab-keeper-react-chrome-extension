@@ -11,6 +11,7 @@ import MainContainer from './components/MainContainer';
 import { AppDispatch, RootState } from './redux/store';
 import { setPresentStartup } from './redux/slices/undoRedoSlice';
 import { useThemeColors } from './hooks/useThemeColors';
+import { useDocumentTheme } from './hooks/useDocumentTheme';
 import { replaceState } from './redux/slices/tabContainerDataStateSlice';
 import {
   openRateAndReviewModal,
@@ -38,6 +39,13 @@ import {
 
 function App() {
   const COLORS = useThemeColors();
+
+  // Publishes the theme to <html>: scrollbar custom properties, and the flag
+  // that suppresses transitions while the colours change (KAN-22). Mounted at
+  // the root so it covers every route into a theme change, including a change
+  // arriving from settings sync rather than the swatches in Settings.
+  useDocumentTheme();
+
   const dispatch: AppDispatch = useDispatch();
   const isSignedIn = useSelector(
     (state: RootState) => state.globalState.isSignedIn

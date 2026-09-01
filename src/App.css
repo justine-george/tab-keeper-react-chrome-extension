@@ -7,18 +7,33 @@ body {
   background-color: grey;
 }
 
+/* Suppresses every transition while the theme is being swapped (KAN-22).
+   useDocumentTheme sets this attribute on <html> in the same commit that
+   changes the colours and clears it once they have painted.
+
+   `!important` is load-bearing here rather than lazy: the transitions this has
+   to beat are declared in emotion classes, which are injected into the document
+   later than this stylesheet and so would otherwise win on order alone. */
+[data-theme-switching] * {
+  transition: none !important;
+}
+
 ::-webkit-scrollbar {
   width: 10px;
 }
 
+/* The custom properties come from useDocumentTheme, which reads the SCROLLBAR_*
+   tokens off the active theme. The fallbacks are the previous hardcoded values,
+   so the scrollbar still renders if the stylesheet is parsed before React has
+   published anything. */
 ::-webkit-scrollbar-track {
-  background: #f0f2f5;
+  background: var(--scrollbar-track, #f0f2f5);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #888;
+  background: var(--scrollbar-thumb, #888);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #555;
+  background: var(--scrollbar-thumb-hover, #555);
 }
