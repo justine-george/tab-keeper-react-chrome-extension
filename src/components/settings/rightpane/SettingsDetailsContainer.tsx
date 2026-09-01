@@ -39,7 +39,7 @@ import {
   TabMasterContainer,
   restoreContainer,
 } from '../../../redux/slices/tabContainerDataStateSlice';
-import { isValidTabMasterContainer } from '../../../utils/functions/local';
+import { readImportedContainer } from '../../../utils/functions/local';
 import { SettingsCategory } from '../../../redux/slices/settingsCategoryStateSlice';
 import LoggedIn from './Account/LoggedIn';
 import NotLoggedIn from './Account/NotLoggedIn';
@@ -128,11 +128,11 @@ const SettingsDetailsContainer: React.FC = () => {
       reader.onload = (fileEvent) => {
         try {
           const content = fileEvent.target!.result as string;
-          const tabDataFromJSON: TabMasterContainer = JSON.parse(content);
-          // validate read JSON
-          if (!isValidTabMasterContainer(tabDataFromJSON)) {
-            throw new Error('Invalid JSON structure.');
-          }
+          // Parses, validates the structure, and refuses anything that would
+          // not fit in a Firestore document (KAN-27). Throws on every one of
+          // those, which the catch below turns into the error toast.
+          const tabDataFromJSON: TabMasterContainer =
+            readImportedContainer(content);
 
           // update timestamp
           tabDataFromJSON.lastModified = Date.now();
