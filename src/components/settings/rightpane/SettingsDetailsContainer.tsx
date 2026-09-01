@@ -1,3 +1,5 @@
+import { Fragment } from 'react';
+
 import { useDispatch, useSelector } from 'react-redux';
 
 import { css } from '@emotion/react';
@@ -673,7 +675,25 @@ const SettingsDetailsContainer: React.FC = () => {
     );
   }
 
-  return <div css={containerStyle}>{settingsOptionsDiv}</div>;
+  // Keyed on the category so React remounts the panel instead of reconciling
+  // one against the next (KAN-44). The five branches above all render into this
+  // one position, so without a key React matched them element by element and
+  // handed the Display panel's first theme swatch <button> to Sync & Privacy's
+  // Auto Sync button. A swatch is hardcoded to LIGHT_THEME.PRIMARY_COLOR, and
+  // Button carries `transition: background-color 0.2s`, so on a dark theme the
+  // recycled node animated white -> black over 200ms.
+  //
+  // A Fragment rather than a wrapper div: this is a flex context and an extra
+  // element would change the layout. Fragments take a key as long as they are
+  // written out in full -- the <> shorthand cannot, the same constraint as
+  // SettingsCategoryContainer in KAN-28.
+  return (
+    <div css={containerStyle}>
+      <Fragment key={selectedSettingsCategory.name}>
+        {settingsOptionsDiv}
+      </Fragment>
+    </div>
+  );
 };
 
 export default SettingsDetailsContainer;
