@@ -23,6 +23,8 @@ import {
   stripEmbeddedFavicons,
   resolveFaviconUrl,
   FIRESTORE_MAX_DOCUMENT_BYTES,
+  estimateFirestoreBytes,
+  readImportedContainer,
 } from '../../../utils/functions/local';
 import { TabMasterContainer } from '../../../redux/slices/tabContainerDataStateSlice';
 
@@ -1184,5 +1186,167 @@ describe('placeholderTarget', () => {
       null
     );
     expect(placeholderTarget('data:text/html;base64,')).toBeNull();
+  });
+});
+
+// KAN-27. The import dialog accepts any file the user picks, and Firestore
+// rejects a document over 1 MiB outright. Before this guard an oversized import
+// was persisted to localStorage, the toast said "Restored tabs successfully!",
+// and the write then failed -- leaving isDirty set against a document that can
+// never be written, so every later change failed to sync too.
+describe('estimateFirestoreBytes', () => {
+  const buildContainer = (
+    tabsPerWindow: number,
+    favicon: string,
+    title = (i: number) => `Repository ${i}`
+  ): TabMasterContainer => ({
+    lastModified: 1785312544441,
+    selectedTabGroupId: 'group-0',
+    tabGroups: [
+      {
+        tabGroupId: 'group-0',
+        title: 'Extensions',
+        createdTime: '2026-07-27 04:08:12',
+        windowCount: 1,
+        tabCount: tabsPerWindow,
+        isAutoSave: false,
+        isSelected: true,
+        windows: [
+          {
+            windowId: 'window-0',
+            windowHeight: 550,
+            windowWidth: 790,
+            windowOffsetTop: 0,
+            windowOffsetLeft: 0,
+            tabCount: tabsPerWindow,
+            title: 'first tab title',
+            tabs: Array.from({ length: tabsPerWindow }, (_, i) => ({
+              tabId: `tab-${i}`,
+              favicon,
+              title: title(i),
+              url: `https://github.com/user/repo-${i}`,
+            })),
+          },
+        ],
+      },
+    ],
+  });
+
+  // The whole reason the estimate is not just JSON.stringify(data).length:
+  // saveToFirestore strips embedded favicons before writing, so those bytes
+  // never reach the document and must not count against the limit.
+  test('should measure the container as saveToFirestore would write it', () => {
+    const heavyFavicon = 'data:image/png;base64,' + 'A'.repeat(12000);
+    const withFavicons = buildContainer(120, heavyFavicon);
+
+    expect(JSON.stringify(withFavicons).length).toBeGreaterThan(
+      FIRESTORE_MAX_DOCUMENT_BYTES
+    );
+    expect(estimateFirestoreBytes(withFavicons)).toBeLessThan(
+      FIRESTORE_MAX_DOCUMENT_BYTES
+    );
+  });
+
+  // Titles are user data and routinely non-ASCII. String.length counts UTF-16
+  // code units, so it under-reports the bytes Firestore actually stores and
+  // would let a document through that the write then rejects.
+  test('should count UTF-8 bytes rather than characters', () => {
+    const container = buildContainer(10, '', () => '日本語のタイトル');
+
+    expect(estimateFirestoreBytes(container)).toBeGreaterThan(
+      JSON.stringify(container).length
+    );
+  });
+});
+
+describe('readImportedContainer', () => {
+  const validContainer: TabMasterContainer = {
+    lastModified: 1785312544441,
+    selectedTabGroupId: null,
+    tabGroups: [],
+  };
+
+  test('should return the container for a valid backup', () => {
+    expect(readImportedContainer(JSON.stringify(validContainer))).toEqual(
+      validContainer
+    );
+  });
+
+  test('should throw the structure message for a valid-JSON non-container', () => {
+    expect(() => readImportedContainer('{"nope":true}')).toThrow(
+      'Invalid JSON structure.'
+    );
+  });
+
+  // Unchanged behaviour, pinned so the refactor cannot quietly swallow it:
+  // JSON.parse's own SyntaxError reaches the toast.
+  test('should let a JSON syntax error propagate', () => {
+    expect(() => readImportedContainer('{not json')).toThrow(SyntaxError);
+  });
+
+  test('should reject a backup that would exceed the Firestore limit', () => {
+    const huge: TabMasterContainer = {
+      lastModified: 1,
+      selectedTabGroupId: null,
+      tabGroups: [
+        {
+          tabGroupId: 'g',
+          title: 'x'.repeat(1_200_000),
+          createdTime: '2026-07-27 04:08:12',
+          windowCount: 0,
+          tabCount: 0,
+          isAutoSave: false,
+          isSelected: false,
+          windows: [],
+        },
+      ],
+    };
+
+    expect(() => readImportedContainer(JSON.stringify(huge))).toThrow(
+      /too large to sync/i
+    );
+  });
+
+  // The counterpart to the rejection test, and the reason the guard measures
+  // post-strip: a backup that is over the limit on disk but fits once favicons
+  // are dropped is a legitimate restore and must NOT be refused.
+  test('should accept a backup that only exceeds the limit before stripping', () => {
+    const heavyFavicon = 'data:image/png;base64,' + 'A'.repeat(12000);
+    const container: TabMasterContainer = {
+      lastModified: 1,
+      selectedTabGroupId: 'group-0',
+      tabGroups: [
+        {
+          tabGroupId: 'group-0',
+          title: 'Heavy',
+          createdTime: '2026-07-27 04:08:12',
+          windowCount: 1,
+          tabCount: 120,
+          isAutoSave: false,
+          isSelected: true,
+          windows: [
+            {
+              windowId: 'window-0',
+              windowHeight: 550,
+              windowWidth: 790,
+              windowOffsetTop: 0,
+              windowOffsetLeft: 0,
+              tabCount: 120,
+              title: 'w',
+              tabs: Array.from({ length: 120 }, (_, i) => ({
+                tabId: `tab-${i}`,
+                favicon: heavyFavicon,
+                title: `Repository ${i}`,
+                url: `https://github.com/user/repo-${i}`,
+              })),
+            },
+          ],
+        },
+      ],
+    };
+    const serialized = JSON.stringify(container);
+
+    expect(serialized.length).toBeGreaterThan(FIRESTORE_MAX_DOCUMENT_BYTES);
+    expect(readImportedContainer(serialized)).toEqual(container);
   });
 });
