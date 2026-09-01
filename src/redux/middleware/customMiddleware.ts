@@ -1,4 +1,4 @@
-import { Middleware } from '@reduxjs/toolkit';
+import { isAction, Middleware } from '@reduxjs/toolkit';
 
 import { set } from '../slices/undoRedoSlice';
 import { debounce } from '../../utils/functions/local';
@@ -72,7 +72,17 @@ export const customMiddleware: Middleware = (store) => {
   }, DEBOUNCE_TIME_WINDOW);
 
   return (next) => (action) => {
-    if (!isCapturableAction(action.type)) {
+    // Redux Toolkit 2 types this `unknown` rather than `AnyAction`, because a
+    // middleware sits above the base dispatch and so sees whatever was handed
+    // to it -- which is not guaranteed to be an action. isAction is RTK's own
+    // guard, so this narrows rather than asserts; a cast would silence the
+    // compiler while leaving `null.type` free to throw.
+    //
+    // Nothing in this app dispatches a non-action today (thunk middleware runs
+    // ahead of this one and unwraps thunks before they arrive), so this is a
+    // typing correction rather than a bug fix -- but the old code did throw a
+    // TypeError on null or undefined, and now it passes them along instead.
+    if (!isAction(action) || !isCapturableAction(action.type)) {
       return next(action);
     }
 
