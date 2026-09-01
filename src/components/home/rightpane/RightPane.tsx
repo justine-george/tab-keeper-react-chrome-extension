@@ -4,7 +4,7 @@ import { css } from '@emotion/react';
 
 import { RootState } from '../../../redux/store';
 import HeroContainerRight from './HeroContainerRight';
-import { filterTabGroups } from '../../../utils/functions/local';
+import { selectVisibleTabGroups } from '../../../utils/functions/local';
 import TabGroupDetailsContainer from './TabGroupDetailsContainer';
 
 export default function RightPane() {
@@ -20,15 +20,16 @@ export default function RightPane() {
     (state: RootState) => state.globalState.searchInputText
   );
 
-  let filteredTabGroups = tabContainerDataList.tabGroups.filter(
-    (tabGroup) => tabGroup.isSelected
+  // the same list both children below read, so the guard here cannot disagree
+  // with what they find
+  const visibleTabGroups = selectVisibleTabGroups(
+    tabContainerDataList.tabGroups,
+    isSearchPanel,
+    searchInputText
   );
-  if (isSearchPanel && searchInputText) {
-    filteredTabGroups = filterTabGroups(searchInputText, filteredTabGroups);
-  }
 
   // to identify whether no tab groups are selected
-  const isNoneSelected = filteredTabGroups.length === 0;
+  const isNoneSelected = visibleTabGroups.length === 0;
 
   const containerStyle = css`
     display: flex;

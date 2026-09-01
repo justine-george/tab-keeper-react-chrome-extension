@@ -13,8 +13,8 @@ import { useThemeColors } from '../../../hooks/useThemeColors';
 import { AppDispatch, RootState } from '../../../redux/store';
 import {
   resolveTabUrl,
-  filterTabGroups,
   getPrettyDate,
+  selectVisibleTabGroups,
 } from '../../../utils/functions/local';
 import {
   addCurrWindowToTabGroup,
@@ -59,17 +59,25 @@ export default function HeroContainerRight() {
     });
   }, []);
 
-  let filteredTabGroups = tabContainerDataList.tabGroups.filter(
-    (tabGroup) => tabGroup.isSelected
-  );
-  if (isSearchPanel && searchInputText) {
-    filteredTabGroups = filterTabGroups(searchInputText, filteredTabGroups);
-  }
-  const selectedTabGroup = filteredTabGroups[0];
+  // the same list RightPane derives its mount guard from
+  const selectedTabGroup = selectVisibleTabGroups(
+    tabContainerDataList.tabGroups,
+    isSearchPanel,
+    searchInputText
+  )[0];
 
   useEffect(() => {
-    setEditableTitle(selectedTabGroup.title);
+    if (selectedTabGroup) setEditableTitle(selectedTabGroup.title);
   }, [selectedTabGroup]);
+
+  // Belt and braces: RightPane does not mount this component when the list is
+  // empty, so this should be unreachable -- but it is what makes the component
+  // safe on its own terms rather than safe because of its only caller (KAN-16).
+  // It sits below every hook deliberately. Moving it above the useEffect that
+  // seeds the editable title would change the hook count between the
+  // nothing-selected and selected renders, and React throws "Rendered more
+  // hooks than during the previous render" on that transition.
+  if (!selectedTabGroup) return null;
 
   const handleTabGroupTitleClick = () => {
     if (!isSearchPanel) {
