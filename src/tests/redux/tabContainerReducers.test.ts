@@ -319,3 +319,97 @@ describe('restoreContainer produces a Firestore-writable container', () => {
     ]);
   });
 });
+
+// KAN-25. Four reducers restamp createdTime to "now". Each has to restamp
+// createdAt too, or the instant drifts away from the wall clock beside it and
+// the merge orders the session by a moment that has already passed.
+describe('createdAt restamping', () => {
+  beforeEach(() => localStorage.clear());
+
+  const seeded = (): TabMasterContainer => {
+    const g = group('a');
+    g.createdAt = 1_000;
+    g.windows.push({
+      windowId: 'w2',
+      windowHeight: 100,
+      windowWidth: 100,
+      windowOffsetTop: 0,
+      windowOffsetLeft: 0,
+      tabCount: 1,
+      title: 't',
+      tabs: [{ tabId: 'extra', favicon: '', title: 't', url: 'https://b.co' }],
+    });
+    g.windowCount = 2;
+    g.tabCount = 2;
+    return reducer(base(), saveToTabContainerInternal(g));
+  };
+
+  const newWindow = {
+    windowId: 'w3',
+    windowHeight: 100,
+    windowWidth: 100,
+    windowOffsetTop: 0,
+    windowOffsetLeft: 0,
+    tabCount: 1,
+    title: 't',
+    tabs: [{ tabId: 'n', favicon: '', title: 't', url: 'https://c.co' }],
+  };
+
+  const cases: [string, () => TabMasterContainer][] = [
+    [
+      'adding a window',
+      () =>
+        reducer(
+          seeded(),
+          addCurrWindowToTabGroupInternal({
+            tabGroupId: 'a',
+            window: newWindow,
+          })
+        ),
+    ],
+    [
+      'adding a tab',
+      () =>
+        reducer(
+          seeded(),
+          addCurrTabToWindowInternal({
+            tabGroupId: 'a',
+            windowId: 'w-a',
+            tabData: {
+              tabId: 'n',
+              favicon: '',
+              title: 't',
+              url: 'https://c.co',
+            },
+          })
+        ),
+    ],
+    [
+      'deleting a window',
+      () =>
+        reducer(
+          seeded(),
+          deleteWindowInternal({ tabGroupId: 'a', windowId: 'w2' })
+        ),
+    ],
+    [
+      'deleting a tab',
+      () =>
+        reducer(
+          seeded(),
+          deleteTabInternal({ tabGroupId: 'a', windowId: 'w-a', tabId: 't-a' })
+        ),
+    ],
+  ];
+
+  it.each(cases)('%s restamps createdAt', (_label, act) => {
+    const before = Date.now();
+    const after = act();
+    const stamped = byId(after, 'a').createdAt;
+
+    expect(stamped).not.toBe(1_000);
+    expect(typeof stamped).toBe('number');
+    expect(stamped!).toBeGreaterThanOrEqual(before);
+    expect(stamped!).toBeLessThanOrEqual(Date.now());
+  });
+});

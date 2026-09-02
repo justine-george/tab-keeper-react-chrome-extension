@@ -3,6 +3,7 @@ import { screen } from '@testing-library/react';
 
 import HeroContainerRight from '../../components/home/rightpane/HeroContainerRight';
 import { renderWithProviders } from '../setup/renderWithProviders';
+import { getPrettyDate } from '../../utils/functions/local';
 import {
   openSearchPanel,
   setSearchInputText,
@@ -45,6 +46,31 @@ const buildSession = () => ({
 });
 
 describe('HeroContainerRight', () => {
+  // KAN-25. createdTime is a local wall clock with no offset, so it cannot be
+  // trusted once a session crosses timezones. createdAt is the instant, and the
+  // date on screen has to come from it whenever it is there. The two are given
+  // deliberately different values so a component still reading createdTime
+  // cannot accidentally pass.
+  test('renders the date from createdAt, not the stored wall clock', async () => {
+    const session = {
+      ...buildSession(),
+      createdTime: '2026-08-31 09:00:00',
+      createdAt: Date.UTC(2027, 2, 4, 12, 0, 0),
+    };
+
+    await renderWithProviders(<HeroContainerRight />, {
+      seedStore: (store) => {
+        store.dispatch(saveToTabContainerInternal(session));
+        store.dispatch(selectTabContainer('group-1'));
+      },
+    });
+
+    expect(
+      await screen.findByText(getPrettyDate(session.createdAt))
+    ).toBeTruthy();
+    expect(screen.queryByText(getPrettyDate('2026-08-31 09:00:00'))).toBeNull();
+  });
+
   test('renders the selected session title', async () => {
     await renderWithProviders(<HeroContainerRight />, {
       seedStore: (store) => {

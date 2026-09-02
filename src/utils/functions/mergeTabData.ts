@@ -42,7 +42,32 @@ function sessionTimestamp(
 const compareAsc = (a: string, b: string): number =>
   a < b ? -1 : a > b ? 1 : 0;
 
-const compareDesc = (a: string, b: string): number => compareAsc(b, a);
+const LEGACY_CREATED_TIME = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})$/;
+
+// The instant a session was created, for ordering.
+//
+// createdAt is that instant outright. Sessions saved before it existed have
+// only createdTime, a local wall clock written with no offset, so the moment it
+// refers to is genuinely unrecoverable. Those are read as UTC: wrong by however
+// far the writer was from UTC, but wrong the *same way* on every device, which
+// is what keeps two devices agreeing on the order. Reading them as local time
+// instead would make the merge result depend on the reader's timezone.
+//
+// Two legacy rows still order exactly as they did when this compared the raw
+// strings, because reading a zero-padded `YYYY-MM-DD HH:MM:SS` as UTC is
+// monotonic in the string.
+export function createdInstant(group: tabContainerData): number {
+  if (typeof group.createdAt === 'number') return group.createdAt;
+
+  const parts = LEGACY_CREATED_TIME.exec(group.createdTime);
+  // Anything else is corrupt: sort it last rather than returning NaN, which
+  // would make every comparison involving it false and leave the sort's output
+  // dependent on the input order.
+  if (!parts) return 0;
+
+  const [, year, month, day, hour, minute, second] = parts.map(Number);
+  return Date.UTC(year, month - 1, day, hour, minute, second);
+}
 
 type Event =
   | { kind: 'present'; at: number; group: tabContainerData }
@@ -161,18 +186,19 @@ export function mergeTabContainers(
       survivors.push({ ...event.group, lastModified: event.at });
     }
   }
-  // Ordered by createdTime, not lastModified, because createdTime is the date
-  // the UI displays. Sorting by edit time while showing save time sent a
-  // renamed session to the top of the list, above sessions whose visible dates
-  // were newer - the list read Aug 1, Aug 30, Aug 29.
+  // Ordered by creation, not lastModified, because creation is what the UI
+  // displays. Sorting by edit time while showing save time sent a renamed
+  // session to the top of the list, above sessions whose visible dates were
+  // newer - the list read Aug 1, Aug 30, Aug 29.
   //
-  // Plain comparisons rather than localeCompare: the two devices have to agree
-  // on the order, and localeCompare varies with the device's locale.
-  // tabGroupId breaks exact ties so the result is total and stable.
-  // getStringDate zero-pads, so `YYYY-MM-DD HH:MM:SS` sorts correctly as text.
+  // The key is the instant (createdInstant), not the createdTime string. Two
+  // devices in different timezones write different wall clocks for the same
+  // moment, so comparing the strings ordered them by where the user was rather
+  // than by when they saved. tabGroupId breaks exact ties so the result is
+  // total and stable.
   survivors.sort(
     (a, b) =>
-      compareDesc(a.createdTime, b.createdTime) ||
+      createdInstant(b) - createdInstant(a) ||
       compareAsc(a.tabGroupId, b.tabGroupId)
   );
 

@@ -161,6 +161,24 @@ describe('captureOpenWindows against the chrome fake', () => {
     expect(captured!.windows[0].tabs.map((tab) => tab.url)).toEqual([A, B]);
   });
 
+  // KAN-25. A newly captured session is the one case where both timestamps are
+  // written from scratch, so it is where they must agree.
+  test('stamps the capture instant alongside the display string', async () => {
+    handle = setupChromeFake({
+      windows: [
+        { id: 1, tabs: [{ id: 1, url: A, title: 'A' }] as chrome.tabs.Tab[] },
+      ],
+    });
+
+    const before = Date.now();
+    const captured = await captureOpenWindows('probe');
+
+    expect(captured).not.toBeNull();
+    expect(typeof captured!.createdAt).toBe('number');
+    expect(captured!.createdAt!).toBeGreaterThanOrEqual(before);
+    expect(captured!.createdAt!).toBeLessThanOrEqual(Date.now());
+  });
+
   test('captures a tab added through tabs.create', async () => {
     handle = setupChromeFake({ windows: [{ id: 1 }] });
 

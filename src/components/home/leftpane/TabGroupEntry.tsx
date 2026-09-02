@@ -41,7 +41,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
   const handleMouseEnter = () => setIsHovered(true);
   const handleMouseLeave = () => setIsHovered(false);
 
-  const { title, createdTime, windowCount, tabCount, isSelected } =
+  const { title, createdTime, createdAt, windowCount, tabCount, isSelected } =
     tabGroupData;
 
   function handleKeyPress(e: React.KeyboardEvent<HTMLDivElement>) {
@@ -120,7 +120,9 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
             margin-top: 5px;
           `}
         >
-          {getPrettyDate(createdTime)}
+          {/* createdAt is the instant; createdTime is a local wall clock with
+              no offset, kept only for sessions saved before createdAt. */}
+          {getPrettyDate(createdAt ?? createdTime)}
         </div>
       </div>
       {!isSearchPanel && (

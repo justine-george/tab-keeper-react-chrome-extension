@@ -42,8 +42,15 @@ export interface windowGroupData {
 
 export interface tabContainerData {
   tabGroupId: string;
-  title: string;
+  // Local wall clock at save time, with no offset recorded, so it cannot be
+  // compared across timezones. Kept for display of rows written before
+  // createdAt existed; createdAt is the field to order and reason on.
   createdTime: string;
+  // The instant the session was saved. Optional because every session stored
+  // before this change lacks it; readers fall back to reading createdTime as
+  // UTC. See createdInstant in mergeTabData.ts.
+  createdAt?: number;
+  title: string;
   windowCount: number;
   tabCount: number;
   isAutoSave: boolean;
@@ -396,6 +403,16 @@ function touch(group: tabContainerData): void {
   group.lastModified = Date.now();
 }
 
+// createdTime and createdAt are the same moment in two formats - a local wall
+// clock for display, and the instant the merge orders on. They are written
+// together, through this, so a reader can never catch them describing
+// different moments.
+function stampCreated(group: tabContainerData): void {
+  const now = new Date();
+  group.createdTime = getStringDate(now);
+  group.createdAt = now.getTime();
+}
+
 // A removed session has to leave a trace, or the device that still holds it
 // re-adds it on the next merge and the user can never delete it anywhere.
 // Re-deleting an id refreshes its timestamp rather than appending a duplicate.
@@ -460,7 +477,7 @@ export const tabContainerDataStateSlice = createSlice({
       if (tabGroupIndex !== -1) {
         state.tabGroups[tabGroupIndex].windowCount += 1;
         state.tabGroups[tabGroupIndex].tabCount += window.tabCount;
-        state.tabGroups[tabGroupIndex].createdTime = getStringDate(new Date());
+        stampCreated(state.tabGroups[tabGroupIndex]);
         state.tabGroups[tabGroupIndex].windows.unshift(window);
         touch(state.tabGroups[tabGroupIndex]);
       }
@@ -487,9 +504,7 @@ export const tabContainerDataStateSlice = createSlice({
         if (windowIndex !== -1) {
           // increment tab count of tabGroup and windowGroup
           state.tabGroups[tabGroupIndex].tabCount += 1;
-          state.tabGroups[tabGroupIndex].createdTime = getStringDate(
-            new Date()
-          );
+          stampCreated(state.tabGroups[tabGroupIndex]);
           state.tabGroups[tabGroupIndex].windows[windowIndex].tabCount += 1;
           // add to windowGroup
           state.tabGroups[tabGroupIndex].windows[windowIndex].tabs.unshift(
@@ -581,9 +596,7 @@ export const tabContainerDataStateSlice = createSlice({
         if (windowIndex !== -1) {
           // decrement tabGroup's window count by 1
           state.tabGroups[tabGroupIndex].windowCount -= 1;
-          state.tabGroups[tabGroupIndex].createdTime = getStringDate(
-            new Date()
-          );
+          stampCreated(state.tabGroups[tabGroupIndex]);
           // decrement tabGroup's tab count by tab count of the window that's been deleted
           state.tabGroups[tabGroupIndex].tabCount -=
             state.tabGroups[tabGroupIndex].windows[windowIndex].tabCount;
@@ -631,9 +644,7 @@ export const tabContainerDataStateSlice = createSlice({
             // decrement window's and tabGroup's tab count by 1
             state.tabGroups[tabGroupIndex].windows[windowIndex].tabCount -= 1;
             state.tabGroups[tabGroupIndex].tabCount -= 1;
-            state.tabGroups[tabGroupIndex].createdTime = getStringDate(
-              new Date()
-            );
+            stampCreated(state.tabGroups[tabGroupIndex]);
 
             state.tabGroups[tabGroupIndex].windows[windowIndex].tabs.splice(
               tabIndex,

@@ -96,7 +96,7 @@ export default function HeroContainerRight() {
     setEditableTitle(e.target.value);
   };
 
-  const { tabGroupId, title, createdTime, windowCount, tabCount } =
+  const { tabGroupId, title, createdTime, createdAt, windowCount, tabCount } =
     selectedTabGroup;
 
   const handleAddCurrWindowClick = async () => {
@@ -248,7 +248,9 @@ export default function HeroContainerRight() {
           style={`padding-top: 2px; padding-left: 8px;`}
         />
         <NormalLabel
-          value={getPrettyDate(createdTime)}
+          // createdAt is the instant; createdTime is a local wall clock with no
+          // offset, kept only for sessions saved before createdAt existed.
+          value={getPrettyDate(createdAt ?? createdTime)}
           size="0.7rem"
           color={COLORS.LABEL_L2_COLOR}
           style="padding-top: 2px; padding-left: 8px;"
