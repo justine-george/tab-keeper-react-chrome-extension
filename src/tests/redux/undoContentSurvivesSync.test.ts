@@ -27,6 +27,7 @@ import {
   syncStateWithFirestore,
 } from '../../redux/slices/globalStateSlice';
 import {
+  restoreContainer,
   saveToTabContainerInternal,
   updateTabGroupTitle,
   updateWindowGroupTitle,
@@ -214,5 +215,64 @@ describe('undoing a content edit survives the next sync (KAN-55)', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+// restoreContainer serves the import path too, so the same stamping now
+// applies there. undoTombstone.test.ts already covers importing a backup that
+// predates a DELETE; this is the content equivalent, and it is the reason the
+// change is safe to make on a path the user reaches from Settings.
+//
+// A backup is by definition older than what it is replacing. Without the
+// stamp its sessions carry the file's timestamps, lose the next merge to the
+// cloud copy they were meant to replace, and the restore the user explicitly
+// asked for is silently reverted -- the same defect as the undo, one path
+// over.
+describe('importing a backup that predates a content edit (KAN-55)', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    mocks.loadFromFirestore.mockReset();
+    mocks.saveToFirestore.mockReset().mockResolvedValue(undefined);
+  });
+
+  it('keeps the imported title through the next sync', async () => {
+    const { store } = makeTestStore();
+    store.dispatch(setSignedIn());
+    store.dispatch(setUserId('u1'));
+
+    store.dispatch(saveToTabContainerInternal(group('s1', 'Alpha')));
+    store.dispatch(
+      updateTabGroupTitle({ tabGroupId: 's1', editableTitle: 'RENAMED' })
+    );
+
+    // The cloud holds the rename.
+    const cloud: TabMasterContainer = JSON.parse(
+      JSON.stringify(store.getState().tabContainerDataState)
+    );
+
+    // The user restores a backup taken before that rename. Its timestamps are
+    // the file's -- deliberately older than the cloud's copy.
+    const backup: TabMasterContainer = {
+      lastModified: Date.UTC(2026, 7, 1, 0, 0, 0),
+      selectedTabGroupId: null,
+      tabGroups: [
+        {
+          ...group('s1', 'Alpha'),
+          lastModified: Date.UTC(2026, 7, 1, 0, 0, 0),
+        },
+      ],
+    };
+    store.dispatch(restoreContainer(backup));
+
+    const imported = store.getState().tabContainerDataState;
+    expect(titleOf('s1', imported.tabGroups)).toBe('Alpha');
+
+    mocks.loadFromFirestore.mockResolvedValue(cloud);
+    localStorage.setItem('tabContainerData', JSON.stringify(imported));
+    await store.dispatch(syncStateWithFirestore() as never);
+
+    expect(
+      titleOf('s1', store.getState().tabContainerDataState.tabGroups)
+    ).toBe('Alpha');
   });
 });
