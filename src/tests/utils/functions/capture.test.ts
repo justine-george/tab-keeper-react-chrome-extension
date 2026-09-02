@@ -201,4 +201,72 @@ describe('captureOpenWindows against the chrome fake', () => {
     expect(captured).not.toBeNull();
     expect(captured!.windows[0].tabs.map((tab) => tab.url)).toEqual([A, B]);
   });
+
+  // KAN-50. capture asked chrome for every window type, while focus mode's
+  // close (background.ts) and count (the slice) both filter to 'normal'. So
+  // focus mode saved popup windows it then left open, and the confirmation
+  // undercounted what it was about to close.
+  //
+  // Excluding them loses nothing: the saved record has no `type` field at all
+  // -- windowId, geometry, tabCount, title, tabs -- so a captured popup was
+  // already reopening as an ordinary window. Confirmed in the real extension
+  // before this changed: a saved popup restored with type 'normal'.
+  test('excludes popup windows', async () => {
+    handle = setupChromeFake({
+      windows: [
+        { id: 1, tabs: [{ id: 1, url: A, title: 'A' }] as chrome.tabs.Tab[] },
+        {
+          id: 2,
+          type: 'popup',
+          tabs: [{ id: 2, url: B, title: 'B' }] as chrome.tabs.Tab[],
+        },
+      ],
+    });
+
+    const captured = await captureOpenWindows('probe');
+
+    expect(captured).not.toBeNull();
+    expect(captured!.windows).toHaveLength(1);
+    expect(captured!.windows[0].tabs.map((tab) => tab.url)).toEqual([A]);
+  });
+
+  // Filtering getAll is not sufficient on its own: capture unshifts
+  // getCurrent() to put the user's focused window first, and that unshift
+  // ran regardless of type. Seeding the popup first makes it the fake's
+  // current window, which is the case a getAll-only filter would miss.
+  test('excludes a popup even when it is the current window', async () => {
+    handle = setupChromeFake({
+      windows: [
+        {
+          id: 1,
+          type: 'popup',
+          tabs: [{ id: 1, url: B, title: 'B' }] as chrome.tabs.Tab[],
+        },
+        { id: 2, tabs: [{ id: 2, url: A, title: 'A' }] as chrome.tabs.Tab[] },
+      ],
+    });
+
+    const captured = await captureOpenWindows('probe');
+
+    expect(captured).not.toBeNull();
+    expect(captured!.windows).toHaveLength(1);
+    expect(captured!.windows[0].tabs.map((tab) => tab.url)).toEqual([A]);
+  });
+
+  // The worst path: a popup is the only thing open. Returning null is the
+  // caller's cue that there is no session to save, so focus mode does not
+  // promise a save it will not make.
+  test('returns null when only popup windows are open', async () => {
+    handle = setupChromeFake({
+      windows: [
+        {
+          id: 1,
+          type: 'popup',
+          tabs: [{ id: 1, url: B, title: 'B' }] as chrome.tabs.Tab[],
+        },
+      ],
+    });
+
+    expect(await captureOpenWindows('probe')).toBeNull();
+  });
 });

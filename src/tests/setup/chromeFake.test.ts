@@ -132,6 +132,69 @@ describe('chrome.windows fake', () => {
     expect(windows.map((w) => w.id)).toEqual([8]);
     expect(handle.removedWindowIds).toEqual([7]);
   });
+
+  // KAN-50. capture and background.ts both narrow getAll with windowTypes. A
+  // fake that ignored the filter would hand them popups regardless and let a
+  // popup-exclusion test pass without the production code doing anything.
+  test('getAll honours windowTypes', async () => {
+    handle = setupChromeFake({
+      windows: [{ id: 7 }, { id: 8, type: 'popup' }],
+    });
+
+    const normals = await new Promise<chrome.windows.Window[]>((resolve) =>
+      chrome.windows.getAll({ windowTypes: ['normal'] }, resolve)
+    );
+    const popups = await new Promise<chrome.windows.Window[]>((resolve) =>
+      chrome.windows.getAll({ windowTypes: ['popup'] }, resolve)
+    );
+
+    expect(normals.map((w) => w.id)).toEqual([7]);
+    expect(popups.map((w) => w.id)).toEqual([8]);
+  });
+
+  // Chrome's documented default when the caller omits windowTypes. This is the
+  // behaviour the KAN-50 bug rode in on, so it is pinned rather than assumed.
+  test('getAll defaults to normal and popup when windowTypes is omitted', async () => {
+    handle = setupChromeFake({
+      windows: [{ id: 7 }, { id: 8, type: 'popup' }],
+    });
+
+    const windows = await new Promise<chrome.windows.Window[]>((resolve) =>
+      chrome.windows.getAll({}, resolve)
+    );
+
+    expect(windows.map((w) => w.id)).toEqual([7, 8]);
+  });
+
+  // A seeded window with no explicit type has to default to 'normal', or every
+  // existing test's windows would be filtered out of every typed query.
+  test('a seeded window defaults to type normal', async () => {
+    handle = setupChromeFake({ windows: [{ id: 7 }] });
+
+    const windows = await new Promise<chrome.windows.Window[]>((resolve) =>
+      chrome.windows.getAll({ windowTypes: ['normal'] }, resolve)
+    );
+
+    expect(windows.map((w) => w.type)).toEqual(['normal']);
+  });
+
+  test('create defaults to type normal and honours an explicit popup', async () => {
+    handle = setupChromeFake();
+
+    const normal = await new Promise<chrome.windows.Window | undefined>(
+      (resolve) => chrome.windows.create({ url: 'https://a.example/' }, resolve)
+    );
+    const popup = await new Promise<chrome.windows.Window | undefined>(
+      (resolve) =>
+        chrome.windows.create(
+          { url: 'https://b.example/', type: 'popup' },
+          resolve
+        )
+    );
+
+    expect(normal!.type).toBe('normal');
+    expect(popup!.type).toBe('popup');
+  });
 });
 
 describe('chrome.runtime fake', () => {

@@ -70,6 +70,10 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
     const created = {
       id: nextId++,
       focused: false,
+      // Chrome never returns a window without a type, and getAll filters on
+      // it, so a window that defaulted to undefined would be invisible to
+      // every query. Explicit `type` in the seed still wins.
+      type: 'normal',
       ...rest,
     } as chrome.windows.Window;
     windows.push(created);
@@ -202,14 +206,31 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
     },
 
     windows: {
+      // `windowTypes` is part of the query contract, not decoration: capture
+      // passes ['normal'] to keep popup windows out of a saved session
+      // (KAN-50), and background.ts passes it to pick what focus mode closes.
+      // A fake that ignored it would hand those callers popups anyway and
+      // report the bug fixed while it was not. Chrome's documented default
+      // when the caller omits it is ['normal', 'popup'].
       getAll: (
         info: chrome.windows.QueryOptions,
         cb?: (result: chrome.windows.Window[]) => void
-      ) =>
-        settle(
-          windows.map((win) => (info?.populate ? populate(win) : { ...win })),
+      ) => {
+        // `${WindowType}` and not WindowType: the enum's string form is what
+        // the API surface actually uses, and what a caller can pass literally.
+        const wanted: `${chrome.windows.WindowType}`[] = info?.windowTypes ?? [
+          'normal',
+          'popup',
+        ];
+        return settle(
+          windows
+            .filter(
+              (win) => win.type !== undefined && wanted.includes(win.type)
+            )
+            .map((win) => (info?.populate ? populate(win) : { ...win })),
           cb
-        ),
+        );
+      },
       getCurrent: (
         info: chrome.windows.QueryOptions,
         cb?: (result: chrome.windows.Window) => void
@@ -230,6 +251,7 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
         const created = {
           id: nextId++,
           focused: data.focused ?? false,
+          type: data.type ?? 'normal',
         } as unknown as chrome.windows.Window;
         windows.push(created);
         for (const url of typeof data.url === 'string'
