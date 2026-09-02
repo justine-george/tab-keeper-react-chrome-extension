@@ -4,6 +4,7 @@ import { useSelector } from 'react-redux';
 
 import { css } from '@emotion/react';
 
+import ClickableRow from '../../common/ClickableRow';
 import Icon from '../../common/Icon';
 import { NormalLabel } from '../../common/Label';
 import { RootState } from '../../../redux/store';
@@ -19,7 +20,13 @@ import { useTranslation } from 'react-i18next';
 
 interface TabGroupEntryProps {
   tabGroupData: tabContainerData;
-  onTabGroupClick: MouseEventHandler;
+  /**
+   * Takes no event. It was typed MouseEventHandler while its only caller
+   * passed a zero-argument arrow, which is what let the old keyboard path get
+   * away with `onTabGroupClick(e as any)` -- handing a KeyboardEvent to
+   * something the compiler believed was a MouseEventHandler.
+   */
+  onTabGroupClick: () => void;
   onOpenAllClick: MouseEventHandler;
   onFocusClick: MouseEventHandler;
   onDeleteClick: MouseEventHandler;
@@ -55,13 +62,9 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
   const { title, createdTime, createdAt, windowCount, tabCount, isSelected } =
     tabGroupData;
 
-  function handleKeyPress(e: React.KeyboardEvent<HTMLDivElement>) {
-    if (e.key === 'Enter') {
-      onTabGroupClick(e as any);
-    }
-  }
-
-  const leftStyle = css`
+  // A plain string, not css``, because it is handed to ClickableRow's `style`
+  // prop, which composes it into the button's own reset.
+  const leftStyle = `
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -83,6 +86,13 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
     align-items: center;
     opacity: ${isHovered ? 1 : 0};
     transition: opacity 0.1s ease-out;
+    /* Hover reveals these to a pointer; focus-within is the same reveal for
+       the keyboard. Without it the controls are in the tab order (KAN-68) but
+       land on something invisible, which is arguably worse than not reaching
+       them at all. */
+    &:focus-within {
+      opacity: 1;
+    }
   `;
 
   const containerStyle = css`
@@ -99,16 +109,28 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
     background-color: ${isSelected && COLORS.SELECTION_COLOR};
   `;
 
+  // The row's primary action lives on the inner ClickableRow, not on this
+  // container, and that placement is the whole fix for KAN-64. The container
+  // was a role-less div carrying tabIndex={0} and onClick: focusable, but
+  // exposed as `generic`, where ARIA prohibits naming -- so it reached the
+  // tab order as an anonymous stop that announced nothing.
+  //
+  // It cannot simply become a <button> or gain role="button" either, because
+  // the Open/Switch/Delete controls are inside it and nesting buttons is
+  // invalid HTML. Moving the action onto the left column instead makes them
+  // siblings. `leftStyle` is width: 100%, so the clickable area is unchanged;
+  // the action block is absolutely positioned on top of it.
   return (
     <div
-      tabIndex={0}
       css={containerStyle}
-      onClick={onTabGroupClick}
-      onKeyDown={(e) => handleKeyPress(e)}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
-      <div css={leftStyle}>
+      <ClickableRow
+        ariaLabel={title}
+        onClick={onTabGroupClick}
+        style={leftStyle}
+      >
         <NormalLabel
           style="max-width: 100%;"
           value={title}
@@ -138,7 +160,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
               no offset, kept only for sessions saved before createdAt. */}
           {getPrettyDate(createdAt ?? createdTime)}
         </div>
-      </div>
+      </ClickableRow>
       {!isSearchPanel && (
         <div css={rightStyle}>
           <Icon
@@ -149,7 +171,6 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
             backgroundColor={
               isSelected ? COLORS.SELECTION_COLOR : COLORS.HOVER_COLOR
             }
-            focusable={isHovered ? true : false}
             onClick={(e) => {
               e.stopPropagation();
               onOpenAllClick(e);
@@ -164,7 +185,6 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
             backgroundColor={
               isSelected ? COLORS.SELECTION_COLOR : COLORS.HOVER_COLOR
             }
-            focusable={isHovered ? true : false}
             onClick={(e) => {
               e.stopPropagation();
               onFocusClick(e);
@@ -179,7 +199,6 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
             backgroundColor={
               isSelected ? COLORS.SELECTION_COLOR : COLORS.HOVER_COLOR
             }
-            focusable={isHovered ? true : false}
             onClick={(e) => {
               e.stopPropagation();
               onDeleteClick(e);

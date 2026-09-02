@@ -76,7 +76,6 @@ export default function MenuContainer() {
         onClick={handleClickUndo}
         style={isUndoable ? 'opacity: 1;' : 'opacity: 0.3;'}
         disable={!isUndoable}
-        focusable={isUndoable}
       />
       <Icon
         ariaLabel="redo"
@@ -85,7 +84,6 @@ export default function MenuContainer() {
         onClick={handleClickRedo}
         style={isRedoable ? 'opacity: 1;' : 'opacity: 0.3;'}
         disable={!isRedoable}
-        focusable={isRedoable}
       />
       <Icon
         ariaLabel="sync"

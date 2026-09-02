@@ -15,6 +15,13 @@ import { buildContainer, buildSession, seedSessions } from './fixtures/seed';
 // `aria-label` without applying the prohibition, so a vitest version of these
 // assertions would be green today.
 
+// The title is deliberately left as "Research" even though it substring-
+// matches the "search" control: `getByRole(name:)` matches a SUBSTRING unless
+// `exact: true` is passed, and this fixture is the cheapest standing reminder
+// of that. It is the same hazard golden-path.spec.ts:138 already guards
+// against, where the ligature text "arrow_back" substring-matches "Back".
+// KAN-64 made it bite for real, because the session row is now a button named
+// after its title.
 const RESEARCH = buildSession({
   tabGroupId: 'session-research',
   title: 'Research',
@@ -61,7 +68,7 @@ test.describe('accessible controls', () => {
     extensionId,
   }) => {
     const page = await openPopup(context, extensionId);
-    await page.getByRole('button', { name: 'search' }).click();
+    await page.getByRole('button', { name: 'search', exact: true }).click();
     await expect(page.locator('input#searchInput')).toBeVisible();
 
     await expect(page.getByRole('button', { name: 'back' })).toHaveCount(1);
@@ -73,7 +80,9 @@ test.describe('accessible controls', () => {
   }) => {
     const page = await openPopup(context, extensionId);
 
-    await expect(page.getByRole('button', { name: 'search' })).toHaveCount(1);
+    await expect(
+      page.getByRole('button', { name: 'search', exact: true })
+    ).toHaveCount(1);
   });
 
   // The other half of the Icon change: a presentational icon is hidden from
@@ -164,4 +173,188 @@ test.describe('accessible controls', () => {
       await expect(page.locator('input#name')).toBeVisible();
     });
   }
+});
+
+// Clicks the session row near its left edge, over the title, rather than at
+// its geometric centre.
+//
+// The Open/Switch/Delete block is absolutely positioned over the right-hand
+// ~170px of a ~321px row and appears on hover, so the centre of the row is
+// underneath it. Nothing about that changed in KAN-64 -- the same pixels
+// belonged to the same icons before -- but the DOM relationship did: those
+// icons used to be DESCENDANTS of the clickable container, and Playwright
+// permits a click whose hit target is a descendant of the locator. Now that
+// the action is on an inner ClickableRow they are SIBLINGS, so the same click
+// is reported as intercepted.
+//
+// A user selects a session by clicking its title, which is what this does.
+async function selectSession(page: Page): Promise<void> {
+  await page
+    .getByRole('button', { name: 'Research' })
+    .click({ position: { x: 20, y: 20 } });
+}
+
+// Walks the real tab order from the top of the document and returns the
+// accessible name of each stop. This is the only way to test reachability
+// honestly: `locator.focus()` succeeds on a tabindex=-1 element, so a test
+// that focuses a control directly proves nothing about whether a keyboard
+// user could ever have got there.
+async function tabOrderNames(page: Page, steps: number): Promise<string[]> {
+  await page.locator('body').press('Tab');
+  const names: string[] = [];
+  for (let i = 0; i < steps; i++) {
+    names.push(
+      await page.evaluate(() => {
+        const el = document.activeElement;
+        if (!el || el === document.body) return '<body>';
+        // Accessible-name precedence, simplified to the three sources this app
+        // actually uses: aria-label, then content, then title. `title` is not
+        // decoration here -- the theme buttons carry no aria-label and no text,
+        // so it is the only name they have.
+        return (
+          el.getAttribute('aria-label') ||
+          el.textContent?.trim() ||
+          el.getAttribute('title') ||
+          '<unnamed>'
+        );
+      })
+    );
+    await page.keyboard.press('Tab');
+  }
+  return names;
+}
+
+test.describe('controls are reachable by keyboard', () => {
+  // KAN-64. Four list rows were `tabIndex={0}` divs with an onClick and no
+  // role: they took a tab stop, were exposed as `generic` -- where ARIA
+  // PROHIBITS naming, so the name was dropped -- and ignored Space.
+  //
+  // These have to run in a real browser for the same reason the KAN-56
+  // assertions do: dom-accessibility-api names a role-less div happily, so a
+  // jsdom version of `getByRole('button', { name })` is green against the
+  // broken code.
+  test('the session row is a button with an accessible name (KAN-64)', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+
+    await expect(page.getByRole('button', { name: 'Research' })).toHaveCount(1);
+  });
+
+  test('the settings category row is a button with an accessible name (KAN-64)', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    await page.getByRole('button', { name: 'settings' }).click();
+
+    // "Display" is the category ROW; "Themes" is a heading inside the pane it
+    // opens. The row is the control KAN-64 is about.
+    await expect(page.getByRole('button', { name: 'Display' })).toHaveCount(1);
+  });
+
+  test('the window and tab rows are buttons with accessible names (KAN-64)', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    await selectSession(page);
+
+    await expect(
+      page.getByRole('button', { name: 'Morning reading' })
+    ).toHaveCount(1);
+    await expect(
+      page.getByRole('button', { name: 'Open in new tab: Example Domain' })
+    ).toHaveCount(1);
+  });
+
+  // Enter is the control. It worked before this change on every one of these
+  // rows, so a Space failure is a gap in the row's own key handling rather
+  // than in the way this test drives the keyboard.
+  for (const key of ['Enter', 'Space'] as const) {
+    test(`the session row is operable with ${key} (KAN-64)`, async ({
+      context,
+      extensionId,
+    }) => {
+      const page = await openPopup(context, extensionId);
+
+      await page.getByRole('button', { name: 'Research' }).focus();
+      await page.keyboard.press(key);
+
+      await expect(
+        page.getByRole('button', { name: 'Morning reading' })
+      ).toBeVisible();
+    });
+  }
+
+  // KAN-68. These eight controls had `focusable` wired to mouse-hover state,
+  // so they were never in the tab order at all. Asserted by walking the real
+  // tab order rather than by focusing them directly.
+  test('session row actions are reachable by Tab (KAN-68)', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+
+    const names = await tabOrderNames(page, 12);
+
+    expect(names).toContain('open all windows');
+    expect(names).toContain('switch to session');
+    expect(names).toContain('delete session');
+  });
+
+  // Delete tab and Delete window group are the two that matter most: unlike
+  // the session actions, they have no alternate path anywhere in the UI, so
+  // before this change they could not be performed without a mouse at all.
+  test('window and tab actions are reachable by Tab (KAN-68)', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    await selectSession(page);
+    await expect(
+      page.getByRole('button', { name: 'Morning reading' })
+    ).toBeVisible();
+
+    const names = await tabOrderNames(page, 20);
+
+    expect(names).toContain('delete window group');
+    expect(names).toContain('delete');
+  });
+
+  // The other half of KAN-68: being in the tab order is useless if focus
+  // lands on something painted at opacity 0. Hover is a pointer-only signal,
+  // so :focus-within is what reveals these to a keyboard user.
+  test('focusing a row action reveals it (KAN-68)', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    const actions = page.locator('div:has(> [aria-label="delete session"])');
+
+    // The control: unfocused and unhovered, the block really is invisible, so
+    // the assertion below can tell the two states apart.
+    await expect(actions).toHaveCSS('opacity', '0');
+
+    await page.getByRole('button', { name: 'delete session' }).focus();
+
+    await expect(actions).toHaveCSS('opacity', '1');
+  });
+
+  // KAN-67. `focusableButton` had no default, so `tabIndex={onClick &&
+  // focusableButton ? 0 : -1}` put 32 of 36 clickable Buttons out of the tab
+  // order -- the whole settings pane among them.
+  test('settings buttons are reachable by Tab (KAN-67)', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    await page.getByRole('button', { name: 'settings' }).click();
+    await expect(page.getByText('Themes')).toBeVisible();
+
+    const names = await tabOrderNames(page, 25);
+
+    expect(names.join('|')).toMatch(/Light/);
+  });
 });

@@ -35,12 +35,7 @@ const NotLoggedIn: React.FC = () => {
   return (
     <div css={containerStyle}>
       <div css={iconLabelContainer}>
-        <Icon
-          type={`cloud_off`}
-          disable={true}
-          focusable={false}
-          style={'padding-right: 4px;'}
-        />
+        <Icon type={`cloud_off`} disable={true} style={'padding-right: 4px;'} />
         <NormalLabel
           value={t(`Cloud Sync Inactive`)}
           size="1.1rem"

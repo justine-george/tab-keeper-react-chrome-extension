@@ -4,6 +4,7 @@ import { useDispatch, useSelector } from 'react-redux';
 
 import { css } from '@emotion/react';
 
+import ClickableRow from '../../common/ClickableRow';
 import Divider from '../../common/Divider';
 import { NormalLabel } from '../../common/Label';
 import { useThemeColors } from '../../../hooks/useThemeColors';
@@ -33,15 +34,6 @@ const SettingsCategoryContainer: React.FC = () => {
     dispatch(selectCategory(name));
   };
 
-  function handleKeyPress(
-    e: React.KeyboardEvent<HTMLDivElement>,
-    name: SettingsCategory
-  ) {
-    if (e.key === 'Enter') {
-      handleSelectCategoryClick(name);
-    }
-  }
-
   const containerStyle = css`
     display: flex;
     flex-direction: column;
@@ -52,15 +44,19 @@ const SettingsCategoryContainer: React.FC = () => {
     user-select: none;
   `;
 
-  const selectableStyle = (isSelected: boolean) => css`
+  // A plain string, not css``: handed to ClickableRow's `style` prop. width
+  // is explicit because a <button> shrink-wraps its content where the div it
+  // replaced stretched to fill the flex column.
+  const selectableStyle = (isSelected: boolean) => `
     cursor: pointer;
     transition: background-color 0.2s;
+    width: 100%;
     &:hover {
-      background-color: ${!isSelected && COLORS.HOVER_COLOR};
+      background-color: ${!isSelected ? COLORS.HOVER_COLOR : 'unset'};
     }
-    background-color: ${isSelected
-      ? COLORS.SELECTION_COLOR
-      : COLORS.PRIMARY_COLOR};
+    background-color: ${
+      isSelected ? COLORS.SELECTION_COLOR : COLORS.PRIMARY_COLOR
+    };
     padding: 15px clamp(10px, 12%, 38px);
   `;
 
@@ -74,18 +70,21 @@ const SettingsCategoryContainer: React.FC = () => {
             // element to hang the key on. `name` is the SettingsCategory enum
             // value, unique across the list by construction.
             <Fragment key={name}>
-              <div
-                css={selectableStyle(isSelected)}
+              {/* KAN-64: was a role-less div with tabIndex={0} and onClick,
+                  so it took a tab stop, announced nothing (naming is
+                  prohibited on `generic`) and ignored Space. The label is
+                  already translated, so the name costs no new i18n key. */}
+              <ClickableRow
+                ariaLabel={t(name)}
                 onClick={() => handleSelectCategoryClick(name)}
-                onKeyDown={(e) => handleKeyPress(e, name)}
-                tabIndex={0}
+                style={selectableStyle(isSelected)}
               >
                 <NormalLabel
                   value={t(name)}
                   size="1rem"
                   color={COLORS.LABEL_L1_COLOR}
                 />
-              </div>
+              </ClickableRow>
               <Divider />
             </Fragment>
           );

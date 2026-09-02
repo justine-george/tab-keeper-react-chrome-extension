@@ -104,7 +104,6 @@ export default function UserInputContainer() {
         ariaLabel="search"
         onClick={filterResults}
         style="padding: 12px; flex-shrink: 0;"
-        focusableButton={true}
       />
     </div>
   ) : (
@@ -169,7 +168,6 @@ export default function UserInputContainer() {
           onClick={() => createTabGroup('current-window')}
           style={`width: 40px; height: 100%; padding: 0; flex-shrink: 0;
                   border: none; border-right: 1px solid ${COLORS.BORDER_COLOR};`}
-          focusableButton={true}
         />
         <Button
           tooltipText={t('Save every open window as a session')}
@@ -177,7 +175,6 @@ export default function UserInputContainer() {
           iconType="library_add"
           onClick={() => createTabGroup('all-windows')}
           style="width: 58px; height: 100%; padding: 0; flex-shrink: 0; border: none;"
-          focusableButton={true}
         />
       </div>
     </div>
