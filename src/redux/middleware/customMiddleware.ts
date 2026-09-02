@@ -1,6 +1,6 @@
 import { isAction, Middleware } from '@reduxjs/toolkit';
 
-import { set } from '../slices/undoRedoSlice';
+import { set, setPresentWithoutHistory } from '../slices/undoRedoSlice';
 import { debounce } from '../../utils/functions/local';
 import { DEBOUNCE_TIME_WINDOW } from '../../utils/constants/common';
 import { setIsDirty, syncStateWithFirestore } from '../slices/globalStateSlice';
@@ -45,12 +45,17 @@ const actionsToCapture = [
 
 const isCapturableAction = (type: string) => actionsToCapture.includes(type);
 
-// Captured into undo/redo, but deliberately never synced: these change what the
-// user is looking at, not what is stored (KAN-35).
+// Actions that change what the user is looking at rather than what is stored.
+// Selection is the only one today.
+//
+// These are tracked in history so `present` matches the screen, but they are
+// neither synced (KAN-35) nor recorded as undoable steps (KAN-57). Both
+// exclusions come off this one list because they are the same claim -- view
+// state is not data -- applied to the two things the branch below decides.
 //
 // Selection has to be filtered here rather than by leaving it out of
-// `actionsToCapture`, because that list drives both jobs at once -- dropping it
-// there would stop the sync by also dropping selection out of undo history.
+// `actionsToCapture`, because that list is what keeps `present` in step at all;
+// dropping it there would leave history restoring a stale selection.
 //
 // Nor is it enough to stop `selectTabContainer` bumping the container's
 // `lastModified`: `isDataStateChangeAction` compares state *references*, and the
@@ -58,9 +63,9 @@ const isCapturableAction = (type: string) => actionsToCapture.includes(type);
 // new reference and the branch fires anyway.
 //
 // This covers search too. Typing dispatches `setSearchInputText`, which is not
-// capturable at all; search reaches the network only because
+// capturable at all; search reaches both consequences only because
 // TabGroupEntryContainer selects the first filtered result on every keystroke.
-const actionsToIgnoreForSync = [SELECT_TAB_CONTAINER_ACTION];
+const viewStateOnlyActions = [SELECT_TAB_CONTAINER_ACTION];
 
 const isUndoRedoAction = (type: string) =>
   [UNDO_ACTION, REDO_ACTION].includes(type);
@@ -133,8 +138,15 @@ export const customMiddleware: Middleware = (store) => {
       store.dispatch(setIsDirty());
     } else if (isDataStateChangeAction(action.type, prevState, nextState)) {
       const { tabContainerDataState } = nextState;
-      store.dispatch(set({ tabContainerDataState: tabContainerDataState }));
-      if (!actionsToIgnoreForSync.includes(action.type)) {
+      const isViewStateOnly = viewStateOnlyActions.includes(action.type);
+
+      store.dispatch(
+        isViewStateOnly
+          ? setPresentWithoutHistory({ tabContainerDataState })
+          : set({ tabContainerDataState })
+      );
+
+      if (!isViewStateOnly) {
         store.dispatch(setIsDirty());
       }
     }

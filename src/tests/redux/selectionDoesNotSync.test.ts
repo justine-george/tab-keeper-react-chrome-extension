@@ -24,6 +24,7 @@ import { setSignedIn } from '../../redux/slices/globalStateSlice';
 import { DEBOUNCE_TIME_WINDOW } from '../../utils/constants/common';
 
 const SYNC_PENDING_ACTION = 'global/syncStateWithFirestore/pending';
+const SET_PRESENT_WITHOUT_HISTORY_ACTION = 'undoRedo/setPresentWithoutHistory';
 
 // KAN-35. Selecting a session is view state: it belongs in localStorage and in
 // undo/redo, but it must not reach the network.
@@ -117,14 +118,20 @@ describe('selection does not schedule a Firestore sync (KAN-35)', () => {
   });
 
   // Guards against the naive fix of dropping SELECT_TAB_CONTAINER_ACTION from
-  // actionsToCapture, which would stop the sync by also dropping selection out
-  // of undo/redo history.
-  test('selecting a session is still captured into undo history', () => {
+  // actionsToCapture, which would stop the sync by also stopping `present`
+  // tracking the screen -- leaving the next undo to restore a stale selection.
+  //
+  // Asserts the without-history action, not `set`: KAN-57 made selection stop
+  // being an undoable step, so reaching `set` here would now be the bug. What
+  // undo/redo does with selection is covered in selectionIsNotUndoable.test.ts;
+  // this only pins that the sync fix did not sever history from the store.
+  test('selecting a session still updates the undo/redo present state', () => {
     const { store, seen } = seededStore();
 
     store.dispatch(selectTabContainer('group-1'));
 
-    expect(seen).toContain(SET_ACTION);
+    expect(seen).toContain(SET_PRESENT_WITHOUT_HISTORY_ACTION);
+    expect(seen).not.toContain(SET_ACTION);
     expect(
       store.getState().undoRedo.present.tabContainerDataState.selectedTabGroupId
     ).toBe('group-1');

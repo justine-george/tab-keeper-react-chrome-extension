@@ -58,10 +58,31 @@ export const undoRedoSlice = createSlice({
     setPresentStartup: (state, action: PayloadAction<UndoableStates>) => {
       state.present = action.payload;
     },
+
+    // Keep `present` in step with the store without recording an undoable step
+    // (KAN-57).
+    //
+    // For changes that are not edits -- selecting a session is the only one
+    // today. `present` still has to move, or the next undo would restore a
+    // stale selection; but `past` must not grow, and above all `future` must
+    // not be cleared. `set` clears it because a genuine new edit invalidates
+    // the redo branch, and selection creates no such branch: renaming, undoing,
+    // then clicking any other session used to make the rename unrecoverable.
+    //
+    // Distinct from setPresentStartup, which happens to have the same body.
+    // That one restores history at boot; sharing it would make a name that
+    // says "startup" carry the selection path too.
+    setPresentWithoutHistory: (
+      state,
+      action: PayloadAction<UndoableStates>
+    ) => {
+      state.present = action.payload;
+    },
   },
 });
 
-export const { set, undo, redo, setPresentStartup } = undoRedoSlice.actions;
+export const { set, undo, redo, setPresentStartup, setPresentWithoutHistory } =
+  undoRedoSlice.actions;
 
 // selectors
 export const isUndoableSelector = (state: RootState) =>
