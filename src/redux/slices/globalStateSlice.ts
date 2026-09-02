@@ -9,6 +9,9 @@ import {
   saveToFirestore,
 } from '../../utils/functions/external';
 import {
+  bytesToMB,
+  estimateFirestoreBytes,
+  FIRESTORE_MAX_DOCUMENT_BYTES,
   isValidTabMasterContainer,
   loadFromLocalStorage,
   saveToLocalStorage,
@@ -66,6 +69,21 @@ export const saveToFirestoreIfDirty = createAsyncThunk(
 
     try {
       if (state.globalState.isDirty) {
+        // Firestore rejects an over-limit document, and the rejection leaves
+        // isDirty set, so every later change retries the same doomed write and
+        // sync wedges with nothing on screen to explain it. readImportedContainer
+        // already refuses this on the import path; this is the same refusal on
+        // the sync path, phrased the same way.
+        const bytes = estimateFirestoreBytes(state.tabContainerDataState);
+        if (bytes > FIRESTORE_MAX_DOCUMENT_BYTES) {
+          const message =
+            `too large to sync (${bytesToMB(bytes)} MB of a ` +
+            `${bytesToMB(FIRESTORE_MAX_DOCUMENT_BYTES)} MB limit). ` +
+            `Remove some sessions and try again.`;
+          thunkAPI.dispatch(showToast({ toastText: message, duration: 6000 }));
+          throw new Error(message);
+        }
+
         await saveToFirestore(
           state.globalState.userId!,
           state.tabContainerDataState
