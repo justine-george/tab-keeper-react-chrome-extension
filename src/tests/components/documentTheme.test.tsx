@@ -62,6 +62,31 @@ describe('useDocumentTheme (KAN-22)', () => {
     );
   });
 
+  // KAN-49. App.css hardcoded `background-color: grey` on body, unthemed since
+  // the first LeftPane commit. <html> has no background, so that grey paints
+  // any viewport area the 790x550 app box does not cover. Published through the
+  // same hook as the scrollbar colours, for the same reason: body is not
+  // reachable from an emotion class.
+  test('publishes the app background as a custom property', async () => {
+    await renderWithProviders(<Probe />);
+
+    expect(
+      document.documentElement.style.getPropertyValue('--app-background')
+    ).toBe(LIGHT_THEME.PRIMARY_COLOR);
+  });
+
+  test('republishes the app background when the theme changes', async () => {
+    const { store } = await renderWithProviders(<Probe />);
+
+    act(() => {
+      store.dispatch(setTheme(Theme.DARKENHEIMER));
+    });
+
+    expect(
+      document.documentElement.style.getPropertyValue('--app-background')
+    ).toBe(DARKENHEIMER_THEME.PRIMARY_COLOR);
+  });
+
   // The flag must be set in the SAME commit that changes the colours, not a
   // frame later -- one frame late and the transition has already started, which
   // is the whole defect.

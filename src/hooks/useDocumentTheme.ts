@@ -43,6 +43,13 @@ export function useDocumentTheme(): void {
       COLORS.SCROLLBAR_THUMB_HOVER
     );
 
+    // 3. body's background (KAN-49), same reason as the scrollbar: body is not
+    //    reachable from an emotion class either. It had a hardcoded `grey`
+    //    that never tracked the theme, and <html> has no background of its
+    //    own, so that grey painted whatever viewport area the 790x550 app box
+    //    did not cover.
+    root.style.setProperty('--app-background', COLORS.PRIMARY_COLOR);
+
     // Two frames, not one: the first only guarantees the new styles are
     // computed, the second that they have been painted. Releasing after one
     // still let the tail of the change animate on slower frames.

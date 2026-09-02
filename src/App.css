@@ -4,7 +4,10 @@
 
 body {
   margin: 0;
-  background-color: grey;
+  /* useDocumentTheme publishes --app-background on <html> (KAN-49). The literal
+     stays as the fallback, matching the scrollbar properties below: it is what
+     paints for the one frame before the hook's first layout effect runs. */
+  background-color: var(--app-background, grey);
 }
 
 /* Suppresses every transition while the theme is being swapped (KAN-22).
