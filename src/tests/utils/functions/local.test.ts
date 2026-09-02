@@ -481,6 +481,51 @@ describe('isValidTabMasterContainer', () => {
     expect(isValidTabMasterContainer(validData)).toBe(true);
   });
 
+  // KAN-25. createdAt is the key the merge sorts sessions on, so a non-number
+  // reaching the store would make every comparison against it NaN and leave the
+  // list order dependent on input order. Absent must stay valid: every session
+  // saved before createdAt existed lacks it.
+  describe('createdAt', () => {
+    const withCreatedAt = (group: Record<string, unknown>) => ({
+      lastModified: 1,
+      selectedTabGroupId: null,
+      tabGroups: [
+        {
+          tabGroupId: 'g',
+          title: 't',
+          createdTime: '2023-10-17 22:01:23',
+          windowCount: 0,
+          tabCount: 0,
+          isAutoSave: false,
+          isSelected: false,
+          windows: [],
+          ...group,
+        },
+      ],
+    });
+
+    test('accepts a session with no createdAt', () => {
+      expect(isValidTabMasterContainer(withCreatedAt({}))).toBe(true);
+    });
+
+    test('accepts a numeric createdAt', () => {
+      expect(isValidTabMasterContainer(withCreatedAt({ createdAt: 1 }))).toBe(
+        true
+      );
+    });
+
+    test.each([
+      ['a string', '1788171081798'],
+      ['null', null],
+      ['an object', {}],
+      ['a boolean', true],
+    ])('rejects createdAt that is %s', (_label, createdAt) => {
+      expect(isValidTabMasterContainer(withCreatedAt({ createdAt }))).toBe(
+        false
+      );
+    });
+  });
+
   // Tombstones arrived with the automatic merge. The merge iterates this list
   // and writes the result back to Firestore, so a malformed value must be
   // rejected here rather than walked - a string would be iterated character by

@@ -98,10 +98,15 @@ export async function captureOpenWindows(
 
   if (windowsGroupData.length === 0) return null;
 
+  // One `now` for both: read the clock twice and a capture that straddles a
+  // second boundary writes a display string and an instant that disagree.
+  const now = new Date();
+
   return {
     tabGroupId: uuidv4(),
     title,
-    createdTime: getStringDate(new Date()),
+    createdTime: getStringDate(now),
+    createdAt: now.getTime(),
     windowCount: windowsGroupData.length,
     tabCount,
     isAutoSave: false,

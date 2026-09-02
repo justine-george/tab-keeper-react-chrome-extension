@@ -41,7 +41,11 @@ describe('the Firestore read preserves the whole container', () => {
   const stored = {
     lastModified: 1000,
     selectedTabGroupId: 'a',
-    tabGroups: [{ tabGroupId: 'a', lastModified: 1000 }],
+    // createdAt rides inside tabGroups, which the read passes through wholesale,
+    // so this passes today. It is here to fail the day someone rebuilds sessions
+    // field by field the way the container itself is rebuilt - the same mistake
+    // that dropped deletedTabGroups, one level down.
+    tabGroups: [{ tabGroupId: 'a', lastModified: 1000, createdAt: 1000 }],
     deletedTabGroups: [{ tabGroupId: 'gone', deletedAt: 900 }],
   };
 

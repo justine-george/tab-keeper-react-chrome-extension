@@ -542,6 +542,10 @@ const isValidTabContainerData = (data: unknown): data is tabContainerData => {
     typeof data.tabGroupId === 'string' &&
     typeof data.title === 'string' &&
     typeof data.createdTime === 'string' &&
+    // Absent is valid - every session saved before createdAt existed lacks it.
+    // Present but not a number is not: the merge sorts on this, and NaN makes
+    // every comparison against it false, leaving the order up to input order.
+    (data.createdAt === undefined || typeof data.createdAt === 'number') &&
     typeof data.windowCount === 'number' &&
     typeof data.tabCount === 'number' &&
     typeof data.isAutoSave === 'boolean' &&

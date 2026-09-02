@@ -482,3 +482,77 @@ describe('mergeTabContainers - the flags describe what is written', () => {
     expect(r.changedFromCloud).toBe(true);
   });
 });
+
+// KAN-25. createdTime is a local wall clock with no offset recorded, so two
+// devices in different zones write strings that cannot be compared to each
+// other. createdAt is the instant, and it is what the order must follow.
+describe('createdAt ordering', () => {
+  const at = (id: string, createdAt: number, createdTime: string) => ({
+    ...group(id, 1),
+    createdAt,
+    createdTime,
+  });
+
+  it('orders by the instant, not by the local wall clock string', () => {
+    // 'tokyo' was saved an hour later in real time, but its local clock read
+    // 06:00 while 'la' read 20:00 the same day. Comparing the strings puts
+    // 'la' on top; comparing the instants puts 'tokyo' there, which is right.
+    const { merged } = mergeTabContainers(
+      container(30, [
+        at('la', Date.UTC(2026, 8, 1, 4, 0, 0), '2026-09-01 20:00:00'),
+        at('tokyo', Date.UTC(2026, 8, 1, 5, 0, 0), '2026-09-01 06:00:00'),
+      ]),
+      container(20, []),
+      NOW
+    );
+    expect(ids(merged)).toEqual(['tokyo', 'la']);
+  });
+
+  it('reads a legacy row with no createdAt as UTC', () => {
+    // The offset was never recorded, so it cannot be recovered. Reading the
+    // string as UTC is wrong by at most the writer's offset but is identically
+    // wrong on every device, which is what keeps two devices agreeing. Reading
+    // it as local time instead would make this order depend on $TZ.
+    const { merged } = mergeTabContainers(
+      container(30, [
+        { ...group('legacy', 1), createdTime: '2026-09-01 12:00:00' },
+        at('newer', Date.UTC(2026, 8, 1, 13, 0, 0), '2026-09-01 06:00:00'),
+        at('older', Date.UTC(2026, 8, 1, 11, 0, 0), '2026-09-01 23:00:00'),
+      ]),
+      container(20, []),
+      NOW
+    );
+    expect(ids(merged)).toEqual(['newer', 'legacy', 'older']);
+  });
+
+  it('leaves the order of legacy-only rows unchanged', () => {
+    // Regression guard: the overwhelming majority of stored sessions have no
+    // createdAt, and their relative order must not shift under the new key.
+    const legacy = (id: string, createdTime: string) => ({
+      ...group(id, 1),
+      createdTime,
+    });
+    const { merged } = mergeTabContainers(
+      container(30, [
+        legacy('old', '2026-08-01 00:00:00'),
+        legacy('new', '2026-08-30 00:00:00'),
+        legacy('mid', '2026-08-20 00:00:00'),
+      ]),
+      container(20, []),
+      NOW
+    );
+    expect(ids(merged)).toEqual(['new', 'mid', 'old']);
+  });
+
+  it('sorts an unparseable createdTime last instead of poisoning the order', () => {
+    const { merged } = mergeTabContainers(
+      container(30, [
+        { ...group('corrupt', 1), createdTime: 'not a date' },
+        { ...group('fine', 1), createdTime: '2026-08-01 00:00:00' },
+      ]),
+      container(20, []),
+      NOW
+    );
+    expect(ids(merged)).toEqual(['fine', 'corrupt']);
+  });
+});
