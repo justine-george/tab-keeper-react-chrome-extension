@@ -1,7 +1,11 @@
 // Lite build - see the note in src/config/firebase.ts. Must match the import
 // there, since db is created by that module's getFirestore.
 import { doc, setDoc } from 'firebase/firestore/lite';
-import { db, fetchDataFromFirestore } from '../../config/firebase';
+import {
+  db,
+  fetchDataFromFirestore,
+  CloudCandidate,
+} from '../../config/firebase';
 import {
   saveToFirestoreIfDirty,
   setIsDirty,
@@ -32,9 +36,9 @@ export const displayToast = (
 export async function loadFromFirestore(
   userId: string,
   thunkAPI: any
-): Promise<TabMasterContainer | undefined> {
+): Promise<CloudCandidate | undefined> {
   try {
-    const tabDataFromCloud: TabMasterContainer =
+    const tabDataFromCloud: CloudCandidate =
       await fetchDataFromFirestore(userId);
     // Deliberately not stripped on read. Documents written before the write-side
     // strip still carry embedded favicons, and those render fine locally - a

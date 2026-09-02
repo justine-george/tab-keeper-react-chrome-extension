@@ -10,7 +10,6 @@ import { getAuth, onAuthStateChanged, signInAnonymously } from 'firebase/auth';
 
 import { AppDispatch } from '../redux/store';
 import { setLoggedOut, setSignedIn } from '../redux/slices/globalStateSlice';
-import { TabMasterContainer } from '../redux/slices/tabContainerDataStateSlice';
 // https://firebase.google.com/docs/web/setup#available-libraries
 
 // Firebase configuration
@@ -58,9 +57,23 @@ export const signInUserAnonymously = () => {
     });
 };
 
+// What a document decodes to before anything has proven its shape.
+//
+// This read used to declare Promise<TabMasterContainer> while assigning
+// unproven DocumentData fields into it, which is a claim it cannot support:
+// the document is user-syncable data that another client version may have
+// written. Saying `unknown` here forces the single narrowing to happen at
+// isValidTabMasterContainer in syncStateWithFirestore, where it belongs.
+export interface CloudCandidate {
+  lastModified: unknown;
+  tabGroups: unknown;
+  selectedTabGroupId: unknown;
+  deletedTabGroups: unknown;
+}
+
 export const fetchDataFromFirestore = async (
   userId: string
-): Promise<TabMasterContainer> => {
+): Promise<CloudCandidate> => {
   try {
     // Fetch your data based on the signed-in user's ID
     const tabData = await getDoc(doc(db, 'tabGroupData', userId));

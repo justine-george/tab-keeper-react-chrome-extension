@@ -91,8 +91,31 @@ export const syncStateWithFirestore = createAsyncThunk(
     const state = thunkAPI.getState() as RootState;
 
     // load from Firestore
-    const tabDataFromCloud: TabMasterContainer | undefined =
-      await loadFromFirestore(state.globalState.userId!, thunkAPI);
+    const cloudCandidate = await loadFromFirestore(
+      state.globalState.userId!,
+      thunkAPI
+    );
+
+    // The cloud side gets the same treatment localStorage gets below. Without
+    // this, an unrecognised document reaches mergeTabContainers and throws
+    // `side.tabGroups is not iterable`, rejecting the thunk with no message.
+    //
+    // Unreadable is deliberately NOT treated as absent. "Absent" falls through
+    // to the local-only branch, which writes local state over the document -
+    // and a document we failed to parse may be a NEWER FORMAT rather than
+    // corruption, so overwriting would destroy data we merely could not read.
+    // Stop instead: keep local data, leave the document untouched, report it.
+    if (
+      cloudCandidate !== undefined &&
+      !isValidTabMasterContainer(cloudCandidate)
+    ) {
+      console.warn(
+        'Unreadable Firestore document for this user; leaving it untouched.'
+      );
+      thunkAPI.dispatch(setSyncStatus('error'));
+      return;
+    }
+    const tabDataFromCloud: TabMasterContainer | undefined = cloudCandidate;
 
     // localStorage is user-writable and survives extension updates, so whatever
     // comes back here is genuinely unknown. Validate before the sync can act on
