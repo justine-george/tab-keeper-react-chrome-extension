@@ -67,13 +67,29 @@ export async function loadFromFirestore(
   }
 }
 
+// Which client shape last wrote this document.
+//
+// 1 is implied by absence: every version shipped before KAN-6 phase 1. 2 means
+// "this writer can also READ a compressed document", which is the only question
+// phase 2 needs answered before it may compress.
+//
+// A BACKOFF RATCHET, not an authorisation. Seeing 1 proves an old client is
+// still active on the account and phase 2 must not compress. Seeing 2 proves
+// nothing about a second device that has simply not written lately - and an old
+// client crashes in the merge before it can write, so it cannot self-report.
+// Only Web Store adoption data can authorise the flip.
+export const CURRENT_WRITER_VERSION = 2;
+
 // save data to Firestore
 export async function saveToFirestore(
   userId: string,
   data: TabMasterContainer
 ): Promise<void> {
   try {
-    await setDoc(doc(db, 'tabGroupData', userId), stripEmbeddedFavicons(data));
+    await setDoc(doc(db, 'tabGroupData', userId), {
+      ...stripEmbeddedFavicons(data),
+      writerVersion: CURRENT_WRITER_VERSION,
+    });
   } catch (error: any) {
     // Rethrow so the caller leaves isDirty set and the sync indicator shows the
     // real state. Swallowing here reported success while nothing was written.
