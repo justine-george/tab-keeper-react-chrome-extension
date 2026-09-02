@@ -1,8 +1,7 @@
 import { useDispatch } from 'react-redux';
 
-import { css } from '@emotion/react';
-
 import Icon from '../../common/Icon';
+import ClickableRow from '../../common/ClickableRow';
 import { NormalLabel } from '../../common/Label';
 import { AppDispatch } from '../../../redux/store';
 import { useThemeColors } from '../../../hooks/useThemeColors';
@@ -16,7 +15,7 @@ export default function MenuContainer() {
   const COLORS = useThemeColors();
   const { t } = useTranslation();
 
-  const containerStyle = css`
+  const containerStyle = `
     display: flex;
     justify-content: space-around;
     align-items: center;
@@ -30,19 +29,19 @@ export default function MenuContainer() {
   };
 
   return (
-    <div
-      css={containerStyle}
+    <ClickableRow
+      ariaLabel="go back"
+      tooltipText={t('Go back')}
       onClick={handleBackClick}
-      title={t('Go back')}
-      tabIndex={0}
+      style={containerStyle}
     >
-      <Icon ariaLabel="go back" type="arrow_back" />
+      <Icon type="arrow_back" />
       <NormalLabel
         value={t('Back')}
         size="1.125rem"
         color={COLORS.TEXT_COLOR}
         style="padding-left: 8px; cursor: pointer;"
       />
-    </div>
+    </ClickableRow>
   );
 }

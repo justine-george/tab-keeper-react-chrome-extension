@@ -126,18 +126,17 @@ test.describe('golden path', () => {
 
     await page.locator('[aria-label="settings"]').click();
 
-    // Asserted on a settings-only heading rather than the back control: the
-    // back affordance carries its aria-label on an inner Icon that has no
-    // onClick, so Icon renders no role="button" and the label is not exposed
-    // as an interactive element. The click handler lives on the wrapping div,
-    // which is what the visible "Back" text belongs to -- so that text is both
-    // what a user sees and what is actually clickable. (The a11y gap is real
-    // but out of scope here; see KAN-56.)
+    // Asserted on a settings-only heading, because the back control is not
+    // unique to this panel -- the search pane has one too.
     await expect(page.getByText('Themes')).toBeVisible();
 
-    // exact, because the Material icon renders its name as the ligature text
-    // `arrow_back`, which substring-matches "Back" and trips strict mode.
-    await page.getByText('Back', { exact: true }).click();
+    // Addressed by role and accessible name rather than by visible text. That
+    // became possible with KAN-56: the affordance is now a real <button>, so
+    // this line exercises the same path a screen-reader user takes. It also
+    // sidesteps the reason the old version needed `exact: true` -- the
+    // Material icon renders its name as the ligature text `arrow_back`, which
+    // substring-matches "Back" and trips strict mode.
+    await page.getByRole('button', { name: 'go back' }).click();
     await expect(page.locator('input#name')).toBeVisible();
   });
 });
