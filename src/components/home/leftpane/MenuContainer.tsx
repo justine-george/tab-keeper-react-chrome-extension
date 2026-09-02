@@ -70,7 +70,7 @@ export default function MenuContainer() {
   return (
     <div css={containerStyle}>
       <Icon
-        ariaLabel="undo"
+        ariaLabel={t('Undo')}
         tooltipText={t('Undo')}
         type="undo"
         onClick={handleClickUndo}
@@ -78,7 +78,7 @@ export default function MenuContainer() {
         disable={!isUndoable}
       />
       <Icon
-        ariaLabel="redo"
+        ariaLabel={t('Redo')}
         tooltipText={t('Redo')}
         type="redo"
         onClick={handleClickRedo}
@@ -86,14 +86,14 @@ export default function MenuContainer() {
         disable={!isRedoable}
       />
       <Icon
-        ariaLabel="sync"
+        ariaLabel={t('Sync now')}
         tooltipText={t('Sync now')}
         type={syncIconType}
         onClick={handleClickSync}
         disable={isDisabled}
       />
       <Icon
-        ariaLabel="settings"
+        ariaLabel={t('Settings')}
         tooltipText={t('Settings')}
         type="settings"
         onClick={handleClickSettings}

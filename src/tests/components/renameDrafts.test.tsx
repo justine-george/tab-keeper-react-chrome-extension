@@ -190,7 +190,7 @@ describe('rename drafts survive the prop moving underneath them (KAN-51)', () =>
       });
 
       await userEvent.click(
-        await screen.findByLabelText('rename window group')
+        await screen.findByLabelText('Rename window group')
       );
 
       expect(screen.getByRole<HTMLInputElement>('textbox').value).toBe(
@@ -221,7 +221,7 @@ describe('rename drafts survive the prop moving underneath them (KAN-51)', () =>
       );
 
       await userEvent.click(
-        await screen.findByLabelText('rename window group')
+        await screen.findByLabelText('Rename window group')
       );
       const input = screen.getByRole<HTMLInputElement>('textbox');
 
@@ -284,7 +284,7 @@ describe('rename drafts survive the prop moving underneath them (KAN-51)', () =>
         }
       );
 
-      const accordions = await screen.findAllByLabelText('collapse');
+      const accordions = await screen.findAllByLabelText('Collapse');
       expect(accordions).toHaveLength(2);
 
       // Collapse the SECOND window. Slot 1 in group-1 is collapsed; if the
@@ -299,7 +299,7 @@ describe('rename drafts survive the prop moving underneath them (KAN-51)', () =>
 
       expect(await screen.findByText('Charlie Page')).toBeTruthy();
       expect(screen.getByText('Delta Page')).toBeTruthy();
-      expect(screen.queryAllByLabelText('collapse')).toHaveLength(2);
+      expect(screen.queryAllByLabelText('Collapse')).toHaveLength(2);
     });
   });
 });

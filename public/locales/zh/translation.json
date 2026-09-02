@@ -93,5 +93,6 @@
   "RequestUserReviewText": "您介意给我们一个好评吗？",
   "Maybe Later": "稍后再说",
   "Never Remind Again": "不再提醒",
-  "Restored on this device, but syncing failed.": "已在此设备上恢复，但同步失败。"
+  "Restored on this device, but syncing failed.": "已在此设备上恢复，但同步失败。",
+  "Save changes": "保存更改"
 }

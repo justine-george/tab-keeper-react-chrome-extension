@@ -34,7 +34,9 @@ describe('UserInputContainer', () => {
     });
 
     await screen.findByDisplayValue('Kagi Search');
-    await userEvent.click(screen.getByLabelText('save session'));
+    await userEvent.click(
+      screen.getByLabelText('Save all open windows as a session')
+    );
 
     expect(seen).toContain(SAVE_TAB_CONTAINER_ACTION);
     const { tabGroups } = store.getState().tabContainerDataState;
@@ -78,7 +80,9 @@ describe('UserInputContainer save scope', () => {
     });
 
     await screen.findByDisplayValue('Kagi Search');
-    await userEvent.click(screen.getByLabelText('save session'));
+    await userEvent.click(
+      screen.getByLabelText('Save all open windows as a session')
+    );
 
     const { tabGroups } = store.getState().tabContainerDataState;
     expect(tabGroups[0].windows).toHaveLength(2);
@@ -91,7 +95,9 @@ describe('UserInputContainer save scope', () => {
     });
 
     await screen.findByDisplayValue('Kagi Search');
-    await userEvent.click(screen.getByLabelText('save current window'));
+    await userEvent.click(
+      screen.getByLabelText('Save current window as a session')
+    );
 
     const { tabGroups } = store.getState().tabContainerDataState;
     expect(tabGroups[0].windows).toHaveLength(1);
@@ -114,13 +120,13 @@ describe('UserInputContainer save scope', () => {
   }
 
   test('saving every window says so', async () => {
-    expect(await toastAfterClicking('save session')).toBe(
+    expect(await toastAfterClicking('Save all open windows as a session')).toBe(
       TOAST_MESSAGES.SAVE_ALL_WINDOWS_SUCCESS
     );
   });
 
   test('saving only the current window says so instead', async () => {
-    expect(await toastAfterClicking('save current window')).toBe(
+    expect(await toastAfterClicking('Save current window as a session')).toBe(
       TOAST_MESSAGES.SAVE_CURRENT_WINDOW_SUCCESS
     );
   });
@@ -145,9 +151,11 @@ describe('UserInputContainer save scope', () => {
       screen.getByLabelText(label).querySelector('.material-symbols-outlined')
         ?.textContent;
 
-    expect(glyph('save session')).toBeTruthy();
-    expect(glyph('save current window')).toBeTruthy();
-    expect(glyph('save session')).not.toBe(glyph('save current window'));
+    expect(glyph('Save all open windows as a session')).toBeTruthy();
+    expect(glyph('Save current window as a session')).toBeTruthy();
+    expect(glyph('Save all open windows as a session')).not.toBe(
+      glyph('Save current window as a session')
+    );
   });
 
   // The tooltip is the only place either button says what it does in words,
@@ -164,21 +172,27 @@ describe('UserInputContainer save scope', () => {
     await renderWithProviders(<UserInputContainer />, { seed: twoWindows });
     await screen.findByDisplayValue('Kagi Search');
 
-    expect(tooltip('save session').toLowerCase()).toContain('all');
+    expect(
+      tooltip('Save all open windows as a session').toLowerCase()
+    ).toContain('all');
   });
 
   test('the current-window tooltip says it saves the current window', async () => {
     await renderWithProviders(<UserInputContainer />, { seed: twoWindows });
     await screen.findByDisplayValue('Kagi Search');
 
-    expect(tooltip('save current window').toLowerCase()).toContain('current');
+    expect(tooltip('Save current window as a session').toLowerCase()).toContain(
+      'current'
+    );
   });
 
   test('the two buttons do not share a tooltip', async () => {
     await renderWithProviders(<UserInputContainer />, { seed: twoWindows });
     await screen.findByDisplayValue('Kagi Search');
 
-    expect(tooltip('save session')).not.toBe(tooltip('save current window'));
+    expect(tooltip('Save all open windows as a session')).not.toBe(
+      tooltip('Save current window as a session')
+    );
   });
 
   // Enter in the name box has always meant "save everything". A second button

@@ -243,7 +243,7 @@ export default function HeroContainerRight() {
             {!isEditing && !isSearchPanel && (
               <Icon
                 tooltipText={t('Rename session')}
-                ariaLabel="rename session"
+                ariaLabel={t('Rename session')}
                 type="edit"
                 backgroundColor={COLORS.SECONDARY_COLOR}
                 onClick={(e) => {
@@ -283,7 +283,7 @@ export default function HeroContainerRight() {
         >
           <Icon
             tooltipText={t('Open session')}
-            ariaLabel="open all windows"
+            ariaLabel={t('Open session')}
             type="reopen_window"
             onClick={() => {
               const goToURLText: string = t('Go to URL');
@@ -292,7 +292,7 @@ export default function HeroContainerRight() {
           />
           <Icon
             tooltipText={t('Switch to session')}
-            ariaLabel="switch to session"
+            ariaLabel={t('Switch to session')}
             type="filter_center_focus"
             onClick={() => {
               dispatch(
@@ -306,7 +306,7 @@ export default function HeroContainerRight() {
           />
           <Icon
             tooltipText={t('Delete session')}
-            ariaLabel="delete session"
+            ariaLabel={t('Delete session')}
             type="delete"
             onClick={() => dispatch(deleteTabContainer(tabGroupId))}
           />
@@ -319,7 +319,7 @@ export default function HeroContainerRight() {
           <Button
             text={t('Add window')}
             tooltipText={t('Add current window')}
-            ariaLabel="add current window"
+            ariaLabel={t('Add window')}
             iconType="add"
             onClick={handleAddCurrWindowClick}
             iconSize="1.3rem"

@@ -49,7 +49,7 @@ test.describe('accessible controls', () => {
   }) => {
     const page = await openPopup(context, extensionId);
 
-    await expect(page.getByRole('button', { name: 'settings' })).toHaveCount(1);
+    await expect(page.getByRole('button', { name: 'Settings' })).toHaveCount(1);
   });
 
   test('the settings back control is a button with an accessible name (KAN-56)', async ({
@@ -57,10 +57,10 @@ test.describe('accessible controls', () => {
     extensionId,
   }) => {
     const page = await openPopup(context, extensionId);
-    await page.getByRole('button', { name: 'settings' }).click();
+    await page.getByRole('button', { name: 'Settings' }).click();
     await expect(page.getByText('Themes')).toBeVisible();
 
-    await expect(page.getByRole('button', { name: 'go back' })).toHaveCount(1);
+    await expect(page.getByRole('button', { name: 'Go back' })).toHaveCount(1);
   });
 
   test('the search back control is a button with an accessible name (KAN-56)', async ({
@@ -68,10 +68,10 @@ test.describe('accessible controls', () => {
     extensionId,
   }) => {
     const page = await openPopup(context, extensionId);
-    await page.getByRole('button', { name: 'search', exact: true }).click();
+    await page.getByRole('button', { name: 'Search', exact: true }).click();
     await expect(page.locator('input#searchInput')).toBeVisible();
 
-    await expect(page.getByRole('button', { name: 'back' })).toHaveCount(1);
+    await expect(page.getByRole('button', { name: 'Go back' })).toHaveCount(1);
   });
 
   test('the search control is a button with an accessible name (KAN-56)', async ({
@@ -81,7 +81,7 @@ test.describe('accessible controls', () => {
     const page = await openPopup(context, extensionId);
 
     await expect(
-      page.getByRole('button', { name: 'search', exact: true })
+      page.getByRole('button', { name: 'Search', exact: true })
     ).toHaveCount(1);
   });
 
@@ -95,12 +95,12 @@ test.describe('accessible controls', () => {
     extensionId,
   }) => {
     const page = await openPopup(context, extensionId);
-    await page.getByRole('button', { name: 'settings' }).click();
+    await page.getByRole('button', { name: 'Settings' }).click();
     await expect(page.getByText('Themes')).toBeVisible();
 
     await expect(
-      page.getByRole('button', { name: 'go back' })
-    ).toMatchAriaSnapshot(`- button "go back": Back`);
+      page.getByRole('button', { name: 'Go back' })
+    ).toMatchAriaSnapshot(`- button "Go back": Back`);
   });
 
   // Icon renders div[role=button] rather than a real <button>, because
@@ -116,7 +116,7 @@ test.describe('accessible controls', () => {
     }) => {
       const page = await openPopup(context, extensionId);
 
-      await page.getByRole('button', { name: 'settings' }).focus();
+      await page.getByRole('button', { name: 'Settings' }).focus();
       await page.keyboard.press(key);
 
       await expect(page.getByText('Themes')).toBeVisible();
@@ -144,7 +144,7 @@ test.describe('accessible controls', () => {
       });
     });
 
-    await page.getByRole('button', { name: 'settings' }).focus();
+    await page.getByRole('button', { name: 'Settings' }).focus();
     await page.keyboard.press('Space');
 
     const prevented = await page.evaluate(
@@ -164,10 +164,10 @@ test.describe('accessible controls', () => {
       extensionId,
     }) => {
       const page = await openPopup(context, extensionId);
-      await page.getByRole('button', { name: 'settings' }).click();
+      await page.getByRole('button', { name: 'Settings' }).click();
       await expect(page.getByText('Themes')).toBeVisible();
 
-      await page.getByRole('button', { name: 'go back' }).focus();
+      await page.getByRole('button', { name: 'Go back' }).focus();
       await page.keyboard.press(key);
 
       await expect(page.locator('input#name')).toBeVisible();
@@ -247,7 +247,7 @@ test.describe('controls are reachable by keyboard', () => {
     extensionId,
   }) => {
     const page = await openPopup(context, extensionId);
-    await page.getByRole('button', { name: 'settings' }).click();
+    await page.getByRole('button', { name: 'Settings' }).click();
 
     // "Display" is the category ROW; "Themes" is a heading inside the pane it
     // opens. The row is the control KAN-64 is about.
@@ -299,9 +299,9 @@ test.describe('controls are reachable by keyboard', () => {
 
     const names = await tabOrderNames(page, 12);
 
-    expect(names).toContain('open all windows');
-    expect(names).toContain('switch to session');
-    expect(names).toContain('delete session');
+    expect(names).toContain('Open');
+    expect(names).toContain('Switch');
+    expect(names).toContain('Delete');
   });
 
   // Delete tab and Delete window group are the two that matter most: unlike
@@ -319,8 +319,8 @@ test.describe('controls are reachable by keyboard', () => {
 
     const names = await tabOrderNames(page, 20);
 
-    expect(names).toContain('delete window group');
-    expect(names).toContain('delete');
+    expect(names).toContain('Delete window group');
+    expect(names).toContain('Delete tab');
   });
 
   // The other half of KAN-68: being in the tab order is useless if focus
@@ -331,13 +331,13 @@ test.describe('controls are reachable by keyboard', () => {
     extensionId,
   }) => {
     const page = await openPopup(context, extensionId);
-    const actions = page.locator('div:has(> [aria-label="delete session"])');
+    const actions = page.locator('div:has(> [aria-label="Delete"])');
 
     // The control: unfocused and unhovered, the block really is invisible, so
     // the assertion below can tell the two states apart.
     await expect(actions).toHaveCSS('opacity', '0');
 
-    await page.getByRole('button', { name: 'delete session' }).focus();
+    await page.getByRole('button', { name: 'Delete', exact: true }).focus();
 
     await expect(actions).toHaveCSS('opacity', '1');
   });
@@ -350,7 +350,7 @@ test.describe('controls are reachable by keyboard', () => {
     extensionId,
   }) => {
     const page = await openPopup(context, extensionId);
-    await page.getByRole('button', { name: 'settings' }).click();
+    await page.getByRole('button', { name: 'Settings' }).click();
     await expect(page.getByText('Themes')).toBeVisible();
 
     const names = await tabOrderNames(page, 25);

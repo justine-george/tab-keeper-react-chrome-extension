@@ -166,7 +166,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
           <Icon
             tooltipText={t('Open session')}
             text={t('Open')}
-            ariaLabel="open all windows"
+            ariaLabel={t('Open')}
             type="reopen_window"
             backgroundColor={
               isSelected ? COLORS.SELECTION_COLOR : COLORS.HOVER_COLOR
@@ -180,7 +180,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
           <Icon
             tooltipText={t('Switch to session')}
             text={t('Switch')}
-            ariaLabel="switch to session"
+            ariaLabel={t('Switch')}
             type="filter_center_focus"
             backgroundColor={
               isSelected ? COLORS.SELECTION_COLOR : COLORS.HOVER_COLOR
@@ -194,7 +194,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
           <Icon
             tooltipText={t('Delete session')}
             text={t('Delete')}
-            ariaLabel="delete session"
+            ariaLabel={t('Delete')}
             type="delete"
             backgroundColor={
               isSelected ? COLORS.SELECTION_COLOR : COLORS.HOVER_COLOR

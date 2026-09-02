@@ -76,7 +76,7 @@ describe('list identity across deletions (KAN-28)', () => {
     });
 
     // All three start expanded, so every accordion icon reads "collapse".
-    const accordions = await screen.findAllByLabelText('collapse');
+    const accordions = await screen.findAllByLabelText('Collapse');
     expect(accordions).toHaveLength(3);
 
     // Collapse the middle window only.

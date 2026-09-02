@@ -93,5 +93,6 @@
   "RequestUserReviewText": "¿Nos dejarías una buena reseña?",
   "Maybe Later": "Más tarde",
   "Never Remind Again": "No recordar más",
-  "Restored on this device, but syncing failed.": "Restaurado en este dispositivo, pero falló la sincronización."
+  "Restored on this device, but syncing failed.": "Restaurado en este dispositivo, pero falló la sincronización.",
+  "Save changes": "Guardar cambios"
 }
