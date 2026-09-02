@@ -238,7 +238,7 @@ describe('undo/redo shortcuts yield to native text editing (KAN-52)', () => {
 
       // By aria-label, not by title text: the session title also renders in
       // the left pane entry, so findByText('Research') matches two elements.
-      await userEvent.click(await screen.findByLabelText('rename session'));
+      await userEvent.click(await screen.findByLabelText('Rename session'));
       const input = screen.getByDisplayValue('Research');
 
       const before = seen.length;

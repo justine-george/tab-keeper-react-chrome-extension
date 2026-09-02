@@ -100,7 +100,7 @@ test.describe('golden path', () => {
 
     // Asserted, never clicked: invoking it spawns real browser windows on the
     // machine running the test.
-    const openAll = page.locator('[aria-label="open all windows"]').first();
+    const openAll = page.locator('[aria-label="Open"]').first();
     await expect(openAll).toBeVisible();
     await expect(openAll).toBeEnabled();
   });
@@ -111,7 +111,7 @@ test.describe('golden path', () => {
   }) => {
     const { page } = await openPopup(context, extensionId);
 
-    await page.locator('[aria-label="search"]').click();
+    await page.locator('[aria-label="Search"]').click();
     await page.locator('input#searchInput').fill('Holiday');
 
     await expect(page.getByText('Holiday').first()).toBeVisible();
@@ -124,7 +124,7 @@ test.describe('golden path', () => {
   }) => {
     const { page } = await openPopup(context, extensionId);
 
-    await page.locator('[aria-label="settings"]').click();
+    await page.locator('[aria-label="Settings"]').click();
 
     // Asserted on a settings-only heading, because the back control is not
     // unique to this panel -- the search pane has one too.
@@ -136,7 +136,7 @@ test.describe('golden path', () => {
     // sidesteps the reason the old version needed `exact: true` -- the
     // Material icon renders its name as the ligature text `arrow_back`, which
     // substring-matches "Back" and trips strict mode.
-    await page.getByRole('button', { name: 'go back' }).click();
+    await page.getByRole('button', { name: 'Go back' }).click();
     await expect(page.locator('input#name')).toBeVisible();
   });
 });

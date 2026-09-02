@@ -20,7 +20,7 @@ import { setSyncStatus } from '../../redux/slices/globalStateSlice';
 
 const SYNC_PENDING = 'global/syncStateWithFirestore/pending';
 
-const syncIcon = () => screen.getByRole('button', { name: 'sync' });
+const syncIcon = () => screen.getByRole('button', { name: 'Sync now' });
 
 describe('Icon keyboard activation reaches the same handler as a click', () => {
   // The control. If the sync thunk stopped being dispatched by a plain mouse

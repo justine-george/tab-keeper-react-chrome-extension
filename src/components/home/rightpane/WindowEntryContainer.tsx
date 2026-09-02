@@ -236,7 +236,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
         <div css={parentLeftStyle}>
           <Icon
             tooltipText={windowOpenState ? t('Collapse') : t('Expand')}
-            ariaLabel={windowOpenState ? 'collapse' : 'expand'}
+            ariaLabel={windowOpenState ? t('Collapse') : t('Expand')}
             type={windowOpenState ? 'expand_less' : 'expand_more'}
             onClick={handleAccordionClick}
           />
@@ -309,8 +309,8 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
         <div css={parentRightStyle}>
           {isEditing && !isSearchPanel ? (
             <Icon
-              tooltipText="Save changes"
-              ariaLabel="save changes"
+              tooltipText={t('Save changes')}
+              ariaLabel={t('Save changes')}
               type="done"
               backgroundColor={COLORS.HOVER_COLOR}
               onClick={(e) => {
@@ -321,7 +321,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
           ) : (
             <Icon
               tooltipText={t('Rename window group')}
-              ariaLabel="rename window group"
+              ariaLabel={t('Rename window group')}
               type="edit"
               backgroundColor={COLORS.HOVER_COLOR}
               onClick={(e) => {
@@ -334,7 +334,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
           {!isEditing && !isSearchPanel && (
             <Icon
               tooltipText={t('Add current tab')}
-              ariaLabel="add current tab"
+              ariaLabel={t('Add current tab')}
               type="add"
               backgroundColor={COLORS.HOVER_COLOR}
               onClick={(e) => {
@@ -346,7 +346,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
           {!isEditing && !isSearchPanel && (
             <Icon
               tooltipText={t('Delete window group')}
-              ariaLabel="delete window group"
+              ariaLabel={t('Delete window group')}
               type="delete"
               backgroundColor={COLORS.HOVER_COLOR}
               onClick={(e) => {
@@ -397,7 +397,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                 <div css={childRightStyle(index)}>
                   <Icon
                     tooltipText={t('Delete tab')}
-                    ariaLabel="delete"
+                    ariaLabel={t('Delete tab')}
                     type="delete"
                     backgroundColor={COLORS.HOVER_COLOR}
                     onClick={(e) => {

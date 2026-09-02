@@ -81,11 +81,7 @@ describe('enabled controls are reachable by keyboard', () => {
       />
     );
 
-    for (const name of [
-      'open all windows',
-      'switch to session',
-      'delete session',
-    ]) {
+    for (const name of ['Open', 'Switch', 'Delete']) {
       const control = screen.getByRole('button', { name });
       expect(tabIndexOf(control), name).not.toBe(TAB_ORDER_EXCLUDED);
     }
@@ -105,7 +101,7 @@ describe('enabled controls are reachable by keyboard', () => {
       store.dispatch(setSyncStatus('loading'));
     });
 
-    const sync = screen.getByRole('button', { name: 'sync' });
+    const sync = screen.getByRole('button', { name: 'Sync now' });
     expect(sync).toHaveAttribute('aria-disabled', 'true');
     expect(tabIndexOf(sync)).not.toBe(TAB_ORDER_EXCLUDED);
   });
@@ -116,7 +112,7 @@ describe('enabled controls are reachable by keyboard', () => {
   test('an enabled Icon does not claim to be disabled (KAN-66)', async () => {
     await renderWithProviders(<MenuContainer />);
 
-    const sync = screen.getByRole('button', { name: 'sync' });
+    const sync = screen.getByRole('button', { name: 'Sync now' });
     expect(sync).not.toHaveAttribute('aria-disabled');
   });
 });

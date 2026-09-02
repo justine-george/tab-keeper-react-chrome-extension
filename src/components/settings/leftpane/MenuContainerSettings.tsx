@@ -30,7 +30,7 @@ export default function MenuContainer() {
 
   return (
     <ClickableRow
-      ariaLabel="go back"
+      ariaLabel={t('Go back')}
       tooltipText={t('Go back')}
       onClick={handleBackClick}
       style={containerStyle}

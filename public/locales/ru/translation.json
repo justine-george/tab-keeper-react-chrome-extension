@@ -93,5 +93,6 @@
   "RequestUserReviewText": "Не могли бы вы оставить нам положительный отзыв?",
   "Maybe Later": "Позже",
   "Never Remind Again": "Больше не напоминать",
-  "Restored on this device, but syncing failed.": "Восстановлено на этом устройстве, но синхронизация не удалась."
+  "Restored on this device, but syncing failed.": "Восстановлено на этом устройстве, но синхронизация не удалась.",
+  "Save changes": "Сохранить изменения"
 }

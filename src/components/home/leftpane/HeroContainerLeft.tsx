@@ -48,7 +48,7 @@ export default function HeroContainer() {
   return isSearchPanel ? (
     <div css={containerStyle}>
       <ClickableRow
-        ariaLabel="back"
+        ariaLabel={t('Go back')}
         tooltipText={t('Go back')}
         onClick={handleBackClick}
         style="display: flex;"
@@ -65,7 +65,7 @@ export default function HeroContainer() {
   ) : (
     <div css={containerStyle}>
       <ClickableRow
-        ariaLabel="search"
+        ariaLabel={t('Search')}
         tooltipText={t('Search')}
         onClick={handleClickSearch}
         style="display: flex; align-items: center; min-width: 0;"

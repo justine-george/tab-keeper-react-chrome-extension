@@ -101,7 +101,7 @@ export default function UserInputContainer() {
       <Button
         tooltipText={t('Search')}
         iconType="search"
-        ariaLabel="search"
+        ariaLabel={t('Search')}
         onClick={filterResults}
         style="padding: 12px; flex-shrink: 0;"
       />
@@ -162,7 +162,7 @@ export default function UserInputContainer() {
       <div css={saveGroupStyle}>
         <Button
           tooltipText={t('Save current window as a session')}
-          ariaLabel="save current window"
+          ariaLabel={t('Save current window as a session')}
           iconType="add_box"
           iconSize="20px"
           onClick={() => createTabGroup('current-window')}
@@ -171,7 +171,7 @@ export default function UserInputContainer() {
         />
         <Button
           tooltipText={t('Save every open window as a session')}
-          ariaLabel="save session"
+          ariaLabel={t('Save every open window as a session')}
           iconType="library_add"
           onClick={() => createTabGroup('all-windows')}
           style="width: 58px; height: 100%; padding: 0; flex-shrink: 0; border: none;"

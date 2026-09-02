@@ -93,5 +93,6 @@
   "RequestUserReviewText": "Würden Sie uns eine positive Bewertung hinterlassen?",
   "Maybe Later": "Vielleicht später",
   "Never Remind Again": "Nicht mehr erinnern",
-  "Restored on this device, but syncing failed.": "Auf diesem Gerät wiederhergestellt, aber die Synchronisierung ist fehlgeschlagen."
+  "Restored on this device, but syncing failed.": "Auf diesem Gerät wiederhergestellt, aber die Synchronisierung ist fehlgeschlagen.",
+  "Save changes": "Änderungen speichern"
 }
