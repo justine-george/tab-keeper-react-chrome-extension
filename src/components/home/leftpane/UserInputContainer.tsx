@@ -119,7 +119,20 @@ export default function UserInputContainer() {
         onKeyEnter={() => createTabGroup('all-windows')}
         style="margin-right: 8px;"
       />
-      {/* One bordered group rather than two free-standing buttons: these are
+      {/* The two tooltips are a parallel pair, differing only where the
+          actions differ -- "all open windows" against "current window". They
+          used to read "Save current session" and "Save current window as a
+          session": both opened with "Save current", and the all-windows one
+          never said "all windows" in any of the ten locales.
+
+          It has its own key rather than borrowing the placeholder's, even
+          though both describe the same operation. The placeholder is squeezed
+          into a 231px field and several locales shortened it to fit -- German
+          drops "alle" and French drops "toutes", which is the very word that
+          has to survive here. A tooltip has no width limit, so the two want
+          different strings and get different keys.
+
+          One bordered group rather than two free-standing buttons: these are
           two variants of a single action, and reading as a pair is the point.
           Inside it size does the ranking -- save-all keeps the wide segment
           and the "+" already in muscle memory, save-current-window is narrow.
@@ -158,7 +171,7 @@ export default function UserInputContainer() {
           focusableButton={true}
         />
         <Button
-          tooltipText={t('Save all windows')}
+          tooltipText={t('Save every open window as a session')}
           ariaLabel="save session"
           iconType="library_add"
           onClick={() => createTabGroup('all-windows')}

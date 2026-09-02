@@ -8,7 +8,7 @@
   "Sync now": "Sincronizza ora",
   "Settings": "Impostazioni",
   "Save all open windows as a session": "Salva tutte le finestre",
-  "Save all windows": "Salva sessione attuale",
+  "Save every open window as a session": "Salva tutte le finestre aperte come sessione",
   "Save current window as a session": "Salva la finestra attuale come sessione",
   "Open in new window": "Apri in nuova finestra",
   "Open session": "Apri la sessione mantenendo le finestre attuali",

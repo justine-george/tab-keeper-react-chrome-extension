@@ -150,6 +150,37 @@ describe('UserInputContainer save scope', () => {
     expect(glyph('save session')).not.toBe(glyph('save current window'));
   });
 
+  // The tooltip is the only place either button says what it does in words,
+  // and the pair used to read "Save current session" / "Save current window as
+  // a session" -- both opening with "Save current", and the all-windows one
+  // never mentioning all windows in any of the ten locales.
+  //
+  // testI18n loads the real en resources, so these assert the strings a user
+  // actually sees rather than the keys.
+  const tooltip = (label: string) =>
+    screen.getByLabelText(label).getAttribute('title') ?? '';
+
+  test('the all-windows tooltip says it saves all windows', async () => {
+    await renderWithProviders(<UserInputContainer />, { seed: twoWindows });
+    await screen.findByDisplayValue('Kagi Search');
+
+    expect(tooltip('save session').toLowerCase()).toContain('all');
+  });
+
+  test('the current-window tooltip says it saves the current window', async () => {
+    await renderWithProviders(<UserInputContainer />, { seed: twoWindows });
+    await screen.findByDisplayValue('Kagi Search');
+
+    expect(tooltip('save current window').toLowerCase()).toContain('current');
+  });
+
+  test('the two buttons do not share a tooltip', async () => {
+    await renderWithProviders(<UserInputContainer />, { seed: twoWindows });
+    await screen.findByDisplayValue('Kagi Search');
+
+    expect(tooltip('save session')).not.toBe(tooltip('save current window'));
+  });
+
   // Enter in the name box has always meant "save everything". A second button
   // is a new way to save, not a change to the existing one.
   test('pressing Enter in the name box still captures every window', async () => {

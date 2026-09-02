@@ -8,7 +8,7 @@
   "Sync now": "今すぐ同期",
   "Settings": "設定",
   "Save all open windows as a session": "開いているすべてのウィンドウをセッションとして保存",
-  "Save all windows": "現在のセッションを保存",
+  "Save every open window as a session": "開いているすべてのウィンドウをセッションとして保存",
   "Save current window as a session": "現在のウィンドウをセッションとして保存",
   "Open in new window": "新しいウィンドウで開く",
   "Open session": "現在のウィンドウを残してセッションを開く",
