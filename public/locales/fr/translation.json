@@ -9,6 +9,7 @@
   "Settings": "Paramètres",
   "Save all open windows as a session": "Enregistrer fenêtres comme session",
   "Save all windows": "Enregistrer la session actuelle",
+  "Save current window as a session": "Enregistrer la fenêtre actuelle comme session",
   "Open in new window": "Ouvrir dans une nouvelle fenêtre",
   "Open session": "Ouvrir la session en conservant les fenêtres actuelles",
   "Switch to session": "Fermer les fenêtres actuelles et ouvrir cette session",

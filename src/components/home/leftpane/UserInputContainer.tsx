@@ -8,7 +8,10 @@ import Button from '../../common/Button';
 import TextBox from '../../common/TextBox';
 import { AppDispatch, RootState } from '../../../redux/store';
 import { setSearchInputText } from '../../../redux/slices/globalStateSlice';
-import { captureOpenWindows } from '../../../utils/functions/capture';
+import {
+  captureOpenWindows,
+  type CaptureScope,
+} from '../../../utils/functions/capture';
 import { saveToTabContainer } from '../../../redux/slices/tabContainerDataStateSlice';
 import { useTranslation } from 'react-i18next';
 
@@ -50,8 +53,14 @@ export default function UserInputContainer() {
     // dispatch(setSearchInputText(searchInput));
   }
 
-  async function createTabGroup() {
-    const containerData = await captureOpenWindows(newTitle || currentTabName);
+  // The scope is the button's word, not a stored preference (KAN-5). Focus
+  // mode saves through this same captureOpenWindows before closing every
+  // window, so nothing it does not pass itself may reach that path.
+  async function createTabGroup(scope: CaptureScope) {
+    const containerData = await captureOpenWindows(
+      newTitle || currentTabName,
+      scope
+    );
     if (!containerData) return;
 
     dispatch(saveToTabContainer(containerData));
@@ -94,15 +103,28 @@ export default function UserInputContainer() {
         placeholder={t('Save all open windows as a session')}
         autoComplete="off"
         onChange={updateUserInput}
-        onKeyEnter={createTabGroup}
+        onKeyEnter={() => createTabGroup('all-windows')}
         style="margin-right: 8px;"
       />
-      {/* <Button text="Save" onClick={createTabGroup} /> */}
+      {/* Left of the save-all button, which keeps its place: this is a second
+          way to save, not a replacement for the one already in muscle memory.
+          Its tooltip cannot be "Save current window" -- the en locale already
+          renders that for HeroContainerRight's "Add current window", which
+          adds a window to the session already selected rather than saving a
+          new one. */}
+      <Button
+        tooltipText={t('Save current window as a session')}
+        ariaLabel="save current window"
+        iconType="web_asset"
+        onClick={() => createTabGroup('current-window')}
+        style="padding: 12px; flex-shrink: 0; margin-right: 8px;"
+        focusableButton={true}
+      />
       <Button
         tooltipText={t('Save all windows')}
         ariaLabel="save session"
         iconType="add"
-        onClick={createTabGroup}
+        onClick={() => createTabGroup('all-windows')}
         style="padding: 12px; flex-shrink: 0;"
         focusableButton={true}
       />

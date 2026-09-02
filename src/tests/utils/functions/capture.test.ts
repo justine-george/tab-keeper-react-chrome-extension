@@ -154,7 +154,7 @@ describe('captureOpenWindows against the chrome fake', () => {
       ],
     });
 
-    const captured = await captureOpenWindows('probe');
+    const captured = await captureOpenWindows('probe', 'all-windows');
 
     expect(captured).not.toBeNull();
     expect(captured!.windows).toHaveLength(1);
@@ -171,7 +171,7 @@ describe('captureOpenWindows against the chrome fake', () => {
     });
 
     const before = Date.now();
-    const captured = await captureOpenWindows('probe');
+    const captured = await captureOpenWindows('probe', 'all-windows');
 
     expect(captured).not.toBeNull();
     expect(typeof captured!.createdAt).toBe('number');
@@ -183,7 +183,7 @@ describe('captureOpenWindows against the chrome fake', () => {
     handle = setupChromeFake({ windows: [{ id: 1 }] });
 
     await chrome.tabs.create({ windowId: 1, url: B });
-    const captured = await captureOpenWindows('probe');
+    const captured = await captureOpenWindows('probe', 'all-windows');
 
     expect(captured).not.toBeNull();
     expect(captured!.windows[0].tabs.map((tab) => tab.url)).toEqual([B]);
@@ -196,7 +196,7 @@ describe('captureOpenWindows against the chrome fake', () => {
       (resolve) => chrome.windows.create({ url: A }, resolve)
     );
     await chrome.tabs.create({ windowId: created!.id, url: B });
-    const captured = await captureOpenWindows('probe');
+    const captured = await captureOpenWindows('probe', 'all-windows');
 
     expect(captured).not.toBeNull();
     expect(captured!.windows[0].tabs.map((tab) => tab.url)).toEqual([A, B]);
@@ -223,7 +223,7 @@ describe('captureOpenWindows against the chrome fake', () => {
       ],
     });
 
-    const captured = await captureOpenWindows('probe');
+    const captured = await captureOpenWindows('probe', 'all-windows');
 
     expect(captured).not.toBeNull();
     expect(captured!.windows).toHaveLength(1);
@@ -246,7 +246,7 @@ describe('captureOpenWindows against the chrome fake', () => {
       ],
     });
 
-    const captured = await captureOpenWindows('probe');
+    const captured = await captureOpenWindows('probe', 'all-windows');
 
     expect(captured).not.toBeNull();
     expect(captured!.windows).toHaveLength(1);
@@ -267,6 +267,96 @@ describe('captureOpenWindows against the chrome fake', () => {
       ],
     });
 
-    expect(await captureOpenWindows('probe')).toBeNull();
+    expect(await captureOpenWindows('probe', 'all-windows')).toBeNull();
+  });
+});
+
+// KAN-5. The save row offers "save every window" and "save just this one", so
+// capture takes the scope rather than reading a preference of its own: focus
+// mode saves through this same function immediately before background.ts
+// closes every normal window, and a scope it did not ask for would make it
+// close windows it never saved.
+//
+// Each assertion here is paired with the same seed captured at 'all-windows'.
+// On its own, "captured one window" is equally consistent with the scope
+// working and with the fake only ever holding one window to begin with.
+describe('captureOpenWindows scope', () => {
+  let handle: ReturnType<typeof setupChromeFake> | undefined;
+
+  afterEach(() => {
+    handle?.restore();
+    handle = undefined;
+  });
+
+  // The fake answers windows.getCurrent with the first seeded window, so the
+  // A window is the current one in both seeds below.
+  const threeWindows = () => ({
+    windows: [
+      { id: 1, tabs: [{ id: 1, url: A, title: 'A' }] as chrome.tabs.Tab[] },
+      { id: 2, tabs: [{ id: 2, url: B, title: 'B' }] as chrome.tabs.Tab[] },
+      { id: 3, tabs: [{ id: 3, url: C, title: 'C' }] as chrome.tabs.Tab[] },
+    ],
+  });
+
+  test("'current-window' captures only the current window", async () => {
+    handle = setupChromeFake(threeWindows());
+
+    const captured = await captureOpenWindows('probe', 'current-window');
+
+    expect(captured).not.toBeNull();
+    expect(captured!.windows).toHaveLength(1);
+    expect(captured!.windows[0].tabs.map((tab) => tab.url)).toEqual([A]);
+    expect(captured!.windowCount).toBe(1);
+    expect(captured!.tabCount).toBe(1);
+  });
+
+  test("'all-windows' captures every window from that same seed", async () => {
+    handle = setupChromeFake(threeWindows());
+
+    const captured = await captureOpenWindows('probe', 'all-windows');
+
+    expect(captured).not.toBeNull();
+    expect(captured!.windows).toHaveLength(3);
+    expect(captured!.windows.map((w) => w.tabs[0].url)).toEqual([A, B, C]);
+  });
+
+  // The worst path. getCurrent is deliberately unfiltered (KAN-50), so it can
+  // hand back a popup -- and then there is no current window to save. Falling
+  // back to every window is the one answer this must never give: the user
+  // asked for one window and would get all of them, which at 'current-window'
+  // is the same mistake in miniature that wiring focus mode to this scope
+  // would make in full.
+  test("'current-window' returns null when the current window is a popup", async () => {
+    handle = setupChromeFake({
+      windows: [
+        {
+          id: 1,
+          type: 'popup',
+          tabs: [{ id: 1, url: B, title: 'B' }] as chrome.tabs.Tab[],
+        },
+        { id: 2, tabs: [{ id: 2, url: A, title: 'A' }] as chrome.tabs.Tab[] },
+      ],
+    });
+
+    expect(await captureOpenWindows('probe', 'current-window')).toBeNull();
+  });
+
+  test("'all-windows' still captures the normal window behind that popup", async () => {
+    handle = setupChromeFake({
+      windows: [
+        {
+          id: 1,
+          type: 'popup',
+          tabs: [{ id: 1, url: B, title: 'B' }] as chrome.tabs.Tab[],
+        },
+        { id: 2, tabs: [{ id: 2, url: A, title: 'A' }] as chrome.tabs.Tab[] },
+      ],
+    });
+
+    const captured = await captureOpenWindows('probe', 'all-windows');
+
+    expect(captured).not.toBeNull();
+    expect(captured!.windows).toHaveLength(1);
+    expect(captured!.windows[0].tabs.map((tab) => tab.url)).toEqual([A]);
   });
 });

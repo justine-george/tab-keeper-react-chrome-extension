@@ -235,7 +235,11 @@ export const requestFocusTabContainer = createAsyncThunk(
 
     // Worked out here as well as at the moment of switching, because the
     // dialog must not promise a save that will not happen.
-    const captured = await captureOpenWindows(params.saveTitle);
+    //
+    // 'all-windows' is not a default inherited from anywhere: focus mode
+    // closes every normal window (background.ts), so it must save every normal
+    // window. The save-row scope must never reach this call (KAN-5).
+    const captured = await captureOpenWindows(params.saveTitle, 'all-windows');
 
     // Nothing to capture is a third case, not a kind of "already saved"
     // (KAN-42). Folding it into `willSave === false` made the dialog say "Your
@@ -298,7 +302,9 @@ export const focusTabContainer = createAsyncThunk(
     // sessions would otherwise mint a near-duplicate on every switch, because
     // the windows being closed are the ones the last switch restored. Saving
     // only genuinely unsaved work keeps the round trip free.
-    const captured = await captureOpenWindows(params.saveTitle);
+    // 'all-windows' for the same reason as in requestFocusTabContainer above:
+    // this is the save that makes closing every window reversible (KAN-5).
+    const captured = await captureOpenWindows(params.saveTitle, 'all-windows');
     if (captured && !isAlreadySaved(captured, state.tabGroups)) {
       thunkAPI.dispatch(saveToTabContainerInternal(captured));
     }
