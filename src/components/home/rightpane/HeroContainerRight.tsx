@@ -13,7 +13,9 @@ import { useThemeColors } from '../../../hooks/useThemeColors';
 import { AppDispatch, RootState } from '../../../redux/store';
 import {
   resolveTabUrl,
+  formatGroupCounts,
   getPrettyDate,
+  isSearchActive,
   selectVisibleTabGroups,
 } from '../../../utils/functions/local';
 import {
@@ -250,9 +252,12 @@ export default function HeroContainerRight() {
           </div>
         </div>
         <NormalLabel
-          value={`${windowCount} ${
-            windowCount > 1 ? t('Windows') : t('Window')
-          } - ${tabCount} ${tabCount > 1 ? t('Tabs') : t('Tab')}`}
+          value={formatGroupCounts(
+            windowCount,
+            tabCount,
+            isSearchActive(isSearchPanel, searchInputText),
+            t
+          )}
           size="0.75rem"
           color={COLORS.LABEL_L1_COLOR}
           style={`padding-top: 2px; padding-left: 8px;`}

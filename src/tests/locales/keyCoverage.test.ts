@@ -31,6 +31,13 @@ const sources = import.meta.glob('/src/**/*.{ts,tsx}', {
 // test). This test is a floor on coverage, not a complete census.
 const KEY_PATTERN = /\bt\(\s*['"`]([^'"`]+)['"`]/g;
 
+// The other nine translation files, by the same glob route as the sources
+// above, so adding a locale directory needs no edit here.
+const localeFiles = import.meta.glob('/public/locales/*/translation.json', {
+  import: 'default',
+  eager: true,
+}) as Record<string, Record<string, string>>;
+
 describe('translation key coverage', () => {
   test('every t() key used in src exists in the en locale', () => {
     const missing: string[] = [];
@@ -43,5 +50,59 @@ describe('translation key coverage', () => {
     }
 
     expect(missing).toEqual([]);
+  });
+
+  // The test above only knows about `en`, so a key added to nine of the ten
+  // files passes it. i18next then falls back to the en value and the ninth
+  // language silently shows English -- no error, no failing render. Adding a
+  // string is a ten-file edit and this is what says so.
+  //
+  // Symmetric on purpose: an EXTRA key in a translated file is reported too,
+  // because it is either a typo (so the real key is missing and falls back) or
+  // a leftover from a deleted string.
+  test('every locale defines exactly the keys en defines', () => {
+    const enKeys = new Set(Object.keys(en));
+    const drift: string[] = [];
+
+    for (const [path, json] of Object.entries(localeFiles)) {
+      if (path.includes('/en/')) continue;
+      const keys = new Set(Object.keys(json));
+
+      for (const key of enKeys) {
+        if (!keys.has(key)) drift.push(`${path}  missing  ${key}`);
+      }
+      for (const key of keys) {
+        if (!enKeys.has(key)) drift.push(`${path}  extra    ${key}`);
+      }
+    }
+
+    expect(drift).toEqual([]);
+  });
+
+  // i18next's nsSeparator is ':', so it reads `t('Matches:')` as namespace
+  // "Matches" plus an empty key and answers with an empty string -- silently,
+  // with the surrounding template literal still rendering its spaces. A colon
+  // in the MIDDLE of a key is fine (the unreadable-token toast has one): the
+  // prefix is not a loaded namespace, so lookup falls back to the whole key.
+  // Only a trailing one bites.
+  //
+  // The en locale can never reveal this in a render test, because there the
+  // key and the value are the same string -- "returned the key" and "found the
+  // value" look identical. That is why this asserts on the key's SPELLING
+  // rather than on anything rendered. KAN-60.
+  test('no key ends in a colon, which i18next resolves to an empty string', () => {
+    const offenders = Object.keys(en).filter((key) => key.endsWith(':'));
+
+    expect(offenders).toEqual([]);
+  });
+
+  // The control for the test above. Without it, that test passes just as well
+  // against a locale file that lost every key with punctuation in it.
+  test('keys with a colon elsewhere, and with dots, are still present', () => {
+    const punctuated = Object.keys(en).filter(
+      (key) => key.includes(':') || key.includes('.')
+    );
+
+    expect(punctuated.length).toBeGreaterThan(0);
   });
 });

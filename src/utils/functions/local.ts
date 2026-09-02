@@ -173,9 +173,59 @@ export const selectVisibleTabGroups = (
 ): tabContainerData[] => {
   const selectedTabGroups = tabGroups.filter((tabGroup) => tabGroup.isSelected);
 
-  return isSearchPanel && searchInputText
+  return isSearchActive(isSearchPanel, searchInputText)
     ? filterTabGroups(searchInputText, selectedTabGroups)
     : selectedTabGroups;
+};
+
+// Is the list on screen a filtered one? Both halves matter. An open search
+// panel with an empty box filters nothing -- filterTabGroups never runs -- so
+// the sessions shown are whole and their counts are their real size.
+//
+// This is a named predicate rather than an inline `&&` because four places now
+// have to agree on the answer: this file (twice), the left pane container, and
+// the count label. The count label is why it earns a name: it says a different
+// thing about the same numbers depending on this, so a copy of the rule that
+// drifted would not crash or fail to render -- it would just print something
+// untrue. KAN-60.
+export const isSearchActive = (
+  isSearchPanel: boolean,
+  searchInputText: string
+): boolean => isSearchPanel && searchInputText !== '';
+
+// The one-line summary under a session's title, in both panes.
+//
+// The numbers mean two different things and only this function knows which.
+// Unfiltered they are the session's size. Under a search filterTabGroups has
+// narrowed them to what matched (local.ts:127 and :140, deliberately), and
+// stating a match count in the words used for a session's size is a false
+// statement about the session -- a `Delta` holding 7 windows and 13 tabs read
+// "1 Window - 1 Tab" while a search was running. KAN-60.
+//
+// The prefix carries its own punctuation because the colon is not the same
+// character everywhere: French sets a space before it, Japanese and Chinese
+// use the fullwidth form. A ":" written here would impose the English
+// convention on all ten locales.
+//
+// Note the key is 'Matches' and the colon lives only in the values. i18next's
+// nsSeparator is ':', so a key ENDING in one parses as namespace "Matches"
+// plus an empty key and resolves to "" -- the label rendered as a leading
+// space and nothing else. A colon in the middle of a key is harmless (the
+// unreadable-token toast has one) because the prefix is not a loaded
+// namespace and lookup falls back to the whole key. Only a trailing one bites,
+// and the en locale cannot show it: there the key and the value are the same
+// string either way.
+export const formatGroupCounts = (
+  windowCount: number,
+  tabCount: number,
+  isFiltered: boolean,
+  t: (key: string) => string
+): string => {
+  const counts =
+    `${windowCount} ${windowCount > 1 ? t('Windows') : t('Window')}` +
+    ` - ${tabCount} ${tabCount > 1 ? t('Tabs') : t('Tab')}`;
+
+  return isFiltered ? `${t('Matches')} ${counts}` : counts;
 };
 
 // save data to local storage

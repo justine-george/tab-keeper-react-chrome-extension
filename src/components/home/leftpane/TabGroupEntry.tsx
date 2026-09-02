@@ -9,7 +9,11 @@ import { NormalLabel } from '../../common/Label';
 import { RootState } from '../../../redux/store';
 import { useFontFamily } from '../../../hooks/useFontFamily';
 import { useThemeColors } from '../../../hooks/useThemeColors';
-import { getPrettyDate } from '../../../utils/functions/local';
+import {
+  formatGroupCounts,
+  getPrettyDate,
+  isSearchActive,
+} from '../../../utils/functions/local';
 import { tabContainerData } from '../../../redux/slices/tabContainerDataStateSlice';
 import { useTranslation } from 'react-i18next';
 
@@ -36,6 +40,13 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
 
   const isSearchPanel = useSelector(
     (state: RootState) => state.globalState.isSearchPanel
+  );
+
+  // Needed as well as isSearchPanel: the row's counts are narrowed only while
+  // the box has text in it, so the panel being open is not on its own enough
+  // to call them matches.
+  const searchInputText = useSelector(
+    (state: RootState) => state.globalState.searchInputText
   );
 
   const handleMouseEnter = () => setIsHovered(true);
@@ -106,9 +117,12 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
           tooltipText={title}
         />
         <NormalLabel
-          value={`${windowCount} ${
-            windowCount > 1 ? t('Windows') : t('Window')
-          } - ${tabCount} ${tabCount > 1 ? t('Tabs') : t('Tab')}`}
+          value={formatGroupCounts(
+            windowCount,
+            tabCount,
+            isSearchActive(isSearchPanel, searchInputText),
+            t
+          )}
           color={COLORS.LABEL_L1_COLOR}
           size="0.7rem"
           style="margin-top: 2px;"

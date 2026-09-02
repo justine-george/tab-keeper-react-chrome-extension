@@ -9,7 +9,10 @@ import TabGroupEntry from './TabGroupEntry';
 import { NormalLabel } from '../../common/Label';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { AppDispatch, RootState } from '../../../redux/store';
-import { filterTabGroups } from '../../../utils/functions/local';
+import {
+  filterTabGroups,
+  isSearchActive,
+} from '../../../utils/functions/local';
 import {
   deleteTabContainer,
   openAllTabContainer,
@@ -40,7 +43,7 @@ export default function TabGroupEntryContainer() {
 
   // filter the tab group list
   let filteredTabGroups: tabContainerData[] = tabContainerDataList.tabGroups;
-  if (isSearchPanel && searchInputText) {
+  if (isSearchActive(isSearchPanel, searchInputText)) {
     filteredTabGroups = filterTabGroups(searchInputText, filteredTabGroups);
   }
 
