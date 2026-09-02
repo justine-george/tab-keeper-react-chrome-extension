@@ -46,25 +46,20 @@ jobs:
           VITE_FIREBASE_MEASUREMENT_ID: ${{ secrets.VITE_FIREBASE_MEASUREMENT_ID }}
         run: npm run build
 
+      # The patterns and the file walk live in scripts/prune_remote_code.mjs so
+      # that the E2E harness builds the same artifact this ships, rather than
+      # keeping a second copy of the regexes that can drift. The script is unit
+      # tested; the inline sed it replaced was not, and was not portable either
+      # (GNU `sed -i` here, `sed -i ''` on macOS).
       - name: Prune unused remotely hosted Firebase JS SDK calls
-        run: |
-          # Firebase Auth carries script URLs for sign-in flows this extension
-          # never uses (Google popup, phone/reCAPTCHA). Manifest V3 forbids
-          # remotely hosted code, so blank them out. The trailing [^`"]* absorbs
-          # any query string the SDK appends, which differs between versions.
-          #
-          # Every emitted chunk is scanned, not just the popup entry: the build
-          # is code-split, and which chunk Firebase lands in is Rollup's choice.
-          find ./dist -name '*.js' -print0 | xargs -0 sed -i \
-            -e 's|https://apis\.google\.com/js/api\.js[^`"]*||g' \
-            -e 's|https://www\.google\.com/recaptcha/[^`"]*||g'
+        run: npm run prune-remote-code
 
       - name: Verify no remotely hosted code remains
         run: |
           if grep -rEo --include='*.js' \
             'https://(apis\.google\.com|www\.google\.com/recaptcha)[^`"]*' ./dist; then
             echo "::error::Remotely hosted script URLs survived the prune step above."
-            echo "::error::A Firebase upgrade likely changed their shape. Update the sed patterns."
+            echo "::error::A Firebase upgrade likely changed their shape. Update REMOTE_CODE_PATTERNS in scripts/prune_remote_code.mjs."
             exit 1
           fi
           echo "No remotely hosted script URLs remain in the bundle."

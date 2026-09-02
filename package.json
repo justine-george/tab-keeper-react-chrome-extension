@@ -10,6 +10,9 @@
     "preview": "vite preview",
     "build": "tsc && vite build",
     "build:dev": "tsc && vite build --mode development",
+    "prune-remote-code": "node ./scripts/prune_remote_code.mjs dist",
+    "build:e2e": "npm run build && npm run prune-remote-code",
+    "test:e2e": "npm run build:e2e && playwright test",
     "test": "vitest run",
     "test-dev": "vitest",
     "test-build": "npm run test && npm run build",
@@ -40,6 +43,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.62.1",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",
     "@testing-library/user-event": "^14.6.6",

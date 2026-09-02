@@ -44,7 +44,11 @@ export default defineConfig({
           globals: true,
           setupFiles: ['vitest-localstorage-mock'],
           mockReset: false,
-          include: ['src/**/*.{test,spec}.ts'],
+          // The second glob is why scripts/prune_remote_code.test.mjs runs at
+          // all. It is deliberately narrow: scripts/ sits outside tsconfig's
+          // `include` and outside `npm run lint` (which is `eslint src`), so
+          // only plain .mjs belongs there -- same as the existing *.cjs.
+          include: ['src/**/*.{test,spec}.ts', 'scripts/**/*.{test,spec}.mjs'],
         },
       },
       {
