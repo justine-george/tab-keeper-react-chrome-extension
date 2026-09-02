@@ -131,6 +131,25 @@ describe('UserInputContainer save scope', () => {
     );
   });
 
+  // The two buttons sit side by side and do different things, so they must not
+  // look alike. They did once: both carried a "+" so that both would read as
+  // "save", which made the "+" shared vocabulary instead of distinguishing
+  // vocabulary and left two near-identical glyphs. Only the primary carries it
+  // now. Their relative *size* is the other half of the hierarchy and is
+  // verified visually, not here -- jsdom does not lay anything out.
+  test('the two save buttons do not render the same icon', async () => {
+    await renderWithProviders(<UserInputContainer />, { seed: twoWindows });
+    await screen.findByDisplayValue('Kagi Search');
+
+    const glyph = (label: string) =>
+      screen.getByLabelText(label).querySelector('.material-symbols-outlined')
+        ?.textContent;
+
+    expect(glyph('save session')).toBeTruthy();
+    expect(glyph('save current window')).toBeTruthy();
+    expect(glyph('save session')).not.toBe(glyph('save current window'));
+  });
+
   // Enter in the name box has always meant "save everything". A second button
   // is a new way to save, not a change to the existing one.
   test('pressing Enter in the name box still captures every window', async () => {
