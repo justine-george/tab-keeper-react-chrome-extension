@@ -36,3 +36,7 @@ CODEBASE.md
 
 # Design docs and plans are kept local, not tracked
 docs/
+
+# Playwright (E2E is manual-trigger; its output is never committed)
+test-results/
+playwright-report/
