@@ -63,7 +63,7 @@ export default function UserInputContainer() {
     );
     if (!containerData) return;
 
-    dispatch(saveToTabContainer(containerData));
+    dispatch(saveToTabContainer({ container: containerData, scope }));
   }
 
   const containerStyle = css`
@@ -111,11 +111,18 @@ export default function UserInputContainer() {
           Its tooltip cannot be "Save current window" -- the en locale already
           renders that for HeroContainerRight's "Add current window", which
           adds a window to the session already selected rather than saving a
-          new one. */}
+          new one.
+
+          The two icons are a matched pair, and both keep the "+" so both still
+          read as "save": what differs is the container around it, one screen
+          against a stack. A bare + beside a bare window rectangle said "save"
+          and "window" without saying which button did what. Two labels would
+          be clearer still, but do not fit -- at the 339px row width the German
+          pair alone needs 318px. */}
       <Button
         tooltipText={t('Save current window as a session')}
         ariaLabel="save current window"
-        iconType="web_asset"
+        iconType="add_to_queue"
         onClick={() => createTabGroup('current-window')}
         style="padding: 12px; flex-shrink: 0; margin-right: 8px;"
         focusableButton={true}
@@ -123,7 +130,7 @@ export default function UserInputContainer() {
       <Button
         tooltipText={t('Save all windows')}
         ariaLabel="save session"
-        iconType="add"
+        iconType="library_add"
         onClick={() => createTabGroup('all-windows')}
         style="padding: 12px; flex-shrink: 0;"
         focusableButton={true}

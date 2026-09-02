@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event';
 import UserInputContainer from '../../components/home/leftpane/UserInputContainer';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { SAVE_TAB_CONTAINER_ACTION } from '../../utils/constants/actionTypes';
+import { TOAST_MESSAGES } from '../../utils/constants/common';
 
 const seed = {
   tabs: [
@@ -96,6 +97,38 @@ describe('UserInputContainer save scope', () => {
     expect(tabGroups[0].windows).toHaveLength(1);
     expect(tabGroups[0].windowCount).toBe(1);
     expect(tabGroups[0].windows[0].tabs[0].url).toBe('https://kagi.com/');
+  });
+
+  // Both buttons used to raise the same "Session saved." toast, so the only
+  // confirmation the user got could not tell them which save had happened --
+  // on the one screen where the two actions look alike. The two tests below
+  // are each other's control: asserting one message in isolation would still
+  // pass if both buttons produced it.
+  async function toastAfterClicking(label: string) {
+    const { store } = await renderWithProviders(<UserInputContainer />, {
+      seed: twoWindows,
+    });
+    await screen.findByDisplayValue('Kagi Search');
+    await userEvent.click(screen.getByLabelText(label));
+    return store.getState().globalState.toastText;
+  }
+
+  test('saving every window says so', async () => {
+    expect(await toastAfterClicking('save session')).toBe(
+      TOAST_MESSAGES.SAVE_ALL_WINDOWS_SUCCESS
+    );
+  });
+
+  test('saving only the current window says so instead', async () => {
+    expect(await toastAfterClicking('save current window')).toBe(
+      TOAST_MESSAGES.SAVE_CURRENT_WINDOW_SUCCESS
+    );
+  });
+
+  test('the two toasts are not the same message', () => {
+    expect(TOAST_MESSAGES.SAVE_ALL_WINDOWS_SUCCESS).not.toBe(
+      TOAST_MESSAGES.SAVE_CURRENT_WINDOW_SUCCESS
+    );
   });
 
   // Enter in the name box has always meant "save everything". A second button

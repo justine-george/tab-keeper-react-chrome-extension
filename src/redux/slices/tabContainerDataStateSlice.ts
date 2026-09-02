@@ -6,6 +6,7 @@ import { getStringDate, saveToLocalStorage } from '../../utils/functions/local';
 import {
   captureOpenWindows,
   isAlreadySaved,
+  type CaptureScope,
 } from '../../utils/functions/capture';
 import {
   createWindowWithRetries,
@@ -328,15 +329,28 @@ export const focusTabContainer = createAsyncThunk(
   }
 );
 
+export interface saveToTabContainerParams {
+  container: tabContainerData;
+  scope: CaptureScope;
+}
+
 // save to tab container and display a toast message
+//
+// The scope is carried here only to name the action in the toast. It is not
+// re-derived from the captured data: a one-window 'all-windows' save is a real
+// case (the user has one window open), and reporting it as "current window
+// saved" would describe the browser rather than the button they pressed.
 export const saveToTabContainer = createAsyncThunk(
   'global/saveToTabContainer',
-  async (tabContainerData: tabContainerData, thunkAPI) => {
-    thunkAPI.dispatch(saveToTabContainerInternal(tabContainerData));
+  async (params: saveToTabContainerParams, thunkAPI) => {
+    thunkAPI.dispatch(saveToTabContainerInternal(params.container));
 
     thunkAPI.dispatch(
       showToast({
-        toastText: TOAST_MESSAGES.SAVE_TAB_CONTAINER_SUCCESS,
+        toastText:
+          params.scope === 'current-window'
+            ? TOAST_MESSAGES.SAVE_CURRENT_WINDOW_SUCCESS
+            : TOAST_MESSAGES.SAVE_ALL_WINDOWS_SUCCESS,
         duration: 3000,
       })
     );

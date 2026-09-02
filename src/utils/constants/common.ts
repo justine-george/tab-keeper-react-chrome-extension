@@ -78,7 +78,15 @@ export const TOAST_MESSAGES = {
   LOGOUT_SUCCESS: 'You have successfully logged out.',
   LOGOUT_FAIL:
     'Oops! We encountered an issue while logging you out. Please try again.',
-  SAVE_TAB_CONTAINER_SUCCESS: 'Session saved.',
+  // Two messages rather than one "Session saved.", because the two save
+  // buttons sit next to each other and look alike: the toast is the only
+  // thing that tells the user which of them ran (KAN-5).
+  //
+  // Neither may be "Current window saved." -- that is
+  // ADD_CURR_WINDOW_TO_TABGROUP_SUCCESS below, a different operation (it adds
+  // a window to the already-selected session rather than creating one).
+  SAVE_ALL_WINDOWS_SUCCESS: 'All open windows saved as a session.',
+  SAVE_CURRENT_WINDOW_SUCCESS: 'Current window saved as a session.',
   ADD_CURR_WINDOW_TO_TABGROUP_SUCCESS: 'Current window saved.',
   ADD_CURR_TAB_TO_WINDOW_SUCCESS: 'Current tab saved.',
   DELETE_TAB_CONTAINER_SUCCESS: 'Session deleted.',
