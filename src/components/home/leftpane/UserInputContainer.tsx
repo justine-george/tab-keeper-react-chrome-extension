@@ -6,14 +6,19 @@ import { css } from '@emotion/react';
 
 import Button from '../../common/Button';
 import TextBox from '../../common/TextBox';
+import { useThemeColors } from '../../../hooks/useThemeColors';
 import { AppDispatch, RootState } from '../../../redux/store';
 import { setSearchInputText } from '../../../redux/slices/globalStateSlice';
-import { captureOpenWindows } from '../../../utils/functions/capture';
+import {
+  captureOpenWindows,
+  type CaptureScope,
+} from '../../../utils/functions/capture';
 import { saveToTabContainer } from '../../../redux/slices/tabContainerDataStateSlice';
 import { useTranslation } from 'react-i18next';
 
 export default function UserInputContainer() {
   const { t } = useTranslation();
+  const COLORS = useThemeColors();
   const dispatch: AppDispatch = useDispatch();
 
   const [newTitle, setNewTitle] = useState<string>('');
@@ -50,17 +55,34 @@ export default function UserInputContainer() {
     // dispatch(setSearchInputText(searchInput));
   }
 
-  async function createTabGroup() {
-    const containerData = await captureOpenWindows(newTitle || currentTabName);
+  // The scope is the button's word, not a stored preference (KAN-5). Focus
+  // mode saves through this same captureOpenWindows before closing every
+  // window, so nothing it does not pass itself may reach that path.
+  async function createTabGroup(scope: CaptureScope) {
+    const containerData = await captureOpenWindows(
+      newTitle || currentTabName,
+      scope
+    );
     if (!containerData) return;
 
-    dispatch(saveToTabContainer(containerData));
+    dispatch(saveToTabContainer({ container: containerData, scope }));
   }
 
   const containerStyle = css`
     display: flex;
     justify-content: space-between;
     align-items: center;
+  `;
+
+  // The two save buttons share one border and one height, so they read as a
+  // pair. 3.5rem matches TextBox, and box-sizing is border-box globally
+  // (App.css), so the group's own border sits inside that height and the row
+  // stays flush -- the segments take 100% of what is left.
+  const saveGroupStyle = css`
+    display: flex;
+    flex-shrink: 0;
+    height: 3.5rem;
+    border: 1px solid ${COLORS.BORDER_COLOR};
   `;
 
   return isSearchPanel ? (
@@ -94,18 +116,70 @@ export default function UserInputContainer() {
         placeholder={t('Save all open windows as a session')}
         autoComplete="off"
         onChange={updateUserInput}
-        onKeyEnter={createTabGroup}
+        onKeyEnter={() => createTabGroup('all-windows')}
         style="margin-right: 8px;"
       />
-      {/* <Button text="Save" onClick={createTabGroup} /> */}
-      <Button
-        tooltipText={t('Save all windows')}
-        ariaLabel="save session"
-        iconType="add"
-        onClick={createTabGroup}
-        style="padding: 12px; flex-shrink: 0;"
-        focusableButton={true}
-      />
+      {/* The two tooltips are a parallel pair, differing only where the
+          actions differ -- "all open windows" against "current window". They
+          used to read "Save current session" and "Save current window as a
+          session": both opened with "Save current", and the all-windows one
+          never said "all windows" in any of the ten locales.
+
+          It has its own key rather than borrowing the placeholder's, even
+          though both describe the same operation. The placeholder is squeezed
+          into a 231px field and several locales shortened it to fit -- German
+          drops "alle" and French drops "toutes", which is the very word that
+          has to survive here. A tooltip has no width limit, so the two want
+          different strings and get different keys.
+
+          One bordered group rather than two free-standing buttons: these are
+          two variants of a single action, and reading as a pair is the point.
+          Inside it size does the ranking -- save-all keeps the wide segment
+          and its place at the right, where the only save button used to be;
+          save-current-window is the narrow one.
+
+          Both segments carry a "+" because both are saves, and the stack
+          behind the primary is what says "all of them". add_box and
+          library_add are the same mark in Material's set -- library_add is
+          add_box with a second layer behind it -- so the only thing that
+          differs is the count, which is exactly the only thing that differs
+          about the two actions.
+
+          An earlier pair (add_to_queue + library_add) failed here: two plus-
+          bearing glyphs that were too alike to tell apart. Measured as pixel
+          overlap at equal size, that pair is 52% distinct; this one is 75%.
+          For reference a plain window glyph against a bare "+" is 97%, so
+          putting a + on both does cost separation -- it buys back the fact
+          that both buttons now read as saves. Re-measure before swapping
+          either glyph; 52% is what "twins" looks like as a number.
+
+          The divider is load-bearing -- without it the two icons float in one
+          box and stop looking separately clickable. Recessing the secondary
+          instead would be wrong here: a muted fill is how this UI says
+          "disabled" (there is no disabled attribute anywhere).
+
+          Labels would beat icons outright and do not fit: the row is 339px and
+          the German pair alone needs 318px, leaving 21px for the name box. */}
+      <div css={saveGroupStyle}>
+        <Button
+          tooltipText={t('Save current window as a session')}
+          ariaLabel="save current window"
+          iconType="add_box"
+          iconSize="20px"
+          onClick={() => createTabGroup('current-window')}
+          style={`width: 40px; height: 100%; padding: 0; flex-shrink: 0;
+                  border: none; border-right: 1px solid ${COLORS.BORDER_COLOR};`}
+          focusableButton={true}
+        />
+        <Button
+          tooltipText={t('Save every open window as a session')}
+          ariaLabel="save session"
+          iconType="library_add"
+          onClick={() => createTabGroup('all-windows')}
+          style="width: 58px; height: 100%; padding: 0; flex-shrink: 0; border: none;"
+          focusableButton={true}
+        />
+      </div>
     </div>
   );
 }

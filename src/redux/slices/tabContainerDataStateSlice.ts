@@ -6,6 +6,7 @@ import { getStringDate, saveToLocalStorage } from '../../utils/functions/local';
 import {
   captureOpenWindows,
   isAlreadySaved,
+  type CaptureScope,
 } from '../../utils/functions/capture';
 import {
   createWindowWithRetries,
@@ -235,7 +236,11 @@ export const requestFocusTabContainer = createAsyncThunk(
 
     // Worked out here as well as at the moment of switching, because the
     // dialog must not promise a save that will not happen.
-    const captured = await captureOpenWindows(params.saveTitle);
+    //
+    // 'all-windows' is not a default inherited from anywhere: focus mode
+    // closes every normal window (background.ts), so it must save every normal
+    // window. The save-row scope must never reach this call (KAN-5).
+    const captured = await captureOpenWindows(params.saveTitle, 'all-windows');
 
     // Nothing to capture is a third case, not a kind of "already saved"
     // (KAN-42). Folding it into `willSave === false` made the dialog say "Your
@@ -298,7 +303,9 @@ export const focusTabContainer = createAsyncThunk(
     // sessions would otherwise mint a near-duplicate on every switch, because
     // the windows being closed are the ones the last switch restored. Saving
     // only genuinely unsaved work keeps the round trip free.
-    const captured = await captureOpenWindows(params.saveTitle);
+    // 'all-windows' for the same reason as in requestFocusTabContainer above:
+    // this is the save that makes closing every window reversible (KAN-5).
+    const captured = await captureOpenWindows(params.saveTitle, 'all-windows');
     if (captured && !isAlreadySaved(captured, state.tabGroups)) {
       thunkAPI.dispatch(saveToTabContainerInternal(captured));
     }
@@ -322,15 +329,28 @@ export const focusTabContainer = createAsyncThunk(
   }
 );
 
+export interface saveToTabContainerParams {
+  container: tabContainerData;
+  scope: CaptureScope;
+}
+
 // save to tab container and display a toast message
+//
+// The scope is carried here only to name the action in the toast. It is not
+// re-derived from the captured data: a one-window 'all-windows' save is a real
+// case (the user has one window open), and reporting it as "current window
+// saved" would describe the browser rather than the button they pressed.
 export const saveToTabContainer = createAsyncThunk(
   'global/saveToTabContainer',
-  async (tabContainerData: tabContainerData, thunkAPI) => {
-    thunkAPI.dispatch(saveToTabContainerInternal(tabContainerData));
+  async (params: saveToTabContainerParams, thunkAPI) => {
+    thunkAPI.dispatch(saveToTabContainerInternal(params.container));
 
     thunkAPI.dispatch(
       showToast({
-        toastText: TOAST_MESSAGES.SAVE_TAB_CONTAINER_SUCCESS,
+        toastText:
+          params.scope === 'current-window'
+            ? TOAST_MESSAGES.SAVE_CURRENT_WINDOW_SUCCESS
+            : TOAST_MESSAGES.SAVE_ALL_WINDOWS_SUCCESS,
         duration: 3000,
       })
     );

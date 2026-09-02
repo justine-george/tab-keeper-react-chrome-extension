@@ -78,9 +78,21 @@ export const TOAST_MESSAGES = {
   LOGOUT_SUCCESS: 'You have successfully logged out.',
   LOGOUT_FAIL:
     'Oops! We encountered an issue while logging you out. Please try again.',
-  SAVE_TAB_CONTAINER_SUCCESS: 'Session saved.',
-  ADD_CURR_WINDOW_TO_TABGROUP_SUCCESS: 'Current window saved.',
-  ADD_CURR_TAB_TO_WINDOW_SUCCESS: 'Current tab saved.',
+  // Two messages rather than one "Session saved.", because the two save
+  // buttons sit next to each other and look alike: the toast is the only
+  // thing that tells the user which of them ran (KAN-5).
+  //
+  // Neither may be "Current window saved." -- that is
+  // ADD_CURR_WINDOW_TO_TABGROUP_SUCCESS below, a different operation (it adds
+  // a window to the already-selected session rather than creating one).
+  SAVE_ALL_WINDOWS_SUCCESS: 'All open windows saved as a session.',
+  SAVE_CURRENT_WINDOW_SUCCESS: 'Current window saved as a session.',
+  // "added", not "saved". These two report putting something into a session
+  // that already exists, which is a different operation from the two above --
+  // and the right pane's button now says "Add to this session", so a toast
+  // saying "saved" would contradict the control the user just pressed.
+  ADD_CURR_WINDOW_TO_TABGROUP_SUCCESS: 'Current window added to this session.',
+  ADD_CURR_TAB_TO_WINDOW_SUCCESS: 'Current tab added to this window.',
   DELETE_TAB_CONTAINER_SUCCESS: 'Session deleted.',
   DELETE_WINDOW_SUCCESS: 'Session window deleted.',
   DELETE_TAB_SUCCESS: 'Session tab deleted.',

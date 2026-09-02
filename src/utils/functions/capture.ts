@@ -43,17 +43,38 @@ export function isAlreadySaved(
   });
 }
 
-// Snapshots every open window as a session. Extracted from UserInputContainer
-// so focus mode can save what it is about to close using exactly the same
-// capture the "Save current session" button uses -- two captures that drifted
-// apart would mean focus mode quietly saved something less faithful than the
-// session the user could have saved by hand.
+// How much of the browser a capture covers.
 //
-// Returns null when there is nothing to capture, which is the caller's cue
-// that there is no session to save rather than an empty one to create.
-export async function captureOpenWindows(
-  title: string
-): Promise<tabContainerData | null> {
+// The save row offers both, so this is the caller's word rather than a
+// preference capture reads for itself: focus mode saves through here
+// immediately before background.ts closes every normal window, and a scope it
+// did not ask for would make it close windows it never saved.
+export type CaptureScope = 'all-windows' | 'current-window';
+
+// The chrome windows a scope covers, current window first.
+//
+// Returns an empty list when the scope covers nothing, which
+// captureOpenWindows already treats as "nothing to capture".
+async function windowsInScope(
+  scope: CaptureScope
+): Promise<chrome.windows.Window[]> {
+  const currentWindow = await new Promise<chrome.windows.Window>((resolve) =>
+    chrome.windows.getCurrent({ populate: true }, (result) => resolve(result))
+  );
+
+  // getCurrent is deliberately left unfiltered - filtering the query would
+  // leave no way to tell "the current window is a popup" from "there is no
+  // current window" - so the type is checked here instead (KAN-50).
+  const isCurrentNormal = currentWindow?.type === 'normal';
+
+  // No current normal window means this scope covers nothing. Falling back to
+  // every window is the one answer it must never give: the user asked for one
+  // window, and all of them is the same mistake in miniature that wiring focus
+  // mode to this scope would make in full.
+  if (scope === 'current-window') {
+    return isCurrentNormal ? [currentWindow] : [];
+  }
+
   // Normal windows only. Omitting windowTypes gets Chrome's default of
   // ['normal', 'popup'], which is what focus mode's close (background.ts) and
   // its count (requestFocusTabContainer) never used -- so a popup was saved
@@ -69,21 +90,36 @@ export async function captureOpenWindows(
     )
   );
 
-  const currentWindow = await new Promise<chrome.windows.Window>((resolve) =>
-    chrome.windows.getCurrent({ populate: true }, (result) => resolve(result))
-  );
-
   // Current window first, so a restore reopens the user's focus where it was.
-  // getCurrent is deliberately left unfiltered - filtering the query would
-  // leave no way to tell "the current window is a popup" from "there is no
-  // current window" - so the type is checked here instead. Without this the
-  // unshift would put a popup back after getAll had excluded it.
+  // Without the type check above, this unshift would put a popup back after
+  // getAll had excluded it.
   const windowList = allWindows.filter(
     (window) => window.id !== currentWindow?.id
   );
-  if (currentWindow?.type === 'normal') {
+  if (isCurrentNormal) {
     windowList.unshift(currentWindow);
   }
+  return windowList;
+}
+
+// Snapshots the open windows a scope covers as a session. Extracted from
+// UserInputContainer so focus mode can save what it is about to close using
+// exactly the same capture the "Save current session" button uses -- two
+// captures that drifted apart would mean focus mode quietly saved something
+// less faithful than the session the user could have saved by hand.
+//
+// `scope` has no default on purpose. A default would let focus mode inherit
+// whatever it happened to be, and would let a new scope-aware caller compile
+// without the type checker ever pointing at the two call sites where the wrong
+// scope closes unsaved windows.
+//
+// Returns null when there is nothing to capture, which is the caller's cue
+// that there is no session to save rather than an empty one to create.
+export async function captureOpenWindows(
+  title: string,
+  scope: CaptureScope
+): Promise<tabContainerData | null> {
+  const windowList = await windowsInScope(scope);
 
   let tabCount = 0;
 
