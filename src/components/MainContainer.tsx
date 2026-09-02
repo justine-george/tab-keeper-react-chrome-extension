@@ -68,40 +68,32 @@ export default function MainContainer() {
       // field too (cmd+shift+z on macOS, ctrl+y on Windows).
       if (isNativelyUndoableTarget(event.target)) return;
 
-      if (!isSettingsPage) {
-        // check for ctrl+z
-        if (event.ctrlKey && event.key === 'z') {
-          dispatch(undo());
-          dispatch(closeToast());
-          event.preventDefault();
-        }
+      if (isSettingsPage) return;
 
-        // check for command+z
-        if (event.metaKey && event.key === 'z') {
-          dispatch(undo());
-          dispatch(closeToast());
-          event.preventDefault();
-        }
+      // Every chord needs a platform modifier. ctrl and meta are treated
+      // interchangeably so one handler serves Windows/Linux and macOS.
+      if (!event.ctrlKey && !event.metaKey) return;
 
-        // check for ctrl+y or ctrl+shift+z
-        if (
-          (event.ctrlKey && event.key === 'y') ||
-          (event.ctrlKey && event.shiftKey && event.key === 'z')
-        ) {
-          dispatch(redo());
-          dispatch(closeToast());
-          event.preventDefault();
-        }
+      // KAN-54. `event.key` carries the SHIFTED character, so a real
+      // Shift+Z arrives as 'Z' -- and as 'z' when CapsLock inverts Shift for
+      // letters. Comparing against a lowercase literal missed the first case
+      // entirely, which is why macOS redo did nothing. Normalise instead.
+      const key = event.key.toLowerCase();
 
-        // check for command+y or command+shift+z
-        if (
-          (event.metaKey && event.key === 'y') ||
-          (event.metaKey && event.shiftKey && event.key === 'z')
-        ) {
-          dispatch(redo());
-          dispatch(closeToast());
-          event.preventDefault();
-        }
+      // Redo is tested first and returns. That ordering is what keeps the
+      // chords mutually exclusive: shift+z has to stop here, or it goes on to
+      // satisfy the plain-undo branch as well and the two cancel out.
+      if (key === 'y' || (key === 'z' && event.shiftKey)) {
+        dispatch(redo());
+        dispatch(closeToast());
+        event.preventDefault();
+        return;
+      }
+
+      if (key === 'z') {
+        dispatch(undo());
+        dispatch(closeToast());
+        event.preventDefault();
       }
     }
     window.addEventListener('keydown', handleKeyDown);
