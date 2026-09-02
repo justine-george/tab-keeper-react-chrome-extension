@@ -38,7 +38,6 @@ const LoggedIn: React.FC = () => {
         <Icon
           type={`cloud_done`}
           disable={true}
-          focusable={false}
           style={'padding-right: 4px;'}
         />
         <NormalLabel

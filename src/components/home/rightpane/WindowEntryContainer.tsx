@@ -4,6 +4,7 @@ import { useDispatch, useSelector } from 'react-redux';
 
 import { css } from '@emotion/react';
 
+import ClickableRow from '../../common/ClickableRow';
 import Icon from '../../common/Icon';
 import { NormalLabel } from '../../common/Label';
 import { useFontFamily } from '../../../hooks/useFontFamily';
@@ -25,7 +26,12 @@ interface WindowEntryContainerProps {
   tabs: tabData[];
   tabGroupId: string;
   windowId: string;
-  onWindowTitleClick: MouseEventHandler;
+  /**
+   * Takes no event -- its only caller passes a zero-argument arrow. It was
+   * typed MouseEventHandler, which is what let the keyboard path activate it
+   * through `handleWindowClick(e as any)` with a KeyboardEvent.
+   */
+  onWindowTitleClick: () => void;
   onUpdateWindowGroupTitle: (newTitle: string) => void;
   onAddCurrTabToWindowClick: MouseEventHandler;
   onDeleteClick: MouseEventHandler;
@@ -91,6 +97,13 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     transform: translateY(-50%);
     opacity: ${isParentHovered ? 1 : 0};
     transition: opacity 0.1s ease-out;
+    /* The keyboard's equivalent of the hover reveal (KAN-68). */
+    &:focus-within {
+      opacity: 1;
+    }
+    /* Left below the focus-within rule on purpose: during search these
+       controls do not apply, and visibility:hidden removes them from the tab
+       order as well as from view, so there is nothing inside to focus. */
     ${isSearchPanel && 'visibility: hidden;'}
   `;
 
@@ -109,7 +122,8 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     }
   `;
 
-  const childLeftStyle = css`
+  // A plain string, not css``: handed to ClickableRow's `style` prop.
+  const childLeftStyle = `
     display: flex;
     align-items: center;
     flex-grow: 1;
@@ -123,9 +137,20 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     transform: translateY(-50%);
     opacity: ${hoveredChildIndex === index ? 1 : 0};
     transition: opacity 0.1s ease-out;
+    /* The keyboard's equivalent of the hover reveal (KAN-68). Delete tab has
+       no alternate path anywhere in the UI, so this row is the only way to
+       reach it. */
+    &:focus-within {
+      opacity: 1;
+    }
   `;
 
-  const parentLinkStyle = css`
+  // A plain string, not css``, because ClickableRow's `style` prop takes a
+  // string. The two non-button branches below therefore have to wrap it as
+  // css(parentLinkStyle): Emotion's `css` PROP rejects a bare string outright
+  // ("Strings are not allowed as css prop values"), even though the `css`
+  // FUNCTION accepts one. One declaration still serves all three branches.
+  const parentLinkStyle = `
     text-decoration: none;
     color: inherit;
     display: flex;
@@ -134,7 +159,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     flex-grow: 1;
     min-width: 0;
     padding-right: 9px;
-    ${!isSearchPanel && 'cursor: pointer;'}
+    ${!isSearchPanel ? 'cursor: pointer;' : ''}
   `;
 
   const windowChildLinkStyle = css`
@@ -172,11 +197,12 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     }
   };
 
-  const handleWindowClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    e.stopPropagation();
-    if (!isSearchPanel && !isEditing) {
-      onWindowTitleClick(e);
-    }
+  // No stopPropagation and no isSearchPanel/isEditing guard any more: this is
+  // only wired up on the branch where it is a real action, so it can no longer
+  // be reached in a state where it does nothing, and the container it sits in
+  // has no click handler of its own to bubble into.
+  const handleWindowClick = () => {
+    onWindowTitleClick();
   };
 
   const handleTabClick = (url: string) => {
@@ -194,24 +220,9 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     setWindowOpenState((state) => !state);
   }
 
-  function handleKeyPressOnWindow(e: React.KeyboardEvent<HTMLDivElement>) {
-    if (e.key === 'Enter') {
-      handleWindowClick(e as any);
-    }
-  }
-
-  function handleKeyPressOnEditDone(e: React.KeyboardEvent<HTMLDivElement>) {
+  function handleKeyPressOnEditDone(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === 'Enter') {
       handleBlur();
-    }
-  }
-
-  function handleKeyPressOnTab(
-    e: React.KeyboardEvent<HTMLDivElement>,
-    url: string
-  ) {
-    if (e.key === 'Enter') {
-      handleTabClick(url);
     }
   }
 
@@ -230,14 +241,22 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
             onClick={handleAccordionClick}
           />
           <Icon type="web_asset" style={NON_INTERACTIVE_ICON_STYLE} />
-          <div
-            css={parentLinkStyle}
-            tabIndex={0}
-            onClick={(e) => handleWindowClick(e)}
-            onKeyDown={(e) => handleKeyPressOnWindow(e)}
-            title={!isSearchPanel ? t('Open in new window') : undefined}
-          >
-            {isEditing && !isSearchPanel ? (
+          {/* Three shapes, because only one of them is a control (KAN-64).
+              This used to be a single role-less div carrying tabIndex={0} and
+              onClick -- focusable, exposed as `generic` where naming is
+              prohibited, and activating via `handleWindowClick(e as any)`.
+
+              Editing: an <input> may not live inside a <button>; clicking it
+              would activate the button and it could not hold focus.
+
+              Searching: handleWindowClick is a no-op while isSearchPanel, so
+              rendering a button here would be focusable and inert -- exactly
+              the KAN-62 defect this codebase just fixed. It renders as static
+              text instead.
+
+              Otherwise: a real button. */}
+          {isEditing && !isSearchPanel ? (
+            <div css={css(parentLinkStyle)}>
               <input
                 value={newTitle}
                 onBlur={handleBlur}
@@ -261,18 +280,31 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                   }
                 `}
               />
-            ) : (
+            </div>
+          ) : isSearchPanel ? (
+            <div css={css(parentLinkStyle)}>
               <NormalLabel
                 value={title}
                 color={COLORS.TEXT_COLOR}
                 size="0.9rem"
-                style={`
-                padding-left: 8px;
-                ${!isSearchPanel && 'cursor: pointer'};
-                height: 100%; max-width: 100%;`}
+                style="padding-left: 8px; height: 100%; max-width: 100%;"
               />
-            )}
-          </div>
+            </div>
+          ) : (
+            <ClickableRow
+              ariaLabel={title}
+              tooltipText={t('Open in new window')}
+              onClick={handleWindowClick}
+              style={parentLinkStyle}
+            >
+              <NormalLabel
+                value={title}
+                color={COLORS.TEXT_COLOR}
+                size="0.9rem"
+                style="padding-left: 8px; cursor: pointer; height: 100%; max-width: 100%;"
+              />
+            </ClickableRow>
+          )}
         </div>
         <div css={parentRightStyle}>
           {isEditing && !isSearchPanel ? (
@@ -285,7 +317,6 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                 e.stopPropagation();
                 handleBlur();
               }}
-              focusable={isParentHovered}
             />
           ) : (
             <Icon
@@ -297,7 +328,6 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                 e.stopPropagation();
                 startEditing();
               }}
-              focusable={isParentHovered}
             />
           )}
 
@@ -311,7 +341,6 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                 e.stopPropagation();
                 onAddCurrTabToWindowClick(e);
               }}
-              focusable={isParentHovered}
             />
           )}
           {!isEditing && !isSearchPanel && (
@@ -324,7 +353,6 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                 e.stopPropagation();
                 onDeleteClick(e);
               }}
-              focusable={isParentHovered}
             />
           )}
         </div>
@@ -342,12 +370,15 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                 onMouseEnter={() => setHoveredChildIndex(index)}
                 onMouseLeave={() => setHoveredChildIndex(null)}
               >
-                <div
-                  css={childLeftStyle}
-                  tabIndex={0}
+                {/* The name reuses the string the tooltip already carried,
+                    so no new hardcoded English enters the app -- the 25
+                    untranslated aria-labels of KAN-65 stay one clean sweep.
+                    The favicon Icon inside is presentational and aria-hidden,
+                    so it does not leak into the name. */}
+                <ClickableRow
+                  ariaLabel={t('Open in new tab') + ': ' + title}
                   onClick={() => handleTabClick(url)}
-                  onKeyDown={(e) => handleKeyPressOnTab(e, url)}
-                  title={t('Open in new tab') + ': ' + title}
+                  style={childLeftStyle}
                 >
                   <Icon
                     faviconUrl={resolveFaviconUrl(favicon, url)}
@@ -362,7 +393,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                       style="padding-left: 4px; height: 100%; max-width: 100%;"
                     />
                   </div>
-                </div>
+                </ClickableRow>
                 <div css={childRightStyle(index)}>
                   <Icon
                     tooltipText={t('Delete tab')}
@@ -373,7 +404,6 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                       e.stopPropagation();
                       dispatch(deleteTab({ tabGroupId, windowId, tabId }));
                     }}
-                    focusable={hoveredChildIndex === index}
                   />
                 </div>
               </div>

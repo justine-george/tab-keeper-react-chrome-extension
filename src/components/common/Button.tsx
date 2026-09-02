@@ -15,7 +15,6 @@ interface ButtonProps {
   tooltipText?: string;
   iconSize?: string;
   iconStyle?: string;
-  focusableButton?: boolean;
   style?: string;
 }
 
@@ -28,7 +27,6 @@ const Button: React.FC<ButtonProps> = ({
   tooltipText,
   iconSize,
   iconStyle,
-  focusableButton,
   style,
 }) => {
   const COLORS = useThemeColors();
@@ -71,19 +69,26 @@ const Button: React.FC<ButtonProps> = ({
   // No wrapper element: the button must be the flex child itself, otherwise a
   // width: 100% passed through `style` resolves against a shrink-wrapped div
   // and collapses back to the button's own text width.
+  //
+  // Deliberately no tabIndex. A <button> is keyboard-focusable by default, so
+  // the only thing this element could ever compute here is a way to LOSE that
+  // -- which is precisely what it used to do. `focusableButton` had no default
+  // value, so `tabIndex={onClick && focusableButton ? 0 : -1}` put 32 of the
+  // 36 clickable call sites out of the tab order, taking the whole settings
+  // pane with them (KAN-67). The prop is gone rather than defaulted to true:
+  // a prop whose only power is to break something breaks it the moment a call
+  // site forgets, and 32 of 36 forgot.
   return (
     <button
       title={tooltipText}
       aria-label={ariaLabel}
       css={buttonStyle}
       onClick={onClick}
-      tabIndex={onClick && focusableButton ? 0 : -1}
     >
       {iconType && (
         <Icon
           type={iconType}
           disable={true}
-          focusable={true}
           size={iconSize}
           style={iconSpacing}
         />

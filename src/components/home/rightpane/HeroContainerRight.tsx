@@ -233,6 +233,10 @@ export default function HeroContainerRight() {
               transform: translateY(-50%);
               opacity: ${isContainerHovered ? 1 : 0};
               transition: opacity 0.1s ease-out;
+              /* The keyboard's equivalent of the hover reveal (KAN-68). */
+              &:focus-within {
+                opacity: 1;
+              }
               ${isSearchPanel && 'visibility: hidden;'}
             `}
           >
@@ -246,7 +250,6 @@ export default function HeroContainerRight() {
                   e.stopPropagation();
                   startEditing();
                 }}
-                focusable={isContainerHovered}
               />
             )}
           </div>
@@ -318,7 +321,6 @@ export default function HeroContainerRight() {
             tooltipText={t('Add current window')}
             ariaLabel="add current window"
             iconType="add"
-            focusableButton={isContainerHovered}
             onClick={handleAddCurrWindowClick}
             iconSize="1.3rem"
             iconStyle={`

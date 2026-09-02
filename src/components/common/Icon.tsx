@@ -7,8 +7,15 @@ import { useThemeColors } from '../../hooks/useThemeColors';
 interface IconBaseProps {
   type: string;
   faviconUrl?: string;
+  /**
+   * Whether the control is currently unavailable. Drives everything that
+   * follows from that -- the aria-disabled state, the pointer cursor and the
+   * hover highlight -- so there is exactly one prop to get right.
+   *
+   * It deliberately does NOT remove the icon from the tab order. See the
+   * comment on aria-disabled below.
+   */
   disable?: boolean;
-  focusable?: boolean;
   animationFrom?: string;
   animationTo?: string;
   animationDuration?: string;
@@ -44,7 +51,6 @@ const Icon: React.FC<IconProps> = ({
   faviconUrl,
   onClick,
   disable,
-  focusable = true,
   animationFrom,
   animationTo,
   animationDuration,
@@ -106,17 +112,23 @@ const Icon: React.FC<IconProps> = ({
     ${hoverAnimation}
   `;
 
+  // An icon affords a click when it has one to give and is not disabled. This
+  // used to key off a separate `focusable` prop, which also drove the tab
+  // index -- so call sites reached for it to control the look and silently
+  // edited the tab order (KAN-68).
+  const isActionable = Boolean(onClick) && !disable;
+
   const containerStyle = css`
     display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: center;
     padding: 4px;
-    cursor: ${focusable ? 'pointer' : 'default'};
+    cursor: ${isActionable ? 'pointer' : 'default'};
     user-select: none;
     transition: background-color 0.2s;
     background-color: ${backgroundColor};
-    ${focusable &&
+    ${isActionable &&
     `&:hover {
       background-color: ${hoverColor};
     }`}
@@ -134,7 +146,17 @@ const Icon: React.FC<IconProps> = ({
       // would otherwise leak into the accessible name of whatever button
       // contains it -- Button's inner Icon is exactly that case.
       aria-hidden={onClick ? undefined : true}
-      tabIndex={onClick && focusable ? 0 : -1}
+      // Announced as unavailable, but still reachable -- deliberately, and
+      // against KAN-66's stated direction. The sync icon disables WHILE you
+      // are operating it: press Enter, the thunk starts, `disable` flips true.
+      // A control that leaves the tab order at that instant drops focus to
+      // <body> and loses the user's place. aria-disabled states the fact
+      // without the focus loss, which is what it exists for.
+      aria-disabled={disable ? true : undefined}
+      // Hover state must never reach this: it is a pointer-only signal, and
+      // routing it here is what made eight row controls keyboard-unreachable
+      // (KAN-68).
+      tabIndex={onClick ? 0 : -1}
       css={containerStyle}
       onClick={!disable ? onClick : undefined}
       onKeyDown={(e) => handleKeyPress(e)}
