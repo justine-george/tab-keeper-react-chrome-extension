@@ -45,6 +45,23 @@ const actionsToCapture = [
 
 const isCapturableAction = (type: string) => actionsToCapture.includes(type);
 
+// Captured into undo/redo, but deliberately never synced: these change what the
+// user is looking at, not what is stored (KAN-35).
+//
+// Selection has to be filtered here rather than by leaving it out of
+// `actionsToCapture`, because that list drives both jobs at once -- dropping it
+// there would stop the sync by also dropping selection out of undo history.
+//
+// Nor is it enough to stop `selectTabContainer` bumping the container's
+// `lastModified`: `isDataStateChangeAction` compares state *references*, and the
+// reducer flips `isSelected` on every group regardless, so Immer hands back a
+// new reference and the branch fires anyway.
+//
+// This covers search too. Typing dispatches `setSearchInputText`, which is not
+// capturable at all; search reaches the network only because
+// TabGroupEntryContainer selects the first filtered result on every keystroke.
+const actionsToIgnoreForSync = [SELECT_TAB_CONTAINER_ACTION];
+
 const isUndoRedoAction = (type: string) =>
   [UNDO_ACTION, REDO_ACTION].includes(type);
 
@@ -117,7 +134,9 @@ export const customMiddleware: Middleware = (store) => {
     } else if (isDataStateChangeAction(action.type, prevState, nextState)) {
       const { tabContainerDataState } = nextState;
       store.dispatch(set({ tabContainerDataState: tabContainerDataState }));
-      store.dispatch(setIsDirty());
+      if (!actionsToIgnoreForSync.includes(action.type)) {
+        store.dispatch(setIsDirty());
+      }
     }
 
     return result;
