@@ -141,6 +141,8 @@ Tab Keeper is an intuitive Chrome extension crafted to redefine the way users sa
 ## Contributing
 
 Contributions are welcome! Feel free to open issues or submit pull requests following the established coding style and guidelines.
+
+Run `npm test` for the unit and component suites, and `npm run test:e2e` for the browser tests against a real build ([details](e2e/README.md)).
 <br><br>
 
 ## License
