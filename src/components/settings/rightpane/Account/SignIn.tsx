@@ -33,7 +33,7 @@ const SignIn: React.FC<AccountChildProps> = ({ handleCurrentPageChange }) => {
       await signInWithEmailAndPassword(auth, email, password);
       setEmail('');
       setPassword('');
-    } catch (error) {
+    } catch {
       displayToast(dispatch, TOAST_MESSAGES.LOGIN_FAIL, undefined, null);
     }
   };

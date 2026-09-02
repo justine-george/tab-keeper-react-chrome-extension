@@ -38,7 +38,7 @@ const CreateAccount: React.FC<AccountChildProps> = ({
       setPassword('');
       displayToast(dispatch, TOAST_MESSAGES.ACCOUNT_CREATION_SUCCESS);
       handleCurrentPageChange('signIn');
-    } catch (error) {
+    } catch {
       displayToast(dispatch, TOAST_MESSAGES.ACCOUNT_CREATION_FAIL);
     }
   };
