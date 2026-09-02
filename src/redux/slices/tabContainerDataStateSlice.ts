@@ -417,10 +417,15 @@ export const deleteTab = createAsyncThunk(
   }
 );
 
-// Only content changes advance a session's timestamp. Selection must not:
-// selectTabContainer already bumps the container-wide lastModified on every
-// click and on every search keystroke, and letting that reach per-session
-// timestamps would make browsing on one device outrank a real edit on another.
+// Only content changes advance a session's timestamp, because a timestamp is
+// what the merge ranks copies by: letting browsing move one would make this
+// device's stale copy outrank a real edit on another.
+//
+// Selection now stamps nothing at all -- neither here nor the container-wide
+// timestamp (KAN-58). It used to move the container one, which reached these
+// sessions anyway through sessionTimestamp's fallback for any session lacking
+// its own; keeping selection out of `touch` only ever confined that to legacy
+// data rather than preventing it.
 function touch(group: tabContainerData): void {
   group.lastModified = Date.now();
 }
@@ -520,6 +525,14 @@ export const tabContainerDataStateSlice = createSlice({
     },
 
     // select tab group by tabGroupId
+    //
+    // Deliberately does NOT stamp `state.lastModified` (KAN-58). Selection is
+    // view state, and the container timestamp is the merge's fallback for any
+    // session carrying none of its own (sessionTimestamp, mergeTabData.ts) --
+    // so advancing it here made this device's stale copies of those sessions
+    // outrank another device's real edits, and fed `signature()` a difference
+    // that forced a write. Still persisted to localStorage: the selection has
+    // to survive a reload, it just must not look like an edit.
     selectTabContainer: (state, action: PayloadAction<string>) => {
       state.selectedTabGroupId = action.payload;
       state.tabGroups.forEach((tabGroup) => {
@@ -529,7 +542,6 @@ export const tabContainerDataStateSlice = createSlice({
           tabGroup.isSelected = false;
         }
       });
-      state.lastModified = Date.now();
 
       // update localstorage
       saveToLocalStorage('tabContainerData', state);
