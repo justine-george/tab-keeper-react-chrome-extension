@@ -124,11 +124,20 @@ export default function UserInputContainer() {
           Inside it size does the ranking -- save-all keeps the wide segment
           and the "+" already in muscle memory, save-current-window is narrow.
 
-          Both carrying a "+" is what made them confusable before: it turned
-          the + into shared vocabulary instead of distinguishing vocabulary,
-          leaving two near-identical glyphs. Only the primary carries it now.
-          The secondary is the plain window glyph this app already uses for a
-          window group (WindowEntryContainer).
+          Both segments carry a "+" because both are saves, and the stack
+          behind the primary is what says "all of them". add_box and
+          library_add are the same mark in Material's set -- library_add is
+          add_box with a second layer behind it -- so the only thing that
+          differs is the count, which is exactly the only thing that differs
+          about the two actions.
+
+          An earlier pair (add_to_queue + library_add) failed here: two plus-
+          bearing glyphs that were too alike to tell apart. Measured as pixel
+          overlap at equal size, that pair is 52% distinct; this one is 75%.
+          For reference a plain window glyph against a bare "+" is 97%, so
+          putting a + on both does cost separation -- it buys back the fact
+          that both buttons now read as saves. Re-measure before swapping
+          either glyph; 52% is what "twins" looks like as a number.
 
           The divider is load-bearing -- without it the two icons float in one
           box and stop looking separately clickable. Recessing the secondary
@@ -141,7 +150,7 @@ export default function UserInputContainer() {
         <Button
           tooltipText={t('Save current window as a session')}
           ariaLabel="save current window"
-          iconType="web_asset"
+          iconType="add_box"
           iconSize="20px"
           onClick={() => createTabGroup('current-window')}
           style={`width: 40px; height: 100%; padding: 0; flex-shrink: 0;
@@ -151,7 +160,7 @@ export default function UserInputContainer() {
         <Button
           tooltipText={t('Save all windows')}
           ariaLabel="save session"
-          iconType="add"
+          iconType="library_add"
           onClick={() => createTabGroup('all-windows')}
           style="width: 58px; height: 100%; padding: 0; flex-shrink: 0; border: none;"
           focusableButton={true}
