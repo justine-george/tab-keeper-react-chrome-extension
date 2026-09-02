@@ -14,6 +14,9 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v7
 
+      # `22` resolves to the newest 22.x, which is what ESLint 10 needs. Do not
+      # pin a specific 22.x below 22.13 - eslint's engines field is
+      # `^20.19.0 || ^22.13.0 || >=24` and npm will refuse to install below it.
       - name: Setup Node
         uses: actions/setup-node@v7
         with:

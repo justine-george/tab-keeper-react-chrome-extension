@@ -32,7 +32,7 @@ const ForgotPassword: React.FC<AccountChildProps> = ({
       setEmail('');
       displayToast(dispatch, TOAST_MESSAGES.PASSWORD_RESET_SUCCESS);
       handleCurrentPageChange('signIn');
-    } catch (error) {
+    } catch {
       displayToast(dispatch, TOAST_MESSAGES.PASSWORD_RESET_FAIL);
     }
   };
