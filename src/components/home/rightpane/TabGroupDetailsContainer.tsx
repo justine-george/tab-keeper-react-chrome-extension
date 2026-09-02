@@ -112,6 +112,16 @@ export default function TabGroupDetailsContainer() {
               // collapse and rename state, and an index key is identical to
               // the positional default React already uses, so it would leave
               // that state bleeding onto the wrong window after a deletion.
+              //
+              // This key is also what resets collapse state when the user
+              // switches sessions. Window ids are uuidv4 minted in exactly two
+              // places (capture.ts and HeroContainerRight) and nothing clones a
+              // session, so no id is shared between two tab groups -- selecting
+              // a different one swaps the whole key set and React remounts every
+              // row, which re-runs useState(true). WindowEntryContainer used to
+              // do that reset with an effect on tabGroupId; it was deleted as
+              // redundant with this key (KAN-51). Weaken this key and that reset
+              // goes with it -- renameDrafts.test.tsx covers it.
               <div key={windowId}>
                 <WindowEntryContainer
                   title={title}

@@ -43,21 +43,22 @@ export default tseslint.config(
   // react-hooks is on 7 because it is the ONLY release whose peer range accepts
   // ESLint 10; every version from 5.0.0 to 7.0.0 caps at ^9. That forces in its
   // React Compiler machinery (@babel/core, hermes-parser, zod) as a transitive
-  // cost we cannot avoid while on ESLint 10.
+  // cost we cannot avoid while on ESLint 10 (KAN-46).
   //
-  // We do not enable the compiler rules yet. `configs.flat['recommended-latest']`
-  // turns ~14 extra rules on at 'error'; measured against this codebase it
-  // reports 3 real `react-hooks/set-state-in-effect` errors. Fixing those changes
-  // render behaviour in 3 components, which is a code change, not a config port -
-  // tracked separately so a lint-config failure stays distinguishable from it.
-  // Only the two rules this project has always gated on are enabled here.
+  // Since the dependency is paid for either way, the full rule set is on:
+  // `recommended-latest` is 17 rules, the two this project has always gated on
+  // plus 15 React Compiler ones. Enabling them cost 3 fixes, all
+  // `react-hooks/set-state-in-effect` and all the same shape -- state seeded
+  // from a prop by an effect, in HeroContainerRight and WindowEntryContainer.
+  // Two were rename drafts being overwritten mid-edit by a sync merge; one was
+  // a reset a `key` already performed. See KAN-51 and renameDrafts.test.tsx.
+  //
+  // Spread into a `files`-scoped block rather than listed bare: the upstream
+  // object carries no `files`, and every other block here is scoped to ts/tsx.
   {
     files: ['**/*.{ts,tsx}'],
     plugins: { 'react-hooks': reactHooks },
-    rules: {
-      'react-hooks/rules-of-hooks': 'error',
-      'react-hooks/exhaustive-deps': 'warn',
-    },
+    rules: reactHooks.configs.flat['recommended-latest'].rules,
   },
 
   // Must stay last: turns off every core rule that conflicts with prettier.

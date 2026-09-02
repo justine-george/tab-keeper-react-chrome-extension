@@ -108,9 +108,14 @@ describe('HeroContainerRight', () => {
   });
 
   // The guard has to sit below every hook. Returning null above the useEffect
-  // that seeds the editable title would change the hook count between these
+  // that reads the current tab name would change the hook count between these
   // two renders, and React throws "Rendered more hooks than during the previous
   // render" on the second one.
+  //
+  // KAN-51 deleted the OTHER effect that used to sit above the guard -- the one
+  // seeding the editable title -- so that effect is no longer what this test is
+  // protecting. The remaining chrome.tabs.query effect is, and one hook above
+  // the guard is all it takes for the transition to matter.
   test('mounts the session when the store goes from nothing selected to selected', async () => {
     const { store } = await renderWithProviders(<HeroContainerRight />);
 
