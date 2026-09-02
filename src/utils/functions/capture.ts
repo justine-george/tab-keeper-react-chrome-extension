@@ -54,8 +54,19 @@ export function isAlreadySaved(
 export async function captureOpenWindows(
   title: string
 ): Promise<tabContainerData | null> {
+  // Normal windows only. Omitting windowTypes gets Chrome's default of
+  // ['normal', 'popup'], which is what focus mode's close (background.ts) and
+  // its count (requestFocusTabContainer) never used -- so a popup was saved
+  // into the session, left open, and missing from the "will be closed" count.
+  //
+  // Nothing is lost by dropping them: a windowGroupData records windowId,
+  // geometry, tabCount, title and tabs, and no window type, so a captured
+  // popup already came back from a restore as an ordinary window.
   const allWindows = await new Promise<chrome.windows.Window[]>((resolve) =>
-    chrome.windows.getAll({ populate: true }, (result) => resolve(result))
+    chrome.windows.getAll(
+      { populate: true, windowTypes: ['normal'] },
+      (result) => resolve(result)
+    )
   );
 
   const currentWindow = await new Promise<chrome.windows.Window>((resolve) =>
@@ -63,10 +74,16 @@ export async function captureOpenWindows(
   );
 
   // Current window first, so a restore reopens the user's focus where it was.
+  // getCurrent is deliberately left unfiltered - filtering the query would
+  // leave no way to tell "the current window is a popup" from "there is no
+  // current window" - so the type is checked here instead. Without this the
+  // unshift would put a popup back after getAll had excluded it.
   const windowList = allWindows.filter(
-    (window) => window.id !== currentWindow.id
+    (window) => window.id !== currentWindow?.id
   );
-  windowList.unshift(currentWindow);
+  if (currentWindow?.type === 'normal') {
+    windowList.unshift(currentWindow);
+  }
 
   let tabCount = 0;
 
