@@ -57,10 +57,22 @@ const Icon: React.FC<IconProps> = ({
 }) => {
   const COLORS = useThemeColors();
 
+  // role="button" promises Enter AND Space. This has to be hand-rolled rather
+  // than handed to a native <button>, because Button.tsx renders a <button>
+  // that contains an Icon, and nested buttons are invalid HTML -- the browser
+  // recovers by unnesting the DOM.
+  //
+  // Forwarding to the element's own click() rather than calling onClick(e)
+  // directly is what lets onClick stay a MouseEventHandler honestly: React
+  // dispatches a real MouseEvent to the existing handler. Calling it with the
+  // keyboard event needed an `as any`, which compiled while handing every
+  // caller an object missing every mouse-specific field.
   function handleKeyPress(e: React.KeyboardEvent<HTMLDivElement>) {
-    if (e.key === 'Enter' && onClick) {
-      onClick(e as any);
-    }
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    // Space scrolls the page by default; Enter is harmless but is prevented
+    // too so the two keys cannot drift apart again.
+    e.preventDefault();
+    e.currentTarget.click();
   }
 
   // Define keyframe animation

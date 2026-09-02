@@ -94,6 +94,56 @@ test.describe('accessible controls', () => {
     ).toMatchAriaSnapshot(`- button "go back": Back`);
   });
 
+  // Icon renders div[role=button] rather than a real <button>, because
+  // Button.tsx nests an Icon inside its own <button> and nested buttons are
+  // invalid HTML. That means its key handling is hand-rolled, and a
+  // hand-rolled handler is exactly where Space gets forgotten. Enter is the
+  // control: it passes today, so a Space failure is a gap in the handler
+  // rather than in the way this test drives the keyboard.
+  for (const key of ['Enter', 'Space'] as const) {
+    test(`an Icon button is operable with ${key}`, async ({
+      context,
+      extensionId,
+    }) => {
+      const page = await openPopup(context, extensionId);
+
+      await page.getByRole('button', { name: 'settings' }).focus();
+      await page.keyboard.press(key);
+
+      await expect(page.getByText('Themes')).toBeVisible();
+    });
+  }
+
+  // Space on a role=button that does not preventDefault scrolls the page --
+  // the classic hand-rolled-button bug. Asserted on defaultPrevented rather
+  // than on scroll position, because the popup is short enough that there may
+  // be nothing to scroll, which would make a scroll assertion pass for the
+  // wrong reason. The listener goes on document in the bubble phase, so it
+  // runs after React's root handler has had its say.
+  test('Space on an Icon button does not also scroll the page', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+
+    await page.evaluate(() => {
+      (window as unknown as { prevented: boolean[] }).prevented = [];
+      document.addEventListener('keydown', (e) => {
+        (window as unknown as { prevented: boolean[] }).prevented.push(
+          e.defaultPrevented
+        );
+      });
+    });
+
+    await page.getByRole('button', { name: 'settings' }).focus();
+    await page.keyboard.press('Space');
+
+    const prevented = await page.evaluate(
+      () => (window as unknown as { prevented: boolean[] }).prevented
+    );
+    expect(prevented).toEqual([true]);
+  });
+
   // KAN-62. The settings back affordance carries tabIndex={0} and an onClick
   // but no key handler, so it takes focus and then does nothing -- WCAG 2.1.1,
   // Level A. Enter and Space are asserted separately because a handler that

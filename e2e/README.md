@@ -20,9 +20,10 @@ Deliberately manual. It is not part of `npm test` and no CI job runs it.
   filters, and the settings panel opens and closes.
 - `service-worker.spec.ts` — the lazy-load placeholder swap, and that the
   worker's listeners are registered at all.
-- `a11y-controls.spec.ts` — the header affordances are exposed as named
-  buttons and are operable by Enter and Space, and presentational icons stay
-  out of the accessibility tree.
+- `a11y-controls.spec.ts` — the header affordances and the icon buttons are
+  exposed as named buttons and are operable by Enter and Space without also
+  scrolling the page, and presentational icons stay out of the accessibility
+  tree.
 
 The service-worker spec is the reason this harness exists. Everything in the
 golden path is a popup-DOM assertion the jsdom component suite already covers;
