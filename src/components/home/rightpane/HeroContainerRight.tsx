@@ -66,22 +66,32 @@ export default function HeroContainerRight() {
     searchInputText
   )[0];
 
-  useEffect(() => {
-    if (selectedTabGroup) setEditableTitle(selectedTabGroup.title);
-  }, [selectedTabGroup]);
-
   // Belt and braces: RightPane does not mount this component when the list is
   // empty, so this should be unreachable -- but it is what makes the component
   // safe on its own terms rather than safe because of its only caller (KAN-16).
-  // It sits below every hook deliberately. Moving it above the useEffect that
-  // seeds the editable title would change the hook count between the
+  // It sits below every hook deliberately: an early return above the useEffect
+  // that reads the current tab name would change the hook count between the
   // nothing-selected and selected renders, and React throws "Rendered more
   // hooks than during the previous render" on that transition.
   if (!selectedTabGroup) return null;
 
+  // `editableTitle` is a DRAFT: nothing reads it unless `isEditing` is true, so
+  // it is seeded at the moment editing starts rather than kept in step with the
+  // prop by an effect.
+  //
+  // The effect this replaces depended on the whole selectedTabGroup object, so
+  // any change to the selected session re-seeded the draft -- including changes
+  // the user did not make. customMiddleware dispatches syncStateWithFirestore()
+  // with no user action, and the merge lands replaceState(merged), so a sync
+  // tick arriving mid-rename threw away what had been typed. KAN-51.
+  const startEditing = () => {
+    setEditableTitle(selectedTabGroup.title);
+    setIsEditing(true);
+  };
+
   const handleTabGroupTitleClick = () => {
     if (!isSearchPanel) {
-      setIsEditing(true);
+      startEditing();
     }
   };
 
@@ -232,7 +242,7 @@ export default function HeroContainerRight() {
                 backgroundColor={COLORS.SECONDARY_COLOR}
                 onClick={(e) => {
                   e.stopPropagation();
-                  setIsEditing(true);
+                  startEditing();
                 }}
                 focusable={isContainerHovered}
               />

@@ -1,4 +1,4 @@
-import React, { MouseEventHandler, useEffect, useState } from 'react';
+import React, { MouseEventHandler, useState } from 'react';
 
 import { useDispatch, useSelector } from 'react-redux';
 
@@ -55,18 +55,9 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     null
   );
 
-  useEffect(() => {
-    setNewTitle(title);
-  }, [title]);
-
   const isSearchPanel = useSelector(
     (state: RootState) => state.globalState.isSearchPanel
   );
-
-  // reset the 'windowOpenState' to true whenever a different tabGroup is selected.
-  useEffect(() => {
-    setWindowOpenState(true);
-  }, [tabGroupId]);
 
   const containerStyle = css`
     display: flex;
@@ -161,6 +152,17 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setNewTitle(e.target.value);
+  };
+
+  // `newTitle` is a DRAFT: nothing reads it unless `isEditing` is true, so it is
+  // seeded at the moment editing starts rather than kept in step with the prop
+  // by an effect. The effect this replaces re-seeded on every change to `title`,
+  // so a rename arriving from another device -- a Firestore merge lands
+  // replaceState(merged) with no user action -- overwrote what was being typed
+  // here. KAN-51.
+  const startEditing = () => {
+    setNewTitle(title);
+    setIsEditing(true);
   };
 
   const handleBlur = () => {
@@ -293,7 +295,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
               backgroundColor={COLORS.HOVER_COLOR}
               onClick={(e) => {
                 e.stopPropagation();
-                setIsEditing(true);
+                startEditing();
               }}
               focusable={isParentHovered}
             />
