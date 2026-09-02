@@ -37,7 +37,9 @@ describe('gzip helper', () => {
   // is the failure that silently truncates someone's sessions.
   it('round-trips non-Latin text exactly', async () => {
     const s = JSON.stringify({ t: '日本語のタイトル', u: 'Ünïcødé — ok' });
-    await expect(decompressFromBytes(await compressToBytes(s))).resolves.toBe(s);
+    await expect(decompressFromBytes(await compressToBytes(s))).resolves.toBe(
+      s
+    );
   });
 
   it('rejects on non-gzip input rather than returning empty', async () => {
@@ -47,8 +49,8 @@ describe('gzip helper', () => {
   });
 
   it('round-trips an empty array, the new-user case', async () => {
-    await expect(decompressFromBytes(await compressToBytes('[]'))).resolves.toBe(
-      '[]'
-    );
+    await expect(
+      decompressFromBytes(await compressToBytes('[]'))
+    ).resolves.toBe('[]');
   });
 });
