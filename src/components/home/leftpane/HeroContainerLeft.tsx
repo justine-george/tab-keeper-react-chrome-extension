@@ -3,6 +3,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { css } from '@emotion/react';
 
 import Icon from '../../common/Icon';
+import ClickableRow from '../../common/ClickableRow';
 import MenuContainer from './MenuContainer';
 import { NormalLabel } from '../../common/Label';
 import { useFontFamily } from '../../../hooks/useFontFamily';
@@ -33,12 +34,6 @@ export default function HeroContainer() {
     dispatch(closeSearchPanel());
   };
 
-  function handleKeyPress(e: React.KeyboardEvent<HTMLDivElement>) {
-    if (e.key === 'Enter') {
-      handleClickSearch();
-    }
-  }
-
   const containerStyle = css`
     display: flex;
     justify-content: space-between;
@@ -52,45 +47,37 @@ export default function HeroContainer() {
 
   return isSearchPanel ? (
     <div css={containerStyle}>
-      <div
-        css={css`
-          display: flex;
-        `}
+      <ClickableRow
+        ariaLabel="back"
+        tooltipText={t('Go back')}
         onClick={handleBackClick}
-        onKeyDown={(e) => handleKeyPress(e)}
-        title={t('Go back')}
-        tabIndex={0}
+        style="display: flex;"
       >
-        <Icon ariaLabel="back" type="arrow_back" />
+        <Icon type="arrow_back" />
         <NormalLabel
           value={t('Back')}
           size="1.125rem"
           color={COLORS.TEXT_COLOR}
           style="padding-left: 8px; cursor: pointer;"
         />
-      </div>
+      </ClickableRow>
     </div>
   ) : (
     <div css={containerStyle}>
-      <div
-        css={css`
-          display: flex;
-          align-items: center;
-          min-width: 0;
-        `}
+      <ClickableRow
+        ariaLabel="search"
+        tooltipText={t('Search')}
         onClick={handleClickSearch}
-        onKeyDown={(e) => handleKeyPress(e)}
-        title={t('Search')}
-        tabIndex={0}
+        style="display: flex; align-items: center; min-width: 0;"
       >
-        <Icon ariaLabel="search" type="search" />
+        <Icon type="search" />
         <NormalLabel
           value={t('Tab Keeper')}
           size="1.125rem"
           color={COLORS.TEXT_COLOR}
           style="cursor: pointer;"
         />
-      </div>
+      </ClickableRow>
       <div
         css={css`
           flex-shrink: 0;

@@ -4,22 +4,40 @@ import { css, keyframes } from '@emotion/react';
 
 import { useThemeColors } from '../../hooks/useThemeColors';
 
-interface IconProps {
+interface IconBaseProps {
   type: string;
   faviconUrl?: string;
-  onClick?: MouseEventHandler;
   disable?: boolean;
   focusable?: boolean;
   animationFrom?: string;
   animationTo?: string;
   animationDuration?: string;
   backgroundColor?: string;
-  ariaLabel?: string;
   tooltipText?: string;
   text?: string;
   size?: string;
   style?: string;
 }
+
+/**
+ * An Icon is either a control or a decoration, and the two are not allowed to
+ * blur into each other.
+ *
+ * With its own onClick it renders role="button" and must be named. Without
+ * one it is presentational: it is hidden from assistive tech, and it may not
+ * carry an ariaLabel at all -- a bare aria-label would land on the implicit
+ * `generic` role, where naming is prohibited, so assistive tech drops it while
+ * a CSS attribute selector still matches. That silent gap was KAN-56, and this
+ * union is what makes it a compile error rather than a thing to remember.
+ *
+ * When the click handler belongs on a wrapper rather than the icon, reach for
+ * ClickableRow instead of labelling the icon and hoping the label surfaces.
+ */
+type IconProps = IconBaseProps &
+  (
+    | { onClick: MouseEventHandler; ariaLabel: string }
+    | { onClick?: never; ariaLabel?: never }
+  );
 
 const Icon: React.FC<IconProps> = ({
   type,
@@ -39,10 +57,22 @@ const Icon: React.FC<IconProps> = ({
 }) => {
   const COLORS = useThemeColors();
 
+  // role="button" promises Enter AND Space. This has to be hand-rolled rather
+  // than handed to a native <button>, because Button.tsx renders a <button>
+  // that contains an Icon, and nested buttons are invalid HTML -- the browser
+  // recovers by unnesting the DOM.
+  //
+  // Forwarding to the element's own click() rather than calling onClick(e)
+  // directly is what lets onClick stay a MouseEventHandler honestly: React
+  // dispatches a real MouseEvent to the existing handler. Calling it with the
+  // keyboard event needed an `as any`, which compiled while handing every
+  // caller an object missing every mouse-specific field.
   function handleKeyPress(e: React.KeyboardEvent<HTMLDivElement>) {
-    if (e.key === 'Enter' && onClick) {
-      onClick(e as any);
-    }
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    // Space scrolls the page by default; Enter is harmless but is prevented
+    // too so the two keys cannot drift apart again.
+    e.preventDefault();
+    e.currentTarget.click();
   }
 
   // Define keyframe animation
@@ -99,6 +129,11 @@ const Icon: React.FC<IconProps> = ({
     <div
       title={tooltipText}
       aria-label={ariaLabel}
+      // Presentational icons are hidden outright rather than merely unnamed.
+      // The glyph renders as ligature text ("arrow_back", "add_box"), which
+      // would otherwise leak into the accessible name of whatever button
+      // contains it -- Button's inner Icon is exactly that case.
+      aria-hidden={onClick ? undefined : true}
       tabIndex={onClick && focusable ? 0 : -1}
       css={containerStyle}
       onClick={!disable ? onClick : undefined}

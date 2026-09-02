@@ -20,11 +20,21 @@ Deliberately manual. It is not part of `npm test` and no CI job runs it.
   filters, and the settings panel opens and closes.
 - `service-worker.spec.ts` — the lazy-load placeholder swap, and that the
   worker's listeners are registered at all.
+- `a11y-controls.spec.ts` — the header affordances and the icon buttons are
+  exposed as named buttons and are operable by Enter and Space without also
+  scrolling the page, and presentational icons stay out of the accessibility
+  tree.
 
 The service-worker spec is the reason this harness exists. Everything in the
 golden path is a popup-DOM assertion the jsdom component suite already covers;
 the placeholder swap runs in the service worker (because the popup is destroyed
 the moment a restored window takes focus) and cannot be expressed in jsdom.
+
+The a11y spec is the second thing jsdom cannot express. `dom-accessibility-api`,
+which backs Testing Library's `getByRole(name:)`, computes a name from an
+`aria-label` without applying the `generic`-role naming prohibition, so a jsdom
+version of those assertions passes against the broken code. Only a real
+accessibility tree can tell the two apart — see KAN-56.
 
 ## When something fails
 
