@@ -236,8 +236,25 @@ export const requestFocusTabContainer = createAsyncThunk(
     // Worked out here as well as at the moment of switching, because the
     // dialog must not promise a save that will not happen.
     const captured = await captureOpenWindows(params.saveTitle);
-    const willSave =
-      captured !== null && !isAlreadySaved(captured, state.tabGroups);
+
+    // Nothing to capture is a third case, not a kind of "already saved"
+    // (KAN-42). Folding it into `willSave === false` made the dialog say "Your
+    // open window is already saved. It will be closed." when nothing was ever
+    // saved -- a false claim about the user's data from the one dialog whose
+    // whole job is telling them what happens to their tabs.
+    //
+    // Handled before `willSave` exists rather than by widening it to a
+    // tri-state: the boolean is then only ever computed when there is
+    // something to save, so it cannot mean two things again. Skipping the
+    // prompt is the same call the early return above makes -- there is nothing
+    // to warn about losing, since every window being closed is empty, and
+    // focusTabContainer already no-ops its own save on a null capture.
+    if (captured === null) {
+      thunkAPI.dispatch(focusTabContainer(params));
+      return;
+    }
+
+    const willSave = !isAlreadySaved(captured, state.tabGroups);
 
     thunkAPI.dispatch(
       openFocusModal({
@@ -322,7 +339,12 @@ export const saveToTabContainer = createAsyncThunk(
 
 // add current window to the specified tabgroup and display a toast message
 export const addCurrWindowToTabGroup = createAsyncThunk(
-  'global/saveToTabContainer',
+  // Named for what it does. It shared 'global/saveToTabContainer' with the
+  // thunk above until KAN-24: harmless, because createAsyncThunk is a factory
+  // with no registry and nothing consumed the string, but it showed two
+  // different operations under one name in DevTools and would have made the
+  // first `addCase(saveToTabContainer.fulfilled, ...)` match this one too.
+  'global/addCurrWindowToTabGroup',
   async (params: addCurrWindowToTabGroupParams, thunkAPI) => {
     thunkAPI.dispatch(addCurrWindowToTabGroupInternal(params));
 
