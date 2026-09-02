@@ -425,6 +425,55 @@ function touch(group: tabContainerData): void {
   group.lastModified = Date.now();
 }
 
+// Do two copies of a session carry the same content?
+//
+// Used by restoreContainer to tell the sessions a restore is reverting from
+// the ones it is merely carrying along unchanged (KAN-55).
+//
+// Written out rather than JSON.stringify-compared because key order is not
+// guaranteed to match: an imported container has been through JSON.parse,
+// while the live one was built by these reducers. Two equal sessions with
+// different key order would compare unequal, and every import would then
+// assert every session it contains.
+//
+// `lastModified` is deliberately excluded. It is the thing the caller is
+// deciding whether to rewrite, so including it would make every session that
+// had ever been touched look changed.
+function sameSessionContent(a: tabContainerData, b: tabContainerData): boolean {
+  return (
+    a.title === b.title &&
+    a.createdTime === b.createdTime &&
+    a.createdAt === b.createdAt &&
+    a.isAutoSave === b.isAutoSave &&
+    a.windowCount === b.windowCount &&
+    a.tabCount === b.tabCount &&
+    a.windows.length === b.windows.length &&
+    a.windows.every((window, i) => sameWindowContent(window, b.windows[i]))
+  );
+}
+
+// isSelected is not compared: it is per-device view state, not content, and
+// the merge already ignores it for the same reason.
+function sameWindowContent(a: windowGroupData, b: windowGroupData): boolean {
+  return (
+    a.windowId === b.windowId &&
+    a.title === b.title &&
+    a.windowHeight === b.windowHeight &&
+    a.windowWidth === b.windowWidth &&
+    a.windowOffsetTop === b.windowOffsetTop &&
+    a.windowOffsetLeft === b.windowOffsetLeft &&
+    a.tabCount === b.tabCount &&
+    a.tabs.length === b.tabs.length &&
+    a.tabs.every(
+      (tab, i) =>
+        tab.tabId === b.tabs[i].tabId &&
+        tab.title === b.tabs[i].title &&
+        tab.url === b.tabs[i].url &&
+        tab.favicon === b.tabs[i].favicon
+    )
+  );
+}
+
 // createdTime and createdAt are the same moment in two formats - a local wall
 // clock for display, and the instant the merge orders on. They are written
 // together, through this, so a reader can never catch them describing
@@ -751,21 +800,59 @@ export const tabContainerDataStateSlice = createSlice({
           tabGroup.lastModified ?? state.lastModified,
         ])
       );
+      // KAN-55. The live copy of each session, to tell the sessions this
+      // restore actually changes from the ones it is merely carrying along.
+      const liveGroup = new Map(
+        state.tabGroups.map((tabGroup) => [tabGroup.tabGroupId, tabGroup])
+      );
 
       const restored: TabMasterContainer = {
         ...action.payload,
         tabGroups: action.payload.tabGroups.map((tabGroup) => {
-          const buriedAt = withdrawnAt.get(tabGroup.tabGroupId);
-          if (buriedAt === undefined) return tabGroup;
+          const current = liveGroup.get(tabGroup.tabGroupId);
+
+          // KAN-55. The second thing a restore may have to outrank, alongside
+          // a tombstone: a live session whose content this restore is
+          // reverting. The merge resolves each session by its own
+          // `lastModified` with cloud winning ties, so handing a reverted
+          // session back with its snapshot timestamp let the cloud copy --
+          // which still holds the edit -- win the next merge. The undo applied
+          // locally and sync silently put the edit back.
+          //
+          // Compared by content, not by timestamp. `touch()` does advance a
+          // session's timestamp on every content change, but two edits inside
+          // the same millisecond are indistinguishable by it, which is not
+          // hypothetical: saving and renaming in quick succession produces
+          // exactly that, and the timestamp version of this check passed or
+          // failed depending on where a millisecond boundary happened to fall.
+          //
+          // Only sessions that actually differ are stamped. Bumping every
+          // restored session would make an undo assert the whole container,
+          // overwriting edits made on another device to sessions the user
+          // never touched here.
+          const supersededAt =
+            current !== undefined && !sameSessionContent(current, tabGroup)
+              ? liveAt.get(tabGroup.tabGroupId)
+              : undefined;
+
+          const mustOutrank = [
+            withdrawnAt.get(tabGroup.tabGroupId),
+            supersededAt,
+          ].filter((at): at is number => at !== undefined);
+
+          // Neither buried nor superseded: this restore is not changing this
+          // session, so leave its timestamp exactly as it was.
+          if (mustOutrank.length === 0) return tabGroup;
+
           return {
             ...tabGroup,
-            // Strictly after the tombstone, not merely Date.now(). Undoing a
-            // delete promptly enough lands in the same millisecond, and the
+            // Strictly after whatever it must beat, not merely Date.now().
+            // Undoing promptly enough lands in the same millisecond, and the
             // merge gives exact ties to cloud - so an equal timestamp loses to
-            // the very tombstone this is withdrawing. The un-delete happened
-            // after the delete by definition; encode that rather than trusting
-            // clock granularity.
-            lastModified: Math.max(Date.now(), buriedAt + 1),
+            // the very tombstone or edit this is superseding. The undo
+            // happened after the thing it undoes by definition; encode that
+            // rather than trusting clock granularity.
+            lastModified: Math.max(Date.now(), Math.max(...mustOutrank) + 1),
           };
         }),
         // `?? []` before the map, not `?.map`. The optional call yields
