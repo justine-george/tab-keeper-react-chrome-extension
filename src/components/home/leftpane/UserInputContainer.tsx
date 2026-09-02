@@ -135,7 +135,8 @@ export default function UserInputContainer() {
           One bordered group rather than two free-standing buttons: these are
           two variants of a single action, and reading as a pair is the point.
           Inside it size does the ranking -- save-all keeps the wide segment
-          and the "+" already in muscle memory, save-current-window is narrow.
+          and its place at the right, where the only save button used to be;
+          save-current-window is the narrow one.
 
           Both segments carry a "+" because both are saves, and the stack
           behind the primary is what says "all of them". add_box and
