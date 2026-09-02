@@ -27,7 +27,7 @@
   "Delete session": "Удалить сессию",
   "Delete window group": "Удалить группу окон",
   "Delete tab": "Удалить вкладку",
-  "Add window": "Добавить в эту сессию",
+  "Add window": "Добавить текущее окно",
   "Add current window": "Добавить текущее окно в эту сессию",
   "Rename session": "Переименовать сессию",
   "Collapse": "Свернуть",

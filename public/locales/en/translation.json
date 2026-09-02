@@ -27,7 +27,7 @@
   "Delete session": "Delete session",
   "Delete window group": "Delete window group",
   "Delete tab": "Delete tab",
-  "Add window": "Add to this session",
+  "Add window": "Add current window",
   "Add current window": "Add current window to this session",
   "Rename session": "Rename session",
   "Collapse": "Collapse",

@@ -27,7 +27,7 @@
   "Delete session": "セッションを削除",
   "Delete window group": "ウィンドウグループを削除",
   "Delete tab": "タブを削除",
-  "Add window": "このセッションに追加",
+  "Add window": "現在のウィンドウを追加",
   "Add current window": "現在のウィンドウをこのセッションに追加",
   "Rename session": "セッションの名前を変更",
   "Collapse": "折りたたむ",

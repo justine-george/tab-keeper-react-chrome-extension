@@ -27,7 +27,7 @@
   "Delete session": "删除会话",
   "Delete window group": "删除窗口组",
   "Delete tab": "删除标签",
-  "Add window": "添加到此会话",
+  "Add window": "添加当前窗口",
   "Add current window": "将当前窗口添加到此会话",
   "Rename session": "重命名会话",
   "Collapse": "折叠",
