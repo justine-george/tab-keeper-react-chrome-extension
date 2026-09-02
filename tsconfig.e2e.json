@@ -1,0 +1,26 @@
+{
+  // The Playwright specs, typechecked separately from the app.
+  //
+  // They cannot join tsconfig.json's `include`: its `types` array omits "node"
+  // on purpose, so that app code cannot reach for Node APIs the browser does
+  // not have. The e2e fixtures legitimately need node:fs, node:os and friends
+  // to build a throwaway profile directory, so they get their own config --
+  // the same split tsconfig.node.json already uses for vite.config.ts.
+  //
+  // Playwright transpiles without typechecking, so without this nothing would
+  // catch a broken fixture signature.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["node", "chrome"],
+    "noEmit": true
+  },
+  // All of src, not just the two files e2e imports: the specs pull in the
+  // redux slice transitively, which reaches import.meta.env, whose types come
+  // from src/vite-env.d.ts. A narrower include drops that reference and the
+  // whole chain fails to resolve.
+  //
+  // This does mean src is checked here WITH node types available. That is not
+  // a hole: tsconfig.json is still the config `npm run build` runs, and it is
+  // the one that enforces app code staying off Node APIs.
+  "include": ["e2e", "src"]
+}

@@ -22,6 +22,10 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true
   },
+  // e2e/ is deliberately NOT here: its fixtures need node:fs and friends, and
+  // this config's `types` array omits "node" on purpose so app code cannot
+  // reach for Node APIs that do not exist in a browser. The Playwright specs
+  // are typechecked by tsconfig.e2e.json instead -- `npm run typecheck:e2e`.
   "include": ["src"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

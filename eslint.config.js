@@ -61,6 +61,24 @@ export default tseslint.config(
     rules: reactHooks.configs.flat['recommended-latest'].rules,
   },
 
+  // Playwright fixtures (KAN-40). Two rules above misfire on them, and both
+  // flag the idiom Playwright's own API requires rather than anything wrong:
+  //
+  // - react-hooks/rules-of-hooks sees the `use(...)` callback every fixture
+  //   must call and reads it as a React Hook invoked outside a component.
+  //   There is no React in e2e/ at all.
+  // - no-empty-pattern flags `async ({}, use)`, which is how a fixture that
+  //   depends on nothing is written.
+  //
+  // Scoped to e2e/ so neither rule is weakened anywhere it does real work.
+  {
+    files: ['e2e/**/*.ts'],
+    rules: {
+      'react-hooks/rules-of-hooks': 'off',
+      'no-empty-pattern': 'off',
+    },
+  },
+
   // Must stay last: turns off every core rule that conflicts with prettier.
   prettierRecommended
 );
