@@ -53,7 +53,20 @@ const Button: React.FC<ButtonProps> = ({
     ${style && style}
   `;
 
-  iconStyle;
+  // Space the icon away from whatever sits next to it, but only when there is
+  // something next to it -- on an icon-only button the padding would just be a
+  // bare asymmetry.
+  //
+  // iconStyle goes last so a caller's own padding wins. The single caller that
+  // passes it (HeroContainerRight's "Add window") sends the shorthand
+  // `padding: 4px 4px 2px 4px`, which is meant to override this outright.
+  // Reversing the order would silently restyle that button.
+  const iconSpacing = [
+    imageSrc || text ? 'padding-right: 8px;' : '',
+    iconStyle ?? '',
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   // No wrapper element: the button must be the flex child itself, otherwise a
   // width: 100% passed through `style` resolves against a shrink-wrapped div
@@ -72,7 +85,7 @@ const Button: React.FC<ButtonProps> = ({
           disable={true}
           focusable={true}
           size={iconSize}
-          style={(imageSrc || text) && 'padding-right: 8px;' && iconStyle}
+          style={iconSpacing}
         />
       )}
       {imageSrc && (
