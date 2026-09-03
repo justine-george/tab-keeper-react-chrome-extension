@@ -50,6 +50,9 @@ function App() {
   const isSignedIn = useSelector(
     (state: RootState) => state.globalState.isSignedIn
   );
+  const isFirebaseAuthed = useSelector(
+    (state: RootState) => state.globalState.isFirebaseAuthed
+  );
   const userId = useSelector((state: RootState) => state.globalState.userId);
   const isAutoSync = useSelector(
     (state: RootState) => state.settingsDataState.isAutoSync
@@ -167,7 +170,12 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (isSignedIn && userId && isAutoSync) {
+    // isFirebaseAuthed is what makes this wait for the sign-in round trip.
+    // Without it the chrome.storage.sync read alone opened this gate, and the
+    // first sync of every cold start was denied by the security rules before
+    // request.auth existed (KAN-70). The local-storage branch below runs in the
+    // meantime, so there is nothing to show for the wait.
+    if (isSignedIn && isFirebaseAuthed && userId && isAutoSync) {
       dispatch(syncStateWithFirestore());
     } else {
       // load from local storage
@@ -193,7 +201,11 @@ function App() {
         }
       }
     }
-  }, [isSignedIn, userId]);
+    // isFirebaseAuthed is load-bearing in this array, not decoration: it is the
+    // flag that flips late, and re-running on it is what makes the sync happen
+    // at all once auth lands. Recovery used to depend on isSignedIn flapping
+    // false -> true, which was accidental (KAN-70).
+  }, [isSignedIn, isFirebaseAuthed, userId]);
 
   const containerStyle = css`
     background-color: ${COLORS.PRIMARY_COLOR};
