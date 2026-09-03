@@ -94,5 +94,6 @@
   "Maybe Later": "Più tardi",
   "Never Remind Again": "Non ricordare più",
   "Restored on this device, but syncing failed.": "Ripristinato su questo dispositivo, ma la sincronizzazione non è riuscita.",
-  "Save changes": "Salva modifiche"
+  "Save changes": "Salva modifiche",
+  "Sync unavailable: your cloud data could not be read. Sessions on this device are safe.": "Sincronizzazione non disponibile: impossibile leggere i dati sul cloud. Le sessioni su questo dispositivo sono al sicuro."
 }

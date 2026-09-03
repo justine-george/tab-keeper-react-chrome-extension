@@ -98,6 +98,17 @@ export const TOAST_MESSAGES = {
   DELETE_TAB_SUCCESS: 'Session tab deleted.',
   UNREADABLE_ACCOUNT_TOKEN:
     'Sync unavailable: your saved account token could not be read.',
+  // The refusal it reports is deliberate: an unparseable cloud document may be
+  // a NEWER FORMAT rather than corruption, so the sync stops instead of
+  // overwriting it. Without a toast the only signals are the header glyph and
+  // a console.warn, and the glyph cannot answer the question a user actually
+  // has - whether their sessions are at risk. They are not, so say so (KAN-72).
+  //
+  // No "try again" instruction, unlike the over-limit message: retrying is not
+  // the remedy and there may be no user-side remedy at all. A false
+  // instruction would be worse than none.
+  UNREADABLE_CLOUD_DOCUMENT:
+    'Sync unavailable: your cloud data could not be read. Sessions on this device are safe.',
   // Shown only when a merge actually brought something new to this device.
   // Divergence between devices used to be visible as a blocking prompt; this
   // replaces it with a notification, and stays silent when the merge is a

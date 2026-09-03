@@ -94,5 +94,6 @@
   "Maybe Later": "後で",
   "Never Remind Again": "再度お知らせしない",
   "Restored on this device, but syncing failed.": "このデバイスに復元しましたが、同期に失敗しました。",
-  "Save changes": "変更を保存"
+  "Save changes": "変更を保存",
+  "Sync unavailable: your cloud data could not be read. Sessions on this device are safe.": "同期を利用できません: クラウドのデータを読み取れませんでした。このデバイスのセッションは安全です。"
 }

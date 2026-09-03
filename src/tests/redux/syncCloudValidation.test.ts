@@ -29,6 +29,7 @@ import {
 import { replaceState } from '../../redux/slices/tabContainerDataStateSlice';
 import { makeTestStore } from '../setup/makeStore';
 import { buildContainer, buildSession } from '../fixtures/sessionFixture';
+import { TOAST_MESSAGES } from '../../utils/constants/common';
 
 const localOnly = buildContainer([buildSession()]);
 
@@ -96,6 +97,20 @@ describe('an unreadable cloud document stops the sync without writing', () => {
     );
   });
 
+  // KAN-72. setSyncStatus('error') only repaints the header glyph, and the
+  // console.warn beside it reaches no user. The glyph alone cannot say whether
+  // the local sessions are at risk, which is the one thing a user needs to
+  // know here - and they are not at risk, because the guard keeps them.
+  it('tells the user why sync stopped, instead of only warning the console', async () => {
+    mocks.loadFromFirestore.mockResolvedValue(unreadable);
+    const { store } = makeTestStore();
+    store.dispatch(setUserId('u1'));
+    await store.dispatch(syncStateWithFirestore());
+    expect(store.getState().globalState.toastText).toBe(
+      TOAST_MESSAGES.UNREADABLE_CLOUD_DOCUMENT
+    );
+  });
+
   // POSITIVE CONTROL. Without this, all three assertions above pass just as
   // well against code that never writes or merges anything at all.
   it('control: a VALID cloud document is still merged and can still write', async () => {
@@ -111,5 +126,21 @@ describe('an unreadable cloud document stops the sync without writing', () => {
       .getState()
       .tabContainerDataState.tabGroups.map((g) => g.title);
     expect(titles).toContain('Cloud Only');
+  });
+
+  // CONTROL for the toast above. A readable document must not raise it, or the
+  // assertion would pass against code that shows the message unconditionally.
+  it('control: a VALID cloud document raises no unreadable-document toast', async () => {
+    const validCloud = buildContainer([
+      buildSession({ tabGroupId: 'cloud-only', title: 'Cloud Only' }),
+    ]);
+    validCloud.lastModified = 9999;
+    mocks.loadFromFirestore.mockResolvedValue(validCloud);
+    const { store } = makeTestStore();
+    store.dispatch(setUserId('u1'));
+    await store.dispatch(syncStateWithFirestore());
+    expect(store.getState().globalState.toastText).not.toBe(
+      TOAST_MESSAGES.UNREADABLE_CLOUD_DOCUMENT
+    );
   });
 });
