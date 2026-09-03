@@ -94,5 +94,6 @@
   "Never Remind Again": "Never Remind Again",
   "Sync unavailable: your saved account token could not be read.": "Sync unavailable: your saved account token could not be read.",
   "Restored on this device, but syncing failed.": "Restored on this device, but syncing failed.",
-  "Save changes": "Save changes"
+  "Save changes": "Save changes",
+  "Sync unavailable: your cloud data could not be read. Sessions on this device are safe.": "Sync unavailable: your cloud data could not be read. Sessions on this device are safe."
 }

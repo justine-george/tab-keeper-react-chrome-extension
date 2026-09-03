@@ -131,6 +131,14 @@ export const syncStateWithFirestore = createAsyncThunk(
         'Unreadable Firestore document for this user; leaving it untouched.'
       );
       thunkAPI.dispatch(setSyncStatus('error'));
+      // The glyph alone says "something is wrong" without saying what, or
+      // whether the sessions on this device survived it (KAN-72).
+      thunkAPI.dispatch(
+        showToast({
+          toastText: TOAST_MESSAGES.UNREADABLE_CLOUD_DOCUMENT,
+          duration: 6000,
+        })
+      );
       return;
     }
     const tabDataFromCloud: TabMasterContainer | undefined = cloudCandidate;
