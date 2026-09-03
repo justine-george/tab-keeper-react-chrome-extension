@@ -95,5 +95,7 @@
   "Sync unavailable: your saved account token could not be read.": "Sync unavailable: your saved account token could not be read.",
   "Restored on this device, but syncing failed.": "Restored on this device, but syncing failed.",
   "Save changes": "Save changes",
-  "Sync unavailable: your cloud data could not be read. Sessions on this device are safe.": "Sync unavailable: your cloud data could not be read. Sessions on this device are safe."
+  "Sync unavailable: your cloud data could not be read. Sessions on this device are safe.": "Sync unavailable: your cloud data could not be read. Sessions on this device are safe.",
+  "Synced changes from another device.": "Synced changes from another device.",
+  "Restored tabs successfully!": "Restored tabs successfully!"
 }

@@ -95,5 +95,7 @@
   "Never Remind Again": "फिर से याद न करें",
   "Restored on this device, but syncing failed.": "इस डिवाइस पर पुनर्स्थापित किया गया, लेकिन सिंक विफल रहा।",
   "Save changes": "परिवर्तन सहेजें",
-  "Sync unavailable: your cloud data could not be read. Sessions on this device are safe.": "सिंक अनुपलब्ध: आपका क्लाउड डेटा पढ़ा नहीं जा सका। इस डिवाइस के सत्र सुरक्षित हैं।"
+  "Sync unavailable: your cloud data could not be read. Sessions on this device are safe.": "सिंक अनुपलब्ध: आपका क्लाउड डेटा पढ़ा नहीं जा सका। इस डिवाइस के सत्र सुरक्षित हैं।",
+  "Synced changes from another device.": "दूसरे डिवाइस से किए गए बदलाव सिंक कर दिए गए।",
+  "Restored tabs successfully!": "टैब सफलतापूर्वक पुनर्स्थापित किए गए!"
 }
