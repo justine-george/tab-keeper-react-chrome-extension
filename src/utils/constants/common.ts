@@ -52,32 +52,15 @@ export const SHARE_TWITTER_TEXT = `https://twitter.com/intent/tweet?text=Tab%20K
 // feedback mail subject
 export const FEEDBACK_MAIL_SUBJECT = `Feedback: Tab Keeper v${APP_VERSION}`;
 
-// textbox placeholders
-export const TEXTBOX_PLACEHOLDERS = {
-  EMAIL: 'Email Address',
-  PASSWORD: 'Password',
-  CONFIRM_PASSWORD: 'Confirm Password',
-};
-
 // error messages
+//
+// Every entry here SHIPS, whether or not anything displays it: this is one
+// object literal imported by live code, and tree-shaking drops unreferenced
+// bindings, not object properties. That is why the credential-screen messages
+// were bytes in every user's bundle long after the screens became unreachable,
+// and why they were deleted with those screens rather than left "harmlessly"
+// in place (KAN-69).
 export const TOAST_MESSAGES = {
-  INVALID_EMAIL: 'Please enter a valid email address.',
-  INVALID_PASSWORD:
-    'Your password must be at least 8 characters long and contain both letters and numbers.',
-  PASSWORD_MISMATCH:
-    'The passwords you entered do not match. Please try again.',
-  ACCOUNT_CREATION_SUCCESS: 'Account created successfully!',
-  ACCOUNT_CREATION_FAIL:
-    'There was an issue creating your account. Please try again later.',
-  LOGIN_FAIL:
-    "Sorry, we couldn't log you in. Please check your credentials and try again.",
-  PASSWORD_RESET_SUCCESS:
-    "We've sent you a password reset link. Check your inbox and follow the instructions.",
-  PASSWORD_RESET_FAIL:
-    'Oops! Something went wrong while sending the reset link. Please try again later.',
-  LOGOUT_SUCCESS: 'You have successfully logged out.',
-  LOGOUT_FAIL:
-    'Oops! We encountered an issue while logging you out. Please try again.',
   // Two messages rather than one "Session saved.", because the two save
   // buttons sit next to each other and look alike: the toast is the only
   // thing that tells the user which of them ran (KAN-5).
@@ -120,13 +103,4 @@ export const TOAST_MESSAGES = {
   // user it failed would be as wrong as the success toast this replaces
   // (KAN-43). isDirty stays set, so the next sync retries the write.
   IMPORT_SYNC_FAILED: 'Restored on this device, but syncing failed.',
-};
-
-export const TOOLTIP_MESSAGES = {
-  EMAIL: 'Enter your email address',
-  PASSWORD: 'Enter your password',
-  NEW_ACCOUNT_EMAIL: 'Enter your preferred email address',
-  NEW_ACCOUNT_PASSWORD:
-    'Password must be at least 8 characters long and contain both letters and numbers',
-  NEW_ACCOUNT_CONFIRM_PASSWORD: 'Re-enter your password to confirm it',
 };
