@@ -58,7 +58,37 @@ Tab Keeper is an intuitive Chrome extension crafted to redefine the way users sa
 
 ## Changelog
 
-### v.1.4.1 (Latest)
+### v.1.5.0 (Latest)
+
+#### Features
+
+- Save just the current window as a session, instead of always saving every open window
+- Every button, list row and menu item can now be reached with Tab and used with Enter or Space
+- Screen readers now announce every control correctly, and in your own language rather than in English
+- Disabled controls are no longer focusable, and are announced as disabled instead of as ordinary buttons
+
+#### Fixes
+
+- Renaming a session no longer loses what you have typed when a sync or an undo arrives while you are editing
+- An undone rename no longer reappears on the next sync
+- Redo now works on macOS, where the Cmd+Shift+Z shortcut previously did nothing at all
+- Cmd+Z inside a text field now undoes your typing instead of the app's last action
+- Typing in the search box no longer clears the redo history or floods the undo history
+- Search results now report how many matches were found, instead of repeating the session's own window and tab counts
+- Sessions are now ordered and dated by the instant they were created, so their order no longer depends on the device's clock
+- The focus-mode confirmation no longer says your windows are "already saved" when there was nothing to save
+- Focus mode no longer saves popup windows that it cannot reopen later
+- A session too large to sync is now refused with an explanation, instead of leaving sync stuck for good
+- Selecting or searching a session no longer changes when that session was last modified, which could let an older copy win a sync
+- The message shown when a sync fails now appears in your own language
+- The area around the app now follows your chosen theme instead of staying grey
+- Icon spacing inside buttons now renders as intended
+
+#### Improvements
+
+- Selecting or searching a session no longer triggers a cloud sync
+
+### v.1.4.1
 
 #### Fixes
 
