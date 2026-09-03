@@ -23,13 +23,9 @@ const allSources = import.meta.glob('/src/components/**/*.tsx', {
   eager: true,
 }) as Record<string, string>;
 
-// KAN-69: SignIn, CreateAccount and ForgotPassword have no importers anywhere
-// in src/ and are already tree-shaken out of the artifact (their strings do not
-// appear in dist at all). Their ~8 hardcoded English strings are therefore
-// invisible to users, and translating UI nobody can open would have meant ~72
-// machine-translated strings for nothing. Excluded until KAN-69 decides whether
-// they are deleted or wired up; delete this list when it does.
-const DEAD_FILES = /Account\/(SignIn|CreateAccount|ForgotPassword)\.tsx$/;
+// This scan excluded SignIn, CreateAccount and ForgotPassword, whose hardcoded
+// English strings were unreachable. KAN-69 deleted those components, so every
+// remaining component is live and none is skipped.
 
 // Commented-out JSX still matches the literal patterns below --
 // UserInputContainer keeps a `{/* <Button text="Search" ... /> */}` line -- and
@@ -38,9 +34,7 @@ const stripComments = (src: string) =>
   src.replace(/\{\/\*[\s\S]*?\*\/\}/g, '').replace(/^\s*\/\/.*$/gm, '');
 
 const sources = Object.fromEntries(
-  Object.entries(allSources)
-    .filter(([file]) => !DEAD_FILES.test(file))
-    .map(([file, src]) => [file, stripComments(src)])
+  Object.entries(allSources).map(([file, src]) => [file, stripComments(src)])
 );
 
 const localeFiles = import.meta.glob('/public/locales/*/translation.json', {
@@ -71,11 +65,12 @@ describe('no user-facing string is hardcoded English', () => {
     // Something translated really is in there, so the scan sees real content.
     expect(Object.values(sources).join('\n')).toMatch(/t\('Undo'\)/);
 
-    // And the KAN-69 exclusion removes exactly the three dead files -- an
-    // over-broad regex here would silently hide real offenders.
-    expect(Object.keys(allSources).length - Object.keys(sources).length).toBe(
-      3
-    );
+    // Nothing is skipped any more. This asserted that the KAN-69 exclusion
+    // removed exactly three files; KAN-69 deleted them, so the scan now covers
+    // every component. Keep the equality rather than dropping the check: it is
+    // what would catch a filter being reintroduced, which is how a real
+    // offender would get hidden again.
+    expect(Object.keys(sources).length).toBe(Object.keys(allSources).length);
   });
 
   for (const [prop, re] of [

@@ -37,28 +37,17 @@ const sources = import.meta.glob('/src/**/*.{ts,tsx}', {
 // covered the moment it is used -- nobody has to remember to register it here.
 const USAGE_PATTERN = /\bTOAST_MESSAGES\.([A-Z0-9_]+)/g;
 
-// The only exclusions, and they are files rather than message names on purpose:
-// naming messages would need updating whenever one is added, while naming the
-// dead files needs updating exactly once, when KAN-69 deletes them.
-//
-// These three components have no importers and do not reach the bundle
-// (`handleCreateAccount` occurs 0 times in dist). Their eight strings DO still
-// ship, because TOAST_MESSAGES is one object literal that live code imports and
-// tree-shaking does not drop object properties -- but nothing can display them,
-// so translating them would be dead weight in ten files.
-const DEAD_COMPONENTS = [
-  '/src/components/settings/rightpane/Account/SignIn.tsx',
-  '/src/components/settings/rightpane/Account/CreateAccount.tsx',
-  '/src/components/settings/rightpane/Account/ForgotPassword.tsx',
-];
-
+// This scan carried an exclusion list for SignIn/CreateAccount/ForgotPassword,
+// whose eight messages were unreachable but still shipped. KAN-69 deleted those
+// components and their messages, so every remaining entry is reachable and no
+// exclusion is needed. Do not reintroduce one: a message nothing displays is a
+// message to delete, not to translate into ten files.
 function reachableConstantNames(): Set<string> {
   const names = new Set<string>();
 
   for (const [file, source] of Object.entries(sources)) {
     if (file.includes('/src/tests/')) continue;
     if (file.endsWith('/utils/constants/common.ts')) continue; // the definition
-    if (DEAD_COMPONENTS.some((dead) => file.endsWith(dead))) continue;
 
     for (const [, name] of source.matchAll(USAGE_PATTERN)) names.add(name);
   }
@@ -95,14 +84,14 @@ describe('toast translation coverage', () => {
     expect(reached).toContain('UNREADABLE_CLOUD_DOCUMENT');
   });
 
-  // CONTROL for the exclusion. If the dead-file filter ever stops matching --
-  // a moved file, a renamed directory -- the test above starts demanding
-  // translations for eight strings no user can reach, and the honest fix then
-  // is to update DEAD_COMPONENTS rather than to translate them.
-  test('control: the dead Account components are excluded from the scan', () => {
+  // Every defined message must also be REACHED. The scan above only proves that
+  // what is used is translated; this proves nothing is defined and unused, which
+  // is the state KAN-69 cleaned up -- eight messages shipping as bytes in every
+  // bundle with no code able to display them.
+  test('no toast message is defined but unreachable', () => {
     const reached = reachableConstantNames();
+    const orphaned = Object.keys(TOAST_MESSAGES).filter((k) => !reached.has(k));
 
-    expect(reached).not.toContain('LOGIN_FAIL');
-    expect(reached).not.toContain('ACCOUNT_CREATION_SUCCESS');
+    expect(orphaned).toEqual([]);
   });
 });
