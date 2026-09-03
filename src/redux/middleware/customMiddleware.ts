@@ -113,10 +113,15 @@ export const customMiddleware: Middleware = (store) => {
     const nextState = store.getState();
 
     // After processing the action, check if it was setIsDirty and the flag is true
+    // isFirebaseAuthed as well as isSignedIn: the first means a document id
+    // exists, the second means the rules will accept a request. An edit made
+    // inside the first second of a cold start satisfies only the first, and
+    // syncing on it produces denied writes (KAN-70).
     if (
       action.type === setIsDirty.type &&
       nextState.globalState.isDirty &&
       nextState.globalState.isSignedIn &&
+      nextState.globalState.isFirebaseAuthed &&
       nextState.settingsDataState.isAutoSync
     ) {
       debouncedSync();

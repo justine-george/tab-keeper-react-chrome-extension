@@ -21,7 +21,21 @@ import { TOAST_MESSAGES } from '../../utils/constants/common';
 
 export interface Global {
   hasSyncedBefore: boolean;
+  // "a usable document id exists in chrome.storage.sync". A LOCAL read: no
+  // network, no authentication. This app has no accounts - sync identity is a
+  // client uuid - so "signed in" genuinely means "has a sync identity", and it
+  // is what the settings pane renders LoggedIn/NotLoggedIn from.
+  //
+  // It is NOT permission to call Firestore. See isFirebaseAuthed (KAN-70).
   isSignedIn: boolean;
+  // "Firebase anonymous auth has landed", i.e. request.auth is non-null and the
+  // security rules will accept a request. Written ONLY by onAuthStateChanged.
+  //
+  // Separate from isSignedIn because the two resolve at different times: the
+  // chrome.storage.sync read returns in milliseconds, the sign-in is a network
+  // round trip. Gating on isSignedIn alone opened the gate ~500ms early and
+  // every request in that window was denied by the rules.
+  isFirebaseAuthed: boolean;
   userId: string | null;
   isDirty: boolean;
   isSettingsPage: boolean;
@@ -49,6 +63,7 @@ export interface FocusRequest {
 export const initialState: Global = {
   hasSyncedBefore: false,
   isSignedIn: false,
+  isFirebaseAuthed: false,
   userId: null,
   isDirty: false,
   isSettingsPage: false,
@@ -339,6 +354,16 @@ export const globalStateSlice = createSlice({
       state.isSignedIn = true;
     },
 
+    // Dispatched only by observeAuthState. Deliberately does not touch
+    // isSignedIn: conflating the two is the defect these exist to separate.
+    setFirebaseAuthed: (state) => {
+      state.isFirebaseAuthed = true;
+    },
+
+    setFirebaseUnauthed: (state) => {
+      state.isFirebaseAuthed = false;
+    },
+
     setHasSyncedBefore: (state) => {
       state.hasSyncedBefore = true;
     },
@@ -405,6 +430,8 @@ export const {
   setIsDirtyWithoutSync,
   setIsNotDirty,
   setSignedIn,
+  setFirebaseAuthed,
+  setFirebaseUnauthed,
   setHasSyncedBefore,
   setLoggedOut,
   setSyncStatus,

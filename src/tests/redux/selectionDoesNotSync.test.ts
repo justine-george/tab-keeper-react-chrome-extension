@@ -20,7 +20,10 @@ import {
   updateTabGroupTitle,
 } from '../../redux/slices/tabContainerDataStateSlice';
 import { IS_DIRTY_ACTION, SET_ACTION } from '../../utils/constants/actionTypes';
-import { setSignedIn } from '../../redux/slices/globalStateSlice';
+import {
+  setFirebaseAuthed,
+  setSignedIn,
+} from '../../redux/slices/globalStateSlice';
 import { DEBOUNCE_TIME_WINDOW } from '../../utils/constants/common';
 
 const SYNC_PENDING_ACTION = 'global/syncStateWithFirestore/pending';
@@ -149,6 +152,9 @@ describe('selection does not reach Firestore when signed in (KAN-35)', () => {
   const signedInStore = () => {
     const { store, seen } = seededStore();
     store.dispatch(setSignedIn());
+    // Both flags: a document id alone no longer authorises a Firestore call,
+    // because it does not mean the security rules will accept one (KAN-70).
+    store.dispatch(setFirebaseAuthed());
     seen.length = 0;
     return { store, seen };
   };

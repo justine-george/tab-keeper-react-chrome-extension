@@ -21,7 +21,11 @@ vi.mock('../../utils/functions/external', () => ({
   displayToast: vi.fn(),
 }));
 
-import { setSignedIn, setUserId } from '../../redux/slices/globalStateSlice';
+import {
+  setFirebaseAuthed,
+  setSignedIn,
+  setUserId,
+} from '../../redux/slices/globalStateSlice';
 import {
   saveToTabContainerInternal,
   replaceState,
@@ -96,6 +100,8 @@ describe('a sync is scheduled by user edits, not by the merge persisting', () =>
   it('schedules a sync when the user changes data', async () => {
     const { store } = makeTestStore();
     store.dispatch(setSignedIn());
+    // KAN-70: the gate needs auth as well as a document id.
+    store.dispatch(setFirebaseAuthed());
     store.dispatch(setUserId('u1'));
 
     store.dispatch(saveToTabContainerInternal(group('a', 1000)));
@@ -124,6 +130,8 @@ describe('a sync is scheduled by user edits, not by the merge persisting', () =>
 
     const { store } = makeTestStore();
     store.dispatch(setSignedIn());
+    // KAN-70: the gate needs auth as well as a document id.
+    store.dispatch(setFirebaseAuthed());
     store.dispatch(setUserId('u1'));
     store.dispatch(replaceState(local));
 

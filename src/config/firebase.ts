@@ -10,7 +10,10 @@ import { getAuth, onAuthStateChanged, signInAnonymously } from 'firebase/auth';
 
 import { AppDispatch } from '../redux/store';
 import { decompressFromBytes } from '../utils/functions/compression';
-import { setLoggedOut, setSignedIn } from '../redux/slices/globalStateSlice';
+import {
+  setFirebaseAuthed,
+  setFirebaseUnauthed,
+} from '../redux/slices/globalStateSlice';
 // https://firebase.google.com/docs/web/setup#available-libraries
 
 // Firebase configuration
@@ -31,14 +34,19 @@ const db = getFirestore(app);
 
 export { auth, db };
 
+// Writes ONLY the Firebase auth flag. It used to write isSignedIn, which the
+// chrome.storage.sync token read also writes - so a local lookup and a network
+// round trip fed one boolean, and whichever resolved first decided whether
+// Firestore calls were authorised. The token read always wins that race, so
+// every cold start issued requests the rules then denied (KAN-70).
 export const observeAuthState = (dispatch: AppDispatch) => {
   onAuthStateChanged(auth, (user) => {
     if (user) {
-      // User is signed in
-      dispatch(setSignedIn());
+      dispatch(setFirebaseAuthed());
     } else {
-      // User is signed out, anonymous sign them back in
-      dispatch(setLoggedOut());
+      // Not authenticated yet - or no longer. Sign in anonymously; this
+      // callback fires again with a user once it lands.
+      dispatch(setFirebaseUnauthed());
       signInUserAnonymously();
     }
   });
