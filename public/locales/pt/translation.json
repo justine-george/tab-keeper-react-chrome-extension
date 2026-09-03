@@ -95,5 +95,7 @@
   "Never Remind Again": "Não lembrar mais",
   "Restored on this device, but syncing failed.": "Restaurado neste dispositivo, mas a sincronização falhou.",
   "Save changes": "Salvar alterações",
-  "Sync unavailable: your cloud data could not be read. Sessions on this device are safe.": "Sincronização indisponível: não foi possível ler os dados da nuvem. As sessões neste dispositivo estão seguras."
+  "Sync unavailable: your cloud data could not be read. Sessions on this device are safe.": "Sincronização indisponível: não foi possível ler os dados da nuvem. As sessões neste dispositivo estão seguras.",
+  "Synced changes from another device.": "Alterações sincronizadas de outro dispositivo.",
+  "Restored tabs successfully!": "Abas restauradas com sucesso!"
 }
