@@ -551,7 +551,11 @@ export const isValidTabMasterContainer = (
   );
 };
 
-const bytesToMB = (bytes: number): string => (bytes / 1048576).toFixed(1);
+// Exported so the sync guard in globalStateSlice phrases its refusal exactly
+// like the import guard below. Two different roundings for the same limit
+// would read as two different limits.
+export const bytesToMB = (bytes: number): string =>
+  (bytes / 1048576).toFixed(1);
 
 // Parse, validate and size-check the contents of an imported backup file.
 //

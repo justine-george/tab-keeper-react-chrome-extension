@@ -9,6 +9,9 @@ import {
   saveToFirestore,
 } from '../../utils/functions/external';
 import {
+  bytesToMB,
+  estimateFirestoreBytes,
+  FIRESTORE_MAX_DOCUMENT_BYTES,
   isValidTabMasterContainer,
   loadFromLocalStorage,
   saveToLocalStorage,
@@ -66,6 +69,21 @@ export const saveToFirestoreIfDirty = createAsyncThunk(
 
     try {
       if (state.globalState.isDirty) {
+        // Firestore rejects an over-limit document, and the rejection leaves
+        // isDirty set, so every later change retries the same doomed write and
+        // sync wedges with nothing on screen to explain it. readImportedContainer
+        // already refuses this on the import path; this is the same refusal on
+        // the sync path, phrased the same way.
+        const bytes = estimateFirestoreBytes(state.tabContainerDataState);
+        if (bytes > FIRESTORE_MAX_DOCUMENT_BYTES) {
+          const message =
+            `too large to sync (${bytesToMB(bytes)} MB of a ` +
+            `${bytesToMB(FIRESTORE_MAX_DOCUMENT_BYTES)} MB limit). ` +
+            `Remove some sessions and try again.`;
+          thunkAPI.dispatch(showToast({ toastText: message, duration: 6000 }));
+          throw new Error(message);
+        }
+
         await saveToFirestore(
           state.globalState.userId!,
           state.tabContainerDataState
@@ -91,8 +109,31 @@ export const syncStateWithFirestore = createAsyncThunk(
     const state = thunkAPI.getState() as RootState;
 
     // load from Firestore
-    const tabDataFromCloud: TabMasterContainer | undefined =
-      await loadFromFirestore(state.globalState.userId!, thunkAPI);
+    const cloudCandidate = await loadFromFirestore(
+      state.globalState.userId!,
+      thunkAPI
+    );
+
+    // The cloud side gets the same treatment localStorage gets below. Without
+    // this, an unrecognised document reaches mergeTabContainers and throws
+    // `side.tabGroups is not iterable`, rejecting the thunk with no message.
+    //
+    // Unreadable is deliberately NOT treated as absent. "Absent" falls through
+    // to the local-only branch, which writes local state over the document -
+    // and a document we failed to parse may be a NEWER FORMAT rather than
+    // corruption, so overwriting would destroy data we merely could not read.
+    // Stop instead: keep local data, leave the document untouched, report it.
+    if (
+      cloudCandidate !== undefined &&
+      !isValidTabMasterContainer(cloudCandidate)
+    ) {
+      console.warn(
+        'Unreadable Firestore document for this user; leaving it untouched.'
+      );
+      thunkAPI.dispatch(setSyncStatus('error'));
+      return;
+    }
+    const tabDataFromCloud: TabMasterContainer | undefined = cloudCandidate;
 
     // localStorage is user-writable and survives extension updates, so whatever
     // comes back here is genuinely unknown. Validate before the sync can act on

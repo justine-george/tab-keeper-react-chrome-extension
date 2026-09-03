@@ -9,8 +9,8 @@ import { doc, getDoc, getFirestore } from 'firebase/firestore/lite';
 import { getAuth, onAuthStateChanged, signInAnonymously } from 'firebase/auth';
 
 import { AppDispatch } from '../redux/store';
+import { decompressFromBytes } from '../utils/functions/compression';
 import { setLoggedOut, setSignedIn } from '../redux/slices/globalStateSlice';
-import { TabMasterContainer } from '../redux/slices/tabContainerDataStateSlice';
 // https://firebase.google.com/docs/web/setup#available-libraries
 
 // Firebase configuration
@@ -58,9 +58,69 @@ export const signInUserAnonymously = () => {
     });
 };
 
+// What a document decodes to before anything has proven its shape.
+//
+// This read used to declare Promise<TabMasterContainer> while assigning
+// unproven DocumentData fields into it, which is a claim it cannot support:
+// the document is user-syncable data that another client version may have
+// written. Saying `unknown` here forces the single narrowing to happen at
+// isValidTabMasterContainer in syncStateWithFirestore, where it belongs.
+export interface CloudCandidate {
+  lastModified: unknown;
+  tabGroups: unknown;
+  selectedTabGroupId: unknown;
+  deletedTabGroups: unknown;
+}
+
+// A Firestore Bytes value exposes toUint8Array(); a test or a future caller may
+// pass the array directly. Anything else - including the absent field on every
+// document written today - is not a compressed payload.
+function asUint8Array(value: unknown): Uint8Array | null {
+  if (value instanceof Uint8Array) return value;
+  if (
+    typeof value === 'object' &&
+    value !== null &&
+    'toUint8Array' in value &&
+    typeof (value as { toUint8Array: unknown }).toUint8Array === 'function'
+  ) {
+    return (value as { toUint8Array: () => Uint8Array }).toUint8Array();
+  }
+  return null;
+}
+
+// Phase 1 of KAN-6: understand both shapes, write neither differently.
+//
+// tabGroupsZ is gzipped JSON in a Firestore Bytes field. A document that lacks
+// it is a document written by any client shipped to date, and its plain
+// tabGroups array is returned untouched.
+async function readTabGroups(data: {
+  tabGroups?: unknown;
+  tabGroupsZ?: unknown;
+}): Promise<unknown> {
+  const packed = asUint8Array(data.tabGroupsZ);
+  if (packed === null) return data.tabGroups;
+
+  try {
+    const parsed: unknown = JSON.parse(await decompressFromBytes(packed));
+    if (!Array.isArray(parsed)) {
+      console.warn('tabGroupsZ decoded to a non-array; treating as unreadable');
+      return undefined;
+    }
+    return parsed;
+  } catch (error) {
+    // Deliberately undefined, never []. "Could not decode" and "no sessions"
+    // must stay distinguishable: an empty array reads as a valid empty account
+    // and would be written straight over the document, destroying data we
+    // merely failed to read. undefined fails isValidTabMasterContainer, which
+    // stops the sync without writing.
+    console.warn('tabGroupsZ did not decode; treating as unreadable:', error);
+    return undefined;
+  }
+}
+
 export const fetchDataFromFirestore = async (
   userId: string
-): Promise<TabMasterContainer> => {
+): Promise<CloudCandidate> => {
   try {
     // Fetch your data based on the signed-in user's ID
     const tabData = await getDoc(doc(db, 'tabGroupData', userId));
@@ -81,7 +141,7 @@ export const fetchDataFromFirestore = async (
       const data = tabData.data();
       return {
         lastModified: data.lastModified,
-        tabGroups: data.tabGroups,
+        tabGroups: await readTabGroups(data),
         selectedTabGroupId: data.selectedTabGroupId,
         deletedTabGroups: data.deletedTabGroups,
       };
