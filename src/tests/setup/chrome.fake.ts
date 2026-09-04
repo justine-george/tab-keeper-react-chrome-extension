@@ -100,6 +100,27 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
     tabs.push(makeTab(tab, tab.windowId ?? DEFAULT_WINDOW_ID));
   }
 
+  // Whether `currentWindow` in a tabs.query can be honoured at all.
+  //
+  // Honouring it needs a seed that places every tab in a window it actually
+  // declared. Several seeds do not: they declare `windows: [{id: 7, ...}]` for
+  // the capture path AND a separate top-level `tabs: [{active: true}]` for the
+  // name pre-fill, and that second tab falls to DEFAULT_WINDOW_ID. Filtering
+  // those on currentWindow would erase the active tab and break the seed's
+  // own intent, so such seeds keep the historical "currentWindow means any
+  // window" behaviour.
+  //
+  // Inferred from the seed rather than set by a flag, because the inference is
+  // exactly the precondition -- a seed that IS window-consistent can only
+  // benefit from the higher fidelity, and one that is not could only be broken
+  // by it. Snapshotted here rather than recomputed per query so that a later
+  // tabs.create() cannot silently flip the semantics mid-test.
+  const declaredWindowIds = new Set(windows.map((win) => win.id));
+  const currentWindowId = windows[0]?.id;
+  const seedPlacesEveryTabInADeclaredWindow =
+    windows.length > 0 &&
+    tabs.every((tab) => declaredWindowIds.has(tab.windowId));
+
   // Chrome omits `tabs` entirely unless populate was asked for, so the two
   // cases are deliberately different shapes rather than one with an empty
   // array -- a test that forgets populate should see what production sees.
@@ -186,13 +207,17 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
     },
 
     tabs: {
-      // `active` and `windowId` are honoured. `currentWindow` and
-      // `lastFocusedWindow` are deliberately NOT: production passes them
-      // (UserInputContainer.tsx:28, TabGroupDetailsContainer.tsx:56) but
-      // honouring them would require every seed to place its tabs in a real
-      // window, which today's seeds do not. Treating them as "any window"
-      // keeps single-window tests honest; a multi-window test that depends on
-      // the distinction must not use this fake until that is fixed.
+      // `active` and `windowId` are always honoured. `currentWindow` is
+      // honoured only for window-consistent seeds (see
+      // `seedPlacesEveryTabInADeclaredWindow` above); `lastFocusedWindow` is
+      // still deliberately NOT honoured at all.
+      //
+      // Widened for KAN-74. countOpenTabGroups() must count across ALL
+      // windows, and while `currentWindow` was ignored outright the fake
+      // answered query({}) and query({currentWindow:true}) identically -- so
+      // the multi-window test asserting all-windows behaviour passed against a
+      // deliberately broken implementation that asked for the current window
+      // only. The mutation survived; this is what kills it.
       query: (
         queryInfo: chrome.tabs.QueryInfo,
         cb?: (result: chrome.tabs.Tab[]) => void
@@ -202,7 +227,12 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
             (queryInfo.active === undefined ||
               tab.active === queryInfo.active) &&
             (queryInfo.windowId === undefined ||
-              tab.windowId === queryInfo.windowId)
+              tab.windowId === queryInfo.windowId) &&
+            (queryInfo.currentWindow === undefined ||
+              !seedPlacesEveryTabInADeclaredWindow ||
+              (queryInfo.currentWindow
+                ? tab.windowId === currentWindowId
+                : tab.windowId !== currentWindowId))
         );
         return settle(matched, cb);
       },
