@@ -99,5 +99,11 @@
   "Sync unavailable: your cloud data could not be read. Sessions on this device are safe.": "Synchronisierung nicht verfügbar: Ihre Cloud-Daten konnten nicht gelesen werden. Die Sitzungen auf diesem Gerät sind sicher.",
   "Synced changes from another device.": "Änderungen von einem anderen Gerät synchronisiert.",
   "Restored tabs successfully!": "Tabs erfolgreich wiederhergestellt!",
-  "Unnamed group": "Unbenannte Gruppe"
+  "Unnamed group": "Unbenannte Gruppe",
+  "TabGroupsPromptTitle": "Ihre Tab-Gruppen speichern",
+  "TabGroupsPromptBodyOne": "Ohne Berechtigung kann Tab Keeper den Namen und die Farbe Ihrer Tab-Gruppe nicht speichern.",
+  "TabGroupsPromptBodyOther": "Ohne Berechtigung kann Tab Keeper die Namen und Farben Ihrer {{count}} Tab-Gruppen nicht speichern.",
+  "TabGroupsPromptConfirm": "Tab-Gruppen-Unterstützung aktivieren",
+  "TabGroupsPromptDismiss": "Jetzt nicht",
+  "TabGroupsPromptNever": "Nicht mehr fragen"
 }

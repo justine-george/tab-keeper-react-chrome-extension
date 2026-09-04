@@ -37,6 +37,16 @@ export interface SettingsData {
   isUserRatedAndReviewed: boolean;
   isNeverAskAgainToRate: boolean;
   lastReviewRequestTime: number | '';
+  // KAN-74. The tab-groups permission offer. Two flags and no timestamp: the
+  // offer fires on every popup open that finds groups open, so there is
+  // nothing to schedule -- only an escalating opt-out to remember.
+  //
+  // Neither flag mirrors whether the permission is GRANTED. That stays
+  // hasTabGroupsPermission()'s job, so a user who grants and later revokes
+  // from chrome://extensions -- the most explicit "no" available -- cannot be
+  // re-armed into being asked again by a stale boolean.
+  isTabGroupsPromptAnsweredOnce: boolean;
+  isNeverAskAgainForTabGroups: boolean;
 }
 
 // Retrieve settings from localStorage
@@ -54,6 +64,8 @@ const defaultSettings: SettingsData = {
   isUserRatedAndReviewed: false,
   isNeverAskAgainToRate: false,
   lastReviewRequestTime: '',
+  isTabGroupsPromptAnsweredOnce: false,
+  isNeverAskAgainForTabGroups: false,
 };
 
 export const initialState: SettingsData = {
@@ -128,6 +140,20 @@ export const settingsDataStateSlice = createSlice({
       saveToLocalStorage('settingsData', state);
     },
 
+    setTabGroupsPromptAnsweredOnce: (state) => {
+      state.isTabGroupsPromptAnsweredOnce = true;
+
+      // Save updated state to localStorage
+      saveToLocalStorage('settingsData', state);
+    },
+
+    setNeverAskAgainForTabGroups: (state) => {
+      state.isNeverAskAgainForTabGroups = true;
+
+      // Save updated state to localStorage
+      saveToLocalStorage('settingsData', state);
+    },
+
     replaceState: (state, action: PayloadAction<typeof state>) => {
       // Save updated state to localStorage
       saveToLocalStorage('settingsData', state);
@@ -147,6 +173,8 @@ export const {
   setSkippedUserReviewOnce,
   setExtensionInstalledTime,
   updateLastReviewRequestTime,
+  setTabGroupsPromptAnsweredOnce,
+  setNeverAskAgainForTabGroups,
 } = settingsDataStateSlice.actions;
 
 export default settingsDataStateSlice.reducer;

@@ -99,5 +99,11 @@
   "Sync unavailable: your cloud data could not be read. Sessions on this device are safe.": "Sync unavailable: your cloud data could not be read. Sessions on this device are safe.",
   "Synced changes from another device.": "Synced changes from another device.",
   "Restored tabs successfully!": "Restored tabs successfully!",
-  "Unnamed group": "Unnamed group"
+  "Unnamed group": "Unnamed group",
+  "TabGroupsPromptTitle": "Save your tab groups",
+  "TabGroupsPromptBodyOne": "Tab Keeper can't save the name and colour of your tab group without permission.",
+  "TabGroupsPromptBodyOther": "Tab Keeper can't save the names and colours of your {{count}} tab groups without permission.",
+  "TabGroupsPromptConfirm": "Enable tab group support",
+  "TabGroupsPromptDismiss": "Not now",
+  "TabGroupsPromptNever": "Don't ask again"
 }

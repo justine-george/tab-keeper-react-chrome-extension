@@ -45,6 +45,16 @@ export interface Global {
   isToastOpen: boolean;
   toastText: string;
   isRateAndReviewModalOpen: boolean;
+  // KAN-74. How many live tab groups the "turn on tab group support?" offer is
+  // about, or null when the offer is not showing. One field rather than an
+  // open flag beside a count, so an open prompt without a count is
+  // unrepresentable -- the same shape, and for the same reason, as
+  // focusRequest below.
+  //
+  // Session-only, like every other flag here: whether the offer is SHOWING is
+  // a fact about this popup, while whether it may be shown AGAIN is persisted
+  // in settingsData.
+  tabGroupsPromptCount: number | null;
   focusRequest: FocusRequest | null;
   // "the tabGroups permission is granted right now". Mirrors
   // chrome.permissions.contains(), re-read on every popup mount and updated by
@@ -78,6 +88,7 @@ export const initialState: Global = {
   isToastOpen: false,
   toastText: '',
   isRateAndReviewModalOpen: false,
+  tabGroupsPromptCount: null,
   focusRequest: null,
   hasTabGroupsPermission: false,
 };
@@ -297,6 +308,14 @@ export const globalStateSlice = createSlice({
       state.isRateAndReviewModalOpen = false;
     },
 
+    openTabGroupsPrompt: (state, action: PayloadAction<number>) => {
+      state.tabGroupsPromptCount = action.payload;
+    },
+
+    closeTabGroupsPrompt: (state) => {
+      state.tabGroupsPromptCount = null;
+    },
+
     openFocusModal: (state, action: PayloadAction<FocusRequest>) => {
       state.focusRequest = action.payload;
     },
@@ -427,6 +446,8 @@ export const globalStateSlice = createSlice({
 export const {
   openRateAndReviewModal,
   closeRateAndReviewModal,
+  openTabGroupsPrompt,
+  closeTabGroupsPrompt,
   openFocusModal,
   closeFocusModal,
   openSearchPanel,

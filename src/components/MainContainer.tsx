@@ -16,6 +16,7 @@ import RightPaneSettings from './settings/rightpane/RightPaneSettings';
 import { closeToast } from '../redux/slices/globalStateSlice';
 import { RateAndReviewModal } from './modals/RateAndReviewModal';
 import { FocusConfirmModal } from './modals/FocusConfirmModal';
+import { TabGroupsPermissionModal } from './modals/TabGroupsPermissionModal';
 
 // KAN-52. The undo/redo shortcuts are registered on `window`, so they also see
 // keystrokes aimed at a text field. When they do, the browser's own undo stack
@@ -59,6 +60,10 @@ export default function MainContainer() {
 
   const focusRequest = useSelector(
     (state: RootState) => state.globalState.focusRequest
+  );
+
+  const tabGroupsPromptCount = useSelector(
+    (state: RootState) => state.globalState.tabGroupsPromptCount
   );
 
   // Keyboard shortcut listener for undo/redo
@@ -163,6 +168,7 @@ export default function MainContainer() {
       )}
       {isToastOpen && <Toast />}
       {isRateAndReviewModalOpen && <RateAndReviewModal />}
+      {tabGroupsPromptCount !== null && <TabGroupsPermissionModal />}
       {focusRequest && <FocusConfirmModal />}
     </div>
   );

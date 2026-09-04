@@ -99,5 +99,11 @@
   "Sync unavailable: your cloud data could not be read. Sessions on this device are safe.": "Синхронизация недоступна: не удалось прочитать данные в облаке. Сессии на этом устройстве в сохранности.",
   "Synced changes from another device.": "Изменения с другого устройства синхронизированы.",
   "Restored tabs successfully!": "Вкладки успешно восстановлены!",
-  "Unnamed group": "Группа без имени"
+  "Unnamed group": "Группа без имени",
+  "TabGroupsPromptTitle": "Сохраняйте свои группы вкладок",
+  "TabGroupsPromptBodyOne": "Без разрешения Tab Keeper не может сохранить название и цвет вашей группы вкладок.",
+  "TabGroupsPromptBodyOther": "Без разрешения Tab Keeper не может сохранить названия и цвета ваших групп вкладок ({{count}}).",
+  "TabGroupsPromptConfirm": "Включить поддержку групп вкладок",
+  "TabGroupsPromptDismiss": "Не сейчас",
+  "TabGroupsPromptNever": "Больше не спрашивать"
 }

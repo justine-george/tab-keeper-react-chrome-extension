@@ -99,5 +99,11 @@
   "Sync unavailable: your cloud data could not be read. Sessions on this device are safe.": "Sincronización no disponible: no se pudieron leer los datos de la nube. Las sesiones de este dispositivo están a salvo.",
   "Synced changes from another device.": "Cambios sincronizados desde otro dispositivo.",
   "Restored tabs successfully!": "¡Pestañas restauradas correctamente!",
-  "Unnamed group": "Grupo sin nombre"
+  "Unnamed group": "Grupo sin nombre",
+  "TabGroupsPromptTitle": "Guarda tus grupos de pestañas",
+  "TabGroupsPromptBodyOne": "Sin permiso, Tab Keeper no puede guardar el nombre y el color de tu grupo de pestañas.",
+  "TabGroupsPromptBodyOther": "Sin permiso, Tab Keeper no puede guardar los nombres y colores de tus {{count}} grupos de pestañas.",
+  "TabGroupsPromptConfirm": "Activar la compatibilidad con grupos de pestañas",
+  "TabGroupsPromptDismiss": "Ahora no",
+  "TabGroupsPromptNever": "No volver a preguntar"
 }
