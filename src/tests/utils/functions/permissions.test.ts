@@ -14,6 +14,16 @@ import {
 let handle: ChromeFakeHandle;
 afterEach(() => handle?.restore());
 
+// This file runs under vitest's 'node' project (a plain .ts test, see
+// vite.config.ts), so `process` genuinely exists at runtime -- tsconfig.json
+// just omits @types/node from `types` so APP code cannot reach for Node APIs
+// a browser extension does not have. This local, minimal shape is enough for
+// the one test below that needs it, without pulling in the full node types.
+declare const process: {
+  once(event: 'unhandledRejection', listener: () => void): void;
+  removeListener(event: 'unhandledRejection', listener: () => void): void;
+};
+
 describe('hasTabGroupsPermission', () => {
   test('false on a profile that has not granted it', async () => {
     handle = setupChromeFake();
@@ -65,11 +75,29 @@ describe('requestTabGroupsPermission', () => {
     permissions.request = () =>
       Promise.reject(new Error('user gesture required'));
 
+    // Localises the assertion instead of relying on vitest's own exit code:
+    // register our own listener and check whether IT fired, rather than
+    // trusting the test runner to notice and fail the process for us.
+    let sawUnhandledRejection = false;
+    const onUnhandledRejection = () => {
+      sawUnhandledRejection = true;
+    };
+    process.once('unhandledRejection', onUnhandledRejection);
+
     expect(() => requestTabGroupsPermission()).not.toThrow();
-    // Let the rejection settle. If the implementation's .catch is removed,
-    // this surfaces as an unhandled rejection rather than a silent no-op.
-    await Promise.resolve();
-    await Promise.resolve();
+    // Node fires 'unhandledRejection' on a later tick than the microtask
+    // queue -- two chained Promise.resolve() awaits were not enough for it to
+    // fire and were removing the listener too early (verified: with the
+    // implementation's .catch deleted, that timing let the rejection through
+    // silently and this test still passed). A macrotask tick (setTimeout)
+    // is enough for Node to run its check before the listener is torn down.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    process.removeListener('unhandledRejection', onUnhandledRejection);
+    // Mutation-tested: deleting `.catch(() => {})` from
+    // requestTabGroupsPermission makes this assertion fail on its own, with
+    // no unhandled-rejection noise from vitest -- see KAN-11 final fix wave.
+    expect(sawUnhandledRejection).toBe(false);
   });
 
   test('the grant is observable through contains()', async () => {
@@ -92,5 +120,27 @@ describe('observeTabGroupsPermission', () => {
     await Promise.resolve();
 
     expect(seen).toEqual([true, false]);
+  });
+
+  // Guards against the listener reporting ANY permission change as a
+  // tabGroups change (it used to -- it discarded the event payload). The
+  // fake's request()/remove() accept any permission name, so a change to an
+  // unrelated one exercises exactly the payload the production listener must
+  // now inspect before calling onChange.
+  test('a change to a different permission does not report a tabGroups change', async () => {
+    handle = setupChromeFake();
+    const seen: boolean[] = [];
+    observeTabGroupsPermission((granted) => seen.push(granted));
+
+    const permissions = chrome.permissions as unknown as {
+      request: (
+        permissions: chrome.permissions.Permissions
+      ) => Promise<boolean>;
+      remove: (permissions: chrome.permissions.Permissions) => Promise<boolean>;
+    };
+    await permissions.request({ permissions: ['bookmarks'] });
+    await permissions.remove({ permissions: ['bookmarks'] });
+
+    expect(seen).toEqual([]);
   });
 });

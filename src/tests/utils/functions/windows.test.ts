@@ -197,8 +197,15 @@ describe('createWindowWithRetries', () => {
 });
 
 describe('createWindowWithRetries with tab groups', () => {
+  let handle: ReturnType<typeof setupChromeFake> | undefined;
+
+  afterEach(() => {
+    handle?.restore();
+    handle = undefined;
+  });
+
   test('groups the right tabs and applies title and colour', async () => {
-    const handle = setupChromeFake({ grantedPermissions: ['tabGroups'] });
+    handle = setupChromeFake({ grantedPermissions: ['tabGroups'] });
 
     await createWindowWithRetries(
       spec({
@@ -219,12 +226,10 @@ describe('createWindowWithRetries with tab groups', () => {
 
     const groups = await chrome.tabGroups.query({});
     expect(groups[0]).toMatchObject({ title: 'Work', color: 'blue' });
-
-    handle.restore();
   });
 
   test('an unknown colour is applied as grey rather than rejected', async () => {
-    const handle = setupChromeFake({ grantedPermissions: ['tabGroups'] });
+    handle = setupChromeFake({ grantedPermissions: ['tabGroups'] });
 
     await createWindowWithRetries(
       spec({
@@ -238,12 +243,10 @@ describe('createWindowWithRetries with tab groups', () => {
 
     const groups = await chrome.tabGroups.query({});
     expect(groups[0].color).toBe('grey');
-
-    handle.restore();
   });
 
   test('does no grouping at all when the permission is absent', async () => {
-    const handle = setupChromeFake();
+    handle = setupChromeFake();
     delete (globalThis as { chrome?: { tabGroups?: unknown } }).chrome!
       .tabGroups;
 
@@ -258,7 +261,6 @@ describe('createWindowWithRetries with tab groups', () => {
     );
 
     expect(handle.groupedTabs).toEqual([]);
-    handle.restore();
   });
 
   // The load-bearing failure case. By the time grouping runs the tabs are
@@ -266,7 +268,7 @@ describe('createWindowWithRetries with tab groups', () => {
   // above all it must still resolve with the created window, because focus
   // mode decides whether to close the user's windows from that value.
   test('a failing tabs.group still resolves with the created window', async () => {
-    const handle = setupChromeFake({ grantedPermissions: ['tabGroups'] });
+    handle = setupChromeFake({ grantedPermissions: ['tabGroups'] });
     const tabs = chrome.tabs as unknown as {
       group: (options: chrome.tabs.GroupOptions) => Promise<number>;
     };
@@ -283,7 +285,6 @@ describe('createWindowWithRetries with tab groups', () => {
     );
 
     expect(created).not.toBeNull();
-    handle.restore();
   });
 
   // The try/catch inside applyTabGroups is not only there to keep the
@@ -294,7 +295,7 @@ describe('createWindowWithRetries with tab groups', () => {
   // first still got applied" from "the whole loop aborted after the first
   // failure", since both leave the window intact.
   test('a group that fails does not stop the groups after it', async () => {
-    const handle = setupChromeFake({ grantedPermissions: ['tabGroups'] });
+    handle = setupChromeFake({ grantedPermissions: ['tabGroups'] });
     const tabs = chrome.tabs as unknown as {
       group: (options: chrome.tabs.GroupOptions) => Promise<number>;
     };
@@ -328,18 +329,15 @@ describe('createWindowWithRetries with tab groups', () => {
     expect(handle.groupedTabs).toHaveLength(1);
     const groups = await chrome.tabGroups.query({});
     expect(groups.some((group) => group.title === 'Second')).toBe(true);
-
-    handle.restore();
   });
 
   test('a spec with no groups behaves exactly as before', async () => {
-    const handle = setupChromeFake({ grantedPermissions: ['tabGroups'] });
+    handle = setupChromeFake({ grantedPermissions: ['tabGroups'] });
 
     const created = await createWindowWithRetries(spec(), 'Go', false, 2);
 
     expect(created).not.toBeNull();
     expect(handle.groupedTabs).toEqual([]);
-    handle.restore();
   });
 });
 

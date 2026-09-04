@@ -53,6 +53,10 @@ export function observeTabGroupsPermission(
   onChange: (granted: boolean) => void
 ): void {
   if (typeof chrome === 'undefined' || !chrome.permissions) return;
-  chrome.permissions.onAdded.addListener(() => onChange(true));
-  chrome.permissions.onRemoved.addListener(() => onChange(false));
+  chrome.permissions.onAdded.addListener((permissions) => {
+    if (permissions.permissions?.includes('tabGroups')) onChange(true);
+  });
+  chrome.permissions.onRemoved.addListener((permissions) => {
+    if (permissions.permissions?.includes('tabGroups')) onChange(false);
+  });
 }

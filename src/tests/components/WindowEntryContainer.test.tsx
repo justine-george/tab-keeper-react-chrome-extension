@@ -133,6 +133,34 @@ describe('WindowEntryContainer renders Chrome tab groups', () => {
       `rgb(${r}, ${g}, ${b})`
     );
   });
+
+  // The test above seeds a VALID colour, so it passes equally whether the
+  // component sanitizes run.group.color or uses it raw -- it cannot tell the
+  // two apart. An invalid colour can: only the sanitized path degrades it to
+  // grey, so this is the case that actually pins sanitizeTabGroupColor being
+  // called rather than assumed.
+  test('an unrecognised colour is sanitized to grey rather than rendered raw', async () => {
+    await renderWindow({
+      tabs: [
+        {
+          tabId: 't1',
+          favicon: '',
+          title: 'Inbox',
+          url: 'https://a.test',
+          chromeGroupId: 'g1',
+        },
+      ],
+      chromeTabGroups: [{ groupId: 'g1', title: 'Work', color: 'chartreuse' }],
+    });
+
+    const group = screen.getByRole('group', { name: 'Work' });
+    const band = group.querySelector('[aria-hidden="true"]');
+    expect(band).not.toBeNull();
+    const [r, g, b] = hexToRgb(TAB_GROUP_COLOR_HEX.grey);
+    expect(getComputedStyle(band as Element).backgroundColor).toBe(
+      `rgb(${r}, ${g}, ${b})`
+    );
+  });
 });
 
 function hexToRgb(hex: string): [number, number, number] {
