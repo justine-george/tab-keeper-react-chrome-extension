@@ -28,6 +28,7 @@ export interface tabData {
   favicon: string;
   title: string;
   url: string;
+  chromeGroupId?: string;
 }
 
 export interface windowGroupData {
