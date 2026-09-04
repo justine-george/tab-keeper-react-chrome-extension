@@ -2,23 +2,33 @@
 // over a mock on purpose: tests assert on resulting state rather than on the
 // fact that a function was invoked.
 //
-// Covers 15 members production code calls as of 2026-08-31 --
-// tabs.query/create/update/get/onActivated, windows.getAll/getCurrent/
+// Covers 24 members production code calls as of 2026-09-03 --
+// tabs.query/create/update/get/onActivated/group, windows.getAll/getCurrent/
 // create/remove, storage.sync.get/set, runtime.sendMessage/onMessage/getURL/
-// lastError -- plus storage.sync.remove/clear, which have no production call
-// site today but are implemented for API fidelity and exercised by this
-// fake's own tests. Widen this when the app calls something new.
+// lastError, tabGroups.query/update/TAB_GROUP_ID_NONE, permissions.contains/
+// request/remove/onAdded/onRemoved -- plus storage.sync.remove/clear and
+// permissions.getAll, which have no production call site today but are
+// implemented for API fidelity and exercised by this fake's own tests.
+// Widen this when the app calls something new.
 
 export type ChromeSeed = {
   tabs?: Partial<chrome.tabs.Tab>[];
   windows?: Partial<chrome.windows.Window>[];
   storage?: Record<string, unknown>;
+  tabGroups?: Partial<chrome.tabGroups.TabGroup>[];
+  // Optional permissions the profile already holds. Defaults to none, which is
+  // what a fresh install looks like.
+  grantedPermissions?: chrome.runtime.ManifestPermission[];
+  // Model the measured production behaviour where the popup is destroyed
+  // before permissions.request() settles. See the KAN-11 spike.
+  requestNeverSettles?: boolean;
 };
 
 export type ChromeFakeHandle = {
   sentMessages: unknown[];
   createdTabs: chrome.tabs.CreateProperties[];
   removedWindowIds: number[];
+  groupedTabs: { groupId: number; windowId: number; tabIds: number[] }[];
   restore(): void;
 };
 
@@ -61,6 +71,10 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
       url: '',
       title: '',
       active: false,
+      // -1 is chrome.tabGroups.TAB_GROUP_ID_NONE. Defaulting to undefined
+      // would let a capture that reads tab.groupId silently treat every tab as
+      // grouped-into-nothing rather than ungrouped.
+      groupId: -1,
       windowId,
       ...tab,
     }) as chrome.tabs.Tab;
@@ -94,10 +108,30 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
     tabs: tabs.filter((tab) => tab.windowId === win.id),
   });
 
+  const tabGroups: chrome.tabGroups.TabGroup[] = (seed.tabGroups ?? []).map(
+    (group) =>
+      ({
+        id: group.id ?? nextId++,
+        collapsed: false,
+        color: 'grey',
+        shared: false,
+        title: '',
+        windowId: DEFAULT_WINDOW_ID,
+        ...group,
+      }) as chrome.tabGroups.TabGroup
+  );
+
+  const granted = new Set(seed.grantedPermissions ?? []);
+  const permissionListeners = {
+    added: [] as ((p: chrome.permissions.Permissions) => void)[],
+    removed: [] as ((p: chrome.permissions.Permissions) => void)[],
+  };
+
   const handle: ChromeFakeHandle = {
     sentMessages: [],
     createdTabs: [],
     removedWindowIds: [],
+    groupedTabs: [],
     restore() {
       delete (globalThis as { chrome?: unknown }).chrome;
     },
@@ -203,6 +237,34 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
         addListener: () => undefined,
         removeListener: () => undefined,
       },
+      group: (
+        options: chrome.tabs.GroupOptions,
+        cb?: (groupId: number) => void
+      ) => {
+        const tabIds = Array.isArray(options.tabIds)
+          ? options.tabIds
+          : [options.tabIds as number];
+        const windowId =
+          options.createProperties?.windowId ?? DEFAULT_WINDOW_ID;
+        const groupId = options.groupId ?? nextId++;
+
+        if (!tabGroups.some((group) => group.id === groupId)) {
+          tabGroups.push({
+            id: groupId,
+            collapsed: false,
+            color: 'grey',
+            shared: false,
+            title: '',
+            windowId,
+          } as chrome.tabGroups.TabGroup);
+        }
+        for (const tabId of tabIds) {
+          const target = tabs.find((tab) => tab.id === tabId);
+          if (target) target.groupId = groupId;
+        }
+        handle.groupedTabs.push({ groupId, windowId, tabIds });
+        return settle(groupId, cb);
+      },
     },
 
     windows: {
@@ -280,6 +342,78 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
       },
       getURL: (path: string) => `chrome-extension://faketestid/${path}`,
       lastError: undefined as chrome.runtime.LastError | undefined,
+    },
+
+    tabGroups: {
+      TAB_GROUP_ID_NONE: -1 as const,
+      query: (
+        queryInfo: chrome.tabGroups.QueryInfo,
+        cb?: (result: chrome.tabGroups.TabGroup[]) => void
+      ) =>
+        settle(
+          tabGroups.filter(
+            (group) =>
+              queryInfo.windowId === undefined ||
+              group.windowId === queryInfo.windowId
+          ),
+          cb
+        ),
+      update: (
+        groupId: number,
+        props: chrome.tabGroups.UpdateProperties,
+        cb?: (group?: chrome.tabGroups.TabGroup) => void
+      ) => {
+        const target = tabGroups.find((group) => group.id === groupId);
+        if (target) Object.assign(target, props);
+        return settle(target, cb);
+      },
+    },
+
+    permissions: {
+      contains: (
+        permissions: chrome.permissions.Permissions,
+        cb?: (result: boolean) => void
+      ) =>
+        settle(
+          (permissions.permissions ?? []).every((name) => granted.has(name)),
+          cb
+        ),
+      request: (
+        permissions: chrome.permissions.Permissions,
+        cb?: (granted: boolean) => void
+      ) => {
+        // Production measurement: the popup can be destroyed before this
+        // settles, so a caller must never depend on the result. Seeding
+        // requestNeverSettles lets a test reproduce that shape exactly.
+        if (seed.requestNeverSettles) return new Promise<boolean>(() => {});
+        for (const name of permissions.permissions ?? []) granted.add(name);
+        permissionListeners.added.forEach((listener) => listener(permissions));
+        return settle(true, cb);
+      },
+      remove: (
+        permissions: chrome.permissions.Permissions,
+        cb?: (removed: boolean) => void
+      ) => {
+        for (const name of permissions.permissions ?? []) granted.delete(name);
+        permissionListeners.removed.forEach((listener) =>
+          listener(permissions)
+        );
+        return settle(true, cb);
+      },
+      getAll: (cb?: (p: chrome.permissions.Permissions) => void) =>
+        settle({ permissions: [...granted], origins: [] }, cb),
+      onAdded: {
+        addListener: (fn: (p: chrome.permissions.Permissions) => void) => {
+          permissionListeners.added.push(fn);
+        },
+        removeListener: () => undefined,
+      },
+      onRemoved: {
+        addListener: (fn: (p: chrome.permissions.Permissions) => void) => {
+          permissionListeners.removed.push(fn);
+        },
+        removeListener: () => undefined,
+      },
     },
   };
 
