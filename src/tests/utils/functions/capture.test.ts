@@ -434,4 +434,54 @@ describe('captureOpenWindows with tab groups', () => {
     const captured = await captureOpenWindows('session', 'all-windows');
     expect(captured!.windows[0].chromeTabGroups).toBeUndefined();
   });
+
+  // A permission revoked mid-loop must not produce a session where some
+  // windows carry chromeTabGroups and others silently do not -- one capture
+  // has to make ONE decision. chrome.fake.ts has no built-in call counter, so
+  // this overrides chrome.permissions.contains on the already-installed fake
+  // rather than adding one there, the same pattern
+  // permissions.test.ts uses for chrome.permissions.request.
+  test('makes one permission decision for the whole capture, not one per window', async () => {
+    handle = setupChromeFake({
+      grantedPermissions: ['tabGroups'],
+      windows: [
+        {
+          id: 1,
+          type: 'normal',
+          tabs: [
+            { id: 11, url: 'https://a.test', title: 'a' },
+          ] as chrome.tabs.Tab[],
+        },
+        {
+          id: 2,
+          type: 'normal',
+          tabs: [
+            { id: 12, url: 'https://b.test', title: 'b' },
+          ] as chrome.tabs.Tab[],
+        },
+        {
+          id: 3,
+          type: 'normal',
+          tabs: [
+            { id: 13, url: 'https://c.test', title: 'c' },
+          ] as chrome.tabs.Tab[],
+        },
+      ],
+    });
+
+    const permissions = chrome.permissions as unknown as {
+      contains: (p: chrome.permissions.Permissions) => Promise<boolean>;
+    };
+    const original = permissions.contains;
+    let calls = 0;
+    permissions.contains = (p) => {
+      calls += 1;
+      return original(p);
+    };
+
+    const captured = await captureOpenWindows('session', 'all-windows');
+
+    expect(captured!.windows).toHaveLength(3);
+    expect(calls).toBe(1);
+  });
 });

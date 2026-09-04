@@ -106,27 +106,42 @@ async function windowsInScope(
 
 // Chrome's groups for one window, converted to storage shape.
 //
+// `granted` lets one capture make ONE permission decision for every window it
+// covers, rather than one per window: captureOpenWindows checks once before
+// its loop and passes the result into every call, so a permission revoked
+// mid-loop cannot produce a single saved session where some windows carry
+// chromeTabGroups and others silently do not -- the whole point of this
+// feature's all-or-nothing rule. A caller with only one window
+// (HeroContainerRight) omits it, and this checks for itself, so there is
+// still exactly one place a permission decision is made from.
+//
 // Returns null when there is nothing to store -- no permission, no groups, or
 // a query that failed -- which the caller writes as an absent field rather
 // than an empty array, so a window with no groups is byte-identical to one
 // saved before this feature existed.
 export async function readCurrentWindowGroups(
-  windowId: number | undefined
+  windowId: number | undefined,
+  granted?: boolean
 ): Promise<{
   groups: chromeTabGroupData[];
   idByChromeId: Map<number, string>;
 } | null> {
   if (windowId === undefined) return null;
-  // The namespace is undefined -- not throwing -- while the permission is
-  // ungranted, so this is a feature detection rather than a try/catch.
+  // In PRODUCTION this namespace check is the gate: chrome.tabGroups is
+  // genuinely undefined while the permission is ungranted, so real Chrome
+  // never reaches the permission check below without it already having
+  // returned null here.
   if (typeof chrome === 'undefined' || !chrome.tabGroups) return null;
-  // The namespace check above is belt-and-braces for real Chrome, where the
-  // namespace is genuinely undefined while ungranted. The test fake exposes
-  // chrome.tabGroups unconditionally (see chrome.fake.ts's own header: it
-  // widens API fidelity for the surface itself, not gating that surface on
-  // grantedPermissions), so the actual gate -- here and in production -- is
-  // this explicit permission check.
-  if (!(await hasTabGroupsPermission())) return null;
+  // This is a deliberate defensive duplicate of the check above, not the
+  // production gate -- it does independent work in two narrower cases: the
+  // test fake, which exposes chrome.tabGroups unconditionally regardless of
+  // grantedPermissions (see chrome.fake.ts's own header: it widens API
+  // fidelity for the surface itself, not gating that surface on the
+  // permission), and a permission revoked in the gap between the namespace
+  // check above and the query() call below -- which the try/catch around
+  // that call also covers.
+  const hasPermission = granted ?? (await hasTabGroupsPermission());
+  if (!hasPermission) return null;
 
   let found: chrome.tabGroups.TabGroup[];
   try {
@@ -210,13 +225,18 @@ export async function captureOpenWindows(
 ): Promise<tabContainerData | null> {
   const windowList = await windowsInScope(scope);
 
+  // One decision for the whole capture, not one per window -- see
+  // readCurrentWindowGroups's header for why a per-window check would be
+  // wrong.
+  const granted = await hasTabGroupsPermission();
+
   const windowsGroupData: windowGroupData[] = [];
   let tabCount = 0;
 
   for (const window of windowList) {
     if (!window.tabs || window.tabs.length === 0) continue;
 
-    const read = await readCurrentWindowGroups(window.id);
+    const read = await readCurrentWindowGroups(window.id, granted);
     const windowGroup = toWindowGroupData(
       window,
       window.tabs[0].title || '',
