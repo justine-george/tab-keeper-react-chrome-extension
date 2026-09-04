@@ -132,12 +132,13 @@ it('tab group metadata does not materially change the size estimate', () => {
   const withGroups = estimateFirestoreBytes(sizedContainer(true));
 
   // Measured (see the commit message and KAN-11 for the numbers): tab group
-  // metadata added well under half of the 15% budget below, for a document
-  // still well under Firestore's 1 MiB ceiling.
+  // metadata added 11.7% on a grouped-heavy account, against the 15% budget
+  // below -- about 3 points of margin left, not a lot. The document itself
+  // is still well under Firestore's 1 MiB ceiling.
   //
-  // If this ever fails, take the spec's §8.3 fallback: reference groups by
-  // their index in chromeTabGroups instead of by uuid, saving ~48 bytes per
-  // grouped tab.
+  // If a future field pushes this over, take the spec's §8.3 fallback:
+  // reference groups by their index in chromeTabGroups instead of by uuid,
+  // saving ~48 bytes per grouped tab.
   expect((withGroups - withoutGroups) / withoutGroups).toBeLessThan(0.15);
   expect(withGroups).toBeLessThan(FIRESTORE_MAX_DOCUMENT_BYTES);
 });
