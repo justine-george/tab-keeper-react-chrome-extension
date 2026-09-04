@@ -42,9 +42,33 @@ describe('requestTabGroupsPermission', () => {
     expect(requestTabGroupsPermission()).toBeUndefined();
   });
 
-  test('does not reject or warn when the request never settles', async () => {
+  // This only proves the synchronous call doesn't throw. It cannot exercise
+  // the implementation's .catch(), because requestNeverSettles's promise never
+  // settles at all (it neither resolves nor rejects) -- see the dedicated
+  // rejection test below for that.
+  test('does not throw synchronously when the request never settles', async () => {
     handle = setupChromeFake({ requestNeverSettles: true });
     expect(() => requestTabGroupsPermission()).not.toThrow();
+    await Promise.resolve();
+  });
+
+  // The real target of the "errors are swallowed" comment in the
+  // implementation. requestNeverSettles models a promise that hangs forever,
+  // which can never reach a .catch(); a genuine rejection needs a fake that
+  // actually rejects, so this overrides chrome.permissions.request on the
+  // already-installed fake rather than adding a seed to chrome.fake.ts.
+  test('swallows a rejection from chrome.permissions.request', async () => {
+    handle = setupChromeFake();
+    const permissions = chrome.permissions as unknown as {
+      request: () => Promise<boolean>;
+    };
+    permissions.request = () =>
+      Promise.reject(new Error('user gesture required'));
+
+    expect(() => requestTabGroupsPermission()).not.toThrow();
+    // Let the rejection settle. If the implementation's .catch is removed,
+    // this surfaces as an unhandled rejection rather than a silent no-op.
+    await Promise.resolve();
     await Promise.resolve();
   });
 
