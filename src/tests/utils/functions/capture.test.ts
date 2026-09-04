@@ -360,3 +360,78 @@ describe('captureOpenWindows scope', () => {
     expect(captured!.windows[0].tabs.map((tab) => tab.url)).toEqual([A]);
   });
 });
+
+let handle: ReturnType<typeof setupChromeFake> | undefined;
+afterEach(() => {
+  handle?.restore();
+  handle = undefined;
+});
+
+describe('captureOpenWindows with tab groups', () => {
+  test('captures group title, colour and membership when granted', async () => {
+    handle = setupChromeFake({
+      grantedPermissions: ['tabGroups'],
+      windows: [{ id: 1, type: 'normal' }],
+      tabGroups: [{ id: 5, windowId: 1, title: 'Work', color: 'blue' }],
+      tabs: [
+        { id: 11, windowId: 1, url: 'https://a.test', title: 'a', groupId: 5 },
+        { id: 12, windowId: 1, url: 'https://b.test', title: 'b' },
+      ],
+    });
+
+    const captured = await captureOpenWindows('session', 'all-windows');
+    const window = captured!.windows[0];
+
+    expect(window.chromeTabGroups).toHaveLength(1);
+    expect(window.chromeTabGroups![0]).toMatchObject({
+      title: 'Work',
+      color: 'blue',
+    });
+    // The stored id is a minted uuid, never Chrome's numeric id -- Chrome
+    // reuses those across sessions, so persisting one lets two devices collide.
+    expect(window.chromeTabGroups![0].groupId).not.toBe('5');
+    expect(window.tabs[0].chromeGroupId).toBe(
+      window.chromeTabGroups![0].groupId
+    );
+    expect(window.tabs[1].chromeGroupId).toBeUndefined();
+  });
+
+  test('an untitled Chrome group is stored with an empty string title', async () => {
+    handle = setupChromeFake({
+      grantedPermissions: ['tabGroups'],
+      windows: [{ id: 1, type: 'normal' }],
+      tabGroups: [{ id: 5, windowId: 1, color: 'red' }],
+      tabs: [{ id: 11, windowId: 1, url: 'https://a.test', groupId: 5 }],
+    });
+
+    const captured = await captureOpenWindows('session', 'all-windows');
+    expect(captured!.windows[0].chromeTabGroups![0].title).toBe('');
+  });
+
+  test('captures nothing group-related when the permission is absent', async () => {
+    handle = setupChromeFake({
+      windows: [{ id: 1, type: 'normal' }],
+      tabGroups: [{ id: 5, windowId: 1, title: 'Work', color: 'blue' }],
+      tabs: [
+        { id: 11, windowId: 1, url: 'https://a.test', title: 'a', groupId: 5 },
+      ],
+    });
+
+    const captured = await captureOpenWindows('session', 'all-windows');
+    const window = captured!.windows[0];
+
+    expect(window.chromeTabGroups).toBeUndefined();
+    expect(window.tabs[0].chromeGroupId).toBeUndefined();
+  });
+
+  test('a window with no groups gets no chromeTabGroups field', async () => {
+    handle = setupChromeFake({
+      grantedPermissions: ['tabGroups'],
+      windows: [{ id: 1, type: 'normal' }],
+      tabs: [{ id: 11, windowId: 1, url: 'https://a.test', title: 'a' }],
+    });
+
+    const captured = await captureOpenWindows('session', 'all-windows');
+    expect(captured!.windows[0].chromeTabGroups).toBeUndefined();
+  });
+});
