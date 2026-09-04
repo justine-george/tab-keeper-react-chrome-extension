@@ -2,8 +2,9 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 import {
   createWindowWithRetries,
-  isFocusSessionRequest,
+  isRestoreSessionRequest,
   planWindowClosure,
+  RESTORE_SESSION_MESSAGE,
   WindowSpec,
 } from '../../../utils/functions/windows';
 
@@ -186,25 +187,36 @@ describe('createWindowWithRetries', () => {
   });
 });
 
-describe('isFocusSessionRequest', () => {
+describe('isRestoreSessionRequest', () => {
   const valid = {
-    type: 'focus-session',
+    type: RESTORE_SESSION_MESSAGE,
     specs: [],
-    goToURLText: 'Go to URL',
-    isLazyLoad: true,
+    goToURLText: 'Go',
+    isLazyLoad: false,
+    closeOtherWindows: true,
   };
 
-  test('accepts a well formed request', () => {
-    expect(isFocusSessionRequest(valid)).toBe(true);
+  test('accepts a well-formed request', () => {
+    expect(isRestoreSessionRequest(valid)).toBe(true);
   });
 
-  test.each([
-    ['a different message type', { ...valid, type: 'something-else' }],
-    ['missing specs', { ...valid, specs: undefined }],
-    ['a non boolean lazy load flag', { ...valid, isLazyLoad: 'yes' }],
-    ['null', null],
-    ['a bare string', 'focus-session'],
-  ])('rejects %s', (_label, message) => {
-    expect(isFocusSessionRequest(message)).toBe(false);
+  test('rejects a request missing closeOtherWindows', () => {
+    const withoutFlag: Record<string, unknown> = { ...valid };
+    delete withoutFlag.closeOtherWindows;
+    expect(isRestoreSessionRequest(withoutFlag)).toBe(false);
+  });
+
+  test('rejects a non-boolean closeOtherWindows', () => {
+    expect(
+      isRestoreSessionRequest({ ...valid, closeOtherWindows: 'yes' })
+    ).toBe(false);
+  });
+
+  test('rejects the wrong type, a non-object and null', () => {
+    expect(isRestoreSessionRequest({ ...valid, type: 'something' })).toBe(
+      false
+    );
+    expect(isRestoreSessionRequest('nope')).toBe(false);
+    expect(isRestoreSessionRequest(null)).toBe(false);
   });
 });

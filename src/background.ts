@@ -1,9 +1,9 @@
 import { placeholderTarget } from './utils/functions/local';
 import {
   createWindowWithRetries,
-  FocusSessionRequest,
-  isFocusSessionRequest,
+  isRestoreSessionRequest,
   planWindowClosure,
+  RestoreSessionRequest,
 } from './utils/functions/windows';
 
 // Lazy load restores every tab past the first as a placeholder document, and
@@ -25,21 +25,27 @@ chrome.tabs.onActivated.addListener(({ tabId }) => {
   });
 });
 
-// Focus mode runs here for the same reason the listener above does: the popup
-// is destroyed the moment the first restored window takes focus, and every
-// step after that point still has to happen. The popup has already saved the
-// windows this is about to close before it sends this message.
-async function focusSession(request: FocusSessionRequest) {
-  const openWindows = await chrome.windows.getAll({ windowTypes: ['normal'] });
-  const snapshotIds = openWindows
-    .map((openWindow) => openWindow.id)
-    .filter((id): id is number => id !== undefined);
+// Every restore runs here -- see RestoreSessionRequest. Focus mode is this
+// plus closeOtherWindows. Focus mode has to run here for the same reason the
+// listener above does: the popup is destroyed the moment the first restored
+// window takes focus, and every step after that point still has to happen.
+// The popup has already saved the windows this is about to close before it
+// sends this message.
+async function restoreSession(request: RestoreSessionRequest) {
+  // Only focus mode closes anything, so only focus mode needs the snapshot.
+  const snapshotIds = request.closeOtherWindows
+    ? (await chrome.windows.getAll({ windowTypes: ['normal'] }))
+        .map((openWindow) => openWindow.id)
+        .filter((id): id is number => id !== undefined)
+    : [];
 
   const created = await Promise.all(
     request.specs.map((spec) =>
       createWindowWithRetries(spec, request.goToURLText, request.isLazyLoad, 2)
     )
   );
+
+  if (!request.closeOtherWindows) return;
 
   const toClose = planWindowClosure(snapshotIds, created);
 
@@ -57,9 +63,9 @@ async function focusSession(request: FocusSessionRequest) {
 }
 
 chrome.runtime.onMessage.addListener((message) => {
-  if (!isFocusSessionRequest(message)) return;
+  if (!isRestoreSessionRequest(message)) return;
 
   // No response is sent: by the time this finishes there is no popup left to
   // receive one.
-  void focusSession(message);
+  void restoreSession(message);
 });

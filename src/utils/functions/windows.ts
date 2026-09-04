@@ -23,28 +23,38 @@ export interface WindowSpec {
   bounds: WindowBounds | null;
 }
 
-export const FOCUS_SESSION_MESSAGE = 'focus-session';
+export const RESTORE_SESSION_MESSAGE = 'restore-session';
 
-// What the popup hands the worker. The popup cannot do this itself: closing
-// the old windows has to happen after the new ones exist, and
-// chrome.windows.create({focused: true}) destroys the popup long before then.
-export interface FocusSessionRequest {
-  type: typeof FOCUS_SESSION_MESSAGE;
+// What the popup hands the worker for ANY restore.
+//
+// Every restore runs here, not only focus mode's. The popup cannot do it
+// itself for two reasons that compound: chrome.windows.create({focused: true})
+// destroys the popup, and restoring tab groups needs the tab ids that arrive
+// in chrome.tabs.create callbacks -- which is the first restore step that
+// needs an answer back rather than fire-and-forget IPC.
+//
+// closeOtherWindows is the ONLY difference between focus mode and an ordinary
+// open. Keeping it to one flag is what stops this collapsing back into two
+// restore paths that drift.
+export interface RestoreSessionRequest {
+  type: typeof RESTORE_SESSION_MESSAGE;
   specs: WindowSpec[];
   goToURLText: string;
   isLazyLoad: boolean;
+  closeOtherWindows: boolean;
 }
 
-export function isFocusSessionRequest(
+export function isRestoreSessionRequest(
   message: unknown
-): message is FocusSessionRequest {
+): message is RestoreSessionRequest {
   if (typeof message !== 'object' || message === null) return false;
   const candidate = message as Record<string, unknown>;
   return (
-    candidate.type === FOCUS_SESSION_MESSAGE &&
+    candidate.type === RESTORE_SESSION_MESSAGE &&
     Array.isArray(candidate.specs) &&
     typeof candidate.goToURLText === 'string' &&
-    typeof candidate.isLazyLoad === 'boolean'
+    typeof candidate.isLazyLoad === 'boolean' &&
+    typeof candidate.closeOtherWindows === 'boolean'
   );
 }
 

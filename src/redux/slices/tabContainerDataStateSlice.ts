@@ -9,9 +9,8 @@ import {
   type CaptureScope,
 } from '../../utils/functions/capture';
 import {
-  createWindowWithRetries,
-  FOCUS_SESSION_MESSAGE,
-  FocusSessionRequest,
+  RESTORE_SESSION_MESSAGE,
+  RestoreSessionRequest,
   WindowSpec,
 } from '../../utils/functions/windows';
 import {
@@ -181,12 +180,14 @@ export const openTabsInAWindow = createAsyncThunk(
 
     if (!windowGroup) return;
 
-    createWindowWithRetries(
-      toWindowSpec(windowGroup, true),
-      params.goToURLText,
-      settingsDataState.isLazyLoad,
-      2
-    );
+    const request: RestoreSessionRequest = {
+      type: RESTORE_SESSION_MESSAGE,
+      specs: [toWindowSpec(windowGroup, true)],
+      goToURLText: params.goToURLText,
+      isLazyLoad: settingsDataState.isLazyLoad,
+      closeOtherWindows: false,
+    };
+    chrome.runtime.sendMessage(request);
   }
 );
 
@@ -209,14 +210,16 @@ export const openAllTabContainer = createAsyncThunk(
 
     if (!tabGroup) return;
 
-    tabGroup.windows.forEach((windowGroup, index) => {
-      createWindowWithRetries(
-        toWindowSpec(windowGroup, index === 0),
-        params.goToURLText,
-        settingsDataState.isLazyLoad,
-        2
-      );
-    });
+    const request: RestoreSessionRequest = {
+      type: RESTORE_SESSION_MESSAGE,
+      specs: tabGroup.windows.map((windowGroup, index) =>
+        toWindowSpec(windowGroup, index === 0)
+      ),
+      goToURLText: params.goToURLText,
+      isLazyLoad: settingsDataState.isLazyLoad,
+      closeOtherWindows: false,
+    };
+    chrome.runtime.sendMessage(request);
   }
 );
 
@@ -328,13 +331,14 @@ export const focusTabContainer = createAsyncThunk(
     // anything needed saving.
     thunkAPI.dispatch(selectTabContainer(params.tabGroupId));
 
-    const request: FocusSessionRequest = {
-      type: FOCUS_SESSION_MESSAGE,
+    const request: RestoreSessionRequest = {
+      type: RESTORE_SESSION_MESSAGE,
       specs: tabGroup.windows.map((windowGroup, index) =>
         toWindowSpec(windowGroup, index === 0)
       ),
       goToURLText: params.goToURLText,
       isLazyLoad: settingsDataState.isLazyLoad,
+      closeOtherWindows: true,
     };
 
     chrome.runtime.sendMessage(request);
