@@ -360,3 +360,128 @@ describe('captureOpenWindows scope', () => {
     expect(captured!.windows[0].tabs.map((tab) => tab.url)).toEqual([A]);
   });
 });
+
+let handle: ReturnType<typeof setupChromeFake> | undefined;
+afterEach(() => {
+  handle?.restore();
+  handle = undefined;
+});
+
+describe('captureOpenWindows with tab groups', () => {
+  test('captures group title, colour and membership when granted', async () => {
+    handle = setupChromeFake({
+      grantedPermissions: ['tabGroups'],
+      windows: [{ id: 1, type: 'normal' }],
+      tabGroups: [{ id: 5, windowId: 1, title: 'Work', color: 'blue' }],
+      tabs: [
+        { id: 11, windowId: 1, url: 'https://a.test', title: 'a', groupId: 5 },
+        { id: 12, windowId: 1, url: 'https://b.test', title: 'b' },
+      ],
+    });
+
+    const captured = await captureOpenWindows('session', 'all-windows');
+    const window = captured!.windows[0];
+
+    expect(window.chromeTabGroups).toHaveLength(1);
+    expect(window.chromeTabGroups![0]).toMatchObject({
+      title: 'Work',
+      color: 'blue',
+    });
+    // The stored id is a minted uuid, never Chrome's numeric id -- Chrome
+    // reuses those across sessions, so persisting one lets two devices collide.
+    expect(window.chromeTabGroups![0].groupId).not.toBe('5');
+    expect(window.tabs[0].chromeGroupId).toBe(
+      window.chromeTabGroups![0].groupId
+    );
+    expect(window.tabs[1].chromeGroupId).toBeUndefined();
+  });
+
+  test('an untitled Chrome group is stored with an empty string title', async () => {
+    handle = setupChromeFake({
+      grantedPermissions: ['tabGroups'],
+      windows: [{ id: 1, type: 'normal' }],
+      tabGroups: [{ id: 5, windowId: 1, color: 'red' }],
+      tabs: [{ id: 11, windowId: 1, url: 'https://a.test', groupId: 5 }],
+    });
+
+    const captured = await captureOpenWindows('session', 'all-windows');
+    expect(captured!.windows[0].chromeTabGroups![0].title).toBe('');
+  });
+
+  test('captures nothing group-related when the permission is absent', async () => {
+    handle = setupChromeFake({
+      windows: [{ id: 1, type: 'normal' }],
+      tabGroups: [{ id: 5, windowId: 1, title: 'Work', color: 'blue' }],
+      tabs: [
+        { id: 11, windowId: 1, url: 'https://a.test', title: 'a', groupId: 5 },
+      ],
+    });
+
+    const captured = await captureOpenWindows('session', 'all-windows');
+    const window = captured!.windows[0];
+
+    expect(window.chromeTabGroups).toBeUndefined();
+    expect(window.tabs[0].chromeGroupId).toBeUndefined();
+  });
+
+  test('a window with no groups gets no chromeTabGroups field', async () => {
+    handle = setupChromeFake({
+      grantedPermissions: ['tabGroups'],
+      windows: [{ id: 1, type: 'normal' }],
+      tabs: [{ id: 11, windowId: 1, url: 'https://a.test', title: 'a' }],
+    });
+
+    const captured = await captureOpenWindows('session', 'all-windows');
+    expect(captured!.windows[0].chromeTabGroups).toBeUndefined();
+  });
+
+  // A permission revoked mid-loop must not produce a session where some
+  // windows carry chromeTabGroups and others silently do not -- one capture
+  // has to make ONE decision. chrome.fake.ts has no built-in call counter, so
+  // this overrides chrome.permissions.contains on the already-installed fake
+  // rather than adding one there, the same pattern
+  // permissions.test.ts uses for chrome.permissions.request.
+  test('makes one permission decision for the whole capture, not one per window', async () => {
+    handle = setupChromeFake({
+      grantedPermissions: ['tabGroups'],
+      windows: [
+        {
+          id: 1,
+          type: 'normal',
+          tabs: [
+            { id: 11, url: 'https://a.test', title: 'a' },
+          ] as chrome.tabs.Tab[],
+        },
+        {
+          id: 2,
+          type: 'normal',
+          tabs: [
+            { id: 12, url: 'https://b.test', title: 'b' },
+          ] as chrome.tabs.Tab[],
+        },
+        {
+          id: 3,
+          type: 'normal',
+          tabs: [
+            { id: 13, url: 'https://c.test', title: 'c' },
+          ] as chrome.tabs.Tab[],
+        },
+      ],
+    });
+
+    const permissions = chrome.permissions as unknown as {
+      contains: (p: chrome.permissions.Permissions) => Promise<boolean>;
+    };
+    const original = permissions.contains;
+    let calls = 0;
+    permissions.contains = (p) => {
+      calls += 1;
+      return original(p);
+    };
+
+    const captured = await captureOpenWindows('session', 'all-windows');
+
+    expect(captured!.windows).toHaveLength(3);
+    expect(calls).toBe(1);
+  });
+});

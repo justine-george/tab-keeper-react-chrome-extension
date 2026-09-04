@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 
-import { v4 as uuidv4 } from 'uuid';
 import { useDispatch, useSelector } from 'react-redux';
 
 import { css } from '@emotion/react';
@@ -12,7 +11,10 @@ import { useFontFamily } from '../../../hooks/useFontFamily';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { AppDispatch, RootState } from '../../../redux/store';
 import {
-  resolveTabUrl,
+  readCurrentWindowGroups,
+  toWindowGroupData,
+} from '../../../utils/functions/capture';
+import {
   formatGroupCounts,
   getPrettyDate,
   isSearchActive,
@@ -24,7 +26,6 @@ import {
   openAllTabContainer,
   requestFocusTabContainer,
   updateTabGroupTitle,
-  windowGroupData,
 } from '../../../redux/slices/tabContainerDataStateSlice';
 import { useTranslation } from 'react-i18next';
 
@@ -117,26 +118,13 @@ export default function HeroContainerRight() {
       chrome.windows.getCurrent({ populate: true }, (result) => resolve(result))
     );
 
-    // map its tabs
-    const tabsData = windowData.tabs!.map((tab) => {
-      return {
-        tabId: uuidv4(),
-        favicon: tab.favIconUrl || '',
-        title: tab.title || '',
-        url: resolveTabUrl(tab.url || ''),
-      };
-    });
-
-    const window: windowGroupData = {
-      windowId: uuidv4(),
-      windowHeight: windowData.height!,
-      windowWidth: windowData.width!,
-      windowOffsetTop: windowData.top!,
-      windowOffsetLeft: windowData.left!,
-      tabCount: tabsData.length,
-      title: currentTabName,
-      tabs: tabsData,
-    };
+    const read = await readCurrentWindowGroups(windowData.id);
+    const window = toWindowGroupData(
+      windowData,
+      currentTabName,
+      read?.groups,
+      read?.idByChromeId ?? new Map()
+    );
 
     dispatch(addCurrWindowToTabGroup({ tabGroupId, window }));
   };

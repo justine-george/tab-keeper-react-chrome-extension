@@ -1,5 +1,6 @@
 import type { tabData } from '../../redux/slices/tabContainerDataStateSlice';
 import { generatePlaceholderURL, resolveTabUrl } from './local';
+import { sanitizeTabGroupColor } from './tabGroups';
 
 // This module is imported by the service worker, so it must stay free of
 // anything a worker does not have. In particular it must never reach for
@@ -17,35 +18,95 @@ export interface WindowBounds {
   left: number;
 }
 
+// A group to recreate in a restored window. `groupId` is the saved uuid, used
+// only to match tabs to their group; Chrome mints its own numeric id.
+export interface TabGroupSpec {
+  groupId: string;
+  title: string;
+  color: string;
+}
+
 export interface WindowSpec {
   tabs: tabData[];
   focused: boolean;
   bounds: WindowBounds | null;
+  // Absent, or empty, means there is nothing to group.
+  groups?: TabGroupSpec[];
 }
 
-export const FOCUS_SESSION_MESSAGE = 'focus-session';
+export const RESTORE_SESSION_MESSAGE = 'restore-session';
 
-// What the popup hands the worker. The popup cannot do this itself: closing
-// the old windows has to happen after the new ones exist, and
-// chrome.windows.create({focused: true}) destroys the popup long before then.
-export interface FocusSessionRequest {
-  type: typeof FOCUS_SESSION_MESSAGE;
+// What the popup hands the worker for ANY restore.
+//
+// Every restore runs here, not only focus mode's. The popup cannot do it
+// itself for two reasons that compound: chrome.windows.create({focused: true})
+// destroys the popup, and restoring tab groups needs the tab ids that arrive
+// in chrome.tabs.create callbacks -- which is the first restore step that
+// needs an answer back rather than fire-and-forget IPC.
+//
+// closeOtherWindows is the ONLY difference between focus mode and an ordinary
+// open. Keeping it to one flag is what stops this collapsing back into two
+// restore paths that drift.
+export interface RestoreSessionRequest {
+  type: typeof RESTORE_SESSION_MESSAGE;
   specs: WindowSpec[];
   goToURLText: string;
   isLazyLoad: boolean;
+  closeOtherWindows: boolean;
 }
 
-export function isFocusSessionRequest(
+export function isRestoreSessionRequest(
   message: unknown
-): message is FocusSessionRequest {
+): message is RestoreSessionRequest {
   if (typeof message !== 'object' || message === null) return false;
   const candidate = message as Record<string, unknown>;
   return (
-    candidate.type === FOCUS_SESSION_MESSAGE &&
+    candidate.type === RESTORE_SESSION_MESSAGE &&
     Array.isArray(candidate.specs) &&
     typeof candidate.goToURLText === 'string' &&
-    typeof candidate.isLazyLoad === 'boolean'
+    typeof candidate.isLazyLoad === 'boolean' &&
+    typeof candidate.closeOtherWindows === 'boolean'
   );
+}
+
+// Recreate the saved groups in a window whose tabs now exist.
+//
+// Never throws, and never reports failure to the caller. Two reasons: the tabs
+// are already open by the time this runs, so a restore that lost its groups is
+// still a successful restore; and focus mode decides whether to close the
+// user's windows from createWindowWithRetries' result, so letting a grouping
+// error travel up that path could close windows whose replacements are fine.
+async function applyTabGroups(
+  windowId: number,
+  groups: TabGroupSpec[],
+  tabIdsByGroupId: Map<string, number[]>
+): Promise<void> {
+  // The namespace is undefined -- not throwing -- while the tabGroups
+  // permission is ungranted, so this is feature detection, not try/catch.
+  if (typeof chrome === 'undefined' || !chrome.tabGroups) return;
+
+  for (const group of groups) {
+    const tabIds = tabIdsByGroupId.get(group.groupId);
+    if (!tabIds || tabIds.length === 0) continue;
+
+    try {
+      // Chrome's type declares tabIds as a non-empty tuple, not a plain
+      // array; the length check above is what makes this destructure safe.
+      const [firstTabId, ...restTabIds] = tabIds;
+      const groupId = await chrome.tabs.group({
+        createProperties: { windowId },
+        tabIds: [firstTabId, ...restTabIds],
+      });
+      await chrome.tabGroups.update(groupId, {
+        title: group.title,
+        // An unrecognised colour costs this one group its colour, never the
+        // restore. Chrome rejects a colour outside its enum.
+        color: sanitizeTabGroupColor(group.color),
+      });
+    } catch (error) {
+      console.warn('Could not restore a tab group:', error);
+    }
+  }
 }
 
 // Resolves to the created window, or to null once the retries are spent.
@@ -83,26 +144,60 @@ export function createWindowWithRetries(
           return;
         }
 
-        // No record of what was opened is kept: the placeholder carries its
-        // own page, and the background worker reads it back when the user
-        // activates the tab. See placeholderTarget in utils/functions/local.
-        spec.tabs.slice(1).forEach((tabInfo) => {
-          const decodedUrl = resolveTabUrl(tabInfo.url);
-          chrome.tabs.create({
-            windowId: newWindow.id,
-            url: isLazyLoad
-              ? generatePlaceholderURL(
-                  tabInfo.title,
-                  tabInfo.favicon || '/images/favicon.ico',
-                  decodedUrl,
-                  goToURLText
-                )
-              : decodedUrl,
-            active: false,
-          });
-        });
+        // Group membership by saved group id. Built as tabs are created,
+        // because chrome.tabs.group needs ids and ids only exist afterwards --
+        // which is the whole reason restore had to leave the popup.
+        const tabIdsByGroupId = new Map<string, number[]>();
+        const remember = (tabInfo: tabData, tabId: number | undefined) => {
+          if (tabId === undefined || tabInfo.chromeGroupId === undefined)
+            return;
+          const existing = tabIdsByGroupId.get(tabInfo.chromeGroupId) ?? [];
+          existing.push(tabId);
+          tabIdsByGroupId.set(tabInfo.chromeGroupId, existing);
+        };
 
-        resolve(newWindow);
+        remember(spec.tabs[0], newWindow.tabs?.[0]?.id);
+
+        // No record of what was opened is kept beyond the ids: the placeholder
+        // carries its own page, and the background worker reads it back when
+        // the user activates the tab. See placeholderTarget in
+        // utils/functions/local.
+        const rest = spec.tabs.slice(1).map(
+          (tabInfo) =>
+            new Promise<void>((done) => {
+              const decodedUrl = resolveTabUrl(tabInfo.url);
+              chrome.tabs.create(
+                {
+                  windowId: newWindow.id,
+                  url: isLazyLoad
+                    ? generatePlaceholderURL(
+                        tabInfo.title,
+                        tabInfo.favicon || '/images/favicon.ico',
+                        decodedUrl,
+                        goToURLText
+                      )
+                    : decodedUrl,
+                  active: false,
+                },
+                (created) => {
+                  remember(tabInfo, created?.id);
+                  done();
+                }
+              );
+            })
+        );
+
+        void Promise.all(rest)
+          .then(async () => {
+            if (
+              spec.groups &&
+              spec.groups.length > 0 &&
+              newWindow.id !== undefined
+            ) {
+              await applyTabGroups(newWindow.id, spec.groups, tabIdsByGroupId);
+            }
+          })
+          .finally(() => resolve(newWindow));
       }
     );
   });

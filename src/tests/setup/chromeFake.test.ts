@@ -224,3 +224,119 @@ describe('chrome.runtime fake', () => {
     expect(handle.sentMessages).toEqual([{ type: 'FOCUS_TAB_CONTAINER' }]);
   });
 });
+
+describe('tab groups', () => {
+  test('a seeded tab reports its groupId, and an ungrouped one reports -1', async () => {
+    handle = setupChromeFake({
+      windows: [{ id: 1 }],
+      tabs: [
+        { id: 11, windowId: 1, groupId: 5 },
+        { id: 12, windowId: 1 },
+      ],
+    });
+
+    const tabs = await chrome.tabs.query({ windowId: 1 });
+    expect(tabs[0].groupId).toBe(5);
+    expect(tabs[1].groupId).toBe(chrome.tabGroups.TAB_GROUP_ID_NONE);
+  });
+
+  test('tabGroups.query returns the groups seeded for a window', async () => {
+    handle = setupChromeFake({
+      windows: [{ id: 1 }, { id: 2 }],
+      tabGroups: [
+        { id: 5, windowId: 1, title: 'Work', color: 'blue' },
+        { id: 6, windowId: 2, title: 'Other', color: 'red' },
+      ],
+    });
+
+    const groups = await chrome.tabGroups.query({ windowId: 1 });
+    expect(groups).toHaveLength(1);
+    expect(groups[0]).toMatchObject({ id: 5, title: 'Work', color: 'blue' });
+  });
+
+  test('tabs.group records the call, mints an id and stamps the tabs', async () => {
+    handle = setupChromeFake({
+      windows: [{ id: 1 }],
+      tabs: [{ id: 11, windowId: 1 }],
+    });
+
+    const groupId = await chrome.tabs.group({
+      createProperties: { windowId: 1 },
+      tabIds: [11],
+    });
+
+    expect(typeof groupId).toBe('number');
+    expect(handle.groupedTabs).toEqual([
+      { groupId, windowId: 1, tabIds: [11] },
+    ]);
+
+    const [tab] = await chrome.tabs.query({ windowId: 1 });
+    expect(tab.groupId).toBe(groupId);
+  });
+
+  test('tabGroups.update applies title and colour to a created group', async () => {
+    handle = setupChromeFake({
+      windows: [{ id: 1 }],
+      tabs: [{ id: 11, windowId: 1 }],
+    });
+
+    const groupId = await chrome.tabs.group({
+      createProperties: { windowId: 1 },
+      tabIds: [11],
+    });
+    await chrome.tabGroups.update(groupId, { title: 'Work', color: 'blue' });
+
+    const [group] = await chrome.tabGroups.query({ windowId: 1 });
+    expect(group).toMatchObject({ id: groupId, title: 'Work', color: 'blue' });
+  });
+});
+
+describe('permissions', () => {
+  test('contains reports false for a permission that was not granted', async () => {
+    handle = setupChromeFake();
+    expect(
+      await chrome.permissions.contains({ permissions: ['tabGroups'] })
+    ).toBe(false);
+  });
+
+  test('a seeded grant is reported as held', async () => {
+    handle = setupChromeFake({ grantedPermissions: ['tabGroups'] });
+    expect(
+      await chrome.permissions.contains({ permissions: ['tabGroups'] })
+    ).toBe(true);
+  });
+
+  test('request grants, remove revokes, and both notify listeners', async () => {
+    handle = setupChromeFake();
+    const added: chrome.permissions.Permissions[] = [];
+    const removed: chrome.permissions.Permissions[] = [];
+    chrome.permissions.onAdded.addListener((p) => added.push(p));
+    chrome.permissions.onRemoved.addListener((p) => removed.push(p));
+
+    await chrome.permissions.request({ permissions: ['tabGroups'] });
+    expect(
+      await chrome.permissions.contains({ permissions: ['tabGroups'] })
+    ).toBe(true);
+    expect(added).toEqual([{ permissions: ['tabGroups'] }]);
+
+    await chrome.permissions.remove({ permissions: ['tabGroups'] });
+    expect(
+      await chrome.permissions.contains({ permissions: ['tabGroups'] })
+    ).toBe(false);
+    expect(removed).toEqual([{ permissions: ['tabGroups'] }]);
+  });
+
+  // The fake must be able to model the measured production behaviour: the
+  // popup can die before the promise settles. A test that needs that shape
+  // seeds `requestNeverSettles` and asserts on contains(), never on the
+  // promise.
+  test('requestNeverSettles leaves the promise pending', async () => {
+    handle = setupChromeFake({ requestNeverSettles: true });
+    let settled = false;
+    void chrome.permissions.request({ permissions: ['tabGroups'] }).then(() => {
+      settled = true;
+    });
+    await Promise.resolve();
+    expect(settled).toBe(false);
+  });
+});

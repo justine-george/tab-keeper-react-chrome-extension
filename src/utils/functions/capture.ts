@@ -1,6 +1,8 @@
 import { v4 as uuidv4 } from 'uuid';
 
 import { getStringDate, resolveTabUrl } from './local';
+import { hasTabGroupsPermission } from './permissions';
+import type { chromeTabGroupData } from './tabGroups';
 import type {
   tabContainerData,
   windowGroupData,
@@ -102,6 +104,108 @@ async function windowsInScope(
   return windowList;
 }
 
+// Chrome's groups for one window, converted to storage shape.
+//
+// `granted` lets one capture make ONE permission decision for every window it
+// covers, rather than one per window: captureOpenWindows checks once before
+// its loop and passes the result into every call, so a permission revoked
+// mid-loop cannot produce a single saved session where some windows carry
+// chromeTabGroups and others silently do not -- the whole point of this
+// feature's all-or-nothing rule. A caller with only one window
+// (HeroContainerRight) omits it, and this checks for itself, so there is
+// still exactly one place a permission decision is made from.
+//
+// Returns null when there is nothing to store -- no permission, no groups, or
+// a query that failed -- which the caller writes as an absent field rather
+// than an empty array, so a window with no groups is byte-identical to one
+// saved before this feature existed.
+export async function readCurrentWindowGroups(
+  windowId: number | undefined,
+  granted?: boolean
+): Promise<{
+  groups: chromeTabGroupData[];
+  idByChromeId: Map<number, string>;
+} | null> {
+  if (windowId === undefined) return null;
+  // In PRODUCTION this namespace check is the gate: chrome.tabGroups is
+  // genuinely undefined while the permission is ungranted, so real Chrome
+  // never reaches the permission check below without it already having
+  // returned null here.
+  if (typeof chrome === 'undefined' || !chrome.tabGroups) return null;
+  // This is a deliberate defensive duplicate of the check above, not the
+  // production gate -- it does independent work in two narrower cases: the
+  // test fake, which exposes chrome.tabGroups unconditionally regardless of
+  // grantedPermissions (see chrome.fake.ts's own header: it widens API
+  // fidelity for the surface itself, not gating that surface on the
+  // permission), and a permission revoked in the gap between the namespace
+  // check above and the query() call below -- which the try/catch around
+  // that call also covers.
+  const hasPermission = granted ?? (await hasTabGroupsPermission());
+  if (!hasPermission) return null;
+
+  let found: chrome.tabGroups.TabGroup[];
+  try {
+    found = await chrome.tabGroups.query({ windowId });
+  } catch {
+    // A revoked permission mid-capture lands here. Saving the session without
+    // groups beats failing the save.
+    return null;
+  }
+  if (found.length === 0) return null;
+
+  const idByChromeId = new Map<number, string>();
+  const groups = found.map((group) => {
+    const groupId = uuidv4();
+    idByChromeId.set(group.id, groupId);
+    return {
+      groupId,
+      // Chrome types title as string | undefined; normalising here keeps the
+      // stored type `string` and gives the empty case one representation.
+      title: group.title ?? '',
+      color: group.color,
+    };
+  });
+
+  return { groups, idByChromeId };
+}
+
+// One window in storage shape. Extracted so "add current window to a session"
+// (HeroContainerRight) cannot drift from the session save -- capture.ts's
+// header already records why two captures that drift are a problem, and a
+// dropped group is exactly that failure in miniature.
+export function toWindowGroupData(
+  window: chrome.windows.Window,
+  title: string,
+  groups: chromeTabGroupData[] | undefined,
+  idByChromeId: Map<number, string>
+): windowGroupData {
+  const tabsData = (window.tabs ?? []).map((tab) => {
+    const chromeGroupId =
+      tab.groupId === undefined ? undefined : idByChromeId.get(tab.groupId);
+    return {
+      tabId: uuidv4(),
+      favicon: tab.favIconUrl || '',
+      title: tab.title || '',
+      url: resolveTabUrl(tab.url || ''),
+      // Absent, never null: an ungrouped tab costs zero bytes in the document,
+      // and ungrouped is the common case.
+      ...(chromeGroupId === undefined ? {} : { chromeGroupId }),
+    };
+  });
+
+  return {
+    windowId: uuidv4(),
+    windowHeight: window.height ?? 0,
+    windowWidth: window.width ?? 0,
+    windowOffsetTop: window.top ?? 0,
+    windowOffsetLeft: window.left ?? 0,
+    tabCount: tabsData.length,
+    title,
+    tabs: tabsData,
+    ...(groups && groups.length > 0 ? { chromeTabGroups: groups } : {}),
+  };
+}
+
 // Snapshots the open windows a scope covers as a session. Extracted from
 // UserInputContainer so focus mode can save what it is about to close using
 // exactly the same capture the "Save current session" button uses -- two
@@ -121,33 +225,28 @@ export async function captureOpenWindows(
 ): Promise<tabContainerData | null> {
   const windowList = await windowsInScope(scope);
 
+  // One decision for the whole capture, not one per window -- see
+  // readCurrentWindowGroups's header for why a per-window check would be
+  // wrong.
+  const granted = await hasTabGroupsPermission();
+
+  const windowsGroupData: windowGroupData[] = [];
   let tabCount = 0;
 
-  const windowsGroupData: windowGroupData[] = windowList
-    .filter((window) => window.tabs && window.tabs.length > 0)
-    .map((window) => {
-      const tabsData = (window.tabs ?? []).map((tab) => ({
-        tabId: uuidv4(),
-        favicon: tab.favIconUrl || '',
-        title: tab.title || '',
-        url: resolveTabUrl(tab.url || ''),
-      }));
+  for (const window of windowList) {
+    if (!window.tabs || window.tabs.length === 0) continue;
 
-      tabCount += tabsData.length;
+    const read = await readCurrentWindowGroups(window.id, granted);
+    const windowGroup = toWindowGroupData(
+      window,
+      window.tabs[0].title || '',
+      read?.groups,
+      read?.idByChromeId ?? new Map()
+    );
 
-      // A missing dimension is stored as 0, which every consumer already
-      // treats as "no saved geometry" and replaces with the default.
-      return {
-        windowId: uuidv4(),
-        windowHeight: window.height ?? 0,
-        windowWidth: window.width ?? 0,
-        windowOffsetTop: window.top ?? 0,
-        windowOffsetLeft: window.left ?? 0,
-        tabCount: tabsData.length,
-        title: tabsData[0].title,
-        tabs: tabsData,
-      };
-    });
+    tabCount += windowGroup.tabCount;
+    windowsGroupData.push(windowGroup);
+  }
 
   if (windowsGroupData.length === 0) return null;
 

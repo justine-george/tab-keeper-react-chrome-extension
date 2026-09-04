@@ -111,4 +111,42 @@ describe('TabGroupDetailsContainer', () => {
 
     expect(container.innerHTML).toBe('');
   });
+
+  // Placing it in a group it was never a member of would be inventing data:
+  // the tab comes from a different window, whose groups have nothing to do
+  // with the saved window it is being added to. No production change makes
+  // this pass -- the test exists so a later "helpfully" inherited group id
+  // fails here.
+  test('a tab added from another window is stored ungrouped', async () => {
+    const session = buildSession();
+    const { store } = await renderWithProviders(<TabGroupDetailsContainer />, {
+      seed: {
+        grantedPermissions: ['tabGroups'],
+        windows: [{ id: 1, type: 'normal' }],
+        tabGroups: [{ id: 5, windowId: 1, title: 'Work', color: 'blue' }],
+        tabs: [
+          {
+            id: 11,
+            windowId: 1,
+            active: true,
+            url: 'https://added.test',
+            title: 'Added',
+            groupId: 5,
+          },
+        ],
+      },
+      seedStore: (store) => {
+        store.dispatch(saveToTabContainerInternal(session));
+        store.dispatch(selectTabContainer('group-1'));
+      },
+    });
+
+    await userEvent.click(screen.getByLabelText('Add current tab'));
+
+    const tabs =
+      store.getState().tabContainerDataState.tabGroups[0].windows[0].tabs;
+    const added = tabs.find((tab) => tab.title === 'Added');
+    expect(added).toBeDefined();
+    expect(added!.chromeGroupId).toBeUndefined();
+  });
 });

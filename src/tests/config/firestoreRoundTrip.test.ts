@@ -84,4 +84,49 @@ describe('the Firestore read preserves the whole container', () => {
     expect(read.deletedTabGroups).toBeUndefined();
     expect(read.tabGroups).toEqual([]);
   });
+
+  it('preserves tab-group fields nested inside a window', async () => {
+    // fetchDataFromFirestore reads four TOP-LEVEL fields and returns
+    // data.tabGroups untouched, so anything nested inside a window rides
+    // along. deletedTabGroups was lost precisely because it was top-level and
+    // absent from that list; this pins the level below, where the same mistake
+    // would be made by rebuilding windows field by field.
+    const withGroups = {
+      lastModified: 1000,
+      selectedTabGroupId: null,
+      tabGroups: [
+        {
+          tabGroupId: 'a',
+          windows: [
+            {
+              windowId: 'w1',
+              chromeTabGroups: [
+                { groupId: 'g1', title: 'Work', color: 'blue' },
+              ],
+              tabs: [
+                {
+                  tabId: 't1',
+                  favicon: '',
+                  title: 'a',
+                  url: 'https://a.test',
+                  chromeGroupId: 'g1',
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    firestore.getDoc.mockResolvedValue({
+      exists: () => true,
+      data: () => withGroups,
+    });
+
+    const read = await fetchDataFromFirestore('u1');
+
+    // Compared as a whole object, matching the sibling test above: a future
+    // field added to the shape but dropped by the read fails here rather than
+    // in production.
+    expect(read.tabGroups).toEqual(withGroups.tabGroups);
+  });
 });

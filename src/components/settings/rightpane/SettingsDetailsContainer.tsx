@@ -43,6 +43,10 @@ import {
   restoreContainer,
 } from '../../../redux/slices/tabContainerDataStateSlice';
 import { readImportedContainer } from '../../../utils/functions/local';
+import {
+  removeTabGroupsPermission,
+  requestTabGroupsPermission,
+} from '../../../utils/functions/permissions';
 import { SettingsCategory } from '../../../redux/slices/settingsCategoryStateSlice';
 import LoggedIn from './Account/LoggedIn';
 import NotLoggedIn from './Account/NotLoggedIn';
@@ -65,6 +69,10 @@ const SettingsDetailsContainer: React.FC = () => {
 
   const isSignedIn = useSelector(
     (state: RootState) => state.globalState.isSignedIn
+  );
+
+  const hasTabGroups = useSelector(
+    (state: RootState) => state.globalState.hasTabGroupsPermission
   );
 
   const tabMasterContainer: TabMasterContainer = useSelector(
@@ -102,6 +110,18 @@ const SettingsDetailsContainer: React.FC = () => {
 
   const handleToggleLazyLoadTabs = () => {
     dispatch(toggleLazyLoad());
+  };
+
+  // Fire-and-forget on purpose -- see requestTabGroupsPermission. The button's
+  // label is driven by hasTabGroupsPermission from the store, which is
+  // refreshed by the change listener or by the next popup open, so the UI
+  // catches up even when this popup is destroyed by the native prompt.
+  const handleToggleTabGroups = () => {
+    if (hasTabGroups) {
+      removeTabGroupsPermission();
+    } else {
+      requestTabGroupsPermission();
+    }
   };
 
   const handleExportJSON = () => {
@@ -429,6 +449,48 @@ const SettingsDetailsContainer: React.FC = () => {
             <Button
               text={settingsData.isLazyLoad ? t(`On`) : t(`Off`)}
               onClick={handleToggleLazyLoadTabs}
+              style={`
+              width: 100%;
+            `}
+            />
+          </div>
+        </div>
+
+        {/* Save Tab Groups */}
+        <div
+          css={css`
+            padding-left: clamp(16px, 8%, 72px);
+            width: 100%;
+            margin-top: 20px;
+          `}
+        >
+          <div
+            css={css`
+              display: flex;
+              align-items: flex-start;
+              width: 100%;
+            `}
+          >
+            <NormalLabel
+              value={t('Save Tab Groups')}
+              size="1rem"
+              color={COLORS.LABEL_L1_COLOR}
+            />
+          </div>
+
+          <div
+            css={css`
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              width: 100%;
+              max-width: 250px;
+              margin-top: 8px;
+            `}
+          >
+            <Button
+              text={hasTabGroups ? t(`On`) : t(`Off`)}
+              onClick={handleToggleTabGroups}
               style={`
               width: 100%;
             `}

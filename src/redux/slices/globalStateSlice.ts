@@ -46,6 +46,11 @@ export interface Global {
   toastText: string;
   isRateAndReviewModalOpen: boolean;
   focusRequest: FocusRequest | null;
+  // "the tabGroups permission is granted right now". Mirrors
+  // chrome.permissions.contains(), re-read on every popup mount and updated by
+  // the permission change listeners -- never persisted, because the user can
+  // revoke it from chrome://extensions while the extension is not running.
+  hasTabGroupsPermission: boolean;
 }
 
 // The session a pending "switch to this session?" confirmation is about, how
@@ -74,6 +79,7 @@ export const initialState: Global = {
   toastText: '',
   isRateAndReviewModalOpen: false,
   focusRequest: null,
+  hasTabGroupsPermission: false,
 };
 
 // save data to Firestore if dirty, saves latest to localStorage at the end
@@ -390,6 +396,10 @@ export const globalStateSlice = createSlice({
 
     replaceState: (state, action: PayloadAction<typeof state>) =>
       action.payload,
+
+    setHasTabGroupsPermission: (state, action: PayloadAction<boolean>) => {
+      state.hasTabGroupsPermission = action.payload;
+    },
   },
 
   extraReducers: (builder) => {
@@ -437,6 +447,7 @@ export const {
   setSyncStatus,
   setUserId,
   removeUserId,
+  setHasTabGroupsPermission,
 } = globalStateSlice.actions;
 
 export default globalStateSlice.reducer;

@@ -16,12 +16,17 @@ import { replaceState } from './redux/slices/tabContainerDataStateSlice';
 import {
   openRateAndReviewModal,
   removeUserId,
+  setHasTabGroupsPermission,
   setLoggedOut,
   setSignedIn,
   setUserId,
   showToast,
   syncStateWithFirestore,
 } from './redux/slices/globalStateSlice';
+import {
+  hasTabGroupsPermission,
+  observeTabGroupsPermission,
+} from './utils/functions/permissions';
 
 import './App.css';
 import {
@@ -167,6 +172,13 @@ function App() {
     getUserTokenFromChromeStorageSync();
     askUserToRateAndReview();
     observeAuthState(dispatch);
+
+    void hasTabGroupsPermission().then((granted) =>
+      dispatch(setHasTabGroupsPermission(granted))
+    );
+    observeTabGroupsPermission((granted) =>
+      dispatch(setHasTabGroupsPermission(granted))
+    );
   }, []);
 
   useEffect(() => {

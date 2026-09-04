@@ -9,9 +9,8 @@ import {
   type CaptureScope,
 } from '../../utils/functions/capture';
 import {
-  createWindowWithRetries,
-  FOCUS_SESSION_MESSAGE,
-  FocusSessionRequest,
+  RESTORE_SESSION_MESSAGE,
+  RestoreSessionRequest,
   WindowSpec,
 } from '../../utils/functions/windows';
 import {
@@ -22,12 +21,20 @@ import {
   TOAST_MESSAGES,
 } from '../../utils/constants/common';
 import { SettingsData } from './settingsDataStateSlice';
+import type { chromeTabGroupData } from '../../utils/functions/tabGroups';
+
+export type { chromeTabGroupData };
 
 export interface tabData {
   tabId: string;
   favicon: string;
   title: string;
   url: string;
+  // The group this tab belonged to, as windowGroupData.chromeTabGroups[].groupId.
+  // Absent means the tab was ungrouped, which is most tabs for most users --
+  // which is also why this is an absent field rather than a nullable one: it
+  // costs nothing on disk for the common case.
+  chromeGroupId?: string;
 }
 
 export interface windowGroupData {
@@ -39,6 +46,10 @@ export interface windowGroupData {
   tabCount: number;
   title: string;
   tabs: tabData[];
+  // Optional because every session saved before this change lacks it, and
+  // because capture writes nothing here unless the tabGroups permission has
+  // been granted. Absent = restore does no grouping.
+  chromeTabGroups?: chromeTabGroupData[];
 }
 
 export interface tabContainerData {
@@ -140,6 +151,9 @@ function toWindowSpec(
       top: windowGroup.windowOffsetTop || DEFAULT_WINDOW_OFFSET_TOP,
       left: windowGroup.windowOffsetLeft || DEFAULT_WINDOW_OFFSET_LEFT,
     },
+    ...(windowGroup.chromeTabGroups && windowGroup.chromeTabGroups.length > 0
+      ? { groups: windowGroup.chromeTabGroups }
+      : {}),
   };
 }
 
@@ -169,12 +183,14 @@ export const openTabsInAWindow = createAsyncThunk(
 
     if (!windowGroup) return;
 
-    createWindowWithRetries(
-      toWindowSpec(windowGroup, true),
-      params.goToURLText,
-      settingsDataState.isLazyLoad,
-      2
-    );
+    const request: RestoreSessionRequest = {
+      type: RESTORE_SESSION_MESSAGE,
+      specs: [toWindowSpec(windowGroup, true)],
+      goToURLText: params.goToURLText,
+      isLazyLoad: settingsDataState.isLazyLoad,
+      closeOtherWindows: false,
+    };
+    chrome.runtime.sendMessage(request);
   }
 );
 
@@ -197,14 +213,16 @@ export const openAllTabContainer = createAsyncThunk(
 
     if (!tabGroup) return;
 
-    tabGroup.windows.forEach((windowGroup, index) => {
-      createWindowWithRetries(
-        toWindowSpec(windowGroup, index === 0),
-        params.goToURLText,
-        settingsDataState.isLazyLoad,
-        2
-      );
-    });
+    const request: RestoreSessionRequest = {
+      type: RESTORE_SESSION_MESSAGE,
+      specs: tabGroup.windows.map((windowGroup, index) =>
+        toWindowSpec(windowGroup, index === 0)
+      ),
+      goToURLText: params.goToURLText,
+      isLazyLoad: settingsDataState.isLazyLoad,
+      closeOtherWindows: false,
+    };
+    chrome.runtime.sendMessage(request);
   }
 );
 
@@ -316,13 +334,14 @@ export const focusTabContainer = createAsyncThunk(
     // anything needed saving.
     thunkAPI.dispatch(selectTabContainer(params.tabGroupId));
 
-    const request: FocusSessionRequest = {
-      type: FOCUS_SESSION_MESSAGE,
+    const request: RestoreSessionRequest = {
+      type: RESTORE_SESSION_MESSAGE,
       specs: tabGroup.windows.map((windowGroup, index) =>
         toWindowSpec(windowGroup, index === 0)
       ),
       goToURLText: params.goToURLText,
       isLazyLoad: settingsDataState.isLazyLoad,
+      closeOtherWindows: true,
     };
 
     chrome.runtime.sendMessage(request);

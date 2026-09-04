@@ -75,6 +75,7 @@
   "Blue": "Azul",
   "Auto Sync": "Sincronização Automática",
   "Lazy Load Tabs": "Otimizar Uso de Memória Durante a Restauração",
+  "Save Tab Groups": "Salvar grupos de guias",
   "Sync Status": "Status de Sincronização",
   "Cloud Sync Active": "Sincronização na Nuvem Ativa",
   "Secure token sync. No emails. Full privacy.": "Sincronização sem e-mail, máxima privacidade.",
@@ -97,5 +98,6 @@
   "Save changes": "Salvar alterações",
   "Sync unavailable: your cloud data could not be read. Sessions on this device are safe.": "Sincronização indisponível: não foi possível ler os dados da nuvem. As sessões neste dispositivo estão seguras.",
   "Synced changes from another device.": "Alterações sincronizadas de outro dispositivo.",
-  "Restored tabs successfully!": "Abas restauradas com sucesso!"
+  "Restored tabs successfully!": "Abas restauradas com sucesso!",
+  "Unnamed group": "Grupo sem nome"
 }

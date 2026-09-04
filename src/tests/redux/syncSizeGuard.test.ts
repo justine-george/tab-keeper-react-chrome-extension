@@ -28,7 +28,10 @@ import {
 import { replaceState } from '../../redux/slices/tabContainerDataStateSlice';
 import { makeTestStore } from '../setup/makeStore';
 import { buildContainer, buildSession } from '../fixtures/sessionFixture';
-import { FIRESTORE_MAX_DOCUMENT_BYTES } from '../../utils/functions/local';
+import {
+  FIRESTORE_MAX_DOCUMENT_BYTES,
+  estimateFirestoreBytes,
+} from '../../utils/functions/local';
 
 // A session whose tab titles alone exceed the document limit. Built from real
 // field names so estimateFirestoreBytes measures the same JSON production does.
@@ -83,4 +86,85 @@ describe('the sync write refuses a document Firestore would reject', () => {
     await store.dispatch(saveToFirestoreIfDirty());
     expect(mocks.saveToFirestore).toHaveBeenCalledTimes(1);
   });
+});
+
+// Production mints uuidv4() -- 36 characters -- for groupId (capture.ts:158),
+// tabId (:186) and windowId (:197), and chromeGroupId is set to that same
+// 36-char group uuid (:184). A fixture using short hand-written ids like
+// `g-0-0-a` understates the real per-tab cost (the encoded JSON key/value
+// pair costs 19 + len(id) bytes), so this pads any short id out to 36
+// characters. It does not need to be a real uuid -- only the right length,
+// since estimateFirestoreBytes only counts encoded bytes.
+function id36(prefix: string): string {
+  return prefix.padEnd(36, '0').slice(0, 36);
+}
+
+// A heavy but realistic account: 40 sessions x 3 windows x 20 tabs, with
+// EVERY tab in one of two groups per window when grouped -- the worst case
+// for a feature whose entire purpose is grouping, not a partial one.
+function sizedContainer(grouped: boolean) {
+  const sessions = Array.from({ length: 40 }, (_, s) =>
+    buildSession({
+      tabGroupId: `session-${s}`,
+      windows: Array.from({ length: 3 }, (_, w) => ({
+        windowId: id36(`w-${s}-${w}-`),
+        windowHeight: 1080,
+        windowWidth: 1920,
+        windowOffsetTop: 0,
+        windowOffsetLeft: 0,
+        tabCount: 20,
+        title: 'A window of tabs',
+        ...(grouped
+          ? {
+              chromeTabGroups: [
+                {
+                  groupId: id36(`g-${s}-${w}-a-`),
+                  title: 'Work',
+                  color: 'blue',
+                },
+                {
+                  groupId: id36(`g-${s}-${w}-b-`),
+                  title: 'Reading',
+                  color: 'green',
+                },
+              ],
+            }
+          : {}),
+        tabs: Array.from({ length: 20 }, (_, t) => ({
+          tabId: id36(`t-${s}-${w}-${t}-`),
+          favicon: '',
+          title: 'A page title of about fifty characters, give or take',
+          url: `https://example.com/some/path/segment/${s}/${w}/${t}?q=value`,
+          // Fully grouped: every tab belongs to one of the two groups above.
+          ...(grouped
+            ? { chromeGroupId: id36(`g-${s}-${w}-${t < 10 ? 'a' : 'b'}-`) }
+            : {}),
+        })),
+      })),
+    })
+  );
+  return buildContainer(sessions);
+}
+
+it('tab group metadata does not materially change the size estimate', () => {
+  const withoutGroups = estimateFirestoreBytes(sizedContainer(false));
+  const withGroups = estimateFirestoreBytes(sizedContainer(true));
+
+  // Measured with production-length (36-char) uuids, on a container where
+  // EVERY tab is grouped -- the realistic ceiling for this feature, not a
+  // 50%-grouped average: tab group metadata added ~32% on top of the
+  // ungrouped baseline. The 35% budget below is a change-detector with some
+  // headroom, not a safety limit -- it exists to make a future field
+  // addition show up in review, nothing more.
+  //
+  // The actual safety limit is the FIRESTORE_MAX_DOCUMENT_BYTES assertion on
+  // the next line: a 2,400-tab, fully-grouped account (this fixture) lands
+  // at ~630 KB, about 60% of Firestore's 1 MiB ceiling, with margin to
+  // spare.
+  //
+  // If a future field pushes this over, take the spec's §8.3 fallback:
+  // reference groups by their index in chromeTabGroups instead of by uuid,
+  // saving ~48 bytes per grouped tab.
+  expect((withGroups - withoutGroups) / withoutGroups).toBeLessThan(0.35);
+  expect(withGroups).toBeLessThan(FIRESTORE_MAX_DOCUMENT_BYTES);
 });

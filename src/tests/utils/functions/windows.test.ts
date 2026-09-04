@@ -2,10 +2,12 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 import {
   createWindowWithRetries,
-  isFocusSessionRequest,
+  isRestoreSessionRequest,
   planWindowClosure,
+  RESTORE_SESSION_MESSAGE,
   WindowSpec,
 } from '../../../utils/functions/windows';
+import { setupChromeFake } from '../../setup/chrome.fake';
 
 // Repeated rather than imported: it is private to local.ts, and the module
 // that exports it publicly pulls in window.screen, which these tests lack.
@@ -31,6 +33,7 @@ function stubChrome(results: (chrome.windows.Window | undefined)[]) {
   const createdWindows: chrome.windows.CreateData[] = [];
   const createdTabs: chrome.tabs.CreateProperties[] = [];
   let call = 0;
+  let nextTabId = 100;
 
   const chromeStub = {
     windows: {
@@ -43,8 +46,15 @@ function stubChrome(results: (chrome.windows.Window | undefined)[]) {
       },
     },
     tabs: {
-      create: (options: chrome.tabs.CreateProperties) => {
+      // createWindowWithRetries awaits this callback to learn the created
+      // tab's id, so a fake that never called back would hang the promise it
+      // is building rather than fail a single assertion.
+      create: (
+        options: chrome.tabs.CreateProperties,
+        callback?: (tab?: chrome.tabs.Tab) => void
+      ) => {
         createdTabs.push(options);
+        callback?.({ id: nextTabId++ } as chrome.tabs.Tab);
       },
     },
   };
@@ -186,25 +196,181 @@ describe('createWindowWithRetries', () => {
   });
 });
 
-describe('isFocusSessionRequest', () => {
-  const valid = {
-    type: 'focus-session',
-    specs: [],
-    goToURLText: 'Go to URL',
-    isLazyLoad: true,
-  };
+describe('createWindowWithRetries with tab groups', () => {
+  let handle: ReturnType<typeof setupChromeFake> | undefined;
 
-  test('accepts a well formed request', () => {
-    expect(isFocusSessionRequest(valid)).toBe(true);
+  afterEach(() => {
+    handle?.restore();
+    handle = undefined;
   });
 
-  test.each([
-    ['a different message type', { ...valid, type: 'something-else' }],
-    ['missing specs', { ...valid, specs: undefined }],
-    ['a non boolean lazy load flag', { ...valid, isLazyLoad: 'yes' }],
-    ['null', null],
-    ['a bare string', 'focus-session'],
-  ])('rejects %s', (_label, message) => {
-    expect(isFocusSessionRequest(message)).toBe(false);
+  test('groups the right tabs and applies title and colour', async () => {
+    handle = setupChromeFake({ grantedPermissions: ['tabGroups'] });
+
+    await createWindowWithRetries(
+      spec({
+        tabs: [
+          { ...tab('https://a.test'), tabId: 't1', chromeGroupId: 'g1' },
+          { ...tab('https://b.test'), tabId: 't2', chromeGroupId: 'g1' },
+          { ...tab('https://c.test'), tabId: 't3' },
+        ],
+        groups: [{ groupId: 'g1', title: 'Work', color: 'blue' }],
+      }),
+      'Go',
+      false,
+      2
+    );
+
+    expect(handle.groupedTabs).toHaveLength(1);
+    expect(handle.groupedTabs[0].tabIds).toHaveLength(2);
+
+    const groups = await chrome.tabGroups.query({});
+    expect(groups[0]).toMatchObject({ title: 'Work', color: 'blue' });
+  });
+
+  test('an unknown colour is applied as grey rather than rejected', async () => {
+    handle = setupChromeFake({ grantedPermissions: ['tabGroups'] });
+
+    await createWindowWithRetries(
+      spec({
+        tabs: [{ ...tab('https://a.test'), tabId: 't1', chromeGroupId: 'g1' }],
+        groups: [{ groupId: 'g1', title: 'Work', color: 'chartreuse' }],
+      }),
+      'Go',
+      false,
+      2
+    );
+
+    const groups = await chrome.tabGroups.query({});
+    expect(groups[0].color).toBe('grey');
+  });
+
+  test('does no grouping at all when the permission is absent', async () => {
+    handle = setupChromeFake();
+    delete (globalThis as { chrome?: { tabGroups?: unknown } }).chrome!
+      .tabGroups;
+
+    await createWindowWithRetries(
+      spec({
+        tabs: [{ ...tab('https://a.test'), tabId: 't1', chromeGroupId: 'g1' }],
+        groups: [{ groupId: 'g1', title: 'Work', color: 'blue' }],
+      }),
+      'Go',
+      false,
+      2
+    );
+
+    expect(handle.groupedTabs).toEqual([]);
+  });
+
+  // The load-bearing failure case. By the time grouping runs the tabs are
+  // already open, so a grouping error must cost the groups and nothing else --
+  // above all it must still resolve with the created window, because focus
+  // mode decides whether to close the user's windows from that value.
+  test('a failing tabs.group still resolves with the created window', async () => {
+    handle = setupChromeFake({ grantedPermissions: ['tabGroups'] });
+    const tabs = chrome.tabs as unknown as {
+      group: (options: chrome.tabs.GroupOptions) => Promise<number>;
+    };
+    tabs.group = () => Promise.reject(new Error('nope'));
+
+    const created = await createWindowWithRetries(
+      spec({
+        tabs: [{ ...tab('https://a.test'), tabId: 't1', chromeGroupId: 'g1' }],
+        groups: [{ groupId: 'g1', title: 'Work', color: 'blue' }],
+      }),
+      'Go',
+      false,
+      2
+    );
+
+    expect(created).not.toBeNull();
+  });
+
+  // The try/catch inside applyTabGroups is not only there to keep the
+  // rejection from escaping createWindowWithRetries (the test above): it also
+  // sits INSIDE the per-group loop, so one group failing does not abandon the
+  // groups after it. This is the assertion that pins that -- a plain
+  // "resolves with the window" check cannot distinguish "every group but the
+  // first still got applied" from "the whole loop aborted after the first
+  // failure", since both leave the window intact.
+  test('a group that fails does not stop the groups after it', async () => {
+    handle = setupChromeFake({ grantedPermissions: ['tabGroups'] });
+    const tabs = chrome.tabs as unknown as {
+      group: (options: chrome.tabs.GroupOptions) => Promise<number>;
+    };
+    const originalGroup = tabs.group;
+    let calls = 0;
+    tabs.group = (options) => {
+      calls += 1;
+      if (calls === 1) return Promise.reject(new Error('nope'));
+      return originalGroup(options);
+    };
+
+    const created = await createWindowWithRetries(
+      spec({
+        tabs: [
+          { ...tab('https://a.test'), tabId: 't1', chromeGroupId: 'g1' },
+          { ...tab('https://b.test'), tabId: 't2', chromeGroupId: 'g2' },
+        ],
+        groups: [
+          { groupId: 'g1', title: 'First', color: 'blue' },
+          { groupId: 'g2', title: 'Second', color: 'green' },
+        ],
+      }),
+      'Go',
+      false,
+      2
+    );
+
+    expect(created).not.toBeNull();
+    // Only the second group's tabs.group call reaches the real fake: the
+    // first was intercepted and rejected before it got there.
+    expect(handle.groupedTabs).toHaveLength(1);
+    const groups = await chrome.tabGroups.query({});
+    expect(groups.some((group) => group.title === 'Second')).toBe(true);
+  });
+
+  test('a spec with no groups behaves exactly as before', async () => {
+    handle = setupChromeFake({ grantedPermissions: ['tabGroups'] });
+
+    const created = await createWindowWithRetries(spec(), 'Go', false, 2);
+
+    expect(created).not.toBeNull();
+    expect(handle.groupedTabs).toEqual([]);
+  });
+});
+
+describe('isRestoreSessionRequest', () => {
+  const valid = {
+    type: RESTORE_SESSION_MESSAGE,
+    specs: [],
+    goToURLText: 'Go',
+    isLazyLoad: false,
+    closeOtherWindows: true,
+  };
+
+  test('accepts a well-formed request', () => {
+    expect(isRestoreSessionRequest(valid)).toBe(true);
+  });
+
+  test('rejects a request missing closeOtherWindows', () => {
+    const withoutFlag: Record<string, unknown> = { ...valid };
+    delete withoutFlag.closeOtherWindows;
+    expect(isRestoreSessionRequest(withoutFlag)).toBe(false);
+  });
+
+  test('rejects a non-boolean closeOtherWindows', () => {
+    expect(
+      isRestoreSessionRequest({ ...valid, closeOtherWindows: 'yes' })
+    ).toBe(false);
+  });
+
+  test('rejects the wrong type, a non-object and null', () => {
+    expect(isRestoreSessionRequest({ ...valid, type: 'something' })).toBe(
+      false
+    );
+    expect(isRestoreSessionRequest('nope')).toBe(false);
+    expect(isRestoreSessionRequest(null)).toBe(false);
   });
 });
