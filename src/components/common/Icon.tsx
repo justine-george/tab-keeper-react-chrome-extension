@@ -118,13 +118,32 @@ const Icon: React.FC<IconProps> = ({
   // edited the tab order (KAN-68).
   const isActionable = Boolean(onClick) && !disable;
 
+  // The non-actionable branch below is `inherit`, not `default`, and the
+  // distinction is KAN-76. `isActionable` answers "does this icon handle its
+  // own click?" -- a fact about this element. The cursor asks "is the thing
+  // under the pointer clickable?" -- a fact about the whole subtree, which an
+  // icon cannot see. An icon without its own onClick is usually sitting inside
+  // something that does have one: Button passes `disable` to its inner Icon at
+  // every one of its call sites, and a bare Icon inside a ClickableRow has no
+  // onClick by design. Both render a real <button> carrying `cursor: pointer`,
+  // and `default` here painted over it from the inside.
+  //
+  // `inherit` is the icon declining to answer a question it cannot answer.
+  // Inside a button it resolves to pointer; for a disabled Undo/Redo sitting
+  // in a plain layout div it resolves to the div's `auto`, which paints the
+  // same arrow `default` did -- the container sets `user-select: none`, so
+  // `auto` never becomes an I-beam here.
+  //
+  // Since `cursor` is an inherited property, this is equivalent to dropping
+  // the declaration entirely. It is spelled out so the next person to read
+  // this line sees a decision rather than an omission to fill in.
   const containerStyle = css`
     display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: center;
     padding: 4px;
-    cursor: ${isActionable ? 'pointer' : 'default'};
+    cursor: ${isActionable ? 'pointer' : 'inherit'};
     user-select: none;
     transition: background-color 0.2s;
     background-color: ${backgroundColor};
