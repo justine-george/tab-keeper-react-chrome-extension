@@ -99,5 +99,11 @@
   "Sync unavailable: your cloud data could not be read. Sessions on this device are safe.": "同期を利用できません: クラウドのデータを読み取れませんでした。このデバイスのセッションは安全です。",
   "Synced changes from another device.": "別のデバイスからの変更を同期しました。",
   "Restored tabs successfully!": "タブを復元しました。",
-  "Unnamed group": "名前のないグループ"
+  "Unnamed group": "名前のないグループ",
+  "TabGroupsPromptTitle": "タブグループを保存",
+  "TabGroupsPromptBodyOne": "権限がないと、Tab Keeper はタブグループの名前と色を保存できません。",
+  "TabGroupsPromptBodyOther": "権限がないと、Tab Keeper は {{count}} 個のタブグループの名前と色を保存できません。",
+  "TabGroupsPromptConfirm": "タブグループのサポートを有効にする",
+  "TabGroupsPromptDismiss": "後で",
+  "TabGroupsPromptNever": "今後表示しない"
 }

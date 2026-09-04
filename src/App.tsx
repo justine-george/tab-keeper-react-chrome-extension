@@ -15,6 +15,7 @@ import { useDocumentTheme } from './hooks/useDocumentTheme';
 import { replaceState } from './redux/slices/tabContainerDataStateSlice';
 import {
   openRateAndReviewModal,
+  openTabGroupsPrompt,
   removeUserId,
   setHasTabGroupsPermission,
   setLoggedOut,
@@ -27,6 +28,7 @@ import {
   hasTabGroupsPermission,
   observeTabGroupsPermission,
 } from './utils/functions/permissions';
+import { shouldOfferTabGroups } from './utils/functions/tabGroupsOffer';
 
 import './App.css';
 import {
@@ -125,7 +127,14 @@ function App() {
   }
 
   // ask user to rate and review the extension
-  function askUserToRateAndReview() {
+  //
+  // Returns whether it opened the modal. KAN-74 needs that answer to keep two
+  // modals off the screen at once, and it cannot read it back out of Redux:
+  // this function is synchronous while the tab-groups check below is async, so
+  // by the time that one resolves it would be reading a store it has no
+  // guarantee of having seen settle. Handing the decision over as a value
+  // makes the coordination explicit instead of an accident of dispatch order.
+  function askUserToRateAndReview(): boolean {
     // load from localstorage to check if user has already rated and reviewed
     const {
       extensionInstalledTime = '',
@@ -136,13 +145,13 @@ function App() {
 
     // if user has already rated and reviewed, then don't ask again
     if (isUserRatedAndReviewed || isNeverAskAgainToRate) {
-      return;
+      return false;
     }
 
     // if user is first time user, then wait till he/she uses the extension for a day
     if (!isValidDate(extensionInstalledTime)) {
       dispatch(setExtensionInstalledTime());
-      return;
+      return false;
     }
     const ONE_DAY_IN_MS = 24 * 60 * 60 * 1000;
     const currentTimeInMs = new Date().getTime();
@@ -150,7 +159,7 @@ function App() {
       extensionInstalledTime
     ).getTime();
     if (currentTimeInMs - extensionInstalledTimeInMs < ONE_DAY_IN_MS) {
-      return;
+      return false;
     }
 
     // if user has already been asked to rate and review, then wait for 3 days to ask again
@@ -160,17 +169,32 @@ function App() {
       ).getTime();
       const THREE_DAYS_IN_MS = 3 * ONE_DAY_IN_MS;
       if (currentTimeInMs - lastReviewRequestTimeInMs < THREE_DAYS_IN_MS) {
-        return;
+        return false;
       }
     }
 
     // It's to ask the user to rate and review!
     dispatch(openRateAndReviewModal());
+    return true;
+  }
+
+  // KAN-74. Offer the optional "tabGroups" permission to a user who has tab
+  // groups open right now. shouldOfferTabGroups owns every condition; this
+  // only turns its answer into a dispatch.
+  //
+  // "Never from autosave" is satisfied by construction rather than by a check:
+  // autosave runs in the service worker, and App only mounts when the user
+  // opens the popup.
+  async function offerTabGroupsPermission(
+    isRateAndReviewModalShowing: boolean
+  ) {
+    const openGroups = await shouldOfferTabGroups(isRateAndReviewModalShowing);
+    if (openGroups !== null) dispatch(openTabGroupsPrompt(openGroups));
   }
 
   useEffect(() => {
     getUserTokenFromChromeStorageSync();
-    askUserToRateAndReview();
+    void offerTabGroupsPermission(askUserToRateAndReview());
     observeAuthState(dispatch);
 
     void hasTabGroupsPermission().then((granted) =>

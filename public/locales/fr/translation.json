@@ -99,5 +99,11 @@
   "Sync unavailable: your cloud data could not be read. Sessions on this device are safe.": "Synchronisation indisponible : vos données cloud n'ont pas pu être lues. Les sessions sur cet appareil sont intactes.",
   "Synced changes from another device.": "Modifications synchronisées depuis un autre appareil.",
   "Restored tabs successfully!": "Onglets restaurés avec succès !",
-  "Unnamed group": "Groupe sans nom"
+  "Unnamed group": "Groupe sans nom",
+  "TabGroupsPromptTitle": "Enregistrer vos groupes d'onglets",
+  "TabGroupsPromptBodyOne": "Sans autorisation, Tab Keeper ne peut pas enregistrer le nom et la couleur de votre groupe d'onglets.",
+  "TabGroupsPromptBodyOther": "Sans autorisation, Tab Keeper ne peut pas enregistrer les noms et les couleurs de vos {{count}} groupes d'onglets.",
+  "TabGroupsPromptConfirm": "Activer la prise en charge des groupes d'onglets",
+  "TabGroupsPromptDismiss": "Pas maintenant",
+  "TabGroupsPromptNever": "Ne plus demander"
 }

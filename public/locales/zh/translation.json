@@ -99,5 +99,11 @@
   "Sync unavailable: your cloud data could not be read. Sessions on this device are safe.": "无法同步：无法读取云端数据。此设备上的会话是安全的。",
   "Synced changes from another device.": "已同步来自其他设备的更改。",
   "Restored tabs successfully!": "标签页已成功恢复！",
-  "Unnamed group": "未命名的群组"
+  "Unnamed group": "未命名的群组",
+  "TabGroupsPromptTitle": "保存您的标签组",
+  "TabGroupsPromptBodyOne": "没有权限，Tab Keeper 无法保存标签组的名称和颜色。",
+  "TabGroupsPromptBodyOther": "没有权限，Tab Keeper 无法保存这 {{count}} 个标签组的名称和颜色。",
+  "TabGroupsPromptConfirm": "启用标签组支持",
+  "TabGroupsPromptDismiss": "暂不",
+  "TabGroupsPromptNever": "不再询问"
 }

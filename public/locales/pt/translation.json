@@ -99,5 +99,11 @@
   "Sync unavailable: your cloud data could not be read. Sessions on this device are safe.": "Sincronização indisponível: não foi possível ler os dados da nuvem. As sessões neste dispositivo estão seguras.",
   "Synced changes from another device.": "Alterações sincronizadas de outro dispositivo.",
   "Restored tabs successfully!": "Abas restauradas com sucesso!",
-  "Unnamed group": "Grupo sem nome"
+  "Unnamed group": "Grupo sem nome",
+  "TabGroupsPromptTitle": "Salve seus grupos de guias",
+  "TabGroupsPromptBodyOne": "Sem permissão, o Tab Keeper não pode salvar o nome e a cor do seu grupo de guias.",
+  "TabGroupsPromptBodyOther": "Sem permissão, o Tab Keeper não pode salvar os nomes e as cores dos seus {{count}} grupos de guias.",
+  "TabGroupsPromptConfirm": "Ativar o suporte a grupos de guias",
+  "TabGroupsPromptDismiss": "Agora não",
+  "TabGroupsPromptNever": "Não perguntar novamente"
 }
