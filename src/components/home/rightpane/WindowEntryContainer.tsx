@@ -73,6 +73,19 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     (state: RootState) => state.globalState.isSearchPanel
   );
 
+  // Gates rendering on the LIVE permission, not on whether the data is
+  // present. A session synced from a device that had the permission still
+  // carries chromeTabGroups on a device that never granted it, and
+  // applyTabGroups silently no-ops in that case (it feature-detects
+  // chrome.tabGroups and returns without restoring the grouping) -- so
+  // showing coloured bands here would promise a grouping restore will not
+  // keep. Falling back to the flat, ungrouped rendering is honest about
+  // what the pane can actually do; the individual tabs still render either
+  // way, only the grouping UI disappears.
+  const hasTabGroupsPermission = useSelector(
+    (state: RootState) => state.globalState.hasTabGroupsPermission
+  );
+
   const containerStyle = css`
     display: flex;
     flex-direction: column;
@@ -420,7 +433,10 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
       </div>
       {windowOpenState && (
         <div css={childrenContainerStyle}>
-          {partitionTabsIntoRuns(tabs, chromeTabGroups).map((run, runIndex) =>
+          {partitionTabsIntoRuns(
+            tabs,
+            hasTabGroupsPermission ? chromeTabGroups : undefined
+          ).map((run, runIndex) =>
             run.kind === 'ungrouped' ? (
               <React.Fragment key={`ungrouped-${runIndex}`}>
                 {run.tabs.map((tabItem) =>
