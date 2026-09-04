@@ -2,7 +2,6 @@ import { useDispatch, useSelector } from 'react-redux';
 
 import { css } from '@emotion/react';
 
-import { NormalLabel } from '../common/Label';
 import { useFontFamily } from '../../hooks/useFontFamily';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { AppDispatch, RootState } from '../../redux/store';
@@ -74,6 +73,31 @@ export const RateAndReviewModal: React.FC<RateAndReviewModalProps> = ({
     cleanUp();
   };
 
+  // KAN-75. Both dismissals are real <button>s, not NormalLabels with onClick.
+  //
+  // NormalLabel renders a bare `<div onClick>`: no role, no tab stop. Measured
+  // in a live popup on the equivalent KAN-74 modal, the dismissal reached the
+  // accessibility tree as StaticText -- a control no keyboard user can reach.
+  // Since this modal has no Escape handler and no close affordance, that left
+  // a keyboard-only user who could reach the CTA with no way to decline it.
+  //
+  // Kept in sync with TabGroupsPermissionModal's identical block by hand. Two
+  // copies rather than a shared component: there are exactly two, and the
+  // abstraction would have to carry the modal's whole visual language to earn
+  // its name.
+  const dismissStyle = css`
+    background: none;
+    border: none;
+    padding: 0;
+    font-family: ${FONT_FAMILY};
+    font-size: 0.9rem;
+    color: ${COLORS.TEXT_COLOR};
+    cursor: pointer;
+    &:hover {
+      text-decoration: underline;
+    }
+  `;
+
   return (
     <div
       css={css`
@@ -115,34 +139,48 @@ export const RateAndReviewModal: React.FC<RateAndReviewModalProps> = ({
         >
           {t('RequestUserReviewHeader')}
         </h2>
-        <NormalLabel
-          value={t(`RequestUserReviewText`)}
-          size="0.9rem"
-          color={COLORS.TEXT_COLOR}
-          onClick={handleRateExtension}
-          style={`cursor: pointer; margin-bottom: 10px;`}
-        />
+        {/* Body copy, not a control. This carried its own
+            `onClick={handleRateExtension}` -- an invisible click target that
+            opened the Web Store, duplicating the CTA directly beneath it and
+            just as unreachable by keyboard. A sentence is not a button, so the
+            handler is gone rather than promoted; the CTA below is the only way
+            to the review page.
+
+            A <p> also escapes NormalLabel's `white-space: nowrap;
+            overflow: hidden`, which silently clips any body copy too long for
+            the 500px card. Nothing clips today -- pt is the longest at 56
+            characters -- but that is a property of the current copy, not of
+            the markup. */}
+        <p
+          css={css`
+            font-family: ${FONT_FAMILY};
+            font-size: 0.9rem;
+            color: ${COLORS.TEXT_COLOR};
+            text-align: center;
+            margin: 0 0 10px 0;
+          `}
+        >
+          {t(`RequestUserReviewText`)}
+        </p>
         <Button
           text={t(`Rate this app`)}
           onClick={handleRateExtension}
           iconType="thumb_up"
           style="width: 217px; margin-bottom: 10px; cursor: pointer;"
         />
-        <NormalLabel
-          value={t(`Maybe Later`)}
-          size="0.9rem"
-          color={COLORS.TEXT_COLOR}
-          onClick={handleRemindLater}
-          style={`cursor: pointer;`}
-        />
+        <button type="button" css={dismissStyle} onClick={handleRemindLater}>
+          {t(`Maybe Later`)}
+        </button>
+        {/* Earned, not offered: the permanent opt-out appears only after the
+            user has already skipped once. */}
         {isSkippedUserReviewOnce && (
-          <NormalLabel
-            value={t(`Never Remind Again`)}
-            size="0.9rem"
-            color={COLORS.TEXT_COLOR}
+          <button
+            type="button"
+            css={dismissStyle}
             onClick={handleNeverAskAgain}
-            style={`cursor: pointer;`}
-          />
+          >
+            {t(`Never Remind Again`)}
+          </button>
         )}
       </div>
     </div>

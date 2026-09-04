@@ -1,7 +1,12 @@
 import type { BrowserContext, Page } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
-import { buildContainer, buildSession, seedSessions } from './fixtures/seed';
+import {
+  buildContainer,
+  buildSession,
+  seedSessions,
+  seedSettings,
+} from './fixtures/seed';
 
 // These specs assert on ROLE plus accessible name, never on the raw
 // `[aria-label=...]` attribute. That distinction is the whole point of
@@ -35,6 +40,27 @@ async function openPopup(
   const page = await context.newPage();
   await page.goto(`chrome-extension://${extensionId}/index.html`);
   return page;
+}
+
+const RATE_PROMPT_BODY = 'Please consider helping me out with a good review!';
+
+// The rate-and-review prompt is gated entirely on localStorage (App.tsx:137):
+// installed more than a day ago, never rated, never opted out, and not asked
+// in the last three days. Seeding those opens it on the first render.
+//
+// `extensionInstalledTime` is a NUMBER of milliseconds, not a date string --
+// see seedSettings, where getting that wrong fails silently as a modal that
+// never appears.
+async function openRatePrompt(
+  context: BrowserContext,
+  extensionId: string
+): Promise<Page> {
+  await seedSettings(context, {
+    extensionInstalledTime: Date.now() - 2 * 24 * 60 * 60 * 1000,
+    // Reveals the second dismissal, which is earned rather than offered.
+    isSkippedUserReviewOnce: true,
+  });
+  return openPopup(context, extensionId);
 }
 
 test.describe('accessible controls', () => {
@@ -340,6 +366,75 @@ test.describe('controls are reachable by keyboard', () => {
     await page.getByRole('button', { name: 'Delete', exact: true }).focus();
 
     await expect(actions).toHaveCSS('opacity', '1');
+  });
+
+  // KAN-75. RateAndReviewModal rendered both dismissals as a NormalLabel with
+  // an onClick -- a bare `<div onClick>`, so neither took a tab stop nor
+  // reached the accessibility tree as a control. The modal has no Escape
+  // handler and no close affordance, so a keyboard-only user could reach the
+  // CTA and then had no way at all to decline it.
+  //
+  // These run in a real browser rather than only in jsdom because the tab-order
+  // walk is the assertion that actually matters. A role query proves the markup
+  // is a button; only walking from <body> proves a keyboard user can arrive at
+  // it -- `locator.focus()` succeeds on a tabindex=-1 element, per tabOrderNames
+  // above.
+  test('the rate prompt dismissals are reachable by Tab (KAN-75)', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openRatePrompt(context, extensionId);
+    await expect(page.getByText(RATE_PROMPT_BODY)).toBeVisible();
+
+    const names = await tabOrderNames(page, 30);
+
+    expect(names).toContain('Maybe Later');
+    expect(names).toContain('Never Remind Again');
+  });
+
+  test('the rate prompt dismissals are buttons with accessible names (KAN-75)', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openRatePrompt(context, extensionId);
+    await expect(page.getByText(RATE_PROMPT_BODY)).toBeVisible();
+
+    await expect(page.getByRole('button', { name: 'Maybe Later' })).toHaveCount(
+      1
+    );
+    await expect(
+      page.getByRole('button', { name: 'Never Remind Again' })
+    ).toHaveCount(1);
+  });
+
+  // The body sentence used to carry its own onClick, opening the Web Store --
+  // an invisible click target, equally unreachable, duplicating the CTA right
+  // beneath it. It is body copy now.
+  //
+  // Asserted by CLICKING it, not by querying its role. A role query cannot see
+  // this defect at all: a `<div onClick>` is not a button and a `<p>` is not a
+  // button either, so `getByRole` returns zero against both the broken and the
+  // fixed markup. Written that way this test passed against the defect --
+  // confirmed by running it against the reverted component.
+  //
+  // The observable difference is that the old handler called cleanUp(), which
+  // closes the modal. So: click the sentence, and the modal must still be
+  // there.
+  test('the rate prompt body is not a click target (KAN-75)', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openRatePrompt(context, extensionId);
+    await expect(page.getByText(RATE_PROMPT_BODY)).toBeVisible();
+
+    await page.getByText(RATE_PROMPT_BODY).click();
+
+    await expect(page.getByText(RATE_PROMPT_BODY)).toBeVisible();
+    // The positive control for that assertion: the CTA beside it DOES close
+    // the modal, so "still visible" above is a property of the body copy
+    // rather than of a modal that cannot be dismissed at all.
+    await page.getByRole('button', { name: 'Rate this extension' }).click();
+    await expect(page.getByText(RATE_PROMPT_BODY)).toBeHidden();
   });
 
   // KAN-67. `focusableButton` had no default, so `tabIndex={onClick &&
