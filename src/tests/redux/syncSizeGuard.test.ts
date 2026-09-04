@@ -28,7 +28,10 @@ import {
 import { replaceState } from '../../redux/slices/tabContainerDataStateSlice';
 import { makeTestStore } from '../setup/makeStore';
 import { buildContainer, buildSession } from '../fixtures/sessionFixture';
-import { FIRESTORE_MAX_DOCUMENT_BYTES } from '../../utils/functions/local';
+import {
+  FIRESTORE_MAX_DOCUMENT_BYTES,
+  estimateFirestoreBytes,
+} from '../../utils/functions/local';
 
 // A session whose tab titles alone exceed the document limit. Built from real
 // field names so estimateFirestoreBytes measures the same JSON production does.
@@ -83,4 +86,58 @@ describe('the sync write refuses a document Firestore would reject', () => {
     await store.dispatch(saveToFirestoreIfDirty());
     expect(mocks.saveToFirestore).toHaveBeenCalledTimes(1);
   });
+});
+
+// A heavy but realistic account: 40 sessions x 3 windows x 20 tabs, with half
+// the tabs in one of two groups per window.
+function sizedContainer(grouped: boolean) {
+  const sessions = Array.from({ length: 40 }, (_, s) =>
+    buildSession({
+      tabGroupId: `session-${s}`,
+      windows: Array.from({ length: 3 }, (_, w) => ({
+        windowId: `w-${s}-${w}`,
+        windowHeight: 1080,
+        windowWidth: 1920,
+        windowOffsetTop: 0,
+        windowOffsetLeft: 0,
+        tabCount: 20,
+        title: 'A window of tabs',
+        ...(grouped
+          ? {
+              chromeTabGroups: [
+                { groupId: `g-${s}-${w}-a`, title: 'Work', color: 'blue' },
+                { groupId: `g-${s}-${w}-b`, title: 'Reading', color: 'green' },
+              ],
+            }
+          : {}),
+        tabs: Array.from({ length: 20 }, (_, t) => ({
+          tabId: `t-${s}-${w}-${t}`,
+          favicon: '',
+          title: 'A page title of about fifty characters, give or take',
+          url: `https://example.com/some/path/segment/${s}/${w}/${t}?q=value`,
+          // Half grouped, matching how people actually use groups: a few
+          // organised runs among a majority of loose tabs.
+          ...(grouped && t < 10
+            ? { chromeGroupId: `g-${s}-${w}-${t < 5 ? 'a' : 'b'}` }
+            : {}),
+        })),
+      })),
+    })
+  );
+  return buildContainer(sessions);
+}
+
+it('tab group metadata does not materially change the size estimate', () => {
+  const withoutGroups = estimateFirestoreBytes(sizedContainer(false));
+  const withGroups = estimateFirestoreBytes(sizedContainer(true));
+
+  // Measured (see the commit message and KAN-11 for the numbers): tab group
+  // metadata added well under half of the 15% budget below, for a document
+  // still well under Firestore's 1 MiB ceiling.
+  //
+  // If this ever fails, take the spec's §8.3 fallback: reference groups by
+  // their index in chromeTabGroups instead of by uuid, saving ~48 bytes per
+  // grouped tab.
+  expect((withGroups - withoutGroups) / withoutGroups).toBeLessThan(0.15);
+  expect(withGroups).toBeLessThan(FIRESTORE_MAX_DOCUMENT_BYTES);
 });

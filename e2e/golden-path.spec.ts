@@ -10,6 +10,43 @@ const RESEARCH = buildSession({
   title: 'Research',
 });
 
+// Carries chromeTabGroups and a chromeGroupId'd tab, but hasTabGroupsPermission
+// defaults to false in a fresh profile -- there is no known way to pre-grant
+// an optional permission in the Playwright profile, so this is the only path
+// the E2E suite can cover. It pins that the feature stays invisible to a user
+// who never grants it, rather than promising a restore it cannot deliver.
+const GROUPED = buildSession({
+  tabGroupId: 'session-grouped',
+  title: 'Grouped',
+  windows: [
+    {
+      windowId: 'window-grouped',
+      windowHeight: 1080,
+      windowWidth: 1920,
+      windowOffsetTop: 0,
+      windowOffsetLeft: 0,
+      tabCount: 2,
+      title: 'Grouped window',
+      chromeTabGroups: [{ groupId: 'g-work', title: 'Work', color: 'blue' }],
+      tabs: [
+        {
+          tabId: 'tab-grouped-1',
+          favicon: '',
+          title: 'Grouped Tab One',
+          url: 'https://example.com/one',
+          chromeGroupId: 'g-work',
+        },
+        {
+          tabId: 'tab-grouped-2',
+          favicon: '',
+          title: 'Grouped Tab Two',
+          url: 'https://example.com/two',
+        },
+      ],
+    },
+  ],
+});
+
 const HOLIDAY = buildSession({
   tabGroupId: 'session-holiday',
   title: 'Holiday',
@@ -138,5 +175,29 @@ test.describe('golden path', () => {
     // substring-matches "Back" and trips strict mode.
     await page.getByRole('button', { name: 'Go back' }).click();
     await expect(page.locator('input#name')).toBeVisible();
+  });
+
+  test('7. a session with chrome tab groups renders ungrouped without the permission', async ({
+    context,
+    extensionId,
+  }) => {
+    await seedSessions(context, buildContainer([GROUPED]));
+
+    const page = await context.newPage();
+    await page.goto(`chrome-extension://${extensionId}/index.html`);
+
+    await page.getByText('Grouped').first().click();
+
+    // The gate hides grouping UI entirely: no role="group" boundary, and the
+    // group's own title never renders on its own (it only ever appears
+    // inside that boundary).
+    await expect(page.locator('[role="group"]')).toHaveCount(0);
+    await expect(page.getByText('Work')).toHaveCount(0);
+
+    // The tabs themselves still render -- the gate hides grouping, not
+    // content. Without this half, the test would pass just as well against a
+    // pane that rendered nothing at all.
+    await expect(page.getByText('Grouped Tab One')).toBeVisible();
+    await expect(page.getByText('Grouped Tab Two')).toBeVisible();
   });
 });
