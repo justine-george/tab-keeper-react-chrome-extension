@@ -227,7 +227,7 @@ describe('chrome.runtime fake', () => {
 
 describe('tab groups', () => {
   test('a seeded tab reports its groupId, and an ungrouped one reports -1', async () => {
-    setupChromeFake({
+    handle = setupChromeFake({
       windows: [{ id: 1 }],
       tabs: [
         { id: 11, windowId: 1, groupId: 5 },
@@ -241,7 +241,7 @@ describe('tab groups', () => {
   });
 
   test('tabGroups.query returns the groups seeded for a window', async () => {
-    setupChromeFake({
+    handle = setupChromeFake({
       windows: [{ id: 1 }, { id: 2 }],
       tabGroups: [
         { id: 5, windowId: 1, title: 'Work', color: 'blue' },
@@ -255,7 +255,7 @@ describe('tab groups', () => {
   });
 
   test('tabs.group records the call, mints an id and stamps the tabs', async () => {
-    const handle = setupChromeFake({
+    handle = setupChromeFake({
       windows: [{ id: 1 }],
       tabs: [{ id: 11, windowId: 1 }],
     });
@@ -275,7 +275,10 @@ describe('tab groups', () => {
   });
 
   test('tabGroups.update applies title and colour to a created group', async () => {
-    setupChromeFake({ windows: [{ id: 1 }], tabs: [{ id: 11, windowId: 1 }] });
+    handle = setupChromeFake({
+      windows: [{ id: 1 }],
+      tabs: [{ id: 11, windowId: 1 }],
+    });
 
     const groupId = await chrome.tabs.group({
       createProperties: { windowId: 1 },
@@ -290,21 +293,21 @@ describe('tab groups', () => {
 
 describe('permissions', () => {
   test('contains reports false for a permission that was not granted', async () => {
-    setupChromeFake();
+    handle = setupChromeFake();
     expect(
       await chrome.permissions.contains({ permissions: ['tabGroups'] })
     ).toBe(false);
   });
 
   test('a seeded grant is reported as held', async () => {
-    setupChromeFake({ grantedPermissions: ['tabGroups'] });
+    handle = setupChromeFake({ grantedPermissions: ['tabGroups'] });
     expect(
       await chrome.permissions.contains({ permissions: ['tabGroups'] })
     ).toBe(true);
   });
 
   test('request grants, remove revokes, and both notify listeners', async () => {
-    setupChromeFake();
+    handle = setupChromeFake();
     const added: chrome.permissions.Permissions[] = [];
     const removed: chrome.permissions.Permissions[] = [];
     chrome.permissions.onAdded.addListener((p) => added.push(p));
@@ -328,7 +331,7 @@ describe('permissions', () => {
   // seeds `requestNeverSettles` and asserts on contains(), never on the
   // promise.
   test('requestNeverSettles leaves the promise pending', async () => {
-    setupChromeFake({ requestNeverSettles: true });
+    handle = setupChromeFake({ requestNeverSettles: true });
     let settled = false;
     void chrome.permissions.request({ permissions: ['tabGroups'] }).then(() => {
       settled = true;
