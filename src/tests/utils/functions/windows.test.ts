@@ -267,8 +267,10 @@ describe('createWindowWithRetries with tab groups', () => {
   // mode decides whether to close the user's windows from that value.
   test('a failing tabs.group still resolves with the created window', async () => {
     const handle = setupChromeFake({ grantedPermissions: ['tabGroups'] });
-    (globalThis as any).chrome.tabs.group = () =>
-      Promise.reject(new Error('nope'));
+    const tabs = chrome.tabs as unknown as {
+      group: (options: chrome.tabs.GroupOptions) => Promise<number>;
+    };
+    tabs.group = () => Promise.reject(new Error('nope'));
 
     const created = await createWindowWithRetries(
       spec({
@@ -281,6 +283,52 @@ describe('createWindowWithRetries with tab groups', () => {
     );
 
     expect(created).not.toBeNull();
+    handle.restore();
+  });
+
+  // The try/catch inside applyTabGroups is not only there to keep the
+  // rejection from escaping createWindowWithRetries (the test above): it also
+  // sits INSIDE the per-group loop, so one group failing does not abandon the
+  // groups after it. This is the assertion that pins that -- a plain
+  // "resolves with the window" check cannot distinguish "every group but the
+  // first still got applied" from "the whole loop aborted after the first
+  // failure", since both leave the window intact.
+  test('a group that fails does not stop the groups after it', async () => {
+    const handle = setupChromeFake({ grantedPermissions: ['tabGroups'] });
+    const tabs = chrome.tabs as unknown as {
+      group: (options: chrome.tabs.GroupOptions) => Promise<number>;
+    };
+    const originalGroup = tabs.group;
+    let calls = 0;
+    tabs.group = (options) => {
+      calls += 1;
+      if (calls === 1) return Promise.reject(new Error('nope'));
+      return originalGroup(options);
+    };
+
+    const created = await createWindowWithRetries(
+      spec({
+        tabs: [
+          { ...tab('https://a.test'), tabId: 't1', chromeGroupId: 'g1' },
+          { ...tab('https://b.test'), tabId: 't2', chromeGroupId: 'g2' },
+        ],
+        groups: [
+          { groupId: 'g1', title: 'First', color: 'blue' },
+          { groupId: 'g2', title: 'Second', color: 'green' },
+        ],
+      }),
+      'Go',
+      false,
+      2
+    );
+
+    expect(created).not.toBeNull();
+    // Only the second group's tabs.group call reaches the real fake: the
+    // first was intercepted and rejected before it got there.
+    expect(handle.groupedTabs).toHaveLength(1);
+    const groups = await chrome.tabGroups.query({});
+    expect(groups.some((group) => group.title === 'Second')).toBe(true);
+
     handle.restore();
   });
 
