@@ -98,5 +98,6 @@
   "Save changes": "Enregistrer les modifications",
   "Sync unavailable: your cloud data could not be read. Sessions on this device are safe.": "Synchronisation indisponible : vos données cloud n'ont pas pu être lues. Les sessions sur cet appareil sont intactes.",
   "Synced changes from another device.": "Modifications synchronisées depuis un autre appareil.",
-  "Restored tabs successfully!": "Onglets restaurés avec succès !"
+  "Restored tabs successfully!": "Onglets restaurés avec succès !",
+  "Unnamed group": "Groupe sans nom"
 }

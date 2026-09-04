@@ -98,5 +98,6 @@
   "Save changes": "Сохранить изменения",
   "Sync unavailable: your cloud data could not be read. Sessions on this device are safe.": "Синхронизация недоступна: не удалось прочитать данные в облаке. Сессии на этом устройстве в сохранности.",
   "Synced changes from another device.": "Изменения с другого устройства синхронизированы.",
-  "Restored tabs successfully!": "Вкладки успешно восстановлены!"
+  "Restored tabs successfully!": "Вкладки успешно восстановлены!",
+  "Unnamed group": "Группа без имени"
 }

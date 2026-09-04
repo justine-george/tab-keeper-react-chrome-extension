@@ -98,5 +98,6 @@
   "Save changes": "Änderungen speichern",
   "Sync unavailable: your cloud data could not be read. Sessions on this device are safe.": "Synchronisierung nicht verfügbar: Ihre Cloud-Daten konnten nicht gelesen werden. Die Sitzungen auf diesem Gerät sind sicher.",
   "Synced changes from another device.": "Änderungen von einem anderen Gerät synchronisiert.",
-  "Restored tabs successfully!": "Tabs erfolgreich wiederhergestellt!"
+  "Restored tabs successfully!": "Tabs erfolgreich wiederhergestellt!",
+  "Unnamed group": "Unbenannte Gruppe"
 }

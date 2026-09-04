@@ -52,6 +52,18 @@ const HARDCODED_LABEL = /ariaLabel="([^"]*)"/g;
 const HARDCODED_TOOLTIP = /tooltipText="([^"]*)"/g;
 const HARDCODED_TEXT = /\btext="([^"]*)"/g;
 
+// The raw DOM attribute, kebab-case, as written directly on a native element
+// (e.g. `<div role="group" aria-label="...">`) rather than handed to one of
+// this repo's custom components (ClickableRow, Icon, Button), which forward
+// their camelCase `ariaLabel` prop to `aria-label={ariaLabel}` and so already
+// read as `ariaLabel="..."` only when literal. HARDCODED_LABEL's regex is
+// `ariaLabel="`, which does not match `aria-label="` -- confirmed by
+// mutating WindowEntryContainer's group band to a literal
+// `aria-label="Unnamed group"` and watching this file's other assertions
+// stay green (KAN-11 task 8). Without this pattern, a raw aria-label on a
+// role-bearing element is invisible to the sweep.
+const HARDCODED_ARIA_ATTR = /aria-label="([^"]*)"/g;
+
 const findAll = (src: string, re: RegExp) =>
   [...src.matchAll(new RegExp(re.source, 'g'))].map((m) => m[1]);
 
@@ -77,6 +89,7 @@ describe('no user-facing string is hardcoded English', () => {
     ['ariaLabel', HARDCODED_LABEL],
     ['tooltipText', HARDCODED_TOOLTIP],
     ['text', HARDCODED_TEXT],
+    ['aria-label', HARDCODED_ARIA_ATTR],
   ] as const) {
     test(`no component passes a literal ${prop}`, () => {
       const offenders: string[] = [];

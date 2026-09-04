@@ -98,5 +98,6 @@
   "Save changes": "Save changes",
   "Sync unavailable: your cloud data could not be read. Sessions on this device are safe.": "Sync unavailable: your cloud data could not be read. Sessions on this device are safe.",
   "Synced changes from another device.": "Synced changes from another device.",
-  "Restored tabs successfully!": "Restored tabs successfully!"
+  "Restored tabs successfully!": "Restored tabs successfully!",
+  "Unnamed group": "Unnamed group"
 }

@@ -98,5 +98,6 @@
   "Save changes": "परिवर्तन सहेजें",
   "Sync unavailable: your cloud data could not be read. Sessions on this device are safe.": "सिंक अनुपलब्ध: आपका क्लाउड डेटा पढ़ा नहीं जा सका। इस डिवाइस के सत्र सुरक्षित हैं।",
   "Synced changes from another device.": "दूसरे डिवाइस से किए गए बदलाव सिंक कर दिए गए।",
-  "Restored tabs successfully!": "टैब सफलतापूर्वक पुनर्स्थापित किए गए!"
+  "Restored tabs successfully!": "टैब सफलतापूर्वक पुनर्स्थापित किए गए!",
+  "Unnamed group": "बिना नाम का समूह"
 }

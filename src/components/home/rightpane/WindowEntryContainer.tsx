@@ -20,10 +20,17 @@ import {
   tabData,
 } from '../../../redux/slices/tabContainerDataStateSlice';
 import { useTranslation } from 'react-i18next';
+import {
+  partitionTabsIntoRuns,
+  sanitizeTabGroupColor,
+  TAB_GROUP_COLOR_HEX,
+} from '../../../utils/functions/tabGroups';
+import type { chromeTabGroupData } from '../../../utils/functions/tabGroups';
 
 interface WindowEntryContainerProps {
   title: string;
   tabs: tabData[];
+  chromeTabGroups?: chromeTabGroupData[];
   tabGroupId: string;
   windowId: string;
   /**
@@ -40,6 +47,7 @@ interface WindowEntryContainerProps {
 const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   title,
   tabs,
+  chromeTabGroups,
   tabGroupId,
   windowId,
   onWindowTitleClick,
@@ -226,6 +234,59 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     }
   }
 
+  // `index` is hover bookkeeping against hoveredChildIndex, which is this
+  // component's own state -- it is not an identity for the row and must not
+  // be used as the key. Callers pass tabs.indexOf(tabItem) so the count runs
+  // across the whole window rather than restarting inside each group's run;
+  // getting that wrong makes hovering one tab highlight another.
+  function renderTab({ tabId, favicon, title, url }: tabData, index: number) {
+    return (
+      <div
+        key={tabId}
+        css={childrenStyle}
+        onMouseEnter={() => setHoveredChildIndex(index)}
+        onMouseLeave={() => setHoveredChildIndex(null)}
+      >
+        {/* The name reuses the string the tooltip already carried, so no new
+            hardcoded English enters the app -- the 25 untranslated
+            aria-labels of KAN-65 stay one clean sweep. The favicon Icon
+            inside is presentational and aria-hidden, so it does not leak
+            into the name. */}
+        <ClickableRow
+          ariaLabel={t('Open in new tab') + ': ' + title}
+          onClick={() => handleTabClick(url)}
+          style={childLeftStyle}
+        >
+          <Icon
+            faviconUrl={resolveFaviconUrl(favicon, url)}
+            type="globe"
+            style={`&:hover {background-color: unset;}`}
+          />
+          <div css={windowChildLinkStyle}>
+            <NormalLabel
+              value={title}
+              color={COLORS.TEXT_COLOR}
+              size="0.9rem"
+              style="padding-left: 4px; height: 100%; max-width: 100%;"
+            />
+          </div>
+        </ClickableRow>
+        <div css={childRightStyle(index)}>
+          <Icon
+            tooltipText={t('Delete tab')}
+            ariaLabel={t('Delete tab')}
+            type="delete"
+            backgroundColor={COLORS.HOVER_COLOR}
+            onClick={(e) => {
+              e.stopPropagation();
+              dispatch(deleteTab({ tabGroupId, windowId, tabId }));
+            }}
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div css={containerStyle}>
       <div
@@ -359,56 +420,69 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
       </div>
       {windowOpenState && (
         <div css={childrenContainerStyle}>
-          {tabs.map(({ tabId, favicon, title, url }, index) => {
-            return (
-              // `index` below is hover bookkeeping against hoveredChildIndex,
-              // which is this component's own state -- it is not an identity
-              // for the row and must not be used as the key.
+          {partitionTabsIntoRuns(tabs, chromeTabGroups).map((run, runIndex) =>
+            run.kind === 'ungrouped' ? (
+              <React.Fragment key={`ungrouped-${runIndex}`}>
+                {run.tabs.map((tabItem) =>
+                  renderTab(tabItem, tabs.indexOf(tabItem))
+                )}
+              </React.Fragment>
+            ) : (
               <div
-                key={tabId}
-                css={childrenStyle}
-                onMouseEnter={() => setHoveredChildIndex(index)}
-                onMouseLeave={() => setHoveredChildIndex(null)}
+                key={run.group.groupId}
+                role="group"
+                aria-label={run.group.title || t('Unnamed group')}
+                css={css`
+                  display: flex;
+                  align-items: stretch;
+                  margin: 2px 0;
+                `}
               >
-                {/* The name reuses the string the tooltip already carried,
-                    so no new hardcoded English enters the app -- the 25
-                    untranslated aria-labels of KAN-65 stay one clean sweep.
-                    The favicon Icon inside is presentational and aria-hidden,
-                    so it does not leak into the name. */}
-                <ClickableRow
-                  ariaLabel={t('Open in new tab') + ': ' + title}
-                  onClick={() => handleTabClick(url)}
-                  style={childLeftStyle}
+                {/* The colour is Chrome's own group identity, not app chrome
+                    (BINDING CONSTRAINT 1) -- TAB_GROUP_COLOR_HEX is a fixed
+                    map, not routed through useThemeColors, so it reads the
+                    same in every theme as it does in the browser.
+
+                    It is also purely decorative: the accessible name and the
+                    role="group" boundary above already carry the grouping, so
+                    this band is a separate aria-hidden element rather than
+                    living on the labelled node itself (BINDING CONSTRAINT 3). */}
+                <div
+                  aria-hidden="true"
+                  css={css`
+                    flex: 0 0 3px;
+                    width: 3px;
+                    margin-right: 6px;
+                    background-color: ${TAB_GROUP_COLOR_HEX[
+                      sanitizeTabGroupColor(run.group.color)
+                    ]};
+                  `}
+                />
+                <div
+                  css={css`
+                    flex: 1;
+                    min-width: 0;
+                  `}
                 >
-                  <Icon
-                    faviconUrl={resolveFaviconUrl(favicon, url)}
-                    type="globe"
-                    style={`&:hover {background-color: unset;}`}
-                  />
-                  <div css={windowChildLinkStyle}>
+                  {/* An untitled group renders as the band alone, matching
+                      how Chrome itself shows one (BINDING CONSTRAINT 2). The
+                      name still reaches a screen reader through the
+                      aria-label on the role="group" element above. */}
+                  {run.group.title && (
                     <NormalLabel
-                      value={title}
-                      color={COLORS.TEXT_COLOR}
-                      size="0.9rem"
-                      style="padding-left: 4px; height: 100%; max-width: 100%;"
+                      value={run.group.title}
+                      color={COLORS.LABEL_L2_COLOR}
+                      size="0.8rem"
+                      style="padding-left: 4px;"
                     />
-                  </div>
-                </ClickableRow>
-                <div css={childRightStyle(index)}>
-                  <Icon
-                    tooltipText={t('Delete tab')}
-                    ariaLabel={t('Delete tab')}
-                    type="delete"
-                    backgroundColor={COLORS.HOVER_COLOR}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      dispatch(deleteTab({ tabGroupId, windowId, tabId }));
-                    }}
-                  />
+                  )}
+                  {run.tabs.map((tabItem) =>
+                    renderTab(tabItem, tabs.indexOf(tabItem))
+                  )}
                 </div>
               </div>
-            );
-          })}
+            )
+          )}
         </div>
       )}
     </div>

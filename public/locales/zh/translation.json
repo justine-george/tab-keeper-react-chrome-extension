@@ -98,5 +98,6 @@
   "Save changes": "保存更改",
   "Sync unavailable: your cloud data could not be read. Sessions on this device are safe.": "无法同步：无法读取云端数据。此设备上的会话是安全的。",
   "Synced changes from another device.": "已同步来自其他设备的更改。",
-  "Restored tabs successfully!": "标签页已成功恢复！"
+  "Restored tabs successfully!": "标签页已成功恢复！",
+  "Unnamed group": "未命名的群组"
 }
