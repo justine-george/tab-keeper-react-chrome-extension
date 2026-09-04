@@ -22,12 +22,19 @@ import {
   TOAST_MESSAGES,
 } from '../../utils/constants/common';
 import { SettingsData } from './settingsDataStateSlice';
+import type { chromeTabGroupData } from '../../utils/functions/tabGroups';
+
+export type { chromeTabGroupData };
 
 export interface tabData {
   tabId: string;
   favicon: string;
   title: string;
   url: string;
+  // The group this tab belonged to, as windowGroupData.chromeTabGroups[].groupId.
+  // Absent means the tab was ungrouped, which is most tabs for most users --
+  // which is also why this is an absent field rather than a nullable one: it
+  // costs nothing on disk for the common case.
   chromeGroupId?: string;
 }
 
@@ -40,6 +47,10 @@ export interface windowGroupData {
   tabCount: number;
   title: string;
   tabs: tabData[];
+  // Optional because every session saved before this change lacks it, and
+  // because capture writes nothing here unless the tabGroups permission has
+  // been granted. Absent = restore does no grouping.
+  chromeTabGroups?: chromeTabGroupData[];
 }
 
 export interface tabContainerData {

@@ -1,6 +1,7 @@
 import { Base64 } from 'js-base64';
-import {
+import type {
   TabMasterContainer,
+  chromeTabGroupData,
   deletedTabGroup,
   tabContainerData,
   tabData,
@@ -609,6 +610,20 @@ const isValidTabContainerData = (data: unknown): data is tabContainerData => {
   );
 };
 
+// validate import JSON structure - chromeTabGroupData
+//
+// `color` is checked as a string and NOT against the nine colours Chrome
+// defines today. This validator gates the WHOLE container on both the import
+// path and the cloud read, so a stricter check would reject every session a
+// user has the first time a newer client -- or a newer Chrome -- writes a
+// colour this build does not know. Unrecognised colours are degraded to grey
+// at the Chrome boundary instead, by sanitizeTabGroupColor.
+const isValidChromeTabGroupData = (data: unknown): data is chromeTabGroupData =>
+  isRecord(data) &&
+  typeof data.groupId === 'string' &&
+  typeof data.title === 'string' &&
+  typeof data.color === 'string';
+
 // validate import JSON structure - windowGroupData
 const isValidWindowGroupData = (data: unknown): data is windowGroupData => {
   return (
@@ -616,6 +631,13 @@ const isValidWindowGroupData = (data: unknown): data is windowGroupData => {
     typeof data.windowId === 'string' &&
     typeof data.tabCount === 'number' &&
     typeof data.title === 'string' &&
+    // Absent is valid - every window saved before tab groups existed lacks it,
+    // as does every window captured without the permission. Present but
+    // malformed is not: the restore path walks this list and hands its
+    // contents to chrome.tabGroups.update.
+    (data.chromeTabGroups === undefined ||
+      (Array.isArray(data.chromeTabGroups) &&
+        data.chromeTabGroups.every(isValidChromeTabGroupData))) &&
     Array.isArray(data.tabs) &&
     data.tabs.every(isValidTabData)
   );
@@ -628,7 +650,8 @@ const isValidTabData = (data: unknown): data is tabData => {
     typeof data.tabId === 'string' &&
     typeof data.favicon === 'string' &&
     typeof data.title === 'string' &&
-    typeof data.url === 'string'
+    typeof data.url === 'string' &&
+    (data.chromeGroupId === undefined || typeof data.chromeGroupId === 'string')
   );
 };
 
