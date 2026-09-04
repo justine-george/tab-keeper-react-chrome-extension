@@ -6,6 +6,7 @@ import { css } from '@emotion/react';
 
 import Icon from '../../common/Icon';
 import Button from '../../common/Button';
+import ClickableRow from '../../common/ClickableRow';
 import { NormalLabel } from '../../common/Label';
 import { useFontFamily } from '../../../hooks/useFontFamily';
 import { useThemeColors } from '../../../hooks/useThemeColors';
@@ -162,6 +163,18 @@ export default function HeroContainerRight() {
     ${isSearchPanel && 'visibility: hidden;'}
   `;
 
+  // Shared by both non-editing branches so the search-mode label and the
+  // rename button cannot drift apart visually.
+  const titleLabel = (
+    <NormalLabel
+      tooltipText={title}
+      value={title}
+      size="1.125rem"
+      color={COLORS.TEXT_COLOR}
+      style="height: 32px; padding-left: 8px; margin-right: 8px; max-width: 100%;"
+    />
+  );
+
   return (
     <div
       css={containerStyle}
@@ -203,15 +216,34 @@ export default function HeroContainerRight() {
                 }
               `}
             />
+          ) : isSearchPanel ? (
+            // Read-only while searching: the action block and the whole bottom
+            // row are `visibility: hidden` here, so exposing the title as a
+            // button would advertise the one action still on offer in a pane
+            // where nothing else can be done.
+            //
+            // This branch, not handleTabGroupTitleClick's own `!isSearchPanel`
+            // check, is what makes that true now -- the handler is never wired
+            // here at all, so that check no longer has a reachable call site.
+            titleLabel
           ) : (
-            <NormalLabel
-              tooltipText={title}
-              value={title}
-              size="1.125rem"
-              color={COLORS.TEXT_COLOR}
-              style="height: 32px; padding-left: 8px; margin-right: 8px;"
+            // KAN-77. Click-to-rename used to be an onClick on the NormalLabel,
+            // which renders a bare `<div onClick>` -- no role, no tab stop. The
+            // accessible name has to CONTAIN the visible title rather than
+            // replace it (WCAG 2.5.3): a bare "Rename session" would leave a
+            // voice-control user saying "click Research" with nothing to hit.
+            // Same `action + ': ' + target` shape as WindowEntryContainer:269.
+            <ClickableRow
+              ariaLabel={t('Rename session') + ': ' + title}
               onClick={handleTabGroupTitleClick}
-            />
+              // min-width: 0 is load-bearing. A <button> has `overflow:
+              // visible`, so its `min-width: auto` does NOT collapse to zero
+              // the way the bare label's did, and without this the title stops
+              // truncating and runs under the action block.
+              style="display: flex; align-items: center; min-width: 0;"
+            >
+              {titleLabel}
+            </ClickableRow>
           )}
           <div
             css={css`

@@ -250,6 +250,22 @@ async function tabOrderNames(page: Page, steps: number): Promise<string[]> {
   return names;
 }
 
+/**
+ * The value of the focused element when it is a text input, or null when the
+ * focus is anywhere else.
+ *
+ * Reads the focused element rather than querying for an input because the home
+ * screen already renders one (the current-window title box), so a bare
+ * `getByRole('textbox')` cannot tell "the rename editor opened" from "an input
+ * exists somewhere on the page".
+ */
+async function focusedInputValue(page: Page): Promise<string | null> {
+  return page.evaluate(() => {
+    const el = document.activeElement;
+    return el instanceof HTMLInputElement ? el.value : null;
+  });
+}
+
 test.describe('controls are reachable by keyboard', () => {
   // KAN-64. Four list rows were `tabIndex={0}` divs with an onClick and no
   // role: they took a tab stop, were exposed as `generic` -- where ARIA
@@ -435,6 +451,156 @@ test.describe('controls are reachable by keyboard', () => {
     // rather than of a modal that cannot be dismissed at all.
     await page.getByRole('button', { name: 'Rate this extension' }).click();
     await expect(page.getByText(RATE_PROMPT_BODY)).toBeHidden();
+  });
+
+  // KAN-77. The last NormalLabel-with-onClick in the codebase: the selected
+  // session's title in the right pane started a rename on click, from a bare
+  // `<div onClick>` with no role and no tab stop.
+  //
+  // Severity was Low rather than KAN-75's, because the "Rename session" icon in
+  // the same row is a labelled control that KAN-68 made keyboard-reachable --
+  // so a keyboard user could always rename, just not by the route a mouse user
+  // takes. The two tests below therefore assert the SHORTCUT now exists; the
+  // icon's own reachability is not what changed.
+  //
+  // Every name here is matched with `exact: true`. Playwright's `name` matches
+  // a SUBSTRING, so "Rename session" would also match this new button, and
+  // "Research" would match it too -- which is precisely the hazard the fixture
+  // comment at the top of this file exists to keep in view.
+  test('the session title is a button that names its action and its target (KAN-77)', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    await selectSession(page);
+    await expect(
+      page.getByRole('button', { name: 'Morning reading' })
+    ).toBeVisible();
+
+    await expect(
+      page.getByRole('button', {
+        name: 'Rename session: Research',
+        exact: true,
+      })
+    ).toHaveCount(1);
+  });
+
+  test('the session title is reachable by Tab (KAN-77)', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    await selectSession(page);
+    await expect(
+      page.getByRole('button', { name: 'Morning reading' })
+    ).toBeVisible();
+
+    const names = await tabOrderNames(page, 20);
+
+    expect(names).toContain('Rename session: Research');
+    // The positive control for that assertion: the pencil in the same row was
+    // already reachable, so a walk that found neither would mean the walk
+    // stopped short rather than that the title is unreachable.
+    expect(names).toContain('Rename session');
+  });
+
+  // The outcome the ticket is actually about: a keyboard user renaming by the
+  // same route a mouse user takes. Both keys are asserted because that is what
+  // this file does for every promoted control -- and because Space is the one a
+  // hand-rolled `div role="button"` forgets. ClickableRow renders a real
+  // <button>, so both come from the platform; these tests are what would notice
+  // if it ever stopped doing that.
+  for (const key of ['Enter', 'Space'] as const) {
+    test(`the session title starts a rename with ${key} (KAN-77)`, async ({
+      context,
+      extensionId,
+    }) => {
+      const page = await openPopup(context, extensionId);
+      await selectSession(page);
+      await expect(
+        page.getByRole('button', { name: 'Morning reading' })
+      ).toBeVisible();
+
+      await page
+        .getByRole('button', { name: 'Rename session: Research', exact: true })
+        .focus();
+      // The control: the editor is not open yet, so the assertion below is
+      // about the key press rather than about an input that was already there.
+      // `getByRole('textbox')` would be the wrong probe -- the home screen
+      // already has one -- so this reads the focused element instead, which
+      // also happens to be the stronger claim.
+      expect(await focusedInputValue(page)).toBeNull();
+
+      await page.keyboard.press(key);
+
+      // The editor opens AND takes focus, so the user can type immediately.
+      // Polled rather than read once: the input is mounted by a React state
+      // update that the key press does not wait for.
+      await expect.poll(() => focusedInputValue(page)).toBe('Research');
+    });
+  }
+
+  // Promoting the title to a <button> is a layout change as well as an a11y
+  // one, and this is the part that silently breaks.
+  //
+  // The bare label truncated because a flex item's `min-width: auto` collapses
+  // to zero when its overflow is not `visible`, and NormalLabel sets
+  // `overflow: hidden`. A <button> has `overflow: visible`, so wrapping the
+  // label in one restores `min-width: auto`, the item refuses to shrink below
+  // its content, and a long title runs out under the action block instead of
+  // ellipsing. `min-width: 0` on the ClickableRow is what prevents that.
+  //
+  // Measured rather than eyeballed. Both numbers are assertions, not controls:
+  // deleting `min-width: 0` and rebuilding fails this on `clippedBy`, because
+  // the button grows to its full content width and the ellipsis never engages.
+  //
+  // There is deliberately no control here, and it is safe to go without one:
+  // if the fixture title were ever short enough to fit, `clippedBy` would be 0
+  // and this test would fail loudly rather than pass vacuously.
+  test('a long session title still truncates inside the pane (KAN-77)', async ({
+    context,
+    extensionId,
+  }) => {
+    const LONG_TITLE =
+      'A session title long enough to overflow the right pane by a wide margin';
+    await seedSessions(
+      context,
+      buildContainer([
+        buildSession({ tabGroupId: 'session-long', title: LONG_TITLE }),
+      ])
+    );
+    const page = await context.newPage();
+    await page.goto(`chrome-extension://${extensionId}/index.html`);
+
+    await page
+      .getByRole('button', { name: LONG_TITLE, exact: true })
+      .click({ position: { x: 20, y: 20 } });
+    await expect(
+      page.getByRole('button', { name: `Rename session: ${LONG_TITLE}` })
+    ).toHaveCount(1);
+
+    const metrics = await page.evaluate(() => {
+      const button = document.querySelector<HTMLElement>(
+        'button[aria-label^="Rename session: "]'
+      );
+      const parent = button?.parentElement;
+      const span = button?.querySelector('span');
+      if (!button || !parent || !span) return null;
+      return {
+        // > 0 means the text is being clipped, i.e. the title really is longer
+        // than the space it has.
+        clippedBy: span.scrollWidth - span.clientWidth,
+        // > 0 means the button has burst out of the row it sits in.
+        overflowsParentBy: Math.round(
+          button.getBoundingClientRect().right -
+            parent.getBoundingClientRect().right
+        ),
+      };
+    });
+
+    expect(metrics).not.toBeNull();
+    expect(metrics!.clippedBy).toBeGreaterThan(0);
+    expect(metrics!.overflowsParentBy).toBeLessThanOrEqual(0);
   });
 
   // KAN-67. `focusableButton` had no default, so `tabIndex={onClick &&
