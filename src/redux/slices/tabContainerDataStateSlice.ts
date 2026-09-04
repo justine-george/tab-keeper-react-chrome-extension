@@ -151,6 +151,9 @@ function toWindowSpec(
       top: windowGroup.windowOffsetTop || DEFAULT_WINDOW_OFFSET_TOP,
       left: windowGroup.windowOffsetLeft || DEFAULT_WINDOW_OFFSET_LEFT,
     },
+    ...(windowGroup.chromeTabGroups && windowGroup.chromeTabGroups.length > 0
+      ? { groups: windowGroup.chromeTabGroups }
+      : {}),
   };
 }
 

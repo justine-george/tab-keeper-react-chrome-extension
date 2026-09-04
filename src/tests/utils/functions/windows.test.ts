@@ -7,6 +7,7 @@ import {
   RESTORE_SESSION_MESSAGE,
   WindowSpec,
 } from '../../../utils/functions/windows';
+import { setupChromeFake } from '../../setup/chrome.fake';
 
 // Repeated rather than imported: it is private to local.ts, and the module
 // that exports it publicly pulls in window.screen, which these tests lack.
@@ -32,6 +33,7 @@ function stubChrome(results: (chrome.windows.Window | undefined)[]) {
   const createdWindows: chrome.windows.CreateData[] = [];
   const createdTabs: chrome.tabs.CreateProperties[] = [];
   let call = 0;
+  let nextTabId = 100;
 
   const chromeStub = {
     windows: {
@@ -44,8 +46,15 @@ function stubChrome(results: (chrome.windows.Window | undefined)[]) {
       },
     },
     tabs: {
-      create: (options: chrome.tabs.CreateProperties) => {
+      // createWindowWithRetries awaits this callback to learn the created
+      // tab's id, so a fake that never called back would hang the promise it
+      // is building rather than fail a single assertion.
+      create: (
+        options: chrome.tabs.CreateProperties,
+        callback?: (tab?: chrome.tabs.Tab) => void
+      ) => {
         createdTabs.push(options);
+        callback?.({ id: nextTabId++ } as chrome.tabs.Tab);
       },
     },
   };
@@ -184,6 +193,105 @@ describe('createWindowWithRetries', () => {
 
     expect(created).toBeNull();
     expect(createdWindows).toHaveLength(0);
+  });
+});
+
+describe('createWindowWithRetries with tab groups', () => {
+  test('groups the right tabs and applies title and colour', async () => {
+    const handle = setupChromeFake({ grantedPermissions: ['tabGroups'] });
+
+    await createWindowWithRetries(
+      spec({
+        tabs: [
+          { ...tab('https://a.test'), tabId: 't1', chromeGroupId: 'g1' },
+          { ...tab('https://b.test'), tabId: 't2', chromeGroupId: 'g1' },
+          { ...tab('https://c.test'), tabId: 't3' },
+        ],
+        groups: [{ groupId: 'g1', title: 'Work', color: 'blue' }],
+      }),
+      'Go',
+      false,
+      2
+    );
+
+    expect(handle.groupedTabs).toHaveLength(1);
+    expect(handle.groupedTabs[0].tabIds).toHaveLength(2);
+
+    const groups = await chrome.tabGroups.query({});
+    expect(groups[0]).toMatchObject({ title: 'Work', color: 'blue' });
+
+    handle.restore();
+  });
+
+  test('an unknown colour is applied as grey rather than rejected', async () => {
+    const handle = setupChromeFake({ grantedPermissions: ['tabGroups'] });
+
+    await createWindowWithRetries(
+      spec({
+        tabs: [{ ...tab('https://a.test'), tabId: 't1', chromeGroupId: 'g1' }],
+        groups: [{ groupId: 'g1', title: 'Work', color: 'chartreuse' }],
+      }),
+      'Go',
+      false,
+      2
+    );
+
+    const groups = await chrome.tabGroups.query({});
+    expect(groups[0].color).toBe('grey');
+
+    handle.restore();
+  });
+
+  test('does no grouping at all when the permission is absent', async () => {
+    const handle = setupChromeFake();
+    delete (globalThis as { chrome?: { tabGroups?: unknown } }).chrome!
+      .tabGroups;
+
+    await createWindowWithRetries(
+      spec({
+        tabs: [{ ...tab('https://a.test'), tabId: 't1', chromeGroupId: 'g1' }],
+        groups: [{ groupId: 'g1', title: 'Work', color: 'blue' }],
+      }),
+      'Go',
+      false,
+      2
+    );
+
+    expect(handle.groupedTabs).toEqual([]);
+    handle.restore();
+  });
+
+  // The load-bearing failure case. By the time grouping runs the tabs are
+  // already open, so a grouping error must cost the groups and nothing else --
+  // above all it must still resolve with the created window, because focus
+  // mode decides whether to close the user's windows from that value.
+  test('a failing tabs.group still resolves with the created window', async () => {
+    const handle = setupChromeFake({ grantedPermissions: ['tabGroups'] });
+    (globalThis as any).chrome.tabs.group = () =>
+      Promise.reject(new Error('nope'));
+
+    const created = await createWindowWithRetries(
+      spec({
+        tabs: [{ ...tab('https://a.test'), tabId: 't1', chromeGroupId: 'g1' }],
+        groups: [{ groupId: 'g1', title: 'Work', color: 'blue' }],
+      }),
+      'Go',
+      false,
+      2
+    );
+
+    expect(created).not.toBeNull();
+    handle.restore();
+  });
+
+  test('a spec with no groups behaves exactly as before', async () => {
+    const handle = setupChromeFake({ grantedPermissions: ['tabGroups'] });
+
+    const created = await createWindowWithRetries(spec(), 'Go', false, 2);
+
+    expect(created).not.toBeNull();
+    expect(handle.groupedTabs).toEqual([]);
+    handle.restore();
   });
 });
 
