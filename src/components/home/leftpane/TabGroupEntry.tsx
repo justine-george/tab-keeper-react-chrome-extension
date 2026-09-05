@@ -1,4 +1,4 @@
-import React, { MouseEventHandler, useState } from 'react';
+import React, { MouseEventHandler } from 'react';
 
 import { useSelector } from 'react-redux';
 
@@ -43,8 +43,6 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
   const FONT_FAMILY = useFontFamily();
   const { t, i18n } = useTranslation();
 
-  const [isHovered, setIsHovered] = useState(false);
-
   const isSearchPanel = useSelector(
     (state: RootState) => state.globalState.isSearchPanel
   );
@@ -55,9 +53,6 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
   const searchInputText = useSelector(
     (state: RootState) => state.globalState.searchInputText
   );
-
-  const handleMouseEnter = () => setIsHovered(true);
-  const handleMouseLeave = () => setIsHovered(false);
 
   const { title, createdTime, createdAt, windowCount, tabCount, isSelected } =
     tabGroupData;
@@ -84,15 +79,11 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
     height: 100%;
     justify-content: flex-start;
     align-items: center;
-    opacity: ${isHovered ? 1 : 0};
+    /* Hidden by default. What reveals it lives on the CONTAINER, not here --
+       see the engagement comment on containerStyle for why the two cannot be
+       allowed to drift apart. */
+    opacity: 0;
     transition: opacity 0.1s ease-out;
-    /* Hover reveals these to a pointer; focus-within is the same reveal for
-       the keyboard. Without it the controls are in the tab order (KAN-68) but
-       land on something invisible, which is arguably worse than not reaching
-       them at all. */
-    &:focus-within {
-      opacity: 1;
-    }
   `;
 
   const containerStyle = css`
@@ -123,8 +114,38 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
        fill it, and 100vw is comfortably past that at any popup size. */
     box-shadow: inset 0 0 0 100vw transparent;
     transition: box-shadow 0.2s;
-    &:hover {
+
+    /* ENGAGEMENT IS ONE STATE, SO IT GETS ONE CONDITION (KAN-92).
+
+       A row engaged with does two things: it reveals its Open/Switch/Delete
+       block, and it fills. Those used to run off different triggers -- the
+       reveal off a React isHovered set by onMouseEnter/onMouseLeave, or the
+       block's own :focus-within; the fill off this container's :hover alone.
+       Two triggers for one state will eventually disagree, and both ways of
+       making them disagree were reachable:
+
+         - Tab to an action. The block's :focus-within revealed it while
+           :hover stayed false, so the row did not fill.
+         - Leave the window abruptly, which is exactly what pressing a
+           screenshot hotkey does. onMouseLeave never fires, so the React
+           state stayed true while :hover dropped in the same frame.
+
+       Either way the action Icons -- which carry an opaque HOVER_COLOR
+       background, load-bearing because the block is positioned over the title
+       and has to mask it -- became a hover-coloured strip glued to the right
+       of a row with no fill, with a hard vertical edge through the title.
+
+       So the reveal is stated HERE, next to the fill, sharing one selector.
+       They can no longer drift, because there is nothing left to drift from:
+       the React state is gone. Note this deliberately also fires when the
+       row's own title button holds focus, not only the actions -- a row you
+       have tabbed to should show what you can do with it. */
+    &:hover,
+    &:focus-within {
       ${!isSelected && `box-shadow: inset 0 0 0 100vw ${COLORS.HOVER_COLOR};`}
+      [data-row-actions] {
+        opacity: 1;
+      }
     }
     background-color: ${isSelected && COLORS.SELECTION_COLOR};
   `;
@@ -141,11 +162,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
   // siblings. `leftStyle` is width: 100%, so the clickable area is unchanged;
   // the action block is absolutely positioned on top of it.
   return (
-    <div
-      css={containerStyle}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-    >
+    <div css={containerStyle}>
       <ClickableRow
         ariaLabel={title}
         onClick={onTabGroupClick}
@@ -184,7 +201,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
         </div>
       </ClickableRow>
       {!isSearchPanel && (
-        <div css={rightStyle}>
+        <div data-row-actions css={rightStyle}>
           <Icon
             tooltipText={t('Open session')}
             text={t('Open')}
