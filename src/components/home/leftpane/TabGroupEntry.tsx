@@ -123,7 +123,25 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
        changes. The spread must exceed half the row's largest dimension to
        fill it, and 100vw is comfortably past that at any popup size. */
     box-shadow: inset 0 0 0 100vw transparent;
-    transition: box-shadow 0.2s;
+    /* The shadow eases only while the row is UNSELECTED (KAN-97).
+
+       KAN-82 established that selecting is a fact and must land in one frame,
+       while hovering is a gesture and may ease -- and it fixed the row LOSING
+       selection. The row GAINING it was never checked, and had the same defect
+       through the other property.
+
+       background-color lands instantly, correctly. But the inset shadow paints
+       ON TOP of the background, and on click the fill's declaration disappears
+       (it is guarded on !isSelected), so it transitioned from HOVER_COLOR to
+       transparent across 0.2s. The newly selected row was painted the light
+       hover colour and darkened into the selection colour over 22 measured
+       frames. That is what read as a flash.
+
+       Removing the transition while selected makes the shadow snap as the
+       selection colour lands, so the two agree in the same frame. Hovering an
+       unselected row still eases, which is the control KAN-82's spec asserts
+       and which must keep passing. */
+    transition: ${isSelected ? 'none' : 'box-shadow 0.2s'};
 
     /* ENGAGEMENT IS ONE STATE, SO IT GETS ONE CONDITION (KAN-92).
 
