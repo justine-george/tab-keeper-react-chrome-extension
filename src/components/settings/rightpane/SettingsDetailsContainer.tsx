@@ -62,18 +62,33 @@ import { useTranslation } from 'react-i18next';
 // theme's colour, not a selection marker, and on a dark theme the active one
 // is the swatch that blends into the background.
 //
-// An OUTLINE rather than a border: a border would change the box and shove the
-// other four swatches sideways as the selection moved. outline is drawn
-// outside the box and costs no layout.
+// The marker is the swatch's OWN border, thickened (KAN-95).
 //
-// TEXT_COLOR rather than SELECTION_COLOR, deliberately. SELECTION_COLOR sits
-// within 1.05:1 of HOVER_COLOR in the dark themes (KAN-87), so a ring drawn in
-// it would be invisible on exactly the themes that need it most. TEXT_COLOR is
-// the one colour each theme guarantees is readable against its own background.
-const activeThemeRing = (isActive: boolean, textColor: string): string =>
-  isActive
-    ? `outline: 2px solid ${textColor}; outline-offset: 2px; z-index: 1;`
-    : '';
+// It was an outline in TEXT_COLOR, for a reason that was sound and a weight
+// that was not. Sound: a border changes the box, and growing one would shove
+// the other four swatches sideways as selection moved, so an outline avoided
+// the layout entirely. Not sound: TEXT_COLOR measures 9.2-13.8:1 against the
+// page, which is focus-ring weight on a passive state marker, and 2px of
+// outline plus 2px of offset exactly consumed the row's 4px gap, so the ring
+// touched its neighbours. With the swatch's own 1px border still underneath,
+// the active one drew two concentric lines. Reported as cramped, and rejected
+// for the same reason KAN-87's accent bar was: contrast is the right axis to
+// MEASURE and the wrong one to MAXIMISE.
+//
+// Growing the border is safe here because App.css sets `* { box-sizing:
+// border-box }` globally, so the swatch keeps its size and the row never
+// reflows. That is a property of the app, not of this helper -- an earlier
+// version of this comment claimed the helper established it, which was wrong:
+// a mutation removing the declaration changed nothing, because the global
+// reset had already done the work. themeSwatchMarker.spec's size assertion is
+// what holds the app to it, and it dies if this element is ever forced back to
+// content-box.
+//
+// LABEL_L3_COLOR, not BORDER_COLOR: measured against the page, BORDER_COLOR is
+// 1.38-1.73:1 on four of the five themes and would be invisible. LABEL_L3 is
+// the only existing token in a sane band (2.56-4.03:1).
+const themeSwatchMarker = (isActive: boolean, markerColor: string): string =>
+  isActive ? `border-color: ${markerColor}; border-width: 2px;` : '';
 
 const SettingsDetailsContainer: React.FC = () => {
   const COLORS = useThemeColors();
@@ -298,9 +313,9 @@ const SettingsDetailsContainer: React.FC = () => {
               width: 60px;
               border: 1px solid ${COLORS.BORDER_COLOR};
               background-color: ${LIGHT_THEME.PRIMARY_COLOR};
-              ${activeThemeRing(
+              ${themeSwatchMarker(
                 settingsData.theme === Theme.LIGHT,
-                COLORS.TEXT_COLOR
+                COLORS.LABEL_L3_COLOR
               )}
               &:hover {
                 background-color: ${LIGHT_THEME.PRIMARY_COLOR};
@@ -315,9 +330,9 @@ const SettingsDetailsContainer: React.FC = () => {
               width: 60px;
               border: 1px solid ${COLORS.BORDER_COLOR};
               background-color: ${WARM_LIGHT_THEME.PRIMARY_COLOR};
-              ${activeThemeRing(
+              ${themeSwatchMarker(
                 settingsData.theme === Theme.WARM_LIGHT,
-                COLORS.TEXT_COLOR
+                COLORS.LABEL_L3_COLOR
               )}
               &:hover {
                 background-color: ${WARM_LIGHT_THEME.PRIMARY_COLOR};
@@ -333,9 +348,9 @@ const SettingsDetailsContainer: React.FC = () => {
               width: 60px;
               border: 1px solid ${COLORS.BORDER_COLOR};
               background-color: ${BB_PINK_THEME.PRIMARY_COLOR};
-              ${activeThemeRing(
+              ${themeSwatchMarker(
                 settingsData.theme === Theme.BB_PINK,
-                COLORS.TEXT_COLOR
+                COLORS.LABEL_L3_COLOR
               )}
               &:hover {
                 background-color: ${BB_PINK_THEME.PRIMARY_COLOR};
@@ -350,9 +365,9 @@ const SettingsDetailsContainer: React.FC = () => {
               width: 60px;
               border: 1px solid ${COLORS.BORDER_COLOR};
               background-color: ${DARKENHEIMER_THEME.PRIMARY_COLOR};
-              ${activeThemeRing(
+              ${themeSwatchMarker(
                 settingsData.theme === Theme.DARKENHEIMER,
-                COLORS.TEXT_COLOR
+                COLORS.LABEL_L3_COLOR
               )}
               &:hover {
                 background-color: ${DARKENHEIMER_THEME.PRIMARY_COLOR};
@@ -367,9 +382,9 @@ const SettingsDetailsContainer: React.FC = () => {
               width: 60px;
               border: 1px solid ${COLORS.BORDER_COLOR};
               background-color: ${BLUE_THEME.PRIMARY_COLOR};
-              ${activeThemeRing(
+              ${themeSwatchMarker(
                 settingsData.theme === Theme.BLUE,
-                COLORS.TEXT_COLOR
+                COLORS.LABEL_L3_COLOR
               )}
               &:hover {
                 background-color: ${BLUE_THEME.PRIMARY_COLOR};

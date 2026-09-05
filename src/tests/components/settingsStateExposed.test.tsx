@@ -145,35 +145,42 @@ describe('the theme picker marks the active theme (KAN-88)', () => {
   // The visual half. A screen reader gets aria-pressed; a sighted user needs
   // something drawn, and before this there was nothing at all.
   //
-  // Asserted as "the active swatch has a ring and no other does", not as a
-  // specific colour: the ring is drawn in the active theme's own TEXT_COLOR,
-  // so pinning the value would make this a change detector for the palette.
+  // Asserted as "the active swatch is marked and no other is", not as a
+  // specific colour: the marker is drawn in the active theme's own
+  // LABEL_L3_COLOR, so pinning the value would make this a change detector for
+  // the palette.
   //
-  // Read through the `outline` SHORTHAND. jsdom fills the shorthand but does
-  // not decompose it -- `outlineStyle` comes back "none" and `outlineWidth`
-  // "16px" on the very element whose `outline` is "2px solid #3b3d40". An
-  // assertion on the longhand therefore fails against correct code, which is
-  // exactly what it did on the first run of this test.
-  test('the active swatch is the only one drawn with a ring', async () => {
+  // The marker was an outline until KAN-95 and is now the swatch's own border,
+  // thickened -- an outline is drawn OUTSIDE the box and collided with the
+  // neighbouring swatches, and TEXT_COLOR made it far louder than the passive
+  // state it marks.
+  //
+  // Read through the `border` SHORTHAND, for the same jsdom reason the outline
+  // was: jsdom fills a shorthand it was given but does not reliably decompose
+  // it into longhands, so an assertion on borderWidth can fail against correct
+  // code. The real-browser widths are pinned by
+  // e2e/theme-swatch-marker.spec.ts, which is also the only place the
+  // no-resize guarantee can be measured at all.
+  test('the active swatch is the only one marked', async () => {
     const { container, store } = await renderOn(SettingsCategory.DISPLAY);
 
     act(() => {
       store.dispatch(setTheme(Theme.LIGHT));
     });
 
-    const ringed = swatches(container).filter((b) =>
-      /^2px solid /.test(getComputedStyle(b).outline)
+    const marked = swatches(container).filter((b) =>
+      /(^|\s)2px(\s|$)/.test(getComputedStyle(b).borderWidth)
     );
 
-    expect(ringed).toHaveLength(1);
-    expect(ringed[0].getAttribute('title')).toBe('Light');
+    expect(marked).toHaveLength(1);
+    expect(marked[0].getAttribute('title')).toBe('Light');
 
-    // The ring must move with the theme, not just exist somewhere.
+    // The marker must move with the theme, not just exist somewhere.
     act(() => {
       store.dispatch(setTheme(Theme.BLUE));
     });
     const moved = swatches(container).filter((b) =>
-      /^2px solid /.test(getComputedStyle(b).outline)
+      /(^|\s)2px(\s|$)/.test(getComputedStyle(b).borderWidth)
     );
     expect(moved).toHaveLength(1);
     expect(moved[0].getAttribute('title')).toBe('Blue');
