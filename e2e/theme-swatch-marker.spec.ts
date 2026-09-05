@@ -116,3 +116,66 @@ test.describe('the active theme swatch is marked by its own border', () => {
     ).toBe(inactive);
   });
 });
+
+// KAN-96. Hovering the SELECTED settings category erased its background
+// instead of leaving it alone.
+//
+// `background-color: unset` was presumably meant as "leave this property
+// alone". It is not: background-color is not inherited, so `unset` resolves to
+// `initial`, which is `transparent`. And the :hover rule outranks the bare
+// declaration below it, so the selected fill was actively erased -- the row
+// read as unselected for exactly as long as the pointer was on it.
+//
+// The way to leave a property alone is to not declare it. Asserted by
+// comparing the row against ITSELF unhovered rather than against a literal
+// colour, so the test says "hovering changes nothing here" and cannot rot into
+// a palette change detector.
+test.describe('hovering the selected settings category leaves it alone', () => {
+  test('the selected category keeps its fill under the pointer', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await context.newPage();
+    await page.goto(`chrome-extension://${extensionId}/index.html`);
+    await page.locator('[aria-label="Settings"]').click();
+    await expect(page.getByText('Themes')).toBeVisible();
+
+    const selected = page.getByRole('button', { name: 'Display' });
+    const other = page.getByRole('button', { name: 'Data Management' });
+    const fill = (l: Locator) =>
+      l.evaluate((el) => getComputedStyle(el).backgroundColor);
+
+    await selected.click();
+    await page.mouse.move(0, 0);
+    const atRest = await fill(selected);
+
+    // CONTROL: hovering a DIFFERENT row does change that row, so the harness
+    // can see hover at all. Without this, "nothing changed" could just mean
+    // the pointer never arrived.
+    const otherAtRest = await fill(other);
+    await other.hover();
+    await expect
+      .poll(() => fill(other), {
+        message: 'hover should change an unselected row',
+      })
+      .not.toBe(otherAtRest);
+
+    await selected.hover();
+
+    // Wait for the transition to SETTLE before asserting, then read once.
+    //
+    // The first version of this used expect.poll(...).toBe(atRest), which
+    // passed against the broken build: poll succeeds the moment it matches,
+    // and the very first read lands before the 0.2s background-color
+    // transition has started, so it matched the old value and returned green
+    // while the row was on its way to transparent. "Eventually equals" is the
+    // wrong question here -- the question is what it settles on.
+    await page.waitForTimeout(400);
+
+    expect(
+      await fill(selected),
+      'the selected category must keep its fill while hovered, not be ' +
+        'erased to transparent'
+    ).toBe(atRest);
+  });
+});
