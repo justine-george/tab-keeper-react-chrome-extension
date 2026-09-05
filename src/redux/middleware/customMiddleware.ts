@@ -17,6 +17,7 @@ import {
   SELECT_TAB_CONTAINER_ACTION,
   SET_ACTION,
   TAB_CONTAINER_REPLACE_STATE_ACTION,
+  TAB_CONTAINER_APPLY_UNDO_ACTION,
   TAB_CONTAINER_RESTORE_ACTION,
   UNDO_ACTION,
   EDIT_WINDOWGROUP_TITLE_ACTION,
@@ -80,7 +81,15 @@ const isDataStateChangeAction = (
     TAB_CONTAINER_REPLACE_STATE_ACTION,
     // Restoring history is not a new edit to capture; capturing it would push
     // the restored state back onto the undo stack.
+    //
+    // Both entries are belt and braces and UNREACHABLE today: neither asserted-
+    // container action is in `actionsToCapture`, so both return at the
+    // isCapturableAction gate above and never reach this list. Verified by
+    // mutation -- deleting either one fails no test. They are kept so that
+    // adding one to `actionsToCapture` later cannot silently start recording
+    // history restores as fresh edits.
     TAB_CONTAINER_RESTORE_ACTION,
+    TAB_CONTAINER_APPLY_UNDO_ACTION,
   ];
   return (
     prevState.tabContainerDataState !== nextState.tabContainerDataState &&
@@ -137,7 +146,7 @@ export const customMiddleware: Middleware = (store) => {
       // merge re-apply the delete, so undo appears to work and then reverses
       // itself.
       store.dispatch({
-        type: TAB_CONTAINER_RESTORE_ACTION,
+        type: TAB_CONTAINER_APPLY_UNDO_ACTION,
         payload: presentState.tabContainerDataState,
       });
       store.dispatch(setIsDirty());
