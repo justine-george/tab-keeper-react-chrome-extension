@@ -924,6 +924,33 @@ function reconcileAssertedContainer(
   );
   // KAN-55. The live copy of each session, to tell the sessions this
   // restore actually changes from the ones it is merely carrying along.
+  // KAN-81. Tombstones are the only way this app can express a negative fact,
+  // and they live in the container -- but an undo snapshot is a photograph of
+  // that container taken BEFORE those facts were recorded, so it carries none.
+  // Rebuilding the ledger from the payload alone therefore discarded every
+  // tombstone written since the snapshot: undo twice and the first withdrawal
+  // was gone, the merge restored it from the cloud, and the merged set
+  // differing from local raised "Synced changes from another device" on a
+  // device that had synced with nobody.
+  //
+  // A tombstone is dropped only when the payload brings its session BACK --
+  // the one case where the user is asserting the session should live, and what
+  // makes undoing a delete work. Everything else is carried forward. (Carrying
+  // even those would also be correct, since a restored session is stamped to
+  // outrank its tombstone below, but dropping keeps the document free of
+  // tombstones for sessions that are plainly alive.)
+  const resurrected = new Set(payload.tabGroups.map((g) => g.tabGroupId));
+  const graves = new Map<string, deletedTabGroup>();
+  for (const grave of state.deletedTabGroups ?? []) {
+    if (!resurrected.has(grave.tabGroupId)) graves.set(grave.tabGroupId, grave);
+  }
+  // The payload's own tombstones win where both sides have one: it is the
+  // thing the user is asserting.
+  for (const grave of payload.deletedTabGroups ?? []) {
+    graves.set(grave.tabGroupId, grave);
+  }
+  const carriedGraves = [...graves.values()];
+
   const liveGroup = new Map(
     state.tabGroups.map((tabGroup) => [tabGroup.tabGroupId, tabGroup])
   );
@@ -985,7 +1012,7 @@ function reconcileAssertedContainer(
     // walks own enumerable properties and rejects undefined values, so the
     // next cloud write failed with "Unsupported field value: undefined"
     // (KAN-48).
-    deletedTabGroups: (payload.deletedTabGroups ?? []).map((grave) => {
+    deletedTabGroups: carriedGraves.map((grave) => {
       const aliveAt = liveAt.get(grave.tabGroupId);
       if (aliveAt === undefined) return grave;
       // Same reasoning, other way round.
