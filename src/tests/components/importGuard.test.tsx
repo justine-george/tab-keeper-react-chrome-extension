@@ -10,7 +10,10 @@ import {
 } from '../../redux/slices/settingsCategoryStateSlice';
 import { TabMasterContainer } from '../../redux/slices/tabContainerDataStateSlice';
 import { saveToFirestore } from '../../utils/functions/external';
-import { TOAST_MESSAGES } from '../../utils/constants/common';
+import {
+  IMPORT_ERROR_FRAME,
+  TOAST_MESSAGES,
+} from '../../utils/constants/common';
 
 // KAN-27, the wiring half. local.test.ts proves readImportedContainer refuses an
 // oversized backup; these prove the import handler actually calls it, and that a
@@ -127,11 +130,17 @@ describe('import size guard (KAN-27)', () => {
     );
     dropFile(inputs[0], buildOversizedBackup());
 
+    // KAN-86. The toast is now a frame key plus a {{detail}} value, rather
+    // than a composed English sentence, so that it can be translated. The
+    // detail is the size refusal, already resolved through t() at the catch
+    // site -- which is where the code knows this was OUR error and not a
+    // platform one.
     await waitFor(() => {
-      expect(store.getState().globalState.toastText).toMatch(
-        /too large to sync/i
-      );
+      expect(store.getState().globalState.toastText).toBe(IMPORT_ERROR_FRAME);
     });
+    expect(store.getState().globalState.toastParams?.detail).toMatch(
+      /too large to sync/i
+    );
 
     // The half-applied state this guard exists to prevent: restoreContainer
     // writes localStorage synchronously, so a container that got that far would

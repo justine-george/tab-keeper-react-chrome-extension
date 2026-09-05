@@ -34,6 +34,7 @@ import {
   APP_VERSION,
   DEV_EMAIL,
   FEEDBACK_MAIL_SUBJECT,
+  IMPORT_ERROR_FRAME,
   SHARE_TWITTER_TEXT,
   TOAST_MESSAGES,
 } from '../../../utils/constants/common';
@@ -42,7 +43,10 @@ import {
   TabMasterContainer,
   restoreContainer,
 } from '../../../redux/slices/tabContainerDataStateSlice';
-import { readImportedContainer } from '../../../utils/functions/local';
+import {
+  readImportedContainer,
+  TranslatableError,
+} from '../../../utils/functions/local';
 import {
   removeTabGroupsPermission,
   requestTabGroupsPermission,
@@ -51,6 +55,25 @@ import { SettingsCategory } from '../../../redux/slices/settingsCategoryStateSli
 import LoggedIn from './Account/LoggedIn';
 import NotLoggedIn from './Account/NotLoggedIn';
 import { useTranslation } from 'react-i18next';
+
+// KAN-88. The five theme swatches were visually and semantically identical --
+// same border, no ARIA state -- so nothing said which theme was actually in
+// use. The only thing that differed was each swatch's own fill, which is the
+// theme's colour, not a selection marker, and on a dark theme the active one
+// is the swatch that blends into the background.
+//
+// An OUTLINE rather than a border: a border would change the box and shove the
+// other four swatches sideways as the selection moved. outline is drawn
+// outside the box and costs no layout.
+//
+// TEXT_COLOR rather than SELECTION_COLOR, deliberately. SELECTION_COLOR sits
+// within 1.05:1 of HOVER_COLOR in the dark themes (KAN-87), so a ring drawn in
+// it would be invisible on exactly the themes that need it most. TEXT_COLOR is
+// the one colour each theme guarantees is readable against its own background.
+const activeThemeRing = (isActive: boolean, textColor: string): string =>
+  isActive
+    ? `outline: 2px solid ${textColor}; outline-offset: 2px; z-index: 1;`
+    : '';
 
 const SettingsDetailsContainer: React.FC = () => {
   const COLORS = useThemeColors();
@@ -189,10 +212,26 @@ const SettingsDetailsContainer: React.FC = () => {
           );
         } catch (error: any) {
           console.warn('Error restoring tabs', error);
-          // Error restoring tabs
+          // KAN-86. This used to dispatch a concatenated sentence, which
+          // matched no i18n key, so t() handed it straight back and every
+          // locale saw English on the one path a user most needs to read.
+          //
+          // Two kinds of failure arrive here and they cannot be treated alike.
+          // Our own refusals are TranslatableErrors carrying a key, so they
+          // translate. A platform error -- JSON.parse's SyntaxError, which
+          // names the offending token -- is an unbounded English string with
+          // no key to have; it is passed through as raw technical detail
+          // inside a translated frame, which is strictly better than dropping
+          // the only part that says what is actually wrong with the file.
           dispatch(
             showToast({
-              toastText: `Error restoring tabs: ${error.message}`,
+              toastText: IMPORT_ERROR_FRAME,
+              toastParams: {
+                detail:
+                  error instanceof TranslatableError
+                    ? t(error.i18nKey, error.i18nParams)
+                    : error.message,
+              },
               duration: 3000,
             })
           );
@@ -253,11 +292,16 @@ const SettingsDetailsContainer: React.FC = () => {
           >
             <Button
               tooltipText={t('Light')}
+              ariaPressed={settingsData.theme === Theme.LIGHT}
               onClick={() => dispatch(setTheme(Theme.LIGHT))}
               style={`
               width: 60px;
               border: 1px solid ${COLORS.BORDER_COLOR};
               background-color: ${LIGHT_THEME.PRIMARY_COLOR};
+              ${activeThemeRing(
+                settingsData.theme === Theme.LIGHT,
+                COLORS.TEXT_COLOR
+              )}
               &:hover {
                 background-color: ${LIGHT_THEME.PRIMARY_COLOR};
               }
@@ -265,11 +309,16 @@ const SettingsDetailsContainer: React.FC = () => {
             />
             <Button
               tooltipText={t('Warm Light')}
+              ariaPressed={settingsData.theme === Theme.WARM_LIGHT}
               onClick={() => dispatch(setTheme(Theme.WARM_LIGHT))}
               style={`
               width: 60px;
               border: 1px solid ${COLORS.BORDER_COLOR};
               background-color: ${WARM_LIGHT_THEME.PRIMARY_COLOR};
+              ${activeThemeRing(
+                settingsData.theme === Theme.WARM_LIGHT,
+                COLORS.TEXT_COLOR
+              )}
               &:hover {
                 background-color: ${WARM_LIGHT_THEME.PRIMARY_COLOR};
               }
@@ -278,11 +327,16 @@ const SettingsDetailsContainer: React.FC = () => {
 
             <Button
               tooltipText={t('BB Pink')}
+              ariaPressed={settingsData.theme === Theme.BB_PINK}
               onClick={() => dispatch(setTheme(Theme.BB_PINK))}
               style={`
               width: 60px;
               border: 1px solid ${COLORS.BORDER_COLOR};
               background-color: ${BB_PINK_THEME.PRIMARY_COLOR};
+              ${activeThemeRing(
+                settingsData.theme === Theme.BB_PINK,
+                COLORS.TEXT_COLOR
+              )}
               &:hover {
                 background-color: ${BB_PINK_THEME.PRIMARY_COLOR};
               }
@@ -290,11 +344,16 @@ const SettingsDetailsContainer: React.FC = () => {
             />
             <Button
               tooltipText={t('Darkenheimer')}
+              ariaPressed={settingsData.theme === Theme.DARKENHEIMER}
               onClick={() => dispatch(setTheme(Theme.DARKENHEIMER))}
               style={`
               width: 60px;
               border: 1px solid ${COLORS.BORDER_COLOR};
               background-color: ${DARKENHEIMER_THEME.PRIMARY_COLOR};
+              ${activeThemeRing(
+                settingsData.theme === Theme.DARKENHEIMER,
+                COLORS.TEXT_COLOR
+              )}
               &:hover {
                 background-color: ${DARKENHEIMER_THEME.PRIMARY_COLOR};
               }
@@ -302,11 +361,16 @@ const SettingsDetailsContainer: React.FC = () => {
             />
             <Button
               tooltipText={t('Blue')}
+              ariaPressed={settingsData.theme === Theme.BLUE}
               onClick={() => dispatch(setTheme(Theme.BLUE))}
               style={`
               width: 60px;
               border: 1px solid ${COLORS.BORDER_COLOR};
               background-color: ${BLUE_THEME.PRIMARY_COLOR};
+              ${activeThemeRing(
+                settingsData.theme === Theme.BLUE,
+                COLORS.TEXT_COLOR
+              )}
               &:hover {
                 background-color: ${BLUE_THEME.PRIMARY_COLOR};
               }
@@ -363,6 +427,20 @@ const SettingsDetailsContainer: React.FC = () => {
           >
             <Button
               text={settingsData.isAutoSync ? t(`On`) : t(`Off`)}
+              // KAN-88. The button's whole visible text is its VALUE, and the
+              // setting's name is an unassociated sibling label, so the
+              // accessible name used to be just "On" -- announced with no
+              // indication of what was on.
+              //
+              // The name has to CONTAIN the visible text (WCAG 2.5.3), so it
+              // is "<setting>: <value>" rather than the setting alone; a bare
+              // "Auto Sync" over a button reading "On" would fail the Label in
+              // Name check this repo already enforces. aria-pressed carries
+              // the state as state, so a change is announced as one.
+              ariaLabel={`${t('Auto Sync')}: ${
+                settingsData.isAutoSync ? t(`On`) : t(`Off`)
+              }`}
+              ariaPressed={settingsData.isAutoSync}
               onClick={handleToggleAutoSync}
               style={`
               width: 100%;
@@ -448,6 +526,20 @@ const SettingsDetailsContainer: React.FC = () => {
           >
             <Button
               text={settingsData.isLazyLoad ? t(`On`) : t(`Off`)}
+              // KAN-88. The button's whole visible text is its VALUE, and the
+              // setting's name is an unassociated sibling label, so the
+              // accessible name used to be just "On" -- announced with no
+              // indication of what was on.
+              //
+              // The name has to CONTAIN the visible text (WCAG 2.5.3), so it
+              // is "<setting>: <value>" rather than the setting alone; a bare
+              // "Auto Sync" over a button reading "On" would fail the Label in
+              // Name check this repo already enforces. aria-pressed carries
+              // the state as state, so a change is announced as one.
+              ariaLabel={`${t('Lazy Load Tabs')}: ${
+                settingsData.isLazyLoad ? t(`On`) : t(`Off`)
+              }`}
+              ariaPressed={settingsData.isLazyLoad}
               onClick={handleToggleLazyLoadTabs}
               style={`
               width: 100%;
@@ -490,6 +582,20 @@ const SettingsDetailsContainer: React.FC = () => {
           >
             <Button
               text={hasTabGroups ? t(`On`) : t(`Off`)}
+              // KAN-88. The button's whole visible text is its VALUE, and the
+              // setting's name is an unassociated sibling label, so the
+              // accessible name used to be just "On" -- announced with no
+              // indication of what was on.
+              //
+              // The name has to CONTAIN the visible text (WCAG 2.5.3), so it
+              // is "<setting>: <value>" rather than the setting alone; a bare
+              // "Auto Sync" over a button reading "On" would fail the Label in
+              // Name check this repo already enforces. aria-pressed carries
+              // the state as state, so a change is announced as one.
+              ariaLabel={`${t('Save Tab Groups')}: ${
+                hasTabGroups ? t(`On`) : t(`Off`)
+              }`}
+              ariaPressed={hasTabGroups}
               onClick={handleToggleTabGroups}
               style={`
               width: 100%;

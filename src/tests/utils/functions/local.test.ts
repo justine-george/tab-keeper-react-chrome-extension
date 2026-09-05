@@ -11,6 +11,9 @@ import {
   unwrapSuspendedUrl,
   generatePlaceholderURL,
   getPrettyDate,
+  IMPORT_INVALID_STRUCTURE,
+  IMPORT_SIZE_REFUSAL,
+  TranslatableError,
   getStringDate,
   isEmptyObject,
   isValidDate,
@@ -803,55 +806,105 @@ describe('isValidTabMasterContainer', () => {
   });
 });
 
-describe('should convert datestring to "mmm DD, yyyy at H:MM:SS AM/PM" format', () => {
-  test('should return formatted date string', () => {
-    const inputDateString = '2023-10-17 22:01:23';
-    const expectedOutputString = 'Oct 17, 2023 at 10:01:23 PM';
-    expect(getPrettyDate(inputDateString)).toBe(expectedOutputString);
+// Both the date string and the timestamp forms are exercised because
+// getPrettyDate is called as `getPrettyDate(createdAt ?? createdTime)` -- a
+// number for sessions saved since createdAt existed, a wall-clock string for
+// older ones -- so both are live input shapes, not just overloads.
+//
+// Every case constructs its Date from a local wall clock and asserts a local
+// wall clock, so these do not depend on the machine's timezone.
+describe('getPrettyDate: default (English) formatting', () => {
+  test.each([
+    ['2023-10-17 22:01:23', 'Oct 17, 2023, 10:01:23 PM'],
+    ['2023-10-17 09:05:03', 'Oct 17, 2023, 9:05:03 AM'],
+    ['2023-10-17 12:00:00', 'Oct 17, 2023, 12:00:00 PM'],
+    ['2023-10-17 00:00:00', 'Oct 17, 2023, 12:00:00 AM'],
+  ])('formats %s as %s, from a date string', (input, expected) => {
+    expect(getPrettyDate(input)).toBe(expected);
   });
 
-  test('should handle AM time correctly', () => {
-    const inputDateString = '2023-10-17 09:05:03';
-    const expectedOutputString = 'Oct 17, 2023 at 9:05:03 AM';
-    expect(getPrettyDate(inputDateString)).toBe(expectedOutputString);
+  test.each([
+    ['2023-10-17 22:01:23', 'Oct 17, 2023, 10:01:23 PM'],
+    ['2023-10-17 09:05:03', 'Oct 17, 2023, 9:05:03 AM'],
+    ['2023-10-17 12:00:00', 'Oct 17, 2023, 12:00:00 PM'],
+    ['2023-10-17 00:00:00', 'Oct 17, 2023, 12:00:00 AM'],
+  ])('formats %s as %s, from a timestamp', (input, expected) => {
+    expect(getPrettyDate(new Date(input).getTime())).toBe(expected);
   });
 
-  test('should handle noon correctly', () => {
-    const inputDateString = '2023-10-17 12:00:00';
-    const expectedOutputString = 'Oct 17, 2023 at 12:00:00 PM';
-    expect(getPrettyDate(inputDateString)).toBe(expectedOutputString);
-  });
-
-  test('should handle midnight correctly', () => {
-    const inputDateString = '2023-10-17 00:00:00';
-    const expectedOutputString = 'Oct 17, 2023 at 12:00:00 AM';
-    expect(getPrettyDate(inputDateString)).toBe(expectedOutputString);
+  // September is the one month whose English abbreviation actually CHANGED
+  // with KAN-85: the old hand-written table spelled it "Sept", where CLDR --
+  // and therefore every other tool the user sees -- spells it "Sep". Pinned
+  // explicitly because it is the single case where the new output is not
+  // merely a re-punctuation of the old one, and it is silently correct-looking
+  // either way.
+  test('uses the standard "Sep", not the old table’s "Sept"', () => {
+    const out = getPrettyDate('2026-09-04 20:21:13');
+    expect(out).toBe('Sep 4, 2026, 8:21:13 PM');
+    expect(out).not.toContain('Sept');
   });
 });
 
-describe('should convert timestamp to "mmm DD, yyyy at H:MM:SS AM/PM" format', () => {
-  test('should return formatted date string', () => {
-    const inputTimestamp = new Date('2023-10-17 22:01:23').getTime();
-    const expectedOutputString = 'Oct 17, 2023 at 10:01:23 PM';
-    expect(getPrettyDate(inputTimestamp)).toBe(expectedOutputString);
+// KAN-85. The point of the fix: the date used to be built from a hardcoded
+// English month table, US month-day-year order and a 12-hour AM/PM clock, so
+// it read the same in all ten locales.
+describe('getPrettyDate: formats in the caller’s locale', () => {
+  const AT = '2023-10-17 22:01:23';
+
+  // Asserted as exact strings rather than "differs from English", because a
+  // mutation that formatted every locale as, say, ISO would also differ from
+  // English and would pass a mere-inequality check.
+  test.each([
+    ['de', '17.10.2023, 22:01:23'],
+    ['fr', '17 oct. 2023, 22:01:23'],
+    ['ja', '2023/10/17 22:01:23'],
+    ['it', '17 ott 2023, 22:01:23'],
+  ])('formats for %s as %s', (locale, expected) => {
+    expect(getPrettyDate(AT, locale)).toBe(expected);
   });
 
-  test('should handle AM time correctly', () => {
-    const inputTimestamp = new Date('2023-10-17 09:05:03').getTime();
-    const expectedOutputString = 'Oct 17, 2023 at 9:05:03 AM';
-    expect(getPrettyDate(inputTimestamp)).toBe(expectedOutputString);
+  // The control for the whole describe: English must NOT pick up any of the
+  // above. Without this, a fix that hardcoded German would satisfy every case
+  // that matters to a German user and still be wrong.
+  test('leaves English on its own conventions', () => {
+    expect(getPrettyDate(AT, 'en')).toBe('Oct 17, 2023, 10:01:23 PM');
   });
 
-  test('should handle noon correctly', () => {
-    const inputTimestamp = new Date('2023-10-17 12:00:00').getTime();
-    const expectedOutputString = 'Oct 17, 2023 at 12:00:00 PM';
-    expect(getPrettyDate(inputTimestamp)).toBe(expectedOutputString);
+  // German and Japanese use a 24-hour clock, so the AM/PM markers that the old
+  // implementation appended unconditionally must be absent.
+  test.each(['de', 'ja', 'fr', 'ru'])(
+    'uses a 24-hour clock for %s',
+    (locale) => {
+      const out = getPrettyDate(AT, locale);
+      expect(out).toContain('22:01:23');
+      expect(out).not.toMatch(/\b(AM|PM)\b/);
+    }
+  );
+});
+
+describe('getPrettyDate: bad input', () => {
+  // Intl throws a RangeError on an Invalid Date where the old string-building
+  // version returned "undefined NaN, NaN at ...". This is rendered directly
+  // into a session row, so throwing would take that row's render down.
+  test.each([['not a date'], [NaN], ['']])(
+    'returns an empty string for %p rather than throwing',
+    (input) => {
+      expect(getPrettyDate(input as string | number)).toBe('');
+    }
+  );
+
+  // `locale` comes from settingsData in localStorage, so it is not guaranteed
+  // to be a well-formed BCP-47 tag.
+  test('falls back to English on a structurally invalid locale', () => {
+    expect(getPrettyDate('2023-10-17 22:01:23', 'not!a!locale')).toBe(
+      'Oct 17, 2023, 10:01:23 PM'
+    );
   });
 
-  test('should handle midnight correctly', () => {
-    const inputTimestamp = new Date('2023-10-17 00:00:00').getTime();
-    const expectedOutputString = 'Oct 17, 2023 at 12:00:00 AM';
-    expect(getPrettyDate(inputTimestamp)).toBe(expectedOutputString);
+  test('falls back to English on an empty locale', () => {
+    expect(getPrettyDate('2023-10-17 22:01:23', '')).toBe(
+      'Oct 17, 2023, 10:01:23 PM'
+    );
   });
 });
 
@@ -1347,8 +1400,54 @@ describe('readImportedContainer', () => {
       ],
     };
 
+    // KAN-86. The refusal now travels as an i18n key plus the two numbers it
+    // interpolates, rather than as a pre-composed English sentence. Asserting
+    // the key AND the params, because a key with no numbers would render
+    // "(  MB of a   MB limit)" -- still translated, still useless.
     expect(() => readImportedContainer(JSON.stringify(huge))).toThrow(
-      /too large to sync/i
+      TranslatableError
+    );
+
+    try {
+      readImportedContainer(JSON.stringify(huge));
+      throw new Error('expected readImportedContainer to throw');
+    } catch (error) {
+      const refusal = error as TranslatableError;
+      expect(refusal.i18nKey).toBe(IMPORT_SIZE_REFUSAL);
+      expect(refusal.i18nParams).toEqual({
+        used: expect.stringMatching(/^\d+\.\d$/),
+        limit: expect.stringMatching(/^\d+\.\d$/),
+      });
+      // The whole point of the guard: it reports what was used against what
+      // is allowed, and the first must exceed the second.
+      expect(Number(refusal.i18nParams!.used)).toBeGreaterThan(
+        Number(refusal.i18nParams!.limit)
+      );
+    }
+  });
+
+  // The other refusal, and the one a user is far more likely to meet.
+  test('should reject a structurally invalid backup with a translatable key', () => {
+    try {
+      readImportedContainer(JSON.stringify({ nope: true }));
+      throw new Error('expected readImportedContainer to throw');
+    } catch (error) {
+      expect(error).toBeInstanceOf(TranslatableError);
+      expect((error as TranslatableError).i18nKey).toBe(
+        IMPORT_INVALID_STRUCTURE
+      );
+      expect((error as TranslatableError).i18nParams).toBeUndefined();
+    }
+  });
+
+  // The CONTROL for the two above. A platform error must NOT be marked
+  // translatable -- there is no key for "Unexpected token n in JSON at
+  // position 1", and treating it as one would send the raw string through t()
+  // and then show it anyway, only having claimed it was translated.
+  test('CONTROL: a JSON syntax error is not a TranslatableError', () => {
+    expect(() => readImportedContainer('{not json')).toThrow(SyntaxError);
+    expect(() => readImportedContainer('{not json')).not.toThrow(
+      TranslatableError
     );
   });
 

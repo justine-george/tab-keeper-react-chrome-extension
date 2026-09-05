@@ -19,6 +19,9 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
   const toastText = useSelector(
     (state: RootState) => state.globalState.toastText
   );
+  const toastParams = useSelector(
+    (state: RootState) => state.globalState.toastParams
+  );
   const isToastOpen = useSelector(
     (state: RootState) => state.globalState.isToastOpen
   );
@@ -49,5 +52,9 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
     ${style && style}
   `;
 
-  return <div css={toastStyle}>{t(toastText)}</div>;
+  // toastText is a key and toastParams its interpolation values (KAN-86).
+  // t() with no matching key returns the key unchanged, which is what keeps a
+  // raw platform error -- a JSON SyntaxError naming its offending token --
+  // readable when it is passed through as a {{detail}} value.
+  return <div css={toastStyle}>{t(toastText, toastParams)}</div>;
 };

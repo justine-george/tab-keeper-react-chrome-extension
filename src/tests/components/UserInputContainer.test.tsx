@@ -209,3 +209,53 @@ describe('UserInputContainer save scope', () => {
     expect(tabGroups[0].windows).toHaveLength(2);
   });
 });
+
+// KAN-84. The save path already intended a fallback -- it read
+// `newTitle || currentTabName` -- but `||` catches "" and not the truthy
+// "   ", so a whitespace-only name passed straight through and produced a
+// session with no visible name and no accessible name on its row.
+//
+// A fallback rather than a refusal here, unlike the rename path: there is no
+// prior title to keep, so refusing would leave the user with no session at all
+// for a keystroke they may not have noticed.
+describe('a saved session always gets a name (KAN-84)', () => {
+  const savedTitle = (store: {
+    getState: () => {
+      tabContainerDataState: { tabGroups: { title: string }[] };
+    };
+  }) => store.getState().tabContainerDataState.tabGroups[0]?.title;
+
+  const typeNameAndSave = async (value: string) => {
+    const rendered = await renderWithProviders(<UserInputContainer />, {
+      seed,
+    });
+    const box = await screen.findByDisplayValue('Kagi Search');
+    await userEvent.clear(box);
+    if (value) await userEvent.type(box, value);
+    await userEvent.click(
+      screen.getByLabelText('Save all open windows as a session')
+    );
+    return rendered;
+  };
+
+  test.each([['   '], ['　'], ['']])(
+    'falls back to the active tab title when the name is %j',
+    async (blank) => {
+      const { store } = await typeNameAndSave(blank);
+      expect(savedTitle(store)).toBe('Kagi Search');
+    }
+  );
+
+  // THE CONTROL. Every case above lands on the same string the box was
+  // pre-filled with, so a save path that ignored the input entirely would pass
+  // them all. This proves a typed name is actually honoured.
+  test('CONTROL: a typed name is used', async () => {
+    const { store } = await typeNameAndSave('Research');
+    expect(savedTitle(store)).toBe('Research');
+  });
+
+  test('a typed name is stored trimmed', async () => {
+    const { store } = await typeNameAndSave('  Research  ');
+    expect(savedTitle(store)).toBe('Research');
+  });
+});

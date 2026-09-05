@@ -64,6 +64,18 @@ const HARDCODED_TEXT = /\btext="([^"]*)"/g;
 // role-bearing element is invisible to the sweep.
 const HARDCODED_ARIA_ATTR = /aria-label="([^"]*)"/g;
 
+// KAN-86. The sweep above covers the props that name a control, but the label
+// components take their VISIBLE text through `value`, and two empty states
+// were passing it a bare `value="Empty"` -- rendering English in all nine
+// non-English locales while every string around them was translated. That is
+// the same defect as a hardcoded ariaLabel and was invisible here only because
+// this prop was not scanned.
+//
+// `value={t('Empty')}`, `value={title}` and TextBox's `value={searchInput}`
+// do not match: the pattern requires a quoted literal, and every `value` that
+// carries live data is an expression.
+const HARDCODED_VALUE = /\bvalue="([^"]*)"/g;
+
 const findAll = (src: string, re: RegExp) =>
   [...src.matchAll(new RegExp(re.source, 'g'))].map((m) => m[1]);
 
@@ -90,6 +102,7 @@ describe('no user-facing string is hardcoded English', () => {
     ['tooltipText', HARDCODED_TOOLTIP],
     ['text', HARDCODED_TEXT],
     ['aria-label', HARDCODED_ARIA_ATTR],
+    ['value', HARDCODED_VALUE],
   ] as const) {
     test(`no component passes a literal ${prop}`, () => {
       const offenders: string[] = [];

@@ -2,7 +2,12 @@ import { createAsyncThunk, createSlice, PayloadAction } from '@reduxjs/toolkit';
 
 import { RootState } from '../store';
 import { closeFocusModal, openFocusModal, showToast } from './globalStateSlice';
-import { getStringDate, saveToLocalStorage } from '../../utils/functions/local';
+import {
+  getStringDate,
+  isBlankTitle,
+  normalizeTitle,
+  saveToLocalStorage,
+} from '../../utils/functions/local';
 import {
   captureOpenWindows,
   isAlreadySaved,
@@ -647,11 +652,28 @@ export const tabContainerDataStateSlice = createSlice({
       action: PayloadAction<updateTabGroupTitleParams>
     ) => {
       const { tabGroupId, editableTitle: newTitle } = action.payload;
+
+      // KAN-84. A blank rename is refused outright rather than stored: the
+      // session already has a name, and replacing it with nothing leaves a row
+      // identifiable only by its counts and date, with no accessible name.
+      //
+      // The guard lives in the reducer, not in the component, because this is
+      // the ONE choke point -- HeroContainerRight is its only dispatcher, and
+      // no sync, merge or import path reaches it. A component-level check
+      // would be bypassable by the next caller; this cannot be. Conversely it
+      // must NOT go anywhere the merge writes titles, or a legitimately blank
+      // title arriving from another device would be silently rewritten.
+      //
+      // Returning early leaves lastModified untouched on purpose. Bumping it
+      // would mark the container dirty and push a no-op write to Firestore for
+      // an edit that did not happen.
+      if (isBlankTitle(newTitle)) return;
+
       const tabGroupIndex = state.tabGroups.findIndex(
         (tabGroup) => tabGroup.tabGroupId === tabGroupId
       );
       if (tabGroupIndex !== -1) {
-        state.tabGroups[tabGroupIndex].title = newTitle;
+        state.tabGroups[tabGroupIndex].title = normalizeTitle(newTitle);
         touch(state.tabGroups[tabGroupIndex]);
       }
       state.lastModified = Date.now();
@@ -665,6 +687,11 @@ export const tabContainerDataStateSlice = createSlice({
       action: PayloadAction<updateWindowGroupTitleParams>
     ) => {
       const { tabGroupId, windowId, editableTitle: newTitle } = action.payload;
+
+      // KAN-84, same rule and same reasoning as updateTabGroupTitle above.
+      // TabGroupDetailsContainer is this reducer's only dispatcher.
+      if (isBlankTitle(newTitle)) return;
+
       const tabGroupIndex = state.tabGroups.findIndex(
         (tabGroup) => tabGroup.tabGroupId === tabGroupId
       );
@@ -673,7 +700,8 @@ export const tabContainerDataStateSlice = createSlice({
           (window) => window.windowId === windowId
         );
         if (windowIndex !== -1) {
-          state.tabGroups[tabGroupIndex].windows[windowIndex].title = newTitle;
+          state.tabGroups[tabGroupIndex].windows[windowIndex].title =
+            normalizeTitle(newTitle);
           touch(state.tabGroups[tabGroupIndex]);
         }
       }

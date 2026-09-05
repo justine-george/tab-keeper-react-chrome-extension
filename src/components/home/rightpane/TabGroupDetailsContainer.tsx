@@ -102,7 +102,8 @@ export default function TabGroupDetailsContainer() {
     <div css={containerStyle}>
       {isEmptyObject(selectedTabGroup) ? (
         <div css={emptyContainerStyle}>
-          <NormalLabel value="Empty" />
+          {/* KAN-86, same bare literal as TabGroupEntryContainer. */}
+          <NormalLabel value={t('Empty')} />
         </div>
       ) : (
         <div css={filledContainerStyle}>

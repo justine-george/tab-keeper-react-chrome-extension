@@ -12,6 +12,12 @@ interface ButtonProps {
   imageSrc?: string;
   iconType?: string;
   ariaLabel?: string;
+  // KAN-88. Marks a button that toggles something, and says which way it is
+  // currently set. Left undefined on ordinary buttons, where React omits the
+  // attribute entirely -- an aria-pressed="false" on a button that does not
+  // toggle would announce it as an unpressed toggle, which is worse than
+  // silence.
+  ariaPressed?: boolean;
   tooltipText?: string;
   iconSize?: string;
   iconStyle?: string;
@@ -24,6 +30,7 @@ const Button: React.FC<ButtonProps> = ({
   imageSrc,
   iconType,
   ariaLabel,
+  ariaPressed,
   tooltipText,
   iconSize,
   iconStyle,
@@ -82,6 +89,7 @@ const Button: React.FC<ButtonProps> = ({
     <button
       title={tooltipText}
       aria-label={ariaLabel}
+      aria-pressed={ariaPressed}
       css={buttonStyle}
       onClick={onClick}
     >

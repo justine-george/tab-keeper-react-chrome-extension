@@ -47,11 +47,34 @@ export default function TabGroupEntryContainer() {
     filteredTabGroups = filterTabGroups(searchInputText, filteredTabGroups);
   }
 
+  // Select the first match as the query narrows -- but only while a search is
+  // actually running.
+  //
+  // KAN-90. This used to key on `searchInputText` alone, which made the two
+  // ways out of search disagree. Clearing the box changes the text, so the
+  // effect re-ran; by then `isSearchActive` was false, so `filteredTabGroups`
+  // was the WHOLE list and [0] was simply the newest session. Pressing "Back"
+  // leaves the text alone, so the effect never fired and the match survived.
+  // From one starting point that gave BETA one way and ALPHA the other, and
+  // BETA was neither the session selected before the search nor the one
+  // searched for.
+  //
+  // "Back" was already the shipped answer to what leaving a search should do,
+  // so clearing is made to agree with it rather than inventing a third
+  // behaviour. Restoring the pre-search selection instead would need somewhere
+  // to remember it -- new state for a case the app already has an answer to.
+  //
+  // The second guard keeps the selection when it still matches, so typing more
+  // of a query no longer walks the user back to the top of the results on
+  // every keystroke.
   useEffect(() => {
-    if (filteredTabGroups.length !== 0) {
-      dispatch(selectTabContainer(filteredTabGroups[0].tabGroupId));
+    if (!isSearchActive(isSearchPanel, searchInputText)) return;
+    if (filteredTabGroups.length === 0) return;
+    if (filteredTabGroups.some((g) => g.tabGroupId === selectedTabGroupId)) {
+      return;
     }
-  }, [searchInputText]);
+    dispatch(selectTabContainer(filteredTabGroups[0].tabGroupId));
+  }, [searchInputText, isSearchPanel]);
 
   const containerStyle = css`
     display: flex;
@@ -79,7 +102,10 @@ export default function TabGroupEntryContainer() {
     <div css={containerStyle}>
       {filteredTabGroups.length === 0 ? (
         <div css={emptyContainerStyle}>
-          <NormalLabel value="Empty" />
+          {/* KAN-86. Was the bare literal "Empty", which rendered in English
+              in all nine non-English locales while every string around it
+              was translated. */}
+          <NormalLabel value={t('Empty')} />
         </div>
       ) : (
         <div css={filledContainerStyle}>

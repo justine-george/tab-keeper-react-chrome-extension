@@ -104,3 +104,13 @@ export const TOAST_MESSAGES = {
   // (KAN-43). isDirty stays set, so the next sync retries the write.
   IMPORT_SYNC_FAILED: 'Restored on this device, but syncing failed.',
 };
+
+// The frame an import failure is reported in, with the reason as {{detail}}
+// (KAN-86). An opaque key rather than an English sentence, matching the
+// convention every other interpolating string here follows.
+//
+// It is not part of TOAST_MESSAGES because every entry there is a complete
+// message that Toast can render on its own; this one is incomplete without
+// its parameter, and putting it in that object would invite it being
+// dispatched bare.
+export const IMPORT_ERROR_FRAME = 'ImportErrorFrame';

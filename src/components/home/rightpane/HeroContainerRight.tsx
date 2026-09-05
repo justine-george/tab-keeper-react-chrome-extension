@@ -33,7 +33,7 @@ import { useTranslation } from 'react-i18next';
 export default function HeroContainerRight() {
   const COLORS = useThemeColors();
   const FONT_FAMILY = useFontFamily();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [isEditing, setIsEditing] = useState(false);
   const [editableTitle, setEditableTitle] = useState('');
   const [currentTabName, setCurrentTabName] = useState<string>('New Tab');
@@ -288,7 +288,9 @@ export default function HeroContainerRight() {
         <NormalLabel
           // createdAt is the instant; createdTime is a local wall clock with no
           // offset, kept only for sessions saved before createdAt existed.
-          value={getPrettyDate(createdAt ?? createdTime)}
+          // i18n.language, not a constant: the date is formatted in the user's
+          // own locale (KAN-85).
+          value={getPrettyDate(createdAt ?? createdTime, i18n.language)}
           size="0.7rem"
           color={COLORS.LABEL_L2_COLOR}
           style="padding-top: 2px; padding-left: 8px;"

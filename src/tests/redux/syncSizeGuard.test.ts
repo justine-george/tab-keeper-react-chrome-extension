@@ -28,6 +28,7 @@ import {
 import { replaceState } from '../../redux/slices/tabContainerDataStateSlice';
 import { makeTestStore } from '../setup/makeStore';
 import { buildContainer, buildSession } from '../fixtures/sessionFixture';
+import { SYNC_SIZE_REFUSAL } from '../../utils/functions/local';
 import {
   FIRESTORE_MAX_DOCUMENT_BYTES,
   estimateFirestoreBytes,
@@ -65,15 +66,40 @@ describe('the sync write refuses a document Firestore would reject', () => {
     expect(mocks.saveToFirestore).not.toHaveBeenCalled();
   });
 
+  // KAN-86. The refusal used to be a sentence built by concatenation, which
+  // matched no i18n key and so reached every locale in English. It is now a
+  // key plus the numbers it interpolates.
+  //
+  // Asserted on the STORE rather than on the thunk's rejection message,
+  // because the toast is what a user actually sees; the rejection reason is
+  // internal and nothing renders it.
   it('explains the refusal in MB, like the import guard does', async () => {
     const { store } = makeTestStore();
     store.dispatch(setUserId('u1'));
     store.dispatch(replaceState(oversizedContainer()));
     store.dispatch(setIsDirtyWithoutSync());
-    const result = await store.dispatch(saveToFirestoreIfDirty());
-    expect(
-      String((result as { error?: { message?: string } }).error?.message)
-    ).toMatch(/too large to sync .* MB of a 1\.0 MB limit/);
+    await store.dispatch(saveToFirestoreIfDirty());
+
+    const { toastText, toastParams } = store.getState().globalState;
+    expect(toastText).toBe(SYNC_SIZE_REFUSAL);
+    // Both numbers must be present. A key dispatched without them still
+    // translates, and still renders "(  MB of a   MB limit)".
+    expect(toastParams).toEqual({
+      used: expect.stringMatching(/^\d+\.\d$/),
+      limit: '1.0',
+    });
+    expect(Number(toastParams!.used)).toBeGreaterThan(1.0);
+  });
+
+  // CONTROL for the assertion above: the key alone proves nothing unless an
+  // under-limit save leaves no refusal toast behind at all.
+  it('control: an under-limit container raises no refusal toast', async () => {
+    const { store } = makeTestStore();
+    store.dispatch(setUserId('u1'));
+    store.dispatch(replaceState(buildContainer([buildSession()])));
+    store.dispatch(setIsDirtyWithoutSync());
+    await store.dispatch(saveToFirestoreIfDirty());
+    expect(store.getState().globalState.toastText).not.toBe(SYNC_SIZE_REFUSAL);
   });
 
   // POSITIVE CONTROL. "not called" passes trivially against a broken store or

@@ -14,6 +14,7 @@ import {
   type CaptureScope,
 } from '../../../utils/functions/capture';
 import { saveToTabContainer } from '../../../redux/slices/tabContainerDataStateSlice';
+import { normalizeTitle } from '../../../utils/functions/local';
 import { useTranslation } from 'react-i18next';
 
 export default function UserInputContainer() {
@@ -36,10 +37,20 @@ export default function UserInputContainer() {
         setCurrentTabName(currentTab.title);
         setNewTitle(currentTab.title);
       } else {
-        setCurrentTabName('New Tab Group');
-        setNewTitle('New Tab Group');
+        // Translated, so this agrees with createTabGroup's last-resort
+        // fallback below (KAN-84). Leaving one of the two as a bare literal
+        // would show a German user "New Tab Group" prefilled while storing the
+        // translated name, or the reverse, depending on which path ran.
+        setCurrentTabName(t('New Tab Group'));
+        setNewTitle(t('New Tab Group'));
       }
     });
+    // `t` is deliberately not a dependency. This effect exists to seed the
+    // name box ONCE, on mount; re-running it would overwrite whatever the user
+    // has since typed. Nothing is lost by omitting it either -- the language
+    // can only be changed from the settings page, which unmounts this
+    // component, so the next mount already picks up the new language.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function updateUserInput(e: React.ChangeEvent<HTMLInputElement>) {
@@ -59,10 +70,22 @@ export default function UserInputContainer() {
   // mode saves through this same captureOpenWindows before closing every
   // window, so nothing it does not pass itself may reach that path.
   async function createTabGroup(scope: CaptureScope) {
-    const containerData = await captureOpenWindows(
-      newTitle || currentTabName,
-      scope
-    );
+    // KAN-84. This was `newTitle || currentTabName`, which already intended a
+    // fallback but only caught the empty string -- a whitespace-only name is
+    // truthy, so it passed straight through and produced a session with no
+    // visible name and no accessible name on its row.
+    //
+    // A fallback rather than a refusal, unlike the rename path: there is no
+    // prior title here to keep, so refusing would leave the user with no
+    // session at all for a keystroke they may not have noticed. The last
+    // resort is translated, because it is a name the user will see and can
+    // rename.
+    const title =
+      normalizeTitle(newTitle) ||
+      normalizeTitle(currentTabName) ||
+      t('New Tab Group');
+
+    const containerData = await captureOpenWindows(title, scope);
     if (!containerData) return;
 
     dispatch(saveToTabContainer({ container: containerData, scope }));
