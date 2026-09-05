@@ -100,9 +100,9 @@
   "Synced changes from another device.": "दूसरे डिवाइस से किए गए बदलाव सिंक कर दिए गए।",
   "Restored tabs successfully!": "टैब सफलतापूर्वक पुनर्स्थापित किए गए!",
   "Unnamed group": "बिना नाम का समूह",
-  "TabGroupsPromptTitle": "अपने टैब समूह सहेजें",
-  "TabGroupsPromptBodyOne": "अनुमति के बिना Tab Keeper आपके टैब समूह का नाम और रंग नहीं सहेज सकता।",
-  "TabGroupsPromptBodyOther": "अनुमति के बिना Tab Keeper आपके {{count}} टैब समूहों के नाम और रंग नहीं सहेज सकता।",
+  "TabGroupsPromptTitle": "Tab Keeper टैब समूह सहेज सकता है",
+  "TabGroupsPromptBodyOne": "इसे चालू करें और आपका टैब समूह ठीक वैसा ही वापस आएगा जैसा आपने बनाया था।",
+  "TabGroupsPromptBodyOther": "इसे चालू करें और आपके {{count}} टैब समूह ठीक वैसे ही वापस आएंगे जैसे आपने बनाए थे।",
   "TabGroupsPromptConfirm": "टैब समूह समर्थन चालू करें",
   "TabGroupsPromptDismiss": "अभी नहीं",
   "TabGroupsPromptNever": "फिर से न पूछें"

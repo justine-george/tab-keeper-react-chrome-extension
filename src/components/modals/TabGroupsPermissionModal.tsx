@@ -116,6 +116,7 @@ export const TabGroupsPermissionModal: React.FC<
   // NormalLabel is also `white-space: nowrap`, which ran the body sentence off
   // both edges of the 500px card. That is why the body below is a <p>.
   const dismissStyle = css`
+    align-self: center;
     background: none;
     border: none;
     padding: 0;
@@ -151,7 +152,7 @@ export const TabGroupsPermissionModal: React.FC<
           border: 1px solid ${COLORS.BORDER_COLOR};
           width: 500px;
           padding: 20px;
-          align-items: center;
+          align-items: flex-start;
           border-radius: 0px;
           display: flex;
           flex-direction: column;
@@ -164,7 +165,7 @@ export const TabGroupsPermissionModal: React.FC<
             font-weight: 500;
             font-family: ${FONT_FAMILY};
             font-size: 1.3rem;
-            margin: 10px;
+            margin: 10px 0;
           `}
         >
           {t('TabGroupsPromptTitle')}
@@ -174,22 +175,29 @@ export const TabGroupsPermissionModal: React.FC<
             font-family: ${FONT_FAMILY};
             font-size: 0.9rem;
             color: ${COLORS.TEXT_COLOR};
-            text-align: center;
+            text-align: left;
             margin: 0 0 10px 0;
           `}
         >
           {t(bodyKey, { count: tabGroupsPromptCount })}
         </p>
-        {/* No fixed width on the CTA: the label is a full phrase ("Enable tab
-            group support"), and several locales render it far longer still --
-            fr is "Activer la prise en charge des groupes d'onglets". The 217px
-            this started with would have clipped most of them. */}
+        {/* Full width, and that is a translation decision as much as a visual
+            one. The label is a whole phrase ("Enable tab group support") and
+            several locales run far longer -- fr is "Activer la prise en charge
+            des groupes d'onglets", es renders widest at 404px. A content-width
+            button left only ~48px of headroom in es; spanning the card gives
+            every locale the full 500px. Never reintroduce a fixed width: the
+            217px this started with clipped most of them.
+
+            The card is align-items: flex-start, so without width: 100% this
+            button would shrink to its own text and read as a stray chip in a
+            wide card -- which is what left-aligning the copy exposed. */}
         <Button
           text={t('TabGroupsPromptConfirm')}
           onClick={handleEnable}
           ariaLabel={t('TabGroupsPromptConfirm')}
           iconType="check_circle"
-          style="max-width: 100%; margin-bottom: 10px; cursor: pointer;"
+          style="width: 100%; max-width: 100%; margin-bottom: 10px; cursor: pointer; justify-content: center;"
         />
         <button type="button" css={dismissStyle} onClick={handleNotNow}>
           {t('TabGroupsPromptDismiss')}

@@ -86,6 +86,7 @@ export const RateAndReviewModal: React.FC<RateAndReviewModalProps> = ({
   // abstraction would have to carry the modal's whole visual language to earn
   // its name.
   const dismissStyle = css`
+    align-self: center;
     background: none;
     border: none;
     padding: 0;
@@ -121,7 +122,7 @@ export const RateAndReviewModal: React.FC<RateAndReviewModalProps> = ({
           border: 1px solid ${COLORS.BORDER_COLOR};
           width: 500px;
           padding: 20px;
-          align-items: center;
+          align-items: flex-start;
           border-radius: 0px;
           display: flex;
           flex-direction: column;
@@ -134,7 +135,7 @@ export const RateAndReviewModal: React.FC<RateAndReviewModalProps> = ({
             font-weight: 500;
             font-family: ${FONT_FAMILY};
             font-size: 1.3rem;
-            margin: 10px;
+            margin: 10px 0;
           `}
         >
           {t('RequestUserReviewHeader')}
@@ -156,17 +157,28 @@ export const RateAndReviewModal: React.FC<RateAndReviewModalProps> = ({
             font-family: ${FONT_FAMILY};
             font-size: 0.9rem;
             color: ${COLORS.TEXT_COLOR};
-            text-align: center;
+            text-align: left;
             margin: 0 0 10px 0;
           `}
         >
           {t(`RequestUserReviewText`)}
         </p>
+        {/* Full width, never a fixed one. This was `width: 217px` -- sized to
+            the English label and wrong for everyone else: measured in a real
+            browser, 7 of the 10 locales wrapped it onto two lines inside the
+            button while the card had 500px going spare (KAN-78). Spanning the
+            card removes the bet that no future translation outgrows a number.
+
+            Matches TabGroupsPermissionModal deliberately: both are "offer"
+            modals and should read as one component. FocusConfirmModal is a
+            different family -- a compact confirm with a right-aligned button
+            pair -- and is left alone. */}
         <Button
           text={t(`Rate this app`)}
           onClick={handleRateExtension}
+          ariaLabel={t(`Rate this app`)}
           iconType="thumb_up"
-          style="width: 217px; margin-bottom: 10px; cursor: pointer;"
+          style="width: 100%; margin-bottom: 10px; cursor: pointer; justify-content: center;"
         />
         <button type="button" css={dismissStyle} onClick={handleRemindLater}>
           {t(`Maybe Later`)}

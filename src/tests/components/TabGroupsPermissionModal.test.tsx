@@ -35,7 +35,7 @@ describe('TabGroupsPermissionModal', () => {
   test('renders nothing when no prompt is open', async () => {
     await renderWithProviders(<TabGroupsPermissionModal />);
 
-    expect(screen.queryByText('Save your tab groups')).toBeNull();
+    expect(screen.queryByText('Tab Keeper can save tab groups')).toBeNull();
   });
 
   test('renders the offer when a prompt is open', async () => {
@@ -43,7 +43,7 @@ describe('TabGroupsPermissionModal', () => {
       seedStore: openWith(2),
     });
 
-    expect(screen.getByText('Save your tab groups')).toBeTruthy();
+    expect(screen.getByText('Tab Keeper can save tab groups')).toBeTruthy();
     expect(
       screen.getByRole('button', { name: 'Enable tab group support' })
     ).toBeTruthy();
@@ -57,7 +57,7 @@ describe('TabGroupsPermissionModal', () => {
 
     expect(
       screen.getByText(
-        "Tab Keeper can't save the name and colour of your tab group without permission."
+        'Turn it on and your tab group comes back exactly as you set it up.'
       )
     ).toBeTruthy();
   });
@@ -71,7 +71,7 @@ describe('TabGroupsPermissionModal', () => {
 
     expect(
       screen.getByText(
-        "Tab Keeper can't save the names and colours of your 3 tab groups without permission."
+        'Turn it on and your 3 tab groups come back exactly as you set them up.'
       )
     ).toBeTruthy();
   });
