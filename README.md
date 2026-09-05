@@ -58,7 +58,41 @@ Tab Keeper is an intuitive Chrome extension crafted to redefine the way users sa
 
 ## Changelog
 
-### v.1.5.0 (Latest)
+### v.1.6.0 (Latest)
+
+#### Features
+
+- Saved sessions now keep your Chrome tab groups, with their names and colors, and restore them the same way
+- Tab group support asks for its extra permission only when you have tab groups to save, and works without it otherwise
+
+#### Fixes
+
+- Undoing a session you just created is no longer brought back by the next sync
+- Undo no longer reports that changes arrived from another device when nothing did
+- A session can no longer be saved or renamed to an empty title and left nameless
+- Session dates now follow your own language and region instead of always being English and US-formatted
+- Error messages and the empty-session text now appear in your own language, and a mistyped German label is corrected
+- Clearing the search box no longer jumps you to a session you were not looking at
+- A cloud copy the app cannot read is now explained instead of leaving the sync icon in an error state with no reason given
+- The sync icon no longer offers to sync when your device and the cloud already agree
+- Dialogs now keep keyboard focus inside them, so Tab can no longer reach the page behind
+- The rating prompt can now be dismissed with the keyboard, and its button no longer wraps in most languages
+- A session's title can now be renamed with the keyboard
+- Buttons that show only an icon now show a pointer cursor
+- Settings now marks which theme is active, and its switches say what they control
+- Hovering a session no longer makes it look selected
+- Hovering the selected settings category no longer makes it look unselected
+- The second session in the list no longer flashes when a new session is created
+- A session row's buttons and its highlight now appear together instead of one without the other
+- A session row now fills evenly when you point at it, with no visible edge where the buttons begin
+- The divider between saved sessions no longer disappears behind the action buttons
+- The highlight on a session's action buttons no longer sits flush against the row's edge on some rows and not others
+
+#### Improvements
+
+- The app no longer makes failing cloud requests while it is still signing in
+
+### v.1.5.0
 
 #### Features
 
@@ -103,67 +137,6 @@ Tab Keeper is an intuitive Chrome extension crafted to redefine the way users sa
 #### Improvements
 
 - Dependent packages updated to latest versions
-
-### v.1.4.0
-
-#### Features
-
-- A new Switch action on each saved session opens that session and clears your other windows out of the way. Whatever was open is saved as a session first, so nothing is lost — and if those windows were already saved, no duplicate is created
-
-#### Improvements
-
-- Sync no longer stops to ask which device is right. Changes made on different devices are merged automatically, and a session you delete on one device stays deleted on the others
-- The session Restore button is now called Open, and both it and Switch say in their tooltip what will happen to the windows you already have
-
-#### Fixes
-
-- Lazy-loaded tabs now open the page they stand for as soon as you click them. Previously every tab after the first in a restored window stayed on a placeholder and had to be opened by hand
-- If something goes wrong, the popup now shows an explanation and a reload button instead of appearing empty
-- A page whose title contains unusual characters no longer breaks the placeholder shown for a lazy-loaded tab
-- Damaged saved data is now spotted before syncing rather than surfacing later as a confusing error
-- Restoring sessions repeatedly no longer leaves unused listeners behind
-
-### v.1.3.3
-
-#### Fixes
-
-- Saving a suspended tab now stores the real page instead of the suspending extension's placeholder address. Sessions already saved this way are repaired automatically the next time they are restored
-- Restoring a window now opens its first tab at the correct address
-- The popup no longer overflows or shows scrollbars at browser zoom levels other than 100%
-
-#### Improvements
-
-- The extension is roughly a quarter smaller, so the popup opens faster
-- A sync status message that always appeared in English is now translated
-- Dependent packages updated to latest versions
-
-### v.1.3.2
-
-#### Improvements
-
-- Cloud sync is now reliable for large sessions. Tab icons are resolved on demand instead of being stored with each saved session, cutting stored data roughly 4x and keeping sessions within the cloud document size limit
-- A failed sync is now reflected in the toolbar sync icon, rather than the extension reporting success
-
-### v.1.3.1
-
-#### Improvements
-
-- Search functionality now supports searching by tab group and window titles
-- Bug fixes and stability improvements
-
-### v.1.2.7
-
-#### Improvements
-
-- Timestamp shown in tab group cards now reflects the time of update
-- Dependent packages updated to latest versions
-
-### v.1.2.6
-
-#### Improvements
-
-- Newly created chrome tab now opens right next to the current tab
-- Bug fixes and stability improvements (Sessions saved using multi-monitor setup now restorable)
 
 [View All Changelog →](https://github.com/justine-george/tab-keeper-react-chrome-extension/wiki/Changelog)
 <br><br>
