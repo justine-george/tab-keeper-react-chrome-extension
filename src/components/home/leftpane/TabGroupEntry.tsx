@@ -102,9 +102,29 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
     align-items: center;
     font-family: ${FONT_FAMILY};
     cursor: pointer;
-    transition: background-color 0.2s;
+    /* Hover and selection are deliberately on DIFFERENT properties.
+       
+       A CSS transition is declared on a property, not on a reason, so while
+       both wrote background-color the 0.2s ease meant for hover also animated
+       selection. Creating a session unshifts it and selects it, which left the
+       previously selected row -- now row TWO -- fading its highlight out over
+       200ms while being pushed down a slot. Measured every frame in a live
+       popup: 24 intermediate frames of rgba(59,59,59,a). That reads as the
+       second row flashing (KAN-82).
+       
+       Selecting is a fact and must land in one frame; hovering is a gesture
+       and may ease. background-color carries the fact, an inset shadow carries
+       the gesture, and only the shadow transitions.
+       
+       The shadow is declared transparent up front rather than left as 'none':
+       interpolating from 'none' animates the SPREAD from 0, which sweeps a
+       rectangle inward instead of fading. Declared this way only the colour
+       changes. The spread must exceed half the row's largest dimension to
+       fill it, and 100vw is comfortably past that at any popup size. */
+    box-shadow: inset 0 0 0 100vw transparent;
+    transition: box-shadow 0.2s;
     &:hover {
-      background-color: ${!isSelected && COLORS.HOVER_COLOR};
+      ${!isSelected && `box-shadow: inset 0 0 0 100vw ${COLORS.HOVER_COLOR};`}
     }
     background-color: ${isSelected && COLORS.SELECTION_COLOR};
   `;
