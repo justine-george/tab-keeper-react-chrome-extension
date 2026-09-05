@@ -604,14 +604,20 @@ export const SYNC_SIZE_REFUSAL = 'SyncSizeRefusal';
 // type is what lets the handler tell those apart, instead of pattern-matching
 // on the message text.
 //
-// `super(i18nKey)` keeps console.warn readable and does not make the name lie:
-// in this codebase an i18n key IS an English sentence for the simple cases.
+// The `message` carries the key AND its values, because the two size refusals
+// are opaque keys: `saveToFirestoreIfDirty`'s catch logs `error.message` to the
+// console, and a bare "SyncSizeRefusal" would tell a developer debugging a
+// wedged sync neither the size nor the limit. Appending the params keeps that
+// log at least as useful as the concatenated sentence it replaced.
+//
+// Nothing compares `message` -- every consumer reads `i18nKey` -- so widening
+// it costs nothing.
 export class TranslatableError extends Error {
   constructor(
     readonly i18nKey: string,
     readonly i18nParams?: Record<string, string | number>
   ) {
-    super(i18nKey);
+    super(i18nParams ? `${i18nKey} ${JSON.stringify(i18nParams)}` : i18nKey);
     this.name = 'TranslatableError';
   }
 }
