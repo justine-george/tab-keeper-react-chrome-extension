@@ -100,9 +100,9 @@
   "Synced changes from another device.": "Изменения с другого устройства синхронизированы.",
   "Restored tabs successfully!": "Вкладки успешно восстановлены!",
   "Unnamed group": "Группа без имени",
-  "TabGroupsPromptTitle": "Сохраняйте свои группы вкладок",
-  "TabGroupsPromptBodyOne": "Без разрешения Tab Keeper не может сохранить название и цвет вашей группы вкладок.",
-  "TabGroupsPromptBodyOther": "Без разрешения Tab Keeper не может сохранить названия и цвета ваших групп вкладок ({{count}}).",
+  "TabGroupsPromptTitle": "Tab Keeper может сохранять группы вкладок",
+  "TabGroupsPromptBodyOne": "Включите её, и ваша группа вкладок вернётся точно такой, какой вы её создали.",
+  "TabGroupsPromptBodyOther": "Включите её, и ваши группы вкладок ({{count}}) вернутся точно такими, какими вы их создали.",
   "TabGroupsPromptConfirm": "Включить поддержку групп вкладок",
   "TabGroupsPromptDismiss": "Не сейчас",
   "TabGroupsPromptNever": "Больше не спрашивать"

@@ -100,9 +100,9 @@
   "Synced changes from another device.": "Änderungen von einem anderen Gerät synchronisiert.",
   "Restored tabs successfully!": "Tabs erfolgreich wiederhergestellt!",
   "Unnamed group": "Unbenannte Gruppe",
-  "TabGroupsPromptTitle": "Ihre Tab-Gruppen speichern",
-  "TabGroupsPromptBodyOne": "Ohne Berechtigung kann Tab Keeper den Namen und die Farbe Ihrer Tab-Gruppe nicht speichern.",
-  "TabGroupsPromptBodyOther": "Ohne Berechtigung kann Tab Keeper die Namen und Farben Ihrer {{count}} Tab-Gruppen nicht speichern.",
+  "TabGroupsPromptTitle": "Tab Keeper kann Tab-Gruppen speichern",
+  "TabGroupsPromptBodyOne": "Aktivieren Sie die Funktion, und Ihre Tab-Gruppe kehrt genau so zurück, wie Sie sie angelegt haben.",
+  "TabGroupsPromptBodyOther": "Aktivieren Sie die Funktion, und Ihre {{count}} Tab-Gruppen kehren genau so zurück, wie Sie sie angelegt haben.",
   "TabGroupsPromptConfirm": "Tab-Gruppen-Unterstützung aktivieren",
   "TabGroupsPromptDismiss": "Jetzt nicht",
   "TabGroupsPromptNever": "Nicht mehr fragen"

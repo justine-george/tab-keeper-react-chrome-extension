@@ -100,9 +100,9 @@
   "Synced changes from another device.": "Modifications synchronisées depuis un autre appareil.",
   "Restored tabs successfully!": "Onglets restaurés avec succès !",
   "Unnamed group": "Groupe sans nom",
-  "TabGroupsPromptTitle": "Enregistrer vos groupes d'onglets",
-  "TabGroupsPromptBodyOne": "Sans autorisation, Tab Keeper ne peut pas enregistrer le nom et la couleur de votre groupe d'onglets.",
-  "TabGroupsPromptBodyOther": "Sans autorisation, Tab Keeper ne peut pas enregistrer les noms et les couleurs de vos {{count}} groupes d'onglets.",
+  "TabGroupsPromptTitle": "Tab Keeper peut enregistrer les groupes d'onglets",
+  "TabGroupsPromptBodyOne": "Activez-la et votre groupe d'onglets reviendra exactement tel que vous l'avez créé.",
+  "TabGroupsPromptBodyOther": "Activez-la et vos {{count}} groupes d'onglets reviendront exactement tels que vous les avez créés.",
   "TabGroupsPromptConfirm": "Activer la prise en charge des groupes d'onglets",
   "TabGroupsPromptDismiss": "Pas maintenant",
   "TabGroupsPromptNever": "Ne plus demander"

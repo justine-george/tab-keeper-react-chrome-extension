@@ -100,9 +100,9 @@
   "Synced changes from another device.": "Cambios sincronizados desde otro dispositivo.",
   "Restored tabs successfully!": "¡Pestañas restauradas correctamente!",
   "Unnamed group": "Grupo sin nombre",
-  "TabGroupsPromptTitle": "Guarda tus grupos de pestañas",
-  "TabGroupsPromptBodyOne": "Sin permiso, Tab Keeper no puede guardar el nombre y el color de tu grupo de pestañas.",
-  "TabGroupsPromptBodyOther": "Sin permiso, Tab Keeper no puede guardar los nombres y colores de tus {{count}} grupos de pestañas.",
+  "TabGroupsPromptTitle": "Tab Keeper puede guardar grupos de pestañas",
+  "TabGroupsPromptBodyOne": "Actívalo y tu grupo de pestañas volverá tal como lo creaste.",
+  "TabGroupsPromptBodyOther": "Actívalo y tus {{count}} grupos de pestañas volverán tal como los creaste.",
   "TabGroupsPromptConfirm": "Activar la compatibilidad con grupos de pestañas",
   "TabGroupsPromptDismiss": "Ahora no",
   "TabGroupsPromptNever": "No volver a preguntar"

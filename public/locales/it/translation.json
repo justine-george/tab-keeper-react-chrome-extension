@@ -100,9 +100,9 @@
   "Synced changes from another device.": "Modifiche sincronizzate da un altro dispositivo.",
   "Restored tabs successfully!": "Tab ripristinati correttamente!",
   "Unnamed group": "Gruppo senza nome",
-  "TabGroupsPromptTitle": "Salva i tuoi gruppi di schede",
-  "TabGroupsPromptBodyOne": "Senza autorizzazione, Tab Keeper non può salvare il nome e il colore del tuo gruppo di schede.",
-  "TabGroupsPromptBodyOther": "Senza autorizzazione, Tab Keeper non può salvare i nomi e i colori dei tuoi {{count}} gruppi di schede.",
+  "TabGroupsPromptTitle": "Tab Keeper può salvare i gruppi di schede",
+  "TabGroupsPromptBodyOne": "Attivala e il tuo gruppo di schede tornerà esattamente come l'hai creato.",
+  "TabGroupsPromptBodyOther": "Attivala e i tuoi {{count}} gruppi di schede torneranno esattamente come li hai creati.",
   "TabGroupsPromptConfirm": "Attiva il supporto ai gruppi di schede",
   "TabGroupsPromptDismiss": "Non ora",
   "TabGroupsPromptNever": "Non chiedere più"

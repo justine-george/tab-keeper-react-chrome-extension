@@ -100,9 +100,9 @@
   "Synced changes from another device.": "別のデバイスからの変更を同期しました。",
   "Restored tabs successfully!": "タブを復元しました。",
   "Unnamed group": "名前のないグループ",
-  "TabGroupsPromptTitle": "タブグループを保存",
-  "TabGroupsPromptBodyOne": "権限がないと、Tab Keeper はタブグループの名前と色を保存できません。",
-  "TabGroupsPromptBodyOther": "権限がないと、Tab Keeper は {{count}} 個のタブグループの名前と色を保存できません。",
+  "TabGroupsPromptTitle": "Tab Keeper はタブグループを保存できます",
+  "TabGroupsPromptBodyOne": "オンにすると、タブグループは設定したときのまま復元されます。",
+  "TabGroupsPromptBodyOther": "オンにすると、{{count}} 個のタブグループは設定したときのまま復元されます。",
   "TabGroupsPromptConfirm": "タブグループのサポートを有効にする",
   "TabGroupsPromptDismiss": "後で",
   "TabGroupsPromptNever": "今後表示しない"

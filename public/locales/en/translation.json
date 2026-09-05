@@ -100,9 +100,9 @@
   "Synced changes from another device.": "Synced changes from another device.",
   "Restored tabs successfully!": "Restored tabs successfully!",
   "Unnamed group": "Unnamed group",
-  "TabGroupsPromptTitle": "Save your tab groups",
-  "TabGroupsPromptBodyOne": "Tab Keeper can't save the name and colour of your tab group without permission.",
-  "TabGroupsPromptBodyOther": "Tab Keeper can't save the names and colours of your {{count}} tab groups without permission.",
+  "TabGroupsPromptTitle": "Tab Keeper can save tab groups",
+  "TabGroupsPromptBodyOne": "Turn it on and your tab group comes back exactly as you set it up.",
+  "TabGroupsPromptBodyOther": "Turn it on and your {{count}} tab groups come back exactly as you set them up.",
   "TabGroupsPromptConfirm": "Enable tab group support",
   "TabGroupsPromptDismiss": "Not now",
   "TabGroupsPromptNever": "Don't ask again"
