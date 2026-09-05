@@ -51,8 +51,26 @@ const SettingsCategoryContainer: React.FC = () => {
     cursor: pointer;
     transition: background-color 0.2s;
     width: 100%;
-    &:hover {
-      background-color: ${!isSelected ? COLORS.HOVER_COLOR : 'unset'};
+    /* The hover rule is EMITTED ONLY WHEN UNSELECTED (KAN-96).
+
+       It used to be emitted always, as
+       'background-color: ${'${'}!isSelected ? HOVER_COLOR : "unset"}'. The
+       'unset' was presumably meant as "leave this property alone". It is not:
+       background-color is not an inherited property, so unset resolves to
+       initial, which is transparent. And :hover outranks the bare declaration
+       below, so hovering the SELECTED row actively erased its fill -- the row
+       read as unselected for exactly as long as the pointer sat on it, which
+       is the moment someone is most likely to be looking at it.
+
+       The way to leave a property alone is to not declare it. This is the
+       shape TabGroupEntry already uses for the session list, which is why the
+       home pane never had this bug. */
+    ${
+      !isSelected
+        ? `&:hover {
+      background-color: ${COLORS.HOVER_COLOR};
+    }`
+        : ''
     }
     background-color: ${
       isSelected ? COLORS.SELECTION_COLOR : COLORS.PRIMARY_COLOR
