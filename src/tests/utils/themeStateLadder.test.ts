@@ -90,4 +90,52 @@ describe('the row state ladder keeps hover nearer the page than selection', () =
       ).toBeGreaterThan(1.05);
     }
   );
+
+  // KAN-93. The row actions each paint their own background, and the one under
+  // the pointer paints ICON_HOVER_COLOR. That icon sits INSIDE a row which is
+  // itself already hovered, so it has to read as MORE engaged than its row --
+  // otherwise it punches a hole in the fill rather than highlighting.
+  //
+  // Stated as distance from the page rather than as "lighter" or "darker",
+  // because the correct direction is opposite on light and dark themes. On a
+  // dark ground engagement means lighter; on a light ground it means darker.
+  // Distance is the thing both have in common, so one rule covers all five.
+  //
+  // On LIGHT and WARM_LIGHT this was backwards: the icon was FAINTER than the
+  // row it sat in (1.03x and 1.02x against a row at 1.16x and 1.06x), so
+  // hovering an action punched a near-white hole into the tinted row. The
+  // three other themes were already correct, which is what made it a palette
+  // bug rather than a component one.
+  test.each(Object.entries(THEMES))(
+    '%s: a hovered icon is more engaged than the row it sits in',
+    (_name, theme) => {
+      const iconFromPage = contrast(
+        theme.ICON_HOVER_COLOR,
+        theme.PRIMARY_COLOR
+      );
+      const rowFromPage = contrast(theme.HOVER_COLOR, theme.PRIMARY_COLOR);
+
+      expect(
+        iconFromPage,
+        `the hovered icon ${theme.ICON_HOVER_COLOR} sits ` +
+          `${iconFromPage.toFixed(2)}:1 from the page while its row ` +
+          `${theme.HOVER_COLOR} sits ${rowFromPage.toFixed(2)}:1 -- so the ` +
+          `icon reads as a hole in the row rather than a highlight`
+      ).toBeGreaterThan(rowFromPage);
+    }
+  );
+
+  // CONTROL for the rule above. It is satisfied by pushing the icon
+  // arbitrarily far from the page, which would eventually make the glyph and
+  // its label unreadable on top of it. The icon carries TEXT_COLOR content, so
+  // that has to stay above the 4.5:1 body-text floor.
+  test.each(Object.entries(THEMES))(
+    '%s: text stays readable on a hovered icon',
+    (_name, theme) => {
+      expect(
+        contrast(theme.TEXT_COLOR, theme.ICON_HOVER_COLOR),
+        'the icon glyph and its label sit on this background'
+      ).toBeGreaterThanOrEqual(4.5);
+    }
+  );
 });
