@@ -58,7 +58,41 @@ Tab Keeper is an intuitive Chrome extension crafted to redefine the way users sa
 
 ## Changelog
 
-### v.1.5.0 (Latest)
+### v.1.6.0 (Latest)
+
+#### Features
+
+- Saved sessions now keep your Chrome tab groups, with their names and colors, and restore them the same way
+- Tab group support asks for its extra permission only when you have tab groups to save, and works without it otherwise
+
+#### Fixes
+
+- Undoing a session you just created is no longer brought back by the next sync
+- Undo no longer reports that changes arrived from another device when nothing did
+- A session can no longer be saved or renamed to an empty title and left nameless
+- Session dates now follow your own language and region instead of always being English and US-formatted
+- Error messages and the empty-session text now appear in your own language, and a mistyped German label is corrected
+- Clearing the search box no longer jumps you to a session you were not looking at
+- A cloud copy the app cannot read is now explained instead of leaving the sync icon in an error state with no reason given
+- The sync icon no longer offers to sync when your device and the cloud already agree
+- Dialogs now keep keyboard focus inside them, so Tab can no longer reach the page behind
+- The rating prompt can now be dismissed with the keyboard, and its button no longer wraps in most languages
+- A session's title can now be renamed with the keyboard
+- Buttons that show only an icon now show a pointer cursor
+- Settings now marks which theme is active, and its switches say what they control
+- Hovering a session no longer makes it look selected
+- Hovering the selected settings category no longer makes it look unselected
+- The second session in the list no longer flashes when a new session is created
+- A session row's buttons and its highlight now appear together instead of one without the other
+- A session row now fills evenly when you point at it, with no visible edge where the buttons begin
+- The divider between saved sessions no longer disappears behind the action buttons
+- The highlight on a session's action buttons no longer sits flush against the row's edge on some rows and not others
+
+#### Improvements
+
+- The app no longer makes failing cloud requests while it is still signing in
+
+### v.1.5.0
 
 #### Features
 
