@@ -55,6 +55,151 @@ const rowFor = (page: Page, title: string): Locator =>
 /** The absolutely-positioned Open/Switch/Delete block inside a row. */
 const actionsIn = (row: Locator): Locator => row.locator('> div').last();
 
+/**
+ * How revealed the row's actions are, as an opacity string.
+ *
+ * Read from an ICON, not from the block (KAN-100). The block carries the
+ * opaque mask and must land in one frame, so it no longer fades and its own
+ * opacity is now 1 in every state. Asserting on the block would therefore be
+ * trivially true and would go green against a build that never reveals
+ * anything -- which is exactly what it did on the first run of this change.
+ */
+const revealOf = (row: Locator): Promise<string> =>
+  actionsIn(row)
+    .locator('> *')
+    .first()
+    .evaluate((el) => getComputedStyle(el).opacity);
+
+type SeamFrame = { left: string; right: string };
+
+/**
+ * Start sampling, every animation frame, what the eye sees on each side of the
+ * edge where the action strip begins.
+ *
+ * Composited, not declared (KAN-100). The strip's declared background IS the
+ * row's destination colour the whole time, so comparing declared values sees
+ * two identical strings and reports agreement even while the halves visibly
+ * differ. What matters is the strip's paint attenuated by the opacity revealing
+ * it, over whatever the row is currently showing.
+ */
+async function startSeamSampler(
+  page: Page,
+  rowLabel: string,
+  /**
+   * Where the strip sits relative to the labelled button. In a session row the
+   * button IS the row's left column and the strip is the row's last child; in
+   * a right-pane window row the labelled button is one of the strip's own
+   * icons, so the strip is its parent and the row is the strip's parent.
+   */
+  kind: 'session' | 'window' = 'session'
+): Promise<void> {
+  const surface = await page.evaluate(
+    () => getComputedStyle(document.body).backgroundColor
+  );
+  // CONTROL: compositing against the page needs an opaque page. A transparent
+  // body would collapse every composite to the same value and the assertions
+  // below could not fail.
+  expect(
+    surface,
+    'the page needs an opaque background to composite against'
+  ).not.toMatch(TRANSPARENT);
+
+  await page.evaluate(
+    ([label, pageColor, rowKind]: [string, string, string]) => {
+      // Both shapes, because Icon renders a `div role="button"` rather than a
+      // native <button> (it hand-rolls Enter AND Space), while ClickableRow
+      // renders a real one. A `button[aria-label]` selector silently matches
+      // nothing for a window row's icons.
+      const button = Array.from(
+        document.querySelectorAll(
+          'button[aria-label], [role="button"][aria-label]'
+        )
+      ).find((b) => b.getAttribute('aria-label') === label);
+      const row =
+        rowKind === 'window'
+          ? button!.parentElement!.parentElement!
+          : button!.parentElement!;
+      const actions =
+        rowKind === 'window' ? button!.parentElement! : row.lastElementChild!;
+
+      type Rgba = { r: number; g: number; b: number; a: number };
+      const parse = (c: string): Rgba | null => {
+        const m = c.match(/rgba?\(([^)]+)\)/);
+        if (!m) return null;
+        const p = m[1].split(',').map(Number);
+        return { r: p[0], g: p[1], b: p[2], a: p.length > 3 ? p[3] : 1 };
+      };
+      const over = (fg: Rgba | null, bg: Rgba): Rgba =>
+        fg === null
+          ? bg
+          : {
+              r: Math.round(fg.r * fg.a + bg.r * (1 - fg.a)),
+              g: Math.round(fg.g * fg.a + bg.g * (1 - fg.a)),
+              b: Math.round(fg.b * fg.a + bg.b * (1 - fg.a)),
+              a: 1,
+            };
+      const show = (c: Rgba) => `rgb(${c.r},${c.g},${c.b})`;
+
+      // The row's fill lives in two places by design (KAN-82): background-color
+      // when selected, an inset shadow when hovered-unselected. Whichever is
+      // painted is what the eye sees, so that is what gets composited.
+      const paintOf = (el: Element): Rgba | null => {
+        const cs = getComputedStyle(el);
+        const bg = parse(cs.backgroundColor);
+        if (bg && bg.a > 0) return bg;
+        const shadow = cs.boxShadow.match(/rgba?\([^)]*\)/);
+        return shadow ? parse(shadow[0]) : null;
+      };
+
+      const surfaceRgba = parse(pageColor)!;
+      const seen: { left: string; right: string }[] = [];
+      (window as unknown as { __seam: typeof seen }).__seam = seen;
+
+      const tick = () => {
+        const left = over(paintOf(row), surfaceRgba);
+        const strip = paintOf(actions);
+        const attenuated =
+          strip === null
+            ? null
+            : {
+                ...strip,
+                a: strip.a * Number(getComputedStyle(actions).opacity),
+              };
+        seen.push({ left: show(left), right: show(over(attenuated, left)) });
+        requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    },
+    [rowLabel, surface, kind] as [string, string, string]
+  );
+}
+
+async function readSeam(page: Page): Promise<SeamFrame[]> {
+  return page.evaluate(
+    () => (window as unknown as { __seam: SeamFrame[] }).__seam
+  );
+}
+
+function expectNoSeam(frames: SeamFrame[], moment: string): void {
+  // CONTROL: the row's fill actually moved while the sampler was running. An
+  // empty disagreement list is only meaningful if there was a change to
+  // disagree during.
+  expect(
+    new Set(frames.map((f) => f.left)).size,
+    `the row fill should have changed while ${moment}`
+  ).toBeGreaterThan(1);
+
+  const disagreeing = frames.filter((f) => f.left !== f.right);
+
+  expect(
+    disagreeing.length,
+    `the row must fill uniformly while ${moment}; saw ${disagreeing.length} ` +
+      `of ${frames.length} frames where the strip and the row showed ` +
+      `different colours, e.g. left ${disagreeing[0]?.left} vs right ` +
+      `${disagreeing[0]?.right}`
+  ).toBe(0);
+}
+
 const fillOf = (row: Locator): Promise<string> =>
   row.evaluate((el) => getComputedStyle(el).boxShadow);
 
@@ -142,7 +287,7 @@ test.describe('a row reveals its actions and fills as one state', () => {
 
     // The reveal happened -- without this the fill assertion could go green
     // simply because nothing was showing.
-    await expect(actionsIn(second)).toHaveCSS('opacity', '1');
+    await expect.poll(() => revealOf(second)).toBe('1');
 
     await expect
       .poll(() => fillOf(second), {
@@ -183,13 +328,10 @@ test.describe('a row reveals its actions and fills as one state', () => {
     await page.mouse.move(0, 0);
 
     await expect
-      .poll(
-        () => actionsIn(first).evaluate((el) => getComputedStyle(el).opacity),
-        {
-          message:
-            'a clicked row must not keep showing its actions after the pointer leaves',
-        }
-      )
+      .poll(() => revealOf(first), {
+        message:
+          'a clicked row must not keep showing its actions after the pointer leaves',
+      })
       .toBe('0');
   });
 
@@ -273,5 +415,118 @@ test.describe('a row reveals its actions and fills as one state', () => {
         `frames where they differed, e.g. row ${disagreeing[0]?.row} vs ` +
         `strip ${disagreeing[0]?.strip}`
     ).toBe(0);
+  });
+
+  // KAN-100. The strip must not reach the hover colour BEFORE the row does.
+  //
+  // KAN-98 pinned the two against each other by colour, and by colour they
+  // already agree: the strip's background IS the row's destination colour,
+  // from frame zero. The disagreement is entirely in WHEN, so a colour-equality
+  // check reads it as correct. That is how this survived four passes over the
+  // same family.
+  //
+  // One state, two channels, two durations:
+  //   strip -- already at the final colour, only fades in: opacity 0.1s
+  //   row   -- has to travel there:                        0.2s on the fill
+  //
+  // So the strip is done at ~100ms and the row at ~183ms, and in between there
+  // is a hard vertical edge where the strip begins. Measured on main at 95ebbdc:
+  // 18 disagreeing frames of 64, peak delta 19.
+  //
+  // Asserted on COMPOSITED output, not on declared colours. An opaque layer at
+  // alpha a over the row's fill L shows a*H + (1-a)*L, which equals L only when
+  // a is 0 or L has already reached H. Comparing the declared background to the
+  // declared fill cannot see that, because both are the same string the whole
+  // time.
+  test('the action strip does not reach the hover colour before the row does', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openWith(context, extensionId);
+    const first = rowFor(page, 'First session');
+    const second = rowFor(page, 'Second session');
+
+    // Match the reported repro: row one selected, then the pointer moves onto
+    // row two. Selected is what puts row two in the hovered-UNSELECTED state,
+    // which is the state whose fill used to ease -- a selected row would not
+    // exercise this at all.
+    await first.click({ position: { x: 20, y: 20 } });
+    await page.mouse.move(0, 0);
+
+    await startSeamSampler(page, 'Second session');
+
+    // A real mouse move at x:20 -- the left edge of the row. The row's centre
+    // sits UNDER the action strip (measured: the strip starts at x=175.6 of a
+    // 336.8px row), so an unpositioned hover lands on the strip and adds an
+    // icon's own hover to what is being measured.
+    await second.hover({ position: { x: 20, y: 20 } });
+    await page.waitForTimeout(500);
+
+    expectNoSeam(await readSeam(page), 'the pointer arrives');
+  });
+
+  // KAN-100, the other direction, and it needs its own test because the entry
+  // test CANNOT see this one.
+  //
+  // Once the fill lands in a single frame, a mask that fades in is invisible on
+  // the way in: it fades the destination colour over the destination colour.
+  // Verified by mutation -- restoring the block's `opacity: 0; transition:
+  // opacity 0.1s` leaves the entry test green.
+  //
+  // Leaving is where it shows. The row drops back to the page colour in one
+  // frame while the mask is still fading out at the hover colour, so the strip
+  // is briefly the only lit part of an unlit row -- the same seam, mirrored.
+  test('the action strip does not outlast the row fill when the pointer leaves', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openWith(context, extensionId);
+    const first = rowFor(page, 'First session');
+    const second = rowFor(page, 'Second session');
+
+    await first.click({ position: { x: 20, y: 20 } });
+    await second.hover({ position: { x: 20, y: 20 } });
+
+    // Settle first: sampling must start from a fully engaged row, or the
+    // frames captured would be the arrival, not the departure.
+    await expect.poll(() => revealOf(second)).toBe('1');
+
+    await startSeamSampler(page, 'Second session');
+
+    await page.mouse.move(0, 0);
+    await page.waitForTimeout(500);
+
+    expectNoSeam(await readSeam(page), 'the pointer leaves');
+  });
+
+  // KAN-100 was measured at two sites, not one. The right pane's window row
+  // had the same pairing -- `transition: background-color 0.2s` on the fill,
+  // `transition: opacity 0.1s` on the strip -- and the same shape when
+  // sampled live: 17 disagreeing frames of 52, strip done at ~100ms, row at
+  // ~183ms.
+  //
+  // Covered here rather than left to the left pane's tests because the two
+  // panes are different components with separately declared styles, and
+  // nothing stops one from being fixed while the other regresses. The right
+  // pane also still drives its reveal from React state rather than the
+  // container's :hover, which is the KAN-92 defect unfixed -- out of scope
+  // here, but the reason these are not one shared implementation.
+  test('a right-pane window row also fills uniformly', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openWith(context, extensionId);
+
+    await rowFor(page, 'First session').click({ position: { x: 20, y: 20 } });
+    const windowRow = page.getByRole('button', { name: 'Morning reading' });
+    await expect(windowRow).toBeVisible();
+    await page.mouse.move(0, 0);
+
+    await startSeamSampler(page, 'Rename window group', 'window');
+
+    await windowRow.hover({ position: { x: 20, y: 20 } });
+    await page.waitForTimeout(500);
+
+    expectNoSeam(await readSeam(page), 'the pointer arrives on a window row');
   });
 });

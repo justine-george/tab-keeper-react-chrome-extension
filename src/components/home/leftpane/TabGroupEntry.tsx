@@ -79,35 +79,40 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
     height: 100%;
     justify-content: flex-start;
     align-items: center;
-    /* Hidden by default. What reveals it lives on the CONTAINER, not here --
-       see the engagement comment on containerStyle for why the two cannot be
-       allowed to drift apart. */
-    opacity: 0;
-    transition: opacity 0.1s ease-out;
-
-    /* THE MASK LIVES HERE, ON ONE ELEMENT (KAN-98).
+    /* THE MASK LIVES HERE, ON ONE ELEMENT (KAN-98), AND IT NEVER FADES
+       (KAN-100).
 
        This block is absolutely positioned over the title, so it has to be
        opaque or the text reads through the controls (KAN-92). That mask used
        to be painted by the three Icons individually, via a backgroundColor
-       prop carrying the ROW's state colour.
+       prop carrying the ROW's state colour, which made one property carry both
+       the row's state and each icon's own gesture (KAN-98).
 
-       Icon also carries a 0.2s background-color transition for its own hover.
-       So one property held two meanings -- the row's state, relayed in, and
-       the icon's own gesture -- and the single transition animated both. On
-       click the row's background snapped to the selection colour while the
-       strip eased toward it across 200ms: 20 measured frames with a hard
-       vertical seam down the middle of the row.
+       It then used to FADE, via this block's opacity, over a row whose fill was
+       still travelling. That cannot be made to agree by tuning timings, and the
+       algebra says why. An opaque layer at alpha a over the row's fill L shows
+       a*H + (1-a)*L, which equals L only when a is 0 or L has already reached
+       H. So matching the two durations does not help -- it leaves f(1-f)(P-H),
+       which peaks at a quarter of the full colour distance halfway through.
+       Measured before this change: the strip arrived at 100ms and the row at
+       183ms, 18 disagreeing frames of 64 with a hard vertical edge between them.
 
-       KAN-82's rule again, one component deeper: a transition is declared on a
-       property, not a reason. So the two reasons are now on two elements. The
-       mask is this block, painted from the same isSelected the row uses and in
-       the same render, with no transition on colour here -- only opacity eases.
-       The icons keep nothing but their own :hover, which may ease, because
-       that IS a gesture. */
-    background-color: ${isSelected
-      ? COLORS.SELECTION_COLOR
-      : COLORS.HOVER_COLOR};
+       The only shapes that agree are "the mask is invisible" and "the row has
+       already arrived". So the mask is declared with NO transition and the fill
+       below has none either: both land in the same frame, in both directions.
+
+       What still eases is the icons, below. They are glyphs sitting on a
+       background that is already uniform, so fading them cannot produce an
+       edge -- which is the whole difference between them and this mask. */
+    background-color: transparent;
+
+    /* Hidden by default. What reveals them lives on the CONTAINER, not here --
+       see the engagement comment on containerStyle for why the two cannot be
+       allowed to drift apart. */
+    & > * {
+      opacity: 0;
+      transition: opacity 0.1s ease-out;
+    }
   `;
 
   // What "engaged" paints. Declared once and used by both rules below, so the
@@ -116,6 +121,11 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
   const engagedStyle = `
     ${!isSelected ? `box-shadow: inset 0 0 0 100vw ${COLORS.HOVER_COLOR};` : ''}
     [data-row-actions] {
+      background-color: ${
+        isSelected ? COLORS.SELECTION_COLOR : COLORS.HOVER_COLOR
+      };
+    }
+    [data-row-actions] > * {
       opacity: 1;
     }
   `;
@@ -141,31 +151,34 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
        and may ease. background-color carries the fact, an inset shadow carries
        the gesture, and only the shadow transitions.
        
-       The shadow is declared transparent up front rather than left as 'none':
-       interpolating from 'none' animates the SPREAD from 0, which sweeps a
-       rectangle inward instead of fading. Declared this way only the colour
-       changes. The spread must exceed half the row's largest dimension to
-       fill it, and 100vw is comfortably past that at any popup size. */
+       The shadow is declared transparent up front rather than left as 'none'
+       so that the row's fill is always readable as a colour, in every state,
+       by anything measuring it. The spread must exceed half the row's largest
+       dimension to fill it, and 100vw is comfortably past that at any popup
+       size. */
     box-shadow: inset 0 0 0 100vw transparent;
-    /* The shadow eases only while the row is UNSELECTED (KAN-97).
+    /* THE FILL DOES NOT EASE, IN EITHER DIRECTION (KAN-100).
 
        KAN-82 established that selecting is a fact and must land in one frame,
-       while hovering is a gesture and may ease -- and it fixed the row LOSING
-       selection. The row GAINING it was never checked, and had the same defect
-       through the other property.
+       while hovering is a gesture and MAY ease -- and for a while it did, over
+       0.2s. KAN-97 then had to remove that ease while selected, because the
+       shadow paints on top of the background and eased out over a freshly
+       selected row.
 
-       background-color lands instantly, correctly. But the inset shadow paints
-       ON TOP of the background, and on click the fill's declaration disappears
-       (it is guarded on !isSelected), so it transitioned from HOVER_COLOR to
-       transparent across 0.2s. The newly selected row was painted the light
-       hover colour and darkened into the selection colour over 22 measured
-       frames. That is what read as a flash.
+       What was left still could not work. The action strip is an opaque mask
+       over the title, and a mask is only invisible when it is fully
+       transparent or when the row underneath has already arrived at the
+       colour the mask is painted. While the fill travelled, the strip -- which
+       is at its destination colour from frame zero -- ran ahead of it, and the
+       row filled in two halves with a hard vertical edge between them.
 
-       Removing the transition while selected makes the shadow snap as the
-       selection colour lands, so the two agree in the same frame. Hovering an
-       unselected row still eases, which is the control KAN-82's spec asserts
-       and which must keep passing. */
-    transition: ${isSelected ? 'none' : 'box-shadow 0.2s'};
+       No timing fixes that. Equalising the two durations still leaves
+       f(1-f)(P-H) between the halves, a quarter of the full colour distance at
+       the midpoint. The fill has to arrive in one frame so that there is never
+       an intermediate state for the mask to disagree with.
+
+       So engagement is now a fact too, and lands like one. What remains a
+       gesture, and still eases, is the icons appearing -- see rightStyle. */
 
     /* ENGAGEMENT IS ONE STATE, SO IT GETS ONE CONDITION (KAN-92).
 

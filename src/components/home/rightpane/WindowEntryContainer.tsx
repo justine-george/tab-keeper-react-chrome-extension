@@ -97,7 +97,12 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     position: relative;
     display: flex;
     justify-content: space-between;
-    transition: background-color 0.2s;
+    /* No transition on the fill, and none on the mask below (KAN-100). The
+       action strip is opaque and sits over the title, so it is invisible only
+       while it is fully transparent or while this row has already arrived at
+       the colour the strip is painted. Easing the fill guarantees a window
+       where neither is true, and the row fills in two halves with a hard
+       vertical edge between them -- measured here at 17 frames of 52. */
     &:hover {
       background-color: ${COLORS.HOVER_COLOR};
     }
@@ -116,11 +121,21 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     top: 50%;
     right: 0;
     transform: translateY(-50%);
-    opacity: ${isParentHovered ? 1 : 0};
-    transition: opacity 0.1s ease-out;
+    /* The mask lands in one frame with the row's fill; only the icons ease
+       (KAN-100). They are glyphs over a background that is already uniform, so
+       fading them cannot produce an edge -- which is what separates them from
+       the mask they sit on. */
+    background-color: ${isParentHovered ? COLORS.HOVER_COLOR : 'transparent'};
+    & > * {
+      opacity: ${isParentHovered ? 1 : 0};
+      transition: opacity 0.1s ease-out;
+    }
     /* The keyboard's equivalent of the hover reveal (KAN-68). */
     &:focus-within {
-      opacity: 1;
+      background-color: ${COLORS.HOVER_COLOR};
+      & > * {
+        opacity: 1;
+      }
     }
     /* Left below the focus-within rule on purpose: during search these
        controls do not apply, and visibility:hidden removes them from the tab
@@ -137,7 +152,8 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     display: flex;
     align-items: stretch;
     justify-content: space-between;
-    transition: background-color 0.2s;
+    /* No transition on the fill, for the same reason as parentStyle above
+       (KAN-100). */
     &:hover {
       background-color: ${COLORS.HOVER_COLOR};
     }
@@ -156,13 +172,22 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     top: 50%;
     right: 0;
     transform: translateY(-50%);
-    opacity: ${hoveredChildIndex === index ? 1 : 0};
-    transition: opacity 0.1s ease-out;
+    /* Mask in one frame, icons ease -- see parentRightStyle (KAN-100). */
+    background-color: ${hoveredChildIndex === index
+      ? COLORS.HOVER_COLOR
+      : 'transparent'};
+    & > * {
+      opacity: ${hoveredChildIndex === index ? 1 : 0};
+      transition: opacity 0.1s ease-out;
+    }
     /* The keyboard's equivalent of the hover reveal (KAN-68). Delete tab has
        no alternate path anywhere in the UI, so this row is the only way to
        reach it. */
     &:focus-within {
-      opacity: 1;
+      background-color: ${COLORS.HOVER_COLOR};
+      & > * {
+        opacity: 1;
+      }
     }
   `;
 
@@ -289,7 +314,6 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
             tooltipText={t('Delete tab')}
             ariaLabel={t('Delete tab')}
             type="delete"
-            backgroundColor={COLORS.HOVER_COLOR}
             onClick={(e) => {
               e.stopPropagation();
               dispatch(deleteTab({ tabGroupId, windowId, tabId }));
@@ -386,7 +410,6 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
               tooltipText={t('Save changes')}
               ariaLabel={t('Save changes')}
               type="done"
-              backgroundColor={COLORS.HOVER_COLOR}
               onClick={(e) => {
                 e.stopPropagation();
                 handleBlur();
@@ -397,7 +420,6 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
               tooltipText={t('Rename window group')}
               ariaLabel={t('Rename window group')}
               type="edit"
-              backgroundColor={COLORS.HOVER_COLOR}
               onClick={(e) => {
                 e.stopPropagation();
                 startEditing();
@@ -410,7 +432,6 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
               tooltipText={t('Add current tab')}
               ariaLabel={t('Add current tab')}
               type="add"
-              backgroundColor={COLORS.HOVER_COLOR}
               onClick={(e) => {
                 e.stopPropagation();
                 onAddCurrTabToWindowClick(e);
@@ -422,7 +443,6 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
               tooltipText={t('Delete window group')}
               ariaLabel={t('Delete window group')}
               type="delete"
-              backgroundColor={COLORS.HOVER_COLOR}
               onClick={(e) => {
                 e.stopPropagation();
                 onDeleteClick(e);
