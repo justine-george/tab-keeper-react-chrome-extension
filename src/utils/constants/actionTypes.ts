@@ -7,19 +7,11 @@ export const REDO_ACTION = 'undoRedo/redo';
 export const TAB_CONTAINER_REPLACE_STATE_ACTION =
   'tabContainerDataState/replaceState';
 
-// Import restores a container the user is asserting, and unlike replaceState it
-// may need to withdraw a tombstone; see restoreContainer in
-// tabContainerDataStateSlice.
+// Undo/redo and import both restore a container the user is asserting, and
+// unlike replaceState they may need to withdraw a tombstone; see
+// restoreContainer in tabContainerDataStateSlice.
 export const TAB_CONTAINER_RESTORE_ACTION =
   'tabContainerDataState/restoreContainer';
-
-// Undo/redo does everything the import does AND withdraws the sessions the
-// snapshot no longer has, which the import must never do (KAN-80). Both must be
-// ignored when deciding whether to capture a new undo step -- restoring history
-// is not a new edit, and capturing it would push the restored state back onto
-// the stack.
-export const TAB_CONTAINER_APPLY_UNDO_ACTION =
-  'tabContainerDataState/applyUndoSnapshot';
 export const SELECT_TAB_CONTAINER_ACTION =
   'tabContainerDataState/selectTabContainer';
 export const SAVE_TAB_CONTAINER_ACTION =
