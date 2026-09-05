@@ -84,6 +84,30 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
        allowed to drift apart. */
     opacity: 0;
     transition: opacity 0.1s ease-out;
+
+    /* THE MASK LIVES HERE, ON ONE ELEMENT (KAN-98).
+
+       This block is absolutely positioned over the title, so it has to be
+       opaque or the text reads through the controls (KAN-92). That mask used
+       to be painted by the three Icons individually, via a backgroundColor
+       prop carrying the ROW's state colour.
+
+       Icon also carries a 0.2s background-color transition for its own hover.
+       So one property held two meanings -- the row's state, relayed in, and
+       the icon's own gesture -- and the single transition animated both. On
+       click the row's background snapped to the selection colour while the
+       strip eased toward it across 200ms: 20 measured frames with a hard
+       vertical seam down the middle of the row.
+
+       KAN-82's rule again, one component deeper: a transition is declared on a
+       property, not a reason. So the two reasons are now on two elements. The
+       mask is this block, painted from the same isSelected the row uses and in
+       the same render, with no transition on colour here -- only opacity eases.
+       The icons keep nothing but their own :hover, which may ease, because
+       that IS a gesture. */
+    background-color: ${isSelected
+      ? COLORS.SELECTION_COLOR
+      : COLORS.HOVER_COLOR};
   `;
 
   // What "engaged" paints. Declared once and used by both rules below, so the
@@ -254,9 +278,6 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
             text={t('Open')}
             ariaLabel={t('Open')}
             type="reopen_window"
-            backgroundColor={
-              isSelected ? COLORS.SELECTION_COLOR : COLORS.HOVER_COLOR
-            }
             onClick={(e) => {
               e.stopPropagation();
               onOpenAllClick(e);
@@ -268,9 +289,6 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
             text={t('Switch')}
             ariaLabel={t('Switch')}
             type="filter_center_focus"
-            backgroundColor={
-              isSelected ? COLORS.SELECTION_COLOR : COLORS.HOVER_COLOR
-            }
             onClick={(e) => {
               e.stopPropagation();
               onFocusClick(e);
@@ -282,9 +300,6 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
             text={t('Delete')}
             ariaLabel={t('Delete')}
             type="delete"
-            backgroundColor={
-              isSelected ? COLORS.SELECTION_COLOR : COLORS.HOVER_COLOR
-            }
             onClick={(e) => {
               e.stopPropagation();
               onDeleteClick(e);

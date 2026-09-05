@@ -54,7 +54,11 @@ const Icon: React.FC<IconProps> = ({
   animationFrom,
   animationTo,
   animationDuration,
-  backgroundColor,
+  // Transparent by default, so an Icon paints nothing of its own unless a
+  // caller asks for it (KAN-98). It used to be undefined, which emotion
+  // emitted as `background-color: undefined` for the browser to discard --
+  // the same result by accident rather than by statement.
+  backgroundColor = 'transparent',
   ariaLabel,
   tooltipText,
   text,

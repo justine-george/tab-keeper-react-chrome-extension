@@ -192,4 +192,86 @@ test.describe('a row reveals its actions and fills as one state', () => {
       )
       .toBe('0');
   });
+
+  // KAN-98. The action strip must never disagree with the row it masks.
+  //
+  // Icon carries `transition: background-color 0.2s` for its OWN hover, and
+  // TabGroupEntry was relaying the ROW's state colour through that same
+  // property. So on click the row's background snapped to the selection colour
+  // while the strip eased toward it over 200ms -- 20 measured frames with a
+  // hard vertical seam down the middle of the row.
+  //
+  // Asserted as agreement between the two, sampled every frame, rather than
+  // against literal colours: the invariant is that the mask matches what it is
+  // masking, whatever the palette says those colours are.
+  test('the action strip never disagrees with the row it masks', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openWith(context, extensionId);
+    const first = rowFor(page, 'First session');
+    const second = rowFor(page, 'Second session');
+
+    await first.click({ position: { x: 20, y: 20 } });
+    await second.hover({ position: { x: 20, y: 20 } });
+    await page.waitForTimeout(350);
+
+    await page.evaluate(() => {
+      const button = Array.from(
+        document.querySelectorAll('button[aria-label]')
+      ).find((b) => b.getAttribute('aria-label') === 'Second session');
+      const row = button!.parentElement!;
+      const actions = row.lastElementChild!;
+      const seen: { row: string; strip: string }[] = [];
+      (window as unknown as { __pairs: typeof seen }).__pairs = seen;
+
+      // The row's fill lives in TWO places by design (KAN-82): a selected row
+      // paints background-color, an unselected hovered one paints an inset
+      // box-shadow. Comparing background to background would therefore report
+      // a false disagreement on every hovered-unselected frame. What the eye
+      // sees is whichever of the two is painted, so that is what the strip
+      // must match.
+      const effectiveFill = (el: Element): string => {
+        const cs = getComputedStyle(el);
+        if (cs.backgroundColor !== 'rgba(0, 0, 0, 0)')
+          return cs.backgroundColor;
+        const shadow = cs.boxShadow.match(/rgba?\([^)]*\)/);
+        return shadow ? shadow[0] : cs.backgroundColor;
+      };
+
+      const tick = () => {
+        seen.push({
+          row: effectiveFill(row),
+          strip: getComputedStyle(actions).backgroundColor,
+        });
+        requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    });
+
+    await second.click({ position: { x: 20, y: 20 } });
+    await page.waitForTimeout(500);
+
+    const pairs = await page.evaluate(
+      () =>
+        (window as unknown as { __pairs: { row: string; strip: string }[] })
+          .__pairs
+    );
+
+    // CONTROL: the sampler ran across the state change, so an empty
+    // disagreement list cannot mean it never observed anything.
+    expect(
+      new Set(pairs.map((p) => p.row)).size,
+      'the row background should have changed during the sample window'
+    ).toBeGreaterThan(1);
+
+    const disagreeing = pairs.filter((p) => p.row !== p.strip);
+
+    expect(
+      disagreeing.length,
+      `the strip must track the row exactly; saw ${disagreeing.length} ` +
+        `frames where they differed, e.g. row ${disagreeing[0]?.row} vs ` +
+        `strip ${disagreeing[0]?.strip}`
+    ).toBe(0);
+  });
 });
