@@ -148,6 +148,38 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
       }
     }
     background-color: ${isSelected && COLORS.SELECTION_COLOR};
+
+    /* SELECTION IS TOLD APART BY SHAPE, NOT BY LIGHTNESS (KAN-87).
+
+       SELECTION_COLOR against HOVER_COLOR is 1.21:1 on Light and 1.04:1 on
+       Blue, where WCAG 1.4.11 asks 3:1 for a state a user must distinguish.
+       So a hovered row read as selected, and with two rows looking selected
+       there was no way to tell which one the right pane was showing.
+
+       No colour-only fix reaches 3:1 without making a selected row the
+       LIGHTEST thing in the pane, which inverts the hierarchy -- hover is
+       transient, selection is persistent, and the persistent state should be
+       the stronger signal. So selection gains a cue of a different KIND.
+
+       TEXT_COLOR, not SELECTION_COLOR: the bar has to carry the contrast the
+       fill cannot, and it is read against three different grounds. Measured
+       worst case across all five themes is 6.90:1, the same reasoning that
+       picked the theme swatch ring in KAN-88.
+
+       ::before, not ::after and not another inset shadow. ::after is reserved
+       for the drop-indicator line drag-and-drop reordering will need, and a
+       second inset shadow would put selection back on the property hover
+       already eases -- which is KAN-82, exactly. */
+    ${isSelected &&
+    `&::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 3px;
+      background-color: ${COLORS.TEXT_COLOR};
+    }`}
   `;
 
   // The row's primary action lives on the inner ClickableRow, not on this
