@@ -368,20 +368,31 @@ test.describe('controls are reachable by keyboard', () => {
   // The other half of KAN-68: being in the tab order is useless if focus
   // lands on something painted at opacity 0. Hover is a pointer-only signal,
   // so :focus-within is what reveals these to a keyboard user.
+  //
+  // Asserted on the CONTROL, not on the block around it (KAN-100). The block
+  // carries the opaque mask and has to land in one frame with the row's fill,
+  // so it no longer fades and its opacity is 1 in every state; the reveal now
+  // lives on the icons. Reading the block here would be trivially true and
+  // would pass against a build that reveals nothing at all. It is also the
+  // more faithful target for what this test says it cares about -- whether the
+  // thing focus lands on is painted.
   test('focusing a row action reveals it (KAN-68)', async ({
     context,
     extensionId,
   }) => {
     const page = await openPopup(context, extensionId);
-    const actions = page.locator('div:has(> [aria-label="Delete"])');
+    const deleteAction = page.getByRole('button', {
+      name: 'Delete',
+      exact: true,
+    });
 
-    // The control: unfocused and unhovered, the block really is invisible, so
-    // the assertion below can tell the two states apart.
-    await expect(actions).toHaveCSS('opacity', '0');
+    // The control: unfocused and unhovered, it really is invisible, so the
+    // assertion below can tell the two states apart.
+    await expect(deleteAction).toHaveCSS('opacity', '0');
 
-    await page.getByRole('button', { name: 'Delete', exact: true }).focus();
+    await deleteAction.focus();
 
-    await expect(actions).toHaveCSS('opacity', '1');
+    await expect(deleteAction).toHaveCSS('opacity', '1');
   });
 
   // KAN-75. RateAndReviewModal rendered both dismissals as a NormalLabel with
