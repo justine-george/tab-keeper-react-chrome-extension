@@ -121,4 +121,76 @@ test.describe('selection feedback lands immediately', () => {
     // this control proves the frame loop works rather than that hover eases.
     expect(samples.length).toBeGreaterThan(5);
   });
+
+  // KAN-97, the mirror of the test above. That one watches the row LOSING
+  // selection. This watches the row GAINING it, which nobody checked.
+  //
+  // background-color lands in one frame, correctly. The inset box-shadow does
+  // not: it paints ON TOP of the background, and when the row becomes selected
+  // its declaration disappears (the fill is guarded on !isSelected), so it
+  // transitions from HOVER_COLOR to transparent over 0.2s. The newly selected
+  // row is therefore painted the light hover colour and darkens into the
+  // selection colour -- measured at 22 partially-transparent frames.
+  //
+  // The row must be HOVERED when clicked, which is what a mouse click always
+  // is. Clicking an unhovered row has no shadow to fade and cannot show this.
+  test('a row gaining selection does not fade into it', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openWith(context, extensionId);
+    const second = rowFor(page, 'Second session');
+
+    // Select the first, so the second is the one that will change.
+    await rowFor(page, 'First session').click({ position: { x: 20, y: 20 } });
+
+    // A REAL hover. dispatchEvent(new MouseEvent('mouseover')) does not
+    // trigger CSS :hover -- the first version of this test used it, painted no
+    // shadow, and passed against the broken build because there was nothing
+    // to fade. Playwright's hover is an actual mouse move, so it does.
+    await second.hover({ position: { x: 20, y: 20 } });
+    await page.waitForTimeout(350);
+
+    // Start sampling and return immediately, so the click below is a real
+    // mouse click rather than something synthesized inside the page.
+    await page.evaluate(() => {
+      const button = Array.from(
+        document.querySelectorAll('button[aria-label]')
+      ).find((b) => b.getAttribute('aria-label') === 'Second session');
+      const row = button!.parentElement!;
+      const seen: string[] = [];
+      (window as unknown as { __shadow: string[] }).__shadow = seen;
+      const tick = () => {
+        seen.push(getComputedStyle(row).boxShadow);
+        requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    });
+
+    await second.click({ position: { x: 20, y: 20 } });
+    await page.waitForTimeout(500);
+
+    const samples = await page.evaluate(
+      () => (window as unknown as { __shadow: string[] }).__shadow
+    );
+
+    // CONTROL: the sampler ran and saw the shadow painted before the click.
+    // Without this, an empty midFade could mean the hover never landed.
+    expect(
+      samples.some((c) => /^rgb\(/.test(c)),
+      'the row should have carried an opaque hover shadow before the click'
+    ).toBe(true);
+
+    // A partially transparent shadow can only come from an in-flight
+    // transition. Fully opaque and fully transparent are both settled states.
+    const midFade = samples.filter(
+      (c) => /^rgba\(/.test(c) && !/,\s*0\)/.test(c)
+    );
+
+    expect(
+      midFade,
+      `selection should arrive in one frame; saw ${midFade.length} ` +
+        `intermediate frames of the hover shadow fading over it`
+    ).toEqual([]);
+  });
 });
