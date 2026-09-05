@@ -85,12 +85,31 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
 
   const rightStyle = css`
     position: absolute;
-    top: 50%;
+    /* Both edges pinned to the row, NOT centred with a percentage and a
+       transform (KAN-103).
+
+       top: 50% is a layout value and is quantised to 1/64px; the matching
+       translateY(-50%) is a float computed from the element's own height.
+       On a row whose height makes those disagree -- which is most of them,
+       since the height is font-metric derived and never round -- the block
+       ended up 0.0036px above the row. Measured on 11 of 17 sampled row
+       heights.
+
+       That is far below one device pixel and would not matter, except the mask
+       is opaque and the row separator is the very next thing beneath it. At
+       dpr 2.2 the block's bottom edge landed on 573.93 and the separator began
+       at 573.94 -- the same device pixel -- so the mask antialiased over the
+       separator and the line visibly broke where the strip began. Reported with
+       a zoomed screenshot showing exactly that.
+
+       Pinning both edges makes the box the row's box, with no arithmetic in
+       between and nothing to quantise. Same lesson as ACTION_ICON_INSET above,
+       one level out: derive the box, do not approximate it. */
+    top: 0;
+    bottom: 0;
     right: 0;
-    transform: translateY(-50%);
     display: flex;
     flex-direction: row;
-    height: 100%;
     justify-content: flex-start;
     /* stretch, NOT center (KAN-101). Centring sized each icon by its own
        content and left the difference between that and the row as a remainder

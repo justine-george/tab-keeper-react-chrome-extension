@@ -158,3 +158,89 @@ test.describe('a row action icon is inset by a stated amount', () => {
     }
   });
 });
+
+// KAN-103. The same lesson one level out: the BLOCK's box must be the row's
+// box, not a box computed to land near it.
+//
+// It used to be centred with `top: 50%` plus `transform: translateY(-50%)`.
+// `top: 50%` is a layout value, quantised to 1/64px; the transform is a float
+// from the element's own height. On a row height that makes those disagree the
+// block sat 0.0036px above the row.
+//
+// That is far below a device pixel and would be harmless, except the mask is
+// opaque and the row separator is immediately beneath it. At dpr 2.2 the
+// block's bottom edge and the separator's top landed on the same device pixel,
+// the mask antialiased over it, and the separator visibly broke where the strip
+// began -- reported with a zoomed screenshot showing the line stopping dead at
+// the strip's left edge.
+test.describe('the action block takes its box from the row', () => {
+  // Swept across many row heights rather than measured once, and that is the
+  // whole design of this test.
+  //
+  // Whether the quantisation error appears at all depends on the row's exact
+  // height: at an integer height the percentage and the transform cancel
+  // perfectly and the defect is invisible. Headless rows are integers, so a
+  // single measurement here would pass against the broken code and prove
+  // nothing -- the same trap as asserting device pixels would have been.
+  //
+  // Measured live on the reporter's display: 11 of 17 sampled heights showed
+  // the offset, 6 did not. Sweeping means the test does not depend on landing
+  // on a pathological height by luck.
+  test('the block matches the row at every row height', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openWith(context, extensionId);
+
+    const samples = await page.evaluate(() => {
+      const row = document.querySelectorAll('[data-row-actions]')[0]
+        .parentElement as HTMLElement;
+      const block = row.querySelector('[data-row-actions]') as HTMLElement;
+      const left = row.querySelector('button[aria-label]') as HTMLElement;
+      const out: { pad: number; rowH: number; top: number; bottom: number }[] =
+        [];
+      // Stepped in 1/64px -- Chrome's LayoutUnit -- and that is load-bearing.
+      //
+      // The first version of this swept in 1/16px steps and PASSED against the
+      // broken code. Every height was then a multiple of 1/16, so its half was
+      // a multiple of 1/32 and exactly representable, and `top: 50%` had
+      // nothing to round. The defect only appears when half the row height is
+      // NOT representable, which needs an ODD multiple of 1/64.
+      //
+      // Caught by reverting the fix and watching this test stay green. A sweep
+      // that cannot produce the pathological height is not a sweep.
+      for (let i = 0; i <= 32; i++) {
+        const pad = i / 64;
+        left.style.paddingBottom = `${pad}px`;
+        const r = row.getBoundingClientRect();
+        const b = block.getBoundingClientRect();
+        out.push({
+          pad,
+          rowH: Number(r.height.toFixed(4)),
+          top: Number((b.top - r.top).toFixed(4)),
+          bottom: Number((b.bottom - r.bottom).toFixed(4)),
+        });
+      }
+      left.style.paddingBottom = '';
+      return out;
+    });
+
+    // CONTROL: the sweep really did change the row's height. Without this,
+    // seventeen identical measurements would satisfy the assertion below.
+    expect(
+      new Set(samples.map((s) => s.rowH)).size,
+      'the sweep should produce a range of row heights'
+    ).toBeGreaterThan(8);
+
+    const off = samples.filter((s) => s.top !== 0 || s.bottom !== 0);
+
+    expect(
+      off.length,
+      `the block must sit exactly on the row at every height; ${off.length} ` +
+        `of ${samples.length} sampled heights were off, e.g. row height ` +
+        `${off[0]?.rowH} gave top ${off[0]?.top} bottom ${off[0]?.bottom}. ` +
+        `An offset here is sub-pixel but the mask is opaque and the separator ` +
+        `is directly beneath it, so it paints over the line.`
+    ).toBe(0);
+  });
+});
