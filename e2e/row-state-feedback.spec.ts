@@ -168,7 +168,20 @@ async function startSeamSampler(
         seen.push({ left: show(left), right: show(over(attenuated, left)) });
         requestAnimationFrame(tick);
       };
-      requestAnimationFrame(tick);
+      // Record the CURRENT frame synchronously, before scheduling the next.
+      //
+      // Not `requestAnimationFrame(tick)` alone. That takes the first sample a
+      // frame after this call returns, and the caller's next action -- a mouse
+      // move -- can be processed in between. On the way IN that is harmless,
+      // because the un-hovered state persists until the pointer arrives. On the
+      // way OUT it is fatal: KAN-100 made the fill land in ONE frame, so the
+      // hovered state is gone immediately and the sampler records only the
+      // after state. The control then reports, correctly, that nothing changed.
+      //
+      // Measured: 3 failures in 3 runs of the exit test on f0e695a before this
+      // line. The flake was introduced by the fix it tests -- an instant
+      // transition leaves no window for a late sampler to catch.
+      tick();
     },
     [rowLabel, surface, kind] as [string, string, string]
   );
@@ -468,14 +481,27 @@ test.describe('a row reveals its actions and fills as one state', () => {
   // KAN-100, the other direction, and it needs its own test because the entry
   // test CANNOT see this one.
   //
-  // Once the fill lands in a single frame, a mask that fades in is invisible on
-  // the way in: it fades the destination colour over the destination colour.
-  // Verified by mutation -- restoring the block's `opacity: 0; transition:
-  // opacity 0.1s` leaves the entry test green.
+  // Once the fill lands in a single frame, a mask that lingers is invisible on
+  // the way in -- the row is already at the destination colour, so whatever the
+  // mask does over it composites to the same value. Leaving is where it shows:
+  // the row drops to the page colour in one frame while the mask is still on
+  // its way out, so the strip is briefly the only lit part of an unlit row.
   //
-  // Leaving is where it shows. The row drops back to the page colour in one
-  // frame while the mask is still fading out at the hover colour, so the strip
-  // is briefly the only lit part of an unlit row -- the same seam, mirrored.
+  // The mutation that pins this is giving the mask a colour transition
+  // (`transition: background-color 0.2s` on the block). Measured: the entry
+  // test stays green, this one fails 4 times out of 4.
+  //
+  // NOTE the margin is thin -- 1 to 2 disagreeing frames out of ~63, because
+  // the mask is leaving while the row has already gone. It is reliable, but if
+  // a future change makes it thinner this test degrades quietly rather than
+  // loudly. If that happens, do not loosen the assertion; sample the first
+  // post-departure frames directly instead.
+  //
+  // An earlier revision of this comment claimed the mutation was restoring the
+  // block's `opacity` fade. That was wrong: the mask now lives on
+  // background-color, which goes transparent instantly, so fading an already
+  // transparent block changes nothing. The test's apparent failure under that
+  // mutation was the flake below, not detection.
   test('the action strip does not outlast the row fill when the pointer leaves', async ({
     context,
     extensionId,

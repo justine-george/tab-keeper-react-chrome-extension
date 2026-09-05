@@ -18,6 +18,20 @@ import {
 import { tabContainerData } from '../../../redux/slices/tabContainerDataStateSlice';
 import { useTranslation } from 'react-i18next';
 
+/**
+ * How far a row's action icon sits inside the row, per side, in CSS px.
+ *
+ * Stated here rather than left to fall out of the icon's own padding (KAN-101).
+ * The icon used to be sized by its content and centred in the row, which left
+ * ~0.27px over -- a number nobody chose, below one device pixel, and therefore
+ * rounded to a 0px gap on some rows and 1px on others. Now the icon's height is
+ * derived FROM the row and this is the only thing standing between them.
+ *
+ * `e2e/row-action-inset.spec.ts` asserts this value, and asserts it survives
+ * the row changing height.
+ */
+const ACTION_ICON_INSET = 2;
+
 interface TabGroupEntryProps {
   tabGroupData: tabContainerData;
   /**
@@ -78,7 +92,13 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
     flex-direction: row;
     height: 100%;
     justify-content: flex-start;
-    align-items: center;
+    /* stretch, NOT center (KAN-101). Centring sized each icon by its own
+       content and left the difference between that and the row as a remainder
+       -- 0.27px, which no one chose and which is below one device pixel, so it
+       rendered as a gap on some rows and no gap on others. Stretching makes the
+       icon's height derive from the row, and ACTION_ICON_INSET below is then
+       the only thing between them. */
+    align-items: stretch;
     /* THE MASK LIVES HERE, ON ONE ELEMENT (KAN-98), AND IT NEVER FADES
        (KAN-100).
 
@@ -112,6 +132,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
     & > * {
       opacity: 0;
       transition: opacity 0.1s ease-out;
+      margin: ${ACTION_ICON_INSET}px 0;
     }
   `;
 
