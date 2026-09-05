@@ -23,6 +23,10 @@ export default function MenuContainer() {
     (state: RootState) => state.globalState.syncStatus
   );
 
+  const isSignedIn = useSelector(
+    (state: RootState) => state.globalState.isSignedIn
+  );
+
   const { t } = useTranslation();
   const dispatch: AppDispatch = useDispatch();
 
@@ -48,18 +52,35 @@ export default function MenuContainer() {
     dispatch(closeToast());
   }
 
-  // sync icon change with syncStatus
-  let syncIconType = '';
+  // The control offers "sync now" only when syncing is possible AND something
+  // is out of sync. Every other case shows what is true instead.
+  //
+  // `isSignedIn` is checked FIRST and beats any status, because it is the only
+  // one of the two that decides whether the action can work at all. It is not
+  // a startup flash: App.tsx dispatches setLoggedOut on a failed
+  // chrome.storage.sync write, on a read-back that does not match what was
+  // written, and on a token that is present but unusable. In each of those the
+  // control used to invite a click that called loadFromFirestore(userId!) with
+  // no userId (KAN-79).
+  //
+  // Note what is NOT used here: `isDirty`. globalState is rebuilt on every
+  // popup open, so `isDirty === false` means "no edits yet this session", not
+  // "the two sides agree" -- with auto-sync off nothing has been compared at
+  // all. Only a completed sync knows that, which is what syncStatus records.
+  let syncIconType: string;
   let isDisabled = false;
-  if (syncStatus === 'loading') {
+  if (!isSignedIn) {
+    syncIconType = 'cloud_off';
+    isDisabled = true;
+  } else if (syncStatus === 'loading') {
     syncIconType = 'cloud_sync';
     isDisabled = true;
   } else if (syncStatus === 'error') {
     syncIconType = 'sync_problem';
-  } else if (syncStatus === 'idle') {
-    syncIconType = 'sync';
   } else if (syncStatus === 'success') {
     syncIconType = 'cloud_done';
+  } else {
+    syncIconType = 'sync';
   }
 
   const containerStyle = css`

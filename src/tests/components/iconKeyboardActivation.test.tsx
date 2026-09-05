@@ -3,7 +3,10 @@ import { act, fireEvent, screen } from '@testing-library/react';
 
 import MenuContainer from '../../components/home/leftpane/MenuContainer';
 import { renderWithProviders } from '../setup/renderWithProviders';
-import { setSyncStatus } from '../../redux/slices/globalStateSlice';
+import {
+  setSignedIn,
+  setSyncStatus,
+} from '../../redux/slices/globalStateSlice';
 
 // KAN-63 changed how an Icon turns a keypress into its onClick: it used to
 // call onClick(e as any) directly, and now forwards to the element's own
@@ -22,12 +25,23 @@ const SYNC_PENDING = 'global/syncStateWithFirestore/pending';
 
 const syncIcon = () => screen.getByRole('button', { name: 'Sync now' });
 
+// Signed in, always. The store's initial isSignedIn is FALSE, and the sync
+// control is deliberately disabled with no account to sync to (KAN-79) -- so a
+// default store is the one state in which none of these assertions can hold.
+// Signing in is the precondition for the control existing as an action at all,
+// not a workaround: the thunk reads loadFromFirestore(userId!), and with no
+// userId its missing-document branch writes through saveToFirestore(null, ...).
+const renderMenu = () =>
+  renderWithProviders(<MenuContainer />, {
+    seedStore: (store) => store.dispatch(setSignedIn()),
+  });
+
 describe('Icon keyboard activation reaches the same handler as a click', () => {
   // The control. If the sync thunk stopped being dispatched by a plain mouse
   // click, every keyboard assertion below would fail for a reason that has
   // nothing to do with the keyboard.
   test('CONTROL: clicking the sync icon dispatches the sync thunk', async () => {
-    const { seen } = await renderWithProviders(<MenuContainer />);
+    const { seen } = await renderMenu();
     seen.length = 0;
 
     await act(async () => {
@@ -42,7 +56,7 @@ describe('Icon keyboard activation reaches the same handler as a click', () => {
     { key: ' ', name: 'Space' },
   ]) {
     test(`${key.name} on the sync icon dispatches the sync thunk`, async () => {
-      const { seen } = await renderWithProviders(<MenuContainer />);
+      const { seen } = await renderMenu();
       seen.length = 0;
 
       await act(async () => {
@@ -61,7 +75,7 @@ describe('Icon keyboard activation reaches the same handler as a click', () => {
   // second sync -- the re-entrancy this codebase has fixed before. Routing
   // through click() means the guard applies to the keyboard too.
   test('a disabled sync icon does not dispatch on Enter', async () => {
-    const { store, seen } = await renderWithProviders(<MenuContainer />);
+    const { store, seen } = await renderMenu();
 
     await act(async () => {
       store.dispatch(setSyncStatus('loading'));
@@ -80,7 +94,7 @@ describe('Icon keyboard activation reaches the same handler as a click', () => {
   // above would pass against an Icon that had stopped responding to the
   // keyboard entirely.
   test('the same icon syncs again once it is re-enabled', async () => {
-    const { store, seen } = await renderWithProviders(<MenuContainer />);
+    const { store, seen } = await renderMenu();
 
     await act(async () => {
       store.dispatch(setSyncStatus('loading'));
