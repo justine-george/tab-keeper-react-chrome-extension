@@ -47,13 +47,10 @@ const SettingsCategoryContainer: React.FC = () => {
   // A plain string, not css``: handed to ClickableRow's `style` prop. width
   // is explicit because a <button> shrink-wraps its content where the div it
   // replaced stretched to fill the flex column.
-  // `position: relative` is here only to anchor the selected category's accent
-  // bar below; the button had no positioned ancestor of its own.
   const selectableStyle = (isSelected: boolean) => `
     cursor: pointer;
     transition: background-color 0.2s;
     width: 100%;
-    position: relative;
     &:hover {
       background-color: ${!isSelected ? COLORS.HOVER_COLOR : 'unset'};
     }
@@ -61,26 +58,6 @@ const SettingsCategoryContainer: React.FC = () => {
       isSelected ? COLORS.SELECTION_COLOR : COLORS.PRIMARY_COLOR
     };
     padding: 15px clamp(10px, 12%, 38px);
-    /* KAN-87. Hover and selection differ by 1.04-1.21:1 across the themes, so
-       a hovered category read as the selected one. Selection therefore carries
-       a shape cue as well as a fill. The full reasoning -- why TEXT_COLOR, and
-       why ::before rather than ::after or a second inset shadow -- is on
-       TabGroupEntry's containerStyle, which does the same thing for the
-       session list. Kept identical on purpose: they share the palette that
-       caused this, so they must not drift apart again. */
-    ${
-      isSelected
-        ? `&::before {
-      content: '';
-      position: absolute;
-      left: 0;
-      top: 0;
-      bottom: 0;
-      width: 3px;
-      background-color: ${COLORS.TEXT_COLOR};
-    }`
-        : ''
-    }
   `;
 
   return (
