@@ -86,6 +86,16 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
     transition: opacity 0.1s ease-out;
   `;
 
+  // What "engaged" paints. Declared once and used by both rules below, so the
+  // hover and keyboard branches cannot drift apart -- which is the whole point
+  // of KAN-92 and the reason they are not written out twice.
+  const engagedStyle = `
+    ${!isSelected ? `box-shadow: inset 0 0 0 100vw ${COLORS.HOVER_COLOR};` : ''}
+    [data-row-actions] {
+      opacity: 1;
+    }
+  `;
+
   const containerStyle = css`
     position: relative;
     display: flex;
@@ -135,17 +145,36 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
        and has to mask it -- became a hover-coloured strip glued to the right
        of a row with no fill, with a hard vertical edge through the title.
 
-       So the reveal is stated HERE, next to the fill, sharing one selector.
+       So the reveal is stated HERE, next to the fill, sharing one condition.
        They can no longer drift, because there is nothing left to drift from:
-       the React state is gone. Note this deliberately also fires when the
-       row's own title button holds focus, not only the actions -- a row you
-       have tabbed to should show what you can do with it. */
-    &:hover,
-    &:focus-within {
-      ${!isSelected && `box-shadow: inset 0 0 0 100vw ${COLORS.HOVER_COLOR};`}
-      [data-row-actions] {
-        opacity: 1;
-      }
+       the React state is gone.
+
+       That condition is :has(:focus-visible), NOT :focus-within (KAN-94).
+       :focus-within matches any focus, including the focus a mouse click
+       leaves behind -- so clicking a row engaged it indefinitely, and since a
+       click draws no focus ring there was nothing on screen to explain why.
+       It read as a stuck hover, and it shipped that way for half an hour.
+
+       :focus-visible is the distinction that was wanted all along: the
+       browser already decides whether a given focus deserves a visible
+       indicator, and it answers no for a click and yes for a Tab. So the
+       intent -- a row you have TABBED to should show what you can do with it
+       -- is now stated by the selector rather than only by this comment.
+
+       TWO RULES, not one selector list. An invalid selector anywhere in a
+       comma-separated list invalidates the whole rule, so a combined
+       "&:hover, &:has(...)" would take hover down with it on any engine
+       without :has() (Chrome 105+). Split, :hover stands on its own and only
+       the keyboard affordance degrades. The declarations are shared rather
+       than typed twice, so the two rules cannot drift either.
+
+       (No backticks anywhere in this comment: it lives inside a css template
+       literal, and one would end the literal mid-comment.) */
+    &:hover {
+      ${engagedStyle}
+    }
+    &:has(:focus-visible) {
+      ${engagedStyle}
     }
     background-color: ${isSelected && COLORS.SELECTION_COLOR};
 

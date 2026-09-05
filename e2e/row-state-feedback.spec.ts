@@ -77,6 +77,31 @@ async function settledFillOf(row: Locator): Promise<string> {
   return fillOf(row);
 }
 
+/**
+ * Press Tab until `target` holds focus.
+ *
+ * A real key press, not `.focus()`, because engagement keys off
+ * :focus-visible and Chrome decides that from the PRECEDING interaction --
+ * after a mouse move, a programmatic focus does not set it. `.focus()` would
+ * therefore test a state no keyboard user can reach, and would pass against
+ * code that never engages on Tab at all.
+ *
+ * Walking rather than pressing a fixed count: the number of stops ahead of
+ * this control is an unrelated fact about the header and the rows above it,
+ * and hard-coding it turns any change there into a failure here.
+ */
+async function tabUntilFocused(
+  page: Page,
+  target: Locator,
+  maxPresses = 40
+): Promise<void> {
+  for (let i = 0; i < maxPresses; i++) {
+    if (await target.evaluate((el) => el === document.activeElement)) return;
+    await page.keyboard.press('Tab');
+  }
+  throw new Error(`Tab never reached the target in ${maxPresses} presses`);
+}
+
 test.describe('a row reveals its actions and fills as one state', () => {
   test('a row whose actions the keyboard revealed is filled like a hovered one', async ({
     context,
@@ -107,12 +132,13 @@ test.describe('a row reveals its actions and fills as one state', () => {
       'CONTROL: an untouched row starts unfilled'
     ).toMatch(TRANSPARENT);
 
-    // Reveal the second row's actions with focus rather than the pointer.
-    // .focus() rather than a Tab walk on purpose: :focus-within does not
-    // distinguish the two, and this spec is about styling, not reachability
-    // (which KAN-68's tab-order specs already cover).
+    // Reveal the second row's actions with a REAL Tab press, not .focus().
+    // KAN-94: engagement now keys off :focus-visible, and Chrome decides that
+    // from the preceding interaction -- a programmatic .focus() after a mouse
+    // move does not set it. So .focus() would test a state no keyboard user
+    // can be in, and would go green against code that never engages on Tab.
     const open = actionsIn(second).getByRole('button', { name: 'Open' });
-    await open.focus();
+    await tabUntilFocused(page, open);
 
     // The reveal happened -- without this the fill assertion could go green
     // simply because nothing was showing.
@@ -124,5 +150,46 @@ test.describe('a row reveals its actions and fills as one state', () => {
           'a row showing its actions must fill the same as a hovered row',
       })
       .toBe(hoveredFill);
+  });
+
+  // KAN-94, a regression from the fix above. Collapsing reveal and fill onto
+  // one condition was right; :focus-within was the wrong condition. It matches
+  // ANY focus, including the focus a mouse click leaves behind -- so clicking a
+  // row engaged it indefinitely, and with no focus ring on a click there was
+  // nothing on screen to explain why. Reported as "why is hover state sticky".
+  //
+  // :focus-visible is the distinction that was wanted all along: the browser
+  // already decides whether a given focus deserves a visible indicator, and it
+  // says no for a click. Measured on the broken build with the pointer parked
+  // away: :focus-within true, :has(:focus-visible) false, actions opacity 1.
+  test('a row clicked with the mouse does not stay engaged once the pointer leaves', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openWith(context, extensionId);
+    const first = rowFor(page, 'First session');
+
+    await first.click({ position: { x: 20, y: 20 } });
+
+    // CONTROL: the click really did leave focus inside the row. Without this
+    // the test could pass on a build where clicking focuses nothing at all,
+    // which is a different app, not a fixed one.
+    expect(
+      await first.evaluate((el) => el.matches(':focus-within')),
+      'the click should leave focus inside the row -- otherwise this test ' +
+        'proves nothing about focus-driven stickiness'
+    ).toBe(true);
+
+    await page.mouse.move(0, 0);
+
+    await expect
+      .poll(
+        () => actionsIn(first).evaluate((el) => getComputedStyle(el).opacity),
+        {
+          message:
+            'a clicked row must not keep showing its actions after the pointer leaves',
+        }
+      )
+      .toBe('0');
   });
 });
