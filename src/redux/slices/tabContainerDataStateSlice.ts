@@ -862,95 +862,73 @@ export const tabContainerDataStateSlice = createSlice({
     // tombstone is being withdrawn are stamped - anything else in the payload
     // keeps its own history.
     restoreContainer: (state, action: PayloadAction<typeof state>) => {
-      const withdrawnAt = new Map(
-        (state.deletedTabGroups ?? []).map((grave) => [
-          grave.tabGroupId,
-          grave.deletedAt,
-        ])
-      );
-      // The mirror direction: a payload can also re-introduce a tombstone for a
-      // session that is currently live - redoing a delete after undoing it. The
-      // restored tombstone carries the original delete time, which the undo
-      // above has already stamped the session past, so without this the redo
-      // silently fails to delete anything.
+      const restored = reconcileAssertedContainer(state, action.payload);
+
+      // update localstorage
+      saveToLocalStorage('tabContainerData', restored);
+      return restored;
+    },
+
+    // Undo and redo. Reconciles exactly as restoreContainer does, then
+    // withdraws the sessions the step being undone had created (KAN-80).
+    //
+    // The ids arrive in the payload; they are never worked out here. That is
+    // the whole point of the split. A reducer can only see the container and
+    // the snapshot, and those two have drifted by the time it runs, so any rule
+    // of the form "missing from the snapshot means retracted" also catches
+    // sessions that merely arrived from another device -- which is precisely
+    // how KAN-83 deleted them. undoRedoSlice records what each step added at
+    // the moment it happens, and this reducer is handed the answer.
+    //
+    // Import deliberately does NOT come through here. The two callers want
+    // opposite things from a session the payload lacks: an undo means "retract
+    // it", an import means "leave it alone", because a backup file is a partial
+    // view of the world and tombstoning against it would let an old export
+    // delete every newer session on every device. Two reducers rather than one
+    // with a flag, so neither contract can be read as the other.
+    applyUndoSnapshot: (
+      state,
+      action: PayloadAction<{
+        snapshot: TabMasterContainer;
+        withdrawTabGroupIds: string[];
+      }>
+    ) => {
+      const { snapshot, withdrawTabGroupIds } = action.payload;
       const liveAt = new Map(
         state.tabGroups.map((tabGroup) => [
           tabGroup.tabGroupId,
           tabGroup.lastModified ?? state.lastModified,
         ])
       );
-      // KAN-55. The live copy of each session, to tell the sessions this
-      // restore actually changes from the ones it is merely carrying along.
-      const liveGroup = new Map(
-        state.tabGroups.map((tabGroup) => [tabGroup.tabGroupId, tabGroup])
+
+      const restored = reconcileAssertedContainer(state, snapshot);
+
+      const surviving = new Set(
+        restored.tabGroups.map((tabGroup) => tabGroup.tabGroupId)
       );
+      const graves = restored.deletedTabGroups ?? [];
 
-      const restored: TabMasterContainer = {
-        ...action.payload,
-        tabGroups: action.payload.tabGroups.map((tabGroup) => {
-          const current = liveGroup.get(tabGroup.tabGroupId);
+      for (const tabGroupId of withdrawTabGroupIds) {
+        // The snapshot still has it, so this step did not actually create it.
+        // Burying it would delete a session the user can still see.
+        if (surviving.has(tabGroupId)) continue;
 
-          // KAN-55. The second thing a restore may have to outrank, alongside
-          // a tombstone: a live session whose content this restore is
-          // reverting. The merge resolves each session by its own
-          // `lastModified` with cloud winning ties, so handing a reverted
-          // session back with its snapshot timestamp let the cloud copy --
-          // which still holds the edit -- win the next merge. The undo applied
-          // locally and sync silently put the edit back.
-          //
-          // Compared by content, not by timestamp. `touch()` does advance a
-          // session's timestamp on every content change, but two edits inside
-          // the same millisecond are indistinguishable by it, which is not
-          // hypothetical: saving and renaming in quick succession produces
-          // exactly that, and the timestamp version of this check passed or
-          // failed depending on where a millisecond boundary happened to fall.
-          //
-          // Only sessions that actually differ are stamped. Bumping every
-          // restored session would make an undo assert the whole container,
-          // overwriting edits made on another device to sessions the user
-          // never touched here.
-          const supersededAt =
-            current !== undefined && !sameSessionContent(current, tabGroup)
-              ? liveAt.get(tabGroup.tabGroupId)
-              : undefined;
-
-          const mustOutrank = [
-            withdrawnAt.get(tabGroup.tabGroupId),
-            supersededAt,
-          ].filter((at): at is number => at !== undefined);
-
-          // Neither buried nor superseded: this restore is not changing this
-          // session, so leave its timestamp exactly as it was.
-          if (mustOutrank.length === 0) return tabGroup;
-
-          return {
-            ...tabGroup,
-            // Strictly after whatever it must beat, not merely Date.now().
-            // Undoing promptly enough lands in the same millisecond, and the
-            // merge gives exact ties to cloud - so an equal timestamp loses to
-            // the very tombstone or edit this is superseding. The undo
-            // happened after the thing it undoes by definition; encode that
-            // rather than trusting clock granularity.
-            lastModified: Math.max(Date.now(), Math.max(...mustOutrank) + 1),
-          };
-        }),
-        // `?? []` before the map, not `?.map`. The optional call yields
-        // undefined for a payload with no tombstones - a backup exported before
-        // they existed - but the key is still written, and an explicit
-        // `deletedTabGroups: undefined` is not the same as an absent key.
-        // JSON.stringify erases that difference; Firestore does not. setDoc
-        // walks own enumerable properties and rejects undefined values, so the
-        // next cloud write failed with "Unsupported field value: undefined"
-        // (KAN-48).
-        deletedTabGroups: (action.payload.deletedTabGroups ?? []).map(
-          (grave) => {
-            const aliveAt = liveAt.get(grave.tabGroupId);
-            if (aliveAt === undefined) return grave;
-            // Same reasoning, other way round.
-            return { ...grave, deletedAt: Math.max(Date.now(), aliveAt + 1) };
-          }
-        ),
-      };
+        // Strictly after the copy it buries, for the same reason the restore
+        // direction stamps strictly after the tombstone it withdraws: the merge
+        // gives exact ties to the cloud, and undoing promptly enough lands in
+        // the same millisecond as the create.
+        const buriedAt = Math.max(
+          Date.now(),
+          (liveAt.get(tabGroupId) ?? 0) + 1
+        );
+        const existing = graves.find((g) => g.tabGroupId === tabGroupId);
+        if (existing) {
+          existing.deletedAt = buriedAt;
+        } else {
+          graves.push({ tabGroupId, deletedAt: buriedAt });
+        }
+      }
+      restored.deletedTabGroups = graves;
 
       // update localstorage
       saveToLocalStorage('tabContainerData', restored);
@@ -958,6 +936,157 @@ export const tabContainerDataStateSlice = createSlice({
     },
   },
 });
+
+// The tombstone ledger a restore should end up with (KAN-81).
+//
+// This used to be rebuilt wholly from the payload. An undo snapshot is a
+// photograph of the container taken BEFORE any later tombstone was written, so
+// it carries none of them -- and each undo therefore discarded every tombstone
+// accumulated since that snapshot. On `main` that was merely noisy: the lost
+// tombstone came back from the cloud on the same sync, and the only symptom
+// was a false "Synced changes from another device" on every undo after the
+// first.
+//
+// It stops being cosmetic once undo writes tombstones of its own (KAN-80),
+// because then the tombstone IS the retraction. Undoing two creates in a row
+// discarded the first withdrawal and the session came back.
+//
+// So live tombstones are carried across, and one thing drops them: the payload
+// asserting that session is alive again, which is exactly undoing a delete.
+// That case is already safe without the drop -- the restored session is
+// stamped to outrank its own tombstone -- but keeping graves for plainly live
+// sessions would grow the document forever.
+function carryTombstonesForward(
+  state: TabMasterContainer,
+  payload: TabMasterContainer,
+  liveAt: Map<string, number>
+): deletedTabGroup[] {
+  const assertedAlive = new Set(payload.tabGroups.map((g) => g.tabGroupId));
+  const ledger = new Map<string, deletedTabGroup>();
+
+  for (const grave of state.deletedTabGroups ?? []) {
+    if (assertedAlive.has(grave.tabGroupId)) continue;
+    ledger.set(grave.tabGroupId, { ...grave });
+  }
+
+  // `?? []` before the loop, not `?.`. The optional call yields undefined for a
+  // payload with no tombstones - a backup exported before they existed - but
+  // the key is still written, and an explicit `deletedTabGroups: undefined` is
+  // not the same as an absent key. JSON.stringify erases that difference;
+  // Firestore does not. setDoc walks own enumerable properties and rejects
+  // undefined values, so the next cloud write failed with "Unsupported field
+  // value: undefined" (KAN-48).
+  for (const grave of payload.deletedTabGroups ?? []) {
+    if (assertedAlive.has(grave.tabGroupId)) continue;
+    const aliveAt = liveAt.get(grave.tabGroupId);
+    // A payload can re-introduce a tombstone for a session that is currently
+    // live - redoing a delete after undoing it. The restored tombstone carries
+    // the original delete time, which the undo has already stamped the session
+    // past, so without this the redo silently fails to delete anything.
+    ledger.set(
+      grave.tabGroupId,
+      aliveAt === undefined
+        ? { ...grave }
+        : { ...grave, deletedAt: Math.max(Date.now(), aliveAt + 1) }
+    );
+  }
+
+  return Array.from(ledger.values());
+}
+
+// The shared body of the two reducers above. Everything about outranking a
+// tombstone or a superseded edit is identical for undo and for import; they
+// differ only in what a session missing from the payload means, which is the
+// caller's business rather than this function's.
+function reconcileAssertedContainer(
+  state: TabMasterContainer,
+  payload: TabMasterContainer
+): TabMasterContainer {
+  const withdrawnAt = new Map(
+    (state.deletedTabGroups ?? []).map((grave) => [
+      grave.tabGroupId,
+      grave.deletedAt,
+    ])
+  );
+  // The mirror direction: a payload can also re-introduce a tombstone for a
+  // session that is currently live - redoing a delete after undoing it. The
+  // restored tombstone carries the original delete time, which the undo
+  // above has already stamped the session past, so without this the redo
+  // silently fails to delete anything.
+  const liveAt = new Map(
+    state.tabGroups.map((tabGroup) => [
+      tabGroup.tabGroupId,
+      tabGroup.lastModified ?? state.lastModified,
+    ])
+  );
+  // KAN-55. The live copy of each session, to tell the sessions this
+  // restore actually changes from the ones it is merely carrying along.
+  const liveGroup = new Map(
+    state.tabGroups.map((tabGroup) => [tabGroup.tabGroupId, tabGroup])
+  );
+
+  const restored: TabMasterContainer = {
+    ...payload,
+    tabGroups: payload.tabGroups.map((tabGroup) => {
+      const current = liveGroup.get(tabGroup.tabGroupId);
+
+      // KAN-55. The second thing a restore may have to outrank, alongside
+      // a tombstone: a live session whose content this restore is
+      // reverting. The merge resolves each session by its own
+      // `lastModified` with cloud winning ties, so handing a reverted
+      // session back with its snapshot timestamp let the cloud copy --
+      // which still holds the edit -- win the next merge. The undo applied
+      // locally and sync silently put the edit back.
+      //
+      // Compared by content, not by timestamp. `touch()` does advance a
+      // session's timestamp on every content change, but two edits inside
+      // the same millisecond are indistinguishable by it, which is not
+      // hypothetical: saving and renaming in quick succession produces
+      // exactly that, and the timestamp version of this check passed or
+      // failed depending on where a millisecond boundary happened to fall.
+      //
+      // Only sessions that actually differ are stamped. Bumping every
+      // restored session would make an undo assert the whole container,
+      // overwriting edits made on another device to sessions the user
+      // never touched here.
+      const supersededAt =
+        current !== undefined && !sameSessionContent(current, tabGroup)
+          ? liveAt.get(tabGroup.tabGroupId)
+          : undefined;
+
+      const mustOutrank = [
+        withdrawnAt.get(tabGroup.tabGroupId),
+        supersededAt,
+      ].filter((at): at is number => at !== undefined);
+
+      // Neither buried nor superseded: this restore is not changing this
+      // session, so leave its timestamp exactly as it was.
+      if (mustOutrank.length === 0) return tabGroup;
+
+      return {
+        ...tabGroup,
+        // Strictly after whatever it must beat, not merely Date.now().
+        // Undoing promptly enough lands in the same millisecond, and the
+        // merge gives exact ties to cloud - so an equal timestamp loses to
+        // the very tombstone or edit this is superseding. The undo
+        // happened after the thing it undoes by definition; encode that
+        // rather than trusting clock granularity.
+        lastModified: Math.max(Date.now(), Math.max(...mustOutrank) + 1),
+      };
+    }),
+    // `?? []` before the map, not `?.map`. The optional call yields
+    // undefined for a payload with no tombstones - a backup exported before
+    // they existed - but the key is still written, and an explicit
+    // `deletedTabGroups: undefined` is not the same as an absent key.
+    // JSON.stringify erases that difference; Firestore does not. setDoc
+    // walks own enumerable properties and rejects undefined values, so the
+    // next cloud write failed with "Unsupported field value: undefined"
+    // (KAN-48).
+    deletedTabGroups: carryTombstonesForward(state, payload, liveAt),
+  };
+
+  return restored;
+}
 
 export const {
   saveToTabContainerInternal,
@@ -971,6 +1100,7 @@ export const {
   deleteTabInternal,
   replaceState,
   restoreContainer,
+  applyUndoSnapshot,
 } = tabContainerDataStateSlice.actions;
 
 export default tabContainerDataStateSlice.reducer;

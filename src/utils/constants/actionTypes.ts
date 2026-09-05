@@ -12,6 +12,11 @@ export const TAB_CONTAINER_REPLACE_STATE_ACTION =
 // restoreContainer in tabContainerDataStateSlice.
 export const TAB_CONTAINER_RESTORE_ACTION =
   'tabContainerDataState/restoreContainer';
+
+// Undo/redo only. Same reconciliation as restoreContainer, plus withdrawing the
+// sessions the undone step created; import must never take this path (KAN-80).
+export const TAB_CONTAINER_APPLY_UNDO_SNAPSHOT_ACTION =
+  'tabContainerDataState/applyUndoSnapshot';
 export const SELECT_TAB_CONTAINER_ACTION =
   'tabContainerDataState/selectTabContainer';
 export const SAVE_TAB_CONTAINER_ACTION =
