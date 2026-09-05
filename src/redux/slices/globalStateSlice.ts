@@ -203,9 +203,22 @@ export const syncStateWithFirestore = createAsyncThunk(
 
       if (changedFromCloud) {
         thunkAPI.dispatch(setIsDirtyWithoutSync());
+        // saveToFirestoreIfDirty's own fulfilled reducer reports the success.
         thunkAPI.dispatch(saveToFirestoreIfDirty());
       } else {
+        // Nothing to write, which is the MOST in-sync a user can be and the
+        // usual outcome of opening the popup. It has to say so: syncStatus is
+        // what the header icon reads, and leaving it at the initial 'idle'
+        // showed the actionable "sync now" icon on a session just confirmed up
+        // to date (KAN-79).
+        //
+        // `setIsNotDirty` alone is not enough, and deriving the icon from
+        // isDirty instead would not work either: globalState is rebuilt on
+        // every popup open, so `isDirty === false` means "no edits yet this
+        // session", not "the two sides agree". Only a completed sync knows
+        // that, so only a completed sync may claim it.
         thunkAPI.dispatch(setIsNotDirty());
+        thunkAPI.dispatch(setSyncStatus('success'));
       }
 
       if (changedFromLocal) {

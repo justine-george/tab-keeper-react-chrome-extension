@@ -6,7 +6,10 @@ import Icon from '../../components/common/Icon';
 import MenuContainer from '../../components/home/leftpane/MenuContainer';
 import TabGroupEntry from '../../components/home/leftpane/TabGroupEntry';
 import { renderWithProviders } from '../setup/renderWithProviders';
-import { setSyncStatus } from '../../redux/slices/globalStateSlice';
+import {
+  setSignedIn,
+  setSyncStatus,
+} from '../../redux/slices/globalStateSlice';
 import { tabContainerData } from '../../redux/slices/tabContainerDataStateSlice';
 
 // KAN-67 and KAN-68 are one defect wearing two prop names. Both `Button`'s
@@ -95,7 +98,12 @@ describe('enabled controls are reachable by keyboard', () => {
   // the re-entrancy KAN-63 closed. aria-disabled fixes the false "enabled"
   // announcement without the focus loss.
   test('a disabled Icon announces its state and keeps focus (KAN-66)', async () => {
-    const { store } = await renderWithProviders(<MenuContainer />);
+    // Signed in so that `loading` is the ONLY reason this control is disabled.
+    // Signed out disables it too (KAN-79), which would let this pass without
+    // the status ever being consulted.
+    const { store } = await renderWithProviders(<MenuContainer />, {
+      seedStore: (store) => store.dispatch(setSignedIn()),
+    });
 
     await act(async () => {
       store.dispatch(setSyncStatus('loading'));
@@ -110,7 +118,11 @@ describe('enabled controls are reachable by keyboard', () => {
   // disabled when it is not. Without this, setting aria-disabled
   // unconditionally would pass the test above.
   test('an enabled Icon does not claim to be disabled (KAN-66)', async () => {
-    await renderWithProviders(<MenuContainer />);
+    // Signed in: with no account to sync to there is no enabled state to
+    // assert, because the control is correctly disabled (KAN-79).
+    await renderWithProviders(<MenuContainer />, {
+      seedStore: (store) => store.dispatch(setSignedIn()),
+    });
 
     const sync = screen.getByRole('button', { name: 'Sync now' });
     expect(sync).not.toHaveAttribute('aria-disabled');
