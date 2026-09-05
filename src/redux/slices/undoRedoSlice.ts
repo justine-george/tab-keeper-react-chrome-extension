@@ -8,6 +8,25 @@ import { STACK_LEVEL } from '../../utils/constants/common';
 
 export interface UndoableStates {
   tabContainerDataState: TabMasterContainer;
+
+  // The sessions this step brought into existence, recorded when the step is
+  // pushed rather than worked out when it is popped (KAN-80).
+  //
+  // Undoing a create has to leave a tombstone, or the copy auto-sync already
+  // pushed to the cloud unions straight back and the undo silently reverses.
+  // Knowing WHICH session to withdraw is the whole difficulty: two previous
+  // attempts derived it by diffing the snapshot against something, and both
+  // were wrong, because every pair available at pop time has drifted --
+  // `replaceState` (the merge) enters the container but no snapshot, and
+  // `setPresentStartup` refreshes `present` but never `past`. So a session that
+  // merely ARRIVED from another device is indistinguishable from one the user
+  // retracted, and KAN-83 was that conflation deleting other devices' sessions.
+  //
+  // At push time no such ambiguity exists: the middleware holds the state from
+  // immediately before and immediately after the action, one instant apart,
+  // with no room for a cloud arrival in between. What that step added is a
+  // fact, so it is recorded as one instead of being reconstructed later.
+  addedTabGroupIds?: string[];
 }
 
 export interface undoRedoState {
@@ -55,8 +74,19 @@ export const undoRedoSlice = createSlice({
         state.present.tabContainerDataState.lastModified = Date.now();
       }
     },
+    // Also dispatched after every merge, not only at startup, which is why it
+    // carries `addedTabGroupIds` forward (KAN-80).
+    //
+    // A sync arriving is not a step the user took, so it cannot retract one
+    // they did take. The reported ordering is create, auto-sync, undo -- so
+    // dropping the ids here disarmed the withdrawal in exactly the case the
+    // bug was reported in, while leaving every test that syncs before the
+    // undone step green.
     setPresentStartup: (state, action: PayloadAction<UndoableStates>) => {
-      state.present = action.payload;
+      state.present = {
+        ...action.payload,
+        addedTabGroupIds: state.present.addedTabGroupIds,
+      };
     },
 
     // Keep `present` in step with the store without recording an undoable step
@@ -72,11 +102,21 @@ export const undoRedoSlice = createSlice({
     // Distinct from setPresentStartup, which happens to have the same body.
     // That one restores history at boot; sharing it would make a name that
     // says "startup" carry the selection path too.
+    //
+    // Carries `addedTabGroupIds` forward from the present it replaces. This is
+    // not bookkeeping: selecting a session is not a new step, so the last real
+    // edit is still the one an undo would retract. Dropping the ids here would
+    // mean creating a session and then clicking any other row silently
+    // disarmed the withdrawal, which is an ordinary thing to do -- and the
+    // resulting bug would look exactly like KAN-80 coming back.
     setPresentWithoutHistory: (
       state,
       action: PayloadAction<UndoableStates>
     ) => {
-      state.present = action.payload;
+      state.present = {
+        ...action.payload,
+        addedTabGroupIds: state.present.addedTabGroupIds,
+      };
     },
   },
 });

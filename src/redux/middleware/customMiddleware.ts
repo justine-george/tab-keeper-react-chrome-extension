@@ -16,11 +16,13 @@ import {
   SAVE_TAB_CONTAINER_ACTION,
   SELECT_TAB_CONTAINER_ACTION,
   SET_ACTION,
+  TAB_CONTAINER_APPLY_UNDO_SNAPSHOT_ACTION,
   TAB_CONTAINER_REPLACE_STATE_ACTION,
   TAB_CONTAINER_RESTORE_ACTION,
   UNDO_ACTION,
   EDIT_WINDOWGROUP_TITLE_ACTION,
 } from '../../utils/constants/actionTypes';
+import type { RootState } from '../store';
 
 // add actions to capture under undo/redo
 const actionsToCapture = [
@@ -70,6 +72,20 @@ const viewStateOnlyActions = [SELECT_TAB_CONTAINER_ACTION];
 const isUndoRedoAction = (type: string) =>
   [UNDO_ACTION, REDO_ACTION].includes(type);
 
+// The session ids present after this action that were not present before it.
+//
+// Both states are read one action apart inside a single middleware pass, so
+// this is a statement about what the user's action did, not a guess recovered
+// later from two snapshots that have since drifted apart (KAN-80/KAN-83).
+const addedTabGroupIds = (prevState: RootState, nextState: RootState) => {
+  const before = new Set(
+    prevState.tabContainerDataState.tabGroups.map((g) => g.tabGroupId)
+  );
+  return nextState.tabContainerDataState.tabGroups
+    .map((g) => g.tabGroupId)
+    .filter((id) => !before.has(id));
+};
+
 const isDataStateChangeAction = (
   type: string,
   prevState: any,
@@ -81,6 +97,7 @@ const isDataStateChangeAction = (
     // Restoring history is not a new edit to capture; capturing it would push
     // the restored state back onto the undo stack.
     TAB_CONTAINER_RESTORE_ACTION,
+    TAB_CONTAINER_APPLY_UNDO_SNAPSHOT_ACTION,
   ];
   return (
     prevState.tabContainerDataState !== nextState.tabContainerDataState &&
@@ -129,16 +146,32 @@ export const customMiddleware: Middleware = (store) => {
 
     if (isUndoRedoAction(action.type)) {
       const presentState = nextState.undoRedo.present;
+
+      // Undoing retracts whatever the step being left had created; redoing
+      // creates nothing, so it withdraws nothing (KAN-80).
+      //
+      // Read off prevState, because by now the undo reducer has already moved
+      // `present` to the snapshot being restored -- the step being undone is
+      // the one that WAS present a moment ago.
+      const withdrawTabGroupIds =
+        action.type === UNDO_ACTION
+          ? prevState.undoRedo.present.addedTabGroupIds ?? []
+          : [];
+
       // update tabContainerDataState from the latest presentState
       //
-      // restoreContainer rather than replaceState: a snapshot taken before a
+      // applyUndoSnapshot rather than replaceState: a snapshot taken before a
       // delete brings the session back with no tombstone, but the cloud may
       // still hold the one that delete pushed up. Restoring blind lets the next
       // merge re-apply the delete, so undo appears to work and then reverses
-      // itself.
+      // itself. The create direction is the mirror image, and needs the
+      // withdrawal above for the same reason.
       store.dispatch({
-        type: TAB_CONTAINER_RESTORE_ACTION,
-        payload: presentState.tabContainerDataState,
+        type: TAB_CONTAINER_APPLY_UNDO_SNAPSHOT_ACTION,
+        payload: {
+          snapshot: presentState.tabContainerDataState,
+          withdrawTabGroupIds,
+        },
       });
       store.dispatch(setIsDirty());
     } else if (isDataStateChangeAction(action.type, prevState, nextState)) {
@@ -148,7 +181,14 @@ export const customMiddleware: Middleware = (store) => {
       store.dispatch(
         isViewStateOnly
           ? setPresentWithoutHistory({ tabContainerDataState })
-          : set({ tabContainerDataState })
+          : set({
+              tabContainerDataState,
+              // Computed here, from two states one action apart, because this
+              // is the only place where "what did the user just add" is
+              // knowable rather than inferable. Nothing can arrive from the
+              // cloud between these two reads. See UndoableStates.
+              addedTabGroupIds: addedTabGroupIds(prevState, nextState),
+            })
       );
 
       if (!isViewStateOnly) {
