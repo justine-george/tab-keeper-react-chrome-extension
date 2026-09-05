@@ -41,7 +41,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
 }) => {
   const COLORS = useThemeColors();
   const FONT_FAMILY = useFontFamily();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   const [isHovered, setIsHovered] = useState(false);
 
@@ -177,8 +177,10 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
           `}
         >
           {/* createdAt is the instant; createdTime is a local wall clock with
-              no offset, kept only for sessions saved before createdAt. */}
-          {getPrettyDate(createdAt ?? createdTime)}
+              no offset, kept only for sessions saved before createdAt.
+              i18n.language, not a constant: the date is formatted in the
+              user's own locale (KAN-85). */}
+          {getPrettyDate(createdAt ?? createdTime, i18n.language)}
         </div>
       </ClickableRow>
       {!isSearchPanel && (

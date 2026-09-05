@@ -1,3 +1,5 @@
+import { useEffect, useRef } from 'react';
+
 import { useDispatch, useSelector } from 'react-redux';
 
 import { css } from '@emotion/react';
@@ -23,6 +25,9 @@ interface TabGroupsPermissionModalProps {
   style?: string;
 }
 
+const TITLE_ID = 'tab-groups-prompt-title';
+const BODY_ID = 'tab-groups-prompt-body';
+
 // KAN-74. Offers the optional "tabGroups" permission to a user who has tab
 // groups open right now. App.tsx decides WHETHER to open this; everything here
 // is about what happens once it is open.
@@ -37,6 +42,21 @@ export const TabGroupsPermissionModal: React.FC<
   const tabGroupsPromptCount = useSelector(
     (state: RootState) => state.globalState.tabGroupsPromptCount
   );
+
+  const dialogRef = useRef<HTMLDialogElement>(null);
+
+  // KAN-89. This was a plain fixed-position div -- visible, but not modal.
+  // showModal() moves the dialog to the top layer, confines Tab to the
+  // controls inside it, marks the rest of the popup inert, and closes it on
+  // Escape. Measured on the sibling RateAndReviewModal before the fix: focus
+  // never entered, Tab walked the page behind it, and Enter on a control back
+  // there navigated the whole app while the dialog stayed up.
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (dialog && !dialog.open) {
+      dialog.showModal();
+    }
+  }, [tabGroupsPromptCount]);
 
   // Below the hooks, never above them: an early return placed at the top of
   // this component would change the number of hooks React sees between the
@@ -130,58 +150,76 @@ export const TabGroupsPermissionModal: React.FC<
   `;
 
   return (
-    <div
+    // The overlay div is gone: ::backdrop is the browser's own, and it dims the
+    // top layer rather than sitting in the page, which is what stops the
+    // content behind from being reachable at all.
+    <dialog
+      ref={dialogRef}
+      aria-labelledby={TITLE_ID}
+      aria-describedby={BODY_ID}
+      // Escape means what the visible dismissal means: not now. It routes
+      // through handleNotNow so it also records that the offer was answered,
+      // which is what unlocks the permanent opt-out -- otherwise a user who
+      // only ever pressed Escape would never earn an escape hatch.
+      onCancel={handleNotNow}
       css={css`
+        /* The UA gives <dialog> its own box; reset it back to the card's
+           geometry. Same reset as FocusConfirmModal. */
         position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0, 0, 0, 0.8);
-        z-index: 999;
-        display: flex;
-        justify-content: center;
-        align-items: center;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        margin: 0;
+        max-width: none;
+        max-height: none;
+        background-color: ${COLORS.PRIMARY_COLOR};
+        color: ${COLORS.LABEL_L1_COLOR};
+        border: 1px solid ${COLORS.BORDER_COLOR};
+        width: 500px;
+        padding: 20px;
+        align-items: flex-start;
+        border-radius: 0px;
+        flex-direction: column;
+        padding-bottom: 25px;
+        gap: 20px;
+
+        /* Scoped to [open] so the dialog stays hidden until showModal() runs,
+           rather than flashing as a non-modal box for a frame. */
+        &[open] {
+          display: flex;
+        }
+
+        &::backdrop {
+          background: rgba(0, 0, 0, 0.8);
+        }
+
         ${style}
       `}
     >
-      <div
+      <h2
+        id={TITLE_ID}
         css={css`
-          background-color: ${COLORS.PRIMARY_COLOR};
-          color: ${COLORS.LABEL_L1_COLOR};
-          border: 1px solid ${COLORS.BORDER_COLOR};
-          width: 500px;
-          padding: 20px;
-          align-items: flex-start;
-          border-radius: 0px;
-          display: flex;
-          flex-direction: column;
-          padding-bottom: 25px;
-          gap: 20px;
+          font-weight: 500;
+          font-family: ${FONT_FAMILY};
+          font-size: 1.3rem;
+          margin: 10px 0;
         `}
       >
-        <h2
-          css={css`
-            font-weight: 500;
-            font-family: ${FONT_FAMILY};
-            font-size: 1.3rem;
-            margin: 10px 0;
-          `}
-        >
-          {t('TabGroupsPromptTitle')}
-        </h2>
-        <p
-          css={css`
-            font-family: ${FONT_FAMILY};
-            font-size: 0.9rem;
-            color: ${COLORS.TEXT_COLOR};
-            text-align: left;
-            margin: 0 0 10px 0;
-          `}
-        >
-          {t(bodyKey, { count: tabGroupsPromptCount })}
-        </p>
-        {/* Full width, and that is a translation decision as much as a visual
+        {t('TabGroupsPromptTitle')}
+      </h2>
+      <p
+        id={BODY_ID}
+        css={css`
+          font-family: ${FONT_FAMILY};
+          font-size: 0.9rem;
+          color: ${COLORS.TEXT_COLOR};
+          text-align: left;
+          margin: 0 0 10px 0;
+        `}
+      >
+        {t(bodyKey, { count: tabGroupsPromptCount })}
+      </p>
+      {/* Full width, and that is a translation decision as much as a visual
             one. The label is a whole phrase ("Enable tab group support") and
             several locales run far longer -- fr is "Activer la prise en charge
             des groupes d'onglets", es renders widest at 404px. A content-width
@@ -192,29 +230,24 @@ export const TabGroupsPermissionModal: React.FC<
             The card is align-items: flex-start, so without width: 100% this
             button would shrink to its own text and read as a stray chip in a
             wide card -- which is what left-aligning the copy exposed. */}
-        <Button
-          text={t('TabGroupsPromptConfirm')}
-          onClick={handleEnable}
-          ariaLabel={t('TabGroupsPromptConfirm')}
-          iconType="check_circle"
-          style="width: 100%; max-width: 100%; margin-bottom: 10px; cursor: pointer; justify-content: center;"
-        />
-        <button type="button" css={dismissStyle} onClick={handleNotNow}>
-          {t('TabGroupsPromptDismiss')}
-        </button>
-        {/* Earned, not offered: the permanent opt-out appears only after the
+      <Button
+        text={t('TabGroupsPromptConfirm')}
+        onClick={handleEnable}
+        ariaLabel={t('TabGroupsPromptConfirm')}
+        iconType="check_circle"
+        style="width: 100%; max-width: 100%; margin-bottom: 10px; cursor: pointer; justify-content: center;"
+      />
+      <button type="button" css={dismissStyle} onClick={handleNotNow}>
+        {t('TabGroupsPromptDismiss')}
+      </button>
+      {/* Earned, not offered: the permanent opt-out appears only after the
             user has already said "not now" once. Same escalation as
             RateAndReviewModal's "Never Remind Again". */}
-        {isTabGroupsPromptAnsweredOnce && (
-          <button
-            type="button"
-            css={dismissStyle}
-            onClick={handleNeverAskAgain}
-          >
-            {t('TabGroupsPromptNever')}
-          </button>
-        )}
-      </div>
-    </div>
+      {isTabGroupsPromptAnsweredOnce && (
+        <button type="button" css={dismissStyle} onClick={handleNeverAskAgain}>
+          {t('TabGroupsPromptNever')}
+        </button>
+      )}
+    </dialog>
   );
 };

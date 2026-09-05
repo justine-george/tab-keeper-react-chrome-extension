@@ -15,6 +15,8 @@ import {
   isValidTabMasterContainer,
   loadFromLocalStorage,
   saveToLocalStorage,
+  SYNC_SIZE_REFUSAL,
+  TranslatableError,
 } from '../../utils/functions/local';
 import { mergeTabContainers } from '../../utils/functions/mergeTabData';
 import { TOAST_MESSAGES } from '../../utils/constants/common';
@@ -43,7 +45,19 @@ export interface Global {
   searchInputText: string;
   syncStatus: 'idle' | 'loading' | 'success' | 'error';
   isToastOpen: boolean;
+  // An i18n KEY, not a display string -- Toast renders t(toastText). Every
+  // fixed message in TOAST_MESSAGES is an English sentence used as its own
+  // key, which is why that reads as if it were already the text.
   toastText: string;
+  // Interpolation values for the key above, when it takes any (KAN-86).
+  //
+  // This exists because a toast built by string concatenation can never be
+  // translated: the composed result matches no key, so t() hands it straight
+  // back and the user sees English whatever their language. Slices dispatch a
+  // key plus its values and Toast does the interpolation, which keeps the
+  // existing division of labour -- nothing outside the component tree calls
+  // t(), because nothing outside it has a `t` to call.
+  toastParams?: Record<string, string | number>;
   isRateAndReviewModalOpen: boolean;
   // KAN-74. How many live tab groups the "turn on tab group support?" offer is
   // about, or null when the offer is not showing. One field rather than an
@@ -108,12 +122,25 @@ export const saveToFirestoreIfDirty = createAsyncThunk(
         // the sync path, phrased the same way.
         const bytes = estimateFirestoreBytes(state.tabContainerDataState);
         if (bytes > FIRESTORE_MAX_DOCUMENT_BYTES) {
-          const message =
-            `too large to sync (${bytesToMB(bytes)} MB of a ` +
-            `${bytesToMB(FIRESTORE_MAX_DOCUMENT_BYTES)} MB limit). ` +
-            `Remove some sessions and try again.`;
-          thunkAPI.dispatch(showToast({ toastText: message, duration: 6000 }));
-          throw new Error(message);
+          // A key plus its values, not a composed sentence: this used to be
+          // built by concatenation, which matched no key and so reached every
+          // locale in English (KAN-86). The numbers travel as params and Toast
+          // interpolates them.
+          const params = {
+            used: bytesToMB(bytes),
+            limit: bytesToMB(FIRESTORE_MAX_DOCUMENT_BYTES),
+          };
+          thunkAPI.dispatch(
+            showToast({
+              toastText: SYNC_SIZE_REFUSAL,
+              toastParams: params,
+              duration: 6000,
+            })
+          );
+          // The rejection reason stays the key. Nothing renders it -- the
+          // toast above is the whole user-facing report -- and it is what the
+          // requestStatus consumers already treat as opaque.
+          throw new TranslatableError(SYNC_SIZE_REFUSAL, params);
         }
 
         await saveToFirestore(
@@ -279,13 +306,17 @@ export const openSettingsPage = createAsyncThunk(
 
 interface ShowToastPayload {
   toastText: string;
+  toastParams?: Record<string, string | number>;
   duration?: number;
 }
 
 let toastTimeout: null | ReturnType<typeof setTimeout> = null;
 export const showToast = createAsyncThunk(
   'global/showToast',
-  async ({ toastText, duration = 5000 }: ShowToastPayload, thunkAPI) => {
+  async (
+    { toastText, toastParams, duration = 5000 }: ShowToastPayload,
+    thunkAPI
+  ) => {
     if (toastText) {
       // If there's an existing toast timeout, clear it
       if (toastTimeout !== null) {
@@ -293,7 +324,7 @@ export const showToast = createAsyncThunk(
         toastTimeout = null;
       }
 
-      thunkAPI.dispatch(setToastText(toastText));
+      thunkAPI.dispatch(setToastText({ text: toastText, params: toastParams }));
       thunkAPI.dispatch(openToast());
 
       // Set the new timeout for the current toast
@@ -357,8 +388,18 @@ export const globalStateSlice = createSlice({
       state.isToastOpen = false;
     },
 
-    setToastText: (state, action: PayloadAction<string>) => {
-      state.toastText = action.payload;
+    // params is overwritten on every toast, never merged: leaving a previous
+    // toast's values behind would let a key silently interpolate numbers from
+    // an unrelated message.
+    setToastText: (
+      state,
+      action: PayloadAction<{
+        text: string;
+        params?: Record<string, string | number>;
+      }>
+    ) => {
+      state.toastText = action.payload.text;
+      state.toastParams = action.payload.params;
     },
 
     closeSettingsPage: (state) => {

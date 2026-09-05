@@ -22,6 +22,28 @@ export function isEmptyObject(obj: any): boolean {
   return typeof obj === 'object' && Object.keys(obj).length === 0;
 }
 
+// KAN-84. Nothing used to validate a title, so a session could be saved or
+// renamed to "" or "   " and end up with no name in either pane and no
+// accessible name on its row -- identifiable only by its counts and date.
+//
+// One rule covers both ways that happened: NEVER LEAVE A SESSION WITHOUT A
+// NAME, AND NEVER DISCARD A NAME IT ALREADY HAD. Renaming has a prior title,
+// so a blank one is refused and the old name stands; saving has none, so it
+// falls back to the current tab's title -- which is what the save path's
+// `newTitle || currentTabName` already intended, and only missed because `||`
+// catches "" but not the truthy "   ".
+//
+// Trimming as well as testing, so " Research " is stored as "Research". A
+// title is compared and displayed, never used as a key, so normalising it
+// cannot move a session in the list -- the merge orders on createdAt.
+export function normalizeTitle(title: string): string {
+  return title.trim();
+}
+
+export function isBlankTitle(title: string): boolean {
+  return normalizeTitle(title) === '';
+}
+
 // convert Date object to formatted string
 export function getStringDate(inputDate: Date): string {
   const [year, month, day, hour, minute, second] = [
@@ -558,13 +580,56 @@ export const isValidTabMasterContainer = (
 export const bytesToMB = (bytes: number): string =>
   (bytes / 1048576).toFixed(1);
 
+// The i18n keys for the two ways an import can be refused, and for the sync
+// guard's matching refusal (KAN-86).
+//
+// The two size refusals are opaque keys rather than English sentences, which
+// is the convention this repo already uses for anything carrying interpolation
+// (FocusConfirmBodyOne, TabGroupsPromptBodyOther). A plain fixed sentence such
+// as INVALID_STRUCTURE stays its own key, like every entry in TOAST_MESSAGES.
+//
+// They live here rather than in constants/common.ts for the same reason
+// getPrettyDate's fallback locale does: src/background.ts imports this module,
+// and constants/common.ts pulls in manifest.json and a redux slice.
+export const IMPORT_INVALID_STRUCTURE = 'Invalid JSON structure.';
+export const IMPORT_SIZE_REFUSAL = 'ImportSizeRefusal';
+export const SYNC_SIZE_REFUSAL = 'SyncSizeRefusal';
+
+// An Error whose `message` is an i18n KEY rather than a display string, with
+// the values that key interpolates.
+//
+// The distinction matters at the catch site: our own refusals can be
+// translated, while a platform error -- JSON.parse's SyntaxError, say -- is an
+// unbounded English string that has to be shown as raw technical detail. The
+// type is what lets the handler tell those apart, instead of pattern-matching
+// on the message text.
+//
+// The `message` carries the key AND its values, because the two size refusals
+// are opaque keys: `saveToFirestoreIfDirty`'s catch logs `error.message` to the
+// console, and a bare "SyncSizeRefusal" would tell a developer debugging a
+// wedged sync neither the size nor the limit. Appending the params keeps that
+// log at least as useful as the concatenated sentence it replaced.
+//
+// Nothing compares `message` -- every consumer reads `i18nKey` -- so widening
+// it costs nothing.
+export class TranslatableError extends Error {
+  constructor(
+    readonly i18nKey: string,
+    readonly i18nParams?: Record<string, string | number>
+  ) {
+    super(i18nParams ? `${i18nKey} ${JSON.stringify(i18nParams)}` : i18nKey);
+    this.name = 'TranslatableError';
+  }
+}
+
 // Parse, validate and size-check the contents of an imported backup file.
 //
-// Every rejection throws, because the import handler already prints
-// error.message straight to a toast -- a caller that returned a result object
-// would need new UI for a path that already has one. JSON.parse's own
-// SyntaxError is deliberately left to propagate: it names the offending token,
-// which is more useful than anything this could say about a corrupt file.
+// Every rejection throws, because the import handler already turns a throw
+// into a toast -- a caller that returned a result object would need new UI for
+// a path that already has one. JSON.parse's own SyntaxError is deliberately
+// left to propagate: it names the offending token, which is more useful than
+// anything this could say about a corrupt file. That one is NOT a
+// TranslatableError, and the handler shows it as raw detail.
 //
 // The size check is the KAN-27 guard, and it refuses rather than importing and
 // warning. An oversized container is persisted to localStorage by
@@ -575,16 +640,15 @@ export function readImportedContainer(content: string): TabMasterContainer {
   const parsed: unknown = JSON.parse(content);
 
   if (!isValidTabMasterContainer(parsed)) {
-    throw new Error('Invalid JSON structure.');
+    throw new TranslatableError(IMPORT_INVALID_STRUCTURE);
   }
 
   const bytes = estimateFirestoreBytes(parsed);
   if (bytes > FIRESTORE_MAX_DOCUMENT_BYTES) {
-    throw new Error(
-      `too large to sync (${bytesToMB(bytes)} MB of a ` +
-        `${bytesToMB(FIRESTORE_MAX_DOCUMENT_BYTES)} MB limit). ` +
-        `Remove some sessions from the backup and try again.`
-    );
+    throw new TranslatableError(IMPORT_SIZE_REFUSAL, {
+      used: bytesToMB(bytes),
+      limit: bytesToMB(FIRESTORE_MAX_DOCUMENT_BYTES),
+    });
   }
 
   return parsed;
@@ -655,34 +719,50 @@ const isValidTabData = (data: unknown): data is tabData => {
   );
 };
 
-// convert datestring and timestamp to "mmm DD, yyyy at H:MM:SS AM/PM" format
-export const getPrettyDate = (dateOrTimeStamp: string | number): string => {
-  const MONTHS = [
-    'Jan',
-    'Feb',
-    'Mar',
-    'Apr',
-    'May',
-    'Jun',
-    'Jul',
-    'Aug',
-    'Sept',
-    'Oct',
-    'Nov',
-    'Dec',
-  ];
+// Render a datestring or timestamp for display, in the caller's language.
+//
+// KAN-85. This was a hand-built English string -- a MONTHS table, US
+// month-day-year order and a hardcoded 12-hour AM/PM clock -- so nine of the
+// ten locales showed an English date next to correctly translated counts.
+// Intl knows every locale's own order, separators and clock, so the format is
+// delegated rather than reimplemented per language.
+//
+// The locale is a PARAMETER rather than read from i18n here, because
+// `src/config/i18n.tsx` imports this module (for loadFromLocalStorage) and
+// importing it back would close the cycle. Callers already hold `i18n` from
+// useTranslation(), so passing it costs them nothing.
+//
+// Display only. Nothing sorts, compares or stores this output -- the merge
+// orders on `createdAt`, and the stored wall clock comes from getStringDate --
+// so changing the format cannot move a session in the list. That separation is
+// the reason this is safe to touch at all.
+// A literal rather than DEFAULT_LANG from constants/common: that module
+// imports manifest.json and a redux slice, and src/background.ts imports this
+// one, so taking the constant would pull both into the service worker bundle.
+const FALLBACK_LOCALE = 'en';
 
+export const getPrettyDate = (
+  dateOrTimeStamp: string | number,
+  locale: string = FALLBACK_LOCALE
+): string => {
   const date = new Date(dateOrTimeStamp);
 
-  const year = date.getFullYear();
-  const month = MONTHS[date.getMonth()];
-  const day = date.getDate();
-  const hours = date.getHours();
-  const minutes = date.getMinutes().toString().padStart(2, '0');
-  const seconds = date.getSeconds().toString().padStart(2, '0');
+  // Intl throws a RangeError on an Invalid Date, where the old string-building
+  // version returned "undefined NaN, NaN at ...". Neither is useful, but this
+  // one would take the whole row's render down, so it is checked up front.
+  if (Number.isNaN(date.getTime())) return '';
 
-  const ampm = hours >= 12 ? 'PM' : 'AM';
-  const formattedHours = hours > 12 ? hours - 12 : hours === 0 ? 12 : hours;
-
-  return `${month} ${day}, ${year} at ${formattedHours}:${minutes}:${seconds} ${ampm}`;
+  try {
+    return new Intl.DateTimeFormat(locale, {
+      dateStyle: 'medium',
+      timeStyle: 'medium',
+    }).format(date);
+  } catch {
+    // `locale` originates in localStorage, so it is not guaranteed to be a
+    // well-formed BCP-47 tag; a structurally invalid one is a RangeError.
+    return new Intl.DateTimeFormat(FALLBACK_LOCALE, {
+      dateStyle: 'medium',
+      timeStyle: 'medium',
+    }).format(date);
+  }
 };
