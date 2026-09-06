@@ -115,9 +115,26 @@ export function classifyStoredToken(value: unknown): TokenAction {
 }
 
 // filter tabGroup
+//
+// A containment cascade: session -> window -> Chrome group -> tab. A match at
+// one level admits everything below it, so only the levels BELOW the deepest
+// match get narrowed.
+//
+// `searchGroupTitles` is the live tabGroups permission, and it is required
+// rather than defaulted because four components have to agree on the list this
+// produces (KAN-16, KAN-39 are the crash when they disagreed). A default would
+// let a new call site silently opt out; a required parameter makes the same
+// mistake a compile error.
+//
+// It gates the group level because WindowEntryContainer only draws group bands
+// when the permission is granted -- a session synced from a permitted device
+// still carries chromeTabGroups on a device that never granted it. Matching a
+// title that renders nowhere would narrow a window to a subset of its tabs
+// with nothing on screen saying why. KAN-104.
 export const filterTabGroups = (
   searchText: string,
-  tabGroups: tabContainerData[]
+  tabGroups: tabContainerData[],
+  searchGroupTitles: boolean
 ): tabContainerData[] => {
   const loweredSearchText = searchText.toLowerCase();
 
@@ -133,11 +150,26 @@ export const filterTabGroups = (
           if (window.title.toLowerCase().includes(loweredSearchText)) {
             windowAcc.push(window);
           } else {
+            // The groups whose own title matched. Membership is the join from
+            // tabData.chromeGroupId, so a tab naming a group that is not in
+            // this list -- an import or a merge can produce one -- simply
+            // never joins, exactly as partitionTabsIntoRuns treats it.
+            const matchedGroupIds = new Set(
+              (searchGroupTitles ? window.chromeTabGroups ?? [] : [])
+                .filter((group) =>
+                  group.title.toLowerCase().includes(loweredSearchText)
+                )
+                .map((group) => group.groupId)
+            );
+
             // add only matched tabs if window title doesn't match
             const matchedTabs = window.tabs.filter(
               (tab) =>
                 tab.title.toLowerCase().includes(loweredSearchText) ||
-                (tab.url && tab.url.toLowerCase().includes(loweredSearchText))
+                (tab.url &&
+                  tab.url.toLowerCase().includes(loweredSearchText)) ||
+                (tab.chromeGroupId !== undefined &&
+                  matchedGroupIds.has(tab.chromeGroupId))
             );
 
             if (matchedTabs.length) {
@@ -192,12 +224,17 @@ export const filterTabGroups = (
 export const selectVisibleTabGroups = (
   tabGroups: tabContainerData[],
   isSearchPanel: boolean,
-  searchInputText: string
+  searchInputText: string,
+  hasTabGroupsPermission: boolean
 ): tabContainerData[] => {
   const selectedTabGroups = tabGroups.filter((tabGroup) => tabGroup.isSelected);
 
   return isSearchActive(isSearchPanel, searchInputText)
-    ? filterTabGroups(searchInputText, selectedTabGroups)
+    ? filterTabGroups(
+        searchInputText,
+        selectedTabGroups,
+        hasTabGroupsPermission
+      )
     : selectedTabGroups;
 };
 

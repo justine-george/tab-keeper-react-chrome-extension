@@ -223,7 +223,11 @@ describe('filterTabGroups', () => {
         ],
       },
     ];
-    expect(filterTabGroups('chrome', tabGroups)).toEqual(filteredTabGroups);
+    // Group titles are searched when the tabGroups permission is granted, so
+    // passing it granted here proves the other levels are unchanged by it.
+    expect(filterTabGroups('chrome', tabGroups, true)).toEqual(
+      filteredTabGroups
+    );
   });
 
   // KAN-23: a window's title is its identity and is user-editable, so a search
@@ -269,7 +273,7 @@ describe('filterTabGroups', () => {
 
     // 'kagi' matches neither the session title nor the window title, so the
     // filter descends to the tabs and rebuilds the window from the one match.
-    const [matchedGroup] = filterTabGroups('kagi', tabGroups);
+    const [matchedGroup] = filterTabGroups('kagi', tabGroups, true);
     const [matchedWindow] = matchedGroup.windows;
 
     expect(matchedWindow.title).toBe('Morning reading');

@@ -52,6 +52,10 @@ export default function HeroContainerRight() {
     (state: RootState) => state.globalState.searchInputText
   );
 
+  const hasTabGroupsPermission = useSelector(
+    (state: RootState) => state.globalState.hasTabGroupsPermission
+  );
+
   useEffect(() => {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       const currentTab = tabs[0];
@@ -67,7 +71,8 @@ export default function HeroContainerRight() {
   const selectedTabGroup = selectVisibleTabGroups(
     tabContainerDataList.tabGroups,
     isSearchPanel,
-    searchInputText
+    searchInputText,
+    hasTabGroupsPermission
   )[0];
 
   // Belt and braces: RightPane does not mount this component when the list is
