@@ -39,12 +39,20 @@ export default function TabGroupEntryContainer() {
     (state: RootState) => state.globalState.searchInputText
   );
 
+  const hasTabGroupsPermission = useSelector(
+    (state: RootState) => state.globalState.hasTabGroupsPermission
+  );
+
   const selectedTabGroupId = tabContainerDataList.selectedTabGroupId;
 
   // filter the tab group list
   let filteredTabGroups: tabContainerData[] = tabContainerDataList.tabGroups;
   if (isSearchActive(isSearchPanel, searchInputText)) {
-    filteredTabGroups = filterTabGroups(searchInputText, filteredTabGroups);
+    filteredTabGroups = filterTabGroups(
+      searchInputText,
+      filteredTabGroups,
+      hasTabGroupsPermission
+    );
   }
 
   // Select the first match as the query narrows -- but only while a search is

@@ -38,11 +38,16 @@ export default function TabGroupDetailsContainer() {
     (state: RootState) => state.globalState.searchInputText
   );
 
+  const hasTabGroupsPermission = useSelector(
+    (state: RootState) => state.globalState.hasTabGroupsPermission
+  );
+
   // the same list RightPane derives its mount guard from
   const selectedTabGroup = selectVisibleTabGroups(
     tabContainerDataList.tabGroups,
     isSearchPanel,
-    searchInputText
+    searchInputText,
+    hasTabGroupsPermission
   )[0];
 
   // Belt and braces: RightPane does not mount this component when the list is

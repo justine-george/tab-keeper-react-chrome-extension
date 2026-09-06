@@ -39,12 +39,19 @@ const session = (
 // This is the predicate the whole right pane agrees on: RightPane derives its
 // mount guard from the length of this list, and both of its children read
 // element [0] of it. The tests below are the contract those three share.
+//
+// The last argument is the live tabGroups permission. These sessions carry no
+// Chrome groups, so it is passed as granted throughout: that is the setting
+// under which group titles ARE searched, which makes these the proof that
+// adding that level left the other three alone. Group matching has its own
+// tests in searchGroupTitles.test.ts.
 describe('selectVisibleTabGroups', () => {
   test('keeps only the selected sessions', () => {
     const visible = selectVisibleTabGroups(
       [session('Research', true), session('Errands', false)],
       false,
-      ''
+      '',
+      true
     );
 
     expect(visible.map((group) => group.title)).toEqual(['Research']);
@@ -54,7 +61,8 @@ describe('selectVisibleTabGroups', () => {
     const visible = selectVisibleTabGroups(
       [session('Research', true, 'Kagi Search')],
       true,
-      'kagi'
+      'kagi',
+      true
     );
 
     expect(visible.map((group) => group.title)).toEqual(['Research']);
@@ -64,7 +72,8 @@ describe('selectVisibleTabGroups', () => {
     const visible = selectVisibleTabGroups(
       [session('Research', true, 'Kagi Search')],
       false,
-      'nothing matches this'
+      'nothing matches this',
+      true
     );
 
     expect(visible.map((group) => group.title)).toEqual(['Research']);
@@ -76,7 +85,8 @@ describe('selectVisibleTabGroups', () => {
     const visible = selectVisibleTabGroups(
       [session('Research', true, 'Kagi Search')],
       true,
-      'nothing matches this'
+      'nothing matches this',
+      true
     );
 
     expect(visible).toEqual([]);
@@ -84,14 +94,14 @@ describe('selectVisibleTabGroups', () => {
 
   test('returns an empty list when nothing is selected at all', () => {
     expect(
-      selectVisibleTabGroups([session('Research', false)], false, '')
+      selectVisibleTabGroups([session('Research', false)], false, '', true)
     ).toEqual([]);
   });
 
   test('does not mutate the list it is given', () => {
     const groups = [session('Research', true), session('Errands', false)];
 
-    selectVisibleTabGroups(groups, true, 'kagi');
+    selectVisibleTabGroups(groups, true, 'kagi', true);
 
     expect(groups.map((group) => group.title)).toEqual(['Research', 'Errands']);
   });

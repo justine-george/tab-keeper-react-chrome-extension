@@ -20,12 +20,17 @@ export default function RightPane() {
     (state: RootState) => state.globalState.searchInputText
   );
 
+  const hasTabGroupsPermission = useSelector(
+    (state: RootState) => state.globalState.hasTabGroupsPermission
+  );
+
   // the same list both children below read, so the guard here cannot disagree
   // with what they find
   const visibleTabGroups = selectVisibleTabGroups(
     tabContainerDataList.tabGroups,
     isSearchPanel,
-    searchInputText
+    searchInputText,
+    hasTabGroupsPermission
   );
 
   // to identify whether no tab groups are selected
