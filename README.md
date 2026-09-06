@@ -30,7 +30,7 @@ Tab Keeper saves your open Chrome windows and tabs as organized sessions. Restor
 
 ## Screenshots
 
-<a href="https://chromewebstore.google.com/detail/tab-keeper-chrome-tab-man/gpibgniomobngodpnikhheifblbpbbah?ref=github" target="_blank"><img src="store-assets/screenshots/tab-keeper-screenshot-2.png" width="800" alt="Tab Keeper showing saved browser sessions and their tabs"></a>
+<a href="https://chromewebstore.google.com/detail/tab-keeper-chrome-tab-man/gpibgniomobngodpnikhheifblbpbbah?ref=github" target="_blank"><img src="store-assets/screenshots/tab-keeper-screenshot-1.png" width="800" alt="Tab Keeper saving all open windows as one session, with a session row showing its Open, Switch and Delete actions"></a>
 
 [View All Screenshots →](https://github.com/justine-george/tab-keeper-react-chrome-extension/wiki/Screenshots)
 
