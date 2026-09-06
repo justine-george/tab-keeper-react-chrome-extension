@@ -1,6 +1,6 @@
 # Tab Keeper - Chrome Tab Manager & Sync Tool
 
-<a href="https://chromewebstore.google.com/detail/tab-keeper-chrome-tab-man/gpibgniomobngodpnikhheifblbpbbah?ref=github" target="_blank"><img src="store-assets/marquee promo tile/tab-keeper-marquee-promo-tile.png" alt="Tab Keeper Chrome tab manager and sync tool"></a>
+<a href="https://chromewebstore.google.com/detail/tab-keeper-chrome-tab-man/gpibgniomobngodpnikhheifblbpbbah?ref=github" target="_blank"><img src="store-assets/marquee promo tile/tab-keeper-marquee-promo-tile.png" alt="Tab Keeper — save your tabs, pick up anytime, now with Chrome tab group support"></a>
 
 Tab Keeper saves your open Chrome windows and tabs as organized sessions. Restore them later—including tab group names and colors—and sync them across desktop Chrome without creating an account or providing an email address.
 
