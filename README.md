@@ -1,60 +1,44 @@
 # Tab Keeper - Chrome Tab Manager & Sync Tool
 
-<a href="https://chromewebstore.google.com/detail/tab-keeper-chrome-tab-man/gpibgniomobngodpnikhheifblbpbbah?ref=github" target="_blank"><img src="store-assets/marquee promo tile/tab-keeper-marquee-promo-tile.png"></a>
+<a href="https://chromewebstore.google.com/detail/tab-keeper-chrome-tab-man/gpibgniomobngodpnikhheifblbpbbah?ref=github" target="_blank"><img src="store-assets/marquee promo tile/tab-keeper-marquee-promo-tile.png" alt="Tab Keeper Chrome tab manager and sync tool"></a>
 
-Tab Keeper is an intuitive Chrome extension crafted to redefine the way users save, organize, and interact with their browser tabs. With the smart integration of the Chrome Storage API as a shared token storage, Tab Keeper ensures that users can seamlessly sync their data across Chrome browsers on desktop devices without signing up with their personal emails.
-<br><br>
-[![Static Badge](https://img.shields.io/badge/Featured_on-Chrome_Web_Store-cce7e8?style=for-the-badge)](https://chromewebstore.google.com/detail/tab-keeper-chrome-tab-man/gpibgniomobngodpnikhheifblbpbbah?ref=github)
-[![Dynamic JSON Badge](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fjustine-george%2Ftab-keeper-react-chrome-extension%2Fmain%2Fpackage.json&query=version&style=for-the-badge&label=Version)](#changelog)
-![Dynamic JSON Badge](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fjustine-george%2Fjgeorge.com%2Fmain%2Fsrc%2Fdata%2Fextension-metrics.json&query=%24.tabKeeper.users&style=for-the-badge&label=Users)
-[![Static Badge](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)](https://raw.githubusercontent.com/justine-george/tab-keeper-react-chrome-extension/main/LICENSE)
+Tab Keeper saves your open Chrome windows and tabs as organized sessions. Restore them later—including tab group names and colors—and sync them across desktop Chrome without creating an account or providing an email address.
 
-<a href="https://chromewebstore.google.com/detail/tab-keeper-chrome-tab-man/gpibgniomobngodpnikhheifblbpbbah?ref=github" target="_blank"><img src="store-assets/banners/chrome_web_store_download_button.png" width="300"></a>
-<br>
+[![Featured on the Chrome Web Store](https://img.shields.io/badge/Featured_on-Chrome_Web_Store-cce7e8?style=for-the-badge)](https://chromewebstore.google.com/detail/tab-keeper-chrome-tab-man/gpibgniomobngodpnikhheifblbpbbah?ref=github)
+[![Current version](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fjustine-george%2Ftab-keeper-react-chrome-extension%2Fmain%2Fpackage.json&query=version&style=for-the-badge&label=Version)](#changelog)
+![Tab Keeper users](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fjustine-george%2Fjgeorge.com%2Fmain%2Fsrc%2Fdata%2Fextension-metrics.json&query=%24.tabKeeper.users&style=for-the-badge&label=Users)
+[![MIT license](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)](https://raw.githubusercontent.com/justine-george/tab-keeper-react-chrome-extension/main/LICENSE)
 
-## Built With
-
-- [TypeScript](https://www.typescriptlang.org/)
-- [React](https://react.dev/)
-- [Redux Toolkit](https://redux-toolkit.js.org/)
-- [Chrome API](https://developer.chrome.com/docs/extensions/reference/)
-- [Vite](https://vitejs.dev/)
-- [Vitest](https://vitest.dev/)
-- [Cloud Firestore](https://firebase.google.com/docs/firestore)
-- [Firebase SDK](https://firebase.google.com/docs/web/setup)
-- [Firebase Authentication](https://firebase.google.com/docs/auth)
-- [i18n React](https://react.i18next.com/)
-- [Emotion CSS](https://emotion.sh/docs/introduction)
-- [base64.js](https://github.com/dankogai/js-base64)
-- [uuid](https://github.com/uuidjs/uuid)
-  <br>
-
-## Screenshots
-
-<a href="https://chromewebstore.google.com/detail/tab-keeper-chrome-tab-man/gpibgniomobngodpnikhheifblbpbbah?ref=github" target="_blank"><img src="store-assets/screenshots/tab-keeper-screenshot-2.png" width="800"></a>
-
-[View All Screenshots →](https://github.com/justine-george/tab-keeper-react-chrome-extension/wiki/Screenshots)
-<br><br>
+<a href="https://chromewebstore.google.com/detail/tab-keeper-chrome-tab-man/gpibgniomobngodpnikhheifblbpbbah?ref=github" target="_blank"><img src="store-assets/banners/chrome_web_store_download_button.png" width="300" alt="Get Tab Keeper from the Chrome Web Store"></a>
 
 ## Features
 
-- 🔖 Streamlined Tab Management: Keep your browser tabs well-organized and easily accessible. Move from an unmanaged heap of tabs to a highly organized collection.
+- **Save & Restore:** Save all your open windows and tabs as a session, then reopen them later.
+- **Tab Groups:** Preserve Chrome tab groups, including their names and colors.
+- **One-Click Switching:** Jump to a saved session while Tab Keeper safely saves your current windows first.
+- **Device Sync:** Access your sessions from Chrome desktop browsers connected to the same Chrome profile.
+- **Privacy First:** No email address, account setup, or signup required.
+- **Quick Search:** Find any saved tab as you type.
+- **Multi-Language Support:** Use Tab Keeper in 10 languages.
+- **Custom Themes:** Choose from five light and dark themes.
 
-- 🌍 Multilingual Support: With i18n React, Tab Keeper now offers internationalization, supporting languages such as English, German, Chinese, Japanese, French, Portuguese, Russian, Spanish, Italian, and Hindi.
+## How It Works
 
-- 🌐 Sync Across Devices: Utilize the advanced Chrome sync integration to synchronize your saved tabs across Chrome browsers on desktop devices. No more manual setups or repetitive logins.
+1. Open Tab Keeper and save your current window or all open windows.
+2. Search and organize your saved sessions.
+3. Restore a session later, or switch sessions while saving your current windows first.
 
-- 🔒 Uncompromised Privacy: Your privacy is paramount. Tab Keeper operates without requiring a separate user login, ensuring that your data is protected.
+## Screenshots
 
-- 🔍 Quick Tab Search: Find your saved tabs in an instant with our efficient search functionality.
+<a href="https://chromewebstore.google.com/detail/tab-keeper-chrome-tab-man/gpibgniomobngodpnikhheifblbpbbah?ref=github" target="_blank"><img src="store-assets/screenshots/tab-keeper-screenshot-2.png" width="800" alt="Tab Keeper showing saved browser sessions and their tabs"></a>
 
-- 🌓 Multiple Themes: Personalize your interface by selecting from a variety of themes.
-  <br><br>
+[View All Screenshots →](https://github.com/justine-george/tab-keeper-react-chrome-extension/wiki/Screenshots)
 
-## Blog Posts
+## Privacy & Sync
 
-[View All Posts →](https://github.com/justine-george/tab-keeper-react-chrome-extension/wiki/Blog-Posts)
-<br><br>
+Tab Keeper does not require an email address or a user-created account. It generates an anonymous identifier that Chrome syncs with your browser profile.
+
+Your sessions are stored locally on your device. When device sync is enabled, saved session data—including tab URLs and titles—is sent to cloud storage so you can access it from other desktop Chrome browsers connected to the same profile.
 
 ## Changelog
 
@@ -139,20 +123,34 @@ Tab Keeper is an intuitive Chrome extension crafted to redefine the way users sa
 - Dependent packages updated to latest versions
 
 [View All Changelog →](https://github.com/justine-george/tab-keeper-react-chrome-extension/wiki/Changelog)
-<br><br>
 
-## Contributing
+## Blog Posts
+
+[View All Posts →](https://github.com/justine-george/tab-keeper-react-chrome-extension/wiki/Blog-Posts)
+
+## Development and Contributing
 
 Contributions are welcome! Feel free to open issues or submit pull requests following the established coding style and guidelines.
 
+Install the dependencies and create a production build:
+
+```sh
+npm install
+npm run build
+```
+
+To try the extension locally, open `chrome://extensions`, enable **Developer mode**, choose **Load unpacked**, and select the generated `dist` directory.
+
 Run `npm test` for the unit and component suites, and `npm run test:e2e` for the browser tests against a real build ([details](e2e/README.md)).
-<br><br>
+
+## Built With
+
+[React](https://react.dev/), [TypeScript](https://www.typescriptlang.org/), [Redux Toolkit](https://redux-toolkit.js.org/), [Vite](https://vitejs.dev/), [Firebase](https://firebase.google.com/), [Vitest](https://vitest.dev/), [Playwright](https://playwright.dev/), [Emotion](https://emotion.sh/), and [react-i18next](https://react.i18next.com/).
 
 ## License
 
 Tab Keeper is released under the [MIT License](https://raw.githubusercontent.com/justine-george/tab-keeper-react-chrome-extension/main/LICENSE).
-<br><br>
 
 ## Support
 
-Report bugs or request features via [GitHub Issues](https://github.com/justine-george/tab-keeper-react-chrome-extension/issues)
+Report bugs or request features via [GitHub Issues](https://github.com/justine-george/tab-keeper-react-chrome-extension/issues).
