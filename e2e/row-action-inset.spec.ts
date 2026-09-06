@@ -60,6 +60,18 @@ async function openWith(
   );
   const page = await context.newPage();
   await page.goto(`chrome-extension://${extensionId}/index.html`);
+
+  // KAN-105. `goto` resolves on `load`, which is BEFORE React mounts, i18n
+  // initialises and the store hydrates from localStorage -- so the page it
+  // returns is empty for a few more frames. Every measurement in this spec is
+  // a raw `page.evaluate`, which (unlike a locator) does not auto-wait, so
+  // without this the spec races the first paint and fails about one full run
+  // in six, on a different test each time.
+  //
+  // Waiting on the COUNT rather than the first node, because that is what the
+  // tests below actually assume: three seeded sessions, all rendered.
+  await expect(page.locator('[data-row-actions]')).toHaveCount(3);
+
   return page;
 }
 
