@@ -31,6 +31,27 @@ async function openWith(
   );
   const page = await context.newPage();
   await page.goto(`chrome-extension://${extensionId}/index.html`);
+
+  // KAN-105. `goto` resolves on `load`, which is BEFORE React mounts, i18n
+  // initialises and the store hydrates from localStorage, so for a few more
+  // frames this page has no rows on it.
+  //
+  // The samplers below look their row up with a raw `page.evaluate`, which --
+  // unlike a locator -- does not auto-wait, and then take `button!.parentElement!`
+  // on the result. Those non-null assertions are what turns losing the race
+  // into `TypeError: Cannot read properties of undefined (reading
+  // 'parentElement')` rather than a legible failure. Measured over 8 full
+  // suite runs, the CONTROL test below lost it twice.
+  //
+  // Waiting on the two seeded rows BY NAME, because that is exactly what the
+  // evaluates look up; a bare node count would let a half-rendered list pass.
+  await expect(
+    page.getByRole('button', { name: 'First session', exact: true })
+  ).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Second session', exact: true })
+  ).toBeVisible();
+
   return page;
 }
 
