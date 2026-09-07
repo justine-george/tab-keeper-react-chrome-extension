@@ -31,7 +31,11 @@ import {
   sanitizeTabGroupColor,
   TAB_GROUP_COLOR_HEX,
 } from '../../../utils/functions/tabGroups';
-import type { chromeTabGroupData } from '../../../utils/functions/tabGroups';
+import type {
+  chromeTabGroupData,
+  TabRun,
+} from '../../../utils/functions/tabGroups';
+import { applyTabGroups } from '../../../utils/functions/windows';
 
 interface WindowEntryContainerProps {
   title: string;
@@ -279,6 +283,11 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   const renameGroupLabel = (group: chromeTabGroupData) =>
     t('Rename group') + ': ' + groupDisplayName(group);
 
+  // WCAG 2.5.3, same shape as the tab rows: the accessible name contains the
+  // visible title, and says what the control actually does now.
+  const openGroupLabel = (group: chromeTabGroupData) =>
+    t('Open group') + ': ' + groupDisplayName(group);
+
   const groupTitleLabel = (group: chromeTabGroupData) => (
     <NormalLabel
       value={groupDisplayName(group)}
@@ -360,6 +369,57 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
         active: true,
         index: currentTabIndex + 1,
       });
+    });
+  };
+
+  // Mirrors handleTabClick, for a whole group. Every other row in this pane
+  // opens something on click -- the window title opens its window, a tab title
+  // opens that tab -- and the group row was the only one that renamed instead,
+  // which also left renaming with two entry points and opening with none.
+  //
+  // The index advances per tab. Creating them all at currentTabIndex + 1 would
+  // reverse the group, because each insert pushes the previous one right.
+  //
+  // Tabs open ungrouped: re-forming the Chrome group needs the tabGroups
+  // permission at click time and is deliberately left to its own ticket.
+  const handleGroupClick = (run: TabRun) => {
+    if (run.kind !== 'group') return;
+    chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
+      const current = tabs[0];
+      if (!current) return;
+
+      // Sequential, not Promise.all. Each create is given an explicit index,
+      // and concurrent inserts would resolve those indexes against a list that
+      // is still shifting -- the group would come out shuffled.
+      const created: chrome.tabs.Tab[] = [];
+      for (const [offset, tab] of run.tabs.entries()) {
+        created.push(
+          await chrome.tabs.create({
+            url: resolveTabUrl(tab.url),
+            // Only the last one takes focus, so the user lands at the end of
+            // what they opened instead of watching focus jump per tab.
+            active: offset === run.tabs.length - 1,
+            index: current.index + 1 + offset,
+          })
+        );
+      }
+
+      const tabIds = created
+        .map((tab) => tab.id)
+        .filter((id): id is number => id !== undefined);
+      if (tabIds.length === 0) return;
+
+      // Re-forms the saved group -- same name, same colour -- by reusing the
+      // function restore already uses, rather than a second implementation of
+      // the same thing. No permission check here: this row only renders when
+      // hasTabGroupsPermission is true, and applyTabGroups feature-detects
+      // chrome.tabGroups anyway, so a missing namespace leaves the tabs open
+      // and ungrouped rather than failing the click.
+      await applyTabGroups(
+        current.windowId,
+        [run.group],
+        new Map([[run.group.groupId, tabIds]])
+      );
     });
   };
 
@@ -721,8 +781,9 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                       // layout gives it no room unless it is reserved here.
                       // Measured at 100/125/150% zoom before and after.
                       <ClickableRow
-                        ariaLabel={renameGroupLabel(run.group)}
-                        onClick={() => startEditingGroup(run.group)}
+                        ariaLabel={openGroupLabel(run.group)}
+                        tooltipText={t('Open group')}
+                        onClick={() => handleGroupClick(run)}
                         style="display: flex; align-items: center; min-width: 0; width: 100%; padding-right: 100px; box-sizing: border-box;"
                       >
                         {groupTitleLabel(run.group)}

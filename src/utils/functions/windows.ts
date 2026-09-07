@@ -76,7 +76,11 @@ export function isRestoreSessionRequest(
 // still a successful restore; and focus mode decides whether to close the
 // user's windows from createWindowWithRetries' result, so letting a grouping
 // error travel up that path could close windows whose replacements are fine.
-async function applyTabGroups(
+// Exported so the right pane can re-form a saved group when the user opens one
+// from a row, rather than a second implementation of "how to make a group"
+// existing beside this one. The tabGroups feature-detection below is what makes
+// it safe to call without a permission check at the call site.
+export async function applyTabGroups(
   windowId: number,
   groups: TabGroupSpec[],
   tabIdsByGroupId: Map<string, number[]>

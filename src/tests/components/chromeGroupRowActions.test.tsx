@@ -401,3 +401,122 @@ describe('the group row stands as tall as the rows around it', () => {
     expect(getComputedStyle(strip).minHeight).toBe('32px');
   });
 });
+
+// Clicking a group row started a RENAME, which no other row in the pane does:
+// the window title opens its window, a tab title opens that tab beside the
+// active one. So renaming had two entry points (row and pencil) while opening
+// the group had none.
+//
+// The row now opens the group's tabs; the pencil is the single way to rename.
+describe('clicking a group row opens its tabs', () => {
+  const openRow = async () => {
+    const user = userEvent.setup();
+    const rendered = await renderRow();
+    await user.click(
+      screen.getByRole('button', { name: 'Open group: Research' })
+    );
+    return rendered;
+  };
+
+  test('is named for opening, containing the group title', async () => {
+    await renderRow();
+
+    expect(
+      screen.getByRole('button', { name: 'Open group: Research' })
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Rename group: Research' })
+    ).not.toBeInTheDocument();
+  });
+
+  test('opens every tab in the group and nothing else', async () => {
+    const { chrome } = await openRow();
+
+    expect(chrome.createdTabs.map((t) => t.url)).toEqual([
+      'https://b.co',
+      'https://c.co',
+    ]);
+  });
+
+  // Order is the part that breaks silently: creating each at the SAME index
+  // reverses them, because every insert pushes the previous one right.
+  test('keeps them in stored order, immediately after the active tab', async () => {
+    const { chrome } = await openRow();
+
+    // the fake seeds the active tab at index 0
+    expect(chrome.createdTabs.map((t) => t.index)).toEqual([1, 2]);
+  });
+
+  test('does not start a rename', async () => {
+    await openRow();
+
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+  });
+
+  // THE CONTROL. Renaming must still be reachable -- just from one place.
+  test('CONTROL: the pencil still opens the editor', async () => {
+    const user = userEvent.setup();
+    await renderRow();
+
+    await user.click(screen.getByRole('button', { name: 'Rename group' }));
+
+    expect(screen.getByRole('textbox')).toBeInTheDocument();
+  });
+
+  // The tabs are re-formed into the saved Chrome group -- same name, same
+  // colour -- rather than opened loose. This is the same shape applyTabGroups
+  // performs on restore, and it reuses that function rather than a second
+  // implementation of "how to make a group".
+  //
+  // No permission gate is needed here: the row only renders at all when
+  // hasTabGroupsPermission is true, so reaching this click already implies it.
+  test('re-forms the saved group around them', async () => {
+    const { chrome } = await openRow();
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(chrome.groupedTabs).toHaveLength(1);
+    expect(chrome.groupedTabs[0].tabIds).toHaveLength(2);
+  });
+
+  test('restores the group name and colour', async () => {
+    await openRow();
+    await new Promise((r) => setTimeout(r, 0));
+
+    const groups = await globalThis.chrome.tabGroups.query({});
+    const formed = groups.find((g) => g.title === 'Research');
+
+    expect(formed).toBeDefined();
+    expect(formed?.color).toBe('blue');
+  });
+});
+
+// Two questions raised while building this, both answered by test rather than
+// by argument.
+describe('without the tabGroups permission', () => {
+  // There is nothing to click. partitionTabsIntoRuns is handed `undefined` for
+  // the groups when the permission is absent, so every tab is treated as
+  // ungrouped and no group header is emitted at all.
+  test('no group row is rendered, so the click cannot be reached', async () => {
+    await renderWithProviders(
+      <WindowEntryContainer
+        title="Window 1"
+        tabGroupId="tg"
+        windowId="w"
+        tabs={TABS}
+        chromeTabGroups={GROUPS}
+        onWindowTitleClick={() => undefined}
+        onUpdateWindowGroupTitle={() => undefined}
+        onAddCurrTabToWindowClick={() => undefined}
+        onDeleteClick={() => undefined}
+      />,
+      {
+        seedStore: (store) => store.dispatch(setHasTabGroupsPermission(false)),
+      }
+    );
+
+    expect(screen.queryByRole('group')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /Open group/ })
+    ).not.toBeInTheDocument();
+  });
+});
