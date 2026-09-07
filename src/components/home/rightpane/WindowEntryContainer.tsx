@@ -141,9 +141,20 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
        (KAN-100). They are glyphs over a background that is already uniform, so
        fading them cannot produce an edge -- which is what separates them from
        the mask they sit on. */
-    background-color: ${isParentHovered ? COLORS.HOVER_COLOR : 'transparent'};
+    /* No mask while editing: the field is beneath this block, so painting
+       HOVER_COLOR here would drop a grey box onto a white input. */
+    background-color: ${isParentHovered && !isEditing
+      ? COLORS.HOVER_COLOR
+      : 'transparent'};
     & > * {
-      opacity: ${isParentHovered ? 1 : 0};
+      /* isEditing, because the confirm tick is not a hover affordance -- it is
+         the editor's own control and has to be there whether or not the
+         pointer is. Focus is in the INPUT while editing, which is outside this
+         block, so neither isParentHovered nor :focus-within below ever fires
+         and the tick was invisible unless the pointer happened to be over the
+         row. The group editor avoids this by keying its reveal off the strip
+         that CONTAINS its input. */
+      opacity: ${isParentHovered || isEditing ? 1 : 0};
       transition: opacity 0.1s ease-out;
     }
     /* The keyboard's equivalent of the hover reveal (KAN-68). */
@@ -439,7 +450,11 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
 
               Otherwise: a real button. */}
           {isEditing && !isSearchPanel ? (
-            <div css={css(parentLinkStyle)}>
+            // padding-right: 0 overrides parentLinkStyle's 9px, which exists
+            // to keep the RESTING title clear of the action icons. While
+            // editing there is no title to keep clear, and the reserved gap
+            // left the field stopping 9px short of the row's edge.
+            <div css={css(parentLinkStyle + 'padding-right: 0;')}>
               <input
                 value={newTitle}
                 onBlur={handleBlur}
