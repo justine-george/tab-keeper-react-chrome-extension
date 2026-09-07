@@ -31,6 +31,12 @@ export const EDIT_WINDOWGROUP_TITLE_ACTION =
   'tabContainerDataState/updateWindowGroupTitle';
 export const EDIT_CHROME_GROUP_TITLE_ACTION =
   'tabContainerDataState/updateChromeTabGroupTitle';
+export const ADD_CURR_TAB_TO_CHROME_GROUP_ACTION =
+  'tabContainerDataState/addCurrTabToChromeGroupInternal';
+export const UNGROUP_CHROME_GROUP_ACTION =
+  'tabContainerDataState/ungroupChromeTabGroup';
+export const DELETE_CHROME_GROUP_ACTION =
+  'tabContainerDataState/deleteChromeTabGroupInternal';
 export const DELETE_TAB_CONTAINER_ACTION =
   'tabContainerDataState/deleteTabContainerInternal';
 export const DELETE_WINDOW_ACTION =

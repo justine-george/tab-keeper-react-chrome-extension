@@ -24,6 +24,14 @@ interface IconBaseProps {
   text?: string;
   size?: string;
   style?: string;
+  /**
+   * Only meaningful on an actionable Icon, i.e. one with an onClick. A
+   * presentational Icon is aria-hidden, so these would name nothing.
+   * Introduced for OverflowMenu's trigger, which has to advertise the menu it
+   * controls and whether that menu is currently open.
+   */
+  ariaHasPopup?: 'menu';
+  ariaExpanded?: boolean;
 }
 
 /**
@@ -64,6 +72,8 @@ const Icon: React.FC<IconProps> = ({
   text,
   size = '1.5rem',
   style,
+  ariaHasPopup,
+  ariaExpanded,
 }) => {
   const COLORS = useThemeColors();
 
@@ -184,6 +194,12 @@ const Icon: React.FC<IconProps> = ({
       onClick={!disable ? onClick : undefined}
       onKeyDown={(e) => handleKeyPress(e)}
       role={onClick ? 'button' : undefined}
+      // Guarded on onClick for the same reason as aria-label above: a
+      // presentational Icon is aria-hidden, so these would describe nothing.
+      aria-haspopup={onClick ? ariaHasPopup : undefined}
+      aria-expanded={
+        onClick && ariaExpanded !== undefined ? ariaExpanded : undefined
+      }
     >
       {faviconUrl ? (
         <img src={faviconUrl} alt="favicon" css={iconStyle} />

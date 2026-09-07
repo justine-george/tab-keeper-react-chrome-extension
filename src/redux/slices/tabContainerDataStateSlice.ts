@@ -127,6 +127,17 @@ export interface updateChromeTabGroupTitleParams {
   editableTitle: string;
 }
 
+export interface chromeTabGroupTargetParams {
+  tabGroupId: string;
+  windowId: string;
+  groupId: string;
+}
+
+export interface addCurrTabToChromeGroupParams
+  extends chromeTabGroupTargetParams {
+  tabData: tabData;
+}
+
 export interface deleteWindowParams {
   tabGroupId: string;
   windowId: string;
@@ -483,6 +494,43 @@ function touch(group: tabContainerData): void {
   group.lastModified = Date.now();
 }
 
+// The session / window / group walk the three Chrome-group reducers share.
+//
+// Returns null rather than throwing when any level is missing, which is the
+// same shape the sibling reducers use: an id that does not resolve means the
+// action arrived for data that is no longer there, and doing nothing is the
+// correct outcome. Written once so a missed guard cannot differ between them.
+function locateChromeTabGroup(
+  state: TabMasterContainer,
+  tabGroupId: string,
+  windowId: string,
+  groupId: string
+): {
+  container: tabContainerData;
+  containerIndex: number;
+  window: windowGroupData;
+  windowIndex: number;
+} | null {
+  const containerIndex = state.tabGroups.findIndex(
+    (tabGroup) => tabGroup.tabGroupId === tabGroupId
+  );
+  if (containerIndex === -1) return null;
+
+  const container = state.tabGroups[containerIndex];
+  const windowIndex = container.windows.findIndex(
+    (window) => window.windowId === windowId
+  );
+  if (windowIndex === -1) return null;
+
+  const window = container.windows[windowIndex];
+  const exists = window.chromeTabGroups?.some(
+    (group) => group.groupId === groupId
+  );
+  if (!exists) return null;
+
+  return { container, containerIndex, window, windowIndex };
+}
+
 // Do two copies of a session carry the same content?
 //
 // Used by restoreContainer to tell the sessions a restore is reverting from
@@ -764,6 +812,135 @@ export const tabContainerDataStateSlice = createSlice({
       touch(state.tabGroups[tabGroupIndex]);
       state.lastModified = Date.now();
       // update localstorage
+      saveToLocalStorage('tabContainerData', state);
+    },
+
+    // add the current tab to a Chrome tab group inside a saved window
+    addCurrTabToChromeGroupInternal: (
+      state,
+      action: PayloadAction<addCurrTabToChromeGroupParams>
+    ) => {
+      const {
+        tabGroupId,
+        windowId,
+        groupId,
+        tabData: currentTabData,
+      } = action.payload;
+
+      const located = locateChromeTabGroup(
+        state,
+        tabGroupId,
+        windowId,
+        groupId
+      );
+      if (!located) return;
+      const { container, window } = located;
+
+      // NOT unshift, which is what addCurrTabToWindowInternal does. A group
+      // renders at the position of its FIRST member (partitionTabsIntoRuns),
+      // so putting a grouped tab at the front of the window would drag the
+      // whole group up there with it. It goes after the group's last existing
+      // member, which is also the contiguous shape applyTabGroups wants.
+      const lastMemberIndex = window.tabs.reduce(
+        (last, tab, index) => (tab.chromeGroupId === groupId ? index : last),
+        -1
+      );
+      window.tabs.splice(lastMemberIndex + 1, 0, {
+        ...currentTabData,
+        // The deliberate exception to KAN-11's rule that a tab added from
+        // another window is stored ungrouped. Inheriting a group silently
+        // would be inventing data; the user naming this group is not.
+        chromeGroupId: groupId,
+      });
+
+      container.tabCount += 1;
+      window.tabCount += 1;
+      stampCreated(container);
+      touch(container);
+      state.lastModified = Date.now();
+      saveToLocalStorage('tabContainerData', state);
+    },
+
+    // remove the grouping, keep the tabs
+    ungroupChromeTabGroup: (
+      state,
+      action: PayloadAction<chromeTabGroupTargetParams>
+    ) => {
+      const { tabGroupId, windowId, groupId } = action.payload;
+
+      const located = locateChromeTabGroup(
+        state,
+        tabGroupId,
+        windowId,
+        groupId
+      );
+      if (!located) return;
+      const { container, window } = located;
+
+      window.chromeTabGroups = (window.chromeTabGroups ?? []).filter(
+        (group) => group.groupId !== groupId
+      );
+      // Dropping the entry alone would already render as ungrouped -- an
+      // unmatched id is treated as ungrouped on purpose. The ids are cleared
+      // anyway, because leaving them is data pointing at nothing.
+      for (const tab of window.tabs) {
+        if (tab.chromeGroupId === groupId) delete tab.chromeGroupId;
+      }
+
+      touch(container);
+      state.lastModified = Date.now();
+      saveToLocalStorage('tabContainerData', state);
+    },
+
+    // delete a Chrome tab group and the tabs in it
+    deleteChromeTabGroupInternal: (
+      state,
+      action: PayloadAction<chromeTabGroupTargetParams>
+    ) => {
+      const { tabGroupId, windowId, groupId } = action.payload;
+
+      const located = locateChromeTabGroup(
+        state,
+        tabGroupId,
+        windowId,
+        groupId
+      );
+      if (!located) return;
+      const { container, containerIndex, window, windowIndex } = located;
+
+      const removed = window.tabs.filter(
+        (tab) => tab.chromeGroupId === groupId
+      ).length;
+      window.tabs = window.tabs.filter((tab) => tab.chromeGroupId !== groupId);
+      // Unlike deleteTabInternal, the group entry goes too. Deleting a group's
+      // tabs one at a time leaves an orphaned entry behind today; it renders
+      // as nothing and applyTabGroups skips it, but it is not worth inheriting.
+      window.chromeTabGroups = (window.chromeTabGroups ?? []).filter(
+        (group) => group.groupId !== groupId
+      );
+
+      window.tabCount -= removed;
+      container.tabCount -= removed;
+      stampCreated(container);
+
+      // The same cascade deleteTabInternal runs, for the same reason: an empty
+      // window is not a thing, and an empty session needs a tombstone rather
+      // than a timestamp or the next merge resurrects it.
+      if (window.tabCount === 0) {
+        container.windowCount -= 1;
+        container.windows.splice(windowIndex, 1);
+      }
+      if (container.windowCount === 0) {
+        if (state.selectedTabGroupId === container.tabGroupId) {
+          state.selectedTabGroupId = null;
+        }
+        bury(state, container.tabGroupId);
+        state.tabGroups.splice(containerIndex, 1);
+      } else {
+        touch(container);
+      }
+
+      state.lastModified = Date.now();
       saveToLocalStorage('tabContainerData', state);
     },
 
@@ -1153,6 +1330,9 @@ export const {
   updateTabGroupTitle,
   updateWindowGroupTitle,
   updateChromeTabGroupTitle,
+  addCurrTabToChromeGroupInternal,
+  ungroupChromeTabGroup,
+  deleteChromeTabGroupInternal,
   deleteTabContainerInternal,
   deleteWindowInternal,
   deleteTabInternal,
