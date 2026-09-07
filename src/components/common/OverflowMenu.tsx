@@ -148,11 +148,18 @@ const OverflowMenu: React.FC<OverflowMenuProps> = ({ ariaLabel, items }) => {
     transition-property: background-color;
     transition-duration: 150ms;
     transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+    /* Destructive hover is a red FILL behind a dark glyph, not a red glyph.
+       DELETE_ICON_HOVER_COLOR is a background token everywhere else in the
+       app -- Icon.tsx:115 feeds it to background-color and leaves the glyph
+       at TEXT_COLOR -- so tinting the glyph instead made this item read as a
+       different kind of control from the row delete icons beside it. */
     &:hover {
-      background-color: ${COLORS.HOVER_COLOR};
+      background-color: ${danger
+        ? COLORS.DELETE_ICON_HOVER_COLOR
+        : COLORS.HOVER_COLOR};
     }
     &:hover .overflow-menu-glyph {
-      color: ${danger ? COLORS.DELETE_ICON_HOVER_COLOR : COLORS.TEXT_COLOR};
+      color: ${COLORS.TEXT_COLOR};
     }
   `;
 
