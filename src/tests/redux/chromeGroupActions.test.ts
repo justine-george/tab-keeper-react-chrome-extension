@@ -22,6 +22,7 @@ import type {
   tabContainerData,
   TabMasterContainer,
 } from '../../redux/slices/tabContainerDataStateSlice';
+import { partitionTabsIntoRuns } from '../../utils/functions/tabGroups';
 
 // The three actions that finish the Chrome tab group row, beside the rename
 // added in KAN-107.
@@ -119,17 +120,52 @@ describe('adding the current tab to a Chrome group', () => {
     ).toBe('grp');
   });
 
-  // The headline trap. addCurrTabToWindowInternal unshifts, which for a
-  // grouped tab would move the group's whole run to the top of the window.
-  it('lands beside the group members, not at the front of the window', () => {
+  // First in the group, matching the window-level add, which unshifts. An
+  // earlier version put it after the group's LAST member out of a misplaced
+  // worry about moving the group -- see the control below for what that worry
+  // was actually about.
+  it('lands at the front of its group', () => {
     const after = add(seed());
     expect(tabIds(after)).toEqual([
       'loose-1',
+      'added',
       'g-1',
       'g-2',
-      'added',
       'loose-2',
     ]);
+  });
+
+  // THE CONTROL, and the real constraint. partitionTabsIntoRuns emits a group
+  // at the position of its FIRST member, so a tab unshifted to the front of the
+  // WINDOW would drag the whole group up there with it. Inserting at the
+  // group's own start does not: the new tab becomes the first member at the
+  // index the group already began on, so the runs come out in the same order.
+  it('CONTROL: the group does not move within the window', () => {
+    const after = add(seed());
+    const tabs = after.tabGroups[0].windows[0].tabs;
+    const runs = partitionTabsIntoRuns(
+      tabs,
+      after.tabGroups[0].windows[0].chromeTabGroups
+    );
+
+    expect(runs.map((r) => r.kind)).toEqual([
+      'ungrouped',
+      'group',
+      'ungrouped',
+    ]);
+    expect(runs[0].tabs.map((t) => t.tabId)).toEqual(['loose-1']);
+    expect(runs[2].tabs.map((t) => t.tabId)).toEqual(['loose-2']);
+  });
+
+  // Contiguity is what applyTabGroups needs on restore: chrome.tabs.group is
+  // called with the members' ids, and they must not be interleaved with others.
+  it('keeps the group contiguous', () => {
+    const tabs = add(seed()).tabGroups[0].windows[0].tabs;
+    const memberIndexes = tabs
+      .map((t, i) => (t.chromeGroupId === 'grp' ? i : -1))
+      .filter((i) => i !== -1);
+
+    expect(memberIndexes).toEqual([1, 2, 3]);
   });
 
   it('increments both tab counts', () => {

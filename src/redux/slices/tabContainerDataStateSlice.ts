@@ -836,16 +836,21 @@ export const tabContainerDataStateSlice = createSlice({
       if (!located) return;
       const { container, window } = located;
 
-      // NOT unshift, which is what addCurrTabToWindowInternal does. A group
-      // renders at the position of its FIRST member (partitionTabsIntoRuns),
-      // so putting a grouped tab at the front of the window would drag the
-      // whole group up there with it. It goes after the group's last existing
-      // member, which is also the contiguous shape applyTabGroups wants.
-      const lastMemberIndex = window.tabs.reduce(
-        (last, tab, index) => (tab.chromeGroupId === groupId ? index : last),
-        -1
+      // At the front of the GROUP, which is where the window-level add puts a
+      // tab too -- addCurrTabToWindowInternal unshifts.
+      //
+      // NOT the front of the window, which is the distinction that matters. A
+      // group renders at the position of its FIRST member
+      // (partitionTabsIntoRuns), so unshifting a grouped tab to index 0 would
+      // drag the whole group up there with it. Inserting at the group's own
+      // start does not: the new tab becomes the first member at the index the
+      // group already began on, so the runs come out in the same order. It
+      // also keeps the members contiguous, which is what applyTabGroups needs
+      // to hand chrome.tabs.group a single block of ids on restore.
+      const firstMemberIndex = window.tabs.findIndex(
+        (tab) => tab.chromeGroupId === groupId
       );
-      window.tabs.splice(lastMemberIndex + 1, 0, {
+      window.tabs.splice(firstMemberIndex, 0, {
         ...currentTabData,
         // The deliberate exception to KAN-11's rule that a tab added from
         // another window is stored ungrouped. Inheriting a group silently

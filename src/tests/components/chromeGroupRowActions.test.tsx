@@ -142,7 +142,7 @@ describe('the group row action set', () => {
     expect(win(store).tabs.map((t) => t.tabId)).toEqual(['loose']);
   });
 
-  test('add current tab puts it in the group, beside its members', async () => {
+  test('add current tab puts it at the front of the group', async () => {
     const user = userEvent.setup();
     const { store } = await renderRow();
 
@@ -152,8 +152,9 @@ describe('the group row action set', () => {
 
     const tabs = win(store).tabs;
     expect(tabs).toHaveLength(4);
-    expect(tabs[3].chromeGroupId).toBe('grp');
-    expect(tabs.map((t) => t.title)).toEqual(['Loose', 'One', 'Two', 'Added']);
+    // First member of the group, matching the window-level add, which unshifts
+    expect(tabs.map((t) => t.title)).toEqual(['Loose', 'Added', 'One', 'Two']);
+    expect(tabs[1].chromeGroupId).toBe('grp');
   });
 
   // A control that cannot act must not be focusable and inert (KAN-62).
