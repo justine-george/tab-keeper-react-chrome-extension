@@ -35,6 +35,8 @@ export const ADD_CURR_TAB_TO_CHROME_GROUP_ACTION =
   'tabContainerDataState/addCurrTabToChromeGroupInternal';
 export const UNGROUP_CHROME_GROUP_ACTION =
   'tabContainerDataState/ungroupChromeTabGroup';
+export const RECOLOUR_CHROME_GROUP_ACTION =
+  'tabContainerDataState/updateChromeTabGroupColor';
 export const DELETE_CHROME_GROUP_ACTION =
   'tabContainerDataState/deleteChromeTabGroupInternal';
 export const DELETE_TAB_CONTAINER_ACTION =
