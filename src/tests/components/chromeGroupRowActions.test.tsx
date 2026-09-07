@@ -185,3 +185,126 @@ describe('the group row action set', () => {
     expect(getComputedStyle(strip as Element).zIndex).not.toBe('auto');
   });
 });
+
+// Two groups in one window, so sibling interactions are observable.
+async function renderTwoGroups() {
+  const tabs = [
+    {
+      tabId: 'a1',
+      favicon: '',
+      title: 'Learn one',
+      url: 'https://a.co',
+      chromeGroupId: 'g1',
+    },
+    {
+      tabId: 'b1',
+      favicon: '',
+      title: 'Create one',
+      url: 'https://b.co',
+      chromeGroupId: 'g2',
+    },
+  ];
+  const groups: chromeTabGroupData[] = [
+    { groupId: 'g1', title: 'Learn', color: 'yellow' },
+    { groupId: 'g2', title: 'Create', color: 'purple' },
+  ];
+  return renderWithProviders(
+    <WindowEntryContainer
+      title="Window 1"
+      tabGroupId="tg"
+      windowId="w"
+      tabs={tabs}
+      chromeTabGroups={groups}
+      onWindowTitleClick={() => undefined}
+      onUpdateWindowGroupTitle={() => undefined}
+      onAddCurrTabToWindowClick={() => undefined}
+      onDeleteClick={() => undefined}
+    />,
+    {
+      seedStore: (store) => {
+        store.dispatch(setHasTabGroupsPermission(true));
+        store.dispatch(
+          saveToTabContainerInternal({
+            tabGroupId: 'tg',
+            title: 'Session',
+            createdTime: '2026-09-06 00:00:00',
+            windowCount: 1,
+            tabCount: 2,
+            isAutoSave: false,
+            isSelected: false,
+            windows: [
+              {
+                windowId: 'w',
+                windowHeight: 100,
+                windowWidth: 100,
+                windowOffsetTop: 0,
+                windowOffsetLeft: 0,
+                tabCount: 2,
+                title: 'Window 1',
+                tabs,
+                chromeTabGroups: groups,
+              },
+            ],
+          })
+        );
+      },
+    }
+  );
+}
+
+const stripFor = (groupName: string) => {
+  const group = screen.getByRole('group', { name: groupName });
+  return group.querySelector('.group-rename-reveal') as HTMLElement;
+};
+
+describe('two group rows in one window', () => {
+  // Every strip carried the SAME z-index, so among siblings DOM order decided
+  // and the LOWER group's action strip painted over the upper group's open
+  // menu. Reproduced in a browser: the boxes overlap by 96x13px and the strip
+  // won that region.
+  test('the row whose menu is open outranks its siblings', async () => {
+    const user = userEvent.setup();
+    await renderTwoGroups();
+
+    const before = getComputedStyle(stripFor('Learn')).zIndex;
+
+    await user.click(
+      screen.getAllByRole('button', { name: 'More actions' })[0]
+    );
+
+    const openStrip = Number(getComputedStyle(stripFor('Learn')).zIndex);
+    const siblingStrip = Number(getComputedStyle(stripFor('Create')).zIndex);
+
+    expect(openStrip).toBeGreaterThan(siblingStrip);
+    // and it is the OPENING that lifts it, not a constant
+    expect(String(openStrip)).not.toBe(before);
+  });
+
+  // THE CONTROL. The assertion above would also pass if every strip were
+  // lifted permanently; this pins that a closed row does not outrank its
+  // sibling, so the lift is tied to the menu being open.
+  test('CONTROL: with nothing open, neither row outranks the other', async () => {
+    await renderTwoGroups();
+
+    expect(getComputedStyle(stripFor('Learn')).zIndex).toBe(
+      getComputedStyle(stripFor('Create')).zIndex
+    );
+  });
+
+  // Already true via the mousedown listener, but stated as an invariant here
+  // so a later change to the dismiss mechanism cannot quietly allow two.
+  test('opening one menu closes any other', async () => {
+    const user = userEvent.setup();
+    await renderTwoGroups();
+    const triggers = screen.getAllByRole('button', { name: 'More actions' });
+
+    await user.click(triggers[0]);
+    expect(screen.getAllByRole('menu')).toHaveLength(1);
+
+    await user.click(triggers[1]);
+
+    expect(screen.getAllByRole('menu')).toHaveLength(1);
+    expect(triggers[0]).toHaveAttribute('aria-expanded', 'false');
+    expect(triggers[1]).toHaveAttribute('aria-expanded', 'true');
+  });
+});

@@ -76,6 +76,11 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   // put every one of them into edit mode at once.
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
   const [groupDraft, setGroupDraft] = useState('');
+  // Which group's overflow menu is open, so its action strip can outrank its
+  // siblings. Every strip is a stacking context of its own (transform), so
+  // equal z-indexes leave DOM order deciding -- and a LOWER group's strip then
+  // painted over an open menu belonging to the group above it.
+  const [openMenuGroupId, setOpenMenuGroupId] = useState<string | null>(null);
   const [hoveredChildIndex, setHoveredChildIndex] = useState<number | null>(
     null
   );
@@ -673,7 +678,11 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                              the tab rows below, which are later siblings with
                              position: relative. Lifting the context itself is
                              what puts the menu over them. */
-                          z-index: 1;
+                          /* The row owning an open menu outranks its
+                             siblings; see openMenuGroupId above. */
+                          z-index: ${openMenuGroupId === run.group.groupId
+                            ? 3
+                            : 1};
                         `}
                       >
                         <Icon
@@ -701,6 +710,19 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                             a word rather than a glyph. */}
                         <OverflowMenu
                           ariaLabel={t('More actions')}
+                          // Guarded on identity rather than assigning blindly:
+                          // opening a second menu closes the first, and the
+                          // close can land after the open, which would
+                          // otherwise clear the row that just opened.
+                          onOpenChange={(open) =>
+                            setOpenMenuGroupId((prev) =>
+                              open
+                                ? run.group.groupId
+                                : prev === run.group.groupId
+                                  ? null
+                                  : prev
+                            )
+                          }
                           items={[
                             {
                               key: 'ungroup',
