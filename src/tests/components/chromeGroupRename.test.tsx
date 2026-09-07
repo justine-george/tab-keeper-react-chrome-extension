@@ -368,3 +368,40 @@ describe('the confirm tick does not blur the field it commits', () => {
     }
   );
 });
+
+// The editor collapsed to the intrinsic height of its 0.8rem text -- 20px in a
+// 22px row -- and carried the browser's default 2px padding rather than a
+// chosen one. Beside the window title editor one level up, which fills its row
+// exactly and pads to 8px, it read as a thinner, tighter box.
+//
+// Asserted as "fills its own row" rather than a pixel count: the group row is
+// deliberately smaller than the window row, so matching absolute heights would
+// be wrong. What has to match is the treatment.
+describe('the group rename editor fills its row', () => {
+  const openEditor = async () => {
+    const user = userEvent.setup();
+    await renderWindow([{ groupId: 'g1', title: 'Research', color: 'blue' }]);
+    await user.click(
+      screen.getByRole('button', { name: 'Rename group: Research' })
+    );
+    return screen.getByRole('textbox', { name: 'Rename group: Research' });
+  };
+
+  // Asserts align-self, not height. A previous version of this test checked
+  // `height: 100%` -- which was set, computed, and rendered NOTHING: the strip
+  // is a flex container with only a min-height, so there is no definite height
+  // for the percentage to resolve against. The declaration was present and the
+  // field was still 2px short. jsdom does no layout, so it cannot catch that;
+  // the rendered height is verified in a browser instead.
+  test('stretches to its row rather than sizing to its text', async () => {
+    const input = await openEditor();
+
+    expect(getComputedStyle(input).alignSelf).toBe('stretch');
+  });
+
+  test('pads its text like the window editor does, not the browser default', async () => {
+    const input = await openEditor();
+
+    expect(getComputedStyle(input).paddingLeft).toBe('8px');
+  });
+});
