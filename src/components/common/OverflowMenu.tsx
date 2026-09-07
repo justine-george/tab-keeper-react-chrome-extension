@@ -22,6 +22,16 @@ interface OverflowMenuProps {
   /** Names the trigger. Must be translated. */
   ariaLabel: string;
   items: OverflowMenuItem[];
+  /**
+   * Fires whenever the menu opens or closes.
+   *
+   * Exists because the menu cannot solve its own z-order: it is confined to
+   * the stacking context of whichever action strip hosts it, so a SIBLING
+   * strip with the same z-index paints over it purely by DOM order. The host
+   * has to lift the row that owns the open menu, and this is how it learns
+   * which row that is.
+   */
+  onOpenChange?: (isOpen: boolean) => void;
 }
 
 /**
@@ -54,11 +64,27 @@ interface OverflowMenuProps {
  * WindowEntryContainer. jsdom computes no paint order, so only a real browser
  * shows this.
  */
-const OverflowMenu: React.FC<OverflowMenuProps> = ({ ariaLabel, items }) => {
+const OverflowMenu: React.FC<OverflowMenuProps> = ({
+  ariaLabel,
+  items,
+  onOpenChange,
+}) => {
   const COLORS = useThemeColors();
   const FONT_FAMILY = useFontFamily();
 
   const [isOpen, setIsOpen] = useState(false);
+
+  // Every open/close goes through here, so onOpenChange cannot fall out of
+  // step with the state it reports.
+  const setOpen = useCallback(
+    (next: boolean) => {
+      setIsOpen((current) => {
+        if (current !== next) onOpenChange?.(next);
+        return next;
+      });
+    },
+    [onOpenChange]
+  );
   const wrapperRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
@@ -66,14 +92,17 @@ const OverflowMenu: React.FC<OverflowMenuProps> = ({ ariaLabel, items }) => {
   // Focus goes back where it came from, or a keyboard user is dropped at
   // <body> and loses their place -- the same failure the Icon comment about
   // aria-disabled describes.
-  const close = useCallback((returnFocus: boolean) => {
-    setIsOpen(false);
-    if (returnFocus) {
-      const trigger =
-        triggerRef.current?.querySelector<HTMLElement>('[role="button"]');
-      (trigger ?? triggerRef.current)?.focus();
-    }
-  }, []);
+  const close = useCallback(
+    (returnFocus: boolean) => {
+      setOpen(false);
+      if (returnFocus) {
+        const trigger =
+          triggerRef.current?.querySelector<HTMLElement>('[role="button"]');
+        (trigger ?? triggerRef.current)?.focus();
+      }
+    },
+    [setOpen]
+  );
 
   // Opening moves focus to the first item, which is what makes the menu
   // operable without a pointer at all.
@@ -181,7 +210,7 @@ const OverflowMenu: React.FC<OverflowMenuProps> = ({ ariaLabel, items }) => {
           ariaExpanded={isOpen}
           onClick={(e) => {
             e.stopPropagation();
-            setIsOpen((open) => !open);
+            setOpen(!isOpen);
           }}
         />
       </div>
