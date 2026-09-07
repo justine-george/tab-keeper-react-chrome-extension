@@ -569,6 +569,17 @@ function sameSessionContent(a: tabContainerData, b: tabContainerData): boolean {
 
 // isSelected is not compared: it is per-device view state, not content, and
 // the merge already ignores it for the same reason.
+//
+// Chrome tab groups ARE content (KAN-125). They are synced, and applyTabGroups
+// writes them straight back to Chrome on the next restore, so a group's name
+// and colour are exactly as much the user's data as a window's title is.
+// Leaving them out meant a session whose only change was a group edit compared
+// EQUAL here, so reconcileAssertedContainer stamped nothing, handed the
+// reverted session back with its snapshot timestamp, and the cloud copy
+// holding the edit won the next merge -- the undo applied and sync put the
+// edit straight back. Recolour, rename and ungroup all landed in that hole;
+// delete-group and add-tab-to-group did not, only because they happen to
+// change tabs.length as well.
 function sameWindowContent(a: windowGroupData, b: windowGroupData): boolean {
   return (
     a.windowId === b.windowId &&
@@ -584,7 +595,33 @@ function sameWindowContent(a: windowGroupData, b: windowGroupData): boolean {
         tab.tabId === b.tabs[i].tabId &&
         tab.title === b.tabs[i].title &&
         tab.url === b.tabs[i].url &&
-        tab.favicon === b.tabs[i].favicon
+        tab.favicon === b.tabs[i].favicon &&
+        // The join key to chromeTabGroups. Ungrouping already shows up in the
+        // group list below, but this is the field that says WHICH group a tab
+        // belongs to, and a comparator that ignores it is one refactor away
+        // from missing a move between groups.
+        tab.chromeGroupId === b.tabs[i].chromeGroupId
+    ) &&
+    sameChromeTabGroups(a.chromeTabGroups, b.chromeTabGroups)
+  );
+}
+
+// Absent and empty are the same state: a window saved before KAN-11, or by a
+// device without the tabGroups permission, carries no array at all, and that
+// must not read as a difference from a window whose last group was ungrouped.
+function sameChromeTabGroups(
+  a: chromeTabGroupData[] | undefined,
+  b: chromeTabGroupData[] | undefined
+): boolean {
+  const left = a ?? [];
+  const right = b ?? [];
+  return (
+    left.length === right.length &&
+    left.every(
+      (group, i) =>
+        group.groupId === right[i].groupId &&
+        group.title === right[i].title &&
+        group.color === right[i].color
     )
   );
 }
