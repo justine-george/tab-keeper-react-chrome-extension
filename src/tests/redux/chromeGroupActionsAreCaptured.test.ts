@@ -18,6 +18,7 @@ import {
   addCurrTabToChromeGroupInternal,
   ungroupChromeTabGroup,
   deleteChromeTabGroupInternal,
+  updateChromeTabGroupColor,
 } from '../../redux/slices/tabContainerDataStateSlice';
 import { undo } from '../../redux/slices/undoRedoSlice';
 import { setIsNotDirty } from '../../redux/slices/globalStateSlice';
@@ -129,5 +130,15 @@ describe('the Chrome group actions are captured actions', () => {
 
     expect(store.getState().globalState.isDirty).toBe(false);
     expect(store.getState().undoRedo.past.length).toBe(pastBefore);
+  });
+
+  test('recolouring is undoable and dirties the container', () => {
+    const store = seeded();
+    store.dispatch(updateChromeTabGroupColor({ ...target, color: 'pink' }));
+    expect(win(store).chromeTabGroups![0].color).toBe('pink');
+    expect(store.getState().globalState.isDirty).toBe(true);
+
+    store.dispatch(undo());
+    expect(win(store).chromeTabGroups![0].color).toBe('blue');
   });
 });

@@ -26,6 +26,10 @@ import {
   TOAST_MESSAGES,
 } from '../../utils/constants/common';
 import { SettingsData } from './settingsDataStateSlice';
+import {
+  TAB_GROUP_COLORS,
+  type TabGroupColor,
+} from '../../utils/functions/tabGroups';
 import type { chromeTabGroupData } from '../../utils/functions/tabGroups';
 
 export type { chromeTabGroupData };
@@ -131,6 +135,11 @@ export interface chromeTabGroupTargetParams {
   tabGroupId: string;
   windowId: string;
   groupId: string;
+}
+
+export interface updateChromeTabGroupColorParams
+  extends chromeTabGroupTargetParams {
+  color: string;
 }
 
 export interface addCurrTabToChromeGroupParams
@@ -866,6 +875,43 @@ export const tabContainerDataStateSlice = createSlice({
       saveToLocalStorage('tabContainerData', state);
     },
 
+    // recolour a Chrome tab group
+    updateChromeTabGroupColor: (
+      state,
+      action: PayloadAction<updateChromeTabGroupColorParams>
+    ) => {
+      const { tabGroupId, windowId, groupId, color } = action.payload;
+
+      const located = locateChromeTabGroup(
+        state,
+        tabGroupId,
+        windowId,
+        groupId
+      );
+      if (!located) return;
+      const { container, window } = located;
+
+      const group = window.chromeTabGroups?.find((g) => g.groupId === groupId);
+      if (!group) return;
+
+      // A colour Chrome does not have would render as grey through
+      // sanitizeTabGroupColor and be rejected outright by chrome.tabGroups
+      // .update on restore. That sanitiser exists so a bad value costs one
+      // group its colour instead of failing a whole session; a value the user
+      // picked has no business entering that state at all, so it is refused
+      // here rather than stored and degraded later.
+      if (!TAB_GROUP_COLORS.includes(color as TabGroupColor)) return;
+
+      // Same reasoning as the rename: an edit that changed nothing must not
+      // mark the container dirty and pay for a Firestore write.
+      if (group.color === color) return;
+
+      group.color = color;
+      touch(container);
+      state.lastModified = Date.now();
+      saveToLocalStorage('tabContainerData', state);
+    },
+
     // remove the grouping, keep the tabs
     ungroupChromeTabGroup: (
       state,
@@ -1337,6 +1383,7 @@ export const {
   updateChromeTabGroupTitle,
   addCurrTabToChromeGroupInternal,
   ungroupChromeTabGroup,
+  updateChromeTabGroupColor,
   deleteChromeTabGroupInternal,
   deleteTabContainerInternal,
   deleteWindowInternal,

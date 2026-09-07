@@ -7,6 +7,7 @@ import { css } from '@emotion/react';
 import ClickableRow from '../../common/ClickableRow';
 import Icon from '../../common/Icon';
 import OverflowMenu from '../../common/OverflowMenu';
+import GroupColorPicker from '../../common/GroupColorPicker';
 import { NormalLabel } from '../../common/Label';
 import { useFontFamily } from '../../../hooks/useFontFamily';
 import { useThemeColors } from '../../../hooks/useThemeColors';
@@ -23,14 +24,11 @@ import {
   addCurrTabToChromeGroupInternal,
   ungroupChromeTabGroup,
   deleteChromeTabGroupInternal,
+  updateChromeTabGroupColor,
 } from '../../../redux/slices/tabContainerDataStateSlice';
 import { useTranslation } from 'react-i18next';
 import { v4 as uuidv4 } from 'uuid';
-import {
-  partitionTabsIntoRuns,
-  sanitizeTabGroupColor,
-  TAB_GROUP_COLOR_HEX,
-} from '../../../utils/functions/tabGroups';
+import { partitionTabsIntoRuns } from '../../../utils/functions/tabGroups';
 import type {
   chromeTabGroupData,
   TabRun,
@@ -659,20 +657,29 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                     map, not routed through useThemeColors, so it reads the
                     same in every theme as it does in the browser.
 
-                    It is also purely decorative: the accessible name and the
-                    role="group" boundary above already carry the grouping, so
-                    this band is a separate aria-hidden element rather than
-                    living on the labelled node itself (BINDING CONSTRAINT 3). */}
-                <div
-                  aria-hidden="true"
-                  css={css`
-                    flex: 0 0 3px;
-                    width: 3px;
-                    margin-right: 6px;
-                    background-color: ${TAB_GROUP_COLOR_HEX[
-                      sanitizeTabGroupColor(run.group.color)
-                    ]};
-                  `}
+                    This REPLACES the older rule that the band is aria-hidden
+                    and decorative (BINDING CONSTRAINT 3). That held while it
+                    only painted; it now opens the colour picker, and a control
+                    must be named. Its name says what it CHANGES rather than
+                    repeating the group name the role="group" boundary above
+                    already announces. The band stays a sibling of the header
+                    strip so it spans the whole group, as Chrome's does. */}
+                <GroupColorPicker
+                  color={run.group.color}
+                  decorative={isSearchPanel}
+                  ariaLabel={
+                    t('Change group color') + ': ' + groupDisplayName(run.group)
+                  }
+                  onSelect={(color) =>
+                    dispatch(
+                      updateChromeTabGroupColor({
+                        tabGroupId,
+                        windowId,
+                        groupId: run.group.groupId,
+                        color,
+                      })
+                    )
+                  }
                 />
                 <div
                   css={css`

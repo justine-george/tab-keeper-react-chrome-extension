@@ -1,10 +1,11 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React from 'react';
 
 import { css } from '@emotion/react';
 
 import Icon from './Icon';
 import { useFontFamily } from '../../hooks/useFontFamily';
 import { useThemeColors } from '../../hooks/useThemeColors';
+import { usePopoverList } from '../../hooks/usePopoverList';
 
 export interface OverflowMenuItem {
   /** Stable identity for the React key. Not shown. */
@@ -72,80 +73,19 @@ const OverflowMenu: React.FC<OverflowMenuProps> = ({
   const COLORS = useThemeColors();
   const FONT_FAMILY = useFontFamily();
 
-  const [isOpen, setIsOpen] = useState(false);
-
-  // Every open/close goes through here, so onOpenChange cannot fall out of
-  // step with the state it reports.
-  const setOpen = useCallback(
-    (next: boolean) => {
-      setIsOpen((current) => {
-        if (current !== next) onOpenChange?.(next);
-        return next;
-      });
-    },
-    [onOpenChange]
-  );
-  const wrapperRef = useRef<HTMLDivElement>(null);
-  const triggerRef = useRef<HTMLDivElement>(null);
-  const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
-
-  // Focus goes back where it came from, or a keyboard user is dropped at
-  // <body> and loses their place -- the same failure the Icon comment about
-  // aria-disabled describes.
-  const close = useCallback(
-    (returnFocus: boolean) => {
-      setOpen(false);
-      if (returnFocus) {
-        const trigger =
-          triggerRef.current?.querySelector<HTMLElement>('[role="button"]');
-        (trigger ?? triggerRef.current)?.focus();
-      }
-    },
-    [setOpen]
-  );
-
-  // Opening moves focus to the first item, which is what makes the menu
-  // operable without a pointer at all.
-  useEffect(() => {
-    if (isOpen) itemRefs.current[0]?.focus();
-  }, [isOpen]);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    const onPointerDown = (e: MouseEvent) => {
-      if (!wrapperRef.current?.contains(e.target as Node)) close(false);
-    };
-    document.addEventListener('mousedown', onPointerDown);
-    return () => document.removeEventListener('mousedown', onPointerDown);
-  }, [isOpen, close]);
-
-  const focusItem = (index: number) => {
-    const count = items.length;
-    if (count === 0) return;
-    // Wraps in both directions, so the list has no dead ends.
-    const next = ((index % count) + count) % count;
-    itemRefs.current[next]?.focus();
-  };
-
-  const indexOfFocused = () =>
-    itemRefs.current.findIndex((el) => el === document.activeElement);
-
-  const handleMenuKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Escape') {
-      e.stopPropagation();
-      close(true);
-      return;
-    }
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      focusItem(indexOfFocused() + 1);
-      return;
-    }
-    if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      focusItem(indexOfFocused() - 1);
-    }
-  };
+  const {
+    isOpen,
+    setOpen,
+    close,
+    wrapperRef,
+    triggerRef,
+    registerItem,
+    handleKeyDown,
+  } = usePopoverList({
+    count: items.length,
+    axis: 'vertical',
+    onOpenChange,
+  });
 
   const menuStyle = css`
     position: absolute;
@@ -215,15 +155,13 @@ const OverflowMenu: React.FC<OverflowMenuProps> = ({
         />
       </div>
       {isOpen && (
-        <div role="menu" css={menuStyle} onKeyDown={handleMenuKeyDown}>
+        <div role="menu" css={menuStyle} onKeyDown={handleKeyDown}>
           {items.map((item, index) => (
             <button
               key={item.key}
               type="button"
               role="menuitem"
-              ref={(el) => {
-                itemRefs.current[index] = el;
-              }}
+              ref={registerItem(index)}
               css={itemStyle(item.danger)}
               onClick={(e) => {
                 e.stopPropagation();

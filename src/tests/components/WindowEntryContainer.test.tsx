@@ -131,9 +131,13 @@ describe('WindowEntryContainer renders Chrome tab groups', () => {
     });
 
     const group = screen.getByRole('group', { name: 'Work' });
-    // The band is the sole aria-hidden child of the group -- a decorative
-    // element carrying no accessible name of its own (BINDING CONSTRAINT 3).
-    const band = group.querySelector('[aria-hidden="true"]');
+    // The band used to be the sole aria-hidden child -- decorative, carrying no
+    // name of its own (BINDING CONSTRAINT 3). KAN-124 made it the colour
+    // control, so it is now a NAMED button and is found that way. Decorative
+    // was right while it only painted; a control has to be named.
+    const band = within(group).getByRole('button', {
+      name: 'Change group color: Work',
+    });
     expect(band).not.toBeNull();
     // TAB_GROUP_COLOR_HEX.blue is '#8ab4f8'; jsdom's getComputedStyle
     // resolves emotion's inserted class rules and reports colors as rgb(),
@@ -165,7 +169,9 @@ describe('WindowEntryContainer renders Chrome tab groups', () => {
     });
 
     const group = screen.getByRole('group', { name: 'Work' });
-    const band = group.querySelector('[aria-hidden="true"]');
+    const band = within(group).getByRole('button', {
+      name: 'Change group color: Work',
+    });
     expect(band).not.toBeNull();
     const [r, g, b] = hexToRgb(TAB_GROUP_COLOR_HEX.grey);
     expect(getComputedStyle(band as Element).backgroundColor).toBe(

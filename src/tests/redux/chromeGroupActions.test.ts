@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 vi.hoisted(() => {
   const g = globalThis as unknown as { window?: unknown };
@@ -17,6 +17,7 @@ import reducer, {
   addCurrTabToChromeGroupInternal,
   ungroupChromeTabGroup,
   deleteChromeTabGroupInternal,
+  updateChromeTabGroupColor,
 } from '../../redux/slices/tabContainerDataStateSlice';
 import type {
   tabContainerData,
@@ -322,5 +323,100 @@ describe('deleting a Chrome group and its tabs', () => {
       })
     );
     expect(tabIds(after)).toEqual(['loose-1', 'g-1', 'g-2', 'loose-2']);
+  });
+});
+
+// Changing a group's colour. Same shape as the rename: the reducer is the
+// choke point, and the new colour reaches Chrome on the next restore through
+// applyTabGroups, which already sends colour.
+describe('recolouring a Chrome tab group', () => {
+  beforeEach(() => localStorage.clear());
+
+  const recolour = (state: TabMasterContainer, color: string) =>
+    reducer(
+      state,
+      updateChromeTabGroupColor({
+        tabGroupId: 'tg',
+        windowId: 'w',
+        groupId: 'grp',
+        color,
+      })
+    );
+
+  const colourOf = (s: TabMasterContainer) =>
+    s.tabGroups[0].windows[0].chromeTabGroups![0].color;
+
+  it('stores the new colour', () => {
+    expect(colourOf(recolour(seed(), 'pink'))).toBe('pink');
+  });
+
+  it.each([['grey'], ['blue'], ['red'], ['yellow'], ['green']])(
+    'accepts %s',
+    (color) => {
+      expect(colourOf(recolour(seed(), color))).toBe(color);
+    }
+  );
+
+  // sanitizeTabGroupColor exists so an unrecognised colour costs one group its
+  // colour rather than failing a whole session. A value that never renders
+  // should not be stored in the first place.
+  it('refuses a colour Chrome does not have', () => {
+    expect(colourOf(recolour(seed(), 'octarine'))).toBe('blue');
+  });
+
+  it('leaves an unknown group alone', () => {
+    const after = reducer(
+      seed(),
+      updateChromeTabGroupColor({
+        tabGroupId: 'tg',
+        windowId: 'w',
+        groupId: 'nope',
+        color: 'pink',
+      })
+    );
+    expect(colourOf(after)).toBe('blue');
+  });
+});
+
+describe('recolouring and the dirty flag', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    vi.useFakeTimers();
+    vi.setSystemTime(1_000_000);
+  });
+  afterEach(() => vi.useRealTimers());
+
+  const sessionModified = (s: TabMasterContainer) =>
+    s.tabGroups.find((g) => g.tabGroupId === 'tg')!.lastModified;
+
+  it('does not touch lastModified when the colour is unchanged', () => {
+    const before = seed();
+    vi.setSystemTime(2_000_000);
+    const after = reducer(
+      before,
+      updateChromeTabGroupColor({
+        tabGroupId: 'tg',
+        windowId: 'w',
+        groupId: 'grp',
+        color: 'blue',
+      })
+    );
+    expect(sessionModified(after)).toBe(sessionModified(before));
+  });
+
+  // THE CONTROL for the assertion above.
+  it('CONTROL: a real recolour does bump lastModified', () => {
+    const before = seed();
+    vi.setSystemTime(2_000_000);
+    const after = reducer(
+      before,
+      updateChromeTabGroupColor({
+        tabGroupId: 'tg',
+        windowId: 'w',
+        groupId: 'grp',
+        color: 'pink',
+      })
+    );
+    expect(sessionModified(after)).toBeGreaterThan(sessionModified(before)!);
   });
 });
