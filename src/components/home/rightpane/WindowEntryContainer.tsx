@@ -491,15 +491,22 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
         </div>
         <div css={parentRightStyle}>
           {isEditing && !isSearchPanel ? (
-            <Icon
-              tooltipText={t('Save changes')}
-              ariaLabel={t('Save changes')}
-              type="done"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleBlur();
-              }}
-            />
+            // Same shape as the session tick: the wrapper carries the
+            // onMouseDown that Icon does not expose, preventDefault keeps focus
+            // in the input so onClick is the single commit path, and the
+            // wrapper itself is what stops the post-commit click retargeting
+            // onto the pencil that replaces this tick.
+            <span onMouseDown={(e) => e.preventDefault()}>
+              <Icon
+                tooltipText={t('Save changes')}
+                ariaLabel={t('Save changes')}
+                type="done"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleBlur();
+                }}
+              />
+            </span>
           ) : (
             <Icon
               tooltipText={t('Rename window group')}
@@ -658,6 +665,36 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                       >
                         {groupTitleLabel(run.group)}
                       </ClickableRow>
+                    )}
+                    {editingGroupId === run.group.groupId && !isSearchPanel && (
+                      // Same shape as the other two ticks: the wrapper stops
+                      // the post-commit click retargeting onto the pencil, and
+                      // preventDefault keeps focus in the input so onClick is
+                      // the single commit path.
+                      <span
+                        className="group-rename-reveal"
+                        css={css`
+                          position: absolute;
+                          top: 50%;
+                          right: 0;
+                          transform: translateY(-50%);
+                          opacity: 1;
+                          display: flex;
+                          align-items: center;
+                          z-index: 1;
+                        `}
+                        onMouseDown={(e) => e.preventDefault()}
+                      >
+                        <Icon
+                          tooltipText={t('Save changes')}
+                          ariaLabel={t('Save changes')}
+                          type="done"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            commitGroupRename(run.group);
+                          }}
+                        />
+                      </span>
                     )}
                     {editingGroupId !== run.group.groupId && !isSearchPanel && (
                       <div

@@ -276,3 +276,95 @@ describe('the search panel', () => {
     ).toBeInTheDocument();
   });
 });
+
+// The group editor had no visible way to finish either -- see the matching
+// suite in HeroContainerRight.test.tsx. Enter and blur both commit, but a
+// pointer user has nothing to aim at.
+describe('finishing a group rename', () => {
+  test('offers a confirm control while editing', async () => {
+    const user = userEvent.setup();
+    await renderWindow([{ groupId: 'g1', title: 'Research', color: 'blue' }]);
+
+    await user.click(
+      screen.getByRole('button', { name: 'Rename group: Research' })
+    );
+
+    expect(
+      screen.getByRole('button', { name: 'Save changes' })
+    ).toBeInTheDocument();
+  });
+
+  // THE CONTROL: the tick belongs to the editing state, not to the row.
+  test('CONTROL: no confirm control when not editing', async () => {
+    await renderWindow([{ groupId: 'g1', title: 'Research', color: 'blue' }]);
+
+    expect(
+      screen.queryByRole('button', { name: 'Save changes' })
+    ).not.toBeInTheDocument();
+  });
+
+  test('the confirm control commits the rename', async () => {
+    const user = userEvent.setup();
+    const { store } = await renderWindow([
+      { groupId: 'g1', title: 'Research', color: 'blue' },
+    ]);
+
+    await user.click(
+      screen.getByRole('button', { name: 'Rename group: Research' })
+    );
+    const input = screen.getByRole('textbox', {
+      name: 'Rename group: Research',
+    });
+    await user.clear(input);
+    await user.type(input, 'Reading');
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+
+    expect(storedGroupTitle(store)).toBe('Reading');
+  });
+
+  // The rename actions must come back afterwards, or confirming would strand
+  // the row without its controls.
+  test('the row returns to its normal actions once confirmed', async () => {
+    const user = userEvent.setup();
+    await renderWindow([{ groupId: 'g1', title: 'Research', color: 'blue' }]);
+
+    await user.click(
+      screen.getByRole('button', { name: 'Rename group: Research' })
+    );
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Rename group' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'More actions' })
+    ).toBeInTheDocument();
+  });
+});
+
+// Pins preventDefault specifically. The wrapper alone is what stops the editor
+// reopening -- measured by removing each in turn -- so the behavioural tests
+// above pass with or without preventDefault. Its job is different: keeping
+// focus in the input means onClick is the single commit path instead of racing
+// a blur. Asserted at the mechanism, because that is the only place it shows.
+describe('the confirm tick does not blur the field it commits', () => {
+  test.each([['group', 'Rename group: Research']])(
+    '%s tick prevents the default mousedown',
+    async (_label, opener) => {
+      const user = userEvent.setup();
+      await renderWindow([{ groupId: 'g1', title: 'Research', color: 'blue' }]);
+
+      await user.click(screen.getByRole('button', { name: opener }));
+      const tick = screen.getByRole('button', { name: 'Save changes' });
+
+      const event = new MouseEvent('mousedown', {
+        bubbles: true,
+        cancelable: true,
+      });
+      tick.dispatchEvent(event);
+
+      expect(event.defaultPrevented).toBe(true);
+    }
+  );
+});
