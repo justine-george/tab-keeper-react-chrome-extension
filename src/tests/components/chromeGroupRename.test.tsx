@@ -135,19 +135,27 @@ describe('the rename control', () => {
   // WCAG 2.5.3, the same shape KAN-77 established for the session rename: the
   // accessible name has to CONTAIN the visible one, or a voice-control user
   // saying "click Research" has nothing to hit.
-  test('is named for the group it renames', async () => {
+  // The ROW opens the group now (KAN-121); the pencil is the only way to
+  // rename. Both are still named so that a voice-control user can say either.
+  test('the row is named for opening, the pencil for renaming', async () => {
     await renderWindow([{ groupId: 'g1', title: 'Research', color: 'blue' }]);
 
     expect(
-      screen.getByRole('button', { name: 'Rename group: Research' })
+      screen.getByRole('button', { name: 'Open group: Research' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Rename group' })
     ).toBeInTheDocument();
   });
 
-  test('names an untitled group by its placeholder', async () => {
+  test('an untitled group is named by its placeholder in both', async () => {
     await renderWindow([{ groupId: 'g1', title: '', color: 'orange' }]);
 
     expect(
-      screen.getByRole('button', { name: 'Rename group: Unnamed group' })
+      screen.getByRole('button', { name: 'Open group: Unnamed group' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Rename group' })
     ).toBeInTheDocument();
   });
 
@@ -177,9 +185,7 @@ describe('committing a rename', () => {
       { groupId: 'g1', title: 'Research', color: 'blue' },
     ]);
 
-    await user.click(
-      screen.getByRole('button', { name: 'Rename group: Research' })
-    );
+    await user.click(screen.getByRole('button', { name: 'Rename group' }));
     const input = screen.getByRole('textbox', {
       name: 'Rename group: Research',
     });
@@ -195,9 +201,7 @@ describe('committing a rename', () => {
       { groupId: 'g1', title: '', color: 'orange' },
     ]);
 
-    await user.click(
-      screen.getByRole('button', { name: 'Rename group: Unnamed group' })
-    );
+    await user.click(screen.getByRole('button', { name: 'Rename group' }));
     await user.type(
       screen.getByRole('textbox', { name: 'Rename group: Unnamed group' }),
       'Research{Enter}'
@@ -212,9 +216,7 @@ describe('committing a rename', () => {
       { groupId: 'g1', title: 'Research', color: 'blue' },
     ]);
 
-    await user.click(
-      screen.getByRole('button', { name: 'Rename group: Research' })
-    );
+    await user.click(screen.getByRole('button', { name: 'Rename group' }));
     const input = screen.getByRole('textbox', {
       name: 'Rename group: Research',
     });
@@ -230,9 +232,7 @@ describe('committing a rename', () => {
       { groupId: 'g1', title: 'Research', color: 'blue' },
     ]);
 
-    await user.click(
-      screen.getByRole('button', { name: 'Rename group: Research' })
-    );
+    await user.click(screen.getByRole('button', { name: 'Rename group' }));
     const input = screen.getByRole('textbox', {
       name: 'Rename group: Research',
     });
@@ -247,9 +247,7 @@ describe('committing a rename', () => {
     const user = userEvent.setup();
     await renderWindow([{ groupId: 'g1', title: 'Research', color: 'blue' }]);
 
-    await user.click(
-      screen.getByRole('button', { name: 'Rename group: Research' })
-    );
+    await user.click(screen.getByRole('button', { name: 'Rename group' }));
 
     expect(
       screen.getByRole('textbox', { name: 'Rename group: Research' })
@@ -285,9 +283,7 @@ describe('finishing a group rename', () => {
     const user = userEvent.setup();
     await renderWindow([{ groupId: 'g1', title: 'Research', color: 'blue' }]);
 
-    await user.click(
-      screen.getByRole('button', { name: 'Rename group: Research' })
-    );
+    await user.click(screen.getByRole('button', { name: 'Rename group' }));
 
     expect(
       screen.getByRole('button', { name: 'Save changes' })
@@ -309,9 +305,7 @@ describe('finishing a group rename', () => {
       { groupId: 'g1', title: 'Research', color: 'blue' },
     ]);
 
-    await user.click(
-      screen.getByRole('button', { name: 'Rename group: Research' })
-    );
+    await user.click(screen.getByRole('button', { name: 'Rename group' }));
     const input = screen.getByRole('textbox', {
       name: 'Rename group: Research',
     });
@@ -328,9 +322,7 @@ describe('finishing a group rename', () => {
     const user = userEvent.setup();
     await renderWindow([{ groupId: 'g1', title: 'Research', color: 'blue' }]);
 
-    await user.click(
-      screen.getByRole('button', { name: 'Rename group: Research' })
-    );
+    await user.click(screen.getByRole('button', { name: 'Rename group' }));
     await user.click(screen.getByRole('button', { name: 'Save changes' }));
 
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
@@ -349,7 +341,7 @@ describe('finishing a group rename', () => {
 // focus in the input means onClick is the single commit path instead of racing
 // a blur. Asserted at the mechanism, because that is the only place it shows.
 describe('the confirm tick does not blur the field it commits', () => {
-  test.each([['group', 'Rename group: Research']])(
+  test.each([['group', 'Rename group']])(
     '%s tick prevents the default mousedown',
     async (_label, opener) => {
       const user = userEvent.setup();
@@ -381,9 +373,7 @@ describe('the group rename editor fills its row', () => {
   const openEditor = async () => {
     const user = userEvent.setup();
     await renderWindow([{ groupId: 'g1', title: 'Research', color: 'blue' }]);
-    await user.click(
-      screen.getByRole('button', { name: 'Rename group: Research' })
-    );
+    await user.click(screen.getByRole('button', { name: 'Rename group' }));
     return screen.getByRole('textbox', { name: 'Rename group: Research' });
   };
 
@@ -444,9 +434,7 @@ describe('the group title size', () => {
     await renderWindow([{ groupId: 'g1', title: 'Research', color: 'blue' }]);
 
     const labelSize = getComputedStyle(screen.getByText('Research')).fontSize;
-    await user.click(
-      screen.getByRole('button', { name: 'Rename group: Research' })
-    );
+    await user.click(screen.getByRole('button', { name: 'Rename group' }));
     const input = screen.getByRole('textbox', {
       name: 'Rename group: Research',
     });
