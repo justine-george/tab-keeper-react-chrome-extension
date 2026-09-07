@@ -520,3 +520,77 @@ describe('without the tabGroups permission', () => {
     ).not.toBeInTheDocument();
   });
 });
+
+// The real popup is DESTROYED the moment a tab takes focus. The first version
+// of this handler created the last tab with active: true and then awaited
+// applyTabGroups -- so in the real popup the continuation never ran and the
+// tabs opened ungrouped. It looked correct when verified, because the popup was
+// being driven as a TAB, which does not die; e2e/README.md says outright that
+// defects depending on the popup being destroyed are invisible that way.
+//
+// The fix is ordering: nothing may steal focus until the group exists. These
+// assert that ordering rather than the death itself, which jsdom cannot stage.
+describe('opening a group survives the popup closing', () => {
+  test('no tab is created focused', async () => {
+    const user = userEvent.setup();
+    const { chrome } = await renderRow();
+
+    await user.click(
+      screen.getByRole('button', { name: 'Open group: Research' })
+    );
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(chrome.createdTabs.every((t) => t.active !== true)).toBe(true);
+  });
+
+  test('the group is formed before anything is focused', async () => {
+    const user = userEvent.setup();
+    await renderRow();
+
+    const order: string[] = [];
+    const api = globalThis.chrome as unknown as {
+      tabs: {
+        group: (...a: unknown[]) => unknown;
+        update: (...a: unknown[]) => unknown;
+      };
+    };
+    const realGroup = api.tabs.group.bind(api.tabs);
+    const realUpdate = api.tabs.update.bind(api.tabs);
+    api.tabs.group = (...a: unknown[]) => {
+      order.push('group');
+      return realGroup(...a);
+    };
+    api.tabs.update = (...a: unknown[]) => {
+      const props = a[1] as { active?: boolean } | undefined;
+      if (props?.active) order.push('activate');
+      return realUpdate(...a);
+    };
+
+    await user.click(
+      screen.getByRole('button', { name: 'Open group: Research' })
+    );
+    await new Promise((r) => setTimeout(r, 0));
+
+    api.tabs.group = realGroup;
+    api.tabs.update = realUpdate;
+
+    expect(order).toEqual(['group', 'activate']);
+  });
+
+  // THE CONTROL. Never focusing anything would satisfy both assertions above
+  // and would silently drop the behaviour the user asked for -- landing on the
+  // tabs they just opened.
+  test('CONTROL: the last opened tab still ends up focused', async () => {
+    const user = userEvent.setup();
+    await renderRow();
+
+    await user.click(
+      screen.getByRole('button', { name: 'Open group: Research' })
+    );
+    await new Promise((r) => setTimeout(r, 0));
+
+    const tabs = await globalThis.chrome.tabs.query({ currentWindow: true });
+    const opened = tabs.filter((t) => (t.url || '').startsWith('https://'));
+    expect(opened[opened.length - 1].active).toBe(true);
+  });
+});

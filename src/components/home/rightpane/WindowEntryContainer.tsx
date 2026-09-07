@@ -396,9 +396,13 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
         created.push(
           await chrome.tabs.create({
             url: resolveTabUrl(tab.url),
-            // Only the last one takes focus, so the user lands at the end of
-            // what they opened instead of watching focus jump per tab.
-            active: offset === run.tabs.length - 1,
+            // Nothing is created focused. Activating a tab DESTROYS the popup,
+            // and everything below -- including the grouping -- is a
+            // continuation of this handler that would simply never run. The
+            // first version created the last tab active and the tabs opened
+            // ungrouped in the real popup, while looking correct when driven
+            // as a tab, which does not die.
+            active: false,
             index: current.index + 1 + offset,
           })
         );
@@ -420,6 +424,10 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
         [run.group],
         new Map([[run.group.groupId, tabIds]])
       );
+
+      // Focus LAST, once the group exists. This is the step that kills the
+      // popup, so nothing may depend on running after it.
+      await chrome.tabs.update(tabIds[tabIds.length - 1], { active: true });
     });
   };
 
