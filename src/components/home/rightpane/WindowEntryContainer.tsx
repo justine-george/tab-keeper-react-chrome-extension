@@ -614,6 +614,23 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                       display: flex;
                       align-items: center;
                       min-height: 22px;
+                      /* Fills like the window row above and the tab rows
+                         below, which both paint HOVER_COLOR under the pointer.
+                         Without it this row revealed its actions while giving
+                         no sign of being hovered at all.
+
+                         Both triggers, because the actions appear on both:
+                         reveal and fill are one visual state with one trigger
+                         (KAN-100), and filling on only one is how they came
+                         apart last time.
+
+                         No transition on the fill, also KAN-100 -- easing it
+                         lets the row reach the colour in two halves with a
+                         visible edge between them. */
+                      &:hover,
+                      &:focus-within {
+                        background-color: ${COLORS.HOVER_COLOR};
+                      }
                       &:hover .group-rename-reveal,
                       &:focus-within .group-rename-reveal {
                         opacity: 1;

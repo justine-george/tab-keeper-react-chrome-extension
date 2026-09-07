@@ -308,3 +308,76 @@ describe('two group rows in one window', () => {
     expect(triggers[1]).toHaveAttribute('aria-expanded', 'true');
   });
 });
+
+// The window row and every tab row fill with HOVER_COLOR under the pointer.
+// The group header row, added in KAN-107, filled with nothing -- so hovering it
+// revealed its actions on a row that gave no sign of being hovered.
+//
+// Both triggers, not just hover: this strip reveals its actions on :hover AND
+// :focus-within, and KAN-100's rule is that reveal and fill are ONE visual
+// state with one trigger. Filling on only one of them is exactly how they
+// drifted apart before.
+//
+// No transition on the fill, for KAN-100's reason: the fill has to land in the
+// same frame as anything painted over it, or the row fills in two halves with a
+// visible edge between them.
+describe('the group row fills like the rows around it', () => {
+  const stripRules = (groupName: string) => {
+    const group = screen.getByRole('group', { name: groupName });
+    const strip = group.querySelector('.group-rename-reveal')
+      ?.parentElement as HTMLElement;
+    const classes = [...strip.classList].map((c) => `.${c}`);
+    const out: string[] = [];
+    for (const sheet of [...document.styleSheets]) {
+      let rules: CSSRuleList;
+      try {
+        rules = sheet.cssRules;
+      } catch {
+        continue;
+      }
+      for (const rule of [...rules]) {
+        if (classes.some((c) => rule.cssText.includes(c)))
+          out.push(rule.cssText);
+      }
+    }
+    return out.join('\n');
+  };
+
+  const HOVER = /#E4E7EB|rgb\(228, ?231, ?235\)/i;
+
+  test('fills under the pointer', async () => {
+    await renderRow();
+    const rules = stripRules('Research');
+
+    const hoverBlock = rules
+      .split('}')
+      .find((b) => b.includes(':hover') && !b.includes('.group-rename-reveal'));
+
+    expect(hoverBlock).toBeDefined();
+    expect(hoverBlock).toMatch(HOVER);
+  });
+
+  test('fills when the keyboard reveals its actions', async () => {
+    await renderRow();
+    const rules = stripRules('Research');
+
+    const focusBlock = rules
+      .split('}')
+      .find(
+        (b) =>
+          b.includes(':focus-within') && !b.includes('.group-rename-reveal')
+      );
+
+    expect(focusBlock).toBeDefined();
+    expect(focusBlock).toMatch(HOVER);
+  });
+
+  // KAN-100: easing the fill lets the row arrive at the colour in two halves.
+  test('does not ease the fill', async () => {
+    await renderRow();
+
+    expect(stripRules('Research')).not.toMatch(
+      /transition[^;]*background-color/i
+    );
+  });
+});
