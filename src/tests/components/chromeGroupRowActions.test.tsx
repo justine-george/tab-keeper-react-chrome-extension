@@ -381,3 +381,22 @@ describe('the group row fills like the rows around it', () => {
     );
   });
 });
+
+// The group header row stood 22px tall while the window row above it and every
+// tab row below it are 32px, so its hover fill read as a short band wedged
+// between full-height ones. Measured in a browser before the change: window 32,
+// tab 32, group 22.
+//
+// 32px is also exactly the action icons' height, so they now fit the row
+// instead of overflowing a shorter one and relying on absolute centring.
+describe('the group row stands as tall as the rows around it', () => {
+  test('reserves the same row height the window and tab rows use', async () => {
+    await renderRow();
+
+    const strip = screen
+      .getByRole('group', { name: 'Research' })
+      .querySelector('.group-rename-reveal')?.parentElement as HTMLElement;
+
+    expect(getComputedStyle(strip).minHeight).toBe('32px');
+  });
+});
