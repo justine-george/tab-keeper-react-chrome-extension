@@ -72,7 +72,7 @@ describe('WindowEntryContainer renders Chrome tab groups', () => {
     expect(screen.getByText('Loose')).toBeInTheDocument();
   });
 
-  test('an untitled group is named for screen readers but shows no label', async () => {
+  test('an untitled group shows a visible placeholder and keeps its name', async () => {
     await renderWindow({
       tabs: [
         {
@@ -86,12 +86,22 @@ describe('WindowEntryContainer renders Chrome tab groups', () => {
       chromeTabGroups: [{ groupId: 'g1', title: '', color: 'red' }],
     });
 
-    // Chrome shows an unnamed group as a bare colour, so the pane does too --
-    // the string exists only as the accessible name.
+    // This test used to assert the OPPOSITE -- that "Unnamed group" existed
+    // only as the accessible name, because Chrome shows an unnamed group as a
+    // bare colour and the pane matched it.
+    //
+    // That held while the title was inert text. Making a group renameable
+    // needs a control, and the only place for one is a header strip that did
+    // not exist before. Reserving the strip and leaving it blank costs the
+    // same vertical space as filling it while explaining nothing, so the
+    // placeholder is now shown. It is italic and one label tier dimmer than a
+    // real name, so it reads as "this group has no name" rather than as a
+    // group actually called that. Decision recorded in
+    // chromeGroupRename.test.tsx.
     expect(
       screen.getByRole('group', { name: 'Unnamed group' })
     ).toBeInTheDocument();
-    expect(screen.queryByText('Unnamed group')).not.toBeInTheDocument();
+    expect(screen.getByText('Unnamed group')).toBeInTheDocument();
   });
 
   test('a window with no groups renders exactly as it did before', async () => {

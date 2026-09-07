@@ -29,6 +29,8 @@ export const EDIT_TABGROUP_TITLE_ACTION =
   'tabContainerDataState/updateTabGroupTitle';
 export const EDIT_WINDOWGROUP_TITLE_ACTION =
   'tabContainerDataState/updateWindowGroupTitle';
+export const EDIT_CHROME_GROUP_TITLE_ACTION =
+  'tabContainerDataState/updateChromeTabGroupTitle';
 export const DELETE_TAB_CONTAINER_ACTION =
   'tabContainerDataState/deleteTabContainerInternal';
 export const DELETE_WINDOW_ACTION =
