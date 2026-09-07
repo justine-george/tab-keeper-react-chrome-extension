@@ -197,3 +197,83 @@ describe('OverflowMenu keyboard navigation', () => {
     ).toHaveFocus();
   });
 });
+
+describe('OverflowMenu destructive styling', () => {
+  // The app expresses "this action destroys something" as a red FILL behind a
+  // dark glyph -- Icon.tsx:115 picks DELETE_ICON_HOVER_COLOR as the hover
+  // BACKGROUND, and the glyph stays TEXT_COLOR. The first version of this menu
+  // used the token the other way round, tinting the glyph on a grey row, which
+  // read as a different control entirely beside the row delete icons.
+  //
+  // Asserted against the generated CSS rather than a rendered hover, because
+  // jsdom applies no :hover pseudo-class -- getComputedStyle would report the
+  // resting state for both branches and pass against either. The real hover is
+  // verified in a browser.
+  const hoverRulesFor = (el: Element) => {
+    const classes = [...el.classList].map((c) => `.${c}`);
+    const out: string[] = [];
+    for (const sheet of [...document.styleSheets]) {
+      let rules: CSSRuleList;
+      try {
+        rules = sheet.cssRules;
+      } catch {
+        continue;
+      }
+      for (const rule of [...rules]) {
+        const text = rule.cssText;
+        if (text.includes(':hover') && classes.some((c) => text.includes(c))) {
+          out.push(text);
+        }
+      }
+    }
+    return out.join('\n');
+  };
+
+  test('a danger item fills with the delete colour on hover', async () => {
+    const user = userEvent.setup();
+    await renderMenu({
+      items: [
+        {
+          key: 'delete',
+          label: 'Delete group',
+          icon: 'delete',
+          danger: true,
+          onSelect: () => undefined,
+        },
+      ],
+    });
+    await user.click(trigger());
+
+    const item = screen.getByRole('menuitem', { name: 'Delete group' });
+    const rules = hoverRulesFor(item);
+
+    // #FF8080, as a BACKGROUND
+    expect(rules).toMatch(
+      /background-color:\s*(#FF8080|rgb\(255, ?128, ?128\))/i
+    );
+  });
+
+  // THE CONTROL. Asserting only that the token appears would pass against the
+  // original bug, which used the very same token -- as a foreground colour.
+  test('CONTROL: a non-danger item does not use the delete colour', async () => {
+    const user = userEvent.setup();
+    await renderMenu({
+      items: [
+        {
+          key: 'ungroup',
+          label: 'Ungroup',
+          icon: 'label_off',
+          onSelect: () => undefined,
+        },
+      ],
+    });
+    await user.click(trigger());
+
+    const rules = hoverRulesFor(
+      screen.getByRole('menuitem', { name: 'Ungroup' })
+    );
+
+    expect(rules).not.toMatch(/#FF8080|rgb\(255, ?128, ?128\)/i);
+    expect(rules).toMatch(/background-color/);
+  });
+});
