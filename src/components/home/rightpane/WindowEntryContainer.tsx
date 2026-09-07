@@ -6,6 +6,7 @@ import { css } from '@emotion/react';
 
 import ClickableRow from '../../common/ClickableRow';
 import Icon from '../../common/Icon';
+import OverflowMenu from '../../common/OverflowMenu';
 import { NormalLabel } from '../../common/Label';
 import { useFontFamily } from '../../../hooks/useFontFamily';
 import { useThemeColors } from '../../../hooks/useThemeColors';
@@ -19,8 +20,12 @@ import {
   deleteTab,
   tabData,
   updateChromeTabGroupTitle,
+  addCurrTabToChromeGroupInternal,
+  ungroupChromeTabGroup,
+  deleteChromeTabGroupInternal,
 } from '../../../redux/slices/tabContainerDataStateSlice';
 import { useTranslation } from 'react-i18next';
+import { v4 as uuidv4 } from 'uuid';
 import {
   partitionTabsIntoRuns,
   sanitizeTabGroupColor,
@@ -266,6 +271,31 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
       style={`padding-left: 4px;${group.title ? '' : ' font-style: italic;'}`}
     />
   );
+
+  // The chrome query happens here rather than in the parent, matching
+  // handleTabClick below, which already reaches for chrome.tabs directly.
+  // A fresh uuid is minted for the stored tab, exactly as the window-level
+  // add does -- the tab is a copy, not a reference to the live one.
+  const addCurrentTabToGroup = async (group: chromeTabGroupData) => {
+    const [tab] = await chrome.tabs.query({
+      active: true,
+      lastFocusedWindow: true,
+    });
+    if (!tab) return;
+    dispatch(
+      addCurrTabToChromeGroupInternal({
+        tabGroupId,
+        windowId,
+        groupId: group.groupId,
+        tabData: {
+          tabId: uuidv4(),
+          favicon: tab.favIconUrl || '',
+          title: tab.title || '',
+          url: resolveTabUrl(tab.url || ''),
+        },
+      })
+    );
+  };
 
   // Same DRAFT discipline as the window title above (KAN-51): seeded when
   // editing starts rather than kept in step by an effect, so a rename
@@ -609,10 +639,17 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                     ) : (
                       // WCAG 2.5.3, same shape as KAN-77: the accessible name
                       // CONTAINS the visible one, so "click Research" works.
+                      // padding-right reserves the action block's width so a
+                      // long title ellipsizes instead of rendering UNDER the
+                      // icons. The block is absolutely positioned -- kept that
+                      // way deliberately, so the title does not reflow and
+                      // jump when the icons appear on hover -- which means
+                      // layout gives it no room unless it is reserved here.
+                      // Measured at 100/125/150% zoom before and after.
                       <ClickableRow
                         ariaLabel={renameGroupLabel(run.group)}
                         onClick={() => startEditingGroup(run.group)}
-                        style="display: flex; align-items: center; min-width: 0;"
+                        style="display: flex; align-items: center; min-width: 0; width: 100%; padding-right: 100px; box-sizing: border-box;"
                       >
                         {groupTitleLabel(run.group)}
                       </ClickableRow>
@@ -627,6 +664,16 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                           transform: translateY(-50%);
                           opacity: 0;
                           transition: opacity 0.1s ease-out;
+                          display: flex;
+                          align-items: center;
+                          /* Load-bearing, and only visible in a real browser.
+                             translateY above makes this element a STACKING
+                             CONTEXT, which traps the overflow menu's own
+                             z-index inside it -- the menu then painted behind
+                             the tab rows below, which are later siblings with
+                             position: relative. Lifting the context itself is
+                             what puts the menu over them. */
+                          z-index: 1;
                         `}
                       >
                         <Icon
@@ -637,6 +684,52 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                             e.stopPropagation();
                             startEditingGroup(run.group);
                           }}
+                        />
+                        <Icon
+                          tooltipText={t('Add current tab to group')}
+                          ariaLabel={t('Add current tab to group')}
+                          type="add"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            addCurrentTabToGroup(run.group);
+                          }}
+                        />
+                        {/* Ungroup and delete live behind the overflow rather
+                            than as two more icons: four 32px icons overlap a
+                            long title from 125% zoom, and "Ungroup" is not a
+                            concept named anywhere else in this UI, so it needs
+                            a word rather than a glyph. */}
+                        <OverflowMenu
+                          ariaLabel={t('More actions')}
+                          items={[
+                            {
+                              key: 'ungroup',
+                              label: t('Ungroup'),
+                              icon: 'label_off',
+                              onSelect: () =>
+                                dispatch(
+                                  ungroupChromeTabGroup({
+                                    tabGroupId,
+                                    windowId,
+                                    groupId: run.group.groupId,
+                                  })
+                                ),
+                            },
+                            {
+                              key: 'delete',
+                              label: t('Delete group'),
+                              icon: 'delete',
+                              danger: true,
+                              onSelect: () =>
+                                dispatch(
+                                  deleteChromeTabGroupInternal({
+                                    tabGroupId,
+                                    windowId,
+                                    groupId: run.group.groupId,
+                                  })
+                                ),
+                            },
+                          ]}
                         />
                       </div>
                     )}
