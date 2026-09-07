@@ -61,7 +61,7 @@ the manual chrome-devtools loop repeatable.
 All measured, not assumed — each cost a debugging cycle to find:
 
 - **`channel: 'chromium'` is required.** Plain `headless: true` uses the
-  headless *shell*, which never loads the extension: the service worker never
+  headless _shell_, which never loads the extension: the service worker never
   registers and `waitForEvent('serviceworker')` times out.
 - **`context.serviceWorkers()` is empty immediately after launch**, in every
   mode. Always await the `serviceworker` event; a bare `[0]` throws every run.
