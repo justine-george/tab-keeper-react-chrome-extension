@@ -18,6 +18,7 @@ import { NON_INTERACTIVE_ICON_STYLE } from '../../../utils/constants/common';
 import {
   deleteTab,
   tabData,
+  updateChromeTabGroupTitle,
 } from '../../../redux/slices/tabContainerDataStateSlice';
 import { useTranslation } from 'react-i18next';
 import {
@@ -65,6 +66,11 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   const [newTitle, setNewTitle] = useState(title);
   const [isEditing, setIsEditing] = useState(false);
   const [isParentHovered, setIsParentHovered] = useState(false);
+  // Which Chrome group is being renamed, by its capture-time uuid -- not a
+  // boolean, because one window can hold several groups and a boolean would
+  // put every one of them into edit mode at once.
+  const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
+  const [groupDraft, setGroupDraft] = useState('');
   const [hoveredChildIndex, setHoveredChildIndex] = useState<number | null>(
     null
   );
@@ -240,6 +246,50 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     setIsEditing(false);
     if (title !== newTitle) {
       onUpdateWindowGroupTitle(newTitle);
+    }
+  };
+
+  // What a group is called on screen. An untitled group has no name, so it
+  // borrows the string that already named it for assistive tech -- present
+  // and translated in all ten locales since KAN-11.
+  const groupDisplayName = (group: chromeTabGroupData) =>
+    group.title || t('Unnamed group');
+
+  const renameGroupLabel = (group: chromeTabGroupData) =>
+    t('Rename group') + ': ' + groupDisplayName(group);
+
+  const groupTitleLabel = (group: chromeTabGroupData) => (
+    <NormalLabel
+      value={groupDisplayName(group)}
+      color={group.title ? COLORS.LABEL_L2_COLOR : COLORS.LABEL_L3_COLOR}
+      size="0.8rem"
+      style={`padding-left: 4px;${group.title ? '' : ' font-style: italic;'}`}
+    />
+  );
+
+  // Same DRAFT discipline as the window title above (KAN-51): seeded when
+  // editing starts rather than kept in step by an effect, so a rename
+  // arriving from another device cannot overwrite what is being typed.
+  const startEditingGroup = (group: chromeTabGroupData) => {
+    setGroupDraft(group.title);
+    setEditingGroupId(group.groupId);
+  };
+
+  // Unlike the session and window renames, a blank is a legitimate result: it
+  // clears the name and the group falls back to its placeholder. The reducer
+  // owns that rule; this only declines to dispatch when nothing changed, so
+  // opening and closing the editor is not a Firestore write.
+  const commitGroupRename = (group: chromeTabGroupData) => {
+    setEditingGroupId(null);
+    if (group.title !== groupDraft) {
+      dispatch(
+        updateChromeTabGroupTitle({
+          tabGroupId,
+          windowId,
+          groupId: group.groupId,
+          editableTitle: groupDraft,
+        })
+      );
     }
   };
 
@@ -500,18 +550,97 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                     min-width: 0;
                   `}
                 >
-                  {/* An untitled group renders as the band alone, matching
-                      how Chrome itself shows one (BINDING CONSTRAINT 2). The
-                      name still reaches a screen reader through the
-                      aria-label on the role="group" element above. */}
-                  {run.group.title && (
-                    <NormalLabel
-                      value={run.group.title}
-                      color={COLORS.LABEL_L2_COLOR}
-                      size="0.8rem"
-                      style="padding-left: 4px;"
-                    />
-                  )}
+                  {/* The group's header strip.
+
+                      This REPLACES the older rule that an untitled group
+                      renders as the band alone (BINDING CONSTRAINT 2). That
+                      held while the title was inert text, but a rename
+                      control has to live somewhere, and the only unclaimed
+                      space is a strip of exactly this height -- the first tab
+                      row's right edge is already taken by its delete Icon.
+                      Reserving the strip and leaving it blank costs the same
+                      22px while explaining nothing, so an untitled group
+                      fills it with a placeholder instead. Measured before
+                      choosing; see chromeGroupRename.test.tsx.
+
+                      The placeholder is italic and one label tier dimmer than
+                      a real name so it does not read as content -- the group
+                      is not called "Unnamed group", it has no name. */}
+                  <div
+                    css={css`
+                      position: relative;
+                      display: flex;
+                      align-items: center;
+                      min-height: 22px;
+                      &:hover .group-rename-reveal,
+                      &:focus-within .group-rename-reveal {
+                        opacity: 1;
+                      }
+                    `}
+                  >
+                    {editingGroupId === run.group.groupId && !isSearchPanel ? (
+                      <input
+                        value={groupDraft}
+                        aria-label={renameGroupLabel(run.group)}
+                        onBlur={() => commitGroupRename(run.group)}
+                        onChange={(e) => setGroupDraft(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') commitGroupRename(run.group);
+                        }}
+                        autoFocus
+                        css={css`
+                          color: ${COLORS.TEXT_COLOR};
+                          background-color: ${COLORS.PRIMARY_COLOR};
+                          border: 1px solid ${COLORS.BORDER_COLOR};
+                          font-family: ${FONT_FAMILY};
+                          font-size: 0.8rem;
+                          margin-left: 4px;
+                          width: 100%;
+                          min-width: 0;
+                          &:focus {
+                            outline: none;
+                          }
+                        `}
+                      />
+                    ) : isSearchPanel ? (
+                      // A control that cannot act must not be focusable and
+                      // inert (KAN-62), so searching gets static text.
+                      groupTitleLabel(run.group)
+                    ) : (
+                      // WCAG 2.5.3, same shape as KAN-77: the accessible name
+                      // CONTAINS the visible one, so "click Research" works.
+                      <ClickableRow
+                        ariaLabel={renameGroupLabel(run.group)}
+                        onClick={() => startEditingGroup(run.group)}
+                        style="display: flex; align-items: center; min-width: 0;"
+                      >
+                        {groupTitleLabel(run.group)}
+                      </ClickableRow>
+                    )}
+                    {editingGroupId !== run.group.groupId && !isSearchPanel && (
+                      <div
+                        className="group-rename-reveal"
+                        css={css`
+                          position: absolute;
+                          top: 50%;
+                          right: 0;
+                          transform: translateY(-50%);
+                          opacity: 0;
+                          transition: opacity 0.1s ease-out;
+                        `}
+                      >
+                        <Icon
+                          tooltipText={t('Rename group')}
+                          ariaLabel={t('Rename group')}
+                          type="edit"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            startEditingGroup(run.group);
+                          }}
+                        />
+                      </div>
+                    )}
+                  </div>
                   {run.tabs.map((tabItem) =>
                     renderTab(tabItem, tabs.indexOf(tabItem))
                   )}

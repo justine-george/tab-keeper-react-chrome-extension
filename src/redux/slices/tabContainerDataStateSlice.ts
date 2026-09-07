@@ -118,6 +118,15 @@ export interface updateWindowGroupTitleParams {
   editableTitle: string;
 }
 
+export interface updateChromeTabGroupTitleParams {
+  tabGroupId: string;
+  windowId: string;
+  // The uuid minted at capture, as chromeTabGroupData.groupId -- never
+  // Chrome's numeric group id. See tabGroups.ts.
+  groupId: string;
+  editableTitle: string;
+}
+
 export interface deleteWindowParams {
   tabGroupId: string;
   windowId: string;
@@ -710,6 +719,54 @@ export const tabContainerDataStateSlice = createSlice({
       saveToLocalStorage('tabContainerData', state);
     },
 
+    // update the title of a Chrome tab group inside a saved window
+    updateChromeTabGroupTitle: (
+      state,
+      action: PayloadAction<updateChromeTabGroupTitleParams>
+    ) => {
+      const { tabGroupId, windowId, groupId, editableTitle } = action.payload;
+
+      // NOT isBlankTitle. The two renames above refuse a blank outright
+      // (KAN-84) because a session or window with no name leaves a row
+      // identifiable only by its counts and date. A Chrome group is different:
+      // Chrome allows an unnamed group, and this pane renders one as its
+      // colour band plus a placeholder. Refusing a blank here would make
+      // naming a one-way door and let the extension hold a state that cannot
+      // round-trip back to Chrome.
+      //
+      // normalizeTitle trims, so a whitespace-only title clears the name
+      // rather than storing invisible characters.
+      const newTitle = normalizeTitle(editableTitle);
+
+      const tabGroupIndex = state.tabGroups.findIndex(
+        (tabGroup) => tabGroup.tabGroupId === tabGroupId
+      );
+      if (tabGroupIndex === -1) return;
+
+      const windowIndex = state.tabGroups[tabGroupIndex].windows.findIndex(
+        (window) => window.windowId === windowId
+      );
+      if (windowIndex === -1) return;
+
+      const chromeTabGroups =
+        state.tabGroups[tabGroupIndex].windows[windowIndex].chromeTabGroups;
+      const group = chromeTabGroups?.find((g) => g.groupId === groupId);
+      if (!group) return;
+
+      // Same reasoning as updateTabGroupTitle's early return: touching
+      // lastModified marks the container dirty and pushes a write to
+      // Firestore. An edit that changed nothing must not pay for one. This
+      // has to sit AFTER normalizeTitle so that retyping the same name with
+      // stray spaces still counts as unchanged.
+      if (group.title === newTitle) return;
+
+      group.title = newTitle;
+      touch(state.tabGroups[tabGroupIndex]);
+      state.lastModified = Date.now();
+      // update localstorage
+      saveToLocalStorage('tabContainerData', state);
+    },
+
     // delete tab group by tabGroupId
     deleteTabContainerInternal: (state, action: PayloadAction<string>) => {
       const toBeDeletedTabGroupId = action.payload;
@@ -1095,6 +1152,7 @@ export const {
   addCurrTabToWindowInternal,
   updateTabGroupTitle,
   updateWindowGroupTitle,
+  updateChromeTabGroupTitle,
   deleteTabContainerInternal,
   deleteWindowInternal,
   deleteTabInternal,
