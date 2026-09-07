@@ -265,18 +265,47 @@ export default function HeroContainerRight() {
               ${isSearchPanel && 'visibility: hidden;'}
             `}
           >
-            {!isEditing && !isSearchPanel && (
-              <Icon
-                tooltipText={t('Rename session')}
-                ariaLabel={t('Rename session')}
-                type="edit"
-                backgroundColor={COLORS.SECONDARY_COLOR}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  startEditing();
-                }}
-              />
-            )}
+            {/* Editing swaps the pencil for a tick rather than leaving the
+                block empty, matching the window rename below. Enter and
+                clicking away both already committed, but neither is an
+                affordance a pointer user can see -- "click somewhere else to
+                save" is not something an interface can ask of anyone. */}
+            {!isSearchPanel &&
+              (isEditing ? (
+                // The wrapper exists to carry onMouseDown, which Icon does not
+                // expose. preventDefault keeps focus in the input so the tick
+                // does not blur it, which makes onClick below the SINGLE commit
+                // path rather than one of two racing ones (blur, then click).
+                //
+                // Measured: the wrapper alone is what stops the editor
+                // reopening -- without any wrapper, the tick unmounts on commit
+                // and the click retargets onto the pencil that replaced it. The
+                // preventDefault is pinned separately, by asserting the
+                // mousedown is defaultPrevented.
+                <span onMouseDown={(e) => e.preventDefault()}>
+                  <Icon
+                    tooltipText={t('Save changes')}
+                    ariaLabel={t('Save changes')}
+                    type="done"
+                    backgroundColor={COLORS.SECONDARY_COLOR}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleBlur();
+                    }}
+                  />
+                </span>
+              ) : (
+                <Icon
+                  tooltipText={t('Rename session')}
+                  ariaLabel={t('Rename session')}
+                  type="edit"
+                  backgroundColor={COLORS.SECONDARY_COLOR}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    startEditing();
+                  }}
+                />
+              ))}
           </div>
         </div>
         <NormalLabel

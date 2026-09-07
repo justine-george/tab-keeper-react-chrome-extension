@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 
 import WindowEntryContainer from '../../components/home/rightpane/WindowEntryContainer';
 import { renderWithProviders } from '../setup/renderWithProviders';
@@ -229,5 +230,33 @@ describe('WindowEntryContainer gates tab groups on the live permission', () => {
 
     const group = screen.getByRole('group', { name: 'Work' });
     expect(within(group).getByText('Inbox')).toBeInTheDocument();
+  });
+});
+
+// The window rename's tick predates the session and group ones. It works in
+// real Chrome -- verified by driving the built artifact -- but jsdom retargets
+// the post-blur click differently, so without preventDefault on mousedown the
+// commit closes the editor and the click then reopens it via the pencil that
+// took the tick's place. Pinned here so all three ticks behave identically and
+// none of them depends on that environment difference.
+describe('finishing a window rename', () => {
+  test('the tick commits and leaves the editor closed', async () => {
+    const user = userEvent.setup();
+    const { store } = await renderWindow({
+      tabs: [
+        { tabId: 't1', favicon: '', title: 'Inbox', url: 'https://a.test' },
+      ],
+    });
+
+    await user.click(
+      screen.getByRole('button', { name: 'Rename window group' })
+    );
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Rename window group' })
+    ).toBeInTheDocument();
+    expect(store).toBeDefined();
   });
 });

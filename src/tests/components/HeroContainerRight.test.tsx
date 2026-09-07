@@ -229,3 +229,82 @@ describe('HeroContainerRight', () => {
     });
   });
 });
+
+// Three rename editors sit in this pane -- session, window and Chrome group --
+// and only the window one offered a visible way to finish. Enter and clicking
+// away both commit, but neither is discoverable: a pointer user has nothing to
+// aim at, and "click somewhere else to save" is not an affordance.
+//
+// The window group already swaps its edit icon for a done tick while editing
+// (WindowEntryContainer, `Save changes`). This brings the session into line.
+// The string is not new -- it is already translated in all ten locales.
+describe('finishing a session rename', () => {
+  const renderHero = async () =>
+    renderWithProviders(<HeroContainerRight />, {
+      seedStore: (store) => {
+        store.dispatch(saveToTabContainerInternal(buildSession()));
+        store.dispatch(selectTabContainer('group-1'));
+      },
+    });
+
+  const titleOf = (store: RenderWithProvidersResult['store']) =>
+    store.getState().tabContainerDataState.tabGroups[0].title;
+
+  test('offers a confirm control while editing', async () => {
+    const user = userEvent.setup();
+    await renderHero();
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Rename session: Research' })
+    );
+
+    expect(
+      screen.getByRole('button', { name: 'Save changes' })
+    ).toBeInTheDocument();
+  });
+
+  // THE CONTROL. A component that always rendered the tick would satisfy the
+  // test above; the tick must belong to the editing state.
+  test('CONTROL: no confirm control when not editing', async () => {
+    await renderHero();
+
+    expect(
+      await screen.findByRole('button', { name: 'Rename session' })
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Save changes' })
+    ).not.toBeInTheDocument();
+  });
+
+  test('the confirm control commits the rename', async () => {
+    const user = userEvent.setup();
+    const { store } = await renderHero();
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Rename session: Research' })
+    );
+    // Targeted by role alone: this input carries no accessible name, which is
+    // a separate pre-existing gap and deliberately not fixed here.
+    const input = screen.getByRole('textbox');
+    await user.clear(input);
+    await user.type(input, 'Reading');
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+
+    expect(titleOf(store)).toBe('Reading');
+  });
+
+  test('the editor closes once confirmed', async () => {
+    const user = userEvent.setup();
+    await renderHero();
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Rename session: Research' })
+    );
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Rename session' })
+    ).toBeInTheDocument();
+  });
+});
