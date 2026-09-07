@@ -792,7 +792,13 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                         ariaLabel={openGroupLabel(run.group)}
                         tooltipText={t('Open group')}
                         onClick={() => handleGroupClick(run)}
-                        style="display: flex; align-items: center; min-width: 0; width: 100%; padding-right: 100px; box-sizing: border-box;"
+                        // align-self, because the strip centres its children
+                        // -- without it the clickable is only as tall as its
+                        // text and the row has 8px of dead zone above and
+                        // below, while the hover fill paints the full 32px.
+                        // The tab rows get this from their parent's
+                        // align-items: stretch; this strip has to ask.
+                        style="display: flex; align-items: center; align-self: stretch; min-width: 0; width: 100%; padding-right: 100px; box-sizing: border-box;"
                       >
                         {groupTitleLabel(run.group)}
                       </ClickableRow>

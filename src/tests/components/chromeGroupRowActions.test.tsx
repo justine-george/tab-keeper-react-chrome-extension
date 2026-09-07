@@ -594,3 +594,34 @@ describe('opening a group survives the popup closing', () => {
     expect(opened[opened.length - 1].active).toBe(true);
   });
 });
+
+// The row LOOKS 32px tall -- the hover fill paints the whole strip -- but the
+// clickable element was only as tall as its text. Measured in a browser:
+// strip 32px, clickable 17px, 8px of dead zone above and below. Aiming at the
+// grey band did nothing near its edges.
+//
+// The tab rows do not have this problem: their parent uses
+// `align-items: stretch`, so the clickable fills the row. The group strip
+// centres its children instead, so the row has to stretch itself.
+//
+// Asserted at the mechanism -- jsdom performs no layout, so every rect is 0
+// and the rendered height cannot be checked here. Verified in a browser.
+describe('the group row is clickable across its whole height', () => {
+  test('the clickable stretches to the row rather than to its text', async () => {
+    await renderRow();
+
+    const row = screen.getByRole('button', { name: 'Open group: Research' });
+
+    expect(getComputedStyle(row).alignSelf).toBe('stretch');
+  });
+
+  // THE CONTROL. Stretching the row must not come at the cost of the label
+  // still being centred within it -- otherwise the text would sit at the top.
+  test('CONTROL: the row still centres its label', async () => {
+    await renderRow();
+
+    const row = screen.getByRole('button', { name: 'Open group: Research' });
+
+    expect(getComputedStyle(row).alignItems).toBe('center');
+  });
+});
