@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { screen, within } from '@testing-library/react';
+import { screen, within, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import WindowEntryContainer from '../../components/home/rightpane/WindowEntryContainer';
@@ -258,5 +258,104 @@ describe('finishing a window rename', () => {
       screen.getByRole('button', { name: 'Rename window group' })
     ).toBeInTheDocument();
     expect(store).toBeDefined();
+  });
+});
+
+// Two faults in the window title editor, both visible once the group editor
+// beside it was made right.
+//
+// The tick lives inside the row's action block, whose opacity is driven by
+// isParentHovered. While editing, focus is in the INPUT -- outside that block
+// -- so neither the hover flag nor :focus-within applies and the tick was
+// invisible unless the pointer happened to be over the row. The group editor
+// does not have this problem because its reveal is keyed off the strip that
+// CONTAINS the input.
+//
+// And parentLinkStyle reserves padding-right: 9px to keep the resting title
+// clear of the action icons. While editing there is no title to keep clear,
+// so the field stopped 9px short of the row's edge -- measured in a browser.
+describe('the window title editor', () => {
+  const openEditor = async () => {
+    const user = userEvent.setup();
+    await renderWindow({
+      tabs: [
+        { tabId: 't1', favicon: '', title: 'Inbox', url: 'https://a.test' },
+      ],
+    });
+    await user.click(
+      screen.getByRole('button', { name: 'Rename window group' })
+    );
+    return screen.getByRole('textbox');
+  };
+
+  // Asserted against the generated CSS, not getComputedStyle. The reveal is a
+  // `& > *` rule, and jsdom does not resolve child combinators for computed
+  // style -- it reports opacity 1 for the tick whatever the state, which is how
+  // three earlier versions of this test passed against the bug. The browser
+  // reports 0. Verified there too.
+  test('shows its confirm tick without needing the pointer', async () => {
+    await openEditor();
+
+    // Load-bearing. userEvent.click moves the virtual pointer onto the row, so
+    // onMouseEnter fires and isParentHovered stays TRUE -- which made two
+    // earlier versions of this test pass by exercising the hover path and
+    // never touching isEditing at all. mouseLeave is fired directly rather
+    // than via unhover(), because the element the pointer was last over has
+    // since unmounted.
+    let row: HTMLElement | null = screen.getByRole('textbox');
+    while (row && getComputedStyle(row).position !== 'relative') {
+      row = row.parentElement;
+    }
+    fireEvent.mouseLeave(row as HTMLElement);
+
+    const tick = screen.getByRole('button', { name: 'Save changes' });
+
+    let block: HTMLElement | null = tick;
+    while (block && getComputedStyle(block).position !== 'absolute') {
+      block = block.parentElement;
+    }
+    const classes = [...(block as HTMLElement).classList].map((c) => `.${c}`);
+
+    const childRules: string[] = [];
+    for (const sheet of [...document.styleSheets]) {
+      let rules: CSSRuleList;
+      try {
+        rules = sheet.cssRules;
+      } catch {
+        continue;
+      }
+      for (const rule of [...rules]) {
+        const text = rule.cssText;
+        if (
+          classes.some((c) => text.includes(`${c}>`) || text.includes(`${c} >`))
+        )
+          childRules.push(text);
+      }
+    }
+
+    expect(childRules.join('\n')).toMatch(/opacity:\s*1/);
+  });
+
+  test('runs the field to the edge of its row', async () => {
+    const input = await openEditor();
+
+    expect(
+      getComputedStyle(input.parentElement as HTMLElement).paddingRight
+    ).toBe('0px');
+  });
+
+  // THE CONTROL for the padding. The 9px exists for a reason -- it keeps the
+  // resting title clear of the action icons -- so it must survive when the row
+  // is NOT being edited.
+  test('CONTROL: the resting title still reserves room for the actions', async () => {
+    await renderWindow({
+      tabs: [
+        { tabId: 't1', favicon: '', title: 'Inbox', url: 'https://a.test' },
+      ],
+    });
+
+    const title = screen.getByRole('button', { name: 'Window 1' });
+
+    expect(getComputedStyle(title).paddingRight).toBe('9px');
   });
 });
