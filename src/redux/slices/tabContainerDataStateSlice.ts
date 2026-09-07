@@ -163,6 +163,27 @@ export interface openWindowParams {
   windowId: string;
 }
 
+// Move a tab to a position within its own window, and to whatever Chrome group
+// owns that position.
+//
+// Position and membership travel together because grouping is a property on the
+// tab rather than a nested collection: a group is a run of the flat array, so
+// "where it sits" and "what it belongs to" are one answer, not two.
+//
+// toChromeGroupId is RESOLVED BY THE CALLER, never inferred here. The drop knows
+// which band the pointer was over; recovering that from an index would mean
+// reconstructing band geometry inside a reducer.
+export interface moveTabParams {
+  tabGroupId: string;
+  windowId: string;
+  // Identity, not a position: the source index is looked up, so a stale index
+  // from a list that moved under the caller cannot move the wrong tab.
+  tabId: string;
+  toIndex: number;
+  // Absent means ungrouped.
+  toChromeGroupId?: string;
+}
+
 export const initialState: TabMasterContainer = {
   lastModified: Date.now(), // timestamp
   selectedTabGroupId: null,
@@ -1160,6 +1181,88 @@ export const tabContainerDataStateSlice = createSlice({
       saveToLocalStorage('tabContainerData', state);
     },
 
+    // move a tab within its window, and into whatever Chrome group owns the
+    // destination
+    moveTabInternal: (state, action: PayloadAction<moveTabParams>) => {
+      const { tabGroupId, windowId, tabId, toIndex, toChromeGroupId } =
+        action.payload;
+
+      const container = state.tabGroups.find(
+        (group) => group.tabGroupId === tabGroupId
+      );
+      if (!container) return;
+      const windowGroup = container.windows.find(
+        (w) => w.windowId === windowId
+      );
+      if (!windowGroup) return;
+      const fromIndex = windowGroup.tabs.findIndex((t) => t.tabId === tabId);
+      // Same shape as the sibling reducers: an id that does not resolve means
+      // the action arrived for data that is no longer there, and doing nothing
+      // is the correct outcome.
+      if (fromIndex === -1) return;
+
+      // toIndex is where the tab ends up in the RESULT, so it indexes the array
+      // with the tab lifted out -- whose last valid index is length - 1 here,
+      // before the removal below.
+      //
+      // Both bounds are resolved rather than left to splice, because this value
+      // is also compared against fromIndex just below, and a raw out-of-range
+      // toIndex would not equal the index it is going to land on.
+      const target = Math.min(
+        Math.max(0, toIndex),
+        windowGroup.tabs.length - 1
+      );
+
+      // A drop that lands the tab where it started, in the group it was already
+      // in, is not an edit. Without this it would stamp the session, write
+      // localStorage, dirty the container for a cloud write and push an undo
+      // step -- for something the user cannot see. Picking a tab up and putting
+      // it back is ordinary. BOTH axes have to match: dropping in place but
+      // inside a band is a real membership change.
+      const current = windowGroup.tabs[fromIndex];
+      if (target === fromIndex && current.chromeGroupId === toChromeGroupId) {
+        return;
+      }
+
+      const [moved] = windowGroup.tabs.splice(fromIndex, 1);
+      const fromChromeGroupId = moved.chromeGroupId;
+      windowGroup.tabs.splice(target, 0, moved);
+
+      // `delete`, not `= undefined`. Absent is the stored representation, and
+      // Firestore's setDoc rejects an explicit undefined outright (KAN-48).
+      if (toChromeGroupId === undefined) {
+        delete moved.chromeGroupId;
+      } else {
+        moved.chromeGroupId = toChromeGroupId;
+      }
+
+      // Only the group the tab LEFT can have emptied.
+      //
+      // ORDER IS LOAD-BEARING: this runs after the tab is back in the array
+      // carrying its NEW membership, so a tab reordered inside its own group
+      // still answers `some` and the group is never a prune candidate. That is
+      // what removes the need for an explicit "source is not the destination"
+      // case. Run this while the tab is spliced out and a single-member group
+      // deletes itself on every reorder.
+      if (
+        fromChromeGroupId !== undefined &&
+        !windowGroup.tabs.some((t) => t.chromeGroupId === fromChromeGroupId)
+      ) {
+        windowGroup.chromeTabGroups = (
+          windowGroup.chromeTabGroups ?? []
+        ).filter((group) => group.groupId !== fromChromeGroupId);
+      }
+
+      // touch, not stampCreated: a reorder is an edit, and stampCreated would
+      // reset createdAt, which is what the merge orders the session list by.
+      // Nudging a tab must not send its session to the top of the left pane.
+      touch(container);
+      state.lastModified = Date.now();
+
+      // update localstorage
+      saveToLocalStorage('tabContainerData', state);
+    },
+
     replaceState: (state, action: PayloadAction<typeof state>) => {
       // update localstorage
       saveToLocalStorage('tabContainerData', action.payload);
@@ -1425,6 +1528,7 @@ export const {
   deleteTabContainerInternal,
   deleteWindowInternal,
   deleteTabInternal,
+  moveTabInternal,
   replaceState,
   restoreContainer,
   applyUndoSnapshot,
