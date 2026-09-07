@@ -283,7 +283,12 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     <NormalLabel
       value={groupDisplayName(group)}
       color={group.title ? COLORS.LABEL_L2_COLOR : COLORS.LABEL_L3_COLOR}
-      size="0.8rem"
+      // 0.85rem, not the 0.9rem the window title and tab titles share. At
+      // 0.8rem this was the smallest content text in the pane and smaller than
+      // the tabs the group contains, which reads as a caption rather than a
+      // header. Matching 0.9 would instead make a group as prominent as the
+      // window holding it. Compared in a browser before choosing.
+      size="0.85rem"
       style={`padding-left: 4px;${group.title ? '' : ' font-style: italic;'}`}
     />
   );
@@ -682,7 +687,9 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                           display: flex;
                           align-items: center;
                           font-family: ${FONT_FAMILY};
-                          font-size: 0.8rem;
+                          /* Matches the label this replaces, or the text
+                             visibly jumps size on entering edit mode. */
+                          font-size: 0.85rem;
                           padding-left: 8px;
                           /* align-self, NOT height: 100%. The strip is a flex
                              container with align-items: center and only a

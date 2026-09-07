@@ -405,3 +405,52 @@ describe('the group rename editor fills its row', () => {
     expect(getComputedStyle(input).paddingLeft).toBe('8px');
   });
 });
+
+// The group title shipped at 0.8rem -- the smallest content text in the pane,
+// and smaller than the tabs the group contains, which inverts the hierarchy: a
+// container reading as subordinate to its own children.
+//
+// 0.85rem rather than 0.9rem, chosen after comparing all three in a browser.
+// 0.9rem is what the WINDOW title uses, so matching it would make a group as
+// loud as the window that holds it, and a heavier 0.9 louder still.
+//
+// This narrows the inversion without removing it: tab titles are also 0.9rem,
+// so no value is both smaller than the window and not smaller than the tabs.
+// The real flatness is that window and tab share a size, leaving no step for a
+// group to occupy. Deliberately not addressed here.
+describe('the group title size', () => {
+  test('is larger than the 0.8rem it shipped at', async () => {
+    await renderWindow([{ groupId: 'g1', title: 'Research', color: 'blue' }]);
+
+    // 0.85rem at the 16px root
+    expect(getComputedStyle(screen.getByText('Research')).fontSize).toBe(
+      '13.6px'
+    );
+  });
+
+  // THE CONTROL. The point of the change is the gap to the tabs, so the tab
+  // title must stay where it is -- shrinking the tabs would also "fix" the
+  // ratio and would be the wrong fix entirely.
+  test('CONTROL: the tab titles are unchanged at 0.9rem', async () => {
+    await renderWindow([{ groupId: 'g1', title: 'Research', color: 'blue' }]);
+
+    expect(getComputedStyle(screen.getByText('Inbox')).fontSize).toBe('14.4px');
+  });
+
+  // The editor replaces the label in place, so a different size there would
+  // make the text visibly jump on entering and leaving edit mode.
+  test('the editor matches the label it replaces', async () => {
+    const user = userEvent.setup();
+    await renderWindow([{ groupId: 'g1', title: 'Research', color: 'blue' }]);
+
+    const labelSize = getComputedStyle(screen.getByText('Research')).fontSize;
+    await user.click(
+      screen.getByRole('button', { name: 'Rename group: Research' })
+    );
+    const input = screen.getByRole('textbox', {
+      name: 'Rename group: Research',
+    });
+
+    expect(getComputedStyle(input).fontSize).toBe(labelSize);
+  });
+});
