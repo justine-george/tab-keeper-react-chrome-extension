@@ -275,7 +275,13 @@ const SettingsDetailsContainer: React.FC = () => {
             display: flex;
             flex-direction: column;
             align-items: flex-start;
+            /* Matched on both sides. The inset used to be left-only, so every
+               settings section sat off-centre in its pane -- measured on the
+               Language grid, 50px of gutter on the left and 9px on the right.
+               The content inside is flexible, so reserving the right simply
+               narrows it; nothing needed resizing by hand. */
             padding-left: clamp(16px, 8%, 72px);
+            padding-right: clamp(16px, 8%, 72px);
             width: 100%;
             margin-top: 20px;
           `}
@@ -412,6 +418,7 @@ const SettingsDetailsContainer: React.FC = () => {
             flex-direction: column;
             align-items: flex-start;
             padding-left: clamp(16px, 8%, 72px);
+            padding-right: clamp(16px, 8%, 72px);
             width: 100%;
             margin-top: 20px;
           `}
@@ -471,6 +478,7 @@ const SettingsDetailsContainer: React.FC = () => {
             flex-direction: column;
             align-items: flex-start;
             padding-left: clamp(16px, 8%, 72px);
+            padding-right: clamp(16px, 8%, 72px);
             width: 100%;
             margin-top: 20px;
           `}
@@ -511,6 +519,7 @@ const SettingsDetailsContainer: React.FC = () => {
             flex-direction: column;
             align-items: flex-start;
             padding-left: clamp(16px, 8%, 72px);
+            padding-right: clamp(16px, 8%, 72px);
             width: 100%;
             margin-top: 20px;
           `}
@@ -567,6 +576,7 @@ const SettingsDetailsContainer: React.FC = () => {
         <div
           css={css`
             padding-left: clamp(16px, 8%, 72px);
+            padding-right: clamp(16px, 8%, 72px);
             width: 100%;
             margin-top: 20px;
           `}
@@ -626,6 +636,7 @@ const SettingsDetailsContainer: React.FC = () => {
             flex-direction: column;
             align-items: flex-start;
             padding-left: clamp(16px, 8%, 72px);
+            padding-right: clamp(16px, 8%, 72px);
             width: 100%;
             margin-top: 20px;
           `}
@@ -691,6 +702,7 @@ const SettingsDetailsContainer: React.FC = () => {
             flex-direction: column;
             align-items: flex-start;
             padding-left: clamp(16px, 8%, 72px);
+            padding-right: clamp(16px, 8%, 72px);
             width: 100%;
             margin-top: 20px;
           `}
