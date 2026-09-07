@@ -613,7 +613,13 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                       position: relative;
                       display: flex;
                       align-items: center;
-                      min-height: 22px;
+                      /* 32px, the height the window row and every tab row
+                         already stand at -- measured, not guessed. At 22px the
+                         hover fill read as a short band wedged between
+                         full-height ones. It is also exactly the action icons'
+                         height, so they now fit the row rather than
+                         overflowing a shorter one. */
+                      min-height: 32px;
                       /* Fills like the window row above and the tab rows
                          below, which both paint HOVER_COLOR under the pointer.
                          Without it this row revealed its actions while giving
