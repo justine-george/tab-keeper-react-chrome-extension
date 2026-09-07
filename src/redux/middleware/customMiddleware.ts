@@ -26,6 +26,7 @@ import {
   UNGROUP_CHROME_GROUP_ACTION,
   RECOLOUR_CHROME_GROUP_ACTION,
   DELETE_CHROME_GROUP_ACTION,
+  MOVE_TAB_ACTION,
 } from '../../utils/constants/actionTypes';
 import type { RootState } from '../store';
 
@@ -50,6 +51,7 @@ const actionsToCapture = [
   DELETE_TAB_CONTAINER_ACTION,
   DELETE_WINDOW_ACTION,
   DELETE_TAB_ACTION,
+  MOVE_TAB_ACTION,
 
   // actions in globalStateSlice
   IS_DIRTY_ACTION,

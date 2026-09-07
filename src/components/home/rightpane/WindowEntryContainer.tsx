@@ -1,4 +1,9 @@
-import React, { MouseEventHandler, useState } from 'react';
+import React, {
+  MouseEventHandler,
+  useCallback,
+  useMemo,
+  useState,
+} from 'react';
 
 import { useDispatch, useSelector } from 'react-redux';
 
@@ -25,6 +30,7 @@ import {
   ungroupChromeTabGroup,
   deleteChromeTabGroupInternal,
   updateChromeTabGroupColor,
+  moveTabInternal,
 } from '../../../redux/slices/tabContainerDataStateSlice';
 import { useTranslation } from 'react-i18next';
 import { v4 as uuidv4 } from 'uuid';
@@ -34,6 +40,7 @@ import type {
   TabRun,
 } from '../../../utils/functions/tabGroups';
 import { applyTabGroups } from '../../../utils/functions/windows';
+import { TabDragArea, DraggableTab } from './tabDrag/TabDragArea';
 
 interface WindowEntryContainerProps {
   title: string;
@@ -83,9 +90,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   // equal z-indexes leave DOM order deciding -- and a LOWER group's strip then
   // painted over an open menu belonging to the group above it.
   const [openMenuGroupId, setOpenMenuGroupId] = useState<string | null>(null);
-  const [hoveredChildIndex, setHoveredChildIndex] = useState<number | null>(
-    null
-  );
+  const [hoveredTabId, setHoveredTabId] = useState<string | null>(null);
 
   const isSearchPanel = useSelector(
     (state: RootState) => state.globalState.isSearchPanel
@@ -102,6 +107,28 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   // way, only the grouping UI disappears.
   const hasTabGroupsPermission = useSelector(
     (state: RootState) => state.globalState.hasTabGroupsPermission
+  );
+
+  const tabIds = useMemo(() => tabs.map((tab) => tab.tabId), [tabs]);
+  // Position by id, so the run rendering does not need indexOf per row.
+  const indexOfTab = useMemo(
+    () => new Map(tabs.map((tab, i) => [tab.tabId, i])),
+    [tabs]
+  );
+
+  const handleMove = useCallback(
+    (tabId: string, toIndex: number, toChromeGroupId?: string) => {
+      dispatch(
+        moveTabInternal({
+          tabGroupId,
+          windowId,
+          tabId,
+          toIndex,
+          toChromeGroupId,
+        })
+      );
+    },
+    [dispatch, tabGroupId, windowId]
   );
 
   const containerStyle = css`
@@ -196,17 +223,17 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     min-width: 0;
   `;
 
-  const childRightStyle = (index: number) => css`
+  const childRightStyle = (tabId: string) => css`
     position: absolute;
     top: 50%;
     right: 0;
     transform: translateY(-50%);
     /* Mask in one frame, icons ease -- see parentRightStyle (KAN-100). */
-    background-color: ${hoveredChildIndex === index
+    background-color: ${hoveredTabId === tabId
       ? COLORS.HOVER_COLOR
       : 'transparent'};
     & > * {
-      opacity: ${hoveredChildIndex === index ? 1 : 0};
+      opacity: ${hoveredTabId === tabId ? 1 : 0};
       transition: opacity 0.1s ease-out;
     }
     /* The keyboard's equivalent of the hover reveal (KAN-68). Delete tab has
@@ -439,18 +466,19 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     }
   }
 
-  // `index` is hover bookkeeping against hoveredChildIndex, which is this
-  // component's own state -- it is not an identity for the row and must not
-  // be used as the key. Callers pass tabs.indexOf(tabItem) so the count runs
-  // across the whole window rather than restarting inside each group's run;
-  // getting that wrong makes hovering one tab highlight another.
-  function renderTab({ tabId, favicon, title, url }: tabData, index: number) {
+  // Hover is tracked by tabId, not by position (KAN-127). A position-keyed
+  // flag points at whichever tab has since moved into that slot, so anything
+  // that reorders the list -- a sync adopting the other device's window, or a
+  // drag -- reveals the wrong row's actions. It also removes the cross-run
+  // index arithmetic this used to need, since a run's local index and the
+  // window-wide one no longer have to be reconciled.
+  function renderTab({ tabId, favicon, title, url }: tabData) {
     return (
       <div
         key={tabId}
         css={childrenStyle}
-        onMouseEnter={() => setHoveredChildIndex(index)}
-        onMouseLeave={() => setHoveredChildIndex(null)}
+        onMouseEnter={() => setHoveredTabId(tabId)}
+        onMouseLeave={() => setHoveredTabId(null)}
       >
         {/* The name reuses the string the tooltip already carried, so no new
             hardcoded English enters the app -- the 25 untranslated
@@ -476,7 +504,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
             />
           </div>
         </ClickableRow>
-        <div css={childRightStyle(index)}>
+        <div css={childRightStyle(tabId)}>
           <Icon
             tooltipText={t('Delete tab')}
             ariaLabel={t('Delete tab')}
@@ -631,28 +659,36 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
       </div>
       {windowOpenState && (
         <div css={childrenContainerStyle}>
-          {partitionTabsIntoRuns(
-            tabs,
-            hasTabGroupsPermission ? chromeTabGroups : undefined
-          ).map((run, runIndex) =>
-            run.kind === 'ungrouped' ? (
-              <React.Fragment key={`ungrouped-${runIndex}`}>
-                {run.tabs.map((tabItem) =>
-                  renderTab(tabItem, tabs.indexOf(tabItem))
-                )}
-              </React.Fragment>
-            ) : (
-              <div
-                key={run.group.groupId}
-                role="group"
-                aria-label={run.group.title || t('Unnamed group')}
-                css={css`
-                  display: flex;
-                  align-items: stretch;
-                  margin: 2px 0;
-                `}
-              >
-                {/* The colour is Chrome's own group identity, not app chrome
+          <TabDragArea tabIds={tabIds} onMove={handleMove}>
+            {partitionTabsIntoRuns(
+              tabs,
+              hasTabGroupsPermission ? chromeTabGroups : undefined
+            ).map((run, runIndex) =>
+              run.kind === 'ungrouped' ? (
+                <React.Fragment key={`ungrouped-${runIndex}`}>
+                  {run.tabs.map((tabItem) => (
+                    <DraggableTab
+                      key={tabItem.tabId}
+                      tabId={tabItem.tabId}
+                      index={indexOfTab.get(tabItem.tabId) ?? 0}
+                    >
+                      {renderTab(tabItem)}
+                    </DraggableTab>
+                  ))}
+                </React.Fragment>
+              ) : (
+                <div
+                  key={run.group.groupId}
+                  data-band-id={run.group.groupId}
+                  role="group"
+                  aria-label={run.group.title || t('Unnamed group')}
+                  css={css`
+                    display: flex;
+                    align-items: stretch;
+                    margin: 2px 0;
+                  `}
+                >
+                  {/* The colour is Chrome's own group identity, not app chrome
                     (BINDING CONSTRAINT 1) -- TAB_GROUP_COLOR_HEX is a fixed
                     map, not routed through useThemeColors, so it reads the
                     same in every theme as it does in the browser.
@@ -664,30 +700,32 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                     repeating the group name the role="group" boundary above
                     already announces. The band stays a sibling of the header
                     strip so it spans the whole group, as Chrome's does. */}
-                <GroupColorPicker
-                  color={run.group.color}
-                  decorative={isSearchPanel}
-                  ariaLabel={
-                    t('Change group color') + ': ' + groupDisplayName(run.group)
-                  }
-                  onSelect={(color) =>
-                    dispatch(
-                      updateChromeTabGroupColor({
-                        tabGroupId,
-                        windowId,
-                        groupId: run.group.groupId,
-                        color,
-                      })
-                    )
-                  }
-                />
-                <div
-                  css={css`
-                    flex: 1;
-                    min-width: 0;
-                  `}
-                >
-                  {/* The group's header strip.
+                  <GroupColorPicker
+                    color={run.group.color}
+                    decorative={isSearchPanel}
+                    ariaLabel={
+                      t('Change group color') +
+                      ': ' +
+                      groupDisplayName(run.group)
+                    }
+                    onSelect={(color) =>
+                      dispatch(
+                        updateChromeTabGroupColor({
+                          tabGroupId,
+                          windowId,
+                          groupId: run.group.groupId,
+                          color,
+                        })
+                      )
+                    }
+                  />
+                  <div
+                    css={css`
+                      flex: 1;
+                      min-width: 0;
+                    `}
+                  >
+                    {/* The group's header strip.
 
                       This REPLACES the older rule that an untitled group
                       renders as the band alone (BINDING CONSTRAINT 2). That
@@ -703,19 +741,19 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                       The placeholder is italic and one label tier dimmer than
                       a real name so it does not read as content -- the group
                       is not called "Unnamed group", it has no name. */}
-                  <div
-                    css={css`
-                      position: relative;
-                      display: flex;
-                      align-items: center;
-                      /* 32px, the height the window row and every tab row
+                    <div
+                      css={css`
+                        position: relative;
+                        display: flex;
+                        align-items: center;
+                        /* 32px, the height the window row and every tab row
                          already stand at -- measured, not guessed. At 22px the
                          hover fill read as a short band wedged between
                          full-height ones. It is also exactly the action icons'
                          height, so they now fit the row rather than
                          overflowing a shorter one. */
-                      min-height: 32px;
-                      /* Fills like the window row above and the tab rows
+                        min-height: 32px;
+                        /* Fills like the window row above and the tab rows
                          below, which both paint HOVER_COLOR under the pointer.
                          Without it this row revealed its actions while giving
                          no sign of being hovered at all.
@@ -728,222 +766,232 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                          No transition on the fill, also KAN-100 -- easing it
                          lets the row reach the colour in two halves with a
                          visible edge between them. */
-                      &:hover,
-                      &:focus-within {
-                        background-color: ${COLORS.HOVER_COLOR};
-                      }
-                      &:hover .group-rename-reveal,
-                      &:focus-within .group-rename-reveal {
-                        opacity: 1;
-                      }
-                    `}
-                  >
-                    {editingGroupId === run.group.groupId && !isSearchPanel ? (
-                      <input
-                        value={groupDraft}
-                        aria-label={renameGroupLabel(run.group)}
-                        onBlur={() => commitGroupRename(run.group)}
-                        onChange={(e) => setGroupDraft(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') commitGroupRename(run.group);
-                        }}
-                        autoFocus
-                        css={css`
-                          color: ${COLORS.TEXT_COLOR};
-                          background-color: ${COLORS.PRIMARY_COLOR};
-                          border: 1px solid ${COLORS.BORDER_COLOR};
-                          /* Same four declarations the window title editor
+                        &:hover,
+                        &:focus-within {
+                          background-color: ${COLORS.HOVER_COLOR};
+                        }
+                        &:hover .group-rename-reveal,
+                        &:focus-within .group-rename-reveal {
+                          opacity: 1;
+                        }
+                      `}
+                    >
+                      {editingGroupId === run.group.groupId &&
+                      !isSearchPanel ? (
+                        <input
+                          value={groupDraft}
+                          aria-label={renameGroupLabel(run.group)}
+                          onBlur={() => commitGroupRename(run.group)}
+                          onChange={(e) => setGroupDraft(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') commitGroupRename(run.group);
+                          }}
+                          autoFocus
+                          css={css`
+                            color: ${COLORS.TEXT_COLOR};
+                            background-color: ${COLORS.PRIMARY_COLOR};
+                            border: 1px solid ${COLORS.BORDER_COLOR};
+                            /* Same four declarations the window title editor
                              carries. Without height and padding the field
                              collapsed to the intrinsic height of its text and
                              sat 2px short of its own row, with the browser's
                              default 2px padding rather than a chosen one --
                              which read as a thinner, tighter box than the
                              editor one level above it. */
-                          display: flex;
-                          align-items: center;
-                          font-family: ${FONT_FAMILY};
-                          /* Matches the label this replaces, or the text
+                            display: flex;
+                            align-items: center;
+                            font-family: ${FONT_FAMILY};
+                            /* Matches the label this replaces, or the text
                              visibly jumps size on entering edit mode. */
-                          font-size: 0.85rem;
-                          padding-left: 8px;
-                          /* align-self, NOT height: 100%. The strip is a flex
+                            font-size: 0.85rem;
+                            padding-left: 8px;
+                            /* align-self, NOT height: 100%. The strip is a flex
                              container with align-items: center and only a
                              min-height, so it has no definite height for a
                              percentage to resolve against and the child is not
                              stretched -- height: 100% computed, rendered
                              nothing, and left the field 2px short of its row.
                              Stretching the item is what actually fills it. */
-                          align-self: stretch;
-                          width: 100%;
-                          min-width: 0;
-                          &:focus {
-                            outline: none;
-                          }
-                        `}
-                      />
-                    ) : isSearchPanel ? (
-                      // A control that cannot act must not be focusable and
-                      // inert (KAN-62), so searching gets static text.
-                      groupTitleLabel(run.group)
-                    ) : (
-                      // WCAG 2.5.3, same shape as KAN-77: the accessible name
-                      // CONTAINS the visible one, so "click Research" works.
-                      // padding-right reserves the action block's width so a
-                      // long title ellipsizes instead of rendering UNDER the
-                      // icons. The block is absolutely positioned -- kept that
-                      // way deliberately, so the title does not reflow and
-                      // jump when the icons appear on hover -- which means
-                      // layout gives it no room unless it is reserved here.
-                      // Measured at 100/125/150% zoom before and after.
-                      <ClickableRow
-                        ariaLabel={openGroupLabel(run.group)}
-                        tooltipText={t('Open group')}
-                        onClick={() => handleGroupClick(run)}
-                        // align-self, because the strip centres its children
-                        // -- without it the clickable is only as tall as its
-                        // text and the row has 8px of dead zone above and
-                        // below, while the hover fill paints the full 32px.
-                        // The tab rows get this from their parent's
-                        // align-items: stretch; this strip has to ask.
-                        style="display: flex; align-items: center; align-self: stretch; min-width: 0; width: 100%; padding-right: 100px; box-sizing: border-box;"
-                      >
-                        {groupTitleLabel(run.group)}
-                      </ClickableRow>
-                    )}
-                    {editingGroupId === run.group.groupId && !isSearchPanel && (
-                      // Same shape as the other two ticks: the wrapper stops
-                      // the post-commit click retargeting onto the pencil, and
-                      // preventDefault keeps focus in the input so onClick is
-                      // the single commit path.
-                      <span
-                        className="group-rename-reveal"
-                        css={css`
-                          position: absolute;
-                          top: 50%;
-                          right: 0;
-                          transform: translateY(-50%);
-                          opacity: 1;
-                          display: flex;
-                          align-items: center;
-                          z-index: 1;
-                        `}
-                        onMouseDown={(e) => e.preventDefault()}
-                      >
-                        <Icon
-                          tooltipText={t('Save changes')}
-                          ariaLabel={t('Save changes')}
-                          type="done"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            commitGroupRename(run.group);
-                          }}
+                            align-self: stretch;
+                            width: 100%;
+                            min-width: 0;
+                            &:focus {
+                              outline: none;
+                            }
+                          `}
                         />
-                      </span>
-                    )}
-                    {editingGroupId !== run.group.groupId && !isSearchPanel && (
-                      <div
-                        className="group-rename-reveal"
-                        css={css`
-                          position: absolute;
-                          top: 50%;
-                          right: 0;
-                          transform: translateY(-50%);
-                          opacity: 0;
-                          transition: opacity 0.1s ease-out;
-                          display: flex;
-                          align-items: center;
-                          /* Load-bearing, and only visible in a real browser.
+                      ) : isSearchPanel ? (
+                        // A control that cannot act must not be focusable and
+                        // inert (KAN-62), so searching gets static text.
+                        groupTitleLabel(run.group)
+                      ) : (
+                        // WCAG 2.5.3, same shape as KAN-77: the accessible name
+                        // CONTAINS the visible one, so "click Research" works.
+                        // padding-right reserves the action block's width so a
+                        // long title ellipsizes instead of rendering UNDER the
+                        // icons. The block is absolutely positioned -- kept that
+                        // way deliberately, so the title does not reflow and
+                        // jump when the icons appear on hover -- which means
+                        // layout gives it no room unless it is reserved here.
+                        // Measured at 100/125/150% zoom before and after.
+                        <ClickableRow
+                          ariaLabel={openGroupLabel(run.group)}
+                          tooltipText={t('Open group')}
+                          onClick={() => handleGroupClick(run)}
+                          // align-self, because the strip centres its children
+                          // -- without it the clickable is only as tall as its
+                          // text and the row has 8px of dead zone above and
+                          // below, while the hover fill paints the full 32px.
+                          // The tab rows get this from their parent's
+                          // align-items: stretch; this strip has to ask.
+                          style="display: flex; align-items: center; align-self: stretch; min-width: 0; width: 100%; padding-right: 100px; box-sizing: border-box;"
+                        >
+                          {groupTitleLabel(run.group)}
+                        </ClickableRow>
+                      )}
+                      {editingGroupId === run.group.groupId &&
+                        !isSearchPanel && (
+                          // Same shape as the other two ticks: the wrapper stops
+                          // the post-commit click retargeting onto the pencil, and
+                          // preventDefault keeps focus in the input so onClick is
+                          // the single commit path.
+                          <span
+                            className="group-rename-reveal"
+                            css={css`
+                              position: absolute;
+                              top: 50%;
+                              right: 0;
+                              transform: translateY(-50%);
+                              opacity: 1;
+                              display: flex;
+                              align-items: center;
+                              z-index: 1;
+                            `}
+                            onMouseDown={(e) => e.preventDefault()}
+                          >
+                            <Icon
+                              tooltipText={t('Save changes')}
+                              ariaLabel={t('Save changes')}
+                              type="done"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                commitGroupRename(run.group);
+                              }}
+                            />
+                          </span>
+                        )}
+                      {editingGroupId !== run.group.groupId &&
+                        !isSearchPanel && (
+                          <div
+                            className="group-rename-reveal"
+                            css={css`
+                              position: absolute;
+                              top: 50%;
+                              right: 0;
+                              transform: translateY(-50%);
+                              opacity: 0;
+                              transition: opacity 0.1s ease-out;
+                              display: flex;
+                              align-items: center;
+                              /* Load-bearing, and only visible in a real browser.
                              translateY above makes this element a STACKING
                              CONTEXT, which traps the overflow menu's own
                              z-index inside it -- the menu then painted behind
                              the tab rows below, which are later siblings with
                              position: relative. Lifting the context itself is
                              what puts the menu over them. */
-                          /* The row owning an open menu outranks its
+                              /* The row owning an open menu outranks its
                              siblings; see openMenuGroupId above. */
-                          z-index: ${openMenuGroupId === run.group.groupId
-                            ? 3
-                            : 1};
-                        `}
-                      >
-                        <Icon
-                          tooltipText={t('Rename group')}
-                          ariaLabel={t('Rename group')}
-                          type="edit"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            startEditingGroup(run.group);
-                          }}
-                        />
-                        <Icon
-                          tooltipText={t('Add current tab to group')}
-                          ariaLabel={t('Add current tab to group')}
-                          type="add"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            addCurrentTabToGroup(run.group);
-                          }}
-                        />
-                        {/* Ungroup and delete live behind the overflow rather
+                              z-index: ${openMenuGroupId === run.group.groupId
+                                ? 3
+                                : 1};
+                            `}
+                          >
+                            <Icon
+                              tooltipText={t('Rename group')}
+                              ariaLabel={t('Rename group')}
+                              type="edit"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                startEditingGroup(run.group);
+                              }}
+                            />
+                            <Icon
+                              tooltipText={t('Add current tab to group')}
+                              ariaLabel={t('Add current tab to group')}
+                              type="add"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                addCurrentTabToGroup(run.group);
+                              }}
+                            />
+                            {/* Ungroup and delete live behind the overflow rather
                             than as two more icons: four 32px icons overlap a
                             long title from 125% zoom, and "Ungroup" is not a
                             concept named anywhere else in this UI, so it needs
                             a word rather than a glyph. */}
-                        <OverflowMenu
-                          ariaLabel={t('More actions')}
-                          // Guarded on identity rather than assigning blindly:
-                          // opening a second menu closes the first, and the
-                          // close can land after the open, which would
-                          // otherwise clear the row that just opened.
-                          onOpenChange={(open) =>
-                            setOpenMenuGroupId((prev) =>
-                              open
-                                ? run.group.groupId
-                                : prev === run.group.groupId
-                                  ? null
-                                  : prev
-                            )
-                          }
-                          items={[
-                            {
-                              key: 'ungroup',
-                              label: t('Ungroup'),
-                              icon: 'label_off',
-                              onSelect: () =>
-                                dispatch(
-                                  ungroupChromeTabGroup({
-                                    tabGroupId,
-                                    windowId,
-                                    groupId: run.group.groupId,
-                                  })
-                                ),
-                            },
-                            {
-                              key: 'delete',
-                              label: t('Delete group'),
-                              icon: 'delete',
-                              danger: true,
-                              onSelect: () =>
-                                dispatch(
-                                  deleteChromeTabGroupInternal({
-                                    tabGroupId,
-                                    windowId,
-                                    groupId: run.group.groupId,
-                                  })
-                                ),
-                            },
-                          ]}
-                        />
-                      </div>
-                    )}
+                            <OverflowMenu
+                              ariaLabel={t('More actions')}
+                              // Guarded on identity rather than assigning blindly:
+                              // opening a second menu closes the first, and the
+                              // close can land after the open, which would
+                              // otherwise clear the row that just opened.
+                              onOpenChange={(open) =>
+                                setOpenMenuGroupId((prev) =>
+                                  open
+                                    ? run.group.groupId
+                                    : prev === run.group.groupId
+                                      ? null
+                                      : prev
+                                )
+                              }
+                              items={[
+                                {
+                                  key: 'ungroup',
+                                  label: t('Ungroup'),
+                                  icon: 'label_off',
+                                  onSelect: () =>
+                                    dispatch(
+                                      ungroupChromeTabGroup({
+                                        tabGroupId,
+                                        windowId,
+                                        groupId: run.group.groupId,
+                                      })
+                                    ),
+                                },
+                                {
+                                  key: 'delete',
+                                  label: t('Delete group'),
+                                  icon: 'delete',
+                                  danger: true,
+                                  onSelect: () =>
+                                    dispatch(
+                                      deleteChromeTabGroupInternal({
+                                        tabGroupId,
+                                        windowId,
+                                        groupId: run.group.groupId,
+                                      })
+                                    ),
+                                },
+                              ]}
+                            />
+                          </div>
+                        )}
+                    </div>
+                    {run.tabs.map((tabItem) => (
+                      <DraggableTab
+                        key={tabItem.tabId}
+                        tabId={tabItem.tabId}
+                        index={indexOfTab.get(tabItem.tabId) ?? 0}
+                      >
+                        {renderTab(tabItem)}
+                      </DraggableTab>
+                    ))}
                   </div>
-                  {run.tabs.map((tabItem) =>
-                    renderTab(tabItem, tabs.indexOf(tabItem))
-                  )}
                 </div>
-              </div>
-            )
-          )}
+              )
+            )}
+          </TabDragArea>
         </div>
       )}
     </div>

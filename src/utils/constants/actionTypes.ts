@@ -44,6 +44,7 @@ export const DELETE_TAB_CONTAINER_ACTION =
 export const DELETE_WINDOW_ACTION =
   'tabContainerDataState/deleteWindowInternal';
 export const DELETE_TAB_ACTION = 'tabContainerDataState/deleteTabInternal';
+export const MOVE_TAB_ACTION = 'tabContainerDataState/moveTabInternal';
 
 // global actions
 export const IS_DIRTY_ACTION = 'globalState/setIsDirty';
