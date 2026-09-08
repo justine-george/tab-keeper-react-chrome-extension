@@ -33,6 +33,7 @@ import React, {
 
 import {
   ACTIVATION_DISTANCE_PX,
+  isInsideList,
   setBodyGrabbing,
   type DraggableRowProps,
   type RowDragAreaProps,
@@ -215,7 +216,9 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // the row to open.
       suppressClickUntil.current = performance.now() + 400;
 
-      if (commit) {
+      // Armed above, checked here: a drop this area refuses is still a drag the
+      // user performed, and they did not ask to open the row they were holding.
+      if (commit && isInsideList(l.rects, l.lastY, l.height / 2)) {
         const others = l.rects.filter((r) => r.id !== l.rowId);
         const toIndex = others.filter((r) => l.lastY > r.mid).length;
         const dropTargetId = resolveDrop?.(

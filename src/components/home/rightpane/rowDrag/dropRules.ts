@@ -77,6 +77,38 @@ export function bandAt(
   return undefined;
 }
 
+// Did the drop land in the list that owns it? (KAN-132, interim.)
+//
+// Lists nest: a window's rows contain a window's worth of tab rows, and each
+// window's tab list is its own area over its own tabs. So a drop can only ever
+// name an index INSIDE the source list -- and dragging a tab out of its window
+// did not fail, it SATURATED, landing the tab at the bottom of the window it
+// came from and dirtying the session for a cloud write. Doing nothing is the
+// honest answer until KAN-132 makes it a real move.
+//
+// Measured against the rows as they were AT DRAG START, which is the same
+// snapshot toIndex is derived from. Re-reading the DOM at drop time would
+// measure a layout the drag itself has already shifted, and comparing that
+// against a pre-drag index is its own bug.
+//
+// `slack` exists because "drag it to the end" is a real gesture and people
+// overshoot the last row while doing it. Half the held row is enough to be
+// forgiving without reaching the next list -- the caller passes it.
+export function isInsideList(
+  rows: { mid: number; height: number }[],
+  y: number,
+  slack: number
+): boolean {
+  if (rows.length === 0) return false;
+  let top = Infinity;
+  let bottom = -Infinity;
+  for (const row of rows) {
+    top = Math.min(top, row.mid - row.height / 2);
+    bottom = Math.max(bottom, row.mid + row.height / 2);
+  }
+  return y >= top - slack && y <= bottom + slack;
+}
+
 // `grabbing` goes on the document, not on the row. During a drag the pointer
 // travels over other rows, gaps and bands, and a cursor scoped to the source
 // element reverts the moment it leaves -- which reads as the drag letting go.
