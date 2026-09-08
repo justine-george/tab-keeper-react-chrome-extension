@@ -184,6 +184,21 @@ export interface moveTabParams {
   toChromeGroupId?: string;
 }
 
+// Where a window sits inside its session (KAN-129).
+//
+// No membership axis, which is the whole difference from moveTabParams: a tab
+// belongs to a Chrome group, a window belongs to nothing. So the drop rule
+// really is just an index, and there is one axis to compare when deciding
+// whether a drop changed anything.
+export interface moveWindowParams {
+  tabGroupId: string;
+  // Identity, not a position, for the same reason as moveTabParams: the source
+  // index is looked up, so a stale index from a list that moved under the
+  // caller cannot move the wrong window.
+  windowId: string;
+  toIndex: number;
+}
+
 export const initialState: TabMasterContainer = {
   lastModified: Date.now(), // timestamp
   selectedTabGroupId: null,
@@ -1263,6 +1278,60 @@ export const tabContainerDataStateSlice = createSlice({
       saveToLocalStorage('tabContainerData', state);
     },
 
+    // move a window within its session
+    //
+    // The counts are deliberately untouched: a reorder changes neither how many
+    // windows the session holds nor how many tabs they hold between them, and
+    // recomputing either would only be a chance to get it wrong.
+    moveWindowInternal: (state, action: PayloadAction<moveWindowParams>) => {
+      const { tabGroupId, windowId, toIndex } = action.payload;
+
+      const container = state.tabGroups.find(
+        (group) => group.tabGroupId === tabGroupId
+      );
+      if (!container) return;
+      const fromIndex = container.windows.findIndex(
+        (w) => w.windowId === windowId
+      );
+      // Same shape as the sibling reducers: an id that does not resolve means
+      // the action arrived for data that is no longer there, and doing nothing
+      // is the correct outcome.
+      if (fromIndex === -1) return;
+
+      // toIndex is where the window ends up in the RESULT, so it indexes the
+      // array with the window lifted out -- whose last valid index is
+      // length - 1 here, before the removal below.
+      //
+      // Both bounds are resolved rather than left to splice, because this value
+      // is also compared against fromIndex just below, and a raw out-of-range
+      // toIndex would not equal the index it is going to land on.
+      const target = Math.min(
+        Math.max(0, toIndex),
+        container.windows.length - 1
+      );
+
+      // A drop that lands the window where it started is not an edit. Without
+      // this it would stamp the session, write localStorage, dirty the
+      // container for a cloud write and push an undo step -- for something the
+      // user cannot see. Picking a window up and putting it back is ordinary.
+      //
+      // One axis, unlike moveTabInternal: a window has no group membership, so
+      // there is no second way for a drop in place to still mean something.
+      if (target === fromIndex) return;
+
+      const [moved] = container.windows.splice(fromIndex, 1);
+      container.windows.splice(target, 0, moved);
+
+      // touch, not stampCreated: a reorder is an edit, and stampCreated would
+      // reset createdAt, which is what the merge orders the session list by.
+      // Nudging a window must not send its session to the top of the left pane.
+      touch(container);
+      state.lastModified = Date.now();
+
+      // update localstorage
+      saveToLocalStorage('tabContainerData', state);
+    },
+
     replaceState: (state, action: PayloadAction<typeof state>) => {
       // update localstorage
       saveToLocalStorage('tabContainerData', action.payload);
@@ -1529,6 +1598,7 @@ export const {
   deleteWindowInternal,
   deleteTabInternal,
   moveTabInternal,
+  moveWindowInternal,
   replaceState,
   restoreContainer,
   applyUndoSnapshot,

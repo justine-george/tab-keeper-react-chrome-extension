@@ -1,5 +1,6 @@
-// Drag to reorder tabs within a saved window (KAN-10 part 1), driven directly
-// by pointer events.
+// Drag to reorder a list of rows, driven directly by pointer events. Two lists
+// use it: tabs within a saved window (KAN-128) and windows within a saved
+// session (KAN-129).
 //
 // Chosen over @dnd-kit after building both and measuring: dnd-kit cost 14.91 kB
 // gzip against 1.47 kB here (a 10x difference, ~9% of the whole gzipped bundle),
@@ -8,9 +9,13 @@
 // keeps the reorder animation in the same system as the micro-animations
 // planned for these rows rather than composing around a library's.
 //
-// The keyboard is deliberately not a path here: ClickableRow already binds
-// Enter and Space to "open the tab", so a keyboard pick-up would need its own
-// affordance. Opening, deleting and renaming all remain keyboard-operable.
+// The keyboard is deliberately not a path here: the rows already bind Enter and
+// Space to "open this", so a keyboard pick-up would need its own affordance.
+// Opening, deleting and renaming all remain keyboard-operable.
+//
+// This file knows nothing about tabs, windows or Chrome groups. What a drop
+// MEANS beyond its index arrives as `resolveDrop`; which part of a row may
+// start a drag arrives as `handleSelector`. Both live in dropRules.ts.
 //
 // TWO ELEMENTS, TWO JOBS. This node owns transform, transition, the lift shadow
 // and z-index; the row inside it keeps background-color for selection and the
@@ -28,14 +33,14 @@ import React, {
 
 import {
   ACTIVATION_DISTANCE_PX,
-  bandAt,
+  isInsideList,
   setBodyGrabbing,
-  type DraggableTabProps,
-  type TabDragAreaProps,
+  type DraggableRowProps,
+  type RowDragAreaProps,
 } from './dropRules';
 
 interface DragState {
-  tabId: string;
+  rowId: string;
   fromIndex: number;
   toIndex: number;
   // How far the held row has travelled from where it was picked up.
@@ -44,8 +49,13 @@ interface DragState {
 }
 
 interface Ctx {
-  register: (tabId: string, el: HTMLElement | null) => void;
-  begin: (tabId: string, clientX: number, clientY: number) => void;
+  register: (rowId: string, el: HTMLElement | null) => void;
+  begin: (
+    rowId: string,
+    clientX: number,
+    clientY: number,
+    target: EventTarget | null
+  ) => void;
   drag: DragState | null;
 }
 
@@ -58,9 +68,12 @@ interface Rect {
   height: number;
 }
 
-export const TabDragArea: React.FC<TabDragAreaProps> = ({
-  tabIds,
+export const RowDragArea: React.FC<RowDragAreaProps> = ({
+  rowIds,
   onMove,
+  handleSelector,
+  resolveDrop,
+  disabled = false,
   children,
 }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -70,7 +83,7 @@ export const TabDragArea: React.FC<TabDragAreaProps> = ({
   // Everything the live drag needs, kept in a ref so the window listeners are
   // installed once rather than re-bound on every pointermove.
   const live = useRef<{
-    tabId: string;
+    rowId: string;
     startX: number;
     startY: number;
     started: boolean;
@@ -83,7 +96,8 @@ export const TabDragArea: React.FC<TabDragAreaProps> = ({
 
   // Chrome synthesizes a `click` after `mouseup`, aimed at whatever the pointer
   // released over -- which is the held row, because it tracks the pointer. Left
-  // alone it runs the row's onClick and opens the tab the user just dragged.
+  // alone it runs the row's onClick: for a tab that opens the tab, and for a
+  // window it opens the whole window's worth of tabs.
   //
   // A timestamp rather than an add/remove-listener dance: the click arrives in
   // the same input sequence as the pointerup that arms this, and a listener
@@ -92,26 +106,45 @@ export const TabDragArea: React.FC<TabDragAreaProps> = ({
   // being eaten too.
   const suppressClickUntil = useRef(0);
 
-  const register = useCallback((tabId: string, el: HTMLElement | null) => {
-    if (el) rows.current.set(tabId, el);
-    else rows.current.delete(tabId);
+  const register = useCallback((rowId: string, el: HTMLElement | null) => {
+    if (el) rows.current.set(rowId, el);
+    else rows.current.delete(rowId);
   }, []);
 
   const begin = useCallback(
-    (tabId: string, clientX: number, clientY: number) => {
+    (
+      rowId: string,
+      clientX: number,
+      clientY: number,
+      target: EventTarget | null
+    ) => {
+      if (disabled) return;
+
+      // The handle must be inside THIS row, not merely an ancestor of the
+      // press. `closest` walks all the way to the document, so without the
+      // containment check a handle anywhere above the area would qualify every
+      // press in it -- which is the nesting bug this prop exists to prevent,
+      // reintroduced one level higher up.
+      if (handleSelector) {
+        const el = rows.current.get(rowId);
+        const handle =
+          target instanceof Element ? target.closest(handleSelector) : null;
+        if (!handle || !el?.contains(handle)) return;
+      }
+
       live.current = {
-        tabId,
+        rowId,
         startX: clientX,
         startY: clientY,
         started: false,
         rects: [],
-        fromIndex: tabIds.indexOf(tabId),
+        fromIndex: rowIds.indexOf(rowId),
         height: 0,
         lastX: clientX,
         lastY: clientY,
       };
     },
-    [tabIds]
+    [rowIds, handleSelector, disabled]
   );
 
   useEffect(() => {
@@ -133,7 +166,7 @@ export const TabDragArea: React.FC<TabDragAreaProps> = ({
         // Measured once, at the moment the drag actually starts: reading rects
         // on every move would report positions already displaced by the shifts
         // this drag is applying.
-        l.rects = tabIds.map((id, index) => {
+        l.rects = rowIds.map((id, index) => {
           const el = rows.current.get(id);
           const r = el?.getBoundingClientRect();
           return {
@@ -148,14 +181,19 @@ export const TabDragArea: React.FC<TabDragAreaProps> = ({
         setBodyGrabbing(true);
       }
 
-      const others = l.rects.filter((r) => r.id !== l.tabId);
+      const others = l.rects.filter((r) => r.id !== l.rowId);
       // The count of rows whose midpoint the pointer has passed IS the index
-      // the tab lands at, because that count indexes the list with the held
+      // the row lands at, because that count indexes the list with the held
       // row already lifted out of it.
+      //
+      // Rows of unequal height need no special case: the held row displaces
+      // every row between its old and new slots by ITS OWN height, whatever
+      // theirs are, and the landing index comes from each row's measured
+      // midpoint rather than from any assumed row size.
       const toIndex = others.filter((r) => e.clientY > r.mid).length;
 
       setDrag({
-        tabId: l.tabId,
+        rowId: l.rowId,
         fromIndex: l.fromIndex,
         toIndex,
         offset: e.clientY - l.startY,
@@ -175,14 +213,20 @@ export const TabDragArea: React.FC<TabDragAreaProps> = ({
 
       // Armed for a real drag whether it committed or was cancelled with Esc:
       // in both cases the user was dragging, and in neither did they ask for
-      // the tab to open.
+      // the row to open.
       suppressClickUntil.current = performance.now() + 400;
 
-      if (commit) {
-        const others = l.rects.filter((r) => r.id !== l.tabId);
+      // Armed above, checked here: a drop this area refuses is still a drag the
+      // user performed, and they did not ask to open the row they were holding.
+      if (commit && isInsideList(l.rects, l.lastY, l.height / 2)) {
+        const others = l.rects.filter((r) => r.id !== l.rowId);
         const toIndex = others.filter((r) => l.lastY > r.mid).length;
-        const group = bandAt(containerRef.current, l.lastX, l.lastY);
-        onMove(l.tabId, toIndex, group);
+        const dropTargetId = resolveDrop?.(
+          containerRef.current,
+          l.lastX,
+          l.lastY
+        );
+        onMove(l.rowId, toIndex, dropTargetId);
       }
     };
 
@@ -215,7 +259,7 @@ export const TabDragArea: React.FC<TabDragAreaProps> = ({
       // `grabbing`.
       setBodyGrabbing(false);
     };
-  }, [tabIds, onMove]);
+  }, [rowIds, onMove, resolveDrop]);
 
   const ctx = useMemo<Ctx>(
     () => ({ register, begin, drag }),
@@ -229,8 +273,8 @@ export const TabDragArea: React.FC<TabDragAreaProps> = ({
   );
 };
 
-export const DraggableTab: React.FC<DraggableTabProps & { index: number }> = ({
-  tabId,
+export const DraggableRow: React.FC<DraggableRowProps & { index: number }> = ({
+  rowId,
   index,
   children,
 }) => {
@@ -238,7 +282,7 @@ export const DraggableTab: React.FC<DraggableTabProps & { index: number }> = ({
   const drag = ctx?.drag ?? null;
 
   let translate = 0;
-  const held = drag?.tabId === tabId;
+  const held = drag?.rowId === rowId;
 
   if (drag) {
     if (held) {
@@ -255,12 +299,17 @@ export const DraggableTab: React.FC<DraggableTabProps & { index: number }> = ({
 
   return (
     <div
-      ref={(el) => ctx?.register(tabId, el)}
+      // The area's own handle for this row, and the only stable way to address
+      // a draggable node from a test or the devtools -- the node is otherwise
+      // an unmarked wrapper div.
+      data-drag-row-id={rowId}
+      ref={(el) => ctx?.register(rowId, el)}
       onPointerDown={(e) => {
-        // Left button only, and never from inside the action strip -- the
-        // delete icon is a button, not a drag handle.
+        // Left button only. Which PART of the row may start a drag is the
+        // area's rule, not this component's, so the press is reported with its
+        // target and the area decides.
         if (e.button !== 0) return;
-        ctx?.begin(tabId, e.clientX, e.clientY);
+        ctx?.begin(rowId, e.clientX, e.clientY, e.target);
       }}
       style={{
         transform: translate ? `translateY(${translate}px)` : undefined,

@@ -20,6 +20,7 @@ import { AppDispatch, RootState } from '../../../redux/store';
 import {
   resolveTabUrl,
   resolveFaviconUrl,
+  isSearchActive,
 } from '../../../utils/functions/local';
 import { NON_INTERACTIVE_ICON_STYLE } from '../../../utils/constants/common';
 import {
@@ -40,7 +41,8 @@ import type {
   TabRun,
 } from '../../../utils/functions/tabGroups';
 import { applyTabGroups } from '../../../utils/functions/windows';
-import { TabDragArea, DraggableTab } from './tabDrag/TabDragArea';
+import { RowDragArea, DraggableRow } from './rowDrag/RowDragArea';
+import { bandAt } from './rowDrag/dropRules';
 
 interface WindowEntryContainerProps {
   title: string;
@@ -95,6 +97,22 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   const isSearchPanel = useSelector(
     (state: RootState) => state.globalState.isSearchPanel
   );
+
+  const searchInputText = useSelector(
+    (state: RootState) => state.globalState.searchInputText
+  );
+
+  // KAN-131. `tabs` here is whatever the pane handed down, and under a live
+  // search that is a SUBSET of the stored window -- filterTabGroups narrows a
+  // window's tabs, not just which windows are shown. A drag reports an index
+  // into the rows on screen and moveTabInternal applies it to the stored
+  // array, so in a narrowed list the tab lands somewhere the user never
+  // pointed at, silently, and the session is dirtied for a cloud write.
+  //
+  // isSearchActive, not isSearchPanel: an open panel with an empty box filters
+  // nothing, so the two lists agree and dragging is safe. That is the same
+  // distinction the count label turns on (KAN-60).
+  const isFilteredView = isSearchActive(isSearchPanel, searchInputText);
 
   // Gates rendering on the LIVE permission, not on whether the data is
   // present. A session synced from a device that had the permission still
@@ -521,7 +539,16 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
 
   return (
     <div css={containerStyle}>
+      {/* The grab handle for the WINDOW drag (KAN-129), read by the area
+          above this component through its handleSelector. It has to be the
+          header alone: the draggable node wraps this row AND the tab list
+          below it, so a handle covering the whole block would start a window
+          drag from every tab drag. Marked with an attribute rather than
+          plumbed down as a prop, matching data-band-id beside it -- and the
+          area checks the handle it finds is CONTAINED by the row, so this
+          cannot be satisfied by anything outside the window it belongs to. */}
       <div
+        data-window-drag-handle
         css={parentStyle}
         onMouseEnter={() => setIsParentHovered(true)}
         onMouseLeave={() => setIsParentHovered(false)}
@@ -659,7 +686,12 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
       </div>
       {windowOpenState && (
         <div css={childrenContainerStyle}>
-          <TabDragArea tabIds={tabIds} onMove={handleMove}>
+          <RowDragArea
+            rowIds={tabIds}
+            onMove={handleMove}
+            resolveDrop={bandAt}
+            disabled={isFilteredView}
+          >
             {partitionTabsIntoRuns(
               tabs,
               hasTabGroupsPermission ? chromeTabGroups : undefined
@@ -667,13 +699,13 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
               run.kind === 'ungrouped' ? (
                 <React.Fragment key={`ungrouped-${runIndex}`}>
                   {run.tabs.map((tabItem) => (
-                    <DraggableTab
+                    <DraggableRow
                       key={tabItem.tabId}
-                      tabId={tabItem.tabId}
+                      rowId={tabItem.tabId}
                       index={indexOfTab.get(tabItem.tabId) ?? 0}
                     >
                       {renderTab(tabItem)}
-                    </DraggableTab>
+                    </DraggableRow>
                   ))}
                 </React.Fragment>
               ) : (
@@ -979,19 +1011,19 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                         )}
                     </div>
                     {run.tabs.map((tabItem) => (
-                      <DraggableTab
+                      <DraggableRow
                         key={tabItem.tabId}
-                        tabId={tabItem.tabId}
+                        rowId={tabItem.tabId}
                         index={indexOfTab.get(tabItem.tabId) ?? 0}
                       >
                         {renderTab(tabItem)}
-                      </DraggableTab>
+                      </DraggableRow>
                     ))}
                   </div>
                 </div>
               )
             )}
-          </TabDragArea>
+          </RowDragArea>
         </div>
       )}
     </div>
