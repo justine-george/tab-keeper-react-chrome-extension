@@ -2,10 +2,10 @@ import { describe, expect, test, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 
 import {
-  TabDragArea,
-  DraggableTab,
-} from '../../components/home/rightpane/tabDrag/TabDragArea';
-import { bandAt } from '../../components/home/rightpane/tabDrag/dropRules';
+  RowDragArea,
+  DraggableRow,
+} from '../../components/home/rightpane/rowDrag/RowDragArea';
+import { bandAt } from '../../components/home/rightpane/rowDrag/dropRules';
 
 // The drag layer on its own, without WindowEntryContainer around it. What is
 // pinned here is the BEHAVIOUR the pane relies on -- when a drag starts, where
@@ -34,20 +34,22 @@ const box = (top: number, height: number, left = 0, width = 200) =>
 type OnMove = (tabId: string, toIndex: number, group?: string) => void;
 
 const Harness = ({ onMove }: { onMove: OnMove }) => (
-  <TabDragArea tabIds={['a', 'b', 'c']} onMove={onMove}>
+  // `bandAt` is passed in rather than known to the area: the tab list is the
+  // only caller that has a membership question at all.
+  <RowDragArea rowIds={['a', 'b', 'c']} onMove={onMove} resolveDrop={bandAt}>
     {/* Row `a` sits inside a band; `b` and `c` do not. */}
     <div data-band-id="grp" data-testid="band">
-      <DraggableTab tabId="a" index={0}>
+      <DraggableRow rowId="a" index={0}>
         <div>Row A</div>
-      </DraggableTab>
+      </DraggableRow>
     </div>
-    <DraggableTab tabId="b" index={1}>
+    <DraggableRow rowId="b" index={1}>
       <div>Row B</div>
-    </DraggableTab>
-    <DraggableTab tabId="c" index={2}>
+    </DraggableRow>
+    <DraggableRow rowId="c" index={2}>
       <div>Row C</div>
-    </DraggableTab>
-  </TabDragArea>
+    </DraggableRow>
+  </RowDragArea>
 );
 
 // The draggable node is the parent of the row content.

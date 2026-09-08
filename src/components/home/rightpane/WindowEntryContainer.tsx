@@ -40,7 +40,8 @@ import type {
   TabRun,
 } from '../../../utils/functions/tabGroups';
 import { applyTabGroups } from '../../../utils/functions/windows';
-import { TabDragArea, DraggableTab } from './tabDrag/TabDragArea';
+import { RowDragArea, DraggableRow } from './rowDrag/RowDragArea';
+import { bandAt } from './rowDrag/dropRules';
 
 interface WindowEntryContainerProps {
   title: string;
@@ -659,7 +660,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
       </div>
       {windowOpenState && (
         <div css={childrenContainerStyle}>
-          <TabDragArea tabIds={tabIds} onMove={handleMove}>
+          <RowDragArea rowIds={tabIds} onMove={handleMove} resolveDrop={bandAt}>
             {partitionTabsIntoRuns(
               tabs,
               hasTabGroupsPermission ? chromeTabGroups : undefined
@@ -667,13 +668,13 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
               run.kind === 'ungrouped' ? (
                 <React.Fragment key={`ungrouped-${runIndex}`}>
                   {run.tabs.map((tabItem) => (
-                    <DraggableTab
+                    <DraggableRow
                       key={tabItem.tabId}
-                      tabId={tabItem.tabId}
+                      rowId={tabItem.tabId}
                       index={indexOfTab.get(tabItem.tabId) ?? 0}
                     >
                       {renderTab(tabItem)}
-                    </DraggableTab>
+                    </DraggableRow>
                   ))}
                 </React.Fragment>
               ) : (
@@ -979,19 +980,19 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                         )}
                     </div>
                     {run.tabs.map((tabItem) => (
-                      <DraggableTab
+                      <DraggableRow
                         key={tabItem.tabId}
-                        tabId={tabItem.tabId}
+                        rowId={tabItem.tabId}
                         index={indexOfTab.get(tabItem.tabId) ?? 0}
                       >
                         {renderTab(tabItem)}
-                      </DraggableTab>
+                      </DraggableRow>
                     ))}
                   </div>
                 </div>
               )
             )}
-          </TabDragArea>
+          </RowDragArea>
         </div>
       )}
     </div>
