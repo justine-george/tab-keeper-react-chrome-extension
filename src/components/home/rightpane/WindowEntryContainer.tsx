@@ -20,6 +20,7 @@ import { AppDispatch, RootState } from '../../../redux/store';
 import {
   resolveTabUrl,
   resolveFaviconUrl,
+  isSearchActive,
 } from '../../../utils/functions/local';
 import { NON_INTERACTIVE_ICON_STYLE } from '../../../utils/constants/common';
 import {
@@ -96,6 +97,22 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   const isSearchPanel = useSelector(
     (state: RootState) => state.globalState.isSearchPanel
   );
+
+  const searchInputText = useSelector(
+    (state: RootState) => state.globalState.searchInputText
+  );
+
+  // KAN-131. `tabs` here is whatever the pane handed down, and under a live
+  // search that is a SUBSET of the stored window -- filterTabGroups narrows a
+  // window's tabs, not just which windows are shown. A drag reports an index
+  // into the rows on screen and moveTabInternal applies it to the stored
+  // array, so in a narrowed list the tab lands somewhere the user never
+  // pointed at, silently, and the session is dirtied for a cloud write.
+  //
+  // isSearchActive, not isSearchPanel: an open panel with an empty box filters
+  // nothing, so the two lists agree and dragging is safe. That is the same
+  // distinction the count label turns on (KAN-60).
+  const isFilteredView = isSearchActive(isSearchPanel, searchInputText);
 
   // Gates rendering on the LIVE permission, not on whether the data is
   // present. A session synced from a device that had the permission still
@@ -660,7 +677,12 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
       </div>
       {windowOpenState && (
         <div css={childrenContainerStyle}>
-          <RowDragArea rowIds={tabIds} onMove={handleMove} resolveDrop={bandAt}>
+          <RowDragArea
+            rowIds={tabIds}
+            onMove={handleMove}
+            resolveDrop={bandAt}
+            disabled={isFilteredView}
+          >
             {partitionTabsIntoRuns(
               tabs,
               hasTabGroupsPermission ? chromeTabGroups : undefined
