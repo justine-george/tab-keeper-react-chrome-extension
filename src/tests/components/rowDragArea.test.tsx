@@ -72,6 +72,105 @@ const moveTo = (y: number) =>
 const release = (y: number) =>
   fireEvent.pointerUp(document, { clientX: 10, clientY: y, button: 0 });
 
+// handleSelector names the part of a row that may start a drag, and it is what
+// lets one list nest inside another (KAN-129): a window's draggable node wraps
+// its own tabs, so without a handle every tab drag would begin a window drag
+// underneath it.
+//
+// The rows here each carry a handle and a patch of non-handle area, and the
+// whole AREA sits inside an element that also matches the selector -- which is
+// the case the containment rule exists for.
+describe('handleSelector decides which press starts a drag', () => {
+  let onMove: ReturnType<typeof vi.fn<OnMove>>;
+
+  const HandleHarness = () => (
+    // An outer element matching the same selector. `closest` walks to the
+    // document, so an area that only asked "is there a handle above the
+    // press?" would answer yes for every press in this tree.
+    <div data-handle>
+      <RowDragArea
+        rowIds={['a', 'b', 'c']}
+        onMove={onMove}
+        handleSelector="[data-handle]"
+      >
+        {['a', 'b', 'c'].map((id, index) => (
+          <DraggableRow key={id} rowId={id} index={index}>
+            <div data-handle>
+              <span>Handle {id}</span>
+            </div>
+            <div>
+              <span>Body {id}</span>
+            </div>
+          </DraggableRow>
+        ))}
+      </RowDragArea>
+    </div>
+  );
+
+  const rowFor = (id: string) =>
+    document.querySelector<HTMLElement>(`[data-drag-row-id="${id}"]`)!;
+
+  beforeEach(() => {
+    onMove = vi.fn<OnMove>();
+    render(<HandleHarness />);
+    ['a', 'b', 'c'].forEach((id, i) => {
+      rowFor(id).getBoundingClientRect = () => box(i * ROW_H, ROW_H);
+    });
+  });
+
+  afterEach(() => {
+    document.body.style.cursor = '';
+  });
+
+  test('a press on the handle starts a drag', () => {
+    fireEvent.pointerDown(screen.getByText('Handle c'), {
+      clientX: 10,
+      clientY: 75,
+      button: 0,
+    });
+    moveTo(40);
+    moveTo(5);
+    release(5);
+
+    expect(onMove).toHaveBeenCalledTimes(1);
+    expect(onMove.mock.calls[0][0]).toBe('c');
+    expect(onMove.mock.calls[0][1]).toBe(0);
+  });
+
+  // The nesting case, at the level the rule is implemented rather than through
+  // two real components: a press on the part of the row that is NOT the handle
+  // -- where a nested list's own rows live -- must start nothing here.
+  test('a press outside the handle starts nothing', () => {
+    fireEvent.pointerDown(screen.getByText('Body c'), {
+      clientX: 10,
+      clientY: 75,
+      button: 0,
+    });
+    moveTo(40);
+    moveTo(5);
+    release(5);
+
+    expect(onMove).not.toHaveBeenCalled();
+  });
+
+  // THE CONTAINMENT RULE. The press below has a matching ancestor -- the
+  // wrapper around the whole area -- but it is not THIS row's handle, and an
+  // unbounded `closest` would accept it. That would put the nesting bug back
+  // one level higher up, where it is harder to see.
+  test('a matching ancestor outside the row does not count as its handle', () => {
+    fireEvent.pointerDown(screen.getByText('Body a'), {
+      clientX: 10,
+      clientY: 15,
+      button: 0,
+    });
+    moveTo(50);
+    moveTo(85);
+    release(85);
+
+    expect(onMove).not.toHaveBeenCalled();
+  });
+});
+
 describe('what a drag reports when it lands', () => {
   let onMove: ReturnType<typeof vi.fn<OnMove>>;
 

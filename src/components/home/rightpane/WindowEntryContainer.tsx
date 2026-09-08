@@ -539,7 +539,16 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
 
   return (
     <div css={containerStyle}>
+      {/* The grab handle for the WINDOW drag (KAN-129), read by the area
+          above this component through its handleSelector. It has to be the
+          header alone: the draggable node wraps this row AND the tab list
+          below it, so a handle covering the whole block would start a window
+          drag from every tab drag. Marked with an attribute rather than
+          plumbed down as a prop, matching data-band-id beside it -- and the
+          area checks the handle it finds is CONTAINED by the row, so this
+          cannot be satisfied by anything outside the window it belongs to. */}
       <div
+        data-window-drag-handle
         css={parentStyle}
         onMouseEnter={() => setIsParentHovered(true)}
         onMouseLeave={() => setIsParentHovered(false)}
