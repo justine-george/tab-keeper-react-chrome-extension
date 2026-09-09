@@ -126,5 +126,7 @@
   "TabGroupsPromptBodyOther": "开启后，这 {{count}} 个标签组会完全按照你的设置恢复。",
   "TabGroupsPromptConfirm": "启用标签组支持",
   "TabGroupsPromptDismiss": "暂不",
-  "TabGroupsPromptNever": "不再询问"
+  "TabGroupsPromptNever": "不再询问",
+  "Custom order": "自定义顺序",
+  "Sort by date saved": "按保存日期排序"
 }

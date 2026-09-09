@@ -126,5 +126,7 @@
   "TabGroupsPromptBodyOther": "オンにすると、{{count}} 個のタブグループは設定したときのまま復元されます。",
   "TabGroupsPromptConfirm": "タブグループのサポートを有効にする",
   "TabGroupsPromptDismiss": "後で",
-  "TabGroupsPromptNever": "今後表示しない"
+  "TabGroupsPromptNever": "今後表示しない",
+  "Custom order": "カスタム順",
+  "Sort by date saved": "保存日で並べ替え"
 }

@@ -126,5 +126,7 @@
   "TabGroupsPromptBodyOther": "Включите её, и ваши группы вкладок ({{count}}) вернутся точно такими, какими вы их создали.",
   "TabGroupsPromptConfirm": "Включить поддержку групп вкладок",
   "TabGroupsPromptDismiss": "Не сейчас",
-  "TabGroupsPromptNever": "Больше не спрашивать"
+  "TabGroupsPromptNever": "Больше не спрашивать",
+  "Custom order": "Свой порядок",
+  "Sort by date saved": "Сортировать по дате сохранения"
 }
