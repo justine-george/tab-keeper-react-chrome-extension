@@ -126,5 +126,7 @@
   "TabGroupsPromptBodyOther": "इसे चालू करें और आपके {{count}} टैब समूह ठीक वैसे ही वापस आएंगे जैसे आपने बनाए थे।",
   "TabGroupsPromptConfirm": "टैब समूह समर्थन चालू करें",
   "TabGroupsPromptDismiss": "अभी नहीं",
-  "TabGroupsPromptNever": "फिर से न पूछें"
+  "TabGroupsPromptNever": "फिर से न पूछें",
+  "Custom order": "कस्टम क्रम",
+  "Sort by date saved": "सहेजने की तिथि से क्रमबद्ध करें"
 }

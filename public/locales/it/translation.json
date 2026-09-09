@@ -126,5 +126,7 @@
   "TabGroupsPromptBodyOther": "Attivala e i tuoi {{count}} gruppi di schede torneranno esattamente come li hai creati.",
   "TabGroupsPromptConfirm": "Attiva il supporto ai gruppi di schede",
   "TabGroupsPromptDismiss": "Non ora",
-  "TabGroupsPromptNever": "Non chiedere più"
+  "TabGroupsPromptNever": "Non chiedere più",
+  "Custom order": "Ordine personalizzato",
+  "Sort by date saved": "Ordina per data di salvataggio"
 }

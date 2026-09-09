@@ -69,6 +69,15 @@ export function createdInstant(group: tabContainerData): number {
   return Date.UTC(year, month - 1, day, hour, minute, second);
 }
 
+// What the session list is ordered by, highest first.
+//
+// The fallback is what keeps this change invisible to every session that
+// already exists: with no rank the key IS createdInstant, so the order is
+// byte-identical to the one this replaces.
+export function sessionRank(group: tabContainerData): number {
+  return group.rank ?? createdInstant(group);
+}
+
 type Event =
   | { kind: 'present'; at: number; group: tabContainerData }
   | { kind: 'deleted'; at: number };
@@ -196,10 +205,18 @@ export function mergeTabContainers(
   // moment, so comparing the strings ordered them by where the user was rather
   // than by when they saved. tabGroupId breaks exact ties so the result is
   // total and stable.
+  // `rank` is the user's own placement, when they have made one (KAN-130). It
+  // lives in createdInstant's space -- epoch millis -- so the two compare
+  // directly and ranks can be SPARSE: only dragged sessions carry one, and a
+  // list with none sorts exactly as it did before the field existed.
+  //
+  // Only the KEY changes here. The merge's logic is untouched, because it is
+  // already session-granular last-writer-wins, so a field on the session is
+  // resolved correctly with no new rule -- including two devices reordering
+  // different sessions at once.
   survivors.sort(
     (a, b) =>
-      createdInstant(b) - createdInstant(a) ||
-      compareAsc(a.tabGroupId, b.tabGroupId)
+      sessionRank(b) - sessionRank(a) || compareAsc(a.tabGroupId, b.tabGroupId)
   );
 
   // Selection is per-device view state; pushing the other device's selection
