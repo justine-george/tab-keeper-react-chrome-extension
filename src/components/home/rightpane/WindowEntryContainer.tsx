@@ -522,7 +522,10 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
             />
           </div>
         </ClickableRow>
-        <div css={childRightStyle(tabId)}>
+        {/* data-row-actions is the stylesheet's hook for hiding this strip
+            during a drag (KAN-135). The reveal above is an emotion class keyed
+            on React state, which App.css cannot name. */}
+        <div data-row-actions css={childRightStyle(tabId)}>
           <Icon
             tooltipText={t('Delete tab')}
             ariaLabel={t('Delete tab')}
@@ -630,7 +633,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
             </ClickableRow>
           )}
         </div>
-        <div css={parentRightStyle}>
+        <div data-row-actions css={parentRightStyle}>
           {isEditing && !isSearchPanel ? (
             // Same shape as the session tick: the wrapper carries the
             // onMouseDown that Icon does not expose, preventDefault keeps focus

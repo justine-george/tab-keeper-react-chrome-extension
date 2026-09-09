@@ -34,7 +34,7 @@ import React, {
 import {
   ACTIVATION_DISTANCE_PX,
   isInsideList,
-  setBodyGrabbing,
+  setDragging,
   type DraggableRowProps,
   type RowDragAreaProps,
 } from './dropRules';
@@ -178,7 +178,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         });
         l.height = l.rects[l.fromIndex]?.height ?? 0;
         l.started = true;
-        setBodyGrabbing(true);
+        setDragging(true);
       }
 
       const others = l.rects.filter((r) => r.id !== l.rowId);
@@ -206,7 +206,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       live.current = null;
       setDrag(null);
       if (!l) return;
-      setBodyGrabbing(false);
+      setDragging(false);
       // Below the threshold this was a click, not a drag, and the row's own
       // handler must run untouched.
       if (!l.started) return;
@@ -257,7 +257,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       window.removeEventListener('click', onClickCapture, true);
       // A drag interrupted by unmount must not leave the document stuck in
       // `grabbing`.
-      setBodyGrabbing(false);
+      setDragging(false);
     };
   }, [rowIds, onMove, resolveDrop]);
 

@@ -142,7 +142,7 @@ const windowIds = (store: RenderWithProvidersResult['store']) =>
     .tabContainerDataState.tabGroups[0].windows.map((w) => w.windowId);
 
 afterEach(() => {
-  document.body.style.cursor = '';
+  document.documentElement.removeAttribute('data-dragging');
 });
 
 describe('dragging a window inside a session', () => {

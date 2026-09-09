@@ -21,6 +21,38 @@ body {
   transition: none !important;
 }
 
+/* A drag is in flight (KAN-134). RowDragArea publishes this attribute on <html>
+   for the duration of one.
+
+   `*` rather than a single ancestor is the entire point. `cursor` inherits, but
+   an explicit declaration on a descendant beats an inherited value whatever its
+   importance -- and every row here declares one: the draggable node itself,
+   ClickableRow, and three more in WindowEntryContainer. Setting the cursor on
+   <body>, which is what this replaces, was therefore set-and-inert: measured in
+   the popup, `document.body.style.cursor` read `grabbing` while the element
+   under the pointer computed `pointer`, for the whole gesture.
+
+   `!important` is load-bearing for the same reason as the rule above -- these
+   have to beat emotion classes, which are injected later and would otherwise
+   win on order alone. */
+[data-dragging] * {
+  cursor: grabbing !important;
+  user-select: none !important;
+}
+
+/* A row's own actions must not ride the pointer while it is being dragged
+   (KAN-135). The held row is translated to follow the pointer, so it never
+   stops being the hovered element and keeps its strip revealed; rows shifting
+   aside pass under the pointer and reveal theirs too. That leaves a DESTRUCTIVE
+   control sitting under the cursor at the moment of release.
+
+   Selected by attribute because the reveal itself is an emotion class keyed on
+   React state, which no stylesheet can name. */
+[data-dragging] [data-row-actions] {
+  opacity: 0 !important;
+  background-color: transparent !important;
+}
+
 ::-webkit-scrollbar {
   width: 10px;
 }
