@@ -127,6 +127,9 @@
   "TabGroupsPromptConfirm": "Attiva il supporto ai gruppi di schede",
   "TabGroupsPromptDismiss": "Non ora",
   "TabGroupsPromptNever": "Non chiedere più",
-  "Custom order": "Ordine personalizzato",
-  "Sort by date saved": "Ordina per data di salvataggio"
+  "Sort sessions": "Ordina sessioni",
+  "Date saved": "Data di salvataggio",
+  "Name": "Nome",
+  "Tab count": "Numero di schede",
+  "Date modified": "Data di modifica"
 }

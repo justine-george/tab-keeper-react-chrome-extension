@@ -127,6 +127,9 @@
   "TabGroupsPromptConfirm": "タブグループのサポートを有効にする",
   "TabGroupsPromptDismiss": "後で",
   "TabGroupsPromptNever": "今後表示しない",
-  "Custom order": "カスタム順",
-  "Sort by date saved": "保存日で並べ替え"
+  "Sort sessions": "セッションを並べ替え",
+  "Date saved": "保存日",
+  "Name": "名前",
+  "Tab count": "タブ数",
+  "Date modified": "更新日"
 }

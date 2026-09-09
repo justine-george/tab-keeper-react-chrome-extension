@@ -127,6 +127,9 @@
   "TabGroupsPromptConfirm": "Activar la compatibilidad con grupos de pestañas",
   "TabGroupsPromptDismiss": "Ahora no",
   "TabGroupsPromptNever": "No volver a preguntar",
-  "Custom order": "Orden personalizado",
-  "Sort by date saved": "Ordenar por fecha de guardado"
+  "Sort sessions": "Ordenar sesiones",
+  "Date saved": "Fecha de guardado",
+  "Name": "Nombre",
+  "Tab count": "Número de pestañas",
+  "Date modified": "Fecha de modificación"
 }

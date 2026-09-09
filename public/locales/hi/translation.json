@@ -127,6 +127,9 @@
   "TabGroupsPromptConfirm": "टैब समूह समर्थन चालू करें",
   "TabGroupsPromptDismiss": "अभी नहीं",
   "TabGroupsPromptNever": "फिर से न पूछें",
-  "Custom order": "कस्टम क्रम",
-  "Sort by date saved": "सहेजने की तिथि से क्रमबद्ध करें"
+  "Sort sessions": "सत्र क्रमबद्ध करें",
+  "Date saved": "सहेजने की तारीख",
+  "Name": "नाम",
+  "Tab count": "टैब संख्या",
+  "Date modified": "बदलाव की तारीख"
 }

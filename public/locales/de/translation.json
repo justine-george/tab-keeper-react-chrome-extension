@@ -127,6 +127,9 @@
   "TabGroupsPromptConfirm": "Tab-Gruppen-Unterstützung aktivieren",
   "TabGroupsPromptDismiss": "Jetzt nicht",
   "TabGroupsPromptNever": "Nicht mehr fragen",
-  "Custom order": "Eigene Reihenfolge",
-  "Sort by date saved": "Nach Speicherdatum sortieren"
+  "Sort sessions": "Sitzungen sortieren",
+  "Date saved": "Speicherdatum",
+  "Name": "Name",
+  "Tab count": "Tab-Anzahl",
+  "Date modified": "Änderungsdatum"
 }

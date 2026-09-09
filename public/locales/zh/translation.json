@@ -127,6 +127,9 @@
   "TabGroupsPromptConfirm": "启用标签组支持",
   "TabGroupsPromptDismiss": "暂不",
   "TabGroupsPromptNever": "不再询问",
-  "Custom order": "自定义顺序",
-  "Sort by date saved": "按保存日期排序"
+  "Sort sessions": "排序会话",
+  "Date saved": "保存日期",
+  "Name": "名称",
+  "Tab count": "标签页数",
+  "Date modified": "修改日期"
 }

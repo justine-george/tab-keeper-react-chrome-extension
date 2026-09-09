@@ -17,12 +17,32 @@ export interface OverflowMenuItem {
   onSelect: () => void;
   /** Paints the glyph with the delete hover colour, as row delete icons do. */
   danger?: boolean;
+  /**
+   * Marks this item as the state the list is currently in (KAN-136).
+   *
+   * Present on ANY item turns the whole menu into a radio group -- the items
+   * become `menuitemradio` and each carries `aria-checked`, so a screen reader
+   * reports the current choice rather than three indistinguishable commands.
+   * The tick itself is decorative and aria-hidden: the state lives in
+   * aria-checked, and a bare glyph in the accessible name is exactly the leak
+   * KAN-56 fixed.
+   */
+  checked?: boolean;
 }
 
 interface OverflowMenuProps {
   /** Names the trigger. Must be translated. */
   ariaLabel: string;
   items: OverflowMenuItem[];
+  /**
+   * The trigger's Material Symbols ligature.
+   *
+   * Defaults to `more_vert`, which is what "a menu of secondary actions behind
+   * one trigger" looks like and what the row consumers want. A menu whose items
+   * are all one KIND of thing wants a glyph naming that kind instead -- the
+   * session sort menu (KAN-136) is a sort control, not an overflow.
+   */
+  triggerIcon?: string;
   /**
    * Fires whenever the menu opens or closes.
    *
@@ -68,6 +88,7 @@ interface OverflowMenuProps {
 const OverflowMenu: React.FC<OverflowMenuProps> = ({
   ariaLabel,
   items,
+  triggerIcon = 'more_vert',
   onOpenChange,
 }) => {
   const COLORS = useThemeColors();
@@ -86,6 +107,10 @@ const OverflowMenu: React.FC<OverflowMenuProps> = ({
     axis: 'vertical',
     onOpenChange,
   });
+
+  // A menu whose items report a current selection is a radio group, not a list
+  // of commands. Derived rather than a separate prop so the two cannot disagree.
+  const isRadioGroup = items.some((item) => item.checked !== undefined);
 
   const menuStyle = css`
     position: absolute;
@@ -143,7 +168,7 @@ const OverflowMenu: React.FC<OverflowMenuProps> = ({
     >
       <div ref={triggerRef}>
         <Icon
-          type="more_vert"
+          type={triggerIcon}
           tooltipText={ariaLabel}
           ariaLabel={ariaLabel}
           ariaHasPopup="menu"
@@ -154,13 +179,22 @@ const OverflowMenu: React.FC<OverflowMenuProps> = ({
           }}
         />
       </div>
+      {/* The menu is named from the trigger's label, so items may be as terse
+          as the menu allows without going unmoored: the sort menu's "Name" is
+          only unambiguous once the menu around it announces "Sort sessions". */}
       {isOpen && (
-        <div role="menu" css={menuStyle} onKeyDown={handleKeyDown}>
+        <div
+          role="menu"
+          aria-label={ariaLabel}
+          css={menuStyle}
+          onKeyDown={handleKeyDown}
+        >
           {items.map((item, index) => (
             <button
               key={item.key}
               type="button"
-              role="menuitem"
+              role={isRadioGroup ? 'menuitemradio' : 'menuitem'}
+              aria-checked={isRadioGroup ? !!item.checked : undefined}
               ref={registerItem(index)}
               css={itemStyle(item.danger)}
               onClick={(e) => {
@@ -187,6 +221,25 @@ const OverflowMenu: React.FC<OverflowMenuProps> = ({
                 {item.icon}
               </span>
               {item.label}
+              {isRadioGroup && (
+                /* Decorative. The state is on aria-checked above; this only
+                   makes it visible. Reserved width even when unticked, so the
+                   labels do not shift as the checked item changes. */
+                <span
+                  aria-hidden="true"
+                  className="material-symbols-outlined"
+                  css={css`
+                    margin-left: auto;
+                    font-size: 1.1rem;
+                    line-height: 1;
+                    width: 1.1rem;
+                    color: ${COLORS.TEXT_COLOR};
+                    visibility: ${item.checked ? 'visible' : 'hidden'};
+                  `}
+                >
+                  check
+                </span>
+              )}
             </button>
           ))}
         </div>

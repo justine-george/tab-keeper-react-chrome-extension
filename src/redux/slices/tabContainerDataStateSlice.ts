@@ -1,6 +1,15 @@
 import { createAsyncThunk, createSlice, PayloadAction } from '@reduxjs/toolkit';
 
-import { RootState } from '../store';
+// `import type`, and it is load-bearing rather than tidiness. A value import
+// here completes a cycle -- this slice -> store -> storeConfig -> this slice --
+// which leaves the module partially initialised depending on who imports whom
+// first. It was harmless only because nothing outside the redux folder imported
+// this slice early; the first component to do so (MenuContainer, KAN-136) broke
+// nine unrelated keyboard tests with "Cannot read properties of undefined
+// (reading 'tabGroups')". RootState is used solely in `as RootState` casts, so
+// `import type` is emitted as nothing and the cycle disappears. Same technique,
+// same reason, as the header comment in mergeTabData.ts.
+import type { RootState } from '../store';
 import { closeFocusModal, openFocusModal, showToast } from './globalStateSlice';
 import {
   getStringDate,
@@ -225,6 +234,26 @@ export interface moveTabParams {
 export interface moveSessionParams {
   tabGroupId: string;
   toIndex: number;
+}
+
+// Rearrange the session list by a key (KAN-136, closing KAN-106).
+//
+// A one-shot ACTION, not a mode. It assigns ranks once and stops, which is what
+// lets sorting and dragging coexist -- both write the same stored order rather
+// than being two rival answers to "what order is this list in". The visible
+// consequence is deliberate: a session saved afterwards has no rank, falls back
+// to createdInstant, and lands on top rather than in its sorted position.
+//
+// `locale` is passed in rather than read here: title comparison must be
+// locale-aware (Intl.Collator, not `<`), the app ships ten locales, and the
+// reducer has no access to the active one. Same shape as getPrettyDate (KAN-85).
+//
+// Sorting by DATE SAVED is not here -- that is clearSessionOrder, because
+// returning to the default means REMOVING ranks rather than assigning them.
+// Two genuinely different operations, kept as two.
+export interface sortSessionsParams {
+  by: 'name' | 'tabCount' | 'contentModified';
+  locale: string;
 }
 
 export interface moveWindowParams {
@@ -598,6 +627,14 @@ function touchContent(group: tabContainerData): void {
 // imports nothing from here as a value, deliberately, so it stays DOM-free.
 function rankOf(group: tabContainerData): number {
   return group.rank ?? createdInstant(group);
+}
+
+// The tiebreak every session ordering here uses, matching the merge's own
+// (`compareAsc` in mergeTabData). Its job is to make the result TOTAL: without
+// it, two sessions with equal keys could come out in either order, and two
+// devices sorting the same data would not converge.
+function compareIds(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0;
 }
 
 // Ranks are sparse and live in createdInstant's space, so a session dropped
@@ -1439,6 +1476,69 @@ export const tabContainerDataStateSlice = createSlice({
       saveToLocalStorage('tabContainerData', state);
     },
 
+    // Rearrange the whole list by a key (KAN-136).
+    //
+    // Unlike a drag, this necessarily touches EVERY session: an explicit order
+    // needs an explicit rank on each one. That is the cost of the operation,
+    // not an oversight -- and it is why "sort by date saved" is a separate
+    // reducer that removes ranks instead.
+    sortSessionsInternal: (
+      state,
+      action: PayloadAction<sortSessionsParams>
+    ) => {
+      const { by, locale } = action.payload;
+      if (state.tabGroups.length === 0) return;
+
+      // Intl.Collator, never `<`. A codepoint compare puts every capital ahead
+      // of every lowercase -- "Banana, Cherry, apple" -- and is wrong outright
+      // in most of the ten locales we ship. KAN-85 was this same mistake for
+      // dates.
+      const collator = new Intl.Collator(locale, { sensitivity: 'base' });
+
+      // Most recently edited first, and NOT `lastModified` -- that is bumped
+      // by reordering too, so a previous sort would have flattened it and this
+      // would return something close to arbitrary (KAN-138).
+      //
+      // The fallback for sessions written before contentModified existed is
+      // createdInstant, which is the date their row displays -- so an unmigrated
+      // session sorts where the user would expect from looking at it, rather
+      // than by a lastModified they cannot see.
+      const editedAt = (g: tabContainerData) =>
+        g.contentModified ?? createdInstant(g);
+
+      const compare = (a: tabContainerData, b: tabContainerData): number => {
+        if (by === 'name') return collator.compare(a.title, b.title);
+        if (by === 'contentModified') return editedAt(b) - editedAt(a);
+        // Largest first, which is the only reading of "sort by tab count" that
+        // puts the interesting sessions where the eye starts.
+        return b.tabCount - a.tabCount;
+      };
+
+      const sorted = [...state.tabGroups].sort(
+        // tabGroupId breaks ties so the result is total and stable, matching
+        // what the merge does -- otherwise two devices could order equal keys
+        // differently and never converge.
+        (a, b) => compare(a, b) || compareIds(a.tabGroupId, b.tabGroupId)
+      );
+
+      // Already in this order AND already pinned: nothing to do. Both halves
+      // matter -- a list that merely happens to be in the right order is still
+      // unpinned, and the user asking for this order means they want it to
+      // stay, so ranks still get written.
+      const unchanged =
+        sorted.every((g, i) => g === state.tabGroups[i]) &&
+        state.tabGroups.every((g) => g.rank !== undefined);
+      if (unchanged) return;
+
+      state.tabGroups = sorted;
+      renormalise(state.tabGroups, Date.now());
+
+      state.lastModified = Date.now();
+
+      // update localstorage
+      saveToLocalStorage('tabContainerData', state);
+    },
+
     // Drop every manual rank and return the list to newest-first (KAN-130).
     //
     // Cheap by construction: it REMOVES ranks rather than assigning them, so it
@@ -1461,11 +1561,7 @@ export const tabContainerDataStateSlice = createSlice({
       state.tabGroups.sort(
         (a, b) =>
           createdInstant(b) - createdInstant(a) ||
-          (a.tabGroupId < b.tabGroupId
-            ? -1
-            : a.tabGroupId > b.tabGroupId
-              ? 1
-              : 0)
+          compareIds(a.tabGroupId, b.tabGroupId)
       );
 
       state.lastModified = Date.now();
@@ -1817,6 +1913,7 @@ export const {
   moveTabInternal,
   moveWindowInternal,
   moveSessionInternal,
+  sortSessionsInternal,
   clearSessionOrder,
   replaceState,
   restoreContainer,
