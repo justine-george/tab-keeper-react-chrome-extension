@@ -126,5 +126,7 @@
   "TabGroupsPromptBodyOther": "Activez-la et vos {{count}} groupes d'onglets reviendront exactement tels que vous les avez créés.",
   "TabGroupsPromptConfirm": "Activer la prise en charge des groupes d'onglets",
   "TabGroupsPromptDismiss": "Pas maintenant",
-  "TabGroupsPromptNever": "Ne plus demander"
+  "TabGroupsPromptNever": "Ne plus demander",
+  "Custom order": "Ordre personnalisé",
+  "Sort by date saved": "Trier par date d’enregistrement"
 }

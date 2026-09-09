@@ -126,5 +126,7 @@
   "TabGroupsPromptBodyOther": "Ative e seus {{count}} grupos de guias voltarão exatamente como você os criou.",
   "TabGroupsPromptConfirm": "Ativar o suporte a grupos de guias",
   "TabGroupsPromptDismiss": "Agora não",
-  "TabGroupsPromptNever": "Não perguntar novamente"
+  "TabGroupsPromptNever": "Não perguntar novamente",
+  "Custom order": "Ordem personalizada",
+  "Sort by date saved": "Ordenar por data de salvamento"
 }

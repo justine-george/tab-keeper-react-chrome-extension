@@ -28,6 +28,8 @@ import {
   DELETE_CHROME_GROUP_ACTION,
   MOVE_TAB_ACTION,
   MOVE_WINDOW_ACTION,
+  MOVE_SESSION_ACTION,
+  CLEAR_SESSION_ORDER_ACTION,
 } from '../../utils/constants/actionTypes';
 import type { RootState } from '../store';
 
@@ -54,6 +56,8 @@ const actionsToCapture = [
   DELETE_TAB_ACTION,
   MOVE_TAB_ACTION,
   MOVE_WINDOW_ACTION,
+  MOVE_SESSION_ACTION,
+  CLEAR_SESSION_ORDER_ACTION,
 
   // actions in globalStateSlice
   IS_DIRTY_ACTION,

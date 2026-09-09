@@ -18,6 +18,7 @@ import {
   RestoreSessionRequest,
   WindowSpec,
 } from '../../utils/functions/windows';
+import { createdInstant } from '../../utils/functions/mergeTabData';
 import {
   DEFAULT_WINDOW_HEIGHT,
   DEFAULT_WINDOW_OFFSET_LEFT,
@@ -80,6 +81,19 @@ export interface tabContainerData {
   // Optional because every document written before this change lacks it.
   // Readers fall back to the container's lastModified; see mergeTabData.ts.
   lastModified?: number;
+  // Where the user put this session, if they have moved it (KAN-130).
+  //
+  // IN THE SAME NUMERIC SPACE AS createdInstant -- epoch milliseconds -- which
+  // is the decision the whole feature rests on. It lets ranks be SPARSE: only
+  // sessions actually dragged carry one, and they still compare correctly
+  // against sessions that do not. So a drag writes ONE session rather than
+  // renumbering the list, and a list with no ranks sorts exactly as it did
+  // before this field existed.
+  //
+  // The list is in custom order iff any session carries this. That is why there
+  // is no stored sort mode: a container-level field would need its own merge
+  // rule, and this merge has none for one.
+  rank?: number;
 }
 
 // A deleted session has to leave a trace. Merging by tabGroupId alone would
@@ -190,6 +204,16 @@ export interface moveTabParams {
 // belongs to a Chrome group, a window belongs to nothing. So the drop rule
 // really is just an index, and there is one axis to compare when deciding
 // whether a drop changed anything.
+// Where a session sits in the left pane (KAN-130).
+//
+// toIndex indexes the RENDERED list, which is the stored array order -- these
+// are the same thing while no search is active, and dragging is disabled while
+// one is (KAN-131).
+export interface moveSessionParams {
+  tabGroupId: string;
+  toIndex: number;
+}
+
 export interface moveWindowParams {
   tabGroupId: string;
   // Identity, not a position, for the same reason as moveTabParams: the source
@@ -539,6 +563,49 @@ function touch(group: tabContainerData): void {
   group.lastModified = Date.now();
 }
 
+// The key the session list is ordered by, newest/highest first (KAN-130).
+//
+// Imported rather than reimplemented: the merge sorts on exactly this, and two
+// implementations of "where does this session go" drifting apart is how a drag
+// gets silently undone by the next sync. One direction only -- mergeTabData
+// imports nothing from here as a value, deliberately, so it stays DOM-free.
+function rankOf(group: tabContainerData): number {
+  return group.rank ?? createdInstant(group);
+}
+
+// Ranks are sparse and live in createdInstant's space, so a session dropped
+// between two others takes the midpoint of its new neighbours.
+//
+// Returns null when there is no value strictly between them -- two sessions
+// saved in the same millisecond, or a gap already halved past a double's
+// precision. The caller renormalises rather than writing an ambiguous rank,
+// because an ambiguous rank lets two devices sort the same data differently,
+// which is the one thing the merge must never allow.
+const END_GAP = 60_000;
+
+function rankBetween(
+  above: number | null,
+  below: number | null
+): number | null {
+  if (above === null && below === null) return null;
+  // Dropped at the top or the bottom: step clear of the only neighbour.
+  if (above === null) return below! + END_GAP;
+  if (below === null) return above - END_GAP;
+
+  const mid = above + (below - above) / 2;
+  return mid > below && mid < above ? mid : null;
+}
+
+// Give every session an explicit, evenly spaced rank in the array's current
+// order. The escape hatch for the two cases rankBetween cannot answer; it
+// touches every session, which is why it is a fallback and not the mechanism.
+function renormalise(groups: tabContainerData[], now: number): void {
+  groups.forEach((group, index) => {
+    group.rank = now - index * END_GAP;
+    touch(group);
+  });
+}
+
 // The session / window / group walk the three Chrome-group reducers share.
 //
 // Returns null rather than throwing when any level is missing, which is the
@@ -595,6 +662,16 @@ function sameSessionContent(a: tabContainerData, b: tabContainerData): boolean {
     a.title === b.title &&
     a.createdTime === b.createdTime &&
     a.createdAt === b.createdAt &&
+    // Where the user put this session (KAN-130). A new field is a new hole in
+    // this comparator until it is read here: a session whose only change is its
+    // rank would compare EQUAL, be handed back with its snapshot timestamp, and
+    // lose the next merge to the cloud copy that still holds the drag -- the
+    // undo applying and then silently reverting. That is KAN-80, KAN-83 and
+    // KAN-125, three times over.
+    //
+    // `undefined === undefined` is the common case and is correct: a session
+    // that has never been dragged compares equal to itself.
+    a.rank === b.rank &&
     a.isAutoSave === b.isAutoSave &&
     a.windowCount === b.windowCount &&
     a.tabCount === b.tabCount &&
@@ -1278,6 +1355,98 @@ export const tabContainerDataStateSlice = createSlice({
       saveToLocalStorage('tabContainerData', state);
     },
 
+    // move a session within the left pane (KAN-130)
+    //
+    // WRITES BOTH THE ARRAY AND A RANK, and both are load-bearing. The stored
+    // array order IS the display order -- selectVisibleTabGroups filters but
+    // never sorts -- so splicing is what makes the drag visible at all. The
+    // merge re-derives order from rankOf on every sync, so the rank is what
+    // makes it survive. Setting only one of the two gives a drag that either
+    // does nothing until a sync, or is undone by one.
+    //
+    // The invariant tying them together: sorting the resulting array by rankOf
+    // must reproduce that same array.
+    moveSessionInternal: (state, action: PayloadAction<moveSessionParams>) => {
+      const { tabGroupId, toIndex } = action.payload;
+
+      const fromIndex = state.tabGroups.findIndex(
+        (group) => group.tabGroupId === tabGroupId
+      );
+      // Same shape as the sibling reducers: an id that does not resolve means
+      // the action arrived for data that is no longer there.
+      if (fromIndex === -1) return;
+
+      const target = Math.min(Math.max(0, toIndex), state.tabGroups.length - 1);
+      // A drop where it started is not an edit. Without this it would stamp the
+      // session, dirty it for a cloud write and push an undo step for something
+      // the user cannot see.
+      if (target === fromIndex) return;
+
+      const [moved] = state.tabGroups.splice(fromIndex, 1);
+      state.tabGroups.splice(target, 0, moved);
+
+      // The neighbours it now sits between, in the array it now sits in.
+      // Highest rank first, so "above" is the larger value.
+      const above = target > 0 ? rankOf(state.tabGroups[target - 1]) : null;
+      const below =
+        target < state.tabGroups.length - 1
+          ? rankOf(state.tabGroups[target + 1])
+          : null;
+
+      const rank = rankBetween(above, below);
+      if (rank === null) {
+        // No value fits between the neighbours -- same-millisecond saves, or a
+        // gap halved past a double's precision. Rebuild every rank rather than
+        // write one that sorts ambiguously.
+        renormalise(state.tabGroups, Date.now());
+      } else {
+        moved.rank = rank;
+        // touch, not stampCreated: createdAt is what rankOf falls back to, so
+        // restamping would move this session inside the list being reordered.
+        touch(moved);
+      }
+
+      state.lastModified = Date.now();
+
+      // update localstorage
+      saveToLocalStorage('tabContainerData', state);
+    },
+
+    // Drop every manual rank and return the list to newest-first (KAN-130).
+    //
+    // Cheap by construction: it REMOVES ranks rather than assigning them, so it
+    // touches only the sessions that were actually moved. Sorting by title
+    // would be the opposite -- a rank on every session -- which is why that is
+    // a separate decision (KAN-106).
+    clearSessionOrder: (state) => {
+      const ranked = state.tabGroups.filter((g) => g.rank !== undefined);
+      // Nothing to clear is not an edit, or the control would stamp every
+      // session and queue a cloud write every time it was pressed.
+      if (ranked.length === 0) return;
+
+      for (const group of ranked) {
+        delete group.rank;
+        touch(group);
+      }
+
+      // The array is the display order, so it has to be put back too -- the
+      // same pairing moveSessionInternal maintains.
+      state.tabGroups.sort(
+        (a, b) =>
+          createdInstant(b) - createdInstant(a) ||
+          (a.tabGroupId < b.tabGroupId
+            ? -1
+            : a.tabGroupId > b.tabGroupId
+              ? 1
+              : 0)
+      );
+
+      state.lastModified = Date.now();
+
+      // update localstorage
+      saveToLocalStorage('tabContainerData', state);
+    },
+
     // move a window within its session
     //
     // The counts are deliberately untouched: a reorder changes neither how many
@@ -1599,6 +1768,8 @@ export const {
   deleteTabInternal,
   moveTabInternal,
   moveWindowInternal,
+  moveSessionInternal,
+  clearSessionOrder,
   replaceState,
   restoreContainer,
   applyUndoSnapshot,

@@ -126,5 +126,7 @@
   "TabGroupsPromptBodyOther": "Aktivieren Sie die Funktion, und Ihre {{count}} Tab-Gruppen kehren genau so zurück, wie Sie sie angelegt haben.",
   "TabGroupsPromptConfirm": "Tab-Gruppen-Unterstützung aktivieren",
   "TabGroupsPromptDismiss": "Jetzt nicht",
-  "TabGroupsPromptNever": "Nicht mehr fragen"
+  "TabGroupsPromptNever": "Nicht mehr fragen",
+  "Custom order": "Eigene Reihenfolge",
+  "Sort by date saved": "Nach Speicherdatum sortieren"
 }

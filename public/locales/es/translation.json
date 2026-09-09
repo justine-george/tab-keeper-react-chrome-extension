@@ -126,5 +126,7 @@
   "TabGroupsPromptBodyOther": "Actívalo y tus {{count}} grupos de pestañas volverán tal como los creaste.",
   "TabGroupsPromptConfirm": "Activar la compatibilidad con grupos de pestañas",
   "TabGroupsPromptDismiss": "Ahora no",
-  "TabGroupsPromptNever": "No volver a preguntar"
+  "TabGroupsPromptNever": "No volver a preguntar",
+  "Custom order": "Orden personalizado",
+  "Sort by date saved": "Ordenar por fecha de guardado"
 }

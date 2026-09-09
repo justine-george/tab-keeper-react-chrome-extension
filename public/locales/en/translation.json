@@ -126,5 +126,7 @@
   "TabGroupsPromptBodyOther": "Turn it on and your {{count}} tab groups come back exactly as you set them up.",
   "TabGroupsPromptConfirm": "Enable tab group support",
   "TabGroupsPromptDismiss": "Not now",
-  "TabGroupsPromptNever": "Don't ask again"
+  "TabGroupsPromptNever": "Don't ask again",
+  "Custom order": "Custom order",
+  "Sort by date saved": "Sort by date saved"
 }
