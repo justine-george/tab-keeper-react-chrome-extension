@@ -81,6 +81,19 @@ export interface tabContainerData {
   // Optional because every document written before this change lacks it.
   // Readers fall back to the container's lastModified; see mergeTabData.ts.
   lastModified?: number;
+  // When this session's CONTENTS last changed (KAN-138).
+  //
+  // Distinct from lastModified, which means "differs from the cloud's copy" and
+  // must be bumped by anything that has to sync -- REORDERING INCLUDED, or the
+  // reorder is reverted by the next merge (KAN-80, KAN-83, KAN-125). A
+  // whole-list sort therefore flattens every lastModified to the same instant,
+  // which makes it useless as a "recently changed" ordering.
+  //
+  // This one is bumped only by edits to what the session HOLDS, never by where
+  // it sits in the list. Optional, like createdAt and rank: absent on every
+  // session written before it existed, and readers fall back.
+  contentModified?: number;
+
   // Where the user put this session, if they have moved it (KAN-130).
   //
   // IN THE SAME NUMERIC SPACE AS createdInstant -- epoch milliseconds -- which
@@ -563,6 +576,20 @@ function touch(group: tabContainerData): void {
   group.lastModified = Date.now();
 }
 
+// The session's CONTENTS changed (KAN-138) -- as opposed to merely its place in
+// the list.
+//
+// Every content reducer calls this; the ordering reducers and applyUndoSnapshot
+// call plain `touch`. That split is the whole feature: it is what keeps
+// contentModified meaningful after a sort, which flattens every lastModified.
+//
+// An undo restores contentModified from its snapshot rather than setting it to
+// now, which is why applyUndoSnapshot must NOT use this.
+function touchContent(group: tabContainerData): void {
+  touch(group);
+  group.contentModified = Date.now();
+}
+
 // The key the session list is ordered by, newest/highest first (KAN-130).
 //
 // Imported rather than reimplemented: the merge sorts on exactly this, and two
@@ -772,7 +799,7 @@ export const tabContainerDataStateSlice = createSlice({
     ) => {
       const newTabGroupId = action.payload.tabGroupId;
       state.tabGroups.unshift(action.payload);
-      touch(state.tabGroups[0]);
+      touchContent(state.tabGroups[0]);
       state.lastModified = Date.now();
 
       // update localstorage
@@ -822,7 +849,7 @@ export const tabContainerDataStateSlice = createSlice({
         state.tabGroups[tabGroupIndex].tabCount += window.tabCount;
         stampCreated(state.tabGroups[tabGroupIndex]);
         state.tabGroups[tabGroupIndex].windows.unshift(window);
-        touch(state.tabGroups[tabGroupIndex]);
+        touchContent(state.tabGroups[tabGroupIndex]);
       }
       state.lastModified = Date.now();
 
@@ -853,7 +880,7 @@ export const tabContainerDataStateSlice = createSlice({
           state.tabGroups[tabGroupIndex].windows[windowIndex].tabs.unshift(
             currentTabData
           );
-          touch(state.tabGroups[tabGroupIndex]);
+          touchContent(state.tabGroups[tabGroupIndex]);
         }
       }
       state.lastModified = Date.now();
@@ -890,7 +917,7 @@ export const tabContainerDataStateSlice = createSlice({
       );
       if (tabGroupIndex !== -1) {
         state.tabGroups[tabGroupIndex].title = normalizeTitle(newTitle);
-        touch(state.tabGroups[tabGroupIndex]);
+        touchContent(state.tabGroups[tabGroupIndex]);
       }
       state.lastModified = Date.now();
       // update localstorage
@@ -918,7 +945,7 @@ export const tabContainerDataStateSlice = createSlice({
         if (windowIndex !== -1) {
           state.tabGroups[tabGroupIndex].windows[windowIndex].title =
             normalizeTitle(newTitle);
-          touch(state.tabGroups[tabGroupIndex]);
+          touchContent(state.tabGroups[tabGroupIndex]);
         }
       }
       state.lastModified = Date.now();
@@ -968,7 +995,7 @@ export const tabContainerDataStateSlice = createSlice({
       if (group.title === newTitle) return;
 
       group.title = newTitle;
-      touch(state.tabGroups[tabGroupIndex]);
+      touchContent(state.tabGroups[tabGroupIndex]);
       state.lastModified = Date.now();
       // update localstorage
       saveToLocalStorage('tabContainerData', state);
@@ -1020,7 +1047,7 @@ export const tabContainerDataStateSlice = createSlice({
       container.tabCount += 1;
       window.tabCount += 1;
       stampCreated(container);
-      touch(container);
+      touchContent(container);
       state.lastModified = Date.now();
       saveToLocalStorage('tabContainerData', state);
     },
@@ -1057,7 +1084,7 @@ export const tabContainerDataStateSlice = createSlice({
       if (group.color === color) return;
 
       group.color = color;
-      touch(container);
+      touchContent(container);
       state.lastModified = Date.now();
       saveToLocalStorage('tabContainerData', state);
     },
@@ -1088,7 +1115,7 @@ export const tabContainerDataStateSlice = createSlice({
         if (tab.chromeGroupId === groupId) delete tab.chromeGroupId;
       }
 
-      touch(container);
+      touchContent(container);
       state.lastModified = Date.now();
       saveToLocalStorage('tabContainerData', state);
     },
@@ -1138,7 +1165,7 @@ export const tabContainerDataStateSlice = createSlice({
         bury(state, container.tabGroupId);
         state.tabGroups.splice(containerIndex, 1);
       } else {
-        touch(container);
+        touchContent(container);
       }
 
       state.lastModified = Date.now();
@@ -1202,7 +1229,7 @@ export const tabContainerDataStateSlice = createSlice({
           bury(state, state.tabGroups[tabGroupIndex].tabGroupId);
           state.tabGroups.splice(tabGroupIndex, 1);
         } else {
-          touch(state.tabGroups[tabGroupIndex]);
+          touchContent(state.tabGroups[tabGroupIndex]);
         }
       }
       state.lastModified = Date.now();
@@ -1264,7 +1291,7 @@ export const tabContainerDataStateSlice = createSlice({
           bury(state, state.tabGroups[tabGroupIndex].tabGroupId);
           state.tabGroups.splice(tabGroupIndex, 1);
         } else {
-          touch(state.tabGroups[tabGroupIndex]);
+          touchContent(state.tabGroups[tabGroupIndex]);
         }
       }
       state.lastModified = Date.now();
@@ -1348,7 +1375,7 @@ export const tabContainerDataStateSlice = createSlice({
       // touch, not stampCreated: a reorder is an edit, and stampCreated would
       // reset createdAt, which is what the merge orders the session list by.
       // Nudging a tab must not send its session to the top of the left pane.
-      touch(container);
+      touchContent(container);
       state.lastModified = Date.now();
 
       // update localstorage
@@ -1494,7 +1521,7 @@ export const tabContainerDataStateSlice = createSlice({
       // touch, not stampCreated: a reorder is an edit, and stampCreated would
       // reset createdAt, which is what the merge orders the session list by.
       // Nudging a window must not send its session to the top of the left pane.
-      touch(container);
+      touchContent(container);
       state.lastModified = Date.now();
 
       // update localstorage
