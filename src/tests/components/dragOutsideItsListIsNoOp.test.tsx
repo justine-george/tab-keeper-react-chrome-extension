@@ -117,7 +117,7 @@ const tabsOf = (store: RenderWithProvidersResult['store'], i: number) =>
     .tabContainerDataState.tabGroups[0].windows[i].tabs.map((t) => t.tabId);
 
 afterEach(() => {
-  document.body.style.cursor = '';
+  document.documentElement.removeAttribute('data-dragging');
 });
 
 describe('a tab released outside its own window', () => {

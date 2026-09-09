@@ -126,7 +126,7 @@ const storedTabIds = (store: RenderWithProvidersResult['store']) =>
     .tabContainerDataState.tabGroups[0].windows[0].tabs.map((t) => t.tabId);
 
 afterEach(() => {
-  document.body.style.cursor = '';
+  document.documentElement.removeAttribute('data-dragging');
 });
 
 describe('a tab drag inside a filtered list', () => {

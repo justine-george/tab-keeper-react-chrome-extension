@@ -109,11 +109,26 @@ export function isInsideList(
   return y >= top - slack && y <= bottom + slack;
 }
 
-// `grabbing` goes on the document, not on the row. During a drag the pointer
-// travels over other rows, gaps and bands, and a cursor scoped to the source
-// element reverts the moment it leaves -- which reads as the drag letting go.
-export function setBodyGrabbing(on: boolean): void {
-  document.body.style.cursor = on ? 'grabbing' : '';
-  // Without this the browser selects row text as the pointer sweeps the list.
-  document.body.style.userSelect = on ? 'none' : '';
+// Publish "a drag is in flight" on the document, for App.css to react to.
+//
+// It goes on the document rather than the row because during a drag the pointer
+// travels over other rows, gaps and bands, and anything scoped to the source
+// element stops applying the moment it leaves -- which reads as the drag
+// letting go.
+//
+// A FLAG, not a style. This used to set `document.body.style.cursor` directly,
+// and that was set-and-inert (KAN-134): `cursor` inherits, but an explicit
+// declaration on a descendant beats an inherited value whatever its importance,
+// and every row in this pane declares `cursor: pointer`. Measured in the popup,
+// the body read `grabbing` while the element under the pointer computed
+// `pointer` for the entire gesture -- and the test asserting the body's own
+// style passed throughout.
+//
+// So the rule has to apply to the elements themselves, which means a selector
+// (`[data-dragging] *`) rather than a property set on one node. The styles live
+// in App.css; this only says when they apply. It also carries `user-select`,
+// which had the same shape and is now in the same rule.
+export function setDragging(on: boolean): void {
+  if (on) document.documentElement.setAttribute('data-dragging', '');
+  else document.documentElement.removeAttribute('data-dragging');
 }

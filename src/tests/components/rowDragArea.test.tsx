@@ -119,7 +119,7 @@ describe('handleSelector decides which press starts a drag', () => {
   });
 
   afterEach(() => {
-    document.body.style.cursor = '';
+    document.documentElement.removeAttribute('data-dragging');
   });
 
   test('a press on the handle starts a drag', () => {
@@ -181,7 +181,7 @@ describe('what a drag reports when it lands', () => {
   });
 
   afterEach(() => {
-    document.body.style.cursor = '';
+    document.documentElement.removeAttribute('data-dragging');
   });
 
   test('dragging to the top of the list lands at index 0', () => {
@@ -243,7 +243,7 @@ describe('when a drag should not happen at all', () => {
   });
 
   afterEach(() => {
-    document.body.style.cursor = '';
+    document.documentElement.removeAttribute('data-dragging');
   });
 
   test('a press that never crosses the threshold reports no move', () => {
@@ -276,8 +276,20 @@ describe('when a drag should not happen at all', () => {
   });
 });
 
-describe('the cursor while dragging', () => {
+// MOVED, and the move is the point. These three used to assert
+// `document.body.style.cursor === 'grabbing'` -- an assertion that was true
+// throughout, while the pointer rendered `pointer` for the whole gesture
+// (KAN-134). jsdom resolves no cascade, so the body's own style says nothing
+// about what any element shows.
+//
+// The flag those tests should have been checking is now pinned in
+// dragSetsDocumentFlag.test.tsx, the rule it triggers in dragStyles.test.ts,
+// and the rendered cursor in a browser. Nothing here asserts a cursor, because
+// nothing here can.
+describe('the drag flag while dragging', () => {
   let onMove: ReturnType<typeof vi.fn<OnMove>>;
+
+  const dragging = () => document.documentElement.hasAttribute('data-dragging');
 
   beforeEach(() => {
     onMove = vi.fn<OnMove>();
@@ -286,34 +298,34 @@ describe('the cursor while dragging', () => {
   });
 
   afterEach(() => {
-    document.body.style.cursor = '';
+    document.documentElement.removeAttribute('data-dragging');
   });
 
   // On the document, not the row: during a drag the pointer travels over other
-  // rows and gaps, and a cursor scoped to the source element reverts as soon as
-  // it leaves, which reads as the drag letting go.
-  test('the document shows grabbing during the drag and clears after', () => {
+  // rows and gaps, and anything scoped to the source element stops applying as
+  // soon as it leaves, which reads as the drag letting go.
+  test('the document is flagged during the drag and cleared after', () => {
     press('Row A', 15);
     moveTo(50);
-    expect(document.body.style.cursor).toBe('grabbing');
+    expect(dragging()).toBe(true);
 
     release(50);
-    expect(document.body.style.cursor).toBe('');
+    expect(dragging()).toBe(false);
   });
 
   test('Escape also clears it', () => {
     press('Row A', 15);
     moveTo(50);
-    expect(document.body.style.cursor).toBe('grabbing');
+    expect(dragging()).toBe(true);
 
     fireEvent.keyDown(window, { key: 'Escape' });
-    expect(document.body.style.cursor).toBe('');
+    expect(dragging()).toBe(false);
   });
 
   test('a press below the threshold never sets it', () => {
     press('Row A', 15);
     moveTo(17);
-    expect(document.body.style.cursor).toBe('');
+    expect(dragging()).toBe(false);
     release(17);
   });
 });

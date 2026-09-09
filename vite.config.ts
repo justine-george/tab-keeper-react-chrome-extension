@@ -44,6 +44,16 @@ export default defineConfig({
           globals: true,
           setupFiles: ['vitest-localstorage-mock'],
           mockReset: false,
+          // Vitest stubs CSS imports by default, and that stub also swallows
+          // `?raw` -- App.css came back as an empty string, so a test asserting
+          // its contents passed against a file it never read. dragStyles.test.ts
+          // needs the real text, because the drag's cursor and action-strip
+          // rules live in App.css and jsdom can resolve neither.
+          //
+          // Safe here because this project runs in `node`, where nothing
+          // injects CSS at all: enabling it only means "return the file instead
+          // of a stub".
+          css: true,
           // The second glob is why scripts/prune_remote_code.test.mjs runs at
           // all. It is deliberately narrow: scripts/ sits outside tsconfig's
           // `include` and outside `npm run lint` (which is `eslint src`), so
