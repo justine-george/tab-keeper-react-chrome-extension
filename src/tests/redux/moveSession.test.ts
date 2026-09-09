@@ -228,6 +228,38 @@ describe('moveSessionInternal when there is no gap to land in', () => {
     return store;
   };
 
+  // THE ONE THAT ACTUALLY REACHES renormalise, and it took a mutation to find
+  // out that nothing did. Dropping at either END is not enough: rankBetween
+  // returns early there, because one neighbour is null and it just steps clear
+  // of the other. Only a drop into the MIDDLE gives it two equal neighbours
+  // with no value between them.
+  test('a drop between two equal neighbours rebuilds every rank', () => {
+    const store = seededSameInstant();
+    const before = ids(store);
+
+    // Into the middle: both neighbours are the same instant.
+    store.dispatch(moveSessionInternal({ tabGroupId: before[0], toIndex: 1 }));
+
+    const groups = store.getState().tabContainerDataState.tabGroups;
+    // Every session now carries an explicit rank -- that is what renormalising
+    // means, and it is the one path that touches the whole list.
+    expect(groups.every((g) => g.rank !== undefined)).toBe(true);
+    // And they are strictly descending, so the order is unambiguous. An
+    // ambiguous rank is the thing this path exists to avoid: it would let two
+    // devices sort the same data differently.
+    const ranks = groups.map((g) => g.rank!);
+    expect(ranks.every((r, i) => i === 0 || ranks[i - 1] > r)).toBe(true);
+  });
+
+  test('and that rebuild still puts the session where it was dropped', () => {
+    const store = seededSameInstant();
+    const before = ids(store);
+
+    store.dispatch(moveSessionInternal({ tabGroupId: before[0], toIndex: 1 }));
+
+    expect(ids(store)[1]).toBe(before[0]);
+  });
+
   test('still lands the session where it was dropped', () => {
     const store = seededSameInstant();
     const before = ids(store);
