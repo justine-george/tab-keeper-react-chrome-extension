@@ -1552,11 +1552,32 @@ export const tabContainerDataStateSlice = createSlice({
     applyUndoSnapshot: (
       state,
       action: PayloadAction<{
-        snapshot: TabMasterContainer;
+        // Optional because the dispatcher genuinely can pass nothing -- see the
+        // guard below. Declaring it required did not make it so; it only hid
+        // the case from the compiler.
+        snapshot: TabMasterContainer | undefined;
         withdrawTabGroupIds: string[];
       }>
     ) => {
       const { snapshot, withdrawTabGroupIds } = action.payload;
+
+      // There may be no snapshot to restore, and the type above said otherwise
+      // (KAN-137). customMiddleware builds this action as a plain object
+      // literal rather than through the action creator, so nothing checks the
+      // payload: it passes `presentState.tabContainerDataState`, which is
+      // undefined until `present` has been seeded. reconcileAssertedContainer
+      // then read `.tabGroups` off undefined and threw INSIDE dispatch().
+      //
+      // The damage surfaced nowhere near here. In MainContainer's cmd+Z
+      // handler the throw unwound before the next line -- event.preventDefault()
+      // -- so the visible symptom was a keyboard shortcut that dispatched undo
+      // yet left the event un-prevented, and nine tests failed for a change
+      // that touched neither keyboard handling nor sessions.
+      //
+      // Nothing to restore means nothing to do; the alternative is replacing
+      // the container with undefined.
+      if (!snapshot) return state;
+
       const liveAt = new Map(
         state.tabGroups.map((tabGroup) => [
           tabGroup.tabGroupId,
