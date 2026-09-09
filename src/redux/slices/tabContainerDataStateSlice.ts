@@ -12,7 +12,6 @@ import { createAsyncThunk, createSlice, PayloadAction } from '@reduxjs/toolkit';
 import type { RootState } from '../store';
 import { closeFocusModal, openFocusModal, showToast } from './globalStateSlice';
 import {
-  getStringDate,
   isBlankTitle,
   normalizeTitle,
   saveToLocalStorage,
@@ -736,6 +735,24 @@ function sameSessionContent(a: tabContainerData, b: tabContainerData): boolean {
     // `undefined === undefined` is the common case and is correct: a session
     // that has never been dragged compares equal to itself.
     a.rank === b.rank &&
+    // `contentModified` (KAN-138) is deliberately NOT compared, which is the
+    // opposite call from `rank` above, so the reasoning is recorded here
+    // rather than left to be re-derived.
+    //
+    // It is synced, so by the rule stated above it looks like a hole. It is
+    // not reachable as one: `touchContent` is the only writer, and every call
+    // site sits beside a change this comparator already sees -- a title, a
+    // tab, a window, a Chrome group. No reducer can move it alone, so adding
+    // it here would never change an answer.
+    //
+    // What it WOULD change is the reverse case. A session edited and then
+    // manually edited back -- rename A->B->A -- has identical content and two
+    // advanced timestamps; comparing them would report it changed and stamp a
+    // session that is byte-identical to its snapshot. That is the direction
+    // the control in undoWindowReorderSurvivesSync.test.ts exists to catch.
+    //
+    // So: add it the moment a reducer touches `contentModified` without
+    // touching anything else, and not before (KAN-139).
     a.isAutoSave === b.isAutoSave &&
     a.windowCount === b.windowCount &&
     a.tabCount === b.tabCount &&
@@ -803,16 +820,22 @@ function sameChromeTabGroups(
   );
 }
 
-// createdTime and createdAt are the same moment in two formats - a local wall
-// clock for display, and the instant the merge orders on. They are written
-// together, through this, so a reader can never catch them describing
-// different moments.
-function stampCreated(group: tabContainerData): void {
-  const now = new Date();
-  group.createdTime = getStringDate(now);
-  group.createdAt = now.getTime();
-}
-
+// `stampCreated` used to live here, rewriting createdTime and createdAt to now
+// from the six structural-edit reducers -- add window, add tab, add tab to a
+// Chrome group, delete Chrome group, delete window, delete tab (KAN-139).
+//
+// It was not a stray bug. Those six are exactly the edits that change what a
+// session HOLDS, and re-stamping them made the left pane resurface a session
+// you had just added tabs to. That is "recently changed first" ordering,
+// implemented by overwriting the creation date because until KAN-136 there was
+// no other way to ask for recency. KAN-136 shipped a Date modified sort on
+// KAN-138's `contentModified`, so the impersonation is redundant -- and it was
+// actively lying: a session saved in July claimed today's date because one tab
+// was deleted from it.
+//
+// createdTime/createdAt are now written exactly once, at capture
+// (capture.ts:255-261, one `now` for both so the string and the instant cannot
+// disagree). Nothing rewrites them afterwards.
 // A removed session has to leave a trace, or the device that still holds it
 // re-adds it on the next merge and the user can never delete it anywhere.
 // Re-deleting an id refreshes its timestamp rather than appending a duplicate.
@@ -884,7 +907,6 @@ export const tabContainerDataStateSlice = createSlice({
       if (tabGroupIndex !== -1) {
         state.tabGroups[tabGroupIndex].windowCount += 1;
         state.tabGroups[tabGroupIndex].tabCount += window.tabCount;
-        stampCreated(state.tabGroups[tabGroupIndex]);
         state.tabGroups[tabGroupIndex].windows.unshift(window);
         touchContent(state.tabGroups[tabGroupIndex]);
       }
@@ -911,7 +933,6 @@ export const tabContainerDataStateSlice = createSlice({
         if (windowIndex !== -1) {
           // increment tab count of tabGroup and windowGroup
           state.tabGroups[tabGroupIndex].tabCount += 1;
-          stampCreated(state.tabGroups[tabGroupIndex]);
           state.tabGroups[tabGroupIndex].windows[windowIndex].tabCount += 1;
           // add to windowGroup
           state.tabGroups[tabGroupIndex].windows[windowIndex].tabs.unshift(
@@ -1083,7 +1104,6 @@ export const tabContainerDataStateSlice = createSlice({
 
       container.tabCount += 1;
       window.tabCount += 1;
-      stampCreated(container);
       touchContent(container);
       state.lastModified = Date.now();
       saveToLocalStorage('tabContainerData', state);
@@ -1186,7 +1206,6 @@ export const tabContainerDataStateSlice = createSlice({
 
       window.tabCount -= removed;
       container.tabCount -= removed;
-      stampCreated(container);
 
       // The same cascade deleteTabInternal runs, for the same reason: an empty
       // window is not a thing, and an empty session needs a tombstone rather
@@ -1245,7 +1264,6 @@ export const tabContainerDataStateSlice = createSlice({
         if (windowIndex !== -1) {
           // decrement tabGroup's window count by 1
           state.tabGroups[tabGroupIndex].windowCount -= 1;
-          stampCreated(state.tabGroups[tabGroupIndex]);
           // decrement tabGroup's tab count by tab count of the window that's been deleted
           state.tabGroups[tabGroupIndex].tabCount -=
             state.tabGroups[tabGroupIndex].windows[windowIndex].tabCount;
@@ -1293,7 +1311,6 @@ export const tabContainerDataStateSlice = createSlice({
             // decrement window's and tabGroup's tab count by 1
             state.tabGroups[tabGroupIndex].windows[windowIndex].tabCount -= 1;
             state.tabGroups[tabGroupIndex].tabCount -= 1;
-            stampCreated(state.tabGroups[tabGroupIndex]);
 
             state.tabGroups[tabGroupIndex].windows[windowIndex].tabs.splice(
               tabIndex,
