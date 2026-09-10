@@ -2,6 +2,7 @@
 // there, since db is created by that module's getFirestore.
 import { doc, setDoc } from 'firebase/firestore/lite';
 import {
+  cloudUnavailable,
   db,
   fetchDataFromFirestore,
   CloudCandidate,
@@ -85,6 +86,11 @@ export async function saveToFirestore(
   userId: string,
   data: TabMasterContainer
 ): Promise<void> {
+  // KAN-147. Thrown, not silently skipped: the caller keeps isDirty set and the
+  // header reports the real state. Returning quietly here would claim a write
+  // that never happened -- the exact failure the catch below exists to prevent.
+  if (db === null) throw cloudUnavailable();
+
   try {
     await setDoc(doc(db, 'tabGroupData', userId), {
       ...stripEmbeddedFavicons(data),
