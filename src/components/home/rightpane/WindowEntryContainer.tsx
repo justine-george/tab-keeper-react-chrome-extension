@@ -20,7 +20,6 @@ import { AppDispatch, RootState } from '../../../redux/store';
 import {
   resolveTabUrl,
   resolveFaviconUrl,
-  isSearchActive,
 } from '../../../utils/functions/local';
 import { NON_INTERACTIVE_ICON_STYLE } from '../../../utils/constants/common';
 import {
@@ -98,10 +97,6 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     (state: RootState) => state.globalState.isSearchPanel
   );
 
-  const searchInputText = useSelector(
-    (state: RootState) => state.globalState.searchInputText
-  );
-
   // KAN-131. `tabs` here is whatever the pane handed down, and under a live
   // search that is a SUBSET of the stored window -- filterTabGroups narrows a
   // window's tabs, not just which windows are shown. A drag reports an index
@@ -109,10 +104,13 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   // array, so in a narrowed list the tab lands somewhere the user never
   // pointed at, silently, and the session is dirtied for a cloud write.
   //
-  // isSearchActive, not isSearchPanel: an open panel with an empty box filters
-  // nothing, so the two lists agree and dragging is safe. That is the same
-  // distinction the count label turns on (KAN-60).
-  const isFilteredView = isSearchActive(isSearchPanel, searchInputText);
+  // isSearchPanel, not isSearchActive (KAN-140). This comment used to argue
+  // the opposite -- an open panel with an empty box filters nothing, so the
+  // two lists agree and dragging is safe -- which is true and is not the
+  // point. Guarding on the box's contents means the same gesture on the same
+  // rows works or does nothing depending on a transient value, with no visible
+  // tell, and makes the safety property depend on a keystroke racing a pointer
+  // gesture. The mode is the stable thing to ask about.
 
   // Gates rendering on the LIVE permission, not on whether the data is
   // present. A session synced from a device that had the permission still
@@ -693,7 +691,9 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
             rowIds={tabIds}
             onMove={handleMove}
             resolveDrop={bandAt}
-            disabled={isFilteredView}
+            // The mode, not the box's contents -- see KAN-140 on
+            // TabGroupEntryContainer for why this is not isFilteredView.
+            disabled={isSearchPanel}
           >
             {partitionTabsIntoRuns(
               tabs,

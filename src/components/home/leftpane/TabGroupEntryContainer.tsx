@@ -50,7 +50,6 @@ export default function TabGroupEntryContainer() {
   // KAN-131, at the session level and more exposed than the panes below it:
   // search filters sessions directly, so an index counted over the rendered
   // list would be applied to a longer stored one.
-  const isFilteredView = isSearchActive(isSearchPanel, searchInputText);
 
   const handleMoveSession = useCallback(
     (tabGroupId: string, toIndex: number) => {
@@ -140,10 +139,24 @@ export default function TabGroupEntryContainer() {
           {/* KAN-130. No handleSelector -- a session row contains no nested
               drag area, so the whole row is the handle. No resolveDrop -- a
               session belongs to nothing. */}
+          {/* Guarded on the MODE, not on whether the box currently holds
+              text (KAN-140). `isFilteredView` would leave dragging live while
+              the panel is open and empty, then silently kill it on the first
+              keystroke -- the same gesture on the same rows, decided by a
+              transient value, with rows rendering `cursor: pointer` either way
+              so nothing tells the user which state they are in.
+
+              KAN-131 argued the other way and was right about safety: an empty
+              box filters nothing, so the rendered list IS the stored one and
+              the index cannot cross between two arrays. It was wrong about
+              what the guard is for. Search is a mode entered to FIND
+              something, and a value guard also makes the safety property
+              depend on the ordering of a keystroke against a pointer gesture,
+              which a mode guard removes entirely. */}
           <RowDragArea
             rowIds={sessionIds}
             onMove={handleMoveSession}
-            disabled={isFilteredView}
+            disabled={isSearchPanel}
           >
             {filteredTabGroups.map((tabGroupData, index) => {
               return (
