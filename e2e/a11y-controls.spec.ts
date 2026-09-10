@@ -220,34 +220,70 @@ async function selectSession(page: Page): Promise<void> {
     .click({ position: { x: 20, y: 20 } });
 }
 
-// Walks the real tab order from the top of the document and returns the
-// accessible name of each stop. This is the only way to test reachability
-// honestly: `locator.focus()` succeeds on a tabindex=-1 element, so a test
-// that focuses a control directly proves nothing about whether a keyboard
-// user could ever have got there.
-async function tabOrderNames(page: Page, steps: number): Promise<string[]> {
+// A stop, not a distance. It exists so that a focus trap fails the test
+// instead of hanging it, and nothing in this app should come close to it.
+const TAB_WALK_LIMIT = 200;
+
+/**
+ * Walks the real tab order from the top of the document, once all the way
+ * around, and returns the accessible name of each stop.
+ *
+ * This is the only way to test reachability honestly: `locator.focus()`
+ * succeeds on a tabindex=-1 element, so a test that focuses a control directly
+ * proves nothing about whether a keyboard user could ever have got there.
+ *
+ * KAN-142. This used to take a step count, and every caller had to know how
+ * far its control sat from `<body>` -- 12, 20, 25, 30. So KAN-136 adding one
+ * header button pushed `Delete` from step 12 to step 13 and failed a test
+ * about whether a keyboard user can reach it, which they still could: a test
+ * red for the wrong reason, and four more waiting to go the same way. The
+ * distance was never the property any of these tests care about. Presence in
+ * the order is, and the order is a cycle, so it can be walked whole and the
+ * number dropped entirely.
+ *
+ * The loop is detected by ELEMENT rather than by name. A name is not an
+ * identity: a walk whose first stop's name recurs later would end early and
+ * silently return a partial order -- the same class of bug as the magic number
+ * it replaces, and just as invisible, since a partial order still contains
+ * whatever the assertion happens to look for. No walk in this file repeats its
+ * first name today, and swapping this for a name comparison passes the whole
+ * suite, so this is a guard rather than a fix. It costs one evaluate per stop.
+ */
+async function tabOrderNames(page: Page): Promise<string[]> {
   await page.locator('body').press('Tab');
-  const names: string[] = [];
-  for (let i = 0; i < steps; i++) {
-    names.push(
-      await page.evaluate(() => {
-        const el = document.activeElement;
-        if (!el || el === document.body) return '<body>';
-        // Accessible-name precedence, simplified to the three sources this app
-        // actually uses: aria-label, then content, then title. `title` is not
-        // decoration here -- the theme buttons carry no aria-label and no text,
-        // so it is the only name they have.
-        return (
-          el.getAttribute('aria-label') ||
-          el.textContent?.trim() ||
-          el.getAttribute('title') ||
-          '<unnamed>'
-        );
-      })
+  const start = await page.evaluateHandle(() => document.activeElement);
+  try {
+    const names: string[] = [];
+    for (let i = 0; i < TAB_WALK_LIMIT; i++) {
+      names.push(
+        await page.evaluate(() => {
+          const el = document.activeElement;
+          if (!el || el === document.body) return '<body>';
+          // Accessible-name precedence, simplified to the three sources this
+          // app actually uses: aria-label, then content, then title. `title` is
+          // not decoration here -- the theme buttons carry no aria-label and no
+          // text, so it is the only name they have.
+          return (
+            el.getAttribute('aria-label') ||
+            el.textContent?.trim() ||
+            el.getAttribute('title') ||
+            '<unnamed>'
+          );
+        })
+      );
+      await page.keyboard.press('Tab');
+      const focused = await page.evaluateHandle(() => document.activeElement);
+      const looped = await focused.evaluate((el, first) => el === first, start);
+      await focused.dispose();
+      if (looped) return names;
+    }
+    throw new Error(
+      `tab order did not return to its first stop within ${TAB_WALK_LIMIT} ` +
+        `stops -- focus is trapped, or the walk never left <body>`
     );
-    await page.keyboard.press('Tab');
+  } finally {
+    await start.dispose();
   }
-  return names;
 }
 
 /**
@@ -339,7 +375,7 @@ test.describe('controls are reachable by keyboard', () => {
   }) => {
     const page = await openPopup(context, extensionId);
 
-    const names = await tabOrderNames(page, 12);
+    const names = await tabOrderNames(page);
 
     expect(names).toContain('Open');
     expect(names).toContain('Switch');
@@ -359,7 +395,7 @@ test.describe('controls are reachable by keyboard', () => {
       page.getByRole('button', { name: 'Morning reading' })
     ).toBeVisible();
 
-    const names = await tabOrderNames(page, 20);
+    const names = await tabOrderNames(page);
 
     expect(names).toContain('Delete window group');
     expect(names).toContain('Delete tab');
@@ -413,7 +449,7 @@ test.describe('controls are reachable by keyboard', () => {
     const page = await openRatePrompt(context, extensionId);
     await expect(page.getByText(RATE_PROMPT_BODY)).toBeVisible();
 
-    const names = await tabOrderNames(page, 30);
+    const names = await tabOrderNames(page);
 
     expect(names).toContain('Maybe Later');
     expect(names).toContain('Never Remind Again');
@@ -506,7 +542,7 @@ test.describe('controls are reachable by keyboard', () => {
       page.getByRole('button', { name: 'Morning reading' })
     ).toBeVisible();
 
-    const names = await tabOrderNames(page, 20);
+    const names = await tabOrderNames(page);
 
     expect(names).toContain('Rename session: Research');
     // The positive control for that assertion: the pencil in the same row was
@@ -625,7 +661,7 @@ test.describe('controls are reachable by keyboard', () => {
     await page.getByRole('button', { name: 'Settings' }).click();
     await expect(page.getByText('Themes')).toBeVisible();
 
-    const names = await tabOrderNames(page, 25);
+    const names = await tabOrderNames(page);
 
     expect(names.join('|')).toMatch(/Light/);
   });
