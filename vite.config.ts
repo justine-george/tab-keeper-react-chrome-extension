@@ -35,6 +35,29 @@ export default defineConfig({
     // project at all: vitest reported success having silently run none of it,
     // so a failing test could not turn CI red. configIncludes.test.ts guards
     // both dimensions.
+    // A configured cloud, for the tests that presuppose one.
+    //
+    // KAN-147 made `isCloudConfigured` read import.meta.env at module load, and
+    // the suites that exercise the Firestore reader mock the SDK but still go
+    // through that gate. Without this they pass on a machine holding a .env and
+    // fail on CI, which is exactly what happened -- 13 tests, green locally,
+    // red on the runner.
+    //
+    // Fake values on purpose: every one of those suites mocks firebase/app,
+    // firebase/auth and firebase/firestore/lite, so nothing here is ever dialled.
+    // It only has to be non-empty, which is what a shipped build always has.
+    // The unconfigured case is not hidden by this -- firebaseConfigGuard.test.tsx
+    // stubs these back to empty and asserts the degraded path directly.
+    env: {
+      VITE_FIREBASE_API_KEY: 'test-api-key',
+      VITE_FIREBASE_AUTH_DOMAIN: 'test.firebaseapp.com',
+      VITE_FIREBASE_PROJECT_ID: 'test-project',
+      VITE_FIREBASE_STORAGE_BUCKET: 'test.appspot.com',
+      VITE_FIREBASE_MESSAGING_SENDER_ID: '0',
+      VITE_FIREBASE_APP_ID: '1:0:web:0',
+      VITE_FIREBASE_MEASUREMENT_ID: 'G-0',
+    },
+
     projects: [
       {
         extends: true,

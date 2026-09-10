@@ -27,12 +27,45 @@ const firebaseConfig = {
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
 };
 
+/**
+ * Whether this build was given a cloud to talk to (KAN-147).
+ *
+ * `.env` is gitignored, so a build made without it inlines `undefined` for
+ * every value above. That used to be fatal rather than degrading: `getAuth()`
+ * validates the key and throws `auth/invalid-api-key` during MODULE INIT, which
+ * took React down with it and left the popup a blank white rectangle with no
+ * message at all. Nothing caught it because nothing had ever run the artifact.
+ *
+ * Cloud sync is optional here -- a signed-out user has a fully working local
+ * extension -- so an absent config disables sync and leaves everything else
+ * working, which is what going offline already does.
+ *
+ * Two fields, not seven: the key is what `getAuth` rejects and the project id
+ * is what Firestore addresses. A build carrying those and missing a
+ * measurement id is misconfigured, but it is not BROKEN, and refusing to start
+ * sync over it would be this bug in a smaller costume.
+ */
+export const isCloudConfigured = Boolean(
+  firebaseConfig.apiKey && firebaseConfig.projectId
+);
+
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
+
+// NULL rather than a half-built handle, so the type carries the fact and every
+// call site is made to say what it does without a cloud. A non-null type here
+// would put that back on whoever remembers.
+const auth = isCloudConfigured ? getAuth(app) : null;
+const db = isCloudConfigured ? getFirestore(app) : null;
 
 export { auth, db };
+
+/** Thrown rather than returned: every caller is already inside a try/catch that
+ * turns a failed sync into the `sync_problem` state, so this reuses the path
+ * a network failure takes instead of inventing a second one. */
+export function cloudUnavailable(): Error {
+  return new Error('Firebase is not configured in this build');
+}
 
 // Writes ONLY the Firebase auth flag. It used to write isSignedIn, which the
 // chrome.storage.sync token read also writes - so a local lookup and a network
@@ -40,6 +73,11 @@ export { auth, db };
 // Firestore calls were authorised. The token read always wins that race, so
 // every cold start issued requests the rules then denied (KAN-70).
 export const observeAuthState = (dispatch: AppDispatch) => {
+  // Silence, not setFirebaseUnauthed(): "not signed in" is a claim about an
+  // auth system that exists. With no cloud there is nothing to be signed out
+  // OF, and the flag stays at its initial false either way.
+  if (auth === null) return;
+
   onAuthStateChanged(auth, (user) => {
     if (user) {
       dispatch(setFirebaseAuthed());
@@ -53,6 +91,8 @@ export const observeAuthState = (dispatch: AppDispatch) => {
 };
 
 export const signInUserAnonymously = () => {
+  if (auth === null) return Promise.resolve(undefined);
+
   return signInAnonymously(auth)
     .then((userCredential) => {
       // Signed in successfully
@@ -129,6 +169,8 @@ async function readTabGroups(data: {
 export const fetchDataFromFirestore = async (
   userId: string
 ): Promise<CloudCandidate> => {
+  if (db === null) throw cloudUnavailable();
+
   try {
     // Fetch your data based on the signed-in user's ID
     const tabData = await getDoc(doc(db, 'tabGroupData', userId));
