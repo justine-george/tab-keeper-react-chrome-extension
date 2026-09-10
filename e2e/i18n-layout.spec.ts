@@ -95,12 +95,13 @@ async function openPopupIn(
 }
 
 /**
- * Opens the rate-and-review prompt, which is gated entirely on localStorage
- * (`App.tsx`): installed more than a day ago, never rated, never opted out.
+ * Opens the rate-and-review prompt, which is gated entirely on localStorage:
+ * never rated, never opted out, and -- since KAN-149 -- something of VALUE has
+ * happened. The install date used to be what opened it and no longer is.
  *
- * `extensionInstalledTime` is a NUMBER of milliseconds -- `isValidDate`
- * (`local.ts:12`) only accepts `typeof param === 'number'`, so a plausible ISO
- * string reads as "never installed" and the modal silently never opens.
+ * `lastValueMomentTime` is a NUMBER of milliseconds, like the install date
+ * beside it: a plausible ISO string reads as "no such moment" and the modal
+ * silently never opens.
  */
 async function openRatePromptIn(
   context: BrowserContext,
@@ -110,6 +111,7 @@ async function openRatePromptIn(
   await seedSettings(context, {
     language: lang,
     extensionInstalledTime: Date.now() - 2 * 24 * 60 * 60 * 1000,
+    lastValueMomentTime: Date.now() - 60 * 60 * 1000,
     // Reveals the second dismissal, so the card is at its tallest.
     isSkippedUserReviewOnce: true,
   });

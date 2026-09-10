@@ -35,10 +35,17 @@ const twoGroupsUngranted = {
 // argument -- a hardcoded `false` would satisfy every other test in the suite.
 describe('modal coordination on popup open', () => {
   test('the rate request wins, and the tab-groups offer stands down', async () => {
-    // Installed two days ago, never rated, never asked -> the rate modal fires.
+    // A session restored an hour ago, never rated, never asked -> the rate
+    // modal fires. KAN-149: the install date used to be what opened it, and no
+    // longer is -- a value moment is. The install age stays in the fixture
+    // because it is part of a realistic settings blob, not because it decides
+    // anything.
     localStorage.setItem(
       'settingsData',
-      JSON.stringify({ extensionInstalledTime: Date.now() - 2 * DAY })
+      JSON.stringify({
+        extensionInstalledTime: Date.now() - 2 * DAY,
+        lastValueMomentTime: Date.now() - 60 * 60 * 1000,
+      })
     );
 
     const { store } = await renderWithProviders(<App />, {
@@ -53,7 +60,7 @@ describe('modal coordination on popup open', () => {
     expect(store.getState().globalState.tabGroupsPromptCount).toBeNull();
   });
 
-  // The control. Same seed, same install age -- only the rate modal is taken
+  // The control. Same seed, same value moment -- only the rate modal is taken
   // out of the running. Without this, the test above passes just as well
   // against an App that never opens the tab-groups offer at all.
   test('with the rate request silenced, the tab-groups offer opens', async () => {
@@ -61,6 +68,7 @@ describe('modal coordination on popup open', () => {
       'settingsData',
       JSON.stringify({
         extensionInstalledTime: Date.now() - 2 * DAY,
+        lastValueMomentTime: Date.now() - 60 * 60 * 1000,
         isNeverAskAgainToRate: true,
       })
     );

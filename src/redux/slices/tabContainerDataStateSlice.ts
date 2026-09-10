@@ -37,7 +37,7 @@ import {
   DEFAULT_WINDOW_WIDTH,
   TOAST_MESSAGES,
 } from '../../utils/constants/common';
-import { SettingsData } from './settingsDataStateSlice';
+import { recordValueMoment, SettingsData } from './settingsDataStateSlice';
 import {
   TAB_GROUP_COLORS,
   type TabGroupColor,
@@ -333,6 +333,12 @@ export const openTabsInAWindow = createAsyncThunk(
       isLazyLoad: settingsDataState.isLazyLoad,
       closeOtherWindows: false,
     };
+    // KAN-149. The last instant the popup can record anything: sendMessage
+    // hands the restore to the worker, which creates focused windows, which
+    // closes this popup. Recording the INTENT rather than the confirmed
+    // restore is therefore not a shortcut -- there is no later moment, and the
+    // worker has no localStorage to write to.
+    thunkAPI.dispatch(recordValueMoment());
     chrome.runtime.sendMessage(request);
   }
 );
@@ -365,6 +371,9 @@ export const openAllTabContainer = createAsyncThunk(
       isLazyLoad: settingsDataState.isLazyLoad,
       closeOtherWindows: false,
     };
+    // KAN-149. Recorded here for the reason spelled out in openTabsInAWindow:
+    // this is the last instant the popup exists.
+    thunkAPI.dispatch(recordValueMoment());
     chrome.runtime.sendMessage(request);
   }
 );
@@ -487,6 +496,9 @@ export const focusTabContainer = createAsyncThunk(
       closeOtherWindows: true,
     };
 
+    // KAN-149. Recorded here for the reason spelled out in openTabsInAWindow:
+    // this is the last instant the popup exists.
+    thunkAPI.dispatch(recordValueMoment());
     chrome.runtime.sendMessage(request);
   }
 );
@@ -498,6 +510,12 @@ export interface saveToTabContainerParams {
 
 // save to tab container and display a toast message
 //
+// What counts as a save big enough to be worth being asked about (KAN-149).
+// Ten is a judgement, not a measurement: it is comfortably more than the
+// two-or-three-tab save that is routine, and comfortably less than the
+// session-full-of-research the feature exists for.
+export const VALUE_MOMENT_MIN_TABS = 10;
+
 // The scope is carried here only to name the action in the toast. It is not
 // re-derived from the captured data: a one-window 'all-windows' save is a real
 // case (the user has one window open), and reporting it as "current window
@@ -506,6 +524,17 @@ export const saveToTabContainer = createAsyncThunk(
   'global/saveToTabContainer',
   async (params: saveToTabContainerParams, thunkAPI) => {
     thunkAPI.dispatch(saveToTabContainerInternal(params.container));
+
+    // KAN-149. A SUBSTANTIAL save only. Every save is a save, but banking one
+    // stray tab is not the moment the extension has visibly earned anything,
+    // and counting it would make the prompt fire on ordinary housekeeping --
+    // which is the nagging this ticket exists to avoid.
+    //
+    // Counted on tabs rather than windows: one window of thirty tabs is the
+    // case the product is for, and it would score 1 on any window count.
+    if (params.container.tabCount >= VALUE_MOMENT_MIN_TABS) {
+      thunkAPI.dispatch(recordValueMoment());
+    }
 
     thunkAPI.dispatch(
       showToast({

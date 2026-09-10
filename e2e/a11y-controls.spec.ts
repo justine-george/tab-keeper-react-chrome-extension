@@ -44,19 +44,23 @@ async function openPopup(
 
 const RATE_PROMPT_BODY = 'Please consider helping me out with a good review!';
 
-// The rate-and-review prompt is gated entirely on localStorage (App.tsx:137):
-// installed more than a day ago, never rated, never opted out, and not asked
-// in the last three days. Seeding those opens it on the first render.
+// The rate-and-review prompt is gated entirely on localStorage: never rated,
+// never opted out, not asked in the last three days, and -- since KAN-149 --
+// something of VALUE has happened. Seeding those opens it on the first render.
 //
-// `extensionInstalledTime` is a NUMBER of milliseconds, not a date string --
-// see seedSettings, where getting that wrong fails silently as a modal that
-// never appears.
+// `lastValueMomentTime` is the one that does the work now. The install date
+// used to open this prompt and no longer does, so seeding only that gets a
+// modal that never appears.
+//
+// Both are NUMBERS of milliseconds, not date strings -- see seedSettings, where
+// getting that wrong fails the same silent way.
 async function openRatePrompt(
   context: BrowserContext,
   extensionId: string
 ): Promise<Page> {
   await seedSettings(context, {
     extensionInstalledTime: Date.now() - 2 * 24 * 60 * 60 * 1000,
+    lastValueMomentTime: Date.now() - 60 * 60 * 1000,
     // Reveals the second dismissal, which is earned rather than offered.
     isSkippedUserReviewOnce: true,
   });
