@@ -133,5 +133,6 @@
   "Tab count": "Nombre d'onglets",
   "Date modified": "Date de modification",
   "Edited": "Modifié",
-  "Created": "Créé"
+  "Created": "Créé",
+  "Sessions reordered. Undo to restore the previous order.": "Sessions réorganisées. Utilisez « Annuler » pour rétablir l’ordre précédent."
 }

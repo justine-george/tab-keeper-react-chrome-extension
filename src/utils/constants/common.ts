@@ -81,6 +81,16 @@ export const TOAST_MESSAGES = {
   // saying "saved" would contradict the control the user just pressed.
   ADD_CURR_WINDOW_TO_TABGROUP_SUCCESS: 'Current window added to this session.',
   ADD_CURR_TAB_TO_WINDOW_SUCCESS: 'Current tab added to this window.',
+  // KAN-151. Applying a sort overwrites every rank, so a hand-arranged list is
+  // gone in one click. Undo restores it -- sorting goes on the undo stack like
+  // any other data change -- but nothing said so, and "my arrangement is gone"
+  // is not a thought that leads anyone to press undo.
+  //
+  // The instruction is only worth printing because it is TRUE: a test asserts
+  // the dragged order really does come back with one undo, so this cannot decay
+  // into a false promise without something going red.
+  SESSION_ORDER_CHANGED:
+    'Sessions reordered. Undo to restore the previous order.',
   DELETE_TAB_CONTAINER_SUCCESS: 'Session deleted.',
   DELETE_WINDOW_SUCCESS: 'Session window deleted.',
   DELETE_TAB_SUCCESS: 'Session tab deleted.',

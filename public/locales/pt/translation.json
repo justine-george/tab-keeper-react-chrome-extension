@@ -133,5 +133,6 @@
   "Tab count": "Número de abas",
   "Date modified": "Data de modificação",
   "Edited": "Editado",
-  "Created": "Criado"
+  "Created": "Criado",
+  "Sessions reordered. Undo to restore the previous order.": "Sessões reordenadas. Use \"Desfazer\" para restaurar a ordem anterior."
 }

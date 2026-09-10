@@ -133,5 +133,6 @@
   "Tab count": "Numero di schede",
   "Date modified": "Data di modifica",
   "Edited": "Modificato",
-  "Created": "Creato"
+  "Created": "Creato",
+  "Sessions reordered. Undo to restore the previous order.": "Sessioni riordinate. Usa \"Annulla\" per ripristinare l’ordine precedente."
 }
