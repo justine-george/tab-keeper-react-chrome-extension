@@ -295,4 +295,36 @@ describe('a window drag inside a filtered list', () => {
     expect(windowIds(store)).toEqual(['w1', 'w2', 'w3']);
     expect(store.getState().globalState.isDirty).toBe(false);
   });
+
+  // KAN-140. The guard asks about the MODE, so an empty box blocks the drag
+  // too -- all three windows are on screen and unfiltered, and it still does
+  // not commit. Before KAN-140 this reordered.
+  //
+  // Added because mutation testing found this level unguarded by any test:
+  // replacing the window area's `disabled` with a literal `false` broke
+  // nothing in the suite, so KAN-131's guard here was never actually pinned.
+  test('an open panel with an empty box does not allow dragging either', async () => {
+    const { container, store } = await render('');
+    const windows = layout(container);
+    // The premise: nothing is filtered, so this is the same drag the
+    // unfiltered tests above commit.
+    expect(windows.map((r) => r.dataset.dragRowId)).toEqual(['w1', 'w2', 'w3']);
+
+    drag(handleIn(nodeFor(container, 'w1')), 20, 170);
+
+    expect(windowIds(store)).toEqual(['w1', 'w2', 'w3']);
+    expect(store.getState().globalState.isDirty).toBe(false);
+  });
+
+  // THE CONTROL for the two above. Without it, a window area that never
+  // dragged at all -- a broken handleSelector, a harness whose pointer events
+  // miss the handle -- would satisfy both while proving nothing.
+  test('CONTROL: the same drag with no search panel does reorder', async () => {
+    const { container, store } = await render();
+    layout(container);
+
+    drag(handleIn(nodeFor(container, 'w1')), 20, 170);
+
+    expect(windowIds(store)).not.toEqual(['w1', 'w2', 'w3']);
+  });
 });

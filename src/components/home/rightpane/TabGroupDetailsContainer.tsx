@@ -11,7 +11,6 @@ import { AppDispatch, RootState } from '../../../redux/store';
 import {
   resolveTabUrl,
   isEmptyObject,
-  isSearchActive,
   selectVisibleTabGroups,
 } from '../../../utils/functions/local';
 import {
@@ -92,8 +91,9 @@ export default function TabGroupDetailsContainer() {
 
   // KAN-131, one level up from the tab list. A live search narrows windows[]
   // as well as a window's tabs, so a drop index counted over the rendered
-  // windows would be applied to a longer stored array.
-  const isFilteredView = isSearchActive(isSearchPanel, searchInputText);
+  // windows would be applied to a longer stored array. KAN-140 widened the
+  // guard from "a query is narrowing something" to "the search panel is open"
+  // -- see TabGroupEntryContainer for why.
 
   async function handleAddCurrTabToWindowClick(
     tabGroupId: string,
@@ -160,7 +160,9 @@ export default function TabGroupDetailsContainer() {
             rowIds={windowIds}
             onMove={handleMoveWindow}
             handleSelector="[data-window-drag-handle]"
-            disabled={isFilteredView}
+            // The mode, not the box's contents -- see KAN-140 on
+            // TabGroupEntryContainer for why this is not isFilteredView.
+            disabled={isSearchPanel}
           >
             {selectedTabGroup.windows.map(
               ({ windowId, title, tabs, chromeTabGroups }, windowIndex) => {
