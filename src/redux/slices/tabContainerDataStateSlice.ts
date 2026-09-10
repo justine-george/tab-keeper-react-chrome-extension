@@ -510,11 +510,46 @@ export interface saveToTabContainerParams {
 
 // save to tab container and display a toast message
 //
-// What counts as a save big enough to be worth being asked about (KAN-149).
-// Ten is a judgement, not a measurement: it is comfortably more than the
-// two-or-three-tab save that is routine, and comfortably less than the
-// session-full-of-research the feature exists for.
-export const VALUE_MOMENT_MIN_TABS = 10;
+/**
+ * Whether a save is big enough to be worth being asked about (KAN-149), sized
+ * against THIS user rather than against a number (KAN-150).
+ *
+ * It shipped as `tabCount >= 10`, which was a guess, and measuring it showed
+ * why that is not good enough: across a real library the median save was 8, so
+ * the constant sat above the middle and counted only the top quarter. Nor can
+ * the number be tuned honestly -- the extension carries no analytics by design,
+ * so nobody will ever have the data to justify one.
+ *
+ * "Substantial" only ever meant substantial FOR YOU. Someone whose sessions run
+ * to three tabs feels a nine-tab save; someone who banks forty at a time does
+ * not. Comparing against their own median says exactly that and needs no
+ * constant at all.
+ *
+ * The first save has no history to be larger than, and returns false. That is
+ * right rather than merely convenient: nothing has been demonstrated yet on an
+ * install with one session in it.
+ *
+ * That guard is redundant TODAY and is kept anyway: with no sessions the median
+ * works out to NaN, and every comparison against NaN is false, so the answer
+ * happens to come out the same (verified -- removing it fails nothing). Leaving
+ * it to NaN would make the empty case an accident of IEEE semantics that the
+ * next reader has to derive, rather than a decision this function states.
+ */
+export function isSubstantialSave(
+  tabCount: number,
+  existing: readonly tabContainerData[]
+): boolean {
+  if (existing.length === 0) return false;
+
+  const counts = existing.map((group) => group.tabCount).sort((a, b) => a - b);
+  const middle = Math.floor(counts.length / 2);
+  const median =
+    counts.length % 2 === 0
+      ? (counts[middle - 1] + counts[middle]) / 2
+      : counts[middle];
+
+  return tabCount > median;
+}
 
 // The scope is carried here only to name the action in the toast. It is not
 // re-derived from the captured data: a one-window 'all-windows' save is a real
@@ -523,16 +558,23 @@ export const VALUE_MOMENT_MIN_TABS = 10;
 export const saveToTabContainer = createAsyncThunk(
   'global/saveToTabContainer',
   async (params: saveToTabContainerParams, thunkAPI) => {
+    const existing = (thunkAPI.getState() as RootState).tabContainerDataState
+      .tabGroups;
+
     thunkAPI.dispatch(saveToTabContainerInternal(params.container));
 
-    // KAN-149. A SUBSTANTIAL save only. Every save is a save, but banking one
-    // stray tab is not the moment the extension has visibly earned anything,
-    // and counting it would make the prompt fire on ordinary housekeeping --
-    // which is the nagging this ticket exists to avoid.
+    // KAN-149. A SUBSTANTIAL save only -- banking one stray tab is not a moment
+    // the extension has visibly earned anything, and counting it would put the
+    // prompt on ordinary housekeeping.
+    //
+    // Measured against the sessions ALREADY saved, so read the state before
+    // this save was added: comparing the new session against a list that
+    // includes itself drags the median toward it, and a save can never be
+    // larger than a set it is a member of by the amount it should be.
     //
     // Counted on tabs rather than windows: one window of thirty tabs is the
-    // case the product is for, and it would score 1 on any window count.
-    if (params.container.tabCount >= VALUE_MOMENT_MIN_TABS) {
+    // case the product is for, and would score 1 on any window count.
+    if (isSubstantialSave(params.container.tabCount, existing)) {
       thunkAPI.dispatch(recordValueMoment());
     }
 
