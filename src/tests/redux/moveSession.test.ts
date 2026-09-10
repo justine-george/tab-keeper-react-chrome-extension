@@ -239,11 +239,30 @@ describe('moveSessionInternal does nothing when there is nothing to do', () => {
 // a rank that sorts ambiguously -- an ambiguous rank means two devices can
 // disagree about the order, which is the one thing the merge must never allow.
 describe('moveSessionInternal when there is no gap to land in', () => {
+  // PINNED, not hoped for -- the same way `seeded` above does it, which this
+  // fixture was simply missing.
+  //
+  // `touchContent` stamps contentModified with Date.now() on every save, so
+  // three unpinned dispatches land on one instant only while the machine is
+  // fast enough to run them inside a single millisecond. On a slower one they
+  // straddle a boundary, the neighbours are no longer equal, rankBetween finds
+  // a midpoint, and renormalise -- the whole point of this describe block -- is
+  // never reached. It failed exactly that way on CI (KAN-145, 2026-09-10)
+  // having passed on every local run, including five in a row.
+  //
+  // The premise is the fixture's name, so it has to be guaranteed by the
+  // fixture rather than by how quickly the test happens to run.
   const seededSameInstant = () => {
     const { store } = makeTestStore();
-    store.dispatch(saveToTabContainerInternal(build('a', T0)));
-    store.dispatch(saveToTabContainerInternal(build('b', T0)));
-    store.dispatch(saveToTabContainerInternal(build('c', T0)));
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(T0);
+      store.dispatch(saveToTabContainerInternal(build('a', T0)));
+      store.dispatch(saveToTabContainerInternal(build('b', T0)));
+      store.dispatch(saveToTabContainerInternal(build('c', T0)));
+    } finally {
+      vi.useRealTimers();
+    }
     store.dispatch(setIsNotDirty());
     return store;
   };
