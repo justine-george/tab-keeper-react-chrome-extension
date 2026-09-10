@@ -34,5 +34,66 @@ jobs:
       - name: Run tests
         run: npm run test
 
+      # e2e/ sits outside tsconfig's `include` and has its own project file, so
+      # `npm run test` typechecks none of it -- and vitest does not typecheck at
+      # all. Without this a spec can be broken in a way no other step sees.
+      - name: Typecheck E2E specs
+        run: npm run typecheck:e2e
+
+      # `build:e2e`, not `build`: it chains the prune step, so CI now produces
+      # the artifact that actually ships (the release workflow strips remotely
+      # hosted Firebase URLs after building) and the suite below drives that
+      # same pruned bundle rather than one no user ever receives.
+      #
+      # THE ENV BLOCK IS LOAD-BEARING, and its absence is why this step used to
+      # produce a bundle that compiled and could not boot. `.env` is gitignored,
+      # so without SOMETHING here Vite inlines `undefined` for every
+      # Firebase value, `getAuth()` throws `auth/invalid-api-key` during module
+      # init, React never mounts and the popup renders a blank white page.
+      # Nothing caught it because nothing had ever RUN the artifact: vitest
+      # mocks utils/functions/external, and no other step opens the extension.
+      #
+      # THESE ARE DELIBERATELY FAKE, and must stay that way. The real values
+      # live in build_and_release_artifact.yaml's secrets and belong only to
+      # the build that ships; putting them here would expose the production key
+      # to every pull-request run and point the E2E suite's traffic at the real
+      # Firebase project on every push.
+      #
+      # Nothing here needs a working backend. Firebase only throws when the key
+      # is ABSENT -- any syntactically plausible string gets the app past init,
+      # and the suite never asserts on a real sync: "signed in" in these
+      # fixtures is a client uuid in chrome.storage.sync, with no Google account
+      # behind it. Measured: the full 64 pass against exactly these values.
       - name: Generate dist folder
-        run: npm run build
+        run: npm run build:e2e
+        env:
+          VITE_FIREBASE_API_KEY: AIzaSyCI-fake-key-for-e2e-only-000000000
+          VITE_FIREBASE_AUTH_DOMAIN: tab-keeper-e2e.firebaseapp.com
+          VITE_FIREBASE_PROJECT_ID: tab-keeper-e2e
+          VITE_FIREBASE_STORAGE_BUCKET: tab-keeper-e2e.appspot.com
+          VITE_FIREBASE_MESSAGING_SENDER_ID: '000000000000'
+          VITE_FIREBASE_APP_ID: '1:000000000000:web:0000000000000000000000'
+          VITE_FIREBASE_MEASUREMENT_ID: G-0000000000
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      # `playwright test` directly rather than `npm run test:e2e`, which would
+      # repeat the typecheck and the build above. That is safe ONLY because the
+      # step immediately above builds dist and nothing between them touches it
+      # -- run this locally without building first and it silently drives a
+      # stale dist, which is how KAN-142's first bisect went wrong.
+      - name: Run E2E tests
+        run: npx playwright test
+
+      # trace: 'retain-on-failure' produces nothing anyone can open unless the
+      # traces leave the runner.
+      - name: Upload Playwright artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
