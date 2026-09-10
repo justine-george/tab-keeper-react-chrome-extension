@@ -122,11 +122,24 @@ export default function MenuContainer() {
   // Listed first because it is the default, so the way back sits where the eye
   // starts rather than being hunted for.
   //
-  // The two date items also set which date the ROWS show, so the number on a
-  // row always describes the order the list is in (KAN-141). Name and tab
-  // count deliberately leave it alone: neither is a date order, so there is no
-  // date for them to be right about, and silently flipping the rows back to
-  // "Edited" would undo a choice the user made two clicks ago.
+  // Every item sets which date the ROWS show, so the number on a row always
+  // describes the order the list is in (KAN-141). The rule is one line: the
+  // created date is shown if and only if the sort IS by created date.
+  //
+  // KAN-144 replaced the earlier version, where name and tab count left the
+  // basis alone on the grounds that neither is a date order, so there was no
+  // date for them to be right about. That argues for the DEFAULT, not for
+  // keeping whatever was chosen before: sorting by Date saved and then by Name
+  // left every row reading "Created", including sessions edited since, in a
+  // list no longer in any date order at all. Justine: "the created date in
+  // general for all should be shown only for the sort by created date setting."
+  //
+  // It also removes a special case. The basis is now a function of the active
+  // sort rather than a fourth piece of state that drifts out of step with it.
+  //
+  // A session that has never been edited still reads "Created" whatever this
+  // says -- sessionDateLabel forces both the word and the value for those,
+  // because "Edited" would be a false statement about them.
   const sortItems: OverflowMenuItem[] = [
     {
       key: 'modified',
@@ -155,18 +168,22 @@ export default function MenuContainer() {
       label: t('Name'),
       icon: 'sort_by_alpha',
       checked: false,
-      onSelect: () =>
-        dispatch(sortSessionsInternal({ by: 'name', locale: i18n.language })),
+      onSelect: () => {
+        dispatch(sortSessionsInternal({ by: 'name', locale: i18n.language }));
+        dispatch(setSessionDateBasis('edited'));
+      },
     },
     {
       key: 'tabs',
       label: t('Tab count'),
       icon: 'tab',
       checked: false,
-      onSelect: () =>
+      onSelect: () => {
         dispatch(
           sortSessionsInternal({ by: 'tabCount', locale: i18n.language })
-        ),
+        );
+        dispatch(setSessionDateBasis('edited'));
+      },
     },
   ];
 
