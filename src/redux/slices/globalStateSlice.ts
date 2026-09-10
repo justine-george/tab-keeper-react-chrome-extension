@@ -20,6 +20,7 @@ import {
 } from '../../utils/functions/local';
 import { mergeTabContainers } from '../../utils/functions/mergeTabData';
 import { TOAST_MESSAGES } from '../../utils/constants/common';
+import { recordValueMoment } from './settingsDataStateSlice';
 
 export interface Global {
   hasSyncedBefore: boolean;
@@ -252,6 +253,21 @@ export const syncStateWithFirestore = createAsyncThunk(
         thunkAPI.dispatch(
           showToast({ toastText: TOAST_MESSAGES.SYNC_MERGED, duration: 3000 })
         );
+
+        // KAN-149. A value moment, but only when a SESSION arrived.
+        //
+        // `changedFromLocal` is deliberately not the test: it is also true for
+        // a tombstone propagating, a rank settling, or a timestamp moving --
+        // none of which the user can see, let alone be pleased by. "A session I
+        // saved elsewhere is now here" is the one that demonstrates sync works,
+        // and it is the only one worth spending a prompt on.
+        const localIds = new Set(
+          tabDataFromLocalStorage.tabGroups.map((group) => group.tabGroupId)
+        );
+        const arrived = merged.tabGroups.some(
+          (group) => !localIds.has(group.tabGroupId)
+        );
+        if (arrived) thunkAPI.dispatch(recordValueMoment());
       }
 
       if (!state.globalState.hasSyncedBefore) {

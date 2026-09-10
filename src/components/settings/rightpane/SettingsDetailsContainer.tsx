@@ -26,6 +26,7 @@ import {
   Theme,
   setLanguage,
   setTheme,
+  setUserRatedAndReviewed,
   toggleAutoSync,
   toggleLazyLoad,
 } from '../../../redux/slices/settingsDataStateSlice';
@@ -854,7 +855,20 @@ const SettingsDetailsContainer: React.FC = () => {
         <Button
           text={t('Rate this app')}
           iconType="thumb_up"
-          onClick={() => window.open(APP_CHROME_WEBSTORE_LINK + '/reviews')}
+          onClick={() => {
+            window.open(APP_CHROME_WEBSTORE_LINK + '/reviews');
+            // KAN-149. The modal's own CTA has always recorded this; this
+            // button never did, so someone who rated from here kept being
+            // asked by the modal afterwards.
+            //
+            // It records INTENT, not a confirmed review -- the store tells us
+            // nothing about what the user does once they arrive, so a click is
+            // the only evidence available. Someone who clicks and then does not
+            // review is never asked again, which is the right way round: the
+            // cost of asking someone who already went is worse than the cost of
+            // missing a review we were never owed.
+            dispatch(setUserRatedAndReviewed());
+          }}
           style="width: 100%;
               max-width: 250px; justify-content: center; margin-top: 40px;"
         />

@@ -37,6 +37,17 @@ export interface SettingsData {
   isUserRatedAndReviewed: boolean;
   isNeverAskAgainToRate: boolean;
   lastReviewRequestTime: number | '';
+  /**
+   * When the extension last visibly paid off for this user -- a session
+   * restored, a substantial save, sessions arriving from another device
+   * (KAN-149). It is what the review prompt waits for, in place of the install
+   * date it used to wait on.
+   *
+   * DEVICE-LOCAL, like everything else here: saveToFirestore sends
+   * tabContainerData and nothing else, so this needs no merge rule and cannot
+   * make one device's payoff into another device's prompt.
+   */
+  lastValueMomentTime: number | '';
   // KAN-74. The tab-groups permission offer. Two flags and no timestamp: the
   // offer fires on every popup open that finds groups open, so there is
   // nothing to schedule -- only an escalating opt-out to remember.
@@ -87,6 +98,7 @@ const defaultSettings: SettingsData = {
   isUserRatedAndReviewed: false,
   isNeverAskAgainToRate: false,
   lastReviewRequestTime: '',
+  lastValueMomentTime: '',
   isTabGroupsPromptAnsweredOnce: false,
   isNeverAskAgainForTabGroups: false,
   sessionDateBasis: 'edited',
@@ -157,6 +169,20 @@ export const settingsDataStateSlice = createSlice({
       saveToLocalStorage('settingsData', state);
     },
 
+    /**
+     * Record that the extension just did something worth being asked about.
+     *
+     * Deliberately last-write-wins on a single timestamp rather than a count:
+     * the prompt only ever asks "has anything happened since I last asked",
+     * so a tally would be state nothing reads.
+     */
+    recordValueMoment: (state) => {
+      state.lastValueMomentTime = Date.now();
+
+      // Save updated state to localStorage
+      saveToLocalStorage('settingsData', state);
+    },
+
     updateLastReviewRequestTime: (state) => {
       state.lastReviewRequestTime = Date.now();
 
@@ -204,6 +230,7 @@ export const {
   setSkippedUserReviewOnce,
   setExtensionInstalledTime,
   updateLastReviewRequestTime,
+  recordValueMoment,
   setTabGroupsPromptAnsweredOnce,
   setNeverAskAgainForTabGroups,
   setSessionDateBasis,

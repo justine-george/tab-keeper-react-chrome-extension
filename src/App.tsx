@@ -43,6 +43,7 @@ import {
   isValidTabMasterContainer,
   loadFromLocalStorage,
 } from './utils/functions/local';
+import { shouldAskForReview } from './utils/functions/reviewAsk';
 
 function App() {
   const COLORS = useThemeColors();
@@ -135,45 +136,21 @@ function App() {
   // guarantee of having seen settle. Handing the decision over as a value
   // makes the coordination explicit instead of an accident of dispatch order.
   function askUserToRateAndReview(): boolean {
-    // load from localstorage to check if user has already rated and reviewed
-    const {
-      extensionInstalledTime = '',
-      isUserRatedAndReviewed = false,
-      isNeverAskAgainToRate = false,
-      lastReviewRequestTime = '',
-    } = asPartialSettings<SettingsData>(loadFromLocalStorage('settingsData'));
+    const settings = asPartialSettings<SettingsData>(
+      loadFromLocalStorage('settingsData')
+    );
 
-    // if user has already rated and reviewed, then don't ask again
-    if (isUserRatedAndReviewed || isNeverAskAgainToRate) {
-      return false;
-    }
-
-    // if user is first time user, then wait till he/she uses the extension for a day
-    if (!isValidDate(extensionInstalledTime)) {
+    // KAN-149. The install date is still recorded, because a fresh install has
+    // nothing else to stamp and other things may want it -- but it is no longer
+    // what opens the prompt. See shouldAskForReview: a value moment is.
+    if (!isValidDate(settings.extensionInstalledTime ?? '')) {
       dispatch(setExtensionInstalledTime());
-      return false;
     }
-    const ONE_DAY_IN_MS = 24 * 60 * 60 * 1000;
-    const currentTimeInMs = new Date().getTime();
-    const extensionInstalledTimeInMs = new Date(
-      extensionInstalledTime
-    ).getTime();
-    if (currentTimeInMs - extensionInstalledTimeInMs < ONE_DAY_IN_MS) {
+
+    if (!shouldAskForReview(settings, Date.now())) {
       return false;
     }
 
-    // if user has already been asked to rate and review, then wait for 3 days to ask again
-    if (isValidDate(lastReviewRequestTime)) {
-      const lastReviewRequestTimeInMs = new Date(
-        lastReviewRequestTime
-      ).getTime();
-      const THREE_DAYS_IN_MS = 3 * ONE_DAY_IN_MS;
-      if (currentTimeInMs - lastReviewRequestTimeInMs < THREE_DAYS_IN_MS) {
-        return false;
-      }
-    }
-
-    // It's to ask the user to rate and review!
     dispatch(openRateAndReviewModal());
     return true;
   }
