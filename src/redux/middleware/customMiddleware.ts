@@ -29,6 +29,7 @@ import {
   MOVE_TAB_ACTION,
   MOVE_WINDOW_ACTION,
   MOVE_SESSION_ACTION,
+  SORT_SESSIONS_ACTION,
   CLEAR_SESSION_ORDER_ACTION,
 } from '../../utils/constants/actionTypes';
 import type { RootState } from '../store';
@@ -57,6 +58,7 @@ const actionsToCapture = [
   MOVE_TAB_ACTION,
   MOVE_WINDOW_ACTION,
   MOVE_SESSION_ACTION,
+  SORT_SESSIONS_ACTION,
   CLEAR_SESSION_ORDER_ACTION,
 
   // actions in globalStateSlice

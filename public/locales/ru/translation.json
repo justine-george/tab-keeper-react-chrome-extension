@@ -127,6 +127,9 @@
   "TabGroupsPromptConfirm": "Включить поддержку групп вкладок",
   "TabGroupsPromptDismiss": "Не сейчас",
   "TabGroupsPromptNever": "Больше не спрашивать",
-  "Custom order": "Свой порядок",
-  "Sort by date saved": "Сортировать по дате сохранения"
+  "Sort sessions": "Сортировать сессии",
+  "Date saved": "Дата сохранения",
+  "Name": "Название",
+  "Tab count": "Количество вкладок",
+  "Date modified": "Дата изменения"
 }

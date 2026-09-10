@@ -3,6 +3,12 @@ import { useDispatch, useSelector } from 'react-redux';
 import { css } from '@emotion/react';
 
 import Icon from '../../common/Icon';
+import OverflowMenu from '../../common/OverflowMenu';
+import type { OverflowMenuItem } from '../../common/OverflowMenu';
+import {
+  clearSessionOrder,
+  sortSessionsInternal,
+} from '../../../redux/slices/tabContainerDataStateSlice';
 import { AppDispatch, RootState } from '../../../redux/store';
 import {
   closeToast,
@@ -27,7 +33,8 @@ export default function MenuContainer() {
     (state: RootState) => state.globalState.isSignedIn
   );
 
-  const { t } = useTranslation();
+  // i18n.language feeds the reducer's title collation; see sortItems below.
+  const { t, i18n } = useTranslation();
   const dispatch: AppDispatch = useDispatch();
 
   const isUndoable = useSelector(isUndoableSelector);
@@ -83,6 +90,69 @@ export default function MenuContainer() {
     syncIconType = 'sync';
   }
 
+  // The list is in its natural order iff nothing carries a manual rank. Derived,
+  // never stored -- the same reasoning as KAN-130's: a stored sort mode would
+  // be a container-level field, and this merge has no last-writer-wins rule for
+  // one.
+  //
+  // It is what makes "Date saved" legible as the way BACK rather than a
+  // third equal choice. Justine had to ask how to undo a sort, which is the
+  // whole reason this tick exists.
+  const isDefaultOrder = useSelector((state: RootState) =>
+    state.tabContainerDataState.tabGroups.every((g) => g.rank === undefined)
+  );
+
+  // Every item is a ONE-SHOT rearrangement of the stored order, not a mode.
+  // "Date saved" is the odd one and deliberately so: it REMOVES ranks rather
+  // than assigning them, which is why it is a different action -- and why it is
+  // the only one that can be ticked, since it is the only reachable state the
+  // data can report.
+  //
+  // The labels name the ORDER, not the act of sorting. "Sort by" on each item
+  // repeats what the trigger already says, and at the menu's 180px it wrapped
+  // three of these four onto two lines. Widening the menu is not available:
+  // it is anchored `right: 0` and grows leftward from a trigger that sits
+  // about 200px into a ~355px pane, so a wider box runs off the left edge.
+  // OverflowMenu names the menu itself from ariaLabel, so a screen reader
+  // still hears "Sort sessions" before it hears "Name".
+  const sortItems: OverflowMenuItem[] = [
+    {
+      key: 'date',
+      label: t('Date saved'),
+      icon: 'schedule',
+      checked: isDefaultOrder,
+      onSelect: () => dispatch(clearSessionOrder()),
+    },
+    {
+      key: 'name',
+      label: t('Name'),
+      icon: 'sort_by_alpha',
+      checked: false,
+      onSelect: () =>
+        dispatch(sortSessionsInternal({ by: 'name', locale: i18n.language })),
+    },
+    {
+      key: 'tabs',
+      label: t('Tab count'),
+      icon: 'tab',
+      checked: false,
+      onSelect: () =>
+        dispatch(
+          sortSessionsInternal({ by: 'tabCount', locale: i18n.language })
+        ),
+    },
+    {
+      key: 'modified',
+      label: t('Date modified'),
+      icon: 'history',
+      checked: false,
+      onSelect: () =>
+        dispatch(
+          sortSessionsInternal({ by: 'contentModified', locale: i18n.language })
+        ),
+    },
+  ];
+
   const containerStyle = css`
     display: flex;
     justify-content: space-around;
@@ -90,6 +160,29 @@ export default function MenuContainer() {
 
   return (
     <div css={containerStyle}>
+      {/* KAN-136. Sits LEFT of the undo/redo cluster, and only when there is
+          a list to sort. Rendered unconditionally: every item no-ops on an
+          empty list (the reducer guards it), and a control that comes and goes
+          is the same mistake as the strip it replaces.
+
+          It replaces the strip KAN-130 put inside the list box, which rendered
+          as a list item (same width, same borders, directly above the first
+          row), shifted the list when it appeared, and only existed once the
+          user had already found the drag gesture. A header control is present
+          before that, and costs no vertical space in a pane that scrolls. */}
+      {/* `sort`, not `swap_vert`. swap_vert is two opposing arrows and reads
+          as "reverse the direction" -- an asc/desc toggle this menu does not
+          have and will not gain, because each item is a one-shot rearrangement
+          rather than a mode. `sort` is the conventional affordance for
+          choosing an order, which is what this does. Both are real ligatures
+          in Material Symbols Outlined, measured in the built popup at 26px
+          against a name the font does not carry, which renders as literal
+          text 572px wide rather than as tofu (KAN-5). */}
+      <OverflowMenu
+        ariaLabel={t('Sort sessions')}
+        triggerIcon="sort"
+        items={sortItems}
+      />
       <Icon
         ariaLabel={t('Undo')}
         tooltipText={t('Undo')}

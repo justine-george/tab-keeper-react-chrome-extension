@@ -1,5 +1,5 @@
 import { describe, expect, test, afterEach } from 'vitest';
-import { fireEvent, screen } from '@testing-library/react';
+import { fireEvent } from '@testing-library/react';
 
 import TabGroupEntryContainer from '../../components/home/leftpane/TabGroupEntryContainer';
 import { renderWithProviders } from '../setup/renderWithProviders';
@@ -167,55 +167,5 @@ describe('a session drag inside a filtered list', () => {
 
     expect(order(store)).toEqual(['c', 'b', 'a']);
     expect(store.getState().globalState.isDirty).toBe(false);
-  });
-});
-
-describe('the custom-order strip', () => {
-  const strip = () => screen.queryByLabelText('Sort by date saved');
-
-  test('is absent until something is dragged', async () => {
-    const { container } = await render();
-    layout(container, ['c', 'b', 'a']);
-
-    expect(strip()).toBeNull();
-    expect(screen.queryByText('Custom order')).toBeNull();
-  });
-
-  test('appears once the list is in custom order', async () => {
-    const { container } = await render();
-    layout(container, ['c', 'b', 'a']);
-
-    drag(nodeFor(container, 'a'), 100, 5);
-
-    expect(strip()).not.toBeNull();
-    expect(screen.getByText('Custom order')).toBeInTheDocument();
-  });
-
-  test('resets to newest-first and then hides itself', async () => {
-    const { container, store } = await render();
-    layout(container, ['c', 'b', 'a']);
-    drag(nodeFor(container, 'a'), 100, 5);
-    expect(order(store)).toEqual(['a', 'c', 'b']);
-
-    fireEvent.click(strip()!);
-
-    expect(order(store)).toEqual(['c', 'b', 'a']);
-    expect(strip()).toBeNull();
-  });
-
-  // Offering the reset while searching would promise something about a list
-  // the user cannot see -- the reset applies to the stored order, not the
-  // narrowed one on screen.
-  test('is hidden while a search is filtering the list', async () => {
-    const { container, store, rerender } = await render();
-    layout(container, ['c', 'b', 'a']);
-    drag(nodeFor(container, 'a'), 100, 5);
-    expect(strip()).not.toBeNull();
-
-    store.dispatch(openSearchPanel());
-    store.dispatch(setSearchInputText('ALPHA'));
-    rerender(<TabGroupEntryContainer />);
-
-    expect(strip()).toBeNull();
   });
 });

@@ -127,6 +127,9 @@
   "TabGroupsPromptConfirm": "Activer la prise en charge des groupes d'onglets",
   "TabGroupsPromptDismiss": "Pas maintenant",
   "TabGroupsPromptNever": "Ne plus demander",
-  "Custom order": "Ordre personnalisé",
-  "Sort by date saved": "Trier par date d’enregistrement"
+  "Sort sessions": "Trier les sessions",
+  "Date saved": "Date d'enregistrement",
+  "Name": "Nom",
+  "Tab count": "Nombre d'onglets",
+  "Date modified": "Date de modification"
 }

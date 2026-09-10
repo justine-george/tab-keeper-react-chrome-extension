@@ -127,6 +127,9 @@
   "TabGroupsPromptConfirm": "Ativar o suporte a grupos de guias",
   "TabGroupsPromptDismiss": "Agora não",
   "TabGroupsPromptNever": "Não perguntar novamente",
-  "Custom order": "Ordem personalizada",
-  "Sort by date saved": "Ordenar por data de salvamento"
+  "Sort sessions": "Ordenar sessões",
+  "Date saved": "Data de salvamento",
+  "Name": "Nome",
+  "Tab count": "Número de abas",
+  "Date modified": "Data de modificação"
 }

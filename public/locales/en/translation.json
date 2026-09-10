@@ -127,6 +127,9 @@
   "TabGroupsPromptConfirm": "Enable tab group support",
   "TabGroupsPromptDismiss": "Not now",
   "TabGroupsPromptNever": "Don't ask again",
-  "Custom order": "Custom order",
-  "Sort by date saved": "Sort by date saved"
+  "Sort sessions": "Sort sessions",
+  "Date saved": "Date saved",
+  "Name": "Name",
+  "Tab count": "Tab count",
+  "Date modified": "Date modified"
 }
