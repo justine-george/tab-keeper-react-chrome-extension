@@ -4,6 +4,20 @@ import { css, keyframes } from '@emotion/react';
 
 import { useThemeColors } from '../../hooks/useThemeColors';
 
+/**
+ * Logos, which Material Symbols does not carry and never will -- Google
+ * removed brand marks from the set. Keyed by the same `type` string a ligature
+ * uses, so a caller says `type="x"` and neither knows nor cares which path it
+ * took.
+ *
+ * Add sparingly. Every entry is bytes in every user's bundle whether or not
+ * anything renders it, the same trap the TOAST_MESSAGES comment describes.
+ */
+const BRAND_GLYPHS: Record<string, string> = {
+  // X, from the official brand assets, drawn to a 24x24 box.
+  x: 'M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z',
+};
+
 interface IconBaseProps {
   type: string;
   faviconUrl?: string;
@@ -212,9 +226,27 @@ const Icon: React.FC<IconProps> = ({
             align-items: center;
           `}
         >
-          <span css={iconStyle} className="material-symbols-outlined">
-            {type}
-          </span>
+          {BRAND_GLYPHS[type] ? (
+            // A brand mark, not a ligature. Material Symbols carries no logos
+            // at all, so `type="x"` would render the LETTER x -- an unavailable
+            // ligature falls back to literal text rather than to tofu, which is
+            // exactly the failure KAN-5 had to measure inked width to catch.
+            // Drawn at the same box and colour as a ligature so callers cannot
+            // tell the two apart.
+            <svg
+              css={iconStyle}
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <path d={BRAND_GLYPHS[type]} />
+            </svg>
+          ) : (
+            <span css={iconStyle} className="material-symbols-outlined">
+              {type}
+            </span>
+          )}
           {text && (
             <p
               css={css`

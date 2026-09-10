@@ -46,8 +46,13 @@ export const DEV_EMAIL = 'justinegeo96@gmail.com';
 export const APP_CHROME_WEBSTORE_LINK =
   'https://chromewebstore.google.com/detail/tab-keeper-chrome-tab-man/gpibgniomobngodpnikhheifblbpbbah';
 
-// twitter (X) share text
-export const SHARE_TWITTER_TEXT = `https://twitter.com/intent/tweet?text=Tab%20Keeper%20-%20Chrome%20Extension&hashtags=TabKeeper&url=${APP_CHROME_WEBSTORE_LINK}`;
+// X share intent.
+//
+// x.com/intent/POST, not twitter.com/intent/tweet: the old host answers 301 to
+// exactly this URL, so every share cost a redirect, and `tweet` is the endpoint
+// name X itself has retired. Both still resolve today; neither is worth
+// depending on once the button says X.
+export const SHARE_X_TEXT = `https://x.com/intent/post?text=Tab%20Keeper%20-%20Chrome%20Extension&hashtags=TabKeeper&url=${APP_CHROME_WEBSTORE_LINK}`;
 
 // feedback mail subject
 export const FEEDBACK_MAIL_SUBJECT = `Feedback: Tab Keeper v${APP_VERSION}`;
