@@ -35,7 +35,7 @@ import {
   DEV_EMAIL,
   FEEDBACK_MAIL_SUBJECT,
   IMPORT_ERROR_FRAME,
-  SHARE_TWITTER_TEXT,
+  SHARE_X_TEXT,
   TOAST_MESSAGES,
 } from '../../../utils/constants/common';
 import { SettingsCategoryContainer } from '../leftpane/SettingsCategoryContainer';
@@ -859,7 +859,7 @@ const SettingsDetailsContainer: React.FC = () => {
               max-width: 250px; justify-content: center; margin-top: 40px;"
         />
         <Button
-          text={t('Share your thoughts')}
+          text={t('Share your feedback')}
           iconType="mail"
           onClick={() =>
             (window.location.href = `mailto:${DEV_EMAIL}?subject=${FEEDBACK_MAIL_SUBJECT}`)
@@ -868,9 +868,9 @@ const SettingsDetailsContainer: React.FC = () => {
               max-width: 250px; justify-content: center; margin-top: 16px;"
         />
         <Button
-          text={t('Share on Twitter (X)')}
-          iconType="send"
-          onClick={() => window.open(SHARE_TWITTER_TEXT)}
+          text={t('Share on X')}
+          iconType="x"
+          onClick={() => window.open(SHARE_X_TEXT)}
           style="width: 100%;
               max-width: 250px; justify-content: center; margin-top: 16px;"
         />
