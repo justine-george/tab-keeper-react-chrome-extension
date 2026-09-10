@@ -22,6 +22,7 @@ import {
   undo,
 } from '../../../redux/slices/undoRedoSlice';
 import { SettingsCategory } from '../../../redux/slices/settingsCategoryStateSlice';
+import { setSessionDateBasis } from '../../../redux/slices/settingsDataStateSlice';
 import { useTranslation } from 'react-i18next';
 
 export default function MenuContainer() {
@@ -95,18 +96,15 @@ export default function MenuContainer() {
   // be a container-level field, and this merge has no last-writer-wins rule for
   // one.
   //
-  // It is what makes "Date saved" legible as the way BACK rather than a
-  // third equal choice. Justine had to ask how to undo a sort, which is the
-  // whole reason this tick exists.
+  // It is what makes "Date modified" legible as the way BACK rather than a
+  // fourth equal choice. Justine had to ask how to undo a sort, which is the
+  // whole reason this tick exists. (KAN-136 put the tick on "Date saved";
+  // KAN-141 moved the default order, and the tick followed it.)
   const isDefaultOrder = useSelector((state: RootState) =>
     state.tabContainerDataState.tabGroups.every((g) => g.rank === undefined)
   );
 
   // Every item is a ONE-SHOT rearrangement of the stored order, not a mode.
-  // "Date saved" is the odd one and deliberately so: it REMOVES ranks rather
-  // than assigning them, which is why it is a different action -- and why it is
-  // the only one that can be ticked, since it is the only reachable state the
-  // data can report.
   //
   // The labels name the ORDER, not the act of sorting. "Sort by" on each item
   // repeats what the trigger already says, and at the menu's 180px it wrapped
@@ -115,13 +113,42 @@ export default function MenuContainer() {
   // about 200px into a ~355px pane, so a wider box runs off the left edge.
   // OverflowMenu names the menu itself from ariaLabel, so a screen reader
   // still hears "Sort sessions" before it hears "Name".
+  // KAN-141 swapped the first two. "Date modified" is now the DEFAULT order --
+  // the one the list is in when nothing carries a rank -- so it is the item
+  // that REMOVES ranks, and the only one that can be ticked, since it is the
+  // only reachable state the data can report. "Date saved" became an ordinary
+  // assigning sort like name and tab count.
+  //
+  // Listed first because it is the default, so the way back sits where the eye
+  // starts rather than being hunted for.
+  //
+  // The two date items also set which date the ROWS show, so the number on a
+  // row always describes the order the list is in (KAN-141). Name and tab
+  // count deliberately leave it alone: neither is a date order, so there is no
+  // date for them to be right about, and silently flipping the rows back to
+  // "Edited" would undo a choice the user made two clicks ago.
   const sortItems: OverflowMenuItem[] = [
+    {
+      key: 'modified',
+      label: t('Date modified'),
+      icon: 'history',
+      checked: isDefaultOrder,
+      onSelect: () => {
+        dispatch(clearSessionOrder());
+        dispatch(setSessionDateBasis('edited'));
+      },
+    },
     {
       key: 'date',
       label: t('Date saved'),
       icon: 'schedule',
-      checked: isDefaultOrder,
-      onSelect: () => dispatch(clearSessionOrder()),
+      checked: false,
+      onSelect: () => {
+        dispatch(
+          sortSessionsInternal({ by: 'createdAt', locale: i18n.language })
+        );
+        dispatch(setSessionDateBasis('created'));
+      },
     },
     {
       key: 'name',
@@ -139,16 +166,6 @@ export default function MenuContainer() {
       onSelect: () =>
         dispatch(
           sortSessionsInternal({ by: 'tabCount', locale: i18n.language })
-        ),
-    },
-    {
-      key: 'modified',
-      label: t('Date modified'),
-      icon: 'history',
-      checked: false,
-      onSelect: () =>
-        dispatch(
-          sortSessionsInternal({ by: 'contentModified', locale: i18n.language })
         ),
     },
   ];

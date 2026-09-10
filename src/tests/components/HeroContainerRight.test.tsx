@@ -15,6 +15,7 @@ import {
 import {
   saveToTabContainerInternal,
   selectTabContainer,
+  replaceState,
 } from '../../redux/slices/tabContainerDataStateSlice';
 
 // A factory rather than a shared constant: saveToTabContainerInternal's reducer
@@ -50,12 +51,55 @@ const buildSession = () => ({
 });
 
 describe('HeroContainerRight', () => {
-  // KAN-25. createdTime is a local wall clock with no offset, so it cannot be
-  // trusted once a session crosses timezones. createdAt is the instant, and the
-  // date on screen has to come from it whenever it is there. The two are given
-  // deliberately different values so a component still reading createdTime
-  // cannot accidentally pass.
-  test('renders the date from createdAt, not the stored wall clock', async () => {
+  // KAN-141. The header shows when the session last CHANGED, matching the left
+  // pane row and the order the list is in. Both panes show the same session, so
+  // showing it two different dates would be worse than either choice alone.
+  //
+  // contentModified is given a value far from BOTH createdAt and createdTime,
+  // so a component still reading either cannot accidentally pass.
+  test('renders the date the session last changed', async () => {
+    const CHANGED = Date.UTC(2027, 5, 9, 8, 30, 0);
+    const session = {
+      ...buildSession(),
+      createdTime: '2026-08-31 09:00:00',
+      createdAt: Date.UTC(2027, 2, 4, 12, 0, 0),
+      contentModified: CHANGED,
+    };
+
+    await renderWithProviders(<HeroContainerRight />, {
+      seedStore: (store) => {
+        // replaceState, not saveToTabContainerInternal: saving is a content
+        // edit, so it stamps contentModified with Date.now() and would
+        // overwrite the fixture's value with "now".
+        store.dispatch(
+          replaceState({
+            lastModified: 1,
+            selectedTabGroupId: 'group-1',
+            tabGroups: [{ ...session, isSelected: true }],
+          })
+        );
+      },
+    });
+
+    // Labelled, not bare (KAN-141): the row shows which date it is, and a
+    // test matching the bare number would pass against a header that had
+    // dropped the word.
+    expect(
+      await screen.findByText(`Edited ${getPrettyDate(CHANGED)}`)
+    ).toBeTruthy();
+    expect(
+      screen.queryByText(`Edited ${getPrettyDate(session.createdAt)}`)
+    ).toBeNull();
+    expect(screen.queryByText(getPrettyDate('2026-08-31 09:00:00'))).toBeNull();
+  });
+
+  // KAN-25, still true one level down. A session saved before contentModified
+  // existed has none, and then the date falls back to createdAt -- the instant
+  // -- and NOT to createdTime, which is a local wall clock with no offset and
+  // cannot be trusted once a session crosses timezones. The two are given
+  // deliberately different values so a fallback that reached the wrong one
+  // cannot pass.
+  test('falls back to createdAt, not the stored wall clock, when never changed', async () => {
     const session = {
       ...buildSession(),
       createdTime: '2026-08-31 09:00:00',
@@ -64,13 +108,21 @@ describe('HeroContainerRight', () => {
 
     await renderWithProviders(<HeroContainerRight />, {
       seedStore: (store) => {
-        store.dispatch(saveToTabContainerInternal(session));
-        store.dispatch(selectTabContainer('group-1'));
+        store.dispatch(
+          replaceState({
+            lastModified: 1,
+            selectedTabGroupId: 'group-1',
+            tabGroups: [{ ...session, isSelected: true }],
+          })
+        );
       },
     });
 
+    // "Created", not "Edited": a session with no contentModified has never
+    // been edited, so the word falls back with the value rather than making a
+    // false statement about it.
     expect(
-      await screen.findByText(getPrettyDate(session.createdAt))
+      await screen.findByText(`Created ${getPrettyDate(session.createdAt)}`)
     ).toBeTruthy();
     expect(screen.queryByText(getPrettyDate('2026-08-31 09:00:00'))).toBeNull();
   });

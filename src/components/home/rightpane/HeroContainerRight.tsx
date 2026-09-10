@@ -11,13 +11,13 @@ import { NormalLabel } from '../../common/Label';
 import { useFontFamily } from '../../../hooks/useFontFamily';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { AppDispatch, RootState } from '../../../redux/store';
+import { sessionDateLabel } from '../../../utils/functions/sessionDate';
 import {
   readCurrentWindowGroups,
   toWindowGroupData,
 } from '../../../utils/functions/capture';
 import {
   formatGroupCounts,
-  getPrettyDate,
   isSearchActive,
   selectVisibleTabGroups,
 } from '../../../utils/functions/local';
@@ -54,6 +54,13 @@ export default function HeroContainerRight() {
 
   const hasTabGroupsPermission = useSelector(
     (state: RootState) => state.globalState.hasTabGroupsPermission
+  );
+
+  // Which date to show. Device-local, set by the sort menu (KAN-141). Read
+  // here as well as in the row so the two panes cannot disagree about the same
+  // session.
+  const sessionDateBasis = useSelector(
+    (state: RootState) => state.settingsDataState.sessionDateBasis
   );
 
   useEffect(() => {
@@ -115,8 +122,7 @@ export default function HeroContainerRight() {
     setEditableTitle(e.target.value);
   };
 
-  const { tabGroupId, title, createdTime, createdAt, windowCount, tabCount } =
-    selectedTabGroup;
+  const { tabGroupId, title, windowCount, tabCount } = selectedTabGroup;
 
   const handleAddCurrWindowClick = async () => {
     // fetch current window
@@ -320,11 +326,16 @@ export default function HeroContainerRight() {
           style={`padding-top: 2px; padding-left: 8px;`}
         />
         <NormalLabel
-          // createdAt is the instant; createdTime is a local wall clock with no
-          // offset, kept only for sessions saved before createdAt existed.
+          // Same helper as the left pane row, so the two panes cannot show
+          // the same session two different dates (KAN-141).
           // i18n.language, not a constant: the date is formatted in the user's
           // own locale (KAN-85).
-          value={getPrettyDate(createdAt ?? createdTime, i18n.language)}
+          value={sessionDateLabel(
+            selectedTabGroup,
+            sessionDateBasis,
+            i18n.language,
+            t
+          )}
           size="0.7rem"
           color={COLORS.LABEL_L2_COLOR}
           style="padding-top: 2px; padding-left: 8px;"

@@ -12,10 +12,10 @@ import { useFontFamily } from '../../../hooks/useFontFamily';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import {
   formatGroupCounts,
-  getPrettyDate,
   isSearchActive,
 } from '../../../utils/functions/local';
 import { tabContainerData } from '../../../redux/slices/tabContainerDataStateSlice';
+import { sessionDateLabel } from '../../../utils/functions/sessionDate';
 import { useTranslation } from 'react-i18next';
 
 /**
@@ -61,6 +61,11 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
     (state: RootState) => state.globalState.isSearchPanel
   );
 
+  // Which date the rows show. Device-local, set by the sort menu (KAN-141).
+  const sessionDateBasis = useSelector(
+    (state: RootState) => state.settingsDataState.sessionDateBasis
+  );
+
   // Needed as well as isSearchPanel: the row's counts are narrowed only while
   // the box has text in it, so the panel being open is not on its own enough
   // to call them matches.
@@ -68,8 +73,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
     (state: RootState) => state.globalState.searchInputText
   );
 
-  const { title, createdTime, createdAt, windowCount, tabCount, isSelected } =
-    tabGroupData;
+  const { title, windowCount, tabCount, isSelected } = tabGroupData;
 
   // A plain string, not css``, because it is handed to ClickableRow's `style`
   // prop, which composes it into the button's own reset.
@@ -317,11 +321,14 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
             margin-top: 5px;
           `}
         >
-          {/* createdAt is the instant; createdTime is a local wall clock with
-              no offset, kept only for sessions saved before createdAt.
+          {/* "Edited <date>" or "Created <date>", following whichever date
+              order the sort menu last chose (KAN-141). The date shown is the
+              one the list is ordered by, so the column reads top to bottom in
+              both date sorts -- and the WORD is what keeps that from being a
+              silent switch between two different numbers.
               i18n.language, not a constant: the date is formatted in the
               user's own locale (KAN-85). */}
-          {getPrettyDate(createdAt ?? createdTime, i18n.language)}
+          {sessionDateLabel(tabGroupData, sessionDateBasis, i18n.language, t)}
         </div>
       </ClickableRow>
       {!isSearchPanel && (

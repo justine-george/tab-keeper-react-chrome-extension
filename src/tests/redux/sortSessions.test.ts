@@ -74,11 +74,23 @@ type Store = ReturnType<typeof makeTestStore>['store'];
 // lowercase, which is the bug Intl.Collator exists to avoid.
 const seededList = () => {
   const { store } = makeTestStore();
-  store.dispatch(
-    saveToTabContainerInternal(build('c', 'Cherry', T0 - 2 * HOUR, 9))
-  );
-  store.dispatch(saveToTabContainerInternal(build('a', 'apple', T0 - HOUR, 2)));
-  store.dispatch(saveToTabContainerInternal(build('b', 'Banana', T0, 5)));
+  // The clock is pinned per save (KAN-141). Saving stamps contentModified, and
+  // that is the list's ordering key, so three saves in one tick tie and the
+  // default order collapses onto the tabGroupId tiebreak -- which would make
+  // the "before" expectations below assert something other than newest-first.
+  vi.useFakeTimers();
+  try {
+    for (const [id, title, at, tabs] of [
+      ['c', 'Cherry', T0 - 2 * HOUR, 9],
+      ['a', 'apple', T0 - HOUR, 2],
+      ['b', 'Banana', T0, 5],
+    ] as const) {
+      vi.setSystemTime(at);
+      store.dispatch(saveToTabContainerInternal(build(id, title, at, tabs)));
+    }
+  } finally {
+    vi.useRealTimers();
+  }
   store.dispatch(setIsNotDirty());
   return store;
 };
@@ -168,9 +180,19 @@ describe('a sort is a one-shot action, not a mode', () => {
     store.dispatch(sortSessionsInternal({ by: 'name', locale: 'en' }));
     expect(titles(store)).toEqual(['apple', 'Banana', 'Cherry']);
 
-    store.dispatch(
-      saveToTabContainerInternal(build('z', 'zebra', T0 + HOUR, 1))
-    );
+    // The new session has no rank, so its key is contentInstant -- and the
+    // sort just wrote ranks at whatever Date.now() was a microsecond ago. The
+    // clock is advanced so "saved afterwards" is actually true of the data;
+    // left tied, the tabGroupId tiebreak decides and 'z' loses to 'a'.
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(Date.now() + 60_000);
+      store.dispatch(
+        saveToTabContainerInternal(build('z', 'zebra', T0 + HOUR, 1))
+      );
+    } finally {
+      vi.useRealTimers();
+    }
 
     expect(titles(store)[0]).toBe('zebra');
   });
@@ -205,10 +227,17 @@ describe('sortSessionsInternal does nothing when there is nothing to do', () => 
   // is a coincidence of creation times until the ranks make it explicit.
   test('an unranked list in the right order still gets ranks', () => {
     const { store } = makeTestStore();
-    store.dispatch(
-      saveToTabContainerInternal(build('a', 'apple', T0 - HOUR, 1))
-    );
-    store.dispatch(saveToTabContainerInternal(build('b', 'Banana', T0, 1)));
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(T0 - HOUR);
+      store.dispatch(
+        saveToTabContainerInternal(build('a', 'apple', T0 - HOUR, 1))
+      );
+      vi.setSystemTime(T0);
+      store.dispatch(saveToTabContainerInternal(build('b', 'Banana', T0, 1)));
+    } finally {
+      vi.useRealTimers();
+    }
     store.dispatch(setIsNotDirty());
     // Newest-first already happens to be reverse-alphabetical here.
     expect(titles(store)).toEqual(['Banana', 'apple']);

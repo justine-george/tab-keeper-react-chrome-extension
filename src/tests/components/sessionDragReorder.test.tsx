@@ -1,4 +1,4 @@
-import { describe, expect, test, afterEach } from 'vitest';
+import { describe, expect, test, afterEach, vi } from 'vitest';
 import { fireEvent } from '@testing-library/react';
 
 import TabGroupEntryContainer from '../../components/home/leftpane/TabGroupEntryContainer';
@@ -67,13 +67,24 @@ const render = (searchText?: string) =>
   renderWithProviders(<TabGroupEntryContainer />, {
     seedStore: (store) => {
       store.dispatch(setHasTabGroupsPermission(false));
-      store.dispatch(
-        saveToTabContainerInternal(session('a', 'ALPHA', T0 - 2 * HOUR))
-      );
-      store.dispatch(
-        saveToTabContainerInternal(session('b', 'BRAVO', T0 - HOUR))
-      );
-      store.dispatch(saveToTabContainerInternal(session('c', 'CHARLIE', T0)));
+      // The clock is pinned per save (KAN-141): saving stamps contentModified
+      // with Date.now(), and that is what the list is ordered by, so three
+      // saves in one tick tie and the order collapses onto the id tiebreak.
+      // Each session's stamp is its own createdAt, which is the state a
+      // freshly saved and never edited session is really in.
+      vi.useFakeTimers();
+      try {
+        for (const [id, title, at] of [
+          ['a', 'ALPHA', T0 - 2 * HOUR],
+          ['b', 'BRAVO', T0 - HOUR],
+          ['c', 'CHARLIE', T0],
+        ] as const) {
+          vi.setSystemTime(at);
+          store.dispatch(saveToTabContainerInternal(session(id, title, at)));
+        }
+      } finally {
+        vi.useRealTimers();
+      }
       if (searchText !== undefined) {
         store.dispatch(openSearchPanel());
         store.dispatch(setSearchInputText(searchText));

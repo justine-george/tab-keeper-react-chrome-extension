@@ -28,6 +28,7 @@ import {
   moveTabInternal,
   moveWindowInternal,
   moveSessionInternal,
+  sortSessionsInternal,
   clearSessionOrder,
 } from '../../redux/slices/tabContainerDataStateSlice';
 
@@ -281,13 +282,20 @@ describe('reordering leaves contentModified alone', () => {
     vi.useRealTimers();
   });
 
+  // tg2 is saved a minute AFTER tg, so tg sits second and the move below is a
+  // real move. Saved in the same tick the two tie, the id tiebreak puts tg
+  // first, and moveSessionInternal to index 0 is a no-op it correctly declines
+  // to stamp -- which looks exactly like the bug this test is watching for.
   const twoSessions = () => {
     const { store } = makeTestStore();
+    vi.setSystemTime(T0);
     store.dispatch(saveToTabContainerInternal(build()));
     const second = build();
     second.tabGroupId = 'tg2';
     second.title = 'Another';
+    vi.setSystemTime(T0 + 60_000);
     store.dispatch(saveToTabContainerInternal(second));
+    vi.setSystemTime(T0);
     return store;
   };
 
@@ -326,5 +334,79 @@ describe('reordering leaves contentModified alone', () => {
     store.dispatch(clearSessionOrder());
 
     expect(contentModifiedOf(store)).toBe(before);
+  });
+});
+
+// KAN-141. contentModified is the list's ordering key now, and THE STORED ARRAY
+// IS THE DISPLAY ORDER -- nothing sorts at render. So bumping the key is only
+// half the job: the row has to move too, or the edited session keeps its old
+// place until the next merge re-derives the array and the visible dates read
+// out of order in the default view.
+//
+// This was missed on the first pass and found by the list not resurfacing at
+// all, so it gets its own tests rather than riding on a component one.
+describe('a content edit re-sorts the list', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(T0);
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  const threeSessions = () => {
+    const { store } = makeTestStore();
+    ['one', 'two', 'three'].forEach((id, i) => {
+      vi.setSystemTime(T0 + i * 60_000);
+      const g = build();
+      g.tabGroupId = id;
+      g.title = id;
+      store.dispatch(saveToTabContainerInternal(g));
+    });
+    return store;
+  };
+
+  const order = (s: Store) =>
+    s.getState().tabContainerDataState.tabGroups.map((g) => g.tabGroupId);
+
+  test('moves the edited session to the top immediately', () => {
+    const store = threeSessions();
+    // Saved last, so it is already first; the oldest is last.
+    expect(order(store)).toEqual(['three', 'two', 'one']);
+
+    vi.setSystemTime(T0 + 10 * 60_000);
+    store.dispatch(
+      updateTabGroupTitle({ tabGroupId: 'one', editableTitle: 'Renamed' })
+    );
+
+    expect(order(store)).toEqual(['one', 'three', 'two']);
+  });
+
+  // The pinned case, and the reason this re-sorts by `rank ?? contentInstant`
+  // rather than splicing the edited session to the front. After an explicit
+  // sort every session carries a rank, ranks outrank the edit, and the order
+  // the user arranged has to survive them editing something.
+  test('leaves a pinned order alone', () => {
+    const store = threeSessions();
+    store.dispatch(sortSessionsInternal({ by: 'name', locale: 'en' }));
+    const pinned = order(store);
+
+    vi.setSystemTime(T0 + 10 * 60_000);
+    store.dispatch(
+      updateTabGroupTitle({ tabGroupId: pinned[2], editableTitle: 'Renamed' })
+    );
+
+    expect(order(store)).toEqual(pinned);
+  });
+
+  // CONTROL. Reordering the LIST is not the session changing, so it must not
+  // trigger a re-sort -- otherwise a drag would be undone by the very act of
+  // performing it.
+  test('CONTROL: dragging a session does not re-sort it away', () => {
+    const store = threeSessions();
+
+    store.dispatch(moveSessionInternal({ tabGroupId: 'one', toIndex: 0 }));
+
+    expect(order(store)[0]).toBe('one');
   });
 });
