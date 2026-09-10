@@ -33,6 +33,7 @@ import reducer, {
   deleteTabInternal,
   restoreContainer,
 } from '../../redux/slices/tabContainerDataStateSlice';
+import { getStringDate } from '../../utils/functions/local';
 import type {
   tabContainerData,
   TabMasterContainer,
@@ -320,15 +321,32 @@ describe('restoreContainer produces a Firestore-writable container', () => {
   });
 });
 
-// KAN-25. Four reducers restamp createdTime to "now". Each has to restamp
-// createdAt too, or the instant drifts away from the wall clock beside it and
-// the merge orders the session by a moment that has already passed.
-describe('createdAt restamping', () => {
+// KAN-25, then KAN-139. This block used to assert that these reducers restamp
+// createdTime and createdAt to "now", and its real claim was COHERENCE: if one
+// is rewritten the other must be too, or the instant drifts away from the wall
+// clock beside it and the merge orders the session by a moment that has
+// already passed.
+//
+// KAN-139 removed the restamping outright -- a session saved in July should
+// not claim today's date because one tab was deleted from it. The coherence
+// claim survives that change and is asserted more strongly here: neither field
+// moves, so they cannot drift apart at all. Written this way rather than
+// deleted, because "these two must agree" is still the property worth pinning,
+// and a future reintroduction of restamping on one field alone should fail
+// here.
+describe('createdTime and createdAt stay put after a content edit', () => {
   beforeEach(() => localStorage.clear());
+
+  // Both fields derived from ONE instant, so they are coherent by
+  // construction in whatever timezone the suite runs in. getStringDate formats
+  // local time, so hardcoding a matching string alongside an epoch would make
+  // this test's meaning depend on $TZ -- which is the KAN-25 trap itself.
+  const CREATED = new Date(Date.UTC(2026, 7, 31, 12, 0, 0));
 
   const seeded = (): TabMasterContainer => {
     const g = group('a');
-    g.createdAt = 1_000;
+    g.createdAt = CREATED.getTime();
+    g.createdTime = getStringDate(CREATED);
     g.windows.push({
       windowId: 'w2',
       windowHeight: 100,
@@ -402,14 +420,21 @@ describe('createdAt restamping', () => {
     ],
   ];
 
-  it.each(cases)('%s restamps createdAt', (_label, act) => {
-    const before = Date.now();
-    const after = act();
-    const stamped = byId(after, 'a').createdAt;
+  it.each(cases)('%s leaves both alone', (_label, act) => {
+    const after = byId(act(), 'a');
 
-    expect(stamped).not.toBe(1_000);
-    expect(typeof stamped).toBe('number');
-    expect(stamped!).toBeGreaterThanOrEqual(before);
-    expect(stamped!).toBeLessThanOrEqual(Date.now());
+    expect(after.createdAt).toBe(CREATED.getTime());
+    expect(after.createdTime).toBe(getStringDate(CREATED));
+  });
+
+  // The coherence claim the old version of this block was really making, kept
+  // because it is the part that still matters: the wall clock and the instant
+  // must describe the same moment. Restamping one field and not the other
+  // fails here even though both assertions above would still pass for the
+  // untouched one.
+  it.each(cases)('%s keeps the two describing one moment', (_label, act) => {
+    const after = byId(act(), 'a');
+
+    expect(getStringDate(new Date(after.createdAt!))).toBe(after.createdTime);
   });
 });
