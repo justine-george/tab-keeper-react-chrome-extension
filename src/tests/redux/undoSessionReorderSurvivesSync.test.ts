@@ -80,9 +80,22 @@ const seeded = () => {
   const { store } = makeTestStore();
   store.dispatch(setSignedIn());
   store.dispatch(setUserId('u1'));
-  store.dispatch(saveToTabContainerInternal(session('a', T0 - 2 * HOUR)));
-  store.dispatch(saveToTabContainerInternal(session('b', T0 - HOUR)));
-  store.dispatch(saveToTabContainerInternal(session('c', T0)));
+  // Clock pinned per save (KAN-141): contentModified is the ordering key, so
+  // three saves in one tick tie and the array comes out in id order rather
+  // than newest-first.
+  vi.useFakeTimers();
+  try {
+    for (const [id, at] of [
+      ['a', T0 - 2 * HOUR],
+      ['b', T0 - HOUR],
+      ['c', T0],
+    ] as const) {
+      vi.setSystemTime(at);
+      store.dispatch(saveToTabContainerInternal(session(id, at)));
+    }
+  } finally {
+    vi.useRealTimers();
+  }
   return store;
 };
 

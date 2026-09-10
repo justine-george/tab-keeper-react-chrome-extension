@@ -26,7 +26,10 @@ import {
   RestoreSessionRequest,
   WindowSpec,
 } from '../../utils/functions/windows';
-import { createdInstant } from '../../utils/functions/mergeTabData';
+import {
+  createdInstant,
+  contentInstant,
+} from '../../utils/functions/mergeTabData';
 import {
   DEFAULT_WINDOW_HEIGHT,
   DEFAULT_WINDOW_OFFSET_LEFT,
@@ -241,17 +244,22 @@ export interface moveSessionParams {
 // lets sorting and dragging coexist -- both write the same stored order rather
 // than being two rival answers to "what order is this list in". The visible
 // consequence is deliberate: a session saved afterwards has no rank, falls back
-// to createdInstant, and lands on top rather than in its sorted position.
+// to contentInstant, and lands on top rather than in its sorted position.
 //
 // `locale` is passed in rather than read here: title comparison must be
 // locale-aware (Intl.Collator, not `<`), the app ships ten locales, and the
 // reducer has no access to the active one. Same shape as getPrettyDate (KAN-85).
 //
-// Sorting by DATE SAVED is not here -- that is clearSessionOrder, because
+// Sorting by DATE MODIFIED is not here -- that is clearSessionOrder, because
 // returning to the default means REMOVING ranks rather than assigning them.
 // Two genuinely different operations, kept as two.
+//
+// KAN-141 swapped which key gets that treatment. It used to be date SAVED,
+// back when the no-rank fallback was createdInstant; now the default order is
+// "recently changed first", so date-saved became an ordinary assigning sort
+// and date-modified became the free one.
 export interface sortSessionsParams {
-  by: 'name' | 'tabCount' | 'contentModified';
+  by: 'name' | 'tabCount' | 'createdAt';
   locale: string;
 }
 
@@ -607,15 +615,65 @@ function touch(group: tabContainerData): void {
 // The session's CONTENTS changed (KAN-138) -- as opposed to merely its place in
 // the list.
 //
-// Every content reducer calls this; the ordering reducers and applyUndoSnapshot
-// call plain `touch`. That split is the whole feature: it is what keeps
-// contentModified meaningful after a sort, which flattens every lastModified.
+// THE LINE: did the SESSION change, or did the session's PLACE IN THE LIST
+// change? Everything in the first group calls this; only the second calls
+// plain `touch`.
+//
+//   this        adding or removing a window, a tab or a Chrome group; renaming
+//               the session, a window or a group; recolouring or ungrouping;
+//               and dragging tabs within a window or windows within a session
+//   plain touch moveSessionInternal, sortSessionsInternal, clearSessionOrder
+//
+// Dragging a tab or a window rearranges what the session HOLDS, so it counts.
+// Dragging the session rearranges the LIST, so it does not -- and it must not,
+// or reordering the list would rewrite the very key the list is ordered by and
+// the drag would fight itself.
+//
+// Stated as a question about the session rather than as a list of reducers,
+// because a list of reducers is not a rule and the next person adding one
+// would have nothing to check their case against.
+//
+// A narrower line was tried first -- structural edits only, matching the set
+// that used to call `stampCreated` before KAN-139 -- and rejected in review:
+// it made a window drag a modification that did not update the modified date,
+// which is a field that needs a footnote to explain. The old set was never a
+// designed boundary anyway, just wherever those calls happened to sit.
+//
+// The cost is accepted and real: an edit resurfaces its session, so renaming
+// one moves it to the top of the list. That is what every recently-edited list
+// does, and it is what asking for "date modified" means.
 //
 // An undo restores contentModified from its snapshot rather than setting it to
 // now, which is why applyUndoSnapshot must NOT use this.
-function touchContent(group: tabContainerData): void {
+// Takes the whole state, not just the group, because bumping contentModified
+// is only half the job now (KAN-141). That field is the list's ordering key,
+// and THE STORED ARRAY IS THE DISPLAY ORDER -- nothing sorts at render. Bump
+// the key without moving the row and the edited session keeps its old place
+// until the next merge re-derives the array, so the visible dates read out of
+// order in the default view. That is precisely the scramble this ticket set
+// out to remove, arriving through the back door.
+//
+// Passing state is what makes forgetting impossible: the old one-argument form
+// no longer compiles, so a new content reducer cannot bump the key and leave
+// the array behind.
+function touchContent(
+  state: TabMasterContainer,
+  group: tabContainerData
+): void {
   touch(group);
   group.contentModified = Date.now();
+  resortSessions(state);
+}
+
+// Put the array back in the order sessionRank defines. Re-sorts rather than
+// splicing the one group to the front, because "front" is only right when
+// nothing carries a rank: after an explicit sort every session has one, ranks
+// win over contentInstant, and a pinned list must stay pinned through an edit.
+// Sorting by the same key the merge uses gets both cases without a branch.
+function resortSessions(state: TabMasterContainer): void {
+  state.tabGroups.sort(
+    (a, b) => rankOf(b) - rankOf(a) || compareIds(a.tabGroupId, b.tabGroupId)
+  );
 }
 
 // The key the session list is ordered by, newest/highest first (KAN-130).
@@ -625,7 +683,7 @@ function touchContent(group: tabContainerData): void {
 // gets silently undone by the next sync. One direction only -- mergeTabData
 // imports nothing from here as a value, deliberately, so it stays DOM-free.
 function rankOf(group: tabContainerData): number {
-  return group.rank ?? createdInstant(group);
+  return group.rank ?? contentInstant(group);
 }
 
 // The tiebreak every session ordering here uses, matching the merge's own
@@ -859,7 +917,7 @@ export const tabContainerDataStateSlice = createSlice({
     ) => {
       const newTabGroupId = action.payload.tabGroupId;
       state.tabGroups.unshift(action.payload);
-      touchContent(state.tabGroups[0]);
+      touchContent(state, state.tabGroups[0]);
       state.lastModified = Date.now();
 
       // update localstorage
@@ -908,7 +966,7 @@ export const tabContainerDataStateSlice = createSlice({
         state.tabGroups[tabGroupIndex].windowCount += 1;
         state.tabGroups[tabGroupIndex].tabCount += window.tabCount;
         state.tabGroups[tabGroupIndex].windows.unshift(window);
-        touchContent(state.tabGroups[tabGroupIndex]);
+        touchContent(state, state.tabGroups[tabGroupIndex]);
       }
       state.lastModified = Date.now();
 
@@ -938,7 +996,7 @@ export const tabContainerDataStateSlice = createSlice({
           state.tabGroups[tabGroupIndex].windows[windowIndex].tabs.unshift(
             currentTabData
           );
-          touchContent(state.tabGroups[tabGroupIndex]);
+          touchContent(state, state.tabGroups[tabGroupIndex]);
         }
       }
       state.lastModified = Date.now();
@@ -975,7 +1033,7 @@ export const tabContainerDataStateSlice = createSlice({
       );
       if (tabGroupIndex !== -1) {
         state.tabGroups[tabGroupIndex].title = normalizeTitle(newTitle);
-        touchContent(state.tabGroups[tabGroupIndex]);
+        touchContent(state, state.tabGroups[tabGroupIndex]);
       }
       state.lastModified = Date.now();
       // update localstorage
@@ -1003,7 +1061,7 @@ export const tabContainerDataStateSlice = createSlice({
         if (windowIndex !== -1) {
           state.tabGroups[tabGroupIndex].windows[windowIndex].title =
             normalizeTitle(newTitle);
-          touchContent(state.tabGroups[tabGroupIndex]);
+          touchContent(state, state.tabGroups[tabGroupIndex]);
         }
       }
       state.lastModified = Date.now();
@@ -1053,7 +1111,7 @@ export const tabContainerDataStateSlice = createSlice({
       if (group.title === newTitle) return;
 
       group.title = newTitle;
-      touchContent(state.tabGroups[tabGroupIndex]);
+      touchContent(state, state.tabGroups[tabGroupIndex]);
       state.lastModified = Date.now();
       // update localstorage
       saveToLocalStorage('tabContainerData', state);
@@ -1104,7 +1162,7 @@ export const tabContainerDataStateSlice = createSlice({
 
       container.tabCount += 1;
       window.tabCount += 1;
-      touchContent(container);
+      touchContent(state, container);
       state.lastModified = Date.now();
       saveToLocalStorage('tabContainerData', state);
     },
@@ -1141,7 +1199,7 @@ export const tabContainerDataStateSlice = createSlice({
       if (group.color === color) return;
 
       group.color = color;
-      touchContent(container);
+      touchContent(state, container);
       state.lastModified = Date.now();
       saveToLocalStorage('tabContainerData', state);
     },
@@ -1172,7 +1230,7 @@ export const tabContainerDataStateSlice = createSlice({
         if (tab.chromeGroupId === groupId) delete tab.chromeGroupId;
       }
 
-      touchContent(container);
+      touchContent(state, container);
       state.lastModified = Date.now();
       saveToLocalStorage('tabContainerData', state);
     },
@@ -1221,7 +1279,7 @@ export const tabContainerDataStateSlice = createSlice({
         bury(state, container.tabGroupId);
         state.tabGroups.splice(containerIndex, 1);
       } else {
-        touchContent(container);
+        touchContent(state, container);
       }
 
       state.lastModified = Date.now();
@@ -1284,7 +1342,7 @@ export const tabContainerDataStateSlice = createSlice({
           bury(state, state.tabGroups[tabGroupIndex].tabGroupId);
           state.tabGroups.splice(tabGroupIndex, 1);
         } else {
-          touchContent(state.tabGroups[tabGroupIndex]);
+          touchContent(state, state.tabGroups[tabGroupIndex]);
         }
       }
       state.lastModified = Date.now();
@@ -1345,7 +1403,7 @@ export const tabContainerDataStateSlice = createSlice({
           bury(state, state.tabGroups[tabGroupIndex].tabGroupId);
           state.tabGroups.splice(tabGroupIndex, 1);
         } else {
-          touchContent(state.tabGroups[tabGroupIndex]);
+          touchContent(state, state.tabGroups[tabGroupIndex]);
         }
       }
       state.lastModified = Date.now();
@@ -1429,7 +1487,7 @@ export const tabContainerDataStateSlice = createSlice({
       // touch, not stampCreated: a reorder is an edit, and stampCreated would
       // reset createdAt, which is what the merge orders the session list by.
       // Nudging a tab must not send its session to the top of the left pane.
-      touchContent(container);
+      touchContent(state, container);
       state.lastModified = Date.now();
 
       // update localstorage
@@ -1512,20 +1570,20 @@ export const tabContainerDataStateSlice = createSlice({
       // dates.
       const collator = new Intl.Collator(locale, { sensitivity: 'base' });
 
-      // Most recently edited first, and NOT `lastModified` -- that is bumped
-      // by reordering too, so a previous sort would have flattened it and this
-      // would return something close to arbitrary (KAN-138).
-      //
-      // The fallback for sessions written before contentModified existed is
-      // createdInstant, which is the date their row displays -- so an unmigrated
-      // session sorts where the user would expect from looking at it, rather
-      // than by a lastModified they cannot see.
-      const editedAt = (g: tabContainerData) =>
-        g.contentModified ?? createdInstant(g);
-
       const compare = (a: tabContainerData, b: tabContainerData): number => {
         if (by === 'name') return collator.compare(a.title, b.title);
-        if (by === 'contentModified') return editedAt(b) - editedAt(a);
+        // Newest SAVE first. Not free the way it used to be: with the default
+        // order now on contentInstant (KAN-141), clearing ranks no longer
+        // produces this, so date-saved has to assign ranks like any other
+        // explicit sort.
+        //
+        // There is deliberately no 'contentModified' key. That order is what
+        // the list does with no ranks at all, and the menu reaches it through
+        // clearSessionOrder -- one action per outcome, rather than two ways to
+        // ask for the same thing that could drift apart.
+        if (by === 'createdAt') {
+          return createdInstant(b) - createdInstant(a);
+        }
         // Largest first, which is the only reading of "sort by tab count" that
         // puts the interesting sessions where the eye starts.
         return b.tabCount - a.tabCount;
@@ -1575,9 +1633,14 @@ export const tabContainerDataStateSlice = createSlice({
 
       // The array is the display order, so it has to be put back too -- the
       // same pairing moveSessionInternal maintains.
+      //
+      // contentInstant, matching sessionRank's fallback exactly (KAN-141).
+      // These two must agree: this decides what the user sees now, that
+      // decides what survives the next merge, and if they disagree the list
+      // silently rearranges itself on the next sync.
       state.tabGroups.sort(
         (a, b) =>
-          createdInstant(b) - createdInstant(a) ||
+          contentInstant(b) - contentInstant(a) ||
           compareIds(a.tabGroupId, b.tabGroupId)
       );
 
@@ -1634,7 +1697,7 @@ export const tabContainerDataStateSlice = createSlice({
       // touch, not stampCreated: a reorder is an edit, and stampCreated would
       // reset createdAt, which is what the merge orders the session list by.
       // Nudging a window must not send its session to the top of the left pane.
-      touchContent(container);
+      touchContent(state, container);
       state.lastModified = Date.now();
 
       // update localstorage

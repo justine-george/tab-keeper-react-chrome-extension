@@ -29,6 +29,7 @@ import {
 import {
   saveToTabContainerInternal,
   moveWindowInternal,
+  moveSessionInternal,
   updateTabGroupTitle,
 } from '../../redux/slices/tabContainerDataStateSlice';
 import { undo } from '../../redux/slices/undoRedoSlice';
@@ -244,11 +245,23 @@ describe('undoing a window reorder survives the next sync (KAN-129)', () => {
     }
   });
 
-  // A reorder must not send the session to the top of the left pane. The list
-  // is ordered by createdInstant, so this is the same claim the reducer's
-  // `touch`-not-`stampCreated` choice makes, asserted where it is visible:
-  // after a real merge.
-  it('does not reorder the session list itself', async () => {
+  // KAN-141 INVERTED THIS, deliberately, and it is the clearest statement of
+  // the new rule anywhere in the suite.
+  //
+  // It used to assert that reordering a session's windows left the session
+  // where it was in the left pane. That followed from the list being ordered by
+  // createdInstant, which a reorder does not touch.
+  //
+  // The list is now ordered by when the session last CHANGED, and rearranging
+  // the windows a session HOLDS is the session changing -- the line Justine
+  // drew in review is "everything except dragging the session itself counts".
+  // So the session resurfaces, and it must, or a window drag would be a change
+  // the modified date does not show.
+  //
+  // Asserted after a real merge rather than off the reducer, because the merge
+  // re-derives the order independently: if the two disagreed, the list would
+  // rearrange itself on the next sync.
+  it('sends the session to the top, because its contents changed', async () => {
     const { store } = makeTestStore();
     store.dispatch(setSignedIn());
     store.dispatch(setUserId('u1'));
@@ -278,7 +291,37 @@ describe('undoing a window reorder survives the next sync (KAN-129)', () => {
 
     expect(
       store.getState().tabContainerDataState.tabGroups.map((g) => g.tabGroupId)
-    ).toEqual(['s2', 's1']);
+    ).toEqual(['s1', 's2']);
+  });
+
+  // THE OTHER HALF of that line, and the one that keeps it from collapsing into
+  // "everything counts". Dragging the SESSION rearranges the list, not the
+  // session, so it must leave contentModified alone -- otherwise the drag would
+  // rewrite the very key the list is ordered by and fight itself.
+  it('CONTROL: dragging the session itself changes no modified date', async () => {
+    const { store } = makeTestStore();
+    store.dispatch(setSignedIn());
+    store.dispatch(setUserId('u1'));
+    store.dispatch(saveToTabContainerInternal(seed()));
+    store.dispatch(
+      saveToTabContainerInternal(seed({ tabGroupId: 's2', title: 'Bravo' }))
+    );
+
+    const before = new Map(
+      store
+        .getState()
+        .tabContainerDataState.tabGroups.map((g) => [
+          g.tabGroupId,
+          g.contentModified,
+        ])
+    );
+
+    store.dispatch(moveSessionInternal({ tabGroupId: 's1', toIndex: 1 }));
+
+    const after = store.getState().tabContainerDataState.tabGroups;
+    after.forEach((g) => {
+      expect(g.contentModified).toBe(before.get(g.tabGroupId));
+    });
   });
 });
 

@@ -47,7 +47,30 @@ export interface SettingsData {
   // re-armed into being asked again by a stale boolean.
   isTabGroupsPromptAnsweredOnce: boolean;
   isNeverAskAgainForTabGroups: boolean;
+  /**
+   * Which date the session rows show, and therefore which word labels it
+   * (KAN-141). Set by the two date items in the sort menu, so the number on
+   * the row always describes the order the list is in.
+   *
+   * It lives HERE, in device-local settings, rather than on the container.
+   * `saveToFirestore` sends tabContainerData and nothing else, so a preference
+   * kept here needs no merge rule -- the same reasoning that kept the sort mode
+   * derived in KAN-130 and KAN-136 rather than stored.
+   *
+   * The consequence is accepted and documented: the ORDER syncs, through ranks,
+   * and this does not. Sort by date saved here, open on another device, and
+   * that device shows edited dates in created order until its own menu is
+   * touched. Cosmetic, confined to the multi-device-plus-explicit-sort corner,
+   * and cheaper than a container field with its own last-writer-wins rule.
+   */
+  sessionDateBasis: SessionDateBasis;
 }
+
+/**
+ * `edited` is the default because it is what the list is ordered by when
+ * nothing has been pinned.
+ */
+export type SessionDateBasis = 'edited' | 'created';
 
 // Retrieve settings from localStorage
 const settingsDataLocal = asPartialSettings<SettingsData>(
@@ -66,6 +89,7 @@ const defaultSettings: SettingsData = {
   lastReviewRequestTime: '',
   isTabGroupsPromptAnsweredOnce: false,
   isNeverAskAgainForTabGroups: false,
+  sessionDateBasis: 'edited',
 };
 
 export const initialState: SettingsData = {
@@ -154,6 +178,13 @@ export const settingsDataStateSlice = createSlice({
       saveToLocalStorage('settingsData', state);
     },
 
+    setSessionDateBasis: (state, action: PayloadAction<SessionDateBasis>) => {
+      state.sessionDateBasis = action.payload;
+
+      // Save updated state to localStorage
+      saveToLocalStorage('settingsData', state);
+    },
+
     replaceState: (state, action: PayloadAction<typeof state>) => {
       // Save updated state to localStorage
       saveToLocalStorage('settingsData', state);
@@ -175,6 +206,7 @@ export const {
   updateLastReviewRequestTime,
   setTabGroupsPromptAnsweredOnce,
   setNeverAskAgainForTabGroups,
+  setSessionDateBasis,
 } = settingsDataStateSlice.actions;
 
 export default settingsDataStateSlice.reducer;

@@ -69,13 +69,29 @@ export function createdInstant(group: tabContainerData): number {
   return Date.UTC(year, month - 1, day, hour, minute, second);
 }
 
+// When a session last CHANGED, as an instant. The single definition of that
+// question -- the merge, the slice's rankOf, clearSessionOrder's re-sort and
+// both panes' date all read it from here (KAN-141). Two definitions would
+// drift, and a drifted ordering key is two devices sorting the same data
+// differently and never converging.
+//
+// The fallback is what makes this need no migration: a session written before
+// contentModified existed sorts on createdInstant, exactly where it sorts
+// today, and shows the same date it shows today.
+export function contentInstant(group: tabContainerData): number {
+  return group.contentModified ?? createdInstant(group);
+}
+
 // What the session list is ordered by, highest first.
 //
-// The fallback is what keeps this change invisible to every session that
-// already exists: with no rank the key IS createdInstant, so the order is
-// byte-identical to the one this replaces.
+// KAN-141 moved this from createdInstant to contentInstant: recently CHANGED
+// first, not recently created. That is what the product already did until
+// KAN-139 -- six reducers re-stamped createdAt on every add and delete, so
+// editing a session sent it to the top -- except it did it by overwriting the
+// creation date. This is the same behaviour with the lie removed, and it now
+// covers renames and recolours too, which the re-stamping never did.
 export function sessionRank(group: tabContainerData): number {
-  return group.rank ?? createdInstant(group);
+  return group.rank ?? contentInstant(group);
 }
 
 type Event =

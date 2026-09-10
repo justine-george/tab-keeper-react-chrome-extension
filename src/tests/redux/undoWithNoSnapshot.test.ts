@@ -57,10 +57,21 @@ const build = (id: string) => ({
   ],
 });
 
+// Two saves a minute apart, not two in the same tick. contentModified orders
+// the list (KAN-141), so same-tick saves tie and the array comes out in id
+// order -- which would make the ['b', 'a'] expectation below assert the
+// tiebreak rather than newest-first.
 const seeded = () => {
   const { store } = makeTestStore();
-  store.dispatch(saveToTabContainerInternal(build('a')));
-  store.dispatch(saveToTabContainerInternal(build('b')));
+  vi.useFakeTimers();
+  try {
+    vi.setSystemTime(Date.UTC(2026, 8, 9, 12, 0, 0));
+    store.dispatch(saveToTabContainerInternal(build('a')));
+    vi.setSystemTime(Date.UTC(2026, 8, 9, 12, 1, 0));
+    store.dispatch(saveToTabContainerInternal(build('b')));
+  } finally {
+    vi.useRealTimers();
+  }
   return store;
 };
 

@@ -62,13 +62,33 @@ const build = (id: string, createdAt: number) => ({
 
 type Store = ReturnType<typeof makeTestStore>['store'];
 
-// Seeded oldest-first through saveToTabContainerInternal, which unshifts -- so
-// the resulting array is newest-first: c, b, a.
+// Seeded oldest-first, so the resulting array is newest-first: c, b, a.
+//
+// THE CLOCK IS PINNED PER SAVE, and it has to be (KAN-141). Saving is a content
+// edit, so it stamps contentModified with Date.now() -- and contentModified is
+// now what the list is ordered by. Three saves in one tick get three identical
+// stamps, the order collapses onto the tabGroupId tiebreak, and the array comes
+// out c, a, b: a real order, but not the one these tests are about.
+//
+// Setting the clock to each session's own createdAt also states the fixture's
+// intent exactly. These sessions have never been edited since they were saved,
+// so their two instants agree, which is the state every freshly saved session
+// is really in.
 const seeded = () => {
   const { store } = makeTestStore();
-  store.dispatch(saveToTabContainerInternal(build('a', T0 - 2 * HOUR)));
-  store.dispatch(saveToTabContainerInternal(build('b', T0 - HOUR)));
-  store.dispatch(saveToTabContainerInternal(build('c', T0)));
+  vi.useFakeTimers();
+  try {
+    for (const [id, at] of [
+      ['a', T0 - 2 * HOUR],
+      ['b', T0 - HOUR],
+      ['c', T0],
+    ] as const) {
+      vi.setSystemTime(at);
+      store.dispatch(saveToTabContainerInternal(build(id, at)));
+    }
+  } finally {
+    vi.useRealTimers();
+  }
   store.dispatch(setIsNotDirty());
   return store;
 };

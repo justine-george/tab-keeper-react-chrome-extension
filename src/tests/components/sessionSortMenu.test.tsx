@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'vitest';
+import { describe, expect, test, vi } from 'vitest';
 import { fireEvent, screen } from '@testing-library/react';
 
 import MenuContainer from '../../components/home/leftpane/MenuContainer';
@@ -63,13 +63,24 @@ const session = (
 const render = () =>
   renderWithProviders(<MenuContainer />, {
     seedStore: (store) => {
-      store.dispatch(
-        saveToTabContainerInternal(session('c', 'Cherry', T0 - 2 * HOUR, 9))
-      );
-      store.dispatch(
-        saveToTabContainerInternal(session('a', 'apple', T0 - HOUR, 2))
-      );
-      store.dispatch(saveToTabContainerInternal(session('b', 'Banana', T0, 5)));
+      // Clock pinned per save (KAN-141): contentModified orders the list, so
+      // three saves in one tick tie and the default order collapses onto the
+      // tabGroupId tiebreak instead of newest-first.
+      vi.useFakeTimers();
+      try {
+        for (const [id, title, at, tabs] of [
+          ['c', 'Cherry', T0 - 2 * HOUR, 9],
+          ['a', 'apple', T0 - HOUR, 2],
+          ['b', 'Banana', T0, 5],
+        ] as const) {
+          vi.setSystemTime(at);
+          store.dispatch(
+            saveToTabContainerInternal(session(id, title, at, tabs))
+          );
+        }
+      } finally {
+        vi.useRealTimers();
+      }
     },
   });
 
@@ -133,20 +144,37 @@ describe('the sort menu', () => {
     expect(titles(store)).toEqual(['Cherry', 'Banana', 'apple']);
   });
 
-  // Distinguished from "date saved" by EDITING the oldest session: it stays
-  // oldest by creation and becomes newest by content, so the two orders
-  // disagree and only one of them puts Cherry first. Wiring this item to any
-  // other key leaves Cherry last, where the seeded order already had it.
+  // KAN-141 turned this one inside out. Date modified is now the DEFAULT order,
+  // so the list is already in it and the menu item merely REMOVES ranks to
+  // return there -- which means the interesting assertion is no longer "does
+  // clicking it sort", it is "does editing a session move it, with no click at
+  // all".
   //
   // Only the first position is asserted. The other two are saved in the same
-  // tick, so their contentModified values may be equal and their relative
-  // order is a tie the reducer is not being asked to break.
-  test('sorting by date modified puts the recently edited session first', async () => {
+  // tick, so their contentModified values may be equal and their relative order
+  // is a tie the reducer is not being asked to break.
+  test('editing a session moves it to the top with no sort at all', async () => {
+    const { store } = await render();
+    expect(titles(store)[2]).toBe('Cherry');
+
+    store.dispatch(
+      updateTabGroupTitle({ tabGroupId: 'c', editableTitle: 'Cherry' })
+    );
+
+    expect(titles(store)[0]).toBe('Cherry');
+  });
+
+  // And the menu item is the way BACK to that order after an explicit sort has
+  // pinned something else, which is the job "Date saved" used to have.
+  test('date modified returns the list to the edited-first order', async () => {
     const { store } = await render();
     store.dispatch(
       updateTabGroupTitle({ tabGroupId: 'c', editableTitle: 'Cherry' })
     );
-    expect(titles(store)[2]).toBe('Cherry');
+
+    openMenu();
+    fireEvent.click(item('Name'));
+    expect(titles(store)[0]).toBe('apple');
 
     openMenu();
     fireEvent.click(item('Date modified'));
@@ -154,16 +182,36 @@ describe('the sort menu', () => {
     expect(titles(store)[0]).toBe('Cherry');
   });
 
-  // The way back, which is the whole question that produced the tick.
-  test('sorting by date saved returns to the default order', async () => {
+  // The way back, which is the whole question that produced the tick. KAN-141
+  // moved it onto "Date modified": that is the item that removes ranks now.
+  //
+  // The seeded sessions are saved in one tick with no edits, so their
+  // contentModified values tie and the tabGroupId tiebreak decides -- which is
+  // exactly what the merge does, so asserting the full order here is asserting
+  // the list is TOTAL and stable, not just that it changed.
+  test('date modified returns to the default order', async () => {
     const { store } = await render();
+    const before = titles(store);
+
     openMenu();
     fireEvent.click(item('Name'));
     expect(titles(store)).toEqual(['apple', 'Banana', 'Cherry']);
 
     openMenu();
+    fireEvent.click(item('Date modified'));
+
+    expect(titles(store)).toEqual(before);
+  });
+
+  test('sorting by date saved puts the newest save first', async () => {
+    const { store } = await render();
+    openMenu();
+    fireEvent.click(item('Name'));
+
+    openMenu();
     fireEvent.click(item('Date saved'));
 
+    // Seeded c, a, b with increasing createdAt, so newest-save-first is b a c.
     expect(titles(store)).toEqual(['Banana', 'apple', 'Cherry']);
   });
 });
@@ -173,11 +221,15 @@ describe('the tick says which order you are in', () => {
   // aria-hidden, so a screen reader learns the state from the role -- and a
   // test reading the glyph would pass against a menu that never announced it
   // (KAN-56).
+  // KAN-141 moved the tick from "Date saved" to "Date modified", because the
+  // tick marks the DEFAULT order and the default is now edited-first. Both
+  // assertions matter: the second is what catches a tick left on the old item.
   test('the default order is checked when nothing has been rearranged', async () => {
     await render();
     openMenu();
 
-    expect(item('Date saved')).toHaveAttribute('aria-checked', 'true');
+    expect(item('Date modified')).toHaveAttribute('aria-checked', 'true');
+    expect(item('Date saved')).toHaveAttribute('aria-checked', 'false');
     expect(item('Name')).toHaveAttribute('aria-checked', 'false');
   });
 
@@ -193,15 +245,30 @@ describe('the tick says which order you are in', () => {
     });
   });
 
-  test('and it comes back after sorting by date saved', async () => {
+  test('and it comes back after returning to date modified', async () => {
     const { store } = await render();
     store.dispatch(moveSessionInternal({ tabGroupId: 'c', toIndex: 0 }));
 
     openMenu();
+    fireEvent.click(item('Date modified'));
+    openMenu();
+
+    expect(item('Date modified')).toHaveAttribute('aria-checked', 'true');
+  });
+
+  // The other direction, and the one that catches a tick wired to "whatever
+  // was clicked last" rather than to the data. Date saved is an ordinary
+  // assigning sort now (KAN-141), so choosing it leaves the list pinned and
+  // NOTHING ticked -- there is no stored sort mode for the tick to report.
+  test('choosing date saved leaves nothing checked', async () => {
+    await render();
+    openMenu();
     fireEvent.click(item('Date saved'));
     openMenu();
 
-    expect(item('Date saved')).toHaveAttribute('aria-checked', 'true');
+    screen.getAllByRole('menuitemradio').forEach((el) => {
+      expect(el).toHaveAttribute('aria-checked', 'false');
+    });
   });
 
   // The control for the radio semantics -- a menu of plain commands must NOT
