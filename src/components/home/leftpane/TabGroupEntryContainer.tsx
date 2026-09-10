@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useDispatch, useSelector } from 'react-redux';
 
@@ -28,6 +28,10 @@ export default function TabGroupEntryContainer() {
   const COLORS = useThemeColors();
   const { t } = useTranslation();
   const dispatch: AppDispatch = useDispatch();
+
+  // The scrolling element, so KAN-143's effect scopes its lookup to this list
+  // rather than searching the whole document.
+  const listRef = useRef<HTMLDivElement>(null);
 
   const tabContainerDataList = useSelector(
     (state: RootState) => state.tabContainerDataState
@@ -103,6 +107,54 @@ export default function TabGroupEntryContainer() {
     dispatch(selectTabContainer(filteredTabGroups[0].tabGroupId));
   }, [searchInputText, isSearchPanel]);
 
+  // KAN-143. Follow the selected session when the list rearranges under it.
+  //
+  // Editing a session moves it to the top (KAN-141), and the edit is made in
+  // the RIGHT pane -- a rename, adding a tab -- so the user is not watching the
+  // left pane when it happens. Select a session, scroll the list to look at
+  // others, edit it, and the row simply vanishes with nothing to say where it
+  // went.
+  //
+  // IT ONLY REPRODUCES WHILE THE ROW IS OFF SCREEN, and that is worth knowing
+  // before you test this. When the row is visible, Chrome's scroll anchoring
+  // has already picked it as the anchor and follows it to its new position by
+  // itself -- measured, with no script writing scrollTop at all -- so both a
+  // fixed and an unfixed build keep it in view and this effect looks like a
+  // no-op. Off screen it anchors nothing: measured on an unfixed build, a row
+  // 201px above the fold moved to the top and the pane did not budge, leaving
+  // it 886px away.
+  //
+  // KEYED ON WHERE THE SELECTED ROW IS, not on every render. That is what keeps
+  // it from fighting the user: scrolling the list by hand changes neither the
+  // index nor the id, so a hand-scrolled list is never yanked back. It re-runs
+  // on the id too, because the same index can hold a different session -- and
+  // that costs nothing, since a row the user just clicked is on screen already.
+  //
+  // `block: 'nearest'` is what makes that true: it scrolls the minimum needed
+  // and does nothing at all when the row is already visible, which is the
+  // common case for every re-run except the one this exists for. It is also
+  // what keeps this from second-guessing the browser -- in the visible case
+  // above, where anchoring has already done the right thing, 'nearest' has
+  // nothing left to do.
+  //
+  // -1 when nothing is selected, which deleting the selected session produces.
+  // It is a trigger and nothing else -- the lookup below goes by id, so this is
+  // read only as a dependency.
+  const selectedIndex =
+    selectedTabGroupId === null ? -1 : sessionIds.indexOf(selectedTabGroupId);
+  useEffect(() => {
+    if (selectedTabGroupId === null) return;
+    // Missing whenever the selection is not on screen -- filtered out by a
+    // search, or already gone. There is nothing to scroll to, and skipping is
+    // the whole handling. An index guard here would be dead code: it can only
+    // be out of range in the cases this lookup already misses (verified by
+    // mutation -- removing it failed nothing).
+    const row = listRef.current?.querySelector<HTMLElement>(
+      `[data-drag-row-id="${CSS.escape(selectedTabGroupId)}"]`
+    );
+    row?.scrollIntoView({ block: 'nearest' });
+  }, [selectedIndex, selectedTabGroupId]);
+
   const containerStyle = css`
     display: flex;
     flex-direction: column;
@@ -126,7 +178,7 @@ export default function TabGroupEntryContainer() {
   `;
 
   return (
-    <div css={containerStyle}>
+    <div css={containerStyle} ref={listRef}>
       {filteredTabGroups.length === 0 ? (
         <div css={emptyContainerStyle}>
           {/* KAN-86. Was the bare literal "Empty", which rendered in English
