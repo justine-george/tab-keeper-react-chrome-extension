@@ -30,6 +30,20 @@ vi.mock('../../utils/functions/external', () => ({
 // the dialog RENDERS and is wired up (role, labelling, handlers); it is not
 // evidence that the modal actually traps focus. That claim can only be made
 // against a real browser, and is checked there instead.
+// KAN-143. jsdom implements no layout and therefore no scrolling: every element
+// box is 0x0 and `Element.prototype.scrollIntoView` is not merely inert, it is
+// UNDEFINED, so any component that calls it throws on mount.
+//
+// WHAT THIS STUB DOES AND DOES NOT DO. It is a no-op, and the only thing a test
+// can learn from it is WHICH ELEMENT was asked to scroll and WHEN -- by spying
+// over it. It cannot tell you whether the row actually came into view, whether
+// `block: 'nearest'` scrolled the minimum, or whether it no-ops for an
+// already-visible row, because none of those exist here. Those are real-browser
+// claims and are checked there instead.
+if (!Element.prototype.scrollIntoView) {
+  Element.prototype.scrollIntoView = function scrollIntoView() {};
+}
+
 if (typeof HTMLDialogElement !== 'undefined') {
   if (!HTMLDialogElement.prototype.showModal) {
     HTMLDialogElement.prototype.showModal = function showModal(
