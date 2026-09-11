@@ -59,7 +59,15 @@ interface Ctx {
   drag: DragState | null;
 }
 
-const DragContext = React.createContext<Ctx | null>(null);
+// The lists a row can join. `nearest` is what every unscoped row joins, as
+// before scopes existed; `byScope` holds every enclosing list that declared a
+// scope, so a row can name one through the lists in between (KAN-160).
+interface DragScopes {
+  nearest: Ctx;
+  byScope: Readonly<Partial<Record<string, Ctx>>>;
+}
+
+const DragContext = React.createContext<DragScopes | null>(null);
 
 // How close to an edge the pointer must be for the list to start travelling,
 // and how fast it goes at its deepest. 48px is roughly a row and a half here,
@@ -115,6 +123,7 @@ interface Rect {
 
 export const RowDragArea: React.FC<RowDragAreaProps> = ({
   rowIds,
+  scope,
   onMove,
   handleSelector,
   dragKind = 'tab',
@@ -124,6 +133,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
   disabled = false,
   children,
 }) => {
+  const parent = useContext(DragContext);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const rows = useRef(new Map<string, HTMLElement>());
   const [drag, setDrag] = useState<DragState | null>(null);
@@ -593,9 +603,20 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     [register, begin, drag]
   );
 
+  const scopes = useMemo<DragScopes>(
+    () => ({
+      nearest: ctx,
+      byScope:
+        scope === undefined
+          ? parent?.byScope ?? {}
+          : { ...parent?.byScope, [scope]: ctx },
+    }),
+    [ctx, parent, scope]
+  );
+
   return (
     <div ref={containerRef}>
-      <DragContext.Provider value={ctx}>{children}</DragContext.Provider>
+      <DragContext.Provider value={scopes}>{children}</DragContext.Provider>
     </div>
   );
 };
@@ -603,9 +624,15 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
 export const DraggableRow: React.FC<DraggableRowProps & { index: number }> = ({
   rowId,
   index,
+  scope,
   children,
 }) => {
-  const ctx = useContext(DragContext);
+  const scopes = useContext(DragContext);
+  // A name no enclosing list declared resolves to nothing, and the row is
+  // inert. Falling back to the nearest list would drag it in a list that does
+  // not contain it.
+  const ctx =
+    (scope === undefined ? scopes?.nearest : scopes?.byScope[scope]) ?? null;
   const drag = ctx?.drag ?? null;
 
   let translate = 0;

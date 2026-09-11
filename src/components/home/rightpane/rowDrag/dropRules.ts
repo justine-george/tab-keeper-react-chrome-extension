@@ -28,6 +28,13 @@ export type DragKind = 'tab' | 'window' | 'session';
 export interface RowDragAreaProps {
   // Flat, in render order. Index into this is what onMove's toIndex means.
   rowIds: string[];
+  /**
+   * A name rows can join this list by, through any lists nested in between
+   * (KAN-160: a window's group list sits inside its tab list, and tab rows
+   * must still join the tab list). Omitted, the list is reachable only as the
+   * nearest one, which is how every list worked before scopes.
+   */
+  scope?: string;
   onMove: (rowId: string, toIndex: number, dropTargetId?: string) => void;
   // A CSS selector for the part of a row that starts a drag. Omitted, the whole
   // row does.
@@ -85,6 +92,11 @@ export interface RowDragAreaProps {
 
 export interface DraggableRowProps {
   rowId: string;
+  /**
+   * The named list this row joins. Omitted, it joins the nearest enclosing
+   * list. A name no enclosing list declared leaves the row inert.
+   */
+  scope?: string;
   children: ReactNode;
 }
 
