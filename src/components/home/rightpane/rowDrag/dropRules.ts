@@ -38,6 +38,23 @@ export interface RowDragAreaProps {
   // `begin` runs owns the gesture.
   handleSelector?: string;
   dragKind?: DragKind;
+  /**
+   * Treat a release anywhere inside the list's pane -- the nearest
+   * `overflow: auto` box, whether or not it currently overflows -- as a drop
+   * on this list, landing at whichever end the pointer is past (KAN-155).
+   *
+   * OFF BY DEFAULT, and that is the important half. `isInsideList` exists to
+   * stop a tab dragged OUT of its window saturating at the bottom of the window
+   * it came from -- see the comment on that function, and KAN-132. Turning this
+   * on for the tab lists would hand that defect straight back.
+   *
+   * It is on for the two lists that are the only list in their pane, where a
+   * release in empty space below the rows can mean nothing else. It matters
+   * because collapsing during a window drag leaves the folded list occupying a
+   * fraction of the pane -- measured, 190px of rows in a 417px pane -- so the
+   * dead zone underneath is large and easy to release into.
+   */
+  clampDropToEnds?: boolean;
   resolveDrop?: ResolveDrop;
   // Dragging is off while the list on screen is a FILTERED view of the stored
   // one (KAN-131). toIndex counts rendered rows, and the reducers apply it to

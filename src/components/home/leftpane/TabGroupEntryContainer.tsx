@@ -209,6 +209,7 @@ export default function TabGroupEntryContainer() {
             rowIds={sessionIds}
             onMove={handleMoveSession}
             dragKind="session"
+            clampDropToEnds
             disabled={isSearchPanel}
           >
             {filteredTabGroups.map((tabGroupData, index) => {

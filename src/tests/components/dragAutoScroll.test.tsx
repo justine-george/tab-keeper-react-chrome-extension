@@ -273,3 +273,78 @@ describe('the landing index survives the list scrolling under it', () => {
     expect(onMove.mock.calls[0][1]).toBe(1);
   });
 });
+
+// KAN-155. Releasing ends the collapse, so the list springs back from a third
+// of its height to all of it -- and a row dropped at the bottom of the folded
+// list is then far below the fold. The user placed it deliberately and cannot
+// see where it went.
+//
+// Asserted on WHICH element was asked to scroll, not on any visual result:
+// jsdom implements no scrolling at all (see the stub in componentSetup.ts).
+describe('after a drop, the row you placed is brought into view', () => {
+  // Both the element AND the argument: `nearest` is what leaves a row that is
+  // already on screen exactly where it is, so a drop the user can already see
+  // does not jump the list. Recording only the element cannot see that.
+  const scrolled: {
+    rowId: string | undefined;
+    options: ScrollIntoViewOptions | boolean | undefined;
+  }[] = [];
+
+  beforeEach(() => {
+    scrolled.length = 0;
+    vi.spyOn(Element.prototype, 'scrollIntoView').mockImplementation(function (
+      this: Element,
+      options?: ScrollIntoViewOptions | boolean
+    ) {
+      scrolled.push({
+        rowId: (this as HTMLElement).dataset?.dragRowId,
+        options,
+      });
+    });
+  });
+
+  const drag = (from: string, toY: number, commit: boolean) => {
+    startDragAt(from, 10);
+    fireEvent.pointerMove(document, { clientX: 10, clientY: toY });
+    if (commit) fireEvent.pointerUp(document, { clientX: 10, clientY: toY });
+    else fireEvent.keyDown(document, { key: 'Escape' });
+    // The scroll is deferred a frame, because the reorder has to commit and lay
+    // out before there is anything to scroll to.
+    runFrames(1);
+  };
+
+  test('a committed drop scrolls the dropped row into view', () => {
+    render(<Harness onMove={() => {}} />);
+
+    drag('Row A', 88, true);
+
+    expect(scrolled).toEqual([{ rowId: 'a', options: { block: 'nearest' } }]);
+  });
+
+  // THE CONTROL. A cancelled drag moved nothing, and yanking the list after an
+  // Escape would be the app arguing with the user.
+  test('CONTROL: a cancelled drag scrolls nothing', () => {
+    render(<Harness onMove={() => {}} />);
+
+    drag('Row A', 88, false);
+
+    expect(scrolled).toEqual([]);
+  });
+
+  // The other control: a press that never became a drag is a click, and the
+  // row's own handler owns it.
+  test('CONTROL: a plain click scrolls nothing', () => {
+    render(<Harness onMove={() => {}} />);
+    layout();
+
+    fireEvent.pointerDown(nodeFor('Row A'), {
+      clientX: 10,
+      clientY: 10,
+      button: 0,
+    });
+    fireEvent.pointerUp(document, { clientX: 10, clientY: 10 });
+    runFrames(1);
+
+    expect(scrolled).toEqual([]);
+  });
+});

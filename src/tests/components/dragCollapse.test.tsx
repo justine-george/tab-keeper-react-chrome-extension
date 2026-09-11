@@ -200,3 +200,86 @@ describe('a drag that starts scrolled, on a list that collapses', () => {
     expect(onMove.mock.calls[0][1]).toBe(1);
   });
 });
+
+// KAN-156. THE SAME ORDERING RULE AT THE OTHER END OF THE DRAG. The rows were
+// measured in the collapsed layout, so the drop must be judged in it too --
+// before the drag kind is unpublished, not after.
+//
+// Unpublishing expands every window again, and reading scrollTop then forces
+// that layout. Measured in the popup on a twenty-window session, where the
+// FOLDED list still overflows so the scroll never reaches 0: scrollTop 1200
+// before the drag, 385 while folded, and read straight after unpublishing,
+// 1200 again -- the browser re-anchored the expanded list. Judged against that,
+// a window released mid-pane (around index 14) landed LAST.
+//
+// Every five-window probe missed it, because each one folded to scrollTop 0,
+// where there is nothing to re-anchor: "the folded list fits" is the new
+// "started from scrollTop 0". This fake reproduces the measured sequence,
+// nothing more: folded it reads the clamped offset, expanded it reads its
+// expanded one.
+describe('a drop on a list that is still scrolled while folded', () => {
+  const VIEW = 90;
+  const OPEN_H = 30;
+  const SHUT_H = 20;
+  const IDS = ['a', 'b', 'c', 'd', 'e', 'f'];
+
+  test('is judged in the folded layout the rows were measured in', () => {
+    const onMove = vi.fn();
+    const { container } = render(
+      <div style={{ overflowY: 'auto' }}>
+        <RowDragArea rowIds={IDS} onMove={onMove} dragKind="window">
+          {IDS.map((id, i) => (
+            <DraggableRow key={id} rowId={id} index={i}>
+              <div>Row {id}</div>
+            </DraggableRow>
+          ))}
+        </RowDragArea>
+      </div>
+    );
+
+    const scroller = container.firstElementChild as HTMLElement;
+    const folded = () =>
+      document.documentElement.getAttribute('data-dragging') === 'window';
+    const rowH = () => (folded() ? SHUT_H : OPEN_H);
+    const max = () => Math.max(0, rowH() * IDS.length - VIEW);
+    let top = 0;
+    Object.defineProperty(scroller, 'clientHeight', {
+      value: VIEW,
+      configurable: true,
+    });
+    Object.defineProperty(scroller, 'scrollHeight', {
+      get: () => rowH() * IDS.length,
+      configurable: true,
+    });
+    Object.defineProperty(scroller, 'scrollTop', {
+      get: () => (folded() ? Math.min(top, max()) : top),
+      set: (v: number) => (top = Math.max(0, Math.min(v, max()))),
+      configurable: true,
+    });
+    scroller.getBoundingClientRect = () => box(0, VIEW);
+    IDS.forEach((id, i) => {
+      screen.getByText(`Row ${id}`).parentElement!.getBoundingClientRect = () =>
+        box(i * rowH() - scroller.scrollTop, rowH());
+    });
+
+    // Expanded: 180 of content in a 90 view, scrolled to the bottom.
+    scroller.scrollTop = 90;
+    // Row d's expanded box is content 90..120, so viewport 0..30.
+    const held = screen.getByText('Row d').parentElement!;
+    fireEvent.pointerDown(held, { clientX: 10, clientY: 15, button: 0 });
+    fireEvent.pointerMove(document, { clientX: 10, clientY: 25 });
+
+    // Folded: 120 of content, so the scroll clamps to 30 -- NOT to 0, which is
+    // the whole point of this test.
+    expect(scroller.scrollTop).toBe(30);
+
+    fireEvent.pointerMove(document, { clientX: 10, clientY: 5 });
+    fireEvent.pointerUp(document, { clientX: 10, clientY: 5 });
+
+    // Folded content mids are 10, 30, 50, 70, 90, 110. Released at viewport 5
+    // with the folded scroll of 30 is content 35: past a and b, so index 2.
+    // Judged after unfolding it reads 5 + 90 = 95, past a, b, c and e -- 4.
+    expect(onMove).toHaveBeenCalledTimes(1);
+    expect(onMove.mock.calls[0].slice(0, 2)).toEqual(['d', 2]);
+  });
+});

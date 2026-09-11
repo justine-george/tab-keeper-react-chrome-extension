@@ -161,6 +161,7 @@ export default function TabGroupDetailsContainer() {
             onMove={handleMoveWindow}
             handleSelector="[data-window-drag-handle]"
             dragKind="window"
+            clampDropToEnds
             // The mode, not the box's contents -- see KAN-140 on
             // TabGroupEntryContainer for why this is not isFilteredView.
             disabled={isSearchPanel}
