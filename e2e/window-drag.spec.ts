@@ -201,12 +201,20 @@ test.describe('dragging a window from a scrolled position', () => {
     const page = await openSession(context, extensionId, 5, 6);
     const pane = await scrollPaneAndRecord(page, 300);
     const grab = await topVisibleHeader(page, pane);
+    const from = (await storedOrder(page)).indexOf(grab.id);
 
     await dragTo(page, grab, pane.top - 30);
     // Long enough for a commit to have been written, were there one.
     await page.waitForTimeout(300);
 
     expect(await storedOrder(page)).toEqual(['w0', 'w1', 'w2', 'w3', 'w4']);
+    // KAN-158: and the preview said so. Before the fix it opened a gap at the
+    // TOP here -- promising a move to index 0 that the release then refused.
+    expect(
+      await page.evaluate(
+        () => (window as unknown as { __preview: number | null }).__preview
+      )
+    ).toBe(from);
     expect(await paneState(page, grab.id)).toEqual({
       scrollTop: 300,
       headerVisible: true,

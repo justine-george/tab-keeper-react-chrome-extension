@@ -59,11 +59,14 @@ export default function TabGroupDetailsContainer() {
   // Memoized, and ABOVE the early return with the other hooks -- a hook below
   // it would change the hook count between the nothing-selected and selected
   // renders and React would throw on the transition. Both of these feed
-  // RowDragArea's effect deps, and a fresh identity every render re-binds its
-  // window listeners; the cleanup that runs on each re-bind clears the
-  // `grabbing` cursor, so an unmemoized value drops the drag cursor whenever
-  // anything else re-renders this pane mid-drag. WindowEntryContainer
+  // RowDragArea's effect deps, and a fresh identity re-binds its window
+  // listeners -- cheap, but pointless on every render. WindowEntryContainer
   // memoizes its own tabIds and handleMove for the same reason.
+  //
+  // No longer load-bearing for correctness. The re-bind used to clear the drag
+  // flag mid-drag, and this memo was the mitigation -- which only held while
+  // the session object survived. A sync replaces it, and the flag went anyway
+  // (KAN-159). The flag is now cleared on unmount alone.
   const windowIds = useMemo(
     () => selectedTabGroup?.windows.map((w) => w.windowId) ?? [],
     [selectedTabGroup]

@@ -244,8 +244,46 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     const contentY = (l: NonNullable<typeof live.current>, clientY: number) =>
       clientY + (l.scroller?.scrollTop ?? 0);
 
-    const update = (l: NonNullable<typeof live.current>) => {
-      const others = l.rects.filter((r) => r.id !== l.rowId);
+    // Where a release at the pointer's current position lands, or undefined
+    // where it would be refused.
+    //
+    // THE ONE DECISION, used by both the preview and the release (KAN-158).
+    // The preview used to count midpoints on its own, so it always named some
+    // index -- and where the release was refused (above, below or beside the
+    // pane; a tab outside its window) it opened a gap and promised a move that
+    // never came. Two copies of this rule are two chances to disagree.
+    //
+    // Reads the pane's box, so like everything here it must run while the
+    // drag's own layout stands -- see judgeDrop.
+    const landingIndex = (
+      l: NonNullable<typeof live.current>
+    ): number | undefined => {
+      // Content space, matching how the rects were measured. Using the raw
+      // viewport y here would misjudge both the containment test and the
+      // landing index by however far the list had auto-scrolled.
+      const dropY = contentY(l, l.lastY);
+
+      // A release in the empty space below (or above) the rows, but still
+      // inside the pane being dragged in. The index needs no special case: it
+      // counts the midpoints the pointer has passed, so a release under every
+      // row already comes out as the last index, and one above them as 0.
+      //
+      // l.pane is only set when the list OPTED IN, never on the geometry alone
+      // -- for a nested tab list this same release means "dragged out of this
+      // window", and committing it is the KAN-132 defect isInsideList was
+      // written to stop.
+      const paneBox = l.pane?.getBoundingClientRect();
+      const releasedInPane =
+        paneBox !== undefined &&
+        l.lastY >= paneBox.top &&
+        l.lastY <= paneBox.bottom &&
+        l.lastX >= paneBox.left &&
+        l.lastX <= paneBox.right;
+
+      if (!isInsideList(l.rects, dropY, l.height / 2) && !releasedInPane) {
+        return undefined;
+      }
+
       // The count of rows whose midpoint the pointer has passed IS the index
       // the row lands at, because that count indexes the list with the held
       // row already lifted out of it.
@@ -254,8 +292,14 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // every row between its old and new slots by ITS OWN height, whatever
       // theirs are, and the landing index comes from each row's measured
       // midpoint rather than from any assumed row size.
-      const y = contentY(l, l.lastY);
-      const toIndex = others.filter((r) => y > r.mid).length;
+      const others = l.rects.filter((r) => r.id !== l.rowId);
+      return others.filter((r) => dropY > r.mid).length;
+    };
+
+    const update = (l: NonNullable<typeof live.current>) => {
+      // Where the release would be refused, preview the row going back where
+      // it came from: no row steps aside, and its own slot stays open.
+      const toIndex = landingIndex(l) ?? l.fromIndex;
 
       setDrag({
         rowId: l.rowId,
@@ -412,37 +456,16 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     // folded and 1200 straight after unpublishing, and a window released
     // mid-pane landed last. The mirror of the rule at activation, where the
     // kind is published BEFORE measuring.
+    //
+    // The landing decision itself is landingIndex, shared with the preview, so
+    // what the user was shown and what happens cannot differ (KAN-158).
     const judgeDrop = (
       l: NonNullable<typeof live.current>
     ): { toIndex: number; dropTargetId: string | undefined } | undefined => {
-      // Content space, matching how the rects were measured. Using the raw
-      // viewport y here would misjudge both the containment test and the
-      // landing index by however far the list had auto-scrolled.
-      const dropY = contentY(l, l.lastY);
-
-      // A release in the empty space below (or above) the rows, but still
-      // inside the pane being dragged in. toIndex needs no special case: it
-      // counts the midpoints the pointer has passed, so a release under every
-      // row already comes out as the last index, and one above them as 0.
-      //
-      // l.pane is only set when the list OPTED IN, never on the geometry alone
-      // -- for a nested tab list this same release means "dragged out of this
-      // window", and committing it is the KAN-132 defect isInsideList was
-      // written to stop.
-      const paneBox = l.pane?.getBoundingClientRect();
-      const releasedInPane =
-        paneBox !== undefined &&
-        l.lastY >= paneBox.top &&
-        l.lastY <= paneBox.bottom &&
-        l.lastX >= paneBox.left &&
-        l.lastX <= paneBox.right;
-
-      if (!isInsideList(l.rects, dropY, l.height / 2) && !releasedInPane) {
-        return undefined;
-      }
-      const others = l.rects.filter((r) => r.id !== l.rowId);
+      const toIndex = landingIndex(l);
+      if (toIndex === undefined) return undefined;
       return {
-        toIndex: others.filter((r) => dropY > r.mid).length,
+        toIndex,
         dropTargetId: resolveDrop?.(containerRef.current, l.lastX, l.lastY),
       };
     };
@@ -533,11 +556,37 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       window.removeEventListener('pointercancel', onCancel);
       window.removeEventListener('keydown', onKey);
       window.removeEventListener('click', onClickCapture, true);
-      // A drag interrupted by unmount must not leave the document stuck in
-      // `grabbing`.
-      setDragging(false);
+      // NOT setDragging(false) -- see the unmount effect below (KAN-159). This
+      // cleanup runs on every change to the deps as well as on unmount, and a
+      // drag in flight must survive the listeners being re-bound.
     };
   }, [rowIds, onMove, resolveDrop, dragKind, restoreScrollIfNoDrop]);
+
+  // A drag interrupted by UNMOUNT must not leave the document stuck in a drag.
+  //
+  // Its own effect with no deps, so it runs on unmount and nothing else
+  // (KAN-159). This used to live in the listener effect's cleanup above, which
+  // React also runs whenever rowIds, onMove or the rest change identity -- and
+  // a store update that rebuilds the session data (a sync landing) changes them
+  // for every list at once. Measured in the popup: the flag vanished mid-drag
+  // with the row still held, the windows unfolded under the pointer, and the
+  // drag carried on against rects measured in the folded layout.
+  //
+  // And only when THIS area owns a started drag. The flag is document-wide,
+  // so clearing it unconditionally let a tab list unmounting -- its window
+  // deleted, say -- end a window drag somewhere else.
+  useEffect(
+    () => () => {
+      const l = live.current;
+      live.current = null;
+      if (scrollFrame.current) {
+        cancelAnimationFrame(scrollFrame.current);
+        scrollFrame.current = 0;
+      }
+      if (l?.started) setDragging(false);
+    },
+    []
+  );
 
   const ctx = useMemo<Ctx>(
     () => ({ register, begin, drag }),
