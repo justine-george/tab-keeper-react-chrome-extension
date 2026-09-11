@@ -686,10 +686,15 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
         </div>
       </div>
       {windowOpenState && (
-        <div css={childrenContainerStyle}>
+        // data-window-tabs is the hook App.css uses to fold every window shut
+        // while a WINDOW is being dragged (KAN-153). Visual only -- this
+        // component's own open/closed state is never touched, which is what
+        // makes "and it comes back how it was" require no bookkeeping at all.
+        <div css={childrenContainerStyle} data-window-tabs>
           <RowDragArea
             rowIds={tabIds}
             onMove={handleMove}
+            dragKind="tab"
             resolveDrop={bandAt}
             // The mode, not the box's contents -- see KAN-140 on
             // TabGroupEntryContainer for why this is not isFilteredView.

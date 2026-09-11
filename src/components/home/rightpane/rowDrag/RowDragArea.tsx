@@ -89,6 +89,23 @@ function scrollableAncestor(from: HTMLElement | null): HTMLElement | null {
   return null;
 }
 
+// The box the list lives in: the nearest ancestor that scrolls OR COULD.
+//
+// Not scrollableAncestor, which skips a container whose content happens to fit
+// -- the right thing for auto-scroll, where there is nothing to scroll, and the
+// wrong thing here. A two-window session never overflows its pane, and the dead
+// space under its folded rows is still that pane; measured in the popup, the
+// scrolling-ancestor version refused exactly that release (KAN-155).
+function paneOf(from: HTMLElement | null): HTMLElement | null {
+  let el: HTMLElement | null = from?.parentElement ?? null;
+  while (el && el !== document.body) {
+    const overflowY = getComputedStyle(el).overflowY;
+    if (overflowY === 'auto' || overflowY === 'scroll') return el;
+    el = el.parentElement;
+  }
+  return null;
+}
+
 interface Rect {
   id: string;
   index: number;
@@ -100,6 +117,9 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
   rowIds,
   onMove,
   handleSelector,
+  dragKind = 'tab',
+  clampDropToEnds = false,
+  restoreScrollIfNoDrop = false,
   resolveDrop,
   disabled = false,
   children,
@@ -125,7 +145,15 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     // own content space so that scrolling cannot invalidate it.
     scroller: HTMLElement | null;
     startScrollTop: number;
+    // The scroll at pointer-down, before any collapse -- what a drag that
+    // commits nothing puts back (KAN-157). Not startScrollTop, which is
+    // deliberately re-read AFTER the collapse (KAN-154) and so describes the
+    // folded list, not the one the user was looking at.
+    scrollTopAtPress: number;
     maxScroll: number;
+    // Where a release still counts as a drop on this list, when the list has
+    // opted in (KAN-155). Null otherwise, and then only the rows count.
+    pane: HTMLElement | null;
   } | null>(null);
 
   // The auto-scroll frame, cancelled on drop. A ref rather than state: it is
@@ -194,12 +222,14 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         lastY: clientY,
         scroller,
         startScrollTop: scroller?.scrollTop ?? 0,
+        scrollTopAtPress: scroller?.scrollTop ?? 0,
         maxScroll: scroller
           ? Math.max(0, scroller.scrollHeight - scroller.clientHeight)
           : 0,
+        pane: clampDropToEnds ? paneOf(el) : null,
       };
     },
-    [rowIds, handleSelector, disabled]
+    [rowIds, handleSelector, disabled, clampDropToEnds]
   );
 
   useEffect(() => {
@@ -304,6 +334,29 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         // onClick must be allowed to fire untouched.
         if (travelled < ACTIVATION_DISTANCE_PX) return;
 
+        // BEFORE the measurement, not after (KAN-153). A window drag collapses
+        // every tab list via CSS, which changes every row's height -- and this
+        // writes the attribute straight to the DOM, so the
+        // getBoundingClientRect calls below flush style and layout and read the
+        // COLLAPSED boxes. Measure first and every midpoint would describe a
+        // layout that no longer exists.
+        l.started = true;
+        setDragging(true, dragKind);
+
+        // RE-READ AFTER THE COLLAPSE, and this is load-bearing (KAN-154).
+        // Folding the windows shut can make the list shorter than its viewport,
+        // and the browser then clamps scrollTop to fit -- measured, 404 -> 0 on
+        // a five-window session scrolled to the bottom. The value captured at
+        // pointer-down describes a scroll position that no longer exists, and
+        // using it puts every midpoint AND the held row's offset out by exactly
+        // that much: the row lands 316px above the pane, off screen, and the
+        // drop index is computed against a list nobody is pointing at.
+        //
+        // Reading it here, after the attribute is set and the rects below have
+        // forced layout, is what keeps the measurement and the pointer in one
+        // consistent frame.
+        l.startScrollTop = l.scroller?.scrollTop ?? 0;
+
         // Measured once, at the moment the drag actually starts: reading rects
         // on every move would report positions already displaced by the shifts
         // this drag is applying.
@@ -321,14 +374,77 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
           };
         });
         l.height = l.rects[l.fromIndex]?.height ?? 0;
-        l.started = true;
-        setDragging(true);
+
+        // Re-read now that the list may have collapsed: the limit captured at
+        // pointer-down described the expanded content, and auto-scrolling to
+        // THAT would run far past the end of a list a third the size.
+        if (l.scroller) {
+          l.maxScroll = Math.max(
+            0,
+            l.scroller.scrollHeight - l.scroller.clientHeight
+          );
+        }
+
+        // Re-anchor the grab. Collapsing moves every row, so the row being held
+        // is no longer under the pointer where it was picked up -- without this
+        // it jumps away by however much the rows above it shrank. Pinning the
+        // pointer to the row's CENTRE rather than preserving the original grab
+        // offset is deliberate: that offset was measured against a row that no
+        // longer exists at that height, and a centred row is what the drop
+        // arithmetic assumes anyway.
+        const held = l.rects[l.fromIndex];
+        if (held) l.startY = held.mid - l.startScrollTop;
         if (!scrollFrame.current) {
           scrollFrame.current = requestAnimationFrame(autoScroll);
         }
       }
 
       update(l);
+    };
+
+    // Where a release lands, or undefined for a release this list refuses.
+    //
+    // MUST RUN BEFORE THE DRAG KIND IS UNPUBLISHED (KAN-156). The rows were
+    // measured in the drag's own layout -- folded, for a window drag -- and the
+    // drop has to be judged in that same layout. Unpublishing unfolds every
+    // window, and the first layout read after it (scrollTop, below) forces the
+    // unfolded layout: measured on a twenty-window session, scrollTop read 385
+    // folded and 1200 straight after unpublishing, and a window released
+    // mid-pane landed last. The mirror of the rule at activation, where the
+    // kind is published BEFORE measuring.
+    const judgeDrop = (
+      l: NonNullable<typeof live.current>
+    ): { toIndex: number; dropTargetId: string | undefined } | undefined => {
+      // Content space, matching how the rects were measured. Using the raw
+      // viewport y here would misjudge both the containment test and the
+      // landing index by however far the list had auto-scrolled.
+      const dropY = contentY(l, l.lastY);
+
+      // A release in the empty space below (or above) the rows, but still
+      // inside the pane being dragged in. toIndex needs no special case: it
+      // counts the midpoints the pointer has passed, so a release under every
+      // row already comes out as the last index, and one above them as 0.
+      //
+      // l.pane is only set when the list OPTED IN, never on the geometry alone
+      // -- for a nested tab list this same release means "dragged out of this
+      // window", and committing it is the KAN-132 defect isInsideList was
+      // written to stop.
+      const paneBox = l.pane?.getBoundingClientRect();
+      const releasedInPane =
+        paneBox !== undefined &&
+        l.lastY >= paneBox.top &&
+        l.lastY <= paneBox.bottom &&
+        l.lastX >= paneBox.left &&
+        l.lastX <= paneBox.right;
+
+      if (!isInsideList(l.rects, dropY, l.height / 2) && !releasedInPane) {
+        return undefined;
+      }
+      const others = l.rects.filter((r) => r.id !== l.rowId);
+      return {
+        toIndex: others.filter((r) => dropY > r.mid).length,
+        dropTargetId: resolveDrop?.(containerRef.current, l.lastX, l.lastY),
+      };
     };
 
     const finish = (commit: boolean) => {
@@ -346,31 +462,49 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         scrollFrame.current = 0;
       }
       if (!l) return;
+      // Judged first, while the drag's layout still stands -- see judgeDrop.
+      const drop = commit && l.started ? judgeDrop(l) : undefined;
       setDragging(false);
       // Below the threshold this was a click, not a drag, and the row's own
       // handler must run untouched.
       if (!l.started) return;
 
-      // Armed for a real drag whether it committed or was cancelled with Esc:
-      // in both cases the user was dragging, and in neither did they ask for
-      // the row to open.
+      // Armed for a real drag whether it committed, was refused, or was
+      // cancelled with Esc: in every case the user was dragging, and in none
+      // did they ask for the row they were holding to open.
       suppressClickUntil.current = performance.now() + 400;
 
-      // Armed above, checked here: a drop this area refuses is still a drag the
-      // user performed, and they did not ask to open the row they were holding.
-      // Content space, matching how the rects were measured. Using the raw
-      // viewport y here would misjudge both the containment test and the
-      // landing index by however far the list had auto-scrolled.
-      const dropY = l.lastY + (l.scroller?.scrollTop ?? 0);
-      if (commit && isInsideList(l.rects, dropY, l.height / 2)) {
-        const others = l.rects.filter((r) => r.id !== l.rowId);
-        const toIndex = others.filter((r) => dropY > r.mid).length;
-        const dropTargetId = resolveDrop?.(
-          containerRef.current,
-          l.lastX,
-          l.lastY
-        );
-        onMove(l.rowId, toIndex, dropTargetId);
+      if (drop) {
+        onMove(l.rowId, drop.toIndex, drop.dropTargetId);
+
+        // Follow the row you just dropped (KAN-155).
+        //
+        // Releasing ENDS the collapse, so the list springs back from a third of
+        // its height to all of it -- and a row dropped at the bottom of the
+        // folded list is then far below the fold. The user placed it
+        // deliberately and cannot see where it went, which is KAN-143's
+        // complaint arriving by a different route.
+        //
+        // On the next frame, because the reorder has to be committed and laid
+        // out before there is anything to scroll to; and `block: 'nearest'`
+        // so a row already on screen is left exactly where it is.
+        //
+        // Only on a COMMITTED drop, which is the only case with a new place to
+        // show. A drag that commits nothing is the branch below.
+        const dropped = l.rowId;
+        requestAnimationFrame(() => {
+          rows.current.get(dropped)?.scrollIntoView({ block: 'nearest' });
+        });
+      } else if (restoreScrollIfNoDrop && l.scroller) {
+        // Put the view back (KAN-157). For a window drag "nothing happened" is
+        // not the same as "leave the scroll alone": the collapse already
+        // clamped it, and unfolding does not give it back -- measured, five
+        // windows scrolled to 300 ended at 0 with the held window off screen.
+        //
+        // Synchronous, and after setDragging(false) above: the kind is
+        // unpublished, so this write lays out against the UNFOLDED list and
+        // its full scroll range, which is the only one 300 fits in.
+        l.scroller.scrollTop = l.scrollTopAtPress;
       }
     };
 
@@ -403,7 +537,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // `grabbing`.
       setDragging(false);
     };
-  }, [rowIds, onMove, resolveDrop]);
+  }, [rowIds, onMove, resolveDrop, dragKind, restoreScrollIfNoDrop]);
 
   const ctx = useMemo<Ctx>(
     () => ({ register, begin, drag }),

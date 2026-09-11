@@ -53,6 +53,20 @@ body {
   background-color: transparent !important;
 }
 
+/* KAN-153. While a WINDOW is being dragged, every window folds shut so the
+   whole session fits on screen and the drop target can actually be seen.
+
+   Scoped to the window kind on purpose: `[data-dragging]` alone would match a
+   TAB drag too, and hiding the tab list mid-tab-drag would remove the very
+   rows being reordered out from under the pointer.
+
+   Visual only. No component's open/closed state is touched, which is what
+   makes "and it comes back exactly how it was" need no bookkeeping -- the rule
+   simply stops applying when the attribute goes. */
+[data-dragging='window'] [data-window-tabs] {
+  display: none !important;
+}
+
 ::-webkit-scrollbar {
   width: 10px;
 }

@@ -20,6 +20,11 @@ export type ResolveDrop = (
   y: number
 ) => string | undefined;
 
+// Which list is being dragged. Only the CSS cares, but it has to come from the
+// caller: the area itself has no idea what its rows represent, and that is
+// deliberate -- see the file header on RowDragArea.
+export type DragKind = 'tab' | 'window' | 'session';
+
 export interface RowDragAreaProps {
   // Flat, in render order. Index into this is what onMove's toIndex means.
   rowIds: string[];
@@ -32,6 +37,39 @@ export interface RowDragAreaProps {
   // underneath it. The two areas need no other coordination: only the one whose
   // `begin` runs owns the gesture.
   handleSelector?: string;
+  dragKind?: DragKind;
+  /**
+   * Treat a release anywhere inside the list's pane -- the nearest
+   * `overflow: auto` box, whether or not it currently overflows -- as a drop
+   * on this list, landing at whichever end the pointer is past (KAN-155).
+   *
+   * OFF BY DEFAULT, and that is the important half. `isInsideList` exists to
+   * stop a tab dragged OUT of its window saturating at the bottom of the window
+   * it came from -- see the comment on that function, and KAN-132. Turning this
+   * on for the tab lists would hand that defect straight back.
+   *
+   * It is on for the two lists that are the only list in their pane, where a
+   * release in empty space below the rows can mean nothing else. It matters
+   * because collapsing during a window drag leaves the folded list occupying a
+   * fraction of the pane -- measured, 190px of rows in a 417px pane -- so the
+   * dead zone underneath is large and easy to release into.
+   */
+  clampDropToEnds?: boolean;
+  /**
+   * After a drag that commits nothing -- Escape, or a release the list
+   * refuses -- put the scroll back where it was when the row was picked up
+   * (KAN-157).
+   *
+   * For a list whose drag CHANGES ITS OWN LAYOUT. A window drag folds every
+   * window shut, the browser clamps the scroll to fit, and unfolding does not
+   * give the position back: measured, five windows scrolled to 300 ended at 0
+   * with the held window off screen. A committed drop recovers by following
+   * the dropped row; a drag that moved nothing had nothing to follow.
+   *
+   * Off for the tab lists, which fold nothing: there the only scrolling a drag
+   * does is the auto-scroll the user asked for by holding near an edge.
+   */
+  restoreScrollIfNoDrop?: boolean;
   resolveDrop?: ResolveDrop;
   // Dragging is off while the list on screen is a FILTERED view of the stored
   // one (KAN-131). toIndex counts rendered rows, and the reducers apply it to
@@ -128,7 +166,12 @@ export function isInsideList(
 // (`[data-dragging] *`) rather than a property set on one node. The styles live
 // in App.css; this only says when they apply. It also carries `user-select`,
 // which had the same shape and is now in the same rule.
-export function setDragging(on: boolean): void {
-  if (on) document.documentElement.setAttribute('data-dragging', '');
+export function setDragging(on: boolean, kind: DragKind = 'tab'): void {
+  // The KIND is published, not just the fact (KAN-153). A window drag collapses
+  // every window's tab list so the whole session fits on screen, and that rule
+  // must not fire during a TAB drag -- it would hide the very list being
+  // reordered. Existing `[data-dragging]` rules are unaffected: an attribute
+  // selector matches whatever the value is.
+  if (on) document.documentElement.setAttribute('data-dragging', kind);
   else document.documentElement.removeAttribute('data-dragging');
 }
