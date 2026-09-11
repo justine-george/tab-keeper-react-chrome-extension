@@ -33,6 +33,7 @@ import React, {
 
 import {
   ACTIVATION_DISTANCE_PX,
+  isInEditableField,
   isInsideList,
   setDragging,
   type DraggableRowProps,
@@ -59,7 +60,15 @@ interface Ctx {
   drag: DragState | null;
 }
 
-const DragContext = React.createContext<Ctx | null>(null);
+// The lists a row can join. `nearest` is what every unscoped row joins, as
+// before scopes existed; `byScope` holds every enclosing list that declared a
+// scope, so a row can name one through the lists in between (KAN-160).
+interface DragScopes {
+  nearest: Ctx;
+  byScope: Readonly<Partial<Record<string, Ctx>>>;
+}
+
+const DragContext = React.createContext<DragScopes | null>(null);
 
 // How close to an edge the pointer must be for the list to start travelling,
 // and how fast it goes at its deepest. 48px is roughly a row and a half here,
@@ -115,6 +124,7 @@ interface Rect {
 
 export const RowDragArea: React.FC<RowDragAreaProps> = ({
   rowIds,
+  scope,
   onMove,
   handleSelector,
   dragKind = 'tab',
@@ -124,6 +134,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
   disabled = false,
   children,
 }) => {
+  const parent = useContext(DragContext);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const rows = useRef(new Map<string, HTMLElement>());
   const [drag, setDrag] = useState<DragState | null>(null);
@@ -154,6 +165,9 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     // Where a release still counts as a drop on this list, when the list has
     // opted in (KAN-155). Null otherwise, and then only the rows count.
     pane: HTMLElement | null;
+    // The held row's element while a started drag holds it (KAN-160). Kept
+    // here so finish clears the element the marker was set on.
+    heldEl: HTMLElement | null;
   } | null>(null);
 
   // The auto-scroll frame, cancelled on drop. A ref rather than state: it is
@@ -186,6 +200,11 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       target: EventTarget | null
     ) => {
       if (disabled) return;
+
+      // A press in a text field starts a selection, not a drag (KAN-162). The
+      // window rename field sits inside the window's handle, and selecting
+      // its text used to fold every window and move the window.
+      if (isInEditableField(target)) return;
 
       // The handle must be inside THIS row, not merely an ancestor of the
       // press. `closest` walks all the way to the document, so without the
@@ -227,6 +246,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
           ? Math.max(0, scroller.scrollHeight - scroller.clientHeight)
           : 0,
         pane: clampDropToEnds ? paneOf(el) : null,
+        heldEl: null,
       };
     },
     [rowIds, handleSelector, disabled, clampDropToEnds]
@@ -387,6 +407,14 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         l.started = true;
         setDragging(true, dragKind);
 
+        // Which row is held, for rules that apply to it alone (KAN-160: a
+        // group drag compresses only the held group). Written straight to the
+        // DOM like the kind above, and before the measurement below, so the
+        // rects read the compressed layout. React never touches it, so a
+        // re-render cannot drop it (KAN-159).
+        l.heldEl = rows.current.get(l.rowId) ?? null;
+        l.heldEl?.setAttribute('data-drag-held', '');
+
         // RE-READ AFTER THE COLLAPSE, and this is load-bearing (KAN-154).
         // Folding the windows shut can make the list shorter than its viewport,
         // and the browser then clamps scrollTop to fit -- measured, 404 -> 0 on
@@ -488,6 +516,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // Judged first, while the drag's layout still stands -- see judgeDrop.
       const drop = commit && l.started ? judgeDrop(l) : undefined;
       setDragging(false);
+      l.heldEl?.removeAttribute('data-drag-held');
       // Below the threshold this was a click, not a drag, and the row's own
       // handler must run untouched.
       if (!l.started) return;
@@ -593,9 +622,20 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     [register, begin, drag]
   );
 
+  const scopes = useMemo<DragScopes>(
+    () => ({
+      nearest: ctx,
+      byScope:
+        scope === undefined
+          ? parent?.byScope ?? {}
+          : { ...parent?.byScope, [scope]: ctx },
+    }),
+    [ctx, parent, scope]
+  );
+
   return (
     <div ref={containerRef}>
-      <DragContext.Provider value={ctx}>{children}</DragContext.Provider>
+      <DragContext.Provider value={scopes}>{children}</DragContext.Provider>
     </div>
   );
 };
@@ -603,9 +643,15 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
 export const DraggableRow: React.FC<DraggableRowProps & { index: number }> = ({
   rowId,
   index,
+  scope,
   children,
 }) => {
-  const ctx = useContext(DragContext);
+  const scopes = useContext(DragContext);
+  // A name no enclosing list declared resolves to nothing, and the row is
+  // inert. Falling back to the nearest list would drag it in a list that does
+  // not contain it.
+  const ctx =
+    (scope === undefined ? scopes?.nearest : scopes?.byScope[scope]) ?? null;
   const drag = ctx?.drag ?? null;
 
   let translate = 0;

@@ -67,6 +67,17 @@ body {
   display: none !important;
 }
 
+/* KAN-160. While a GROUP is dragged, the held group compresses to its title
+   row, so it moves like a tab.
+
+   Only the held one. Folding a group ABOVE it would move it off the cursor,
+   and with the pick-up rule kept on main (KAN-161) the pick-up would then
+   open refused. Other groups stay open; the drop still lands only between
+   items, never inside a group. Visual only, like the window fold above. */
+[data-dragging='group'] [data-drag-held] [data-group-tabs] {
+  display: none !important;
+}
+
 ::-webkit-scrollbar {
   width: 10px;
 }

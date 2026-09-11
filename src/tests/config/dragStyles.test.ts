@@ -88,3 +88,23 @@ describe('the window-drag collapse rule', () => {
     expect(flat).toContain('[data-dragging] [data-row-actions] {');
   });
 });
+
+// KAN-160. While a GROUP is dragged, the held group compresses to its title
+// row and moves like a tab.
+describe('the group-drag fold rule', () => {
+  test('compresses the held group to its title row', () => {
+    expect(flat).toContain(
+      "[data-dragging='group'] [data-drag-held] [data-group-tabs] { display: none !important; }"
+    );
+  });
+
+  // THE SCOPE IS THE POINT. Folding any group ABOVE the held one moves it off
+  // the cursor, and with main's pick-up rule the pick-up then opens refused
+  // (measured: 128px, KAN-161). Unkeyed, a tab drag would fold groups too.
+  test('and nothing wider: not other groups, not other drag kinds', () => {
+    expect(flat).not.toMatch(
+      /\[data-dragging(='group')?\] \[data-group-tabs\]/
+    );
+    expect(flat).not.toContain('[data-dragging] [data-drag-held]');
+  });
+});

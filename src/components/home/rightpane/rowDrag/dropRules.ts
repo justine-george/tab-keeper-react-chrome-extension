@@ -8,6 +8,17 @@ import type { ReactNode } from 'react';
 
 export const ACTIVATION_DISTANCE_PX = 5;
 
+// Form fields and editable regions: a press inside one begins typing or a
+// text selection, never a drag (KAN-162). contenteditable="false" opts a
+// region back out. An attribute selector, not isContentEditable, because
+// jsdom does not implement that property.
+const EDITABLE_FIELD =
+  'input, textarea, select, [contenteditable]:not([contenteditable="false"])';
+
+export function isInEditableField(target: EventTarget | null): boolean {
+  return target instanceof Element && target.closest(EDITABLE_FIELD) !== null;
+}
+
 // Where a drop landed, beyond its index.
 //
 // The engine cannot answer this itself: for tabs it is which Chrome group the
@@ -23,11 +34,18 @@ export type ResolveDrop = (
 // Which list is being dragged. Only the CSS cares, but it has to come from the
 // caller: the area itself has no idea what its rows represent, and that is
 // deliberate -- see the file header on RowDragArea.
-export type DragKind = 'tab' | 'window' | 'session';
+export type DragKind = 'tab' | 'window' | 'session' | 'group';
 
 export interface RowDragAreaProps {
   // Flat, in render order. Index into this is what onMove's toIndex means.
   rowIds: string[];
+  /**
+   * A name rows can join this list by, through any lists nested in between
+   * (KAN-160: a window's group list sits inside its tab list, and tab rows
+   * must still join the tab list). Omitted, the list is reachable only as the
+   * nearest one, which is how every list worked before scopes.
+   */
+  scope?: string;
   onMove: (rowId: string, toIndex: number, dropTargetId?: string) => void;
   // A CSS selector for the part of a row that starts a drag. Omitted, the whole
   // row does.
@@ -85,6 +103,11 @@ export interface RowDragAreaProps {
 
 export interface DraggableRowProps {
   rowId: string;
+  /**
+   * The named list this row joins. Omitted, it joins the nearest enclosing
+   * list. A name no enclosing list declared leaves the row inert.
+   */
+  scope?: string;
   children: ReactNode;
 }
 
