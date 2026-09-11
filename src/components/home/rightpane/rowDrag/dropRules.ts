@@ -8,6 +8,17 @@ import type { ReactNode } from 'react';
 
 export const ACTIVATION_DISTANCE_PX = 5;
 
+// Form fields and editable regions: a press inside one begins typing or a
+// text selection, never a drag (KAN-162). contenteditable="false" opts a
+// region back out. An attribute selector, not isContentEditable, because
+// jsdom does not implement that property.
+const EDITABLE_FIELD =
+  'input, textarea, select, [contenteditable]:not([contenteditable="false"])';
+
+export function isInEditableField(target: EventTarget | null): boolean {
+  return target instanceof Element && target.closest(EDITABLE_FIELD) !== null;
+}
+
 // Where a drop landed, beyond its index.
 //
 // The engine cannot answer this itself: for tabs it is which Chrome group the

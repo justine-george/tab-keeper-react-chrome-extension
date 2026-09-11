@@ -33,6 +33,7 @@ import React, {
 
 import {
   ACTIVATION_DISTANCE_PX,
+  isInEditableField,
   isInsideList,
   setDragging,
   type DraggableRowProps,
@@ -196,6 +197,11 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       target: EventTarget | null
     ) => {
       if (disabled) return;
+
+      // A press in a text field starts a selection, not a drag (KAN-162). The
+      // window rename field sits inside the window's handle, and selecting
+      // its text used to fold every window and move the window.
+      if (isInEditableField(target)) return;
 
       // The handle must be inside THIS row, not merely an ancestor of the
       // press. `closest` walks all the way to the document, so without the
