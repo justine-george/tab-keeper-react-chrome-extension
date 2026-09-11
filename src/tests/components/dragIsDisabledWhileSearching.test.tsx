@@ -101,12 +101,15 @@ const render = (searchText?: string) =>
     },
   });
 
-// Only the tab rows: the window list adds draggable nodes of its own, and
-// giving those boxes here would put them in the same coordinate space as the
-// tabs.
+// Only the tab rows: the window list and the group list (KAN-160) add
+// draggable nodes of their own, and giving those boxes here would put them in
+// the same coordinate space as the tabs. The group list's ids are prefixed
+// `tab:` / `group:`, so a bare `^="t"` would also match `tab:t1`.
 const layoutTabRows = (container: HTMLElement): HTMLElement[] => {
   const rows = [
-    ...container.querySelectorAll<HTMLElement>('[data-drag-row-id^="t"]'),
+    ...container.querySelectorAll<HTMLElement>(
+      '[data-drag-row-id^="t"]:not([data-drag-row-id*=":"])'
+    ),
   ];
   rows.forEach((row, i) => {
     row.getBoundingClientRect = () => box(i * ROW_H, ROW_H);
