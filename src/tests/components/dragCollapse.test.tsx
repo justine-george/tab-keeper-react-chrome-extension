@@ -109,3 +109,94 @@ describe('the collapse happens before the rows are measured', () => {
     expect(seenAtMeasure.every((v) => v === 'window')).toBe(true);
   });
 });
+
+// KAN-154. The collapse can make the list SHORTER THAN ITS VIEWPORT, and the
+// browser then clamps scrollTop to fit. Measured in the popup on a five-window
+// session scrolled to the bottom: content 820 -> 416 (exactly the viewport) and
+// scrollTop 404 -> 0.
+//
+// The scroll origin captured at pointer-down then describes a position that no
+// longer exists, and everything derived from it is out by that much: the held
+// row was translated 316px up, landing at y=-31 against a pane starting at 124
+// -- off screen -- and the drop was computed against a list nobody was pointing
+// at, so it committed nothing. Only windows reachable at scrollTop 0 could be
+// dragged, which is exactly how it was reported.
+//
+// jsdom neither collapses nor clamps, so both are simulated here: scrollHeight
+// shrinks once the window-drag flag is set, and scrollTop clamps the way a real
+// scroller does.
+describe('a drag that starts scrolled, on a list that collapses', () => {
+  const VIEW = 90;
+  const OPEN_H = 30;
+  const SHUT_H = 15;
+
+  const mountClampingScroller = (el: HTMLElement) => {
+    const collapsed = () =>
+      document.documentElement.getAttribute('data-dragging') === 'window';
+    const rowH = () => (collapsed() ? SHUT_H : OPEN_H);
+    let top = 0;
+    Object.defineProperty(el, 'clientHeight', {
+      value: VIEW,
+      configurable: true,
+    });
+    Object.defineProperty(el, 'scrollHeight', {
+      get: () => rowH() * 4,
+      configurable: true,
+    });
+    const max = () => Math.max(0, rowH() * 4 - VIEW);
+    Object.defineProperty(el, 'scrollTop', {
+      // Clamped on READ as well as on write, which is what a real scroller
+      // does: when the content shrinks below the viewport the browser re-clamps
+      // at layout rather than waiting to be written to. Clamping only on write
+      // made this test disagree with the popup, and the popup was right.
+      get: () => (top = Math.min(top, max())),
+      set: (v: number) => (top = Math.max(0, Math.min(v, max()))),
+      configurable: true,
+    });
+    el.getBoundingClientRect = () => box(0, VIEW);
+    return { rowH };
+  };
+
+  test('the held row stays put and the drop lands where the pointer is', () => {
+    const onMove = vi.fn();
+    const { container } = render(
+      <div style={{ overflowY: 'auto' }}>
+        <RowDragArea
+          rowIds={['a', 'b', 'c', 'd']}
+          onMove={onMove}
+          dragKind="window"
+        >
+          {['a', 'b', 'c', 'd'].map((id, i) => (
+            <DraggableRow key={id} rowId={id} index={i}>
+              <div>Row {id}</div>
+            </DraggableRow>
+          ))}
+        </RowDragArea>
+      </div>
+    );
+
+    const scroller = container.firstElementChild as HTMLElement;
+    const { rowH } = mountClampingScroller(scroller);
+    ['a', 'b', 'c', 'd'].forEach((id, i) => {
+      const row = screen.getByText(`Row ${id}`).parentElement!;
+      row.getBoundingClientRect = () =>
+        box(i * rowH() - scroller.scrollTop, rowH());
+    });
+
+    // Scrolled to the bottom of the EXPANDED list, which is the only way to
+    // reach the last row -- and the state the report came from.
+    scroller.scrollTop = 999;
+    expect(scroller.scrollTop).toBe(OPEN_H * 4 - VIEW);
+
+    const held = screen.getByText('Row d').parentElement!;
+    fireEvent.pointerDown(held, { clientX: 10, clientY: 65, button: 0 });
+    fireEvent.pointerMove(document, { clientX: 10, clientY: 20 });
+    fireEvent.pointerUp(document, { clientX: 10, clientY: 20 });
+
+    // Collapsed, the four rows span 0..60 inside a 90px viewport, so the
+    // browser has clamped the scroll to 0 and the content mids are 7.5, 22.5,
+    // 37.5, 52.5. Releasing at 20 is past only the first of the others.
+    expect(onMove).toHaveBeenCalledTimes(1);
+    expect(onMove.mock.calls[0][1]).toBe(1);
+  });
+});

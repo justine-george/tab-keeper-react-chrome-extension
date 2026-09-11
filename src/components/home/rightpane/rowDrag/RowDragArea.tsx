@@ -314,6 +314,20 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         l.started = true;
         setDragging(true, dragKind);
 
+        // RE-READ AFTER THE COLLAPSE, and this is load-bearing (KAN-154).
+        // Folding the windows shut can make the list shorter than its viewport,
+        // and the browser then clamps scrollTop to fit -- measured, 404 -> 0 on
+        // a five-window session scrolled to the bottom. The value captured at
+        // pointer-down describes a scroll position that no longer exists, and
+        // using it puts every midpoint AND the held row's offset out by exactly
+        // that much: the row lands 316px above the pane, off screen, and the
+        // drop index is computed against a list nobody is pointing at.
+        //
+        // Reading it here, after the attribute is set and the rects below have
+        // forced layout, is what keeps the measurement and the pointer in one
+        // consistent frame.
+        l.startScrollTop = l.scroller?.scrollTop ?? 0;
+
         // Measured once, at the moment the drag actually starts: reading rects
         // on every move would report positions already displaced by the shifts
         // this drag is applying.
