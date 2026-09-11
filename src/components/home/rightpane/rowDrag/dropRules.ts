@@ -20,6 +20,11 @@ export type ResolveDrop = (
   y: number
 ) => string | undefined;
 
+// Which list is being dragged. Only the CSS cares, but it has to come from the
+// caller: the area itself has no idea what its rows represent, and that is
+// deliberate -- see the file header on RowDragArea.
+export type DragKind = 'tab' | 'window' | 'session';
+
 export interface RowDragAreaProps {
   // Flat, in render order. Index into this is what onMove's toIndex means.
   rowIds: string[];
@@ -32,6 +37,7 @@ export interface RowDragAreaProps {
   // underneath it. The two areas need no other coordination: only the one whose
   // `begin` runs owns the gesture.
   handleSelector?: string;
+  dragKind?: DragKind;
   resolveDrop?: ResolveDrop;
   // Dragging is off while the list on screen is a FILTERED view of the stored
   // one (KAN-131). toIndex counts rendered rows, and the reducers apply it to
@@ -128,7 +134,12 @@ export function isInsideList(
 // (`[data-dragging] *`) rather than a property set on one node. The styles live
 // in App.css; this only says when they apply. It also carries `user-select`,
 // which had the same shape and is now in the same rule.
-export function setDragging(on: boolean): void {
-  if (on) document.documentElement.setAttribute('data-dragging', '');
+export function setDragging(on: boolean, kind: DragKind = 'tab'): void {
+  // The KIND is published, not just the fact (KAN-153). A window drag collapses
+  // every window's tab list so the whole session fits on screen, and that rule
+  // must not fire during a TAB drag -- it would hide the very list being
+  // reordered. Existing `[data-dragging]` rules are unaffected: an attribute
+  // selector matches whatever the value is.
+  if (on) document.documentElement.setAttribute('data-dragging', kind);
   else document.documentElement.removeAttribute('data-dragging');
 }

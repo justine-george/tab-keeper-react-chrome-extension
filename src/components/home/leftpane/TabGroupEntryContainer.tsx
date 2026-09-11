@@ -208,6 +208,7 @@ export default function TabGroupEntryContainer() {
           <RowDragArea
             rowIds={sessionIds}
             onMove={handleMoveSession}
+            dragKind="session"
             disabled={isSearchPanel}
           >
             {filteredTabGroups.map((tabGroupData, index) => {

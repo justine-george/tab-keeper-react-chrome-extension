@@ -59,3 +59,32 @@ describe('the drag stylesheet rules', () => {
     expect(flat).not.toMatch(/(^|})\s*\[data-row-actions\] \{[^}]*opacity: 0/);
   });
 });
+
+// KAN-153. Dragging a WINDOW folds every window shut so the whole session fits
+// on screen while it is being rearranged.
+//
+// A stylesheet rule rather than lifted React state, and that is the design: no
+// component's open/closed state is touched, so "it comes back exactly how it
+// was" needs no bookkeeping and cannot be left half-applied by a drag that ends
+// in an unanticipated way.
+describe('the window-drag collapse rule', () => {
+  test('folds window tab lists away while a window is dragged', () => {
+    expect(flat).toContain(
+      "[data-dragging='window'] [data-window-tabs] { display: none !important; }"
+    );
+  });
+
+  // THE SCOPE IS THE POINT. `[data-dragging]` matches whatever the value is, so
+  // an unscoped rule would fire during a TAB drag too and take the very rows
+  // being reordered out from under the pointer.
+  test('and is scoped, so a tab drag does not hide its own rows', () => {
+    expect(flat).not.toContain('[data-dragging] [data-window-tabs]');
+  });
+
+  // The control for that scoping: the rules that SHOULD apply to every kind are
+  // still written without a value, and an attribute selector matches any value.
+  test('CONTROL: the kind-agnostic rules stay kind-agnostic', () => {
+    expect(flat).toContain('[data-dragging] * {');
+    expect(flat).toContain('[data-dragging] [data-row-actions] {');
+  });
+});

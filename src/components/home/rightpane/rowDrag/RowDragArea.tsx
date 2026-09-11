@@ -100,6 +100,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
   rowIds,
   onMove,
   handleSelector,
+  dragKind = 'tab',
   resolveDrop,
   disabled = false,
   children,
@@ -304,6 +305,15 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         // onClick must be allowed to fire untouched.
         if (travelled < ACTIVATION_DISTANCE_PX) return;
 
+        // BEFORE the measurement, not after (KAN-153). A window drag collapses
+        // every tab list via CSS, which changes every row's height -- and this
+        // writes the attribute straight to the DOM, so the
+        // getBoundingClientRect calls below flush style and layout and read the
+        // COLLAPSED boxes. Measure first and every midpoint would describe a
+        // layout that no longer exists.
+        l.started = true;
+        setDragging(true, dragKind);
+
         // Measured once, at the moment the drag actually starts: reading rects
         // on every move would report positions already displaced by the shifts
         // this drag is applying.
@@ -321,8 +331,26 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
           };
         });
         l.height = l.rects[l.fromIndex]?.height ?? 0;
-        l.started = true;
-        setDragging(true);
+
+        // Re-read now that the list may have collapsed: the limit captured at
+        // pointer-down described the expanded content, and auto-scrolling to
+        // THAT would run far past the end of a list a third the size.
+        if (l.scroller) {
+          l.maxScroll = Math.max(
+            0,
+            l.scroller.scrollHeight - l.scroller.clientHeight
+          );
+        }
+
+        // Re-anchor the grab. Collapsing moves every row, so the row being held
+        // is no longer under the pointer where it was picked up -- without this
+        // it jumps away by however much the rows above it shrank. Pinning the
+        // pointer to the row's CENTRE rather than preserving the original grab
+        // offset is deliberate: that offset was measured against a row that no
+        // longer exists at that height, and a centred row is what the drop
+        // arithmetic assumes anyway.
+        const held = l.rects[l.fromIndex];
+        if (held) l.startY = held.mid - l.startScrollTop;
         if (!scrollFrame.current) {
           scrollFrame.current = requestAnimationFrame(autoScroll);
         }
