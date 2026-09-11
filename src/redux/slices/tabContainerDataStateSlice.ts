@@ -40,6 +40,7 @@ import {
 import { recordValueMoment, SettingsData } from './settingsDataStateSlice';
 import {
   TAB_GROUP_COLORS,
+  partitionTabsIntoItems,
   type TabGroupColor,
 } from '../../utils/functions/tabGroups';
 import type { chromeTabGroupData } from '../../utils/functions/tabGroups';
@@ -269,6 +270,16 @@ export interface moveWindowParams {
   // index is looked up, so a stale index from a list that moved under the
   // caller cannot move the wrong window.
   windowId: string;
+  toIndex: number;
+}
+
+export interface moveChromeGroupParams {
+  tabGroupId: string;
+  windowId: string;
+  // Identity, not a position, for the same reason as moveTabParams.
+  groupId: string;
+  // Where the group lands among the window's items (partitionTabsIntoItems),
+  // counted with the group itself lifted out -- the drag engine's contract.
   toIndex: number;
 }
 
@@ -1822,6 +1833,56 @@ export const tabContainerDataStateSlice = createSlice({
       saveToLocalStorage('tabContainerData', state);
     },
 
+    // KAN-160. A group moves as one item among its window's top-level rows,
+    // carrying its tabs in order; no membership changes. The items are
+    // rebuilt with partitionTabsIntoItems, the function the screen draws
+    // from, so toIndex means here what it meant on screen (KAN-131).
+    moveChromeGroupInternal: (
+      state,
+      action: PayloadAction<moveChromeGroupParams>
+    ) => {
+      const { tabGroupId, windowId, groupId, toIndex } = action.payload;
+
+      const container = state.tabGroups.find(
+        (group) => group.tabGroupId === tabGroupId
+      );
+      if (!container) return;
+      const windowGroup = container.windows.find(
+        (w) => w.windowId === windowId
+      );
+      if (!windowGroup) return;
+
+      const items = partitionTabsIntoItems(
+        windowGroup.tabs,
+        windowGroup.chromeTabGroups
+      );
+      const fromIndex = items.findIndex(
+        (item) => item.kind === 'group' && item.group.groupId === groupId
+      );
+      // Unknown, or listed with no tabs: there is no row, so nothing to move.
+      if (fromIndex === -1) return;
+
+      // Resolved before the comparison below, as in moveWindowInternal: a raw
+      // out-of-range value would not equal the slot it actually lands in.
+      const target = Math.min(Math.max(0, toIndex), items.length - 1);
+
+      // Put back where it was: not an edit. No stamp, no save, no undo step,
+      // no sync.
+      if (target === fromIndex) return;
+
+      const [moved] = items.splice(fromIndex, 1);
+      items.splice(target, 0, moved);
+      windowGroup.tabs = items.flatMap((item) =>
+        item.kind === 'tab' ? [item.tab] : item.tabs
+      );
+
+      // touch, not stampCreated -- see moveWindowInternal.
+      touchContent(state, container);
+      state.lastModified = Date.now();
+
+      saveToLocalStorage('tabContainerData', state);
+    },
+
     replaceState: (state, action: PayloadAction<typeof state>) => {
       // update localstorage
       saveToLocalStorage('tabContainerData', action.payload);
@@ -2110,6 +2171,7 @@ export const {
   deleteTabInternal,
   moveTabInternal,
   moveWindowInternal,
+  moveChromeGroupInternal,
   moveSessionInternal,
   sortSessionsInternal,
   clearSessionOrder,

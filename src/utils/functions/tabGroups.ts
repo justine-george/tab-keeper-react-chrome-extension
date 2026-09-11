@@ -124,3 +124,42 @@ export function partitionTabsIntoRuns(
 
   return runs;
 }
+
+// One group's run, as partitionTabsIntoRuns produces it.
+export type GroupRun = Extract<TabRun, { kind: 'group' }>;
+
+// A top-level row of a window: a loose tab, or a whole group.
+export type TabItem = { kind: 'tab'; tab: tabData } | GroupRun;
+
+// The rows a window draws at the top level, in order (KAN-160): each loose tab
+// on its own, each group as one item holding its tabs.
+//
+// Built FROM partitionTabsIntoRuns rather than beside it, so the screen and
+// moveChromeGroupInternal cannot disagree about what index n means -- which is
+// the whole of KAN-131.
+export function partitionTabsIntoItems(
+  tabs: tabData[],
+  groups: chromeTabGroupData[] | undefined
+): TabItem[] {
+  return partitionTabsIntoRuns(tabs, groups).flatMap((run): TabItem[] =>
+    run.kind === 'ungrouped'
+      ? run.tabs.map((tab) => ({ kind: 'tab', tab }))
+      : [run]
+  );
+}
+
+const TAB_ITEM = 'tab:';
+const GROUP_ITEM = 'group:';
+
+// Prefixed, so a tab id and a group id can share one drag list without ever
+// colliding.
+export const itemIdOf = (item: TabItem): string =>
+  item.kind === 'tab'
+    ? `${TAB_ITEM}${item.tab.tabId}`
+    : `${GROUP_ITEM}${item.group.groupId}`;
+
+export function groupIdOfItemId(itemId: string): string | undefined {
+  return itemId.startsWith(GROUP_ITEM)
+    ? itemId.slice(GROUP_ITEM.length)
+    : undefined;
+}
