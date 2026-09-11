@@ -133,5 +133,6 @@
   "Tab count": "टैब संख्या",
   "Date modified": "बदलाव की तारीख",
   "Edited": "संपादित",
-  "Created": "बनाया"
+  "Created": "बनाया",
+  "Sessions reordered. Undo to restore the previous order.": "सत्र पुनः क्रमबद्ध किए गए। पिछला क्रम वापस पाने के लिए \"पूर्ववत\" का उपयोग करें।"
 }

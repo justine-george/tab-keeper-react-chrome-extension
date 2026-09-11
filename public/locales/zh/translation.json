@@ -133,5 +133,6 @@
   "Tab count": "标签页数",
   "Date modified": "修改日期",
   "Edited": "已编辑",
-  "Created": "已创建"
+  "Created": "已创建",
+  "Sessions reordered. Undo to restore the previous order.": "会话已重新排序。使用“撤销”可恢复之前的顺序。"
 }

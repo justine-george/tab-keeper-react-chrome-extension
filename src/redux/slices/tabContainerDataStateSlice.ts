@@ -508,6 +508,53 @@ export interface saveToTabContainerParams {
   scope: CaptureScope;
 }
 
+// KAN-151. The two ways the session list gets rearranged, each wrapping its
+// reducer to announce what happened -- the same Internal-reducer-plus-toasting-
+// thunk shape saveToTabContainer uses.
+//
+// The toast fires ONLY when the visible order actually moved. Both reducers
+// return early when there is nothing to do (an already-sorted and already-
+// pinned list; an order with no ranks to clear), and announcing a change that
+// did not happen -- while telling the user to undo it -- is worse than silence.
+//
+// Compared on the rendered id sequence rather than on ranks: a sort can pin an
+// order that already looked right, which writes ranks but moves nothing on
+// screen. Nothing was lost in that case, so there is nothing to offer back.
+const sessionOrder = (state: RootState): string =>
+  state.tabContainerDataState.tabGroups.map((g) => g.tabGroupId).join('\u0000');
+
+function announceIfReordered(
+  thunkAPI: { getState: () => unknown; dispatch: (action: unknown) => unknown },
+  before: string
+): void {
+  if (sessionOrder(thunkAPI.getState() as RootState) === before) return;
+
+  thunkAPI.dispatch(
+    showToast({
+      toastText: TOAST_MESSAGES.SESSION_ORDER_CHANGED,
+      duration: 3000,
+    })
+  );
+}
+
+export const sortSessions = createAsyncThunk(
+  'global/sortSessions',
+  async (params: sortSessionsParams, thunkAPI) => {
+    const before = sessionOrder(thunkAPI.getState() as RootState);
+    thunkAPI.dispatch(sortSessionsInternal(params));
+    announceIfReordered(thunkAPI, before);
+  }
+);
+
+export const resetSessionOrder = createAsyncThunk(
+  'global/resetSessionOrder',
+  async (_: void, thunkAPI) => {
+    const before = sessionOrder(thunkAPI.getState() as RootState);
+    thunkAPI.dispatch(clearSessionOrder());
+    announceIfReordered(thunkAPI, before);
+  }
+);
+
 // save to tab container and display a toast message
 //
 /**

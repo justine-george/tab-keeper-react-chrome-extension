@@ -61,6 +61,34 @@ interface Ctx {
 
 const DragContext = React.createContext<Ctx | null>(null);
 
+// How close to an edge the pointer must be for the list to start travelling,
+// and how fast it goes at its deepest. 48px is roughly a row and a half here,
+// which is wide enough to hit without aiming and narrow enough that ordinary
+// dragging near the ends does not trigger it.
+const EDGE_ZONE_PX = 48;
+const MAX_SCROLL_PX_PER_FRAME = 14;
+
+// The nearest ancestor that actually scrolls.
+//
+// Resolved from the ROW rather than from the drag area, because the area is
+// often not the scroller -- the session list scrolls at a container two levels
+// above the rows, and the right pane scrolls above both drag areas it holds.
+// Walking up from the row finds whichever one it happens to be.
+function scrollableAncestor(from: HTMLElement | null): HTMLElement | null {
+  let el: HTMLElement | null = from?.parentElement ?? null;
+  while (el && el !== document.body) {
+    const overflowY = getComputedStyle(el).overflowY;
+    if (
+      (overflowY === 'auto' || overflowY === 'scroll') &&
+      el.scrollHeight > el.clientHeight
+    ) {
+      return el;
+    }
+    el = el.parentElement;
+  }
+  return null;
+}
+
 interface Rect {
   id: string;
   index: number;
@@ -92,7 +120,18 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     height: number;
     lastX: number;
     lastY: number;
+    // Auto-scroll (KAN-152). The scrolling ancestor, and where it stood when
+    // the rects were measured -- every index comparison is done in the list's
+    // own content space so that scrolling cannot invalidate it.
+    scroller: HTMLElement | null;
+    startScrollTop: number;
+    maxScroll: number;
   } | null>(null);
+
+  // The auto-scroll frame, cancelled on drop. A ref rather than state: it is
+  // never rendered, and re-rendering every frame is the thing this is trying to
+  // avoid making worse.
+  const scrollFrame = useRef(0);
 
   // Chrome synthesizes a `click` after `mouseup`, aimed at whatever the pointer
   // released over -- which is the held row, because it tracks the pointer. Left
@@ -132,6 +171,17 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         if (!handle || !el?.contains(handle)) return;
       }
 
+      // Resolved HERE, at pointer-down, and not at activation -- because by
+      // activation the held row already carries a transform, and a transform
+      // EXTENDS the scrollable overflow area. Measured in the real popup: while
+      // auto-scrolling, scrollHeight climbed 820 -> 1393 in step with scrollTop,
+      // so a limit read live was a limit that ran away from the pointer as fast
+      // as it approached it. jsdom cannot show this at all -- scrollHeight there
+      // is whatever a test stubs -- so it is pinned by a test that makes the
+      // stub grow.
+      const el = rows.current.get(rowId) ?? null;
+      const scroller = scrollableAncestor(el);
+
       live.current = {
         rowId,
         startX: clientX,
@@ -142,12 +192,103 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         height: 0,
         lastX: clientX,
         lastY: clientY,
+        scroller,
+        startScrollTop: scroller?.scrollTop ?? 0,
+        maxScroll: scroller
+          ? Math.max(0, scroller.scrollHeight - scroller.clientHeight)
+          : 0,
       };
     },
     [rowIds, handleSelector, disabled]
   );
 
   useEffect(() => {
+    // Everything below works in the list's CONTENT space -- viewport y plus the
+    // scroller's current scrollTop. The rects are measured once (see below) and
+    // auto-scroll moves the list under them, so a viewport comparison would go
+    // stale the instant the list scrolled: rows would appear to drift past the
+    // pointer and the drop would land somewhere the user never pointed.
+    //
+    // With no scrolling ancestor scrollTop is 0 and this is exactly the
+    // arithmetic that was here before.
+    const contentY = (l: NonNullable<typeof live.current>, clientY: number) =>
+      clientY + (l.scroller?.scrollTop ?? 0);
+
+    const update = (l: NonNullable<typeof live.current>) => {
+      const others = l.rects.filter((r) => r.id !== l.rowId);
+      // The count of rows whose midpoint the pointer has passed IS the index
+      // the row lands at, because that count indexes the list with the held
+      // row already lifted out of it.
+      //
+      // Rows of unequal height need no special case: the held row displaces
+      // every row between its old and new slots by ITS OWN height, whatever
+      // theirs are, and the landing index comes from each row's measured
+      // midpoint rather than from any assumed row size.
+      const y = contentY(l, l.lastY);
+      const toIndex = others.filter((r) => y > r.mid).length;
+
+      setDrag({
+        rowId: l.rowId,
+        fromIndex: l.fromIndex,
+        toIndex,
+        // The scroll delta is part of the travel. The held row lives inside the
+        // scroller, so scrolling moves it with the content; without this term
+        // it would slide out from under the pointer by exactly the distance
+        // auto-scroll just travelled.
+        offset:
+          l.lastY - l.startY + (l.scroller?.scrollTop ?? 0) - l.startScrollTop,
+        height: l.height,
+      });
+    };
+
+    // Drag the list along when the pointer is held near its edge, so a target
+    // that is off screen can be reached at all (KAN-152). Speed ramps with how
+    // deep into the edge zone the pointer is, which makes a small correction
+    // near the boundary possible and a long haul quick.
+    const step = (l: NonNullable<typeof live.current>): number => {
+      const box = l.scroller?.getBoundingClientRect();
+      if (!l.scroller || !box) return 0;
+
+      // Capped to a third of the viewport, because a fixed 48px zone at each
+      // end OVERLAPS in a short list -- in a 90px pane the two zones cover 96px,
+      // so every position counts as an edge and the list scrolls no matter where
+      // the pointer is. Found by the control test, which is what a control is
+      // for. A third each leaves a third in the middle that never scrolls.
+      const zone = Math.min(EDGE_ZONE_PX, box.height / 3);
+
+      const intoTop = zone - (l.lastY - box.top);
+      const intoBottom = zone - (box.bottom - l.lastY);
+      const depth = Math.max(intoTop, intoBottom);
+      if (depth <= 0) return 0;
+
+      const speed = Math.min(depth / zone, 1) * MAX_SCROLL_PX_PER_FRAME;
+      return intoTop > intoBottom ? -speed : speed;
+    };
+
+    const autoScroll = () => {
+      const l = live.current;
+      scrollFrame.current = 0;
+      if (!l?.started || !l.scroller) return;
+
+      const delta = step(l);
+      if (delta !== 0) {
+        const before = l.scroller.scrollTop;
+        // Clamped against the limit captured at pointer-down, never a live one:
+        // but depending on that makes correctness a property of the environment
+        // instead of this function -- and the value is read back below to decide
+        // whether to keep going, so an unclamped write would report progress
+        // that never happened.
+        l.scroller.scrollTop = Math.max(
+          0,
+          Math.min(l.maxScroll, before + delta)
+        );
+        // Only keep going while the list is actually moving. At either end it
+        // is not, and a loop that cannot make progress is a spinning frame.
+        if (l.scroller.scrollTop !== before) update(l);
+      }
+      scrollFrame.current = requestAnimationFrame(autoScroll);
+    };
+
     const onMoveEvent = (e: PointerEvent) => {
       const l = live.current;
       if (!l) return;
@@ -166,45 +307,44 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         // Measured once, at the moment the drag actually starts: reading rects
         // on every move would report positions already displaced by the shifts
         // this drag is applying.
+        //
+        // Stored in content space, so auto-scrolling the list afterwards leaves
+        // them valid rather than silently wrong.
         l.rects = rowIds.map((id, index) => {
           const el = rows.current.get(id);
           const r = el?.getBoundingClientRect();
           return {
             id,
             index,
-            mid: r ? r.top + r.height / 2 : 0,
+            mid: r ? r.top + r.height / 2 + l.startScrollTop : 0,
             height: r?.height ?? 0,
           };
         });
         l.height = l.rects[l.fromIndex]?.height ?? 0;
         l.started = true;
         setDragging(true);
+        if (!scrollFrame.current) {
+          scrollFrame.current = requestAnimationFrame(autoScroll);
+        }
       }
 
-      const others = l.rects.filter((r) => r.id !== l.rowId);
-      // The count of rows whose midpoint the pointer has passed IS the index
-      // the row lands at, because that count indexes the list with the held
-      // row already lifted out of it.
-      //
-      // Rows of unequal height need no special case: the held row displaces
-      // every row between its old and new slots by ITS OWN height, whatever
-      // theirs are, and the landing index comes from each row's measured
-      // midpoint rather than from any assumed row size.
-      const toIndex = others.filter((r) => e.clientY > r.mid).length;
-
-      setDrag({
-        rowId: l.rowId,
-        fromIndex: l.fromIndex,
-        toIndex,
-        offset: e.clientY - l.startY,
-        height: l.height,
-      });
+      update(l);
     };
 
     const finish = (commit: boolean) => {
       const l = live.current;
       live.current = null;
       setDrag(null);
+      // Redundant today and kept anyway: autoScroll already bails when
+      // live.current is null, which this line has just made true, so the loop
+      // would stop on its own (verified -- removing this fails nothing). It
+      // stays because "the drag is over" and "the frame is cancelled" should not
+      // be two facts a reader has to connect, and because one stray frame after
+      // a drop is a cost nobody would think to look for.
+      if (scrollFrame.current) {
+        cancelAnimationFrame(scrollFrame.current);
+        scrollFrame.current = 0;
+      }
       if (!l) return;
       setDragging(false);
       // Below the threshold this was a click, not a drag, and the row's own
@@ -218,9 +358,13 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
 
       // Armed above, checked here: a drop this area refuses is still a drag the
       // user performed, and they did not ask to open the row they were holding.
-      if (commit && isInsideList(l.rects, l.lastY, l.height / 2)) {
+      // Content space, matching how the rects were measured. Using the raw
+      // viewport y here would misjudge both the containment test and the
+      // landing index by however far the list had auto-scrolled.
+      const dropY = l.lastY + (l.scroller?.scrollTop ?? 0);
+      if (commit && isInsideList(l.rects, dropY, l.height / 2)) {
         const others = l.rects.filter((r) => r.id !== l.rowId);
-        const toIndex = others.filter((r) => l.lastY > r.mid).length;
+        const toIndex = others.filter((r) => dropY > r.mid).length;
         const dropTargetId = resolveDrop?.(
           containerRef.current,
           l.lastX,

@@ -133,5 +133,6 @@
   "Tab count": "Número de pestañas",
   "Date modified": "Fecha de modificación",
   "Edited": "Editado",
-  "Created": "Creado"
+  "Created": "Creado",
+  "Sessions reordered. Undo to restore the previous order.": "Sesiones reordenadas. Usa \"Deshacer\" para restaurar el orden anterior."
 }

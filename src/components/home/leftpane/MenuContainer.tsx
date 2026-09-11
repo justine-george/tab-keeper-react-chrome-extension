@@ -6,8 +6,8 @@ import Icon from '../../common/Icon';
 import OverflowMenu from '../../common/OverflowMenu';
 import type { OverflowMenuItem } from '../../common/OverflowMenu';
 import {
-  clearSessionOrder,
-  sortSessionsInternal,
+  resetSessionOrder,
+  sortSessions,
 } from '../../../redux/slices/tabContainerDataStateSlice';
 import { AppDispatch, RootState } from '../../../redux/store';
 import {
@@ -147,7 +147,7 @@ export default function MenuContainer() {
       icon: 'history',
       checked: isDefaultOrder,
       onSelect: () => {
-        dispatch(clearSessionOrder());
+        dispatch(resetSessionOrder());
         dispatch(setSessionDateBasis('edited'));
       },
     },
@@ -157,9 +157,7 @@ export default function MenuContainer() {
       icon: 'schedule',
       checked: false,
       onSelect: () => {
-        dispatch(
-          sortSessionsInternal({ by: 'createdAt', locale: i18n.language })
-        );
+        dispatch(sortSessions({ by: 'createdAt', locale: i18n.language }));
         dispatch(setSessionDateBasis('created'));
       },
     },
@@ -169,7 +167,7 @@ export default function MenuContainer() {
       icon: 'sort_by_alpha',
       checked: false,
       onSelect: () => {
-        dispatch(sortSessionsInternal({ by: 'name', locale: i18n.language }));
+        dispatch(sortSessions({ by: 'name', locale: i18n.language }));
         dispatch(setSessionDateBasis('edited'));
       },
     },
@@ -179,9 +177,7 @@ export default function MenuContainer() {
       icon: 'tab',
       checked: false,
       onSelect: () => {
-        dispatch(
-          sortSessionsInternal({ by: 'tabCount', locale: i18n.language })
-        );
+        dispatch(sortSessions({ by: 'tabCount', locale: i18n.language }));
         dispatch(setSessionDateBasis('edited'));
       },
     },

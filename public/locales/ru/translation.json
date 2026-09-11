@@ -133,5 +133,6 @@
   "Tab count": "Количество вкладок",
   "Date modified": "Дата изменения",
   "Edited": "Изменено",
-  "Created": "Создано"
+  "Created": "Создано",
+  "Sessions reordered. Undo to restore the previous order.": "Сессии переупорядочены. Нажмите «Отменить», чтобы вернуть прежний порядок."
 }

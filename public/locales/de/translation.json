@@ -133,5 +133,6 @@
   "Tab count": "Tab-Anzahl",
   "Date modified": "Änderungsdatum",
   "Edited": "Bearbeitet",
-  "Created": "Erstellt"
+  "Created": "Erstellt",
+  "Sessions reordered. Undo to restore the previous order.": "Sitzungen neu sortiert. Mit \"Rückgängig\" die vorherige Reihenfolge wiederherstellen."
 }
