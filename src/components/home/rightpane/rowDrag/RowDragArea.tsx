@@ -165,6 +165,9 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     // Where a release still counts as a drop on this list, when the list has
     // opted in (KAN-155). Null otherwise, and then only the rows count.
     pane: HTMLElement | null;
+    // The held row's element while a started drag holds it (KAN-160). Kept
+    // here so finish clears the element the marker was set on.
+    heldEl: HTMLElement | null;
   } | null>(null);
 
   // The auto-scroll frame, cancelled on drop. A ref rather than state: it is
@@ -243,6 +246,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
           ? Math.max(0, scroller.scrollHeight - scroller.clientHeight)
           : 0,
         pane: clampDropToEnds ? paneOf(el) : null,
+        heldEl: null,
       };
     },
     [rowIds, handleSelector, disabled, clampDropToEnds]
@@ -403,6 +407,14 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         l.started = true;
         setDragging(true, dragKind);
 
+        // Which row is held, for rules that apply to it alone (KAN-160: a
+        // group drag compresses only the held group). Written straight to the
+        // DOM like the kind above, and before the measurement below, so the
+        // rects read the compressed layout. React never touches it, so a
+        // re-render cannot drop it (KAN-159).
+        l.heldEl = rows.current.get(l.rowId) ?? null;
+        l.heldEl?.setAttribute('data-drag-held', '');
+
         // RE-READ AFTER THE COLLAPSE, and this is load-bearing (KAN-154).
         // Folding the windows shut can make the list shorter than its viewport,
         // and the browser then clamps scrollTop to fit -- measured, 404 -> 0 on
@@ -504,6 +516,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // Judged first, while the drag's layout still stands -- see judgeDrop.
       const drop = commit && l.started ? judgeDrop(l) : undefined;
       setDragging(false);
+      l.heldEl?.removeAttribute('data-drag-held');
       // Below the threshold this was a click, not a drag, and the row's own
       // handler must run untouched.
       if (!l.started) return;

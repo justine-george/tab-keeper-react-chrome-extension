@@ -42,10 +42,13 @@ afterEach(() => {
 });
 
 describe('the published drag kind', () => {
-  test.each(['tab', 'window', 'session'] as const)('says %s', (kind) => {
-    setDragging(true, kind);
-    expect(document.documentElement.getAttribute('data-dragging')).toBe(kind);
-  });
+  test.each(['tab', 'window', 'session', 'group'] as const)(
+    'says %s',
+    (kind) => {
+      setDragging(true, kind);
+      expect(document.documentElement.getAttribute('data-dragging')).toBe(kind);
+    }
+  );
 
   test('and clears on release', () => {
     setDragging(true, 'window');

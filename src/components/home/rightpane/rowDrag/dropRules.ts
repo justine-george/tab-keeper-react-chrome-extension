@@ -34,7 +34,7 @@ export type ResolveDrop = (
 // Which list is being dragged. Only the CSS cares, but it has to come from the
 // caller: the area itself has no idea what its rows represent, and that is
 // deliberate -- see the file header on RowDragArea.
-export type DragKind = 'tab' | 'window' | 'session';
+export type DragKind = 'tab' | 'window' | 'session' | 'group';
 
 export interface RowDragAreaProps {
   // Flat, in render order. Index into this is what onMove's toIndex means.
