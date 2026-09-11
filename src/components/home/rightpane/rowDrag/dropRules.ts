@@ -55,6 +55,21 @@ export interface RowDragAreaProps {
    * dead zone underneath is large and easy to release into.
    */
   clampDropToEnds?: boolean;
+  /**
+   * After a drag that commits nothing -- Escape, or a release the list
+   * refuses -- put the scroll back where it was when the row was picked up
+   * (KAN-157).
+   *
+   * For a list whose drag CHANGES ITS OWN LAYOUT. A window drag folds every
+   * window shut, the browser clamps the scroll to fit, and unfolding does not
+   * give the position back: measured, five windows scrolled to 300 ended at 0
+   * with the held window off screen. A committed drop recovers by following
+   * the dropped row; a drag that moved nothing had nothing to follow.
+   *
+   * Off for the tab lists, which fold nothing: there the only scrolling a drag
+   * does is the auto-scroll the user asked for by holding near an edge.
+   */
+  restoreScrollIfNoDrop?: boolean;
   resolveDrop?: ResolveDrop;
   // Dragging is off while the list on screen is a FILTERED view of the stored
   // one (KAN-131). toIndex counts rendered rows, and the reducers apply it to

@@ -119,6 +119,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
   handleSelector,
   dragKind = 'tab',
   clampDropToEnds = false,
+  restoreScrollIfNoDrop = false,
   resolveDrop,
   disabled = false,
   children,
@@ -144,6 +145,11 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     // own content space so that scrolling cannot invalidate it.
     scroller: HTMLElement | null;
     startScrollTop: number;
+    // The scroll at pointer-down, before any collapse -- what a drag that
+    // commits nothing puts back (KAN-157). Not startScrollTop, which is
+    // deliberately re-read AFTER the collapse (KAN-154) and so describes the
+    // folded list, not the one the user was looking at.
+    scrollTopAtPress: number;
     maxScroll: number;
     // Where a release still counts as a drop on this list, when the list has
     // opted in (KAN-155). Null otherwise, and then only the rows count.
@@ -216,6 +222,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         lastY: clientY,
         scroller,
         startScrollTop: scroller?.scrollTop ?? 0,
+        scrollTopAtPress: scroller?.scrollTop ?? 0,
         maxScroll: scroller
           ? Math.max(0, scroller.scrollHeight - scroller.clientHeight)
           : 0,
@@ -483,13 +490,21 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         // so a row already on screen is left exactly where it is.
         //
         // Only on a COMMITTED drop, which is the only case with a new place to
-        // show. What a drag that commits nothing should restore is KAN-157:
-        // for a window drag the collapse has already moved the list, so doing
-        // nothing here is not the same as leaving the view alone.
+        // show. A drag that commits nothing is the branch below.
         const dropped = l.rowId;
         requestAnimationFrame(() => {
           rows.current.get(dropped)?.scrollIntoView({ block: 'nearest' });
         });
+      } else if (restoreScrollIfNoDrop && l.scroller) {
+        // Put the view back (KAN-157). For a window drag "nothing happened" is
+        // not the same as "leave the scroll alone": the collapse already
+        // clamped it, and unfolding does not give it back -- measured, five
+        // windows scrolled to 300 ended at 0 with the held window off screen.
+        //
+        // Synchronous, and after setDragging(false) above: the kind is
+        // unpublished, so this write lays out against the UNFOLDED list and
+        // its full scroll range, which is the only one 300 fits in.
+        l.scroller.scrollTop = l.scrollTopAtPress;
       }
     };
 
@@ -522,7 +537,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // `grabbing`.
       setDragging(false);
     };
-  }, [rowIds, onMove, resolveDrop, dragKind]);
+  }, [rowIds, onMove, resolveDrop, dragKind, restoreScrollIfNoDrop]);
 
   const ctx = useMemo<Ctx>(
     () => ({ register, begin, drag }),

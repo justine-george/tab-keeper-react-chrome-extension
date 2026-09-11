@@ -190,7 +190,11 @@ test.describe('dragging a window from a scrolled position', () => {
 
   // THE CONTROL for the one above: the pane is the bound, not the screen. Above
   // it are the session header and the save row.
-  test('CONTROL: released above the pane, nothing moves', async ({
+  //
+  // And KAN-157: nothing moved, so the view is back where it was. Folding five
+  // windows clamps the scroll 300 -> 0, and before the fix it stayed there,
+  // with the held window off screen below the pane.
+  test('CONTROL: released above the pane, nothing moves and the view comes back', async ({
     context,
     extensionId,
   }) => {
@@ -203,5 +207,51 @@ test.describe('dragging a window from a scrolled position', () => {
     await page.waitForTimeout(300);
 
     expect(await storedOrder(page)).toEqual(['w0', 'w1', 'w2', 'w3', 'w4']);
+    expect(await paneState(page, grab.id)).toEqual({
+      scrollTop: 300,
+      headerVisible: true,
+    });
+  });
+
+  // KAN-157. Escape means nothing happened, and that includes what you were
+  // looking at.
+  test('after Escape, the view is where the drag began', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openSession(context, extensionId, 5, 6);
+    const pane = await scrollPaneAndRecord(page, 300);
+    const grab = await topVisibleHeader(page, pane);
+
+    await page.mouse.move(grab.x, grab.y);
+    await page.mouse.down();
+    await page.mouse.move(grab.x, grab.y + 40, { steps: 6 });
+    // The premise: the fold really did take the scroll away. Without it, a
+    // restore that never ran would pass.
+    expect((await paneState(page, grab.id)).scrollTop).toBe(0);
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+
+    await expect
+      .poll(() => paneState(page, grab.id))
+      .toEqual({ scrollTop: 300, headerVisible: true });
+    expect(await storedOrder(page)).toEqual(['w0', 'w1', 'w2', 'w3', 'w4']);
   });
 });
+
+// The pane's scroll, and whether the given window's header is wholly on screen.
+const paneState = (page: Page, windowId: string) =>
+  page.evaluate((id) => {
+    const header = document.querySelector(
+      `[data-drag-row-id="${id}"] [data-window-drag-handle]`
+    )!;
+    let el = header.parentElement;
+    while (el && !['auto', 'scroll'].includes(getComputedStyle(el).overflowY))
+      el = el.parentElement;
+    const p = el!.getBoundingClientRect();
+    const h = header.getBoundingClientRect();
+    return {
+      scrollTop: el!.scrollTop,
+      headerVisible: h.top >= p.top && h.bottom <= p.bottom,
+    };
+  }, windowId);
