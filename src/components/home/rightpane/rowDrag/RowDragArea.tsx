@@ -51,6 +51,8 @@ import {
 // which is wide enough to hit without aiming and narrow enough that ordinary
 // dragging near the ends does not trigger it.
 const EDGE_ZONE_PX = 48;
+// How strongly the landing slot draws when it is clear of the held row.
+const SLOT_OPACITY = 0.3;
 const MAX_SCROLL_PX_PER_FRAME = 14;
 
 // The nearest ancestor that actually scrolls.
@@ -205,6 +207,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
   restoreScrollIfNoDrop = false,
   resolveDrop,
   onDropTargetChange,
+  landingIndexFor,
   disabled = false,
   children,
 }) => {
@@ -404,6 +407,16 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // it came from: no row steps aside, and its own slot stays open.
       const toIndex = landingIndex(l) ?? l.fromIndex;
 
+      // What a release HERE would land ON, asked once and spent twice (KAN-164,
+      // KAN-166): the list is told when the answer changes, and the landing
+      // placeholder is corrected by whatever that target implies.
+      //
+      // Asked on every move rather than only at the drop, because a drop can
+      // change more than an index -- a tab released inside a group's band joins
+      // that group -- and the user cannot see a rule that is only consulted
+      // once the pointer is already up.
+      const target = resolveDrop?.(containerRef.current, l.lastX, l.lastY);
+
       setDrag({
         rowId: l.rowId,
         fromIndex: l.fromIndex,
@@ -415,7 +428,11 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         offset:
           l.lastY - l.startY + (l.scroller?.scrollTop ?? 0) - l.startScrollTop,
         footprint: l.footprint,
-        landingDelta: landingDeltaOf(l.rects, l.fromIndex, toIndex),
+        landingDelta: landingDeltaOf(
+          l.rects,
+          l.fromIndex,
+          landingIndexFor?.(toIndex, target) ?? toIndex
+        ),
       });
     };
 
@@ -566,18 +583,11 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
 
       update(l);
 
-      // What a release HERE would land on, published as it changes (KAN-164).
-      //
-      // Asked on every move rather than only at the drop, because a drop can
-      // change more than an index -- a tab released inside a group's band joins
-      // that group -- and the user cannot see a rule that is only consulted
-      // once the pointer is already up. Compared first so the list is told only
-      // when the answer actually changes.
       if (onDropTargetChange && resolveDrop) {
-        const target = resolveDrop(containerRef.current, l.lastX, l.lastY);
-        if (target !== l.dropTarget) {
-          l.dropTarget = target;
-          onDropTargetChange(target, containerRef.current);
+        const t = resolveDrop(containerRef.current, l.lastX, l.lastY);
+        if (t !== l.dropTarget) {
+          l.dropTarget = t;
+          onDropTargetChange(t, containerRef.current);
         }
       }
     };
@@ -706,6 +716,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     onMove,
     resolveDrop,
     onDropTargetChange,
+    landingIndexFor,
     dragKind,
     restoreScrollIfNoDrop,
   ]);
@@ -837,7 +848,28 @@ export const DraggableRow: React.FC<DraggableRowProps & { index: number }> = ({
             pointerEvents: 'none',
             border: '1.5px dashed currentColor',
             borderRadius: '4px',
-            opacity: 0.3,
+            // As visible as it is DISTINGUISHABLE from the row being dragged.
+            //
+            // The held row tracks the pointer continuously while the slot jumps
+            // between discrete positions, so the two pass close to each other
+            // every time the landing index changes -- and drawn at full
+            // strength there, the slot reads as an outline around the dragged
+            // row rather than as the gap it will drop into.
+            //
+            // Faded rather than hidden past a threshold: the separation does
+            // not ease through zero, it JUMPS at each index change (measured,
+            // -64px straight to -10px), so any cutoff blinks. Scaling by the
+            // row's own footprint keeps it continuous and needs no number of
+            // its own -- one row's worth of travel is exactly the distance at
+            // which the two boxes stop overlapping.
+            opacity:
+              SLOT_OPACITY *
+              Math.min(
+                1,
+                drag.footprint > 0
+                  ? Math.abs(drag.landingDelta - translate) / drag.footprint
+                  : 1
+              ),
           }}
         />
       )}

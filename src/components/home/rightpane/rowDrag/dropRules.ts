@@ -108,6 +108,25 @@ export interface RowDragAreaProps {
     target: string | undefined,
     container: HTMLElement | null
   ) => void;
+  /**
+   * Where the landing placeholder should point, when the index alone does not
+   * describe where the row will end up (KAN-166).
+   *
+   * A tab released inside a group's band joins that group, and the band's rect
+   * includes the group's TITLE row -- while the landing index comes from row
+   * midpoints, the first of which sits below that title. So in the strip at the
+   * top of every group the index says "before the group" and the band says
+   * "inside it". Both are right: the tab becomes the group's FIRST member, so
+   * it lands in the first member's slot, under the header rather than above it.
+   *
+   * The area cannot know that. It knows an index and whatever `resolveDrop`
+   * answered; what a group IS, and which row starts it, belong to the list. So
+   * the list is asked where the row really lands and the area draws it there.
+   *
+   * The DROP is unaffected -- this corrects the preview only, and the reducer
+   * still receives the raw index, which produces the same arrangement.
+   */
+  landingIndexFor?: (toIndex: number, target: string | undefined) => number;
   // Dragging is off while the list on screen is a FILTERED view of the stored
   // one (KAN-131). toIndex counts rendered rows, and the reducers apply it to
   // the stored array, so a drag in a narrowed list lands somewhere the user

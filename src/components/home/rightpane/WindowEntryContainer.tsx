@@ -266,6 +266,43 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   );
   const itemIds = useMemo(() => items.map(itemIdOf), [items]);
 
+  // Where in the window's tab list each group's first member sits.
+  const groupFirstIndex = useMemo(() => {
+    const byId = new Map<string, number>();
+    for (const item of items) {
+      if (item.kind !== 'group') continue;
+      const first = item.tabs[0];
+      const index = first ? indexOfTab.get(first.tabId) : undefined;
+      if (index !== undefined) byId.set(item.group.groupId, index);
+    }
+    return byId;
+  }, [items, indexOfTab]);
+
+  // KAN-166. Where the landing placeholder should point.
+  //
+  // A tab released inside a group's band joins that group, and the band's rect
+  // includes the group's TITLE row -- while the landing index comes from row
+  // midpoints, the first of which sits below that title. So in the strip at the
+  // top of every group the index said "before the group" while the band said
+  // "inside it", and the placeholder was drawn 34px above the band it had just
+  // lit up.
+  //
+  // Both answers are right. The tab becomes the group's FIRST member, so it
+  // lands in the first member's slot -- under the header, not above it. Stated
+  // as an index rather than a distance because that is what it is: no pixels,
+  // no header height, nothing to drift when row heights change.
+  //
+  // The DROP is untouched. This is the preview only; the reducer still receives
+  // the raw index and produces the same arrangement.
+  const landingIndexFor = useCallback(
+    (toIndex: number, target: string | undefined) => {
+      if (target === undefined) return toIndex;
+      const first = groupFirstIndex.get(target);
+      return first !== undefined && toIndex < first ? first : toIndex;
+    },
+    [groupFirstIndex]
+  );
+
   const handleMoveGroup = useCallback(
     (itemId: string, toIndex: number) => {
       const groupId = groupIdOfItemId(itemId);
@@ -828,6 +865,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
             dragKind="tab"
             resolveDrop={bandAt}
             onDropTargetChange={markDropTargetBand}
+            landingIndexFor={landingIndexFor}
             // The mode, not the box's contents -- see KAN-140 on
             // TabGroupEntryContainer for why this is not isFilteredView.
             disabled={isSearchPanel}
