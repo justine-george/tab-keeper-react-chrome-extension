@@ -505,6 +505,59 @@ test.describe('the preview predicts the drop', () => {
     // And the strip covers the same extent, rather than keeping its length.
     expect(painted.strip!.top).toBe(painted.band!.top);
     expect(painted.strip!.bottom).toBe(painted.band!.bottom);
+
+    // THE HIT AREA MUST NOT MOVE. Growing the frame previews the RESULT; it
+    // does not make the target bigger. bandAt reads this box on every pointer
+    // move, so a band that grew its own hit area would keep the pointer inside
+    // itself and LATCH as the drop target -- measured in CI, where a pointer
+    // moved clear of every band left one still marked.
+    // PREMISE: the band's painted box really did grow past its resting top,
+    // so the strip of screen tested below exists at all.
+    expect(painted.band!.top).toBeLessThan(rest.band!.top);
+  });
+
+  // KAN-171, found by CI rather than by the eye. Growing the band previews the
+  // RESULT; it must not enlarge the TARGET. It did, and the result was a latch:
+  // marking a band grew its box, the grown box kept the pointer inside it, and
+  // bandAt went on naming it however far the pointer moved out. A first attempt
+  // at this asserted the geometry instead and could not see the bug at all --
+  // restoring the border box left it green.
+  test('a band that has grown does not capture the pointer in the space it grew into', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await open(context, extensionId, BEFORE);
+    const restTop = (await page
+      .locator('[data-band-id="alpha"]')
+      .boundingBox())!.y;
+
+    await previewOfDragging(page, 'a2', await titleRowY(page), {
+      settle: true,
+    });
+    const isTarget = () =>
+      page.evaluate(() =>
+        document
+          .querySelector('[data-band-id="alpha"]')!
+          .hasAttribute('data-drop-target')
+      );
+
+    // PREMISE: it is the drop target, and it grew upward past its resting top.
+    expect(await isTarget()).toBe(true);
+    const grownTop = (await page
+      .locator('[data-band-id="alpha"]')
+      .boundingBox())!.y;
+    expect(grownTop).toBeLessThan(restTop - 4);
+
+    // Into the strip the band grew into: above where it rests, inside where it
+    // now paints. Released here the tab lands ungrouped, so the band must let
+    // the pointer go.
+    const box = (await page.locator('[data-drag-row-id="a2"]').boundingBox())!;
+    await page.mouse.move(box.x + 40, (grownTop + restTop) / 2, { steps: 4 });
+
+    await expect.poll(isTarget).toBe(false);
+
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
   });
 
   // KAN-170, reported from the shipped build. Aiming at the group's SECOND

@@ -201,7 +201,26 @@ export function bandAt(
     '[data-band-id]'
   )) {
     const r = band.getBoundingClientRect();
-    if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) {
+    // THE CONTENT BOX, not the border box (KAN-171). While a tab is being
+    // dropped into a group, the band grows by one row's worth of padding so its
+    // tint can show the group the release will make -- and that padding must
+    // not enlarge what the pointer can hit. It did, and the result was a LATCH:
+    // marking a band made the band bigger, which kept the pointer inside it,
+    // which kept it marked. Measured in CI, a pointer moved clear of every band
+    // left one still lit.
+    //
+    // Growing the frame previews the RESULT. It is not a bigger target.
+    //
+    // Read off the inline style rather than a computed one because this runs
+    // for every band on every pointer move; the follower writes it there.
+    const padTop = parseFloat(band.style.paddingTop) || 0;
+    const padBottom = parseFloat(band.style.paddingBottom) || 0;
+    if (
+      x >= r.left &&
+      x <= r.right &&
+      y >= r.top + padTop &&
+      y <= r.bottom - padBottom
+    ) {
       return band.dataset.bandId;
     }
   }

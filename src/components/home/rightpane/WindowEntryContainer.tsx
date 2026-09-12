@@ -113,6 +113,32 @@ const GroupFrameFollower: React.FC<{
     band.style.setProperty('--frame-top', `${top}px`);
     band.style.setProperty('--frame-bottom', `${bottom}px`);
 
+    // The band's painted box has to cover the group the DROP will make, which
+    // is a row taller than the one on screen while a tab is joining it. Its own
+    // box cannot follow on its own: the title row moves by transform, and a
+    // transform on a child never changes its parent's layout box. Measured, the
+    // tint kept its resting 98..226 while the drop makes it 66..226, so the
+    // title row sat above its own tint.
+    //
+    // PADDING PAIRED WITH NEGATIVE MARGIN, so the box grows while its content
+    // and its contribution to the flow both stay where they were. The preview
+    // deliberately holds the layout still, and a real height change would push
+    // every row below the band.
+    //
+    // GROWTH ONLY: the tint paints for a group a tab is being dropped INTO, and
+    // joining a group never makes it shorter. The strip handles both
+    // directions, since it is also drawn while a tab is leaving.
+    //
+    // INLINE rather than in the stylesheet, because bandAt has to read the
+    // padding back on every pointer move to keep the hit area still -- see the
+    // note there, and `style.paddingTop` costs nothing next to a computed one.
+    const growTop = Math.max(0, -top);
+    const growBottom = Math.max(0, bottom);
+    band.style.paddingTop = growTop ? `${growTop}px` : '';
+    band.style.paddingBottom = growBottom ? `${growBottom}px` : '';
+    band.style.marginTop = growTop ? `${2 - growTop}px` : '';
+    band.style.marginBottom = growBottom ? `${2 - growBottom}px` : '';
+
     // The title row is a real row and moves as one, so it keeps a transform.
     // The strip does NOT: it has to change length, not position, and a
     // transform cannot say that.
@@ -991,35 +1017,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                         display: flex;
                         align-items: stretch;
 
-                        /* KAN-171. The band's painted box has to cover the
-                           group the DROP will make, which is a row taller than
-                           the one on screen when a tab is joining it. Its own
-                           box cannot follow on its own: the title row moves by
-                           transform, and a transform on a child never changes
-                           its parent's layout box. Measured, the tint kept its
-                           resting 98..226 while the drop makes it 66..226, so
-                           the title row sat above its own tint.
-
-                           PADDING PAIRED WITH NEGATIVE MARGIN, so the box grows
-                           while its content and its contribution to the flow
-                           both stay exactly where they were -- the preview
-                           deliberately holds the layout still, and a real height
-                           change would push every row below the band.
-
-                           GROWTH ONLY, and that is not a shortcut: this paints
-                           only for the group a tab is being dropped into, and
-                           joining a group can never make it shorter. The strip
-                           handles both directions, because it is also drawn
-                           while a tab is LEAVING. */
-                        --frame-grow-top: max(
-                          0px,
-                          calc(-1 * var(--frame-top, 0px))
-                        );
-                        --frame-grow-bottom: max(0px, var(--frame-bottom, 0px));
-                        padding-top: var(--frame-grow-top);
-                        padding-bottom: var(--frame-grow-bottom);
-                        margin: calc(2px - var(--frame-grow-top)) 0
-                          calc(2px - var(--frame-grow-bottom));
+                        margin: 2px 0;
 
                         /* KAN-164: a tab released here joins this group.
                            Outline rather than border, so marking a band
