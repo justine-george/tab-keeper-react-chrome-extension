@@ -93,22 +93,58 @@ interface WindowEntryContainerProps {
 // threading a per-move offset into a component with no other reason to know
 // about dragging would be worse than this. The offset changes only when the
 // landing slot does, not on every pointer move.
-const GroupFrameFollower: React.FC<{ groupId: string }> = ({ groupId }) => {
+const GroupFrameFollower: React.FC<{
+  groupId: string;
+  lastMemberId: string | undefined;
+}> = ({ groupId, lastMemberId }) => {
   const drag = useDragState('tabs');
-  const offset = drag?.shifts[groupId] ?? 0;
+  const top = drag?.shifts[groupId] ?? 0;
+  const bottom =
+    (lastMemberId === undefined ? 0 : drag?.shifts[lastMemberId]) ?? 0;
   const anchor = useRef<HTMLSpanElement | null>(null);
 
   useLayoutEffect(() => {
     const band = anchor.current?.closest<HTMLElement>('[data-band-id]');
     if (!band) return;
-    const transform = offset ? `translateY(${offset}px)` : '';
-    for (const part of [
-      band.querySelector<HTMLElement>('[data-group-color-strip]'),
-      band.querySelector<HTMLElement>('[data-group-drag-handle]'),
-    ]) {
-      if (part) part.style.transform = transform;
-    }
-  }, [offset]);
+    // The frame's EXTENT, published for the paint layers to read (KAN-171).
+    // Custom properties rather than inline styles on each part, because the
+    // strip is rendered by GroupColorPicker and these have to reach it without
+    // that component learning anything about dragging.
+    band.style.setProperty('--frame-top', `${top}px`);
+    band.style.setProperty('--frame-bottom', `${bottom}px`);
+
+    // The band's painted box has to cover the group the DROP will make, which
+    // is a row taller than the one on screen while a tab is joining it. Its own
+    // box cannot follow on its own: the title row moves by transform, and a
+    // transform on a child never changes its parent's layout box. Measured, the
+    // tint kept its resting 98..226 while the drop makes it 66..226, so the
+    // title row sat above its own tint.
+    //
+    // PADDING PAIRED WITH NEGATIVE MARGIN, so the box grows while its content
+    // and its contribution to the flow both stay where they were. The preview
+    // deliberately holds the layout still, and a real height change would push
+    // every row below the band.
+    //
+    // GROWTH ONLY: the tint paints for a group a tab is being dropped INTO, and
+    // joining a group never makes it shorter. The strip handles both
+    // directions, since it is also drawn while a tab is leaving.
+    //
+    // INLINE rather than in the stylesheet, because bandAt has to read the
+    // padding back on every pointer move to keep the hit area still -- see the
+    // note there, and `style.paddingTop` costs nothing next to a computed one.
+    const growTop = Math.max(0, -top);
+    const growBottom = Math.max(0, bottom);
+    band.style.paddingTop = growTop ? `${growTop}px` : '';
+    band.style.paddingBottom = growBottom ? `${growBottom}px` : '';
+    band.style.marginTop = growTop ? `${2 - growTop}px` : '';
+    band.style.marginBottom = growBottom ? `${2 - growBottom}px` : '';
+
+    // The title row is a real row and moves as one, so it keeps a transform.
+    // The strip does NOT: it has to change length, not position, and a
+    // transform cannot say that.
+    const handle = band.querySelector<HTMLElement>('[data-group-drag-handle]');
+    if (handle) handle.style.transform = top ? `translateY(${top}px)` : '';
+  }, [top, bottom]);
 
   return <span ref={anchor} hidden />;
 };
@@ -269,6 +305,18 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   );
   const itemIds = useMemo(() => items.map(itemIdOf), [items]);
 
+  // Which group each tab is currently in, so the rule below can see a tab
+  // LEAVING one as well as joining one (KAN-168). The engine knows only where
+  // the pointer is; where the row STARTED is the list's own knowledge.
+  const groupOfTab = useMemo(() => {
+    const byId = new Map<string, string>();
+    for (const tab of tabs) {
+      if (tab.chromeGroupId !== undefined)
+        byId.set(tab.tabId, tab.chromeGroupId);
+    }
+    return byId;
+  }, [tabs]);
+
   // Where in the window's tab list each group's first member sits.
   const groupFirstIndex = useMemo(() => {
     const byId = new Map<string, number>();
@@ -297,16 +345,61 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   //
   // The DROP is untouched. This is the preview only; the reducer still receives
   // the raw index and produces the same arrangement.
-  const landsAfterFixedRow = useCallback(
-    (toIndex: number, target: string | undefined) => {
-      if (target === undefined) return undefined;
-      const first = groupFirstIndex.get(target);
-      // At or above the first member is the strip where the two answers
-      // disagree. Below it the tab is landing BETWEEN members, where its row
-      // index already says everything.
-      return first !== undefined && toIndex <= first ? target : undefined;
+  // Where a group's head sits in the space `toIndex` is counted in (KAN-170).
+  //
+  // TWO LISTS, AND THEY ARE NOT THE SAME ONE. `groupFirstIndex` counts every
+  // row; `toIndex` counts the rows with the HELD row lifted out, because it is
+  // the number of midpoints the pointer has passed. Lifting a row out shifts
+  // everything below it down one, so the two agree only when the held row sits
+  // BELOW the group.
+  //
+  // Comparing them directly made the head test over-reach by exactly one slot
+  // for any tab dragged down from above, which swallowed the group's second
+  // position into its first -- the slot drew above the first member while the
+  // drop landed below it. See KAN-131: an index is only valid in the list that
+  // produced it.
+  const headInLandingSpace = useCallback(
+    (groupId: string, rowId: string) => {
+      const first = groupFirstIndex.get(groupId);
+      if (first === undefined) return undefined;
+      const fromIndex = indexOfTab.get(rowId);
+      return fromIndex !== undefined && fromIndex < first ? first - 1 : first;
     },
-    [groupFirstIndex]
+    [groupFirstIndex, indexOfTab]
+  );
+
+  const landsBesideFixedRow = useCallback(
+    (rowId: string, toIndex: number, target: string | undefined) => {
+      // Landing inside a band: the tab joins that group, or moves to the head
+      // of the one it is already in. Either way it ends up UNDER that title
+      // row. At or above the head is the strip where the index and the band
+      // disagree; below it the tab is landing BETWEEN members, where its row
+      // index already says everything.
+      if (target !== undefined) {
+        const head = headInLandingSpace(target, rowId);
+        return head !== undefined && toIndex <= head
+          ? { fixedRowId: target, side: 'after' as const }
+          : undefined;
+      }
+
+      // KAN-168. Landing outside every band, having started inside one: the
+      // tab LEAVES its group, and above its first member that means crossing
+      // the title row the other way. Its row index does not change -- the
+      // reducer splices it out and back in at the same place and only drops
+      // the membership -- so without this the preview has nothing to say and
+      // draws the landing slot at the tab's own origin, inside the band.
+      //
+      // The same head, in the same space -- though here the adjustment is
+      // always zero, since a tab leaving its own group started inside it and so
+      // never sits above its own head.
+      const held = groupOfTab.get(rowId);
+      if (held === undefined) return undefined;
+      const head = headInLandingSpace(held, rowId);
+      return head !== undefined && toIndex <= head
+        ? { fixedRowId: held, side: 'before' as const }
+        : undefined;
+    },
+    [groupOfTab, headInLandingSpace]
   );
 
   const handleMoveGroup = useCallback(
@@ -871,7 +964,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
             dragKind="tab"
             resolveDrop={bandAt}
             onDropTargetChange={markDropTargetBand}
-            landsAfterFixedRow={landsAfterFixedRow}
+            landsBesideFixedRow={landsBesideFixedRow}
             // Each group's title row: drawn in this list, never dragged in it.
             // Scoped to `tabs` only -- in the `items` list a group is one row
             // that CONTAINS its title, so counting it there would double it.
@@ -923,6 +1016,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                       css={css`
                         display: flex;
                         align-items: stretch;
+
                         margin: 2px 0;
 
                         /* KAN-164: a tab released here joins this group.
@@ -949,6 +1043,12 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                            state in this pane is made of. The strip's widen
                            (GroupColorPicker) is the part that carries the
                            meaning without relying on hue. */
+                        /* KAN-164: a tab released here joins this group, so
+                           the group answers in its own colour. A wash rather
+                           than a ring, because fills are what every other
+                           state in this pane is made of. The strip's widen
+                           (GroupColorPicker) is the part that carries the
+                           meaning without relying on hue. */
                         &[data-drop-target] {
                           background-color: color-mix(
                             in srgb,
@@ -959,7 +1059,10 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                         }
                       `}
                     >
-                      <GroupFrameFollower groupId={item.group.groupId} />
+                      <GroupFrameFollower
+                        groupId={item.group.groupId}
+                        lastMemberId={item.tabs[item.tabs.length - 1]?.tabId}
+                      />
                       {/* The colour is Chrome's own group identity, not app chrome
                     (BINDING CONSTRAINT 1) -- TAB_GROUP_COLOR_HEX is a fixed
                     map, not routed through useThemeColors, so it reads the

@@ -814,9 +814,18 @@ test.describe('a group travels whole', () => {
       return {
         memberShifts: members.map(shift),
         titleShift: shift(title),
-        stripShift: shift(strip),
         titleBottom: r2(title.getBoundingClientRect().bottom),
         firstMemberTop: r2(members[0].getBoundingClientRect().top),
+        // KAN-171. The strip's painted EXTENT, not its transform. It no longer
+        // moves as a rigid block -- joining a group makes the frame a row
+        // longer -- so the honest claim is where it starts and ends, which is
+        // also what a transform assertion could never have caught going wrong.
+        titleTop: r2(title.getBoundingClientRect().top),
+        stripTop: r2(strip.getBoundingClientRect().top),
+        stripBottom: r2(strip.getBoundingClientRect().bottom),
+        lastMemberBottom: r2(
+          members[members.length - 1].getBoundingClientRect().bottom
+        ),
       };
     });
 
@@ -831,8 +840,14 @@ test.describe('a group travels whole', () => {
 
     // THE CLAIM: the frame went with them, and the group is still whole.
     expect(geom.titleShift).toBe(geom.memberShifts[0]);
-    expect(geom.stripShift).toBe(geom.memberShifts[0]);
     expect(geom.titleBottom).toBeLessThanOrEqual(geom.firstMemberTop + 1);
+
+    // And the strip spans the whole of it -- from the title row's top to the
+    // last member's bottom. That invariant holds at rest, while the group
+    // travels, and while it is gaining a row, which is why it replaced an
+    // equality between two transforms (KAN-171).
+    expect(geom.stripTop).toBeCloseTo(geom.titleTop, 0);
+    expect(geom.stripBottom).toBeCloseTo(geom.lastMemberBottom, 0);
 
     expect(await itemOrder(page)).toEqual(START);
   });

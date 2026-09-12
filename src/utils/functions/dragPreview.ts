@@ -64,17 +64,33 @@ export function previewShifts(
   return shifts;
 }
 
+// Which side of a title row a drop leaves the dragged row on.
+//
+// A drop that changes a tab's group CROSSES that group's title row, and which
+// way it crosses is the whole difference between the two cases (KAN-168):
+// joining at the head puts the tab under the title, leaving puts it above.
+export type LandingSide = 'before' | 'after';
+
 /**
- * The slot a row takes when it lands immediately after the fixed slot `fixed`.
+ * The slot a row takes when it lands immediately beside the fixed slot `fixed`.
  *
  * An index into the list with the held row already lifted out, matching how the
  * engine's own landing index is counted -- which is why the answer depends on
- * which side the row is coming from. From above, removing it shuffles the fixed
- * slot up one, so landing after it means taking its old place: the two SWAP.
- * From below, nothing above the fixed slot moved, so the row lands past it.
+ * which side the row is coming FROM as well as which side it lands on. From
+ * above, removing it shuffles the fixed slot up one, so landing after it means
+ * taking its old place: the two SWAP. From below, nothing above the fixed slot
+ * moved, so the row lands past it.
+ *
+ * `before` is always one slot earlier than `after`, in both directions, because
+ * the two name the gaps either side of the same element.
  */
-export function slotLandingAfter(from: number, fixed: number): number {
-  return from < fixed ? fixed : fixed + 1;
+export function slotLandingBeside(
+  from: number,
+  fixed: number,
+  side: LandingSide
+): number {
+  const after = from < fixed ? fixed : fixed + 1;
+  return side === 'after' ? after : after - 1;
 }
 
 /**
