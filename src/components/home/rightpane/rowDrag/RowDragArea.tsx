@@ -46,7 +46,9 @@ interface DragState {
   toIndex: number;
   // How far the held row has travelled from where it was picked up.
   offset: number;
-  height: number;
+  // How far every row it has passed must move to close up behind it -- the room
+  // the held row occupies, not the height it measures (KAN-163).
+  footprint: number;
 }
 
 interface Ctx {
@@ -122,6 +124,70 @@ interface Rect {
   height: number;
 }
 
+// How much room a row takes up: its border box plus the margin that separates
+// it from the row beside it. Lifting it out of the flow closes exactly this
+// much, wherever it sits, which is what the preview shifts every passed row by.
+//
+// Not the same number as its height, and the difference is why KAN-163 existed.
+// Every row is a wrapper this file owns, holding a block the list owns, and
+// that block's margin COLLAPSES THROUGH the wrapper -- the wrapper sets no
+// bottom border, padding or height to stop it. So the margin spaces the rows on
+// screen while sitting outside the wrapper's border box, which is the only
+// thing getBoundingClientRect reports. Measured: a folded window row is 32px
+// tall and 40px apart from the next one.
+//
+// MEASURED AMONG ITS SIBLINGS, not against the next row in the list, and that
+// distinction is load-bearing. The `tabs` scope is a FLAT list of every tab in
+// the window, so two consecutive ROWS need not be consecutive in the LAYOUT:
+// between the last tab before a group and that group's first member sits the
+// group's band header. Reading the next row's top there swallows 32px of chrome
+// belonging to neither row, and the held tab reports a 66px footprint instead
+// of its own 34 -- measured, and four times worse than the bug this fixes.
+//
+// Siblings cannot lie that way: whatever sits between two of them is margin.
+//
+// Read from the layout rather than the stylesheet, because the value is
+// per-list and not reliably predictable from the CSS: windows sit 8px apart,
+// items 2px, and tabs within a group 0px.
+function footprintOf(
+  el: HTMLElement | null,
+  container: HTMLElement | null,
+  height: number
+): number {
+  if (!el) return height;
+
+  // A wrapper that exists only to hold this row IS the row as far as the list
+  // is concerned -- a loose tab is a `tabs` row inside an `items` row, and the
+  // margin that spaces it lives on the outer one. Never climb past the drag
+  // area itself, which would start measuring the list against its neighbours.
+  let box: HTMLElement = el;
+  while (
+    box !== container &&
+    box.parentElement &&
+    box.parentElement !== container &&
+    box.parentElement.children.length === 1
+  ) {
+    box = box.parentElement;
+  }
+
+  const self = box.getBoundingClientRect();
+
+  // The distance to the next sibling's top IS the footprint.
+  const next = box.nextElementSibling;
+  if (next) return next.getBoundingClientRect().top - self.top;
+
+  // The last one has no next sibling to measure against, so use the gap above
+  // it instead: one CSS rule sets the separation, so the two gaps are equal.
+  const prev = box.previousElementSibling;
+  if (prev) {
+    return self.height + (self.top - prev.getBoundingClientRect().bottom);
+  }
+
+  // An only child has no margin to discover, and a one-row list cannot be
+  // reordered anyway.
+  return self.height;
+}
+
 export const RowDragArea: React.FC<RowDragAreaProps> = ({
   rowIds,
   scope,
@@ -148,7 +214,11 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     started: boolean;
     rects: Rect[];
     fromIndex: number;
+    // The held row's border box, which is what the containment guard's slack is
+    // measured in, and its footprint, which is what the preview shifts by. Two
+    // names because they are two different quantities (KAN-163).
     height: number;
+    footprint: number;
     lastX: number;
     lastY: number;
     // Auto-scroll (KAN-152). The scrolling ancestor, and where it stood when
@@ -237,6 +307,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         rects: [],
         fromIndex: rowIds.indexOf(rowId),
         height: 0,
+        footprint: 0,
         lastX: clientX,
         lastY: clientY,
         scroller,
@@ -331,7 +402,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         // auto-scroll just travelled.
         offset:
           l.lastY - l.startY + (l.scroller?.scrollTop ?? 0) - l.startScrollTop,
-        height: l.height,
+        footprint: l.footprint,
       });
     };
 
@@ -446,6 +517,14 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
           };
         });
         l.height = l.rects[l.fromIndex]?.height ?? 0;
+        // Measured in the same frame as the rects above, and from the element
+        // rather than from them -- see footprintOf on why the list order cannot
+        // answer this.
+        l.footprint = footprintOf(
+          rows.current.get(l.rowId) ?? null,
+          containerRef.current,
+          l.height
+        );
 
         // Re-read now that the list may have collapsed: the limit captured at
         // pointer-down described the expanded content, and auto-scrolling to
@@ -661,12 +740,14 @@ export const DraggableRow: React.FC<DraggableRowProps & { index: number }> = ({
     if (held) {
       translate = drag.offset;
     } else if (drag.toIndex > drag.fromIndex) {
-      // Dragging down: everything it has passed moves up one slot.
+      // Dragging down: everything it has passed moves up one slot. One slot is
+      // the held row's FOOTPRINT -- lifting it out of the flow closes the gap it
+      // sat in as well as the box it filled (KAN-163).
       if (index > drag.fromIndex && index <= drag.toIndex)
-        translate = -drag.height;
+        translate = -drag.footprint;
     } else if (drag.toIndex < drag.fromIndex) {
       if (index >= drag.toIndex && index < drag.fromIndex)
-        translate = drag.height;
+        translate = drag.footprint;
     }
   }
 
