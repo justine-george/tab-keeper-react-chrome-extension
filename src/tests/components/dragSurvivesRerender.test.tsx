@@ -68,7 +68,7 @@ const Area = ({
 }) => (
   <RowDragArea rowIds={ids} onMove={onMove} dragKind={kind}>
     {ids.map((id, i) => (
-      <DraggableRow key={id} rowId={id} index={i}>
+      <DraggableRow key={id} rowId={id}>
         <div
           ref={(el) => {
             if (el?.parentElement)

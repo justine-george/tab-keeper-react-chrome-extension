@@ -9,12 +9,25 @@ import React, { useContext } from 'react';
 
 export interface DragState {
   rowId: string;
-  fromIndex: number;
-  toIndex: number;
   // How far the held row has travelled from where it was picked up.
   offset: number;
-  // How far every row it has passed must move to close up behind it -- the room
-  // the held row occupies, not the height it measures (KAN-163).
+  /**
+   * How far each element of the list moves while the drag is over its current
+   * landing slot, keyed by row id -- and by title-row key for the parts of the
+   * list that are drawn but cannot be dragged (KAN-166).
+   *
+   * Elements that do not move are absent; read it as `shifts[key] ?? 0`.
+   *
+   * ONE ANSWER, computed once. This used to be an index range every consumer
+   * re-derived for itself, which is how the landing slot and the rows it was
+   * drawn among came to disagree -- and a group's frame, which is not a row at
+   * all, had to GUESS its own shift from whether its members agreed. It cannot:
+   * every member shifts alike both when the group is passed over and when it
+   * gains a first member, and those move the frame opposite ways.
+   */
+  shifts: Readonly<Record<string, number>>;
+  // How far every row the held row has passed must move to close up behind it
+  // -- the room it occupies, not the height it measures (KAN-163).
   footprint: number;
   // How far the held row's own SLOT has travelled, so the landing placeholder
   // can be drawn in the gap that is opening for it (KAN-166). Zero while the

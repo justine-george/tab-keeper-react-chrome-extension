@@ -45,8 +45,8 @@ const box = (top: number, height: number) =>
 const Harness = ({ onMove }: { onMove: () => void }) => (
   <div data-testid="scroller" style={{ overflowY: 'auto' }}>
     <RowDragArea rowIds={['a', 'b', 'c', 'd']} onMove={onMove}>
-      {['a', 'b', 'c', 'd'].map((id, index) => (
-        <DraggableRow key={id} rowId={id} index={index}>
+      {['a', 'b', 'c', 'd'].map((id) => (
+        <DraggableRow key={id} rowId={id}>
           <div>Row {id.toUpperCase()}</div>
         </DraggableRow>
       ))}

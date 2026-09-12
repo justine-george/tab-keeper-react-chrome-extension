@@ -26,8 +26,8 @@ const box = (top: number) =>
 
 const Rows = ({ ids = ['a1', 'a2', 'a3'] }: { ids?: string[] }) => (
   <RowDragArea rowIds={ids} onMove={() => {}} dragKind="group">
-    {ids.map((id, i) => (
-      <DraggableRow key={id} rowId={id} index={i}>
+    {ids.map((id) => (
+      <DraggableRow key={id} rowId={id}>
         <div>Row {id}</div>
       </DraggableRow>
     ))}

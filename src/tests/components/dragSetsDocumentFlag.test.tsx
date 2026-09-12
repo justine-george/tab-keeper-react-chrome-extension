@@ -39,8 +39,8 @@ const box = (top: number, height: number) =>
 
 const Harness = () => (
   <RowDragArea rowIds={['a', 'b', 'c']} onMove={() => undefined}>
-    {['a', 'b', 'c'].map((id, index) => (
-      <DraggableRow key={id} rowId={id} index={index}>
+    {['a', 'b', 'c'].map((id) => (
+      <DraggableRow key={id} rowId={id}>
         <div>Row {id}</div>
       </DraggableRow>
     ))}

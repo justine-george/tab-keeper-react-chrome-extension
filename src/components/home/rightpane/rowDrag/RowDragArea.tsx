@@ -45,6 +45,12 @@ import {
   type DraggableRowProps,
   type RowDragAreaProps,
 } from './dropRules';
+import {
+  landingDeltaOf,
+  previewShifts,
+  slotLandingAfter,
+  type PreviewSlot,
+} from '../../../../utils/functions/dragPreview';
 
 // How close to an edge the pointer must be for the list to start travelling,
 // and how fast it goes at its deepest. 48px is roughly a row and a half here,
@@ -170,33 +176,6 @@ function footprintOf(
   return self.height;
 }
 
-// How far the held row's own slot has travelled (KAN-166).
-//
-// The held row lands on row `to`'s top, in both directions. Dragging up that is
-// immediate -- it takes that row's place. Dragging down it is the same answer
-// by a longer route: the rows between close up by the held row's footprint, so
-// row `to` rises by that much and the held row lands one footprint below it.
-//
-// The general form carries two more terms -- `target.top - footprint +
-// targetFootprint` -- which cancel whenever the two rows take the same room,
-// and NO reachable drop distinguishes them. A target whose footprint differs is
-// always a tab inside a group, and releasing there is exactly what makes the
-// held tab join that group (dropRules.bandAt), so it lands flush as a member
-// rather than at its old loose size. Written out in full, a mutation removing
-// the extra terms survived every test; they are gone rather than left
-// unexercised.
-//
-// Derived from the measured TOPS rather than by summing footprints, because the
-// `tabs` scope is not contiguous in layout -- a group's band header can sit
-// between two consecutive rows, belonging to neither -- so a sum of footprints
-// is not a distance.
-function landingDeltaOf(rects: Rect[], from: number, to: number): number {
-  const start = rects[from];
-  const target = rects[to];
-  if (start === undefined || target === undefined) return 0;
-  return target.top - start.top;
-}
-
 export const RowDragArea: React.FC<RowDragAreaProps> = ({
   rowIds,
   scope,
@@ -207,7 +186,8 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
   restoreScrollIfNoDrop = false,
   resolveDrop,
   onDropTargetChange,
-  landingIndexFor,
+  fixedRowSelector,
+  landsAfterFixedRow,
   disabled = false,
   children,
 }) => {
@@ -252,6 +232,19 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     // The last target resolveDrop named, so the list hears only about changes
     // rather than once per pointer move (KAN-164).
     dropTarget: string | undefined;
+    // The list AS DRAWN -- every row plus every fixed row the list declared,
+    // in layout order (KAN-166). The preview runs here rather than over `rects`
+    // because a drop can move a row past a title row without changing its row
+    // index, and in a list of rows alone that has no expression.
+    //
+    // A second array rather than a wider `rects`, so the DROP path -- which is
+    // correct, and speaks row indices the reducers share -- is untouched.
+    slots: PreviewSlot[];
+    // Row index -> slot index, and fixed-row key -> slot index. Both are the
+    // same translation and neither is derivable from the other once a fixed row
+    // sits between two rows.
+    slotOfRow: number[];
+    slotOfFixed: Map<string, number>;
   } | null>(null);
 
   // The auto-scroll frame, cancelled on drop. A ref rather than state: it is
@@ -333,6 +326,9 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         pane: clampDropToEnds ? paneOf(el) : null,
         heldEl: null,
         dropTarget: undefined,
+        slots: [],
+        slotOfRow: [],
+        slotOfFixed: new Map(),
       };
     },
     [rowIds, handleSelector, disabled, clampDropToEnds]
@@ -417,10 +413,21 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // once the pointer is already up.
       const target = resolveDrop?.(containerRef.current, l.lastX, l.lastY);
 
+      // The whole preview in the list AS DRAWN, decided once (KAN-166). The
+      // shifts, the frame and the landing slot all come off this one pair of
+      // indices, so there is no second derivation to disagree with the first --
+      // which is exactly how the slot came to be drawn on an occupied row.
+      const from = l.slotOfRow[l.fromIndex] ?? l.fromIndex;
+      const fixed = landsAfterFixedRow?.(toIndex, target);
+      const fixedSlot =
+        fixed === undefined ? undefined : l.slotOfFixed.get(fixed);
+      const to =
+        fixedSlot === undefined
+          ? l.slotOfRow[toIndex] ?? toIndex
+          : slotLandingAfter(from, fixedSlot);
+
       setDrag({
         rowId: l.rowId,
-        fromIndex: l.fromIndex,
-        toIndex,
         // The scroll delta is part of the travel. The held row lives inside the
         // scroller, so scrolling moves it with the content; without this term
         // it would slide out from under the pointer by exactly the distance
@@ -428,11 +435,8 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         offset:
           l.lastY - l.startY + (l.scroller?.scrollTop ?? 0) - l.startScrollTop,
         footprint: l.footprint,
-        landingDelta: landingDeltaOf(
-          l.rects,
-          l.fromIndex,
-          landingIndexFor?.(toIndex, target) ?? toIndex
-        ),
+        shifts: previewShifts(l.slots, from, to, l.footprint),
+        landingDelta: landingDeltaOf(l.slots, from, to),
       });
     };
 
@@ -547,6 +551,42 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
             top: r ? r.top + l.startScrollTop : 0,
           };
         });
+        // The list AS DRAWN (KAN-166): the rows, plus whatever fixed parts the
+        // list declared, ordered by where they actually sit. Ordered by
+        // measured top rather than by document order, because a fixed row is
+        // rendered inside the thing it labels and its position in the markup
+        // says nothing about its position on screen.
+        const fixed = fixedRowSelector
+          ? [
+              ...(containerRef.current?.querySelectorAll<HTMLElement>(
+                fixedRowSelector
+              ) ?? []),
+            ].flatMap((el) => {
+              const key = el.dataset.fixedRowId;
+              if (key === undefined) return [];
+              return [
+                {
+                  key,
+                  top: el.getBoundingClientRect().top + l.startScrollTop,
+                },
+              ];
+            })
+          : [];
+
+        l.slots = [
+          ...l.rects.map((r) => ({ key: r.id, top: r.top })),
+          ...fixed,
+        ].sort((a, b) => a.top - b.top);
+
+        l.slotOfRow = [];
+        l.slotOfFixed = new Map();
+        const rowAt = new Map(l.rects.map((r) => [r.id, r.index]));
+        l.slots.forEach((slot, index) => {
+          const row = rowAt.get(slot.key);
+          if (row !== undefined) l.slotOfRow[row] = index;
+          else l.slotOfFixed.set(slot.key, index);
+        });
+
         l.height = l.rects[l.fromIndex]?.height ?? 0;
         // Measured in the same frame as the rects above, and from the element
         // rather than from them -- see footprintOf on why the list order cannot
@@ -716,7 +756,8 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     onMove,
     resolveDrop,
     onDropTargetChange,
-    landingIndexFor,
+    fixedRowSelector,
+    landsAfterFixedRow,
     dragKind,
     restoreScrollIfNoDrop,
   ]);
@@ -770,9 +811,12 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
   );
 };
 
-export const DraggableRow: React.FC<DraggableRowProps & { index: number }> = ({
+// A row no longer needs to know WHERE it is (KAN-166). It used to take its own
+// index and re-derive its shift from the drag's index range; the area now works
+// the whole preview out once and reports each element's shift by id, so the
+// index was a second copy of the list's order living on every row.
+export const DraggableRow: React.FC<DraggableRowProps> = ({
   rowId,
-  index,
   scope,
   children,
 }) => {
@@ -784,23 +828,12 @@ export const DraggableRow: React.FC<DraggableRowProps & { index: number }> = ({
     (scope === undefined ? scopes?.nearest : scopes?.byScope[scope]) ?? null;
   const drag = ctx?.drag ?? null;
 
-  let translate = 0;
   const held = drag?.rowId === rowId;
-
-  if (drag) {
-    if (held) {
-      translate = drag.offset;
-    } else if (drag.toIndex > drag.fromIndex) {
-      // Dragging down: everything it has passed moves up one slot. One slot is
-      // the held row's FOOTPRINT -- lifting it out of the flow closes the gap it
-      // sat in as well as the box it filled (KAN-163).
-      if (index > drag.fromIndex && index <= drag.toIndex)
-        translate = -drag.footprint;
-    } else if (drag.toIndex < drag.fromIndex) {
-      if (index >= drag.toIndex && index < drag.fromIndex)
-        translate = drag.footprint;
-    }
-  }
+  // The held row tracks the pointer; every other row is told where to be by the
+  // area, which works it out once for the whole list (KAN-166). This used to
+  // re-derive it from an index range here, and a group's frame re-derived it a
+  // third time -- three copies of one rule, which is how they came to disagree.
+  const translate = !drag ? 0 : held ? drag.offset : drag.shifts[rowId] ?? 0;
 
   return (
     <div

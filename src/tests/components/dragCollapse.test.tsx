@@ -82,10 +82,10 @@ describe('the collapse happens before the rows are measured', () => {
 
     render(
       <RowDragArea rowIds={['a', 'b']} onMove={() => {}} dragKind="window">
-        <DraggableRow rowId="a" index={0}>
+        <DraggableRow rowId="a">
           <div>Row A</div>
         </DraggableRow>
-        <DraggableRow rowId="b" index={1}>
+        <DraggableRow rowId="b">
           <div>Row B</div>
         </DraggableRow>
       </RowDragArea>
@@ -169,8 +169,8 @@ describe('a drag that starts scrolled, on a list that collapses', () => {
           onMove={onMove}
           dragKind="window"
         >
-          {['a', 'b', 'c', 'd'].map((id, i) => (
-            <DraggableRow key={id} rowId={id} index={i}>
+          {['a', 'b', 'c', 'd'].map((id) => (
+            <DraggableRow key={id} rowId={id}>
               <div>Row {id}</div>
             </DraggableRow>
           ))}
@@ -231,8 +231,8 @@ describe('a drop on a list that is still scrolled while folded', () => {
     const { container } = render(
       <div style={{ overflowY: 'auto' }}>
         <RowDragArea rowIds={IDS} onMove={onMove} dragKind="window">
-          {IDS.map((id, i) => (
-            <DraggableRow key={id} rowId={id} index={i}>
+          {IDS.map((id) => (
+            <DraggableRow key={id} rowId={id}>
               <div>Row {id}</div>
             </DraggableRow>
           ))}

@@ -109,24 +109,46 @@ export interface RowDragAreaProps {
     container: HTMLElement | null
   ) => void;
   /**
-   * Where the landing placeholder should point, when the index alone does not
-   * describe where the row will end up (KAN-166).
+   * A CSS selector for the parts of the list that are DRAWN but cannot be
+   * dragged -- for tabs, each group's title row (KAN-166).
+   *
+   * The preview has to account for them or it cannot describe a drop that
+   * changes a tab's group. Such a drop leaves the tab's row index alone and
+   * only moves it past the title row, so in a list of rows alone there is
+   * nothing to say, while the layout genuinely rearranges.
+   *
+   * Each match carries its own key in `data-fixed-row-id`, which is what
+   * `landsAfterFixedRow` names and what `DragState.shifts` reports it under.
+   *
+   * OPT-IN PER LIST, because lists nest and a title row is only fixed in one of
+   * them: in the `items` list a group is a single row that CONTAINS its title,
+   * so the title moves with it and must not be counted twice.
+   */
+  fixedRowSelector?: string;
+  /**
+   * Which fixed row the dragged row will land immediately after, when the index
+   * alone does not describe where it ends up (KAN-166).
    *
    * A tab released inside a group's band joins that group, and the band's rect
    * includes the group's TITLE row -- while the landing index comes from row
    * midpoints, the first of which sits below that title. So in the strip at the
    * top of every group the index says "before the group" and the band says
    * "inside it". Both are right: the tab becomes the group's FIRST member, so
-   * it lands in the first member's slot, under the header rather than above it.
+   * it lands under the title row rather than above it.
    *
    * The area cannot know that. It knows an index and whatever `resolveDrop`
    * answered; what a group IS, and which row starts it, belong to the list. So
-   * the list is asked where the row really lands and the area draws it there.
+   * the list names the title row and the area works out the rest -- including
+   * that the answer differs by direction, since a row arriving from above SWAPS
+   * with the title row while one arriving from below lands past it.
    *
-   * The DROP is unaffected -- this corrects the preview only, and the reducer
+   * The DROP is unaffected -- this shapes the preview only, and the reducer
    * still receives the raw index, which produces the same arrangement.
    */
-  landingIndexFor?: (toIndex: number, target: string | undefined) => number;
+  landsAfterFixedRow?: (
+    toIndex: number,
+    target: string | undefined
+  ) => string | undefined;
   // Dragging is off while the list on screen is a FILTERED view of the stored
   // one (KAN-131). toIndex counts rendered rows, and the reducers apply it to
   // the stored array, so a drag in a narrowed list lands somewhere the user

@@ -84,7 +84,7 @@ const Harness = ({
         clampDropToEnds={clamp}
       >
         {ids.map((id, i) => (
-          <DraggableRow key={id} rowId={id} index={i}>
+          <DraggableRow key={id} rowId={id}>
             <div
               ref={(el) => {
                 // The DraggableRow node is what the engine measures.

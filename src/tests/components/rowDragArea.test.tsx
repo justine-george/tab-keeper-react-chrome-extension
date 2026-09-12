@@ -39,14 +39,14 @@ const Harness = ({ onMove }: { onMove: OnMove }) => (
   <RowDragArea rowIds={['a', 'b', 'c']} onMove={onMove} resolveDrop={bandAt}>
     {/* Row `a` sits inside a band; `b` and `c` do not. */}
     <div data-band-id="grp" data-testid="band">
-      <DraggableRow rowId="a" index={0}>
+      <DraggableRow rowId="a">
         <div>Row A</div>
       </DraggableRow>
     </div>
-    <DraggableRow rowId="b" index={1}>
+    <DraggableRow rowId="b">
       <div>Row B</div>
     </DraggableRow>
-    <DraggableRow rowId="c" index={2}>
+    <DraggableRow rowId="c">
       <div>Row C</div>
     </DraggableRow>
   </RowDragArea>
@@ -93,8 +93,8 @@ describe('handleSelector decides which press starts a drag', () => {
         onMove={onMove}
         handleSelector="[data-handle]"
       >
-        {['a', 'b', 'c'].map((id, index) => (
-          <DraggableRow key={id} rowId={id} index={index}>
+        {['a', 'b', 'c'].map((id) => (
+          <DraggableRow key={id} rowId={id}>
             <div data-handle>
               <span>Handle {id}</span>
             </div>
