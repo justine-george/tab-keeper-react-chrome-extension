@@ -88,6 +88,11 @@ async function dragTo(page: Page, rowId: string, toY: number) {
   await page.mouse.down();
   await page.mouse.move(x, startY + dir * 8);
   await page.mouse.move(x, toY, { steps: 8 });
+  // The frame's parts carry a 0.18s transition (KAN-165), so anything compared
+  // against a title row's RECT has to wait it out. Read immediately, the title
+  // is still at its resting top and a ghost correctly drawn above it reads as
+  // being inside the group.
+  await page.waitForTimeout(280);
 
   return page.evaluate((held: string) => {
     const slot = document.querySelector<HTMLElement>(
@@ -99,7 +104,23 @@ async function dragTo(page: Page, rowId: string, toY: number) {
     const shift = Number(
       /translateY\((-?[\d.]+)px\)/.exec(row.style.transform)?.[1] ?? 0
     );
+    const title = document.querySelector<HTMLElement>(
+      '[data-band-id="test"] [data-group-drag-handle]'
+    )!;
+    const first = document.querySelector<HTMLElement>(
+      '[data-drag-row-id="g0"]'
+    )!;
     return {
+      // Where the ghost points, named against the group's own chrome (KAN-174).
+      ghostIs: !slot
+        ? 'none'
+        : slot.getBoundingClientRect().top <
+            title.getBoundingClientRect().top - 2
+          ? 'above the title row'
+          : slot.getBoundingClientRect().top <
+              first.getBoundingClientRect().top - 2
+            ? 'inside the group, at its head'
+            : 'at or below the first member',
       // A ghost drawn on the held row's OWN slot is the engine saying "nothing
       // will happen"; one drawn anywhere else is a promise.
       promisesAMove:
@@ -154,6 +175,43 @@ test.describe('a group at the top of a window', () => {
 
     await page.mouse.up();
     expect(await order(page)).toBe('b1* g0* g1* b0');
+  });
+
+  // KAN-174. The two drops that meet at a group's head must not look alike.
+  // They did: both drew the ghost between the title row and the first member,
+  // so the band's tint was the only thing telling them apart -- and for the
+  // one that lands OUTSIDE the group the ghost pointed inside a band it was
+  // never going to join.
+  test('landing before it and joining it point at different slots', async ({
+    context,
+    extensionId,
+  }) => {
+    // Each case is read back BEFORE the next one runs: the two pages share one
+    // localStorage, so the second release overwrites the first one's order.
+    const before = await open(context, extensionId);
+    const bandA = (await bandBox(before))!;
+    const outside = await dragTo(before, 'b1', bandA.y - 6);
+    await before.mouse.up();
+    const landedOutside = await order(before);
+    await before.close();
+
+    const joining = await open(context, extensionId);
+    const title = (await joining
+      .locator('[data-band-id="test"] [data-group-drag-handle]')
+      .boundingBox())!;
+    const inside = await dragTo(joining, 'b1', title.y + title.height / 2);
+    await joining.mouse.up();
+    const landedInside = await order(joining);
+
+    // PREMISES: the same gesture, landing two different ways.
+    expect(outside.bandIsTarget).toBe(false);
+    expect(inside.bandIsTarget).toBe(true);
+    expect(landedOutside).toBe('b1 g0* g1* b0');
+    expect(landedInside).toBe('b1* g0* g1* b0');
+
+    // THE CLAIM: each ghost points at the slot its own release will use.
+    expect(outside.ghostIs).toBe('above the title row');
+    expect(inside.ghostIs).toBe('inside the group, at its head');
   });
 
   // KAN-172. Far enough out that the list refuses the release -- and a refusal

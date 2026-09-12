@@ -305,18 +305,6 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   );
   const itemIds = useMemo(() => items.map(itemIdOf), [items]);
 
-  // Which group each tab is currently in, so the rule below can see a tab
-  // LEAVING one as well as joining one (KAN-168). The engine knows only where
-  // the pointer is; where the row STARTED is the list's own knowledge.
-  const groupOfTab = useMemo(() => {
-    const byId = new Map<string, string>();
-    for (const tab of tabs) {
-      if (tab.chromeGroupId !== undefined)
-        byId.set(tab.tabId, tab.chromeGroupId);
-    }
-    return byId;
-  }, [tabs]);
-
   // Where in the window's tab list each group's first member sits.
   const groupFirstIndex = useMemo(() => {
     const byId = new Map<string, number>();
@@ -382,24 +370,34 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
           : undefined;
       }
 
-      // KAN-168. Landing outside every band, having started inside one: the
-      // tab LEAVES its group, and above its first member that means crossing
-      // the title row the other way. Its row index does not change -- the
-      // reducer splices it out and back in at the same place and only drops
-      // the membership -- so without this the preview has nothing to say and
-      // draws the landing slot at the tab's own origin, inside the band.
+      // Landing outside every band: the tab ends up ungrouped. If that puts it
+      // at a group's HEAD, it lands BEFORE that group's title row.
       //
-      // The same head, in the same space -- though here the adjustment is
-      // always zero, since a tab leaving its own group started inside it and so
-      // never sits above its own head.
-      const held = groupOfTab.get(rowId);
-      if (held === undefined) return undefined;
-      const head = headInLandingSpace(held, rowId);
-      return head !== undefined && toIndex <= head
-        ? { fixedRowId: held, side: 'before' as const }
-        : undefined;
+      // NOT A QUESTION ABOUT WHERE THE TAB CAME FROM (KAN-174). This began as
+      // the KAN-168 rule for a tab LEAVING the group it was already in, and
+      // that was too narrow: a loose tab landing at the same head fell through
+      // to the row index alone, which the area resolves to the slot that row
+      // OCCUPIES -- the first member's. So the ghost pointed inside a band the
+      // tab was never going to join, in the same place as an actual join, and
+      // the band's tint was the only thing telling the two apart.
+      //
+      // The row index cannot answer it. "Land before row t" is ambiguous when a
+      // title row sits immediately before t: before the title, or after it? It
+      // is after only when the drop JOINS that group, which is the branch
+      // above. Everything reaching here lands before.
+      //
+      // Matched EXACTLY rather than `<=`, unlike the joining branch. The whole
+      // strip at the top of a band means "join at the head", but a landing
+      // index above a group's head belongs to the rows above it, not to the
+      // group.
+      for (const groupId of groupFirstIndex.keys()) {
+        if (headInLandingSpace(groupId, rowId) === toIndex) {
+          return { fixedRowId: groupId, side: 'before' as const };
+        }
+      }
+      return undefined;
     },
-    [groupOfTab, headInLandingSpace]
+    [groupFirstIndex, headInLandingSpace]
   );
 
   const handleMoveGroup = useCallback(

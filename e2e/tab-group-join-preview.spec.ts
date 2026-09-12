@@ -591,6 +591,28 @@ test.describe('the preview predicts the drop', () => {
     expect(preview.a3).toBe(TRUTH.secondPosition.a3);
   });
 
+  // The bound on the head rule (KAN-174). A landing index ABOVE a group's head
+  // belongs to the rows above it, not to the group -- so the head is matched
+  // exactly, not with <=. Without a row above Alpha this cannot be expressed at
+  // all, which is why it lives here rather than in tab-group-leading.spec.ts:
+  // there the group leads the window and no index sits below its head.
+  test('a tab landing above the rows before a group does not answer to it', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await open(context, extensionId, BEFORE);
+    const a0 = (await page.locator('[data-drag-row-id="a0"]').boundingBox())!;
+
+    // Above a0's midpoint: the very top of the list, three rows clear of Alpha.
+    const preview = await previewOfDragging(page, 'a3', a0.y + 4, {
+      settle: true,
+    });
+
+    // It lands in a0's slot, NOT at Alpha's title row far below.
+    expect(preview.a3).toBe(TRUTH.before.a0);
+    expect(preview.header).toBe(TRUTH.before.header + 34);
+  });
+
   // KAN-168, reported from the shipped build. Leaving a group changes the tab's
   // membership without changing its row index, which is the same blind spot
   // KAN-166 fixed for joining -- so the slot was drawn at the tab's own origin,
