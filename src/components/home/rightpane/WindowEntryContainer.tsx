@@ -309,16 +309,39 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   //
   // The DROP is untouched. This is the preview only; the reducer still receives
   // the raw index and produces the same arrangement.
+  // Where a group's head sits in the space `toIndex` is counted in (KAN-170).
+  //
+  // TWO LISTS, AND THEY ARE NOT THE SAME ONE. `groupFirstIndex` counts every
+  // row; `toIndex` counts the rows with the HELD row lifted out, because it is
+  // the number of midpoints the pointer has passed. Lifting a row out shifts
+  // everything below it down one, so the two agree only when the held row sits
+  // BELOW the group.
+  //
+  // Comparing them directly made the head test over-reach by exactly one slot
+  // for any tab dragged down from above, which swallowed the group's second
+  // position into its first -- the slot drew above the first member while the
+  // drop landed below it. See KAN-131: an index is only valid in the list that
+  // produced it.
+  const headInLandingSpace = useCallback(
+    (groupId: string, rowId: string) => {
+      const first = groupFirstIndex.get(groupId);
+      if (first === undefined) return undefined;
+      const fromIndex = indexOfTab.get(rowId);
+      return fromIndex !== undefined && fromIndex < first ? first - 1 : first;
+    },
+    [groupFirstIndex, indexOfTab]
+  );
+
   const landsBesideFixedRow = useCallback(
     (rowId: string, toIndex: number, target: string | undefined) => {
       // Landing inside a band: the tab joins that group, or moves to the head
       // of the one it is already in. Either way it ends up UNDER that title
-      // row. At or above the first member is the strip where the index and the
-      // band disagree; below it the tab is landing BETWEEN members, where its
-      // row index already says everything.
+      // row. At or above the head is the strip where the index and the band
+      // disagree; below it the tab is landing BETWEEN members, where its row
+      // index already says everything.
       if (target !== undefined) {
-        const first = groupFirstIndex.get(target);
-        return first !== undefined && toIndex <= first
+        const head = headInLandingSpace(target, rowId);
+        return head !== undefined && toIndex <= head
           ? { fixedRowId: target, side: 'after' as const }
           : undefined;
       }
@@ -329,14 +352,18 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
       // reducer splices it out and back in at the same place and only drops
       // the membership -- so without this the preview has nothing to say and
       // draws the landing slot at the tab's own origin, inside the band.
+      //
+      // The same head, in the same space -- though here the adjustment is
+      // always zero, since a tab leaving its own group started inside it and so
+      // never sits above its own head.
       const held = groupOfTab.get(rowId);
       if (held === undefined) return undefined;
-      const first = groupFirstIndex.get(held);
-      return first !== undefined && toIndex <= first
+      const head = headInLandingSpace(held, rowId);
+      return head !== undefined && toIndex <= head
         ? { fixedRowId: held, side: 'before' as const }
         : undefined;
     },
-    [groupFirstIndex, groupOfTab]
+    [groupOfTab, headInLandingSpace]
   );
 
   const handleMoveGroup = useCallback(

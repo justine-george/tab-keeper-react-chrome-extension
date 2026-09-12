@@ -76,6 +76,19 @@ const AFTER_LEAVING: Tab[] = [
   tab('a3'),
 ];
 
+// a2 joins Alpha at its SECOND position (KAN-170), from directly above. Unlike
+// the head case its row index DOES change -- 2 -> 3 -- because it now has to
+// pass alpha0 as well as the title row.
+const AFTER_SECOND_POSITION: Tab[] = [
+  tab('a0'),
+  tab('a1'),
+  tab('alpha0', 'alpha'),
+  tab('a2', 'alpha'),
+  tab('alpha1', 'alpha'),
+  tab('alpha2', 'alpha'),
+  tab('a3'),
+];
+
 const ROWS = ['a0', 'a1', 'a2', 'a3', 'alpha0', 'alpha1', 'alpha2'] as const;
 
 // Measured in the real popup at 790x550 on 2026-09-12, tops relative to a0.
@@ -114,6 +127,18 @@ const TRUTH = {
     a2: 64,
     alpha0: 96,
     header: 130,
+    alpha1: 162,
+    alpha2: 194,
+    a3: 228,
+  },
+  // KAN-170. a2 dropped on Alpha's SECOND slot, from above. The title row and
+  // alpha0 both step up past it; everything below alpha0 holds still.
+  secondPosition: {
+    a0: 0,
+    a1: 32,
+    header: 66,
+    alpha0: 98,
+    a2: 130,
     alpha1: 162,
     alpha2: 194,
     a3: 228,
@@ -217,6 +242,15 @@ test.describe('ground truth: what the drop actually does', () => {
     ).toEqual(TRUTH.fromBelow);
   });
 
+  test('a2 joining Alpha at its second position passes alpha0 too', async ({
+    context,
+    extensionId,
+  }) => {
+    expect(
+      await tops(await open(context, extensionId, AFTER_SECOND_POSITION))
+    ).toEqual(TRUTH.secondPosition);
+  });
+
   test('alpha0 leaving Alpha upward swaps it back past the title row', async ({
     context,
     extensionId,
@@ -254,6 +288,15 @@ const titleRowY = async (page: Page) => {
 const aboveBandY = async (page: Page) => {
   const band = (await page.locator('[data-band-id="alpha"]').boundingBox())!;
   return band.y - 6;
+};
+
+// Inside the band, but PAST alpha0's midpoint -- so the landing index names
+// the second slot rather than the first. The strip between alpha0's midpoint
+// and the band's bottom edge is where "which member does it land beside?" has
+// to be answered by the index rather than by the band (KAN-170).
+const secondSlotY = async (page: Page) => {
+  const b = (await page.locator('[data-drag-row-id="alpha0"]').boundingBox())!;
+  return b.y + b.height * 0.75;
 };
 
 async function previewOfDragging(page: Page, rowId: string, toY: number) {
@@ -365,6 +408,37 @@ test.describe('the preview predicts the drop', () => {
 
     // Exact, in the direction the index alone already described.
     expect(preview.a3).toBe(TRUTH.fromBelow.a3);
+  });
+
+  // KAN-170, reported from the shipped build. Aiming at the group's SECOND
+  // slot from above drew the slot in its FIRST, because the rule that spots a
+  // tab landing at the head compared two indices counted in different lists:
+  // toIndex counts the rows with the held one lifted out, groupFirstIndex
+  // counts all of them, and those agree only when the held row is BELOW the
+  // group. The drop was right the whole time; only the preview lied.
+  test('a2 dropped on the second slot: the slot goes there, not to the head', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await open(context, extensionId, BEFORE);
+    const preview = await previewOfDragging(
+      page,
+      'a2',
+      await secondSlotY(page)
+    );
+
+    // Below alpha0, not above it. This is the assertion the screenshot failed.
+    expect(preview.a2).toBe(TRUTH.secondPosition.a2);
+    expect(preview.a2).toBeGreaterThan(preview.alpha0);
+
+    // alpha0 steps up past the held row as well as the title row does.
+    expect(preview.alpha0).toBe(TRUTH.secondPosition.alpha0 - 2);
+    expect(preview.header).toBe(TRUTH.secondPosition.header - 2);
+
+    // Nothing below the slot moves.
+    expect(preview.alpha1).toBe(TRUTH.secondPosition.alpha1);
+    expect(preview.alpha2).toBe(TRUTH.secondPosition.alpha2);
+    expect(preview.a3).toBe(TRUTH.secondPosition.a3);
   });
 
   // KAN-168, reported from the shipped build. Leaving a group changes the tab's
