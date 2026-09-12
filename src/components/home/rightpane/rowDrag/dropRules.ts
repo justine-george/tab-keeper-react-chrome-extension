@@ -247,7 +247,8 @@ export function bandAt(
 export function isInsideList(
   rows: { mid: number; height: number }[],
   y: number,
-  slack: number
+  slack: number,
+  drawnTop?: number
 ): boolean {
   if (rows.length === 0) return false;
   let top = Infinity;
@@ -256,6 +257,21 @@ export function isInsideList(
     top = Math.min(top, row.mid - row.height / 2);
     bottom = Math.max(bottom, row.mid + row.height / 2);
   }
+  // The list the USER sees starts at its first drawn thing, not its first
+  // draggable row (KAN-173). When a group leads a window, a whole title row
+  // sits above the topmost row, and measuring from the row put the list's edge
+  // BELOW chrome that plainly belongs to it.
+  //
+  // That made "before the group" unaddressable. The only pointer positions
+  // that count as landing at index 0 are above the first member's midpoint;
+  // inside the band that means "join at the head" (KAN-166), and above the
+  // band the release was refused -- so no position meant "before" at all.
+  //
+  // Only the top edge moves, and only onto chrome the list already draws. The
+  // bottom stays measured from the rows, because that edge is the KAN-132
+  // guard: it is what stops a tab dragged out of its window saturating at the
+  // bottom of the window it came from.
+  if (drawnTop !== undefined) top = Math.min(top, drawnTop);
   return y >= top - slack && y <= bottom + slack;
 }
 

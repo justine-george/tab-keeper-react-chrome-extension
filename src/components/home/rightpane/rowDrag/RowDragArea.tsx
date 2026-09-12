@@ -382,7 +382,13 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         l.lastX >= paneBox.left &&
         l.lastX <= paneBox.right;
 
-      if (!isInsideList(l.rects, dropY, l.height / 2) && !releasedInPane) {
+      // The list's own extent, taken from the DRAWN list so a group's title
+      // row counts as part of it (KAN-173). `slots` is already ordered by
+      // measured top, so its first entry is whatever the list starts with.
+      if (
+        !isInsideList(l.rects, dropY, l.height / 2, l.slots[0]?.top) &&
+        !releasedInPane
+      ) {
         return undefined;
       }
 
@@ -401,7 +407,18 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     const update = (l: NonNullable<typeof live.current>) => {
       // Where the release would be refused, preview the row going back where
       // it came from: no row steps aside, and its own slot stays open.
-      const toIndex = landingIndex(l) ?? l.fromIndex;
+      //
+      // REFUSED AND "LANDS WHERE IT STARTED" ARE NOT THE SAME STATE, and this
+      // used to conflate them (KAN-172). Falling back to the from-index was
+      // enough while a preview was built from an index alone, because to ===
+      // from then says "nothing moves". It stopped being enough once a drop
+      // could change a row's GROUP without changing its index: for a tab that
+      // is already its group's first member, the fallback still satisfies the
+      // leaving rule, so a refused release drew a full membership-change
+      // preview and promised a move that never came.
+      const landing = landingIndex(l);
+      const refused = landing === undefined;
+      const toIndex = landing ?? l.fromIndex;
 
       // What a release HERE would land ON, asked once and spent twice (KAN-164,
       // KAN-166): the list is told when the answer changes, and the landing
@@ -418,7 +435,9 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // indices, so there is no second derivation to disagree with the first --
       // which is exactly how the slot came to be drawn on an occupied row.
       const from = l.slotOfRow[l.fromIndex] ?? l.fromIndex;
-      const beside = landsBesideFixedRow?.(l.rowId, toIndex, target);
+      const beside = refused
+        ? undefined
+        : landsBesideFixedRow?.(l.rowId, toIndex, target);
       const fixedSlot =
         beside === undefined ? undefined : l.slotOfFixed.get(beside.fixedRowId);
       const to =
