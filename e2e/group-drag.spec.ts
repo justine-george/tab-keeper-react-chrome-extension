@@ -406,3 +406,157 @@ test.describe('dragging a group', () => {
     expect(await itemOrder(page)).toEqual(START);
   });
 });
+
+// KAN-163 in the group list: the same defect at a different margin, which is
+// why the fix reads the gap instead of naming it. Measured here, held group
+// compressed: 32px tall, 34px apart -- a 2px gap, from the band's `margin:
+// 2px 0`.
+//
+// Not the 4px the KAN-160 spec predicted. That figure came from an UNFOLDED
+// group, 96px against a 100px pitch, and the drag never measures that layout:
+// the rects are taken after the held group compresses. A prediction made in the
+// wrong one of the two layouts, which is the standing hazard in this engine.
+test.describe('the gap a group drag opens', () => {
+  test('the item stepping aside lands on the vacated slot, margin included', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await open(context, extensionId);
+    const pane = await scrollToGroupAndRecord(page, 'alpha');
+    const at = await grab(page, 'alpha');
+
+    // Down past the next item's midpoint in the compressed layout, so it steps.
+    await page.mouse.move(at.x + 8, at.y + 50, { steps: 8 });
+    // The step is animated (0.18s); measuring early reads it part-way.
+    await page.waitForTimeout(320);
+
+    const geom = await page.evaluate(() => {
+      const rows = [
+        ...document.querySelectorAll<HTMLElement>(
+          '[data-drag-row-id="w1"] [data-drag-row-id^="tab:"], [data-drag-row-id="w1"] [data-drag-row-id^="group:"]'
+        ),
+      ];
+      const shift = (r: HTMLElement) =>
+        Number(/translateY\((-?[\d.]+)px\)/.exec(r.style.transform)?.[1] ?? 0);
+      const layoutTop = (r: HTMLElement) =>
+        r.getBoundingClientRect().top - shift(r);
+
+      const from = rows.findIndex((r) => r.hasAttribute('data-drag-held'));
+      const held = rows[from];
+      const stepped = rows[from + 1];
+      return {
+        from,
+        heldHeight: held.getBoundingClientRect().height,
+        pitch: layoutTop(stepped) - layoutTop(held),
+        slotTop: layoutTop(held),
+        steppedTop: stepped.getBoundingClientRect().top,
+        steppedShift: shift(stepped),
+      };
+    });
+
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+
+    // PREMISES: the held row is the group, the pick-up scrolled nothing, there
+    // is a margin to forget at all, and the row below really stepped.
+    expect(geom.from).toBe(1);
+    expect(await paneScrollTop(page)).toBe(pane.scrollTop);
+    expect(geom.pitch).toBeGreaterThan(geom.heldHeight);
+    expect(geom.steppedShift).toBeLessThan(0);
+
+    // THE CLAIM.
+    expect(geom.steppedTop).toBeCloseTo(geom.slotTop, 0);
+
+    expect(await itemOrder(page)).toEqual(START);
+  });
+});
+
+// KAN-163, the case the window and item lists cannot show. The `tabs` scope is
+// a FLAT list of every tab in the window, so two consecutive rows in it are not
+// necessarily consecutive in the LAYOUT: between the last tab before a group
+// and that group's first member sits the group's band header, 32px belonging to
+// neither row. Measuring a footprint as "the distance to the next row's top"
+// swallows it, and the held tab reports 66px instead of its own 34.
+//
+// The oracle is built from rows the held one is not involved in: a tab's
+// footprint is its own height plus the gap the item list puts between items,
+// measured between the group above and the tab below it.
+test.describe('a tab dragged across a group boundary', () => {
+  test('steps the rows below it by its own footprint, not across the band', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await open(context, extensionId);
+
+    // Centre the tab in the pane: clear of both 48px auto-scroll zones, so the
+    // pick-up cannot measure a list that is moving under it.
+    const before = await page.evaluate(() => {
+      const w1 = document.querySelector<HTMLElement>(
+        '[data-drag-row-id="w1"]'
+      )!;
+      let pane = w1.parentElement;
+      while (
+        pane &&
+        !['auto', 'scroll'].includes(getComputedStyle(pane).overflowY)
+      )
+        pane = pane.parentElement;
+      const held = document.querySelector<HTMLElement>(
+        '[data-drag-row-id="a0"]'
+      )!;
+      const hb = held.getBoundingClientRect();
+      const pb = pane!.getBoundingClientRect();
+      pane!.scrollTop += hb.top + hb.height / 2 - (pb.top + pb.height / 2);
+
+      const box = (sel: string) =>
+        document.querySelector<HTMLElement>(sel)!.getBoundingClientRect();
+      const h = box('[data-drag-row-id="a0"]');
+      return {
+        heldHeight: h.height,
+        // The item list's own separation, measured away from the held row.
+        itemGap:
+          box('[data-drag-row-id="tab:a1"]').top -
+          box('[data-drag-row-id="group:alpha"]').bottom,
+        grabX: h.left + 80,
+        grabY: h.top + h.height / 2,
+      };
+    });
+
+    await page.mouse.move(before.grabX, before.grabY);
+    await page.mouse.down();
+    await page.mouse.move(before.grabX, before.grabY + 10, { steps: 3 });
+    // Past the first group member's midpoint, so it has to step up. That
+    // midpoint is a band header further down than the tab pitch suggests.
+    await page.mouse.move(before.grabX, before.grabY + 110, { steps: 10 });
+    // The step is animated (0.18s); measuring early reads it part-way.
+    await page.waitForTimeout(320);
+
+    const shifted = await page.evaluate(() => {
+      const shift = (el: HTMLElement) =>
+        Number(/translateY\((-?[\d.]+)px\)/.exec(el.style.transform)?.[1] ?? 0);
+      const first = document.querySelector<HTMLElement>(
+        '[data-drag-row-id="alpha0"]'
+      )!;
+      return {
+        heldIsTab: !!document.querySelector(
+          '[data-drag-row-id="a0"][data-drag-held]'
+        ),
+        steppedBy: Math.abs(shift(first)),
+      };
+    });
+
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+
+    // PREMISES: the tab really is the held row, and the row below really moved.
+    expect(shifted.heldIsTab).toBe(true);
+    expect(shifted.steppedBy).toBeGreaterThan(0);
+
+    // THE CLAIM. Its own footprint -- never the band header's 32px as well.
+    expect(shifted.steppedBy).toBeCloseTo(
+      before.heldHeight + before.itemGap,
+      1
+    );
+
+    expect(await itemOrder(page)).toEqual(START);
+  });
+});
