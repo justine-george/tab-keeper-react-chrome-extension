@@ -648,6 +648,42 @@ test.describe('the preview predicts the drop', () => {
     expect(joining.slotInsideStrip).toBe(true);
   });
 
+  // KAN-176. Joining at the tail from BELOW. The landing slot resolves to the
+  // row AFTER the group, which sits past the tail marker -- so the marker stays
+  // put and the frame never extends to cover the slot the tab will occupy,
+  // even though the drop puts it inside the group.
+  test('joining at the tail from below extends the strip over the slot', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await open(context, extensionId, BEFORE);
+    const last = (await page
+      .locator('[data-drag-row-id="alpha2"]')
+      .boundingBox())!;
+
+    // a3 sits BELOW the group; aim inside the band, past the last member.
+    await previewOfDragging(page, 'a3', last.y + last.height - 4, {
+      settle: true,
+    });
+
+    const frame = await page.evaluate(() => {
+      const q = (s: string) => document.querySelector<HTMLElement>(s);
+      const slot = q('[data-drag-landing-slot]')!.getBoundingClientRect();
+      const strip = q(
+        '[data-band-id="alpha"] [data-group-color-strip]'
+      )!.getBoundingClientRect();
+      return {
+        lit: q('[data-band-id="alpha"]')!.hasAttribute('data-drop-target'),
+        coversSlot: strip.bottom >= slot.bottom - 2,
+      };
+    });
+
+    // PREMISE: it really is joining, not landing past the group.
+    expect(frame.lit).toBe(true);
+    // THE CLAIM: the frame reaches the slot the tab will occupy.
+    expect(frame.coversSlot).toBe(true);
+  });
+
   // The other end of KAN-175, and the gap KAN-171 recorded and could not close:
   // when a group LOSES its last member the frame's bottom has to come up, and
   // the last member's own shift could never say so -- a held row is given no

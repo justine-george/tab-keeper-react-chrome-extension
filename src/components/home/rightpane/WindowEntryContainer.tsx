@@ -317,6 +317,18 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     return byId;
   }, [items, indexOfTab]);
 
+  // Where each group's LAST member sits, the counterpart of groupFirstIndex.
+  const groupLastIndex = useMemo(() => {
+    const byId = new Map<string, number>();
+    for (const item of items) {
+      if (item.kind !== 'group') continue;
+      const last = item.tabs[item.tabs.length - 1];
+      const index = last ? indexOfTab.get(last.tabId) : undefined;
+      if (index !== undefined) byId.set(item.group.groupId, index);
+    }
+    return byId;
+  }, [items, indexOfTab]);
+
   // KAN-166. Which title row the dragged tab will land immediately after.
   //
   // A tab released inside a group's band joins that group, and the band's rect
@@ -365,8 +377,30 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
       // index already says everything.
       if (target !== undefined) {
         const head = headInLandingSpace(target, rowId);
-        return head !== undefined && toIndex <= head
-          ? { fixedRowId: target, side: 'after' as const }
+        if (head !== undefined && toIndex <= head) {
+          return { fixedRowId: target, side: 'after' as const };
+        }
+
+        // KAN-176. The same question at the other end. Past the last member
+        // and still inside the band, the tab is joining at the TAIL -- which
+        // is a slot BEFORE the group's tail marker, not after it.
+        //
+        // The row index cannot say so, and this is KAN-174's ambiguity
+        // mirrored: it names the row AFTER the group, which resolves to a slot
+        // PAST the marker, so the marker never moves and the frame stops above
+        // the slot the tab will occupy. Coming from above it happens to
+        // resolve to the same slot either way, which is why only this
+        // direction was wrong.
+        // NO LANDING-SPACE ADJUSTMENT HERE, unlike the head. Coming from
+        // above, "before the tail marker" and "at the last member's slot" are
+        // the SAME slot, so the branch firing or falling through to the row
+        // index gives an identical answer -- an adjustment was written first
+        // and removed, because a mutation proved it could never change one.
+        // Coming from below the row index names the row PAST the marker, which
+        // is the case that needs this at all.
+        const tail = groupLastIndex.get(target);
+        return tail !== undefined && toIndex > tail
+          ? { fixedRowId: `${target}:tail`, side: 'before' as const }
           : undefined;
       }
 
@@ -397,7 +431,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
       }
       return undefined;
     },
-    [groupFirstIndex, headInLandingSpace]
+    [groupFirstIndex, groupLastIndex, headInLandingSpace]
   );
 
   const handleMoveGroup = useCallback(
