@@ -15,6 +15,7 @@ const drag = (over: Partial<DragState> = {}): DragState => ({
   toIndex: 0,
   offset: 0,
   footprint: 34,
+  landingDelta: 0,
   ...over,
 });
 

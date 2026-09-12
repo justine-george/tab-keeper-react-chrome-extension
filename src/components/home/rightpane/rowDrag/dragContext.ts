@@ -16,6 +16,10 @@ export interface DragState {
   // How far every row it has passed must move to close up behind it -- the room
   // the held row occupies, not the height it measures (KAN-163).
   footprint: number;
+  // How far the held row's own SLOT has travelled, so the landing placeholder
+  // can be drawn in the gap that is opening for it (KAN-166). Zero while the
+  // row would land back where it started.
+  landingDelta: number;
 }
 
 export interface Ctx {

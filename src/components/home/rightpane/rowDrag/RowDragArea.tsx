@@ -96,6 +96,12 @@ interface Rect {
   index: number;
   mid: number;
   height: number;
+  // Top edge, in the same content space as `mid`. The landing slot is placed
+  // from it (KAN-166): its position is a DISTANCE between measured tops, and
+  // summing footprints would not do -- the `tabs` scope is not contiguous in
+  // layout, so the gap between two consecutive rows can hold a group's band
+  // header belonging to neither.
+  top: number;
 }
 
 // How much room a row takes up: its border box plus the margin that separates
@@ -160,6 +166,33 @@ function footprintOf(
   // An only child has no margin to discover, and a one-row list cannot be
   // reordered anyway.
   return self.height;
+}
+
+// How far the held row's own slot has travelled (KAN-166).
+//
+// The held row lands on row `to`'s top, in both directions. Dragging up that is
+// immediate -- it takes that row's place. Dragging down it is the same answer
+// by a longer route: the rows between close up by the held row's footprint, so
+// row `to` rises by that much and the held row lands one footprint below it.
+//
+// The general form carries two more terms -- `target.top - footprint +
+// targetFootprint` -- which cancel whenever the two rows take the same room,
+// and NO reachable drop distinguishes them. A target whose footprint differs is
+// always a tab inside a group, and releasing there is exactly what makes the
+// held tab join that group (dropRules.bandAt), so it lands flush as a member
+// rather than at its old loose size. Written out in full, a mutation removing
+// the extra terms survived every test; they are gone rather than left
+// unexercised.
+//
+// Derived from the measured TOPS rather than by summing footprints, because the
+// `tabs` scope is not contiguous in layout -- a group's band header can sit
+// between two consecutive rows, belonging to neither -- so a sum of footprints
+// is not a distance.
+function landingDeltaOf(rects: Rect[], from: number, to: number): number {
+  const start = rects[from];
+  const target = rects[to];
+  if (start === undefined || target === undefined) return 0;
+  return target.top - start.top;
 }
 
 export const RowDragArea: React.FC<RowDragAreaProps> = ({
@@ -382,6 +415,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         offset:
           l.lastY - l.startY + (l.scroller?.scrollTop ?? 0) - l.startScrollTop,
         footprint: l.footprint,
+        landingDelta: landingDeltaOf(l.rects, l.fromIndex, toIndex),
       });
     };
 
@@ -493,6 +527,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
             index,
             mid: r ? r.top + r.height / 2 + l.startScrollTop : 0,
             height: r?.height ?? 0,
+            top: r ? r.top + l.startScrollTop : 0,
           };
         });
         l.height = l.rects[l.fromIndex]?.height ?? 0;
@@ -781,6 +816,31 @@ export const DraggableRow: React.FC<DraggableRowProps & { index: number }> = ({
         cursor: 'pointer',
       }}
     >
+      {/* KAN-166. The slot this row will land in.
+          A child of the held row that counter-transforms out of the wrapper's
+          own translate and on to the landing offset, which pins it to the gap
+          that has opened -- without touching the transform channel this node
+          owns, and without any other component learning about the drag.
+          The landing slot is real empty space, so nothing can sit on top of it;
+          a marker at the ORIGIN cannot say that, because the row behind the
+          held one steps straight into that slot.
+          currentColor keeps it legible in every theme without this file
+          growing a dependency on the theme it otherwise has no use for. */}
+      {held && (
+        <div
+          aria-hidden="true"
+          data-drag-landing-slot=""
+          style={{
+            position: 'absolute',
+            inset: 0,
+            transform: `translateY(${drag.landingDelta - translate}px)`,
+            pointerEvents: 'none',
+            border: '1.5px dashed currentColor',
+            borderRadius: '4px',
+            opacity: 0.3,
+          }}
+        />
+      )}
       {children}
     </div>
   );
