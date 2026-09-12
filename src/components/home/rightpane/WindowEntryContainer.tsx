@@ -93,14 +93,14 @@ interface WindowEntryContainerProps {
 // threading a per-move offset into a component with no other reason to know
 // about dragging would be worse than this. The offset changes only when the
 // landing slot does, not on every pointer move.
-const GroupFrameFollower: React.FC<{
-  groupId: string;
-  lastMemberId: string | undefined;
-}> = ({ groupId, lastMemberId }) => {
+const GroupFrameFollower: React.FC<{ groupId: string }> = ({ groupId }) => {
   const drag = useDragState('tabs');
+  // Both edges come from the drawn list, through one mechanism (KAN-175). The
+  // bottom used to be DERIVED from the last member's shift, which assumes the
+  // last member stays last -- false whenever the group is gaining or losing
+  // one, and the strip then failed to cover a tab joining at the tail.
   const top = drag?.shifts[groupId] ?? 0;
-  const bottom =
-    (lastMemberId === undefined ? 0 : drag?.shifts[lastMemberId]) ?? 0;
+  const bottom = drag?.shifts[`${groupId}:tail`] ?? 0;
   const anchor = useRef<HTMLSpanElement | null>(null);
 
   useLayoutEffect(() => {
@@ -1057,10 +1057,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                         }
                       `}
                     >
-                      <GroupFrameFollower
-                        groupId={item.group.groupId}
-                        lastMemberId={item.tabs[item.tabs.length - 1]?.tabId}
-                      />
+                      <GroupFrameFollower groupId={item.group.groupId} />
                       {/* The colour is Chrome's own group identity, not app chrome
                     (BINDING CONSTRAINT 1) -- TAB_GROUP_COLOR_HEX is a fixed
                     map, not routed through useThemeColors, so it reads the
@@ -1382,6 +1379,28 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                               {renderTab(tabItem)}
                             </DraggableRow>
                           ))}
+                          {/* KAN-175. The group's TAIL, declared the same way
+                              its title row declares its head. Zero height, so
+                              it changes no layout -- it exists only to hold a
+                              place in the drawn list, where previewShifts
+                              decides it like any other slot: a tab landing
+                              BEFORE it is joining at the tail, so the marker
+                              holds still and the frame keeps covering the new
+                              member; one landing AFTER it is going outside, so
+                              the marker rises with the members and the frame's
+                              bottom comes up with it.
+
+                              Before this the frame's bottom was DERIVED from
+                              the last member's shift, which assumes the last
+                              member stays last -- and it does not when the
+                              group is gaining or losing one. */}
+                          <div
+                            aria-hidden="true"
+                            data-fixed-row-id={`${item.group.groupId}:tail`}
+                            css={css`
+                              height: 0;
+                            `}
+                          />
                         </div>
                       </div>
                     </div>

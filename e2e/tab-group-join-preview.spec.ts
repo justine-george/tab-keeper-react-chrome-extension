@@ -613,6 +613,75 @@ test.describe('the preview predicts the drop', () => {
     expect(preview.header).toBe(TRUTH.before.header + 34);
   });
 
+  // KAN-175. The mirror of KAN-174, at the other end of the group. A tab
+  // joining at the TAIL must be drawn inside the strip it is joining, and one
+  // landing just past the group must be drawn outside it -- the two land 2px
+  // apart, so the frame is the only thing that can tell them apart.
+  test('joining at the tail is drawn inside the strip, landing past it outside', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await open(context, extensionId, BEFORE);
+    const last = (await page
+      .locator('[data-drag-row-id="alpha2"]')
+      .boundingBox())!;
+
+    // Inside the band, below the last member's midpoint: joins at the tail.
+    await previewOfDragging(page, 'a0', last.y + last.height - 4, {
+      settle: true,
+    });
+    const joining = await page.evaluate(() => {
+      const q = (s: string) => document.querySelector<HTMLElement>(s);
+      const slot = q('[data-drag-landing-slot]')!.getBoundingClientRect();
+      const strip = q(
+        '[data-band-id="alpha"] [data-group-color-strip]'
+      )!.getBoundingClientRect();
+      return {
+        lit: q('[data-band-id="alpha"]')!.hasAttribute('data-drop-target'),
+        // The slot the tab will occupy has to be WITHIN the strip's span.
+        slotInsideStrip:
+          slot.top >= strip.top - 2 && slot.bottom <= strip.bottom + 2,
+      };
+    });
+
+    expect(joining.lit).toBe(true);
+    expect(joining.slotInsideStrip).toBe(true);
+  });
+
+  // The other end of KAN-175, and the gap KAN-171 recorded and could not close:
+  // when a group LOSES its last member the frame's bottom has to come up, and
+  // the last member's own shift could never say so -- a held row is given no
+  // shift at all. The tail marker answers it without a special case, because
+  // dragging that member down puts the marker inside the shifted range.
+  test('a group losing its last member pulls its strip up to the new one', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await open(context, extensionId, BEFORE);
+    const a3 = (await page.locator('[data-drag-row-id="a3"]').boundingBox())!;
+
+    await previewOfDragging(page, 'alpha2', a3.y + a3.height - 2, {
+      settle: true,
+    });
+
+    const frame = await page.evaluate(() => {
+      const q = (s: string) => document.querySelector<HTMLElement>(s);
+      const strip = q(
+        '[data-band-id="alpha"] [data-group-color-strip]'
+      )!.getBoundingClientRect();
+      const newLast = q('[data-drag-row-id="alpha1"]')!.getBoundingClientRect();
+      return {
+        lit: q('[data-band-id="alpha"]')!.hasAttribute('data-drop-target'),
+        overhang: Math.round(strip.bottom - newLast.bottom),
+      };
+    });
+
+    // PREMISE: it really is leaving, not being reordered inside the group.
+    expect(frame.lit).toBe(false);
+    // THE CLAIM: the strip ends at whatever is left, with nothing hanging past.
+    expect(frame.overhang).toBe(0);
+  });
+
   // KAN-168, reported from the shipped build. Leaving a group changes the tab's
   // membership without changing its row index, which is the same blind spot
   // KAN-166 fixed for joining -- so the slot was drawn at the tab's own origin,
