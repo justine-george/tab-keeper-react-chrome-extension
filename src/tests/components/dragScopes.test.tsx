@@ -28,19 +28,19 @@ type OnMove = (id: string, toIndex: number, target?: string) => void;
 const Nested = ({ outer, inner }: { outer: OnMove; inner: OnMove }) => (
   <RowDragArea scope="outer" rowIds={['o1', 'o2']} onMove={outer}>
     <RowDragArea rowIds={['i1', 'i2']} onMove={inner}>
-      <DraggableRow scope="outer" rowId="o1" index={0}>
+      <DraggableRow scope="outer" rowId="o1">
         <div>Outer 1</div>
       </DraggableRow>
-      <DraggableRow scope="outer" rowId="o2" index={1}>
+      <DraggableRow scope="outer" rowId="o2">
         <div>Outer 2</div>
       </DraggableRow>
-      <DraggableRow rowId="i1" index={0}>
+      <DraggableRow rowId="i1">
         <div>Inner 1</div>
       </DraggableRow>
-      <DraggableRow rowId="i2" index={1}>
+      <DraggableRow rowId="i2">
         <div>Inner 2</div>
       </DraggableRow>
-      <DraggableRow scope="nowhere" rowId="x" index={0}>
+      <DraggableRow scope="nowhere" rowId="x">
         <div>Stray</div>
       </DraggableRow>
     </RowDragArea>

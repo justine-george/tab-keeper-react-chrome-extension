@@ -50,7 +50,6 @@ import type {
 } from '../../../utils/functions/tabGroups';
 import { applyTabGroups } from '../../../utils/functions/windows';
 
-import { groupFrameOffset } from '../../../utils/functions/groupFrame';
 import { RowDragArea, DraggableRow } from './rowDrag/RowDragArea';
 import { useDragState } from './rowDrag/dragContext';
 import { bandAt } from './rowDrag/dropRules';
@@ -79,6 +78,12 @@ interface WindowEntryContainerProps {
 // through their own group -- measured, the first member of a three-tab group
 // ended 2px ABOVE its own title.
 //
+// KAN-166 made this a LOOKUP rather than an inference. It used to ask whether
+// every member had shifted alike and take that as the group having travelled,
+// which cannot tell "passed over" from "gaining a first member" -- both shift
+// every member alike, and they move the frame opposite ways. The area now
+// counts this row in its own preview and reports its shift by name.
+//
 // Rendered INSIDE the drag area because that is the only place the live drag
 // can be read; WindowEntryContainer itself sits outside the area's provider.
 // It draws nothing.
@@ -87,12 +92,10 @@ interface WindowEntryContainerProps {
 // rendered in different places -- the strip by GroupColorPicker -- and
 // threading a per-move offset into a component with no other reason to know
 // about dragging would be worse than this. The offset changes only when the
-// landing index does, not on every pointer move.
-const GroupFrameFollower: React.FC<{ memberIndices: number[] }> = ({
-  memberIndices,
-}) => {
+// landing slot does, not on every pointer move.
+const GroupFrameFollower: React.FC<{ groupId: string }> = ({ groupId }) => {
   const drag = useDragState('tabs');
-  const offset = groupFrameOffset(drag, memberIndices);
+  const offset = drag?.shifts[groupId] ?? 0;
   const anchor = useRef<HTMLSpanElement | null>(null);
 
   useLayoutEffect(() => {
@@ -265,6 +268,46 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     [tabs, chromeTabGroups, hasTabGroupsPermission]
   );
   const itemIds = useMemo(() => items.map(itemIdOf), [items]);
+
+  // Where in the window's tab list each group's first member sits.
+  const groupFirstIndex = useMemo(() => {
+    const byId = new Map<string, number>();
+    for (const item of items) {
+      if (item.kind !== 'group') continue;
+      const first = item.tabs[0];
+      const index = first ? indexOfTab.get(first.tabId) : undefined;
+      if (index !== undefined) byId.set(item.group.groupId, index);
+    }
+    return byId;
+  }, [items, indexOfTab]);
+
+  // KAN-166. Which title row the dragged tab will land immediately after.
+  //
+  // A tab released inside a group's band joins that group, and the band's rect
+  // includes the group's TITLE row -- while the landing index comes from row
+  // midpoints, the first of which sits below that title. So in the strip at the
+  // top of every group the index says "before the group" while the band says
+  // "inside it".
+  //
+  // Both answers are right, and neither is the whole answer: the tab becomes
+  // the group's FIRST member, which puts it under the title row. Naming the
+  // title row rather than an index is what lets the area work out the rest --
+  // it is a different slot from the one the tab left even when its row index is
+  // unchanged, and which slot depends on the direction it arrived from.
+  //
+  // The DROP is untouched. This is the preview only; the reducer still receives
+  // the raw index and produces the same arrangement.
+  const landsAfterFixedRow = useCallback(
+    (toIndex: number, target: string | undefined) => {
+      if (target === undefined) return undefined;
+      const first = groupFirstIndex.get(target);
+      // At or above the first member is the strip where the two answers
+      // disagree. Below it the tab is landing BETWEEN members, where its row
+      // index already says everything.
+      return first !== undefined && toIndex <= first ? target : undefined;
+    },
+    [groupFirstIndex]
+  );
 
   const handleMoveGroup = useCallback(
     (itemId: string, toIndex: number) => {
@@ -828,6 +871,11 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
             dragKind="tab"
             resolveDrop={bandAt}
             onDropTargetChange={markDropTargetBand}
+            landsAfterFixedRow={landsAfterFixedRow}
+            // Each group's title row: drawn in this list, never dragged in it.
+            // Scoped to `tabs` only -- in the `items` list a group is one row
+            // that CONTAINS its title, so counting it there would double it.
+            fixedRowSelector="[data-fixed-row-id]"
             // The mode, not the box's contents -- see KAN-140 on
             // TabGroupEntryContainer for why this is not isFilteredView.
             disabled={isSearchPanel}
@@ -851,19 +899,14 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
               restoreScrollIfNoDrop
               disabled={isSearchPanel}
             >
-              {items.map((item, itemIndex) =>
+              {items.map((item) =>
                 item.kind === 'tab' ? (
                   <DraggableRow
                     key={itemIdOf(item)}
                     scope="items"
                     rowId={itemIdOf(item)}
-                    index={itemIndex}
                   >
-                    <DraggableRow
-                      scope="tabs"
-                      rowId={item.tab.tabId}
-                      index={indexOfTab.get(item.tab.tabId) ?? 0}
-                    >
+                    <DraggableRow scope="tabs" rowId={item.tab.tabId}>
                       {renderTab(item.tab)}
                     </DraggableRow>
                   </DraggableRow>
@@ -872,7 +915,6 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                     key={itemIdOf(item)}
                     scope="items"
                     rowId={itemIdOf(item)}
-                    index={itemIndex}
                   >
                     <div
                       data-band-id={item.group.groupId}
@@ -917,11 +959,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                         }
                       `}
                     >
-                      <GroupFrameFollower
-                        memberIndices={item.tabs.map(
-                          (member) => indexOfTab.get(member.tabId) ?? -1
-                        )}
-                      />
+                      <GroupFrameFollower groupId={item.group.groupId} />
                       {/* The colour is Chrome's own group identity, not app chrome
                     (BINDING CONSTRAINT 1) -- TAB_GROUP_COLOR_HEX is a fixed
                     map, not routed through useThemeColors, so it reads the
@@ -980,6 +1018,12 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                         press. */}
                         <div
                           data-group-drag-handle
+                          // KAN-166. This row is DRAWN in the tab list but is
+                          // not one of its rows, and the preview has to count
+                          // it: a tab dropped on it joins the group without
+                          // changing its row index, which in a list of rows
+                          // alone is indistinguishable from not moving at all.
+                          data-fixed-row-id={item.group.groupId}
                           css={css`
                             position: relative;
                             display: flex;
@@ -1233,7 +1277,6 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                               key={tabItem.tabId}
                               scope="tabs"
                               rowId={tabItem.tabId}
-                              index={indexOfTab.get(tabItem.tabId) ?? 0}
                             >
                               {renderTab(tabItem)}
                             </DraggableRow>

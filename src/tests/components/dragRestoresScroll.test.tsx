@@ -100,8 +100,8 @@ const Harness = ({
       dragKind="window"
       restoreScrollIfNoDrop={restore}
     >
-      {IDS.map((id, i) => (
-        <DraggableRow key={id} rowId={id} index={i}>
+      {IDS.map((id) => (
+        <DraggableRow key={id} rowId={id}>
           <div>Row {id}</div>
         </DraggableRow>
       ))}

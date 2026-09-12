@@ -171,7 +171,7 @@ export default function TabGroupDetailsContainer() {
             disabled={isSearchPanel}
           >
             {selectedTabGroup.windows.map(
-              ({ windowId, title, tabs, chromeTabGroups }, windowIndex) => {
+              ({ windowId, title, tabs, chromeTabGroups }) => {
                 return (
                   // Keyed by windowId, not by index: WindowEntryContainer owns
                   // collapse and rename state, and an index key is identical to
@@ -193,11 +193,7 @@ export default function TabGroupDetailsContainer() {
                   // DraggableRow is what carries that key now. It replaces the
                   // plain wrapper div rather than nesting inside one: it renders
                   // exactly one element per window, so the tree keeps its shape.
-                  <DraggableRow
-                    key={windowId}
-                    rowId={windowId}
-                    index={windowIndex}
-                  >
+                  <DraggableRow key={windowId} rowId={windowId}>
                     <WindowEntryContainer
                       title={title}
                       tabs={tabs}

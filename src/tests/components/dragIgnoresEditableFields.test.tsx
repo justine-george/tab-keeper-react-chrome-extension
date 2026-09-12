@@ -27,30 +27,30 @@ const box = (top: number) =>
 
 const Harness = ({ onMove }: { onMove: (id: string, i: number) => void }) => (
   <RowDragArea rowIds={['a', 'b', 'c', 'd', 'e']} onMove={onMove}>
-    <DraggableRow rowId="a" index={0}>
+    <DraggableRow rowId="a">
       <div>
         <input aria-label="field" defaultValue="text" />
         <span>Beside a</span>
       </div>
     </DraggableRow>
-    <DraggableRow rowId="b" index={1}>
+    <DraggableRow rowId="b">
       <div>
         <textarea aria-label="area" defaultValue="text" />
       </div>
     </DraggableRow>
-    <DraggableRow rowId="c" index={2}>
+    <DraggableRow rowId="c">
       <div>
         <div contentEditable suppressContentEditableWarning>
           Editable c
         </div>
       </div>
     </DraggableRow>
-    <DraggableRow rowId="d" index={3}>
+    <DraggableRow rowId="d">
       <div>
         <span contentEditable={false}>Not editable d</span>
       </div>
     </DraggableRow>
-    <DraggableRow rowId="e" index={4}>
+    <DraggableRow rowId="e">
       <div>
         <span>Plain e</span>
       </div>

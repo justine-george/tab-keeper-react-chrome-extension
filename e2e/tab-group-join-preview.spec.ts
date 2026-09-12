@@ -1,0 +1,319 @@
+// KAN-166. A tab dropped on a group's TITLE row joins that group, and the
+// preview has to show what that release will do.
+//
+// The test is in two halves, and the pairing is the point. The GROUND TRUTH
+// half renders the arrangements moveTabInternal produces and measures them --
+// no drag, so nothing races. The PREVIEW half drives the real drag and asserts
+// the preview predicts those same numbers. A preview that is merely
+// self-consistent cannot pass: it is checked against the layout the drop
+// actually lands in.
+//
+// The defect this pins: dropping a loose tab on a group's title contradicted
+// itself. Nothing stepped aside -- the tab keeps its row index, only its
+// membership changes -- so its old slot stayed open as a hole while the dashed
+// landing slot was drawn on top of the group's first member.
+
+import type { BrowserContext, Page } from '@playwright/test';
+
+import { grantedTest as test, expect } from './fixtures/grantedExtension';
+import { buildContainer, buildSession, seedSessions } from './fixtures/seed';
+
+type Tab = ReturnType<typeof tab>;
+
+const tab = (id: string, g?: string) => ({
+  tabId: id,
+  favicon: '',
+  title: `Tab ${id}`,
+  url: `https://${id}.test/`,
+  ...(g ? { chromeGroupId: g } : {}),
+});
+
+// Three loose tabs, a three-member group, one loose tab.
+const BEFORE: Tab[] = [
+  tab('a0'),
+  tab('a1'),
+  tab('a2'),
+  tab('alpha0', 'alpha'),
+  tab('alpha1', 'alpha'),
+  tab('alpha2', 'alpha'),
+  tab('a3'),
+];
+
+// The two post-drop arrangements, read out of moveTabInternal rather than
+// guessed: it splices the tab out and back in at the landing index and sets
+// chromeGroupId. a2 comes from directly above, so its index does not change
+// and only its membership does; a3 comes from below and moves 6 -> 3.
+const AFTER_FROM_ABOVE: Tab[] = [
+  tab('a0'),
+  tab('a1'),
+  tab('a2', 'alpha'),
+  tab('alpha0', 'alpha'),
+  tab('alpha1', 'alpha'),
+  tab('alpha2', 'alpha'),
+  tab('a3'),
+];
+
+const AFTER_FROM_BELOW: Tab[] = [
+  tab('a0'),
+  tab('a1'),
+  tab('a2'),
+  tab('a3', 'alpha'),
+  tab('alpha0', 'alpha'),
+  tab('alpha1', 'alpha'),
+  tab('alpha2', 'alpha'),
+];
+
+const ROWS = ['a0', 'a1', 'a2', 'a3', 'alpha0', 'alpha1', 'alpha2'] as const;
+
+// Measured in the real popup at 790x550 on 2026-09-12, tops relative to a0.
+// Pinned rather than derived so a layout change fails loudly here instead of
+// quietly re-baselining the preview assertions that share these numbers.
+const TRUTH = {
+  before: {
+    a0: 0,
+    a1: 32,
+    a2: 64,
+    header: 98,
+    alpha0: 130,
+    alpha1: 162,
+    alpha2: 194,
+    a3: 228,
+  },
+  // a2 and the title row SWAP. Nothing below them moves at all -- which is why
+  // the old preview drew the landing slot on an occupied row.
+  fromAbove: {
+    a0: 0,
+    a1: 32,
+    a2: 98,
+    header: 66,
+    alpha0: 130,
+    alpha1: 162,
+    alpha2: 194,
+    a3: 228,
+  },
+  // The mirror image, and not a mirror of the shifts: here the MEMBERS move
+  // down and the title row does not move.
+  fromBelow: {
+    a0: 0,
+    a1: 32,
+    a2: 64,
+    header: 98,
+    a3: 130,
+    alpha0: 162,
+    alpha1: 194,
+    alpha2: 226,
+  },
+} as const;
+
+async function open(
+  context: BrowserContext,
+  extensionId: string,
+  tabs: Tab[]
+): Promise<Page> {
+  const session = buildSession({
+    tabGroupId: 's1',
+    title: 'Join preview',
+    isSelected: true,
+    windowCount: 1,
+    tabCount: tabs.length,
+    windows: [
+      {
+        windowId: 'w1',
+        windowHeight: 1080,
+        windowWidth: 1920,
+        windowOffsetTop: 0,
+        windowOffsetLeft: 0,
+        tabCount: tabs.length,
+        title: 'w1',
+        tabs,
+        chromeTabGroups: [{ groupId: 'alpha', title: 'Alpha', color: 'blue' }],
+      },
+    ],
+  });
+  await seedSessions(context, {
+    ...buildContainer([session]),
+    selectedTabGroupId: 's1',
+  });
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 790, height: 550 });
+  await page.goto(`chrome-extension://${extensionId}/index.html`);
+  // goto resolves before React mounts (KAN-105), and the bands need the grant.
+  await expect(page.locator('[data-band-id="alpha"]')).toBeAttached();
+  expect(
+    await page.evaluate(() =>
+      chrome.permissions.contains({ permissions: ['tabGroups'] })
+    )
+  ).toBe(true);
+  return page;
+}
+
+// Every row's top plus the title row's, relative to a0 so the arrangements are
+// comparable however the pane happens to be scrolled.
+const tops = (page: Page) =>
+  page.evaluate((rows: readonly string[]) => {
+    const out: Record<string, number> = {};
+    const at = (el: Element | null) =>
+      el ? el.getBoundingClientRect().top : NaN;
+    for (const id of rows) {
+      out[id] = at(document.querySelector(`[data-drag-row-id="${id}"]`));
+    }
+    out.header = at(
+      document.querySelector('[data-band-id="alpha"] [data-group-drag-handle]')
+    );
+    const base = out.a0;
+    for (const k of Object.keys(out)) out[k] = Math.round(out[k] - base);
+    return out;
+  }, ROWS);
+
+test.describe('ground truth: what the drop actually does', () => {
+  test('before the drop', async ({ context, extensionId }) => {
+    expect(await tops(await open(context, extensionId, BEFORE))).toEqual(
+      TRUTH.before
+    );
+  });
+
+  test('a2 joining Alpha from above swaps it with the title row', async ({
+    context,
+    extensionId,
+  }) => {
+    expect(
+      await tops(await open(context, extensionId, AFTER_FROM_ABOVE))
+    ).toEqual(TRUTH.fromAbove);
+  });
+
+  test('a3 joining Alpha from below pushes the members down', async ({
+    context,
+    extensionId,
+  }) => {
+    expect(
+      await tops(await open(context, extensionId, AFTER_FROM_BELOW))
+    ).toEqual(TRUTH.fromBelow);
+  });
+});
+
+// Drag `rowId` onto Alpha's title row and read the preview WITHOUT releasing,
+// so the measurement is of the preview rather than of the committed drop.
+//
+// Returns each element's previewed top: its pre-drag top plus whatever the
+// drag has translated it by, and for the held row the landing slot's own
+// position -- which is where the preview PROMISES the row will settle.
+//
+// Read from the COMMANDED transform, never from the animating box: rows carry
+// `transition: transform 0.18s`, so a rect read straight after the last
+// pointer move catches them at the start of the ease and reports a row that is
+// about to move as one that is not. Measured -- the members read 130 mid-flight
+// where they settle at 164.
+async function previewOfDropOnAlphaTitle(page: Page, rowId: string) {
+  const before = await tops(page);
+  const from = (await page
+    .locator(`[data-drag-row-id="${rowId}"]`)
+    .boundingBox())!;
+  const onto = (await page
+    .locator('[data-band-id="alpha"] [data-group-drag-handle]')
+    .boundingBox())!;
+
+  await page.mouse.move(from.x + 40, from.y + from.height / 2);
+  await page.mouse.down();
+  // Clear ACTIVATION_DISTANCE_PX before travelling, then step so the engine
+  // sees a real gesture rather than one jump.
+  await page.mouse.move(from.x + 40, from.y + from.height / 2 + 8);
+  await page.mouse.move(onto.x + 40, onto.y + onto.height / 2, { steps: 6 });
+
+  const preview = await page.evaluate(
+    ([rows, held, pre]: [
+      readonly string[],
+      string,
+      Record<string, number>,
+    ]) => {
+      const shiftOf = (el: HTMLElement | null) =>
+        el
+          ? Number(
+              /translateY\((-?[\d.]+)px\)/.exec(el.style.transform)?.[1] ?? 0
+            )
+          : NaN;
+      const rowEl = (id: string) =>
+        document.querySelector<HTMLElement>(`[data-drag-row-id="${id}"]`);
+
+      // Where the preview says each element will settle: its pre-drag slot
+      // plus the translate the drag has commanded.
+      const out: Record<string, number> = {};
+      for (const id of rows) out[id] = pre[id] + shiftOf(rowEl(id));
+      out.header =
+        pre.header +
+        shiftOf(
+          document.querySelector<HTMLElement>(
+            '[data-band-id="alpha"] [data-group-drag-handle]'
+          )
+        );
+
+      // The held row tracks the pointer, so its own box says nothing about
+      // where it lands. The landing slot does -- and it carries no transition,
+      // so its box is the commanded position already.
+      const slot = document.querySelector<HTMLElement>(
+        '[data-drag-landing-slot]'
+      );
+      const a0 = rowEl('a0')!;
+      out[held] = slot
+        ? Math.round(
+            slot.getBoundingClientRect().top -
+              (a0.getBoundingClientRect().top - shiftOf(a0))
+          )
+        : NaN;
+      return out;
+    },
+    [ROWS, rowId, before] as [readonly string[], string, Record<string, number>]
+  );
+
+  // Escape rather than release: this asserts on the preview, and a commit
+  // would rewrite the very layout being measured.
+  await page.keyboard.press('Escape');
+  await page.mouse.up();
+  return preview;
+}
+
+test.describe('the preview predicts the drop', () => {
+  test('a2 dropped on the title: the title row rises and the members hold still', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await open(context, extensionId, BEFORE);
+    const preview = await previewOfDropOnAlphaTitle(page, 'a2');
+
+    // The members and the tab below the group do not move, and the landing
+    // slot therefore must NOT be drawn on top of any of them.
+    expect(preview.alpha0).toBe(TRUTH.fromAbove.alpha0);
+    expect(preview.alpha1).toBe(TRUTH.fromAbove.alpha1);
+    expect(preview.alpha2).toBe(TRUTH.fromAbove.alpha2);
+    expect(preview.a3).toBe(TRUTH.fromAbove.a3);
+
+    // The slot the held tab is promised is exactly where it lands.
+    expect(preview.a2).toBe(TRUTH.fromAbove.a2);
+
+    // The title row rises to make that room. Quantised to the held row's
+    // footprint (34) where the truth is 32, because a tab joining a group also
+    // stops paying the 2px margin beside the band -- KAN-167. Asserted as the
+    // number the engine actually produces, with the 2px named rather than
+    // hidden behind a tolerance.
+    expect(preview.header).toBe(TRUTH.before.header - 34);
+    expect(preview.header).toBeLessThan(TRUTH.before.header);
+  });
+
+  test('a3 dropped on the title: the members move down and the title row holds still', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await open(context, extensionId, BEFORE);
+    const preview = await previewOfDropOnAlphaTitle(page, 'a3');
+
+    // The frame does NOT travel, though every one of its members moves alike.
+    // That is the case the unanimity rule could not express.
+    expect(preview.header).toBe(TRUTH.before.header);
+
+    expect(preview.alpha0).toBe(TRUTH.before.alpha0 + 34);
+    expect(preview.alpha1).toBe(TRUTH.before.alpha1 + 34);
+    expect(preview.alpha2).toBe(TRUTH.before.alpha2 + 34);
+
+    // Exact, in the direction the index alone already described.
+    expect(preview.a3).toBe(TRUTH.fromBelow.a3);
+  });
+});

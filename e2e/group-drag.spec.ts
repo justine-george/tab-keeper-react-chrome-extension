@@ -837,3 +837,472 @@ test.describe('a group travels whole', () => {
     expect(await itemOrder(page)).toEqual(START);
   });
 });
+
+// The landing slot's arithmetic adds the TARGET row's own footprint, not the
+// held row's, and that term only shows itself when the two differ: a loose tab
+// takes 34px (32 plus the item margin), a tab inside a group takes 32 (members
+// sit flush). Dropping the term puts the slot 32px out.
+//
+// It cannot be measured in isolation, though, and that is a property of the
+// app rather than of the test. A target whose footprint differs is always a
+// grouped tab, and releasing there is exactly what makes the held tab JOIN
+// that group (dropRules.bandAt) -- so it lands at 32px as a member, not 34px
+// as a loose tab. Measured: the slot promises 444 and the tab lands at 446.
+//
+// So the slot is exact when the drop leaves membership alone, and within one
+// item margin when the drop also joins a group. The test below pins that
+// bound, which still fails by 32px if the target's footprint is dropped.
+// KAN-166. A dragged row shows the slot it will land in.
+//
+// The strongest thing to assert is that the placeholder does not lie: it
+// promises a position while the pointer is down, so record it mid-drag and
+// require the dropped row to actually land there.
+//
+// In the TAB list, which folds nothing -- a window drag folds every window
+// (KAN-153), so its mid-drag layout is not the layout the drop lands in, and
+// the comparison would be between two different lists.
+test.describe('the slot a dragged row will land in', () => {
+  test('is drawn where the row actually lands', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await open(context, extensionId);
+
+    const start = await page.evaluate(() => {
+      const w0 = document.querySelector<HTMLElement>(
+        '[data-drag-row-id="w0"]'
+      )!;
+      let pane = w0.parentElement;
+      while (
+        pane &&
+        !['auto', 'scroll'].includes(getComputedStyle(pane).overflowY)
+      )
+        pane = pane.parentElement;
+      const held = document.querySelector<HTMLElement>(
+        '[data-drag-row-id="p0"]'
+      )!;
+      const hb = held.getBoundingClientRect();
+      const pb = pane!.getBoundingClientRect();
+      pane!.scrollTop += hb.top + hb.height / 2 - (pb.top + pb.height / 2);
+      const h = document
+        .querySelector<HTMLElement>('[data-drag-row-id="p0"]')!
+        .getBoundingClientRect();
+      const target = document
+        .querySelector<HTMLElement>('[data-drag-row-id="p2"]')!
+        .getBoundingClientRect();
+      return {
+        x: h.left + 80,
+        y: h.top + h.height / 2,
+        to: target.top + target.height / 2 + 4,
+      };
+    });
+
+    await page.mouse.move(start.x, start.y);
+    await page.mouse.down();
+    await page.mouse.move(start.x, start.y + 10, { steps: 3 });
+    await page.mouse.move(start.x, start.to, { steps: 10 });
+    await page.waitForTimeout(320);
+
+    const promised = await page.evaluate(() => {
+      const slots = [
+        ...document.querySelectorAll<HTMLElement>('[data-drag-landing-slot]'),
+      ];
+      const held = document.querySelector<HTMLElement>('[data-drag-held]')!;
+      const r = slots[0]?.getBoundingClientRect();
+      return {
+        count: slots.length,
+        top: r ? Math.round(r.top * 100) / 100 : null,
+        height: r ? Math.round(r.height) : null,
+        heldHeight: Math.round(held.getBoundingClientRect().height),
+        // It must sit in empty space, not on top of another row.
+        // Leaf rows only. A loose tab is a `tabs` row nested inside an
+        // `items` row, and during a TAB drag only the inner one translates --
+        // the outer wrapper is an invisible layout box that stays put, so it
+        // straddles the gap without drawing anything there.
+        overlapping: [
+          ...document.querySelectorAll<HTMLElement>('[data-drag-row-id]'),
+        ]
+          .filter((row) => !row.querySelector('[data-drag-row-id]'))
+          .filter((row) => row !== held && !row.contains(held))
+          .filter((row) => {
+            const b = row.getBoundingClientRect();
+            return (
+              r !== undefined && b.bottom > r.top + 1 && b.top < r.bottom - 1
+            );
+          })
+          .map((row) => row.dataset.dragRowId),
+      };
+    });
+
+    // PREMISES: exactly one slot is drawn, and it is the size of the row.
+    expect(promised.count).toBe(1);
+    expect(promised.height).toBe(promised.heldHeight);
+
+    await page.mouse.up();
+    // The drop commits and the list re-renders.
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () =>
+            [
+              ...document.querySelectorAll<HTMLElement>(
+                '[data-drag-row-id="w0"] [data-drag-row-id]'
+              ),
+            ]
+              .map((r) => r.dataset.dragRowId)
+              .filter((id) => id?.startsWith('p'))[2]
+        )
+      )
+      .toBe('p0');
+
+    const landed = await page.evaluate(
+      () =>
+        Math.round(
+          document
+            .querySelector('[data-drag-row-id="p0"]')!
+            .getBoundingClientRect().top * 100
+        ) / 100
+    );
+
+    // THE CLAIM: it landed where the slot said it would.
+    expect(landed).toBeCloseTo(promised.top!, 0);
+
+    // And nothing was sitting under the promise.
+    expect(promised.overlapping).toEqual([]);
+
+    // Nothing survives the drag.
+    expect(
+      await page.evaluate(
+        () => document.querySelectorAll('[data-drag-landing-slot]').length
+      )
+    ).toBe(0);
+  });
+
+  // The held row tracks the pointer while the slot jumps between discrete
+  // positions, so the two pass close to each other at every index change.
+  // Drawn at full strength there, the slot reads as an outline around the row
+  // being dragged rather than the gap it will drop into -- so it is as visible
+  // as it is separated from it.
+  //
+  // Asserted as a RELATIONSHIP over a sweep rather than at two hand-picked
+  // pointer positions. The separation depends on where the pointer sits
+  // relative to the frozen midpoints, and aiming at a particular phase of that
+  // cycle is guesswork -- two attempts at it landed on 4px and 2px when they
+  // meant to be wide.
+  test('is drawn only as far as it is clear of the row being dragged', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await open(context, extensionId);
+
+    const start = await page.evaluate(() => {
+      const h = document
+        .querySelector<HTMLElement>('[data-drag-row-id="p0"]')!
+        .getBoundingClientRect();
+      return { x: h.left + 80, y: h.top + h.height / 2 };
+    });
+
+    await page.mouse.move(start.x, start.y);
+    await page.mouse.down();
+    await page.mouse.move(start.x, start.y + 8, { steps: 3 });
+
+    const samples: { separation: number; opacity: number }[] = [];
+    for (let step = 0; step < 12; step++) {
+      await page.mouse.move(start.x, start.y + 8 + step * 11, { steps: 2 });
+      await page.waitForTimeout(90);
+      const sample = await page.evaluate(() => {
+        const el = document.querySelector<HTMLElement>(
+          '[data-drag-landing-slot]'
+        );
+        const held = document.querySelector<HTMLElement>('[data-drag-held]');
+        if (!el || !held) return null;
+        return {
+          separation: Math.abs(
+            el.getBoundingClientRect().top - held.getBoundingClientRect().top
+          ),
+          opacity: Number(getComputedStyle(el).opacity),
+        };
+      });
+      if (sample) samples.push(sample);
+    }
+
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+
+    // PREMISE: the sweep really did cover both ends -- sitting on the row and
+    // well clear of it. Without this the monotonic check below is vacuous.
+    const nearest = Math.min(...samples.map((s) => s.separation));
+    const furthest = Math.max(...samples.map((s) => s.separation));
+    expect(samples.length).toBeGreaterThan(8);
+    expect(nearest).toBeLessThan(12);
+    expect(furthest).toBeGreaterThan(28);
+
+    // THE CLAIM: all but invisible where it would trace the row, plainly drawn
+    // where it marks a gap, and never brighter when it is closer.
+    const closest = samples.reduce((a, b) =>
+      a.separation <= b.separation ? a : b
+    );
+    const widest = samples.reduce((a, b) =>
+      a.separation >= b.separation ? a : b
+    );
+    expect(closest.opacity).toBeLessThan(0.1);
+    expect(widest.opacity).toBeGreaterThan(0.2);
+
+    const bySeparation = [...samples].sort(
+      (a, b) => a.separation - b.separation
+    );
+    for (let i = 1; i < bySeparation.length; i++) {
+      expect(bySeparation[i].opacity).toBeGreaterThanOrEqual(
+        bySeparation[i - 1].opacity - 0.001
+      );
+    }
+  });
+
+  test('lands correctly after a row whose footprint differs from its own', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await open(context, extensionId);
+
+    // a0 is a loose tab (34px of room); alpha2 is the last member of a group
+    // (32px, flush with its siblings). Landing after alpha2 exercises the
+    // target's own footprint.
+    const start = await page.evaluate(() => {
+      const w1 = document.querySelector<HTMLElement>(
+        '[data-drag-row-id="w1"]'
+      )!;
+      let pane = w1.parentElement;
+      while (
+        pane &&
+        !['auto', 'scroll'].includes(getComputedStyle(pane).overflowY)
+      )
+        pane = pane.parentElement;
+      const held = document.querySelector<HTMLElement>(
+        '[data-drag-row-id="a0"]'
+      )!;
+      const hb = held.getBoundingClientRect();
+      const pb = pane!.getBoundingClientRect();
+      pane!.scrollTop += hb.top + hb.height / 2 - (pb.top + pb.height / 2);
+      const h = document
+        .querySelector<HTMLElement>('[data-drag-row-id="a0"]')!
+        .getBoundingClientRect();
+      const target = document
+        .querySelector<HTMLElement>('[data-drag-row-id="alpha2"]')!
+        .getBoundingClientRect();
+      return {
+        x: h.left + 80,
+        y: h.top + h.height / 2,
+        to: target.top + target.height / 2 + 4,
+      };
+    });
+
+    await page.mouse.move(start.x, start.y);
+    await page.mouse.down();
+    await page.mouse.move(start.x, start.y + 10, { steps: 3 });
+    await page.mouse.move(start.x, start.to, { steps: 10 });
+    await page.waitForTimeout(320);
+
+    const promisedTop = await page.evaluate(() => {
+      const slot = document.querySelector('[data-drag-landing-slot]');
+      return slot
+        ? Math.round(slot.getBoundingClientRect().top * 100) / 100
+        : null;
+    });
+    expect(promisedTop).not.toBeNull();
+
+    await page.mouse.up();
+    await expect.poll(() => itemOrder(page)).not.toEqual(START);
+
+    const landed = await page.evaluate(
+      () =>
+        Math.round(
+          document
+            .querySelector('[data-drag-row-id="a0"]')!
+            .getBoundingClientRect().top * 100
+        ) / 100
+    );
+
+    // Within one item margin: the tab joined the group on the way down, so it
+    // sits flush at 32px where the slot had promised it 34px of room. Dropping
+    // the target's own footprint from the arithmetic puts this 32px out.
+    expect(Math.abs(landed - promisedTop!)).toBeLessThanOrEqual(2);
+  });
+});
+
+// KAN-166, found by Justine dragging the build. There is a 34px strip at the
+// top of every group -- its title row plus the top half of its first member --
+// where the two signals contradicted each other: the band bloomed, promising
+// the tab would JOIN the group, while the landing slot was drawn ABOVE the
+// band entirely.
+//
+// The two answers come from different places. Membership is a live hit-test of
+// the band's rect, and that rect INCLUDES the title row. Position comes from
+// the landing index, computed from frozen row midpoints, and the first midpoint
+// inside a group belongs to its first member -- below that title row.
+//
+// The slot is the one that was wrong: the drop sets the group AND inserts at
+// that index, so the tab becomes the group's FIRST member and lands under the
+// header, not above it.
+test.describe('a tab landing inside a group', () => {
+  test('is shown landing inside it, not above it', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await open(context, extensionId);
+
+    const start = await page.evaluate(() => {
+      const w1 = document.querySelector<HTMLElement>(
+        '[data-drag-row-id="w1"]'
+      )!;
+      let pane = w1.parentElement;
+      while (
+        pane &&
+        !['auto', 'scroll'].includes(getComputedStyle(pane).overflowY)
+      )
+        pane = pane.parentElement;
+      const held = document.querySelector<HTMLElement>(
+        '[data-drag-row-id="a0"]'
+      )!;
+      const hb = held.getBoundingClientRect();
+      const pb = pane!.getBoundingClientRect();
+      pane!.scrollTop += hb.top + hb.height / 2 - (pb.top + pb.height / 2);
+      const h = document
+        .querySelector<HTMLElement>('[data-drag-row-id="a0"]')!
+        .getBoundingClientRect();
+      // The group's TITLE row: inside the band, above the first member's
+      // midpoint. This is the strip where the two signals disagreed.
+      const title = document
+        .querySelector<HTMLElement>(
+          '[data-band-id="alpha"] [data-group-drag-handle]'
+        )!
+        .getBoundingClientRect();
+      return {
+        x: h.left + 80,
+        y: h.top + h.height / 2,
+        onTitle: title.top + title.height / 2,
+      };
+    });
+
+    await page.mouse.move(start.x, start.y);
+    await page.mouse.down();
+    await page.mouse.move(start.x, start.y + 10, { steps: 3 });
+    await page.mouse.move(start.x, start.onTitle, { steps: 10 });
+    await page.waitForTimeout(320);
+
+    const geom = await page.evaluate(() => {
+      const band = document.querySelector<HTMLElement>(
+        '[data-band-id="alpha"]'
+      )!;
+      const bb = band.getBoundingClientRect();
+      const slot = document
+        .querySelector<HTMLElement>('[data-drag-landing-slot]')!
+        .getBoundingClientRect();
+      const header = band
+        .querySelector<HTMLElement>('[data-group-drag-handle]')!
+        .getBoundingClientRect();
+      return {
+        bandSaysJoin: band.hasAttribute('data-drop-target'),
+        slotTop: Math.round(slot.top),
+        bandTop: Math.round(bb.top),
+        bandBottom: Math.round(bb.bottom),
+        headerBottom: Math.round(header.bottom),
+      };
+    });
+
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+
+    // PREMISE: this really is the contradictory region -- the band is claiming
+    // the drop. Without it the slot's position proves nothing.
+    expect(geom.bandSaysJoin).toBe(true);
+
+    // THE CLAIM: the slot is inside the band it says the tab will join, and
+    // below the group's header rather than on top of it.
+    expect(geom.slotTop).toBeGreaterThanOrEqual(geom.bandTop);
+    expect(geom.slotTop).toBeLessThan(geom.bandBottom);
+    expect(geom.slotTop).toBeGreaterThanOrEqual(geom.headerBottom - 1);
+  });
+
+  // The other half of the same rule. Once the landing index has reached the
+  // group's members the raw position is already inside the band, and pinning it
+  // to the first member would drag the placeholder BACKWARDS to the top of the
+  // group however deep the pointer went.
+  test('follows the pointer down through the group, not pinned to its top', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await open(context, extensionId);
+
+    const start = await page.evaluate(() => {
+      const w1 = document.querySelector<HTMLElement>(
+        '[data-drag-row-id="w1"]'
+      )!;
+      let pane = w1.parentElement;
+      while (
+        pane &&
+        !['auto', 'scroll'].includes(getComputedStyle(pane).overflowY)
+      )
+        pane = pane.parentElement;
+      const held = document.querySelector<HTMLElement>(
+        '[data-drag-row-id="a0"]'
+      )!;
+      const hb = held.getBoundingClientRect();
+      const pb = pane!.getBoundingClientRect();
+      pane!.scrollTop += hb.top + hb.height / 2 - (pb.top + pb.height / 2);
+      const h = document
+        .querySelector<HTMLElement>('[data-drag-row-id="a0"]')!
+        .getBoundingClientRect();
+      const deep = document
+        .querySelector<HTMLElement>('[data-drag-row-id="alpha2"]')!
+        .getBoundingClientRect();
+      // Captured BEFORE the drag. The slot is placed from the rects frozen at
+      // drag start, so pre-drag tops are the space to compare it in -- a live
+      // rect has already shifted by the held row's footprint and would make the
+      // comparison pass whichever member the slot pointed at.
+      const firstMember = document
+        .querySelector<HTMLElement>('[data-drag-row-id="alpha0"]')!
+        .getBoundingClientRect();
+      return {
+        x: h.left + 80,
+        y: h.top + h.height / 2,
+        deep: deep.top + deep.height / 2,
+        preFirstMemberTop: Math.round(firstMember.top),
+      };
+    });
+
+    await page.mouse.move(start.x, start.y);
+    await page.mouse.down();
+    await page.mouse.move(start.x, start.y + 10, { steps: 3 });
+    await page.mouse.move(start.x, start.deep, { steps: 12 });
+    await page.waitForTimeout(320);
+
+    const geom = await page.evaluate(() => {
+      const band = document.querySelector<HTMLElement>(
+        '[data-band-id="alpha"]'
+      )!;
+      const slot = document
+        .querySelector<HTMLElement>('[data-drag-landing-slot]')!
+        .getBoundingClientRect();
+      return {
+        bandSaysJoin: band.hasAttribute('data-drop-target'),
+        slotTop: Math.round(slot.top),
+        bandBottom: Math.round(band.getBoundingClientRect().bottom),
+      };
+    });
+
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+
+    // PREMISE: still the group's band, so the clamp is live.
+    expect(geom.bandSaysJoin).toBe(true);
+
+    // THE CLAIM: the slot has followed the pointer down past the group's first
+    // member rather than being pinned to it. Compared in the pre-drag space the
+    // slot is placed in -- which member it settles on depends on where the
+    // pointer sits against the frozen midpoints, so the claim is the direction
+    // and the distance, not an exact row.
+    expect(geom.slotTop).toBeGreaterThan(start.preFirstMemberTop);
+    expect(geom.slotTop - start.preFirstMemberTop).toBeGreaterThan(30);
+    expect(geom.slotTop).toBeLessThan(geom.bandBottom);
+  });
+});

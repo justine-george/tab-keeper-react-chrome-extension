@@ -219,7 +219,6 @@ export default function TabGroupEntryContainer() {
                 <DraggableRow
                   key={tabGroupData.tabGroupId}
                   rowId={tabGroupData.tabGroupId}
-                  index={index}
                 >
                   <TabGroupEntry
                     tabGroupData={tabGroupData}

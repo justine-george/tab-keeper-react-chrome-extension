@@ -45,12 +45,20 @@ import {
   type DraggableRowProps,
   type RowDragAreaProps,
 } from './dropRules';
+import {
+  landingDeltaOf,
+  previewShifts,
+  slotLandingAfter,
+  type PreviewSlot,
+} from '../../../../utils/functions/dragPreview';
 
 // How close to an edge the pointer must be for the list to start travelling,
 // and how fast it goes at its deepest. 48px is roughly a row and a half here,
 // which is wide enough to hit without aiming and narrow enough that ordinary
 // dragging near the ends does not trigger it.
 const EDGE_ZONE_PX = 48;
+// How strongly the landing slot draws when it is clear of the held row.
+const SLOT_OPACITY = 0.3;
 const MAX_SCROLL_PX_PER_FRAME = 14;
 
 // The nearest ancestor that actually scrolls.
@@ -96,6 +104,12 @@ interface Rect {
   index: number;
   mid: number;
   height: number;
+  // Top edge, in the same content space as `mid`. The landing slot is placed
+  // from it (KAN-166): its position is a DISTANCE between measured tops, and
+  // summing footprints would not do -- the `tabs` scope is not contiguous in
+  // layout, so the gap between two consecutive rows can hold a group's band
+  // header belonging to neither.
+  top: number;
 }
 
 // How much room a row takes up: its border box plus the margin that separates
@@ -172,6 +186,8 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
   restoreScrollIfNoDrop = false,
   resolveDrop,
   onDropTargetChange,
+  fixedRowSelector,
+  landsAfterFixedRow,
   disabled = false,
   children,
 }) => {
@@ -216,6 +232,19 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     // The last target resolveDrop named, so the list hears only about changes
     // rather than once per pointer move (KAN-164).
     dropTarget: string | undefined;
+    // The list AS DRAWN -- every row plus every fixed row the list declared,
+    // in layout order (KAN-166). The preview runs here rather than over `rects`
+    // because a drop can move a row past a title row without changing its row
+    // index, and in a list of rows alone that has no expression.
+    //
+    // A second array rather than a wider `rects`, so the DROP path -- which is
+    // correct, and speaks row indices the reducers share -- is untouched.
+    slots: PreviewSlot[];
+    // Row index -> slot index, and fixed-row key -> slot index. Both are the
+    // same translation and neither is derivable from the other once a fixed row
+    // sits between two rows.
+    slotOfRow: number[];
+    slotOfFixed: Map<string, number>;
   } | null>(null);
 
   // The auto-scroll frame, cancelled on drop. A ref rather than state: it is
@@ -297,6 +326,9 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         pane: clampDropToEnds ? paneOf(el) : null,
         heldEl: null,
         dropTarget: undefined,
+        slots: [],
+        slotOfRow: [],
+        slotOfFixed: new Map(),
       };
     },
     [rowIds, handleSelector, disabled, clampDropToEnds]
@@ -371,10 +403,31 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // it came from: no row steps aside, and its own slot stays open.
       const toIndex = landingIndex(l) ?? l.fromIndex;
 
+      // What a release HERE would land ON, asked once and spent twice (KAN-164,
+      // KAN-166): the list is told when the answer changes, and the landing
+      // placeholder is corrected by whatever that target implies.
+      //
+      // Asked on every move rather than only at the drop, because a drop can
+      // change more than an index -- a tab released inside a group's band joins
+      // that group -- and the user cannot see a rule that is only consulted
+      // once the pointer is already up.
+      const target = resolveDrop?.(containerRef.current, l.lastX, l.lastY);
+
+      // The whole preview in the list AS DRAWN, decided once (KAN-166). The
+      // shifts, the frame and the landing slot all come off this one pair of
+      // indices, so there is no second derivation to disagree with the first --
+      // which is exactly how the slot came to be drawn on an occupied row.
+      const from = l.slotOfRow[l.fromIndex] ?? l.fromIndex;
+      const fixed = landsAfterFixedRow?.(toIndex, target);
+      const fixedSlot =
+        fixed === undefined ? undefined : l.slotOfFixed.get(fixed);
+      const to =
+        fixedSlot === undefined
+          ? l.slotOfRow[toIndex] ?? toIndex
+          : slotLandingAfter(from, fixedSlot);
+
       setDrag({
         rowId: l.rowId,
-        fromIndex: l.fromIndex,
-        toIndex,
         // The scroll delta is part of the travel. The held row lives inside the
         // scroller, so scrolling moves it with the content; without this term
         // it would slide out from under the pointer by exactly the distance
@@ -382,6 +435,8 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         offset:
           l.lastY - l.startY + (l.scroller?.scrollTop ?? 0) - l.startScrollTop,
         footprint: l.footprint,
+        shifts: previewShifts(l.slots, from, to, l.footprint),
+        landingDelta: landingDeltaOf(l.slots, from, to),
       });
     };
 
@@ -493,8 +548,45 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
             index,
             mid: r ? r.top + r.height / 2 + l.startScrollTop : 0,
             height: r?.height ?? 0,
+            top: r ? r.top + l.startScrollTop : 0,
           };
         });
+        // The list AS DRAWN (KAN-166): the rows, plus whatever fixed parts the
+        // list declared, ordered by where they actually sit. Ordered by
+        // measured top rather than by document order, because a fixed row is
+        // rendered inside the thing it labels and its position in the markup
+        // says nothing about its position on screen.
+        const fixed = fixedRowSelector
+          ? [
+              ...(containerRef.current?.querySelectorAll<HTMLElement>(
+                fixedRowSelector
+              ) ?? []),
+            ].flatMap((el) => {
+              const key = el.dataset.fixedRowId;
+              if (key === undefined) return [];
+              return [
+                {
+                  key,
+                  top: el.getBoundingClientRect().top + l.startScrollTop,
+                },
+              ];
+            })
+          : [];
+
+        l.slots = [
+          ...l.rects.map((r) => ({ key: r.id, top: r.top })),
+          ...fixed,
+        ].sort((a, b) => a.top - b.top);
+
+        l.slotOfRow = [];
+        l.slotOfFixed = new Map();
+        const rowAt = new Map(l.rects.map((r) => [r.id, r.index]));
+        l.slots.forEach((slot, index) => {
+          const row = rowAt.get(slot.key);
+          if (row !== undefined) l.slotOfRow[row] = index;
+          else l.slotOfFixed.set(slot.key, index);
+        });
+
         l.height = l.rects[l.fromIndex]?.height ?? 0;
         // Measured in the same frame as the rects above, and from the element
         // rather than from them -- see footprintOf on why the list order cannot
@@ -531,18 +623,11 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
 
       update(l);
 
-      // What a release HERE would land on, published as it changes (KAN-164).
-      //
-      // Asked on every move rather than only at the drop, because a drop can
-      // change more than an index -- a tab released inside a group's band joins
-      // that group -- and the user cannot see a rule that is only consulted
-      // once the pointer is already up. Compared first so the list is told only
-      // when the answer actually changes.
       if (onDropTargetChange && resolveDrop) {
-        const target = resolveDrop(containerRef.current, l.lastX, l.lastY);
-        if (target !== l.dropTarget) {
-          l.dropTarget = target;
-          onDropTargetChange(target, containerRef.current);
+        const t = resolveDrop(containerRef.current, l.lastX, l.lastY);
+        if (t !== l.dropTarget) {
+          l.dropTarget = t;
+          onDropTargetChange(t, containerRef.current);
         }
       }
     };
@@ -671,6 +756,8 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     onMove,
     resolveDrop,
     onDropTargetChange,
+    fixedRowSelector,
+    landsAfterFixedRow,
     dragKind,
     restoreScrollIfNoDrop,
   ]);
@@ -724,9 +811,12 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
   );
 };
 
-export const DraggableRow: React.FC<DraggableRowProps & { index: number }> = ({
+// A row no longer needs to know WHERE it is (KAN-166). It used to take its own
+// index and re-derive its shift from the drag's index range; the area now works
+// the whole preview out once and reports each element's shift by id, so the
+// index was a second copy of the list's order living on every row.
+export const DraggableRow: React.FC<DraggableRowProps> = ({
   rowId,
-  index,
   scope,
   children,
 }) => {
@@ -738,23 +828,12 @@ export const DraggableRow: React.FC<DraggableRowProps & { index: number }> = ({
     (scope === undefined ? scopes?.nearest : scopes?.byScope[scope]) ?? null;
   const drag = ctx?.drag ?? null;
 
-  let translate = 0;
   const held = drag?.rowId === rowId;
-
-  if (drag) {
-    if (held) {
-      translate = drag.offset;
-    } else if (drag.toIndex > drag.fromIndex) {
-      // Dragging down: everything it has passed moves up one slot. One slot is
-      // the held row's FOOTPRINT -- lifting it out of the flow closes the gap it
-      // sat in as well as the box it filled (KAN-163).
-      if (index > drag.fromIndex && index <= drag.toIndex)
-        translate = -drag.footprint;
-    } else if (drag.toIndex < drag.fromIndex) {
-      if (index >= drag.toIndex && index < drag.fromIndex)
-        translate = drag.footprint;
-    }
-  }
+  // The held row tracks the pointer; every other row is told where to be by the
+  // area, which works it out once for the whole list (KAN-166). This used to
+  // re-derive it from an index range here, and a group's frame re-derived it a
+  // third time -- three copies of one rule, which is how they came to disagree.
+  const translate = !drag ? 0 : held ? drag.offset : drag.shifts[rowId] ?? 0;
 
   return (
     <div
@@ -781,6 +860,52 @@ export const DraggableRow: React.FC<DraggableRowProps & { index: number }> = ({
         cursor: 'pointer',
       }}
     >
+      {/* KAN-166. The slot this row will land in.
+          A child of the held row that counter-transforms out of the wrapper's
+          own translate and on to the landing offset, which pins it to the gap
+          that has opened -- without touching the transform channel this node
+          owns, and without any other component learning about the drag.
+          The landing slot is real empty space, so nothing can sit on top of it;
+          a marker at the ORIGIN cannot say that, because the row behind the
+          held one steps straight into that slot.
+          currentColor keeps it legible in every theme without this file
+          growing a dependency on the theme it otherwise has no use for. */}
+      {held && (
+        <div
+          aria-hidden="true"
+          data-drag-landing-slot=""
+          style={{
+            position: 'absolute',
+            inset: 0,
+            transform: `translateY(${drag.landingDelta - translate}px)`,
+            pointerEvents: 'none',
+            border: '1.5px dashed currentColor',
+            borderRadius: '4px',
+            // As visible as it is DISTINGUISHABLE from the row being dragged.
+            //
+            // The held row tracks the pointer continuously while the slot jumps
+            // between discrete positions, so the two pass close to each other
+            // every time the landing index changes -- and drawn at full
+            // strength there, the slot reads as an outline around the dragged
+            // row rather than as the gap it will drop into.
+            //
+            // Faded rather than hidden past a threshold: the separation does
+            // not ease through zero, it JUMPS at each index change (measured,
+            // -64px straight to -10px), so any cutoff blinks. Scaling by the
+            // row's own footprint keeps it continuous and needs no number of
+            // its own -- one row's worth of travel is exactly the distance at
+            // which the two boxes stop overlapping.
+            opacity:
+              SLOT_OPACITY *
+              Math.min(
+                1,
+                drag.footprint > 0
+                  ? Math.abs(drag.landingDelta - translate) / drag.footprint
+                  : 1
+              ),
+          }}
+        />
+      )}
       {children}
     </div>
   );
