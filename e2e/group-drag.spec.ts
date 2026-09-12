@@ -744,3 +744,96 @@ test.describe('a tab drag says which group it will join', () => {
     expect(await itemOrder(page)).toEqual(START);
   });
 });
+
+// KAN-165. The engine translates individual tab rows. A group's FRAME -- its
+// title row and colour strip -- is not a row in the tab list, so nothing moved
+// it, and members slid out through their own group: measured, the first member
+// of Alpha ended at 189 while its title stayed at 191, sitting on top of it.
+//
+// The rule: a shift shared by EVERY member of a group belongs to the group, so
+// the frame travels with them. When members disagree the pointer is inside that
+// group and it is making room rather than moving, so the frame stays put.
+test.describe('a group travels whole', () => {
+  test('its title and strip move with its tabs when a tab passes it', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await open(context, extensionId);
+
+    const start = await page.evaluate(() => {
+      const w1 = document.querySelector<HTMLElement>(
+        '[data-drag-row-id="w1"]'
+      )!;
+      let pane = w1.parentElement;
+      while (
+        pane &&
+        !['auto', 'scroll'].includes(getComputedStyle(pane).overflowY)
+      )
+        pane = pane.parentElement;
+      const held = document.querySelector<HTMLElement>(
+        '[data-drag-row-id="a0"]'
+      )!;
+      const hb = held.getBoundingClientRect();
+      const pb = pane!.getBoundingClientRect();
+      pane!.scrollTop += hb.top + hb.height / 2 - (pb.top + pb.height / 2);
+      const h = document
+        .querySelector<HTMLElement>('[data-drag-row-id="a0"]')!
+        .getBoundingClientRect();
+      return { x: h.left + 80, y: h.top + h.height / 2 };
+    });
+
+    await page.mouse.move(start.x, start.y);
+    await page.mouse.down();
+    await page.mouse.move(start.x, start.y + 10, { steps: 3 });
+    // Past the WHOLE of Alpha, so every one of its members shifts alike.
+    const pastAlpha = await page.evaluate(() => {
+      const r = document
+        .querySelector('[data-drag-row-id="a1"]')!
+        .getBoundingClientRect();
+      return r.top + r.height / 2 + 4;
+    });
+    await page.mouse.move(start.x, pastAlpha, { steps: 12 });
+    await page.waitForTimeout(320);
+
+    const geom = await page.evaluate(() => {
+      const shift = (el: HTMLElement) =>
+        Number(/translateY\((-?[\d.]+)px\)/.exec(el.style.transform)?.[1] ?? 0);
+      const band = document.querySelector<HTMLElement>(
+        '[data-band-id="alpha"]'
+      )!;
+      const members = [
+        ...band.querySelectorAll<HTMLElement>('[data-drag-row-id]'),
+      ];
+      const title = band.querySelector<HTMLElement>(
+        '[data-group-drag-handle]'
+      )!;
+      const strip = band.querySelector<HTMLElement>(
+        '[data-group-color-strip]'
+      )!;
+      const r2 = (v: number) => Math.round(v * 100) / 100;
+      return {
+        memberShifts: members.map(shift),
+        titleShift: shift(title),
+        stripShift: shift(strip),
+        titleBottom: r2(title.getBoundingClientRect().bottom),
+        firstMemberTop: r2(members[0].getBoundingClientRect().top),
+      };
+    });
+
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+
+    // PREMISES: every member moved, and moved alike -- which is what makes the
+    // shift the GROUP's rather than any one row's.
+    expect(geom.memberShifts.length).toBeGreaterThan(1);
+    expect(new Set(geom.memberShifts).size).toBe(1);
+    expect(geom.memberShifts[0]).not.toBe(0);
+
+    // THE CLAIM: the frame went with them, and the group is still whole.
+    expect(geom.titleShift).toBe(geom.memberShifts[0]);
+    expect(geom.stripShift).toBe(geom.memberShifts[0]);
+    expect(geom.titleBottom).toBeLessThanOrEqual(geom.firstMemberTop + 1);
+
+    expect(await itemOrder(page)).toEqual(START);
+  });
+});

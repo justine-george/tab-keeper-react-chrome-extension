@@ -164,7 +164,9 @@ const GroupColorPicker: React.FC<GroupColorPickerProps> = ({
             ${bandStyle};
             cursor: pointer;
             /* Named properties, never the all keyword. */
-            transition-property: width, flex-basis, margin-right;
+            /* transform joins the list for KAN-165: the strip travels
+               with its group's tabs and must glide as they do. */
+            transition-property: width, flex-basis, margin-right, transform;
             transition-duration: 150ms;
             transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
             /* 6px + 3px, still 9px. Widening without shrinking the margin
