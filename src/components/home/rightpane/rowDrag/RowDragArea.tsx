@@ -32,6 +32,12 @@ import React, {
 } from 'react';
 
 import {
+  DragContext,
+  type Ctx,
+  type DragState,
+  type DragScopes,
+} from './dragContext';
+import {
   ACTIVATION_DISTANCE_PX,
   isInEditableField,
   isInsideList,
@@ -39,38 +45,6 @@ import {
   type DraggableRowProps,
   type RowDragAreaProps,
 } from './dropRules';
-
-interface DragState {
-  rowId: string;
-  fromIndex: number;
-  toIndex: number;
-  // How far the held row has travelled from where it was picked up.
-  offset: number;
-  // How far every row it has passed must move to close up behind it -- the room
-  // the held row occupies, not the height it measures (KAN-163).
-  footprint: number;
-}
-
-interface Ctx {
-  register: (rowId: string, el: HTMLElement | null) => void;
-  begin: (
-    rowId: string,
-    clientX: number,
-    clientY: number,
-    target: EventTarget | null
-  ) => void;
-  drag: DragState | null;
-}
-
-// The lists a row can join. `nearest` is what every unscoped row joins, as
-// before scopes existed; `byScope` holds every enclosing list that declared a
-// scope, so a row can name one through the lists in between (KAN-160).
-interface DragScopes {
-  nearest: Ctx;
-  byScope: Readonly<Partial<Record<string, Ctx>>>;
-}
-
-const DragContext = React.createContext<DragScopes | null>(null);
 
 // How close to an edge the pointer must be for the list to start travelling,
 // and how fast it goes at its deepest. 48px is roughly a row and a half here,

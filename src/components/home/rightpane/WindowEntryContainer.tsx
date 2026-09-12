@@ -1,7 +1,9 @@
 import React, {
   MouseEventHandler,
   useCallback,
+  useLayoutEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 
@@ -47,7 +49,10 @@ import type {
   GroupRun,
 } from '../../../utils/functions/tabGroups';
 import { applyTabGroups } from '../../../utils/functions/windows';
+
+import { groupFrameOffset } from '../../../utils/functions/groupFrame';
 import { RowDragArea, DraggableRow } from './rowDrag/RowDragArea';
+import { useDragState } from './rowDrag/dragContext';
 import { bandAt } from './rowDrag/dropRules';
 
 interface WindowEntryContainerProps {
@@ -66,6 +71,44 @@ interface WindowEntryContainerProps {
   onAddCurrTabToWindowClick: MouseEventHandler;
   onDeleteClick: MouseEventHandler;
 }
+
+// KAN-165. Carries a group's frame along with its tabs.
+//
+// The engine translates individual tab rows. A group's title row and colour
+// strip are not rows in that list, so nothing moved them, and members slid out
+// through their own group -- measured, the first member of a three-tab group
+// ended 2px ABOVE its own title.
+//
+// Rendered INSIDE the drag area because that is the only place the live drag
+// can be read; WindowEntryContainer itself sits outside the area's provider.
+// It draws nothing.
+//
+// The two parts are moved through the DOM rather than by prop, because they are
+// rendered in different places -- the strip by GroupColorPicker -- and
+// threading a per-move offset into a component with no other reason to know
+// about dragging would be worse than this. The offset changes only when the
+// landing index does, not on every pointer move.
+const GroupFrameFollower: React.FC<{ memberIndices: number[] }> = ({
+  memberIndices,
+}) => {
+  const drag = useDragState('tabs');
+  const offset = groupFrameOffset(drag, memberIndices);
+  const anchor = useRef<HTMLSpanElement | null>(null);
+
+  useLayoutEffect(() => {
+    const band = anchor.current?.closest<HTMLElement>('[data-band-id]');
+    if (!band) return;
+    const transform = offset ? `translateY(${offset}px)` : '';
+    for (const part of [
+      band.querySelector<HTMLElement>('[data-group-color-strip]'),
+      band.querySelector<HTMLElement>('[data-group-drag-handle]'),
+    ]) {
+      if (part) part.style.transform = transform;
+    }
+  }, [offset]);
+
+  return <span ref={anchor} hidden />;
+};
 
 const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   title,
@@ -874,6 +917,11 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                         }
                       `}
                     >
+                      <GroupFrameFollower
+                        memberIndices={item.tabs.map(
+                          (member) => indexOfTab.get(member.tabId) ?? -1
+                        )}
+                      />
                       {/* The colour is Chrome's own group identity, not app chrome
                     (BINDING CONSTRAINT 1) -- TAB_GROUP_COLOR_HEX is a fixed
                     map, not routed through useThemeColors, so it reads the
@@ -936,6 +984,10 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                             position: relative;
                             display: flex;
                             align-items: center;
+                            /* KAN-165: the frame travels with its tabs, so it
+                               has to glide like they do. Same duration as the
+                               rows stepping aside in RowDragArea. */
+                            transition: transform 0.18s ease;
                             /* 32px, the height the window row and every tab row
                          already stand at -- measured, not guessed. At 22px the
                          hover fill read as a short band wedged between
