@@ -48,7 +48,7 @@ import {
 import {
   landingDeltaOf,
   previewShifts,
-  slotLandingAfter,
+  slotLandingBeside,
   type PreviewSlot,
 } from '../../../../utils/functions/dragPreview';
 
@@ -187,7 +187,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
   resolveDrop,
   onDropTargetChange,
   fixedRowSelector,
-  landsAfterFixedRow,
+  landsBesideFixedRow,
   disabled = false,
   children,
 }) => {
@@ -418,13 +418,13 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // indices, so there is no second derivation to disagree with the first --
       // which is exactly how the slot came to be drawn on an occupied row.
       const from = l.slotOfRow[l.fromIndex] ?? l.fromIndex;
-      const fixed = landsAfterFixedRow?.(toIndex, target);
+      const beside = landsBesideFixedRow?.(l.rowId, toIndex, target);
       const fixedSlot =
-        fixed === undefined ? undefined : l.slotOfFixed.get(fixed);
+        beside === undefined ? undefined : l.slotOfFixed.get(beside.fixedRowId);
       const to =
-        fixedSlot === undefined
+        fixedSlot === undefined || beside === undefined
           ? l.slotOfRow[toIndex] ?? toIndex
-          : slotLandingAfter(from, fixedSlot);
+          : slotLandingBeside(from, fixedSlot, beside.side);
 
       setDrag({
         rowId: l.rowId,
@@ -757,7 +757,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     resolveDrop,
     onDropTargetChange,
     fixedRowSelector,
-    landsAfterFixedRow,
+    landsBesideFixedRow,
     dragKind,
     restoreScrollIfNoDrop,
   ]);

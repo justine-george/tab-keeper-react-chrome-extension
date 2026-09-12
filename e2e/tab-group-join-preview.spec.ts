@@ -63,6 +63,19 @@ const AFTER_FROM_BELOW: Tab[] = [
   tab('alpha2', 'alpha'),
 ];
 
+// alpha0 LEAVES Alpha, dragged up out of its band (KAN-168). Its row index is
+// unchanged -- moveTabInternal splices it out and back in at 3 and drops the
+// membership -- so alpha1 inherits the group and alpha0 sits loose above it.
+const AFTER_LEAVING: Tab[] = [
+  tab('a0'),
+  tab('a1'),
+  tab('a2'),
+  tab('alpha0'),
+  tab('alpha1', 'alpha'),
+  tab('alpha2', 'alpha'),
+  tab('a3'),
+];
+
 const ROWS = ['a0', 'a1', 'a2', 'a3', 'alpha0', 'alpha1', 'alpha2'] as const;
 
 // Measured in the real popup at 790x550 on 2026-09-12, tops relative to a0.
@@ -87,6 +100,20 @@ const TRUTH = {
     a2: 98,
     header: 66,
     alpha0: 130,
+    alpha1: 162,
+    alpha2: 194,
+    a3: 228,
+  },
+  // KAN-168. alpha0 leaves Alpha upward. The exact inverse of fromAbove: the
+  // tab and the title row swap back, and the members it leaves behind do not
+  // move. PREDICTED from fromAbove and then measured -- if the prediction is
+  // wrong this is the assertion that says so.
+  leaving: {
+    a0: 0,
+    a1: 32,
+    a2: 64,
+    alpha0: 96,
+    header: 130,
     alpha1: 162,
     alpha2: 194,
     a3: 228,
@@ -189,6 +216,15 @@ test.describe('ground truth: what the drop actually does', () => {
       await tops(await open(context, extensionId, AFTER_FROM_BELOW))
     ).toEqual(TRUTH.fromBelow);
   });
+
+  test('alpha0 leaving Alpha upward swaps it back past the title row', async ({
+    context,
+    extensionId,
+  }) => {
+    expect(await tops(await open(context, extensionId, AFTER_LEAVING))).toEqual(
+      TRUTH.leaving
+    );
+  });
 });
 
 // Drag `rowId` onto Alpha's title row and read the preview WITHOUT releasing,
@@ -203,13 +239,27 @@ test.describe('ground truth: what the drop actually does', () => {
 // pointer move catches them at the start of the ease and reports a row that is
 // about to move as one that is not. Measured -- the members read 130 mid-flight
 // where they settle at 164.
-async function previewOfDropOnAlphaTitle(page: Page, rowId: string) {
+// The middle of Alpha's title row: inside the band, so a release joins Alpha.
+const titleRowY = async (page: Page) => {
+  const b = (await page
+    .locator('[data-band-id="alpha"] [data-group-drag-handle]')
+    .boundingBox())!;
+  return b.y + b.height / 2;
+};
+
+// Just ABOVE the band, in the lower part of the last loose tab over it. A
+// release here is outside every band, so it leaves the group -- and the window
+// is narrow on purpose: higher passes a2's midpoint and changes the row index
+// too, which is a different case (KAN-168 covers only the index-preserving one).
+const aboveBandY = async (page: Page) => {
+  const band = (await page.locator('[data-band-id="alpha"]').boundingBox())!;
+  return band.y - 6;
+};
+
+async function previewOfDragging(page: Page, rowId: string, toY: number) {
   const before = await tops(page);
   const from = (await page
     .locator(`[data-drag-row-id="${rowId}"]`)
-    .boundingBox())!;
-  const onto = (await page
-    .locator('[data-band-id="alpha"] [data-group-drag-handle]')
     .boundingBox())!;
 
   await page.mouse.move(from.x + 40, from.y + from.height / 2);
@@ -217,7 +267,7 @@ async function previewOfDropOnAlphaTitle(page: Page, rowId: string) {
   // Clear ACTIVATION_DISTANCE_PX before travelling, then step so the engine
   // sees a real gesture rather than one jump.
   await page.mouse.move(from.x + 40, from.y + from.height / 2 + 8);
-  await page.mouse.move(onto.x + 40, onto.y + onto.height / 2, { steps: 6 });
+  await page.mouse.move(from.x + 40, toY, { steps: 6 });
 
   const preview = await page.evaluate(
     ([rows, held, pre]: [
@@ -277,7 +327,7 @@ test.describe('the preview predicts the drop', () => {
     extensionId,
   }) => {
     const page = await open(context, extensionId, BEFORE);
-    const preview = await previewOfDropOnAlphaTitle(page, 'a2');
+    const preview = await previewOfDragging(page, 'a2', await titleRowY(page));
 
     // The members and the tab below the group do not move, and the landing
     // slot therefore must NOT be drawn on top of any of them.
@@ -303,7 +353,7 @@ test.describe('the preview predicts the drop', () => {
     extensionId,
   }) => {
     const page = await open(context, extensionId, BEFORE);
-    const preview = await previewOfDropOnAlphaTitle(page, 'a3');
+    const preview = await previewOfDragging(page, 'a3', await titleRowY(page));
 
     // The frame does NOT travel, though every one of its members moves alike.
     // That is the case the unanimity rule could not express.
@@ -315,5 +365,38 @@ test.describe('the preview predicts the drop', () => {
 
     // Exact, in the direction the index alone already described.
     expect(preview.a3).toBe(TRUTH.fromBelow.a3);
+  });
+
+  // KAN-168, reported from the shipped build. Leaving a group changes the tab's
+  // membership without changing its row index, which is the same blind spot
+  // KAN-166 fixed for joining -- so the slot was drawn at the tab's own origin,
+  // INSIDE the band and under the title row, while the drop put it above.
+  test('alpha0 dragged out: the title row drops below it and the slot leaves the band', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await open(context, extensionId, BEFORE);
+    const preview = await previewOfDragging(
+      page,
+      'alpha0',
+      await aboveBandY(page)
+    );
+
+    // The promised slot is ABOVE the title row, not under it. This is the
+    // assertion the screenshot failed: the slot sat at 130, its own origin,
+    // inside the band.
+    expect(preview.alpha0).toBeLessThan(preview.header);
+
+    // 2px below where it lands, and this direction is where KAN-167 shows up
+    // in the SLOT rather than only in the shifts: leaving the band stops the
+    // tab paying the band's 2px margin, which the measured tops cannot know in
+    // advance. Asserted as the number the engine produces, with the 2px named.
+    expect(preview.alpha0).toBe(TRUTH.leaving.alpha0 + 2);
+
+    // The title row drops to make way, and the members left behind hold still.
+    expect(preview.header).toBe(TRUTH.leaving.header);
+    expect(preview.alpha1).toBe(TRUTH.leaving.alpha1);
+    expect(preview.alpha2).toBe(TRUTH.leaving.alpha2);
+    expect(preview.a3).toBe(TRUTH.leaving.a3);
   });
 });

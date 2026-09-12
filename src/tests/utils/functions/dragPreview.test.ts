@@ -3,7 +3,7 @@ import { describe, expect, test } from 'vitest';
 import {
   landingDeltaOf,
   previewShifts,
-  slotLandingAfter,
+  slotLandingBeside,
   type PreviewSlot,
 } from '../../../utils/functions/dragPreview';
 
@@ -57,7 +57,7 @@ describe('previewShifts', () => {
     const shifts = previewShifts(
       LAYOUT,
       2,
-      slotLandingAfter(2, ALPHA),
+      slotLandingBeside(2, ALPHA, 'after'),
       FOOTPRINT
     );
 
@@ -71,7 +71,7 @@ describe('previewShifts', () => {
     const shifts = previewShifts(
       LAYOUT,
       7,
-      slotLandingAfter(7, ALPHA),
+      slotLandingBeside(7, ALPHA, 'after'),
       FOOTPRINT
     );
 
@@ -113,16 +113,57 @@ describe('previewShifts', () => {
   });
 });
 
-describe('slotLandingAfter', () => {
-  // A row landing immediately after a title row indexes the list with itself
-  // lifted out, so coming from above it takes the title row's own slot -- they
-  // swap -- and coming from below it takes the slot after it.
-  test('from above, the row takes the title rows slot', () => {
-    expect(slotLandingAfter(2, ALPHA)).toBe(3);
+describe('slotLandingBeside', () => {
+  // A row landing beside a title row indexes the list with itself lifted out,
+  // so coming from above it takes the title row's own slot -- they swap -- and
+  // coming from below it takes the slot past it.
+  test('joining from above, the row takes the title rows slot', () => {
+    expect(slotLandingBeside(2, ALPHA, 'after')).toBe(3);
   });
 
-  test('from below, the row takes the slot after the title row', () => {
-    expect(slotLandingAfter(7, ALPHA)).toBe(4);
+  test('joining from below, the row takes the slot after the title row', () => {
+    expect(slotLandingBeside(7, ALPHA, 'after')).toBe(4);
+  });
+
+  // KAN-168. Leaving a group is the same crossing in the other direction: the
+  // tab ends up immediately BEFORE the title row rather than after it.
+  test('leaving upward, the row takes the title rows own slot', () => {
+    // alpha0 is at slot 4 -- immediately below the title row at 3.
+    expect(slotLandingBeside(4, ALPHA, 'before')).toBe(3);
+  });
+
+  test('leaving upward from deeper in the group lands in the same slot', () => {
+    // Which member it was does not change where it ends up: above the title.
+    expect(slotLandingBeside(6, ALPHA, 'before')).toBe(3);
+  });
+
+  test('a row already above the title row lands one slot earlier', () => {
+    expect(slotLandingBeside(1, ALPHA, 'before')).toBe(2);
+  });
+});
+
+describe('previewShifts for a tab leaving its group', () => {
+  // Measured (e2e/tab-group-join-preview.spec.ts): alpha0 leaves Alpha upward,
+  // the title row drops to 130 from 98, and alpha1/alpha2 do NOT move.
+  test('the title row drops and the members left behind hold still', () => {
+    const shifts = previewShifts(
+      LAYOUT,
+      4,
+      slotLandingBeside(4, ALPHA, 'before'),
+      32
+    );
+
+    expect(shifts.alpha).toBe(32);
+    expect(shifts.alpha1 ?? 0).toBe(0);
+    expect(shifts.alpha2 ?? 0).toBe(0);
+    expect(shifts.a3 ?? 0).toBe(0);
+    expect(shifts.a2 ?? 0).toBe(0);
+  });
+
+  test('the landing slot is the title rows own top', () => {
+    expect(
+      landingDeltaOf(LAYOUT, 4, slotLandingBeside(4, ALPHA, 'before'))
+    ).toBe(-32);
   });
 });
 
@@ -132,11 +173,15 @@ describe('landingDeltaOf', () => {
   // index clamp this replaces could never be, because it pointed the slot at
   // the first member whichever side the tab arrived from.
   test('joining from above lands on the title rows top', () => {
-    expect(landingDeltaOf(LAYOUT, 2, slotLandingAfter(2, ALPHA))).toBe(34);
+    expect(
+      landingDeltaOf(LAYOUT, 2, slotLandingBeside(2, ALPHA, 'after'))
+    ).toBe(34);
   });
 
   test('joining from below lands on the first members top', () => {
-    expect(landingDeltaOf(LAYOUT, 7, slotLandingAfter(7, ALPHA))).toBe(-98);
+    expect(
+      landingDeltaOf(LAYOUT, 7, slotLandingBeside(7, ALPHA, 'after'))
+    ).toBe(-98);
   });
 
   test('an index off the end of the list travels nowhere', () => {

@@ -6,6 +6,8 @@
 // function.
 import type { ReactNode } from 'react';
 
+import type { LandingSide } from '../../../../utils/functions/dragPreview';
+
 export const ACTIVATION_DISTANCE_PX = 5;
 
 // Form fields and editable regions: a press inside one begins typing or a
@@ -126,8 +128,8 @@ export interface RowDragAreaProps {
    */
   fixedRowSelector?: string;
   /**
-   * Which fixed row the dragged row will land immediately after, when the index
-   * alone does not describe where it ends up (KAN-166).
+   * Which fixed row the dragged row ends up beside, and on which side, when the
+   * index alone does not describe where it ends up (KAN-166, KAN-168).
    *
    * A tab released inside a group's band joins that group, and the band's rect
    * includes the group's TITLE row -- while the landing index comes from row
@@ -136,19 +138,27 @@ export interface RowDragAreaProps {
    * "inside it". Both are right: the tab becomes the group's FIRST member, so
    * it lands under the title row rather than above it.
    *
-   * The area cannot know that. It knows an index and whatever `resolveDrop`
-   * answered; what a group IS, and which row starts it, belong to the list. So
-   * the list names the title row and the area works out the rest -- including
-   * that the answer differs by direction, since a row arriving from above SWAPS
-   * with the title row while one arriving from below lands past it.
+   * THE SIDE IS THE WHOLE POINT, and leaving it out was KAN-168. A drop that
+   * changes a tab's group crosses that group's title row, and it crosses in
+   * both directions: joining at the head lands the tab under the title,
+   * dragging out of the group lands it above. Neither changes the tab's row
+   * index, so an index cannot express either one.
+   *
+   * The area cannot know any of this. It knows an index and whatever
+   * `resolveDrop` answered; what a group IS, which row starts it, and which
+   * group the dragged row is already in all belong to the list. So the list is
+   * given the row's id and names the title row and the side, and the area works
+   * out the slot -- including that the slot also depends on which direction the
+   * row is travelling.
    *
    * The DROP is unaffected -- this shapes the preview only, and the reducer
    * still receives the raw index, which produces the same arrangement.
    */
-  landsAfterFixedRow?: (
+  landsBesideFixedRow?: (
+    rowId: string,
     toIndex: number,
     target: string | undefined
-  ) => string | undefined;
+  ) => { fixedRowId: string; side: LandingSide } | undefined;
   // Dragging is off while the list on screen is a FILTERED view of the stored
   // one (KAN-131). toIndex counts rendered rows, and the reducers apply it to
   // the stored array, so a drag in a narrowed list lands somewhere the user

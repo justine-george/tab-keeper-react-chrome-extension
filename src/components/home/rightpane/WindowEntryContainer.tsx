@@ -269,6 +269,18 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   );
   const itemIds = useMemo(() => items.map(itemIdOf), [items]);
 
+  // Which group each tab is currently in, so the rule below can see a tab
+  // LEAVING one as well as joining one (KAN-168). The engine knows only where
+  // the pointer is; where the row STARTED is the list's own knowledge.
+  const groupOfTab = useMemo(() => {
+    const byId = new Map<string, string>();
+    for (const tab of tabs) {
+      if (tab.chromeGroupId !== undefined)
+        byId.set(tab.tabId, tab.chromeGroupId);
+    }
+    return byId;
+  }, [tabs]);
+
   // Where in the window's tab list each group's first member sits.
   const groupFirstIndex = useMemo(() => {
     const byId = new Map<string, number>();
@@ -297,16 +309,34 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   //
   // The DROP is untouched. This is the preview only; the reducer still receives
   // the raw index and produces the same arrangement.
-  const landsAfterFixedRow = useCallback(
-    (toIndex: number, target: string | undefined) => {
-      if (target === undefined) return undefined;
-      const first = groupFirstIndex.get(target);
-      // At or above the first member is the strip where the two answers
-      // disagree. Below it the tab is landing BETWEEN members, where its row
-      // index already says everything.
-      return first !== undefined && toIndex <= first ? target : undefined;
+  const landsBesideFixedRow = useCallback(
+    (rowId: string, toIndex: number, target: string | undefined) => {
+      // Landing inside a band: the tab joins that group, or moves to the head
+      // of the one it is already in. Either way it ends up UNDER that title
+      // row. At or above the first member is the strip where the index and the
+      // band disagree; below it the tab is landing BETWEEN members, where its
+      // row index already says everything.
+      if (target !== undefined) {
+        const first = groupFirstIndex.get(target);
+        return first !== undefined && toIndex <= first
+          ? { fixedRowId: target, side: 'after' as const }
+          : undefined;
+      }
+
+      // KAN-168. Landing outside every band, having started inside one: the
+      // tab LEAVES its group, and above its first member that means crossing
+      // the title row the other way. Its row index does not change -- the
+      // reducer splices it out and back in at the same place and only drops
+      // the membership -- so without this the preview has nothing to say and
+      // draws the landing slot at the tab's own origin, inside the band.
+      const held = groupOfTab.get(rowId);
+      if (held === undefined) return undefined;
+      const first = groupFirstIndex.get(held);
+      return first !== undefined && toIndex <= first
+        ? { fixedRowId: held, side: 'before' as const }
+        : undefined;
     },
-    [groupFirstIndex]
+    [groupFirstIndex, groupOfTab]
   );
 
   const handleMoveGroup = useCallback(
@@ -871,7 +901,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
             dragKind="tab"
             resolveDrop={bandAt}
             onDropTargetChange={markDropTargetBand}
-            landsAfterFixedRow={landsAfterFixedRow}
+            landsBesideFixedRow={landsBesideFixedRow}
             // Each group's title row: drawn in this list, never dragged in it.
             // Scoped to `tabs` only -- in the `items` list a group is one row
             // that CONTAINS its title, so counting it there would double it.
