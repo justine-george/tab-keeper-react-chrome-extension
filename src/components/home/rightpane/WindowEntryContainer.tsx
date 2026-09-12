@@ -15,7 +15,10 @@ import OverflowMenu from '../../common/OverflowMenu';
 import GroupColorPicker from '../../common/GroupColorPicker';
 import { NormalLabel } from '../../common/Label';
 import { useFontFamily } from '../../../hooks/useFontFamily';
-import { useThemeColors } from '../../../hooks/useThemeColors';
+import {
+  useThemeColors,
+  dropTargetRingColor,
+} from '../../../hooks/useThemeColors';
 import { AppDispatch, RootState } from '../../../redux/store';
 import {
   resolveTabUrl,
@@ -820,12 +823,19 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                            Drawn OUTSIDE the band (positive offset), which is
                            what makes it legible. Inset, its left segment would
                            cross the group's colour strip -- Chrome's fixed
-                           pastels -- and the app's text colour measures
+                           pastels -- where the app's text colour measures
                            1.05:1 against cyan in the dark themes, i.e. gone.
-                           Outside, its backdrop is the page in every case:
-                           9.24:1 at worst across all five themes. */
+                           Outside, its backdrop is the page in every case.
+
+                           The colour is named once, in
+                           dropTargetRingColor, so the 3:1 floor it has to
+                           clear is asserted against the same value this
+                           draws rather than a copy of it.
+
+                           No backticks in here: this comment sits inside an
+                           emotion template literal, and one would end it. */
                         &[data-drop-target] {
-                          outline: 2px solid ${COLORS.TEXT_COLOR};
+                          outline: 2px solid ${dropTargetRingColor(COLORS)};
                           outline-offset: 1px;
                           border-radius: 2px;
                           background-color: ${COLORS.HOVER_COLOR};

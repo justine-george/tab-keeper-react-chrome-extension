@@ -127,3 +127,18 @@ export function useThemeColors() {
 
   return LIGHT_THEME;
 }
+
+/**
+ * The ring marking the group a dragged tab would join (KAN-164).
+ *
+ * Named here rather than written inline, so the contrast rule it has to obey
+ * can be asserted against the same value the component draws -- see
+ * `dropTargetRingContrast.test.ts`.
+ *
+ * Deliberately NOT TEXT_COLOR. That measures 9.24:1 against the page at worst
+ * and reads as the loudest thing on screen; this is a hint about where a
+ * release lands, not an alert. LABEL_L2 is the softest token that still clears
+ * the 3:1 floor for a non-text control (WCAG 1.4.11).
+ */
+export const dropTargetRingColor = (theme: typeof LIGHT_THEME): string =>
+  theme.LABEL_L2_COLOR;
