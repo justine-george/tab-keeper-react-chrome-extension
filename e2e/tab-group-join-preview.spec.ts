@@ -299,7 +299,12 @@ const secondSlotY = async (page: Page) => {
   return b.y + b.height * 0.75;
 };
 
-async function previewOfDragging(page: Page, rowId: string, toY: number) {
+async function previewOfDragging(
+  page: Page,
+  rowId: string,
+  toY: number,
+  opts: { settle?: boolean } = {}
+) {
   const before = await tops(page);
   const from = (await page
     .locator(`[data-drag-row-id="${rowId}"]`)
@@ -311,6 +316,9 @@ async function previewOfDragging(page: Page, rowId: string, toY: number) {
   // sees a real gesture rather than one jump.
   await page.mouse.move(from.x + 40, from.y + from.height / 2 + 8);
   await page.mouse.move(from.x + 40, toY, { steps: 6 });
+  // The frame's own parts carry a 0.18s transition (KAN-165), so anything read
+  // from a RECT rather than from a commanded transform has to wait it out.
+  if (opts.settle) await page.waitForTimeout(400);
 
   const preview = await page.evaluate(
     ([rows, held, pre]: [
@@ -357,12 +365,72 @@ async function previewOfDragging(page: Page, rowId: string, toY: number) {
     [ROWS, rowId, before] as [readonly string[], string, Record<string, number>]
   );
 
+  if (opts.settle) return preview;
   // Escape rather than release: this asserts on the preview, and a commit
   // would rewrite the very layout being measured.
   await page.keyboard.press('Escape');
   await page.mouse.up();
   return preview;
 }
+
+// The band's painted box, its title row and its colour strip, relative to a0.
+// KAN-171: these three have to describe the group the DROP will make, and the
+// band's own box never moves on its own -- a transform on the title row cannot
+// change its parent's layout box.
+const framePaint = (page: Page) =>
+  page.evaluate(() => {
+    const base = document
+      .querySelector('[data-drag-row-id="a0"]')!
+      .getBoundingClientRect().top;
+    const at = (el: Element | null) => {
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return {
+        top: Math.round(r.top - base),
+        bottom: Math.round(r.bottom - base),
+      };
+    };
+    return {
+      band: at(document.querySelector('[data-band-id="alpha"]')),
+      strip: at(
+        document.querySelector(
+          '[data-band-id="alpha"] [data-group-color-strip]'
+        )
+      ),
+    };
+  });
+
+// The painted extent a group's frame should show, which is NOT its layout box
+// once the preview has moved anything. Measured from the tint and the strip.
+const framePreview = (page: Page) =>
+  page.evaluate(() => {
+    const base = document
+      .querySelector('[data-drag-row-id="a0"]')!
+      .getBoundingClientRect().top;
+    const paint = (sel: string) => {
+      const el = document.querySelector<HTMLElement>(sel);
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      const before = getComputedStyle(el, '::before');
+      // The paint layer, where there is one, is what carries the extent.
+      const top = parseFloat(before.top);
+      const bottom = parseFloat(before.bottom);
+      if (before.content === 'none' || Number.isNaN(top)) {
+        return {
+          top: Math.round(r.top - base),
+          bottom: Math.round(r.bottom - base),
+        };
+      }
+      return {
+        top: Math.round(r.top - base + top),
+        bottom: Math.round(r.bottom - base - bottom),
+      };
+    };
+    return {
+      band: paint('[data-band-id="alpha"]'),
+      strip: paint('[data-band-id="alpha"] [data-group-color-strip]'),
+    };
+  });
 
 test.describe('the preview predicts the drop', () => {
   test('a2 dropped on the title: the title row rises and the members hold still', async ({
@@ -408,6 +476,35 @@ test.describe('the preview predicts the drop', () => {
 
     // Exact, in the direction the index alone already described.
     expect(preview.a3).toBe(TRUTH.fromBelow.a3);
+  });
+
+  // KAN-171, reported from the shipped build. A group's frame changes LENGTH
+  // when a tab joins it, and a transform can only express POSITION -- so the
+  // tinted box kept its resting extent while the title row moved out of the
+  // top of it, and the strip moved up rigidly and fell short at the bottom.
+  test('a2 dropped on the title: the band and its strip cover the group the drop will make', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await open(context, extensionId, BEFORE);
+
+    const rest = await framePaint(page);
+    expect(rest.band).toEqual({ top: 98, bottom: 226 });
+    expect(rest.strip).toEqual({ top: 98, bottom: 226 });
+
+    await previewOfDragging(page, 'a2', await titleRowY(page), {
+      settle: true,
+    });
+    const painted = await framePreview(page);
+
+    // The drop makes the band 66..226. The preview is allowed the usual 2px of
+    // KAN-167 at the moving edge; the fixed edge has to be exact.
+    expect(painted.band!.top).toBe(TRUTH.fromAbove.header - 2);
+    expect(painted.band!.bottom).toBe(rest.band!.bottom);
+
+    // And the strip covers the same extent, rather than keeping its length.
+    expect(painted.strip!.top).toBe(painted.band!.top);
+    expect(painted.strip!.bottom).toBe(painted.band!.bottom);
   });
 
   // KAN-170, reported from the shipped build. Aiming at the group's SECOND

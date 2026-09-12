@@ -93,22 +93,32 @@ interface WindowEntryContainerProps {
 // threading a per-move offset into a component with no other reason to know
 // about dragging would be worse than this. The offset changes only when the
 // landing slot does, not on every pointer move.
-const GroupFrameFollower: React.FC<{ groupId: string }> = ({ groupId }) => {
+const GroupFrameFollower: React.FC<{
+  groupId: string;
+  lastMemberId: string | undefined;
+}> = ({ groupId, lastMemberId }) => {
   const drag = useDragState('tabs');
-  const offset = drag?.shifts[groupId] ?? 0;
+  const top = drag?.shifts[groupId] ?? 0;
+  const bottom =
+    (lastMemberId === undefined ? 0 : drag?.shifts[lastMemberId]) ?? 0;
   const anchor = useRef<HTMLSpanElement | null>(null);
 
   useLayoutEffect(() => {
     const band = anchor.current?.closest<HTMLElement>('[data-band-id]');
     if (!band) return;
-    const transform = offset ? `translateY(${offset}px)` : '';
-    for (const part of [
-      band.querySelector<HTMLElement>('[data-group-color-strip]'),
-      band.querySelector<HTMLElement>('[data-group-drag-handle]'),
-    ]) {
-      if (part) part.style.transform = transform;
-    }
-  }, [offset]);
+    // The frame's EXTENT, published for the paint layers to read (KAN-171).
+    // Custom properties rather than inline styles on each part, because the
+    // strip is rendered by GroupColorPicker and these have to reach it without
+    // that component learning anything about dragging.
+    band.style.setProperty('--frame-top', `${top}px`);
+    band.style.setProperty('--frame-bottom', `${bottom}px`);
+
+    // The title row is a real row and moves as one, so it keeps a transform.
+    // The strip does NOT: it has to change length, not position, and a
+    // transform cannot say that.
+    const handle = band.querySelector<HTMLElement>('[data-group-drag-handle]');
+    if (handle) handle.style.transform = top ? `translateY(${top}px)` : '';
+  }, [top, bottom]);
 
   return <span ref={anchor} hidden />;
 };
@@ -980,7 +990,36 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                       css={css`
                         display: flex;
                         align-items: stretch;
-                        margin: 2px 0;
+
+                        /* KAN-171. The band's painted box has to cover the
+                           group the DROP will make, which is a row taller than
+                           the one on screen when a tab is joining it. Its own
+                           box cannot follow on its own: the title row moves by
+                           transform, and a transform on a child never changes
+                           its parent's layout box. Measured, the tint kept its
+                           resting 98..226 while the drop makes it 66..226, so
+                           the title row sat above its own tint.
+
+                           PADDING PAIRED WITH NEGATIVE MARGIN, so the box grows
+                           while its content and its contribution to the flow
+                           both stay exactly where they were -- the preview
+                           deliberately holds the layout still, and a real height
+                           change would push every row below the band.
+
+                           GROWTH ONLY, and that is not a shortcut: this paints
+                           only for the group a tab is being dropped into, and
+                           joining a group can never make it shorter. The strip
+                           handles both directions, because it is also drawn
+                           while a tab is LEAVING. */
+                        --frame-grow-top: max(
+                          0px,
+                          calc(-1 * var(--frame-top, 0px))
+                        );
+                        --frame-grow-bottom: max(0px, var(--frame-bottom, 0px));
+                        padding-top: var(--frame-grow-top);
+                        padding-bottom: var(--frame-grow-bottom);
+                        margin: calc(2px - var(--frame-grow-top)) 0
+                          calc(2px - var(--frame-grow-bottom));
 
                         /* KAN-164: a tab released here joins this group.
                            Outline rather than border, so marking a band
@@ -1006,6 +1045,12 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                            state in this pane is made of. The strip's widen
                            (GroupColorPicker) is the part that carries the
                            meaning without relying on hue. */
+                        /* KAN-164: a tab released here joins this group, so
+                           the group answers in its own colour. A wash rather
+                           than a ring, because fills are what every other
+                           state in this pane is made of. The strip's widen
+                           (GroupColorPicker) is the part that carries the
+                           meaning without relying on hue. */
                         &[data-drop-target] {
                           background-color: color-mix(
                             in srgb,
@@ -1016,7 +1061,10 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                         }
                       `}
                     >
-                      <GroupFrameFollower groupId={item.group.groupId} />
+                      <GroupFrameFollower
+                        groupId={item.group.groupId}
+                        lastMemberId={item.tabs[item.tabs.length - 1]?.tabId}
+                      />
                       {/* The colour is Chrome's own group identity, not app chrome
                     (BINDING CONSTRAINT 1) -- TAB_GROUP_COLOR_HEX is a fixed
                     map, not routed through useThemeColors, so it reads the

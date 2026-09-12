@@ -91,6 +91,25 @@ const GroupColorPicker: React.FC<GroupColorPickerProps> = ({
     align-self: stretch;
     background-color: ${TAB_GROUP_COLOR_HEX[current]};
 
+    /* KAN-171. The strip changes LENGTH while a tab is dragged into or out of
+       this group -- one row's worth -- and it used to be moved by a transform,
+       which can only change where a fixed-length box sits. Measured: dragging
+       a tab into a group's head, the strip read 64..192, moved up 34 and still
+       128 long, falling 34px short of the band's bottom at 226.
+
+       MARGINS ON A STRETCHED ITEM, which is the one way to resize this without
+       reflowing anything. The item's MARGIN box is what fills the flex line, so
+       a negative margin-top makes the border box that much taller and starts it
+       that much higher, while the line -- and therefore the band, and therefore
+       every row below it -- is untouched. A height would have done the opposite
+       and grown the band.
+
+       The two numbers are the frame's previewed extent, published on the band
+       by GroupFrameFollower and inherited from it. Both default to zero, so
+       outside a drag, and outside a band, this is the plain strip it was. */
+    margin-top: var(--frame-top, 0px);
+    margin-bottom: calc(-1 * var(--frame-bottom, 0px));
+
     /* KAN-164. While a tab is dragged, the group it would join opens up: the
        strip widens in the group's OWN colour rather than the app growing a
        ring in a colour it uses nowhere else.
