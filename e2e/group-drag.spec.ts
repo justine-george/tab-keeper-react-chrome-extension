@@ -643,20 +643,58 @@ test.describe('a tab drag says which group it will join', () => {
     // And the mark is actually DRAWN. The attribute alone would pass with no
     // stylesheet behind it, which is precisely the state this ticket found:
     // measured before the fix, the band's outline read `3px none`.
-    expect(
-      await page.evaluate(() => {
-        const cs = getComputedStyle(
-          document.querySelector('[data-band-id="alpha"]')!
-        );
-        const other = getComputedStyle(
-          document.querySelector('[data-band-id="gamma"]')!
-        );
-        return {
-          marked: cs.outlineStyle + ' ' + cs.outlineWidth,
-          unmarked: other.outlineStyle,
-        };
-      })
-    ).toEqual({ marked: 'solid 2px', unmarked: 'none' });
+    //
+    // The group answers in ITS OWN colour rather than in a ring: the strip
+    // widens, the band fills with a wash of its colour, and the held tab takes
+    // the stripe. The WIDTH is the one that carries the meaning for anyone who
+    // cannot separate the wash from the page -- a shape change, not a hue.
+    const drawn = await page.evaluate(() => {
+      const strip = (id: string) =>
+        document
+          .querySelector(`[data-band-id="${id}"] [data-group-color-strip]`)!
+          .getBoundingClientRect().width;
+      const band = document.querySelector<HTMLElement>(
+        '[data-band-id="alpha"]'
+      )!;
+      const held = document.querySelector<HTMLElement>('[data-drag-held]')!;
+      return {
+        markedStrip: Math.round(strip('alpha')),
+        unmarkedStrip: Math.round(strip('gamma')),
+        bandFill: getComputedStyle(band).backgroundColor,
+        bandColourVar: band.style.getPropertyValue('--band-color'),
+        heldStripe: getComputedStyle(document.documentElement)
+          .getPropertyValue('--drop-target-color')
+          .trim(),
+        heldShadow: getComputedStyle(held).boxShadow,
+        // The strip grows into its own margin, so the rows beside it must not
+        // move. The group's content edge is the thing that would give.
+        contentLeft: Math.round(
+          document
+            .querySelector('[data-band-id="alpha"] [data-group-drag-handle]')!
+            .getBoundingClientRect().left
+        ),
+      };
+    });
+
+    // The non-colour signal: wider than an unmarked group's strip.
+    expect(drawn.markedStrip).toBeGreaterThan(drawn.unmarkedStrip);
+    // And it answers in the group's own colour, not a generic accent.
+    expect(drawn.bandColourVar).not.toBe('');
+    expect(drawn.bandFill).not.toBe('rgba(0, 0, 0, 0)');
+    // The held tab wears the colour of the group it would join.
+    expect(drawn.heldStripe).toBe(drawn.bandColourVar);
+    expect(drawn.heldShadow).toContain('inset');
+
+    // The footprint rule from GroupColorPicker: the strip grows into its own
+    // margin, so widening it must not push the group's rows sideways.
+    const restingLeft = await page.evaluate(() =>
+      Math.round(
+        document
+          .querySelector('[data-band-id="gamma"] [data-group-drag-handle]')!
+          .getBoundingClientRect().left
+      )
+    );
+    expect(drawn.contentLeft).toBe(restingLeft);
 
     // And it follows the pointer to another group.
     await intoBand('beta');

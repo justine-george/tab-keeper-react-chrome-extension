@@ -15,10 +15,7 @@ import OverflowMenu from '../../common/OverflowMenu';
 import GroupColorPicker from '../../common/GroupColorPicker';
 import { NormalLabel } from '../../common/Label';
 import { useFontFamily } from '../../../hooks/useFontFamily';
-import {
-  useThemeColors,
-  dropTargetRingColor,
-} from '../../../hooks/useThemeColors';
+import { useThemeColors } from '../../../hooks/useThemeColors';
 import { AppDispatch, RootState } from '../../../redux/store';
 import {
   resolveTabUrl,
@@ -39,6 +36,8 @@ import {
 import { useTranslation } from 'react-i18next';
 import { v4 as uuidv4 } from 'uuid';
 import {
+  TAB_GROUP_COLOR_HEX,
+  sanitizeTabGroupColor,
   partitionTabsIntoItems,
   itemIdOf,
   groupIdOfItemId,
@@ -66,36 +65,6 @@ interface WindowEntryContainerProps {
   onUpdateWindowGroupTitle: (newTitle: string) => void;
   onAddCurrTabToWindowClick: MouseEventHandler;
   onDeleteClick: MouseEventHandler;
-}
-
-// KAN-164. Show which group a tab release would put it in.
-//
-// A tab released inside a group's band JOINS that group (dropRules.bandAt), and
-// until this the rule was invisible: measured mid-drag with the pointer squarely
-// inside a band, the band was byte-identical to its resting state. The only way
-// to find out what a release would do was to do it.
-//
-// Written straight to the DOM rather than held in React state, because it
-// changes as the pointer moves and a re-render per move is the cost this drag
-// engine is built to avoid -- the same reason `data-drag-held` is set this way
-// (KAN-160). React never touches the attribute, so a re-render cannot drop it.
-//
-// Scoped to the container that answered, so a band in another window cannot
-// light up alongside it.
-function markDropTargetBand(
-  target: string | undefined,
-  container: HTMLElement | null
-): void {
-  if (!container) return;
-  for (const band of container.querySelectorAll<HTMLElement>(
-    '[data-band-id]'
-  )) {
-    if (band.dataset.bandId === target) {
-      band.setAttribute('data-drop-target', '');
-    } else {
-      band.removeAttribute('data-drop-target');
-    }
-  }
 }
 
 const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
@@ -168,6 +137,61 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   const indexOfTab = useMemo(
     () => new Map(tabs.map((tab, i) => [tab.tabId, i])),
     [tabs]
+  );
+
+  // KAN-164. Which group a tab release would put it in, answered in that
+  // group's own colour.
+  //
+  // A tab released inside a group's band JOINS that group (dropRules.bandAt),
+  // and until this the rule was invisible: measured mid-drag with the pointer
+  // squarely inside a band, the band was byte-identical to its resting state.
+  // The only way to learn what a release would do was to do it.
+  //
+  // The band publishes its colour as a custom property, which the wash and the
+  // held tab's stripe both read -- so the feedback is the GROUP's identity
+  // rather than an accent the app uses nowhere else.
+  //
+  // Written straight to the DOM rather than held in React state, because it
+  // changes as the pointer moves and a re-render per move is the cost this
+  // drag engine is built to avoid -- the same reason `data-drag-held` is set
+  // this way (KAN-160). React never touches these, so a re-render cannot drop
+  // them.
+  const groupColorHex = useMemo(() => {
+    const byId = new Map<string, string>();
+    for (const group of chromeTabGroups ?? []) {
+      byId.set(
+        group.groupId,
+        TAB_GROUP_COLOR_HEX[sanitizeTabGroupColor(group.color)]
+      );
+    }
+    return byId;
+  }, [chromeTabGroups]);
+
+  const markDropTargetBand = useCallback(
+    (target: string | undefined, container: HTMLElement | null) => {
+      if (!container) return;
+      // Scoped to the container that answered, so a band in another window
+      // cannot light up alongside it.
+      for (const band of container.querySelectorAll<HTMLElement>(
+        '[data-band-id]'
+      )) {
+        if (target !== undefined && band.dataset.bandId === target) {
+          band.setAttribute('data-drop-target', '');
+          const colour = groupColorHex.get(target) ?? '';
+          band.style.setProperty('--band-color', colour);
+          document.documentElement.style.setProperty(
+            '--drop-target-color',
+            colour
+          );
+        } else {
+          band.removeAttribute('data-drop-target');
+        }
+      }
+      if (target === undefined) {
+        document.documentElement.style.removeProperty('--drop-target-color');
+      }
+    },
+    [groupColorHex]
   );
 
   const handleMove = useCallback(
@@ -834,11 +858,19 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
 
                            No backticks in here: this comment sits inside an
                            emotion template literal, and one would end it. */
+                        /* KAN-164: a tab released here joins this group, so
+                           the group answers in its own colour. A wash rather
+                           than a ring, because fills are what every other
+                           state in this pane is made of. The strip's widen
+                           (GroupColorPicker) is the part that carries the
+                           meaning without relying on hue. */
                         &[data-drop-target] {
-                          outline: 2px solid ${dropTargetRingColor(COLORS)};
-                          outline-offset: 1px;
-                          border-radius: 2px;
-                          background-color: ${COLORS.HOVER_COLOR};
+                          background-color: color-mix(
+                            in srgb,
+                            var(--band-color, transparent) 18%,
+                            transparent
+                          );
+                          border-radius: 4px;
                         }
                       `}
                     >

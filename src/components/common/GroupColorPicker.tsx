@@ -90,6 +90,23 @@ const GroupColorPicker: React.FC<GroupColorPickerProps> = ({
     margin-right: 6px;
     align-self: stretch;
     background-color: ${TAB_GROUP_COLOR_HEX[current]};
+
+    /* KAN-164. While a tab is dragged, the group it would join opens up: the
+       strip widens in the group's OWN colour rather than the app growing a
+       ring in a colour it uses nowhere else.
+
+       More emphatic than the hover widen below (6px), so the two states stay
+       distinguishable, and still 9px of footprint -- it takes the whole margin
+       rather than any of the row beside it, so marking a group reflows
+       nothing.
+
+       Width, not hue, is what carries this: it survives being unable to tell
+       the wash from the page. */
+    [data-drop-target] & {
+      flex-basis: 9px;
+      width: 9px;
+      margin-right: 0;
+    }
   `;
 
   const {
@@ -105,7 +122,8 @@ const GroupColorPicker: React.FC<GroupColorPickerProps> = ({
     axis: 'horizontal',
   });
 
-  if (decorative) return <div aria-hidden="true" css={bandStyle} />;
+  if (decorative)
+    return <div aria-hidden="true" data-group-color-strip css={bandStyle} />;
 
   return (
     <div
@@ -126,6 +144,7 @@ const GroupColorPicker: React.FC<GroupColorPickerProps> = ({
         <div
           role="button"
           tabIndex={0}
+          data-group-color-strip
           aria-label={ariaLabel}
           aria-haspopup="menu"
           aria-expanded={isOpen}
