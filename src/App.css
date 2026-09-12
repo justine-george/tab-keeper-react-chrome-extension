@@ -97,3 +97,18 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--scrollbar-thumb-hover, #555);
 }
+
+/* KAN-164. The tab being dragged wears the colour of the group it would join,
+   so it already looks like a member before the pointer comes up.
+
+   --drop-target-color is published by WindowEntryContainer as the drop target
+   changes, and removed when the drag ends, so this falls back to transparent
+   and the rule costs nothing when no group is under the pointer. */
+[data-dragging='tab'] [data-drag-held] {
+  /* !important because RowDragArea sets the lift shadow INLINE on the held
+     row, and an inline declaration outranks any stylesheet rule without it.
+     The lift is repeated here so adding the stripe does not drop it. */
+  box-shadow:
+    inset 4px 0 0 var(--drop-target-color, transparent),
+    0 2px 8px rgba(0, 0, 0, 0.35) !important;
+}

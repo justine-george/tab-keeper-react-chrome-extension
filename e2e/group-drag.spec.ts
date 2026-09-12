@@ -560,3 +560,187 @@ test.describe('a tab dragged across a group boundary', () => {
     expect(await itemOrder(page)).toEqual(START);
   });
 });
+
+// KAN-164. Dragging a tab changes its GROUP MEMBERSHIP, and the rule is
+// invisible: "the band decides" (dropRules.bandAt) -- a tab released while the
+// pointer is inside a group's band joins that group, anywhere else it lands
+// ungrouped. Measured before the fix, the band was byte-identical during the
+// drag: same outline, same background, same height. You found out by letting go.
+//
+// The band under the pointer is therefore marked while the drag is live, and
+// the mark has to track the pointer, including back to nothing.
+test.describe('a tab drag says which group it will join', () => {
+  test('marks the band under the pointer, and only that one', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await open(context, extensionId);
+
+    const start = await page.evaluate(() => {
+      const w1 = document.querySelector<HTMLElement>(
+        '[data-drag-row-id="w1"]'
+      )!;
+      let pane = w1.parentElement;
+      while (
+        pane &&
+        !['auto', 'scroll'].includes(getComputedStyle(pane).overflowY)
+      )
+        pane = pane.parentElement;
+      const held = document.querySelector<HTMLElement>(
+        '[data-drag-row-id="a0"]'
+      )!;
+      const hb = held.getBoundingClientRect();
+      const pb = pane!.getBoundingClientRect();
+      pane!.scrollTop += hb.top + hb.height / 2 - (pb.top + pb.height / 2);
+      const h = document
+        .querySelector<HTMLElement>('[data-drag-row-id="a0"]')!
+        .getBoundingClientRect();
+      return { x: h.left + 80, y: h.top + h.height / 2 };
+    });
+
+    await page.mouse.move(start.x, start.y);
+    await page.mouse.down();
+    await page.mouse.move(start.x, start.y + 10, { steps: 3 });
+
+    // The bands move as rows step aside, so aim at where alpha is NOW.
+    const intoBand = async (id: string) => {
+      const y = await page.evaluate((bandId) => {
+        const r = document
+          .querySelector(`[data-band-id="${bandId}"]`)!
+          .getBoundingClientRect();
+        return r.top + r.height / 2;
+      }, id);
+      await page.mouse.move(start.x, y, { steps: 6 });
+      await page.waitForTimeout(120);
+    };
+
+    const marked = () =>
+      page.evaluate(() =>
+        [...document.querySelectorAll('[data-band-id][data-drop-target]')].map(
+          (b) => (b as HTMLElement).dataset.bandId
+        )
+      );
+
+    await intoBand('alpha');
+    // PREMISE: the pointer really is inside alpha, which is what decides the drop.
+    expect(
+      await page.evaluate(() => {
+        const r = document
+          .querySelector('[data-band-id="alpha"]')!
+          .getBoundingClientRect();
+        const held = document
+          .querySelector('[data-drag-row-id="a0"]')!
+          .getBoundingClientRect();
+        const x = held.left + 80;
+        const y = held.top + held.height / 2;
+        return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+      })
+    ).toBe(true);
+
+    // THE CLAIM: alpha is marked, and nothing else is.
+    await expect.poll(marked).toEqual(['alpha']);
+
+    // And the mark is actually DRAWN. The attribute alone would pass with no
+    // stylesheet behind it, which is precisely the state this ticket found:
+    // measured before the fix, the band's outline read `3px none`.
+    //
+    // The group answers in ITS OWN colour rather than in a ring: the strip
+    // widens, the band fills with a wash of its colour, and the held tab takes
+    // the stripe. The WIDTH is the one that carries the meaning for anyone who
+    // cannot separate the wash from the page -- a shape change, not a hue.
+    const drawn = await page.evaluate(() => {
+      const strip = (id: string) =>
+        document
+          .querySelector(`[data-band-id="${id}"] [data-group-color-strip]`)!
+          .getBoundingClientRect().width;
+      const band = document.querySelector<HTMLElement>(
+        '[data-band-id="alpha"]'
+      )!;
+      const held = document.querySelector<HTMLElement>('[data-drag-held]')!;
+      return {
+        markedStrip: Math.round(strip('alpha')),
+        unmarkedStrip: Math.round(strip('gamma')),
+        bandFill: getComputedStyle(band).backgroundColor,
+        bandColourVar: band.style.getPropertyValue('--band-color'),
+        heldStripe: getComputedStyle(document.documentElement)
+          .getPropertyValue('--drop-target-color')
+          .trim(),
+        heldShadow: getComputedStyle(held).boxShadow,
+        // The strip grows into its own margin, so the rows beside it must not
+        // move. The group's content edge is the thing that would give.
+        contentLeft: Math.round(
+          document
+            .querySelector('[data-band-id="alpha"] [data-group-drag-handle]')!
+            .getBoundingClientRect().left
+        ),
+      };
+    });
+
+    // The non-colour signal: wider than an unmarked group's strip.
+    expect(drawn.markedStrip).toBeGreaterThan(drawn.unmarkedStrip);
+    // And it answers in the group's own colour, not a generic accent.
+    expect(drawn.bandColourVar).not.toBe('');
+    expect(drawn.bandFill).not.toBe('rgba(0, 0, 0, 0)');
+    // The held tab wears the colour of the group it would join.
+    expect(drawn.heldStripe).toBe(drawn.bandColourVar);
+    expect(drawn.heldShadow).toContain('inset');
+
+    // The footprint rule from GroupColorPicker: the strip grows into its own
+    // margin, so widening it must not push the group's rows sideways.
+    const restingLeft = await page.evaluate(() =>
+      Math.round(
+        document
+          .querySelector('[data-band-id="gamma"] [data-group-drag-handle]')!
+          .getBoundingClientRect().left
+      )
+    );
+    expect(drawn.contentLeft).toBe(restingLeft);
+
+    // And it follows the pointer to another group.
+    await intoBand('beta');
+    await expect.poll(marked).toEqual(['beta']);
+
+    // Back to no group at all: released here the tab would land ungrouped, and
+    // the marks must say so rather than leaving the last one lit.
+    //
+    // Aimed at the WINDOW'S OWN title row, which is a row in the window list
+    // and so does not move while a tab is dragged. A point picked from any row
+    // inside the window would: the bands travel as rows step aside, which can
+    // carry one back under a pointer that was clear of it a moment earlier.
+    const aboveBands = await page.evaluate(() => {
+      const r = document
+        .querySelector('[data-drag-row-id="w1"] [data-window-drag-handle]')!
+        .getBoundingClientRect();
+      return r.top + r.height / 2;
+    });
+    await page.mouse.move(start.x, aboveBands, { steps: 6 });
+
+    // PREMISE: the pointer really is clear of every band, which is the whole
+    // condition under test. Without it a band that drifted back under the
+    // pointer would read as a failure to clear.
+    await expect
+      .poll(() =>
+        page.evaluate((y) => {
+          const bands = [...document.querySelectorAll('[data-band-id]')];
+          return bands.some((b) => {
+            const r = b.getBoundingClientRect();
+            return y >= r.top && y <= r.bottom;
+          });
+        }, aboveBands)
+      )
+      .toBe(false);
+
+    await expect.poll(marked).toEqual([]);
+
+    // End the drag while a band IS marked, so the cleanup is what clears it --
+    // releasing over empty space would pass whether or not finish clears.
+    await intoBand('beta');
+    await expect.poll(marked).toEqual(['beta']);
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+
+    // Nothing survives the drag, cancelled or not.
+    await expect.poll(marked).toEqual([]);
+    expect(await itemOrder(page)).toEqual(START);
+  });
+});

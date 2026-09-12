@@ -36,6 +36,8 @@ import {
 import { useTranslation } from 'react-i18next';
 import { v4 as uuidv4 } from 'uuid';
 import {
+  TAB_GROUP_COLOR_HEX,
+  sanitizeTabGroupColor,
   partitionTabsIntoItems,
   itemIdOf,
   groupIdOfItemId,
@@ -135,6 +137,61 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   const indexOfTab = useMemo(
     () => new Map(tabs.map((tab, i) => [tab.tabId, i])),
     [tabs]
+  );
+
+  // KAN-164. Which group a tab release would put it in, answered in that
+  // group's own colour.
+  //
+  // A tab released inside a group's band JOINS that group (dropRules.bandAt),
+  // and until this the rule was invisible: measured mid-drag with the pointer
+  // squarely inside a band, the band was byte-identical to its resting state.
+  // The only way to learn what a release would do was to do it.
+  //
+  // The band publishes its colour as a custom property, which the wash and the
+  // held tab's stripe both read -- so the feedback is the GROUP's identity
+  // rather than an accent the app uses nowhere else.
+  //
+  // Written straight to the DOM rather than held in React state, because it
+  // changes as the pointer moves and a re-render per move is the cost this
+  // drag engine is built to avoid -- the same reason `data-drag-held` is set
+  // this way (KAN-160). React never touches these, so a re-render cannot drop
+  // them.
+  const groupColorHex = useMemo(() => {
+    const byId = new Map<string, string>();
+    for (const group of chromeTabGroups ?? []) {
+      byId.set(
+        group.groupId,
+        TAB_GROUP_COLOR_HEX[sanitizeTabGroupColor(group.color)]
+      );
+    }
+    return byId;
+  }, [chromeTabGroups]);
+
+  const markDropTargetBand = useCallback(
+    (target: string | undefined, container: HTMLElement | null) => {
+      if (!container) return;
+      // Scoped to the container that answered, so a band in another window
+      // cannot light up alongside it.
+      for (const band of container.querySelectorAll<HTMLElement>(
+        '[data-band-id]'
+      )) {
+        if (target !== undefined && band.dataset.bandId === target) {
+          band.setAttribute('data-drop-target', '');
+          const colour = groupColorHex.get(target) ?? '';
+          band.style.setProperty('--band-color', colour);
+          document.documentElement.style.setProperty(
+            '--drop-target-color',
+            colour
+          );
+        } else {
+          band.removeAttribute('data-drop-target');
+        }
+      }
+      if (target === undefined) {
+        document.documentElement.style.removeProperty('--drop-target-color');
+      }
+    },
+    [groupColorHex]
   );
 
   const handleMove = useCallback(
@@ -727,6 +784,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
             onMove={handleMove}
             dragKind="tab"
             resolveDrop={bandAt}
+            onDropTargetChange={markDropTargetBand}
             // The mode, not the box's contents -- see KAN-140 on
             // TabGroupEntryContainer for why this is not isFilteredView.
             disabled={isSearchPanel}
@@ -781,6 +839,39 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                         display: flex;
                         align-items: stretch;
                         margin: 2px 0;
+
+                        /* KAN-164: a tab released here joins this group.
+                           Outline rather than border, so marking a band
+                           reflows nothing.
+
+                           Drawn OUTSIDE the band (positive offset), which is
+                           what makes it legible. Inset, its left segment would
+                           cross the group's colour strip -- Chrome's fixed
+                           pastels -- where the app's text colour measures
+                           1.05:1 against cyan in the dark themes, i.e. gone.
+                           Outside, its backdrop is the page in every case.
+
+                           The colour is named once, in
+                           dropTargetRingColor, so the 3:1 floor it has to
+                           clear is asserted against the same value this
+                           draws rather than a copy of it.
+
+                           No backticks in here: this comment sits inside an
+                           emotion template literal, and one would end it. */
+                        /* KAN-164: a tab released here joins this group, so
+                           the group answers in its own colour. A wash rather
+                           than a ring, because fills are what every other
+                           state in this pane is made of. The strip's widen
+                           (GroupColorPicker) is the part that carries the
+                           meaning without relying on hue. */
+                        &[data-drop-target] {
+                          background-color: color-mix(
+                            in srgb,
+                            var(--band-color, transparent) 18%,
+                            transparent
+                          );
+                          border-radius: 4px;
+                        }
                       `}
                     >
                       {/* The colour is Chrome's own group identity, not app chrome
