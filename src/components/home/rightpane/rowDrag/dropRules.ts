@@ -89,6 +89,25 @@ export interface RowDragAreaProps {
    */
   restoreScrollIfNoDrop?: boolean;
   resolveDrop?: ResolveDrop;
+  /**
+   * Called while the drag is live, whenever `resolveDrop` starts or stops
+   * naming a target, and once with `undefined` when the drag ends (KAN-164).
+   *
+   * Because a drop can change more than an index. A tab released inside a
+   * group's band JOINS that group, and before this the rule was invisible --
+   * measured mid-drag with the pointer squarely inside a band, the band was
+   * byte-identical to its resting state, so the only way to learn what a
+   * release would do was to do it.
+   *
+   * The area stays ignorant of what a target IS: it forwards whatever
+   * `resolveDrop` answers, with the container that answered, and the list
+   * decides how to show it. Fired only on CHANGE, so the cost is one hit test
+   * per move rather than one DOM write.
+   */
+  onDropTargetChange?: (
+    target: string | undefined,
+    container: HTMLElement | null
+  ) => void;
   // Dragging is off while the list on screen is a FILTERED view of the stored
   // one (KAN-131). toIndex counts rendered rows, and the reducers apply it to
   // the stored array, so a drag in a narrowed list lands somewhere the user

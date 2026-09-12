@@ -197,6 +197,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
   clampDropToEnds = false,
   restoreScrollIfNoDrop = false,
   resolveDrop,
+  onDropTargetChange,
   disabled = false,
   children,
 }) => {
@@ -238,6 +239,9 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     // The held row's element while a started drag holds it (KAN-160). Kept
     // here so finish clears the element the marker was set on.
     heldEl: HTMLElement | null;
+    // The last target resolveDrop named, so the list hears only about changes
+    // rather than once per pointer move (KAN-164).
+    dropTarget: string | undefined;
   } | null>(null);
 
   // The auto-scroll frame, cancelled on drop. A ref rather than state: it is
@@ -318,6 +322,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
           : 0,
         pane: clampDropToEnds ? paneOf(el) : null,
         heldEl: null,
+        dropTarget: undefined,
       };
     },
     [rowIds, handleSelector, disabled, clampDropToEnds]
@@ -551,6 +556,21 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       }
 
       update(l);
+
+      // What a release HERE would land on, published as it changes (KAN-164).
+      //
+      // Asked on every move rather than only at the drop, because a drop can
+      // change more than an index -- a tab released inside a group's band joins
+      // that group -- and the user cannot see a rule that is only consulted
+      // once the pointer is already up. Compared first so the list is told only
+      // when the answer actually changes.
+      if (onDropTargetChange && resolveDrop) {
+        const target = resolveDrop(containerRef.current, l.lastX, l.lastY);
+        if (target !== l.dropTarget) {
+          l.dropTarget = target;
+          onDropTargetChange(target, containerRef.current);
+        }
+      }
     };
 
     // Where a release lands, or undefined for a release this list refuses.
@@ -596,6 +616,10 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       const drop = commit && l.started ? judgeDrop(l) : undefined;
       setDragging(false);
       l.heldEl?.removeAttribute('data-drag-held');
+      // Whatever was marked stops being a target the moment the drag ends --
+      // committed, refused or cancelled alike (KAN-164).
+      if (l.dropTarget !== undefined)
+        onDropTargetChange?.(undefined, containerRef.current);
       // Below the threshold this was a click, not a drag, and the row's own
       // handler must run untouched.
       if (!l.started) return;
@@ -668,7 +692,14 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // cleanup runs on every change to the deps as well as on unmount, and a
       // drag in flight must survive the listeners being re-bound.
     };
-  }, [rowIds, onMove, resolveDrop, dragKind, restoreScrollIfNoDrop]);
+  }, [
+    rowIds,
+    onMove,
+    resolveDrop,
+    onDropTargetChange,
+    dragKind,
+    restoreScrollIfNoDrop,
+  ]);
 
   // A drag interrupted by UNMOUNT must not leave the document stuck in a drag.
   //

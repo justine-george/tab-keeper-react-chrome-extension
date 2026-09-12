@@ -65,6 +65,36 @@ interface WindowEntryContainerProps {
   onDeleteClick: MouseEventHandler;
 }
 
+// KAN-164. Show which group a tab release would put it in.
+//
+// A tab released inside a group's band JOINS that group (dropRules.bandAt), and
+// until this the rule was invisible: measured mid-drag with the pointer squarely
+// inside a band, the band was byte-identical to its resting state. The only way
+// to find out what a release would do was to do it.
+//
+// Written straight to the DOM rather than held in React state, because it
+// changes as the pointer moves and a re-render per move is the cost this drag
+// engine is built to avoid -- the same reason `data-drag-held` is set this way
+// (KAN-160). React never touches the attribute, so a re-render cannot drop it.
+//
+// Scoped to the container that answered, so a band in another window cannot
+// light up alongside it.
+function markDropTargetBand(
+  target: string | undefined,
+  container: HTMLElement | null
+): void {
+  if (!container) return;
+  for (const band of container.querySelectorAll<HTMLElement>(
+    '[data-band-id]'
+  )) {
+    if (band.dataset.bandId === target) {
+      band.setAttribute('data-drop-target', '');
+    } else {
+      band.removeAttribute('data-drop-target');
+    }
+  }
+}
+
 const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   title,
   tabs,
@@ -727,6 +757,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
             onMove={handleMove}
             dragKind="tab"
             resolveDrop={bandAt}
+            onDropTargetChange={markDropTargetBand}
             // The mode, not the box's contents -- see KAN-140 on
             // TabGroupEntryContainer for why this is not isFilteredView.
             disabled={isSearchPanel}
@@ -781,6 +812,24 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                         display: flex;
                         align-items: stretch;
                         margin: 2px 0;
+
+                        /* KAN-164: a tab released here joins this group.
+                           Outline rather than border, so marking a band
+                           reflows nothing.
+
+                           Drawn OUTSIDE the band (positive offset), which is
+                           what makes it legible. Inset, its left segment would
+                           cross the group's colour strip -- Chrome's fixed
+                           pastels -- and the app's text colour measures
+                           1.05:1 against cyan in the dark themes, i.e. gone.
+                           Outside, its backdrop is the page in every case:
+                           9.24:1 at worst across all five themes. */
+                        &[data-drop-target] {
+                          outline: 2px solid ${COLORS.TEXT_COLOR};
+                          outline-offset: 1px;
+                          border-radius: 2px;
+                          background-color: ${COLORS.HOVER_COLOR};
+                        }
                       `}
                     >
                       {/* The colour is Chrome's own group identity, not app chrome
