@@ -450,6 +450,12 @@ test.describe('a group released over another window', () => {
       .poll(() => order(page, 'w2'))
       .toBe('be0* be1* al0* al1* b0 b1');
     expect(await groupsOf(page, 'w2')).toEqual([BETA, ALPHA]);
+    // STRENGTHENED (Task 13 step 1): the release lands deep inside beta's own
+    // band, which is the one geometry where a bug pouring alpha's tabs into
+    // beta could also leave alpha's metadata behind in w1 -- the two windows'
+    // chromeTabGroups arrays being independent, a bug in the removal half of
+    // the move would not show up in w2's assertion above at all.
+    expect(await groupsOf(page, 'w1')).toEqual([]);
   });
 });
 
@@ -662,5 +668,137 @@ test.describe('a window emptied by the group that left it', () => {
       tabCount: 4,
       windows: [{ windowId: 'w2', tabCount: 4 }],
     });
+  });
+});
+
+// Task 13 step 2. Every other fixture in this file gives its groups two
+// members, which cannot tell "landed in the right place" apart from "landed
+// with its members reordered" -- two members can only ever look the same
+// forwards and backwards read as a pair, or a bug could drop a middle member
+// silently and a two-member group would not have one. A THREE-tab group can.
+test.describe('a three-tab group crossing windows', () => {
+  async function openThreeTabGroup(
+    context: BrowserContext,
+    extensionId: string
+  ): Promise<Page> {
+    const session = buildSession({
+      tabGroupId: 's1',
+      title: 'Three tab group',
+      isSelected: true,
+      windowCount: 2,
+      tabCount: 8,
+      windows: [
+        win(
+          'w1',
+          [
+            tab('c0'),
+            tab('gam0', 'gamma'),
+            tab('gam1', 'gamma'),
+            tab('gam2', 'gamma'),
+            tab('c2'),
+          ],
+          [{ groupId: 'gamma', title: 'Gamma', color: 'green' }]
+        ),
+        win('w2', [tab('d0'), tab('d1'), tab('d2')], []),
+      ],
+    });
+    await seedSessions(context, {
+      ...buildContainer([session]),
+      selectedTabGroupId: 's1',
+    });
+    const page = await context.newPage();
+    await page.setViewportSize({ width: 790, height: 550 });
+    await page.goto(`chrome-extension://${extensionId}/index.html`);
+    await expect(
+      page.locator('[data-drag-row-id="group:gamma"]')
+    ).toBeAttached();
+    return page;
+  }
+
+  test('its three tabs keep their order and stay contiguous', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openThreeTabGroup(context, extensionId);
+
+    const x = await grabGroup(page, 'gamma');
+    const d0 = await restingBox(page, 'tab:d0');
+    const d1 = await restingBox(page, 'tab:d1');
+    // PREMISE: past tab:d0's midpoint and short of tab:d1's, same as the
+    // two-member "into the middle" case.
+    const y = d0.top + d0.height - 4;
+    expect(y).toBeGreaterThan(d0.top + d0.height / 2);
+    expect(y).toBeLessThan(d1.top + d1.height / 2);
+
+    await page.mouse.move(x, y, { steps: 8 });
+    await page.mouse.up();
+
+    // THE CLAIM: gam0, gam1, gam2 arrive in that order, all three contiguous,
+    // between d0 and d1 -- not reversed, not interleaved, none dropped.
+    await expect
+      .poll(() => order(page, 'w2'))
+      .toBe('d0 gam0* gam1* gam2* d1 d2');
+    expect(await order(page, 'w1')).toBe('c0 c2');
+    expect(await groupsOf(page, 'w1')).toEqual([]);
+    expect(await groupsOf(page, 'w2')).toEqual([
+      { groupId: 'gamma', title: 'Gamma', color: 'green' },
+    ]);
+  });
+});
+
+// Task 13 step 4. The end-to-end counterpart of Task 10's store-level undo
+// round trip: a real drag, through the DOM, undone through the same Ctrl+Z
+// path a user presses (MainContainer's keydown handler), asserting both
+// windows' stored orders and both windows' group lists -- not just one side
+// of the move, which is exactly the asymmetry M1 in Task 12 showed can hide a
+// wrong answer in the window the user dragged FROM.
+test.describe('undoing a cross-window group move', () => {
+  test('puts both windows back exactly as they were', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await open(context, extensionId);
+    const sessionBefore = await sessionShape(page);
+
+    const x = await grabGroup(page, 'alpha');
+    const b0 = await restingBox(page, 'tab:b0');
+    const b1 = await restingBox(page, 'tab:b1');
+    const y = b0.top + b0.height - 4;
+    expect(y).toBeGreaterThan(b0.top + b0.height / 2);
+    expect(y).toBeLessThan(b1.top + b1.height / 2);
+
+    await page.mouse.move(x, y, { steps: 8 });
+    await page.mouse.up();
+
+    // PREMISE: the move actually happened, so undo has something to reverse.
+    await expect
+      .poll(() => order(page, 'w2'))
+      .toBe('be0* be1* b0 al0* al1* b1');
+    expect(await order(page, 'w1')).toBe('a0 a2');
+
+    // RowDragArea's own click suppression (the same 400ms the "into a
+    // collapsed window" test above waits out before its Expand click) is a
+    // capture-phase listener on `window`, not scoped to rows -- it swallows
+    // the very next click ANYWHERE in the document after a drag ends. Undo
+    // sits in the left pane, nowhere near the dragged row, and still eats it:
+    // MEASURED by running this assertion without the wait below, which timed
+    // out with w1 still 'a0 a2' -- the click landed on Undo (no error, no
+    // navigation) but the drop's own suppression consumed it before
+    // handleClickUndo ever ran, so nothing was dispatched. Waiting it out
+    // first is the fixed product constant Task 12 concern 6 named, not a
+    // race, and the same idiom this file already uses.
+    await page.waitForTimeout(450);
+    const undo = page.getByRole('button', { name: 'Undo' });
+    await expect(undo).not.toHaveAttribute('aria-disabled', 'true');
+    await undo.click();
+
+    // THE ROUND TRIP: both windows' stored orders...
+    await expect.poll(() => order(page, 'w1')).toBe(W1_START);
+    await expect.poll(() => order(page, 'w2')).toBe(W2_START);
+    // ...and both windows' group lists -- title, colour, and which window
+    // each lives in -- are the pre-move ones.
+    expect(await groupsOf(page, 'w1')).toEqual([ALPHA]);
+    expect(await groupsOf(page, 'w2')).toEqual([BETA]);
+    expect(await sessionShape(page)).toEqual(sessionBefore);
   });
 });
