@@ -114,12 +114,12 @@ describe('moveChromeGroupAcrossWindowsInternal', () => {
     const store = seeded();
     move(store, { toIndex: 1 });
     expect(win(store, 'wA')!.chromeTabGroups).toEqual([]);
-    expect(win(store, 'wB')!.chromeTabGroups).toEqual(
-      expect.arrayContaining([
-        { groupId: 'own', title: 'Own', color: 'red' },
-        { groupId: 'solo', title: 'Solo', color: 'blue' },
-      ])
-    );
+    // Exact, not arrayContaining: arrayContaining would still pass if 'own'
+    // or 'solo' were duplicated in the list.
+    expect(win(store, 'wB')!.chromeTabGroups).toEqual([
+      { groupId: 'own', title: 'Own', color: 'red' },
+      { groupId: 'solo', title: 'Solo', color: 'blue' },
+    ]);
   });
 
   test('moves the counts with it, leaving the session total alone', () => {
