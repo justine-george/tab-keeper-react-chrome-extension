@@ -373,12 +373,18 @@ export function windowBlocksIn(container: HTMLElement | null): HTMLElement[] {
 // within half a row of the row's own window it is the "drag it to the end"
 // overshoot, and anywhere else it names no window and is refused.
 //
-// For a list that does NOT -- `dropsAcrossWindows` off, which is the default
-// and which no list in this app is any more -- every release is handed the
-// SOURCE window's rows, including one squarely over another window's block,
-// because no other window is ever in play. Being refused here IS the mechanism
-// by which such a list cannot leave its window, so it is reached on the common
-// path rather than only in the gaps.
+// For a list that does NOT -- `dropsAcrossWindows` off, which is the default,
+// though no list whose rows sit IN windows leaves it off any more -- every
+// release is handed the SOURCE window's rows, including one squarely over
+// another window's block, because no other window is ever in play. Being
+// refused here IS the mechanism by which such a list cannot leave its window,
+// so it is reached on the common path rather than only in the gaps.
+//
+// Two lists still leave it off, and neither reaches this branch: the windows
+// area (TabGroupDetailsContainer) and the left pane's session list
+// (TabGroupEntryContainer). Their rows wrap window blocks, or sit in no window
+// at all, so `l.heldWindow` is null and the question never arises -- they take
+// the paragraph below instead.
 //
 // A list with no windows passes all of its rows, and for it this is the whole
 // rule.

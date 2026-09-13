@@ -104,7 +104,10 @@ export function useGroupDrop(
     (
       itemId: string,
       toIndex: number,
-      _target?: string,
+      // The band a release lands in, which an items list never asks about: it
+      // declares no resolveDrop, so this is always undefined here. That is also
+      // the mechanism behind "a group never lands INSIDE another group".
+      _dropTargetId: string | undefined,
       toWindowId?: string
     ) => {
       const groupId = groupIdOfItemId(itemId);
