@@ -358,22 +358,34 @@ export function windowBlocksIn(container: HTMLElement | null): HTMLElement[] {
 
 // Did the drop land inside the rows it is judged against?
 //
-// For a list whose rows sit in saved windows, this judges only a release
-// OUTSIDE every window's block. Inside one, the release lands in that window --
-// its header and a collapsed window included -- and there is nothing to judge.
+// WHICH ROWS DEPENDS ON THE LIST, and there are two cases (KAN-132).
+//
+// For a list that drops ACROSS WINDOWS, this judges only a release OUTSIDE
+// every window's block. Inside one, the release lands in that window -- its
+// header and a collapsed window included -- and there is nothing to judge.
 // Outside all of them the only window still in play is the one the row came
-// from, and RowDragArea hands this that window's rows. So what it guards now is
-// a release in the gaps between windows and beside the pane: within half a row
-// of the row's own window it is the "drag it to the end" overshoot, and
-// anywhere else it names no window and is refused (KAN-132). A list with no
-// windows passes all of its rows, and for it this is the whole rule.
+// from, and RowDragArea hands this that window's rows. So what it guards for
+// such a list is a release in the gaps between windows and beside the pane:
+// within half a row of the row's own window it is the "drag it to the end"
+// overshoot, and anywhere else it names no window and is refused.
+//
+// For a list that does NOT -- `dropsAcrossWindows` off, which is the default,
+// and which the `items` list of whole groups still is -- every release is
+// handed the SOURCE window's rows, including one squarely over another
+// window's block, because no other window is ever in play. Being refused here
+// IS the mechanism by which such a list cannot leave its window, so this is
+// reached on the common path rather than only in the gaps.
+//
+// A list with no windows passes all of its rows, and for it this is the whole
+// rule.
 //
 // HISTORY. This was KAN-132's interim guard, written when a release over
-// ANOTHER window could not yet be a move: each window had a list of its own, so
-// the index SATURATED at the bottom of the window the tab came from, and the
-// session was dirtied for a cloud write. Refusing was the honest answer until
-// the drop was built. It is now, and a release over another window never
-// reaches this function.
+// ANOTHER window could not yet be a move for any list: each window had a list
+// of its own, so the index SATURATED at the bottom of the window the row came
+// from, and the session was dirtied for a cloud write. Refusing was the honest
+// answer until the drop was built. It is built for tabs, which is why a tab
+// released over another window no longer reaches this function -- and not yet
+// for groups, which still do.
 //
 // Measured against the rows as they were AT DRAG START, which is the same
 // snapshot toIndex is derived from. Re-reading the DOM at drop time would

@@ -8,11 +8,13 @@
 // per-window area cannot do, so the pane has one `items` area over the whole
 // session and its questions are answered here.
 //
-// IT STILL ONLY MOVES A GROUP WITHIN ITS OWN WINDOW. The area does not opt into
-// `dropsAcrossWindows`, so the engine judges every release in the window the
-// group came from and refuses one anywhere else -- exactly what the per-window
-// areas did. Turning that on is what wiring moveChromeGroupAcrossWindowsInternal
-// up to this hook means.
+// IT STILL ONLY MOVES A GROUP WITHIN ITS OWN WINDOW, and says so twice. The
+// area does not opt into `dropsAcrossWindows`, so the engine judges every
+// release in the window the group came from and refuses one anywhere else --
+// exactly what the per-window areas did; and onMove below refuses a landing
+// window that is not the group's, so the flag being turned on cannot on its own
+// commit a move this file has no reducer for. Turning it on AND replacing that
+// refusal is what wiring moveChromeGroupAcrossWindowsInternal up here means.
 import { useCallback, useMemo } from 'react';
 import { useDispatch } from 'react-redux';
 
@@ -78,17 +80,30 @@ export function useGroupDrop(
   // release landed in, which is the index moveChromeGroupInternal applies to
   // that window's own items.
   //
-  // The area also names that window, and this ignores it: with
-  // `dropsAcrossWindows` off the landing window is always the group's own, and
-  // a release anywhere else is refused before it gets here. The window comes
-  // from the group instead, which is the one the reducer needs either way.
+  // WHICH IS WHY THE LANDING WINDOW IS CHECKED RATHER THAN IGNORED. With
+  // `dropsAcrossWindows` off the area can only ever name the group's own
+  // window, so the guard is unreachable today -- but the one reducer here
+  // applies `toIndex` to the SOURCE window, and an index counted in a foreign
+  // window applied to this one is a silent wrong move that dirties the session
+  // for a cloud write. That is exactly what the mutation removing the area's
+  // gate produced. Refusing costs an inert gesture; not refusing costs data the
+  // user did not ask to move (KAN-131, KAN-132).
+  //
+  // Wiring moveChromeGroupAcrossWindowsInternal up is what replaces this
+  // `return` with a second dispatch, and this is the line that must change.
   const onMove = useCallback(
-    (itemId: string, toIndex: number) => {
+    (
+      itemId: string,
+      toIndex: number,
+      _target?: string,
+      toWindowId?: string
+    ) => {
       const groupId = groupIdOfItemId(itemId);
       // Only a group row has a handle, so a loose tab's id never arrives.
       if (groupId === undefined) return;
       const windowId = windowOfGroup.get(groupId);
       if (windowId === undefined) return;
+      if (toWindowId !== undefined && toWindowId !== windowId) return;
       dispatch(
         moveChromeGroupInternal({ tabGroupId, windowId, groupId, toIndex })
       );
