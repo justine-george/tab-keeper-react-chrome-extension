@@ -458,7 +458,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     //
     // Reads the pane's box, so like everything here it must run while the
     // drag's own layout stands -- see judgeDrop.
-    const landingIndex = (
+    const landingOf = (
       l: NonNullable<typeof live.current>
     ): Landing | undefined => {
       // Content space, matching how the rects were measured. Using the raw
@@ -478,9 +478,10 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // row already comes out as the last index, and one above them as 0.
       //
       // l.pane is only set when the list OPTED IN, never on the geometry alone
-      // -- for a nested tab list this same release means "dragged out of this
+      // -- for the tab list this same release means "dragged out of this
       // window", and committing it is the KAN-132 defect isInsideList was
-      // written to stop.
+      // written to stop. The tab list spans every window in the pane, so the
+      // pane is no boundary for it at all.
       const paneBox = l.pane?.getBoundingClientRect();
       const releasedInPane =
         paneBox !== undefined &&
@@ -530,7 +531,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // is already its group's first member, the fallback still satisfies the
       // leaving rule, so a refused release drew a full membership-change
       // preview and promised a move that never came.
-      const landing = landingIndex(l);
+      const landing = landingOf(l);
 
       // What a release HERE would land ON, asked once and spent twice (KAN-164,
       // KAN-166): the list is told when the answer changes, and the landing
@@ -793,12 +794,12 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     // mid-pane landed last. The mirror of the rule at activation, where the
     // kind is published BEFORE measuring.
     //
-    // The landing decision itself is landingIndex, shared with the preview, so
+    // The landing decision itself is landingOf, shared with the preview, so
     // what the user was shown and what happens cannot differ (KAN-158).
     const judgeDrop = (
       l: NonNullable<typeof live.current>
     ): { toIndex: number; dropTargetId: string | undefined } | undefined => {
-      const landing = landingIndex(l);
+      const landing = landingOf(l);
       if (landing === undefined) return undefined;
       return {
         // Window-local -- see Landing.

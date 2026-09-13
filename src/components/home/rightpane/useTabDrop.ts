@@ -263,11 +263,11 @@ export function useTabDrop(
   // engine is built to avoid -- the same reason `data-drag-held` is set this way
   // (KAN-160). React never touches these, so a re-render cannot drop them.
   const onDropTargetChange = useCallback(
-    (target: string | undefined, container: HTMLElement | null) => {
-      if (!container) return;
+    (target: string | undefined, within: HTMLElement | null) => {
+      if (!within) return;
       // Scoped to the element the area asked within -- the landing window's
       // block -- so a band in another window cannot light up alongside it.
-      for (const band of container.querySelectorAll<HTMLElement>(
+      for (const band of within.querySelectorAll<HTMLElement>(
         '[data-band-id]'
       )) {
         if (target !== undefined && band.dataset.bandId === target) {
@@ -296,9 +296,9 @@ export function useTabDrop(
   // searches below the element it is given, and a window's marker is that
   // element itself, so it answers undefined for now; nothing reads it yet.
   const resolveDrop = useCallback(
-    (container: HTMLElement | null, x: number, y: number): DropTarget => ({
-      windowId: windowAt(container, x, y),
-      bandId: bandAt(container, x, y),
+    (within: HTMLElement | null, x: number, y: number): DropTarget => ({
+      windowId: windowAt(within, x, y),
+      bandId: bandAt(within, x, y),
     }),
     []
   );

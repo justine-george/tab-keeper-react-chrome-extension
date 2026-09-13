@@ -35,8 +35,13 @@ export interface DropTarget {
 // pointer was over, and for windows there is no such question at all. So the
 // area takes it as a function and stays ignorant of what the answer means --
 // which is what lets one engine drive both lists (KAN-129).
+//
+// `within` is the element to search. For a list whose rows span several saved
+// windows it is the LANDING window's block (KAN-132), so the answer can only
+// name something a release there could land in; for any other list it is the
+// list's own container.
 export type ResolveDrop = (
-  container: HTMLElement | null,
+  within: HTMLElement | null,
   x: number,
   y: number
 ) => DropTarget;
@@ -110,13 +115,14 @@ export interface RowDragAreaProps {
    * release would do was to do it.
    *
    * The area stays ignorant of what a target IS: it forwards whatever
-   * `resolveDrop` answers, with the container that answered, and the list
-   * decides how to show it. Fired only on CHANGE, so the cost is one hit test
+   * `resolveDrop` answers, with the element it was asked within -- the
+   * landing window's block, for a list that spans windows; see ResolveDrop --
+   * and the list decides how to show it. Fired only on CHANGE, so the cost is one hit test
    * per move rather than one DOM write.
    */
   onDropTargetChange?: (
     target: string | undefined,
-    container: HTMLElement | null
+    within: HTMLElement | null
   ) => void;
   /**
    * A CSS selector for the parts of the list that are DRAWN but cannot be
@@ -282,14 +288,20 @@ export function windowAt(
   return undefined;
 }
 
-// Did the drop land in the list that owns it? (KAN-132, interim.)
+// Did the drop land inside the rows it is judged against? (KAN-132, interim.)
 //
-// Lists nest: a window's rows contain a window's worth of tab rows, and each
-// window's tab list is its own area over its own tabs. So a drop can only ever
-// name an index INSIDE the source list -- and dragging a tab out of its window
-// did not fail, it SATURATED, landing the tab at the bottom of the window it
-// came from and dirtying the session for a cloud write. Doing nothing is the
-// honest answer until KAN-132 makes it a real move.
+// The caller hands this ONE window's rows. The tab list spans every window in
+// the pane, so measured over all of its rows a release over ANOTHER window
+// would sit inside the list and be accepted. RowDragArea filters its rects to
+// the landing window before asking -- until cross-window drops are built,
+// always the window the tab came from -- and that filter is also what keeps
+// the drop's index local to that window. A list with no windows passes all of
+// its rows.
+//
+// Refused because the release used to SATURATE rather than fail: dragging a
+// tab out of its window landed it at the bottom of the window it came from and
+// dirtied the session for a cloud write. Doing nothing is the honest answer
+// until KAN-132 makes it a real move.
 //
 // Measured against the rows as they were AT DRAG START, which is the same
 // snapshot toIndex is derived from. Re-reading the DOM at drop time would
