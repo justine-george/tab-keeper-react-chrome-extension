@@ -116,8 +116,9 @@ export function landingDeltaOf(
   return target.top - start.top;
 }
 
-// A slot tagged with the saved window it is drawn in (KAN-132), or undefined for
-// one drawn in no window -- a row of a collapsed window, which has no box.
+// A slot tagged with the saved window it is drawn in (KAN-132), or undefined
+// for one drawn in no window -- a row of a collapsed window, which is not
+// rendered at all.
 export interface WindowedSlot extends PreviewSlot {
   windowId: string | undefined;
 }

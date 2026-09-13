@@ -159,8 +159,9 @@ export default function TabGroupDetailsContainer() {
               OUTSIDE the windows area, not inside it. The windows area and
               its rows declare no scope, so window rows join it as the
               nearest list; tab rows name scope="tabs" and reach this one
-              through it and through each window's items list. Both resolve
-              correctly with no context factory (spec 5.1). */}
+              directly -- there is no per-window items list any more, only
+              the ONE items list a few lines below. Both resolve correctly
+              with no context factory (spec 5.1). */}
           <TabDragArea tabList={selectedTabGroup}>
             {/* KAN-132, one level up from the tab list. ONE items list for the
                 whole session -- each loose tab and each Chrome group as one

@@ -36,7 +36,8 @@ type OnMove = (tabId: string, toIndex: number, group?: string) => void;
 // `bandAt` answers only the band half of a drop (KAN-132 widened
 // `ResolveDrop` to also name a window); this harness has no window question of
 // its own, so it composes bandAt into the wider shape RowDragArea now expects,
-// same as WindowEntryContainer's real resolveDrop does.
+// same as useTabDrop's real resolveDrop does (moved there from
+// WindowEntryContainer in Task 8).
 const resolveDrop = (container: HTMLElement | null, x: number, y: number) => ({
   windowId: undefined,
   bandId: bandAt(container, x, y),

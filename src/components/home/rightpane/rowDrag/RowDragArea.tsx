@@ -947,6 +947,14 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         // The window is passed only by a list whose rows sit in windows. Every
         // other list is called exactly as it always was, and never learns the
         // argument exists.
+        //
+        // THE TWO-ARITY CALLS ARE LOAD-BEARING, not a shorter way to write the
+        // same thing with the 4th argument left `undefined`:
+        // dragSurvivesRerender.test.tsx:107 asserts
+        // `toHaveBeenCalledWith('a', 1, undefined)`, which a trailing explicit
+        // `undefined` 4th argument fails -- vitest's mock matcher checks
+        // argument COUNT too. Do not collapse this to one call spread over
+        // both branches.
         if (drop.toWindowId === undefined) {
           onMove(l.rowId, drop.toIndex, drop.dropTargetId);
         } else {

@@ -1652,8 +1652,7 @@ export const tabContainerDataStateSlice = createSlice({
       saveToLocalStorage('tabContainerData', state);
     },
 
-    // move a tab from one saved window into another, possibly across windows
-    // in the same session (KAN-132)
+    // Move a tab from one saved window into another (KAN-132).
     moveTabAcrossWindowsInternal: (
       state,
       action: PayloadAction<moveTabAcrossWindowsParams>
