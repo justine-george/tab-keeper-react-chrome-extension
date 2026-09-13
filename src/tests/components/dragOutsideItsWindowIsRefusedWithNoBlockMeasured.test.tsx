@@ -13,22 +13,30 @@ import {
   setIsNotDirty,
 } from '../../redux/slices/globalStateSlice';
 
-// KAN-132, interim. Moving a tab BETWEEN windows is not built yet; this is about
-// what the gesture does in the meantime.
+// KAN-132. THIS IS A PROPERTY OF THIS HARNESS, NOT OF THE PRODUCT. Moving a
+// tab between windows on a real release IS built now -- see
+// e2e/cross-window-drag.spec.ts for what a release over another window's
+// block actually does there.
 //
-// Each window renders its own drag area over its own tabs, so a drop can only
-// ever name an index inside the source window. Dragging a tab out of its window
-// therefore did not fail -- it SATURATED: `toIndex` came back as the source
-// window's last index, the tab moved to the bottom of the window it came from,
-// and the session was stamped and queued for a cloud write. Measured before the
-// fix, dragging wA-t0 past every row of window B:
+// `layout` below stubs a rect for every ROW, but never for the window blocks
+// WindowEntryContainer renders around them (`[data-drop-window-id]`): those
+// keep jsdom's default zero-area rect, so no pointer position ever lands
+// inside one and blockUnderPointer (RowDragArea.tsx) always answers null. With
+// no block to land in, every release here falls back to the held row's OWN
+// window (dropRules.isInsideList), and a release deep inside window B's rows
+// is outside window A's own rows-plus-slack -- so it is refused, the same
+// answer this harness gave before KAN-132 existed, when saturation rather than
+// a missing block was the reason:
 //
 //   window A   wA-t1, wA-t2, wA-t0      <- moved, and not where anyone pointed
 //   window B   wB-t0, wB-t1             <- untouched
 //   isDirty    true
 //
-// Doing nothing is the honest answer until KAN-132 makes it a real move. The
-// drop is bounded by the rows the area MEASURED AT DRAG START -- not by the
+// That saturation is gone -- moveTabAcrossWindowsInternal exists now -- but a
+// harness that measures no second window's block can never reach it. What
+// these tests pin is the guard's OTHER path: refusing a release with nowhere
+// to land, rather than dropping it to the bottom of its own window. The drop
+// is bounded by the rows the area MEASURED AT DRAG START -- not by the
 // container's rect read at drop time, which by then reflects the shifts the
 // drag itself applied, and would be compared against a toIndex derived from
 // pre-drag positions.
@@ -120,8 +128,8 @@ afterEach(() => {
   document.documentElement.removeAttribute('data-dragging');
 });
 
-describe('a tab released outside its own window', () => {
-  test('commits nothing rather than dropping to the bottom of its own window', async () => {
+describe('a tab released outside its own window, with no block measured to land in', () => {
+  test('commits nothing, refused for lack of a block rather than dropped to the bottom of its own window', async () => {
     const { container, store } = await render();
     const node = layout(container);
 
