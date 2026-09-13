@@ -42,13 +42,29 @@ const resolveDrop = (container: HTMLElement | null, x: number, y: number) => ({
   bandId: bandAt(container, x, y),
 });
 
-const Harness = ({ onMove }: { onMove: OnMove }) => (
+type OnDropTargetChange = (
+  target: string | undefined,
+  container: HTMLElement | null
+) => void;
+
+const Harness = ({
+  onMove,
+  onDropTargetChange,
+}: {
+  onMove: OnMove;
+  // Optional and additive: every existing Harness usage renders with this
+  // unset, and RowDragArea already treats a missing onDropTargetChange as
+  // "nobody is listening" -- see the `if (onDropTargetChange && resolveDrop)`
+  // guard beside the notifier.
+  onDropTargetChange?: OnDropTargetChange;
+}) => (
   // `bandAt` is passed in rather than known to the area: the tab list is the
   // only caller that has a membership question at all.
   <RowDragArea
     rowIds={['a', 'b', 'c']}
     onMove={onMove}
     resolveDrop={resolveDrop}
+    onDropTargetChange={onDropTargetChange}
   >
     {/* Row `a` sits inside a band; `b` and `c` do not. */}
     <div data-band-id="grp" data-testid="band">
@@ -243,6 +259,56 @@ describe('what a drag reports when it lands', () => {
     release(85);
 
     expect(onMove.mock.calls[0][2]).toBeUndefined();
+  });
+});
+
+// KAN-132 fix round 1. The controller addendum's whole reason for comparing
+// `.bandId` rather than the object resolveDrop returns: a fresh object
+// compares unequal on every pointermove even when the band hasn't changed,
+// which would fire onDropTargetChange once per move instead of once per
+// change (KAN-164's contract). No test exercised onDropTargetChange at all
+// before this -- `grep -rn "onDropTargetChange" src/tests` had no hits -- so
+// a regression to comparing the object had nothing to catch it.
+describe('what onDropTargetChange announces', () => {
+  let onMove: ReturnType<typeof vi.fn<OnMove>>;
+  let onDropTargetChange: ReturnType<typeof vi.fn<OnDropTargetChange>>;
+
+  beforeEach(() => {
+    onMove = vi.fn<OnMove>();
+    onDropTargetChange = vi.fn<OnDropTargetChange>();
+    render(<Harness onMove={onMove} onDropTargetChange={onDropTargetChange} />);
+    layout();
+  });
+
+  afterEach(() => {
+    document.documentElement.removeAttribute('data-dragging');
+  });
+
+  test('fires once for entering a band, not once per move inside it, then once more on leaving', () => {
+    press('Row C', 75);
+    moveTo(40); // outside every band -- still no target, no call yet
+    expect(onDropTargetChange).not.toHaveBeenCalled();
+
+    moveTo(5); // inside the band -- the target CHANGES, first call
+    moveTo(4); // still inside the band -- no new call
+    moveTo(3); // still inside the band -- no new call
+
+    expect(onDropTargetChange).toHaveBeenCalledTimes(1);
+    // The argument is the band id ITSELF -- a string -- not the { windowId,
+    // bandId } object resolveDrop returns. Pinning the type as well as the
+    // value is what a mutation forwarding the object instead would fail.
+    expect(onDropTargetChange.mock.calls[0][0]).toBe('grp');
+    expect(typeof onDropTargetChange.mock.calls[0][0]).toBe('string');
+
+    moveTo(50); // leaves the band -- the target changes again, second call
+    expect(onDropTargetChange).toHaveBeenCalledTimes(2);
+    expect(onDropTargetChange.mock.calls[1][0]).toBeUndefined();
+
+    release(50);
+    // Already undefined when the drag ends, so finish's own "clear on end"
+    // call (RowDragArea.tsx's `if (l.dropTarget !== undefined)`) has nothing
+    // to announce -- no third call.
+    expect(onDropTargetChange).toHaveBeenCalledTimes(2);
   });
 });
 
