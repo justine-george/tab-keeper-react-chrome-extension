@@ -579,13 +579,14 @@ test.describe('what a drag into another window previews', () => {
     await expect
       .poll(() => shiftsIn(page, 'w1'))
       .toEqual({ al0: expect.any(Number) });
-    // THE SOURCE SHIFT: b0's own window closes up by exactly b0's own
-    // footprint -- there is only one row (b1) below it to close the gap.
+    // THE DESTINATION SHIFT: the window b0 enters opens by exactly its own
+    // footprint -- al0 is alpha's only other member, so it is the one row
+    // that has to make room.
     const fp = (await shiftsIn(page, 'w1')).al0;
     expect(fp).toBeCloseTo(b0.height, 0);
-    // THE DESTINATION SHIFT, exactly: only b1 moves in w2, by the same
-    // footprint the other way. Anything else in w2's shift set (be0, be1,
-    // title:beta) would mean the range crossed the group above the join.
+    // THE SOURCE SHIFT, exactly: only b1 moves in w2, by the same footprint
+    // the other way. Anything else in w2's shift set (be0, be1, title:beta)
+    // would mean the range crossed the group above the join.
     expect(await shiftsIn(page, 'w2')).toEqual({ b1: -fp });
     expect(await slotTop(page)).toBeCloseTo(al0.y, 0);
 
