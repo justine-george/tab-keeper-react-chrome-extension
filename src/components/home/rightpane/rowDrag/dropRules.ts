@@ -115,13 +115,17 @@ export interface RowDragAreaProps {
    * OFF BY DEFAULT, and that is the half that matters. Off, every release is
    * judged in the window the held row came from: one over another window's
    * block names no row of the list being judged, so `isInsideList` refuses it,
-   * and the index a drop reports can only ever be the source window's. That is
-   * what a list of whole groups does until the reducer that moves a group
-   * between windows is wired up, and a list with no windows at all never
-   * reaches this question either way.
+   * and the index a drop reports can only ever be the source window's. A list
+   * with no windows at all never reaches this question either way.
    *
    * On, the window under the pointer decides -- its header and a collapsed
    * window included, neither of which draws a row to hit.
+   *
+   * TURNING IT ON IS HALF A CHANGE. The index a drop then reports is counted
+   * in a window the list's `onMove` did not pick, so that callback must route
+   * on the window it is handed; one that applies the index to the held row's
+   * own window instead commits a move nobody asked for. Both lists that set
+   * this (`TabDragArea`, `GroupDragArea`) route on it.
    */
   dropsAcrossWindows?: boolean;
   /**
@@ -369,12 +373,12 @@ export function windowBlocksIn(container: HTMLElement | null): HTMLElement[] {
 // within half a row of the row's own window it is the "drag it to the end"
 // overshoot, and anywhere else it names no window and is refused.
 //
-// For a list that does NOT -- `dropsAcrossWindows` off, which is the default,
-// and which the `items` list of whole groups still is -- every release is
-// handed the SOURCE window's rows, including one squarely over another
-// window's block, because no other window is ever in play. Being refused here
-// IS the mechanism by which such a list cannot leave its window, so this is
-// reached on the common path rather than only in the gaps.
+// For a list that does NOT -- `dropsAcrossWindows` off, which is the default
+// and which no list in this app is any more -- every release is handed the
+// SOURCE window's rows, including one squarely over another window's block,
+// because no other window is ever in play. Being refused here IS the mechanism
+// by which such a list cannot leave its window, so it is reached on the common
+// path rather than only in the gaps.
 //
 // A list with no windows passes all of its rows, and for it this is the whole
 // rule.
@@ -383,9 +387,9 @@ export function windowBlocksIn(container: HTMLElement | null): HTMLElement[] {
 // ANOTHER window could not yet be a move for any list: each window had a list
 // of its own, so the index SATURATED at the bottom of the window the row came
 // from, and the session was dirtied for a cloud write. Refusing was the honest
-// answer until the drop was built. It is built for tabs, which is why a tab
-// released over another window no longer reaches this function -- and not yet
-// for groups, which still do.
+// answer until the drop was built. It is built now, for tabs and for whole
+// groups alike, which is why neither reaches this function from inside another
+// window's block -- only from the space between blocks and beside the pane.
 //
 // Measured against the rows as they were AT DRAG START, which is the same
 // snapshot toIndex is derived from. Re-reading the DOM at drop time would

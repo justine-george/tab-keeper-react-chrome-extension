@@ -8,18 +8,24 @@
 // per-window area cannot do, so the pane has one `items` area over the whole
 // session and its questions are answered here.
 //
-// IT STILL ONLY MOVES A GROUP WITHIN ITS OWN WINDOW, and says so twice. The
-// area does not opt into `dropsAcrossWindows`, so the engine judges every
-// release in the window the group came from and refuses one anywhere else --
-// exactly what the per-window areas did; and onMove below refuses a landing
-// window that is not the group's, so the flag being turned on cannot on its own
-// commit a move this file has no reducer for. Turning it on AND replacing that
-// refusal is what wiring moveChromeGroupAcrossWindowsInternal up here means.
+// A GROUP MAY NOW LEAVE ITS WINDOW (§11.3). The area opts into
+// `dropsAcrossWindows`, so the engine takes the landing window from the block
+// under the pointer, and onMove below routes on it: the group's own window is a
+// reorder, any other window is a move between windows. Those two facts are one
+// change -- the flag without the routing hands a foreign window's index to a
+// reducer that applies it to the group's own (measured, and silent).
+//
+// A release over NO window is still refused, by the engine: with no block under
+// the pointer the landing falls back to the source window and is judged against
+// its rows, which is the "drag it to the end" forgiveness every list has had.
 import { useCallback, useMemo } from 'react';
 import { useDispatch } from 'react-redux';
 
 import type { AppDispatch } from '../../../redux/store';
-import { moveChromeGroupInternal } from '../../../redux/slices/tabContainerDataStateSlice';
+import {
+  moveChromeGroupAcrossWindowsInternal,
+  moveChromeGroupInternal,
+} from '../../../redux/slices/tabContainerDataStateSlice';
 import {
   partitionTabsIntoItems,
   itemIdOf,
@@ -77,20 +83,23 @@ export function useGroupDrop(
   }, [itemIdsByWindow]);
 
   // `toIndex` is WINDOW-LOCAL: the area counts only the rows of the window the
-  // release landed in, which is the index moveChromeGroupInternal applies to
-  // that window's own items.
+  // release landed in, which is the index the reducer below applies to THAT
+  // window's own items.
   //
-  // WHICH IS WHY THE LANDING WINDOW IS CHECKED RATHER THAN IGNORED. With
-  // `dropsAcrossWindows` off the area can only ever name the group's own
-  // window, so the guard is unreachable today -- but the one reducer here
-  // applies `toIndex` to the SOURCE window, and an index counted in a foreign
-  // window applied to this one is a silent wrong move that dirties the session
-  // for a cloud write. That is exactly what the mutation removing the area's
-  // gate produced. Refusing costs an inert gesture; not refusing costs data the
-  // user did not ask to move (KAN-131, KAN-132).
+  // WHICH IS WHY THE LANDING WINDOW IS ROUTED ON RATHER THAN IGNORED. The two
+  // reducers count `toIndex` in different lists: moveChromeGroupInternal in the
+  // source window's items (where the group still sits, so the last slot is
+  // `length - 1`), moveChromeGroupAcrossWindowsInternal in the DESTINATION's
+  // with the group not yet among them (so the last slot is `length`). Handing
+  // either one the other's index is a silent wrong move that dirties the
+  // session for a cloud write -- measured, not assumed (KAN-131, KAN-132).
   //
-  // Wiring moveChromeGroupAcrossWindowsInternal up is what replaces this
-  // `return` with a second dispatch, and this is the line that must change.
+  // Two reducers, not one widened one (§11.4), for the reason §7 gives for
+  // tabs: the reorder's no-op guard compares one window's item indices, and it
+  // rebuilds windowGroup.tabs by flattening the items of a single window.
+  //
+  // A drop that names no window has nowhere to go, and is the engine's refusal
+  // arriving here.
   const onMove = useCallback(
     (
       itemId: string,
@@ -101,11 +110,23 @@ export function useGroupDrop(
       const groupId = groupIdOfItemId(itemId);
       // Only a group row has a handle, so a loose tab's id never arrives.
       if (groupId === undefined) return;
-      const windowId = windowOfGroup.get(groupId);
-      if (windowId === undefined) return;
-      if (toWindowId !== undefined && toWindowId !== windowId) return;
+      const fromWindowId = windowOfGroup.get(groupId);
+      if (fromWindowId === undefined || toWindowId === undefined) return;
       dispatch(
-        moveChromeGroupInternal({ tabGroupId, windowId, groupId, toIndex })
+        fromWindowId === toWindowId
+          ? moveChromeGroupInternal({
+              tabGroupId,
+              windowId: fromWindowId,
+              groupId,
+              toIndex,
+            })
+          : moveChromeGroupAcrossWindowsInternal({
+              tabGroupId,
+              fromWindowId,
+              toWindowId,
+              groupId,
+              toIndex,
+            })
       );
     },
     [dispatch, tabGroupId, windowOfGroup]

@@ -33,16 +33,26 @@ export const GroupDragArea: React.FC<{
       rowIds={groupDrop.rowIds}
       onMove={groupDrop.onMove}
       dragKind="group"
+      // A whole group may be dropped into another saved window (KAN-132
+      // §11.3), so the window under the pointer decides the landing -- its
+      // header and a collapsed window included -- and each window is previewed
+      // in its own frame.
+      //
+      // PAIRED WITH useGroupDrop's ROUTING, and neither half is safe alone.
+      // This flag lets the area name a window that is not the held group's;
+      // the one reducer that existed before applies `toIndex` to the SOURCE
+      // window, so without the routing below it a foreign index would be
+      // applied to the group's own window -- a silent wrong move that dirties
+      // the session for a cloud write (measured, Task 11 fix round 1).
+      dropsAcrossWindows
       // Only a group's title row is a handle, so a press on a tab reaches this
       // list's begin, finds no handle, and is left to the tab list.
       handleSelector="[data-group-drag-handle]"
-      // No clampDropToEnds: outside a window's rows means out of the window,
-      // which must be refused. restoreScrollIfNoDrop, because compressing the
-      // held group can shrink the list and clamp the scroll.
+      // No clampDropToEnds: outside every window's block means out of the
+      // session's windows, which must be refused. restoreScrollIfNoDrop,
+      // because compressing the held group can shrink the list and clamp the
+      // scroll.
       restoreScrollIfNoDrop
-      // No dropsAcrossWindows: a group cannot leave its window yet, so every
-      // release is judged among that window's rows -- see useGroupDrop.
-      //
       // The mode, not the box's contents -- see KAN-140 on
       // TabGroupEntryContainer for why this is not isFilteredView.
       disabled={isSearchPanel}

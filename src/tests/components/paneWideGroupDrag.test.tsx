@@ -16,15 +16,19 @@ import {
 // KAN-132. The group drag is ONE drag area over every window's top-level rows,
 // rather than one per window -- the same move the tab list made, one level up.
 //
-// NOTHING A USER CAN SEE CHANGES HERE: a group released over another window is
-// still refused. Each test below pins one way a naive pane-wide list breaks
-// that, and every one of them passes against the per-window areas this replaces:
+// Each test below pins one way a naive pane-wide list breaks:
 //
 //   * the index a drop reports must count the items of the window it lands in,
 //     not every item above it in the pane
-//   * a release over another window is refused, and previews nothing
+//   * a release over ANOTHER window lands there, previewed in each window's own
+//     frame (KAN-132 §11.3); one over NO window is still refused
 //   * a row whose window holds a single item must still measure its own
 //     footprint, now that its window's list container is gone
+//
+// The first and third were written against the per-window areas this file's
+// task replaced, and passed there. The second was their exact opposite then --
+// the interim rule was that a group could not leave its window at all -- and is
+// inverted here by the task that wired the cross-window reducer up.
 //
 // jsdom has no layout and applies no App.css, so every row and block is given a
 // box below and the held group does not compress -- every box here is the
@@ -212,18 +216,50 @@ describe('a group drag in a pane-wide items list', () => {
     expect(shift(node('tab:a0'))).toBe(0);
   });
 
-  test('a group released over the first window commits nothing', async () => {
+  // KAN-132 §11.3, and the reason the pane-wide list exists at all: the group
+  // lands in the OTHER window, at an index counted among THAT window's items.
+  //
+  // wA holds one item, so index 0 and index 1 are the two answers available,
+  // and they differ visibly: this releases ABOVE that item's midpoint, so the
+  // group goes first and the item steps aside for it. An index counted over the
+  // pane instead, or applied to the group's own window, cannot produce this.
+  test('a group released over the first window lands there', async () => {
     const { container, store } = await render();
     const node = layout(container);
 
-    // Squarely over wA's block, and over its only row.
+    // Squarely over wA's block, and above its only row's midpoint (30).
     press(handleOf(container, 'gb'), 110);
-    moveTo(30);
+    moveTo(25);
 
-    // Refused, so nothing in wA steps aside for it either.
+    // THE PREVIEW, in each window's own frame: wA opens from its first item
+    // down, wB closes up below the group that is leaving it, and nothing else
+    // moves.
+    const footprint = shift(node('tab:a0'));
+    expect(footprint).toBeGreaterThan(0);
+    expect(shift(node('tab:b3'))).toBe(-footprint);
+    expect(shift(node('tab:b0'))).toBe(0);
+
+    release(25);
+
+    expect(tabsOf(store, 0)).toBe('b1* b2* a0');
+    expect(tabsOf(store, 1)).toBe('b0 b3');
+  });
+
+  // The refusal that survives §11.3: a release in NO window. wA's block ends at
+  // 40 and wB's begins at 60, and 45 is outside wB's own rows plus half the
+  // held group of slack -- so it names no window and nothing happens.
+  test('a group released between the two windows commits nothing', async () => {
+    const { container, store } = await render();
+    const node = layout(container);
+
+    press(handleOf(container, 'gb'), 110);
+    moveTo(45);
+
+    // Refused, so nothing in either window steps aside for it either.
     expect(shift(node('tab:a0'))).toBe(0);
+    expect(shift(node('tab:b3'))).toBe(0);
 
-    release(30);
+    release(45);
 
     expect(tabsOf(store, 0)).toBe(A_START);
     expect(tabsOf(store, 1)).toBe(B_START);

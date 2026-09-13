@@ -31,7 +31,8 @@ export const TabDragArea: React.FC<{
       rowIds={tabDrop.rowIds}
       onMove={tabDrop.onMove}
       dragKind="tab"
-      // A tab may be dropped into another saved window; a group may not, yet.
+      // A tab may be dropped into another saved window. Paired with onMove's
+      // routing on the window it is handed -- see dropsAcrossWindows.
       dropsAcrossWindows
       resolveDrop={tabDrop.resolveDrop}
       onDropTargetChange={tabDrop.onDropTargetChange}

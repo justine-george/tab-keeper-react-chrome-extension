@@ -18,8 +18,16 @@ import {
 // With one tab list for the whole pane, the dragged list's container is far
 // above that point. A window holding a single loose tab would climb out of its
 // `items` list and on up through the window's own wrappers, measuring a box that
-// is not the row. So the climb also stops at ANY drag area's container: a
-// container holds a whole list, and past it the climb is measuring that list.
+// is not the row. So the climb refuses to step ONTO any box that holds a list's
+// rows -- another drag area's container, or a box a list marked with
+// `markRowContainer` -- because such a box holds a whole list, and on it the
+// climb would be measuring that list rather than the row.
+//
+// "Refuses to step onto", not "stops on": the two differ once the box holding a
+// window's item rows is no longer a drag area's container at all, which is what
+// collapsing the per-window areas did (KAN-132). `markRowContainer` is how that
+// box declares itself, and paneWideGroupDrag's single-item test is what tells
+// the two rules apart -- both tests here pass under either.
 //
 // jsdom reports every rect as zero, so the boxes are given here. The wrapper
 // above the nested list is deliberately much taller than the row, so a climb
