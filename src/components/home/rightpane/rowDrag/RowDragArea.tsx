@@ -423,6 +423,21 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     // Read from the live layout, unlike the rows: a tab drag moves rows by
     // transform and never a window's own box, so every block still stands where
     // it stood at drag start, and a viewport hit test needs no scroll term.
+    //
+    // A forced layout read: windowBlockAt calls getBoundingClientRect on every
+    // window block in the pane. Call ONCE per move and thread the answer down
+    // -- landingOf and dropRoot both used to call this themselves, and
+    // onMoveEvent's drop-target notifier called it a third time through
+    // dropRoot, which on a 20-window session was ~60 forced layout reads per
+    // pointermove before counting judgeDrop's own call at drop time.
+    //
+    // NOT CACHED ACROSS MOVES, even keyed on pointer position: auto-scroll
+    // moves every block's box without moving the pointer, so a position-keyed
+    // cache would answer a stale block on the frame after the list scrolls.
+    // Every call site that runs once per move computes this fresh, right at
+    // its own top, and passes the one answer down -- see update() and
+    // autoScroll() below, and judgeDrop further down, which computes its own
+    // for a different reason (see judgeDrop's own comment).
     const blockUnderPointer = (l: NonNullable<typeof live.current>) =>
       l.heldWindow && dropsAcrossWindows
         ? windowBlockAt(containerRef.current, l.lastX, l.lastY)
@@ -440,8 +455,15 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     // with a band this release does not land in. Outside every block it is the
     // held row's own -- the one window still in play, see landingOf -- and for
     // a list with no windows, the list itself.
-    const dropRoot = (l: NonNullable<typeof live.current>) =>
-      blockUnderPointer(l) ?? l.heldWindow ?? containerRef.current;
+    //
+    // Takes `block` rather than calling blockUnderPointer itself: every caller
+    // in this move's own flow already has one, computed once for that flow --
+    // see the perf note on blockUnderPointer above. Passing it in is what
+    // keeps this a second READ of that answer, not a second forced layout.
+    const dropRoot = (
+      l: NonNullable<typeof live.current>,
+      block: HTMLElement | null
+    ) => block ?? l.heldWindow ?? containerRef.current;
 
     // The slot a landing IN THE HELD ROW'S OWN WINDOW names, in the list AS
     // DRAWN, which spans the whole pane (KAN-132). The landing index counts one
@@ -499,8 +521,12 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     //
     // Reads the pane's box, so like everything here it must run while the
     // drag's own layout stands -- see judgeDrop.
+    //
+    // Takes `block` rather than calling blockUnderPointer itself -- see the
+    // perf note there. The caller computed it once, for this same move.
     const landingOf = (
-      l: NonNullable<typeof live.current>
+      l: NonNullable<typeof live.current>,
+      block: HTMLElement | null
     ): Landing | undefined => {
       // Content space, matching how the rects were measured. Using the raw
       // viewport y here would misjudge both the containment test and the
@@ -516,7 +542,6 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // "drag it to the end" has always had -- an overshoot past a window's
       // last row lands in the gap under its block, and still means "last".
       // Anything further out names no window, and is refused.
-      const block = blockUnderPointer(l);
       const windowId = (block ?? l.heldWindow)?.dataset.dropWindowId;
       const rows = rowsIn(l, windowId);
 
@@ -568,7 +593,18 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       return { windowId, index: others.filter((r) => dropY > r.mid).length };
     };
 
-    const update = (l: NonNullable<typeof live.current>) => {
+    // Returns the element resolveDrop was asked against, so a caller that
+    // needs to ask it something else at this SAME pointer position (the
+    // drop-target notifier in onMoveEvent) can reuse the answer instead of
+    // re-running the hit test -- see the perf note on blockUnderPointer.
+    const update = (
+      l: NonNullable<typeof live.current>
+    ): HTMLElement | null => {
+      // Computed ONCE for this whole move and threaded down, not re-read by
+      // landingOf and dropRoot separately -- see the perf note on
+      // blockUnderPointer above.
+      const block = blockUnderPointer(l);
+
       // Where the release would be refused, preview the row going back where
       // it came from: no row steps aside, and its own slot stays open.
       //
@@ -580,7 +616,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // is already its group's first member, the fallback still satisfies the
       // leaving rule, so a refused release drew a full membership-change
       // preview and promised a move that never came.
-      const landing = landingOf(l);
+      const landing = landingOf(l, block);
 
       // What a release HERE would land ON, asked once and spent twice (KAN-164,
       // KAN-166): the list is told when the answer changes, and the landing
@@ -590,7 +626,8 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // change more than an index -- a tab released inside a group's band joins
       // that group -- and the user cannot see a rule that is only consulted
       // once the pointer is already up.
-      const target = resolveDrop?.(dropRoot(l), l.lastX, l.lastY)?.bandId;
+      const root = dropRoot(l, block);
+      const target = resolveDrop?.(root, l.lastX, l.lastY)?.bandId;
 
       // The whole preview in the list AS DRAWN, decided once (KAN-166). The
       // shifts, the frame and the landing slot all come off this one pair of
@@ -656,6 +693,8 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         shifts,
         landingDelta,
       });
+
+      return root;
     };
 
     // Drag the list along when the pointer is held near its edge, so a target
@@ -860,7 +899,10 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         }
       }
 
-      update(l);
+      // The root update() resolved its own resolveDrop call against, for this
+      // SAME pointer position -- reused below rather than hit-tested again,
+      // see the perf note on blockUnderPointer.
+      const root = update(l);
 
       if (onDropTargetChange && resolveDrop) {
         // Compared and forwarded as `.bandId`, not the object resolveDrop
@@ -869,7 +911,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         // onDropTargetChange every move instead of only on a real change
         // (KAN-164's whole point). onDropTargetChange's contract is
         // unchanged by KAN-132 -- it still names a band, not a window.
-        const t = resolveDrop(dropRoot(l), l.lastX, l.lastY).bandId;
+        const t = resolveDrop(root, l.lastX, l.lastY).bandId;
         if (t !== l.dropTarget) {
           l.dropTarget = t;
           // The whole list, not the window the target is in: the mark being
@@ -901,13 +943,21 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
           toWindowId: string | undefined;
         }
       | undefined => {
-      const landing = landingOf(l);
+      // Computed HERE, not threaded in from a previous move's update() or
+      // autoScroll() call: KAN-156 requires this hit test run while the
+      // drag's own (possibly folded) layout still stands, and the drag kind
+      // is unpublished before finish() reaches here in some orderings. A
+      // value computed on an earlier move could describe a layout that no
+      // longer exists by the time this runs.
+      const block = blockUnderPointer(l);
+      const landing = landingOf(l, block);
       if (landing === undefined) return undefined;
       return {
         // Window-local, in the window named beside it -- see Landing.
         toIndex: landing.index,
         toWindowId: landing.windowId,
-        dropTargetId: resolveDrop?.(dropRoot(l), l.lastX, l.lastY)?.bandId,
+        dropTargetId: resolveDrop?.(dropRoot(l, block), l.lastX, l.lastY)
+          ?.bandId,
       };
     };
 
