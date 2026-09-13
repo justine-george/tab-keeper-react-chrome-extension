@@ -450,13 +450,11 @@ test.describe('the preview predicts the drop', () => {
     // The slot the held tab is promised is exactly where it lands.
     expect(preview.a2).toBe(TRUTH.fromAbove.a2);
 
-    // The title row rises to make that room. Quantised to the held row's
-    // footprint (34) where the truth is 32, because a tab joining a group also
-    // stops paying the 2px margin beside the band -- KAN-167. Asserted as the
-    // number the engine actually produces, with the 2px named rather than
-    // hidden behind a tolerance.
-    expect(preview.header).toBe(TRUTH.before.header - 34);
-    expect(preview.header).toBeLessThan(TRUTH.before.header);
+    // The title row rises to make that room -- exactly as far as the drop
+    // moves it (KAN-167). This used to be 34 against a truth of 32, because
+    // the held row's footprint was measured to its NEIGHBOUR and so included
+    // the band's own 2px margin.
+    expect(preview.header).toBe(TRUTH.fromAbove.header);
   });
 
   test('a3 dropped on the title: the members move down and the title row holds still', async ({
@@ -470,9 +468,9 @@ test.describe('the preview predicts the drop', () => {
     // That is the case the unanimity rule could not express.
     expect(preview.header).toBe(TRUTH.before.header);
 
-    expect(preview.alpha0).toBe(TRUTH.before.alpha0 + 34);
-    expect(preview.alpha1).toBe(TRUTH.before.alpha1 + 34);
-    expect(preview.alpha2).toBe(TRUTH.before.alpha2 + 34);
+    expect(preview.alpha0).toBe(TRUTH.fromBelow.alpha0);
+    expect(preview.alpha1).toBe(TRUTH.fromBelow.alpha1);
+    expect(preview.alpha2).toBe(TRUTH.fromBelow.alpha2);
 
     // Exact, in the direction the index alone already described.
     expect(preview.a3).toBe(TRUTH.fromBelow.a3);
@@ -497,9 +495,9 @@ test.describe('the preview predicts the drop', () => {
     });
     const painted = await framePreview(page);
 
-    // The drop makes the band 66..226. The preview is allowed the usual 2px of
-    // KAN-167 at the moving edge; the fixed edge has to be exact.
-    expect(painted.band!.top).toBe(TRUTH.fromAbove.header - 2);
+    // The drop makes the band 66..226, and the preview now says exactly that
+    // at both edges (KAN-167).
+    expect(painted.band!.top).toBe(TRUTH.fromAbove.header);
     expect(painted.band!.bottom).toBe(rest.band!.bottom);
 
     // And the strip covers the same extent, rather than keeping its length.
@@ -582,13 +580,140 @@ test.describe('the preview predicts the drop', () => {
     expect(preview.a2).toBeGreaterThan(preview.alpha0);
 
     // alpha0 steps up past the held row as well as the title row does.
-    expect(preview.alpha0).toBe(TRUTH.secondPosition.alpha0 - 2);
-    expect(preview.header).toBe(TRUTH.secondPosition.header - 2);
+    expect(preview.alpha0).toBe(TRUTH.secondPosition.alpha0);
+    expect(preview.header).toBe(TRUTH.secondPosition.header);
 
     // Nothing below the slot moves.
     expect(preview.alpha1).toBe(TRUTH.secondPosition.alpha1);
     expect(preview.alpha2).toBe(TRUTH.secondPosition.alpha2);
     expect(preview.a3).toBe(TRUTH.secondPosition.a3);
+  });
+
+  // The bound on the head rule (KAN-174). A landing index ABOVE a group's head
+  // belongs to the rows above it, not to the group -- so the head is matched
+  // exactly, not with <=. Without a row above Alpha this cannot be expressed at
+  // all, which is why it lives here rather than in tab-group-leading.spec.ts:
+  // there the group leads the window and no index sits below its head.
+  test('a tab landing above the rows before a group does not answer to it', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await open(context, extensionId, BEFORE);
+    const a0 = (await page.locator('[data-drag-row-id="a0"]').boundingBox())!;
+
+    // Above a0's midpoint: the very top of the list, three rows clear of Alpha.
+    const preview = await previewOfDragging(page, 'a3', a0.y + 4, {
+      settle: true,
+    });
+
+    // It lands in a0's slot, NOT at Alpha's title row far below.
+    expect(preview.a3).toBe(TRUTH.before.a0);
+    expect(preview.header).toBe(TRUTH.leaving.header);
+  });
+
+  // KAN-175. The mirror of KAN-174, at the other end of the group. A tab
+  // joining at the TAIL must be drawn inside the strip it is joining, and one
+  // landing just past the group must be drawn outside it -- the two land 2px
+  // apart, so the frame is the only thing that can tell them apart.
+  test('joining at the tail is drawn inside the strip, landing past it outside', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await open(context, extensionId, BEFORE);
+    const last = (await page
+      .locator('[data-drag-row-id="alpha2"]')
+      .boundingBox())!;
+
+    // Inside the band, below the last member's midpoint: joins at the tail.
+    await previewOfDragging(page, 'a0', last.y + last.height - 4, {
+      settle: true,
+    });
+    const joining = await page.evaluate(() => {
+      const q = (s: string) => document.querySelector<HTMLElement>(s);
+      const slot = q('[data-drag-landing-slot]')!.getBoundingClientRect();
+      const strip = q(
+        '[data-band-id="alpha"] [data-group-color-strip]'
+      )!.getBoundingClientRect();
+      return {
+        lit: q('[data-band-id="alpha"]')!.hasAttribute('data-drop-target'),
+        // The slot the tab will occupy has to be WITHIN the strip's span.
+        slotInsideStrip:
+          slot.top >= strip.top - 2 && slot.bottom <= strip.bottom + 2,
+      };
+    });
+
+    expect(joining.lit).toBe(true);
+    expect(joining.slotInsideStrip).toBe(true);
+  });
+
+  // KAN-176. Joining at the tail from BELOW. The landing slot resolves to the
+  // row AFTER the group, which sits past the tail marker -- so the marker stays
+  // put and the frame never extends to cover the slot the tab will occupy,
+  // even though the drop puts it inside the group.
+  test('joining at the tail from below extends the strip over the slot', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await open(context, extensionId, BEFORE);
+    const last = (await page
+      .locator('[data-drag-row-id="alpha2"]')
+      .boundingBox())!;
+
+    // a3 sits BELOW the group; aim inside the band, past the last member.
+    await previewOfDragging(page, 'a3', last.y + last.height - 4, {
+      settle: true,
+    });
+
+    const frame = await page.evaluate(() => {
+      const q = (s: string) => document.querySelector<HTMLElement>(s);
+      const slot = q('[data-drag-landing-slot]')!.getBoundingClientRect();
+      const strip = q(
+        '[data-band-id="alpha"] [data-group-color-strip]'
+      )!.getBoundingClientRect();
+      return {
+        lit: q('[data-band-id="alpha"]')!.hasAttribute('data-drop-target'),
+        coversSlot: strip.bottom >= slot.bottom - 2,
+      };
+    });
+
+    // PREMISE: it really is joining, not landing past the group.
+    expect(frame.lit).toBe(true);
+    // THE CLAIM: the frame reaches the slot the tab will occupy.
+    expect(frame.coversSlot).toBe(true);
+  });
+
+  // The other end of KAN-175, and the gap KAN-171 recorded and could not close:
+  // when a group LOSES its last member the frame's bottom has to come up, and
+  // the last member's own shift could never say so -- a held row is given no
+  // shift at all. The tail marker answers it without a special case, because
+  // dragging that member down puts the marker inside the shifted range.
+  test('a group losing its last member pulls its strip up to the new one', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await open(context, extensionId, BEFORE);
+    const a3 = (await page.locator('[data-drag-row-id="a3"]').boundingBox())!;
+
+    await previewOfDragging(page, 'alpha2', a3.y + a3.height - 2, {
+      settle: true,
+    });
+
+    const frame = await page.evaluate(() => {
+      const q = (s: string) => document.querySelector<HTMLElement>(s);
+      const strip = q(
+        '[data-band-id="alpha"] [data-group-color-strip]'
+      )!.getBoundingClientRect();
+      const newLast = q('[data-drag-row-id="alpha1"]')!.getBoundingClientRect();
+      return {
+        lit: q('[data-band-id="alpha"]')!.hasAttribute('data-drop-target'),
+        overhang: Math.round(strip.bottom - newLast.bottom),
+      };
+    });
+
+    // PREMISE: it really is leaving, not being reordered inside the group.
+    expect(frame.lit).toBe(false);
+    // THE CLAIM: the strip ends at whatever is left, with nothing hanging past.
+    expect(frame.overhang).toBe(0);
   });
 
   // KAN-168, reported from the shipped build. Leaving a group changes the tab's
@@ -611,10 +736,11 @@ test.describe('the preview predicts the drop', () => {
     // inside the band.
     expect(preview.alpha0).toBeLessThan(preview.header);
 
-    // 2px below where it lands, and this direction is where KAN-167 shows up
-    // in the SLOT rather than only in the shifts: leaving the band stops the
-    // tab paying the band's 2px margin, which the measured tops cannot know in
-    // advance. Asserted as the number the engine produces, with the 2px named.
+    // 2px low, and this is the REMAINDER of KAN-167 rather than the part it
+    // fixed. The slot here is a distance between measured TOPS -- the title
+    // row's top minus the held row's -- and a band's top includes the band's
+    // own 2px margin, so no footprint can reach it. The shifts are now exact;
+    // this one edge is not. Asserted as the number the engine produces.
     expect(preview.alpha0).toBe(TRUTH.leaving.alpha0 + 2);
 
     // The title row drops to make way, and the members left behind hold still.

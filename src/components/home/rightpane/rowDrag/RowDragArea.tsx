@@ -160,20 +160,37 @@ function footprintOf(
 
   const self = box.getBoundingClientRect();
 
-  // The distance to the next sibling's top IS the footprint.
-  const next = box.nextElementSibling;
-  if (next) return next.getBoundingClientRect().top - self.top;
+  // ITS OWN MARGINS, not the gap to whatever sits beside it (KAN-167).
+  //
+  // This used to measure the distance to the next sibling, and with collapsing
+  // margins that attributes the NEIGHBOUR's margin to this row. Measured in the
+  // popup: loose tabs sit flush, 0px apart, but a group's band carries
+  // `margin: 2px 0`, so the tab above one reported 34 for a row occupying 32 --
+  // and every element the preview displaced then moved 2px too far.
+  //
+  // Read from the element the margin is actually ON. Every row here is a
+  // wrapper this file owns holding a block the list owns, and that block's
+  // margin COLLAPSES THROUGH the wrapper -- the wrapper sets no border, padding
+  // or height to stop it. So the margin spaces the rows on screen while
+  // reporting 0 on the box `getBoundingClientRect` measures, which is exactly
+  // why the sibling distance was used in the first place.
+  //
+  // Windows are unaffected: a window row is 32 tall and carries its own
+  // `margin-bottom: 8px`, so it comes out at 40 either way. The two
+  // measurements diverge only where a NEIGHBOUR contributes margin, and the
+  // band is the only neighbour in this app that does.
+  // THE BOTTOM MARGIN ONLY. A footprint is a top-to-next-top pitch, so the gap
+  // it includes is the one BELOW the row -- and adjacent margins collapse, so
+  // adding the top one as well double-counts a gap this row shares with its
+  // neighbour. Measured: two group bands 2px apart each carry `margin: 2px 0`,
+  // and summing both put every item 2px out.
+  const inner = box.firstElementChild ?? box;
+  const own =
+    self.height + (parseFloat(getComputedStyle(inner).marginBottom) || 0);
 
-  // The last one has no next sibling to measure against, so use the gap above
-  // it instead: one CSS rule sets the separation, so the two gaps are equal.
-  const prev = box.previousElementSibling;
-  if (prev) {
-    return self.height + (self.top - prev.getBoundingClientRect().bottom);
-  }
-
-  // An only child has no margin to discover, and a one-row list cannot be
-  // reordered anyway.
-  return self.height;
+  // A row with no height at all has not been laid out yet; fall back rather
+  // than hand the preview a zero it would shift everything by.
+  return own > 0 ? own : height;
 }
 
 export const RowDragArea: React.FC<RowDragAreaProps> = ({
@@ -382,7 +399,13 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         l.lastX >= paneBox.left &&
         l.lastX <= paneBox.right;
 
-      if (!isInsideList(l.rects, dropY, l.height / 2) && !releasedInPane) {
+      // The list's own extent, taken from the DRAWN list so a group's title
+      // row counts as part of it (KAN-173). `slots` is already ordered by
+      // measured top, so its first entry is whatever the list starts with.
+      if (
+        !isInsideList(l.rects, dropY, l.height / 2, l.slots[0]?.top) &&
+        !releasedInPane
+      ) {
         return undefined;
       }
 
@@ -401,7 +424,18 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     const update = (l: NonNullable<typeof live.current>) => {
       // Where the release would be refused, preview the row going back where
       // it came from: no row steps aside, and its own slot stays open.
-      const toIndex = landingIndex(l) ?? l.fromIndex;
+      //
+      // REFUSED AND "LANDS WHERE IT STARTED" ARE NOT THE SAME STATE, and this
+      // used to conflate them (KAN-172). Falling back to the from-index was
+      // enough while a preview was built from an index alone, because to ===
+      // from then says "nothing moves". It stopped being enough once a drop
+      // could change a row's GROUP without changing its index: for a tab that
+      // is already its group's first member, the fallback still satisfies the
+      // leaving rule, so a refused release drew a full membership-change
+      // preview and promised a move that never came.
+      const landing = landingIndex(l);
+      const refused = landing === undefined;
+      const toIndex = landing ?? l.fromIndex;
 
       // What a release HERE would land ON, asked once and spent twice (KAN-164,
       // KAN-166): the list is told when the answer changes, and the landing
@@ -418,7 +452,9 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // indices, so there is no second derivation to disagree with the first --
       // which is exactly how the slot came to be drawn on an occupied row.
       const from = l.slotOfRow[l.fromIndex] ?? l.fromIndex;
-      const beside = landsBesideFixedRow?.(l.rowId, toIndex, target);
+      const beside = refused
+        ? undefined
+        : landsBesideFixedRow?.(l.rowId, toIndex, target);
       const fixedSlot =
         beside === undefined ? undefined : l.slotOfFixed.get(beside.fixedRowId);
       const to =

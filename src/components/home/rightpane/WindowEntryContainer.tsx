@@ -93,14 +93,14 @@ interface WindowEntryContainerProps {
 // threading a per-move offset into a component with no other reason to know
 // about dragging would be worse than this. The offset changes only when the
 // landing slot does, not on every pointer move.
-const GroupFrameFollower: React.FC<{
-  groupId: string;
-  lastMemberId: string | undefined;
-}> = ({ groupId, lastMemberId }) => {
+const GroupFrameFollower: React.FC<{ groupId: string }> = ({ groupId }) => {
   const drag = useDragState('tabs');
+  // Both edges come from the drawn list, through one mechanism (KAN-175). The
+  // bottom used to be DERIVED from the last member's shift, which assumes the
+  // last member stays last -- false whenever the group is gaining or losing
+  // one, and the strip then failed to cover a tab joining at the tail.
   const top = drag?.shifts[groupId] ?? 0;
-  const bottom =
-    (lastMemberId === undefined ? 0 : drag?.shifts[lastMemberId]) ?? 0;
+  const bottom = drag?.shifts[`${groupId}:tail`] ?? 0;
   const anchor = useRef<HTMLSpanElement | null>(null);
 
   useLayoutEffect(() => {
@@ -305,18 +305,6 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   );
   const itemIds = useMemo(() => items.map(itemIdOf), [items]);
 
-  // Which group each tab is currently in, so the rule below can see a tab
-  // LEAVING one as well as joining one (KAN-168). The engine knows only where
-  // the pointer is; where the row STARTED is the list's own knowledge.
-  const groupOfTab = useMemo(() => {
-    const byId = new Map<string, string>();
-    for (const tab of tabs) {
-      if (tab.chromeGroupId !== undefined)
-        byId.set(tab.tabId, tab.chromeGroupId);
-    }
-    return byId;
-  }, [tabs]);
-
   // Where in the window's tab list each group's first member sits.
   const groupFirstIndex = useMemo(() => {
     const byId = new Map<string, number>();
@@ -324,6 +312,18 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
       if (item.kind !== 'group') continue;
       const first = item.tabs[0];
       const index = first ? indexOfTab.get(first.tabId) : undefined;
+      if (index !== undefined) byId.set(item.group.groupId, index);
+    }
+    return byId;
+  }, [items, indexOfTab]);
+
+  // Where each group's LAST member sits, the counterpart of groupFirstIndex.
+  const groupLastIndex = useMemo(() => {
+    const byId = new Map<string, number>();
+    for (const item of items) {
+      if (item.kind !== 'group') continue;
+      const last = item.tabs[item.tabs.length - 1];
+      const index = last ? indexOfTab.get(last.tabId) : undefined;
       if (index !== undefined) byId.set(item.group.groupId, index);
     }
     return byId;
@@ -377,29 +377,61 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
       // index already says everything.
       if (target !== undefined) {
         const head = headInLandingSpace(target, rowId);
-        return head !== undefined && toIndex <= head
-          ? { fixedRowId: target, side: 'after' as const }
+        if (head !== undefined && toIndex <= head) {
+          return { fixedRowId: target, side: 'after' as const };
+        }
+
+        // KAN-176. The same question at the other end. Past the last member
+        // and still inside the band, the tab is joining at the TAIL -- which
+        // is a slot BEFORE the group's tail marker, not after it.
+        //
+        // The row index cannot say so, and this is KAN-174's ambiguity
+        // mirrored: it names the row AFTER the group, which resolves to a slot
+        // PAST the marker, so the marker never moves and the frame stops above
+        // the slot the tab will occupy. Coming from above it happens to
+        // resolve to the same slot either way, which is why only this
+        // direction was wrong.
+        // NO LANDING-SPACE ADJUSTMENT HERE, unlike the head. Coming from
+        // above, "before the tail marker" and "at the last member's slot" are
+        // the SAME slot, so the branch firing or falling through to the row
+        // index gives an identical answer -- an adjustment was written first
+        // and removed, because a mutation proved it could never change one.
+        // Coming from below the row index names the row PAST the marker, which
+        // is the case that needs this at all.
+        const tail = groupLastIndex.get(target);
+        return tail !== undefined && toIndex > tail
+          ? { fixedRowId: `${target}:tail`, side: 'before' as const }
           : undefined;
       }
 
-      // KAN-168. Landing outside every band, having started inside one: the
-      // tab LEAVES its group, and above its first member that means crossing
-      // the title row the other way. Its row index does not change -- the
-      // reducer splices it out and back in at the same place and only drops
-      // the membership -- so without this the preview has nothing to say and
-      // draws the landing slot at the tab's own origin, inside the band.
+      // Landing outside every band: the tab ends up ungrouped. If that puts it
+      // at a group's HEAD, it lands BEFORE that group's title row.
       //
-      // The same head, in the same space -- though here the adjustment is
-      // always zero, since a tab leaving its own group started inside it and so
-      // never sits above its own head.
-      const held = groupOfTab.get(rowId);
-      if (held === undefined) return undefined;
-      const head = headInLandingSpace(held, rowId);
-      return head !== undefined && toIndex <= head
-        ? { fixedRowId: held, side: 'before' as const }
-        : undefined;
+      // NOT A QUESTION ABOUT WHERE THE TAB CAME FROM (KAN-174). This began as
+      // the KAN-168 rule for a tab LEAVING the group it was already in, and
+      // that was too narrow: a loose tab landing at the same head fell through
+      // to the row index alone, which the area resolves to the slot that row
+      // OCCUPIES -- the first member's. So the ghost pointed inside a band the
+      // tab was never going to join, in the same place as an actual join, and
+      // the band's tint was the only thing telling the two apart.
+      //
+      // The row index cannot answer it. "Land before row t" is ambiguous when a
+      // title row sits immediately before t: before the title, or after it? It
+      // is after only when the drop JOINS that group, which is the branch
+      // above. Everything reaching here lands before.
+      //
+      // Matched EXACTLY rather than `<=`, unlike the joining branch. The whole
+      // strip at the top of a band means "join at the head", but a landing
+      // index above a group's head belongs to the rows above it, not to the
+      // group.
+      for (const groupId of groupFirstIndex.keys()) {
+        if (headInLandingSpace(groupId, rowId) === toIndex) {
+          return { fixedRowId: groupId, side: 'before' as const };
+        }
+      }
+      return undefined;
     },
-    [groupOfTab, headInLandingSpace]
+    [groupFirstIndex, groupLastIndex, headInLandingSpace]
   );
 
   const handleMoveGroup = useCallback(
@@ -1059,10 +1091,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                         }
                       `}
                     >
-                      <GroupFrameFollower
-                        groupId={item.group.groupId}
-                        lastMemberId={item.tabs[item.tabs.length - 1]?.tabId}
-                      />
+                      <GroupFrameFollower groupId={item.group.groupId} />
                       {/* The colour is Chrome's own group identity, not app chrome
                     (BINDING CONSTRAINT 1) -- TAB_GROUP_COLOR_HEX is a fixed
                     map, not routed through useThemeColors, so it reads the
@@ -1384,6 +1413,28 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                               {renderTab(tabItem)}
                             </DraggableRow>
                           ))}
+                          {/* KAN-175. The group's TAIL, declared the same way
+                              its title row declares its head. Zero height, so
+                              it changes no layout -- it exists only to hold a
+                              place in the drawn list, where previewShifts
+                              decides it like any other slot: a tab landing
+                              BEFORE it is joining at the tail, so the marker
+                              holds still and the frame keeps covering the new
+                              member; one landing AFTER it is going outside, so
+                              the marker rises with the members and the frame's
+                              bottom comes up with it.
+
+                              Before this the frame's bottom was DERIVED from
+                              the last member's shift, which assumes the last
+                              member stays last -- and it does not when the
+                              group is gaining or losing one. */}
+                          <div
+                            aria-hidden="true"
+                            data-fixed-row-id={`${item.group.groupId}:tail`}
+                            css={css`
+                              height: 0;
+                            `}
+                          />
                         </div>
                       </div>
                     </div>
