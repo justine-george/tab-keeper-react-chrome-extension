@@ -300,6 +300,18 @@ export interface moveChromeGroupParams {
   toIndex: number;
 }
 
+export interface moveChromeGroupAcrossWindowsParams {
+  tabGroupId: string;
+  fromWindowId: string;
+  toWindowId: string;
+  // Identity, not a position, for the same reason as moveChromeGroupParams.
+  groupId: string;
+  // Index into the DESTINATION's items, with the group not yet among them --
+  // see moveChromeGroupAcrossWindowsInternal for why that makes the last
+  // valid slot `items.length`, not `length - 1`.
+  toIndex: number;
+}
+
 export const initialState: TabMasterContainer = {
   lastModified: Date.now(), // timestamp
   selectedTabGroupId: null,
@@ -1984,6 +1996,82 @@ export const tabContainerDataStateSlice = createSlice({
       saveToLocalStorage('tabContainerData', state);
     },
 
+    // Move a whole Chrome tab group from one saved window into another,
+    // keeping its identity -- title, colour, its tabs, in order (KAN-132
+    // §11.4). A SIBLING of moveChromeGroupInternal, not a widened one: that
+    // reducer's no-op guard compares one window's item indices, and it
+    // rebuilds windowGroup.tabs by flattening the items of a single window.
+    moveChromeGroupAcrossWindowsInternal: (
+      state,
+      action: PayloadAction<moveChromeGroupAcrossWindowsParams>
+    ) => {
+      const { tabGroupId, fromWindowId, toWindowId, groupId, toIndex } =
+        action.payload;
+
+      // One window is moveChromeGroupInternal's gesture.
+      if (fromWindowId === toWindowId) return;
+
+      const container = state.tabGroups.find(
+        (g) => g.tabGroupId === tabGroupId
+      );
+      if (!container) return;
+      const from = container.windows.find((w) => w.windowId === fromWindowId);
+      const to = container.windows.find((w) => w.windowId === toWindowId);
+      if (!from || !to) return;
+
+      // The SAME partition the screen draws, so an index cannot mean two
+      // things (KAN-131).
+      const fromItems = partitionTabsIntoItems(from.tabs, from.chromeTabGroups);
+      const runIndex = fromItems.findIndex(
+        (item) => item.kind === 'group' && item.group.groupId === groupId
+      );
+      // Unknown, or listed with no tabs: there is no row, so nothing to move.
+      if (runIndex === -1) return;
+
+      const [run] = fromItems.splice(runIndex, 1);
+      if (run.kind !== 'group') return;
+      from.tabs = fromItems.flatMap((item) =>
+        item.kind === 'tab' ? [item.tab] : item.tabs
+      );
+
+      const toItems = partitionTabsIntoItems(to.tabs, to.chromeTabGroups);
+      // toIndex indexes the destination's items with the group not yet among
+      // them, so the last valid slot is length -- not length - 1 as within
+      // one window.
+      const target = Math.min(Math.max(0, toIndex), toItems.length);
+      toItems.splice(target, 0, run);
+      to.tabs = toItems.flatMap((item) =>
+        item.kind === 'tab' ? [item.tab] : item.tabs
+      );
+
+      // The group's identity travels with its tabs: title and colour are the
+      // user's data (KAN-125), and applyTabGroups writes them back to Chrome.
+      from.chromeTabGroups = (from.chromeTabGroups ?? []).filter(
+        (group) => group.groupId !== groupId
+      );
+      to.chromeTabGroups = [...(to.chromeTabGroups ?? []), run.group];
+
+      // Unlike the reorder reducer this one moves COUNTS. The session's total
+      // is deliberately untouched: the tabs are still in the session.
+      from.tabCount -= run.tabs.length;
+      to.tabCount += run.tabs.length;
+
+      // "An empty window is not a thing" -- the same cascade deleteTabInternal
+      // runs. No tombstone path: the destination just gained tabs, so the
+      // session can never reach zero windows.
+      if (from.tabs.length === 0) {
+        container.windowCount -= 1;
+        container.windows.splice(container.windows.indexOf(from), 1);
+      }
+
+      // touch, not stampCreated: moving a group must not send its session to
+      // the top of the left pane.
+      touchContent(state, container);
+      state.lastModified = Date.now();
+
+      saveToLocalStorage('tabContainerData', state);
+    },
+
     replaceState: (state, action: PayloadAction<typeof state>) => {
       // update localstorage
       saveToLocalStorage('tabContainerData', action.payload);
@@ -2274,6 +2362,7 @@ export const {
   moveTabAcrossWindowsInternal,
   moveWindowInternal,
   moveChromeGroupInternal,
+  moveChromeGroupAcrossWindowsInternal,
   moveSessionInternal,
   sortSessionsInternal,
   clearSessionOrder,
