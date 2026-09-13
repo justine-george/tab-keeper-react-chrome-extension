@@ -42,15 +42,20 @@ import {
   isInEditableField,
   isInsideList,
   setDragging,
+  windowBlockAt,
+  windowBlocksIn,
   windowOf,
   type DraggableRowProps,
   type RowDragAreaProps,
 } from './dropRules';
 import {
+  landingDeltaAcross,
   landingDeltaOf,
   previewShifts,
+  previewShiftsAcross,
   slotLandingBeside,
-  type PreviewSlot,
+  type LandingSide,
+  type WindowedSlot,
 } from '../../../../utils/functions/dragPreview';
 
 // How close to an edge the pointer must be for the list to start travelling,
@@ -125,9 +130,7 @@ interface Rect {
 }
 
 // A slot in the list as drawn, tagged like a row with the window it sits in.
-interface Slot extends PreviewSlot {
-  windowId: string | undefined;
-}
+type Slot = WindowedSlot;
 
 // Where a release lands: in which window, and at which index AMONG THAT
 // WINDOW'S ROWS with the held one lifted out -- the index the list applies to
@@ -282,9 +285,9 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     // here so finish clears the element the marker was set on.
     heldEl: HTMLElement | null;
     // The saved-window block the held row sits in, read at drag start
-    // (KAN-132). Every drop question is answered within the window a release
-    // lands in, and until a tab can cross into another window that is always
-    // this one. Null for a row in no window.
+    // (KAN-132): where a release outside every window can still land, and
+    // whether this list's rows sit in windows at all. Null for a row in no
+    // window.
     heldWindow: HTMLElement | null;
     // The last target resolveDrop named, so the list hears only about changes
     // rather than once per pointer move (KAN-164).
@@ -302,6 +305,10 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     // sits between two rows.
     slotOfRow: number[];
     slotOfFixed: Map<string, number>;
+    // Where each saved window this list spans ENDS, in content space, measured
+    // with the rows (KAN-132). A row landing past another window's last row --
+    // or in a collapsed one, which draws no rows -- is placed there.
+    windowBottoms: Map<string, number>;
   } | null>(null);
 
   // The auto-scroll frame, cancelled on drop. A ref rather than state: it is
@@ -387,6 +394,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         slots: [],
         slotOfRow: [],
         slotOfFixed: new Map(),
+        windowBottoms: new Map(),
       };
     },
     [rowIds, handleSelector, disabled, clampDropToEnds]
@@ -404,13 +412,20 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     const contentY = (l: NonNullable<typeof live.current>, clientY: number) =>
       clientY + (l.scroller?.scrollTop ?? 0);
 
-    // The window a release lands in, by its block. ALWAYS THE HELD ROW'S OWN,
-    // for now (KAN-132): the tab list spans the whole pane so that a tab can
-    // be dropped into another window, and until that drop is built every
-    // question below is answered inside the window the row came from -- the
-    // same questions, over the same rows, that a per-window list answered.
-    const landingWindowOf = (l: NonNullable<typeof live.current>) =>
-      l.heldWindow;
+    // The saved-window block the pointer is over, or null (KAN-132).
+    //
+    // Only for a list whose rows sit IN windows. The window list's container
+    // holds every block too, but its rows wrap blocks rather than sitting in
+    // one, and a window drag that asked this would land at index 0 of a block
+    // none of its rows were counted in.
+    //
+    // Read from the live layout, unlike the rows: a tab drag moves rows by
+    // transform and never a window's own box, so every block still stands where
+    // it stood at drag start, and a viewport hit test needs no scroll term.
+    const blockUnderPointer = (l: NonNullable<typeof live.current>) =>
+      l.heldWindow
+        ? windowBlockAt(containerRef.current, l.lastX, l.lastY)
+        : null;
 
     // One window's rows, in list order. Undefined picks out the rows in no
     // window, which in a list with no windows is all of them.
@@ -419,22 +434,25 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       windowId: string | undefined
     ) => l.rects.filter((r) => r.windowId === windowId);
 
-    // What resolveDrop and onDropTargetChange are handed: the landing window's
-    // block, or the whole list where there are no windows (KAN-132). A band in
-    // another window is not something this release can land in, and asked
-    // across the pane it lit up while the release over it was refused.
+    // What resolveDrop is handed: the block the pointer is over (KAN-132). A
+    // band belongs to exactly one window, so a wider search could only answer
+    // with a band this release does not land in. Outside every block it is the
+    // held row's own -- the one window still in play, see landingOf -- and for
+    // a list with no windows, the list itself.
     const dropRoot = (l: NonNullable<typeof live.current>) =>
-      landingWindowOf(l) ?? containerRef.current;
+      blockUnderPointer(l) ?? l.heldWindow ?? containerRef.current;
 
-    // The slot a landing names, in the list AS DRAWN, which spans the whole
-    // pane (KAN-132). The landing index counts one window's rows, so it becomes
-    // a row of the full list through that window's rows before it can name a
-    // slot. A refused release names the slot the row left.
+    // The slot a landing IN THE HELD ROW'S OWN WINDOW names, in the list AS
+    // DRAWN, which spans the whole pane (KAN-132). The landing index counts one
+    // window's rows, so it becomes a row of the full list through that window's
+    // rows before it can name a slot. A refused release names the slot the row
+    // left.
     //
-    // A landing PAST a window's last row names no row. It cannot arise while a
-    // release lands in the window it came from -- there are as many of that
-    // window's rows as there are indices -- so it keeps the arithmetic a list
-    // with no windows always used.
+    // Every index a release in its own window can name HAS a row -- the held
+    // row itself is one of them -- so the fallback is unreachable. It answers
+    // "nothing moves" rather than a window-local index read as a pane-wide one
+    // (KAN-131). A landing in another window is not a slot the row moves to at
+    // all; see insertionSlotOf.
     const slotOfLanding = (
       l: NonNullable<typeof live.current>,
       landing: Landing | undefined,
@@ -442,9 +460,31 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     ): number => {
       if (landing === undefined) return from;
       const row = rowsIn(l, landing.windowId)[landing.index];
+      return row === undefined ? from : l.slotOfRow[row.index] ?? row.index;
+    };
+
+    // Where a row landing in ANOTHER window is inserted (KAN-132): the slot it
+    // goes in front of, in the list as drawn -- or `l.slots.length`, past every
+    // slot, when it lands after that window's last row or in a window with no
+    // rows drawn at all.
+    //
+    // A title row the list names wins over the row index, for the same reason
+    // as within one window (KAN-166, KAN-174): "before row t" is ambiguous when
+    // a title row sits in front of t.
+    const insertionSlotOf = (
+      l: NonNullable<typeof live.current>,
+      landing: Landing,
+      beside: { fixedRowId: string; side: LandingSide } | undefined
+    ): number => {
+      const fixed =
+        beside === undefined ? undefined : l.slotOfFixed.get(beside.fixedRowId);
+      if (beside !== undefined && fixed !== undefined) {
+        return beside.side === 'before' ? fixed : fixed + 1;
+      }
+      const row = rowsIn(l, landing.windowId)[landing.index];
       return row === undefined
-        ? l.slotOfRow[landing.index] ?? landing.index
-        : l.slotOfRow[row.index] ?? row.index;
+        ? l.slots.length
+        : l.slotOfRow[row.index] ?? l.slots.length;
     };
 
     // Where a release at the pointer's current position lands, or undefined
@@ -466,10 +506,17 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // landing index by however far the list had auto-scrolled.
       const dropY = contentY(l, l.lastY);
 
-      // The landing window's rows only (KAN-132). Across the whole pane, a
-      // release over ANOTHER window sits inside the list, and the refusal below
-      // would stop refusing it.
-      const windowId = landingWindowOf(l)?.dataset.dropWindowId;
+      // WHICH WINDOW (KAN-132): the one whose block the pointer is over. Its
+      // header counts, and so does a collapsed window, which draws no rows at
+      // all -- both land at index 0, because none of their midpoints is passed.
+      //
+      // Outside every block, only the held row's own window is still in play,
+      // and only near its own rows: the guard below. That is the forgiveness
+      // "drag it to the end" has always had -- an overshoot past a window's
+      // last row lands in the gap under its block, and still means "last".
+      // Anything further out names no window, and is refused.
+      const block = blockUnderPointer(l);
+      const windowId = (block ?? l.heldWindow)?.dataset.dropWindowId;
       const rows = rowsIn(l, windowId);
 
       // A release in the empty space below (or above) the rows, but still
@@ -497,6 +544,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // above every other window's rows.
       const drawnTop = l.slots.find((s) => s.windowId === windowId)?.top;
       if (
+        block === null &&
         !isInsideList(rows, dropY, l.height / 2, drawnTop) &&
         !releasedInPane
       ) {
@@ -557,12 +605,43 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
               target,
               landing.windowId
             );
-      const fixedSlot =
-        beside === undefined ? undefined : l.slotOfFixed.get(beside.fixedRowId);
-      const to =
-        fixedSlot === undefined || beside === undefined
-          ? slotOfLanding(l, landing, from)
-          : slotLandingBeside(from, fixedSlot, beside.side);
+      let shifts: Record<string, number>;
+      let landingDelta: number;
+      if (
+        landing !== undefined &&
+        landing.windowId !== undefined &&
+        landing.windowId !== l.heldWindow?.dataset.dropWindowId
+      ) {
+        // Into ANOTHER window: each window previewed in its own frame, not one
+        // range across both (KAN-132) -- see previewShiftsAcross for what the
+        // single range drew.
+        const at = insertionSlotOf(l, landing, beside);
+        shifts = previewShiftsAcross(
+          l.slots,
+          from,
+          landing.windowId,
+          at,
+          l.footprint
+        );
+        landingDelta = landingDeltaAcross(
+          l.slots,
+          from,
+          landing.windowId,
+          at,
+          l.windowBottoms.get(landing.windowId)
+        );
+      } else {
+        const fixedSlot =
+          beside === undefined
+            ? undefined
+            : l.slotOfFixed.get(beside.fixedRowId);
+        const to =
+          fixedSlot === undefined || beside === undefined
+            ? slotOfLanding(l, landing, from)
+            : slotLandingBeside(from, fixedSlot, beside.side);
+        shifts = previewShifts(l.slots, from, to, l.footprint);
+        landingDelta = landingDeltaOf(l.slots, from, to);
+      }
 
       setDrag({
         rowId: l.rowId,
@@ -573,8 +652,8 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         offset:
           l.lastY - l.startY + (l.scroller?.scrollTop ?? 0) - l.startScrollTop,
         footprint: l.footprint,
-        shifts: previewShifts(l.slots, from, to, l.footprint),
-        landingDelta: landingDeltaOf(l.slots, from, to),
+        shifts,
+        landingDelta,
       });
     };
 
@@ -732,6 +811,20 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
           else l.slotOfFixed.set(slot.key, index);
         });
 
+        // Where each window ends, for a list whose rows sit in windows
+        // (KAN-132). In the same frame as the rects, like everything above.
+        l.windowBottoms = new Map();
+        if (l.heldWindow) {
+          for (const block of windowBlocksIn(containerRef.current)) {
+            const id = block.dataset.dropWindowId;
+            if (id === undefined) continue;
+            l.windowBottoms.set(
+              id,
+              block.getBoundingClientRect().bottom + l.startScrollTop
+            );
+          }
+        }
+
         l.height = l.rects[l.fromIndex]?.height ?? 0;
         // Measured in the same frame as the rects above, and from the element
         // rather than from them -- see footprintOf on why the list order cannot
@@ -778,7 +871,9 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         const t = resolveDrop(dropRoot(l), l.lastX, l.lastY).bandId;
         if (t !== l.dropTarget) {
           l.dropTarget = t;
-          onDropTargetChange(t, dropRoot(l));
+          // The whole list, not the window the target is in: the mark being
+          // replaced may sit in the window the pointer has just left (KAN-132).
+          onDropTargetChange(t, containerRef.current);
         }
       }
     };
@@ -798,12 +893,19 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     // what the user was shown and what happens cannot differ (KAN-158).
     const judgeDrop = (
       l: NonNullable<typeof live.current>
-    ): { toIndex: number; dropTargetId: string | undefined } | undefined => {
+    ):
+      | {
+          toIndex: number;
+          dropTargetId: string | undefined;
+          toWindowId: string | undefined;
+        }
+      | undefined => {
       const landing = landingOf(l);
       if (landing === undefined) return undefined;
       return {
-        // Window-local -- see Landing.
+        // Window-local, in the window named beside it -- see Landing.
         toIndex: landing.index,
+        toWindowId: landing.windowId,
         dropTargetId: resolveDrop?.(dropRoot(l), l.lastX, l.lastY)?.bandId,
       };
     };
@@ -830,7 +932,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // Whatever was marked stops being a target the moment the drag ends --
       // committed, refused or cancelled alike (KAN-164).
       if (l.dropTarget !== undefined)
-        onDropTargetChange?.(undefined, dropRoot(l));
+        onDropTargetChange?.(undefined, containerRef.current);
       // Below the threshold this was a click, not a drag, and the row's own
       // handler must run untouched.
       if (!l.started) return;
@@ -841,7 +943,14 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       suppressClickUntil.current = performance.now() + 400;
 
       if (drop) {
-        onMove(l.rowId, drop.toIndex, drop.dropTargetId);
+        // The window is passed only by a list whose rows sit in windows. Every
+        // other list is called exactly as it always was, and never learns the
+        // argument exists.
+        if (drop.toWindowId === undefined) {
+          onMove(l.rowId, drop.toIndex, drop.dropTargetId);
+        } else {
+          onMove(l.rowId, drop.toIndex, drop.dropTargetId, drop.toWindowId);
+        }
 
         // Follow the row you just dropped (KAN-155).
         //

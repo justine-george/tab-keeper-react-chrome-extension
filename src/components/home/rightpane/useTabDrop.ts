@@ -17,6 +17,7 @@ import { useDispatch } from 'react-redux';
 
 import type { AppDispatch } from '../../../redux/store';
 import {
+  moveTabAcrossWindowsInternal,
   moveTabInternal,
   type tabData,
   type windowGroupData,
@@ -259,13 +260,13 @@ export function useTabDrop(
   // engine is built to avoid -- the same reason `data-drag-held` is set this way
   // (KAN-160). React never touches these, so a re-render cannot drop them.
   const onDropTargetChange = useCallback(
-    (target: string | undefined, within: HTMLElement | null) => {
-      if (!within) return;
-      // Scoped to the element the area asked within -- the landing window's
-      // block -- so a band in another window cannot light up alongside it.
-      for (const band of within.querySelectorAll<HTMLElement>(
-        '[data-band-id]'
-      )) {
+    (target: string | undefined, list: HTMLElement | null) => {
+      if (!list) return;
+      // Every band in the list, not only the target's window: the band the
+      // pointer has just left may sit in another window, and must be cleared
+      // (KAN-132). Group ids are unique across windows, so only the target is
+      // marked.
+      for (const band of list.querySelectorAll<HTMLElement>('[data-band-id]')) {
         if (target !== undefined && band.dataset.bandId === target) {
           band.setAttribute('data-drop-target', '');
           const colour = groupColorHex.get(target) ?? '';
@@ -287,10 +288,10 @@ export function useTabDrop(
 
   // Composes the tab area's two drop questions into one answer (KAN-132).
   //
-  // The area asks within the LANDING WINDOW's block, which until cross-window
-  // drops are enabled is always the window the tab came from. `windowAt`
-  // searches below the element it is given, and a window's marker is that
-  // element itself, so it answers undefined for now; nothing reads it yet.
+  // The area asks within the LANDING WINDOW's block. `windowAt` searches below
+  // the element it is given, and a window's marker is that element itself, so
+  // it answers undefined here -- the area names the landing window from its own
+  // hit test and hands it to onMove, and nothing reads this one.
   const resolveDrop = useCallback(
     (within: HTMLElement | null, x: number, y: number): DropTarget => ({
       windowId: windowAt(within, x, y),
@@ -299,20 +300,39 @@ export function useTabDrop(
     []
   );
 
-  // `toIndex` is WINDOW-LOCAL: the area counts only the landing window's rows,
-  // which is the index moveTabInternal applies to that window's stored tabs.
+  // `toIndex` is WINDOW-LOCAL: the area counts only the rows of `toWindowId`,
+  // the window the release landed in, which is the index the reducer applies
+  // to that window's stored tabs.
+  //
+  // Two reducers, not one widened one (spec 7): moveTabInternal's no-op guard
+  // and its prune ordering both rest on the tab never leaving the array it was
+  // spliced from. A drop that names no window has nowhere to go.
   const onMove = useCallback(
-    (tabId: string, toIndex: number, toChromeGroupId?: string) => {
-      const windowId = windowOfTab.get(tabId);
-      if (windowId === undefined) return;
+    (
+      tabId: string,
+      toIndex: number,
+      toChromeGroupId?: string,
+      toWindowId?: string
+    ) => {
+      const fromWindowId = windowOfTab.get(tabId);
+      if (fromWindowId === undefined || toWindowId === undefined) return;
       dispatch(
-        moveTabInternal({
-          tabGroupId,
-          windowId,
-          tabId,
-          toIndex,
-          toChromeGroupId,
-        })
+        fromWindowId === toWindowId
+          ? moveTabInternal({
+              tabGroupId,
+              windowId: fromWindowId,
+              tabId,
+              toIndex,
+              toChromeGroupId,
+            })
+          : moveTabAcrossWindowsInternal({
+              tabGroupId,
+              fromWindowId,
+              toWindowId,
+              tabId,
+              toIndex,
+              toChromeGroupId,
+            })
       );
     },
     [dispatch, tabGroupId, windowOfTab]

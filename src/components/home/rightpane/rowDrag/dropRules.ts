@@ -52,7 +52,8 @@ export type ResolveDrop = (
 export type DragKind = 'tab' | 'window' | 'session' | 'group';
 
 export interface RowDragAreaProps {
-  // Flat, in render order. Index into this is what onMove's toIndex means.
+  // Flat, in render order. For a list with no windows, index into this is what
+  // onMove's toIndex means; for one whose rows sit in windows, see onMove.
   rowIds: string[];
   /**
    * A name rows can join this list by, through any lists nested in between
@@ -61,7 +62,21 @@ export interface RowDragAreaProps {
    * nearest one, which is how every list worked before scopes.
    */
   scope?: string;
-  onMove: (rowId: string, toIndex: number, dropTargetId?: string) => void;
+  /**
+   * Where a committed drop lands.
+   *
+   * For a list whose rows sit in saved windows, `toWindowId` is the window the
+   * release landed in -- the row's own or another one (KAN-132) -- and
+   * `toIndex` counts THAT window's rows with the held one lifted out, which is
+   * the index its stored tabs take. For a list with no windows `toWindowId` is
+   * undefined and `toIndex` counts every row.
+   */
+  onMove: (
+    rowId: string,
+    toIndex: number,
+    dropTargetId?: string,
+    toWindowId?: string
+  ) => void;
   // A CSS selector for the part of a row that starts a drag. Omitted, the whole
   // row does.
   //
@@ -115,14 +130,15 @@ export interface RowDragAreaProps {
    * release would do was to do it.
    *
    * The area stays ignorant of what a target IS: it forwards whatever
-   * `resolveDrop` answers, with the element it was asked within -- the
-   * landing window's block, for a list that spans windows; see ResolveDrop --
-   * and the list decides how to show it. Fired only on CHANGE, so the cost is one hit test
+   * `resolveDrop` answers, with the list's own container -- the WHOLE list,
+   * not the window the target sits in, so a mark left in the window the
+   * pointer has just come from is cleared as well (KAN-132) -- and the list
+   * decides how to show it. Fired only on CHANGE, so the cost is one hit test
    * per move rather than one DOM write.
    */
   onDropTargetChange?: (
     target: string | undefined,
-    within: HTMLElement | null
+    list: HTMLElement | null
   ) => void;
   /**
    * A CSS selector for the parts of the list that are DRAWN but cannot be
@@ -278,30 +294,48 @@ export function windowAt(
   x: number,
   y: number
 ): string | undefined {
-  if (!container) return undefined;
-  for (const w of container.querySelectorAll<HTMLElement>(WINDOW_MARKER)) {
-    const r = w.getBoundingClientRect();
-    if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) {
-      return w.dataset.dropWindowId;
-    }
-  }
-  return undefined;
+  return windowBlockAt(container, x, y)?.dataset.dropWindowId;
 }
 
-// Did the drop land inside the rows it is judged against? (KAN-132, interim.)
+// The same hit test, answering with the block itself -- which the engine needs
+// in order to search it for bands.
+export function windowBlockAt(
+  container: HTMLElement | null,
+  x: number,
+  y: number
+): HTMLElement | null {
+  for (const w of windowBlocksIn(container)) {
+    const r = w.getBoundingClientRect();
+    if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return w;
+  }
+  return null;
+}
+
+// Every saved-window block below `container`, in document order.
+export function windowBlocksIn(container: HTMLElement | null): HTMLElement[] {
+  return container
+    ? [...container.querySelectorAll<HTMLElement>(WINDOW_MARKER)]
+    : [];
+}
+
+// Did the drop land inside the rows it is judged against?
 //
-// The caller hands this ONE window's rows. The tab list spans every window in
-// the pane, so measured over all of its rows a release over ANOTHER window
-// would sit inside the list and be accepted. RowDragArea filters its rects to
-// the landing window before asking -- until cross-window drops are built,
-// always the window the tab came from -- and that filter is also what keeps
-// the drop's index local to that window. A list with no windows passes all of
-// its rows.
+// For a list whose rows sit in saved windows, this judges only a release
+// OUTSIDE every window's block. Inside one, the release lands in that window --
+// its header and a collapsed window included -- and there is nothing to judge.
+// Outside all of them the only window still in play is the one the row came
+// from, and RowDragArea hands this that window's rows. So what it guards now is
+// a release in the gaps between windows and beside the pane: within half a row
+// of the row's own window it is the "drag it to the end" overshoot, and
+// anywhere else it names no window and is refused (KAN-132). A list with no
+// windows passes all of its rows, and for it this is the whole rule.
 //
-// Refused because the release used to SATURATE rather than fail: dragging a
-// tab out of its window landed it at the bottom of the window it came from and
-// dirtied the session for a cloud write. Doing nothing is the honest answer
-// until KAN-132 makes it a real move.
+// HISTORY. This was KAN-132's interim guard, written when a release over
+// ANOTHER window could not yet be a move: each window had a list of its own, so
+// the index SATURATED at the bottom of the window the tab came from, and the
+// session was dirtied for a cloud write. Refusing was the honest answer until
+// the drop was built. It is now, and a release over another window never
+// reaches this function.
 //
 // Measured against the rows as they were AT DRAG START, which is the same
 // snapshot toIndex is derived from. Re-reading the DOM at drop time would
@@ -335,9 +369,9 @@ export function isInsideList(
   // band the release was refused -- so no position meant "before" at all.
   //
   // Only the top edge moves, and only onto chrome the list already draws. The
-  // bottom stays measured from the rows, because that edge is the KAN-132
-  // guard: it is what stops a tab dragged out of its window saturating at the
-  // bottom of the window it came from.
+  // bottom stays measured from the rows, because past it -- and past the slack
+  // -- a release names no row of this list, and accepting it would saturate at
+  // the bottom (KAN-132's original defect).
   if (drawnTop !== undefined) top = Math.min(top, drawnTop);
   return y >= top - slack && y <= bottom + slack;
 }

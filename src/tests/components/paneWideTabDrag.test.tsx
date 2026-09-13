@@ -14,21 +14,22 @@ import {
 } from '../../redux/slices/globalStateSlice';
 
 // KAN-132. The tab drag is ONE drag area over every tab in the session, rather
-// than one per window, so that a tab can one day be dropped into another window.
-// Until that drop is built, the pane-wide area must behave exactly as the
-// per-window areas did -- and each test here pins one way that a naive pane-wide
-// list does not:
+// than one per window, so that a tab can be dropped into another window. Each
+// test here pins one way a naive pane-wide list gets that wrong:
 //
-//   * the index a drop reports must count the rows of the tab's OWN window, not
-//     every row above it in the pane
-//   * a release over another window must still be refused, from either side
+//   * the index a drop reports must count the rows of the window it lands in,
+//     not every row above it in the pane
+//   * a release over another window moves the tab there; one in no window at
+//     all is refused
 //   * a window's groups must not answer for a drop in a different window, where
 //     their window-local positions mean nothing
-//   * a band in another window must not light up as a drop target
+//   * a band lights up in whichever window the pointer is over, and the one it
+//     left goes dark
 //
 // jsdom has no layout, so every row, title row, tail marker and band is given a
-// box below. The window blocks are left unmeasured on purpose: nothing here may
-// depend on hit-testing them.
+// box below. The window blocks are measured only where a test says so
+// (measureWindows): unmeasured, no release is over any window, which is what
+// the tests that predate the cross-window drop still see.
 
 const box = (top: number, height: number) =>
   ({
@@ -153,6 +154,24 @@ const layout = (container: HTMLElement) => {
   return (id: string) => q(`[data-drag-row-id="${id}"]`);
 };
 
+// The window blocks, with a gap between them where the next window's header
+// margin sits:
+//
+//   wA  0..142     wB  180..302 (its header 180..200)
+const BLOCKS: Record<string, [number, number]> = {
+  wA: [0, 142],
+  wB: [180, 122],
+};
+const GAP_Y = 160;
+
+const measureWindows = (container: HTMLElement) => {
+  for (const [id, [top, height]] of Object.entries(BLOCKS)) {
+    container.querySelector<HTMLElement>(
+      `[data-drop-window-id="${id}"]`
+    )!.getBoundingClientRect = () => box(top, height);
+  }
+};
+
 const press = (el: HTMLElement, y: number) => {
   fireEvent.pointerDown(el, { clientX: 10, clientY: y, button: 0 });
   // Past the activation distance, without leaving the row.
@@ -198,13 +217,28 @@ describe('a tab drag in a pane-wide list', () => {
     expect(tabsOf(store, 0)).toBe(A_START);
   });
 
-  test('a tab from the second window released over the first commits nothing', async () => {
+  test('a tab from the second window released over the first lands there', async () => {
     const { container, store } = await render();
     const node = layout(container);
+    measureWindows(container);
+
+    // Past a0's midpoint (10), not a1's (30): after a0.
+    press(node('b2'), 272);
+    moveTo(28);
+    release(28);
+
+    expect(tabsOf(store, 0)).toBe('a0 b2 a1 a2 a3* a4*');
+    expect(tabsOf(store, 1)).toBe('b0* b1* b3');
+  });
+
+  test('a release between two windows commits nothing', async () => {
+    const { container, store } = await render();
+    const node = layout(container);
+    measureWindows(container);
 
     press(node('b2'), 272);
-    moveTo(30);
-    release(30);
+    moveTo(GAP_Y);
+    release(GAP_Y);
 
     expect(tabsOf(store, 0)).toBe(A_START);
     expect(tabsOf(store, 1)).toBe(B_START);
@@ -238,21 +272,27 @@ describe('a tab drag in a pane-wide list', () => {
   });
 });
 
-describe("a tab drag marks only its own window's bands", () => {
+describe('a tab drag marks the band of the window it is over', () => {
   const marked = (container: HTMLElement) =>
     [...container.querySelectorAll<HTMLElement>('[data-drop-target]')].map(
       (b) => b.dataset.bandId
     );
 
-  test("hovering another window's band marks nothing", async () => {
+  // A release there joins gb, so gb says so -- and ga, marked a move earlier in
+  // ANOTHER window, must not stay lit beside it.
+  test("hovering another window's band marks it, and clears the one it left", async () => {
     const { container } = await render();
     const node = layout(container);
+    measureWindows(container);
 
     press(node('a0'), 10);
-    moveTo(230); // squarely inside gb's band, in wB
+    moveTo(90); // inside ga's band, in wA
+    expect(marked(container)).toEqual(['ga']);
 
-    expect(marked(container)).toEqual([]);
+    moveTo(230); // squarely inside gb's band, in wB
+    expect(marked(container)).toEqual(['gb']);
     fireEvent.keyDown(window, { key: 'Escape' });
+    expect(marked(container)).toEqual([]);
   });
 
   // THE CONTROL. A list that never marked anything would pass the test above.
@@ -271,22 +311,21 @@ describe("a tab drag marks only its own window's bands", () => {
 
 // A window rendered on its own is a tab list of its own (ownsTabList), and the
 // component tests rely on that. Inside the pane it must NOT be: its list would
-// sit nearer the tab rows than the pane's and capture every tab drag, which
-// changes nothing visible until a tab can cross into another window -- so the
-// shape is the only thing this task can observe.
+// sit nearer the tab rows than the pane's and capture every tab drag, and a
+// list over one window cannot put a tab in another.
 describe('inside the pane', () => {
-  test('a window provides no tab list of its own', async () => {
-    const { container } = await render();
-    const blocks = [...container.querySelectorAll('[data-window-tabs]')];
-    // PREMISE: both windows are open and rendering their tabs.
-    expect(blocks).toHaveLength(2);
-    for (const block of blocks) {
-      // The window's items list sits directly in the block, so its first
-      // child's first child is an item row. A tab list of the window's own
-      // would wrap the items list in one more container.
-      const firstItem = block.firstElementChild?.firstElementChild;
-      expect(firstItem?.matches('[data-drag-row-id]')).toBe(true);
-    }
+  test('a window provides no tab list of its own: its tab can leave it', async () => {
+    const { container, store } = await render();
+    const node = layout(container);
+    measureWindows(container);
+
+    // Past b3's midpoint (292), inside wB: after its last row.
+    press(node('a0'), 10);
+    moveTo(298);
+    release(298);
+
+    expect(tabsOf(store, 1)).toBe('b0* b1* b2 b3 a0');
+    expect(tabsOf(store, 0)).toBe('a1 a2 a3* a4*');
   });
 });
 

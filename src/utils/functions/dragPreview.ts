@@ -115,3 +115,90 @@ export function landingDeltaOf(
   if (start === undefined || target === undefined) return 0;
   return target.top - start.top;
 }
+
+// A slot tagged with the saved window it is drawn in (KAN-132), or undefined for
+// one drawn in no window -- a row of a collapsed window, which has no box.
+export interface WindowedSlot extends PreviewSlot {
+  windowId: string | undefined;
+}
+
+/**
+ * How far each slot moves while the held row is over a DIFFERENT window from
+ * the one it came from (KAN-132).
+ *
+ * NOT previewShifts over a longer range. That was the design's first claim --
+ * "a flat ordered list produces exactly that" -- and measured, it is wrong
+ * twice over. A flat range moves every slot between the held row and its
+ * landing slot, including the destination's rows and group title rows ABOVE
+ * the landing point; the window headers in between are not slots and never
+ * move. And the destination's row index names the first row NOT passed, where
+ * within one window it names the last row that was, so the range also ran one
+ * row too far. Measured in the popup, a tab held after b0 in the second window
+ * previewed:
+ *
+ *   Beta's title row  331..363   over its own window's header at 329..361
+ *   b1                461..493   raised past the tab
+ *   landing slot      493..525   AFTER b1
+ *
+ * while the drop put the tab BEFORE b1 -- at 493 in that window's own frame,
+ * with b1 pushed down to 525 and nothing above it moved.
+ *
+ * So each window is previewed in its OWN frame, as if it alone changed: the
+ * source closes up below the row that left, the destination opens up from the
+ * insertion point down, and nothing else moves -- the rows above either point,
+ * every window in between, every header. The destination's box does not grow
+ * until the drop, so its last rows can overlap the next header; the design
+ * accepted that (spec 10).
+ *
+ * `at` is the slot the held row is inserted in front of, or any index past the
+ * destination's last slot when it lands after all of them.
+ */
+export function previewShiftsAcross(
+  slots: readonly WindowedSlot[],
+  from: number,
+  toWindowId: string,
+  at: number,
+  footprint: number
+): Record<string, number> {
+  const fromWindowId = slots[from]?.windowId;
+  const shifts: Record<string, number> = {};
+  slots.forEach((slot, i) => {
+    if (
+      fromWindowId !== undefined &&
+      i > from &&
+      slot.windowId === fromWindowId
+    )
+      shifts[slot.key] = -footprint;
+    else if (i >= at && slot.windowId === toWindowId)
+      shifts[slot.key] = footprint;
+  });
+  return shifts;
+}
+
+/**
+ * How far the held row's own slot travels when it lands in another window
+ * (KAN-132), in that window's own frame -- see previewShiftsAcross.
+ *
+ * To the top of the slot it is inserted in front of, which steps aside and
+ * leaves exactly that space. Past the destination's last slot there is no such
+ * slot, and it goes to `end`: the bottom of that window's block, which is where
+ * a row appended there is drawn. Measured, both exact against the drop: the tab
+ * inserted before b1 settled at b1's old top, and one appended after b1 at the
+ * block's old bottom. A collapsed window is the same case with no slots at all,
+ * so its slot sits directly under its header.
+ */
+export function landingDeltaAcross(
+  slots: readonly WindowedSlot[],
+  from: number,
+  toWindowId: string,
+  at: number,
+  end: number | undefined
+): number {
+  const start = slots[from];
+  if (start === undefined) return 0;
+  const target = slots[at];
+  const top =
+    target !== undefined && target.windowId === toWindowId ? target.top : end;
+  // No box for the destination: preview no travel rather than a guessed one.
+  return top === undefined ? 0 : top - start.top;
+}
