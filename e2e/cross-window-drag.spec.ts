@@ -529,3 +529,27 @@ test.describe('what a drag into another window previews', () => {
     expect(await order(page, 'w2')).toBe('be0* be1* b1');
   });
 });
+
+// A window's block is a drop into that window, and its own header is part of
+// its block: a release there lands first, as it does on any other window's
+// header. The top of the header used to be refused, being further than half a
+// row above the first row.
+test.describe('a tab released on its own window header', () => {
+  test('lands first in that window', async ({ context, extensionId }) => {
+    const page = await open(context, extensionId);
+    const header = (await page
+      .locator('[data-drop-window-id="w1"] [data-window-drag-handle]')
+      .boundingBox())!;
+    const a0 = await rowBox(page, 'a0');
+    const y = header.y + 4;
+    // PREMISE: beyond the half-row overshoot above the first row, which is all
+    // the list accepted there before a window's block counted.
+    expect(y).toBeLessThan(a0.y - a0.height / 2);
+
+    await holdAt(page, 'a2', y);
+    await page.mouse.up();
+
+    await expect.poll(() => order(page, 'w1')).toBe('a2 a0 a1 al0*');
+    expect(await order(page, 'w2')).toBe(W2_START);
+  });
+});
