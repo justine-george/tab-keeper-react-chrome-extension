@@ -23,7 +23,7 @@ import {
 } from '../../../redux/slices/tabContainerDataStateSlice';
 import { useTranslation } from 'react-i18next';
 import { RowDragArea, DraggableRow } from './rowDrag/RowDragArea';
-import { useTabDrop } from './useTabDrop';
+import { TabDragArea } from './TabDragArea';
 
 export default function TabGroupDetailsContainer() {
   const COLORS = useThemeColors();
@@ -83,11 +83,6 @@ export default function TabGroupDetailsContainer() {
     },
     [dispatch, movedTabGroupId]
   );
-
-  // The tab drag, over every tab in the session (KAN-132). Above the early
-  // return with the other hooks, and so it takes a session that may be
-  // undefined.
-  const tabDrop = useTabDrop(selectedTabGroup, hasTabGroupsPermission);
 
   // Belt and braces: RightPane does not mount this component when the list is
   // empty, so this should be unreachable -- but it is what makes the component
@@ -164,24 +159,8 @@ export default function TabGroupDetailsContainer() {
               its rows declare no scope, so window rows join it as the
               nearest list; tab rows name scope="tabs" and reach this one
               through it and through each window's items list. Both resolve
-              correctly with no context factory (spec 5.1).
-
-              Each group's title row and tail marker are drawn in this list
-              but never dragged in it -- in a window's `items` list a group is
-              one row that CONTAINS its title, so it is declared here only. */}
-          <RowDragArea
-            scope="tabs"
-            rowIds={tabDrop.rowIds}
-            onMove={tabDrop.onMove}
-            dragKind="tab"
-            resolveDrop={tabDrop.resolveDrop}
-            onDropTargetChange={tabDrop.onDropTargetChange}
-            landsBesideFixedRow={tabDrop.landsBesideFixedRow}
-            fixedRowSelector="[data-fixed-row-id]"
-            // The mode, not the box's contents -- see KAN-140 on
-            // TabGroupEntryContainer for why this is not isFilteredView.
-            disabled={isSearchPanel}
-          >
+              correctly with no context factory (spec 5.1). */}
+          <TabDragArea tabList={selectedTabGroup}>
             {/* KAN-129. handleSelector is what keeps this area and the tab list
               around it from both claiming one pointerdown: the
               draggable node below wraps a window's whole block, tabs
@@ -262,7 +241,7 @@ export default function TabGroupDetailsContainer() {
                 }
               )}
             </RowDragArea>
-          </RowDragArea>
+          </TabDragArea>
         </div>
       )}
     </div>

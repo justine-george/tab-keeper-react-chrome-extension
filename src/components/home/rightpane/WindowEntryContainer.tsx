@@ -49,7 +49,7 @@ import { applyTabGroups } from '../../../utils/functions/windows';
 
 import { RowDragArea, DraggableRow } from './rowDrag/RowDragArea';
 import { useDragState } from './rowDrag/dragContext';
-import { useTabDrop } from './useTabDrop';
+import { TabDragArea } from './TabDragArea';
 
 interface WindowEntryContainerProps {
   title: string;
@@ -249,35 +249,18 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   );
 
   // This window as a tab list of its own, for when it provides one -- see
-  // ownsTabList. The same rules the pane applies, over one window. Called
-  // either way, so the hook count never depends on the prop.
+  // ownsTabList. The same list the pane renders, over one window. Memoized
+  // because the list's listeners re-bind whenever its windows change identity.
   const ownWindow = useMemo(
     () => ({ tabGroupId, windows: [{ windowId, tabs, chromeTabGroups }] }),
     [tabGroupId, windowId, tabs, chromeTabGroups]
   );
-  const ownTabDrop = useTabDrop(ownWindow, hasTabGroupsPermission);
 
   // A plain function rather than a component: a component declared in here
   // would be a new type on every render, and React would remount the whole
   // list beneath it each time.
   const withOwnTabList = (list: React.ReactNode) =>
-    ownsTabList ? (
-      <RowDragArea
-        scope="tabs"
-        rowIds={ownTabDrop.rowIds}
-        onMove={ownTabDrop.onMove}
-        dragKind="tab"
-        resolveDrop={ownTabDrop.resolveDrop}
-        onDropTargetChange={ownTabDrop.onDropTargetChange}
-        landsBesideFixedRow={ownTabDrop.landsBesideFixedRow}
-        fixedRowSelector="[data-fixed-row-id]"
-        disabled={isSearchPanel}
-      >
-        {list}
-      </RowDragArea>
-    ) : (
-      list
-    );
+    ownsTabList ? <TabDragArea tabList={ownWindow}>{list}</TabDragArea> : list;
 
   const containerStyle = css`
     display: flex;

@@ -183,24 +183,20 @@ export interface TabListWindows {
 }
 
 /**
- * Everything a `tabs` drag area needs from the windows it lists.
- *
- * Tolerates no windows at all, because TabGroupDetailsContainer calls it above
- * its nothing-selected early return -- a hook below that return would change
- * the hook count between renders and React would throw on the transition.
+ * Everything a `tabs` drag area needs from the windows it lists. Read by
+ * TabDragArea, the one place a tab list is wired up.
  */
 export function useTabDrop(
-  tabList: TabListWindows | undefined,
+  tabList: TabListWindows,
   hasTabGroupsPermission: boolean
 ) {
   const dispatch: AppDispatch = useDispatch();
-  const windows = tabList?.windows;
-  const tabGroupId = tabList?.tabGroupId;
+  const { windows, tabGroupId } = tabList;
 
   // Every tab in the session, in render order. A tab drag must be able to name
   // a row in ANOTHER window, which a per-window area cannot do.
   const rowIds = useMemo(
-    () => (windows ?? []).flatMap((w) => w.tabs.map((t) => t.tabId)),
+    () => windows.flatMap((w) => w.tabs.map((t) => t.tabId)),
     [windows]
   );
 
@@ -208,7 +204,7 @@ export function useTabDrop(
   // and which window owns a row is the list's own knowledge.
   const windowOfTab = useMemo(() => {
     const byId = new Map<string, string>();
-    for (const w of windows ?? []) {
+    for (const w of windows) {
       for (const t of w.tabs) byId.set(t.tabId, w.windowId);
     }
     return byId;
@@ -220,7 +216,7 @@ export function useTabDrop(
   const edgesByWindow = useMemo(
     () =>
       new Map(
-        (windows ?? []).map((w) => [
+        windows.map((w) => [
           w.windowId,
           groupEdgesOf(
             w.tabs,
@@ -247,7 +243,7 @@ export function useTabDrop(
   // so no two windows share one.
   const groupColorHex = useMemo(() => {
     const byId = new Map<string, string>();
-    for (const w of windows ?? []) {
+    for (const w of windows) {
       for (const group of w.chromeTabGroups ?? []) {
         byId.set(
           group.groupId,
@@ -308,7 +304,7 @@ export function useTabDrop(
   const onMove = useCallback(
     (tabId: string, toIndex: number, toChromeGroupId?: string) => {
       const windowId = windowOfTab.get(tabId);
-      if (tabGroupId === undefined || windowId === undefined) return;
+      if (windowId === undefined) return;
       dispatch(
         moveTabInternal({
           tabGroupId,
