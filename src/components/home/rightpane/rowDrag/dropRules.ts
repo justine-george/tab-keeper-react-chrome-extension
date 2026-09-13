@@ -161,11 +161,18 @@ export interface RowDragAreaProps {
    *
    * The DROP is unaffected -- this shapes the preview only, and the reducer
    * still receives the raw index, which produces the same arrangement.
+   *
+   * `toIndex` counts the rows of ONE window -- `windowId`, the window the row
+   * lands in -- and so does whatever the list compares it against (KAN-132).
+   * In a list whose rows span several saved windows, each window's groups
+   * start at a window-local index, and a group in another window must never
+   * answer for this drop. `windowId` is undefined for a list with no windows.
    */
   landsBesideFixedRow?: (
     rowId: string,
     toIndex: number,
-    target: string | undefined
+    target: string | undefined,
+    windowId: string | undefined
   ) => { fixedRowId: string; side: LandingSide } | undefined;
   // Dragging is off while the list on screen is a FILTERED view of the stored
   // one (KAN-131). toIndex counts rendered rows, and the reducers apply it to
@@ -235,6 +242,21 @@ export function bandAt(
   return undefined;
 }
 
+// The marker WindowEntryContainer puts on each saved window's whole block
+// (KAN-132).
+const WINDOW_MARKER = '[data-drop-window-id]';
+
+// The saved-window block an element sits in, or null outside every one -- a
+// window's own row in the window list, a row that is not rendered, or a list
+// with no windows at all.
+//
+// Structural rather than a hit test: the engine uses it to learn which window
+// each ROW belongs to, and which window the held row came from, neither of
+// which depends on where the pointer is.
+export function windowOf(el: Element | null | undefined): HTMLElement | null {
+  return el?.closest<HTMLElement>(WINDOW_MARKER) ?? null;
+}
+
 // WHICH WINDOW a drop landed in (KAN-132). The same idiom as bandAt, and for
 // the same reason: resolved from rects rather than from the engine's collision
 // result, so the answer does not depend on how the rows were measured.
@@ -251,9 +273,7 @@ export function windowAt(
   y: number
 ): string | undefined {
   if (!container) return undefined;
-  for (const w of container.querySelectorAll<HTMLElement>(
-    '[data-drop-window-id]'
-  )) {
+  for (const w of container.querySelectorAll<HTMLElement>(WINDOW_MARKER)) {
     const r = w.getBoundingClientRect();
     if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) {
       return w.dataset.dropWindowId;

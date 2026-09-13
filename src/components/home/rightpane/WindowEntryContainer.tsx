@@ -32,14 +32,11 @@ import {
   ungroupChromeTabGroup,
   deleteChromeTabGroupInternal,
   updateChromeTabGroupColor,
-  moveTabInternal,
   moveChromeGroupInternal,
 } from '../../../redux/slices/tabContainerDataStateSlice';
 import { useTranslation } from 'react-i18next';
 import { v4 as uuidv4 } from 'uuid';
 import {
-  TAB_GROUP_COLOR_HEX,
-  sanitizeTabGroupColor,
   partitionTabsIntoItems,
   itemIdOf,
   groupIdOfItemId,
@@ -52,7 +49,7 @@ import { applyTabGroups } from '../../../utils/functions/windows';
 
 import { RowDragArea, DraggableRow } from './rowDrag/RowDragArea';
 import { useDragState } from './rowDrag/dragContext';
-import { bandAt, windowAt } from './rowDrag/dropRules';
+import { useTabDrop } from './useTabDrop';
 
 interface WindowEntryContainerProps {
   title: string;
@@ -69,6 +66,16 @@ interface WindowEntryContainerProps {
   onUpdateWindowGroupTitle: (newTitle: string) => void;
   onAddCurrTabToWindowClick: MouseEventHandler;
   onDeleteClick: MouseEventHandler;
+  /**
+   * Whether this window provides the `tabs` drag list its tab rows join
+   * (KAN-132). On by default, so a window rendered on its own is a tab list of
+   * its own, exactly as every window used to be.
+   *
+   * Off inside the pane, which lists every tab in the session at once so that
+   * a tab can be dropped into another window. A window's own list there would
+   * sit NEARER its rows than the pane's and capture every tab drag.
+   */
+  ownsTabList?: boolean;
 }
 
 // KAN-165. Carries a group's frame along with its tabs.
@@ -159,6 +166,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   onUpdateWindowGroupTitle,
   onAddCurrTabToWindowClick,
   onDeleteClick,
+  ownsTabList = true,
 }) => {
   const COLORS = useThemeColors();
   const FONT_FAMILY = useFontFamily();
@@ -214,99 +222,6 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     (state: RootState) => state.globalState.hasTabGroupsPermission
   );
 
-  const tabIds = useMemo(() => tabs.map((tab) => tab.tabId), [tabs]);
-  // Position by id, so the run rendering does not need indexOf per row.
-  const indexOfTab = useMemo(
-    () => new Map(tabs.map((tab, i) => [tab.tabId, i])),
-    [tabs]
-  );
-
-  // KAN-164. Which group a tab release would put it in, answered in that
-  // group's own colour.
-  //
-  // A tab released inside a group's band JOINS that group (dropRules.bandAt),
-  // and until this the rule was invisible: measured mid-drag with the pointer
-  // squarely inside a band, the band was byte-identical to its resting state.
-  // The only way to learn what a release would do was to do it.
-  //
-  // The band publishes its colour as a custom property, which the wash and the
-  // held tab's stripe both read -- so the feedback is the GROUP's identity
-  // rather than an accent the app uses nowhere else.
-  //
-  // Written straight to the DOM rather than held in React state, because it
-  // changes as the pointer moves and a re-render per move is the cost this
-  // drag engine is built to avoid -- the same reason `data-drag-held` is set
-  // this way (KAN-160). React never touches these, so a re-render cannot drop
-  // them.
-  const groupColorHex = useMemo(() => {
-    const byId = new Map<string, string>();
-    for (const group of chromeTabGroups ?? []) {
-      byId.set(
-        group.groupId,
-        TAB_GROUP_COLOR_HEX[sanitizeTabGroupColor(group.color)]
-      );
-    }
-    return byId;
-  }, [chromeTabGroups]);
-
-  const markDropTargetBand = useCallback(
-    (target: string | undefined, container: HTMLElement | null) => {
-      if (!container) return;
-      // Scoped to the container that answered, so a band in another window
-      // cannot light up alongside it.
-      for (const band of container.querySelectorAll<HTMLElement>(
-        '[data-band-id]'
-      )) {
-        if (target !== undefined && band.dataset.bandId === target) {
-          band.setAttribute('data-drop-target', '');
-          const colour = groupColorHex.get(target) ?? '';
-          band.style.setProperty('--band-color', colour);
-          document.documentElement.style.setProperty(
-            '--drop-target-color',
-            colour
-          );
-        } else {
-          band.removeAttribute('data-drop-target');
-        }
-      }
-      if (target === undefined) {
-        document.documentElement.style.removeProperty('--drop-target-color');
-      }
-    },
-    [groupColorHex]
-  );
-
-  const handleMove = useCallback(
-    (tabId: string, toIndex: number, toChromeGroupId?: string) => {
-      dispatch(
-        moveTabInternal({
-          tabGroupId,
-          windowId,
-          tabId,
-          toIndex,
-          toChromeGroupId,
-        })
-      );
-    },
-    [dispatch, tabGroupId, windowId]
-  );
-
-  // Composes the tab area's two drop questions into one answer (KAN-132).
-  //
-  // Nothing reads `.windowId` yet -- the tab area is still one area per
-  // window, so `windowAt` resolves against a container that sits INSIDE this
-  // window's own block and never finds a marker to hit, always answering
-  // `undefined` here. That is a real, if temporarily unused, consequence: it
-  // is what the failing-if-broken unit test on `windowAt` covers, not this
-  // component's behaviour, which is unchanged.
-  const resolveDrop = useCallback(
-    (container: HTMLElement | null, x: number, y: number) => ({
-      windowId: windowAt(container, x, y),
-      bandId: bandAt(container, x, y),
-    }),
-    []
-  );
-
   // The window's top-level rows as drawn: each loose tab, and each group as
   // one item (KAN-160). The group drag indexes THIS list, and
   // moveChromeGroupInternal rebuilds it with the same function (KAN-131: an
@@ -321,135 +236,6 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   );
   const itemIds = useMemo(() => items.map(itemIdOf), [items]);
 
-  // Where in the window's tab list each group's first member sits.
-  const groupFirstIndex = useMemo(() => {
-    const byId = new Map<string, number>();
-    for (const item of items) {
-      if (item.kind !== 'group') continue;
-      const first = item.tabs[0];
-      const index = first ? indexOfTab.get(first.tabId) : undefined;
-      if (index !== undefined) byId.set(item.group.groupId, index);
-    }
-    return byId;
-  }, [items, indexOfTab]);
-
-  // Where each group's LAST member sits, the counterpart of groupFirstIndex.
-  const groupLastIndex = useMemo(() => {
-    const byId = new Map<string, number>();
-    for (const item of items) {
-      if (item.kind !== 'group') continue;
-      const last = item.tabs[item.tabs.length - 1];
-      const index = last ? indexOfTab.get(last.tabId) : undefined;
-      if (index !== undefined) byId.set(item.group.groupId, index);
-    }
-    return byId;
-  }, [items, indexOfTab]);
-
-  // KAN-166. Which title row the dragged tab will land immediately after.
-  //
-  // A tab released inside a group's band joins that group, and the band's rect
-  // includes the group's TITLE row -- while the landing index comes from row
-  // midpoints, the first of which sits below that title. So in the strip at the
-  // top of every group the index says "before the group" while the band says
-  // "inside it".
-  //
-  // Both answers are right, and neither is the whole answer: the tab becomes
-  // the group's FIRST member, which puts it under the title row. Naming the
-  // title row rather than an index is what lets the area work out the rest --
-  // it is a different slot from the one the tab left even when its row index is
-  // unchanged, and which slot depends on the direction it arrived from.
-  //
-  // The DROP is untouched. This is the preview only; the reducer still receives
-  // the raw index and produces the same arrangement.
-  // Where a group's head sits in the space `toIndex` is counted in (KAN-170).
-  //
-  // TWO LISTS, AND THEY ARE NOT THE SAME ONE. `groupFirstIndex` counts every
-  // row; `toIndex` counts the rows with the HELD row lifted out, because it is
-  // the number of midpoints the pointer has passed. Lifting a row out shifts
-  // everything below it down one, so the two agree only when the held row sits
-  // BELOW the group.
-  //
-  // Comparing them directly made the head test over-reach by exactly one slot
-  // for any tab dragged down from above, which swallowed the group's second
-  // position into its first -- the slot drew above the first member while the
-  // drop landed below it. See KAN-131: an index is only valid in the list that
-  // produced it.
-  const headInLandingSpace = useCallback(
-    (groupId: string, rowId: string) => {
-      const first = groupFirstIndex.get(groupId);
-      if (first === undefined) return undefined;
-      const fromIndex = indexOfTab.get(rowId);
-      return fromIndex !== undefined && fromIndex < first ? first - 1 : first;
-    },
-    [groupFirstIndex, indexOfTab]
-  );
-
-  const landsBesideFixedRow = useCallback(
-    (rowId: string, toIndex: number, target: string | undefined) => {
-      // Landing inside a band: the tab joins that group, or moves to the head
-      // of the one it is already in. Either way it ends up UNDER that title
-      // row. At or above the head is the strip where the index and the band
-      // disagree; below it the tab is landing BETWEEN members, where its row
-      // index already says everything.
-      if (target !== undefined) {
-        const head = headInLandingSpace(target, rowId);
-        if (head !== undefined && toIndex <= head) {
-          return { fixedRowId: target, side: 'after' as const };
-        }
-
-        // KAN-176. The same question at the other end. Past the last member
-        // and still inside the band, the tab is joining at the TAIL -- which
-        // is a slot BEFORE the group's tail marker, not after it.
-        //
-        // The row index cannot say so, and this is KAN-174's ambiguity
-        // mirrored: it names the row AFTER the group, which resolves to a slot
-        // PAST the marker, so the marker never moves and the frame stops above
-        // the slot the tab will occupy. Coming from above it happens to
-        // resolve to the same slot either way, which is why only this
-        // direction was wrong.
-        // NO LANDING-SPACE ADJUSTMENT HERE, unlike the head. Coming from
-        // above, "before the tail marker" and "at the last member's slot" are
-        // the SAME slot, so the branch firing or falling through to the row
-        // index gives an identical answer -- an adjustment was written first
-        // and removed, because a mutation proved it could never change one.
-        // Coming from below the row index names the row PAST the marker, which
-        // is the case that needs this at all.
-        const tail = groupLastIndex.get(target);
-        return tail !== undefined && toIndex > tail
-          ? { fixedRowId: `${target}:tail`, side: 'before' as const }
-          : undefined;
-      }
-
-      // Landing outside every band: the tab ends up ungrouped. If that puts it
-      // at a group's HEAD, it lands BEFORE that group's title row.
-      //
-      // NOT A QUESTION ABOUT WHERE THE TAB CAME FROM (KAN-174). This began as
-      // the KAN-168 rule for a tab LEAVING the group it was already in, and
-      // that was too narrow: a loose tab landing at the same head fell through
-      // to the row index alone, which the area resolves to the slot that row
-      // OCCUPIES -- the first member's. So the ghost pointed inside a band the
-      // tab was never going to join, in the same place as an actual join, and
-      // the band's tint was the only thing telling the two apart.
-      //
-      // The row index cannot answer it. "Land before row t" is ambiguous when a
-      // title row sits immediately before t: before the title, or after it? It
-      // is after only when the drop JOINS that group, which is the branch
-      // above. Everything reaching here lands before.
-      //
-      // Matched EXACTLY rather than `<=`, unlike the joining branch. The whole
-      // strip at the top of a band means "join at the head", but a landing
-      // index above a group's head belongs to the rows above it, not to the
-      // group.
-      for (const groupId of groupFirstIndex.keys()) {
-        if (headInLandingSpace(groupId, rowId) === toIndex) {
-          return { fixedRowId: groupId, side: 'before' as const };
-        }
-      }
-      return undefined;
-    },
-    [groupFirstIndex, groupLastIndex, headInLandingSpace]
-  );
-
   const handleMoveGroup = useCallback(
     (itemId: string, toIndex: number) => {
       const groupId = groupIdOfItemId(itemId);
@@ -461,6 +247,37 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     },
     [dispatch, tabGroupId, windowId]
   );
+
+  // This window as a tab list of its own, for when it provides one -- see
+  // ownsTabList. The same rules the pane applies, over one window. Called
+  // either way, so the hook count never depends on the prop.
+  const ownWindow = useMemo(
+    () => ({ tabGroupId, windows: [{ windowId, tabs, chromeTabGroups }] }),
+    [tabGroupId, windowId, tabs, chromeTabGroups]
+  );
+  const ownTabDrop = useTabDrop(ownWindow, hasTabGroupsPermission);
+
+  // A plain function rather than a component: a component declared in here
+  // would be a new type on every render, and React would remount the whole
+  // list beneath it each time.
+  const withOwnTabList = (list: React.ReactNode) =>
+    ownsTabList ? (
+      <RowDragArea
+        scope="tabs"
+        rowIds={ownTabDrop.rowIds}
+        onMove={ownTabDrop.onMove}
+        dragKind="tab"
+        resolveDrop={ownTabDrop.resolveDrop}
+        onDropTargetChange={ownTabDrop.onDropTargetChange}
+        landsBesideFixedRow={ownTabDrop.landsBesideFixedRow}
+        fixedRowSelector="[data-fixed-row-id]"
+        disabled={isSearchPanel}
+      >
+        {list}
+      </RowDragArea>
+    ) : (
+      list
+    );
 
   const containerStyle = css`
     display: flex;
@@ -1011,32 +828,20 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
         // component's own open/closed state is never touched, which is what
         // makes "and it comes back how it was" require no bookkeeping at all.
         <div css={childrenContainerStyle} data-window-tabs>
-          <RowDragArea
-            scope="tabs"
-            rowIds={tabIds}
-            onMove={handleMove}
-            dragKind="tab"
-            resolveDrop={resolveDrop}
-            onDropTargetChange={markDropTargetBand}
-            landsBesideFixedRow={landsBesideFixedRow}
-            // Each group's title row: drawn in this list, never dragged in it.
-            // Scoped to `tabs` only -- in the `items` list a group is one row
-            // that CONTAINS its title, so counting it there would double it.
-            fixedRowSelector="[data-fixed-row-id]"
-            // The mode, not the box's contents -- see KAN-140 on
-            // TabGroupEntryContainer for why this is not isFilteredView.
-            disabled={isSearchPanel}
-          >
-            {/* KAN-160. The window's items -- loose tabs and whole groups --
-                as a second list inside the tab list. Only a group's title
-                row is a handle, so a press on a tab reaches this list's
-                begin, finds no handle, and is left to the tab list. Tab rows
-                name scope="tabs" to join the tab list THROUGH this one.
+          {/* KAN-160. The window's items -- loose tabs and whole groups --
+                as a list of their own. Only a group's title row is a handle,
+                so a press on a tab reaches this list's begin, finds no handle,
+                and is left to the tab list. Tab rows name scope="tabs" to
+                join the tab list THROUGH this one -- in the pane, a single
+                list over every tab in the session, provided by
+                TabGroupDetailsContainer (KAN-132), so that a tab can name a
+                row in another window; see ownsTabList.
 
                 No clampDropToEnds: outside this window's rows means out of
                 the window, which must be refused. restoreScrollIfNoDrop,
                 because compressing the held group can shrink the list and
                 clamp the scroll. */}
+          {withOwnTabList(
             <RowDragArea
               scope="items"
               rowIds={itemIds}
@@ -1464,7 +1269,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                 )
               )}
             </RowDragArea>
-          </RowDragArea>
+          )}
         </div>
       )}
     </div>
