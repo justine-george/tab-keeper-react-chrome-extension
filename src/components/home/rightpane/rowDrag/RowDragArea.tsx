@@ -160,20 +160,37 @@ function footprintOf(
 
   const self = box.getBoundingClientRect();
 
-  // The distance to the next sibling's top IS the footprint.
-  const next = box.nextElementSibling;
-  if (next) return next.getBoundingClientRect().top - self.top;
+  // ITS OWN MARGINS, not the gap to whatever sits beside it (KAN-167).
+  //
+  // This used to measure the distance to the next sibling, and with collapsing
+  // margins that attributes the NEIGHBOUR's margin to this row. Measured in the
+  // popup: loose tabs sit flush, 0px apart, but a group's band carries
+  // `margin: 2px 0`, so the tab above one reported 34 for a row occupying 32 --
+  // and every element the preview displaced then moved 2px too far.
+  //
+  // Read from the element the margin is actually ON. Every row here is a
+  // wrapper this file owns holding a block the list owns, and that block's
+  // margin COLLAPSES THROUGH the wrapper -- the wrapper sets no border, padding
+  // or height to stop it. So the margin spaces the rows on screen while
+  // reporting 0 on the box `getBoundingClientRect` measures, which is exactly
+  // why the sibling distance was used in the first place.
+  //
+  // Windows are unaffected: a window row is 32 tall and carries its own
+  // `margin-bottom: 8px`, so it comes out at 40 either way. The two
+  // measurements diverge only where a NEIGHBOUR contributes margin, and the
+  // band is the only neighbour in this app that does.
+  // THE BOTTOM MARGIN ONLY. A footprint is a top-to-next-top pitch, so the gap
+  // it includes is the one BELOW the row -- and adjacent margins collapse, so
+  // adding the top one as well double-counts a gap this row shares with its
+  // neighbour. Measured: two group bands 2px apart each carry `margin: 2px 0`,
+  // and summing both put every item 2px out.
+  const inner = box.firstElementChild ?? box;
+  const own =
+    self.height + (parseFloat(getComputedStyle(inner).marginBottom) || 0);
 
-  // The last one has no next sibling to measure against, so use the gap above
-  // it instead: one CSS rule sets the separation, so the two gaps are equal.
-  const prev = box.previousElementSibling;
-  if (prev) {
-    return self.height + (self.top - prev.getBoundingClientRect().bottom);
-  }
-
-  // An only child has no margin to discover, and a one-row list cannot be
-  // reordered anyway.
-  return self.height;
+  // A row with no height at all has not been laid out yet; fall back rather
+  // than hand the preview a zero it would shift everything by.
+  return own > 0 ? own : height;
 }
 
 export const RowDragArea: React.FC<RowDragAreaProps> = ({

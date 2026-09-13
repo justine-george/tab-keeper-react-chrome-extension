@@ -450,13 +450,11 @@ test.describe('the preview predicts the drop', () => {
     // The slot the held tab is promised is exactly where it lands.
     expect(preview.a2).toBe(TRUTH.fromAbove.a2);
 
-    // The title row rises to make that room. Quantised to the held row's
-    // footprint (34) where the truth is 32, because a tab joining a group also
-    // stops paying the 2px margin beside the band -- KAN-167. Asserted as the
-    // number the engine actually produces, with the 2px named rather than
-    // hidden behind a tolerance.
-    expect(preview.header).toBe(TRUTH.before.header - 34);
-    expect(preview.header).toBeLessThan(TRUTH.before.header);
+    // The title row rises to make that room -- exactly as far as the drop
+    // moves it (KAN-167). This used to be 34 against a truth of 32, because
+    // the held row's footprint was measured to its NEIGHBOUR and so included
+    // the band's own 2px margin.
+    expect(preview.header).toBe(TRUTH.fromAbove.header);
   });
 
   test('a3 dropped on the title: the members move down and the title row holds still', async ({
@@ -470,9 +468,9 @@ test.describe('the preview predicts the drop', () => {
     // That is the case the unanimity rule could not express.
     expect(preview.header).toBe(TRUTH.before.header);
 
-    expect(preview.alpha0).toBe(TRUTH.before.alpha0 + 34);
-    expect(preview.alpha1).toBe(TRUTH.before.alpha1 + 34);
-    expect(preview.alpha2).toBe(TRUTH.before.alpha2 + 34);
+    expect(preview.alpha0).toBe(TRUTH.fromBelow.alpha0);
+    expect(preview.alpha1).toBe(TRUTH.fromBelow.alpha1);
+    expect(preview.alpha2).toBe(TRUTH.fromBelow.alpha2);
 
     // Exact, in the direction the index alone already described.
     expect(preview.a3).toBe(TRUTH.fromBelow.a3);
@@ -497,9 +495,9 @@ test.describe('the preview predicts the drop', () => {
     });
     const painted = await framePreview(page);
 
-    // The drop makes the band 66..226. The preview is allowed the usual 2px of
-    // KAN-167 at the moving edge; the fixed edge has to be exact.
-    expect(painted.band!.top).toBe(TRUTH.fromAbove.header - 2);
+    // The drop makes the band 66..226, and the preview now says exactly that
+    // at both edges (KAN-167).
+    expect(painted.band!.top).toBe(TRUTH.fromAbove.header);
     expect(painted.band!.bottom).toBe(rest.band!.bottom);
 
     // And the strip covers the same extent, rather than keeping its length.
@@ -582,8 +580,8 @@ test.describe('the preview predicts the drop', () => {
     expect(preview.a2).toBeGreaterThan(preview.alpha0);
 
     // alpha0 steps up past the held row as well as the title row does.
-    expect(preview.alpha0).toBe(TRUTH.secondPosition.alpha0 - 2);
-    expect(preview.header).toBe(TRUTH.secondPosition.header - 2);
+    expect(preview.alpha0).toBe(TRUTH.secondPosition.alpha0);
+    expect(preview.header).toBe(TRUTH.secondPosition.header);
 
     // Nothing below the slot moves.
     expect(preview.alpha1).toBe(TRUTH.secondPosition.alpha1);
@@ -610,7 +608,7 @@ test.describe('the preview predicts the drop', () => {
 
     // It lands in a0's slot, NOT at Alpha's title row far below.
     expect(preview.a3).toBe(TRUTH.before.a0);
-    expect(preview.header).toBe(TRUTH.before.header + 34);
+    expect(preview.header).toBe(TRUTH.leaving.header);
   });
 
   // KAN-175. The mirror of KAN-174, at the other end of the group. A tab
@@ -738,10 +736,11 @@ test.describe('the preview predicts the drop', () => {
     // inside the band.
     expect(preview.alpha0).toBeLessThan(preview.header);
 
-    // 2px below where it lands, and this direction is where KAN-167 shows up
-    // in the SLOT rather than only in the shifts: leaving the band stops the
-    // tab paying the band's 2px margin, which the measured tops cannot know in
-    // advance. Asserted as the number the engine produces, with the 2px named.
+    // 2px low, and this is the REMAINDER of KAN-167 rather than the part it
+    // fixed. The slot here is a distance between measured TOPS -- the title
+    // row's top minus the held row's -- and a band's top includes the band's
+    // own 2px margin, so no footprint can reach it. The shifts are now exact;
+    // this one edge is not. Asserted as the number the engine produces.
     expect(preview.alpha0).toBe(TRUTH.leaving.alpha0 + 2);
 
     // The title row drops to make way, and the members left behind hold still.

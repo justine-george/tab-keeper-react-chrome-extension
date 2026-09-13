@@ -552,10 +552,16 @@ test.describe('a tab dragged across a group boundary', () => {
     expect(shifted.steppedBy).toBeGreaterThan(0);
 
     // THE CLAIM. Its own footprint -- never the band header's 32px as well.
-    expect(shifted.steppedBy).toBeCloseTo(
-      before.heldHeight + before.itemGap,
-      1
-    );
+    //
+    // Its OWN box, and not the 2px beside it either (KAN-167). Measured: move
+    // this tab below the band for real and the band travels 66 -> 34, exactly
+    // 32. The 2px between them is the BAND's margin, which stays with the band
+    // -- this test used to assert heldHeight + itemGap and was 2px out.
+    expect(shifted.steppedBy).toBeCloseTo(before.heldHeight, 1);
+
+    // And nowhere near what swallowing the band's own header would give, which
+    // is the defect this test was written for.
+    expect(shifted.steppedBy).toBeLessThan(before.heldHeight + 20);
 
     expect(await itemOrder(page)).toEqual(START);
   });
