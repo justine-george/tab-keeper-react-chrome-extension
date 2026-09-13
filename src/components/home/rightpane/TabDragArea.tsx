@@ -9,12 +9,12 @@ import { useSelector } from 'react-redux';
 
 import type { RootState } from '../../../redux/store';
 import { RowDragArea } from './rowDrag/RowDragArea';
-import { useTabDrop, type TabListWindows } from './useTabDrop';
+import { useTabDrop, type PaneWindows } from './useTabDrop';
 
 export const TabDragArea: React.FC<{
   // Must keep its identity between renders while its windows are unchanged:
   // the area re-binds its listeners whenever what this derives changes.
-  tabList: TabListWindows;
+  tabList: PaneWindows;
   children: ReactNode;
 }> = ({ tabList, children }) => {
   const hasTabGroupsPermission = useSelector(
@@ -31,6 +31,8 @@ export const TabDragArea: React.FC<{
       rowIds={tabDrop.rowIds}
       onMove={tabDrop.onMove}
       dragKind="tab"
+      // A tab may be dropped into another saved window; a group may not, yet.
+      dropsAcrossWindows
       resolveDrop={tabDrop.resolveDrop}
       onDropTargetChange={tabDrop.onDropTargetChange}
       landsBesideFixedRow={tabDrop.landsBesideFixedRow}

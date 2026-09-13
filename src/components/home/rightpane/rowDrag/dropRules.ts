@@ -21,6 +21,29 @@ export function isInEditableField(target: EventTarget | null): boolean {
   return target instanceof Element && target.closest(EDITABLE_FIELD) !== null;
 }
 
+// The boxes that hold a list's rows (KAN-132). A WeakSet rather than an
+// attribute, so knowing them changes nothing in the DOM, and here rather than
+// in RowDragArea.tsx, which may export components and nothing else.
+const ROW_CONTAINERS = new WeakSet<Element>();
+
+/**
+ * A ref for a box that holds a list's rows, so no footprint is measured on it
+ * or above it -- see `footprintOf`.
+ *
+ * Every drag area registers its own container. A list whose rows are drawn in
+ * SEVERAL boxes has to mark the rest: the pane-wide `items` list spans every
+ * saved window, and each window draws its own items inside its own tab list.
+ * That box is not an area's container, and nothing else tells it apart from the
+ * single-child wrappers the climb exists to climb.
+ */
+export function markRowContainer(el: HTMLElement | null): void {
+  if (el) ROW_CONTAINERS.add(el);
+}
+
+export function isRowContainer(el: Element | null): boolean {
+  return el !== null && ROW_CONTAINERS.has(el);
+}
+
 // Where a drop landed, beyond its index (KAN-132 widens this from a bare band
 // id to name a window too, since a drop can now cross from one saved window
 // into another).
@@ -86,6 +109,21 @@ export interface RowDragAreaProps {
   // `begin` runs owns the gesture.
   handleSelector?: string;
   dragKind?: DragKind;
+  /**
+   * A release over ANOTHER saved window lands in that window (KAN-132).
+   *
+   * OFF BY DEFAULT, and that is the half that matters. Off, every release is
+   * judged in the window the held row came from: one over another window's
+   * block names no row of the list being judged, so `isInsideList` refuses it,
+   * and the index a drop reports can only ever be the source window's. That is
+   * what a list of whole groups does until the reducer that moves a group
+   * between windows is wired up, and a list with no windows at all never
+   * reaches this question either way.
+   *
+   * On, the window under the pointer decides -- its header and a collapsed
+   * window included, neither of which draws a row to hit.
+   */
+  dropsAcrossWindows?: boolean;
   /**
    * Treat a release anywhere inside the list's pane -- the nearest
    * `overflow: auto` box, whether or not it currently overflows -- as a drop

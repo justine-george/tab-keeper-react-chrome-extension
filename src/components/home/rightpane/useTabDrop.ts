@@ -173,9 +173,10 @@ function landsBesideFixedRowIn(
   return undefined;
 }
 
-// The windows a tab list spans, in render order, and the session they belong
-// to. A whole session satisfies it; so does one window wrapped on its own.
-export interface TabListWindows {
+// The windows a pane-wide drag list spans, in render order, and the session
+// they belong to. Both lists over a session take it: the `tabs` list here and
+// the `items` list in useGroupDrop.
+export interface PaneWindows {
   tabGroupId: string;
   windows: readonly Pick<
     windowGroupData,
@@ -188,7 +189,7 @@ export interface TabListWindows {
  * TabDragArea, the one place a tab list is wired up.
  */
 export function useTabDrop(
-  tabList: TabListWindows,
+  tabList: PaneWindows,
   hasTabGroupsPermission: boolean
 ) {
   const dispatch: AppDispatch = useDispatch();

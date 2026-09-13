@@ -41,6 +41,8 @@ import {
   ACTIVATION_DISTANCE_PX,
   isInEditableField,
   isInsideList,
+  isRowContainer,
+  markRowContainer,
   setDragging,
   windowBlockAt,
   windowBlocksIn,
@@ -104,11 +106,6 @@ function paneOf(from: HTMLElement | null): HTMLElement | null {
   }
   return null;
 }
-
-// Every drag area's own container, so a footprint's climb can recognise one it
-// did not start from (KAN-132). A WeakSet rather than an attribute, so knowing
-// them changes nothing in the DOM.
-const AREA_CONTAINERS = new WeakSet<Element>();
 
 interface Rect {
   id: string;
@@ -179,18 +176,19 @@ function footprintOf(
   // margin that spaces it lives on the outer one. Never climb past the drag
   // area itself, which would start measuring the list against its neighbours.
   //
-  // Nor past ANY drag area's container (KAN-132). A tab row joins the pane-wide
-  // tab list through its window's `items` list, so its own list's container is
-  // far above it -- and a window holding a single loose tab would otherwise
-  // climb out of that `items` list into the window's own wrappers. A container
-  // holds a whole list, so the climb ends ON it: exactly where it ended while
-  // every window had a tab list of its own directly above its `items` list.
+  // Nor ONTO any box that holds a list's rows (KAN-132): another area's
+  // container, or a box a list marked with `markRowContainer`. Both lists here
+  // now span every window, so neither one's container sits anywhere near its
+  // rows -- and in a window holding a single item, everything between that item
+  // and the window's own block has exactly one child, which is the shape this
+  // climb is looking for. Stopping below such a box leaves the measurement on
+  // the same element it was on while every window had lists of its own.
   let box: HTMLElement = el;
   while (
     box !== container &&
-    !AREA_CONTAINERS.has(box) &&
     box.parentElement &&
     box.parentElement !== container &&
+    !isRowContainer(box.parentElement) &&
     box.parentElement.children.length === 1
   ) {
     box = box.parentElement;
@@ -237,6 +235,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
   onMove,
   handleSelector,
   dragKind = 'tab',
+  dropsAcrossWindows = false,
   clampDropToEnds = false,
   restoreScrollIfNoDrop = false,
   resolveDrop,
@@ -414,16 +413,18 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
 
     // The saved-window block the pointer is over, or null (KAN-132).
     //
-    // Only for a list whose rows sit IN windows. The window list's container
-    // holds every block too, but its rows wrap blocks rather than sitting in
-    // one, and a window drag that asked this would land at index 0 of a block
-    // none of its rows were counted in.
+    // Only for a list whose rows sit IN windows AND whose drops may cross from
+    // one to another. The window list's container holds every block too, but its
+    // rows wrap blocks rather than sitting in one, and a window drag that asked
+    // this would land at index 0 of a block none of its rows were counted in.
+    // A list that has not opted in answers every question in the held row's own
+    // window, which is what refuses a release over any other one.
     //
     // Read from the live layout, unlike the rows: a tab drag moves rows by
     // transform and never a window's own box, so every block still stands where
     // it stood at drag start, and a viewport hit test needs no scroll term.
     const blockUnderPointer = (l: NonNullable<typeof live.current>) =>
-      l.heldWindow
+      l.heldWindow && dropsAcrossWindows
         ? windowBlockAt(containerRef.current, l.lastX, l.lastY)
         : null;
 
@@ -1020,6 +1021,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     fixedRowSelector,
     landsBesideFixedRow,
     dragKind,
+    dropsAcrossWindows,
     restoreScrollIfNoDrop,
   ]);
 
@@ -1049,11 +1051,10 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     []
   );
 
-  // Known to every footprint's climb as a list's container -- see
+  // Known to every footprint's climb as a box holding a list's rows -- see
   // footprintOf. The element is the same for the life of the area.
   useEffect(() => {
-    const el = containerRef.current;
-    if (el) AREA_CONTAINERS.add(el);
+    markRowContainer(containerRef.current);
   }, []);
 
   const ctx = useMemo<Ctx>(
