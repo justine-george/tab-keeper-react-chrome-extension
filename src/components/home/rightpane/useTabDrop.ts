@@ -20,7 +20,6 @@ import {
   moveTabAcrossWindowsInternal,
   moveTabInternal,
   type tabData,
-  type windowGroupData,
 } from '../../../redux/slices/tabContainerDataStateSlice';
 import {
   TAB_GROUP_COLOR_HEX,
@@ -29,7 +28,7 @@ import {
   type chromeTabGroupData,
 } from '../../../utils/functions/tabGroups';
 import type { LandingSide } from '../../../utils/functions/dragPreview';
-import { bandAt, windowAt, type DropTarget } from './rowDrag/dropRules';
+import { bandAt, type DropTarget, type PaneWindows } from './rowDrag/dropRules';
 
 // Where one window's groups start and end in THAT window's tab list, and where
 // each of its tabs sits. Window-local indices, the same ones moveTabInternal
@@ -173,17 +172,6 @@ function landsBesideFixedRowIn(
   return undefined;
 }
 
-// The windows a pane-wide drag list spans, in render order, and the session
-// they belong to. Both lists over a session take it: the `tabs` list here and
-// the `items` list in useGroupDrop.
-export interface PaneWindows {
-  tabGroupId: string;
-  windows: readonly Pick<
-    windowGroupData,
-    'windowId' | 'tabs' | 'chromeTabGroups'
-  >[];
-}
-
 /**
  * Everything a `tabs` drag area needs from the windows it lists. Read by
  * TabDragArea, the one place a tab list is wired up.
@@ -287,15 +275,12 @@ export function useTabDrop(
     [groupColorHex]
   );
 
-  // Composes the tab area's two drop questions into one answer (KAN-132).
-  //
-  // The area asks within the LANDING WINDOW's block. `windowAt` searches below
-  // the element it is given, and a window's marker is that element itself, so
-  // it answers undefined here -- the area names the landing window from its own
-  // hit test and hands it to onMove, and nothing reads this one.
+  // Answers the tab area's one drop question: which band, if any, the pointer
+  // is over (KAN-132). The area asks within the LANDING WINDOW's block, which
+  // it names itself from its own hit test and hands to onMove directly --
+  // resolveDrop is never asked which window, only which band.
   const resolveDrop = useCallback(
     (within: HTMLElement | null, x: number, y: number): DropTarget => ({
-      windowId: windowAt(within, x, y),
       bandId: bandAt(within, x, y),
     }),
     []

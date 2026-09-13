@@ -9,7 +9,8 @@ import { useSelector } from 'react-redux';
 
 import type { RootState } from '../../../redux/store';
 import { RowDragArea } from './rowDrag/RowDragArea';
-import { useTabDrop, type PaneWindows } from './useTabDrop';
+import { useTabDrop } from './useTabDrop';
+import type { PaneWindows } from './rowDrag/dropRules';
 
 export const TabDragArea: React.FC<{
   // Must keep its identity between renders while its windows are unchanged:

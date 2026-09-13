@@ -614,7 +614,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   return (
     // data-drop-window-id marks the WHOLE window block -- header and tabs,
     // rendered whether windowOpenState is open or collapsed -- as what
-    // windowAt hit-tests (KAN-132). Not the tab-list wrapper below: a drop on
+    // windowBlockAt hit-tests (KAN-132). Not the tab-list wrapper below: a drop on
     // this window's header, and a drop anywhere on a collapsed window (which
     // renders no tab-list wrapper at all), both have to answer "this window",
     // and this is the one element that is always there to say so.

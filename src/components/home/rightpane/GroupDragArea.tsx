@@ -1,17 +1,17 @@
 // The items list: one `items` drag area over the windows it is given
 // (KAN-132), where a loose tab is one row and a whole Chrome group is another.
 //
-// The pane is the only caller, over every window in the session -- a window
-// never provides one of its own. ONE component rather than the per-window area
-// each window used to build for itself, so the wiring behind it can only be
-// changed in one place.
+// The pane is the only production caller, over every window in the session --
+// a window never provides one of its own. ONE component rather than the
+// per-window area each window used to build for itself, so the wiring behind
+// it can only be changed in one place.
 import React, { type ReactNode } from 'react';
 import { useSelector } from 'react-redux';
 
 import type { RootState } from '../../../redux/store';
 import { RowDragArea } from './rowDrag/RowDragArea';
 import { useGroupDrop } from './useGroupDrop';
-import type { PaneWindows } from './useTabDrop';
+import type { PaneWindows } from './rowDrag/dropRules';
 
 export const GroupDragArea: React.FC<{
   // Must keep its identity between renders while its windows are unchanged:

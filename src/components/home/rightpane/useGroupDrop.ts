@@ -31,7 +31,7 @@ import {
   itemIdOf,
   groupIdOfItemId,
 } from '../../../utils/functions/tabGroups';
-import type { PaneWindows } from './useTabDrop';
+import type { PaneWindows } from './rowDrag/dropRules';
 
 /**
  * Everything an `items` drag area needs from the windows it lists. Read by

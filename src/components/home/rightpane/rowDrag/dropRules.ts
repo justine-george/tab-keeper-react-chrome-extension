@@ -7,6 +7,7 @@
 import type { ReactNode } from 'react';
 
 import type { LandingSide } from '../../../../utils/functions/dragPreview';
+import type { windowGroupData } from '../../../../redux/slices/tabContainerDataStateSlice';
 
 export const ACTIVATION_DISTANCE_PX = 5;
 
@@ -31,10 +32,11 @@ const ROW_CONTAINERS = new WeakSet<Element>();
  * or above it -- see `footprintOf`.
  *
  * Every drag area registers its own container. A list whose rows are drawn in
- * SEVERAL boxes has to mark the rest: the pane-wide `items` list spans every
- * saved window, and each window draws its own items inside its own tab list.
- * That box is not an area's container, and nothing else tells it apart from the
- * single-child wrappers the climb exists to climb.
+ * SEVERAL boxes has to mark the rest: the pane-wide `items` list and the
+ * pane-wide `tabs` list each span every saved window, and each window still
+ * draws a box around its own rows even though that box is no longer any
+ * list's container. That box is not an area's container, and nothing else
+ * tells it apart from the single-child wrappers the climb exists to climb.
  */
 export function markRowContainer(el: HTMLElement | null): void {
   if (el) ROW_CONTAINERS.add(el);
@@ -44,12 +46,8 @@ export function isRowContainer(el: Element | null): boolean {
   return el !== null && ROW_CONTAINERS.has(el);
 }
 
-// Where a drop landed, beyond its index (KAN-132 widens this from a bare band
-// id to name a window too, since a drop can now cross from one saved window
-// into another).
+// Where a drop landed, beyond its index.
 export interface DropTarget {
-  // Which window the pointer is over.
-  windowId: string | undefined;
   // Which Chrome group band the pointer is over, if any.
   bandId: string | undefined;
 }
@@ -73,6 +71,18 @@ export type ResolveDrop = (
 // caller: the area itself has no idea what its rows represent, and that is
 // deliberate -- see the file header on RowDragArea.
 export type DragKind = 'tab' | 'window' | 'session' | 'group';
+
+// The windows a pane-wide drag list spans, in render order, and the session
+// they belong to. Both lists over a session take it: the `tabs` list in
+// useTabDrop and the `items` list in useGroupDrop -- neither owns this shape
+// any more than the other, so it lives here rather than in either hook.
+export interface PaneWindows {
+  tabGroupId: string;
+  windows: readonly Pick<
+    windowGroupData,
+    'windowId' | 'tabs' | 'chromeTabGroups'
+  >[];
+}
 
 export interface RowDragAreaProps {
   // Flat, in render order. For a list with no windows, index into this is what
@@ -321,8 +331,9 @@ export function windowOf(el: Element | null | undefined): HTMLElement | null {
   return el?.closest<HTMLElement>(WINDOW_MARKER) ?? null;
 }
 
-// WHICH WINDOW a drop landed in (KAN-132). The same idiom as bandAt, and for
-// the same reason: resolved from rects rather than from the engine's collision
+// WHICH WINDOW a drop landed in (KAN-132), answered with the block itself so
+// the engine can search it for bands. The same idiom as bandAt, and for the
+// same reason: resolved from rects rather than from the engine's collision
 // result, so the answer does not depend on how the rows were measured.
 //
 // Marked on the WHOLE window block -- header and tabs together, whether the
@@ -331,16 +342,6 @@ export function windowOf(el: Element | null | undefined): HTMLElement | null {
 // renders no tab list at all), both mean "into this window at index 0", and
 // neither has a tab-list container to hit; the block is the one element
 // that's always there to answer for both.
-export function windowAt(
-  container: HTMLElement | null,
-  x: number,
-  y: number
-): string | undefined {
-  return windowBlockAt(container, x, y)?.dataset.dropWindowId;
-}
-
-// The same hit test, answering with the block itself -- which the engine needs
-// in order to search it for bands.
 export function windowBlockAt(
   container: HTMLElement | null,
   x: number,
@@ -372,6 +373,13 @@ export function windowBlocksIn(container: HTMLElement | null): HTMLElement[] {
 // such a list is a release in the gaps between windows and beside the pane:
 // within half a row of the row's own window it is the "drag it to the end"
 // overshoot, and anywhere else it names no window and is refused.
+//
+// THE TEST IS Y-ONLY (`y`, no `x`), so "beside the pane" is not actually
+// guarded here: a release outside every window's block but level with the
+// held row's own window's rows -- to the left or right of the pane entirely
+// -- still falls inside the y band and is ACCEPTED, unchanged from main. That
+// is the overshoot case above, not a refusal; nothing downstream of this
+// function re-checks x for a list with no windows of its own.
 //
 // For a list that does NOT -- `dropsAcrossWindows` off, which is the default,
 // though no list whose rows sit IN windows leaves it off any more -- every
