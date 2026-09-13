@@ -1,5 +1,5 @@
 import { describe, expect, test, afterEach } from 'vitest';
-import { fireEvent } from '@testing-library/react';
+import { act, fireEvent } from '@testing-library/react';
 
 import TabGroupDetailsContainer from '../../components/home/rightpane/TabGroupDetailsContainer';
 import { renderWithProviders } from '../setup/renderWithProviders';
@@ -287,5 +287,42 @@ describe('inside the pane', () => {
       const firstItem = block.firstElementChild?.firstElementChild;
       expect(firstItem?.matches('[data-drag-row-id]')).toBe(true);
     }
+  });
+});
+
+// The pane's tab-list hooks sit ABOVE its nothing-selected early return. Below
+// it, the first render with no session runs fewer hooks than the next one, and
+// React throws on the transition -- which no render that starts with a session
+// selected can show.
+describe('the pane across selecting a session', () => {
+  test('renders nothing, then the session, without changing its hook count', async () => {
+    const { container, store } = await renderWithProviders(
+      <TabGroupDetailsContainer />,
+      {
+        seedStore: (s) => {
+          s.dispatch(setHasTabGroupsPermission(true));
+        },
+      }
+    );
+    // PREMISE: the first render really had no session to show.
+    expect(container.querySelector('[data-window-tabs]')).toBeNull();
+
+    act(() => {
+      store.dispatch(
+        saveToTabContainerInternal({
+          tabGroupId: 'later',
+          title: 'Later',
+          createdTime: '2026-09-12 10:00:00',
+          windowCount: 1,
+          tabCount: 1,
+          isAutoSave: false,
+          isSelected: true,
+          windows: [win('wL', [tab('l0')], [])],
+        })
+      );
+      store.dispatch(selectTabContainer('later'));
+    });
+
+    expect(container.querySelectorAll('[data-window-tabs]')).toHaveLength(1);
   });
 });
