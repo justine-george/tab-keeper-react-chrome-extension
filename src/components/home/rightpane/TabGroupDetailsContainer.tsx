@@ -205,8 +205,6 @@ export default function TabGroupDetailsContainer() {
                     // exactly one element per window, so the tree keeps its shape.
                     <DraggableRow key={windowId} rowId={windowId}>
                       <WindowEntryContainer
-                        // The pane's own tab list above spans every window (KAN-132).
-                        ownsTabList={false}
                         title={title}
                         tabs={tabs}
                         chromeTabGroups={chromeTabGroups}

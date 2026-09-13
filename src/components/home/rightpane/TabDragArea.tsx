@@ -1,10 +1,9 @@
 // The tab list: one `tabs` drag area over the windows it is given (KAN-132).
 //
-// The pane renders it over every window in the session; a window rendered on
-// its own renders it over itself (see WindowEntryContainer's ownsTabList). ONE
-// component for both, so the two can never be wired differently -- they were
-// two copies of the same nine props, and the next change to that wiring would
-// have had to be made twice.
+// The pane is the only production caller, over every window in the session --
+// a window never provides one of its own. ONE component rather than the
+// per-window area each window used to build for itself, so the wiring behind
+// it can only be changed in one place.
 import React, { type ReactNode } from 'react';
 import { useSelector } from 'react-redux';
 

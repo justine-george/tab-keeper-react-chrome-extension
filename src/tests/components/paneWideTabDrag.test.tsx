@@ -309,26 +309,6 @@ describe('a tab drag marks the band of the window it is over', () => {
   });
 });
 
-// A window rendered on its own is a tab list of its own (ownsTabList), and the
-// component tests rely on that. Inside the pane it must NOT be: its list would
-// sit nearer the tab rows than the pane's and capture every tab drag, and a
-// list over one window cannot put a tab in another.
-describe('inside the pane', () => {
-  test('a window provides no tab list of its own: its tab can leave it', async () => {
-    const { container, store } = await render();
-    const node = layout(container);
-    measureWindows(container);
-
-    // Past b3's midpoint (292), inside wB: after its last row.
-    press(node('a0'), 10);
-    moveTo(298);
-    release(298);
-
-    expect(tabsOf(store, 1)).toBe('b0* b1* b2 b3 a0');
-    expect(tabsOf(store, 0)).toBe('a1 a2 a3* a4*');
-  });
-});
-
 // The pane's tab-list hooks sit ABOVE its nothing-selected early return. Below
 // it, the first render with no session runs fewer hooks than the next one, and
 // React throws on the transition -- which no render that starts with a session

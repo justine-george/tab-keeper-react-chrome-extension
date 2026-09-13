@@ -2,6 +2,7 @@ import { describe, expect, test, beforeEach, afterEach, vi } from 'vitest';
 import { screen, fireEvent } from '@testing-library/react';
 
 import WindowEntryContainer from '../../components/home/rightpane/WindowEntryContainer';
+import { TabDragArea } from '../../components/home/rightpane/TabDragArea';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { setHasTabGroupsPermission } from '../../redux/slices/globalStateSlice';
 import type { tabData } from '../../redux/slices/tabContainerDataStateSlice';
@@ -28,16 +29,27 @@ const TABS: tabData[] = [
 
 const render = () =>
   renderWithProviders(
-    <WindowEntryContainer
-      title="Window 1"
-      tabGroupId="tg1"
-      windowId="w1"
-      tabs={TABS}
-      onWindowTitleClick={() => undefined}
-      onUpdateWindowGroupTitle={() => undefined}
-      onAddCurrTabToWindowClick={() => undefined}
-      onDeleteClick={() => undefined}
-    />,
+    // A window renders no tab list of its own any more (KAN-132): the pane
+    // always provides it. This harness gives it one, the same shape
+    // TabGroupDetailsContainer uses, so the drag under test has somewhere to
+    // start.
+    <TabDragArea
+      tabList={{
+        tabGroupId: 'tg1',
+        windows: [{ windowId: 'w1', tabs: TABS, chromeTabGroups: undefined }],
+      }}
+    >
+      <WindowEntryContainer
+        title="Window 1"
+        tabGroupId="tg1"
+        windowId="w1"
+        tabs={TABS}
+        onWindowTitleClick={() => undefined}
+        onUpdateWindowGroupTitle={() => undefined}
+        onAddCurrTabToWindowClick={() => undefined}
+        onDeleteClick={() => undefined}
+      />
+    </TabDragArea>,
     {
       seedStore: (store) => {
         store.dispatch(setHasTabGroupsPermission(false));
