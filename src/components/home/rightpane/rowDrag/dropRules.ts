@@ -21,8 +21,16 @@ export function isInEditableField(target: EventTarget | null): boolean {
   return target instanceof Element && target.closest(EDITABLE_FIELD) !== null;
 }
 
-// Where a drop landed, beyond its index.
-//
+// Where a drop landed, beyond its index (KAN-132 widens this from a bare band
+// id to name a window too, since a drop can now cross from one saved window
+// into another).
+export interface DropTarget {
+  // Which window the pointer is over.
+  windowId: string | undefined;
+  // Which Chrome group band the pointer is over, if any.
+  bandId: string | undefined;
+}
+
 // The engine cannot answer this itself: for tabs it is which Chrome group the
 // pointer was over, and for windows there is no such question at all. So the
 // area takes it as a function and stays ignorant of what the answer means --
@@ -31,7 +39,7 @@ export type ResolveDrop = (
   container: HTMLElement | null,
   x: number,
   y: number
-) => string | undefined;
+) => DropTarget;
 
 // Which list is being dragged. Only the CSS cares, but it has to come from the
 // caller: the area itself has no idea what its rows represent, and that is
@@ -222,6 +230,33 @@ export function bandAt(
       y <= r.bottom - padBottom
     ) {
       return band.dataset.bandId;
+    }
+  }
+  return undefined;
+}
+
+// WHICH WINDOW a drop landed in (KAN-132). The same idiom as bandAt, and for
+// the same reason: resolved from rects rather than from the engine's collision
+// result, so the answer does not depend on how the rows were measured.
+//
+// Marked on the WHOLE window block -- header and tabs together, whether the
+// window is open or collapsed -- not on the tab-list container inside it. A
+// drop on a window's header, and a drop anywhere on a collapsed window (which
+// renders no tab list at all), both mean "into this window at index 0", and
+// neither has a tab-list container to hit; the block is the one element
+// that's always there to answer for both.
+export function windowAt(
+  container: HTMLElement | null,
+  x: number,
+  y: number
+): string | undefined {
+  if (!container) return undefined;
+  for (const w of container.querySelectorAll<HTMLElement>(
+    '[data-drop-window-id]'
+  )) {
+    const r = w.getBoundingClientRect();
+    if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) {
+      return w.dataset.dropWindowId;
     }
   }
   return undefined;

@@ -33,10 +33,23 @@ const box = (top: number, height: number, left = 0, width = 200) =>
 
 type OnMove = (tabId: string, toIndex: number, group?: string) => void;
 
+// `bandAt` answers only the band half of a drop (KAN-132 widened
+// `ResolveDrop` to also name a window); this harness has no window question of
+// its own, so it composes bandAt into the wider shape RowDragArea now expects,
+// same as WindowEntryContainer's real resolveDrop does.
+const resolveDrop = (container: HTMLElement | null, x: number, y: number) => ({
+  windowId: undefined,
+  bandId: bandAt(container, x, y),
+});
+
 const Harness = ({ onMove }: { onMove: OnMove }) => (
   // `bandAt` is passed in rather than known to the area: the tab list is the
   // only caller that has a membership question at all.
-  <RowDragArea rowIds={['a', 'b', 'c']} onMove={onMove} resolveDrop={bandAt}>
+  <RowDragArea
+    rowIds={['a', 'b', 'c']}
+    onMove={onMove}
+    resolveDrop={resolveDrop}
+  >
     {/* Row `a` sits inside a band; `b` and `c` do not. */}
     <div data-band-id="grp" data-testid="band">
       <DraggableRow rowId="a">

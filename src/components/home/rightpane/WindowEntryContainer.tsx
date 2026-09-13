@@ -52,7 +52,7 @@ import { applyTabGroups } from '../../../utils/functions/windows';
 
 import { RowDragArea, DraggableRow } from './rowDrag/RowDragArea';
 import { useDragState } from './rowDrag/dragContext';
-import { bandAt } from './rowDrag/dropRules';
+import { bandAt, windowAt } from './rowDrag/dropRules';
 
 interface WindowEntryContainerProps {
   title: string;
@@ -289,6 +289,22 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
       );
     },
     [dispatch, tabGroupId, windowId]
+  );
+
+  // Composes the tab area's two drop questions into one answer (KAN-132).
+  //
+  // Nothing reads `.windowId` yet -- the tab area is still one area per
+  // window, so `windowAt` resolves against a container that sits INSIDE this
+  // window's own block and never finds a marker to hit, always answering
+  // `undefined` here. That is a real, if temporarily unused, consequence: it
+  // is what the failing-if-broken unit test on `windowAt` covers, not this
+  // component's behaviour, which is unchanged.
+  const resolveDrop = useCallback(
+    (container: HTMLElement | null, x: number, y: number) => ({
+      windowId: windowAt(container, x, y),
+      bandId: bandAt(container, x, y),
+    }),
+    []
   );
 
   // The window's top-level rows as drawn: each loose tab, and each group as
@@ -837,7 +853,13 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   }
 
   return (
-    <div css={containerStyle}>
+    // data-drop-window-id marks the WHOLE window block -- header and tabs,
+    // rendered whether windowOpenState is open or collapsed -- as what
+    // windowAt hit-tests (KAN-132). Not the tab-list wrapper below: a drop on
+    // this window's header, and a drop anywhere on a collapsed window (which
+    // renders no tab-list wrapper at all), both have to answer "this window",
+    // and this is the one element that is always there to say so.
+    <div css={containerStyle} data-drop-window-id={windowId}>
       {/* The grab handle for the WINDOW drag (KAN-129), read by the area
           above this component through its handleSelector. It has to be the
           header alone: the draggable node wraps this row AND the tab list
@@ -994,7 +1016,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
             rowIds={tabIds}
             onMove={handleMove}
             dragKind="tab"
-            resolveDrop={bandAt}
+            resolveDrop={resolveDrop}
             onDropTargetChange={markDropTargetBand}
             landsBesideFixedRow={landsBesideFixedRow}
             // Each group's title row: drawn in this list, never dragged in it.

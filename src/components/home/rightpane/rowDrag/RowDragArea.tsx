@@ -445,7 +445,8 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // change more than an index -- a tab released inside a group's band joins
       // that group -- and the user cannot see a rule that is only consulted
       // once the pointer is already up.
-      const target = resolveDrop?.(containerRef.current, l.lastX, l.lastY);
+      const target = resolveDrop?.(containerRef.current, l.lastX, l.lastY)
+        ?.bandId;
 
       // The whole preview in the list AS DRAWN, decided once (KAN-166). The
       // shifts, the frame and the landing slot all come off this one pair of
@@ -660,7 +661,13 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       update(l);
 
       if (onDropTargetChange && resolveDrop) {
-        const t = resolveDrop(containerRef.current, l.lastX, l.lastY);
+        // Compared and forwarded as `.bandId`, not the object resolveDrop
+        // returned: a fresh object compares unequal on every pointermove even
+        // when nothing the caller cares about changed, which would fire
+        // onDropTargetChange every move instead of only on a real change
+        // (KAN-164's whole point). onDropTargetChange's contract is
+        // unchanged by KAN-132 -- it still names a band, not a window.
+        const t = resolveDrop(containerRef.current, l.lastX, l.lastY).bandId;
         if (t !== l.dropTarget) {
           l.dropTarget = t;
           onDropTargetChange(t, containerRef.current);
@@ -688,7 +695,8 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       if (toIndex === undefined) return undefined;
       return {
         toIndex,
-        dropTargetId: resolveDrop?.(containerRef.current, l.lastX, l.lastY),
+        dropTargetId: resolveDrop?.(containerRef.current, l.lastX, l.lastY)
+          ?.bandId,
       };
     };
 
