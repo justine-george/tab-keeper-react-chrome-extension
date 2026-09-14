@@ -894,6 +894,25 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                       margin-top: ${ADJACENT_GROUP_GAP_PX}px;
                     }
 
+                    /* KAN-186. While this group is the row being dragged, the
+                       band paints the row's own hover fill.
+
+                       The strip keeps 9px of horizontal footprint however wide
+                       it is drawn -- 3px of colour plus 6px of margin it grows
+                       into when the band is a drop target (GroupColorPicker) --
+                       and that margin belongs to the BAND, which is
+                       transparent. At rest the page shows through it and
+                       nobody can tell; held, the row floats over the other
+                       rows and those 6px become a window onto whatever it is
+                       passing over. Measured: the strip ends at 438.5 and the
+                       row's own fill starts at 444.5.
+
+                       The held row is hovered by definition -- it tracks the
+                       pointer -- so this is the colour already beside it. */
+                    [data-drag-held] & {
+                      background-color: ${COLORS.HOVER_COLOR};
+                    }
+
                     /* KAN-164: a tab released here joins this group.
                            Outline rather than border, so marking a band
                            reflows nothing.
