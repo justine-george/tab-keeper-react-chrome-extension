@@ -156,9 +156,15 @@ const layout = (container: HTMLElement) => {
   q('[data-band-id="gb"]').getBoundingClientRect = () => box(100, 60);
   q('[data-drop-window-id="wA"] [data-window-tabs]').getBoundingClientRect =
     () => box(20, WINDOW_TABS_H);
+  // A real getBoundingClientRect includes every transform above the element, so
+  // a block the preview has MOVED to make room reports its moved box (KAN-184).
+  // jsdom applies no transforms at all, so the double has to add that itself --
+  // otherwise windowBlockAt subtracts a shift the box never had, and the moved
+  // window claims a pointer nowhere near it.
   for (const [id, [top, height]] of Object.entries(BLOCKS)) {
-    q(`[data-drop-window-id="${id}"]`).getBoundingClientRect = () =>
-      box(top, height);
+    const block = q(`[data-drop-window-id="${id}"]`);
+    block.getBoundingClientRect = () =>
+      box(top + (parseFloat(block.dataset.windowShift ?? '') || 0), height);
   }
   return (id: string) => q(`[data-drag-row-id="${id}"]`);
 };
@@ -245,29 +251,44 @@ describe('a group drag in a pane-wide items list', () => {
     expect(tabsOf(store, 1)).toBe('b0 b3');
   });
 
-  // The refusal that survives §11.3: a release in NO window. wA's block ends at
-  // 40 and wB's begins at 60, and 45 is outside wB's own rows plus half the
-  // held group of slack -- so it names no window and nothing happens.
-  test('a group released between the two windows commits nothing', async () => {
+  // KAN-185, and this REPLACES "a group released between the two windows
+  // commits nothing". The gap between two blocks belongs to the NEARER of
+  // them, so the boundary is a point rather than an 8px band that previewed a
+  // landing back at the row's own origin -- see the tab list's own version of
+  // this test for the measurement.
+  test('a group released between the two windows lands in the nearer one', async () => {
     const { container, store } = await render();
-    const node = layout(container);
+    layout(container);
 
     press(handleOf(container, 'gb'), 110);
     moveTo(45);
-
-    // Refused, so nothing in either window steps aside for it either.
-    expect(shift(node('tab:a0'))).toBe(0);
-    expect(shift(node('tab:b3'))).toBe(0);
-
     release(45);
+
+    // y 45 is nearer wA's block than wB's, and past every wA row's midpoint,
+    // so the group arrives whole at the end of that window.
+    expect(tabsOf(store, 0)).toBe(`${A_START} b1* b2*`);
+    expect(tabsOf(store, 1)).toBe('b0 b3');
+    expect(store.getState().globalState.isDirty).toBe(true);
+  });
+
+  // THE CONTROL for the refusal above: the same group, released inside its own
+  // window, still moves.
+  // THE CONTROL for the rule above: the gap belongs to a window only BETWEEN
+  // two blocks. Far below the last one there is no nearer block to claim the
+  // release, and it is still refused -- the KAN-132 guard this must not widen.
+  test('CONTROL: a group released below the last window still commits nothing', async () => {
+    const { container, store } = await render();
+    layout(container);
+
+    press(handleOf(container, 'gb'), 110);
+    moveTo(400);
+    release(400);
 
     expect(tabsOf(store, 0)).toBe(A_START);
     expect(tabsOf(store, 1)).toBe(B_START);
     expect(store.getState().globalState.isDirty).toBe(false);
   });
 
-  // THE CONTROL for the refusal above: the same group, released inside its own
-  // window, still moves.
   test('CONTROL: the same group still reorders inside its own window', async () => {
     const { container, store } = await render();
     layout(container);

@@ -463,7 +463,12 @@ test.describe('a group released over another window', () => {
 // honest answer (§11.3, §6 as amended in Task 5). It pairs with the drops
 // above, so a list that refused everything cannot pass here.
 test.describe('a group released over no window', () => {
-  test('in the gap above the next window, from that window, commits nothing', async ({
+  // KAN-185 REPLACED this one's rule. The gap between two blocks named no
+  // window, so a release there was refused -- and crossing it slowly showed the
+  // landing snap home to the row's own origin and out again. It belongs to the
+  // nearer block now, which leaves "no window" meaning beside the pane and past
+  // the ends of the list, both still refused and both still pinned elsewhere.
+  test('in the gap above the next window, the group lands in the nearer one', async ({
     context,
     extensionId,
   }) => {
@@ -475,18 +480,20 @@ test.describe('a group released over no window', () => {
     const x = await grabGroup(page, 'beta');
     const w1 = await blockBox(page, 'w1');
     const w2 = await blockBox(page, 'w2');
-    const gapY = (w1.y + w1.height + w2.y) / 2;
     // PREMISE: there is a gap, and the release point is in neither block.
     expect(w2.y - (w1.y + w1.height)).toBeGreaterThanOrEqual(4);
+    // Just inside the upper block's half of it.
+    const gapY = w1.y + w1.height + 1;
 
     await page.mouse.move(x, gapY, { steps: 8 });
     await page.mouse.up();
 
-    await page.waitForTimeout(150);
-    expect(await order(page, 'w1')).toBe(W1_START);
-    expect(await order(page, 'w2')).toBe(W2_START);
-    // Nothing dirtied: no reducer ran, so the session was never re-stamped.
-    expect(await lastModified(page)).toBe(before);
+    await expect.poll(() => order(page, 'w1')).toBe(`${W1_START} be0* be1*`);
+    expect(await order(page, 'w2')).toBe('b0 b1');
+    expect(await groupsOf(page, 'w1')).toContainEqual(BETA);
+    // A move that commits re-stamps the session, where the refusal this
+    // replaced deliberately did not.
+    expect(await lastModified(page)).not.toBe(before);
   });
 });
 

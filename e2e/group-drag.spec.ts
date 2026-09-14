@@ -377,7 +377,17 @@ test.describe('dragging a group', () => {
   // The gap BETWEEN two window blocks, not "above the pane" -- same reason as
   // above -- and with alpha again, so a list clamping drops to its ends is
   // still visibly wrong here.
-  test('CONTROL: released between two windows, nothing moves and the view comes back', async ({
+  // KAN-185 REPLACED this one's rule. The gap between two blocks used to name
+  // no window, so a release there was refused, and this test read the refusal
+  // two ways at once: nothing moved, and `restoreScrollIfNoDrop` put the view
+  // back. The gap belongs to the nearer block now, so the first half is gone
+  // and with it the second -- a drop that COMMITS never restores the scroll.
+  //
+  // What it pins instead is the new rule, in the list KAN-160 owns: the gap
+  // above a group's own window is the window ABOVE, and the group lands there.
+  // Escape's own scroll restore is pinned at line ~580 and in window-drag's
+  // "after Escape, the view is where the drag began".
+  test('released between two windows, the group lands in the nearer one', async ({
     context,
     extensionId,
   }) => {
@@ -396,11 +406,12 @@ test.describe('dragging a group', () => {
         .getBoundingClientRect().top;
       return { bottom, top };
     });
-    const gapY = (gap.bottom + gap.top) / 2;
+    // Just inside the upper block's half of the gap, so which window owns the
+    // release is not a question about rounding.
+    const gapY = gap.bottom + 1;
     // PREMISE: there is a gap, the release point is in neither block, it is
     // inside the pane on both axes, and it is clear of both auto-scroll zones.
     expect(gap.top - gap.bottom).toBeGreaterThanOrEqual(4);
-    expect(gapY).toBeGreaterThan(gap.bottom);
     expect(gapY).toBeLessThan(gap.top);
     expect(gapY).toBeGreaterThan(pane.top + 48);
     expect(gapY).toBeLessThan(pane.bottom - 48);
@@ -410,9 +421,11 @@ test.describe('dragging a group', () => {
     await page.mouse.move(at.x + 8, gapY, { steps: 12 });
     await page.mouse.up();
 
-    expect(await itemOrder(page)).toEqual(START);
-    expect(await tabsOfWindow(page, 'w0')).toBe(W0_START);
-    await expect.poll(() => paneScrollTop(page)).toBe(pane.scrollTop);
+    // Alpha left w1 for the window above it, whole.
+    await expect
+      .poll(() => tabsOfWindow(page, 'w0'))
+      .toBe(`${W0_START} alpha0* alpha1* alpha2*`);
+    expect(await itemOrder(page)).not.toEqual(START);
   });
 
   // Gamma has two open groups above it. With every group folding it would
