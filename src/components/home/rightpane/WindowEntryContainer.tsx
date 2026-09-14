@@ -155,12 +155,39 @@ const GroupFrameFollower: React.FC<{ groupId: string }> = ({ groupId }) => {
     const restingTop = band.hasAttribute('data-after-group')
       ? ADJACENT_GROUP_GAP_PX
       : BAND_MARGIN_PX;
+    // KAN-180. Where this band RESTS, measured rather than reconstructed, so
+    // the hit test can subtract exactly what the growth moved.
+    //
+    // bandAt used to rebuild the resting top as `rect.top + paddingTop`, and
+    // that is 2px wrong here: swapping the resting margin for a negative one
+    // to absorb the padding also changes how it COLLAPSES with the row above,
+    // so the box does not move by the amount the arithmetic assumes. Measured
+    // on a band holding the KAN-179 gap: resting top 327, grown top 297 with
+    // 32px of padding, so the rebuilt boundary came out 329.
+    //
+    // Two pixels is enough to LATCH. Above 327 the pointer marked the band,
+    // which grew it and moved the boundary to 329; below 329 the same pointer
+    // unmarked it, which shrank it back to 327. Measured at quarter-pixel
+    // steps, the mark alternated on every move across that 2px.
+    //
+    // Cleared first and read back, which is one forced layout -- and this runs
+    // when the LANDING changes, not on every pointer move.
+    band.style.paddingTop = '';
+    band.style.marginTop = '';
+    const restingTopPx = band.getBoundingClientRect().top;
+
     band.style.paddingTop = growTop ? `${growTop}px` : '';
     band.style.paddingBottom = growBottom ? `${growBottom}px` : '';
     band.style.marginTop = growTop ? `${restingTop - growTop}px` : '';
     band.style.marginBottom = growBottom
       ? `${BAND_MARGIN_PX - growBottom}px`
       : '';
+
+    // How far the growth moved the box, for bandAt to take back. Absent while
+    // the band rests, so a band nothing is being dropped into costs nothing.
+    const moved = restingTopPx - band.getBoundingClientRect().top;
+    if (moved) band.dataset.bandGrewBy = String(moved);
+    else delete band.dataset.bandGrewBy;
 
     // The title row is a real row and moves as one, so it keeps a transform.
     // The strip does NOT: it has to change length, not position, and a

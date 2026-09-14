@@ -302,12 +302,18 @@ export function bandAt(
     //
     // Read off the inline style rather than a computed one because this runs
     // for every band on every pointer move; the follower writes it there.
-    const padTop = parseFloat(band.style.paddingTop) || 0;
     const padBottom = parseFloat(band.style.paddingBottom) || 0;
+    // How far the growth actually MOVED the box, published by the follower
+    // (KAN-180). Rebuilding it here as `rect.top + paddingTop` was 2px out --
+    // the negative margin that absorbs the padding collapses differently with
+    // the row above, so the box does not move by the padding alone. Two pixels
+    // was enough to latch: the pointer marked the band, the band grew, the
+    // boundary moved past the pointer, and it unmarked again on the next move.
+    const grewBy = parseFloat(band.dataset.bandGrewBy ?? '') || 0;
     if (
       x >= r.left &&
       x <= r.right &&
-      y >= r.top + padTop &&
+      y >= r.top + grewBy &&
       y <= r.bottom - padBottom
     ) {
       return band.dataset.bandId;
