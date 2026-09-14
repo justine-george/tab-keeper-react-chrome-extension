@@ -3,7 +3,7 @@
   "author": "Justine George",
   "description": "Save your Chrome windows, tabs and tab groups as sessions, then sync them across desktops. No account or email needed.",
   "private": true,
-  "version": "1.7.0",
+  "version": "1.8.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
