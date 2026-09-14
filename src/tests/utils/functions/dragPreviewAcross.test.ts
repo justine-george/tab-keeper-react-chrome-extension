@@ -2,6 +2,7 @@ import { describe, expect, test } from 'vitest';
 
 import {
   landingDeltaAcross,
+  landsPastWindowEnd,
   previewShiftsAcross,
   type WindowedSlot,
 } from '../../../utils/functions/dragPreview';
@@ -119,5 +120,34 @@ describe('landingDeltaAcross', () => {
     expect(landingDeltaAcross(SLOTS, at('a0'), 'wB', PAST_END, undefined)).toBe(
       0
     );
+  });
+});
+
+// KAN-182. The same question landingDeltaAcross asks to choose between a
+// slot's top and the window's end, asked by name -- because the answer also
+// decides how the landing placeholder is DRAWN. Past a window's last row
+// nothing steps aside, so there is no row-tall gap to draw in, only the space
+// between two window blocks.
+describe('landsPastWindowEnd', () => {
+  test('a slot of the destination window is not past its end', () => {
+    expect(landsPastWindowEnd(SLOTS, 'wB', at('b1'))).toBe(false);
+    expect(landsPastWindowEnd(SLOTS, 'wA', at('g0'))).toBe(false);
+  });
+
+  test('an index off the end of the whole list is past it', () => {
+    expect(landsPastWindowEnd(SLOTS, 'wB', PAST_END)).toBe(true);
+  });
+
+  // The case that makes this a question at all: the index names a real slot,
+  // but one belonging to a LATER window. Appending to wA runs straight into
+  // wB's first row, and that row is not where the appended row goes.
+  test("a slot of another window is past the destination's end", () => {
+    expect(landsPastWindowEnd(SLOTS, 'wA', at('H'))).toBe(true);
+    expect(landsPastWindowEnd(SLOTS, 'wA', at('b0'))).toBe(true);
+  });
+
+  // A row in no window at all -- a collapsed window's row -- is nobody's slot.
+  test('a slot in no window is past the end of any window', () => {
+    expect(landsPastWindowEnd(SLOTS, 'wA', at('c0'))).toBe(true);
   });
 });

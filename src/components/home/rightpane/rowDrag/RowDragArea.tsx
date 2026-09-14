@@ -53,6 +53,7 @@ import {
 import {
   landingDeltaAcross,
   landingDeltaOf,
+  landsPastWindowEnd,
   previewShifts,
   previewShiftsAcross,
   slotLandingBeside,
@@ -67,6 +68,10 @@ import {
 const EDGE_ZONE_PX = 48;
 // How strongly the landing slot draws when it is clear of the held row.
 const SLOT_OPACITY = 0.3;
+// The landing slot's height where it has no gap to fill (KAN-182). Windows sit
+// 8px apart, so this has to fit inside that: 4px reads as an insertion line and
+// still leaves the 1.5px dashed border on both edges visible.
+const SLOT_LINE_PX = 4;
 const MAX_SCROLL_PX_PER_FRAME = 14;
 
 // The nearest ancestor that actually scrolls.
@@ -645,6 +650,10 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
             );
       let shifts: Record<string, number>;
       let landingDelta: number;
+      // Whether a gap opens where the row lands (KAN-182). Only a landing past
+      // another window's last row has none; every landing inside a list is a
+      // row stepping aside.
+      let landingOpensGap = true;
       if (
         landing !== undefined &&
         landing.windowId !== undefined &&
@@ -668,6 +677,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
           at,
           l.windowBottoms.get(landing.windowId)
         );
+        landingOpensGap = !landsPastWindowEnd(l.slots, landing.windowId, at);
       } else {
         const fixedSlot =
           beside === undefined
@@ -692,6 +702,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         footprint: l.footprint,
         shifts,
         landingDelta,
+        landingOpensGap,
       });
 
       return root;
@@ -1227,6 +1238,17 @@ export const DraggableRow: React.FC<DraggableRowProps> = ({
           style={{
             position: 'absolute',
             inset: 0,
+            // A LINE, not a box, where the landing opens no gap (KAN-182).
+            // Past another window's last row nothing steps aside -- the rows
+            // that would are in the next window -- so a row-tall box is drawn
+            // over whatever follows, which for a window in the middle of the
+            // pane is the next window's header. The space that DOES exist
+            // there is the gap between two window blocks, and a line fits it.
+            // The top edge is the same either way, so what the preview
+            // promises is unchanged; only the part with nowhere to go is.
+            ...(drag.landingOpensGap
+              ? null
+              : { bottom: 'auto', height: SLOT_LINE_PX }),
             transform: `translateY(${drag.landingDelta - translate}px)`,
             pointerEvents: 'none',
             border: '1.5px dashed currentColor',

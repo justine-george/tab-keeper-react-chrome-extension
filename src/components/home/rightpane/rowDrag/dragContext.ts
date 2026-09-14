@@ -33,6 +33,16 @@ export interface DragState {
   // can be drawn in the gap that is opening for it (KAN-166). Zero while the
   // row would land back where it started.
   landingDelta: number;
+  /**
+   * Does the landing open a gap to draw the placeholder in? (KAN-182.)
+   *
+   * False past the last row of ANOTHER window: nothing there steps aside --
+   * the rows that would are in the next window, and a cross-window preview
+   * moves rows only within a window -- so the only space at that landing is
+   * the gap between two window blocks. A row-tall placeholder drawn there
+   * covers whatever follows; see landsPastWindowEnd.
+   */
+  landingOpensGap: boolean;
 }
 
 export interface Ctx {
