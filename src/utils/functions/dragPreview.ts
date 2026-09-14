@@ -222,9 +222,32 @@ export function landingDeltaAcross(
 ): number {
   const start = slots[from];
   if (start === undefined) return 0;
-  const target = slots[at];
-  const top =
-    target !== undefined && target.windowId === toWindowId ? target.top : end;
+  const top = landsPastWindowEnd(slots, toWindowId, at) ? end : slots[at]?.top;
   // No box for the destination: preview no travel rather than a guessed one.
   return top === undefined ? 0 : top - start.top;
+}
+
+/**
+ * Is the landing past the last row of the window it lands in? (KAN-182.)
+ *
+ * The same question `landingDeltaAcross` answers to choose between a slot's
+ * top and the window's end, asked by name because the ANSWER MATTERS TWICE.
+ * Where a row steps aside, the gap it opens is a row tall and the landing
+ * placeholder is drawn in it. At a window's end nothing steps aside -- the
+ * rows that would are in the NEXT window, and a cross-window preview moves
+ * rows only within a window -- so there is no gap to draw in, only the space
+ * between two window blocks. Drawn as a full row there, the placeholder covers
+ * whatever follows, which for a window in the middle of a pane is the next
+ * window's header: measured 24px into it, and it reads as though the row were
+ * landing on that window instead.
+ *
+ * A collapsed destination has no slots at all and is this case by definition.
+ */
+export function landsPastWindowEnd(
+  slots: readonly WindowedSlot[],
+  toWindowId: string,
+  at: number
+): boolean {
+  const target = slots[at];
+  return target === undefined || target.windowId !== toWindowId;
 }
