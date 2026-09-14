@@ -34,15 +34,23 @@ export interface DragState {
   // row would land back where it started.
   landingDelta: number;
   /**
-   * Does the landing open a gap to draw the placeholder in? (KAN-182.)
+   * How far each saved WINDOW BLOCK moves while the row is held over another
+   * window (KAN-184), keyed by window id. Absent means it does not move.
    *
-   * False past the last row of ANOTHER window: nothing there steps aside --
-   * the rows that would are in the next window, and a cross-window preview
-   * moves rows only within a window -- so the only space at that landing is
-   * the gap between two window blocks. A row-tall placeholder drawn there
-   * covers whatever follows; see landsPastWindowEnd.
+   * A window cannot change height in a preview that holds the layout still, so
+   * without this the destination could not make room: its rows below the
+   * landing spilled out of their own block and over the next window's header,
+   * and at its end no gap opened at all. Moving the windows BETWEEN the source
+   * and the destination is what opens the row of space the drop will need.
    */
-  landingOpensGap: boolean;
+  windowShifts: Readonly<Record<string, number>>;
+  // How far the block the HELD ROW sits in has moved, and how far the one the
+  // LANDING sits in has (KAN-184). The row and the landing slot are drawn
+  // inside those blocks, so each subtracts what its own block has already done
+  // -- otherwise the row drifts off the pointer by a whole row, and the ghost
+  // with it.
+  heldWindowShift: number;
+  landingWindowShift: number;
 }
 
 export interface Ctx {

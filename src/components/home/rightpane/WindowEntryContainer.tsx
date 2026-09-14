@@ -183,6 +183,16 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   onAddCurrTabToWindowClick,
   onDeleteClick,
 }) => {
+  // How far this window's block moves to make room for a row landing in
+  // another one (KAN-184). BOTH lists are asked because either can carry a row
+  // across windows -- a tab in the `tabs` list, a whole group in `items` -- and
+  // only one of them is ever dragging.
+  const tabDrag = useDragState('tabs');
+  const itemDrag = useDragState('items');
+  const windowShift =
+    (tabDrag?.windowShifts[windowId] ?? 0) ||
+    (itemDrag?.windowShifts[windowId] ?? 0);
+
   const COLORS = useThemeColors();
   const FONT_FAMILY = useFontFamily();
   const { t } = useTranslation();
@@ -647,7 +657,36 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     // this window's header, and a drop anywhere on a collapsed window (which
     // renders no tab-list wrapper at all), both have to answer "this window",
     // and this is the one element that is always there to say so.
-    <div css={containerStyle} data-drop-window-id={windowId}>
+    <div
+      css={containerStyle}
+      data-drop-window-id={windowId}
+      // KAN-184. The room a drop into ANOTHER window needs, made here.
+      //
+      // A preview holds the layout still and moves everything by transform, so
+      // a window cannot grow: its rows below the landing used to slide down and
+      // spill over the next window's header, and at its end no gap opened at
+      // all. Moving the blocks between the source and the destination opens
+      // that row of space for real.
+      //
+      // THIS element and not the DraggableRow above it, whose transform belongs
+      // to the WINDOW drag -- two states on one channel is the mistake this
+      // file's header warns about, and nesting the two means neither has to
+      // know about the other.
+      //
+      // The shift is published back so windowBlockAt can subtract it: growing
+      // the preview must not move what the pointer can hit, the same rule
+      // KAN-171 settled for a band's padding.
+      data-window-shift={windowShift || undefined}
+      // NO TRANSITION, unlike the rows stepping aside inside it. The held row
+      // and its landing slot are drawn inside a block that may be moving, and
+      // both give that movement back by subtracting the shift -- a number, not
+      // an animation. Eased, the block is somewhere in between while they
+      // subtract the whole of it, and the ghost drifts by the remainder:
+      // measured 27px of a 34px shift, which is what it cost to learn.
+      style={{
+        transform: windowShift ? `translateY(${windowShift}px)` : undefined,
+      }}
+    >
       {/* The grab handle for the WINDOW drag (KAN-129), read by the area
           above this component through its handleSelector. It has to be the
           header alone: the draggable node wraps this row AND the tab list

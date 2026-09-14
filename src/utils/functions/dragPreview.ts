@@ -251,3 +251,42 @@ export function landsPastWindowEnd(
   const target = slots[at];
   return target === undefined || target.windowId !== toWindowId;
 }
+
+/**
+ * How far each saved WINDOW BLOCK moves while the held row is over another
+ * window (KAN-184).
+ *
+ * The preview holds the layout still and expresses everything as transforms,
+ * so a window cannot change height -- and until this existed, the destination
+ * could not make room at all. Its rows below the landing shifted down and
+ * spilled out of their own block, over the next window's header (measured:
+ * 26px), and at its END no gap opened whatsoever, which is why the placeholder
+ * there had to be drawn as a line (KAN-182, superseded).
+ *
+ * ONLY THE DESTINATION GROWS. A drop moves two heights -- the destination
+ * gains a row and the source loses one -- but the preview never performs the
+ * second: the held row still occupies its place in the source's flow until the
+ * release, so that block keeps its box and the space it frees shows up as a
+ * gap INSIDE it, exactly as a same-window drag has always drawn. Deriving this
+ * from the post-drop layout instead gives every window between the two a
+ * shift, which is measurably wrong -- the source's block then slides down into
+ * the window below it (measured: 26px of overlap, the same defect one window
+ * further down).
+ *
+ * Windows that do not move are absent, like previewShifts; read `?? 0`.
+ */
+export function windowShiftsAcross(
+  order: readonly string[],
+  toWindowId: string,
+  footprint: number
+): Record<string, number> {
+  const to = order.indexOf(toWindowId);
+  // A destination this pane does not hold cannot be made room for.
+  if (to < 0) return {};
+
+  const shifts: Record<string, number> = {};
+  order.forEach((windowId, index) => {
+    if (index > to) shifts[windowId] = footprint;
+  });
+  return shifts;
+}
