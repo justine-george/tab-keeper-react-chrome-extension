@@ -381,7 +381,28 @@ export function windowBlockAt(
 ): HTMLElement | null {
   for (const w of windowBlocksIn(container)) {
     const r = w.getBoundingClientRect();
-    if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return w;
+    // THE BLOCK'S RESTING BOX, not where the preview has moved it (KAN-184).
+    //
+    // While a row is held over another window, the blocks between the two are
+    // translated to open the room the drop needs, so their live rects are not
+    // where the drag measured them. Hit-testing those would make the preview
+    // decide what the pointer can reach -- and marking a window would move the
+    // window under the pointer, which is the LATCH that KAN-171 had to fix for
+    // a band's padding. Growing the preview shows the result; it is not a
+    // moved target.
+    //
+    // Read off the data attribute the block publishes, for the same reason
+    // bandAt reads the inline padding: this runs for every window on every
+    // pointer move.
+    const shift = parseFloat(w.dataset.windowShift ?? '') || 0;
+    if (
+      x >= r.left &&
+      x <= r.right &&
+      y >= r.top - shift &&
+      y <= r.bottom - shift
+    ) {
+      return w;
+    }
   }
   return null;
 }

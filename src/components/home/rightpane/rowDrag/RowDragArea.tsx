@@ -53,10 +53,10 @@ import {
 import {
   landingDeltaAcross,
   landingDeltaOf,
-  landsPastWindowEnd,
   previewShifts,
   previewShiftsAcross,
   slotLandingBeside,
+  windowShiftsAcross,
   type LandingSide,
   type WindowedSlot,
 } from '../../../../utils/functions/dragPreview';
@@ -68,10 +68,6 @@ import {
 const EDGE_ZONE_PX = 48;
 // How strongly the landing slot draws when it is clear of the held row.
 const SLOT_OPACITY = 0.3;
-// The landing slot's height where it has no gap to fill (KAN-182). Windows sit
-// 8px apart, so this has to fit inside that: 4px reads as an insertion line and
-// still leaves the 1.5px dashed border on both edges visible.
-const SLOT_LINE_PX = 4;
 const MAX_SCROLL_PX_PER_FRAME = 14;
 
 // The nearest ancestor that actually scrolls.
@@ -313,6 +309,10 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     // with the rows (KAN-132). A row landing past another window's last row --
     // or in a collapsed one, which draws no rows -- is placed there.
     windowBottoms: Map<string, number>;
+    // The saved windows this list spans, in render order (KAN-184). What the
+    // preview needs to know to move the ones BETWEEN the source and the
+    // destination, so the destination can make room.
+    windowOrder: string[];
   } | null>(null);
 
   // The auto-scroll frame, cancelled on drop. A ref rather than state: it is
@@ -398,6 +398,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         slots: [],
         slotOfRow: [],
         slotOfFixed: new Map(),
+        windowOrder: [],
         windowBottoms: new Map(),
       };
     },
@@ -650,10 +651,9 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
             );
       let shifts: Record<string, number>;
       let landingDelta: number;
-      // Whether a gap opens where the row lands (KAN-182). Only a landing past
-      // another window's last row has none; every landing inside a list is a
-      // row stepping aside.
-      let landingOpensGap = true;
+      // Which WINDOW BLOCKS move, so the destination has somewhere to put the
+      // row (KAN-184). Empty for every landing inside one window.
+      let windowShifts: Record<string, number> = {};
       if (
         landing !== undefined &&
         landing.windowId !== undefined &&
@@ -677,7 +677,11 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
           at,
           l.windowBottoms.get(landing.windowId)
         );
-        landingOpensGap = !landsPastWindowEnd(l.slots, landing.windowId, at);
+        windowShifts = windowShiftsAcross(
+          l.windowOrder,
+          landing.windowId,
+          l.footprint
+        );
       } else {
         const fixedSlot =
           beside === undefined
@@ -702,7 +706,14 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         footprint: l.footprint,
         shifts,
         landingDelta,
-        landingOpensGap,
+        windowShifts,
+        // The held row and its landing slot are drawn INSIDE blocks that this
+        // same preview may have moved (KAN-184), so both have to be told by how
+        // much or they ride along: the row would stop tracking the pointer, and
+        // the ghost would sit a row away from the landing it names.
+        heldWindowShift:
+          windowShifts[l.heldWindow?.dataset.dropWindowId ?? ''] ?? 0,
+        landingWindowShift: windowShifts[landing?.windowId ?? ''] ?? 0,
       });
 
       return root;
@@ -870,10 +881,12 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         // Where each window ends, for a list whose rows sit in windows
         // (KAN-132). In the same frame as the rects, like everything above.
         l.windowBottoms = new Map();
+        l.windowOrder = [];
         if (l.heldWindow) {
           for (const block of windowBlocksIn(containerRef.current)) {
             const id = block.dataset.dropWindowId;
             if (id === undefined) continue;
+            l.windowOrder.push(id);
             l.windowBottoms.set(
               id,
               block.getBoundingClientRect().bottom + l.startScrollTop
@@ -1194,7 +1207,14 @@ export const DraggableRow: React.FC<DraggableRowProps> = ({
   // area, which works it out once for the whole list (KAN-166). This used to
   // re-derive it from an index range here, and a group's frame re-derived it a
   // third time -- three copies of one rule, which is how they came to disagree.
-  const translate = !drag ? 0 : held ? drag.offset : drag.shifts[rowId] ?? 0;
+  // The held row tracks the POINTER, and its own window's block may have been
+  // translated to make room elsewhere (KAN-184) -- so it gives that back, or it
+  // rides along and drifts a whole row off the cursor.
+  const translate = !drag
+    ? 0
+    : held
+      ? drag.offset - drag.heldWindowShift
+      : drag.shifts[rowId] ?? 0;
 
   return (
     <div
@@ -1247,17 +1267,18 @@ export const DraggableRow: React.FC<DraggableRowProps> = ({
             top: 0,
             left: 0,
             right: 0,
-            // A LINE, not a box, where the landing opens no gap (KAN-182).
-            // Past another window's last row nothing steps aside -- the rows
-            // that would are in the next window -- so a row-tall box is drawn
-            // over whatever follows, which for a window in the middle of the
-            // pane is the next window's header. The space that DOES exist
-            // there is the gap between two window blocks, and a line fits it.
-            // The top edge is the same either way, so what the preview
-            // promises is unchanged; only the part with nowhere to go is.
-            bottom: drag.landingOpensGap ? 0 : 'auto',
-            height: drag.landingOpensGap ? undefined : SLOT_LINE_PX,
-            transform: `translateY(${drag.landingDelta - translate}px)`,
+            bottom: 0,
+            // The landing is measured in the pre-drag layout, and the two ends
+            // of that measurement now sit in blocks that may have moved apart
+            // (KAN-184): the slot is drawn inside the HELD row's block, while
+            // the distance it carries points into the LANDING's. The difference
+            // is what neither end knows on its own.
+            transform: `translateY(${
+              drag.landingDelta -
+              translate +
+              drag.landingWindowShift -
+              drag.heldWindowShift
+            }px)`,
             pointerEvents: 'none',
             border: '1.5px dashed currentColor',
             borderRadius: '4px',
