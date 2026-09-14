@@ -1,6 +1,5 @@
 import React, {
   MouseEventHandler,
-  useCallback,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -32,17 +31,12 @@ import {
   ungroupChromeTabGroup,
   deleteChromeTabGroupInternal,
   updateChromeTabGroupColor,
-  moveTabInternal,
-  moveChromeGroupInternal,
 } from '../../../redux/slices/tabContainerDataStateSlice';
 import { useTranslation } from 'react-i18next';
 import { v4 as uuidv4 } from 'uuid';
 import {
-  TAB_GROUP_COLOR_HEX,
-  sanitizeTabGroupColor,
   partitionTabsIntoItems,
   itemIdOf,
-  groupIdOfItemId,
 } from '../../../utils/functions/tabGroups';
 import type {
   chromeTabGroupData,
@@ -50,9 +44,9 @@ import type {
 } from '../../../utils/functions/tabGroups';
 import { applyTabGroups } from '../../../utils/functions/windows';
 
-import { RowDragArea, DraggableRow } from './rowDrag/RowDragArea';
+import { DraggableRow } from './rowDrag/RowDragArea';
+import { markRowContainer } from './rowDrag/dropRules';
 import { useDragState } from './rowDrag/dragContext';
-import { bandAt, groupEndingAbove } from './rowDrag/dropRules';
 
 interface WindowEntryContainerProps {
   title: string;
@@ -243,87 +237,11 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     (state: RootState) => state.globalState.hasTabGroupsPermission
   );
 
-  const tabIds = useMemo(() => tabs.map((tab) => tab.tabId), [tabs]);
-  // Position by id, so the run rendering does not need indexOf per row.
-  const indexOfTab = useMemo(
-    () => new Map(tabs.map((tab, i) => [tab.tabId, i])),
-    [tabs]
-  );
-
-  // KAN-164. Which group a tab release would put it in, answered in that
-  // group's own colour.
-  //
-  // A tab released inside a group's band JOINS that group (dropRules.bandAt),
-  // and until this the rule was invisible: measured mid-drag with the pointer
-  // squarely inside a band, the band was byte-identical to its resting state.
-  // The only way to learn what a release would do was to do it.
-  //
-  // The band publishes its colour as a custom property, which the wash and the
-  // held tab's stripe both read -- so the feedback is the GROUP's identity
-  // rather than an accent the app uses nowhere else.
-  //
-  // Written straight to the DOM rather than held in React state, because it
-  // changes as the pointer moves and a re-render per move is the cost this
-  // drag engine is built to avoid -- the same reason `data-drag-held` is set
-  // this way (KAN-160). React never touches these, so a re-render cannot drop
-  // them.
-  const groupColorHex = useMemo(() => {
-    const byId = new Map<string, string>();
-    for (const group of chromeTabGroups ?? []) {
-      byId.set(
-        group.groupId,
-        TAB_GROUP_COLOR_HEX[sanitizeTabGroupColor(group.color)]
-      );
-    }
-    return byId;
-  }, [chromeTabGroups]);
-
-  const markDropTargetBand = useCallback(
-    (target: string | undefined, container: HTMLElement | null) => {
-      if (!container) return;
-      // Scoped to the container that answered, so a band in another window
-      // cannot light up alongside it.
-      for (const band of container.querySelectorAll<HTMLElement>(
-        '[data-band-id]'
-      )) {
-        if (target !== undefined && band.dataset.bandId === target) {
-          band.setAttribute('data-drop-target', '');
-          const colour = groupColorHex.get(target) ?? '';
-          band.style.setProperty('--band-color', colour);
-          document.documentElement.style.setProperty(
-            '--drop-target-color',
-            colour
-          );
-        } else {
-          band.removeAttribute('data-drop-target');
-        }
-      }
-      if (target === undefined) {
-        document.documentElement.style.removeProperty('--drop-target-color');
-      }
-    },
-    [groupColorHex]
-  );
-
-  const handleMove = useCallback(
-    (tabId: string, toIndex: number, toChromeGroupId?: string) => {
-      dispatch(
-        moveTabInternal({
-          tabGroupId,
-          windowId,
-          tabId,
-          toIndex,
-          toChromeGroupId,
-        })
-      );
-    },
-    [dispatch, tabGroupId, windowId]
-  );
-
   // The window's top-level rows as drawn: each loose tab, and each group as
-  // one item (KAN-160). The group drag indexes THIS list, and
-  // moveChromeGroupInternal rebuilds it with the same function (KAN-131: an
-  // index is only valid in the list that produced it).
+  // one item (KAN-160). useGroupDrop builds this window's stretch of the
+  // pane-wide items list with the same function, and moveChromeGroupInternal
+  // rebuilds it with the same function again (KAN-131: an index is only valid
+  // in the list that produced it).
   const items = useMemo(
     () =>
       partitionTabsIntoItems(
@@ -332,167 +250,6 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
       ),
     [tabs, chromeTabGroups, hasTabGroupsPermission]
   );
-  const itemIds = useMemo(() => items.map(itemIdOf), [items]);
-
-  // Where in the window's tab list each group's first member sits.
-  const groupFirstIndex = useMemo(() => {
-    const byId = new Map<string, number>();
-    for (const item of items) {
-      if (item.kind !== 'group') continue;
-      const first = item.tabs[0];
-      const index = first ? indexOfTab.get(first.tabId) : undefined;
-      if (index !== undefined) byId.set(item.group.groupId, index);
-    }
-    return byId;
-  }, [items, indexOfTab]);
-
-  // Where each group's LAST member sits, the counterpart of groupFirstIndex.
-  const groupLastIndex = useMemo(() => {
-    const byId = new Map<string, number>();
-    for (const item of items) {
-      if (item.kind !== 'group') continue;
-      const last = item.tabs[item.tabs.length - 1];
-      const index = last ? indexOfTab.get(last.tabId) : undefined;
-      if (index !== undefined) byId.set(item.group.groupId, index);
-    }
-    return byId;
-  }, [items, indexOfTab]);
-
-  // KAN-166. Which title row the dragged tab will land immediately after.
-  //
-  // A tab released inside a group's band joins that group, and the band's rect
-  // includes the group's TITLE row -- while the landing index comes from row
-  // midpoints, the first of which sits below that title. So in the strip at the
-  // top of every group the index says "before the group" while the band says
-  // "inside it".
-  //
-  // Both answers are right, and neither is the whole answer: the tab becomes
-  // the group's FIRST member, which puts it under the title row. Naming the
-  // title row rather than an index is what lets the area work out the rest --
-  // it is a different slot from the one the tab left even when its row index is
-  // unchanged, and which slot depends on the direction it arrived from.
-  //
-  // The DROP is untouched. This is the preview only; the reducer still receives
-  // the raw index and produces the same arrangement.
-  // Where a group's head sits in the space `toIndex` is counted in (KAN-170).
-  //
-  // TWO LISTS, AND THEY ARE NOT THE SAME ONE. `groupFirstIndex` counts every
-  // row; `toIndex` counts the rows with the HELD row lifted out, because it is
-  // the number of midpoints the pointer has passed. Lifting a row out shifts
-  // everything below it down one, so the two agree only when the held row sits
-  // BELOW the group.
-  //
-  // Comparing them directly made the head test over-reach by exactly one slot
-  // for any tab dragged down from above, which swallowed the group's second
-  // position into its first -- the slot drew above the first member while the
-  // drop landed below it. See KAN-131: an index is only valid in the list that
-  // produced it.
-  const headInLandingSpace = useCallback(
-    (groupId: string, rowId: string) => {
-      const first = groupFirstIndex.get(groupId);
-      if (first === undefined) return undefined;
-      const fromIndex = indexOfTab.get(rowId);
-      return fromIndex !== undefined && fromIndex < first ? first - 1 : first;
-    },
-    [groupFirstIndex, indexOfTab]
-  );
-
-  const landsBesideFixedRow = useCallback(
-    (rowId: string, toIndex: number, target: string | undefined) => {
-      // Landing inside a band: the tab joins that group, or moves to the head
-      // of the one it is already in. Either way it ends up UNDER that title
-      // row. At or above the head is the strip where the index and the band
-      // disagree; below it the tab is landing BETWEEN members, where its row
-      // index already says everything.
-      if (target !== undefined) {
-        const head = headInLandingSpace(target, rowId);
-        if (head !== undefined && toIndex <= head) {
-          return { fixedRowId: target, side: 'after' as const };
-        }
-
-        // KAN-176. The same question at the other end. Past the last member
-        // and still inside the band, the tab is joining at the TAIL -- which
-        // is a slot BEFORE the group's tail marker, not after it.
-        //
-        // The row index cannot say so, and this is KAN-174's ambiguity
-        // mirrored: it names the row AFTER the group, which resolves to a slot
-        // PAST the marker, so the marker never moves and the frame stops above
-        // the slot the tab will occupy. Coming from above it happens to
-        // resolve to the same slot either way, which is why only this
-        // direction was wrong.
-        // NO LANDING-SPACE ADJUSTMENT HERE, unlike the head. Coming from
-        // above, "before the tail marker" and "at the last member's slot" are
-        // the SAME slot, so the branch firing or falling through to the row
-        // index gives an identical answer -- an adjustment was written first
-        // and removed, because a mutation proved it could never change one.
-        // Coming from below the row index names the row PAST the marker, which
-        // is the case that needs this at all.
-        const tail = groupLastIndex.get(target);
-        return tail !== undefined && toIndex > tail
-          ? { fixedRowId: `${target}:tail`, side: 'before' as const }
-          : undefined;
-      }
-
-      // Landing outside every band: the tab ends up ungrouped. If that puts it
-      // at a group's HEAD, it lands BEFORE that group's title row.
-      //
-      // NOT A QUESTION ABOUT WHERE THE TAB CAME FROM (KAN-174). This began as
-      // the KAN-168 rule for a tab LEAVING the group it was already in, and
-      // that was too narrow: a loose tab landing at the same head fell through
-      // to the row index alone, which the area resolves to the slot that row
-      // OCCUPIES -- the first member's. So the ghost pointed inside a band the
-      // tab was never going to join, in the same place as an actual join, and
-      // the band's tint was the only thing telling the two apart.
-      //
-      // The row index cannot answer it. "Land before row t" is ambiguous when a
-      // title row sits immediately before t: before the title, or after it? It
-      // is after only when the drop JOINS that group, which is the branch
-      // above. Everything reaching here lands before.
-      //
-      // Matched EXACTLY rather than `<=`, unlike the joining branch. The whole
-      // strip at the top of a band means "join at the head", but a landing
-      // index above a group's head belongs to the rows above it, not to the
-      // group.
-      for (const groupId of groupFirstIndex.keys()) {
-        if (headInLandingSpace(groupId, rowId) === toIndex) {
-          return { fixedRowId: groupId, side: 'before' as const };
-        }
-      }
-
-      // KAN-181. The same question at the other end: an ungrouped landing
-      // immediately PAST a group's last member. Left unnamed it resolves to the
-      // slot a tail JOIN resolves to, so the group's tail marker never moves
-      // while its members do, and the colour strip hangs a row below the group
-      // -- over the slot this tab is about to take, reading as a join.
-      //
-      // AFTER the head loop, deliberately. Between two adjacent groups both
-      // questions are true at once, and the head answer is the one KAN-178 and
-      // KAN-179 were measured against; this fires where the group is followed
-      // by a loose tab or by nothing at all.
-      const ending = groupEndingAbove(
-        groupLastIndex,
-        indexOfTab.get(rowId),
-        toIndex
-      );
-      return ending !== undefined
-        ? { fixedRowId: `${ending}:tail`, side: 'after' as const }
-        : undefined;
-    },
-    [groupFirstIndex, groupLastIndex, headInLandingSpace, indexOfTab]
-  );
-
-  const handleMoveGroup = useCallback(
-    (itemId: string, toIndex: number) => {
-      const groupId = groupIdOfItemId(itemId);
-      // Only a group row has a handle, so a loose tab's id never arrives.
-      if (groupId === undefined) return;
-      dispatch(
-        moveChromeGroupInternal({ tabGroupId, windowId, groupId, toIndex })
-      );
-    },
-    [dispatch, tabGroupId, windowId]
-  );
-
   const containerStyle = css`
     display: flex;
     flex-direction: column;
@@ -884,7 +641,13 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   }
 
   return (
-    <div css={containerStyle}>
+    // data-drop-window-id marks the WHOLE window block -- header and tabs,
+    // rendered whether windowOpenState is open or collapsed -- as what
+    // windowBlockAt hit-tests (KAN-132). Not the tab-list wrapper below: a drop on
+    // this window's header, and a drop anywhere on a collapsed window (which
+    // renders no tab-list wrapper at all), both have to answer "this window",
+    // and this is the one element that is always there to say so.
+    <div css={containerStyle} data-drop-window-id={windowId}>
       {/* The grab handle for the WINDOW drag (KAN-129), read by the area
           above this component through its handleSelector. It has to be the
           header alone: the draggable node wraps this row AND the tab list
@@ -1035,85 +798,64 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
         // while a WINDOW is being dragged (KAN-153). Visual only -- this
         // component's own open/closed state is never touched, which is what
         // makes "and it comes back how it was" require no bookkeeping at all.
-        <div css={childrenContainerStyle} data-window-tabs>
-          <RowDragArea
-            scope="tabs"
-            rowIds={tabIds}
-            onMove={handleMove}
-            dragKind="tab"
-            resolveDrop={bandAt}
-            onDropTargetChange={markDropTargetBand}
-            landsBesideFixedRow={landsBesideFixedRow}
-            // Each group's title row: drawn in this list, never dragged in it.
-            // Scoped to `tabs` only -- in the `items` list a group is one row
-            // that CONTAINS its title, so counting it there would double it.
-            fixedRowSelector="[data-fixed-row-id]"
-            // The mode, not the box's contents -- see KAN-140 on
-            // TabGroupEntryContainer for why this is not isFilteredView.
-            disabled={isSearchPanel}
-          >
-            {/* KAN-160. The window's items -- loose tabs and whole groups --
-                as a second list inside the tab list. Only a group's title
-                row is a handle, so a press on a tab reaches this list's
-                begin, finds no handle, and is left to the tab list. Tab rows
-                name scope="tabs" to join the tab list THROUGH this one.
+        // markRowContainer: this box holds one window's worth of the pane-wide
+        // `items` list, so no row's footprint is ever measured on it
+        // (KAN-132). Its own list container used to sit here and say the same
+        // thing; with one list for the whole session, that container is far
+        // above and nothing else tells this box from the single-child wrappers
+        // a footprint's climb exists to climb.
+        <div
+          css={childrenContainerStyle}
+          data-window-tabs
+          ref={markRowContainer}
+        >
+          {/* KAN-160. The window's items -- loose tabs and whole groups.
+                Item rows name scope="items" and tab rows name scope="tabs",
+                so each joins its own pane-wide list past the other
+                (KAN-132); a window provides neither list itself. */}
+          {items.map((item, index) =>
+            item.kind === 'tab' ? (
+              <DraggableRow
+                key={itemIdOf(item)}
+                scope="items"
+                rowId={itemIdOf(item)}
+              >
+                <DraggableRow scope="tabs" rowId={item.tab.tabId}>
+                  {renderTab(item.tab)}
+                </DraggableRow>
+              </DraggableRow>
+            ) : (
+              <DraggableRow
+                key={itemIdOf(item)}
+                scope="items"
+                rowId={itemIdOf(item)}
+              >
+                <div
+                  data-band-id={item.group.groupId}
+                  data-after-group={
+                    index > 0 && items[index - 1].kind === 'group'
+                      ? ''
+                      : undefined
+                  }
+                  role="group"
+                  aria-label={item.group.title || t('Unnamed group')}
+                  css={css`
+                    display: flex;
+                    align-items: stretch;
 
-                No clampDropToEnds: outside this window's rows means out of
-                the window, which must be refused. restoreScrollIfNoDrop,
-                because compressing the held group can shrink the list and
-                clamp the scroll. */}
-            <RowDragArea
-              scope="items"
-              rowIds={itemIds}
-              onMove={handleMoveGroup}
-              dragKind="group"
-              handleSelector="[data-group-drag-handle]"
-              restoreScrollIfNoDrop
-              disabled={isSearchPanel}
-            >
-              {items.map((item, index) =>
-                item.kind === 'tab' ? (
-                  <DraggableRow
-                    key={itemIdOf(item)}
-                    scope="items"
-                    rowId={itemIdOf(item)}
-                  >
-                    <DraggableRow scope="tabs" rowId={item.tab.tabId}>
-                      {renderTab(item.tab)}
-                    </DraggableRow>
-                  </DraggableRow>
-                ) : (
-                  <DraggableRow
-                    key={itemIdOf(item)}
-                    scope="items"
-                    rowId={itemIdOf(item)}
-                  >
-                    <div
-                      data-band-id={item.group.groupId}
-                      data-after-group={
-                        index > 0 && items[index - 1].kind === 'group'
-                          ? ''
-                          : undefined
-                      }
-                      role="group"
-                      aria-label={item.group.title || t('Unnamed group')}
-                      css={css`
-                        display: flex;
-                        align-items: stretch;
+                    margin: ${BAND_MARGIN_PX}px 0;
 
-                        margin: ${BAND_MARGIN_PX}px 0;
+                    /* KAN-179: the ungrouped landing between two adjacent
+                       groups is the gap between their bands, and two
+                       collapsing margins leave only one of them. Widened
+                       here, on the lower band, because a bottom margin is
+                       what footprintOf measures. GroupFrameFollower reads
+                       this attribute back to know what to restore. */
+                    &[data-after-group] {
+                      margin-top: ${ADJACENT_GROUP_GAP_PX}px;
+                    }
 
-                        /* KAN-179: the ungrouped landing between two adjacent
-                           groups is the gap between their bands, and two
-                           collapsing margins leave only one of them. Widened
-                           here, on the lower band, because a bottom margin is
-                           what footprintOf measures. GroupFrameFollower reads
-                           this attribute back to know what to restore. */
-                        &[data-after-group] {
-                          margin-top: ${ADJACENT_GROUP_GAP_PX}px;
-                        }
-
-                        /* KAN-164: a tab released here joins this group.
+                    /* KAN-164: a tab released here joins this group.
                            Outline rather than border, so marking a band
                            reflows nothing.
 
@@ -1131,30 +873,30 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
 
                            No backticks in here: this comment sits inside an
                            emotion template literal, and one would end it. */
-                        /* KAN-164: a tab released here joins this group, so
+                    /* KAN-164: a tab released here joins this group, so
                            the group answers in its own colour. A wash rather
                            than a ring, because fills are what every other
                            state in this pane is made of. The strip's widen
                            (GroupColorPicker) is the part that carries the
                            meaning without relying on hue. */
-                        /* KAN-164: a tab released here joins this group, so
+                    /* KAN-164: a tab released here joins this group, so
                            the group answers in its own colour. A wash rather
                            than a ring, because fills are what every other
                            state in this pane is made of. The strip's widen
                            (GroupColorPicker) is the part that carries the
                            meaning without relying on hue. */
-                        &[data-drop-target] {
-                          background-color: color-mix(
-                            in srgb,
-                            var(--band-color, transparent) 18%,
-                            transparent
-                          );
-                          border-radius: 4px;
-                        }
-                      `}
-                    >
-                      <GroupFrameFollower groupId={item.group.groupId} />
-                      {/* The colour is Chrome's own group identity, not app chrome
+                    &[data-drop-target] {
+                      background-color: color-mix(
+                        in srgb,
+                        var(--band-color, transparent) 18%,
+                        transparent
+                      );
+                      border-radius: 4px;
+                    }
+                  `}
+                >
+                  <GroupFrameFollower groupId={item.group.groupId} />
+                  {/* The colour is Chrome's own group identity, not app chrome
                     (BINDING CONSTRAINT 1) -- TAB_GROUP_COLOR_HEX is a fixed
                     map, not routed through useThemeColors, so it reads the
                     same in every theme as it does in the browser.
@@ -1166,32 +908,32 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                     repeating the group name the role="group" boundary above
                     already announces. The band stays a sibling of the header
                     strip so it spans the whole group, as Chrome's does. */}
-                      <GroupColorPicker
-                        color={item.group.color}
-                        decorative={isSearchPanel}
-                        ariaLabel={
-                          t('Change group color') +
-                          ': ' +
-                          groupDisplayName(item.group)
-                        }
-                        onSelect={(color) =>
-                          dispatch(
-                            updateChromeTabGroupColor({
-                              tabGroupId,
-                              windowId,
-                              groupId: item.group.groupId,
-                              color,
-                            })
-                          )
-                        }
-                      />
-                      <div
-                        css={css`
-                          flex: 1;
-                          min-width: 0;
-                        `}
-                      >
-                        {/* The group's header strip.
+                  <GroupColorPicker
+                    color={item.group.color}
+                    decorative={isSearchPanel}
+                    ariaLabel={
+                      t('Change group color') +
+                      ': ' +
+                      groupDisplayName(item.group)
+                    }
+                    onSelect={(color) =>
+                      dispatch(
+                        updateChromeTabGroupColor({
+                          tabGroupId,
+                          windowId,
+                          groupId: item.group.groupId,
+                          color,
+                        })
+                      )
+                    }
+                  />
+                  <div
+                    css={css`
+                      flex: 1;
+                      min-width: 0;
+                    `}
+                  >
+                    {/* The group's header strip.
 
                       This REPLACES the older rule that an untitled group
                       renders as the band alone (BINDING CONSTRAINT 2). That
@@ -1207,33 +949,33 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                       The placeholder is italic and one label tier dimmer than
                       a real name so it does not read as content -- the group
                       is not called "Unnamed group", it has no name. */}
-                        {/* The group drag's handle (KAN-160). The colour bar
+                    {/* The group drag's handle (KAN-160). The colour bar
                         is its sibling, not inside it, so the picker keeps its
                         press. */}
-                        <div
-                          data-group-drag-handle
-                          // KAN-166. This row is DRAWN in the tab list but is
-                          // not one of its rows, and the preview has to count
-                          // it: a tab dropped on it joins the group without
-                          // changing its row index, which in a list of rows
-                          // alone is indistinguishable from not moving at all.
-                          data-fixed-row-id={item.group.groupId}
-                          css={css`
-                            position: relative;
-                            display: flex;
-                            align-items: center;
-                            /* KAN-165: the frame travels with its tabs, so it
+                    <div
+                      data-group-drag-handle
+                      // KAN-166. This row is DRAWN in the tab list but is
+                      // not one of its rows, and the preview has to count
+                      // it: a tab dropped on it joins the group without
+                      // changing its row index, which in a list of rows
+                      // alone is indistinguishable from not moving at all.
+                      data-fixed-row-id={item.group.groupId}
+                      css={css`
+                        position: relative;
+                        display: flex;
+                        align-items: center;
+                        /* KAN-165: the frame travels with its tabs, so it
                                has to glide like they do. Same duration as the
                                rows stepping aside in RowDragArea. */
-                            transition: transform 0.18s ease;
-                            /* 32px, the height the window row and every tab row
+                        transition: transform 0.18s ease;
+                        /* 32px, the height the window row and every tab row
                          already stand at -- measured, not guessed. At 22px the
                          hover fill read as a short band wedged between
                          full-height ones. It is also exactly the action icons'
                          height, so they now fit the row rather than
                          overflowing a shorter one. */
-                            min-height: 32px;
-                            /* Fills like the window row above and the tab rows
+                        min-height: 32px;
+                        /* Fills like the window row above and the tab rows
                          below, which both paint HOVER_COLOR under the pointer.
                          Without it this row revealed its actions while giving
                          no sign of being hovered at all.
@@ -1246,236 +988,235 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                          No transition on the fill, also KAN-100 -- easing it
                          lets the row reach the colour in two halves with a
                          visible edge between them. */
-                            &:hover,
-                            &:focus-within {
-                              background-color: ${COLORS.HOVER_COLOR};
-                            }
-                            &:hover .group-rename-reveal,
-                            &:focus-within .group-rename-reveal {
-                              opacity: 1;
-                            }
-                          `}
-                        >
-                          {editingGroupId === item.group.groupId &&
-                          !isSearchPanel ? (
-                            <input
-                              value={groupDraft}
-                              aria-label={renameGroupLabel(item.group)}
-                              onBlur={() => commitGroupRename(item.group)}
-                              onChange={(e) => setGroupDraft(e.target.value)}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter')
-                                  commitGroupRename(item.group);
-                              }}
-                              autoFocus
-                              css={css`
-                                color: ${COLORS.TEXT_COLOR};
-                                background-color: ${COLORS.PRIMARY_COLOR};
-                                border: 1px solid ${COLORS.BORDER_COLOR};
-                                /* Same four declarations the window title editor
+                        &:hover,
+                        &:focus-within {
+                          background-color: ${COLORS.HOVER_COLOR};
+                        }
+                        &:hover .group-rename-reveal,
+                        &:focus-within .group-rename-reveal {
+                          opacity: 1;
+                        }
+                      `}
+                    >
+                      {editingGroupId === item.group.groupId &&
+                      !isSearchPanel ? (
+                        <input
+                          value={groupDraft}
+                          aria-label={renameGroupLabel(item.group)}
+                          onBlur={() => commitGroupRename(item.group)}
+                          onChange={(e) => setGroupDraft(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter')
+                              commitGroupRename(item.group);
+                          }}
+                          autoFocus
+                          css={css`
+                            color: ${COLORS.TEXT_COLOR};
+                            background-color: ${COLORS.PRIMARY_COLOR};
+                            border: 1px solid ${COLORS.BORDER_COLOR};
+                            /* Same four declarations the window title editor
                              carries. Without height and padding the field
                              collapsed to the intrinsic height of its text and
                              sat 2px short of its own row, with the browser's
                              default 2px padding rather than a chosen one --
                              which read as a thinner, tighter box than the
                              editor one level above it. */
-                                display: flex;
-                                align-items: center;
-                                font-family: ${FONT_FAMILY};
-                                /* Matches the label this replaces, or the text
+                            display: flex;
+                            align-items: center;
+                            font-family: ${FONT_FAMILY};
+                            /* Matches the label this replaces, or the text
                              visibly jumps size on entering edit mode. */
-                                font-size: 0.85rem;
-                                padding-left: 8px;
-                                /* align-self, NOT height: 100%. The strip is a flex
+                            font-size: 0.85rem;
+                            padding-left: 8px;
+                            /* align-self, NOT height: 100%. The strip is a flex
                              container with align-items: center and only a
                              min-height, so it has no definite height for a
                              percentage to resolve against and the child is not
                              stretched -- height: 100% computed, rendered
                              nothing, and left the field 2px short of its row.
                              Stretching the item is what actually fills it. */
-                                align-self: stretch;
-                                width: 100%;
-                                min-width: 0;
-                                &:focus {
-                                  outline: none;
-                                }
-                              `}
+                            align-self: stretch;
+                            width: 100%;
+                            min-width: 0;
+                            &:focus {
+                              outline: none;
+                            }
+                          `}
+                        />
+                      ) : isSearchPanel ? (
+                        // A control that cannot act must not be focusable and
+                        // inert (KAN-62), so searching gets static text.
+                        groupTitleLabel(item.group)
+                      ) : (
+                        // WCAG 2.5.3, same shape as KAN-77: the accessible name
+                        // CONTAINS the visible one, so "click Research" works.
+                        // padding-right reserves the action block's width so a
+                        // long title ellipsizes instead of rendering UNDER the
+                        // icons. The block is absolutely positioned -- kept that
+                        // way deliberately, so the title does not reflow and
+                        // jump when the icons appear on hover -- which means
+                        // layout gives it no room unless it is reserved here.
+                        // Measured at 100/125/150% zoom before and after.
+                        <ClickableRow
+                          ariaLabel={openGroupLabel(item.group)}
+                          tooltipText={t('Open group')}
+                          onClick={() => handleGroupClick(item)}
+                          // align-self, because the strip centres its children
+                          // -- without it the clickable is only as tall as its
+                          // text and the row has 8px of dead zone above and
+                          // below, while the hover fill paints the full 32px.
+                          // The tab rows get this from their parent's
+                          // align-items: stretch; this strip has to ask.
+                          style="display: flex; align-items: center; align-self: stretch; min-width: 0; width: 100%; padding-right: 100px; box-sizing: border-box;"
+                        >
+                          {groupTitleLabel(item.group)}
+                        </ClickableRow>
+                      )}
+                      {editingGroupId === item.group.groupId &&
+                        !isSearchPanel && (
+                          // Same shape as the other two ticks: the wrapper stops
+                          // the post-commit click retargeting onto the pencil, and
+                          // preventDefault keeps focus in the input so onClick is
+                          // the single commit path.
+                          <span
+                            data-row-actions
+                            className="group-rename-reveal"
+                            css={css`
+                              position: absolute;
+                              top: 50%;
+                              right: 0;
+                              transform: translateY(-50%);
+                              opacity: 1;
+                              display: flex;
+                              align-items: center;
+                              z-index: 1;
+                            `}
+                            onMouseDown={(e) => e.preventDefault()}
+                          >
+                            <Icon
+                              tooltipText={t('Save changes')}
+                              ariaLabel={t('Save changes')}
+                              type="done"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                commitGroupRename(item.group);
+                              }}
                             />
-                          ) : isSearchPanel ? (
-                            // A control that cannot act must not be focusable and
-                            // inert (KAN-62), so searching gets static text.
-                            groupTitleLabel(item.group)
-                          ) : (
-                            // WCAG 2.5.3, same shape as KAN-77: the accessible name
-                            // CONTAINS the visible one, so "click Research" works.
-                            // padding-right reserves the action block's width so a
-                            // long title ellipsizes instead of rendering UNDER the
-                            // icons. The block is absolutely positioned -- kept that
-                            // way deliberately, so the title does not reflow and
-                            // jump when the icons appear on hover -- which means
-                            // layout gives it no room unless it is reserved here.
-                            // Measured at 100/125/150% zoom before and after.
-                            <ClickableRow
-                              ariaLabel={openGroupLabel(item.group)}
-                              tooltipText={t('Open group')}
-                              onClick={() => handleGroupClick(item)}
-                              // align-self, because the strip centres its children
-                              // -- without it the clickable is only as tall as its
-                              // text and the row has 8px of dead zone above and
-                              // below, while the hover fill paints the full 32px.
-                              // The tab rows get this from their parent's
-                              // align-items: stretch; this strip has to ask.
-                              style="display: flex; align-items: center; align-self: stretch; min-width: 0; width: 100%; padding-right: 100px; box-sizing: border-box;"
-                            >
-                              {groupTitleLabel(item.group)}
-                            </ClickableRow>
-                          )}
-                          {editingGroupId === item.group.groupId &&
-                            !isSearchPanel && (
-                              // Same shape as the other two ticks: the wrapper stops
-                              // the post-commit click retargeting onto the pencil, and
-                              // preventDefault keeps focus in the input so onClick is
-                              // the single commit path.
-                              <span
-                                data-row-actions
-                                className="group-rename-reveal"
-                                css={css`
-                                  position: absolute;
-                                  top: 50%;
-                                  right: 0;
-                                  transform: translateY(-50%);
-                                  opacity: 1;
-                                  display: flex;
-                                  align-items: center;
-                                  z-index: 1;
-                                `}
-                                onMouseDown={(e) => e.preventDefault()}
-                              >
-                                <Icon
-                                  tooltipText={t('Save changes')}
-                                  ariaLabel={t('Save changes')}
-                                  type="done"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    commitGroupRename(item.group);
-                                  }}
-                                />
-                              </span>
-                            )}
-                          {editingGroupId !== item.group.groupId &&
-                            !isSearchPanel && (
-                              // data-row-actions: hidden while any drag is in flight
-                              // (KAN-135). The held group's title row stays hovered
-                              // for the whole drag.
-                              <div
-                                data-row-actions
-                                className="group-rename-reveal"
-                                css={css`
-                                  position: absolute;
-                                  top: 50%;
-                                  right: 0;
-                                  transform: translateY(-50%);
-                                  opacity: 0;
-                                  transition: opacity 0.1s ease-out;
-                                  display: flex;
-                                  align-items: center;
-                                  /* Load-bearing, and only visible in a real browser.
+                          </span>
+                        )}
+                      {editingGroupId !== item.group.groupId &&
+                        !isSearchPanel && (
+                          // data-row-actions: hidden while any drag is in flight
+                          // (KAN-135). The held group's title row stays hovered
+                          // for the whole drag.
+                          <div
+                            data-row-actions
+                            className="group-rename-reveal"
+                            css={css`
+                              position: absolute;
+                              top: 50%;
+                              right: 0;
+                              transform: translateY(-50%);
+                              opacity: 0;
+                              transition: opacity 0.1s ease-out;
+                              display: flex;
+                              align-items: center;
+                              /* Load-bearing, and only visible in a real browser.
                              translateY above makes this element a STACKING
                              CONTEXT, which traps the overflow menu's own
                              z-index inside it -- the menu then painted behind
                              the tab rows below, which are later siblings with
                              position: relative. Lifting the context itself is
                              what puts the menu over them. */
-                                  /* The row owning an open menu outranks its
+                              /* The row owning an open menu outranks its
                              siblings; see openMenuGroupId above. */
-                                  z-index: ${openMenuGroupId ===
-                                  item.group.groupId
-                                    ? 3
-                                    : 1};
-                                `}
-                              >
-                                <Icon
-                                  tooltipText={t('Rename group')}
-                                  ariaLabel={t('Rename group')}
-                                  type="edit"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    startEditingGroup(item.group);
-                                  }}
-                                />
-                                <Icon
-                                  tooltipText={t('Add current tab to group')}
-                                  ariaLabel={t('Add current tab to group')}
-                                  type="add"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    addCurrentTabToGroup(item.group);
-                                  }}
-                                />
-                                {/* Ungroup and delete live behind the overflow rather
+                              z-index: ${openMenuGroupId === item.group.groupId
+                                ? 3
+                                : 1};
+                            `}
+                          >
+                            <Icon
+                              tooltipText={t('Rename group')}
+                              ariaLabel={t('Rename group')}
+                              type="edit"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                startEditingGroup(item.group);
+                              }}
+                            />
+                            <Icon
+                              tooltipText={t('Add current tab to group')}
+                              ariaLabel={t('Add current tab to group')}
+                              type="add"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                addCurrentTabToGroup(item.group);
+                              }}
+                            />
+                            {/* Ungroup and delete live behind the overflow rather
                             than as two more icons: four 32px icons overlap a
                             long title from 125% zoom, and "Ungroup" is not a
                             concept named anywhere else in this UI, so it needs
                             a word rather than a glyph. */}
-                                <OverflowMenu
-                                  ariaLabel={t('More actions')}
-                                  // Guarded on identity rather than assigning blindly:
-                                  // opening a second menu closes the first, and the
-                                  // close can land after the open, which would
-                                  // otherwise clear the row that just opened.
-                                  onOpenChange={(open) =>
-                                    setOpenMenuGroupId((prev) =>
-                                      open
-                                        ? item.group.groupId
-                                        : prev === item.group.groupId
-                                          ? null
-                                          : prev
-                                    )
-                                  }
-                                  items={[
-                                    {
-                                      key: 'ungroup',
-                                      label: t('Ungroup'),
-                                      icon: 'label_off',
-                                      onSelect: () =>
-                                        dispatch(
-                                          ungroupChromeTabGroup({
-                                            tabGroupId,
-                                            windowId,
-                                            groupId: item.group.groupId,
-                                          })
-                                        ),
-                                    },
-                                    {
-                                      key: 'delete',
-                                      label: t('Delete group'),
-                                      icon: 'delete',
-                                      danger: true,
-                                      onSelect: () =>
-                                        dispatch(
-                                          deleteChromeTabGroupInternal({
-                                            tabGroupId,
-                                            windowId,
-                                            groupId: item.group.groupId,
-                                          })
-                                        ),
-                                    },
-                                  ]}
-                                />
-                              </div>
-                            )}
-                        </div>
-                        <div data-group-tabs>
-                          {item.tabs.map((tabItem) => (
-                            <DraggableRow
-                              key={tabItem.tabId}
-                              scope="tabs"
-                              rowId={tabItem.tabId}
-                            >
-                              {renderTab(tabItem)}
-                            </DraggableRow>
-                          ))}
-                          {/* KAN-175. The group's TAIL, declared the same way
+                            <OverflowMenu
+                              ariaLabel={t('More actions')}
+                              // Guarded on identity rather than assigning blindly:
+                              // opening a second menu closes the first, and the
+                              // close can land after the open, which would
+                              // otherwise clear the row that just opened.
+                              onOpenChange={(open) =>
+                                setOpenMenuGroupId((prev) =>
+                                  open
+                                    ? item.group.groupId
+                                    : prev === item.group.groupId
+                                      ? null
+                                      : prev
+                                )
+                              }
+                              items={[
+                                {
+                                  key: 'ungroup',
+                                  label: t('Ungroup'),
+                                  icon: 'label_off',
+                                  onSelect: () =>
+                                    dispatch(
+                                      ungroupChromeTabGroup({
+                                        tabGroupId,
+                                        windowId,
+                                        groupId: item.group.groupId,
+                                      })
+                                    ),
+                                },
+                                {
+                                  key: 'delete',
+                                  label: t('Delete group'),
+                                  icon: 'delete',
+                                  danger: true,
+                                  onSelect: () =>
+                                    dispatch(
+                                      deleteChromeTabGroupInternal({
+                                        tabGroupId,
+                                        windowId,
+                                        groupId: item.group.groupId,
+                                      })
+                                    ),
+                                },
+                              ]}
+                            />
+                          </div>
+                        )}
+                    </div>
+                    <div data-group-tabs>
+                      {item.tabs.map((tabItem) => (
+                        <DraggableRow
+                          key={tabItem.tabId}
+                          scope="tabs"
+                          rowId={tabItem.tabId}
+                        >
+                          {renderTab(tabItem)}
+                        </DraggableRow>
+                      ))}
+                      {/* KAN-175. The group's TAIL, declared the same way
                               its title row declares its head. Zero height, so
                               it changes no layout -- it exists only to hold a
                               place in the drawn list, where previewShifts
@@ -1490,21 +1231,19 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                               the last member's shift, which assumes the last
                               member stays last -- and it does not when the
                               group is gaining or losing one. */}
-                          <div
-                            aria-hidden="true"
-                            data-fixed-row-id={`${item.group.groupId}:tail`}
-                            css={css`
-                              height: 0;
-                            `}
-                          />
-                        </div>
-                      </div>
+                      <div
+                        aria-hidden="true"
+                        data-fixed-row-id={`${item.group.groupId}:tail`}
+                        css={css`
+                          height: 0;
+                        `}
+                      />
                     </div>
-                  </DraggableRow>
-                )
-              )}
-            </RowDragArea>
-          </RowDragArea>
+                  </div>
+                </div>
+              </DraggableRow>
+            )
+          )}
         </div>
       )}
     </div>

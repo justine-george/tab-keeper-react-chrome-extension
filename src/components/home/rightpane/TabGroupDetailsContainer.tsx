@@ -23,6 +23,8 @@ import {
 } from '../../../redux/slices/tabContainerDataStateSlice';
 import { useTranslation } from 'react-i18next';
 import { RowDragArea, DraggableRow } from './rowDrag/RowDragArea';
+import { TabDragArea } from './TabDragArea';
+import { GroupDragArea } from './GroupDragArea';
 
 export default function TabGroupDetailsContainer() {
   const COLORS = useThemeColors();
@@ -60,8 +62,8 @@ export default function TabGroupDetailsContainer() {
   // it would change the hook count between the nothing-selected and selected
   // renders and React would throw on the transition. Both of these feed
   // RowDragArea's effect deps, and a fresh identity re-binds its window
-  // listeners -- cheap, but pointless on every render. WindowEntryContainer
-  // memoizes its own tabIds and handleMove for the same reason.
+  // listeners -- cheap, but pointless on every render. useTabDrop memoizes the
+  // tab list's row ids and callbacks for the same reason.
   //
   // No longer load-bearing for correctness. The re-bind used to clear the drag
   // flag mid-drag, and this memo was the mitigation -- which only held while
@@ -151,84 +153,106 @@ export default function TabGroupDetailsContainer() {
         </div>
       ) : (
         <div css={filledContainerStyle}>
-          {/* KAN-129. handleSelector is what keeps this area and the tab area
-              inside each window from both claiming one pointerdown: the
+          {/* KAN-132. ONE tab list for the whole session, rather than one per
+              window, so that a tab drag can name a row in another window.
+
+              OUTSIDE the windows area, not inside it. The windows area and
+              its rows declare no scope, so window rows join it as the
+              nearest list; tab rows name scope="tabs" and reach this one
+              directly -- there is no per-window items list any more, only
+              the ONE items list a few lines below. Both resolve correctly
+              with no context factory (spec 5.1). */}
+          <TabDragArea tabList={selectedTabGroup}>
+            {/* KAN-132, one level up from the tab list. ONE items list for the
+                whole session -- each loose tab and each Chrome group as one
+                row -- rather than one per window.
+
+                INSIDE the tab list and outside the windows area, which is where
+                a window's own items list sat relative to both. Item rows name
+                scope="items" and tab rows name scope="tabs", so each reaches
+                its own list through the other; window rows declare no scope and
+                still join the nearest list, the windows area below. */}
+            <GroupDragArea itemList={selectedTabGroup}>
+              {/* KAN-129. handleSelector is what keeps this area and the tab list
+              around it from both claiming one pointerdown: the
               draggable node below wraps a window's whole block, tabs
               included, so only a press that starts on the window's header
               begins a window drag.
 
               No resolveDrop: a window belongs to nothing, so unlike a tab its
               drop rule really is just an index. */}
-          <RowDragArea
-            rowIds={windowIds}
-            onMove={handleMoveWindow}
-            handleSelector="[data-window-drag-handle]"
-            dragKind="window"
-            clampDropToEnds
-            restoreScrollIfNoDrop
-            // The mode, not the box's contents -- see KAN-140 on
-            // TabGroupEntryContainer for why this is not isFilteredView.
-            disabled={isSearchPanel}
-          >
-            {selectedTabGroup.windows.map(
-              ({ windowId, title, tabs, chromeTabGroups }) => {
-                return (
-                  // Keyed by windowId, not by index: WindowEntryContainer owns
-                  // collapse and rename state, and an index key is identical to
-                  // the positional default React already uses, so it would
-                  // leave that state bleeding onto the wrong window after a
-                  // deletion.
-                  //
-                  // This key is also what resets collapse state when the user
-                  // switches sessions. Window ids are uuidv4 minted in exactly
-                  // two places (capture.ts and HeroContainerRight) and nothing
-                  // clones a session, so no id is shared between two tab
-                  // groups -- selecting a different one swaps the whole key
-                  // set and React remounts every row, which re-runs
-                  // useState(true). WindowEntryContainer used to do that reset
-                  // with an effect on tabGroupId; it was deleted as redundant
-                  // with this key (KAN-51). Weaken this key and that reset
-                  // goes with it -- renameDrafts.test.tsx covers it.
-                  //
-                  // DraggableRow is what carries that key now. It replaces the
-                  // plain wrapper div rather than nesting inside one: it renders
-                  // exactly one element per window, so the tree keeps its shape.
-                  <DraggableRow key={windowId} rowId={windowId}>
-                    <WindowEntryContainer
-                      title={title}
-                      tabs={tabs}
-                      chromeTabGroups={chromeTabGroups}
-                      tabGroupId={tabGroupId}
-                      windowId={windowId}
-                      onUpdateWindowGroupTitle={(newTitle) =>
-                        handleUpdateWindowGroupTitle(
-                          tabGroupId,
-                          windowId,
-                          newTitle
-                        )
-                      }
-                      onAddCurrTabToWindowClick={() =>
-                        handleAddCurrTabToWindowClick(tabGroupId, windowId)
-                      }
-                      onDeleteClick={() =>
-                        dispatch(deleteWindow({ tabGroupId, windowId }))
-                      }
-                      onWindowTitleClick={() => {
-                        const goToURLText: string = t('Go to URL');
-                        dispatch(
-                          openTabsInAWindow({
-                            tabGroupId,
-                            windowId,
-                            goToURLText,
-                          })
-                        );
-                      }}
-                    />
-                  </DraggableRow>
-                );
-              }
-            )}
-          </RowDragArea>
+              <RowDragArea
+                rowIds={windowIds}
+                onMove={handleMoveWindow}
+                handleSelector="[data-window-drag-handle]"
+                dragKind="window"
+                clampDropToEnds
+                restoreScrollIfNoDrop
+                // The mode, not the box's contents -- see KAN-140 on
+                // TabGroupEntryContainer for why this is not isFilteredView.
+                disabled={isSearchPanel}
+              >
+                {selectedTabGroup.windows.map(
+                  ({ windowId, title, tabs, chromeTabGroups }) => {
+                    return (
+                      // Keyed by windowId, not by index: WindowEntryContainer owns
+                      // collapse and rename state, and an index key is identical to
+                      // the positional default React already uses, so it would
+                      // leave that state bleeding onto the wrong window after a
+                      // deletion.
+                      //
+                      // This key is also what resets collapse state when the user
+                      // switches sessions. Window ids are uuidv4 minted in exactly
+                      // two places (capture.ts and HeroContainerRight) and nothing
+                      // clones a session, so no id is shared between two tab
+                      // groups -- selecting a different one swaps the whole key
+                      // set and React remounts every row, which re-runs
+                      // useState(true). WindowEntryContainer used to do that reset
+                      // with an effect on tabGroupId; it was deleted as redundant
+                      // with this key (KAN-51). Weaken this key and that reset
+                      // goes with it -- renameDrafts.test.tsx covers it.
+                      //
+                      // DraggableRow is what carries that key now. It replaces the
+                      // plain wrapper div rather than nesting inside one: it renders
+                      // exactly one element per window, so the tree keeps its shape.
+                      <DraggableRow key={windowId} rowId={windowId}>
+                        <WindowEntryContainer
+                          title={title}
+                          tabs={tabs}
+                          chromeTabGroups={chromeTabGroups}
+                          tabGroupId={tabGroupId}
+                          windowId={windowId}
+                          onUpdateWindowGroupTitle={(newTitle) =>
+                            handleUpdateWindowGroupTitle(
+                              tabGroupId,
+                              windowId,
+                              newTitle
+                            )
+                          }
+                          onAddCurrTabToWindowClick={() =>
+                            handleAddCurrTabToWindowClick(tabGroupId, windowId)
+                          }
+                          onDeleteClick={() =>
+                            dispatch(deleteWindow({ tabGroupId, windowId }))
+                          }
+                          onWindowTitleClick={() => {
+                            const goToURLText: string = t('Go to URL');
+                            dispatch(
+                              openTabsInAWindow({
+                                tabGroupId,
+                                windowId,
+                                goToURLText,
+                              })
+                            );
+                          }}
+                        />
+                      </DraggableRow>
+                    );
+                  }
+                )}
+              </RowDragArea>
+            </GroupDragArea>
+          </TabDragArea>
         </div>
       )}
     </div>

@@ -182,6 +182,49 @@ const itemOrder = (page: Page) =>
 
 const START = ['tab:a0', 'group:alpha', 'tab:a1', 'group:beta', 'group:gamma'];
 
+// Any window's stored tab order, with a star on every grouped tab. Added for
+// KAN-132 §11.3, where a group leaving w1 has to be found somewhere else.
+const tabsOfWindow = (page: Page, windowId: string) =>
+  page.evaluate((windowId) => {
+    const data = JSON.parse(localStorage.getItem('tabContainerData')!) as {
+      tabGroups: {
+        tabGroupId: string;
+        windows: {
+          windowId: string;
+          tabs: { tabId: string; chromeGroupId?: string }[];
+        }[];
+      }[];
+    };
+    return data.tabGroups
+      .find((g) => g.tabGroupId === 's1')!
+      .windows.find((w) => w.windowId === windowId)!
+      .tabs.map((t) => t.tabId + (t.chromeGroupId ? '*' : ''))
+      .join(' ');
+  }, windowId);
+
+// A window's own stored Chrome-group metadata, WHOLE. The '*' markers above
+// come off the TABS' membership and say nothing about a group's identity
+// travelling with them.
+const groupsOfWindow = (page: Page, windowId: string) =>
+  page.evaluate((windowId) => {
+    const data = JSON.parse(localStorage.getItem('tabContainerData')!) as {
+      tabGroups: {
+        tabGroupId: string;
+        windows: {
+          windowId: string;
+          chromeTabGroups?: { groupId: string; title: string; color: string }[];
+        }[];
+      }[];
+    };
+    return (
+      data.tabGroups
+        .find((g) => g.tabGroupId === 's1')!
+        .windows.find((w) => w.windowId === windowId)!.chromeTabGroups ?? []
+    ).map((g) => ({ groupId: g.groupId, title: g.title, color: g.color }));
+  }, windowId);
+
+const W0_START = 'p0 p1 p2 p3 p4 p5 p6 p7 p8 p9';
+
 async function grab(page: Page, groupId: string) {
   const b = (await page
     .locator(`[data-drag-row-id="group:${groupId}"] [data-group-drag-handle]`)
@@ -259,17 +302,27 @@ test.describe('dragging a group', () => {
       .toBe(preview);
   });
 
-  // KAN-132: a group cannot move to another window, so a release over one is
-  // refused. Three things make this a real control, each learnt the hard way:
+  // INVERTED for KAN-132 §11.3 (this test shipped with KAN-160). It used to
+  // read "CONTROL: released over the window above, nothing moves and the view
+  // comes back", and pinned the interim rule that a group could not leave its
+  // window at all. That rule is exactly what §11.3 replaces, so the release it
+  // describes now COMMITS, and the assertion is the new truth.
+  //
+  // Two of the three things that made it a real control still hold, and still
+  // matter, each learnt the hard way:
   // - Over ANOTHER WINDOW, not "above the pane": with the list scrolled, rows
   //   above the pane still exist in content space, and a release there lands
   //   among them as auto-scroll brings them in (KAN-152, preview agreeing).
   // - Inside the pane, and asserted: a release outside it is refused whatever
-  //   the list does, so it cannot tell refusal from a list that clamps drops
-  //   to its ends.
-  // - Alpha, the FIRST group: a clamp would pull it to the top, visibly. The
-  //   last group clamped to the end would land in its own slot.
-  test('CONTROL: released over the window above, nothing moves and the view comes back', async ({
+  //   the list does.
+  // - Alpha, the FIRST group: a list clamping drops to its ends would land it
+  //   at w0's top or bottom, and it lands in the MIDDLE of w0 instead.
+  //
+  // The third thing it guarded -- `restoreScrollIfNoDrop`, "the view comes
+  // back" -- has moved to the test below, which is a release that really is
+  // refused. A committed drop deliberately does not restore the scroll: it
+  // follows the row it just dropped (KAN-155).
+  test('released over the window above, the group lands in it', async ({
     context,
     extensionId,
   }) => {
@@ -280,7 +333,10 @@ test.describe('dragging a group', () => {
       const r = document
         .querySelector('[data-drag-row-id="p9"]')!
         .getBoundingClientRect();
-      return r.top + r.height / 2;
+      // Just ABOVE p9's midpoint, not on it: on it, the index turns on a
+      // sub-pixel comparison of the same number reached two ways, and "between
+      // p8 and p9" and "after p9" are both plausible answers to it.
+      return r.top + r.height / 2 - 4;
     });
     // PREMISE: inside the pane -- BOTH axes; x = 60 was over the session list
     // and refused a clamping mutant too -- and clear of both auto-scroll zones.
@@ -290,7 +346,72 @@ test.describe('dragging a group', () => {
     expect(at.x + 8).toBeLessThan(pane.right);
     await page.mouse.move(at.x + 8, overW0, { steps: 12 });
     await page.mouse.up();
+
+    // THE CLAIM: alpha is gone from w1, and its three members are in w0 -- in
+    // order, contiguous, still grouped, and between p8 and p9 rather than at
+    // either end.
+    await expect
+      .poll(() => tabsOfWindow(page, 'w0'))
+      .toBe('p0 p1 p2 p3 p4 p5 p6 p7 p8 alpha0* alpha1* alpha2* p9');
+    expect(await itemOrder(page)).toEqual([
+      'tab:a0',
+      'tab:a1',
+      'group:beta',
+      'group:gamma',
+    ]);
+    // AND ITS IDENTITY travelled with it: w0 had no groups at all, and w1 is
+    // left with the two it still holds.
+    expect(await groupsOfWindow(page, 'w0')).toEqual([
+      { groupId: 'alpha', title: 'Alpha', color: 'blue' },
+    ]);
+    expect(await groupsOfWindow(page, 'w1')).toEqual([
+      { groupId: 'beta', title: 'Beta', color: 'red' },
+      { groupId: 'gamma', title: 'Gamma', color: 'green' },
+    ]);
+  });
+
+  // THE REFUSAL THAT SURVIVES §11.3, and the new home of the scroll claim the
+  // test above used to carry: a release over NO window commits nothing, and
+  // `restoreScrollIfNoDrop` puts the view back where the drag began.
+  //
+  // The gap BETWEEN two window blocks, not "above the pane" -- same reason as
+  // above -- and with alpha again, so a list clamping drops to its ends is
+  // still visibly wrong here.
+  test('CONTROL: released between two windows, nothing moves and the view comes back', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await open(context, extensionId);
+    const pane = await scrollToGroupAndRecord(page, 'alpha');
+    const at = await grab(page, 'alpha');
+    // Measured with the drag live: the pick-up compresses alpha, which
+    // shortens w1 and can clamp the scroll, so a gap measured before the press
+    // is not the gap the engine is judging against.
+    const gap = await page.evaluate(() => {
+      const bottom = document
+        .querySelector('[data-drop-window-id="w0"]')!
+        .getBoundingClientRect().bottom;
+      const top = document
+        .querySelector('[data-drop-window-id="w1"]')!
+        .getBoundingClientRect().top;
+      return { bottom, top };
+    });
+    const gapY = (gap.bottom + gap.top) / 2;
+    // PREMISE: there is a gap, the release point is in neither block, it is
+    // inside the pane on both axes, and it is clear of both auto-scroll zones.
+    expect(gap.top - gap.bottom).toBeGreaterThanOrEqual(4);
+    expect(gapY).toBeGreaterThan(gap.bottom);
+    expect(gapY).toBeLessThan(gap.top);
+    expect(gapY).toBeGreaterThan(pane.top + 48);
+    expect(gapY).toBeLessThan(pane.bottom - 48);
+    expect(at.x + 8).toBeGreaterThan(pane.left);
+    expect(at.x + 8).toBeLessThan(pane.right);
+
+    await page.mouse.move(at.x + 8, gapY, { steps: 12 });
+    await page.mouse.up();
+
     expect(await itemOrder(page)).toEqual(START);
+    expect(await tabsOfWindow(page, 'w0')).toBe(W0_START);
     await expect.poll(() => paneScrollTop(page)).toBe(pane.scrollTop);
   });
 

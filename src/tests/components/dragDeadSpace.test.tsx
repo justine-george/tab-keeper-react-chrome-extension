@@ -270,14 +270,18 @@ describe('the window list takes a release in its dead space', () => {
 
 // THE CONTROL THIS WHOLE CHANGE HANGS ON. A tab list sits in the SAME pane as
 // the window list around it, so for a tab the pane test passes just as easily
-// -- and a tab released there has left its window. Committing that is the
-// KAN-132 saturation: the tab drops to the bottom of the window it came from,
-// and the session is dirtied for a cloud write. See dragOutsideItsListIsNoOp.
+// -- and, IN THIS HARNESS, a tab released there still refuses, the same as a
+// release with no pane at all (see
+// dragOutsideItsWindowIsRefusedWithNoBlockMeasured, whose window blocks are
+// likewise never stubbed with a rect). What this file adds is a real pane to
+// be inside, so the "released in the pane" branch of the guard is exercised
+// too, not only the "no pane found" one.
 //
-// That test cannot catch the clamp being turned on for tabs, because in it no
-// pane is ever found, so "released in the pane" is never true. This one gives
-// the release a real pane to be inside.
-describe('a tab list still refuses a release outside its own window', () => {
+// NOT A CLAIM ABOUT THE REAL POPUP: there, a release over another window's
+// block moves the tab there (e2e/cross-window-drag.spec.ts). Neither harness
+// stubs a rect for a window block, so neither can tell that release apart
+// from one that lands nowhere at all.
+describe('a tab list still refuses a release outside its own window, with no block measured', () => {
   test.each([
     ['over the next window', 235],
     ['in the dead space under everything', 380],

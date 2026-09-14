@@ -7,6 +7,7 @@
 import type { ReactNode } from 'react';
 
 import type { LandingSide } from '../../../../utils/functions/dragPreview';
+import type { windowGroupData } from '../../../../redux/slices/tabContainerDataStateSlice';
 
 export const ACTIVATION_DISTANCE_PX = 5;
 
@@ -21,25 +22,71 @@ export function isInEditableField(target: EventTarget | null): boolean {
   return target instanceof Element && target.closest(EDITABLE_FIELD) !== null;
 }
 
+// The boxes that hold a list's rows (KAN-132). A WeakSet rather than an
+// attribute, so knowing them changes nothing in the DOM, and here rather than
+// in RowDragArea.tsx, which may export components and nothing else.
+const ROW_CONTAINERS = new WeakSet<Element>();
+
+/**
+ * A ref for a box that holds a list's rows, so no footprint is measured on it
+ * or above it -- see `footprintOf`.
+ *
+ * Every drag area registers its own container. A list whose rows are drawn in
+ * SEVERAL boxes has to mark the rest: the pane-wide `items` list and the
+ * pane-wide `tabs` list each span every saved window, and each window still
+ * draws a box around its own rows even though that box is no longer any
+ * list's container. That box is not an area's container, and nothing else
+ * tells it apart from the single-child wrappers the climb exists to climb.
+ */
+export function markRowContainer(el: HTMLElement | null): void {
+  if (el) ROW_CONTAINERS.add(el);
+}
+
+export function isRowContainer(el: Element | null): boolean {
+  return el !== null && ROW_CONTAINERS.has(el);
+}
+
 // Where a drop landed, beyond its index.
-//
+export interface DropTarget {
+  // Which Chrome group band the pointer is over, if any.
+  bandId: string | undefined;
+}
+
 // The engine cannot answer this itself: for tabs it is which Chrome group the
 // pointer was over, and for windows there is no such question at all. So the
 // area takes it as a function and stays ignorant of what the answer means --
 // which is what lets one engine drive both lists (KAN-129).
+//
+// `within` is the element to search. For a list whose rows span several saved
+// windows it is the LANDING window's block (KAN-132), so the answer can only
+// name something a release there could land in; for any other list it is the
+// list's own container.
 export type ResolveDrop = (
-  container: HTMLElement | null,
+  within: HTMLElement | null,
   x: number,
   y: number
-) => string | undefined;
+) => DropTarget;
 
 // Which list is being dragged. Only the CSS cares, but it has to come from the
 // caller: the area itself has no idea what its rows represent, and that is
 // deliberate -- see the file header on RowDragArea.
 export type DragKind = 'tab' | 'window' | 'session' | 'group';
 
+// The windows a pane-wide drag list spans, in render order, and the session
+// they belong to. Both lists over a session take it: the `tabs` list in
+// useTabDrop and the `items` list in useGroupDrop -- neither owns this shape
+// any more than the other, so it lives here rather than in either hook.
+export interface PaneWindows {
+  tabGroupId: string;
+  windows: readonly Pick<
+    windowGroupData,
+    'windowId' | 'tabs' | 'chromeTabGroups'
+  >[];
+}
+
 export interface RowDragAreaProps {
-  // Flat, in render order. Index into this is what onMove's toIndex means.
+  // Flat, in render order. For a list with no windows, index into this is what
+  // onMove's toIndex means; for one whose rows sit in windows, see onMove.
   rowIds: string[];
   /**
    * A name rows can join this list by, through any lists nested in between
@@ -48,7 +95,21 @@ export interface RowDragAreaProps {
    * nearest one, which is how every list worked before scopes.
    */
   scope?: string;
-  onMove: (rowId: string, toIndex: number, dropTargetId?: string) => void;
+  /**
+   * Where a committed drop lands.
+   *
+   * For a list whose rows sit in saved windows, `toWindowId` is the window the
+   * release landed in -- the row's own or another one (KAN-132) -- and
+   * `toIndex` counts THAT window's rows with the held one lifted out, which is
+   * the index its stored tabs take. For a list with no windows `toWindowId` is
+   * undefined and `toIndex` counts every row.
+   */
+  onMove: (
+    rowId: string,
+    toIndex: number,
+    dropTargetId?: string,
+    toWindowId?: string
+  ) => void;
   // A CSS selector for the part of a row that starts a drag. Omitted, the whole
   // row does.
   //
@@ -58,6 +119,25 @@ export interface RowDragAreaProps {
   // `begin` runs owns the gesture.
   handleSelector?: string;
   dragKind?: DragKind;
+  /**
+   * A release over ANOTHER saved window lands in that window (KAN-132).
+   *
+   * OFF BY DEFAULT, and that is the half that matters. Off, every release is
+   * judged in the window the held row came from: one over another window's
+   * block names no row of the list being judged, so `isInsideList` refuses it,
+   * and the index a drop reports can only ever be the source window's. A list
+   * with no windows at all never reaches this question either way.
+   *
+   * On, the window under the pointer decides -- its header and a collapsed
+   * window included, neither of which draws a row to hit.
+   *
+   * TURNING IT ON IS HALF A CHANGE. The index a drop then reports is counted
+   * in a window the list's `onMove` did not pick, so that callback must route
+   * on the window it is handed; one that applies the index to the held row's
+   * own window instead commits a move nobody asked for. Both lists that set
+   * this (`TabDragArea`, `GroupDragArea`) route on it.
+   */
+  dropsAcrossWindows?: boolean;
   /**
    * Treat a release anywhere inside the list's pane -- the nearest
    * `overflow: auto` box, whether or not it currently overflows -- as a drop
@@ -102,13 +182,15 @@ export interface RowDragAreaProps {
    * release would do was to do it.
    *
    * The area stays ignorant of what a target IS: it forwards whatever
-   * `resolveDrop` answers, with the container that answered, and the list
+   * `resolveDrop` answers, with the list's own container -- the WHOLE list,
+   * not the window the target sits in, so a mark left in the window the
+   * pointer has just come from is cleared as well (KAN-132) -- and the list
    * decides how to show it. Fired only on CHANGE, so the cost is one hit test
    * per move rather than one DOM write.
    */
   onDropTargetChange?: (
     target: string | undefined,
-    container: HTMLElement | null
+    list: HTMLElement | null
   ) => void;
   /**
    * A CSS selector for the parts of the list that are DRAWN but cannot be
@@ -153,11 +235,18 @@ export interface RowDragAreaProps {
    *
    * The DROP is unaffected -- this shapes the preview only, and the reducer
    * still receives the raw index, which produces the same arrangement.
+   *
+   * `toIndex` counts the rows of ONE window -- `windowId`, the window the row
+   * lands in -- and so does whatever the list compares it against (KAN-132).
+   * In a list whose rows span several saved windows, each window's groups
+   * start at a window-local index, and a group in another window must never
+   * answer for this drop. `windowId` is undefined for a list with no windows.
    */
   landsBesideFixedRow?: (
     rowId: string,
     toIndex: number,
-    target: string | undefined
+    target: string | undefined,
+    windowId: string | undefined
   ) => { fixedRowId: string; side: LandingSide } | undefined;
   // Dragging is off while the list on screen is a FILTERED view of the stored
   // one (KAN-131). toIndex counts rendered rows, and the reducers apply it to
@@ -259,14 +348,94 @@ export function groupEndingAbove(
   return undefined;
 }
 
-// Did the drop land in the list that owns it? (KAN-132, interim.)
+// The marker WindowEntryContainer puts on each saved window's whole block
+// (KAN-132).
+const WINDOW_MARKER = '[data-drop-window-id]';
+
+// The saved-window block an element sits in, or null outside every one -- a
+// window's own row in the window list, a row that is not rendered, or a list
+// with no windows at all.
 //
-// Lists nest: a window's rows contain a window's worth of tab rows, and each
-// window's tab list is its own area over its own tabs. So a drop can only ever
-// name an index INSIDE the source list -- and dragging a tab out of its window
-// did not fail, it SATURATED, landing the tab at the bottom of the window it
-// came from and dirtying the session for a cloud write. Doing nothing is the
-// honest answer until KAN-132 makes it a real move.
+// Structural rather than a hit test: the engine uses it to learn which window
+// each ROW belongs to, and which window the held row came from, neither of
+// which depends on where the pointer is.
+export function windowOf(el: Element | null | undefined): HTMLElement | null {
+  return el?.closest<HTMLElement>(WINDOW_MARKER) ?? null;
+}
+
+// WHICH WINDOW a drop landed in (KAN-132), answered with the block itself so
+// the engine can search it for bands. The same idiom as bandAt, and for the
+// same reason: resolved from rects rather than from the engine's collision
+// result, so the answer does not depend on how the rows were measured.
+//
+// Marked on the WHOLE window block -- header and tabs together, whether the
+// window is open or collapsed -- not on the tab-list container inside it. A
+// drop on a window's header, and a drop anywhere on a collapsed window (which
+// renders no tab list at all), both mean "into this window at index 0", and
+// neither has a tab-list container to hit; the block is the one element
+// that's always there to answer for both.
+export function windowBlockAt(
+  container: HTMLElement | null,
+  x: number,
+  y: number
+): HTMLElement | null {
+  for (const w of windowBlocksIn(container)) {
+    const r = w.getBoundingClientRect();
+    if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return w;
+  }
+  return null;
+}
+
+// Every saved-window block below `container`, in document order.
+export function windowBlocksIn(container: HTMLElement | null): HTMLElement[] {
+  return container
+    ? [...container.querySelectorAll<HTMLElement>(WINDOW_MARKER)]
+    : [];
+}
+
+// Did the drop land inside the rows it is judged against?
+//
+// WHICH ROWS DEPENDS ON THE LIST, and there are two cases (KAN-132).
+//
+// For a list that drops ACROSS WINDOWS, this judges only a release OUTSIDE
+// every window's block. Inside one, the release lands in that window -- its
+// header and a collapsed window included -- and there is nothing to judge.
+// Outside all of them the only window still in play is the one the row came
+// from, and RowDragArea hands this that window's rows. So what it guards for
+// such a list is a release in the gaps between windows and beside the pane:
+// within half a row of the row's own window it is the "drag it to the end"
+// overshoot, and anywhere else it names no window and is refused.
+//
+// THE TEST IS Y-ONLY (`y`, no `x`), so "beside the pane" is not actually
+// guarded here: a release outside every window's block but level with the
+// held row's own window's rows -- to the left or right of the pane entirely
+// -- still falls inside the y band and is ACCEPTED, unchanged from main. That
+// is the overshoot case above, not a refusal; nothing downstream of this
+// function re-checks x for a list with no windows of its own.
+//
+// For a list that does NOT -- `dropsAcrossWindows` off, which is the default,
+// though no list whose rows sit IN windows leaves it off any more -- every
+// release is handed the SOURCE window's rows, including one squarely over
+// another window's block, because no other window is ever in play. Being
+// refused here IS the mechanism by which such a list cannot leave its window,
+// so it is reached on the common path rather than only in the gaps.
+//
+// Two lists still leave it off, and neither reaches this branch: the windows
+// area (TabGroupDetailsContainer) and the left pane's session list
+// (TabGroupEntryContainer). Their rows wrap window blocks, or sit in no window
+// at all, so `l.heldWindow` is null and the question never arises -- they take
+// the paragraph below instead.
+//
+// A list with no windows passes all of its rows, and for it this is the whole
+// rule.
+//
+// HISTORY. This was KAN-132's interim guard, written when a release over
+// ANOTHER window could not yet be a move for any list: each window had a list
+// of its own, so the index SATURATED at the bottom of the window the row came
+// from, and the session was dirtied for a cloud write. Refusing was the honest
+// answer until the drop was built. It is built now, for tabs and for whole
+// groups alike, which is why neither reaches this function from inside another
+// window's block -- only from the space between blocks and beside the pane.
 //
 // Measured against the rows as they were AT DRAG START, which is the same
 // snapshot toIndex is derived from. Re-reading the DOM at drop time would
@@ -300,9 +469,9 @@ export function isInsideList(
   // band the release was refused -- so no position meant "before" at all.
   //
   // Only the top edge moves, and only onto chrome the list already draws. The
-  // bottom stays measured from the rows, because that edge is the KAN-132
-  // guard: it is what stops a tab dragged out of its window saturating at the
-  // bottom of the window it came from.
+  // bottom stays measured from the rows, because past it -- and past the slack
+  // -- a release names no row of this list, and accepting it would saturate at
+  // the bottom (KAN-132's original defect).
   if (drawnTop !== undefined) top = Math.min(top, drawnTop);
   return y >= top - slack && y <= bottom + slack;
 }

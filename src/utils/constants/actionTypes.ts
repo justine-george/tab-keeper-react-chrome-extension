@@ -45,9 +45,13 @@ export const DELETE_WINDOW_ACTION =
   'tabContainerDataState/deleteWindowInternal';
 export const DELETE_TAB_ACTION = 'tabContainerDataState/deleteTabInternal';
 export const MOVE_TAB_ACTION = 'tabContainerDataState/moveTabInternal';
+export const MOVE_TAB_ACROSS_WINDOWS_ACTION =
+  'tabContainerDataState/moveTabAcrossWindowsInternal';
 export const MOVE_WINDOW_ACTION = 'tabContainerDataState/moveWindowInternal';
 export const MOVE_CHROME_GROUP_ACTION =
   'tabContainerDataState/moveChromeGroupInternal';
+export const MOVE_CHROME_GROUP_ACROSS_WINDOWS_ACTION =
+  'tabContainerDataState/moveChromeGroupAcrossWindowsInternal';
 export const MOVE_SESSION_ACTION = 'tabContainerDataState/moveSessionInternal';
 export const SORT_SESSIONS_ACTION =
   'tabContainerDataState/sortSessionsInternal';

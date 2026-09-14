@@ -223,6 +223,23 @@ export interface moveTabParams {
   toChromeGroupId?: string;
 }
 
+// Two windows, which is the whole difference from moveTabParams -- and the
+// reason this is a sibling reducer rather than a widened one. moveTabInternal's
+// no-op guard and its prune ORDERING both rest on the tab never leaving the
+// array it was spliced from (KAN-132).
+export interface moveTabAcrossWindowsParams {
+  tabGroupId: string;
+  fromWindowId: string;
+  toWindowId: string;
+  // Identity, not a position: the source index is looked up, so a stale index
+  // from a list that moved under the caller cannot move the wrong tab.
+  tabId: string;
+  // Indexes the DESTINATION window with the tab not yet in it.
+  toIndex: number;
+  // Absent means ungrouped.
+  toChromeGroupId?: string;
+}
+
 // Where a window sits inside its session (KAN-129).
 //
 // No membership axis, which is the whole difference from moveTabParams: a tab
@@ -280,6 +297,18 @@ export interface moveChromeGroupParams {
   groupId: string;
   // Where the group lands among the window's items (partitionTabsIntoItems),
   // counted with the group itself lifted out -- the drag engine's contract.
+  toIndex: number;
+}
+
+export interface moveChromeGroupAcrossWindowsParams {
+  tabGroupId: string;
+  fromWindowId: string;
+  toWindowId: string;
+  // Identity, not a position, for the same reason as moveChromeGroupParams.
+  groupId: string;
+  // Index into the DESTINATION's items, with the group not yet among them --
+  // see moveChromeGroupAcrossWindowsInternal for why that makes the last
+  // valid slot `items.length`, not `length - 1`.
   toIndex: number;
 }
 
@@ -1623,6 +1652,89 @@ export const tabContainerDataStateSlice = createSlice({
       saveToLocalStorage('tabContainerData', state);
     },
 
+    // Move a tab from one saved window into another (KAN-132).
+    moveTabAcrossWindowsInternal: (
+      state,
+      action: PayloadAction<moveTabAcrossWindowsParams>
+    ) => {
+      const {
+        tabGroupId,
+        fromWindowId,
+        toWindowId,
+        tabId,
+        toIndex,
+        toChromeGroupId,
+      } = action.payload;
+
+      // One window is moveTabInternal's job, and letting both reducers answer
+      // the same gesture is how their two no-op guards would start
+      // disagreeing.
+      if (fromWindowId === toWindowId) return;
+
+      const container = state.tabGroups.find(
+        (group) => group.tabGroupId === tabGroupId
+      );
+      if (!container) return;
+      const from = container.windows.find((w) => w.windowId === fromWindowId);
+      const to = container.windows.find((w) => w.windowId === toWindowId);
+      if (!from || !to) return;
+      const fromIndex = from.tabs.findIndex((t) => t.tabId === tabId);
+      // Same shape as the sibling reducers: an id that does not resolve means
+      // the action arrived for data that is no longer there, and doing
+      // nothing is the correct outcome.
+      if (fromIndex === -1) return;
+
+      const [moved] = from.tabs.splice(fromIndex, 1);
+      const fromChromeGroupId = moved.chromeGroupId;
+
+      // toIndex indexes the destination with the tab not yet in it, so the
+      // last valid insertion point is length -- not length - 1 as within one
+      // window.
+      const target = Math.min(Math.max(0, toIndex), to.tabs.length);
+      to.tabs.splice(target, 0, moved);
+
+      // `delete`, not `= undefined`. Absent is the stored representation, and
+      // Firestore's setDoc rejects an explicit undefined outright (KAN-48).
+      if (toChromeGroupId === undefined) {
+        delete moved.chromeGroupId;
+      } else {
+        moved.chromeGroupId = toChromeGroupId;
+      }
+
+      // Unlike both reorder reducers this one moves COUNTS. The session's
+      // total is deliberately untouched: the tab is still in the session.
+      from.tabCount -= 1;
+      to.tabCount += 1;
+
+      // Only the group the tab LEFT can have emptied, and only in the
+      // source.
+      if (
+        fromChromeGroupId !== undefined &&
+        !from.tabs.some((t) => t.chromeGroupId === fromChromeGroupId)
+      ) {
+        from.chromeTabGroups = (from.chromeTabGroups ?? []).filter(
+          (group) => group.groupId !== fromChromeGroupId
+        );
+      }
+
+      // "An empty window is not a thing" -- the same cascade deleteTabInternal
+      // runs. The session can never reach zero windows here, because the
+      // destination just gained a tab, so there is no tombstone path.
+      if (from.tabs.length === 0) {
+        container.windowCount -= 1;
+        container.windows.splice(container.windows.indexOf(from), 1);
+      }
+
+      // touch, not stampCreated: createdAt is what the merge orders the
+      // session list by, and moving a tab must not send its session to the
+      // top.
+      touchContent(state, container);
+      state.lastModified = Date.now();
+
+      // update localstorage
+      saveToLocalStorage('tabContainerData', state);
+    },
+
     // move a session within the left pane (KAN-130)
     //
     // WRITES BOTH THE ARRAY AND A RANK, and both are load-bearing. The stored
@@ -1877,6 +1989,82 @@ export const tabContainerDataStateSlice = createSlice({
       );
 
       // touch, not stampCreated -- see moveWindowInternal.
+      touchContent(state, container);
+      state.lastModified = Date.now();
+
+      saveToLocalStorage('tabContainerData', state);
+    },
+
+    // Move a whole Chrome tab group from one saved window into another,
+    // keeping its identity -- title, colour, its tabs, in order (KAN-132
+    // §11.4). A SIBLING of moveChromeGroupInternal, not a widened one: that
+    // reducer's no-op guard compares one window's item indices, and it
+    // rebuilds windowGroup.tabs by flattening the items of a single window.
+    moveChromeGroupAcrossWindowsInternal: (
+      state,
+      action: PayloadAction<moveChromeGroupAcrossWindowsParams>
+    ) => {
+      const { tabGroupId, fromWindowId, toWindowId, groupId, toIndex } =
+        action.payload;
+
+      // One window is moveChromeGroupInternal's gesture.
+      if (fromWindowId === toWindowId) return;
+
+      const container = state.tabGroups.find(
+        (g) => g.tabGroupId === tabGroupId
+      );
+      if (!container) return;
+      const from = container.windows.find((w) => w.windowId === fromWindowId);
+      const to = container.windows.find((w) => w.windowId === toWindowId);
+      if (!from || !to) return;
+
+      // The SAME partition the screen draws, so an index cannot mean two
+      // things (KAN-131).
+      const fromItems = partitionTabsIntoItems(from.tabs, from.chromeTabGroups);
+      const runIndex = fromItems.findIndex(
+        (item) => item.kind === 'group' && item.group.groupId === groupId
+      );
+      // Unknown, or listed with no tabs: there is no row, so nothing to move.
+      if (runIndex === -1) return;
+
+      const [run] = fromItems.splice(runIndex, 1);
+      if (run.kind !== 'group') return;
+      from.tabs = fromItems.flatMap((item) =>
+        item.kind === 'tab' ? [item.tab] : item.tabs
+      );
+
+      const toItems = partitionTabsIntoItems(to.tabs, to.chromeTabGroups);
+      // toIndex indexes the destination's items with the group not yet among
+      // them, so the last valid slot is length -- not length - 1 as within
+      // one window.
+      const target = Math.min(Math.max(0, toIndex), toItems.length);
+      toItems.splice(target, 0, run);
+      to.tabs = toItems.flatMap((item) =>
+        item.kind === 'tab' ? [item.tab] : item.tabs
+      );
+
+      // The group's identity travels with its tabs: title and colour are the
+      // user's data (KAN-125), and applyTabGroups writes them back to Chrome.
+      from.chromeTabGroups = (from.chromeTabGroups ?? []).filter(
+        (group) => group.groupId !== groupId
+      );
+      to.chromeTabGroups = [...(to.chromeTabGroups ?? []), run.group];
+
+      // Unlike the reorder reducer this one moves COUNTS. The session's total
+      // is deliberately untouched: the tabs are still in the session.
+      from.tabCount -= run.tabs.length;
+      to.tabCount += run.tabs.length;
+
+      // "An empty window is not a thing" -- the same cascade deleteTabInternal
+      // runs. No tombstone path: the destination just gained tabs, so the
+      // session can never reach zero windows.
+      if (from.tabs.length === 0) {
+        container.windowCount -= 1;
+        container.windows.splice(container.windows.indexOf(from), 1);
+      }
+
+      // touch, not stampCreated: moving a group must not send its session to
+      // the top of the left pane.
       touchContent(state, container);
       state.lastModified = Date.now();
 
@@ -2170,8 +2358,10 @@ export const {
   deleteWindowInternal,
   deleteTabInternal,
   moveTabInternal,
+  moveTabAcrossWindowsInternal,
   moveWindowInternal,
   moveChromeGroupInternal,
+  moveChromeGroupAcrossWindowsInternal,
   moveSessionInternal,
   sortSessionsInternal,
   clearSessionOrder,

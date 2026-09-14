@@ -41,15 +41,23 @@ import {
   ACTIVATION_DISTANCE_PX,
   isInEditableField,
   isInsideList,
+  isRowContainer,
+  markRowContainer,
   setDragging,
+  windowBlockAt,
+  windowBlocksIn,
+  windowOf,
   type DraggableRowProps,
   type RowDragAreaProps,
 } from './dropRules';
 import {
+  landingDeltaAcross,
   landingDeltaOf,
   previewShifts,
+  previewShiftsAcross,
   slotLandingBeside,
-  type PreviewSlot,
+  type LandingSide,
+  type WindowedSlot,
 } from '../../../../utils/functions/dragPreview';
 
 // How close to an edge the pointer must be for the list to start travelling,
@@ -110,6 +118,25 @@ interface Rect {
   // layout, so the gap between two consecutive rows can hold a group's band
   // header belonging to neither.
   top: number;
+  // Which saved window the row sits in, read once at drag start (KAN-132), or
+  // undefined for a row in none -- a window's own row, a row that is not
+  // rendered, or a list with no windows at all. A list whose rows span several
+  // windows answers every drop question within ONE of them, and this is what
+  // picks that window's rows out.
+  windowId: string | undefined;
+}
+
+// A slot in the list as drawn, tagged like a row with the window it sits in.
+type Slot = WindowedSlot;
+
+// Where a release lands: in which window, and at which index AMONG THAT
+// WINDOW'S ROWS with the held one lifted out -- the index the list applies to
+// that window's stored tabs (KAN-132). In a list with no windows the window is
+// undefined and the index counts every row, exactly as it did before a list
+// could span windows.
+interface Landing {
+  windowId: string | undefined;
+  index: number;
 }
 
 // How much room a row takes up: its border box plus the margin that separates
@@ -148,11 +175,20 @@ function footprintOf(
   // is concerned -- a loose tab is a `tabs` row inside an `items` row, and the
   // margin that spaces it lives on the outer one. Never climb past the drag
   // area itself, which would start measuring the list against its neighbours.
+  //
+  // Nor ONTO any box that holds a list's rows (KAN-132): another area's
+  // container, or a box a list marked with `markRowContainer`. Both lists here
+  // now span every window, so neither one's container sits anywhere near its
+  // rows -- and in a window holding a single item, everything between that item
+  // and the window's own block has exactly one child, which is the shape this
+  // climb is looking for. Stopping below such a box leaves the measurement on
+  // the same element it was on while every window had lists of its own.
   let box: HTMLElement = el;
   while (
     box !== container &&
     box.parentElement &&
     box.parentElement !== container &&
+    !isRowContainer(box.parentElement) &&
     box.parentElement.children.length === 1
   ) {
     box = box.parentElement;
@@ -199,6 +235,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
   onMove,
   handleSelector,
   dragKind = 'tab',
+  dropsAcrossWindows = false,
   clampDropToEnds = false,
   restoreScrollIfNoDrop = false,
   resolveDrop,
@@ -246,6 +283,11 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     // The held row's element while a started drag holds it (KAN-160). Kept
     // here so finish clears the element the marker was set on.
     heldEl: HTMLElement | null;
+    // The saved-window block the held row sits in, read at drag start
+    // (KAN-132): where a release outside every window can still land, and
+    // whether this list's rows sit in windows at all. Null for a row in no
+    // window.
+    heldWindow: HTMLElement | null;
     // The last target resolveDrop named, so the list hears only about changes
     // rather than once per pointer move (KAN-164).
     dropTarget: string | undefined;
@@ -256,12 +298,16 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     //
     // A second array rather than a wider `rects`, so the DROP path -- which is
     // correct, and speaks row indices the reducers share -- is untouched.
-    slots: PreviewSlot[];
+    slots: Slot[];
     // Row index -> slot index, and fixed-row key -> slot index. Both are the
     // same translation and neither is derivable from the other once a fixed row
     // sits between two rows.
     slotOfRow: number[];
     slotOfFixed: Map<string, number>;
+    // Where each saved window this list spans ENDS, in content space, measured
+    // with the rows (KAN-132). A row landing past another window's last row --
+    // or in a collapsed one, which draws no rows -- is placed there.
+    windowBottoms: Map<string, number>;
   } | null>(null);
 
   // The auto-scroll frame, cancelled on drop. A ref rather than state: it is
@@ -342,10 +388,12 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
           : 0,
         pane: clampDropToEnds ? paneOf(el) : null,
         heldEl: null,
+        heldWindow: null,
         dropTarget: undefined,
         slots: [],
         slotOfRow: [],
         slotOfFixed: new Map(),
+        windowBottoms: new Map(),
       };
     },
     [rowIds, handleSelector, disabled, clampDropToEnds]
@@ -363,6 +411,105 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     const contentY = (l: NonNullable<typeof live.current>, clientY: number) =>
       clientY + (l.scroller?.scrollTop ?? 0);
 
+    // The saved-window block the pointer is over, or null (KAN-132).
+    //
+    // Only for a list whose rows sit IN windows AND whose drops may cross from
+    // one to another. The window list's container holds every block too, but its
+    // rows wrap blocks rather than sitting in one, and a window drag that asked
+    // this would land at index 0 of a block none of its rows were counted in.
+    // A list that has not opted in answers every question in the held row's own
+    // window, which is what refuses a release over any other one.
+    //
+    // Read from the live layout, unlike the rows: a tab drag moves rows by
+    // transform and never a window's own box, so every block still stands where
+    // it stood at drag start, and a viewport hit test needs no scroll term.
+    //
+    // A forced layout read: windowBlockAt calls getBoundingClientRect on every
+    // window block in the pane. Call ONCE per move and thread the answer down
+    // -- landingOf and dropRoot both used to call this themselves, and
+    // onMoveEvent's drop-target notifier called it a third time through
+    // dropRoot, which on a 20-window session was ~60 forced layout reads per
+    // pointermove before counting judgeDrop's own call at drop time.
+    //
+    // NOT CACHED ACROSS MOVES, even keyed on pointer position: auto-scroll
+    // moves every block's box without moving the pointer, so a position-keyed
+    // cache would answer a stale block on the frame after the list scrolls.
+    // Every call site that runs once per move computes this fresh, right at
+    // its own top, and passes the one answer down -- see update() and
+    // autoScroll() below, and judgeDrop further down, which computes its own
+    // for a different reason (see judgeDrop's own comment).
+    const blockUnderPointer = (l: NonNullable<typeof live.current>) =>
+      l.heldWindow && dropsAcrossWindows
+        ? windowBlockAt(containerRef.current, l.lastX, l.lastY)
+        : null;
+
+    // One window's rows, in list order. Undefined picks out the rows in no
+    // window, which in a list with no windows is all of them.
+    const rowsIn = (
+      l: NonNullable<typeof live.current>,
+      windowId: string | undefined
+    ) => l.rects.filter((r) => r.windowId === windowId);
+
+    // What resolveDrop is handed: the block the pointer is over (KAN-132). A
+    // band belongs to exactly one window, so a wider search could only answer
+    // with a band this release does not land in. Outside every block it is the
+    // held row's own -- the one window still in play, see landingOf -- and for
+    // a list with no windows, the list itself.
+    //
+    // Takes `block` rather than calling blockUnderPointer itself: every caller
+    // in this move's own flow already has one, computed once for that flow --
+    // see the perf note on blockUnderPointer above. Passing it in is what
+    // keeps this a second READ of that answer, not a second forced layout.
+    const dropRoot = (
+      l: NonNullable<typeof live.current>,
+      block: HTMLElement | null
+    ) => block ?? l.heldWindow ?? containerRef.current;
+
+    // The slot a landing IN THE HELD ROW'S OWN WINDOW names, in the list AS
+    // DRAWN, which spans the whole pane (KAN-132). The landing index counts one
+    // window's rows, so it becomes a row of the full list through that window's
+    // rows before it can name a slot. A refused release names the slot the row
+    // left.
+    //
+    // Every index a release in its own window can name HAS a row -- the held
+    // row itself is one of them -- so the fallback is unreachable. It answers
+    // "nothing moves" rather than a window-local index read as a pane-wide one
+    // (KAN-131). A landing in another window is not a slot the row moves to at
+    // all; see insertionSlotOf.
+    const slotOfLanding = (
+      l: NonNullable<typeof live.current>,
+      landing: Landing | undefined,
+      from: number
+    ): number => {
+      if (landing === undefined) return from;
+      const row = rowsIn(l, landing.windowId)[landing.index];
+      return row === undefined ? from : l.slotOfRow[row.index] ?? row.index;
+    };
+
+    // Where a row landing in ANOTHER window is inserted (KAN-132): the slot it
+    // goes in front of, in the list as drawn -- or `l.slots.length`, past every
+    // slot, when it lands after that window's last row or in a window with no
+    // rows drawn at all.
+    //
+    // A title row the list names wins over the row index, for the same reason
+    // as within one window (KAN-166, KAN-174): "before row t" is ambiguous when
+    // a title row sits in front of t.
+    const insertionSlotOf = (
+      l: NonNullable<typeof live.current>,
+      landing: Landing,
+      beside: { fixedRowId: string; side: LandingSide } | undefined
+    ): number => {
+      const fixed =
+        beside === undefined ? undefined : l.slotOfFixed.get(beside.fixedRowId);
+      if (beside !== undefined && fixed !== undefined) {
+        return beside.side === 'before' ? fixed : fixed + 1;
+      }
+      const row = rowsIn(l, landing.windowId)[landing.index];
+      return row === undefined
+        ? l.slots.length
+        : l.slotOfRow[row.index] ?? l.slots.length;
+    };
+
     // Where a release at the pointer's current position lands, or undefined
     // where it would be refused.
     //
@@ -374,13 +521,29 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     //
     // Reads the pane's box, so like everything here it must run while the
     // drag's own layout stands -- see judgeDrop.
-    const landingIndex = (
-      l: NonNullable<typeof live.current>
-    ): number | undefined => {
+    //
+    // Takes `block` rather than calling blockUnderPointer itself -- see the
+    // perf note there. The caller computed it once, for this same move.
+    const landingOf = (
+      l: NonNullable<typeof live.current>,
+      block: HTMLElement | null
+    ): Landing | undefined => {
       // Content space, matching how the rects were measured. Using the raw
       // viewport y here would misjudge both the containment test and the
       // landing index by however far the list had auto-scrolled.
       const dropY = contentY(l, l.lastY);
+
+      // WHICH WINDOW (KAN-132): the one whose block the pointer is over. Its
+      // header counts, and so does a collapsed window, which draws no rows at
+      // all -- both land at index 0, because none of their midpoints is passed.
+      //
+      // Outside every block, only the held row's own window is still in play,
+      // and only near its own rows: the guard below. That is the forgiveness
+      // "drag it to the end" has always had -- an overshoot past a window's
+      // last row lands in the gap under its block, and still means "last".
+      // Anything further out names no window, and is refused.
+      const windowId = (block ?? l.heldWindow)?.dataset.dropWindowId;
+      const rows = rowsIn(l, windowId);
 
       // A release in the empty space below (or above) the rows, but still
       // inside the pane being dragged in. The index needs no special case: it
@@ -388,9 +551,10 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // row already comes out as the last index, and one above them as 0.
       //
       // l.pane is only set when the list OPTED IN, never on the geometry alone
-      // -- for a nested tab list this same release means "dragged out of this
+      // -- for the tab list this same release means "dragged out of this
       // window", and committing it is the KAN-132 defect isInsideList was
-      // written to stop.
+      // written to stop. The tab list spans every window in the pane, so the
+      // pane is no boundary for it at all.
       const paneBox = l.pane?.getBoundingClientRect();
       const releasedInPane =
         paneBox !== undefined &&
@@ -401,9 +565,13 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
 
       // The list's own extent, taken from the DRAWN list so a group's title
       // row counts as part of it (KAN-173). `slots` is already ordered by
-      // measured top, so its first entry is whatever the list starts with.
+      // measured top, so the landing window's first entry is whatever that
+      // window's list starts with -- not the first window's, whose chrome sits
+      // above every other window's rows.
+      const drawnTop = l.slots.find((s) => s.windowId === windowId)?.top;
       if (
-        !isInsideList(l.rects, dropY, l.height / 2, l.slots[0]?.top) &&
+        block === null &&
+        !isInsideList(rows, dropY, l.height / 2, drawnTop) &&
         !releasedInPane
       ) {
         return undefined;
@@ -417,11 +585,26 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // every row between its old and new slots by ITS OWN height, whatever
       // theirs are, and the landing index comes from each row's measured
       // midpoint rather than from any assumed row size.
-      const others = l.rects.filter((r) => r.id !== l.rowId);
-      return others.filter((r) => dropY > r.mid).length;
+      //
+      // Counted over the landing window's rows alone, because that is the list
+      // the index is applied to. Counted across the pane it would include
+      // every row of every window above (KAN-131, one level up).
+      const others = rows.filter((r) => r.id !== l.rowId);
+      return { windowId, index: others.filter((r) => dropY > r.mid).length };
     };
 
-    const update = (l: NonNullable<typeof live.current>) => {
+    // Returns the element resolveDrop was asked against, so a caller that
+    // needs to ask it something else at this SAME pointer position (the
+    // drop-target notifier in onMoveEvent) can reuse the answer instead of
+    // re-running the hit test -- see the perf note on blockUnderPointer.
+    const update = (
+      l: NonNullable<typeof live.current>
+    ): HTMLElement | null => {
+      // Computed ONCE for this whole move and threaded down, not re-read by
+      // landingOf and dropRoot separately -- see the perf note on
+      // blockUnderPointer above.
+      const block = blockUnderPointer(l);
+
       // Where the release would be refused, preview the row going back where
       // it came from: no row steps aside, and its own slot stays open.
       //
@@ -433,9 +616,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // is already its group's first member, the fallback still satisfies the
       // leaving rule, so a refused release drew a full membership-change
       // preview and promised a move that never came.
-      const landing = landingIndex(l);
-      const refused = landing === undefined;
-      const toIndex = landing ?? l.fromIndex;
+      const landing = landingOf(l, block);
 
       // What a release HERE would land ON, asked once and spent twice (KAN-164,
       // KAN-166): the list is told when the answer changes, and the landing
@@ -445,22 +626,60 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // change more than an index -- a tab released inside a group's band joins
       // that group -- and the user cannot see a rule that is only consulted
       // once the pointer is already up.
-      const target = resolveDrop?.(containerRef.current, l.lastX, l.lastY);
+      const root = dropRoot(l, block);
+      const target = resolveDrop?.(root, l.lastX, l.lastY)?.bandId;
 
       // The whole preview in the list AS DRAWN, decided once (KAN-166). The
       // shifts, the frame and the landing slot all come off this one pair of
       // indices, so there is no second derivation to disagree with the first --
       // which is exactly how the slot came to be drawn on an occupied row.
       const from = l.slotOfRow[l.fromIndex] ?? l.fromIndex;
-      const beside = refused
-        ? undefined
-        : landsBesideFixedRow?.(l.rowId, toIndex, target);
-      const fixedSlot =
-        beside === undefined ? undefined : l.slotOfFixed.get(beside.fixedRowId);
-      const to =
-        fixedSlot === undefined || beside === undefined
-          ? l.slotOfRow[toIndex] ?? toIndex
-          : slotLandingBeside(from, fixedSlot, beside.side);
+      const beside =
+        landing === undefined
+          ? undefined
+          : landsBesideFixedRow?.(
+              l.rowId,
+              landing.index,
+              target,
+              landing.windowId
+            );
+      let shifts: Record<string, number>;
+      let landingDelta: number;
+      if (
+        landing !== undefined &&
+        landing.windowId !== undefined &&
+        landing.windowId !== l.heldWindow?.dataset.dropWindowId
+      ) {
+        // Into ANOTHER window: each window previewed in its own frame, not one
+        // range across both (KAN-132) -- see previewShiftsAcross for what the
+        // single range drew.
+        const at = insertionSlotOf(l, landing, beside);
+        shifts = previewShiftsAcross(
+          l.slots,
+          from,
+          landing.windowId,
+          at,
+          l.footprint
+        );
+        landingDelta = landingDeltaAcross(
+          l.slots,
+          from,
+          landing.windowId,
+          at,
+          l.windowBottoms.get(landing.windowId)
+        );
+      } else {
+        const fixedSlot =
+          beside === undefined
+            ? undefined
+            : l.slotOfFixed.get(beside.fixedRowId);
+        const to =
+          fixedSlot === undefined || beside === undefined
+            ? slotOfLanding(l, landing, from)
+            : slotLandingBeside(from, fixedSlot, beside.side);
+        shifts = previewShifts(l.slots, from, to, l.footprint);
+        landingDelta = landingDeltaOf(l.slots, from, to);
+      }
 
       setDrag({
         rowId: l.rowId,
@@ -471,9 +690,11 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         offset:
           l.lastY - l.startY + (l.scroller?.scrollTop ?? 0) - l.startScrollTop,
         footprint: l.footprint,
-        shifts: previewShifts(l.slots, from, to, l.footprint),
-        landingDelta: landingDeltaOf(l.slots, from, to),
+        shifts,
+        landingDelta,
       });
+
+      return root;
     };
 
     // Drag the list along when the pointer is held near its edge, so a target
@@ -555,6 +776,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         // re-render cannot drop it (KAN-159).
         l.heldEl = rows.current.get(l.rowId) ?? null;
         l.heldEl?.setAttribute('data-drag-held', '');
+        l.heldWindow = windowOf(l.heldEl);
 
         // RE-READ AFTER THE COLLAPSE, and this is load-bearing (KAN-154).
         // Folding the windows shut can make the list shorter than its viewport,
@@ -585,6 +807,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
             mid: r ? r.top + r.height / 2 + l.startScrollTop : 0,
             height: r?.height ?? 0,
             top: r ? r.top + l.startScrollTop : 0,
+            windowId: windowOf(el)?.dataset.dropWindowId,
           };
         });
         // The list AS DRAWN (KAN-166): the rows, plus whatever fixed parts the
@@ -608,13 +831,19 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
                   // A group's tail marker measures 0 here, by design: it holds a
                   // place in this list without occupying any (KAN-176).
                   height: box.height,
+                  windowId: windowOf(el)?.dataset.dropWindowId,
                 },
               ];
             })
           : [];
 
         l.slots = [
-          ...l.rects.map((r) => ({ key: r.id, top: r.top, height: r.height })),
+          ...l.rects.map((r) => ({
+            key: r.id,
+            top: r.top,
+            height: r.height,
+            windowId: r.windowId,
+          })),
           ...fixed,
         ].sort((a, b) => a.top - b.top);
 
@@ -626,6 +855,20 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
           if (row !== undefined) l.slotOfRow[row] = index;
           else l.slotOfFixed.set(slot.key, index);
         });
+
+        // Where each window ends, for a list whose rows sit in windows
+        // (KAN-132). In the same frame as the rects, like everything above.
+        l.windowBottoms = new Map();
+        if (l.heldWindow) {
+          for (const block of windowBlocksIn(containerRef.current)) {
+            const id = block.dataset.dropWindowId;
+            if (id === undefined) continue;
+            l.windowBottoms.set(
+              id,
+              block.getBoundingClientRect().bottom + l.startScrollTop
+            );
+          }
+        }
 
         l.height = l.rects[l.fromIndex]?.height ?? 0;
         // Measured in the same frame as the rects above, and from the element
@@ -661,12 +904,23 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         }
       }
 
-      update(l);
+      // The root update() resolved its own resolveDrop call against, for this
+      // SAME pointer position -- reused below rather than hit-tested again,
+      // see the perf note on blockUnderPointer.
+      const root = update(l);
 
       if (onDropTargetChange && resolveDrop) {
-        const t = resolveDrop(containerRef.current, l.lastX, l.lastY);
+        // Compared and forwarded as `.bandId`, not the object resolveDrop
+        // returned: a fresh object compares unequal on every pointermove even
+        // when nothing the caller cares about changed, which would fire
+        // onDropTargetChange every move instead of only on a real change
+        // (KAN-164's whole point). onDropTargetChange's contract is
+        // unchanged by KAN-132 -- it still names a band, not a window.
+        const t = resolveDrop(root, l.lastX, l.lastY).bandId;
         if (t !== l.dropTarget) {
           l.dropTarget = t;
+          // The whole list, not the window the target is in: the mark being
+          // replaced may sit in the window the pointer has just left (KAN-132).
           onDropTargetChange(t, containerRef.current);
         }
       }
@@ -683,16 +937,32 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     // mid-pane landed last. The mirror of the rule at activation, where the
     // kind is published BEFORE measuring.
     //
-    // The landing decision itself is landingIndex, shared with the preview, so
+    // The landing decision itself is landingOf, shared with the preview, so
     // what the user was shown and what happens cannot differ (KAN-158).
     const judgeDrop = (
       l: NonNullable<typeof live.current>
-    ): { toIndex: number; dropTargetId: string | undefined } | undefined => {
-      const toIndex = landingIndex(l);
-      if (toIndex === undefined) return undefined;
+    ):
+      | {
+          toIndex: number;
+          dropTargetId: string | undefined;
+          toWindowId: string | undefined;
+        }
+      | undefined => {
+      // Computed HERE, not threaded in from a previous move's update() or
+      // autoScroll() call: KAN-156 requires this hit test run while the
+      // drag's own (possibly folded) layout still stands, and the drag kind
+      // is unpublished before finish() reaches here in some orderings. A
+      // value computed on an earlier move could describe a layout that no
+      // longer exists by the time this runs.
+      const block = blockUnderPointer(l);
+      const landing = landingOf(l, block);
+      if (landing === undefined) return undefined;
       return {
-        toIndex,
-        dropTargetId: resolveDrop?.(containerRef.current, l.lastX, l.lastY),
+        // Window-local, in the window named beside it -- see Landing.
+        toIndex: landing.index,
+        toWindowId: landing.windowId,
+        dropTargetId: resolveDrop?.(dropRoot(l, block), l.lastX, l.lastY)
+          ?.bandId,
       };
     };
 
@@ -729,7 +999,22 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       suppressClickUntil.current = performance.now() + 400;
 
       if (drop) {
-        onMove(l.rowId, drop.toIndex, drop.dropTargetId);
+        // The window is passed only by a list whose rows sit in windows. Every
+        // other list is called exactly as it always was, and never learns the
+        // argument exists.
+        //
+        // THE TWO-ARITY CALLS ARE LOAD-BEARING, not a shorter way to write the
+        // same thing with the 4th argument left `undefined`:
+        // dragSurvivesRerender.test.tsx:107 asserts
+        // `toHaveBeenCalledWith('a', 1, undefined)`, which a trailing explicit
+        // `undefined` 4th argument fails -- vitest's mock matcher checks
+        // argument COUNT too. Do not collapse this to one call spread over
+        // both branches.
+        if (drop.toWindowId === undefined) {
+          onMove(l.rowId, drop.toIndex, drop.dropTargetId);
+        } else {
+          onMove(l.rowId, drop.toIndex, drop.dropTargetId, drop.toWindowId);
+        }
 
         // Follow the row you just dropped (KAN-155).
         //
@@ -817,6 +1102,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     fixedRowSelector,
     landsBesideFixedRow,
     dragKind,
+    dropsAcrossWindows,
     restoreScrollIfNoDrop,
   ]);
 
@@ -845,6 +1131,12 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     },
     []
   );
+
+  // Known to every footprint's climb as a box holding a list's rows -- see
+  // footprintOf. The element is the same for the life of the area.
+  useEffect(() => {
+    markRowContainer(containerRef.current);
+  }, []);
 
   const ctx = useMemo<Ctx>(
     () => ({ register, begin, drag }),
