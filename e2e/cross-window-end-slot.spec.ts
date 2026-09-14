@@ -255,6 +255,45 @@ test.describe('the ghost for a landing at the end of another window', () => {
     await page.mouse.up();
   });
 
+  // KAN-183. The box has to COME BACK, within the same drag.
+  //
+  // The two shapes are two branches of one inline style object, and React
+  // diffs those property by property: written as `inset` plus a `bottom`
+  // override, going back to the box removed `bottom` instead of restoring it,
+  // and the slot stayed collapsed to its own borders -- 2px -- for the rest of
+  // the drag. Measured, and reported from the popup as a ghost that changed
+  // shape as it moved.
+  //
+  // The controls above cannot see it: each starts a FRESH drag, where the box
+  // is the first shape drawn. Only crossing from one to the other does.
+  test('the box comes back after the line, within one drag', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await open(context, extensionId);
+    await scrollToBoundary(page);
+
+    const x = await grabGroup(page, 'beta');
+    const w1 = await boxOf(page, '[data-drop-window-id="w1"]');
+
+    // First the append: the slot is a line.
+    await page.mouse.move(x, w1.y + w1.height - 3, { steps: 8 });
+    await page.waitForTimeout(300);
+    const asLine = await slotBox(page);
+    expect(asLine.height).toBeLessThan(16);
+
+    // Then up among w1's rows, where a gap really does open.
+    const a4 = await boxOf(page, '[data-drag-row-id="tab:a4"]');
+    await page.mouse.move(x, a4.y + 4, { steps: 8 });
+    await page.waitForTimeout(300);
+
+    const asBox = await slotBox(page);
+    const held = await boxOf(page, '[data-drag-row-id="group:beta"]');
+    expect(asBox.height).toBeGreaterThanOrEqual(held.height - 2);
+
+    await page.mouse.up();
+  });
+
   // CONTROL: the same landing at the end of the LAST window, where nothing is
   // drawn below. It is the same "no gap opens" case, so it is drawn the same
   // way -- the rule is about the landing, not about what happens to be below.
