@@ -600,17 +600,21 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
             ].flatMap((el) => {
               const key = el.dataset.fixedRowId;
               if (key === undefined) return [];
+              const box = el.getBoundingClientRect();
               return [
                 {
                   key,
-                  top: el.getBoundingClientRect().top + l.startScrollTop,
+                  top: box.top + l.startScrollTop,
+                  // A group's tail marker measures 0 here, by design: it holds a
+                  // place in this list without occupying any (KAN-176).
+                  height: box.height,
                 },
               ];
             })
           : [];
 
         l.slots = [
-          ...l.rects.map((r) => ({ key: r.id, top: r.top })),
+          ...l.rects.map((r) => ({ key: r.id, top: r.top, height: r.height })),
           ...fixed,
         ].sort((a, b) => a.top - b.top);
 

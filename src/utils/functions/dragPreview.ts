@@ -25,6 +25,11 @@ export interface PreviewSlot {
   key: string;
   // Measured before the drag began, in the list's content space.
   top: number;
+  // Also measured, and load-bearing for one reason: a group declares its tail
+  // as a ZERO-HEIGHT marker (KAN-176), and a zero-height slot is not a place a
+  // row can come to rest. Its top is the bottom of the row above it, so a
+  // landing resolved onto one is a row too low -- see landingDeltaOf (KAN-178).
+  height: number;
 }
 
 /**
@@ -111,7 +116,27 @@ export function landingDeltaOf(
   to: number
 ): number {
   const start = slots[from];
-  const target = slots[to];
-  if (start === undefined || target === undefined) return 0;
+  if (start === undefined) return 0;
+
+  // A slot with no height is not a place a row can come to rest (KAN-178). A
+  // group declares its tail with a zero-height marker, so between two adjacent
+  // groups the slot in front of the lower group's title row IS that marker, and
+  // its top is the BOTTOM of the last member above it. Landing there drew the
+  // ghost a whole row low, on the next group's title, while the tab itself came
+  // to rest on that last member's top.
+  //
+  // Coming from above, "after the row above the marker" is that row's own top,
+  // because the held row leaving shuffles it up into the gap -- which is also
+  // the slot a join at that group's tail already resolves to, and the two land
+  // in the same place by design (KAN-174: the band tint tells them apart).
+  //
+  // ONLY from above. From below nothing above the landing moves, so the gap
+  // really does open at the marker's top, and stepping back would aim a row
+  // too high.
+  let index = to;
+  while (from < index && slots[index]?.height === 0) index -= 1;
+
+  const target = slots[index];
+  if (target === undefined) return 0;
   return target.top - start.top;
 }
