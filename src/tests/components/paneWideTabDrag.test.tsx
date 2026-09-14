@@ -164,11 +164,18 @@ const BLOCKS: Record<string, [number, number]> = {
 };
 const GAP_Y = 160;
 
+// A real getBoundingClientRect includes every transform above the element, so
+// a block the preview has MOVED to make room reports its moved box (KAN-184).
+// jsdom applies no transforms at all, so the double has to add that itself --
+// otherwise windowBlockAt subtracts a shift the box never had, and the moved
+// window claims a pointer that is nowhere near it.
 const measureWindows = (container: HTMLElement) => {
   for (const [id, [top, height]] of Object.entries(BLOCKS)) {
-    container.querySelector<HTMLElement>(
+    const el = container.querySelector<HTMLElement>(
       `[data-drop-window-id="${id}"]`
-    )!.getBoundingClientRect = () => box(top, height);
+    )!;
+    el.getBoundingClientRect = () =>
+      box(top + (parseFloat(el.dataset.windowShift ?? '') || 0), height);
   }
 };
 
@@ -231,7 +238,18 @@ describe('a tab drag in a pane-wide list', () => {
     expect(tabsOf(store, 1)).toBe('b0* b1* b3');
   });
 
-  test('a release between two windows commits nothing', async () => {
+  // KAN-185, and this REPLACES "a release between two windows commits nothing".
+  //
+  // The 8px between two window blocks used to name no window, so a release
+  // there was refused -- and dragging slowly across the boundary showed the
+  // landing snap home to the row's own origin and out again, measured over a
+  // 6px band in the popup. The gap belongs to the NEARER block now, so the
+  // boundary is a point rather than a band, and a release in it lands.
+  //
+  // GAP_Y is just above the middle of this fixture's gap, so it is the window
+  // ABOVE that owns it, and the row lands at that window's end -- past every
+  // one of its rows' midpoints.
+  test('a release between two windows lands in the nearer one', async () => {
     const { container, store } = await render();
     const node = layout(container);
     measureWindows(container);
@@ -239,6 +257,23 @@ describe('a tab drag in a pane-wide list', () => {
     press(node('b2'), 272);
     moveTo(GAP_Y);
     release(GAP_Y);
+
+    expect(tabsOf(store, 0)).toBe(`${A_START} b2`);
+    expect(tabsOf(store, 1)).toBe('b0* b1* b3');
+    expect(store.getState().globalState.isDirty).toBe(true);
+  });
+
+  // THE CONTROL for the rule above: the gap is only between two blocks. Far
+  // below the last window there is no nearer block to claim the release, and
+  // it is still refused -- the KAN-132 guard this must not have widened.
+  test('CONTROL: a release below the last window still commits nothing', async () => {
+    const { container, store } = await render();
+    const node = layout(container);
+    measureWindows(container);
+
+    press(node('b2'), 272);
+    moveTo(400);
+    release(400);
 
     expect(tabsOf(store, 0)).toBe(A_START);
     expect(tabsOf(store, 1)).toBe(B_START);

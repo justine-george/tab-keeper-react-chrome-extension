@@ -379,29 +379,55 @@ export function windowBlockAt(
   x: number,
   y: number
 ): HTMLElement | null {
-  for (const w of windowBlocksIn(container)) {
-    const r = w.getBoundingClientRect();
-    // THE BLOCK'S RESTING BOX, not where the preview has moved it (KAN-184).
-    //
-    // While a row is held over another window, the blocks between the two are
-    // translated to open the room the drop needs, so their live rects are not
-    // where the drag measured them. Hit-testing those would make the preview
-    // decide what the pointer can reach -- and marking a window would move the
-    // window under the pointer, which is the LATCH that KAN-171 had to fix for
-    // a band's padding. Growing the preview shows the result; it is not a
-    // moved target.
-    //
-    // Read off the data attribute the block publishes, for the same reason
-    // bandAt reads the inline padding: this runs for every window on every
-    // pointer move.
-    const shift = parseFloat(w.dataset.windowShift ?? '') || 0;
+  // THE BLOCKS' RESTING BOXES, not where the preview has moved them (KAN-184).
+  //
+  // While a row is held over another window, the blocks after it are translated
+  // to open the room the drop needs, so their live rects are not where the drag
+  // measured them. Hit-testing those would let the preview decide what the
+  // pointer can reach -- and a window that slides under the pointer while it is
+  // being pointed at is the LATCH that KAN-171 had to fix for a band's padding.
+  // Growing a preview shows the result; it is not a moved target.
+  //
+  // Read off the attribute the block publishes, for the same reason bandAt
+  // reads the inline padding: this runs for every window on every pointer move.
+  const boxes = windowBlocksIn(container).map((el) => {
+    const r = el.getBoundingClientRect();
+    const shift = parseFloat(el.dataset.windowShift ?? '') || 0;
+    return {
+      el,
+      left: r.left,
+      right: r.right,
+      top: r.top - shift,
+      bottom: r.bottom - shift,
+    };
+  });
+
+  for (const b of boxes) {
+    if (x >= b.left && x <= b.right && y >= b.top && y <= b.bottom) return b.el;
+  }
+
+  // THE GAP BETWEEN TWO WINDOWS BELONGS TO THE NEARER OF THEM (KAN-185).
+  //
+  // Windows sit 8px apart, and a pointer in that gap used to name no window at
+  // all. The drop then fell back to the window the row came from, could not
+  // place it there either, and previewed NO CHANGE -- so dragging slowly across
+  // the boundary showed the landing snap home to the row's own origin and out
+  // again, measured over a 6px band. The boundary between two windows is a
+  // point, not a band: the landing changes hands at the middle of the gap.
+  //
+  // Only BETWEEN two blocks. Above the first and below the last, naming a
+  // window is exactly what must not happen -- that is the release beside the
+  // pane that isInsideList is there to refuse (KAN-132).
+  for (let i = 0; i + 1 < boxes.length; i++) {
+    const above = boxes[i];
+    const below = boxes[i + 1];
     if (
-      x >= r.left &&
-      x <= r.right &&
-      y >= r.top - shift &&
-      y <= r.bottom - shift
+      y > above.bottom &&
+      y < below.top &&
+      x >= above.left &&
+      x <= above.right
     ) {
-      return w;
+      return y - above.bottom <= below.top - y ? above.el : below.el;
     }
   }
   return null;
