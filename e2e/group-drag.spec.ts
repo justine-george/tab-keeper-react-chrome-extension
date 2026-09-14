@@ -419,7 +419,9 @@ test.describe('dragging a group', () => {
   // open 128px below its own slot, REFUSED (measured, KAN-161), and a refused
   // release ALSO changes nothing, so the order alone cannot tell "home" from
   // "refused". The gap above the held row can: at home it sits against the
-  // item above it, with only the band margin between.
+  // item above it, with only the space between two groups in between -- 8px
+  // since KAN-179 widened it from 2, and still an order of magnitude short of
+  // the 128 this is here to rule out.
   test('a zero-travel pick-up stays in its slot and changes nothing', async ({
     context,
     extensionId,
@@ -440,7 +442,7 @@ test.describe('dragging a group', () => {
       return held.top - above.bottom;
     });
     await page.mouse.up();
-    expect(gapAbove).toBeLessThanOrEqual(4);
+    expect(gapAbove).toBeLessThanOrEqual(8);
     expect(await itemOrder(page)).toEqual(START);
   });
 

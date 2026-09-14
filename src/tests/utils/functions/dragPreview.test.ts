@@ -36,14 +36,14 @@ import {
 // member shifted alike" as "the group travelled" -- true when the group is
 // passed over, false when it GAINS a first member.
 const LAYOUT: PreviewSlot[] = [
-  { key: 'a0', top: 0 },
-  { key: 'a1', top: 32 },
-  { key: 'a2', top: 64 },
-  { key: 'alpha', top: 98 },
-  { key: 'alpha0', top: 130 },
-  { key: 'alpha1', top: 162 },
-  { key: 'alpha2', top: 194 },
-  { key: 'a3', top: 228 },
+  { key: 'a0', top: 0, height: 32 },
+  { key: 'a1', top: 32, height: 32 },
+  { key: 'a2', top: 64, height: 32 },
+  { key: 'alpha', top: 98, height: 32 },
+  { key: 'alpha0', top: 130, height: 32 },
+  { key: 'alpha1', top: 162, height: 32 },
+  { key: 'alpha2', top: 194, height: 32 },
+  { key: 'a3', top: 228, height: 32 },
 ];
 
 // a2's and a3's measured footprint. Both sit beside the band, which carries a
@@ -164,6 +164,91 @@ describe('previewShifts for a tab leaving its group', () => {
     expect(
       landingDeltaOf(LAYOUT, 4, slotLandingBeside(4, ALPHA, 'before'))
     ).toBe(-32);
+  });
+});
+
+// KAN-178. Two groups sitting next to each other, and a loose tab dropped
+// BETWEEN them. Measured in the real popup at 790x550 on 2026-09-13, a window
+// laid out: loose, loose, [group A: 2 members], [group B: 3 members], loose.
+//
+//   slot  key       top    height
+//      0  top      156.5      32
+//      1  newtab   188.5      32   <- the held row
+//      2  A        222.5      32   A's title row
+//      3  a1       254.5      32
+//      4  a2       286.5      32
+//      5  A:tail   318.5       0   <- a group declares its tail with no height
+//      6  B        320.5      32   B's title row
+//      7  b1       352.5      32
+//      8  b2       384.5      32
+//      9  b3       416.5      32
+//     10  B:tail   448.5       0
+//     11  last     450.5      32
+//
+// Released between the two groups, the tab really does land ungrouped between
+// them -- measured, the store went
+//   top newtab a1*A a2*A b1*B ...  ->  top a1*A a2*A newtab b1*B ...
+// and the tab came to rest at 288.5, i.e. on a2's old top plus the 2px the band
+// margin accounts for (KAN-167, the preview's known quantisation).
+const BOUNDARY: PreviewSlot[] = [
+  { key: 'top', top: 156.5, height: 32 },
+  { key: 'newtab', top: 188.5, height: 32 },
+  { key: 'A', top: 222.5, height: 32 },
+  { key: 'a1', top: 254.5, height: 32 },
+  { key: 'a2', top: 286.5, height: 32 },
+  { key: 'A:tail', top: 318.5, height: 0 },
+  { key: 'B', top: 320.5, height: 32 },
+  { key: 'b1', top: 352.5, height: 32 },
+  { key: 'b2', top: 384.5, height: 32 },
+  { key: 'b3', top: 416.5, height: 32 },
+  { key: 'B:tail', top: 448.5, height: 0 },
+  { key: 'last', top: 450.5, height: 32 },
+];
+
+const HELD_FROM_ABOVE = 1;
+const HELD_FROM_BELOW = 11;
+const B_TITLE = 6;
+const A_TAIL = 5;
+
+describe('a tab landing between two adjacent groups', () => {
+  // THE DEFECT. "Before B's title row" resolves to the slot in front of it,
+  // which is A's tail marker -- and a marker with no height is not a place a
+  // row can sit. Its top is a2's BOTTOM, so the slot was drawn a whole row low,
+  // on B's title, while the tab landed on a2's top.
+  test('lands on the last member of the group above, not on its tail marker', () => {
+    expect(
+      landingDeltaOf(
+        BOUNDARY,
+        HELD_FROM_ABOVE,
+        slotLandingBeside(HELD_FROM_ABOVE, B_TITLE, 'before')
+      )
+    ).toBe(286.5 - 188.5);
+  });
+
+  // CONTROL, and the reason the fix is safe: joining A at its tail already
+  // resolves to that same slot. The two land in the same place and are told
+  // apart by the band tint and the frame, exactly as KAN-174 settled at the
+  // other end of a group.
+  test('CONTROL: joining the group above at its tail lands in the same place', () => {
+    expect(
+      landingDeltaOf(
+        BOUNDARY,
+        HELD_FROM_ABOVE,
+        slotLandingBeside(HELD_FROM_ABOVE, A_TAIL, 'before')
+      )
+    ).toBe(286.5 - 188.5);
+  });
+
+  // CONTROL: from below nothing was ever wrong. "Before B's title" resolves to
+  // the title row itself, which has height, and the title moves down instead.
+  test('CONTROL: coming from below, the slot is the title rows own top', () => {
+    expect(
+      landingDeltaOf(
+        BOUNDARY,
+        HELD_FROM_BELOW,
+        slotLandingBeside(HELD_FROM_BELOW, B_TITLE, 'before')
+      )
+    ).toBe(320.5 - 450.5);
   });
 });
 

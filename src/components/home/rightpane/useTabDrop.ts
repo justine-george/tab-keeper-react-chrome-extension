@@ -28,7 +28,12 @@ import {
   type chromeTabGroupData,
 } from '../../../utils/functions/tabGroups';
 import type { LandingSide } from '../../../utils/functions/dragPreview';
-import { bandAt, type DropTarget, type PaneWindows } from './rowDrag/dropRules';
+import {
+  bandAt,
+  groupEndingAbove,
+  type DropTarget,
+  type PaneWindows,
+} from './rowDrag/dropRules';
 
 // Where one window's groups start and end in THAT window's tab list, and where
 // each of its tabs sits. Window-local indices, the same ones moveTabInternal
@@ -169,7 +174,27 @@ function landsBesideFixedRowIn(
       return { fixedRowId: groupId, side: 'before' };
     }
   }
-  return undefined;
+
+  // KAN-181. The same question at the other end: an ungrouped landing
+  // immediately PAST a group's last member. Left unnamed it resolves to the
+  // slot a tail JOIN resolves to, so the group's tail marker never moves while
+  // its members do, and the colour strip hangs a row below the group -- over
+  // the slot this tab is about to take, reading as a join.
+  //
+  // AFTER the head loop, deliberately. Between two adjacent groups both
+  // questions are true at once, and the head answer is the one KAN-178 and
+  // KAN-179 were measured against; this fires where the group is followed by a
+  // loose tab or by nothing at all.
+  //
+  // THIS WINDOW'S GROUPS ONLY, for the reason the head loop gives above.
+  const ending = groupEndingAbove(
+    edges.groupLastIndex,
+    edges.indexOfTab.get(rowId),
+    toIndex
+  );
+  return ending !== undefined
+    ? { fixedRowId: `${ending}:tail`, side: 'after' }
+    : undefined;
 }
 
 /**

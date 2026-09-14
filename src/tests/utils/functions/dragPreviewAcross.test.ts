@@ -15,19 +15,24 @@ import {
 //   wA: a0 0, a1 32, [G title 66, g0 98, G:tail 130]
 //   wB: [H title 200, h0 232, H:tail 264], b0 266, b1 298
 //   c0: a row of a collapsed window -- no box, no window
+//
+// Heights come from the same layout: every drawn row is 32, and the three slots
+// that are 0 are 0 for a reason a landing has to respect (KAN-178) -- a group
+// declares its tail with a zero-height marker (KAN-176), and a collapsed
+// window's row has no box at all.
 const FP = 32;
 const SLOTS: WindowedSlot[] = [
-  { key: 'c0', top: 0, windowId: undefined },
-  { key: 'a0', top: 0, windowId: 'wA' },
-  { key: 'a1', top: 32, windowId: 'wA' },
-  { key: 'G', top: 66, windowId: 'wA' },
-  { key: 'g0', top: 98, windowId: 'wA' },
-  { key: 'G:tail', top: 130, windowId: 'wA' },
-  { key: 'H', top: 200, windowId: 'wB' },
-  { key: 'h0', top: 232, windowId: 'wB' },
-  { key: 'H:tail', top: 264, windowId: 'wB' },
-  { key: 'b0', top: 266, windowId: 'wB' },
-  { key: 'b1', top: 298, windowId: 'wB' },
+  { key: 'c0', top: 0, height: 0, windowId: undefined },
+  { key: 'a0', top: 0, height: 32, windowId: 'wA' },
+  { key: 'a1', top: 32, height: 32, windowId: 'wA' },
+  { key: 'G', top: 66, height: 32, windowId: 'wA' },
+  { key: 'g0', top: 98, height: 32, windowId: 'wA' },
+  { key: 'G:tail', top: 130, height: 0, windowId: 'wA' },
+  { key: 'H', top: 200, height: 32, windowId: 'wB' },
+  { key: 'h0', top: 232, height: 32, windowId: 'wB' },
+  { key: 'H:tail', top: 264, height: 0, windowId: 'wB' },
+  { key: 'b0', top: 266, height: 32, windowId: 'wB' },
+  { key: 'b1', top: 298, height: 32, windowId: 'wB' },
 ];
 const at = (key: string) => SLOTS.findIndex((s) => s.key === key);
 const PAST_END = SLOTS.length;

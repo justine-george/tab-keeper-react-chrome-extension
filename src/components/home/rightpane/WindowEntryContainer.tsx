@@ -65,6 +65,27 @@ interface WindowEntryContainerProps {
   onDeleteClick: MouseEventHandler;
 }
 
+// The space a band keeps from the rows around it. Named because two places
+// have to agree on it: the band's own style, and GroupFrameFollower below,
+// which trades margin for padding while a preview grows the band and has to
+// hand back exactly the margin it borrowed.
+const BAND_MARGIN_PX = 2;
+
+// KAN-179. The gap a band opens when the row above it is ANOTHER GROUP.
+//
+// A band means "release here and join this group" over its whole height
+// (KAN-164), so between two adjacent groups the only ungrouped landing is the
+// gap between the two bands -- and adjacent margins COLLAPSE, so two 2px
+// margins leave 2px, not 4. Reported from the real popup as a target that had
+// to be finagled.
+//
+// Spent on the TOP margin of the lower band, never the bottom of the upper
+// one: footprintOf reads a row's own margin-BOTTOM and hands it to the preview
+// as the distance every displaced row travels (KAN-163/167), so a wider bottom
+// margin would move every preview in the pane. A top margin moves nothing but
+// the band it sits on.
+const ADJACENT_GROUP_GAP_PX = 8;
+
 // KAN-165. Carries a group's frame along with its tabs.
 //
 // The engine translates individual tab rows. A group's title row and colour
@@ -128,10 +149,18 @@ const GroupFrameFollower: React.FC<{ groupId: string }> = ({ groupId }) => {
     // note there, and `style.paddingTop` costs nothing next to a computed one.
     const growTop = Math.max(0, -top);
     const growBottom = Math.max(0, bottom);
+    // The margin this band RESTS at, which is not the same for every band: one
+    // that follows another group holds the wider KAN-179 gap. Borrowing against
+    // the wrong number would quietly close that gap on the first preview.
+    const restingTop = band.hasAttribute('data-after-group')
+      ? ADJACENT_GROUP_GAP_PX
+      : BAND_MARGIN_PX;
     band.style.paddingTop = growTop ? `${growTop}px` : '';
     band.style.paddingBottom = growBottom ? `${growBottom}px` : '';
-    band.style.marginTop = growTop ? `${2 - growTop}px` : '';
-    band.style.marginBottom = growBottom ? `${2 - growBottom}px` : '';
+    band.style.marginTop = growTop ? `${restingTop - growTop}px` : '';
+    band.style.marginBottom = growBottom
+      ? `${BAND_MARGIN_PX - growBottom}px`
+      : '';
 
     // The title row is a real row and moves as one, so it keeps a transform.
     // The strip does NOT: it has to change length, not position, and a
@@ -784,7 +813,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                 Item rows name scope="items" and tab rows name scope="tabs",
                 so each joins its own pane-wide list past the other
                 (KAN-132); a window provides neither list itself. */}
-          {items.map((item) =>
+          {items.map((item, index) =>
             item.kind === 'tab' ? (
               <DraggableRow
                 key={itemIdOf(item)}
@@ -803,13 +832,28 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
               >
                 <div
                   data-band-id={item.group.groupId}
+                  data-after-group={
+                    index > 0 && items[index - 1].kind === 'group'
+                      ? ''
+                      : undefined
+                  }
                   role="group"
                   aria-label={item.group.title || t('Unnamed group')}
                   css={css`
                     display: flex;
                     align-items: stretch;
 
-                    margin: 2px 0;
+                    margin: ${BAND_MARGIN_PX}px 0;
+
+                    /* KAN-179: the ungrouped landing between two adjacent
+                       groups is the gap between their bands, and two
+                       collapsing margins leave only one of them. Widened
+                       here, on the lower band, because a bottom margin is
+                       what footprintOf measures. GroupFrameFollower reads
+                       this attribute back to know what to restore. */
+                    &[data-after-group] {
+                      margin-top: ${ADJACENT_GROUP_GAP_PX}px;
+                    }
 
                     /* KAN-164: a tab released here joins this group.
                            Outline rather than border, so marking a band

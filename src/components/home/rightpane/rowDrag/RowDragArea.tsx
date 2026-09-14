@@ -823,10 +823,14 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
             ].flatMap((el) => {
               const key = el.dataset.fixedRowId;
               if (key === undefined) return [];
+              const box = el.getBoundingClientRect();
               return [
                 {
                   key,
-                  top: el.getBoundingClientRect().top + l.startScrollTop,
+                  top: box.top + l.startScrollTop,
+                  // A group's tail marker measures 0 here, by design: it holds a
+                  // place in this list without occupying any (KAN-176).
+                  height: box.height,
                   windowId: windowOf(el)?.dataset.dropWindowId,
                 },
               ];
@@ -837,6 +841,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
           ...l.rects.map((r) => ({
             key: r.id,
             top: r.top,
+            height: r.height,
             windowId: r.windowId,
           })),
           ...fixed,
@@ -1055,18 +1060,36 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       e.preventDefault();
       e.stopPropagation();
     };
+    // A new press disarms it (KAN-177). The suppression is for ONE click: the
+    // one Chrome synthesizes for the drag's own release, which follows that
+    // pointerup with no press in between (measured in click-after-drag.spec.ts).
+    //
+    // A drag that COMMITS gets no such click -- React moves the row inside the
+    // pointerup handler -- so, judged by the clock alone, the suppression stayed
+    // armed and ate the user's next click wherever it landed: very often Undo.
+    // Every click the user makes after a drag starts with a pointerdown of its
+    // own, and that is what tells the two apart; not the time, and not where
+    // the click lands.
+    //
+    // Capture, on window, for the same reason as onClickCapture: nothing a
+    // press reaches first can stop it from getting here.
+    const onPointerDownCapture = () => {
+      suppressClickUntil.current = 0;
+    };
 
     window.addEventListener('pointermove', onMoveEvent);
     window.addEventListener('pointerup', onUp);
     window.addEventListener('pointercancel', onCancel);
     window.addEventListener('keydown', onKey);
     window.addEventListener('click', onClickCapture, true);
+    window.addEventListener('pointerdown', onPointerDownCapture, true);
     return () => {
       window.removeEventListener('pointermove', onMoveEvent);
       window.removeEventListener('pointerup', onUp);
       window.removeEventListener('pointercancel', onCancel);
       window.removeEventListener('keydown', onKey);
       window.removeEventListener('click', onClickCapture, true);
+      window.removeEventListener('pointerdown', onPointerDownCapture, true);
       // NOT setDragging(false) -- see the unmount effect below (KAN-159). This
       // cleanup runs on every change to the deps as well as on unmount, and a
       // drag in flight must survive the listeners being re-bound.

@@ -316,6 +316,38 @@ export function bandAt(
   return undefined;
 }
 
+/**
+ * The group a landing sits immediately past the end of, if any.
+ *
+ * KAN-181, and the mirror of the head rule KAN-174 settled. A tab landing
+ * ungrouped right after a group takes the SAME SLOT as one joining that group
+ * at its tail, so the row index cannot tell the two apart -- the group's frame
+ * is what says which one the release will be. Unnamed, the group's tail marker
+ * (KAN-176) stays outside the shift range while its members move, and the
+ * colour strip hangs a row below the last member, over the slot the tab is
+ * about to take.
+ *
+ * Indices are in LANDING SPACE: the list with the held row already lifted out.
+ * A held row at or above the group's last member shuffles that member up one,
+ * and `<=` rather than `<` is the difference from the head rule: the held row
+ * can BE the last member, and a group losing its last member ends one row
+ * earlier than the stored list says.
+ */
+export function groupEndingAbove(
+  lastIndexByGroup: ReadonlyMap<string, number>,
+  fromIndex: number | undefined,
+  toIndex: number
+): string | undefined {
+  for (const [groupId, lastIndex] of lastIndexByGroup) {
+    const end =
+      fromIndex !== undefined && fromIndex <= lastIndex
+        ? lastIndex - 1
+        : lastIndex;
+    if (toIndex === end + 1) return groupId;
+  }
+  return undefined;
+}
+
 // The marker WindowEntryContainer puts on each saved window's whole block
 // (KAN-132).
 const WINDOW_MARKER = '[data-drop-window-id]';
