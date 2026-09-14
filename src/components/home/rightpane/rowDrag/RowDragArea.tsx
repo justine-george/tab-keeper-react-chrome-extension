@@ -1237,7 +1237,16 @@ export const DraggableRow: React.FC<DraggableRowProps> = ({
           data-drag-landing-slot=""
           style={{
             position: 'absolute',
-            inset: 0,
+            // LONGHANDS, never the `inset` shorthand (KAN-183). React diffs
+            // style objects property by property: with `inset` here and a
+            // `bottom` override below, switching back to the box left `bottom`
+            // removed rather than restored -- the slot collapsed to its
+            // borders, 2px, and STAYED that way for the rest of the drag.
+            // Measured: `top: 0px; right: 0px; left: 0px` and no bottom at
+            // all. Both branches must write the same property names.
+            top: 0,
+            left: 0,
+            right: 0,
             // A LINE, not a box, where the landing opens no gap (KAN-182).
             // Past another window's last row nothing steps aside -- the rows
             // that would are in the next window -- so a row-tall box is drawn
@@ -1246,9 +1255,8 @@ export const DraggableRow: React.FC<DraggableRowProps> = ({
             // there is the gap between two window blocks, and a line fits it.
             // The top edge is the same either way, so what the preview
             // promises is unchanged; only the part with nowhere to go is.
-            ...(drag.landingOpensGap
-              ? null
-              : { bottom: 'auto', height: SLOT_LINE_PX }),
+            bottom: drag.landingOpensGap ? 0 : 'auto',
+            height: drag.landingOpensGap ? undefined : SLOT_LINE_PX,
             transform: `translateY(${drag.landingDelta - translate}px)`,
             pointerEvents: 'none',
             border: '1.5px dashed currentColor',
