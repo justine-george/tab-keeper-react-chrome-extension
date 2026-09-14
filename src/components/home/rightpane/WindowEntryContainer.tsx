@@ -52,7 +52,7 @@ import { applyTabGroups } from '../../../utils/functions/windows';
 
 import { RowDragArea, DraggableRow } from './rowDrag/RowDragArea';
 import { useDragState } from './rowDrag/dragContext';
-import { bandAt } from './rowDrag/dropRules';
+import { bandAt, groupEndingAbove } from './rowDrag/dropRules';
 
 interface WindowEntryContainerProps {
   title: string;
@@ -429,9 +429,27 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
           return { fixedRowId: groupId, side: 'before' as const };
         }
       }
-      return undefined;
+
+      // KAN-181. The same question at the other end: an ungrouped landing
+      // immediately PAST a group's last member. Left unnamed it resolves to the
+      // slot a tail JOIN resolves to, so the group's tail marker never moves
+      // while its members do, and the colour strip hangs a row below the group
+      // -- over the slot this tab is about to take, reading as a join.
+      //
+      // AFTER the head loop, deliberately. Between two adjacent groups both
+      // questions are true at once, and the head answer is the one KAN-178 and
+      // KAN-179 were measured against; this fires where the group is followed
+      // by a loose tab or by nothing at all.
+      const ending = groupEndingAbove(
+        groupLastIndex,
+        indexOfTab.get(rowId),
+        toIndex
+      );
+      return ending !== undefined
+        ? { fixedRowId: `${ending}:tail`, side: 'after' as const }
+        : undefined;
     },
-    [groupFirstIndex, groupLastIndex, headInLandingSpace]
+    [groupFirstIndex, groupLastIndex, headInLandingSpace, indexOfTab]
   );
 
   const handleMoveGroup = useCallback(
