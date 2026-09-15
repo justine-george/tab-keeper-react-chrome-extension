@@ -134,5 +134,19 @@
   "Date modified": "更新日",
   "Edited": "編集",
   "Created": "作成",
-  "Sessions reordered. Undo to restore the previous order.": "セッションを並べ替えました。「元に戻す」で以前の順序に戻せます。"
+  "Sessions reordered. Undo to restore the previous order.": "セッションを並べ替えました。「元に戻す」で以前の順序に戻せます。",
+  "Export session": "このセッションをWebページとして保存",
+  "Save as HTML": "HTMLとして保存",
+  "Copy all links": "すべてのリンクをコピー",
+  "Links copied": "リンクをコピーしました",
+  "Comfortable": "標準",
+  "Compact": "コンパクト",
+  "ExportNotAWebLink": "Webリンクではありません",
+  "ExportFooterCredit": "{{date}} に {{brand}} で保存",
+  "Get the extension": "拡張機能を入手",
+  "Session not found": "セッションが見つかりません",
+  "Dark": "ダーク",
+  "Print": "印刷",
+  "Layout": "レイアウト",
+  "Colour": "配色"
 }

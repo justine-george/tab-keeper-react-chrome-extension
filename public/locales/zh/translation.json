@@ -134,5 +134,19 @@
   "Date modified": "修改日期",
   "Edited": "已编辑",
   "Created": "已创建",
-  "Sessions reordered. Undo to restore the previous order.": "会话已重新排序。使用“撤销”可恢复之前的顺序。"
+  "Sessions reordered. Undo to restore the previous order.": "会话已重新排序。使用“撤销”可恢复之前的顺序。",
+  "Export session": "将此会话保存为网页",
+  "Save as HTML": "保存为 HTML",
+  "Copy all links": "复制所有链接",
+  "Links copied": "已复制链接",
+  "Comfortable": "宽松",
+  "Compact": "紧凑",
+  "ExportNotAWebLink": "非网页链接",
+  "ExportFooterCredit": "由 {{brand}} 于 {{date}} 保存",
+  "Get the extension": "获取扩展程序",
+  "Session not found": "未找到会话",
+  "Dark": "深色",
+  "Print": "打印",
+  "Layout": "布局",
+  "Colour": "配色"
 }

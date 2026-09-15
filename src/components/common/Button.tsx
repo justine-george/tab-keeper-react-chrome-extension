@@ -20,6 +20,8 @@ interface ButtonProps {
   ariaPressed?: boolean;
   tooltipText?: string;
   iconSize?: string;
+  /** The icon's colour, for buttons whose fill would swallow the default. */
+  iconColor?: string;
   iconStyle?: string;
   style?: string;
 }
@@ -33,6 +35,7 @@ const Button: React.FC<ButtonProps> = ({
   ariaPressed,
   tooltipText,
   iconSize,
+  iconColor,
   iconStyle,
   style,
 }) => {
@@ -98,6 +101,7 @@ const Button: React.FC<ButtonProps> = ({
           type={iconType}
           disable={true}
           size={iconSize}
+          color={iconColor}
           style={iconSpacing}
         />
       )}

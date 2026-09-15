@@ -1,0 +1,391 @@
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { useTranslation } from 'react-i18next';
+import { css } from '@emotion/react';
+
+// `?inline` so the mark is base64 IN the bundle: the exported file must carry
+// its own icon, because it is opened from disk, offline, long after the
+// extension that wrote it is out of the picture.
+import markDataUri from '../../assets/exportMark.png?inline';
+import Button from '../common/Button';
+import { useThemeColors } from '../../hooks/useThemeColors';
+import { useFontFamily } from '../../hooks/useFontFamily';
+import { AppDispatch, RootState } from '../../redux/store';
+import {
+  setExportLayout,
+  setExportScheme,
+  Theme,
+} from '../../redux/slices/settingsDataStateSlice';
+import { replaceState } from '../../redux/slices/tabContainerDataStateSlice';
+import {
+  isValidTabMasterContainer,
+  loadFromLocalStorage,
+} from '../../utils/functions/local';
+import { EXPORT_STORE_URL } from '../../utils/constants/common';
+import { formatGroupCounts } from '../../utils/functions/local';
+import { sessionDateLabel } from '../../utils/functions/sessionDate';
+import {
+  exportFileName,
+  sessionToHtml,
+  sessionToLinkList,
+  type ExportLayout,
+  type ExportScheme,
+} from '../../utils/functions/sessionExportHtml';
+
+/**
+ * The page that opens when a session is exported.
+ *
+ * It shows the file BEFORE it is saved, which is the point: a file you have
+ * seen is one you are willing to send to someone else. Saving is therefore a
+ * second click, not the first.
+ *
+ * The session is named by id rather than passed in, because this is a URL: the
+ * tab can be reloaded, bookmarked, or opened after the session was deleted in
+ * the popup. `tabGroupId` matching nothing is a state this renders, not a
+ * crash.
+ */
+export default function ExportPage({ tabGroupId }: { tabGroupId: string }) {
+  const { t, i18n } = useTranslation();
+  const dispatch: AppDispatch = useDispatch();
+  const COLORS = useThemeColors();
+  const FONT_FAMILY = useFontFamily();
+  const [copied, setCopied] = useState(false);
+  const frameRef = useRef<HTMLIFrameElement>(null);
+
+  // This page is its own document with its own store, and nothing fills that
+  // store for it: in the popup, App does this on mount. Read-only -- the
+  // sync middleware ignores replaceState, so previewing a session cannot mark
+  // it dirty or push anything to the cloud.
+  //
+  // Validated rather than asserted, exactly as App does it: storage can hold
+  // something older or truncated, and "Session not found" is a better answer
+  // than a crash on a page whose whole job is to show a file.
+  useEffect(() => {
+    const candidate = loadFromLocalStorage('tabContainerData');
+    if (isValidTabMasterContainer(candidate)) {
+      dispatch(replaceState(candidate));
+    } else if (candidate !== undefined) {
+      console.warn('Ignoring unreadable tabContainerData in localStorage.');
+    }
+  }, [dispatch]);
+
+  const session = useSelector((state: RootState) =>
+    state.tabContainerDataState.tabGroups.find(
+      (group) => group.tabGroupId === tabGroupId
+    )
+  );
+  const layout = useSelector(
+    (state: RootState) => state.settingsDataState.exportLayout
+  );
+  const theme = useSelector(
+    (state: RootState) => state.settingsDataState.theme
+  );
+  const schemePreference = useSelector(
+    (state: RootState) => state.settingsDataState.exportScheme
+  );
+  const sessionDateBasis = useSelector(
+    (state: RootState) => state.settingsDataState.sessionDateBasis
+  );
+
+  const scheme: ExportScheme =
+    schemePreference === 'auto'
+      ? theme === Theme.DARKENHEIMER || theme === Theme.BLUE
+        ? 'dark'
+        : 'light'
+      : schemePreference;
+
+  const html = useMemo(() => {
+    if (!session) return '';
+    return sessionToHtml(session, {
+      layout,
+      scheme,
+      dateLabel: sessionDateLabel(session, sessionDateBasis, i18n.language, t),
+      countsLabel: formatGroupCounts(
+        session.windowCount,
+        session.tabCount,
+        false,
+        t
+      ),
+      tabCountLabel: (count) => `${count} ${count > 1 ? t('Tabs') : t('Tab')}`,
+      strings: {
+        window: t('Window'),
+        notAWebLink: t('ExportNotAWebLink'),
+        savedWith: t('ExportFooterCredit'),
+        getExtension: t('Get the extension'),
+      },
+      mark: markDataUri,
+      storeUrl: EXPORT_STORE_URL,
+      savedOn: new Date().toLocaleDateString(i18n.language, {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+      }),
+    });
+  }, [session, layout, scheme, sessionDateBasis, i18n.language, t]);
+
+  // The tab can be pinned or reloaded, so it says which session it holds --
+  // several tabs all called "Tab Keeper" would say nothing. Left alone when
+  // the session is gone, so the not-found tab keeps the static title.
+  useEffect(() => {
+    if (session) document.title = session.title;
+  }, [session]);
+
+  const pageStyle = css`
+    min-height: 100vh;
+    background-color: ${COLORS.PRIMARY_COLOR};
+    font-family: ${FONT_FAMILY};
+    color: ${COLORS.TEXT_COLOR};
+    display: flex;
+    flex-direction: column;
+  `;
+
+  if (!session) {
+    return (
+      <div css={pageStyle}>
+        <p
+          css={css`
+            margin: 48px auto;
+            color: ${COLORS.LABEL_L1_COLOR};
+          `}
+        >
+          {t('Session not found')}
+        </p>
+      </div>
+    );
+  }
+
+  const handleSave = () => {
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = exportFileName(session.title, new Date());
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    // Revoked on a later turn, not immediately: the download is handed off
+    // asynchronously, and revoking in the same tick cancels it in Chrome.
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  };
+
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(
+      sessionToLinkList(session, {
+        window: t('Window'),
+        tabCountLabel: (count) =>
+          `${count} ${count > 1 ? t('Tabs') : t('Tab')}`,
+      })
+    );
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  // Reaching into the frame needs same-origin, which is why the preview is
+  // sandboxed with allow-same-origin and nothing else: scripts stay blocked,
+  // so the file still cannot run anything, and the browser's print dialog is
+  // where "Save as PDF" lives.
+  const handlePrint = () => {
+    frameRef.current?.contentWindow?.print();
+  };
+
+  // A button inside a joined pair: no border of its own, no radius, and a
+  // hairline against its neighbour. The group draws the box.
+  const segmentStyle = (selected: boolean, first: boolean) => `
+    height: 34px;
+    padding: 6px 14px;
+    border: 0;
+    border-radius: 0;
+    ${first ? '' : `border-left: 1px solid ${COLORS.BORDER_COLOR};`}
+    background-color: ${
+      selected ? COLORS.SELECTION_COLOR : COLORS.PRIMARY_COLOR
+    };
+  `;
+
+  // Icon carries 4px of its own padding all round, and Button adds 8px to
+  // its right -- so the gap left of the icon was 4px wider than the gap right
+  // of the label. Dropping the left padding makes the button symmetrical.
+  const actionIconStyle = 'padding-left: 0; padding-right: 6px;';
+
+  const groupStyle = css`
+    display: inline-flex;
+    align-items: stretch;
+    border: 1px solid ${COLORS.BORDER_COLOR};
+    border-radius: 3px;
+    overflow: hidden;
+  `;
+
+  const schemeButton = (value: ExportScheme, label: string, first: boolean) => (
+    <Button
+      text={label}
+      ariaLabel={label}
+      ariaPressed={scheme === value}
+      onClick={() => dispatch(setExportScheme(value))}
+      style={segmentStyle(scheme === value, first)}
+    />
+  );
+
+  const layoutButton = (value: ExportLayout, label: string, first: boolean) => (
+    <Button
+      text={label}
+      ariaLabel={label}
+      ariaPressed={layout === value}
+      onClick={() => dispatch(setExportLayout(value))}
+      style={segmentStyle(layout === value, first)}
+    />
+  );
+
+  return (
+    <div css={pageStyle}>
+      <div
+        css={css`
+          display: flex;
+          flex-wrap: wrap;
+          gap: 12px 16px;
+          align-items: center;
+          justify-content: space-between;
+          padding: 12px 16px;
+          background-color: ${COLORS.SECONDARY_COLOR};
+          border-bottom: 1px solid ${COLORS.BORDER_COLOR};
+        `}
+      >
+        <div
+          css={css`
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            min-width: 0;
+          `}
+        >
+          <span
+            css={css`
+              font-size: 1.125rem;
+            `}
+          >
+            {session.title}
+          </span>
+          <span
+            css={css`
+              font-size: 0.75rem;
+              color: ${COLORS.LABEL_L2_COLOR};
+            `}
+          >
+            {formatGroupCounts(session.windowCount, session.tabCount, false, t)}
+          </span>
+        </div>
+
+        <div
+          css={css`
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+          `}
+        >
+          <span css={groupStyle} role="group" aria-label={t('Layout')}>
+            {layoutButton('comfortable', t('Comfortable'), true)}
+            {layoutButton('compact', t('Compact'), false)}
+          </span>
+          <span css={groupStyle} role="group" aria-label={t('Colour')}>
+            {schemeButton('light', t('Light'), true)}
+            {schemeButton('dark', t('Dark'), false)}
+          </span>
+          {/* Deciding ends here; what follows leaves the page. */}
+          <span
+            aria-hidden="true"
+            css={css`
+              width: 1px;
+              align-self: stretch;
+              margin: 2px 0;
+              background-color: ${COLORS.BORDER_COLOR};
+            `}
+          />
+          <Button
+            text={t('Print')}
+            ariaLabel={t('Print')}
+            iconType="print"
+            onClick={handlePrint}
+            iconSize="1.2rem"
+            iconStyle={actionIconStyle}
+            style={`height: 34px; padding: 6px 14px;`}
+          />
+          <Button
+            text={t('Copy all links')}
+            ariaLabel={t('Copy all links')}
+            iconType="link"
+            onClick={handleCopy}
+            iconSize="1.2rem"
+            iconStyle={actionIconStyle}
+            style={`height: 34px; padding: 6px 14px;`}
+          />
+          <Button
+            text={t('Save as HTML')}
+            ariaLabel={t('Save as HTML')}
+            iconType="download"
+            onClick={handleSave}
+            iconSize="1.2rem"
+            iconColor={COLORS.PRIMARY_COLOR}
+            iconStyle={actionIconStyle}
+            // FILLED, not tinted. A tint is what a pressed segment wears here,
+            // so tinting Save would make the loudest control on the row read
+            // as one more selected state.
+            style={`
+              height: 34px;
+              padding: 6px 14px;
+              font-weight: 500;
+              color: ${COLORS.PRIMARY_COLOR};
+              background-color: ${COLORS.TEXT_COLOR};
+              border-color: ${COLORS.TEXT_COLOR};
+              &:hover {
+                background-color: ${COLORS.LABEL_L1_COLOR};
+                border-color: ${COLORS.LABEL_L1_COLOR};
+              }
+            `}
+          />
+        </div>
+      </div>
+
+      {copied && (
+        <div
+          role="status"
+          css={css`
+            /* Floating, not in the flow: as a block this pushed the whole
+               preview down and pulled it back two seconds later, so the
+               confirmation moved the thing it was confirming. */
+            position: fixed;
+            right: 16px;
+            bottom: 16px;
+            z-index: 2;
+            pointer-events: none;
+            padding: 8px 14px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            color: ${COLORS.PRIMARY_COLOR};
+            background-color: ${COLORS.TEXT_COLOR};
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+          `}
+        >
+          {t('Links copied')}
+        </div>
+      )}
+
+      {/* The preview is the file itself, in its own document: it carries its
+          own security rule and styling, and nothing on this page can leak
+          into what gets saved. */}
+      <iframe
+        ref={frameRef}
+        title={session.title}
+        srcDoc={html}
+        // allow-modals is what makes print() work: Chrome ignores print()
+        // from a sandboxed frame without it, silently but for a console line.
+        // allow-scripts is still absent, so the file cannot run anything.
+        sandbox="allow-same-origin allow-modals"
+        css={css`
+          border: 0;
+          flex-grow: 1;
+          width: 100%;
+          background-color: #fff;
+        `}
+      />
+    </div>
+  );
+}
