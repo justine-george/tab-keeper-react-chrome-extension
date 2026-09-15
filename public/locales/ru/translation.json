@@ -135,7 +135,7 @@
   "Edited": "Изменено",
   "Created": "Создано",
   "Sessions reordered. Undo to restore the previous order.": "Сессии переупорядочены. Нажмите «Отменить», чтобы вернуть прежний порядок.",
-  "Export session": "Сохранить эту сессию как веб-страницу",
+  "Export session": "Экспорт в PDF / веб-страницу",
   "Save as HTML": "Сохранить как HTML",
   "Copy all links": "Скопировать все ссылки",
   "Links copied": "Ссылки скопированы",
@@ -146,7 +146,7 @@
   "Get the extension": "Установить расширение",
   "Session not found": "Сессия не найдена",
   "Dark": "Тёмная",
-  "Print": "Печать",
+  "Print": "PDF / Печать",
   "Layout": "Макет",
   "Colour": "Цвет"
 }

@@ -299,20 +299,22 @@ export default function ExportPage({ tabGroupId }: { tabGroupId: string }) {
               background-color: ${COLORS.BORDER_COLOR};
             `}
           />
-          <Button
-            text={t('Print')}
-            ariaLabel={t('Print')}
-            iconType="print"
-            onClick={handlePrint}
-            iconSize="1.2rem"
-            iconStyle={actionIconStyle}
-            style={`height: 34px; padding: 6px 14px;`}
-          />
+          {/* Copy first: it ignores the choices, so it must not sit between
+              the two outputs that follow them. */}
           <Button
             text={t('Copy all links')}
             ariaLabel={t('Copy all links')}
             iconType="link"
             onClick={handleCopy}
+            iconSize="1.2rem"
+            iconStyle={actionIconStyle}
+            style={`height: 34px; padding: 6px 14px;`}
+          />
+          <Button
+            text={t('Print')}
+            ariaLabel={t('Print')}
+            iconType="print"
+            onClick={handlePrint}
             iconSize="1.2rem"
             iconStyle={actionIconStyle}
             style={`height: 34px; padding: 6px 14px;`}

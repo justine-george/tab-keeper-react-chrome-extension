@@ -2,6 +2,8 @@ import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import type { Page } from '@playwright/test';
+
 import { test, expect } from './fixtures/extension';
 import {
   buildContainer,
@@ -73,7 +75,17 @@ const WEB_URLS = [
   'https://inari.jp/en/',
 ];
 
-const EXPORT_BUTTON = 'Save this session as a web page';
+const EXPORT_ITEM = 'Export as PDF / web page';
+
+/**
+ * Export lives in the session header's More actions menu (KAN-193), so every
+ * export starts by opening that menu. Returns once the item is clicked, so it
+ * can sit inside the Promise.all that waits for the new tab.
+ */
+async function chooseExport(popup: Page) {
+  await popup.getByRole('button', { name: 'More actions' }).click();
+  await popup.getByRole('menuitem', { name: EXPORT_ITEM }).click();
+}
 
 /** The popup, with one session seeded and selected. */
 async function openPopup(
@@ -86,7 +98,9 @@ async function openPopup(
   });
   const page = await context.newPage();
   await page.goto(`chrome-extension://${extensionId}/index.html`);
-  await expect(page.getByRole('button', { name: EXPORT_BUTTON })).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'More actions' })
+  ).toBeVisible();
   return page;
 }
 
@@ -99,7 +113,7 @@ test.describe('exporting a session as a web page', () => {
 
     const [exportPage] = await Promise.all([
       context.waitForEvent('page'),
-      popup.getByRole('button', { name: EXPORT_BUTTON }).click(),
+      chooseExport(popup),
     ]);
     await exportPage.waitForLoadState();
 
@@ -150,7 +164,7 @@ test.describe('exporting a session as a web page', () => {
     const popup = await openPopup(context, extensionId);
     const [exportPage] = await Promise.all([
       context.waitForEvent('page'),
-      popup.getByRole('button', { name: EXPORT_BUTTON }).click(),
+      chooseExport(popup),
     ]);
     await exportPage.waitForLoadState();
 
@@ -172,7 +186,7 @@ test.describe('exporting a session as a web page', () => {
     // Reopening gets the layout that was chosen, because it was persisted.
     const [second] = await Promise.all([
       context.waitForEvent('page'),
-      popup.getByRole('button', { name: EXPORT_BUTTON }).click(),
+      chooseExport(popup),
     ]);
     await second.waitForLoadState();
     await expect(
@@ -187,7 +201,7 @@ test.describe('exporting a session as a web page', () => {
     const popup = await openPopup(context, extensionId);
     const [exportPage] = await Promise.all([
       context.waitForEvent('page'),
-      popup.getByRole('button', { name: EXPORT_BUTTON }).click(),
+      chooseExport(popup),
     ]);
     await exportPage.waitForLoadState();
     const [download] = await Promise.all([
@@ -235,7 +249,7 @@ test('the printed PDF keeps every link the file has, and no others', async ({
   const popup = await openPopup(context, extensionId);
   const [exportPage] = await Promise.all([
     context.waitForEvent('page'),
-    popup.getByRole('button', { name: EXPORT_BUTTON }).click(),
+    chooseExport(popup),
   ]);
   await exportPage.waitForLoadState();
   const [download] = await Promise.all([
@@ -272,7 +286,7 @@ test('the file can be switched light or dark, and printed', async ({
   const popup = await openPopup(context, extensionId);
   const [exportPage] = await Promise.all([
     context.waitForEvent('page'),
-    popup.getByRole('button', { name: EXPORT_BUTTON }).click(),
+    chooseExport(popup),
   ]);
   await exportPage.waitForLoadState();
 
@@ -301,7 +315,7 @@ test('the file can be switched light or dark, and printed', async ({
     }
   });
 
-  await exportPage.getByRole('button', { name: 'Print' }).click();
+  await exportPage.getByRole('button', { name: 'PDF / Print' }).click();
   await exportPage.waitForTimeout(500);
 
   expect(ignored, 'the frame must be allowed to open the print dialog').toEqual(
@@ -322,7 +336,7 @@ for (const width of [1200, 800, 480]) {
     const popup = await openPopup(context, extensionId);
     const [exportPage] = await Promise.all([
       context.waitForEvent('page'),
-      popup.getByRole('button', { name: EXPORT_BUTTON }).click(),
+      chooseExport(popup),
     ]);
     await exportPage.waitForLoadState();
     await exportPage.setViewportSize({ width, height: 600 });
@@ -375,14 +389,15 @@ test('the toolbar survives German at the popup width', async ({
 
   const popup = await context.newPage();
   await popup.goto(`chrome-extension://${extensionId}/index.html`);
-  const exportButton = popup.getByRole('button', {
-    name: 'Diese Sitzung als Webseite speichern',
-  });
-  await expect(exportButton).toBeVisible();
+  const moreActions = popup.getByRole('button', { name: 'Weitere Aktionen' });
+  await expect(moreActions).toBeVisible();
+  await moreActions.click();
 
   const [exportPage] = await Promise.all([
     context.waitForEvent('page'),
-    exportButton.click(),
+    popup
+      .getByRole('menuitem', { name: 'Als PDF / Webseite exportieren' })
+      .click(),
   ]);
   await exportPage.waitForLoadState();
   await exportPage.setViewportSize({ width: 800, height: 600 });
@@ -423,7 +438,7 @@ test('an icon button is evenly padded on both sides', async ({
   const popup = await openPopup(context, extensionId);
   const [exportPage] = await Promise.all([
     context.waitForEvent('page'),
-    popup.getByRole('button', { name: EXPORT_BUTTON }).click(),
+    chooseExport(popup),
   ]);
   await exportPage.waitForLoadState();
 
@@ -447,7 +462,7 @@ test('an icon button is evenly padded on both sides', async ({
         right: Math.round(box.right - label.right),
       };
     };
-    return ['Print', 'Copy all links', 'Save as HTML'].map((name) => ({
+    return ['PDF / Print', 'Copy all links', 'Save as HTML'].map((name) => ({
       name,
       ...measure(name),
     }));
@@ -471,7 +486,7 @@ test('the copied toast does not move the page', async ({
   const popup = await openPopup(context, extensionId);
   const [exportPage] = await Promise.all([
     context.waitForEvent('page'),
-    popup.getByRole('button', { name: EXPORT_BUTTON }).click(),
+    chooseExport(popup),
   ]);
   await exportPage.waitForLoadState();
   await exportPage.context().grantPermissions(['clipboard-write']);
@@ -500,7 +515,7 @@ test('compact rows keep a gap from the edge of a group block', async ({
   const popup = await openPopup(context, extensionId);
   const [exportPage] = await Promise.all([
     context.waitForEvent('page'),
-    popup.getByRole('button', { name: EXPORT_BUTTON }).click(),
+    chooseExport(popup),
   ]);
   await exportPage.waitForLoadState();
   await exportPage.getByRole('button', { name: 'Compact' }).click();
@@ -550,7 +565,7 @@ for (const layout of ['Comfortable', 'Compact'] as const) {
       const popup = await openPopup(context, extensionId);
       const [exportPage] = await Promise.all([
         context.waitForEvent('page'),
-        popup.getByRole('button', { name: EXPORT_BUTTON }).click(),
+        chooseExport(popup),
       ]);
       await exportPage.waitForLoadState();
       await exportPage.getByRole('button', { name: layout }).click();
@@ -613,4 +628,134 @@ for (const layout of ['Comfortable', 'Compact'] as const) {
       ).toBe('clone');
     });
   }
+}
+
+// KAN-193. OverflowMenu's own docs warn that inside a stacking context the
+// menu paints BEHIND later positioned siblings -- invisible to jsdom, which
+// computes no paint order. The session menu drops down over the tab list, so
+// this asks the browser what is actually under the pointer at each item.
+test('the session menu paints above the tab rows it opens over', async ({
+  context,
+  extensionId,
+}) => {
+  const popup = await openPopup(context, extensionId);
+  await popup.getByRole('button', { name: 'More actions' }).click();
+
+  const items = popup.getByRole('menuitem');
+  await expect(items).toHaveCount(2);
+
+  const hits = await items.evaluateAll((elements) =>
+    elements.map((item) => {
+      const box = item.getBoundingClientRect();
+      const top = document.elementFromPoint(
+        box.left + box.width / 2,
+        box.top + box.height / 2
+      );
+      return {
+        name: item.textContent?.trim(),
+        onTop: top !== null && item.contains(top),
+      };
+    })
+  );
+
+  // CONTROL: the menu really does overlap the tab list, so "on top" is not
+  // true merely because nothing else is there.
+  const overlaps = await popup.evaluate(() => {
+    const menu = document
+      .querySelector('[role="menu"]')!
+      .getBoundingClientRect();
+    const list = document
+      .querySelector('[data-window-tabs]')!
+      .getBoundingClientRect();
+    return menu.bottom > list.top;
+  });
+  expect(
+    overlaps,
+    'the menu must open over the tab list for this to mean anything'
+  ).toBe(true);
+
+  for (const hit of hits) {
+    expect(hit.onTop, `${hit.name} must be the element under the pointer`).toBe(
+      true
+    );
+  }
+});
+
+// KAN-193. The menu is anchored to its trigger's RIGHT edge, which suits a
+// trigger at the end of a row (the tab group title) and not this one, near the
+// start. Measured at the popup's size: the menu opened leftward across the
+// pane divider, over the session list, and "Export as PDF / web page" wrapped
+// onto two lines -- in German too. A menu that crosses into the neighbouring
+// pane reads as detached from what opened it.
+for (const lang of ['en', 'de'] as const) {
+  test(`the session menu stays in its pane with each label on one line (${lang})`, async ({
+    context,
+    extensionId,
+  }) => {
+    await seedSettings(context, {
+      language: lang,
+      isNeverAskAgainForTabGroups: true,
+      isNeverAskAgainToRate: true,
+    });
+    await seedSessions(context, {
+      ...buildContainer([KYOTO]),
+      selectedTabGroupId: 'session-kyoto',
+    });
+    const popup = await context.newPage();
+    await popup.setViewportSize({ width: 790, height: 550 });
+    await popup.goto(`chrome-extension://${extensionId}/index.html`);
+
+    const trigger = popup.getByRole('button', {
+      name: lang === 'de' ? 'Weitere Aktionen' : 'More actions',
+    });
+    await expect(trigger).toBeVisible();
+    await trigger.click();
+    await expect(popup.getByRole('menu')).toBeVisible();
+
+    const shape = await trigger.evaluate((triggerEl) => {
+      // The pane is the nearest ancestor of the trigger that also holds the
+      // header's "Add current window" control on the far side.
+      let pane: Element | null = triggerEl;
+      while (
+        pane &&
+        !pane.querySelector('button[aria-label]:not([aria-haspopup])')
+      ) {
+        pane = pane.parentElement;
+      }
+      while (
+        pane &&
+        pane.parentElement &&
+        pane.getBoundingClientRect().width < 380
+      ) {
+        pane = pane.parentElement;
+      }
+      const paneBox = pane!.getBoundingClientRect();
+      const menuBox = document
+        .querySelector('[role="menu"]')!
+        .getBoundingClientRect();
+      const heights = [...document.querySelectorAll('[role="menuitem"]')].map(
+        (item) => Math.round(item.getBoundingClientRect().height)
+      );
+      return {
+        paneLeft: Math.round(paneBox.left),
+        paneRight: Math.round(paneBox.right),
+        menuLeft: Math.round(menuBox.left),
+        menuRight: Math.round(menuBox.right),
+        heights,
+      };
+    });
+
+    // CONTROL: this measured a pane, not the whole popup, so "inside" can fail.
+    expect(shape.paneRight - shape.paneLeft).toBeLessThan(600);
+
+    expect(
+      shape.menuLeft,
+      `the menu starts at ${shape.menuLeft}px, left of its pane at ${shape.paneLeft}px`
+    ).toBeGreaterThanOrEqual(shape.paneLeft);
+    expect(shape.menuRight).toBeLessThanOrEqual(shape.paneRight);
+    expect(
+      new Set(shape.heights).size,
+      `item heights ${shape.heights.join('/')}px: a label wrapped`
+    ).toBe(1);
+  });
 }
