@@ -372,6 +372,21 @@ export default function HeroContainerRight() {
             }}
           />
           <Icon
+            tooltipText={t('Export session')}
+            ariaLabel={t('Export session')}
+            type="download"
+            onClick={() => {
+              // Opening a tab takes focus, which destroys the popup. Nothing
+              // may be sequenced after this call -- the whole address is built
+              // first, so there is nothing left to do when the context dies.
+              chrome.tabs.create({
+                url: chrome.runtime.getURL(
+                  `export.html?session=${encodeURIComponent(tabGroupId)}`
+                ),
+              });
+            }}
+          />
+          <Icon
             tooltipText={t('Delete session')}
             ariaLabel={t('Delete session')}
             type="delete"

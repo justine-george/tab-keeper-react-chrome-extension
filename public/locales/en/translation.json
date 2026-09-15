@@ -134,5 +134,19 @@
   "Date modified": "Date modified",
   "Edited": "Edited",
   "Created": "Created",
-  "Sessions reordered. Undo to restore the previous order.": "Sessions reordered. Undo to restore the previous order."
+  "Sessions reordered. Undo to restore the previous order.": "Sessions reordered. Undo to restore the previous order.",
+  "Export session": "Save this session as a web page",
+  "Save as HTML": "Save as HTML",
+  "Copy all links": "Copy all links",
+  "Links copied": "Links copied",
+  "Comfortable": "Comfortable",
+  "Compact": "Compact",
+  "ExportNotAWebLink": "not a web link",
+  "ExportFooterCredit": "Saved with {{brand}} on {{date}}",
+  "Get the extension": "Get the extension",
+  "Session not found": "Session not found",
+  "Dark": "Dark",
+  "Print": "Print",
+  "Layout": "Layout",
+  "Colour": "Colour"
 }

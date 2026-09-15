@@ -38,6 +38,12 @@ export const DEBOUNCE_TIME_WINDOW = 500;
 export const APP_VERSION = manifest.version;
 
 // developer details
+// The Web Store listing, tagged so an install arriving from an exported file
+// can be told apart from one arriving from the README (KAN-190). The README
+// links use ?ref=github for the same reason.
+export const EXPORT_STORE_URL =
+  'https://chromewebstore.google.com/detail/tab-keeper-chrome-tab-man/gpibgniomobngodpnikhheifblbpbbah?ref=export';
+
 export const DEV_CREDITS = `Crafted with ❤️ by Justine George`;
 
 // developer email

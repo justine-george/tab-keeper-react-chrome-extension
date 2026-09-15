@@ -34,6 +34,12 @@ interface IconBaseProps {
   animationTo?: string;
   animationDuration?: string;
   backgroundColor?: string;
+  /**
+   * The glyph's colour. Defaults to TEXT_COLOR, which is right on every
+   * surface the app paints EXCEPT one filled with TEXT_COLOR itself -- where
+   * the icon disappears into its own button (KAN-190).
+   */
+  color?: string;
   tooltipText?: string;
   text?: string;
   size?: string;
@@ -81,6 +87,7 @@ const Icon: React.FC<IconProps> = ({
   // emitted as `background-color: undefined` for the browser to discard --
   // the same result by accident rather than by statement.
   backgroundColor = 'transparent',
+  color,
   ariaLabel,
   tooltipText,
   text,
@@ -136,7 +143,7 @@ const Icon: React.FC<IconProps> = ({
     width: ${size};
     height: ${size};
     object-fit: contain;
-    color: ${COLORS.TEXT_COLOR};
+    color: ${color ?? COLORS.TEXT_COLOR};
     ${hoverAnimation}
   `;
 

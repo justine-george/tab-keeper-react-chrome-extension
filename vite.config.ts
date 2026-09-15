@@ -13,6 +13,10 @@ export default defineConfig({
       // content hash the popup's chunks get.
       input: {
         index: resolve(__dirname, 'index.html'),
+        // The export preview (KAN-190). A second page, not a popup view: the
+        // popup dies when the new tab takes focus, and this has to outlive
+        // that.
+        export: resolve(__dirname, 'export.html'),
         background: resolve(__dirname, 'src/background.ts'),
       },
       output: {

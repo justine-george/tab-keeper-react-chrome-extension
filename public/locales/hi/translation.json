@@ -134,5 +134,19 @@
   "Date modified": "बदलाव की तारीख",
   "Edited": "संपादित",
   "Created": "बनाया",
-  "Sessions reordered. Undo to restore the previous order.": "सत्र पुनः क्रमबद्ध किए गए। पिछला क्रम वापस पाने के लिए \"पूर्ववत\" का उपयोग करें।"
+  "Sessions reordered. Undo to restore the previous order.": "सत्र पुनः क्रमबद्ध किए गए। पिछला क्रम वापस पाने के लिए \"पूर्ववत\" का उपयोग करें।",
+  "Export session": "इस सत्र को वेब पेज के रूप में सहेजें",
+  "Save as HTML": "HTML के रूप में सहेजें",
+  "Copy all links": "सभी लिंक कॉपी करें",
+  "Links copied": "लिंक कॉपी हो गए",
+  "Comfortable": "आरामदायक",
+  "Compact": "संक्षिप्त",
+  "ExportNotAWebLink": "वेब लिंक नहीं",
+  "ExportFooterCredit": "{{date}} को {{brand}} से सहेजा गया",
+  "Get the extension": "एक्सटेंशन पाएं",
+  "Session not found": "सत्र नहीं मिला",
+  "Dark": "गहरा",
+  "Print": "प्रिंट करें",
+  "Layout": "लेआउट",
+  "Colour": "रंग"
 }
