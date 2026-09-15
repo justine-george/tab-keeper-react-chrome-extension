@@ -530,3 +530,87 @@ test('compact rows keep a gap from the edge of a group block', async ({
     ).toBeGreaterThanOrEqual(6);
   }
 });
+
+// KAN-192. The PDF did not look like the HTML. The print rules added in
+// KAN-190 deliberately changed paper from screen -- underlined links, a
+// replacement palette, groups without their tint, no body padding -- and the
+// unit tests asserted those rules, so they locked the difference in.
+//
+// The requirement is that the PDF IS the file. Printing is the file under
+// print media, so the strongest statement available in a browser is: the same
+// saved file, rendered under print media, is pixel-identical to it on screen.
+// Checked for both layouts and both colour schemes, because each carries its
+// own rules.
+for (const layout of ['Comfortable', 'Compact'] as const) {
+  for (const scheme of ['Light', 'Dark'] as const) {
+    test(`${layout}, ${scheme}: the file prints exactly as it looks`, async ({
+      context,
+      extensionId,
+    }) => {
+      const popup = await openPopup(context, extensionId);
+      const [exportPage] = await Promise.all([
+        context.waitForEvent('page'),
+        popup.getByRole('button', { name: EXPORT_BUTTON }).click(),
+      ]);
+      await exportPage.waitForLoadState();
+      await exportPage.getByRole('button', { name: layout }).click();
+      await exportPage.getByRole('button', { name: scheme }).click();
+
+      const [download] = await Promise.all([
+        exportPage.waitForEvent('download'),
+        exportPage.getByRole('button', { name: 'Save as HTML' }).click(),
+      ]);
+      const file = join(
+        mkdtempSync(join(tmpdir(), 'tabkeeper-print-')),
+        'saved.html'
+      );
+      await download.saveAs(file);
+
+      const reader = await context.newPage();
+      await reader.setViewportSize({ width: 816, height: 1056 });
+      await reader.goto(`file://${file}`);
+
+      await reader.emulateMedia({ media: 'screen' });
+      const onScreen = await reader.screenshot({ fullPage: true });
+      await reader.emulateMedia({ media: 'print' });
+      const inPrint = await reader.screenshot({ fullPage: true });
+
+      // CONTROL: the two renders are of a real page, not two blank frames that
+      // would be "identical" for free.
+      expect(onScreen.length).toBeGreaterThan(5000);
+      expect(
+        inPrint.equals(onScreen),
+        'print media must not change a single pixel of the file'
+      ).toBe(true);
+
+      // What a screenshot cannot show, read from the browser instead:
+      // backgrounds must print even with "Background graphics" off, and the
+      // page must leave Chrome no margin to draw its header and footer into.
+      const print = await reader.evaluate(() => {
+        const pageRules = [...document.styleSheets]
+          .flatMap((sheet) => [...sheet.cssRules])
+          .filter((rule): rule is CSSPageRule => rule instanceof CSSPageRule);
+        return {
+          pageMargin: pageRules.map((rule) => rule.style.margin),
+          colourAdjust: getComputedStyle(document.body).printColorAdjust,
+          // By name: TypeScript's CSSStyleDeclaration does not list this
+          // property, and a cast would claim a type the DOM lib does not have.
+          breaks: getComputedStyle(
+            document.querySelector('main')!
+          ).getPropertyValue('box-decoration-break'),
+        };
+      });
+      expect(
+        print.pageMargin,
+        'no margin for a browser header or footer'
+      ).toContain('0px');
+      expect(print.colourAdjust, 'tints print without ticking a box').toBe(
+        'exact'
+      );
+      expect(
+        print.breaks,
+        'every page keeps the top and bottom padding, not just the first'
+      ).toBe('clone');
+    });
+  }
+}

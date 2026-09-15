@@ -191,22 +191,28 @@ function styles(scheme: ExportScheme): string {
     // so a block padded only on its left let the text touch its own edge.
     `.compact .group{margin:2px 0;padding:0 10px 0 10px}` +
     `.compact .group-name{font-size:12px;color:var(--muted);margin:6px 0 0}` +
-    // Printing is how this file becomes a PDF, so the printed page has to be
-    // the same document: same links, same structure, readable.
+    // Printing is how this file becomes a PDF, and the PDF has to BE the file
+    // (KAN-192). So print may decide where a page breaks and nothing else: no
+    // palette, no underlines, no borders standing in for tints.
     //
-    // Two things would break that. Chrome does not print backgrounds by
-    // default, so a group shown only as a tint dissolves into the list --
-    // hence a printed border in place of the fill. And a DARK file on white
-    // paper is pale grey text on nothing, so print forces the light palette
-    // whatever the file uses on screen. That is the one place the paper
-    // deliberately differs from the screen, and it is the difference between
-    // legible and not.
+    // Three things are needed to get there, each measured in a real PDF.
+    // - `@page{margin:0}`: Chrome draws its header and footer into the page
+    //   margin, and they put the chrome-extension:// address and the session id
+    //   into a document meant for other people.
+    // - `print-color-adjust:exact`: the print dialog drops backgrounds by
+    //   default, and the tints and a dark page ARE the appearance.
+    // - The body padding moves onto <main> with `box-decoration-break:clone`.
+    //   With no page margin that padding is all that keeps text off the paper
+    //   edge, and plain padding applies to the first page only -- page 2
+    //   printed flush against the top. main grows by the padding it takes, so
+    //   the text keeps the width it has on screen (48px inset either way).
+    `@page{margin:0}` +
     `@media print{` +
-    `:root{--bg:#ffffff;--text:#1d2025;--muted:#44484f;--rule:#c9ced4;--link:#12408f;--visited:#12408f;--plain:#5f6670;--group-bg:transparent}` +
-    `body{padding:0;background:#ffffff;color:#1d2025}` +
-    `a{text-decoration:underline}` +
+    `html,body{-webkit-print-color-adjust:exact;print-color-adjust:exact}` +
+    `body{padding:0}` +
+    `main{max-width:768px;padding:30px 24px 40px;-webkit-box-decoration-break:clone;box-decoration-break:clone}` +
     `li.tab{break-inside:avoid}` +
-    `.group{break-inside:avoid;background:transparent;border-left:3px solid #9aa1ab}` +
+    `.group{break-inside:avoid}` +
     `h2{break-after:avoid}` +
     `.sig{break-inside:avoid}` +
     `}`

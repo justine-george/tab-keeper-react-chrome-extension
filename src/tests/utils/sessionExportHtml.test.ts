@@ -421,18 +421,57 @@ describe('the file prints as itself (KAN-190)', () => {
     );
   });
 
-  // A group that only shows as a tint is a group that vanishes on paper.
-  test('a group keeps a visible edge when backgrounds are not printed', () => {
+  // KAN-192. The rules this replaces made paper differ from screen on purpose
+  // -- a border instead of the tint, a forced light palette, underlined links
+  // -- and these tests asserted them, which is how the PDF stopped looking
+  // like the file. Print may now change only WHERE a page breaks, never what
+  // anything looks like. e2e/session-export.spec.ts holds the pixels to that.
+  test.each([['light'], ['dark']] as const)(
+    'a %s file changes nothing about its appearance when printed',
+    (scheme) => {
+      const html = sessionToHtml(oneTab(), options({ scheme }));
+      const print = html.match(/@media print\{[\s\S]*?\}\}/)?.[0] ?? '';
+
+      expect(print).not.toBe('');
+      for (const appearance of [
+        'text-decoration',
+        '--link',
+        '--bg',
+        'background:transparent',
+        'border-left',
+        'color:#',
+      ]) {
+        expect(print, `print must not restyle: ${appearance}`).not.toContain(
+          appearance
+        );
+      }
+    }
+  );
+
+  // Chrome's print header and footer are drawn into the page margin, and they
+  // carried the extension's own chrome-extension:// address and the session
+  // id into a document meant for other people. No margin, nowhere to draw.
+  test('the page leaves no margin for a browser header or footer', () => {
     const html = sessionToHtml(oneTab(), options());
 
-    expect(html).toMatch(/@media print\{.*\.group\{[^}]*border-left:/);
+    expect(html).toContain('@page{margin:0}');
   });
 
-  // The dark file stays dark on screen and prints legibly.
-  test('a dark file prints on white with dark text', () => {
+  // Tints and a dark background are the file's appearance, and the print
+  // dialog drops backgrounds unless the page says otherwise.
+  test('backgrounds print without the user ticking a box', () => {
     const html = sessionToHtml(oneTab(), options({ scheme: 'dark' }));
 
-    expect(html).toContain('--bg:#17191d');
-    expect(html).toMatch(/@media print\{[^@]*--bg:#ffffff/);
+    expect(html).toContain('print-color-adjust:exact');
+  });
+
+  // With no page margin, the file's own padding is the only thing keeping
+  // content off the paper edge -- and plain padding applies to the first page
+  // only. Measured: page 2 printed flush against the top edge until the
+  // padding was cloned onto every fragment.
+  test('every printed page keeps its top and bottom padding', () => {
+    const html = sessionToHtml(oneTab(), options());
+
+    expect(html).toMatch(/@media print\{[\s\S]*?box-decoration-break:clone/);
   });
 });
