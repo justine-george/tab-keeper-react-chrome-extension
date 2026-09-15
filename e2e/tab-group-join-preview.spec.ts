@@ -736,12 +736,11 @@ test.describe('the preview predicts the drop', () => {
     // inside the band.
     expect(preview.alpha0).toBeLessThan(preview.header);
 
-    // 2px low, and this is the REMAINDER of KAN-167 rather than the part it
-    // fixed. The slot here is a distance between measured TOPS -- the title
-    // row's top minus the held row's -- and a band's top includes the band's
-    // own 2px margin, so no footprint can reach it. The shifts are now exact;
-    // this one edge is not. Asserted as the number the engine produces.
-    expect(preview.alpha0).toBe(TRUTH.leaving.alpha0 + 2);
+    // Exact (KAN-167). This used to be 2px low: the slot is a distance between
+    // measured TOPS -- the title row's minus the held row's -- and a band's top
+    // includes the band's own margin, which a loose tab does not pay. The list
+    // now says so, and the slot is where the tab rests.
+    expect(preview.alpha0).toBe(TRUTH.leaving.alpha0);
 
     // The title row drops to make way, and the members left behind hold still.
     expect(preview.header).toBe(TRUTH.leaving.header);
