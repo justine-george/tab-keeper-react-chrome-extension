@@ -148,5 +148,12 @@
   "Dark": "深色",
   "Print": "PDF / 打印",
   "Layout": "布局",
-  "Colour": "配色"
+  "Colour": "配色",
+  "Edit": "编辑",
+  "Done": "完成",
+  "Reset": "重置",
+  "Editing": "正在编辑",
+  "ExportEditTally": "已重命名 {{renamed}} · 已隐藏 {{hidden}}",
+  "Hide": "隐藏",
+  "Rename tab": "重命名标签"
 }

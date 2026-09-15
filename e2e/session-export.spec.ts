@@ -359,7 +359,7 @@ for (const width of [1200, 800, 480]) {
       };
     });
 
-    expect(shape.buttons, 'two choices plus three actions').toBe(7);
+    expect(shape.buttons, 'Edit, two choices, and three actions').toBe(8);
     expect(shape.groups, 'layout and colour').toBe(2);
     expect(
       shape.splitGroups,

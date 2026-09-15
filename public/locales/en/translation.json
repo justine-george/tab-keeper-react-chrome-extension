@@ -148,5 +148,12 @@
   "Dark": "Dark",
   "Print": "PDF / Print",
   "Layout": "Layout",
-  "Colour": "Colour"
+  "Colour": "Colour",
+  "Edit": "Edit",
+  "Done": "Done",
+  "Reset": "Reset",
+  "Editing": "Editing",
+  "ExportEditTally": "{{renamed}} renamed · {{hidden}} hidden",
+  "Hide": "Hide",
+  "Rename tab": "Rename tab"
 }

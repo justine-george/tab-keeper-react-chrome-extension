@@ -148,5 +148,12 @@
   "Dark": "Sombre",
   "Print": "PDF / Imprimer",
   "Layout": "Disposition",
-  "Colour": "Couleur"
+  "Colour": "Couleur",
+  "Edit": "Modifier",
+  "Done": "Terminé",
+  "Reset": "Réinitialiser",
+  "Editing": "Modification",
+  "ExportEditTally": "{{renamed}} renommés · {{hidden}} masqués",
+  "Hide": "Masquer",
+  "Rename tab": "Renommer l'onglet"
 }

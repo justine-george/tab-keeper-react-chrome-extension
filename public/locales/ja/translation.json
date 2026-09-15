@@ -148,5 +148,12 @@
   "Dark": "ダーク",
   "Print": "PDF / 印刷",
   "Layout": "レイアウト",
-  "Colour": "配色"
+  "Colour": "配色",
+  "Edit": "編集",
+  "Done": "完了",
+  "Reset": "リセット",
+  "Editing": "編集中",
+  "ExportEditTally": "名前変更 {{renamed}} · 非表示 {{hidden}}",
+  "Hide": "非表示",
+  "Rename tab": "タブの名前を変更"
 }
