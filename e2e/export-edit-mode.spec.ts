@@ -398,3 +398,87 @@ for (const width of [1600, 1200, 800]) {
     ).toBeLessThanOrEqual(1);
   });
 }
+
+// Found on review: pressing Edit still moved the page up 2px. The joined
+// Layout and Colour pairs were content-box with a 1px border around 34px
+// buttons, so they stood 36px against every other control's 34px; the
+// resting toolbar row was 36px, the editing row 34px, and everything below
+// the header rose when editing started (measured: header 127px to 125px,
+// content 135px to 133px, at 1600px and at 1000px).
+const headerAndRow = (page: Page) =>
+  page.evaluate((title) => {
+    const heading = [...document.querySelectorAll('span')].find(
+      (el) => el.textContent === title
+    );
+    if (!heading) throw new Error('no session title in the header');
+    const primary =
+      document.querySelector('button[aria-label="Save as HTML"]') ??
+      document.querySelector('button[aria-label="Done"]');
+    if (!primary) throw new Error('no primary control on the toolbar');
+    let header: Element = primary;
+    while (!header.contains(heading)) header = header.parentElement!;
+    const row = header.lastElementChild!;
+    // The row's own controls: each button and each joined pair, but not the
+    // buttons inside a pair, and not the tally, which is text.
+    const controls = [...row.querySelectorAll('button, [role="group"]')].filter(
+      (el) =>
+        el.getAttribute('role') === 'group' || !el.closest('[role="group"]')
+    );
+    return {
+      headerHeight: header.getBoundingClientRect().height,
+      contentTop: header.nextElementSibling!.getBoundingClientRect().top,
+      controls: controls.map((el) => ({
+        name: el.getAttribute('aria-label') ?? '',
+        height: el.getBoundingClientRect().height,
+      })),
+    };
+  }, LONG_TITLE);
+
+for (const width of [1600, 1000]) {
+  test(`at ${width}px pressing Edit does not change the header's height or move the page`, async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openExportPage(context, extensionId, width);
+
+    const resting = await headerAndRow(page);
+    await page.getByRole('button', { name: 'Edit' }).click();
+    const editing = await headerAndRow(page);
+
+    expect(
+      Math.abs(editing.headerHeight - resting.headerHeight),
+      `header ${resting.headerHeight}px at rest, ${editing.headerHeight}px editing`
+    ).toBeLessThanOrEqual(0.5);
+    expect(
+      Math.abs(editing.contentTop - resting.contentTop),
+      `content starts at ${resting.contentTop}px at rest, ${editing.contentTop}px editing`
+    ).toBeLessThanOrEqual(0.5);
+  });
+
+  test(`at ${width}px every toolbar control is the same height, the joined pairs included`, async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openExportPage(context, extensionId, width);
+
+    const resting = await headerAndRow(page);
+    await page.getByRole('button', { name: 'Edit' }).click();
+    const editing = await headerAndRow(page);
+
+    const describe = (controls: { name: string; height: number }[]) =>
+      controls.map((c) => `${c.name} ${c.height}px`).join(', ');
+    const heights = new Set(
+      [...resting.controls, ...editing.controls].map((c) => c.height)
+    );
+    expect(
+      heights.size,
+      `at rest: ${describe(resting.controls)}; editing: ${describe(
+        editing.controls
+      )}`
+    ).toBe(1);
+    // CONTROL: the pairs were found, so a pass is not an empty comparison.
+    expect(resting.controls.map((c) => c.name)).toEqual(
+      expect.arrayContaining(['Layout', 'Colour', 'Edit', 'Save as HTML'])
+    );
+  });
+}

@@ -246,7 +246,7 @@ export default function ExportPage({ tabGroupId }: { tabGroupId: string }) {
   // A button inside a joined pair: no border of its own, no radius, and a
   // hairline against its neighbour. The group draws the box.
   const segmentStyle = (selected: boolean, first: boolean) => `
-    height: 34px;
+    height: 100%;
     padding: 6px 14px;
     border: 0;
     border-radius: 0;
@@ -261,7 +261,12 @@ export default function ExportPage({ tabGroupId }: { tabGroupId: string }) {
   // of the label. Dropping the left padding makes the button symmetrical.
   const actionIconStyle = 'padding-left: 0; padding-right: 6px;';
 
+  // 34px outside, border included, like every other control on the row. As
+  // content-box around 34px buttons the pair stood 36px, so the resting row was
+  // 2px taller than the editing row and the page rose when Edit was pressed.
   const groupStyle = css`
+    box-sizing: border-box;
+    height: 34px;
     display: inline-flex;
     align-items: stretch;
     border: 1px solid ${COLORS.BORDER_COLOR};
