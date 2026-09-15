@@ -8,6 +8,8 @@ import { css } from '@emotion/react';
 // extension that wrote it is out of the picture.
 import markDataUri from '../../assets/exportMark.png?inline';
 import Button from '../common/Button';
+import Icon from '../common/Icon';
+import ExportEditor from './ExportEditor';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { useFontFamily } from '../../hooks/useFontFamily';
 import { AppDispatch, RootState } from '../../redux/store';
@@ -31,6 +33,12 @@ import {
   type ExportLayout,
   type ExportScheme,
 } from '../../utils/functions/sessionExportHtml';
+import {
+  applyExportEdits,
+  countExportEdits,
+  NO_EXPORT_EDITS,
+  type ExportEdits,
+} from '../../utils/functions/sessionExportEdits';
 
 /**
  * The page that opens when a session is exported.
@@ -50,6 +58,13 @@ export default function ExportPage({ tabGroupId }: { tabGroupId: string }) {
   const COLORS = useThemeColors();
   const FONT_FAMILY = useFontFamily();
   const [copied, setCopied] = useState(false);
+  // KAN-194. Edits are for this export only: held here, applied to a copy,
+  // and gone when the tab closes. `writtenEdits` is the set last saved to a
+  // file, so closing after saving does not warn about changes already kept.
+  const [editing, setEditing] = useState(false);
+  const [edits, setEdits] = useState<ExportEdits>(NO_EXPORT_EDITS);
+  const [writtenEdits, setWrittenEdits] =
+    useState<ExportEdits>(NO_EXPORT_EDITS);
   const frameRef = useRef<HTMLIFrameElement>(null);
 
   // This page is its own document with its own store, and nothing fills that
@@ -74,6 +89,34 @@ export default function ExportPage({ tabGroupId }: { tabGroupId: string }) {
       (group) => group.tabGroupId === tabGroupId
     )
   );
+
+  // Every output -- the preview, the saved file, the PDF, the clipboard --
+  // is built from this one copy, so they cannot disagree about an edit.
+  const edited = useMemo(
+    () => (session ? applyExportEdits(session, edits) : undefined),
+    [session, edits]
+  );
+  const tally = useMemo(
+    () =>
+      session
+        ? countExportEdits(session, edits)
+        : { renamed: 0, hiddenTabs: 0 },
+    [session, edits]
+  );
+
+  // Nothing is stored, so closing with unsaved edits loses them. Chrome asks
+  // only when a beforeunload listener cancels the event, and draws its own
+  // dialog; the page cannot choose the words.
+  const pending =
+    (tally.renamed > 0 || tally.hiddenTabs > 0) && edits !== writtenEdits;
+  useEffect(() => {
+    if (!pending) return;
+    const ask = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+    };
+    window.addEventListener('beforeunload', ask);
+    return () => window.removeEventListener('beforeunload', ask);
+  }, [pending]);
   const layout = useSelector(
     (state: RootState) => state.settingsDataState.exportLayout
   );
@@ -95,14 +138,14 @@ export default function ExportPage({ tabGroupId }: { tabGroupId: string }) {
       : schemePreference;
 
   const html = useMemo(() => {
-    if (!session) return '';
-    return sessionToHtml(session, {
+    if (!session || !edited) return '';
+    return sessionToHtml(edited, {
       layout,
       scheme,
       dateLabel: sessionDateLabel(session, sessionDateBasis, i18n.language, t),
       countsLabel: formatGroupCounts(
-        session.windowCount,
-        session.tabCount,
+        edited.windowCount,
+        edited.tabCount,
         false,
         t
       ),
@@ -121,7 +164,7 @@ export default function ExportPage({ tabGroupId }: { tabGroupId: string }) {
         day: 'numeric',
       }),
     });
-  }, [session, layout, scheme, sessionDateBasis, i18n.language, t]);
+  }, [session, edited, layout, scheme, sessionDateBasis, i18n.language, t]);
 
   // The tab can be pinned or reloaded, so it says which session it holds --
   // several tabs all called "Tab Keeper" would say nothing. Left alone when
@@ -139,7 +182,7 @@ export default function ExportPage({ tabGroupId }: { tabGroupId: string }) {
     flex-direction: column;
   `;
 
-  if (!session) {
+  if (!session || !edited) {
     return (
       <div css={pageStyle}>
         <p
@@ -154,23 +197,35 @@ export default function ExportPage({ tabGroupId }: { tabGroupId: string }) {
     );
   }
 
+  const renameRow = (key: string, title: string) =>
+    setEdits((prev) => ({ ...prev, titles: { ...prev.titles, [key]: title } }));
+
+  const toggleHidden = (key: string) =>
+    setEdits((prev) => {
+      const hidden = new Set(prev.hidden);
+      if (hidden.has(key)) hidden.delete(key);
+      else hidden.add(key);
+      return { ...prev, hidden };
+    });
+
   const handleSave = () => {
     const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
     anchor.href = url;
-    anchor.download = exportFileName(session.title, new Date());
+    anchor.download = exportFileName(edited.title, new Date());
     document.body.appendChild(anchor);
     anchor.click();
     anchor.remove();
     // Revoked on a later turn, not immediately: the download is handed off
     // asynchronously, and revoking in the same tick cancels it in Chrome.
     setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    setWrittenEdits(edits);
   };
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(
-      sessionToLinkList(session, {
+      sessionToLinkList(edited, {
         window: t('Window'),
         tabCountLabel: (count) =>
           `${count} ${count > 1 ? t('Tabs') : t('Tab')}`,
@@ -191,7 +246,7 @@ export default function ExportPage({ tabGroupId }: { tabGroupId: string }) {
   // A button inside a joined pair: no border of its own, no radius, and a
   // hairline against its neighbour. The group draws the box.
   const segmentStyle = (selected: boolean, first: boolean) => `
-    height: 34px;
+    height: 100%;
     padding: 6px 14px;
     border: 0;
     border-radius: 0;
@@ -206,12 +261,35 @@ export default function ExportPage({ tabGroupId }: { tabGroupId: string }) {
   // of the label. Dropping the left padding makes the button symmetrical.
   const actionIconStyle = 'padding-left: 0; padding-right: 6px;';
 
+  // 34px outside, border included, like every other control on the row. As
+  // content-box around 34px buttons the pair stood 36px, so the resting row was
+  // 2px taller than the editing row and the page rose when Edit was pressed.
   const groupStyle = css`
+    box-sizing: border-box;
+    height: 34px;
     display: inline-flex;
     align-items: stretch;
     border: 1px solid ${COLORS.BORDER_COLOR};
     border-radius: 3px;
     overflow: hidden;
+  `;
+
+  const dividerStyle = css`
+    width: 1px;
+    align-self: stretch;
+    margin: 2px 0;
+    background-color: ${COLORS.BORDER_COLOR};
+  `;
+
+  // The end of the toolbar row. When the row is too narrow it wraps whole
+  // onto its own line and stays right-aligned.
+  const endStyle = css`
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    margin-left: auto;
   `;
 
   const schemeButton = (value: ExportScheme, label: string, first: boolean) => (
@@ -234,15 +312,29 @@ export default function ExportPage({ tabGroupId }: { tabGroupId: string }) {
     />
   );
 
+  const primaryStyle = `
+              height: 34px;
+              padding: 6px 14px;
+              font-weight: 500;
+              color: ${COLORS.PRIMARY_COLOR};
+              background-color: ${COLORS.TEXT_COLOR};
+              border-color: ${COLORS.TEXT_COLOR};
+              &:hover {
+                background-color: ${COLORS.LABEL_L1_COLOR};
+                border-color: ${COLORS.LABEL_L1_COLOR};
+              }
+            `;
+
   return (
     <div css={pageStyle}>
+      {/* The toolbar has a row of its own, always. Beside the title it fit
+          or wrapped depending on how long each mode's toolbar was, so pressing
+          Edit moved every control up a row. */}
       <div
         css={css`
           display: flex;
-          flex-wrap: wrap;
-          gap: 12px 16px;
-          align-items: center;
-          justify-content: space-between;
+          flex-direction: column;
+          gap: 10px;
           padding: 12px 16px;
           background-color: ${COLORS.SECONDARY_COLOR};
           border-bottom: 1px solid ${COLORS.BORDER_COLOR};
@@ -256,12 +348,33 @@ export default function ExportPage({ tabGroupId }: { tabGroupId: string }) {
             min-width: 0;
           `}
         >
+          {/* The page names its mode here and only here (picked from mocks).
+              The header otherwise repeats the title the file shows below it,
+              and nothing said the page is the file rather than the app. The
+              label's height is fixed and the pencil sized into it, so swapping
+              Preview for Editing moves nothing. */}
+          <span
+            css={css`
+              display: inline-flex;
+              align-items: center;
+              gap: 5px;
+              height: 1rem;
+              font-size: 0.68rem;
+              font-weight: 600;
+              letter-spacing: 0.08em;
+              text-transform: uppercase;
+              color: ${COLORS.LABEL_L2_COLOR};
+            `}
+          >
+            {editing && <Icon type="edit" size="0.9rem" style="padding: 0;" />}
+            <span>{editing ? t('Editing') : t('Preview')}</span>
+          </span>
           <span
             css={css`
               font-size: 1.125rem;
             `}
           >
-            {session.title}
+            {edited.title}
           </span>
           <span
             css={css`
@@ -269,7 +382,7 @@ export default function ExportPage({ tabGroupId }: { tabGroupId: string }) {
               color: ${COLORS.LABEL_L2_COLOR};
             `}
           >
-            {formatGroupCounts(session.windowCount, session.tabCount, false, t)}
+            {formatGroupCounts(edited.windowCount, edited.tabCount, false, t)}
           </span>
         </div>
 
@@ -281,68 +394,105 @@ export default function ExportPage({ tabGroupId }: { tabGroupId: string }) {
             flex-wrap: wrap;
           `}
         >
-          <span css={groupStyle} role="group" aria-label={t('Layout')}>
-            {layoutButton('comfortable', t('Comfortable'), true)}
-            {layoutButton('compact', t('Compact'), false)}
-          </span>
-          <span css={groupStyle} role="group" aria-label={t('Colour')}>
-            {schemeButton('light', t('Light'), true)}
-            {schemeButton('dark', t('Dark'), false)}
-          </span>
-          {/* Deciding ends here; what follows leaves the page. */}
-          <span
-            aria-hidden="true"
-            css={css`
-              width: 1px;
-              align-self: stretch;
-              margin: 2px 0;
-              background-color: ${COLORS.BORDER_COLOR};
-            `}
-          />
-          {/* Copy first: it ignores the choices, so it must not sit between
+          {editing ? (
+            <>
+              <span
+                role="status"
+                css={css`
+                  font-size: 0.78rem;
+                  color: ${COLORS.LABEL_L1_COLOR};
+                  border: 1px solid ${COLORS.BORDER_COLOR};
+                  border-radius: 999px;
+                  padding: 2px 9px;
+                  white-space: nowrap;
+                  font-variant-numeric: tabular-nums;
+                `}
+              >
+                {t('ExportEditTally', {
+                  renamed: tally.renamed,
+                  hidden: tally.hiddenTabs,
+                })}
+              </span>
+              <span css={endStyle}>
+                <Button
+                  text={t('Reset')}
+                  ariaLabel={t('Reset')}
+                  onClick={() => setEdits(NO_EXPORT_EDITS)}
+                  style={`height: 34px; padding: 6px 14px;`}
+                />
+                <Button
+                  text={t('Done')}
+                  ariaLabel={t('Done')}
+                  iconType="check"
+                  onClick={() => setEditing(false)}
+                  iconSize="1.2rem"
+                  iconColor={COLORS.PRIMARY_COLOR}
+                  iconStyle={actionIconStyle}
+                  style={primaryStyle}
+                />
+              </span>
+            </>
+          ) : (
+            <>
+              {/* Edit changes what the file says; the choices after it change how
+              it looks, and the outputs after those write it. */}
+              <Button
+                text={t('Edit')}
+                ariaLabel={t('Edit')}
+                iconType="edit"
+                onClick={() => setEditing(true)}
+                iconSize="1.2rem"
+                iconStyle={actionIconStyle}
+                style={`height: 34px; padding: 6px 14px;`}
+              />
+              <span aria-hidden="true" css={dividerStyle} />
+              <span css={groupStyle} role="group" aria-label={t('Layout')}>
+                {layoutButton('comfortable', t('Comfortable'), true)}
+                {layoutButton('compact', t('Compact'), false)}
+              </span>
+              <span css={groupStyle} role="group" aria-label={t('Colour')}>
+                {schemeButton('light', t('Light'), true)}
+                {schemeButton('dark', t('Dark'), false)}
+              </span>
+              {/* Deciding ends here; what follows leaves the page, from the
+              end of the row -- Save stands where Done stands while editing. */}
+              <span css={endStyle}>
+                {/* Copy first: it ignores the choices, so it must not sit between
               the two outputs that follow them. */}
-          <Button
-            text={t('Copy all links')}
-            ariaLabel={t('Copy all links')}
-            iconType="link"
-            onClick={handleCopy}
-            iconSize="1.2rem"
-            iconStyle={actionIconStyle}
-            style={`height: 34px; padding: 6px 14px;`}
-          />
-          <Button
-            text={t('Print')}
-            ariaLabel={t('Print')}
-            iconType="print"
-            onClick={handlePrint}
-            iconSize="1.2rem"
-            iconStyle={actionIconStyle}
-            style={`height: 34px; padding: 6px 14px;`}
-          />
-          <Button
-            text={t('Save as HTML')}
-            ariaLabel={t('Save as HTML')}
-            iconType="download"
-            onClick={handleSave}
-            iconSize="1.2rem"
-            iconColor={COLORS.PRIMARY_COLOR}
-            iconStyle={actionIconStyle}
-            // FILLED, not tinted. A tint is what a pressed segment wears here,
-            // so tinting Save would make the loudest control on the row read
-            // as one more selected state.
-            style={`
-              height: 34px;
-              padding: 6px 14px;
-              font-weight: 500;
-              color: ${COLORS.PRIMARY_COLOR};
-              background-color: ${COLORS.TEXT_COLOR};
-              border-color: ${COLORS.TEXT_COLOR};
-              &:hover {
-                background-color: ${COLORS.LABEL_L1_COLOR};
-                border-color: ${COLORS.LABEL_L1_COLOR};
-              }
-            `}
-          />
+                <Button
+                  text={t('Copy all links')}
+                  ariaLabel={t('Copy all links')}
+                  iconType="link"
+                  onClick={handleCopy}
+                  iconSize="1.2rem"
+                  iconStyle={actionIconStyle}
+                  style={`height: 34px; padding: 6px 14px;`}
+                />
+                <Button
+                  text={t('Print')}
+                  ariaLabel={t('Print')}
+                  iconType="print"
+                  onClick={handlePrint}
+                  iconSize="1.2rem"
+                  iconStyle={actionIconStyle}
+                  style={`height: 34px; padding: 6px 14px;`}
+                />
+                <Button
+                  text={t('Save as HTML')}
+                  ariaLabel={t('Save as HTML')}
+                  iconType="download"
+                  onClick={handleSave}
+                  iconSize="1.2rem"
+                  iconColor={COLORS.PRIMARY_COLOR}
+                  iconStyle={actionIconStyle}
+                  // FILLED, not tinted. A tint is what a pressed segment wears here,
+                  // so tinting Save would make the loudest control on the row read
+                  // as one more selected state.
+                  style={primaryStyle}
+                />
+              </span>
+            </>
+          )}
         </div>
       </div>
 
@@ -370,24 +520,36 @@ export default function ExportPage({ tabGroupId }: { tabGroupId: string }) {
         </div>
       )}
 
-      {/* The preview is the file itself, in its own document: it carries its
+      {editing ? (
+        <ExportEditor
+          session={session}
+          edits={edits}
+          scheme={scheme}
+          onRename={renameRow}
+          onToggleHidden={toggleHidden}
+        />
+      ) : (
+        <>
+          {/* The preview is the file itself, in its own document: it carries its
           own security rule and styling, and nothing on this page can leak
           into what gets saved. */}
-      <iframe
-        ref={frameRef}
-        title={session.title}
-        srcDoc={html}
-        // allow-modals is what makes print() work: Chrome ignores print()
-        // from a sandboxed frame without it, silently but for a console line.
-        // allow-scripts is still absent, so the file cannot run anything.
-        sandbox="allow-same-origin allow-modals"
-        css={css`
-          border: 0;
-          flex-grow: 1;
-          width: 100%;
-          background-color: #fff;
-        `}
-      />
+          <iframe
+            ref={frameRef}
+            title={edited.title}
+            srcDoc={html}
+            // allow-modals is what makes print() work: Chrome ignores print()
+            // from a sandboxed frame without it, silently but for a console line.
+            // allow-scripts is still absent, so the file cannot run anything.
+            sandbox="allow-same-origin allow-modals"
+            css={css`
+              border: 0;
+              flex-grow: 1;
+              width: 100%;
+              background-color: #fff;
+            `}
+          />
+        </>
+      )}
     </div>
   );
 }

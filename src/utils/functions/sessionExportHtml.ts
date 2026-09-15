@@ -19,6 +19,46 @@ export type ExportLayout = 'comfortable' | 'compact';
  */
 export type ExportScheme = 'light' | 'dark';
 
+/**
+ * The file's colours, per scheme. Exported for the export page's Edit mode
+ * (KAN-194), which edits the rows in the page rather than in the sandboxed
+ * preview, and has to look like the file it is editing -- so it reads the
+ * file's own palette instead of keeping a copy that could drift.
+ */
+export interface ExportPalette {
+  bg: string;
+  text: string;
+  muted: string;
+  rule: string;
+  link: string;
+  visited: string;
+  plain: string;
+  groupBg: string;
+}
+
+export const EXPORT_PALETTE: Record<ExportScheme, ExportPalette> = {
+  light: {
+    bg: '#ffffff',
+    text: '#1d2025',
+    muted: '#5f6670',
+    rule: '#e3e6ea',
+    link: '#1a56c4',
+    visited: '#6b3fb0',
+    plain: '#8a9099',
+    groupBg: '#f5f7fa',
+  },
+  dark: {
+    bg: '#17191d',
+    text: '#e6e8eb',
+    muted: '#9aa1ab',
+    rule: '#2c3037',
+    link: '#8ab4f8',
+    visited: '#c7a4f5',
+    plain: '#7b828c',
+    groupBg: '#1f2227',
+  },
+};
+
 export interface SessionExportOptions {
   layout: ExportLayout;
   scheme: ExportScheme;
@@ -152,10 +192,9 @@ function windowHtml(
  * them, so the two can never drift into different documents.
  */
 function styles(scheme: ExportScheme): string {
+  const palette = EXPORT_PALETTE[scheme];
   return (
-    (scheme === 'dark'
-      ? `:root{--bg:#17191d;--text:#e6e8eb;--muted:#9aa1ab;--rule:#2c3037;--link:#8ab4f8;--visited:#c7a4f5;--plain:#7b828c;--group-bg:#1f2227;color-scheme:dark}`
-      : `:root{--bg:#ffffff;--text:#1d2025;--muted:#5f6670;--rule:#e3e6ea;--link:#1a56c4;--visited:#6b3fb0;--plain:#8a9099;--group-bg:#f5f7fa;color-scheme:light}`) +
+    `:root{--bg:${palette.bg};--text:${palette.text};--muted:${palette.muted};--rule:${palette.rule};--link:${palette.link};--visited:${palette.visited};--plain:${palette.plain};--group-bg:${palette.groupBg};color-scheme:${scheme}}` +
     `*{box-sizing:border-box}` +
     `body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;padding:30px 24px 40px}` +
     `main{max-width:720px;margin:0 auto}` +

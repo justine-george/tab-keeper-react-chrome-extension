@@ -148,5 +148,13 @@
   "Dark": "Escuro",
   "Print": "PDF / Imprimir",
   "Layout": "Layout",
-  "Colour": "Cor"
+  "Colour": "Cor",
+  "Edit": "Editar",
+  "Done": "Concluído",
+  "Reset": "Redefinir",
+  "Editing": "Editando",
+  "ExportEditTally": "{{renamed}} renomeados · {{hidden}} ocultos",
+  "Hide": "Ocultar",
+  "Rename tab": "Renomear aba",
+  "Preview": "Pré-visualização"
 }

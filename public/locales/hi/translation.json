@@ -148,5 +148,13 @@
   "Dark": "गहरा",
   "Print": "PDF / प्रिंट",
   "Layout": "लेआउट",
-  "Colour": "रंग"
+  "Colour": "रंग",
+  "Edit": "संपादित करें",
+  "Done": "हो गया",
+  "Reset": "रीसेट करें",
+  "Editing": "संपादन जारी",
+  "ExportEditTally": "{{renamed}} के नाम बदले · {{hidden}} छिपाए",
+  "Hide": "छिपाएँ",
+  "Rename tab": "टैब का नाम बदलें",
+  "Preview": "पूर्वावलोकन"
 }

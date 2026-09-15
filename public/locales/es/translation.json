@@ -148,5 +148,13 @@
   "Dark": "Oscuro",
   "Print": "PDF / Imprimir",
   "Layout": "Diseño",
-  "Colour": "Color"
+  "Colour": "Color",
+  "Edit": "Editar",
+  "Done": "Listo",
+  "Reset": "Restablecer",
+  "Editing": "Editando",
+  "ExportEditTally": "{{renamed}} renombrados · {{hidden}} ocultos",
+  "Hide": "Ocultar",
+  "Rename tab": "Renombrar pestaña",
+  "Preview": "Vista previa"
 }
