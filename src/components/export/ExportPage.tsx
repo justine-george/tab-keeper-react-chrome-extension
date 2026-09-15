@@ -276,6 +276,17 @@ export default function ExportPage({ tabGroupId }: { tabGroupId: string }) {
     background-color: ${COLORS.BORDER_COLOR};
   `;
 
+  // The end of the toolbar row. When the row is too narrow it wraps whole
+  // onto its own line and stays right-aligned.
+  const endStyle = css`
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    margin-left: auto;
+  `;
+
   const schemeButton = (value: ExportScheme, label: string, first: boolean) => (
     <Button
       text={label}
@@ -311,13 +322,14 @@ export default function ExportPage({ tabGroupId }: { tabGroupId: string }) {
 
   return (
     <div css={pageStyle}>
+      {/* The toolbar has a row of its own, always. Beside the title it fit
+          or wrapped depending on how long each mode's toolbar was, so pressing
+          Edit moved every control up a row. */}
       <div
         css={css`
           display: flex;
-          flex-wrap: wrap;
-          gap: 12px 16px;
-          align-items: center;
-          justify-content: space-between;
+          flex-direction: column;
+          gap: 10px;
           padding: 12px 16px;
           background-color: ${COLORS.SECONDARY_COLOR};
           border-bottom: 1px solid ${COLORS.BORDER_COLOR};
@@ -387,23 +399,24 @@ export default function ExportPage({ tabGroupId }: { tabGroupId: string }) {
                   hidden: tally.hiddenTabs,
                 })}
               </span>
-              <span aria-hidden="true" css={dividerStyle} />
-              <Button
-                text={t('Reset')}
-                ariaLabel={t('Reset')}
-                onClick={() => setEdits(NO_EXPORT_EDITS)}
-                style={`height: 34px; padding: 6px 14px;`}
-              />
-              <Button
-                text={t('Done')}
-                ariaLabel={t('Done')}
-                iconType="check"
-                onClick={() => setEditing(false)}
-                iconSize="1.2rem"
-                iconColor={COLORS.PRIMARY_COLOR}
-                iconStyle={actionIconStyle}
-                style={primaryStyle}
-              />
+              <span css={endStyle}>
+                <Button
+                  text={t('Reset')}
+                  ariaLabel={t('Reset')}
+                  onClick={() => setEdits(NO_EXPORT_EDITS)}
+                  style={`height: 34px; padding: 6px 14px;`}
+                />
+                <Button
+                  text={t('Done')}
+                  ariaLabel={t('Done')}
+                  iconType="check"
+                  onClick={() => setEditing(false)}
+                  iconSize="1.2rem"
+                  iconColor={COLORS.PRIMARY_COLOR}
+                  iconStyle={actionIconStyle}
+                  style={primaryStyle}
+                />
+              </span>
             </>
           ) : (
             <>
@@ -427,49 +440,43 @@ export default function ExportPage({ tabGroupId }: { tabGroupId: string }) {
                 {schemeButton('light', t('Light'), true)}
                 {schemeButton('dark', t('Dark'), false)}
               </span>
-              {/* Deciding ends here; what follows leaves the page. */}
-              <span
-                aria-hidden="true"
-                css={css`
-                  width: 1px;
-                  align-self: stretch;
-                  margin: 2px 0;
-                  background-color: ${COLORS.BORDER_COLOR};
-                `}
-              />
-              {/* Copy first: it ignores the choices, so it must not sit between
+              {/* Deciding ends here; what follows leaves the page, from the
+              end of the row -- Save stands where Done stands while editing. */}
+              <span css={endStyle}>
+                {/* Copy first: it ignores the choices, so it must not sit between
               the two outputs that follow them. */}
-              <Button
-                text={t('Copy all links')}
-                ariaLabel={t('Copy all links')}
-                iconType="link"
-                onClick={handleCopy}
-                iconSize="1.2rem"
-                iconStyle={actionIconStyle}
-                style={`height: 34px; padding: 6px 14px;`}
-              />
-              <Button
-                text={t('Print')}
-                ariaLabel={t('Print')}
-                iconType="print"
-                onClick={handlePrint}
-                iconSize="1.2rem"
-                iconStyle={actionIconStyle}
-                style={`height: 34px; padding: 6px 14px;`}
-              />
-              <Button
-                text={t('Save as HTML')}
-                ariaLabel={t('Save as HTML')}
-                iconType="download"
-                onClick={handleSave}
-                iconSize="1.2rem"
-                iconColor={COLORS.PRIMARY_COLOR}
-                iconStyle={actionIconStyle}
-                // FILLED, not tinted. A tint is what a pressed segment wears here,
-                // so tinting Save would make the loudest control on the row read
-                // as one more selected state.
-                style={primaryStyle}
-              />
+                <Button
+                  text={t('Copy all links')}
+                  ariaLabel={t('Copy all links')}
+                  iconType="link"
+                  onClick={handleCopy}
+                  iconSize="1.2rem"
+                  iconStyle={actionIconStyle}
+                  style={`height: 34px; padding: 6px 14px;`}
+                />
+                <Button
+                  text={t('Print')}
+                  ariaLabel={t('Print')}
+                  iconType="print"
+                  onClick={handlePrint}
+                  iconSize="1.2rem"
+                  iconStyle={actionIconStyle}
+                  style={`height: 34px; padding: 6px 14px;`}
+                />
+                <Button
+                  text={t('Save as HTML')}
+                  ariaLabel={t('Save as HTML')}
+                  iconType="download"
+                  onClick={handleSave}
+                  iconSize="1.2rem"
+                  iconColor={COLORS.PRIMARY_COLOR}
+                  iconStyle={actionIconStyle}
+                  // FILLED, not tinted. A tint is what a pressed segment wears here,
+                  // so tinting Save would make the loudest control on the row read
+                  // as one more selected state.
+                  style={primaryStyle}
+                />
+              </span>
             </>
           )}
         </div>

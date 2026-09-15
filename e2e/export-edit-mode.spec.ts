@@ -293,3 +293,93 @@ test('editing a dark export happens on the dark file ground', async ({
 
   expect(ground).toBe('rgb(23, 25, 29)');
 });
+
+// Found on review: at rest the toolbar is too long for the title's row and
+// wraps under it, while the short editing toolbar fits beside the title -- so
+// pressing Edit made every control jump up a row. The toolbar now always has a
+// row of its own, and the primary control sits at its right end in both modes:
+// Save at rest, Done while editing.
+const toolbarGeometry = (page: Page, title: string) =>
+  page.evaluate((title) => {
+    const byLabel = (label: string) =>
+      document.querySelector(`button[aria-label="${label}"]`);
+    const primary = byLabel('Save as HTML') ?? byLabel('Done');
+    if (!primary) throw new Error('no primary control on the toolbar');
+    // The header's title, not the editor's field: a textarea's text is its
+    // value, never its textContent.
+    const heading = [...document.querySelectorAll('span')].find(
+      (el) => el.textContent === title
+    );
+    if (!heading) throw new Error('no session title in the header');
+    // The header is the nearest box holding both the title and the toolbar.
+    let header: Element = primary;
+    while (!header.contains(heading)) header = header.parentElement!;
+    const style = getComputedStyle(header);
+    const box = header.getBoundingClientRect();
+    const first =
+      byLabel('Edit') ??
+      header.querySelector('[role="status"]')!.parentElement!;
+    return {
+      titleBottom: heading.getBoundingClientRect().bottom,
+      primaryRight: primary.getBoundingClientRect().right,
+      // Where the toolbar's first line starts. Not the primary control's top:
+      // at 800px the resting row wraps and Save sits on a second line, while
+      // the shorter editing row keeps Done on the first. The row did not move.
+      firstLineTop: Math.min(
+        ...[...header.querySelectorAll('button, [role="status"]')].map(
+          (el) => el.getBoundingClientRect().top
+        )
+      ),
+      firstLeft: first.getBoundingClientRect().left,
+      contentLeft: box.left + parseFloat(style.paddingLeft),
+      contentRight: box.right - parseFloat(style.paddingRight),
+    };
+  }, title);
+
+// 1200px is where review found the jump with this title: the resting toolbar
+// wraps under it, and the shorter editing toolbar fits beside it.
+for (const width of [1600, 1200, 800]) {
+  test(`at ${width}px the toolbar keeps its own row and does not move when editing starts`, async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openExportPage(context, extensionId, width);
+
+    const resting = await toolbarGeometry(page, LONG_TITLE);
+    await page.getByRole('button', { name: 'Edit' }).click();
+    const editing = await toolbarGeometry(page, LONG_TITLE);
+
+    expect(resting.firstLineTop, 'a row below the title').toBeGreaterThan(
+      resting.titleBottom
+    );
+    expect(
+      Math.abs(editing.firstLineTop - resting.firstLineTop),
+      `the toolbar row moved from ${resting.firstLineTop}px to ${editing.firstLineTop}px`
+    ).toBeLessThanOrEqual(1);
+  });
+
+  test(`at ${width}px Save, then Done, sit at the right end of the toolbar`, async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openExportPage(context, extensionId, width);
+
+    const resting = await toolbarGeometry(page, LONG_TITLE);
+    await page.getByRole('button', { name: 'Edit' }).click();
+    const editing = await toolbarGeometry(page, LONG_TITLE);
+
+    expect(
+      Math.abs(resting.contentRight - resting.primaryRight),
+      `Save ends at ${resting.primaryRight}px, the row at ${resting.contentRight}px`
+    ).toBeLessThanOrEqual(1);
+    expect(
+      Math.abs(editing.contentRight - editing.primaryRight),
+      `Done ends at ${editing.primaryRight}px, the row at ${editing.contentRight}px`
+    ).toBeLessThanOrEqual(1);
+    // CONTROL: the row still starts at the left edge, so "at the right end"
+    // is not a toolbar that simply moved right.
+    expect(
+      Math.abs(resting.firstLeft - resting.contentLeft)
+    ).toBeLessThanOrEqual(1);
+  });
+}
