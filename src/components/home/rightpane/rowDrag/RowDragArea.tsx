@@ -52,6 +52,7 @@ import {
 } from './dropRules';
 import {
   freedByRemoving,
+  gapChangeShifts,
   landingDeltaAcross,
   landingDeltaOf,
   previewShifts,
@@ -260,6 +261,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
   fixedRowSelector,
   landsBesideFixedRow,
   fixedRowsRemovedBy,
+  gapChangesBy,
   disabled = false,
   children,
 }) => {
@@ -722,6 +724,55 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       const closingUp =
         span === undefined ? {} : removalShifts(l.slots, span.last, span.freed);
 
+      // What the drop does to the GAP BETWEEN TWO BANDS (KAN-187), which is
+      // neither a move nor a removal: two adjacent bands share one wide gap,
+      // and a loose row between them makes each keep its own margin instead.
+      // Asked only where a release lands, like the removal above.
+      const gapChanges =
+        landing === undefined
+          ? []
+          : gapChangesBy?.(l.rowId, landing.index, target, landing.windowId) ??
+            [];
+      // Each resolved to the band's own title row, which is the first thing
+      // the gap above it displaces. A band this list cannot place is dropped
+      // rather than guessed at.
+      const gapAnchors = gapChanges.flatMap((change) => {
+        const anchor = l.slotOfFixed.get(change.bandId);
+        return anchor === undefined ? [] : [{ anchor, delta: change.delta }];
+      });
+      // Summed, not replaced: one release can close a gap where the row came
+      // from and open one where it lands, and putting a row back where it was
+      // emits both for the same band, which cancel to nothing.
+      const gapping = gapAnchors.reduce<Record<string, number>>(
+        (acc, { anchor, delta }) =>
+          summed(acc, gapChangeShifts(l.slots, anchor, delta)),
+        {}
+      );
+      const besides = summed(closingUp, gapping);
+
+      // How far a landing at slot `at` is carried by those gap changes: only
+      // ones in the window it lands in, and only where the row settles among
+      // the slots that actually moved.
+      //
+      // "AT the anchor" IS AMBIGUOUS in the same-window branch, and that is
+      // the whole subtlety. slotLandingBeside compresses both sides of a
+      // title row to one index, so a row landing in the GAP ABOVE the band
+      // and a row landing INSIDE it at its head arrive at the same `at`. The
+      // first takes the band's old place and lets it move away beneath it;
+      // the second goes with it. Only the side the list named tells them
+      // apart -- measured, applying it to both put the ghost 4px out on every
+      // drop into the gap. The cross-window branch has no such ambiguity:
+      // insertionSlotOf spends a whole index on `after`.
+      const gapCarriedTo = (at: number, landsInsideFixed: boolean) =>
+        gapAnchors.reduce(
+          (total, { anchor, delta }) =>
+            l.slots[anchor]?.windowId === landing?.windowId &&
+            (at > anchor || (landsInsideFixed && fixedSlot === anchor))
+              ? total + delta
+              : total,
+          0
+        );
+
       // The slot the list's fixed-row answer names, where this list can find
       // it. BOTH branches need it: to resolve the landing slot, and to know the
       // answer was USED before adding its offset (KAN-167) -- insertionSlotOf
@@ -748,7 +799,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         // its box (KAN-184), the freed room showing as a gap inside it.
         shifts = summed(
           previewShiftsAcross(l.slots, from, landing.windowId, at, l.footprint),
-          closingUp
+          besides
         );
         landingDelta = landingDeltaAcross(
           l.slots,
@@ -768,6 +819,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         // insertionSlotOf fell back to the row index and the offset would
         // describe a slot that was not taken.
         if (fixedSlot !== undefined) landingDelta += beside?.offset ?? 0;
+        landingDelta += gapCarriedTo(at, false);
         windowShifts = windowShiftsAcross(
           l.windowOrder,
           landing.windowId,
@@ -778,10 +830,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
           fixedSlot === undefined || beside === undefined
             ? slotOfLanding(l, landing, from)
             : slotLandingBeside(from, fixedSlot, beside.side);
-        shifts = summed(
-          previewShifts(l.slots, from, to, l.footprint),
-          closingUp
-        );
+        shifts = summed(previewShifts(l.slots, from, to, l.footprint), besides);
         landingDelta = landingDeltaOf(l.slots, from, to);
         // The slot is a measured edge of the drawn list, and where that edge
         // is a band's it includes spacing a loose row will not pay (KAN-167).
@@ -794,6 +843,10 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         // closed up, and its slot comes up with them. Landing above it or at
         // its head, nothing between the row and its slot has moved.
         if (span !== undefined && to > span.last) landingDelta -= span.freed;
+        // The held row settles among rows a gap change has moved (KAN-187),
+        // so its slot moves with them. Measured: leaving the gap between two
+        // bands and landing below them put the slot 4px out too.
+        landingDelta += gapCarriedTo(to, beside?.side === 'after');
       }
 
       setDrag({
@@ -1257,6 +1310,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     fixedRowSelector,
     landsBesideFixedRow,
     fixedRowsRemovedBy,
+    gapChangesBy,
     dragKind,
     dropsAcrossWindows,
     restoreScrollIfNoDrop,
