@@ -51,10 +51,12 @@ import {
   type RowDragAreaProps,
 } from './dropRules';
 import {
+  freedByRemoving,
   landingDeltaAcross,
   landingDeltaOf,
   previewShifts,
   previewShiftsAcross,
+  removalShifts,
   slotLandingBeside,
   windowShiftsAcross,
   type LandingSide,
@@ -230,6 +232,20 @@ function footprintOf(
   return own > 0 ? own : height;
 }
 
+// Two sets of shifts on one list, added key by key (KAN-169). A slot the held
+// row passes AND a removed band closes up past moves by both; a slot in one set
+// only keeps that one; absent stays absent, as every shifts object promises.
+function summed(
+  a: Readonly<Record<string, number>>,
+  b: Readonly<Record<string, number>>
+): Record<string, number> {
+  const out: Record<string, number> = { ...a };
+  for (const [key, shift] of Object.entries(b)) {
+    out[key] = (out[key] ?? 0) + shift;
+  }
+  return out;
+}
+
 export const RowDragArea: React.FC<RowDragAreaProps> = ({
   rowIds,
   scope,
@@ -243,6 +259,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
   onDropTargetChange,
   fixedRowSelector,
   landsBesideFixedRow,
+  fixedRowsRemovedBy,
   disabled = false,
   children,
 }) => {
@@ -313,6 +330,10 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     // preview needs to know to move the ones BETWEEN the source and the
     // destination, so the destination can make room.
     windowOrder: string[];
+    // Where each window's list CONTENT starts, in content space (KAN-169): what
+    // stands in for the slot above a span that leads its window. Keyed like
+    // the slots, so a list with no windows has one entry under undefined.
+    listTops: Map<string | undefined, number>;
   } | null>(null);
 
   // The auto-scroll frame, cancelled on drop. A ref rather than state: it is
@@ -400,6 +421,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         slotOfFixed: new Map(),
         windowOrder: [],
         windowBottoms: new Map(),
+        listTops: new Map(),
       };
     },
     [rowIds, handleSelector, disabled, clampDropToEnds]
@@ -649,6 +671,57 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
               target,
               landing.windowId
             );
+      // What the drop REMOVES (KAN-169): a span of fixed rows the list says
+      // will not survive this release -- a group's title row and tail marker,
+      // while its only member is held outside it. Nothing the shifts below can
+      // express on their own: they move slots, and every slot they know about
+      // was measured at drag start and survives to the drop. So the span is
+      // named, the room it gives back is measured between the slots either
+      // side of it, and every slot below closes up by that much ON TOP OF
+      // whatever the held row's own move does to it. Two events, summed.
+      //
+      // Asked only where a release lands: a refused one changes nothing, and
+      // must not preview a group vanishing (the KAN-172 lesson, again).
+      const removed =
+        landing === undefined
+          ? undefined
+          : fixedRowsRemovedBy?.(
+              l.rowId,
+              landing.index,
+              target,
+              landing.windowId
+            );
+      const spanFirst =
+        removed === undefined ? undefined : l.slotOfFixed.get(removed.first);
+      const spanLast =
+        removed === undefined ? undefined : l.slotOfFixed.get(removed.last);
+      const span =
+        removed !== undefined &&
+        spanFirst !== undefined &&
+        spanLast !== undefined &&
+        spanFirst <= spanLast
+          ? {
+              first: spanFirst,
+              last: spanLast,
+              freed: freedByRemoving(
+                l.slots,
+                spanFirst,
+                spanLast,
+                l.height,
+                removed.gapKept,
+                l.listTops.get(l.slots[spanFirst]?.windowId)
+              ),
+              // Every fixed row in the span, for whoever draws them. The one
+              // ROW in it is the held one, which is not drawn there anyway.
+              keys: l.slots
+                .slice(spanFirst, spanLast + 1)
+                .map((s) => s.key)
+                .filter((key) => l.slotOfFixed.has(key)),
+            }
+          : undefined;
+      const closingUp =
+        span === undefined ? {} : removalShifts(l.slots, span.last, span.freed);
+
       let shifts: Record<string, number>;
       let landingDelta: number;
       // Which WINDOW BLOCKS move, so the destination has somewhere to put the
@@ -663,12 +736,12 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         // range across both (KAN-132) -- see previewShiftsAcross for what the
         // single range drew.
         const at = insertionSlotOf(l, landing, beside);
-        shifts = previewShiftsAcross(
-          l.slots,
-          from,
-          landing.windowId,
-          at,
-          l.footprint
+        // The span is in the SOURCE window, so only its shifts change: the
+        // landing is measured in the destination's frame and the source keeps
+        // its box (KAN-184), the freed room showing as a gap inside it.
+        shifts = summed(
+          previewShiftsAcross(l.slots, from, landing.windowId, at, l.footprint),
+          closingUp
         );
         landingDelta = landingDeltaAcross(
           l.slots,
@@ -691,8 +764,15 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
           fixedSlot === undefined || beside === undefined
             ? slotOfLanding(l, landing, from)
             : slotLandingBeside(from, fixedSlot, beside.side);
-        shifts = previewShifts(l.slots, from, to, l.footprint);
+        shifts = summed(
+          previewShifts(l.slots, from, to, l.footprint),
+          closingUp
+        );
         landingDelta = landingDeltaOf(l.slots, from, to);
+        // Landing BELOW the removed span, the row settles among rows that have
+        // closed up, and its slot comes up with them. Landing above it or at
+        // its head, nothing between the row and its slot has moved.
+        if (span !== undefined && to > span.last) landingDelta -= span.freed;
       }
 
       setDrag({
@@ -714,6 +794,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         heldWindowShift:
           windowShifts[l.heldWindow?.dataset.dropWindowId ?? ''] ?? 0,
         landingWindowShift: windowShifts[landing?.windowId ?? ''] ?? 0,
+        removedFixedRows: span?.keys ?? [],
       });
 
       return root;
@@ -892,6 +973,35 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
               block.getBoundingClientRect().bottom + l.startScrollTop
             );
           }
+        }
+
+        // Where each window's rows START (KAN-169), for a removed span with no
+        // slot above it: the content top of the box that holds that window's
+        // rows, which is where the row below the span will sit once the span is
+        // gone. The box is the nearest marked row container above the row --
+        // or this area's own container, for a list drawn in one box -- read
+        // once per window, in the same frame as everything above.
+        l.listTops = new Map();
+        for (const r of l.rects) {
+          if (l.listTops.has(r.windowId)) continue;
+          let el = rows.current.get(r.id) ?? null;
+          while (
+            el?.parentElement &&
+            el.parentElement !== containerRef.current &&
+            !isRowContainer(el.parentElement)
+          ) {
+            el = el.parentElement;
+          }
+          const holder = el?.parentElement;
+          if (!holder) continue;
+          const style = getComputedStyle(holder);
+          l.listTops.set(
+            r.windowId,
+            holder.getBoundingClientRect().top +
+              (parseFloat(style.paddingTop) || 0) +
+              (parseFloat(style.borderTopWidth) || 0) +
+              l.startScrollTop
+          );
         }
 
         l.height = l.rects[l.fromIndex]?.height ?? 0;
@@ -1125,6 +1235,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     onDropTargetChange,
     fixedRowSelector,
     landsBesideFixedRow,
+    fixedRowsRemovedBy,
     dragKind,
     dropsAcrossWindows,
     restoreScrollIfNoDrop,

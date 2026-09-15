@@ -51,6 +51,13 @@ export interface DragState {
   // with it.
   heldWindowShift: number;
   landingWindowShift: number;
+  /**
+   * The fixed rows the drop REMOVES from the list, by key (KAN-169): a group's
+   * title row and tail marker while its only member is held outside it. The
+   * rows below them have already closed up in `shifts`; this is for whoever
+   * draws the removed rows to stop drawing them. Empty while nothing goes.
+   */
+  removedFixedRows: readonly string[];
 }
 
 export interface Ctx {

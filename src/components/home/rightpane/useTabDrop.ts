@@ -33,7 +33,9 @@ import {
   groupEndingAbove,
   type DropTarget,
   type PaneWindows,
+  type RemovedFixedRows,
 } from './rowDrag/dropRules';
+import { ADJACENT_GROUP_GAP_PX, BAND_MARGIN_PX } from './bandSpacing';
 
 // Where one window's groups start and end in THAT window's tab list, and where
 // each of its tabs sits. Window-local indices, the same ones moveTabInternal
@@ -42,17 +44,34 @@ interface WindowGroupEdges {
   indexOfTab: Map<string, number>;
   groupFirstIndex: Map<string, number>;
   groupLastIndex: Map<string, number>;
+  // KAN-169. Which band each tab is drawn in, how many tabs answer to each
+  // group over the WHOLE window -- moveTabInternal prunes on `some`, so a group
+  // split across two runs still has a member left -- and what each band's
+  // neighbours are, which decides the gap they keep once the band is gone.
+  groupOfTab: Map<string, string>;
+  groupSize: Map<string, number>;
+  bandNeighbours: Map<string, BandNeighbours>;
 }
 
-function groupEdgesOf(
+type ItemKind = 'tab' | 'group';
+interface BandNeighbours {
+  above: ItemKind | undefined;
+  below: ItemKind | undefined;
+}
+
+export function groupEdgesOf(
   tabs: tabData[],
   groups: chromeTabGroupData[] | undefined
 ): WindowGroupEdges {
   const indexOfTab = new Map(tabs.map((tab, i) => [tab.tabId, i]));
   const groupFirstIndex = new Map<string, number>();
   const groupLastIndex = new Map<string, number>();
-  for (const item of partitionTabsIntoItems(tabs, groups)) {
-    if (item.kind !== 'group') continue;
+  const groupOfTab = new Map<string, string>();
+  const groupSize = new Map<string, number>();
+  const bandNeighbours = new Map<string, BandNeighbours>();
+  const items = partitionTabsIntoItems(tabs, groups);
+  items.forEach((item, i) => {
+    if (item.kind !== 'group') return;
     const first = item.tabs[0];
     const last = item.tabs[item.tabs.length - 1];
     const firstIndex = first ? indexOfTab.get(first.tabId) : undefined;
@@ -61,8 +80,26 @@ function groupEdgesOf(
       groupFirstIndex.set(item.group.groupId, firstIndex);
     if (lastIndex !== undefined)
       groupLastIndex.set(item.group.groupId, lastIndex);
-  }
-  return { indexOfTab, groupFirstIndex, groupLastIndex };
+    for (const tab of item.tabs) {
+      groupOfTab.set(tab.tabId, item.group.groupId);
+      groupSize.set(
+        item.group.groupId,
+        (groupSize.get(item.group.groupId) ?? 0) + 1
+      );
+    }
+    bandNeighbours.set(item.group.groupId, {
+      above: items[i - 1]?.kind,
+      below: items[i + 1]?.kind,
+    });
+  });
+  return {
+    indexOfTab,
+    groupFirstIndex,
+    groupLastIndex,
+    groupOfTab,
+    groupSize,
+    bandNeighbours,
+  };
 }
 
 // Where a group's head sits in the space `toIndex` is counted in (KAN-170).
@@ -195,6 +232,56 @@ function landsBesideFixedRowIn(
   return ending !== undefined
     ? { fixedRowId: `${ending}:tail`, side: 'after' }
     : undefined;
+}
+
+// KAN-169. Whether this drop EMPTIES the dragged tab's group -- and so removes
+// its band -- and what gap the band's neighbours keep once it is gone.
+//
+// The same test moveTabInternal applies when it prunes: after the tab is back
+// in the array with its new membership, does anything still answer to the old
+// group? Here that is "the tab is its group's only member, and it is not
+// landing back in that group" -- and landing in another window leaves the
+// group whatever band the pointer is over there.
+//
+// The gap is the list's own spacing, which the engine cannot measure because
+// the layout it belongs to does not exist yet. Loose tabs sit flush; a band
+// keeps BAND_MARGIN_PX from whatever is beside it; and a band directly below
+// another band widens that to ADJACENT_GROUP_GAP_PX (KAN-179). So once this
+// band is gone, its two neighbours keep whichever of those applies to THEM --
+// unless the tab is landing loose in the very place its band stood, in which
+// case the tab itself is now each neighbour's neighbour, and two groups either
+// side keep a band margin EACH rather than the adjacent-group gap. Measured:
+// 44px closed up there against 40 with the tab landing elsewhere.
+export function fixedRowsRemovedByIn(
+  edges: WindowGroupEdges,
+  rowId: string,
+  toIndex: number,
+  target: string | undefined,
+  leavesWindow: boolean
+): RemovedFixedRows | undefined {
+  const groupId = edges.groupOfTab.get(rowId);
+  if (groupId === undefined) return undefined;
+  if (edges.groupSize.get(groupId) !== 1) return undefined;
+  if (!leavesWindow && target === groupId) return undefined;
+
+  const { above, below } = edges.bandNeighbours.get(groupId) ?? {
+    above: undefined,
+    below: undefined,
+  };
+  const landsLooseInPlace =
+    !leavesWindow &&
+    target === undefined &&
+    toIndex === edges.indexOfTab.get(rowId);
+  const gapKept = landsLooseInPlace
+    ? (above === 'group' ? BAND_MARGIN_PX : 0) +
+      (below === 'group' ? BAND_MARGIN_PX : 0)
+    : above === 'group' && below === 'group'
+      ? ADJACENT_GROUP_GAP_PX
+      : above === 'group' || below === 'group'
+        ? BAND_MARGIN_PX
+        : 0;
+
+  return { first: groupId, last: `${groupId}:tail`, gapKept };
 }
 
 /**
@@ -365,11 +452,37 @@ export function useTabDrop(
     [edgesByWindow]
   );
 
+  // KAN-169. Answered in the tab's OWN window, whatever window it lands in: the
+  // group that empties is the one it came from.
+  const fixedRowsRemovedBy = useCallback(
+    (
+      rowId: string,
+      toIndex: number,
+      target: string | undefined,
+      windowId: string | undefined
+    ) => {
+      const ownWindowId = windowOfTab.get(rowId);
+      const edges =
+        ownWindowId === undefined ? undefined : edgesByWindow.get(ownWindowId);
+      return edges === undefined
+        ? undefined
+        : fixedRowsRemovedByIn(
+            edges,
+            rowId,
+            toIndex,
+            target,
+            windowId !== ownWindowId
+          );
+    },
+    [edgesByWindow, windowOfTab]
+  );
+
   return {
     rowIds,
     onMove,
     resolveDrop,
     onDropTargetChange,
     landsBesideFixedRow,
+    fixedRowsRemovedBy,
   };
 }
