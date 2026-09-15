@@ -253,6 +253,89 @@ export function landsPastWindowEnd(
 }
 
 /**
+ * How much room a span of the drawn list gives back when the drop REMOVES it
+ * (KAN-169).
+ *
+ * Every other rule here moves an element. This one is about an element that
+ * ceases to exist: a group whose only member is the held row is pruned by the
+ * drop, and its title row, tail marker and margins all go with it. The drawn
+ * list is measured once at drag start and every slot in it survives to the
+ * release, so previewShifts has no way to say so -- it shifted the title row
+ * aside as if the group were still there, and every row below the band was
+ * drawn 36px lower than the drop put it (measured; the band's whole chrome).
+ *
+ * Measured BETWEEN THE NEIGHBOURS, not from the span's own edges. What the
+ * band occupies is not its own margins: a band below it may carry the wider
+ * adjacent-group margin (KAN-179), which collapses over this band's and shrinks
+ * to the ordinary one once this band is gone. Measured, the same 32px title row
+ * freed 36 between two loose tabs and 40 beside another group. The two slots
+ * either side of the span are still there after the drop, so the distance
+ * between them is the one number that does not depend on how margins collapse
+ * -- and what remains of it is `gapKept`, which only the list can know.
+ *
+ * `first..last` are slot indices, inclusive, and the span holds exactly one
+ * row: the held one, whose own footprint previewShifts already carries to its
+ * landing. Its height is what the span keeps; everything else in it is chrome.
+ *
+ * `listTop` stands in for the slot above when the span leads its window, in the
+ * same content space as the slots. Unknown, nothing is freed: the rows below
+ * then stay where the preview always drew them, rather than moving by a guess.
+ *
+ * Nothing below the span in its own window means nothing to close up, and 0.
+ */
+export function freedByRemoving(
+  slots: readonly WindowedSlot[],
+  first: number,
+  last: number,
+  heldHeight: number,
+  gapKept: number,
+  listTop: number | undefined
+): number {
+  const windowId = slots[first]?.windowId;
+  const below = slots.find((s, i) => i > last && s.windowId === windowId);
+  if (below === undefined) return 0;
+
+  let above: number | undefined = listTop;
+  for (let i = first - 1; i >= 0; i--) {
+    const slot = slots[i];
+    if (slot !== undefined && slot.windowId === windowId) {
+      above = slot.top + slot.height;
+      break;
+    }
+  }
+  if (above === undefined) return 0;
+
+  return Math.max(0, below.top - above - heldHeight - gapKept);
+}
+
+/**
+ * How far each slot BELOW a removed span moves to close it up (KAN-169): every
+ * slot after `last` in the span's own window, by `freed`. Added to whatever
+ * previewShifts or previewShiftsAcross already moved them by -- the two are
+ * different events (the held row leaving, the band leaving) and the drop
+ * performs both.
+ *
+ * Its own window only. A same-window drag never moves another window's rows,
+ * and a cross-window one keeps the source's box (KAN-184); the space the band
+ * frees shows up as a gap inside that box, like the row's own.
+ *
+ * Slots that do not move are absent, like previewShifts.
+ */
+export function removalShifts(
+  slots: readonly WindowedSlot[],
+  last: number,
+  freed: number
+): Record<string, number> {
+  const shifts: Record<string, number> = {};
+  if (freed === 0) return shifts;
+  const windowId = slots[last]?.windowId;
+  slots.forEach((slot, i) => {
+    if (i > last && slot.windowId === windowId) shifts[slot.key] = -freed;
+  });
+  return shifts;
+}
+
+/**
  * How far each saved WINDOW BLOCK moves while the held row is over another
  * window (KAN-184).
  *

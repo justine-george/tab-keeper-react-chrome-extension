@@ -46,6 +46,18 @@ export function isRowContainer(el: Element | null): boolean {
   return el !== null && ROW_CONTAINERS.has(el);
 }
 
+// A span of fixed rows a drop removes from the drawn list (KAN-169) -- see
+// RowDragAreaProps.fixedRowsRemovedBy.
+export interface RemovedFixedRows {
+  // The first and last fixed row removed, by key, in drawn order. Everything
+  // between them goes too; the only ROW between them is the dragged one.
+  first: string;
+  last: string;
+  // The gap, in px, that the slot above `first` and the slot below `last` keep
+  // between them once the span is gone.
+  gapKept: number;
+}
+
 // Where a drop landed, beyond its index.
 export interface DropTarget {
   // Which Chrome group band the pointer is over, if any.
@@ -248,6 +260,37 @@ export interface RowDragAreaProps {
     target: string | undefined,
     windowId: string | undefined
   ) => { fixedRowId: string; side: LandingSide } | undefined;
+  /**
+   * Which fixed rows the drop REMOVES, when it removes any (KAN-169).
+   *
+   * Every other question here is about where something moves. This one is
+   * about something that ceases to exist: a group whose only member is the
+   * dragged tab is pruned the moment that tab lands anywhere outside it -- in
+   * another group, loose, or in another window -- and its title row, tail
+   * marker and margins go with it. The drawn list was measured with all of
+   * them in it, so unless the list says so the preview shifts the title row
+   * aside as if the group survived, and draws every row below the band where
+   * the drop will not put it.
+   *
+   * The area removes the span `first..last` from the preview: those fixed
+   * rows are reported in `DragState.removedFixedRows` so the list can stop
+   * drawing them, and every slot below the span closes up by the room the span
+   * gives back -- measured between the two slots either side of it, less the
+   * dragged row's own height (previewShifts already carries that to wherever
+   * it lands) and less `gapKept`, the space those two neighbours keep between
+   * them once the span is gone. Only the list knows that last number: it is
+   * the list's own spacing, and it depends on what the neighbours ARE.
+   *
+   * Same arguments as landsBesideFixedRow, and asked in the same breath; the
+   * two are different questions about the same release and either may be
+   * answered without the other. The DROP is unaffected.
+   */
+  fixedRowsRemovedBy?: (
+    rowId: string,
+    toIndex: number,
+    target: string | undefined,
+    windowId: string | undefined
+  ) => RemovedFixedRows | undefined;
   // Dragging is off while the list on screen is a FILTERED view of the stored
   // one (KAN-131). toIndex counts rendered rows, and the reducers apply it to
   // the stored array, so a drag in a narrowed list lands somewhere the user

@@ -47,6 +47,7 @@ import { applyTabGroups } from '../../../utils/functions/windows';
 import { DraggableRow } from './rowDrag/RowDragArea';
 import { markRowContainer } from './rowDrag/dropRules';
 import { useDragState } from './rowDrag/dragContext';
+import { ADJACENT_GROUP_GAP_PX, BAND_MARGIN_PX } from './bandSpacing';
 
 interface WindowEntryContainerProps {
   title: string;
@@ -64,27 +65,6 @@ interface WindowEntryContainerProps {
   onAddCurrTabToWindowClick: MouseEventHandler;
   onDeleteClick: MouseEventHandler;
 }
-
-// The space a band keeps from the rows around it. Named because two places
-// have to agree on it: the band's own style, and GroupFrameFollower below,
-// which trades margin for padding while a preview grows the band and has to
-// hand back exactly the margin it borrowed.
-const BAND_MARGIN_PX = 2;
-
-// KAN-179. The gap a band opens when the row above it is ANOTHER GROUP.
-//
-// A band means "release here and join this group" over its whole height
-// (KAN-164), so between two adjacent groups the only ungrouped landing is the
-// gap between the two bands -- and adjacent margins COLLAPSE, so two 2px
-// margins leave 2px, not 4. Reported from the real popup as a target that had
-// to be finagled.
-//
-// Spent on the TOP margin of the lower band, never the bottom of the upper
-// one: footprintOf reads a row's own margin-BOTTOM and hands it to the preview
-// as the distance every displaced row travels (KAN-163/167), so a wider bottom
-// margin would move every preview in the pane. A top margin moves nothing but
-// the band it sits on.
-const ADJACENT_GROUP_GAP_PX = 8;
 
 // KAN-165. Carries a group's frame along with its tabs.
 //
@@ -116,11 +96,35 @@ const GroupFrameFollower: React.FC<{ groupId: string }> = ({ groupId }) => {
   // one, and the strip then failed to cover a tab joining at the tail.
   const top = drag?.shifts[groupId] ?? 0;
   const bottom = drag?.shifts[`${groupId}:tail`] ?? 0;
+  // KAN-169. The drop REMOVES this group: its only member is held outside it,
+  // and the reducer will prune what is left. The rows below have already
+  // closed up in `shifts`; what remains is to stop drawing a band the drop
+  // takes away -- and not to grow it, which a title-row shift alone would.
+  const removed = drag?.removedFixedRows.includes(groupId) ?? false;
   const anchor = useRef<HTMLSpanElement | null>(null);
 
   useLayoutEffect(() => {
     const band = anchor.current?.closest<HTMLElement>('[data-band-id]');
     if (!band) return;
+    // An attribute rather than inline styles, so the band's own stylesheet
+    // says what a removed band looks like -- and the strip, drawn by
+    // GroupColorPicker, can be reached from there without that component
+    // learning anything about dragging.
+    band.toggleAttribute('data-drag-removed', removed);
+    if (removed) {
+      band.style.paddingTop = '';
+      band.style.paddingBottom = '';
+      band.style.marginTop = '';
+      band.style.marginBottom = '';
+      delete band.dataset.bandGrewBy;
+      band.style.setProperty('--frame-top', '0px');
+      band.style.setProperty('--frame-bottom', '0px');
+      const handle = band.querySelector<HTMLElement>(
+        '[data-group-drag-handle]'
+      );
+      if (handle) handle.style.transform = '';
+      return;
+    }
     // The frame's EXTENT, published for the paint layers to read (KAN-171).
     // Custom properties rather than inline styles on each part, because the
     // strip is rendered by GroupColorPicker and these have to reach it without
@@ -194,7 +198,7 @@ const GroupFrameFollower: React.FC<{ groupId: string }> = ({ groupId }) => {
     // transform cannot say that.
     const handle = band.querySelector<HTMLElement>('[data-group-drag-handle]');
     if (handle) handle.style.transform = top ? `translateY(${top}px)` : '';
-  }, [top, bottom]);
+  }, [top, bottom, removed]);
 
   return <span ref={anchor} hidden />;
 };
@@ -938,6 +942,18 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                        pointer -- so this is the colour already beside it. */
                     [data-drag-held] & {
                       background-color: ${COLORS.HOVER_COLOR};
+                    }
+
+                    /* KAN-169. The drop removes this group: its only member
+                       is held outside it. The band's box has to stay -- the
+                       preview holds the layout still, and the held row is
+                       still a child of it -- so the chrome fades instead: the
+                       title row and the colour strip, at the pace the rows
+                       below glide up over them. */
+                    &[data-drag-removed] [data-group-drag-handle],
+                    &[data-drag-removed] [data-group-color-strip] {
+                      opacity: 0;
+                      transition: opacity 0.18s ease;
                     }
 
                     /* KAN-164: a tab released here joins this group.
