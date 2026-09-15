@@ -454,13 +454,6 @@ test.describe('ground truth: what the drop actually does', () => {
   });
 });
 
-// The landing slot is a distance between measured TOPS, and a band's top
-// includes its own margin, so the slot sits that margin below where the row
-// settles when the drop takes the band away with it. That is KAN-167, open,
-// and asserted here as the number the engine produces so it fails loudly when
-// KAN-167 closes it.
-const KAN_167 = 2;
-
 test.describe('the preview predicts the drop', () => {
   // The screenshot in the ticket. The band was drawn sliding down, a3 and a4
   // were drawn where they were, and the drop lifted them all.
@@ -478,7 +471,7 @@ test.describe('the preview predicts the drop', () => {
     expect(p.a3).toBe(LOOSE_TRUTH.leftUp.a3);
     expect(p.a4).toBe(LOOSE_TRUTH.leftUp.a4);
     expect(p.a2).toBe(LOOSE_TRUTH.leftUp.a2);
-    expect(p.s0).toBe(LOOSE_TRUTH.leftUp.s0 + KAN_167);
+    expect(p.s0).toBe(LOOSE_TRUTH.leftUp.s0);
 
     // And no phantom title row: the band is marked, and its chrome is gone.
     expect(removed.solo).toEqual({ header: 0, strip: 0 });
@@ -571,8 +564,9 @@ test.describe('the preview predicts the drop', () => {
     expect(p.g1).toBe(SANDWICH_TRUTH.leftInPlace.g1);
     expect(p.a3).toBe(SANDWICH_TRUTH.leftInPlace.a3);
     expect(p.b1).toBe(SANDWICH_TRUTH.leftInPlace.b1);
-    // KAN-167 scaled by the adjacent-group margin the slot is measured under.
-    expect(p.s0).toBe(SANDWICH_TRUTH.leftInPlace.s0 + 6);
+    // Exact, including the adjacent-group margin the slot is measured under
+    // (KAN-167).
+    expect(p.s0).toBe(SANDWICH_TRUTH.leftInPlace.s0);
   });
 
   test('into another window: the source closes up, the destination is untouched', async ({

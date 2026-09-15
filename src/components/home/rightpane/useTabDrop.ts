@@ -27,11 +27,11 @@ import {
   partitionTabsIntoItems,
   type chromeTabGroupData,
 } from '../../../utils/functions/tabGroups';
-import type { LandingSide } from '../../../utils/functions/dragPreview';
 import {
   bandAt,
   groupEndingAbove,
   type DropTarget,
+  type FixedRowLanding,
   type PaneWindows,
   type RemovedFixedRows,
 } from './rowDrag/dropRules';
@@ -143,12 +143,12 @@ function headInLandingSpace(
 //
 // The DROP is untouched. This is the preview only; the reducer still receives
 // the raw index and produces the same arrangement.
-function landsBesideFixedRowIn(
+export function landsBesideFixedRowIn(
   edges: WindowGroupEdges,
   rowId: string,
   toIndex: number,
   target: string | undefined
-): { fixedRowId: string; side: LandingSide } | undefined {
+): FixedRowLanding | undefined {
   // Landing inside a band: the tab joins that group, or moves to the head of
   // the one it is already in. Either way it ends up UNDER that title row. At or
   // above the head is the strip where the index and the band disagree; below it
@@ -208,7 +208,11 @@ function landsBesideFixedRowIn(
   // answer "before B's title row".
   for (const groupId of edges.groupFirstIndex.keys()) {
     if (headInLandingSpace(edges, groupId, rowId) === toIndex) {
-      return { fixedRowId: groupId, side: 'before' };
+      return {
+        fixedRowId: groupId,
+        side: 'before',
+        offset: looseBeforeHeadOffset(edges, groupId, rowId),
+      };
     }
   }
 
@@ -224,14 +228,54 @@ function landsBesideFixedRowIn(
   // loose tab or by nothing at all.
   //
   // THIS WINDOW'S GROUPS ONLY, for the reason the head loop gives above.
-  const ending = groupEndingAbove(
-    edges.groupLastIndex,
-    edges.indexOfTab.get(rowId),
-    toIndex
-  );
-  return ending !== undefined
-    ? { fixedRowId: `${ending}:tail`, side: 'after' }
-    : undefined;
+  const fromIndex = edges.indexOfTab.get(rowId);
+  const ending = groupEndingAbove(edges.groupLastIndex, fromIndex, toIndex);
+  if (ending === undefined) return undefined;
+  // KAN-167. From above -- or leaving that group downward -- the slot resolves
+  // to the last member's old top (KAN-178), and a loose tab settles that
+  // band's bottom margin below it. From below the slot is the row after the
+  // band, which already pays that margin.
+  const lastIndex = edges.groupLastIndex.get(ending);
+  const fromAbove =
+    fromIndex !== undefined &&
+    lastIndex !== undefined &&
+    fromIndex <= lastIndex;
+  return {
+    fixedRowId: `${ending}:tail`,
+    side: 'after',
+    ...(fromAbove ? { offset: BAND_MARGIN_PX } : {}),
+  };
+}
+
+// KAN-167. Where a tab landing LOOSE before a group's title row settles,
+// relative to the slot that answer resolves to -- or undefined where the slot
+// is already exact.
+//
+// FROM BELOW (a member leaving upward included: it resolves the same way) the
+// slot is the title row's own top. That top sits the band's top margin below
+// whatever is above it, and a loose tab keeps only the gap a loose tab keeps
+// there: nothing over another loose tab or at the top of the window, a band
+// margin over another band. Measured: 98 promised, 96 rested; between two
+// bands 138 promised, 132 rested -- the wider KAN-179 gap less a band margin.
+//
+// FROM ABOVE the slot is the row before the title row, which that row vacates
+// -- exact over a loose row. Over another band it is that band's last member,
+// and the loose tab settles that band's bottom margin below it: 98 promised,
+// 100 rested.
+function looseBeforeHeadOffset(
+  edges: WindowGroupEdges,
+  groupId: string,
+  rowId: string
+): number | undefined {
+  const first = edges.groupFirstIndex.get(groupId);
+  const fromIndex = edges.indexOfTab.get(rowId);
+  const above = edges.bandNeighbours.get(groupId)?.above;
+  const fromAbove =
+    first !== undefined && fromIndex !== undefined && fromIndex < first;
+  if (fromAbove) return above === 'group' ? BAND_MARGIN_PX : undefined;
+  return above === 'group'
+    ? -(ADJACENT_GROUP_GAP_PX - BAND_MARGIN_PX)
+    : -BAND_MARGIN_PX;
 }
 
 // KAN-169. Whether this drop EMPTIES the dragged tab's group -- and so removes

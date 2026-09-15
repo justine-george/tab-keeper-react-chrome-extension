@@ -722,6 +722,13 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       const closingUp =
         span === undefined ? {} : removalShifts(l.slots, span.last, span.freed);
 
+      // The slot the list's fixed-row answer names, where this list can find
+      // it. BOTH branches need it: to resolve the landing slot, and to know the
+      // answer was USED before adding its offset (KAN-167) -- insertionSlotOf
+      // and slotLandingBeside both fall back to the row index without it.
+      const fixedSlot =
+        beside === undefined ? undefined : l.slotOfFixed.get(beside.fixedRowId);
+
       let shifts: Record<string, number>;
       let landingDelta: number;
       // Which WINDOW BLOCKS move, so the destination has somewhere to put the
@@ -750,16 +757,23 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
           at,
           l.windowBottoms.get(landing.windowId)
         );
+        // The same correction a landing in the row's OWN window takes
+        // (KAN-167). A tab arriving from another window is never in the
+        // destination's indices, so the list answers that window's edges as an
+        // arrival from below -- and the slot those answers name is a band's
+        // measured edge, which includes margin a loose tab does not pay.
+        // Measured: promised 66, rested at 64.
+        //
+        // Guarded like the same-window branch: without the fixed slot,
+        // insertionSlotOf fell back to the row index and the offset would
+        // describe a slot that was not taken.
+        if (fixedSlot !== undefined) landingDelta += beside?.offset ?? 0;
         windowShifts = windowShiftsAcross(
           l.windowOrder,
           landing.windowId,
           l.footprint
         );
       } else {
-        const fixedSlot =
-          beside === undefined
-            ? undefined
-            : l.slotOfFixed.get(beside.fixedRowId);
         const to =
           fixedSlot === undefined || beside === undefined
             ? slotOfLanding(l, landing, from)
@@ -769,6 +783,13 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
           closingUp
         );
         landingDelta = landingDeltaOf(l.slots, from, to);
+        // The slot is a measured edge of the drawn list, and where that edge
+        // is a band's it includes spacing a loose row will not pay (KAN-167).
+        // How much is the list's to say -- see FixedRowLanding.offset. Only
+        // where the answer was USED: a fixed row this list cannot find fell
+        // back to the row index above, and the offset describes a slot that
+        // was not taken.
+        if (fixedSlot !== undefined) landingDelta += beside?.offset ?? 0;
         // Landing BELOW the removed span, the row settles among rows that have
         // closed up, and its slot comes up with them. Landing above it or at
         // its head, nothing between the row and its slot has moved.

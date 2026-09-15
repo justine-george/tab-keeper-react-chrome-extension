@@ -46,6 +46,29 @@ export function isRowContainer(el: Element | null): boolean {
   return el !== null && ROW_CONTAINERS.has(el);
 }
 
+// Which fixed row a drop lands the dragged row beside, and on which side --
+// see RowDragAreaProps.landsBesideFixedRow.
+export interface FixedRowLanding {
+  fixedRowId: string;
+  side: LandingSide;
+  /**
+   * How far from the slot that answer resolves to the row actually SETTLES,
+   * in px, positive downward (KAN-167). Absent when the slot is exact.
+   *
+   * The slot is a measured edge of the drawn list, and a band's edges include
+   * the band's own margins -- which a tab landing LOOSE beside the band does
+   * not pay. Measured: a tab leaving its group upward is promised the title
+   * row's top, 98, and rests at 96; one landing just past a band is promised
+   * the last member's old top, 194, and rests at 196. Between two bands the
+   * title row sits the wider KAN-179 gap below the band above, of which a
+   * loose tab keeps only a band margin, so the number there is 6.
+   *
+   * Only the list can say: the margins are its spacing, and whether the row
+   * lands loose or as a member is its rule. The area adds it and nothing more.
+   */
+  offset?: number;
+}
+
 // A span of fixed rows a drop removes from the drawn list (KAN-169) -- see
 // RowDragAreaProps.fixedRowsRemovedBy.
 export interface RemovedFixedRows {
@@ -259,7 +282,7 @@ export interface RowDragAreaProps {
     toIndex: number,
     target: string | undefined,
     windowId: string | undefined
-  ) => { fixedRowId: string; side: LandingSide } | undefined;
+  ) => FixedRowLanding | undefined;
   /**
    * Which fixed rows the drop REMOVES, when it removes any (KAN-169).
    *
