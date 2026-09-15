@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "version": "1.7.0",
+  "version": "1.8.0",
   "name": "Tab Keeper - Chrome Tab Manager & Sync Tool",
   "description": "Save your Chrome windows, tabs and tab groups as sessions, then sync them across desktops. No account or email needed.",
   "action": {
