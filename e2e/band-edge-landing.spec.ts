@@ -339,3 +339,192 @@ test('CONTROL: joining at the head from above is exact, and stays exact', async 
   // TRUTH.fromAbove.a2 in tab-group-join-preview.spec.ts.
   expect(slot).toBe(98);
 });
+
+// The same edges, reached from ANOTHER WINDOW (KAN-132). A tab arriving from
+// another window is never in the destination's own indices, so the list answers
+// its edges as an arrival from below -- and the slot needs the same correction
+// the same-window landings do. Measured 2026-09-14: loose before a band was
+// promised 66 and rested at 64.
+//
+// The landing window is the FIRST one, which windowShiftsAcross never moves
+// (only windows after the destination make room), so the slot needs no
+// compensation for a block that has itself been translated.
+
+const BETA_GROUP = [{ groupId: 'beta', title: 'Beta', color: 'blue' }];
+const ALPHA_GROUP = [{ groupId: 'alpha', title: 'Alpha', color: 'red' }];
+// w2 keeps a group of its own so the source window is the ordinary case, and
+// b0 is the loose tab that travels.
+const SOURCE = [tab('be0', 'beta'), tab('be1', 'beta'), tab('b0'), tab('b1')];
+const SOURCE_AFTER = [tab('be0', 'beta'), tab('be1', 'beta'), tab('b1')];
+
+async function openTwo(
+  context: BrowserContext,
+  extensionId: string,
+  w1: Tab[],
+  w2: Tab[]
+): Promise<Page> {
+  const session = buildSession({
+    tabGroupId: 's1',
+    title: 'Band edge landing, across windows',
+    isSelected: true,
+    windowCount: 2,
+    tabCount: w1.length + w2.length,
+    windows: [
+      {
+        windowId: 'w1',
+        windowHeight: 1080,
+        windowWidth: 1920,
+        windowOffsetTop: 0,
+        windowOffsetLeft: 0,
+        tabCount: w1.length,
+        title: 'w1',
+        tabs: w1,
+        chromeTabGroups: ALPHA_GROUP,
+      },
+      {
+        windowId: 'w2',
+        windowHeight: 1080,
+        windowWidth: 1920,
+        windowOffsetTop: 0,
+        windowOffsetLeft: 0,
+        tabCount: w2.length,
+        title: 'w2',
+        tabs: w2,
+        chromeTabGroups: BETA_GROUP,
+      },
+    ],
+  });
+  await seedSessions(context, {
+    ...buildContainer([session]),
+    selectedTabGroupId: 's1',
+  });
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 790, height: 550 });
+  await page.goto(`chrome-extension://${extensionId}/index.html`);
+  await expect(page.locator('[data-band-id="alpha"]')).toBeAttached();
+  // PREMISE: nothing scrolls. A session that overflows the pane auto-scrolls
+  // under the held pointer, which moves rows measured once at drag start.
+  const fits = await page.evaluate(() => {
+    let el = document.querySelector<HTMLElement>(
+      '[data-drag-row-id="w1"]'
+    )!.parentElement;
+    while (el && !['auto', 'scroll'].includes(getComputedStyle(el).overflowY))
+      el = el.parentElement;
+    return el!.scrollHeight <= el!.clientHeight;
+  });
+  expect(fits).toBe(true);
+  return page;
+}
+
+// Tops within w1's own block, which this drag never moves.
+const topsInW1 = (page: Page) =>
+  page.evaluate(() => {
+    const block = document.querySelector('[data-drop-window-id="w1"]')!;
+    const base = block.getBoundingClientRect().top;
+    const out: Record<string, number> = {};
+    for (const el of block.querySelectorAll<HTMLElement>(
+      '[data-drag-row-id]'
+    )) {
+      const id = el.dataset.dragRowId!;
+      if (id.includes(':')) continue;
+      out[id] = Math.round(el.getBoundingClientRect().top - base);
+    }
+    return out;
+  });
+
+const slotInW1 = (page: Page) =>
+  page.evaluate(() => {
+    const block = document.querySelector('[data-drop-window-id="w1"]')!;
+    const slot = document.querySelector('[data-drag-landing-slot]')!;
+    return Math.round(
+      slot.getBoundingClientRect().top - block.getBoundingClientRect().top
+    );
+  });
+
+// a0 [Alpha: al0] a3 -- as small as the edges allow, so the pane never scrolls.
+const DEST = [tab('a0'), tab('al0', 'alpha'), tab('a3')];
+
+async function crossWindowSlot(page: Page, toY: number) {
+  const b = (await page.locator('[data-drag-row-id="b0"]').boundingBox())!;
+  await page.mouse.move(b.x + 60, b.y + b.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(b.x + 60, b.y + b.height / 2 - 8);
+  await page.mouse.move(b.x + 60, toY, { steps: 8 });
+  await page.waitForTimeout(400);
+  const out = {
+    slot: await slotInW1(page),
+    lit: await page.evaluate(() =>
+      [
+        ...document.querySelectorAll<HTMLElement>(
+          '[data-band-id][data-drop-target]'
+        ),
+      ].map((b) => b.dataset.bandId)
+    ),
+  };
+  await page.keyboard.press('Escape');
+  await page.mouse.up();
+  return out;
+}
+
+test('from another window, landing loose just above a band rests flush under the row above', async ({
+  context,
+  extensionId,
+}) => {
+  const truth = await topsInW1(
+    await openTwo(
+      context,
+      extensionId,
+      [tab('a0'), tab('b0'), tab('al0', 'alpha'), tab('a3')],
+      SOURCE_AFTER
+    )
+  );
+  expect(truth.b0).toBe(64);
+
+  const page = await openTwo(context, extensionId, DEST, SOURCE);
+  const band = (await page.locator('[data-band-id="alpha"]').boundingBox())!;
+  const { slot, lit } = await crossWindowSlot(page, band.y - 1);
+  expect(lit).toEqual([]);
+  expect(slot).toBe(truth.b0);
+});
+
+test('CONTROL: from another window, landing loose just past a band is already exact', async ({
+  context,
+  extensionId,
+}) => {
+  const truth = await topsInW1(
+    await openTwo(
+      context,
+      extensionId,
+      [tab('a0'), tab('al0', 'alpha'), tab('b0'), tab('a3')],
+      SOURCE_AFTER
+    )
+  );
+
+  const page = await openTwo(context, extensionId, DEST, SOURCE);
+  const band = (await page.locator('[data-band-id="alpha"]').boundingBox())!;
+  const { slot, lit } = await crossWindowSlot(page, band.y + band.height + 2);
+  expect(lit).toEqual([]);
+  expect(slot).toBe(truth.b0);
+});
+
+test('CONTROL: from another window, joining at the head is exact and carries no offset', async ({
+  context,
+  extensionId,
+}) => {
+  const truth = await topsInW1(
+    await openTwo(
+      context,
+      extensionId,
+      [tab('a0'), tab('b0', 'alpha'), tab('al0', 'alpha'), tab('a3')],
+      SOURCE_AFTER
+    )
+  );
+
+  const page = await openTwo(context, extensionId, DEST, SOURCE);
+  const title = (await page
+    .locator('[data-band-id="alpha"] [data-group-drag-handle]')
+    .boundingBox())!;
+  const { slot, lit } = await crossWindowSlot(page, title.y + title.height / 2);
+  expect(lit).toEqual(['alpha']);
+  expect(slot).toBe(truth.b0);
+});

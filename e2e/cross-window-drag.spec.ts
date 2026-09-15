@@ -555,7 +555,13 @@ test.describe('what a drag into another window previews', () => {
       .toBe(2);
     const fp = (await shiftsIn(page, 'w1')).al0;
     expect(await shiftsIn(page, 'w1')).toEqual({ 'title:alpha': fp, al0: fp });
-    expect(await slotTop(page)).toBeCloseTo(title.y, 0);
+    // AGAINST WHERE THE TAB RESTS, not against another drawn edge (KAN-167).
+    // This used to assert the slot sat at the title row's top, which is the
+    // band's border box -- 2px below the tab's resting place, because the
+    // band's top margin is spacing a loose tab does not pay. Asserting one
+    // drawn edge against another cannot see that; a2's bottom is where the
+    // tab actually lands, flush under the row above it.
+    expect(await slotTop(page)).toBeCloseTo(a2.y + a2.height, 0);
     expect(await marked(page)).toEqual([]);
 
     await page.mouse.up();
