@@ -47,15 +47,19 @@ export const EXPORT_PALETTE: Record<ExportScheme, ExportPalette> = {
     plain: '#8a9099',
     groupBg: '#f5f7fa',
   },
+  // Neutral greys (KAN-197): the tinted #17191d family read as a second,
+  // bluish dark under Darkenheimer's neutral header. Each grey is the nearest
+  // neutral that keeps every contrast ratio at least what the tinted palette
+  // had; links keep their hues, because blue and violet mean "link".
   dark: {
-    bg: '#17191d',
-    text: '#e6e8eb',
-    muted: '#9aa1ab',
-    rule: '#2c3037',
+    bg: '#171717',
+    text: '#e8e8e8',
+    muted: '#a0a0a0',
+    rule: '#303030',
     link: '#8ab4f8',
     visited: '#c7a4f5',
-    plain: '#7b828c',
-    groupBg: '#1f2227',
+    plain: '#818181',
+    groupBg: '#212121',
   },
 };
 
@@ -302,44 +306,195 @@ export function sessionToHtml(
   );
 }
 
+/** What the clipboard versions need from the page (KAN-195). */
+export interface LinkListStrings {
+  window: string;
+  /** Per-window and per-group suffix, e.g. (3) => "3 Tabs". */
+  tabCountLabel: (count: number) => string;
+  /** Locale-formatted session counts, e.g. "2 Windows - 47 Tabs". */
+  countsLabel: string;
+  /** For casing the window label in the plain text. */
+  locale: string;
+}
+
 /**
- * The same session as plain text, for the clipboard.
+ * The real address of a tab a tab-suspender extension put to sleep.
  *
- * A bare list of URLs is unreadable past the first window: no titles, no
- * seams. This is what someone would write out by hand -- the session, then
- * each window as a block with a tab per line, and a blank line between
- * windows -- so a paste into a note, an issue or an email arrives readable.
+ * Such a tab is saved as the extension's placeholder page, with the address
+ * it stands for inside it: `?url=` (encoded) for the suspender found in a real
+ * session, or a trailing, unencoded `#...&uri=` for The Marvellous Suspender.
+ * Only a chrome-extension:// page whose path mentions "suspend" is unwrapped,
+ * and only to something that parses as an address; anything else, including
+ * another extension's own page that happens to take a url, comes back as it
+ * went in.
+ */
+export function unwrapSuspendedUrl(url: string): string {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return url;
+  }
+  if (
+    parsed.protocol !== 'chrome-extension:' ||
+    !/suspend/i.test(parsed.pathname)
+  ) {
+    return url;
+  }
+
+  const candidate =
+    parsed.searchParams.get('url') ??
+    parsed.searchParams.get('uri') ??
+    // Last in the hash and unencoded, so an & inside it belongs to it.
+    /(?:^#|&)uri=(.*)$/.exec(parsed.hash)?.[1] ??
+    new URLSearchParams(parsed.hash.slice(1)).get('url');
+  if (!candidate) return url;
+
+  try {
+    new URL(candidate);
+    return candidate;
+  } catch {
+    return url;
+  }
+}
+
+/**
+ * A title without the unread count a site puts in front of it: "(3) @levelsio
+ * on X" is "@levelsio on X".
  *
- * Every tab is kept, including the ones the FILE refuses to link: this is
+ * Only a leading count of one to three digits, optionally "+", followed by a
+ * space and more title. "(2024) Annual report" keeps its year, and a title that
+ * is nothing but a count keeps it, since removing it would leave nothing.
+ */
+export function dropNotificationCount(title: string): string {
+  const match = /^\(\d{1,3}\+?\)\s+(\S[\s\S]*)$/.exec(title);
+  return match ? match[1] : title;
+}
+
+// What Copy shows for a tab: the clean-ups applied, and a tab with no title
+// named by its (unwrapped) address -- the file's rule.
+function copyUrl(tab: tabData): string {
+  return unwrapSuspendedUrl(tab.url);
+}
+
+function copyLabel(tab: tabData): string {
+  return tab.title.trim() ? dropNotificationCount(tab.title) : copyUrl(tab);
+}
+
+function groupHeading(
+  group: { title: string },
+  count: number,
+  strings: LinkListStrings
+): string {
+  const size = strings.tabCountLabel(count);
+  // An unnamed group is a real Chrome state: its size alone heads it.
+  return group.title.trim() ? `${group.title} (${size})` : size;
+}
+
+/**
+ * The session as plain text, for the clipboard (KAN-195).
+ *
+ * Each tab is a dash and its title with its address indented on the next line,
+ * so a title of any length wraps without swallowing the link. A Chrome group
+ * is an indented block under its name, and windows are separated by a blank
+ * line. Every tab is kept, including those the file will not link: this is
  * text, so a chrome:// address is just an address.
  */
 export function sessionToLinkList(
   session: tabContainerData,
-  strings: { window: string; tabCountLabel: (count: number) => string }
+  strings: LinkListStrings
 ): string {
-  const blocks = session.windows.map((window, index) => {
-    const heading =
-      `${strings.window} ${index + 1} · ${window.title} ` +
-      `(${strings.tabCountLabel(window.tabs.length)})`;
+  const label = strings.window.toLocaleUpperCase(strings.locale);
+  const lines: string[] = [session.title, strings.countsLabel];
 
-    const lines = window.tabs.map((tab) => {
-      const label = labelOf(tab);
-      // A titleless tab is named by its URL already; printing it twice would
-      // be noise, not information.
-      return label === tab.url ? tab.url : `${label} (${tab.url})`;
-    });
+  const tabLines = (tab: tabData, indent: string): string[] => {
+    const url = copyUrl(tab);
+    const title = copyLabel(tab);
+    return title === url
+      ? [`${indent}- ${url}`]
+      : [`${indent}- ${title}`, `${indent}  ${url}`];
+  };
 
-    return [heading, ...lines].join('\n');
+  session.windows.forEach((window, index) => {
+    lines.push(
+      '',
+      `${label} ${index + 1} · ${window.title} ` +
+        `(${strings.tabCountLabel(window.tabs.length)})`
+    );
+    partitionTabsIntoRuns(window.tabs, window.chromeTabGroups).forEach(
+      (run, runIndex) => {
+        if (run.kind === 'ungrouped') {
+          // Loose tabs after a group start again below a blank line.
+          if (runIndex > 0) lines.push('');
+          run.tabs.forEach((tab) => lines.push(...tabLines(tab, '')));
+          return;
+        }
+        lines.push(
+          '',
+          `  ${groupHeading(run.group, run.tabs.length, strings)}`
+        );
+        run.tabs.forEach((tab) => lines.push(...tabLines(tab, '    ')));
+      }
+    );
   });
 
-  return [
-    session.title,
-    '',
-    ...blocks.flatMap((block, i) => (i === 0 ? [block] : ['', block])),
-  ]
-    .join('\n')
-    .trimEnd();
+  return lines.join('\n');
 }
+
+/**
+ * The session as a rich list, for the clipboard's text/html (KAN-195).
+ *
+ * An editor that reads HTML -- Gmail, Docs, Notion -- pastes a document: each
+ * window a bold heading, each group a nested list, each tab a link on its
+ * title. Only a web address becomes a link: pasted into someone else's email,
+ * a link is something they will click, and a saved javascript: or chrome://
+ * address must never be one. Those stay readable text, as the file treats
+ * them.
+ */
+export function sessionToLinkHtml(
+  session: tabContainerData,
+  strings: LinkListStrings
+): string {
+  const item = (tab: tabData): string => {
+    const url = copyUrl(tab);
+    const title = copyLabel(tab);
+    if (!LINKABLE.test(url)) {
+      return `<li>${escapeHtml(
+        title === url ? url : `${title} (${url})`
+      )}</li>`;
+    }
+    return `<li><a href="${escapeHtml(url)}">${escapeHtml(title)}</a></li>`;
+  };
+
+  const windows = session.windows
+    .map((window, index) => {
+      const body = partitionTabsIntoRuns(window.tabs, window.chromeTabGroups)
+        .map((run) => {
+          const items = run.tabs.map(item).join('');
+          if (run.kind === 'ungrouped') return items;
+          const size = escapeHtml(strings.tabCountLabel(run.tabs.length));
+          const heading = run.group.title.trim()
+            ? `<b>${escapeHtml(run.group.title)}</b> (${size})`
+            : size;
+          return `<li>${heading}<ul>${items}</ul></li>`;
+        })
+        .join('');
+      return (
+        `<p><b>${escapeHtml(strings.window)} ${index + 1} · ` +
+        `${escapeHtml(window.title)}</b> ` +
+        `(${escapeHtml(strings.tabCountLabel(window.tabs.length))})</p>` +
+        `<ul>${body}</ul>`
+      );
+    })
+    .join('');
+
+  return (
+    `<h3>${escapeHtml(session.title)}</h3>` +
+    `<p>${escapeHtml(strings.countsLabel)}</p>` +
+    windows
+  );
+}
+
 /**
  * Punctuation no common filesystem accepts in a name. Hyphens are NOT here:
  * "e-commerce" is a title, not a path problem.

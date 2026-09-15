@@ -63,7 +63,22 @@ const frame = (): HTMLIFrameElement => {
 
 afterEach(() => {
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
+
+// jsdom has no ClipboardItem. The page builds one per copy, so the fake keeps
+// what it was given, and the test reads both versions back out of it.
+class FakeClipboardItem {
+  constructor(readonly items: Record<string, Blob>) {}
+}
+
+const copiedVersions = async (write: ReturnType<typeof vi.fn>) => {
+  const [[items]] = write.mock.calls as [[FakeClipboardItem[]]];
+  return {
+    html: await items[0].items['text/html'].text(),
+    plain: await items[0].items['text/plain'].text(),
+  };
+};
 
 describe('the export preview page (KAN-190)', () => {
   test('shows the session, and previews the very file that will be saved', async () => {
@@ -129,28 +144,69 @@ describe('the export preview page (KAN-190)', () => {
     );
   });
 
-  test('copying puts a readable list on the clipboard, not a wall of URLs', async () => {
+  // KAN-195. The clipboard carries a rich list for editors that read HTML and
+  // a plain layout for everything else; the app pasted into picks one.
+  test('copying puts a rich list and a plain one on the clipboard', async () => {
     const user = userEvent.setup();
+    vi.stubGlobal('ClipboardItem', FakeClipboardItem);
+    const write = vi.fn().mockResolvedValue(undefined);
     const writeText = vi.fn().mockResolvedValue(undefined);
-    // navigator.clipboard is a getter in jsdom, so it is spied rather than
-    // assigned -- assigning throws "has only a getter".
     vi.spyOn(navigator, 'clipboard', 'get').mockReturnValue({
+      write,
       writeText,
     } as unknown as Clipboard);
     await renderPage();
 
     await user.click(screen.getByRole('button', { name: 'Copy all links' }));
 
-    expect(writeText).toHaveBeenCalledWith(
-      [
-        'Weekend in Kyoto',
-        '',
-        'Window 1 · Trip planning (2 Tabs)',
-        'Fushimi Inari (https://inari.jp/en/)',
-        'Kyoto bus map (https://www2.city.kyoto.lg.jp/kotsu/)',
-      ].join('\n')
+    expect(write).toHaveBeenCalledTimes(1);
+    expect(writeText).not.toHaveBeenCalled();
+    const { html, plain } = await copiedVersions(write);
+    expect(html).toContain('<a href="https://inari.jp/en/">Fushimi Inari</a>');
+    expect(plain).toContain(
+      'WINDOW 1 · Trip planning (2 Tabs)\n- Fushimi Inari\n  https://inari.jp/en/'
     );
     expect(await screen.findByText('Links copied')).toBeTruthy();
+  });
+
+  // Where the rich write is refused -- or ClipboardItem does not exist -- the
+  // links still get copied, as plain text, and the page still says so.
+  test('when the rich copy is refused, the plain list is copied instead', async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal('ClipboardItem', FakeClipboardItem);
+    const write = vi.fn().mockRejectedValue(new Error('NotAllowedError'));
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    vi.spyOn(navigator, 'clipboard', 'get').mockReturnValue({
+      write,
+      writeText,
+    } as unknown as Clipboard);
+    await renderPage();
+
+    await user.click(screen.getByRole('button', { name: 'Copy all links' }));
+
+    expect(await screen.findByText('Links copied')).toBeTruthy();
+    expect(writeText).toHaveBeenCalledTimes(1);
+    expect(writeText.mock.calls[0][0]).toContain(
+      '- Fushimi Inari\n  https://inari.jp/en/'
+    );
+  });
+
+  test('without ClipboardItem at all, the plain list is copied', async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal('ClipboardItem', undefined);
+    const write = vi.fn();
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    vi.spyOn(navigator, 'clipboard', 'get').mockReturnValue({
+      write,
+      writeText,
+    } as unknown as Clipboard);
+    await renderPage();
+
+    await user.click(screen.getByRole('button', { name: 'Copy all links' }));
+
+    expect(await screen.findByText('Links copied')).toBeTruthy();
+    expect(write).not.toHaveBeenCalled();
+    expect(writeText.mock.calls[0][0]).toContain('- Kyoto bus map');
   });
 
   // This page is its own document, so it boots its own store -- and nothing
@@ -226,7 +282,7 @@ describe('the exported file matches the theme it was exported under', () => {
   test('a dark theme writes a dark file', async () => {
     await renderUnder(Theme.DARKENHEIMER);
 
-    await waitFor(() => expect(frame().srcdoc).toContain('--bg:#17191d'));
+    await waitFor(() => expect(frame().srcdoc).toContain('--bg:#171717'));
   });
 
   // CONTROL: without this, a page that hardcoded dark would pass the test
@@ -258,7 +314,7 @@ describe('the preview follows a theme change while the page is open', () => {
       store.dispatch(setTheme(Theme.BLUE));
     });
 
-    await waitFor(() => expect(frame().srcdoc).toContain('--bg:#17191d'));
+    await waitFor(() => expect(frame().srcdoc).toContain('--bg:#171717'));
   });
 });
 
@@ -294,15 +350,17 @@ describe('choosing the file light or dark on the preview page', () => {
 
     await user.click(screen.getByRole('button', { name: 'Dark' }));
 
-    await waitFor(() => expect(frame().srcdoc).toContain('--bg:#17191d'));
+    await waitFor(() => expect(frame().srcdoc).toContain('--bg:#171717'));
     expect(
       screen.getByRole('button', { name: 'Dark' }).getAttribute('aria-pressed')
     ).toBe('true');
   });
 
-  // An explicit choice outranks the theme -- that is what "choice" means --
-  // and it is remembered, so the next export opens the same way.
-  test('the choice is kept, and outranks a later theme change', async () => {
+  // KAN-198. This was "the choice is kept, and outranks a later theme change":
+  // the choice was saved, so one Light pressed once overrode a dark theme on
+  // every later export. Now the choice belongs to this page while it is open,
+  // and is never written anywhere.
+  test('a choice made on the page holds while it is open, even if the theme changes', async () => {
     const user = userEvent.setup();
     const { store } = await renderUnder(Theme.LIGHT);
 
@@ -311,8 +369,97 @@ describe('choosing the file light or dark on the preview page', () => {
       store.dispatch(setTheme(Theme.WARM_LIGHT));
     });
 
-    await waitFor(() => expect(frame().srcdoc).toContain('--bg:#17191d'));
-    expect(store.getState().settingsDataState.exportScheme).toBe('dark');
+    await waitFor(() => expect(frame().srcdoc).toContain('--bg:#171717'));
+  });
+});
+
+// KAN-198. The page opens light or dark from the extension theme, and the
+// header follows the same polarity as the file -- it is one page, not the
+// extension's chrome around a document. Whatever Light or Dark does here stays
+// on this page: the extension theme and saved settings are never touched.
+describe('the whole page is light or dark, and the switch changes only the page (KAN-198)', () => {
+  const renderUnder = (theme: Theme) =>
+    renderWithProviders(<ExportPage tabGroupId="session-kyoto" />, {
+      seedStore: (store) => {
+        store.dispatch(replaceState(buildContainer([SESSION])));
+        store.dispatch(setTheme(theme));
+      },
+    });
+
+  // The strip holding the session title and the toolbar.
+  const headerFill = () => {
+    let el: HTMLElement = screen.getByRole('button', { name: 'Edit' });
+    while (!el.textContent?.includes('Weekend in Kyoto')) {
+      el = el.parentElement!;
+    }
+    return getComputedStyle(el).backgroundColor;
+  };
+  const LIGHT_HEADER = 'rgb(233, 236, 240)';
+  const DARK_HEADER = 'rgb(51, 51, 51)';
+
+  test('a dark theme opens with a dark header over a dark file', async () => {
+    await renderUnder(Theme.BLUE);
+
+    expect(headerFill()).toBe(DARK_HEADER);
+    await waitFor(() => expect(frame().srcdoc).toContain('--bg:#171717'));
+  });
+
+  // A tinted light theme is still a light page: the header is light, not the
+  // theme's pink.
+  test('a light theme, even a tinted one, opens with a light header over a light file', async () => {
+    await renderUnder(Theme.BB_PINK);
+
+    expect(headerFill()).toBe(LIGHT_HEADER);
+    await waitFor(() => expect(frame().srcdoc).toContain('--bg:#ffffff'));
+  });
+
+  test('pressing Dark turns the header dark too, and the buttons with it', async () => {
+    const user = userEvent.setup();
+    await renderUnder(Theme.LIGHT);
+    expect(headerFill()).toBe(LIGHT_HEADER);
+
+    await user.click(screen.getByRole('button', { name: 'Dark' }));
+
+    expect(headerFill()).toBe(DARK_HEADER);
+    // An outline button styles nothing itself: its fill and text come from
+    // the shared Button, which reads the colour hook. So this is what proves
+    // the page's colours reach its children through ThemeColorsOverride.
+    // (Save's fill does NOT: the page passes it as a style, so it would pass
+    // with the override ignored -- the first version of this test did.)
+    const copy = getComputedStyle(
+      screen.getByRole('button', { name: 'Copy all links' })
+    );
+    expect(copy.backgroundColor).toBe('rgb(42, 42, 42)');
+    expect(copy.color).toBe('rgb(208, 208, 208)');
+  });
+
+  test("Save's fill follows the page's polarity too", async () => {
+    const user = userEvent.setup();
+    await renderUnder(Theme.LIGHT);
+
+    await user.click(screen.getByRole('button', { name: 'Dark' }));
+
+    expect(
+      getComputedStyle(screen.getByRole('button', { name: 'Save as HTML' }))
+        .backgroundColor
+    ).toBe('rgb(208, 208, 208)');
+  });
+
+  test('pressing Light or Dark changes neither the extension theme nor saved settings', async () => {
+    const user = userEvent.setup();
+    const { store } = await renderUnder(Theme.DARKENHEIMER);
+    const settingsBefore = store.getState().settingsDataState;
+    const storedBefore = localStorage.getItem('settingsData');
+
+    await user.click(screen.getByRole('button', { name: 'Light' }));
+    await user.click(screen.getByRole('button', { name: 'Dark' }));
+    await user.click(screen.getByRole('button', { name: 'Light' }));
+
+    expect(store.getState().settingsDataState).toEqual(settingsBefore);
+    expect(store.getState().settingsDataState.theme).toBe(Theme.DARKENHEIMER);
+    expect(localStorage.getItem('settingsData')).toBe(storedBefore);
+    // CONTROL: the presses did something -- the page itself is light now.
+    expect(headerFill()).toBe(LIGHT_HEADER);
   });
 });
 

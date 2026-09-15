@@ -279,6 +279,102 @@ test('the printed PDF keeps every link the file has, and no others', async ({
   expect(pdf).not.toContain('chrome://settings/downloads');
 });
 
+// KAN-198. The export page is light or dark as a whole -- header and file --
+// opening on the extension theme's polarity. Its Light/Dark switch changes only
+// the page: before this, pressing Light once was saved as a setting and
+// overrode a dark theme on every later export.
+const LIGHT_HEADER = 'rgb(233, 236, 240)';
+const DARK_HEADER = 'rgb(51, 51, 51)';
+
+/** The strip holding the session title and the toolbar. */
+const headerFill = (page: Page) =>
+  page.getByRole('button', { name: 'Edit' }).evaluate((edit) => {
+    let el: Element = edit;
+    while (!el.textContent?.includes('Weekend in Kyoto')) {
+      el = el.parentElement!;
+    }
+    return getComputedStyle(el).backgroundColor;
+  });
+
+async function openExportUnder(
+  context: Parameters<typeof seedSessions>[0],
+  extensionId: string,
+  settings: Record<string, unknown>
+) {
+  await seedSettings(context, {
+    isNeverAskAgainToRate: true,
+    isNeverAskAgainForTabGroups: true,
+    ...settings,
+  });
+  const popup = await openPopup(context, extensionId);
+  const [exportPage] = await Promise.all([
+    context.waitForEvent('page'),
+    chooseExport(popup),
+  ]);
+  await exportPage.waitForLoadState();
+  await expect(exportPage.getByRole('button', { name: 'Edit' })).toBeVisible();
+  return exportPage;
+}
+
+// The bug as users have it: a Light choice saved by the previous build. It
+// must no longer have any effect.
+test('a dark theme opens the whole page dark, even with an old saved Light choice', async ({
+  context,
+  extensionId,
+}) => {
+  const exportPage = await openExportUnder(context, extensionId, {
+    theme: 'Darkenheimer',
+    exportScheme: 'light',
+  });
+
+  expect(await headerFill(exportPage)).toBe(DARK_HEADER);
+  await expect(exportPage.frameLocator('iframe').locator('body')).toHaveCSS(
+    'background-color',
+    'rgb(23, 23, 23)'
+  );
+});
+
+test('pressing Light or Dark changes the page and never the saved settings', async ({
+  context,
+  extensionId,
+}) => {
+  const exportPage = await openExportUnder(context, extensionId, {
+    theme: 'Darkenheimer',
+  });
+  const body = exportPage.frameLocator('iframe').locator('body');
+  const saved = () =>
+    exportPage.evaluate(() => localStorage.getItem('settingsData'));
+  const before = await saved();
+
+  await exportPage.getByRole('button', { name: 'Light' }).click();
+  expect(await headerFill(exportPage)).toBe(LIGHT_HEADER);
+  await expect(body).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+
+  await exportPage.getByRole('button', { name: 'Dark' }).click();
+  expect(await headerFill(exportPage)).toBe(DARK_HEADER);
+
+  await exportPage.getByRole('button', { name: 'Light' }).click();
+  expect(await saved()).toBe(before);
+  // CONTROL: settings were there to compare, and still say Darkenheimer.
+  expect(JSON.parse(before!).theme).toBe('Darkenheimer');
+});
+
+// A tinted light theme is still a light page.
+test('a tinted light theme opens a light page, not a pink one', async ({
+  context,
+  extensionId,
+}) => {
+  const exportPage = await openExportUnder(context, extensionId, {
+    theme: 'BBPink',
+  });
+
+  expect(await headerFill(exportPage)).toBe(LIGHT_HEADER);
+  await expect(exportPage.frameLocator('iframe').locator('body')).toHaveCSS(
+    'background-color',
+    'rgb(255, 255, 255)'
+  );
+});
+
 test('the file can be switched light or dark, and printed', async ({
   context,
   extensionId,
@@ -295,7 +391,9 @@ test('the file can be switched light or dark, and printed', async ({
   await expect(body).toHaveCSS('background-color', 'rgb(255, 255, 255)');
 
   await exportPage.getByRole('button', { name: 'Dark' }).click();
-  await expect(body).toHaveCSS('background-color', 'rgb(23, 25, 29)');
+  await expect(body).toHaveCSS('background-color', 'rgb(23, 23, 23)');
+  // KAN-198: the header follows the page's polarity, not the Light theme.
+  expect(await headerFill(exportPage)).toBe(DARK_HEADER);
   await expect(
     exportPage.getByRole('button', { name: 'Dark' })
   ).toHaveAttribute('aria-pressed', 'true');

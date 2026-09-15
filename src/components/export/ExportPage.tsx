@@ -10,14 +10,15 @@ import markDataUri from '../../assets/exportMark.png?inline';
 import Button from '../common/Button';
 import Icon from '../common/Icon';
 import ExportEditor from './ExportEditor';
-import { useThemeColors } from '../../hooks/useThemeColors';
+import {
+  DARKENHEIMER_THEME,
+  isDarkTheme,
+  LIGHT_THEME,
+  ThemeColorsOverride,
+} from '../../hooks/useThemeColors';
 import { useFontFamily } from '../../hooks/useFontFamily';
 import { AppDispatch, RootState } from '../../redux/store';
-import {
-  setExportLayout,
-  setExportScheme,
-  Theme,
-} from '../../redux/slices/settingsDataStateSlice';
+import { setExportLayout } from '../../redux/slices/settingsDataStateSlice';
 import { replaceState } from '../../redux/slices/tabContainerDataStateSlice';
 import {
   isValidTabMasterContainer,
@@ -29,6 +30,7 @@ import { sessionDateLabel } from '../../utils/functions/sessionDate';
 import {
   exportFileName,
   sessionToHtml,
+  sessionToLinkHtml,
   sessionToLinkList,
   type ExportLayout,
   type ExportScheme,
@@ -39,6 +41,27 @@ import {
   NO_EXPORT_EDITS,
   type ExportEdits,
 } from '../../utils/functions/sessionExportEdits';
+
+/**
+ * Puts both versions of the link list on the clipboard (KAN-195): text/html
+ * for an editor that reads it, text/plain for everything else; the app pasted
+ * into picks one. False when the page cannot -- no ClipboardItem, or the write
+ * refused -- so the caller copies the plain text instead of copying nothing.
+ */
+async function writeRichClipboard(html: string, plain: string) {
+  if (typeof ClipboardItem === 'undefined') return false;
+  try {
+    await navigator.clipboard.write([
+      new ClipboardItem({
+        'text/html': new Blob([html], { type: 'text/html' }),
+        'text/plain': new Blob([plain], { type: 'text/plain' }),
+      }),
+    ]);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 /**
  * The page that opens when a session is exported.
@@ -55,7 +78,6 @@ import {
 export default function ExportPage({ tabGroupId }: { tabGroupId: string }) {
   const { t, i18n } = useTranslation();
   const dispatch: AppDispatch = useDispatch();
-  const COLORS = useThemeColors();
   const FONT_FAMILY = useFontFamily();
   const [copied, setCopied] = useState(false);
   // KAN-194. Edits are for this export only: held here, applied to a copy,
@@ -123,19 +145,22 @@ export default function ExportPage({ tabGroupId }: { tabGroupId: string }) {
   const theme = useSelector(
     (state: RootState) => state.settingsDataState.theme
   );
-  const schemePreference = useSelector(
-    (state: RootState) => state.settingsDataState.exportScheme
-  );
+  // KAN-198. Pressing Light or Dark sets this, and nothing else: it lives in
+  // this page while it is open and is never saved, so a choice made for one
+  // export cannot outlive it or change the extension theme.
+  const [pageScheme, setPageScheme] = useState<ExportScheme | null>(null);
   const sessionDateBasis = useSelector(
     (state: RootState) => state.settingsDataState.sessionDateBasis
   );
 
+  // The page opens on the extension theme's polarity and follows it until
+  // Light or Dark is pressed here.
   const scheme: ExportScheme =
-    schemePreference === 'auto'
-      ? theme === Theme.DARKENHEIMER || theme === Theme.BLUE
-        ? 'dark'
-        : 'light'
-      : schemePreference;
+    pageScheme ?? (isDarkTheme(theme) ? 'dark' : 'light');
+  // One page, light or dark: the header and the file share a polarity, rather
+  // than the extension's tinted chrome framing a document. The shared
+  // components below get the same colours through ThemeColorsOverride.
+  const COLORS = scheme === 'dark' ? DARKENHEIMER_THEME : LIGHT_THEME;
 
   const html = useMemo(() => {
     if (!session || !edited) return '';
@@ -224,13 +249,24 @@ export default function ExportPage({ tabGroupId }: { tabGroupId: string }) {
   };
 
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(
-      sessionToLinkList(edited, {
-        window: t('Window'),
-        tabCountLabel: (count) =>
-          `${count} ${count > 1 ? t('Tabs') : t('Tab')}`,
-      })
+    const strings = {
+      window: t('Window'),
+      tabCountLabel: (count: number) =>
+        `${count} ${count > 1 ? t('Tabs') : t('Tab')}`,
+      countsLabel: formatGroupCounts(
+        edited.windowCount,
+        edited.tabCount,
+        false,
+        t
+      ),
+      locale: i18n.language,
+    };
+    const plain = sessionToLinkList(edited, strings);
+    const copiedRich = await writeRichClipboard(
+      sessionToLinkHtml(edited, strings),
+      plain
     );
+    if (!copiedRich) await navigator.clipboard.writeText(plain);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -297,7 +333,7 @@ export default function ExportPage({ tabGroupId }: { tabGroupId: string }) {
       text={label}
       ariaLabel={label}
       ariaPressed={scheme === value}
-      onClick={() => dispatch(setExportScheme(value))}
+      onClick={() => setPageScheme(value)}
       style={segmentStyle(scheme === value, first)}
     />
   );
@@ -326,230 +362,234 @@ export default function ExportPage({ tabGroupId }: { tabGroupId: string }) {
             `;
 
   return (
-    <div css={pageStyle}>
-      {/* The toolbar has a row of its own, always. Beside the title it fit
+    <ThemeColorsOverride.Provider value={COLORS}>
+      <div css={pageStyle}>
+        {/* The toolbar has a row of its own, always. Beside the title it fit
           or wrapped depending on how long each mode's toolbar was, so pressing
           Edit moved every control up a row. */}
-      <div
-        css={css`
-          display: flex;
-          flex-direction: column;
-          gap: 10px;
-          padding: 12px 16px;
-          background-color: ${COLORS.SECONDARY_COLOR};
-          border-bottom: 1px solid ${COLORS.BORDER_COLOR};
-        `}
-      >
         <div
           css={css`
             display: flex;
             flex-direction: column;
-            gap: 2px;
-            min-width: 0;
+            gap: 10px;
+            padding: 12px 16px;
+            background-color: ${COLORS.SECONDARY_COLOR};
+            border-bottom: 1px solid ${COLORS.BORDER_COLOR};
           `}
         >
-          {/* The page names its mode here and only here (picked from mocks).
+          <div
+            css={css`
+              display: flex;
+              flex-direction: column;
+              gap: 2px;
+              min-width: 0;
+            `}
+          >
+            {/* The page names its mode here and only here (picked from mocks).
               The header otherwise repeats the title the file shows below it,
               and nothing said the page is the file rather than the app. The
               label's height is fixed and the pencil sized into it, so swapping
               Preview for Editing moves nothing. */}
-          <span
+            <span
+              css={css`
+                display: inline-flex;
+                align-items: center;
+                gap: 5px;
+                height: 1rem;
+                font-size: 0.68rem;
+                font-weight: 600;
+                letter-spacing: 0.08em;
+                text-transform: uppercase;
+                color: ${COLORS.LABEL_L2_COLOR};
+              `}
+            >
+              {editing && (
+                <Icon type="edit" size="0.9rem" style="padding: 0;" />
+              )}
+              <span>{editing ? t('Editing') : t('Preview')}</span>
+            </span>
+            <span
+              css={css`
+                font-size: 1.125rem;
+              `}
+            >
+              {edited.title}
+            </span>
+            <span
+              css={css`
+                font-size: 0.75rem;
+                color: ${COLORS.LABEL_L2_COLOR};
+              `}
+            >
+              {formatGroupCounts(edited.windowCount, edited.tabCount, false, t)}
+            </span>
+          </div>
+
+          <div
             css={css`
-              display: inline-flex;
+              display: flex;
               align-items: center;
-              gap: 5px;
-              height: 1rem;
-              font-size: 0.68rem;
-              font-weight: 600;
-              letter-spacing: 0.08em;
-              text-transform: uppercase;
-              color: ${COLORS.LABEL_L2_COLOR};
+              gap: 10px;
+              flex-wrap: wrap;
             `}
           >
-            {editing && <Icon type="edit" size="0.9rem" style="padding: 0;" />}
-            <span>{editing ? t('Editing') : t('Preview')}</span>
-          </span>
-          <span
-            css={css`
-              font-size: 1.125rem;
-            `}
-          >
-            {edited.title}
-          </span>
-          <span
-            css={css`
-              font-size: 0.75rem;
-              color: ${COLORS.LABEL_L2_COLOR};
-            `}
-          >
-            {formatGroupCounts(edited.windowCount, edited.tabCount, false, t)}
-          </span>
-        </div>
-
-        <div
-          css={css`
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            flex-wrap: wrap;
-          `}
-        >
-          {editing ? (
-            <>
-              <span
-                role="status"
-                css={css`
-                  font-size: 0.78rem;
-                  color: ${COLORS.LABEL_L1_COLOR};
-                  border: 1px solid ${COLORS.BORDER_COLOR};
-                  border-radius: 999px;
-                  padding: 2px 9px;
-                  white-space: nowrap;
-                  font-variant-numeric: tabular-nums;
-                `}
-              >
-                {t('ExportEditTally', {
-                  renamed: tally.renamed,
-                  hidden: tally.hiddenTabs,
-                })}
-              </span>
-              <span css={endStyle}>
-                <Button
-                  text={t('Reset')}
-                  ariaLabel={t('Reset')}
-                  onClick={() => setEdits(NO_EXPORT_EDITS)}
-                  style={`height: 34px; padding: 6px 14px;`}
-                />
-                <Button
-                  text={t('Done')}
-                  ariaLabel={t('Done')}
-                  iconType="check"
-                  onClick={() => setEditing(false)}
-                  iconSize="1.2rem"
-                  iconColor={COLORS.PRIMARY_COLOR}
-                  iconStyle={actionIconStyle}
-                  style={primaryStyle}
-                />
-              </span>
-            </>
-          ) : (
-            <>
-              {/* Edit changes what the file says; the choices after it change how
+            {editing ? (
+              <>
+                <span
+                  role="status"
+                  css={css`
+                    font-size: 0.78rem;
+                    color: ${COLORS.LABEL_L1_COLOR};
+                    border: 1px solid ${COLORS.BORDER_COLOR};
+                    border-radius: 999px;
+                    padding: 2px 9px;
+                    white-space: nowrap;
+                    font-variant-numeric: tabular-nums;
+                  `}
+                >
+                  {t('ExportEditTally', {
+                    renamed: tally.renamed,
+                    hidden: tally.hiddenTabs,
+                  })}
+                </span>
+                <span css={endStyle}>
+                  <Button
+                    text={t('Reset')}
+                    ariaLabel={t('Reset')}
+                    onClick={() => setEdits(NO_EXPORT_EDITS)}
+                    style={`height: 34px; padding: 6px 14px;`}
+                  />
+                  <Button
+                    text={t('Done')}
+                    ariaLabel={t('Done')}
+                    iconType="check"
+                    onClick={() => setEditing(false)}
+                    iconSize="1.2rem"
+                    iconColor={COLORS.PRIMARY_COLOR}
+                    iconStyle={actionIconStyle}
+                    style={primaryStyle}
+                  />
+                </span>
+              </>
+            ) : (
+              <>
+                {/* Edit changes what the file says; the choices after it change how
               it looks, and the outputs after those write it. */}
-              <Button
-                text={t('Edit')}
-                ariaLabel={t('Edit')}
-                iconType="edit"
-                onClick={() => setEditing(true)}
-                iconSize="1.2rem"
-                iconStyle={actionIconStyle}
-                style={`height: 34px; padding: 6px 14px;`}
-              />
-              <span aria-hidden="true" css={dividerStyle} />
-              <span css={groupStyle} role="group" aria-label={t('Layout')}>
-                {layoutButton('comfortable', t('Comfortable'), true)}
-                {layoutButton('compact', t('Compact'), false)}
-              </span>
-              <span css={groupStyle} role="group" aria-label={t('Colour')}>
-                {schemeButton('light', t('Light'), true)}
-                {schemeButton('dark', t('Dark'), false)}
-              </span>
-              {/* Deciding ends here; what follows leaves the page, from the
+                <Button
+                  text={t('Edit')}
+                  ariaLabel={t('Edit')}
+                  iconType="edit"
+                  onClick={() => setEditing(true)}
+                  iconSize="1.2rem"
+                  iconStyle={actionIconStyle}
+                  style={`height: 34px; padding: 6px 14px;`}
+                />
+                <span aria-hidden="true" css={dividerStyle} />
+                <span css={groupStyle} role="group" aria-label={t('Layout')}>
+                  {layoutButton('comfortable', t('Comfortable'), true)}
+                  {layoutButton('compact', t('Compact'), false)}
+                </span>
+                <span css={groupStyle} role="group" aria-label={t('Colour')}>
+                  {schemeButton('light', t('Light'), true)}
+                  {schemeButton('dark', t('Dark'), false)}
+                </span>
+                {/* Deciding ends here; what follows leaves the page, from the
               end of the row -- Save stands where Done stands while editing. */}
-              <span css={endStyle}>
-                {/* Copy first: it ignores the choices, so it must not sit between
+                <span css={endStyle}>
+                  {/* Copy first: it ignores the choices, so it must not sit between
               the two outputs that follow them. */}
-                <Button
-                  text={t('Copy all links')}
-                  ariaLabel={t('Copy all links')}
-                  iconType="link"
-                  onClick={handleCopy}
-                  iconSize="1.2rem"
-                  iconStyle={actionIconStyle}
-                  style={`height: 34px; padding: 6px 14px;`}
-                />
-                <Button
-                  text={t('Print')}
-                  ariaLabel={t('Print')}
-                  iconType="print"
-                  onClick={handlePrint}
-                  iconSize="1.2rem"
-                  iconStyle={actionIconStyle}
-                  style={`height: 34px; padding: 6px 14px;`}
-                />
-                <Button
-                  text={t('Save as HTML')}
-                  ariaLabel={t('Save as HTML')}
-                  iconType="download"
-                  onClick={handleSave}
-                  iconSize="1.2rem"
-                  iconColor={COLORS.PRIMARY_COLOR}
-                  iconStyle={actionIconStyle}
-                  // FILLED, not tinted. A tint is what a pressed segment wears here,
-                  // so tinting Save would make the loudest control on the row read
-                  // as one more selected state.
-                  style={primaryStyle}
-                />
-              </span>
-            </>
-          )}
+                  <Button
+                    text={t('Copy all links')}
+                    ariaLabel={t('Copy all links')}
+                    iconType="link"
+                    onClick={handleCopy}
+                    iconSize="1.2rem"
+                    iconStyle={actionIconStyle}
+                    style={`height: 34px; padding: 6px 14px;`}
+                  />
+                  <Button
+                    text={t('Print')}
+                    ariaLabel={t('Print')}
+                    iconType="print"
+                    onClick={handlePrint}
+                    iconSize="1.2rem"
+                    iconStyle={actionIconStyle}
+                    style={`height: 34px; padding: 6px 14px;`}
+                  />
+                  <Button
+                    text={t('Save as HTML')}
+                    ariaLabel={t('Save as HTML')}
+                    iconType="download"
+                    onClick={handleSave}
+                    iconSize="1.2rem"
+                    iconColor={COLORS.PRIMARY_COLOR}
+                    iconStyle={actionIconStyle}
+                    // FILLED, not tinted. A tint is what a pressed segment wears here,
+                    // so tinting Save would make the loudest control on the row read
+                    // as one more selected state.
+                    style={primaryStyle}
+                  />
+                </span>
+              </>
+            )}
+          </div>
         </div>
-      </div>
 
-      {copied && (
-        <div
-          role="status"
-          css={css`
-            /* Floating, not in the flow: as a block this pushed the whole
+        {copied && (
+          <div
+            role="status"
+            css={css`
+              /* Floating, not in the flow: as a block this pushed the whole
                preview down and pulled it back two seconds later, so the
                confirmation moved the thing it was confirming. */
-            position: fixed;
-            right: 16px;
-            bottom: 16px;
-            z-index: 2;
-            pointer-events: none;
-            padding: 8px 14px;
-            border-radius: 4px;
-            font-size: 0.85rem;
-            color: ${COLORS.PRIMARY_COLOR};
-            background-color: ${COLORS.TEXT_COLOR};
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
-          `}
-        >
-          {t('Links copied')}
-        </div>
-      )}
+              position: fixed;
+              right: 16px;
+              bottom: 16px;
+              z-index: 2;
+              pointer-events: none;
+              padding: 8px 14px;
+              border-radius: 4px;
+              font-size: 0.85rem;
+              color: ${COLORS.PRIMARY_COLOR};
+              background-color: ${COLORS.TEXT_COLOR};
+              box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+            `}
+          >
+            {t('Links copied')}
+          </div>
+        )}
 
-      {editing ? (
-        <ExportEditor
-          session={session}
-          edits={edits}
-          scheme={scheme}
-          onRename={renameRow}
-          onToggleHidden={toggleHidden}
-        />
-      ) : (
-        <>
-          {/* The preview is the file itself, in its own document: it carries its
+        {editing ? (
+          <ExportEditor
+            session={session}
+            edits={edits}
+            scheme={scheme}
+            onRename={renameRow}
+            onToggleHidden={toggleHidden}
+          />
+        ) : (
+          <>
+            {/* The preview is the file itself, in its own document: it carries its
           own security rule and styling, and nothing on this page can leak
           into what gets saved. */}
-          <iframe
-            ref={frameRef}
-            title={edited.title}
-            srcDoc={html}
-            // allow-modals is what makes print() work: Chrome ignores print()
-            // from a sandboxed frame without it, silently but for a console line.
-            // allow-scripts is still absent, so the file cannot run anything.
-            sandbox="allow-same-origin allow-modals"
-            css={css`
-              border: 0;
-              flex-grow: 1;
-              width: 100%;
-              background-color: #fff;
-            `}
-          />
-        </>
-      )}
-    </div>
+            <iframe
+              ref={frameRef}
+              title={edited.title}
+              srcDoc={html}
+              // allow-modals is what makes print() work: Chrome ignores print()
+              // from a sandboxed frame without it, silently but for a console line.
+              // allow-scripts is still absent, so the file cannot run anything.
+              sandbox="allow-same-origin allow-modals"
+              css={css`
+                border: 0;
+                flex-grow: 1;
+                width: 100%;
+                background-color: #fff;
+              `}
+            />
+          </>
+        )}
+      </div>
+    </ThemeColorsOverride.Provider>
   );
 }

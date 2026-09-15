@@ -9,10 +9,7 @@ import {
 // tabContainerData type in the other direction, and a value edge either way
 // would complete a cycle. Same reason as the RootState note in the container
 // slice.
-import type {
-  ExportLayout,
-  ExportScheme,
-} from '../../utils/functions/sessionExportHtml';
+import type { ExportLayout } from '../../utils/functions/sessionExportHtml';
 
 export enum Theme {
   LIGHT = 'Light',
@@ -45,15 +42,6 @@ export interface SettingsData {
    * tabContainerData and nothing else.
    */
   exportLayout: ExportLayout;
-  /**
-   * Whether an exported file is written light or dark (KAN-190).
-   *
-   * 'auto' means "follow my Tab Keeper theme", which is a real answer rather
-   * than an absent one: a user who never touches the switch keeps following
-   * the theme when they change it. An explicit choice is for the cases the
-   * theme cannot know -- a dark document to print, a light one to send on.
-   */
-  exportScheme: 'auto' | ExportScheme;
   language: Language;
   isAutoSync: boolean;
   isLazyLoad: boolean;
@@ -117,7 +105,6 @@ const defaultSettings: SettingsData = {
   language: Language.EN, // Default language is 'en'
   theme: Theme.LIGHT,
   exportLayout: 'comfortable',
-  exportScheme: 'auto',
   isAutoSync: true,
   isLazyLoad: true,
   extensionInstalledTime: '',
@@ -238,13 +225,6 @@ export const settingsDataStateSlice = createSlice({
       saveToLocalStorage('settingsData', state);
     },
 
-    setExportScheme: (state, action: PayloadAction<'auto' | ExportScheme>) => {
-      state.exportScheme = action.payload;
-
-      // Save updated state to localStorage
-      saveToLocalStorage('settingsData', state);
-    },
-
     setSessionDateBasis: (state, action: PayloadAction<SessionDateBasis>) => {
       state.sessionDateBasis = action.payload;
 
@@ -276,7 +256,6 @@ export const {
   setNeverAskAgainForTabGroups,
   setSessionDateBasis,
   setExportLayout,
-  setExportScheme,
 } = settingsDataStateSlice.actions;
 
 export default settingsDataStateSlice.reducer;
