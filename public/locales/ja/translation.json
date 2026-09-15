@@ -155,5 +155,6 @@
   "Editing": "編集中",
   "ExportEditTally": "名前変更 {{renamed}} · 非表示 {{hidden}}",
   "Hide": "非表示",
-  "Rename tab": "タブの名前を変更"
+  "Rename tab": "タブの名前を変更",
+  "Preview": "プレビュー"
 }

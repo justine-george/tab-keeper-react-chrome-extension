@@ -369,3 +369,58 @@ describe('closing the page with edits pending (KAN-194)', () => {
     expect(closingAsks()).toBe(true);
   });
 });
+
+// Picked from mocks (option A): the page names its mode in one place, a small
+// label above the session title -- "Preview" at rest, "Editing" while editing.
+// The header only repeated the title the file shows below it, so nothing said
+// the page was the file rather than the app; and "Editing" moved out of the
+// toolbar, which now holds only the tally, Reset and Done.
+describe('the page names its mode above the title (KAN-194)', () => {
+  // The smallest box holding both: for a label beside the title it is the
+  // title block; for a label out in the toolbar it is the whole header.
+  const sharedBox = (a: Element, b: Element): Element => {
+    let box: Element = a;
+    while (!box.contains(b)) box = box.parentElement!;
+    return box;
+  };
+  // The header's title. While editing the title also sits in the editor's
+  // field, whose text node matches too, so the span is picked by tag.
+  const headerTitle = () =>
+    screen
+      .getAllByText('Weekend in Kyoto')
+      .find((el) => el.tagName === 'SPAN')!;
+  const precedes = (a: Element, b: Element) =>
+    Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+
+  test('at rest it says Preview, above the session title', async () => {
+    await renderPage();
+
+    const label = screen.getByText('Preview');
+    const title = headerTitle();
+    expect(precedes(label, title)).toBe(true);
+    expect(
+      sharedBox(label, title).contains(
+        screen.getByRole('button', { name: 'Edit' })
+      )
+    ).toBe(false);
+    expect(screen.queryByText('Editing')).toBeNull();
+  });
+
+  test('while editing the same place says Editing, and the toolbar no longer does', async () => {
+    const user = userEvent.setup();
+    await renderPage();
+
+    await user.click(screen.getByRole('button', { name: 'Edit' }));
+
+    expect(screen.queryByText('Preview')).toBeNull();
+    const labels = screen.getAllByText('Editing');
+    expect(labels).toHaveLength(1);
+    const title = headerTitle();
+    expect(precedes(labels[0], title)).toBe(true);
+    expect(
+      sharedBox(labels[0], title).contains(
+        screen.getByRole('button', { name: 'Done' })
+      )
+    ).toBe(false);
+  });
+});

@@ -155,5 +155,6 @@
   "Editing": "Modification",
   "ExportEditTally": "{{renamed}} renommés · {{hidden}} masqués",
   "Hide": "Masquer",
-  "Rename tab": "Renommer l'onglet"
+  "Rename tab": "Renommer l'onglet",
+  "Preview": "Aperçu"
 }

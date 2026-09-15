@@ -155,5 +155,6 @@
   "Editing": "正在编辑",
   "ExportEditTally": "已重命名 {{renamed}} · 已隐藏 {{hidden}}",
   "Hide": "隐藏",
-  "Rename tab": "重命名标签"
+  "Rename tab": "重命名标签",
+  "Preview": "预览"
 }

@@ -343,6 +343,27 @@ export default function ExportPage({ tabGroupId }: { tabGroupId: string }) {
             min-width: 0;
           `}
         >
+          {/* The page names its mode here and only here (picked from mocks).
+              The header otherwise repeats the title the file shows below it,
+              and nothing said the page is the file rather than the app. The
+              label's height is fixed and the pencil sized into it, so swapping
+              Preview for Editing moves nothing. */}
+          <span
+            css={css`
+              display: inline-flex;
+              align-items: center;
+              gap: 5px;
+              height: 1rem;
+              font-size: 0.68rem;
+              font-weight: 600;
+              letter-spacing: 0.08em;
+              text-transform: uppercase;
+              color: ${COLORS.LABEL_L2_COLOR};
+            `}
+          >
+            {editing && <Icon type="edit" size="0.9rem" style="padding: 0;" />}
+            <span>{editing ? t('Editing') : t('Preview')}</span>
+          </span>
           <span
             css={css`
               font-size: 1.125rem;
@@ -370,18 +391,6 @@ export default function ExportPage({ tabGroupId }: { tabGroupId: string }) {
         >
           {editing ? (
             <>
-              <span
-                css={css`
-                  display: inline-flex;
-                  align-items: center;
-                  gap: 6px;
-                  font-size: 0.9rem;
-                  font-weight: 500;
-                `}
-              >
-                <Icon type="edit" size="1.2rem" />
-                {t('Editing')}
-              </span>
               <span
                 role="status"
                 css={css`

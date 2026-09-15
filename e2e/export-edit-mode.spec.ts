@@ -311,6 +311,9 @@ const toolbarGeometry = (page: Page, title: string) =>
       (el) => el.textContent === title
     );
     if (!heading) throw new Error('no session title in the header');
+    const label = [...document.querySelectorAll('span')].find(
+      (el) => el.textContent === 'Preview' || el.textContent === 'Editing'
+    );
     // The header is the nearest box holding both the title and the toolbar.
     let header: Element = primary;
     while (!header.contains(heading)) header = header.parentElement!;
@@ -321,6 +324,8 @@ const toolbarGeometry = (page: Page, title: string) =>
       header.querySelector('[role="status"]')!.parentElement!;
     return {
       titleBottom: heading.getBoundingClientRect().bottom,
+      titleTop: heading.getBoundingClientRect().top,
+      labelBottom: label ? label.getBoundingClientRect().bottom : null,
       primaryRight: primary.getBoundingClientRect().right,
       // Where the toolbar's first line starts. Not the primary control's top:
       // at 800px the resting row wraps and Save sits on a second line, while
@@ -355,6 +360,16 @@ for (const width of [1600, 1200, 800]) {
     expect(
       Math.abs(editing.firstLineTop - resting.firstLineTop),
       `the toolbar row moved from ${resting.firstLineTop}px to ${editing.firstLineTop}px`
+    ).toBeLessThanOrEqual(1);
+    // The mode label sits above the title in both modes, and swapping
+    // Preview for a pencil and Editing must not change its height.
+    expect(resting.labelBottom, 'Preview above the title').not.toBeNull();
+    expect(resting.labelBottom!).toBeLessThanOrEqual(resting.titleTop + 1);
+    expect(editing.labelBottom, 'Editing above the title').not.toBeNull();
+    expect(editing.labelBottom!).toBeLessThanOrEqual(editing.titleTop + 1);
+    expect(
+      Math.abs(editing.titleTop - resting.titleTop),
+      `the title moved from ${resting.titleTop}px to ${editing.titleTop}px`
     ).toBeLessThanOrEqual(1);
   });
 
