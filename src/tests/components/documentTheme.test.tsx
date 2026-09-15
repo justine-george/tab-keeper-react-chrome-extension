@@ -44,6 +44,27 @@ describe('useDocumentTheme (KAN-22)', () => {
     );
   });
 
+  // KAN-188. The held thumb gets its own colour. App.css reads it with a
+  // literal fallback, so a hook that never publishes it would still paint
+  // SOMETHING -- the e2e pixels cannot tell a missing property from a
+  // fallback that happens to look right. Only this can.
+  test('publishes the held thumb colour, and republishes it on a theme change', async () => {
+    const { store } = await renderWithProviders(<Probe />);
+
+    const root = document.documentElement;
+    expect(root.style.getPropertyValue('--scrollbar-thumb-active')).toBe(
+      LIGHT_THEME.SCROLLBAR_THUMB_ACTIVE
+    );
+
+    act(() => {
+      store.dispatch(setTheme(Theme.DARKENHEIMER));
+    });
+
+    expect(root.style.getPropertyValue('--scrollbar-thumb-active')).toBe(
+      DARKENHEIMER_THEME.SCROLLBAR_THUMB_ACTIVE
+    );
+  });
+
   // The bug the hardcoded #f0f2f5 / #888 caused: the scrollbar stayed light
   // grey in every theme, including the two dark ones.
   test('republishes them when the theme changes', async () => {

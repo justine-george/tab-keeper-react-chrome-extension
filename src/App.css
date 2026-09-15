@@ -85,7 +85,8 @@ body {
 /* The custom properties come from useDocumentTheme, which reads the SCROLLBAR_*
    tokens off the active theme. The fallbacks are the previous hardcoded values,
    so the scrollbar still renders if the stylesheet is parsed before React has
-   published anything. */
+   published anything. There was never a hardcoded held colour, so :active
+   falls back to the same value as :hover. */
 ::-webkit-scrollbar-track {
   background: var(--scrollbar-track, #f0f2f5);
 }
@@ -96,6 +97,14 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--scrollbar-thumb-hover, #555);
+}
+
+/* KAN-188. A held thumb matches :hover as well, and both selectors carry the
+   same specificity, so this rule wins only because it comes AFTER :hover.
+   Reordering them makes holding look like hovering again, silently -- which
+   is exactly what shipped before this rule existed. */
+::-webkit-scrollbar-thumb:active {
+  background: var(--scrollbar-thumb-active, #555);
 }
 
 /* KAN-164. The tab being dragged wears the colour of the group it would join,

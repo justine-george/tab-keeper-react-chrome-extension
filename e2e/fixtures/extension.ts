@@ -23,8 +23,16 @@ export const test = base.extend<{
   context: BrowserContext;
   serviceWorker: Worker;
   extensionId: string;
+  showScrollbars: boolean;
 }>({
-  context: async ({}, use) => {
+  // Playwright launches headless Chromium with --hide-scrollbars, so every
+  // scrollbar measures 0px and paints nothing (KAN-188). Off by default on
+  // purpose: a visible bar takes 10px from each scrolling pane, and the drag
+  // specs measure row geometry to the pixel. Opt in per spec with
+  // `test.use({ showScrollbars: true })`.
+  showScrollbars: [false, { option: true }],
+
+  context: async ({ showScrollbars }, use) => {
     // A throwaway profile per test: extension state (localStorage,
     // chrome.storage) persists in the profile, so sharing one would let tests
     // leak into each other.
@@ -36,6 +44,7 @@ export const test = base.extend<{
       // 2026-09-01 across all three modes.
       headless: true,
       channel: 'chromium',
+      ignoreDefaultArgs: showScrollbars ? ['--hide-scrollbars'] : [],
       args: [`--disable-extensions-except=${DIST}`, `--load-extension=${DIST}`],
     });
 

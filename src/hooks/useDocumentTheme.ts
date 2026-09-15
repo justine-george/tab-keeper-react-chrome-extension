@@ -42,6 +42,12 @@ export function useDocumentTheme(): void {
       '--scrollbar-thumb-hover',
       COLORS.SCROLLBAR_THUMB_HOVER
     );
+    // KAN-188: holding the thumb had no colour of its own, so it looked
+    // exactly like hovering it.
+    root.style.setProperty(
+      '--scrollbar-thumb-active',
+      COLORS.SCROLLBAR_THUMB_ACTIVE
+    );
 
     // 3. body's background (KAN-49), same reason as the scrollbar: body is not
     //    reachable from an emotion class either. It had a hardcoded `grey`
