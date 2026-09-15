@@ -328,7 +328,7 @@ describe('printing the previewed file', () => {
       value: { print: printed },
     });
 
-    await user.click(screen.getByRole('button', { name: 'Print' }));
+    await user.click(screen.getByRole('button', { name: 'PDF / Print' }));
 
     expect(printed).toHaveBeenCalled();
   });
@@ -372,7 +372,7 @@ describe('the icon on the filled button (KAN-190)', () => {
   test('CONTROL: an outline button keeps the ordinary icon colour', async () => {
     await renderPage();
 
-    expect(glyphOf('Print')).not.toBe(glyphOf('Save as HTML'));
+    expect(glyphOf('PDF / Print')).not.toBe(glyphOf('Save as HTML'));
   });
 });
 
@@ -409,11 +409,26 @@ describe('the toolbar says which controls are choices (KAN-190)', () => {
     const layout = screen.getByRole('group', { name: 'Layout' });
     const colour = screen.getByRole('group', { name: 'Colour' });
 
-    for (const name of ['Print', 'Copy all links', 'Save as HTML']) {
+    for (const name of ['PDF / Print', 'Copy all links', 'Save as HTML']) {
       const button = screen.getByRole('button', { name });
       expect(layout.contains(button)).toBe(false);
       expect(colour.contains(button)).toBe(false);
     }
+  });
+
+  // Print and Save both output the page the Layout and Colour choices just
+  // rendered; Copy writes plain "title (link)" text that ignores both. So the
+  // two outputs sit together, ending in the filled Save, and Copy goes first
+  // rather than splitting them.
+  test('the actions run Copy, then Print, then Save', async () => {
+    await renderPage();
+
+    const names = ['Copy all links', 'PDF / Print', 'Save as HTML'];
+    const actions = screen
+      .getAllByRole('button')
+      .map((b) => b.getAttribute('aria-label'))
+      .filter((name): name is string => names.includes(name ?? ''));
+    expect(actions).toEqual(names);
   });
 
   // Save carries a fill no other control has. Asserted against its NEIGHBOUR
@@ -423,7 +438,7 @@ describe('the toolbar says which controls are choices (KAN-190)', () => {
     await renderPage();
 
     const save = screen.getByRole('button', { name: 'Save as HTML' });
-    const print = screen.getByRole('button', { name: 'Print' });
+    const print = screen.getByRole('button', { name: 'PDF / Print' });
 
     const fill = (el: HTMLElement) => getComputedStyle(el).backgroundColor;
     expect(fill(save)).not.toBe(fill(print));

@@ -135,7 +135,7 @@
   "Edited": "Modifié",
   "Created": "Créé",
   "Sessions reordered. Undo to restore the previous order.": "Sessions réorganisées. Utilisez « Annuler » pour rétablir l’ordre précédent.",
-  "Export session": "Enregistrer cette session en page web",
+  "Export session": "Exporter en PDF / page web",
   "Save as HTML": "Enregistrer en HTML",
   "Copy all links": "Copier tous les liens",
   "Links copied": "Liens copiés",
@@ -146,7 +146,7 @@
   "Get the extension": "Obtenir l’extension",
   "Session not found": "Session introuvable",
   "Dark": "Sombre",
-  "Print": "Imprimer",
+  "Print": "PDF / Imprimer",
   "Layout": "Disposition",
   "Colour": "Couleur"
 }

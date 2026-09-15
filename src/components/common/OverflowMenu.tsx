@@ -53,6 +53,16 @@ interface OverflowMenuProps {
    * which row that is.
    */
   onOpenChange?: (isOpen: boolean) => void;
+  /**
+   * Which edge of the trigger the menu lines up with (KAN-193).
+   *
+   * `'end'`, the default, pins the menu's right edge to the trigger's, so it
+   * opens leftward -- right for a trigger at the END of a row, like the tab
+   * group title. `'start'` pins the left edges instead, for a trigger near the
+   * start: in the session header an end-aligned menu opened across the pane
+   * divider, over the session list.
+   */
+  align?: 'start' | 'end';
 }
 
 /**
@@ -90,6 +100,7 @@ const OverflowMenu: React.FC<OverflowMenuProps> = ({
   items,
   triggerIcon = 'more_vert',
   onOpenChange,
+  align = 'end',
 }) => {
   const COLORS = useThemeColors();
   const FONT_FAMILY = useFontFamily();
@@ -115,7 +126,7 @@ const OverflowMenu: React.FC<OverflowMenuProps> = ({
   const menuStyle = css`
     position: absolute;
     top: 100%;
-    right: 0;
+    ${align === 'start' ? 'left: 0;' : 'right: 0;'}
     z-index: 1000;
     min-width: 180px;
     background-color: ${COLORS.PRIMARY_COLOR};
@@ -137,6 +148,10 @@ const OverflowMenu: React.FC<OverflowMenuProps> = ({
     text-align: left;
     font-family: inherit;
     font-size: 0.85rem;
+    /* One line per item. A wrapped label reads as two items squeezed together,
+       and "Export as PDF / web page" wrapped at the menu's minimum width. The
+       menu grows to fit instead. */
+    white-space: nowrap;
     color: ${COLORS.TEXT_COLOR};
     /* Named properties, never the all keyword. */
     transition-property: background-color;

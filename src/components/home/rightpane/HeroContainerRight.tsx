@@ -5,6 +5,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { css } from '@emotion/react';
 
 import Icon from '../../common/Icon';
+import OverflowMenu from '../../common/OverflowMenu';
 import Button from '../../common/Button';
 import ClickableRow from '../../common/ClickableRow';
 import { NormalLabel } from '../../common/Label';
@@ -371,26 +372,43 @@ export default function HeroContainerRight() {
               );
             }}
           />
-          <Icon
-            tooltipText={t('Export session')}
-            ariaLabel={t('Export session')}
-            type="download"
-            onClick={() => {
-              // Opening a tab takes focus, which destroys the popup. Nothing
-              // may be sequenced after this call -- the whole address is built
-              // first, so there is nothing left to do when the context dies.
-              chrome.tabs.create({
-                url: chrome.runtime.getURL(
-                  `export.html?session=${encodeURIComponent(tabGroupId)}`
-                ),
-              });
-            }}
-          />
-          <Icon
-            tooltipText={t('Delete session')}
-            ariaLabel={t('Delete session')}
-            type="delete"
-            onClick={() => dispatch(deleteTabContainer(tabGroupId))}
+          {/* KAN-193. Export and Delete live behind one trigger rather than as
+              two more icons. A menu item carries words, so export cannot be
+              misread the way its download glyph was once the flow began with
+              a preview; and Delete stops sitting one mis-click from the two
+              everyday actions. Deleting stays one menu away from recoverable:
+              it is a captured action, so Undo restores it. */}
+          <OverflowMenu
+            ariaLabel={t('More actions')}
+            // The trigger sits near the START of the row, so the menu opens
+            // rightward, inside this pane. End-aligned, it crossed the pane
+            // divider and covered the session list.
+            align="start"
+            items={[
+              {
+                key: 'export',
+                label: t('Export session'),
+                icon: 'file_export',
+                onSelect: () => {
+                  // Opening a tab takes focus, which destroys the popup.
+                  // Nothing may be sequenced after this call -- the whole
+                  // address is built first, so there is nothing left to do
+                  // when the context dies.
+                  chrome.tabs.create({
+                    url: chrome.runtime.getURL(
+                      `export.html?session=${encodeURIComponent(tabGroupId)}`
+                    ),
+                  });
+                },
+              },
+              {
+                key: 'delete',
+                label: t('Delete session'),
+                icon: 'delete',
+                danger: true,
+                onSelect: () => dispatch(deleteTabContainer(tabGroupId)),
+              },
+            ]}
           />
         </div>
         <div

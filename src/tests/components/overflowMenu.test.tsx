@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 
 import OverflowMenu from '../../components/common/OverflowMenu';
 import { renderWithProviders } from '../setup/renderWithProviders';
+import { hoverRulesFor } from '../setup/hoverRules';
 
 // The app's first popover.
 //
@@ -209,25 +210,6 @@ describe('OverflowMenu destructive styling', () => {
   // jsdom applies no :hover pseudo-class -- getComputedStyle would report the
   // resting state for both branches and pass against either. The real hover is
   // verified in a browser.
-  const hoverRulesFor = (el: Element) => {
-    const classes = [...el.classList].map((c) => `.${c}`);
-    const out: string[] = [];
-    for (const sheet of [...document.styleSheets]) {
-      let rules: CSSRuleList;
-      try {
-        rules = sheet.cssRules;
-      } catch {
-        continue;
-      }
-      for (const rule of [...rules]) {
-        const text = rule.cssText;
-        if (text.includes(':hover') && classes.some((c) => text.includes(c))) {
-          out.push(text);
-        }
-      }
-    }
-    return out.join('\n');
-  };
 
   test('a danger item fills with the delete colour on hover', async () => {
     const user = userEvent.setup();
@@ -275,5 +257,48 @@ describe('OverflowMenu destructive styling', () => {
 
     expect(rules).not.toMatch(/#FF8080|rgb\(255, ?128, ?128\)/i);
     expect(rules).toMatch(/background-color/);
+  });
+});
+
+// KAN-193. The menu was always anchored to its trigger's RIGHT edge, which
+// suits a trigger at the end of a row -- the tab group title, its first
+// consumer -- and not one near the start. In the session header it opened
+// leftward across the pane divider, over the session list. `align` says which
+// edge of the trigger the menu lines up with; 'end' stays the default so the
+// existing consumer does not move.
+describe('which edge of the trigger the menu lines up with (KAN-193)', () => {
+  test('by default the menu lines up with the trigger END, as before', async () => {
+    const user = userEvent.setup();
+    await renderMenu();
+    await user.click(trigger());
+
+    const menu = getComputedStyle(screen.getByRole('menu'));
+    expect(menu.right).toBe('0px');
+    expect(menu.left).not.toBe('0px');
+  });
+
+  test('align start lines the menu up with the trigger START instead', async () => {
+    const user = userEvent.setup();
+    await renderMenu({ align: 'start' });
+    await user.click(trigger());
+
+    const menu = getComputedStyle(screen.getByRole('menu'));
+    expect(menu.left).toBe('0px');
+    // CONTROL: not both. A menu pinned to both edges stretches to the
+    // trigger's width instead of opening beside it.
+    expect(menu.right).not.toBe('0px');
+  });
+
+  // A two-line label reads as two items squeezed together, and in the session
+  // header "Export as PDF / web page" wrapped at the minimum width. jsdom
+  // cannot lay text out, so this pins the rule; the e2e measures the heights.
+  test('an item label never wraps onto a second line', async () => {
+    const user = userEvent.setup();
+    await renderMenu();
+    await user.click(trigger());
+
+    expect(
+      getComputedStyle(screen.getAllByRole('menuitem')[0]).whiteSpace
+    ).toBe('nowrap');
   });
 });
