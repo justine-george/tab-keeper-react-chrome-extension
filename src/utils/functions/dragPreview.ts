@@ -336,6 +336,45 @@ export function removalShifts(
 }
 
 /**
+ * How far each slot moves when the GAP ABOVE a band changes (KAN-187).
+ *
+ * A third shift source, and like removalShifts it describes something the
+ * held row's own travel cannot: two adjacent bands SHARE one wide gap
+ * (KAN-179's 8px, a collapsed pair of margins), and a loose row between them
+ * makes each keep its own 2px margin instead. So the space such a row needs
+ * is 4px LESS than its footprint, and the space it frees on leaving is 4px
+ * less too -- the pair reclaims the wide gap behind it.
+ *
+ * ANCHORED ON THE LOWER BAND, AND IT MOVES TOO: the gap that changed sits
+ * ABOVE that band, so the band's own title row is the first thing displaced.
+ * That is why this shifts from `anchor` INCLUSIVE, where removalShifts starts
+ * after its span.
+ *
+ * Its own window only, for the same reason as removalShifts: a same-window
+ * drag never moves another window's rows, and a cross-window one keeps the
+ * source's box (KAN-184).
+ *
+ * Slots that do not move are absent; read `?? 0`.
+ */
+export function gapChangeShifts(
+  slots: readonly WindowedSlot[],
+  anchor: number,
+  delta: number
+): Record<string, number> {
+  const shifts: Record<string, number> = {};
+  if (delta === 0) return shifts;
+  const band = slots[anchor];
+  // An anchor this list cannot place changes nothing, rather than shifting
+  // from index 0 -- the same refusal as every other rule here.
+  if (band === undefined) return shifts;
+  slots.forEach((slot, i) => {
+    if (i >= anchor && slot.windowId === band.windowId)
+      shifts[slot.key] = delta;
+  });
+  return shifts;
+}
+
+/**
  * How far each saved WINDOW BLOCK moves while the held row is over another
  * window (KAN-184).
  *

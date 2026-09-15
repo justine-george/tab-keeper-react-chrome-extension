@@ -69,6 +69,18 @@ export interface FixedRowLanding {
   offset?: number;
 }
 
+// A change to the gap ABOVE a band, which a drop can make without moving the
+// band itself (KAN-187) -- see RowDragAreaProps.gapChangesBy.
+export interface BandGapChange {
+  // The LOWER of the two bands whose shared gap changed. It moves too: the
+  // gap sits above it.
+  bandId: string;
+  // Positive downward, in px. Negative where a row arriving between the two
+  // bands needs less room than its footprint; positive where one leaving
+  // frees less, because the pair reclaims its wide gap.
+  delta: number;
+}
+
 // A span of fixed rows a drop removes from the drawn list (KAN-169) -- see
 // RowDragAreaProps.fixedRowsRemovedBy.
 export interface RemovedFixedRows {
@@ -314,6 +326,26 @@ export interface RowDragAreaProps {
     target: string | undefined,
     windowId: string | undefined
   ) => RemovedFixedRows | undefined;
+  /**
+   * Which band's TOP GAP this drop changes, and by how much (KAN-187).
+   *
+   * A third thing the held row's own travel cannot express. Two adjacent
+   * bands SHARE one wide gap, and a loose row between them makes each keep
+   * its own margin instead -- so such a row needs less room than its
+   * footprint, and frees less when it leaves. The area moves the named band
+   * and everything below it by `delta`, on top of everything else.
+   *
+   * Returns every change one release makes: a cross-window drag can close a
+   * gap in the window it leaves AND open one in the window it lands in, and a
+   * row dropped back where it started emits both for the same band, which
+   * cancel.
+   */
+  gapChangesBy?: (
+    rowId: string,
+    toIndex: number,
+    target: string | undefined,
+    windowId: string | undefined
+  ) => BandGapChange[];
   // Dragging is off while the list on screen is a FILTERED view of the stored
   // one (KAN-131). toIndex counts rendered rows, and the reducers apply it to
   // the stored array, so a drag in a narrowed list lands somewhere the user

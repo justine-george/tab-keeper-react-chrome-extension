@@ -39,6 +39,7 @@ export const TabDragArea: React.FC<{
       onDropTargetChange={tabDrop.onDropTargetChange}
       landsBesideFixedRow={tabDrop.landsBesideFixedRow}
       fixedRowsRemovedBy={tabDrop.fixedRowsRemovedBy}
+      gapChangesBy={tabDrop.gapChangesBy}
       // Each group's title row and tail marker are drawn in this list but never
       // dragged in it -- in a window's `items` list a group is one row that
       // CONTAINS its title, so it is declared here only.

@@ -30,6 +30,7 @@ import {
 import {
   bandAt,
   groupEndingAbove,
+  type BandGapChange,
   type DropTarget,
   type FixedRowLanding,
   type PaneWindows,
@@ -51,12 +52,18 @@ interface WindowGroupEdges {
   groupOfTab: Map<string, string>;
   groupSize: Map<string, number>;
   bandNeighbours: Map<string, BandNeighbours>;
+  // KAN-187. For a LOOSE tab that is the only thing between two bands, the
+  // band BELOW it -- the one whose top gap widens when that tab leaves.
+  bandBelowLooseTabInGap: Map<string, string>;
 }
 
 type ItemKind = 'tab' | 'group';
 interface BandNeighbours {
   above: ItemKind | undefined;
   below: ItemKind | undefined;
+  // WHICH band sits above, when one does (KAN-187). The kind alone cannot say
+  // whether that band is the one a drop is about to prune.
+  aboveBandId: string | undefined;
 }
 
 export function groupEdgesOf(
@@ -69,6 +76,7 @@ export function groupEdgesOf(
   const groupOfTab = new Map<string, string>();
   const groupSize = new Map<string, number>();
   const bandNeighbours = new Map<string, BandNeighbours>();
+  const bandBelowLooseTabInGap = new Map<string, string>();
   const items = partitionTabsIntoItems(tabs, groups);
   items.forEach((item, i) => {
     if (item.kind !== 'group') return;
@@ -87,10 +95,20 @@ export function groupEdgesOf(
         (groupSize.get(item.group.groupId) ?? 0) + 1
       );
     }
+    const previous = items[i - 1];
     bandNeighbours.set(item.group.groupId, {
-      above: items[i - 1]?.kind,
+      above: previous?.kind,
       below: items[i + 1]?.kind,
+      aboveBandId:
+        previous?.kind === 'group' ? previous.group.groupId : undefined,
     });
+  });
+  items.forEach((item, i) => {
+    if (item.kind !== 'tab') return;
+    const below = items[i + 1];
+    if (items[i - 1]?.kind === 'group' && below?.kind === 'group') {
+      bandBelowLooseTabInGap.set(item.tab.tabId, below.group.groupId);
+    }
   });
   return {
     indexOfTab,
@@ -99,7 +117,81 @@ export function groupEdgesOf(
     groupOfTab,
     groupSize,
     bandNeighbours,
+    bandBelowLooseTabInGap,
   };
+}
+
+// KAN-187. How much LESS room a loose row needs between two bands than its own
+// footprint: the pair stops sharing KAN-179's wide gap and each keeps its own
+// margin instead. Measured +/-4 in every direction on main.
+const GAP_RELIEF_PX = ADJACENT_GROUP_GAP_PX - 2 * BAND_MARGIN_PX;
+
+/**
+ * The band whose top gap CLOSES because the held row is leaving the space
+ * between it and the band above (KAN-187), or undefined.
+ *
+ * About the ORIGIN alone: it fires wherever the row lands, and whether or not
+ * it joins something on arrival -- measured, a row that leaves this gap to
+ * join the band below still leaves the pair adjacent behind it.
+ *
+ * A GROUPED row leaving is not this: its band may be pruned instead, and that
+ * path (KAN-169) already states what gap its neighbours keep.
+ */
+export function gapClosedByLeavingIn(
+  edges: WindowGroupEdges,
+  rowId: string
+): BandGapChange | undefined {
+  const bandId = edges.bandBelowLooseTabInGap.get(rowId);
+  return bandId === undefined ? undefined : { bandId, delta: GAP_RELIEF_PX };
+}
+
+/**
+ * The band whose top gap OPENS because the held row is landing loose between
+ * it and the band above (KAN-187), or undefined.
+ *
+ * ASKED OF THE LIST WITH THE HELD ROW LIFTED OUT, which is the whole subtlety.
+ * `bandNeighbours` describes the list as DRAWN, and a row dropped back into
+ * the gap it already occupies would read as "the band above is a tab" and
+ * answer nothing -- while the drop genuinely re-opens the gap it is closing by
+ * leaving. So a band whose only separation from the band above IS the held row
+ * counts as adjacent here, and the two sides then cancel, which is the correct
+ * preview for putting a row back where it was.
+ *
+ * A drop that JOINS a band lands inside it, not in the gap above it.
+ */
+export function gapOpenedByLandingIn(
+  edges: WindowGroupEdges,
+  rowId: string,
+  toIndex: number,
+  target: string | undefined,
+  removedBandId?: string
+): BandGapChange | undefined {
+  if (target !== undefined) return undefined;
+  for (const groupId of edges.groupFirstIndex.keys()) {
+    const neighbours = edges.bandNeighbours.get(groupId);
+    // WHERE THIS DROP PRUNES A BAND, KAN-169 OWNS THE GAP ARITHMETIC. It
+    // already states what the survivors keep once that band is gone --
+    // including the 2px-each-side case where the held row lands loose in its
+    // place -- so claiming the same 4px here took it off twice. Measured: the
+    // lower band previewed at 162 against a truth of 166.
+    //
+    // TWO bands have to stand aside, because a row landing where its own band
+    // stood satisfies both heads at once: the pruned band ITSELF, which will
+    // not exist to have a gap above it, and the band BELOW it, whose gap above
+    // is the one KAN-169 is already accounting for.
+    const prunedItself = groupId === removedBandId;
+    const prunedAbove =
+      removedBandId !== undefined && neighbours?.aboveBandId === removedBandId;
+    if (prunedItself || prunedAbove) continue;
+    const adjacentOnce = neighbours?.above === 'group';
+    const separatedOnlyByTheHeldRow =
+      edges.bandBelowLooseTabInGap.get(rowId) === groupId;
+    if (!adjacentOnce && !separatedOnlyByTheHeldRow) continue;
+    if (headInLandingSpace(edges, groupId, rowId) === toIndex) {
+      return { bandId: groupId, delta: -GAP_RELIEF_PX };
+    }
+  }
+  return undefined;
 }
 
 // Where a group's head sits in the space `toIndex` is counted in (KAN-170).
@@ -521,6 +613,53 @@ export function useTabDrop(
     [edgesByWindow, windowOfTab]
   );
 
+  // KAN-187. Both sides of one release: the gap the row VACATES is its own
+  // window's business, the gap it OPENS belongs to the window it lands in, and
+  // in a cross-window drag those are different windows.
+  const gapChangesBy = useCallback(
+    (
+      rowId: string,
+      toIndex: number,
+      target: string | undefined,
+      windowId: string | undefined
+    ) => {
+      const ownWindowId = windowOfTab.get(rowId);
+      const source =
+        ownWindowId === undefined ? undefined : edgesByWindow.get(ownWindowId);
+      const destination =
+        windowId === undefined ? undefined : edgesByWindow.get(windowId);
+      const changes: BandGapChange[] = [];
+      const closed =
+        source === undefined ? undefined : gapClosedByLeavingIn(source, rowId);
+      if (closed !== undefined) changes.push(closed);
+      // The band this same release prunes, if any -- KAN-169 owns the gap
+      // arithmetic wherever that happens, and the two must not both claim it.
+      const pruned =
+        source === undefined
+          ? undefined
+          : fixedRowsRemovedByIn(
+              source,
+              rowId,
+              toIndex,
+              target,
+              windowId !== ownWindowId
+            );
+      const opened =
+        destination === undefined
+          ? undefined
+          : gapOpenedByLandingIn(
+              destination,
+              rowId,
+              toIndex,
+              target,
+              pruned?.first
+            );
+      if (opened !== undefined) changes.push(opened);
+      return changes;
+    },
+    [edgesByWindow, windowOfTab]
+  );
+
   return {
     rowIds,
     onMove,
@@ -528,5 +667,6 @@ export function useTabDrop(
     onDropTargetChange,
     landsBesideFixedRow,
     fixedRowsRemovedBy,
+    gapChangesBy,
   };
 }
