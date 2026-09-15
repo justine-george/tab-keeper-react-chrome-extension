@@ -2,10 +2,13 @@ import { describe, expect, test } from 'vitest';
 
 import { buildSession } from '../fixtures/sessionFixture';
 import {
+  EXPORT_PALETTE,
   exportFileName,
   sessionToHtml,
+  type ExportPalette,
   type SessionExportOptions,
 } from '../../utils/functions/sessionExportHtml';
+import { contrast } from '../setup/contrast';
 import type { tabData } from '../../redux/slices/tabContainerDataStateSlice';
 import { TAB_GROUP_COLOR_HEX } from '../../utils/functions/tabGroups';
 
@@ -363,7 +366,7 @@ describe('the file looks the way it did when it was exported (KAN-190)', () => {
   test('a dark theme writes a dark file', () => {
     const html = sessionToHtml(oneTab(), options({ scheme: 'dark' }));
 
-    expect(html).toContain('--bg:#17191d');
+    expect(html).toContain('--bg:#171717');
     expect(html).toContain('color-scheme:dark');
   });
 
@@ -473,5 +476,87 @@ describe('the file prints as itself (KAN-190)', () => {
     const html = sessionToHtml(oneTab(), options());
 
     expect(html).toMatch(/@media print\{[\s\S]*?box-decoration-break:clone/);
+  });
+});
+
+// KAN-197. Under a Darkenheimer header -- neutral greys, #2A2A2A and #333333 --
+// the dark file's #17191d ground and cool greys read as a second, bluish dark,
+// so the export page looked two-tone. The file keeps its two palettes (it is a
+// document for other people, independent of whoever exported it), and the dark
+// one becomes neutral.
+describe('the dark file palette is neutral (KAN-197)', () => {
+  // The tinted palette the dark file was built and tested with, kept here as
+  // the floor: the neutral greys may not read worse than these did.
+  const TINTED: ExportPalette = {
+    bg: '#17191d',
+    text: '#e6e8eb',
+    muted: '#9aa1ab',
+    rule: '#2c3037',
+    link: '#8ab4f8',
+    visited: '#c7a4f5',
+    plain: '#7b828c',
+    groupBg: '#1f2227',
+  };
+  const GREYS = ['bg', 'text', 'muted', 'rule', 'plain', 'groupBg'] as const;
+
+  test('every grey in the dark palette has red, green and blue equal', () => {
+    const tinted = GREYS.filter((token) => {
+      const hex = EXPORT_PALETTE.dark[token].replace('#', '');
+      return !(
+        hex.slice(0, 2) === hex.slice(2, 4) &&
+        hex.slice(2, 4) === hex.slice(4, 6)
+      );
+    });
+
+    expect(
+      tinted,
+      `tinted: ${tinted
+        .map((t) => `${t} ${EXPORT_PALETTE.dark[t]}`)
+        .join(', ')}`
+    ).toEqual([]);
+  });
+
+  // Links keep their hues: blue and violet mean "a link" and "visited", which
+  // is information, not a tint.
+  test('links keep their colours', () => {
+    expect(EXPORT_PALETTE.dark.link).toBe(TINTED.link);
+    expect(EXPORT_PALETTE.dark.visited).toBe(TINTED.visited);
+  });
+
+  test.each([
+    ['text', 'bg'],
+    ['muted', 'bg'],
+    ['link', 'bg'],
+    ['visited', 'bg'],
+    ['plain', 'bg'],
+    ['rule', 'bg'],
+    ['groupBg', 'bg'],
+    ['text', 'groupBg'],
+    ['muted', 'groupBg'],
+    ['link', 'groupBg'],
+    ['visited', 'groupBg'],
+    ['plain', 'groupBg'],
+  ] as const)('%s on %s reads at least as clearly as it did', (fg, bg) => {
+    const was = contrast(TINTED[fg], TINTED[bg]);
+    const now = contrast(EXPORT_PALETTE.dark[fg], EXPORT_PALETTE.dark[bg]);
+
+    expect(
+      now,
+      `${fg} on ${bg}: ${was.toFixed(3)} before, ${now.toFixed(3)} now`
+    ).toBeGreaterThanOrEqual(was);
+  });
+
+  // CONTROL, and the scope: only the dark palette was asked for.
+  test('the light palette is unchanged', () => {
+    expect(EXPORT_PALETTE.light).toEqual({
+      bg: '#ffffff',
+      text: '#1d2025',
+      muted: '#5f6670',
+      rule: '#e3e6ea',
+      link: '#1a56c4',
+      visited: '#6b3fb0',
+      plain: '#8a9099',
+      groupBg: '#f5f7fa',
+    });
   });
 });

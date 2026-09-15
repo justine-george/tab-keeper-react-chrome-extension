@@ -1,3 +1,4 @@
+import React from 'react';
 import { useSelector } from 'react-redux';
 
 import { RootState } from '../redux/store';
@@ -118,10 +119,34 @@ export const BLUE_THEME = {
   SCROLLBAR_THUMB_ACTIVE: '#888897',
 };
 
+/** The colour tokens every theme defines. */
+export type ThemeColors = typeof LIGHT_THEME;
+
+/**
+ * Colours for one subtree that are not the extension theme's (KAN-198).
+ *
+ * The export page is light or dark on its own terms, and the shared components
+ * it renders (Button, Icon, Toast) read their colours through useThemeColors.
+ * This is how the page hands them its own colours without ever writing the
+ * theme. Unset -- the popup, and everything else -- the hook follows the theme
+ * exactly as before.
+ */
+export const ThemeColorsOverride = React.createContext<ThemeColors | null>(
+  null
+);
+
+/** Darkenheimer and Blue are the dark themes; the other three are light. */
+export function isDarkTheme(theme: Theme): boolean {
+  return theme === Theme.DARKENHEIMER || theme === Theme.BLUE;
+}
+
 export function useThemeColors() {
   const settingsData = useSelector(
     (state: RootState) => state.settingsDataState
   );
+  // Both hooks run on every render, so the order never changes.
+  const override = React.useContext(ThemeColorsOverride);
+  if (override) return override;
 
   if (settingsData.theme === Theme.LIGHT) {
     return LIGHT_THEME;

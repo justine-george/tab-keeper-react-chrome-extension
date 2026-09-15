@@ -291,7 +291,7 @@ test('editing a dark export happens on the dark file ground', async ({
       return 'none';
     });
 
-  expect(ground).toBe('rgb(23, 25, 29)');
+  expect(ground).toBe('rgb(23, 23, 23)');
 });
 
 // Found on review: at rest the toolbar is too long for the title's row and

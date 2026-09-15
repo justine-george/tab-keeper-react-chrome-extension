@@ -157,6 +157,8 @@ describe('applying export edits (KAN-194)', () => {
       sessionToLinkList(result, {
         window: OPTIONS.strings.window,
         tabCountLabel: OPTIONS.tabCountLabel,
+        countsLabel: OPTIONS.countsLabel,
+        locale: 'en',
       })
     ).toContain('https://d.example/');
   });

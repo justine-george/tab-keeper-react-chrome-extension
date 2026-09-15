@@ -108,7 +108,22 @@ const closingAsks = (): boolean => {
 
 afterEach(() => {
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
+
+// jsdom has no ClipboardItem. The page builds one per copy, so the fake keeps
+// what it was given, and the test reads both versions back out of it.
+class FakeClipboardItem {
+  constructor(readonly items: Record<string, Blob>) {}
+}
+
+const copiedVersions = async (write: ReturnType<typeof vi.fn>) => {
+  const [[items]] = write.mock.calls as [[FakeClipboardItem[]]];
+  return {
+    html: await items[0].items['text/html'].text(),
+    plain: await items[0].items['text/plain'].text(),
+  };
+};
 
 describe('Edit mode on the export page (KAN-194)', () => {
   test('Edit swaps the preview for editable rows, and the toolbar for Reset and Done', async () => {
@@ -282,11 +297,13 @@ describe('Edit mode on the export page (KAN-194)', () => {
     expect(file).not.toContain('secure.store.apple.example');
   });
 
-  test('Copy all links puts the edited list on the clipboard', async () => {
+  test('Copy all links puts the edited list on the clipboard, in both versions', async () => {
     const user = userEvent.setup();
-    const writeText = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal('ClipboardItem', FakeClipboardItem);
+    const write = vi.fn().mockResolvedValue(undefined);
     vi.spyOn(navigator, 'clipboard', 'get').mockReturnValue({
-      writeText,
+      write,
+      writeText: vi.fn(),
     } as unknown as Clipboard);
     await renderPage();
 
@@ -298,9 +315,12 @@ describe('Edit mode on the export page (KAN-194)', () => {
     await user.click(screen.getByRole('button', { name: 'Done' }));
     await user.click(screen.getByRole('button', { name: 'Copy all links' }));
 
-    const text = writeText.mock.calls[0][0] as string;
-    expect(text).toContain('Inari shrine (https://inari.jp/en/)');
-    expect(text).not.toContain('secure.store.apple.example');
+    const { html, plain } = await copiedVersions(write);
+    expect(plain).toContain('- Inari shrine\n  https://inari.jp/en/');
+    expect(html).toContain('>Inari shrine</a>');
+    for (const version of [plain, html]) {
+      expect(version).not.toContain('secure.store.apple.example');
+    }
   });
 
   // The edits are for this export. The popup owns renaming, with undo and
