@@ -3,7 +3,11 @@ import { createAsyncThunk, createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { RootState } from '../store';
 import { setPresentStartup } from './undoRedoSlice';
 import { selectCategory, SettingsCategory } from './settingsCategoryStateSlice';
-import { replaceState, TabMasterContainer } from './tabContainerDataStateSlice';
+import {
+  replaceState,
+  selectTabContainer,
+  TabMasterContainer,
+} from './tabContainerDataStateSlice';
 import {
   loadFromFirestore,
   saveToFirestore,
@@ -76,7 +80,73 @@ export interface Global {
   // the permission change listeners -- never persisted, because the user can
   // revoke it from chrome://extensions while the extension is not running.
   hasTabGroupsPermission: boolean;
+  // Which windows of the selected session are folded shut in the right pane,
+  // and which session they belong to (KAN-206). Null when nothing is folded.
+  //
+  // Session-only, like every other flag here, and that is a requirement rather
+  // than a convention: this is a view preference, so it must never reach
+  // Firestore and must never land on the undo stack. Both follow from living
+  // in globalState -- customMiddleware captures undo only when
+  // tabContainerDataState changes identity, and syncs only on setIsDirty.
+  //
+  // PAIRED WITH ITS SESSION rather than a bare windowId list. Naming the owner
+  // is what lets a reader ask "is this set about the session in front of me?",
+  // and what lets the selectTabContainer case below tell a real session change
+  // from re-selecting the one already open. Same shape and the same reason as
+  // tabGroupsPromptCount above -- one field, so a folded set with no owner is
+  // unrepresentable.
+  //
+  // THE PAIRING IS NOT THE RESET, and an earlier version of this comment
+  // claimed it was. Ignoring a set that belongs to another session covers
+  // leaving group-1 for group-3; it does nothing about coming BACK to group-1,
+  // where the set still names the session on screen and folds it on arrival.
+  // Forgetting on a session change is a separate act, and it lives in
+  // extraReducers below.
+  //
+  // Both halves together replace a reset that used to be free:
+  // WindowEntryContainer held its own useState(true) and
+  // TabGroupDetailsContainer keys each window by windowId, so switching
+  // sessions remounted every row and re-ran it.
+  collapsedWindows: CollapsedWindows | null;
 }
+
+// The windows folded shut in one session. `windowIds` may hold ids that the
+// session no longer has -- deleting a folded window leaves its id behind -- and
+// that is harmless: every reader asks whether a window it is rendering is in
+// the set, never the other way round.
+export interface CollapsedWindows {
+  tabGroupId: string;
+  windowIds: string[];
+}
+
+/**
+ * Which of `tabGroupId`'s windows are folded shut -- empty for any session that
+ * does not own the recorded set (KAN-206).
+ *
+ * Answers empty for a set belonging to a different session. That is HALF of
+ * "collapse resets when you switch sessions" -- the half that stops one
+ * session's folds being read as another's. The other half, forgetting the set
+ * when the selection moves, is the selectTabContainer case in extraReducers;
+ * without it, returning to a folded session finds its own set still recorded.
+ *
+ * One function rather than the same conditional in both components. The header
+ * decides what the control offers and each window decides whether to draw its
+ * tabs; those are two readings of one fact, and two copies of a rule eventually
+ * disagree about it.
+ *
+ * Callers pass this through a selector returning a BOOLEAN, not the array --
+ * the empty case is a fresh [] on every call, and handing that straight to
+ * useSelector would report a new result every render.
+ *
+ * Takes the recorded set, not the whole Global. Both call sites have the set
+ * and only one of them has a Global to offer, so the wider parameter would be
+ * a parameter one caller has to fake.
+ */
+export const collapsedWindowIdsOf = (
+  collapsed: CollapsedWindows | null,
+  tabGroupId: string
+): string[] =>
+  collapsed?.tabGroupId === tabGroupId ? collapsed.windowIds : [];
 
 // The session a pending "switch to this session?" confirmation is about, how
 // many windows it would close, and whether closing them would save anything
@@ -106,6 +176,7 @@ export const initialState: Global = {
   tabGroupsPromptCount: null,
   focusRequest: null,
   hasTabGroupsPermission: false,
+  collapsedWindows: null,
 };
 
 // save data to Firestore if dirty, saves latest to localStorage at the end
@@ -489,10 +560,74 @@ export const globalStateSlice = createSlice({
     setHasTabGroupsPermission: (state, action: PayloadAction<boolean>) => {
       state.hasTabGroupsPermission = action.payload;
     },
+
+    // One window's chevron (KAN-206). Folding a window in a session other than
+    // the one currently recorded DISCARDS the old set rather than merging into
+    // it: the set names a single session, and two sessions' ids in one list is
+    // the bare-list shape this deliberately avoids.
+    //
+    // Neither this nor setAllWindowsCollapsed calls markDirty, and that is the
+    // whole of what keeps a fold out of Firestore and off the undo stack.
+    // Adding markDirty here is the control for the test that says so.
+    toggleWindowCollapse: (
+      state,
+      action: PayloadAction<{ tabGroupId: string; windowId: string }>
+    ) => {
+      const { tabGroupId, windowId } = action.payload;
+      const current =
+        state.collapsedWindows?.tabGroupId === tabGroupId
+          ? state.collapsedWindows.windowIds
+          : [];
+      const next = current.includes(windowId)
+        ? current.filter((id) => id !== windowId)
+        : [...current, windowId];
+      state.collapsedWindows = { tabGroupId, windowIds: next };
+    },
+
+    // The header control (KAN-206). The caller decides WHICH windows are
+    // folded, because it is the one holding the session's window list; this
+    // only records the answer. Passing [] is how "expand all" is said.
+    setAllWindowsCollapsed: (
+      state,
+      action: PayloadAction<{ tabGroupId: string; windowIds: string[] }>
+    ) => {
+      state.collapsedWindows = action.payload;
+    },
   },
 
   extraReducers: (builder) => {
     builder
+      // KAN-206. Leaving a session forgets how it was folded.
+      //
+      // This is the half of the reset that the tabGroupId pairing does NOT
+      // provide, and believing otherwise is the mistake this case exists to
+      // correct. Pairing stops one session's folds reaching a DIFFERENT
+      // session; it does nothing about returning to the same one, where the
+      // recorded set still names the session on screen and folds it on arrival.
+      // collapseAllWindows.test.tsx switches away AND BACK for that reason --
+      // the intuitive "switch away and check the other session" passes without
+      // this case.
+      //
+      // Guarded on the session actually CHANGING rather than clearing on every
+      // selection, because selecting the session already open is reachable:
+      // clicking its row in the left pane dispatches this with the id it
+      // already holds (TabGroupEntryContainer:229). Unguarded, clicking the row
+      // you are already reading would unfold everything you had just folded.
+      //
+      // NOT for the reason a first draft of this comment gave. It cited the
+      // search effect re-selecting the first result on every keystroke, which
+      // customMiddleware's viewStateOnlyActions note still describes -- but
+      // that effect has since grown a guard of its own
+      // (TabGroupEntryContainer:104) and keeps the selection when it is still
+      // among the results, so it does not re-dispatch per keystroke.
+      .addCase(selectTabContainer, (state, action) => {
+        if (
+          state.collapsedWindows &&
+          state.collapsedWindows.tabGroupId !== action.payload
+        ) {
+          state.collapsedWindows = null;
+        }
+      })
       .addCase(saveToFirestoreIfDirty.pending, (state) => {
         state.syncStatus = 'loading';
       })
@@ -539,6 +674,8 @@ export const {
   setUserId,
   removeUserId,
   setHasTabGroupsPermission,
+  toggleWindowCollapse,
+  setAllWindowsCollapsed,
 } = globalStateSlice.actions;
 
 export default globalStateSlice.reducer;

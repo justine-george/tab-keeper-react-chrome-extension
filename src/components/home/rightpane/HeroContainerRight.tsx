@@ -29,6 +29,10 @@ import {
   requestFocusTabContainer,
   updateTabGroupTitle,
 } from '../../../redux/slices/tabContainerDataStateSlice';
+import {
+  collapsedWindowIdsOf,
+  setAllWindowsCollapsed,
+} from '../../../redux/slices/globalStateSlice';
 import { useTranslation } from 'react-i18next';
 import { DURATION, ICON, TYPE } from '../../../styles/scale';
 
@@ -56,6 +60,18 @@ export default function HeroContainerRight() {
 
   const hasTabGroupsPermission = useSelector(
     (state: RootState) => state.globalState.hasTabGroupsPermission
+  );
+
+  // KAN-206. The folded set, read raw so the ownership comparison below can be
+  // made against this session. A stable object reference (or null), so unlike
+  // the window rows' boolean selector this is safe to hand back from
+  // useSelector directly.
+  //
+  // Up here with the other hooks, above the early return, for the reason its
+  // comment gives: a hook below that guard changes the hook count between the
+  // nothing-selected and selected renders.
+  const collapsedWindows = useSelector(
+    (state: RootState) => state.globalState.collapsedWindows
   );
 
   // Which date to show. Device-local, set by the sort menu (KAN-141). Read
@@ -125,6 +141,19 @@ export default function HeroContainerRight() {
   };
 
   const { tabGroupId, title, windowCount, tabCount } = selectedTabGroup;
+
+  // KAN-206. What the collapse control offers, asked of the windows themselves
+  // rather than of a remembered press. `collapsedWindowIdsOf` is the one place
+  // the "does this set belong to this session?" rule is written; asking it here
+  // is what makes the control expand-only for a session that is fully folded
+  // and collapse-only for every other state, mixed included.
+  //
+  // A session always has at least one window, so there is no empty-list case
+  // where this would be vacuously false.
+  const collapsedIds = collapsedWindowIdsOf(collapsedWindows, tabGroupId);
+  const anyWindowOpen = selectedTabGroup.windows.some(
+    (w) => !collapsedIds.includes(w.windowId)
+  );
 
   const handleAddCurrWindowClick = async () => {
     // fetch current window
@@ -372,6 +401,51 @@ export default function HeroContainerRight() {
                 })
               );
             }}
+          />
+          {/* KAN-206. Folds every window in this session, or unfolds them all.
+              Third in the strip so the overflow stays last, which is the only
+              position that reads as "everything after me is secondary".
+
+              unfold_less/unfold_more rather than a doubled expand_less: every
+              window row already wears that chevron, and a header control built
+              from the same shape reads as a fourth window chevron that wandered
+              up here. Compared in a browser at 1.5rem before choosing.
+
+              MAJORITY RULES rather than a remembered boolean. The question it
+              asks is about the windows on screen -- "is any of them open?" --
+              so opening one by hand between two presses cannot leave the
+              control offering the opposite of what the pane needs. A boolean
+              alternating on each press disagrees in exactly that case, which is
+              what collapseAllWindows.test.tsx pins.
+
+              No isSearchPanel guard: bottomStyle hides this whole row while
+              searching, and a second guard would be a second answer to one
+              question. */}
+          <Icon
+            tooltipText={
+              anyWindowOpen
+                ? t('Collapse all windows')
+                : t('Expand all windows')
+            }
+            ariaLabel={
+              anyWindowOpen
+                ? t('Collapse all windows')
+                : t('Expand all windows')
+            }
+            type={anyWindowOpen ? 'unfold_less' : 'unfold_more'}
+            onClick={() =>
+              dispatch(
+                setAllWindowsCollapsed({
+                  tabGroupId,
+                  // The ids to fold, or none at all. Read off the session's own
+                  // windows rather than accumulated from presses, so a window
+                  // added or removed since the last press is accounted for.
+                  windowIds: anyWindowOpen
+                    ? selectedTabGroup.windows.map((w) => w.windowId)
+                    : [],
+                })
+              )
+            }
           />
           {/* KAN-193. Export and Delete live behind one trigger rather than as
               two more icons. A menu item carries words, so export cannot be

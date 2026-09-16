@@ -32,6 +32,8 @@
   "Rename session": "सत्र का नाम बदलें",
   "Collapse": "संकुचित करें",
   "Expand": "विस्तारित करें",
+  "Collapse all windows": "सभी विंडो संकुचित करें",
+  "Expand all windows": "सभी विंडो विस्तारित करें",
   "Rename window group": "विंडो समूह का नाम बदलें",
   "Rename group": "समूह का नाम बदलें",
   "Open group": "समूह खोलें",

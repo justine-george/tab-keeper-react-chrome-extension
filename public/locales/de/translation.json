@@ -32,6 +32,8 @@
   "Rename session": "Sitzung umbenennen",
   "Collapse": "Einklappen",
   "Expand": "Erweitern",
+  "Collapse all windows": "Alle Fenster einklappen",
+  "Expand all windows": "Alle Fenster erweitern",
   "Rename window group": "Fenstergruppe umbenennen",
   "Rename group": "Gruppe umbenennen",
   "Open group": "Gruppe öffnen",
