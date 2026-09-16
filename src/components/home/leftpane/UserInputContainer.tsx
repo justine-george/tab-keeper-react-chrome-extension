@@ -99,20 +99,23 @@ export default function UserInputContainer() {
   `;
 
   /**
-   * This row is 2px taller than CONTROL.DEFAULT, on purpose.
+   * An ALIGNMENT, not a control size -- which is why it is here and not in the
+   * scale, and why it is not a multiple of anything.
    *
-   * It is an ALIGNMENT, not a control size: the left column stacks a 64px
-   * toolbar above this row, and the right pane's session header card is 106px
-   * starting 8px lower, so at CONTROL.DEFAULT the two panes' first blocks end
-   * 2px apart -- close enough to read as a mistake rather than as a choice.
+   * The left column stacks a content-sized header (32px of controls in 12px of
+   * padding, so 56px) above this row; the right pane's session header card is
+   * content-sized at 106px and starts 8px lower. This is the height at which
+   * the two panes' first blocks end on the same line:
    *
-   * Scoped to this row rather than moved into the scale, because every other
-   * TextBox and Button in the app should stay on the 32px grid. If the header
-   * card's content ever grows past one line of title, this number is wrong and
-   * the edges will part again -- it is pinned by searchRowAlignment.test.ts so
-   * that shows up as a failure rather than as a slow drift.
+   *     1 (border) + 56 (header) + 58 (this) = 115 = the card's bottom
+   *
+   * Every term in that sum can move. If the session title ever wraps to a
+   * second line, or either pane's padding changes, this number is wrong and the
+   * edges part again -- so it is pinned by e2e/searchRowAlignment.spec.ts
+   * rather than left to be noticed in a screenshot months later. It has already
+   * caught one such change: shortening the header by 16px.
    */
-  const ROW_HEIGHT = '50px';
+  const ROW_HEIGHT = '58px';
 
   // The two save buttons share one border and one height with the field beside
   // them, so the row reads as one block. Box-sizing is border-box globally

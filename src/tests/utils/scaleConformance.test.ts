@@ -162,17 +162,20 @@ describe('components take their sizes from the shared scales (KAN-205)', () => {
   // naming them rather than by scanning every height: an 18px colour swatch and
   // a 30px image inside a button are content dimensions, not control heights,
   // and a blanket scan would call them violations.
-  test.each([
-    'common/Button.tsx',
-    'common/TextBox.tsx',
-    'common/Toast.tsx',
-    'home/leftpane/HeroContainerLeft.tsx',
-    'settings/leftpane/HeroContainerLeftSettings.tsx',
-  ])('%s takes its height from the scale', (name) => {
-    const file = FILES.find((f) => f.name.endsWith(name));
-    expect(file, `${name} was not read by the scan`).toBeDefined();
-    expect(file!.code).toMatch(/(min-)?height: \$\{CONTROL\./);
-  });
+  //
+  // The pane headers are NOT in this list, and that is the correction rather
+  // than an omission. They were given CONTROL.HEADER, and a fixed control
+  // height is exactly what put 32px of icons inside a 64px box with half of it
+  // empty. A header is content plus padding; it has no height to take from a
+  // scale.
+  test.each(['common/Button.tsx', 'common/TextBox.tsx', 'common/Toast.tsx'])(
+    '%s takes its height from the scale',
+    (name) => {
+      const file = FILES.find((f) => f.name.endsWith(name));
+      expect(file, `${name} was not read by the scan`).toBeDefined();
+      expect(file!.code).toMatch(/(min-)?height: \$\{CONTROL\./);
+    }
+  );
 
   // Icon sizes come from the ICON scale. Not "there is only one" -- that was
   // tried and reverted, because two levels is a real distinction. What is
