@@ -553,10 +553,14 @@ export default function ExportPage({ tabGroupId }: { tabGroupId: string }) {
                   {schemeButton('dark', t('Dark'), false)}
                 </span>
                 {/* Deciding ends here; what follows leaves the page, from the
-              end of the row -- Save stands where Done stands while editing. */}
+              end of the row -- the primary stands where Done stands while
+              editing. KAN-207 made that the PDF output rather than the HTML
+              file: a PDF is what people attach to a message, and an .html file
+              is the specialist's output of the two. */}
                 <span css={endStyle}>
                   {/* Copy first: it ignores the choices, so it must not sit between
-              the two outputs that follow them. */}
+              the two outputs that follow them. Swapping those two outputs in
+              KAN-207 left that rule untouched -- Copy still precedes both. */}
                   <Button
                     text={t('Copy all links')}
                     ariaLabel={t('Copy all links')}
@@ -567,25 +571,33 @@ export default function ExportPage({ tabGroupId }: { tabGroupId: string }) {
                     style={`height: 34px; padding: 6px 14px;`}
                   />
                   <Button
-                    text={t('Print')}
-                    ariaLabel={t('Print')}
-                    iconType="print"
-                    onClick={handlePrint}
-                    iconSize="1.2rem"
-                    iconStyle={actionIconStyle}
-                    style={`height: 34px; padding: 6px 14px;`}
-                  />
-                  <Button
                     text={t('Save as HTML')}
                     ariaLabel={t('Save as HTML')}
                     iconType="download"
                     onClick={handleSave}
                     iconSize="1.2rem"
+                    iconStyle={actionIconStyle}
+                    style={`height: 34px; padding: 6px 14px;`}
+                  />
+                  <Button
+                    // KAN-207. Deliberately still "PDF / Print", not "Save as
+                    // PDF". handlePrint opens the browser's print dialog and the
+                    // user picks the destination -- Save as PDF is only Chrome's
+                    // usual default, and it can go to a printer. Naming an
+                    // outcome this page does not control is the same
+                    // over-promise as the "web page" wording this ticket
+                    // removed from the menu item, and promoting the control is
+                    // no reason to start making it.
+                    text={t('Print')}
+                    ariaLabel={t('Print')}
+                    iconType="print"
+                    onClick={handlePrint}
+                    iconSize="1.2rem"
                     iconColor={COLORS.PRIMARY_COLOR}
                     iconStyle={actionIconStyle}
                     // FILLED, not tinted. A tint is what a pressed segment wears here,
-                    // so tinting Save would make the loudest control on the row read
-                    // as one more selected state.
+                    // so tinting the primary would make the loudest control on the
+                    // row read as one more selected state.
                     style={primaryStyle}
                   />
                 </span>

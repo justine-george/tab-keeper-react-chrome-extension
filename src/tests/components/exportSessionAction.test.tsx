@@ -54,7 +54,7 @@ describe('the session header keeps two actions and a menu (KAN-193)', () => {
     // The two actions that moved are gone from the header itself -- a copy
     // left behind would make the menu decoration.
     expect(
-      screen.queryByRole('button', { name: 'Export as PDF / web page' })
+      screen.queryByRole('button', { name: 'Export as PDF / HTML file' })
     ).toBeNull();
     expect(screen.queryByRole('button', { name: 'Delete session' })).toBeNull();
   });
@@ -71,7 +71,7 @@ describe('the session header keeps two actions and a menu (KAN-193)', () => {
     const items = within(menu).getAllByRole('menuitem');
     expect(items).toHaveLength(2);
     expect(items).toEqual([
-      within(menu).getByRole('menuitem', { name: 'Export as PDF / web page' }),
+      within(menu).getByRole('menuitem', { name: 'Export as PDF / HTML file' }),
       within(menu).getByRole('menuitem', { name: 'Delete session' }),
     ]);
   });
@@ -82,7 +82,7 @@ describe('the session header keeps two actions and a menu (KAN-193)', () => {
 
     await openMenu(user);
     await user.click(
-      screen.getByRole('menuitem', { name: 'Export as PDF / web page' })
+      screen.getByRole('menuitem', { name: 'Export as PDF / HTML file' })
     );
 
     expect(chrome.createdTabs).toHaveLength(1);
@@ -111,7 +111,7 @@ describe('the session header keeps two actions and a menu (KAN-193)', () => {
 
     await openMenu(user);
     await user.click(
-      screen.getByRole('menuitem', { name: 'Export as PDF / web page' })
+      screen.getByRole('menuitem', { name: 'Export as PDF / HTML file' })
     );
 
     expect(chrome.createdTabs[0].url).toContain('session=session-kyoto');
@@ -183,7 +183,7 @@ describe('the session header keeps two actions and a menu (KAN-193)', () => {
     ).toMatch(DELETE_FILL);
     expect(
       hoverRulesFor(
-        screen.getByRole('menuitem', { name: 'Export as PDF / web page' })
+        screen.getByRole('menuitem', { name: 'Export as PDF / HTML file' })
       )
     ).not.toMatch(DELETE_FILL);
   });
