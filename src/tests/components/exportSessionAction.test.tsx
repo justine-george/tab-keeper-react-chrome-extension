@@ -3,7 +3,15 @@ import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import HeroContainerRight from '../../components/home/rightpane/HeroContainerRight';
-import { renderWithProviders } from '../setup/renderWithProviders';
+import ExportPage from '../../components/export/ExportPage';
+import {
+  renderWithProviders,
+  RenderWithProvidersResult,
+} from '../setup/renderWithProviders';
+
+// The store renderWithProviders hands back, named once so the parity test's
+// shared seeder can be typed without restating the whole generic.
+type RenderStore = RenderWithProvidersResult['store'];
 import { hoverRulesFor } from '../setup/hoverRules';
 import { LIGHT_THEME } from '../../hooks/useThemeColors';
 import { buildContainer, buildSession } from '../fixtures/sessionFixture';
@@ -193,6 +201,178 @@ describe('the session header keeps two actions and a menu (KAN-193)', () => {
 
       await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
       expect(writeText.mock.calls[0][0]).toContain('https://example.com/');
+    });
+
+    // KAN-210. The menu shipped copying the session RAW, while the export
+    // page's button copied it tidied -- so the same command gave two different
+    // answers, and the shortcut gave the worse one.
+    //
+    // KAN-202's clean-ups are not a preview concern. A notification count in a
+    // title and a suspender's wrapper address are wrong in anything anyone
+    // shares, whichever button produced it.
+    //
+    // Asserted on BOTH halves of the clipboard, because they are built by
+    // different functions -- sessionToLinkHtml and sessionToLinkList -- and
+    // tidying one is not tidying the other.
+    test('copies the session tidied, exactly as the export page does', async () => {
+      const user = userEvent.setup();
+      const { write } = fakeClipboard();
+      await renderWithProviders(<HeroContainerRight />, {
+        seedStore: (store) => {
+          store.dispatch(
+            replaceState(
+              buildContainer([
+                buildSession({
+                  tabGroupId: 'session-untidy',
+                  title: 'Weekend in Kyoto',
+                  windows: [
+                    {
+                      windowId: 'w-1',
+                      windowHeight: 1080,
+                      windowWidth: 1920,
+                      windowOffsetTop: 0,
+                      windowOffsetLeft: 0,
+                      tabCount: 2,
+                      title: 'Trip planning',
+                      tabs: [
+                        {
+                          tabId: 't-1',
+                          favicon: '',
+                          // An unread-count badge the site put in its own title.
+                          title: '(3) Nozomi timetable',
+                          url: 'https://jr.example/nozomi',
+                        },
+                        {
+                          tabId: 't-2',
+                          favicon: '',
+                          title: 'Extensions',
+                          // A tab a suspender put to sleep: the real address is
+                          // inside the wrapper.
+                          url: 'chrome-extension://laameccjpleogmfhilmffpdbiibgbekf/suspended.html?title=Extensions&url=chrome%3A%2F%2Fextensions%2F&time=1',
+                        },
+                      ],
+                    },
+                  ],
+                }),
+              ])
+            )
+          );
+          store.dispatch(selectTabContainer('session-untidy'));
+        },
+      });
+
+      await openMenu(user);
+      await user.click(
+        screen.getByRole('menuitem', { name: 'Copy all links' })
+      );
+
+      await waitFor(() => expect(write).toHaveBeenCalledTimes(1));
+      const [[items]] = write.mock.calls as [[FakeClipboardItem[]]];
+      const html = await items[0].items['text/html'].text();
+      const plain = await items[0].items['text/plain'].text();
+
+      for (const [version, copy] of [
+        ['rich', html],
+        ['plain', plain],
+      ] as const) {
+        expect(
+          copy,
+          `${version}: the count is not part of the title`
+        ).toContain('Nozomi timetable');
+        expect(copy, `${version}: the count is dropped`).not.toContain('(3)');
+        expect(copy, `${version}: the real address is used`).toContain(
+          'chrome://extensions/'
+        );
+        expect(
+          copy,
+          `${version}: the suspender's wrapper is gone`
+        ).not.toContain('chrome-extension://');
+      }
+    });
+
+    // THE CONTRACT, stated directly rather than inferred (KAN-210).
+    //
+    // The two tests above say the menu's copy is tidied, and exportPage's own
+    // tests say the page's copy is. That the two therefore MATCH is an
+    // inference across two files -- and it is exactly the inference that was
+    // false when this shipped: both were "correct" by their own tests while
+    // giving different answers.
+    //
+    // So this copies the same session both ways and compares the bytes. It
+    // needs no edits: with none applied the export page's `edited` is just its
+    // tidied session, which is what the menu sends, and any future divergence
+    // in either path fails here by name.
+    test('the menu and the export page copy the same bytes', async () => {
+      const user = userEvent.setup();
+      const session = buildSession({
+        tabGroupId: 'session-parity',
+        title: 'Weekend in Kyoto',
+        windows: [
+          {
+            windowId: 'w-1',
+            windowHeight: 1080,
+            windowWidth: 1920,
+            windowOffsetTop: 0,
+            windowOffsetLeft: 0,
+            tabCount: 2,
+            title: 'Trip planning',
+            tabs: [
+              {
+                tabId: 't-1',
+                favicon: '',
+                title: '(3) Nozomi timetable',
+                url: 'https://jr.example/nozomi',
+              },
+              {
+                tabId: 't-2',
+                favicon: '',
+                title: 'Extensions',
+                url: 'chrome-extension://laameccjpleogmfhilmffpdbiibgbekf/suspended.html?title=Extensions&url=chrome%3A%2F%2Fextensions%2F&time=1',
+              },
+            ],
+          },
+        ],
+      });
+      const seed = (store: RenderStore) => {
+        store.dispatch(replaceState(buildContainer([session])));
+        store.dispatch(selectTabContainer('session-parity'));
+      };
+
+      const readCopy = async (write: ReturnType<typeof vi.fn>) => {
+        const [[items]] = write.mock.calls as [[FakeClipboardItem[]]];
+        return {
+          html: await items[0].items['text/html'].text(),
+          plain: await items[0].items['text/plain'].text(),
+        };
+      };
+
+      const fromMenu = fakeClipboard();
+      const menuRender = await renderWithProviders(<HeroContainerRight />, {
+        seedStore: seed,
+      });
+      await openMenu(user);
+      await user.click(
+        screen.getByRole('menuitem', { name: 'Copy all links' })
+      );
+      await waitFor(() => expect(fromMenu.write).toHaveBeenCalledTimes(1));
+      const menuCopy = await readCopy(fromMenu.write);
+      menuRender.unmount();
+
+      const fromPage = fakeClipboard();
+      await renderWithProviders(<ExportPage tabGroupId="session-parity" />, {
+        seedStore: seed,
+      });
+      await user.click(
+        await screen.findByRole('button', { name: 'Copy all links' })
+      );
+      await waitFor(() => expect(fromPage.write).toHaveBeenCalledTimes(1));
+      const pageCopy = await readCopy(fromPage.write);
+
+      expect(menuCopy.html).toBe(pageCopy.html);
+      expect(menuCopy.plain).toBe(pageCopy.plain);
+      // CONTROL: the comparison is not two empty strings agreeing.
+      expect(menuCopy.html).toContain('Nozomi timetable');
+      expect(menuCopy.plain).toContain('chrome://extensions/');
     });
 
     // Copying is silent otherwise: the clipboard gives no feedback of its own,
