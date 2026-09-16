@@ -434,6 +434,24 @@ const headerAndRow = (page: Page) =>
     };
   }, LONG_TITLE);
 
+// Read once, and a slow machine can catch the header a pixel short before the
+// layout has settled: a full run measured 124px at rest against 125px editing,
+// while the page itself is 125px in both. Same defect as KAN-196 in another
+// spec -- the fix is to poll until two reads agree, not to widen the tolerance.
+async function settledHeaderAndRow(page: Page) {
+  let previous = await headerAndRow(page);
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    await page.waitForTimeout(50);
+    const next = await headerAndRow(page);
+    const steady =
+      Math.abs(next.headerHeight - previous.headerHeight) < 0.5 &&
+      Math.abs(next.contentTop - previous.contentTop) < 0.5;
+    if (steady) return next;
+    previous = next;
+  }
+  throw new Error('the header never settled');
+}
+
 for (const width of [1600, 1000]) {
   test(`at ${width}px pressing Edit does not change the header's height or move the page`, async ({
     context,
@@ -441,9 +459,9 @@ for (const width of [1600, 1000]) {
   }) => {
     const page = await openExportPage(context, extensionId, width);
 
-    const resting = await headerAndRow(page);
+    const resting = await settledHeaderAndRow(page);
     await page.getByRole('button', { name: 'Edit' }).click();
-    const editing = await headerAndRow(page);
+    const editing = await settledHeaderAndRow(page);
 
     expect(
       Math.abs(editing.headerHeight - resting.headerHeight),
@@ -461,9 +479,9 @@ for (const width of [1600, 1000]) {
   }) => {
     const page = await openExportPage(context, extensionId, width);
 
-    const resting = await headerAndRow(page);
+    const resting = await settledHeaderAndRow(page);
     await page.getByRole('button', { name: 'Edit' }).click();
-    const editing = await headerAndRow(page);
+    const editing = await settledHeaderAndRow(page);
 
     const describe = (controls: { name: string; height: number }[]) =>
       controls.map((c) => `${c.name} ${c.height}px`).join(', ');
