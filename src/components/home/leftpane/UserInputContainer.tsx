@@ -13,6 +13,7 @@ import {
   captureOpenWindows,
   type CaptureScope,
 } from '../../../utils/functions/capture';
+import { dropNotificationCount } from '../../../utils/functions/sessionExportHtml';
 import { saveToTabContainer } from '../../../redux/slices/tabContainerDataStateSlice';
 import { normalizeTitle } from '../../../utils/functions/local';
 import { useTranslation } from 'react-i18next';
@@ -35,8 +36,13 @@ export default function UserInputContainer() {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       const currentTab = tabs[0];
       if (currentTab && currentTab.title) {
-        setCurrentTabName(currentTab.title);
-        setNewTitle(currentTab.title);
+        // KAN-211. The name box is a SUGGESTION derived from the active tab, so
+        // it is cleaned like any other derived title -- offering "(3) Gmail" as
+        // a session name proposes storing a badge that is stale the moment it
+        // is saved. What the user then types is theirs and is never touched.
+        const suggested = dropNotificationCount(currentTab.title);
+        setCurrentTabName(suggested);
+        setNewTitle(suggested);
       } else {
         // Translated, so this agrees with createTabGroup's last-resort
         // fallback below (KAN-84). Leaving one of the two as a bare literal

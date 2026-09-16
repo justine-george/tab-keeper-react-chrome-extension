@@ -485,3 +485,91 @@ describe('captureOpenWindows with tab groups', () => {
     expect(calls).toBe(1);
   });
 });
+
+// KAN-211. A site's unread badge is a fact about a tab at the instant it is
+// captured -- "(3) Gmail" means three unread NOW. Stored, it is stale
+// immediately and misleading a week later, and the popup showed it while the
+// export page's own clean-up hid it, so the app disagreed with its own file
+// about the same tab.
+//
+// Capture already normalises the other half of a tab: `resolveTabUrl` unwraps a
+// suspender's wrapper on the same line the title is read. This is that decision
+// applied to the name.
+//
+// THE BOUNDARY: a title DERIVED from a live tab is cleaned; a title the user
+// TYPED is never touched. The session name is the user's, so it is not here --
+// only its prefill is, and that is a UserInputContainer concern.
+describe('a captured tab keeps the page name, not the badge (KAN-211)', () => {
+  let handle: ReturnType<typeof setupChromeFake> | undefined;
+
+  afterEach(() => {
+    handle?.restore();
+    handle = undefined;
+  });
+
+  const capture = async (...titles: string[]) => {
+    handle = setupChromeFake({
+      windows: [
+        {
+          id: 1,
+          tabs: titles.map((title, index) => ({
+            id: index + 1,
+            url: `https://example.test/${index}`,
+            title,
+          })) as chrome.tabs.Tab[],
+        },
+      ],
+    });
+    return captureOpenWindows('a session', 'all-windows');
+  };
+
+  test('drops the unread count from every tab title', async () => {
+    const captured = await capture('(3) Nozomi timetable', '(12+) Inbox');
+
+    expect(captured!.windows[0].tabs.map((tab) => tab.title)).toEqual([
+      'Nozomi timetable',
+      'Inbox',
+    ]);
+  });
+
+  // The window is NAMED after its first tab, so leaving that raw would carry
+  // the badge into the row heading even with every tab title cleaned.
+  test('drops it from the window name the first tab supplies', async () => {
+    const captured = await capture('(3) Nozomi timetable', 'Kyoto bus map');
+
+    expect(captured!.windows[0].title).toBe('Nozomi timetable');
+  });
+
+  // CONTROL, and the reason the pattern is only one to three digits: a year in
+  // brackets is part of the name, not a count.
+  test('keeps a leading year, which is part of the name', async () => {
+    const captured = await capture('(2024) Annual report');
+
+    expect(captured!.windows[0].tabs[0].title).toBe('(2024) Annual report');
+    expect(captured!.windows[0].title).toBe('(2024) Annual report');
+  });
+
+  // CONTROL: the session's own name is the caller's, and capture must not edit
+  // it. Someone who types "(3) Sprint review" gets to keep it.
+  test('never touches the session name it is handed', async () => {
+    const handleTyped = setupChromeFake({
+      windows: [
+        {
+          id: 1,
+          tabs: [
+            { id: 1, url: 'https://a.test/', title: 'A' },
+          ] as chrome.tabs.Tab[],
+        },
+      ],
+    });
+    try {
+      const captured = await captureOpenWindows(
+        '(3) Sprint review',
+        'all-windows'
+      );
+      expect(captured!.title).toBe('(3) Sprint review');
+    } finally {
+      handleTyped.restore();
+    }
+  });
+});

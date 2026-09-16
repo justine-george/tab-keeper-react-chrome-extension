@@ -22,6 +22,39 @@ const seed = {
 };
 
 describe('UserInputContainer', () => {
+  // KAN-211. The prefill is a SUGGESTION derived from the active tab, so it is
+  // cleaned like any other derived title: offering "(3) Gmail" proposes storing
+  // a badge that is stale the moment it is saved, and the box is the one place
+  // the user can see it before it becomes a session name.
+  //
+  // What the user types is never touched -- the tests below type their own
+  // names and get them back verbatim, which is the other half of the boundary.
+  test('the pre-filled name drops the active tab unread badge', async () => {
+    await renderWithProviders(<UserInputContainer />, {
+      seed: {
+        tabs: [
+          {
+            id: 1,
+            title: '(9+) Kagi Search',
+            url: 'https://kagi.com/',
+            active: true,
+          },
+        ],
+        windows: [
+          {
+            id: 7,
+            tabs: [
+              { id: 1, title: '(9+) Kagi Search', url: 'https://kagi.com/' },
+            ] as chrome.tabs.Tab[],
+          },
+        ],
+      },
+    });
+
+    expect(await screen.findByDisplayValue('Kagi Search')).toBeTruthy();
+    expect(screen.queryByDisplayValue('(9+) Kagi Search')).toBeNull();
+  });
+
   test('pre-fills the session name from the active tab', async () => {
     await renderWithProviders(<UserInputContainer />, { seed });
 

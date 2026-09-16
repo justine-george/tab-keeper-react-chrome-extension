@@ -1,5 +1,4 @@
 import { useCallback, useMemo } from 'react';
-import { v4 as uuidv4 } from 'uuid';
 import { useDispatch, useSelector } from 'react-redux';
 
 import { css } from '@emotion/react';
@@ -9,7 +8,6 @@ import { useThemeColors } from '../../../hooks/useThemeColors';
 import WindowEntryContainer from './WindowEntryContainer';
 import { AppDispatch, RootState } from '../../../redux/store';
 import {
-  resolveTabUrl,
   isEmptyObject,
   selectVisibleTabGroups,
 } from '../../../utils/functions/local';
@@ -18,10 +16,10 @@ import {
   deleteWindow,
   moveWindowInternal,
   openTabsInAWindow,
-  tabData,
   updateWindowGroupTitle,
 } from '../../../redux/slices/tabContainerDataStateSlice';
 import { useTranslation } from 'react-i18next';
+import { toStoredTab } from '../../../utils/functions/capture';
 import { RowDragArea, DraggableRow } from './rowDrag/RowDragArea';
 import { TabDragArea } from './TabDragArea';
 import { GroupDragArea } from './GroupDragArea';
@@ -108,12 +106,9 @@ export default function TabGroupDetailsContainer() {
       active: true,
       lastFocusedWindow: true,
     });
-    const tabData: tabData = {
-      tabId: uuidv4(),
-      favicon: tab.favIconUrl || '',
-      title: tab.title || '',
-      url: resolveTabUrl(tab.url || ''),
-    };
+    // KAN-211. See toStoredTab: the normalising is done in one place so the
+    // three ways to save a tab cannot disagree about what a tab is.
+    const tabData = toStoredTab(tab);
     dispatch(addCurrTabToWindow({ tabGroupId, windowId, tabData }));
   }
 

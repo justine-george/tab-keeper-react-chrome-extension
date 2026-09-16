@@ -154,6 +154,39 @@ describe('TabGroupDetailsContainer', () => {
     expect(added).toBeDefined();
     expect(added!.chromeGroupId).toBeUndefined();
   });
+
+  // KAN-211. Adding one tab goes through toStoredTab, the same normalising a
+  // whole-window capture uses, so the two ways to save a tab cannot disagree
+  // about what a tab is. Before that, this path stored the title verbatim
+  // while a capture of the same tab would have cleaned it.
+  test('a tab added one at a time is stored without its unread badge', async () => {
+    const session = buildSession();
+    const { store } = await renderWithProviders(<TabGroupDetailsContainer />, {
+      seed: {
+        windows: [{ id: 1, type: 'normal' }],
+        tabs: [
+          {
+            id: 11,
+            windowId: 1,
+            active: true,
+            url: 'https://added.test',
+            title: '(7) Added',
+          },
+        ],
+      },
+      seedStore: (store) => {
+        store.dispatch(saveToTabContainerInternal(session));
+        store.dispatch(selectTabContainer('group-1'));
+      },
+    });
+
+    await userEvent.click(screen.getByLabelText('Add current tab'));
+
+    const tabs =
+      store.getState().tabContainerDataState.tabGroups[0].windows[0].tabs;
+    expect(tabs.some((tab) => tab.title === 'Added')).toBe(true);
+    expect(tabs.some((tab) => tab.title.includes('(7)'))).toBe(false);
+  });
 });
 
 // WindowEntryContainer dispatches the rename but never reads the result back
