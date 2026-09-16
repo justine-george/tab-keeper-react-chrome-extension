@@ -298,12 +298,12 @@ test('editing a dark export happens on the dark file ground', async ({
 // wraps under it, while the short editing toolbar fits beside the title -- so
 // pressing Edit made every control jump up a row. The toolbar now always has a
 // row of its own, and the primary control sits at its right end in both modes:
-// Save at rest, Done while editing.
+// the PDF output at rest (KAN-207; Save as HTML before it), Done while editing.
 const toolbarGeometry = (page: Page, title: string) =>
   page.evaluate((title) => {
     const byLabel = (label: string) =>
       document.querySelector(`button[aria-label="${label}"]`);
-    const primary = byLabel('Save as HTML') ?? byLabel('Done');
+    const primary = byLabel('PDF / Print') ?? byLabel('Done');
     if (!primary) throw new Error('no primary control on the toolbar');
     // The header's title, not the editor's field: a textarea's text is its
     // value, never its textContent.
@@ -412,7 +412,7 @@ const headerAndRow = (page: Page) =>
     );
     if (!heading) throw new Error('no session title in the header');
     const primary =
-      document.querySelector('button[aria-label="Save as HTML"]') ??
+      document.querySelector('button[aria-label="PDF / Print"]') ??
       document.querySelector('button[aria-label="Done"]');
     if (!primary) throw new Error('no primary control on the toolbar');
     let header: Element = primary;

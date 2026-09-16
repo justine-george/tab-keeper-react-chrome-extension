@@ -424,8 +424,8 @@ describe('the whole page is light or dark, and the switch changes only the page 
     // An outline button styles nothing itself: its fill and text come from
     // the shared Button, which reads the colour hook. So this is what proves
     // the page's colours reach its children through ThemeColorsOverride.
-    // (Save's fill does NOT: the page passes it as a style, so it would pass
-    // with the override ignored -- the first version of this test did.)
+    // (The primary's fill does NOT: the page passes it as a style, so it would
+    // pass with the override ignored -- the first version of this test did.)
     const copy = getComputedStyle(
       screen.getByRole('button', { name: 'Copy all links' })
     );
@@ -433,14 +433,19 @@ describe('the whole page is light or dark, and the switch changes only the page 
     expect(copy.color).toBe('rgb(208, 208, 208)');
   });
 
-  test("Save's fill follows the page's polarity too", async () => {
+  // The subject is whichever control carries the fill, not Save by name --
+  // KAN-207 moved that to the PDF output and this followed it. What is pinned
+  // is unchanged: the fill answers to the PAGE's light/dark, not the
+  // extension's theme, so a dark page fills its primary with the dark palette's
+  // text colour even though the extension is on a light theme.
+  test("the primary's fill follows the page's polarity too", async () => {
     const user = userEvent.setup();
     await renderUnder(Theme.LIGHT);
 
     await user.click(screen.getByRole('button', { name: 'Dark' }));
 
     expect(
-      getComputedStyle(screen.getByRole('button', { name: 'Save as HTML' }))
+      getComputedStyle(screen.getByRole('button', { name: 'PDF / Print' }))
         .backgroundColor
     ).toBe('rgb(208, 208, 208)');
   });
@@ -565,12 +570,16 @@ describe('the toolbar says which controls are choices (KAN-190)', () => {
 
   // Print and Save both output the page the Layout and Colour choices just
   // rendered; Copy writes plain "title (link)" text that ignores both. So the
-  // two outputs sit together, ending in the filled Save, and Copy goes first
-  // rather than splitting them.
-  test('the actions run Copy, then Print, then Save', async () => {
+  // two outputs sit together and Copy goes first rather than splitting them.
+  //
+  // KAN-207 put the PDF output last. The rule Copy answers to is unchanged --
+  // it must not sit BETWEEN the two outputs, and it still does not -- so only
+  // the outputs swapped with each other. The primary now closes the row, which
+  // is where the editing toolbar already puts Done.
+  test('the actions run Copy, then Save, then Print', async () => {
     await renderPage();
 
-    const names = ['Copy all links', 'PDF / Print', 'Save as HTML'];
+    const names = ['Copy all links', 'Save as HTML', 'PDF / Print'];
     const actions = screen
       .getAllByRole('button')
       .map((b) => b.getAttribute('aria-label'))
@@ -578,16 +587,24 @@ describe('the toolbar says which controls are choices (KAN-190)', () => {
     expect(actions).toEqual(names);
   });
 
-  // Save carries a fill no other control has. Asserted against its NEIGHBOUR
-  // rather than a literal colour, so it survives a palette change and still
-  // fails if everything goes flat again.
-  test('saving is the one filled control', async () => {
+  // The PDF output carries a fill no other control has. Asserted against its
+  // NEIGHBOURS rather than a literal colour, so it survives a palette change
+  // and still fails if everything goes flat again.
+  //
+  // DIRECTIONAL, and the version this replaces was not: it asserted only that
+  // Save and Print differ, which stays true no matter which of them is filled.
+  // It would have passed unchanged through KAN-207 moving the fill from one to
+  // the other -- the exact change it sat next to. Naming the unfilled controls
+  // is what makes it able to say the fill is on the wrong one.
+  test('the PDF output is the one filled control', async () => {
     await renderPage();
 
+    const copy = screen.getByRole('button', { name: 'Copy all links' });
     const save = screen.getByRole('button', { name: 'Save as HTML' });
     const print = screen.getByRole('button', { name: 'PDF / Print' });
 
     const fill = (el: HTMLElement) => getComputedStyle(el).backgroundColor;
-    expect(fill(save)).not.toBe(fill(print));
+    expect(fill(print)).not.toBe(fill(copy));
+    expect(fill(save)).toBe(fill(copy));
   });
 });
