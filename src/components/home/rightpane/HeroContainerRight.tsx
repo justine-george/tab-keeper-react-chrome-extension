@@ -543,12 +543,50 @@ export default function HeroContainerRight() {
             iconStyle={`
               padding: 4px 4px 2px 4px;
             `}
+            // KAN-213. Almost all of this is a DELETION, because `quiet` is
+            // already Button's default -- the overrides removed here are what
+            // stopped it being the button it always was.
+            //
+            // GONE: `border: none`, which overrode the border every other
+            // Button in the app carries; and a resting
+            // `background-color: HOVER_COLOR`, which measured 1.047:1 against
+            // the SECONDARY_COLOR header behind it -- under the 1.20 that
+            // dividerContrast treats as the floor for "can still be seen" -- and
+            // which spent the row-hover token on a resting state. Its
+            // `|| '#e3e6e9'` fallback went with it: HOVER_COLOR is defined in
+            // all five themes, so the literal was unreachable as well as
+            // off-palette.
+            //
+            // The right padding drops 9px -> 6px so the gaps either side match:
+            // the glyph sits 6px in (2px here plus the Icon's own 4px) and the
+            // label now ends 6px from the edge. Invisible before, because
+            // without a border there were no edges to be uneven against.
+            //
+            // Together those two are worth -1px of width: the border adds 2,
+            // the padding gives back 3. Nothing else in the row moves -- the
+            // strip is anchored at the other end of a space-between row, and
+            // the height is pinned at 32px with border-box, so the border eats
+            // inward rather than growing the header. add-window-button.spec.ts
+            // measures all of that rather than trusting it.
+            //
+            // The one thing ADDED is the transparent fill, and it is here
+            // because the border made a second problem visible. `quiet`'s rest
+            // fill is PRIMARY_COLOR, which Button documents as "the page's own
+            // ground" -- but this button is not on the page's ground. It sits
+            // on a card painting SECONDARY_COLOR, so the fill measured 1.104:1
+            // LIGHTER than the surface behind it, ringed by a 6.83:1 border: a
+            // lighter panel inside a hard dark outline on a darker ground is
+            // how a raised bevel is drawn. The dark themes inverted it -- fill
+            // 1.136:1 darker than the card -- and it read as inset instead.
+            //
+            // So it paints nothing and takes whatever ground it is put on; the
+            // border alone says "button". Hover and press still fill, because
+            // those states are supposed to be a change.
             style={`
-              border: none;
               height: 32px;
               font-size: ${TYPE.SECONDARY};
-              padding: 4px 9px 3px 2px;
-              background-color: ${COLORS.HOVER_COLOR || '#e3e6e9'};
+              padding: 4px 6px 3px 2px;
+              background-color: transparent;
             `}
           />
         </div>
