@@ -1,3 +1,7 @@
+import { mkdtempSync, readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import type { BrowserContext } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
@@ -85,6 +89,42 @@ async function copyFromExportPage(
   );
   return target;
 }
+
+// KAN-202. The clean-ups used to run on the clipboard only, so the file people
+// share still carried the count and the suspender's wrapper. This saves the
+// file and reads it off disk.
+test('the saved file carries neither a notification count nor a suspended wrapper', async ({
+  context,
+  extensionId,
+}) => {
+  await seedSessions(context, {
+    ...buildContainer([SESSION]),
+    selectedTabGroupId: 'session-copy',
+  });
+  const page = await context.newPage();
+  await page.goto(
+    `chrome-extension://${extensionId}/export.html?session=session-copy`
+  );
+  await expect(page.getByRole('button', { name: 'Edit' })).toBeVisible();
+
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'Save as HTML' }).click(),
+  ]);
+  const path = join(
+    mkdtempSync(join(tmpdir(), 'export-tidy-')),
+    download.suggestedFilename()
+  );
+  await download.saveAs(path);
+  const file = readFileSync(path, 'utf8');
+
+  expect(file).toContain('>Nozomi timetable</a>');
+  expect(file).not.toContain('(3) Nozomi');
+  expect(file).toContain('chrome://extensions/');
+  expect(file).not.toContain('chrome-extension://');
+  // CONTROL: the rest of the file is untouched.
+  expect(file).toContain('https://haruka.example/');
+});
 
 test('pasted into a rich editor, the copy arrives as a document of real links', async ({
   context,
