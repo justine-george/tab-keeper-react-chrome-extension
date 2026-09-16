@@ -10,6 +10,7 @@ import {
   closeToast,
 } from '../../../redux/slices/globalStateSlice';
 import { useTranslation } from 'react-i18next';
+import { TYPE } from '../../../styles/scale';
 
 export default function MenuContainer() {
   const COLORS = useThemeColors();
@@ -38,7 +39,7 @@ export default function MenuContainer() {
       <Icon type="arrow_back" />
       <NormalLabel
         value={t('Back')}
-        size="1.125rem"
+        size={TYPE.SECTION}
         color={COLORS.TEXT_COLOR}
         style="padding-left: 8px; cursor: pointer;"
       />

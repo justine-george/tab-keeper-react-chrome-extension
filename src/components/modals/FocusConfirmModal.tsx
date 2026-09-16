@@ -9,6 +9,7 @@ import { useThemeColors } from '../../hooks/useThemeColors';
 import { AppDispatch, RootState } from '../../redux/store';
 import { closeFocusModal } from '../../redux/slices/globalStateSlice';
 import { focusTabContainer } from '../../redux/slices/tabContainerDataStateSlice';
+import { DURATION, TYPE } from '../../styles/scale';
 
 const TITLE_ID = 'focus-confirm-title';
 const BODY_ID = 'focus-confirm-body';
@@ -93,7 +94,7 @@ export const FocusConfirmModal: React.FC<FocusConfirmModalProps> = ({
     color: ${COLORS.LABEL_L1_COLOR};
     border: 1px solid ${COLORS.BORDER_COLOR};
     font-family: ${FONT_FAMILY};
-    font-size: 0.9rem;
+    font-size: ${TYPE.BODY};
 
     /* Scoped to [open] so the dialog stays hidden until showModal() runs,
        rather than flashing as a non-modal box for a frame. */
@@ -110,7 +111,7 @@ export const FocusConfirmModal: React.FC<FocusConfirmModalProps> = ({
 
   const titleStyle = css`
     margin: 0 0 12px 0;
-    font-size: 1.1rem;
+    font-size: ${TYPE.SECTION};
     font-weight: 500;
     color: ${COLORS.TEXT_COLOR};
     overflow-wrap: anywhere;
@@ -138,7 +139,7 @@ export const FocusConfirmModal: React.FC<FocusConfirmModalProps> = ({
     font-family: inherit;
     font-size: inherit;
     cursor: pointer;
-    transition: background-color 0.2s;
+    transition: background-color ${DURATION.MOVE};
 
     &:hover {
       background-color: ${COLORS.HOVER_COLOR};

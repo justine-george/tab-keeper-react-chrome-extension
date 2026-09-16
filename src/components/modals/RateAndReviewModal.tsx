@@ -18,6 +18,7 @@ import {
 } from '../../redux/slices/settingsDataStateSlice';
 import { APP_CHROME_WEBSTORE_LINK } from '../../utils/constants/common';
 import Button from '../common/Button';
+import { RADIUS, TYPE } from '../../styles/scale';
 import {
   asPartialSettings,
   loadFromLocalStorage,
@@ -120,7 +121,7 @@ export const RateAndReviewModal: React.FC<RateAndReviewModalProps> = ({
     border: none;
     padding: 0;
     font-family: ${FONT_FAMILY};
-    font-size: 0.9rem;
+    font-size: ${TYPE.BODY};
     color: ${COLORS.TEXT_COLOR};
     cursor: pointer;
     &:hover {
@@ -157,7 +158,7 @@ export const RateAndReviewModal: React.FC<RateAndReviewModalProps> = ({
         width: 500px;
         padding: 20px;
         align-items: flex-start;
-        border-radius: 0px;
+        border-radius: ${RADIUS.SQUARE};
         flex-direction: column;
         padding-bottom: 25px;
         gap: 20px;
@@ -180,7 +181,7 @@ export const RateAndReviewModal: React.FC<RateAndReviewModalProps> = ({
         css={css`
           font-weight: 500;
           font-family: ${FONT_FAMILY};
-          font-size: 1.3rem;
+          font-size: ${TYPE.TITLE};
           margin: 10px 0;
         `}
       >
@@ -202,7 +203,7 @@ export const RateAndReviewModal: React.FC<RateAndReviewModalProps> = ({
         id={BODY_ID}
         css={css`
           font-family: ${FONT_FAMILY};
-          font-size: 0.9rem;
+          font-size: ${TYPE.BODY};
           color: ${COLORS.TEXT_COLOR};
           text-align: left;
           margin: 0 0 10px 0;

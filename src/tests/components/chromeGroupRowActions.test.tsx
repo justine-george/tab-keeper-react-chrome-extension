@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'vitest';
+import { LIGHT_THEME } from '../../hooks/useThemeColors';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
@@ -344,7 +345,15 @@ describe('the group row fills like the rows around it', () => {
     return out.join('\n');
   };
 
-  const HOVER = /#E4E7EB|rgb\(228, ?231, ?235\)/i;
+  // Derived from the token, not pinned. Three separate test files had this
+  // value written out as a literal, and KAN-205 moved it in every theme.
+  const [hr, hg, hb] = [1, 3, 5].map((i) =>
+    parseInt(LIGHT_THEME.HOVER_COLOR.slice(i, i + 2), 16)
+  );
+  const HOVER = new RegExp(
+    `${LIGHT_THEME.HOVER_COLOR}|rgb\\(${hr}, ?${hg}, ?${hb}\\)`,
+    'i'
+  );
 
   test('fills under the pointer', async () => {
     await renderRow();

@@ -62,6 +62,19 @@ function contrast(a: string, b: string): number {
 }
 
 describe('the row state ladder keeps hover nearer the page than selection', () => {
+  // KAN-87, RESTORED after KAN-205 tried to replace it and was reverted.
+  //
+  // The attempt is worth recording because the reasoning was sound and the
+  // result was not. Hover was raised to a shared rung across the themes so it
+  // could actually be seen, which put a hovered row 1.01-1.03:1 from a selected
+  // one on Warm Light and the dark themes -- so selection needed a second
+  // channel. Both candidates were rejected on sight: an inset edge marker read
+  // as a rail down the side of the list, and a heavier title read as arbitrary
+  // emphasis in a pane that uses exactly one font weight everywhere else.
+  //
+  // So hover is quiet again, deliberately, and this rule is the reason. What
+  // KAN-205 did keep is the PRESSED state, which adds a rung BEYOND hover and
+  // so cannot crowd selection from below (see interactionLadder.test.ts).
   test.each(Object.entries(THEMES))(
     '%s: hover is closer to the page than to the selection',
     (_name, theme) => {

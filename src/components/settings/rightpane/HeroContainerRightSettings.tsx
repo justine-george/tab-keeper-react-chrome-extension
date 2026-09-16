@@ -6,6 +6,7 @@ import { useFontFamily } from '../../../hooks/useFontFamily';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { NON_INTERACTIVE_ICON_STYLE } from '../../../utils/constants/common';
 import { useTranslation } from 'react-i18next';
+import { TYPE } from '../../../styles/scale';
 
 export default function HeroContainerRightSettings() {
   const COLORS = useThemeColors();
@@ -28,7 +29,7 @@ export default function HeroContainerRightSettings() {
       <Icon type="settings" style={NON_INTERACTIVE_ICON_STYLE} />
       <NormalLabel
         value={t('Settings')}
-        size="1.125rem"
+        size={TYPE.SECTION}
         color={COLORS.TEXT_COLOR}
         style="padding-left: 4px;"
       />

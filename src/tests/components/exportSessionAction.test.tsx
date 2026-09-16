@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event';
 import HeroContainerRight from '../../components/home/rightpane/HeroContainerRight';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { hoverRulesFor } from '../setup/hoverRules';
+import { LIGHT_THEME } from '../../hooks/useThemeColors';
 import { buildContainer, buildSession } from '../fixtures/sessionFixture';
 import {
   replaceState,
@@ -166,7 +167,16 @@ describe('the session header keeps two actions and a menu (KAN-193)', () => {
     await renderHeader();
 
     await openMenu(user);
-    const DELETE_FILL = /background-color:\s*(#FF8080|rgb\(255, ?128, ?128\))/i;
+    // Derived from the token, not pinned: KAN-204 changed this value in four
+    // of the five themes, and the literal that used to sit here went stale
+    // without failing until the theme moved under it. jsdom normalises the hex
+    // emotion was given to rgb(), so both forms are accepted.
+    const fill = LIGHT_THEME.DELETE_ICON_HOVER_COLOR;
+    const [r, g, b] = [1, 3, 5].map((i) => parseInt(fill.slice(i, i + 2), 16));
+    const DELETE_FILL = new RegExp(
+      `background-color:\\s*(${fill}|rgb\\(${r}, ?${g}, ?${b}\\))`,
+      'i'
+    );
 
     expect(
       hoverRulesFor(screen.getByRole('menuitem', { name: 'Delete session' }))

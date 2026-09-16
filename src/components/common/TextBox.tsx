@@ -4,6 +4,7 @@ import { css } from '@emotion/react';
 
 import { useFontFamily } from '../../hooks/useFontFamily';
 import { useThemeColors } from '../../hooks/useThemeColors';
+import { CONTROL, TYPE } from '../../styles/scale';
 
 interface TextBoxProps {
   id: string;
@@ -43,11 +44,11 @@ const TextBox: React.FC<TextBoxProps> = ({
     background-color: ${COLORS.PRIMARY_COLOR};
     border: 1px solid ${COLORS.BORDER_COLOR};
     padding: 10px;
-    height: 3.5rem;
+    height: ${CONTROL.DEFAULT};
     flex-grow: 1;
     min-width: 0;
     font-family: ${FONT_FAMILY};
-    font-size: 0.9rem;
+    font-size: ${TYPE.BODY};
     color: ${COLORS.LABEL_L1_COLOR};
     &::placeholder {
       color: ${COLORS.LABEL_L3_COLOR};

@@ -16,6 +16,7 @@ import {
 import { saveToTabContainer } from '../../../redux/slices/tabContainerDataStateSlice';
 import { normalizeTitle } from '../../../utils/functions/local';
 import { useTranslation } from 'react-i18next';
+import { ICON } from '../../../styles/scale';
 
 export default function UserInputContainer() {
   const { t } = useTranslation();
@@ -97,14 +98,30 @@ export default function UserInputContainer() {
     align-items: center;
   `;
 
-  // The two save buttons share one border and one height, so they read as a
-  // pair. 3.5rem matches TextBox, and box-sizing is border-box globally
+  /**
+   * This row is 2px taller than CONTROL.DEFAULT, on purpose.
+   *
+   * It is an ALIGNMENT, not a control size: the left column stacks a 64px
+   * toolbar above this row, and the right pane's session header card is 106px
+   * starting 8px lower, so at CONTROL.DEFAULT the two panes' first blocks end
+   * 2px apart -- close enough to read as a mistake rather than as a choice.
+   *
+   * Scoped to this row rather than moved into the scale, because every other
+   * TextBox and Button in the app should stay on the 32px grid. If the header
+   * card's content ever grows past one line of title, this number is wrong and
+   * the edges will part again -- it is pinned by searchRowAlignment.test.ts so
+   * that shows up as a failure rather than as a slow drift.
+   */
+  const ROW_HEIGHT = '50px';
+
+  // The two save buttons share one border and one height with the field beside
+  // them, so the row reads as one block. Box-sizing is border-box globally
   // (App.css), so the group's own border sits inside that height and the row
   // stays flush -- the segments take 100% of what is left.
   const saveGroupStyle = css`
     display: flex;
     flex-shrink: 0;
-    height: 3.5rem;
+    height: ${ROW_HEIGHT};
     border: 1px solid ${COLORS.BORDER_COLOR};
   `;
 
@@ -118,7 +135,7 @@ export default function UserInputContainer() {
         autoComplete="off"
         onChange={handleSearchInputChange}
         onKeyEnter={filterResults}
-        style="margin-right: 8px;"
+        style={`margin-right: 8px; height: ${ROW_HEIGHT};`}
       />
       {/* <Button text="Search" onClick={createTabGroup} /> */}
       <Button
@@ -139,7 +156,7 @@ export default function UserInputContainer() {
         autoComplete="off"
         onChange={updateUserInput}
         onKeyEnter={() => createTabGroup('all-windows')}
-        style="margin-right: 8px;"
+        style={`margin-right: 8px; height: ${ROW_HEIGHT};`}
       />
       {/* The two tooltips are a parallel pair, differing only where the
           actions differ -- "all open windows" against "current window". They
@@ -187,7 +204,7 @@ export default function UserInputContainer() {
           tooltipText={t('Save current window as a session')}
           ariaLabel={t('Save current window as a session')}
           iconType="add_box"
-          iconSize="20px"
+          iconSize={ICON.SMALL}
           onClick={() => createTabGroup('current-window')}
           style={`width: 40px; height: 100%; padding: 0; flex-shrink: 0;
                   border: none; border-right: 1px solid ${COLORS.BORDER_COLOR};`}

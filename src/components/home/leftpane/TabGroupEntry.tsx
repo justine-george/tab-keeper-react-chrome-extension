@@ -17,6 +17,7 @@ import {
 import { tabContainerData } from '../../../redux/slices/tabContainerDataStateSlice';
 import { sessionDateLabel } from '../../../utils/functions/sessionDate';
 import { useTranslation } from 'react-i18next';
+import { DURATION, TYPE } from '../../../styles/scale';
 
 /**
  * How far a row's action icon sits inside the row, per side, in CSS px.
@@ -154,16 +155,26 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
        allowed to drift apart. */
     & > * {
       opacity: 0;
-      transition: opacity 0.1s ease-out;
+      transition: opacity ${DURATION.COLOR} ease-out;
       margin: ${ACTION_ICON_INSET}px 0;
     }
   `;
+
+  // KAN-205. How a SELECTED row is told apart from a HOVERED one is an open
+  // question, not a decision this file has made.
+  //
+  // Two attempts were built and rejected: an inset edge marker (read as a rail
+  // down the side of the list) and a heavier title (read as arbitrary emphasis).
+  // Until it is settled, selection is its fill alone -- which on Warm Light and
+  // the dark themes is 1.01-1.03:1 from a hovered row, i.e. not actually
+  // distinguishable. Recorded on KAN-205 rather than papered over here.
+  const fill = (color: string) => `box-shadow: inset 0 0 0 100vw ${color};`;
 
   // What "engaged" paints. Declared once and used by both rules below, so the
   // hover and keyboard branches cannot drift apart -- which is the whole point
   // of KAN-92 and the reason they are not written out twice.
   const engagedStyle = `
-    ${!isSelected ? `box-shadow: inset 0 0 0 100vw ${COLORS.HOVER_COLOR};` : ''}
+    ${isSelected ? '' : fill(COLORS.HOVER_COLOR)}
     [data-row-actions] {
       background-color: ${
         isSelected ? COLORS.SELECTION_COLOR : COLORS.HOVER_COLOR
@@ -171,6 +182,16 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
     }
     [data-row-actions] > * {
       opacity: 1;
+    }
+  `;
+
+  // The press (KAN-205). Nothing in this app confirmed a click before: every
+  // surface went straight from hover to whatever the click did, so a click that
+  // took a moment to land read as a click that had not registered.
+  const pressedStyle = `
+    ${fill(COLORS.ACTIVE_COLOR)}
+    [data-row-actions] {
+      background-color: ${COLORS.ACTIVE_COLOR};
     }
   `;
 
@@ -275,6 +296,11 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
     &:has(:focus-visible) {
       ${engagedStyle}
     }
+    /* After the two rules above, so a press wins over a hover -- the pointer is
+       necessarily hovering whatever it is pressing. */
+    &:active {
+      ${pressedStyle}
+    }
     background-color: ${isSelected && COLORS.SELECTION_COLOR};
   `;
 
@@ -311,13 +337,13 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
             t
           )}
           color={COLORS.LABEL_L1_COLOR}
-          size="0.7rem"
+          size={TYPE.META}
           style="margin-top: 2px;"
         />
         <div
           css={css`
             color: ${COLORS.LABEL_L2_COLOR};
-            font-size: 0.635rem;
+            font-size: ${TYPE.META};
             margin-top: 5px;
           `}
         >

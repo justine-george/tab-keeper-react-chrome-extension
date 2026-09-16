@@ -14,6 +14,7 @@ import {
   selectCategory,
 } from '../../../redux/slices/settingsCategoryStateSlice';
 import { useTranslation } from 'react-i18next';
+import { DURATION, TYPE } from '../../../styles/scale';
 
 export interface SettingsCategoryContainer {
   name: SettingsCategory;
@@ -49,7 +50,7 @@ const SettingsCategoryContainer: React.FC = () => {
   // replaced stretched to fill the flex column.
   const selectableStyle = (isSelected: boolean) => `
     cursor: pointer;
-    transition: background-color 0.2s;
+    transition: background-color ${DURATION.MOVE};
     width: 100%;
     /* The hover rule is EMITTED ONLY WHEN UNSELECTED (KAN-96).
 
@@ -99,7 +100,7 @@ const SettingsCategoryContainer: React.FC = () => {
               >
                 <NormalLabel
                   value={t(name)}
-                  size="1rem"
+                  size={TYPE.BODY}
                   color={COLORS.LABEL_L1_COLOR}
                 />
               </ClickableRow>

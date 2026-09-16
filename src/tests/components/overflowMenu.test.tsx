@@ -3,8 +3,20 @@ import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import OverflowMenu from '../../components/common/OverflowMenu';
+import { LIGHT_THEME } from '../../hooks/useThemeColors';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { hoverRulesFor } from '../setup/hoverRules';
+
+/**
+ * A colour as it may appear in an injected rule: the hex emotion was given, or
+ * the `rgb(...)` jsdom normalises it to. Derived from the token rather than
+ * pinned, because KAN-204 changed four of the five delete fills and a literal
+ * here went stale without failing.
+ */
+const asWritten = (hex: string) => {
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+  return new RegExp(`(${hex}|rgb\\(${r}, ?${g}, ?${b}\\))`, 'i');
+};
 
 // The app's first popover.
 //
@@ -229,9 +241,17 @@ describe('OverflowMenu destructive styling', () => {
     const item = screen.getByRole('menuitem', { name: 'Delete group' });
     const rules = hoverRulesFor(item);
 
-    // #FF8080, as a BACKGROUND
+    // Read from the token, not pinned as a literal: KAN-204 changed this value
+    // in four of the five themes, and a hardcoded hex here went stale silently.
+    // What this test owns is that the token arrives as a BACKGROUND -- the
+    // CONTROL below is what makes that a real claim.
     expect(rules).toMatch(
-      /background-color:\s*(#FF8080|rgb\(255, ?128, ?128\))/i
+      new RegExp(
+        `background-color:\\s*${
+          asWritten(LIGHT_THEME.DELETE_ICON_HOVER_COLOR).source
+        }`,
+        'i'
+      )
     );
   });
 
@@ -255,7 +275,7 @@ describe('OverflowMenu destructive styling', () => {
       screen.getByRole('menuitem', { name: 'Ungroup' })
     );
 
-    expect(rules).not.toMatch(/#FF8080|rgb\(255, ?128, ?128\)/i);
+    expect(rules).not.toMatch(asWritten(LIGHT_THEME.DELETE_ICON_HOVER_COLOR));
     expect(rules).toMatch(/background-color/);
   });
 });
@@ -266,6 +286,73 @@ describe('OverflowMenu destructive styling', () => {
 // leftward across the pane divider, over the session list. `align` says which
 // edge of the trigger the menu lines up with; 'end' stays the default so the
 // existing consumer does not move.
+// KAN-203. Reported from the session More-actions menu: the item icons flicker
+// when the pointer crosses between items, and look washed out beside every
+// other icon in the app.
+//
+// One rule caused both. The glyph was painted LABEL_L2_COLOR at rest and
+// repainted to TEXT_COLOR on hover, over a 150ms colour transition -- so
+// crossing between two items faded one glyph down while the other faded up.
+// Measured in a real build, Light theme: rest rgb(110,112,115) against a label
+// of rgb(59,61,64), and sampling every 25ms through a crossing caught both
+// glyphs mid-fade travelling in opposite directions.
+//
+// The glyph now has ONE colour, the same as the label beside it and the
+// toolbar icons above it. Nothing animates, so nothing can flicker.
+describe('OverflowMenu item glyphs have one colour (KAN-203)', () => {
+  const glyphOf = (item: HTMLElement) =>
+    item.querySelector('.overflow-menu-glyph')!;
+
+  const openFirstItem = async () => {
+    const user = userEvent.setup();
+    await renderMenu();
+    await user.click(trigger());
+    return screen.getByRole('menuitem', { name: 'Ungroup' });
+  };
+
+  test('the glyph is painted in the same colour as its label', async () => {
+    const item = await openFirstItem();
+
+    const glyph = getComputedStyle(glyphOf(item)).color;
+    expect(glyph).toBe(getComputedStyle(item).color);
+    // And that colour is TEXT_COLOR, not the quieter label tier it used to be.
+    expect(glyph).toBe('rgb(59, 61, 64)');
+    expect(glyph).not.toBe('rgb(110, 112, 115)');
+  });
+
+  test('no hover rule repaints the glyph', async () => {
+    const item = await openFirstItem();
+
+    // hoverRulesFor reads the rules emotion injected, because jsdom applies no
+    // :hover -- a computed style would report the resting state either way and
+    // pass against the bug this pins.
+    expect(hoverRulesFor(glyphOf(item))).toBe('');
+  });
+
+  test('the glyph has no transition to animate', async () => {
+    const item = await openFirstItem();
+
+    // Asserted on DURATION, not property. jsdom reports transition-property as
+    // 'all' when nothing declares one, so a property assertion would be
+    // testing jsdom's default rather than this component. A zero duration is
+    // the claim that matters, and it fails against the 150ms this replaced.
+    expect(getComputedStyle(glyphOf(item)).transitionDuration).toBe('0s');
+  });
+
+  // THE CONTROL. The three assertions above are all satisfied by a glyph that
+  // is simply invisible, or by one painted the ground colour. This is what
+  // makes them claims about a READABLE glyph rather than an absent one.
+  test('CONTROL: the glyph is still drawn, and reads against the menu', async () => {
+    const item = await openFirstItem();
+    const glyph = glyphOf(item);
+
+    expect(glyph.textContent).toBe('label_off');
+    expect(getComputedStyle(glyph).color).not.toBe(
+      getComputedStyle(screen.getByRole('menu')).backgroundColor
+    );
+  });
+});
+
 describe('which edge of the trigger the menu lines up with (KAN-193)', () => {
   test('by default the menu lines up with the trigger END, as before', async () => {
     const user = userEvent.setup();

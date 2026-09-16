@@ -14,6 +14,7 @@ import {
   openSearchPanel,
 } from '../../../redux/slices/globalStateSlice';
 import { useTranslation } from 'react-i18next';
+import { CONTROL, TYPE } from '../../../styles/scale';
 
 export default function HeroContainer() {
   const COLORS = useThemeColors();
@@ -37,10 +38,10 @@ export default function HeroContainer() {
   const containerStyle = css`
     display: flex;
     justify-content: space-between;
-    height: 60px;
+    height: ${CONTROL.HEADER};
     align-items: center;
     font-family: ${FONT_FAMILY};
-    font-size: 1.25rem;
+    font-size: ${TYPE.TITLE};
     padding: 16px 0px;
     user-select: none;
   `;
@@ -56,7 +57,7 @@ export default function HeroContainer() {
         <Icon type="arrow_back" />
         <NormalLabel
           value={t('Back')}
-          size="1.125rem"
+          size={TYPE.SECTION}
           color={COLORS.TEXT_COLOR}
           style="padding-left: 8px; cursor: pointer;"
         />
@@ -73,7 +74,7 @@ export default function HeroContainer() {
         <Icon type="search" />
         <NormalLabel
           value={t('Tab Keeper')}
-          size="1.125rem"
+          size={TYPE.SECTION}
           color={COLORS.TEXT_COLOR}
           style="cursor: pointer;"
         />

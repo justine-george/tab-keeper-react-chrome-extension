@@ -5,6 +5,7 @@ import { css } from '@emotion/react';
 import Icon from './Icon';
 import { useFontFamily } from '../../hooks/useFontFamily';
 import { useThemeColors } from '../../hooks/useThemeColors';
+import { CONTROL, DURATION, RADIUS, TYPE } from '../../styles/scale';
 
 interface ButtonProps {
   text?: string;
@@ -24,7 +25,26 @@ interface ButtonProps {
   iconColor?: string;
   iconStyle?: string;
   style?: string;
+  /**
+   * What kind of action this is (KAN-205).
+   *
+   * Exists because 15 of the 22 components carrying an onClick were building
+   * their own clickable surface rather than importing this one, and the reason
+   * they gave when asked (by reading them) was always the same: Button only
+   * knew how to look one way. Three named kinds cover every one of them.
+   *
+   * `quiet` is the default because the previous, only, look was quiet -- so
+   * every existing caller keeps exactly the button it had.
+   */
+  variant?: ButtonVariant;
 }
+
+/**
+ * `quiet`   the default. A bordered button on the page's own ground.
+ * `primary` the one action a view is steering toward. At most one per view.
+ * `danger`  destructive. Its fill is the same red the delete affordances use.
+ */
+export type ButtonVariant = 'quiet' | 'primary' | 'danger';
 
 const Button: React.FC<ButtonProps> = ({
   text,
@@ -38,25 +58,54 @@ const Button: React.FC<ButtonProps> = ({
   iconColor,
   iconStyle,
   style,
+  variant = 'quiet',
 }) => {
   const COLORS = useThemeColors();
   const FONT_FAMILY = useFontFamily();
 
+  // Each kind is a resting fill and the two rungs above it, so a variant can
+  // never be half-defined: adding one means answering all three.
+  const PALETTE = {
+    quiet: {
+      rest: COLORS.PRIMARY_COLOR,
+      hover: COLORS.ICON_HOVER_COLOR,
+      press: COLORS.ICON_ACTIVE_COLOR,
+    },
+    primary: {
+      rest: COLORS.SELECTION_COLOR,
+      hover: COLORS.ICON_HOVER_COLOR,
+      press: COLORS.ICON_ACTIVE_COLOR,
+    },
+    // Holds its red while pressed, as every other destructive control does:
+    // measured, there is no deeper red at this hue that keeps the label on it
+    // above 4.5:1 (KAN-204).
+    danger: {
+      rest: COLORS.DELETE_ICON_HOVER_COLOR,
+      hover: COLORS.DELETE_ICON_HOVER_COLOR,
+      press: COLORS.DELETE_ICON_HOVER_COLOR,
+    },
+  }[variant];
+
   const buttonStyle = css`
-    background-color: ${COLORS.PRIMARY_COLOR};
+    background-color: ${PALETTE.rest};
     border: 1px solid ${COLORS.BORDER_COLOR};
     padding: 10px 20px;
-    height: 3.5rem;
+    height: ${CONTROL.DEFAULT};
+    border-radius: ${RADIUS.SQUARE};
     display: flex;
     align-items: center;
     justify-content: space-around;
     font-family: ${FONT_FAMILY};
-    font-size: 0.9rem;
+    font-size: ${TYPE.BODY};
     cursor: pointer;
-    transition: background-color 0.2s;
+    transition: background-color ${DURATION.COLOR};
     color: ${COLORS.TEXT_COLOR};
     &:hover {
-      background-color: ${COLORS.ICON_HOVER_COLOR};
+      background-color: ${PALETTE.hover};
+    }
+    /* KAN-205. One rung past the hover, so a click confirms itself. */
+    &:active {
+      background-color: ${PALETTE.press};
     }
     ${style && style}
   `;
