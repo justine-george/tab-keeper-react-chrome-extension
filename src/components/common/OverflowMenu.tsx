@@ -6,6 +6,7 @@ import Icon from './Icon';
 import { useFontFamily } from '../../hooks/useFontFamily';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { usePopoverList } from '../../hooks/usePopoverList';
+import { DURATION, RADIUS, TYPE } from '../../styles/scale';
 
 export interface OverflowMenuItem {
   /** Stable identity for the React key. Not shown. */
@@ -131,7 +132,7 @@ const OverflowMenu: React.FC<OverflowMenuProps> = ({
     min-width: 180px;
     background-color: ${COLORS.PRIMARY_COLOR};
     border: 1px solid ${COLORS.BORDER_COLOR};
-    border-radius: 0px;
+    border-radius: ${RADIUS.SQUARE};
     font-family: ${FONT_FAMILY};
   `;
 
@@ -142,12 +143,12 @@ const OverflowMenu: React.FC<OverflowMenuProps> = ({
     width: 100%;
     padding: 8px 12px;
     border: 0;
-    border-radius: 0px;
+    border-radius: ${RADIUS.SQUARE};
     background: none;
     cursor: pointer;
     text-align: left;
     font-family: inherit;
-    font-size: 0.85rem;
+    font-size: ${TYPE.BODY};
     /* One line per item. A wrapped label reads as two items squeezed together,
        and "Export as PDF / web page" wrapped at the menu's minimum width. The
        menu grows to fit instead. */
@@ -155,20 +156,27 @@ const OverflowMenu: React.FC<OverflowMenuProps> = ({
     color: ${COLORS.TEXT_COLOR};
     /* Named properties, never the all keyword. */
     transition-property: background-color;
-    transition-duration: 150ms;
+    transition-duration: ${DURATION.COLOR};
     transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
-    /* Destructive hover is a red FILL behind a dark glyph, not a red glyph.
-       DELETE_ICON_HOVER_COLOR is a background token everywhere else in the
-       app -- Icon.tsx:115 feeds it to background-color and leaves the glyph
-       at TEXT_COLOR -- so tinting the glyph instead made this item read as a
-       different kind of control from the row delete icons beside it. */
+    /* Destructive hover is a red FILL behind the row's ordinary ink, not a red
+       glyph. DELETE_ICON_HOVER_COLOR is a background token everywhere else in
+       the app -- Icon.tsx feeds it to background-color and leaves the glyph at
+       TEXT_COLOR -- so tinting the glyph instead made this item read as a
+       different kind of control from the row delete icons beside it.
+       The fill is readable in every theme because KAN-204 made it so; nothing
+       here repaints the text to compensate. */
     &:hover {
       background-color: ${danger
         ? COLORS.DELETE_ICON_HOVER_COLOR
         : COLORS.HOVER_COLOR};
     }
-    &:hover .overflow-menu-glyph {
-      color: ${COLORS.TEXT_COLOR};
+    /* KAN-205. A menu item is the one place a press most needs confirming --
+       the menu closes on release, so without this the only feedback a click
+       gets is the menu disappearing. A danger item keeps its red; see Icon. */
+    &:active {
+      background-color: ${danger
+        ? COLORS.DELETE_ICON_HOVER_COLOR
+        : COLORS.ACTIVE_COLOR};
     }
   `;
 
@@ -225,12 +233,23 @@ const OverflowMenu: React.FC<OverflowMenuProps> = ({
                 className="material-symbols-outlined overflow-menu-glyph"
                 aria-hidden="true"
                 css={css`
-                  font-size: 1.1rem;
+                  font-size: ${TYPE.SECTION};
                   line-height: 1;
-                  color: ${COLORS.LABEL_L2_COLOR};
-                  transition-property: color;
-                  transition-duration: 150ms;
-                  transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+                  /* ONE colour, the same as the label beside it and the
+                     toolbar icons above it (KAN-203).
+
+                     It was LABEL_L2_COLOR at rest and TEXT_COLOR on hover,
+                     eased over 150ms. Two symptoms, one rule: crossing between
+                     two items faded one glyph down while the other faded up,
+                     and at rest the glyph read as washed out next to every
+                     other icon in the app. On BB Pink it was worse than quiet
+                     -- LABEL_L2_COLOR is #D81B60 there, so the glyphs rendered
+                     magenta beside a near-black label.
+
+                     Not merely un-animated: a colour that changes on hover
+                     still changes on hover. The state cue is the row's fill,
+                     which is what every other hover in the app uses. */
+                  color: ${COLORS.TEXT_COLOR};
                 `}
               >
                 {item.icon}
@@ -245,7 +264,7 @@ const OverflowMenu: React.FC<OverflowMenuProps> = ({
                   className="material-symbols-outlined"
                   css={css`
                     margin-left: auto;
-                    font-size: 1.1rem;
+                    font-size: ${TYPE.SECTION};
                     line-height: 1;
                     width: 1.1rem;
                     color: ${COLORS.TEXT_COLOR};

@@ -30,6 +30,7 @@ import {
   updateTabGroupTitle,
 } from '../../../redux/slices/tabContainerDataStateSlice';
 import { useTranslation } from 'react-i18next';
+import { DURATION, ICON, TYPE } from '../../../styles/scale';
 
 export default function HeroContainerRight() {
   const COLORS = useThemeColors();
@@ -181,7 +182,7 @@ export default function HeroContainerRight() {
     <NormalLabel
       tooltipText={title}
       value={title}
-      size="1.125rem"
+      size={TYPE.SECTION}
       color={COLORS.TEXT_COLOR}
       style="height: 32px; padding-left: 8px; margin-right: 8px; max-width: 100%;"
     />
@@ -218,7 +219,7 @@ export default function HeroContainerRight() {
                 display: flex;
                 align-items: center;
                 font-family: ${FONT_FAMILY};
-                font-size: 1.125rem;
+                font-size: ${TYPE.SECTION};
                 height: 32px;
                 padding-left: 8px;
                 padding-right: 8px;
@@ -264,7 +265,7 @@ export default function HeroContainerRight() {
               right: 0;
               transform: translateY(-50%);
               opacity: ${isContainerHovered ? 1 : 0};
-              transition: opacity 0.1s ease-out;
+              transition: opacity ${DURATION.COLOR} ease-out;
               /* The keyboard's equivalent of the hover reveal (KAN-68). */
               &:focus-within {
                 opacity: 1;
@@ -322,7 +323,7 @@ export default function HeroContainerRight() {
             isSearchActive(isSearchPanel, searchInputText),
             t
           )}
-          size="0.75rem"
+          size={TYPE.META}
           color={COLORS.LABEL_L1_COLOR}
           style={`padding-top: 2px; padding-left: 8px;`}
         />
@@ -337,7 +338,7 @@ export default function HeroContainerRight() {
             i18n.language,
             t
           )}
-          size="0.7rem"
+          size={TYPE.META}
           color={COLORS.LABEL_L2_COLOR}
           style="padding-top: 2px; padding-left: 8px;"
         />
@@ -418,18 +419,18 @@ export default function HeroContainerRight() {
         >
           <Button
             text={t('Add window')}
+            iconSize={ICON.SMALL}
             tooltipText={t('Add current window')}
             ariaLabel={t('Add window')}
             iconType="add"
             onClick={handleAddCurrWindowClick}
-            iconSize="1.3rem"
             iconStyle={`
               padding: 4px 4px 2px 4px;
             `}
             style={`
               border: none;
               height: 32px;
-              font-size: 0.8rem;
+              font-size: ${TYPE.SECONDARY};
               padding: 4px 9px 3px 2px;
               background-color: ${COLORS.HOVER_COLOR || '#e3e6e9'};
             `}

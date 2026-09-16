@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { usePopoverList } from '../../hooks/usePopoverList';
+import { DURATION, RADIUS } from '../../styles/scale';
 import {
   TAB_GROUP_COLOR_HEX,
   sanitizeTabGroupColor,
@@ -186,7 +187,7 @@ const GroupColorPicker: React.FC<GroupColorPickerProps> = ({
             /* transform joins the list for KAN-165: the strip travels
                with its group's tabs and must glide as they do. */
             transition-property: width, flex-basis, margin-right, transform;
-            transition-duration: 150ms;
+            transition-duration: ${DURATION.COLOR};
             transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
             /* 6px + 3px, still 9px. Widening without shrinking the margin
                pushes every row in the group sideways on hover. */
@@ -221,7 +222,7 @@ const GroupColorPicker: React.FC<GroupColorPickerProps> = ({
             background-color: ${COLORS.PRIMARY_COLOR};
             border: 1px solid ${COLORS.BORDER_COLOR};
             /* Square and flat, like Toast and OverflowMenu. */
-            border-radius: 0px;
+            border-radius: ${RADIUS.SQUARE};
           `}
         >
           {PICKER_ORDER.map((swatch, index) => (
@@ -249,7 +250,7 @@ const GroupColorPicker: React.FC<GroupColorPickerProps> = ({
                 padding: 0;
                 cursor: pointer;
                 /* Circles, as Chrome draws them. */
-                border-radius: 50%;
+                border-radius: ${RADIUS.CIRCLE};
                 background-color: ${TAB_GROUP_COLOR_HEX[swatch]};
                 /* A hairline on every swatch, so a pale fill still reads as a
                    circle rather than a smudge. Fixed, not a token: it sits on

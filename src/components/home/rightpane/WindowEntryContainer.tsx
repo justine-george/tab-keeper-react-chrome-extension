@@ -48,6 +48,22 @@ import { DraggableRow } from './rowDrag/RowDragArea';
 import { markRowContainer } from './rowDrag/dropRules';
 import { useDragState } from './rowDrag/dragContext';
 import { ADJACENT_GROUP_GAP_PX, BAND_MARGIN_PX } from './bandSpacing';
+import { DURATION, RADIUS, TYPE } from '../../../styles/scale';
+
+/**
+ * The Chrome group title, and the editor that replaces it (KAN-205).
+ *
+ * The one value in the popup deliberately BETWEEN two steps of the type scale,
+ * and the reason is kept rather than inherited: the window title and the tab
+ * titles are both TYPE.BODY, so a group at BODY reads as prominent as the
+ * window holding it, and at TYPE.SECONDARY it is smaller than the tabs it
+ * contains and reads as a caption. Compared in a browser before choosing.
+ *
+ * One constant rather than the same literal twice, because the label and its
+ * editor drifting apart is exactly what chromeGroupRename's "the editor matches
+ * the label it replaces" test caught the moment they did.
+ */
+const GROUP_TITLE_SIZE = '0.85rem';
 
 interface WindowEntryContainerProps {
   title: string;
@@ -344,7 +360,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
          row. The group editor avoids this by keying its reveal off the strip
          that CONTAINS its input. */
       opacity: ${isParentHovered || isEditing ? 1 : 0};
-      transition: opacity 0.1s ease-out;
+      transition: opacity ${DURATION.COLOR} ease-out;
     }
     /* The keyboard's equivalent of the hover reveal (KAN-68). */
     &:focus-within {
@@ -394,7 +410,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
       : 'transparent'};
     & > * {
       opacity: ${hoveredTabId === tabId ? 1 : 0};
-      transition: opacity 0.1s ease-out;
+      transition: opacity ${DURATION.COLOR} ease-out;
     }
     /* The keyboard's equivalent of the hover reveal (KAN-68). Delete tab has
        no alternate path anywhere in the UI, so this row is the only way to
@@ -477,12 +493,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     <NormalLabel
       value={groupDisplayName(group)}
       color={group.title ? COLORS.LABEL_L2_COLOR : COLORS.LABEL_L3_COLOR}
-      // 0.85rem, not the 0.9rem the window title and tab titles share. At
-      // 0.8rem this was the smallest content text in the pane and smaller than
-      // the tabs the group contains, which reads as a caption rather than a
-      // header. Matching 0.9 would instead make a group as prominent as the
-      // window holding it. Compared in a browser before choosing.
-      size="0.85rem"
+      size={GROUP_TITLE_SIZE}
       style={`padding-left: 4px;${group.title ? '' : ' font-style: italic;'}`}
     />
   );
@@ -658,7 +669,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
             <NormalLabel
               value={title}
               color={COLORS.TEXT_COLOR}
-              size="0.9rem"
+              size={TYPE.BODY}
               style="padding-left: 4px; height: 100%; max-width: 100%;"
             />
           </div>
@@ -773,7 +784,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                   display: flex;
                   align-items: center;
                   font-family: ${FONT_FAMILY};
-                  font-size: 0.9rem;
+                  font-size: ${TYPE.BODY};
                   padding-left: 8px;
                   height: 100%;
                   width: 100%;
@@ -789,7 +800,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
               <NormalLabel
                 value={title}
                 color={COLORS.TEXT_COLOR}
-                size="0.9rem"
+                size={TYPE.BODY}
                 style="padding-left: 8px; height: 100%; max-width: 100%;"
               />
             </div>
@@ -803,7 +814,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
               <NormalLabel
                 value={title}
                 color={COLORS.TEXT_COLOR}
-                size="0.9rem"
+                size={TYPE.BODY}
                 style="padding-left: 8px; cursor: pointer; height: 100%; max-width: 100%;"
               />
             </ClickableRow>
@@ -953,7 +964,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                     &[data-drag-removed] [data-group-drag-handle],
                     &[data-drag-removed] [data-group-color-strip] {
                       opacity: 0;
-                      transition: opacity 0.18s ease;
+                      transition: opacity ${DURATION.MOVE} ease;
                     }
 
                     /* KAN-164: a tab released here joins this group.
@@ -992,7 +1003,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                         var(--band-color, transparent) 18%,
                         transparent
                       );
-                      border-radius: 4px;
+                      border-radius: ${RADIUS.SQUARE};
                     }
                   `}
                 >
@@ -1068,7 +1079,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                         /* KAN-165: the frame travels with its tabs, so it
                                has to glide like they do. Same duration as the
                                rows stepping aside in RowDragArea. */
-                        transition: transform 0.18s ease;
+                        transition: transform ${DURATION.MOVE} ease;
                         /* 32px, the height the window row and every tab row
                          already stand at -- measured, not guessed. At 22px the
                          hover fill read as a short band wedged between
@@ -1127,7 +1138,12 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                             font-family: ${FONT_FAMILY};
                             /* Matches the label this replaces, or the text
                              visibly jumps size on entering edit mode. */
-                            font-size: 0.85rem;
+                            /* Matches groupTitleLabel exactly -- the editor
+                               replaces that label in place, so a different size
+                               makes the text jump on entering edit mode. Both
+                               are the documented off-scale exemption; see
+                               scaleConformance.test.ts. */
+                            font-size: ${GROUP_TITLE_SIZE};
                             padding-left: 8px;
                             /* align-self, NOT height: 100%. The strip is a flex
                              container with align-items: center and only a
@@ -1219,7 +1235,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                               right: 0;
                               transform: translateY(-50%);
                               opacity: 0;
-                              transition: opacity 0.1s ease-out;
+                              transition: opacity ${DURATION.COLOR} ease-out;
                               display: flex;
                               align-items: center;
                               /* Load-bearing, and only visible in a real browser.

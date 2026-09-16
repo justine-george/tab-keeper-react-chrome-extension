@@ -16,6 +16,7 @@ import {
   SettingsData,
 } from '../../redux/slices/settingsDataStateSlice';
 import { requestTabGroupsPermission } from '../../utils/functions/permissions';
+import { RADIUS, TYPE } from '../../styles/scale';
 import {
   asPartialSettings,
   loadFromLocalStorage,
@@ -141,7 +142,7 @@ export const TabGroupsPermissionModal: React.FC<
     border: none;
     padding: 0;
     font-family: ${FONT_FAMILY};
-    font-size: 0.9rem;
+    font-size: ${TYPE.BODY};
     color: ${COLORS.TEXT_COLOR};
     cursor: pointer;
     &:hover {
@@ -178,7 +179,7 @@ export const TabGroupsPermissionModal: React.FC<
         width: 500px;
         padding: 20px;
         align-items: flex-start;
-        border-radius: 0px;
+        border-radius: ${RADIUS.SQUARE};
         flex-direction: column;
         padding-bottom: 25px;
         gap: 20px;
@@ -201,7 +202,7 @@ export const TabGroupsPermissionModal: React.FC<
         css={css`
           font-weight: 500;
           font-family: ${FONT_FAMILY};
-          font-size: 1.3rem;
+          font-size: ${TYPE.TITLE};
           margin: 10px 0;
         `}
       >
@@ -211,7 +212,7 @@ export const TabGroupsPermissionModal: React.FC<
         id={BODY_ID}
         css={css`
           font-family: ${FONT_FAMILY};
-          font-size: 0.9rem;
+          font-size: ${TYPE.BODY};
           color: ${COLORS.TEXT_COLOR};
           text-align: left;
           margin: 0 0 10px 0;

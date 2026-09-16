@@ -2,6 +2,7 @@ import { css } from '@emotion/react';
 
 import { useFontFamily } from '../../../hooks/useFontFamily';
 import MenuContainerSettings from './MenuContainerSettings';
+import { CONTROL, TYPE } from '../../../styles/scale';
 
 export default function HeroContainer() {
   const FONT_FAMILY = useFontFamily();
@@ -9,10 +10,10 @@ export default function HeroContainer() {
   const containerStyle = css`
     display: flex;
     justify-content: space-between;
-    height: 60px;
+    height: ${CONTROL.HEADER};
     align-items: center;
     font-family: ${FONT_FAMILY};
-    font-size: 1.25rem;
+    font-size: ${TYPE.TITLE};
     padding: 16px 0px;
     user-select: none;
   `;

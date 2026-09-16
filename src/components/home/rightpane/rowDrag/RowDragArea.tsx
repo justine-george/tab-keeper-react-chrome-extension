@@ -63,6 +63,7 @@ import {
   type LandingSide,
   type WindowedSlot,
 } from '../../../../utils/functions/dragPreview';
+import { DURATION } from '../../../../styles/scale';
 
 // How close to an edge the pointer must be for the list to start travelling,
 // and how fast it goes at its deepest. 48px is roughly a row and a half here,
@@ -1420,7 +1421,7 @@ export const DraggableRow: React.FC<DraggableRowProps> = ({
         transform: translate ? `translateY(${translate}px)` : undefined,
         // The held row must track the pointer exactly; only the rows moving
         // aside are animated.
-        transition: held ? 'none' : 'transform 0.18s ease',
+        transition: held ? 'none' : `transform ${DURATION.MOVE} ease`,
         boxShadow: held ? '0 2px 8px rgba(0,0,0,0.35)' : undefined,
         zIndex: held ? 1 : undefined,
         position: 'relative',

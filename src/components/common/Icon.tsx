@@ -3,6 +3,7 @@ import React, { MouseEventHandler } from 'react';
 import { css, keyframes } from '@emotion/react';
 
 import { useThemeColors } from '../../hooks/useThemeColors';
+import { DURATION, ICON } from '../../styles/scale';
 
 /**
  * Logos, which Material Symbols does not carry and never will -- Google
@@ -91,7 +92,7 @@ const Icon: React.FC<IconProps> = ({
   ariaLabel,
   tooltipText,
   text,
-  size = '1.5rem',
+  size = ICON.DEFAULT,
   style,
   ariaHasPopup,
   ariaExpanded,
@@ -180,11 +181,25 @@ const Icon: React.FC<IconProps> = ({
     padding: 4px;
     cursor: ${isActionable ? 'pointer' : 'inherit'};
     user-select: none;
-    transition: background-color 0.2s;
+    transition: background-color ${DURATION.MOVE};
     background-color: ${backgroundColor};
     ${isActionable &&
     `&:hover {
       background-color: ${hoverColor};
+    }
+    /* KAN-205. The press, one rung past the hover, so a click confirms itself.
+       After the hover rule, because the pointer is necessarily hovering
+       whatever it presses.
+
+       A delete icon keeps its red while pressed rather than deepening it: on
+       the light themes a deeper red drops the dark glyph on it below 4.5:1, and
+       a destructive control that becomes harder to read as you commit to it is
+       the wrong trade. Measured, not assumed -- there is no lightness at that
+       hue which satisfies both. */
+    &:active {
+      background-color: ${
+        type === 'delete' ? hoverColor : COLORS.ICON_ACTIVE_COLOR
+      };
     }`}
     ${style && style}
   `;

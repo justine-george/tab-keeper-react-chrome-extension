@@ -6,6 +6,7 @@ import { RootState } from '../../redux/store';
 import { useFontFamily } from '../../hooks/useFontFamily';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { useTranslation } from 'react-i18next';
+import { CONTROL, RADIUS, TYPE } from '../../styles/scale';
 
 interface ToastProps {
   style?: string;
@@ -39,14 +40,14 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
     color: ${COLORS.TEXT_COLOR};
     padding: 10px;
     border: 1px solid ${COLORS.BORDER_COLOR};
-    border-radius: 0px;
+    border-radius: ${RADIUS.SQUARE};
     z-index: 1000;
     width: 300px;
-    min-height: 50px;
+    min-height: ${CONTROL.DEFAULT};
     display: flex;
     justify-content: center;
     font-family: ${FONT_FAMILY};
-    font-size: 0.9rem;
+    font-size: ${TYPE.BODY};
     align-items: center;
     user-select: none;
     ${style && style}

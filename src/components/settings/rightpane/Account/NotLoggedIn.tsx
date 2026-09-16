@@ -4,6 +4,7 @@ import Icon from '../../../common/Icon';
 import { NormalLabel } from '../../../common/Label';
 import { useThemeColors } from '../../../../hooks/useThemeColors';
 import { useTranslation } from 'react-i18next';
+import { RADIUS, TYPE } from '../../../../styles/scale';
 
 const NotLoggedIn: React.FC = () => {
   const COLORS = useThemeColors();
@@ -19,7 +20,7 @@ const NotLoggedIn: React.FC = () => {
     padding: 22px clamp(12px, 10%, 64px) 32px;
     border: 1px solid ${COLORS.BORDER_COLOR};
     margin-top: 8px;
-    border-radius: 0px;
+    border-radius: ${RADIUS.SQUARE};
   `;
 
   const iconLabelContainer = css`
@@ -38,7 +39,7 @@ const NotLoggedIn: React.FC = () => {
         <Icon type={`cloud_off`} disable={true} style={'padding-right: 4px;'} />
         <NormalLabel
           value={t(`Cloud Sync Inactive`)}
-          size="1.1rem"
+          size={TYPE.SECTION}
           color={COLORS.TEXT_COLOR}
           style="justify-content: center; align-items: center;"
         />
@@ -46,7 +47,7 @@ const NotLoggedIn: React.FC = () => {
 
       <NormalLabel
         value={t(`Enable Chrome sync for seamless data syncing.`)}
-        size="0.9rem"
+        size={TYPE.BODY}
         color={COLORS.LABEL_L3_COLOR}
         style="text-align: center; white-space: break-spaces;"
       />

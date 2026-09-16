@@ -56,6 +56,7 @@ import { SettingsCategory } from '../../../redux/slices/settingsCategoryStateSli
 import LoggedIn from './Account/LoggedIn';
 import NotLoggedIn from './Account/NotLoggedIn';
 import { useTranslation } from 'react-i18next';
+import { TYPE } from '../../../styles/scale';
 
 // KAN-88. The five theme swatches were visually and semantically identical --
 // same border, no ARIA state -- so nothing said which theme was actually in
@@ -296,7 +297,7 @@ const SettingsDetailsContainer: React.FC = () => {
           >
             <NormalLabel
               value={t('Themes')}
-              size="1rem"
+              size={TYPE.BODY}
               color={COLORS.LABEL_L1_COLOR}
             />
           </div>
@@ -433,7 +434,7 @@ const SettingsDetailsContainer: React.FC = () => {
           >
             <NormalLabel
               value={t('Auto Sync')}
-              size="1rem"
+              size={TYPE.BODY}
               color={COLORS.LABEL_L1_COLOR}
             />
           </div>
@@ -493,7 +494,7 @@ const SettingsDetailsContainer: React.FC = () => {
           >
             <NormalLabel
               value={t('Sync Status')}
-              size="1rem"
+              size={TYPE.BODY}
               color={COLORS.LABEL_L1_COLOR}
             />
           </div>
@@ -534,7 +535,7 @@ const SettingsDetailsContainer: React.FC = () => {
           >
             <NormalLabel
               value={t('Lazy Load Tabs')}
-              size="1rem"
+              size={TYPE.BODY}
               color={COLORS.LABEL_L1_COLOR}
             />
           </div>
@@ -591,7 +592,7 @@ const SettingsDetailsContainer: React.FC = () => {
           >
             <NormalLabel
               value={t('Save Tab Groups')}
-              size="1rem"
+              size={TYPE.BODY}
               color={COLORS.LABEL_L1_COLOR}
             />
           </div>
@@ -651,7 +652,7 @@ const SettingsDetailsContainer: React.FC = () => {
           >
             <NormalLabel
               value={t('Backup & Restore')}
-              size="1rem"
+              size={TYPE.BODY}
               color={COLORS.LABEL_L1_COLOR}
             />
           </div>
@@ -717,7 +718,7 @@ const SettingsDetailsContainer: React.FC = () => {
           >
             <NormalLabel
               value={t('Choose Language')}
-              size="1rem"
+              size={TYPE.BODY}
               color={COLORS.LABEL_L1_COLOR}
             />
           </div>
@@ -837,7 +838,7 @@ const SettingsDetailsContainer: React.FC = () => {
         <NormalLabel
           color={COLORS.LABEL_L1_COLOR}
           value={t('Thank you for using this app!')}
-          size="1.15rem"
+          size={TYPE.SECTION}
         />
         <div
           css={css`
@@ -902,7 +903,7 @@ const SettingsDetailsContainer: React.FC = () => {
   // one position, so without a key React matched them element by element and
   // handed the Display panel's first theme swatch <button> to Sync & Privacy's
   // Auto Sync button. A swatch is hardcoded to LIGHT_THEME.PRIMARY_COLOR, and
-  // Button carries `transition: background-color 0.2s`, so on a dark theme the
+  // Button carries `transition: background-color ${DURATION.MOVE}`, so on a dark theme the
   // recycled node animated white -> black over 200ms.
   //
   // A Fragment rather than a wrapper div: this is a flex context and an extra
