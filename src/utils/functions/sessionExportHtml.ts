@@ -371,14 +371,37 @@ export function dropNotificationCount(title: string): string {
   return match ? match[1] : title;
 }
 
-// What Copy shows for a tab: the clean-ups applied, and a tab with no title
-// named by its (unwrapped) address -- the file's rule.
-function copyUrl(tab: tabData): string {
-  return unwrapSuspendedUrl(tab.url);
-}
-
-function copyLabel(tab: tabData): string {
-  return tab.title.trim() ? dropNotificationCount(tab.title) : copyUrl(tab);
+/**
+ * The session as the export should read it (KAN-202).
+ *
+ * Two clean-ups, applied ONCE where the page loads the session, so the editor,
+ * the preview, the saved file, the PDF and both clipboard versions show the
+ * same text: a leading notification count is dropped from a tab's title, and a
+ * tab a suspender extension put to sleep carries the address it stands for.
+ *
+ * Only a tab's title and address. The session, window and group names are the
+ * user's own words, and nothing else about the data is touched -- no
+ * deduplication, no tracking parameters stripped, no site suffix trimmed;
+ * those were rejected in KAN-195 as changing what was saved without asking.
+ *
+ * Returns a copy, and tidying an already tidy session changes nothing.
+ */
+export function tidySessionForExport(
+  session: tabContainerData
+): tabContainerData {
+  return {
+    ...session,
+    windows: session.windows.map((window) => ({
+      ...window,
+      tabs: window.tabs.map((tab) => {
+        const title = dropNotificationCount(tab.title);
+        const url = unwrapSuspendedUrl(tab.url);
+        return title === tab.title && url === tab.url
+          ? tab
+          : { ...tab, title, url };
+      }),
+    })),
+  };
 }
 
 function groupHeading(
@@ -408,8 +431,8 @@ export function sessionToLinkList(
   const lines: string[] = [session.title, strings.countsLabel];
 
   const tabLines = (tab: tabData, indent: string): string[] => {
-    const url = copyUrl(tab);
-    const title = copyLabel(tab);
+    const url = tab.url;
+    const title = labelOf(tab);
     return title === url
       ? [`${indent}- ${url}`]
       : [`${indent}- ${title}`, `${indent}  ${url}`];
@@ -456,8 +479,8 @@ export function sessionToLinkHtml(
   strings: LinkListStrings
 ): string {
   const item = (tab: tabData): string => {
-    const url = copyUrl(tab);
-    const title = copyLabel(tab);
+    const url = tab.url;
+    const title = labelOf(tab);
     if (!LINKABLE.test(url)) {
       return `<li>${escapeHtml(
         title === url ? url : `${title} (${url})`

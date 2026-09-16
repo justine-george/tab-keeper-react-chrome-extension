@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
-import { css } from '@emotion/react';
+import { css, Global } from '@emotion/react';
 
 // `?inline` so the mark is base64 IN the bundle: the exported file must carry
 // its own icon, because it is opened from disk, offline, long after the
@@ -28,10 +28,12 @@ import { EXPORT_STORE_URL } from '../../utils/constants/common';
 import { formatGroupCounts } from '../../utils/functions/local';
 import { sessionDateLabel } from '../../utils/functions/sessionDate';
 import {
+  EXPORT_PALETTE,
   exportFileName,
   sessionToHtml,
   sessionToLinkHtml,
   sessionToLinkList,
+  tidySessionForExport,
   type ExportLayout,
   type ExportScheme,
 } from '../../utils/functions/sessionExportHtml';
@@ -114,16 +116,20 @@ export default function ExportPage({ tabGroupId }: { tabGroupId: string }) {
 
   // Every output -- the preview, the saved file, the PDF, the clipboard --
   // is built from this one copy, so they cannot disagree about an edit.
+  // KAN-202. Tidied once, here: every output below is built from this, and so
+  // is the editor, so what Edit mode shows is what the file will say.
+  const tidied = useMemo(
+    () => (session ? tidySessionForExport(session) : undefined),
+    [session]
+  );
   const edited = useMemo(
-    () => (session ? applyExportEdits(session, edits) : undefined),
-    [session, edits]
+    () => (tidied ? applyExportEdits(tidied, edits) : undefined),
+    [tidied, edits]
   );
   const tally = useMemo(
     () =>
-      session
-        ? countExportEdits(session, edits)
-        : { renamed: 0, hiddenTabs: 0 },
-    [session, edits]
+      tidied ? countExportEdits(tidied, edits) : { renamed: 0, hiddenTabs: 0 },
+    [tidied, edits]
   );
 
   // Nothing is stored, so closing with unsaved edits loses them. Chrome asks
@@ -161,6 +167,40 @@ export default function ExportPage({ tabGroupId }: { tabGroupId: string }) {
   // than the extension's tinted chrome framing a document. The shared
   // components below get the same colours through ThemeColorsOverride.
   const COLORS = scheme === 'dark' ? DARKENHEIMER_THEME : LIGHT_THEME;
+
+  // KAN-201. Button and Icon fade their background over 200ms while their text
+  // and icons switch instantly, so a palette change left every control wearing
+  // the old fill under the new text -- measured mid-press at rgb(240, 242, 245),
+  // neither palette's colour. The popup never shows this because KAN-22
+  // suppresses transitions for the frame of a theme swap; that rule lives in
+  // App.css, which this page does not load, so it carries its own.
+  //
+  // useLayoutEffect, and not on the first render: the flag has to be on the
+  // element in the same commit that changes the colours, and there is nothing
+  // to suppress before the first paint.
+  const painted = useRef(false);
+  useLayoutEffect(() => {
+    if (!painted.current) {
+      painted.current = true;
+      return;
+    }
+    const root = document.documentElement;
+    root.setAttribute('data-scheme-switching', '');
+
+    // Two frames, as useDocumentTheme does: the first guarantees the new
+    // styles are computed, the second that they are painted.
+    let inner = 0;
+    const outer = requestAnimationFrame(() => {
+      inner = requestAnimationFrame(() =>
+        root.removeAttribute('data-scheme-switching')
+      );
+    });
+    return () => {
+      cancelAnimationFrame(outer);
+      cancelAnimationFrame(inner);
+      root.removeAttribute('data-scheme-switching');
+    };
+  }, [scheme]);
 
   const html = useMemo(() => {
     if (!session || !edited) return '';
@@ -207,7 +247,7 @@ export default function ExportPage({ tabGroupId }: { tabGroupId: string }) {
     flex-direction: column;
   `;
 
-  if (!session || !edited) {
+  if (!session || !tidied || !edited) {
     return (
       <div css={pageStyle}>
         <p
@@ -281,6 +321,17 @@ export default function ExportPage({ tabGroupId }: { tabGroupId: string }) {
 
   // A button inside a joined pair: no border of its own, no radius, and a
   // hairline against its neighbour. The group draws the box.
+  // KAN-199. The fill alone said which segment was pressed, and measured
+  // 1.47:1 on a light page and 1.28:1 on a dark one against the unpressed
+  // fill -- below the 3:1 a state cue needs, and by eye the dark page gave no
+  // answer. The pressed segment now carries a line of its own along the
+  // bottom, in LABEL_L2: the quietest existing token that clears 3:1 on both
+  // palettes (3.15:1 light, 3.37:1 dark). Not TEXT_COLOR at 6.9-7.3:1, the
+  // weight KAN-95 rejected for a passive state marker.
+  //
+  // An inset shadow, not a border or an outline: it is drawn inside the box,
+  // so it cannot resize the segment or spill into its neighbour -- the
+  // collision KAN-95 hit with an outline ring.
   const segmentStyle = (selected: boolean, first: boolean) => `
     height: 100%;
     padding: 6px 14px;
@@ -290,6 +341,7 @@ export default function ExportPage({ tabGroupId }: { tabGroupId: string }) {
     background-color: ${
       selected ? COLORS.SELECTION_COLOR : COLORS.PRIMARY_COLOR
     };
+    ${selected ? `box-shadow: inset 0 -2px 0 ${COLORS.LABEL_L2_COLOR};` : ''}
   `;
 
   // Icon carries 4px of its own padding all round, and Button adds 8px to
@@ -363,6 +415,13 @@ export default function ExportPage({ tabGroupId }: { tabGroupId: string }) {
 
   return (
     <ThemeColorsOverride.Provider value={COLORS}>
+      <Global
+        styles={css`
+          [data-scheme-switching] * {
+            transition: none !important;
+          }
+        `}
+      />
       <div css={pageStyle}>
         {/* The toolbar has a row of its own, always. Beside the title it fit
           or wrapped depending on how long each mode's toolbar was, so pressing
@@ -561,7 +620,7 @@ export default function ExportPage({ tabGroupId }: { tabGroupId: string }) {
 
         {editing ? (
           <ExportEditor
-            session={session}
+            session={tidied}
             edits={edits}
             scheme={scheme}
             onRename={renameRow}
@@ -584,7 +643,7 @@ export default function ExportPage({ tabGroupId }: { tabGroupId: string }) {
                 border: 0;
                 flex-grow: 1;
                 width: 100%;
-                background-color: #fff;
+                background-color: ${EXPORT_PALETTE[scheme].bg};
               `}
             />
           </>

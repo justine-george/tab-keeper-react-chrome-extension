@@ -375,6 +375,116 @@ test('a tinted light theme opens a light page, not a pink one', async ({
   );
 });
 
+// KAN-199. The pressed segment of a joined pair was marked only by its fill:
+// 1.47:1 on a light page, 1.28:1 on a dark one, where 3:1 is what a control's
+// state cue needs. It now carries a line of its own; this measures that line
+// against the fill it sits on, from the colours the browser actually paints.
+const segmentMarkers = (page: Page, group: string) =>
+  page.getByRole('group', { name: group }).evaluate((el) => {
+    const parse = (colour: string) =>
+      (colour.match(/[\d.]+/g) ?? []).slice(0, 3).map(Number);
+    const luminance = (rgb: number[]) => {
+      const [r, g, b] = rgb.map((v) => {
+        const c = v / 255;
+        return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+      });
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    };
+    const ratio = (a: number[], b: number[]) => {
+      const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+      return (hi + 0.05) / (lo + 0.05);
+    };
+    return [...el.querySelectorAll('button')].map((button) => {
+      const style = getComputedStyle(button);
+      const shadow = style.boxShadow;
+      return {
+        name: button.getAttribute('aria-label') ?? '',
+        pressed: button.getAttribute('aria-pressed') === 'true',
+        marked: shadow !== 'none',
+        // The cue against the fill it is drawn on.
+        contrast:
+          shadow === 'none'
+            ? 0
+            : ratio(parse(shadow), parse(style.backgroundColor)),
+      };
+    });
+  });
+
+for (const mode of ['light', 'dark'] as const) {
+  test(`on a ${mode} page, the pressed segment's marker reads against its own fill`, async ({
+    context,
+    extensionId,
+  }) => {
+    const exportPage = await openExportUnder(context, extensionId, {
+      theme: mode === 'dark' ? 'Darkenheimer' : 'Light',
+    });
+
+    for (const group of ['Layout', 'Colour']) {
+      const segments = await segmentMarkers(exportPage, group);
+      const describe = segments
+        .map(
+          (s) =>
+            `${s.name}${s.pressed ? ' (pressed)' : ''} ${
+              s.marked ? s.contrast.toFixed(2) + ':1' : 'unmarked'
+            }`
+        )
+        .join(', ');
+
+      expect(
+        segments.filter((s) => s.marked).map((s) => s.name),
+        `${group}: ${describe}`
+      ).toEqual(segments.filter((s) => s.pressed).map((s) => s.name));
+      for (const segment of segments.filter((s) => s.marked)) {
+        expect(
+          segment.contrast,
+          `${group}: ${describe}`
+        ).toBeGreaterThanOrEqual(3);
+      }
+    }
+  });
+}
+
+// KAN-201. Pressing Light or Dark left every control in a half-changed state
+// for 200ms -- the old palette's fill under the new palette's text -- because
+// Button and Icon fade their background and nothing suppressed it here. This
+// reads a control the instant the click returns: with a fade in flight the fill
+// is still the old colour, or somewhere between the two.
+test('pressing Dark repaints the controls at once, with no half-changed state', async ({
+  context,
+  extensionId,
+}) => {
+  const exportPage = await openExportUnder(context, extensionId, {
+    theme: 'Light',
+  });
+  const copy = exportPage.getByRole('button', { name: 'Copy all links' });
+  const fill = () =>
+    copy.evaluate((el) => getComputedStyle(el).backgroundColor);
+
+  expect(await fill(), 'the light page fill').toBe('rgb(245, 247, 250)');
+
+  await exportPage.getByRole('button', { name: 'Dark' }).click();
+
+  // No wait: this is the frame the user saw washed out.
+  expect(await fill(), 'the dark page fill, immediately').toBe(
+    'rgb(42, 42, 42)'
+  );
+});
+
+// A white box until the document inside paints is a flash on a dark page.
+test('the preview frame carries the file ground, not white', async ({
+  context,
+  extensionId,
+}) => {
+  const exportPage = await openExportUnder(context, extensionId, {
+    theme: 'Darkenheimer',
+  });
+
+  await expect(exportPage.locator('iframe')).toHaveCSS(
+    'background-color',
+    'rgb(23, 23, 23)'
+  );
+});
+
 test('the file can be switched light or dark, and printed', async ({
   context,
   extensionId,

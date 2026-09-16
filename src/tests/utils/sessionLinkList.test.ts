@@ -5,6 +5,7 @@ import {
   dropNotificationCount,
   sessionToLinkHtml,
   sessionToLinkList,
+  tidySessionForExport,
   unwrapSuspendedUrl,
   type LinkListStrings,
 } from '../../utils/functions/sessionExportHtml';
@@ -349,6 +350,8 @@ describe('dropping a notification count (KAN-195)', () => {
   });
 });
 
+// KAN-202. The clean-ups moved to one step, run where the page loads the
+// session, so these feed the builders what the page feeds them.
 describe('both clipboard versions get the clean-ups (KAN-195)', () => {
   const SUSPENDED = buildSession({
     windows: [
@@ -367,7 +370,7 @@ describe('both clipboard versions get the clean-ups (KAN-195)', () => {
   });
 
   test('the plain text', () => {
-    const text = sessionToLinkList(SUSPENDED, strings);
+    const text = sessionToLinkList(tidySessionForExport(SUSPENDED), strings);
 
     expect(text).toContain('- @levelsio on X\n  https://x.example/levelsio');
     expect(text).toContain('- Extensions\n  chrome://extensions/');
@@ -379,7 +382,7 @@ describe('both clipboard versions get the clean-ups (KAN-195)', () => {
   });
 
   test('the rich list', () => {
-    const html = sessionToLinkHtml(SUSPENDED, strings);
+    const html = sessionToLinkHtml(tidySessionForExport(SUSPENDED), strings);
 
     expect(html).toContain('>@levelsio on X</a>');
     // Unwrapped to a web address, a sleeping tab becomes a real link.
