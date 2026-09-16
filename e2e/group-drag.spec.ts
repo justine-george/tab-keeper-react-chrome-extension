@@ -2,6 +2,10 @@ import type { BrowserContext, Page } from '@playwright/test';
 
 import { grantedTest as test, expect } from './fixtures/grantedExtension';
 import { buildContainer, buildSession, seedSessions } from './fixtures/seed';
+import {
+  startGeometryEvidence,
+  withGeometryEvidence,
+} from './fixtures/dragEvidence';
 
 // KAN-160 in the real popup size (790x550, measured 2026-09-10). Every drag
 // starts SCROLLED, because scrollTop 0 is the one position where stale-origin
@@ -245,13 +249,24 @@ test.describe('dragging a group', () => {
     const page = await open(context, extensionId);
     const pane = await scrollToGroupAndRecord(page, 'gamma');
     expect(pane.scrollTop).toBeGreaterThan(0);
+    // KAN-200: the landing assertion at the end of this test has failed once on
+    // CI and has never been reproduced locally -- not under 20x CPU throttling,
+    // and not with the main thread blocked for 600ms across the release, which
+    // held preview and commit in agreement 15/15. The aim below clears alpha's
+    // midpoint by only 6px, so the frames are recorded from here to say whether
+    // the row it aims at was where it was read to be.
+    await startGeometryEvidence(page, {
+      'group:beta': '[data-drag-row-id="group:beta"]',
+      'group:gamma': '[data-drag-row-id="group:gamma"]',
+      slot: '[data-drag-landing-slot]',
+    });
 
     const at = await grab(page, 'gamma');
     const mid = await page.evaluate(() => {
       const display = (sel: string) =>
         getComputedStyle(document.querySelector(sel)!).display;
-      const alpha = document
-        .querySelector('[data-drag-row-id="group:alpha"]')!
+      const beta = document
+        .querySelector('[data-drag-row-id="group:beta"]')!
         .getBoundingClientRect();
       return {
         gamma: display('[data-drag-row-id="group:gamma"] [data-group-tabs]'),
@@ -260,7 +275,7 @@ test.describe('dragging a group', () => {
           display('[data-drag-row-id="group:beta"] [data-group-tabs]'),
         ],
         otherWindow: display('[data-drag-row-id="w2"] [data-group-tabs]'),
-        alpha: { top: alpha.top, height: alpha.height },
+        beta: { top: beta.top, height: beta.height },
       };
     });
     expect(mid.gamma).toBe('none');
@@ -286,10 +301,26 @@ test.describe('dragging a group', () => {
       )
       .toBe('0');
 
-    // Just above Alpha's midpoint: a real mid-list slot, not an end.
-    await page.mouse.move(at.x + 8, mid.alpha.top + mid.alpha.height / 2 - 6, {
+    // Just above BETA's midpoint: a real mid-list slot, not an end.
+    //
+    // Beta and not Alpha (KAN-200). The pick-up centres gamma in the pane, so
+    // beta -- the item directly above it -- sits near the middle too, while
+    // alpha had been pushed up into the pane's top 48px auto-scroll zone. The
+    // slot this lands in is different; the claim is not, because the assertion
+    // compares the commit against the preview rather than against a number
+    // written down here.
+    await page.mouse.move(at.x + 8, mid.beta.top + mid.beta.height / 2 - 6, {
       steps: 12,
     });
+
+    // PREMISE: the aim is clear of the auto-scroll zones, so the list is NOT
+    // moving under the held pointer while the release is dispatched. Measured
+    // for KAN-200: aimed at Alpha this test landed inside the pane's top 48px
+    // zone, and between the final move and the release the pane scrolled 466 ->
+    // 410 -> 340 -> ... -> 0, taking the landing index with it (1 -> 0 -> 4).
+    // Both numbers this test compares are then read off a moving list, and how
+    // far it has moved is a question about the machine, not the drag.
+    expect(await paneScrollTop(page)).toBe(pane.scrollTop);
     await page.mouse.up();
 
     const preview = await page.evaluate(
@@ -297,9 +328,34 @@ test.describe('dragging a group', () => {
     );
     expect(preview).toBeGreaterThan(0);
     expect(preview).toBeLessThan(START.length - 1);
-    await expect
-      .poll(async () => (await itemOrder(page)).indexOf('group:gamma'))
-      .toBe(preview);
+    await withGeometryEvidence(
+      page,
+      'kan-200-lands-where-previewed',
+      async () => {
+        await expect
+          .poll(async () => (await itemOrder(page)).indexOf('group:gamma'))
+          .toBe(preview);
+      },
+      // `preview` and the committed index are DERIVED SEPARATELY -- one by
+      // counting shifted rows in the DOM at pointerup, one from the stored tab
+      // order -- so a mismatch is either a drop that landed elsewhere or two
+      // derivations disagreeing, and only the aim point tells them apart.
+      async () => ({
+        preview,
+        committedOrder: await itemOrder(page),
+        aimedAt: mid.beta.top + mid.beta.height / 2 - 6,
+        betaWhenRead: mid.beta,
+        // AFTER the drop has committed, so it describes the settled list, not
+        // the one the pointer was aimed at -- the frames above carry that.
+        betaAfterDrop: await page.evaluate(() => {
+          const r = document
+            .querySelector('[data-drag-row-id="group:beta"]')!
+            .getBoundingClientRect();
+          return { top: r.top, height: r.height };
+        }),
+        paneScrollTop: await paneScrollTop(page),
+      })
+    );
   });
 
   // INVERTED for KAN-132 §11.3 (this test shipped with KAN-160). It used to

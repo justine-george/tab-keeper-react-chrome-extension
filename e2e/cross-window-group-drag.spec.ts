@@ -17,6 +17,10 @@ import type { BrowserContext, Page } from '@playwright/test';
 
 import { grantedTest as test, expect } from './fixtures/grantedExtension';
 import { buildContainer, buildSession, seedSessions } from './fixtures/seed';
+import {
+  startGeometryEvidence,
+  withGeometryEvidence,
+} from './fixtures/dragEvidence';
 
 const tab = (id: string, g?: string) => ({
   tabId: id,
@@ -534,6 +538,16 @@ test.describe('what a group drag into another window previews', () => {
     extensionId,
   }) => {
     const page = await open(context, extensionId);
+    // KAN-191: this assertion has failed once on CI, 3px out against a 0.5px
+    // tolerance, and has never been reproduced locally. Recording starts before
+    // the pick-up so a failure can say whether the slot was still moving.
+    await startGeometryEvidence(page, {
+      slot: '[data-drag-landing-slot]',
+      'tab:b0': '[data-drag-row-id="tab:b0"]',
+      'tab:b1': '[data-drag-row-id="tab:b1"]',
+      w1: '[data-drop-window-id="w1"]',
+      w2: '[data-drop-window-id="w2"]',
+    });
 
     const x = await grabGroup(page, 'alpha');
     const b0 = await restingBox(page, 'tab:b0');
@@ -553,7 +567,30 @@ test.describe('what a group drag into another window previews', () => {
     // one flat range across both windows would have lifted them.
     expect(await shiftsIn(page, 'w2')).toEqual({ 'tab:b1': fp });
     // And the slot is drawn in the space tab:b1 is vacating.
-    expect(await slotTop(page)).toBeCloseTo(b1.top, 0);
+    await withGeometryEvidence(
+      page,
+      'kan-191-slot-vs-b1',
+      async () => {
+        // KAN-191. Polled, not read once. The recorded frames show the slot
+        // arriving in discrete jumps -- 191, 225, 299, 397, 429 -- while the
+        // held row's commanded shift is still climbing toward the pointer, so
+        // a single read lands wherever the travel happens to have reached. The
+        // claim and its 0.5px tolerance are unchanged; only the moment it is
+        // allowed to be true has stopped being one arbitrary instant.
+        await expect.poll(() => slotTop(page)).toBeCloseTo(b1.top, 0);
+      },
+      // The two numbers the assertion compares, plus the settle the recorder
+      // cannot show on its own: b1's resting top is DERIVED (rect minus
+      // commanded shift), so a stale `b1` and a moving slot look identical in
+      // the frames alone.
+      async () => ({
+        expectedB1Top: b1.top,
+        slotTopNow: await slotTop(page),
+        b1RestingNow: await restingTopRaw(page, 'tab:b1'),
+        shiftsW1: await shiftsIn(page, 'w1'),
+        shiftsW2: await shiftsIn(page, 'w2'),
+      })
+    );
 
     await page.keyboard.press('Escape');
     await page.mouse.up();

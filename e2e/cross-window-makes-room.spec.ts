@@ -2,6 +2,10 @@ import type { BrowserContext, Page } from '@playwright/test';
 
 import { grantedTest as test, expect } from './fixtures/grantedExtension';
 import { buildContainer, buildSession, seedSessions } from './fixtures/seed';
+import {
+  startGeometryEvidence,
+  withGeometryEvidence,
+} from './fixtures/dragEvidence';
 
 // KAN-184. A window being dropped INTO has to make room for the row.
 //
@@ -194,6 +198,17 @@ test.describe('a window makes room for a row landing in it', () => {
     extensionId,
   }) => {
     const page = await open(context, extensionId);
+    // KAN-196: the premise below has failed once on CI, 1px out, and has never
+    // been reproduced locally -- w2 held y=332 across 16 runs and up to 20x CPU
+    // throttling, so `before` and `afterPickup` are EQUAL in every healthy run
+    // and the premise passes with no margin at all. Recording starts before the
+    // first read because either of the two could be the one caught moving.
+    await startGeometryEvidence(page, {
+      w1: '[data-drop-window-id="w1"]',
+      w2: '[data-drop-window-id="w2"]',
+      w3: '[data-drop-window-id="w3"]',
+      'group:beta': '[data-drag-row-id="group:beta"]',
+    });
     const before = await boxOf(page, '[data-drop-window-id="w2"]');
 
     const x = await grabGroup(page, 'beta');
@@ -210,7 +225,35 @@ test.describe('a window makes room for a row landing in it', () => {
     // One row's footprint, and downward.
     expect(moved).toBeGreaterThan(16);
     // PREMISE: the pick-up itself is not what moved it.
-    expect(before.y).toBeGreaterThanOrEqual(afterPickup.y);
+    //
+    // KAN-196. Measured: w2's top CANNOT move at the pick-up, because beta
+    // lives inside w2 -- compressing it shortens w2 without moving where it
+    // starts, and w3 below is what travels (600 -> 504). So `before` and
+    // `afterPickup` are the same number in every healthy run, 332 and 332, and
+    // written as a bare `>=` this premise was an equality in disguise that any
+    // 1px perturbation flipped. It failed on CI at exactly 1px.
+    //
+    // SLACK_PX is this file's own rule for one measured box against another,
+    // used by five assertions above and below. It was the only box-vs-box
+    // comparison here not using it. The claim is untouched: what this rules out
+    // is the pick-up pushing w2 DOWN, and that defect is a whole 32px row.
+    await withGeometryEvidence(
+      page,
+      'kan-196-pickup-premise',
+      async () => {
+        expect(afterPickup.y).toBeLessThanOrEqual(before.y + SLACK_PX);
+      },
+      // Where w2 rests once everything has stopped. If this equals `before`,
+      // `afterPickup` was read mid-flight; if it equals `afterPickup`, the
+      // pick-up really did move the window down and the premise is the thing
+      // that is wrong.
+      async () => ({
+        before: before.y,
+        afterPickup: afterPickup.y,
+        during: during.y,
+        settled: (await boxOf(page, '[data-drop-window-id="w2"]')).y,
+      })
+    );
 
     // And nothing below it is overlapped either.
     const w3 = await boxOf(page, '[data-drop-window-id="w3"]');
