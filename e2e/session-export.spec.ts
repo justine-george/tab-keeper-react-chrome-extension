@@ -850,7 +850,10 @@ test('the session menu paints above the tab rows it opens over', async ({
   await popup.getByRole('button', { name: 'More actions' }).click();
 
   const items = popup.getByRole('menuitem');
-  await expect(items).toHaveCount(2);
+  // Copy, Export, Delete (KAN-209 added the first). A precondition rather than
+  // the point of this test: it fixes what "every item" below is quantifying
+  // over, so an empty or half-open menu cannot pass the loop vacuously.
+  await expect(items).toHaveCount(3);
 
   const hits = await items.evaluateAll((elements) =>
     elements.map((item) => {

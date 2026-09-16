@@ -31,39 +31,17 @@ import {
   EXPORT_PALETTE,
   exportFileName,
   sessionToHtml,
-  sessionToLinkHtml,
-  sessionToLinkList,
   tidySessionForExport,
   type ExportLayout,
   type ExportScheme,
 } from '../../utils/functions/sessionExportHtml';
+import { copySessionLinks } from '../../utils/functions/copySessionLinks';
 import {
   applyExportEdits,
   countExportEdits,
   NO_EXPORT_EDITS,
   type ExportEdits,
 } from '../../utils/functions/sessionExportEdits';
-
-/**
- * Puts both versions of the link list on the clipboard (KAN-195): text/html
- * for an editor that reads it, text/plain for everything else; the app pasted
- * into picks one. False when the page cannot -- no ClipboardItem, or the write
- * refused -- so the caller copies the plain text instead of copying nothing.
- */
-async function writeRichClipboard(html: string, plain: string) {
-  if (typeof ClipboardItem === 'undefined') return false;
-  try {
-    await navigator.clipboard.write([
-      new ClipboardItem({
-        'text/html': new Blob([html], { type: 'text/html' }),
-        'text/plain': new Blob([plain], { type: 'text/plain' }),
-      }),
-    ]);
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 /**
  * The page that opens when a session is exported.
@@ -288,25 +266,16 @@ export default function ExportPage({ tabGroupId }: { tabGroupId: string }) {
     setWrittenEdits(edits);
   };
 
+  // KAN-209. The copy itself now lives in copySessionLinks, which the session
+  // menu in the popup also calls -- one definition of what "copy all links"
+  // means, rather than the same promise implemented twice.
+  //
+  // `edited`, not the stored session: this page is previewing a copy with the
+  // user's renames and hidden rows applied, and Copy should give what is on
+  // screen. That is the ONLY difference between the two call sites; the menu
+  // passes the session as stored because it has no preview to respect.
   const handleCopy = async () => {
-    const strings = {
-      window: t('Window'),
-      tabCountLabel: (count: number) =>
-        `${count} ${count > 1 ? t('Tabs') : t('Tab')}`,
-      countsLabel: formatGroupCounts(
-        edited.windowCount,
-        edited.tabCount,
-        false,
-        t
-      ),
-      locale: i18n.language,
-    };
-    const plain = sessionToLinkList(edited, strings);
-    const copiedRich = await writeRichClipboard(
-      sessionToLinkHtml(edited, strings),
-      plain
-    );
-    if (!copiedRich) await navigator.clipboard.writeText(plain);
+    await copySessionLinks(edited, t, i18n.language);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };

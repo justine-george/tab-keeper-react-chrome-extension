@@ -81,6 +81,11 @@ export const TOAST_MESSAGES = {
   // a window to the already-selected session rather than creating one).
   SAVE_ALL_WINDOWS_SUCCESS: 'All open windows saved as a session.',
   SAVE_CURRENT_WINDOW_SUCCESS: 'Current window saved as a session.',
+  // KAN-209. Reuses the key the export page's inline note already uses, rather
+  // than adding a second string for the same event -- it is already translated
+  // in all ten locales, and two wordings for one outcome is how "Links copied"
+  // and "Links copied." end up side by side.
+  COPY_LINKS_SUCCESS: 'Links copied',
   // "added", not "saved". These two report putting something into a session
   // that already exists, which is a different operation from the two above --
   // and the right pane's button now says "Add to this session", so a toast
