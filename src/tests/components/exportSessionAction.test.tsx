@@ -1,5 +1,5 @@
-import { describe, expect, test } from 'vitest';
-import { act, screen, within } from '@testing-library/react';
+import { afterEach, describe, expect, test, vi } from 'vitest';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import HeroContainerRight from '../../components/home/rightpane/HeroContainerRight';
@@ -33,6 +33,18 @@ const SESSION = buildSession({
   title: 'Weekend in Kyoto',
 });
 
+// jsdom has no ClipboardItem. The menu builds one per copy, so the fake keeps
+// what it was given and the tests read both versions back out of it. Same shape
+// as exportPage.test.tsx, which copies through the same helper.
+class FakeClipboardItem {
+  constructor(readonly items: Record<string, Blob>) {}
+}
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
+
 const renderHeader = () =>
   renderWithProviders(<HeroContainerRight />, {
     seedStore: (store) => {
@@ -59,7 +71,11 @@ describe('the session header keeps two actions and a menu (KAN-193)', () => {
     expect(screen.queryByRole('button', { name: 'Delete session' })).toBeNull();
   });
 
-  test('the menu holds exactly Export, then Delete', async () => {
+  // KAN-209 put Copy first. The order is cheap, heavier, destructive: Copy is
+  // the only one of the three that FINISHES here -- Export opens a tab and
+  // Delete changes the session -- so it reads as the lightest, and Delete stays
+  // last where a destructive item belongs.
+  test('the menu holds Copy, then Export, then Delete', async () => {
     const user = userEvent.setup();
     await renderHeader();
 
@@ -69,8 +85,9 @@ describe('the session header keeps two actions and a menu (KAN-193)', () => {
     // ligature ("file_export"), so the raw text is not what anyone hears.
     // Found by name, then compared to the menu's own order.
     const items = within(menu).getAllByRole('menuitem');
-    expect(items).toHaveLength(2);
+    expect(items).toHaveLength(3);
     expect(items).toEqual([
+      within(menu).getByRole('menuitem', { name: 'Copy all links' }),
       within(menu).getByRole('menuitem', { name: 'Export as PDF / HTML file' }),
       within(menu).getByRole('menuitem', { name: 'Delete session' }),
     ]);
@@ -116,6 +133,141 @@ describe('the session header keeps two actions and a menu (KAN-193)', () => {
 
     expect(chrome.createdTabs[0].url).toContain('session=session-kyoto');
     expect(chrome.createdTabs[0].url).not.toContain('session-first');
+  });
+
+  // KAN-209. The one output that needs no preview: Copy ignores the layout and
+  // colour choices entirely, so opening a tab to reach it was a detour. These
+  // assert the CLIPBOARD, not that a function ran -- a spy on handleCopy would
+  // pass against a handler that wrote nothing.
+  describe('Copy all links, straight from the menu (KAN-209)', () => {
+    const fakeClipboard = () => {
+      const write = vi.fn().mockResolvedValue(undefined);
+      const writeText = vi.fn().mockResolvedValue(undefined);
+      vi.stubGlobal('ClipboardItem', FakeClipboardItem);
+      vi.spyOn(navigator, 'clipboard', 'get').mockReturnValue({
+        write,
+        writeText,
+      } as unknown as Clipboard);
+      return { write, writeText };
+    };
+
+    test('puts the session on the clipboard as rich and plain text', async () => {
+      const user = userEvent.setup();
+      const { write } = fakeClipboard();
+      await renderHeader();
+
+      await openMenu(user);
+      await user.click(
+        screen.getByRole('menuitem', { name: 'Copy all links' })
+      );
+
+      await waitFor(() => expect(write).toHaveBeenCalledTimes(1));
+      const [[items]] = write.mock.calls as [[FakeClipboardItem[]]];
+      const html = await items[0].items['text/html'].text();
+      const plain = await items[0].items['text/plain'].text();
+      expect(html).toContain(
+        '<a href="https://example.com/">Example Domain</a>'
+      );
+      expect(plain).toContain('Example Domain');
+      expect(plain).toContain('https://example.com/');
+    });
+
+    // The same fallback the export page has. Without it a refused rich write
+    // copies NOTHING, silently -- the clipboard is the one place a caught
+    // exception leaves no trace for the user to notice.
+    test('falls back to plain text when the rich write is refused', async () => {
+      const user = userEvent.setup();
+      vi.stubGlobal('ClipboardItem', FakeClipboardItem);
+      const write = vi.fn().mockRejectedValue(new Error('NotAllowedError'));
+      const writeText = vi.fn().mockResolvedValue(undefined);
+      vi.spyOn(navigator, 'clipboard', 'get').mockReturnValue({
+        write,
+        writeText,
+      } as unknown as Clipboard);
+      await renderHeader();
+
+      await openMenu(user);
+      await user.click(
+        screen.getByRole('menuitem', { name: 'Copy all links' })
+      );
+
+      await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+      expect(writeText.mock.calls[0][0]).toContain('https://example.com/');
+    });
+
+    // Copying is silent otherwise: the clipboard gives no feedback of its own,
+    // and unlike the export page there is no room here for an inline note.
+    test('says so, so the click is not silent', async () => {
+      const user = userEvent.setup();
+      fakeClipboard();
+      const { store } = await renderHeader();
+
+      await openMenu(user);
+      await user.click(
+        screen.getByRole('menuitem', { name: 'Copy all links' })
+      );
+
+      await waitFor(() =>
+        expect(store.getState().globalState.isToastOpen).toBe(true)
+      );
+      // The KEY, not the sentence: Toast renders t(toastText), and asserting
+      // the English would pass with a key that resolves to nothing in the other
+      // nine locales.
+      expect(store.getState().globalState.toastText).toBe('Links copied');
+    });
+
+    // CONTROL: the id copied is the SELECTED session, not the first in the
+    // list -- the same trap the Export test above guards.
+    test('copies the selected session, not the first one', async () => {
+      const user = userEvent.setup();
+      const { write } = fakeClipboard();
+      await renderWithProviders(<HeroContainerRight />, {
+        seedStore: (store) => {
+          store.dispatch(
+            replaceState(
+              buildContainer([
+                buildSession({
+                  tabGroupId: 'session-first',
+                  title: 'First',
+                  windows: [
+                    {
+                      windowId: 'w-first',
+                      windowHeight: 1080,
+                      windowWidth: 1920,
+                      windowOffsetTop: 0,
+                      windowOffsetLeft: 0,
+                      tabCount: 1,
+                      title: 'Other window',
+                      tabs: [
+                        {
+                          tabId: 't-first',
+                          favicon: '',
+                          title: 'Decoy Page',
+                          url: 'https://decoy.example/',
+                        },
+                      ],
+                    },
+                  ],
+                }),
+                SESSION,
+              ])
+            )
+          );
+          store.dispatch(selectTabContainer('session-kyoto'));
+        },
+      });
+
+      await openMenu(user);
+      await user.click(
+        screen.getByRole('menuitem', { name: 'Copy all links' })
+      );
+
+      await waitFor(() => expect(write).toHaveBeenCalledTimes(1));
+      const [[items]] = write.mock.calls as [[FakeClipboardItem[]]];
+      const plain = await items[0].items['text/plain'].text();
+      expect(plain).toContain('https://example.com/');
+      expect(plain).not.toContain('decoy.example');
+    });
   });
 
   test('Delete removes the selected session', async () => {

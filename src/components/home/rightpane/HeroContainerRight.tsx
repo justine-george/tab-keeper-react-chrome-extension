@@ -32,7 +32,10 @@ import {
 import {
   collapsedWindowIdsOf,
   setAllWindowsCollapsed,
+  showToast,
 } from '../../../redux/slices/globalStateSlice';
+import { copySessionLinks } from '../../../utils/functions/copySessionLinks';
+import { TOAST_MESSAGES } from '../../../utils/constants/common';
 import { useTranslation } from 'react-i18next';
 import { DURATION, ICON, TYPE } from '../../../styles/scale';
 
@@ -460,6 +463,34 @@ export default function HeroContainerRight() {
             // divider and covered the session list.
             align="start"
             items={[
+              {
+                // KAN-209. The one output that needs no preview: Copy ignores
+                // the layout and colour choices the export page exists to
+                // offer, so reaching it through a new tab was a detour.
+                //
+                // FIRST, because it is the only item here that finishes where
+                // it started -- Export opens a tab, Delete changes the session
+                // -- so the menu reads cheap, heavier, destructive.
+                //
+                // Copies the session AS STORED. The export page's Copy passes
+                // the edited preview instead; that is the only difference
+                // between the two, and copySessionLinks is the single
+                // definition of everything else.
+                key: 'copy',
+                label: t('Copy all links'),
+                icon: 'link',
+                onSelect: async () => {
+                  await copySessionLinks(selectedTabGroup, t, i18n.language);
+                  // The clipboard says nothing of its own, and unlike the
+                  // export page there is no room here for an inline note.
+                  dispatch(
+                    showToast({
+                      toastText: TOAST_MESSAGES.COPY_LINKS_SUCCESS,
+                      duration: 3000,
+                    })
+                  );
+                },
+              },
               {
                 key: 'export',
                 label: t('Export session'),
