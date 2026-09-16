@@ -32,6 +32,8 @@
   "Rename session": "Rename session",
   "Collapse": "Collapse",
   "Expand": "Expand",
+  "Collapse all windows": "Collapse all windows",
+  "Expand all windows": "Expand all windows",
   "Rename window group": "Rename window group",
   "Rename group": "Rename group",
   "Open group": "Open group",

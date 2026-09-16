@@ -32,6 +32,10 @@ import {
   deleteChromeTabGroupInternal,
   updateChromeTabGroupColor,
 } from '../../../redux/slices/tabContainerDataStateSlice';
+import {
+  collapsedWindowIdsOf,
+  toggleWindowCollapse,
+} from '../../../redux/slices/globalStateSlice';
 import { useTranslation } from 'react-i18next';
 import { v4 as uuidv4 } from 'uuid';
 import {
@@ -246,7 +250,26 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
 
   const dispatch: AppDispatch = useDispatch();
 
-  const [windowOpenState, setWindowOpenState] = useState(true);
+  // KAN-206. Whether this window is folded shut, read from the store rather
+  // than held here. It moved because the session header's "collapse all" has to
+  // reach it, and that control is this component's SIBLING -- both hang off
+  // RightPane -- so there was no prop path to it.
+  //
+  // DERIVED, not state, which is why there is no setter beside it: the truth is
+  // one entry in globalState and this is a reading of it. The old name
+  // `windowOpenState` described a thing this component owned, and it no longer
+  // owns it.
+  //
+  // The selector returns a boolean deliberately. collapsedWindowIdsOf answers
+  // with a fresh [] for a session that owns no set, and returning that array
+  // straight from useSelector would be a new reference on every render.
+  const isWindowOpen = useSelector(
+    (state: RootState) =>
+      !collapsedWindowIdsOf(
+        state.globalState.collapsedWindows,
+        tabGroupId
+      ).includes(windowId)
+  );
   const [newTitle, setNewTitle] = useState(title);
   const [isEditing, setIsEditing] = useState(false);
   const [isParentHovered, setIsParentHovered] = useState(false);
@@ -627,7 +650,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   };
 
   function handleAccordionClick() {
-    setWindowOpenState((state) => !state);
+    dispatch(toggleWindowCollapse({ tabGroupId, windowId }));
   }
 
   function handleKeyPressOnEditDone(e: React.KeyboardEvent<HTMLInputElement>) {
@@ -694,7 +717,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
 
   return (
     // data-drop-window-id marks the WHOLE window block -- header and tabs,
-    // rendered whether windowOpenState is open or collapsed -- as what
+    // rendered whether the window is open or collapsed -- as what
     // windowBlockAt hit-tests (KAN-132). Not the tab-list wrapper below: a drop on
     // this window's header, and a drop anywhere on a collapsed window (which
     // renders no tab-list wrapper at all), both have to answer "this window",
@@ -745,9 +768,9 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
       >
         <div css={parentLeftStyle}>
           <Icon
-            tooltipText={windowOpenState ? t('Collapse') : t('Expand')}
-            ariaLabel={windowOpenState ? t('Collapse') : t('Expand')}
-            type={windowOpenState ? 'expand_less' : 'expand_more'}
+            tooltipText={isWindowOpen ? t('Collapse') : t('Expand')}
+            ariaLabel={isWindowOpen ? t('Collapse') : t('Expand')}
+            type={isWindowOpen ? 'expand_less' : 'expand_more'}
             onClick={handleAccordionClick}
           />
           <Icon type="web_asset" style={NON_INTERACTIVE_ICON_STYLE} />
@@ -874,11 +897,13 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
           )}
         </div>
       </div>
-      {windowOpenState && (
+      {isWindowOpen && (
         // data-window-tabs is the hook App.css uses to fold every window shut
-        // while a WINDOW is being dragged (KAN-153). Visual only -- this
-        // component's own open/closed state is never touched, which is what
-        // makes "and it comes back how it was" require no bookkeeping at all.
+        // while a WINDOW is being dragged (KAN-153). Visual only -- the stored
+        // fold state is never touched, which is what makes "and it comes back
+        // how it was" require no bookkeeping at all. That still holds now the
+        // state lives in globalState rather than here (KAN-206): the drag folds
+        // with CSS and dispatches nothing, so the two mechanisms never meet.
         // markRowContainer: this box holds one window's worth of the pane-wide
         // `items` list, so no row's footprint is ever measured on it
         // (KAN-132). Its own list container used to sit here and say the same

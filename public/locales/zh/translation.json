@@ -32,6 +32,8 @@
   "Rename session": "重命名会话",
   "Collapse": "折叠",
   "Expand": "展开",
+  "Collapse all windows": "折叠所有窗口",
+  "Expand all windows": "展开所有窗口",
   "Rename window group": "重命名窗口组",
   "Rename group": "重命名群组",
   "Open group": "打开群组",

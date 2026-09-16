@@ -32,6 +32,8 @@
   "Rename session": "Переименовать сессию",
   "Collapse": "Свернуть",
   "Expand": "Развернуть",
+  "Collapse all windows": "Свернуть все окна",
+  "Expand all windows": "Развернуть все окна",
   "Rename window group": "Переименовать группу окон",
   "Rename group": "Переименовать группу",
   "Open group": "Открыть группу",

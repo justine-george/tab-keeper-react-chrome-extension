@@ -32,6 +32,8 @@
   "Rename session": "セッションの名前を変更",
   "Collapse": "折りたたむ",
   "Expand": "展開",
+  "Collapse all windows": "すべてのウィンドウを折りたたむ",
+  "Expand all windows": "すべてのウィンドウを展開",
   "Rename window group": "ウィンドウグループの名前を変更",
   "Rename group": "グループの名前を変更",
   "Open group": "グループを開く",
