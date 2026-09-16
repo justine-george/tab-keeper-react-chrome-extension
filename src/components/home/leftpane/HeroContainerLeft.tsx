@@ -14,7 +14,7 @@ import {
   openSearchPanel,
 } from '../../../redux/slices/globalStateSlice';
 import { useTranslation } from 'react-i18next';
-import { CONTROL, TYPE } from '../../../styles/scale';
+import { TYPE } from '../../../styles/scale';
 
 export default function HeroContainer() {
   const COLORS = useThemeColors();
@@ -38,11 +38,16 @@ export default function HeroContainer() {
   const containerStyle = css`
     display: flex;
     justify-content: space-between;
-    height: ${CONTROL.HEADER};
     align-items: center;
     font-family: ${FONT_FAMILY};
     font-size: ${TYPE.TITLE};
-    padding: 16px 0px;
+    /* No fixed height: a pane header is not a control, it is content
+       plus padding, and giving it a control height is what put 32px of
+       icons inside a 64px box with half of it empty.
+
+       12px against the pane's 8px sides. 8px was tried and read as
+       tight; 16px is what it was, and that is the floating look. */
+    padding: 12px 0px;
     user-select: none;
   `;
 

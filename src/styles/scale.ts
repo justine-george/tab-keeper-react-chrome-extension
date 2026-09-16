@@ -57,14 +57,19 @@ export const RADIUS = {
  * Multiples of that row, so controls line up with the rows beside them instead
  * of nearly doing so: buttons and inputs came down from 3.5rem (56px), which was
  * not a multiple of anything.
+ *
+ * There is no HEADER level. There was one, at 64px, and it wrapped 32px of
+ * content in 16px of padding above and below -- half the box empty vertically,
+ * against content sitting flush to the horizontal edges, which is what made the
+ * header read as floating in the middle of itself. At the 48px that fixes it,
+ * a header is the same height as any other control, and two names for one
+ * number is exactly the drift this file exists to stop.
  */
 export const CONTROL = {
   /** Rows, icon buttons, tags. */
   ROW: '32px',
-  /** Buttons, text inputs. */
+  /** Buttons, text inputs, pane headers. */
   DEFAULT: '48px',
-  /** Pane headers. */
-  HEADER: '64px',
 } as const;
 
 /**
