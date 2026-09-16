@@ -129,9 +129,20 @@ function labelOf(tab: tabData): string {
  * Compact trades the path for density: the site is enough to tell two links
  * apart at a glance, and the whole URL is still in the href. A URL the parser
  * refuses is shown whole rather than dropped -- it is the user's data.
+ *
+ * SO IS A URL THAT IS NOT A LINK (KAN-212). The trade above rests entirely on
+ * the href holding what the text drops, and a non-linkable address has no href
+ * to hold it: `chrome://extensions/` came out as the bare word "extensions",
+ * and a `chrome-extension://<id>/page.html?x=1` would lose its path with
+ * nothing anywhere to recover it from.
+ *
+ * True since KAN-190 but confined to the layout nobody opened on. Making
+ * compact the default is what turns it from rare into what everyone sees,
+ * which is why it is fixed here rather than left for later.
  */
 function shownUrl(url: string, layout: ExportLayout): string {
   if (layout !== 'compact') return url;
+  if (!LINKABLE.test(url)) return url;
   try {
     return new URL(url).host;
   } catch {

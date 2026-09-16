@@ -23,32 +23,46 @@ describe('the export layout preference (KAN-190)', () => {
     localStorage.clear();
   });
 
-  test('a session that was never exported defaults to the comfortable layout', () => {
+  // KAN-212 flipped this from comfortable. The comfortable file spends a lot of
+  // page on air, and the common reason to export is to send a list rather than
+  // to print a document, so the denser one is the better first answer.
+  //
+  // Safe as a default change because export shipped after the v1.8.0 tag:
+  // nobody has an exportLayout stored, so no saved choice is overridden. A
+  // stored value still wins -- that is the next test.
+  test('a session that was never exported defaults to the compact layout', () => {
     const state = reducer(undefined, { type: '@@INIT' });
 
-    expect(state.exportLayout).toBe('comfortable');
+    expect(state.exportLayout).toBe('compact');
   });
 
-  test('choosing compact persists it, so the next popup and page agree', () => {
+  // Chooses the layout that is NOT the default, so the write is a real change.
+  // This used to choose compact, which KAN-212 made the default -- setting the
+  // value the reducer already holds proves nothing about persisting a choice.
+  test('choosing comfortable persists it, so the next popup and page agree', () => {
     const initial = reducer(undefined, { type: '@@INIT' });
 
-    const next = reducer(initial, setExportLayout('compact'));
+    const next = reducer(initial, setExportLayout('comfortable'));
 
-    expect(next.exportLayout).toBe('compact');
+    expect(next.exportLayout).toBe('comfortable');
     expect(
       stored().exportLayout,
       'the preview page boots from localStorage, not from the popup in memory'
-    ).toBe('compact');
+    ).toBe('comfortable');
   });
 
-  test('switching back to comfortable persists too', () => {
+  test('switching back to the default persists too', () => {
     let state = reducer(undefined, { type: '@@INIT' });
-    state = reducer(state, setExportLayout('compact'));
-
     state = reducer(state, setExportLayout('comfortable'));
 
-    expect(state.exportLayout).toBe('comfortable');
-    expect(stored().exportLayout).toBe('comfortable');
+    state = reducer(state, setExportLayout('compact'));
+
+    // Written, not merely absent: returning to the default must STORE it, or
+    // the next boot reads no value and falls back to the default by accident
+    // -- which would look identical today and stop being identical the moment
+    // the default moves again.
+    expect(state.exportLayout).toBe('compact');
+    expect(stored().exportLayout).toBe('compact');
   });
 });
 
