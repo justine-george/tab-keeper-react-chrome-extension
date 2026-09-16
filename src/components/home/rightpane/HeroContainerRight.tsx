@@ -538,17 +538,82 @@ export default function HeroContainerRight() {
             iconSize={ICON.SMALL}
             tooltipText={t('Add current window')}
             ariaLabel={t('Add window')}
-            iconType="add"
+            // Not a bare plus. The left pane carries two plus-bearing controls
+            // -- `add_box` and `library_add` -- and both CREATE a session; this
+            // one appends to the session already on screen. Both of theirs are
+            // a plus inside a container, which is what makes them read as a
+            // pair; `playlist_add` has none, and says "add this to the list you
+            // are looking at", which is what a session is.
+            //
+            // Measured 79.7% / 81.1% distinct from those two (KAN-5's ink
+            // comparison), against the 54.1% they already measure from each
+            // other. A bare `add` scored 76.6% and was still the confusable one:
+            // the collision was in the meaning, which an ink metric cannot see.
+            iconType="playlist_add"
             onClick={handleAddCurrWindowClick}
             iconStyle={`
               padding: 4px 4px 2px 4px;
             `}
+            // KAN-213. Almost all of this is a DELETION, because `quiet` is
+            // already Button's default -- the overrides removed here are what
+            // stopped it being the button it always was.
+            //
+            // GONE: `border: none`, which overrode the border every other
+            // Button in the app carries; and a resting
+            // `background-color: HOVER_COLOR`, which measured 1.047:1 against
+            // the SECONDARY_COLOR header behind it -- under the 1.20 that
+            // dividerContrast treats as the floor for "can still be seen" -- and
+            // which spent the row-hover token on a resting state. Its
+            // `|| '#e3e6e9'` fallback went with it: HOVER_COLOR is defined in
+            // all five themes, so the literal was unreachable as well as
+            // off-palette.
+            //
+            // The right padding drops 9px -> 6px so the gaps either side match:
+            // the glyph sits 6px in (2px here plus the Icon's own 4px) and the
+            // label now ends 6px from the edge. Invisible before, because
+            // without a border there were no edges to be uneven against.
+            //
+            // Together those two are worth -1px of width: the border adds 2,
+            // the padding gives back 3. Nothing else in the row moves -- the
+            // strip is anchored at the other end of a space-between row, and
+            // the height is pinned at 32px with border-box, so the border eats
+            // inward rather than growing the header. add-window-button.spec.ts
+            // measures all of that rather than trusting it.
+            //
+            // The one thing ADDED is the transparent fill, and it is here
+            // because the border made a second problem visible. `quiet`'s rest
+            // fill is PRIMARY_COLOR, which Button documents as "the page's own
+            // ground" -- but this button is not on the page's ground. It sits
+            // on a card painting SECONDARY_COLOR, so the fill measured 1.104:1
+            // LIGHTER than the surface behind it, ringed by a 6.83:1 border: a
+            // lighter panel inside a hard dark outline on a darker ground is
+            // how a raised bevel is drawn. The dark themes inverted it -- fill
+            // 1.136:1 darker than the card -- and it read as inset instead.
+            //
+            // So it paints nothing and takes whatever ground it is put on; the
+            // border alone says "button". Hover and press still fill, because
+            // those states are supposed to be a change.
+            //
+            // It draws only the two edges nobody else draws. The button is
+            // flush in the card's bottom-right inner corner, so its own right
+            // and bottom border landed immediately against the card's border
+            // and the pair read as one 2px line, against 1px on the other two
+            // sides. Measured as a strip of pixels running outward across each
+            // edge: top ...D.... left ...D.... right ..DD.... bottom ..DD....
+            //
+            // Not the L-shaped border `border-style: inset` draws, which leaves
+            // two edges UNDRAWN and reads as a recess -- the card draws these
+            // two, at the same pixel, so the rectangle stays complete and even.
+            // Which makes it a fact about the LAYOUT: add-window-button.spec.ts
+            // asserts the flushness as well as the pixels, so a future gap here
+            // fails loudly instead of quietly leaving two sides missing.
             style={`
-              border: none;
               height: 32px;
               font-size: ${TYPE.SECONDARY};
-              padding: 4px 9px 3px 2px;
-              background-color: ${COLORS.HOVER_COLOR || '#e3e6e9'};
+              padding: 4px 6px 3px 2px;
+              background-color: transparent;
+              border-right-width: 0;
+              border-bottom-width: 0;
             `}
           />
         </div>
