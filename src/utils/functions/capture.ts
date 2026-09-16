@@ -1,10 +1,12 @@
 import { v4 as uuidv4 } from 'uuid';
 
 import { getStringDate, resolveTabUrl } from './local';
+import { dropNotificationCount } from './sessionExportHtml';
 import { hasTabGroupsPermission } from './permissions';
 import type { chromeTabGroupData } from './tabGroups';
 import type {
   tabContainerData,
+  tabData,
   windowGroupData,
 } from '../../redux/slices/tabContainerDataStateSlice';
 
@@ -169,10 +171,45 @@ export async function readCurrentWindowGroups(
   return { groups, idByChromeId };
 }
 
+/**
+ * A live Chrome tab in storage shape (KAN-211).
+ *
+ * ONE definition of how a tab becomes a saved tab, because there are three
+ * places that make one -- a whole-window capture, "add current tab to this
+ * window", and "add current tab to this group" -- and before this they were
+ * three byte-identical literals that had to be kept in step by hand. KAN-210
+ * is what that costs: the same shape written twice, one copy missing a
+ * clean-up, and the two quietly disagreeing.
+ *
+ * Both fields are NORMALISED rather than stored as Chrome reports them:
+ *
+ * - the address is unwrapped, so a tab a suspender put to sleep is saved as
+ *   the page it stands for. Without it, uninstalling that suspender turns
+ *   every such saved tab into a dead chrome-extension:// address.
+ * - the title loses a leading unread count. "(3) Gmail" is a fact about the
+ *   tab at this instant; stored, it is stale immediately.
+ *
+ * `chromeGroupId` is the caller's to add: only a window capture knows the
+ * mapping from Chrome's numeric ids to ours.
+ */
+export function toStoredTab(tab: chrome.tabs.Tab): tabData {
+  return {
+    tabId: uuidv4(),
+    favicon: tab.favIconUrl || '',
+    title: dropNotificationCount(tab.title || ''),
+    url: resolveTabUrl(tab.url || ''),
+  };
+}
+
 // One window in storage shape. Extracted so "add current window to a session"
 // (HeroContainerRight) cannot drift from the session save -- capture.ts's
 // header already records why two captures that drift are a problem, and a
 // dropped group is exactly that failure in miniature.
+//
+// `title` is cleaned on the way in (KAN-211). Every caller derives it from a
+// live tab's title -- the first tab of the window here, the active tab in
+// HeroContainerRight -- so it carries the same badge the tabs did, and a window
+// row reading "(3) Gmail" is the same staleness in a heading.
 export function toWindowGroupData(
   window: chrome.windows.Window,
   title: string,
@@ -183,10 +220,7 @@ export function toWindowGroupData(
     const chromeGroupId =
       tab.groupId === undefined ? undefined : idByChromeId.get(tab.groupId);
     return {
-      tabId: uuidv4(),
-      favicon: tab.favIconUrl || '',
-      title: tab.title || '',
-      url: resolveTabUrl(tab.url || ''),
+      ...toStoredTab(tab),
       // Absent, never null: an ungrouped tab costs zero bytes in the document,
       // and ungrouped is the common case.
       ...(chromeGroupId === undefined ? {} : { chromeGroupId }),
@@ -200,7 +234,7 @@ export function toWindowGroupData(
     windowOffsetTop: window.top ?? 0,
     windowOffsetLeft: window.left ?? 0,
     tabCount: tabsData.length,
-    title,
+    title: dropNotificationCount(title),
     tabs: tabsData,
     ...(groups && groups.length > 0 ? { chromeTabGroups: groups } : {}),
   };

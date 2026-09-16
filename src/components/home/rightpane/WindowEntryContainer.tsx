@@ -37,7 +37,6 @@ import {
   toggleWindowCollapse,
 } from '../../../redux/slices/globalStateSlice';
 import { useTranslation } from 'react-i18next';
-import { v4 as uuidv4 } from 'uuid';
 import {
   partitionTabsIntoItems,
   itemIdOf,
@@ -47,6 +46,7 @@ import type {
   GroupRun,
 } from '../../../utils/functions/tabGroups';
 import { applyTabGroups } from '../../../utils/functions/windows';
+import { toStoredTab } from '../../../utils/functions/capture';
 
 import { DraggableRow } from './rowDrag/RowDragArea';
 import { markRowContainer } from './rowDrag/dropRules';
@@ -536,12 +536,10 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
         tabGroupId,
         windowId,
         groupId: group.groupId,
-        tabData: {
-          tabId: uuidv4(),
-          favicon: tab.favIconUrl || '',
-          title: tab.title || '',
-          url: resolveTabUrl(tab.url || ''),
-        },
+        // KAN-211. One definition of how a live tab becomes a stored one, so
+        // this cannot drift from a window capture the way the two copies of
+        // this literal already had.
+        tabData: toStoredTab(tab),
       })
     );
   };
