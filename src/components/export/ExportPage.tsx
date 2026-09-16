@@ -36,6 +36,10 @@ import {
   type ExportScheme,
 } from '../../utils/functions/sessionExportHtml';
 import { copySessionLinks } from '../../utils/functions/copySessionLinks';
+// The export page is excluded from scaleConformance, but ICON.SMALL is the
+// size every other 1.2rem glyph on this toolbar already uses, so the colour
+// pair takes it from the scale rather than repeating the literal.
+import { ICON } from '../../styles/scale';
 import {
   applyExportEdits,
   countExportEdits,
@@ -349,13 +353,46 @@ export default function ExportPage({ tabGroupId }: { tabGroupId: string }) {
     margin-left: auto;
   `;
 
-  const schemeButton = (value: ExportScheme, label: string, first: boolean) => (
+  /**
+   * One half of the colour pair (KAN-212).
+   *
+   * A GLYPH rather than a word, unlike its neighbour. Two reasons, and the
+   * second is why the layout pair below is deliberately not the same:
+   *
+   * - the row wraps at the popup width in Russian. Measured at 900px, this pair
+   *   costs 168.9px there against 125.5 in English, and a glyph costs the same
+   *   in every language.
+   * - light and dark have a symbol everyone already knows. Comfortable and
+   *   compact do not: density_large against density_small is two sets of
+   *   horizontal lines differing by a few pixels of spacing, and neither says
+   *   which one is roomier. Matching the pairs by making the readable one worse
+   *   would be consistency for its own sake.
+   *
+   * This stays a PAIR rather than becoming one toggle. A lone sun or moon
+   * cannot say whether it reports the state you are in or the one you would
+   * move to -- opposite readings, with nothing on screen to settle it. Both
+   * states shown and one marked is what the segmented shape was buying.
+   *
+   * `ariaLabel` and `tooltipText` both carry the word, because the glyph cannot:
+   * Icon renders it aria-hidden inside the Button, so without a label this
+   * control would have no accessible name at all.
+   */
+  const schemeButton = (
+    value: ExportScheme,
+    label: string,
+    icon: string,
+    first: boolean
+  ) => (
     <Button
-      text={label}
+      iconType={icon}
+      iconSize={ICON.SMALL}
       ariaLabel={label}
+      tooltipText={label}
       ariaPressed={scheme === value}
       onClick={() => setPageScheme(value)}
-      style={segmentStyle(scheme === value, first)}
+      // The word's horizontal padding would leave a 1.2rem glyph adrift in a
+      // 62px button, so the segment is tightened to sit around the icon.
+      style={segmentStyle(scheme === value, first) + 'padding: 6px 10px;'}
     />
   );
 
@@ -386,6 +423,21 @@ export default function ExportPage({ tabGroupId }: { tabGroupId: string }) {
     <ThemeColorsOverride.Provider value={COLORS}>
       <Global
         styles={css`
+          /* KAN-212. The browser's default body margin, never reset: this page
+             loads no stylesheet of its own and App.css belongs to the popup.
+             Measured, the page sat at left 8, top 8 in a 1280px viewport with
+             both html and body at rgba(0,0,0,0) -- so the 8px band showed the
+             browser's own canvas, which is white in EITHER scheme because
+             nothing in the app was painting it.
+
+             Both elements are painted, not just body: the overscroll gutter a
+             trackpad opens past the end of the page comes from the root, and
+             leaving it transparent shows the same white there. */
+          html,
+          body {
+            margin: 0;
+            background-color: ${COLORS.PRIMARY_COLOR};
+          }
           [data-scheme-switching] * {
             transition: none !important;
           }
@@ -518,8 +570,8 @@ export default function ExportPage({ tabGroupId }: { tabGroupId: string }) {
                   {layoutButton('compact', t('Compact'), false)}
                 </span>
                 <span css={groupStyle} role="group" aria-label={t('Colour')}>
-                  {schemeButton('light', t('Light'), true)}
-                  {schemeButton('dark', t('Dark'), false)}
+                  {schemeButton('light', t('Light'), 'light_mode', true)}
+                  {schemeButton('dark', t('Dark'), 'dark_mode', false)}
                 </span>
                 {/* Deciding ends here; what follows leaves the page, from the
               end of the row -- the primary stands where Done stands while

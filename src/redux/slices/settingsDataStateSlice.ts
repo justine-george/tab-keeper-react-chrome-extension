@@ -104,7 +104,7 @@ const settingsDataLocal = asPartialSettings<SettingsData>(
 const defaultSettings: SettingsData = {
   language: Language.EN, // Default language is 'en'
   theme: Theme.LIGHT,
-  exportLayout: 'comfortable',
+  exportLayout: 'compact',
   isAutoSync: true,
   isLazyLoad: true,
   extensionInstalledTime: '',

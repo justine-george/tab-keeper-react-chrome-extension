@@ -57,7 +57,10 @@ describe('the pressed segment carries a marker of its own (KAN-199)', () => {
   test('exactly the pressed segment of each pair is marked', async () => {
     await renderUnder(Theme.LIGHT);
 
-    expect(marked('Layout')).toEqual(['Comfortable']);
+    // Compact since KAN-212 made it the opening layout. The Colour assertion is
+    // unchanged even though that pair is now glyphs: `marked` reads aria-label,
+    // which is exactly the property the icons had to keep.
+    expect(marked('Layout')).toEqual(['Compact']);
     expect(marked('Colour')).toEqual(['Light']);
   });
 
@@ -65,8 +68,8 @@ describe('the pressed segment carries a marker of its own (KAN-199)', () => {
     const user = userEvent.setup();
     await renderUnder(Theme.LIGHT);
 
-    await user.click(screen.getByRole('button', { name: 'Compact' }));
-    expect(marked('Layout')).toEqual(['Compact']);
+    await user.click(screen.getByRole('button', { name: 'Comfortable' }));
+    expect(marked('Layout')).toEqual(['Comfortable']);
 
     await user.click(screen.getByRole('button', { name: 'Dark' }));
     expect(marked('Colour')).toEqual(['Dark']);
@@ -75,9 +78,9 @@ describe('the pressed segment carries a marker of its own (KAN-199)', () => {
   test('the marker is drawn inside the segment, so it cannot move the row', async () => {
     await renderUnder(Theme.LIGHT);
 
-    expect(markerOf('Comfortable')).toContain('inset');
+    expect(markerOf('Compact')).toContain('inset');
     expect(
-      getComputedStyle(screen.getByRole('button', { name: 'Comfortable' }))
+      getComputedStyle(screen.getByRole('button', { name: 'Compact' }))
         .outlineStyle
     ).toBe('none');
   });
@@ -91,7 +94,7 @@ describe('the pressed segment carries a marker of its own (KAN-199)', () => {
 
     // jsdom reports the colour as written, lowercased: "inset 0 -2px 0
     // #6e7073". The rendered contrast is measured in session-export.spec.
-    const marker = markerOf('Comfortable').toLowerCase();
+    const marker = markerOf('Compact').toLowerCase();
 
     expect(marker).toContain(LIGHT_THEME.LABEL_L2_COLOR.toLowerCase());
     expect(marker).not.toContain(LIGHT_THEME.SELECTION_COLOR.toLowerCase());

@@ -289,6 +289,32 @@ describe('the two layouts (KAN-190)', () => {
     );
   });
 
+  // KAN-212. The trade above rests ENTIRELY on the href holding what the text
+  // drops, and a non-linkable address has no href to hold it. Shortened, the
+  // real address existed nowhere in the file: `chrome://extensions/` rendered
+  // as the bare word "extensions", and an unwrapped suspender address would
+  // lose its whole path.
+  //
+  // True since KAN-190 and invisible because compact was not the layout anyone
+  // opened on. KAN-212 made it the default, which is what made this worth
+  // fixing rather than noting.
+  test('compact shows a non-linkable address whole, since no href carries it', () => {
+    const withPlain = session();
+    withPlain.windows[0].tabs.push({
+      tabId: 't-plain',
+      favicon: '',
+      title: 'Extensions',
+      url: 'chrome://extensions/',
+    });
+
+    const html = sessionToHtml(withPlain, options({ layout: 'compact' }));
+
+    expect(html).toContain('>chrome://extensions/<');
+    // CONTROL: a linkable address in the SAME file is still shortened, so this
+    // cannot pass by the shortening having been dropped altogether.
+    expect(html).toContain('>example.com<');
+  });
+
   // CONTROL: the layouts differ in presentation only. A layout that dropped a
   // tab, or reordered them, would satisfy "they are different" and be a bug.
   test('CONTROL: both layouts carry the same links, in the same order, with the group intact', () => {

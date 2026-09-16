@@ -169,28 +169,33 @@ test.describe('exporting a session as a web page', () => {
     await exportPage.waitForLoadState();
 
     const preview = exportPage.frameLocator('iframe');
-    // Comfortable shows the whole URL under each link.
-    await expect(preview.getByText('https://inari.jp/en/')).toBeVisible();
-
-    await exportPage.getByRole('button', { name: 'Compact' }).click();
-
-    // Compact shows the site instead, while the link still goes to the page.
+    // KAN-212 made compact the opening layout, so the switch runs the other
+    // way now: the page starts showing the site and is pressed to show the
+    // whole URL. Written in the direction of travel rather than pinned to a
+    // layout, so it stays a test of the SWITCH if the default ever moves again.
     await expect(preview.getByText('inari.jp', { exact: true })).toBeVisible();
     await expect(
       preview.getByRole('link', { name: 'Fushimi Inari' })
     ).toHaveAttribute('href', 'https://inari.jp/en/');
+
+    await exportPage.getByRole('button', { name: 'Comfortable' }).click();
+
+    // Comfortable shows the whole URL under each link.
+    await expect(preview.getByText('https://inari.jp/en/')).toBeVisible();
     await expect(
-      exportPage.getByRole('button', { name: 'Compact' })
+      exportPage.getByRole('button', { name: 'Comfortable' })
     ).toHaveAttribute('aria-pressed', 'true');
 
     // Reopening gets the layout that was chosen, because it was persisted.
+    // Comfortable is now the NON-default, so this proves a stored choice is
+    // read back rather than the default being reapplied.
     const [second] = await Promise.all([
       context.waitForEvent('page'),
       chooseExport(popup),
     ]);
     await second.waitForLoadState();
     await expect(
-      second.getByRole('button', { name: 'Compact' })
+      second.getByRole('button', { name: 'Comfortable' })
     ).toHaveAttribute('aria-pressed', 'true');
   });
 
@@ -649,6 +654,12 @@ test('an icon button is evenly padded on both sides', async ({
     chooseExport(popup),
   ]);
   await exportPage.waitForLoadState();
+  // The barrier its neighbours in this file already carry. waitForLoadState
+  // resolves before React has mounted, and page.evaluate does NOT auto-wait --
+  // so `find(...)` returned undefined and the measurement threw on an empty
+  // toolbar. Latent since this test was written; KAN-212 changed the toolbar's
+  // first paint enough to surface it, and it still passes 3/3 alone.
+  await exportPage.getByRole('button', { name: 'Edit' }).waitFor();
 
   const gaps = await exportPage.evaluate(() => {
     const measure = (name: string) => {

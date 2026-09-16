@@ -91,39 +91,97 @@ describe('the export preview page (KAN-190)', () => {
     expect(frame().srcdoc).toContain('Kyoto bus map');
   });
 
-  test('opens on the comfortable layout, with compact offered', async () => {
+  // KAN-212 made compact the opening layout. The comfortable file spends a lot
+  // of page on air, and the common reason to export is to send a list rather
+  // than to print a document -- so the denser one is the better first answer,
+  // and the other is one press away.
+  //
+  // Safe to change as a DEFAULT because export shipped after the v1.8.0 tag:
+  // nobody has an exportLayout stored, so nobody's saved choice is overridden.
+  test('opens on the compact layout, with comfortable offered', async () => {
     await renderPage();
 
     expect(
       screen
-        .getByRole('button', { name: 'Comfortable' })
+        .getByRole('button', { name: 'Compact' })
         .getAttribute('aria-pressed')
     ).toBe('true');
     // CONTROL: a marker that applies to both buttons marks nothing (KAN-95).
     expect(
       screen
-        .getByRole('button', { name: 'Compact' })
+        .getByRole('button', { name: 'Comfortable' })
         .getAttribute('aria-pressed')
     ).toBe('false');
   });
 
-  test('switching to compact re-renders the file and moves the marker', async () => {
+  // KAN-212. The colour pair is the one control on this toolbar whose choice
+  // has a symbol everyone already knows, and the row wraps in Russian at the
+  // popup width -- measured, the pair costs 168.9px there against 125.5 in
+  // English, while a glyph costs the same in every language.
+  //
+  // The LAYOUT pair deliberately keeps its words. density_large against
+  // density_small is two sets of horizontal lines differing by a few pixels of
+  // spacing, and neither says which one is roomier; matching the pairs by
+  // making the readable one worse is consistency for its own sake.
+  describe('the colour pair is glyphs, the layout pair is words (KAN-212)', () => {
+    const glyphOf = (name: string) =>
+      screen
+        .getByRole('button', { name })
+        .querySelector('.material-symbols-outlined')?.textContent;
+
+    test('Light and Dark render a sun and a moon', async () => {
+      await renderPage();
+
+      expect(glyphOf('Light')).toBe('light_mode');
+      expect(glyphOf('Dark')).toBe('dark_mode');
+    });
+
+    // The name has to survive losing the visible word -- it is what a screen
+    // reader announces and what voice control is spoken to, and the glyph
+    // itself is aria-hidden so it cannot stand in.
+    test('each still carries its name and its tooltip', async () => {
+      await renderPage();
+
+      for (const name of ['Light', 'Dark']) {
+        const button = screen.getByRole('button', { name });
+        expect(button.getAttribute('aria-label')).toBe(name);
+        expect(button.getAttribute('title')).toBe(name);
+      }
+    });
+
+    // CONTROL: the layout pair is untouched, so this cannot pass by every
+    // segment on the row having become a glyph.
+    test('Comfortable and Compact keep their words and carry no glyph', async () => {
+      await renderPage();
+
+      for (const name of ['Comfortable', 'Compact']) {
+        expect(screen.getByRole('button', { name })).toHaveTextContent(name);
+        expect(glyphOf(name)).toBeUndefined();
+      }
+    });
+  });
+
+  // Switches AWAY from the opening layout, whichever that is. It used to press
+  // Compact, which KAN-212 made the default -- so the press became a no-op, the
+  // file did not re-render, and the test failed for the right reason. Pressing
+  // the other one keeps it a test of the switch rather than of the default.
+  test('switching layout re-renders the file and moves the marker', async () => {
     const user = userEvent.setup();
     await renderPage();
     await waitFor(() => expect(frame().srcdoc).toContain('inari.jp'));
-    const comfortable = frame().srcdoc;
+    const compact = frame().srcdoc;
 
-    await user.click(screen.getByRole('button', { name: 'Compact' }));
+    await user.click(screen.getByRole('button', { name: 'Comfortable' }));
 
-    await waitFor(() => expect(frame().srcdoc).not.toBe(comfortable));
+    await waitFor(() => expect(frame().srcdoc).not.toBe(compact));
     expect(
       screen
-        .getByRole('button', { name: 'Compact' })
+        .getByRole('button', { name: 'Comfortable' })
         .getAttribute('aria-pressed')
     ).toBe('true');
     expect(
       screen
-        .getByRole('button', { name: 'Comfortable' })
+        .getByRole('button', { name: 'Compact' })
         .getAttribute('aria-pressed')
     ).toBe('false');
     // Still the same session, in the other layout.
