@@ -34,6 +34,16 @@ const ADD: Record<string, string> = {
   ru: 'Добавить текущее окно',
 };
 
+// Measured on the real build. Pinned exactly for two reasons: `playlist_add` is
+// a wider drawing than `add`, and the only thing stopping the button growing is
+// the explicit `width` Icon puts on the span; and dropping the right border
+// takes a pixel off a shrink-to-fit box.
+//
+// That second one is why these read 1px less than the 157.4 / 211 / 186.2 this
+// test first pinned -- the guard caught the change in all three locales, which
+// is what a guard is for.
+const WIDTH: Record<string, number> = { en: 156.4, de: 210, ru: 185.2 };
+
 for (const lang of ['en', 'de', 'ru'] as const) {
   test(`the add-window button is visible without moving the row (${lang})`, async ({
     context,
@@ -61,6 +71,20 @@ for (const lang of ['en', 'de', 'ru'] as const) {
 
     const add = page.getByRole('button', { name: ADD[lang] });
     await expect(add).toBeVisible();
+
+    // The icon font arrives AFTER the popup mounts -- it is fetched from
+    // fonts.googleapis.com, and `document.fonts.check` reads false at the
+    // moment the button becomes visible. Until it lands, Material Symbols has
+    // nothing to substitute, so the span still lays out its ligature SOURCE:
+    // the twelve characters "playlist_add", 98px of them.
+    //
+    // Measuring before this barrier does not merely flake, it reports a
+    // plausible number. The pre-font reading for `add` was 29px -- three
+    // characters -- which is close enough to a real glyph's width to look like
+    // a measurement rather than a mistake.
+    await page.waitForFunction(() =>
+      document.fonts.check('20px "Material Symbols Outlined"')
+    );
 
     const g = await page.evaluate((label) => {
       const cs = (el: Element) => getComputedStyle(el as HTMLElement);
@@ -101,6 +125,19 @@ for (const lang of ['en', 'de', 'ru'] as const) {
             .querySelector('.material-symbols-outlined')!
             .getBoundingClientRect().left - btn.getBoundingClientRect().left
         ),
+        // The glyph's own box, and its INK. Icon sets an explicit `width` on
+        // the span, so the BOX is 20px whatever the ligature does -- including
+        // when it does nothing. Only `scrollWidth` can see the difference,
+        // which is the KAN-206 lesson: a probe reading the styled box passed
+        // against a deliberately misspelt `unfold_lesss`.
+        glyphText: btn.querySelector('.material-symbols-outlined')!.textContent,
+        glyphBox: +btn
+          .querySelector('.material-symbols-outlined')!
+          .getBoundingClientRect()
+          .width.toFixed(1),
+        glyphInk: (
+          btn.querySelector('.material-symbols-outlined') as HTMLElement
+        ).scrollWidth,
         gapRight: Math.round(
           btn.getBoundingClientRect().right -
             [...btn.children]
@@ -134,6 +171,27 @@ for (const lang of ['en', 'de', 'ru'] as const) {
       `${g.gapLeft}px before the glyph, ${g.gapRight}px after the label`
     ).toBeLessThanOrEqual(1);
     expect(g.fill).not.toBe('rgb(228, 231, 235)'); // HOVER_COLOR, the old fill
+
+    // The glyph names the KIND of action: `playlist_add` (append to the list on
+    // screen) rather than a bare plus, which is the mark the two session-CREATING
+    // controls in the left pane already wear.
+    expect(g.glyphText).toBe('playlist_add');
+
+    // And it must actually RESOLVE. Material Symbols draws by ligature, so a
+    // misspelt name is not an error -- it renders the name as literal text.
+    // The styled box cannot see that (Icon pins it to ICON.SMALL either way),
+    // so this reads the ink: a resolved glyph overflows 20px slightly, while
+    // the twelve characters of "playlist_add" run past 100px.
+    expect(g.glyphBox, 'the glyph box is ICON.SMALL').toBe(20);
+    expect(
+      g.glyphInk,
+      `the glyph rendered ${g.glyphInk}px of ink -- anything past its 20px box means the ligature did not resolve and the NAME is being drawn ("add" reads 29, "playlist_add" reads 98)`
+    ).toBeLessThanOrEqual(20);
+
+    // A guard, not a discriminator: these pass before and after the glyph swap,
+    // and that is the point -- changing the mark must not move the control.
+    // Widths differ per locale because the label does.
+    expect(g.btn.w, 'the button width must not change').toBe(WIDTH[lang]);
   });
 }
 
@@ -256,5 +314,146 @@ for (const theme of ['Light', 'Darkenheimer'] as const) {
       px.border,
       `the border samples as ${px.border}, the same pixel as the card`
     ).not.toBe(px.outside);
+  });
+}
+
+// Every edge the same weight (Justine: "those edges aren't thicker than the rest").
+//
+// The button sits FLUSH in the card's bottom-right inner corner: its right edge
+// and the card's content edge are the same pixel. So its own 1px border landed
+// immediately against the card's 1px border and the pair read as one 2px line,
+// while top and left -- which border nothing -- stayed 1px. Measured on the
+// real build, as a strip of pixels running outward across each edge:
+//
+//   top ...D....   left ...D....   right ..DD....   bottom ..DD....
+//
+// The button therefore draws only the two edges nobody else draws. That is NOT
+// the same as the L-shaped border that `border-style: inset` generates, which
+// leaves two edges undrawn and reads as a recess; here the card draws them, at
+// the same pixel, so the rectangle stays complete and even.
+//
+// Which makes this depend on a fact about the LAYOUT, not about the button --
+// so the flushness is asserted too. If anything ever puts a gap between the
+// button and the card's edge, this fails and says the borders must come back,
+// rather than silently leaving a button with two missing sides.
+for (const theme of ['Light', 'Darkenheimer'] as const) {
+  test(`every edge of the add-window button is one pixel (${theme})`, async ({
+    context,
+    extensionId,
+  }) => {
+    await seedSettings(context, {
+      theme,
+      isNeverAskAgainForTabGroups: true,
+      isNeverAskAgainToRate: true,
+    });
+    await seedSessions(context, {
+      ...buildContainer([
+        buildSession({
+          tabGroupId: 's0',
+          title: 'A session',
+          isSelected: true,
+        }),
+      ]),
+      selectedTabGroupId: 's0',
+    });
+
+    const page = await context.newPage();
+    await page.setViewportSize({ width: 790, height: 550 });
+    await page.goto(`chrome-extension://${extensionId}/index.html`);
+    await expect(page.getByRole('button', { name: ADD.en })).toBeVisible();
+    await page.waitForFunction(() =>
+      document.fonts.check('20px "Material Symbols Outlined"')
+    );
+
+    const flush = await page.evaluate((label) => {
+      const btn = document
+        .querySelector(`[aria-label="${label}"]`)!
+        .getBoundingClientRect();
+      const paints = (el: Element) => {
+        const bg = getComputedStyle(el).backgroundColor;
+        return bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent';
+      };
+      let card = document.querySelector(`[aria-label="${label}"]`)!
+        .parentElement!;
+      while (card && !paints(card)) card = card.parentElement!;
+      const cs = getComputedStyle(card);
+      const r = card.getBoundingClientRect();
+      return {
+        // The card's CONTENT edge: its border box less its own border.
+        gapRight: +(
+          r.right -
+          parseFloat(cs.borderRightWidth) -
+          btn.right
+        ).toFixed(2),
+        gapBottom: +(
+          r.bottom -
+          parseFloat(cs.borderBottomWidth) -
+          btn.bottom
+        ).toFixed(2),
+      };
+    }, ADD.en);
+
+    // The premise. Without this the two edges below are simply missing.
+    expect(
+      flush.gapRight,
+      `${flush.gapRight}px between the button and the card's right edge -- it is no longer flush, so it must draw its own border again`
+    ).toBe(0);
+    expect(flush.gapBottom, "flush with the card's bottom edge").toBe(0);
+
+    const shot = (await page.screenshot()).toString('base64');
+    const edges = await page.evaluate(
+      async ({ shot, label }) => {
+        const b = document
+          .querySelector(`[aria-label="${label}"]`)!
+          .getBoundingClientRect();
+        const img = new Image();
+        img.src = `data:image/png;base64,${shot}`;
+        await img.decode();
+        const cv = document.createElement('canvas');
+        cv.width = img.width;
+        cv.height = img.height;
+        const x = cv.getContext('2d')!;
+        x.drawImage(img, 0, 0);
+        const at = (a: number, bb: number) => {
+          const d = x.getImageData(Math.round(a), Math.round(bb), 1, 1).data;
+          return `${d[0]},${d[1]},${d[2]}`;
+        };
+        const midY = Math.round(b.top + b.height / 2);
+        const midX = Math.round(b.left + b.width / 2);
+        // The colour of the line itself, taken from the top edge -- which is
+        // the button's own border, and the one edge that borders nothing.
+        // Counting "anything unlike the card" instead runs straight past the
+        // card's border into the gutter beyond and reports 6px on every side.
+        // The two themes draw this line in different colours, so it is sampled
+        // rather than written down.
+        const line = at(midX, b.top);
+        // How many pixels of line lie AT each boundary, counted in a window
+        // straddling it -- not walked outward from inside the button. Which
+        // element draws the pixel is exactly what changes here: the button's
+        // own right border sat one pixel inside the box, the card's sits one
+        // pixel outside it. A scan anchored to the button reported 2 before the
+        // change and 0 after, and 0 is not "even", it is "gone".
+        const near = (fixed: number, edge: number, axis: 'x' | 'y') => {
+          let n = 0;
+          for (let i = -2; i <= 2; i++) {
+            const p = axis === 'x' ? at(edge + i, fixed) : at(fixed, edge + i);
+            if (p === line) n++;
+          }
+          return n;
+        };
+        return {
+          top: near(midX, b.top, 'y'),
+          left: near(midY, b.left, 'x'),
+          right: near(midY, b.right, 'x'),
+          bottom: near(midX, b.bottom, 'y'),
+        };
+      },
+      { shot, label: ADD.en }
+    );
+
+    expect(
+      edges,
+      `top ${edges.top}px, left ${edges.left}px, right ${edges.right}px, bottom ${edges.bottom}px -- every edge must be the same weight`
+    ).toEqual({ top: 1, left: 1, right: 1, bottom: 1 });
   });
 }

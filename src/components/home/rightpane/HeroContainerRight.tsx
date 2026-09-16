@@ -538,7 +538,18 @@ export default function HeroContainerRight() {
             iconSize={ICON.SMALL}
             tooltipText={t('Add current window')}
             ariaLabel={t('Add window')}
-            iconType="add"
+            // Not a bare plus. The left pane carries two plus-bearing controls
+            // -- `add_box` and `library_add` -- and both CREATE a session; this
+            // one appends to the session already on screen. Both of theirs are
+            // a plus inside a container, which is what makes them read as a
+            // pair; `playlist_add` has none, and says "add this to the list you
+            // are looking at", which is what a session is.
+            //
+            // Measured 79.7% / 81.1% distinct from those two (KAN-5's ink
+            // comparison), against the 54.1% they already measure from each
+            // other. A bare `add` scored 76.6% and was still the confusable one:
+            // the collision was in the meaning, which an ink metric cannot see.
+            iconType="playlist_add"
             onClick={handleAddCurrWindowClick}
             iconStyle={`
               padding: 4px 4px 2px 4px;
@@ -582,11 +593,27 @@ export default function HeroContainerRight() {
             // So it paints nothing and takes whatever ground it is put on; the
             // border alone says "button". Hover and press still fill, because
             // those states are supposed to be a change.
+            //
+            // It draws only the two edges nobody else draws. The button is
+            // flush in the card's bottom-right inner corner, so its own right
+            // and bottom border landed immediately against the card's border
+            // and the pair read as one 2px line, against 1px on the other two
+            // sides. Measured as a strip of pixels running outward across each
+            // edge: top ...D.... left ...D.... right ..DD.... bottom ..DD....
+            //
+            // Not the L-shaped border `border-style: inset` draws, which leaves
+            // two edges UNDRAWN and reads as a recess -- the card draws these
+            // two, at the same pixel, so the rectangle stays complete and even.
+            // Which makes it a fact about the LAYOUT: add-window-button.spec.ts
+            // asserts the flushness as well as the pixels, so a future gap here
+            // fails loudly instead of quietly leaving two sides missing.
             style={`
               height: 32px;
               font-size: ${TYPE.SECONDARY};
               padding: 4px 6px 3px 2px;
               background-color: transparent;
+              border-right-width: 0;
+              border-bottom-width: 0;
             `}
           />
         </div>
