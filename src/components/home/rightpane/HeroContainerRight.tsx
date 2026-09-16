@@ -35,6 +35,7 @@ import {
   showToast,
 } from '../../../redux/slices/globalStateSlice';
 import { copySessionLinks } from '../../../utils/functions/copySessionLinks';
+import { tidySessionForExport } from '../../../utils/functions/sessionExportHtml';
 import { TOAST_MESSAGES } from '../../../utils/constants/common';
 import { useTranslation } from 'react-i18next';
 import { DURATION, ICON, TYPE } from '../../../styles/scale';
@@ -472,15 +473,25 @@ export default function HeroContainerRight() {
                 // it started -- Export opens a tab, Delete changes the session
                 // -- so the menu reads cheap, heavier, destructive.
                 //
-                // Copies the session AS STORED. The export page's Copy passes
-                // the edited preview instead; that is the only difference
-                // between the two, and copySessionLinks is the single
-                // definition of everything else.
+                // TIDIED, exactly as the export page's Copy is (KAN-210).
+                // KAN-202's clean-ups -- dropping a site's notification count
+                // from a title, and unwrapping a suspended tab's real address
+                // -- are not a preview concern: they are wrong in anything
+                // anyone shares, whichever button produced it. This shipped
+                // passing the raw session, so the shortcut gave the worse of
+                // two answers for the same command.
+                //
+                // No edits applied: there is no preview here to respect, which
+                // is the only difference left between the two call sites.
                 key: 'copy',
                 label: t('Copy all links'),
                 icon: 'link',
                 onSelect: async () => {
-                  await copySessionLinks(selectedTabGroup, t, i18n.language);
+                  await copySessionLinks(
+                    tidySessionForExport(selectedTabGroup),
+                    t,
+                    i18n.language
+                  );
                   // The clipboard says nothing of its own, and unlike the
                   // export page there is no room here for an inline note.
                   dispatch(
