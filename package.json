@@ -11,6 +11,7 @@
     "build": "tsc && vite build",
     "build:dev": "tsc && vite build --mode development",
     "prune-remote-code": "node ./scripts/prune_remote_code.mjs dist",
+    "fonts:fetch": "node ./scripts/fetch_fonts.mjs",
     "build:e2e": "npm run build && npm run prune-remote-code",
     "typecheck:e2e": "tsc -p tsconfig.e2e.json --noEmit",
     "test:e2e": "npm run typecheck:e2e && npm run build:e2e && playwright test",

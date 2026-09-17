@@ -4,6 +4,7 @@ import { css, keyframes } from '@emotion/react';
 
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { DURATION, ICON } from '../../styles/scale';
+import type { BrandIconName, IconName } from './iconNames';
 
 /**
  * Logos, which Material Symbols does not carry and never will -- Google
@@ -14,13 +15,17 @@ import { DURATION, ICON } from '../../styles/scale';
  * Add sparingly. Every entry is bytes in every user's bundle whether or not
  * anything renders it, the same trap the TOAST_MESSAGES comment describes.
  */
-const BRAND_GLYPHS: Record<string, string> = {
+const BRAND_GLYPHS: Record<BrandIconName, string> = {
   // X, from the official brand assets, drawn to a 24x24 box.
   x: 'M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z',
 };
 
+function isBrandIcon(type: IconName): type is BrandIconName {
+  return Object.prototype.hasOwnProperty.call(BRAND_GLYPHS, type);
+}
+
 interface IconBaseProps {
-  type: string;
+  type: IconName;
   faviconUrl?: string;
   /**
    * Whether the control is currently unavailable. Drives everything that
@@ -248,7 +253,7 @@ const Icon: React.FC<IconProps> = ({
             align-items: center;
           `}
         >
-          {BRAND_GLYPHS[type] ? (
+          {isBrandIcon(type) ? (
             // A brand mark, not a ligature. Material Symbols carries no logos
             // at all, so `type="x"` would render the LETTER x -- an unavailable
             // ligature falls back to literal text rather than to tofu, which is

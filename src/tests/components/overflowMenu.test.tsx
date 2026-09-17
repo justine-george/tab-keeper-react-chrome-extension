@@ -2,7 +2,9 @@ import { describe, expect, test, vi } from 'vitest';
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
-import OverflowMenu from '../../components/common/OverflowMenu';
+import OverflowMenu, {
+  type OverflowMenuItem,
+} from '../../components/common/OverflowMenu';
 import { LIGHT_THEME } from '../../hooks/useThemeColors';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { hoverRulesFor } from '../setup/hoverRules';
@@ -31,7 +33,7 @@ const asWritten = (hex: string) => {
 // menu semantics and the keyboard contract, in one place, once. Six a11y
 // tickets (KAN-62/64/66/67/68/77) are the reason that is worth a component.
 
-const ITEMS = [
+const ITEMS: OverflowMenuItem[] = [
   { key: 'ungroup', label: 'Ungroup', icon: 'label_off', onSelect: vi.fn() },
   { key: 'delete', label: 'Delete group', icon: 'delete', onSelect: vi.fn() },
 ];

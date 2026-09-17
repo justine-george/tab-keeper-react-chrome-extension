@@ -40,6 +40,7 @@ import { copySessionLinks } from '../../utils/functions/copySessionLinks';
 // size every other 1.2rem glyph on this toolbar already uses, so the colour
 // pair takes it from the scale rather than repeating the literal.
 import { ICON } from '../../styles/scale';
+import type { IconName } from '../common/iconNames';
 import {
   applyExportEdits,
   countExportEdits,
@@ -380,7 +381,7 @@ export default function ExportPage({ tabGroupId }: { tabGroupId: string }) {
   const schemeButton = (
     value: ExportScheme,
     label: string,
-    icon: string,
+    icon: IconName,
     first: boolean
   ) => (
     <Button

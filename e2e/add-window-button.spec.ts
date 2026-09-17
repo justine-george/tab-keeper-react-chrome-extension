@@ -1,4 +1,5 @@
 import { test, expect } from './fixtures/extension';
+import { waitForFontsLoaded } from './fixtures/fonts';
 import {
   buildContainer,
   buildSession,
@@ -72,19 +73,16 @@ for (const lang of ['en', 'de', 'ru'] as const) {
     const add = page.getByRole('button', { name: ADD[lang] });
     await expect(add).toBeVisible();
 
-    // The icon font arrives AFTER the popup mounts -- it is fetched from
-    // fonts.googleapis.com, and `document.fonts.check` reads false at the
-    // moment the button becomes visible. Until it lands, Material Symbols has
-    // nothing to substitute, so the span still lays out its ligature SOURCE:
-    // the twelve characters "playlist_add", 98px of them.
+    // The icon font can land AFTER the popup mounts. Until it does, Material
+    // Symbols has nothing to substitute, so the span still lays out its
+    // ligature SOURCE: the twelve characters "playlist_add", 98px of them.
     //
     // Measuring before this barrier does not merely flake, it reports a
     // plausible number. The pre-font reading for `add` was 29px -- three
     // characters -- which is close enough to a real glyph's width to look like
-    // a measurement rather than a mistake.
-    await page.waitForFunction(() =>
-      document.fonts.check('20px "Material Symbols Outlined"')
-    );
+    // a measurement rather than a mistake. See fixtures/fonts.ts for why this
+    // is not `document.fonts.check` (KAN-215).
+    await waitForFontsLoaded(page, ['Material Symbols Outlined']);
 
     const g = await page.evaluate((label) => {
       const cs = (el: Element) => getComputedStyle(el as HTMLElement);
@@ -361,9 +359,7 @@ for (const theme of ['Light', 'Darkenheimer'] as const) {
     await page.setViewportSize({ width: 790, height: 550 });
     await page.goto(`chrome-extension://${extensionId}/index.html`);
     await expect(page.getByRole('button', { name: ADD.en })).toBeVisible();
-    await page.waitForFunction(() =>
-      document.fonts.check('20px "Material Symbols Outlined"')
-    );
+    await waitForFontsLoaded(page, ['Material Symbols Outlined']);
 
     const flush = await page.evaluate((label) => {
       const btn = document

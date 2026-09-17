@@ -1,5 +1,8 @@
 import React from 'react';
 
+// Before anything renders: every icon depends on it (KAN-215).
+import './styles/fonts.css';
+
 import { Provider } from 'react-redux';
 import { I18nextProvider } from 'react-i18next';
 

@@ -3,6 +3,7 @@ import React from 'react';
 import { css } from '@emotion/react';
 
 import Icon from './Icon';
+import type { IconName } from './iconNames';
 import { useFontFamily } from '../../hooks/useFontFamily';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { CONTROL, DURATION, RADIUS, TYPE } from '../../styles/scale';
@@ -11,7 +12,7 @@ interface ButtonProps {
   text?: string;
   onClick?: () => void;
   imageSrc?: string;
-  iconType?: string;
+  iconType?: IconName;
   ariaLabel?: string;
   // KAN-88. Marks a button that toggles something, and says which way it is
   // currently set. Left undefined on ordinary buttons, where React omits the
