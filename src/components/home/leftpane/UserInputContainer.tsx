@@ -152,7 +152,10 @@ export default function UserInputContainer() {
         iconType="search"
         ariaLabel={t('Search')}
         onClick={filterResults}
-        style="padding: 12px; flex-shrink: 0;"
+        // ROW_HEIGHT like the box beside it (KAN-216). Padding alone left it
+        // 48px, 5px short at each edge of the row. 58px wide already, so it is
+        // square -- the size of the save panel's save-all segment in this spot.
+        style={`padding: 12px; flex-shrink: 0; height: ${ROW_HEIGHT};`}
       />
     </div>
   ) : (
