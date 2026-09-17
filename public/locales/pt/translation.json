@@ -10,6 +10,8 @@
   "Save all open windows as a session": "Salvar todas janelas abertas como sessão",
   "Save every open window as a session": "Salvar todas as janelas abertas como sessão",
   "Save current window as a session": "Salvar janela atual como sessão",
+  "Export open windows": "Exportar janelas abertas…",
+  "Open windows": "Janelas abertas",
   "Open in new window": "Abrir em nova janela",
   "Open session": "Abrir a sessão mantendo as janelas atuais",
   "Switch to session": "Fechar as janelas atuais e abrir esta sessão",

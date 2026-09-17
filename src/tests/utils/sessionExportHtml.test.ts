@@ -586,3 +586,27 @@ describe('the dark file palette is neutral (KAN-197)', () => {
     });
   });
 });
+
+// KAN-208. A capture of the open windows has no history to describe, so its
+// file carries no "Created ..." line. The counts then stand alone -- a leading
+// " - " would say a date was meant to be there.
+describe('the meta line (KAN-208)', () => {
+  test('with a date, it reads date then counts', () => {
+    const html = sessionToHtml(buildSession(), options());
+
+    expect(html).toContain(
+      '<p class="meta">Created Sep 10, 2026, 9:48:00 PM · 2 Windows - 9 Tabs</p>'
+    );
+  });
+
+  test('without a date, the counts stand alone', () => {
+    const html = sessionToHtml(
+      buildSession(),
+      options({ dateLabel: undefined })
+    );
+
+    expect(html).toContain('<p class="meta">2 Windows - 9 Tabs</p>');
+    expect(html).not.toContain('Created');
+    expect(html).not.toContain('"meta"> ·');
+  });
+});

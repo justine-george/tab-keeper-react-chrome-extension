@@ -10,6 +10,8 @@
   "Save all open windows as a session": "保存所有打开的窗口为一个会话",
   "Save every open window as a session": "将所有打开的窗口保存为会话",
   "Save current window as a session": "将当前窗口保存为会话",
+  "Export open windows": "导出打开的窗口…",
+  "Open windows": "打开的窗口",
   "Open in new window": "在新窗口中打开",
   "Open session": "打开会话并保留当前窗口",
   "Switch to session": "关闭当前窗口并打开此会话",

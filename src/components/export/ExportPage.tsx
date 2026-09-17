@@ -21,7 +21,11 @@ import {
 import { useFontFamily } from '../../hooks/useFontFamily';
 import { AppDispatch, RootState } from '../../redux/store';
 import { setExportLayout } from '../../redux/slices/settingsDataStateSlice';
-import { replaceState } from '../../redux/slices/tabContainerDataStateSlice';
+import {
+  replaceState,
+  type tabContainerData,
+} from '../../redux/slices/tabContainerDataStateSlice';
+import { captureOpenWindows } from '../../utils/functions/capture';
 import {
   isValidTabMasterContainer,
   loadFromLocalStorage,
@@ -52,12 +56,26 @@ import {
  * seen is one you are willing to send to someone else. Saving is therefore a
  * second click, not the first.
  *
- * The session is named by id rather than passed in, because this is a URL: the
- * tab can be reloaded, bookmarked, or opened after the session was deleted in
- * the popup. `tabGroupId` matching nothing is a state this renders, not a
- * crash.
+ * Everything below "a session to preview" is the same whichever source it came
+ * from -- the preview, edit mode, Copy, Save as HTML and Print never ask.
  */
-export default function ExportPage({ tabGroupId }: { tabGroupId: string }) {
+
+/**
+ * Where the page's session comes from (KAN-208).
+ *
+ * `saved` is a session named by id, because this is a URL: the tab can be
+ * reloaded, bookmarked, or opened after the session was deleted in the popup,
+ * so an id matching nothing is a state this renders, not a crash.
+ *
+ * `open-windows` is a capture the page takes for ITSELF when it loads -- what
+ * is open right now, never saved. A reload re-captures, so the page cannot
+ * show stale windows.
+ */
+export type ExportSource =
+  | { kind: 'saved'; tabGroupId: string }
+  | { kind: 'open-windows' };
+
+export default function ExportPage({ source }: { source: ExportSource }) {
   const { t, i18n } = useTranslation();
   const dispatch: AppDispatch = useDispatch();
   const FONT_FAMILY = useFontFamily();
@@ -83,20 +101,66 @@ export default function ExportPage({ tabGroupId }: { tabGroupId: string }) {
   // Validated rather than asserted, exactly as App does it: storage can hold
   // something older or truncated, and "Session not found" is a better answer
   // than a crash on a page whose whole job is to show a file.
+  //
+  // The live capture (KAN-208) reads no stored session, so it skips this
+  // entirely rather than filling a store it will not look at.
   useEffect(() => {
+    if (source.kind !== 'saved') return;
     const candidate = loadFromLocalStorage('tabContainerData');
     if (isValidTabMasterContainer(candidate)) {
       dispatch(replaceState(candidate));
     } else if (candidate !== undefined) {
       console.warn('Ignoring unreadable tabContainerData in localStorage.');
     }
-  }, [dispatch]);
+  }, [dispatch, source.kind]);
 
-  const session = useSelector((state: RootState) =>
-    state.tabContainerDataState.tabGroups.find(
-      (group) => group.tabGroupId === tabGroupId
-    )
+  const savedSession = useSelector((state: RootState) =>
+    source.kind === 'saved'
+      ? state.tabContainerDataState.tabGroups.find(
+          (group) => group.tabGroupId === source.tabGroupId
+        )
+      : undefined
   );
+
+  /**
+   * The live capture, held here and NEVER dispatched (KAN-208).
+   *
+   * That is load-bearing, not incidental: replaceState writes localStorage
+   * (tabContainerDataStateSlice), so a dispatched capture would put an unsaved
+   * session into the list -- exactly the clutter this export removes. With no
+   * data-state change there is also no undo entry (it is not in
+   * customMiddleware's actionsToCapture) and nothing for the sync to push.
+   *
+   * Three states, kept apart: `undefined` is "still capturing", `null` is
+   * "nothing open", a value is the capture. Collapsing the first two would
+   * flash "Session not found" on every load.
+   *
+   * The page's own tab is left out BY ID -- chrome.windows.getAll lists it
+   * too -- so another Tab Keeper page that is genuinely open still appears.
+   */
+  const [captured, setCaptured] = useState<tabContainerData | null | undefined>(
+    undefined
+  );
+  useEffect(() => {
+    if (source.kind !== 'open-windows') return;
+    let cancelled = false;
+    (async () => {
+      const own = await chrome.tabs.getCurrent();
+      const snapshot = await captureOpenWindows(
+        t('Open windows'),
+        'all-windows',
+        { excludeTabId: own?.id }
+      );
+      if (!cancelled) setCaptured(snapshot);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [source.kind, t]);
+
+  const session =
+    source.kind === 'saved' ? savedSession : captured ?? undefined;
+  const capturing = source.kind === 'open-windows' && captured === undefined;
 
   // Every output -- the preview, the saved file, the PDF, the clipboard --
   // is built from this one copy, so they cannot disagree about an edit.
@@ -191,7 +255,13 @@ export default function ExportPage({ tabGroupId }: { tabGroupId: string }) {
     return sessionToHtml(edited, {
       layout,
       scheme,
-      dateLabel: sessionDateLabel(session, sessionDateBasis, i18n.language, t),
+      // A capture of what is open has no history to describe, so it carries
+      // no date line at all -- rather than a "created" instant that means
+      // only "a moment ago, in this tab".
+      dateLabel:
+        source.kind === 'saved'
+          ? sessionDateLabel(session, sessionDateBasis, i18n.language, t)
+          : undefined,
       countsLabel: formatGroupCounts(
         edited.windowCount,
         edited.tabCount,
@@ -213,7 +283,16 @@ export default function ExportPage({ tabGroupId }: { tabGroupId: string }) {
         day: 'numeric',
       }),
     });
-  }, [session, edited, layout, scheme, sessionDateBasis, i18n.language, t]);
+  }, [
+    session,
+    edited,
+    layout,
+    scheme,
+    sessionDateBasis,
+    source.kind,
+    i18n.language,
+    t,
+  ]);
 
   // The tab can be pinned or reloaded, so it says which session it holds --
   // several tabs all called "Tab Keeper" would say nothing. Left alone when
@@ -279,6 +358,13 @@ export default function ExportPage({ tabGroupId }: { tabGroupId: string }) {
       ],
     [t]
   );
+
+  // Still capturing: the page, and nothing on it. NOT "Session not found",
+  // which would be a false statement for the length of the capture and would
+  // flash on every load.
+  if (capturing) {
+    return <div css={pageStyle} data-capturing />;
+  }
 
   if (!session || !tidied || !edited) {
     return (

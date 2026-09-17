@@ -1,4 +1,5 @@
 import { test, expect } from './fixtures/extension';
+import { sessionHeaderMenu } from './fixtures/menus';
 import { buildContainer, buildSession, seedSessions } from './fixtures/seed';
 
 // KAN-209. Copy all links, straight from the session's menu in the popup.
@@ -64,7 +65,10 @@ test('copying from the session menu reaches the real clipboard, rich and plain',
   await popup.setViewportSize({ width: 790, height: 550 });
   await popup.goto(`chrome-extension://${extensionId}/index.html`);
 
-  const trigger = popup.getByRole('button', { name: 'More actions' });
+  // Scoped to the right pane: since KAN-208 the save row's menu carries
+  // the same name, so a locator on the name alone matches two controls
+  // and strict mode refuses it.
+  const trigger = sessionHeaderMenu(popup);
   await expect(trigger).toBeVisible();
   await trigger.click();
   await popup.getByRole('menuitem', { name: 'Copy all links' }).click();

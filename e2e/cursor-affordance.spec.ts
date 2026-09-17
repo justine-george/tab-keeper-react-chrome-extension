@@ -1,6 +1,7 @@
 import type { BrowserContext, Locator, Page } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
+import { saveRowMenu } from './fixtures/menus';
 import { buildContainer, buildSession, seedSessions } from './fixtures/seed';
 
 // KAN-76. Every assertion here reads the cursor from the element that is
@@ -119,23 +120,24 @@ test.describe('clickable controls show a pointer over their icon (KAN-76)', () =
   });
 
   // Pattern 1: Button always passes `disable={true}` to its inner Icon, so
-  // every one of the icon-bearing buttons in the app was affected. These two
-  // are the worst case -- `padding: 0` means the icon fills the button, so
-  // there was no live pixel anywhere on the control.
+  // every one of the icon-bearing buttons in the app was affected. This is the
+  // worst case -- `padding: 0` means the icon fills the button, so there was
+  // no live pixel anywhere on the control.
   //
-  // These are the RENDERED names, not the i18n keys the call sites pass.
-  // `en` re-maps some of its own keys, and this pair is one of them:
-  // UserInputContainer passes `t('Save every open window as a session')`,
-  // which en/translation.json:11 maps to "Save all open windows as a session".
-  // Written from the key, this locator matches nothing and the test fails as
+  // This is the RENDERED name, not the i18n key the call site passes. `en`
+  // re-maps some of its own keys, and this is one of them: UserInputContainer
+  // passes `t('Save every open window as a session')`, which
+  // en/translation.json maps to "Save all open windows as a session". Written
+  // from the key, this locator matches nothing and the test fails as
   // "element(s) not found" -- which looks like a broken control rather than a
   // broken locator. src/tests/locales/verbSplit.test.ts guards the mapping
   // itself; this comment is here so the next person does not re-derive it from
   // a confusing failure.
-  for (const name of [
-    'Save current window as a session',
-    'Save all open windows as a session',
-  ]) {
+  //
+  // KAN-208 removed the second name that used to be tested here: the
+  // current-window save is a menu item now, and the trigger that replaced it
+  // in the row is covered below.
+  for (const name of ['Save all open windows as a session']) {
     test(`"${name}" shows a pointer over its icon`, async ({
       context,
       extensionId,
@@ -150,6 +152,22 @@ test.describe('clickable controls show a pointer over their icon (KAN-76)', () =
       expect(await cursorOverIconOf(page, button)).toBe('pointer');
     });
   }
+
+  // KAN-208. The save row's menu trigger is an Icon that owns its onClick and
+  // is stretched to fill a 28x56 segment, so it has the same "no live pixel"
+  // shape as the button beside it.
+  test('the save row menu trigger shows a pointer over its icon', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+
+    // Scoped to the row, not found by name: the session header's menu
+    // answers to "More actions" too (KAN-208).
+    const trigger = saveRowMenu(page);
+    await expect(trigger).toHaveCSS('cursor', 'pointer');
+    expect(await cursorOverIconOf(page, trigger)).toBe('pointer');
+  });
 
   // Pattern 2: a bare <Icon> with no onClick at all, inside a ClickableRow.
   // Unrelated to `disable`, same single line of CSS. This is the one the

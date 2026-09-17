@@ -240,6 +240,19 @@ export function toWindowGroupData(
   };
 }
 
+/**
+ * What a capture may leave out.
+ *
+ * `excludeTabId` -- one tab, by id (KAN-208). The export page captures the
+ * open windows for itself, and it is one of them: chrome.windows.getAll lists
+ * the page's own tab. By id and not by address, so a second Tab Keeper page
+ * that is genuinely open still appears. A window left with no tabs is dropped,
+ * as an empty window always was.
+ */
+export interface CaptureOptions {
+  excludeTabId?: number;
+}
+
 // Snapshots the open windows a scope covers as a session. Extracted from
 // UserInputContainer so focus mode can save what it is about to close using
 // exactly the same capture the "Save current session" button uses -- two
@@ -255,7 +268,8 @@ export function toWindowGroupData(
 // that there is no session to save rather than an empty one to create.
 export async function captureOpenWindows(
   title: string,
-  scope: CaptureScope
+  scope: CaptureScope,
+  options: CaptureOptions = {}
 ): Promise<tabContainerData | null> {
   const windowList = await windowsInScope(scope);
 
@@ -268,12 +282,18 @@ export async function captureOpenWindows(
   let tabCount = 0;
 
   for (const window of windowList) {
-    if (!window.tabs || window.tabs.length === 0) continue;
+    // Guarded on the OPTION, not on tab.id: with no exclusion asked for, a tab
+    // Chrome reports without an id must stay in the capture.
+    const tabs = (window.tabs ?? []).filter(
+      (tab) =>
+        options.excludeTabId === undefined || tab.id !== options.excludeTabId
+    );
+    if (tabs.length === 0) continue;
 
     const read = await readCurrentWindowGroups(window.id, granted);
     const windowGroup = toWindowGroupData(
-      window,
-      window.tabs[0].title || '',
+      { ...window, tabs },
+      tabs[0].title || '',
       read?.groups,
       read?.idByChromeId ?? new Map()
     );

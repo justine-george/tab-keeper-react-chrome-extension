@@ -1,6 +1,7 @@
 import type { Locator, Page } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
+import { sessionHeaderMenu } from './fixtures/menus';
 import { pixelsAt } from './fixtures/pixels';
 import {
   buildContainer,
@@ -90,7 +91,10 @@ for (const theme of ['Light', 'Darkenheimer'] as const) {
     extensionId,
   }) => {
     const page = await open(context, extensionId, theme);
-    const trigger = page.getByRole('button', { name: 'More actions' });
+    // Scoped to the right pane: since KAN-208 the save row's menu carries
+    // the same name, so a locator on the name alone matches two controls
+    // and strict mode refuses it.
+    const trigger = sessionHeaderMenu(page);
     await expect(trigger).toBeVisible();
 
     const { pressed } = await restAndPress(page, trigger);
@@ -122,7 +126,10 @@ test('opened from the keyboard, the trigger fills with no pointer on it', async 
   extensionId,
 }) => {
   const page = await open(context, extensionId, 'Light');
-  const trigger = page.getByRole('button', { name: 'More actions' });
+  // Scoped to the right pane: since KAN-208 the save row's menu carries
+  // the same name, so a locator on the name alone matches two controls
+  // and strict mode refuses it.
+  const trigger = sessionHeaderMenu(page);
   await expect(trigger).toBeVisible();
   const { rest, pressed } = await restAndPress(page, trigger);
   // Close the menu the mouse opened, and park the pointer away from it.

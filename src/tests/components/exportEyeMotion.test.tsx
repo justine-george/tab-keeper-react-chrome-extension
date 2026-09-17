@@ -73,11 +73,14 @@ const SESSION = buildSession({
 
 const openEditor = async () => {
   const user = userEvent.setup();
-  await renderWithProviders(<ExportPage tabGroupId="session-kyoto" />, {
-    seedStore: (store) => {
-      store.dispatch(replaceState(buildContainer([SESSION])));
-    },
-  });
+  await renderWithProviders(
+    <ExportPage source={{ kind: 'saved', tabGroupId: 'session-kyoto' }} />,
+    {
+      seedStore: (store) => {
+        store.dispatch(replaceState(buildContainer([SESSION])));
+      },
+    }
+  );
   await user.click(screen.getByRole('button', { name: 'Edit' }));
   return user;
 };

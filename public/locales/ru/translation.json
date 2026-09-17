@@ -10,6 +10,8 @@
   "Save all open windows as a session": "Сохранить все открытые окна как сессию",
   "Save every open window as a session": "Сохранить все открытые окна как сессию",
   "Save current window as a session": "Сохранить текущее окно как сессию",
+  "Export open windows": "Экспортировать открытые окна…",
+  "Open windows": "Открытые окна",
   "Open in new window": "Открыть в новом окне",
   "Open session": "Открыть сеанс, сохранив текущие окна",
   "Switch to session": "Закрыть текущие окна и открыть этот сеанс",

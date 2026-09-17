@@ -10,6 +10,8 @@
   "Save all open windows as a session": "開いているすべてのウィンドウをセッションとして保存",
   "Save every open window as a session": "開いているすべてのウィンドウをセッションとして保存",
   "Save current window as a session": "現在のウィンドウをセッションとして保存",
+  "Export open windows": "開いているウィンドウをエクスポート…",
+  "Open windows": "開いているウィンドウ",
   "Open in new window": "新しいウィンドウで開く",
   "Open session": "現在のウィンドウを残してセッションを開く",
   "Switch to session": "現在のウィンドウを閉じてこのセッションを開く",

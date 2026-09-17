@@ -5,6 +5,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { css } from '@emotion/react';
 
 import Button from '../../common/Button';
+import OverflowMenu from '../../common/OverflowMenu';
 import TextBox from '../../common/TextBox';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { AppDispatch, RootState } from '../../../redux/store';
@@ -17,7 +18,6 @@ import { dropNotificationCount } from '../../../utils/functions/sessionExportHtm
 import { saveToTabContainer } from '../../../redux/slices/tabContainerDataStateSlice';
 import { normalizeTitle } from '../../../utils/functions/local';
 import { useTranslation } from 'react-i18next';
-import { ICON } from '../../../styles/scale';
 
 export default function UserInputContainer() {
   const { t } = useTranslation();
@@ -123,10 +123,10 @@ export default function UserInputContainer() {
    */
   const ROW_HEIGHT = '58px';
 
-  // The two save buttons share one border and one height with the field beside
-  // them, so the row reads as one block. Box-sizing is border-box globally
-  // (App.css), so the group's own border sits inside that height and the row
-  // stays flush -- the segments take 100% of what is left.
+  // The save button and the menu trigger share one border and one height with
+  // the field beside them, so the row reads as one block. Box-sizing is
+  // border-box globally (App.css), so the group's own border sits inside that
+  // height and the row stays flush -- the segments take 100% of what is left.
   const saveGroupStyle = css`
     display: flex;
     flex-shrink: 0;
@@ -170,63 +170,102 @@ export default function UserInputContainer() {
         onKeyEnter={() => createTabGroup('all-windows')}
         style={`margin-right: 8px; height: ${ROW_HEIGHT};`}
       />
-      {/* The two tooltips are a parallel pair, differing only where the
-          actions differ -- "all open windows" against "current window". They
-          used to read "Save current session" and "Save current window as a
-          session": both opened with "Save current", and the all-windows one
-          never said "all windows" in any of the ten locales.
+      {/* One wide save and a menu (KAN-208).
 
-          It has its own key rather than borrowing the placeholder's, even
-          though both describe the same operation. The placeholder is squeezed
-          into a 231px field and several locales shortened it to fit -- German
-          drops "alle" and French drops "toutes", which is the very word that
-          has to survive here. A tooltip has no width limit, so the two want
-          different strings and get different keys.
+          The save-all button keeps the wide segment and its place at the
+          right, where the only save button has always been. What moved is the
+          narrow one: saving just the current window is now a menu item, beside
+          the export of what is open.
 
-          One bordered group rather than two free-standing buttons: these are
-          two variants of a single action, and reading as a pair is the point.
-          Inside it size does the ranking -- save-all keeps the wide segment
-          and its place at the right, where the only save button used to be;
-          save-current-window is the narrow one.
+          Two SAVES need two scopes, because a save is permanent and the wrong
+          scope leaves clutter in the list. Export creates nothing until a
+          button on the preview is pressed, and the preview's edit mode can
+          hide a whole window -- so there is ONE export item, covering
+          everything open, and the scope is chosen after seeing it rather than
+          blind. That also matches a saved session, whose menu has one Export…
+          whatever it holds.
 
-          Both segments carry a "+" because both are saves, and the stack
-          behind the primary is what says "all of them". add_box and
-          library_add are the same mark in Material's set -- library_add is
-          add_box with a second layer behind it -- so the only thing that
-          differs is the count, which is exactly the only thing that differs
-          about the two actions.
+          A third plus-bearing glyph in this group was ruled out: the group
+          would then mean two different things (KAN-213's rule). The pair that
+          used to live here measured 75% distinct, and the pair before that
+          52% -- which is what "twins" looks like as a number. Re-measure
+          before putting any second glyph back in this box.
 
-          An earlier pair (add_to_queue + library_add) failed here: two plus-
-          bearing glyphs that were too alike to tell apart. Measured as pixel
-          overlap at equal size, that pair is 52% distinct; this one is 75%.
-          For reference a plain window glyph against a bare "+" is 97%, so
-          putting a + on both does cost separation -- it buys back the fact
-          that both buttons now read as saves. Re-measure before swapping
-          either glyph; 52% is what "twins" looks like as a number.
+          The tooltip has its own key rather than borrowing the placeholder's,
+          even though both describe the same operation: the placeholder is
+          squeezed into a 231px field and several locales shortened it to fit
+          -- German drops "alle" and French drops "toutes", the very word that
+          has to survive here.
 
-          The divider is load-bearing -- without it the two icons float in one
-          box and stop looking separately clickable. Recessing the secondary
-          instead would be wrong here: a muted fill is how this UI says
-          "disabled" (there is no disabled attribute anywhere).
-
-          Labels would beat icons outright and do not fit: the row is 339px and
-          the German pair alone needs 318px, leaving 21px for the name box. */}
+          Labels instead of a glyph would beat icons outright and do not fit:
+          the row is 339px and the German pair alone needed 318px of it. A menu
+          item, though, carries words for free -- which is the whole reason the
+          secondary save reads better there than it did as a glyph. */}
       <div css={saveGroupStyle}>
-        <Button
-          tooltipText={t('Save current window as a session')}
-          ariaLabel={t('Save current window as a session')}
-          iconType="add_box"
-          iconSize={ICON.SMALL}
-          onClick={() => createTabGroup('current-window')}
-          style={`width: 40px; height: 100%; padding: 0; flex-shrink: 0;
-                  border: none; border-right: 1px solid ${COLORS.BORDER_COLOR};`}
-        />
         <Button
           tooltipText={t('Save every open window as a session')}
           ariaLabel={t('Save every open window as a session')}
           iconType="library_add"
           onClick={() => createTabGroup('all-windows')}
           style="width: 58px; height: 100%; padding: 0; flex-shrink: 0; border: none;"
+        />
+        <OverflowMenu
+          // The same name the session header's and the group row's menus
+          // carry. Three controls in the popup now answer to it, which is
+          // fine for a user -- each is read in its own context -- but it does
+          // mean an e2e locator written on the name alone is ambiguous, and
+          // Playwright's strict mode refuses it. The specs scope to this row
+          // by the name box beside it.
+          ariaLabel={t('More actions')}
+          // The trigger sits at the END of the row, so the menu opens
+          // leftward, staying inside this pane -- the opposite call from the
+          // session header (KAN-193), whose trigger is near the start.
+          //
+          // The group is flex-shrink: 0, so every pixel here comes straight
+          // out of the name box beside it, and `more_vert` inks only 4px of
+          // its 24px box -- the rest is air worth giving back. Measured at
+          // 790x550, the name box went 231 -> 239 -> 243 as this went
+          // 40 -> 32 -> 28.
+          //
+          // 24px is the FLOOR, and this sits one step above it: below 24 two
+          // things break at once -- the 24px glyph box overflows its own
+          // control, and the target drops under WCAG 2.2 SC 2.5.8's 24x24
+          // minimum. The spacing exception does not rescue it, because the
+          // save button is 1px away, so a 24px circle centred here overlaps
+          // its neighbour. 28 keeps 12px of air around the dots, so the
+          // hover and pressed fills still read as a button rather than as a
+          // box drawn tight around the glyph.
+          //
+          // `padding: 0` is what lets the box be narrower than 32 at all:
+          // Icon otherwise adds 4px all round. Height is separate -- 2px is
+          // the group's own top and bottom borders, which border-box puts
+          // inside ROW_HEIGHT, and the Button beside it reaches the same 56px
+          // through `height: 100%`, which an Icon inside the menu's
+          // relatively-positioned wrapper cannot see.
+          triggerStyle={`width: 28px; height: calc(${ROW_HEIGHT} - 2px); padding: 0;
+                         border-left: 1px solid ${COLORS.BORDER_COLOR};`}
+          items={[
+            {
+              key: 'save-current-window',
+              label: t('Save current window as a session'),
+              icon: 'add_box',
+              onSelect: () => createTabGroup('current-window'),
+            },
+            {
+              key: 'export-open-windows',
+              label: t('Export open windows'),
+              icon: 'ios_share',
+              onSelect: () => {
+                // Opening a tab takes focus, which destroys the popup.
+                // Nothing may be sequenced after this call -- the page
+                // captures the windows for itself when it loads, which is
+                // also why no snapshot is handed over here.
+                chrome.tabs.create({
+                  url: chrome.runtime.getURL('export.html?source=open-windows'),
+                });
+              },
+            },
+          ]}
         />
       </div>
     </div>
