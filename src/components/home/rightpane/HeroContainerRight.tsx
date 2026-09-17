@@ -505,7 +505,7 @@ export default function HeroContainerRight() {
               {
                 key: 'export',
                 label: t('Export session'),
-                icon: 'file_export',
+                icon: 'ios_share',
                 onSelect: () => {
                   // Opening a tab takes focus, which destroys the popup.
                   // Nothing may be sequenced after this call -- the whole
