@@ -2,9 +2,10 @@ import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
+import { waitForFontsLoaded } from './fixtures/fonts';
 import {
   buildContainer,
   buildSession,
@@ -301,6 +302,19 @@ const headerFill = (page: Page) =>
     return getComputedStyle(el).backgroundColor;
   });
 
+/**
+ * Leaves the named option pressed. KAN-218 made pressing an ALREADY pressed
+ * option flip its pair, so a bare click on the default -- Compact, or Light
+ * under a light theme -- would silently select the other one.
+ */
+async function choose(page: Page, name: string) {
+  const option = page.getByRole('button', { name, exact: true });
+  if ((await option.getAttribute('aria-pressed')) !== 'true') {
+    await option.click();
+  }
+  await expect(option).toHaveAttribute('aria-pressed', 'true');
+}
+
 async function openExportUnder(
   context: Parameters<typeof seedSessions>[0],
   extensionId: string,
@@ -380,12 +394,18 @@ test('a tinted light theme opens a light page, not a pink one', async ({
   );
 });
 
-// KAN-199. The pressed segment of a joined pair was marked only by its fill:
-// 1.47:1 on a light page, 1.28:1 on a dark one, where 3:1 is what a control's
-// state cue needs. It now carries a line of its own; this measures that line
-// against the fill it sits on, from the colours the browser actually paints.
-const segmentMarkers = (page: Page, group: string) =>
-  page.getByRole('group', { name: group }).evaluate((el) => {
+// KAN-218. Each pair is a track with a knob under the pressed option; the
+// KAN-199 line is gone. The knob is a layer clipped with `clip-path`, so where
+// it is drawn is the layer's box cut down by its inset -- read here from what
+// the browser computes, not from what the component asked for.
+type Box = { left: number; right: number; top: number; bottom: number };
+
+/** A pair by its accessible name, or a locator for one (names are translated). */
+const pairIn = (page: Page, group: string | Locator) =>
+  typeof group === 'string' ? page.getByRole('group', { name: group }) : group;
+
+const knobGeometry = (page: Page, group: string | Locator) =>
+  pairIn(page, group).evaluate((el) => {
     const parse = (colour: string) =>
       (colour.match(/[\d.]+/g) ?? []).slice(0, 3).map(Number);
     const luminance = (rgb: number[]) => {
@@ -399,55 +419,322 @@ const segmentMarkers = (page: Page, group: string) =>
       const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
       return (hi + 0.05) / (lo + 0.05);
     };
-    return [...el.querySelectorAll('button')].map((button) => {
-      const style = getComputedStyle(button);
-      const shadow = style.boxShadow;
-      return {
-        name: button.getAttribute('aria-label') ?? '',
-        pressed: button.getAttribute('aria-pressed') === 'true',
-        marked: shadow !== 'none',
-        // The cue against the fill it is drawn on.
-        contrast:
-          shadow === 'none'
-            ? 0
-            : ratio(parse(shadow), parse(style.backgroundColor)),
-      };
+    const knob = el.querySelector('[data-sliding-knob]') as HTMLElement | null;
+    if (!knob) return null;
+    const box = (r: DOMRect) => ({
+      left: r.left,
+      right: r.right,
+      top: r.top,
+      bottom: r.bottom,
     });
+    const layer = box(knob.getBoundingClientRect());
+    const inset = getComputedStyle(knob)
+      .clipPath.match(/inset\(([^)]*?)(?: round[^)]*)?\)/)?.[1]
+      .split(/\s+/)
+      .map(parseFloat) ?? [0, 0, 0, 0];
+    const [top, right = top, bottom = top, left = right] = inset;
+    const trackStyle = getComputedStyle(el);
+    const border = parseFloat(trackStyle.borderLeftWidth);
+    const outer = el.getBoundingClientRect();
+    const buttons = [...el.querySelectorAll('button')];
+    const pressedButton = buttons.find(
+      (b) => b.getAttribute('aria-pressed') === 'true'
+    )!;
+    return {
+      layer,
+      inset: { top, right, bottom, left },
+      // What is painted: the layer, cut by its inset, never outside the layer.
+      drawn: {
+        left: layer.left + Math.max(left, 0),
+        right: layer.right - Math.max(right, 0),
+        top: layer.top + Math.max(top, 0),
+        bottom: layer.bottom - Math.max(bottom, 0),
+      },
+      // Inside the dark frame.
+      inner: {
+        left: outer.left + border,
+        right: outer.right - border,
+        top: outer.top + border,
+        bottom: outer.bottom - border,
+      },
+      pressed: box(pressedButton.getBoundingClientRect()),
+      // The knob's copy of each label must sit exactly over the button's own,
+      // or a word crossing the knob's edge is drawn twice, offset.
+      cellDrift: Math.max(
+        ...buttons.map((b, i) => {
+          const cell = knob.children[i]?.getBoundingClientRect();
+          const own = b.getBoundingClientRect();
+          return cell
+            ? Math.max(
+                Math.abs(cell.left - own.left),
+                Math.abs(cell.right - own.right)
+              )
+            : Infinity;
+        })
+      ),
+      pressedName: pressedButton.getAttribute('aria-label'),
+      shadows: buttons.map((b) => getComputedStyle(b).boxShadow),
+      track: trackStyle.backgroundColor,
+      // Both options on one line: a pair split across two is two orphans.
+      lines: new Set(
+        buttons.map((b) => Math.round(b.getBoundingClientRect().top))
+      ).size,
+      knobOnTrack: ratio(
+        parse(getComputedStyle(knob).backgroundColor),
+        parse(trackStyle.backgroundColor)
+      ),
+    };
   });
 
+const within = (inner: Box, outer: Box) =>
+  inner.left >= outer.left - 0.01 &&
+  inner.right <= outer.right + 0.01 &&
+  inner.top >= outer.top - 0.01 &&
+  inner.bottom <= outer.bottom + 0.01;
+
+/** Waits for the knob to stop moving: two reads 50ms apart that agree. */
+async function settledKnob(page: Page, group: string | Locator) {
+  let previous = '';
+  for (let i = 0; i < 40; i++) {
+    const geometry = await knobGeometry(page, group);
+    if (!geometry) throw new Error(`the ${String(group)} pair has no knob`);
+    const now = JSON.stringify(geometry?.drawn);
+    if (geometry && now === previous) return geometry;
+    previous = now;
+    await page.waitForTimeout(50);
+  }
+  throw new Error(`the ${String(group)} knob never settled`);
+}
+
 for (const mode of ['light', 'dark'] as const) {
-  test(`on a ${mode} page, the pressed segment's marker reads against its own fill`, async ({
+  test(`on a ${mode} page, each knob covers exactly the pressed option and reads against its track`, async ({
     context,
     extensionId,
   }) => {
     const exportPage = await openExportUnder(context, extensionId, {
       theme: mode === 'dark' ? 'Darkenheimer' : 'Light',
     });
+    // Justine: the track wears the same fill as the buttons beside it, so a
+    // pair reads as one more control on the row rather than a hole in it.
+    const buttonFill = await exportPage
+      .getByRole('button', { name: 'Edit' })
+      .evaluate((el) => getComputedStyle(el).backgroundColor);
 
     for (const group of ['Layout', 'Colour']) {
-      const segments = await segmentMarkers(exportPage, group);
-      const describe = segments
-        .map(
-          (s) =>
-            `${s.name}${s.pressed ? ' (pressed)' : ''} ${
-              s.marked ? s.contrast.toFixed(2) + ':1' : 'unmarked'
-            }`
-        )
-        .join(', ');
+      const knob = await settledKnob(exportPage, group);
+      expect(knob.track, `${group}: the track matches Edit`).toBe(buttonFill);
+      const report = `${group}: ${JSON.stringify(knob)}`;
 
-      expect(
-        segments.filter((s) => s.marked).map((s) => s.name),
-        `${group}: ${describe}`
-      ).toEqual(segments.filter((s) => s.pressed).map((s) => s.name));
-      for (const segment of segments.filter((s) => s.marked)) {
+      expect(knob.shadows, `${group}: the KAN-199 line is gone`).toEqual([
+        'none',
+        'none',
+      ]);
+      for (const side of ['left', 'right', 'top', 'bottom'] as const) {
         expect(
-          segment.contrast,
-          `${group}: ${describe}`
-        ).toBeGreaterThanOrEqual(3);
+          Math.abs(knob.drawn[side] - knob.pressed[side]),
+          `${side} edge. ${report}`
+        ).toBeLessThanOrEqual(0.5);
+      }
+      expect(knob.knobOnTrack, report).toBeGreaterThanOrEqual(3);
+      expect(
+        knob.cellDrift,
+        `label copies drift. ${report}`
+      ).toBeLessThanOrEqual(0.5);
+    }
+  });
+}
+
+// Every shipped language. The knob is measured from the rendered buttons, so a
+// longer word must still be covered exactly, its copy on the knob must still
+// lie over the button's own, and neither pair may split across two lines --
+// before and after a flip, since the two options differ in width.
+const LANGUAGES = ['en', 'de', 'es', 'fr', 'hi', 'it', 'ja', 'pt', 'ru', 'zh'];
+
+for (const language of LANGUAGES) {
+  test(`in ${language}, each knob fits its option before and after a flip`, async ({
+    context,
+    extensionId,
+  }) => {
+    await seedSettings(context, {
+      language,
+      isNeverAskAgainToRate: true,
+      isNeverAskAgainForTabGroups: true,
+    });
+    await seedSessions(context, {
+      ...buildContainer([KYOTO]),
+      selectedTabGroupId: 'session-kyoto',
+    });
+    const exportPage = await context.newPage();
+    // The narrowest width the toolbar is checked at elsewhere without wrapping
+    // a pair; a translation that only fits wider would show here.
+    await exportPage.setViewportSize({ width: 800, height: 600 });
+    await exportPage.goto(
+      `chrome-extension://${extensionId}/export.html?session=session-kyoto`
+    );
+    await expect(exportPage.locator('[role="group"]')).toHaveCount(2);
+    await waitForFontsLoaded(exportPage, ['Material Symbols Outlined']);
+
+    for (let i = 0; i < 2; i++) {
+      const pair = exportPage.locator('[role="group"]').nth(i);
+      for (const moment of ['as opened', 'after a flip']) {
+        if (moment === 'after a flip') {
+          await pair.locator('button[aria-pressed="false"]').click();
+        }
+        const knob = await settledKnob(exportPage, pair);
+        const report = `${language}, pair ${i}, ${moment}: ${JSON.stringify(
+          knob
+        )}`;
+
+        for (const side of ['left', 'right', 'top', 'bottom'] as const) {
+          expect(
+            Math.abs(knob.drawn[side] - knob.pressed[side]),
+            `${side} edge. ${report}`
+          ).toBeLessThanOrEqual(0.5);
+        }
+        expect(
+          knob.cellDrift,
+          `label copies drift. ${report}`
+        ).toBeLessThanOrEqual(0.5);
+        expect(knob.lines, `split across lines. ${report}`).toBe(1);
       }
     }
   });
 }
+
+// The track dips to 97% while pressed, and the knob is measured at the moment
+// the press lands -- so the measurement is taken on a scaled box. A quick click
+// is over before the dip takes hold; holding the mouse button is not. (Holding
+// Space does not dip it: Chrome gives :active to the track for a pointer press
+// only.)
+test('a long press still leaves the knob exactly over the option', async ({
+  context,
+  extensionId,
+}) => {
+  const exportPage = await openExportUnder(context, extensionId, {
+    theme: 'Light',
+  });
+  await settledKnob(exportPage, 'Layout');
+  const comfortable = exportPage.getByRole('button', { name: 'Comfortable' });
+  const box = (await comfortable.boundingBox())!;
+
+  await exportPage.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await exportPage.mouse.down();
+  // CONTROL: the dip really is in effect when the button comes up.
+  await expect
+    .poll(() =>
+      exportPage
+        .getByRole('group', { name: 'Layout' })
+        .evaluate((el) => el.getBoundingClientRect().height)
+    )
+    .toBeLessThan(33.5);
+  await exportPage.mouse.up();
+
+  await expect(comfortable).toHaveAttribute('aria-pressed', 'true');
+  const knob = await settledKnob(exportPage, 'Layout');
+  const report = JSON.stringify(knob);
+  for (const side of ['left', 'right'] as const) {
+    expect(
+      Math.abs(knob.drawn[side] - knob.pressed[side]),
+      `${side} edge. ${report}`
+    ).toBeLessThanOrEqual(0.5);
+  }
+});
+
+// The spring overshoots, and Justine's rule is that the overshoot never
+// crosses the frame. Sampled across the whole transition by pausing it, so the
+// frame at the peak is read rather than hoped for.
+test('the knob springs past its rest and still never leaves the frame', async ({
+  context,
+  extensionId,
+}) => {
+  const exportPage = await openExportUnder(context, extensionId, {
+    theme: 'Light',
+  });
+  const group = exportPage.getByRole('group', { name: 'Layout' });
+  const rest = await settledKnob(exportPage, 'Layout');
+
+  await exportPage.getByRole('button', { name: 'Comfortable' }).click();
+
+  const running = await group.evaluate((el) => {
+    const knob = el.querySelector('[data-sliding-knob]')!;
+    const animations = knob.getAnimations();
+    animations.forEach((a) => a.pause());
+    return animations.length;
+  });
+  expect(running, 'a transition is carrying the knob').toBeGreaterThan(0);
+
+  let overshot = false;
+  for (let t = 0; t <= 400; t += 10) {
+    await group.evaluate((el, time) => {
+      for (const a of el
+        .querySelector('[data-sliding-knob]')!
+        .getAnimations()) {
+        a.currentTime = time;
+      }
+    }, t);
+    const knob = (await knobGeometry(exportPage, 'Layout'))!;
+    if (knob.inset.right < 0) overshot = true;
+    expect(
+      within(knob.drawn, knob.inner),
+      `at ${t}ms: ${JSON.stringify(knob)}`
+    ).toBe(true);
+  }
+  // CONTROL: the sampling saw a real overshoot, so "never left" is not the
+  // trivial result of a motion that never reached the wall.
+  expect(overshot, 'the spring pushes the clip past the wall').toBe(true);
+  expect(rest.pressedName).toBe('Compact');
+});
+
+// KAN-201 stops every transition for the frame the palette changes. Pressing
+// Dark changes the palette, so without its own exemption the Colour knob would
+// jump rather than slide.
+test('pressing Dark slides the knob while the colours switch at once', async ({
+  context,
+  extensionId,
+}) => {
+  const exportPage = await openExportUnder(context, extensionId, {
+    theme: 'Light',
+  });
+  await settledKnob(exportPage, 'Colour');
+  const copy = exportPage.getByRole('button', { name: 'Copy all links' });
+
+  await exportPage.getByRole('button', { name: 'Dark' }).click();
+
+  const slide = await exportPage
+    .getByRole('group', { name: 'Colour' })
+    .evaluate((el) =>
+      el
+        .querySelector('[data-sliding-knob]')!
+        .getAnimations()
+        .map((a) => (a as CSSTransition).transitionProperty)
+    );
+  // Read in the same frame: KAN-201's guarantee still holds for the controls.
+  expect(
+    await copy.evaluate((el) => getComputedStyle(el).backgroundColor)
+  ).toBe('rgb(42, 42, 42)');
+  expect(slide, 'the knob is sliding').toContain('clip-path');
+});
+
+test('with reduced motion the knob moves without sliding', async ({
+  context,
+  extensionId,
+}) => {
+  const exportPage = await openExportUnder(context, extensionId, {
+    theme: 'Light',
+  });
+  await exportPage.emulateMedia({ reducedMotion: 'reduce' });
+  await settledKnob(exportPage, 'Layout');
+
+  await exportPage.getByRole('button', { name: 'Comfortable' }).click();
+
+  const knob = exportPage
+    .getByRole('group', { name: 'Layout' })
+    .locator('[data-sliding-knob]');
+  expect(await knob.evaluate((el) => el.getAnimations().length)).toBe(0);
+  const now = (await knobGeometry(exportPage, 'Layout'))!;
+  expect(now.pressedName).toBe('Comfortable');
+  expect(Math.abs(now.drawn.left - now.pressed.left)).toBeLessThanOrEqual(0.5);
+});
 
 // KAN-201. Pressing Light or Dark left every control in a half-changed state
 // for 200ms -- the old palette's fill under the new palette's text -- because
@@ -737,7 +1024,7 @@ test('compact rows keep a gap from the edge of a group block', async ({
     chooseExport(popup),
   ]);
   await exportPage.waitForLoadState();
-  await exportPage.getByRole('button', { name: 'Compact' }).click();
+  await choose(exportPage, 'Compact');
 
   const preview = exportPage.frameLocator('iframe');
   await expect(preview.getByText('Flights')).toBeVisible();
@@ -787,8 +1074,8 @@ for (const layout of ['Comfortable', 'Compact'] as const) {
         chooseExport(popup),
       ]);
       await exportPage.waitForLoadState();
-      await exportPage.getByRole('button', { name: layout }).click();
-      await exportPage.getByRole('button', { name: scheme }).click();
+      await choose(exportPage, layout);
+      await choose(exportPage, scheme);
 
       const [download] = await Promise.all([
         exportPage.waitForEvent('download'),

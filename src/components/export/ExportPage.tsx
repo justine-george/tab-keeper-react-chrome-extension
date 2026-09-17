@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
-import { css, Global } from '@emotion/react';
+import { css, Global, keyframes } from '@emotion/react';
 
 // `?inline` so the mark is base64 IN the bundle: the exported file must carry
 // its own icon, because it is opened from disk, offline, long after the
@@ -10,6 +10,8 @@ import markDataUri from '../../assets/exportMark.png?inline';
 import Button from '../common/Button';
 import Icon from '../common/Icon';
 import ExportEditor from './ExportEditor';
+import SlidingPair, { type SlidingOption } from './SlidingPair';
+import { KNOB_TRANSITION } from './slidingPairStyle';
 import {
   DARKENHEIMER_THEME,
   isDarkTheme,
@@ -36,11 +38,6 @@ import {
   type ExportScheme,
 } from '../../utils/functions/sessionExportHtml';
 import { copySessionLinks } from '../../utils/functions/copySessionLinks';
-// The export page is excluded from scaleConformance, but ICON.SMALL is the
-// size every other 1.2rem glyph on this toolbar already uses, so the colour
-// pair takes it from the scale rather than repeating the literal.
-import { ICON } from '../../styles/scale';
-import type { IconName } from '../common/iconNames';
 import {
   applyExportEdits,
   countExportEdits,
@@ -65,6 +62,10 @@ export default function ExportPage({ tabGroupId }: { tabGroupId: string }) {
   const dispatch: AppDispatch = useDispatch();
   const FONT_FAMILY = useFontFamily();
   const [copied, setCopied] = useState(false);
+  const copiedTimer = useRef<ReturnType<typeof setTimeout>>();
+  // KAN-221. Set by Edit and Done, never on arrival: the row fades in when it
+  // replaces the other row, not when the page opens.
+  const [rowSwapped, setRowSwapped] = useState(false);
   // KAN-194. Edits are for this export only: held here, applied to a copy,
   // and gone when the tab closes. `writtenEdits` is the set last saved to a
   // file, so closing after saving does not warn about changes already kept.
@@ -230,6 +231,55 @@ export default function ExportPage({ tabGroupId }: { tabGroupId: string }) {
     flex-direction: column;
   `;
 
+  /**
+   * The two choices, each a SlidingPair (KAN-218).
+   *
+   * Colour is GLYPHS and Layout is WORDS, deliberately (KAN-212):
+   *
+   * - the row wraps at the popup width in Russian. Measured at 900px, the
+   *   colour pair cost 168.9px there against 125.5 in English as words, and a
+   *   glyph costs the same in every language.
+   * - light and dark have a symbol everyone already knows. Comfortable and
+   *   compact do not: density_large against density_small is two sets of
+   *   horizontal lines differing by a few pixels of spacing, and neither says
+   *   which one is roomier.
+   *
+   * Both stay PAIRS rather than a lone sun or moon, which cannot say whether it
+   * reports the state you are in or the one you would move to. Both states
+   * shown and one marked is what the shape buys.
+   *
+   * Compact comes first because it is the default (KAN-212); the order is
+   * visual only. The sun turns an eighth of a turn when pressed: its rays are
+   * symmetric at 45 degrees, so it twinkles and comes to rest looking the same.
+   */
+  const layoutOptions = useMemo(
+    () =>
+      [
+        { value: 'compact', label: t('Compact') },
+        { value: 'comfortable', label: t('Comfortable') },
+      ] as const satisfies readonly [
+        SlidingOption<ExportLayout>,
+        SlidingOption<ExportLayout>,
+      ],
+    [t]
+  );
+  const schemeOptions = useMemo(
+    () =>
+      [
+        {
+          value: 'light',
+          label: t('Light'),
+          icon: 'light_mode',
+          pressedTurn: '45deg',
+        },
+        { value: 'dark', label: t('Dark'), icon: 'dark_mode' },
+      ] as const satisfies readonly [
+        SlidingOption<ExportScheme>,
+        SlidingOption<ExportScheme>,
+      ],
+    [t]
+  );
+
   if (!session || !tidied || !edited) {
     return (
       <div css={pageStyle}>
@@ -282,7 +332,9 @@ export default function ExportPage({ tabGroupId }: { tabGroupId: string }) {
   const handleCopy = async () => {
     await copySessionLinks(edited, t, i18n.language);
     setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    // A second copy restarts the two seconds rather than ending the first early.
+    clearTimeout(copiedTimer.current);
+    copiedTimer.current = setTimeout(() => setCopied(false), 2000);
   };
 
   // Reaching into the frame needs same-origin, which is why the preview is
@@ -293,47 +345,62 @@ export default function ExportPage({ tabGroupId }: { tabGroupId: string }) {
     frameRef.current?.contentWindow?.print();
   };
 
-  // A button inside a joined pair: no border of its own, no radius, and a
-  // hairline against its neighbour. The group draws the box.
-  // KAN-199. The fill alone said which segment was pressed, and measured
-  // 1.47:1 on a light page and 1.28:1 on a dark one against the unpressed
-  // fill -- below the 3:1 a state cue needs, and by eye the dark page gave no
-  // answer. The pressed segment now carries a line of its own along the
-  // bottom, in LABEL_L2: the quietest existing token that clears 3:1 on both
-  // palettes (3.15:1 light, 3.37:1 dark). Not TEXT_COLOR at 6.9-7.3:1, the
-  // weight KAN-95 rejected for a passive state marker.
-  //
-  // An inset shadow, not a border or an outline: it is drawn inside the box,
-  // so it cannot resize the segment or spill into its neighbour -- the
-  // collision KAN-95 hit with an outline ring.
-  const segmentStyle = (selected: boolean, first: boolean) => `
-    height: 100%;
-    padding: 6px 14px;
-    border: 0;
-    border-radius: 0;
-    ${first ? '' : `border-left: 1px solid ${COLORS.BORDER_COLOR};`}
-    background-color: ${
-      selected ? COLORS.SELECTION_COLOR : COLORS.PRIMARY_COLOR
-    };
-    ${selected ? `box-shadow: inset 0 -2px 0 ${COLORS.LABEL_L2_COLOR};` : ''}
-  `;
-
   // Icon carries 4px of its own padding all round, and Button adds 8px to
   // its right -- so the gap left of the icon was 4px wider than the gap right
   // of the label. Dropping the left padding makes the button symmetrical.
   const actionIconStyle = 'padding-left: 0; padding-right: 6px;';
 
-  // 34px outside, border included, like every other control on the row. As
-  // content-box around 34px buttons the pair stood 36px, so the resting row was
-  // 2px taller than the editing row and the page rose when Edit was pressed.
-  const groupStyle = css`
-    box-sizing: border-box;
-    height: 34px;
-    display: inline-flex;
-    align-items: stretch;
-    border: 1px solid ${COLORS.BORDER_COLOR};
-    border-radius: 3px;
-    overflow: hidden;
+  /**
+   * KAN-221. How the toolbar's actions move, from Justine's picks after a
+   * review against Emil Kowalski's animation guidance. Export page only: the
+   * popup's Buttons are unchanged.
+   *
+   * - Held, an action dips to 97% over 160ms on a strong ease-out, so a press
+   *   is felt before anything else happens. Not while unavailable.
+   * - Hover fills only for a mouse or trackpad. A tap otherwise leaves the
+   *   hover fill stuck on, so for any other pointer hover shows the rest fill.
+   * - Reduced motion keeps the colour and drops the dip.
+   *
+   * `rest` and `press` are the button's own fills, so the touch override and
+   * the press can be restated here, after Button's rules and the caller's.
+   */
+  const actionMotion = (rest: string, press: string) => `
+    transition:
+      background-color 120ms ease,
+      transform 160ms cubic-bezier(0.23, 1, 0.32, 1);
+    @media not all and (hover: hover) and (pointer: fine) {
+      &:hover {
+        background-color: ${rest};
+      }
+    }
+    &:active:not([aria-disabled='true']) {
+      transform: scale(0.97);
+      background-color: ${press};
+    }
+    @media (prefers-reduced-motion: reduce) {
+      transition: background-color 120ms ease;
+      &:active:not([aria-disabled='true']) {
+        transform: none;
+      }
+    }
+  `;
+
+  const actionStyle = `height: 34px; padding: 6px 14px; ${actionMotion(
+    COLORS.PRIMARY_COLOR,
+    COLORS.ICON_ACTIVE_COLOR
+  )}`;
+
+  // KAN-221. The row that replaces the other one on Edit or Done fades in from
+  // 40% with a 2px blur, and does not move. Nothing under reduced motion.
+  const rowIn = keyframes`
+    from {
+      opacity: 0.4;
+      filter: blur(2px);
+    }
+    to {
+      opacity: 1;
+      filter: blur(0);
+    }
   `;
 
   const dividerStyle = css`
@@ -354,59 +421,11 @@ export default function ExportPage({ tabGroupId }: { tabGroupId: string }) {
     margin-left: auto;
   `;
 
-  /**
-   * One half of the colour pair (KAN-212).
-   *
-   * A GLYPH rather than a word, unlike its neighbour. Two reasons, and the
-   * second is why the layout pair below is deliberately not the same:
-   *
-   * - the row wraps at the popup width in Russian. Measured at 900px, this pair
-   *   costs 168.9px there against 125.5 in English, and a glyph costs the same
-   *   in every language.
-   * - light and dark have a symbol everyone already knows. Comfortable and
-   *   compact do not: density_large against density_small is two sets of
-   *   horizontal lines differing by a few pixels of spacing, and neither says
-   *   which one is roomier. Matching the pairs by making the readable one worse
-   *   would be consistency for its own sake.
-   *
-   * This stays a PAIR rather than becoming one toggle. A lone sun or moon
-   * cannot say whether it reports the state you are in or the one you would
-   * move to -- opposite readings, with nothing on screen to settle it. Both
-   * states shown and one marked is what the segmented shape was buying.
-   *
-   * `ariaLabel` and `tooltipText` both carry the word, because the glyph cannot:
-   * Icon renders it aria-hidden inside the Button, so without a label this
-   * control would have no accessible name at all.
-   */
-  const schemeButton = (
-    value: ExportScheme,
-    label: string,
-    icon: IconName,
-    first: boolean
-  ) => (
-    <Button
-      iconType={icon}
-      iconSize={ICON.SMALL}
-      ariaLabel={label}
-      tooltipText={label}
-      ariaPressed={scheme === value}
-      onClick={() => setPageScheme(value)}
-      // The word's horizontal padding would leave a 1.2rem glyph adrift in a
-      // 62px button, so the segment is tightened to sit around the icon.
-      style={segmentStyle(scheme === value, first) + 'padding: 6px 10px;'}
-    />
-  );
-
-  const layoutButton = (value: ExportLayout, label: string, first: boolean) => (
-    <Button
-      text={label}
-      ariaLabel={label}
-      ariaPressed={layout === value}
-      onClick={() => dispatch(setExportLayout(value))}
-      style={segmentStyle(layout === value, first)}
-    />
-  );
-
+  // KAN-220. The primary holds its HOVER fill while pressed, and the dip is
+  // its press cue. The next rung, LABEL_L2, puts the label at 4.32:1 on the
+  // dark page, below 4.5 -- the limit KAN-204 hit with the danger buttons. It
+  // used to hold that fill by accident: this :hover came after Button's
+  // :active, and nothing else moved, so pressing looked exactly like hovering.
   const primaryStyle = `
               height: 34px;
               padding: 6px 14px;
@@ -417,6 +436,12 @@ export default function ExportPage({ tabGroupId }: { tabGroupId: string }) {
               &:hover {
                 background-color: ${COLORS.LABEL_L1_COLOR};
                 border-color: ${COLORS.LABEL_L1_COLOR};
+              }
+              ${actionMotion(COLORS.TEXT_COLOR, COLORS.LABEL_L1_COLOR)}
+              @media not all and (hover: hover) and (pointer: fine) {
+                &:hover {
+                  border-color: ${COLORS.TEXT_COLOR};
+                }
               }
             `;
 
@@ -441,6 +466,20 @@ export default function ExportPage({ tabGroupId }: { tabGroupId: string }) {
           }
           [data-scheme-switching] * {
             transition: none !important;
+          }
+          /* KAN-218. Except the knobs: pressing Light or Dark changes the
+             palette in the same commit that moves the Colour knob, and the rule
+             above would make it jump. Only the knob's own motion comes back --
+             clip-path on the knob, rotate inside it -- so every colour still
+             switches at once. Never under reduced motion, where the knob does
+             not move at all. */
+          @media (prefers-reduced-motion: no-preference) {
+            [data-scheme-switching] [data-sliding-knob] {
+              transition: clip-path ${KNOB_TRANSITION} !important;
+            }
+            [data-scheme-switching] [data-sliding-knob] * {
+              transition: rotate ${KNOB_TRANSITION} !important;
+            }
           }
         `}
       />
@@ -507,11 +546,24 @@ export default function ExportPage({ tabGroupId }: { tabGroupId: string }) {
           </div>
 
           <div
+            // Keyed by mode so the new row mounts, and its fade plays, on
+            // every swap.
+            key={editing ? 'editing' : 'preview'}
+            data-toolbar-row
+            data-swapped={rowSwapped}
             css={css`
               display: flex;
               align-items: center;
               gap: 10px;
               flex-wrap: wrap;
+              &[data-swapped='true'] {
+                animation: ${rowIn} 180ms cubic-bezier(0.23, 1, 0.32, 1);
+              }
+              @media (prefers-reduced-motion: reduce) {
+                &[data-swapped='true'] {
+                  animation: none;
+                }
+              }
             `}
           >
             {editing ? (
@@ -538,13 +590,19 @@ export default function ExportPage({ tabGroupId }: { tabGroupId: string }) {
                     text={t('Reset')}
                     ariaLabel={t('Reset')}
                     onClick={() => setEdits(NO_EXPORT_EDITS)}
-                    style={`height: 34px; padding: 6px 14px;`}
+                    // KAN-221. Nothing to put back until something is edited;
+                    // the same count as the tally beside it, so they agree.
+                    ariaDisabled={tally.renamed === 0 && tally.hiddenTabs === 0}
+                    style={actionStyle}
                   />
                   <Button
                     text={t('Done')}
                     ariaLabel={t('Done')}
                     iconType="check"
-                    onClick={() => setEditing(false)}
+                    onClick={() => {
+                      setEditing(false);
+                      setRowSwapped(true);
+                    }}
                     iconSize="1.2rem"
                     iconColor={COLORS.PRIMARY_COLOR}
                     iconStyle={actionIconStyle}
@@ -560,20 +618,27 @@ export default function ExportPage({ tabGroupId }: { tabGroupId: string }) {
                   text={t('Edit')}
                   ariaLabel={t('Edit')}
                   iconType="edit"
-                  onClick={() => setEditing(true)}
+                  onClick={() => {
+                    setEditing(true);
+                    setRowSwapped(true);
+                  }}
                   iconSize="1.2rem"
                   iconStyle={actionIconStyle}
-                  style={`height: 34px; padding: 6px 14px;`}
+                  style={actionStyle}
                 />
                 <span aria-hidden="true" css={dividerStyle} />
-                <span css={groupStyle} role="group" aria-label={t('Layout')}>
-                  {layoutButton('comfortable', t('Comfortable'), true)}
-                  {layoutButton('compact', t('Compact'), false)}
-                </span>
-                <span css={groupStyle} role="group" aria-label={t('Colour')}>
-                  {schemeButton('light', t('Light'), 'light_mode', true)}
-                  {schemeButton('dark', t('Dark'), 'dark_mode', false)}
-                </span>
+                <SlidingPair
+                  label={t('Layout')}
+                  options={layoutOptions}
+                  value={layout}
+                  onChange={(value) => dispatch(setExportLayout(value))}
+                />
+                <SlidingPair
+                  label={t('Colour')}
+                  options={schemeOptions}
+                  value={scheme}
+                  onChange={setPageScheme}
+                />
                 {/* Deciding ends here; what follows leaves the page, from the
               end of the row -- the primary stands where Done stands while
               editing. KAN-207 made that the PDF output rather than the HTML
@@ -588,9 +653,16 @@ export default function ExportPage({ tabGroupId }: { tabGroupId: string }) {
                     ariaLabel={t('Copy all links')}
                     iconType="link"
                     onClick={handleCopy}
+                    // KAN-221. "Copied" appears in the button, where the click
+                    // was, rather than in a toast across the page.
+                    secondFace={{
+                      iconType: 'check',
+                      text: t('Copied'),
+                      shown: copied,
+                    }}
                     iconSize="1.2rem"
                     iconStyle={actionIconStyle}
-                    style={`height: 34px; padding: 6px 14px;`}
+                    style={actionStyle}
                   />
                   <Button
                     text={t('Save as HTML')}
@@ -599,7 +671,7 @@ export default function ExportPage({ tabGroupId }: { tabGroupId: string }) {
                     onClick={handleSave}
                     iconSize="1.2rem"
                     iconStyle={actionIconStyle}
-                    style={`height: 34px; padding: 6px 14px;`}
+                    style={actionStyle}
                   />
                   <Button
                     // KAN-207. Deliberately still "PDF / Print", not "Save as
@@ -628,29 +700,22 @@ export default function ExportPage({ tabGroupId }: { tabGroupId: string }) {
           </div>
         </div>
 
-        {copied && (
-          <div
-            role="status"
-            css={css`
-              /* Floating, not in the flow: as a block this pushed the whole
-               preview down and pulled it back two seconds later, so the
-               confirmation moved the thing it was confirming. */
-              position: fixed;
-              right: 16px;
-              bottom: 16px;
-              z-index: 2;
-              pointer-events: none;
-              padding: 8px 14px;
-              border-radius: 4px;
-              font-size: 0.85rem;
-              color: ${COLORS.PRIMARY_COLOR};
-              background-color: ${COLORS.TEXT_COLOR};
-              box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
-            `}
-          >
-            {t('Links copied')}
-          </div>
-        )}
+        {/* KAN-221. The button shows "Copied"; this says it to a screen
+          reader, which cannot see the swap. Visually hidden, not a toast. */}
+        <div
+          role="status"
+          css={css`
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            margin: -1px;
+            overflow: hidden;
+            clip-path: inset(50%);
+            white-space: nowrap;
+          `}
+        >
+          {copied ? t('Links copied') : ''}
+        </div>
 
         {editing ? (
           <ExportEditor

@@ -56,7 +56,7 @@ mkdirSync(OUT, { recursive: true });
 const names = [...LIGATURE_ICON_NAMES].sort();
 const symbols = await faces(
   'https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:' +
-    `opsz,wght,FILL,GRAD@48,400,0,0&icon_names=${names.join(',')}`
+    `opsz,wght,FILL,GRAD@48,400,0..1,0&icon_names=${names.join(',')}`
 );
 if (symbols.length !== 1) {
   throw new Error(`expected one Material Symbols face, got ${symbols.length}`);

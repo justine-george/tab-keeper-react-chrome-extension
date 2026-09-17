@@ -42,17 +42,37 @@ describe('switching the page light or dark does not flicker (KAN-201)', () => {
       'nothing is switching at rest'
     ).toBe(false);
 
-    await user.click(screen.getByRole('button', { name: 'Dark' }));
+    // Watched, not polled. The marker lives for two frames, and this used to
+    // read it once after `await user.click` -- which, under a loaded full
+    // suite, sometimes returned after those frames had passed (KAN-219). The
+    // observer records the moment the marker goes on, and what the controls
+    // looked like at that moment.
+    const root = document.documentElement;
+    let fillWhenMarked: string | undefined;
+    const observer = new MutationObserver(() => {
+      if (
+        fillWhenMarked === undefined &&
+        root.hasAttribute('data-scheme-switching')
+      ) {
+        fillWhenMarked = getComputedStyle(
+          screen.getByRole('button', { name: 'Copy all links' })
+        ).backgroundColor;
+      }
+    });
+    observer.observe(root, {
+      attributes: true,
+      attributeFilter: ['data-scheme-switching'],
+    });
 
-    expect(
-      document.documentElement.hasAttribute('data-scheme-switching'),
-      'the marker is set in the same commit that repaints the controls'
-    ).toBe(true);
+    await user.click(screen.getByRole('button', { name: 'Dark' }));
     await waitFor(() =>
-      expect(
-        document.documentElement.hasAttribute('data-scheme-switching')
-      ).toBe(false)
+      expect(root.hasAttribute('data-scheme-switching')).toBe(false)
     );
+    observer.disconnect();
+
+    // Set, and by then the controls already wore the dark palette: the marker
+    // is on in the same commit that repaints them.
+    expect(fillWhenMarked, 'the marker was set').toBe('rgb(42, 42, 42)');
   });
 
   // The rule the marker exists for. Without it the marker marks nothing.

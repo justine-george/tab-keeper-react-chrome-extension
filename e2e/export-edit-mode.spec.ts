@@ -233,12 +233,14 @@ test('a hidden row stays in the editor, faded, until it is shown again', async (
     .getByRole('button', { name: 'Hide: justine-george/RealTalk' })
     .click();
   await expect(field).toBeVisible();
-  expect(await opacity()).toBeLessThan(0.6);
+  // Polled: since KAN-222 the row fades over 150ms rather than in the frame of
+  // the click, so a single read here sees the start of the fade.
+  await expect.poll(opacity).toBeLessThan(0.6);
 
   await page
     .getByRole('button', { name: 'Hide: justine-george/RealTalk' })
     .click();
-  expect(await opacity()).toBe(1);
+  await expect.poll(opacity).toBe(1);
 });
 
 // Chrome draws its own leave dialog, and only when a beforeunload listener

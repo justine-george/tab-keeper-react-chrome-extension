@@ -602,7 +602,7 @@ describe('the toolbar says which controls are choices (KAN-190)', () => {
       within(layout)
         .getAllByRole('button')
         .map((b) => b.getAttribute('aria-label'))
-    ).toEqual(['Comfortable', 'Compact']);
+    ).toEqual(['Compact', 'Comfortable']);
 
     const colour = screen.getByRole('group', { name: 'Colour' });
     expect(

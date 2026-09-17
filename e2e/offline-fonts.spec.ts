@@ -23,32 +23,56 @@ const SESSION = buildSession({
   isSelected: true,
 });
 
-/** Every visible icon: its ligature, its box width, its laid-out text width. */
+/**
+ * Every visible icon: its ligature, and how far its content overflows its box.
+ *
+ * Read in LAYOUT space (scrollWidth against clientWidth), not from bounding
+ * rects. A rect is transformed: KAN-218's knob turns its sun 45 degrees, which
+ * grows a glyph's text rect more than its square box and read as "drew as
+ * text" at 31.1 against 28.3 -- a correct glyph. A ligature that falls back to
+ * its name overflows the fixed-width box whatever the transform.
+ */
 async function iconWidths(page: Page) {
   return page.evaluate(() =>
     [...document.querySelectorAll('span.material-symbols-outlined')]
-      .map((el) => {
-        const range = document.createRange();
-        range.selectNodeContents(el);
-        return {
-          name: el.textContent,
-          box: el.getBoundingClientRect().width,
-          text: range.getBoundingClientRect().width,
-        };
-      })
+      .map((el) => ({
+        name: el.textContent,
+        box: el.clientWidth,
+        overflow: el.scrollWidth - el.clientWidth,
+      }))
       .filter((icon) => icon.box > 0)
   );
 }
 
 async function expectGlyphs(page: Page) {
   await waitForFontsLoaded(page);
+
+  // CONTROL: a real Material Symbols name the subset does not carry renders as
+  // its name. The measurement must flag it, or it could not see the KAN-215
+  // bug it exists for.
+  await page.evaluate(() => {
+    const probe = document.createElement('span');
+    probe.className = 'material-symbols-outlined';
+    probe.dataset.probe = 'text';
+    probe.style.cssText =
+      'position:absolute;top:0;left:0;font-size:24px;width:24px;height:24px';
+    probe.textContent = 'delete_forever';
+    document.body.append(probe);
+  });
+  const withProbe = await iconWidths(page);
+  expect(
+    withProbe.find((icon) => icon.name === 'delete_forever')?.overflow,
+    'the control name must read as text'
+  ).toBeGreaterThan(1);
+  await page.evaluate(
+    () => document.querySelector('[data-probe="text"]')?.remove()
+  );
+
   const icons = await iconWidths(page);
   // CONTROL: an empty list would pass every per-icon assertion below.
   expect(icons.length).toBeGreaterThan(0);
   for (const icon of icons) {
-    expect(icon.text, `"${icon.name}" drew as text`).toBeLessThanOrEqual(
-      icon.box + 1
-    );
+    expect(icon.overflow, `"${icon.name}" drew as text`).toBeLessThanOrEqual(1);
   }
 }
 
