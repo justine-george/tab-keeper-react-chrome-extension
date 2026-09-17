@@ -76,7 +76,7 @@ const WEB_URLS = [
   'https://inari.jp/en/',
 ];
 
-const EXPORT_ITEM = 'Export as PDF / HTML file';
+const EXPORT_ITEM = 'Export…';
 
 /**
  * Export lives in the session header's More actions menu (KAN-193), so every
@@ -895,9 +895,7 @@ test('the toolbar survives German at the popup width', async ({
 
   const [exportPage] = await Promise.all([
     context.waitForEvent('page'),
-    popup
-      .getByRole('menuitem', { name: 'Als PDF / HTML-Datei exportieren' })
-      .click(),
+    popup.getByRole('menuitem', { name: 'Exportieren…' }).click(),
   ]);
   await exportPage.waitForLoadState();
   await exportPage.setViewportSize({ width: 800, height: 600 });
