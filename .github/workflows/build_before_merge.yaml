@@ -5,9 +5,21 @@ on:
     branches:
       - main
 
+# KAN-227. Three kinds of job, so the slow part runs side by side:
+#
+#   checks  lint, unit tests, E2E typecheck             one runner
+#   e2e     the E2E suite, split into SHARD_TOTAL parts one runner per part
+#   gate    "Build before merge": passes only if every job above did
+#
+# This was one job of ~10 minutes, 7m17s of it the E2E suite running serially
+# (workers: 1) -- 61% of playwright.config.ts's 12-minute globalTimeout and
+# growing with every feature. Each shard is its own VM, so shards never compete
+# for CPU: the contention behind the drag flakes (KAN-191/196/200) is not
+# reintroduced, which raising `workers` on one runner would risk.
+
 jobs:
-  build:
-    name: Build before merge
+  checks:
+    name: Lint, unit tests, E2E typecheck
     runs-on: ubuntu-latest
 
     steps:
@@ -40,6 +52,32 @@ jobs:
       - name: Typecheck E2E specs
         run: npm run typecheck:e2e
 
+  e2e:
+    name: E2E shard ${{ matrix.shard }} of 3
+    runs-on: ubuntu-latest
+    strategy:
+      # Every shard runs to the end: a red one should not hide what the others
+      # would have found. retries stays 0 in playwright.config.ts for the same
+      # reason.
+      fail-fast: false
+      matrix:
+        # Balanced on measured time, not count: 33% / 31% / 36% of a full
+        # local run's test time (113 / 103 / 106 tests). Change this list and
+        # the `--shard` total below together.
+        shard: [1, 2, 3]
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        uses: bahmutov/npm-install@v1
+
       # `build:e2e`, not `build`: it chains the prune step, so CI now produces
       # the artifact that actually ships (the release workflow strips remotely
       # hosted Firebase URLs after building) and the suite below drives that
@@ -51,6 +89,9 @@ jobs:
       # So this step is also the regression test for that: if the crash ever
       # comes back, the E2E suite below goes red here rather than in a user's
       # popup. The real values stay where they belong, in the release workflow.
+      #
+      # Built on every shard, from the same commit: a shard must never drive a
+      # dist it did not build (KAN-142).
       - name: Generate dist folder
         run: npm run build:e2e
 
@@ -63,16 +104,40 @@ jobs:
       # -- run this locally without building first and it silently drives a
       # stale dist, which is how KAN-142's first bisect went wrong.
       - name: Run E2E tests
-        run: npx playwright test
+        run: npx playwright test --shard=${{ matrix.shard }}/3
 
       # trace: 'retain-on-failure' produces nothing anyone can open unless the
-      # traces leave the runner.
+      # traces leave the runner. One artifact per shard: names must be unique.
       - name: Upload Playwright artifacts
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-results
+          name: playwright-results-shard-${{ matrix.shard }}
           path: |
             playwright-report/
             test-results/
           retention-days: 7
+
+  # The one status check `main`'s branch protection requires, by name. Keeping
+  # the name here means the protection setting does not change.
+  #
+  # `if: always()` is load-bearing. Without it, a failed shard makes this job
+  # SKIPPED -- and GitHub treats a skipped required check as passing, so a red
+  # suite would merge. It runs whatever happened above, and fails unless every
+  # job it depends on succeeded.
+  gate:
+    name: Build before merge
+    runs-on: ubuntu-latest
+    needs: [checks, e2e]
+    if: always()
+
+    steps:
+      - name: Every job succeeded
+        env:
+          CHECKS: ${{ needs.checks.result }}
+          E2E: ${{ needs.e2e.result }}
+        run: |
+          echo "checks: $CHECKS"
+          echo "e2e (all shards): $E2E"
+          test "$CHECKS" = success
+          test "$E2E" = success
