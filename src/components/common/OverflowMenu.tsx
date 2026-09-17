@@ -3,6 +3,7 @@ import React from 'react';
 import { css } from '@emotion/react';
 
 import Icon from './Icon';
+import type { IconName } from './iconNames';
 import { useFontFamily } from '../../hooks/useFontFamily';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { usePopoverList } from '../../hooks/usePopoverList';
@@ -14,7 +15,7 @@ export interface OverflowMenuItem {
   /** The visible text, and the item's accessible name. Must be translated. */
   label: string;
   /** A Material Symbols ligature, rendered decoratively. */
-  icon: string;
+  icon: IconName;
   onSelect: () => void;
   /** Paints the glyph with the delete hover colour, as row delete icons do. */
   danger?: boolean;
@@ -31,6 +32,10 @@ export interface OverflowMenuItem {
   checked?: boolean;
 }
 
+// A ligature written as JSX text would bypass IconName, and a name missing from
+// the bundled subset renders as the word itself (KAN-215).
+const RADIO_CHECK_ICON: IconName = 'check';
+
 interface OverflowMenuProps {
   /** Names the trigger. Must be translated. */
   ariaLabel: string;
@@ -43,7 +48,7 @@ interface OverflowMenuProps {
    * are all one KIND of thing wants a glyph naming that kind instead -- the
    * session sort menu (KAN-136) is a sort control, not an overflow.
    */
-  triggerIcon?: string;
+  triggerIcon?: IconName;
   /**
    * Fires whenever the menu opens or closes.
    *
@@ -271,7 +276,7 @@ const OverflowMenu: React.FC<OverflowMenuProps> = ({
                     visibility: ${item.checked ? 'visible' : 'hidden'};
                   `}
                 >
-                  check
+                  {RADIO_CHECK_ICON}
                 </span>
               )}
             </button>

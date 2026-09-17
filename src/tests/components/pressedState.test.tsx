@@ -38,11 +38,7 @@ const DELETE = asWritten(LIGHT_THEME.DELETE_ICON_HOVER_COLOR);
 describe('a press is confirmed on every interactive surface (KAN-205)', () => {
   test('an actionable icon presses one rung past its hover', async () => {
     await renderWithProviders(
-      <Icon
-        type="delete_forever"
-        ariaLabel="Delete"
-        onClick={() => undefined}
-      />
+      <Icon type="settings" ariaLabel="Delete" onClick={() => undefined} />
     );
 
     const icon = screen.getByRole('button', { name: 'Delete' });
@@ -110,7 +106,7 @@ describe('a press is confirmed on every interactive surface (KAN-205)', () => {
   // mentions the token somewhere; this is what makes them claims about a rule
   // that actually fires on :active.
   test('CONTROL: a non-actionable icon gets no press at all', async () => {
-    await renderWithProviders(<Icon type="info" />);
+    await renderWithProviders(<Icon type="settings" />);
 
     const icon = document.querySelector('.material-symbols-outlined')!;
     expect(activeRulesFor(icon)).toBe('');

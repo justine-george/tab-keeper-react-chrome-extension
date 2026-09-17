@@ -24,6 +24,7 @@ import {
 import { SettingsCategory } from '../../../redux/slices/settingsCategoryStateSlice';
 import { setSessionDateBasis } from '../../../redux/slices/settingsDataStateSlice';
 import { useTranslation } from 'react-i18next';
+import type { IconName } from '../../common/iconNames';
 
 export default function MenuContainer() {
   const syncStatus = useSelector(
@@ -75,7 +76,7 @@ export default function MenuContainer() {
   // popup open, so `isDirty === false` means "no edits yet this session", not
   // "the two sides agree" -- with auto-sync off nothing has been compared at
   // all. Only a completed sync knows that, which is what syncStatus records.
-  let syncIconType: string;
+  let syncIconType: IconName;
   let isDisabled = false;
   if (!isSignedIn) {
     syncIconType = 'cloud_off';
