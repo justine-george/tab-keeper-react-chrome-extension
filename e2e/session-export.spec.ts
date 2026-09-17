@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import type { Locator, Page } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
+import { sessionHeaderMenu } from './fixtures/menus';
 import { waitForFontsLoaded } from './fixtures/fonts';
 import {
   buildContainer,
@@ -84,7 +85,7 @@ const EXPORT_ITEM = 'Export…';
  * can sit inside the Promise.all that waits for the new tab.
  */
 async function chooseExport(popup: Page) {
-  await popup.getByRole('button', { name: 'More actions' }).click();
+  await sessionHeaderMenu(popup).click();
   await popup.getByRole('menuitem', { name: EXPORT_ITEM }).click();
 }
 
@@ -99,9 +100,7 @@ async function openPopup(
   });
   const page = await context.newPage();
   await page.goto(`chrome-extension://${extensionId}/index.html`);
-  await expect(
-    page.getByRole('button', { name: 'More actions' })
-  ).toBeVisible();
+  await expect(sessionHeaderMenu(page)).toBeVisible();
   return page;
 }
 
@@ -889,7 +888,9 @@ test('the toolbar survives German at the popup width', async ({
 
   const popup = await context.newPage();
   await popup.goto(`chrome-extension://${extensionId}/index.html`);
-  const moreActions = popup.getByRole('button', { name: 'Weitere Aktionen' });
+  // Scoped to the right pane: the save row's menu carries the same name
+  // since KAN-208.
+  const moreActions = sessionHeaderMenu(popup, 'Weitere Aktionen');
   await expect(moreActions).toBeVisible();
   await moreActions.click();
 
@@ -1143,7 +1144,7 @@ test('the session menu paints above the tab rows it opens over', async ({
   extensionId,
 }) => {
   const popup = await openPopup(context, extensionId);
-  await popup.getByRole('button', { name: 'More actions' }).click();
+  await sessionHeaderMenu(popup).click();
 
   const items = popup.getByRole('menuitem');
   // Copy, Export, Delete (KAN-209 added the first). A precondition rather than
@@ -1212,9 +1213,10 @@ for (const lang of ['en', 'de'] as const) {
     await popup.setViewportSize({ width: 790, height: 550 });
     await popup.goto(`chrome-extension://${extensionId}/index.html`);
 
-    const trigger = popup.getByRole('button', {
-      name: lang === 'de' ? 'Weitere Aktionen' : 'More actions',
-    });
+    const trigger = sessionHeaderMenu(
+      popup,
+      lang === 'de' ? 'Weitere Aktionen' : 'More actions'
+    );
     await expect(trigger).toBeVisible();
     await trigger.click();
     await expect(popup.getByRole('menu')).toBeVisible();

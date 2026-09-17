@@ -573,3 +573,145 @@ describe('a captured tab keeps the page name, not the badge (KAN-211)', () => {
     }
   });
 });
+
+// KAN-208. The export page captures the open windows for itself, and it is
+// one of them: chrome.windows.getAll lists the page's own tab. It asks for
+// that tab to be left out, by id.
+describe('captureOpenWindows can leave one tab out (KAN-208)', () => {
+  let handle: ReturnType<typeof setupChromeFake> | undefined;
+
+  afterEach(() => {
+    handle?.restore();
+    handle = undefined;
+  });
+
+  const OWN = 'chrome-extension://faketestid/export.html?source=open-windows';
+
+  const seed = () => ({
+    windows: [
+      {
+        id: 1,
+        tabs: [
+          { id: 10, url: OWN, title: 'Tab Keeper' },
+          { id: 11, url: A, title: 'A' },
+        ] as chrome.tabs.Tab[],
+      },
+      { id: 2, tabs: [{ id: 12, url: B, title: 'B' }] as chrome.tabs.Tab[] },
+    ],
+  });
+
+  test('drops the named tab and nothing else', async () => {
+    handle = setupChromeFake(seed());
+
+    const captured = await captureOpenWindows('probe', 'all-windows', {
+      excludeTabId: 10,
+    });
+
+    expect(captured!.windows.map((w) => w.tabs.map((t) => t.url))).toEqual([
+      [A],
+      [B],
+    ]);
+    expect(captured!.tabCount).toBe(2);
+    expect(captured!.windows[0].tabCount).toBe(1);
+  });
+
+  // CONTROL: the same seed, no option -- the tab is there. Without this, a
+  // fake that never returned the tab at all would pass the test above.
+  test('CONTROL: without the option the same seed keeps that tab', async () => {
+    handle = setupChromeFake(seed());
+
+    const captured = await captureOpenWindows('probe', 'all-windows');
+
+    expect(captured!.windows[0].tabs.map((t) => t.url)).toEqual([OWN, A]);
+    expect(captured!.tabCount).toBe(3);
+  });
+
+  test('the window title follows the first tab that is kept', async () => {
+    handle = setupChromeFake(seed());
+
+    const captured = await captureOpenWindows('probe', 'all-windows', {
+      excludeTabId: 10,
+    });
+
+    expect(captured!.windows[0].title).toBe('A');
+  });
+
+  test('a window holding only that tab is dropped, not kept empty', async () => {
+    handle = setupChromeFake({
+      windows: [
+        {
+          id: 1,
+          tabs: [
+            { id: 10, url: OWN, title: 'Tab Keeper' },
+          ] as chrome.tabs.Tab[],
+        },
+        { id: 2, tabs: [{ id: 12, url: B, title: 'B' }] as chrome.tabs.Tab[] },
+      ],
+    });
+
+    const captured = await captureOpenWindows('probe', 'all-windows', {
+      excludeTabId: 10,
+    });
+
+    expect(captured!.windows).toHaveLength(1);
+    expect(captured!.windowCount).toBe(1);
+    expect(captured!.windows[0].tabs[0].url).toBe(B);
+  });
+
+  test('returns null when that tab was the only tab open', async () => {
+    handle = setupChromeFake({
+      windows: [
+        {
+          id: 1,
+          tabs: [
+            { id: 10, url: OWN, title: 'Tab Keeper' },
+          ] as chrome.tabs.Tab[],
+        },
+      ],
+    });
+
+    expect(
+      await captureOpenWindows('probe', 'all-windows', { excludeTabId: 10 })
+    ).toBeNull();
+  });
+
+  // By id, not by address: a second Tab Keeper page that is genuinely open
+  // still appears. Matching on URL would silently drop it.
+  test('a second tab at the same address stays', async () => {
+    handle = setupChromeFake({
+      windows: [
+        {
+          id: 1,
+          tabs: [
+            { id: 10, url: OWN, title: 'Tab Keeper' },
+            { id: 13, url: OWN, title: 'Tab Keeper' },
+          ] as chrome.tabs.Tab[],
+        },
+      ],
+    });
+
+    const captured = await captureOpenWindows('probe', 'all-windows', {
+      excludeTabId: 10,
+    });
+
+    expect(captured!.windows[0].tabs.map((t) => t.url)).toEqual([OWN]);
+  });
+
+  // The worst path. The filter must be guarded on the OPTION, not on tab.id:
+  // `tab.id !== undefined` with no exclusion asked for would drop every tab
+  // Chrome reports without an id -- and the popup's save path never asks.
+  test('with no exclusion asked for, a tab Chrome reports without an id is kept', async () => {
+    handle = setupChromeFake({
+      windows: [
+        {
+          id: 1,
+          tabs: [{ id: undefined, url: A, title: 'A' }] as chrome.tabs.Tab[],
+        },
+      ],
+    });
+
+    const captured = await captureOpenWindows('probe', 'all-windows');
+
+    expect(captured!.windows[0].tabs).toHaveLength(1);
+  });
+});

@@ -66,8 +66,13 @@ export const EXPORT_PALETTE: Record<ExportScheme, ExportPalette> = {
 export interface SessionExportOptions {
   layout: ExportLayout;
   scheme: ExportScheme;
-  /** Locale-formatted, as the session header shows it. */
-  dateLabel: string;
+  /**
+   * Locale-formatted, as the session header shows it.
+   *
+   * Absent for a capture of the open windows (KAN-208), which has no history
+   * to describe; the counts then stand alone.
+   */
+  dateLabel?: string;
   /** Locale-formatted, e.g. "2 Windows - 9 Tabs". */
   countsLabel: string;
   /** Per-window heading suffix, e.g. (3) => "3 Tabs". */
@@ -303,6 +308,13 @@ export function sessionToHtml(
     .map((window, index) => windowHtml(window, index, options))
     .join('');
 
+  // Joined rather than concatenated, so a capture with no date line (KAN-208)
+  // does not open on a separator saying one was meant to be there.
+  const meta = [options.dateLabel, options.countsLabel]
+    .filter((part): part is string => part !== undefined)
+    .map(escapeHtml)
+    .join(' · ');
+
   return (
     `<!doctype html><html><head><meta charset="utf-8">` +
     `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:">` +
@@ -310,9 +322,7 @@ export function sessionToHtml(
     `<title>${title}</title><style>${styles(options.scheme)}</style></head>` +
     `<body class="${options.layout}"><main>` +
     `<h1>${title}</h1>` +
-    `<p class="meta">${escapeHtml(options.dateLabel)} · ${escapeHtml(
-      options.countsLabel
-    )}</p>` +
+    `<p class="meta">${meta}</p>` +
     `${windows}${signature(options)}</main></body></html>`
   );
 }

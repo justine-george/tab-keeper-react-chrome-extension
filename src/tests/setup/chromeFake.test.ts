@@ -62,6 +62,49 @@ describe('chrome.tabs fake', () => {
   });
 });
 
+// KAN-208. The export page asks which tab it is, so it can leave itself out
+// of a capture. Chrome answers undefined from anything that is not a tab --
+// the popup, the worker -- and the fake keeps that shape rather than minting
+// a tab: a seed naming an id no tab carries must not be papered over.
+describe('chrome.tabs.getCurrent fake', () => {
+  test('answers with the seeded current tab', async () => {
+    handle = setupChromeFake({
+      tabs: [
+        { id: 1, title: 'Popup' },
+        { id: 2, title: 'Export page' },
+      ],
+      currentTabId: 2,
+    });
+
+    const tab = await chrome.tabs.getCurrent();
+
+    expect(tab?.id).toBe(2);
+    expect(tab?.title).toBe('Export page');
+  });
+
+  test('answers undefined when no current tab is seeded, as Chrome does outside a tab', async () => {
+    handle = setupChromeFake({ tabs: [{ id: 1, title: 'Popup' }] });
+
+    expect(await chrome.tabs.getCurrent()).toBeUndefined();
+  });
+
+  test('answers undefined for an id no seeded tab carries', async () => {
+    handle = setupChromeFake({ tabs: [{ id: 1 }], currentTabId: 99 });
+
+    expect(await chrome.tabs.getCurrent()).toBeUndefined();
+  });
+
+  test('also takes a callback, like every other member here', async () => {
+    handle = setupChromeFake({ tabs: [{ id: 3 }], currentTabId: 3 });
+
+    const tab = await new Promise<chrome.tabs.Tab | undefined>((resolve) =>
+      chrome.tabs.getCurrent(resolve)
+    );
+
+    expect(tab?.id).toBe(3);
+  });
+});
+
 describe('chrome.windows fake', () => {
   test('getAll returns seeded windows with their tabs', async () => {
     handle = setupChromeFake({

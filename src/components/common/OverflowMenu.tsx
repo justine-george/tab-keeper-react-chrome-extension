@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useLayoutEffect, useRef, useState } from 'react';
 
 import { css } from '@emotion/react';
 
@@ -36,6 +36,14 @@ export interface OverflowMenuItem {
 // the bundled subset renders as the word itself (KAN-215).
 const RADIO_CHECK_ICON: IconName = 'check';
 
+/**
+ * How close to the window's edge an open menu may come (KAN-230).
+ *
+ * Not zero: flush against the edge the menu's own border merges with the
+ * window's, and there is nowhere for the eye to separate them.
+ */
+const VIEWPORT_GUTTER_PX = 4;
+
 interface OverflowMenuProps {
   /** Names the trigger. Must be translated. */
   ariaLabel: string;
@@ -69,6 +77,15 @@ interface OverflowMenuProps {
    * divider, over the session list.
    */
   align?: 'start' | 'end';
+  /**
+   * Extra CSS for the trigger's own box, after Icon's own rules (KAN-208).
+   *
+   * The save row's trigger is a SEGMENT of a bordered group, the same height
+   * as the button beside it, so its hover and pressed fills cover the segment
+   * the way the button's do. An Icon's box is otherwise content-sized, which
+   * leaves a dead strip above and below it inside the group.
+   */
+  triggerStyle?: string;
 }
 
 /**
@@ -107,6 +124,7 @@ const OverflowMenu: React.FC<OverflowMenuProps> = ({
   triggerIcon = 'more_vert',
   onOpenChange,
   align = 'end',
+  triggerStyle,
 }) => {
   const COLORS = useThemeColors();
   const FONT_FAMILY = useFontFamily();
@@ -129,6 +147,67 @@ const OverflowMenu: React.FC<OverflowMenuProps> = ({
   // of commands. Derived rather than a separate prop so the two cannot disagree.
   const isRadioGroup = items.some((item) => item.checked !== undefined);
 
+  /**
+   * How far the menu has been pushed back inside the window (KAN-230).
+   *
+   * The menu is anchored to ONE edge of its trigger, so its other edge is
+   * wherever the widest label puts it -- and in a language whose labels are
+   * longer than English's, that was off the side of the popup. Measured on
+   * main, the sort menu's left edge sat at -11.4 (es), -12.3 (fr) and -6.2
+   * (ru), cutting off the glyph column and the border.
+   *
+   * A measurement rather than a media query because the overflow depends on
+   * the rendered text: no threshold can be written down in advance, and the
+   * same menu fits in seven locales and not in three.
+   *
+   * useLayoutEffect, so the correction lands in the same paint as the menu --
+   * a useEffect would show the clipped position for a frame first.
+   */
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [shiftX, setShiftX] = useState(0);
+  useLayoutEffect(() => {
+    // Deliberately NOT cleared on close. A stale shift cannot mislead the next
+    // open, because the measurement below takes the transform off first and so
+    // never reads the previous correction; and the menu is unmounted while
+    // closed, so nothing wears it in the meantime. Resetting here instead
+    // meant calling setState unconditionally from an effect, which is the
+    // cascading-render the lint rule is there to stop.
+    if (!isOpen) return;
+    const element = menuRef.current;
+    if (!element) return;
+
+    // Measured with the shift taken OFF, so what comes back is always the
+    // menu's natural box. Reading the shifted box and subtracting looks
+    // equivalent and is not: a rect includes the element's transform only
+    // where there is a layout engine to apply it. Under jsdom every rect is
+    // zero and the transform is ignored, so the subtraction recovered a
+    // position 4px further left on every pass and the correction walked --
+    // an update loop that took out 21 component tests.
+    //
+    // Sound in the browser too, and cheaper to reason about: there is exactly
+    // one definition of the natural box, and it is the measured one. The write
+    // and the read are both inside a layout effect, so nothing paints between
+    // them.
+    element.style.transform = 'none';
+    const rect = element.getBoundingClientRect();
+    element.style.transform = '';
+
+    // No layout engine, no measurement to trust: jsdom reports a zero box for
+    // everything. Correcting from that would invent a shift for a menu whose
+    // position is not known at all.
+    if (rect.width === 0 && rect.height === 0) return;
+
+    let next = 0;
+    if (rect.left < VIEWPORT_GUTTER_PX) {
+      next = VIEWPORT_GUTTER_PX - rect.left;
+    } else if (rect.right > window.innerWidth - VIEWPORT_GUTTER_PX) {
+      next = window.innerWidth - VIEWPORT_GUTTER_PX - rect.right;
+    }
+    // Converges on the second pass, which measures the same natural box and
+    // agrees -- so this settles rather than looping.
+    if (next !== shiftX) setShiftX(next);
+  }, [isOpen, shiftX]);
+
   const menuStyle = css`
     position: absolute;
     top: 100%;
@@ -139,6 +218,10 @@ const OverflowMenu: React.FC<OverflowMenuProps> = ({
     border: 1px solid ${COLORS.BORDER_COLOR};
     border-radius: ${RADIUS.SQUARE};
     font-family: ${FONT_FAMILY};
+    /* KAN-230. Pushed back inside the window when a long translation would
+       otherwise carry it off the edge. Zero in the common case, and never
+       animated -- the menu must open where it is going to stay. */
+    transform: translateX(${shiftX}px);
   `;
 
   const itemStyle = (danger?: boolean) => css`
@@ -201,6 +284,7 @@ const OverflowMenu: React.FC<OverflowMenuProps> = ({
           ariaLabel={ariaLabel}
           ariaHasPopup="menu"
           ariaExpanded={isOpen}
+          style={triggerStyle}
           onClick={(e) => {
             e.stopPropagation();
             setOpen(!isOpen);
@@ -212,6 +296,7 @@ const OverflowMenu: React.FC<OverflowMenuProps> = ({
           only unambiguous once the menu around it announces "Sort sessions". */}
       {isOpen && (
         <div
+          ref={menuRef}
           role="menu"
           aria-label={ariaLabel}
           css={menuStyle}

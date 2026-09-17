@@ -391,3 +391,22 @@ describe('which edge of the trigger the menu lines up with (KAN-193)', () => {
     ).toBe('nowrap');
   });
 });
+
+// KAN-208. The save row's trigger is a SEGMENT of a bordered group, the same
+// height as the button beside it, so its hover and pressed fills cover the
+// segment the way the button's do. Icon's box is otherwise content-sized.
+describe('OverflowMenu triggerStyle', () => {
+  test('is appended to the trigger box', async () => {
+    await renderMenu({ triggerStyle: 'width: 40px;' });
+
+    expect(getComputedStyle(trigger()).width).toBe('40px');
+  });
+
+  // CONTROL: without it the trigger keeps its own size, so the test above is
+  // measuring the prop rather than a constant.
+  test('CONTROL: without it the trigger keeps its own size', async () => {
+    await renderMenu();
+
+    expect(getComputedStyle(trigger()).width).not.toBe('40px');
+  });
+});

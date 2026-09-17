@@ -43,11 +43,14 @@ const SESSION = buildSession({
 });
 
 const renderPage = () =>
-  renderWithProviders(<ExportPage tabGroupId="session-kyoto" />, {
-    seedStore: (store) => {
-      store.dispatch(replaceState(buildContainer([SESSION])));
-    },
-  });
+  renderWithProviders(
+    <ExportPage source={{ kind: 'saved', tabGroupId: 'session-kyoto' }} />,
+    {
+      seedStore: (store) => {
+        store.dispatch(replaceState(buildContainer([SESSION])));
+      },
+    }
+  );
 
 const preview = () => {
   const frame = document.querySelector('iframe');

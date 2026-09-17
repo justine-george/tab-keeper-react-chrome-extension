@@ -10,6 +10,8 @@
   "Save all open windows as a session": "Offene Fenster als Sitzung speichern",
   "Save every open window as a session": "Alle offenen Fenster als Sitzung speichern",
   "Save current window as a session": "Aktuelles Fenster als Sitzung speichern",
+  "Export open windows": "Offene Fenster exportieren…",
+  "Open windows": "Offene Fenster",
   "Open in new window": "In neuem Fenster öffnen",
   "Open session": "Sitzung öffnen, aktuelle Fenster behalten",
   "Switch to session": "Aktuelle Fenster schließen und diese Sitzung öffnen",

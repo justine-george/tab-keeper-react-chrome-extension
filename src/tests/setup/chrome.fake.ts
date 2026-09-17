@@ -2,8 +2,9 @@
 // over a mock on purpose: tests assert on resulting state rather than on the
 // fact that a function was invoked.
 //
-// Covers 24 members production code calls as of 2026-09-03 --
-// tabs.query/create/update/get/onActivated/group, windows.getAll/getCurrent/
+// Covers 25 members production code calls as of 2026-09-17 --
+// tabs.query/create/update/get/getCurrent/onActivated/group,
+// windows.getAll/getCurrent/
 // create/remove, storage.sync.get/set, runtime.sendMessage/onMessage/getURL/
 // lastError, tabGroups.query/update/TAB_GROUP_ID_NONE, permissions.contains/
 // request/remove/onAdded/onRemoved -- plus storage.sync.remove/clear and
@@ -13,6 +14,10 @@
 
 export type ChromeSeed = {
   tabs?: Partial<chrome.tabs.Tab>[];
+  // The tab the calling page IS, for tabs.getCurrent(): the id of a seeded
+  // tab. Absent means the code is not running in a tab -- the popup, the
+  // worker -- which Chrome reports as undefined.
+  currentTabId?: number;
   windows?: Partial<chrome.windows.Window>[];
   storage?: Record<string, unknown>;
   tabGroups?: Partial<chrome.tabGroups.TabGroup>[];
@@ -236,6 +241,18 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
         );
         return settle(matched, cb);
       },
+      // What Chrome answers when the caller is itself a tab -- the export page
+      // (KAN-208) asks so it can leave itself out of a capture. Undefined from
+      // a context that is not a tab, as in Chrome, and undefined for an id no
+      // seeded tab carries: minting one here would hide a seed that names the
+      // wrong tab.
+      getCurrent: (cb?: (tab?: chrome.tabs.Tab) => void) =>
+        settle(
+          seed.currentTabId === undefined
+            ? undefined
+            : tabs.find((tab) => tab.id === seed.currentTabId),
+          cb
+        ),
       create: (
         props: chrome.tabs.CreateProperties,
         cb?: (tab: chrome.tabs.Tab) => void

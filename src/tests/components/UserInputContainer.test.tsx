@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { screen } from '@testing-library/react';
+import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import UserInputContainer from '../../components/home/leftpane/UserInputContainer';
@@ -122,14 +122,24 @@ describe('UserInputContainer save scope', () => {
     expect(tabGroups[0].windowCount).toBe(2);
   });
 
-  test('the current-window button captures only the current window', async () => {
+  // KAN-208. The current-window save moved into the row's menu; the wide
+  // save-all button stayed where it was.
+  const openSaveMenu = async () => {
+    await userEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    return screen.getByRole('menu');
+  };
+
+  test('the current-window item captures only the current window', async () => {
     const { store } = await renderWithProviders(<UserInputContainer />, {
       seed: twoWindows,
     });
 
     await screen.findByDisplayValue('Kagi Search');
+    const menu = await openSaveMenu();
     await userEvent.click(
-      screen.getByLabelText('Save current window as a session')
+      within(menu).getByRole('menuitem', {
+        name: 'Save current window as a session',
+      })
     );
 
     const { tabGroups } = store.getState().tabContainerDataState;
@@ -148,7 +158,14 @@ describe('UserInputContainer save scope', () => {
       seed: twoWindows,
     });
     await screen.findByDisplayValue('Kagi Search');
-    await userEvent.click(screen.getByLabelText(label));
+    if (label === 'Save current window as a session') {
+      const menu = await openSaveMenu();
+      await userEvent.click(
+        within(menu).getByRole('menuitem', { name: label })
+      );
+    } else {
+      await userEvent.click(screen.getByLabelText(label));
+    }
     return store.getState().globalState.toastText;
   }
 
@@ -170,34 +187,15 @@ describe('UserInputContainer save scope', () => {
     );
   });
 
-  // The two buttons sit side by side and do different things, so they must not
-  // look alike. They did once: both carried a "+" so that both would read as
-  // "save", which made the "+" shared vocabulary instead of distinguishing
-  // vocabulary and left two near-identical glyphs. Only the primary carries it
-  // now. Their relative *size* is the other half of the hierarchy and is
-  // verified visually, not here -- jsdom does not lay anything out.
-  test('the two save buttons do not render the same icon', async () => {
-    await renderWithProviders(<UserInputContainer />, { seed: twoWindows });
-    await screen.findByDisplayValue('Kagi Search');
-
-    const glyph = (label: string) =>
-      screen.getByLabelText(label).querySelector('.material-symbols-outlined')
-        ?.textContent;
-
-    expect(glyph('Save all open windows as a session')).toBeTruthy();
-    expect(glyph('Save current window as a session')).toBeTruthy();
-    expect(glyph('Save all open windows as a session')).not.toBe(
-      glyph('Save current window as a session')
-    );
-  });
-
-  // The tooltip is the only place either button says what it does in words,
-  // and the pair used to read "Save current session" / "Save current window as
-  // a session" -- both opening with "Save current", and the all-windows one
-  // never mentioning all windows in any of the ten locales.
+  // KAN-208 removed three tests that lived here: the two save buttons no
+  // longer sit side by side, so "they must not look alike", "their tooltips
+  // must differ" and "they do not share a tooltip" have no subject. The
+  // current-window save is a menu item now, and a menu item carries WORDS --
+  // which is the stronger version of what those tests were protecting.
   //
-  // testI18n loads the real en resources, so these assert the strings a user
-  // actually sees rather than the keys.
+  // The tooltip is the only place the remaining button says what it does in
+  // words. testI18n loads the real en resources, so this asserts the string a
+  // user actually sees rather than the key.
   const tooltip = (label: string) =>
     screen.getByLabelText(label).getAttribute('title') ?? '';
 
@@ -210,26 +208,8 @@ describe('UserInputContainer save scope', () => {
     ).toContain('all');
   });
 
-  test('the current-window tooltip says it saves the current window', async () => {
-    await renderWithProviders(<UserInputContainer />, { seed: twoWindows });
-    await screen.findByDisplayValue('Kagi Search');
-
-    expect(tooltip('Save current window as a session').toLowerCase()).toContain(
-      'current'
-    );
-  });
-
-  test('the two buttons do not share a tooltip', async () => {
-    await renderWithProviders(<UserInputContainer />, { seed: twoWindows });
-    await screen.findByDisplayValue('Kagi Search');
-
-    expect(tooltip('Save all open windows as a session')).not.toBe(
-      tooltip('Save current window as a session')
-    );
-  });
-
-  // Enter in the name box has always meant "save everything". A second button
-  // is a new way to save, not a change to the existing one.
+  // Enter in the name box has always meant "save everything". A second way to
+  // save is a new way to save, not a change to the existing one.
   test('pressing Enter in the name box still captures every window', async () => {
     const { store } = await renderWithProviders(<UserInputContainer />, {
       seed: twoWindows,
@@ -240,6 +220,114 @@ describe('UserInputContainer save scope', () => {
 
     const { tabGroups } = store.getState().tabContainerDataState;
     expect(tabGroups[0].windows).toHaveLength(2);
+  });
+});
+
+// KAN-208. The row is one wide save and a menu.
+//
+// Two SAVES need two scopes, because a save is permanent and the wrong scope
+// leaves clutter. Export creates nothing until a button on the preview is
+// pressed, and the preview's edit mode can hide a whole window -- so there is
+// ONE export item, covering everything open, and the scope is chosen after
+// seeing it.
+describe('the save row menu (KAN-208)', () => {
+  const twoWindows = {
+    tabs: [
+      { id: 1, title: 'Kagi Search', url: 'https://kagi.com/', active: true },
+    ],
+    windows: [
+      {
+        id: 7,
+        tabs: [
+          { id: 1, title: 'Kagi Search', url: 'https://kagi.com/' },
+        ] as chrome.tabs.Tab[],
+      },
+      {
+        id: 8,
+        tabs: [
+          { id: 2, title: 'Example', url: 'https://example.com/' },
+        ] as chrome.tabs.Tab[],
+      },
+    ],
+  };
+
+  const openSaveMenu = async () => {
+    await userEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    return screen.getByRole('menu');
+  };
+
+  test('the row keeps the save-all button, and the current-window save is in the menu rather than beside it', async () => {
+    await renderWithProviders(<UserInputContainer />, { seed: twoWindows });
+    await screen.findByDisplayValue('Kagi Search');
+
+    expect(
+      screen.getByRole('button', { name: 'Save all open windows as a session' })
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole('button', {
+        name: 'Save current window as a session',
+      })
+    ).toBeNull();
+    expect(
+      screen.getByRole('button', { name: 'More actions' })
+    ).toHaveAttribute('aria-haspopup', 'menu');
+  });
+
+  test('the menu holds exactly two items, save first', async () => {
+    await renderWithProviders(<UserInputContainer />, { seed: twoWindows });
+    await screen.findByDisplayValue('Kagi Search');
+
+    const menu = await openSaveMenu();
+    const items = within(menu).getAllByRole('menuitem');
+
+    // Accessible names, not textContent: each item's aria-hidden glyph span
+    // holds the ligature text ("add_box"), which textContent would include.
+    expect(items).toHaveLength(2);
+    expect(items[0]).toHaveAccessibleName('Save current window as a session');
+    expect(items[1]).toHaveAccessibleName('Export open windows…');
+  });
+
+  test('Export open windows… opens the live export page and saves nothing', async () => {
+    const { store, seen, chrome } = await renderWithProviders(
+      <UserInputContainer />,
+      { seed: twoWindows }
+    );
+    await screen.findByDisplayValue('Kagi Search');
+
+    const menu = await openSaveMenu();
+    await userEvent.click(
+      within(menu).getByRole('menuitem', { name: 'Export open windows…' })
+    );
+
+    expect(chrome.createdTabs).toHaveLength(1);
+    expect(chrome.createdTabs[0].url).toBe(
+      'chrome-extension://faketestid/export.html?source=open-windows'
+    );
+    // Not a save: no session, no save action, no toast.
+    expect(store.getState().tabContainerDataState.tabGroups).toEqual([]);
+    expect(seen).not.toContain(SAVE_TAB_CONTAINER_ACTION);
+    expect(store.getState().globalState.toastText).toBe('');
+  });
+
+  // CONTROL for the test above: the other item DOES save, through the same
+  // menu -- so "nothing saved" is a property of the export item rather than of
+  // the menu.
+  test('CONTROL: the save item in the same menu does save', async () => {
+    const { store, chrome } = await renderWithProviders(
+      <UserInputContainer />,
+      { seed: twoWindows }
+    );
+    await screen.findByDisplayValue('Kagi Search');
+
+    const menu = await openSaveMenu();
+    await userEvent.click(
+      within(menu).getByRole('menuitem', {
+        name: 'Save current window as a session',
+      })
+    );
+
+    expect(store.getState().tabContainerDataState.tabGroups).toHaveLength(1);
+    expect(chrome.createdTabs).toHaveLength(0);
   });
 });
 

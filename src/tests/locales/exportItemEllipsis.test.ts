@@ -12,16 +12,21 @@ const localeFiles = import.meta.glob('/public/locales/*/translation.json', {
   eager: true,
 }) as Record<string, Record<string, string>>;
 
-describe('the export menu item promises a further step (KAN-226)', () => {
-  test('every locale ends "Export session" with a single ellipsis character', () => {
-    const entries = Object.entries(localeFiles);
-    // CONTROL: the glob found the ten locales, so an empty loop cannot pass.
-    expect(entries).toHaveLength(10);
+// KAN-208 adds the second such item: the save row's "Export open windows…"
+// opens the same preview from the popup's other pane.
+describe('the export menu items promise a further step (KAN-226, KAN-208)', () => {
+  test.each(['Export session', 'Export open windows'])(
+    'every locale ends "%s" with a single ellipsis character',
+    (key) => {
+      const entries = Object.entries(localeFiles);
+      // CONTROL: the glob found the ten locales, so an empty loop cannot pass.
+      expect(entries).toHaveLength(10);
 
-    for (const [file, strings] of entries) {
-      const value = strings['Export session'];
-      expect(value, file).toMatch(/…$/);
-      expect(value, file).not.toMatch(/\.\.\.$/);
+      for (const [file, strings] of entries) {
+        const value = strings[key];
+        expect(value, file).toMatch(/…$/);
+        expect(value, file).not.toMatch(/\.\.\.$/);
+      }
     }
-  });
+  );
 });

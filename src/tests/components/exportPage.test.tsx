@@ -49,11 +49,14 @@ const SESSION = buildSession({
 });
 
 const renderPage = (tabGroupId = 'session-kyoto') =>
-  renderWithProviders(<ExportPage tabGroupId={tabGroupId} />, {
-    seedStore: (store) => {
-      store.dispatch(replaceState(buildContainer([SESSION])));
-    },
-  });
+  renderWithProviders(
+    <ExportPage source={{ kind: 'saved', tabGroupId: tabGroupId }} />,
+    {
+      seedStore: (store) => {
+        store.dispatch(replaceState(buildContainer([SESSION])));
+      },
+    }
+  );
 
 const frame = (): HTMLIFrameElement => {
   const found = document.querySelector('iframe');
@@ -278,7 +281,9 @@ describe('the export preview page (KAN-190)', () => {
       JSON.stringify(buildContainer([SESSION]))
     );
 
-    await renderWithProviders(<ExportPage tabGroupId="session-kyoto" />);
+    await renderWithProviders(
+      <ExportPage source={{ kind: 'saved', tabGroupId: 'session-kyoto' }} />
+    );
 
     expect(await screen.findByText('Weekend in Kyoto')).toBeTruthy();
   });
@@ -287,7 +292,9 @@ describe('the export preview page (KAN-190)', () => {
   test('unreadable storage says not found rather than crashing', async () => {
     localStorage.setItem('tabContainerData', '{"tabGroups":"not an array"}');
 
-    await renderWithProviders(<ExportPage tabGroupId="session-kyoto" />);
+    await renderWithProviders(
+      <ExportPage source={{ kind: 'saved', tabGroupId: 'session-kyoto' }} />
+    );
 
     expect(screen.getByText('Session not found')).toBeTruthy();
   });
@@ -330,12 +337,15 @@ describe('the export preview page (KAN-190)', () => {
 // theme instead.
 describe('the exported file matches the theme it was exported under', () => {
   const renderUnder = (theme: Theme) =>
-    renderWithProviders(<ExportPage tabGroupId="session-kyoto" />, {
-      seedStore: (store) => {
-        store.dispatch(replaceState(buildContainer([SESSION])));
-        store.dispatch(setTheme(theme));
-      },
-    });
+    renderWithProviders(
+      <ExportPage source={{ kind: 'saved', tabGroupId: 'session-kyoto' }} />,
+      {
+        seedStore: (store) => {
+          store.dispatch(replaceState(buildContainer([SESSION])));
+          store.dispatch(setTheme(theme));
+        },
+      }
+    );
 
   test('a dark theme writes a dark file', async () => {
     await renderUnder(Theme.DARKENHEIMER);
@@ -358,7 +368,7 @@ describe('the exported file matches the theme it was exported under', () => {
 describe('the preview follows a theme change while the page is open', () => {
   test('switching to a dark theme re-renders the file dark', async () => {
     const { store } = await renderWithProviders(
-      <ExportPage tabGroupId="session-kyoto" />,
+      <ExportPage source={{ kind: 'saved', tabGroupId: 'session-kyoto' }} />,
       {
         seedStore: (s) => {
           s.dispatch(replaceState(buildContainer([SESSION])));
@@ -382,12 +392,15 @@ describe('the preview follows a theme change while the page is open', () => {
 // choice sticks.
 describe('choosing the file light or dark on the preview page', () => {
   const renderUnder = (theme: Theme) =>
-    renderWithProviders(<ExportPage tabGroupId="session-kyoto" />, {
-      seedStore: (store) => {
-        store.dispatch(replaceState(buildContainer([SESSION])));
-        store.dispatch(setTheme(theme));
-      },
-    });
+    renderWithProviders(
+      <ExportPage source={{ kind: 'saved', tabGroupId: 'session-kyoto' }} />,
+      {
+        seedStore: (store) => {
+          store.dispatch(replaceState(buildContainer([SESSION])));
+          store.dispatch(setTheme(theme));
+        },
+      }
+    );
 
   test('the switch opens on whatever the theme implies', async () => {
     await renderUnder(Theme.LIGHT);
@@ -437,12 +450,15 @@ describe('choosing the file light or dark on the preview page', () => {
 // on this page: the extension theme and saved settings are never touched.
 describe('the whole page is light or dark, and the switch changes only the page (KAN-198)', () => {
   const renderUnder = (theme: Theme) =>
-    renderWithProviders(<ExportPage tabGroupId="session-kyoto" />, {
-      seedStore: (store) => {
-        store.dispatch(replaceState(buildContainer([SESSION])));
-        store.dispatch(setTheme(theme));
-      },
-    });
+    renderWithProviders(
+      <ExportPage source={{ kind: 'saved', tabGroupId: 'session-kyoto' }} />,
+      {
+        seedStore: (store) => {
+          store.dispatch(replaceState(buildContainer([SESSION])));
+          store.dispatch(setTheme(theme));
+        },
+      }
+    );
 
   // The strip holding the session title and the toolbar.
   const headerFill = () => {

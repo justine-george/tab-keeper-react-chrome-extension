@@ -27,12 +27,15 @@ const SESSION = buildSession({
 });
 
 const renderUnder = (theme: Theme) =>
-  renderWithProviders(<ExportPage tabGroupId="session-kyoto" />, {
-    seedStore: (store) => {
-      store.dispatch(replaceState(buildContainer([SESSION])));
-      store.dispatch(setTheme(theme));
-    },
-  });
+  renderWithProviders(
+    <ExportPage source={{ kind: 'saved', tabGroupId: 'session-kyoto' }} />,
+    {
+      seedStore: (store) => {
+        store.dispatch(replaceState(buildContainer([SESSION])));
+        store.dispatch(setTheme(theme));
+      },
+    }
+  );
 
 const group = (name: string) => screen.getByRole('group', { name });
 

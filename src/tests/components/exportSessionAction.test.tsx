@@ -368,9 +368,12 @@ describe('the session header keeps two actions and a menu (KAN-193)', () => {
       menuRender.unmount();
 
       const fromPage = fakeClipboard();
-      await renderWithProviders(<ExportPage tabGroupId="session-parity" />, {
-        seedStore: seed,
-      });
+      await renderWithProviders(
+        <ExportPage source={{ kind: 'saved', tabGroupId: 'session-parity' }} />,
+        {
+          seedStore: seed,
+        }
+      );
       await user.click(
         await screen.findByRole('button', { name: 'Copy all links' })
       );
