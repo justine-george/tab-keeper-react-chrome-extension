@@ -1,5 +1,6 @@
 import { test, expect } from './fixtures/extension';
 import { waitForFontsLoaded } from './fixtures/fonts';
+import { contrast } from './fixtures/pixels';
 import {
   buildContainer,
   buildSession,
@@ -158,9 +159,9 @@ for (const lang of ['en', 'de', 'ru'] as const) {
     //    so it must never wrap under the strip.
     expect(g.onOneLine, 'the row must stay on one line').toBe(true);
 
-    // And the change itself: a real border, and a fill that is no longer the
-    // row-hover token.
-    expect(g.border).toBe('1px solid');
+    // KAN-214: a chip, so no border at all -- the fill does the work, and
+    // add-window chip tests below measure it.
+    expect(g.border).toBe('0px none');
 
     // Evenly padded. A border makes the box's edges visible, so the asymmetry
     // that was there all along would have become visible with it.
@@ -193,263 +194,157 @@ for (const lang of ['en', 'de', 'ru'] as const) {
   });
 }
 
-// The button must not read as a raised plate.
+// KAN-214. A tinted chip, flush in the card's corner.
 //
-// Giving it a border made a second thing visible that the borderless version
-// had hidden: `quiet`'s rest fill is PRIMARY_COLOR, "the page's own ground",
-// but this button sits on a CARD painting SECONDARY_COLOR. Measured on the real
-// build, the fill came out 1.104:1 lighter than the surface behind it, ringed
-// by a 6.83:1 border -- a lighter panel inside a hard dark outline on a darker
-// ground is how a raised bevel is drawn. The dark themes inverted it (fill
-// 1.136:1 darker than its card) and it read as inset instead.
+// No border; the fill does the work. So the claims move from the outline to
+// the fill: that it PAINTS the chip token, that it separates from the card by
+// at least the visible floor, and that no line is drawn at any edge.
 //
-// This reads PIXELS, not computed styles, and the first draft of it shows why.
-// That draft compared `getComputedStyle(btn).backgroundColor` against the
-// card's, which is wrong twice: a transparent fill reports `rgba(0, 0, 0, 0)`,
-// which scores as BLACK and failed at 17.7:1 on correct code -- and had it been
-// resolved by walking up to the first painted ancestor instead, it would have
-// returned the card itself by construction and could never have failed at all.
-// A declaration is not a pixel. So the page is photographed and sampled.
+// Pixels, not computed styles. KAN-213's first draft compared
+// `getComputedStyle(btn).backgroundColor` against the card's: a transparent
+// fill reports `rgba(0, 0, 0, 0)`, which scores as BLACK -- a declaration is not
+// a pixel. So the page is photographed and sampled.
 //
-// Both themes run because the defect changed SIGN between them -- a Light-only
-// check would pass on a change that made the dark one worse.
-for (const theme of ['Light', 'Darkenheimer'] as const) {
-  test(`the add-window button lies flat on its card (${theme})`, async ({
-    context,
-    extensionId,
-  }) => {
-    await seedSettings(context, {
-      theme,
-      isNeverAskAgainForTabGroups: true,
-      isNeverAskAgainToRate: true,
-    });
-    await seedSessions(context, {
-      ...buildContainer([
-        buildSession({
-          tabGroupId: 's0',
-          title: 'A session',
-          isSelected: true,
-        }),
-      ]),
-      selectedTabGroupId: 's0',
-    });
+// All five themes. KAN-213's defect changed SIGN between light and dark, and
+// the chip is darker than its card in three themes and lighter in two.
+const CHIP: Record<string, { card: string; chip: string }> = {
+  Light: { card: '#E9ECF0', chip: '#D5D8DC' },
+  WarmLight: { card: '#EDE8D0', chip: '#D9D4BC' },
+  BBPink: { card: '#F9BFD2', chip: '#E7ADC0' },
+  Darkenheimer: { card: '#333333', chip: '#404040' },
+  Blue: { card: '#333340', chip: '#3F3F4C' },
+};
 
-    const page = await context.newPage();
-    await page.setViewportSize({ width: 790, height: 550 });
-    await page.goto(`chrome-extension://${extensionId}/index.html`);
-    const add = page.getByRole('button', { name: ADD.en });
-    await expect(add).toBeVisible();
-
-    // The card is the nearest ancestor that actually paints. Found by walking
-    // rather than by selector, so it is the surface the button is really seen
-    // against and not one we assumed.
-    const card = page.locator('#add-window-card');
-    await page.evaluate((label) => {
-      const btn = document.querySelector(`[aria-label="${label}"]`)!;
-      const paints = (el: Element) => {
-        const bg = getComputedStyle(el).backgroundColor;
-        return bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent';
-      };
-      let el = btn.parentElement!;
-      while (el && !paints(el)) el = el.parentElement!;
-      el.id = 'add-window-card';
-    }, ADD.en);
-
-    const shot = (await card.screenshot()).toString('base64');
-
-    // Sample three points on one horizontal line through the button: the card
-    // just outside it, the border itself, and the button's own interior (taken
-    // from the right-hand padding, which holds no glyph and no label).
-    const px = await page.evaluate(
-      async ({ shot, label }) => {
-        const btn = document
-          .querySelector(`[aria-label="${label}"]`)!
-          .getBoundingClientRect();
-        const box = document
-          .querySelector('#add-window-card')!
-          .getBoundingClientRect();
-        const img = new Image();
-        img.src = `data:image/png;base64,${shot}`;
-        await img.decode();
-        const c = document.createElement('canvas');
-        c.width = img.width;
-        c.height = img.height;
-        c.getContext('2d')!.drawImage(img, 0, 0);
-        const ctx = c.getContext('2d')!;
-        // Screenshot pixels are the card's own top-left origin.
-        const at = (x: number, y: number) => {
-          const d = ctx.getImageData(
-            Math.round(x - box.left),
-            Math.round(y - box.top),
-            1,
-            1
-          ).data;
-          return `rgb(${d[0]}, ${d[1]}, ${d[2]})`;
-        };
-        const y = btn.top + btn.height / 2;
-        return {
-          outside: at(btn.left - 3, y),
-          border: at(btn.left + 0.5, y),
-          inside: at(btn.right - 3, y),
-        };
-      },
-      { shot, label: ADD.en }
-    );
-
-    // The claim: the button's interior is the SAME pixel as the card beside it.
-    // Exact, not tolerant -- a bevel IS a small step, so a tolerance is the one
-    // thing that would let it back in.
-    expect(
-      px.inside,
-      `the button's interior paints ${px.inside} against a ${px.outside} card -- that step is the bevel`
-    ).toBe(px.outside);
-
-    // CONTROL. A button that had vanished entirely would also satisfy the line
-    // above. It is still a button because its BORDER is a different pixel from
-    // the card -- and the sampler can only make the claim above if it can tell
-    // two colours apart on this same line in the first place.
-    expect(
-      px.border,
-      `the border samples as ${px.border}, the same pixel as the card`
-    ).not.toBe(px.outside);
+async function openInTheme(
+  context: Parameters<typeof seedSessions>[0],
+  extensionId: string,
+  theme: string
+) {
+  await seedSettings(context, {
+    theme,
+    isNeverAskAgainForTabGroups: true,
+    isNeverAskAgainToRate: true,
   });
+  await seedSessions(context, {
+    ...buildContainer([
+      buildSession({ tabGroupId: 's0', title: 'A session', isSelected: true }),
+    ]),
+    selectedTabGroupId: 's0',
+  });
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 790, height: 550 });
+  await page.goto(`chrome-extension://${extensionId}/index.html`);
+  await expect(page.getByRole('button', { name: ADD.en })).toBeVisible();
+  await waitForFontsLoaded(page, ['Material Symbols Outlined']);
+  // Park the pointer: a hovered chip paints ICON_HOVER_COLOR, not its rest.
+  await page.mouse.move(0, 0);
+  return page;
 }
 
-// Every edge the same weight (Justine: "those edges aren't thicker than the rest").
-//
-// The button sits FLUSH in the card's bottom-right inner corner: its right edge
-// and the card's content edge are the same pixel. So its own 1px border landed
-// immediately against the card's 1px border and the pair read as one 2px line,
-// while top and left -- which border nothing -- stayed 1px. Measured on the
-// real build, as a strip of pixels running outward across each edge:
-//
-//   top ...D....   left ...D....   right ..DD....   bottom ..DD....
-//
-// The button therefore draws only the two edges nobody else draws. That is NOT
-// the same as the L-shaped border that `border-style: inset` generates, which
-// leaves two edges undrawn and reads as a recess; here the card draws them, at
-// the same pixel, so the rectangle stays complete and even.
-//
-// Which makes this depend on a fact about the LAYOUT, not about the button --
-// so the flushness is asserted too. If anything ever puts a gap between the
-// button and the card's edge, this fails and says the borders must come back,
-// rather than silently leaving a button with two missing sides.
-for (const theme of ['Light', 'Darkenheimer'] as const) {
-  test(`every edge of the add-window button is one pixel (${theme})`, async ({
+/** Samples `#RRGGBB` at viewport points from one fresh screenshot. */
+async function sample(
+  page: Awaited<ReturnType<typeof openInTheme>>,
+  pick: string
+): Promise<Record<string, string>> {
+  const shot = (await page.screenshot()).toString('base64');
+  return page.evaluate(
+    async ({ shot, label, pick }) => {
+      const btn = document.querySelector(`[aria-label="${label}"]`)!;
+      const b = btn.getBoundingClientRect();
+      let card = btn.parentElement!;
+      while (card && getComputedStyle(card).borderTopWidth === '0px')
+        card = card.parentElement!;
+      const c = card.getBoundingClientRect();
+      const img = new Image();
+      img.src = `data:image/png;base64,${shot}`;
+      await img.decode();
+      const cv = document.createElement('canvas');
+      cv.width = img.width;
+      cv.height = img.height;
+      const ctx = cv.getContext('2d')!;
+      ctx.drawImage(img, 0, 0);
+      const at = (x: number, y: number) =>
+        '#' +
+        [...ctx.getImageData(Math.floor(x), Math.floor(y), 1, 1).data]
+          .slice(0, 3)
+          .map((v) => v.toString(16).padStart(2, '0'))
+          .join('')
+          .toUpperCase();
+      const midY = b.top + b.height / 2;
+      const points: Record<string, [number, number]> = {
+        // The card just left of the chip, and the chip's right-hand padding,
+        // which holds no glyph and no label.
+        card: [b.left - 3, midY],
+        inside: [b.right - 3, midY],
+        // The chip's own outermost pixels on each side. With no border these
+        // are fill; KAN-213's outline drew its line exactly here. Half a pixel
+        // in, because the box starts at a fractional x (623.6): flooring it
+        // samples the card pixel OUTSIDE the chip, which is where the first
+        // draft of this read the card colour against a correct chip.
+        topEdge: [b.right - 3, b.top + 0.5],
+        leftEdge: [b.left + 0.5, midY],
+        // The card's border one pixel outside the chip's right and bottom:
+        // flush means the chip's fill meets it directly.
+        cardRight: [c.right - 0.5, midY],
+        cardBottom: [b.right - 3, c.bottom - 0.5],
+      };
+      return Object.fromEntries(
+        pick.split(',').map((k) => [k, at(...points[k])])
+      );
+    },
+    { shot, label: ADD.en, pick }
+  );
+}
+
+for (const [theme, t] of Object.entries(CHIP)) {
+  test(`the add-window chip paints its fill against the card (${theme})`, async ({
     context,
     extensionId,
   }) => {
-    await seedSettings(context, {
-      theme,
-      isNeverAskAgainForTabGroups: true,
-      isNeverAskAgainToRate: true,
-    });
-    await seedSessions(context, {
-      ...buildContainer([
-        buildSession({
-          tabGroupId: 's0',
-          title: 'A session',
-          isSelected: true,
-        }),
-      ]),
-      selectedTabGroupId: 's0',
-    });
+    const page = await openInTheme(context, extensionId, theme);
+    const px = await sample(page, 'card,inside');
 
-    const page = await context.newPage();
-    await page.setViewportSize({ width: 790, height: 550 });
-    await page.goto(`chrome-extension://${extensionId}/index.html`);
-    await expect(page.getByRole('button', { name: ADD.en })).toBeVisible();
-    await waitForFontsLoaded(page, ['Material Symbols Outlined']);
+    // CONTROL: the sampler reads the card as the card, or every comparison
+    // below is against the wrong surface.
+    expect(px.card, 'the card beside the chip').toBe(t.card);
+    expect(px.inside, 'the chip interior paints CHIP_COLOR').toBe(t.chip);
+    expect(contrast(px.inside, px.card)).toBeGreaterThanOrEqual(1.2);
+  });
 
-    const flush = await page.evaluate((label) => {
-      const btn = document
-        .querySelector(`[aria-label="${label}"]`)!
-        .getBoundingClientRect();
-      const paints = (el: Element) => {
-        const bg = getComputedStyle(el).backgroundColor;
-        return bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent';
-      };
-      let card = document.querySelector(`[aria-label="${label}"]`)!
-        .parentElement!;
-      while (card && !paints(card)) card = card.parentElement!;
+  test(`the add-window chip draws no outline, flush in the corner (${theme})`, async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openInTheme(context, extensionId, theme);
+
+    const gaps = await page.evaluate((label) => {
+      const btn = document.querySelector(`[aria-label="${label}"]`)!;
+      const b = btn.getBoundingClientRect();
+      let card = btn.parentElement!;
+      while (card && getComputedStyle(card).borderTopWidth === '0px')
+        card = card.parentElement!;
       const cs = getComputedStyle(card);
       const r = card.getBoundingClientRect();
       return {
-        // The card's CONTENT edge: its border box less its own border.
-        gapRight: +(
-          r.right -
-          parseFloat(cs.borderRightWidth) -
-          btn.right
-        ).toFixed(2),
-        gapBottom: +(
+        right: +(r.right - parseFloat(cs.borderRightWidth) - b.right).toFixed(
+          2
+        ),
+        bottom: +(
           r.bottom -
           parseFloat(cs.borderBottomWidth) -
-          btn.bottom
+          b.bottom
         ).toFixed(2),
       };
     }, ADD.en);
+    // The premise of "flush": the fill runs to the card's own border.
+    expect(gaps).toEqual({ right: 0, bottom: 0 });
 
-    // The premise. Without this the two edges below are simply missing.
-    expect(
-      flush.gapRight,
-      `${flush.gapRight}px between the button and the card's right edge -- it is no longer flush, so it must draw its own border again`
-    ).toBe(0);
-    expect(flush.gapBottom, "flush with the card's bottom edge").toBe(0);
-
-    const shot = (await page.screenshot()).toString('base64');
-    const edges = await page.evaluate(
-      async ({ shot, label }) => {
-        const b = document
-          .querySelector(`[aria-label="${label}"]`)!
-          .getBoundingClientRect();
-        const img = new Image();
-        img.src = `data:image/png;base64,${shot}`;
-        await img.decode();
-        const cv = document.createElement('canvas');
-        cv.width = img.width;
-        cv.height = img.height;
-        const x = cv.getContext('2d')!;
-        x.drawImage(img, 0, 0);
-        const at = (a: number, bb: number) => {
-          const d = x.getImageData(Math.round(a), Math.round(bb), 1, 1).data;
-          return `${d[0]},${d[1]},${d[2]}`;
-        };
-        const midY = Math.round(b.top + b.height / 2);
-        const midX = Math.round(b.left + b.width / 2);
-        // The colour of the line itself, taken from the top edge -- which is
-        // the button's own border, and the one edge that borders nothing.
-        // Counting "anything unlike the card" instead runs straight past the
-        // card's border into the gutter beyond and reports 6px on every side.
-        // The two themes draw this line in different colours, so it is sampled
-        // rather than written down.
-        const line = at(midX, b.top);
-        // How many pixels of line lie AT each boundary, counted in a window
-        // straddling it -- not walked outward from inside the button. Which
-        // element draws the pixel is exactly what changes here: the button's
-        // own right border sat one pixel inside the box, the card's sits one
-        // pixel outside it. A scan anchored to the button reported 2 before the
-        // change and 0 after, and 0 is not "even", it is "gone".
-        const near = (fixed: number, edge: number, axis: 'x' | 'y') => {
-          let n = 0;
-          for (let i = -2; i <= 2; i++) {
-            const p = axis === 'x' ? at(edge + i, fixed) : at(fixed, edge + i);
-            if (p === line) n++;
-          }
-          return n;
-        };
-        return {
-          top: near(midX, b.top, 'y'),
-          left: near(midY, b.left, 'x'),
-          right: near(midY, b.right, 'x'),
-          bottom: near(midX, b.bottom, 'y'),
-        };
-      },
-      { shot, label: ADD.en }
-    );
-
-    expect(
-      edges,
-      `top ${edges.top}px, left ${edges.left}px, right ${edges.right}px, bottom ${edges.bottom}px -- every edge must be the same weight`
-    ).toEqual({ top: 1, left: 1, right: 1, bottom: 1 });
+    const px = await sample(page, 'topEdge,leftEdge,cardRight,cardBottom');
+    expect(px.topEdge, 'top edge is fill, not a line').toBe(t.chip);
+    expect(px.leftEdge, 'left edge is fill, not a line').toBe(t.chip);
+    // CONTROL: the card's border IS a line, so the sampler can see one when
+    // one is there, one pixel from the same chip.
+    expect(px.cardRight).not.toBe(t.chip);
+    expect(px.cardBottom).not.toBe(t.chip);
   });
 }

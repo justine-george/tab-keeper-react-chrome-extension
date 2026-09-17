@@ -44,8 +44,10 @@ interface ButtonProps {
  * `quiet`   the default. A bordered button on the page's own ground.
  * `primary` the one action a view is steering toward. At most one per view.
  * `danger`  destructive. Its fill is the same red the delete affordances use.
+ * `chip`    a borderless tinted fill, for a control sitting on a card rather
+ *           than on the page's ground (KAN-214).
  */
-export type ButtonVariant = 'quiet' | 'primary' | 'danger';
+export type ButtonVariant = 'quiet' | 'primary' | 'danger' | 'chip';
 
 const Button: React.FC<ButtonProps> = ({
   text,
@@ -64,18 +66,21 @@ const Button: React.FC<ButtonProps> = ({
   const COLORS = useThemeColors();
   const FONT_FAMILY = useFontFamily();
 
-  // Each kind is a resting fill and the two rungs above it, so a variant can
-  // never be half-defined: adding one means answering all three.
+  // Each kind is a resting fill and the two rungs above it, plus its edge, so a
+  // variant can never be half-defined: adding one means answering all four.
+  const bordered = `1px solid ${COLORS.BORDER_COLOR}`;
   const PALETTE = {
     quiet: {
       rest: COLORS.PRIMARY_COLOR,
       hover: COLORS.ICON_HOVER_COLOR,
       press: COLORS.ICON_ACTIVE_COLOR,
+      border: bordered,
     },
     primary: {
       rest: COLORS.SELECTION_COLOR,
       hover: COLORS.ICON_HOVER_COLOR,
       press: COLORS.ICON_ACTIVE_COLOR,
+      border: bordered,
     },
     // Holds its red while pressed, as every other destructive control does:
     // measured, there is no deeper red at this hue that keeps the label on it
@@ -84,12 +89,23 @@ const Button: React.FC<ButtonProps> = ({
       rest: COLORS.DELETE_ICON_HOVER_COLOR,
       hover: COLORS.DELETE_ICON_HOVER_COLOR,
       press: COLORS.DELETE_ICON_HOVER_COLOR,
+      border: bordered,
+    },
+    // The fill is the whole affordance, so there is no border. CHIP_COLOR sits
+    // 1.20:1 from the card, which leaves the icon tokens a visible step each
+    // for hover and press (chipContrast.test.ts has the numbers, and why 1.35
+    // did not).
+    chip: {
+      rest: COLORS.CHIP_COLOR,
+      hover: COLORS.ICON_HOVER_COLOR,
+      press: COLORS.ICON_ACTIVE_COLOR,
+      border: 'none',
     },
   }[variant];
 
   const buttonStyle = css`
     background-color: ${PALETTE.rest};
-    border: 1px solid ${COLORS.BORDER_COLOR};
+    border: ${PALETTE.border};
     padding: 10px 20px;
     height: ${CONTROL.DEFAULT};
     border-radius: ${RADIUS.SQUARE};

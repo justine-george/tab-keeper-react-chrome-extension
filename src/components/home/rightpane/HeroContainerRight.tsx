@@ -554,66 +554,29 @@ export default function HeroContainerRight() {
             iconStyle={`
               padding: 4px 4px 2px 4px;
             `}
-            // KAN-213. Almost all of this is a DELETION, because `quiet` is
-            // already Button's default -- the overrides removed here are what
-            // stopped it being the button it always was.
+            // KAN-214. A tinted chip: no border, and a resting fill of its own,
+            // flush in the card's bottom-right corner so the fill runs to the
+            // card's border there. The chip variant carries the whole ladder --
+            // CHIP_COLOR at rest, the icon tokens for hover and press.
             //
-            // GONE: `border: none`, which overrode the border every other
-            // Button in the app carries; and a resting
-            // `background-color: HOVER_COLOR`, which measured 1.047:1 against
-            // the SECONDARY_COLOR header behind it -- under the 1.20 that
-            // dividerContrast treats as the floor for "can still be seen" -- and
-            // which spent the row-hover token on a resting state. Its
-            // `|| '#e3e6e9'` fallback went with it: HOVER_COLOR is defined in
-            // all five themes, so the literal was unreachable as well as
-            // off-palette.
+            // History, because each step was a defect the next one fixed
+            // (KAN-213). It was a borderless HOVER_COLOR fill, 1.047:1 against
+            // this card and so invisible. Then an outlined box with no fill --
+            // `quiet`'s PRIMARY_COLOR had read as a raised bevel here, because
+            // this sits on a SECONDARY_COLOR card, not the page's ground. Now a
+            // chip at 1.20:1, not the 1.35:1 first picked: at 1.35 there was no
+            // room left above it for a visible hover and a readable press.
             //
-            // The right padding drops 9px -> 6px so the gaps either side match:
-            // the glyph sits 6px in (2px here plus the Icon's own 4px) and the
-            // label now ends 6px from the edge. Invisible before, because
-            // without a border there were no edges to be uneven against.
-            //
-            // Together those two are worth -1px of width: the border adds 2,
-            // the padding gives back 3. Nothing else in the row moves -- the
-            // strip is anchored at the other end of a space-between row, and
-            // the height is pinned at 32px with border-box, so the border eats
-            // inward rather than growing the header. add-window-button.spec.ts
-            // measures all of that rather than trusting it.
-            //
-            // The one thing ADDED is the transparent fill, and it is here
-            // because the border made a second problem visible. `quiet`'s rest
-            // fill is PRIMARY_COLOR, which Button documents as "the page's own
-            // ground" -- but this button is not on the page's ground. It sits
-            // on a card painting SECONDARY_COLOR, so the fill measured 1.104:1
-            // LIGHTER than the surface behind it, ringed by a 6.83:1 border: a
-            // lighter panel inside a hard dark outline on a darker ground is
-            // how a raised bevel is drawn. The dark themes inverted it -- fill
-            // 1.136:1 darker than the card -- and it read as inset instead.
-            //
-            // So it paints nothing and takes whatever ground it is put on; the
-            // border alone says "button". Hover and press still fill, because
-            // those states are supposed to be a change.
-            //
-            // It draws only the two edges nobody else draws. The button is
-            // flush in the card's bottom-right inner corner, so its own right
-            // and bottom border landed immediately against the card's border
-            // and the pair read as one 2px line, against 1px on the other two
-            // sides. Measured as a strip of pixels running outward across each
-            // edge: top ...D.... left ...D.... right ..DD.... bottom ..DD....
-            //
-            // Not the L-shaped border `border-style: inset` draws, which leaves
-            // two edges UNDRAWN and reads as a recess -- the card draws these
-            // two, at the same pixel, so the rectangle stays complete and even.
-            // Which makes it a fact about the LAYOUT: add-window-button.spec.ts
-            // asserts the flushness as well as the pixels, so a future gap here
-            // fails loudly instead of quietly leaving two sides missing.
+            // Padding is the outlined version's plus the 1px top and left border
+            // it no longer draws, so the glyph, the label and the width all stay
+            // where they were: add-window-button.spec.ts pins 156.4 / 210 /
+            // 185.2 in en/de/ru. Height is pinned at 32px so the header -- and
+            // the 1 + 56 + 58 = 115 cross-pane line -- does not move.
+            variant="chip"
             style={`
               height: 32px;
               font-size: ${TYPE.SECONDARY};
-              padding: 4px 6px 3px 2px;
-              background-color: transparent;
-              border-right-width: 0;
-              border-bottom-width: 0;
+              padding: 5px 6px 3px 3px;
             `}
           />
         </div>
