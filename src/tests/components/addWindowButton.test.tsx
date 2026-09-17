@@ -9,6 +9,7 @@ import {
   selectTabContainer,
 } from '../../redux/slices/tabContainerDataStateSlice';
 import { LIGHT_THEME } from '../../hooks/useThemeColors';
+import { activeRulesFor, hoverRulesFor } from '../setup/hoverRules';
 
 // NOTE on what is deliberately NOT tested here. A first draft asserted the
 // source no longer contains '#e3e6e9'. That test was wrong twice over: it
@@ -84,51 +85,59 @@ describe('the add-window button reads as a button (KAN-213)', () => {
     expect(glyph?.textContent).not.toBe('add');
   });
 
-  test('is bordered, like every other Button in the app', async () => {
+  // KAN-214. A tinted chip rather than an outlined box: the fill says "button"
+  // and no border is drawn. It stays flush in the card's corner, so the fill
+  // runs to the card's own border there -- Justine's pick over an inset.
+  test('draws no border of its own', async () => {
     await renderHeader();
 
     const style = getComputedStyle(addButton());
-    expect(style.borderTopStyle).toBe('solid');
-    expect(style.borderTopWidth).toBe('1px');
-    expect(style.borderTopColor.toLowerCase()).toContain('rgb');
+    for (const side of ['Top', 'Right', 'Bottom', 'Left'] as const) {
+      expect(style[`border${side}Style`], side).toBe('none');
+    }
   });
 
-  // The fill is the point of the defect, and it moved twice.
-  //
-  // First it was HOVER_COLOR -- the row-hover token, spent on a resting state.
-  // Removing the override handed the button `quiet`'s rest fill, PRIMARY_COLOR,
-  // which is documented as "the page's own ground". But this button is not on
-  // the page's ground: it sits on a CARD, which paints SECONDARY_COLOR. So the
-  // fill came out 1.104:1 LIGHTER than the surface behind it, ringed by a
-  // 6.83:1 border -- a lighter plate with a hard dark edge on a darker ground,
-  // which is how a raised bevel is drawn. In the dark themes the sign flipped
-  // (fill 1.136:1 darker than its card) and it read as inset instead.
-  //
-  // So it paints no fill at all, and takes whatever ground it is put on. The
-  // border alone says "button". e2e/add-window-button.spec.ts measures the
-  // result -- that the button and its card are the same colour, in both a light
-  // theme and a dark one -- which is the claim this can only approximate.
-  test('paints no fill of its own', async () => {
+  // History, so the next change does not walk back into it. The fill moved
+  // three times: HOVER_COLOR (the row-hover token, 1.047:1 against the card --
+  // invisible); then none at all, with a border doing the work (KAN-213); now
+  // CHIP_COLOR, which chipContrast.test.ts holds to the visible floor.
+  test('rests on the chip fill', async () => {
     await renderHeader();
 
     const fill = getComputedStyle(addButton()).backgroundColor;
-    expect(fill).toBe('rgba(0, 0, 0, 0)');
+    expect(fill).toBe(hex(LIGHT_THEME.CHIP_COLOR));
     expect(fill).not.toBe(hex(LIGHT_THEME.HOVER_COLOR)); // the original defect
-    expect(fill).not.toBe(hex(LIGHT_THEME.PRIMARY_COLOR)); // the plate
   });
 
-  // CONTROL for the two above: a fill that merely CHANGED would satisfy them
-  // if it landed on another near-invisible value. This states the thing the
-  // user reported -- that the control must separate from the header behind it.
+  // CONTROL for the fill: with no border, the fill is the only thing that
+  // separates the control from the header behind it.
   test('separates from the header it sits on', async () => {
     await renderHeader();
 
-    const border = getComputedStyle(addButton()).borderTopColor;
-    // BORDER_COLOR on SECONDARY_COLOR measures 6.83:1; the old borderless fill
-    // measured 1.047:1 against the same ground.
-    expect(border).toBe(hex(LIGHT_THEME.BORDER_COLOR));
+    expect(getComputedStyle(addButton()).backgroundColor).not.toBe(
+      hex(LIGHT_THEME.SECONDARY_COLOR)
+    );
+  });
+
+  // Hover and press are the icon ladder's own two steps, so the chip changes by
+  // what every other control here changes by. jsdom cannot enter either state,
+  // so the injected rules are what this holds (see pressedState.test.tsx).
+  test('hovers and presses on the icon tokens', async () => {
+    await renderHeader();
+
+    expect(hoverRulesFor(addButton())).toMatch(
+      asWritten(LIGHT_THEME.ICON_HOVER_COLOR)
+    );
+    expect(activeRulesFor(addButton())).toMatch(
+      asWritten(LIGHT_THEME.ICON_ACTIVE_COLOR)
+    );
   });
 });
+
+/** A colour as emotion writes it, or as jsdom normalises it. */
+function asWritten(value: string): RegExp {
+  return new RegExp(`(${value}|${hex(value).replace(/[()]/g, '\\$&')})`, 'i');
+}
 
 // jsdom reports colours as `rgb(r, g, b)`; the theme stores hex.
 function hex(value: string): string {
