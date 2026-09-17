@@ -38,6 +38,28 @@ interface ButtonProps {
    * every existing caller keeps exactly the button it had.
    */
   variant?: ButtonVariant;
+  /**
+   * KAN-221. The button is shown and announced as unavailable, and a click
+   * does nothing -- but it stays in the tab order, which `disabled` would take
+   * it out of. For an action with nothing to act on yet, like Reset with no
+   * edits.
+   */
+  ariaDisabled?: boolean;
+  /**
+   * A second face the button crossfades to while `shown` (KAN-221, KAN-222):
+   * "Copied" for a moment after a copy, or an eye struck through while a row
+   * is hidden. The two faces share one cell as wide as the wider, so the button
+   * keeps its width, and each face is centred as a unit so its icon stays
+   * beside its word. The accessible name does not change; say what happened
+   * from a status region, or with `ariaPressed` for a toggle.
+   */
+  secondFace?: {
+    iconType: IconName;
+    text?: string;
+    shown: boolean;
+    /** The crossfade's length. 200ms; shorter for a control used in runs. */
+    durationMs?: number;
+  };
 }
 
 /**
@@ -62,6 +84,8 @@ const Button: React.FC<ButtonProps> = ({
   iconStyle,
   style,
   variant = 'quiet',
+  ariaDisabled,
+  secondFace,
 }) => {
   const COLORS = useThemeColors();
   const FONT_FAMILY = useFontFamily();
@@ -103,6 +127,18 @@ const Button: React.FC<ButtonProps> = ({
     },
   }[variant];
 
+  // Quiet on purpose: an unavailable button keeps its resting fill under the
+  // pointer and when pressed, and its label drops back a rung.
+  const unavailableStyle = ariaDisabled
+    ? `
+    color: ${COLORS.LABEL_L2_COLOR};
+    cursor: default;
+    &&:hover,
+    &&:active {
+      background-color: ${PALETTE.rest};
+    }`
+    : '';
+
   const buttonStyle = css`
     background-color: ${PALETTE.rest};
     border: ${PALETTE.border};
@@ -125,6 +161,24 @@ const Button: React.FC<ButtonProps> = ({
       background-color: ${PALETTE.press};
     }
     ${style && style}
+    ${unavailableStyle}
+  `;
+
+  const crossfade = `${secondFace?.durationMs ?? 200}ms ease`;
+  const faceStyle = (visible: boolean) => css`
+    grid-area: 1 / 1;
+    justify-self: center;
+    display: inline-flex;
+    align-items: center;
+    opacity: ${visible ? 1 : 0};
+    filter: blur(${visible ? 0 : 2}px);
+    transition:
+      opacity ${crossfade},
+      filter ${crossfade};
+    @media (prefers-reduced-motion: reduce) {
+      filter: none;
+      transition: none;
+    }
   `;
 
   // Space the icon away from whatever sits next to it, but only when there is
@@ -142,29 +196,16 @@ const Button: React.FC<ButtonProps> = ({
     .filter(Boolean)
     .join(' ');
 
-  // No wrapper element: the button must be the flex child itself, otherwise a
-  // width: 100% passed through `style` resolves against a shrink-wrapped div
-  // and collapses back to the button's own text width.
-  //
-  // Deliberately no tabIndex. A <button> is keyboard-focusable by default, so
-  // the only thing this element could ever compute here is a way to LOSE that
-  // -- which is precisely what it used to do. `focusableButton` had no default
-  // value, so `tabIndex={onClick && focusableButton ? 0 : -1}` put 32 of the
-  // 36 clickable call sites out of the tab order, taking the whole settings
-  // pane with them (KAN-67). The prop is gone rather than defaulted to true:
-  // a prop whose only power is to break something breaks it the moment a call
-  // site forgets, and 32 of 36 forgot.
-  return (
-    <button
-      title={tooltipText}
-      aria-label={ariaLabel}
-      aria-pressed={ariaPressed}
-      css={buttonStyle}
-      onClick={onClick}
-    >
-      {iconType && (
+  // The icon, image and word, in that order. A function so the second face
+  // is built exactly like the resting one and the two cannot drift apart.
+  const face = (
+    faceIcon: IconName | undefined,
+    faceText: string | undefined
+  ) => (
+    <>
+      {faceIcon && (
         <Icon
-          type={iconType}
+          type={faceIcon}
           disable={true}
           size={iconSize}
           color={iconColor}
@@ -182,14 +223,63 @@ const Button: React.FC<ButtonProps> = ({
           `}
         />
       )}
-      {text && (
+      {faceText && (
         <span
           css={css`
             ${imageSrc && 'padding-left: 8px;'}
           `}
         >
-          {text}
+          {faceText}
         </span>
+      )}
+    </>
+  );
+
+  // No wrapper element: the button must be the flex child itself, otherwise a
+  // width: 100% passed through `style` resolves against a shrink-wrapped div
+  // and collapses back to the button's own text width.
+  //
+  // Deliberately no tabIndex. A <button> is keyboard-focusable by default, so
+  // the only thing this element could ever compute here is a way to LOSE that
+  // -- which is precisely what it used to do. `focusableButton` had no default
+  // value, so `tabIndex={onClick && focusableButton ? 0 : -1}` put 32 of the
+  // 36 clickable call sites out of the tab order, taking the whole settings
+  // pane with them (KAN-67). The prop is gone rather than defaulted to true:
+  // a prop whose only power is to break something breaks it the moment a call
+  // site forgets, and 32 of 36 forgot.
+
+  return (
+    <button
+      title={tooltipText}
+      aria-label={ariaLabel}
+      aria-pressed={ariaPressed}
+      aria-disabled={ariaDisabled || undefined}
+      data-second-face-shown={secondFace ? String(secondFace.shown) : undefined}
+      css={buttonStyle}
+      onClick={ariaDisabled ? undefined : onClick}
+    >
+      {secondFace ? (
+        <span
+          css={css`
+            display: inline-grid;
+          `}
+        >
+          <span
+            css={faceStyle(!secondFace.shown)}
+            aria-hidden={secondFace.shown || undefined}
+          >
+            {face(iconType, text)}
+          </span>
+          <span
+            data-second-face
+            css={faceStyle(secondFace.shown)}
+            aria-hidden={!secondFace.shown || undefined}
+          >
+            {face(secondFace.iconType, secondFace.text)}
+          </span>
+        </span>
+      ) : (
+        face(iconType, text)
       )}
     </button>
   );

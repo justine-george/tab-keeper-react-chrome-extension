@@ -61,3 +61,65 @@ test('every listed icon name is a glyph in the bundled font', async ({
     []
   );
 });
+
+// KAN-218. The export toolbar's knob draws its glyph FILLED, through the FILL
+// axis. A static subset has no such axis: `font-variation-settings: 'FILL' 1`
+// is then accepted and ignored, and the "filled" glyph is the outline. So the
+// ink is counted rather than the declaration read.
+test('the bundled icon font can draw a glyph filled', async ({
+  context,
+  extensionId,
+}) => {
+  const page = await context.newPage();
+  await page.goto(`chrome-extension://${extensionId}/index.html`);
+  await expect(page.getByRole('button', { name: 'Settings' })).toBeVisible();
+  await waitForFontsLoaded(page, ['Material Symbols Outlined']);
+
+  await page.evaluate(() => {
+    const host = document.createElement('div');
+    host.id = 'fill-probe';
+    host.style.cssText =
+      'position:fixed;top:0;left:0;z-index:99999;display:flex;background:#fff';
+    for (const fill of [0, 1]) {
+      const span = document.createElement('span');
+      span.className = 'material-symbols-outlined';
+      span.dataset.fill = String(fill);
+      span.style.cssText = `font-size:96px;color:#000;font-variation-settings:'FILL' ${fill}`;
+      span.textContent = 'dark_mode';
+      host.append(span);
+    }
+    document.body.append(host);
+  });
+
+  const inkOf = async (fill: number) => {
+    const png = await page
+      .locator(`#fill-probe [data-fill="${fill}"]`)
+      .screenshot();
+    return page.evaluate(async (base64) => {
+      const img = new Image();
+      img.src = `data:image/png;base64,${base64}`;
+      await img.decode();
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d')!;
+      ctx.drawImage(img, 0, 0);
+      const { data } = ctx.getImageData(0, 0, img.width, img.height);
+      let dark = 0;
+      for (let i = 0; i < data.length; i += 4) {
+        if (data[i] < 128) dark++;
+      }
+      return dark;
+    }, png.toString('base64'));
+  };
+
+  const outlined = await inkOf(0);
+  const filled = await inkOf(1);
+
+  // CONTROL: the outline itself has ink, so a zero-vs-zero read cannot pass.
+  expect(outlined, 'the outlined moon draws something').toBeGreaterThan(200);
+  expect(
+    filled / outlined,
+    `filled ${filled}px against outlined ${outlined}px`
+  ).toBeGreaterThan(1.5);
+});

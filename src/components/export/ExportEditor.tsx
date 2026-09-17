@@ -78,14 +78,6 @@ export default function ExportEditor({
     }
   `;
 
-  const hiddenStyle = css`
-    opacity: 0.45;
-    input,
-    textarea {
-      text-decoration: line-through;
-    }
-  `;
-
   const rowStyle = css`
     display: flex;
     align-items: center;
@@ -107,13 +99,34 @@ export default function ExportEditor({
       onKeyDown={(event) => {
         if (event.key === 'Enter') event.currentTarget.blur();
       }}
+      data-dims
       css={[fieldStyle, extra]}
     />
   );
 
+  /**
+   * KAN-222. The eye, from Justine's pick after a review against Emil
+   * Kowalski's animation guidance:
+   *
+   * - held, it dips to 95% -- deeper than the toolbar's 97%, because 3% of a
+   *   30px button is under a pixel -- and fills with the file's rule colour,
+   *   one visible step past hover. Its own :active used to come BEFORE this
+   *   :hover, so pressing looked exactly like hovering (the KAN-220 pattern);
+   * - hover fills for a mouse or trackpad only;
+   * - its glyph crossfades to the struck-through eye with a 2px blur, over
+   *   150ms rather than 200, because rows get hidden in runs;
+   * - reduced motion drops the dip and the blur.
+   *
+   * It is never dimmed with its row: see `data-dims`.
+   */
   const eye = (key: string, name: string) => (
     <Button
-      iconType={edits.hidden.has(key) ? 'visibility_off' : 'visibility'}
+      iconType="visibility"
+      secondFace={{
+        iconType: 'visibility_off',
+        shown: edits.hidden.has(key),
+        durationMs: 150,
+      }}
       ariaLabel={`${t('Hide')}: ${name}`}
       ariaPressed={edits.hidden.has(key)}
       tooltipText={t('Hide')}
@@ -129,9 +142,33 @@ export default function ExportEditor({
         border: 1px solid transparent;
         border-radius: 3px;
         background-color: transparent;
-        &:hover {
-          background-color: ${palette.groupBg};
+        transition:
+          background-color 120ms ease,
+          border-color 120ms ease,
+          transform 140ms cubic-bezier(0.23, 1, 0.32, 1);
+        @media (hover: hover) and (pointer: fine) {
+          &:hover {
+            background-color: ${palette.groupBg};
+            border-color: ${palette.rule};
+          }
+        }
+        @media not all and (hover: hover) and (pointer: fine) {
+          &:hover {
+            background-color: transparent;
+          }
+        }
+        &:active {
+          transform: scale(0.95);
+          background-color: ${palette.rule};
           border-color: ${palette.rule};
+        }
+        @media (prefers-reduced-motion: reduce) {
+          transition:
+            background-color 120ms ease,
+            border-color 120ms ease;
+          &:active {
+            transform: none;
+          }
         }
       `}
     />
@@ -149,8 +186,8 @@ export default function ExportEditor({
             padding: 2px 0;
             border-bottom: 1px solid ${palette.rule};
           `,
-          edits.hidden.has(key) && hiddenStyle,
         ]}
+        data-hidden={edits.hidden.has(key) || undefined}
       >
         {field(
           key,
@@ -164,6 +201,7 @@ export default function ExportEditor({
           `
         )}
         <span
+          data-dims
           css={css`
             flex: none;
             max-width: 30%;
@@ -191,6 +229,24 @@ export default function ExportEditor({
         color: ${palette.text};
         font: 15px/1.5 ${FILE_FONT};
         padding: 30px 24px 40px;
+
+        /* KAN-222. A hidden row stays where it was, faded and struck through,
+           so the same eye brings it back. The fade goes on the row's own
+           content, marked data-dims, and never on a container: on a container
+           it dimmed the eye with it (1.95:1 light, 2.40:1 dark) and compounded
+           through a hidden window (0.45 x 0.45). Each dimmable element is
+           dimmed once, by any hidden row it sits in. The fade stays under
+           reduced motion: it is colour, not movement. */
+        [data-dims] {
+          transition: opacity 150ms ease;
+        }
+        [data-hidden] [data-dims] {
+          opacity: 0.45;
+        }
+        [data-hidden] input,
+        [data-hidden] textarea {
+          text-decoration: line-through;
+        }
       `}
     >
       <div
@@ -233,7 +289,7 @@ export default function ExportEditor({
           return (
             <section
               key={`${window.windowId}-${index}`}
-              css={edits.hidden.has(windowKey) && hiddenStyle}
+              data-hidden={edits.hidden.has(windowKey) || undefined}
             >
               <div
                 css={[
@@ -246,6 +302,7 @@ export default function ExportEditor({
                 ]}
               >
                 <span
+                  data-dims
                   css={css`
                     flex: none;
                     white-space: nowrap;
@@ -281,16 +338,30 @@ export default function ExportEditor({
                     return (
                       <li
                         key={`${run.group.groupId}-${runIndex}`}
-                        css={[
-                          css`
-                            margin: 4px 0;
-                            padding: 0 10px;
+                        data-hidden={edits.hidden.has(groupKey) || undefined}
+                        css={css`
+                          position: relative;
+                          isolation: isolate;
+                          margin: 4px 0;
+                          padding: 0 10px 0 14px;
+                        `}
+                      >
+                        {/* The group's colour band, as a layer of its own so it
+                          can dim without dimming the eyes on top of it. The
+                          4px border moved inside the layer, so the left
+                          padding grew by 4px and nothing moves. */}
+                        <span
+                          aria-hidden="true"
+                          data-group-band
+                          data-dims
+                          css={css`
+                            position: absolute;
+                            inset: 0;
+                            z-index: -1;
                             border-left: 4px solid ${color};
                             background-color: ${palette.groupBg};
-                          `,
-                          edits.hidden.has(groupKey) && hiddenStyle,
-                        ]}
-                      >
+                          `}
+                        />
                         <div
                           css={[
                             rowStyle,
