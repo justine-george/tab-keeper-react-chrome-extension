@@ -73,9 +73,7 @@ describe('the session header keeps two actions and a menu (KAN-193)', () => {
     expect(screen.getByRole('button', { name: 'More actions' })).toBeTruthy();
     // The two actions that moved are gone from the header itself -- a copy
     // left behind would make the menu decoration.
-    expect(
-      screen.queryByRole('button', { name: 'Export as PDF / HTML file' })
-    ).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Export…' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Delete session' })).toBeNull();
   });
 
@@ -90,15 +88,30 @@ describe('the session header keeps two actions and a menu (KAN-193)', () => {
     const menu = await openMenu(user);
 
     // By accessible name, not textContent: each item's decorative glyph is a
-    // ligature ("file_export"), so the raw text is not what anyone hears.
+    // ligature ("ios_share"), so the raw text is not what anyone hears.
     // Found by name, then compared to the menu's own order.
     const items = within(menu).getAllByRole('menuitem');
     expect(items).toHaveLength(3);
     expect(items).toEqual([
       within(menu).getByRole('menuitem', { name: 'Copy all links' }),
-      within(menu).getByRole('menuitem', { name: 'Export as PDF / HTML file' }),
+      within(menu).getByRole('menuitem', { name: 'Export…' }),
       within(menu).getByRole('menuitem', { name: 'Delete session' }),
     ]);
+  });
+
+  // KAN-226. "Export…" with ios_share, picked from mocks. The ellipsis says a
+  // further step follows -- the click opens a preview, it saves nothing -- and
+  // ios_share read as "send this out" where file_export read as a page.
+  test('Export is named with an ellipsis and drawn with ios_share', async () => {
+    const user = userEvent.setup();
+    await renderHeader();
+
+    const menu = await openMenu(user);
+    const item = within(menu).getByRole('menuitem', { name: 'Export…' });
+
+    expect(item.querySelector('.material-symbols-outlined')?.textContent).toBe(
+      'ios_share'
+    );
   });
 
   test('Export opens the export page for THAT session', async () => {
@@ -106,9 +119,7 @@ describe('the session header keeps two actions and a menu (KAN-193)', () => {
     const { chrome } = await renderHeader();
 
     await openMenu(user);
-    await user.click(
-      screen.getByRole('menuitem', { name: 'Export as PDF / HTML file' })
-    );
+    await user.click(screen.getByRole('menuitem', { name: 'Export…' }));
 
     expect(chrome.createdTabs).toHaveLength(1);
     expect(chrome.createdTabs[0].url).toContain('export.html');
@@ -135,9 +146,7 @@ describe('the session header keeps two actions and a menu (KAN-193)', () => {
     });
 
     await openMenu(user);
-    await user.click(
-      screen.getByRole('menuitem', { name: 'Export as PDF / HTML file' })
-    );
+    await user.click(screen.getByRole('menuitem', { name: 'Export…' }));
 
     expect(chrome.createdTabs[0].url).toContain('session=session-kyoto');
     expect(chrome.createdTabs[0].url).not.toContain('session-first');
@@ -514,9 +523,7 @@ describe('the session header keeps two actions and a menu (KAN-193)', () => {
       hoverRulesFor(screen.getByRole('menuitem', { name: 'Delete session' }))
     ).toMatch(DELETE_FILL);
     expect(
-      hoverRulesFor(
-        screen.getByRole('menuitem', { name: 'Export as PDF / HTML file' })
-      )
+      hoverRulesFor(screen.getByRole('menuitem', { name: 'Export…' }))
     ).not.toMatch(DELETE_FILL);
   });
 });
