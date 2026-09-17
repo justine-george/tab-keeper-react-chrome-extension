@@ -205,6 +205,14 @@ const Icon: React.FC<IconProps> = ({
       background-color: ${
         type === 'delete' ? hoverColor : COLORS.ICON_ACTIVE_COLOR
       };
+    }
+    /* KAN-217. A menu trigger holds the press while its menu is open. Opening
+       the menu moves the pointer onto it and off the trigger, so :hover alone
+       dropped the fill while the menu was still on screen -- and a menu opened
+       from the keyboard never filled at all. Last, so it wins over :hover and
+       :active at equal specificity whether or not the pointer is here. */
+    &[aria-expanded='true'] {
+      background-color: ${COLORS.ICON_ACTIVE_COLOR};
     }`}
     ${style && style}
   `;
