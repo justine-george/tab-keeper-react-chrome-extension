@@ -52,3 +52,42 @@ test('the search row and the session header end on the same line', async ({
   // as a mistake rather than as a choice.
   expect(Math.abs(edges.searchRow - edges.headerCard)).toBeLessThanOrEqual(1);
 });
+
+// KAN-216. The search button spans the same height as the search box.
+//
+// The box takes ROW_HEIGHT for the alignment above; the button was sized only
+// by its padding around a 24px icon, so it stayed 48px and floated 5px short
+// at each edge of a 58px row. The test above reads the input alone, so it
+// passed the whole time the two were visibly different heights.
+test('the search button is exactly as tall as the search box', async ({
+  context,
+  extensionId,
+}) => {
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 790, height: 550 });
+  await page.goto(`chrome-extension://${extensionId}/index.html`);
+  // The header's search icon opens the panel; its own submit button is the
+  // second control with the same name.
+  await page.getByRole('button', { name: 'Search' }).first().click();
+  const input = page.locator('#searchInput');
+  await expect(input).toBeVisible();
+
+  const edges = await page.evaluate(() => {
+    const box = document.querySelector('#searchInput')!;
+    // The submit button is the input's row sibling, found by position rather
+    // than by name so the header icon cannot be picked up instead.
+    const button = box.parentElement!.querySelector('button')!;
+    const a = box.getBoundingClientRect();
+    const b = button.getBoundingClientRect();
+    return {
+      label: button.getAttribute('aria-label'),
+      box: { top: a.top, bottom: a.bottom },
+      button: { top: b.top, bottom: b.bottom },
+    };
+  });
+
+  // PREMISE: the right control, or a match proves nothing.
+  expect(edges.label).toBe('Search');
+  expect(edges.button.top).toBeCloseTo(edges.box.top, 0);
+  expect(edges.button.bottom).toBeCloseTo(edges.box.bottom, 0);
+});
