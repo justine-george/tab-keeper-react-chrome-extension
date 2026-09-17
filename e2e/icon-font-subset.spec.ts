@@ -55,9 +55,6 @@ test('every listed icon name is a glyph in the bundled font', async ({
   );
 
   expect(widths[unused]).toBeGreaterThan(48);
-  // KAN-227 CONTROL, TEMPORARY: a deliberate failure, to prove a red shard
-  // fails "Build before merge". Reverted in the next commit.
-  expect(1, 'deliberate CI control failure').toBe(2);
 
   const drawnAsText = LIGATURE_ICON_NAMES.filter((name) => widths[name] > 25);
   expect(drawnAsText, 'missing from the font: run npm run fonts:fetch').toEqual(
