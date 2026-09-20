@@ -46,7 +46,7 @@ export function describeSyncState({
       kind: 'unavailable',
       icon: 'cloud_off',
       title: 'Sync unavailable',
-      line: 'Enable Chrome sync for seamless data syncing.',
+      line: 'Chrome’s sync storage isn’t available in this profile, so your sessions stay on this device.',
     };
   }
   if (!isAutoSync) {
@@ -54,7 +54,7 @@ export function describeSyncState({
       kind: 'manual',
       icon: 'cloud',
       title: 'Manual sync',
-      line: 'Changes stay on this device until you press the cloud button.',
+      line: 'Your sessions stay on this device until you press the cloud button on the home screen.',
     };
   }
   if (!isCloudConfigured) {
@@ -62,7 +62,7 @@ export function describeSyncState({
       kind: 'unavailable',
       icon: 'cloud_off',
       title: 'Sync unavailable',
-      line: 'Enable Chrome sync for seamless data syncing.',
+      line: 'Chrome’s sync storage isn’t available in this profile, so your sessions stay on this device.',
     };
   }
   if (syncStatus === 'error') {
@@ -70,13 +70,13 @@ export function describeSyncState({
       kind: 'failed',
       icon: 'sync_problem',
       title: 'Last sync failed',
-      line: 'Sessions on this device are safe. Press the cloud button to try again.',
+      line: 'Your sessions are safe on this device. Press the cloud button on the home screen to try again.',
     };
   }
   return {
     kind: 'on',
     icon: 'cloud_done',
     title: 'Cloud sync on',
-    line: 'Synced through an anonymous token in your Chrome profile, so there’s nothing to sign in to.',
+    line: 'Your sessions sync automatically across your Chrome devices. No separate sign-in is needed.',
   };
 }
