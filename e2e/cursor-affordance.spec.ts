@@ -211,10 +211,11 @@ test.describe('clickable controls show a pointer over their icon (KAN-76)', () =
   // than assumed: an icon that is genuinely decorative, in a container nobody
   // can click, must NOT start advertising a click.
   //
-  // `cloud_done` sits in a plain layout div in Account/LoggedIn. Deferring to
-  // the ancestor is only the right answer if the ancestor's answer is right
-  // here too -- if this ever reads `pointer`, `inherit` is reaching a
-  // clickable ancestor that this icon has no business inheriting from.
+  // The status card's glyph sits in a plain layout div in
+  // Account/SyncStatusCard. Deferring to the ancestor is only the right
+  // answer if the ancestor's answer is right here too -- if this ever reads
+  // `pointer`, `inherit` is reaching a clickable ancestor that this icon has
+  // no business inheriting from.
   test('a decorative icon in a non-clickable container shows no pointer', async ({
     context,
     extensionId,
@@ -222,14 +223,16 @@ test.describe('clickable controls show a pointer over their icon (KAN-76)', () =
     const page = await openPopup(context, extensionId);
     await openSettingsCategory(page, 'Sync & Privacy');
 
-    // Which of the two Account panes renders is asserted, not assumed: the
-    // fixture context is signed IN, so this is LoggedIn/`cloud_done`, and the
-    // sibling NotLoggedIn/`cloud_off` is unreachable here. Without this line a
-    // wrong glyph name would surface as an unexplained locator timeout.
-    await expect(page.getByText('Cloud Sync Active')).toBeVisible();
-    const decorative = page
-      .locator('span.material-symbols-outlined')
-      .filter({ hasText: /^cloud_done$/ });
+    // Which glyph the card draws depends on the build (KAN-248): the fixture
+    // context is signed in with auto sync on, so with a cloud this is
+    // `cloud_done` and in PR CI, which builds without one, `cloud_off`. The
+    // card is located as itself and its glyph read from it, so the assertion
+    // does not depend on which; and the card is asserted present first, so
+    // a wrong glyph name surfaces here rather than as a locator timeout.
+    const card = page.getByTestId('sync-status-card');
+    await expect(card).toBeVisible();
+    const decorative = card.locator('span.material-symbols-outlined').first();
+    await expect(decorative).toHaveText(/^cloud_(done|off)$/);
 
     expect(await cursorAtCentreOf(page, decorative)).not.toBe('pointer');
   });

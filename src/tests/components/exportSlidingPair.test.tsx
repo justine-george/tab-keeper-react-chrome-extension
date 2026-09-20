@@ -3,7 +3,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import ExportPage from '../../components/export/ExportPage';
-import { slidingPairColors } from '../../components/export/slidingPairStyle';
+import { slidingPairColors } from '../../components/common/slidingPairColors';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { buildContainer, buildSession } from '../fixtures/sessionFixture';
 import { replaceState } from '../../redux/slices/tabContainerDataStateSlice';

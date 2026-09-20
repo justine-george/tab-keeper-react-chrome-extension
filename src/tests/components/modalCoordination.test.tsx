@@ -8,6 +8,9 @@ import { waitFor } from '@testing-library/react';
 vi.mock('../../config/firebase', () => ({
   observeAuthState: () => {},
   signInUserAnonymously: () => {},
+  // App writes this into the store at boot (KAN-248); its value is not
+  // exercised here.
+  isCloudConfigured: false,
 }));
 
 import App from '../../App';

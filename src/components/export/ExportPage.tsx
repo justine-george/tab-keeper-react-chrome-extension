@@ -10,8 +10,8 @@ import markDataUri from '../../assets/exportMark.png?inline';
 import Button from '../common/Button';
 import Icon from '../common/Icon';
 import ExportEditor from './ExportEditor';
-import SlidingPair, { type SlidingOption } from './SlidingPair';
-import { KNOB_TRANSITION } from './slidingPairStyle';
+import SlidingPair, { type SlidingOption } from '../common/SlidingPair';
+import { EXPORT_PAIR_METRICS, KNOB_TRANSITION } from './slidingPairStyle';
 import {
   DARKENHEIMER_THEME,
   isDarkTheme,
@@ -745,12 +745,14 @@ export default function ExportPage({ source }: { source: ExportSource }) {
                   options={layoutOptions}
                   value={layout}
                   onChange={(value) => dispatch(setExportLayout(value))}
+                  metrics={EXPORT_PAIR_METRICS}
                 />
                 <SlidingPair
                   label={t('Colour')}
                   options={schemeOptions}
                   value={scheme}
                   onChange={setPageScheme}
+                  metrics={EXPORT_PAIR_METRICS}
                 />
                 {/* Deciding ends here; what follows leaves the page, from the
               end of the row -- the primary stands where Done stands while
