@@ -128,3 +128,19 @@ describe('the theme picker shows each theme as a miniature (KAN-237)', () => {
     expect(children[1].textContent).toBe('Parchment');
   });
 });
+
+// KAN-247. 14px between tiles, up from 10. Not 16: measured at the real 790px
+// popup in ja -- two katakana captions are 76.8px, wider than their tiles --
+// the row has 434.3px for 369.6px of content, so 16px is the exact ceiling
+// before Ink wraps, and the katakana come from the SYSTEM font, so their width
+// is not ours to pin. 14 leaves ~9px for that. theme-swatch-marker.spec pins
+// the no-wrap in a browser.
+describe('the theme picker spaces its tiles (KAN-247)', () => {
+  test('the row gap is 14px', async () => {
+    await renderDisplay();
+    const row = swatch('Paper').parentElement!;
+    expect(getComputedStyle(row).gap).toBe('14px');
+    // CONTROL: the element read is the picker row, holding all five.
+    expect(row.querySelectorAll('[data-theme-tile]').length).toBe(5);
+  });
+});
