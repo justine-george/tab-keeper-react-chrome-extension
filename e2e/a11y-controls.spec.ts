@@ -42,7 +42,7 @@ async function openPopup(
   return page;
 }
 
-const RATE_PROMPT_BODY = 'Please consider helping me out with a good review!';
+const RATE_PROMPT_BODY = "If it's been useful, a review would mean a lot.";
 
 // The rate-and-review prompt is gated entirely on localStorage: never rated,
 // never opted out, not asked in the last three days, and -- since KAN-149 --
