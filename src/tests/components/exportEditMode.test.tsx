@@ -184,7 +184,7 @@ describe('Edit mode on the export page (KAN-194)', () => {
     await user.click(screen.getByRole('button', { name: 'Done' }));
 
     expect(preview()).not.toContain('secure.store.apple.example');
-    expect(screen.getByText('2 Windows - 3 Tabs')).toBeTruthy();
+    expect(screen.getByText('2 Windows · 3 Tabs')).toBeTruthy();
   });
 
   test('a hidden row stays on screen, marked, and the same control brings it back', async () => {

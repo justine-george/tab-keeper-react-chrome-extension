@@ -62,7 +62,7 @@ describe('exporting the open windows (KAN-208)', () => {
     await waitFor(() => expect(frame().srcdoc).toContain('Kagi Search'));
     expect(frame().srcdoc).toContain('Example');
     expect(frame().srcdoc).not.toContain('export.html');
-    expect(screen.getByText('2 Windows - 2 Tabs')).toBeTruthy();
+    expect(screen.getByText('2 Windows · 2 Tabs')).toBeTruthy();
   });
 
   // CONTROL: exclusion is by id. Naming a different tab as the page keeps the
@@ -86,7 +86,7 @@ describe('exporting the open windows (KAN-208)', () => {
     await renderLive();
 
     await waitFor(() => expect(frame().srcdoc).toContain('Kagi Search'));
-    expect(frame().srcdoc).toContain('<p class="meta">2 Windows - 2 Tabs</p>');
+    expect(frame().srcdoc).toContain('<p class="meta">2 Windows · 2 Tabs</p>');
     expect(frame().srcdoc).not.toContain('Created');
   });
 

@@ -116,7 +116,7 @@ test('an edited export saves the renamed, trimmed file to disk', async ({
   await page.getByRole('button', { name: 'Done' }).click();
 
   // The page's own header follows the edits too.
-  await expect(page.getByText('2 Windows - 3 Tabs')).toBeVisible();
+  await expect(page.getByText('2 Windows · 3 Tabs')).toBeVisible();
 
   const [download] = await Promise.all([
     page.waitForEvent('download'),

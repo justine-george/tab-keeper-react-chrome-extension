@@ -14,7 +14,7 @@ import { saveToTabContainerInternal } from '../../redux/slices/tabContainerDataS
 // KAN-60. `Delta` is the session from the ticket, rebuilt at the same size: 7
 // windows, 13 tabs, with exactly one tab titled "Example Domain". Searching
 // that phrase narrows the session to 1 window / 1 tab -- and before this fix
-// the row reported "1 Window - 1 Tab", the same words it uses outside search
+// the row reported "1 Window · 1 Tab", the same words it uses outside search
 // to mean the session holds one window and one tab.
 const delta = () => {
   const tab = (id: string, title: string) => ({
@@ -64,7 +64,7 @@ describe('left pane count label', () => {
 
     store.dispatch(saveToTabContainerInternal(delta()));
 
-    expect(await screen.findByText('7 Windows - 13 Tabs')).toBeTruthy();
+    expect(await screen.findByText('7 Windows · 13 Tabs')).toBeTruthy();
   });
 
   // The case a fix keyed on `isSearchPanel` alone gets wrong. The panel is
@@ -76,8 +76,8 @@ describe('left pane count label', () => {
     store.dispatch(saveToTabContainerInternal(delta()));
     store.dispatch(openSearchPanel());
 
-    expect(await screen.findByText('7 Windows - 13 Tabs')).toBeTruthy();
-    expect(screen.queryByText('Matches: 7 Windows - 13 Tabs')).toBeNull();
+    expect(await screen.findByText('7 Windows · 13 Tabs')).toBeTruthy();
+    expect(screen.queryByText('Matches: 7 Windows · 13 Tabs')).toBeNull();
   });
 
   test('says the counts are matches while a search is narrowing them', async () => {
@@ -87,10 +87,10 @@ describe('left pane count label', () => {
     store.dispatch(openSearchPanel());
     store.dispatch(setSearchInputText('Example Domain'));
 
-    expect(await screen.findByText('Matches: 1 Window - 1 Tab')).toBeTruthy();
+    expect(await screen.findByText('Matches: 1 Window · 1 Tab')).toBeTruthy();
     // The bug itself: the narrowed numbers must never appear wearing the
     // unqualified label, because that is how the session's own size is stated.
-    expect(screen.queryByText('1 Window - 1 Tab')).toBeNull();
+    expect(screen.queryByText('1 Window · 1 Tab')).toBeNull();
   });
 
   test('goes back to describing the session when the search is cleared', async () => {
@@ -100,12 +100,12 @@ describe('left pane count label', () => {
     store.dispatch(openSearchPanel());
     store.dispatch(setSearchInputText('Example Domain'));
 
-    expect(await screen.findByText('Matches: 1 Window - 1 Tab')).toBeTruthy();
+    expect(await screen.findByText('Matches: 1 Window · 1 Tab')).toBeTruthy();
 
     store.dispatch(setSearchInputText(''));
     store.dispatch(closeSearchPanel());
 
-    expect(await screen.findByText('7 Windows - 13 Tabs')).toBeTruthy();
+    expect(await screen.findByText('7 Windows · 13 Tabs')).toBeTruthy();
     expect(screen.queryByText(/^Matches:/)).toBeNull();
   });
 });
@@ -118,7 +118,7 @@ describe('right pane count label', () => {
       },
     });
 
-    expect(await screen.findByText('7 Windows - 13 Tabs')).toBeTruthy();
+    expect(await screen.findByText('7 Windows · 13 Tabs')).toBeTruthy();
   });
 
   test('says the counts are matches while a search is narrowing them', async () => {
@@ -130,7 +130,7 @@ describe('right pane count label', () => {
       },
     });
 
-    expect(await screen.findByText('Matches: 1 Window - 1 Tab')).toBeTruthy();
-    expect(screen.queryByText('1 Window - 1 Tab')).toBeNull();
+    expect(await screen.findByText('Matches: 1 Window · 1 Tab')).toBeTruthy();
+    expect(screen.queryByText('1 Window · 1 Tab')).toBeNull();
   });
 });

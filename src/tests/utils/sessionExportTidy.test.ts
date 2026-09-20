@@ -44,7 +44,7 @@ const options = (): SessionExportOptions => ({
   layout: 'comfortable',
   scheme: 'light',
   dateLabel: 'Sep 10, 2026',
-  countsLabel: '1 Window - 2 Tabs',
+  countsLabel: '1 Window · 2 Tabs',
   tabCountLabel: (count) => `${count} Tabs`,
   strings: {
     window: 'Window',
