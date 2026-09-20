@@ -60,6 +60,10 @@ export interface SettingsData {
    * make one device's payoff into another device's prompt.
    */
   lastValueMomentTime: number | '';
+  // KAN-255. When this device last completed a sync, ms since epoch; '' until
+  // the first. Per device, like the rest of this slice: the other device's
+  // last sync is its own fact.
+  lastSyncedTime: number | '';
   // KAN-74. The tab-groups permission offer. Two flags and no timestamp: the
   // offer fires on every popup open that finds groups open, so there is
   // nothing to schedule -- only an escalating opt-out to remember.
@@ -111,6 +115,7 @@ const defaultSettings: SettingsData = {
   isNeverAskAgainToRate: false,
   lastReviewRequestTime: '',
   lastValueMomentTime: '',
+  lastSyncedTime: '',
   isTabGroupsPromptAnsweredOnce: false,
   isNeverAskAgainForTabGroups: false,
   sessionDateBasis: 'edited',
@@ -190,6 +195,19 @@ export const settingsDataStateSlice = createSlice({
      * the prompt only ever asks "has anything happened since I last asked",
      * so a tally would be state nothing reads.
      */
+    // KAN-255. Stamped by the sync thunk on the success path only; a failed
+    // or refused sync leaves the last true time standing.
+    recordSyncedNow: (state) => {
+      state.lastSyncedTime = Date.now();
+      saveToLocalStorage('settingsData', state);
+    },
+
+    // For tests and seeds; the app stamps through recordSyncedNow.
+    setLastSyncedTime: (state, action: PayloadAction<number | ''>) => {
+      state.lastSyncedTime = action.payload;
+      saveToLocalStorage('settingsData', state);
+    },
+
     recordValueMoment: (state) => {
       state.lastValueMomentTime = Date.now();
 
@@ -252,6 +270,8 @@ export const {
   setExtensionInstalledTime,
   updateLastReviewRequestTime,
   recordValueMoment,
+  recordSyncedNow,
+  setLastSyncedTime,
   setTabGroupsPromptAnsweredOnce,
   setNeverAskAgainForTabGroups,
   setSessionDateBasis,

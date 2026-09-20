@@ -25,7 +25,11 @@ import {
 } from '../../utils/functions/local';
 import { mergeTabContainers } from '../../utils/functions/mergeTabData';
 import { TOAST_MESSAGES } from '../../utils/constants/common';
-import { recordValueMoment, setAutoSync } from './settingsDataStateSlice';
+import {
+  recordSyncedNow,
+  recordValueMoment,
+  setAutoSync,
+} from './settingsDataStateSlice';
 
 export interface Global {
   hasSyncedBefore: boolean;
@@ -233,6 +237,9 @@ export const saveToFirestoreIfDirty = createAsyncThunk(
         // Save to localStorage after successful Firestore update
         saveToLocalStorage('tabContainerData', state.tabContainerDataState);
         thunkAPI.dispatch(setIsNotDirty());
+        // KAN-255. A write that landed is a completed sync -- the third of
+        // the three success paths (the other two are in syncStateWithFirestore).
+        thunkAPI.dispatch(recordSyncedNow());
       }
     } catch (error: any) {
       console.warn('Error updating Firestore: ', error.message);
@@ -329,6 +336,7 @@ export const syncStateWithFirestore = createAsyncThunk(
         // that, so only a completed sync may claim it.
         thunkAPI.dispatch(setIsNotDirty());
         thunkAPI.dispatch(setSyncStatus('success'));
+        thunkAPI.dispatch(recordSyncedNow());
       }
 
       if (changedFromLocal) {
@@ -362,6 +370,7 @@ export const syncStateWithFirestore = createAsyncThunk(
       thunkAPI.dispatch(replaceState(tabDataFromCloud!));
       thunkAPI.dispatch(setIsNotDirty());
       thunkAPI.dispatch(setSyncStatus(`success`));
+      thunkAPI.dispatch(recordSyncedNow());
       if (!state.globalState.hasSyncedBefore) {
         // reset presentState in the undoRedoState
         thunkAPI.dispatch(

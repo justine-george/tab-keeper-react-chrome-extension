@@ -8,7 +8,11 @@ import {
   selectCategory,
   SettingsCategory,
 } from '../../redux/slices/settingsCategoryStateSlice';
-import { toggleAutoSync } from '../../redux/slices/settingsDataStateSlice';
+import {
+  recordSyncedNow,
+  setLastSyncedTime,
+  toggleAutoSync,
+} from '../../redux/slices/settingsDataStateSlice';
 import {
   setCloudConfigured,
   setLoggedOut,
@@ -22,6 +26,7 @@ import {
   WARM_LIGHT_THEME,
 } from '../../hooks/useThemeColors';
 import { contrast } from '../setup/contrast';
+import { getPrettyDate } from '../../utils/functions/local';
 
 // KAN-248. The sync status card said "Cloud Sync Active" whenever a token
 // existed -- under an Auto Sync button reading Off, and after a failed sync
@@ -189,5 +194,73 @@ describe('every key the derivation emits is a translation key', () => {
       expect(en, `missing key: ${s.title}`).toHaveProperty(s.title);
       expect(en, `missing key: ${s.line}`).toHaveProperty(s.line);
     }
+  });
+});
+
+// KAN-255. "Cloud sync on" is true after a successful sync and equally true
+// five hours after the last one. A last-synced time, recorded per device on
+// each successful sync, is what a user actually checks when wondering whether
+// the other device has caught up. Once a time exists it REPLACES the
+// explanatory sentence in the on state -- the sentence explains what will
+// happen, the time says it did. Manual keeps its sentence (an instruction)
+// with the time above it. Failed and unavailable show no time: it would read
+// as reassurance.
+describe('the status line shows when it last synced (KAN-255)', () => {
+  const renderWith = (opts: {
+    autoSync: boolean;
+    lastSyncedTime: number | '';
+  }) =>
+    renderWithProviders(<SettingsDetailsContainer />, {
+      seedStore: (store) => {
+        store.dispatch(selectCategory(SettingsCategory.SYNC));
+        store.dispatch(setSignedIn());
+        store.dispatch(setCloudConfigured(true));
+        if (!opts.autoSync) store.dispatch(toggleAutoSync());
+        if (opts.lastSyncedTime !== '') {
+          store.dispatch(setLastSyncedTime(opts.lastSyncedTime));
+        }
+      },
+    });
+  const AT = Date.UTC(2026, 8, 20, 22, 14, 22);
+
+  test('on, with a time: the time stands in for the sentence', async () => {
+    await renderWith({ autoSync: true, lastSyncedTime: AT });
+    const line = card().querySelector('[data-sync-synced]');
+    expect(line?.textContent).toMatch(/^Last synced /);
+    expect(line?.textContent).toContain(getPrettyDate(AT, 'en'));
+    expect(card().querySelector('[data-sync-line]')).toBeNull();
+  });
+
+  test('on, never synced: the sentence, no time', async () => {
+    await renderWith({ autoSync: true, lastSyncedTime: '' });
+    expect(card().querySelector('[data-sync-synced]')).toBeNull();
+    expect(card().querySelector('[data-sync-line]')).not.toBeNull();
+  });
+
+  test('manual, with a time: both', async () => {
+    await renderWith({ autoSync: false, lastSyncedTime: AT });
+    expect(card().querySelector('[data-sync-synced]')).not.toBeNull();
+    expect(card().querySelector('[data-sync-line]')?.textContent).toMatch(
+      /Manual|stay on this device/
+    );
+  });
+
+  test('no token: no time, even if one is recorded', async () => {
+    const { store } = await renderWith({ autoSync: true, lastSyncedTime: AT });
+    act(() => {
+      store.dispatch(setLoggedOut());
+    });
+    expect(card().querySelector('[data-sync-synced]')).toBeNull();
+  });
+
+  test('a successful sync stamps the time; a failed one does not', async () => {
+    const { store } = await renderWith({ autoSync: true, lastSyncedTime: '' });
+    expect(store.getState().settingsDataState.lastSyncedTime).toBe('');
+    act(() => {
+      store.dispatch(recordSyncedNow());
+    });
+    const stamped = store.getState().settingsDataState.lastSyncedTime;
+    expect(typeof stamped).toBe('number');
+    expect(Math.abs((stamped as number) - Date.now())).toBeLessThan(5000);
   });
 });

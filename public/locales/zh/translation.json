@@ -163,5 +163,6 @@
   "DeleteCloudDataBody": "这将从云端移除您的会话，并关闭此设备上的自动同步。您的会话仍保留在此设备上。使用同一 Chrome 个人资料的其他设备会在下次同步时再次上传它们的副本，除非那里也已关闭自动同步。",
   "Cancel": "取消",
   "Cloud data deleted. Auto Sync is off on this device.": "云端数据已删除。此设备上的自动同步已关闭。",
-  "Couldn't delete cloud data. Check your connection and try again.": "无法删除云端数据。请检查网络连接后重试。"
+  "Couldn't delete cloud data. Check your connection and try again.": "无法删除云端数据。请检查网络连接后重试。",
+  "Last synced {{time}}": "上次同步：{{time}}"
 }

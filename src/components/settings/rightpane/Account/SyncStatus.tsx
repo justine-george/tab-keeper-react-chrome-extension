@@ -1,6 +1,7 @@
 import { css } from '@emotion/react';
 import { useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
+import { getPrettyDate } from '../../../../utils/functions/local';
 
 import Icon from '../../../common/Icon';
 import { describeSyncState } from './describeSyncState';
@@ -32,8 +33,11 @@ import { TYPE } from '../../../../styles/scale';
 const SyncStatus: React.FC = () => {
   const COLORS = useThemeColors();
   const FONT_FAMILY = useFontFamily();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
+  const lastSyncedTime = useSelector(
+    (s: RootState) => s.settingsDataState.lastSyncedTime
+  );
   const state = useSelector((s: RootState) =>
     describeSyncState({
       isSignedIn: s.globalState.isSignedIn,
@@ -67,6 +71,15 @@ const SyncStatus: React.FC = () => {
     white-space: nowrap;
   `;
 
+  const syncedStyle = css`
+    margin: 4px 0 0;
+    font-family: ${FONT_FAMILY};
+    font-size: ${TYPE.SECONDARY};
+    line-height: 1.45;
+    color: ${COLORS.LABEL_L1_COLOR};
+    font-variant-numeric: tabular-nums;
+  `;
+
   const lineStyle = css`
     margin: 4px 0 0;
     max-width: 100%;
@@ -87,9 +100,24 @@ const SyncStatus: React.FC = () => {
         <Icon type={state.icon} disable={true} />
         <span css={titleStyle}>{t(state.title)}</span>
       </div>
-      <p css={lineStyle} data-sync-line>
-        {t(state.line)}
-      </p>
+      {/* KAN-255. The time is shown where "when" answers a real question:
+          on and manual. In the on state it REPLACES the sentence -- the
+          sentence explains what will happen, the time says it did. Manual
+          keeps its sentence, an instruction, with the time above it. Failed
+          and unavailable show no time: there it would read as reassurance. */}
+      {lastSyncedTime !== '' &&
+        (state.kind === 'on' || state.kind === 'manual') && (
+          <p css={syncedStyle} data-sync-synced>
+            {t('Last synced {{time}}', {
+              time: getPrettyDate(lastSyncedTime, i18n.language),
+            })}
+          </p>
+        )}
+      {!(lastSyncedTime !== '' && state.kind === 'on') && (
+        <p css={lineStyle} data-sync-line>
+          {t(state.line)}
+        </p>
+      )}
     </div>
   );
 };
