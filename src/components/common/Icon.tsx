@@ -251,7 +251,14 @@ const Icon: React.FC<IconProps> = ({
       }
     >
       {faviconUrl ? (
-        <img src={faviconUrl} alt="favicon" css={iconStyle} />
+        // draggable={false} (KAN-232). An image is natively draggable by
+        // default, so a press-and-move on a tab's favicon started the
+        // browser's own HTML5 drag -- a translucent ghost of the icon -- and
+        // the page stopped receiving pointer moves. The row's drag engine
+        // never saw the gesture: a 24px dead zone for pickup at the left of
+        // every tab row, with a ghost as the only feedback. Measured, the
+        // same gesture 40px to the right, on the title, reordered the tab.
+        <img src={faviconUrl} alt="favicon" draggable={false} css={iconStyle} />
       ) : (
         <div
           css={css`
