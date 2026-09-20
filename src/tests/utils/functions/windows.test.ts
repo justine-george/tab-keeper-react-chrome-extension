@@ -111,7 +111,6 @@ describe('createWindowWithRetries', () => {
         tabs: [tab('https://first.example'), tab('https://second.example')],
       }),
       'Go to URL',
-      false,
       2
     );
 
@@ -125,40 +124,18 @@ describe('createWindowWithRetries', () => {
       top: 10,
       left: 20,
     });
-    expect(createdTabs).toEqual([
-      {
-        windowId: 7,
-        url: 'https://second.example',
-        active: false,
-      },
-    ]);
-  });
-
-  test('opens later tabs as placeholders when lazy load is on', async () => {
-    const { createdTabs } = stubChrome([fakeWindow(7)]);
-
-    await createWindowWithRetries(
-      spec({
-        tabs: [tab('https://first.example'), tab('https://second.example')],
-      }),
-      'Go to URL',
-      true,
-      2
-    );
-
+    // KAN-250. Every tab after the first is a placeholder that loads when
+    // activated; there is no longer a setting that opens them all at once.
     expect(createdTabs).toHaveLength(1);
+    expect(createdTabs[0]).toMatchObject({ windowId: 7, active: false });
     expect(createdTabs[0].url).toContain(PLACEHOLDER_URL_PREFIX);
+    expect(createdTabs[0].url).not.toBe('https://second.example');
   });
 
   test('retries without bounds after a failed attempt', async () => {
     const { createdWindows } = stubChrome([undefined, fakeWindow(8)]);
 
-    const created = await createWindowWithRetries(
-      spec(),
-      'Go to URL',
-      false,
-      2
-    );
+    const created = await createWindowWithRetries(spec(), 'Go to URL', 2);
 
     expect(created).toEqual(fakeWindow(8));
     expect(createdWindows).toHaveLength(2);
@@ -170,12 +147,7 @@ describe('createWindowWithRetries', () => {
   test('resolves null once the retries are spent', async () => {
     const { createdWindows } = stubChrome([undefined, undefined]);
 
-    const created = await createWindowWithRetries(
-      spec(),
-      'Go to URL',
-      false,
-      2
-    );
+    const created = await createWindowWithRetries(spec(), 'Go to URL', 2);
 
     expect(created).toBeNull();
     expect(createdWindows).toHaveLength(2);
@@ -187,7 +159,6 @@ describe('createWindowWithRetries', () => {
     const created = await createWindowWithRetries(
       spec({ tabs: [] }),
       'Go to URL',
-      false,
       2
     );
 
@@ -217,7 +188,6 @@ describe('createWindowWithRetries with tab groups', () => {
         groups: [{ groupId: 'g1', title: 'Work', color: 'blue' }],
       }),
       'Go',
-      false,
       2
     );
 
@@ -237,7 +207,6 @@ describe('createWindowWithRetries with tab groups', () => {
         groups: [{ groupId: 'g1', title: 'Work', color: 'chartreuse' }],
       }),
       'Go',
-      false,
       2
     );
 
@@ -256,7 +225,6 @@ describe('createWindowWithRetries with tab groups', () => {
         groups: [{ groupId: 'g1', title: 'Work', color: 'blue' }],
       }),
       'Go',
-      false,
       2
     );
 
@@ -280,7 +248,6 @@ describe('createWindowWithRetries with tab groups', () => {
         groups: [{ groupId: 'g1', title: 'Work', color: 'blue' }],
       }),
       'Go',
-      false,
       2
     );
 
@@ -319,7 +286,6 @@ describe('createWindowWithRetries with tab groups', () => {
         ],
       }),
       'Go',
-      false,
       2
     );
 
@@ -334,7 +300,7 @@ describe('createWindowWithRetries with tab groups', () => {
   test('a spec with no groups behaves exactly as before', async () => {
     handle = setupChromeFake({ grantedPermissions: ['tabGroups'] });
 
-    const created = await createWindowWithRetries(spec(), 'Go', false, 2);
+    const created = await createWindowWithRetries(spec(), 'Go', 2);
 
     expect(created).not.toBeNull();
     expect(handle.groupedTabs).toEqual([]);
@@ -346,7 +312,6 @@ describe('isRestoreSessionRequest', () => {
     type: RESTORE_SESSION_MESSAGE,
     specs: [],
     goToURLText: 'Go',
-    isLazyLoad: false,
     closeOtherWindows: true,
   };
 

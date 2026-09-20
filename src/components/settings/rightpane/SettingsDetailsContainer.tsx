@@ -30,7 +30,6 @@ import {
   setTheme,
   setUserRatedAndReviewed,
   toggleAutoSync,
-  toggleLazyLoad,
 } from '../../../redux/slices/settingsDataStateSlice';
 import {
   APP_CHROME_WEBSTORE_LINK,
@@ -144,10 +143,6 @@ const SettingsDetailsContainer: React.FC = () => {
       dispatch(syncStateWithFirestore());
     }
     dispatch(toggleAutoSync());
-  };
-
-  const handleToggleLazyLoadTabs = () => {
-    dispatch(toggleLazyLoad());
   };
 
   // Fire-and-forget on purpose -- see requestTabGroupsPermission. The button's
@@ -443,56 +438,6 @@ const SettingsDetailsContainer: React.FC = () => {
           align-items: center;
         `}
       >
-        {/* Lazy Load Tabs */}
-        <div
-          css={css`
-            display: flex;
-            flex-direction: column;
-            align-items: flex-start;
-            padding-left: clamp(16px, 8%, 72px);
-            padding-right: clamp(16px, 8%, 72px);
-            width: 100%;
-            margin-top: 20px;
-          `}
-        >
-          <div
-            css={css`
-              display: flex;
-              align-items: flex-start;
-              width: 100%;
-            `}
-          >
-            <NormalLabel
-              value={t('Lazy Load Tabs')}
-              size={TYPE.BODY}
-              color={COLORS.LABEL_L1_COLOR}
-            />
-          </div>
-
-          <div
-            css={css`
-              margin-top: 8px;
-            `}
-          >
-            {/* KAN-249. A pair, as Auto Sync became in KAN-248: both sides
-                shown, the pressed one marked, the group named for the setting. */}
-            <SlidingPair
-              label={t('Lazy Load Tabs')}
-              options={[
-                { value: 'on', label: t('On') },
-                { value: 'off', label: t('Off') },
-              ]}
-              value={settingsData.isLazyLoad ? 'on' : 'off'}
-              onChange={(next) => {
-                if ((next === 'on') !== settingsData.isLazyLoad) {
-                  handleToggleLazyLoadTabs();
-                }
-              }}
-              metrics={SETTINGS_PAIR_METRICS}
-            />
-          </div>
-        </div>
-
         {/* Save Tab Groups */}
         <div
           css={css`

@@ -96,45 +96,27 @@ describe('settings toggles say which setting they control (KAN-88)', () => {
   // i18n key in this repo is not its own display string. Asserting the key
   // here would fail against entirely correct code, which is what it did on
   // the first run. Always assert the rendered VALUE.
-  test('the Data Management toggles are pairs named for their settings', async () => {
+  // The other toggle lives on the Data Management panel and was the same
+  // defect; it became a pair after Auto Sync did (KAN-249). The memory
+  // setting that sat above it is gone (KAN-250): restores always open later
+  // tabs as placeholders, so there is nothing to choose.
+  test('Data Management has one pair, Save Tab Groups, and no memory setting', async () => {
     await renderOn(SettingsCategory.DATA_MANAGEMENT);
 
-    const lazy = screen.getByRole('group', {
-      name: 'Optimize Memory Usage On Session Restore',
-    });
     const groups = screen.getByRole('group', { name: 'Save Tab Groups' });
-    expect(
-      within(lazy)
-        .getByRole('button', { name: 'On' })
-        .getAttribute('aria-pressed')
-    ).toBe('true');
     expect(
       within(groups)
         .getByRole('button', { name: 'Off' })
         .getAttribute('aria-pressed')
     ).toBe('true');
+    expect(screen.getAllByRole('group')).toHaveLength(1);
+    expect(
+      screen.queryByText('Optimize Memory Usage On Session Restore')
+    ).toBeNull();
     // No "<setting>: <value>" names survive: the group carries the setting.
     for (const b of screen.getAllByRole('button')) {
       expect(b.getAttribute('aria-label') ?? '').not.toMatch(/: (On|Off)$/);
     }
-  });
-
-  test('the memory toggle flips the store, once per activation of the other side', async () => {
-    const user = userEvent.setup();
-    const { store } = await renderOn(SettingsCategory.DATA_MANAGEMENT);
-    const lazy = () =>
-      screen.getByRole('group', {
-        name: 'Optimize Memory Usage On Session Restore',
-      });
-    expect(store.getState().settingsDataState.isLazyLoad).toBe(true);
-
-    await user.click(within(lazy()).getByRole('button', { name: 'Off' }));
-    expect(store.getState().settingsDataState.isLazyLoad).toBe(false);
-    expect(
-      within(lazy())
-        .getByRole('button', { name: 'Off' })
-        .getAttribute('aria-pressed')
-    ).toBe('true');
   });
 
   // Save Tab Groups is not a store toggle: On asks Chrome for the permission,

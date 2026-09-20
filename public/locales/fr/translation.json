@@ -84,7 +84,6 @@
   "Graphite": "Graphite",
   "Ink": "Encre",
   "Auto Sync": "Sync automatique",
-  "Lazy Load Tabs": "Optimiser l'Utilisation de la Mémoire Lors de la Restauration",
   "Save Tab Groups": "Enregistrer les groupes d'onglets",
   "Sync Status": "Statut de sync",
   "Chrome’s sync storage isn’t available in this profile, so your sessions stay on this device.": "Le stockage de synchronisation de Chrome n’est pas disponible dans ce profil : vos sessions restent donc sur cet appareil.",
