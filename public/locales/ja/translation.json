@@ -156,5 +156,12 @@
   "ExportEditTally": "名前変更 {{renamed}} · 非表示 {{hidden}}",
   "Hide": "非表示",
   "Rename tab": "タブの名前を変更",
-  "Preview": "プレビュー"
+  "Preview": "プレビュー",
+  "Cloud data": "クラウドデータ",
+  "Delete cloud data": "クラウドデータを削除",
+  "Delete your cloud data?": "クラウドデータを削除しますか？",
+  "DeleteCloudDataBody": "クラウドからセッションが削除され、このデバイスの自動同期がオフになります。セッションはこのデバイスに残ります。同じ Chrome プロフィールの他のデバイスは、そちらでも自動同期をオフにしない限り、次回の同期時に再びコピーをアップロードします。",
+  "Cancel": "キャンセル",
+  "Cloud data deleted. Auto Sync is off on this device.": "クラウドデータを削除しました。このデバイスの自動同期はオフです。",
+  "Couldn't delete cloud data. Check your connection and try again.": "クラウドデータを削除できませんでした。接続を確認して、もう一度お試しください。"
 }

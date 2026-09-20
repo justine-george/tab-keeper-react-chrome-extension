@@ -9,6 +9,7 @@ import {
   TabMasterContainer,
 } from './tabContainerDataStateSlice';
 import {
+  deleteFromFirestore,
   loadFromFirestore,
   saveToFirestore,
 } from '../../utils/functions/external';
@@ -24,7 +25,7 @@ import {
 } from '../../utils/functions/local';
 import { mergeTabContainers } from '../../utils/functions/mergeTabData';
 import { TOAST_MESSAGES } from '../../utils/constants/common';
-import { recordValueMoment } from './settingsDataStateSlice';
+import { recordValueMoment, setAutoSync } from './settingsDataStateSlice';
 
 export interface Global {
   hasSyncedBefore: boolean;
@@ -81,6 +82,8 @@ export interface Global {
   // in settingsData.
   tabGroupsPromptCount: number | null;
   focusRequest: FocusRequest | null;
+  // KAN-254. The "Delete cloud data" confirm dialog.
+  isDeleteCloudDataModalOpen: boolean;
   // "the tabGroups permission is granted right now". Mirrors
   // chrome.permissions.contains(), re-read on every popup mount and updated by
   // the permission change listeners -- never persisted, because the user can
@@ -182,6 +185,7 @@ export const initialState: Global = {
   isRateAndReviewModalOpen: false,
   tabGroupsPromptCount: null,
   focusRequest: null,
+  isDeleteCloudDataModalOpen: false,
   hasTabGroupsPermission: false,
   collapsedWindows: null,
 };
@@ -391,6 +395,38 @@ export const syncStateWithFirestore = createAsyncThunk(
   }
 );
 
+// KAN-254. Deletes the document under the token and turns Auto Sync off on
+// THIS device -- otherwise the next edit re-uploads everything and the delete
+// was theatre. Local sessions are untouched, and so is the token: minting a
+// fresh one would detach this device from the document but leave it standing.
+// Other devices on the same profile will upload their copy again on their
+// next sync unless auto sync is off there too; the dialog says so.
+//
+// On failure nothing changes but the toast: reporting "deleted" for a
+// document that is still there is the one outcome worse than an error.
+export const deleteCloudData = createAsyncThunk(
+  'global/deleteCloudData',
+  async (_: void, thunkAPI) => {
+    const { userId } = (thunkAPI.getState() as RootState).globalState;
+    thunkAPI.dispatch(closeDeleteCloudDataModal());
+    if (!userId) return;
+    try {
+      await deleteFromFirestore(userId);
+    } catch (error) {
+      console.warn('deleteCloudData: delete failed:', error);
+      thunkAPI.dispatch(
+        showToast({ toastText: TOAST_MESSAGES.CLOUD_DATA_DELETE_FAILED })
+      );
+      return;
+    }
+    thunkAPI.dispatch(setAutoSync(false));
+    thunkAPI.dispatch(setSyncStatus('idle'));
+    thunkAPI.dispatch(
+      showToast({ toastText: TOAST_MESSAGES.CLOUD_DATA_DELETED })
+    );
+  }
+);
+
 export const openSettingsPage = createAsyncThunk(
   'global/openSettingsPage',
   async (settingsName: SettingsCategory | undefined, thunkAPI) => {
@@ -460,6 +496,14 @@ export const globalStateSlice = createSlice({
 
     closeFocusModal: (state) => {
       state.focusRequest = null;
+    },
+
+    openDeleteCloudDataModal: (state) => {
+      state.isDeleteCloudDataModalOpen = true;
+    },
+
+    closeDeleteCloudDataModal: (state) => {
+      state.isDeleteCloudDataModalOpen = false;
     },
 
     openSearchPanel: (state) => {
@@ -666,6 +710,8 @@ export const {
   closeTabGroupsPrompt,
   openFocusModal,
   closeFocusModal,
+  openDeleteCloudDataModal,
+  closeDeleteCloudDataModal,
   openSearchPanel,
   closeSearchPanel,
   setSearchInputText,

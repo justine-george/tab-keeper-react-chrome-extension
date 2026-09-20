@@ -4,11 +4,13 @@ import { fireEvent, screen } from '@testing-library/react';
 import { RateAndReviewModal } from '../../components/modals/RateAndReviewModal';
 import { TabGroupsPermissionModal } from '../../components/modals/TabGroupsPermissionModal';
 import { FocusConfirmModal } from '../../components/modals/FocusConfirmModal';
+import { DeleteCloudDataModal } from '../../components/modals/DeleteCloudDataModal';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import {
   openRateAndReviewModal,
   openTabGroupsPrompt,
   openFocusModal,
+  openDeleteCloudDataModal,
 } from '../../redux/slices/globalStateSlice';
 import { saveToTabContainerInternal } from '../../redux/slices/tabContainerDataStateSlice';
 import type { tabContainerData } from '../../redux/slices/tabContainerDataStateSlice';
@@ -91,6 +93,14 @@ const MODALS = [
         },
       }),
     expectedName: null, // interpolates the session title; asserted as non-empty
+  },
+  {
+    name: 'DeleteCloudDataModal',
+    render: () =>
+      renderWithProviders(<DeleteCloudDataModal />, {
+        seedStore: (store: Store) => store.dispatch(openDeleteCloudDataModal()),
+      }),
+    expectedName: 'Delete your cloud data?',
   },
 ] as const;
 

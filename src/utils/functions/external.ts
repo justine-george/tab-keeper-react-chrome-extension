@@ -1,6 +1,6 @@
 // Lite build - see the note in src/config/firebase.ts. Must match the import
 // there, since db is created by that module's getFirestore.
-import { doc, setDoc } from 'firebase/firestore/lite';
+import { deleteDoc, doc, setDoc } from 'firebase/firestore/lite';
 import {
   cloudUnavailable,
   db,
@@ -102,4 +102,12 @@ export async function saveToFirestore(
     console.warn('Error updating Firestore: ', error.message);
     throw error;
   }
+}
+
+// KAN-254. Removes the user's document. Thrown, not swallowed: the caller
+// tells the user it failed, and a silent failure here would report a delete
+// that never happened -- the one outcome worse than an error.
+export async function deleteFromFirestore(userId: string): Promise<void> {
+  if (db === null) throw cloudUnavailable();
+  await deleteDoc(doc(db, 'tabGroupData', userId));
 }

@@ -156,5 +156,12 @@
   "ExportEditTally": "{{renamed}} renommés · {{hidden}} masqués",
   "Hide": "Masquer",
   "Rename tab": "Renommer l'onglet",
-  "Preview": "Aperçu"
+  "Preview": "Aperçu",
+  "Cloud data": "Données cloud",
+  "Delete cloud data": "Supprimer les données cloud",
+  "Delete your cloud data?": "Supprimer vos données cloud ?",
+  "DeleteCloudDataBody": "Vos sessions seront retirées du cloud et la synchronisation automatique désactivée sur cet appareil. Vos sessions restent sur cet appareil. Les autres appareils du même profil Chrome renverront leur copie à leur prochaine synchronisation, sauf si elle y est aussi désactivée.",
+  "Cancel": "Annuler",
+  "Cloud data deleted. Auto Sync is off on this device.": "Données cloud supprimées. La synchronisation automatique est désactivée sur cet appareil.",
+  "Couldn't delete cloud data. Check your connection and try again.": "Impossible de supprimer les données cloud. Vérifiez votre connexion et réessayez."
 }
