@@ -75,7 +75,7 @@ test.describe('the popup shortcut row (KAN-256)', () => {
     extensionId,
   }) => {
     const page = await openSessions(context, extensionId);
-    const shown = page.locator('[data-popup-shortcut]');
+    const shown = page.getByTestId('popup-shortcut');
     await expect(shown).toBeVisible();
 
     const bound = await page.evaluate(
@@ -88,14 +88,21 @@ test.describe('the popup shortcut row (KAN-256)', () => {
           )
         )
     );
-    await expect(shown).toHaveText(bound || 'Not set');
+    if (bound) {
+      // One keycap per key, in Chrome's order; the sentence says what for.
+      const caps = await shown.locator('kbd').allTextContents();
+      expect(caps.join('')).toBe(bound.replace(/\+/g, ''));
+      await expect(shown).toContainText('to open Tab Keeper');
+    } else {
+      await expect(shown).toHaveText('No shortcut is set to open Tab Keeper.');
+    }
     // The manifest did declare one; whether Chrome honoured it is Chrome's.
     expect(
       await page.evaluate(() => chrome.runtime.getManifest().commands)
     ).toHaveProperty('_execute_action');
 
     const before = context.pages().length;
-    await page.getByRole('button', { name: 'Change shortcut' }).click();
+    await page.getByRole('button', { name: 'Change' }).click();
     await expect.poll(() => context.pages().length).toBe(before + 1);
     const opened = context.pages()[context.pages().length - 1];
     expect(opened.url()).toBe('chrome://extensions/shortcuts');

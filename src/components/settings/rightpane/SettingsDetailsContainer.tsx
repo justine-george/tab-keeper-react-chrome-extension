@@ -64,6 +64,8 @@ import {
   CHROME_SHORTCUTS_URL,
   usePopupShortcut,
 } from '../../../hooks/usePopupShortcut';
+import { shortcutKeys } from '../../../utils/functions/shortcutKeys';
+import { KEYS_SLOT, ShortcutSentence } from '../../common/ShortcutSentence';
 
 // The theme picker's swatches live in ThemeSwatch (KAN-237), which also carries
 // the KAN-88/KAN-95 marker rule and its reasoning.
@@ -615,10 +617,11 @@ const SettingsDetailsContainer: React.FC = () => {
           </div>
         </div>
 
-        {/* Keyboard shortcut. KAN-256: the binding Chrome actually assigned to
-            opening the popup, read from chrome.commands -- never the
-            manifest's suggestion, which Chrome honours only when the key is
-            free -- and the one page where it can be changed. */}
+        {/* Keyboard shortcut. KAN-256: a sentence that says what the key
+            does, with the binding Chrome actually assigned -- read from
+            chrome.commands, never the manifest's suggestion, which Chrome
+            honours only when the key is free -- drawn as one keycap per key,
+            and a button to the one page where it can be changed. */}
         <div
           data-settings-section
           css={css`
@@ -641,33 +644,39 @@ const SettingsDetailsContainer: React.FC = () => {
               color={COLORS.LABEL_L1_COLOR}
             />
           </div>
+          {popupShortcut !== undefined && (
+            <p
+              data-testid="popup-shortcut"
+              css={css`
+                margin: 8px 0 0;
+                font-size: ${TYPE.BODY};
+                line-height: 1.6;
+                color: ${COLORS.LABEL_L1_COLOR};
+              `}
+            >
+              {popupShortcut === '' ? (
+                t('No shortcut is set to open Tab Keeper.')
+              ) : (
+                <ShortcutSentence
+                  sentence={t('Press {{keys}} to open Tab Keeper.', {
+                    keys: KEYS_SLOT,
+                  })}
+                  keys={shortcutKeys(popupShortcut)}
+                />
+              )}
+            </p>
+          )}
           <div
             css={css`
-              display: flex;
-              align-items: center;
-              gap: 12px;
               margin-top: 8px;
             `}
           >
-            {popupShortcut !== undefined && (
-              <span
-                data-popup-shortcut
-                css={css`
-                  font-size: ${TYPE.BODY};
-                  color: ${popupShortcut
-                    ? COLORS.TEXT_COLOR
-                    : COLORS.LABEL_L2_COLOR};
-                  white-space: nowrap;
-                `}
-              >
-                {popupShortcut || t('Not set')}
-              </span>
-            )}
             <Button
-              text={t('Change shortcut')}
+              text={t('Change')}
               onClick={() => {
                 chrome.tabs.create({ url: CHROME_SHORTCUTS_URL });
               }}
+              style={`height: ${CONTROL.ROW}; padding: 0 12px;`}
             />
           </div>
         </div>

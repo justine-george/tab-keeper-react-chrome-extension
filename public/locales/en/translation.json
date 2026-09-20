@@ -166,6 +166,7 @@
   "Couldn't delete cloud data. Check your connection and try again.": "Couldn't delete cloud data. Check your connection and try again.",
   "Last synced {{time}}": "Last synced {{time}}",
   "Keyboard shortcut": "Keyboard shortcut",
-  "Not set": "Not set",
-  "Change shortcut": "Change shortcut"
+  "Press {{keys}} to open Tab Keeper.": "Press {{keys}} to open Tab Keeper.",
+  "No shortcut is set to open Tab Keeper.": "No shortcut is set to open Tab Keeper.",
+  "Change": "Change"
 }

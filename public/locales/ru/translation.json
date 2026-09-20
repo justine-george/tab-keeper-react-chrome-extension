@@ -166,6 +166,7 @@
   "Couldn't delete cloud data. Check your connection and try again.": "Не удалось удалить облачные данные. Проверьте подключение и попробуйте снова.",
   "Last synced {{time}}": "Последняя синхронизация: {{time}}",
   "Keyboard shortcut": "Сочетание клавиш",
-  "Not set": "Не задано",
-  "Change shortcut": "Изменить сочетание"
+  "Press {{keys}} to open Tab Keeper.": "Нажмите {{keys}}, чтобы открыть Tab Keeper.",
+  "No shortcut is set to open Tab Keeper.": "Сочетание клавиш для открытия Tab Keeper не задано.",
+  "Change": "Изменить"
 }

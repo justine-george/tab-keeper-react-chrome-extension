@@ -166,6 +166,7 @@
   "Couldn't delete cloud data. Check your connection and try again.": "无法删除云端数据。请检查网络连接后重试。",
   "Last synced {{time}}": "上次同步：{{time}}",
   "Keyboard shortcut": "键盘快捷键",
-  "Not set": "未设置",
-  "Change shortcut": "更改快捷键"
+  "Press {{keys}} to open Tab Keeper.": "按 {{keys}} 打开 Tab Keeper。",
+  "No shortcut is set to open Tab Keeper.": "尚未设置打开 Tab Keeper 的快捷键。",
+  "Change": "更改"
 }

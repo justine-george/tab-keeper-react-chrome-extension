@@ -23,17 +23,34 @@ const renderSessions = (commands?: chrome.commands.Command[]) =>
   });
 
 describe('the Sessions pane shows the popup shortcut (KAN-256)', () => {
-  test('shows the binding Chrome reports', async () => {
+  test('a sentence that says what the key does, with one keycap per key', async () => {
     await renderSessions([
       { name: '_execute_action', shortcut: 'Alt+Shift+K' },
     ]);
     expect(screen.getByText('Keyboard shortcut')).toBeTruthy();
-    expect(await screen.findByText('Alt+Shift+K')).toBeTruthy();
+    const sentence = await screen.findByTestId('popup-shortcut');
+    expect(sentence.textContent).toMatch(/^Press /);
+    expect(sentence.textContent).toMatch(/to open Tab Keeper\.$/);
+    const caps = [...sentence.querySelectorAll('kbd')].map(
+      (k) => k.textContent
+    );
+    expect(caps).toEqual(['Alt', 'Shift', 'K']);
   });
 
-  test('says Not set when Chrome assigned nothing', async () => {
+  test('the Mac form gets one cap per glyph', async () => {
+    await renderSessions([{ name: '_execute_action', shortcut: '⌥⇧K' }]);
+    const sentence = await screen.findByTestId('popup-shortcut');
+    const caps = [...sentence.querySelectorAll('kbd')].map(
+      (k) => k.textContent
+    );
+    expect(caps).toEqual(['⌥', '⇧', 'K']);
+  });
+
+  test('says so when Chrome assigned nothing, with no empty caps', async () => {
     await renderSessions([{ name: '_execute_action', shortcut: '' }]);
-    expect(await screen.findByText('Not set')).toBeTruthy();
+    const sentence = await screen.findByTestId('popup-shortcut');
+    expect(sentence.textContent).toBe('No shortcut is set to open Tab Keeper.');
+    expect(sentence.querySelectorAll('kbd')).toHaveLength(0);
   });
 
   test('Change opens the Chrome shortcuts page in a tab', async () => {
@@ -41,7 +58,7 @@ describe('the Sessions pane shows the popup shortcut (KAN-256)', () => {
     const { chrome } = await renderSessions([
       { name: '_execute_action', shortcut: 'Alt+Shift+K' },
     ]);
-    await user.click(screen.getByRole('button', { name: 'Change shortcut' }));
+    await user.click(screen.getByRole('button', { name: 'Change' }));
     expect(chrome.createdTabs).toEqual([
       { url: 'chrome://extensions/shortcuts' },
     ]);
