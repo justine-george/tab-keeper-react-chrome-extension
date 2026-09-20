@@ -89,7 +89,7 @@
   "Sync Status": "同步状态",
   "Enable Chrome sync for seamless data syncing.": "启用 Chrome 同步以实现无缝数据同步。",
   "Cloud sync on": "云同步已开启",
-  "Synced with an anonymous token in your Chrome profile. No account, no email.": "通过 Chrome 个人资料中的匿名令牌同步。无需账户，无需邮箱。",
+  "Synced through an anonymous token in your Chrome profile, so there’s nothing to sign in to.": "通过 Chrome 个人资料中的匿名令牌同步，因此无需登录任何账户。",
   "Manual sync": "手动同步",
   "Changes stay on this device until you press the cloud button.": "在按下云按钮之前，更改只保留在此设备上。",
   "Last sync failed": "上次同步失败",

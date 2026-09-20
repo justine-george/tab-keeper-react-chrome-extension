@@ -89,7 +89,7 @@
   "Sync Status": "सिंक स्थिति",
   "Enable Chrome sync for seamless data syncing.": "निर्बाध डेटा सिंकिंग के लिए क्रोम सिंक सक्षम करें।",
   "Cloud sync on": "क्लाउड सिंक चालू",
-  "Synced with an anonymous token in your Chrome profile. No account, no email.": "आपकी Chrome प्रोफ़ाइल में एक गुमनाम टोकन से सिंक होता है। न खाता, न ईमेल।",
+  "Synced through an anonymous token in your Chrome profile, so there’s nothing to sign in to.": "आपकी Chrome प्रोफ़ाइल में एक गुमनाम टोकन से सिंक होता है, इसलिए कहीं साइन इन करने की ज़रूरत नहीं।",
   "Manual sync": "मैन्युअल सिंक",
   "Changes stay on this device until you press the cloud button.": "जब तक आप क्लाउड बटन नहीं दबाते, बदलाव इसी डिवाइस पर रहते हैं।",
   "Last sync failed": "पिछला सिंक विफल रहा",

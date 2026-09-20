@@ -77,6 +77,6 @@ export function describeSyncState({
     kind: 'on',
     icon: 'cloud_done',
     title: 'Cloud sync on',
-    line: 'Synced with an anonymous token in your Chrome profile. No account, no email.',
+    line: 'Synced through an anonymous token in your Chrome profile, so there’s nothing to sign in to.',
   };
 }

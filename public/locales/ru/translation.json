@@ -89,7 +89,7 @@
   "Sync Status": "Статус синхронизации",
   "Enable Chrome sync for seamless data syncing.": "Включите синхронизацию Chrome для данных.",
   "Cloud sync on": "Облачная синхронизация включена",
-  "Synced with an anonymous token in your Chrome profile. No account, no email.": "Синхронизация по анонимному токену в вашем профиле Chrome. Без аккаунта, без почты.",
+  "Synced through an anonymous token in your Chrome profile, so there’s nothing to sign in to.": "Синхронизация идёт через анонимный токен в вашем профиле Chrome, так что входить никуда не нужно.",
   "Manual sync": "Ручная синхронизация",
   "Changes stay on this device until you press the cloud button.": "Изменения остаются на этом устройстве, пока вы не нажмёте кнопку облака.",
   "Last sync failed": "Последняя синхронизация не удалась",

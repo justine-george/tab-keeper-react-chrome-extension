@@ -89,7 +89,7 @@
   "Sync Status": "Status de Sincronização",
   "Enable Chrome sync for seamless data syncing.": "Ativar sincronização contínua no Chrome.",
   "Cloud sync on": "Sincronização na nuvem ativa",
-  "Synced with an anonymous token in your Chrome profile. No account, no email.": "Sincronizado com um token anônimo no seu perfil do Chrome. Sem conta, sem e-mail.",
+  "Synced through an anonymous token in your Chrome profile, so there’s nothing to sign in to.": "Sincronizado por um token anônimo no seu perfil do Chrome, então não há onde fazer login.",
   "Manual sync": "Sincronização manual",
   "Changes stay on this device until you press the cloud button.": "As alterações ficam neste dispositivo até você pressionar o botão de nuvem.",
   "Last sync failed": "A última sincronização falhou",

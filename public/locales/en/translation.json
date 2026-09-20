@@ -88,7 +88,7 @@
   "Sync Status": "Sync Status",
   "Enable Chrome sync for seamless data syncing.": "Enable Chrome sync for seamless data syncing.",
   "Cloud sync on": "Cloud sync on",
-  "Synced with an anonymous token in your Chrome profile. No account, no email.": "Synced with an anonymous token in your Chrome profile. No account, no email.",
+  "Synced through an anonymous token in your Chrome profile, so there’s nothing to sign in to.": "Synced through an anonymous token in your Chrome profile, so there’s nothing to sign in to.",
   "Manual sync": "Manual sync",
   "Changes stay on this device until you press the cloud button.": "Changes stay on this device until you press the cloud button.",
   "Last sync failed": "Last sync failed",

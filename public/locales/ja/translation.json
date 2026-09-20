@@ -89,7 +89,7 @@
   "Sync Status": "同期ステータス",
   "Enable Chrome sync for seamless data syncing.": "データ同期のためのChrome同期を有効。",
   "Cloud sync on": "クラウド同期オン",
-  "Synced with an anonymous token in your Chrome profile. No account, no email.": "Chromeプロフィール内の匿名トークンで同期します。アカウントもメールも不要です。",
+  "Synced through an anonymous token in your Chrome profile, so there’s nothing to sign in to.": "Chromeプロフィール内の匿名トークンで同期するので、ログインするものは何もありません。",
   "Manual sync": "手動同期",
   "Changes stay on this device until you press the cloud button.": "クラウドボタンを押すまで、変更はこの端末にとどまります。",
   "Last sync failed": "前回の同期に失敗しました",
