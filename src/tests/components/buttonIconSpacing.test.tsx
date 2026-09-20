@@ -30,7 +30,7 @@ const iconContainerOf = (container: HTMLElement): HTMLElement => {
 describe('Button icon spacing', () => {
   test('separates the icon from its label', async () => {
     const { container } = await renderWithProviders(
-      <Button text="Backup App Data to File" iconType="publish" />
+      <Button text="Save sessions to a file" iconType="download" />
     );
 
     expect(getComputedStyle(iconContainerOf(container)).paddingRight).toBe(
@@ -40,7 +40,7 @@ describe('Button icon spacing', () => {
 
   test('separates the icon from an adjacent image', async () => {
     const { container } = await renderWithProviders(
-      <Button imageSrc="https://example.com/i.png" iconType="publish" />
+      <Button imageSrc="https://example.com/i.png" iconType="download" />
     );
 
     expect(getComputedStyle(iconContainerOf(container)).paddingRight).toBe(
@@ -71,7 +71,7 @@ describe('Button icon spacing', () => {
   // asymmetry. This is the one branch the old `&&` chain got right.
   test('adds no separation to an icon with no label or image', async () => {
     const { container } = await renderWithProviders(
-      <Button iconType="publish" />
+      <Button iconType="download" />
     );
 
     // Icon's own containerStyle padding, untouched.

@@ -126,7 +126,7 @@ describe('import size guard (KAN-27)', () => {
     const { store } = await renderDataManagement();
 
     await userEvent.click(
-      await screen.findByText('Restore App Data from File')
+      await screen.findByText('Replace sessions from a backup')
     );
     dropFile(inputs[0], buildOversizedBackup());
 
@@ -156,7 +156,7 @@ describe('import size guard (KAN-27)', () => {
     const { store } = await renderDataManagement();
 
     await userEvent.click(
-      await screen.findByText('Restore App Data from File')
+      await screen.findByText('Replace sessions from a backup')
     );
     dropFile(inputs[0], buildSmallBackup());
 
@@ -191,7 +191,7 @@ describe('import sync failure (KAN-43)', () => {
     const { store } = await renderDataManagement();
 
     await userEvent.click(
-      await screen.findByText('Restore App Data from File')
+      await screen.findByText('Replace sessions from a backup')
     );
     dropFile(inputs[0], buildSmallBackup());
 

@@ -16,6 +16,7 @@ import {
   DARKENHEIMER_THEME,
   useThemeColors,
 } from '../../../hooks/useThemeColors';
+import { useFontFamily } from '../../../hooks/useFontFamily';
 import { AppDispatch, RootState } from '../../../redux/store';
 import {
   saveToFirestoreIfDirty,
@@ -95,6 +96,7 @@ const SETTINGS_PAIR_METRICS: SlidingPairMetrics = {
 
 const SettingsDetailsContainer: React.FC = () => {
   const COLORS = useThemeColors();
+  const FONT_FAMILY = useFontFamily();
   const { i18n } = useTranslation();
   const { t } = useTranslation();
 
@@ -488,7 +490,12 @@ const SettingsDetailsContainer: React.FC = () => {
           </div>
         </div>
 
-        {/* Backup & Restore */}
+        {/* Backup. KAN-251: the buttons name what they do to SESSIONS --
+            "Restore" is this app's verb for opening a saved session, and
+            "App Data" promised settings the file does not carry -- and the
+            icons point the way the browser's do: save is a download, replace
+            an upload. "Replace" because that is what loading a backup does to
+            what is there (KAN-252 holds the question of whether it should). */}
         <div
           css={css`
             display: flex;
@@ -508,7 +515,7 @@ const SettingsDetailsContainer: React.FC = () => {
             `}
           >
             <NormalLabel
-              value={t('Backup & Restore')}
+              value={t('Backup')}
               size={TYPE.BODY}
               color={COLORS.LABEL_L1_COLOR}
             />
@@ -516,30 +523,45 @@ const SettingsDetailsContainer: React.FC = () => {
 
           <div
             css={css`
-              display: flex;
-              flex-direction: column;
-              justify-content: space-between;
-              /* A definite width, so the buttons' width: 100% resolves against
-                 the row rather than against their own text. */
-              width: 100%;
-              align-items: flex-start;
+              /* One column sized to the wider label, so the two buttons share
+                 an edge in every locale and neither wraps; capped at the
+                 pane so a long translation narrows rather than overflows. The
+                 old 260px cap wrapped both German labels. */
+              display: inline-grid;
+              grid-template-columns: minmax(0, max-content);
+              row-gap: 12px;
+              max-width: 100%;
               margin-top: 8px;
             `}
           >
             <Button
-              text={t(`Backup App Data to File`)}
-              iconType="publish"
+              text={t('Save sessions to a file')}
+              iconType="download"
               onClick={handleExportJSON}
-              style="width: 100%;
-              max-width: 260px; justify-content: center;"
+              style="width: 100%; justify-content: center;"
             />
             <Button
-              text={t('Restore App Data from File')}
-              iconType="get_app"
+              text={t('Replace sessions from a backup')}
+              iconType="upload"
               onClick={handleImportJSON}
-              style="width: 100%;
-              max-width: 260px; justify-content: center; margin-top: 12px;"
+              style="width: 100%; justify-content: center;"
             />
+            {/* Wraps, unlike NormalLabel: a sentence, not a label. */}
+            <p
+              css={css`
+                margin: 0;
+                max-width: 100%;
+                font-family: ${FONT_FAMILY};
+                font-size: ${TYPE.SECONDARY};
+                line-height: 1.45;
+                color: ${COLORS.LABEL_L1_COLOR};
+                /* Not 42ch: a ch is a Latin digit, and in Japanese that cap
+                   left one character on a line of its own. */
+                text-wrap: balance;
+              `}
+            >
+              {t('A backup holds your sessions, not your settings.')}
+            </p>
           </div>
         </div>
       </div>

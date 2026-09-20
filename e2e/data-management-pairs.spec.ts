@@ -56,9 +56,9 @@ test.describe('the Data Management pane (KAN-249, KAN-250)', () => {
       page.getByText('Optimize Memory Usage On Session Restore')
     ).toHaveCount(0);
     // The heading that remains, and the two actions under it.
-    await expect(page.getByText('Backup & Restore')).toBeVisible();
+    await expect(page.getByText('Backup', { exact: true })).toBeVisible();
     await expect(
-      page.getByRole('button', { name: 'Backup App Data to File' })
+      page.getByRole('button', { name: 'Save sessions to a file' })
     ).toBeVisible();
   });
 });
