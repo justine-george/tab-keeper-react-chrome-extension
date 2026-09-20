@@ -48,13 +48,12 @@ describe('the backup buttons say what they do (KAN-251)', () => {
     expect(screen.queryByText(/^Restore /)).toBeNull();
   });
 
-  test('the heading is Backup, and the line under it says what a backup holds', async () => {
+  test('the heading is Backup, and nothing under the buttons restates them', async () => {
     await renderDataManagement();
     expect(screen.getByText('Backup')).toBeTruthy();
     expect(screen.queryByText('Backup & Restore')).toBeNull();
-    expect(
-      screen.getByText('A backup holds your sessions, not your settings.')
-    ).toBeTruthy();
+    // Both labels already say "sessions"; a note saying so again was cut.
+    expect(screen.queryByText(/not your settings/)).toBeNull();
   });
 
   test('CONTROL: the glyph reader sees a real icon', async () => {

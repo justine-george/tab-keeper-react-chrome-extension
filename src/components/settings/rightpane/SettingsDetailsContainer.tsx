@@ -16,7 +16,6 @@ import {
   DARKENHEIMER_THEME,
   useThemeColors,
 } from '../../../hooks/useThemeColors';
-import { useFontFamily } from '../../../hooks/useFontFamily';
 import { AppDispatch, RootState } from '../../../redux/store';
 import {
   saveToFirestoreIfDirty,
@@ -96,7 +95,6 @@ const SETTINGS_PAIR_METRICS: SlidingPairMetrics = {
 
 const SettingsDetailsContainer: React.FC = () => {
   const COLORS = useThemeColors();
-  const FONT_FAMILY = useFontFamily();
   const { i18n } = useTranslation();
   const { t } = useTranslation();
 
@@ -546,22 +544,6 @@ const SettingsDetailsContainer: React.FC = () => {
               onClick={handleImportJSON}
               style="width: 100%; justify-content: center;"
             />
-            {/* Wraps, unlike NormalLabel: a sentence, not a label. */}
-            <p
-              css={css`
-                margin: 0;
-                max-width: 100%;
-                font-family: ${FONT_FAMILY};
-                font-size: ${TYPE.SECONDARY};
-                line-height: 1.45;
-                color: ${COLORS.LABEL_L1_COLOR};
-                /* Not 42ch: a ch is a Latin digit, and in Japanese that cap
-                   left one character on a line of its own. */
-                text-wrap: balance;
-              `}
-            >
-              {t('A backup holds your sessions, not your settings.')}
-            </p>
           </div>
         </div>
       </div>
