@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event';
 import Icon from '../../components/common/Icon';
 import Button from '../../components/common/Button';
 import OverflowMenu from '../../components/common/OverflowMenu';
+import SettingsCategoryContainer from '../../components/settings/leftpane/SettingsCategoryContainer';
 import { LIGHT_THEME } from '../../hooks/useThemeColors';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { activeRulesFor, hoverRulesFor } from '../setup/hoverRules';
@@ -105,6 +106,24 @@ describe('a press is confirmed on every interactive surface (KAN-205)', () => {
   // THE CONTROL. Every assertion above is satisfied by a stylesheet that
   // mentions the token somewhere; this is what makes them claims about a rule
   // that actually fires on :active.
+  // KAN-236. The settings category rows were left out of the sweep above:
+  // they had the KAN-96 hover fix and the selected fill, and no press. Found
+  // on the settings page after the home page had been fixed. Both rows are
+  // checked -- the selected one presses too, as a session row does, since a
+  // press is feedback about the pointer and not about selection.
+  test('a settings category row presses, selected or not', async () => {
+    await renderWithProviders(<SettingsCategoryContainer />);
+
+    const selected = screen.getByRole('button', { name: 'Display' });
+    const unselected = screen.getByRole('button', { name: 'Sync & Privacy' });
+    expect(activeRulesFor(unselected)).toMatch(PRESSED);
+    expect(activeRulesFor(selected)).toMatch(PRESSED);
+    // CONTROL: the unselected row still hovers one rung below its press.
+    expect(hoverRulesFor(unselected)).toMatch(
+      asWritten(LIGHT_THEME.HOVER_COLOR)
+    );
+  });
+
   test('CONTROL: a non-actionable icon gets no press at all', async () => {
     await renderWithProviders(<Icon type="settings" />);
 
