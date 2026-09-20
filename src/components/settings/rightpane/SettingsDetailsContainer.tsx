@@ -64,6 +64,24 @@ import { CONTROL, TYPE } from '../../../styles/scale';
 // The theme picker's swatches live in ThemeSwatch (KAN-237), which also carries
 // the KAN-88/KAN-95 marker rule and its reasoning.
 
+// KAN-244. Each language named in its own language, never through t(): the
+// language picker is the one screen that must be readable by someone who
+// cannot read the current UI language, which is why they are on it. Sorted
+// by the names' own collation (ICU: Latin scripts, then Cyrillic, Devanagari,
+// Han), which languagePicker.test.tsx pins.
+const LANGUAGE_OPTIONS: ReadonlyArray<[Language, string]> = [
+  [Language.DE, 'Deutsch'],
+  [Language.EN, 'English'],
+  [Language.ES, 'Español'],
+  [Language.FR, 'Français'],
+  [Language.IT, 'Italiano'],
+  [Language.PT, 'Português'],
+  [Language.RU, 'Русский'],
+  [Language.HI, 'हिन्दी'],
+  [Language.ZH, '中文'],
+  [Language.JA, '日本語'],
+];
+
 const SettingsDetailsContainer: React.FC = () => {
   const COLORS = useThemeColors();
   const { i18n } = useTranslation();
@@ -642,86 +660,31 @@ const SettingsDetailsContainer: React.FC = () => {
               margin-top: 8px;
             `}
           >
-            <Button
-              text={t(`English`)}
-              onClick={() => {
-                i18n.changeLanguage('en');
-                dispatch(setLanguage(Language.EN));
-              }}
-              style="width: 100%; min-width: 0; justify-content: center;"
-            />
-            <Button
-              text={t(`German`)}
-              onClick={() => {
-                i18n.changeLanguage('de');
-                dispatch(setLanguage(Language.DE));
-              }}
-              style="width: 100%; min-width: 0; justify-content: center;"
-            />
-            <Button
-              text={t('Chinese')}
-              onClick={() => {
-                i18n.changeLanguage('zh');
-                dispatch(setLanguage(Language.ZH));
-              }}
-              style="width: 100%; min-width: 0; justify-content: center;"
-            />
-            <Button
-              text={t('Japanese')}
-              onClick={() => {
-                i18n.changeLanguage('ja');
-                dispatch(setLanguage(Language.JA));
-              }}
-              style="width: 100%; min-width: 0; justify-content: center;"
-            />
-            <Button
-              text={t(`French`)}
-              onClick={() => {
-                i18n.changeLanguage('fr');
-                dispatch(setLanguage(Language.FR));
-              }}
-              style="width: 100%; min-width: 0; justify-content: center;"
-            />
-            <Button
-              text={t(`Portuguese`)}
-              onClick={() => {
-                i18n.changeLanguage('pt');
-                dispatch(setLanguage(Language.PT));
-              }}
-              style="width: 100%; min-width: 0; justify-content: center;"
-            />
-            <Button
-              text={t(`Russian`)}
-              onClick={() => {
-                i18n.changeLanguage('ru');
-                dispatch(setLanguage(Language.RU));
-              }}
-              style="width: 100%; min-width: 0; justify-content: center;"
-            />
-            <Button
-              text={t(`Spanish`)}
-              onClick={() => {
-                i18n.changeLanguage('es');
-                dispatch(setLanguage(Language.ES));
-              }}
-              style="width: 100%; min-width: 0; justify-content: center;"
-            />
-            <Button
-              text={t(`Italian`)}
-              onClick={() => {
-                i18n.changeLanguage('it');
-                dispatch(setLanguage(Language.IT));
-              }}
-              style="width: 100%; min-width: 0; justify-content: center;"
-            />
-            <Button
-              text={t(`Hindi`)}
-              onClick={() => {
-                i18n.changeLanguage('hi');
-                dispatch(setLanguage(Language.HI));
-              }}
-              style="width: 100%; min-width: 0; justify-content: center;"
-            />
+            {LANGUAGE_OPTIONS.map(([language, endonym]) => {
+              const isActive = settingsData.language === language;
+              return (
+                <Button
+                  key={language}
+                  text={endonym}
+                  ariaPressed={isActive}
+                  onClick={() => {
+                    i18n.changeLanguage(language);
+                    dispatch(setLanguage(language));
+                  }}
+                  // The current one wears the KAN-95 marker as the theme
+                  // swatch's tile does: the frame thickened to 2px in
+                  // LABEL_L3. Not weight -- the popup keeps one, and bold is
+                  // invisible in the CJK names anyway. box-sizing is
+                  // border-box and the height fixed, so the frame moves
+                  // nothing.
+                  style={`width: 100%; min-width: 0; justify-content: center; ${
+                    isActive
+                      ? `border-color: ${COLORS.LABEL_L3_COLOR}; border-width: 2px;`
+                      : ''
+                  }`}
+                />
+              );
+            })}
           </div>
         </div>
       </div>
