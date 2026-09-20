@@ -73,6 +73,15 @@ const SettingsCategoryContainer: React.FC = () => {
     }`
         : ''
     }
+    /* KAN-236. A press, one rung past the hover, as every other row has had
+       since KAN-205 -- this one was left out of that sweep. After the hover
+       rule so a press wins over it: the pointer is necessarily hovering
+       whatever it presses. Emitted for the SELECTED row too, unlike the hover
+       above: a press is feedback about the pointer, not about selection, and
+       the session row presses when selected as well. */
+    &:active {
+      background-color: ${COLORS.ACTIVE_COLOR};
+    }
     background-color: ${
       isSelected ? COLORS.SELECTION_COLOR : COLORS.PRIMARY_COLOR
     };
