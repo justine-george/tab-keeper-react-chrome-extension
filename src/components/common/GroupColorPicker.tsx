@@ -83,12 +83,25 @@ const GroupColorPicker: React.FC<GroupColorPickerProps> = ({
   const { t } = useTranslation();
   const current = sanitizeTabGroupColor(color);
 
-  // 9px of horizontal footprint, always. The band grows into its own margin so
+  // 16px of horizontal footprint, always. The band grows into its own margin so
   // the widen cannot reflow the rows beside it.
+  //
+  // KAN-231. It was 3px in a 9px footprint, and the strip is a BUTTON -- it
+  // opens this picker -- so 3px was the whole click target. Three widths were
+  // rendered and measured before this one: a 24px target that starts at the
+  // strip's left edge and reaches right lands 11px into every favicon when the
+  // footprint is 9px (the favicon sat at strip + 13), and 4px when it is 16px.
+  // Reaching LEFT instead, into the window's container padding, lands on
+  // nothing -- see the hit area on the interactive strip below. The 16px
+  // footprint is what makes that add up to 24 without touching a row:
+  // 8 (left) + 7 (paint) + 9 (margin).
+  //
+  // The cost is that grouped content indents 7px further than loose tabs
+  // (measured 444.5 -> 451.5 at 790px), which reads as membership.
   const bandStyle = css`
-    flex: 0 0 3px;
-    width: 3px;
-    margin-right: 6px;
+    flex: 0 0 7px;
+    width: 7px;
+    margin-right: 9px;
     align-self: stretch;
     background-color: ${TAB_GROUP_COLOR_HEX[current]};
 
@@ -115,16 +128,16 @@ const GroupColorPicker: React.FC<GroupColorPickerProps> = ({
        strip widens in the group's OWN colour rather than the app growing a
        ring in a colour it uses nowhere else.
 
-       More emphatic than the hover widen below (6px), so the two states stay
-       distinguishable, and still 9px of footprint -- it takes the whole margin
-       rather than any of the row beside it, so marking a group reflows
+       More emphatic than the hover widen below (11px), so the two states stay
+       distinguishable, and still 16px of footprint -- it takes the whole
+       margin rather than any of the row beside it, so marking a group reflows
        nothing.
 
        Width, not hue, is what carries this: it survives being unable to tell
        the wash from the page. */
     [data-drop-target] & {
-      flex-basis: 9px;
-      width: 9px;
+      flex-basis: 16px;
+      width: 16px;
       margin-right: 0;
     }
   `;
@@ -189,13 +202,51 @@ const GroupColorPicker: React.FC<GroupColorPickerProps> = ({
             transition-property: width, flex-basis, margin-right, transform;
             transition-duration: ${DURATION.COLOR};
             transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
-            /* 6px + 3px, still 9px. Widening without shrinking the margin
-               pushes every row in the group sideways on hover. */
+            /* 11px + 5px, still 16px. Widening without shrinking the margin
+               pushes every row in the group sideways on hover.
+
+               KAN-233: and held while the picker is OPEN. The widen was on
+               :hover alone, so the one thing a click here is for -- moving to
+               a swatch -- took the pointer off the strip and shrank it back
+               while its own menu was still up. The KAN-217 rule for menu
+               triggers, applied to this one: the control that owns an open
+               menu holds its active state until the menu closes. */
             &:hover,
-            &:focus-visible {
-              flex-basis: 6px;
-              width: 6px;
-              margin-right: 3px;
+            &:focus-visible,
+            &[aria-expanded='true'] {
+              flex-basis: 11px;
+              width: 11px;
+              margin-right: 5px;
+            }
+
+            /* KAN-231. The click target, 24px wide: 8px left of the paint,
+               the 7px paint, and the 9px margin. Left, into the window's
+               container padding that no row owns, rather than right into
+               the favicons -- measured, a target reaching right from the
+               paint's edge covers 4px of every favicon in the group even at
+               this footprint, and 11px at the old one.
+
+               Invisible and out of flow, so it moves nothing; a pointer on it
+               resolves to this element, which is what makes it a target.
+               Only on the interactive strip: the decorative one (search
+               results) is aria-hidden and has nothing to be a target for.
+
+               A ::after, NOT a ::before. tab-group-join-preview.spec reads
+               the strip's ::before as its paint layer and falls back when
+               there is none; a ::before here would become the layer it
+               measures. Measured: with top and bottom both 0 the numbers
+               happen to agree today, so that spec stays green -- which is
+               exactly why the coupling is dangerous rather than loud. The
+               hit area stays a ::after, and e2e/group-strip-target.spec
+               pins that the ::before still computes to none. */
+            position: relative;
+            &::after {
+              content: '';
+              position: absolute;
+              top: 0;
+              bottom: 0;
+              left: -8px;
+              width: 24px;
             }
           `}
         />

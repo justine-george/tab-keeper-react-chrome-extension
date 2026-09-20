@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { screen, within } from '@testing-library/react';
+import { cleanup, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import WindowEntryContainer from '../../components/home/rightpane/WindowEntryContainer';
@@ -296,10 +296,12 @@ describe('the group colour band', () => {
 
 describe('widening the band', () => {
   // The footprint arithmetic, which is the whole reason the band can widen at
-  // all: 3px + 6px margin at rest, 6px + 3px on hover. jsdom has no :hover and
-  // no layout, so this reads the rule Emotion inserted rather than measuring
-  // the box. Verified visually in a real browser -- no row moves.
-  test('the hover rule keeps the 9px footprint', async () => {
+  // all: 7px + 9px margin at rest, 11px + 5px on hover -- 16px either way
+  // (3 + 6 and 6 + 3 before KAN-231, which grew the strip so its click target
+  // could reach 24px without covering a favicon). jsdom has no :hover and no
+  // layout, so this reads the rule Emotion inserted rather than measuring the
+  // box. e2e/group-strip-target.spec.ts measures it: no row moves.
+  test('the hover rule keeps the 16px footprint', async () => {
     await renderGroup();
 
     const band = screen.getByRole('button', { name: BAND });
@@ -321,17 +323,69 @@ describe('widening the band', () => {
     }
 
     const hover = hoverRules.join('\n');
-    expect(hover).toMatch(/width:\s*6px/);
-    expect(hover).toMatch(/margin-right:\s*3px/);
+    expect(hover).toMatch(/width:\s*11px/);
+    expect(hover).toMatch(/margin-right:\s*5px/);
+    // KAN-233: the same widen holds while the picker is open, so the strip
+    // that owns the menu keeps looking like it once the pointer is on a
+    // swatch. e2e/group-strip-target.spec.ts measures the hold.
+    expect(hover).toMatch(/aria-expanded/);
   });
 
-  // THE CONTROL. If the resting band were not 3px with a 6px margin, the
-  // assertion above would be pinning arithmetic that never adds to 9.
-  test('CONTROL: the resting band is 3px with a 6px margin', async () => {
+  // THE CONTROL. If the resting band were not 7px with a 9px margin, the
+  // assertion above would be pinning arithmetic that never adds to 16.
+  test('CONTROL: the resting band is 7px with a 9px margin', async () => {
     await renderGroup();
 
     const style = getComputedStyle(screen.getByRole('button', { name: BAND }));
-    expect(style.width).toBe('3px');
-    expect(style.marginRight).toBe('6px');
+    expect(style.width).toBe('7px');
+    expect(style.marginRight).toBe('9px');
+  });
+
+  // KAN-231. The click target is a ::after on the INTERACTIVE strip only. The
+  // decorative strip (search results) is aria-hidden and has nothing to be a
+  // target for, so it must not carry one. jsdom applies no pseudo-element
+  // rules, so this reads the inserted rule text, keyed by each strip's own
+  // class list.
+  test('the hit area rule is on the interactive strip and not the decorative one', async () => {
+    // Rules whose selector names one of this element's own classes and the
+    // given pseudo-element. Emotion emits one class per css`` block, so the
+    // interactive strip and the decorative strip do not share classes.
+    const pseudoRulesFor = (el: Element, pseudo: '::after' | '::before') => {
+      const classes = [...el.classList].map((c) => `.${c}`);
+      const found: string[] = [];
+      for (const sheet of [...document.styleSheets]) {
+        let rules: CSSRuleList;
+        try {
+          rules = sheet.cssRules;
+        } catch {
+          continue;
+        }
+        for (const rule of [...rules]) {
+          const text = rule.cssText;
+          if (text.includes(pseudo) && classes.some((c) => text.includes(c)))
+            found.push(text);
+        }
+      }
+      return found.join('\n');
+    };
+
+    await renderGroup();
+    const interactive = screen.getByRole('button', { name: BAND });
+    const after = pseudoRulesFor(interactive, '::after');
+    expect(after).toMatch(/width:\s*24px/);
+    expect(after).toMatch(/left:\s*-8px/);
+    // No ::before: tab-group-join-preview.spec reads the strip's ::before as
+    // its paint layer and must keep finding none.
+    expect(pseudoRulesFor(interactive, '::before')).toBe('');
+
+    // The decorative strip carries neither. It is aria-hidden and inert; a
+    // 24px hit area on it would be a target for nothing.
+    cleanup();
+    await renderGroup({ isSearchPanel: true });
+    const decorative = screen
+      .getByRole('group', { name: 'Research' })
+      .querySelector('[data-group-color-strip]')!;
+    expect(decorative.getAttribute('aria-hidden')).toBe('true');
+    expect(pseudoRulesFor(decorative, '::after')).toBe('');
   });
 });
