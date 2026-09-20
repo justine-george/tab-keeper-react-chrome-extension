@@ -471,34 +471,24 @@ const SettingsDetailsContainer: React.FC = () => {
 
           <div
             css={css`
-              display: flex;
-              justify-content: space-between;
-              align-items: center;
-              width: 100%;
-              max-width: 250px;
               margin-top: 8px;
             `}
           >
-            <Button
-              text={settingsData.isLazyLoad ? t(`On`) : t(`Off`)}
-              // KAN-88. The button's whole visible text is its VALUE, and the
-              // setting's name is an unassociated sibling label, so the
-              // accessible name used to be just "On" -- announced with no
-              // indication of what was on.
-              //
-              // The name has to CONTAIN the visible text (WCAG 2.5.3), so it
-              // is "<setting>: <value>" rather than the setting alone; a bare
-              // "Auto Sync" over a button reading "On" would fail the Label in
-              // Name check this repo already enforces. aria-pressed carries
-              // the state as state, so a change is announced as one.
-              ariaLabel={`${t('Lazy Load Tabs')}: ${
-                settingsData.isLazyLoad ? t(`On`) : t(`Off`)
-              }`}
-              ariaPressed={settingsData.isLazyLoad}
-              onClick={handleToggleLazyLoadTabs}
-              style={`
-              width: 100%;
-            `}
+            {/* KAN-249. A pair, as Auto Sync became in KAN-248: both sides
+                shown, the pressed one marked, the group named for the setting. */}
+            <SlidingPair
+              label={t('Lazy Load Tabs')}
+              options={[
+                { value: 'on', label: t('On') },
+                { value: 'off', label: t('Off') },
+              ]}
+              value={settingsData.isLazyLoad ? 'on' : 'off'}
+              onChange={(next) => {
+                if ((next === 'on') !== settingsData.isLazyLoad) {
+                  handleToggleLazyLoadTabs();
+                }
+              }}
+              metrics={SETTINGS_PAIR_METRICS}
             />
           </div>
         </div>
@@ -528,34 +518,27 @@ const SettingsDetailsContainer: React.FC = () => {
 
           <div
             css={css`
-              display: flex;
-              justify-content: space-between;
-              align-items: center;
-              width: 100%;
-              max-width: 250px;
               margin-top: 8px;
             `}
           >
-            <Button
-              text={hasTabGroups ? t(`On`) : t(`Off`)}
-              // KAN-88. The button's whole visible text is its VALUE, and the
-              // setting's name is an unassociated sibling label, so the
-              // accessible name used to be just "On" -- announced with no
-              // indication of what was on.
-              //
-              // The name has to CONTAIN the visible text (WCAG 2.5.3), so it
-              // is "<setting>: <value>" rather than the setting alone; a bare
-              // "Auto Sync" over a button reading "On" would fail the Label in
-              // Name check this repo already enforces. aria-pressed carries
-              // the state as state, so a change is announced as one.
-              ariaLabel={`${t('Save Tab Groups')}: ${
-                hasTabGroups ? t(`On`) : t(`Off`)
-              }`}
-              ariaPressed={hasTabGroups}
-              onClick={handleToggleTabGroups}
-              style={`
-              width: 100%;
-            `}
+            {/* KAN-249. Not a store toggle: On asks Chrome for the permission,
+                Off gives it back, and the pressed side follows
+                hasTabGroupsPermission, written by the change listener or the
+                next popup open -- permissions.request() may close this popup
+                before it settles (KAN-226), so the knob may not move here. */}
+            <SlidingPair
+              label={t('Save Tab Groups')}
+              options={[
+                { value: 'on', label: t('On') },
+                { value: 'off', label: t('Off') },
+              ]}
+              value={hasTabGroups ? 'on' : 'off'}
+              onChange={(next) => {
+                if ((next === 'on') !== hasTabGroups) {
+                  handleToggleTabGroups();
+                }
+              }}
+              metrics={SETTINGS_PAIR_METRICS}
             />
           </div>
         </div>
