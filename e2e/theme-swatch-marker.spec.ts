@@ -36,7 +36,7 @@ async function openThemes(
   return page;
 }
 
-const THEMES = ['Light', 'Warm Light', 'BB Pink', 'Darkenheimer', 'Blue'];
+const THEMES = ['Paper', 'Parchment', 'Petal', 'Graphite', 'Ink'];
 
 const swatch = (page: Page, name: string): Locator =>
   page.getByRole('button', { name, exact: true });
@@ -65,13 +65,10 @@ test.describe('the active theme swatch is marked by its own border', () => {
     const page = await openThemes(context, extensionId);
 
     // Pick a theme explicitly rather than trusting whatever the profile had.
-    await swatch(page, 'BB Pink').click();
-    await expect(swatch(page, 'BB Pink')).toHaveAttribute(
-      'aria-pressed',
-      'true'
-    );
+    await swatch(page, 'Petal').click();
+    await expect(swatch(page, 'Petal')).toHaveAttribute('aria-pressed', 'true');
 
-    const active = await markerOf(swatch(page, 'BB Pink'));
+    const active = await markerOf(swatch(page, 'Petal'));
 
     expect(
       active.border,
@@ -85,7 +82,7 @@ test.describe('the active theme swatch is marked by its own border', () => {
 
     // CONTROL: every other swatch stays thin. Without this the assertion above
     // passes on a build where all five are 2px, which marks nothing.
-    for (const name of THEMES.filter((n) => n !== 'BB Pink')) {
+    for (const name of THEMES.filter((n) => n !== 'Petal')) {
       const other = await markerOf(swatch(page, name));
       expect(
         other.border,
@@ -106,12 +103,12 @@ test.describe('the active theme swatch is marked by its own border', () => {
     // box shoves the other four sideways as selection moves. box-sizing:
     // border-box is what makes the border safe to use here, and this is the
     // assertion that holds it to that.
-    await swatch(page, 'Light').click();
-    const inactive = (await markerOf(swatch(page, 'Blue'))).width;
+    await swatch(page, 'Paper').click();
+    const inactive = (await markerOf(swatch(page, 'Ink'))).width;
 
-    await swatch(page, 'Blue').click();
-    await expect(swatch(page, 'Blue')).toHaveAttribute('aria-pressed', 'true');
-    const activeWidth = (await markerOf(swatch(page, 'Blue'))).width;
+    await swatch(page, 'Ink').click();
+    await expect(swatch(page, 'Ink')).toHaveAttribute('aria-pressed', 'true');
+    const activeWidth = (await markerOf(swatch(page, 'Ink'))).width;
 
     expect(
       activeWidth,

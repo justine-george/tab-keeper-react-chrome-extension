@@ -24,7 +24,7 @@ import { setTheme, Theme } from '../../redux/slices/settingsDataStateSlice';
 // aria-pressed, and that the KAN-95 marker is on the active tile alone. The
 // e2e measures that the marker reflows nothing.
 
-const NAMES = ['Light', 'Warm Light', 'BB Pink', 'Darkenheimer', 'Blue'];
+const NAMES = ['Paper', 'Parchment', 'Petal', 'Graphite', 'Ink'];
 
 /** A colour as emotion wrote it, or as jsdom normalises it. */
 const asWritten = (hex: string) => {
@@ -51,29 +51,29 @@ describe('the theme picker shows each theme as a miniature (KAN-237)', () => {
 
     for (const name of NAMES) expect(swatch(name)).toBeTruthy();
     // The name is the button's accessible name -- visible text, not a title.
-    expect(swatch('Blue').getAttribute('title')).toBeNull();
-    expect(swatch('Blue')).toHaveAccessibleName('Blue');
+    expect(swatch('Ink').getAttribute('title')).toBeNull();
+    expect(swatch('Ink')).toHaveAccessibleName('Ink');
   });
 
   test('the tile is presentational and its bands carry the theme own tokens', async () => {
     await renderDisplay();
 
-    expect(tileOf('Blue').getAttribute('aria-hidden')).toBe('true');
+    expect(tileOf('Ink').getAttribute('aria-hidden')).toBe('true');
     // The three surfaces a popup is made of, in Blue's colours -- which is
     // what finally tells Blue from Darkenheimer.
-    expect(getComputedStyle(tileOf('Blue')).backgroundColor).toMatch(
+    expect(getComputedStyle(tileOf('Ink')).backgroundColor).toMatch(
       asWritten(BLUE_THEME.PRIMARY_COLOR)
     );
-    expect(getComputedStyle(bandOf('Blue', 'header')).backgroundColor).toMatch(
+    expect(getComputedStyle(bandOf('Ink', 'header')).backgroundColor).toMatch(
       asWritten(BLUE_THEME.SECONDARY_COLOR)
     );
     expect(
-      getComputedStyle(bandOf('Blue', 'selection')).backgroundColor
+      getComputedStyle(bandOf('Ink', 'selection')).backgroundColor
     ).toMatch(asWritten(BLUE_THEME.SELECTION_COLOR));
 
     // CONTROL: a different theme's tile carries different tokens, so the
     // assertions above are reading this tile and not a shared style.
-    expect(getComputedStyle(tileOf('Darkenheimer')).backgroundColor).toMatch(
+    expect(getComputedStyle(tileOf('Graphite')).backgroundColor).toMatch(
       asWritten(DARKENHEIMER_THEME.PRIMARY_COLOR)
     );
     expect(BLUE_THEME.PRIMARY_COLOR).not.toBe(DARKENHEIMER_THEME.PRIMARY_COLOR);
@@ -88,18 +88,18 @@ describe('the theme picker shows each theme as a miniature (KAN-237)', () => {
     const pressed = NAMES.filter(
       (n) => swatch(n).getAttribute('aria-pressed') === 'true'
     );
-    expect(pressed).toEqual(['BB Pink']);
+    expect(pressed).toEqual(['Petal']);
     for (const n of NAMES) {
-      if (n === 'BB Pink') continue;
+      if (n === 'Petal') continue;
       expect(swatch(n).getAttribute('aria-pressed')).toBe('false');
     }
 
     // The marker is the tile's own border, thickened (KAN-95), in the PAGE's
-    // LABEL_L3 -- the active page is BB Pink here, so its token.
-    const active = getComputedStyle(tileOf('BB Pink'));
+    // LABEL_L3 -- the active page is Petal here, so its token.
+    const active = getComputedStyle(tileOf('Petal'));
     expect(active.borderTopWidth).toBe('2px');
     // Every other tile keeps the 1px frame.
-    expect(getComputedStyle(tileOf('Light')).borderTopWidth).toBe('1px');
+    expect(getComputedStyle(tileOf('Paper')).borderTopWidth).toBe('1px');
   });
 
   test('activating a swatch selects its theme', async () => {
@@ -107,24 +107,24 @@ describe('the theme picker shows each theme as a miniature (KAN-237)', () => {
     const { store } = await renderDisplay();
     expect(store.getState().settingsDataState.theme).toBe(Theme.LIGHT);
 
-    await user.click(swatch('Warm Light'));
+    await user.click(swatch('Parchment'));
     expect(store.getState().settingsDataState.theme).toBe(Theme.WARM_LIGHT);
 
     // And the keyboard: a real button, so Space activates it.
-    swatch('Blue').focus();
+    swatch('Ink').focus();
     await user.keyboard(' ');
     expect(store.getState().settingsDataState.theme).toBe(Theme.BLUE);
   });
 
   test('the name is inside the button, under the tile', async () => {
     await renderDisplay();
-    const button = swatch('Warm Light');
+    const button = swatch('Parchment');
     // Text node inside the button, not a title and not a sibling.
-    expect(within(button).getByText('Warm Light')).toBeTruthy();
+    expect(within(button).getByText('Parchment')).toBeTruthy();
     // The tile comes first, the name second: the picture is what is looked
     // at, the word confirms it.
     const children = Array.from(button.children);
     expect(children[0].hasAttribute('data-theme-tile')).toBe(true);
-    expect(children[1].textContent).toBe('Warm Light');
+    expect(children[1].textContent).toBe('Parchment');
   });
 });

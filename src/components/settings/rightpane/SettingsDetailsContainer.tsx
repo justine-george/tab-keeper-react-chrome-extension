@@ -289,11 +289,11 @@ const SettingsDetailsContainer: React.FC = () => {
                 invisible to it. */}
             {(
               [
-                [Theme.LIGHT, LIGHT_THEME, t('Light')],
-                [Theme.WARM_LIGHT, WARM_LIGHT_THEME, t('Warm Light')],
-                [Theme.BB_PINK, BB_PINK_THEME, t('BB Pink')],
-                [Theme.DARKENHEIMER, DARKENHEIMER_THEME, t('Darkenheimer')],
-                [Theme.BLUE, BLUE_THEME, t('Blue')],
+                [Theme.LIGHT, LIGHT_THEME, t('Paper')],
+                [Theme.WARM_LIGHT, WARM_LIGHT_THEME, t('Parchment')],
+                [Theme.BB_PINK, BB_PINK_THEME, t('Petal')],
+                [Theme.DARKENHEIMER, DARKENHEIMER_THEME, t('Graphite')],
+                [Theme.BLUE, BLUE_THEME, t('Ink')],
               ] as const
             ).map(([theme, palette, name]) => (
               <ThemeSwatch
