@@ -33,8 +33,15 @@ const KNOB_RADIUS = '2px';
  * the knob's edge is dark on the track and light on the knob in the same frame
  * -- which fading the label's colour cannot do.
  *
- * A toggle: pressing the pressed side selects the other one, so a click
- * anywhere on the pair, the knob included, flips it.
+ * A toggle to a POINTER: clicking the pressed side selects the other one, so a
+ * click anywhere on the pair, the knob included, flips it.
+ *
+ * Not to the keyboard (KAN-225). To a screen reader the pair is two toggle
+ * buttons -- "Compact, toggle button, pressed" -- and activating a pressed
+ * button is announced as nothing, so having it select the OTHER one is an
+ * action on one control silently changing another. Keyboard activation of
+ * the pressed side therefore does nothing, the ordinary segmented-control
+ * contract, and activation of the other side still selects it.
  */
 export default function SlidingPair<T extends string>({
   label,
@@ -197,11 +204,21 @@ export default function SlidingPair<T extends string>({
           aria-pressed={option.value === value}
           title={option.icon ? option.label : undefined}
           css={buttonStyle(option)}
-          onClick={() =>
-            onChange(
-              option.value === value ? options[1 - index].value : option.value
-            )
-          }
+          onClick={(e) => {
+            if (option.value !== value) {
+              onChange(option.value);
+              return;
+            }
+            // The pressed side. A pointer flips the pair; a keyboard or
+            // assistive activation does nothing. The browser tells them
+            // apart: a click synthesised from Enter, Space or a screen
+            // reader carries `detail === 0`, a pointer click its click
+            // count (UI Events, "detail"). The same rule keeps a
+            // programmatic .click() from flipping it, which is right --
+            // nothing that is not a pointer is aiming at the knob.
+            if (e.detail === 0) return;
+            onChange(options[1 - index].value);
+          }}
         >
           {content(option, false)}
         </button>

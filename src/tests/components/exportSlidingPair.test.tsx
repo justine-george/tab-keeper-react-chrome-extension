@@ -118,6 +118,41 @@ describe('each pair is a sliding knob (KAN-218)', () => {
     await waitFor(() => expect(frame()).not.toBe(compactFile));
   });
 
+  // KAN-225. The pointer flip above is a toggle; to a screen reader the pair
+  // is two toggle buttons. Focusing "Compact, toggle button, pressed" and
+  // pressing Space must not select Comfortable -- that is an action on one
+  // control changing another, announced as nothing at all. So keyboard
+  // activation of the PRESSED option does nothing, the ordinary segmented
+  // control contract, while the pointer keeps its flip. The browser tells
+  // the two apart: a keyboard or assistive click carries `detail === 0`, a
+  // pointer click its click count.
+  test('keyboard activation of the pressed option leaves it pressed', async () => {
+    const user = userEvent.setup();
+    await renderUnder(Theme.LIGHT);
+    expect(pressed('Layout')).toEqual(['Compact']);
+
+    const compact = screen.getByRole('button', { name: 'Compact' });
+    compact.focus();
+    await user.keyboard(' ');
+    expect(pressed('Layout')).toEqual(['Compact']);
+    await user.keyboard('{Enter}');
+    expect(pressed('Layout')).toEqual(['Compact']);
+    expect(knobOf('Layout').getAttribute('data-sliding-knob')).toBe('compact');
+  });
+
+  // CONTROL: the keyboard still SELECTS. Only the no-op on an already-pressed
+  // option is new; a keyboard that could not change the pair at all would
+  // pass the test above.
+  test('CONTROL: keyboard activation of the other option selects it', async () => {
+    const user = userEvent.setup();
+    await renderUnder(Theme.LIGHT);
+
+    screen.getByRole('button', { name: 'Comfortable' }).focus();
+    await user.keyboard(' ');
+
+    expect(pressed('Layout')).toEqual(['Comfortable']);
+  });
+
   test('a dark page starts with the knob under Dark', async () => {
     await renderUnder(Theme.DARKENHEIMER);
 
