@@ -107,3 +107,20 @@ describe('no locale asks for a good review', () => {
     });
   }
 });
+
+// KAN-243. Initial focus is the dialog itself, not the CTA: showModal() lands
+// on the first control, and on a page with no pointer interaction yet Chrome
+// paints its focus ring on it -- so the note opened lit, and Enter fired the
+// CTA unread. jsdom runs no focusing steps of its own, so this pins only the
+// explicit focus() and the attributes it depends on; offer-modal-focus.spec.ts
+// measures the ring and the Tab in a real browser.
+describe('the review note opens with focus on the dialog', () => {
+  test('the dialog is the active element, and is focusable only by script', async () => {
+    await renderOpen();
+
+    const dialog = screen.getByRole('dialog');
+    expect(document.activeElement).toBe(dialog);
+    expect(dialog.getAttribute('tabindex')).toBe('-1');
+    expect(getComputedStyle(dialog).outlineStyle).toBe('none');
+  });
+});

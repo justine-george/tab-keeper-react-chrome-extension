@@ -64,6 +64,15 @@ export const RateAndReviewModal: React.FC<RateAndReviewModalProps> = ({
     const dialog = dialogRef.current;
     if (dialog && !dialog.open) {
       dialog.showModal();
+      // KAN-243. showModal() lands focus on the first control, and on a page
+      // with no pointer interaction yet Chrome paints its :focus-visible ring
+      // on it -- so this opened with a blue ring around the CTA, and Enter,
+      // before anyone had read it, fired the CTA. Focus the dialog itself
+      // instead (tabindex=-1 below): focus is still inside, the dialog is
+      // still announced by its title and description, nothing is lit, and the
+      // first Tab reaches the CTA. `autofocus` on the dialog does not do this
+      // in Chromium 151; measured.
+      dialog.focus();
     }
   }, [isRateAndReviewModalOpen]);
 
@@ -135,6 +144,8 @@ export const RateAndReviewModal: React.FC<RateAndReviewModalProps> = ({
     // content behind from being reachable at all.
     <dialog
       ref={dialogRef}
+      // Focusable only by script, never by Tab; see the effect above.
+      tabIndex={-1}
       aria-labelledby={TITLE_ID}
       aria-describedby={BODY_ID}
       // Escape reaches this, and it means the same thing the visible
@@ -172,6 +183,10 @@ export const RateAndReviewModal: React.FC<RateAndReviewModalProps> = ({
         &::backdrop {
           background: rgba(0, 0, 0, 0.8);
         }
+
+        /* The container carries initial focus (KAN-243) and is never reached
+           by Tab, so a ring on it would mark nothing anyone can act on. */
+        outline: none;
 
         ${style}
       `}
