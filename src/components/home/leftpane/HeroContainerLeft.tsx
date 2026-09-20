@@ -4,6 +4,7 @@ import { css } from '@emotion/react';
 
 import Icon from '../../common/Icon';
 import ClickableRow from '../../common/ClickableRow';
+import { HEADER_BACK_TARGET } from '../../common/headerBackTarget';
 import MenuContainer from './MenuContainer';
 import { NormalLabel } from '../../common/Label';
 import { useFontFamily } from '../../../hooks/useFontFamily';
@@ -57,7 +58,7 @@ export default function HeroContainer() {
         ariaLabel={t('Go back')}
         tooltipText={t('Go back')}
         onClick={handleBackClick}
-        style="display: flex;"
+        style={`display: flex; ${HEADER_BACK_TARGET}`}
       >
         <Icon type="arrow_back" />
         <NormalLabel

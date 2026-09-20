@@ -2,6 +2,7 @@ import { useDispatch } from 'react-redux';
 
 import Icon from '../../common/Icon';
 import ClickableRow from '../../common/ClickableRow';
+import { HEADER_BACK_TARGET } from '../../common/headerBackTarget';
 import { NormalLabel } from '../../common/Label';
 import { AppDispatch } from '../../../redux/store';
 import { useThemeColors } from '../../../hooks/useThemeColors';
@@ -20,6 +21,7 @@ export default function MenuContainer() {
     display: flex;
     justify-content: space-around;
     align-items: center;
+    ${HEADER_BACK_TARGET}
   `;
 
   const dispatch: AppDispatch = useDispatch();
