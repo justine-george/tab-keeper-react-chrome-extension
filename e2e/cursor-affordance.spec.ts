@@ -62,7 +62,7 @@ function glyphOf(control: Locator): Locator {
 // Probes the glyph specifically, not the control's centre. On an icon-only
 // button the two coincide, but on an icon+text button the centre lands on the
 // text -- which was never broken -- so a centre probe would pass against the
-// defect. "Backup App Data to File" below is the case that proves this matters.
+// defect. "Save sessions to a file" below is the case that proves this matters.
 async function cursorOverIconOf(page: Page, control: Locator): Promise<string> {
   return cursorAtCentreOf(page, glyphOf(control));
 }
@@ -196,12 +196,12 @@ test.describe('clickable controls show a pointer over their icon (KAN-76)', () =
     extensionId,
   }) => {
     const page = await openPopup(context, extensionId);
-    await openSettingsCategory(page, 'Data Management');
+    await openSettingsCategory(page, 'Sync & Backup');
 
     const button = page.getByRole('button', {
-      name: 'Backup App Data to File',
+      name: 'Save sessions to a file',
     });
-    const label = button.getByText('Backup App Data to File');
+    const label = button.getByText('Save sessions to a file');
 
     expect(await cursorAtCentreOf(page, label)).toBe('pointer');
     expect(await cursorOverIconOf(page, button)).toBe('pointer');
@@ -212,7 +212,7 @@ test.describe('clickable controls show a pointer over their icon (KAN-76)', () =
   // can click, must NOT start advertising a click.
   //
   // The status card's glyph sits in a plain layout div in
-  // Account/SyncStatusCard. Deferring to the ancestor is only the right
+  // Account/SyncStatus. Deferring to the ancestor is only the right
   // answer if the ancestor's answer is right here too -- if this ever reads
   // `pointer`, `inherit` is reaching a clickable ancestor that this icon has
   // no business inheriting from.
@@ -221,7 +221,7 @@ test.describe('clickable controls show a pointer over their icon (KAN-76)', () =
     extensionId,
   }) => {
     const page = await openPopup(context, extensionId);
-    await openSettingsCategory(page, 'Sync & Privacy');
+    await openSettingsCategory(page, 'Sync & Backup');
 
     // Which glyph the card draws depends on the build (KAN-248): the fixture
     // context is signed in with auto sync on, so with a cloud this is
@@ -229,7 +229,7 @@ test.describe('clickable controls show a pointer over their icon (KAN-76)', () =
     // card is located as itself and its glyph read from it, so the assertion
     // does not depend on which; and the card is asserted present first, so
     // a wrong glyph name surfaces here rather than as a locator timeout.
-    const card = page.getByTestId('sync-status-card');
+    const card = page.getByTestId('sync-status');
     await expect(card).toBeVisible();
     const decorative = card.locator('span.material-symbols-outlined').first();
     await expect(decorative).toHaveText(/^cloud_(done|off)$/);

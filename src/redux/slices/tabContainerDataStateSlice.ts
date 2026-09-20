@@ -37,7 +37,7 @@ import {
   DEFAULT_WINDOW_WIDTH,
   TOAST_MESSAGES,
 } from '../../utils/constants/common';
-import { recordValueMoment, SettingsData } from './settingsDataStateSlice';
+import { recordValueMoment } from './settingsDataStateSlice';
 import {
   TAB_GROUP_COLORS,
   partitionTabsIntoItems,
@@ -353,9 +353,6 @@ export const openTabsInAWindow = createAsyncThunk(
     const state: TabMasterContainer = (thunkAPI.getState() as RootState)
       .tabContainerDataState;
 
-    const settingsDataState: SettingsData = (thunkAPI.getState() as RootState)
-      .settingsDataState;
-
     const tabGroup = state.tabGroups.find(
       (group) => group.tabGroupId === params.tabGroupId
     );
@@ -370,7 +367,6 @@ export const openTabsInAWindow = createAsyncThunk(
       type: RESTORE_SESSION_MESSAGE,
       specs: [toWindowSpec(windowGroup, true)],
       goToURLText: params.goToURLText,
-      isLazyLoad: settingsDataState.isLazyLoad,
       closeOtherWindows: false,
     };
     // KAN-149. The last instant the popup can record anything: sendMessage
@@ -394,8 +390,6 @@ export const openAllTabContainer = createAsyncThunk(
   async (params: openAllTabContainerParams, thunkAPI) => {
     const state: TabMasterContainer = (thunkAPI.getState() as RootState)
       .tabContainerDataState;
-    const settingsDataState: SettingsData = (thunkAPI.getState() as RootState)
-      .settingsDataState;
     const tabGroup = state.tabGroups.find(
       (group) => group.tabGroupId === params.tabGroupId
     );
@@ -408,7 +402,6 @@ export const openAllTabContainer = createAsyncThunk(
         toWindowSpec(windowGroup, index === 0)
       ),
       goToURLText: params.goToURLText,
-      isLazyLoad: settingsDataState.isLazyLoad,
       closeOtherWindows: false,
     };
     // KAN-149. Recorded here for the reason spelled out in openTabsInAWindow:
@@ -495,8 +488,6 @@ export const focusTabContainer = createAsyncThunk(
   async (params: focusTabContainerParams, thunkAPI) => {
     const state: TabMasterContainer = (thunkAPI.getState() as RootState)
       .tabContainerDataState;
-    const settingsDataState: SettingsData = (thunkAPI.getState() as RootState)
-      .settingsDataState;
     const tabGroup = state.tabGroups.find(
       (group) => group.tabGroupId === params.tabGroupId
     );
@@ -532,7 +523,6 @@ export const focusTabContainer = createAsyncThunk(
         toWindowSpec(windowGroup, index === 0)
       ),
       goToURLText: params.goToURLText,
-      isLazyLoad: settingsDataState.isLazyLoad,
       closeOtherWindows: true,
     };
 

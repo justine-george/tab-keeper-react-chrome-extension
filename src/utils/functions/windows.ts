@@ -51,7 +51,6 @@ export interface RestoreSessionRequest {
   type: typeof RESTORE_SESSION_MESSAGE;
   specs: WindowSpec[];
   goToURLText: string;
-  isLazyLoad: boolean;
   closeOtherWindows: boolean;
 }
 
@@ -64,7 +63,6 @@ export function isRestoreSessionRequest(
     candidate.type === RESTORE_SESSION_MESSAGE &&
     Array.isArray(candidate.specs) &&
     typeof candidate.goToURLText === 'string' &&
-    typeof candidate.isLazyLoad === 'boolean' &&
     typeof candidate.closeOtherWindows === 'boolean'
   );
 }
@@ -121,7 +119,6 @@ export async function applyTabGroups(
 export function createWindowWithRetries(
   spec: WindowSpec,
   goToURLText: string,
-  isLazyLoad: boolean,
   retryCount: number
 ): Promise<chrome.windows.Window | null> {
   if (retryCount <= 0 || spec.tabs.length === 0) {
@@ -141,7 +138,6 @@ export function createWindowWithRetries(
             createWindowWithRetries(
               { ...spec, bounds: null },
               goToURLText,
-              isLazyLoad,
               retryCount - 1
             )
           );
@@ -162,6 +158,11 @@ export function createWindowWithRetries(
 
         remember(spec.tabs[0], newWindow.tabs?.[0]?.id);
 
+        // Every tab after the first is a placeholder that loads when the
+        // user activates it (KAN-250: this used to be a setting, "Optimize
+        // Memory Usage On Session Restore", defaulting to on; the off state --
+        // every tab loading at once -- is gone until someone asks for it).
+        //
         // No record of what was opened is kept beyond the ids: the placeholder
         // carries its own page, and the background worker reads it back when
         // the user activates the tab. See placeholderTarget in
@@ -169,18 +170,15 @@ export function createWindowWithRetries(
         const rest = spec.tabs.slice(1).map(
           (tabInfo) =>
             new Promise<void>((done) => {
-              const decodedUrl = resolveTabUrl(tabInfo.url);
               chrome.tabs.create(
                 {
                   windowId: newWindow.id,
-                  url: isLazyLoad
-                    ? generatePlaceholderURL(
-                        tabInfo.title,
-                        tabInfo.favicon || '/images/favicon.ico',
-                        decodedUrl,
-                        goToURLText
-                      )
-                    : decodedUrl,
+                  url: generatePlaceholderURL(
+                    tabInfo.title,
+                    tabInfo.favicon || '/images/favicon.ico',
+                    resolveTabUrl(tabInfo.url),
+                    goToURLText
+                  ),
                   active: false,
                 },
                 (created) => {

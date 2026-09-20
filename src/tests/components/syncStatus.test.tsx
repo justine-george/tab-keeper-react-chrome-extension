@@ -110,9 +110,9 @@ const renderSync = () =>
     },
   });
 
-const card = () => screen.getByTestId('sync-status-card');
+const card = () => screen.getByTestId('sync-status');
 
-describe('the sync status card follows the store (KAN-248)', () => {
+describe('the sync status line follows the store (KAN-248)', () => {
   test('auto sync on, cloud: "Cloud sync on"', async () => {
     await renderSync();
     expect(card().textContent).toContain('Cloud sync on');

@@ -2,8 +2,8 @@ import { PayloadAction, createSlice } from '@reduxjs/toolkit';
 
 export enum SettingsCategory {
   DISPLAY = 'Display',
-  SYNC = 'Sync & Privacy',
-  DATA_MANAGEMENT = 'Data Management',
+  SYNC = 'Sync & Backup',
+  SESSIONS = 'Sessions',
   LANGUAGE = 'Language',
   ABOUT = 'About',
 }
@@ -13,21 +13,25 @@ export interface SettingsCategoryContainer {
   isSelected: boolean;
 }
 
+// Two pairs, then About (KAN-253): how it looks (Display, Language), then
+// what it does with your data (Sync & Backup, then Sessions -- the
+// consequential one first). Display stays first: it is the pane the gear
+// opens, and Sessions is one toggle on an otherwise empty pane.
 export const initialState: SettingsCategoryContainer[] = [
   {
     name: SettingsCategory.DISPLAY,
     isSelected: true,
   },
   {
+    name: SettingsCategory.LANGUAGE,
+    isSelected: false,
+  },
+  {
     name: SettingsCategory.SYNC,
     isSelected: false,
   },
   {
-    name: SettingsCategory.DATA_MANAGEMENT,
-    isSelected: false,
-  },
-  {
-    name: SettingsCategory.LANGUAGE,
+    name: SettingsCategory.SESSIONS,
     isSelected: false,
   },
   {

@@ -44,7 +44,6 @@ export interface SettingsData {
   exportLayout: ExportLayout;
   language: Language;
   isAutoSync: boolean;
-  isLazyLoad: boolean;
   extensionInstalledTime: number | '';
   isSkippedUserReviewOnce: boolean;
   isUserRatedAndReviewed: boolean;
@@ -106,7 +105,6 @@ const defaultSettings: SettingsData = {
   theme: Theme.LIGHT,
   exportLayout: 'compact',
   isAutoSync: true,
-  isLazyLoad: true,
   extensionInstalledTime: '',
   isSkippedUserReviewOnce: false,
   isUserRatedAndReviewed: false,
@@ -143,13 +141,6 @@ export const settingsDataStateSlice = createSlice({
 
     toggleAutoSync: (state) => {
       state.isAutoSync = !state.isAutoSync;
-
-      // Save updated state to localStorage
-      saveToLocalStorage('settingsData', state);
-    },
-
-    toggleLazyLoad: (state) => {
-      state.isLazyLoad = !state.isLazyLoad;
 
       // Save updated state to localStorage
       saveToLocalStorage('settingsData', state);
@@ -245,7 +236,6 @@ export const {
   setTheme,
   setLanguage,
   toggleAutoSync,
-  toggleLazyLoad,
   setNeverAskAgainToRate,
   setUserRatedAndReviewed,
   setSkippedUserReviewOnce,

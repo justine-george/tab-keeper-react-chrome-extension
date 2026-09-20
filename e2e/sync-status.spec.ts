@@ -24,17 +24,17 @@ async function openSyncPane(
   await page.setViewportSize({ width: 790, height: 550 });
   await page.goto(`chrome-extension://${extensionId}/index.html`);
   await page.locator('[aria-label="Settings"]').click();
-  await page.locator('button[aria-label="Sync & Privacy"]').click();
-  await expect(page.getByTestId('sync-status-card')).toBeVisible();
+  await page.locator('button[aria-label="Sync & Backup"]').click();
+  await expect(page.getByTestId('sync-status')).toBeVisible();
   return page;
 }
 
 const pair = (page: Page) => page.getByRole('group', { name: 'Auto Sync' });
 const side = (page: Page, word: 'On' | 'Off') =>
   pair(page).getByRole('button', { name: word });
-const card = (page: Page) => page.getByTestId('sync-status-card');
+const card = (page: Page) => page.getByTestId('sync-status');
 
-test.describe('the sync status card agrees with the Auto Sync pair (KAN-248)', () => {
+test.describe('the sync status line agrees with the Auto Sync pair (KAN-248)', () => {
   test('booted with auto sync off, the card says manual and Off is pressed', async ({
     context,
     extensionId,

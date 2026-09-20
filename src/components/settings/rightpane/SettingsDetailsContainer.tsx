@@ -30,7 +30,6 @@ import {
   setTheme,
   setUserRatedAndReviewed,
   toggleAutoSync,
-  toggleLazyLoad,
 } from '../../../redux/slices/settingsDataStateSlice';
 import {
   APP_CHROME_WEBSTORE_LINK,
@@ -56,7 +55,7 @@ import {
   requestTabGroupsPermission,
 } from '../../../utils/functions/permissions';
 import { SettingsCategory } from '../../../redux/slices/settingsCategoryStateSlice';
-import SyncStatusCard from './Account/SyncStatusCard';
+import SyncStatus from './Account/SyncStatus';
 import SlidingPair, { type SlidingPairMetrics } from '../../common/SlidingPair';
 import { useTranslation } from 'react-i18next';
 import { CONTROL, DURATION, RADIUS, TYPE } from '../../../styles/scale';
@@ -93,6 +92,11 @@ const SETTINGS_PAIR_METRICS: SlidingPairMetrics = {
   slide: `${DURATION.MOVE} ease-out`,
   press: `${DURATION.COLOR} ease-out`,
 };
+
+// Sections after the first on a pane sit 32px apart, the spacing About's
+// blocks use (KAN-241); the first keeps 20px from the pane top. Written on
+// each section rather than as a constant so a section reads as a unit; the
+// settingsRail test holds them to it.
 
 const SettingsDetailsContainer: React.FC = () => {
   const COLORS = useThemeColors();
@@ -144,10 +148,6 @@ const SettingsDetailsContainer: React.FC = () => {
       dispatch(syncStateWithFirestore());
     }
     dispatch(toggleAutoSync());
-  };
-
-  const handleToggleLazyLoadTabs = () => {
-    dispatch(toggleLazyLoad());
   };
 
   // Fire-and-forget on purpose -- see requestTabGroupsPermission. The button's
@@ -271,6 +271,7 @@ const SettingsDetailsContainer: React.FC = () => {
       >
         {/* Theme Section */}
         <div
+          data-settings-section
           css={css`
             display: flex;
             flex-direction: column;
@@ -351,6 +352,7 @@ const SettingsDetailsContainer: React.FC = () => {
       >
         {/* Auto Sync */}
         <div
+          data-settings-section
           css={css`
             display: flex;
             flex-direction: column;
@@ -404,6 +406,7 @@ const SettingsDetailsContainer: React.FC = () => {
 
         {/* Sync Status */}
         <div
+          data-settings-section
           css={css`
             display: flex;
             flex-direction: column;
@@ -411,7 +414,7 @@ const SettingsDetailsContainer: React.FC = () => {
             padding-left: clamp(16px, 8%, 72px);
             padding-right: clamp(16px, 8%, 72px);
             width: 100%;
-            margin-top: 20px;
+            margin-top: 32px;
           `}
         >
           <div
@@ -427,24 +430,17 @@ const SettingsDetailsContainer: React.FC = () => {
               color={COLORS.LABEL_L1_COLOR}
             />
           </div>
-          <SyncStatusCard />
+          <SyncStatus />
         </div>
-      </div>
-    );
-  } else if (
-    selectedSettingsCategory.name === SettingsCategory.DATA_MANAGEMENT
-  ) {
-    settingsOptionsDiv = (
-      <div
-        css={css`
-          display: flex;
-          flex-direction: column;
-          justify-content: flex-start;
-          align-items: center;
-        `}
-      >
-        {/* Lazy Load Tabs */}
+
+        {/* Backup. KAN-251: the buttons name what they do to SESSIONS --
+            "Restore" is this app's verb for opening a saved session, and
+            "App Data" promised settings the file does not carry -- and the
+            icons point the way the browser's do: save is a download, replace
+            an upload. "Replace" because that is what loading a backup does to
+            what is there (KAN-252 holds the question of whether it should). */}
         <div
+          data-settings-section
           css={css`
             display: flex;
             flex-direction: column;
@@ -452,7 +448,7 @@ const SettingsDetailsContainer: React.FC = () => {
             padding-left: clamp(16px, 8%, 72px);
             padding-right: clamp(16px, 8%, 72px);
             width: 100%;
-            margin-top: 20px;
+            margin-top: 32px;
           `}
         >
           <div
@@ -463,7 +459,7 @@ const SettingsDetailsContainer: React.FC = () => {
             `}
           >
             <NormalLabel
-              value={t('Lazy Load Tabs')}
+              value={t('Backup')}
               size={TYPE.BODY}
               color={COLORS.LABEL_L1_COLOR}
             />
@@ -471,40 +467,46 @@ const SettingsDetailsContainer: React.FC = () => {
 
           <div
             css={css`
-              display: flex;
-              justify-content: space-between;
-              align-items: center;
-              width: 100%;
-              max-width: 250px;
+              /* One column sized to the wider label, so the two buttons share
+                 an edge in every locale and neither wraps; capped at the
+                 pane so a long translation narrows rather than overflows. The
+                 old 260px cap wrapped both German labels. */
+              display: inline-grid;
+              grid-template-columns: minmax(0, max-content);
+              row-gap: 12px;
+              max-width: 100%;
               margin-top: 8px;
             `}
           >
             <Button
-              text={settingsData.isLazyLoad ? t(`On`) : t(`Off`)}
-              // KAN-88. The button's whole visible text is its VALUE, and the
-              // setting's name is an unassociated sibling label, so the
-              // accessible name used to be just "On" -- announced with no
-              // indication of what was on.
-              //
-              // The name has to CONTAIN the visible text (WCAG 2.5.3), so it
-              // is "<setting>: <value>" rather than the setting alone; a bare
-              // "Auto Sync" over a button reading "On" would fail the Label in
-              // Name check this repo already enforces. aria-pressed carries
-              // the state as state, so a change is announced as one.
-              ariaLabel={`${t('Lazy Load Tabs')}: ${
-                settingsData.isLazyLoad ? t(`On`) : t(`Off`)
-              }`}
-              ariaPressed={settingsData.isLazyLoad}
-              onClick={handleToggleLazyLoadTabs}
-              style={`
-              width: 100%;
-            `}
+              text={t('Save sessions to a file')}
+              iconType="download"
+              onClick={handleExportJSON}
+              style="width: 100%; justify-content: center;"
+            />
+            <Button
+              text={t('Replace sessions from a backup')}
+              iconType="upload"
+              onClick={handleImportJSON}
+              style="width: 100%; justify-content: center;"
             />
           </div>
         </div>
-
+      </div>
+    );
+  } else if (selectedSettingsCategory.name === SettingsCategory.SESSIONS) {
+    settingsOptionsDiv = (
+      <div
+        css={css`
+          display: flex;
+          flex-direction: column;
+          justify-content: flex-start;
+          align-items: center;
+        `}
+      >
         {/* Save Tab Groups */}
         <div
+          data-settings-section
           css={css`
             padding-left: clamp(16px, 8%, 72px);
             padding-right: clamp(16px, 8%, 72px);
@@ -528,89 +530,27 @@ const SettingsDetailsContainer: React.FC = () => {
 
           <div
             css={css`
-              display: flex;
-              justify-content: space-between;
-              align-items: center;
-              width: 100%;
-              max-width: 250px;
               margin-top: 8px;
             `}
           >
-            <Button
-              text={hasTabGroups ? t(`On`) : t(`Off`)}
-              // KAN-88. The button's whole visible text is its VALUE, and the
-              // setting's name is an unassociated sibling label, so the
-              // accessible name used to be just "On" -- announced with no
-              // indication of what was on.
-              //
-              // The name has to CONTAIN the visible text (WCAG 2.5.3), so it
-              // is "<setting>: <value>" rather than the setting alone; a bare
-              // "Auto Sync" over a button reading "On" would fail the Label in
-              // Name check this repo already enforces. aria-pressed carries
-              // the state as state, so a change is announced as one.
-              ariaLabel={`${t('Save Tab Groups')}: ${
-                hasTabGroups ? t(`On`) : t(`Off`)
-              }`}
-              ariaPressed={hasTabGroups}
-              onClick={handleToggleTabGroups}
-              style={`
-              width: 100%;
-            `}
-            />
-          </div>
-        </div>
-
-        {/* Backup & Restore */}
-        <div
-          css={css`
-            display: flex;
-            flex-direction: column;
-            align-items: flex-start;
-            padding-left: clamp(16px, 8%, 72px);
-            padding-right: clamp(16px, 8%, 72px);
-            width: 100%;
-            margin-top: 20px;
-          `}
-        >
-          <div
-            css={css`
-              display: flex;
-              align-items: flex-start;
-              width: 100%;
-            `}
-          >
-            <NormalLabel
-              value={t('Backup & Restore')}
-              size={TYPE.BODY}
-              color={COLORS.LABEL_L1_COLOR}
-            />
-          </div>
-
-          <div
-            css={css`
-              display: flex;
-              flex-direction: column;
-              justify-content: space-between;
-              /* A definite width, so the buttons' width: 100% resolves against
-                 the row rather than against their own text. */
-              width: 100%;
-              align-items: flex-start;
-              margin-top: 8px;
-            `}
-          >
-            <Button
-              text={t(`Backup App Data to File`)}
-              iconType="publish"
-              onClick={handleExportJSON}
-              style="width: 100%;
-              max-width: 260px; justify-content: center;"
-            />
-            <Button
-              text={t('Restore App Data from File')}
-              iconType="get_app"
-              onClick={handleImportJSON}
-              style="width: 100%;
-              max-width: 260px; justify-content: center; margin-top: 12px;"
+            {/* KAN-249. Not a store toggle: On asks Chrome for the permission,
+                Off gives it back, and the pressed side follows
+                hasTabGroupsPermission, written by the change listener or the
+                next popup open -- permissions.request() may close this popup
+                before it settles (KAN-226), so the knob may not move here. */}
+            <SlidingPair
+              label={t('Save Tab Groups')}
+              options={[
+                { value: 'on', label: t('On') },
+                { value: 'off', label: t('Off') },
+              ]}
+              value={hasTabGroups ? 'on' : 'off'}
+              onChange={(next) => {
+                if ((next === 'on') !== hasTabGroups) {
+                  handleToggleTabGroups();
+                }
+              }}
+              metrics={SETTINGS_PAIR_METRICS}
             />
           </div>
         </div>
@@ -628,6 +568,7 @@ const SettingsDetailsContainer: React.FC = () => {
       >
         {/* Language Switcher */}
         <div
+          data-settings-section
           css={css`
             display: flex;
             flex-direction: column;
@@ -711,6 +652,7 @@ const SettingsDetailsContainer: React.FC = () => {
         {/* Nameplate: the mark on the name line, the way the header's gear
             sits on "Settings"; then the version and the credit on one line. */}
         <div
+          data-settings-section
           css={css`
             display: flex;
             flex-direction: column;
@@ -857,7 +799,7 @@ const SettingsDetailsContainer: React.FC = () => {
   // Keyed on the category so React remounts the panel instead of reconciling
   // one against the next (KAN-44). The five branches above all render into this
   // one position, so without a key React matched them element by element and
-  // handed the Display panel's first theme swatch <button> to Sync & Privacy's
+  // handed the Display panel's first theme swatch <button> to Sync & Backup's
   // Auto Sync button. A swatch is hardcoded to LIGHT_THEME.PRIMARY_COLOR, and
   // Button carries `transition: background-color ${DURATION.MOVE}`, so on a dark theme the
   // recycled node animated white -> black over 200ms.

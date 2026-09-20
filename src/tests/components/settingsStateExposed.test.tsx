@@ -13,6 +13,7 @@ import {
   setTheme,
   toggleAutoSync,
 } from '../../redux/slices/settingsDataStateSlice';
+import { setHasTabGroupsPermission } from '../../redux/slices/globalStateSlice';
 
 // KAN-88. Two settings controls knew their own state and never said it.
 //
@@ -36,6 +37,13 @@ const renderOn = (category: SettingsCategory) =>
 // name, and Label in Name (WCAG 2.5.3) by each side being named its own
 // visible word. Found by role, because the structure is what is under test.
 const autoSyncPair = () => screen.getByRole('group', { name: 'Auto Sync' });
+
+// What Chrome holds, asked the way hasTabGroupsPermission() asks: through the
+// installed fake's own API, not a recorder beside it.
+const has = () =>
+  new Promise<boolean>((r) =>
+    chrome.permissions.contains({ permissions: ['tabGroups'] }, r)
+  );
 const side = (word: 'On' | 'Off') =>
   within(autoSyncPair()).getByRole('button', { name: word });
 
@@ -80,24 +88,77 @@ describe('settings toggles say which setting they control (KAN-88)', () => {
     expect(store.getState().settingsDataState.isAutoSync).toBe(false);
   });
 
-  // The other two toggles live on a different panel and were the same defect.
+  // The other two toggles live on a different panel and were the same defect,
+  // and became pairs after Auto Sync did (KAN-249).
   //
-  // Note the first expectation. The code passes t('Lazy Load Tabs'), but `en`
-  // RE-MAPS that key to "Optimize Memory Usage On Session Restore" -- an i18n
-  // key in this repo is not its own display string. Asserting the key here
-  // would fail against entirely correct code, which is what it did on the
-  // first run. Always assert the rendered VALUE.
-  test('the Data Management toggles are named too', async () => {
-    const { container } = await renderOn(SettingsCategory.DATA_MANAGEMENT);
+  // Note the first group's name. The code passes t('Lazy Load Tabs'), but
+  // `en` RE-MAPS that key to "Optimize Memory Usage On Session Restore" -- an
+  // i18n key in this repo is not its own display string. Asserting the key
+  // here would fail against entirely correct code, which is what it did on
+  // the first run. Always assert the rendered VALUE.
+  // The other toggle lives on the Data Management panel and was the same
+  // defect; it became a pair after Auto Sync did (KAN-249). The memory
+  // setting that sat above it is gone (KAN-250): restores always open later
+  // tabs as placeholders, so there is nothing to choose.
+  test('Sessions has one pair, Save Tab Groups, and no memory setting', async () => {
+    await renderOn(SettingsCategory.SESSIONS);
 
-    const names = [...container.querySelectorAll('button')]
-      .filter((b) => /^(On|Off)$/.test(b.textContent?.trim() ?? ''))
-      .map((b) => b.getAttribute('aria-label'));
+    const groups = screen.getByRole('group', { name: 'Save Tab Groups' });
+    expect(
+      within(groups)
+        .getByRole('button', { name: 'Off' })
+        .getAttribute('aria-pressed')
+    ).toBe('true');
+    expect(screen.getAllByRole('group')).toHaveLength(1);
+    expect(
+      screen.queryByText('Optimize Memory Usage On Session Restore')
+    ).toBeNull();
+    // No "<setting>: <value>" names survive: the group carries the setting.
+    for (const b of screen.getAllByRole('button')) {
+      expect(b.getAttribute('aria-label') ?? '').not.toMatch(/: (On|Off)$/);
+    }
+  });
 
-    expect(names).toEqual([
-      'Optimize Memory Usage On Session Restore: On',
-      'Save Tab Groups: Off',
-    ]);
+  // Save Tab Groups is not a store toggle: On asks Chrome for the permission,
+  // Off gives it back, and the pressed side follows hasTabGroupsPermission,
+  // which the change listener (or the next popup open) writes. Nothing here
+  // subscribes, so the knob does not move; what is asserted is what Chrome
+  // was asked, read back from the fake. Two renders, because a pointer on the
+  // pressed side flips the pair (KAN-218): with the store still saying Off,
+  // clicking Off would be another request, not a removal.
+  test('from Off, pressing On asks Chrome for the tab-groups permission', async () => {
+    const user = userEvent.setup();
+    await renderOn(SettingsCategory.SESSIONS);
+    expect(await has()).toBe(false);
+
+    await user.click(
+      within(screen.getByRole('group', { name: 'Save Tab Groups' })).getByRole(
+        'button',
+        { name: 'On' }
+      )
+    );
+    expect(await has()).toBe(true);
+  });
+
+  test('from On, pressing Off gives the tab-groups permission back', async () => {
+    const user = userEvent.setup();
+    await renderWithProviders(<SettingsDetailsContainer />, {
+      seed: { grantedPermissions: ['tabGroups'] },
+      seedStore: (store) => {
+        store.dispatch(selectCategory(SettingsCategory.SESSIONS));
+        store.dispatch(setHasTabGroupsPermission(true));
+      },
+    });
+    expect(await has()).toBe(true);
+    const groups = screen.getByRole('group', { name: 'Save Tab Groups' });
+    expect(
+      within(groups)
+        .getByRole('button', { name: 'On' })
+        .getAttribute('aria-pressed')
+    ).toBe('true');
+
+    await user.click(within(groups).getByRole('button', { name: 'Off' }));
+    expect(await has()).toBe(false);
   });
 });
 

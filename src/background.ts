@@ -41,7 +41,7 @@ async function restoreSession(request: RestoreSessionRequest) {
 
   const created = await Promise.all(
     request.specs.map((spec) =>
-      createWindowWithRetries(spec, request.goToURLText, request.isLazyLoad, 2)
+      createWindowWithRetries(spec, request.goToURLText, 2)
     )
   );
 
