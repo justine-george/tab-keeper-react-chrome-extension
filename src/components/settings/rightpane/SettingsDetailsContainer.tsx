@@ -5,6 +5,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { css } from '@emotion/react';
 
 import Button from '../../common/Button';
+import Icon from '../../common/Icon';
 import ThemeSwatch from './ThemeSwatch';
 import { NormalLabel } from '../../common/Label';
 import {
@@ -37,6 +38,7 @@ import {
   DEV_EMAIL,
   FEEDBACK_MAIL_SUBJECT,
   IMPORT_ERROR_FRAME,
+  NON_INTERACTIVE_ICON_STYLE,
   SHARE_X_TEXT,
   TOAST_MESSAGES,
 } from '../../../utils/constants/common';
@@ -57,7 +59,7 @@ import { SettingsCategory } from '../../../redux/slices/settingsCategoryStateSli
 import LoggedIn from './Account/LoggedIn';
 import NotLoggedIn from './Account/NotLoggedIn';
 import { useTranslation } from 'react-i18next';
-import { TYPE } from '../../../styles/scale';
+import { CONTROL, TYPE } from '../../../styles/scale';
 
 // The theme picker's swatches live in ThemeSwatch (KAN-237), which also carries
 // the KAN-88/KAN-95 marker rule and its reasoning.
@@ -725,80 +727,162 @@ const SettingsDetailsContainer: React.FC = () => {
       </div>
     );
   } else if (selectedSettingsCategory.name === SettingsCategory.ABOUT) {
+    // KAN-241. Built as sections under the same inset as the four panes
+    // above, where it used to be the one centred pane: a thank-you heading,
+    // three buttons, and the version pushed to the floor in LABEL_L3 -- the
+    // marker token, 2.56:1 on Paper -- so the one line a bug report needs was
+    // the hardest on the page to read.
     settingsOptionsDiv = (
       <div
         css={css`
           display: flex;
           flex-direction: column;
           justify-content: flex-start;
-          height: 100%;
-          /* Definite width, so the buttons below size to the column rather
-             than each to its own label. */
-          width: 100%;
           align-items: center;
-          margin-top: 40px;
-          flex-grow: 1;
         `}
       >
-        <NormalLabel
-          color={COLORS.LABEL_L1_COLOR}
-          value={t('Thank you for using this app!')}
-          size={TYPE.SECTION}
-        />
+        {/* Nameplate: the mark on the name line, the way the header's gear
+            sits on "Settings"; then the version and the credit on one line. */}
         <div
           css={css`
             display: flex;
-            flex-direction: row;
-            margin-top: 30px;
+            flex-direction: column;
+            align-items: flex-start;
+            padding-left: clamp(16px, 8%, 72px);
+            padding-right: clamp(16px, 8%, 72px);
+            width: 100%;
+            margin-top: 20px;
           `}
         >
-          <NormalLabel
-            color={COLORS.LABEL_L1_COLOR}
-            value={t(`Crafted with ❤️ by Justine George`)}
-          />
+          <div
+            css={css`
+              display: flex;
+              align-items: center;
+            `}
+          >
+            {/* 4px into the inset, so the mark's box -- not its padding --
+                sits on the edge the version and the section label below
+                start from. Without it the floppy read as indented. */}
+            <Icon
+              type="tab_keeper"
+              style={`${NON_INTERACTIVE_ICON_STYLE} margin-left: -4px;`}
+            />
+            <NormalLabel
+              value={t('Tab Keeper')}
+              size={TYPE.SECTION}
+              color={COLORS.TEXT_COLOR}
+              style="padding-left: 4px;"
+            />
+          </div>
+          <div
+            css={css`
+              display: flex;
+              align-items: center;
+              margin-top: 6px;
+            `}
+          >
+            {/* LABEL_L1, not L2: L2 is 4.32:1 on Graphite, and this is the
+                line that has to be readable. */}
+            <NormalLabel
+              value={`v${APP_VERSION}`}
+              size={TYPE.SECONDARY}
+              color={COLORS.LABEL_L1_COLOR}
+            />
+            {/* The separator is drawn, not written, so it is neither
+                translated nor announced. */}
+            <NormalLabel
+              value={t(`Crafted with ❤️ by Justine George`)}
+              size={TYPE.SECONDARY}
+              color={COLORS.LABEL_L2_COLOR}
+              style="&::before { content: '·'; margin: 0 6px; }"
+            />
+          </div>
         </div>
 
-        <Button
-          text={t('Rate this app')}
-          iconType="thumb_up"
-          onClick={() => {
-            window.open(APP_CHROME_WEBSTORE_LINK + '/reviews');
-            // KAN-149. The modal's own CTA has always recorded this; this
-            // button never did, so someone who rated from here kept being
-            // asked by the modal afterwards.
-            //
-            // It records INTENT, not a confirmed review -- the store tells us
-            // nothing about what the user does once they arrive, so a click is
-            // the only evidence available. Someone who clicks and then does not
-            // review is never asked again, which is the right way round: the
-            // cost of asking someone who already went is worse than the cost of
-            // missing a review we were never owed.
-            dispatch(setUserRatedAndReviewed());
-          }}
-          style="width: 100%;
-              max-width: 250px; justify-content: center; margin-top: 40px;"
-        />
-        <Button
-          text={t('Share your feedback')}
-          iconType="mail"
-          onClick={() =>
-            (window.location.href = `mailto:${DEV_EMAIL}?subject=${FEEDBACK_MAIL_SUBJECT}`)
-          }
-          style="width: 100%;
-              max-width: 250px; justify-content: center; margin-top: 16px;"
-        />
-        <Button
-          text={t('Share on X')}
-          iconType="x"
-          onClick={() => window.open(SHARE_X_TEXT)}
-          style="width: 100%;
-              max-width: 250px; justify-content: center; margin-top: 16px;"
-        />
-        <NormalLabel
-          color={COLORS.LABEL_L3_COLOR}
-          value={`v${APP_VERSION}`}
-          style={`margin: auto auto 30px;`}
-        />
+        {/* Feedback & Share */}
+        <div
+          css={css`
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            padding-left: clamp(16px, 8%, 72px);
+            padding-right: clamp(16px, 8%, 72px);
+            width: 100%;
+            /* One row (CONTROL.ROW) under the nameplate rather than the 20px
+               two settings get from each other: a header wants more under it
+               than a setting does, and at 20 the label sat as close to the
+               credit as the buttons sit to the label. The section itself keeps
+               the shared rhythm so it still matches the other panes. */
+            margin-top: ${CONTROL.ROW};
+          `}
+        >
+          <div
+            css={css`
+              display: flex;
+              align-items: flex-start;
+              width: 100%;
+            `}
+          >
+            <NormalLabel
+              value={t('Feedback & Share')}
+              size={TYPE.BODY}
+              color={COLORS.LABEL_L1_COLOR}
+            />
+          </div>
+
+          {/* The Backup & Restore stack. Not a row: the three natural widths
+              total ~560px in English against the 435px available here, so a
+              row would wrap differently in every locale. */}
+          <div
+            css={css`
+              display: flex;
+              flex-direction: column;
+              /* A definite width, so the buttons' width: 100% resolves against
+                 the column rather than against their own text. */
+              width: 100%;
+              align-items: flex-start;
+              margin-top: 8px;
+            `}
+          >
+            <Button
+              text={t('Rate this app')}
+              iconType="thumb_up"
+              onClick={() => {
+                window.open(APP_CHROME_WEBSTORE_LINK + '/reviews');
+                // KAN-149. The modal's own CTA has always recorded this; this
+                // button never did, so someone who rated from here kept being
+                // asked by the modal afterwards.
+                //
+                // It records INTENT, not a confirmed review -- the store tells
+                // us nothing about what the user does once they arrive, so a
+                // click is the only evidence available. Someone who clicks and
+                // then does not review is never asked again, which is the
+                // right way round: the cost of asking someone who already went
+                // is worse than the cost of missing a review we were never
+                // owed.
+                dispatch(setUserRatedAndReviewed());
+              }}
+              style="width: 100%;
+              max-width: 250px; justify-content: center;"
+            />
+            <Button
+              text={t('Share your feedback')}
+              iconType="mail"
+              onClick={() =>
+                (window.location.href = `mailto:${DEV_EMAIL}?subject=${FEEDBACK_MAIL_SUBJECT}`)
+              }
+              style="width: 100%;
+              max-width: 250px; justify-content: center; margin-top: 12px;"
+            />
+            <Button
+              text={t('Share on X')}
+              iconType="x"
+              onClick={() => window.open(SHARE_X_TEXT)}
+              style="width: 100%;
+              max-width: 250px; justify-content: center; margin-top: 12px;"
+            />
+          </div>
+        </div>
       </div>
     );
   }

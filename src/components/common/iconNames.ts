@@ -64,7 +64,7 @@ export const LIGATURE_ICON_NAMES = [
 ] as const;
 
 /** Drawn as inline SVG by Icon's BRAND_GLYPHS; Material Symbols has no logos. */
-export const BRAND_ICON_NAMES = ['x'] as const;
+export const BRAND_ICON_NAMES = ['x', 'tab_keeper'] as const;
 
 export type LigatureIconName = (typeof LIGATURE_ICON_NAMES)[number];
 export type BrandIconName = (typeof BRAND_ICON_NAMES)[number];

@@ -44,8 +44,6 @@ export const APP_VERSION = manifest.version;
 export const EXPORT_STORE_URL =
   'https://chromewebstore.google.com/detail/tab-keeper-chrome-tab-man/gpibgniomobngodpnikhheifblbpbbah?ref=export';
 
-export const DEV_CREDITS = `Crafted with ❤️ by Justine George`;
-
 // developer email
 export const DEV_EMAIL = 'justinegeo96@gmail.com';
 
