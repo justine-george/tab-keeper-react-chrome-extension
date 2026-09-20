@@ -18,6 +18,18 @@ import type { BrandIconName, IconName } from './iconNames';
 const BRAND_GLYPHS: Record<BrandIconName, string> = {
   // X, from the official brand assets, drawn to a 24x24 box.
   x: 'M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z',
+  // The app's own mark, for the About nameplate (KAN-241): the floppy from
+  // icon128.png -- notched body, top label with its slider, lower label with
+  // three stripes -- traced to a 24x24 box as ONE colour. Not the PNG: that is
+  // an opaque mint square edge to edge, the only saturated fill on any
+  // settings pane, and it read as a tile rather than a mark. Drawn in
+  // currentColor it is made of the same ink as the text beside it, which is
+  // how the popup treats every other glyph.
+  //
+  // Nonzero winding: the body runs clockwise, the two label cut-outs
+  // anticlockwise, the stripes clockwise again inside the lower cut-out.
+  tab_keeper:
+    'M3 3.5h14.5L21 7v13.5H3zM7 3.5v6h9v-6h-2.4v4.2h-2.2V3.5zM6.5 13v7.5h11V13zM8 14.4h8v1.2H8zM8 16.6h8v1.2H8zM8 18.8h8v1.2H8z',
 };
 
 function isBrandIcon(type: IconName): type is BrandIconName {
