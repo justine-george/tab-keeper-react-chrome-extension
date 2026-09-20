@@ -25,11 +25,14 @@ const renderOn = (category: SettingsCategory) =>
 
 describe('the settings rail names what each pane holds (KAN-253)', () => {
   test('the five categories, in order, and none of the old names', () => {
+    // Two pairs, then About: how it looks (Display, Language), then what it
+    // does with your data (Sync & Backup, then Sessions -- the consequential
+    // one first). Display stays the landing pane.
     expect(initialState.map((c) => c.name)).toEqual([
       'Display',
+      'Language',
       'Sync & Backup',
       'Sessions',
-      'Language',
       'About',
     ]);
     // The enum value is the i18n key (the rail renders t(name)), so each must
