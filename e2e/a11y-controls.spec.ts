@@ -667,6 +667,7 @@ test.describe('controls are reachable by keyboard', () => {
 
     const names = await tabOrderNames(page);
 
-    expect(names.join('|')).toMatch(/Light/);
+    // The first theme swatch, by its accessible name (KAN-238).
+    expect(names.join('|')).toMatch(/Paper/);
   });
 });

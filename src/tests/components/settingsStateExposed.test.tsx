@@ -115,7 +115,7 @@ describe('the theme picker marks the active theme (KAN-88)', () => {
     expect(pressed).toHaveLength(1);
     // The name is the button's visible text and accessible name (KAN-237);
     // it used to be a title and nothing else.
-    expect(pressed[0]).toHaveAccessibleName('BB Pink');
+    expect(pressed[0]).toHaveAccessibleName('Petal');
 
     // Every other swatch must say so explicitly rather than be silent: an
     // absent aria-pressed reads as "not a toggle", not as "not selected".
@@ -136,12 +136,12 @@ describe('the theme picker marks the active theme (KAN-88)', () => {
     act(() => {
       store.dispatch(setTheme(Theme.DARKENHEIMER));
     });
-    expect(activeTitle()).toBe('Darkenheimer');
+    expect(activeTitle()).toBe('Graphite');
 
     act(() => {
       store.dispatch(setTheme(Theme.BLUE));
     });
-    expect(activeTitle()).toBe('Blue');
+    expect(activeTitle()).toBe('Ink');
   });
 
   // The visual half. A screen reader gets aria-pressed; a sighted user needs
@@ -178,7 +178,7 @@ describe('the theme picker marks the active theme (KAN-88)', () => {
     );
 
     expect(marked).toHaveLength(1);
-    expect(marked[0]).toHaveAccessibleName('Light');
+    expect(marked[0]).toHaveAccessibleName('Paper');
 
     // The marker must move with the theme, not just exist somewhere.
     act(() => {
@@ -190,6 +190,6 @@ describe('the theme picker marks the active theme (KAN-88)', () => {
       )
     );
     expect(moved).toHaveLength(1);
-    expect(moved[0]).toHaveAccessibleName('Blue');
+    expect(moved[0]).toHaveAccessibleName('Ink');
   });
 });
