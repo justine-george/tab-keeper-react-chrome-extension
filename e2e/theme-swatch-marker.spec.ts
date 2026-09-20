@@ -41,10 +41,13 @@ const THEMES = ['Light', 'Warm Light', 'BB Pink', 'Darkenheimer', 'Blue'];
 const swatch = (page: Page, name: string): Locator =>
   page.getByRole('button', { name, exact: true });
 
+// The marker is on the TILE inside the button (KAN-237): the button holds the
+// tile and the theme's name, and the frame -- and so the marker, and the box
+// whose size must not change -- is the tile's.
 async function markerOf(
   s: Locator
 ): Promise<{ border: string; outline: string; width: number }> {
-  return s.evaluate((el) => {
+  return s.locator('[data-theme-tile]').evaluate((el) => {
     const cs = getComputedStyle(el);
     return {
       border: cs.borderTopWidth,
