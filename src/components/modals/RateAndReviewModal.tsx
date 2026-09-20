@@ -210,6 +210,21 @@ export const RateAndReviewModal: React.FC<RateAndReviewModalProps> = ({
         `}
       >
         {t(`RequestUserReviewText`)}
+        {/* KAN-242. Signed, because the sentence is in the first person and
+            used to name nobody. Inside the described paragraph, so a screen
+            reader hears who is asking too; its own line in LABEL_L2, so it
+            reads as a signature rather than as the sentence's last clause. A
+            first name on purpose: this is a note, not a credit -- the About
+            page carries the full name. */}
+        <span
+          css={css`
+            display: block;
+            margin-top: 8px;
+            color: ${COLORS.LABEL_L2_COLOR};
+          `}
+        >
+          {t(`RequestUserReviewSignOff`)}
+        </span>
       </p>
       {/* Full width, never a fixed one. This was `width: 217px` -- sized to
             the English label and wrong for everyone else: measured in a real

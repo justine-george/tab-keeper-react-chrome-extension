@@ -32,7 +32,7 @@ const openModal = (store: { dispatch: (a: unknown) => void }) =>
 // there has to be an active tab or it throws before reaching tabs.create.
 const ACTIVE_TAB = { tabs: [{ active: true, index: 3 }] };
 
-const BODY_TEXT = 'Please consider helping me out with a good review!';
+const BODY_TEXT = "If it's been useful, a review would mean a lot.";
 
 // The RENDERED label, not the i18n key the component passes. `en` re-maps some
 // of its own keys and this is one of them: the call site passes
