@@ -193,7 +193,7 @@ test.describe('export open windows (KAN-208)', () => {
     // The count says the same thing: every open tab but one.
     const open = await openTabCount(serviceWorker);
     await expect(
-      exportPage.getByText(`2 Windows - ${open - 1} Tabs`)
+      exportPage.getByText(`2 Windows · ${open - 1} Tabs`)
     ).toBeVisible();
 
     // Named, and NOT saved: storage still holds the one seeded session, and

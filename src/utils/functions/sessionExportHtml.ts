@@ -73,7 +73,7 @@ export interface SessionExportOptions {
    * to describe; the counts then stand alone.
    */
   dateLabel?: string;
-  /** Locale-formatted, e.g. "2 Windows - 9 Tabs". */
+  /** Locale-formatted, e.g. "2 Windows · 9 Tabs". */
   countsLabel: string;
   /** Per-window heading suffix, e.g. (3) => "3 Tabs". */
   tabCountLabel: (count: number) => string;
@@ -332,7 +332,7 @@ export interface LinkListStrings {
   window: string;
   /** Per-window and per-group suffix, e.g. (3) => "3 Tabs". */
   tabCountLabel: (count: number) => string;
-  /** Locale-formatted session counts, e.g. "2 Windows - 47 Tabs". */
+  /** Locale-formatted session counts, e.g. "2 Windows · 47 Tabs". */
   countsLabel: string;
   /** For casing the window label in the plain text. */
   locale: string;

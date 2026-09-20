@@ -281,9 +281,13 @@ export const formatGroupCounts = (
   isFiltered: boolean,
   t: (key: string) => string
 ): string => {
+  // A middle dot, not a hyphen (KAN-246): between two numbers "3 Windows -
+  // 44 Tabs" has the shape of a subtraction, and the export's meta line
+  // already joins its parts with a dot, so the hyphen put two separators on
+  // one line there. U+00B7 sits at x-height and is in the bundled Latin face.
   const counts =
     `${windowCount} ${windowCount > 1 ? t('Windows') : t('Window')}` +
-    ` - ${tabCount} ${tabCount > 1 ? t('Tabs') : t('Tab')}`;
+    ` · ${tabCount} ${tabCount > 1 ? t('Tabs') : t('Tab')}`;
 
   return isFiltered ? `${t('Matches')} ${counts}` : counts;
 };

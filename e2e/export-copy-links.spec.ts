@@ -173,7 +173,7 @@ test('pasted into a plain text box, the copy arrives in the plain layout', async
   expect(await target.locator('#plain').inputValue()).toBe(
     [
       'Weekend in Kyoto',
-      '1 Window - 4 Tabs',
+      '1 Window · 4 Tabs',
       '',
       'WINDOW 1 · Trip planning (4 Tabs)',
       '- Nozomi timetable',

@@ -41,26 +41,26 @@ describe('isSearchActive', () => {
 
 describe('formatGroupCounts', () => {
   test('describes the session itself when no filter is active', () => {
-    expect(formatGroupCounts(7, 13, false, t)).toBe('7 Windows - 13 Tabs');
+    expect(formatGroupCounts(7, 13, false, t)).toBe('7 Windows · 13 Tabs');
   });
 
   test('says the counts are matches when a filter is active', () => {
-    expect(formatGroupCounts(1, 1, true, t)).toBe('Matches: 1 Window - 1 Tab');
+    expect(formatGroupCounts(1, 1, true, t)).toBe('Matches: 1 Window · 1 Tab');
   });
 
   test('keeps the prefix off the plural form too', () => {
-    expect(formatGroupCounts(3, 5, false, t)).toBe('3 Windows - 5 Tabs');
+    expect(formatGroupCounts(3, 5, false, t)).toBe('3 Windows · 5 Tabs');
   });
 
   test('keeps the prefix on the plural form too', () => {
     expect(formatGroupCounts(3, 5, true, t)).toBe(
-      'Matches: 3 Windows - 5 Tabs'
+      'Matches: 3 Windows · 5 Tabs'
     );
   });
 
   test('picks singular and plural independently', () => {
-    expect(formatGroupCounts(1, 9, false, t)).toBe('1 Window - 9 Tabs');
-    expect(formatGroupCounts(9, 1, false, t)).toBe('9 Windows - 1 Tab');
+    expect(formatGroupCounts(1, 9, false, t)).toBe('1 Window · 9 Tabs');
+    expect(formatGroupCounts(9, 1, false, t)).toBe('9 Windows · 1 Tab');
   });
 
   // Characterisation, not endorsement. `count > 1` sends zero to the singular,
@@ -70,6 +70,6 @@ describe('formatGroupCounts', () => {
   // at least one matched window. Pinned so the extraction is provably a
   // refactor; fixing it is a separate change.
   test('preserves the pre-existing zero-is-singular behaviour', () => {
-    expect(formatGroupCounts(0, 0, false, t)).toBe('0 Window - 0 Tab');
+    expect(formatGroupCounts(0, 0, false, t)).toBe('0 Window · 0 Tab');
   });
 });

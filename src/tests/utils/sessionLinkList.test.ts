@@ -51,7 +51,7 @@ const window = (
 const strings: LinkListStrings = {
   window: 'Window',
   tabCountLabel: (count) => `${count} ${count === 1 ? 'Tab' : 'Tabs'}`,
-  countsLabel: '2 Windows - 4 Tabs',
+  countsLabel: '2 Windows · 4 Tabs',
   locale: 'en',
 };
 
@@ -100,7 +100,7 @@ describe('the plain text on the clipboard (KAN-195)', () => {
     expect(sessionToLinkList(KYOTO, strings)).toBe(
       [
         'Weekend in Kyoto',
-        '2 Windows - 4 Tabs',
+        '2 Windows · 4 Tabs',
         '',
         'WINDOW 1 · Trip planning (3 Tabs)',
         '- Nozomi timetable',
@@ -213,7 +213,7 @@ describe('the rich list on the clipboard (KAN-195)', () => {
   test('windows are bold headings, groups nested lists, and each tab a link on its title', () => {
     expect(sessionToLinkHtml(KYOTO, strings)).toBe(
       '<h3>Weekend in Kyoto</h3>' +
-        '<p>2 Windows - 4 Tabs</p>' +
+        '<p>2 Windows · 4 Tabs</p>' +
         '<p><b>Window 1 · Trip planning</b> (3 Tabs)</p>' +
         '<ul>' +
         '<li><a href="https://jr.example/nozomi">Nozomi timetable</a></li>' +

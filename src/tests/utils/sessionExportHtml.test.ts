@@ -33,7 +33,7 @@ const options = (
   layout: 'comfortable',
   scheme: 'light',
   dateLabel: 'Created Sep 10, 2026, 9:48:00 PM',
-  countsLabel: '2 Windows - 9 Tabs',
+  countsLabel: '2 Windows · 9 Tabs',
   tabCountLabel: (count) => `${count} Tabs`,
   strings: {
     window: 'Window',
@@ -595,7 +595,7 @@ describe('the meta line (KAN-208)', () => {
     const html = sessionToHtml(buildSession(), options());
 
     expect(html).toContain(
-      '<p class="meta">Created Sep 10, 2026, 9:48:00 PM · 2 Windows - 9 Tabs</p>'
+      '<p class="meta">Created Sep 10, 2026, 9:48:00 PM · 2 Windows · 9 Tabs</p>'
     );
   });
 
@@ -605,7 +605,7 @@ describe('the meta line (KAN-208)', () => {
       options({ dateLabel: undefined })
     );
 
-    expect(html).toContain('<p class="meta">2 Windows - 9 Tabs</p>');
+    expect(html).toContain('<p class="meta">2 Windows · 9 Tabs</p>');
     expect(html).not.toContain('Created');
     expect(html).not.toContain('"meta"> ·');
   });
