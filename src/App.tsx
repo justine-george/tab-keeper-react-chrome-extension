@@ -6,7 +6,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { css } from '@emotion/react';
 
 import { APP_WIDTH, TOAST_MESSAGES } from './utils/constants/common';
-import { observeAuthState } from './config/firebase';
+import { isCloudConfigured, observeAuthState } from './config/firebase';
 import MainContainer from './components/MainContainer';
 import { AppDispatch, RootState } from './redux/store';
 import { setPresentStartup } from './redux/slices/undoRedoSlice';
@@ -17,6 +17,7 @@ import {
   openRateAndReviewModal,
   openTabGroupsPrompt,
   removeUserId,
+  setCloudConfigured,
   setHasTabGroupsPermission,
   setLoggedOut,
   setSignedIn,
@@ -172,6 +173,7 @@ function App() {
   useEffect(() => {
     getUserTokenFromChromeStorageSync();
     void offerTabGroupsPermission(askUserToRateAndReview());
+    dispatch(setCloudConfigured(isCloudConfigured));
     observeAuthState(dispatch);
 
     void hasTabGroupsPermission().then((granted) =>

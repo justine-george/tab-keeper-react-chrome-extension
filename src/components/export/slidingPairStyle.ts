@@ -1,25 +1,4 @@
-import type { ThemeColors } from '../../hooks/useThemeColors';
-
-/**
- * The colours a pair paints with, from a page palette (KAN-218).
- *
- * One function, so the component and exportSlidingPair.test.tsx cannot
- * disagree about what is measured. The knob is the state cue, replacing
- * KAN-199's line: TEXT on PRIMARY is 10.15:1 light and 9.31:1 dark against
- * the 3:1 a state cue needs. Unpressed glyphs go quieter than words, because a
- * glyph is a graphic (3:1) and a word is text (4.5:1).
- */
-export function slidingPairColors(palette: ThemeColors) {
-  return {
-    // The buttons' own fill (Justine), so the pair reads as one more control on
-    // the toolbar rather than a recess in it.
-    track: palette.PRIMARY_COLOR,
-    knob: palette.TEXT_COLOR,
-    labelOnKnob: palette.PRIMARY_COLOR,
-    word: palette.TEXT_COLOR,
-    glyph: palette.LABEL_L2_COLOR,
-  };
-}
+import type { SlidingPairMetrics } from '../common/SlidingPair';
 
 /**
  * The knob's motion, shared with ExportPage's KAN-201 exemption.
@@ -30,3 +9,17 @@ export function slidingPairColors(palette: ThemeColors) {
  * frame (Justine's rule).
  */
 export const KNOB_TRANSITION = '280ms cubic-bezier(0.3, 1.45, 0.6, 1)';
+
+/**
+ * The export toolbar's pair, as KAN-218 drew it: 34px, 3px corners, the knob
+ * 2px inside, the overshoot above, and a 160ms dip on press. Off the popup's
+ * scale on purpose, like the rest of this page, which is why these numbers
+ * live here rather than in the component (KAN-248).
+ */
+export const EXPORT_PAIR_METRICS: SlidingPairMetrics = {
+  height: '34px',
+  radius: '3px',
+  knobRadius: '2px',
+  slide: KNOB_TRANSITION,
+  press: '160ms cubic-bezier(0.23, 1, 0.32, 1)',
+};

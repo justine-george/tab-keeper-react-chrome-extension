@@ -43,6 +43,12 @@ export interface Global {
   // round trip. Gating on isSignedIn alone opened the gate ~500ms early and
   // every request in that window was denied by the rules.
   isFirebaseAuthed: boolean;
+  // "This build was given a cloud to talk to" (config/firebase.ts, KAN-147).
+  // Constant for the life of the popup; it is in the store so the sync status
+  // card can derive from state alone and tests can set it, rather than the
+  // card importing config/firebase.ts and every test inheriting whatever
+  // .env the machine happens to have (KAN-248). App.tsx writes it at boot.
+  isCloudConfigured: boolean;
   userId: string | null;
   isDirty: boolean;
   isSettingsPage: boolean;
@@ -164,6 +170,7 @@ export const initialState: Global = {
   hasSyncedBefore: false,
   isSignedIn: false,
   isFirebaseAuthed: false,
+  isCloudConfigured: false,
   userId: null,
   isDirty: false,
   isSettingsPage: false,
@@ -530,6 +537,10 @@ export const globalStateSlice = createSlice({
       state.isFirebaseAuthed = false;
     },
 
+    setCloudConfigured: (state, action: PayloadAction<boolean>) => {
+      state.isCloudConfigured = action.payload;
+    },
+
     setHasSyncedBefore: (state) => {
       state.hasSyncedBefore = true;
     },
@@ -667,6 +678,7 @@ export const {
   setIsNotDirty,
   setSignedIn,
   setFirebaseAuthed,
+  setCloudConfigured,
   setFirebaseUnauthed,
   setHasSyncedBefore,
   setLoggedOut,

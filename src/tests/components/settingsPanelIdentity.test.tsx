@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { act, screen } from '@testing-library/react';
+import { act, screen, within } from '@testing-library/react';
 
 import SettingsDetailsContainer from '../../components/settings/rightpane/SettingsDetailsContainer';
 import { renderWithProviders } from '../setup/renderWithProviders';
@@ -43,8 +43,10 @@ describe('settings panel identity (KAN-44)', () => {
       store.dispatch(selectCategory(SettingsCategory.SYNC));
     });
 
-    const autoSync = (await screen.findByText(/^(On|Off)$/)).closest('button');
-    expect(autoSync).not.toBeNull();
+    // The Auto Sync pair's first button (KAN-248): the group's "On" side.
+    const autoSync = within(
+      await screen.findByRole('group', { name: 'Auto Sync' })
+    ).getByRole('button', { name: 'On' });
 
     // Unkeyed, React matches <button> to <button> at the same position and
     // hands the swatch's own node to Auto Sync, carrying its computed
@@ -87,7 +89,9 @@ describe('settings panel identity (KAN-44)', () => {
       store.dispatch(selectCategory(SettingsCategory.SYNC));
     });
 
-    expect(await screen.findByText('Auto Sync')).toBeTruthy();
-    expect(screen.getByText(/^(On|Off)$/)).toBeTruthy();
+    expect(
+      await screen.findByRole('group', { name: 'Auto Sync' })
+    ).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'On' })).toBeTruthy();
   });
 });

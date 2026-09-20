@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest';
-import { act } from '@testing-library/react';
+import { act, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 
 import SettingsDetailsContainer from '../../components/settings/rightpane/SettingsDetailsContainer';
 import { renderWithProviders } from '../setup/renderWithProviders';
@@ -29,50 +30,54 @@ const renderOn = (category: SettingsCategory) =>
     },
   });
 
-// The button whose visible text is the toggle's value. Found by text rather
-// than by role+name, because the name is exactly what is under test here --
-// querying by the name would assume the answer.
-const toggleButton = (container: HTMLElement): HTMLButtonElement => {
-  const found = [...container.querySelectorAll('button')].filter((b) =>
-    /^(On|Off)$/.test(b.textContent?.trim() ?? '')
-  );
-  expect(found).toHaveLength(1);
-  return found[0];
-};
+// KAN-248 replaced the Sync panel's single "On" button with a SlidingPair:
+// a group named for the setting, holding one real button per side. KAN-88's
+// concern -- the name must say WHICH setting -- is now met by the group's
+// name, and Label in Name (WCAG 2.5.3) by each side being named its own
+// visible word. Found by role, because the structure is what is under test.
+const autoSyncPair = () => screen.getByRole('group', { name: 'Auto Sync' });
+const side = (word: 'On' | 'Off') =>
+  within(autoSyncPair()).getByRole('button', { name: word });
 
 describe('settings toggles say which setting they control (KAN-88)', () => {
-  test('the accessible name carries the setting AND its value', async () => {
-    const { container } = await renderOn(SettingsCategory.SYNC);
-    const toggle = toggleButton(container);
+  test('the pair is named for the setting, and each side for its own word', async () => {
+    await renderOn(SettingsCategory.SYNC);
 
-    const name = toggle.getAttribute('aria-label');
-    expect(name).toBe('Auto Sync: On');
-
-    // WCAG 2.5.3 Label in Name: the accessible name must CONTAIN the visible
-    // text. This is why the name is "<setting>: <value>" and not the setting
-    // alone -- a bare "Auto Sync" over a button reading "On" would name the
-    // control correctly and still fail, leaving a voice-control user saying
-    // "click On" with nothing to hit.
-    expect(name!.toLowerCase()).toContain(
-      toggle.textContent!.trim().toLowerCase()
-    );
+    // The setting's name is on the group, not on a sibling label the
+    // buttons are unassociated with.
+    expect(autoSyncPair()).toHaveAccessibleName('Auto Sync');
+    // Each side's name IS its visible text, so "click On" hits it.
+    expect(side('On')).toHaveAccessibleName('On');
+    expect(side('Off')).toHaveAccessibleName('Off');
   });
 
   test('the value is exposed as STATE, and flips when toggled', async () => {
-    const { container, store } = await renderOn(SettingsCategory.SYNC);
+    const { store } = await renderOn(SettingsCategory.SYNC);
 
-    expect(toggleButton(container).getAttribute('aria-pressed')).toBe('true');
+    expect(side('On').getAttribute('aria-pressed')).toBe('true');
+    expect(side('Off').getAttribute('aria-pressed')).toBe('false');
 
     act(() => {
       store.dispatch(toggleAutoSync());
     });
 
-    // Both have to move together. aria-pressed carries the state for a screen
-    // reader; the name carries it for voice control and for the visible label.
-    const after = toggleButton(container);
-    expect(after.getAttribute('aria-pressed')).toBe('false');
-    expect(after.getAttribute('aria-label')).toBe('Auto Sync: Off');
-    expect(after.textContent!.trim()).toBe('Off');
+    expect(side('On').getAttribute('aria-pressed')).toBe('false');
+    expect(side('Off').getAttribute('aria-pressed')).toBe('true');
+  });
+
+  test('activating the other side toggles the setting exactly once', async () => {
+    const user = userEvent.setup();
+    const { store } = await renderOn(SettingsCategory.SYNC);
+    expect(store.getState().settingsDataState.isAutoSync).toBe(true);
+
+    await user.click(side('Off'));
+    expect(store.getState().settingsDataState.isAutoSync).toBe(false);
+
+    // The pressed side, from the keyboard, is a no-op (KAN-225): a screen
+    // reader announces nothing for a pressed button, so it must not flip.
+    side('Off').focus();
+    await user.keyboard(' ');
+    expect(store.getState().settingsDataState.isAutoSync).toBe(false);
   });
 
   // The other two toggles live on a different panel and were the same defect.

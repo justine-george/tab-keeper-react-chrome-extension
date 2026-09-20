@@ -1,12 +1,12 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { css } from '@emotion/react';
 
-import Icon from '../common/Icon';
-import type { IconName } from '../common/iconNames';
+import Icon from './Icon';
+import type { IconName } from './iconNames';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { useFontFamily } from '../../hooks/useFontFamily';
 import { ICON, TYPE } from '../../styles/scale';
-import { KNOB_TRANSITION, slidingPairColors } from './slidingPairStyle';
+import { slidingPairColors } from './slidingPairColors';
 
 /** One side of a SlidingPair. */
 export interface SlidingOption<T extends string> {
@@ -19,8 +19,31 @@ export interface SlidingOption<T extends string> {
   pressedTurn?: string;
 }
 
+/**
+ * The numbers a pair is drawn with, supplied by the call site (KAN-248).
+ *
+ * The export page and the popup are on different scales: the export toolbar
+ * draws its pairs at 34px with 3px corners and a 280ms overshoot (KAN-218),
+ * the popup at CONTROL.ROW, RADIUS.SQUARE and DURATION.MOVE. The component
+ * carries neither set, so it can live in common/ and pass the scale scan
+ * while each page keeps its own look; the export's numbers live where the
+ * scan exempts them (export/slidingPairStyle.ts).
+ */
+export interface SlidingPairMetrics {
+  /** The track's outer height. */
+  height: string;
+  /** The track's corner. */
+  radius: string;
+  /** The knob's corner, and each cell's. */
+  knobRadius: string;
+  /** The knob's slide -- duration and easing, applied to clip-path and to a glyph's turn. */
+  slide: string;
+  /** The track's dip while pressed -- duration and easing, applied to transform. */
+  press: string;
+}
+
+/** The inset between the track's frame and the knob. */
 const TRACK_PADDING = 2;
-const KNOB_RADIUS = '2px';
 
 /**
  * A two-way choice drawn as a track with a knob under the pressed side
@@ -48,11 +71,13 @@ export default function SlidingPair<T extends string>({
   options,
   value,
   onChange,
+  metrics,
 }: {
   label: string;
   options: readonly [SlidingOption<T>, SlidingOption<T>];
   value: T;
   onChange: (value: T) => void;
+  metrics: SlidingPairMetrics;
 }) {
   const COLORS = useThemeColors();
   const FONT_FAMILY = useFontFamily();
@@ -85,14 +110,16 @@ export default function SlidingPair<T extends string>({
       if (!scale) return;
       const left = (buttonBox.left - knobBox.left) / scale;
       const right = (knobBox.right - buttonBox.right) / scale;
-      setClip(`inset(0px ${right}px 0px ${left}px round ${KNOB_RADIUS})`);
+      setClip(
+        `inset(0px ${right}px 0px ${left}px round ${metrics.knobRadius})`
+      );
     };
     measure();
     if (typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(measure);
     buttons.current.forEach((button) => button && observer.observe(button));
     return () => observer.disconnect();
-  }, [options, value]);
+  }, [options, value, metrics.knobRadius]);
 
   useEffect(() => {
     let inner = 0;
@@ -108,14 +135,14 @@ export default function SlidingPair<T extends string>({
   const trackStyle = css`
     position: relative;
     box-sizing: border-box;
-    height: 34px;
+    height: ${metrics.height};
     display: inline-flex;
     align-items: stretch;
     padding: ${TRACK_PADDING}px;
     border: 1px solid ${COLORS.BORDER_COLOR};
-    border-radius: 3px;
+    border-radius: ${metrics.radius};
     background-color: ${colors.track};
-    transition: transform 160ms cubic-bezier(0.23, 1, 0.32, 1);
+    transition: transform ${metrics.press};
     &:active {
       transform: scale(0.97);
     }
@@ -136,7 +163,7 @@ export default function SlidingPair<T extends string>({
     margin: 0;
     padding: ${option.icon ? '0 2px' : '0 12px'};
     border: 0;
-    border-radius: ${KNOB_RADIUS};
+    border-radius: ${metrics.knobRadius};
     background: transparent;
     font-family: ${FONT_FAMILY};
     font-size: ${TYPE.BODY};
@@ -160,11 +187,11 @@ export default function SlidingPair<T extends string>({
     inset: ${TRACK_PADDING}px;
     display: flex;
     align-items: stretch;
-    border-radius: ${KNOB_RADIUS};
+    border-radius: ${metrics.knobRadius};
     background-color: ${colors.knob};
     color: ${colors.labelOnKnob};
     pointer-events: none;
-    ${moving ? `transition: clip-path ${KNOB_TRANSITION};` : ''}
+    ${moving ? `transition: clip-path ${metrics.slide};` : ''}
     @media (prefers-reduced-motion: reduce) {
       transition: none;
     }
@@ -182,7 +209,7 @@ export default function SlidingPair<T extends string>({
                rotate: ${
                  option.value === value ? option.pressedTurn ?? '0deg' : '0deg'
                };
-               ${moving ? `transition: rotate ${KNOB_TRANSITION};` : ''}
+               ${moving ? `transition: rotate ${metrics.slide};` : ''}
                @media (prefers-reduced-motion: reduce) { transition: none; }`
             : ''
         }

@@ -56,10 +56,10 @@ import {
   requestTabGroupsPermission,
 } from '../../../utils/functions/permissions';
 import { SettingsCategory } from '../../../redux/slices/settingsCategoryStateSlice';
-import LoggedIn from './Account/LoggedIn';
-import NotLoggedIn from './Account/NotLoggedIn';
+import SyncStatusCard from './Account/SyncStatusCard';
+import SlidingPair, { type SlidingPairMetrics } from '../../common/SlidingPair';
 import { useTranslation } from 'react-i18next';
-import { CONTROL, TYPE } from '../../../styles/scale';
+import { CONTROL, DURATION, RADIUS, TYPE } from '../../../styles/scale';
 
 // The theme picker's swatches live in ThemeSwatch (KAN-237), which also carries
 // the KAN-88/KAN-95 marker rule and its reasoning.
@@ -82,6 +82,18 @@ const LANGUAGE_OPTIONS: ReadonlyArray<[Language, string]> = [
   [Language.JA, '日本語'],
 ];
 
+// KAN-248. The Auto Sync pair on the popup's own scale: the row unit, square
+// corners, the two named durations. The export toolbar draws the same
+// component at 34px/3px/280ms (export/slidingPairStyle.ts); neither set lives
+// in the component.
+const SETTINGS_PAIR_METRICS: SlidingPairMetrics = {
+  height: CONTROL.ROW,
+  radius: RADIUS.SQUARE,
+  knobRadius: RADIUS.SQUARE,
+  slide: `${DURATION.MOVE} ease-out`,
+  press: `${DURATION.COLOR} ease-out`,
+};
+
 const SettingsDetailsContainer: React.FC = () => {
   const COLORS = useThemeColors();
   const { i18n } = useTranslation();
@@ -95,10 +107,6 @@ const SettingsDetailsContainer: React.FC = () => {
 
   const settingsData = useSelector(
     (state: RootState) => state.settingsDataState
-  );
-
-  const isSignedIn = useSelector(
-    (state: RootState) => state.globalState.isSignedIn
   );
 
   const hasTabGroups = useSelector(
@@ -369,34 +377,27 @@ const SettingsDetailsContainer: React.FC = () => {
 
           <div
             css={css`
-              display: flex;
-              justify-content: space-between;
-              align-items: center;
-              width: 100%;
-              max-width: 250px;
               margin-top: 8px;
             `}
           >
-            <Button
-              text={settingsData.isAutoSync ? t(`On`) : t(`Off`)}
-              // KAN-88. The button's whole visible text is its VALUE, and the
-              // setting's name is an unassociated sibling label, so the
-              // accessible name used to be just "On" -- announced with no
-              // indication of what was on.
-              //
-              // The name has to CONTAIN the visible text (WCAG 2.5.3), so it
-              // is "<setting>: <value>" rather than the setting alone; a bare
-              // "Auto Sync" over a button reading "On" would fail the Label in
-              // Name check this repo already enforces. aria-pressed carries
-              // the state as state, so a change is announced as one.
-              ariaLabel={`${t('Auto Sync')}: ${
-                settingsData.isAutoSync ? t(`On`) : t(`Off`)
-              }`}
-              ariaPressed={settingsData.isAutoSync}
-              onClick={handleToggleAutoSync}
-              style={`
-              width: 100%;
-            `}
+            {/* KAN-248. Was one Button whose whole text was its value ("On"),
+                which read as either the state or the action. The pair shows
+                both sides with the pressed one marked. KAN-88's concern -- the
+                name must say which setting -- is met by the group's name;
+                each side's name is its own word, so Label in Name holds. */}
+            <SlidingPair
+              label={t('Auto Sync')}
+              options={[
+                { value: 'on', label: t('On') },
+                { value: 'off', label: t('Off') },
+              ]}
+              value={settingsData.isAutoSync ? 'on' : 'off'}
+              onChange={(next) => {
+                if ((next === 'on') !== settingsData.isAutoSync) {
+                  handleToggleAutoSync();
+                }
+              }}
+              metrics={SETTINGS_PAIR_METRICS}
             />
           </div>
         </div>
@@ -426,7 +427,7 @@ const SettingsDetailsContainer: React.FC = () => {
               color={COLORS.LABEL_L1_COLOR}
             />
           </div>
-          {isSignedIn ? <LoggedIn /> : <NotLoggedIn />}
+          <SyncStatusCard />
         </div>
       </div>
     );
