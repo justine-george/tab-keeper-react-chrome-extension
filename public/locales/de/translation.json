@@ -168,5 +168,5 @@
   "Keyboard shortcut": "Tastenkürzel",
   "Press {{keys}} to open Tab Keeper.": "Drücken Sie {{keys}}, um Tab Keeper zu öffnen.",
   "No shortcut is set to open Tab Keeper.": "Kein Tastenkürzel zum Öffnen von Tab Keeper festgelegt.",
-  "Change": "Ändern"
+  "Change shortcut": "Kürzel ändern"
 }

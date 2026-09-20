@@ -672,11 +672,10 @@ const SettingsDetailsContainer: React.FC = () => {
             `}
           >
             <Button
-              text={t('Change')}
+              text={t('Change shortcut')}
               onClick={() => {
                 chrome.tabs.create({ url: CHROME_SHORTCUTS_URL });
               }}
-              style={`height: ${CONTROL.ROW}; padding: 0 12px;`}
             />
           </div>
         </div>

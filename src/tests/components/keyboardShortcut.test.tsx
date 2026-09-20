@@ -58,7 +58,7 @@ describe('the Sessions pane shows the popup shortcut (KAN-256)', () => {
     const { chrome } = await renderSessions([
       { name: '_execute_action', shortcut: 'Alt+Shift+K' },
     ]);
-    await user.click(screen.getByRole('button', { name: 'Change' }));
+    await user.click(screen.getByRole('button', { name: 'Change shortcut' }));
     expect(chrome.createdTabs).toEqual([
       { url: 'chrome://extensions/shortcuts' },
     ]);
