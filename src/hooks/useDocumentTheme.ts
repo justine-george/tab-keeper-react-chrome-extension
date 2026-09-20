@@ -56,6 +56,20 @@ export function useDocumentTheme(): void {
     //    did not cover.
     root.style.setProperty('--app-background', COLORS.PRIMARY_COLOR);
 
+    // 4. The drag engine's landing slot (KAN-234). RowDragArea has no theme
+    //    dependency and drew the slot in `currentColor`, believing that
+    //    inherited the theme's text colour. It never did: no ancestor of a row
+    //    sets `color` from the theme -- text is coloured leaf by leaf -- so
+    //    currentColor was #000000 in all five themes, 1.17:1 against the dark
+    //    ones. Published here, as a variable, so the engine can stay
+    //    theme-blind and still draw in the theme.
+    //
+    //    LABEL_L2, by the KAN-95 rule: the quietest token that clears 3:1
+    //    against every theme's page at full strength (3.62 on BB Pink, the
+    //    tightest; 4.3+ elsewhere). TEXT_COLOR would need to be dimmed to
+    //    ~0.6 to sit as quietly, and a dimmed line is what just failed.
+    root.style.setProperty('--drag-landing-slot', COLORS.LABEL_L2_COLOR);
+
     // Two frames, not one: the first only guarantees the new styles are
     // computed, the second that they have been painted. Releasing after one
     // still let the tail of the change animate on slower frames.

@@ -71,7 +71,14 @@ import { DURATION } from '../../../../styles/scale';
 // dragging near the ends does not trigger it.
 const EDGE_ZONE_PX = 48;
 // How strongly the landing slot draws when it is clear of the held row.
-const SLOT_OPACITY = 0.3;
+//
+// 1, not 0.3 (KAN-234). The 0.3 was doing two jobs: keeping the slot quieter
+// than the held row, and -- unintentionally -- hiding that the line was black
+// in every theme. The colour now comes from the theme (see the slot below),
+// chosen quiet enough to stand at full strength: LABEL_L2 clears 3:1 against
+// every page and no louder. The fade by distance below is what keeps the slot
+// from reading as an outline around the held row, and it is unchanged.
+const SLOT_OPACITY = 1;
 const MAX_SCROLL_PX_PER_FRAME = 14;
 
 // The nearest ancestor that actually scrolls.
@@ -1436,8 +1443,14 @@ export const DraggableRow: React.FC<DraggableRowProps> = ({
           The landing slot is real empty space, so nothing can sit on top of it;
           a marker at the ORIGIN cannot say that, because the row behind the
           held one steps straight into that slot.
-          currentColor keeps it legible in every theme without this file
-          growing a dependency on the theme it otherwise has no use for. */}
+
+          The colour is a root variable the theme publishes (useDocumentTheme,
+          KAN-234), so this file still has no dependency on the theme it
+          otherwise has no use for. It used to be currentColor, on the belief
+          that inherited the theme's text colour; measured, it was #000000 in
+          all five themes -- nothing above a row sets `color` -- and at 30%
+          that was 1.17:1 on the dark pages. The fallback is currentColor
+          still, for a host that has not published the variable. */}
       {held && (
         <div
           aria-hidden="true"
@@ -1467,7 +1480,7 @@ export const DraggableRow: React.FC<DraggableRowProps> = ({
               drag.heldWindowShift
             }px)`,
             pointerEvents: 'none',
-            border: '1.5px dashed currentColor',
+            border: '1.5px dashed var(--drag-landing-slot, currentColor)',
             borderRadius: '4px',
             // As visible as it is DISTINGUISHABLE from the row being dragged.
             //

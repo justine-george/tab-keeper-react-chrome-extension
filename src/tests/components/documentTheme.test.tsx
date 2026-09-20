@@ -108,6 +108,29 @@ describe('useDocumentTheme (KAN-22)', () => {
     ).toBe(DARKENHEIMER_THEME.PRIMARY_COLOR);
   });
 
+  // KAN-234. The drag engine draws its landing slot in this, and has no theme
+  // dependency of its own: it drew `currentColor` and believed that inherited
+  // the theme's text colour, but nothing above a row sets `color`, so the slot
+  // was #000000 in every theme. LABEL_L2 is the quietest token that clears 3:1
+  // against every theme's page; e2e/drag-slot-contrast.spec.ts measures that.
+  test('publishes the drag landing slot colour, and republishes it on a theme change', async () => {
+    const { store } = await renderWithProviders(<Probe />);
+    const read = () =>
+      document.documentElement.style.getPropertyValue('--drag-landing-slot');
+
+    expect(read()).toBe(LIGHT_THEME.LABEL_L2_COLOR);
+
+    act(() => {
+      store.dispatch(setTheme(Theme.DARKENHEIMER));
+    });
+
+    expect(read()).toBe(DARKENHEIMER_THEME.LABEL_L2_COLOR);
+    // CONTROL: the two themes disagree, or the assertion above pins nothing.
+    expect(LIGHT_THEME.LABEL_L2_COLOR).not.toBe(
+      DARKENHEIMER_THEME.LABEL_L2_COLOR
+    );
+  });
+
   // The flag must be set in the SAME commit that changes the colours, not a
   // frame later -- one frame late and the transition has already started, which
   // is the whole defect.
