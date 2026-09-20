@@ -1,6 +1,7 @@
 import type { BrowserContext, Locator, Page } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
+import { seedSettings } from './fixtures/seed';
 
 // KAN-95. The active theme swatch was marked with `outline: 2px solid
 // TEXT_COLOR; outline-offset: 2px`, which is wrong in two separable ways.
@@ -177,5 +178,38 @@ test.describe('hovering the selected settings category leaves it alone', () => {
       'the selected category must keep its fill while hovered, not be ' +
         'erased to transparent'
     ).toBe(atRest);
+  });
+});
+
+// KAN-247. The tiles sit 14px apart, and the row is flex-wrap: wrap -- so the
+// gap is bounded by the widest locale. In ja two katakana captions are wider
+// than their 72px tiles, and at the real 790px popup 16px is the exact ceiling
+// before Ink wraps to a second line. Asserted where it would break: ja, 790
+// wide, all five swatches on one row.
+test.describe('the theme tiles keep to one row in the widest locale', () => {
+  test('in Japanese at 790px, five swatches share a top edge and sit 14px apart', async ({
+    context,
+    extensionId,
+  }) => {
+    await seedSettings(context, { language: 'ja' });
+    const page = await context.newPage();
+    await page.setViewportSize({ width: 790, height: 550 });
+    await page.goto(`chrome-extension://${extensionId}/index.html`);
+    await page.locator('[aria-label="設定"]').click();
+    await page.locator('button[aria-label="表示"]').click();
+    await expect(swatch(page, 'ペーパー')).toBeVisible();
+
+    const tops = await Promise.all(
+      ['ペーパー', 'パーチメント', '花びら', 'グラファイト', 'インク'].map(
+        (name) =>
+          swatch(page, name).evaluate((el) => el.getBoundingClientRect().top)
+      )
+    );
+    expect(new Set(tops).size, `swatch tops: ${tops.join(', ')}`).toBe(1);
+
+    const gap = await swatch(page, 'ペーパー').evaluate(
+      (el) => getComputedStyle(el.parentElement!).gap
+    );
+    expect(gap).toBe('14px');
   });
 });
