@@ -102,7 +102,9 @@ test.describe('the popup shortcut row (KAN-256)', () => {
     ).toHaveProperty('_execute_action');
 
     const before = context.pages().length;
-    await page.getByRole('button', { name: 'Change shortcut' }).click();
+    await page
+      .getByRole('button', { name: 'Change or remove shortcut' })
+      .click();
     await expect.poll(() => context.pages().length).toBe(before + 1);
     const opened = context.pages()[context.pages().length - 1];
     expect(opened.url()).toBe('chrome://extensions/shortcuts');

@@ -672,7 +672,8 @@ const SettingsDetailsContainer: React.FC = () => {
             `}
           >
             <Button
-              text={t('Change shortcut')}
+              text={t('Change or remove shortcut')}
+              iconType="keyboard"
               onClick={() => {
                 chrome.tabs.create({ url: CHROME_SHORTCUTS_URL });
               }}
