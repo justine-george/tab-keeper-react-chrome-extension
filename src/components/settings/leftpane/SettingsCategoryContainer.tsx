@@ -40,7 +40,13 @@ const SettingsCategoryContainer: React.FC = () => {
     flex-direction: column;
     height: 100%;
     border: 1px solid ${COLORS.BORDER_COLOR};
-    margin: 6px 0 8px 0;
+    /* 10px, not the 8px every other gap uses, so this box's top edge meets
+       the details box across the divider (KAN-239). The right pane reaches
+       its box by 8px pane padding + a 50px framed card + 8px; this pane by
+       1px pane border + a 56px unframed header row + this margin. The two
+       differ by the card's two borders, and 6px -- what it was -- left the
+       tops 4px apart. Measured: 67px on both sides. */
+    margin: 10px 0 8px 0;
     overflow: auto;
     user-select: none;
   `;
