@@ -164,5 +164,8 @@
   "Cancel": "Отмена",
   "Cloud data deleted. Auto Sync is off on this device.": "Облачные данные удалены. Авто-синхронизация на этом устройстве выключена.",
   "Couldn't delete cloud data. Check your connection and try again.": "Не удалось удалить облачные данные. Проверьте подключение и попробуйте снова.",
-  "Last synced {{time}}": "Последняя синхронизация: {{time}}"
+  "Last synced {{time}}": "Последняя синхронизация: {{time}}",
+  "Keyboard shortcut": "Сочетание клавиш",
+  "Not set": "Не задано",
+  "Change shortcut": "Изменить сочетание"
 }

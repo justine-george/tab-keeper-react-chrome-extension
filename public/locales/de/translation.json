@@ -164,5 +164,8 @@
   "Cancel": "Abbrechen",
   "Cloud data deleted. Auto Sync is off on this device.": "Cloud-Daten gelöscht. Auto-Sync ist auf diesem Gerät aus.",
   "Couldn't delete cloud data. Check your connection and try again.": "Cloud-Daten konnten nicht gelöscht werden. Prüfen Sie Ihre Verbindung und versuchen Sie es erneut.",
-  "Last synced {{time}}": "Zuletzt synchronisiert {{time}}"
+  "Last synced {{time}}": "Zuletzt synchronisiert {{time}}",
+  "Keyboard shortcut": "Tastenkürzel",
+  "Not set": "Nicht festgelegt",
+  "Change shortcut": "Kürzel ändern"
 }

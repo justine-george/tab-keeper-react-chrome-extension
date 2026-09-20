@@ -24,6 +24,10 @@ export type ChromeSeed = {
   // Optional permissions the profile already holds. Defaults to none, which is
   // what a fresh install looks like.
   grantedPermissions?: chrome.runtime.ManifestPermission[];
+  // What chrome.commands.getAll() reports (KAN-256). Absent means no
+  // commands are declared -- an empty list, as Chrome returns for an
+  // extension without a `commands` block.
+  commands?: chrome.commands.Command[];
   // Model the measured production behaviour where the popup is destroyed
   // before permissions.request() settles. See the KAN-11 spike.
   requestNeverSettles?: boolean;
@@ -416,6 +420,10 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
       },
     },
 
+    commands: {
+      getAll: (cb?: (commands: chrome.commands.Command[]) => void) =>
+        settle(seed.commands ?? [], cb),
+    },
     permissions: {
       contains: (
         permissions: chrome.permissions.Permissions,
