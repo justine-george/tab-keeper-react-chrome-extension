@@ -18,8 +18,8 @@ import {
 describe('the settings pane insets its content evenly', () => {
   const sectionsUnderTest = [
     ['Display', SettingsCategory.DISPLAY],
-    ['Sync & Privacy', SettingsCategory.SYNC],
-    ['Data Management', SettingsCategory.DATA_MANAGEMENT],
+    ['Sync & Backup', SettingsCategory.SYNC],
+    ['Sessions', SettingsCategory.SESSIONS],
     ['Language', SettingsCategory.LANGUAGE],
     // About is deliberately absent: it centres its content with
     // `align-items: center` and carries no inset at all, so it has no gutters

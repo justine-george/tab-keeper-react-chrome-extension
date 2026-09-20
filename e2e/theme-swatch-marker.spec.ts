@@ -142,7 +142,7 @@ test.describe('hovering the selected settings category leaves it alone', () => {
     await expect(page.getByText('Themes')).toBeVisible();
 
     const selected = page.getByRole('button', { name: 'Display' });
-    const other = page.getByRole('button', { name: 'Data Management' });
+    const other = page.getByRole('button', { name: 'Sessions' });
     const fill = (l: Locator) =>
       l.evaluate((el) => getComputedStyle(el).backgroundColor);
 

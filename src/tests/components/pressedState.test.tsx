@@ -115,7 +115,7 @@ describe('a press is confirmed on every interactive surface (KAN-205)', () => {
     await renderWithProviders(<SettingsCategoryContainer />);
 
     const selected = screen.getByRole('button', { name: 'Display' });
-    const unselected = screen.getByRole('button', { name: 'Sync & Privacy' });
+    const unselected = screen.getByRole('button', { name: 'Sync & Backup' });
     expect(activeRulesFor(unselected)).toMatch(PRESSED);
     expect(activeRulesFor(selected)).toMatch(PRESSED);
     // CONTROL: the unselected row still hovers one rung below its press.

@@ -2,8 +2,8 @@ import { PayloadAction, createSlice } from '@reduxjs/toolkit';
 
 export enum SettingsCategory {
   DISPLAY = 'Display',
-  SYNC = 'Sync & Privacy',
-  DATA_MANAGEMENT = 'Data Management',
+  SYNC = 'Sync & Backup',
+  SESSIONS = 'Sessions',
   LANGUAGE = 'Language',
   ABOUT = 'About',
 }
@@ -23,7 +23,7 @@ export const initialState: SettingsCategoryContainer[] = [
     isSelected: false,
   },
   {
-    name: SettingsCategory.DATA_MANAGEMENT,
+    name: SettingsCategory.SESSIONS,
     isSelected: false,
   },
   {

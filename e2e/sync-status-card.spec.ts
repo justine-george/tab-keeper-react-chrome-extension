@@ -24,7 +24,7 @@ async function openSyncPane(
   await page.setViewportSize({ width: 790, height: 550 });
   await page.goto(`chrome-extension://${extensionId}/index.html`);
   await page.locator('[aria-label="Settings"]').click();
-  await page.locator('button[aria-label="Sync & Privacy"]').click();
+  await page.locator('button[aria-label="Sync & Backup"]').click();
   await expect(page.getByTestId('sync-status-card')).toBeVisible();
   return page;
 }

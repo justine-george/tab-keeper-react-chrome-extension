@@ -100,8 +100,8 @@ describe('settings toggles say which setting they control (KAN-88)', () => {
   // defect; it became a pair after Auto Sync did (KAN-249). The memory
   // setting that sat above it is gone (KAN-250): restores always open later
   // tabs as placeholders, so there is nothing to choose.
-  test('Data Management has one pair, Save Tab Groups, and no memory setting', async () => {
-    await renderOn(SettingsCategory.DATA_MANAGEMENT);
+  test('Sessions has one pair, Save Tab Groups, and no memory setting', async () => {
+    await renderOn(SettingsCategory.SESSIONS);
 
     const groups = screen.getByRole('group', { name: 'Save Tab Groups' });
     expect(
@@ -128,7 +128,7 @@ describe('settings toggles say which setting they control (KAN-88)', () => {
   // clicking Off would be another request, not a removal.
   test('from Off, pressing On asks Chrome for the tab-groups permission', async () => {
     const user = userEvent.setup();
-    await renderOn(SettingsCategory.DATA_MANAGEMENT);
+    await renderOn(SettingsCategory.SESSIONS);
     expect(await has()).toBe(false);
 
     await user.click(
@@ -145,7 +145,7 @@ describe('settings toggles say which setting they control (KAN-88)', () => {
     await renderWithProviders(<SettingsDetailsContainer />, {
       seed: { grantedPermissions: ['tabGroups'] },
       seedStore: (store) => {
-        store.dispatch(selectCategory(SettingsCategory.DATA_MANAGEMENT));
+        store.dispatch(selectCategory(SettingsCategory.SESSIONS));
         store.dispatch(setHasTabGroupsPermission(true));
       },
     });

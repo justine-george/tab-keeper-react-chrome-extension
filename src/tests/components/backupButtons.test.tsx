@@ -19,10 +19,10 @@ import {
 // subset draws: a name that is not in iconNames.ts fails tsc, and one that is
 // but was not fetched fails e2e/icon-font-subset.spec.ts.
 
-const renderDataManagement = () =>
+const renderSyncAndBackup = () =>
   renderWithProviders(<SettingsDetailsContainer />, {
     seedStore: (store) => {
-      store.dispatch(selectCategory(SettingsCategory.DATA_MANAGEMENT));
+      store.dispatch(selectCategory(SettingsCategory.SYNC));
     },
   });
 
@@ -31,7 +31,7 @@ const glyphOf = (button: HTMLElement) =>
 
 describe('the backup buttons say what they do (KAN-251)', () => {
   test('save is a download, replace is an upload, and both name sessions', async () => {
-    await renderDataManagement();
+    await renderSyncAndBackup();
 
     const save = screen.getByRole('button', {
       name: 'Save sessions to a file',
@@ -49,7 +49,7 @@ describe('the backup buttons say what they do (KAN-251)', () => {
   });
 
   test('the heading is Backup, and nothing under the buttons restates them', async () => {
-    await renderDataManagement();
+    await renderSyncAndBackup();
     expect(screen.getByText('Backup')).toBeTruthy();
     expect(screen.queryByText('Backup & Restore')).toBeNull();
     // Both labels already say "sessions"; a note saying so again was cut.
@@ -57,10 +57,10 @@ describe('the backup buttons say what they do (KAN-251)', () => {
   });
 
   test('CONTROL: the glyph reader sees a real icon', async () => {
-    await renderDataManagement();
+    await renderSyncAndBackup();
     // The pair's buttons carry no icon, so the reader must return undefined
     // there and a name on the backup buttons -- not the same value for both.
-    const pair = screen.getByRole('group', { name: 'Save Tab Groups' });
+    const pair = screen.getByRole('group', { name: 'Auto Sync' });
     expect(
       glyphOf(within(pair).getByRole('button', { name: 'On' }))
     ).toBeUndefined();

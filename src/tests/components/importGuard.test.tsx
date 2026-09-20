@@ -51,10 +51,10 @@ const dropFile = (input: HTMLInputElement, text: string) => {
   input.onchange?.({ target: { files: [file] } } as unknown as Event);
 };
 
-const renderDataManagement = () =>
+const renderSyncAndBackup = () =>
   renderWithProviders(<SettingsDetailsContainer />, {
     seedStore: (store) => {
-      store.dispatch(selectCategory(SettingsCategory.DATA_MANAGEMENT));
+      store.dispatch(selectCategory(SettingsCategory.SYNC));
     },
   });
 
@@ -123,7 +123,7 @@ describe('import size guard (KAN-27)', () => {
 
   test('refuses an oversized backup and leaves the store untouched', async () => {
     const inputs = captureFileInput();
-    const { store } = await renderDataManagement();
+    const { store } = await renderSyncAndBackup();
 
     await userEvent.click(
       await screen.findByText('Replace sessions from a backup')
@@ -153,7 +153,7 @@ describe('import size guard (KAN-27)', () => {
   // the test above.
   test('still imports a backup that fits', async () => {
     const inputs = captureFileInput();
-    const { store } = await renderDataManagement();
+    const { store } = await renderSyncAndBackup();
 
     await userEvent.click(
       await screen.findByText('Replace sessions from a backup')
@@ -188,7 +188,7 @@ describe('import sync failure (KAN-43)', () => {
     );
 
     const inputs = captureFileInput();
-    const { store } = await renderDataManagement();
+    const { store } = await renderSyncAndBackup();
 
     await userEvent.click(
       await screen.findByText('Replace sessions from a backup')

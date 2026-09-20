@@ -424,69 +424,6 @@ const SettingsDetailsContainer: React.FC = () => {
           </div>
           <SyncStatusCard />
         </div>
-      </div>
-    );
-  } else if (
-    selectedSettingsCategory.name === SettingsCategory.DATA_MANAGEMENT
-  ) {
-    settingsOptionsDiv = (
-      <div
-        css={css`
-          display: flex;
-          flex-direction: column;
-          justify-content: flex-start;
-          align-items: center;
-        `}
-      >
-        {/* Save Tab Groups */}
-        <div
-          css={css`
-            padding-left: clamp(16px, 8%, 72px);
-            padding-right: clamp(16px, 8%, 72px);
-            width: 100%;
-            margin-top: 20px;
-          `}
-        >
-          <div
-            css={css`
-              display: flex;
-              align-items: flex-start;
-              width: 100%;
-            `}
-          >
-            <NormalLabel
-              value={t('Save Tab Groups')}
-              size={TYPE.BODY}
-              color={COLORS.LABEL_L1_COLOR}
-            />
-          </div>
-
-          <div
-            css={css`
-              margin-top: 8px;
-            `}
-          >
-            {/* KAN-249. Not a store toggle: On asks Chrome for the permission,
-                Off gives it back, and the pressed side follows
-                hasTabGroupsPermission, written by the change listener or the
-                next popup open -- permissions.request() may close this popup
-                before it settles (KAN-226), so the knob may not move here. */}
-            <SlidingPair
-              label={t('Save Tab Groups')}
-              options={[
-                { value: 'on', label: t('On') },
-                { value: 'off', label: t('Off') },
-              ]}
-              value={hasTabGroups ? 'on' : 'off'}
-              onChange={(next) => {
-                if ((next === 'on') !== hasTabGroups) {
-                  handleToggleTabGroups();
-                }
-              }}
-              metrics={SETTINGS_PAIR_METRICS}
-            />
-          </div>
-        </div>
 
         {/* Backup. KAN-251: the buttons name what they do to SESSIONS --
             "Restore" is this app's verb for opening a saved session, and
@@ -543,6 +480,67 @@ const SettingsDetailsContainer: React.FC = () => {
               iconType="upload"
               onClick={handleImportJSON}
               style="width: 100%; justify-content: center;"
+            />
+          </div>
+        </div>
+      </div>
+    );
+  } else if (selectedSettingsCategory.name === SettingsCategory.SESSIONS) {
+    settingsOptionsDiv = (
+      <div
+        css={css`
+          display: flex;
+          flex-direction: column;
+          justify-content: flex-start;
+          align-items: center;
+        `}
+      >
+        {/* Save Tab Groups */}
+        <div
+          css={css`
+            padding-left: clamp(16px, 8%, 72px);
+            padding-right: clamp(16px, 8%, 72px);
+            width: 100%;
+            margin-top: 20px;
+          `}
+        >
+          <div
+            css={css`
+              display: flex;
+              align-items: flex-start;
+              width: 100%;
+            `}
+          >
+            <NormalLabel
+              value={t('Save Tab Groups')}
+              size={TYPE.BODY}
+              color={COLORS.LABEL_L1_COLOR}
+            />
+          </div>
+
+          <div
+            css={css`
+              margin-top: 8px;
+            `}
+          >
+            {/* KAN-249. Not a store toggle: On asks Chrome for the permission,
+                Off gives it back, and the pressed side follows
+                hasTabGroupsPermission, written by the change listener or the
+                next popup open -- permissions.request() may close this popup
+                before it settles (KAN-226), so the knob may not move here. */}
+            <SlidingPair
+              label={t('Save Tab Groups')}
+              options={[
+                { value: 'on', label: t('On') },
+                { value: 'off', label: t('Off') },
+              ]}
+              value={hasTabGroups ? 'on' : 'off'}
+              onChange={(next) => {
+                if ((next === 'on') !== hasTabGroups) {
+                  handleToggleTabGroups();
+                }
+              }}
+              metrics={SETTINGS_PAIR_METRICS}
             />
           </div>
         </div>
@@ -789,7 +787,7 @@ const SettingsDetailsContainer: React.FC = () => {
   // Keyed on the category so React remounts the panel instead of reconciling
   // one against the next (KAN-44). The five branches above all render into this
   // one position, so without a key React matched them element by element and
-  // handed the Display panel's first theme swatch <button> to Sync & Privacy's
+  // handed the Display panel's first theme swatch <button> to Sync & Backup's
   // Auto Sync button. A swatch is hardcoded to LIGHT_THEME.PRIMARY_COLOR, and
   // Button carries `transition: background-color ${DURATION.MOVE}`, so on a dark theme the
   // recycled node animated white -> black over 200ms.
