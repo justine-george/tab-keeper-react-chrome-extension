@@ -113,7 +113,9 @@ describe('the theme picker marks the active theme (KAN-88)', () => {
       (b) => b.getAttribute('aria-pressed') === 'true'
     );
     expect(pressed).toHaveLength(1);
-    expect(pressed[0].getAttribute('title')).toBe('BB Pink');
+    // The name is the button's visible text and accessible name (KAN-237);
+    // it used to be a title and nothing else.
+    expect(pressed[0]).toHaveAccessibleName('BB Pink');
 
     // Every other swatch must say so explicitly rather than be silent: an
     // absent aria-pressed reads as "not a toggle", not as "not selected".
@@ -129,7 +131,7 @@ describe('the theme picker marks the active theme (KAN-88)', () => {
     const activeTitle = () =>
       swatches(container)
         .find((b) => b.getAttribute('aria-pressed') === 'true')
-        ?.getAttribute('title');
+        ?.textContent?.trim();
 
     act(() => {
       store.dispatch(setTheme(Theme.DARKENHEIMER));
@@ -153,7 +155,8 @@ describe('the theme picker marks the active theme (KAN-88)', () => {
   // The marker was an outline until KAN-95 and is now the swatch's own border,
   // thickened -- an outline is drawn OUTSIDE the box and collided with the
   // neighbouring swatches, and TEXT_COLOR made it far louder than the passive
-  // state it marks.
+  // state it marks. Since KAN-237 the swatch is a button holding a TILE and a
+  // name, and the frame -- and so the marker -- is the tile's.
   //
   // Read through the `border` SHORTHAND, for the same jsdom reason the outline
   // was: jsdom fills a shorthand it was given but does not reliably decompose
@@ -169,20 +172,24 @@ describe('the theme picker marks the active theme (KAN-88)', () => {
     });
 
     const marked = swatches(container).filter((b) =>
-      /(^|\s)2px(\s|$)/.test(getComputedStyle(b).borderWidth)
+      /(^|\s)2px(\s|$)/.test(
+        getComputedStyle(b.querySelector('[data-theme-tile]')!).borderWidth
+      )
     );
 
     expect(marked).toHaveLength(1);
-    expect(marked[0].getAttribute('title')).toBe('Light');
+    expect(marked[0]).toHaveAccessibleName('Light');
 
     // The marker must move with the theme, not just exist somewhere.
     act(() => {
       store.dispatch(setTheme(Theme.BLUE));
     });
     const moved = swatches(container).filter((b) =>
-      /(^|\s)2px(\s|$)/.test(getComputedStyle(b).borderWidth)
+      /(^|\s)2px(\s|$)/.test(
+        getComputedStyle(b.querySelector('[data-theme-tile]')!).borderWidth
+      )
     );
     expect(moved).toHaveLength(1);
-    expect(moved[0].getAttribute('title')).toBe('Blue');
+    expect(moved[0]).toHaveAccessibleName('Blue');
   });
 });
