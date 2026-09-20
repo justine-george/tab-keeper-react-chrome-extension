@@ -55,7 +55,7 @@ import {
   requestTabGroupsPermission,
 } from '../../../utils/functions/permissions';
 import { SettingsCategory } from '../../../redux/slices/settingsCategoryStateSlice';
-import SyncStatusCard from './Account/SyncStatusCard';
+import SyncStatus from './Account/SyncStatus';
 import SlidingPair, { type SlidingPairMetrics } from '../../common/SlidingPair';
 import { useTranslation } from 'react-i18next';
 import { CONTROL, DURATION, RADIUS, TYPE } from '../../../styles/scale';
@@ -92,6 +92,11 @@ const SETTINGS_PAIR_METRICS: SlidingPairMetrics = {
   slide: `${DURATION.MOVE} ease-out`,
   press: `${DURATION.COLOR} ease-out`,
 };
+
+// Sections after the first on a pane sit 32px apart, the spacing About's
+// blocks use (KAN-241); the first keeps 20px from the pane top. Written on
+// each section rather than as a constant so a section reads as a unit; the
+// settingsRail test holds them to it.
 
 const SettingsDetailsContainer: React.FC = () => {
   const COLORS = useThemeColors();
@@ -266,6 +271,7 @@ const SettingsDetailsContainer: React.FC = () => {
       >
         {/* Theme Section */}
         <div
+          data-settings-section
           css={css`
             display: flex;
             flex-direction: column;
@@ -346,6 +352,7 @@ const SettingsDetailsContainer: React.FC = () => {
       >
         {/* Auto Sync */}
         <div
+          data-settings-section
           css={css`
             display: flex;
             flex-direction: column;
@@ -399,6 +406,7 @@ const SettingsDetailsContainer: React.FC = () => {
 
         {/* Sync Status */}
         <div
+          data-settings-section
           css={css`
             display: flex;
             flex-direction: column;
@@ -406,7 +414,7 @@ const SettingsDetailsContainer: React.FC = () => {
             padding-left: clamp(16px, 8%, 72px);
             padding-right: clamp(16px, 8%, 72px);
             width: 100%;
-            margin-top: 20px;
+            margin-top: 32px;
           `}
         >
           <div
@@ -422,7 +430,7 @@ const SettingsDetailsContainer: React.FC = () => {
               color={COLORS.LABEL_L1_COLOR}
             />
           </div>
-          <SyncStatusCard />
+          <SyncStatus />
         </div>
 
         {/* Backup. KAN-251: the buttons name what they do to SESSIONS --
@@ -432,6 +440,7 @@ const SettingsDetailsContainer: React.FC = () => {
             an upload. "Replace" because that is what loading a backup does to
             what is there (KAN-252 holds the question of whether it should). */}
         <div
+          data-settings-section
           css={css`
             display: flex;
             flex-direction: column;
@@ -439,7 +448,7 @@ const SettingsDetailsContainer: React.FC = () => {
             padding-left: clamp(16px, 8%, 72px);
             padding-right: clamp(16px, 8%, 72px);
             width: 100%;
-            margin-top: 20px;
+            margin-top: 32px;
           `}
         >
           <div
@@ -497,6 +506,7 @@ const SettingsDetailsContainer: React.FC = () => {
       >
         {/* Save Tab Groups */}
         <div
+          data-settings-section
           css={css`
             padding-left: clamp(16px, 8%, 72px);
             padding-right: clamp(16px, 8%, 72px);
@@ -558,6 +568,7 @@ const SettingsDetailsContainer: React.FC = () => {
       >
         {/* Language Switcher */}
         <div
+          data-settings-section
           css={css`
             display: flex;
             flex-direction: column;
@@ -641,6 +652,7 @@ const SettingsDetailsContainer: React.FC = () => {
         {/* Nameplate: the mark on the name line, the way the header's gear
             sits on "Settings"; then the version and the credit on one line. */}
         <div
+          data-settings-section
           css={css`
             display: flex;
             flex-direction: column;

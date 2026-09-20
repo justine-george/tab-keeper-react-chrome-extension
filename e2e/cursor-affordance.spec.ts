@@ -212,7 +212,7 @@ test.describe('clickable controls show a pointer over their icon (KAN-76)', () =
   // can click, must NOT start advertising a click.
   //
   // The status card's glyph sits in a plain layout div in
-  // Account/SyncStatusCard. Deferring to the ancestor is only the right
+  // Account/SyncStatus. Deferring to the ancestor is only the right
   // answer if the ancestor's answer is right here too -- if this ever reads
   // `pointer`, `inherit` is reaching a clickable ancestor that this icon has
   // no business inheriting from.
@@ -229,7 +229,7 @@ test.describe('clickable controls show a pointer over their icon (KAN-76)', () =
     // card is located as itself and its glyph read from it, so the assertion
     // does not depend on which; and the card is asserted present first, so
     // a wrong glyph name surfaces here rather than as a locator timeout.
-    const card = page.getByTestId('sync-status-card');
+    const card = page.getByTestId('sync-status');
     await expect(card).toBeVisible();
     const decorative = card.locator('span.material-symbols-outlined').first();
     await expect(decorative).toHaveText(/^cloud_(done|off)$/);

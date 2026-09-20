@@ -54,7 +54,7 @@ describe('the settings rail names what each pane holds (KAN-253)', () => {
   test('Sync & Backup holds Auto Sync, the status card, and the backup buttons', async () => {
     await renderOn(SettingsCategory.SYNC);
     expect(screen.getByRole('group', { name: 'Auto Sync' })).toBeTruthy();
-    expect(screen.getByTestId('sync-status-card')).toBeTruthy();
+    expect(screen.getByTestId('sync-status')).toBeTruthy();
     expect(screen.getByText('Backup')).toBeTruthy();
     expect(
       screen.getByRole('button', { name: 'Save sessions to a file' })
@@ -64,5 +64,28 @@ describe('the settings rail names what each pane holds (KAN-253)', () => {
     ).toBeTruthy();
     // And not the capture setting.
     expect(screen.queryByRole('group', { name: 'Save Tab Groups' })).toBeNull();
+  });
+});
+
+// KAN-253. The About pane puts 32px between its blocks (KAN-241); the other
+// panes stacked their sections at 20px, and the Sync & Backup pane -- three
+// sections, since Backup moved in -- read as crowded beside it. Sections
+// after the first now sit 32px apart on every pane; the first keeps its 20px
+// from the pane top, as About's nameplate does.
+describe('sections within a pane sit 32px apart, as About blocks do', () => {
+  test('Sync & Backup: first at 20px from the top, the next two at 32px', async () => {
+    const { container } = await renderOn(SettingsCategory.SYNC);
+    const margins = [
+      ...container.querySelectorAll<HTMLElement>('[data-settings-section]'),
+    ].map((el) => getComputedStyle(el).marginTop);
+    expect(margins).toEqual(['20px', '32px', '32px']);
+  });
+
+  test('a one-section pane keeps 20px', async () => {
+    const { container } = await renderOn(SettingsCategory.SESSIONS);
+    const margins = [
+      ...container.querySelectorAll<HTMLElement>('[data-settings-section]'),
+    ].map((el) => getComputedStyle(el).marginTop);
+    expect(margins).toEqual(['20px']);
   });
 });
