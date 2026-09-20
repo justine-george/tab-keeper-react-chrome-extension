@@ -5,6 +5,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { css } from '@emotion/react';
 
 import Button from '../../common/Button';
+import ThemeSwatch from './ThemeSwatch';
 import { NormalLabel } from '../../common/Label';
 import {
   BB_PINK_THEME,
@@ -58,39 +59,8 @@ import NotLoggedIn from './Account/NotLoggedIn';
 import { useTranslation } from 'react-i18next';
 import { TYPE } from '../../../styles/scale';
 
-// KAN-88. The five theme swatches were visually and semantically identical --
-// same border, no ARIA state -- so nothing said which theme was actually in
-// use. The only thing that differed was each swatch's own fill, which is the
-// theme's colour, not a selection marker, and on a dark theme the active one
-// is the swatch that blends into the background.
-//
-// The marker is the swatch's OWN border, thickened (KAN-95).
-//
-// It was an outline in TEXT_COLOR, for a reason that was sound and a weight
-// that was not. Sound: a border changes the box, and growing one would shove
-// the other four swatches sideways as selection moved, so an outline avoided
-// the layout entirely. Not sound: TEXT_COLOR measures 9.2-13.8:1 against the
-// page, which is focus-ring weight on a passive state marker, and 2px of
-// outline plus 2px of offset exactly consumed the row's 4px gap, so the ring
-// touched its neighbours. With the swatch's own 1px border still underneath,
-// the active one drew two concentric lines. Reported as cramped, and rejected
-// for the same reason KAN-87's accent bar was: contrast is the right axis to
-// MEASURE and the wrong one to MAXIMISE.
-//
-// Growing the border is safe here because App.css sets `* { box-sizing:
-// border-box }` globally, so the swatch keeps its size and the row never
-// reflows. That is a property of the app, not of this helper -- an earlier
-// version of this comment claimed the helper established it, which was wrong:
-// a mutation removing the declaration changed nothing, because the global
-// reset had already done the work. themeSwatchMarker.spec's size assertion is
-// what holds the app to it, and it dies if this element is ever forced back to
-// content-box.
-//
-// LABEL_L3_COLOR, not BORDER_COLOR: measured against the page, BORDER_COLOR is
-// 1.38-1.73:1 on four of the five themes and would be invisible. LABEL_L3 is
-// the only existing token in a sane band (2.56-4.03:1).
-const themeSwatchMarker = (isActive: boolean, markerColor: string): string =>
-  isActive ? `border-color: ${markerColor}; border-width: 2px;` : '';
+// The theme picker's swatches live in ThemeSwatch (KAN-237), which also carries
+// the KAN-88/KAN-95 marker rule and its reasoning.
 
 const SettingsDetailsContainer: React.FC = () => {
   const COLORS = useThemeColors();
@@ -308,97 +278,32 @@ const SettingsDetailsContainer: React.FC = () => {
               justify-content: flex-start;
               align-items: center;
               flex-wrap: wrap;
-              gap: 4px;
+              gap: 10px;
               max-width: 100%;
               margin-top: 8px;
             `}
           >
-            <Button
-              tooltipText={t('Light')}
-              ariaPressed={settingsData.theme === Theme.LIGHT}
-              onClick={() => dispatch(setTheme(Theme.LIGHT))}
-              style={`
-              width: 60px;
-              border: 1px solid ${COLORS.BORDER_COLOR};
-              background-color: ${LIGHT_THEME.PRIMARY_COLOR};
-              ${themeSwatchMarker(
-                settingsData.theme === Theme.LIGHT,
-                COLORS.LABEL_L3_COLOR
-              )}
-              &:hover {
-                background-color: ${LIGHT_THEME.PRIMARY_COLOR};
-              }
-            `}
-            />
-            <Button
-              tooltipText={t('Warm Light')}
-              ariaPressed={settingsData.theme === Theme.WARM_LIGHT}
-              onClick={() => dispatch(setTheme(Theme.WARM_LIGHT))}
-              style={`
-              width: 60px;
-              border: 1px solid ${COLORS.BORDER_COLOR};
-              background-color: ${WARM_LIGHT_THEME.PRIMARY_COLOR};
-              ${themeSwatchMarker(
-                settingsData.theme === Theme.WARM_LIGHT,
-                COLORS.LABEL_L3_COLOR
-              )}
-              &:hover {
-                background-color: ${WARM_LIGHT_THEME.PRIMARY_COLOR};
-              }
-            `}
-            />
-
-            <Button
-              tooltipText={t('BB Pink')}
-              ariaPressed={settingsData.theme === Theme.BB_PINK}
-              onClick={() => dispatch(setTheme(Theme.BB_PINK))}
-              style={`
-              width: 60px;
-              border: 1px solid ${COLORS.BORDER_COLOR};
-              background-color: ${BB_PINK_THEME.PRIMARY_COLOR};
-              ${themeSwatchMarker(
-                settingsData.theme === Theme.BB_PINK,
-                COLORS.LABEL_L3_COLOR
-              )}
-              &:hover {
-                background-color: ${BB_PINK_THEME.PRIMARY_COLOR};
-              }
-            `}
-            />
-            <Button
-              tooltipText={t('Darkenheimer')}
-              ariaPressed={settingsData.theme === Theme.DARKENHEIMER}
-              onClick={() => dispatch(setTheme(Theme.DARKENHEIMER))}
-              style={`
-              width: 60px;
-              border: 1px solid ${COLORS.BORDER_COLOR};
-              background-color: ${DARKENHEIMER_THEME.PRIMARY_COLOR};
-              ${themeSwatchMarker(
-                settingsData.theme === Theme.DARKENHEIMER,
-                COLORS.LABEL_L3_COLOR
-              )}
-              &:hover {
-                background-color: ${DARKENHEIMER_THEME.PRIMARY_COLOR};
-              }
-            `}
-            />
-            <Button
-              tooltipText={t('Blue')}
-              ariaPressed={settingsData.theme === Theme.BLUE}
-              onClick={() => dispatch(setTheme(Theme.BLUE))}
-              style={`
-              width: 60px;
-              border: 1px solid ${COLORS.BORDER_COLOR};
-              background-color: ${BLUE_THEME.PRIMARY_COLOR};
-              ${themeSwatchMarker(
-                settingsData.theme === Theme.BLUE,
-                COLORS.LABEL_L3_COLOR
-              )}
-              &:hover {
-                background-color: ${BLUE_THEME.PRIMARY_COLOR};
-              }
-            `}
-            />
+            {/* t() is called on a quoted literal in each row, not on the
+                mapped variable: keyCoverage.test finds keys by scanning the
+                source for quoted t() arguments, and a computed key is
+                invisible to it. */}
+            {(
+              [
+                [Theme.LIGHT, LIGHT_THEME, t('Light')],
+                [Theme.WARM_LIGHT, WARM_LIGHT_THEME, t('Warm Light')],
+                [Theme.BB_PINK, BB_PINK_THEME, t('BB Pink')],
+                [Theme.DARKENHEIMER, DARKENHEIMER_THEME, t('Darkenheimer')],
+                [Theme.BLUE, BLUE_THEME, t('Blue')],
+              ] as const
+            ).map(([theme, palette, name]) => (
+              <ThemeSwatch
+                key={theme}
+                palette={palette}
+                name={name}
+                isActive={settingsData.theme === theme}
+                onSelect={() => dispatch(setTheme(theme))}
+              />
+            ))}
           </div>
         </div>
       </div>
