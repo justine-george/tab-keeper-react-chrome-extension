@@ -319,8 +319,14 @@ const toolbarGeometry = (page: Page, title: string) =>
     // The header is the nearest box holding both the title and the toolbar.
     let header: Element = primary;
     while (!header.contains(heading)) header = header.parentElement!;
-    const style = getComputedStyle(header);
-    const box = header.getBoundingClientRect();
+    // The toolbar ROW is the box the controls are laid out in. It used to be
+    // read as the header's content box (right edge minus padding), which
+    // coincided until KAN-235 put the header's content in a centred 1100px
+    // band: at 1600px the row now ends at 1350, the header's content at 1584,
+    // and "the right end of the toolbar" means the row's.
+    const row = header.querySelector('[data-toolbar-row]');
+    if (!row) throw new Error('no toolbar row in the header');
+    const box = row.getBoundingClientRect();
     const first =
       byLabel('Edit') ??
       header.querySelector('[role="status"]')!.parentElement!;
@@ -338,8 +344,8 @@ const toolbarGeometry = (page: Page, title: string) =>
         )
       ),
       firstLeft: first.getBoundingClientRect().left,
-      contentLeft: box.left + parseFloat(style.paddingLeft),
-      contentRight: box.right - parseFloat(style.paddingRight),
+      contentLeft: box.left,
+      contentRight: box.right,
     };
   }, title);
 

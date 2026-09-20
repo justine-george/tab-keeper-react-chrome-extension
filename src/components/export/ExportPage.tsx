@@ -61,6 +61,19 @@ import {
  */
 
 /**
+ * How wide the header's content may grow, centred (KAN-235).
+ *
+ * The document below sits in a 720px column; this is what keeps Edit and
+ * PDF / Print from running to the monitor's edges above it. The number is the
+ * toolbar's one-line floor: it wraps its right-hand group onto its own line
+ * when it cannot fit, and the widest locale's one-line width is Russian at
+ * 1061px (zh 736, en 834, hi 848, ja 877, it 906, pt 958, de 962, es 973,
+ * fr 989). At 960 five locales would wrap on a screen with room to spare.
+ * Rendered at 2000 and 1440 in en and ru before choosing.
+ */
+const HEADER_CONTENT_MAX_PX = 1100;
+
+/**
  * Where the page's session comes from (KAN-208).
  *
  * `saved` is a session named by id, because this is a URL: the tab can be
@@ -572,11 +585,21 @@ export default function ExportPage({ source }: { source: ExportSource }) {
       <div css={pageStyle}>
         {/* The toolbar has a row of its own, always. Beside the title it fit
           or wrapped depending on how long each mode's toolbar was, so pressing
-          Edit moved every control up a row. */}
+          Edit moved every control up a row.
+
+          KAN-235. The header's CONTENT lives in a centred band; the header
+          itself stays full bleed. The document below sits in a 720px column,
+          and with the toolbar running edge to edge a wide monitor put Edit
+          and PDF / Print ~1970px apart with the thing they act on in the
+          middle. Done with align-items on this column and a max-width on
+          each child rather than a wrapper, so nothing that walks from
+          data-toolbar-row to its parent changes. Below the band's width this
+          is inert: the 16px gutter is the edge, exactly as before. */}
         <div
           css={css`
             display: flex;
             flex-direction: column;
+            align-items: center;
             gap: 10px;
             padding: 12px 16px;
             background-color: ${COLORS.SECONDARY_COLOR};
@@ -589,6 +612,8 @@ export default function ExportPage({ source }: { source: ExportSource }) {
               flex-direction: column;
               gap: 2px;
               min-width: 0;
+              width: 100%;
+              max-width: ${HEADER_CONTENT_MAX_PX}px;
             `}
           >
             {/* The page names its mode here and only here (picked from mocks).
@@ -642,6 +667,8 @@ export default function ExportPage({ source }: { source: ExportSource }) {
               align-items: center;
               gap: 10px;
               flex-wrap: wrap;
+              width: 100%;
+              max-width: ${HEADER_CONTENT_MAX_PX}px;
               &[data-swapped='true'] {
                 animation: ${rowIn} 180ms cubic-bezier(0.23, 1, 0.32, 1);
               }
