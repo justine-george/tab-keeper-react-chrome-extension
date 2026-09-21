@@ -40,14 +40,14 @@ export const CloudConsentModal: React.FC = () => {
   const { t } = useTranslation();
   const dispatch: AppDispatch = useDispatch();
   const dialogRef = useRef<HTMLDialogElement>(null);
-  // showModal() focuses the first focusable element, and here that is the
-  // privacy-policy link in the body, not a button. The initial focus belongs
-  // on the answer that changes nothing (the KAN-243 rule for these dialogs)
-  // -- which is the same answer Escape gives, and differs by variant: keep
-  // on this device for a new user, KEEP SYNC ON for an existing one, Not now
-  // for a re-ask. Not "the first button": for the existing user that was
-  // Turn off sync, a settings change one accidental Enter away.
-  const safeRef = useRef<HTMLButtonElement>(null);
+  // Opens UNLIT, as the rate prompt does (KAN-243): the dialog itself takes
+  // the focus (tabIndex -1), so Escape still works and the first Tab lands on
+  // the first control, but no button wears a ring on open. A lit button on a
+  // consent screen reads as the answer already chosen, and the one this
+  // dialog first lit was Turn off sync -- a settings change one accidental
+  // Enter away. showModal() would otherwise focus the privacy-policy link.
+  //
+  // Escape remains the answer that changes nothing for each variant.
 
   const isOpen = useSelector(
     (s: RootState) => s.globalState.isCloudConsentModalOpen
@@ -60,7 +60,7 @@ export const CloudConsentModal: React.FC = () => {
     const dialog = dialogRef.current;
     if (dialog && !dialog.open) {
       dialog.showModal();
-      safeRef.current?.focus();
+      dialog.focus();
     }
   }, [isOpen]);
 
@@ -102,6 +102,11 @@ export const CloudConsentModal: React.FC = () => {
     font-size: ${TYPE.BODY};
     &[open] {
       display: block;
+    }
+    /* Focused by script only; a ring on the container would say "this box
+       is a control". Tab never reaches it, so nothing is lost. */
+    &:focus {
+      outline: none;
     }
     &::backdrop {
       background: rgba(0, 0, 0, 0.8);
@@ -163,6 +168,8 @@ export const CloudConsentModal: React.FC = () => {
   return (
     <dialog
       ref={dialogRef}
+      // Focusable only by script, never by Tab; see the effect above.
+      tabIndex={-1}
       css={dialogStyle}
       aria-labelledby={TITLE_ID}
       aria-describedby={BODY_ID}
@@ -186,12 +193,7 @@ export const CloudConsentModal: React.FC = () => {
             {t('Change either later in Settings → Sync & Backup.')} {policyLink}
           </p>
           <div css={actionsStyle}>
-            <button
-              ref={safeRef}
-              type="button"
-              css={buttons.quiet}
-              onClick={decline}
-            >
+            <button type="button" css={buttons.quiet} onClick={decline}>
               {t('Keep on this device')}
             </button>
             <button type="button" css={buttons.primary} onClick={grant}>
@@ -212,12 +214,7 @@ export const CloudConsentModal: React.FC = () => {
             {t('EnableSyncFine')} {policyLink}
           </p>
           <div css={actionsStyle}>
-            <button
-              ref={safeRef}
-              type="button"
-              css={buttons.quiet}
-              onClick={dismiss}
-            >
+            <button type="button" css={buttons.quiet} onClick={dismiss}>
               {t('Not now')}
             </button>
             <button type="button" css={buttons.primary} onClick={grant}>
@@ -244,12 +241,7 @@ export const CloudConsentModal: React.FC = () => {
             <button type="button" css={buttons.quiet} onClick={decline}>
               {t('Turn off sync')}
             </button>
-            <button
-              ref={safeRef}
-              type="button"
-              css={buttons.primary}
-              onClick={grant}
-            >
+            <button type="button" css={buttons.primary} onClick={grant}>
               {t('Keep sync on')}
             </button>
           </div>

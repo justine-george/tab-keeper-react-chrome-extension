@@ -39,9 +39,32 @@ test.describe('the cloud question (KAN-259)', () => {
       expect(
         await dialog.evaluate((el) => (el as HTMLDialogElement).open)
       ).toBe(true);
-      await expect(
-        dialog.getByRole('button', { name: 'Keep on this device' })
-      ).toBeFocused();
+      // Unlit on open (KAN-243): the dialog holds the focus, nothing inside
+      // wears a ring, and the container draws none of its own. The first
+      // Tab lights the first control, and Enter on open changes nothing.
+      const lit = () =>
+        page.evaluate(() => {
+          const d = document.querySelector('dialog[open]')!;
+          return {
+            focusedIsDialog: document.activeElement === d,
+            litInside: [...d.querySelectorAll('*')].filter((n) =>
+              n.matches(':focus-visible')
+            ).length,
+            dialogOutline: getComputedStyle(d).outlineStyle,
+          };
+        });
+      expect(await lit()).toEqual({
+        focusedIsDialog: true,
+        litInside: 0,
+        dialogOutline: 'none',
+      });
+      await page.keyboard.press('Enter');
+      await expect(dialog).toBeVisible();
+      await page.keyboard.press('Tab');
+      await expect(page.locator(':focus')).toHaveAccessibleName(
+        'Read the privacy policy'
+      );
+      expect((await lit()).litInside).toBe(1);
 
       await dialog.getByRole('button', { name: 'Keep on this device' }).click();
       await expect(dialog).toHaveCount(0);
@@ -90,10 +113,15 @@ test.describe('the cloud question (KAN-259)', () => {
       name: 'Your sessions are currently synced',
     });
     await expect(dialog).toBeVisible();
-    // Focus on the answer that changes nothing -- the one Escape gives.
-    await expect(
-      dialog.getByRole('button', { name: 'Keep sync on' })
-    ).toBeFocused();
+    // Unlit on open; nothing pre-chosen.
+    expect(
+      await page.evaluate(
+        () =>
+          [
+            ...document.querySelector('dialog[open]')!.querySelectorAll('*'),
+          ].filter((n) => n.matches(':focus-visible')).length
+      )
+    ).toBe(0);
 
     await page.keyboard.press('Escape');
     await expect(dialog).toHaveCount(0);

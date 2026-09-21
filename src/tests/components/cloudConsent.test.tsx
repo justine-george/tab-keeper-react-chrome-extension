@@ -152,10 +152,9 @@ describe('the answers (KAN-259)', () => {
     const dialog = screen.getByRole('dialog', {
       name: 'Welcome to Tab Keeper',
     });
-    // The initial focus is the answer that changes nothing.
-    expect(document.activeElement).toBe(
-      within(dialog).getByRole('button', { name: 'Keep on this device' })
-    );
+    // Opens unlit (KAN-243): the dialog holds the focus, no button is
+    // pre-chosen. Escape is still the answer that changes nothing.
+    expect(document.activeElement).toBe(dialog);
     await user.click(
       within(dialog).getByRole('button', { name: 'Keep on this device' })
     );
@@ -190,12 +189,9 @@ describe('the answers (KAN-259)', () => {
     const dialog = screen.getByRole('dialog', {
       name: 'Your sessions are currently synced',
     });
-    // The initial focus is the answer that changes nothing -- Keep sync on,
-    // the same answer Escape gives -- not the first button, which here is
-    // the settings change.
-    expect(document.activeElement).toBe(
-      within(dialog).getByRole('button', { name: 'Keep sync on' })
-    );
+    // Opens unlit: no button pre-chosen -- in particular not Turn off sync,
+    // a settings change one accidental Enter away.
+    expect(document.activeElement).toBe(dialog);
     await user.click(
       within(dialog).getByRole('button', { name: 'Turn off sync' })
     );
@@ -293,9 +289,7 @@ describe('it is never a surprise (KAN-259)', () => {
       name: 'Sync your sessions across devices?',
     });
     expect(screen.queryByText('Welcome to Tab Keeper')).toBeNull();
-    expect(document.activeElement).toBe(
-      within(dialog).getByRole('button', { name: 'Not now' })
-    );
+    expect(document.activeElement).toBe(dialog);
     expect(mocks.ensureCloudSession).not.toHaveBeenCalled();
 
     await user.click(within(dialog).getByRole('button', { name: 'Not now' }));
