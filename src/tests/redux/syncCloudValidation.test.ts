@@ -86,6 +86,14 @@ describe('an unreadable cloud document stops the sync without writing', () => {
   // before anything hydrates it from localStorage. Honest limitation: this also
   // passes against the pre-fix crash, so it guards future edits to the error
   // path rather than proving today's fix.
+  it('does not stamp a last-synced time', async () => {
+    mocks.loadFromFirestore.mockResolvedValue(unreadable);
+    const { store } = makeTestStore();
+    store.dispatch(setUserId('u1'));
+    await store.dispatch(syncStateWithFirestore());
+    expect(store.getState().settingsDataState.lastSyncedTime).toBe('');
+  });
+
   it('leaves the local sessions in the store alone', async () => {
     mocks.loadFromFirestore.mockResolvedValue(unreadable);
     const { store } = makeTestStore();
@@ -126,6 +134,16 @@ describe('an unreadable cloud document stops the sync without writing', () => {
       .getState()
       .tabContainerDataState.tabGroups.map((g) => g.title);
     expect(titles).toContain('Cloud Only');
+    // KAN-255. A completed sync is the only thing that may stamp the
+    // last-synced time -- and it must. This merge changed the local side, so
+    // it went through the write path (saveToFirestoreIfDirty), the third of
+    // the three success paths; the store is not marked signed in here, so
+    // syncStatus itself lands on 'idle' by that reducer's rule. The stamp is
+    // what says the write happened.
+    expect(mocks.saveToFirestore).toHaveBeenCalledTimes(1);
+    expect(typeof store.getState().settingsDataState.lastSyncedTime).toBe(
+      'number'
+    );
   });
 
   // CONTROL for the toast above. A readable document must not raise it, or the

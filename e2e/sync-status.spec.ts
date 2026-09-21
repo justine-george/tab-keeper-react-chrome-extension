@@ -95,3 +95,41 @@ test.describe('the sync status line agrees with the Auto Sync pair (KAN-248)', (
     expect(lines).toBeGreaterThanOrEqual(1);
   });
 });
+
+// KAN-255. The last-synced time, seeded rather than earned: CI has no cloud
+// to sync with, and a local run would sync with the real project. Manual is
+// the state that shows it in every build (on resolves to unavailable without
+// a cloud), and it is the state where the time matters most.
+test.describe('the status line shows when it last synced (KAN-255)', () => {
+  test('manual sync with a recorded time shows it, formatted like the session cards', async ({
+    context,
+    extensionId,
+  }) => {
+    const at = Date.UTC(2026, 8, 18, 16, 2, 41);
+    await seedSessions(context, buildContainer());
+    await seedSettings(context, { isAutoSync: false, lastSyncedTime: at });
+    const page = await context.newPage();
+    await page.setViewportSize({ width: 790, height: 550 });
+    await page.goto(`chrome-extension://${extensionId}/index.html`);
+    await page.locator('[aria-label="Settings"]').click();
+    await page.locator('button[aria-label="Sync & Backup"]').click();
+
+    const status = page.getByTestId('sync-status');
+    await expect(status).toHaveAttribute('data-sync-state', 'manual');
+    const synced = status.locator('[data-sync-synced]');
+    await expect(synced).toBeVisible();
+    const expected = await page.evaluate(
+      (ms) =>
+        new Intl.DateTimeFormat('en', {
+          dateStyle: 'medium',
+          timeStyle: 'medium',
+        }).format(new Date(ms)),
+      at
+    );
+    await expect(synced).toHaveText(`Last synced ${expected}`);
+    // Manual keeps its instruction under the time.
+    await expect(status.locator('[data-sync-line]')).toContainText(
+      'cloud button'
+    );
+  });
+});

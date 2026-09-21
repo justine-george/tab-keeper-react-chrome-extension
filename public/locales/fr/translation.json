@@ -163,5 +163,6 @@
   "DeleteCloudDataBody": "Vos sessions seront retirées du cloud et la synchronisation automatique désactivée sur cet appareil. Vos sessions restent sur cet appareil. Les autres appareils du même profil Chrome renverront leur copie à leur prochaine synchronisation, sauf si elle y est aussi désactivée.",
   "Cancel": "Annuler",
   "Cloud data deleted. Auto Sync is off on this device.": "Données cloud supprimées. La synchronisation automatique est désactivée sur cet appareil.",
-  "Couldn't delete cloud data. Check your connection and try again.": "Impossible de supprimer les données cloud. Vérifiez votre connexion et réessayez."
+  "Couldn't delete cloud data. Check your connection and try again.": "Impossible de supprimer les données cloud. Vérifiez votre connexion et réessayez.",
+  "Last synced {{time}}": "Dernière synchronisation : {{time}}"
 }
