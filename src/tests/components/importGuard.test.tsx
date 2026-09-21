@@ -10,6 +10,8 @@ import {
 } from '../../redux/slices/settingsCategoryStateSlice';
 import { TabMasterContainer } from '../../redux/slices/tabContainerDataStateSlice';
 import { saveToFirestore } from '../../utils/functions/external';
+import { toggleAutoSync } from '../../redux/slices/settingsDataStateSlice';
+import { setSignedIn, setUserId } from '../../redux/slices/globalStateSlice';
 import {
   IMPORT_ERROR_FRAME,
   TOAST_MESSAGES,
@@ -216,5 +218,71 @@ describe('import sync failure (KAN-43)', () => {
     // isDirty stays set, so the next sync retries the write. That is why this
     // is a warning about syncing and not an error about restoring.
     expect(store.getState().globalState.isDirty).toBe(true);
+  });
+});
+
+// KAN-257. The import handler dispatched saveToFirestoreIfDirty after every
+// restore, and that thunk never consults isAutoSync -- the one write in the
+// app that bypassed the Auto Sync gate. With Auto Sync off, whose status line
+// promises "your sessions stay on this device", replacing sessions from a
+// backup uploaded them. Found by the privacy-policy review; it also undoes
+// KAN-254's delete (delete, restore a backup, the document is back).
+describe('import respects Auto Sync (KAN-257)', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.mocked(saveToFirestore).mockReset();
+  });
+
+  test('with Auto Sync off, the restore is local: no write, container left dirty for the next manual sync', async () => {
+    const inputs = captureFileInput();
+    const { store } = await renderWithProviders(<SettingsDetailsContainer />, {
+      seedStore: (s) => {
+        s.dispatch(selectCategory(SettingsCategory.SYNC));
+        s.dispatch(setSignedIn());
+        s.dispatch(setUserId('uuid-1'));
+        s.dispatch(toggleAutoSync());
+      },
+    });
+    expect(store.getState().settingsDataState.isAutoSync).toBe(false);
+
+    await userEvent.click(
+      await screen.findByText('Replace sessions from a backup')
+    );
+    dropFile(inputs[0], buildSmallBackup());
+
+    await waitFor(() => {
+      expect(store.getState().tabContainerDataState.tabGroups).toHaveLength(1);
+    });
+    await waitFor(() => {
+      expect(store.getState().globalState.toastText).toBe(
+        TOAST_MESSAGES.IMPORT_SUCCESS
+      );
+    });
+    expect(saveToFirestore).not.toHaveBeenCalled();
+    // Dirty, so the cloud button carries it up when the user asks.
+    expect(store.getState().globalState.isDirty).toBe(true);
+  });
+
+  test('control: with Auto Sync on, the restore still writes once', async () => {
+    const inputs = captureFileInput();
+    const { store } = await renderWithProviders(<SettingsDetailsContainer />, {
+      seedStore: (s) => {
+        s.dispatch(selectCategory(SettingsCategory.SYNC));
+        s.dispatch(setSignedIn());
+        s.dispatch(setUserId('uuid-1'));
+      },
+    });
+
+    await userEvent.click(
+      await screen.findByText('Replace sessions from a backup')
+    );
+    dropFile(inputs[0], buildSmallBackup());
+
+    await waitFor(() => {
+      expect(saveToFirestore).toHaveBeenCalledTimes(1);
+    });
+    expect(store.getState().globalState.toastText).toBe(
+      TOAST_MESSAGES.IMPORT_SUCCESS
+    );
   });
 });

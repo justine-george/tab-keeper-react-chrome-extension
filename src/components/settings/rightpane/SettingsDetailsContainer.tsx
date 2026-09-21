@@ -210,13 +210,24 @@ const SettingsDetailsContainer: React.FC = () => {
           dispatch(restoreContainer(tabDataFromJSON));
           dispatch(setIsDirty());
 
+          // KAN-257. Only with Auto Sync on. This was the one write in the
+          // app that bypassed the gate: the middleware checks isAutoSync
+          // before scheduling a sync and the header's cloud button is
+          // explicit, but this dispatched the write unconditionally -- so
+          // with Auto Sync off, whose status line promises the sessions stay
+          // on this device, a restore uploaded them. Off, the container is
+          // left dirty and the next manual sync carries it, like any edit.
+          //
           // The restore is already done and persisted at this point, so what
           // is being reported below is the state of the *cloud write*, not of
           // the import. requestStatus rather than .unwrap(): unwrap would
           // throw into the catch and produce "Error restoring tabs", which is
           // the one thing that is definitely untrue here.
-          const saveResult = await dispatch(saveToFirestoreIfDirty());
-          const syncFailed = saveResult.meta.requestStatus === 'rejected';
+          let syncFailed = false;
+          if (settingsData.isAutoSync) {
+            const saveResult = await dispatch(saveToFirestoreIfDirty());
+            syncFailed = saveResult.meta.requestStatus === 'rejected';
+          }
 
           dispatch(
             showToast({
