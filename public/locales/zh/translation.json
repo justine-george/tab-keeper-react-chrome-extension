@@ -183,6 +183,7 @@
   "Turn off sync": "关闭同步",
   "Keep sync on": "保持同步开启",
   "Read the privacy policy": "阅读隐私政策",
+  "Privacy policy": "隐私政策",
   "Sync your sessions across devices?": "跨设备同步您的会话？",
   "EnableSyncBody": "Tab Keeper 可以将您保存的会话副本（其中标签页的地址和标题）保存到云端，以便您的其他 Chrome 设备也能打开。",
   "EnableSyncFine": "以匿名 ID 存储，无需账户或邮箱。您可以在 设置 → 同步与备份 中关闭它或删除副本。",

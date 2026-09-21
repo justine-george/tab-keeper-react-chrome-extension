@@ -43,6 +43,13 @@ async function openAbout(page: Page): Promise<void> {
   await expect(page.getByText('Tab Keeper', { exact: true })).toBeVisible();
 }
 
+// The policy URL as a literal, not common.ts's PRIVACY_POLICY_LINK: importing
+// common.ts pulls manifest.json into Node ESM, which refuses it without an
+// import attribute. And this is the one URL that is pasted into the Web Store
+// dashboard, so the spec pinning it to the letter is the point.
+const PRIVACY_POLICY_LINK =
+  'https://github.com/justine-george/tab-keeper-react-chrome-extension/blob/main/PRIVACY.md';
+
 /** The nameplate's mark: the one svg on the page that is not inside a button. */
 const mark = (page: Page) => page.locator('svg:not(button svg)');
 
@@ -127,6 +134,44 @@ for (const [theme, palette] of [
       expect(v.y + v.height).toBeLessThanOrEqual(line.y + line.height);
     });
 
+    // KAN-260. A third line: the policy link, on the inset, 6px under the
+    // version line, in the text colour so it reads as a link beside two labels
+    // in LABEL_L1/L2. It opens the policy in a tab and leaves the popup where
+    // it is -- a popup that follows a link navigates itself away.
+    test('links the privacy policy under the version, on the inset', async ({
+      context,
+      extensionId,
+    }) => {
+      const page = await openSettings(context, extensionId, theme);
+      const themes = await box(page.getByText('Themes', { exact: true }));
+      await openAbout(page);
+
+      const link = page.getByRole('link', { name: 'Privacy policy' });
+      const version = page.getByText(/^v\d+\.\d+\.\d+$/);
+      const line = await box(version.locator('..').locator('..'));
+      const l = await box(link);
+
+      expect(l.x).toBe(themes.x);
+      expect(l.y).toBe(line.y + line.height + 6);
+      expect(await link.evaluate((el) => getComputedStyle(el).color)).toBe(
+        rgb(palette.TEXT_COLOR)
+      );
+      expect(await link.getAttribute('href')).toBe(PRIVACY_POLICY_LINK);
+
+      // No network: the tab's navigation is answered locally, so what is
+      // pinned is the URL Chrome was told to open, not GitHub's availability.
+      await context.route('https://github.com/**', (route) =>
+        route.fulfill({ status: 200, contentType: 'text/html', body: '' })
+      );
+      const opened = context.waitForEvent('page');
+      await link.click();
+      const tab = await opened;
+      await expect.poll(() => tab.url()).toBe(PRIVACY_POLICY_LINK);
+      // The popup is still the popup.
+      expect(page.url()).toBe(`chrome-extension://${extensionId}/index.html`);
+      await expect(page.getByText('Feedback & Share')).toBeVisible();
+    });
+
     test('stacks the three actions the way Backup & Restore does', async ({
       context,
       extensionId,
@@ -142,11 +187,14 @@ for (const [theme, palette] of [
       );
       const x = await box(page.getByRole('button', { name: 'Share on X' }));
       const label = await box(page.getByText('Feedback & Share'));
-      const credit = await box(page.getByText(/Crafted with/).locator('..'));
+      const policy = await box(
+        page.getByRole('link', { name: 'Privacy policy' })
+      );
 
-      // One CONTROL.ROW under the nameplate, not the 20px two settings get:
-      // a header wants more under it than a setting does.
-      expect(label.y).toBe(credit.y + credit.height + 32);
+      // One CONTROL.ROW under the nameplate -- whose last line is now the
+      // policy link (KAN-260) -- not the 20px two settings get: a header wants
+      // more under it than a setting does.
+      expect(label.y).toBe(policy.y + policy.height + 32);
 
       for (const b of [rate, mail, x]) {
         expect(b.width).toBe(250);

@@ -183,6 +183,7 @@
   "Turn off sync": "同期をオフにする",
   "Keep sync on": "同期をオンのままにする",
   "Read the privacy policy": "プライバシーポリシーを読む",
+  "Privacy policy": "プライバシーポリシー",
   "Sync your sessions across devices?": "セッションをデバイス間で同期しますか？",
   "EnableSyncBody": "Tab Keeper は保存したセッションのコピー（タブのアドレスとタイトル）をクラウドに保存し、他の Chrome デバイスでも開けるようにできます。",
   "EnableSyncFine": "匿名 ID のもとで保存され、アカウントもメールも不要です。設定 → 同期とバックアップ でオフにしたり、コピーを削除したりできます。",

@@ -24,7 +24,10 @@ const firebaseConfig = {
   storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
+  // No Google Analytics property id. The console's config block includes one
+  // and it sat here unread from the first commit. PRIVACY.md says no
+  // analytics; the bundle now says the same, and noAnalytics.test.ts keeps it
+  // so (KAN-260).
 };
 
 /**
@@ -40,10 +43,10 @@ const firebaseConfig = {
  * extension -- so an absent config disables sync and leaves everything else
  * working, which is what going offline already does.
  *
- * Two fields, not seven: the key is what `getAuth` rejects and the project id
- * is what Firestore addresses. A build carrying those and missing a
- * measurement id is misconfigured, but it is not BROKEN, and refusing to start
- * sync over it would be this bug in a smaller costume.
+ * Two fields, not six: the key is what `getAuth` rejects and the project id
+ * is what Firestore addresses. A build carrying those and missing, say, the
+ * storage bucket is misconfigured, but it is not BROKEN, and refusing to
+ * start sync over it would be this bug in a smaller costume.
  */
 export const isCloudConfigured = Boolean(
   firebaseConfig.apiKey && firebaseConfig.projectId

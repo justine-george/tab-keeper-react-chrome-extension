@@ -183,6 +183,7 @@
   "Turn off sync": "Turn off sync",
   "Keep sync on": "Keep sync on",
   "Read the privacy policy": "Read the privacy policy",
+  "Privacy policy": "Privacy policy",
   "Sync your sessions across devices?": "Sync your sessions across devices?",
   "EnableSyncBody": "Tab Keeper can keep a copy of your saved sessions — the addresses and titles of the tabs in them — in the cloud, so your other Chrome devices can open them too.",
   "EnableSyncFine": "Stored under an anonymous ID, no account or email. You can turn it off, or delete the copy, in Settings → Sync & Backup.",

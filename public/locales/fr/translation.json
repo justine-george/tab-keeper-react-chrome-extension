@@ -183,6 +183,7 @@
   "Turn off sync": "Désactiver la synchronisation",
   "Keep sync on": "Garder la synchronisation",
   "Read the privacy policy": "Lire la politique de confidentialité",
+  "Privacy policy": "Politique de confidentialité",
   "Sync your sessions across devices?": "Synchroniser vos sessions entre appareils ?",
   "EnableSyncBody": "Tab Keeper peut conserver une copie de vos sessions enregistrées — les adresses et titres de leurs onglets — dans le cloud, pour que vos autres appareils Chrome puissent aussi les ouvrir.",
   "EnableSyncFine": "Stockée sous un identifiant anonyme, sans compte ni e-mail. Vous pouvez la désactiver, ou supprimer la copie, dans Paramètres → Sync & Sauvegarde.",
