@@ -27,9 +27,11 @@ import { renderWithProviders } from '../setup/renderWithProviders';
 import { buildContainer, buildSession } from '../fixtures/sessionFixture';
 import {
   openCloudConsentModal,
+  setIsDirty,
   setSignedIn,
   setUserId,
 } from '../../redux/slices/globalStateSlice';
+import { DEBOUNCE_TIME_WINDOW } from '../../utils/constants/common';
 import {
   initialState as settingsInitial,
   settingsDataStateSlice,
@@ -336,5 +338,51 @@ describe('it is never a surprise (KAN-259)', () => {
     );
     expect(store.getState().globalState.isCloudConsentModalOpen).toBe(false);
     expect(store.getState().settingsDataState.cloudConsent).toBe('declined');
+  });
+});
+
+// The sequence Justine asked about: an existing, syncing user opens the
+// popup, is asked, presses Turn off sync, then edits. Nothing may sync at any
+// point -- not while the dialog is up (consent is still unanswered), not on
+// the answer, and not on the edit -- and Firebase is never contacted.
+describe('Turn off sync means no sync, before and after (KAN-259)', () => {
+  test('existing user: nothing syncs while asked, on Turn off sync, or on a later edit', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const seed = seedSettings({
+      extensionInstalledTime: Date.now() - 30 * DAY,
+      isAutoSync: true,
+    });
+    const { store, seen } = await renderWithProviders(<App />, {
+      seedStore: (s) => {
+        seed(s);
+        s.dispatch(setSignedIn());
+        s.dispatch(setUserId('uuid-1'));
+      },
+    });
+    const dialog = await screen.findByRole('dialog', {
+      name: 'Your sessions are currently synced',
+    });
+    // While the question is up: no sign-in, no sync thunk.
+    expect(mocks.ensureCloudSession).not.toHaveBeenCalled();
+    expect(seen).not.toContain('global/syncStateWithFirestore/pending');
+
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Turn off sync' })
+    );
+    expect(store.getState().settingsDataState.isAutoSync).toBe(false);
+    expect(store.getState().settingsDataState.cloudConsent).toBe('declined');
+
+    // An edit afterwards: the middleware would debounce a sync if allowed.
+    seen.length = 0;
+    act(() => {
+      store.dispatch(setIsDirty());
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(DEBOUNCE_TIME_WINDOW + 1);
+    });
+    expect(seen).not.toContain('global/syncStateWithFirestore/pending');
+    expect(mocks.ensureCloudSession).not.toHaveBeenCalled();
+    vi.useRealTimers();
   });
 });
