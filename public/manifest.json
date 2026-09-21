@@ -8,6 +8,14 @@
     "default_icon": "icons/icon128.png",
     "default_title": "Tab Keeper - Chrome Tab Manager & Sync Tool"
   },
+  "commands": {
+    "_execute_action": {
+      "suggested_key": {
+        "default": "Alt+Shift+K"
+      },
+      "description": "Open Tab Keeper"
+    }
+  },
   "background": {
     "service_worker": "background.js",
     "type": "module"

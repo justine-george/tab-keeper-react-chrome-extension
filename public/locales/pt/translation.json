@@ -164,5 +164,9 @@
   "Cancel": "Cancelar",
   "Cloud data deleted. Auto Sync is off on this device.": "Dados da nuvem excluídos. A sincronização automática está desativada neste dispositivo.",
   "Couldn't delete cloud data. Check your connection and try again.": "Não foi possível excluir os dados da nuvem. Verifique sua conexão e tente de novo.",
-  "Last synced {{time}}": "Última sincronização: {{time}}"
+  "Last synced {{time}}": "Última sincronização: {{time}}",
+  "Keyboard shortcut": "Atalho de teclado",
+  "Press {{keys}} to open Tab Keeper.": "Pressione {{keys}} para abrir o Tab Keeper.",
+  "No shortcut is set to open Tab Keeper.": "Nenhum atalho definido para abrir o Tab Keeper.",
+  "Change or remove shortcut": "Alterar ou remover o atalho"
 }

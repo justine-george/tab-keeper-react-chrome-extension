@@ -164,5 +164,9 @@
   "Cancel": "キャンセル",
   "Cloud data deleted. Auto Sync is off on this device.": "クラウドデータを削除しました。このデバイスの自動同期はオフです。",
   "Couldn't delete cloud data. Check your connection and try again.": "クラウドデータを削除できませんでした。接続を確認して、もう一度お試しください。",
-  "Last synced {{time}}": "最終同期: {{time}}"
+  "Last synced {{time}}": "最終同期: {{time}}",
+  "Keyboard shortcut": "キーボードショートカット",
+  "Press {{keys}} to open Tab Keeper.": "{{keys}} を押すと Tab Keeper が開きます。",
+  "No shortcut is set to open Tab Keeper.": "Tab Keeper を開くショートカットは設定されていません。",
+  "Change or remove shortcut": "ショートカットを変更または削除"
 }

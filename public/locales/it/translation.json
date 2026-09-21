@@ -164,5 +164,9 @@
   "Cancel": "Annulla",
   "Cloud data deleted. Auto Sync is off on this device.": "Dati cloud eliminati. La sincronizzazione automatica è disattivata su questo dispositivo.",
   "Couldn't delete cloud data. Check your connection and try again.": "Impossibile eliminare i dati cloud. Controlla la connessione e riprova.",
-  "Last synced {{time}}": "Ultima sincronizzazione: {{time}}"
+  "Last synced {{time}}": "Ultima sincronizzazione: {{time}}",
+  "Keyboard shortcut": "Scorciatoia da tastiera",
+  "Press {{keys}} to open Tab Keeper.": "Premi {{keys}} per aprire Tab Keeper.",
+  "No shortcut is set to open Tab Keeper.": "Nessuna scorciatoia impostata per aprire Tab Keeper.",
+  "Change or remove shortcut": "Cambia o rimuovi la scorciatoia"
 }

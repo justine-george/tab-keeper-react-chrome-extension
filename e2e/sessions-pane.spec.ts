@@ -64,3 +64,49 @@ test.describe('the Sessions pane (KAN-249, KAN-250, KAN-253)', () => {
     ).toHaveCount(0);
   });
 });
+
+// KAN-256. The row shows whatever Chrome bound to _execute_action in THIS
+// profile -- the manifest suggests Alt+Shift+K, and Chrome takes it only if
+// free -- so the assertion is agreement with chrome.commands.getAll(), not a
+// literal key. Both answers are honest: the key, or "Not set".
+test.describe('the popup shortcut row (KAN-256)', () => {
+  test('shows the binding Chrome reports, and Change opens the shortcuts page', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openSessions(context, extensionId);
+    const shown = page.getByTestId('popup-shortcut');
+    await expect(shown).toBeVisible();
+
+    const bound = await page.evaluate(
+      () =>
+        new Promise<string>((resolve) =>
+          chrome.commands.getAll((commands) =>
+            resolve(
+              commands.find((c) => c.name === '_execute_action')?.shortcut ?? ''
+            )
+          )
+        )
+    );
+    if (bound) {
+      // One keycap per key, in Chrome's order; the sentence says what for.
+      const caps = await shown.locator('kbd').allTextContents();
+      expect(caps.join('')).toBe(bound.replace(/\+/g, ''));
+      await expect(shown).toContainText('to open Tab Keeper');
+    } else {
+      await expect(shown).toHaveText('No shortcut is set to open Tab Keeper.');
+    }
+    // The manifest did declare one; whether Chrome honoured it is Chrome's.
+    expect(
+      await page.evaluate(() => chrome.runtime.getManifest().commands)
+    ).toHaveProperty('_execute_action');
+
+    const before = context.pages().length;
+    await page
+      .getByRole('button', { name: 'Change or remove shortcut' })
+      .click();
+    await expect.poll(() => context.pages().length).toBe(before + 1);
+    const opened = context.pages()[context.pages().length - 1];
+    expect(opened.url()).toBe('chrome://extensions/shortcuts');
+  });
+});

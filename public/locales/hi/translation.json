@@ -164,5 +164,9 @@
   "Cancel": "रद्द करें",
   "Cloud data deleted. Auto Sync is off on this device.": "क्लाउड डेटा मिटा दिया गया। इस डिवाइस पर ऑटो सिंक बंद है।",
   "Couldn't delete cloud data. Check your connection and try again.": "क्लाउड डेटा नहीं मिटाया जा सका। अपना कनेक्शन जाँचें और फिर से कोशिश करें।",
-  "Last synced {{time}}": "पिछला सिंक: {{time}}"
+  "Last synced {{time}}": "पिछला सिंक: {{time}}",
+  "Keyboard shortcut": "कीबोर्ड शॉर्टकट",
+  "Press {{keys}} to open Tab Keeper.": "Tab Keeper खोलने के लिए {{keys}} दबाएँ।",
+  "No shortcut is set to open Tab Keeper.": "Tab Keeper खोलने के लिए कोई शॉर्टकट सेट नहीं है।",
+  "Change or remove shortcut": "शॉर्टकट बदलें या हटाएँ"
 }
