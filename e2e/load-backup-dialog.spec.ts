@@ -62,7 +62,7 @@ const titlesHere = (page: Page) =>
   });
 
 const dialogOf = (page: Page) =>
-  page.getByRole('dialog', { name: 'Load 1 session from monday.json?' });
+  page.getByRole('dialog', { name: 'Load 1 session from this backup?' });
 
 test.describe('Load sessions from a backup asks first (KAN-252, KAN-261)', () => {
   test('a picked file opens a modal, unlit, with Cancel, Merge and Replace; Cancel changes nothing', async ({
@@ -78,16 +78,17 @@ test.describe('Load sessions from a backup asks first (KAN-252, KAN-261)', () =>
     expect(await dialog.evaluate((el) => (el as HTMLDialogElement).open)).toBe(
       true
     );
+    await expect(dialog).toContainText('monday.json');
     await expect(dialog).toContainText(
-      'Merge keeps the 3 sessions saved here and adds the ones from the file.'
+      'Merge keeps the 3 sessions on this device and adds any sessions from the backup that aren’t already here.'
     );
     await expect(dialog).toContainText(
-      'Replace removes the 3 saved here first, and that cannot be undone.'
+      'Replace deletes the 3 sessions on this device, then loads the backup. This can’t be undone.'
     );
     await expect(dialog.getByRole('button')).toHaveText([
       'Cancel',
-      'Merge',
-      'Replace',
+      'Merge sessions',
+      'Replace sessions',
     ]);
     // Unlit: the dialog holds the focus, no button is pre-chosen, so Enter on
     // open does nothing -- neither answer is a keypress away.
@@ -110,7 +111,7 @@ test.describe('Load sessions from a backup asks first (KAN-252, KAN-261)', () =>
     const dialog = dialogOf(page);
     await expect(dialog).toBeVisible();
 
-    await dialog.getByRole('button', { name: 'Merge' }).click();
+    await dialog.getByRole('button', { name: 'Merge sessions' }).click();
 
     await expect(dialog).toHaveCount(0);
     await expect
@@ -134,7 +135,7 @@ test.describe('Load sessions from a backup asks first (KAN-252, KAN-261)', () =>
     const dialog = dialogOf(page);
     await expect(dialog).toBeVisible();
 
-    await dialog.getByRole('button', { name: 'Replace' }).click();
+    await dialog.getByRole('button', { name: 'Replace sessions' }).click();
 
     await expect(dialog).toHaveCount(0);
     await expect.poll(() => titlesHere(page)).toEqual(['From the file']);

@@ -86,7 +86,7 @@ const pickBackup = async (
 ) => {
   await userEvent.click(await screen.findByText('Load sessions from a backup'));
   dropFile(inputs[0], text, name);
-  return screen.findByRole('dialog', { name: /^Load .* from / });
+  return screen.findByRole('dialog', { name: /^Load .* from this backup\?$/ });
 };
 
 const titlesHere = (r: RenderWithProvidersResult) =>
@@ -106,17 +106,23 @@ describe('the load-backup dialog (KAN-252, KAN-261)', () => {
 
     const dialog = await pickBackup(inputs, 'monday.json');
 
-    expect(dialog).toHaveAccessibleName('Load 1 session from monday.json?');
+    expect(dialog).toHaveAccessibleName('Load 1 session from this backup?');
+    // The file on its own line: a real backup name is
+    // tabkeeper_backup_1.8.0_1758400000000.json, and in the title it swallowed
+    // the question.
+    expect(within(dialog).getByText('monday.json')).toBeTruthy();
     expect(dialog).toHaveTextContent(
-      'Merge keeps the 3 sessions saved here and adds the ones from the file.'
+      'Merge keeps the 3 sessions on this device and adds any sessions from the backup that aren’t already here.'
     );
     expect(dialog).toHaveTextContent(
-      'Replace removes the 3 saved here first, and that cannot be undone.'
+      'Replace deletes the 3 sessions on this device, then loads the backup. This can’t be undone.'
     );
     expect(within(dialog).getByRole('button', { name: 'Cancel' })).toBeTruthy();
-    expect(within(dialog).getByRole('button', { name: 'Merge' })).toBeTruthy();
     expect(
-      within(dialog).getByRole('button', { name: 'Replace' })
+      within(dialog).getByRole('button', { name: 'Merge sessions' })
+    ).toBeTruthy();
+    expect(
+      within(dialog).getByRole('button', { name: 'Replace sessions' })
     ).toBeTruthy();
     // Opens unlit (KAN-243): the dialog holds the focus; neither answer is
     // one accidental Enter away.
@@ -161,7 +167,7 @@ describe('the load-backup dialog (KAN-252, KAN-261)', () => {
     const dialog = await pickBackup(inputs);
 
     await userEvent.click(
-      within(dialog).getByRole('button', { name: 'Replace' })
+      within(dialog).getByRole('button', { name: 'Replace sessions' })
     );
 
     await waitFor(() => {
@@ -181,7 +187,7 @@ describe('the load-backup dialog (KAN-252, KAN-261)', () => {
     const dialog = await pickBackup(inputs);
 
     await userEvent.click(
-      within(dialog).getByRole('button', { name: 'Merge' })
+      within(dialog).getByRole('button', { name: 'Merge sessions' })
     );
 
     await waitFor(() => {
@@ -198,7 +204,7 @@ describe('the load-backup dialog (KAN-252, KAN-261)', () => {
   // KAN-257 through both answers. importGuard.test.tsx pins the Auto Sync
   // gate on the no-dialog path; these pin the same gate on the two paths the
   // dialog takes, so the three cannot drift apart.
-  for (const answer of ['Replace', 'Merge'] as const) {
+  for (const answer of ['Replace sessions', 'Merge sessions'] as const) {
     test(`${answer} with Auto Sync off writes nothing and leaves the container dirty`, async () => {
       const inputs = captureFileInput();
       const r = await render(HERE, (s) => {
@@ -233,7 +239,7 @@ describe('the load-backup dialog (KAN-252, KAN-261)', () => {
     const dialog = await pickBackup(inputs, 'same.json', JSON.stringify(HERE));
 
     await userEvent.click(
-      within(dialog).getByRole('button', { name: 'Merge' })
+      within(dialog).getByRole('button', { name: 'Merge sessions' })
     );
 
     await waitFor(() => {
@@ -278,12 +284,13 @@ describe('the load-backup dialog (KAN-252, KAN-261)', () => {
       )
     );
 
-    expect(dialog).toHaveAccessibleName('Load 2 sessions from two.json?');
+    expect(dialog).toHaveAccessibleName('Load 2 sessions from this backup?');
+    expect(within(dialog).getByText('two.json')).toBeTruthy();
     expect(dialog).toHaveTextContent(
-      'Merge keeps the session saved here and adds the ones from the file.'
+      'Merge keeps the session on this device and adds any sessions from the backup that aren’t already here.'
     );
     expect(dialog).toHaveTextContent(
-      'Replace removes the session saved here first, and that cannot be undone.'
+      'Replace deletes the session on this device, then loads the backup. This can’t be undone.'
     );
   });
 });

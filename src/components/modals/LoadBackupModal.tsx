@@ -27,10 +27,13 @@ const BODY_ID = 'load-backup-body';
  * and the first Tab lands on Cancel, but neither answer is one accidental
  * Enter away.
  *
- * The title carries the file and its count; each body sentence carries the
- * count saved here with its own One/Other pair, so no locale has to agree two
- * plurals inside one clause. Replace wears the danger style; Merge does not
- * -- it deletes nothing.
+ * The title carries the file's count and the file name sits on its own quiet
+ * line under it: a real backup is named tabkeeper_backup_1.8.0_<epoch>.json,
+ * and in the title it swallowed the question. Each body sentence carries the
+ * count on this device with its own One/Other pair, so no locale has to agree
+ * two plurals inside one clause. Replace wears the danger style, as Delete
+ * does on Delete cloud data; Merge does not -- it deletes nothing. Neither is
+ * "primary": the dialog opens unlit and no answer is pre-chosen.
  */
 export const LoadBackupModal: React.FC = () => {
   const COLORS = useThemeColors();
@@ -104,11 +107,21 @@ export const LoadBackupModal: React.FC = () => {
     overflow-wrap: anywhere;
   `;
 
+  const fileStyle = css`
+    margin: -6px 0 12px 0;
+    font-size: ${TYPE.SECONDARY};
+    color: ${COLORS.LABEL_L2_COLOR};
+    overflow-wrap: anywhere;
+  `;
+
   const bodyStyle = css`
-    margin: 0 0 20px 0;
+    margin: 0 0 12px 0;
     line-height: 1.5;
     color: ${COLORS.LABEL_L1_COLOR};
     overflow-wrap: anywhere;
+    &:last-of-type {
+      margin-bottom: 20px;
+    }
   `;
 
   const actionsStyle = css`
@@ -132,28 +145,34 @@ export const LoadBackupModal: React.FC = () => {
       <h2 id={TITLE_ID} css={titleStyle}>
         {t(inFile === 1 ? 'LoadBackupTitleOne' : 'LoadBackupTitleOther', {
           count: inFile,
-          file: pending.fileName,
         })}
       </h2>
+      {/* Not translated: it is the user's own file name. */}
+      <p css={fileStyle}>{pending.fileName}</p>
 
-      <p id={BODY_ID} css={bodyStyle}>
-        {t(savedHere === 1 ? 'MergeKeepsOne' : 'MergeKeepsOther', {
-          count: savedHere,
-        })}{' '}
-        {t(savedHere === 1 ? 'ReplaceRemovesOne' : 'ReplaceRemovesOther', {
-          count: savedHere,
-        })}
-      </p>
+      {/* One answer per paragraph, so the eye can find the one it wants. */}
+      <div id={BODY_ID}>
+        <p css={bodyStyle}>
+          {t(savedHere === 1 ? 'MergeKeepsOne' : 'MergeKeepsOther', {
+            count: savedHere,
+          })}
+        </p>
+        <p css={bodyStyle}>
+          {t(savedHere === 1 ? 'ReplaceDeletesOne' : 'ReplaceDeletesOther', {
+            count: savedHere,
+          })}
+        </p>
+      </div>
 
       <div css={actionsStyle}>
         <button type="button" css={buttons.quiet} onClick={handleCancel}>
           {t('Cancel')}
         </button>
         <button type="button" css={buttons.quiet} onClick={handleMerge}>
-          {t('Merge')}
+          {t('Merge sessions')}
         </button>
         <button type="button" css={buttons.danger} onClick={handleReplace}>
-          {t('Replace')}
+          {t('Replace sessions')}
         </button>
       </div>
     </dialog>
