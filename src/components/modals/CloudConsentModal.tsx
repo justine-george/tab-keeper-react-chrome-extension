@@ -14,7 +14,8 @@ import {
   grantCloudConsent,
 } from '../../redux/slices/settingsDataStateSlice';
 import { PRIVACY_POLICY_LINK } from '../../utils/constants/common';
-import { DURATION, ICON, TYPE } from '../../styles/scale';
+import { ICON, TYPE } from '../../styles/scale';
+import { dialogButtonStyles } from './dialogButtons';
 
 const TITLE_ID = 'cloud-consent-title';
 const BODY_ID = 'cloud-consent-body';
@@ -82,6 +83,8 @@ export const CloudConsentModal: React.FC = () => {
   const handleCancel =
     variant === 'welcome' ? decline : variant === 'existing' ? grant : dismiss;
 
+  const buttons = dialogButtonStyles(COLORS);
+
   const dialogStyle = css`
     position: fixed;
     top: 50%;
@@ -143,28 +146,6 @@ export const CloudConsentModal: React.FC = () => {
     justify-content: flex-end;
     gap: 8px;
   `;
-  const buttonStyle = css`
-    padding: 8px 16px;
-    border: 1px solid ${COLORS.BORDER_COLOR};
-    background: none;
-    color: ${COLORS.TEXT_COLOR};
-    font-family: inherit;
-    font-size: inherit;
-    cursor: pointer;
-    transition: background-color ${DURATION.MOVE};
-    &:hover {
-      background-color: ${COLORS.HOVER_COLOR};
-    }
-    &:focus-visible {
-      outline: 2px solid ${COLORS.TEXT_COLOR};
-      outline-offset: -4px;
-    }
-  `;
-  const primaryButtonStyle = css`
-    ${buttonStyle}
-    background-color: ${COLORS.SELECTION_COLOR};
-  `;
-
   const policyLink = (
     <a
       href={PRIVACY_POLICY_LINK}
@@ -208,12 +189,12 @@ export const CloudConsentModal: React.FC = () => {
             <button
               ref={safeRef}
               type="button"
-              css={buttonStyle}
+              css={buttons.quiet}
               onClick={decline}
             >
               {t('Keep on this device')}
             </button>
-            <button type="button" css={primaryButtonStyle} onClick={grant}>
+            <button type="button" css={buttons.primary} onClick={grant}>
               {t('Sync across devices')}
             </button>
           </div>
@@ -234,12 +215,12 @@ export const CloudConsentModal: React.FC = () => {
             <button
               ref={safeRef}
               type="button"
-              css={buttonStyle}
+              css={buttons.quiet}
               onClick={dismiss}
             >
               {t('Not now')}
             </button>
-            <button type="button" css={primaryButtonStyle} onClick={grant}>
+            <button type="button" css={buttons.primary} onClick={grant}>
               {t('Sync')}
             </button>
           </div>
@@ -260,13 +241,13 @@ export const CloudConsentModal: React.FC = () => {
             {t('ExistingSyncOff')} {policyLink}
           </p>
           <div css={actionsStyle}>
-            <button type="button" css={buttonStyle} onClick={decline}>
+            <button type="button" css={buttons.quiet} onClick={decline}>
               {t('Turn off sync')}
             </button>
             <button
               ref={safeRef}
               type="button"
-              css={primaryButtonStyle}
+              css={buttons.primary}
               onClick={grant}
             >
               {t('Keep sync on')}

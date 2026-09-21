@@ -9,7 +9,8 @@ import { useThemeColors } from '../../hooks/useThemeColors';
 import { AppDispatch, RootState } from '../../redux/store';
 import { closeFocusModal } from '../../redux/slices/globalStateSlice';
 import { focusTabContainer } from '../../redux/slices/tabContainerDataStateSlice';
-import { DURATION, TYPE } from '../../styles/scale';
+import { TYPE } from '../../styles/scale';
+import { dialogButtonStyles } from './dialogButtons';
 
 const TITLE_ID = 'focus-confirm-title';
 const BODY_ID = 'focus-confirm-body';
@@ -79,6 +80,8 @@ export const FocusConfirmModal: React.FC<FocusConfirmModalProps> = ({
     );
   };
 
+  const buttons = dialogButtonStyles(COLORS);
+
   const dialogStyle = css`
     /* The UA gives <dialog> its own box; reset it back to the modal's geometry. */
     position: fixed;
@@ -129,33 +132,6 @@ export const FocusConfirmModal: React.FC<FocusConfirmModalProps> = ({
     gap: 8px;
   `;
 
-  // TEXT_COLOR is the theme's foreground, so it contrasts with either button
-  // background by construction, hover included.
-  const buttonStyle = css`
-    padding: 8px 16px;
-    border: 1px solid ${COLORS.BORDER_COLOR};
-    background: none;
-    color: ${COLORS.TEXT_COLOR};
-    font-family: inherit;
-    font-size: inherit;
-    cursor: pointer;
-    transition: background-color ${DURATION.MOVE};
-
-    &:hover {
-      background-color: ${COLORS.HOVER_COLOR};
-    }
-
-    &:focus-visible {
-      outline: 2px solid ${COLORS.TEXT_COLOR};
-      outline-offset: -4px;
-    }
-  `;
-
-  const confirmButtonStyle = css`
-    ${buttonStyle}
-    background-color: ${COLORS.SELECTION_COLOR};
-  `;
-
   return (
     <dialog
       ref={dialogRef}
@@ -175,10 +151,10 @@ export const FocusConfirmModal: React.FC<FocusConfirmModalProps> = ({
       <div css={actionsStyle}>
         {/* Cancel comes first so showModal() lands the initial focus on the
             action that changes nothing. */}
-        <button type="button" css={buttonStyle} onClick={handleCancel}>
+        <button type="button" css={buttons.quiet} onClick={handleCancel}>
           {t('FocusConfirmCancel')}
         </button>
-        <button type="button" css={confirmButtonStyle} onClick={handleConfirm}>
+        <button type="button" css={buttons.primary} onClick={handleConfirm}>
           {t('FocusConfirmConfirm')}
         </button>
       </div>

@@ -122,3 +122,36 @@ test.describe('the cloud question (KAN-259)', () => {
     await expect(page.getByRole('dialog')).toHaveCount(0);
   });
 });
+
+// KAN-259. The dialog's buttons answer a press: hover is one rung, a held
+// pointer one rung past it. jsdom pins that the rules are emitted
+// (dialogButtonPress.test.tsx); this pins that Chrome paints them.
+test.describe('dialog buttons answer a press', () => {
+  test.use({ freshProfile: true });
+
+  test('hover and a held press are two different fills', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    const button = page
+      .getByRole('dialog', { name: 'Welcome to Tab Keeper' })
+      .getByRole('button', { name: 'Keep on this device' });
+    const fill = () =>
+      button.evaluate((el) => getComputedStyle(el).backgroundColor);
+    const rest = await fill();
+
+    const box = (await button.boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await expect.poll(fill, { timeout: 2000 }).not.toBe(rest);
+    const hover = await fill();
+
+    await page.mouse.down();
+    await expect.poll(fill, { timeout: 2000 }).not.toBe(hover);
+    const pressed = await fill();
+    expect(pressed).not.toBe(rest);
+    // Release off the button, so the press is not also a click.
+    await page.mouse.move(0, 0);
+    await page.mouse.up();
+  });
+});

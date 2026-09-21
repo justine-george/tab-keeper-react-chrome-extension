@@ -11,7 +11,8 @@ import {
   closeDeleteCloudDataModal,
   deleteCloudData,
 } from '../../redux/slices/globalStateSlice';
-import { DURATION, TYPE } from '../../styles/scale';
+import { TYPE } from '../../styles/scale';
+import { dialogButtonStyles } from './dialogButtons';
 
 const TITLE_ID = 'delete-cloud-data-title';
 const BODY_ID = 'delete-cloud-data-body';
@@ -54,6 +55,8 @@ export const DeleteCloudDataModal: React.FC = () => {
   const handleConfirm = () => {
     void dispatch(deleteCloudData());
   };
+
+  const buttons = dialogButtonStyles(COLORS);
 
   const dialogStyle = css`
     /* The UA gives <dialog> its own box; reset it back to the modal's geometry. */
@@ -101,36 +104,6 @@ export const DeleteCloudDataModal: React.FC = () => {
     gap: 8px;
   `;
 
-  const buttonStyle = css`
-    padding: 8px 16px;
-    border: 1px solid ${COLORS.BORDER_COLOR};
-    background: none;
-    color: ${COLORS.TEXT_COLOR};
-    font-family: inherit;
-    font-size: inherit;
-    cursor: pointer;
-    transition: background-color ${DURATION.MOVE};
-
-    &:hover {
-      background-color: ${COLORS.HOVER_COLOR};
-    }
-
-    &:focus-visible {
-      outline: 2px solid ${COLORS.TEXT_COLOR};
-      outline-offset: -4px;
-    }
-  `;
-
-  // The destructive action wears the delete red every other destructive
-  // control wears (KAN-204), so the two buttons cannot be confused by shape.
-  const confirmButtonStyle = css`
-    ${buttonStyle}
-    background-color: ${COLORS.DELETE_ICON_HOVER_COLOR};
-    &:hover {
-      background-color: ${COLORS.DELETE_ICON_HOVER_COLOR};
-    }
-  `;
-
   return (
     <dialog
       ref={dialogRef}
@@ -148,10 +121,10 @@ export const DeleteCloudDataModal: React.FC = () => {
       </p>
 
       <div css={actionsStyle}>
-        <button type="button" css={buttonStyle} onClick={handleCancel}>
+        <button type="button" css={buttons.quiet} onClick={handleCancel}>
           {t('Cancel')}
         </button>
-        <button type="button" css={confirmButtonStyle} onClick={handleConfirm}>
+        <button type="button" css={buttons.danger} onClick={handleConfirm}>
           {t('Delete')}
         </button>
       </div>
