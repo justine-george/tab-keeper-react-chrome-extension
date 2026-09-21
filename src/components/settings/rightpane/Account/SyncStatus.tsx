@@ -1,5 +1,5 @@
 import { css } from '@emotion/react';
-import { useSelector } from 'react-redux';
+import { shallowEqual, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
 import { getPrettyDate } from '../../../../utils/functions/local';
 
@@ -38,14 +38,20 @@ const SyncStatus: React.FC = () => {
   const lastSyncedTime = useSelector(
     (s: RootState) => s.settingsDataState.lastSyncedTime
   );
-  const state = useSelector((s: RootState) =>
-    describeSyncState({
-      isSignedIn: s.globalState.isSignedIn,
-      isAutoSync: s.settingsDataState.isAutoSync,
-      isCloudConfigured: s.globalState.isCloudConfigured,
-      cloudConsent: s.settingsDataState.cloudConsent,
-      syncStatus: s.globalState.syncStatus,
-    })
+  // shallowEqual: describeSyncState builds a fresh object every call, so
+  // without it any store change re-rendered this component and react-redux's
+  // dev check warned that the selector is unstable (seen from the KAN-252
+  // tests, where the container changes under an open Settings pane).
+  const state = useSelector(
+    (s: RootState) =>
+      describeSyncState({
+        isSignedIn: s.globalState.isSignedIn,
+        isAutoSync: s.settingsDataState.isAutoSync,
+        isCloudConfigured: s.globalState.isCloudConfigured,
+        cloudConsent: s.settingsDataState.cloudConsent,
+        syncStatus: s.globalState.syncStatus,
+      }),
+    shallowEqual
   );
 
   const containerStyle = css`
