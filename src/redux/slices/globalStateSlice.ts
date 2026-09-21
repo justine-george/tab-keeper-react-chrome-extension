@@ -1,9 +1,16 @@
-import { createAsyncThunk, createSlice, PayloadAction } from '@reduxjs/toolkit';
+import {
+  createAsyncThunk,
+  createSlice,
+  PayloadAction,
+  type AsyncThunkConfig,
+  type GetThunkAPI,
+} from '@reduxjs/toolkit';
 
 import { AppDispatch, RootState } from '../store';
 import { setPresentStartup } from './undoRedoSlice';
 import { selectCategory, SettingsCategory } from './settingsCategoryStateSlice';
 import {
+  mergeSessionsFromBackupInternal,
   replaceState,
   restoreContainer,
   selectTabContainer,
@@ -479,45 +486,73 @@ export const deleteCloudData = createAsyncThunk(
 );
 
 /**
- * Applies a backup that has been read and validated (KAN-252): the step that
- * used to run straight from the file picker, now behind "Replace your saved
- * sessions?" -- or straight away when nothing is saved here to replace.
+ * The tail every answer to "Load sessions from a backup" shares (KAN-252,
+ * KAN-261): mark dirty, write to the cloud only with Auto Sync on (KAN-257 --
+ * off, the container stays dirty and the next manual sync carries it, like
+ * any edit), and say how it went. The local change is done and persisted
+ * before the write, so the toast reports the state of the WRITE --
+ * requestStatus, not unwrap(): a rejection here is a sync problem, and "Error
+ * restoring tabs" would be the one untrue thing to say.
  *
- * restoreContainer, not replaceState: a backup written before a session was
- * deleted still contains it and carries no tombstone, but the cloud may hold
- * the one that delete pushed up. Replacing blind lets the next merge re-apply
- * the delete, so the import appears to work and then silently drops it.
- *
- * KAN-257: the cloud write only with Auto Sync on. Off, the container is left
- * dirty and the next manual sync carries it, like any edit. The restore is
- * done and persisted before the write, so the toast reports the state of the
- * WRITE -- requestStatus, not unwrap(): a rejection here is a sync problem,
- * and "Error restoring tabs" would be the one untrue thing to say.
+ * `changed` false means the load altered nothing (a merge with nothing new):
+ * no dirty flag, so no cloud write of nothing, but the load itself went fine.
  */
-export const replaceSessionsFromBackup = createAsyncThunk(
-  'global/replaceSessionsFromBackup',
-  async (container: TabMasterContainer, thunkAPI) => {
-    thunkAPI.dispatch(cancelReplaceSessions());
-    thunkAPI.dispatch(
-      restoreContainer({ ...container, lastModified: Date.now() })
-    );
+async function finishBackupLoad(
+  thunkAPI: Pick<GetThunkAPI<AsyncThunkConfig>, 'dispatch' | 'getState'>,
+  changed: boolean
+): Promise<void> {
+  thunkAPI.dispatch(cancelReplaceSessions());
+  let syncFailed = false;
+  if (changed) {
     thunkAPI.dispatch(setIsDirty());
-
-    let syncFailed = false;
     const { isAutoSync } = (thunkAPI.getState() as RootState).settingsDataState;
     if (isAutoSync) {
       const saveResult = await thunkAPI.dispatch(saveToFirestoreIfDirty());
       syncFailed = saveResult.meta.requestStatus === 'rejected';
     }
+  }
+  thunkAPI.dispatch(
+    showToast({
+      toastText: syncFailed
+        ? TOAST_MESSAGES.IMPORT_SYNC_FAILED
+        : TOAST_MESSAGES.IMPORT_SUCCESS,
+      duration: 3000,
+    })
+  );
+}
 
+/**
+ * Replace: the backup in place of everything saved here (KAN-252). The step
+ * that used to run straight from the file picker, now the dialog's Replace
+ * -- or straight away when nothing is saved here to replace.
+ *
+ * restoreContainer, not replaceState: a backup written before a session was
+ * deleted still contains it and carries no tombstone, but the cloud may hold
+ * the one that delete pushed up. Replacing blind lets the next merge re-apply
+ * the delete, so the import appears to work and then silently drops it.
+ */
+export const replaceSessionsFromBackup = createAsyncThunk(
+  'global/replaceSessionsFromBackup',
+  async (container: TabMasterContainer, thunkAPI) => {
     thunkAPI.dispatch(
-      showToast({
-        toastText: syncFailed
-          ? TOAST_MESSAGES.IMPORT_SYNC_FAILED
-          : TOAST_MESSAGES.IMPORT_SUCCESS,
-        duration: 3000,
-      })
+      restoreContainer({ ...container, lastModified: Date.now() })
     );
+    await finishBackupLoad(thunkAPI, true);
+  }
+);
+
+/**
+ * Merge: the backup's sessions that are not here yet, added on top of
+ * everything saved here (KAN-261). The reducer holds the rules; this only
+ * has to know whether it changed anything, which decides the dirty flag.
+ */
+export const mergeSessionsFromBackup = createAsyncThunk(
+  'global/mergeSessionsFromBackup',
+  async (container: TabMasterContainer, thunkAPI) => {
+    const before = (thunkAPI.getState() as RootState).tabContainerDataState;
+    thunkAPI.dispatch(mergeSessionsFromBackupInternal(container));
+    const after = (thunkAPI.getState() as RootState).tabContainerDataState;
+    await finishBackupLoad(thunkAPI, after !== before);
   }
 );
 

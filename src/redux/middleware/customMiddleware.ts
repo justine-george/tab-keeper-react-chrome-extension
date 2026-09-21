@@ -35,6 +35,7 @@ import {
   MOVE_SESSION_ACTION,
   SORT_SESSIONS_ACTION,
   CLEAR_SESSION_ORDER_ACTION,
+  MERGE_SESSIONS_FROM_BACKUP_ACTION,
 } from '../../utils/constants/actionTypes';
 import type { RootState } from '../store';
 
@@ -67,6 +68,8 @@ const actionsToCapture = [
   MOVE_SESSION_ACTION,
   SORT_SESSIONS_ACTION,
   CLEAR_SESSION_ORDER_ACTION,
+  // KAN-261. Additive, so undoable: undo withdraws what the merge added.
+  MERGE_SESSIONS_FROM_BACKUP_ACTION,
 
   // actions in globalStateSlice
   IS_DIRTY_ACTION,

@@ -30,17 +30,20 @@ const glyphOf = (button: HTMLElement) =>
   button.querySelector('.material-symbols-outlined')?.textContent?.trim();
 
 describe('the backup buttons say what they do (KAN-251)', () => {
-  test('save is a download, replace is an upload, and both name sessions', async () => {
+  // KAN-261 renamed the second button from "Replace sessions from a backup":
+  // once it can merge, "Replace" was the lie. "Load" names the file step; the
+  // dialog that follows names the two things it can do with it.
+  test('save is a download, load is an upload, and both name sessions', async () => {
     await renderSyncAndBackup();
 
     const save = screen.getByRole('button', {
       name: 'Save sessions to a file',
     });
-    const replace = screen.getByRole('button', {
-      name: 'Replace sessions from a backup',
+    const load = screen.getByRole('button', {
+      name: 'Load sessions from a backup',
     });
     expect(glyphOf(save)).toBe('download');
-    expect(glyphOf(replace)).toBe('upload');
+    expect(glyphOf(load)).toBe('upload');
 
     // The old words are gone, and "Restore" with them: nothing on this pane
     // uses the session-opening verb for a file operation.

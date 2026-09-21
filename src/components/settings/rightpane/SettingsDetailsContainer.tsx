@@ -206,14 +206,15 @@ const SettingsDetailsContainer: React.FC = () => {
           const tabDataFromJSON: TabMasterContainer =
             readImportedContainer(content);
 
-          // KAN-252. The most destructive action in the app, and it had
-          // neither an undo (restoreContainer is excluded from the snapshots)
-          // nor a confirm. Now it asks -- after the read, so an unreadable
-          // file still gets its error and a readable one gets a question with
-          // the real numbers in it -- unless nothing is saved here, where
-          // "replace your 0 sessions?" has nothing behind it. The apply step
-          // (restore, dirty, the KAN-257-gated write, the toast) is the thunk,
-          // so the dialog's Replace and this path are one path.
+          // KAN-252/261. Replacing was the most destructive action in the
+          // app, with neither an undo (restoreContainer is excluded from the
+          // snapshots) nor a confirm. Now the file is read first and then the
+          // user is asked -- Merge or Replace -- so an unreadable file still
+          // gets its error and a readable one gets a question with the real
+          // numbers in it. Unless nothing is saved here, where the two
+          // answers would do the same thing: then it just applies. The apply
+          // steps are thunks, so the dialog's answers and this path share
+          // one tail (dirty, the KAN-257-gated write, the toast).
           if (tabMasterContainer.tabGroups.length === 0) {
             void dispatch(replaceSessionsFromBackup(tabDataFromJSON));
           } else {
@@ -495,7 +496,7 @@ const SettingsDetailsContainer: React.FC = () => {
               style="width: 100%; justify-content: center;"
             />
             <Button
-              text={t('Replace sessions from a backup')}
+              text={t('Load sessions from a backup')}
               iconType="upload"
               onClick={handleImportJSON}
               style="width: 100%; justify-content: center;"

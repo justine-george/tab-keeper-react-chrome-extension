@@ -128,7 +128,7 @@ describe('import size guard (KAN-27)', () => {
     const { store } = await renderSyncAndBackup();
 
     await userEvent.click(
-      await screen.findByText('Replace sessions from a backup')
+      await screen.findByText('Load sessions from a backup')
     );
     dropFile(inputs[0], buildOversizedBackup());
 
@@ -158,7 +158,7 @@ describe('import size guard (KAN-27)', () => {
     const { store } = await renderSyncAndBackup();
 
     await userEvent.click(
-      await screen.findByText('Replace sessions from a backup')
+      await screen.findByText('Load sessions from a backup')
     );
     dropFile(inputs[0], buildSmallBackup());
 
@@ -193,7 +193,7 @@ describe('import sync failure (KAN-43)', () => {
     const { store } = await renderSyncAndBackup();
 
     await userEvent.click(
-      await screen.findByText('Replace sessions from a backup')
+      await screen.findByText('Load sessions from a backup')
     );
     dropFile(inputs[0], buildSmallBackup());
 
@@ -246,7 +246,7 @@ describe('import respects Auto Sync (KAN-257)', () => {
     expect(store.getState().settingsDataState.isAutoSync).toBe(false);
 
     await userEvent.click(
-      await screen.findByText('Replace sessions from a backup')
+      await screen.findByText('Load sessions from a backup')
     );
     dropFile(inputs[0], buildSmallBackup());
 
@@ -274,7 +274,7 @@ describe('import respects Auto Sync (KAN-257)', () => {
     });
 
     await userEvent.click(
-      await screen.findByText('Replace sessions from a backup')
+      await screen.findByText('Load sessions from a backup')
     );
     dropFile(inputs[0], buildSmallBackup());
 

@@ -9,27 +9,30 @@ import { useThemeColors } from '../../hooks/useThemeColors';
 import { AppDispatch, RootState } from '../../redux/store';
 import {
   cancelReplaceSessions,
+  mergeSessionsFromBackup,
   replaceSessionsFromBackup,
 } from '../../redux/slices/globalStateSlice';
 import { TYPE } from '../../styles/scale';
 import { dialogButtonStyles } from './dialogButtons';
 
-const TITLE_ID = 'replace-sessions-title';
-const BODY_ID = 'replace-sessions-body';
+const TITLE_ID = 'load-backup-title';
+const BODY_ID = 'load-backup-body';
 
 /**
- * Confirms "Replace sessions from a backup" (KAN-252). The same <dialog>
- * contract as DeleteCloudDataModal, opened UNLIT as the cloud question is
- * (KAN-243): the dialog takes the focus, so Escape works and the first Tab
- * lands on Cancel, but Replace is not one accidental Enter away.
+ * The question after "Load sessions from a backup" has read the file (KAN-252,
+ * KAN-261): Merge keeps everything saved here and adds the file's sessions
+ * that are not here yet; Replace throws away what is here first and cannot be
+ * undone. The same <dialog> contract as DeleteCloudDataModal, opened UNLIT as
+ * the cloud question is (KAN-243): the dialog takes the focus, so Escape works
+ * and the first Tab lands on Cancel, but neither answer is one accidental
+ * Enter away.
  *
- * The body says the two numbers the user cannot otherwise see side by side --
- * how many sessions are saved here, how many the file holds -- and that this
- * cannot be undone, which is the fact that makes the question worth asking.
- * Each count is its own sentence with its own One/Other pair, so no locale
- * has to agree two plurals inside one clause.
+ * The title carries the file and its count; each body sentence carries the
+ * count saved here with its own One/Other pair, so no locale has to agree two
+ * plurals inside one clause. Replace wears the danger style; Merge does not
+ * -- it deletes nothing.
  */
-export const ReplaceSessionsModal: React.FC = () => {
+export const LoadBackupModal: React.FC = () => {
   const COLORS = useThemeColors();
   const FONT_FAMILY = useFontFamily();
   const { t } = useTranslation();
@@ -60,6 +63,10 @@ export const ReplaceSessionsModal: React.FC = () => {
 
   const handleReplace = () => {
     void dispatch(replaceSessionsFromBackup(pending.container));
+  };
+
+  const handleMerge = () => {
+    void dispatch(mergeSessionsFromBackup(pending.container));
   };
 
   const buttons = dialogButtonStyles(COLORS);
@@ -123,29 +130,27 @@ export const ReplaceSessionsModal: React.FC = () => {
       }}
     >
       <h2 id={TITLE_ID} css={titleStyle}>
-        {t('Replace your saved sessions?')}
+        {t(inFile === 1 ? 'LoadBackupTitleOne' : 'LoadBackupTitleOther', {
+          count: inFile,
+          file: pending.fileName,
+        })}
       </h2>
 
       <p id={BODY_ID} css={bodyStyle}>
-        {t(
-          savedHere === 1
-            ? 'ReplaceSessionsHereOne'
-            : 'ReplaceSessionsHereOther',
-          { count: savedHere }
-        )}{' '}
-        {t(
-          inFile === 1 ? 'ReplaceSessionsFileOne' : 'ReplaceSessionsFileOther',
-          {
-            count: inFile,
-            file: pending.fileName,
-          }
-        )}{' '}
-        {t('This cannot be undone.')}
+        {t(savedHere === 1 ? 'MergeKeepsOne' : 'MergeKeepsOther', {
+          count: savedHere,
+        })}{' '}
+        {t(savedHere === 1 ? 'ReplaceRemovesOne' : 'ReplaceRemovesOther', {
+          count: savedHere,
+        })}
       </p>
 
       <div css={actionsStyle}>
         <button type="button" css={buttons.quiet} onClick={handleCancel}>
           {t('Cancel')}
+        </button>
+        <button type="button" css={buttons.quiet} onClick={handleMerge}>
+          {t('Merge')}
         </button>
         <button type="button" css={buttons.danger} onClick={handleReplace}>
           {t('Replace')}
