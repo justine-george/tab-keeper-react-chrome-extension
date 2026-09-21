@@ -156,5 +156,12 @@
   "ExportEditTally": "{{renamed}} renamed · {{hidden}} hidden",
   "Hide": "Hide",
   "Rename tab": "Rename tab",
-  "Preview": "Preview"
+  "Preview": "Preview",
+  "Cloud data": "Cloud data",
+  "Delete cloud data": "Delete cloud data",
+  "Delete your cloud data?": "Delete your cloud data?",
+  "DeleteCloudDataBody": "This removes your sessions from the cloud and turns Auto Sync off on this device. Your sessions stay on this device. Other devices on the same Chrome profile will upload their copy again the next time they sync, unless Auto Sync is off there too.",
+  "Cancel": "Cancel",
+  "Cloud data deleted. Auto Sync is off on this device.": "Cloud data deleted. Auto Sync is off on this device.",
+  "Couldn't delete cloud data. Check your connection and try again.": "Couldn't delete cloud data. Check your connection and try again."
 }

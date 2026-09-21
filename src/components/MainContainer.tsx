@@ -16,6 +16,7 @@ import RightPaneSettings from './settings/rightpane/RightPaneSettings';
 import { closeToast } from '../redux/slices/globalStateSlice';
 import { RateAndReviewModal } from './modals/RateAndReviewModal';
 import { FocusConfirmModal } from './modals/FocusConfirmModal';
+import { DeleteCloudDataModal } from './modals/DeleteCloudDataModal';
 import { TabGroupsPermissionModal } from './modals/TabGroupsPermissionModal';
 
 // KAN-52. The undo/redo shortcuts are registered on `window`, so they also see
@@ -60,6 +61,9 @@ export default function MainContainer() {
 
   const focusRequest = useSelector(
     (state: RootState) => state.globalState.focusRequest
+  );
+  const isDeleteCloudDataModalOpen = useSelector(
+    (state: RootState) => state.globalState.isDeleteCloudDataModalOpen
   );
 
   const tabGroupsPromptCount = useSelector(
@@ -170,6 +174,7 @@ export default function MainContainer() {
       {isRateAndReviewModalOpen && <RateAndReviewModal />}
       {tabGroupsPromptCount !== null && <TabGroupsPermissionModal />}
       {focusRequest && <FocusConfirmModal />}
+      {isDeleteCloudDataModalOpen && <DeleteCloudDataModal />}
     </div>
   );
 }

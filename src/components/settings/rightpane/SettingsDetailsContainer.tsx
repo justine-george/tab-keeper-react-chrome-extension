@@ -22,6 +22,7 @@ import {
   setIsDirty,
   showToast,
   syncStateWithFirestore,
+  openDeleteCloudDataModal,
 } from '../../../redux/slices/globalStateSlice';
 import {
   Language,
@@ -489,6 +490,49 @@ const SettingsDetailsContainer: React.FC = () => {
               iconType="upload"
               onClick={handleImportJSON}
               style="width: 100%; justify-content: center;"
+            />
+          </div>
+        </div>
+
+        {/* Cloud data. KAN-254: the one way to make the Firestore document
+            stop existing. Last on the pane, as destructive actions are; the
+            dialog it opens says what else it does (auto sync off here) and
+            what it cannot do (other devices' copies). */}
+        <div
+          data-settings-section
+          css={css`
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            padding-left: clamp(16px, 8%, 72px);
+            padding-right: clamp(16px, 8%, 72px);
+            width: 100%;
+            margin-top: 32px;
+          `}
+        >
+          <div
+            css={css`
+              display: flex;
+              align-items: flex-start;
+              width: 100%;
+            `}
+          >
+            <NormalLabel
+              value={t('Cloud data')}
+              size={TYPE.BODY}
+              color={COLORS.LABEL_L1_COLOR}
+            />
+          </div>
+          <div
+            css={css`
+              margin-top: 8px;
+            `}
+          >
+            <Button
+              text={t('Delete cloud data')}
+              iconType="delete"
+              variant="danger"
+              onClick={() => dispatch(openDeleteCloudDataModal())}
             />
           </div>
         </div>

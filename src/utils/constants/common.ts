@@ -121,6 +121,12 @@ export const TOAST_MESSAGES = {
   // replaces it with a notification, and stays silent when the merge is a
   // no-op, which is the common case.
   SYNC_MERGED: 'Synced changes from another device.',
+  // KAN-254. Both halves matter: the document is gone, and this device will
+  // not write it back -- the user is told the second so they do not wonder
+  // why a setting changed under them.
+  CLOUD_DATA_DELETED: 'Cloud data deleted. Auto Sync is off on this device.',
+  CLOUD_DATA_DELETE_FAILED:
+    "Couldn't delete cloud data. Check your connection and try again.",
   IMPORT_SUCCESS: 'Restored tabs successfully!',
   // Deliberately not "Error restoring tabs": by the time the cloud write is
   // attempted the restore has already succeeded on this device, so telling the

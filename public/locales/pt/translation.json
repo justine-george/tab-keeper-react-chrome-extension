@@ -156,5 +156,12 @@
   "ExportEditTally": "{{renamed}} renomeados · {{hidden}} ocultos",
   "Hide": "Ocultar",
   "Rename tab": "Renomear aba",
-  "Preview": "Pré-visualização"
+  "Preview": "Pré-visualização",
+  "Cloud data": "Dados na nuvem",
+  "Delete cloud data": "Excluir dados da nuvem",
+  "Delete your cloud data?": "Excluir seus dados da nuvem?",
+  "DeleteCloudDataBody": "Isso remove suas sessões da nuvem e desativa a sincronização automática neste dispositivo. Suas sessões ficam neste dispositivo. Outros dispositivos com o mesmo perfil do Chrome enviarão sua cópia de novo na próxima sincronização, a menos que ela também esteja desativada lá.",
+  "Cancel": "Cancelar",
+  "Cloud data deleted. Auto Sync is off on this device.": "Dados da nuvem excluídos. A sincronização automática está desativada neste dispositivo.",
+  "Couldn't delete cloud data. Check your connection and try again.": "Não foi possível excluir os dados da nuvem. Verifique sua conexão e tente de novo."
 }
