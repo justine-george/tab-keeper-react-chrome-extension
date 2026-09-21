@@ -197,6 +197,8 @@
   "EnableSyncFine": "Armazenada sob um ID anônimo, sem conta nem e-mail. Você pode desativar, ou excluir a cópia, em Configurações → Sync & Backup.",
   "Not now": "Agora não",
   "Sync": "Sincronizar",
+  "Syncing…": "Sincronizando…",
+  "Your latest changes are on their way to the cloud.": "Suas alterações mais recentes estão a caminho da nuvem.",
   "Sync is off": "A sincronização está desativada",
   "Your sessions stay on this device. Turn on Auto Sync, or press the cloud button on the home screen, to start syncing.": "Suas sessões ficam neste dispositivo. Ative a sincronização automática, ou pressione o botão de nuvem na tela inicial, para começar a sincronizar.",
   "EnableSyncOnceFine": "Isto sincroniza uma vez. A sincronização automática fica desativada até você ativá-la em Configurações → Sync & Backup. Armazenada sob um ID anônimo, sem conta nem e-mail."

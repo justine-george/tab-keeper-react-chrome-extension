@@ -197,6 +197,8 @@
   "EnableSyncFine": "以匿名 ID 存储，无需账户或邮箱。您可以在 设置 → 同步与备份 中关闭它或删除副本。",
   "Not now": "暂不",
   "Sync": "同步",
+  "Syncing…": "正在同步…",
+  "Your latest changes are on their way to the cloud.": "您的最新更改正在发送到云端。",
   "Sync is off": "同步已关闭",
   "Your sessions stay on this device. Turn on Auto Sync, or press the cloud button on the home screen, to start syncing.": "您的会话只保留在此设备上。开启自动同步，或按主屏幕上的云按钮，即可开始同步。",
   "EnableSyncOnceFine": "这只会同步一次。自动同步保持关闭，直到您在 设置 → 同步与备份 中开启。以匿名 ID 存储，无需账户或邮箱。"

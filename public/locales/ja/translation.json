@@ -197,6 +197,8 @@
   "EnableSyncFine": "匿名 ID のもとで保存され、アカウントもメールも不要です。設定 → 同期とバックアップ でオフにしたり、コピーを削除したりできます。",
   "Not now": "あとで",
   "Sync": "同期する",
+  "Syncing…": "同期中…",
+  "Your latest changes are on their way to the cloud.": "最新の変更をクラウドに送信しています。",
   "Sync is off": "同期はオフです",
   "Your sessions stay on this device. Turn on Auto Sync, or press the cloud button on the home screen, to start syncing.": "セッションはこのデバイスにとどまります。自動同期をオンにするか、ホーム画面のクラウドボタンを押すと同期が始まります。",
   "EnableSyncOnceFine": "今回だけ同期します。自動同期は、設定 → 同期とバックアップ でオンにするまでオフのままです。匿名 ID のもとで保存され、アカウントもメールも不要です。"

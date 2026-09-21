@@ -197,6 +197,8 @@
   "EnableSyncFine": "एक गुमनाम ID के साथ सहेजा जाता है, न खाता, न ईमेल। आप इसे सेटिंग्स → सिंक और बैकअप में बंद कर सकते हैं या प्रति मिटा सकते हैं।",
   "Not now": "अभी नहीं",
   "Sync": "सिंक करें",
+  "Syncing…": "सिंक हो रहा है…",
+  "Your latest changes are on their way to the cloud.": "आपके नवीनतम बदलाव क्लाउड पर भेजे जा रहे हैं।",
   "Sync is off": "सिंक बंद है",
   "Your sessions stay on this device. Turn on Auto Sync, or press the cloud button on the home screen, to start syncing.": "आपके सेशन इसी डिवाइस पर रहते हैं। सिंक शुरू करने के लिए ऑटो सिंक चालू करें, या होम स्क्रीन पर क्लाउड बटन दबाएँ।",
   "EnableSyncOnceFine": "यह एक बार सिंक करता है। ऑटो सिंक तब तक बंद रहता है जब तक आप इसे सेटिंग्स → सिंक और बैकअप में चालू नहीं करते। एक गुमनाम ID के साथ सहेजा जाता है, न खाता, न ईमेल।"

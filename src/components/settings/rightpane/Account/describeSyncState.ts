@@ -21,12 +21,23 @@ import type { CloudConsent } from '../../../../redux/slices/settingsDataStateSli
  *  4. No cloud in this build: unavailable. Never shown to a user; every
  *     release carries one. Without it the CI popup would claim "on".
  *  5. The last sync failed: say so, and where the retry is.
- *  6. On. `loading` and `idle` land here too: the half-second before auth
- *     resolves at cold start would otherwise flash "unavailable" on every open.
+ *  6. A sync in flight: syncing (KAN-261). The write after Merge or Replace
+ *     runs while the user is on this pane, and this card is what they are
+ *     looking at; the header's cloud_sync glyph is one screen away. `idle`
+ *     used to share "on" with `loading` so the half-second before auth
+ *     resolves at cold start would not flash "unavailable"; it still does not
+ *     -- "Syncing…" for that half-second is simply true.
+ *  7. On.
  *
  * `title` and `line` are i18n keys; the card passes them through t().
  */
-export type SyncKind = 'unavailable' | 'off' | 'manual' | 'failed' | 'on';
+export type SyncKind =
+  | 'unavailable'
+  | 'off'
+  | 'manual'
+  | 'failed'
+  | 'syncing'
+  | 'on';
 
 export interface SyncPresentation {
   kind: SyncKind;
@@ -86,6 +97,14 @@ export function describeSyncState({
       icon: 'sync_problem',
       title: 'Last sync failed',
       line: 'Your sessions are safe on this device. Press the cloud button on the home screen to try again.',
+    };
+  }
+  if (syncStatus === 'loading') {
+    return {
+      kind: 'syncing',
+      icon: 'cloud_sync',
+      title: 'Syncing…',
+      line: 'Your latest changes are on their way to the cloud.',
     };
   }
   return {
