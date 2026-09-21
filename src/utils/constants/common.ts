@@ -47,6 +47,11 @@ export const EXPORT_STORE_URL =
 // developer email
 export const DEV_EMAIL = 'justinegeo96@gmail.com';
 
+// KAN-259. The policy lives in the repository (KAN-257), so the link is to
+// the file on main and its history is the change log.
+export const PRIVACY_POLICY_LINK =
+  'https://github.com/justine-george/tab-keeper-react-chrome-extension/blob/main/PRIVACY.md';
+
 export const APP_CHROME_WEBSTORE_LINK =
   'https://chromewebstore.google.com/detail/tab-keeper-chrome-tab-man/gpibgniomobngodpnikhheifblbpbbah';
 

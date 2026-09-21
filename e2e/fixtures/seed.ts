@@ -35,7 +35,14 @@ export async function seedSettings(
   context: BrowserContext,
   settings: Record<string, unknown>
 ): Promise<void> {
-  await seedLocalStorage(context, 'settingsData', settings);
+  // KAN-259. The profile starts as a user who answered the cloud question
+  // (fixtures/extension.ts); a seed that says nothing about it keeps that
+  // answer, so no spec boots into the welcome by accident. A seed that sets
+  // cloudConsent -- to '' for the question itself -- wins.
+  await seedLocalStorage(context, 'settingsData', {
+    cloudConsent: 'granted',
+    ...settings,
+  });
 }
 
 // addInitScript, not page.evaluate: the popup reads localStorage during its

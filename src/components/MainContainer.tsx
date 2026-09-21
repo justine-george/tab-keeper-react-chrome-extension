@@ -17,6 +17,7 @@ import { closeToast } from '../redux/slices/globalStateSlice';
 import { RateAndReviewModal } from './modals/RateAndReviewModal';
 import { FocusConfirmModal } from './modals/FocusConfirmModal';
 import { DeleteCloudDataModal } from './modals/DeleteCloudDataModal';
+import { CloudConsentModal } from './modals/CloudConsentModal';
 import { TabGroupsPermissionModal } from './modals/TabGroupsPermissionModal';
 
 // KAN-52. The undo/redo shortcuts are registered on `window`, so they also see
@@ -64,6 +65,9 @@ export default function MainContainer() {
   );
   const isDeleteCloudDataModalOpen = useSelector(
     (state: RootState) => state.globalState.isDeleteCloudDataModalOpen
+  );
+  const isCloudConsentModalOpen = useSelector(
+    (state: RootState) => state.globalState.isCloudConsentModalOpen
   );
 
   const tabGroupsPromptCount = useSelector(
@@ -175,6 +179,7 @@ export default function MainContainer() {
       {tabGroupsPromptCount !== null && <TabGroupsPermissionModal />}
       {focusRequest && <FocusConfirmModal />}
       {isDeleteCloudDataModalOpen && <DeleteCloudDataModal />}
+      {isCloudConsentModalOpen && <CloudConsentModal />}
     </div>
   );
 }

@@ -72,6 +72,36 @@ export function cloudUnavailable(): Error {
 // round trip fed one boolean, and whichever resolved first decided whether
 // Firestore calls were authorised. The token read always wins that race, so
 // every cold start issued requests the rules then denied (KAN-70).
+// KAN-259. Sign in only once the user has said yes to the cloud, and only
+// once: every sync starter calls this, so it must be safe to call from all of
+// them. Before it, observeAuthState ran on every popup open, consented or not,
+// creating an anonymous Firebase account for users who never wanted one.
+let cloudSessionStarted = false;
+export const ensureCloudSession = (dispatch: AppDispatch) => {
+  if (cloudSessionStarted) return;
+  cloudSessionStarted = true;
+  observeAuthState(dispatch);
+};
+
+/**
+ * Starts the session if needed and resolves once Firebase has a user, so a
+ * caller that must be authorised right now (deleteCloudData) can wait for it
+ * rather than race the rules (KAN-259). Resolves at once with no cloud; the
+ * caller's own call then throws cloudUnavailable, the path it already handles.
+ */
+export const ensureCloudSessionReady = (dispatch: AppDispatch): Promise<void> =>
+  new Promise((resolve) => {
+    if (auth === null) return resolve();
+    ensureCloudSession(dispatch);
+    if (auth.currentUser) return resolve();
+    const stop = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        stop();
+        resolve();
+      }
+    });
+  });
+
 export const observeAuthState = (dispatch: AppDispatch) => {
   // Silence, not setFirebaseUnauthed(): "not signed in" is a claim about an
   // auth system that exists. With no cloud there is nothing to be signed out

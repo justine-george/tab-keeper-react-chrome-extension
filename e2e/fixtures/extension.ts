@@ -24,6 +24,7 @@ export const test = base.extend<{
   serviceWorker: Worker;
   extensionId: string;
   showScrollbars: boolean;
+  freshProfile: boolean;
 }>({
   // Playwright launches headless Chromium with --hide-scrollbars, so every
   // scrollbar measures 0px and paints nothing (KAN-188). Off by default on
@@ -32,7 +33,15 @@ export const test = base.extend<{
   // `test.use({ showScrollbars: true })`.
   showScrollbars: [false, { option: true }],
 
-  context: async ({ showScrollbars }, use) => {
+  // KAN-259. A fresh profile is asked the cloud question on first open, as a
+  // modal that intercepts every click behind it, so by default the profile
+  // starts as a user who said yes. `test.use({ freshProfile: true })` leaves
+  // the profile genuinely empty -- for the specs about the question itself.
+  // An option rather than a seed because seeds are init scripts, which re-run
+  // on every page: a seed of "no answer" would erase the answer on reopen.
+  freshProfile: [false, { option: true }],
+
+  context: async ({ showScrollbars, freshProfile }, use) => {
     // A throwaway profile per test: extension state (localStorage,
     // chrome.storage) persists in the profile, so sharing one would let tests
     // leak into each other.
@@ -47,6 +56,24 @@ export const test = base.extend<{
       ignoreDefaultArgs: showScrollbars ? ['--hide-scrollbars'] : [],
       args: [`--disable-extensions-except=${DIST}`, `--load-extension=${DIST}`],
     });
+
+    // KAN-259, see the freshProfile option above. Only when settingsData is
+    // absent: a later seedSettings writes its own (merged with 'granted' in
+    // seed.ts), and an answer the popup saved must survive a reopen.
+    if (!freshProfile) {
+      await context.addInitScript(() => {
+        try {
+          if (window.localStorage.getItem('settingsData') === null) {
+            window.localStorage.setItem(
+              'settingsData',
+              JSON.stringify({ cloudConsent: 'granted' })
+            );
+          }
+        } catch {
+          // Storage blocked; the specs' own assertions say so more clearly.
+        }
+      });
+    }
 
     await use(context);
 

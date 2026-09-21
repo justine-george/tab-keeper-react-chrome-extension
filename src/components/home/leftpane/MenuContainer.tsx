@@ -10,10 +10,12 @@ import {
   sortSessions,
 } from '../../../redux/slices/tabContainerDataStateSlice';
 import { AppDispatch, RootState } from '../../../redux/store';
+import { ensureCloudSession } from '../../../config/firebase';
 import {
   closeToast,
   openSettingsPage,
   syncStateWithFirestore,
+  openCloudConsentModal,
 } from '../../../redux/slices/globalStateSlice';
 import {
   isRedoableSelector,
@@ -29,6 +31,9 @@ import type { IconName } from '../../common/iconNames';
 export default function MenuContainer() {
   const syncStatus = useSelector(
     (state: RootState) => state.globalState.syncStatus
+  );
+  const cloudConsent = useSelector(
+    (state: RootState) => state.settingsDataState.cloudConsent
   );
 
   const isSignedIn = useSelector(
@@ -52,7 +57,16 @@ export default function MenuContainer() {
     dispatch(closeToast());
   }
 
+  // KAN-259. Manual sync is a sync: without consent it asks the cloud
+  // question instead of uploading, and with it the Firebase session is
+  // started here if this is the first time (the boot effect starts it only
+  // when Auto Sync is on).
   function handleClickSync() {
+    if (cloudConsent !== 'granted') {
+      dispatch(openCloudConsentModal('enable'));
+      return;
+    }
+    ensureCloudSession(dispatch);
     dispatch(syncStateWithFirestore());
   }
 

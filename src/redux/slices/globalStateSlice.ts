@@ -1,6 +1,6 @@
 import { createAsyncThunk, createSlice, PayloadAction } from '@reduxjs/toolkit';
 
-import { RootState } from '../store';
+import { AppDispatch, RootState } from '../store';
 import { setPresentStartup } from './undoRedoSlice';
 import { selectCategory, SettingsCategory } from './settingsCategoryStateSlice';
 import {
@@ -10,6 +10,7 @@ import {
 } from './tabContainerDataStateSlice';
 import {
   deleteFromFirestore,
+  ensureCloudSessionReady,
   loadFromFirestore,
   saveToFirestore,
 } from '../../utils/functions/external';
@@ -88,6 +89,10 @@ export interface Global {
   focusRequest: FocusRequest | null;
   // KAN-254. The "Delete cloud data" confirm dialog.
   isDeleteCloudDataModalOpen: boolean;
+  // KAN-259. The cloud question, and which wording: 'welcome' for a fresh
+  // install, 'existing' for a user whose sessions are already synced.
+  isCloudConsentModalOpen: boolean;
+  cloudConsentVariant: CloudConsentVariant;
   // "the tabGroups permission is granted right now". Mirrors
   // chrome.permissions.contains(), re-read on every popup mount and updated by
   // the permission change listeners -- never persisted, because the user can
@@ -167,6 +172,12 @@ export const collapsedWindowIdsOf = (
 // the dialog has to say which of the two is about to happen. Null when no
 // confirmation is open, so the fields can never disagree about whether there
 // is something to confirm.
+// 'welcome': a fresh install's first open. 'existing': a synced user's first
+// open after the update. 'enable': a user who declined, or never answered,
+// and is now asking for the cloud -- the sync button or the Auto Sync toggle
+// -- so the question is asked plainly, not as a greeting (KAN-259).
+export type CloudConsentVariant = 'welcome' | 'existing' | 'enable';
+
 export interface FocusRequest {
   tabGroupId: string;
   windowCount: number;
@@ -190,6 +201,8 @@ export const initialState: Global = {
   tabGroupsPromptCount: null,
   focusRequest: null,
   isDeleteCloudDataModalOpen: false,
+  isCloudConsentModalOpen: false,
+  cloudConsentVariant: 'welcome',
   hasTabGroupsPermission: false,
   collapsedWindows: null,
 };
@@ -420,6 +433,10 @@ export const deleteCloudData = createAsyncThunk(
     thunkAPI.dispatch(closeDeleteCloudDataModal());
     if (!userId) return;
     try {
+      // KAN-259. The rules need request.auth; with lazy sign-in a user who
+      // declined the cloud may never have signed in, so start the session
+      // here and wait for it before the delete.
+      await ensureCloudSessionReady(thunkAPI.dispatch as AppDispatch);
       await deleteFromFirestore(userId);
     } catch (error) {
       console.warn('deleteCloudData: delete failed:', error);
@@ -513,6 +530,18 @@ export const globalStateSlice = createSlice({
 
     closeDeleteCloudDataModal: (state) => {
       state.isDeleteCloudDataModalOpen = false;
+    },
+
+    openCloudConsentModal: (
+      state,
+      action: PayloadAction<CloudConsentVariant>
+    ) => {
+      state.isCloudConsentModalOpen = true;
+      state.cloudConsentVariant = action.payload;
+    },
+
+    closeCloudConsentModal: (state) => {
+      state.isCloudConsentModalOpen = false;
     },
 
     openSearchPanel: (state) => {
@@ -721,6 +750,8 @@ export const {
   closeFocusModal,
   openDeleteCloudDataModal,
   closeDeleteCloudDataModal,
+  openCloudConsentModal,
+  closeCloudConsentModal,
   openSearchPanel,
   closeSearchPanel,
   setSearchInputText,

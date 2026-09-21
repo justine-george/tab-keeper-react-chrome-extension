@@ -19,6 +19,8 @@ export enum Theme {
   BLUE = 'Blue',
 }
 
+export type CloudConsent = 'granted' | 'declined' | '';
+
 export enum Language {
   DE = 'de',
   EN = 'en',
@@ -44,6 +46,11 @@ export interface SettingsData {
   exportLayout: ExportLayout;
   language: Language;
   isAutoSync: boolean;
+  // KAN-259. Whether the user has answered the cloud question. '' means not
+  // yet: the welcome opens on the next popup open, and no sync runs and no
+  // Firebase sign-in happens until it is answered. The effective permission
+  // to sync is `isAutoSync && cloudConsent === 'granted'`; see cloudSyncAllowed.
+  cloudConsent: CloudConsent;
   extensionInstalledTime: number | '';
   isSkippedUserReviewOnce: boolean;
   isUserRatedAndReviewed: boolean;
@@ -109,6 +116,7 @@ const defaultSettings: SettingsData = {
   theme: Theme.LIGHT,
   exportLayout: 'compact',
   isAutoSync: true,
+  cloudConsent: '',
   extensionInstalledTime: '',
   isSkippedUserReviewOnce: false,
   isUserRatedAndReviewed: false,
@@ -141,6 +149,22 @@ export const settingsDataStateSlice = createSlice({
       state.language = action.payload;
 
       // Save updated state to localStorage
+      saveToLocalStorage('settingsData', state);
+    },
+
+    // KAN-259. The two answers. Granting turns Auto Sync on and declining
+    // turns it off, so the flag and the consent never disagree at the moment
+    // of answering; the flag can still be turned off later, and turning it
+    // back on with consent declined re-asks (Settings) rather than uploading.
+    grantCloudConsent: (state) => {
+      state.cloudConsent = 'granted';
+      state.isAutoSync = true;
+      saveToLocalStorage('settingsData', state);
+    },
+
+    declineCloudConsent: (state) => {
+      state.cloudConsent = 'declined';
+      state.isAutoSync = false;
       saveToLocalStorage('settingsData', state);
     },
 
@@ -264,6 +288,8 @@ export const {
   setLanguage,
   toggleAutoSync,
   setAutoSync,
+  grantCloudConsent,
+  declineCloudConsent,
   setNeverAskAgainToRate,
   setUserRatedAndReviewed,
   setSkippedUserReviewOnce,
@@ -279,3 +305,11 @@ export const {
 } = settingsDataStateSlice.actions;
 
 export default settingsDataStateSlice.reducer;
+
+/**
+ * Whether this device may sync right now (KAN-259): the user said yes, and
+ * has not since turned Auto Sync off. Every sync starter reads this, never
+ * `isAutoSync` alone.
+ */
+export const cloudSyncAllowed = (settings: SettingsData): boolean =>
+  settings.isAutoSync && settings.cloudConsent === 'granted';

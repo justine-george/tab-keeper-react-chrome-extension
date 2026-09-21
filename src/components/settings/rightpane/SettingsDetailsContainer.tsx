@@ -23,6 +23,7 @@ import {
   showToast,
   syncStateWithFirestore,
   openDeleteCloudDataModal,
+  openCloudConsentModal,
 } from '../../../redux/slices/globalStateSlice';
 import {
   Language,
@@ -59,6 +60,7 @@ import { SettingsCategory } from '../../../redux/slices/settingsCategoryStateSli
 import SyncStatus from './Account/SyncStatus';
 import SlidingPair, { type SlidingPairMetrics } from '../../common/SlidingPair';
 import { useTranslation } from 'react-i18next';
+import { ensureCloudSession } from '../../../config/firebase';
 import { CONTROL, DURATION, RADIUS, TYPE } from '../../../styles/scale';
 import {
   CHROME_SHORTCUTS_URL,
@@ -153,6 +155,10 @@ const SettingsDetailsContainer: React.FC = () => {
 
   const handleToggleAutoSync = () => {
     if (!settingsData.isAutoSync) {
+      // Reached only with consent granted (the pair asks otherwise), so
+      // this is the lazy sign-in's other entry: a user who declined, then
+      // said yes from Settings, has never contacted Firebase until now.
+      ensureCloudSession(dispatch);
       dispatch(syncStateWithFirestore());
     }
     dispatch(toggleAutoSync());
@@ -414,6 +420,12 @@ const SettingsDetailsContainer: React.FC = () => {
               ]}
               value={settingsData.isAutoSync ? 'on' : 'off'}
               onChange={(next) => {
+                // KAN-259. Turning it on without consent asks the cloud
+                // question instead: the answer sets the flag. Off is off.
+                if (next === 'on' && settingsData.cloudConsent !== 'granted') {
+                  dispatch(openCloudConsentModal('enable'));
+                  return;
+                }
                 if ((next === 'on') !== settingsData.isAutoSync) {
                   handleToggleAutoSync();
                 }

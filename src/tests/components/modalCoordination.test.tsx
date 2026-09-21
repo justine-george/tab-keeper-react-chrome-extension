@@ -48,6 +48,9 @@ describe('modal coordination on popup open', () => {
       JSON.stringify({
         extensionInstalledTime: Date.now() - 2 * DAY,
         lastValueMomentTime: Date.now() - 60 * 60 * 1000,
+        // KAN-259: a user who has answered the cloud question, or it would
+        // take the screen first and both of these would stand down.
+        cloudConsent: 'granted',
       })
     );
 
@@ -73,6 +76,7 @@ describe('modal coordination on popup open', () => {
         extensionInstalledTime: Date.now() - 2 * DAY,
         lastValueMomentTime: Date.now() - 60 * 60 * 1000,
         isNeverAskAgainToRate: true,
+        cloudConsent: 'granted',
       })
     );
 
@@ -87,18 +91,20 @@ describe('modal coordination on popup open', () => {
     expect(store.getState().globalState.isRateAndReviewModalOpen).toBe(false);
   });
 
-  // A brand-new user: the rate path writes extensionInstalledTime and returns
-  // without opening anything, so the tab-groups offer is free to fire on the
-  // very first open. Verified against a real fresh install too.
-  test('a first-run user gets the tab-groups offer, not the rate request', async () => {
+  // A brand-new user gets the cloud question (KAN-259), and BOTH of the
+  // others stand down -- the tab-groups offer included, which used to be free
+  // to fire on the very first open. It gets its turn on the next open, once
+  // the question is answered; that path is the second test above.
+  test('a first-run user gets the cloud question, and both others stand down', async () => {
     const { store } = await renderWithProviders(<App />, {
       seed: twoGroupsUngranted,
     });
 
     await waitFor(() =>
-      expect(store.getState().globalState.tabGroupsPromptCount).toBe(2)
+      expect(store.getState().globalState.isCloudConsentModalOpen).toBe(true)
     );
 
+    expect(store.getState().globalState.tabGroupsPromptCount).toBeNull();
     expect(store.getState().globalState.isRateAndReviewModalOpen).toBe(false);
   });
 });
