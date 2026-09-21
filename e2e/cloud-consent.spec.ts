@@ -76,9 +76,13 @@ test.describe('the cloud question (KAN-259)', () => {
           .getByRole('group', { name: 'Auto Sync' })
           .getByRole('button', { name: 'Off' })
       ).toHaveAttribute('aria-pressed', 'true');
+      // Declined is "off", not "manual": the cloud button would ask first.
       await expect(page.getByTestId('sync-status')).toHaveAttribute(
         'data-sync-state',
-        'manual'
+        'off'
+      );
+      await expect(page.getByTestId('sync-status')).toContainText(
+        'Sync is off'
       );
     });
 

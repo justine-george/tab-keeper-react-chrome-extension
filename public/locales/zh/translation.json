@@ -187,5 +187,7 @@
   "EnableSyncBody": "Tab Keeper 可以将您保存的会话副本（其中标签页的地址和标题）保存到云端，以便您的其他 Chrome 设备也能打开。",
   "EnableSyncFine": "以匿名 ID 存储，无需账户或邮箱。您可以在 设置 → 同步与备份 中关闭它或删除副本。",
   "Not now": "暂不",
-  "Sync": "同步"
+  "Sync": "同步",
+  "Sync is off": "同步已关闭",
+  "Your sessions stay on this device. Turn on Auto Sync, or press the cloud button on the home screen, to start syncing.": "您的会话只保留在此设备上。开启自动同步，或按主屏幕上的云按钮，即可开始同步。"
 }

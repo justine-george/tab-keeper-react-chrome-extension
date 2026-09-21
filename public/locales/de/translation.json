@@ -187,5 +187,7 @@
   "EnableSyncBody": "Tab Keeper kann eine Kopie Ihrer gespeicherten Sitzungen – die Adressen und Titel der Tabs darin – in der Cloud ablegen, damit auch Ihre anderen Chrome-Geräte sie öffnen können.",
   "EnableSyncFine": "Unter einer anonymen ID gespeichert, ohne Konto oder E-Mail. Sie können das unter Einstellungen → Sync & Sicherung ausschalten oder die Kopie löschen.",
   "Not now": "Nicht jetzt",
-  "Sync": "Synchronisieren"
+  "Sync": "Synchronisieren",
+  "Sync is off": "Sync ist aus",
+  "Your sessions stay on this device. Turn on Auto Sync, or press the cloud button on the home screen, to start syncing.": "Ihre Sitzungen bleiben auf diesem Gerät. Schalten Sie Auto-Sync ein oder drücken Sie auf dem Startbildschirm die Cloud-Schaltfläche, um die Synchronisierung zu starten."
 }

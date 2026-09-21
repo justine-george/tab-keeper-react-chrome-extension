@@ -187,5 +187,7 @@
   "EnableSyncBody": "Tab Keeper は保存したセッションのコピー（タブのアドレスとタイトル）をクラウドに保存し、他の Chrome デバイスでも開けるようにできます。",
   "EnableSyncFine": "匿名 ID のもとで保存され、アカウントもメールも不要です。設定 → 同期とバックアップ でオフにしたり、コピーを削除したりできます。",
   "Not now": "あとで",
-  "Sync": "同期する"
+  "Sync": "同期する",
+  "Sync is off": "同期はオフです",
+  "Your sessions stay on this device. Turn on Auto Sync, or press the cloud button on the home screen, to start syncing.": "セッションはこのデバイスにとどまります。自動同期をオンにするか、ホーム画面のクラウドボタンを押すと同期が始まります。"
 }
