@@ -189,5 +189,6 @@
   "Not now": "Nicht jetzt",
   "Sync": "Synchronisieren",
   "Sync is off": "Sync ist aus",
-  "Your sessions stay on this device. Turn on Auto Sync, or press the cloud button on the home screen, to start syncing.": "Ihre Sitzungen bleiben auf diesem Gerät. Schalten Sie Auto-Sync ein oder drücken Sie auf dem Startbildschirm die Cloud-Schaltfläche, um die Synchronisierung zu starten."
+  "Your sessions stay on this device. Turn on Auto Sync, or press the cloud button on the home screen, to start syncing.": "Ihre Sitzungen bleiben auf diesem Gerät. Schalten Sie Auto-Sync ein oder drücken Sie auf dem Startbildschirm die Cloud-Schaltfläche, um die Synchronisierung zu starten.",
+  "EnableSyncOnceFine": "Das synchronisiert einmalig. Auto-Sync bleibt aus, bis Sie es unter Einstellungen → Sync & Sicherung einschalten. Unter einer anonymen ID gespeichert, ohne Konto oder E-Mail."
 }

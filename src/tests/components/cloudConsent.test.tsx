@@ -141,11 +141,13 @@ describe('who is asked, and which screen (KAN-259)', () => {
 describe('the answers (KAN-259)', () => {
   const renderWelcome = () =>
     renderWithProviders(<CloudConsentModal />, {
-      seedStore: (s) => s.dispatch(openCloudConsentModal('welcome')),
+      seedStore: (s) =>
+        s.dispatch(openCloudConsentModal({ variant: 'welcome' })),
     });
   const renderExisting = () =>
     renderWithProviders(<CloudConsentModal />, {
-      seedStore: (s) => s.dispatch(openCloudConsentModal('existing')),
+      seedStore: (s) =>
+        s.dispatch(openCloudConsentModal({ variant: 'existing' })),
     });
 
   test('welcome: Keep on this device declines and turns Auto Sync off', async () => {
@@ -318,7 +320,8 @@ describe('it is never a surprise (KAN-259)', () => {
     await user.click(screen.getByRole('button', { name: 'Sync now' }));
     await user.click(screen.getByRole('button', { name: 'Sync' }));
     expect(store.getState().settingsDataState.cloudConsent).toBe('granted');
-    expect(store.getState().settingsDataState.isAutoSync).toBe(true);
+    // One sync, not a setting: Auto Sync stays off (Justine's case).
+    expect(store.getState().settingsDataState.isAutoSync).toBe(false);
     await waitFor(() => expect(mocks.ensureCloudSession).toHaveBeenCalled());
   });
 
@@ -328,7 +331,9 @@ describe('it is never a surprise (KAN-259)', () => {
       {
         seedStore: (s) => {
           s.dispatch(declineCloudConsent());
-          s.dispatch(openCloudConsentModal('enable'));
+          s.dispatch(
+            openCloudConsentModal({ variant: 'enable', then: 'syncNow' })
+          );
         },
       }
     );
@@ -384,5 +389,60 @@ describe('Turn off sync means no sync, before and after (KAN-259)', () => {
     expect(seen).not.toContain('global/syncStateWithFirestore/pending');
     expect(mocks.ensureCloudSession).not.toHaveBeenCalled();
     vi.useRealTimers();
+  });
+});
+
+// Justine's case: declined, then the cloud button, then Sync. That is a
+// request for ONE sync. Consent is granted (they said yes to the cloud) and
+// the sync runs, but Auto Sync stays as it was -- they never asked for it.
+// The same question from the Auto Sync toggle turns it on, because that is
+// what they were doing there.
+describe('the plain question does what it was opened for (KAN-259)', () => {
+  test('from the cloud button, Sync syncs once and leaves Auto Sync off', async () => {
+    const user = userEvent.setup();
+    const seed = seedSettings({
+      extensionInstalledTime: Date.now() - 30 * DAY,
+      cloudConsent: 'declined',
+      isAutoSync: false,
+    });
+    const { store, seen } = await renderWithProviders(<App />, {
+      seedStore: (s) => {
+        seed(s);
+        s.dispatch(setSignedIn());
+        s.dispatch(setUserId('uuid-1'));
+      },
+    });
+    await user.click(screen.getByRole('button', { name: 'Sync now' }));
+    const dialog = screen.getByRole('dialog', {
+      name: 'Sync your sessions across devices?',
+    });
+    // The fine print says so.
+    expect(dialog.textContent).toMatch(/Auto Sync stays off/);
+    seen.length = 0;
+    await user.click(within(dialog).getByRole('button', { name: 'Sync' }));
+
+    expect(store.getState().settingsDataState.cloudConsent).toBe('granted');
+    expect(store.getState().settingsDataState.isAutoSync).toBe(false);
+    await waitFor(() => expect(mocks.ensureCloudSession).toHaveBeenCalled());
+    expect(seen).toContain('global/syncStateWithFirestore/pending');
+  });
+
+  test('from the Auto Sync toggle, Sync turns Auto Sync on', async () => {
+    const { store } = await renderWithProviders(<CloudConsentModal />, {
+      seedStore: (s) => {
+        s.dispatch(declineCloudConsent());
+        s.dispatch(
+          openCloudConsentModal({ variant: 'enable', then: 'autoSync' })
+        );
+      },
+    });
+    const user = userEvent.setup();
+    const dialog = screen.getByRole('dialog', {
+      name: 'Sync your sessions across devices?',
+    });
+    expect(dialog.textContent).not.toMatch(/Auto Sync stays off/);
+    await user.click(within(dialog).getByRole('button', { name: 'Sync' }));
+    expect(store.getState().settingsDataState.cloudConsent).toBe('granted');
+    expect(store.getState().settingsDataState.isAutoSync).toBe(true);
   });
 });

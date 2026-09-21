@@ -205,7 +205,9 @@ function App() {
       dispatch(declineCloudConsent());
       return false;
     }
-    dispatch(openCloudConsentModal(isExisting ? 'existing' : 'welcome'));
+    dispatch(
+      openCloudConsentModal({ variant: isExisting ? 'existing' : 'welcome' })
+    );
     return true;
   }
 

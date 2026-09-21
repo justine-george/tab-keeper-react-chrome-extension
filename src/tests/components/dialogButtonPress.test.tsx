@@ -26,7 +26,8 @@ const DIALOGS = [
     name: 'CloudConsentModal',
     render: () =>
       renderWithProviders(<CloudConsentModal />, {
-        seedStore: (s) => s.dispatch(openCloudConsentModal('welcome')),
+        seedStore: (s) =>
+          s.dispatch(openCloudConsentModal({ variant: 'welcome' })),
       }),
   },
   {

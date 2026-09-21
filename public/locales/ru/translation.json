@@ -189,5 +189,6 @@
   "Not now": "Не сейчас",
   "Sync": "Синхронизировать",
   "Sync is off": "Синхронизация выключена",
-  "Your sessions stay on this device. Turn on Auto Sync, or press the cloud button on the home screen, to start syncing.": "Ваши сессии остаются на этом устройстве. Включите авто-синхронизацию или нажмите кнопку облака на главном экране, чтобы начать синхронизацию."
+  "Your sessions stay on this device. Turn on Auto Sync, or press the cloud button on the home screen, to start syncing.": "Ваши сессии остаются на этом устройстве. Включите авто-синхронизацию или нажмите кнопку облака на главном экране, чтобы начать синхронизацию.",
+  "EnableSyncOnceFine": "Это разовая синхронизация. Авто-синхронизация остаётся выключенной, пока вы не включите её в Настройки → Синхро & Копия. Хранится под анонимным ID, без аккаунта и почты."
 }

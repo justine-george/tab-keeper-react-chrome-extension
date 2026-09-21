@@ -152,13 +152,13 @@ export const settingsDataStateSlice = createSlice({
       saveToLocalStorage('settingsData', state);
     },
 
-    // KAN-259. The two answers. Granting turns Auto Sync on and declining
-    // turns it off, so the flag and the consent never disagree at the moment
-    // of answering; the flag can still be turned off later, and turning it
-    // back on with consent declined re-asks (Settings) rather than uploading.
+    // KAN-259. The two answers. Declining turns Auto Sync off. Granting
+    // records the yes and leaves the flag to the caller: the welcome and the
+    // toggle turn it on, the cloud button does NOT -- a user who asked for
+    // one sync did not ask for a setting. Turning the flag on with consent
+    // declined re-asks (Settings) rather than uploading.
     grantCloudConsent: (state) => {
       state.cloudConsent = 'granted';
-      state.isAutoSync = true;
       saveToLocalStorage('settingsData', state);
     },
 

@@ -423,7 +423,12 @@ const SettingsDetailsContainer: React.FC = () => {
                 // KAN-259. Turning it on without consent asks the cloud
                 // question instead: the answer sets the flag. Off is off.
                 if (next === 'on' && settingsData.cloudConsent !== 'granted') {
-                  dispatch(openCloudConsentModal('enable'));
+                  dispatch(
+                    openCloudConsentModal({
+                      variant: 'enable',
+                      then: 'autoSync',
+                    })
+                  );
                   return;
                 }
                 if ((next === 'on') !== settingsData.isAutoSync) {

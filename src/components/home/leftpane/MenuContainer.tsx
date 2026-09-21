@@ -63,7 +63,7 @@ export default function MenuContainer() {
   // when Auto Sync is on).
   function handleClickSync() {
     if (cloudConsent !== 'granted') {
-      dispatch(openCloudConsentModal('enable'));
+      dispatch(openCloudConsentModal({ variant: 'enable', then: 'syncNow' }));
       return;
     }
     ensureCloudSession(dispatch);

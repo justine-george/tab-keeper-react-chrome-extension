@@ -189,5 +189,6 @@
   "Not now": "Not now",
   "Sync": "Sync",
   "Sync is off": "Sync is off",
-  "Your sessions stay on this device. Turn on Auto Sync, or press the cloud button on the home screen, to start syncing.": "Your sessions stay on this device. Turn on Auto Sync, or press the cloud button on the home screen, to start syncing."
+  "Your sessions stay on this device. Turn on Auto Sync, or press the cloud button on the home screen, to start syncing.": "Your sessions stay on this device. Turn on Auto Sync, or press the cloud button on the home screen, to start syncing.",
+  "EnableSyncOnceFine": "This syncs once. Auto Sync stays off until you turn it on in Settings → Sync & Backup. Stored under an anonymous ID, no account or email."
 }

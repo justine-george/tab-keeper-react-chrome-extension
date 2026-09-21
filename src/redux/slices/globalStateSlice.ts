@@ -93,6 +93,7 @@ export interface Global {
   // install, 'existing' for a user whose sessions are already synced.
   isCloudConsentModalOpen: boolean;
   cloudConsentVariant: CloudConsentVariant;
+  cloudConsentThen: CloudConsentThen | null;
   // "the tabGroups permission is granted right now". Mirrors
   // chrome.permissions.contains(), re-read on every popup mount and updated by
   // the permission change listeners -- never persisted, because the user can
@@ -178,6 +179,16 @@ export const collapsedWindowIdsOf = (
 // -- so the question is asked plainly, not as a greeting (KAN-259).
 export type CloudConsentVariant = 'welcome' | 'existing' | 'enable';
 
+// What a yes to the 'enable' question does afterwards (KAN-259). 'syncNow'
+// is the cloud button: one sync, Auto Sync left as it was -- the user asked
+// for a sync, not a setting. 'autoSync' is the Auto Sync toggle: turn it on.
+export type CloudConsentThen = 'syncNow' | 'autoSync';
+
+export interface CloudConsentRequest {
+  variant: CloudConsentVariant;
+  then?: CloudConsentThen;
+}
+
 export interface FocusRequest {
   tabGroupId: string;
   windowCount: number;
@@ -203,6 +214,7 @@ export const initialState: Global = {
   isDeleteCloudDataModalOpen: false,
   isCloudConsentModalOpen: false,
   cloudConsentVariant: 'welcome',
+  cloudConsentThen: null,
   hasTabGroupsPermission: false,
   collapsedWindows: null,
 };
@@ -534,10 +546,11 @@ export const globalStateSlice = createSlice({
 
     openCloudConsentModal: (
       state,
-      action: PayloadAction<CloudConsentVariant>
+      action: PayloadAction<CloudConsentRequest>
     ) => {
       state.isCloudConsentModalOpen = true;
-      state.cloudConsentVariant = action.payload;
+      state.cloudConsentVariant = action.payload.variant;
+      state.cloudConsentThen = action.payload.then ?? null;
     },
 
     closeCloudConsentModal: (state) => {

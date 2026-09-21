@@ -8,11 +8,16 @@ import Icon from '../common/Icon';
 import { useFontFamily } from '../../hooks/useFontFamily';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { AppDispatch, RootState } from '../../redux/store';
-import { closeCloudConsentModal } from '../../redux/slices/globalStateSlice';
+import {
+  closeCloudConsentModal,
+  syncStateWithFirestore,
+} from '../../redux/slices/globalStateSlice';
 import {
   declineCloudConsent,
   grantCloudConsent,
+  setAutoSync,
 } from '../../redux/slices/settingsDataStateSlice';
+import { ensureCloudSession } from '../../config/firebase';
 import { PRIVACY_POLICY_LINK } from '../../utils/constants/common';
 import { ICON, TYPE } from '../../styles/scale';
 import { dialogButtonStyles } from './dialogButtons';
@@ -55,6 +60,7 @@ export const CloudConsentModal: React.FC = () => {
   const variant = useSelector(
     (s: RootState) => s.globalState.cloudConsentVariant
   );
+  const then = useSelector((s: RootState) => s.globalState.cloudConsentThen);
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -70,9 +76,20 @@ export const CloudConsentModal: React.FC = () => {
     dispatch(declineCloudConsent());
     dispatch(closeCloudConsentModal());
   };
+  // A yes. What it does beyond recording consent depends on what the user
+  // was doing: the welcome and the Auto Sync toggle turn Auto Sync on; the
+  // existing user keeps what they had; the cloud button gets its ONE sync,
+  // with Auto Sync left as it was (Justine's case: "I pressed sync, it
+  // turned auto sync on" -- it must not).
   const grant = () => {
     dispatch(grantCloudConsent());
     dispatch(closeCloudConsentModal());
+    if (variant === 'welcome' || then === 'autoSync') {
+      dispatch(setAutoSync(true));
+    } else if (then === 'syncNow') {
+      ensureCloudSession(dispatch);
+      dispatch(syncStateWithFirestore());
+    }
   };
   // 'enable' is a re-ask from someone who declined or never answered: Not now
   // leaves that as it is, rather than recording a fresh decline.
@@ -211,7 +228,8 @@ export const CloudConsentModal: React.FC = () => {
             {t('EnableSyncBody')}
           </p>
           <p css={fineStyle}>
-            {t('EnableSyncFine')} {policyLink}
+            {then === 'syncNow' ? t('EnableSyncOnceFine') : t('EnableSyncFine')}{' '}
+            {policyLink}
           </p>
           <div css={actionsStyle}>
             <button type="button" css={buttons.quiet} onClick={dismiss}>
