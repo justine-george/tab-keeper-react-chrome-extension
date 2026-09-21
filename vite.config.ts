@@ -59,7 +59,6 @@ export default defineConfig({
       VITE_FIREBASE_STORAGE_BUCKET: 'test.appspot.com',
       VITE_FIREBASE_MESSAGING_SENDER_ID: '0',
       VITE_FIREBASE_APP_ID: '1:0:web:0',
-      VITE_FIREBASE_MEASUREMENT_ID: 'G-0',
     },
 
     projects: [

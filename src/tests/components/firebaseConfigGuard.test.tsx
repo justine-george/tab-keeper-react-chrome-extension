@@ -23,7 +23,6 @@ const CONFIG_KEYS = [
   'VITE_FIREBASE_STORAGE_BUCKET',
   'VITE_FIREBASE_MESSAGING_SENDER_ID',
   'VITE_FIREBASE_APP_ID',
-  'VITE_FIREBASE_MEASUREMENT_ID',
 ] as const;
 
 const withConfig = () => {
@@ -33,7 +32,6 @@ const withConfig = () => {
   vi.stubEnv('VITE_FIREBASE_STORAGE_BUCKET', 'unit-test.appspot.com');
   vi.stubEnv('VITE_FIREBASE_MESSAGING_SENDER_ID', '000000000000');
   vi.stubEnv('VITE_FIREBASE_APP_ID', '1:0:web:0');
-  vi.stubEnv('VITE_FIREBASE_MEASUREMENT_ID', 'G-0');
 };
 
 const withoutConfig = () => {
