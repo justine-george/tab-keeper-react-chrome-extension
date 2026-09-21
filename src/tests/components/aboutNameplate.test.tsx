@@ -8,7 +8,7 @@ import {
   selectCategory,
   SettingsCategory,
 } from '../../redux/slices/settingsCategoryStateSlice';
-import { APP_VERSION } from '../../utils/constants/common';
+import { APP_VERSION, PRIVACY_POLICY_LINK } from '../../utils/constants/common';
 import { TYPE } from '../../styles/scale';
 
 // KAN-241. Settings -> About is a nameplate over the same section anatomy the
@@ -124,5 +124,41 @@ describe('the About nameplate', () => {
       screen.getByRole('button', { name: 'Share your feedback' })
     ).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Share on X' })).toBeTruthy();
+  });
+
+  // KAN-260. The policy is a file in the repository; the consent dialog links
+  // to it, and so does the one place a user goes looking: About. A link, not a
+  // button -- it leaves the extension, and the dialog already set the pattern.
+  describe('the privacy policy link', () => {
+    test('is a link to the policy, under the version line', async () => {
+      await renderAbout();
+
+      const link = screen.getByRole('link', { name: 'Privacy policy' });
+      expect(link.getAttribute('href')).toBe(PRIVACY_POLICY_LINK);
+      // In the nameplate section, not among the Feedback & Share actions.
+      expect(link.closest('[data-settings-section]')).toBe(
+        screen.getByText(`v${APP_VERSION}`).closest('[data-settings-section]')
+      );
+      expect(getComputedStyle(link).fontSize).toBe(px(TYPE.SECONDARY));
+    });
+
+    // A popup that follows a link navigates itself away; chrome.tabs.create
+    // opens the policy in a real tab instead, and the default is stopped so
+    // the popup does not also navigate.
+    test('a click opens the policy in a new tab and does not navigate the popup', async () => {
+      const { chrome } = await renderAbout();
+      const link = screen.getByRole('link', { name: 'Privacy policy' });
+
+      const click = new MouseEvent('click', {
+        bubbles: true,
+        cancelable: true,
+      });
+      const proceeded = link.dispatchEvent(click);
+
+      expect(chrome.createdTabs.map((t) => t.url)).toEqual([
+        PRIVACY_POLICY_LINK,
+      ]);
+      expect(proceeded).toBe(false);
+    });
   });
 });

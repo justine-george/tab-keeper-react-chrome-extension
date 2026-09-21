@@ -40,6 +40,7 @@ import {
   FEEDBACK_MAIL_SUBJECT,
   IMPORT_ERROR_FRAME,
   NON_INTERACTIVE_ICON_STYLE,
+  PRIVACY_POLICY_LINK,
   SHARE_X_TEXT,
   TOAST_MESSAGES,
 } from '../../../utils/constants/common';
@@ -849,6 +850,27 @@ const SettingsDetailsContainer: React.FC = () => {
               style="&::before { content: '·'; margin: 0 6px; }"
             />
           </div>
+          {/* KAN-260. The policy, on its own line under the version at the
+              same step and 6px rhythm: a third fact about the product, not a
+              fourth action. In the text colour, as the consent dialog sets its
+              link, so it reads as a link and not as another label. Opened in a
+              tab: a popup that follows a link navigates itself away. */}
+          <a
+            href={PRIVACY_POLICY_LINK}
+            target="_blank"
+            rel="noreferrer"
+            onClick={(e) => {
+              e.preventDefault();
+              chrome.tabs.create({ url: PRIVACY_POLICY_LINK });
+            }}
+            css={css`
+              margin-top: 6px;
+              font-size: ${TYPE.SECONDARY};
+              color: ${COLORS.TEXT_COLOR};
+            `}
+          >
+            {t('Privacy policy')}
+          </a>
         </div>
 
         {/* Feedback & Share */}
