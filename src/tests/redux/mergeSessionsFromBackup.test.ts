@@ -84,7 +84,10 @@ describe('mergeSessionsFromBackupInternal (KAN-261)', () => {
     );
 
     const after = store.getState().tabContainerDataState;
-    expect(ids(after)).toEqual(['f1', 'f2', 'h2', 'h1']);
+    // The file's two on top, then what was here in the order it was here.
+    // Derived from `before`, not written out: two saves in one millisecond
+    // leave h1/h2 in either order (KAN-145), and that order is not the claim.
+    expect(ids(after)).toEqual(['f1', 'f2', ...ids(before)]);
     // The local sessions are the same objects, not re-stamped copies: a
     // merge that touched them would assert them over the cloud's copies.
     expect(after.tabGroups[2]).toBe(before.tabGroups[0]);
