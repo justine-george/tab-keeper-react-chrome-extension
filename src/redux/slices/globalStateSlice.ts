@@ -5,6 +5,7 @@ import { setPresentStartup } from './undoRedoSlice';
 import { selectCategory, SettingsCategory } from './settingsCategoryStateSlice';
 import {
   replaceState,
+  restoreContainer,
   selectTabContainer,
   TabMasterContainer,
 } from './tabContainerDataStateSlice';
@@ -89,6 +90,10 @@ export interface Global {
   focusRequest: FocusRequest | null;
   // KAN-254. The "Delete cloud data" confirm dialog.
   isDeleteCloudDataModalOpen: boolean;
+  // KAN-252. A backup that has been read and validated but not yet applied:
+  // the "Replace your saved sessions?" dialog is open exactly while this is
+  // set. Session-only, like the other dialog flags.
+  pendingImport: PendingImport | null;
   // KAN-259. The cloud question, and which wording: 'welcome' for a fresh
   // install, 'existing' for a user whose sessions are already synced.
   isCloudConsentModalOpen: boolean;
@@ -195,6 +200,13 @@ export interface FocusRequest {
   willSave: boolean;
 }
 
+// KAN-252. A backup read from disk, waiting on the user's answer. The file
+// name is what the dialog shows; the container is what Replace applies.
+export interface PendingImport {
+  container: TabMasterContainer;
+  fileName: string;
+}
+
 export const initialState: Global = {
   hasSyncedBefore: false,
   isSignedIn: false,
@@ -212,6 +224,7 @@ export const initialState: Global = {
   tabGroupsPromptCount: null,
   focusRequest: null,
   isDeleteCloudDataModalOpen: false,
+  pendingImport: null,
   isCloudConsentModalOpen: false,
   cloudConsentVariant: 'welcome',
   cloudConsentThen: null,
@@ -465,6 +478,49 @@ export const deleteCloudData = createAsyncThunk(
   }
 );
 
+/**
+ * Applies a backup that has been read and validated (KAN-252): the step that
+ * used to run straight from the file picker, now behind "Replace your saved
+ * sessions?" -- or straight away when nothing is saved here to replace.
+ *
+ * restoreContainer, not replaceState: a backup written before a session was
+ * deleted still contains it and carries no tombstone, but the cloud may hold
+ * the one that delete pushed up. Replacing blind lets the next merge re-apply
+ * the delete, so the import appears to work and then silently drops it.
+ *
+ * KAN-257: the cloud write only with Auto Sync on. Off, the container is left
+ * dirty and the next manual sync carries it, like any edit. The restore is
+ * done and persisted before the write, so the toast reports the state of the
+ * WRITE -- requestStatus, not unwrap(): a rejection here is a sync problem,
+ * and "Error restoring tabs" would be the one untrue thing to say.
+ */
+export const replaceSessionsFromBackup = createAsyncThunk(
+  'global/replaceSessionsFromBackup',
+  async (container: TabMasterContainer, thunkAPI) => {
+    thunkAPI.dispatch(cancelReplaceSessions());
+    thunkAPI.dispatch(
+      restoreContainer({ ...container, lastModified: Date.now() })
+    );
+    thunkAPI.dispatch(setIsDirty());
+
+    let syncFailed = false;
+    const { isAutoSync } = (thunkAPI.getState() as RootState).settingsDataState;
+    if (isAutoSync) {
+      const saveResult = await thunkAPI.dispatch(saveToFirestoreIfDirty());
+      syncFailed = saveResult.meta.requestStatus === 'rejected';
+    }
+
+    thunkAPI.dispatch(
+      showToast({
+        toastText: syncFailed
+          ? TOAST_MESSAGES.IMPORT_SYNC_FAILED
+          : TOAST_MESSAGES.IMPORT_SUCCESS,
+        duration: 3000,
+      })
+    );
+  }
+);
+
 export const openSettingsPage = createAsyncThunk(
   'global/openSettingsPage',
   async (settingsName: SettingsCategory | undefined, thunkAPI) => {
@@ -542,6 +598,17 @@ export const globalStateSlice = createSlice({
 
     closeDeleteCloudDataModal: (state) => {
       state.isDeleteCloudDataModalOpen = false;
+    },
+
+    // KAN-252. Opens "Replace your saved sessions?" for a backup that has
+    // already been read and validated. Cancel forgets it; Replace is the
+    // replaceSessionsFromBackup thunk, which clears it on the way.
+    askToReplaceSessions: (state, action: PayloadAction<PendingImport>) => {
+      state.pendingImport = action.payload;
+    },
+
+    cancelReplaceSessions: (state) => {
+      state.pendingImport = null;
     },
 
     openCloudConsentModal: (
@@ -763,6 +830,8 @@ export const {
   closeFocusModal,
   openDeleteCloudDataModal,
   closeDeleteCloudDataModal,
+  askToReplaceSessions,
+  cancelReplaceSessions,
   openCloudConsentModal,
   closeCloudConsentModal,
   openSearchPanel,

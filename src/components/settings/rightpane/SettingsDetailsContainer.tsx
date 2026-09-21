@@ -18,8 +18,8 @@ import {
 } from '../../../hooks/useThemeColors';
 import { AppDispatch, RootState } from '../../../redux/store';
 import {
-  saveToFirestoreIfDirty,
-  setIsDirty,
+  askToReplaceSessions,
+  replaceSessionsFromBackup,
   showToast,
   syncStateWithFirestore,
   openDeleteCloudDataModal,
@@ -42,13 +42,9 @@ import {
   NON_INTERACTIVE_ICON_STYLE,
   PRIVACY_POLICY_LINK,
   SHARE_X_TEXT,
-  TOAST_MESSAGES,
 } from '../../../utils/constants/common';
 import { SettingsCategoryContainer } from '../leftpane/SettingsCategoryContainer';
-import {
-  TabMasterContainer,
-  restoreContainer,
-} from '../../../redux/slices/tabContainerDataStateSlice';
+import { TabMasterContainer } from '../../../redux/slices/tabContainerDataStateSlice';
 import {
   readImportedContainer,
   TranslatableError,
@@ -201,10 +197,7 @@ const SettingsDetailsContainer: React.FC = () => {
       const file = (event.target as HTMLInputElement).files![0];
       const reader = new FileReader();
 
-      // async so the cloud write below can be awaited. Its rejection used to
-      // land after this callback had already returned, which put it outside
-      // the try and left the success toast already fired (KAN-43).
-      reader.onload = async (fileEvent) => {
+      reader.onload = (fileEvent) => {
         try {
           const content = fileEvent.target!.result as string;
           // Parses, validates the structure, and refuses anything that would
@@ -213,44 +206,24 @@ const SettingsDetailsContainer: React.FC = () => {
           const tabDataFromJSON: TabMasterContainer =
             readImportedContainer(content);
 
-          // update timestamp
-          tabDataFromJSON.lastModified = Date.now();
-
-          // restoreContainer, not replaceState: a backup written before a
-          // session was deleted still contains it and carries no tombstone,
-          // but the cloud may hold the one that delete pushed up. Replacing
-          // blind lets the next merge re-apply the delete, so the import
-          // appears to work and then silently drops that session.
-          dispatch(restoreContainer(tabDataFromJSON));
-          dispatch(setIsDirty());
-
-          // KAN-257. Only with Auto Sync on. This was the one write in the
-          // app that bypassed the gate: the middleware checks isAutoSync
-          // before scheduling a sync and the header's cloud button is
-          // explicit, but this dispatched the write unconditionally -- so
-          // with Auto Sync off, whose status line promises the sessions stay
-          // on this device, a restore uploaded them. Off, the container is
-          // left dirty and the next manual sync carries it, like any edit.
-          //
-          // The restore is already done and persisted at this point, so what
-          // is being reported below is the state of the *cloud write*, not of
-          // the import. requestStatus rather than .unwrap(): unwrap would
-          // throw into the catch and produce "Error restoring tabs", which is
-          // the one thing that is definitely untrue here.
-          let syncFailed = false;
-          if (settingsData.isAutoSync) {
-            const saveResult = await dispatch(saveToFirestoreIfDirty());
-            syncFailed = saveResult.meta.requestStatus === 'rejected';
+          // KAN-252. The most destructive action in the app, and it had
+          // neither an undo (restoreContainer is excluded from the snapshots)
+          // nor a confirm. Now it asks -- after the read, so an unreadable
+          // file still gets its error and a readable one gets a question with
+          // the real numbers in it -- unless nothing is saved here, where
+          // "replace your 0 sessions?" has nothing behind it. The apply step
+          // (restore, dirty, the KAN-257-gated write, the toast) is the thunk,
+          // so the dialog's Replace and this path are one path.
+          if (tabMasterContainer.tabGroups.length === 0) {
+            void dispatch(replaceSessionsFromBackup(tabDataFromJSON));
+          } else {
+            dispatch(
+              askToReplaceSessions({
+                container: tabDataFromJSON,
+                fileName: file.name,
+              })
+            );
           }
-
-          dispatch(
-            showToast({
-              toastText: syncFailed
-                ? TOAST_MESSAGES.IMPORT_SYNC_FAILED
-                : TOAST_MESSAGES.IMPORT_SUCCESS,
-              duration: 3000,
-            })
-          );
         } catch (error: any) {
           console.warn('Error restoring tabs', error);
           // KAN-86. This used to dispatch a concatenated sentence, which
