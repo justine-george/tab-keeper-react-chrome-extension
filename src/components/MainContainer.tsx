@@ -17,6 +17,7 @@ import { closeToast } from '../redux/slices/globalStateSlice';
 import { RateAndReviewModal } from './modals/RateAndReviewModal';
 import { FocusConfirmModal } from './modals/FocusConfirmModal';
 import { DeleteCloudDataModal } from './modals/DeleteCloudDataModal';
+import { ReplaceSessionsModal } from './modals/ReplaceSessionsModal';
 import { CloudConsentModal } from './modals/CloudConsentModal';
 import { TabGroupsPermissionModal } from './modals/TabGroupsPermissionModal';
 
@@ -65,6 +66,9 @@ export default function MainContainer() {
   );
   const isDeleteCloudDataModalOpen = useSelector(
     (state: RootState) => state.globalState.isDeleteCloudDataModalOpen
+  );
+  const pendingImport = useSelector(
+    (state: RootState) => state.globalState.pendingImport
   );
   const isCloudConsentModalOpen = useSelector(
     (state: RootState) => state.globalState.isCloudConsentModalOpen
@@ -179,6 +183,7 @@ export default function MainContainer() {
       {tabGroupsPromptCount !== null && <TabGroupsPermissionModal />}
       {focusRequest && <FocusConfirmModal />}
       {isDeleteCloudDataModalOpen && <DeleteCloudDataModal />}
+      {pendingImport !== null && <ReplaceSessionsModal />}
       {isCloudConsentModalOpen && <CloudConsentModal />}
     </div>
   );
