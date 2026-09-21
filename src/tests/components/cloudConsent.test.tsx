@@ -152,9 +152,9 @@ describe('the answers (KAN-259)', () => {
     const dialog = screen.getByRole('dialog', {
       name: 'Welcome to Tab Keeper',
     });
-    // The safe answer comes first, so the initial focus lands on it.
-    expect(within(dialog).getAllByRole('button')[0]).toHaveAccessibleName(
-      'Keep on this device'
+    // The initial focus is the answer that changes nothing.
+    expect(document.activeElement).toBe(
+      within(dialog).getByRole('button', { name: 'Keep on this device' })
     );
     await user.click(
       within(dialog).getByRole('button', { name: 'Keep on this device' })
@@ -190,8 +190,11 @@ describe('the answers (KAN-259)', () => {
     const dialog = screen.getByRole('dialog', {
       name: 'Your sessions are currently synced',
     });
-    expect(within(dialog).getAllByRole('button')[0]).toHaveAccessibleName(
-      'Turn off sync'
+    // The initial focus is the answer that changes nothing -- Keep sync on,
+    // the same answer Escape gives -- not the first button, which here is
+    // the settings change.
+    expect(document.activeElement).toBe(
+      within(dialog).getByRole('button', { name: 'Keep sync on' })
     );
     await user.click(
       within(dialog).getByRole('button', { name: 'Turn off sync' })
@@ -290,8 +293,8 @@ describe('it is never a surprise (KAN-259)', () => {
       name: 'Sync your sessions across devices?',
     });
     expect(screen.queryByText('Welcome to Tab Keeper')).toBeNull();
-    expect(within(dialog).getAllByRole('button')[0]).toHaveAccessibleName(
-      'Not now'
+    expect(document.activeElement).toBe(
+      within(dialog).getByRole('button', { name: 'Not now' })
     );
     expect(mocks.ensureCloudSession).not.toHaveBeenCalled();
 

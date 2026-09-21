@@ -90,8 +90,9 @@ test.describe('the cloud question (KAN-259)', () => {
       name: 'Your sessions are currently synced',
     });
     await expect(dialog).toBeVisible();
+    // Focus on the answer that changes nothing -- the one Escape gives.
     await expect(
-      dialog.getByRole('button', { name: 'Turn off sync' })
+      dialog.getByRole('button', { name: 'Keep sync on' })
     ).toBeFocused();
 
     await page.keyboard.press('Escape');

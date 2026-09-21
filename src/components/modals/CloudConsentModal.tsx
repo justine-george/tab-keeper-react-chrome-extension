@@ -41,7 +41,11 @@ export const CloudConsentModal: React.FC = () => {
   const dialogRef = useRef<HTMLDialogElement>(null);
   // showModal() focuses the first focusable element, and here that is the
   // privacy-policy link in the body, not a button. The initial focus belongs
-  // on the answer that changes nothing (the KAN-243 rule for these dialogs).
+  // on the answer that changes nothing (the KAN-243 rule for these dialogs)
+  // -- which is the same answer Escape gives, and differs by variant: keep
+  // on this device for a new user, KEEP SYNC ON for an existing one, Not now
+  // for a re-ask. Not "the first button": for the existing user that was
+  // Turn off sync, a settings change one accidental Enter away.
   const safeRef = useRef<HTMLButtonElement>(null);
 
   const isOpen = useSelector(
@@ -256,15 +260,15 @@ export const CloudConsentModal: React.FC = () => {
             {t('ExistingSyncOff')} {policyLink}
           </p>
           <div css={actionsStyle}>
+            <button type="button" css={buttonStyle} onClick={decline}>
+              {t('Turn off sync')}
+            </button>
             <button
               ref={safeRef}
               type="button"
-              css={buttonStyle}
-              onClick={decline}
+              css={primaryButtonStyle}
+              onClick={grant}
             >
-              {t('Turn off sync')}
-            </button>
-            <button type="button" css={primaryButtonStyle} onClick={grant}>
               {t('Keep sync on')}
             </button>
           </div>
