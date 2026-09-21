@@ -45,6 +45,35 @@ export async function seedSettings(
   });
 }
 
+/**
+ * KAN-259. Starts the profile as a user who answered the cloud question, so no
+ * spec boots into the welcome (a modal that takes every pointer event behind
+ * it) by accident. Only when `settingsData` is absent: a later `seedSettings`
+ * writes its own (merged with 'granted' above), and an answer the popup saved
+ * must survive a reopen -- init scripts re-run on every page.
+ *
+ * Every fixture that launches a context calls this. There are two
+ * (`extension.ts`, `grantedExtension.ts`); a third that forgets it fails the
+ * way the drag specs did on 2026-09-21 -- every drop landing where it started,
+ * because the dialog had the pointer -- with nothing naming the cause.
+ */
+export async function seedCloudConsentIfSettingsAbsent(
+  context: BrowserContext
+): Promise<void> {
+  await context.addInitScript(() => {
+    try {
+      if (window.localStorage.getItem('settingsData') === null) {
+        window.localStorage.setItem(
+          'settingsData',
+          JSON.stringify({ cloudConsent: 'granted' })
+        );
+      }
+    } catch {
+      // Storage blocked; the specs' own assertions say so more clearly.
+    }
+  });
+}
+
 // addInitScript, not page.evaluate: the popup reads localStorage during its
 // first render, so anything written after navigation is already too late. This
 // must therefore be called BEFORE context.newPage().

@@ -9,6 +9,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { seedCloudConsentIfSettingsAbsent } from './seed';
+
 // The built, pruned artifact -- what `npm run build:e2e` produces and what
 // users actually install. Testing an unpruned build would test a bundle that
 // never ships.
@@ -57,22 +59,9 @@ export const test = base.extend<{
       args: [`--disable-extensions-except=${DIST}`, `--load-extension=${DIST}`],
     });
 
-    // KAN-259, see the freshProfile option above. Only when settingsData is
-    // absent: a later seedSettings writes its own (merged with 'granted' in
-    // seed.ts), and an answer the popup saved must survive a reopen.
+    // KAN-259, see the freshProfile option above.
     if (!freshProfile) {
-      await context.addInitScript(() => {
-        try {
-          if (window.localStorage.getItem('settingsData') === null) {
-            window.localStorage.setItem(
-              'settingsData',
-              JSON.stringify({ cloudConsent: 'granted' })
-            );
-          }
-        } catch {
-          // Storage blocked; the specs' own assertions say so more clearly.
-        }
-      });
+      await seedCloudConsentIfSettingsAbsent(context);
     }
 
     await use(context);
