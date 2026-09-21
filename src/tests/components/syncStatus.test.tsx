@@ -9,6 +9,8 @@ import {
   SettingsCategory,
 } from '../../redux/slices/settingsCategoryStateSlice';
 import {
+  declineCloudConsent,
+  grantCloudConsent,
   recordSyncedNow,
   setLastSyncedTime,
   toggleAutoSync,
@@ -44,6 +46,7 @@ const base = {
   isSignedIn: true,
   isAutoSync: true,
   isCloudConfigured: true,
+  cloudConsent: 'granted' as const,
   syncStatus: 'idle' as const,
 };
 
@@ -58,6 +61,22 @@ describe('describeSyncState', () => {
     expect(describeSyncState({ ...base, syncStatus: 'loading' }).kind).toBe(
       'on'
     );
+  });
+
+  // KAN-259. A user who declined the cloud question has not chosen manual
+  // sync; they have chosen no sync. The cloud button asks them first, so
+  // "until you press the cloud button" would be a half-truth for them.
+  test('consent declined is off, whatever the flag says', () => {
+    expect(
+      describeSyncState({
+        ...base,
+        cloudConsent: 'declined',
+        isAutoSync: false,
+      }).kind
+    ).toBe('off');
+    expect(
+      describeSyncState({ ...base, cloudConsent: '', isAutoSync: true }).kind
+    ).toBe('off');
   });
 
   test('auto sync off is manual, even with a healthy cloud', () => {
@@ -98,11 +117,18 @@ describe('describeSyncState', () => {
     const kinds = [
       describeSyncState(base),
       describeSyncState({ ...base, isAutoSync: false }),
+      describeSyncState({
+        ...base,
+        cloudConsent: 'declined',
+        isAutoSync: false,
+      }),
       describeSyncState({ ...base, syncStatus: 'error' }),
       describeSyncState({ ...base, isSignedIn: false }),
     ];
+    // Off and manual share the cloud glyph -- both are "not sending" -- and
+    // differ in title; every other state has its own glyph.
+    expect(new Set(kinds.map((k) => k.title)).size).toBe(5);
     expect(new Set(kinds.map((k) => k.icon)).size).toBe(4);
-    expect(new Set(kinds.map((k) => k.title)).size).toBe(4);
   });
 });
 
@@ -112,6 +138,7 @@ const renderSync = () =>
       store.dispatch(selectCategory(SettingsCategory.SYNC));
       store.dispatch(setSignedIn());
       store.dispatch(setCloudConfigured(true));
+      store.dispatch(grantCloudConsent());
     },
   });
 
@@ -131,6 +158,16 @@ describe('the sync status line follows the store (KAN-248)', () => {
     expect(store.getState().settingsDataState.isAutoSync).toBe(false);
     expect(card().textContent).toContain('Manual sync');
     expect(card().textContent).not.toContain('Cloud sync on');
+  });
+
+  test('declined: "Sync is off", and the line does not promise the cloud button syncs', async () => {
+    const { store } = await renderSync();
+    act(() => {
+      store.dispatch(declineCloudConsent());
+    });
+    expect(card().getAttribute('data-sync-state')).toBe('off');
+    expect(card().textContent).toContain('Sync is off');
+    expect(card().textContent).not.toContain('Manual sync');
   });
 
   test('no token: unavailable', async () => {
@@ -187,6 +224,7 @@ describe('every key the derivation emits is a translation key', () => {
     const states = [
       base,
       { ...base, isAutoSync: false },
+      { ...base, cloudConsent: 'declined' as const, isAutoSync: false },
       { ...base, syncStatus: 'error' as const },
       { ...base, isSignedIn: false },
     ].map(describeSyncState);
@@ -215,6 +253,7 @@ describe('the status line shows when it last synced (KAN-255)', () => {
         store.dispatch(selectCategory(SettingsCategory.SYNC));
         store.dispatch(setSignedIn());
         store.dispatch(setCloudConfigured(true));
+        store.dispatch(grantCloudConsent());
         if (!opts.autoSync) store.dispatch(toggleAutoSync());
         if (opts.lastSyncedTime !== '') {
           store.dispatch(setLastSyncedTime(opts.lastSyncedTime));

@@ -14,6 +14,7 @@ vi.mock('../../utils/functions/external', () => ({
 }));
 
 import { makeTestStore } from '../setup/makeStore';
+import { grantCloudConsent } from '../../redux/slices/settingsDataStateSlice';
 import {
   setFirebaseAuthed,
   setSignedIn,
@@ -55,6 +56,9 @@ describe('Firestore is not touched before Firebase auth lands (KAN-70)', () => {
   const tokenReadButAuthPending = () => {
     const made = makeTestStore();
     made.store.dispatch(setSignedIn());
+    // KAN-259: a user who has answered the cloud question, or no sync is
+    // ever scheduled and the control below cannot prove the gate is auth.
+    made.store.dispatch(grantCloudConsent());
     made.store.dispatch(setUserId('u1'));
     return made;
   };

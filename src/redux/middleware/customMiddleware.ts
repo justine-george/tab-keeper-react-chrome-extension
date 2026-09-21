@@ -1,6 +1,7 @@
 import { isAction, Middleware } from '@reduxjs/toolkit';
 
 import { set, setPresentWithoutHistory } from '../slices/undoRedoSlice';
+import { cloudSyncAllowed } from '../slices/settingsDataStateSlice';
 import { debounce } from '../../utils/functions/local';
 import { DEBOUNCE_TIME_WINDOW } from '../../utils/constants/common';
 import { setIsDirty, syncStateWithFirestore } from '../slices/globalStateSlice';
@@ -165,7 +166,8 @@ export const customMiddleware: Middleware = (store) => {
       nextState.globalState.isDirty &&
       nextState.globalState.isSignedIn &&
       nextState.globalState.isFirebaseAuthed &&
-      nextState.settingsDataState.isAutoSync
+      // KAN-259. Consent AND the flag, never the flag alone.
+      cloudSyncAllowed(nextState.settingsDataState)
     ) {
       debouncedSync();
     }

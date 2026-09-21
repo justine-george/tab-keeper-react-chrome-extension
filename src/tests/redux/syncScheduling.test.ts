@@ -31,6 +31,7 @@ import {
   replaceState,
 } from '../../redux/slices/tabContainerDataStateSlice';
 import { makeTestStore } from '../setup/makeStore';
+import { grantCloudConsent } from '../../redux/slices/settingsDataStateSlice';
 import { DEBOUNCE_TIME_WINDOW } from '../../utils/constants/common';
 import type {
   TabMasterContainer,
@@ -100,6 +101,7 @@ describe('a sync is scheduled by user edits, not by the merge persisting', () =>
   it('schedules a sync when the user changes data', async () => {
     const { store } = makeTestStore();
     store.dispatch(setSignedIn());
+    store.dispatch(grantCloudConsent());
     // KAN-70: the gate needs auth as well as a document id.
     store.dispatch(setFirebaseAuthed());
     store.dispatch(setUserId('u1'));
@@ -130,6 +132,7 @@ describe('a sync is scheduled by user edits, not by the merge persisting', () =>
 
     const { store } = makeTestStore();
     store.dispatch(setSignedIn());
+    store.dispatch(grantCloudConsent());
     // KAN-70: the gate needs auth as well as a document id.
     store.dispatch(setFirebaseAuthed());
     store.dispatch(setUserId('u1'));

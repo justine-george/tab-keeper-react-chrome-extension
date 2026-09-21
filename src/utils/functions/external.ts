@@ -6,6 +6,7 @@ import {
   db,
   fetchDataFromFirestore,
   CloudCandidate,
+  ensureCloudSessionReady,
 } from '../../config/firebase';
 import {
   saveToFirestoreIfDirty,
@@ -111,3 +112,7 @@ export async function deleteFromFirestore(userId: string): Promise<void> {
   if (db === null) throw cloudUnavailable();
   await deleteDoc(doc(db, 'tabGroupData', userId));
 }
+
+// KAN-259. Re-exported so the slice reaches Firebase only through this
+// module, which is what its tests mock.
+export { ensureCloudSessionReady };

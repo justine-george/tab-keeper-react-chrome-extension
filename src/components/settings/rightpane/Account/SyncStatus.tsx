@@ -43,6 +43,7 @@ const SyncStatus: React.FC = () => {
       isSignedIn: s.globalState.isSignedIn,
       isAutoSync: s.settingsDataState.isAutoSync,
       isCloudConfigured: s.globalState.isCloudConfigured,
+      cloudConsent: s.settingsDataState.cloudConsent,
       syncStatus: s.globalState.syncStatus,
     })
   );

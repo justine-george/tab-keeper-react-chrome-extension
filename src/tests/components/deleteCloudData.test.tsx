@@ -20,6 +20,7 @@ vi.mock('../../utils/functions/external', () => ({
   loadFromFirestore: vi.fn(),
   saveToFirestore: vi.fn(),
   deleteFromFirestore: mocks.deleteFromFirestore,
+  ensureCloudSessionReady: vi.fn(async () => undefined),
   displayToast: vi.fn(),
 }));
 

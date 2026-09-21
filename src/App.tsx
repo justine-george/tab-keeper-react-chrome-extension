@@ -6,7 +6,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { css } from '@emotion/react';
 
 import { APP_WIDTH, TOAST_MESSAGES } from './utils/constants/common';
-import { isCloudConfigured, observeAuthState } from './config/firebase';
+import { ensureCloudSession, isCloudConfigured } from './config/firebase';
 import MainContainer from './components/MainContainer';
 import { AppDispatch, RootState } from './redux/store';
 import { setPresentStartup } from './redux/slices/undoRedoSlice';
@@ -18,6 +18,7 @@ import {
   openTabGroupsPrompt,
   removeUserId,
   setCloudConfigured,
+  openCloudConsentModal,
   setHasTabGroupsPermission,
   setLoggedOut,
   setSignedIn,
@@ -35,6 +36,8 @@ import './App.css';
 import {
   setExtensionInstalledTime,
   SettingsData,
+  cloudSyncAllowed,
+  declineCloudConsent,
 } from './redux/slices/settingsDataStateSlice';
 import {
   asPartialSettings,
@@ -63,9 +66,10 @@ function App() {
     (state: RootState) => state.globalState.isFirebaseAuthed
   );
   const userId = useSelector((state: RootState) => state.globalState.userId);
-  const isAutoSync = useSelector(
-    (state: RootState) => state.settingsDataState.isAutoSync
+  const settingsData = useSelector(
+    (state: RootState) => state.settingsDataState
   );
+  const syncAllowed = cloudSyncAllowed(settingsData);
   const hasSyncedBefore = useSelector(
     (state: RootState) => state.globalState.hasSyncedBefore
   );
@@ -170,11 +174,58 @@ function App() {
     if (openGroups !== null) dispatch(openTabGroupsPrompt(openGroups));
   }
 
+  // KAN-259. The cloud question, once, before the other first-open modals.
+  //
+  // Returns whether it opened, so the rate prompt and the tab-groups offer can
+  // stand down this open -- the KAN-74 handoff, extended by one. Who is asked
+  // and how is decided from what is on disk BEFORE this open touches it:
+  //
+  //  * consent already given or declined: nothing;
+  //  * an existing user (an install date from a previous open, or saved
+  //    sessions) who already turned Auto Sync off: recorded as declined
+  //    without asking -- they answered, in the only way there used to be;
+  //  * an existing user with Auto Sync on: the 'existing' wording;
+  //  * everyone else: the welcome.
+  function askForCloudConsent(): boolean {
+    const settings = asPartialSettings<SettingsData>(
+      loadFromLocalStorage('settingsData')
+    );
+    if (
+      settings.cloudConsent === 'granted' ||
+      settings.cloudConsent === 'declined'
+    ) {
+      return false;
+    }
+    const stored = loadFromLocalStorage('tabContainerData');
+    const hasSessions =
+      isValidTabMasterContainer(stored) && stored.tabGroups.length > 0;
+    const isExisting =
+      isValidDate(settings.extensionInstalledTime ?? '') || hasSessions;
+    if (isExisting && settings.isAutoSync === false) {
+      dispatch(declineCloudConsent());
+      return false;
+    }
+    dispatch(
+      openCloudConsentModal({ variant: isExisting ? 'existing' : 'welcome' })
+    );
+    return true;
+  }
+
   useEffect(() => {
     getUserTokenFromChromeStorageSync();
-    void offerTabGroupsPermission(askUserToRateAndReview());
     dispatch(setCloudConfigured(isCloudConfigured));
-    observeAuthState(dispatch);
+    if (!askForCloudConsent()) {
+      void offerTabGroupsPermission(askUserToRateAndReview());
+    } else {
+      // The install date is still stamped on a first open that asked the
+      // cloud question; the rate prompt needs it later.
+      const settings = asPartialSettings<SettingsData>(
+        loadFromLocalStorage('settingsData')
+      );
+      if (!isValidDate(settings.extensionInstalledTime ?? '')) {
+        dispatch(setExtensionInstalledTime());
+      }
+    }
 
     void hasTabGroupsPermission().then((granted) =>
       dispatch(setHasTabGroupsPermission(granted))
@@ -190,7 +241,12 @@ function App() {
     // first sync of every cold start was denied by the security rules before
     // request.auth existed (KAN-70). The local-storage branch below runs in the
     // meantime, so there is nothing to show for the wait.
-    if (isSignedIn && isFirebaseAuthed && userId && isAutoSync) {
+    // KAN-259. `syncAllowed` is consent AND the Auto Sync flag, and the
+    // sign-in starts here, lazily, only once it is true: a user who never
+    // says yes never creates a Firebase account. When auth then lands,
+    // isFirebaseAuthed flips and this effect runs again into the sync.
+    if (isSignedIn && userId && syncAllowed) ensureCloudSession(dispatch);
+    if (isSignedIn && isFirebaseAuthed && userId && syncAllowed) {
       dispatch(syncStateWithFirestore());
     } else {
       // load from local storage
@@ -220,7 +276,7 @@ function App() {
     // flag that flips late, and re-running on it is what makes the sync happen
     // at all once auth lands. Recovery used to depend on isSignedIn flapping
     // false -> true, which was accidental (KAN-70).
-  }, [isSignedIn, isFirebaseAuthed, userId]);
+  }, [isSignedIn, isFirebaseAuthed, userId, syncAllowed]);
 
   const containerStyle = css`
     background-color: ${COLORS.PRIMARY_COLOR};

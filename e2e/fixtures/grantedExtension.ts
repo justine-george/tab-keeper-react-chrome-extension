@@ -15,6 +15,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { seedCloudConsentIfSettingsAbsent } from './seed';
+
 // tabGroups is OPTIONAL in the shipped manifest, and an optional permission
 // cannot be pre-granted in a Playwright profile, so every group band is
 // unreachable through extension.ts. This loads a scratch COPY of the pruned
@@ -49,6 +51,9 @@ export const grantedTest = base.extend<{
       channel: 'chromium',
       args: [`--disable-extensions-except=${copy}`, `--load-extension=${copy}`],
     });
+    // KAN-259. Same as extension.ts: no granted spec is about the cloud
+    // question, so the profile always starts as a user who said yes.
+    await seedCloudConsentIfSettingsAbsent(context);
     await use(context);
     await context.close();
     rmSync(userDataDir, { recursive: true, force: true });

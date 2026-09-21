@@ -14,6 +14,7 @@ vi.mock('../../utils/functions/external', () => ({
 }));
 
 import { makeTestStore } from '../setup/makeStore';
+import { grantCloudConsent } from '../../redux/slices/settingsDataStateSlice';
 import {
   saveToTabContainerInternal,
   selectTabContainer,
@@ -152,6 +153,7 @@ describe('selection does not reach Firestore when signed in (KAN-35)', () => {
   const signedInStore = () => {
     const { store, seen } = seededStore();
     store.dispatch(setSignedIn());
+    store.dispatch(grantCloudConsent());
     // Both flags: a document id alone no longer authorises a Firestore call,
     // because it does not mean the security rules will accept one (KAN-70).
     store.dispatch(setFirebaseAuthed());

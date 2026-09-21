@@ -3,6 +3,7 @@ import { act, fireEvent, screen } from '@testing-library/react';
 
 import MenuContainer from '../../components/home/leftpane/MenuContainer';
 import { renderWithProviders } from '../setup/renderWithProviders';
+import { grantCloudConsent } from '../../redux/slices/settingsDataStateSlice';
 import {
   setSignedIn,
   setSyncStatus,
@@ -31,9 +32,15 @@ const syncIcon = () => screen.getByRole('button', { name: 'Sync now' });
 // Signing in is the precondition for the control existing as an action at all,
 // not a workaround: the thunk reads loadFromFirestore(userId!), and with no
 // userId its missing-document branch writes through saveToFirestore(null, ...).
+// And consented (KAN-259): without an answer to the cloud question the sync
+// icon opens that question instead of syncing, which cloudConsent.test.tsx
+// covers; here the sync itself is under test.
 const renderMenu = () =>
   renderWithProviders(<MenuContainer />, {
-    seedStore: (store) => store.dispatch(setSignedIn()),
+    seedStore: (store) => {
+      store.dispatch(setSignedIn());
+      store.dispatch(grantCloudConsent());
+    },
   });
 
 describe('Icon keyboard activation reaches the same handler as a click', () => {
