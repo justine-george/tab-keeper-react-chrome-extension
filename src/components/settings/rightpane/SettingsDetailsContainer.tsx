@@ -18,8 +18,7 @@ import {
 } from '../../../hooks/useThemeColors';
 import { AppDispatch, RootState } from '../../../redux/store';
 import {
-  askToReplaceSessions,
-  replaceSessionsFromBackup,
+  loadSessionsFromBackup,
   showToast,
   syncStateWithFirestore,
   openDeleteCloudDataModal,
@@ -212,19 +211,18 @@ const SettingsDetailsContainer: React.FC = () => {
           // user is asked -- Merge or Replace -- so an unreadable file still
           // gets its error and a readable one gets a question with the real
           // numbers in it. Unless nothing is saved here, where the two
-          // answers would do the same thing: then it just applies. The apply
-          // steps are thunks, so the dialog's answers and this path share
-          // one tail (dirty, the KAN-257-gated write, the toast).
-          if (tabMasterContainer.tabGroups.length === 0) {
-            void dispatch(replaceSessionsFromBackup(tabDataFromJSON));
-          } else {
-            dispatch(
-              askToReplaceSessions({
-                container: tabDataFromJSON,
-                fileName: file.name,
-              })
-            );
-          }
+          // answers would do the same thing: then it just applies.
+          //
+          // KAN-265. Whether anything is saved here is decided in the thunk,
+          // from the store as it is NOW. This closure is the render that
+          // handled the click, and the file lands seconds later; the
+          // container it captured has had time to change.
+          void dispatch(
+            loadSessionsFromBackup({
+              container: tabDataFromJSON,
+              fileName: file.name,
+            })
+          );
         } catch (error: any) {
           console.warn('Error restoring tabs', error);
           // KAN-86. This used to dispatch a concatenated sentence, which

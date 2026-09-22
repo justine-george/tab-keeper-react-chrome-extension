@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, test, vi } from 'vitest';
-import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import SettingsDetailsContainer from '../../components/settings/rightpane/SettingsDetailsContainer';
@@ -267,6 +273,36 @@ describe('the load-backup dialog (KAN-252, KAN-261)', () => {
       expect(titlesHere(r)).toEqual(['From the file']);
     });
     expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  // KAN-265. The decision above was read from the render that handled the
+  // click, but it runs inside reader.onload -- seconds later, after the OS
+  // picker closes. A fresh device's boot sync can land the other device's
+  // sessions in that window; the stale closure still saw nothing here,
+  // Replaced without asking, and (KAN-262) buried every one of them
+  // cloud-wide. Decide from the store at dispatch time.
+  test('sessions that arrive while the picker is open are asked about, not silently replaced', async () => {
+    const inputs = captureFileInput();
+    const r = await render(buildContainer([]));
+
+    await userEvent.click(
+      await screen.findByText('Load sessions from a backup')
+    );
+    // The sync lands while the picker is open.
+    act(() => {
+      r.store.dispatch(replaceState(HERE));
+    });
+    dropFile(inputs[0], FROM_FILE, 'backup.json');
+
+    expect(
+      await screen.findByRole('dialog', {
+        name: 'Load 1 session from this backup?',
+      })
+    ).toBeTruthy();
+    expect(titlesHere(r)).toEqual(HERE_TITLES);
+    expect(
+      r.store.getState().tabContainerDataState.deletedTabGroups ?? []
+    ).toEqual([]);
   });
 
   test('one session here, several in the file: each count in its own number', async () => {
