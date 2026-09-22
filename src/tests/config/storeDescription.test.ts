@@ -1,7 +1,12 @@
 import { describe, expect, test } from 'vitest';
 
-import manifest from '../../../public/manifest.json';
+import en from '../../../public/_locales/en/messages.json';
 import pkg from '../../../package.json';
+
+// Since KAN-274 the manifest's description is `__MSG_appDesc__`, and the
+// English text lives in _locales/en/messages.json. The rules below follow the
+// text there; manifestLocales.test.ts holds the per-locale versions.
+const description = en.appDesc.message;
 
 // The manifest's `description` is the extension's SHORT description: what the
 // Chrome Web Store prints under the name in search results, and what every link
@@ -20,17 +25,17 @@ describe('store short description', () => {
   // arrives at submission -- after a version bump, a tagged release and a green
   // build, at the one moment the cost of a round trip is highest.
   test('is within the 132-character limit the Web Store enforces', () => {
-    expect(manifest.description.length).toBeLessThanOrEqual(132);
+    expect(description.length).toBeLessThanOrEqual(132);
   });
 
   test('is not empty', () => {
-    expect(manifest.description.trim()).not.toBe('');
+    expect(description.trim()).not.toBe('');
   });
 
   // The same sentence is duplicated in package.json, and nothing keeps the two
   // in step. They agree today only because they have always been edited
   // together; the failure mode is editing one and shipping the other.
   test('is identical in package.json', () => {
-    expect(pkg.description).toBe(manifest.description);
+    expect(pkg.description).toBe(description);
   });
 });

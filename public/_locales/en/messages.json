@@ -1,0 +1,10 @@
+{
+  "appName": {
+    "message": "Tab Keeper - Chrome Tab Manager & Sync Tool",
+    "description": "The extension's name: the Web Store title, chrome://extensions and the toolbar tooltip. Keep \"Tab Keeper\" first and untranslated. At most 75 characters."
+  },
+  "appDesc": {
+    "message": "Save your Chrome windows, tabs and tab groups as sessions, then sync them across desktops. No account or email needed.",
+    "description": "The Web Store summary under the title. At most 132 characters. Never say sessions sync \"through Chrome sync\"."
+  }
+}
