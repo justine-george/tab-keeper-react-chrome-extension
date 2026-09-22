@@ -10,7 +10,7 @@ import {
   sortSessions,
 } from '../../../redux/slices/tabContainerDataStateSlice';
 import { AppDispatch, RootState } from '../../../redux/store';
-import { ensureCloudSession } from '../../../config/firebase';
+import { ensureCloudSessionReady } from '../../../config/firebase';
 import {
   closeToast,
   openSettingsPage,
@@ -61,13 +61,20 @@ export default function MenuContainer() {
   // question instead of uploading, and with it the Firebase session is
   // started here if this is the first time (the boot effect starts it only
   // when Auto Sync is on).
+  //
+  // KAN-266. Started AND waited for. The boot sync waits for isFirebaseAuthed;
+  // this used to dispatch in the same tick as ensureCloudSession, so the read
+  // went out before sign-in landed, the rules denied it, and the denial was
+  // read as "no document yet" -- after which the write, by now authorised,
+  // replaced the other device's document with local state.
   function handleClickSync() {
     if (cloudConsent !== 'granted') {
       dispatch(openCloudConsentModal({ variant: 'enable', then: 'syncNow' }));
       return;
     }
-    ensureCloudSession(dispatch);
-    dispatch(syncStateWithFirestore());
+    void ensureCloudSessionReady(dispatch).then(() =>
+      dispatch(syncStateWithFirestore())
+    );
   }
 
   function handleClickSettings() {

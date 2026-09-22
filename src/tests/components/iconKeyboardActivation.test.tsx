@@ -1,5 +1,18 @@
-import { describe, expect, test } from 'vitest';
+import { describe, expect, test, vi } from 'vitest';
 import { act, fireEvent, screen } from '@testing-library/react';
+
+// KAN-266. The sync icon now waits for the Firebase session before it reads.
+// With the real module and a machine that has a Firebase .env, that wait is a
+// real onAuthStateChanged that never fires in jsdom, and every assertion
+// below turns machine-dependent. Resolved at once here: the wait itself is
+// syncWaitsForSignIn.test.tsx's subject, not this file's.
+vi.mock('../../config/firebase', () => ({
+  ensureCloudSession: vi.fn(),
+  ensureCloudSessionReady: vi.fn(async () => undefined),
+  observeAuthState: vi.fn(),
+  signInUserAnonymously: () => {},
+  isCloudConfigured: true,
+}));
 
 import MenuContainer from '../../components/home/leftpane/MenuContainer';
 import { renderWithProviders } from '../setup/renderWithProviders';
