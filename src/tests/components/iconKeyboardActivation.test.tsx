@@ -6,12 +6,13 @@ import { act, fireEvent, screen } from '@testing-library/react';
 // real onAuthStateChanged that never fires in jsdom, and every assertion
 // below turns machine-dependent. Resolved at once here: the wait itself is
 // syncWaitsForSignIn.test.tsx's subject, not this file's.
-vi.mock('../../config/firebase', () => ({
-  ensureCloudSession: vi.fn(),
+// Mocked where the sync thunk reaches it: the slice talks to Firebase only
+// through utils/functions/external (KAN-259).
+vi.mock('../../utils/functions/external', () => ({
+  loadFromFirestore: vi.fn(),
+  saveToFirestore: vi.fn(),
   ensureCloudSessionReady: vi.fn(async () => undefined),
-  observeAuthState: vi.fn(),
-  signInUserAnonymously: () => {},
-  isCloudConfigured: true,
+  displayToast: vi.fn(),
 }));
 
 import MenuContainer from '../../components/home/leftpane/MenuContainer';

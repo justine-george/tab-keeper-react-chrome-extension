@@ -11,6 +11,11 @@ import '@testing-library/jest-dom/vitest';
 vi.mock('../../utils/functions/external', () => ({
   loadFromFirestore: vi.fn(),
   saveToFirestore: vi.fn(),
+  // Signed in at once. Absent, the sync thunk would call undefined, and its
+  // failed-sign-in catch (KAN-289) would turn the TypeError into a plausible
+  // 'error' status: a test of that path would pass for the wrong reason.
+  // A file testing the wait itself mocks this module with its own.
+  ensureCloudSessionReady: vi.fn(async () => undefined),
   displayToast: vi.fn(),
 }));
 

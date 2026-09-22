@@ -9,17 +9,18 @@ const mocks = vi.hoisted(() => {
     release = resolve;
   });
   return {
-    ensureCloudSession: vi.fn(),
     ensureCloudSessionReady: vi.fn(() => ready),
     release: () => release(),
   };
 });
-vi.mock('../../config/firebase', () => ({
-  ensureCloudSession: mocks.ensureCloudSession,
+// Mocked where the sync thunk reaches it: the slice talks to Firebase only
+// through utils/functions/external (KAN-259), so a mock of config/firebase
+// never reaches it.
+vi.mock('../../utils/functions/external', () => ({
+  loadFromFirestore: vi.fn(),
+  saveToFirestore: vi.fn(),
   ensureCloudSessionReady: mocks.ensureCloudSessionReady,
-  observeAuthState: vi.fn(),
-  signInUserAnonymously: () => {},
-  isCloudConfigured: true,
+  displayToast: vi.fn(),
 }));
 
 import MenuContainer from '../../components/home/leftpane/MenuContainer';

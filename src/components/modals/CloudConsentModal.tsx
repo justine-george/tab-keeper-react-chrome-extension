@@ -10,14 +10,13 @@ import { useThemeColors } from '../../hooks/useThemeColors';
 import { AppDispatch, RootState } from '../../redux/store';
 import {
   closeCloudConsentModal,
-  syncStateWithFirestore,
+  syncNowWhenSignedIn,
 } from '../../redux/slices/globalStateSlice';
 import {
   declineCloudConsent,
   grantCloudConsent,
   setAutoSync,
 } from '../../redux/slices/settingsDataStateSlice';
-import { ensureCloudSessionReady } from '../../config/firebase';
 import { PRIVACY_POLICY_LINK } from '../../utils/constants/common';
 import { ICON, TYPE } from '../../styles/scale';
 import { dialogButtonStyles } from './dialogButtons';
@@ -87,12 +86,9 @@ export const CloudConsentModal: React.FC = () => {
     if (variant === 'welcome' || then === 'autoSync') {
       dispatch(setAutoSync(true));
     } else if (then === 'syncNow') {
-      // KAN-266. Waited for, not fire-and-forget: a read before sign-in
-      // lands is denied, and a denied read used to end in local state
-      // written over the cloud document. See MenuContainer.handleClickSync.
-      void ensureCloudSessionReady(dispatch).then(() =>
-        dispatch(syncStateWithFirestore())
-      );
+      // KAN-266/289. Waits for sign-in, and a failed sign-in shows as a
+      // failed sync. See syncNowWhenSignedIn.
+      void dispatch(syncNowWhenSignedIn());
     }
   };
   // 'enable' is a re-ask from someone who declined or never answered: Not now

@@ -13,13 +13,14 @@ const mocks = vi.hoisted(() => ({
   deleteFromFirestore: vi.fn<(userId: string) => Promise<void>>(
     async () => undefined
   ),
+  ensureCloudSessionReady: vi.fn<() => Promise<void>>(async () => undefined),
 }));
 
 vi.mock('../../utils/functions/external', () => ({
   loadFromFirestore: vi.fn(),
   saveToFirestore: vi.fn(),
   deleteFromFirestore: mocks.deleteFromFirestore,
-  ensureCloudSessionReady: vi.fn(async () => undefined),
+  ensureCloudSessionReady: mocks.ensureCloudSessionReady,
   displayToast: vi.fn(),
 }));
 
@@ -42,6 +43,7 @@ describe('deleteCloudData', () => {
   beforeEach(() => {
     localStorage.clear();
     mocks.deleteFromFirestore.mockReset().mockResolvedValue(undefined);
+    mocks.ensureCloudSessionReady.mockReset().mockResolvedValue(undefined);
   });
 
   it('deletes the document, turns auto sync off, closes the dialog, and says so', async () => {
@@ -76,6 +78,27 @@ describe('deleteCloudData', () => {
 
     expect(store.getState().settingsDataState.isAutoSync).toBe(true);
     expect(store.getState().globalState.isDeleteCloudDataModalOpen).toBe(false);
+    expect(store.getState().globalState.toastText).toBe(
+      TOAST_MESSAGES.CLOUD_DATA_DELETE_FAILED
+    );
+  });
+
+  // KAN-289. The wait used to hang forever on a failed sign-in, so this
+  // branch was unreachable and the dialog simply did nothing. It now rejects,
+  // and the existing catch must turn that into the failed toast.
+  it('when sign-in fails, deletes nothing and says it failed', async () => {
+    mocks.ensureCloudSessionReady.mockRejectedValue(
+      new Error('auth/too-many-requests')
+    );
+    const { store } = makeTestStore();
+    store.dispatch(setSignedIn());
+    store.dispatch(setUserId('uuid-1'));
+    store.dispatch(openDeleteCloudDataModal());
+
+    await store.dispatch(deleteCloudData());
+
+    expect(mocks.deleteFromFirestore).not.toHaveBeenCalled();
+    expect(store.getState().settingsDataState.isAutoSync).toBe(true);
     expect(store.getState().globalState.toastText).toBe(
       TOAST_MESSAGES.CLOUD_DATA_DELETE_FAILED
     );
