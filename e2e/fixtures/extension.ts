@@ -27,7 +27,6 @@ export const test = base.extend<{
   extensionId: string;
   showScrollbars: boolean;
   freshProfile: boolean;
-  uiLanguage: string | undefined;
 }>({
   // Playwright launches headless Chromium with --hide-scrollbars, so every
   // scrollbar measures 0px and paints nothing (KAN-188). Off by default on
@@ -44,15 +43,7 @@ export const test = base.extend<{
   // on every page: a seed of "no answer" would erase the answer on reopen.
   freshProfile: [false, { option: true }],
 
-  // KAN-282. The browser's UI language. Passed two ways, because platforms
-  // disagree: `--lang` (Windows), and the LANGUAGE/LANG environment, which is
-  // what headless Chrome on Linux reads -- CI measured `--lang` alone as not
-  // taking there. macOS ignores both and uses the system list, so a spec using
-  // this must check what `chrome.i18n.getUILanguage()` actually reports and
-  // skip when the platform did not take it, rather than pass by accident.
-  uiLanguage: [undefined, { option: true }],
-
-  context: async ({ showScrollbars, freshProfile, uiLanguage }, use) => {
+  context: async ({ showScrollbars, freshProfile }, use) => {
     // A throwaway profile per test: extension state (localStorage,
     // chrome.storage) persists in the profile, so sharing one would let tests
     // leak into each other.
@@ -65,20 +56,7 @@ export const test = base.extend<{
       headless: true,
       channel: 'chromium',
       ignoreDefaultArgs: showScrollbars ? ['--hide-scrollbars'] : [],
-      args: [
-        `--disable-extensions-except=${DIST}`,
-        `--load-extension=${DIST}`,
-        ...(uiLanguage ? [`--lang=${uiLanguage}`] : []),
-      ],
-      ...(uiLanguage
-        ? {
-            env: {
-              ...process.env,
-              LANGUAGE: uiLanguage.replace('-', '_'),
-              LANG: `${uiLanguage.replace('-', '_')}.UTF-8`,
-            },
-          }
-        : {}),
+      args: [`--disable-extensions-except=${DIST}`, `--load-extension=${DIST}`],
     });
 
     // KAN-259, see the freshProfile option above.
