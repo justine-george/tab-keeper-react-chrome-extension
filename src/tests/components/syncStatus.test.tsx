@@ -20,6 +20,7 @@ import {
   setCloudConfigured,
   setLoggedOut,
   setSignedIn,
+  syncStateWithFirestore,
 } from '../../redux/slices/globalStateSlice';
 import {
   BB_PINK_THEME,
@@ -182,6 +183,26 @@ describe('the sync status line follows the store (KAN-248)', () => {
       store.dispatch({ type: saveToFirestoreIfDirty.fulfilled.type });
     });
     expect(card().textContent).toContain('Cloud sync on');
+  });
+
+  // KAN-263. A sync is read-then-write; the test above only covers the write.
+  // The card said "Cloud sync on" through the whole cloud read and switched
+  // to Syncing… only when the write began, which is what Justine saw after
+  // Undo. A read that fails outright must land on failed, not on "on".
+  test('the card follows the READ phase of a sync too: syncing, then failed', async () => {
+    const { store } = await renderSync();
+    expect(card().textContent).toContain('Cloud sync on');
+
+    act(() => {
+      store.dispatch({ type: syncStateWithFirestore.pending.type });
+    });
+    expect(card().textContent).toContain('Syncing…');
+    expect(card().textContent).not.toContain('Cloud sync on');
+
+    act(() => {
+      store.dispatch({ type: syncStateWithFirestore.rejected.type });
+    });
+    expect(card().textContent).toContain('Last sync failed');
   });
 
   test('turning auto sync off changes the card to manual -- the case it used to get wrong', async () => {

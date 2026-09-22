@@ -7,6 +7,7 @@ import {
   setLoggedOut,
   setSignedIn,
   setSyncStatus,
+  syncStateWithFirestore,
 } from '../../redux/slices/globalStateSlice';
 
 // KAN-79. The header's sync control is both a button and a status, and the
@@ -50,6 +51,21 @@ describe('the header sync affordance', () => {
     await renderMenu((store) => {
       store.dispatch(setSignedIn());
       store.dispatch(setSyncStatus('loading'));
+    });
+
+    expect(syncControl().textContent).toBe('cloud_sync');
+    expect(syncControl().getAttribute('aria-disabled')).toBe('true');
+  });
+
+  // KAN-263. The test above seeds 'loading' by hand; this one gets there the
+  // way a real sync does. Only the WRITE's pending was wired, so through the
+  // cloud read the control still read 'sync' and was clickable -- a click
+  // there started a second sync on top of the running one.
+  test('takes the action away from the moment a sync STARTS, not only once it writes', async () => {
+    await renderMenu((store) => {
+      store.dispatch(setSignedIn());
+      store.dispatch(setSyncStatus('idle'));
+      store.dispatch({ type: syncStateWithFirestore.pending.type });
     });
 
     expect(syncControl().textContent).toBe('cloud_sync');
