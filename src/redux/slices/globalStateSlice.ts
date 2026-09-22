@@ -303,10 +303,7 @@ export const syncStateWithFirestore = createAsyncThunk(
     const state = thunkAPI.getState() as RootState;
 
     // load from Firestore
-    const cloudCandidate = await loadFromFirestore(
-      state.globalState.userId!,
-      thunkAPI
-    );
+    const cloudCandidate = await loadFromFirestore(state.globalState.userId!);
 
     // The cloud side gets the same treatment localStorage gets below. Without
     // this, an unrecognised document reaches mergeTabContainers and throws
