@@ -2,7 +2,7 @@
 
 <a href="https://chromewebstore.google.com/detail/tab-keeper-chrome-tab-man/gpibgniomobngodpnikhheifblbpbbah?ref=github" target="_blank"><img src="store-assets/marquee promo tile/tab-keeper-marquee-promo-tile.png" alt="Tab Keeper — save your tabs, pick up anytime, now with Chrome tab group support"></a>
 
-Tab Keeper saves your open Chrome windows and tabs as organized sessions. Restore them later—including tab group names and colors—and sync them across desktop Chrome without creating an account or providing an email address.
+Tab Keeper is a free session manager for Chrome. Save your open windows and tabs as sessions, restore them later—including tab group names and colors—share any session as a page or PDF, and sync across desktop Chrome without creating an account or providing an email address.
 
 [![Featured on the Chrome Web Store](https://img.shields.io/badge/Featured_on-Chrome_Web_Store-cce7e8?style=for-the-badge)](https://chromewebstore.google.com/detail/tab-keeper-chrome-tab-man/gpibgniomobngodpnikhheifblbpbbah?ref=github)
 [![Current version](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fjustine-george%2Ftab-keeper-react-chrome-extension%2Fmain%2Fpackage.json&query=version&style=for-the-badge&label=Version)](#changelog)
@@ -13,12 +13,16 @@ Tab Keeper saves your open Chrome windows and tabs as organized sessions. Restor
 
 ## Features
 
-- **Save & Restore:** Save all your open windows and tabs as a session, then reopen them later.
+- **Save & Restore:** Save all your open windows and tabs as a session, or just the current window, then reopen them later.
 - **Tab Groups:** Preserve Chrome tab groups, including their names and colors.
+- **Share & Export:** Turn any session into a clean page you can print, save as a PDF, or send, or copy all its links at once.
+- **Drag to Organize:** Reorder tabs, tab groups, windows and sessions by dragging, and move a tab or a whole group into another saved window.
 - **One-Click Switching:** Jump to a saved session while Tab Keeper safely saves your current windows first.
-- **Device Sync:** Access your sessions from Chrome desktop browsers connected to the same Chrome profile.
-- **Privacy First:** No email address, account setup, or signup required.
-- **Quick Search:** Find any saved tab as you type.
+- **Device Sync:** Turn on sync to access your sessions from Chrome desktop browsers connected to the same Chrome profile.
+- **Privacy First:** No email address, account setup, or signup required. Sessions stay on your device until you choose to sync.
+- **Backup to File:** Save your sessions to a file, and load them back by merging or replacing.
+- **Quick Search:** Find any saved tab or tab group as you type.
+- **Keyboard Friendly:** Open Tab Keeper with a shortcut, and use it fully from the keyboard or with a screen reader.
 - **Multi-Language Support:** Use Tab Keeper in 10 languages.
 - **Custom Themes:** Choose from five light and dark themes.
 
@@ -38,7 +42,9 @@ Tab Keeper saves your open Chrome windows and tabs as organized sessions. Restor
 
 Tab Keeper does not require an email address or a user-created account. It generates an anonymous identifier that Chrome syncs with your browser profile.
 
-Your sessions are stored locally on your device. When device sync is enabled, saved session data—including tab URLs and titles—is sent to cloud storage so you can access it from other desktop Chrome browsers connected to the same profile.
+Your sessions are stored locally on your device. Tab Keeper asks before it syncs for the first time on each device. When device sync is enabled, saved session data—including tab URLs and titles—is sent to cloud storage so you can access it from other desktop Chrome browsers connected to the same profile. You can delete the cloud copy at any time from Settings → Sync & Backup.
+
+Read the full [privacy policy](PRIVACY.md).
 
 ## Changelog
 
