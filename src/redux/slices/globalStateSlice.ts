@@ -836,6 +836,18 @@ export const globalStateSlice = createSlice({
           state.collapsedWindows = null;
         }
       })
+      // KAN-263. A sync is read-then-write, and the header reads syncStatus.
+      // Only the write's pending was wired, so for the whole cloud read the
+      // status stayed where the last edit left it ('idle', via markDirty) and
+      // the header offered "sync now" for a sync already running -- a live
+      // button that starts a second, overlapping sync (KAN-264). The thunk
+      // body sets every completion status itself; it cannot set the start.
+      .addCase(syncStateWithFirestore.pending, (state) => {
+        state.syncStatus = 'loading';
+      })
+      .addCase(syncStateWithFirestore.rejected, (state) => {
+        state.syncStatus = 'error';
+      })
       .addCase(saveToFirestoreIfDirty.pending, (state) => {
         state.syncStatus = 'loading';
       })
