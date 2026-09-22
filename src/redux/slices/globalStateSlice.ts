@@ -542,6 +542,31 @@ export const replaceSessionsFromBackup = createAsyncThunk(
 );
 
 /**
+ * A backup has been read and validated; ask, or apply. With nothing saved
+ * here the two answers would do the same thing, so it just applies
+ * (KAN-252); otherwise the dialog asks Merge or Replace.
+ *
+ * KAN-265. A thunk, not a component-side branch, because the decision must
+ * read the store at DISPATCH time. The component's copy of the container is
+ * the render that handled the click, and the file lands seconds later when
+ * the OS picker closes -- long enough for a fresh device's boot sync to bring
+ * the other device's sessions in. The stale closure still saw nothing here,
+ * Replaced without asking, and (KAN-262) buried every one of them cloud-wide.
+ */
+export const loadSessionsFromBackup = createAsyncThunk(
+  'global/loadSessionsFromBackup',
+  async (pending: PendingImport, thunkAPI) => {
+    const { tabGroups } = (thunkAPI.getState() as RootState)
+      .tabContainerDataState;
+    if (tabGroups.length === 0) {
+      await thunkAPI.dispatch(replaceSessionsFromBackup(pending.container));
+    } else {
+      thunkAPI.dispatch(askToReplaceSessions(pending));
+    }
+  }
+);
+
+/**
  * Merge: the backup's sessions that are not here yet, added on top of
  * everything saved here (KAN-261). The reducer holds the rules; this only
  * has to know whether it changed anything, which decides the dirty flag.
