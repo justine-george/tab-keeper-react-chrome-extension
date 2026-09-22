@@ -7,9 +7,12 @@ import fr from '../../../public/locales/fr/translation.json';
 import hi from '../../../public/locales/hi/translation.json';
 import it from '../../../public/locales/it/translation.json';
 import ja from '../../../public/locales/ja/translation.json';
+import ko from '../../../public/locales/ko/translation.json';
 import pt from '../../../public/locales/pt/translation.json';
 import ru from '../../../public/locales/ru/translation.json';
+import sv from '../../../public/locales/sv/translation.json';
 import zh from '../../../public/locales/zh/translation.json';
+import zhTW from '../../../public/locales/zh-TW/translation.json';
 
 // KAN-60 puts one new word on screen, and i18next answers a missing key by
 // returning the key itself -- so a locale that never got the translation still
@@ -25,9 +28,12 @@ const LOCALES: Record<string, Record<string, string>> = {
   hi,
   it,
   ja,
+  ko,
   pt,
   ru,
+  sv,
   zh,
+  'zh-TW': zhTW,
 };
 
 // The KEY has no colon; the VALUES all end in one. i18next reads a trailing

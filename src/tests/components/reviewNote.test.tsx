@@ -86,11 +86,17 @@ const STEERING = [
   'सकारात्मक समीक्षा',
   'ポジティブなレビュー',
   '好评',
+  '좋은 리뷰', // ko, and the star-count ask a translator reaches for next
+  '별 5개',
+  'positivt omdöme', // sv
+  'bra recension',
+  '好評', // zh-TW
+  '五星',
 ];
 
 describe('no locale asks for a good review', () => {
-  test('CONTROL: all ten locales were loaded', () => {
-    expect(locales).toHaveLength(10);
+  test('CONTROL: all thirteen locales were loaded', () => {
+    expect(locales).toHaveLength(13);
   });
 
   for (const [name, dict] of locales) {

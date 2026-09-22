@@ -25,7 +25,8 @@ import {
 // The width is set entirely by the longest translated label (`min-width: 180px`
 // and `white-space: nowrap`), so the locales below are the measurement, not a
 // sample: es, fr and ru are the three that overflowed, and en is the control
-// that never did.
+// that never did. sv joined with KAN-283: its save-row menu is the widest of
+// the thirteen (304px against es 296px), though it still fits.
 
 const POPUP = { width: 790, height: 550 };
 
@@ -60,7 +61,7 @@ const MENUS = [
 ] as const;
 
 for (const menu of MENUS) {
-  for (const lang of ['en', 'es', 'fr', 'ru']) {
+  for (const lang of ['en', 'es', 'fr', 'ru', 'sv']) {
     test(`the ${menu.name} menu stays inside the popup (${lang})`, async ({
       context,
       extensionId,

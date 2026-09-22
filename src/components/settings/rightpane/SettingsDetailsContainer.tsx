@@ -72,7 +72,8 @@ import { KEYS_SLOT, ShortcutSentence } from '../../common/ShortcutSentence';
 // language picker is the one screen that must be readable by someone who
 // cannot read the current UI language, which is why they are on it. Sorted
 // by the names' own collation (ICU: Latin scripts, then Cyrillic, Devanagari,
-// Han), which languagePicker.test.tsx pins.
+// Hangul, Han), which languagePicker.test.tsx pins. The two Chinese options
+// name their script: with both present, a bare 中文 would not say which.
 const LANGUAGE_OPTIONS: ReadonlyArray<[Language, string]> = [
   [Language.DE, 'Deutsch'],
   [Language.EN, 'English'],
@@ -80,10 +81,13 @@ const LANGUAGE_OPTIONS: ReadonlyArray<[Language, string]> = [
   [Language.FR, 'Français'],
   [Language.IT, 'Italiano'],
   [Language.PT, 'Português'],
+  [Language.SV, 'Svenska'],
   [Language.RU, 'Русский'],
   [Language.HI, 'हिन्दी'],
-  [Language.ZH, '中文'],
+  [Language.KO, '한국어'],
   [Language.JA, '日本語'],
+  [Language.ZH, '简体中文'],
+  [Language.ZH_TW, '繁體中文'],
 ];
 
 // KAN-248. The Auto Sync pair on the popup's own scale: the row unit, square

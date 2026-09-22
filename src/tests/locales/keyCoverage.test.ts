@@ -52,10 +52,10 @@ describe('translation key coverage', () => {
     expect(missing).toEqual([]);
   });
 
-  // The test above only knows about `en`, so a key added to nine of the ten
+  // The test above only knows about `en`, so a key added to twelve of the thirteen
   // files passes it. i18next then falls back to the en value and the ninth
   // language silently shows English -- no error, no failing render. Adding a
-  // string is a ten-file edit and this is what says so.
+  // string is a thirteen-file edit and this is what says so.
   //
   // Symmetric on purpose: an EXTRA key in a translated file is reported too,
   // because it is either a typo (so the real key is missing and falls back) or
