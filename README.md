@@ -42,7 +42,42 @@ Your sessions are stored locally on your device. When device sync is enabled, sa
 
 ## Changelog
 
-### v.1.8.0 (Latest)
+### v.1.9.0 (Latest)
+
+#### Features
+
+- Export a session as a page you can read, print or save as a PDF, and rename titles or hide rows before you share it
+- Copy a session's links from its menu: they paste as links into documents and email, and as plain addresses anywhere else
+- Export the windows you have open right now, without saving them first
+- Load a backup by merging its sessions into yours, or by replacing yours after a confirmation, and a replace now holds on every device that syncs
+- Delete your cloud data from Settings → Sync & Backup
+- Open the popup with a keyboard shortcut, shown in Settings
+- Fold every window in a session from one control in its header
+- The extension asks before it first uploads anything to the cloud, on each device, and Settings shows when this device last synced
+- A privacy policy, linked from Settings → About
+
+#### Fixes
+
+- A cloud read that fails, for example while offline, no longer replaces what your other devices saved with this device's sessions
+- With Auto Sync off, restoring a backup no longer uploads it
+- The sync icon now says it is syncing for the whole sync, not only while it uploads
+- Icons and fonts now work offline, instead of showing their names as text
+- A saved tab keeps the page's name without a site's unread count, such as "(3)"
+- A tab can now be picked up by its icon to drag it
+- While dragging, the preview shows exactly where a tab lands beside a tab group, and shows a group closing up when its last tab leaves
+- The outline that marks where a dragged row will land is now visible in every theme
+- The scrollbar is now visible in every theme
+- The colored bar beside a tab group is easier to click
+
+#### Improvements
+
+- Settings is reorganized into Display, Language, Sync & Backup, Sessions and About, and each theme shows as a miniature of the popup
+- The themes are renamed Paper, Parchment, Petal, Graphite and Ink
+- Each language is named in its own language
+- A session's Export and Delete now sit in its More actions menu
+- The popup uses one type scale and one corner radius, and its buttons show when they are pressed
+
+### v.1.8.0
 
 #### Features
 
@@ -76,12 +111,6 @@ Your sessions are stored locally on your device. When device sync is enabled, sa
 - Renaming a session now has a visible tick to finish with, like renaming a window already did
 - The window rename box now shows its tick without hovering, and runs to the edge of its row
 - Settings sections now have even space on both sides instead of sitting off-center
-
-### v.1.6.1
-
-#### Fixes
-
-- Search now finds Chrome tab groups by name, and narrows the session to that group's tabs
 
 [View All Changelog →](https://github.com/justine-george/tab-keeper-react-chrome-extension/wiki/Changelog)
 
