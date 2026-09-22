@@ -16,6 +16,7 @@ import {
   toggleAutoSync,
 } from '../../redux/slices/settingsDataStateSlice';
 import {
+  saveToFirestoreIfDirty,
   setCloudConfigured,
   setLoggedOut,
   setSignedIn,
@@ -56,11 +57,16 @@ describe('describeSyncState', () => {
     expect(describeSyncState({ ...base, syncStatus: 'success' }).kind).toBe(
       'on'
     );
-    // The half-second at cold start before auth resolves is still "on":
-    // flashing "unavailable" on every open would be noise.
-    expect(describeSyncState({ ...base, syncStatus: 'loading' }).kind).toBe(
-      'on'
-    );
+  });
+
+  // KAN-261. A write in flight is neither "on" nor "failed" yet, and the user
+  // who just pressed Merge or Replace is looking at this card, not at the
+  // header's cloud glyph. Same glyph as the header uses for the same state.
+  test("a sync in flight is syncing, with the header's in-flight glyph", () => {
+    const syncing = describeSyncState({ ...base, syncStatus: 'loading' });
+    expect(syncing.kind).toBe('syncing');
+    expect(syncing.icon).toBe('cloud_sync');
+    expect(syncing.title).toBe('Syncing…');
   });
 
   // KAN-259. A user who declined the cloud question has not chosen manual
@@ -123,12 +129,13 @@ describe('describeSyncState', () => {
         isAutoSync: false,
       }),
       describeSyncState({ ...base, syncStatus: 'error' }),
+      describeSyncState({ ...base, syncStatus: 'loading' }),
       describeSyncState({ ...base, isSignedIn: false }),
     ];
     // Off and manual share the cloud glyph -- both are "not sending" -- and
     // differ in title; every other state has its own glyph.
-    expect(new Set(kinds.map((k) => k.title)).size).toBe(5);
-    expect(new Set(kinds.map((k) => k.icon)).size).toBe(4);
+    expect(new Set(kinds.map((k) => k.title)).size).toBe(6);
+    expect(new Set(kinds.map((k) => k.icon)).size).toBe(5);
   });
 });
 
@@ -147,6 +154,33 @@ const card = () => screen.getByTestId('sync-status');
 describe('the sync status line follows the store (KAN-248)', () => {
   test('auto sync on, cloud: "Cloud sync on"', async () => {
     await renderSync();
+    expect(card().textContent).toContain('Cloud sync on');
+  });
+
+  // KAN-261. The write after Merge/Replace runs while the user is on this
+  // pane; the card says so, then says how it went, in step with the toast.
+  test('the card follows a cloud write: syncing, then on or failed', async () => {
+    const { store } = await renderSync();
+    expect(card().textContent).toContain('Cloud sync on');
+
+    act(() => {
+      store.dispatch({ type: saveToFirestoreIfDirty.pending.type });
+    });
+    expect(card().textContent).toContain('Syncing…');
+    expect(card().textContent).not.toContain('Cloud sync on');
+
+    act(() => {
+      store.dispatch({ type: saveToFirestoreIfDirty.rejected.type });
+    });
+    expect(card().textContent).toContain('Last sync failed');
+
+    act(() => {
+      store.dispatch({ type: saveToFirestoreIfDirty.pending.type });
+    });
+    expect(card().textContent).toContain('Syncing…');
+    act(() => {
+      store.dispatch({ type: saveToFirestoreIfDirty.fulfilled.type });
+    });
     expect(card().textContent).toContain('Cloud sync on');
   });
 
@@ -226,6 +260,7 @@ describe('every key the derivation emits is a translation key', () => {
       { ...base, isAutoSync: false },
       { ...base, cloudConsent: 'declined' as const, isAutoSync: false },
       { ...base, syncStatus: 'error' as const },
+      { ...base, syncStatus: 'loading' as const },
       { ...base, isSignedIn: false },
     ].map(describeSyncState);
     for (const s of states) {

@@ -9,27 +9,33 @@ import { useThemeColors } from '../../hooks/useThemeColors';
 import { AppDispatch, RootState } from '../../redux/store';
 import {
   cancelReplaceSessions,
+  mergeSessionsFromBackup,
   replaceSessionsFromBackup,
 } from '../../redux/slices/globalStateSlice';
 import { TYPE } from '../../styles/scale';
 import { dialogButtonStyles } from './dialogButtons';
 
-const TITLE_ID = 'replace-sessions-title';
-const BODY_ID = 'replace-sessions-body';
+const TITLE_ID = 'load-backup-title';
+const BODY_ID = 'load-backup-body';
 
 /**
- * Confirms "Replace sessions from a backup" (KAN-252). The same <dialog>
- * contract as DeleteCloudDataModal, opened UNLIT as the cloud question is
- * (KAN-243): the dialog takes the focus, so Escape works and the first Tab
- * lands on Cancel, but Replace is not one accidental Enter away.
+ * The question after "Load sessions from a backup" has read the file (KAN-252,
+ * KAN-261): Merge keeps everything saved here and adds the file's sessions
+ * that are not here yet; Replace throws away what is here first and cannot be
+ * undone. The same <dialog> contract as DeleteCloudDataModal, opened UNLIT as
+ * the cloud question is (KAN-243): the dialog takes the focus, so Escape works
+ * and the first Tab lands on Cancel, but neither answer is one accidental
+ * Enter away.
  *
- * The body says the two numbers the user cannot otherwise see side by side --
- * how many sessions are saved here, how many the file holds -- and that this
- * cannot be undone, which is the fact that makes the question worth asking.
- * Each count is its own sentence with its own One/Other pair, so no locale
- * has to agree two plurals inside one clause.
+ * The title carries the file's count and the file name sits on its own quiet
+ * line under it: a real backup is named tabkeeper_backup_1.8.0_<epoch>.json,
+ * and in the title it swallowed the question. Each body sentence carries the
+ * count on this device with its own One/Other pair, so no locale has to agree
+ * two plurals inside one clause. Replace wears the danger style, as Delete
+ * does on Delete cloud data; Merge does not -- it deletes nothing. Neither is
+ * "primary": the dialog opens unlit and no answer is pre-chosen.
  */
-export const ReplaceSessionsModal: React.FC = () => {
+export const LoadBackupModal: React.FC = () => {
   const COLORS = useThemeColors();
   const FONT_FAMILY = useFontFamily();
   const { t } = useTranslation();
@@ -60,6 +66,10 @@ export const ReplaceSessionsModal: React.FC = () => {
 
   const handleReplace = () => {
     void dispatch(replaceSessionsFromBackup(pending.container));
+  };
+
+  const handleMerge = () => {
+    void dispatch(mergeSessionsFromBackup(pending.container));
   };
 
   const buttons = dialogButtonStyles(COLORS);
@@ -97,11 +107,21 @@ export const ReplaceSessionsModal: React.FC = () => {
     overflow-wrap: anywhere;
   `;
 
+  const fileStyle = css`
+    margin: -6px 0 12px 0;
+    font-size: ${TYPE.SECONDARY};
+    color: ${COLORS.LABEL_L2_COLOR};
+    overflow-wrap: anywhere;
+  `;
+
   const bodyStyle = css`
-    margin: 0 0 20px 0;
+    margin: 0 0 12px 0;
     line-height: 1.5;
     color: ${COLORS.LABEL_L1_COLOR};
     overflow-wrap: anywhere;
+    &:last-of-type {
+      margin-bottom: 20px;
+    }
   `;
 
   const actionsStyle = css`
@@ -123,32 +143,36 @@ export const ReplaceSessionsModal: React.FC = () => {
       }}
     >
       <h2 id={TITLE_ID} css={titleStyle}>
-        {t('Replace your saved sessions?')}
+        {t(inFile === 1 ? 'LoadBackupTitleOne' : 'LoadBackupTitleOther', {
+          count: inFile,
+        })}
       </h2>
+      {/* Not translated: it is the user's own file name. */}
+      <p css={fileStyle}>{pending.fileName}</p>
 
-      <p id={BODY_ID} css={bodyStyle}>
-        {t(
-          savedHere === 1
-            ? 'ReplaceSessionsHereOne'
-            : 'ReplaceSessionsHereOther',
-          { count: savedHere }
-        )}{' '}
-        {t(
-          inFile === 1 ? 'ReplaceSessionsFileOne' : 'ReplaceSessionsFileOther',
-          {
-            count: inFile,
-            file: pending.fileName,
-          }
-        )}{' '}
-        {t('This cannot be undone.')}
-      </p>
+      {/* One answer per paragraph, so the eye can find the one it wants. */}
+      <div id={BODY_ID}>
+        <p css={bodyStyle}>
+          {t(savedHere === 1 ? 'MergeKeepsOne' : 'MergeKeepsOther', {
+            count: savedHere,
+          })}
+        </p>
+        <p css={bodyStyle}>
+          {t(savedHere === 1 ? 'ReplaceDeletesOne' : 'ReplaceDeletesOther', {
+            count: savedHere,
+          })}
+        </p>
+      </div>
 
       <div css={actionsStyle}>
         <button type="button" css={buttons.quiet} onClick={handleCancel}>
           {t('Cancel')}
         </button>
+        <button type="button" css={buttons.quiet} onClick={handleMerge}>
+          {t('Merge sessions')}
+        </button>
         <button type="button" css={buttons.danger} onClick={handleReplace}>
-          {t('Replace')}
+          {t('Replace sessions')}
         </button>
       </div>
     </dialog>

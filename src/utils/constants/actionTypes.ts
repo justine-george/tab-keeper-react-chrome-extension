@@ -57,6 +57,8 @@ export const SORT_SESSIONS_ACTION =
   'tabContainerDataState/sortSessionsInternal';
 export const CLEAR_SESSION_ORDER_ACTION =
   'tabContainerDataState/clearSessionOrder';
+export const MERGE_SESSIONS_FROM_BACKUP_ACTION =
+  'tabContainerDataState/mergeSessionsFromBackupInternal';
 
 // global actions
 export const IS_DIRTY_ACTION = 'globalState/setIsDirty';

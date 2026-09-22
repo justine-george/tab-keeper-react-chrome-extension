@@ -1,4 +1,9 @@
-import { createAsyncThunk, createSlice, PayloadAction } from '@reduxjs/toolkit';
+import {
+  createAsyncThunk,
+  createSlice,
+  current,
+  PayloadAction,
+} from '@reduxjs/toolkit';
 
 // `import type`, and it is load-bearing rather than tidiness. A value import
 // here completes a cycle -- this slice -> store -> storeConfig -> this slice --
@@ -2092,6 +2097,44 @@ export const tabContainerDataStateSlice = createSlice({
       return restored;
     },
 
+    // Merge, the additive answer to "Load sessions from a backup" (KAN-261).
+    // The promise is "nothing here changes": every session saved here stays
+    // exactly as it is -- same object, same timestamp -- and the file's
+    // sessions that are not here yet go on top, where a freshly saved one
+    // would. A session in both keeps the copy saved here.
+    //
+    // Not a new merge rule. The payload handed to reconcileAssertedContainer
+    // is everything here plus the file-only sessions, with THIS container's
+    // tombstones rather than the file's: a grave in the file is a fact about
+    // the file, not an instruction to delete here. The reconcile then does
+    // the one hard part -- a file session the user deleted here is stamped
+    // past its tombstone and the grave is dropped, so the next sync does not
+    // quietly delete it again. A local session is unchanged in content, so
+    // the reconcile leaves it and its timestamp alone.
+    //
+    // Captured for undo, unlike restoreContainer: undoing a merge withdraws
+    // exactly the sessions it added (customMiddleware records them), which is
+    // what undoing an additive step should mean.
+    mergeSessionsFromBackupInternal: (
+      state,
+      action: PayloadAction<TabMasterContainer>
+    ) => {
+      const here = new Set(state.tabGroups.map((g) => g.tabGroupId));
+      const added = action.payload.tabGroups
+        .filter((g) => !here.has(g.tabGroupId))
+        .map((g) => ({ ...g, isSelected: false }));
+      if (added.length === 0) return;
+
+      const merged = reconcileAssertedContainer(state, {
+        ...current(state),
+        lastModified: Date.now(),
+        tabGroups: [...added, ...current(state).tabGroups],
+      });
+
+      saveToLocalStorage('tabContainerData', merged);
+      return merged;
+    },
+
     // Undo and redo. Reconciles exactly as restoreContainer does, then
     // withdraws the sessions the step being undone had created (KAN-80).
     //
@@ -2357,6 +2400,7 @@ export const {
   clearSessionOrder,
   replaceState,
   restoreContainer,
+  mergeSessionsFromBackupInternal,
   applyUndoSnapshot,
 } = tabContainerDataStateSlice.actions;
 

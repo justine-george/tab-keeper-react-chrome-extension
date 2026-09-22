@@ -61,7 +61,7 @@ describe('the settings rail names what each pane holds (KAN-253)', () => {
       screen.getByRole('button', { name: 'Save sessions to a file' })
     ).toBeTruthy();
     expect(
-      screen.getByRole('button', { name: 'Replace sessions from a backup' })
+      screen.getByRole('button', { name: 'Load sessions from a backup' })
     ).toBeTruthy();
     // And not the capture setting.
     expect(screen.queryByRole('group', { name: 'Save Tab Groups' })).toBeNull();

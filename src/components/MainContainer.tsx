@@ -17,7 +17,7 @@ import { closeToast } from '../redux/slices/globalStateSlice';
 import { RateAndReviewModal } from './modals/RateAndReviewModal';
 import { FocusConfirmModal } from './modals/FocusConfirmModal';
 import { DeleteCloudDataModal } from './modals/DeleteCloudDataModal';
-import { ReplaceSessionsModal } from './modals/ReplaceSessionsModal';
+import { LoadBackupModal } from './modals/LoadBackupModal';
 import { CloudConsentModal } from './modals/CloudConsentModal';
 import { TabGroupsPermissionModal } from './modals/TabGroupsPermissionModal';
 
@@ -183,7 +183,7 @@ export default function MainContainer() {
       {tabGroupsPromptCount !== null && <TabGroupsPermissionModal />}
       {focusRequest && <FocusConfirmModal />}
       {isDeleteCloudDataModalOpen && <DeleteCloudDataModal />}
-      {pendingImport !== null && <ReplaceSessionsModal />}
+      {pendingImport !== null && <LoadBackupModal />}
       {isCloudConsentModalOpen && <CloudConsentModal />}
     </div>
   );

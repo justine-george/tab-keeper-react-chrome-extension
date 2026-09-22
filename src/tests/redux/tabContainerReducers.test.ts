@@ -279,7 +279,7 @@ describe('restoreContainer produces a Firestore-writable container', () => {
   beforeEach(() => localStorage.clear());
 
   // A backup exported before tombstones existed: no deletedTabGroups field at
-  // all. This is exactly what "Replace sessions from a backup" is for.
+  // all. This is exactly what "Load sessions from a backup" → Replace is for.
   const legacyBackup = (): TabMasterContainer => ({
     lastModified: 2,
     selectedTabGroupId: null,
