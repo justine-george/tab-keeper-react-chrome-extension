@@ -15,7 +15,11 @@ const mocks = vi.hoisted(() => ({
 }));
 vi.mock('../../config/firebase', () => ({
   ensureCloudSession: mocks.ensureCloudSession,
-  ensureCloudSessionReady: vi.fn(async () => undefined),
+  // As the real one does: starts the session, then resolves (KAN-266 sends
+  // the manual starters through this rather than ensureCloudSession alone).
+  ensureCloudSessionReady: vi.fn(async () => {
+    mocks.ensureCloudSession();
+  }),
   observeAuthState: vi.fn(),
   signInUserAnonymously: () => {},
   isCloudConfigured: true,

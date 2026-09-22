@@ -17,7 +17,7 @@ import {
   grantCloudConsent,
   setAutoSync,
 } from '../../redux/slices/settingsDataStateSlice';
-import { ensureCloudSession } from '../../config/firebase';
+import { ensureCloudSessionReady } from '../../config/firebase';
 import { PRIVACY_POLICY_LINK } from '../../utils/constants/common';
 import { ICON, TYPE } from '../../styles/scale';
 import { dialogButtonStyles } from './dialogButtons';
@@ -87,8 +87,12 @@ export const CloudConsentModal: React.FC = () => {
     if (variant === 'welcome' || then === 'autoSync') {
       dispatch(setAutoSync(true));
     } else if (then === 'syncNow') {
-      ensureCloudSession(dispatch);
-      dispatch(syncStateWithFirestore());
+      // KAN-266. Waited for, not fire-and-forget: a read before sign-in
+      // lands is denied, and a denied read used to end in local state
+      // written over the cloud document. See MenuContainer.handleClickSync.
+      void ensureCloudSessionReady(dispatch).then(() =>
+        dispatch(syncStateWithFirestore())
+      );
     }
   };
   // 'enable' is a re-ask from someone who declined or never answered: Not now
