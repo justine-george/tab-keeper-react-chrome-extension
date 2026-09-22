@@ -2072,25 +2072,48 @@ export const tabContainerDataStateSlice = createSlice({
       return action.payload;
     },
 
-    // Replace the container with one the user is explicitly asserting: an
-    // undo/redo snapshot, or an imported backup file. Kept separate from
-    // replaceState, which the sync uses for merged results and must not touch
-    // timestamps.
+    // Replace the container with a backup file the user is explicitly
+    // asserting ("Load sessions from a backup" → Replace sessions). Kept
+    // separate from replaceState, which the sync uses for merged results and
+    // must not touch timestamps. Undo no longer comes through here
+    // (applyUndoSnapshot).
     //
-    // Either source can bring back a session that has since been deleted, and
-    // neither carries a tombstone for it - but the cloud may still hold the one
-    // that delete pushed up, and it is newer than the restored session's
-    // untouched timestamp. Without help the next merge simply re-applies the
-    // delete: the undo or the import appears to work and then silently reverses
-    // itself, with no way to recover the session.
+    // A backup can bring back a session that has since been deleted, and
+    // carries no tombstone for it - but the cloud may still hold the one that
+    // delete pushed up, and it is newer than the restored session's untouched
+    // timestamp. Without help the next merge simply re-applies the delete: the
+    // import appears to work and then silently reverses itself, with no way
+    // to recover the session.
     //
     // Stamping the restored session now is not a workaround: bringing it back
     // IS a change to that session, made on this device at this moment, which is
     // exactly what the per-session timestamp records. Only sessions whose
     // tombstone is being withdrawn are stamped - anything else in the payload
     // keeps its own history.
+    //
+    // KAN-262. The other direction has the same shape. A session here that
+    // the file does not carry is dropped, and dropping it without a tombstone
+    // is no signal to the merge -- absence never deletes -- so the next sync
+    // brought every dropped session straight back from the cloud. Replace
+    // means "these and only these", and the dialog has just said so, so each
+    // one is buried, strictly after its live copy for the same tie reason
+    // the restore direction stamps strictly after the grave it withdraws.
     restoreContainer: (state, action: PayloadAction<typeof state>) => {
       const restored = reconcileAssertedContainer(state, action.payload);
+
+      const surviving = new Set(
+        restored.tabGroups.map((tabGroup) => tabGroup.tabGroupId)
+      );
+      const graves = restored.deletedTabGroups ?? [];
+      for (const tabGroup of state.tabGroups) {
+        if (surviving.has(tabGroup.tabGroupId)) continue;
+        buryAfter(
+          graves,
+          tabGroup.tabGroupId,
+          tabGroup.lastModified ?? state.lastModified
+        );
+      }
+      restored.deletedTabGroups = graves;
 
       // update localstorage
       saveToLocalStorage('tabContainerData', restored);
@@ -2146,12 +2169,14 @@ export const tabContainerDataStateSlice = createSlice({
     // how KAN-83 deleted them. undoRedoSlice records what each step added at
     // the moment it happens, and this reducer is handed the answer.
     //
-    // Import deliberately does NOT come through here. The two callers want
-    // opposite things from a session the payload lacks: an undo means "retract
-    // it", an import means "leave it alone", because a backup file is a partial
-    // view of the world and tombstoning against it would let an old export
-    // delete every newer session on every device. Two reducers rather than one
-    // with a flag, so neither contract can be read as the other.
+    // Import deliberately does NOT come through here. Both bury what they
+    // drop, but they decide WHICH differently: an undo buries only the ids
+    // it is handed, because "missing from the snapshot" also describes a
+    // session that merely arrived from another device (KAN-83); Replace
+    // (restoreContainer) buries everything absent from the file, because the
+    // user has just confirmed "these and only these" (KAN-262). Two reducers
+    // rather than one with a flag, so neither contract can be read as the
+    // other.
     applyUndoSnapshot: (
       state,
       action: PayloadAction<{
@@ -2199,21 +2224,7 @@ export const tabContainerDataStateSlice = createSlice({
         // The snapshot still has it, so this step did not actually create it.
         // Burying it would delete a session the user can still see.
         if (surviving.has(tabGroupId)) continue;
-
-        // Strictly after the copy it buries, for the same reason the restore
-        // direction stamps strictly after the tombstone it withdraws: the merge
-        // gives exact ties to the cloud, and undoing promptly enough lands in
-        // the same millisecond as the create.
-        const buriedAt = Math.max(
-          Date.now(),
-          (liveAt.get(tabGroupId) ?? 0) + 1
-        );
-        const existing = graves.find((g) => g.tabGroupId === tabGroupId);
-        if (existing) {
-          existing.deletedAt = buriedAt;
-        } else {
-          graves.push({ tabGroupId, deletedAt: buriedAt });
-        }
+        buryAfter(graves, tabGroupId, liveAt.get(tabGroupId) ?? 0);
       }
       restored.deletedTabGroups = graves;
 
@@ -2223,6 +2234,32 @@ export const tabContainerDataStateSlice = createSlice({
     },
   },
 });
+
+// Write, or re-stamp, the grave for a session a restore or an undo is
+// dropping. Unlike `bury` above, which the plain delete reducers use on the
+// draft, this works on the detached ledger reconcileAssertedContainer built
+// and takes the instant the live copy carried.
+//
+// Strictly after the copy it buries, not merely Date.now(), for the same
+// reason the restore direction stamps strictly after the tombstone it
+// withdraws: the merge gives exact ties to the cloud, and undoing (or
+// replacing) promptly enough lands in the same millisecond as the save. An
+// existing grave is re-stamped rather than kept: it can only be one the
+// payload carried for a session that is live here, and its original time has
+// already lost to that copy.
+function buryAfter(
+  graves: deletedTabGroup[],
+  tabGroupId: string,
+  aliveAt: number
+): void {
+  const buriedAt = Math.max(Date.now(), aliveAt + 1);
+  const existing = graves.find((g) => g.tabGroupId === tabGroupId);
+  if (existing) {
+    existing.deletedAt = buriedAt;
+  } else {
+    graves.push({ tabGroupId, deletedAt: buriedAt });
+  }
+}
 
 // The tombstone ledger a restore should end up with (KAN-81).
 //
