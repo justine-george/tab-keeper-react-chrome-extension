@@ -27,6 +27,7 @@ export const test = base.extend<{
   extensionId: string;
   showScrollbars: boolean;
   freshProfile: boolean;
+  uiLanguage: string | undefined;
 }>({
   // Playwright launches headless Chromium with --hide-scrollbars, so every
   // scrollbar measures 0px and paints nothing (KAN-188). Off by default on
@@ -43,7 +44,13 @@ export const test = base.extend<{
   // on every page: a seed of "no answer" would erase the answer on reopen.
   freshProfile: [false, { option: true }],
 
-  context: async ({ showScrollbars, freshProfile }, use) => {
+  // KAN-282. The browser's UI language, as `--lang`. Honoured on Linux (CI)
+  // and Windows; macOS ignores the flag and takes the system list, so a spec
+  // using this must check what `chrome.i18n.getUILanguage()` actually reports
+  // and skip when the platform did not take it, rather than pass by accident.
+  uiLanguage: [undefined, { option: true }],
+
+  context: async ({ showScrollbars, freshProfile, uiLanguage }, use) => {
     // A throwaway profile per test: extension state (localStorage,
     // chrome.storage) persists in the profile, so sharing one would let tests
     // leak into each other.
@@ -56,7 +63,11 @@ export const test = base.extend<{
       headless: true,
       channel: 'chromium',
       ignoreDefaultArgs: showScrollbars ? ['--hide-scrollbars'] : [],
-      args: [`--disable-extensions-except=${DIST}`, `--load-extension=${DIST}`],
+      args: [
+        `--disable-extensions-except=${DIST}`,
+        `--load-extension=${DIST}`,
+        ...(uiLanguage ? [`--lang=${uiLanguage}`] : []),
+      ],
     });
 
     // KAN-259, see the freshProfile option above.
