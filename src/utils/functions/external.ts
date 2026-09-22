@@ -62,10 +62,17 @@ export async function loadFromFirestore(
       console.warn('handled error: ' + error.message);
       thunkAPI.dispatch(setIsDirty());
       thunkAPI.dispatch(saveToFirestoreIfDirty());
-    } else {
-      // Handle other types of Firestore errors
-      console.warn('unexpected error: ' + error.message);
+      return undefined;
     }
+    // KAN-264. Anything else -- offline, quota, a transient 5xx -- is a read
+    // that FAILED, not a document that is absent, and the two must not look
+    // the same to the caller. Returning undefined here sent the sync down its
+    // local-only branch, which marks local dirty and writes it over a cloud
+    // document that was never read. Throw instead: syncStateWithFirestore's
+    // rejected case (KAN-263) turns it into sync_problem, and the next sync
+    // reads first.
+    console.warn('unexpected error: ' + error.message);
+    throw error;
   }
 }
 
