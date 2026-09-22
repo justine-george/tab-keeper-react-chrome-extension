@@ -259,8 +259,11 @@ export const saveToFirestoreIfDirty = createAsyncThunk(
           // locale in English (KAN-86). The numbers travel as params and Toast
           // interpolates them.
           const params = {
-            used: bytesToMB(bytes),
-            limit: bytesToMB(FIRESTORE_MAX_DOCUMENT_BYTES),
+            used: bytesToMB(bytes, state.settingsDataState.language),
+            limit: bytesToMB(
+              FIRESTORE_MAX_DOCUMENT_BYTES,
+              state.settingsDataState.language
+            ),
           };
           thunkAPI.dispatch(
             showToast({

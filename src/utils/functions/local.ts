@@ -628,8 +628,14 @@ export const isValidTabMasterContainer = (
 // Exported so the sync guard in globalStateSlice phrases its refusal exactly
 // like the import guard below. Two different roundings for the same limit
 // would read as two different limits.
-export const bytesToMB = (bytes: number): string =>
-  (bytes / 1048576).toFixed(1);
+// In the UI language, one decimal always: German reads "1,4 MB von maximal
+// 1,0 MB" (KAN-288). toFixed wrote a point everywhere. Intl only, no i18n or
+// document, because the service worker imports this module.
+export const bytesToMB = (bytes: number, locale: string): string =>
+  new Intl.NumberFormat(locale, {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  }).format(bytes / 1048576);
 
 // The i18n keys for the two ways an import can be refused, and for the sync
 // guard's matching refusal (KAN-86).
@@ -687,7 +693,10 @@ export class TranslatableError extends Error {
 // restoreContainer and leaves isDirty set against a document Firestore will
 // never accept, so importing anyway does not just fail once -- it wedges sync
 // for every subsequent change until the user deletes sessions by hand.
-export function readImportedContainer(content: string): TabMasterContainer {
+export function readImportedContainer(
+  content: string,
+  locale: string
+): TabMasterContainer {
   const parsed: unknown = JSON.parse(content);
 
   if (!isValidTabMasterContainer(parsed)) {
@@ -697,8 +706,8 @@ export function readImportedContainer(content: string): TabMasterContainer {
   const bytes = estimateFirestoreBytes(parsed);
   if (bytes > FIRESTORE_MAX_DOCUMENT_BYTES) {
     throw new TranslatableError(IMPORT_SIZE_REFUSAL, {
-      used: bytesToMB(bytes),
-      limit: bytesToMB(FIRESTORE_MAX_DOCUMENT_BYTES),
+      used: bytesToMB(bytes, locale),
+      limit: bytesToMB(FIRESTORE_MAX_DOCUMENT_BYTES, locale),
     });
   }
 
