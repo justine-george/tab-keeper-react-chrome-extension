@@ -19,8 +19,8 @@ describe('the export menu items promise a further step (KAN-226, KAN-208)', () =
     'every locale ends "%s" with a single ellipsis character',
     (key) => {
       const entries = Object.entries(localeFiles);
-      // CONTROL: the glob found the ten locales, so an empty loop cannot pass.
-      expect(entries).toHaveLength(10);
+      // CONTROL: the glob found the thirteen locales, so an empty loop cannot pass.
+      expect(entries).toHaveLength(13);
 
       for (const [file, strings] of entries) {
         const value = strings[key];

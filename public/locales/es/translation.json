@@ -122,7 +122,7 @@
   "ImportErrorFrame": "Error al restaurar las pestañas: {{detail}}",
   "Invalid JSON structure.": "Estructura JSON no válida.",
   "ImportSizeRefusal": "demasiado grande para sincronizar ({{used}} MB de un límite de {{limit}} MB). Elimine algunas sesiones de la copia de seguridad e inténtelo de nuevo.",
-  "SyncSizeRefusal": "demasiado grande para sincronizar ({{used}} MB de un límite de {{limit}} MB). Elimine algunas sesiones e inténtelo de nuevo.",
+  "SyncSizeRefusal": "Sus sesiones son demasiado grandes para sincronizarse ({{used}} MB de un límite de {{limit}} MB). Elimine algunas sesiones e inténtelo de nuevo.",
   "TabGroupsPromptTitle": "Tab Keeper puede guardar grupos de pestañas",
   "TabGroupsPromptBodyOne": "Actívalo y tu grupo de pestañas volverá tal como lo creaste.",
   "TabGroupsPromptBodyOther": "Actívalo y tus {{count}} grupos de pestañas volverán tal como los creaste.",

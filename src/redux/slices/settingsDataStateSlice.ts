@@ -29,9 +29,14 @@ export enum Language {
   HI = 'hi',
   IT = 'it',
   JA = 'ja',
+  KO = 'ko',
   PT = 'pt',
   RU = 'ru',
+  SV = 'sv',
+  // Simplified. A BCP 47 tag, hyphenated, because the value goes straight to
+  // Intl -- the manifest's zh_TW spelling throws there (KAN-283).
   ZH = 'zh',
+  ZH_TW = 'zh-TW',
 }
 
 export interface SettingsData {

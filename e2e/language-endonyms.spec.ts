@@ -1,6 +1,7 @@
 import type { BrowserContext, Page } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
+import { localeStrings } from './fixtures/locales';
 import { buildContainer, seedSessions, seedSettings } from './fixtures/seed';
 
 // KAN-244. A language picker is the one screen that must be usable by someone
@@ -23,10 +24,13 @@ const ENDONYMS = [
   'Français',
   'Italiano',
   'Português',
+  'Svenska',
   'Русский',
   'हिन्दी',
-  '中文',
+  '한국어',
   '日本語',
+  '简体中文',
+  '繁體中文',
 ];
 
 // i18n reads `language` out of settingsData at MODULE LOAD (config/i18n.tsx),
@@ -147,4 +151,41 @@ test.describe('the language picker names each language in its own language (KAN-
     expect(await widthOf('Deutsch')).toBe('2px');
     expect(await widthOf('English')).toBe('1px');
   });
+
+  // KAN-283. The jsdom tests inline `en`, so only the built extension can say
+  // that the HTTP backend fetches these three files -- zh-TW in particular,
+  // the first folder whose name is not two letters. A 404 there would boot
+  // the popup in English with no error, so the heading is the assertion.
+  for (const [language, endonym] of [
+    ['sv', 'Svenska'],
+    ['ko', '한국어'],
+    ['zh-TW', '繁體中文'],
+  ] as const) {
+    test(`booted in ${language}, the popup is in ${endonym} and ${endonym} is the one pressed`, async ({
+      context,
+      extensionId,
+    }) => {
+      const strings = localeStrings(language);
+      const page = await openLanguagePaneIn(context, extensionId, language, {
+        settings: strings['Settings'],
+        category: strings['Language'],
+      });
+
+      await expect(page.getByText(strings['Choose Language'])).toBeVisible();
+      await expect(option(page, endonym)).toHaveAttribute(
+        'aria-pressed',
+        'true'
+      );
+      await expect(option(page, 'English')).toHaveAttribute(
+        'aria-pressed',
+        'false'
+      );
+
+      // Chrome picks Han glyph variants from lang, so a zh-TW UI under
+      // lang="en" is drawn in Simplified forms. It follows a switch, too.
+      await expect(page.locator('html')).toHaveAttribute('lang', language);
+      await option(page, 'English').click();
+      await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+    });
+  }
 });

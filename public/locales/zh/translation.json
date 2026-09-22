@@ -118,7 +118,7 @@
   "ImportErrorFrame": "恢复标签页时出错：{{detail}}",
   "Invalid JSON structure.": "JSON 结构无效。",
   "ImportSizeRefusal": "过大，无法同步（{{used}} MB，上限为 {{limit}} MB）。请从备份中删除一些会话后重试。",
-  "SyncSizeRefusal": "过大，无法同步（{{used}} MB，上限为 {{limit}} MB）。请删除一些会话后重试。",
+  "SyncSizeRefusal": "会话过大，无法同步（{{used}} MB，上限为 {{limit}} MB）。请删除一些会话后重试。",
   "TabGroupsPromptTitle": "Tab Keeper 可以保存标签组",
   "TabGroupsPromptBodyOne": "开启后，标签组会完全按照你的设置恢复。",
   "TabGroupsPromptBodyOther": "开启后，这 {{count}} 个标签组会完全按照你的设置恢复。",

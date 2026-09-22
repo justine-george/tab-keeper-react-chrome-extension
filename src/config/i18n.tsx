@@ -3,6 +3,7 @@ import HttpBackend from 'i18next-http-backend';
 import { initReactI18next } from 'react-i18next';
 
 import { DEFAULT_LANG } from '../utils/constants/common';
+import { mirrorLanguageOnDocument } from '../utils/functions/documentLanguage';
 import {
   asPartialSettings,
   loadFromLocalStorage,
@@ -19,6 +20,9 @@ const userLang: Language =
   typeof storedLanguage === 'string' && storedLanguage
     ? (storedLanguage.replace(/"/g, '') as Language)
     : DEFAULT_LANG;
+
+// Before init(), so the first language is caught when the backend delivers it.
+mirrorLanguageOnDocument(i18n, document.documentElement);
 
 i18n
   .use(HttpBackend)

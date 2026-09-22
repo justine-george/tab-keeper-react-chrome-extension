@@ -42,13 +42,19 @@ const TRANSLATED_FORMS = [
   'Хранитель вкладок',
   '标签管理器', // zh
   '选项卡管理器', // zh, the second one
+  '탭 키퍼', // ko
+  '탭 관리자',
+  '分頁管理員', // zh-TW
+  '標籤管理器',
+  'Flikhållaren', // sv
+  'Flikhanterare',
 ];
 
 describe('the product is named the same way everywhere', () => {
   // The control for the sweep below: if this ever fails, the glob is broken and
   // a green sweep would mean nothing rather than meaning the locales are clean.
-  test('CONTROL: all ten locales were loaded', () => {
-    expect(locales).toHaveLength(10);
+  test('CONTROL: all thirteen locales were loaded', () => {
+    expect(locales).toHaveLength(13);
     expect(locales.map(([name]) => name).sort()).toEqual([
       'de',
       'en',
@@ -57,9 +63,12 @@ describe('the product is named the same way everywhere', () => {
       'hi',
       'it',
       'ja',
+      'ko',
       'pt',
       'ru',
+      'sv',
       'zh',
+      'zh-TW',
     ]);
   });
 

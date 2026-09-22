@@ -35,10 +35,13 @@ const ENDONYMS = [
   'Français',
   'Italiano',
   'Português',
+  'Svenska',
   'Русский',
   'हिन्दी',
-  '中文',
+  '한국어',
   '日本語',
+  '简体中文',
+  '繁體中文',
 ];
 
 const renderLanguagePane = () =>
