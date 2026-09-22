@@ -61,6 +61,14 @@ const titlesHere = (page: Page) =>
     return data.tabGroups.map((g) => g.title);
   });
 
+const graveIdsHere = (page: Page) =>
+  page.evaluate(() => {
+    const data = JSON.parse(localStorage.getItem('tabContainerData')!) as {
+      deletedTabGroups?: { tabGroupId: string }[];
+    };
+    return (data.deletedTabGroups ?? []).map((g) => g.tabGroupId).sort();
+  });
+
 const dialogOf = (page: Page) =>
   page.getByRole('dialog', { name: 'Load 1 session from this backup?' });
 
@@ -83,7 +91,7 @@ test.describe('Load sessions from a backup asks first (KAN-252, KAN-261)', () =>
       'Merge keeps the 3 sessions on this device and adds any sessions from the backup that aren’t already here.'
     );
     await expect(dialog).toContainText(
-      'Replace deletes the 3 sessions on this device, then loads the backup. This can’t be undone.'
+      'Replace deletes the 3 sessions on this device and on every device that syncs with it, then loads the backup. This can’t be undone.'
     );
     await expect(dialog.getByRole('button')).toHaveText([
       'Cancel',
@@ -139,6 +147,9 @@ test.describe('Load sessions from a backup asks first (KAN-252, KAN-261)', () =>
 
     await expect(dialog).toHaveCount(0);
     await expect.poll(() => titlesHere(page)).toEqual(['From the file']);
+    // KAN-262. The three it dropped are buried, so the next sync deletes
+    // them from the cloud instead of bringing them back from it.
+    expect(await graveIdsHere(page)).toEqual(['h1', 'h2', 'h3']);
   });
 
   test('Escape is Cancel', async ({ context, extensionId }) => {

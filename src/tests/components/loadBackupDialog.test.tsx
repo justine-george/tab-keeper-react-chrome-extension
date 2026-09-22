@@ -115,7 +115,7 @@ describe('the load-backup dialog (KAN-252, KAN-261)', () => {
       'Merge keeps the 3 sessions on this device and adds any sessions from the backup that aren’t already here.'
     );
     expect(dialog).toHaveTextContent(
-      'Replace deletes the 3 sessions on this device, then loads the backup. This can’t be undone.'
+      'Replace deletes the 3 sessions on this device and on every device that syncs with it, then loads the backup. This can’t be undone.'
     );
     expect(within(dialog).getByRole('button', { name: 'Cancel' })).toBeTruthy();
     expect(
@@ -290,7 +290,7 @@ describe('the load-backup dialog (KAN-252, KAN-261)', () => {
       'Merge keeps the session on this device and adds any sessions from the backup that aren’t already here.'
     );
     expect(dialog).toHaveTextContent(
-      'Replace deletes the session on this device, then loads the backup. This can’t be undone.'
+      'Replace deletes the session on this device and on every device that syncs with it, then loads the backup. This can’t be undone.'
     );
   });
 });
