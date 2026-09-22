@@ -44,10 +44,12 @@ export const test = base.extend<{
   // on every page: a seed of "no answer" would erase the answer on reopen.
   freshProfile: [false, { option: true }],
 
-  // KAN-282. The browser's UI language, as `--lang`. Honoured on Linux (CI)
-  // and Windows; macOS ignores the flag and takes the system list, so a spec
-  // using this must check what `chrome.i18n.getUILanguage()` actually reports
-  // and skip when the platform did not take it, rather than pass by accident.
+  // KAN-282. The browser's UI language. Passed two ways, because platforms
+  // disagree: `--lang` (Windows), and the LANGUAGE/LANG environment, which is
+  // what headless Chrome on Linux reads -- CI measured `--lang` alone as not
+  // taking there. macOS ignores both and uses the system list, so a spec using
+  // this must check what `chrome.i18n.getUILanguage()` actually reports and
+  // skip when the platform did not take it, rather than pass by accident.
   uiLanguage: [undefined, { option: true }],
 
   context: async ({ showScrollbars, freshProfile, uiLanguage }, use) => {
@@ -68,6 +70,15 @@ export const test = base.extend<{
         `--load-extension=${DIST}`,
         ...(uiLanguage ? [`--lang=${uiLanguage}`] : []),
       ],
+      ...(uiLanguage
+        ? {
+            env: {
+              ...process.env,
+              LANGUAGE: uiLanguage.replace('-', '_'),
+              LANG: `${uiLanguage.replace('-', '_')}.UTF-8`,
+            },
+          }
+        : {}),
     });
 
     // KAN-259, see the freshProfile option above.

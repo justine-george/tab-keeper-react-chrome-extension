@@ -12,8 +12,8 @@ import { seedSettings } from './fixtures/seed';
 // so a detection that reached only i18n.tsx rendered German once and saved
 // `en`, and every later open was English.
 //
-// `--lang` is honoured on Linux, where CI runs, and ignored on macOS, which
-// takes the system language list instead. Each test first asks Chrome what it
+// The fixture sets the language through `--lang` and the LANGUAGE/LANG
+// environment; macOS ignores both and takes the system language list. Each test first asks Chrome what it
 // is reporting and skips when the flag did not take, rather than passing
 // against English for the wrong reason.
 
@@ -38,9 +38,11 @@ const savedLanguage = (page: Page) =>
 
 const skipUnlessChromeReports = async (worker: Worker, tag: string) => {
   const reported = await worker.evaluate(() => chrome.i18n.getUILanguage());
+  // Printed, so a CI log says what the platform reported when this skips.
+  console.log(`KAN-282 probe: asked for ${tag}, Chrome reports ${reported}`);
   test.skip(
     reported.toLowerCase() !== tag.toLowerCase(),
-    `--lang=${tag} did not take on this platform (Chrome reports ${reported}); macOS ignores the flag`
+    `the UI language ${tag} did not take on this platform (Chrome reports ${reported}); macOS ignores --lang and LANGUAGE`
   );
 };
 
