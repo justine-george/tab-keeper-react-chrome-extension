@@ -10,11 +10,10 @@ import {
   sortSessions,
 } from '../../../redux/slices/tabContainerDataStateSlice';
 import { AppDispatch, RootState } from '../../../redux/store';
-import { ensureCloudSessionReady } from '../../../config/firebase';
 import {
   closeToast,
   openSettingsPage,
-  syncStateWithFirestore,
+  syncNowWhenSignedIn,
   openCloudConsentModal,
 } from '../../../redux/slices/globalStateSlice';
 import {
@@ -72,9 +71,7 @@ export default function MenuContainer() {
       dispatch(openCloudConsentModal({ variant: 'enable', then: 'syncNow' }));
       return;
     }
-    void ensureCloudSessionReady(dispatch).then(() =>
-      dispatch(syncStateWithFirestore())
-    );
+    void dispatch(syncNowWhenSignedIn());
   }
 
   function handleClickSettings() {

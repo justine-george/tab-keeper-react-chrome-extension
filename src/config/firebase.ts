@@ -91,19 +91,20 @@ export const ensureCloudSession = (dispatch: AppDispatch) => {
  * caller that must be authorised right now (deleteCloudData) can wait for it
  * rather than race the rules (KAN-259). Resolves at once with no cloud; the
  * caller's own call then throws cloudUnavailable, the path it already handles.
+ *
+ * REJECTS when the sign-in fails (KAN-289). It used to wait for
+ * onAuthStateChanged to report a user and nothing else, so a failed sign-in
+ * (auth/too-many-requests, offline) left every caller waiting forever, with no
+ * message. Each call with no user signs in again, so a later click retries.
  */
-export const ensureCloudSessionReady = (dispatch: AppDispatch): Promise<void> =>
-  new Promise((resolve) => {
-    if (auth === null) return resolve();
-    ensureCloudSession(dispatch);
-    if (auth.currentUser) return resolve();
-    const stop = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        stop();
-        resolve();
-      }
-    });
-  });
+export const ensureCloudSessionReady = async (
+  dispatch: AppDispatch
+): Promise<void> => {
+  if (auth === null) return;
+  ensureCloudSession(dispatch);
+  if (auth.currentUser) return;
+  await signInUserAnonymously();
+};
 
 export const observeAuthState = (dispatch: AppDispatch) => {
   // Silence, not setFirebaseUnauthed(): "not signed in" is a claim about an
@@ -118,25 +119,31 @@ export const observeAuthState = (dispatch: AppDispatch) => {
       // Not authenticated yet - or no longer. Sign in anonymously; this
       // callback fires again with a user once it lands.
       dispatch(setFirebaseUnauthed());
-      signInUserAnonymously();
+      // Caught here because nothing waits on this call. A caller that does
+      // wait (ensureCloudSessionReady) gets the same rejection and reports it.
+      signInUserAnonymously().catch((error) => {
+        console.warn(`Error (${error.code}): ${error.message}`);
+      });
     }
   });
 };
 
-export const signInUserAnonymously = () => {
-  if (auth === null) return Promise.resolve(undefined);
+// One sign-in in flight at a time. On the first call both this session's
+// listener and ensureCloudSessionReady ask for a user; the SDK reuses an
+// anonymous user only once one EXISTS, so two concurrent calls would sign up
+// two anonymous accounts. Cleared when it settles, so a failure can be retried.
+let signInInFlight: Promise<string> | null = null;
 
-  return signInAnonymously(auth)
-    .then((userCredential) => {
-      // Signed in successfully
-      const user = userCredential.user;
-      return user.uid;
-    })
-    .catch((error) => {
-      const errorCode = error.code;
-      const errorMessage = error.message;
-      console.warn(`Error (${errorCode}): ${errorMessage}`);
+/** Resolves with the uid; rejects with the SDK's error when sign-in fails. */
+export const signInUserAnonymously = (): Promise<string> => {
+  if (auth === null) return Promise.reject(cloudUnavailable());
+
+  signInInFlight ??= signInAnonymously(auth)
+    .then((userCredential) => userCredential.user.uid)
+    .finally(() => {
+      signInInFlight = null;
     });
+  return signInInFlight;
 };
 
 // What a document decodes to before anything has proven its shape.

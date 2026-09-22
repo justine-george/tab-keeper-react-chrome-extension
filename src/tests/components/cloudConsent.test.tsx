@@ -15,14 +15,20 @@ const mocks = vi.hoisted(() => ({
 }));
 vi.mock('../../config/firebase', () => ({
   ensureCloudSession: mocks.ensureCloudSession,
-  // As the real one does: starts the session, then resolves (KAN-266 sends
-  // the manual starters through this rather than ensureCloudSession alone).
-  ensureCloudSessionReady: vi.fn(async () => {
-    mocks.ensureCloudSession();
-  }),
   observeAuthState: vi.fn(),
   signInUserAnonymously: () => {},
   isCloudConfigured: true,
+}));
+// The manual starters reach the wait through the sync thunk, which talks to
+// Firebase only via utils/functions/external (KAN-259). As the real one does:
+// starts the session, then resolves.
+vi.mock('../../utils/functions/external', () => ({
+  loadFromFirestore: vi.fn(),
+  saveToFirestore: vi.fn(),
+  ensureCloudSessionReady: vi.fn(async () => {
+    mocks.ensureCloudSession();
+  }),
+  displayToast: vi.fn(),
 }));
 
 import App from '../../App';

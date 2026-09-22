@@ -458,6 +458,28 @@ export const syncStateWithFirestore = createAsyncThunk(
 //
 // On failure nothing changes but the toast: reporting "deleted" for a
 // document that is still there is the one outcome worse than an error.
+/**
+ * A sync someone asked for: the header's Sync now and the consent dialog's
+ * sync-once. It waits for the Firebase session first (KAN-266), because a
+ * read before sign-in lands is denied and a denied read is not "no document".
+ *
+ * A failed sign-in ends here as a failed sync (KAN-289): the sync_problem
+ * glyph and the "Last sync failed" card, and no read, since without
+ * request.auth the rules would deny it anyway. The next click signs in again.
+ */
+export const syncNowWhenSignedIn =
+  () =>
+  async (dispatch: AppDispatch): Promise<void> => {
+    try {
+      await ensureCloudSessionReady(dispatch);
+    } catch (error) {
+      console.warn('Sync not started: sign-in failed:', error);
+      dispatch(setSyncStatus('error'));
+      return;
+    }
+    await dispatch(syncStateWithFirestore());
+  };
+
 export const deleteCloudData = createAsyncThunk(
   'global/deleteCloudData',
   async (_: void, thunkAPI) => {
