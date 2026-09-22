@@ -207,7 +207,7 @@ const SettingsDetailsContainer: React.FC = () => {
           // not fit in a Firestore document (KAN-27). Throws on every one of
           // those, which the catch below turns into the error toast.
           const tabDataFromJSON: TabMasterContainer =
-            readImportedContainer(content);
+            readImportedContainer(content, i18n.language);
 
           // KAN-252/261. Replacing was the most destructive action in the
           // app, with neither an undo (restoreContainer is excluded from the
