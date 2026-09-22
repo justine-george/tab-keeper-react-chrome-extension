@@ -115,7 +115,12 @@ describe('a cloud read that fails for an unexpected reason (KAN-264)', () => {
     expect(store.getState().globalState.syncStatus).not.toBe('error');
   });
 
-  it('CONTROL: a permission-denied read is seeded from local, in one write', async () => {
+  // KAN-266. Permission denied used to be the second "empty cloud" case,
+  // from the days when a manual sync could read before sign-in landed. The
+  // starters now wait (#325) and the boot path is gated on isFirebaseAuthed,
+  // so a denied read is never "you have no document"; it is "you are not
+  // authorised", and the one thing that must not follow is a write.
+  it('a permission-denied read is a failed sync, never a seed', async () => {
     firestore.getDoc.mockRejectedValue(
       Object.assign(new Error('Missing or insufficient permissions.'), {
         code: 'permission-denied',
@@ -126,7 +131,8 @@ describe('a cloud read that fails for an unexpected reason (KAN-264)', () => {
     await store.dispatch(syncStateWithFirestore());
     await settle();
 
-    expect(firestore.setDoc).toHaveBeenCalledTimes(1);
-    expect(store.getState().globalState.syncStatus).not.toBe('error');
+    expect(firestore.setDoc).not.toHaveBeenCalled();
+    expect(store.getState().globalState.isDirty).toBe(false);
+    expect(store.getState().globalState.syncStatus).toBe('error');
   });
 });

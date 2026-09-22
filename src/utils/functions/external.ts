@@ -12,7 +12,7 @@ import { showToast } from '../../redux/slices/globalStateSlice';
 import { TabMasterContainer } from '../../redux/slices/tabContainerDataStateSlice';
 import { AppDispatch } from '../../redux/store';
 import { stripEmbeddedFavicons } from './local';
-import { isMissingDocumentError, isPermissionDenied } from './firestoreErrors';
+import { isMissingDocumentError } from './firestoreErrors';
 
 // display a toast message
 export const displayToast = (
@@ -44,30 +44,28 @@ export async function loadFromFirestore(
     // still work.
     return tabDataFromCloud;
   } catch (error: any) {
-    // Both of these mean "no usable cloud document for this user yet": either
-    // none exists, or the rules rejected the read because anonymous sign-in
-    // has not landed. Either way the recovery is the same - seed the document
-    // from local state - and it is the CALLER's: syncStateWithFirestore's
-    // local-only branch does exactly that on undefined. This used to dispatch
-    // the seeding write here as well, so a fresh device wrote the same
-    // document twice, and its setIsDirty scheduled the middleware's debounced
-    // full sync on top (KAN-264).
-    //
-    // Match the permission failure on error.code, not on the message. The lite
-    // build reports it as "Request failed with error: Missing or insufficient
-    // permissions.", so comparing against the bare message silently fell
-    // through to the unexpected branch and skipped the retry entirely.
-    if (isMissingDocumentError(error, userId) || isPermissionDenied(error)) {
+    // "No document for this user yet" -- the one failure that means the cloud
+    // is empty. The recovery, seeding it from local state, is the CALLER's:
+    // syncStateWithFirestore's local-only branch does exactly that on
+    // undefined. This used to dispatch the seeding write here as well, so a
+    // fresh device wrote the same document twice, and its setIsDirty
+    // scheduled the middleware's debounced full sync on top (KAN-264).
+    if (isMissingDocumentError(error, userId)) {
       console.warn('handled error: ' + error.message);
       return undefined;
     }
-    // KAN-264. Anything else -- offline, quota, a transient 5xx -- is a read
-    // that FAILED, not a document that is absent, and the two must not look
-    // the same to the caller. Returning undefined here sent the sync down its
-    // local-only branch, which marks local dirty and writes it over a cloud
-    // document that was never read. Throw instead: syncStateWithFirestore's
-    // rejected case (KAN-263) turns it into sync_problem, and the next sync
-    // reads first.
+    // Every other failure is a read that FAILED, not a document that is
+    // absent, and the two must not look the same to the caller. Returning
+    // undefined sent the sync down its local-only branch, which marks local
+    // dirty and writes it over a cloud document that was never read. Throw
+    // instead: syncStateWithFirestore's rejected case (KAN-263) turns it
+    // into sync_problem, and the next sync reads first.
+    //
+    // permission-denied is in this set (KAN-266). It used to be the second
+    // "empty cloud" case, from when a manual sync could read before sign-in
+    // landed; the starters now wait and the boot path is gated, so a denied
+    // read means "not authorised", and the one thing that must not follow is
+    // a write that, by then, IS authorised.
     console.warn('unexpected error: ' + error.message);
     throw error;
   }
