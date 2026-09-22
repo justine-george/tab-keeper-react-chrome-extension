@@ -91,7 +91,7 @@ test.describe('Load sessions from a backup asks first (KAN-252, KAN-261)', () =>
       'Merge keeps the 3 sessions on this device and adds any sessions from the backup that aren’t already here.'
     );
     await expect(dialog).toContainText(
-      'Replace deletes the 3 sessions on this device, then loads the backup. This can’t be undone.'
+      'Replace deletes the 3 sessions on this device and on every device that syncs with it, then loads the backup. This can’t be undone.'
     );
     await expect(dialog.getByRole('button')).toHaveText([
       'Cancel',
