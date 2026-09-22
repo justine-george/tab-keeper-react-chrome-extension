@@ -23,6 +23,18 @@ const open = async (context: BrowserContext, extensionId: string) => {
   await page.goto(`chrome-extension://${extensionId}/index.html`);
   // lang is mirrored from i18n (KAN-284), so it moves once i18n has settled.
   await expect(page.locator('html')).toHaveAttribute('lang', /.+/);
+  // DIAGNOSTIC (temporary): what the PAGE sees, not the worker.
+  console.log(
+    'KAN-282 page:',
+    JSON.stringify(
+      await page.evaluate(() => ({
+        ui: chrome.i18n.getUILanguage(),
+        accept: navigator.languages,
+        lang: document.documentElement.lang,
+        stored: localStorage.getItem('settingsData'),
+      }))
+    )
+  );
   return page;
 };
 
