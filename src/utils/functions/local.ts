@@ -796,9 +796,9 @@ const isValidTabData = (data: unknown): data is tabData => {
 // orders on `createdAt`, and the stored wall clock comes from getStringDate --
 // so changing the format cannot move a session in the list. That separation is
 // the reason this is safe to touch at all.
-// A literal rather than DEFAULT_LANG from constants/common: that module
-// imports manifest.json and a redux slice, and src/background.ts imports this
-// one, so taking the constant would pull both into the service worker bundle.
+// A literal rather than Language.EN: that enum lives in a redux slice, and
+// src/background.ts imports this module, so taking it would pull the slice
+// into the service worker bundle.
 const FALLBACK_LOCALE = 'en';
 
 export const getPrettyDate = (
