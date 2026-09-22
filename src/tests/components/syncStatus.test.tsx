@@ -194,13 +194,19 @@ describe('the sync status line follows the store (KAN-248)', () => {
     expect(card().textContent).toContain('Cloud sync on');
 
     act(() => {
-      store.dispatch({ type: syncStateWithFirestore.pending.type });
+      store.dispatch(syncStateWithFirestore.pending('read-phase', undefined));
     });
     expect(card().textContent).toContain('Syncing…');
     expect(card().textContent).not.toContain('Cloud sync on');
 
     act(() => {
-      store.dispatch({ type: syncStateWithFirestore.rejected.type });
+      store.dispatch(
+        syncStateWithFirestore.rejected(
+          new Error('offline'),
+          'read-phase',
+          undefined
+        )
+      );
     });
     expect(card().textContent).toContain('Last sync failed');
   });

@@ -139,6 +139,13 @@ export interface Global {
   // TabGroupDetailsContainer keys each window by windowId, so switching
   // sessions remounted every row and re-ran it.
   collapsedWindows: CollapsedWindows | null;
+  // KAN-269. One sync at a time. How many of the two cloud thunks (the sync
+  // and its write) are running, and whether a sync was asked for meanwhile.
+  // The sync's own write is dispatched, not awaited, so it outlives the sync
+  // thunk -- counting both is what keeps a second sync out until the write
+  // lands. Session-only, like every flag here.
+  syncsInFlight: number;
+  isSyncQueued: boolean;
 }
 
 // The windows folded shut in one session. `windowIds` may hold ids that the
@@ -237,6 +244,8 @@ export const initialState: Global = {
   cloudConsentThen: null,
   hasTabGroupsPermission: false,
   collapsedWindows: null,
+  syncsInFlight: 0,
+  isSyncQueued: false,
 };
 
 // save data to Firestore if dirty, saves latest to localStorage at the end
@@ -446,6 +455,16 @@ export const syncStateWithFirestore = createAsyncThunk(
       thunkAPI.dispatch(saveToFirestoreIfDirty());
       thunkAPI.dispatch(setHasSyncedBefore());
     }
+  },
+  {
+    // KAN-269. A sync asked for while one (or its write) is running does not
+    // start: it would read, merge and write over the running one. It is not
+    // DROPPED either -- the request is often an edit the running sync never
+    // saw -- so the rejection is dispatched and becomes isSyncQueued, and the
+    // middleware runs one more sync when the count falls to zero.
+    condition: (_, { getState }) =>
+      (getState() as RootState).globalState.syncsInFlight === 0,
+    dispatchConditionRejection: true,
   }
 );
 
@@ -641,6 +660,12 @@ export const showToast = createAsyncThunk(
   }
 );
 
+// Never below zero: a settle without a counted start would otherwise let the
+// next real sync through while another runs.
+function endCloudCall(state: Global): void {
+  state.syncsInFlight = Math.max(0, state.syncsInFlight - 1);
+}
+
 function markDirty(state: Global): void {
   state.isDirty = true;
   state.syncStatus = 'idle';
@@ -789,6 +814,12 @@ export const globalStateSlice = createSlice({
       state.hasSyncedBefore = true;
     },
 
+    // KAN-269. The middleware takes the queued sync as it runs it, so a
+    // second drain in the same tick finds nothing to run.
+    takeQueuedSync: (state) => {
+      state.isSyncQueued = false;
+    },
+
     setLoggedOut: (state) => {
       state.isSignedIn = false;
       state.syncStatus = 'idle';
@@ -891,14 +922,28 @@ export const globalStateSlice = createSlice({
       // body sets every completion status itself; it cannot set the start.
       .addCase(syncStateWithFirestore.pending, (state) => {
         state.syncStatus = 'loading';
+        state.syncsInFlight += 1;
       })
-      .addCase(syncStateWithFirestore.rejected, (state) => {
+      .addCase(syncStateWithFirestore.fulfilled, (state) => {
+        endCloudCall(state);
+      })
+      .addCase(syncStateWithFirestore.rejected, (state, action) => {
+        // KAN-269. Postponed, not failed: the condition declined it because
+        // another sync is running. It never started, so there is nothing to
+        // count down and no failure to paint.
+        if (action.meta.condition) {
+          state.isSyncQueued = true;
+          return;
+        }
+        endCloudCall(state);
         state.syncStatus = 'error';
       })
       .addCase(saveToFirestoreIfDirty.pending, (state) => {
         state.syncStatus = 'loading';
+        state.syncsInFlight += 1;
       })
       .addCase(saveToFirestoreIfDirty.fulfilled, (state) => {
+        endCloudCall(state);
         if (state.isSignedIn && !state.isDirty) {
           state.syncStatus = 'success';
         } else {
@@ -906,6 +951,7 @@ export const globalStateSlice = createSlice({
         }
       })
       .addCase(saveToFirestoreIfDirty.rejected, (state) => {
+        endCloudCall(state);
         state.syncStatus = 'error';
       })
       .addCase(openSettingsPage.fulfilled, (state) => {
@@ -940,6 +986,7 @@ export const {
   setIsNotDirty,
   setSignedIn,
   setFirebaseAuthed,
+  takeQueuedSync,
   setCloudConfigured,
   setFirebaseUnauthed,
   setHasSyncedBefore,
