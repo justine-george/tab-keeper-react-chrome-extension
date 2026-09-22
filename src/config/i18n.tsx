@@ -2,24 +2,15 @@ import i18n from 'i18next';
 import HttpBackend from 'i18next-http-backend';
 import { initReactI18next } from 'react-i18next';
 
-import { DEFAULT_LANG } from '../utils/constants/common';
 import { mirrorLanguageOnDocument } from '../utils/functions/documentLanguage';
-import {
-  asPartialSettings,
-  loadFromLocalStorage,
-} from '../utils/functions/local';
-import { Language, SettingsData } from '../redux/slices/settingsDataStateSlice';
+import { initialState as settingsAtLoad } from '../redux/slices/settingsDataStateSlice';
 
-// retrieve language from localStorage
-const { language: storedLanguage } = asPartialSettings<SettingsData>(
-  loadFromLocalStorage('settingsData')
-);
-// This runs at module load, so a non-string here would throw on .replace and
-// take the whole app down before it renders. Fall back instead.
-const userLang: Language =
-  typeof storedLanguage === 'string' && storedLanguage
-    ? (storedLanguage.replace(/"/g, '') as Language)
-    : DEFAULT_LANG;
+// The settings slice decides the startup language (KAN-282: saved, else the
+// browser's, else English), and this reads that decision rather than making
+// its own. Two copies could disagree -- the page rendering one language while
+// the store saves another -- which is how detecting here alone lost the
+// detected language on the first setting write.
+const userLang = settingsAtLoad.language;
 
 // Before init(), so the first language is caught when the backend delivers it.
 mirrorLanguageOnDocument(i18n, document.documentElement);

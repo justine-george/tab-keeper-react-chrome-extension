@@ -10,6 +10,10 @@ import {
 // would complete a cycle. Same reason as the RootState note in the container
 // slice.
 import type { ExportLayout } from '../../utils/functions/sessionExportHtml';
+import {
+  matchUiLanguage,
+  readUiLanguage,
+} from '../../utils/functions/uiLanguage';
 
 export enum Theme {
   LIGHT = 'Light',
@@ -116,8 +120,30 @@ const settingsDataLocal = asPartialSettings<SettingsData>(
   loadFromLocalStorage('settingsData')
 );
 
+const SHIPPED_LANGUAGES = Object.values(Language);
+
+/**
+ * The language the popup opens in (KAN-282): the one saved here, else the
+ * browser's UI language mapped onto one this build ships, else English.
+ *
+ * Every user who has ever changed any setting has `language` saved, because
+ * each setting write persists the whole object -- so detection only ever
+ * decides a first run, and never moves an existing user.
+ *
+ * A saved value this build does not ship counts as nothing saved rather than
+ * being handed to i18next, which would fetch a locale file that does not exist
+ * (#42). The quote strip predates this: #42's `i18nextLng` key was JSON-quoted.
+ */
+export function startupLanguage(stored: unknown, uiTag: unknown): Language {
+  const saved =
+    typeof stored === 'string'
+      ? SHIPPED_LANGUAGES.find((l) => l === stored.replace(/"/g, ''))
+      : undefined;
+  return saved ?? matchUiLanguage(uiTag, SHIPPED_LANGUAGES) ?? Language.EN;
+}
+
 const defaultSettings: SettingsData = {
-  language: Language.EN, // Default language is 'en'
+  language: Language.EN, // overridden by startupLanguage in initialState
   theme: Theme.LIGHT,
   exportLayout: 'compact',
   isAutoSync: true,
@@ -137,6 +163,11 @@ const defaultSettings: SettingsData = {
 export const initialState: SettingsData = {
   ...defaultSettings,
   ...settingsDataLocal,
+  // KAN-282. Decided here, and read by i18n.tsx from here, so what renders
+  // and what the first setting write saves are the same language. Detecting
+  // only in i18n.tsx showed German once: this still held `en`, the first-run
+  // consent answer saved it, and every later open was English.
+  language: startupLanguage(settingsDataLocal.language, readUiLanguage()),
 };
 
 export const settingsDataStateSlice = createSlice({
