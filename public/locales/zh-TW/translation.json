@@ -119,7 +119,7 @@
   "ImportErrorFrame": "還原分頁時發生錯誤：{{detail}}",
   "Invalid JSON structure.": "JSON 結構無效。",
   "ImportSizeRefusal": "檔案過大，無法同步（{{used}} MB，上限為 {{limit}} MB）。請從備份中移除部分工作階段後再試一次。",
-  "SyncSizeRefusal": "資料過大，無法同步（{{used}} MB，上限為 {{limit}} MB）。請移除部分工作階段後再試一次。",
+  "SyncSizeRefusal": "工作階段過大，無法同步（{{used}} MB，上限為 {{limit}} MB）。請移除部分工作階段後再試一次。",
   "TabGroupsPromptTitle": "Tab Keeper 可以儲存分頁群組",
   "TabGroupsPromptBodyOne": "開啟後，你的分頁群組會完全照你原本的設定還原。",
   "TabGroupsPromptBodyOther": "開啟後，你的 {{count}} 個分頁群組會完全照你原本的設定還原。",

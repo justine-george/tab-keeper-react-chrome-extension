@@ -119,7 +119,7 @@
   "ImportErrorFrame": "Fehler beim Wiederherstellen der Tabs: {{detail}}",
   "Invalid JSON structure.": "Ungültige JSON-Struktur.",
   "ImportSizeRefusal": "zu groß für die Synchronisierung ({{used}} MB von maximal {{limit}} MB). Entfernen Sie einige Sitzungen aus dem Backup und versuchen Sie es erneut.",
-  "SyncSizeRefusal": "zu groß für die Synchronisierung ({{used}} MB von maximal {{limit}} MB). Entfernen Sie einige Sitzungen und versuchen Sie es erneut.",
+  "SyncSizeRefusal": "Ihre Sitzungen sind zu groß für die Synchronisierung ({{used}} MB von maximal {{limit}} MB). Entfernen Sie einige Sitzungen und versuchen Sie es erneut.",
   "TabGroupsPromptTitle": "Tab Keeper kann Tab-Gruppen speichern",
   "TabGroupsPromptBodyOne": "Aktivieren Sie die Funktion, und Ihre Tab-Gruppe kehrt genau so zurück, wie Sie sie angelegt haben.",
   "TabGroupsPromptBodyOther": "Aktivieren Sie die Funktion, und Ihre {{count}} Tab-Gruppen kehren genau so zurück, wie Sie sie angelegt haben.",

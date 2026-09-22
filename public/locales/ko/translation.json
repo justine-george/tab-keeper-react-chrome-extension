@@ -119,7 +119,7 @@
   "ImportErrorFrame": "탭 복원 중 오류 발생: {{detail}}",
   "Invalid JSON structure.": "JSON 구조가 올바르지 않습니다.",
   "ImportSizeRefusal": "크기가 너무 커서 동기화할 수 없습니다({{used}}MB / 한도 {{limit}}MB). 백업에서 일부 세션을 삭제한 후 다시 시도하세요.",
-  "SyncSizeRefusal": "크기가 너무 커서 동기화할 수 없습니다({{used}}MB / 한도 {{limit}}MB). 일부 세션을 삭제한 후 다시 시도하세요.",
+  "SyncSizeRefusal": "세션이 너무 커서 동기화할 수 없습니다({{used}}MB / 한도 {{limit}}MB). 일부 세션을 삭제한 후 다시 시도하세요.",
   "TabGroupsPromptTitle": "Tab Keeper로 탭 그룹을 저장할 수 있습니다",
   "TabGroupsPromptBodyOne": "켜 두면 탭 그룹이 설정한 그대로 다시 열립니다.",
   "TabGroupsPromptBodyOther": "켜 두면 탭 그룹 {{count}}개가 설정한 그대로 다시 열립니다.",

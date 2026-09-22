@@ -119,7 +119,7 @@
   "ImportErrorFrame": "Errore durante il ripristino delle schede: {{detail}}",
   "Invalid JSON structure.": "Struttura JSON non valida.",
   "ImportSizeRefusal": "troppo grande per la sincronizzazione ({{used}} MB su un limite di {{limit}} MB). Rimuovi alcune sessioni dal backup e riprova.",
-  "SyncSizeRefusal": "troppo grande per la sincronizzazione ({{used}} MB su un limite di {{limit}} MB). Rimuovi alcune sessioni e riprova.",
+  "SyncSizeRefusal": "Le tue sessioni sono troppo grandi per la sincronizzazione ({{used}} MB su un limite di {{limit}} MB). Rimuovi alcune sessioni e riprova.",
   "TabGroupsPromptTitle": "Tab Keeper può salvare i gruppi di schede",
   "TabGroupsPromptBodyOne": "Attivala e il tuo gruppo di schede tornerà esattamente come l'hai creato.",
   "TabGroupsPromptBodyOther": "Attivala e i tuoi {{count}} gruppi di schede torneranno esattamente come li hai creati.",
