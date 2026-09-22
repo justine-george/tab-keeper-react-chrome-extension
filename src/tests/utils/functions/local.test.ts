@@ -28,6 +28,7 @@ import {
   FIRESTORE_MAX_DOCUMENT_BYTES,
   estimateFirestoreBytes,
   readImportedContainer,
+  bytesToMB,
 } from '../../../utils/functions/local';
 import { TabMasterContainer } from '../../../redux/slices/tabContainerDataStateSlice';
 
@@ -1361,6 +1362,29 @@ describe('estimateFirestoreBytes', () => {
   });
 });
 
+// KAN-288. The size refusals print two numbers a user compares, and they came
+// from toFixed(1), which always writes a point: German read "1.4 MB" where it
+// writes "1,4 MB". Formatted in the UI language now.
+describe('bytesToMB', () => {
+  const BYTES = 1.4 * 1048576;
+
+  test('writes a decimal point in English', () => {
+    expect(bytesToMB(BYTES, 'en')).toBe('1.4');
+  });
+
+  test('writes a decimal comma where the language does', () => {
+    expect(bytesToMB(BYTES, 'de')).toBe('1,4');
+    expect(bytesToMB(BYTES, 'fr')).toBe('1,4');
+    expect(bytesToMB(BYTES, 'ru')).toBe('1,4');
+  });
+
+  // The limit is exactly 1 MB. One decimal always, so "1.4 of 1.0" reads as
+  // two comparable numbers rather than "1.4 of 1".
+  test('keeps one decimal on a whole number', () => {
+    expect(bytesToMB(1048576, 'de')).toBe('1,0');
+  });
+});
+
 describe('readImportedContainer', () => {
   const validContainer: TabMasterContainer = {
     lastModified: 1785312544441,
@@ -1369,13 +1393,13 @@ describe('readImportedContainer', () => {
   };
 
   test('should return the container for a valid backup', () => {
-    expect(readImportedContainer(JSON.stringify(validContainer))).toEqual(
+    expect(readImportedContainer(JSON.stringify(validContainer), 'en')).toEqual(
       validContainer
     );
   });
 
   test('should throw the structure message for a valid-JSON non-container', () => {
-    expect(() => readImportedContainer('{"nope":true}')).toThrow(
+    expect(() => readImportedContainer('{"nope":true}', 'en')).toThrow(
       'Invalid JSON structure.'
     );
   });
@@ -1383,7 +1407,36 @@ describe('readImportedContainer', () => {
   // Unchanged behaviour, pinned so the refactor cannot quietly swallow it:
   // JSON.parse's own SyntaxError reaches the toast.
   test('should let a JSON syntax error propagate', () => {
-    expect(() => readImportedContainer('{not json')).toThrow(SyntaxError);
+    expect(() => readImportedContainer('{not json', 'en')).toThrow(SyntaxError);
+  });
+
+  test('formats the refusal numbers in the language it is given (KAN-288)', () => {
+    const huge: TabMasterContainer = {
+      lastModified: 1,
+      selectedTabGroupId: null,
+      tabGroups: [
+        {
+          tabGroupId: 'g',
+          title: 'x'.repeat(1_200_000),
+          createdTime: '2026-07-27 04:08:12',
+          windowCount: 0,
+          tabCount: 0,
+          isAutoSave: false,
+          isSelected: false,
+          windows: [],
+        },
+      ],
+    };
+
+    try {
+      readImportedContainer(JSON.stringify(huge), 'de');
+      throw new Error('expected readImportedContainer to throw');
+    } catch (error) {
+      expect((error as TranslatableError).i18nParams).toEqual({
+        used: expect.stringMatching(/^\d+,\d$/),
+        limit: '1,0',
+      });
+    }
   });
 
   test('should reject a backup that would exceed the Firestore limit', () => {
@@ -1408,12 +1461,12 @@ describe('readImportedContainer', () => {
     // interpolates, rather than as a pre-composed English sentence. Asserting
     // the key AND the params, because a key with no numbers would render
     // "(  MB of a   MB limit)" -- still translated, still useless.
-    expect(() => readImportedContainer(JSON.stringify(huge))).toThrow(
+    expect(() => readImportedContainer(JSON.stringify(huge), 'en')).toThrow(
       TranslatableError
     );
 
     try {
-      readImportedContainer(JSON.stringify(huge));
+      readImportedContainer(JSON.stringify(huge), 'en');
       throw new Error('expected readImportedContainer to throw');
     } catch (error) {
       const refusal = error as TranslatableError;
@@ -1433,7 +1486,7 @@ describe('readImportedContainer', () => {
   // The other refusal, and the one a user is far more likely to meet.
   test('should reject a structurally invalid backup with a translatable key', () => {
     try {
-      readImportedContainer(JSON.stringify({ nope: true }));
+      readImportedContainer(JSON.stringify({ nope: true }), 'en');
       throw new Error('expected readImportedContainer to throw');
     } catch (error) {
       expect(error).toBeInstanceOf(TranslatableError);
@@ -1449,8 +1502,8 @@ describe('readImportedContainer', () => {
   // position 1", and treating it as one would send the raw string through t()
   // and then show it anyway, only having claimed it was translated.
   test('CONTROL: a JSON syntax error is not a TranslatableError', () => {
-    expect(() => readImportedContainer('{not json')).toThrow(SyntaxError);
-    expect(() => readImportedContainer('{not json')).not.toThrow(
+    expect(() => readImportedContainer('{not json', 'en')).toThrow(SyntaxError);
+    expect(() => readImportedContainer('{not json', 'en')).not.toThrow(
       TranslatableError
     );
   });
@@ -1495,7 +1548,7 @@ describe('readImportedContainer', () => {
     const serialized = JSON.stringify(container);
 
     expect(serialized.length).toBeGreaterThan(FIRESTORE_MAX_DOCUMENT_BYTES);
-    expect(readImportedContainer(serialized)).toEqual(container);
+    expect(readImportedContainer(serialized, 'en')).toEqual(container);
   });
 });
 

@@ -27,6 +27,10 @@ import {
 // replaceState lives on the data slice, not the global slice.
 import { replaceState } from '../../redux/slices/tabContainerDataStateSlice';
 import { makeTestStore } from '../setup/makeStore';
+import {
+  Language,
+  setLanguage,
+} from '../../redux/slices/settingsDataStateSlice';
 import { buildContainer, buildSession } from '../fixtures/sessionFixture';
 import { SYNC_SIZE_REFUSAL } from '../../utils/functions/local';
 import {
@@ -89,6 +93,22 @@ describe('the sync write refuses a document Firestore would reject', () => {
       limit: '1.0',
     });
     expect(Number(toastParams!.used)).toBeGreaterThan(1.0);
+  });
+
+  // KAN-288. The numbers are formatted in the UI language, read from the
+  // store: German writes a decimal comma.
+  it('writes the numbers the way the UI language does', async () => {
+    const { store } = makeTestStore();
+    store.dispatch(setLanguage(Language.DE));
+    store.dispatch(setUserId('u1'));
+    store.dispatch(replaceState(oversizedContainer()));
+    store.dispatch(setIsDirtyWithoutSync());
+    await store.dispatch(saveToFirestoreIfDirty());
+
+    expect(store.getState().globalState.toastParams).toEqual({
+      used: expect.stringMatching(/^\d+,\d$/),
+      limit: '1,0',
+    });
   });
 
   // CONTROL for the assertion above: the key alone proves nothing unless an
