@@ -72,6 +72,25 @@ describe('OverflowMenu trigger', () => {
   });
 });
 
+describe('OverflowMenu elevation (KAN-267)', () => {
+  // The menu sits on the same PRIMARY_COLOR ground as the page, and a 1px
+  // border alone read as a panel cut INTO the page. A shadow -- not a scrim,
+  // which is the dialogs' modal signal -- is what says "above it". jsdom
+  // resolves emotion's injected stylesheet, so the computed value is real.
+  test('the open menu casts a shadow', async () => {
+    const user = userEvent.setup();
+    await renderMenu();
+
+    await user.click(trigger());
+
+    const shadow = getComputedStyle(screen.getByRole('menu')).boxShadow;
+    expect(shadow).not.toBe('');
+    expect(shadow).not.toBe('none');
+    // Two layers: a tight contact edge and a soft lift.
+    expect(shadow.split('),').length).toBe(2);
+  });
+});
+
 describe('OverflowMenu items', () => {
   test('each item is a menuitem named by its label', async () => {
     const user = userEvent.setup();

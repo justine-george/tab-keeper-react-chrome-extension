@@ -217,6 +217,15 @@ const OverflowMenu: React.FC<OverflowMenuProps> = ({
     background-color: ${COLORS.PRIMARY_COLOR};
     border: 1px solid ${COLORS.BORDER_COLOR};
     border-radius: ${RADIUS.SQUARE};
+    /* KAN-267. Same ground as the page, so the border alone read as a panel
+       cut INTO it. A shadow says "above it"; a scrim would say "modal",
+       which is the dialogs' signal and not true of a light-dismiss menu. The
+       held drag row's lift (RowDragArea), softened because this is not
+       moving: a tight contact edge plus a soft lift. Nearly invisible on the
+       dark themes, where the border keeps the edge. */
+    box-shadow:
+      0 1px 2px rgba(0, 0, 0, 0.12),
+      0 4px 12px rgba(0, 0, 0, 0.18);
     font-family: ${FONT_FAMILY};
     /* KAN-230. Pushed back inside the window when a long translation would
        otherwise carry it off the edge. Zero in the common case, and never
