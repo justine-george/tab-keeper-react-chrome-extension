@@ -106,7 +106,9 @@ interface OverflowMenuProps {
  *
  * Surface tokens come from Toast rather than being invented: this app is
  * deliberately square and flat -- `border-radius` appears five times in the
- * codebase and is `0px` every time, and there are no drop shadows at all.
+ * codebase and is `0px` every time. The shadow (KAN-267) is the one
+ * exception, and it is the theme's FLOATING_SHADOW rather than a value of
+ * this component's own: a menu is the one surface here that floats.
  *
  * CONSUMER CONSTRAINT, learned the hard way. The menu's z-index only reaches
  * as far as its nearest STACKING CONTEXT, and every action strip in this app
@@ -217,6 +219,11 @@ const OverflowMenu: React.FC<OverflowMenuProps> = ({
     background-color: ${COLORS.PRIMARY_COLOR};
     border: 1px solid ${COLORS.BORDER_COLOR};
     border-radius: ${RADIUS.SQUARE};
+    /* KAN-267. Same ground as the page, so the border alone read as a panel
+       cut INTO it. A shadow says "above it"; a scrim would say "modal",
+       which is the dialogs' signal and not true of a light-dismiss menu.
+       Per theme: the dark grounds need a far heavier one to show anything. */
+    box-shadow: ${COLORS.FLOATING_SHADOW};
     font-family: ${FONT_FAMILY};
     /* KAN-230. Pushed back inside the window when a long translation would
        otherwise carry it off the edge. Zero in the common case, and never

@@ -4,6 +4,11 @@ import { useSelector } from 'react-redux';
 import { RootState } from '../redux/store';
 import { Theme } from '../redux/slices/settingsDataStateSlice';
 
+// KAN-267. What a floating surface (the overflow menu) casts on this ground:
+// a tight contact edge plus a soft lift. Black at 18% can only take 18% off a
+// ground that is already at 42/255, so the dark themes carry a much heavier
+// one -- the same shadow measured Δ50 below the menu's edge on Paper and Δ8
+// on Graphite. Per theme rather than one rule for that reason.
 export const LIGHT_THEME = {
   PRIMARY_COLOR: '#F5F7FA',
   SECONDARY_COLOR: '#E9ECF0',
@@ -28,6 +33,8 @@ export const LIGHT_THEME = {
   SCROLLBAR_THUMB: '#AFB1B4',
   SCROLLBAR_THUMB_HOVER: '#8D8F92',
   SCROLLBAR_THUMB_ACTIVE: '#787A7D',
+  FLOATING_SHADOW:
+    '0 1px 2px rgba(0, 0, 0, 0.12), 0 4px 12px rgba(0, 0, 0, 0.18)',
 };
 
 export const WARM_LIGHT_THEME = {
@@ -54,6 +61,8 @@ export const WARM_LIGHT_THEME = {
   SCROLLBAR_THUMB: '#B2AEA5',
   SCROLLBAR_THUMB_HOVER: '#918C84',
   SCROLLBAR_THUMB_ACTIVE: '#7B776F',
+  FLOATING_SHADOW:
+    '0 1px 2px rgba(0, 0, 0, 0.12), 0 4px 12px rgba(0, 0, 0, 0.18)',
 };
 
 export const BB_PINK_THEME = {
@@ -80,6 +89,8 @@ export const BB_PINK_THEME = {
   SCROLLBAR_THUMB: '#E978A2',
   SCROLLBAR_THUMB_HOVER: '#DF3F7A',
   SCROLLBAR_THUMB_ACTIVE: '#CA1C5C',
+  FLOATING_SHADOW:
+    '0 1px 2px rgba(0, 0, 0, 0.12), 0 4px 12px rgba(0, 0, 0, 0.18)',
 };
 
 export const DARKENHEIMER_THEME = {
@@ -106,6 +117,8 @@ export const DARKENHEIMER_THEME = {
   SCROLLBAR_THUMB: '#585858',
   SCROLLBAR_THUMB_HOVER: '#737373',
   SCROLLBAR_THUMB_ACTIVE: '#878787',
+  FLOATING_SHADOW:
+    '0 1px 2px rgba(0, 0, 0, 0.4), 0 6px 16px rgba(0, 0, 0, 0.55)',
 };
 
 export const BLUE_THEME = {
@@ -132,6 +145,8 @@ export const BLUE_THEME = {
   SCROLLBAR_THUMB: '#585867',
   SCROLLBAR_THUMB_HOVER: '#737382',
   SCROLLBAR_THUMB_ACTIVE: '#888897',
+  FLOATING_SHADOW:
+    '0 1px 2px rgba(0, 0, 0, 0.4), 0 6px 16px rgba(0, 0, 0, 0.55)',
 };
 
 /** The colour tokens every theme defines. */

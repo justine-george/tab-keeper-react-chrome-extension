@@ -2,10 +2,16 @@ import { describe, expect, test, vi } from 'vitest';
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
+import {
+  BB_PINK_THEME,
+  BLUE_THEME,
+  DARKENHEIMER_THEME,
+  LIGHT_THEME,
+  WARM_LIGHT_THEME,
+} from '../../hooks/useThemeColors';
 import OverflowMenu, {
   type OverflowMenuItem,
 } from '../../components/common/OverflowMenu';
-import { LIGHT_THEME } from '../../hooks/useThemeColors';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { hoverRulesFor } from '../setup/hoverRules';
 
@@ -69,6 +75,45 @@ describe('OverflowMenu trigger', () => {
 
     expect(trigger()).toHaveAttribute('aria-expanded', 'true');
     expect(screen.getByRole('menu')).toBeInTheDocument();
+  });
+});
+
+describe('OverflowMenu elevation (KAN-267)', () => {
+  // The menu sits on the same PRIMARY_COLOR ground as the page, and a 1px
+  // border alone read as a panel cut INTO the page. A shadow -- not a scrim,
+  // which is the dialogs' modal signal -- is what says "above it". jsdom
+  // resolves emotion's injected stylesheet, so the computed value is real.
+  test('the open menu casts a shadow', async () => {
+    const user = userEvent.setup();
+    await renderMenu();
+
+    await user.click(trigger());
+
+    const shadow = getComputedStyle(screen.getByRole('menu')).boxShadow;
+    expect(shadow).not.toBe('');
+    expect(shadow).not.toBe('none');
+    // Two layers: a tight contact edge and a soft lift.
+    expect(shadow.split('),').length).toBe(2);
+  });
+
+  // Black at 18% can take 18% off a ground that is already at 42/255: the
+  // same shadow measured Δ50 below the menu's edge on Paper and Δ8 on
+  // Graphite. Shadows fail on dark surfaces unless they are much heavier,
+  // so the strength is a theme token, and the dark themes carry more of it.
+  test('the dark themes cast a heavier shadow than the light ones', () => {
+    const heaviest = (shadow: string) =>
+      Math.max(
+        ...[...shadow.matchAll(/rgba\(0, 0, 0, ([\d.]+)\)/g)].map((m) =>
+          Number(m[1])
+        )
+      );
+    for (const dark of [DARKENHEIMER_THEME, BLUE_THEME]) {
+      for (const light of [LIGHT_THEME, WARM_LIGHT_THEME, BB_PINK_THEME]) {
+        expect(heaviest(dark.FLOATING_SHADOW)).toBeGreaterThan(
+          heaviest(light.FLOATING_SHADOW)
+        );
+      }
+    }
   });
 });
 
