@@ -1,3 +1,5 @@
+import type { TFunction } from 'i18next';
+
 import { getPrettyDate } from './local';
 import { contentInstant, createdInstant } from './mergeTabData';
 import type { SessionDateBasis } from '../../redux/slices/settingsDataStateSlice';
@@ -26,7 +28,7 @@ export function sessionDateLabel(
   group: tabContainerData,
   basis: SessionDateBasis,
   locale: string,
-  t: (key: string) => string
+  t: TFunction
 ): string {
   // A session with no contentModified has never been edited, so "Edited" would
   // be a false statement about it whatever the basis says. contentInstant
@@ -36,7 +38,9 @@ export function sessionDateLabel(
   const showCreated = basis === 'created' || neverEdited;
 
   const instant = showCreated ? createdInstant(group) : contentInstant(group);
-  const word = showCreated ? t('Created') : t('Edited');
+  const date = getPrettyDate(instant, locale);
 
-  return `${word} ${getPrettyDate(instant, locale)}`;
+  // One phrase with the date inside it, not a word glued in front (KAN-286):
+  // ja and hi put the date first.
+  return showCreated ? t('CreatedOn', { date }) : t('EditedOn', { date });
 }

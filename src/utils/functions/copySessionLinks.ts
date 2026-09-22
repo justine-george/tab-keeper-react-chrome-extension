@@ -1,5 +1,7 @@
 import type { tabContainerData } from '../../redux/slices/tabContainerDataStateSlice';
-import { formatGroupCounts } from './local';
+import type { TFunction } from 'i18next';
+
+import { formatGroupCounts, formatTabCount } from './local';
 import {
   sessionToLinkHtml,
   sessionToLinkList,
@@ -46,13 +48,12 @@ import {
  */
 export async function copySessionLinks(
   session: tabContainerData,
-  t: (key: string) => string,
+  t: TFunction,
   language: string
 ): Promise<void> {
   const strings: LinkListStrings = {
     window: t('Window'),
-    tabCountLabel: (count: number) =>
-      `${count} ${count > 1 ? t('Tabs') : t('Tab')}`,
+    tabCountLabel: (count: number) => formatTabCount(count, t),
     // DERIVED from the session being copied, not read off its stored
     // windowCount/tabCount (KAN-210). The line describes this copy, so it is
     // counted from this copy.

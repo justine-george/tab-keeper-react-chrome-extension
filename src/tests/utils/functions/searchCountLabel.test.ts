@@ -1,19 +1,21 @@
-import { describe, expect, test } from 'vitest';
+import type { TFunction } from 'i18next';
+import { beforeAll, describe, expect, test } from 'vitest';
 
-import en from '../../../../public/locales/en/translation.json';
+import { tFor } from '../../setup/localeT';
 import {
   formatGroupCounts,
   isSearchActive,
 } from '../../../utils/functions/local';
 
-// The real en values, looked up the way i18next would but without i18next --
-// this file is about the SHAPE of the string (where the prefix goes, which
-// noun is picked) and stays a pure unit test. Resolving against the real
-// locale rather than echoing keys matters because the two differ: the key is
-// 'Matches' and the value is 'Matches:'. What the OTHER nine locales say is
-// asserted on their values in src/tests/locales/searchLabel.test.ts.
-const strings = en as Record<string, string>;
-const t = (key: string) => strings[key] ?? key;
+// Real en i18n. This file is about the SHAPE of the string (where the prefix
+// goes, which form is picked), and since KAN-286 the form is chosen by
+// i18next's plural rules, so a hand-rolled lookup can no longer stand in.
+// Resolving real values matters too: the key is 'Matches' and the value is
+// 'Matches:'. What the other locales say is in src/tests/locales/.
+let t: TFunction;
+beforeAll(async () => {
+  t = await tFor('en');
+});
 
 describe('isSearchActive', () => {
   test('is true only when the panel is open AND something has been typed', () => {
@@ -63,13 +65,12 @@ describe('formatGroupCounts', () => {
     expect(formatGroupCounts(9, 1, false, t)).toBe('9 Windows · 1 Tab');
   });
 
-  // Characterisation, not endorsement. `count > 1` sends zero to the singular,
-  // so a hypothetical empty group would read "0 Window". Both render sites did
-  // this before this helper existed and neither can reach it -- a saved
-  // session always holds a window, and filterTabGroups only emits groups with
-  // at least one matched window. Pinned so the extraction is provably a
-  // refactor; fixing it is a separate change.
-  test('preserves the pre-existing zero-is-singular behaviour', () => {
-    expect(formatGroupCounts(0, 0, false, t)).toBe('0 Window · 0 Tab');
+  // This used to pin "0 Window" as characterisation, not endorsement:
+  // `count > 1` sent zero to the singular. KAN-286 is the separate change that
+  // comment promised -- English plural rules put zero in "other". Neither
+  // render site can reach zero (a saved session always holds a window), so no
+  // user saw either form.
+  test('zero is plural, per English plural rules', () => {
+    expect(formatGroupCounts(0, 0, false, t)).toBe('0 Windows · 0 Tabs');
   });
 });

@@ -1,7 +1,9 @@
-import { describe, expect, test } from 'vitest';
+import type { TFunction } from 'i18next';
+import { beforeAll, describe, expect, test } from 'vitest';
 
 import { sessionDateLabel } from '../../../utils/functions/sessionDate';
 import { getPrettyDate } from '../../../utils/functions/local';
+import { tFor } from '../../setup/localeT';
 import type { tabContainerData } from '../../../redux/slices/tabContainerDataStateSlice';
 
 // KAN-141. The one date a session row shows, and the word that says which date
@@ -12,15 +14,18 @@ import type { tabContainerData } from '../../../redux/slices/tabContainerDataSta
 // but the default is chosen -- which is the state that produced the question
 // this ticket came from: "is it saved date or modified date?".
 //
-// `t` is the identity here rather than real i18n: what these assert is WHICH
-// key is chosen, and threading the translator would test i18next instead.
-// accessibleNames.test.tsx already covers that the keys resolve in all ten
-// locales.
+// `t` is real en i18n. It used to be the identity, which worked only while the
+// key was the English word; since KAN-286 the label is one phrase with the
+// date inside it ("Edited {{date}}"), so the assertions read the words a user
+// sees. ja and zh are here because they are why it became a phrase.
 
 const CREATED = Date.UTC(2026, 2, 4, 12, 0, 0);
 const EDITED = Date.UTC(2026, 8, 9, 18, 30, 0);
 
-const t = (key: string) => key;
+let t: TFunction;
+beforeAll(async () => {
+  t = await tFor('en');
+});
 
 const build = (overrides: Partial<tabContainerData> = {}): tabContainerData =>
   ({
@@ -103,5 +108,25 @@ describe('sessionDateLabel', () => {
     const de = sessionDateLabel(group, 'edited', 'de', t);
     expect(de).toContain(getPrettyDate(EDITED, 'de'));
     expect(de).not.toContain(getPrettyDate(EDITED, 'en'));
+  });
+
+  // KAN-286. The word used to be glued in front of the date in code, so no
+  // locale could put the date first.
+  test('ja puts the date first', async () => {
+    const group = build({ contentModified: EDITED });
+    const ja = await tFor('ja');
+
+    expect(sessionDateLabel(group, 'edited', 'ja', ja)).toBe(
+      `${getPrettyDate(EDITED, 'ja')}に編集`
+    );
+  });
+
+  test('zh reads 编辑于 <date>', async () => {
+    const group = build({ contentModified: EDITED });
+    const zh = await tFor('zh');
+
+    expect(sessionDateLabel(group, 'edited', 'zh', zh)).toBe(
+      `编辑于 ${getPrettyDate(EDITED, 'zh')}`
+    );
   });
 });
