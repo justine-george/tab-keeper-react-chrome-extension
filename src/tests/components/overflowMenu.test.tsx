@@ -2,10 +2,16 @@ import { describe, expect, test, vi } from 'vitest';
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
+import {
+  BB_PINK_THEME,
+  BLUE_THEME,
+  DARKENHEIMER_THEME,
+  LIGHT_THEME,
+  WARM_LIGHT_THEME,
+} from '../../hooks/useThemeColors';
 import OverflowMenu, {
   type OverflowMenuItem,
 } from '../../components/common/OverflowMenu';
-import { LIGHT_THEME } from '../../hooks/useThemeColors';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { hoverRulesFor } from '../setup/hoverRules';
 
@@ -88,6 +94,26 @@ describe('OverflowMenu elevation (KAN-267)', () => {
     expect(shadow).not.toBe('none');
     // Two layers: a tight contact edge and a soft lift.
     expect(shadow.split('),').length).toBe(2);
+  });
+
+  // Black at 18% can take 18% off a ground that is already at 42/255: the
+  // same shadow measured Δ50 below the menu's edge on Paper and Δ8 on
+  // Graphite. Shadows fail on dark surfaces unless they are much heavier,
+  // so the strength is a theme token, and the dark themes carry more of it.
+  test('the dark themes cast a heavier shadow than the light ones', () => {
+    const heaviest = (shadow: string) =>
+      Math.max(
+        ...[...shadow.matchAll(/rgba\(0, 0, 0, ([\d.]+)\)/g)].map((m) =>
+          Number(m[1])
+        )
+      );
+    for (const dark of [DARKENHEIMER_THEME, BLUE_THEME]) {
+      for (const light of [LIGHT_THEME, WARM_LIGHT_THEME, BB_PINK_THEME]) {
+        expect(heaviest(dark.FLOATING_SHADOW)).toBeGreaterThan(
+          heaviest(light.FLOATING_SHADOW)
+        );
+      }
+    }
   });
 });
 
