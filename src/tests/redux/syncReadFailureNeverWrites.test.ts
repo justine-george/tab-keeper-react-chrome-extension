@@ -52,6 +52,9 @@ import { buildContainer, buildSession } from '../fixtures/sessionFixture';
 
 const local = buildContainer([buildSession({ tabGroupId: 'mine' })]);
 
+// The seeding write is dispatched, not awaited, by the sync; give it a tick.
+const settle = () => new Promise((r) => setTimeout(r, 20));
+
 const signedInStore = () => {
   const { store } = makeTestStore();
   store.dispatch(setUserId('u1'));
@@ -94,17 +97,25 @@ describe('a cloud read that fails for an unexpected reason (KAN-264)', () => {
 
   // CONTROL. The two failures that DO mean "empty cloud" still seed it, or
   // the assertions above would pass against a read that refuses everything.
-  it('CONTROL: a missing document is still seeded from local', async () => {
+  //
+  // Exactly ONCE. loadFromFirestore used to dispatch the seeding write itself
+  // AND return undefined, so syncStateWithFirestore's local-only branch wrote
+  // the same document again -- and its setIsDirty also scheduled the
+  // middleware's debounced full sync, a third request. The caller owns the
+  // "absent" case; the read only has to report it. This is the overlap half
+  // of KAN-264, as far as it is reachable from a single boot.
+  it('CONTROL: a missing document is seeded from local, in one write', async () => {
     firestore.getDoc.mockResolvedValue({ exists: () => false });
     const store = signedInStore();
 
     await store.dispatch(syncStateWithFirestore());
+    await settle();
 
-    expect(firestore.setDoc).toHaveBeenCalled();
+    expect(firestore.setDoc).toHaveBeenCalledTimes(1);
     expect(store.getState().globalState.syncStatus).not.toBe('error');
   });
 
-  it('CONTROL: a permission-denied read is still seeded from local', async () => {
+  it('CONTROL: a permission-denied read is seeded from local, in one write', async () => {
     firestore.getDoc.mockRejectedValue(
       Object.assign(new Error('Missing or insufficient permissions.'), {
         code: 'permission-denied',
@@ -113,8 +124,9 @@ describe('a cloud read that fails for an unexpected reason (KAN-264)', () => {
     const store = signedInStore();
 
     await store.dispatch(syncStateWithFirestore());
+    await settle();
 
-    expect(firestore.setDoc).toHaveBeenCalled();
+    expect(firestore.setDoc).toHaveBeenCalledTimes(1);
     expect(store.getState().globalState.syncStatus).not.toBe('error');
   });
 });

@@ -8,11 +8,7 @@ import {
   CloudCandidate,
   ensureCloudSessionReady,
 } from '../../config/firebase';
-import {
-  saveToFirestoreIfDirty,
-  setIsDirty,
-  showToast,
-} from '../../redux/slices/globalStateSlice';
+import { showToast } from '../../redux/slices/globalStateSlice';
 import { TabMasterContainer } from '../../redux/slices/tabContainerDataStateSlice';
 import { AppDispatch } from '../../redux/store';
 import { stripEmbeddedFavicons } from './local';
@@ -36,8 +32,7 @@ export const displayToast = (
 
 // load data from Firestore
 export async function loadFromFirestore(
-  userId: string,
-  thunkAPI: any
+  userId: string
 ): Promise<CloudCandidate | undefined> {
   try {
     const tabDataFromCloud: CloudCandidate =
@@ -52,7 +47,11 @@ export async function loadFromFirestore(
     // Both of these mean "no usable cloud document for this user yet": either
     // none exists, or the rules rejected the read because anonymous sign-in
     // has not landed. Either way the recovery is the same - seed the document
-    // from local state.
+    // from local state - and it is the CALLER's: syncStateWithFirestore's
+    // local-only branch does exactly that on undefined. This used to dispatch
+    // the seeding write here as well, so a fresh device wrote the same
+    // document twice, and its setIsDirty scheduled the middleware's debounced
+    // full sync on top (KAN-264).
     //
     // Match the permission failure on error.code, not on the message. The lite
     // build reports it as "Request failed with error: Missing or insufficient
@@ -60,8 +59,6 @@ export async function loadFromFirestore(
     // through to the unexpected branch and skipped the retry entirely.
     if (isMissingDocumentError(error, userId) || isPermissionDenied(error)) {
       console.warn('handled error: ' + error.message);
-      thunkAPI.dispatch(setIsDirty());
-      thunkAPI.dispatch(saveToFirestoreIfDirty());
       return undefined;
     }
     // KAN-264. Anything else -- offline, quota, a transient 5xx -- is a read
