@@ -1,3 +1,4 @@
+import type { TFunction } from 'i18next';
 import { Base64 } from 'js-base64';
 import type {
   TabMasterContainer,
@@ -279,18 +280,27 @@ export const formatGroupCounts = (
   windowCount: number,
   tabCount: number,
   isFiltered: boolean,
-  t: (key: string) => string
+  t: TFunction
 ): string => {
   // A middle dot, not a hyphen (KAN-246): between two numbers "3 Windows -
   // 44 Tabs" has the shape of a subtraction, and the export's meta line
   // already joins its parts with a dot, so the hyphen put two separators on
   // one line there. U+00B7 sits at x-height and is in the bundled Latin face.
   const counts =
-    `${windowCount} ${windowCount > 1 ? t('Windows') : t('Window')}` +
-    ` · ${tabCount} ${tabCount > 1 ? t('Tabs') : t('Tab')}`;
+    `${t('WindowCount', { count: windowCount })}` +
+    ` · ${formatTabCount(tabCount, t)}`;
 
   return isFiltered ? `${t('Matches')} ${counts}` : counts;
 };
+
+/**
+ * "5 Tabs", as one phrase each locale owns (KAN-286). The count and the noun
+ * used to be glued in code with `count > 1`, which is the English plural rule
+ * in English word order: Russian needs three forms (5 вкладок), and Chinese a
+ * counter word (5 个标签页). i18next picks the plural key per Intl.PluralRules.
+ */
+export const formatTabCount = (count: number, t: TFunction): string =>
+  t('TabCount', { count });
 
 // save data to local storage
 export const saveToLocalStorage = (key: string, data: any): void => {

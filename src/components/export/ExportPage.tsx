@@ -31,7 +31,7 @@ import {
   loadFromLocalStorage,
 } from '../../utils/functions/local';
 import { EXPORT_STORE_URL } from '../../utils/constants/common';
-import { formatGroupCounts } from '../../utils/functions/local';
+import { formatGroupCounts, formatTabCount } from '../../utils/functions/local';
 import { sessionDateLabel } from '../../utils/functions/sessionDate';
 import {
   EXPORT_PALETTE,
@@ -281,7 +281,7 @@ export default function ExportPage({ source }: { source: ExportSource }) {
         false,
         t
       ),
-      tabCountLabel: (count) => `${count} ${count > 1 ? t('Tabs') : t('Tab')}`,
+      tabCountLabel: (count) => formatTabCount(count, t),
       strings: {
         window: t('Window'),
         notAWebLink: t('ExportNotAWebLink'),
