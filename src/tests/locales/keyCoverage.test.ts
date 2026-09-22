@@ -31,6 +31,14 @@ const sources = import.meta.glob('/src/**/*.{ts,tsx}', {
 // test). This test is a floor on coverage, not a complete census.
 const KEY_PATTERN = /\bt\(\s*['"`]([^'"`]+)['"`]/g;
 
+// i18next plural keys (KAN-286): t('TabCount', { count }) resolves to
+// TabCount_one, TabCount_few, ... per the locale's Intl.PluralRules. So a
+// plural key is compared by its BASE here, and which suffixes each locale must
+// carry is countPhrases.test.ts's job -- ja has only _other, ru has four.
+const PLURAL_SUFFIX = /_(zero|one|two|few|many|other)$/;
+const base = (key: string) => key.replace(PLURAL_SUFFIX, '');
+const bases = (dict: object) => new Set(Object.keys(dict).map(base));
+
 // The other nine translation files, by the same glob route as the sources
 // above, so adding a locale directory needs no edit here.
 const localeFiles = import.meta.glob('/public/locales/*/translation.json', {
@@ -45,7 +53,7 @@ describe('translation key coverage', () => {
     for (const [file, source] of Object.entries(sources)) {
       if (file.includes('/src/tests/')) continue;
       for (const [, key] of source.matchAll(KEY_PATTERN)) {
-        if (!(key in en)) missing.push(`${key}  (${file})`);
+        if (!bases(en).has(key)) missing.push(`${key}  (${file})`);
       }
     }
 
@@ -61,12 +69,12 @@ describe('translation key coverage', () => {
   // because it is either a typo (so the real key is missing and falls back) or
   // a leftover from a deleted string.
   test('every locale defines exactly the keys en defines', () => {
-    const enKeys = new Set(Object.keys(en));
+    const enKeys = bases(en);
     const drift: string[] = [];
 
     for (const [path, json] of Object.entries(localeFiles)) {
       if (path.includes('/en/')) continue;
-      const keys = new Set(Object.keys(json));
+      const keys = bases(json);
 
       for (const key of enKeys) {
         if (!keys.has(key)) drift.push(`${path}  missing  ${key}`);
