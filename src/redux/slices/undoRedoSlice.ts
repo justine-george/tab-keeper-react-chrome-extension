@@ -74,8 +74,11 @@ export const undoRedoSlice = createSlice({
         state.present.tabContainerDataState.lastModified = Date.now();
       }
     },
-    // Also dispatched after every merge, not only at startup, which is why it
-    // carries `addedTabGroupIds` forward (KAN-80).
+    // Dispatched on the first sync, and on a later sync only when the merge
+    // changed nothing locally -- a merge that changed local data goes
+    // through `resetHistory` instead (D12, KAN-279), never this. Carries
+    // `addedTabGroupIds` forward (KAN-80) for the case that remains: a
+    // pending create surviving a first sync or a later no-op merge.
     //
     // A sync arriving is not a step the user took, so it cannot retract one
     // they did take. The reported ordering is create, auto-sync, undo -- so

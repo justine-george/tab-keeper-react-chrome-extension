@@ -215,8 +215,11 @@ export const customMiddleware: Middleware = (store) => {
       // KAN-292. Nothing to undo (or redo) means nothing happened: the reducer
       // left `present` alone, so there is no snapshot to apply and no edit to
       // sync. Applying `present` anyway rewrote localStorage, started a sync,
-      // and -- because a later sync's merge never updates `present` --
-      // reverted that merge.
+      // and could revert a change this device didn't make. A merge that
+      // changes local data now resets `present` outright (D12, KAN-279), so
+      // that case is closed -- but a plain `replaceState` not run through a
+      // merge (another page's write, once D9 lands) still leaves `present`
+      // exactly where it was, and this guard still matters there.
       const historyWasEmpty =
         action.type === UNDO_ACTION
           ? prevState.undoRedo.past.length === 0

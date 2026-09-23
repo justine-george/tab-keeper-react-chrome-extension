@@ -8,8 +8,9 @@ vi.hoisted(() => {
   (g.window as { screen?: unknown }).screen = { height: 1080, width: 1920 };
 });
 
-// A cloud that holds what was last written to it, so a later read sees the
-// write this test held open -- not a canned document that hides the loss.
+// A cloud that holds what was last written to it: saveToFirestore updates it
+// in place, so a later read never sees a stale snapshot from before this
+// test's own write.
 const mocks = vi.hoisted(() => {
   const cloud: { doc: unknown } = { doc: undefined };
   return {
@@ -43,6 +44,7 @@ import {
   updateTabGroupTitle,
   type TabMasterContainer,
 } from '../../redux/slices/tabContainerDataStateSlice';
+import { undo } from '../../redux/slices/undoRedoSlice';
 import { makeTestStore } from '../setup/makeStore';
 import { buildContainer, buildSession } from '../fixtures/sessionFixture';
 
@@ -65,7 +67,7 @@ const readyStore = () => {
   return store;
 };
 
-describe('a cloud merge that changed local data resets undo (D12, no drag)', () => {
+describe('a cloud merge that changed local data resets undo (D12, KAN-279)', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     localStorage.clear();
@@ -83,7 +85,19 @@ describe('a cloud merge that changed local data resets undo (D12, no drag)', () 
     store.dispatch(
       updateTabGroupTitle({ tabGroupId: 'local', editableTitle: 'Edited' })
     );
+    vi.setSystemTime(T0 + 2000);
+    store.dispatch(
+      updateTabGroupTitle({
+        tabGroupId: 'local',
+        editableTitle: 'Edited again',
+      })
+    );
+    // One undo after two edits, so `future` is non-empty going into the sync
+    // too -- resetHistory must clear both stacks, not just `past`.
+    vi.setSystemTime(T0 + 3000);
+    store.dispatch(undo());
     expect(store.getState().undoRedo.past.length).toBeGreaterThan(0);
+    expect(store.getState().undoRedo.future.length).toBeGreaterThan(0);
 
     // Two devices, never an echo: the cloud's 'local' session must match this
     // device's exactly (same fields and lastModified), so the ONLY difference
@@ -102,9 +116,11 @@ describe('a cloud merge that changed local data resets undo (D12, no drag)', () 
       ],
     };
 
+    vi.setSystemTime(T0 + 4000);
     await store.dispatch(syncStateWithFirestore());
 
     expect(store.getState().undoRedo.past).toEqual([]);
+    expect(store.getState().undoRedo.future).toEqual([]);
     expect(
       store
         .getState()
