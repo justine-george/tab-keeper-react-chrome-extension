@@ -20,7 +20,6 @@ import { AppDispatch, RootState } from '../../../redux/store';
 import {
   loadSessionsFromBackup,
   showToast,
-  syncStateWithFirestore,
   openDeleteCloudDataModal,
   openCloudConsentModal,
 } from '../../../redux/slices/globalStateSlice';
@@ -56,7 +55,6 @@ import { SettingsCategory } from '../../../redux/slices/settingsCategoryStateSli
 import SyncStatus from './Account/SyncStatus';
 import SlidingPair, { type SlidingPairMetrics } from '../../common/SlidingPair';
 import { useTranslation } from 'react-i18next';
-import { ensureCloudSession } from '../../../config/firebase';
 import { CONTROL, DURATION, RADIUS, TYPE } from '../../../styles/scale';
 import {
   CHROME_SHORTCUTS_URL,
@@ -153,14 +151,14 @@ const SettingsDetailsContainer: React.FC = () => {
     return null;
   }
 
+  // KAN-290. Only the flag. App's sync effect depends on syncAllowed
+  // (consent AND Auto Sync), so turning Auto Sync on already starts the
+  // sign-in there and syncs once isFirebaseAuthed flips -- including for a
+  // user who declined and said yes from Settings, who has never contacted
+  // Firebase until now. This used to ALSO start the sign-in and a sync in the
+  // same tick: the read beat the sign-in, the rules refused it, and the card
+  // said "Last sync failed" for a moment on a working connection.
   const handleToggleAutoSync = () => {
-    if (!settingsData.isAutoSync) {
-      // Reached only with consent granted (the pair asks otherwise), so
-      // this is the lazy sign-in's other entry: a user who declined, then
-      // said yes from Settings, has never contacted Firebase until now.
-      ensureCloudSession(dispatch);
-      dispatch(syncStateWithFirestore());
-    }
     dispatch(toggleAutoSync());
   };
 
