@@ -8,7 +8,7 @@ import {
 } from '../../../utils/functions/viewMode';
 import { setupChromeFake } from '../../setup/chrome.fake';
 
-// KAN-279 (Part D), Task 11. `isTabView()` and `ownTabId()` read
+// KAN-279 (Part D). `isTabView()` and `ownTabId()` read
 // `window.location.search` and `chrome.tabs.getCurrent()`, both of which
 // need a real DOM/global -- so this file runs under the jsdom ('components')
 // project rather than 'unit' (node), despite testing plain functions and not

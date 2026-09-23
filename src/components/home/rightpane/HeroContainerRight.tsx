@@ -14,6 +14,7 @@ import { useThemeColors } from '../../../hooks/useThemeColors';
 import { AppDispatch, RootState } from '../../../redux/store';
 import { sessionDateLabel } from '../../../utils/functions/sessionDate';
 import {
+  isTabKeeperPage,
   readCurrentWindowGroups,
   toWindowGroupData,
 } from '../../../utils/functions/capture';
@@ -158,17 +159,15 @@ export default function HeroContainerRight() {
       chrome.windows.getCurrent({ populate: true }, (result) => resolve(result))
     );
 
-    // KAN-279 D14. Read fresh here rather than cached from render, so a save
-    // can never run against a stale or undefined own id. undefined in the
-    // popup, where the filter below is a no-op -- same guard capture.ts's
-    // excludeTabId uses: guarded on the id being KNOWN, not on tab.id, so a
-    // tab Chrome reports without an id still stays in.
+    // KAN-279 D14 / KAN-300. Leaves out every Tab Keeper page -- the SAME
+    // rule captureOpenWindows applies (isTabKeeperPage, capture.ts), since
+    // this call site builds a window the same shape a capture would, without
+    // going through captureOpenWindows itself. `ownId` is still needed below,
+    // for pickNameSourceTab's own tab-view naming rule (D15) -- a different
+    // question from what belongs in the window.
     const ownId = await ownTabId();
-    const tabs = (windowData.tabs ?? []).filter(
-      (tab) => ownId === undefined || tab.id !== ownId
-    );
-    // Leaves out Tab Keeper's own tab by id; if that empties the window,
-    // there is nothing to add.
+    const tabs = (windowData.tabs ?? []).filter((tab) => !isTabKeeperPage(tab));
+    // If that empties the window, there is nothing to add.
     if (tabs.length === 0) return;
 
     // KAN-299. Resolved HERE, at click time -- not cached from a mount-once

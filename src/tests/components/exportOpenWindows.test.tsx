@@ -6,7 +6,8 @@ import { renderWithProviders } from '../setup/renderWithProviders';
 import { buildContainer, buildSession } from '../fixtures/sessionFixture';
 import { replaceState } from '../../redux/slices/tabContainerDataStateSlice';
 
-// KAN-208. Exporting what is open right now, without saving it first.
+// KAN-208 / KAN-300. Exporting what is open right now, without saving it
+// first.
 //
 // The page captures the open windows for itself -- chrome.windows.getAll works
 // from an extension page -- and holds the capture in React state. It is never
@@ -15,8 +16,9 @@ import { replaceState } from '../../redux/slices/tabContainerDataStateSlice';
 // exists to avoid. Nothing in the data state changes, so there is no undo
 // entry and nothing for the sync middleware to push.
 //
-// The page is one of the open tabs, and is left out BY ID: another Tab Keeper
-// page that is genuinely open still appears.
+// The page is one of the open tabs, and is left out along with every OTHER
+// Tab Keeper page open anywhere in the capture (KAN-300, isTabKeeperPage in
+// capture.ts) -- by address, not by which tab id happens to be "the page".
 
 const OWN_URL = 'chrome-extension://faketestid/export.html?source=open-windows';
 const A = 'https://kagi.com/';
@@ -65,14 +67,50 @@ describe('exporting the open windows (KAN-208)', () => {
     expect(screen.getByText('2 Windows · 2 Tabs')).toBeTruthy();
   });
 
-  // CONTROL: exclusion is by id. Naming a different tab as the page keeps the
-  // export.html tab and drops that one instead -- so the test above cannot be
-  // passing because chrome-extension:// addresses are filtered on sight.
-  test('CONTROL: naming another tab as the page keeps the export.html tab', async () => {
+  // CHANGED for KAN-300 (was "CONTROL: naming another tab as the page keeps
+  // the export.html tab", proving KAN-208's BY-ID exclusion -- naming a
+  // different tab as "the page" used to keep the export.html tab in the
+  // capture, since a match-by-id rule has no opinion about a tab it was never
+  // told is "the page"). KAN-300 excludes by ADDRESS instead, so naming
+  // another tab as "the page" no longer matters: export.html is still
+  // excluded, on its own address, regardless of what chrome.tabs.getCurrent()
+  // answers.
+  test('naming another tab as the page still excludes export.html, by its own address', async () => {
     await renderLive({ ...twoWindows, currentTabId: 11 });
 
-    await waitFor(() => expect(frame().srcdoc).toContain('export.html'));
-    expect(frame().srcdoc).not.toContain('Kagi Search');
+    await waitFor(() => expect(frame().srcdoc).toContain('Kagi Search'));
+    expect(frame().srcdoc).not.toContain('export.html');
+  });
+
+  // KAN-300. A second, genuinely different Tab Keeper page (the tab view,
+  // say, open beside this export tab) used to survive KAN-208's by-id
+  // exclusion -- a DIFFERENT address, so a match-by-id rule let it through.
+  // The address-based rule catches it too.
+  test('a second, genuinely different Tab Keeper page is excluded too', async () => {
+    const TAB_VIEW = 'chrome-extension://faketestid/index.html?view=tab';
+    await renderLive({
+      windows: [
+        {
+          id: 1,
+          tabs: [
+            { id: 10, url: OWN_URL, title: 'Tab Keeper' },
+            { id: 13, url: TAB_VIEW, title: 'Tab Keeper' },
+            { id: 11, url: A, title: 'Kagi Search' },
+          ] as chrome.tabs.Tab[],
+        },
+        {
+          id: 2,
+          tabs: [{ id: 12, url: B, title: 'Example' }] as chrome.tabs.Tab[],
+        },
+      ],
+      currentTabId: 10,
+    });
+
+    await waitFor(() => expect(frame().srcdoc).toContain('Kagi Search'));
+    expect(frame().srcdoc).toContain('Example');
+    expect(frame().srcdoc).not.toContain('export.html');
+    expect(frame().srcdoc).not.toContain('view=tab');
+    expect(screen.getByText('2 Windows · 2 Tabs')).toBeTruthy();
   });
 
   test('is named "Open windows", in the header and the tab', async () => {

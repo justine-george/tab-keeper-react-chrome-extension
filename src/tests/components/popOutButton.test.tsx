@@ -5,7 +5,7 @@ import MenuContainer from '../../components/home/leftpane/MenuContainer';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { OPEN_IN_TAB_MESSAGE } from '../../utils/functions/popOut';
 
-// KAN-279 (Part D, Task 13). The popup's own "open in a tab" button. It only
+// KAN-279 (Part D). The popup's own "open in a tab" button. It only
 // SENDS the message -- openOrFocusTabView (popOut.ts) and background.ts's
 // listener are what act on it, covered by their own tests, because the popup
 // is destroyed the instant another tab takes focus and cannot wait around to

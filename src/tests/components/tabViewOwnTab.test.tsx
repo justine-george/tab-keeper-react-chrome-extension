@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event';
 import HeroContainerRight from '../../components/home/rightpane/HeroContainerRight';
 import UserInputContainer from '../../components/home/leftpane/UserInputContainer';
 import { renderWithProviders } from '../setup/renderWithProviders';
+import type { ChromeSeed } from '../setup/chrome.fake';
 import { buildContainer, buildSession } from '../fixtures/sessionFixture';
 import {
   replaceState,
@@ -59,7 +60,7 @@ function tab(overrides: Partial<chrome.tabs.Tab> = {}): chrome.tabs.Tab {
 }
 
 // Window 1 holds Tab Keeper's own tab (10, most recently used) beside two
-// real tabs (11, 12), exactly as the brief specifies.
+// real tabs (11, 12).
 const tabViewSeed = {
   windows: [
     {
@@ -173,9 +174,7 @@ const clickSaveCurrentWindow = async () => {
 const clickSaveAllWindows = () =>
   userEvent.click(screen.getByLabelText('Save all open windows as a session'));
 
-const renderHeroWithSelectedSession = (
-  chromeSeed: typeof tabViewSeed | typeof onlyOwnTabSeed | typeof controlSeed
-) =>
+const renderHeroWithSelectedSession = (chromeSeed: ChromeSeed) =>
   renderWithProviders(<HeroContainerRight />, {
     seed: chromeSeed,
     seedStore: (store) => {
@@ -249,10 +248,14 @@ describe('saving in the tab view leaves out Tab Keeper itself (D6)', () => {
     expect(store.getState().tabContainerDataState.tabGroups).toEqual([]);
   });
 
-  // CONTROL. Outside the tab view, ownTabId() is undefined and nothing is
-  // excluded -- proves the exclusion above is conditioned on the tab view,
-  // not an unconditional filter that would also strike the popup.
-  test('CONTROL: in the popup, Save current window keeps every tab', async () => {
+  // CHANGED for KAN-300 (was "CONTROL: in the popup, Save current window
+  // keeps every tab", proving the D6 exclusion -- then id-based, via
+  // captureOpenWindows's now-removed excludeTabId -- was conditioned on the
+  // tab view). KAN-300 replaced that with an address-based rule
+  // (isTabKeeperPage) that runs for every caller, popup included: a Tab
+  // Keeper page open ELSEWHERE in the window (here, tab 10, alongside the
+  // popup itself) is excluded from the popup's own save too.
+  test('a Tab Keeper page open elsewhere in the window is excluded even from the popup', async () => {
     const { store } = await renderWithProviders(<UserInputContainer />, {
       seed: controlSeed,
     });
@@ -262,7 +265,6 @@ describe('saving in the tab view leaves out Tab Keeper itself (D6)', () => {
 
     const { tabGroups } = store.getState().tabContainerDataState;
     expect(tabGroups[0].windows[0].tabs.map((t) => t.url)).toEqual([
-      OWN_URL,
       DOCS_URL,
       MAIL_URL,
     ]);
@@ -316,7 +318,7 @@ describe('the name box recomputes on visibility, but only in the tab view (KAN-2
 
     // The window changes while this page is in the background: Mail (12)
     // overtakes Docs (11) as the most recently used OTHER tab.
-    chromeHandle.updateTab(12, { lastAccessed: 999 });
+    chromeHandle.simulateBrowserTabChange(12, { lastAccessed: 999 });
     setVisibility('hidden');
     setVisibility('visible');
 
@@ -336,7 +338,7 @@ describe('the name box recomputes on visibility, but only in the tab view (KAN-2
     await userEvent.clear(nameBox);
     await userEvent.type(nameBox, 'My own title');
 
-    chromeHandle.updateTab(12, { lastAccessed: 999 });
+    chromeHandle.simulateBrowserTabChange(12, { lastAccessed: 999 });
     setVisibility('hidden');
     setVisibility('visible');
     // Flushes the visibility handler's own awaits (ownTabId, the tabs
@@ -357,7 +359,7 @@ describe('the name box recomputes on visibility, but only in the tab view (KAN-2
     );
     await screen.findByDisplayValue('Tab Keeper');
 
-    chromeHandle.updateTab(10, { title: 'Changed' });
+    chromeHandle.simulateBrowserTabChange(10, { title: 'Changed' });
     setVisibility('hidden');
     setVisibility('visible');
     await act(async () => {});
@@ -368,6 +370,122 @@ describe('the name box recomputes on visibility, but only in the tab view (KAN-2
     // this line and was dropped (same reasoning as the D15 cleaning test
     // above).
     expect(screen.getByDisplayValue('Tab Keeper')).toBeTruthy();
+  });
+});
+
+describe('the tab-view visibility listener is cleaned up on unmount (KAN-300 Part B a)', () => {
+  test('unmount removes the listener: a later visibility flip makes no chrome query and does not throw', async () => {
+    goToTabView();
+    const { unmount, chrome: chromeHandle } = await renderWithProviders(
+      <UserInputContainer />,
+      { seed: tabViewSeed }
+    );
+    await screen.findByDisplayValue('Docs');
+
+    unmount();
+    const queriesBeforeFlip = chromeHandle.tabsQueryCalls.length;
+
+    expect(() => setVisibility('visible')).not.toThrow();
+    // Flushes anything a (correctly absent) listener might have queued.
+    await act(async () => {});
+
+    // The listener is gone, not merely inert: NO chrome call is made at all.
+    expect(chromeHandle.tabsQueryCalls.length).toBe(queriesBeforeFlip);
+  });
+
+  // NOT IMPLEMENTED, deliberately: a second test for the OTHER race -- the
+  // listener fires WHILE STILL MOUNTED, its query is still in flight, and
+  // only THEN does the component unmount, so `cancelled` (not
+  // removeEventListener, which has nothing left to remove from by then) is
+  // what has to stop the resulting setState from reaching a dead component.
+  //
+  // MEASURED, not assumed, before deciding this: React 18's
+  // `createRoot().unmount()` (what RTL's `unmount` calls) makes a late
+  // setState on the disposed root a silent no-op -- NOT the "Can't perform a
+  // React state update on an unmounted component" warning older React
+  // versions raised, and not an `onRecoverableError` either. Checked four
+  // ways against a throwaway probe component: console.error spied through an
+  // act()-wrapped flush, through a raw (non-act) flush, after a
+  // reconciliation-driven unmount (`rerender(<div/>)` instead of
+  // `unmount()`), and via `createRoot`'s own `onRecoverableError` callback --
+  // all four came back with zero calls. CONTROL: the same probe, left
+  // MOUNTED, for the same out-of-act setState, DID produce the "not wrapped
+  // in act(...)" warning -- proof the absence above is the unmount, not a
+  // harness that cannot detect this class of warning at all (same
+  // "negative-probe-needs-a-control" discipline as the listener-removal
+  // finding elsewhere in this codebase).
+  //
+  // A `cancelled` drop here also never throws (nothing downstream of the
+  // guard can), so no black-box assertion available in this stack --
+  // console output, a thrown error, or a further chrome call -- moves when
+  // this specific guard is removed. Writing an assertion anyway (e.g. "does
+  // not throw") would be vacuous: confirmed by actually deleting the guard
+  // and rerunning the suite, which stayed fully green. `cancelled` is kept
+  // as defence in depth, matching `loadSuggestion`'s identical guard a few
+  // lines up (also untestable at this boundary for the same reason) and the
+  // real production race it is written for -- the popup's JS context can be
+  // torn down mid-await, not merely React-unmounted, which jsdom has no way
+  // to model.
+});
+
+// KAN-300 (Part B item b). Clearing the box is respected -- the guard above
+// correctly leaves it empty rather than re-seeding it. But createTabGroup's
+// fallback for an empty box is `currentTabName`, and that state used to be
+// written ONLY by the mount-time suggestion and by a visibility recompute
+// that overwrote the box -- so clearing the box froze it at whatever the
+// mount-time tab was, forever. `currentTabName` now refreshes on every
+// becoming-visible regardless of the box's own guard.
+describe('the name-box fallback tracks the current tab even once the box is cleared (KAN-300)', () => {
+  test('clear the box, flip visibility after the tabs change, then save: named after the CURRENT most recent other tab', async () => {
+    goToTabView();
+    const { store, chrome: chromeHandle } = await renderWithProviders(
+      <UserInputContainer />,
+      { seed: tabViewSeed }
+    );
+    const nameBox = await screen.findByDisplayValue('Docs');
+
+    await userEvent.clear(nameBox);
+    // Mail (12) overtakes Docs (11) as the most recently used OTHER tab,
+    // while the box sits empty.
+    chromeHandle.simulateBrowserTabChange(12, { lastAccessed: 999 });
+    setVisibility('hidden');
+    setVisibility('visible');
+    // Flushes the visibility handler's own awaits so its refresh of
+    // currentTabName has had the chance to land before Save is clicked.
+    await act(async () => {});
+    // PREMISE: the box is still empty -- the guard did its job; this is not
+    // a test of the guard, which the CONTROL below and KAN-299's suite
+    // already cover.
+    expect(screen.queryByDisplayValue('Docs')).toBeNull();
+
+    await clickSaveCurrentWindow();
+
+    const { tabGroups } = store.getState().tabContainerDataState;
+    expect(tabGroups[0].title).toBe('Mail');
+  });
+
+  // CONTROL: the same visibility flip, but the box holds text the user
+  // typed -- createTabGroup never reaches the currentTabName fallback at
+  // all, so the refresh above must not change what gets saved.
+  test('CONTROL: with text typed in the box, the same recompute changes nothing about what is saved', async () => {
+    goToTabView();
+    const { store, chrome: chromeHandle } = await renderWithProviders(
+      <UserInputContainer />,
+      { seed: tabViewSeed }
+    );
+    const nameBox = await screen.findByDisplayValue('Docs');
+    await userEvent.clear(nameBox);
+    await userEvent.type(nameBox, 'My own title');
+
+    chromeHandle.simulateBrowserTabChange(12, { lastAccessed: 999 });
+    setVisibility('hidden');
+    setVisibility('visible');
+    await act(async () => {});
+
+    await clickSaveCurrentWindow();
+
+    const { tabGroups } = store.getState().tabContainerDataState;
+    expect(tabGroups[0].title).toBe('My own title');
   });
 });
 
@@ -407,7 +525,7 @@ describe('"Add current window" in the tab view leaves out Tab Keeper itself (D14
     // would pass even against code that never re-reads after mount.
     await act(async () => {});
 
-    chromeHandle.updateTab(12, { lastAccessed: 999 });
+    chromeHandle.simulateBrowserTabChange(12, { lastAccessed: 999 });
 
     await clickAddCurrentWindow();
 
@@ -448,9 +566,13 @@ describe('"Add current window" in the tab view leaves out Tab Keeper itself (D14
     ).toHaveLength(before);
   });
 
-  // CONTROL. Outside the tab view, ownTabId() is undefined and nothing is
-  // excluded.
-  test('CONTROL: in the popup, Add current window keeps every tab', async () => {
+  // CHANGED for KAN-300 (was "CONTROL: in the popup, Add current window
+  // keeps every tab", proving the D14 exclusion -- then ownId-based -- was
+  // conditioned on the tab view). HeroContainerRight now applies the SAME
+  // address-based rule captureOpenWindows does (isTabKeeperPage), so a Tab
+  // Keeper page open elsewhere in the window is excluded from the popup's
+  // Add current window too.
+  test('a Tab Keeper page open elsewhere in the window is excluded from the popup Add current window too', async () => {
     const { store } = await renderHeroWithSelectedSession(controlSeed);
 
     await clickAddCurrentWindow();
@@ -462,9 +584,111 @@ describe('"Add current window" in the tab view leaves out Tab Keeper itself (D14
     );
     const { tabGroups } = store.getState().tabContainerDataState;
     expect(tabGroups[0].windows[0].tabs.map((t) => t.url)).toEqual([
-      OWN_URL,
       DOCS_URL,
       MAIL_URL,
     ]);
+  });
+});
+
+// KAN-300 (Part B item c). No test today asserted where the popup's "Add
+// current window" title comes from. Each of these is mutation-proven:
+// mutating `result[0]?.title`, dropping `|| 'New Tab'`, or forcing the
+// tab-view branch all left the suite green before this.
+describe('the popup "Add current window" name path (KAN-300 Part B c)', () => {
+  test("the added window is titled with the active tab's raw title", async () => {
+    const { store } = await renderHeroWithSelectedSession({
+      windows: [
+        {
+          id: 1,
+          tabs: [
+            tab({
+              id: 20,
+              url: 'https://active.test/',
+              title: 'Alpha',
+              active: true,
+            }),
+          ],
+        },
+      ],
+    });
+
+    await clickAddCurrentWindow();
+
+    await waitFor(() =>
+      expect(
+        store.getState().tabContainerDataState.tabGroups[0].windows
+      ).toHaveLength(2)
+    );
+    expect(
+      store.getState().tabContainerDataState.tabGroups[0].windows[0].title
+    ).toBe('Alpha');
+  });
+
+  test("with no title it's 'New Tab'", async () => {
+    const { store } = await renderHeroWithSelectedSession({
+      windows: [
+        {
+          id: 1,
+          tabs: [
+            tab({
+              id: 20,
+              url: 'https://active.test/',
+              title: undefined,
+              active: true,
+            }),
+          ],
+        },
+      ],
+    });
+
+    await clickAddCurrentWindow();
+
+    await waitFor(() =>
+      expect(
+        store.getState().tabContainerDataState.tabGroups[0].windows
+      ).toHaveLength(2)
+    );
+    expect(
+      store.getState().tabContainerDataState.tabGroups[0].windows[0].title
+    ).toBe('New Tab');
+  });
+
+  // The tab-view branch (pickNameSourceTab over the MOST RECENTLY USED other
+  // tab) is never taken in the popup: a more-recently-used, non-active tab
+  // must NOT win over the active tab's own title.
+  test('in the popup the tab-view branch is not taken', async () => {
+    const { store } = await renderHeroWithSelectedSession({
+      windows: [
+        {
+          id: 1,
+          tabs: [
+            tab({
+              id: 20,
+              url: 'https://active.test/',
+              title: 'Popup Active',
+              active: true,
+              lastAccessed: 100,
+            }),
+            tab({
+              id: 21,
+              url: 'https://other.test/',
+              title: 'Should Not Win',
+              lastAccessed: 900,
+            }),
+          ],
+        },
+      ],
+    });
+
+    await clickAddCurrentWindow();
+
+    await waitFor(() =>
+      expect(
+        store.getState().tabContainerDataState.tabGroups[0].windows
+      ).toHaveLength(2)
+    );
+    expect(
+      store.getState().tabContainerDataState.tabGroups[0].windows[0].title
+    ).toBe('Popup Active');
   });
 });

@@ -38,15 +38,28 @@ export type ChromeFakeHandle = {
   createdTabs: chrome.tabs.CreateProperties[];
   removedWindowIds: number[];
   groupedTabs: { groupId: number; windowId: number; tabIds: number[] }[];
-  // Mutates a seeded tab directly, for fields real chrome.tabs.update()
-  // cannot set -- `title` and `lastAccessed` change in a real browser from
-  // the user's own navigation and tab-switching, never from an extension
-  // call, so UpdateProperties has no field for either. Tests that need to
-  // simulate the window changing while this page was in the background
-  // (KAN-299) have no other seam to reach through. Throws on an unknown id
-  // so a typo'd tab id fails the test loudly rather than silently doing
-  // nothing.
-  updateTab(tabId: number, patch: Partial<chrome.tabs.Tab>): void;
+  // Every chrome.tabs.query() call, in order. Exists for tests that have to
+  // prove a listener was genuinely DETACHED rather than merely guarded --
+  // e.g. a `cancelled` flag can make a leaked visibilitychange listener's
+  // state-setting invisible without making the listener itself, or the
+  // chrome call it goes on to make, invisible too. Reading THIS is what
+  // still catches that leak.
+  tabsQueryCalls: chrome.tabs.QueryInfo[];
+  // Simulates the BROWSER changing a seeded tab on its own -- `title` and
+  // `lastAccessed` change from the user's own navigation and tab-switching,
+  // never from an extension call, so real chrome.tabs.update() has no field
+  // for either and this is not that method's fake. `patch` is narrowed to
+  // exactly those two fields for the same reason: widening it to
+  // Partial<chrome.tabs.Tab> would let a test set something only an
+  // extension call can change (`pinned`, say) through a seam meant to model
+  // the browser's own hand. Tests that need to simulate the window changing
+  // while this page was in the background (KAN-299/KAN-300) have no other
+  // seam to reach through. Throws on an unknown id so a typo'd tab id fails
+  // the test loudly rather than silently doing nothing.
+  simulateBrowserTabChange(
+    tabId: number,
+    patch: Partial<Pick<chrome.tabs.Tab, 'title' | 'lastAccessed'>>
+  ): void;
   restore(): void;
 };
 
@@ -171,10 +184,13 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
     createdTabs: [],
     removedWindowIds: [],
     groupedTabs: [],
-    updateTab(tabId, patch) {
+    tabsQueryCalls: [],
+    simulateBrowserTabChange(tabId, patch) {
       const target = tabs.find((t) => t.id === tabId);
       if (!target) {
-        throw new Error(`updateTab: no seeded tab with id ${tabId}`);
+        throw new Error(
+          `simulateBrowserTabChange: no seeded tab with id ${tabId}`
+        );
       }
       Object.assign(target, patch);
     },
@@ -247,6 +263,7 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
         queryInfo: chrome.tabs.QueryInfo,
         cb?: (result: chrome.tabs.Tab[]) => void
       ) => {
+        handle.tabsQueryCalls.push(queryInfo);
         const matched = tabs.filter(
           (tab) =>
             (queryInfo.active === undefined ||

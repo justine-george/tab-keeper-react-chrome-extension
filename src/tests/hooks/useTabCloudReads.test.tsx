@@ -156,8 +156,8 @@ describe('useTabCloudReads', () => {
   });
 
   // The captured `read` dispatches the real
-  // syncStateWithFirestore thunk (through the queue, as the brief requires),
-  // not a no-op -- asserted by the thunk's OWN pending action type
+  // syncStateWithFirestore thunk (through the queue), not a no-op -- asserted
+  // by the thunk's OWN pending action type
   // (`syncStateWithFirestore.pending.type`), never a hand-typed string
   // literal that could drift from the real action.
   test('the captured read dispatches syncStateWithFirestore', () => {

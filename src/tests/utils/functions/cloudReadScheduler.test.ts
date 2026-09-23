@@ -134,7 +134,7 @@ describe('startCloudReads', () => {
     expect(read).not.toHaveBeenCalled();
   });
 
-  // Off the happy path (Task 17 brief).
+  // Off the happy path.
 
   test('hidden AT START (a tab created in the background): no timer runs, and becoming visible after more than 60s reads at once', () => {
     const { doc, setVisibility } = makeFakeDoc('hidden');

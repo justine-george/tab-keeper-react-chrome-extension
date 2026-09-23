@@ -134,7 +134,7 @@ test.describe('Open in a tab (KAN-279 D4, D5)', () => {
         { index: 1, pinned: false, active: true, windowId: popupTab.windowId },
       ]);
 
-    // KAN-299 D4: the user can pin the tab view tab itself, once it exists.
+    // KAN-279 D4: the user can pin the tab view tab itself, once it exists.
     // Pinning changes a tab's index and pinned state, never its URL, so the
     // worker's lookup -- a URL glob query, not an index -- must still find
     // it below.
