@@ -22,6 +22,7 @@ import {
   SELECT_TAB_CONTAINER_ACTION,
   SET_ACTION,
   TAB_CONTAINER_APPLY_UNDO_SNAPSHOT_ACTION,
+  TAB_CONTAINER_HYDRATE_FROM_OTHER_PAGE_ACTION,
   TAB_CONTAINER_REPLACE_STATE_ACTION,
   TAB_CONTAINER_RESTORE_ACTION,
   UNDO_ACTION,
@@ -132,6 +133,12 @@ const isDataStateChangeAction = (
     // the restored state back onto the undo stack.
     TAB_CONTAINER_RESTORE_ACTION,
     TAB_CONTAINER_APPLY_UNDO_SNAPSHOT_ACTION,
+    // KAN-279 D9. Same reasoning as TAB_CONTAINER_REPLACE_STATE_ACTION above,
+    // and belt-and-suspenders for the same reason that entry already is:
+    // hydrateFromOtherPage is not in actionsToCapture either, so isCapturableAction
+    // stops the middleware before this list is ever consulted. Listed anyway so
+    // this stays true if that ever changes.
+    TAB_CONTAINER_HYDRATE_FROM_OTHER_PAGE_ACTION,
   ];
   return (
     prevState.tabContainerDataState !== nextState.tabContainerDataState &&

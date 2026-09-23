@@ -36,7 +36,10 @@ import {
   TranslatableError,
 } from '../../utils/functions/local';
 import { mergeTabContainers } from '../../utils/functions/mergeTabData';
+import { withOwnSelection } from '../../utils/functions/withOwnSelection';
+import { sameContainerData } from '../../utils/functions/sameContainerData';
 import { TOAST_MESSAGES } from '../../utils/constants/common';
+import { TAB_CONTAINER_SLICE_NAME } from '../../utils/constants/actionTypes';
 import {
   recordSyncedNow,
   recordValueMoment,
@@ -45,6 +48,19 @@ import {
 
 export interface Global {
   hasSyncedBefore: boolean;
+  // KAN-294. The sessions in this store are still the slice's placeholder:
+  // the empty initial container, which nothing has loaded, taken in, edited,
+  // or confirmed. Its null selection is no one's choice, so while this holds
+  // the next load keeps its source's selection; after, every load keeps this
+  // page's own (loadSessionsIntoPage).
+  //
+  // Any tabContainerDataState action ends it -- a load (replaceState), another
+  // page's sessions taken in (hydrateFromOtherPage), or this page's own edit
+  // -- and so does a sync that finds no sessions anywhere, which loads
+  // nothing but settles that empty IS this page's state. Page-local like the
+  // rest of this slice: never written to localStorage, never synced, never
+  // in undo.
+  holdsPlaceholderSessions: boolean;
   // "a usable document id exists in chrome.storage.sync". A LOCAL read: no
   // network, no authentication. This app has no accounts - sync identity is a
   // client uuid - so "signed in" genuinely means "has a sync identity", and it
@@ -226,6 +242,7 @@ export interface PendingImport {
 
 export const initialState: Global = {
   hasSyncedBefore: false,
+  holdsPlaceholderSessions: true,
   isSignedIn: false,
   isFirebaseAuthed: false,
   isCloudConfigured: false,
@@ -317,6 +334,57 @@ export const saveToFirestoreIfDirty = createAsyncThunk(
   }
 );
 
+// KAN-294. App's startup read of localStorage and each sync branch load a
+// whole container into this page from localStorage or the cloud, and the
+// selection there is whichever page or device wrote last. (The storage-event
+// hydrate is the other route in; it applies withOwnSelection itself.)
+// Selection is per page (KAN-279 D9), so a load over the placeholder takes
+// the source's: a lone page must open on its stored selection exactly as
+// before. Every other load keeps this page's own. Returns the container it
+// loaded, for the caller to hand to any undo `present` it sets, so undo and
+// the screen agree. Its replaceState ends the placeholder (extraReducers).
+export const loadSessionsIntoPage =
+  (
+    loaded: TabMasterContainer
+  ): ThunkAction<TabMasterContainer, RootState, unknown, UnknownAction> =>
+  (dispatch, getState) => {
+    const { globalState, tabContainerDataState } = getState();
+    const next = globalState.holdsPlaceholderSessions
+      ? loaded
+      : withOwnSelection(loaded, tabContainerDataState.selectedTabGroupId);
+    dispatch(replaceState(next));
+    return next;
+  };
+
+// KAN-295. localStorage holds sessions this page has not taken in: another
+// open page wrote them, and its storage event is queued behind a drag hold or
+// has not fired yet. Every edit of this page writes localStorage as it lands,
+// so a difference is the other page's. Selection is ignored, being per page
+// (sameContainerData). A page still on its placeholder is never behind: it
+// holds nothing yet, and loading is its first load.
+const pageIsBehindStorage = (
+  state: RootState,
+  stored: TabMasterContainer
+): boolean =>
+  !state.globalState.holdsPlaceholderSessions &&
+  !sameContainerData(stored, state.tabContainerDataState);
+
+// KAN-295. The loads that take localStorage as it is: the local-only sync and
+// App's startup read. When this page was behind it, the load is a change this
+// page did not make, so undo is reset, exactly as the storage-event hydrate
+// would have reset it (D12): Ctrl+Z must not reverse another page's edit.
+// Returns what it loaded, as loadSessionsIntoPage does.
+export const loadStoredSessionsIntoPage =
+  (
+    stored: TabMasterContainer
+  ): ThunkAction<TabMasterContainer, RootState, unknown, UnknownAction> =>
+  (dispatch, getState) => {
+    const behind = pageIsBehindStorage(getState(), stored);
+    const loaded = dispatch(loadSessionsIntoPage(stored));
+    if (behind) dispatch(resetHistory({ tabContainerDataState: loaded }));
+    return loaded;
+  };
+
 // syncs data with Firestore
 export const syncStateWithFirestore = createAsyncThunk<
   void,
@@ -383,16 +451,36 @@ export const syncStateWithFirestore = createAsyncThunk<
         Date.now()
       );
 
+      // KAN-295. changedFromLocal compares with localStorage, which may hold
+      // another open page's write that THIS page has not taken in. Loading it
+      // changes this page as much as a cloud change would, so the drag hold
+      // and the undo reset below key on this. The toast and the value moment
+      // do not: they report a change from another DEVICE, and a change only
+      // another page made shows none, as on the storage-event path.
+      const changedForThisPage =
+        changedFromLocal ||
+        pageIsBehindStorage(thunkAPI.getState(), tabDataFromLocalStorage);
+
       // KAN-279 D12. A row is held: applying this would move the list under
       // the pointer. It waits for the drop, and nothing is written meanwhile --
       // saveToFirestoreIfDirty would send the PRE-merge state, over the other
       // device's change. applyHeldCloudMerge re-syncs once it has applied.
-      if (changedFromLocal && isDragHeld()) {
-        whenDragReleases(() => thunkAPI.dispatch(applyHeldCloudMerge(merged)));
+      // A change only another page made has nothing of the cloud's to apply:
+      // dropOnTop re-reads localStorage at the drop, and after a cancel the
+      // page's own storage event takes it in, or, if that has not fired, the
+      // re-sync does. But this run still returns before it settles syncStatus
+      // and before any save, so the sync is run again once the row is
+      // released, drop or not (KAN-297).
+      if (changedForThisPage && isDragHeld()) {
+        whenDragReleases(() =>
+          thunkAPI.dispatch(
+            changedFromLocal ? applyHeldCloudMerge(merged) : resyncAfterHold()
+          )
+        );
         return;
       }
 
-      thunkAPI.dispatch(replaceState(merged));
+      const loaded = thunkAPI.dispatch(loadSessionsIntoPage(merged));
 
       if (changedFromCloud) {
         thunkAPI.dispatch(setIsDirtyWithoutSync());
@@ -436,18 +524,19 @@ export const syncStateWithFirestore = createAsyncThunk<
         if (arrived) thunkAPI.dispatch(recordValueMoment());
       }
 
-      if (changedFromLocal) {
+      if (changedForThisPage) {
         // D12 (KAN-279). The merge brought in a change this page did not make;
-        // an undo must never reverse it. The toast above names the moment.
-        thunkAPI.dispatch(resetHistory({ tabContainerDataState: merged }));
+        // an undo must never reverse it. The toast above names the moment when
+        // it came from another device; another page's change has none.
+        thunkAPI.dispatch(resetHistory({ tabContainerDataState: loaded }));
       } else if (!state.globalState.hasSyncedBefore) {
         // reset presentState in the undoRedoState
-        thunkAPI.dispatch(setPresentStartup({ tabContainerDataState: merged }));
+        thunkAPI.dispatch(setPresentStartup({ tabContainerDataState: loaded }));
       }
       thunkAPI.dispatch(setHasSyncedBefore());
     } else if (tabDataFromCloud) {
       // newly installed returning user - data present only on cloud
-      thunkAPI.dispatch(replaceState(tabDataFromCloud!));
+      const loaded = thunkAPI.dispatch(loadSessionsIntoPage(tabDataFromCloud));
       thunkAPI.dispatch(setIsNotDirty());
       thunkAPI.dispatch(setSyncStatus(`success`));
       thunkAPI.dispatch(recordSyncedNow());
@@ -455,7 +544,7 @@ export const syncStateWithFirestore = createAsyncThunk<
         // reset presentState in the undoRedoState
         thunkAPI.dispatch(
           setPresentStartup({
-            tabContainerDataState: tabDataFromCloud!,
+            tabContainerDataState: loaded,
           })
         );
       }
@@ -463,20 +552,25 @@ export const syncStateWithFirestore = createAsyncThunk<
     } else if (tabDataFromLocalStorage) {
       // data only on localStorage
       // save back to Firestore
-      thunkAPI.dispatch(replaceState(tabDataFromLocalStorage));
+      const loaded = thunkAPI.dispatch(
+        loadStoredSessionsIntoPage(tabDataFromLocalStorage)
+      );
       thunkAPI.dispatch(setIsDirtyWithoutSync());
       thunkAPI.dispatch(saveToFirestoreIfDirty());
       if (!state.globalState.hasSyncedBefore) {
         // reset presentState in the undoRedoState
         thunkAPI.dispatch(
           setPresentStartup({
-            tabContainerDataState: tabDataFromLocalStorage,
+            tabContainerDataState: loaded,
           })
         );
       }
       thunkAPI.dispatch(setHasSyncedBefore());
     } else {
       // new user - hey there!
+      // KAN-294. Nothing to load, but the empty container is now this page's
+      // real state, not a placeholder: a later load keeps its selection.
+      thunkAPI.dispatch(endPlaceholderSessions());
       thunkAPI.dispatch(setIsDirtyWithoutSync());
       thunkAPI.dispatch(saveToFirestoreIfDirty());
       thunkAPI.dispatch(setHasSyncedBefore());
@@ -501,13 +595,13 @@ export const applyHeldCloudMerge =
   (
     merged: TabMasterContainer
   ): ThunkAction<void, RootState, unknown, UnknownAction> =>
-  (dispatch, getState) => {
+  (dispatch) => {
     const local = loadFromLocalStorage('tabContainerData');
     const combined = isValidTabMasterContainer(local)
       ? mergeTabContainers(local, merged, Date.now()).merged
       : merged;
-    dispatch(replaceState(combined));
-    dispatch(resetHistory({ tabContainerDataState: combined }));
+    const loaded = dispatch(loadSessionsIntoPage(combined));
+    dispatch(resetHistory({ tabContainerDataState: loaded }));
     dispatch(
       showToast({ toastText: TOAST_MESSAGES.SYNC_MERGED, duration: 3000 })
     );
@@ -526,11 +620,18 @@ export const applyHeldCloudMerge =
     );
     if (arrived) dispatch(recordValueMoment());
 
-    // KAN-290. The same gate drainQueuedSync (customMiddleware.ts) uses, not
-    // cloudSyncAllowed: that also requires Auto Sync, but "Sync now" is a
-    // manual sync that works with Auto Sync OFF, and a manual sync held by a
-    // drag must still re-sync once released. A re-sync fired after the drop
-    // must not run if sign-in or consent was withdrawn while the row was held.
+    dispatch(resyncAfterHold());
+  };
+
+// Runs the sync a drag hold cut short, once the row is released. KAN-290. The
+// same gate drainQueuedSync (customMiddleware.ts) uses, not cloudSyncAllowed:
+// that also requires Auto Sync, but "Sync now" is a manual sync that works
+// with Auto Sync OFF, and a manual sync held by a drag must still re-sync once
+// released. It must not run if sign-in or consent was withdrawn while the row
+// was held.
+const resyncAfterHold =
+  (): ThunkAction<void, RootState, unknown, UnknownAction> =>
+  (dispatch, getState) => {
     const { globalState, settingsDataState } = getState();
     if (
       globalState.isSignedIn &&
@@ -541,8 +642,9 @@ export const applyHeldCloudMerge =
     } else {
       // The held run returned before it could settle syncStatus off
       // 'loading' (it deferred to this re-sync instead). With the gate
-      // closed, that re-sync never happens, so nothing else will -- without
-      // this the header's spinner sticks on 'loading' for good.
+      // closed, that re-sync never happens. A drop's edit would set 'idle'
+      // anyway, but after a cancel nothing else will -- without this the
+      // header's spinner sticks on 'loading' until the next edit.
       dispatch(setSyncStatus('idle'));
     }
   };
@@ -893,6 +995,10 @@ export const globalStateSlice = createSlice({
       state.hasSyncedBefore = true;
     },
 
+    endPlaceholderSessions: (state) => {
+      state.holdsPlaceholderSessions = false;
+    },
+
     // KAN-269. The middleware takes the queued sync as it runs it, so a
     // second drain in the same tick finds nothing to run.
     takeQueuedSync: (state) => {
@@ -1036,7 +1142,19 @@ export const globalStateSlice = createSlice({
       .addCase(openSettingsPage.fulfilled, (state) => {
         state.isSettingsPage = true;
       })
-      .addCase(showToast.fulfilled, () => {});
+      .addCase(showToast.fulfilled, () => {})
+      // KAN-294. Any action of the sessions slice means the store no longer
+      // holds the placeholder: a load, another page's sessions taken in, or
+      // this page's own edit. By prefix, because it is every reducer of that
+      // slice, present and future; its thunks are 'global/...' and do not
+      // match, but each ends in one of its reducers, which does.
+      .addMatcher(
+        (action: UnknownAction) =>
+          action.type.startsWith(`${TAB_CONTAINER_SLICE_NAME}/`),
+        (state) => {
+          state.holdsPlaceholderSessions = false;
+        }
+      );
   },
 });
 
@@ -1069,6 +1187,7 @@ export const {
   setCloudConfigured,
   setFirebaseUnauthed,
   setHasSyncedBefore,
+  endPlaceholderSessions,
   setLoggedOut,
   setSyncStatus,
   setUserId,

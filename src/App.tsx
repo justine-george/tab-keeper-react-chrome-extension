@@ -12,7 +12,7 @@ import { AppDispatch, RootState } from './redux/store';
 import { setPresentStartup } from './redux/slices/undoRedoSlice';
 import { useThemeColors } from './hooks/useThemeColors';
 import { useDocumentTheme } from './hooks/useDocumentTheme';
-import { replaceState } from './redux/slices/tabContainerDataStateSlice';
+import { useOtherPageChanges } from './hooks/useOtherPageChanges';
 import {
   openRateAndReviewModal,
   openTabGroupsPrompt,
@@ -24,6 +24,7 @@ import {
   setSignedIn,
   setUserId,
   showToast,
+  loadStoredSessionsIntoPage,
   syncStateWithFirestore,
 } from './redux/slices/globalStateSlice';
 import {
@@ -50,6 +51,10 @@ import {
 import { shouldAskForReview } from './utils/functions/reviewAsk';
 
 function App() {
+  // KAN-279 D9. Another open page's write to the saved sessions or settings
+  // reaches this one. Once, at the root, so there is one listener per page.
+  useOtherPageChanges();
+
   const COLORS = useThemeColors();
 
   // Publishes the theme to <html>: scrollbar custom properties, and the flag
@@ -260,13 +265,19 @@ function App() {
         console.warn('Ignoring unreadable tabContainerData in localStorage.');
       }
       if (tabDataFromLocalStorage) {
-        dispatch(replaceState(tabDataFromLocalStorage));
+        // KAN-294. On mount this is the page's first load and keeps the
+        // stored selection; a re-run (sign-in, a hydrated consent or Auto Sync
+        // change) keeps this page's own, not the last writer's. KAN-295: a
+        // re-run that finds another page's write not yet taken in resets undo.
+        const loaded = dispatch(
+          loadStoredSessionsIntoPage(tabDataFromLocalStorage)
+        );
 
         if (!hasSyncedBefore) {
           // reset presentState in the undoRedoState
           dispatch(
             setPresentStartup({
-              tabContainerDataState: tabDataFromLocalStorage,
+              tabContainerDataState: loaded,
             })
           );
         }

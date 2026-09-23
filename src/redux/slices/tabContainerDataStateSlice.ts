@@ -42,6 +42,7 @@ import {
   DEFAULT_WINDOW_WIDTH,
   TOAST_MESSAGES,
 } from '../../utils/constants/common';
+import { TAB_CONTAINER_SLICE_NAME } from '../../utils/constants/actionTypes';
 import { recordValueMoment } from './settingsDataStateSlice';
 import {
   TAB_GROUP_COLORS,
@@ -1061,7 +1062,7 @@ function bury(state: TabMasterContainer, tabGroupId: string): void {
 }
 
 export const tabContainerDataStateSlice = createSlice({
-  name: 'tabContainerDataState',
+  name: TAB_CONTAINER_SLICE_NAME,
   initialState,
   reducers: {
     saveToTabContainerInternal: (
@@ -2072,6 +2073,12 @@ export const tabContainerDataStateSlice = createSlice({
       return action.payload;
     },
 
+    // KAN-279 D9. Another page wrote this; localStorage already holds it.
+    // Unlike replaceState it never writes back -- a write here would fire a
+    // storage event in the other page and the two would echo forever.
+    hydrateFromOtherPage: (_state, action: PayloadAction<TabMasterContainer>) =>
+      action.payload,
+
     // Replace the container with a backup file the user is explicitly
     // asserting ("Load sessions from a backup" → Replace sessions). Kept
     // separate from replaceState, which the sync uses for merged results and
@@ -2436,6 +2443,7 @@ export const {
   sortSessionsInternal,
   clearSessionOrder,
   replaceState,
+  hydrateFromOtherPage,
   restoreContainer,
   mergeSessionsFromBackupInternal,
   applyUndoSnapshot,
