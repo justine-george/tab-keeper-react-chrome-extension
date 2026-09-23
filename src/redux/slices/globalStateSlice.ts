@@ -7,7 +7,7 @@ import {
 } from '@reduxjs/toolkit';
 
 import { AppDispatch, RootState } from '../store';
-import { setPresentStartup } from './undoRedoSlice';
+import { resetHistory, setPresentStartup } from './undoRedoSlice';
 import { selectCategory, SettingsCategory } from './settingsCategoryStateSlice';
 import {
   mergeSessionsFromBackupInternal,
@@ -420,7 +420,11 @@ export const syncStateWithFirestore = createAsyncThunk(
         if (arrived) thunkAPI.dispatch(recordValueMoment());
       }
 
-      if (!state.globalState.hasSyncedBefore) {
+      if (changedFromLocal) {
+        // D12 (KAN-279). The merge brought in a change this page did not make;
+        // an undo must never reverse it. The toast above names the moment.
+        thunkAPI.dispatch(resetHistory({ tabContainerDataState: merged }));
+      } else if (!state.globalState.hasSyncedBefore) {
         // reset presentState in the undoRedoState
         thunkAPI.dispatch(setPresentStartup({ tabContainerDataState: merged }));
       }

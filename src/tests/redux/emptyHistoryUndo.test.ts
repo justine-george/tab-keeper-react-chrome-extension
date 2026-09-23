@@ -154,10 +154,13 @@ describe('undo and redo with an empty history (KAN-292)', () => {
     };
     await store.dispatch(syncStateWithFirestore());
 
-    // PREMISE, asserted before undo: the merge landed `b`, recorded no undo
-    // step, and left `present` stale -- exactly what the test above assumed.
-    // If `present` DID include `b` here, the spec's premise would be wrong,
-    // which is the owner's call, not this test's to paper over.
+    // PREMISE, asserted before undo, UPDATED for D12 (KAN-279): this merge
+    // has `changedFromLocal` true ('b' arrived), so syncStateWithFirestore
+    // now calls `resetHistory` here instead of leaving `present` untouched --
+    // the owner's call the comment this replaced deferred was made in Task 3.
+    // `present` is therefore fresh, not stale: it already contains `b`. The
+    // staleness this test used to demonstrate no longer occurs for a merge
+    // that changes local data. `past` stays empty either way (it already was).
     const idsAfterSync = store
       .getState()
       .tabContainerDataState.tabGroups.map((g) => g.tabGroupId);
@@ -168,7 +171,7 @@ describe('undo and redo with an empty history (KAN-292)', () => {
       .undoRedo.present.tabContainerDataState.tabGroups.map(
         (g) => g.tabGroupId
       );
-    expect(presentIds).not.toContain('b');
+    expect(presentIds).toContain('b');
 
     store.dispatch(undo());
 
