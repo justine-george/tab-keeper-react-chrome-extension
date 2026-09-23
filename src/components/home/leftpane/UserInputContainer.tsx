@@ -17,6 +17,11 @@ import {
 import { dropNotificationCount } from '../../../utils/functions/sessionExportHtml';
 import { saveToTabContainer } from '../../../redux/slices/tabContainerDataStateSlice';
 import { normalizeTitle } from '../../../utils/functions/local';
+import {
+  isTabView,
+  ownTabId,
+  pickNameSourceTab,
+} from '../../../utils/functions/viewMode';
 import { useTranslation } from 'react-i18next';
 
 export default function UserInputContainer() {
@@ -33,14 +38,19 @@ export default function UserInputContainer() {
   );
 
   useEffect(() => {
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      const currentTab = tabs[0];
-      if (currentTab && currentTab.title) {
-        // KAN-211. The name box is a SUGGESTION derived from the active tab, so
-        // it is cleaned like any other derived title -- offering "(3) Gmail" as
-        // a session name proposes storing a badge that is stale the moment it
-        // is saved. What the user then types is theirs and is never touched.
-        const suggested = dropNotificationCount(currentTab.title);
+    // Guards both branches below against setting state after this component
+    // has unmounted -- ownTabId() and the tab-view query each cross an await,
+    // and a popup that closes mid-query must not resume into a dead component.
+    let cancelled = false;
+
+    // KAN-211/KAN-279 D15. The name box is a SUGGESTION, so it is cleaned like
+    // any other derived title -- offering "(3) Gmail" as a session name
+    // proposes storing a badge that is stale the moment it is saved. What the
+    // user then types is theirs and is never touched.
+    function applySuggestion(title: string | undefined) {
+      if (cancelled) return;
+      if (title) {
+        const suggested = dropNotificationCount(title);
         setCurrentTabName(suggested);
         setNewTitle(suggested);
       } else {
@@ -51,7 +61,29 @@ export default function UserInputContainer() {
         setCurrentTabName(t('New Tab Group'));
         setNewTitle(t('New Tab Group'));
       }
-    });
+    }
+
+    async function loadSuggestion() {
+      if (isTabView()) {
+        // In the tab, the active tab IS Tab Keeper, so the suggestion comes
+        // from the most recently used OTHER tab in this window instead (D15).
+        const ownId = await ownTabId();
+        const tabsOfWindow = await new Promise<chrome.tabs.Tab[]>((resolve) =>
+          chrome.tabs.query({ currentWindow: true }, (tabs) => resolve(tabs))
+        );
+        applySuggestion(pickNameSourceTab(tabsOfWindow, ownId)?.title);
+      } else {
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+          applySuggestion(tabs[0]?.title);
+        });
+      }
+    }
+
+    loadSuggestion();
+
+    return () => {
+      cancelled = true;
+    };
     // `t` is deliberately not a dependency. This effect exists to seed the
     // name box ONCE, on mount; re-running it would overwrite whatever the user
     // has since typed. Nothing is lost by omitting it either -- the language
@@ -92,7 +124,13 @@ export default function UserInputContainer() {
       normalizeTitle(currentTabName) ||
       t('New Tab Group');
 
-    const containerData = await captureOpenWindows(title, scope);
+    // KAN-279 D6. In the tab, "the current window" includes Tab Keeper's own
+    // page -- captured by id, not cached from render, so this can never save
+    // against a stale or undefined own id (ownTabId() is undefined in the
+    // popup, where this is a no-op -- see captureOpenWindows's own guard).
+    const containerData = await captureOpenWindows(title, scope, {
+      excludeTabId: await ownTabId(),
+    });
     if (!containerData) return;
 
     dispatch(saveToTabContainer({ container: containerData, scope }));

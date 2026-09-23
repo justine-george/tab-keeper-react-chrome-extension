@@ -37,7 +37,11 @@ import {
 import { copySessionLinks } from '../../../utils/functions/copySessionLinks';
 import { tidySessionForExport } from '../../../utils/functions/sessionExportHtml';
 import { TOAST_MESSAGES } from '../../../utils/constants/common';
-import { isTabView } from '../../../utils/functions/viewMode';
+import {
+  isTabView,
+  ownTabId,
+  pickNameSourceTab,
+} from '../../../utils/functions/viewMode';
 import { useTranslation } from 'react-i18next';
 import { DURATION, ICON, TYPE } from '../../../styles/scale';
 
@@ -87,14 +91,41 @@ export default function HeroContainerRight() {
   );
 
   useEffect(() => {
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      const currentTab = tabs[0];
-      if (currentTab && currentTab.title) {
-        setCurrentTabName(currentTab.title);
+    // Guards against setting state after unmount -- both branches below cross
+    // an await (ownTabId(), the tab-view query), and this component can
+    // unmount in the gap, same reasoning as UserInputContainer's own effect.
+    let cancelled = false;
+
+    function applyName(title: string | undefined) {
+      if (cancelled) return;
+      setCurrentTabName(title || 'New Tab');
+    }
+
+    async function loadName() {
+      if (isTabView()) {
+        // KAN-279 D15. The active tab IS Tab Keeper in the tab, so the window
+        // this button adds is named from the most recently used OTHER tab
+        // instead -- the same rule the name box uses. dropNotificationCount
+        // is not applied here: toWindowGroupData already cleans whatever
+        // title it is handed, exactly as it does for the popup's active tab
+        // below, so cleaning twice would be redundant rather than wrong.
+        const ownId = await ownTabId();
+        const tabsOfWindow = await new Promise<chrome.tabs.Tab[]>((resolve) =>
+          chrome.tabs.query({ currentWindow: true }, (tabs) => resolve(tabs))
+        );
+        applyName(pickNameSourceTab(tabsOfWindow, ownId)?.title);
       } else {
-        setCurrentTabName('New Tab');
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+          applyName(tabs[0]?.title);
+        });
       }
-    });
+    }
+
+    loadName();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // the same list RightPane derives its mount guard from
@@ -166,9 +197,22 @@ export default function HeroContainerRight() {
       chrome.windows.getCurrent({ populate: true }, (result) => resolve(result))
     );
 
+    // KAN-279 D14. Read fresh here rather than cached from render, so a save
+    // can never run against a stale or undefined own id. undefined in the
+    // popup, where the filter below is a no-op -- same guard capture.ts's
+    // excludeTabId uses: guarded on the id being KNOWN, not on tab.id, so a
+    // tab Chrome reports without an id still stays in.
+    const ownId = await ownTabId();
+    const tabs = (windowData.tabs ?? []).filter(
+      (tab) => ownId === undefined || tab.id !== ownId
+    );
+    // Leaves out Tab Keeper's own tab by id; if that empties the window,
+    // there is nothing to add.
+    if (tabs.length === 0) return;
+
     const read = await readCurrentWindowGroups(windowData.id);
     const window = toWindowGroupData(
-      windowData,
+      { ...windowData, tabs },
       currentTabName,
       read?.groups,
       read?.idByChromeId ?? new Map()
