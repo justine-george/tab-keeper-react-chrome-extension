@@ -291,8 +291,14 @@ export const saveToFirestoreIfDirty = createAsyncThunk(
           state.globalState.userId!,
           state.tabContainerDataState
         );
-        // Save to localStorage after successful Firestore update
-        saveToLocalStorage('tabContainerData', state.tabContainerDataState);
+        // Save to localStorage after successful Firestore update. The CURRENT
+        // state, not `state` from before the await (KAN-291): an edit made
+        // while the write was in flight has already persisted itself, and
+        // writing the old copy put it back over that edit.
+        saveToLocalStorage(
+          'tabContainerData',
+          (thunkAPI.getState() as RootState).tabContainerDataState
+        );
         thunkAPI.dispatch(setIsNotDirty());
         // KAN-255. A write that landed is a completed sync -- the third of
         // the three success paths (the other two are in syncStateWithFirestore).
