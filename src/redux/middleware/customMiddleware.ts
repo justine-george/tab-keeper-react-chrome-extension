@@ -4,7 +4,11 @@ import { set, setPresentWithoutHistory } from '../slices/undoRedoSlice';
 import { cloudSyncAllowed } from '../slices/settingsDataStateSlice';
 import { debounce } from '../../utils/functions/local';
 import { DEBOUNCE_TIME_WINDOW } from '../../utils/constants/common';
-import { setIsDirty, syncStateWithFirestore } from '../slices/globalStateSlice';
+import {
+  setIsDirty,
+  syncStateWithFirestore,
+  takeQueuedSync,
+} from '../slices/globalStateSlice';
 import {
   ADD_CURR_WINDOW_TO_TABGROUP_ACTION,
   ADD_CURR_TAB_TO_WINDOW_ACTION,
@@ -140,7 +144,39 @@ export const customMiddleware: Middleware = (store) => {
     store.dispatch(syncStateWithFirestore() as any);
   }, DEBOUNCE_TIME_WINDOW);
 
+  // KAN-269. Run the sync that was asked for while another was running, once
+  // the last cloud call settles. Here, ahead of the capturable-action filter
+  // below, because the thunks' lifecycle actions are not capturable and it is
+  // one of them that brings the count to zero. Re-checks that a sync may run
+  // at all: signing out or withdrawing consent mid-sync drops the request.
+  const drainQueuedSync = (inFlightBefore: number) => {
+    const { globalState, settingsDataState } = store.getState() as RootState;
+    if (
+      inFlightBefore === 0 ||
+      globalState.syncsInFlight !== 0 ||
+      !globalState.isSyncQueued
+    ) {
+      return;
+    }
+    store.dispatch(takeQueuedSync());
+    if (
+      globalState.isSignedIn &&
+      globalState.isFirebaseAuthed &&
+      settingsDataState.cloudConsent === 'granted'
+    ) {
+      store.dispatch(syncStateWithFirestore() as any);
+    }
+  };
+
   return (next) => (action) => {
+    const inFlightBefore = (store.getState() as RootState).globalState
+      .syncsInFlight;
+    const result = handle(next, action);
+    drainQueuedSync(inFlightBefore);
+    return result;
+  };
+
+  function handle(next: (a: unknown) => unknown, action: unknown) {
     // Redux Toolkit 2 types this `unknown` rather than `AnyAction`, because a
     // middleware sits above the base dispatch and so sees whatever was handed
     // to it -- which is not guaranteed to be an action. isAction is RTK's own
@@ -228,5 +264,5 @@ export const customMiddleware: Middleware = (store) => {
     }
 
     return result;
-  };
+  }
 };

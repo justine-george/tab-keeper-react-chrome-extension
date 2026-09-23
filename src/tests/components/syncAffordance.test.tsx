@@ -65,7 +65,7 @@ describe('the header sync affordance', () => {
     await renderMenu((store) => {
       store.dispatch(setSignedIn());
       store.dispatch(setSyncStatus('idle'));
-      store.dispatch({ type: syncStateWithFirestore.pending.type });
+      store.dispatch(syncStateWithFirestore.pending('read-phase', undefined));
     });
 
     expect(syncControl().textContent).toBe('cloud_sync');
