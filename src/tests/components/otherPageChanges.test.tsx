@@ -38,6 +38,7 @@ vi.mock('../../utils/functions/external', () => ({
 import App from '../../App';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { testI18n } from '../setup/i18nForTests';
+import type { ChromeSeed } from '../setup/chrome.fake';
 import { buildContainer, buildSession } from '../fixtures/sessionFixture';
 import {
   setFirebaseAuthed,
@@ -112,10 +113,12 @@ const withSelected = (
 // App's startup reads the container from localStorage (its local branch).
 const renderApp = async (
   container: TabMasterContainer,
-  settings: Partial<SettingsData> = ANSWERED
+  settings: Partial<SettingsData> = ANSWERED,
+  chromeSeed?: ChromeSeed
 ) => {
   localStorage.setItem('tabContainerData', JSON.stringify(container));
   const rendered = await renderWithProviders(<App />, {
+    seed: chromeSeed,
     seedStore: seedSettings(settings),
   });
   // Mount has settled: the stored sessions are on screen, and the startup
@@ -244,6 +247,60 @@ describe('the rename editor when its session goes (KAN-279 D9)', () => {
       screen.queryByRole('button', { name: /^Rename session/ })
     ).toBeNull();
   });
+
+  // Spec: "a rename's unsaved text lives in component state and survives."
+  test('the other page changed a different session: the unsaved draft survives', async () => {
+    const user = userEvent.setup();
+    await renderApp(withSelected([session('Mine'), session('Other')], 'Mine'));
+
+    await user.click(
+      screen.getByRole('button', { name: 'Rename session: Mine' })
+    );
+    const field = screen.getByDisplayValue('Mine');
+    await user.clear(field);
+    await user.type(field, 'Half-typed');
+
+    otherPageWrites(
+      'tabContainerData',
+      buildContainer([session('Mine'), session('Other', { title: 'Other v2' })])
+    );
+
+    // The other page's change arrived...
+    expect(await screen.findByText('Other v2')).toBeTruthy();
+    // ...and the draft is still being edited, unsaved.
+    expect(screen.getByDisplayValue('Half-typed')).toBe(field);
+  });
+});
+
+// FocusConfirmModal is the one dialog that names a session. It reads the
+// session live from the store (`find`), so it has nothing to confirm once the
+// session is gone.
+describe('the switch confirmation when its session goes (KAN-279 D9)', () => {
+  test('the other page deleted the session being switched to: the dialog closes', async () => {
+    const user = userEvent.setup();
+    await renderApp(
+      withSelected([session('Doomed'), session('Kept')], 'Doomed'),
+      ANSWERED,
+      // An open window, so switching has something to close and asks first.
+      {
+        windows: [{ id: 1, type: 'normal' }],
+        tabs: [{ windowId: 1, url: 'https://open.example/', title: 'Open' }],
+      }
+    );
+
+    await user.click(
+      screen.getByRole('button', {
+        // The en string for the 'Switch to session' key.
+        name: 'Close current windows and open this session',
+      })
+    );
+    const dialog = await screen.findByRole('dialog');
+    expect(dialog.textContent).toMatch(/Doomed/);
+
+    otherPageWrites('tabContainerData', buildContainer([session('Kept')]));
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
 });
 
 // Spec, "Consent and Auto Sync follow along": they are settings, so a
@@ -315,6 +372,75 @@ describe('consent across pages (KAN-279 D9)', () => {
       expect(store.getState().settingsDataState.cloudConsent).toBe('declined');
       // ...and nothing synced.
       expect(seen).not.toContain(SYNC_STARTED);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  // Spec: "the tab calls ensureCloudSession and then, once authed,
+  // syncStateWithFirestore." A read before auth is denied by the rules and
+  // taken for "no document yet" (KAN-70, KAN-266).
+  test('granted in another page before auth: sign-in starts, and the sync waits for it', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      mocks.cloud.doc = buildContainer([
+        session('from-b', { lastModified: Date.now() }),
+      ]);
+      localStorage.setItem(
+        'tabContainerData',
+        JSON.stringify(buildContainer([session('mine')]))
+      );
+      const { store, seen } = await renderWithProviders(<App />, {
+        seedStore: (s) => {
+          seedSettings({
+            ...ANSWERED,
+            cloudConsent: 'declined',
+            isAutoSync: true,
+          })(s);
+          s.dispatch(setSignedIn());
+          s.dispatch(setUserId('uuid-1'));
+          // Not setFirebaseAuthed: auth has not landed.
+        },
+      });
+      await screen.findByText('mine');
+      await act(async () => {});
+      expect(mocks.ensureCloudSession).not.toHaveBeenCalled();
+      seen.length = 0;
+
+      otherPageWrites('settingsData', {
+        ...store.getState().settingsDataState,
+        cloudConsent: 'granted',
+      });
+      await act(async () => {
+        vi.advanceTimersByTime(DEBOUNCE_TIME_WINDOW + 1);
+      });
+      await act(async () => {});
+
+      // Sign-in was started, with this page's dispatch...
+      expect(mocks.ensureCloudSession).toHaveBeenCalledWith(store.dispatch);
+      // ...and nothing read the cloud before it landed.
+      expect(seen).not.toContain(SYNC_STARTED);
+      expect(mocks.loadFromFirestore).not.toHaveBeenCalled();
+
+      // What observeAuthState does when Firebase reports the user.
+      act(() => {
+        store.dispatch(setFirebaseAuthed());
+      });
+      await waitFor(() =>
+        expect(store.getState().globalState.syncStatus).toBe('success')
+      );
+      await act(async () => {
+        vi.advanceTimersByTime(DEBOUNCE_TIME_WINDOW + 1);
+      });
+      await act(async () => {});
+
+      expect(seen.filter((t) => t === SYNC_STARTED)).toHaveLength(1);
+      expect(
+        store
+          .getState()
+          .tabContainerDataState.tabGroups.map((g) => g.tabGroupId)
+          .sort()
+      ).toEqual(['from-b', 'mine']);
     } finally {
       vi.useRealTimers();
     }
