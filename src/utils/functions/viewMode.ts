@@ -2,6 +2,9 @@
 // openOrFocusTabView, later tasks) or the popup, and the pure helpers those
 // later tasks build on -- kept dependency-free so they can be imported from
 // anywhere, including src/background.ts, without dragging in a redux slice.
+// Importing is safe; CALLING isTabView()/ownTabId() is not -- both read
+// `window`/`chrome.tabs.getCurrent()`, neither of which exists in the
+// worker, so the worker must never invoke them.
 
 /**
  * `'tab'` only for a search string carrying exactly `view=tab`. Any other
