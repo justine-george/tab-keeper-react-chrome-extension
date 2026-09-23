@@ -356,7 +356,7 @@ test.describe('a sync keeps each page its own selection (KAN-294)', () => {
 
 // KAN-297. Sync now, a row picked up before the sync's read lands, and another
 // page writing meanwhile: this page is behind localStorage, so the sync holds
-// for the drag (KAN-295) -- with nothing of the cloud's to apply at the drop.
+// for the drag (KAN-295) -- with nothing of the cloud's to apply at the release.
 // The held run returns before it settles, so something must finish the sync
 // once the row is released. Before the fix nothing did: a cancelled drag left
 // the control on cloud_sync, aria-disabled, until the next edit.
@@ -450,6 +450,9 @@ test.describe('a sync held by a drag still finishes after a cancel (KAN-297)', (
       'the sync never finished after the cancel'
     ).toHaveText('cloud_done', { timeout: 15_000 });
     await softly(syncControl(page1)).not.toHaveAttribute('aria-disabled');
+    // CONTROL for the premise: the release re-ran the sync. A sync that never
+    // held (KAN-295 broken) would reach cloud_done too, with one read only.
+    expect(reads, 'the release re-ran no sync').toBe(2);
     // The cancel took page 2's rename in (the queued storage event).
     await expect(row(page1, 'Charlie renamed')).toBeVisible();
     await page1.screenshot({ path: testInfo.outputPath('page1-after.png') });

@@ -289,8 +289,11 @@ describe('a sync that finds this page behind holds it for a drag (KAN-295)', () 
       expect(ids(store)).toEqual(['b', 'a']);
       // No device changed anything: the other page did.
       expect(undoAndToast(store).mergedToast).toBe(false);
-      // The drop is the one step on top of the reset, and its spinner settled.
+      // The drop is the one step on top of the reset.
       expect(store.getState().undoRedo.past.length).toBe(1);
+      // Not 'loading' -- but only because the drop's own edit sets 'idle',
+      // whether or not the held sync ever ran, and with Auto Sync on that edit
+      // syncs anyway. That the held sync itself re-runs is KAN-297's A2.
       expect(store.getState().globalState.syncStatus).not.toBe('loading');
 
       store.dispatch(undo());
@@ -304,7 +307,7 @@ describe('a sync that finds this page behind holds it for a drag (KAN-295)', () 
 // and before the save it would have made. A change only another page made has
 // nothing of the cloud's to apply at the drop, but the sync itself still has
 // to finish once the row is released -- or Sync now stays disabled, and with
-// Auto Sync off nothing else ever sends what this sync found.
+// Auto Sync off nothing sends what this sync found until the next sync.
 describe('a sync held only because this page is behind still finishes once released (KAN-297)', () => {
   // The cloud lacks the other page's rename: localStorage holds it and the
   // cloud does not, so this sync owes the cloud a write.
@@ -318,13 +321,15 @@ describe('a sync held only because this page is behind still finishes once relea
     expect(mocks.saveToFirestore).not.toHaveBeenCalled();
   };
 
-  const cloudTitleOf = (id: string) => {
+  const cloudContainer = (): TabMasterContainer => {
     const cloud = mocks.cloud.doc;
     if (!isValidTabMasterContainer(cloud)) {
       throw new Error('the cloud holds no container');
     }
-    return cloud.tabGroups.find((g) => g.tabGroupId === id)?.title;
+    return cloud;
   };
+  const cloudTitleOf = (id: string) =>
+    cloudContainer().tabGroups.find((g) => g.tabGroupId === id)?.title;
 
   it('A1: a cancelled drag settles the spinner and sends what the sync found', async () => {
     const store = openPage();
@@ -339,6 +344,24 @@ describe('a sync held only because this page is behind still finishes once relea
     expect(cloudTitleOf('a')).toBe('Other page');
   });
 
+  // What KAN-295 promises on this path, pinned after the release: the
+  // re-sync takes the other page's write in with an undo reset and no toast.
+  // Read before any timer runs: the toast closes itself after 3 s.
+  it("A1b: the re-sync after a cancel resets this page's undo and shows no toast", async () => {
+    const store = openPage();
+    thisPageRenames(store, 'b', 'Mine');
+    await heldSyncWhileBehind(store);
+
+    endDragHold();
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(undoAndToast(store)).toEqual({
+      past: 0,
+      a: 'Other page',
+      mergedToast: false,
+    });
+  });
+
   it('A2: with Auto Sync off, a drop that lands still sends the sync, drop included', async () => {
     const store = openPage();
     store.dispatch(setAutoSync(false));
@@ -350,11 +373,10 @@ describe('a sync held only because this page is behind still finishes once relea
 
     expect(store.getState().globalState.syncStatus).toBe('success');
     expect(cloudTitleOf('a')).toBe('Other page');
-    const cloud = mocks.cloud.doc;
-    if (!isValidTabMasterContainer(cloud)) {
-      throw new Error('the cloud holds no container');
-    }
-    expect(cloud.tabGroups.map((g) => g.tabGroupId)).toEqual(['b', 'a']);
+    expect(cloudContainer().tabGroups.map((g) => g.tabGroupId)).toEqual([
+      'b',
+      'a',
+    ]);
   });
 
   it('A3: consent withdrawn while held: no sync starts, and the spinner still settles', async () => {

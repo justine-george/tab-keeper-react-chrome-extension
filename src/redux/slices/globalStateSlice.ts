@@ -466,10 +466,11 @@ export const syncStateWithFirestore = createAsyncThunk<
       // saveToFirestoreIfDirty would send the PRE-merge state, over the other
       // device's change. applyHeldCloudMerge re-syncs once it has applied.
       // A change only another page made has nothing of the cloud's to apply:
-      // dropOnTop re-reads localStorage at the drop, and the page's own
-      // storage event does after a cancel. But this run still returns before
-      // it settles syncStatus and before its save, so the sync is run again
-      // once the row is released, drop or not (KAN-297).
+      // dropOnTop re-reads localStorage at the drop, and after a cancel the
+      // page's own storage event takes it in, or, if that has not fired, the
+      // re-sync does. But this run still returns before it settles syncStatus
+      // and before any save, so the sync is run again once the row is
+      // released, drop or not (KAN-297).
       if (changedForThisPage && isDragHeld()) {
         whenDragReleases(() =>
           thunkAPI.dispatch(
@@ -628,7 +629,7 @@ export const applyHeldCloudMerge =
 // with Auto Sync OFF, and a manual sync held by a drag must still re-sync once
 // released. It must not run if sign-in or consent was withdrawn while the row
 // was held.
-export const resyncAfterHold =
+const resyncAfterHold =
   (): ThunkAction<void, RootState, unknown, UnknownAction> =>
   (dispatch, getState) => {
     const { globalState, settingsDataState } = getState();
@@ -641,8 +642,9 @@ export const resyncAfterHold =
     } else {
       // The held run returned before it could settle syncStatus off
       // 'loading' (it deferred to this re-sync instead). With the gate
-      // closed, that re-sync never happens, so nothing else will -- without
-      // this the header's spinner sticks on 'loading' for good.
+      // closed, that re-sync never happens. A drop's edit would set 'idle'
+      // anyway, but after a cancel nothing else will -- without this the
+      // header's spinner sticks on 'loading' until the next edit.
       dispatch(setSyncStatus('idle'));
     }
   };
