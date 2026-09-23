@@ -13,7 +13,6 @@ import { setPresentStartup } from './redux/slices/undoRedoSlice';
 import { useThemeColors } from './hooks/useThemeColors';
 import { useDocumentTheme } from './hooks/useDocumentTheme';
 import { useOtherPageChanges } from './hooks/useOtherPageChanges';
-import { replaceState } from './redux/slices/tabContainerDataStateSlice';
 import {
   openRateAndReviewModal,
   openTabGroupsPrompt,
@@ -25,6 +24,7 @@ import {
   setSignedIn,
   setUserId,
   showToast,
+  loadSessionsIntoPage,
   syncStateWithFirestore,
 } from './redux/slices/globalStateSlice';
 import {
@@ -265,13 +265,16 @@ function App() {
         console.warn('Ignoring unreadable tabContainerData in localStorage.');
       }
       if (tabDataFromLocalStorage) {
-        dispatch(replaceState(tabDataFromLocalStorage));
+        // KAN-294. On mount this is the page's first load and keeps the
+        // stored selection; a re-run (sign-in, a hydrated consent or Auto Sync
+        // change) keeps this page's own, not the last writer's.
+        const loaded = dispatch(loadSessionsIntoPage(tabDataFromLocalStorage));
 
         if (!hasSyncedBefore) {
           // reset presentState in the undoRedoState
           dispatch(
             setPresentStartup({
-              tabContainerDataState: tabDataFromLocalStorage,
+              tabContainerDataState: loaded,
             })
           );
         }

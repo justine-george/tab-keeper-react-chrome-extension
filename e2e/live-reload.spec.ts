@@ -17,7 +17,9 @@ import { buildContainer, buildSession } from './fixtures/seed';
 //
 // Needs no cloud config: storage events are local. Auto Sync is off (see
 // seedOnce), and each test checks that no page reached the cloud, so a sync
-// cannot be what carried a change across.
+// cannot be what carried a change across. The last describe is the exception:
+// it turns Auto Sync on to check that a sync keeps each page's own selection
+// (KAN-294), and needs a build with the cloud config.
 
 const A = buildSession({ tabGroupId: 'alpha', title: 'Alpha session' });
 const B = buildSession({ tabGroupId: 'bravo', title: 'Bravo session' });
@@ -26,14 +28,21 @@ const C = buildSession({ tabGroupId: 'charlie', title: 'Charlie session' });
 // Once per profile: init scripts re-run on every navigation, and in every
 // page of the context -- page 2 would otherwise re-seed over page 1's edits.
 //
-// Auto Sync is off (with the cloud question answered, so no modal). A sync
-// is a second route from localStorage into a page: its local-only and merge
-// branches replaceState from localStorage wholesale. Measured against a build
-// with the listener removed: page 1's startup sync landed after page 2's
-// rename and brought it in -- page 2's selection with it -- so with sync on,
-// "page 1 shows page 2's change" passes without the listener. With it off
-// the storage event is the only way a change can cross.
-async function seedOnce(context: BrowserContext): Promise<void> {
+// Auto Sync is off by default (with the cloud question answered, so no
+// modal). A sync is a second route from localStorage into a page: its
+// local-only and merge branches load the container from localStorage.
+// Measured against a build with the listener removed: page 1's startup sync
+// landed after page 2's rename and brought it in, so with sync on "page 1
+// shows page 2's change" passes without the listener. With it off the storage
+// event is the only way a change can cross. (That sync also brought page 2's
+// selection with it: KAN-294, checked with Auto Sync on at the end.)
+async function seedOnce(
+  context: BrowserContext,
+  settings: { cloudConsent: 'granted'; isAutoSync: boolean } = {
+    cloudConsent: 'granted',
+    isAutoSync: false,
+  }
+): Promise<void> {
   await context.addInitScript(
     (seed: { sessions: string; settings: string }) => {
       try {
@@ -47,7 +56,7 @@ async function seedOnce(context: BrowserContext): Promise<void> {
     },
     {
       sessions: JSON.stringify(buildContainer([A, B, C])),
-      settings: JSON.stringify({ cloudConsent: 'granted', isAutoSync: false }),
+      settings: JSON.stringify(settings),
     }
   );
 }
@@ -249,5 +258,90 @@ test.describe('open pages reload what another page changed (KAN-279 D9)', () => 
     ).toHaveCount(0);
     await page2.screenshot({ path: testInfo.outputPath('page2-after.png') });
     expect(cloudRequests, 'a page reached the cloud').toEqual([]);
+  });
+});
+
+// KAN-294. A sync loads the container from localStorage, which holds the
+// selection of whichever page wrote LAST. Selection is per page, so a sync
+// must keep this page's own. Auto Sync is on here, so every storage event
+// flows while the syncs run; each page is synced by its Sync now control
+// while the OTHER page's selection is the one in localStorage.
+//
+// Needs a build that carries the Firebase config (a local build with a
+// .env). PR CI builds without one (KAN-147) and makes no cloud request at
+// all, so the test skips there rather than passing on nothing.
+test.describe('a sync keeps each page its own selection (KAN-294)', () => {
+  const READ = /firestore\.googleapis\.com\/.*documents:batchGet/;
+
+  // The header's sync control shows the sync's state as its glyph: the icon
+  // font's ligature is the element's text (MenuContainer).
+  const syncControl = (page: Page) =>
+    page.getByRole('button', { name: 'Sync now', exact: true });
+
+  // Sync now, and wait for that sync to read the cloud and settle.
+  async function syncNow(page: Page): Promise<void> {
+    await expect(syncControl(page)).toHaveText('cloud_done');
+    const read = page.waitForResponse((r) => READ.test(r.url()));
+    await syncControl(page).click();
+    await read;
+    await expect(syncControl(page)).toHaveText('cloud_done', {
+      timeout: 15_000,
+    });
+  }
+
+  test("a sync in either page keeps that page's selection, not the last writer's", async ({
+    context,
+    extensionId,
+  }, testInfo) => {
+    await seedOnce(context, { cloudConsent: 'granted', isAutoSync: true });
+    const cloudRequests: string[] = [];
+    const page1 = await openPage(context, extensionId, cloudRequests);
+
+    // Page 1's startup sync: a fresh anonymous user, so it finds no document
+    // and writes the local copy.
+    const synced = await expect(syncControl(page1))
+      .toHaveText('cloud_done', { timeout: 20_000 })
+      .then(() => true)
+      .catch(() => false);
+    test.skip(
+      !synced && cloudRequests.length === 0,
+      'this build has no cloud config (CI); nothing to sync'
+    );
+    expect(synced, "page 1's startup sync never completed").toBe(true);
+
+    const page2 = await openPage(context, extensionId, cloudRequests);
+    await expect(syncControl(page2)).toHaveText('cloud_done', {
+      timeout: 20_000,
+    });
+
+    await select(page1, B.title);
+    await select(page2, C.title);
+    // CONTROL: page 2 wrote last, so localStorage holds ITS selection -- the
+    // one page 1's sync is about to read.
+    await expect.poll(() => storedSelection(page1)).toBe(C.tabGroupId);
+
+    await syncNow(page1);
+
+    await softly(
+      renameControl(page1, B.title),
+      "page 1's sync took page 2's selection"
+    ).toBeVisible();
+    await softly(renameControl(page1, C.title)).toHaveCount(0);
+    // The sync's load wrote page 1's selection back, and page 2 was told of
+    // it: same data, so page 2 took nothing in and kept its own.
+    await expect.poll(() => storedSelection(page1)).toBe(B.tabGroupId);
+    await expect(renameControl(page2, C.title)).toBeVisible();
+    await page1.screenshot({ path: testInfo.outputPath('page1-after.png') });
+
+    // And the other way round: page 1 wrote last, page 2 syncs.
+    await syncNow(page2);
+
+    await softly(
+      renameControl(page2, C.title),
+      "page 2's sync took page 1's selection"
+    ).toBeVisible();
+    await softly(renameControl(page2, B.title)).toHaveCount(0);
+    await expect(renameControl(page1, B.title)).toBeVisible();
+    await page2.screenshot({ path: testInfo.outputPath('page2-after.png') });
   });
 });

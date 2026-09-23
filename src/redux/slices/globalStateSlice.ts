@@ -36,6 +36,7 @@ import {
   TranslatableError,
 } from '../../utils/functions/local';
 import { mergeTabContainers } from '../../utils/functions/mergeTabData';
+import { withOwnSelection } from '../../utils/functions/withOwnSelection';
 import { TOAST_MESSAGES } from '../../utils/constants/common';
 import {
   recordSyncedNow,
@@ -45,6 +46,12 @@ import {
 
 export interface Global {
   hasSyncedBefore: boolean;
+  // KAN-294. "This page has loaded its sessions." Until then the store holds
+  // the slice's empty initial container, whose null selection is no one's
+  // choice, so the first load keeps its source's selection; every later load
+  // keeps this page's own (loadSessionsIntoPage). Page-local like the rest of
+  // this slice: never written to localStorage, never synced, never in undo.
+  hasLoadedSessions: boolean;
   // "a usable document id exists in chrome.storage.sync". A LOCAL read: no
   // network, no authentication. This app has no accounts - sync identity is a
   // client uuid - so "signed in" genuinely means "has a sync identity", and it
@@ -226,6 +233,7 @@ export interface PendingImport {
 
 export const initialState: Global = {
   hasSyncedBefore: false,
+  hasLoadedSessions: false,
   isSignedIn: false,
   isFirebaseAuthed: false,
   isCloudConfigured: false,
@@ -317,6 +325,28 @@ export const saveToFirestoreIfDirty = createAsyncThunk(
   }
 );
 
+// KAN-294. Every route that loads a whole container into this page -- App's
+// startup read of localStorage, and each sync branch -- takes it from
+// localStorage or the cloud, and the selection there is whichever page or
+// device wrote last. Selection is per page (KAN-279 D9), so only the FIRST
+// load takes the source's: it replaces the empty initial container, and a
+// lone page must open on its stored selection exactly as before. Every later
+// load keeps this page's own. Returns the container it loaded, for the caller
+// to hand to any undo `present` it sets, so undo and the screen agree.
+export const loadSessionsIntoPage =
+  (
+    loaded: TabMasterContainer
+  ): ThunkAction<TabMasterContainer, RootState, unknown, UnknownAction> =>
+  (dispatch, getState) => {
+    const { globalState, tabContainerDataState } = getState();
+    const next = globalState.hasLoadedSessions
+      ? withOwnSelection(loaded, tabContainerDataState.selectedTabGroupId)
+      : loaded;
+    dispatch(replaceState(next));
+    dispatch(setSessionsLoaded());
+    return next;
+  };
+
 // syncs data with Firestore
 export const syncStateWithFirestore = createAsyncThunk<
   void,
@@ -392,7 +422,7 @@ export const syncStateWithFirestore = createAsyncThunk<
         return;
       }
 
-      thunkAPI.dispatch(replaceState(merged));
+      const loaded = thunkAPI.dispatch(loadSessionsIntoPage(merged));
 
       if (changedFromCloud) {
         thunkAPI.dispatch(setIsDirtyWithoutSync());
@@ -439,15 +469,15 @@ export const syncStateWithFirestore = createAsyncThunk<
       if (changedFromLocal) {
         // D12 (KAN-279). The merge brought in a change this page did not make;
         // an undo must never reverse it. The toast above names the moment.
-        thunkAPI.dispatch(resetHistory({ tabContainerDataState: merged }));
+        thunkAPI.dispatch(resetHistory({ tabContainerDataState: loaded }));
       } else if (!state.globalState.hasSyncedBefore) {
         // reset presentState in the undoRedoState
-        thunkAPI.dispatch(setPresentStartup({ tabContainerDataState: merged }));
+        thunkAPI.dispatch(setPresentStartup({ tabContainerDataState: loaded }));
       }
       thunkAPI.dispatch(setHasSyncedBefore());
     } else if (tabDataFromCloud) {
       // newly installed returning user - data present only on cloud
-      thunkAPI.dispatch(replaceState(tabDataFromCloud!));
+      const loaded = thunkAPI.dispatch(loadSessionsIntoPage(tabDataFromCloud));
       thunkAPI.dispatch(setIsNotDirty());
       thunkAPI.dispatch(setSyncStatus(`success`));
       thunkAPI.dispatch(recordSyncedNow());
@@ -455,7 +485,7 @@ export const syncStateWithFirestore = createAsyncThunk<
         // reset presentState in the undoRedoState
         thunkAPI.dispatch(
           setPresentStartup({
-            tabContainerDataState: tabDataFromCloud!,
+            tabContainerDataState: loaded,
           })
         );
       }
@@ -463,14 +493,16 @@ export const syncStateWithFirestore = createAsyncThunk<
     } else if (tabDataFromLocalStorage) {
       // data only on localStorage
       // save back to Firestore
-      thunkAPI.dispatch(replaceState(tabDataFromLocalStorage));
+      const loaded = thunkAPI.dispatch(
+        loadSessionsIntoPage(tabDataFromLocalStorage)
+      );
       thunkAPI.dispatch(setIsDirtyWithoutSync());
       thunkAPI.dispatch(saveToFirestoreIfDirty());
       if (!state.globalState.hasSyncedBefore) {
         // reset presentState in the undoRedoState
         thunkAPI.dispatch(
           setPresentStartup({
-            tabContainerDataState: tabDataFromLocalStorage,
+            tabContainerDataState: loaded,
           })
         );
       }
@@ -506,8 +538,8 @@ export const applyHeldCloudMerge =
     const combined = isValidTabMasterContainer(local)
       ? mergeTabContainers(local, merged, Date.now()).merged
       : merged;
-    dispatch(replaceState(combined));
-    dispatch(resetHistory({ tabContainerDataState: combined }));
+    const loaded = dispatch(loadSessionsIntoPage(combined));
+    dispatch(resetHistory({ tabContainerDataState: loaded }));
     dispatch(
       showToast({ toastText: TOAST_MESSAGES.SYNC_MERGED, duration: 3000 })
     );
@@ -893,6 +925,10 @@ export const globalStateSlice = createSlice({
       state.hasSyncedBefore = true;
     },
 
+    setSessionsLoaded: (state) => {
+      state.hasLoadedSessions = true;
+    },
+
     // KAN-269. The middleware takes the queued sync as it runs it, so a
     // second drain in the same tick finds nothing to run.
     takeQueuedSync: (state) => {
@@ -1069,6 +1105,7 @@ export const {
   setCloudConfigured,
   setFirebaseUnauthed,
   setHasSyncedBefore,
+  setSessionsLoaded,
   setLoggedOut,
   setSyncStatus,
   setUserId,

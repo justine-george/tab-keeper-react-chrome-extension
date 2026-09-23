@@ -1,10 +1,7 @@
 import type { ThunkAction, UnknownAction } from '@reduxjs/toolkit';
 import type { RootState } from './store';
 import { isDragHeld, whenDragReleases } from './dragHold';
-import {
-  hydrateFromOtherPage,
-  type TabMasterContainer,
-} from './slices/tabContainerDataStateSlice';
+import { hydrateFromOtherPage } from './slices/tabContainerDataStateSlice';
 import {
   asShippedLanguage,
   hydrateSettingsFromOtherPage,
@@ -21,6 +18,7 @@ import {
   sameContainerData,
   sameIgnoringKeyOrder,
 } from '../utils/functions/sameContainerData';
+import { withOwnSelection } from '../utils/functions/withOwnSelection';
 
 // KAN-279 D9. Another page (the popup, or the pop-out tab) wrote a slice to
 // the shared localStorage. This page takes it in only when the DATA changed,
@@ -28,28 +26,6 @@ import {
 // storage event in the other page, and the two would echo forever.
 
 type Thunk<R> = ThunkAction<R, RootState, unknown, UnknownAction>;
-
-// Selection is per-page view state. This page's stays if its session survived
-// the other page's write; otherwise null, the fallback deleting the selected
-// session uses (deleteTabContainerInternal). Never the other page's.
-const withOwnSelection = (
-  incoming: TabMasterContainer,
-  ownSelectedId: string | null
-): TabMasterContainer => {
-  const selectedTabGroupId = incoming.tabGroups.some(
-    (g) => g.tabGroupId === ownSelectedId
-  )
-    ? ownSelectedId
-    : null;
-  return {
-    ...incoming,
-    selectedTabGroupId,
-    tabGroups: incoming.tabGroups.map((g) => ({
-      ...g,
-      isSelected: g.tabGroupId === selectedTabGroupId,
-    })),
-  };
-};
 
 // No hold check: this is what the drag-hold queue runs, and what dropOnTop
 // re-reads with, both with the hold still on. Reads localStorage when it
