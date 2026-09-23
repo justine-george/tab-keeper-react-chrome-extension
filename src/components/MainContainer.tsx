@@ -159,25 +159,20 @@ export default function MainContainer() {
   `;
 
   // KAN-279 D1/D2. The tab view fills the window instead of sitting in the
-  // popup's fixed 790x550 box. `justify-content: start` (not the popup
-  // container's `space-between`) keeps the grid's own three columns from
-  // being spread apart the way a flex row would. 356px and 238px are the
-  // popup's own 45% and 30% of 790px, rounded, so the left pane reads the
-  // same size it does in the popup. The third column stays 0-width and
-  // named but empty -- it is reserved for the Active Session pane (KAN-280)
-  // and has no element yet.
+  // popup's fixed 790x550 box. 356px and 238px are the popup's own 45% and
+  // 30% of 790px, rounded, so the left pane reads the same size it does in
+  // the popup. The third column stays 0-width and named but empty -- it is
+  // reserved for the Active Session pane (KAN-280) and has no element yet.
   const tabContainerStyle = css`
     display: grid;
     grid-template-columns: 356px minmax(0, 1fr) 0;
     grid-template-areas: 'sessions detail active-session';
-    justify-content: start;
   `;
 
   const tabContainerSettingsStyle = css`
     display: grid;
     grid-template-columns: 238px minmax(0, 1fr) 0;
     grid-template-areas: 'sessions detail active-session';
-    justify-content: start;
   `;
 
   // width: auto overrides the popup panes' 45%/55%/30%/70% -- in a grid
