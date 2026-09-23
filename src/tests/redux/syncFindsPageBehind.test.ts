@@ -36,7 +36,11 @@ import {
   setUserId,
   syncStateWithFirestore,
 } from '../../redux/slices/globalStateSlice';
-import { grantCloudConsent } from '../../redux/slices/settingsDataStateSlice';
+import {
+  declineCloudConsent,
+  grantCloudConsent,
+  setAutoSync,
+} from '../../redux/slices/settingsDataStateSlice';
 import {
   replaceState,
   updateTabGroupTitle,
@@ -294,4 +298,76 @@ describe('a sync that finds this page behind holds it for a drag (KAN-295)', () 
       expect(titleOf(store, 'a')).toBe('Other page');
     }
   );
+});
+
+// KAN-297. The held run returns before it settles syncStatus off 'loading',
+// and before the save it would have made. A change only another page made has
+// nothing of the cloud's to apply at the drop, but the sync itself still has
+// to finish once the row is released -- or Sync now stays disabled, and with
+// Auto Sync off nothing else ever sends what this sync found.
+describe('a sync held only because this page is behind still finishes once released (KAN-297)', () => {
+  // The cloud lacks the other page's rename: localStorage holds it and the
+  // cloud does not, so this sync owes the cloud a write.
+  const heldSyncWhileBehind = async (store: Store) => {
+    cloudHoldsThisDevice();
+    beginDragHold();
+    otherPageRenames('a', 'Other page');
+    expectOnlyThisPageBehind();
+    await store.dispatch(syncStateWithFirestore());
+    expect(store.getState().globalState.syncStatus).toBe('loading');
+    expect(mocks.saveToFirestore).not.toHaveBeenCalled();
+  };
+
+  const cloudTitleOf = (id: string) => {
+    const cloud = mocks.cloud.doc;
+    if (!isValidTabMasterContainer(cloud)) {
+      throw new Error('the cloud holds no container');
+    }
+    return cloud.tabGroups.find((g) => g.tabGroupId === id)?.title;
+  };
+
+  it('A1: a cancelled drag settles the spinner and sends what the sync found', async () => {
+    const store = openPage();
+    await heldSyncWhileBehind(store);
+
+    // Released with no drop (Esc, or let go where it began).
+    endDragHold();
+    await vi.runAllTimersAsync();
+
+    expect(store.getState().globalState.syncStatus).toBe('success');
+    expect(titleOf(store, 'a')).toBe('Other page');
+    expect(cloudTitleOf('a')).toBe('Other page');
+  });
+
+  it('A2: with Auto Sync off, a drop that lands still sends the sync, drop included', async () => {
+    const store = openPage();
+    store.dispatch(setAutoSync(false));
+    await heldSyncWhileBehind(store);
+
+    store.dispatch(dropOnTop(sessionDrop('b', 0)));
+    endDragHold();
+    await vi.runAllTimersAsync();
+
+    expect(store.getState().globalState.syncStatus).toBe('success');
+    expect(cloudTitleOf('a')).toBe('Other page');
+    const cloud = mocks.cloud.doc;
+    if (!isValidTabMasterContainer(cloud)) {
+      throw new Error('the cloud holds no container');
+    }
+    expect(cloud.tabGroups.map((g) => g.tabGroupId)).toEqual(['b', 'a']);
+  });
+
+  it('A3: consent withdrawn while held: no sync starts, and the spinner still settles', async () => {
+    const store = openPage();
+    await heldSyncWhileBehind(store);
+    expect(mocks.loadFromFirestore).toHaveBeenCalledTimes(1);
+
+    store.dispatch(declineCloudConsent());
+    endDragHold();
+    await vi.runAllTimersAsync();
+
+    expect(mocks.loadFromFirestore).toHaveBeenCalledTimes(1);
+    expect(mocks.saveToFirestore).not.toHaveBeenCalled();
+    expect(store.getState().globalState.syncStatus).toBe('idle');
+  });
 });

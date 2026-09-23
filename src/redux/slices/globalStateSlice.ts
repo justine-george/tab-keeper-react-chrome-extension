@@ -465,15 +465,17 @@ export const syncStateWithFirestore = createAsyncThunk<
       // the pointer. It waits for the drop, and nothing is written meanwhile --
       // saveToFirestoreIfDirty would send the PRE-merge state, over the other
       // device's change. applyHeldCloudMerge re-syncs once it has applied.
-      // A change only another page made needs nothing queued: dropOnTop
-      // re-reads localStorage at the drop and takes it in with an undo reset,
-      // and the page's own storage event does the same after a cancel.
+      // A change only another page made has nothing of the cloud's to apply:
+      // dropOnTop re-reads localStorage at the drop, and the page's own
+      // storage event does after a cancel. But this run still returns before
+      // it settles syncStatus and before its save, so the sync is run again
+      // once the row is released, drop or not (KAN-297).
       if (changedForThisPage && isDragHeld()) {
-        if (changedFromLocal) {
-          whenDragReleases(() =>
-            thunkAPI.dispatch(applyHeldCloudMerge(merged))
-          );
-        }
+        whenDragReleases(() =>
+          thunkAPI.dispatch(
+            changedFromLocal ? applyHeldCloudMerge(merged) : resyncAfterHold()
+          )
+        );
         return;
       }
 
@@ -592,7 +594,7 @@ export const applyHeldCloudMerge =
   (
     merged: TabMasterContainer
   ): ThunkAction<void, RootState, unknown, UnknownAction> =>
-  (dispatch, getState) => {
+  (dispatch) => {
     const local = loadFromLocalStorage('tabContainerData');
     const combined = isValidTabMasterContainer(local)
       ? mergeTabContainers(local, merged, Date.now()).merged
@@ -617,11 +619,18 @@ export const applyHeldCloudMerge =
     );
     if (arrived) dispatch(recordValueMoment());
 
-    // KAN-290. The same gate drainQueuedSync (customMiddleware.ts) uses, not
-    // cloudSyncAllowed: that also requires Auto Sync, but "Sync now" is a
-    // manual sync that works with Auto Sync OFF, and a manual sync held by a
-    // drag must still re-sync once released. A re-sync fired after the drop
-    // must not run if sign-in or consent was withdrawn while the row was held.
+    dispatch(resyncAfterHold());
+  };
+
+// Runs the sync a drag hold cut short, once the row is released. KAN-290. The
+// same gate drainQueuedSync (customMiddleware.ts) uses, not cloudSyncAllowed:
+// that also requires Auto Sync, but "Sync now" is a manual sync that works
+// with Auto Sync OFF, and a manual sync held by a drag must still re-sync once
+// released. It must not run if sign-in or consent was withdrawn while the row
+// was held.
+export const resyncAfterHold =
+  (): ThunkAction<void, RootState, unknown, UnknownAction> =>
+  (dispatch, getState) => {
     const { globalState, settingsDataState } = getState();
     if (
       globalState.isSignedIn &&

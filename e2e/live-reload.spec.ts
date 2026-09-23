@@ -1,4 +1,4 @@
-import type { BrowserContext, Page } from '@playwright/test';
+import type { BrowserContext, Page, Route } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
 import { localeStrings } from './fixtures/locales';
@@ -17,9 +17,10 @@ import { buildContainer, buildSession } from './fixtures/seed';
 //
 // Needs no cloud config: storage events are local. Auto Sync is off (see
 // seedOnce), and each test checks that no page reached the cloud, so a sync
-// cannot be what carried a change across. The last describe is the exception:
-// it turns Auto Sync on to check that a sync keeps each page's own selection
-// (KAN-294), and needs a build with the cloud config.
+// cannot be what carried a change across. The last two describes are the
+// exception: they turn Auto Sync on to check that a sync keeps each page's own
+// selection (KAN-294) and that a sync held by a drag still finishes (KAN-297),
+// and need a build with the cloud config.
 
 const A = buildSession({ tabGroupId: 'alpha', title: 'Alpha session' });
 const B = buildSession({ tabGroupId: 'bravo', title: 'Bravo session' });
@@ -80,6 +81,12 @@ const opacityOf = (page: Page, name: string) =>
     .evaluate((el) => getComputedStyle(el).opacity);
 
 const CLOUD = /firestore\.googleapis\.com|identitytoolkit\.googleapis\.com/;
+const READ = /firestore\.googleapis\.com\/.*documents:batchGet/;
+
+// The header's sync control shows the sync's state as its glyph: the icon
+// font's ligature is the element's text (MenuContainer).
+const syncControl = (page: Page) =>
+  page.getByRole('button', { name: 'Sync now', exact: true });
 
 async function openPage(
   context: BrowserContext,
@@ -272,13 +279,6 @@ test.describe('open pages reload what another page changed (KAN-279 D9)', () => 
 // .env). PR CI builds without one (KAN-147) and makes no cloud request at
 // all, so the test skips there rather than passing on nothing.
 test.describe('a sync keeps each page its own selection (KAN-294)', () => {
-  const READ = /firestore\.googleapis\.com\/.*documents:batchGet/;
-
-  // The header's sync control shows the sync's state as its glyph: the icon
-  // font's ligature is the element's text (MenuContainer).
-  const syncControl = (page: Page) =>
-    page.getByRole('button', { name: 'Sync now', exact: true });
-
   // Sync now, and wait for that sync to read the cloud and settle.
   async function syncNow(page: Page): Promise<void> {
     await expect(syncControl(page)).toHaveText('cloud_done');
@@ -321,9 +321,14 @@ test.describe('a sync keeps each page its own selection (KAN-294)', () => {
     // one page 1's sync is about to read.
     await expect.poll(() => storedSelection(page1)).toBe(C.tabGroupId);
 
+    // CONTROL: THIS sync read the cloud. The startup syncs already filled
+    // cloudRequests, so only a count taken across it says so.
+    const reads = () => cloudRequests.filter((u) => READ.test(u)).length;
+    const readsBefore = reads();
     await syncNow(page1);
-    // CONTROL for the CLOUD regex: a real sync matched it.
-    expect(cloudRequests.length).toBeGreaterThan(0);
+    expect(reads(), "page 1's Sync now read nothing").toBeGreaterThan(
+      readsBefore
+    );
 
     await softly(
       renameControl(page1, B.title),
@@ -346,5 +351,107 @@ test.describe('a sync keeps each page its own selection (KAN-294)', () => {
     await softly(renameControl(page2, B.title)).toHaveCount(0);
     await expect(renameControl(page1, B.title)).toBeVisible();
     await page2.screenshot({ path: testInfo.outputPath('page2-after.png') });
+  });
+});
+
+// KAN-297. Sync now, a row picked up before the sync's read lands, and another
+// page writing meanwhile: this page is behind localStorage, so the sync holds
+// for the drag (KAN-295) -- with nothing of the cloud's to apply at the drop.
+// The held run returns before it settles, so something must finish the sync
+// once the row is released. Before the fix nothing did: a cancelled drag left
+// the control on cloud_sync, aria-disabled, until the next edit.
+//
+// Needs the cloud config, like the describe above; skips without it.
+test.describe('a sync held by a drag still finishes after a cancel (KAN-297)', () => {
+  test('page 2 writes while page 1 holds a row mid-sync; Esc; Sync now settles', async ({
+    context,
+    extensionId,
+  }, testInfo) => {
+    await seedOnce(context, { cloudConsent: 'granted', isAutoSync: true });
+    const cloudRequests: string[] = [];
+    const page1 = await openPage(context, extensionId, cloudRequests);
+    const synced = await expect(syncControl(page1))
+      .toHaveText('cloud_done', { timeout: 20_000 })
+      .then(() => true)
+      .catch(() => false);
+    test.skip(
+      !synced && cloudRequests.length === 0,
+      'this build has no cloud config (CI); nothing to sync'
+    );
+    expect(synced, "page 1's startup sync never completed").toBe(true);
+
+    const page2 = await openPage(context, extensionId, cloudRequests);
+    await expect(syncControl(page2)).toHaveText('cloud_done', {
+      timeout: 20_000,
+    });
+    await select(page2, C.title);
+
+    // Page 1's next read waits until released. Page-scoped: page 2's syncs
+    // pass straight through.
+    let release: () => void = () => {};
+    const gate = new Promise<void>((r) => (release = r));
+    let arrived: () => void = () => {};
+    const readWaiting = new Promise<void>((r) => (arrived = r));
+    let reads = 0;
+    await page1.route(READ, async (route: Route) => {
+      reads += 1;
+      if (reads === 1) {
+        arrived();
+        await gate;
+      }
+      await route.continue();
+    });
+
+    await syncControl(page1).click();
+    await readWaiting;
+
+    // Pick up Alpha: pressed at its centre, moved far enough to start.
+    const box = await page1.locator('[data-drag-row-id="alpha"]').boundingBox();
+    if (box === null) throw new Error('no box for the Alpha row');
+    const x = box.x + box.width / 2;
+    const y = box.y + box.height / 2;
+    await page1.mouse.move(x, y);
+    await page1.mouse.down();
+    await page1.mouse.move(x, y + 8, { steps: 4 });
+    await page1.mouse.move(x, y + 30, { steps: 6 });
+    const dragging = () =>
+      page1.evaluate(() =>
+        document.documentElement.getAttribute('data-dragging')
+      );
+    expect(await dragging(), 'the drag never started').toBe('session');
+
+    // Page 2 writes; page 1's storage event queues behind the hold.
+    await rename(page2, C.title, 'Charlie renamed');
+    await expect
+      .poll(() =>
+        page1.evaluate(() =>
+          (window.localStorage.getItem('tabContainerData') ?? '').includes(
+            'Charlie renamed'
+          )
+        )
+      )
+      .toBe(true);
+
+    const landed = page1.waitForResponse((r) => READ.test(r.url()));
+    release();
+    await landed;
+    // PREMISE: the sync held for the drag. It is still running, and nothing
+    // moved under the pointer.
+    await expect(syncControl(page1)).toHaveText('cloud_sync');
+    await expect(row(page1, C.title)).toBeVisible();
+    expect(await dragging()).toBe('session');
+
+    await page1.keyboard.press('Escape');
+    await page1.mouse.up();
+    expect(await dragging(), 'Esc did not end the drag').toBeNull();
+
+    await softly(
+      syncControl(page1),
+      'the sync never finished after the cancel'
+    ).toHaveText('cloud_done', { timeout: 15_000 });
+    await softly(syncControl(page1)).not.toHaveAttribute('aria-disabled');
+    // The cancel took page 2's rename in (the queued storage event).
+    await expect(row(page1, 'Charlie renamed')).toBeVisible();
+    await page1.screenshot({ path: testInfo.outputPath('page1-after.png') });
   });
 });
