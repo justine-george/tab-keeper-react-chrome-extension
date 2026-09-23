@@ -50,16 +50,45 @@ test.describe('the sync status line agrees with the Auto Sync pair (KAN-248)', (
     extensionId,
   }) => {
     const page = await openSyncPane(context, extensionId, false);
+    // KAN-268. Pressing On starts a real sign-in and read in a local build
+    // (it carries the project's config; CI's does not). A full local run
+    // signs up ~400 fresh profiles and Firebase then refuses the IP (signUp
+    // 400 too-many-requests), and the card rightly says "failed"
+    // (KAN-264/289). That is honest, so it is allowed -- but only when this
+    // test SAW cloud trouble: a request the cloud refused, or one that never
+    // reached it. A "failed" with neither is a bug, and still fails here.
+    const cloudTrouble: string[] = [];
+    const isCloud = (url: string) =>
+      /identitytoolkit\.googleapis\.com|firestore\.googleapis\.com/.test(url);
+    page.on('response', (r) => {
+      if (isCloud(r.url()) && r.status() >= 400) {
+        cloudTrouble.push(`${r.status()} ${new URL(r.url()).pathname}`);
+      }
+    });
+    page.on('requestfailed', (r) => {
+      if (isCloud(r.url())) {
+        cloudTrouble.push(
+          `${r.failure()?.errorText} ${new URL(r.url()).pathname}`
+        );
+      }
+    });
 
     await side(page, 'On').click();
     await expect(side(page, 'On')).toHaveAttribute('aria-pressed', 'true');
     await expect(card(page)).not.toHaveAttribute('data-sync-state', 'manual');
     await expect(card(page)).not.toContainText('Manual sync');
-    // Whichever "on" this build resolves to, it is one of the two honest ones.
+    // One of the honest states: on (a cloud that answered), unavailable (a
+    // build without one, as in CI), or failed (a cloud that did not).
     await expect(card(page)).toHaveAttribute(
       'data-sync-state',
-      /^(on|unavailable)$/
+      /^(on|unavailable|failed)$/
     );
+    if ((await card(page).getAttribute('data-sync-state')) === 'failed') {
+      expect(
+        cloudTrouble,
+        'the card says failed, but every cloud request succeeded'
+      ).not.toHaveLength(0);
+    }
 
     await side(page, 'Off').click();
     await expect(card(page)).toHaveAttribute('data-sync-state', 'manual');
