@@ -29,6 +29,9 @@ export function useOtherPageChanges(): void {
 
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
+      // The key-null guard is the spec's, for clear(). A clear() event's
+      // newValue is null too, so the second check already covers it, and a
+      // mutation that drops the first cannot fail any test.
       if (e.key === null || e.newValue === null) return;
       if (e.key === 'tabContainerData') {
         dispatch(applyOtherPageSessions());

@@ -184,6 +184,7 @@ test.describe('open pages reload what another page changed (KAN-279 D9)', () => 
       .toBe('0.3');
     // A reload would show the row and reset the undo too; this is what tells
     // a live take-in from one.
+    // Shadowed in practice: a reloading page fails the row/undo checks first.
     softly(await pageIdentity(page2), 'page 2 navigated').toEqual(before);
     // Page 2 kept its own selection through the hydrate.
     await expect(renameControl(page2, 'Renamed in page 2')).toBeVisible();
@@ -321,6 +322,8 @@ test.describe('a sync keeps each page its own selection (KAN-294)', () => {
     await expect.poll(() => storedSelection(page1)).toBe(C.tabGroupId);
 
     await syncNow(page1);
+    // CONTROL for the CLOUD regex: a real sync matched it.
+    expect(cloudRequests.length).toBeGreaterThan(0);
 
     await softly(
       renameControl(page1, B.title),

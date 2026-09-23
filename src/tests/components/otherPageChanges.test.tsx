@@ -1,4 +1,12 @@
-import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  onTestFinished,
+  test,
+  vi,
+} from 'vitest';
 import { act, cleanup, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
@@ -48,6 +56,7 @@ import {
 import {
   initialState as settingsInitial,
   settingsDataStateSlice,
+  Theme,
   type SettingsData,
 } from '../../redux/slices/settingsDataStateSlice';
 import type { TabMasterContainer } from '../../redux/slices/tabContainerDataStateSlice';
@@ -170,6 +179,40 @@ describe('a write in another page reaches this one (KAN-279 D9)', () => {
 
     await waitFor(() => expect(testI18n.language).toBe('de'));
     expect(store.getState().settingsDataState.language).toBe('de');
+  });
+
+  // Spec (Testing, settings): a write that changes only lastSyncedTime
+  // switches no theme. It holds by construction -- useThemeColors hands back
+  // one fixed palette object per theme, and useDocumentTheme's switch (which
+  // raises data-theme-switching) re-runs only when that object changes -- so
+  // this pins the construction.
+  test('CONTROL (by construction): only lastSyncedTime changed in another page: no theme switch', async () => {
+    const { store } = await renderApp(buildContainer([session('Research')]));
+    const setAttribute = vi.spyOn(document.documentElement, 'setAttribute');
+    onTestFinished(() => setAttribute.mockRestore());
+    const switches = () =>
+      setAttribute.mock.calls.filter(
+        ([name]) => name === 'data-theme-switching'
+      ).length;
+    const SYNCED_AT = Date.UTC(2026, 8, 23, 12, 0, 0);
+
+    otherPageWrites('settingsData', {
+      ...store.getState().settingsDataState,
+      lastSyncedTime: SYNCED_AT,
+    });
+    await act(async () => {});
+
+    // The write was taken in, so the page did re-render on it.
+    expect(store.getState().settingsDataState.lastSyncedTime).toBe(SYNCED_AT);
+    expect(switches()).toBe(0);
+
+    // CONTROL: a theme chosen in another page is a switch this spy sees.
+    otherPageWrites('settingsData', {
+      ...store.getState().settingsDataState,
+      theme: Theme.DARKENHEIMER,
+    });
+    await act(async () => {});
+    expect(switches()).toBe(1);
   });
 });
 
