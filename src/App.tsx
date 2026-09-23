@@ -12,6 +12,7 @@ import { AppDispatch, RootState } from './redux/store';
 import { setPresentStartup } from './redux/slices/undoRedoSlice';
 import { useThemeColors } from './hooks/useThemeColors';
 import { useDocumentTheme } from './hooks/useDocumentTheme';
+import { useOtherPageChanges } from './hooks/useOtherPageChanges';
 import { replaceState } from './redux/slices/tabContainerDataStateSlice';
 import {
   openRateAndReviewModal,
@@ -50,6 +51,10 @@ import {
 import { shouldAskForReview } from './utils/functions/reviewAsk';
 
 function App() {
+  // KAN-279 D9. Another open page's write to the saved sessions or settings
+  // reaches this one. Once, at the root, so there is one listener per page.
+  useOtherPageChanges();
+
   const COLORS = useThemeColors();
 
   // Publishes the theme to <html>: scrollbar custom properties, and the flag
