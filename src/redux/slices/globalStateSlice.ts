@@ -38,6 +38,7 @@ import {
 import { mergeTabContainers } from '../../utils/functions/mergeTabData';
 import { TOAST_MESSAGES } from '../../utils/constants/common';
 import {
+  cloudSyncAllowed,
   recordSyncedNow,
   recordValueMoment,
   setAutoSync,
@@ -318,7 +319,11 @@ export const saveToFirestoreIfDirty = createAsyncThunk(
 );
 
 // syncs data with Firestore
-export const syncStateWithFirestore = createAsyncThunk(
+export const syncStateWithFirestore = createAsyncThunk<
+  void,
+  void,
+  { state: RootState }
+>(
   'global/syncStateWithFirestore',
   async (_, thunkAPI) => {
     const state = thunkAPI.getState() as RootState;
@@ -497,8 +502,8 @@ export const syncStateWithFirestore = createAsyncThunk(
 export const applyHeldCloudMerge =
   (
     merged: TabMasterContainer
-  ): ThunkAction<void, unknown, unknown, UnknownAction> =>
-  (dispatch) => {
+  ): ThunkAction<void, RootState, unknown, UnknownAction> =>
+  (dispatch, getState) => {
     const local = loadFromLocalStorage('tabContainerData');
     const combined = isValidTabMasterContainer(local)
       ? mergeTabContainers(local, merged, Date.now()).merged
@@ -508,7 +513,32 @@ export const applyHeldCloudMerge =
     dispatch(
       showToast({ toastText: TOAST_MESSAGES.SYNC_MERGED, duration: 3000 })
     );
-    dispatch(syncStateWithFirestore());
+
+    // KAN-149, mirrored from syncStateWithFirestore's both-sides branch: a
+    // value moment only when a SESSION arrived, judged against what
+    // localStorage held right before THIS merge -- not what the popup had
+    // when the drag began, since another page may have written since.
+    const localIds = new Set(
+      isValidTabMasterContainer(local)
+        ? local.tabGroups.map((group) => group.tabGroupId)
+        : []
+    );
+    const arrived = combined.tabGroups.some(
+      (group) => !localIds.has(group.tabGroupId)
+    );
+    if (arrived) dispatch(recordValueMoment());
+
+    // KAN-290. The same gate every other sync starter passes through: a
+    // re-sync fired after the drop must not run if sign-in or consent was
+    // withdrawn while the row was held.
+    const { globalState, settingsDataState } = getState();
+    if (
+      globalState.isSignedIn &&
+      globalState.isFirebaseAuthed &&
+      cloudSyncAllowed(settingsDataState)
+    ) {
+      dispatch(syncStateWithFirestore());
+    }
   };
 
 // KAN-254. Deletes the document under the token and turns Auto Sync off on
