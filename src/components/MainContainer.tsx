@@ -4,6 +4,7 @@ import { useDispatch, useSelector } from 'react-redux';
 
 import { css } from '@emotion/react';
 
+import { isTabView } from '../utils/functions/viewMode';
 import LeftPane from './home/leftpane/LeftPane';
 import { Toast } from './common/Toast';
 import RightPane from './home/rightpane/RightPane';
@@ -157,23 +158,77 @@ export default function MainContainer() {
     border: 1px solid ${COLORS.BORDER_COLOR};
   `;
 
+  // KAN-279 D1/D2. The tab view fills the window instead of sitting in the
+  // popup's fixed 790x550 box. `justify-content: start` (not the popup
+  // container's `space-between`) keeps the grid's own three columns from
+  // being spread apart the way a flex row would. 356px and 238px are the
+  // popup's own 45% and 30% of 790px, rounded, so the left pane reads the
+  // same size it does in the popup. The third column stays 0-width and
+  // named but empty -- it is reserved for the Active Session pane (KAN-280)
+  // and has no element yet.
+  const tabContainerStyle = css`
+    display: grid;
+    grid-template-columns: 356px minmax(0, 1fr) 0;
+    grid-template-areas: 'sessions detail active-session';
+    justify-content: start;
+  `;
+
+  const tabContainerSettingsStyle = css`
+    display: grid;
+    grid-template-columns: 238px minmax(0, 1fr) 0;
+    grid-template-areas: 'sessions detail active-session';
+    justify-content: start;
+  `;
+
+  // width: auto overrides the popup panes' 45%/55%/30%/70% -- in a grid
+  // those would shrink the item inside its track instead of letting the
+  // track itself set the width. height: 100vh (not the popup's fixed
+  // APP_HEIGHT) is what lets the pane fill the tab's viewport.
+  const tabPaneStyle = css`
+    grid-area: sessions;
+    width: auto;
+    height: 100vh;
+    min-width: 0;
+    border: 1px solid ${COLORS.BORDER_COLOR};
+    border-right: none;
+  `;
+
+  const tabDetailPaneStyle = css`
+    grid-area: detail;
+    width: auto;
+    height: 100vh;
+    min-width: 0;
+    border: 1px solid ${COLORS.BORDER_COLOR};
+  `;
+
+  const isTab = isTabView();
+
   return (
     <div>
       {!isSettingsPage ? (
-        <div css={containerStyle}>
-          <div css={leftPaneStyle}>
+        <div css={isTab ? tabContainerStyle : containerStyle}>
+          <div css={isTab ? tabPaneStyle : leftPaneStyle} data-pane="sessions">
             <LeftPane />
           </div>
-          <div css={rightPaneStyle}>
+          <div
+            css={isTab ? tabDetailPaneStyle : rightPaneStyle}
+            data-pane="detail"
+          >
             <RightPane />
           </div>
         </div>
       ) : (
-        <div css={containerStyle}>
-          <div css={leftPaneSettingsStyle}>
+        <div css={isTab ? tabContainerSettingsStyle : containerStyle}>
+          <div
+            css={isTab ? tabPaneStyle : leftPaneSettingsStyle}
+            data-pane="sessions"
+          >
             <LeftPaneSettings />
           </div>
-          <div css={rightPaneSettingsStyle}>
+          <div
+            css={isTab ? tabDetailPaneStyle : rightPaneSettingsStyle}
+            data-pane="detail"
+          >
             <RightPaneSettings />
           </div>
         </div>

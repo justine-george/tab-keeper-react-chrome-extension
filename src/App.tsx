@@ -13,6 +13,7 @@ import { setPresentStartup } from './redux/slices/undoRedoSlice';
 import { useThemeColors } from './hooks/useThemeColors';
 import { useDocumentTheme } from './hooks/useDocumentTheme';
 import { useOtherPageChanges } from './hooks/useOtherPageChanges';
+import { isTabView } from './utils/functions/viewMode';
 import {
   openRateAndReviewModal,
   openTabGroupsPrompt,
@@ -289,13 +290,22 @@ function App() {
     // false -> true, which was accidental (KAN-70).
   }, [isSignedIn, isFirebaseAuthed, userId, syncAllowed]);
 
-  const containerStyle = css`
-    background-color: ${COLORS.PRIMARY_COLOR};
-    width: ${APP_WIDTH};
-    /* Chrome applies the browser's default page zoom to extension popups, so
-       the 800x600 allowance shrinks with it. Adapt rather than overflow. */
-    max-width: 100%;
-  `;
+  // KAN-279 D1/D2. The tab view fills the window instead of sitting in the
+  // popup's fixed 790px box; the popup's own sizing (and its page-zoom
+  // adaptation) is untouched below.
+  const containerStyle = isTabView()
+    ? css`
+        background-color: ${COLORS.PRIMARY_COLOR};
+        width: 100%;
+        min-height: 100vh;
+      `
+    : css`
+        background-color: ${COLORS.PRIMARY_COLOR};
+        width: ${APP_WIDTH};
+        /* Chrome applies the browser's default page zoom to extension popups, so
+           the 800x600 allowance shrinks with it. Adapt rather than overflow. */
+        max-width: 100%;
+      `;
 
   return (
     <div css={containerStyle}>
