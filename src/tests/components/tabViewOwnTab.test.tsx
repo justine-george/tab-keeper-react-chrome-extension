@@ -196,8 +196,13 @@ describe('saving in the tab view leaves out Tab Keeper itself (D6)', () => {
 
     await clickSaveCurrentWindow();
 
-    expect(store.getState().tabContainerDataState.tabGroups).toEqual([]);
+    // `seen` first. saveToTabContainerInternal always unshifts its payload
+    // into tabGroups, so any mutation that lets the dispatch through also
+    // empties this into a failure on the toEqual([]) below -- ordered the
+    // other way, that line always throws first and this one never gets the
+    // chance to fail on its own (see the fix-round-1 report).
     expect(seen).not.toContain(SAVE_TAB_CONTAINER_ACTION);
+    expect(store.getState().tabContainerDataState.tabGroups).toEqual([]);
   });
 
   // CONTROL. Outside the tab view, ownTabId() is undefined and nothing is
@@ -237,9 +242,13 @@ describe('the name box in the tab view (D15)', () => {
       seed: cleanedHintSeed,
     });
 
+    // One text input, one value: proving it IS 'Mail' already proves it is
+    // NOT '(3) Mail' and NOT 'Tab Keeper' -- a single input cannot hold two
+    // values at once, so separate queryByDisplayValue checks for those two
+    // strings are redundant with this line and were dropped (fix round 1).
+    // Whatever would make either of those checks fail -- skipped cleaning,
+    // or picking the own tab -- makes this line fail first instead.
     expect(await screen.findByDisplayValue('Mail')).toBeTruthy();
-    expect(screen.queryByDisplayValue('(3) Mail')).toBeNull();
-    expect(screen.queryByDisplayValue('Tab Keeper')).toBeNull();
   });
 
   // CONTROL. In the popup the box still suggests the active tab's title, as
@@ -287,10 +296,14 @@ describe('"Add current window" in the tab view leaves out Tab Keeper itself (D14
     // so a dispatch that WOULD have happened has had the chance to.
     await act(async () => {});
 
+    // `seen` first, for the same reason as the save-path worst case above:
+    // addCurrWindowToTabGroupInternal always unshifts a window, so a
+    // mutation that lets the dispatch through also changes the length below
+    // -- ordered the other way, THAT line always throws first.
+    expect(seen).not.toContain(ADD_CURR_WINDOW_TO_TABGROUP_ACTION);
     expect(
       store.getState().tabContainerDataState.tabGroups[0].windows
     ).toHaveLength(before);
-    expect(seen).not.toContain(ADD_CURR_WINDOW_TO_TABGROUP_ACTION);
   });
 
   // CONTROL. Outside the tab view, ownTabId() is undefined and nothing is
