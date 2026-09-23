@@ -15,7 +15,6 @@ import {
 } from '../../../utils/functions/local';
 import {
   deleteTabContainer,
-  moveSessionInternal,
   openAllTabContainer,
   requestFocusTabContainer,
   selectTabContainer,
@@ -23,6 +22,8 @@ import {
 } from '../../../redux/slices/tabContainerDataStateSlice';
 import { useTranslation } from 'react-i18next';
 import { RowDragArea, DraggableRow } from '../rightpane/rowDrag/RowDragArea';
+import { dropOnTop } from '../../../redux/dropOnTop';
+import { sessionDrop } from '../../../redux/dropSpecs';
 
 export default function TabGroupEntryContainer() {
   const COLORS = useThemeColors();
@@ -57,7 +58,7 @@ export default function TabGroupEntryContainer() {
 
   const handleMoveSession = useCallback(
     (tabGroupId: string, toIndex: number) => {
-      dispatch(moveSessionInternal({ tabGroupId, toIndex }));
+      dispatch(dropOnTop(sessionDrop(tabGroupId, toIndex)));
     },
     [dispatch]
   );

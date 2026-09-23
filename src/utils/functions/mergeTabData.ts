@@ -19,8 +19,10 @@ import type {
 
 export interface MergeResult {
   merged: TabMasterContainer;
-  // The merged result differs from what this device already had. Drives the
-  // toast: false means this device learned nothing new.
+  // The merged result differs from what this device already had, once local
+  // is pruned the same way the merge just pruned (KAN-293) - otherwise a
+  // device's own tombstone-cap or TTL prune reads as something arriving from
+  // elsewhere. Drives the toast: false means this device learned nothing new.
   changedFromLocal: boolean;
   // The merged result differs from what the cloud already had. Drives the
   // Firestore write: false means the cloud is already correct, which is what
@@ -256,9 +258,16 @@ export function mergeTabContainers(
   };
 
   const mergedSig = signature(events);
+  // KAN-293. Local is compared after the same pruning the merged side got.
+  // Otherwise a device at the tombstone cap (or holding one past its TTL)
+  // "learns" that its own oldest graves were dropped, and reports its own
+  // delete as a change from another device -- a false toast, and with D12 a
+  // reset of the undo that delete just recorded.
+  const localEvents = sideEvents(local);
+  pruneTombstones(localEvents, now);
   return {
     merged,
-    changedFromLocal: mergedSig !== signature(sideEvents(local)),
+    changedFromLocal: mergedSig !== signature(localEvents),
     changedFromCloud: mergedSig !== signature(sideEvents(cloud)),
   };
 }

@@ -22,6 +22,7 @@ vi.mock('../../utils/functions/external', () => ({
 }));
 
 import {
+  setHasSyncedBefore,
   setSignedIn,
   setUserId,
   syncStateWithFirestore,
@@ -238,24 +239,29 @@ describe('undoing a create survives the next sync (KAN-80)', () => {
     expect(graves).not.toContain('mine');
   });
 
-  // The ordering the bug was actually reported in, and the one measured live:
-  // create, let auto-sync finish, THEN undo. The sync is what makes it hard --
-  // syncStateWithFirestore dispatches setPresentStartup, which replaces
-  // `present` wholesale. Anything recorded on the pending step has to survive
-  // that, or the withdrawal disarms in exactly the case the user hits.
+  // UPDATED for D12 (KAN-279). Before D12, this ordering still worked: the
+  // sync's setPresentStartup replaced `present` wholesale but carried
+  // `addedTabGroupIds` forward, so the pending withdrawal survived. D12
+  // supersedes that mechanism with a stronger, simpler rule: a merge that
+  // brings in another device's change resets undo, `addedTabGroupIds`
+  // included, whether or not it is the first sync. It is accepted -- not a
+  // regression to guard against -- that an edit seconds old loses its own
+  // undo along with everything else once such a merge lands; the
+  // alternative is an undo that can also reverse the other device's change.
   //
-  // This is also the fixture that has teeth against the KAN-83 mistake:
-  // setPresentStartup refreshes `present` but never `past`, so a snapshot
-  // popped here predates the arrival of 'theirs' and a diff-based rule
-  // tombstones it. Ordering the sync before the undone step -- as an earlier
-  // draft of this file did -- hides that entirely.
-  it('still withdraws when a sync lands between the create and the undo', async () => {
+  // So the sync here empties `past`, and the undo below is a no-op:
+  // 'created-here' can no longer be withdrawn this way. A1/A2 below are the
+  // siblings that pin the ordering this test used to cover: undo still
+  // withdraws a pending create when the intervening sync brings in nothing
+  // foreign.
+  it('a sync that lands between the create and the undo resets undo instead of withdrawing (D12, KAN-279)', async () => {
     const { store } = makeTestStore();
     store.dispatch(setSignedIn());
     store.dispatch(setUserId('u1'));
 
     store.dispatch(saveToTabContainerInternal(group('mine')));
     store.dispatch(saveToTabContainerInternal(group('created-here')));
+    expect(store.getState().undoRedo.past.length).toBeGreaterThan(0);
 
     // Auto-sync pushes the create up, and another device's session comes back.
     const local = JSON.parse(
@@ -277,26 +283,122 @@ describe('undoing a create survives the next sync (KAN-80)', () => {
       'mine',
       'theirs',
     ]);
+    expect(store.getState().undoRedo.past).toEqual([]);
 
     store.dispatch(undo());
 
-    const graves = (
-      store.getState().tabContainerDataState.deletedTabGroups ?? []
-    ).map((g) => g.tabGroupId);
-    expect(graves).toContain('created-here');
-    expect(graves).not.toContain('theirs');
-    expect(graves).not.toContain('mine');
+    // Nothing to undo, so nothing is withdrawn: undo() is a no-op.
+    const after = store.getState().tabContainerDataState;
+    expect(ids(after.tabGroups)).toEqual(['created-here', 'mine', 'theirs']);
+    expect((after.deletedTabGroups ?? []).map((g) => g.tabGroupId)).toEqual([]);
+  });
 
-    // And it stays retracted through the merge that follows.
-    localStorage.setItem(
-      'tabContainerData',
-      JSON.stringify(store.getState().tabContainerDataState)
-    );
-    mocks.loadFromFirestore.mockResolvedValue(cloud);
-    await store.dispatch(syncStateWithFirestore() as never);
-    const after = ids(store.getState().tabContainerDataState.tabGroups);
-    expect(after).not.toContain('created-here');
-    expect(after).toContain('theirs');
+  // A1. The ordering KAN-80 was reported in still has to work when the
+  // intervening sync brings in nothing foreign: `changedFromLocal` is false
+  // (this device already has everything the merge produces), so D12 does not
+  // fire, and this being the FIRST sync takes the `setPresentStartup`
+  // carry-forward path that has withdrawn a pending create since KAN-80.
+  it('A1: a first sync with nothing from the cloud still lets undo withdraw the create', async () => {
+    const T0 = Date.UTC(2026, 8, 22, 12, 0, 0);
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(T0);
+      const { store } = makeTestStore();
+      store.dispatch(setSignedIn());
+      store.dispatch(setUserId('u1'));
+
+      store.dispatch(saveToTabContainerInternal(group('mine')));
+      // The cloud holds exactly this device's last write: 'mine', pushed by
+      // an earlier auto-sync, with no foreign session and no 'created-here'
+      // yet -- so this sync has nothing to bring in for this device.
+      const cloudBeforeCreate = JSON.parse(
+        JSON.stringify(store.getState().tabContainerDataState)
+      );
+
+      vi.setSystemTime(T0 + 1000);
+      store.dispatch(saveToTabContainerInternal(group('created-here')));
+
+      localStorage.setItem(
+        'tabContainerData',
+        JSON.stringify(store.getState().tabContainerDataState)
+      );
+      mocks.loadFromFirestore.mockResolvedValue(cloudBeforeCreate);
+      vi.setSystemTime(T0 + 2000);
+      await store.dispatch(syncStateWithFirestore() as never);
+      // The cloud lacked 'created-here', so the merge pushes it up -- this is
+      // what a real auto-sync would already have written.
+      const cloudAfterFirstSync = JSON.parse(
+        JSON.stringify(store.getState().tabContainerDataState)
+      );
+
+      vi.setSystemTime(T0 + 3000);
+      store.dispatch(undo());
+
+      const after = store.getState().tabContainerDataState;
+      expect(ids(after.tabGroups)).toEqual(['mine']);
+      const graves = (after.deletedTabGroups ?? []).map((g) => g.tabGroupId);
+      expect(graves).toContain('created-here');
+      expect(graves).not.toContain('mine');
+
+      // And it stays retracted through the next sync.
+      localStorage.setItem('tabContainerData', JSON.stringify(after));
+      mocks.loadFromFirestore.mockResolvedValue(cloudAfterFirstSync);
+      vi.setSystemTime(T0 + 4000);
+      await store.dispatch(syncStateWithFirestore() as never);
+
+      expect(ids(store.getState().tabContainerDataState.tabGroups)).toEqual([
+        'mine',
+      ]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  // A2. The same ordering on a LATER sync (past the first). D12 must not
+  // fire here: nothing foreign arrives, so `changedFromLocal` is false, and
+  // with `hasSyncedBefore` already true neither branch in the both-sides
+  // block runs -- `past` is untouched by the sync, and the pending create is
+  // still withdrawable afterwards exactly as before D12.
+  it('A2: a later sync with nothing from the cloud does not fire D12, and undo still withdraws', async () => {
+    const T0 = Date.UTC(2026, 8, 22, 12, 0, 0);
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(T0);
+      const { store } = makeTestStore();
+      store.dispatch(setSignedIn());
+      store.dispatch(setUserId('u1'));
+      store.dispatch(setHasSyncedBefore()); // past the first sync already
+
+      store.dispatch(saveToTabContainerInternal(group('mine')));
+      const cloudBeforeCreate = JSON.parse(
+        JSON.stringify(store.getState().tabContainerDataState)
+      );
+
+      vi.setSystemTime(T0 + 1000);
+      store.dispatch(saveToTabContainerInternal(group('created-here')));
+
+      localStorage.setItem(
+        'tabContainerData',
+        JSON.stringify(store.getState().tabContainerDataState)
+      );
+      mocks.loadFromFirestore.mockResolvedValue(cloudBeforeCreate);
+      vi.setSystemTime(T0 + 2000);
+      await store.dispatch(syncStateWithFirestore() as never);
+
+      // PREMISE: D12 must NOT fire on an own-only sync.
+      expect(store.getState().undoRedo.past.length).toBeGreaterThan(0);
+
+      vi.setSystemTime(T0 + 3000);
+      store.dispatch(undo());
+
+      const after = store.getState().tabContainerDataState;
+      expect(ids(after.tabGroups)).toEqual(['mine']);
+      const graves = (after.deletedTabGroups ?? []).map((g) => g.tabGroupId);
+      expect(graves).toContain('created-here');
+      expect(graves).not.toContain('mine');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   // Undoing twice in a row. The second undo restores a snapshot older than the

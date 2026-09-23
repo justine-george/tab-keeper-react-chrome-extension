@@ -483,6 +483,94 @@ describe('mergeTabContainers - the flags describe what is written', () => {
   });
 });
 
+// KAN-293. pruneTombstones runs once, on the union of both sides, before
+// either changed-from flag is computed. Comparing that pruned merge against
+// local's UNPRUNED event set made "the merge only pruned MY OWN tombstones"
+// look identical to "another device changed something" - a false positive a
+// device sitting at the tombstone cap (or holding one past its TTL) trips on
+// its own delete. The fix compares merged against local pruned the same way.
+describe('mergeTabContainers - KAN-293 a same-side prune is not a change from local', () => {
+  const withTombstones = (
+    c: TabMasterContainer,
+    t: { tabGroupId: string; deletedAt: number }[]
+  ): TabMasterContainer => ({ ...c, deletedTabGroups: t });
+
+  const CAP_NOW = 10_000_000;
+  const priorGraves = (n: number) =>
+    Array.from({ length: n }, (_, i) => ({
+      tabGroupId: `g${i}`,
+      deletedAt: CAP_NOW - 1000 - i,
+    }));
+
+  it('an own delete at the tombstone cap is not a change from local', () => {
+    const graves = priorGraves(TOMBSTONE_MAX);
+    // Cloud is this device's own last write: the state exactly as it was
+    // before the delete below - session 's' still alive, the same 500 graves.
+    const cloud = withTombstones(
+      container(CAP_NOW - 2000, [group('s', CAP_NOW - 2000)]),
+      graves
+    );
+    // Local: the same 500 graves, plus this device's own fresh delete of 's'.
+    const local = withTombstones(container(CAP_NOW, []), [
+      { tabGroupId: 's', deletedAt: CAP_NOW },
+      ...graves,
+    ]);
+
+    const r = mergeTabContainers(local, cloud, CAP_NOW);
+    expect(r.changedFromLocal).toBe(false);
+  });
+
+  // CONTROL: one grave short of the cap, so the own delete does not push
+  // anything out of the pruned set. Must pass before and after the fix - if
+  // it doesn't, the fixture is broken, not the code.
+  it('CONTROL: an own delete one grave under the cap is not a change from local', () => {
+    const graves = priorGraves(TOMBSTONE_MAX - 1);
+    const cloud = withTombstones(
+      container(CAP_NOW - 2000, [group('s', CAP_NOW - 2000)]),
+      graves
+    );
+    const local = withTombstones(container(CAP_NOW, []), [
+      { tabGroupId: 's', deletedAt: CAP_NOW },
+      ...graves,
+    ]);
+
+    const r = mergeTabContainers(local, cloud, CAP_NOW);
+    expect(r.changedFromLocal).toBe(false);
+  });
+
+  // CONTROL: a genuine external change at the cap - another device's
+  // tombstone, newer than everything local holds. Must stay true after the
+  // fix, or the fix has blinded the flag instead of correcting it.
+  it('CONTROL: a real tombstone from another device at the cap is a change from local', () => {
+    const graves = priorGraves(TOMBSTONE_MAX);
+    const local = withTombstones(container(CAP_NOW, []), graves);
+    const cloud = withTombstones(container(CAP_NOW, []), [
+      { tabGroupId: 'other-device', deletedAt: CAP_NOW + 1 },
+      ...graves,
+    ]);
+
+    const r = mergeTabContainers(local, cloud, CAP_NOW);
+    expect(r.changedFromLocal).toBe(true);
+  });
+
+  // A local-only prune from TTL expiry is the same shape of false positive as
+  // the cap. Before the fix this was ALSO true (a mismatch: local's unpruned
+  // signature still carries the expired grave the merge just dropped) -
+  // recorded in the KAN-293 report rather than asserted here, since only the
+  // cap case is the one the ticket reproduces.
+  it('an own tombstone past the TTL is not a change from local', () => {
+    const FAR_FUTURE = 5_000_000_000_000;
+    const expired = FAR_FUTURE - TOMBSTONE_TTL_MS - 1;
+    const local = withTombstones(container(100, []), [
+      { tabGroupId: 'ancient', deletedAt: expired },
+    ]);
+    const cloud = withTombstones(container(100, []), []);
+
+    const r = mergeTabContainers(local, cloud, FAR_FUTURE);
+    expect(r.changedFromLocal).toBe(false);
+  });
+});
+
 // KAN-25. createdTime is a local wall clock with no offset recorded, so two
 // devices in different zones write strings that cannot be compared to each
 // other. createdAt is the instant, and it is what the order must follow.

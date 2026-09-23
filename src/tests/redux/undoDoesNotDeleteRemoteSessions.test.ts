@@ -6,25 +6,10 @@ vi.hoisted(() => {
   (g.window as { screen?: unknown }).screen = { height: 1080, width: 1920 };
 });
 
-const mocks = vi.hoisted(() => ({
-  loadFromFirestore: vi.fn(async (): Promise<unknown> => undefined),
-  saveToFirestore: vi.fn<(userId: string, data: unknown) => Promise<void>>(
-    async () => undefined
-  ),
-}));
-
-vi.mock('../../utils/functions/external', () => ({
-  loadFromFirestore: mocks.loadFromFirestore,
-  saveToFirestore: mocks.saveToFirestore,
-  displayToast: vi.fn(),
-}));
-
 import {
-  setSignedIn,
-  setUserId,
-  syncStateWithFirestore,
-} from '../../redux/slices/globalStateSlice';
-import { saveToTabContainerInternal } from '../../redux/slices/tabContainerDataStateSlice';
+  replaceState,
+  saveToTabContainerInternal,
+} from '../../redux/slices/tabContainerDataStateSlice';
 import { undo } from '../../redux/slices/undoRedoSlice';
 import { makeTestStore } from '../setup/makeStore';
 import type { tabContainerData } from '../../redux/slices/tabContainerDataStateSlice';
@@ -33,11 +18,17 @@ import type { tabContainerData } from '../../redux/slices/tabContainerDataStateS
 //
 // KAN-80 made undo tombstone every session missing from the restored snapshot,
 // on the assumption that the only such session is the one the undo retracts.
-// That is false. The undo history and the merged container are two independent
+// That is false. The undo history and the container are two independent
 // notions of "what this device has", and they drift:
 //
-//   * replaceState -- what the merge uses -- is NOT in actionsToCapture, so a
-//     session arriving from another device enters the container but no snapshot
+//   * replaceState is NOT in actionsToCapture, so a session arriving through
+//     it enters the container but no snapshot -- the shape another page's
+//     write will take once D9 lands, and still reachable today by anything
+//     that calls replaceState directly (KAN-279's own merge no longer drifts
+//     this way: a merge that changes local data resets undo outright, D12,
+//     which would make this guard's undo a no-op and pass the assertion
+//     below vacuously regardless of whether the guard exists. replaceState
+//     is what still exercises it.)
 //   * setPresentStartup refreshes `present` after the first sync but never
 //     refreshes `past`
 //
@@ -80,41 +71,50 @@ const ids = (gs: tabContainerData[]) => gs.map((g) => g.tabGroupId).sort();
 describe('undo never tombstones a session it did not create', () => {
   beforeEach(() => {
     localStorage.clear();
-    mocks.loadFromFirestore.mockReset();
-    mocks.saveToFirestore.mockReset().mockResolvedValue(undefined);
   });
 
-  it('leaves a session that arrived from another device alone', async () => {
+  it('leaves a session that arrived from another device alone', () => {
     const { store } = makeTestStore();
-    store.dispatch(setSignedIn());
-    store.dispatch(setUserId('u1'));
 
     store.dispatch(saveToTabContainerInternal(group('mine-1')));
     store.dispatch(saveToTabContainerInternal(group('mine-2')));
 
-    // Another device created 'theirs'; it arrives on the next sync.
-    const local = JSON.parse(
-      JSON.stringify(store.getState().tabContainerDataState)
-    );
-    const cloud = {
-      ...local,
-      lastModified: Date.now() + 1000,
+    // Stand-in for another page writing shared localStorage -- the drift D9
+    // will handle once the pop-out lands. replaceState is not in
+    // actionsToCapture, so this does not touch undoRedo at all: unlike a
+    // merge through syncStateWithFirestore, which would now reset history
+    // under D12 (KAN-279) and make the undo below a no-op, passing the
+    // assertion vacuously regardless of whether this guard exists.
+    const withTheirs = {
+      ...store.getState().tabContainerDataState,
       tabGroups: [
-        ...local.tabGroups,
-        { ...group('theirs'), lastModified: Date.now() + 1000 },
+        ...store.getState().tabContainerDataState.tabGroups,
+        group('theirs'),
       ],
     };
-    localStorage.setItem('tabContainerData', JSON.stringify(local));
-    mocks.loadFromFirestore.mockResolvedValue(cloud);
-    await store.dispatch(syncStateWithFirestore() as never);
+    store.dispatch(replaceState(withTheirs));
 
-    // The control: the merge really did bring it in, so a later absence is
-    // this device losing it rather than the fixture never delivering it.
+    // The control: the write really did bring 'theirs' in, so a later
+    // absence is this device losing it rather than the fixture never
+    // delivering it.
     expect(ids(store.getState().tabContainerDataState.tabGroups)).toEqual([
       'mine-1',
       'mine-2',
       'theirs',
     ]);
+
+    // PREMISE: undo has something to retract, and the snapshot it would pop
+    // predates 'theirs' arriving -- the KAN-83 shape exactly. Without this,
+    // an empty `past` (KAN-292) would make the undo below a no-op for a
+    // different reason and the test would pass without exercising the guard.
+    expect(store.getState().undoRedo.past.length).toBeGreaterThan(0);
+    expect(
+      store
+        .getState()
+        .undoRedo.present.tabContainerDataState.tabGroups.map(
+          (g) => g.tabGroupId
+        )
+    ).not.toContain('theirs');
 
     store.dispatch(undo());
 
@@ -122,18 +122,5 @@ describe('undo never tombstones a session it did not create', () => {
       store.getState().tabContainerDataState.deletedTabGroups ?? []
     ).map((t) => t.tabGroupId);
     expect(graves).not.toContain('theirs');
-
-    // And it survives: with no tombstone against it, the next merge restores
-    // it from the cloud.
-    localStorage.setItem(
-      'tabContainerData',
-      JSON.stringify(store.getState().tabContainerDataState)
-    );
-    mocks.loadFromFirestore.mockResolvedValue(cloud);
-    await store.dispatch(syncStateWithFirestore() as never);
-
-    expect(ids(store.getState().tabContainerDataState.tabGroups)).toContain(
-      'theirs'
-    );
   });
 });

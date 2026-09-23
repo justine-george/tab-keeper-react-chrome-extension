@@ -4,10 +4,13 @@ import {
   PayloadAction,
   type AsyncThunkConfig,
   type GetThunkAPI,
+  type ThunkAction,
+  type UnknownAction,
 } from '@reduxjs/toolkit';
 
 import { AppDispatch, RootState } from '../store';
-import { setPresentStartup } from './undoRedoSlice';
+import { resetHistory, setPresentStartup } from './undoRedoSlice';
+import { isDragHeld, whenDragReleases } from '../dragHold';
 import { selectCategory, SettingsCategory } from './settingsCategoryStateSlice';
 import {
   mergeSessionsFromBackupInternal,
@@ -315,10 +318,14 @@ export const saveToFirestoreIfDirty = createAsyncThunk(
 );
 
 // syncs data with Firestore
-export const syncStateWithFirestore = createAsyncThunk(
+export const syncStateWithFirestore = createAsyncThunk<
+  void,
+  void,
+  { state: RootState }
+>(
   'global/syncStateWithFirestore',
   async (_, thunkAPI) => {
-    const state = thunkAPI.getState() as RootState;
+    const state = thunkAPI.getState();
 
     // load from Firestore
     const cloudCandidate = await loadFromFirestore(state.globalState.userId!);
@@ -376,6 +383,15 @@ export const syncStateWithFirestore = createAsyncThunk(
         Date.now()
       );
 
+      // KAN-279 D12. A row is held: applying this would move the list under
+      // the pointer. It waits for the drop, and nothing is written meanwhile --
+      // saveToFirestoreIfDirty would send the PRE-merge state, over the other
+      // device's change. applyHeldCloudMerge re-syncs once it has applied.
+      if (changedFromLocal && isDragHeld()) {
+        whenDragReleases(() => thunkAPI.dispatch(applyHeldCloudMerge(merged)));
+        return;
+      }
+
       thunkAPI.dispatch(replaceState(merged));
 
       if (changedFromCloud) {
@@ -420,7 +436,11 @@ export const syncStateWithFirestore = createAsyncThunk(
         if (arrived) thunkAPI.dispatch(recordValueMoment());
       }
 
-      if (!state.globalState.hasSyncedBefore) {
+      if (changedFromLocal) {
+        // D12 (KAN-279). The merge brought in a change this page did not make;
+        // an undo must never reverse it. The toast above names the moment.
+        thunkAPI.dispatch(resetHistory({ tabContainerDataState: merged }));
+      } else if (!state.globalState.hasSyncedBefore) {
         // reset presentState in the undoRedoState
         thunkAPI.dispatch(setPresentStartup({ tabContainerDataState: merged }));
       }
@@ -468,11 +488,64 @@ export const syncStateWithFirestore = createAsyncThunk(
     // DROPPED either -- the request is often an edit the running sync never
     // saw -- so the rejection is dispatched and becomes isSyncQueued, and the
     // middleware runs one more sync when the count falls to zero.
-    condition: (_, { getState }) =>
-      (getState() as RootState).globalState.syncsInFlight === 0,
+    condition: (_, { getState }) => getState().globalState.syncsInFlight === 0,
     dispatchConditionRejection: true,
   }
 );
+
+// KAN-279 D12. Plain thunk, synchronous on purpose: dropOnTop applies this and
+// then the drop in one tick, and the drop must land on the merged list.
+// Merged with localStorage as it is NOW: another page may have written while
+// the row was held, and the merge is what combines both without loss.
+export const applyHeldCloudMerge =
+  (
+    merged: TabMasterContainer
+  ): ThunkAction<void, RootState, unknown, UnknownAction> =>
+  (dispatch, getState) => {
+    const local = loadFromLocalStorage('tabContainerData');
+    const combined = isValidTabMasterContainer(local)
+      ? mergeTabContainers(local, merged, Date.now()).merged
+      : merged;
+    dispatch(replaceState(combined));
+    dispatch(resetHistory({ tabContainerDataState: combined }));
+    dispatch(
+      showToast({ toastText: TOAST_MESSAGES.SYNC_MERGED, duration: 3000 })
+    );
+
+    // KAN-149, mirrored from syncStateWithFirestore's both-sides branch: a
+    // value moment only when a SESSION arrived, judged against what
+    // localStorage held right before THIS merge -- not what the popup had
+    // when the drag began, since another page may have written since.
+    const localIds = new Set(
+      isValidTabMasterContainer(local)
+        ? local.tabGroups.map((group) => group.tabGroupId)
+        : []
+    );
+    const arrived = combined.tabGroups.some(
+      (group) => !localIds.has(group.tabGroupId)
+    );
+    if (arrived) dispatch(recordValueMoment());
+
+    // KAN-290. The same gate drainQueuedSync (customMiddleware.ts) uses, not
+    // cloudSyncAllowed: that also requires Auto Sync, but "Sync now" is a
+    // manual sync that works with Auto Sync OFF, and a manual sync held by a
+    // drag must still re-sync once released. A re-sync fired after the drop
+    // must not run if sign-in or consent was withdrawn while the row was held.
+    const { globalState, settingsDataState } = getState();
+    if (
+      globalState.isSignedIn &&
+      globalState.isFirebaseAuthed &&
+      settingsDataState.cloudConsent === 'granted'
+    ) {
+      dispatch(syncStateWithFirestore());
+    } else {
+      // The held run returned before it could settle syncStatus off
+      // 'loading' (it deferred to this re-sync instead). With the gate
+      // closed, that re-sync never happens, so nothing else will -- without
+      // this the header's spinner sticks on 'loading' for good.
+      dispatch(setSyncStatus('idle'));
+    }
+  };
 
 // KAN-254. Deletes the document under the token and turns Auto Sync off on
 // THIS device -- otherwise the next edit re-uploads everything and the delete

@@ -14,7 +14,6 @@ import {
 import {
   addCurrTabToWindow,
   deleteWindow,
-  moveWindowInternal,
   openTabsInAWindow,
   updateWindowGroupTitle,
 } from '../../../redux/slices/tabContainerDataStateSlice';
@@ -23,6 +22,8 @@ import { toStoredTab } from '../../../utils/functions/capture';
 import { RowDragArea, DraggableRow } from './rowDrag/RowDragArea';
 import { TabDragArea } from './TabDragArea';
 import { GroupDragArea } from './GroupDragArea';
+import { dropOnTop } from '../../../redux/dropOnTop';
+import { windowDrop } from '../../../redux/dropSpecs';
 
 export default function TabGroupDetailsContainer() {
   const COLORS = useThemeColors();
@@ -76,9 +77,7 @@ export default function TabGroupDetailsContainer() {
   const handleMoveWindow = useCallback(
     (windowId: string, toIndex: number) => {
       if (!movedTabGroupId) return;
-      dispatch(
-        moveWindowInternal({ tabGroupId: movedTabGroupId, windowId, toIndex })
-      );
+      dispatch(dropOnTop(windowDrop(movedTabGroupId, windowId, toIndex)));
     },
     [dispatch, movedTabGroupId]
   );

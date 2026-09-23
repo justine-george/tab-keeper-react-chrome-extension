@@ -74,8 +74,14 @@ export const undoRedoSlice = createSlice({
         state.present.tabContainerDataState.lastModified = Date.now();
       }
     },
-    // Also dispatched after every merge, not only at startup, which is why it
-    // carries `addedTabGroupIds` forward (KAN-80).
+    // Dispatched only until the first sync completes (every caller is gated
+    // on `!hasSyncedBefore`, which never goes back to false): by App's
+    // local-only startup, by the sync's cloud-only / local-only / new-user
+    // branches, and by its both-sides merge when that merge changed nothing
+    // locally. A merge that did change local data goes through `resetHistory`
+    // instead (D12, KAN-279). Never dispatched on a later sync. Carries
+    // `addedTabGroupIds` forward (KAN-80) so a create made before the first
+    // sync can still be withdrawn after it.
     //
     // A sync arriving is not a step the user took, so it cannot retract one
     // they did take. The reported ordering is create, auto-sync, undo -- so
@@ -118,11 +124,34 @@ export const undoRedoSlice = createSlice({
         addedTabGroupIds: state.present.addedTabGroupIds,
       };
     },
+
+    // D12 (KAN-279). A change this page did not make -- another page's write,
+    // or a cloud merge that changed local data -- leaves nothing here that an
+    // undo may reverse. The added ids go too: carrying them only makes sense
+    // while `past` survives, and they could name sessions the other side has
+    // already deleted.
+    resetHistory: (
+      state,
+      action: PayloadAction<{ tabContainerDataState: TabMasterContainer }>
+    ) => {
+      state.past = [];
+      state.future = [];
+      state.present = {
+        tabContainerDataState: action.payload.tabContainerDataState,
+        addedTabGroupIds: [],
+      };
+    },
   },
 });
 
-export const { set, undo, redo, setPresentStartup, setPresentWithoutHistory } =
-  undoRedoSlice.actions;
+export const {
+  set,
+  undo,
+  redo,
+  setPresentStartup,
+  setPresentWithoutHistory,
+  resetHistory,
+} = undoRedoSlice.actions;
 
 // selectors
 export const isUndoableSelector = (state: RootState) =>

@@ -22,10 +22,8 @@ import { useCallback, useMemo } from 'react';
 import { useDispatch } from 'react-redux';
 
 import type { AppDispatch } from '../../../redux/store';
-import {
-  moveChromeGroupAcrossWindowsInternal,
-  moveChromeGroupInternal,
-} from '../../../redux/slices/tabContainerDataStateSlice';
+import { dropOnTop } from '../../../redux/dropOnTop';
+import { groupDrop } from '../../../redux/dropSpecs';
 import {
   partitionTabsIntoItems,
   itemIdOf,
@@ -116,20 +114,9 @@ export function useGroupDrop(
       const fromWindowId = windowOfGroup.get(groupId);
       if (fromWindowId === undefined || toWindowId === undefined) return;
       dispatch(
-        fromWindowId === toWindowId
-          ? moveChromeGroupInternal({
-              tabGroupId,
-              windowId: fromWindowId,
-              groupId,
-              toIndex,
-            })
-          : moveChromeGroupAcrossWindowsInternal({
-              tabGroupId,
-              fromWindowId,
-              toWindowId,
-              groupId,
-              toIndex,
-            })
+        dropOnTop(
+          groupDrop({ tabGroupId, groupId, fromWindowId, toWindowId, toIndex })
+        )
       );
     },
     [dispatch, tabGroupId, windowOfGroup]

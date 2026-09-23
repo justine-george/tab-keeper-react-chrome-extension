@@ -126,10 +126,17 @@ describe('undo and redo with an empty history (KAN-292)', () => {
     expect(ids).toEqual(['a', 'b']);
   });
 
-  // The test above ASSUMES the premise (a later sync's merge never refreshes
-  // `undoRedo.present`) by driving it straight through replaceState. This one
-  // drives the real syncStateWithFirestore thunk against a two-device cloud
-  // fixture instead, so the premise is demonstrated rather than assumed.
+  // UPDATED for D12 (KAN-279). This used to demonstrate, against the real
+  // thunk, the premise test 3 above assumes with a bare `replaceState` (a
+  // later merge leaves `present` stale). It no longer does: this merge has
+  // `changedFromLocal` true, so `syncStateWithFirestore` now calls
+  // `resetHistory`, which keeps `present` in step with
+  // `tabContainerDataState`. So this test no longer discriminates the
+  // KAN-292 guard (the middleware's `historyWasEmpty` early-return) from
+  // broken code the way tests 1 and 3 still do -- undo() below is still a
+  // no-op with `past` empty, but there is no staleness left for that no-op
+  // to matter against. Kept as a real-thunk regression check that D12 and
+  // KAN-292 compose correctly, not as the staleness demonstration it was.
   it('an empty-history undo after a real later sync keeps the session another device added', async () => {
     const { store } = readyStore();
     store.dispatch(replaceState(buildContainer([a])));
@@ -154,10 +161,12 @@ describe('undo and redo with an empty history (KAN-292)', () => {
     };
     await store.dispatch(syncStateWithFirestore());
 
-    // PREMISE, asserted before undo: the merge landed `b`, recorded no undo
-    // step, and left `present` stale -- exactly what the test above assumed.
-    // If `present` DID include `b` here, the spec's premise would be wrong,
-    // which is the owner's call, not this test's to paper over.
+    // PREMISE, asserted before undo, UPDATED for D12 (KAN-279): this merge
+    // has `changedFromLocal` true ('b' arrived), so syncStateWithFirestore
+    // now calls `resetHistory` here instead of leaving `present` untouched.
+    // `present` is therefore fresh, not stale: it already contains `b`. The
+    // staleness this test used to demonstrate no longer occurs for a merge
+    // that changes local data. `past` stays empty either way (it already was).
     const idsAfterSync = store
       .getState()
       .tabContainerDataState.tabGroups.map((g) => g.tabGroupId);
@@ -168,7 +177,7 @@ describe('undo and redo with an empty history (KAN-292)', () => {
       .undoRedo.present.tabContainerDataState.tabGroups.map(
         (g) => g.tabGroupId
       );
-    expect(presentIds).not.toContain('b');
+    expect(presentIds).toContain('b');
 
     store.dispatch(undo());
 

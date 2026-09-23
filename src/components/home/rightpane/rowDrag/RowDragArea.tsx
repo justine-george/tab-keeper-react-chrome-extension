@@ -64,6 +64,7 @@ import {
   type WindowedSlot,
 } from '../../../../utils/functions/dragPreview';
 import { DURATION } from '../../../../styles/scale';
+import { beginDragHold, endDragHold } from '../../../../redux/dragHold';
 
 // How close to an edge the pointer must be for the list to start travelling,
 // and how fast it goes at its deepest. 48px is roughly a row and a half here,
@@ -376,6 +377,13 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       target: EventTarget | null
     ) => {
       if (disabled) return;
+
+      // A second press (a second finger or pen) while a drag is already
+      // started must be ignored, not swap in as the new hold record: `finish`
+      // reads `live.current` back and returns early for an UNSTARTED record,
+      // so the started drag's endDragHold() would never run and the hold
+      // would leak for the rest of the page (KAN-279 D12).
+      if (live.current?.started) return;
 
       // A press in a text field starts a selection, not a drag (KAN-162). The
       // window rename field sits inside the window's handle, and selecting
@@ -953,6 +961,10 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         // layout that no longer exists.
         l.started = true;
         setDragging(true, dragKind);
+        // KAN-279 D12. From here until the drag ends, a change this page did
+        // not make waits (dragHold): applying it would move the list under
+        // rects measured once, below.
+        beginDragHold();
 
         // Which row is held, for rules that apply to it alone (KAN-160: a
         // group drag compresses only the held group). Written straight to the
@@ -1214,52 +1226,62 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // did they ask for the row they were holding to open.
       suppressClickUntil.current = performance.now() + 400;
 
-      if (drop) {
-        // The window is passed only by a list whose rows sit in windows. Every
-        // other list is called exactly as it always was, and never learns the
-        // argument exists.
-        //
-        // THE TWO-ARITY CALLS ARE LOAD-BEARING, not a shorter way to write the
-        // same thing with the 4th argument left `undefined`:
-        // dragSurvivesRerender.test.tsx:107 asserts
-        // `toHaveBeenCalledWith('a', 1, undefined)`, which a trailing explicit
-        // `undefined` 4th argument fails -- vitest's mock matcher checks
-        // argument COUNT too. Do not collapse this to one call spread over
-        // both branches.
-        if (drop.toWindowId === undefined) {
-          onMove(l.rowId, drop.toIndex, drop.dropTargetId);
-        } else {
-          onMove(l.rowId, drop.toIndex, drop.dropTargetId, drop.toWindowId);
-        }
+      try {
+        if (drop) {
+          // The window is passed only by a list whose rows sit in windows. Every
+          // other list is called exactly as it always was, and never learns the
+          // argument exists.
+          //
+          // THE TWO-ARITY CALLS ARE LOAD-BEARING, not a shorter way to write the
+          // same thing with the 4th argument left `undefined`:
+          // dragSurvivesRerender.test.tsx:107 asserts
+          // `toHaveBeenCalledWith('a', 1, undefined)`, which a trailing explicit
+          // `undefined` 4th argument fails -- vitest's mock matcher checks
+          // argument COUNT too. Do not collapse this to one call spread over
+          // both branches.
+          if (drop.toWindowId === undefined) {
+            onMove(l.rowId, drop.toIndex, drop.dropTargetId);
+          } else {
+            onMove(l.rowId, drop.toIndex, drop.dropTargetId, drop.toWindowId);
+          }
 
-        // Follow the row you just dropped (KAN-155).
-        //
-        // Releasing ENDS the collapse, so the list springs back from a third of
-        // its height to all of it -- and a row dropped at the bottom of the
-        // folded list is then far below the fold. The user placed it
-        // deliberately and cannot see where it went, which is KAN-143's
-        // complaint arriving by a different route.
-        //
-        // On the next frame, because the reorder has to be committed and laid
-        // out before there is anything to scroll to; and `block: 'nearest'`
-        // so a row already on screen is left exactly where it is.
-        //
-        // Only on a COMMITTED drop, which is the only case with a new place to
-        // show. A drag that commits nothing is the branch below.
-        const dropped = l.rowId;
-        requestAnimationFrame(() => {
-          rows.current.get(dropped)?.scrollIntoView({ block: 'nearest' });
-        });
-      } else if (restoreScrollIfNoDrop && l.scroller) {
-        // Put the view back (KAN-157). For a window drag "nothing happened" is
-        // not the same as "leave the scroll alone": the collapse already
-        // clamped it, and unfolding does not give it back -- measured, five
-        // windows scrolled to 300 ended at 0 with the held window off screen.
-        //
-        // Synchronous, and after setDragging(false) above: the kind is
-        // unpublished, so this write lays out against the UNFOLDED list and
-        // its full scroll range, which is the only one 300 fits in.
-        l.scroller.scrollTop = l.scrollTopAtPress;
+          // Follow the row you just dropped (KAN-155).
+          //
+          // Releasing ENDS the collapse, so the list springs back from a third of
+          // its height to all of it -- and a row dropped at the bottom of the
+          // folded list is then far below the fold. The user placed it
+          // deliberately and cannot see where it went, which is KAN-143's
+          // complaint arriving by a different route.
+          //
+          // On the next frame, because the reorder has to be committed and laid
+          // out before there is anything to scroll to; and `block: 'nearest'`
+          // so a row already on screen is left exactly where it is.
+          //
+          // Only on a COMMITTED drop, which is the only case with a new place to
+          // show. A drag that commits nothing is the branch below.
+          const dropped = l.rowId;
+          requestAnimationFrame(() => {
+            rows.current.get(dropped)?.scrollIntoView({ block: 'nearest' });
+          });
+        } else if (restoreScrollIfNoDrop && l.scroller) {
+          // Put the view back (KAN-157). For a window drag "nothing happened" is
+          // not the same as "leave the scroll alone": the collapse already
+          // clamped it, and unfolding does not give it back -- measured, five
+          // windows scrolled to 300 ended at 0 with the held window off screen.
+          //
+          // Synchronous, and after setDragging(false) above: the kind is
+          // unpublished, so this write lays out against the UNFOLDED list and
+          // its full scroll range, which is the only one 300 fits in.
+          l.scroller.scrollTop = l.scrollTopAtPress;
+        }
+      } finally {
+        // KAN-279 D12. Last, after onMove: a committed drop's consumer applies
+        // the held change itself (dropOnTop) so the move lands on top of it,
+        // and this then finds the queue empty. A refused or cancelled drag has
+        // no consumer call, and this is what applies the change. In a
+        // `finally` so a throwing onMove cannot leave the hold on, and every
+        // later merge queued behind a drop that has already ended.
+        endDragHold();
       }
     };
 
@@ -1345,7 +1367,13 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         cancelAnimationFrame(scrollFrame.current);
         scrollFrame.current = 0;
       }
-      if (l?.started) setDragging(false);
+      if (l?.started) {
+        setDragging(false);
+        // KAN-279 D12. finish() never runs on this path, so the hold it would
+        // have ended is ended here -- or every later merge would wait for a
+        // drop that can no longer happen.
+        endDragHold();
+      }
     },
     []
   );

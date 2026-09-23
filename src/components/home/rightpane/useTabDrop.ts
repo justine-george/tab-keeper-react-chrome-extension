@@ -16,11 +16,9 @@ import { useCallback, useMemo } from 'react';
 import { useDispatch } from 'react-redux';
 
 import type { AppDispatch } from '../../../redux/store';
-import {
-  moveTabAcrossWindowsInternal,
-  moveTabInternal,
-  type tabData,
-} from '../../../redux/slices/tabContainerDataStateSlice';
+import type { tabData } from '../../../redux/slices/tabContainerDataStateSlice';
+import { dropOnTop } from '../../../redux/dropOnTop';
+import { tabDrop } from '../../../redux/dropSpecs';
 import {
   TAB_GROUP_COLOR_HEX,
   sanitizeTabGroupColor,
@@ -551,22 +549,16 @@ export function useTabDrop(
       const fromWindowId = windowOfTab.get(tabId);
       if (fromWindowId === undefined || toWindowId === undefined) return;
       dispatch(
-        fromWindowId === toWindowId
-          ? moveTabInternal({
-              tabGroupId,
-              windowId: fromWindowId,
-              tabId,
-              toIndex,
-              toChromeGroupId,
-            })
-          : moveTabAcrossWindowsInternal({
-              tabGroupId,
-              fromWindowId,
-              toWindowId,
-              tabId,
-              toIndex,
-              toChromeGroupId,
-            })
+        dropOnTop(
+          tabDrop({
+            tabGroupId,
+            tabId,
+            fromWindowId,
+            toWindowId,
+            toIndex,
+            toChromeGroupId,
+          })
+        )
       );
     },
     [dispatch, tabGroupId, windowOfTab]
