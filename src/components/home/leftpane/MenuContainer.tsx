@@ -26,6 +26,11 @@ import { SettingsCategory } from '../../../redux/slices/settingsCategoryStateSli
 import { setSessionDateBasis } from '../../../redux/slices/settingsDataStateSlice';
 import { useTranslation } from 'react-i18next';
 import type { IconName } from '../../common/iconNames';
+import { isTabView } from '../../../utils/functions/viewMode';
+import {
+  OPEN_IN_TAB_MESSAGE,
+  OpenInTabRequest,
+} from '../../../utils/functions/popOut';
 
 export default function MenuContainer() {
   const syncStatus = useSelector(
@@ -77,6 +82,32 @@ export default function MenuContainer() {
   function handleClickSettings() {
     dispatch(openSettingsPage(SettingsCategory.DISPLAY));
     dispatch(closeToast());
+  }
+
+  // KAN-279. This popup cannot open or focus the tab view itself: the click
+  // that would do it is the same click that backgrounds this popup, and a
+  // Chrome popup is torn down the instant it loses focus -- before a
+  // chrome.tabs.create()/update() this component started could resolve. So
+  // the click only hands off a request; openOrFocusTabView (popOut.ts), run
+  // from the worker, is what actually finds or creates the tab and outlives
+  // the popup doing it.
+  //
+  // windows.getCurrent() is asked here, in the popup, rather than trusting
+  // the worker to infer it: the worker has no "current" window of its own to
+  // ask about. A request that cannot report one -- getCurrent() rejects, or
+  // throws reading its result -- still has to reach the worker rather than
+  // drop the click, so it goes out with windowId: undefined instead, which
+  // openOrFocusTabView already treats as "use the last-focused window".
+  async function handleClickOpenInTab() {
+    let windowId: number | undefined;
+    try {
+      const current = await chrome.windows.getCurrent();
+      windowId = current.id;
+    } catch {
+      windowId = undefined;
+    }
+    const request: OpenInTabRequest = { type: OPEN_IN_TAB_MESSAGE, windowId };
+    chrome.runtime.sendMessage(request);
   }
 
   // The control offers "sync now" only when syncing is possible AND something
@@ -227,6 +258,19 @@ export default function MenuContainer() {
           in Material Symbols Outlined, measured in the built popup at 26px
           against a name the font does not carry, which renders as literal
           text 572px wide rather than as tofu (KAN-5). */}
+      {/* KAN-279. Absent in the tab view: that page IS the destination this
+          button opens or focuses, so a copy of itself there has nothing to
+          do. Sits LEFT of Sort -- Justine's mockup measured the row with it
+          first -- and sends a fire-and-forget message rather than acting
+          directly; see handleClickOpenInTab above for why. */}
+      {!isTabView() && (
+        <Icon
+          ariaLabel={t('Open in a tab')}
+          tooltipText={t('Open in a tab')}
+          type="open_in_new"
+          onClick={handleClickOpenInTab}
+        />
+      )}
       <OverflowMenu
         ariaLabel={t('Sort sessions')}
         triggerIcon="sort"
