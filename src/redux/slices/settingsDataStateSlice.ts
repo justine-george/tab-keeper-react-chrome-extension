@@ -316,6 +316,15 @@ export const settingsDataStateSlice = createSlice({
 
       return action.payload;
     },
+
+    // KAN-279 D9. Another page wrote this; localStorage already holds it.
+    // Unlike every other reducer here it never writes back -- a write here
+    // would fire a storage event in the other page and the two would echo
+    // forever.
+    hydrateSettingsFromOtherPage: (
+      _state,
+      action: PayloadAction<SettingsData>
+    ) => action.payload,
   },
 });
 
@@ -338,6 +347,7 @@ export const {
   setNeverAskAgainForTabGroups,
   setSessionDateBasis,
   setExportLayout,
+  hydrateSettingsFromOtherPage,
 } = settingsDataStateSlice.actions;
 
 export default settingsDataStateSlice.reducer;

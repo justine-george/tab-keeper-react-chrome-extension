@@ -7,6 +7,12 @@ export const REDO_ACTION = 'undoRedo/redo';
 export const TAB_CONTAINER_REPLACE_STATE_ACTION =
   'tabContainerDataState/replaceState';
 
+// KAN-279 D9. Another page's localStorage write, taken into this page's Redux
+// without writing back -- see hydrateFromOtherPage in
+// tabContainerDataStateSlice.ts for why.
+export const TAB_CONTAINER_HYDRATE_FROM_OTHER_PAGE_ACTION =
+  'tabContainerDataState/hydrateFromOtherPage';
+
 // Undo/redo and import both restore a container the user is asserting, and
 // unlike replaceState they may need to withdraw a tombstone; see
 // restoreContainer in tabContainerDataStateSlice.
