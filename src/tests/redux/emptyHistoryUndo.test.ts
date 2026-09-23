@@ -6,9 +6,24 @@ vi.hoisted(() => {
   (g.window as { screen?: unknown }).screen = { height: 1080, width: 1920 };
 });
 
+// A cloud that holds what was last written to it, so a later read sees the
+// write this test held open -- not a canned document that hides the loss.
+const mocks = vi.hoisted(() => {
+  const cloud: { doc: unknown } = { doc: undefined };
+  return {
+    cloud,
+    loadFromFirestore: vi.fn(async (): Promise<unknown> => cloud.doc),
+    saveToFirestore: vi.fn(
+      async (_userId: string, data: unknown): Promise<void> => {
+        cloud.doc = structuredClone(data);
+      }
+    ),
+  };
+});
+
 vi.mock('../../utils/functions/external', () => ({
-  loadFromFirestore: vi.fn(async () => undefined),
-  saveToFirestore: vi.fn(async () => undefined),
+  loadFromFirestore: mocks.loadFromFirestore,
+  saveToFirestore: mocks.saveToFirestore,
   ensureCloudSessionReady: vi.fn(async () => undefined),
   displayToast: vi.fn(),
 }));
@@ -17,6 +32,7 @@ import {
   setFirebaseAuthed,
   setSignedIn,
   setUserId,
+  syncStateWithFirestore,
 } from '../../redux/slices/globalStateSlice';
 import { grantCloudConsent } from '../../redux/slices/settingsDataStateSlice';
 import {
@@ -61,6 +77,9 @@ describe('undo and redo with an empty history (KAN-292)', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     localStorage.clear();
+    mocks.cloud.doc = undefined;
+    mocks.loadFromFirestore.mockClear();
+    mocks.saveToFirestore.mockClear();
   });
   afterEach(() => vi.useRealTimers());
 
@@ -105,6 +124,62 @@ describe('undo and redo with an empty history (KAN-292)', () => {
       .getState()
       .tabContainerDataState.tabGroups.map((g) => g.tabGroupId);
     expect(ids).toEqual(['a', 'b']);
+  });
+
+  // The test above ASSUMES the premise (a later sync's merge never refreshes
+  // `undoRedo.present`) by driving it straight through replaceState. This one
+  // drives the real syncStateWithFirestore thunk against a two-device cloud
+  // fixture instead, so the premise is demonstrated rather than assumed.
+  it('an empty-history undo after a real later sync keeps the session another device added', async () => {
+    const { store } = readyStore();
+    store.dispatch(replaceState(buildContainer([a])));
+
+    // Startup sync: local and cloud agree, so this only establishes
+    // hasSyncedBefore and seeds `present` via setPresentStartup.
+    vi.setSystemTime(1_700_000_000_000);
+    mocks.cloud.doc = structuredClone(store.getState().tabContainerDataState);
+    await store.dispatch(syncStateWithFirestore());
+
+    expect(store.getState().globalState.hasSyncedBefore).toBe(true);
+
+    // Another device adds `b`. `a` is unchanged -- same fields, same
+    // lastModified as local's copy -- only the container's lastModified
+    // moves forward, which is what makes the cloud side win the merge.
+    const localContainer = store.getState().tabContainerDataState;
+    vi.setSystemTime(1_700_000_100_000);
+    mocks.cloud.doc = {
+      ...localContainer,
+      tabGroups: [a, b],
+      lastModified: localContainer.lastModified + 1,
+    };
+    await store.dispatch(syncStateWithFirestore());
+
+    // PREMISE, asserted before undo: the merge landed `b`, recorded no undo
+    // step, and left `present` stale -- exactly what the test above assumed.
+    // If `present` DID include `b` here, the spec's premise would be wrong,
+    // which is the owner's call, not this test's to paper over.
+    const idsAfterSync = store
+      .getState()
+      .tabContainerDataState.tabGroups.map((g) => g.tabGroupId);
+    expect(idsAfterSync).toEqual(['a', 'b']);
+    expect(store.getState().undoRedo.past).toEqual([]);
+    const presentIds = store
+      .getState()
+      .undoRedo.present.tabContainerDataState.tabGroups.map(
+        (g) => g.tabGroupId
+      );
+    expect(presentIds).not.toContain('b');
+
+    store.dispatch(undo());
+
+    const idsAfterUndo = store
+      .getState()
+      .tabContainerDataState.tabGroups.map((g) => g.tabGroupId);
+    expect(idsAfterUndo).toContain('b');
+    const stored = JSON.parse(localStorage.getItem('tabContainerData')!) as {
+      tabGroups: { tabGroupId: string }[];
+    };
+    expect(stored.tabGroups.map((g) => g.tabGroupId)).toContain('b');
   });
 
   // CONTROL: with history, undo still restores and still syncs.
