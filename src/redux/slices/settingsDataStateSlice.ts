@@ -14,6 +14,12 @@ import {
   matchUiLanguage,
   readUiLanguage,
 } from '../../utils/functions/uiLanguage';
+// `import type`, same technique and same reason as the ExportLayout import
+// above and the RootState note in the container slice: a value edge back to
+// store.tsx (which combines this slice into storeConfig) would complete a
+// cycle. RootState is used solely as a parameter type below, so the erased
+// import leaves no runtime edge.
+import type { RootState } from '../store';
 
 export enum Theme {
   LIGHT = 'Light',
@@ -371,3 +377,20 @@ export default settingsDataStateSlice.reducer;
  */
 export const cloudSyncAllowed = (settings: SettingsData): boolean =>
   settings.isAutoSync && settings.cloudConsent === 'granted';
+
+/**
+ * Whether the tab view's own periodic/on-focus cloud read (KAN-279 D11) may
+ * fire right now. Mirrors App's startup-sync condition EXACTLY --
+ * `isSignedIn && isFirebaseAuthed && userId && cloudSyncAllowed(settings)`,
+ * see App.tsx's sync effect -- and deliberately NOT drainQueuedSync's gate
+ * (customMiddleware.ts), which is consent alone. A timed read is a sync
+ * nobody asked for, and syncStateWithFirestore also uploads local edits, so
+ * with Auto Sync off (consent granted or not) the tab must never sync on its
+ * own. Do not "unify" this with drainQueuedSync's gate: they read different
+ * things on purpose.
+ */
+export const timedCloudReadAllowed = (state: RootState): boolean =>
+  state.globalState.isSignedIn &&
+  state.globalState.isFirebaseAuthed &&
+  state.globalState.userId !== null &&
+  cloudSyncAllowed(state.settingsDataState);
