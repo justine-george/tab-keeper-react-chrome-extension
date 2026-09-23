@@ -97,6 +97,15 @@ describe('isOpenInTabRequest', () => {
     ).toBe(true);
   });
 
+  // The `windowId` key can be absent entirely, not just present with value
+  // `undefined` -- OpenInTabRequest is a required field at the TYPE level,
+  // but nothing stops a caller (or a hand-built test message) from omitting
+  // the key at runtime, and popOut.ts's `if (!('windowId' in message))
+  // return true;` is what accepts that.
+  test('accepts the open-in-tab request with the windowId key absent entirely', () => {
+    expect(isOpenInTabRequest({ type: OPEN_IN_TAB_MESSAGE })).toBe(true);
+  });
+
   test('rejects a restore-session request', () => {
     expect(isOpenInTabRequest({ type: 'restoreSession' })).toBe(false);
   });
