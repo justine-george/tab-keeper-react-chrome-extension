@@ -37,6 +37,7 @@ import {
 import { copySessionLinks } from '../../../utils/functions/copySessionLinks';
 import { tidySessionForExport } from '../../../utils/functions/sessionExportHtml';
 import { TOAST_MESSAGES } from '../../../utils/constants/common';
+import { isTabView } from '../../../utils/functions/viewMode';
 import { useTranslation } from 'react-i18next';
 import { DURATION, ICON, TYPE } from '../../../styles/scale';
 
@@ -392,20 +393,24 @@ export default function HeroContainerRight() {
               dispatch(openAllTabContainer({ tabGroupId, goToURLText }));
             }}
           />
-          <Icon
-            tooltipText={t('Switch to session')}
-            ariaLabel={t('Switch to session')}
-            type="filter_center_focus"
-            onClick={() => {
-              dispatch(
-                requestFocusTabContainer({
-                  tabGroupId,
-                  goToURLText: t('Go to URL'),
-                  saveTitle: t('FocusAutoSaveTitle'),
-                })
-              );
-            }}
-          />
+          {/* KAN-279 D7. Switching closes the windows hosting Tab Keeper
+              itself when this page IS the tab view, so hidden there. */}
+          {!isTabView() && (
+            <Icon
+              tooltipText={t('Switch to session')}
+              ariaLabel={t('Switch to session')}
+              type="filter_center_focus"
+              onClick={() => {
+                dispatch(
+                  requestFocusTabContainer({
+                    tabGroupId,
+                    goToURLText: t('Go to URL'),
+                    saveTitle: t('FocusAutoSaveTitle'),
+                  })
+                );
+              }}
+            />
+          )}
           {/* KAN-206. Folds every window in this session, or unfolds them all.
               Third in the strip so the overflow stays last, which is the only
               position that reads as "everything after me is secondary".

@@ -16,6 +16,7 @@ import {
 } from '../../../utils/functions/local';
 import { tabContainerData } from '../../../redux/slices/tabContainerDataStateSlice';
 import { sessionDateLabel } from '../../../utils/functions/sessionDate';
+import { isTabView } from '../../../utils/functions/viewMode';
 import { useTranslation } from 'react-i18next';
 import { DURATION, TYPE } from '../../../styles/scale';
 
@@ -370,17 +371,21 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
             }}
             style="padding: 14px 10px; width: 57px;"
           />
-          <Icon
-            tooltipText={t('Switch to session')}
-            text={t('Switch')}
-            ariaLabel={t('Switch')}
-            type="filter_center_focus"
-            onClick={(e) => {
-              e.stopPropagation();
-              onFocusClick(e);
-            }}
-            style="padding: 14px 10px; width: 57px;"
-          />
+          {/* KAN-279 D7. Switching closes the windows hosting Tab Keeper
+              itself when this page IS the tab view, so hidden there. */}
+          {!isTabView() && (
+            <Icon
+              tooltipText={t('Switch to session')}
+              text={t('Switch')}
+              ariaLabel={t('Switch')}
+              type="filter_center_focus"
+              onClick={(e) => {
+                e.stopPropagation();
+                onFocusClick(e);
+              }}
+              style="padding: 14px 10px; width: 57px;"
+            />
+          )}
           <Icon
             tooltipText={t('Delete session')}
             text={t('Delete')}
