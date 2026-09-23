@@ -40,14 +40,33 @@ import {
 } from '../../redux/slices/globalStateSlice';
 import { grantCloudConsent } from '../../redux/slices/settingsDataStateSlice';
 import {
+  moveChromeGroupAcrossWindowsInternal,
+  moveChromeGroupInternal,
   moveSessionInternal,
+  moveTabAcrossWindowsInternal,
+  moveWindowInternal,
   replaceState,
   type TabMasterContainer,
   type tabContainerData,
+  type tabData,
+  type windowGroupData,
 } from '../../redux/slices/tabContainerDataStateSlice';
+import type { chromeTabGroupData } from '../../utils/functions/tabGroups';
 import { undo } from '../../redux/slices/undoRedoSlice';
-import { beginDragHold, endDragHold } from '../../redux/dragHold';
+import {
+  beginDragHold,
+  endDragHold,
+  whenDragReleases,
+} from '../../redux/dragHold';
 import { dropOnTop, type DropOnTop } from '../../redux/dropOnTop';
+// The SAME builders the four drag handlers call, so a slip in a handler's
+// targetIds or rowExists is a slip here.
+import {
+  groupDrop,
+  sessionDrop,
+  tabDrop,
+  windowDrop,
+} from '../../redux/dropSpecs';
 import { makeTestStore } from '../setup/makeStore';
 import { buildContainer, buildSession } from '../fixtures/sessionFixture';
 import {
@@ -112,16 +131,6 @@ function readLocalStorageContainer(): TabMasterContainer {
 const cloudFrom = (
   change: (local: TabMasterContainer) => TabMasterContainer
 ): TabMasterContainer => change(structuredClone(readLocalStorageContainer()));
-
-// The session handler's drop, as TabGroupEntryContainer.handleMoveSession
-// builds it.
-const sessionDrop = (tabGroupId: string, toIndex: number): DropOnTop => ({
-  rowId: tabGroupId,
-  toIndex,
-  targetIds: (s) => s.tabGroups.map((g) => g.tabGroupId),
-  rowExists: (s) => s.tabGroups.some((g) => g.tabGroupId === tabGroupId),
-  move: (i) => moveSessionInternal({ tabGroupId, toIndex: i }),
-});
 
 type Store = ReturnType<typeof makeTestStore>['store'];
 const ids = (store: Store) =>
@@ -281,5 +290,328 @@ describe('dropOnTop: a drop acts on top of a change that arrived while held (KAN
       moveSessionInternal({ tabGroupId: 'd', toIndex: 1 }),
     ]);
     expect(ids(store)).toEqual(['a', 'd', 'b', 'c']);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Every kind of drop, through the builder its handler calls.
+//
+// These pin INDEX SPACES, not the sync: the waiting change is a local
+// replaceState queued with whenDragReleases, which is all dropOnTop sees of a
+// held merge. Each fixture is built so the re-aimed index and the raw one land
+// the row in different places, and so the no-op cases would visibly change
+// something if a move were dispatched.
+// ---------------------------------------------------------------------------
+
+const tab = (tabId: string, chromeGroupId?: string): tabData => ({
+  tabId,
+  favicon: '',
+  title: tabId,
+  url: `https://${tabId}.test/`,
+  ...(chromeGroupId === undefined ? {} : { chromeGroupId }),
+});
+
+const group = (groupId: string): chromeTabGroupData => ({
+  groupId,
+  title: groupId,
+  color: 'blue',
+});
+
+const win = (
+  windowId: string,
+  tabs: tabData[],
+  chromeTabGroups?: chromeTabGroupData[]
+): windowGroupData => ({
+  windowId,
+  windowHeight: 800,
+  windowWidth: 1200,
+  windowOffsetTop: 0,
+  windowOffsetLeft: 0,
+  tabCount: tabs.length,
+  title: windowId,
+  tabs,
+  ...(chromeTabGroups === undefined ? {} : { chromeTabGroups }),
+});
+
+// One session 's' holding `windows`, not signed in: nothing here syncs.
+const localStore = (windows: windowGroupData[]) => {
+  vi.setSystemTime(T0);
+  const made = makeTestStore();
+  made.store.dispatch(
+    replaceState(
+      buildContainer([
+        buildSession({
+          tabGroupId: 's',
+          windows,
+          windowCount: windows.length,
+          tabCount: windows.reduce((n, w) => n + w.tabs.length, 0),
+        }),
+      ])
+    )
+  );
+  return made;
+};
+
+// Hold, and queue a change this page did not make: a copy of the current
+// container, edited by `edit`, applied when the drop flushes the queue.
+const holdWithChange = (
+  store: Store,
+  edit: (next: TabMasterContainer) => void
+) => {
+  const next = structuredClone(store.getState().tabContainerDataState);
+  edit(next);
+  beginDragHold();
+  whenDragReleases(() => store.dispatch(replaceState(next)));
+};
+
+const sessionOf = (c: TabMasterContainer): tabContainerData => {
+  const s = c.tabGroups.find((g) => g.tabGroupId === 's');
+  if (!s) throw new Error("session 's' is missing");
+  return s;
+};
+const windowOf = (c: TabMasterContainer, windowId: string): windowGroupData => {
+  const w = sessionOf(c).windows.find((x) => x.windowId === windowId);
+  if (!w) throw new Error(`window ${windowId} is missing`);
+  return w;
+};
+const windowIds = (store: Store) =>
+  sessionOf(store.getState().tabContainerDataState).windows.map(
+    (w) => w.windowId
+  );
+const tabIds = (store: Store, windowId: string) =>
+  windowOf(store.getState().tabContainerDataState, windowId).tabs.map(
+    (t) => t.tabId
+  );
+
+describe('every kind of drop re-aims through its own builder (KAN-279 D12)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    localStorage.clear();
+  });
+  afterEach(() => {
+    endDragHold();
+    vi.useRealTimers();
+  });
+
+  describe('windows (moveWindowInternal: the session windows[])', () => {
+    const fourWindows = () =>
+      ['w1', 'w2', 'w3', 'w4'].map((id) => win(id, [tab(`${id}-t`)]));
+
+    it('re-aims beside its neighbour after a window arrives above', () => {
+      const { store } = localStore(fourWindows());
+      holdWithChange(store, (next) => {
+        sessionOf(next).windows.unshift(win('w0', [tab('w0-t')]));
+      });
+
+      // Aimed just below w1.
+      dropAndRelease(store, windowDrop('s', 'w4', 1));
+
+      expect(windowIds(store)).toEqual(['w0', 'w1', 'w4', 'w2', 'w3']);
+    });
+
+    it('its session deleted meanwhile: no move', () => {
+      const { store, seen } = localStore(fourWindows());
+      holdWithChange(store, (next) => {
+        next.tabGroups = [];
+      });
+
+      dropAndRelease(store, windowDrop('s', 'w4', 1));
+
+      expect(store.getState().tabContainerDataState.tabGroups).toEqual([]);
+      expect(seen).not.toContain(moveWindowInternal.type);
+    });
+  });
+
+  describe('tabs in one window (moveTabInternal: that window tabs[])', () => {
+    it('re-aims beside its neighbour after a tab arrives above', () => {
+      const { store } = localStore([
+        win('w1', [tab('t1'), tab('t2'), tab('t3'), tab('t4')]),
+      ]);
+      holdWithChange(store, (next) => {
+        windowOf(next, 'w1').tabs.unshift(tab('t0'));
+      });
+
+      dropAndRelease(
+        store,
+        tabDrop({
+          tabGroupId: 's',
+          tabId: 't4',
+          fromWindowId: 'w1',
+          toWindowId: 'w1',
+          toIndex: 1,
+        })
+      );
+
+      expect(tabIds(store, 'w1')).toEqual(['t0', 't1', 't4', 't2', 't3']);
+    });
+  });
+
+  describe('tabs across windows (moveTabAcrossWindowsInternal: the DESTINATION tabs[])', () => {
+    const twoWindows = () => [
+      win('w1', [tab('a1'), tab('a2')]),
+      win('w2', [tab('b1'), tab('b2', 'G'), tab('b3', 'G')], [group('G')]),
+    ];
+    // a2 into w2, just below b1.
+    const a2IntoW2 = (toChromeGroupId?: string) =>
+      tabDrop({
+        tabGroupId: 's',
+        tabId: 'a2',
+        fromWindowId: 'w1',
+        toWindowId: 'w2',
+        toIndex: 1,
+        toChromeGroupId,
+      });
+
+    it('re-aims in the destination after a tab arrives there', () => {
+      const { store } = localStore(twoWindows());
+      holdWithChange(store, (next) => {
+        windowOf(next, 'w2').tabs.unshift(tab('b0'));
+      });
+
+      dropAndRelease(store, a2IntoW2());
+
+      expect(tabIds(store, 'w2')).toEqual(['b0', 'b1', 'a2', 'b2', 'b3']);
+      expect(tabIds(store, 'w1')).toEqual(['a1']);
+    });
+
+    it('the tab deleted from its source meanwhile: no move', () => {
+      const { store, seen } = localStore(twoWindows());
+      holdWithChange(store, (next) => {
+        windowOf(next, 'w1').tabs = [tab('a1')];
+      });
+
+      dropAndRelease(store, a2IntoW2());
+
+      expect(tabIds(store, 'w2')).toEqual(['b1', 'b2', 'b3']);
+      expect(seen).not.toContain(moveTabAcrossWindowsInternal.type);
+    });
+
+    it('the Chrome group it was joining is gone from the destination: no move', () => {
+      const { store, seen } = localStore(twoWindows());
+      // Ungrouped on the other side: the band the drop aimed into no longer
+      // exists, so there is nothing to join.
+      holdWithChange(store, (next) => {
+        const w2 = windowOf(next, 'w2');
+        w2.chromeTabGroups = [];
+        w2.tabs = [tab('b1'), tab('b2'), tab('b3')];
+      });
+
+      dropAndRelease(store, a2IntoW2('G'));
+
+      expect(tabIds(store, 'w1')).toEqual(['a1', 'a2']);
+      expect(tabIds(store, 'w2')).toEqual(['b1', 'b2', 'b3']);
+      expect(seen).not.toContain(moveTabAcrossWindowsInternal.type);
+    });
+  });
+
+  // A group moves among a window's ITEMS (loose tabs, and each group as one),
+  // so the arriving change here is a two-tab GROUP: one item, but two tabs. An
+  // index re-aimed in tab ids instead of item ids lands one slot off.
+  describe('groups in one window (moveChromeGroupInternal: that window items)', () => {
+    const oneWindow = () => [
+      win(
+        'w1',
+        [tab('t1'), tab('t2'), tab('t3'), tab('y1', 'B')],
+        [group('B')]
+      ),
+    ];
+
+    it('re-aims by item id after a group arrives above', () => {
+      const { store } = localStore(oneWindow());
+      holdWithChange(store, (next) => {
+        const w1 = windowOf(next, 'w1');
+        w1.tabs.unshift(tab('n1', 'N'), tab('n2', 'N'));
+        w1.chromeTabGroups = [...(w1.chromeTabGroups ?? []), group('N')];
+      });
+
+      // B, aimed just below t1.
+      dropAndRelease(
+        store,
+        groupDrop({
+          tabGroupId: 's',
+          groupId: 'B',
+          fromWindowId: 'w1',
+          toWindowId: 'w1',
+          toIndex: 1,
+        })
+      );
+
+      expect(tabIds(store, 'w1')).toEqual(['n1', 'n2', 't1', 'y1', 't2', 't3']);
+    });
+
+    it('the group gone from its window meanwhile: no move', () => {
+      const { store, seen } = localStore(oneWindow());
+      holdWithChange(store, (next) => {
+        const w1 = windowOf(next, 'w1');
+        w1.chromeTabGroups = [];
+        w1.tabs = [tab('t1'), tab('t2'), tab('t3'), tab('y1')];
+      });
+
+      dropAndRelease(
+        store,
+        groupDrop({
+          tabGroupId: 's',
+          groupId: 'B',
+          fromWindowId: 'w1',
+          toWindowId: 'w1',
+          toIndex: 1,
+        })
+      );
+
+      expect(tabIds(store, 'w1')).toEqual(['t1', 't2', 't3', 'y1']);
+      expect(seen).not.toContain(moveChromeGroupInternal.type);
+    });
+  });
+
+  describe('groups across windows (moveChromeGroupAcrossWindowsInternal: the DESTINATION items)', () => {
+    const twoWindows = () => [
+      win('w1', [tab('x1', 'A'), tab('x2', 'A'), tab('t1')], [group('A')]),
+      win('w2', [tab('u1'), tab('u2'), tab('u3')]),
+    ];
+    // A into w2, just below u1.
+    const aIntoW2 = () =>
+      groupDrop({
+        tabGroupId: 's',
+        groupId: 'A',
+        fromWindowId: 'w1',
+        toWindowId: 'w2',
+        toIndex: 1,
+      });
+
+    it('re-aims by item id in the destination after a group arrives there', () => {
+      const { store } = localStore(twoWindows());
+      holdWithChange(store, (next) => {
+        const w2 = windowOf(next, 'w2');
+        w2.tabs.unshift(tab('n1', 'N'), tab('n2', 'N'));
+        w2.chromeTabGroups = [group('N')];
+      });
+
+      dropAndRelease(store, aIntoW2());
+
+      expect(tabIds(store, 'w2')).toEqual([
+        'n1',
+        'n2',
+        'u1',
+        'x1',
+        'x2',
+        'u2',
+        'u3',
+      ]);
+      expect(tabIds(store, 'w1')).toEqual(['t1']);
+    });
+
+    it('the group gone from its source meanwhile: no move', () => {
+      const { store, seen } = localStore(twoWindows());
+      holdWithChange(store, (next) => {
+        const w1 = windowOf(next, 'w1');
+        w1.chromeTabGroups = [];
+        w1.tabs = [tab('x1'), tab('x2'), tab('t1')];
+      });
+
+      dropAndRelease(store, aIntoW2());
+
+      expect(tabIds(store, 'w2')).toEqual(['u1', 'u2', 'u3']);
+      expect(seen).not.toContain(moveChromeGroupAcrossWindowsInternal.type);
+    });
   });
 });

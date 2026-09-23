@@ -1219,59 +1219,63 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // did they ask for the row they were holding to open.
       suppressClickUntil.current = performance.now() + 400;
 
-      if (drop) {
-        // The window is passed only by a list whose rows sit in windows. Every
-        // other list is called exactly as it always was, and never learns the
-        // argument exists.
-        //
-        // THE TWO-ARITY CALLS ARE LOAD-BEARING, not a shorter way to write the
-        // same thing with the 4th argument left `undefined`:
-        // dragSurvivesRerender.test.tsx:107 asserts
-        // `toHaveBeenCalledWith('a', 1, undefined)`, which a trailing explicit
-        // `undefined` 4th argument fails -- vitest's mock matcher checks
-        // argument COUNT too. Do not collapse this to one call spread over
-        // both branches.
-        if (drop.toWindowId === undefined) {
-          onMove(l.rowId, drop.toIndex, drop.dropTargetId);
-        } else {
-          onMove(l.rowId, drop.toIndex, drop.dropTargetId, drop.toWindowId);
+      try {
+        if (drop) {
+          // The window is passed only by a list whose rows sit in windows. Every
+          // other list is called exactly as it always was, and never learns the
+          // argument exists.
+          //
+          // THE TWO-ARITY CALLS ARE LOAD-BEARING, not a shorter way to write the
+          // same thing with the 4th argument left `undefined`:
+          // dragSurvivesRerender.test.tsx:107 asserts
+          // `toHaveBeenCalledWith('a', 1, undefined)`, which a trailing explicit
+          // `undefined` 4th argument fails -- vitest's mock matcher checks
+          // argument COUNT too. Do not collapse this to one call spread over
+          // both branches.
+          if (drop.toWindowId === undefined) {
+            onMove(l.rowId, drop.toIndex, drop.dropTargetId);
+          } else {
+            onMove(l.rowId, drop.toIndex, drop.dropTargetId, drop.toWindowId);
+          }
+
+          // Follow the row you just dropped (KAN-155).
+          //
+          // Releasing ENDS the collapse, so the list springs back from a third of
+          // its height to all of it -- and a row dropped at the bottom of the
+          // folded list is then far below the fold. The user placed it
+          // deliberately and cannot see where it went, which is KAN-143's
+          // complaint arriving by a different route.
+          //
+          // On the next frame, because the reorder has to be committed and laid
+          // out before there is anything to scroll to; and `block: 'nearest'`
+          // so a row already on screen is left exactly where it is.
+          //
+          // Only on a COMMITTED drop, which is the only case with a new place to
+          // show. A drag that commits nothing is the branch below.
+          const dropped = l.rowId;
+          requestAnimationFrame(() => {
+            rows.current.get(dropped)?.scrollIntoView({ block: 'nearest' });
+          });
+        } else if (restoreScrollIfNoDrop && l.scroller) {
+          // Put the view back (KAN-157). For a window drag "nothing happened" is
+          // not the same as "leave the scroll alone": the collapse already
+          // clamped it, and unfolding does not give it back -- measured, five
+          // windows scrolled to 300 ended at 0 with the held window off screen.
+          //
+          // Synchronous, and after setDragging(false) above: the kind is
+          // unpublished, so this write lays out against the UNFOLDED list and
+          // its full scroll range, which is the only one 300 fits in.
+          l.scroller.scrollTop = l.scrollTopAtPress;
         }
-
-        // Follow the row you just dropped (KAN-155).
-        //
-        // Releasing ENDS the collapse, so the list springs back from a third of
-        // its height to all of it -- and a row dropped at the bottom of the
-        // folded list is then far below the fold. The user placed it
-        // deliberately and cannot see where it went, which is KAN-143's
-        // complaint arriving by a different route.
-        //
-        // On the next frame, because the reorder has to be committed and laid
-        // out before there is anything to scroll to; and `block: 'nearest'`
-        // so a row already on screen is left exactly where it is.
-        //
-        // Only on a COMMITTED drop, which is the only case with a new place to
-        // show. A drag that commits nothing is the branch below.
-        const dropped = l.rowId;
-        requestAnimationFrame(() => {
-          rows.current.get(dropped)?.scrollIntoView({ block: 'nearest' });
-        });
-      } else if (restoreScrollIfNoDrop && l.scroller) {
-        // Put the view back (KAN-157). For a window drag "nothing happened" is
-        // not the same as "leave the scroll alone": the collapse already
-        // clamped it, and unfolding does not give it back -- measured, five
-        // windows scrolled to 300 ended at 0 with the held window off screen.
-        //
-        // Synchronous, and after setDragging(false) above: the kind is
-        // unpublished, so this write lays out against the UNFOLDED list and
-        // its full scroll range, which is the only one 300 fits in.
-        l.scroller.scrollTop = l.scrollTopAtPress;
+      } finally {
+        // KAN-279 D12. Last, after onMove: a committed drop's consumer applies
+        // the held change itself (dropOnTop) so the move lands on top of it,
+        // and this then finds the queue empty. A refused or cancelled drag has
+        // no consumer call, and this is what applies the change. In a
+        // `finally` so a throwing onMove cannot leave the hold on, and every
+        // later merge queued behind a drop that has already ended.
+        endDragHold();
       }
-
-      // KAN-279 D12. Last, after onMove: a committed drop's consumer applies
-      // the held change itself (dropOnTop) so the move lands on top of it, and
-      // this then finds the queue empty. A refused or cancelled drag has no
-      // consumer call, and this is what applies the change.
-      endDragHold();
     };
 
     const onUp = () => finish(true);

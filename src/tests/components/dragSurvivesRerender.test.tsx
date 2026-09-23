@@ -16,6 +16,7 @@ import {
   setHasTabGroupsPermission,
   setIsNotDirty,
 } from '../../redux/slices/globalStateSlice';
+import { isDragHeld } from '../../redux/dragHold';
 
 // KAN-159. A drag must survive the list re-rendering underneath it.
 //
@@ -135,6 +136,8 @@ describe('another area cannot end this drag', () => {
     rerender(<Page showOther={false} />);
 
     expect(flag()).toBe('window');
+    // KAN-279 D12. Nor can it end this drag's hold on outside changes.
+    expect(isDragHeld()).toBe(true);
   });
 });
 

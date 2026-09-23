@@ -126,6 +126,41 @@ describe('a started drag holds, and every way it ends releases (KAN-279 D12)', (
     expect(isDragHeld()).toBe(false);
   });
 
+  // A consumer that throws must not leave the hold on: every later merge
+  // would queue behind a drop that has already ended, for the life of the
+  // page.
+  test('an onMove that throws still releases, and the held change runs once', () => {
+    const onMove = vi.fn(() => {
+      throw new Error('consumer failed');
+    });
+    // jsdom reports a listener's exception as a window `error` event rather
+    // than rethrowing it into the test. Caught here so it is asserted on --
+    // proving onMove really threw -- instead of printed.
+    const reported: unknown[] = [];
+    const onError = (e: ErrorEvent) => {
+      reported.push(e.error);
+      e.preventDefault();
+    };
+    window.addEventListener('error', onError);
+    render(<Area ids={['a', 'b', 'c']} onMove={onMove} />);
+    startDrag('Row a');
+    expect(isDragHeld()).toBe(true);
+    const spy = vi.fn();
+    whenDragReleases(spy);
+
+    try {
+      fireEvent.pointerMove(document, { clientX: 10, clientY: 70 });
+      fireEvent.pointerUp(document, { clientX: 10, clientY: 70 });
+    } finally {
+      window.removeEventListener('error', onError);
+    }
+
+    expect(onMove).toHaveBeenCalledTimes(1);
+    expect(reported).toHaveLength(1);
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(isDragHeld()).toBe(false);
+  });
+
   // CONTROL: a press that never passes the threshold is a click, not a drag.
   // It never holds, so a change arriving then applies at once.
   test('CONTROL: a click never holds', () => {

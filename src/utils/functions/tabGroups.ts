@@ -156,7 +156,13 @@ const GROUP_ITEM = 'group:';
 export const itemIdOf = (item: TabItem): string =>
   item.kind === 'tab'
     ? `${TAB_ITEM}${item.tab.tabId}`
-    : `${GROUP_ITEM}${item.group.groupId}`;
+    : groupItemIdOf(item.group.groupId);
+
+// A group's item id from the group id alone, for a caller that names the group
+// before it has its item in hand. The inverse of groupIdOfItemId.
+export function groupItemIdOf(groupId: string): string {
+  return `${GROUP_ITEM}${groupId}`;
+}
 
 export function groupIdOfItemId(itemId: string): string | undefined {
   return itemId.startsWith(GROUP_ITEM)

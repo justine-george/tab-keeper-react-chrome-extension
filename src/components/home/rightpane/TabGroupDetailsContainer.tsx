@@ -14,10 +14,8 @@ import {
 import {
   addCurrTabToWindow,
   deleteWindow,
-  moveWindowInternal,
   openTabsInAWindow,
   updateWindowGroupTitle,
-  type TabMasterContainer,
 } from '../../../redux/slices/tabContainerDataStateSlice';
 import { useTranslation } from 'react-i18next';
 import { toStoredTab } from '../../../utils/functions/capture';
@@ -25,6 +23,7 @@ import { RowDragArea, DraggableRow } from './rowDrag/RowDragArea';
 import { TabDragArea } from './TabDragArea';
 import { GroupDragArea } from './GroupDragArea';
 import { dropOnTop } from '../../../redux/dropOnTop';
+import { windowDrop } from '../../../redux/dropSpecs';
 
 export default function TabGroupDetailsContainer() {
   const COLORS = useThemeColors();
@@ -78,25 +77,7 @@ export default function TabGroupDetailsContainer() {
   const handleMoveWindow = useCallback(
     (windowId: string, toIndex: number) => {
       if (!movedTabGroupId) return;
-      const sessionIn = (s: TabMasterContainer) =>
-        s.tabGroups.find((g) => g.tabGroupId === movedTabGroupId);
-      // moveWindowInternal applies toIndex to the session's windows[].
-      dispatch(
-        dropOnTop({
-          rowId: windowId,
-          toIndex,
-          targetIds: (s) =>
-            sessionIn(s)?.windows.map((w) => w.windowId) ?? null,
-          rowExists: (s) =>
-            sessionIn(s)?.windows.some((w) => w.windowId === windowId) ?? false,
-          move: (i) =>
-            moveWindowInternal({
-              tabGroupId: movedTabGroupId,
-              windowId,
-              toIndex: i,
-            }),
-        })
-      );
+      dispatch(dropOnTop(windowDrop(movedTabGroupId, windowId, toIndex)));
     },
     [dispatch, movedTabGroupId]
   );
