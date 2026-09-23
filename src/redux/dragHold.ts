@@ -21,21 +21,33 @@ export function whenDragReleases(apply: Apply): void {
   }
   queue.push(apply);
 }
-// Each apply runs in its own try/catch: two kinds are queued (a cloud merge,
-// another page's write), and a throw in one must not drop the ones after it.
-// Reported, not rethrown, so dropOnTop still applies the move on top of
-// whatever did apply -- a rethrow would lose the drop as well.
-export function flushHeldChanges(): boolean {
+export interface FlushResult {
+  // Something was queued, and so ran (or threw).
+  ran: boolean;
+  // No apply threw. False means state holds a change only partly applied or
+  // not at all, and localStorage may hold one this page never took in.
+  allApplied: boolean;
+}
+
+// Every apply runs, each in its own try/catch: two kinds are queued (a cloud
+// merge, another page's write), and a throw in one must not drop the ones
+// after it. A failure is logged and reported, not rethrown: dropOnTop reads
+// allApplied and abandons the drop -- a move landing on a list that never
+// took the change in would save over it -- and a status, unlike a rethrow,
+// cannot escape endDragHold into the pointer handler that called it.
+export function flushHeldChanges(): FlushResult {
   const pending = queue;
   queue = [];
+  let allApplied = true;
   for (const apply of pending) {
     try {
       apply();
     } catch (error) {
+      allApplied = false;
       console.error('A change held during a drag failed to apply: ', error);
     }
   }
-  return pending.length > 0;
+  return { ran: pending.length > 0, allApplied };
 }
 export function endDragHold(): void {
   held = false;

@@ -135,11 +135,23 @@ const SHIPPED_LANGUAGES = Object.values(Language);
  * (#42). The quote strip predates this: #42's `i18nextLng` key was JSON-quoted.
  */
 export function startupLanguage(stored: unknown, uiTag: unknown): Language {
-  const saved =
-    typeof stored === 'string'
-      ? SHIPPED_LANGUAGES.find((l) => l === stored.replace(/"/g, ''))
-      : undefined;
-  return saved ?? matchUiLanguage(uiTag, SHIPPED_LANGUAGES) ?? Language.EN;
+  return (
+    asShippedLanguage(stored) ??
+    matchUiLanguage(uiTag, SHIPPED_LANGUAGES) ??
+    Language.EN
+  );
+}
+
+/**
+ * A stored language value, if it names one this build ships; else undefined.
+ * Anything else handed to i18next makes it fetch a locale file that does not
+ * exist (#42). Quotes are stripped first: #42's `i18nextLng` key was
+ * JSON-quoted. Also guards another page's settings write (KAN-279 D9).
+ */
+export function asShippedLanguage(value: unknown): Language | undefined {
+  return typeof value === 'string'
+    ? SHIPPED_LANGUAGES.find((l) => l === value.replace(/"/g, ''))
+    : undefined;
 }
 
 const defaultSettings: SettingsData = {

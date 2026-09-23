@@ -6,6 +6,7 @@ import {
   type TabMasterContainer,
 } from './slices/tabContainerDataStateSlice';
 import {
+  asShippedLanguage,
   hydrateSettingsFromOtherPage,
   type Language,
   type SettingsData,
@@ -50,25 +51,28 @@ const withOwnSelection = (
   };
 };
 
-// No hold check: this is what the drag-hold queue runs, and dropOnTop flushes
-// that queue with the hold still on. Reads localStorage when it RUNS, so a
-// held apply takes the latest write, not the one that queued it.
-const hydrateSessionsFromStorage = (): Thunk<void> => (dispatch, getState) => {
-  const incoming = loadFromLocalStorage('tabContainerData');
-  if (!isValidTabMasterContainer(incoming)) {
-    console.warn(
-      'Ignoring unreadable tabContainerData written by another page.'
-    );
-    return;
-  }
-  const current = getState().tabContainerDataState;
-  if (sameContainerData(incoming, current)) return;
+// No hold check: this is what the drag-hold queue runs, and what dropOnTop
+// re-reads with, both with the hold still on. Reads localStorage when it
+// RUNS, so a held apply takes the latest write, not the one that queued it.
+export const hydrateSessionsFromStorage =
+  (): Thunk<void> => (dispatch, getState) => {
+    const incoming = loadFromLocalStorage('tabContainerData');
+    // Absent is no value to take in, not an invalid one: nothing to warn of.
+    if (incoming === undefined) return;
+    if (!isValidTabMasterContainer(incoming)) {
+      console.warn(
+        'Ignoring unreadable tabContainerData written by another page.'
+      );
+      return;
+    }
+    const current = getState().tabContainerDataState;
+    if (sameContainerData(incoming, current)) return;
 
-  const next = withOwnSelection(incoming, current.selectedTabGroupId);
-  dispatch(hydrateFromOtherPage(next));
-  // D12: a change this page did not make leaves nothing an undo may reverse.
-  dispatch(resetHistory({ tabContainerDataState: next }));
-};
+    const next = withOwnSelection(incoming, current.selectedTabGroupId);
+    dispatch(hydrateFromOtherPage(next));
+    // D12: a change this page did not make leaves nothing an undo may reverse.
+    dispatch(resetHistory({ tabContainerDataState: next }));
+  };
 
 // While a row is held the change waits for the release (D12): applying it
 // would move the list under the pointer. The queued closure calls the inner
@@ -89,14 +93,29 @@ export interface OtherPageSettingsResult {
 }
 
 // Settings are laid over this page's, field by field, and taken in when that
-// changes anything. asPartialSettings checks only the object shape, as every
-// settings reader does; a non-object reads as {} and so as no change.
+// changes anything. The object shape is all that is checked, as every
+// settings reader does -- except the language, which reaches i18next: an
+// unshipped one would make it fetch a locale file that does not exist (#42),
+// so it keeps this page's instead (never the UI language: this page already
+// chose one).
 export const applyOtherPageSettings =
   (): Thunk<OtherPageSettingsResult> => (dispatch, getState) => {
     const current = getState().settingsDataState;
+    const loaded = loadFromLocalStorage('settingsData');
+    if (loaded === undefined) return { languageChanged: null };
+    if (
+      typeof loaded !== 'object' ||
+      loaded === null ||
+      Array.isArray(loaded)
+    ) {
+      console.warn('Ignoring unreadable settingsData written by another page.');
+      return { languageChanged: null };
+    }
+    const incoming = asPartialSettings<SettingsData>(loaded);
     const next: SettingsData = {
       ...current,
-      ...asPartialSettings<SettingsData>(loadFromLocalStorage('settingsData')),
+      ...incoming,
+      language: asShippedLanguage(incoming.language) ?? current.language,
     };
     if (sameIgnoringKeyOrder(next, current)) return { languageChanged: null };
 

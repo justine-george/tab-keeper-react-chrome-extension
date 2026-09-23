@@ -302,6 +302,20 @@ describe('applyOtherPageSessions (KAN-279 D9)', () => {
     expect(store.getState().tabContainerDataState).toBe(mine);
   });
 
+  // Absent is no value, not an invalid one.
+  it('(4b) absent: no dispatch and no warning', () => {
+    const { store, seen } = storeWithHistory(
+      buildContainer([session('a', T0 - 10 * MIN)])
+    );
+    localStorage.removeItem('tabContainerData');
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    store.dispatch(applyOtherPageSessions());
+
+    expect(warn).not.toHaveBeenCalled();
+    expect(actionTypes(seen)).toEqual([]);
+  });
+
   // (5) The other page deleted the session this page had selected: the same
   // fallback a delete here uses (deleteTabContainerInternal: null).
   it('(5) selected session deleted elsewhere: selectedTabGroupId null, nothing isSelected', () => {
@@ -381,6 +395,35 @@ describe('applyOtherPageSessions (KAN-279 D9)', () => {
       expect(store.getState().undoRedo.past).toEqual([]);
     }
   );
+
+  // (6c) The queued apply reads localStorage when it RUNS: a second write
+  // while held, with no second dispatch, is the one that lands.
+  it('(6c) held drag: a later write lands, not the one that queued the apply', () => {
+    const { store } = storeWithHistory(
+      buildContainer([session('a', T0 - 10 * MIN), session('b', T0 - 20 * MIN)])
+    );
+    const mine = store.getState().tabContainerDataState;
+    beginDragHold();
+    otherPageWrites('tabContainerData', {
+      ...mine,
+      lastModified: T0 + MIN,
+      tabGroups: [session('v1', T0 - 5 * MIN), ...mine.tabGroups],
+    });
+    store.dispatch(applyOtherPageSessions());
+    otherPageWrites('tabContainerData', {
+      ...mine,
+      lastModified: T0 + 2 * MIN,
+      tabGroups: [
+        session('v2', T0 - 4 * MIN),
+        session('v1', T0 - 5 * MIN),
+        ...mine.tabGroups,
+      ],
+    });
+
+    endDragHold();
+
+    expect(ids(store)).toEqual(['v2', 'v1', 'a', 'b']);
+  });
 
   // (6b) The drop path: dropOnTop flushes the queue with the flag STILL set,
   // so the queued apply must not re-check the hold -- it would re-queue
@@ -485,23 +528,69 @@ describe('applyOtherPageSettings (KAN-279 D9)', () => {
     expect(store.getState().settingsDataState).toBe(current);
   });
 
-  it('(7d) a non-object value: no dispatch', () => {
+  it('(7d) a non-object value: no dispatch, console.warn once', () => {
     const { store, seen } = settingsStore();
     const current = store.getState().settingsDataState;
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
 
     otherPageWrites('settingsData', ['not', 'settings']);
     const result = store.dispatch(applyOtherPageSettings());
 
     expect(result).toEqual({ languageChanged: null });
+    expect(warn).toHaveBeenCalledTimes(1);
     expect(actionTypes(seen)).toEqual([]);
     expect(store.getState().settingsDataState).toBe(current);
+  });
+
+  // An unshipped language would make i18next fetch a locale file that does
+  // not exist (#42). It keeps this page's language instead.
+  it('(7e) an unshipped language: languageChanged null, language unchanged', () => {
+    const { store, seen } = settingsStore();
+    const current = store.getState().settingsDataState;
+
+    otherPageWrites('settingsData', { ...current, language: 'xx' });
+    const result = store.dispatch(applyOtherPageSettings());
+
+    expect(result).toEqual({ languageChanged: null });
+    expect(store.getState().settingsDataState.language).toBe(current.language);
+    expect(actionTypes(seen)).toEqual([]);
+  });
+
+  // The rest of the write still lands; only the language is withheld.
+  it('(7f) an unshipped language beside a real change: the change lands, the language does not', () => {
+    const { store } = settingsStore();
+    const current = store.getState().settingsDataState;
+
+    otherPageWrites('settingsData', {
+      ...current,
+      language: 'xx',
+      lastSyncedTime: T0 + MIN,
+    });
+    const result = store.dispatch(applyOtherPageSettings());
+
+    expect(result).toEqual({ languageChanged: null });
+    expect(store.getState().settingsDataState.lastSyncedTime).toBe(T0 + MIN);
+    expect(store.getState().settingsDataState.language).toBe(current.language);
+  });
+
+  it('(7g) absent: no dispatch and no warning', () => {
+    const { store, seen } = settingsStore();
+    localStorage.removeItem('settingsData');
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    const result = store.dispatch(applyOtherPageSettings());
+
+    expect(result).toEqual({ languageChanged: null });
+    expect(warn).not.toHaveBeenCalled();
+    expect(actionTypes(seen)).toEqual([]);
   });
 });
 
 // Addition B. The KAN-83 tail, now that D9 exists: a session another page
 // brought in survives the next sync, and a later undo neither buries nor
-// drops it. Two devices: the cloud holds `theirs` and LACKS this page's later
-// rename, so the sync genuinely merges rather than echoing local back.
+// drops it. Two-sided: the cloud holds `theirs` plus a session from device B
+// that this page lacks, and LACKS this page's rename -- so the sync genuinely
+// merges in both directions rather than echoing local back.
 describe('KAN-83 tail: a session another page brought in survives sync and undo', () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -551,45 +640,66 @@ describe('KAN-83 tail: a session another page brought in survives sync and undo'
     store.dispatch(applyOtherPageSessions());
     expect([...ids(store)].sort()).toEqual(['mine-1', 'mine-2', 'theirs']);
 
-    // The cloud: the other device's copy, with `theirs`, before this page's
-    // rename below.
-    mocks.cloud.doc = structuredClone(withTheirs);
-
-    // This page's own edit AFTER the hydrate, so undo has a step to retract.
+    // This page's own edit after the hydrate: the cloud below lacks it.
     vi.setSystemTime(T0 + 2 * MIN);
     store.dispatch(
       updateTabGroupTitle({ tabGroupId: 'mine-1', editableTitle: 'renamed' })
     );
-    expect(store.getState().undoRedo.past.length).toBe(1);
 
-    // 3. A later sync against the two-device cloud keeps it.
+    // The cloud: two-sided. It holds `theirs` and a session device B saved
+    // that this page lacks, and it lacks this page's rename.
+    mocks.cloud.doc = structuredClone({
+      ...withTheirs,
+      lastModified: T0 + MIN,
+      tabGroups: [
+        session('from-b', T0 - 2 * MIN, { lastModified: T0 + MIN }),
+        ...withTheirs.tabGroups,
+      ],
+    });
+
+    // 3. A later sync keeps `theirs`, brings `from-b` in, and uploads the
+    // rename: a real merge, not an echo.
     vi.setSystemTime(T0 + 3 * MIN);
     await store.dispatch(syncStateWithFirestore());
     await vi.runAllTimersAsync();
-    expect(ids(store)).toContain('theirs');
+    expect([...ids(store)].sort()).toEqual([
+      'from-b',
+      'mine-1',
+      'mine-2',
+      'theirs',
+    ]);
     expect(store.getState().globalState.syncStatus).toBe('success');
     const cloud = mocks.cloud.doc;
     if (!isValidTabMasterContainer(cloud)) {
       throw new Error('the cloud does not hold a valid container');
     }
-    expect(cloud.tabGroups.map((g) => g.tabGroupId)).toContain('theirs');
+    expect(cloud.tabGroups.map((g) => g.tabGroupId).sort()).toEqual([
+      'from-b',
+      'mine-1',
+      'mine-2',
+      'theirs',
+    ]);
     expect(cloud.tabGroups.find((g) => g.tabGroupId === 'mine-1')?.title).toBe(
       'renamed'
     );
-    // Premise: the sync did not reset undo (the cloud had nothing local
-    // lacked), so the undo below really retracts a step.
-    expect(store.getState().undoRedo.past.length).toBe(1);
 
-    // 4. Undo retracts the rename, and nothing else.
+    // 4. An edit after the sync, so undo has a step to retract; the undo
+    // retracts it and nothing else.
+    vi.setSystemTime(T0 + 4 * MIN);
+    store.dispatch(
+      updateTabGroupTitle({ tabGroupId: 'mine-2', editableTitle: 'mine-2 v3' })
+    );
+    expect(store.getState().undoRedo.past.length).toBe(1);
     store.dispatch(undo());
 
     const after = store.getState().tabContainerDataState;
-    expect(after.tabGroups.find((g) => g.tabGroupId === 'mine-1')?.title).toBe(
-      'mine-1'
+    expect(after.tabGroups.find((g) => g.tabGroupId === 'mine-2')?.title).toBe(
+      'mine-2 v2'
     );
     expect(ids(store)).toContain('theirs');
-    expect(
-      (after.deletedTabGroups ?? []).map((t) => t.tabGroupId)
-    ).not.toContain('theirs');
+    expect(ids(store)).toContain('from-b');
+    const graves = (after.deletedTabGroups ?? []).map((t) => t.tabGroupId);
+    expect(graves).not.toContain('theirs');
+    expect(graves).not.toContain('from-b');
   });
 });

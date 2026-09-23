@@ -45,6 +45,7 @@ import {
   moveSessionInternal,
   moveTabAcrossWindowsInternal,
   moveWindowInternal,
+  hydrateFromOtherPage,
   replaceState,
   type TabMasterContainer,
   type tabContainerData,
@@ -52,7 +53,7 @@ import {
   type windowGroupData,
 } from '../../redux/slices/tabContainerDataStateSlice';
 import type { chromeTabGroupData } from '../../utils/functions/tabGroups';
-import { undo } from '../../redux/slices/undoRedoSlice';
+import { resetHistory, undo } from '../../redux/slices/undoRedoSlice';
 import {
   beginDragHold,
   endDragHold,
@@ -296,6 +297,99 @@ describe('dropOnTop: a drop acts on top of a change that arrived while held (KAN
       moveSessionInternal({ tabGroupId: 'd', toIndex: 1 }),
     ]);
     expect(ids(store)).toEqual(['a', 'd', 'b', 'c']);
+  });
+});
+
+// KAN-279 D9. Another page's write, and the drop. The other page writes
+// localStorage directly -- what a second page does -- so this page learns of it
+// only through a storage event (an apply queued on the hold) or the drop's own
+// re-read of localStorage.
+describe("dropOnTop and another page's write (KAN-279 D9)", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    localStorage.clear();
+    mocks.cloud.doc = undefined;
+    mocks.saveToFirestore.mockClear();
+    mocks.loadFromFirestore.mockClear();
+  });
+  afterEach(() => {
+    endDragHold();
+    vi.restoreAllMocks();
+    vi.useRealTimers();
+  });
+
+  // n sorts to the top of a, b, c, d.
+  const otherPageAddsN = (): string => {
+    const local = readLocalStorageContainer();
+    const bytes = JSON.stringify({
+      ...local,
+      lastModified: T0 + MIN,
+      tabGroups: [session('n', T0 - 5 * MIN), ...local.tabGroups],
+    });
+    localStorage.setItem('tabContainerData', bytes);
+    return bytes;
+  };
+
+  // A held apply that throws (here, standing in for the other page's hydrate
+  // failing) abandons the drop: a move landing on a list that never took the
+  // change in would save over the other page's bytes.
+  it('a held change that failed to apply: no move, and localStorage keeps the other page write', () => {
+    const { store, seen } = readyStore(abcd());
+    const error = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    const bytes = otherPageAddsN();
+    beginDragHold();
+    whenDragReleases(() => {
+      throw new Error('the held apply failed');
+    });
+
+    dropAndRelease(store, sessionDrop('d', 1));
+
+    expect(seen).not.toContain(moveSessionInternal.type);
+    expect(ids(store)).toEqual(['a', 'b', 'c', 'd']);
+    expect(localStorage.getItem('tabContainerData')).toBe(bytes);
+    expect(error).toHaveBeenCalledTimes(1);
+  });
+
+  // The write reached localStorage but no storage event has: nothing is
+  // queued. The drop re-reads, takes n in first, and lands on top of it.
+  it('re-reads at the drop: a write with nothing queued lands first, and the drop re-aims on top', () => {
+    const { store, seen } = readyStore(abcd());
+    otherPageAddsN();
+    beginDragHold();
+
+    dropAndRelease(store, sessionDrop('d', 1));
+
+    expect(ids(store)).toEqual(['n', 'a', 'd', 'b', 'c']);
+    expect(
+      readLocalStorageContainer().tabGroups.map((g) => g.tabGroupId)
+    ).toEqual(['n', 'a', 'd', 'b', 'c']);
+    const hydrated = seen.indexOf(hydrateFromOtherPage.type);
+    expect(hydrated).toBeGreaterThanOrEqual(0);
+    expect(seen.indexOf(moveSessionInternal.type)).toBeGreaterThan(hydrated);
+    // The drop is the one undo step on top of the reset the hydrate made.
+    expect(store.getState().undoRedo.past.length).toBe(1);
+  });
+
+  // CONTROL: a page alone, a drag held, nothing written elsewhere. The
+  // re-read finds localStorage equal to state and dispatches nothing; the drop
+  // is exactly the old move.
+  it('CONTROL: popup only, the drop dispatches exactly the old move and no hydrate or reset', () => {
+    const { store, seen, actions } = readyStore(abcd());
+    const pastBefore = store.getState().undoRedo.past;
+    beginDragHold();
+
+    dropAndRelease(store, sessionDrop('d', 1));
+
+    const moves = actions.filter((a) => a.type === moveSessionInternal.type);
+    expect(moves).toEqual([
+      moveSessionInternal({ tabGroupId: 'd', toIndex: 1 }),
+    ]);
+    expect(seen).not.toContain(hydrateFromOtherPage.type);
+    expect(seen).not.toContain(resetHistory.type);
+    expect(ids(store)).toEqual(['a', 'd', 'b', 'c']);
+    expect(store.getState().undoRedo.past.length).toBe(pastBefore.length + 1);
   });
 });
 
