@@ -1,16 +1,18 @@
 import { describe, expect, test } from 'vitest';
 import { LIGHT_THEME } from '../../hooks/useThemeColors';
-import { screen } from '@testing-library/react';
+import { act, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import WindowEntryContainer from '../../components/home/rightpane/WindowEntryContainer';
 import { renderWithProviders } from '../setup/renderWithProviders';
+import type { ChromeSeed } from '../setup/chrome.fake';
 import {
   setHasTabGroupsPermission,
   openSearchPanel,
 } from '../../redux/slices/globalStateSlice';
 import { saveToTabContainerInternal } from '../../redux/slices/tabContainerDataStateSlice';
 import type { chromeTabGroupData } from '../../redux/slices/tabContainerDataStateSlice';
+import { ADD_CURR_TAB_TO_CHROME_GROUP_ACTION } from '../../utils/constants/actionTypes';
 
 // The group row's full action set, wired through the UI rather than asserted
 // on the reducers (which chromeGroupActions.test.ts already covers). What is
@@ -38,7 +40,14 @@ const GROUPS: chromeTabGroupData[] = [
   { groupId: 'grp', title: 'Research', color: 'blue' },
 ];
 
-async function renderRow({ isSearchPanel = false } = {}) {
+const DEFAULT_SEED: ChromeSeed = {
+  tabs: [{ id: 1, active: true, url: 'https://added.test', title: 'Added' }],
+};
+
+async function renderRow({
+  isSearchPanel = false,
+  seed = DEFAULT_SEED,
+}: { isSearchPanel?: boolean; seed?: ChromeSeed } = {}) {
   return renderWithProviders(
     <WindowEntryContainer
       title="Window 1"
@@ -52,11 +61,7 @@ async function renderRow({ isSearchPanel = false } = {}) {
       onDeleteClick={() => undefined}
     />,
     {
-      seed: {
-        tabs: [
-          { id: 1, active: true, url: 'https://added.test', title: 'Added' },
-        ],
-      },
+      seed,
       seedStore: (store) => {
         store.dispatch(setHasTabGroupsPermission(true));
         if (isSearchPanel) store.dispatch(openSearchPanel());
@@ -185,6 +190,51 @@ describe('the group row action set', () => {
     const strip = document.querySelector('.group-rename-reveal');
     expect(strip).not.toBeNull();
     expect(getComputedStyle(strip as Element).zIndex).not.toBe('auto');
+  });
+});
+
+// KAN-299 fix round 1. Extends the Tab Keeper page rule to the active-tab
+// paths: "Add current tab to group" must add nothing when the active tab IS
+// one -- the same rule as the window-level add (TabGroupDetailsContainer).
+describe('add current tab to group skips a Tab Keeper page', () => {
+  test('the active tab is the tab view: nothing is added', async () => {
+    const { store, seen } = await renderRow({
+      seed: {
+        tabs: [
+          {
+            id: 1,
+            active: true,
+            url: 'chrome-extension://faketestid/index.html?view=tab',
+            title: 'Tab Keeper',
+          },
+        ],
+      },
+    });
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Add current tab to group' })
+    );
+    // Flushes the click handler's own await (chrome.tabs.query) so a
+    // dispatch that WOULD have happened has had the chance to.
+    await act(async () => {});
+
+    // `seen` first: addCurrTabToChromeGroupInternal always unshifts into the
+    // group, so a mutation that lets the dispatch through also changes the
+    // length check below -- ordered the other way, that line always throws
+    // first.
+    expect(seen).not.toContain(ADD_CURR_TAB_TO_CHROME_GROUP_ACTION);
+    expect(win(store).tabs).toHaveLength(3);
+  });
+
+  // CONTROL: an ordinary active tab is still added, exactly as today.
+  test('CONTROL: an ordinary active tab is still added', async () => {
+    const { store } = await renderRow();
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Add current tab to group' })
+    );
+
+    expect(win(store).tabs).toHaveLength(4);
   });
 });
 

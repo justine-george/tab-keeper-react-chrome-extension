@@ -46,7 +46,7 @@ import type {
   GroupRun,
 } from '../../../utils/functions/tabGroups';
 import { applyTabGroups } from '../../../utils/functions/windows';
-import { toStoredTab } from '../../../utils/functions/capture';
+import { isTabKeeperPage, toStoredTab } from '../../../utils/functions/capture';
 import { isTabView } from '../../../utils/functions/viewMode';
 
 import { DraggableRow } from './rowDrag/RowDragArea';
@@ -531,7 +531,10 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
       active: true,
       lastFocusedWindow: true,
     });
-    if (!tab) return;
+    // KAN-299 fix round 1. Same rule as the window-level add
+    // (TabGroupDetailsContainer): a Tab Keeper page must never be added to
+    // a group as if it were a saved tab.
+    if (!tab || isTabKeeperPage(tab)) return;
     dispatch(
       addCurrTabToChromeGroupInternal({
         tabGroupId,

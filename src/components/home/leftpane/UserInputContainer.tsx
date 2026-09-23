@@ -12,6 +12,7 @@ import { AppDispatch, RootState } from '../../../redux/store';
 import { setSearchInputText } from '../../../redux/slices/globalStateSlice';
 import {
   captureOpenWindows,
+  isTabKeeperPage,
   type CaptureScope,
 } from '../../../utils/functions/capture';
 import { dropNotificationCount } from '../../../utils/functions/sessionExportHtml';
@@ -19,7 +20,6 @@ import { saveToTabContainer } from '../../../redux/slices/tabContainerDataStateS
 import { normalizeTitle } from '../../../utils/functions/local';
 import {
   isTabView,
-  ownTabId,
   pickNameSourceTab,
 } from '../../../utils/functions/viewMode';
 import { useTranslation } from 'react-i18next';
@@ -48,9 +48,16 @@ export default function UserInputContainer() {
   );
 
   useEffect(() => {
-    // Guards both branches below against setting state after this component
-    // has unmounted -- ownTabId() and the tab-view query each cross an await,
-    // and a popup that closes mid-query must not resume into a dead component.
+    // Guards loadSuggestion below against setting state after this
+    // component has unmounted -- its query crosses an await, and a popup
+    // that closes mid-query must not resume into a dead component.
+    // handleVisibilityChange (further down) does NOT read this: it only
+    // ever runs in the tab view, whose page is not torn down the way the
+    // popup is, and removeEventListener (its own cleanup, below) is what
+    // stops it from running at all once this effect unmounts -- fix round
+    // 1 found the flag there both unfalsifiable by any test in this stack
+    // and reasoned about for the wrong context (the popup's teardown, which
+    // this listener never runs in).
     let cancelled = false;
 
     // KAN-211/KAN-279 D15. The name box is a SUGGESTION, so it is cleaned like
@@ -68,18 +75,30 @@ export default function UserInputContainer() {
     async function fetchSuggestedTitle(): Promise<string | undefined> {
       if (isTabView()) {
         // In the tab, the active tab IS Tab Keeper, so the suggestion comes
-        // from the most recently used OTHER tab in this window instead (D15).
-        const ownId = await ownTabId();
+        // from the most recently used tab in this window that ISN'T one
+        // (D15) -- this page's own tab always qualifies for exclusion, being
+        // a Tab Keeper page itself.
         const tabsOfWindow = await new Promise<chrome.tabs.Tab[]>((resolve) =>
           chrome.tabs.query({ currentWindow: true }, (tabs) => resolve(tabs))
         );
-        return pickNameSourceTab(tabsOfWindow, ownId)?.title;
+        return pickNameSourceTab(tabsOfWindow, isTabKeeperPage)?.title;
       }
-      return new Promise<string | undefined>((resolve) => {
-        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-          resolve(tabs[0]?.title);
-        });
-      });
+      // Fix round 1 (KAN-299). The popup's active tab is USUALLY a real
+      // page, but Switch can restore a window whose active tab is Tab
+      // Keeper's own page (a pinned tab view) -- the same D15 fallback
+      // extended past the tab view: the most recently used tab in the
+      // window that isn't one. Otherwise, unchanged: the active tab's own
+      // title.
+      const [activeTab] = await new Promise<chrome.tabs.Tab[]>((resolve) =>
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) =>
+          resolve(tabs)
+        )
+      );
+      if (!activeTab || !isTabKeeperPage(activeTab)) return activeTab?.title;
+      const tabsOfWindow = await new Promise<chrome.tabs.Tab[]>((resolve) =>
+        chrome.tabs.query({ currentWindow: true }, (tabs) => resolve(tabs))
+      );
+      return pickNameSourceTab(tabsOfWindow, isTabKeeperPage)?.title;
     }
 
     async function loadSuggestion() {
@@ -107,9 +126,8 @@ export default function UserInputContainer() {
     async function handleVisibilityChange() {
       if (document.visibilityState !== 'visible') return;
       const suggested = cleanSuggestion(await fetchSuggestedTitle());
-      if (cancelled) return;
 
-      // KAN-300. `currentTabName` is createTabGroup's FALLBACK, read only
+      // KAN-299. `currentTabName` is createTabGroup's FALLBACK, read only
       // once the box itself is empty -- so it has to keep tracking the
       // current tab whether or not the box below gets overwritten.
       // Unconditional: without this, clearing the box (a deliberate choice
@@ -120,16 +138,27 @@ export default function UserInputContainer() {
 
       // The box, unlike the fallback above, is guarded: only replaced when
       // nothing has touched it since the last suggestion this effect
-      // applied. `boxValueRef` tracks the box's live value (updated on every
-      // keystroke by updateUserInput) and `lastSuggestionRef` the last
-      // suggestion this effect actually applied -- the two agree only when
-      // nothing has touched the box since, which is the one case it is safe
-      // to replace. A separate "dirty" boolean could drift from that fact;
-      // these two refs ARE the fact.
-      const boxUntouched = boxValueRef.current === lastSuggestionRef.current;
-      lastSuggestionRef.current = suggested;
-      if (boxUntouched) {
+      // applied TO THE BOX. `boxValueRef` tracks the box's live value
+      // (updated on every keystroke by updateUserInput) and
+      // `lastSuggestionRef` the last suggestion this effect actually wrote
+      // into it -- the two agree only when nothing has touched the box
+      // since, which is the one case it is safe to replace.
+      //
+      // REGRESSION (found in review, fix round 1): both refs must move
+      // together, inside this branch, or not at all. `lastSuggestionRef`
+      // used to be written UNCONDITIONALLY, even when this guard declined
+      // to touch the box -- so it could drift ahead of `boxValueRef`. Repro:
+      // the user types "Mail"; Mail becomes most recent and the page goes
+      // visible (the guard correctly declines, but `lastSuggestionRef`
+      // still moved to "Mail", coincidentally matching what the user typed);
+      // Docs becomes most recent and the page goes visible again -- the two
+      // refs now spuriously agree ("Mail" === "Mail"), so the guard
+      // WRONGLY treats the box as untouched and overwrites the user's text
+      // with "Docs". A separate "dirty" boolean could drift from the box the
+      // same way; these two refs ARE the fact, but only if they move as one.
+      if (boxValueRef.current === lastSuggestionRef.current) {
         boxValueRef.current = suggested;
+        lastSuggestionRef.current = suggested;
         setNewTitle(suggested);
       }
     }

@@ -7,6 +7,7 @@ import UserInputContainer from '../../components/home/leftpane/UserInputContaine
 import { renderWithProviders } from '../setup/renderWithProviders';
 import type { ChromeSeed } from '../setup/chrome.fake';
 import { buildContainer, buildSession } from '../fixtures/sessionFixture';
+import { buildChromeTab as tab } from '../fixtures/chromeTab';
 import {
   replaceState,
   selectTabContainer,
@@ -32,32 +33,12 @@ const DOCS_URL = 'https://docs.test/';
 const MAIL_URL = 'https://mail.test/';
 const OTHER_URL = 'https://other.test/';
 
-// A small typed builder in place of `as chrome.tabs.Tab[]`: @types/chrome
-// marks index/pinned/highlighted/windowId/active/frozen/incognito/selected/
-// discarded/autoDiscardable/groupId/lastAccessed as required, so a seed
-// literal naming only id/url/title/active/lastAccessed is missing fields a
-// cast would have hidden rather than filled. windowId defaults to 1 --
-// DEFAULT_WINDOW_ID in chrome.fake.ts -- since every seed below places its
-// tabs in window 1.
-function tab(overrides: Partial<chrome.tabs.Tab> = {}): chrome.tabs.Tab {
-  return {
-    index: 0,
-    pinned: false,
-    highlighted: false,
-    windowId: 1,
-    active: false,
-    frozen: false,
-    incognito: false,
-    selected: false,
-    discarded: false,
-    autoDiscardable: true,
-    groupId: -1,
-    lastAccessed: 0,
-    url: '',
-    title: '',
-    ...overrides,
-  };
-}
+// `tab` is `buildChromeTab` (src/tests/fixtures/chromeTab.ts), imported
+// under this file's own established short name -- fix round 1 moved the
+// builder itself out to a shared fixture (capture.test.ts,
+// exportOpenWindows.test.tsx and focusSavesEveryWindow.test.ts each built
+// their own copy independently), but every seed below still places its tabs
+// in window 1, the builder's own default, so nothing here changed.
 
 // Window 1 holds Tab Keeper's own tab (10, most recently used) beside two
 // real tabs (11, 12).
@@ -259,7 +240,11 @@ describe('saving in the tab view leaves out Tab Keeper itself (D6)', () => {
     const { store } = await renderWithProviders(<UserInputContainer />, {
       seed: controlSeed,
     });
-    await screen.findByDisplayValue('Tab Keeper');
+    // Barrier: waits for the mount-time suggestion, which fix round 1 made
+    // 'Docs' rather than 'Tab Keeper' for this seed (its active tab IS a Tab
+    // Keeper page -- see the describe below on the name box's own fallback).
+    // Unrelated to what this test actually checks (save exclusion).
+    await screen.findByDisplayValue('Docs');
 
     await clickSaveCurrentWindow();
 
@@ -297,13 +282,37 @@ describe('the name box in the tab view (D15)', () => {
     expect(await screen.findByDisplayValue('Mail')).toBeTruthy();
   });
 
-  // CONTROL. In the popup the box still suggests the active tab's title, as
-  // it always has -- proves the tab-view branch above is additional
-  // behaviour, not a replacement that also changed the popup's suggestion.
-  test('CONTROL: in the popup, the name box suggests the active tab', async () => {
+  // CONTROL. In the popup, with an ORDINARY active tab, the box still
+  // suggests that tab's title exactly as it always has -- proves the
+  // tab-view branch above, and its extension to a Tab Keeper active tab in
+  // the popup (fix round 1, below), are both ADDITIONAL behaviour, not a
+  // replacement that also changed the ordinary popup case.
+  test('CONTROL: in the popup, an ordinary active tab keeps its own title as the suggestion', async () => {
+    await renderWithProviders(<UserInputContainer />, {
+      seed: {
+        windows: [
+          {
+            id: 1,
+            tabs: [tab({ id: 20, url: DOCS_URL, title: 'Docs', active: true })],
+          },
+        ],
+      },
+    });
+
+    expect(await screen.findByDisplayValue('Docs')).toBeTruthy();
+  });
+});
+
+// KAN-299 fix round 1. The name box's D15 fallback now applies in the popup
+// too: Switch can restore a window whose ACTIVE tab is the pinned tab view,
+// and the box must not offer "Tab Keeper" as a session name -- the same
+// most-recently-used-OTHER-tab rule the tab view already uses.
+describe('the popup name box falls back off a Tab Keeper active tab (KAN-299 fix round 1)', () => {
+  test('the active tab is the tab view: suggests the most recently used OTHER tab', async () => {
+    // controlSeed's active tab (10) is the tab view -- exactly this case.
     await renderWithProviders(<UserInputContainer />, { seed: controlSeed });
 
-    expect(await screen.findByDisplayValue('Tab Keeper')).toBeTruthy();
+    expect(await screen.findByDisplayValue('Docs')).toBeTruthy();
   });
 });
 
@@ -341,12 +350,51 @@ describe('the name box recomputes on visibility, but only in the tab view (KAN-2
     chromeHandle.simulateBrowserTabChange(12, { lastAccessed: 999 });
     setVisibility('hidden');
     setVisibility('visible');
-    // Flushes the visibility handler's own awaits (ownTabId, the tabs
-    // query) so a recompute that WOULD have overwritten the box has had the
-    // chance to.
+    // Flushes the visibility handler's own awaits (the tabs query) so a
+    // recompute that WOULD have overwritten the box has had the chance to.
     await act(async () => {});
 
     expect(screen.getByDisplayValue('My own title')).toBeTruthy();
+  });
+
+  // REGRESSION, found in review and reproduced here (fix round 1). Typed
+  // text must survive not just ONE declined recompute (the CONTROL above)
+  // but a SECOND one straight after -- `lastSuggestionRef` used to move
+  // even when the guard declined to touch the box, so it could drift ahead
+  // of `boxValueRef` and make a LATER recompute wrongly believe the box was
+  // untouched. This sequence is what surfaces that: the user's own text
+  // ("Mail") happens to equal the suggestion the FIRST declined recompute
+  // computed, which is exactly the coincidence the bug needed.
+  test('typed text survives a second recompute straight after one the guard correctly declined', async () => {
+    goToTabView();
+    const { chrome: chromeHandle } = await renderWithProviders(
+      <UserInputContainer />,
+      { seed: tabViewSeed }
+    );
+    const nameBox = await screen.findByDisplayValue('Docs');
+    await userEvent.clear(nameBox);
+    await userEvent.type(nameBox, 'Mail');
+
+    // Mail (12) becomes most recent -- the guard must decline (the box
+    // holds "Mail", the user's own text, not the "Docs" suggestion it
+    // started from). Bugged code still moved `lastSuggestionRef` to "Mail"
+    // here even though it left the box alone.
+    chromeHandle.simulateBrowserTabChange(12, { lastAccessed: 999 });
+    setVisibility('hidden');
+    setVisibility('visible');
+    await act(async () => {});
+
+    // Docs (11) becomes most recent again -- a second recompute must ALSO
+    // decline, since nothing has touched the box from the user's own
+    // perspective since they typed "Mail". Bugged code found
+    // `boxValueRef` ("Mail") spuriously equal to the now-drifted
+    // `lastSuggestionRef` ("Mail") and overwrote the box with "Docs".
+    chromeHandle.simulateBrowserTabChange(11, { lastAccessed: 1999 });
+    setVisibility('hidden');
+    setVisibility('visible');
+    await act(async () => {});
+
+    expect(screen.getByDisplayValue('Mail')).toBeTruthy();
   });
 
   // CONTROL. Outside the tab view no listener is attached at all -- the same
@@ -357,24 +405,30 @@ describe('the name box recomputes on visibility, but only in the tab view (KAN-2
       <UserInputContainer />,
       { seed: controlSeed }
     );
-    await screen.findByDisplayValue('Tab Keeper');
+    // Barrier: fix round 1 made this 'Docs', not 'Tab Keeper' -- controlSeed's
+    // active tab (10) is itself a Tab Keeper page, so the popup's own
+    // fallback picks the most recently used OTHER tab even at mount. See the
+    // describe on that fallback above; this test is about the LISTENER, not
+    // the fallback.
+    await screen.findByDisplayValue('Docs');
 
+    // Changes the EXCLUDED tab's title -- it must not matter either way,
+    // since tab 10 is never a candidate regardless of what it is called.
     chromeHandle.simulateBrowserTabChange(10, { title: 'Changed' });
     setVisibility('hidden');
     setVisibility('visible');
     await act(async () => {});
 
-    // One text input, one value: proving it IS 'Tab Keeper' already proves
-    // it is NOT 'Changed' -- a single input cannot hold two values at once,
-    // so a separate queryByDisplayValue('Changed') check is redundant with
-    // this line and was dropped (same reasoning as the D15 cleaning test
-    // above).
-    expect(screen.getByDisplayValue('Tab Keeper')).toBeTruthy();
+    // One text input, one value: proving it IS 'Docs' already proves it is
+    // NOT 'Changed' -- a single input cannot hold two values at once, so a
+    // separate queryByDisplayValue('Changed') check is redundant with this
+    // line and was dropped (same reasoning as the D15 cleaning test above).
+    expect(screen.getByDisplayValue('Docs')).toBeTruthy();
   });
 });
 
-describe('the tab-view visibility listener is cleaned up on unmount (KAN-300 Part B a)', () => {
-  test('unmount removes the listener: a later visibility flip makes no chrome query and does not throw', async () => {
+describe('the tab-view visibility listener is removed on unmount (KAN-299)', () => {
+  test('unmount removes the listener: a later visibility flip makes no chrome query', async () => {
     goToTabView();
     const { unmount, chrome: chromeHandle } = await renderWithProviders(
       <UserInputContainer />,
@@ -385,7 +439,7 @@ describe('the tab-view visibility listener is cleaned up on unmount (KAN-300 Par
     unmount();
     const queriesBeforeFlip = chromeHandle.tabsQueryCalls.length;
 
-    expect(() => setVisibility('visible')).not.toThrow();
+    setVisibility('visible');
     // Flushes anything a (correctly absent) listener might have queued.
     await act(async () => {});
 
@@ -393,49 +447,17 @@ describe('the tab-view visibility listener is cleaned up on unmount (KAN-300 Par
     expect(chromeHandle.tabsQueryCalls.length).toBe(queriesBeforeFlip);
   });
 
-  // NOT IMPLEMENTED, deliberately: a second test for the OTHER race -- the
-  // listener fires WHILE STILL MOUNTED, its query is still in flight, and
-  // only THEN does the component unmount, so `cancelled` (not
-  // removeEventListener, which has nothing left to remove from by then) is
-  // what has to stop the resulting setState from reaching a dead component.
-  //
-  // MEASURED, not assumed, before deciding this: React 18's
-  // `createRoot().unmount()` (what RTL's `unmount` calls) makes a late
-  // setState on the disposed root a silent no-op -- NOT the "Can't perform a
-  // React state update on an unmounted component" warning older React
-  // versions raised, and not an `onRecoverableError` either. Checked four
-  // ways against a throwaway probe component: console.error spied through an
-  // act()-wrapped flush, through a raw (non-act) flush, after a
-  // reconciliation-driven unmount (`rerender(<div/>)` instead of
-  // `unmount()`), and via `createRoot`'s own `onRecoverableError` callback --
-  // all four came back with zero calls. CONTROL: the same probe, left
-  // MOUNTED, for the same out-of-act setState, DID produce the "not wrapped
-  // in act(...)" warning -- proof the absence above is the unmount, not a
-  // harness that cannot detect this class of warning at all (same
-  // "negative-probe-needs-a-control" discipline as the listener-removal
-  // finding elsewhere in this codebase).
-  //
-  // A `cancelled` drop here also never throws (nothing downstream of the
-  // guard can), so no black-box assertion available in this stack --
-  // console output, a thrown error, or a further chrome call -- moves when
-  // this specific guard is removed. Writing an assertion anyway (e.g. "does
-  // not throw") would be vacuous: confirmed by actually deleting the guard
-  // and rerunning the suite, which stayed fully green. `cancelled` is kept
-  // as defence in depth, matching `loadSuggestion`'s identical guard a few
-  // lines up (also untestable at this boundary for the same reason) and the
-  // real production race it is written for -- the popup's JS context can be
-  // torn down mid-await, not merely React-unmounted, which jsdom has no way
-  // to model.
+  // Fix round 1: the `cancelled` guard this listener used to check on top of
+  // removeEventListener was deleted from the production code. It read as
+  // defence against the popup's JS context being torn down mid-await, but
+  // this listener only ever runs in the tab view -- a context that is not
+  // torn down the way the popup's is -- and no test in this stack could
+  // fail it either way (a probe unmounting mid-query showed nothing
+  // regardless: React 18 silently no-ops a state update on an unmounted
+  // root). removeEventListener, proven above, is what actually stops it.
 });
 
-// KAN-300 (Part B item b). Clearing the box is respected -- the guard above
-// correctly leaves it empty rather than re-seeding it. But createTabGroup's
-// fallback for an empty box is `currentTabName`, and that state used to be
-// written ONLY by the mount-time suggestion and by a visibility recompute
-// that overwrote the box -- so clearing the box froze it at whatever the
-// mount-time tab was, forever. `currentTabName` now refreshes on every
-// becoming-visible regardless of the box's own guard.
-describe('the name-box fallback tracks the current tab even once the box is cleared (KAN-300)', () => {
+describe('the name-box fallback tracks the current tab even once the box is cleared (KAN-299)', () => {
   test('clear the box, flip visibility after the tabs change, then save: named after the CURRENT most recent other tab', async () => {
     goToTabView();
     const { store, chrome: chromeHandle } = await renderWithProviders(
@@ -453,10 +475,14 @@ describe('the name-box fallback tracks the current tab even once the box is clea
     // Flushes the visibility handler's own awaits so its refresh of
     // currentTabName has had the chance to land before Save is clicked.
     await act(async () => {});
-    // PREMISE: the box is still empty -- the guard did its job; this is not
-    // a test of the guard, which the CONTROL below and KAN-299's suite
-    // already cover.
-    expect(screen.queryByDisplayValue('Docs')).toBeNull();
+    // PREMISE: the box is still exactly empty -- the guard did its job;
+    // this is not a test of the guard, which the CONTROL below and
+    // KAN-299's suite already cover. Asserted as the box's actual value,
+    // not `queryByDisplayValue('Docs')).toBeNull()`: that line is true of
+    // ANY value other than 'Docs' -- including whatever the box would hold
+    // if the guard were removed and it got overwritten with a suggestion --
+    // so it cannot fail if the guard breaks. `toHaveValue('')` can.
+    expect(nameBox).toHaveValue('');
 
     await clickSaveCurrentWindow();
 
@@ -590,11 +616,11 @@ describe('"Add current window" in the tab view leaves out Tab Keeper itself (D14
   });
 });
 
-// KAN-300 (Part B item c). No test today asserted where the popup's "Add
-// current window" title comes from. Each of these is mutation-proven:
-// mutating `result[0]?.title`, dropping `|| 'New Tab'`, or forcing the
-// tab-view branch all left the suite green before this.
-describe('the popup "Add current window" name path (KAN-300 Part B c)', () => {
+// No test today asserted where the popup's "Add current window" title comes
+// from. Each of these is mutation-proven: mutating `result[0]?.title`,
+// dropping `|| 'New Tab'`, or forcing the tab-view branch all left the suite
+// green before this.
+describe('the popup "Add current window" name path', () => {
   test("the added window is titled with the active tab's raw title", async () => {
     const { store } = await renderHeroWithSelectedSession({
       windows: [
@@ -690,5 +716,43 @@ describe('the popup "Add current window" name path (KAN-300 Part B c)', () => {
     expect(
       store.getState().tabContainerDataState.tabGroups[0].windows[0].title
     ).toBe('Popup Active');
+  });
+});
+
+// KAN-299 fix round 1. Extended past the tab view: Switch can restore a
+// window whose ACTIVE tab is the pinned tab view, and "Add current window"
+// (from the popup) must not name the new window "Tab Keeper" -- the same
+// most-recently-used-OTHER-tab fallback the tab view already applies.
+describe('the popup "Add current window" title falls back off a Tab Keeper active tab', () => {
+  test('the active tab is a Tab Keeper page: named from the most recently used OTHER tab', async () => {
+    const { store } = await renderHeroWithSelectedSession({
+      windows: [
+        {
+          id: 1,
+          tabs: [
+            tab({
+              id: 10,
+              url: OWN_URL,
+              title: 'Tab Keeper',
+              active: true,
+              lastAccessed: 300,
+            }),
+            tab({ id: 11, url: DOCS_URL, title: 'Docs', lastAccessed: 200 }),
+            tab({ id: 12, url: MAIL_URL, title: 'Mail', lastAccessed: 100 }),
+          ],
+        },
+      ],
+    });
+
+    await clickAddCurrentWindow();
+
+    await waitFor(() =>
+      expect(
+        store.getState().tabContainerDataState.tabGroups[0].windows
+      ).toHaveLength(2)
+    );
+    expect(
+      store.getState().tabContainerDataState.tabGroups[0].windows[0].title
+    ).toBe('Docs');
   });
 });

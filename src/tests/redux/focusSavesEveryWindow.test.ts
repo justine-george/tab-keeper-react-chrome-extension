@@ -21,6 +21,7 @@ import {
 } from '../../redux/slices/tabContainerDataStateSlice';
 import { setupChromeFake } from '../setup/chrome.fake';
 import { makeTestStore } from '../setup/makeStore';
+import { buildChromeTab } from '../fixtures/chromeTab';
 
 const PARAMS = {
   tabGroupId: 'group-1',
@@ -167,13 +168,13 @@ describe('focus mode leaves out every Tab Keeper page too (KAN-300)', () => {
         {
           id: 1,
           tabs: [
-            {
+            buildChromeTab({
               id: 1,
               url: 'chrome-extension://faketestid/index.html?view=tab',
               title: 'Tab Keeper',
-            },
-            { id: 2, url: 'https://a.example/', title: 'A' },
-          ] as chrome.tabs.Tab[],
+            }),
+            buildChromeTab({ id: 2, url: 'https://a.example/', title: 'A' }),
+          ],
         },
       ],
     });

@@ -40,7 +40,6 @@ import { tidySessionForExport } from '../../../utils/functions/sessionExportHtml
 import { TOAST_MESSAGES } from '../../../utils/constants/common';
 import {
   isTabView,
-  ownTabId,
   pickNameSourceTab,
 } from '../../../utils/functions/viewMode';
 import { useTranslation } from 'react-i18next';
@@ -162,38 +161,47 @@ export default function HeroContainerRight() {
     // KAN-279 D14 / KAN-300. Leaves out every Tab Keeper page -- the SAME
     // rule captureOpenWindows applies (isTabKeeperPage, capture.ts), since
     // this call site builds a window the same shape a capture would, without
-    // going through captureOpenWindows itself. `ownId` is still needed below,
-    // for pickNameSourceTab's own tab-view naming rule (D15) -- a different
-    // question from what belongs in the window.
-    const ownId = await ownTabId();
+    // going through captureOpenWindows itself.
     const tabs = (windowData.tabs ?? []).filter((tab) => !isTabKeeperPage(tab));
     // If that empties the window, there is nothing to add.
     if (tabs.length === 0) return;
 
-    // KAN-299. Resolved HERE, at click time -- not cached from a mount-once
-    // effect. This component can stay mounted for as long as the tab view
-    // stays open, so a name read once at mount can go stale; the tab it was
-    // drawn from may no longer be the most recently used by the time this
-    // button is actually pressed. Same D15 rule the name box uses: the
-    // active tab's title in the popup (unchanged, same query as before this
-    // fix), pickNameSourceTab's pick in the tab view. dropNotificationCount
-    // is not applied here: toWindowGroupData already cleans whatever title
-    // it is handed, for both branches, so cleaning twice would be redundant
-    // rather than wrong.
-    const currentTabName = isTabView()
-      ? pickNameSourceTab(
-          await new Promise<chrome.tabs.Tab[]>((resolve) =>
-            chrome.tabs.query({ currentWindow: true }, (result) =>
-              resolve(result)
-            )
-          ),
-          ownId
-        )?.title
-      : await new Promise<string | undefined>((resolve) =>
-          chrome.tabs.query({ active: true, currentWindow: true }, (result) =>
-            resolve(result[0]?.title)
+    // KAN-299, extended past the tab view in fix round 1. Resolved HERE, at
+    // click time -- not cached from a mount-once effect. This component can
+    // stay mounted for as long as the tab view stays open, so a name read
+    // once at mount can go stale; the tab it was drawn from may no longer be
+    // the most recently used by the time this button is actually pressed.
+    //
+    // In the tab view the active tab IS Tab Keeper, so the D15 fallback --
+    // the most recently used tab in the window that isn't one -- always
+    // applies. In the popup it only kicks in when the active tab HAPPENS to
+    // be a Tab Keeper page (Switch can restore a window whose active tab is
+    // the pinned tab view); otherwise the popup keeps today's rule, the
+    // active tab's own raw title. dropNotificationCount is not applied
+    // here: toWindowGroupData already cleans whatever title it is handed,
+    // for every branch, so cleaning twice would be redundant rather than
+    // wrong.
+    async function resolveCurrentTabName(): Promise<string | undefined> {
+      if (isTabView()) {
+        const tabsOfWindow = await new Promise<chrome.tabs.Tab[]>((resolve) =>
+          chrome.tabs.query({ currentWindow: true }, (result) =>
+            resolve(result)
           )
         );
+        return pickNameSourceTab(tabsOfWindow, isTabKeeperPage)?.title;
+      }
+      const [activeTab] = await new Promise<chrome.tabs.Tab[]>((resolve) =>
+        chrome.tabs.query({ active: true, currentWindow: true }, (result) =>
+          resolve(result)
+        )
+      );
+      if (!activeTab || !isTabKeeperPage(activeTab)) return activeTab?.title;
+      const tabsOfWindow = await new Promise<chrome.tabs.Tab[]>((resolve) =>
+        chrome.tabs.query({ currentWindow: true }, (result) => resolve(result))
+      );
+      return pickNameSourceTab(tabsOfWindow, isTabKeeperPage)?.title;
+    }
+    const currentTabName = await resolveCurrentTabName();
 
     const read = await readCurrentWindowGroups(windowData.id);
     const window = toWindowGroupData(

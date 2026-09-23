@@ -43,21 +43,31 @@ export async function ownTabId(): Promise<number | undefined> {
 }
 
 /**
- * The tab most recently used in this window, other than this page itself
- * (D15) -- the source for the tab view's "New tab" name suggestion.
- * `lastAccessed` is undefined for a tab Chrome has not stamped yet; that
- * counts as 0 rather than disqualifying the tab, so an unstamped tab still
- * beats nothing, and a tie -- including every tab being unstamped -- keeps
- * whichever came first in `tabs`, the order `tabs.query` returns them in.
+ * The tab most recently used in this window, among the ones `exclude`
+ * rejects (D15) -- the source for a "New tab" name suggestion when the tab
+ * actually active is not usable as one. `lastAccessed` is undefined for a
+ * tab Chrome has not stamped yet; that counts as 0 rather than
+ * disqualifying the tab, so an unstamped tab still beats nothing, and a tie
+ * -- including every tab being unstamped -- keeps whichever came first in
+ * `tabs`, the order `tabs.query` returns them in.
+ *
+ * `exclude` is a PREDICATE, not an id (fix round 1 on KAN-299/KAN-300): the
+ * tab view used to pass its own tab id, but this page's own tab in the tab
+ * view is always a Tab Keeper page by definition, so excluding by ADDRESS
+ * (isTabKeeperPage, capture.ts) subsumes that case -- and also catches a
+ * SECOND Tab Keeper page open in the same window, which an id comparison
+ * never could. It is also what lets the POPUP reuse this same function: the
+ * popup has no "own id" to compare against, only an active tab that may or
+ * may not itself be a Tab Keeper page.
  */
 export function pickNameSourceTab(
   tabs: chrome.tabs.Tab[],
-  ownId: number | undefined
+  exclude: (tab: chrome.tabs.Tab) => boolean
 ): chrome.tabs.Tab | undefined {
   let picked: chrome.tabs.Tab | undefined;
   let pickedAccessed = -1;
   for (const tab of tabs) {
-    if (tab.id === ownId) continue;
+    if (exclude(tab)) continue;
     const accessed = tab.lastAccessed ?? 0;
     if (accessed > pickedAccessed) {
       picked = tab;

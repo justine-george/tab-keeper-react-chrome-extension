@@ -4,6 +4,7 @@ import { screen, waitFor } from '@testing-library/react';
 import ExportPage from '../../components/export/ExportPage';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { buildContainer, buildSession } from '../fixtures/sessionFixture';
+import { buildChromeTab } from '../fixtures/chromeTab';
 import { replaceState } from '../../redux/slices/tabContainerDataStateSlice';
 
 // KAN-208 / KAN-300. Exporting what is open right now, without saving it
@@ -30,13 +31,13 @@ const twoWindows = {
     {
       id: 1,
       tabs: [
-        { id: 10, url: OWN_URL, title: 'Tab Keeper' },
-        { id: 11, url: A, title: 'Kagi Search' },
-      ] as chrome.tabs.Tab[],
+        buildChromeTab({ id: 10, url: OWN_URL, title: 'Tab Keeper' }),
+        buildChromeTab({ id: 11, url: A, title: 'Kagi Search' }),
+      ],
     },
     {
       id: 2,
-      tabs: [{ id: 12, url: B, title: 'Example' }] as chrome.tabs.Tab[],
+      tabs: [buildChromeTab({ id: 12, url: B, title: 'Example', windowId: 2 })],
     },
   ],
   currentTabId: 10,
@@ -67,20 +68,13 @@ describe('exporting the open windows (KAN-208)', () => {
     expect(screen.getByText('2 Windows · 2 Tabs')).toBeTruthy();
   });
 
-  // CHANGED for KAN-300 (was "CONTROL: naming another tab as the page keeps
-  // the export.html tab", proving KAN-208's BY-ID exclusion -- naming a
-  // different tab as "the page" used to keep the export.html tab in the
-  // capture, since a match-by-id rule has no opinion about a tab it was never
-  // told is "the page"). KAN-300 excludes by ADDRESS instead, so naming
-  // another tab as "the page" no longer matters: export.html is still
-  // excluded, on its own address, regardless of what chrome.tabs.getCurrent()
-  // answers.
-  test('naming another tab as the page still excludes export.html, by its own address', async () => {
-    await renderLive({ ...twoWindows, currentTabId: 11 });
-
-    await waitFor(() => expect(frame().srcdoc).toContain('Kagi Search'));
-    expect(frame().srcdoc).not.toContain('export.html');
-  });
+  // DELETED (fix round 1): "naming another tab as the page still excludes
+  // export.html, by its own address" duplicated the test above. Nothing
+  // reads `currentTabId` any more -- ExportPage's own capture never calls
+  // chrome.tabs.getCurrent() (KAN-300 excludes by address, not by which tab
+  // id happens to be "the page") -- so a seed that only varies
+  // `currentTabId` exercises exactly the same code path as the test above
+  // it, with no observable way to fail differently.
 
   // KAN-300. A second, genuinely different Tab Keeper page (the tab view,
   // say, open beside this export tab) used to survive KAN-208's by-id
@@ -93,14 +87,16 @@ describe('exporting the open windows (KAN-208)', () => {
         {
           id: 1,
           tabs: [
-            { id: 10, url: OWN_URL, title: 'Tab Keeper' },
-            { id: 13, url: TAB_VIEW, title: 'Tab Keeper' },
-            { id: 11, url: A, title: 'Kagi Search' },
-          ] as chrome.tabs.Tab[],
+            buildChromeTab({ id: 10, url: OWN_URL, title: 'Tab Keeper' }),
+            buildChromeTab({ id: 13, url: TAB_VIEW, title: 'Tab Keeper' }),
+            buildChromeTab({ id: 11, url: A, title: 'Kagi Search' }),
+          ],
         },
         {
           id: 2,
-          tabs: [{ id: 12, url: B, title: 'Example' }] as chrome.tabs.Tab[],
+          tabs: [
+            buildChromeTab({ id: 12, url: B, title: 'Example', windowId: 2 }),
+          ],
         },
       ],
       currentTabId: 10,
@@ -189,18 +185,17 @@ describe('exporting the open windows (KAN-208)', () => {
   // is still running, or every load flashes it.
   //
   // The first two assertions run before the capture has settled: the effect
-  // starts inside render()'s act, awaits tabs.getCurrent, and this test's own
-  // continuation is queued behind that first hop but ahead of the capture's
-  // remaining ones. If that ordering ever changes this fails LOUDLY on the
-  // `data-capturing` line, not silently.
+  // starts inside render()'s act, awaits windows.getCurrent (captureOpenWindows'
+  // own first hop), and this test's own continuation is queued behind that
+  // first hop but ahead of the capture's remaining ones. If that ordering
+  // ever changes this fails LOUDLY on the `data-capturing` line, not
+  // silently.
   test('with nothing open but itself, says not found -- after capturing', async () => {
     await renderLive({
       windows: [
         {
           id: 1,
-          tabs: [
-            { id: 10, url: OWN_URL, title: 'Tab Keeper' },
-          ] as chrome.tabs.Tab[],
+          tabs: [buildChromeTab({ id: 10, url: OWN_URL, title: 'Tab Keeper' })],
         },
       ],
       currentTabId: 10,

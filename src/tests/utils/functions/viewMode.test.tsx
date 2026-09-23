@@ -94,6 +94,12 @@ async function fakeTabs(
 }
 
 describe('pickNameSourceTab', () => {
+  // A predicate rather than an id (fix round 1): every call site below
+  // builds it from the id it used to pass directly, so these three keep
+  // covering the exact same cases the old signature did.
+  const byId = (id: number | undefined) => (tab: chrome.tabs.Tab) =>
+    tab.id === id;
+
   test('own tab most recent -> falls through to the next most recent', async () => {
     const [own, docs, mail] = await fakeTabs([
       { id: 10, lastAccessed: 300 },
@@ -101,7 +107,7 @@ describe('pickNameSourceTab', () => {
       { id: 12, title: 'Mail', lastAccessed: 100 },
     ]);
 
-    expect(pickNameSourceTab([own, docs, mail], own.id)).toBe(docs);
+    expect(pickNameSourceTab([own, docs, mail], byId(own.id))).toBe(docs);
   });
 
   test('every lastAccessed undefined -> the first non-own tab in order', async () => {
@@ -111,12 +117,27 @@ describe('pickNameSourceTab', () => {
       { id: 12, title: 'Mail' },
     ]);
 
-    expect(pickNameSourceTab([own, docs, mail], own.id)).toBe(docs);
+    expect(pickNameSourceTab([own, docs, mail], byId(own.id))).toBe(docs);
   });
 
   test('only the own tab present -> undefined', async () => {
     const [own] = await fakeTabs([{ id: 10 }]);
 
-    expect(pickNameSourceTab([own], own.id)).toBeUndefined();
+    expect(pickNameSourceTab([own], byId(own.id))).toBeUndefined();
+  });
+
+  // The predicate is a real exclusion rule, not just an id -- an "exclude
+  // nothing" predicate that still lets `undefined` through would defeat the
+  // point of generalising past a bare id comparison.
+  test('an exclusion predicate that matches more than one tab excludes all of them', async () => {
+    const [a, b, c] = await fakeTabs([
+      { id: 10, title: 'A', lastAccessed: 300 },
+      { id: 11, title: 'B', lastAccessed: 200 },
+      { id: 12, title: 'C', lastAccessed: 100 },
+    ]);
+
+    expect(
+      pickNameSourceTab([a, b, c], (tab) => tab.id === a.id || tab.id === b.id)
+    ).toBe(c);
   });
 });

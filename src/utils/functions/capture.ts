@@ -257,13 +257,24 @@ export function toWindowGroupData(
  * `pendingUrl` is checked too, not just `url`: a tab mid-navigation to a Tab
  * Keeper page has not committed `url` yet -- Chrome's own type says `url` "may
  * be an empty string if the tab has not yet committed", not undefined, so
- * this falls through on EMPTY as well as absent (`||`, not `??`). A lazy-load
- * placeholder (local.ts's `data:` document) matches neither field, so it is
- * never mistaken for one of this extension's own pages.
+ * this falls through on EMPTY as well as absent (`||`, not `??`).
+ *
+ * The address is RESOLVED (resolveTabUrl) before the check, not read raw --
+ * fix round 1, a real gap the reviewer found. A lazy-load placeholder
+ * (local.ts's `data:` document) does not match the raw prefix, which is
+ * right for a page that has never loaded -- but an OLDER session, saved
+ * before this rule existed, could have stored a Tab Keeper URL as an
+ * ordinary tab; lazy-loading it later wraps THAT url in exactly this kind of
+ * placeholder. `toStoredTab` already resolves before storing, so an
+ * unresolved check here would pass the placeholder through and then store it
+ * as the extension's own address anyway -- resolving here first is what
+ * keeps the two in agreement. resolveTabUrl is a no-op on every address that
+ * is not one of its own wrapper shapes, so this changes nothing for a normal
+ * page, a suspended tab, or a genuinely unloaded placeholder.
  */
 export function isTabKeeperPage(tab: chrome.tabs.Tab): boolean {
   const address = tab.url || tab.pendingUrl || '';
-  return address.startsWith(chrome.runtime.getURL(''));
+  return resolveTabUrl(address).startsWith(chrome.runtime.getURL(''));
 }
 
 // Snapshots the open windows a scope covers as a session. Extracted from

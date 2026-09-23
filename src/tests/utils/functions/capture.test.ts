@@ -4,11 +4,21 @@ import {
   captureOpenWindows,
   isAlreadySaved,
 } from '../../../utils/functions/capture';
+import { generatePlaceholderURL } from '../../../utils/functions/local';
 import { setupChromeFake } from '../../setup/chrome.fake';
+import { buildChromeTab } from '../../fixtures/chromeTab';
 import type {
   tabContainerData,
   windowGroupData,
 } from '../../../redux/slices/tabContainerDataStateSlice';
+
+// Narrows captureOpenWindows's `tabContainerData | null` result without a
+// non-null assertion: every KAN-300 test below expects a capture, so a null
+// here means THIS TEST is broken, not a case to paper over with `!`.
+function requireCaptured(captured: tabContainerData | null): tabContainerData {
+  if (!captured) throw new Error('captureOpenWindows returned null');
+  return captured;
+}
 
 function windowOf(...urls: string[]): windowGroupData {
   return {
@@ -599,22 +609,27 @@ describe('captureOpenWindows leaves out every Tab Keeper page (KAN-300)', () => 
         {
           id: 1,
           tabs: [
-            { id: 10, url: TAB_VIEW, title: 'Tab Keeper' },
-            { id: 11, url: A, title: 'A' },
-          ] as chrome.tabs.Tab[],
+            buildChromeTab({ id: 10, url: TAB_VIEW, title: 'Tab Keeper' }),
+            buildChromeTab({ id: 11, url: A, title: 'A' }),
+          ],
         },
-        { id: 2, tabs: [{ id: 12, url: B, title: 'B' }] as chrome.tabs.Tab[] },
+        {
+          id: 2,
+          tabs: [buildChromeTab({ id: 12, url: B, title: 'B', windowId: 2 })],
+        },
       ],
     });
 
-    const captured = await captureOpenWindows('probe', 'all-windows');
+    const captured = requireCaptured(
+      await captureOpenWindows('probe', 'all-windows')
+    );
 
-    expect(captured!.windows.map((w) => w.tabs.map((t) => t.url))).toEqual([
+    expect(captured.windows.map((w) => w.tabs.map((t) => t.url))).toEqual([
       [A],
       [B],
     ]);
-    expect(captured!.tabCount).toBe(2);
-    expect(captured!.windows[0].tabCount).toBe(1);
+    expect(captured.tabCount).toBe(2);
+    expect(captured.windows[0].tabCount).toBe(1);
   });
 
   test('a window with [export page, normal] keeps only the normal tab', async () => {
@@ -623,16 +638,18 @@ describe('captureOpenWindows leaves out every Tab Keeper page (KAN-300)', () => 
         {
           id: 1,
           tabs: [
-            { id: 10, url: EXPORT_PAGE, title: 'Tab Keeper' },
-            { id: 11, url: A, title: 'A' },
-          ] as chrome.tabs.Tab[],
+            buildChromeTab({ id: 10, url: EXPORT_PAGE, title: 'Tab Keeper' }),
+            buildChromeTab({ id: 11, url: A, title: 'A' }),
+          ],
         },
       ],
     });
 
-    const captured = await captureOpenWindows('probe', 'all-windows');
+    const captured = requireCaptured(
+      await captureOpenWindows('probe', 'all-windows')
+    );
 
-    expect(captured!.windows[0].tabs.map((t) => t.url)).toEqual([A]);
+    expect(captured.windows[0].tabs.map((t) => t.url)).toEqual([A]);
   });
 
   test('the window title follows the first tab that is kept', async () => {
@@ -641,16 +658,18 @@ describe('captureOpenWindows leaves out every Tab Keeper page (KAN-300)', () => 
         {
           id: 1,
           tabs: [
-            { id: 10, url: TAB_VIEW, title: 'Tab Keeper' },
-            { id: 11, url: A, title: 'A' },
-          ] as chrome.tabs.Tab[],
+            buildChromeTab({ id: 10, url: TAB_VIEW, title: 'Tab Keeper' }),
+            buildChromeTab({ id: 11, url: A, title: 'A' }),
+          ],
         },
       ],
     });
 
-    const captured = await captureOpenWindows('probe', 'all-windows');
+    const captured = requireCaptured(
+      await captureOpenWindows('probe', 'all-windows')
+    );
 
-    expect(captured!.windows[0].title).toBe('A');
+    expect(captured.windows[0].title).toBe('A');
   });
 
   test('a window holding only Tab Keeper pages is dropped, not kept empty', async () => {
@@ -659,18 +678,23 @@ describe('captureOpenWindows leaves out every Tab Keeper page (KAN-300)', () => 
         {
           id: 1,
           tabs: [
-            { id: 10, url: TAB_VIEW, title: 'Tab Keeper' },
-          ] as chrome.tabs.Tab[],
+            buildChromeTab({ id: 10, url: TAB_VIEW, title: 'Tab Keeper' }),
+          ],
         },
-        { id: 2, tabs: [{ id: 12, url: B, title: 'B' }] as chrome.tabs.Tab[] },
+        {
+          id: 2,
+          tabs: [buildChromeTab({ id: 12, url: B, title: 'B', windowId: 2 })],
+        },
       ],
     });
 
-    const captured = await captureOpenWindows('probe', 'all-windows');
+    const captured = requireCaptured(
+      await captureOpenWindows('probe', 'all-windows')
+    );
 
-    expect(captured!.windows).toHaveLength(1);
-    expect(captured!.windowCount).toBe(1);
-    expect(captured!.windows[0].tabs[0].url).toBe(B);
+    expect(captured.windows).toHaveLength(1);
+    expect(captured.windowCount).toBe(1);
+    expect(captured.windows[0].tabs[0].url).toBe(B);
   });
 
   test('null when only Tab Keeper pages were open', async () => {
@@ -679,8 +703,8 @@ describe('captureOpenWindows leaves out every Tab Keeper page (KAN-300)', () => 
         {
           id: 1,
           tabs: [
-            { id: 10, url: TAB_VIEW, title: 'Tab Keeper' },
-          ] as chrome.tabs.Tab[],
+            buildChromeTab({ id: 10, url: TAB_VIEW, title: 'Tab Keeper' }),
+          ],
         },
       ],
     });
@@ -697,17 +721,19 @@ describe('captureOpenWindows leaves out every Tab Keeper page (KAN-300)', () => 
         {
           id: 1,
           tabs: [
-            { id: 10, url: TAB_VIEW, title: 'Tab Keeper' },
-            { id: 13, url: EXPORT_PAGE, title: 'Tab Keeper' },
-            { id: 11, url: A, title: 'A' },
-          ] as chrome.tabs.Tab[],
+            buildChromeTab({ id: 10, url: TAB_VIEW, title: 'Tab Keeper' }),
+            buildChromeTab({ id: 13, url: EXPORT_PAGE, title: 'Tab Keeper' }),
+            buildChromeTab({ id: 11, url: A, title: 'A' }),
+          ],
         },
       ],
     });
 
-    const captured = await captureOpenWindows('probe', 'all-windows');
+    const captured = requireCaptured(
+      await captureOpenWindows('probe', 'all-windows')
+    );
 
-    expect(captured!.windows[0].tabs.map((t) => t.url)).toEqual([A]);
+    expect(captured.windows[0].tabs.map((t) => t.url)).toEqual([A]);
   });
 
   // A tab mid-navigation to a Tab Keeper page has not committed `url` yet --
@@ -718,16 +744,23 @@ describe('captureOpenWindows leaves out every Tab Keeper page (KAN-300)', () => 
         {
           id: 1,
           tabs: [
-            { id: 10, pendingUrl: TAB_VIEW, url: '', title: '' },
-            { id: 11, url: A, title: 'A' },
-          ] as chrome.tabs.Tab[],
+            buildChromeTab({
+              id: 10,
+              pendingUrl: TAB_VIEW,
+              url: '',
+              title: '',
+            }),
+            buildChromeTab({ id: 11, url: A, title: 'A' }),
+          ],
         },
       ],
     });
 
-    const captured = await captureOpenWindows('probe', 'all-windows');
+    const captured = requireCaptured(
+      await captureOpenWindows('probe', 'all-windows')
+    );
 
-    expect(captured!.windows[0].tabs.map((t) => t.url)).toEqual([A]);
+    expect(captured.windows[0].tabs.map((t) => t.url)).toEqual([A]);
   });
 
   // CONTROL: a lazy-load placeholder (local.ts's `data:` stand-in for a tab
@@ -742,16 +775,18 @@ describe('captureOpenWindows leaves out every Tab Keeper page (KAN-300)', () => 
         {
           id: 1,
           tabs: [
-            { id: 20, url: placeholder, title: 'Lazy' },
-            { id: 11, url: A, title: 'A' },
-          ] as chrome.tabs.Tab[],
+            buildChromeTab({ id: 20, url: placeholder, title: 'Lazy' }),
+            buildChromeTab({ id: 11, url: A, title: 'A' }),
+          ],
         },
       ],
     });
 
-    const captured = await captureOpenWindows('probe', 'all-windows');
+    const captured = requireCaptured(
+      await captureOpenWindows('probe', 'all-windows')
+    );
 
-    expect(captured!.windows[0].tabs.map((t) => t.url)).toEqual([
+    expect(captured.windows[0].tabs.map((t) => t.url)).toEqual([
       placeholder,
       A,
     ]);
@@ -765,13 +800,49 @@ describe('captureOpenWindows leaves out every Tab Keeper page (KAN-300)', () => 
       windows: [
         {
           id: 1,
-          tabs: [{ id: undefined, url: A, title: 'A' }] as chrome.tabs.Tab[],
+          tabs: [buildChromeTab({ id: undefined, url: A, title: 'A' })],
         },
       ],
     });
 
-    const captured = await captureOpenWindows('probe', 'all-windows');
+    const captured = requireCaptured(
+      await captureOpenWindows('probe', 'all-windows')
+    );
 
-    expect(captured!.windows[0].tabs).toHaveLength(1);
+    expect(captured.windows[0].tabs).toHaveLength(1);
+  });
+
+  // Fix round 1. A lazy-load placeholder is a `data:` document, so it never
+  // matches the address prefix directly -- but an OLDER session (saved
+  // before KAN-300's rule existed) could have stored a Tab Keeper URL as an
+  // ordinary tab. Lazy-loading it later wraps THAT url in exactly this kind
+  // of placeholder, and toStoredTab already resolves it before storing --
+  // so the exclusion has to check the RESOLVED address too, or the
+  // placeholder sails through the filter and gets stored as the extension's
+  // own address anyway.
+  test('a lazy-load placeholder resolving to a Tab Keeper page is excluded too', async () => {
+    const placeholder = generatePlaceholderURL(
+      'Tab Keeper',
+      '',
+      TAB_VIEW,
+      'Go to URL'
+    );
+    handle = setupChromeFake({
+      windows: [
+        {
+          id: 1,
+          tabs: [
+            buildChromeTab({ id: 10, url: placeholder, title: 'Tab Keeper' }),
+            buildChromeTab({ id: 11, url: A, title: 'A' }),
+          ],
+        },
+      ],
+    });
+
+    const captured = requireCaptured(
+      await captureOpenWindows('probe', 'all-windows')
+    );
+
+    expect(captured.windows[0].tabs.map((t) => t.url)).toEqual([A]);
   });
 });
