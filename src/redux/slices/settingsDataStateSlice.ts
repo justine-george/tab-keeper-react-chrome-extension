@@ -380,9 +380,12 @@ export const cloudSyncAllowed = (settings: SettingsData): boolean =>
 
 /**
  * Whether the tab view's own periodic/on-focus cloud read (KAN-279 D11) may
- * fire right now. Mirrors App's startup-sync condition EXACTLY --
+ * fire right now. Mirrors App's startup-sync condition --
  * `isSignedIn && isFirebaseAuthed && userId && cloudSyncAllowed(settings)`,
- * see App.tsx's sync effect -- and deliberately NOT drainQueuedSync's gate
+ * see App.tsx's sync effect -- including App's own truthiness check on
+ * `userId` (`string | null`), not merely `!== null`: an empty string would
+ * pass a null-check but fail App's `&&`, and this must refuse exactly when
+ * App's effect would. Deliberately NOT drainQueuedSync's gate
  * (customMiddleware.ts), which is consent alone. A timed read is a sync
  * nobody asked for, and syncStateWithFirestore also uploads local edits, so
  * with Auto Sync off (consent granted or not) the tab must never sync on its
@@ -392,5 +395,5 @@ export const cloudSyncAllowed = (settings: SettingsData): boolean =>
 export const timedCloudReadAllowed = (state: RootState): boolean =>
   state.globalState.isSignedIn &&
   state.globalState.isFirebaseAuthed &&
-  state.globalState.userId !== null &&
+  !!state.globalState.userId &&
   cloudSyncAllowed(state.settingsDataState);

@@ -65,7 +65,7 @@ describe('startCloudReads', () => {
     expect(read).toHaveBeenCalledTimes(2);
   });
 
-  test('hidden at 5 min: no read at 10 min; visible again at 11 min reads at once (gap > 60s)', () => {
+  test('hidden at 5 min: no read at 10 min; visible again at 11 min reads at once (gap > 60s); the timer resumes ticking, not just the one catch-up read', () => {
     const { doc, setVisibility } = makeFakeDoc('visible');
     const read = vi.fn();
     startCloudReads(doc, read, () => true);
@@ -79,6 +79,15 @@ describe('startCloudReads', () => {
     vi.advanceTimersByTime(60_000); // now at 11 min
     setVisibility('visible');
     expect(read).toHaveBeenCalledTimes(1);
+
+    // D11's core promise: a tab left and returned to keeps reading on its
+    // timer, not just once on the way back in. Catches a regression that
+    // does the catch-up read (tryRead()) but never restarts the interval
+    // (startInterval()) -- every earlier assertion in this test still
+    // passes against that broken code, because it never advances the clock
+    // far enough to need a second tick.
+    vi.advanceTimersByTime(TAB_READ_INTERVAL);
+    expect(read).toHaveBeenCalledTimes(2);
   });
 
   test('hidden -> visible -> hidden -> visible within 30s of the last read: no extra read (the gap)', () => {
@@ -155,12 +164,44 @@ describe('startCloudReads', () => {
     expect(read).toHaveBeenCalledTimes(2);
   });
 
-  test('the stop function called twice is harmless', () => {
-    const { doc } = makeFakeDoc('visible');
+  // Fix round 1, item 3 (D). A tick where canRead() refuses must leave
+  // `lastRead` untouched -- not stamp it as if a read had happened. Proof: a
+  // refused tick at 10 min, canRead turning true right after, then a
+  // hide/show only 1s later (still nowhere near a fresh 60s gap from THAT
+  // tick) still reads, because the gap is correctly measured from the
+  // session's real start (t=0, > 60s ago) rather than from the refused
+  // attempt. A scheduler that wrongly stamped `lastRead` on the refused tick
+  // would measure only 1s since that stamp and refuse.
+  test('canRead refusing a tick does not bump lastRead: a hide/show shortly after still reads once canRead turns true', () => {
+    const { doc, setVisibility } = makeFakeDoc('visible');
     const read = vi.fn();
-    const stop = startCloudReads(doc, read, () => true);
+    let allowed = false;
+    startCloudReads(doc, read, () => allowed);
 
-    stop();
-    expect(() => stop()).not.toThrow();
+    vi.advanceTimersByTime(TAB_READ_INTERVAL); // t = 10 min; tick refused by canRead()
+    expect(read).not.toHaveBeenCalled();
+
+    allowed = true;
+    vi.advanceTimersByTime(1_000); // t = 10 min + 1s -- shortly after the refused tick
+    setVisibility('hidden');
+    setVisibility('visible');
+
+    expect(read).toHaveBeenCalledTimes(1);
   });
 });
+
+// Fix round 1, item 3 (B): dropping the defensive `stopInterval()` at the top
+// of `startInterval` was left untested on purpose. `startInterval` is only
+// ever called from two places -- once at construction (only if already
+// visible) and once from `onVisibilityChange`'s 'visible' branch -- and the
+// DOM only fires `visibilitychange` on an ACTUAL state transition, so a real
+// browser can never deliver two 'visible' calls back to back without a
+// 'hidden' in between (which already calls `stopInterval()` on its own
+// branch). No sequence this module can be driven through -- by a real
+// browser, or by this fake doc, which mirrors the same one-listener,
+// caller-fires-on-change contract -- reaches `startInterval` with an
+// interval already running. A test asserting no leaked interval in that case
+// would have to call the internal function directly or fire 'visible' twice
+// from a fake doc that violates the real contract, which would test the fake
+// rather than the scheduler. Left undone; said here instead of covered by a
+// vacuous test.

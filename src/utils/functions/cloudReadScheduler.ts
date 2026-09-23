@@ -36,10 +36,17 @@ export interface VisibilitySource {
  * `tryRead` once (to catch up immediately, subject to the gap) and, if still
  * visible, restarts the interval.
  *
- * `tryRead` checks `canRead()` and the gap before calling `read()`, and
- * `read()` is called inside a try/catch: a rejected/throwing read (KAN-269's
- * queue can fail a sync) must not kill the scheduler or storm retries -- the
- * next tick, or the next visibility change, tries again on its own schedule.
+ * `tryRead` checks `canRead()` and the gap before calling `read()`. `read()`
+ * itself is called inside a try/catch, but that only guards a SYNCHRONOUS
+ * throw out of `read` -- the call that dispatches the thunk, not the
+ * dispatched thunk's own eventual result. `dispatch(syncStateWithFirestore())`
+ * returns a promise that always resolves (to a fulfilled or rejected
+ * *action*, per createAsyncThunk), and a refusal from the KAN-269 queue
+ * resolves too, so neither reaches this catch and neither needs to: there is
+ * no unhandled rejection to swallow, only the case where `read` itself throws
+ * before returning. Either way, a bad tick must not kill the scheduler or
+ * storm retries -- the next tick, or the next visibility change, tries again
+ * on its own schedule.
  */
 export function startCloudReads(
   doc: VisibilitySource,
@@ -56,8 +63,9 @@ export function startCloudReads(
     try {
       read();
     } catch {
-      // Swallowed on purpose: a failed read gets no retry storm. The next
-      // tick (or the next visibility change) tries again.
+      // Swallowed on purpose: a `read` that throws synchronously gets no
+      // retry storm. The next tick (or the next visibility change) tries
+      // again on its own schedule.
     }
   };
 

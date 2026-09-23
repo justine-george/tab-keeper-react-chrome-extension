@@ -78,6 +78,23 @@ describe('timedCloudReadAllowed', () => {
     expect(timedCloudReadAllowed(made.store.getState())).toBe(false);
   });
 
+  // Fix round 1, item 6. App.tsx gates on `userId` by TRUTHINESS
+  // (`isSignedIn && isFirebaseAuthed && userId && syncAllowed`), not on
+  // `!== null` -- an empty string is falsy but not null, so a `!== null`
+  // check would (wrongly) let it through. Distinct from "false: no userId"
+  // above, which covers the `null` case; this covers the case `!== null`
+  // alone would miss.
+  test('false: userId is an empty string (falsy, but not null)', () => {
+    const made = makeTestStore();
+    made.store.dispatch(setSignedIn());
+    made.store.dispatch(setFirebaseAuthed());
+    made.store.dispatch(setUserId(''));
+    made.store.dispatch(grantCloudConsent());
+    made.store.dispatch(setAutoSync(true));
+
+    expect(timedCloudReadAllowed(made.store.getState())).toBe(false);
+  });
+
   test('false: consent not granted', () => {
     const made = makeTestStore();
     made.store.dispatch(setSignedIn());
