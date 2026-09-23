@@ -64,6 +64,7 @@ import {
   type WindowedSlot,
 } from '../../../../utils/functions/dragPreview';
 import { DURATION } from '../../../../styles/scale';
+import { beginDragHold, endDragHold } from '../../../../redux/dragHold';
 
 // How close to an edge the pointer must be for the list to start travelling,
 // and how fast it goes at its deepest. 48px is roughly a row and a half here,
@@ -953,6 +954,10 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         // layout that no longer exists.
         l.started = true;
         setDragging(true, dragKind);
+        // KAN-279 D12. From here until the drag ends, a change this page did
+        // not make waits (dragHold): applying it would move the list under
+        // rects measured once, below.
+        beginDragHold();
 
         // Which row is held, for rules that apply to it alone (KAN-160: a
         // group drag compresses only the held group). Written straight to the
@@ -1261,6 +1266,12 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         // its full scroll range, which is the only one 300 fits in.
         l.scroller.scrollTop = l.scrollTopAtPress;
       }
+
+      // KAN-279 D12. Last, after onMove: a committed drop's consumer applies
+      // the held change itself (dropOnTop) so the move lands on top of it, and
+      // this then finds the queue empty. A refused or cancelled drag has no
+      // consumer call, and this is what applies the change.
+      endDragHold();
     };
 
     const onUp = () => finish(true);
@@ -1345,7 +1356,13 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         cancelAnimationFrame(scrollFrame.current);
         scrollFrame.current = 0;
       }
-      if (l?.started) setDragging(false);
+      if (l?.started) {
+        setDragging(false);
+        // KAN-279 D12. finish() never runs on this path, so the hold it would
+        // have ended is ended here -- or every later merge would wait for a
+        // drop that can no longer happen.
+        endDragHold();
+      }
     },
     []
   );

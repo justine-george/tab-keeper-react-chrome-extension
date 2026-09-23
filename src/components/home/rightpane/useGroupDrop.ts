@@ -25,7 +25,9 @@ import type { AppDispatch } from '../../../redux/store';
 import {
   moveChromeGroupAcrossWindowsInternal,
   moveChromeGroupInternal,
+  type TabMasterContainer,
 } from '../../../redux/slices/tabContainerDataStateSlice';
+import { dropOnTop } from '../../../redux/dropOnTop';
 import {
   partitionTabsIntoItems,
   itemIdOf,
@@ -115,21 +117,43 @@ export function useGroupDrop(
       if (groupId === undefined) return;
       const fromWindowId = windowOfGroup.get(groupId);
       if (fromWindowId === undefined || toWindowId === undefined) return;
+      // A window's items exactly as BOTH reducers rebuild them -- no
+      // permission gate there, unlike the render above -- so the ids are the
+      // list they apply toIndex to (KAN-131).
+      const itemIdsIn = (s: TabMasterContainer, windowId: string) => {
+        const w = s.tabGroups
+          .find((g) => g.tabGroupId === tabGroupId)
+          ?.windows.find((x) => x.windowId === windowId);
+        return w
+          ? partitionTabsIntoItems(w.tabs, w.chromeTabGroups).map(itemIdOf)
+          : null;
+      };
       dispatch(
-        fromWindowId === toWindowId
-          ? moveChromeGroupInternal({
-              tabGroupId,
-              windowId: fromWindowId,
-              groupId,
-              toIndex,
-            })
-          : moveChromeGroupAcrossWindowsInternal({
-              tabGroupId,
-              fromWindowId,
-              toWindowId,
-              groupId,
-              toIndex,
-            })
+        dropOnTop({
+          rowId: itemId,
+          toIndex,
+          // The destination's items: moveChromeGroupInternal's own window
+          // (the group among them), moveChromeGroupAcrossWindowsInternal's
+          // toWindowId (the group not yet among them).
+          targetIds: (s) => itemIdsIn(s, toWindowId),
+          rowExists: (s) =>
+            itemIdsIn(s, fromWindowId)?.includes(itemId) ?? false,
+          move: (i) =>
+            fromWindowId === toWindowId
+              ? moveChromeGroupInternal({
+                  tabGroupId,
+                  windowId: fromWindowId,
+                  groupId,
+                  toIndex: i,
+                })
+              : moveChromeGroupAcrossWindowsInternal({
+                  tabGroupId,
+                  fromWindowId,
+                  toWindowId,
+                  groupId,
+                  toIndex: i,
+                }),
+        })
       );
     },
     [dispatch, tabGroupId, windowOfGroup]

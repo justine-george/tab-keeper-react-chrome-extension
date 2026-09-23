@@ -23,6 +23,7 @@ import {
 } from '../../../redux/slices/tabContainerDataStateSlice';
 import { useTranslation } from 'react-i18next';
 import { RowDragArea, DraggableRow } from '../rightpane/rowDrag/RowDragArea';
+import { dropOnTop } from '../../../redux/dropOnTop';
 
 export default function TabGroupEntryContainer() {
   const COLORS = useThemeColors();
@@ -57,7 +58,16 @@ export default function TabGroupEntryContainer() {
 
   const handleMoveSession = useCallback(
     (tabGroupId: string, toIndex: number) => {
-      dispatch(moveSessionInternal({ tabGroupId, toIndex }));
+      dispatch(
+        dropOnTop({
+          rowId: tabGroupId,
+          toIndex,
+          targetIds: (s) => s.tabGroups.map((g) => g.tabGroupId),
+          rowExists: (s) =>
+            s.tabGroups.some((g) => g.tabGroupId === tabGroupId),
+          move: (i) => moveSessionInternal({ tabGroupId, toIndex: i }),
+        })
+      );
     },
     [dispatch]
   );

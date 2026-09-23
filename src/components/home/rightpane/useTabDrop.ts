@@ -19,8 +19,10 @@ import type { AppDispatch } from '../../../redux/store';
 import {
   moveTabAcrossWindowsInternal,
   moveTabInternal,
+  type TabMasterContainer,
   type tabData,
 } from '../../../redux/slices/tabContainerDataStateSlice';
+import { dropOnTop } from '../../../redux/dropOnTop';
 import {
   TAB_GROUP_COLOR_HEX,
   sanitizeTabGroupColor,
@@ -550,23 +552,52 @@ export function useTabDrop(
     ) => {
       const fromWindowId = windowOfTab.get(tabId);
       if (fromWindowId === undefined || toWindowId === undefined) return;
+      const windowIn = (s: TabMasterContainer, windowId: string) =>
+        s.tabGroups
+          .find((g) => g.tabGroupId === tabGroupId)
+          ?.windows.find((w) => w.windowId === windowId);
       dispatch(
-        fromWindowId === toWindowId
-          ? moveTabInternal({
-              tabGroupId,
-              windowId: fromWindowId,
-              tabId,
-              toIndex,
-              toChromeGroupId,
-            })
-          : moveTabAcrossWindowsInternal({
-              tabGroupId,
-              fromWindowId,
-              toWindowId,
-              tabId,
-              toIndex,
-              toChromeGroupId,
-            })
+        dropOnTop({
+          rowId: tabId,
+          toIndex,
+          // Both reducers apply toIndex to the DESTINATION window's tabs[]:
+          // moveTabInternal to the one window (the tab still in it),
+          // moveTabAcrossWindowsInternal to toWindowId's (the tab not yet in
+          // it). A band the drop joins must still be in that window.
+          targetIds: (s) => {
+            const to = windowIn(s, toWindowId);
+            if (!to) return null;
+            if (
+              toChromeGroupId !== undefined &&
+              !(to.chromeTabGroups ?? []).some(
+                (g) => g.groupId === toChromeGroupId
+              )
+            ) {
+              return null;
+            }
+            return to.tabs.map((t) => t.tabId);
+          },
+          rowExists: (s) =>
+            windowIn(s, fromWindowId)?.tabs.some((t) => t.tabId === tabId) ??
+            false,
+          move: (i) =>
+            fromWindowId === toWindowId
+              ? moveTabInternal({
+                  tabGroupId,
+                  windowId: fromWindowId,
+                  tabId,
+                  toIndex: i,
+                  toChromeGroupId,
+                })
+              : moveTabAcrossWindowsInternal({
+                  tabGroupId,
+                  fromWindowId,
+                  toWindowId,
+                  tabId,
+                  toIndex: i,
+                  toChromeGroupId,
+                }),
+        })
       );
     },
     [dispatch, tabGroupId, windowOfTab]
