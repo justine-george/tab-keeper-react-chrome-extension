@@ -38,7 +38,6 @@ import {
 import { mergeTabContainers } from '../../utils/functions/mergeTabData';
 import { TOAST_MESSAGES } from '../../utils/constants/common';
 import {
-  cloudSyncAllowed,
   recordSyncedNow,
   recordValueMoment,
   setAutoSync,
@@ -528,16 +527,24 @@ export const applyHeldCloudMerge =
     );
     if (arrived) dispatch(recordValueMoment());
 
-    // KAN-290. The same gate every other sync starter passes through: a
-    // re-sync fired after the drop must not run if sign-in or consent was
-    // withdrawn while the row was held.
+    // KAN-290. The same gate drainQueuedSync (customMiddleware.ts) uses, not
+    // cloudSyncAllowed: that also requires Auto Sync, but "Sync now" is a
+    // manual sync that works with Auto Sync OFF, and a manual sync held by a
+    // drag must still re-sync once released. A re-sync fired after the drop
+    // must not run if sign-in or consent was withdrawn while the row was held.
     const { globalState, settingsDataState } = getState();
     if (
       globalState.isSignedIn &&
       globalState.isFirebaseAuthed &&
-      cloudSyncAllowed(settingsDataState)
+      settingsDataState.cloudConsent === 'granted'
     ) {
       dispatch(syncStateWithFirestore());
+    } else {
+      // The held run returned before it could settle syncStatus off
+      // 'loading' (it deferred to this re-sync instead). With the gate
+      // closed, that re-sync never happens, so nothing else will -- without
+      // this the header's spinner sticks on 'loading' for good.
+      dispatch(setSyncStatus('idle'));
     }
   };
 

@@ -41,6 +41,7 @@ import {
 import {
   declineCloudConsent,
   grantCloudConsent,
+  setAutoSync,
 } from '../../redux/slices/settingsDataStateSlice';
 import {
   replaceState,
@@ -263,10 +264,35 @@ describe('the sync holds its merge while a drag is held (D12, KAN-279)', () => {
     );
   });
 
-  // D. KAN-290: the re-sync applyHeldCloudMerge starts after the drop must
-  // pass the same gate every other sync starter waits on. If sign-in or
-  // consent was withdrawn while the row was held, it must not fire.
-  it('D: the re-sync after the drop waits for auth like any sync starter', async () => {
+  // D(a). KAN-290: "Sync now" is a manual sync that works with Auto Sync OFF
+  // -- cloudSyncAllowed would refuse it, which is why the gate matches
+  // drainQueuedSync's (isSignedIn && isFirebaseAuthed && cloudConsent ===
+  // 'granted') instead. A held merge started this way must still re-sync
+  // once released, and the spinner must settle.
+  it('D(a): Auto Sync off with consent granted still re-syncs after the drop', async () => {
+    const { store, seen } = readyStore();
+    store.dispatch(setAutoSync(false));
+    mocks.cloud.doc = cloudWithRemote();
+    beginDragHold();
+    await store.dispatch(syncStateWithFirestore());
+    expect(
+      seen.filter((t) => t === 'global/syncStateWithFirestore/pending')
+    ).toHaveLength(1);
+
+    endDragHold();
+    await vi.runAllTimersAsync();
+
+    expect(
+      seen.filter((t) => t === 'global/syncStateWithFirestore/pending')
+    ).toHaveLength(2); // exactly one MORE sync started
+    expect(store.getState().globalState.syncStatus).not.toBe('loading');
+  });
+
+  // D(b). KAN-290: the re-sync applyHeldCloudMerge starts after the drop
+  // must pass the same gate every other sync starter waits on. If sign-in or
+  // consent was withdrawn while the row was held, it must not fire, and the
+  // spinner it left behind must not stick.
+  it('D(b): the re-sync after the drop waits for auth like any sync starter', async () => {
     const { store, seen } = readyStore();
     mocks.cloud.doc = cloudWithRemote();
     beginDragHold();
@@ -282,6 +308,7 @@ describe('the sync holds its merge while a drag is held (D12, KAN-279)', () => {
     expect(
       seen.filter((t) => t === 'global/syncStateWithFirestore/pending')
     ).toHaveLength(1); // no second sync started
+    expect(store.getState().globalState.syncStatus).not.toBe('loading');
   });
 
   // E. The no-drag pin, in THIS file: without a held row, a changedFromLocal
