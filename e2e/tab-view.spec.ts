@@ -153,14 +153,23 @@ test.describe('Open in a tab (KAN-279 D4, D5)', () => {
       .getByRole('button', { name: 'Open in a tab', exact: true })
       .click();
 
-    // Wait for the second click to have DONE something: a tab view became
-    // active. Correct code activates the existing one; a lookup that misses
-    // creates a second, active one -- which the count below then catches.
+    // Wait for the second click to have DONE something: the window's active
+    // tab is a tab view. Correct code activates the existing one; a lookup
+    // that misses creates a second, active one -- which the count below then
+    // catches.
     await expect
-      .poll(async () => (await viewTabs(serviceWorker)).some((t) => t.active), {
-        message: 'the second click activated no tab view',
-      })
-      .toBe(true);
+      .poll(
+        () =>
+          serviceWorker.evaluate(
+            (windowId: number) =>
+              chrome.tabs
+                .query({ active: true, windowId })
+                .then((tabs) => tabs.map((t) => t.url ?? t.pendingUrl ?? '')),
+            popupTab.windowId
+          ),
+        { message: 'the second click activated no tab view' }
+      )
+      .toEqual([expect.stringContaining(VIEW_TAB)]);
     const after = await viewTabs(serviceWorker);
     expect(after.length, 'the second click opened another tab view').toBe(1);
 
@@ -549,6 +558,9 @@ test.describe('the popup page and the tab view together (KAN-279 D8, D9, D12)', 
       if (shown.join(',') !== unmoved.join(',')) reordered += 1;
       await tab.waitForTimeout(50);
     }
+    // A floor: a loop that took no samples leaves both counts at 0, and the
+    // two checks below would pass having seen nothing.
+    expect(samples, 'the mid-drag poll took no samples').toBeGreaterThan(0);
     console.log(
       `[D12] mid-drag: ${JSON.stringify({ samples, nShown, reordered })}`
     );
