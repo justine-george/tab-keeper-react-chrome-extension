@@ -21,10 +21,20 @@ export function whenDragReleases(apply: Apply): void {
   }
   queue.push(apply);
 }
+// Each apply runs in its own try/catch: two kinds are queued (a cloud merge,
+// another page's write), and a throw in one must not drop the ones after it.
+// Reported, not rethrown, so dropOnTop still applies the move on top of
+// whatever did apply -- a rethrow would lose the drop as well.
 export function flushHeldChanges(): boolean {
   const pending = queue;
   queue = [];
-  pending.forEach((apply) => apply());
+  for (const apply of pending) {
+    try {
+      apply();
+    } catch (error) {
+      console.error('A change held during a drag failed to apply: ', error);
+    }
+  }
   return pending.length > 0;
 }
 export function endDragHold(): void {

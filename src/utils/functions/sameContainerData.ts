@@ -59,12 +59,15 @@ const dataOf = (c: TabMasterContainer) => ({
   }),
 });
 
+// Equal as JSON once every object's keys are sorted: key order is how a value
+// was built, not what it holds. The settings compare uses it directly
+// (otherPageChanges); settings have no view state to strip.
+export const sameIgnoringKeyOrder = (a: unknown, b: unknown): boolean =>
+  JSON.stringify(canonical(a)) === JSON.stringify(canonical(b));
+
 export function sameContainerData(
   a: TabMasterContainer,
   b: TabMasterContainer
 ): boolean {
-  return (
-    JSON.stringify(canonical(dataOf(a))) ===
-    JSON.stringify(canonical(dataOf(b)))
-  );
+  return sameIgnoringKeyOrder(dataOf(a), dataOf(b));
 }
