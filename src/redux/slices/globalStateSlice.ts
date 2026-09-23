@@ -4,10 +4,13 @@ import {
   PayloadAction,
   type AsyncThunkConfig,
   type GetThunkAPI,
+  type ThunkAction,
+  type UnknownAction,
 } from '@reduxjs/toolkit';
 
 import { AppDispatch, RootState } from '../store';
 import { resetHistory, setPresentStartup } from './undoRedoSlice';
+import { isDragHeld, whenDragReleases } from '../dragHold';
 import { selectCategory, SettingsCategory } from './settingsCategoryStateSlice';
 import {
   mergeSessionsFromBackupInternal,
@@ -376,6 +379,15 @@ export const syncStateWithFirestore = createAsyncThunk(
         Date.now()
       );
 
+      // KAN-279 D12. A row is held: applying this would move the list under
+      // the pointer. It waits for the drop, and nothing is written meanwhile --
+      // saveToFirestoreIfDirty would send the PRE-merge state, over the other
+      // device's change. applyHeldCloudMerge re-syncs once it has applied.
+      if (changedFromLocal && isDragHeld()) {
+        whenDragReleases(() => thunkAPI.dispatch(applyHeldCloudMerge(merged)));
+        return;
+      }
+
       thunkAPI.dispatch(replaceState(merged));
 
       if (changedFromCloud) {
@@ -477,6 +489,27 @@ export const syncStateWithFirestore = createAsyncThunk(
     dispatchConditionRejection: true,
   }
 );
+
+// KAN-279 D12. Plain thunk, synchronous on purpose: dropOnTop applies this and
+// then the drop in one tick, and the drop must land on the merged list.
+// Merged with localStorage as it is NOW: another page may have written while
+// the row was held, and the merge is what combines both without loss.
+export const applyHeldCloudMerge =
+  (
+    merged: TabMasterContainer
+  ): ThunkAction<void, unknown, unknown, UnknownAction> =>
+  (dispatch) => {
+    const local = loadFromLocalStorage('tabContainerData');
+    const combined = isValidTabMasterContainer(local)
+      ? mergeTabContainers(local, merged, Date.now()).merged
+      : merged;
+    dispatch(replaceState(combined));
+    dispatch(resetHistory({ tabContainerDataState: combined }));
+    dispatch(
+      showToast({ toastText: TOAST_MESSAGES.SYNC_MERGED, duration: 3000 })
+    );
+    dispatch(syncStateWithFirestore());
+  };
 
 // KAN-254. Deletes the document under the token and turns Auto Sync off on
 // THIS device -- otherwise the next edit re-uploads everything and the delete
