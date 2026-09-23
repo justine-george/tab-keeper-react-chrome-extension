@@ -212,6 +212,17 @@ export const customMiddleware: Middleware = (store) => {
     }
 
     if (isUndoRedoAction(action.type)) {
+      // KAN-292. Nothing to undo (or redo) means nothing happened: the reducer
+      // left `present` alone, so there is no snapshot to apply and no edit to
+      // sync. Applying `present` anyway rewrote localStorage, started a sync,
+      // and -- because a later sync's merge never updates `present` --
+      // reverted that merge.
+      const historyWasEmpty =
+        action.type === UNDO_ACTION
+          ? prevState.undoRedo.past.length === 0
+          : prevState.undoRedo.future.length === 0;
+      if (historyWasEmpty) return result;
+
       const presentState = nextState.undoRedo.present;
 
       // Undoing retracts whatever the step being left had created; redoing
