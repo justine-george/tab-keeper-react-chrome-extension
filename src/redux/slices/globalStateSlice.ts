@@ -38,6 +38,7 @@ import {
 import { mergeTabContainers } from '../../utils/functions/mergeTabData';
 import { withOwnSelection } from '../../utils/functions/withOwnSelection';
 import { TOAST_MESSAGES } from '../../utils/constants/common';
+import { TAB_CONTAINER_SLICE_NAME } from '../../utils/constants/actionTypes';
 import {
   recordSyncedNow,
   recordValueMoment,
@@ -46,12 +47,19 @@ import {
 
 export interface Global {
   hasSyncedBefore: boolean;
-  // KAN-294. "This page has loaded its sessions." Until then the store holds
-  // the slice's empty initial container, whose null selection is no one's
-  // choice, so the first load keeps its source's selection; every later load
-  // keeps this page's own (loadSessionsIntoPage). Page-local like the rest of
-  // this slice: never written to localStorage, never synced, never in undo.
-  hasLoadedSessions: boolean;
+  // KAN-294. The sessions in this store are still the slice's placeholder:
+  // the empty initial container, which nothing has loaded, taken in, edited,
+  // or confirmed. Its null selection is no one's choice, so while this holds
+  // the next load keeps its source's selection; after, every load keeps this
+  // page's own (loadSessionsIntoPage).
+  //
+  // Any tabContainerDataState action ends it -- a load (replaceState), another
+  // page's sessions taken in (hydrateFromOtherPage), or this page's own edit
+  // -- and so does a sync that finds no sessions anywhere, which loads
+  // nothing but settles that empty IS this page's state. Page-local like the
+  // rest of this slice: never written to localStorage, never synced, never
+  // in undo.
+  holdsPlaceholderSessions: boolean;
   // "a usable document id exists in chrome.storage.sync". A LOCAL read: no
   // network, no authentication. This app has no accounts - sync identity is a
   // client uuid - so "signed in" genuinely means "has a sync identity", and it
@@ -233,7 +241,7 @@ export interface PendingImport {
 
 export const initialState: Global = {
   hasSyncedBefore: false,
-  hasLoadedSessions: false,
+  holdsPlaceholderSessions: true,
   isSignedIn: false,
   isFirebaseAuthed: false,
   isCloudConfigured: false,
@@ -325,25 +333,25 @@ export const saveToFirestoreIfDirty = createAsyncThunk(
   }
 );
 
-// KAN-294. Every route that loads a whole container into this page -- App's
-// startup read of localStorage, and each sync branch -- takes it from
-// localStorage or the cloud, and the selection there is whichever page or
-// device wrote last. Selection is per page (KAN-279 D9), so only the FIRST
-// load takes the source's: it replaces the empty initial container, and a
-// lone page must open on its stored selection exactly as before. Every later
-// load keeps this page's own. Returns the container it loaded, for the caller
-// to hand to any undo `present` it sets, so undo and the screen agree.
+// KAN-294. App's startup read of localStorage and each sync branch load a
+// whole container into this page from localStorage or the cloud, and the
+// selection there is whichever page or device wrote last. (The storage-event
+// hydrate is the other route in; it applies withOwnSelection itself.)
+// Selection is per page (KAN-279 D9), so a load over the placeholder takes
+// the source's: a lone page must open on its stored selection exactly as
+// before. Every other load keeps this page's own. Returns the container it
+// loaded, for the caller to hand to any undo `present` it sets, so undo and
+// the screen agree. Its replaceState ends the placeholder (extraReducers).
 export const loadSessionsIntoPage =
   (
     loaded: TabMasterContainer
   ): ThunkAction<TabMasterContainer, RootState, unknown, UnknownAction> =>
   (dispatch, getState) => {
     const { globalState, tabContainerDataState } = getState();
-    const next = globalState.hasLoadedSessions
-      ? withOwnSelection(loaded, tabContainerDataState.selectedTabGroupId)
-      : loaded;
+    const next = globalState.holdsPlaceholderSessions
+      ? loaded
+      : withOwnSelection(loaded, tabContainerDataState.selectedTabGroupId);
     dispatch(replaceState(next));
-    dispatch(setSessionsLoaded());
     return next;
   };
 
@@ -509,6 +517,9 @@ export const syncStateWithFirestore = createAsyncThunk<
       thunkAPI.dispatch(setHasSyncedBefore());
     } else {
       // new user - hey there!
+      // KAN-294. Nothing to load, but the empty container is now this page's
+      // real state, not a placeholder: a later load keeps its selection.
+      thunkAPI.dispatch(endPlaceholderSessions());
       thunkAPI.dispatch(setIsDirtyWithoutSync());
       thunkAPI.dispatch(saveToFirestoreIfDirty());
       thunkAPI.dispatch(setHasSyncedBefore());
@@ -925,8 +936,8 @@ export const globalStateSlice = createSlice({
       state.hasSyncedBefore = true;
     },
 
-    setSessionsLoaded: (state) => {
-      state.hasLoadedSessions = true;
+    endPlaceholderSessions: (state) => {
+      state.holdsPlaceholderSessions = false;
     },
 
     // KAN-269. The middleware takes the queued sync as it runs it, so a
@@ -1072,7 +1083,19 @@ export const globalStateSlice = createSlice({
       .addCase(openSettingsPage.fulfilled, (state) => {
         state.isSettingsPage = true;
       })
-      .addCase(showToast.fulfilled, () => {});
+      .addCase(showToast.fulfilled, () => {})
+      // KAN-294. Any action of the sessions slice means the store no longer
+      // holds the placeholder: a load, another page's sessions taken in, or
+      // this page's own edit. By prefix, because it is every reducer of that
+      // slice, present and future; its thunks are 'global/...' and do not
+      // match, but each ends in one of its reducers, which does.
+      .addMatcher(
+        (action: UnknownAction) =>
+          action.type.startsWith(`${TAB_CONTAINER_SLICE_NAME}/`),
+        (state) => {
+          state.holdsPlaceholderSessions = false;
+        }
+      );
   },
 });
 
@@ -1105,7 +1128,7 @@ export const {
   setCloudConfigured,
   setFirebaseUnauthed,
   setHasSyncedBefore,
-  setSessionsLoaded,
+  endPlaceholderSessions,
   setLoggedOut,
   setSyncStatus,
   setUserId,

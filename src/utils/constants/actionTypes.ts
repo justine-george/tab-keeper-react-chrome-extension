@@ -4,6 +4,9 @@ export const UNDO_ACTION = 'undoRedo/undo';
 export const REDO_ACTION = 'undoRedo/redo';
 
 // tabContainerDataState actions
+// The slice's name, so the prefix of every one of its reducer actions (its
+// thunks are 'global/...', see slice-name-is-not-the-thunk-prefix).
+export const TAB_CONTAINER_SLICE_NAME = 'tabContainerDataState';
 export const TAB_CONTAINER_REPLACE_STATE_ACTION =
   'tabContainerDataState/replaceState';
 

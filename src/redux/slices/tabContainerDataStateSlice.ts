@@ -42,6 +42,7 @@ import {
   DEFAULT_WINDOW_WIDTH,
   TOAST_MESSAGES,
 } from '../../utils/constants/common';
+import { TAB_CONTAINER_SLICE_NAME } from '../../utils/constants/actionTypes';
 import { recordValueMoment } from './settingsDataStateSlice';
 import {
   TAB_GROUP_COLORS,
@@ -1061,7 +1062,7 @@ function bury(state: TabMasterContainer, tabGroupId: string): void {
 }
 
 export const tabContainerDataStateSlice = createSlice({
-  name: 'tabContainerDataState',
+  name: TAB_CONTAINER_SLICE_NAME,
   initialState,
   reducers: {
     saveToTabContainerInternal: (

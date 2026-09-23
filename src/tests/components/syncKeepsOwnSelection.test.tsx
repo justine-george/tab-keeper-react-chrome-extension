@@ -46,7 +46,10 @@ import {
   type SettingsData,
 } from '../../redux/slices/settingsDataStateSlice';
 import type { TabMasterContainer } from '../../redux/slices/tabContainerDataStateSlice';
-import { TAB_CONTAINER_REPLACE_STATE_ACTION } from '../../utils/constants/actionTypes';
+import {
+  TAB_CONTAINER_REPLACE_STATE_ACTION,
+  TAB_CONTAINER_SLICE_NAME,
+} from '../../utils/constants/actionTypes';
 
 // KAN-294, through App. Its startup effect is both a first load (site 5, the
 // local branch on mount) and the route into every later one: it re-runs its
@@ -237,6 +240,49 @@ describe('a lone page is unaffected (KAN-294)', () => {
 
     await authLands(store);
 
+    expect(shown(store)).toEqual(keeps('bravo'));
+  });
+});
+
+// The page is marked as having its own sessions by ANY tabContainerDataState
+// action, not only by a load. That is safe only if nothing touches the slice
+// before the first load does: an action there would mark the page early, and
+// the first load would then drop its source's selection. Both routes to a
+// first load are checked, rendered as a real page.
+describe('nothing touches the sessions before the first load (KAN-294)', () => {
+  const sessionActionsBefore = (seen: string[], index: number) =>
+    seen
+      .slice(0, index)
+      .filter((t) => t.startsWith(`${TAB_CONTAINER_SLICE_NAME}/`));
+
+  test('CONTROL: a lone page opening: the first session action is the load', async () => {
+    const { store, seen } = await openApp('bravo', true);
+    await authLands(store);
+
+    const first = seen.indexOf(TAB_CONTAINER_REPLACE_STATE_ACTION);
+    expect(first).toBeGreaterThanOrEqual(0);
+    expect(sessionActionsBefore(seen, first)).toEqual([]);
+    expect(shown(store)).toEqual(keeps('bravo'));
+  });
+
+  test('CONTROL: a fresh install: the first session action is the cloud-only load', async () => {
+    mocks.cloud.doc = stored('bravo');
+    const { store, seen } = await renderWithProviders(<App />, {
+      seedStore: (s) => {
+        seedSettings(answered(true))(s);
+        s.dispatch(setSignedIn());
+        s.dispatch(setUserId('uuid-1'));
+      },
+    });
+    await act(async () => {});
+    // Nothing local: the startup effect's local branch loaded nothing.
+    expect(seen).not.toContain(TAB_CONTAINER_REPLACE_STATE_ACTION);
+
+    await authLands(store);
+
+    const first = seen.indexOf(TAB_CONTAINER_REPLACE_STATE_ACTION);
+    expect(first).toBeGreaterThanOrEqual(0);
+    expect(sessionActionsBefore(seen, first)).toEqual([]);
     expect(shown(store)).toEqual(keeps('bravo'));
   });
 });

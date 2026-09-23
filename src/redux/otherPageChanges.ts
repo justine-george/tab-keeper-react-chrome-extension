@@ -45,6 +45,9 @@ export const hydrateSessionsFromStorage =
     if (sameContainerData(incoming, current)) return;
 
     const next = withOwnSelection(incoming, current.selectedTabGroupId);
+    // Also ends this page's placeholder sessions (KAN-294, globalState's
+    // extraReducers): from here its selection is its own, so a later sync
+    // or startup load keeps it rather than taking the last writer's.
     dispatch(hydrateFromOtherPage(next));
     // D12: a change this page did not make leaves nothing an undo may reverse.
     dispatch(resetHistory({ tabContainerDataState: next }));

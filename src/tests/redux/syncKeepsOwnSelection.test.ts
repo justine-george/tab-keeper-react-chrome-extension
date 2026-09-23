@@ -36,9 +36,12 @@ import {
   syncStateWithFirestore,
 } from '../../redux/slices/globalStateSlice';
 import { grantCloudConsent } from '../../redux/slices/settingsDataStateSlice';
-import type {
-  TabMasterContainer,
-  tabContainerData,
+import {
+  replaceState,
+  saveToTabContainerInternal,
+  selectTabContainer,
+  type TabMasterContainer,
+  type tabContainerData,
 } from '../../redux/slices/tabContainerDataStateSlice';
 import { hydrateSessionsFromStorage } from '../../redux/otherPageChanges';
 import { beginDragHold, endDragHold } from '../../redux/dragHold';
@@ -356,5 +359,98 @@ describe('no ping-pong (KAN-294)', () => {
     expect(page2.seen).toEqual(['THUNK']);
     expect(page2.store.getState().tabContainerDataState).toBe(before);
     expect(shown(page2.store).selected).toBe('bravo');
+  });
+});
+
+// Fix round 1. A page that opened on NOTHING (no container in localStorage)
+// still holds the slice's placeholder container until something happens to
+// it. Three things can, and none of them is a load through a sync or App's
+// startup read: another page's sessions arriving through the storage event,
+// the sync finding no sessions anywhere, and the page's own first edit. After
+// any of them the page's selection is its own, and the next load must keep
+// it. Two real stores share one localStorage, as two open pages do.
+describe('a page that opened on nothing (KAN-294, fix round 1)', () => {
+  // The other page: opened on what localStorage holds -- its own first load
+  // -- and then selects `id`, which writes the selection and nothing else.
+  const otherPageOpensAndSelects = (id: string) => {
+    const other = makeTestStore().store;
+    other.dispatch(replaceState(readStored()));
+    other.dispatch(selectTabContainer(id));
+    expect(readStored().selectedTabGroupId).toBe(id);
+  };
+
+  it("(a) sessions taken in from another page: a later sync keeps this page's null, not bravo", async () => {
+    const { store } = signedInStore();
+    // Another page saved two sessions; the storage event reaches this page.
+    localStorage.setItem(
+      'tabContainerData',
+      JSON.stringify(
+        selecting(buildContainer([session('alpha'), session('bravo')]), 'alpha')
+      )
+    );
+    store.dispatch(hydrateSessionsFromStorage());
+    // CONTROL: the hydrate did take them in, with this page's own (null)
+    // selection -- the D9 rule, unchanged.
+    expect(
+      store.getState().tabContainerDataState.tabGroups.map((g) => g.tabGroupId)
+    ).toEqual(['alpha', 'bravo']);
+    expect(shown(store).selected).toBe(null);
+
+    otherPageOpensAndSelects('bravo');
+    // Same data, so the storage event takes nothing in.
+    store.dispatch(hydrateSessionsFromStorage());
+
+    await store.dispatch(syncStateWithFirestore());
+
+    // The load did run: local only, and it wrote the cloud.
+    expect(mocks.saveToFirestore).toHaveBeenCalled();
+    expect(shown(store).selected).toBe(null);
+    expect(shown(store).flagged).toEqual([]);
+  });
+
+  it("(b) the sync found no sessions anywhere: a later sync keeps this page's null, not bravo", async () => {
+    const { store } = signedInStore();
+    await store.dispatch(syncStateWithFirestore());
+    await vi.runAllTimersAsync();
+    // CONTROL: the new-user branch ran -- it loads nothing, and writes the
+    // empty container to the cloud.
+    expect(store.getState().tabContainerDataState.tabGroups).toEqual([]);
+    expect(mocks.saveToFirestore).toHaveBeenCalledTimes(1);
+
+    // Another page saves two sessions and selects bravo. This page's storage
+    // event is not dispatched: the sync is the route under test.
+    localStorage.setItem(
+      'tabContainerData',
+      JSON.stringify(buildContainer([session('alpha'), session('bravo')]))
+    );
+    otherPageOpensAndSelects('bravo');
+
+    await store.dispatch(syncStateWithFirestore());
+
+    expect(
+      store.getState().tabContainerDataState.tabGroups.map((g) => g.tabGroupId)
+    ).toEqual(['alpha', 'bravo']);
+    expect(shown(store).selected).toBe(null);
+    expect(shown(store).flagged).toEqual([]);
+  });
+
+  it("(c) the page's own first edit: a later sync keeps alpha, not bravo", async () => {
+    const { store } = signedInStore();
+    // This page saves its first two sessions (each save selects the saved
+    // one), then selects alpha.
+    store.dispatch(saveToTabContainerInternal(session('bravo')));
+    store.dispatch(saveToTabContainerInternal(session('alpha')));
+    store.dispatch(selectTabContainer('alpha'));
+    expect(shown(store).selected).toBe('alpha');
+
+    otherPageOpensAndSelects('bravo');
+    // Same data, so the storage event takes nothing in.
+    store.dispatch(hydrateSessionsFromStorage());
+
+    await store.dispatch(syncStateWithFirestore());
+
+    expect(mocks.saveToFirestore).toHaveBeenCalled();
+    expect(shown(store).selected).toBe('alpha');
+    expect(shown(store).flagged).toEqual(['alpha']);
   });
 });
