@@ -150,6 +150,41 @@ describe('sameContainerData', () => {
     expect(sameContainerData(a, b)).toBe(false);
   });
 
+  // Fix round 1: pruneTombstones (mergeTabData.ts) sorts by deletedAt
+  // descending with ties broken by insertion order, so the same set of
+  // tombstones can legitimately arrive in different orders from two devices.
+  // Unlike tabGroups (the display order, which IS data), a tombstone's order
+  // carries no meaning, so it must not affect the comparison.
+  it('is true when the same tombstones appear in a different order', () => {
+    const a: TabMasterContainer = {
+      ...buildContainer(),
+      deletedTabGroups: [
+        { tabGroupId: 'g1', deletedAt: 1000 },
+        { tabGroupId: 'g2', deletedAt: 2000 },
+      ],
+    };
+    const b: TabMasterContainer = {
+      ...buildContainer(),
+      deletedTabGroups: [
+        { tabGroupId: 'g2', deletedAt: 2000 },
+        { tabGroupId: 'g1', deletedAt: 1000 },
+      ],
+    };
+    expect(sameContainerData(a, b)).toBe(true);
+  });
+
+  it('is false when a tombstone has a different deletedAt for the same id', () => {
+    const a: TabMasterContainer = {
+      ...buildContainer(),
+      deletedTabGroups: [{ tabGroupId: 'g1', deletedAt: 1000 }],
+    };
+    const b: TabMasterContainer = {
+      ...buildContainer(),
+      deletedTabGroups: [{ tabGroupId: 'g1', deletedAt: 2000 }],
+    };
+    expect(sameContainerData(a, b)).toBe(false);
+  });
+
   it('is false when container lastModified differs', () => {
     const a = buildContainer();
     const b: TabMasterContainer = { ...buildContainer(), lastModified: 2000 };
