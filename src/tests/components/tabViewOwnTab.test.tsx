@@ -31,6 +31,33 @@ const DOCS_URL = 'https://docs.test/';
 const MAIL_URL = 'https://mail.test/';
 const OTHER_URL = 'https://other.test/';
 
+// A small typed builder in place of `as chrome.tabs.Tab[]`: @types/chrome
+// marks index/pinned/highlighted/windowId/active/frozen/incognito/selected/
+// discarded/autoDiscardable/groupId/lastAccessed as required, so a seed
+// literal naming only id/url/title/active/lastAccessed is missing fields a
+// cast would have hidden rather than filled. windowId defaults to 1 --
+// DEFAULT_WINDOW_ID in chrome.fake.ts -- since every seed below places its
+// tabs in window 1.
+function tab(overrides: Partial<chrome.tabs.Tab> = {}): chrome.tabs.Tab {
+  return {
+    index: 0,
+    pinned: false,
+    highlighted: false,
+    windowId: 1,
+    active: false,
+    frozen: false,
+    incognito: false,
+    selected: false,
+    discarded: false,
+    autoDiscardable: true,
+    groupId: -1,
+    lastAccessed: 0,
+    url: '',
+    title: '',
+    ...overrides,
+  };
+}
+
 // Window 1 holds Tab Keeper's own tab (10, most recently used) beside two
 // real tabs (11, 12), exactly as the brief specifies.
 const tabViewSeed = {
@@ -38,16 +65,16 @@ const tabViewSeed = {
     {
       id: 1,
       tabs: [
-        {
+        tab({
           id: 10,
           url: OWN_URL,
           title: 'Tab Keeper',
           active: true,
           lastAccessed: 300,
-        },
-        { id: 11, url: DOCS_URL, title: 'Docs', lastAccessed: 200 },
-        { id: 12, url: MAIL_URL, title: 'Mail', lastAccessed: 100 },
-      ] as chrome.tabs.Tab[],
+        }),
+        tab({ id: 11, url: DOCS_URL, title: 'Docs', lastAccessed: 200 }),
+        tab({ id: 12, url: MAIL_URL, title: 'Mail', lastAccessed: 100 }),
+      ],
     },
   ],
   currentTabId: 10,
@@ -59,14 +86,14 @@ const onlyOwnTabSeed = {
     {
       id: 1,
       tabs: [
-        {
+        tab({
           id: 10,
           url: OWN_URL,
           title: 'Tab Keeper',
           active: true,
           lastAccessed: 300,
-        },
-      ] as chrome.tabs.Tab[],
+        }),
+      ],
     },
   ],
   currentTabId: 10,
@@ -79,10 +106,10 @@ const controlSeed = {
     {
       id: 1,
       tabs: [
-        { id: 10, url: OWN_URL, title: 'Tab Keeper', active: true },
-        { id: 11, url: DOCS_URL, title: 'Docs' },
-        { id: 12, url: MAIL_URL, title: 'Mail' },
-      ] as chrome.tabs.Tab[],
+        tab({ id: 10, url: OWN_URL, title: 'Tab Keeper', active: true }),
+        tab({ id: 11, url: DOCS_URL, title: 'Docs' }),
+        tab({ id: 12, url: MAIL_URL, title: 'Mail' }),
+      ],
     },
   ],
 };
@@ -95,16 +122,16 @@ const cleanedHintSeed = {
     {
       id: 1,
       tabs: [
-        {
+        tab({
           id: 10,
           url: OWN_URL,
           title: 'Tab Keeper',
           active: true,
           lastAccessed: 500,
-        },
-        { id: 11, url: MAIL_URL, title: '(3) Mail', lastAccessed: 400 },
-        { id: 12, url: OTHER_URL, title: 'Other', lastAccessed: 100 },
-      ] as chrome.tabs.Tab[],
+        }),
+        tab({ id: 11, url: MAIL_URL, title: '(3) Mail', lastAccessed: 400 }),
+        tab({ id: 12, url: OTHER_URL, title: 'Other', lastAccessed: 100 }),
+      ],
     },
   ],
   currentTabId: 10,
@@ -112,8 +139,21 @@ const cleanedHintSeed = {
 
 const goToTabView = () => history.replaceState(null, '', '?view=tab');
 
+// jsdom's `document.visibilityState` has no setter, so a getter override is
+// the only way to move it; `configurable: true` is what lets the next test's
+// Reflect.deleteProperty below remove the override rather than stack a
+// second one on top.
+function setVisibility(state: DocumentVisibilityState) {
+  Object.defineProperty(document, 'visibilityState', {
+    configurable: true,
+    get: () => state,
+  });
+  document.dispatchEvent(new Event('visibilitychange'));
+}
+
 afterEach(() => {
   history.replaceState(null, '', '/');
+  Reflect.deleteProperty(document, 'visibilityState');
 });
 
 const openSaveMenu = async () => {
@@ -200,12 +240,12 @@ describe('saving in the tab view leaves out Tab Keeper itself (D6)', () => {
     // into tabGroups, so any mutation that lets the dispatch through also
     // empties this into a failure on the toEqual([]) below -- ordered the
     // other way, that line always throws first and this one never gets the
-    // chance to fail on its own (see the fix-round-1 report).
+    // chance to fail on its own.
     expect(seen).not.toContain(SAVE_TAB_CONTAINER_ACTION);
     // Kept, not redundant with the line above: `seen` only checks for ONE
     // action type, so a regression that added a session through a DIFFERENT
     // action (replaceState, a sync merge, ...) would pass that check and be
-    // caught only here (fix round 2).
+    // caught only here.
     expect(store.getState().tabContainerDataState.tabGroups).toEqual([]);
   });
 
@@ -249,7 +289,7 @@ describe('the name box in the tab view (D15)', () => {
     // One text input, one value: proving it IS 'Mail' already proves it is
     // NOT '(3) Mail' and NOT 'Tab Keeper' -- a single input cannot hold two
     // values at once, so separate queryByDisplayValue checks for those two
-    // strings are redundant with this line and were dropped (fix round 1).
+    // strings are redundant with this line and were dropped.
     // Whatever would make either of those checks fail -- skipped cleaning,
     // or picking the own tab -- makes this line fail first instead.
     expect(await screen.findByDisplayValue('Mail')).toBeTruthy();
@@ -262,6 +302,72 @@ describe('the name box in the tab view (D15)', () => {
     await renderWithProviders(<UserInputContainer />, { seed: controlSeed });
 
     expect(await screen.findByDisplayValue('Tab Keeper')).toBeTruthy();
+  });
+});
+
+describe('the name box recomputes on visibility, but only in the tab view (KAN-299)', () => {
+  test('a tab that becomes more recently used while hidden shows up once the tab is visible again', async () => {
+    goToTabView();
+    const { chrome: chromeHandle } = await renderWithProviders(
+      <UserInputContainer />,
+      { seed: tabViewSeed }
+    );
+    await screen.findByDisplayValue('Docs');
+
+    // The window changes while this page is in the background: Mail (12)
+    // overtakes Docs (11) as the most recently used OTHER tab.
+    chromeHandle.updateTab(12, { lastAccessed: 999 });
+    setVisibility('hidden');
+    setVisibility('visible');
+
+    expect(await screen.findByDisplayValue('Mail')).toBeTruthy();
+  });
+
+  // CONTROL: proves the recompute above never clobbers what the user typed.
+  // Typed text is never a cached suggestion to evict, whatever the window
+  // does behind the tab's back.
+  test('CONTROL: text the user already typed survives the same recompute', async () => {
+    goToTabView();
+    const { chrome: chromeHandle } = await renderWithProviders(
+      <UserInputContainer />,
+      { seed: tabViewSeed }
+    );
+    const nameBox = await screen.findByDisplayValue('Docs');
+    await userEvent.clear(nameBox);
+    await userEvent.type(nameBox, 'My own title');
+
+    chromeHandle.updateTab(12, { lastAccessed: 999 });
+    setVisibility('hidden');
+    setVisibility('visible');
+    // Flushes the visibility handler's own awaits (ownTabId, the tabs
+    // query) so a recompute that WOULD have overwritten the box has had the
+    // chance to.
+    await act(async () => {});
+
+    expect(screen.getByDisplayValue('My own title')).toBeTruthy();
+  });
+
+  // CONTROL. Outside the tab view no listener is attached at all -- the same
+  // change to the active tab's own title, and the same visibility flip,
+  // leave the popup's suggestion alone.
+  test('CONTROL: in the popup, a visibility flip changes nothing', async () => {
+    const { chrome: chromeHandle } = await renderWithProviders(
+      <UserInputContainer />,
+      { seed: controlSeed }
+    );
+    await screen.findByDisplayValue('Tab Keeper');
+
+    chromeHandle.updateTab(10, { title: 'Changed' });
+    setVisibility('hidden');
+    setVisibility('visible');
+    await act(async () => {});
+
+    // One text input, one value: proving it IS 'Tab Keeper' already proves
+    // it is NOT 'Changed' -- a single input cannot hold two values at once,
+    // so a separate queryByDisplayValue('Changed') check is redundant with
+    // this line and was dropped (same reasoning as the D15 cleaning test
+    // above).
+    expect(screen.getByDisplayValue('Tab Keeper')).toBeTruthy();
   });
 });
 
@@ -287,6 +393,34 @@ describe('"Add current window" in the tab view leaves out Tab Keeper itself (D14
     expect(tabGroups[0].windows[0].title).toBe('Docs');
   });
 
+  // KAN-299. The name is resolved at CLICK time, not cached from mount: the
+  // window changes after this component mounts, so the click must find the
+  // CURRENT most recently used OTHER tab rather than replay whatever it read
+  // when it first rendered.
+  test('after the window changes since mount, the added window is named from the CURRENT most recent other tab', async () => {
+    goToTabView();
+    const { store, chrome: chromeHandle } =
+      await renderHeroWithSelectedSession(tabViewSeed);
+    // Barrier: flushes whatever this component reads on mount, so the
+    // update below lands strictly AFTER mount rather than racing it --
+    // without this, the update could beat the mount-time query and the test
+    // would pass even against code that never re-reads after mount.
+    await act(async () => {});
+
+    chromeHandle.updateTab(12, { lastAccessed: 999 });
+
+    await clickAddCurrentWindow();
+
+    await waitFor(() =>
+      expect(
+        store.getState().tabContainerDataState.tabGroups[0].windows
+      ).toHaveLength(2)
+    );
+    expect(
+      store.getState().tabContainerDataState.tabGroups[0].windows[0].title
+    ).toBe('Mail');
+  });
+
   // The worst path: no tab left once Tab Keeper's own is out, so nothing is
   // dispatched at all -- not even a window with no tabs.
   test('with only Tab Keeper open, dispatches nothing', async () => {
@@ -308,7 +442,7 @@ describe('"Add current window" in the tab view leaves out Tab Keeper itself (D14
     // Kept, not redundant with the line above: `seen` only checks for ONE
     // action type, so a regression that added a window through a DIFFERENT
     // action (replaceState, a sync merge, ...) would pass that check and be
-    // caught only here (fix round 2).
+    // caught only here.
     expect(
       store.getState().tabContainerDataState.tabGroups[0].windows
     ).toHaveLength(before);

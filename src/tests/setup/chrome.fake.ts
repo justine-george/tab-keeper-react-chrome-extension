@@ -38,6 +38,15 @@ export type ChromeFakeHandle = {
   createdTabs: chrome.tabs.CreateProperties[];
   removedWindowIds: number[];
   groupedTabs: { groupId: number; windowId: number; tabIds: number[] }[];
+  // Mutates a seeded tab directly, for fields real chrome.tabs.update()
+  // cannot set -- `title` and `lastAccessed` change in a real browser from
+  // the user's own navigation and tab-switching, never from an extension
+  // call, so UpdateProperties has no field for either. Tests that need to
+  // simulate the window changing while this page was in the background
+  // (KAN-299) have no other seam to reach through. Throws on an unknown id
+  // so a typo'd tab id fails the test loudly rather than silently doing
+  // nothing.
+  updateTab(tabId: number, patch: Partial<chrome.tabs.Tab>): void;
   restore(): void;
 };
 
@@ -162,6 +171,13 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
     createdTabs: [],
     removedWindowIds: [],
     groupedTabs: [],
+    updateTab(tabId, patch) {
+      const target = tabs.find((t) => t.id === tabId);
+      if (!target) {
+        throw new Error(`updateTab: no seeded tab with id ${tabId}`);
+      }
+      Object.assign(target, patch);
+    },
     restore() {
       delete (globalThis as { chrome?: unknown }).chrome;
     },

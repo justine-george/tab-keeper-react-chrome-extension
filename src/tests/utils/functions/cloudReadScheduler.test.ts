@@ -164,7 +164,7 @@ describe('startCloudReads', () => {
     expect(read).toHaveBeenCalledTimes(2);
   });
 
-  // Fix round 1, item 3 (D). A tick where canRead() refuses must leave
+  // A tick where canRead() refuses must leave
   // `lastRead` untouched -- not stamp it as if a read had happened. Proof: a
   // refused tick at 10 min, canRead turning true right after, then a
   // hide/show only 1s later (still nowhere near a fresh 60s gap from THAT
@@ -190,7 +190,7 @@ describe('startCloudReads', () => {
   });
 });
 
-// Fix round 1, item 3 (B): dropping the defensive `stopInterval()` at the top
+// Dropping the defensive `stopInterval()` at the top
 // of `startInterval` was left untested on purpose. `startInterval` is only
 // ever called from two places -- once at construction (only if already
 // visible) and once from `onVisibilityChange`'s 'visible' branch -- and the

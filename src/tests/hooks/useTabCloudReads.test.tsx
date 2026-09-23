@@ -8,7 +8,7 @@ import type { VisibilitySource } from '../../utils/functions/cloudReadScheduler'
 // (cloudReadScheduler.test.ts covers that scheduler's own behaviour in
 // detail, with fake timers and a fake doc). This file only has to prove the
 // WIRING: the effect starts the scheduler exactly when isTabView() is true,
-// with the RIGHT callbacks (not just *some* callbacks -- fix round 1: an
+// with the RIGHT callbacks (not just *some* callbacks -- an
 // `expect.any(Function)` check let `canRead` be swapped for `cloudSyncAllowed`
 // or `() => true`, and `read` for a no-op, without failing anything), and
 // stops it on unmount.
@@ -114,7 +114,7 @@ describe('useTabCloudReads', () => {
     expect(stopSpy).toHaveBeenCalledTimes(1);
   });
 
-  // Fix round 1, item 2. The captured `canRead` reads the SAME store the
+  // The captured `canRead` reads the SAME store the
   // Provider wraps (useStore().getState(), not a snapshot taken at mount), so
   // dispatching on `store` after render and calling the captured closure
   // exercises the real gate. This is what an `expect.any(Function)` shape
@@ -137,7 +137,7 @@ describe('useTabCloudReads', () => {
     expect(canRead()).toBe(true);
   });
 
-  // Fix round 1, item 2 (the substitution the toggle-only test above cannot
+  // The substitution the toggle-only test above cannot
   // catch on its own): consent granted and Auto Sync on -- exactly what
   // drainQueuedSync's gate (customMiddleware.ts) alone would accept -- but
   // never signed in/authed with a userId. timedCloudReadAllowed must refuse;
@@ -155,7 +155,7 @@ describe('useTabCloudReads', () => {
     expect(canRead()).toBe(false);
   });
 
-  // Fix round 1, item 2. The captured `read` dispatches the real
+  // The captured `read` dispatches the real
   // syncStateWithFirestore thunk (through the queue, as the brief requires),
   // not a no-op -- asserted by the thunk's OWN pending action type
   // (`syncStateWithFirestore.pending.type`), never a hand-typed string

@@ -134,6 +134,24 @@ test.describe('Open in a tab (KAN-279 D4, D5)', () => {
         { index: 1, pinned: false, active: true, windowId: popupTab.windowId },
       ]);
 
+    // KAN-299 D4: the user can pin the tab view tab itself, once it exists.
+    // Pinning changes a tab's index and pinned state, never its URL, so the
+    // worker's lookup -- a URL glob query, not an index -- must still find
+    // it below.
+    const tabPageId = await serviceWorker.evaluate(
+      (url: string) => chrome.tabs.query({ url }).then((tabs) => tabs[0]?.id),
+      tabPage.url()
+    );
+    if (tabPageId === undefined) throw new Error('no tab view tab to pin');
+    await serviceWorker.evaluate(
+      (id: number) => chrome.tabs.update(id, { pinned: true }),
+      tabPageId
+    );
+    // PREMISE: the pin took effect.
+    await expect
+      .poll(async () => (await viewTabs(serviceWorker)).map((t) => t.pinned))
+      .toEqual([true]);
+
     // A fresh popup page, so the tab view is NOT the active tab when the
     // second click arrives. newPage already activates it (measured: the
     // premise holds with bringToFront removed); bringToFront says so.

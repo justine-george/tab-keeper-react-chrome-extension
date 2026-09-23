@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 import { useDispatch, useSelector } from 'react-redux';
 
@@ -51,7 +51,6 @@ export default function HeroContainerRight() {
   const { t, i18n } = useTranslation();
   const [isEditing, setIsEditing] = useState(false);
   const [editableTitle, setEditableTitle] = useState('');
-  const [currentTabName, setCurrentTabName] = useState<string>('New Tab');
   const [isContainerHovered, setIsContainerHovered] = useState<boolean>(false);
   const dispatch: AppDispatch = useDispatch();
 
@@ -90,44 +89,6 @@ export default function HeroContainerRight() {
     (state: RootState) => state.settingsDataState.sessionDateBasis
   );
 
-  useEffect(() => {
-    // Guards against setting state after unmount -- both branches below cross
-    // an await (ownTabId(), the tab-view query), and this component can
-    // unmount in the gap, same reasoning as UserInputContainer's own effect.
-    let cancelled = false;
-
-    function applyName(title: string | undefined) {
-      if (cancelled) return;
-      setCurrentTabName(title || 'New Tab');
-    }
-
-    async function loadName() {
-      if (isTabView()) {
-        // KAN-279 D15. The active tab IS Tab Keeper in the tab, so the window
-        // this button adds is named from the most recently used OTHER tab
-        // instead -- the same rule the name box uses. dropNotificationCount
-        // is not applied here: toWindowGroupData already cleans whatever
-        // title it is handed, exactly as it does for the popup's active tab
-        // below, so cleaning twice would be redundant rather than wrong.
-        const ownId = await ownTabId();
-        const tabsOfWindow = await new Promise<chrome.tabs.Tab[]>((resolve) =>
-          chrome.tabs.query({ currentWindow: true }, (tabs) => resolve(tabs))
-        );
-        applyName(pickNameSourceTab(tabsOfWindow, ownId)?.title);
-      } else {
-        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-          applyName(tabs[0]?.title);
-        });
-      }
-    }
-
-    loadName();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
   // the same list RightPane derives its mount guard from
   const selectedTabGroup = selectVisibleTabGroups(
     tabContainerDataList.tabGroups,
@@ -139,10 +100,10 @@ export default function HeroContainerRight() {
   // Belt and braces: RightPane does not mount this component when the list is
   // empty, so this should be unreachable -- but it is what makes the component
   // safe on its own terms rather than safe because of its only caller (KAN-16).
-  // It sits below every hook deliberately: an early return above the useEffect
-  // that reads the current tab name would change the hook count between the
-  // nothing-selected and selected renders, and React throws "Rendered more
-  // hooks than during the previous render" on that transition.
+  // It sits below every hook deliberately: an early return above the
+  // useSelector calls this component makes would change the hook count
+  // between the nothing-selected and selected renders, and React throws
+  // "Rendered more hooks than during the previous render" on that transition.
   if (!selectedTabGroup) return null;
 
   // `editableTitle` is a DRAFT: nothing reads it unless `isEditing` is true, so
@@ -210,10 +171,35 @@ export default function HeroContainerRight() {
     // there is nothing to add.
     if (tabs.length === 0) return;
 
+    // KAN-299. Resolved HERE, at click time -- not cached from a mount-once
+    // effect. This component can stay mounted for as long as the tab view
+    // stays open, so a name read once at mount can go stale; the tab it was
+    // drawn from may no longer be the most recently used by the time this
+    // button is actually pressed. Same D15 rule the name box uses: the
+    // active tab's title in the popup (unchanged, same query as before this
+    // fix), pickNameSourceTab's pick in the tab view. dropNotificationCount
+    // is not applied here: toWindowGroupData already cleans whatever title
+    // it is handed, for both branches, so cleaning twice would be redundant
+    // rather than wrong.
+    const currentTabName = isTabView()
+      ? pickNameSourceTab(
+          await new Promise<chrome.tabs.Tab[]>((resolve) =>
+            chrome.tabs.query({ currentWindow: true }, (result) =>
+              resolve(result)
+            )
+          ),
+          ownId
+        )?.title
+      : await new Promise<string | undefined>((resolve) =>
+          chrome.tabs.query({ active: true, currentWindow: true }, (result) =>
+            resolve(result[0]?.title)
+          )
+        );
+
     const read = await readCurrentWindowGroups(windowData.id);
     const window = toWindowGroupData(
       { ...windowData, tabs },
-      currentTabName,
+      currentTabName || 'New Tab',
       read?.groups,
       read?.idByChromeId ?? new Map()
     );

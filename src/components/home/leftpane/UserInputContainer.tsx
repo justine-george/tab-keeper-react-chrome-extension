@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { useDispatch, useSelector } from 'react-redux';
 
@@ -33,6 +33,16 @@ export default function UserInputContainer() {
   const [currentTabName, setCurrentTabName] = useState<string>('');
   const [searchInput, setSearchInput] = useState<string>('');
 
+  // KAN-299. Mirrors of `newTitle` and the last suggestion this component
+  // applied, kept for the visibility handler below -- it is defined inside a
+  // mount-once effect (deliberately: see that effect's own comment), so a
+  // plain closure over `newTitle`/`currentTabName` would forever see their
+  // FIRST-render values. Both refs are written in lockstep with the state
+  // they mirror (updateUserInput for the box, applySuggestion for the
+  // suggestion), so there is nothing for the two sources to drift apart on.
+  const boxValueRef = useRef<string>('');
+  const lastSuggestionRef = useRef<string>('');
+
   const isSearchPanel = useSelector(
     (state: RootState) => state.globalState.isSearchPanel
   );
@@ -49,21 +59,20 @@ export default function UserInputContainer() {
     // user then types is theirs and is never touched.
     function applySuggestion(title: string | undefined) {
       if (cancelled) return;
-      if (title) {
-        const suggested = dropNotificationCount(title);
-        setCurrentTabName(suggested);
-        setNewTitle(suggested);
-      } else {
-        // Translated, so this agrees with createTabGroup's last-resort
-        // fallback below (KAN-84). Leaving one of the two as a bare literal
-        // would show a German user "New Tab Group" prefilled while storing the
-        // translated name, or the reverse, depending on which path ran.
-        setCurrentTabName(t('New Tab Group'));
-        setNewTitle(t('New Tab Group'));
-      }
+      const suggested = title
+        ? dropNotificationCount(title)
+        : // Translated, so this agrees with createTabGroup's last-resort
+          // fallback below (KAN-84). Leaving one of the two as a bare literal
+          // would show a German user "New Tab Group" prefilled while storing
+          // the translated name, or the reverse, depending on which path ran.
+          t('New Tab Group');
+      boxValueRef.current = suggested;
+      lastSuggestionRef.current = suggested;
+      setCurrentTabName(suggested);
+      setNewTitle(suggested);
     }
 
-    async function loadSuggestion() {
+    async function fetchSuggestedTitle(): Promise<string | undefined> {
       if (isTabView()) {
         // In the tab, the active tab IS Tab Keeper, so the suggestion comes
         // from the most recently used OTHER tab in this window instead (D15).
@@ -71,18 +80,52 @@ export default function UserInputContainer() {
         const tabsOfWindow = await new Promise<chrome.tabs.Tab[]>((resolve) =>
           chrome.tabs.query({ currentWindow: true }, (tabs) => resolve(tabs))
         );
-        applySuggestion(pickNameSourceTab(tabsOfWindow, ownId)?.title);
-      } else {
-        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-          applySuggestion(tabs[0]?.title);
-        });
+        return pickNameSourceTab(tabsOfWindow, ownId)?.title;
       }
+      return new Promise<string | undefined>((resolve) => {
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+          resolve(tabs[0]?.title);
+        });
+      });
+    }
+
+    async function loadSuggestion() {
+      applySuggestion(await fetchSuggestedTitle());
     }
 
     loadSuggestion();
 
+    // KAN-299. Tab-view only: the popup remounts on every open, so its
+    // mount-once suggestion above is never stale enough to matter, but the
+    // tab can sit open for days -- long enough for the tab this suggestion
+    // was drawn from to no longer be the most recently used one. Recompute
+    // whenever the page becomes visible again, but never stomp on text the
+    // user has typed: `boxValueRef` tracks the box's live value (updated on
+    // every keystroke by updateUserInput) and `lastSuggestionRef` the last
+    // suggestion this effect actually applied -- the two agree only when
+    // nothing has touched the box since, which is the one case it is safe to
+    // replace. A separate "dirty" boolean could drift from that fact; these
+    // two refs ARE the fact.
+    if (!isTabView()) {
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    async function handleVisibilityChange() {
+      if (document.visibilityState !== 'visible') return;
+      const title = await fetchSuggestedTitle();
+      if (cancelled) return;
+      if (boxValueRef.current === lastSuggestionRef.current) {
+        applySuggestion(title);
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     return () => {
       cancelled = true;
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
     // `t` is deliberately not a dependency. This effect exists to seed the
     // name box ONCE, on mount; re-running it would overwrite whatever the user
@@ -93,6 +136,7 @@ export default function UserInputContainer() {
   }, []);
 
   function updateUserInput(e: React.ChangeEvent<HTMLInputElement>) {
+    boxValueRef.current = e.target.value;
     setNewTitle(e.target.value);
   }
 
