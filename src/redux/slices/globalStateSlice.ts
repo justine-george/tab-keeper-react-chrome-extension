@@ -37,6 +37,7 @@ import {
 } from '../../utils/functions/local';
 import { mergeTabContainers } from '../../utils/functions/mergeTabData';
 import { withOwnSelection } from '../../utils/functions/withOwnSelection';
+import { sameContainerData } from '../../utils/functions/sameContainerData';
 import { TOAST_MESSAGES } from '../../utils/constants/common';
 import { TAB_CONTAINER_SLICE_NAME } from '../../utils/constants/actionTypes';
 import {
@@ -355,6 +356,35 @@ export const loadSessionsIntoPage =
     return next;
   };
 
+// KAN-295. localStorage holds sessions this page has not taken in: another
+// open page wrote them, and its storage event is queued behind a drag hold or
+// has not fired yet. Every edit of this page writes localStorage as it lands,
+// so a difference is the other page's. Selection is ignored, being per page
+// (sameContainerData). A page still on its placeholder is never behind: it
+// holds nothing yet, and loading is its first load.
+const pageIsBehindStorage = (
+  state: RootState,
+  stored: TabMasterContainer
+): boolean =>
+  !state.globalState.holdsPlaceholderSessions &&
+  !sameContainerData(stored, state.tabContainerDataState);
+
+// KAN-295. The loads that take localStorage as it is: the local-only sync and
+// App's startup read. When this page was behind it, the load is a change this
+// page did not make, so undo is reset, exactly as the storage-event hydrate
+// would have reset it (D12): Ctrl+Z must not reverse another page's edit.
+// Returns what it loaded, as loadSessionsIntoPage does.
+export const loadStoredSessionsIntoPage =
+  (
+    stored: TabMasterContainer
+  ): ThunkAction<TabMasterContainer, RootState, unknown, UnknownAction> =>
+  (dispatch, getState) => {
+    const behind = pageIsBehindStorage(getState(), stored);
+    const loaded = dispatch(loadSessionsIntoPage(stored));
+    if (behind) dispatch(resetHistory({ tabContainerDataState: loaded }));
+    return loaded;
+  };
+
 // syncs data with Firestore
 export const syncStateWithFirestore = createAsyncThunk<
   void,
@@ -421,12 +451,29 @@ export const syncStateWithFirestore = createAsyncThunk<
         Date.now()
       );
 
+      // KAN-295. changedFromLocal compares with localStorage, which may hold
+      // another open page's write that THIS page has not taken in. Loading it
+      // changes this page as much as a cloud change would, so the drag hold
+      // and the undo reset below key on this. The toast and the value moment
+      // do not: they report a change from another DEVICE, and a change only
+      // another page made shows none, as on the storage-event path.
+      const changedForThisPage =
+        changedFromLocal ||
+        pageIsBehindStorage(thunkAPI.getState(), tabDataFromLocalStorage);
+
       // KAN-279 D12. A row is held: applying this would move the list under
       // the pointer. It waits for the drop, and nothing is written meanwhile --
       // saveToFirestoreIfDirty would send the PRE-merge state, over the other
       // device's change. applyHeldCloudMerge re-syncs once it has applied.
-      if (changedFromLocal && isDragHeld()) {
-        whenDragReleases(() => thunkAPI.dispatch(applyHeldCloudMerge(merged)));
+      // A change only another page made needs nothing queued: dropOnTop
+      // re-reads localStorage at the drop and takes it in with an undo reset,
+      // and the page's own storage event does the same after a cancel.
+      if (changedForThisPage && isDragHeld()) {
+        if (changedFromLocal) {
+          whenDragReleases(() =>
+            thunkAPI.dispatch(applyHeldCloudMerge(merged))
+          );
+        }
         return;
       }
 
@@ -474,9 +521,10 @@ export const syncStateWithFirestore = createAsyncThunk<
         if (arrived) thunkAPI.dispatch(recordValueMoment());
       }
 
-      if (changedFromLocal) {
+      if (changedForThisPage) {
         // D12 (KAN-279). The merge brought in a change this page did not make;
-        // an undo must never reverse it. The toast above names the moment.
+        // an undo must never reverse it. The toast above names the moment when
+        // it came from another device; another page's change has none.
         thunkAPI.dispatch(resetHistory({ tabContainerDataState: loaded }));
       } else if (!state.globalState.hasSyncedBefore) {
         // reset presentState in the undoRedoState
@@ -502,7 +550,7 @@ export const syncStateWithFirestore = createAsyncThunk<
       // data only on localStorage
       // save back to Firestore
       const loaded = thunkAPI.dispatch(
-        loadSessionsIntoPage(tabDataFromLocalStorage)
+        loadStoredSessionsIntoPage(tabDataFromLocalStorage)
       );
       thunkAPI.dispatch(setIsDirtyWithoutSync());
       thunkAPI.dispatch(saveToFirestoreIfDirty());

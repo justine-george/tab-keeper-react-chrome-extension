@@ -24,7 +24,7 @@ import {
   setSignedIn,
   setUserId,
   showToast,
-  loadSessionsIntoPage,
+  loadStoredSessionsIntoPage,
   syncStateWithFirestore,
 } from './redux/slices/globalStateSlice';
 import {
@@ -267,8 +267,11 @@ function App() {
       if (tabDataFromLocalStorage) {
         // KAN-294. On mount this is the page's first load and keeps the
         // stored selection; a re-run (sign-in, a hydrated consent or Auto Sync
-        // change) keeps this page's own, not the last writer's.
-        const loaded = dispatch(loadSessionsIntoPage(tabDataFromLocalStorage));
+        // change) keeps this page's own, not the last writer's. KAN-295: a
+        // re-run that finds another page's write not yet taken in resets undo.
+        const loaded = dispatch(
+          loadStoredSessionsIntoPage(tabDataFromLocalStorage)
+        );
 
         if (!hasSyncedBefore) {
           // reset presentState in the undoRedoState
