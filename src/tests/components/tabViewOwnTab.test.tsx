@@ -202,6 +202,10 @@ describe('saving in the tab view leaves out Tab Keeper itself (D6)', () => {
     // other way, that line always throws first and this one never gets the
     // chance to fail on its own (see the fix-round-1 report).
     expect(seen).not.toContain(SAVE_TAB_CONTAINER_ACTION);
+    // Kept, not redundant with the line above: `seen` only checks for ONE
+    // action type, so a regression that added a session through a DIFFERENT
+    // action (replaceState, a sync merge, ...) would pass that check and be
+    // caught only here (fix round 2).
     expect(store.getState().tabContainerDataState.tabGroups).toEqual([]);
   });
 
@@ -301,6 +305,10 @@ describe('"Add current window" in the tab view leaves out Tab Keeper itself (D14
     // mutation that lets the dispatch through also changes the length below
     // -- ordered the other way, THAT line always throws first.
     expect(seen).not.toContain(ADD_CURR_WINDOW_TO_TABGROUP_ACTION);
+    // Kept, not redundant with the line above: `seen` only checks for ONE
+    // action type, so a regression that added a window through a DIFFERENT
+    // action (replaceState, a sync merge, ...) would pass that check and be
+    // caught only here (fix round 2).
     expect(
       store.getState().tabContainerDataState.tabGroups[0].windows
     ).toHaveLength(before);
