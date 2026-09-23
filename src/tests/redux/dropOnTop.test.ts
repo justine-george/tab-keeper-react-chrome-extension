@@ -272,6 +272,12 @@ describe('dropOnTop: a drop acts on top of a change that arrived while held (KAN
     dropAndRelease(store, sessionDrop('d', 1));
     expect(ids(store)).toEqual(['n', 'a', 'd', 'b', 'c']);
 
+    // The follow-up sync the held merge starts after the drop (see (a)/(b))
+    // must settle BEFORE undo: otherwise the drop is not yet "the one undo
+    // step" the spec promises, it is merely the latest one so far.
+    await vi.runAllTimersAsync();
+    expect(store.getState().undoRedo.past.length).toBe(1);
+
     store.dispatch(undo());
 
     expect(ids(store)).toEqual(['n', 'a', 'b', 'c', 'd']);

@@ -325,7 +325,7 @@ export const syncStateWithFirestore = createAsyncThunk<
 >(
   'global/syncStateWithFirestore',
   async (_, thunkAPI) => {
-    const state = thunkAPI.getState() as RootState;
+    const state = thunkAPI.getState();
 
     // load from Firestore
     const cloudCandidate = await loadFromFirestore(state.globalState.userId!);
@@ -488,8 +488,7 @@ export const syncStateWithFirestore = createAsyncThunk<
     // DROPPED either -- the request is often an edit the running sync never
     // saw -- so the rejection is dispatched and becomes isSyncQueued, and the
     // middleware runs one more sync when the count falls to zero.
-    condition: (_, { getState }) =>
-      (getState() as RootState).globalState.syncsInFlight === 0,
+    condition: (_, { getState }) => getState().globalState.syncsInFlight === 0,
     dispatchConditionRejection: true,
   }
 );

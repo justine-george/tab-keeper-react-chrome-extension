@@ -161,6 +161,27 @@ describe('a started drag holds, and every way it ends releases (KAN-279 D12)', (
     expect(isDragHeld()).toBe(false);
   });
 
+  // A second button-0 press while a drag is already started (a second finger
+  // or pen on touch) must not strand the hold. `begin` used to overwrite
+  // `live.current` unconditionally, so finish() then saw an UNSTARTED record
+  // and returned before reaching endDragHold() -- and every later change
+  // queued behind a drop that could never happen.
+  test('a second press mid-drag does not leak the hold', () => {
+    render(<Area ids={['a', 'b', 'c']} onMove={() => {}} />);
+    startDrag('Row a');
+    expect(isDragHeld()).toBe(true);
+    const spy = vi.fn();
+    whenDragReleases(spy);
+
+    // A second finger/pen presses row b while row a's drag is still live.
+    press('Row b');
+    fireEvent.pointerUp(document, { clientX: 10, clientY: 15 });
+
+    expect(isDragHeld()).toBe(false);
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(document.documentElement.hasAttribute('data-dragging')).toBe(false);
+  });
+
   // CONTROL: a press that never passes the threshold is a click, not a drag.
   // It never holds, so a change arriving then applies at once.
   test('CONTROL: a click never holds', () => {

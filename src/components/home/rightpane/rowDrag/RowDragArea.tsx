@@ -378,6 +378,13 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     ) => {
       if (disabled) return;
 
+      // A second press (a second finger or pen) while a drag is already
+      // started must be ignored, not swap in as the new hold record: `finish`
+      // reads `live.current` back and returns early for an UNSTARTED record,
+      // so the started drag's endDragHold() would never run and the hold
+      // would leak for the rest of the page (KAN-279 D12).
+      if (live.current?.started) return;
+
       // A press in a text field starts a selection, not a drag (KAN-162). The
       // window rename field sits inside the window's handle, and selecting
       // its text used to fold every window and move the window.
