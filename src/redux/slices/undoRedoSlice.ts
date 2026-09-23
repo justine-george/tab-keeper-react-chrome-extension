@@ -118,11 +118,34 @@ export const undoRedoSlice = createSlice({
         addedTabGroupIds: state.present.addedTabGroupIds,
       };
     },
+
+    // D12 (KAN-279). A change this page did not make -- another page's write,
+    // or a cloud merge that changed local data -- leaves nothing here that an
+    // undo may reverse. The added ids go too: carrying them only makes sense
+    // while `past` survives, and they could name sessions the other side has
+    // already deleted.
+    resetHistory: (
+      state,
+      action: PayloadAction<{ tabContainerDataState: TabMasterContainer }>
+    ) => {
+      state.past = [];
+      state.future = [];
+      state.present = {
+        tabContainerDataState: action.payload.tabContainerDataState,
+        addedTabGroupIds: [],
+      };
+    },
   },
 });
 
-export const { set, undo, redo, setPresentStartup, setPresentWithoutHistory } =
-  undoRedoSlice.actions;
+export const {
+  set,
+  undo,
+  redo,
+  setPresentStartup,
+  setPresentWithoutHistory,
+  resetHistory,
+} = undoRedoSlice.actions;
 
 // selectors
 export const isUndoableSelector = (state: RootState) =>
