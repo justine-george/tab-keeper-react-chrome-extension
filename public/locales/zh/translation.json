@@ -210,5 +210,9 @@
   "Saved sessions": "已保存的会话",
   "Fold the saved session away": "收起已保存的会话",
   "Show the saved session": "显示已保存的会话",
-  "Close Open now": "关闭“当前打开的标签页”面板"
+  "Close Open now": "关闭“当前打开的标签页”面板",
+  "Reopen": "重新打开",
+  "Tab closed": "标签页已关闭",
+  "Couldn't reopen.": "无法重新打开。",
+  "WindowClosed_other": "窗口已关闭（{{count}} 个标签页）"
 }

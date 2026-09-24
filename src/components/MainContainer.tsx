@@ -53,10 +53,6 @@ export default function MainContainer() {
   const COLORS = useThemeColors();
   const dispatch: AppDispatch = useDispatch();
 
-  const isToastOpen = useSelector(
-    (state: RootState) => state.globalState.isToastOpen
-  );
-
   const isSettingsPage = useSelector(
     (state: RootState) => state.globalState.isSettingsPage
   );
@@ -270,7 +266,9 @@ export default function MainContainer() {
           </div>
         </div>
       )}
-      {isToastOpen && <Toast />}
+      {/* Always mounted: its role="status" region has to exist before a
+          toast's text arrives for a screen reader to hear it (KAN-280 O8a). */}
+      <Toast />
       {isRateAndReviewModalOpen && <RateAndReviewModal />}
       {tabGroupsPromptCount !== null && <TabGroupsPermissionModal />}
       {focusRequest && <FocusConfirmModal />}

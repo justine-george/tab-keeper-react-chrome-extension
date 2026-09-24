@@ -210,5 +210,9 @@
   "Saved sessions": "저장된 세션",
   "Fold the saved session away": "저장된 세션 접기",
   "Show the saved session": "저장된 세션 보기",
-  "Close Open now": "\"지금 열려 있는 탭\" 패널 닫기"
+  "Close Open now": "\"지금 열려 있는 탭\" 패널 닫기",
+  "Reopen": "다시 열기",
+  "Tab closed": "탭을 닫았습니다",
+  "Couldn't reopen.": "다시 열지 못했습니다.",
+  "WindowClosed_other": "창을 닫았습니다(탭 {{count}}개)"
 }

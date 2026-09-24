@@ -210,5 +210,9 @@
   "Saved sessions": "保存済みのセッション",
   "Fold the saved session away": "保存済みのセッションを折りたたむ",
   "Show the saved session": "保存済みのセッションを表示",
-  "Close Open now": "「現在開いているタブ」パネルを閉じる"
+  "Close Open now": "「現在開いているタブ」パネルを閉じる",
+  "Reopen": "再度開く",
+  "Tab closed": "タブを閉じました",
+  "Couldn't reopen.": "再度開けませんでした。",
+  "WindowClosed_other": "ウィンドウを閉じました（{{count}} 個のタブ）"
 }

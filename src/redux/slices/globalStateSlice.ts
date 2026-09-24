@@ -11,6 +11,7 @@ import {
 import { AppDispatch, RootState } from '../store';
 import { resetHistory, setPresentStartup } from './undoRedoSlice';
 import { isDragHeld, whenDragReleases } from '../dragHold';
+import { dropReopenOffer } from '../reopenOfferStore';
 import { selectCategory, SettingsCategory } from './settingsCategoryStateSlice';
 import {
   mergeSessionsFromBackupInternal,
@@ -102,6 +103,11 @@ export interface Global {
   // existing division of labour -- nothing outside the component tree calls
   // t(), because nothing outside it has a `t` to call.
   toastParams?: Record<string, string | number>;
+  // KAN-280 O8a. The id of the close the toast offers to Reopen, or null for
+  // a toast without Reopen. Only the id: the closed tab or window it names is
+  // live data and stays out of the store (reopenOfferStore.ts). Overwritten
+  // by every toast, like toastParams, so a plain toast clears it.
+  toastReopenOfferId: number | null;
   isRateAndReviewModalOpen: boolean;
   // KAN-74. How many live tab groups the "turn on tab group support?" offer is
   // about, or null when the offer is not showing. One field rather than an
@@ -258,6 +264,7 @@ export const initialState: Global = {
   syncStatus: 'idle',
   isToastOpen: false,
   toastText: '',
+  toastReopenOfferId: null,
   isRateAndReviewModalOpen: false,
   tabGroupsPromptCount: null,
   focusRequest: null,
@@ -843,13 +850,40 @@ interface ShowToastPayload {
   toastText: string;
   toastParams?: Record<string, string | number>;
   duration?: number;
+  // KAN-280 O8a. Set only by offerReopen; any toast without it drops the
+  // Reopen offer.
+  reopenOfferId?: number;
 }
 
 let toastTimeout: null | ReturnType<typeof setTimeout> = null;
+// When the pending timeout started and what it was set for, so holdToast can
+// work out the time left (KAN-280 O8a).
+let toastStartedAt = 0;
+let toastDuration = 0;
+// The time left while the toast is held open, or null when it is not held.
+let heldTimeLeft: number | null = null;
+
+function startToastTimeout(
+  dispatch: (action: UnknownAction) => unknown,
+  duration: number
+): void {
+  toastStartedAt = Date.now();
+  toastDuration = duration;
+  toastTimeout = setTimeout(() => {
+    toastTimeout = null;
+    dispatch(closeToast());
+  }, duration);
+}
+
 export const showToast = createAsyncThunk(
   'global/showToast',
   async (
-    { toastText, toastParams, duration = 5000 }: ShowToastPayload,
+    {
+      toastText,
+      toastParams,
+      duration = 5000,
+      reopenOfferId,
+    }: ShowToastPayload,
     thunkAPI
   ) => {
     if (toastText) {
@@ -858,17 +892,40 @@ export const showToast = createAsyncThunk(
         clearTimeout(toastTimeout);
         toastTimeout = null;
       }
+      heldTimeLeft = null;
+      // The registry and toastReopenOfferId must agree: a toast that takes
+      // the Reopen button away takes the offer too (KAN-280 O8a).
+      if (reopenOfferId === undefined) dropReopenOffer();
 
-      thunkAPI.dispatch(setToastText({ text: toastText, params: toastParams }));
+      thunkAPI.dispatch(
+        setToastText({ text: toastText, params: toastParams, reopenOfferId })
+      );
       thunkAPI.dispatch(openToast());
 
       // Set the new timeout for the current toast
-      toastTimeout = setTimeout(() => {
-        thunkAPI.dispatch(closeToast());
-      }, duration);
+      startToastTimeout(thunkAPI.dispatch, duration);
     }
   }
 );
+
+// KAN-280 O8a. The Reopen toast stops its timer while the pointer is over it
+// or focus is in it, and resumes with the time that was left. Synchronous, so
+// the hold is in place before the event that asked for it has finished.
+export const holdToast =
+  (): ThunkAction<void, RootState, unknown, UnknownAction> => () => {
+    if (toastTimeout === null) return;
+    clearTimeout(toastTimeout);
+    toastTimeout = null;
+    heldTimeLeft = Math.max(0, toastDuration - (Date.now() - toastStartedAt));
+  };
+
+export const releaseToast =
+  (): ThunkAction<void, RootState, unknown, UnknownAction> => (dispatch) => {
+    if (heldTimeLeft === null) return;
+    const timeLeft = heldTimeLeft;
+    heldTimeLeft = null;
+    startToastTimeout(dispatch, timeLeft);
+  };
 
 // Never below zero: a settle without a counted start would otherwise let the
 // next real sync through while another runs.
@@ -969,10 +1026,12 @@ export const globalStateSlice = createSlice({
       action: PayloadAction<{
         text: string;
         params?: Record<string, string | number>;
+        reopenOfferId?: number;
       }>
     ) => {
       state.toastText = action.payload.text;
       state.toastParams = action.payload.params;
+      state.toastReopenOfferId = action.payload.reopenOfferId ?? null;
     },
 
     closeSettingsPage: (state) => {

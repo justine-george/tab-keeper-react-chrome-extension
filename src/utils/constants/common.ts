@@ -134,6 +134,11 @@ export const TOAST_MESSAGES = {
   // user it failed would be as wrong as the success toast this replaces
   // (KAN-43). isDirty stays set, so the next sync retries the write.
   IMPORT_SYNC_FAILED: 'Restored on this device, but syncing failed.',
+  // KAN-280 O8a. The toast after Close tab in the Open now pane, with Reopen
+  // beside it; a closed window says WINDOW_CLOSED_FRAME below instead.
+  TAB_CLOSED: 'Tab closed',
+  // KAN-280 rule 10: Chrome refused every tab Reopen tried to bring back.
+  REOPEN_FAILED: "Couldn't reopen.",
 };
 
 // The frame an import failure is reported in, with the reason as {{detail}}
@@ -145,3 +150,12 @@ export const TOAST_MESSAGES = {
 // its parameter, and putting it in that object would invite it being
 // dispatched bare.
 export const IMPORT_ERROR_FRAME = 'ImportErrorFrame';
+
+// The toast after Close window in the Open now pane, with the window's tab
+// count as {{count}} (KAN-280 O8a) -- a plural key, WindowClosed_one/_other
+// and each locale's own forms.
+//
+// It is not part of TOAST_MESSAGES for the reason IMPORT_ERROR_FRAME is not:
+// it is incomplete without its parameter, and putting it in that object would
+// invite it being dispatched bare.
+export const WINDOW_CLOSED_FRAME = 'WindowClosed';

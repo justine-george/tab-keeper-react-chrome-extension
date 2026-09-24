@@ -216,5 +216,12 @@
   "Saved sessions": "Сохранённые сессии",
   "Fold the saved session away": "Скрыть сохранённую сессию",
   "Show the saved session": "Показать сохранённую сессию",
-  "Close Open now": "Закрыть панель «Открытые вкладки»"
+  "Close Open now": "Закрыть панель «Открытые вкладки»",
+  "Reopen": "Открыть снова",
+  "Tab closed": "Вкладка закрыта",
+  "Couldn't reopen.": "Не удалось открыть снова.",
+  "WindowClosed_one": "Окно закрыто ({{count}} вкладка)",
+  "WindowClosed_few": "Окно закрыто ({{count}} вкладки)",
+  "WindowClosed_many": "Окно закрыто ({{count}} вкладок)",
+  "WindowClosed_other": "Окно закрыто ({{count}} вкладки)"
 }

@@ -1,12 +1,23 @@
-import { useSelector } from 'react-redux';
+import { useEffect, useRef } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 
 import { css } from '@emotion/react';
 
-import { RootState } from '../../redux/store';
+import { AppDispatch, RootState } from '../../redux/store';
+import {
+  closeToast,
+  holdToast,
+  releaseToast,
+  showToast,
+} from '../../redux/slices/globalStateSlice';
+import { takeReopenOffer } from '../../redux/reopenOffer';
+import { reopenClosed } from '../../utils/functions/reopen';
+import { TOAST_MESSAGES } from '../../utils/constants/common';
 import { useFontFamily } from '../../hooks/useFontFamily';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { useTranslation } from 'react-i18next';
 import { CONTROL, RADIUS, TYPE } from '../../styles/scale';
+import Button from './Button';
 
 interface ToastProps {
   style?: string;
@@ -16,6 +27,7 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
   const COLORS = useThemeColors();
   const FONT_FAMILY = useFontFamily();
   const { t } = useTranslation();
+  const dispatch: AppDispatch = useDispatch();
 
   const toastText = useSelector(
     (state: RootState) => state.globalState.toastText
@@ -29,8 +41,35 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
   const isSettingsPage = useSelector(
     (state: RootState) => state.globalState.isSettingsPage
   );
+  const offerId = useSelector(
+    (state: RootState) => state.globalState.toastReopenOfferId
+  );
 
-  if (!isToastOpen) return null;
+  // KAN-280 O8a. The Reopen toast holds while the pointer is over it OR focus
+  // is in it, so it is held while either is true and released only when both
+  // have gone -- a pointer leaving a focused Reopen button must not restart
+  // the timer.
+  const hovered = useRef(false);
+  const focused = useRef(false);
+  const setHold = (next: { hovered?: boolean; focused?: boolean }) => {
+    const wasHeld = hovered.current || focused.current;
+    hovered.current = next.hovered ?? hovered.current;
+    focused.current = next.focused ?? focused.current;
+    const isHeld = hovered.current || focused.current;
+    if (!wasHeld && isHeld) dispatch(holdToast());
+    if (wasHeld && !isHeld) dispatch(releaseToast());
+  };
+  // The slice starts every toast unheld. A toast that closes, or turns plain,
+  // takes the hold with it; a new offer arriving under the pointer or focus
+  // (each close replaces the toast, rule 3) is held again.
+  useEffect(() => {
+    if (!isToastOpen || offerId === null) {
+      hovered.current = false;
+      focused.current = false;
+      return;
+    }
+    if (hovered.current || focused.current) dispatch(holdToast());
+  }, [isToastOpen, offerId, dispatch]);
 
   const toastStyle = css`
     position: fixed;
@@ -53,9 +92,73 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
     ${style && style}
   `;
 
+  // The message on the left, Reopen at the right end (KAN-280 O8a). A long
+  // translation ellipses rather than pushing the button out.
+  const offerStyle = css`
+    justify-content: space-between;
+    gap: 8px;
+    padding: 6px 6px 6px 12px;
+  `;
+  const messageStyle = css`
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  `;
+
+  const reopen = (id: number) => {
+    const item = takeReopenOffer(id);
+    dispatch(closeToast());
+    if (item === null) return;
+    void reopenClosed(item).then((ok) => {
+      if (!ok) dispatch(showToast({ toastText: TOAST_MESSAGES.REOPEN_FAILED }));
+    });
+  };
+
   // toastText is a key and toastParams its interpolation values (KAN-86).
   // t() with no matching key returns the key unchanged, which is what keeps a
   // raw platform error -- a JSON SyntaxError naming its offending token --
   // readable when it is passed through as a {{detail}} value.
-  return <div css={toastStyle}>{t(toastText, toastParams)}</div>;
+  const message = t(toastText, toastParams);
+
+  // Always mounted, empty while no toast shows (KAN-280 O8a): a screen reader
+  // announces changes to a live region it already knows, and a region
+  // inserted together with its text is often read out by none of them.
+  return (
+    <div role="status">
+      {isToastOpen &&
+        (offerId === null ? (
+          <div css={toastStyle}>{message}</div>
+        ) : (
+          <div
+            css={[toastStyle, offerStyle]}
+            onMouseEnter={() => setHold({ hovered: true })}
+            onMouseLeave={() => setHold({ hovered: false })}
+            onFocus={() => setHold({ focused: true })}
+            onBlur={(event) => {
+              // Focus moving between controls inside the toast is not leaving.
+              if (
+                event.relatedTarget instanceof Node &&
+                event.currentTarget.contains(event.relatedTarget)
+              )
+                return;
+              setHold({ focused: false });
+            }}
+          >
+            <span css={messageStyle}>{message}</span>
+            <Button
+              variant="chip"
+              iconType="undo"
+              text={t('Reopen')}
+              onClick={() => reopen(offerId)}
+              style={`
+                height: 34px;
+                padding: 0 14px;
+                flex-shrink: 0;
+              `}
+            />
+          </div>
+        ))}
+    </div>
+  );
 };
