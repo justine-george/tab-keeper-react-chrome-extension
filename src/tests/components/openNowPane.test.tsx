@@ -110,7 +110,11 @@ async function renderPane(
   } = {}
 ) {
   const result = await renderWithProviders(
-    <OpenNowPane windows={null} actions={actions} />,
+    <OpenNowPane
+      windows={null}
+      actions={actions}
+      headingId="open-now-heading"
+    />,
     { seed }
   );
   const windows = toOpenWindows(
@@ -118,7 +122,13 @@ async function renderPane(
     groups === 'read' ? await chrome.tabGroups.query({}) : [],
     thisWindowId
   );
-  result.rerender(<OpenNowPane windows={windows} actions={actions} />);
+  result.rerender(
+    <OpenNowPane
+      windows={windows}
+      actions={actions}
+      headingId="open-now-heading"
+    />
+  );
   return { ...result, windows };
 }
 
@@ -309,7 +319,9 @@ describe('the Open now pane (KAN-280)', () => {
   });
 
   test('an empty list says no other tabs are open, and has no counts line', async () => {
-    await renderWithProviders(<OpenNowPane windows={[]} actions={[]} />);
+    await renderWithProviders(
+      <OpenNowPane windows={[]} actions={[]} headingId="open-now-heading" />
+    );
 
     expect(screen.getByText('No other tabs are open')).toBeInTheDocument();
     expect(screen.getByText('Open now')).toBeInTheDocument();
@@ -317,7 +329,9 @@ describe('the Open now pane (KAN-280)', () => {
   });
 
   test('while loading (null) there is no counts line and the body is empty', async () => {
-    await renderWithProviders(<OpenNowPane windows={null} actions={[]} />);
+    await renderWithProviders(
+      <OpenNowPane windows={null} actions={[]} headingId="open-now-heading" />
+    );
 
     expect(screen.getByText('Open now')).toBeInTheDocument();
     expect(screen.getByText('Updates as you browse')).toBeInTheDocument();

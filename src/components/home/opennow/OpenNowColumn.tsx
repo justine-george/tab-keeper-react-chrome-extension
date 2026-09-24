@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useId, useRef } from 'react';
 
 import { useDispatch, useSelector } from 'react-redux';
 
@@ -36,6 +36,7 @@ export default function OpenNowColumn({ folded }: OpenNowColumnProps) {
   // has the detail column's width, so it is the pane at any width.
   const showRail = isNarrow && !folded;
 
+  const headingId = useId();
   const headingRef = useRef<HTMLHeadingElement>(null);
   const railButtonRef = useRef<HTMLButtonElement>(null);
   // Narrow, every fold or unfold swaps the rail and the pane, so the button
@@ -82,6 +83,7 @@ export default function OpenNowColumn({ folded }: OpenNowColumnProps) {
     <OpenNowPane
       windows={windows}
       actions={[foldAction]}
+      headingId={headingId}
       headingRef={headingRef}
     />
   );

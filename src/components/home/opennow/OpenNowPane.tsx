@@ -26,6 +26,10 @@ interface OpenNowPaneProps {
   windows: OpenWindow[] | null;
   // Shown in the header's action row after the collapse toggle, in order.
   actions: OpenNowHeaderAction[];
+  // The "Open now" heading's id. The pane is a region named by its heading,
+  // so its controls are told apart from the saved pane's same-named ones, and
+  // the drawer names itself by the same heading (KAN-280 O2).
+  headingId: string;
   // The "Open now" heading, for a caller that moves focus to it (the
   // drawer, KAN-280 O2).
   headingRef?: Ref<HTMLHeadingElement>;
@@ -37,6 +41,7 @@ interface OpenNowPaneProps {
 export default function OpenNowPane({
   windows,
   actions,
+  headingId,
   headingRef,
 }: OpenNowPaneProps) {
   const COLORS = useThemeColors();
@@ -94,12 +99,34 @@ export default function OpenNowPane({
     width: 100%;
   `;
 
-  // A real heading, looking as the label did alone: the h2's own margin and
-  // bold are reset, and the label sets its size and face.
+  // A real heading, drawn as the NormalLabel it replaced (KAN-280 O2): the
+  // label's declarations on the h2 itself, since an h2 may hold only phrasing
+  // content and NormalLabel renders a div. The h2's own margin and bold are
+  // reset, and the label's margin-right is padding here, so the h2 keeps the
+  // header's full width and the text the same room.
   const headingStyle = css`
-    margin: 0;
-    font: inherit;
+    display: flex;
+    align-items: center;
+    height: 32px;
+    max-width: 100%;
     min-width: 0;
+    margin: 0;
+    padding: 0 8px;
+    font-family: ${FONT_FAMILY};
+    font-size: ${TYPE.SECTION};
+    font-weight: inherit;
+    color: ${COLORS.TEXT_COLOR};
+    overflow: hidden;
+    white-space: nowrap;
+  `;
+
+  // NormalLabel's inner box: text-overflow does not apply to a flex
+  // container, so the ellipsis lives on the text's own span.
+  const headingTextStyle = css`
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
   `;
 
   // Copied from TabGroupDetailsContainer's containerStyle.
@@ -121,18 +148,13 @@ export default function OpenNowPane({
   `;
 
   return (
-    <div css={paneStyle}>
+    <div css={paneStyle} role="region" aria-labelledby={headingId}>
       <div css={headerStyle}>
         <div css={topStyle}>
           {/* tabIndex -1: focusable from script (the drawer moves focus here
               on open), never a Tab stop. */}
-          <h2 ref={headingRef} tabIndex={-1} css={headingStyle}>
-            <NormalLabel
-              value={t('Open now')}
-              size={TYPE.SECTION}
-              color={COLORS.TEXT_COLOR}
-              style="height: 32px; padding-left: 8px; margin-right: 8px; max-width: 100%;"
-            />
+          <h2 id={headingId} ref={headingRef} tabIndex={-1} css={headingStyle}>
+            <span css={headingTextStyle}>{t('Open now')}</span>
           </h2>
           {/* No counts while loading, and none for an empty list: "0 Windows"
               says less than the body's own message does. */}

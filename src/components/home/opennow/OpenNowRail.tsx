@@ -30,6 +30,7 @@ export default function OpenNowRail({
   const COLORS = useThemeColors();
   const { t } = useTranslation();
   const drawerId = useId();
+  const headingId = useId();
 
   const [isOpen, setIsOpen] = useState(false);
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -109,7 +110,8 @@ export default function OpenNowRail({
         aria-label={railLabel}
         title={railLabel}
         aria-expanded={isOpen}
-        aria-controls={drawerId}
+        // Only while the drawer exists: an IDREF to nothing names no element.
+        aria-controls={isOpen ? drawerId : undefined}
         onClick={() => (isOpen ? close() : setIsOpen(true))}
       >
         <Icon type="tab" />
@@ -118,7 +120,8 @@ export default function OpenNowRail({
         <div
           id={drawerId}
           role="dialog"
-          aria-label={t('Open now')}
+          // Named by the pane's own heading, not a second copy of its text.
+          aria-labelledby={headingId}
           css={drawerStyle}
           onKeyDown={(e) => {
             if (e.key !== 'Escape') return;
@@ -132,6 +135,7 @@ export default function OpenNowRail({
               foldAction,
               { icon: 'close', label: t('Close Open now'), onClick: close },
             ]}
+            headingId={headingId}
             headingRef={headingRef}
           />
         </div>

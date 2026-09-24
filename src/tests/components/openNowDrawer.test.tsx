@@ -156,6 +156,22 @@ describe('narrow and side by side (O2)', () => {
     expect(document.activeElement).toBe(button);
   });
 
+  // An IDREF to an absent element names nothing, so the rail says what it
+  // controls only while the drawer is there to point at.
+  test('the rail button names the drawer in aria-controls only while it is open', async () => {
+    installMatchMedia(true);
+    await renderHome(false);
+    const closed = await railButton();
+    expect(closed).not.toHaveAttribute('aria-controls');
+
+    const { button, drawer } = await openDrawer();
+    expect(button).toHaveAttribute('aria-controls', drawer.id);
+
+    fireEvent.keyDown(document.activeElement ?? drawer, { key: 'Escape' });
+    expect(drawer).not.toBeInTheDocument();
+    expect(button).not.toHaveAttribute('aria-controls');
+  });
+
   test('Close Open now closes the drawer and returns focus to the rail button', async () => {
     installMatchMedia(true);
     await renderHome(false);
@@ -377,31 +393,31 @@ describe('focus after a fold or unfold (O2)', () => {
   });
 });
 
-// The heading wraps the label that used to stand alone. An h2 brings its own
-// margin and bold; neither may reach the label (scaleConformance: the popup
-// declares no font weight, so the label's weight is whatever it inherits).
+// The h2 carries the label's own declarations (an h2 may hold only phrasing
+// content, and NormalLabel renders a div). An h2 brings its own margin and
+// bold; neither may show (scaleConformance: the popup declares no font
+// weight, so the heading's weight is whatever it inherits).
 describe('the Open now heading looks as the label did', () => {
-  test('the h2 has no margin, and the label inside keeps its size and its inherited weight', async () => {
-    await renderWithProviders(<OpenNowPane windows={[]} actions={[]} />);
+  test("the h2 has no margin, the section size, and its header's weight", async () => {
+    await renderWithProviders(
+      <OpenNowPane windows={[]} actions={[]} headingId="open-now-heading" />
+    );
 
     const heading = screen.getByRole('heading', { name: 'Open now' });
-    const label = heading.firstElementChild;
     const header = heading.parentElement;
-    if (!(label instanceof HTMLElement) || header === null) {
-      throw new Error('heading has no label, or no parent');
-    }
+    if (header === null) throw new Error('heading has no parent');
 
     expect(getComputedStyle(heading).marginTop).toBe('0px');
     expect(getComputedStyle(heading).marginBottom).toBe('0px');
     // jsdom resolves rem against a 16px root (measured: 1.1rem is 17.6px).
-    expect(getComputedStyle(label).fontSize).toBe(
+    expect(getComputedStyle(heading).fontSize).toBe(
       `${parseFloat(TYPE.SECTION) * 16}px`
     );
-    // jsdom's own sheet makes an h2 bold (measured: 'bold'); the label must
-    // read the weight its header does, as it did outside the h2.
+    // jsdom's own sheet makes an h2 bold (measured: 'bold'); the heading
+    // must read the weight its header does, as the label did.
     expect(getComputedStyle(heading).fontWeight).toBe(
       getComputedStyle(header).fontWeight
     );
-    expect(getComputedStyle(label).fontWeight).not.toBe('bold');
+    expect(getComputedStyle(heading).fontWeight).not.toBe('bold');
   });
 });

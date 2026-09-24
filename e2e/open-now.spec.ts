@@ -3,12 +3,14 @@ import { deflateSync } from 'node:zlib';
 import type { BrowserContext, Locator, Page, Worker } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
+import { grantedTest } from './fixtures/grantedExtension';
 import {
   buildContainer,
   buildSession,
   seedSessions,
   seedSettings,
 } from './fixtures/seed';
+import { LIGHT_THEME } from '../src/hooks/useThemeColors';
 import { TYPE } from '../src/styles/scale';
 
 // KAN-280 Part A on the real artifact: the Open now pane in the tab view
@@ -829,10 +831,16 @@ test.describe('the Saved sessions caption (KAN-280 O3a)', () => {
   });
 });
 
-// ---- evidence the task reviews asked the real browser for ----
+// ---- the Open now heading, and the empty session list ----
 
-test.describe('Open now layout details (KAN-280)', () => {
-  test('the Open now heading has no heading margin and keeps the section size', async ({
+// A theme colour as getComputedStyle reports it.
+const rgb = (hex: string): string => {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgb(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`;
+};
+
+test.describe('Open now heading and empty-list layout (KAN-280)', () => {
+  test('the Open now heading holds only phrasing content, and draws as the label it replaced', async ({
     context,
     extensionId,
   }) => {
@@ -840,34 +848,72 @@ test.describe('Open now layout details (KAN-280)', () => {
     const heading = page.locator(`${OPEN_NOW} h2`);
     await expect(heading).toHaveText('Open now');
     const facts = await heading.evaluate((h2: Element) => {
-      const s = getComputedStyle(h2);
-      const label = h2.firstElementChild;
-      const parent = h2.parentElement;
-      if (label === null || parent === null) return null;
+      const header = h2.parentElement;
+      const text = h2.querySelector('span');
+      if (header === null || text === null) return null;
+      const outer = header.getBoundingClientRect();
+      const box = h2.getBoundingClientRect();
+      const inner = text.getBoundingClientRect();
+      const h2Style = getComputedStyle(h2);
+      const textStyle = getComputedStyle(text);
       return {
-        margins: [s.marginTop, s.marginRight, s.marginBottom, s.marginLeft],
-        h2FontSize: s.fontSize,
-        parentFontSize: getComputedStyle(parent).fontSize,
-        h2FontWeight: s.fontWeight,
-        parentFontWeight: getComputedStyle(parent).fontWeight,
-        labelFontSize: parseFloat(getComputedStyle(label).fontSize),
+        // What the parser kept inside the h2, as shipped.
+        descendants: Array.from(h2.querySelectorAll('*'), (el) => el.tagName),
+        margins: [
+          h2Style.marginTop,
+          h2Style.marginRight,
+          h2Style.marginBottom,
+          h2Style.marginLeft,
+        ],
+        box: {
+          left: box.left - outer.left,
+          top: box.top - outer.top,
+          width: box.width,
+          height: box.height,
+        },
+        headerWidth: outer.width,
+        text: {
+          left: inner.left - box.left,
+          top: inner.top - box.top,
+          height: inner.height,
+        },
+        fontSize: parseFloat(textStyle.fontSize),
         rootFontSize: parseFloat(
           getComputedStyle(document.documentElement).fontSize
         ),
-        h2Height: h2.getBoundingClientRect().height,
-        labelHeight: label.getBoundingClientRect().height,
+        fontFamily: textStyle.fontFamily,
+        headerFontFamily: getComputedStyle(header).fontFamily,
+        fontWeight: textStyle.fontWeight,
+        headerFontWeight: getComputedStyle(header).fontWeight,
+        color: textStyle.color,
+        textOverflow: textStyle.textOverflow,
       };
     });
     console.log(`[h2] ${JSON.stringify(facts)}`);
-    if (facts === null) throw new Error('the heading has no label or parent');
+    if (facts === null) throw new Error('the heading has no text or header');
+    // An h2 allows only phrasing content: the text's span, nothing else.
+    expect(facts.descendants).toEqual(['SPAN']);
+    // Drawn as the NormalLabel inside it was: no heading margin, the header's
+    // full width, 32px tall, the text 8px in and centred on the line.
     expect(facts.margins).toEqual(['0px', '0px', '0px', '0px']);
-    expect(facts.h2FontSize).toBe(facts.parentFontSize);
-    expect(facts.h2FontWeight).toBe(facts.parentFontWeight);
-    expect(facts.labelFontSize).toBeCloseTo(
+    expect(facts.box).toEqual({
+      left: 0,
+      top: 0,
+      width: facts.headerWidth,
+      height: 32,
+    });
+    expect(facts.text.left).toBe(8);
+    expect(facts.text.top).toBe((facts.box.height - facts.text.height) / 2);
+    // The section size and the header's face and weight, in TEXT_COLOR (the
+    // profile opens in Light), cut with an ellipsis when it cannot fit.
+    expect(facts.fontSize).toBeCloseTo(
       facts.rootFontSize * parseFloat(TYPE.SECTION),
       2
     );
-    expect(facts.h2Height).toBe(facts.labelHeight);
+    expect(facts.fontFamily).toBe(facts.headerFontFamily);
+    expect(facts.fontWeight).toBe(facts.headerFontWeight);
+    expect(facts.color).toBe(rgb(LIGHT_THEME.TEXT_COLOR));
+    expect(facts.textOverflow).toBe('ellipsis');
   });
 
   test('"Empty" stays centred in an empty session list under the caption', async ({
@@ -907,3 +953,338 @@ test.describe('Open now layout details (KAN-280)', () => {
     expect(Math.abs(facts.label.y - facts.scroller.y)).toBeLessThanOrEqual(1);
   });
 });
+
+// ---- names in the accessibility tree ----
+
+// jsdom computes no accessible names by ARIA's rules, so the names are read
+// from the real browser here.
+test.describe('Open now names its region and its drawer (KAN-280)', () => {
+  test('side by side, Open now is a region named by its heading, which tells its "Collapse all windows" from the saved pane\'s', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    await seedTwoSessions(context);
+    await seedSettings(context, { foldSavedSessionInTabView: false });
+    const page = await openPage(context, extensionId, VIEW_TAB, TAB_VIEWPORT);
+    await openTab(serviceWorker, 'Alpha');
+    await expect(liveRow(page, 'Alpha')).toBeVisible();
+    const collapseAll = { name: 'Collapse all windows', exact: true };
+    // PREMISE: both panes offer the control under the same name.
+    await expect(page.getByRole('button', collapseAll)).toHaveCount(2);
+
+    const region = page.getByRole('region', { name: 'Open now', exact: true });
+    await expect(region).toHaveCount(1);
+    await expect(region).toHaveAccessibleName('Open now');
+    const scoped = region.getByRole('button', collapseAll);
+    await expect(scoped).toHaveCount(1);
+    // The one the region scopes is Open now's own, not the saved pane's.
+    expect(
+      await scoped.evaluate(
+        (el: Element, pane: string) => el.closest(pane) !== null,
+        OPEN_NOW
+      )
+    ).toBe(true);
+  });
+
+  test('below 1100px, the drawer is named by its heading, not by a label of its own', async ({
+    context,
+    extensionId,
+  }) => {
+    await seedTwoSessions(context);
+    await seedSettings(context, { foldSavedSessionInTabView: false });
+    const page = await openPage(
+      context,
+      extensionId,
+      VIEW_TAB,
+      NARROW_VIEWPORT
+    );
+    await page.getByRole('button', { name: /^Open now/ }).click();
+    const drawer = page.getByRole('dialog', { name: 'Open now', exact: true });
+    await expect(drawer).toBeVisible();
+    await expect(drawer).toHaveAccessibleName('Open now');
+    await expect(drawer).not.toHaveAttribute('aria-label');
+    // The name's source is the drawer's own h2.
+    expect(
+      await drawer.evaluate((el) => {
+        const id = el.getAttribute('aria-labelledby');
+        const source = id === null ? null : document.getElementById(id);
+        return source === null
+          ? null
+          : { tag: source.tagName, inDrawer: el.contains(source) };
+      })
+    ).toEqual({ tag: 'H2', inDrawer: true });
+    // Inside it, Open now is still the region its heading names.
+    await expect(
+      drawer.getByRole('region', { name: 'Open now', exact: true })
+    ).toHaveCount(1);
+  });
+});
+
+// ---- 7c. a grouped live row measures like a grouped saved row ----
+
+interface GroupedRowFacts {
+  // `left` from the pane's content box, `rightInset` from its right edge,
+  // `top` from the top of its window's block (title row, band and all).
+  row: { left: number; rightInset: number; top: number; height: number };
+  icon: { left: number; width: number };
+  // The band's colour strip; `top` and `bottom` from the band's own box.
+  strip: {
+    left: number;
+    width: number;
+    height: number;
+    top: number;
+    bottom: number;
+  };
+  bandHeight: number;
+}
+
+// What marks a pane's colour strip and its window block: the two panes
+// draw the same shapes under different attributes.
+interface PaneMarks {
+  strip: string;
+  windowBlock: string;
+}
+
+// A grouped tab row, its favicon, and the colour strip of the band it sits
+// in, measured from the pane's content box as measureRow does.
+async function measureGroupedRow(
+  row: Locator,
+  pane: string,
+  marks: PaneMarks
+): Promise<GroupedRowFacts> {
+  await expect(row).toBeVisible();
+  const facts = await row.evaluate(
+    (
+      button: Element,
+      { paneSelector, strip, windowBlock }: PaneMarks & { paneSelector: string }
+    ) => {
+      const paneEl = document.querySelector(paneSelector);
+      const icon = button.firstElementChild;
+      const rowEl = button.parentElement;
+      const band = rowEl?.closest('[role="group"]') ?? null;
+      const stripEl = band?.querySelector(strip) ?? null;
+      const windowEl = rowEl?.closest(windowBlock) ?? null;
+      if (
+        paneEl === null ||
+        icon === null ||
+        rowEl === null ||
+        band === null ||
+        stripEl === null ||
+        windowEl === null
+      ) {
+        return null;
+      }
+      const style = getComputedStyle(paneEl);
+      const paneBox = paneEl.getBoundingClientRect();
+      const contentLeft =
+        paneBox.left +
+        parseFloat(style.borderLeftWidth) +
+        parseFloat(style.paddingLeft);
+      const contentRight =
+        paneBox.right -
+        parseFloat(style.borderRightWidth) -
+        parseFloat(style.paddingRight);
+      const r = rowEl.getBoundingClientRect();
+      const i = icon.getBoundingClientRect();
+      const s = stripEl.getBoundingClientRect();
+      const b = band.getBoundingClientRect();
+      const w = windowEl.getBoundingClientRect();
+      return {
+        row: {
+          left: r.left - contentLeft,
+          rightInset: contentRight - r.right,
+          top: r.top - w.top,
+          height: r.height,
+        },
+        icon: { left: i.left - contentLeft, width: i.width },
+        strip: {
+          left: s.left - contentLeft,
+          width: s.width,
+          height: s.height,
+          top: s.top - b.top,
+          bottom: b.bottom - s.bottom,
+        },
+        bandHeight: b.height,
+      };
+    },
+    { paneSelector: pane, ...marks }
+  );
+  if (facts === null) {
+    throw new Error(
+      'a grouped row is missing its pane, icon, band, strip or window block'
+    );
+  }
+  return facts;
+}
+
+grantedTest.describe(
+  'Open now grouped rows, tabGroups granted (KAN-280)',
+  () => {
+    grantedTest(
+      '7c. a live tab in a group measures like a saved tab in a group',
+      async ({ context, extensionId, serviceWorker }, testInfo) => {
+        // One saved tab in a group, glyph favicon (as test 7), side by side.
+        const saved = buildSession({
+          tabGroupId: 'saved',
+          title: 'Saved session',
+          isSelected: true,
+          windows: [
+            {
+              windowId: 'w1',
+              windowHeight: 1080,
+              windowWidth: 1920,
+              windowOffsetTop: 0,
+              windowOffsetLeft: 0,
+              tabCount: 1,
+              title: 'w1',
+              tabs: [
+                {
+                  tabId: 't1',
+                  title: 'Saved tab',
+                  favicon: '',
+                  url: 'chrome://version/',
+                  chromeGroupId: 'g',
+                },
+              ],
+              chromeTabGroups: [
+                { groupId: 'g', title: 'Research', color: 'blue' },
+              ],
+            },
+          ],
+        });
+        await seedSessions(context, {
+          ...buildContainer([saved]),
+          selectedTabGroupId: saved.tabGroupId,
+        });
+        await seedSettings(context, { foldSavedSessionInTabView: false });
+        const page = await openPage(
+          context,
+          extensionId,
+          VIEW_TAB,
+          TAB_VIEWPORT
+        );
+
+        // One live tab, alone in a window of its own as the saved tab is
+        // (the profile's first window also holds a blank tab), grouped by
+        // Chrome under the same title and colour.
+        const windowId = await serviceWorker.evaluate(async (url: string) => {
+          const win = await chrome.windows.create({ url, focused: false });
+          const tabId = win?.tabs?.[0]?.id;
+          if (win?.id === undefined || tabId === undefined) return null;
+          // In its own window: with no windowId, Chrome groups the tab in
+          // the current window and moves it there.
+          const groupId = await chrome.tabs.group({
+            tabIds: [tabId],
+            createProperties: { windowId: win.id },
+          });
+          await chrome.tabGroups.update(groupId, {
+            title: 'Research',
+            color: 'blue',
+          });
+          return win.id;
+        }, 'data:text/html,<title>Alpha</title>');
+        if (windowId === null) throw new Error('Chrome gave no window or tab');
+        // PREMISE: that window lists exactly the one tab, so the row's y in
+        // its window compares like with like.
+        await expect(
+          page
+            .locator(`${OPEN_NOW} [data-open-window-id="${windowId}"]`)
+            .getByRole('button', { name: /^Switch to tab: / })
+        ).toHaveCount(1);
+
+        // PREMISE: each row sits inside its pane's band, so this compares
+        // grouped rows, not a grouped row against a loose one.
+        const savedBand = page
+          .locator(DETAIL)
+          .getByRole('group', { name: 'Research', exact: true });
+        const liveBand = page
+          .locator(OPEN_NOW)
+          .getByRole('group', { name: 'Research', exact: true });
+        await expect(
+          savedBand.getByRole('button', {
+            name: 'Open in new tab: Saved tab',
+            exact: true,
+          })
+        ).toBeVisible();
+        await expect(
+          liveBand.getByRole('button', {
+            name: 'Switch to tab: Alpha',
+            exact: true,
+          })
+        ).toBeVisible();
+
+        const savedFacts = await measureGroupedRow(savedTabRow(page), DETAIL, {
+          strip: '[data-group-color-strip]',
+          windowBlock: '[data-drop-window-id]',
+        });
+        const liveFacts = await measureGroupedRow(
+          liveRow(page, 'Alpha'),
+          OPEN_NOW,
+          {
+            strip: '[data-open-now-group-strip]',
+            windowBlock: '[data-open-window-id]',
+          }
+        );
+        console.log(
+          `[row match, grouped] ${JSON.stringify({ savedFacts, liveFacts })}`
+        );
+        await page.screenshot({
+          path: testInfo.outputPath('grouped-rows.png'),
+        });
+
+        expectWithinHalfPixel(liveFacts.row.left, savedFacts.row.left, 'row x');
+        expectWithinHalfPixel(
+          liveFacts.row.rightInset,
+          savedFacts.row.rightInset,
+          'row right inset'
+        );
+        expectWithinHalfPixel(
+          liveFacts.row.top,
+          savedFacts.row.top,
+          'row y in its window'
+        );
+        expectWithinHalfPixel(
+          liveFacts.row.height,
+          savedFacts.row.height,
+          'row height'
+        );
+        expectWithinHalfPixel(
+          liveFacts.icon.left,
+          savedFacts.icon.left,
+          'favicon offset'
+        );
+        expectWithinHalfPixel(
+          liveFacts.strip.left,
+          savedFacts.strip.left,
+          'strip x'
+        );
+        expectWithinHalfPixel(
+          liveFacts.strip.width,
+          savedFacts.strip.width,
+          'strip width'
+        );
+        expectWithinHalfPixel(
+          liveFacts.strip.height,
+          savedFacts.strip.height,
+          'strip height'
+        );
+        expectWithinHalfPixel(
+          liveFacts.strip.top,
+          savedFacts.strip.top,
+          'strip top in its band'
+        );
+        expectWithinHalfPixel(
+          liveFacts.strip.bottom,
+          savedFacts.strip.bottom,
+          'strip bottom in its band'
+        );
+        expectWithinHalfPixel(
+          liveFacts.bandHeight,
+          savedFacts.bandHeight,
+          'band height'
+        );
+      }
+    );
+  }
+);
