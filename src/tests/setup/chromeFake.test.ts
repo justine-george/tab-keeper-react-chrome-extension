@@ -537,6 +537,24 @@ describe('live browser events (KAN-280)', () => {
     handle.restore();
   });
 
+  // Chrome answers with a copy. A live object would let a caller that asked
+  // once see every later move anyway, hiding a stale read (KAN-280).
+  test('getCurrent answers a snapshot: a later move does not change a tab it already returned', async () => {
+    const handle = setupChromeFake({
+      windows: [
+        { id: 1, tabs: [{ id: 501, url: 'https://tab-keeper.test/' }] },
+        { id: 2, tabs: [{ url: 'https://b.test/' }] },
+      ],
+      currentTabId: 501,
+    });
+    const before = await chrome.tabs.getCurrent();
+
+    handle.browser.moveTabToWindow(501, 2);
+
+    expect(before?.windowId).toBe(1);
+    handle.restore();
+  });
+
   test('windowsGetAllCalls counts every getAll', async () => {
     const handle = setupChromeFake();
     await chrome.windows.getAll({});

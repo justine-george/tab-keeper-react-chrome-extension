@@ -531,13 +531,18 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
       // a context that is not a tab, as in Chrome, and undefined for an id no
       // seeded tab carries: minting one here would hide a seed that names the
       // wrong tab.
-      getCurrent: (cb?: (tab?: chrome.tabs.Tab) => void) =>
-        settle(
+      //
+      // A copy, as Chrome's answer is (it crosses a process boundary). The
+      // live object would follow a later moveTabToWindow, so a caller that
+      // read getCurrent once and kept the answer would still see the move,
+      // and a test of "re-read every refresh" (KAN-280) could not fail.
+      getCurrent: (cb?: (tab?: chrome.tabs.Tab) => void) => {
+        const current =
           seed.currentTabId === undefined
             ? undefined
-            : tabs.find((tab) => tab.id === seed.currentTabId),
-          cb
-        ),
+            : tabs.find((tab) => tab.id === seed.currentTabId);
+        return settle(current && { ...current }, cb);
+      },
       create: (
         props: chrome.tabs.CreateProperties,
         cb?: (tab: chrome.tabs.Tab) => void
