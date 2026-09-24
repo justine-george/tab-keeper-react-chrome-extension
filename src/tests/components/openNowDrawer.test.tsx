@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { act, fireEvent, screen, within } from '@testing-library/react';
 
 import MainContainer from '../../components/MainContainer';
+import OpenNowPane from '../../components/home/opennow/OpenNowPane';
+import { TYPE } from '../../styles/scale';
 import { OPEN_NOW_RAIL_QUERY } from '../../components/home/opennow/railQuery';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import type { ChromeSeed } from '../setup/chrome.fake';
@@ -295,5 +297,111 @@ describe('the grid and the rail share one query (O2)', () => {
       )}\\s*\\{[^}]*grid-template-columns:\\s*356px minmax\\(0, 1fr\\) 44px`
     );
     expect(css).toMatch(railRule);
+  });
+});
+
+// A fold or unfold that swaps the rail for the pane (or back) unmounts the
+// button that was pressed. Focus goes to what took its place, not to <body>.
+// Where nothing is swapped (wide), the pressed button stays, and so does focus.
+describe('focus after a fold or unfold (O2)', () => {
+  const FOLD = 'Fold the saved session away';
+  const UNFOLD = 'Show the saved session';
+
+  // A keyboard press: the control has focus, then activates.
+  const press = (el: HTMLElement) => {
+    el.focus();
+    fireEvent.click(el);
+  };
+
+  test('Fold the saved session away from the drawer moves focus to the Open now heading in the detail area', async () => {
+    installMatchMedia(true);
+    await renderHome(false);
+    const { drawer } = await openDrawer();
+
+    press(within(drawer).getByRole('button', { name: FOLD }));
+
+    // PREMISE: folded, so the slot holds the detail area and the saved
+    // detail is gone.
+    expect(document.querySelector('[data-pane="detail"]')).toBeNull();
+    expect(getComputedStyle(openNowSlot()).getPropertyValue('grid-area')).toBe(
+      'detail'
+    );
+    const heading = within(openNowSlot()).getByRole('heading', {
+      name: 'Open now',
+    });
+    expect(document.activeElement).toBe(heading);
+  });
+
+  test('Show the saved session while narrow moves focus to the rail button', async () => {
+    installMatchMedia(true);
+    await renderHome(true);
+    await within(openNowSlot()).findByText('B');
+
+    press(within(openNowSlot()).getByRole('button', { name: UNFOLD }));
+
+    const button = await railButton();
+    expect(document.activeElement).toBe(button);
+  });
+
+  // Only a press that swaps may move focus. A wide press swaps nothing, so it
+  // must leave nothing pending for a later resize to act on.
+  test('a window narrowed after a wide fold and unfold does not pull focus to the rail', async () => {
+    installMatchMedia(false);
+    await renderHome(false);
+    await within(openNowSlot()).findByText('B');
+    press(within(openNowSlot()).getByRole('button', { name: FOLD }));
+    press(within(openNowSlot()).getByRole('button', { name: UNFOLD }));
+
+    act(() => railQuery.setMatches(true));
+
+    const button = await railButton();
+    expect(document.activeElement).not.toBe(button);
+  });
+
+  // CONTROL. Wide, the pane is not swapped: the pressed button is the same
+  // element, relabelled, and keeps focus as it did before the rail existed.
+  test('CONTROL: wide, fold and unfold keep focus on the fold button', async () => {
+    installMatchMedia(false);
+    await renderHome(false);
+    await within(openNowSlot()).findByText('B');
+
+    press(within(openNowSlot()).getByRole('button', { name: FOLD }));
+    expect(document.activeElement).toBe(
+      within(openNowSlot()).getByRole('button', { name: UNFOLD })
+    );
+
+    press(within(openNowSlot()).getByRole('button', { name: UNFOLD }));
+    expect(document.activeElement).toBe(
+      within(openNowSlot()).getByRole('button', { name: FOLD })
+    );
+  });
+});
+
+// The heading wraps the label that used to stand alone. An h2 brings its own
+// margin and bold; neither may reach the label (scaleConformance: the popup
+// declares no font weight, so the label's weight is whatever it inherits).
+describe('the Open now heading looks as the label did', () => {
+  test('the h2 has no margin, and the label inside keeps its size and its inherited weight', async () => {
+    await renderWithProviders(<OpenNowPane windows={[]} actions={[]} />);
+
+    const heading = screen.getByRole('heading', { name: 'Open now' });
+    const label = heading.firstElementChild;
+    const header = heading.parentElement;
+    if (!(label instanceof HTMLElement) || header === null) {
+      throw new Error('heading has no label, or no parent');
+    }
+
+    expect(getComputedStyle(heading).marginTop).toBe('0px');
+    expect(getComputedStyle(heading).marginBottom).toBe('0px');
+    // jsdom resolves rem against a 16px root (measured: 1.1rem is 17.6px).
+    expect(getComputedStyle(label).fontSize).toBe(
+      `${parseFloat(TYPE.SECTION) * 16}px`
+    );
+    // jsdom's own sheet makes an h2 bold (measured: 'bold'); the label must
+    // read the weight its header does, as it did outside the h2.
+    expect(getComputedStyle(heading).fontWeight).toBe(
+      getComputedStyle(header).fontWeight
+    );
+    expect(getComputedStyle(label).fontWeight).not.toBe('bold');
   });
 });

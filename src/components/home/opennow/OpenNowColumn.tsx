@@ -1,3 +1,5 @@
+import { useEffect, useRef } from 'react';
+
 import { useDispatch, useSelector } from 'react-redux';
 
 import { useTranslation } from 'react-i18next';
@@ -30,8 +32,26 @@ export default function OpenNowColumn({ folded }: OpenNowColumnProps) {
   );
   const windows = useOpenWindows(hasTabGroupsPermission);
   const isNarrow = useMediaQuery(OPEN_NOW_RAIL_QUERY);
+  // O2. Side by side below 1100px the column is a rail. Folded, Open now
+  // has the detail column's width, so it is the pane at any width.
+  const showRail = isNarrow && !folded;
+
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const railButtonRef = useRef<HTMLButtonElement>(null);
+  // Narrow, every fold or unfold swaps the rail and the pane, so the button
+  // just pressed unmounts and focus would fall to <body>. The press sets
+  // this; once the swap has mounted, focus goes to what took its place: the
+  // pane's heading, or the rail's button. Wide, nothing is swapped and the
+  // pressed button keeps focus.
+  const focusAfterSwap = useRef(false);
+  useEffect(() => {
+    if (!focusAfterSwap.current) return;
+    focusAfterSwap.current = false;
+    (showRail ? railButtonRef.current : headingRef.current)?.focus();
+  }, [showRail]);
 
   const setFolded = (fold: boolean) => {
+    focusAfterSwap.current = isNarrow;
     dispatch(setFoldSavedSessionInTabView(fold));
     dispatch(endSavedSessionPeek());
   };
@@ -48,11 +68,21 @@ export default function OpenNowColumn({ folded }: OpenNowColumnProps) {
         onClick: () => setFolded(true),
       };
 
-  // O2. Side by side below 1100px the column is a rail. Folded, Open now
-  // has the detail column's width, so it is the pane at any width. The
-  // windows are read here, above the swap, so a resize does not re-read.
-  if (isNarrow && !folded) {
-    return <OpenNowRail windows={windows} foldAction={foldAction} />;
+  // The windows are read here, above the swap, so a resize does not re-read.
+  if (showRail) {
+    return (
+      <OpenNowRail
+        windows={windows}
+        foldAction={foldAction}
+        buttonRef={railButtonRef}
+      />
+    );
   }
-  return <OpenNowPane windows={windows} actions={[foldAction]} />;
+  return (
+    <OpenNowPane
+      windows={windows}
+      actions={[foldAction]}
+      headingRef={headingRef}
+    />
+  );
 }

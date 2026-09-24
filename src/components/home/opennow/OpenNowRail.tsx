@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { RefObject, useEffect, useId, useRef, useState } from 'react';
 
 import { css } from '@emotion/react';
 import { useTranslation } from 'react-i18next';
@@ -14,18 +14,24 @@ interface OpenNowRailProps {
   windows: OpenWindow[] | null;
   // The fold button, shown in the drawer's header before its close button.
   foldAction: OpenNowHeaderAction;
+  // The rail's button. The caller holds it so an unfold that brings the rail
+  // back can focus it (OpenNowColumn).
+  buttonRef: RefObject<HTMLButtonElement>;
 }
 
 // KAN-280 O2. A 44px column with one button, which opens Open now as a 380px
 // drawer over the right side. The drawer's open state lives here, so it goes
 // when the rail does: a window grown past 1100px, or a fold, drops both.
-export default function OpenNowRail({ windows, foldAction }: OpenNowRailProps) {
+export default function OpenNowRail({
+  windows,
+  foldAction,
+  buttonRef,
+}: OpenNowRailProps) {
   const COLORS = useThemeColors();
   const { t } = useTranslation();
   const drawerId = useId();
 
   const [isOpen, setIsOpen] = useState(false);
-  const buttonRef = useRef<HTMLButtonElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
 
   // On open, focus goes to the drawer's heading, so a screen reader announces
