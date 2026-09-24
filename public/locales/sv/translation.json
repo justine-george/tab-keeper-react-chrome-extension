@@ -219,5 +219,7 @@
   "WindowClosed_one": "Fönstret stängdes ({{count}} flik)",
   "WindowClosed_other": "Fönstret stängdes ({{count}} flikar)",
   "Close tab": "Stäng flik",
-  "Close window": "Stäng fönster"
+  "Close window": "Stäng fönster",
+  "Save window as a session": "Spara fönstret som en session",
+  "Window saved as a session.": "Fönstret har sparats som en session."
 }

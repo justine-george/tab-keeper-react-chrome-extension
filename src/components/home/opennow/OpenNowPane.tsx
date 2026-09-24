@@ -11,8 +11,13 @@ import { useFontFamily } from '../../../hooks/useFontFamily';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { formatGroupCounts } from '../../../utils/functions/local';
 import type { OpenTab, OpenWindow } from '../../../utils/functions/openNow';
+import {
+  openWindowsToSession,
+  suggestTitleForWindow,
+} from '../../../utils/functions/openWindowsToSession';
 import { closeOpenTab, closeOpenWindow } from '../../../utils/functions/reopen';
 import { offerReopen } from '../../../redux/reopenOffer';
+import { saveToTabContainer } from '../../../redux/slices/tabContainerDataStateSlice';
 import type { AppDispatch } from '../../../redux/store';
 import { TYPE } from '../../../styles/scale';
 
@@ -28,7 +33,8 @@ export type OpenNowHeaderAction = {
 interface OpenNowPaneProps {
   // null while the first read is in flight; [] when it found nothing to list.
   windows: OpenWindow[] | null;
-  // Shown in the header's action row after the collapse toggle, in order.
+  // Shown in the header's action row after Collapse all and Save all, in
+  // order.
   actions: OpenNowHeaderAction[];
   // The "Open now" heading's id. The pane is a region named by its heading,
   // so its controls are told apart from the saved pane's same-named ones, and
@@ -55,7 +61,8 @@ function neighbourAt(list: Element[], index: number): Element | undefined {
 
 // The Open now pane (KAN-280): the browser's live windows, drawn the way the
 // saved-session detail draws a saved one. The caller reads Chrome and hands
-// the result in as `windows`; the pane closes tabs and windows itself (O7a).
+// the result in as `windows`; the pane closes tabs and windows itself (O7a)
+// and saves them (O13).
 export default function OpenNowPane({
   windows,
   actions,
@@ -136,6 +143,41 @@ export default function OpenNowPane({
     focusAfterWindowCloses(openWindow.id);
     const item = await closeOpenWindow(openWindow);
     if (item) void dispatch(offerReopen(item));
+  };
+
+  // KAN-280 O13. The snapshot on screen is what is saved, named by rule 1 and
+  // announced by rule 2.
+  const handleSaveWindow = async (openWindow: OpenWindow) => {
+    const title = await suggestTitleForWindow(
+      openWindow.id,
+      t('New Tab Group')
+    );
+    void dispatch(
+      saveToTabContainer({
+        container: openWindowsToSession([openWindow], title, new Date()),
+        scope: 'one-window',
+      })
+    );
+  };
+
+  // This window first, as a capture orders them (windowsInScope), so a
+  // restore brings the user back where they were. Named from This window
+  // alone, which is exactly the name box's suggestion; a This window holding
+  // only Tab Keeper is not listed, and falls back.
+  const handleSaveAll = async () => {
+    const thisWindow = listed.find((w) => w.isThisWindow);
+    const ordered = thisWindow
+      ? [thisWindow, ...listed.filter((w) => w !== thisWindow)]
+      : listed;
+    const title = thisWindow
+      ? await suggestTitleForWindow(thisWindow.id, t('New Tab Group'))
+      : t('New Tab Group');
+    void dispatch(
+      saveToTabContainer({
+        container: openWindowsToSession(ordered, title, new Date()),
+        scope: 'all-windows',
+      })
+    );
   };
 
   // Copied from RightPane's containerStyle, so the pane sits in its column the
@@ -275,6 +317,15 @@ export default function OpenNowPane({
               }
             />
           )}
+          {/* With nothing listed there is nothing to save. */}
+          {listed.length > 0 && (
+            <Icon
+              tooltipText={t('Save every open window as a session')}
+              ariaLabel={t('Save every open window as a session')}
+              type="library_add"
+              onClick={() => void handleSaveAll()}
+            />
+          )}
           {actions.map((action, index) => (
             <Icon
               // By position: the caller's list is fixed, and two actions may
@@ -305,6 +356,7 @@ export default function OpenNowPane({
               isOpen={!collapsedIds.has(openWindow.id)}
               onToggle={() => toggleWindow(openWindow.id)}
               onCloseTab={(tab) => void handleCloseTab(openWindow, tab)}
+              onSaveWindow={() => void handleSaveWindow(openWindow)}
               onCloseWindow={
                 openWindow.isThisWindow
                   ? undefined

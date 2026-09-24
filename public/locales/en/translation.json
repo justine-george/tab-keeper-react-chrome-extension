@@ -219,5 +219,7 @@
   "WindowClosed_one": "Window closed ({{count}} tab)",
   "WindowClosed_other": "Window closed ({{count}} tabs)",
   "Close tab": "Close tab",
-  "Close window": "Close window"
+  "Close window": "Close window",
+  "Save window as a session": "Save window as a session",
+  "Window saved as a session.": "Window saved as a session."
 }

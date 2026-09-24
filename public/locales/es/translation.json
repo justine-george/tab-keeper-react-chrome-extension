@@ -222,5 +222,7 @@
   "WindowClosed_many": "Ventana cerrada ({{count}} pestañas)",
   "WindowClosed_other": "Ventana cerrada ({{count}} pestañas)",
   "Close tab": "Cerrar pestaña",
-  "Close window": "Cerrar ventana"
+  "Close window": "Cerrar ventana",
+  "Save window as a session": "Guardar ventana como sesión",
+  "Window saved as a session.": "Ventana guardada como sesión."
 }

@@ -216,5 +216,7 @@
   "Couldn't reopen.": "다시 열지 못했습니다.",
   "WindowClosed_other": "창을 닫았습니다(탭 {{count}}개)",
   "Close tab": "탭 닫기",
-  "Close window": "창 닫기"
+  "Close window": "창 닫기",
+  "Save window as a session": "창을 세션으로 저장",
+  "Window saved as a session.": "창을 세션으로 저장했습니다."
 }

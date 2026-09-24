@@ -222,5 +222,7 @@
   "WindowClosed_many": "Fenêtre fermée ({{count}} onglets)",
   "WindowClosed_other": "Fenêtre fermée ({{count}} onglets)",
   "Close tab": "Fermer l'onglet",
-  "Close window": "Fermer la fenêtre"
+  "Close window": "Fermer la fenêtre",
+  "Save window as a session": "Enregistrer la fenêtre comme session",
+  "Window saved as a session.": "Fenêtre enregistrée comme session."
 }

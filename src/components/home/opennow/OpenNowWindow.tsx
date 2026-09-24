@@ -35,19 +35,21 @@ interface OpenNowWindowProps {
   isOpen: boolean;
   onToggle: () => void;
   onCloseTab: (tab: OpenTab) => void;
+  onSaveWindow: () => void;
   // Absent for "This window": closing it would close the tab view itself.
   onCloseWindow?: () => void;
 }
 
 // One live window in the Open now pane (KAN-280): its row, its group bands
 // and its tab rows, with the fold, click-to-switch and the close controls
-// (O7a). The pane owns what a close does.
+// (O7a), and Save window (O13). The pane owns what a close or a save does.
 export default function OpenNowWindow({
   openWindow,
   index,
   isOpen,
   onToggle,
   onCloseTab,
+  onSaveWindow,
   onCloseWindow,
 }: OpenNowWindowProps) {
   const COLORS = useThemeColors();
@@ -305,6 +307,12 @@ export default function OpenNowWindow({
           </div>
         </div>
         <div data-row-actions css={parentRightStyle}>
+          <Icon
+            tooltipText={t('Save window as a session')}
+            ariaLabel={t('Save window as a session') + ': ' + title}
+            type="add_box"
+            onClick={onSaveWindow}
+          />
           {onCloseWindow && (
             <Icon
               tooltipText={t('Close window')}

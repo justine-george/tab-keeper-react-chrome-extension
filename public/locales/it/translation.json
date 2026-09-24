@@ -222,5 +222,7 @@
   "WindowClosed_many": "Finestra chiusa ({{count}} tab)",
   "WindowClosed_other": "Finestra chiusa ({{count}} tab)",
   "Close tab": "Chiudi scheda",
-  "Close window": "Chiudi finestra"
+  "Close window": "Chiudi finestra",
+  "Save window as a session": "Salva la finestra come sessione",
+  "Window saved as a session.": "Finestra salvata come sessione."
 }

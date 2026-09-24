@@ -539,9 +539,13 @@ export const focusTabContainer = createAsyncThunk(
   }
 );
 
+// What a save covered, for its toast: a capture's scope, or one window the
+// Open now pane saved (KAN-280 O13), which is not the current window.
+export type SavedScope = CaptureScope | 'one-window';
+
 export interface saveToTabContainerParams {
   container: tabContainerData;
-  scope: CaptureScope;
+  scope: SavedScope;
 }
 
 // KAN-151. The two ways the session list gets rearranged, each wrapping its
@@ -634,6 +638,12 @@ export function isSubstantialSave(
   return tabCount > median;
 }
 
+const SAVED_TOAST: Record<SavedScope, string> = {
+  'all-windows': TOAST_MESSAGES.SAVE_ALL_WINDOWS_SUCCESS,
+  'current-window': TOAST_MESSAGES.SAVE_CURRENT_WINDOW_SUCCESS,
+  'one-window': TOAST_MESSAGES.SAVE_WINDOW_SUCCESS,
+};
+
 // The scope is carried here only to name the action in the toast. It is not
 // re-derived from the captured data: a one-window 'all-windows' save is a real
 // case (the user has one window open), and reporting it as "current window
@@ -663,10 +673,7 @@ export const saveToTabContainer = createAsyncThunk(
 
     thunkAPI.dispatch(
       showToast({
-        toastText:
-          params.scope === 'current-window'
-            ? TOAST_MESSAGES.SAVE_CURRENT_WINDOW_SUCCESS
-            : TOAST_MESSAGES.SAVE_ALL_WINDOWS_SUCCESS,
+        toastText: SAVED_TOAST[params.scope],
         duration: 3000,
       })
     );

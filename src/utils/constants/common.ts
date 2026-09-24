@@ -80,6 +80,10 @@ export const TOAST_MESSAGES = {
   // a window to the already-selected session rather than creating one).
   SAVE_ALL_WINDOWS_SUCCESS: 'All open windows saved as a session.',
   SAVE_CURRENT_WINDOW_SUCCESS: 'Current window saved as a session.',
+  // KAN-280 O13, rule 2. Save window in the Open now pane saves any listed
+  // window, most often not the one the tab view is in, so "Current window…"
+  // would name the wrong one.
+  SAVE_WINDOW_SUCCESS: 'Window saved as a session.',
   // KAN-209. Reuses the key the export page's inline note already uses, rather
   // than adding a second string for the same event -- it is already translated
   // in all ten locales, and two wordings for one outcome is how "Links copied"

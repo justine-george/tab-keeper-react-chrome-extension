@@ -219,5 +219,7 @@
   "WindowClosed_one": "विंडो बंद की गई ({{count}} टैब)",
   "WindowClosed_other": "विंडो बंद की गई ({{count}} टैब्स)",
   "Close tab": "टैब बंद करें",
-  "Close window": "विंडो बंद करें"
+  "Close window": "विंडो बंद करें",
+  "Save window as a session": "विंडो को सत्र के रूप में सहेजें",
+  "Window saved as a session.": "विंडो सत्र के रूप में सहेजी गई।"
 }

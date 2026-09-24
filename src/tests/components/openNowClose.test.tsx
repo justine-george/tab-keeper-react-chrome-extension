@@ -450,11 +450,14 @@ describe('closing from the Open now pane (KAN-280 O7a)', () => {
     expectRevealedByFocus(closeTabButton('B'));
   });
 
+  // Save window (O13) comes first in the strip, so Close window is the
+  // second Tab stop after the chevron.
   test('Close window is revealed by keyboard focus', async () => {
     await renderOpenNow(threeWindows());
     const user = userEvent.setup();
     act(() => chevronOf(2).focus());
 
+    await user.tab();
     await user.tab();
 
     expectRevealedByFocus(
