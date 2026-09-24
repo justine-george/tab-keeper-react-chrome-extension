@@ -39,6 +39,21 @@ export interface OpenWindowBounds {
   height: number;
 }
 
+// All four of Chrome's numbers, or null when it reports any of them missing.
+// Reopen (KAN-280 O8, KAN-308) reads a window's place again at close time
+// through this same rule.
+export function toOpenWindowBounds(
+  window: Pick<chrome.windows.Window, 'left' | 'top' | 'width' | 'height'>
+): OpenWindowBounds | null {
+  const { left, top, width, height } = window;
+  return left !== undefined &&
+    top !== undefined &&
+    width !== undefined &&
+    height !== undefined
+    ? { left, top, width, height }
+    : null;
+}
+
 export interface OpenWindow {
   id: number;
   isThisWindow: boolean;
@@ -105,15 +120,6 @@ export function toOpenWindows(
     const listableTabs = (window.tabs ?? []).filter(isListableTab);
     if (listableTabs.length === 0) continue;
 
-    const { left, top, width, height } = window;
-    const bounds =
-      left !== undefined &&
-      top !== undefined &&
-      width !== undefined &&
-      height !== undefined
-        ? { left, top, width, height }
-        : null;
-
     const openGroups: OpenGroup[] = [];
     const seenGroupIds = new Set<number>();
 
@@ -139,7 +145,7 @@ export function toOpenWindows(
       isThisWindow: windowId === thisWindowId,
       tabs: openTabs,
       groups: openGroups,
-      bounds,
+      bounds: toOpenWindowBounds(window),
       state: window.state ?? 'normal',
       incognito: window.incognito,
     });

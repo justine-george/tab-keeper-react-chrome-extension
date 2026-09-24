@@ -22,6 +22,8 @@ const SESSIONS = '[data-pane="sessions"]';
 
 // Where tests 1, 2 and 4 put the window they close and reopen.
 const BOUNDS = { left: 140, top: 90, width: 900, height: 640 };
+// Where test 2 moves it after Open now has read it (KAN-308).
+const MOVED = { left: 300, top: 200, width: 700, height: 500 };
 
 async function openPage(
   context: BrowserContext,
@@ -200,42 +202,43 @@ const titlesIn = async (worker: Worker, windowId: number): Promise<string[]> =>
   (await windowFacts(worker, windowId, false))?.tabs.map((t) => t.title) ?? [];
 
 // The four-tab window of tests 1 and 2: Pin pinned; Temple and Garden in
-// "Kyoto"/blue; Receipt in "Later"/red, collapsed; Garden active. Maximized
-// first when asked: the pane re-reads on tab and group events, not on a
-// window's bounds (useOpenWindows), so the arranging below is what makes the
-// snapshot the close takes see the new state.
-async function openKyotoWindow(
-  worker: Worker,
-  state: 'normal' | 'maximized'
-): Promise<MadeWindow> {
+// "Kyoto"/blue; Receipt in "Later"/red, collapsed; Garden active.
+async function openKyotoWindow(worker: Worker): Promise<MadeWindow> {
   const made = await openWindow(
     worker,
     ['Pin', 'Temple', 'Garden', 'Receipt'],
     BOUNDS
   );
-  await worker.evaluate(
-    async ({ windowId, tabIds, state }) => {
-      if (state === 'maximized') {
-        await chrome.windows.update(windowId, { state: 'maximized' });
-      }
-      const [pin, temple, garden, receipt] = tabIds;
-      await chrome.tabs.update(pin, { pinned: true });
-      const kyoto = await chrome.tabs.group({
-        tabIds: [temple, garden],
-        createProperties: { windowId },
-      });
-      await chrome.tabGroups.update(kyoto, { title: 'Kyoto', color: 'blue' });
-      const later = await chrome.tabs.group({
-        tabIds: [receipt],
-        createProperties: { windowId },
-      });
-      await chrome.tabGroups.update(later, { title: 'Later', color: 'red' });
-      await chrome.tabs.update(garden, { active: true });
-      await chrome.tabGroups.update(later, { collapsed: true });
-    },
-    { ...made, state }
-  );
+  await worker.evaluate(async ({ windowId, tabIds }) => {
+    const [pin, temple, garden, receipt] = tabIds;
+    await chrome.tabs.update(pin, { pinned: true });
+    const kyoto = await chrome.tabs.group({
+      tabIds: [temple, garden],
+      createProperties: { windowId },
+    });
+    await chrome.tabGroups.update(kyoto, { title: 'Kyoto', color: 'blue' });
+    const later = await chrome.tabs.group({
+      tabIds: [receipt],
+      createProperties: { windowId },
+    });
+    await chrome.tabGroups.update(later, { title: 'Later', color: 'red' });
+    await chrome.tabs.update(garden, { active: true });
+    await chrome.tabGroups.update(later, { collapsed: true });
+  }, made);
   return made;
+}
+
+// PREMISE: the pane lists the Kyoto window with all four tabs and both
+// groups, and Garden as the tab in front, so it has read the arranged window.
+async function expectPaneListsKyoto(page: Page, made: MadeWindow) {
+  const block = windowBlock(page, made.windowId);
+  await expect(rowsIn(block)).toHaveCount(4);
+  await expect(block.getByRole('group', { name: 'Kyoto' })).toBeVisible();
+  await expect(block.getByRole('group', { name: 'Later' })).toBeVisible();
+  await expect(liveRowIn(block, 'Garden')).toHaveAttribute(
+    'aria-current',
+    'true'
+  );
 }
 
 const KYOTO_TABS: TabFacts[] = [
@@ -277,11 +280,7 @@ async function closeAndReopenKyoto(
   made: MadeWindow
 ): Promise<number> {
   const block = windowBlock(page, made.windowId);
-  // PREMISE: the pane lists the window with all four tabs and both groups,
-  // so the snapshot the close takes is the arranged window.
-  await expect(rowsIn(block)).toHaveCount(4);
-  await expect(block.getByRole('group', { name: 'Kyoto' })).toBeVisible();
-  await expect(block.getByRole('group', { name: 'Later' })).toBeVisible();
+  await expectPaneListsKyoto(page, made);
 
   await block
     .getByRole('button', { name: /^Close window: Window \d+$/ })
@@ -308,7 +307,7 @@ grantedTest.describe('Close and Reopen a window (KAN-280 O8)', () => {
     async ({ context, extensionId, serviceWorker }) => {
       const page = await openPage(context, extensionId, VIEW_TAB, TAB_VIEWPORT);
       const tabView = await tabViewIds(page);
-      const made = await openKyotoWindow(serviceWorker, 'normal');
+      const made = await openKyotoWindow(serviceWorker);
 
       // PREMISE: Chrome made the window as asked, so a match after Reopen
       // is the recreate's doing and not the window's defaults.
@@ -344,48 +343,75 @@ grantedTest.describe('Close and Reopen a window (KAN-280 O8)', () => {
   );
 
   grantedTest(
-    '2. a maximized window comes back maximized, and Tab Keeper stays in front',
+    '2. a window moved (and, headed, maximized) after the pane read comes back where it was when it closed (KAN-308)',
     async ({ context, extensionId, serviceWorker, headless }) => {
-      // Measured 2026-09-24: headless Chromium maximizes a 900x640 window
-      // (it reads back 'maximized', 0,0 1920x1080), but a window CREATED at
-      // those bounds reads 'normal', and windows.update({ state:
-      // 'maximized' }) leaves it 'normal'. The recreate creates the window at
-      // the snapshot's bounds, which for a maximized window are the whole
-      // screen, so headless can never show the state coming back. Headed
-      // Chrome (macOS) reads such a window as 'maximized'. Run headed:
-      // npx playwright test e2e/open-now-close.spec.ts -g maximized --headed
-      grantedTest.skip(
-        headless,
-        'headless Chromium cannot maximize a window created at the full-screen bounds a maximized snapshot holds'
-      );
       const page = await openPage(context, extensionId, VIEW_TAB, TAB_VIEWPORT);
       const tabView = await tabViewIds(page);
-      const made = await openKyotoWindow(serviceWorker, 'maximized');
+      const made = await openKyotoWindow(serviceWorker);
+      await expectPaneListsKyoto(page, made);
+      // Lets the re-read of the last arranging event land, so the move
+      // below comes after the pane's last read of this window.
+      await page.waitForTimeout(500);
 
-      // PREMISE: this Chrome maximized the window, and it is not in front.
+      // KAN-308: a move and a maximize fire no event Open now re-reads on,
+      // so the snapshot the close is handed still holds BOUNDS, 'normal'.
+      //
+      // Maximize is headed only. Measured 2026-09-24: headless Chromium
+      // maximizes a 900x640 window (it reads back 'maximized', 0,0
+      // 1920x1080), but a window CREATED at those bounds reads 'normal', and
+      // windows.update({ state: 'maximized' }) leaves it 'normal'. The
+      // recreate creates the window at the bounds it closed with, which for
+      // a maximized window are the whole screen, so headless can never show
+      // the state coming back. Headed Chrome (macOS) reads such a window as
+      // 'maximized'. Run headed:
+      // npx playwright test e2e/open-now-close.spec.ts -g KAN-308 --headed
+      await serviceWorker.evaluate(
+        async ({ windowId, moved, maximize }) => {
+          await chrome.windows.update(windowId, moved);
+          if (maximize) {
+            await chrome.windows.update(windowId, { state: 'maximized' });
+          }
+        },
+        { windowId: made.windowId, moved: MOVED, maximize: !headless }
+      );
+      const placeOf = async (windowId: number) => {
+        const facts = await windowFacts(serviceWorker, windowId, true);
+        return (
+          facts && {
+            bounds: facts.bounds,
+            state: facts.state,
+            focused: facts.focused,
+          }
+        );
+      };
+      // PREMISE: Chrome moved (and, headed, maximized) the window, and it
+      // is not in front.
+      const expectedState = headless ? 'normal' : 'maximized';
       await expect
-        .poll(async () => {
-          const facts = await windowFacts(serviceWorker, made.windowId, true);
-          return facts && { state: facts.state, focused: facts.focused };
-        })
-        .toEqual({ state: 'maximized', focused: false });
+        .poll(async () => (await placeOf(made.windowId))?.state)
+        .toBe(expectedState);
+      const placeAtClose = await placeOf(made.windowId);
+      expect(placeAtClose).toMatchObject({ focused: false });
+      if (headless) expect(placeAtClose?.bounds).toEqual(MOVED);
       expect((await inFront(serviceWorker)).windowId).toBe(tabView.windowId);
 
       const reopenedId = await closeAndReopenKyoto(page, serviceWorker, made);
+      // Where it was when it closed, not where the pane last read it.
       // windows.update({ state }) runs last, on a window created unfocused.
       await expect
         .poll(async () => {
           const facts = await windowFacts(serviceWorker, reopenedId, true);
           return (
             facts && {
+              bounds: facts.bounds,
               state: facts.state,
               focused: facts.focused,
               tabs: facts.tabs,
             }
           );
         })
-        .toEqual({ state: 'maximized', focused: false, tabs: KYOTO_TABS });
-      // Rule 5: maximizing the reopened window did not bring it forward.
+        .toEqual({ ...placeAtClose, tabs: KYOTO_TABS });
+      // Rule 5: the recreate did not bring the window forward.
       expect(await inFront(serviceWorker)).toEqual({
         windowId: tabView.windowId,
         activeTabId: tabView.tabId,

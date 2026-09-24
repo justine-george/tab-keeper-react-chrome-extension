@@ -182,6 +182,85 @@ describe('reopenClosed: a closed window (KAN-280 O8)', () => {
     }
   });
 
+  // KAN-308: a move, resize or maximize fires no event the pane re-reads
+  // on, so the snapshot a close is handed can hold the window's old place.
+  test('a window moved and maximized after the pane read comes back where it was when it closed', async () => {
+    handle = setupChromeFake({
+      windows: [
+        tabKeeperWindow,
+        {
+          id: 2,
+          left: 140,
+          top: 90,
+          width: 900,
+          height: 640,
+          state: 'normal',
+          tabs: [{ url: url('a'), active: true }],
+        },
+      ],
+    });
+    const w2 = await openWindow(2);
+    await chrome.windows.update(2, {
+      left: 300,
+      top: 200,
+      width: 700,
+      height: 500,
+      state: 'maximized',
+    });
+    // PREMISE: the snapshot still holds the old place.
+    expect(w2).toMatchObject({
+      bounds: { left: 140, top: 90, width: 900, height: 640 },
+      state: 'normal',
+    });
+
+    const item = await closeOpenWindow(w2);
+    if (!item) throw new Error('close failed');
+    expect(await reopenClosed(item)).toBe(true);
+
+    expect(await newWindow([1])).toMatchObject({
+      left: 300,
+      top: 200,
+      width: 700,
+      height: 500,
+      state: 'maximized',
+      focused: false,
+    });
+  });
+
+  test('when the fresh read fails, the window still closes and comes back in the snapshot place', async () => {
+    handle = setupChromeFake({
+      windows: [
+        tabKeeperWindow,
+        {
+          id: 2,
+          left: 140,
+          top: 90,
+          width: 900,
+          height: 640,
+          state: 'normal',
+          tabs: [{ url: url('a'), active: true }],
+        },
+      ],
+    });
+    const w2 = await openWindow(2);
+    vi.spyOn(chrome.windows, 'get').mockRejectedValueOnce(
+      new Error('No window with id: 2.')
+    );
+
+    const item = await closeOpenWindow(w2);
+    expect(item).toEqual({ kind: 'window', window: w2 });
+    expect(await windowIds()).toEqual([1]);
+    if (!item) throw new Error('close failed');
+    expect(await reopenClosed(item)).toBe(true);
+
+    expect(await newWindow([1])).toMatchObject({
+      left: 140,
+      top: 90,
+      width: 900,
+      height: 640,
+    });
+  });
+
   test('a tab Chrome refuses is skipped with a warning, and the rest come back in order', async () => {
     handle = setupChromeFake({
       refusedUrls: ['file:///x'],
@@ -472,6 +551,49 @@ describe('reopenClosed: a closed tab (KAN-280 O8, rule 6)', () => {
       false
     );
     expect(await focusedWindowIds()).toEqual([1]);
+  });
+
+  // KAN-308, on the tab path: the close of a window's last tab takes the
+  // window, so its place must be read before the remove, not at Reopen.
+  test("the window's last tab, after the window moved and maximized: it comes back where the window was when it closed", async () => {
+    handle = setupChromeFake({
+      windows: [
+        tabKeeperWindow,
+        {
+          id: 2,
+          left: 30,
+          top: 40,
+          width: 700,
+          height: 500,
+          state: 'normal',
+          tabs: [{ url: url('solo'), active: true }],
+        },
+      ],
+    });
+    const w2 = await openWindow(2);
+    await chrome.windows.update(2, {
+      left: 260,
+      top: 120,
+      width: 820,
+      height: 610,
+      state: 'maximized',
+    });
+
+    const item = await closeOpenTab(w2, tabIn(w2, 'solo'));
+    if (!item) throw new Error('close failed');
+    expect(await windowIds()).toEqual([1]);
+    expect(await reopenClosed(item)).toBe(true);
+
+    const reopened = await newWindow([1]);
+    expect(reopened).toMatchObject({
+      left: 260,
+      top: 120,
+      width: 820,
+      height: 610,
+      state: 'maximized',
+      focused: false,
+    });
+    expect(await shape(idOf(reopened))).toEqual(['solo*']);
   });
 
   test('an index past the end of a window that shrank lands at the end', async () => {

@@ -1,3 +1,4 @@
+import { toOpenWindowBounds } from './openNow';
 import type { OpenGroup, OpenTab, OpenWindow } from './openNow';
 
 // Close a live tab or window from the Open now pane, and put it back exactly
@@ -12,12 +13,33 @@ export type ClosedItem =
   // with its last tab can be rebuilt in its old place.
   | { kind: 'tab'; tab: OpenTab; group: OpenGroup | null; window: OpenWindow };
 
+// The snapshot with the window's bounds and state as Chrome reports them
+// now (KAN-280 rule 5, KAN-308). A move, resize or maximize fires no event
+// Open now re-reads on, so the snapshot can hold the window's old place. Read
+// before the remove: a tab close can take its window with it. A failed read
+// keeps the snapshot's place, and the close still goes ahead.
+async function withCurrentPlacement(
+  openWindow: OpenWindow
+): Promise<OpenWindow> {
+  try {
+    const current = await chrome.windows.get(openWindow.id);
+    return {
+      ...openWindow,
+      bounds: toOpenWindowBounds(current),
+      state: current.state ?? 'normal',
+    };
+  } catch {
+    return openWindow;
+  }
+}
+
 // Resolves to the ClosedItem when Chrome closed it, or null when it could not
 // (the tab or window was already gone). Never rejects.
 export async function closeOpenTab(
   openWindow: OpenWindow,
   tab: OpenTab
 ): Promise<ClosedItem | null> {
+  const placed = await withCurrentPlacement(openWindow);
   try {
     await chrome.tabs.remove(tab.id);
   } catch {
@@ -27,19 +49,20 @@ export async function closeOpenTab(
     kind: 'tab',
     tab,
     group: openWindow.groups.find((group) => group.id === tab.groupId) ?? null,
-    window: openWindow,
+    window: placed,
   };
 }
 
 export async function closeOpenWindow(
   openWindow: OpenWindow
 ): Promise<ClosedItem | null> {
+  const placed = await withCurrentPlacement(openWindow);
   try {
     await chrome.windows.remove(openWindow.id);
   } catch {
     return null;
   }
-  return { kind: 'window', window: openWindow };
+  return { kind: 'window', window: placed };
 }
 
 // Recreates a ClosedItem exactly (KAN-280 O8, rules 5, 6, 7 and 10). Resolves
