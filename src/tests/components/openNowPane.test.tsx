@@ -267,7 +267,10 @@ describe('the Open now pane (KAN-280)', () => {
     expect(tabRow('B')).not.toHaveAttribute('aria-current');
   });
 
-  test('the active tab row is shaded', async () => {
+  // A resting shade read as a hovered row, so a bar alone marks the active
+  // tab (KAN-280 M3). The bar is a ::before, which jsdom cannot compute; e2e
+  // open-now.spec.ts 7d and 7e hold it in the real browser.
+  test('the active tab row has no shade of its own', async () => {
     await renderPane(twoWindows());
 
     // C is window 2's active tab, B is not.
@@ -276,9 +279,9 @@ describe('the Open now pane (KAN-280)', () => {
     if (!activeRow || !otherRow) throw new Error('tab row has no container');
 
     expect(getComputedStyle(activeRow).backgroundColor).toBe(
-      hex(LIGHT_THEME.SECONDARY_COLOR)
+      getComputedStyle(otherRow).backgroundColor
     );
-    expect(getComputedStyle(otherRow).backgroundColor).not.toBe(
+    expect(getComputedStyle(activeRow).backgroundColor).not.toBe(
       hex(LIGHT_THEME.SECONDARY_COLOR)
     );
   });

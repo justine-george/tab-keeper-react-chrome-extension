@@ -309,10 +309,10 @@ function expectWithinHalfPixel(
   ).toBeLessThanOrEqual(0.5);
 }
 
-// ---- the front-tab bar (KAN-280 M3, Justine's pick B3) ----
+// ---- the front-tab bar (KAN-280 M3, Justine's pick B3, no shade) ----
 
 // Every theme, by the name the picker shows and the value settingsData
-// stores: the shade the bar sits on is a different colour in each.
+// stores: the pane and hover fill the bar sits on differ in each.
 const FRONT_TAB_THEMES: ReadonlyArray<{
   name: string;
   stored: string;
@@ -337,9 +337,12 @@ interface MarkerFacts {
   width: string;
   height: string;
   color: string;
-  // The row it is drawn in.
+  // The row it is drawn in. rowFill is the row's own background, which is
+  // transparent at rest; backdrop is what is painted behind the bar: the
+  // first ancestor-or-self fill that is not transparent.
   rowPosition: string;
   rowFill: string;
+  backdrop: string;
   rowLeft: number;
   rowTop: number;
   rowHeight: number;
@@ -354,6 +357,14 @@ async function readMarker(row: Locator): Promise<MarkerFacts> {
     const bar = getComputedStyle(rowEl, '::before');
     const own = getComputedStyle(rowEl);
     const r = rowEl.getBoundingClientRect();
+    let backdrop = 'rgba(0, 0, 0, 0)';
+    for (let n: Element | null = rowEl; n; n = n.parentElement) {
+      const fill = getComputedStyle(n).backgroundColor;
+      if (fill !== 'rgba(0, 0, 0, 0)' && fill !== 'transparent') {
+        backdrop = fill;
+        break;
+      }
+    }
     return {
       content: bar.content,
       position: bar.position,
@@ -364,6 +375,7 @@ async function readMarker(row: Locator): Promise<MarkerFacts> {
       color: bar.backgroundColor,
       rowPosition: own.position,
       rowFill: own.backgroundColor,
+      backdrop,
       rowLeft: r.left,
       rowTop: r.top,
       rowHeight: r.height,
@@ -389,6 +401,9 @@ function expectBarShape(m: MarkerFacts): void {
   expect(m.top).toBe('8px');
   expectWithinHalfPixel(m.rowHeight, 32, 'row height');
 }
+
+// A row with no fill of its own, as getComputedStyle reports it.
+const NO_FILL = 'rgba(0, 0, 0, 0)';
 
 // The bar and the fill just above it, as painted: centre column of the 3px
 // bar, at the row's middle and 3px under its top edge.
@@ -739,7 +754,7 @@ test.describe('Open now in the tab view (KAN-280)', () => {
   });
 
   for (const { name, stored, colors } of FRONT_TAB_THEMES) {
-    test(`7d. ${name}: the front tab has a bar that clears 3:1 on its shade and on hover; a back tab has none`, async ({
+    test(`7d. ${name}: the front tab has no fill and a bar that clears 3:1 on the pane and on hover; a back tab has neither`, async ({
       context,
       extensionId,
       serviceWorker,
@@ -789,34 +804,44 @@ test.describe('Open now in the tab view (KAN-280)', () => {
       await expect(front).toHaveAttribute('aria-current', 'true');
       await expect(back).not.toHaveAttribute('aria-current');
 
-      // PREMISE: the seeded theme took, so the shade is this theme's (a
-      // misspelt theme seeds nothing, silently, and every run is Paper).
+      // PREMISE: the seeded theme took, so the pane behind the rows is this
+      // theme's (a misspelt theme seeds nothing, silently, and every run is
+      // Paper). Read off the back row, which has no fill of its own.
       await page.mouse.move(0, 0);
       await expect
-        .poll(async () => (await readMarker(front)).rowFill)
-        .toBe(rgb(colors.SECONDARY_COLOR));
+        .poll(async () => (await readMarker(back)).backdrop)
+        .toBe(rgb(colors.PRIMARY_COLOR));
 
+      // At rest the front row has no fill: a resting shade read as hover.
       const atRest = await readMarker(front);
+      expect(atRest.rowFill, 'the front row has no fill of its own').toBe(
+        NO_FILL
+      );
+      const behind = await readMarker(back);
+      expect(behind.rowFill, 'nor does a back row').toBe(NO_FILL);
       expectBarShape(atRest);
-      const onShade = contrast(
+      // Against what is painted behind the bar, never the row's transparent
+      // fill, which would give a ratio against black.
+      expect(atRest.backdrop, 'the bar sits on the pane').toBe(behind.backdrop);
+      const onPane = contrast(
         rgbToHex(atRest.color),
-        rgbToHex(atRest.rowFill)
+        rgbToHex(atRest.backdrop)
       );
       expect(
-        onShade,
-        `bar ${atRest.color} on the shade ${atRest.rowFill}`
+        onPane,
+        `bar ${atRest.color} on the pane ${atRest.backdrop}`
       ).toBeGreaterThanOrEqual(MARKER_FLOOR);
       expect(atRest.color, 'the bar is LABEL_L2 (KAN-199)').toBe(
         rgb(colors.LABEL_L2_COLOR)
       );
-      const [barAtRest, shade] = await paintedBarAndFill(page, atRest);
-      // CONTROL: the sample above the bar is the row's own computed shade.
-      expect(shade, 'the fill sample lands on the shade').toBe(
-        rgbToHex(atRest.rowFill)
+      const [barAtRest, pane] = await paintedBarAndFill(page, atRest);
+      // CONTROL: the sample above the bar is the backdrop the ratio used.
+      expect(pane, 'the fill sample lands on the pane').toBe(
+        rgbToHex(atRest.backdrop)
       );
       expect(barAtRest, 'the bar is painted').toBe(rgbToHex(atRest.color));
 
-      // Hovering changes the fill, not the bar.
+      // Hovering fills the row, and the bar stays.
       await front.hover();
       await expect
         .poll(async () => (await readMarker(front)).rowFill)
@@ -824,28 +849,30 @@ test.describe('Open now in the tab view (KAN-280)', () => {
       const hovered = await readMarker(front);
       expectBarShape(hovered);
       expect(hovered.color).toBe(atRest.color);
+      expect(hovered.backdrop, 'the bar sits on the hover fill').toBe(
+        hovered.rowFill
+      );
       const onHover = contrast(
         rgbToHex(hovered.color),
-        rgbToHex(hovered.rowFill)
+        rgbToHex(hovered.backdrop)
       );
       expect(
         onHover,
-        `bar ${hovered.color} on the hover fill ${hovered.rowFill}`
+        `bar ${hovered.color} on the hover fill ${hovered.backdrop}`
       ).toBeGreaterThanOrEqual(MARKER_FLOOR);
       const [barHovered, hoverFill] = await paintedBarAndFill(page, hovered);
       expect(hoverFill, 'the fill sample lands on the hover fill').toBe(
-        rgbToHex(hovered.rowFill)
+        rgbToHex(hovered.backdrop)
       );
       expect(barHovered, 'the bar is painted on hover').toBe(
         rgbToHex(hovered.color)
       );
       console.log(
-        `[front-tab bar, ${name}] ${JSON.stringify({ onShade, onHover })}`
+        `[front-tab bar, ${name}] ${JSON.stringify({ onPane, onHover })}`
       );
 
       // A tab not in front has no bar.
       await page.mouse.move(0, 0);
-      const behind = await readMarker(back);
       expect(drawsBar(behind), `a back tab's content ${behind.content}`).toBe(
         false
       );
@@ -1539,7 +1566,12 @@ grantedTest.describe(
 
         await page.mouse.move(0, 0);
         const m = await readMarker(row);
+        expect(m.rowFill, 'the front row has no fill of its own').toBe(NO_FILL);
         expectBarShape(m);
+        expect(
+          contrast(rgbToHex(m.color), rgbToHex(m.backdrop)),
+          `bar ${m.color} on ${m.backdrop}`
+        ).toBeGreaterThanOrEqual(MARKER_FLOOR);
         expect(m.color).toBe(rgb(LIGHT_THEME.LABEL_L2_COLOR));
 
         const edges = await band.evaluate((bandEl: Element) => {
@@ -1572,8 +1604,8 @@ grantedTest.describe(
         );
 
         const [bar, fill] = await paintedBarAndFill(page, m);
-        expect(fill, 'the fill sample lands on the shade').toBe(
-          rgbToHex(m.rowFill)
+        expect(fill, 'the fill sample lands on the backdrop').toBe(
+          rgbToHex(m.backdrop)
         );
         expect(bar, 'the bar is painted').toBe(rgbToHex(m.color));
         await page.screenshot({

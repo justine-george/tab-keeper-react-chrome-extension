@@ -80,11 +80,10 @@ export default function OpenNowWindow({
     padding-left: 70px;
   `;
 
-  // The active tab is marked by its shade and a bar (KAN-280 M3, Justine's
-  // pick B3): the shade alone is 1.10-1.15:1 on the pane. The bar is
-  // LABEL_L2, KAN-199's quietest token clearing 3:1 on the shade and on
-  // hover. Drawn as ::before so the row keeps the saved row's size. The shade
-  // sits below the hover rule, so hovering still answers the pointer.
+  // The bar alone marks the active tab (KAN-280 M3, Justine's pick B3, then
+  // no shade): a resting shade read as a hovered row. The bar is LABEL_L2,
+  // KAN-199's quietest token clearing 3:1 on the pane and on hover. Drawn as
+  // ::before so the row keeps the saved row's size.
   const frontTabBar = `
     &::before {
       content: '';
@@ -102,7 +101,6 @@ export default function OpenNowWindow({
     display: flex;
     align-items: stretch;
     justify-content: space-between;
-    ${active ? `background-color: ${COLORS.SECONDARY_COLOR};` : ''}
     ${active ? frontTabBar : ''}
     &:hover {
       background-color: ${COLORS.HOVER_COLOR};
@@ -182,8 +180,8 @@ export default function OpenNowWindow({
               color={COLORS.TEXT_COLOR}
               size={TYPE.BODY}
               // The active title keeps the one weight the popup uses
-              // (scaleConformance.test.ts, KAN-205); the row's shade and bar
-              // mark it (KAN-280 M3).
+              // (scaleConformance.test.ts, KAN-205); the row's bar alone
+              // marks it (KAN-280 M3).
               style="padding-left: 4px; height: 100%; max-width: 100%;"
             />
           </div>
