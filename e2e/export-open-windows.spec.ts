@@ -17,9 +17,10 @@ import {
 // the wiring; only this can say Chrome agrees.
 //
 // The harness drives the popup as a TAB, so the popup is itself one of the
-// open tabs. That is not a nuisance here, it is the control: the popup is
-// another Tab Keeper page, genuinely open, and must appear; the export page is
-// the one tab that must not.
+// open tabs. That is not a nuisance here, it is the control: every Tab Keeper
+// page is left out of the capture, by address (KAN-300) -- the popup
+// (index.html) and the export page (export.html) alike -- so both must be
+// absent from the preview, not just the one that took it.
 
 const SAVED = buildSession({
   tabGroupId: 's0',
@@ -112,6 +113,23 @@ const openTabCount = (worker: Worker) =>
   worker.evaluate(() => chrome.tabs.query({}).then((tabs) => tabs.length));
 
 /**
+ * How many open tabs are a Tab Keeper address -- checked by URL PREFIX, not
+ * by re-running `isTabKeeperPage`, so this counts independently of the
+ * production predicate rather than restating it.
+ */
+const tabKeeperTabCount = (worker: Worker, extensionId: string) =>
+  worker.evaluate(
+    (prefix) =>
+      chrome.tabs
+        .query({})
+        .then(
+          (tabs) =>
+            tabs.filter((tab) => (tab.url ?? '').startsWith(prefix)).length
+        ),
+    `chrome-extension://${extensionId}/`
+  );
+
+/**
  * The popup, seeded by WRITING localStorage rather than through
  * `seedSessions`.
  *
@@ -147,7 +165,7 @@ async function popupSeededByWrite(
 }
 
 test.describe('export open windows (KAN-208)', () => {
-  test('the menu item previews every open tab but the page itself, and saves nothing', async ({
+  test('the menu item previews every open tab except every Tab Keeper page, and saves nothing', async ({
     context,
     serviceWorker,
     extensionId,
@@ -184,16 +202,22 @@ test.describe('export open windows (KAN-208)', () => {
       ).toBeVisible();
     }
 
-    // By id, not by address: the popup -- another Tab Keeper page -- is
-    // listed; the export page is not. chrome-extension:// is not a web link,
-    // so the file shows the whole address as text in either layout.
-    await expect(preview.getByText(/\/index\.html$/).first()).toBeVisible();
+    // Every Tab Keeper page is left out, by address: neither the popup
+    // (index.html) nor the export page itself (export.html) is listed.
+    // chrome-extension:// is not a web link, so the file shows the whole
+    // address as text in either layout -- either one, left in, would match.
+    await expect(preview.getByText(/\/index\.html$/)).toHaveCount(0);
     await expect(preview.getByText(/export\.html/)).toHaveCount(0);
 
-    // The count says the same thing: every open tab but one.
+    // PREMISE: the popup and the export page are the only two Tab Keeper
+    // addresses open right now -- exactly what the count below subtracts.
+    const excluded = await tabKeeperTabCount(serviceWorker, extensionId);
+    expect(excluded).toBe(2);
+
+    // The count says the same thing: every open tab but the excluded ones.
     const open = await openTabCount(serviceWorker);
     await expect(
-      exportPage.getByText(`2 Windows · ${open - 1} Tabs`)
+      exportPage.getByText(`2 Windows · ${open - excluded} Tabs`)
     ).toBeVisible();
 
     // Named, and NOT saved: storage still holds the one seeded session, and

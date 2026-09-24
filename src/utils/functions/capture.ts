@@ -241,16 +241,40 @@ export function toWindowGroupData(
 }
 
 /**
- * What a capture may leave out.
+ * Whether a tab is a page this extension put in the tabs strip itself --
+ * `index.html`, in either view, or `export.html` -- rather than something the
+ * user navigated to (KAN-300).
  *
- * `excludeTabId` -- one tab, by id (KAN-208). The export page captures the
- * open windows for itself, and it is one of them: chrome.windows.getAll lists
- * the page's own tab. By id and not by address, so a second Tab Keeper page
- * that is genuinely open still appears. A window left with no tabs is dropped,
- * as an empty window always was.
+ * Checked by ADDRESS, not id. KAN-208 originally excluded only the calling
+ * page's own tab id from a capture, deliberately leaving a SECOND Tab Keeper
+ * page (a genuinely open export tab, say) to still appear -- right before the
+ * tab view existed to make restoring one meaningful. The tab view is now
+ * long-lived and pinnable, and restoring a captured tab view would open
+ * exactly the duplicate D4 exists to forbid. So every Tab Keeper page is
+ * excluded now, from every capture, whoever is asking -- the popup's saves,
+ * the tab view's saves, and Switch's auto-save alike.
+ *
+ * `pendingUrl` is checked too, not just `url`: a tab mid-navigation to a Tab
+ * Keeper page has not committed `url` yet -- Chrome's own type says `url` "may
+ * be an empty string if the tab has not yet committed", not undefined, so
+ * this falls through on EMPTY as well as absent (`||`, not `??`).
+ *
+ * The address is RESOLVED (resolveTabUrl) before the check, not read raw.
+ * A lazy-load placeholder (local.ts's `data:` document) does not match the
+ * raw prefix, which is right for a page that has never loaded -- but an
+ * OLDER session, saved
+ * before this rule existed, could have stored a Tab Keeper URL as an
+ * ordinary tab; lazy-loading it later wraps THAT url in exactly this kind of
+ * placeholder. `toStoredTab` already resolves before storing, so an
+ * unresolved check here would pass the placeholder through and then store it
+ * as the extension's own address anyway -- resolving here first is what
+ * keeps the two in agreement. resolveTabUrl is a no-op on every address that
+ * is not one of its own wrapper shapes, so this changes nothing for a normal
+ * page, a suspended tab, or a genuinely unloaded placeholder.
  */
-export interface CaptureOptions {
-  excludeTabId?: number;
+export function isTabKeeperPage(tab: chrome.tabs.Tab): boolean {
+  const address = tab.url || tab.pendingUrl || '';
+  return resolveTabUrl(address).startsWith(chrome.runtime.getURL(''));
 }
 
 // Snapshots the open windows a scope covers as a session. Extracted from
@@ -268,8 +292,7 @@ export interface CaptureOptions {
 // that there is no session to save rather than an empty one to create.
 export async function captureOpenWindows(
   title: string,
-  scope: CaptureScope,
-  options: CaptureOptions = {}
+  scope: CaptureScope
 ): Promise<tabContainerData | null> {
   const windowList = await windowsInScope(scope);
 
@@ -282,12 +305,10 @@ export async function captureOpenWindows(
   let tabCount = 0;
 
   for (const window of windowList) {
-    // Guarded on the OPTION, not on tab.id: with no exclusion asked for, a tab
-    // Chrome reports without an id must stay in the capture.
-    const tabs = (window.tabs ?? []).filter(
-      (tab) =>
-        options.excludeTabId === undefined || tab.id !== options.excludeTabId
-    );
+    // KAN-300. No option to opt out of this any more: every caller wants
+    // every Tab Keeper page left out, so there is nothing left for a caller
+    // to configure.
+    const tabs = (window.tabs ?? []).filter((tab) => !isTabKeeperPage(tab));
     if (tabs.length === 0) continue;
 
     const read = await readCurrentWindowGroups(window.id, granted);

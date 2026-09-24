@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { screen } from '@testing-library/react';
+import { act, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import TabGroupDetailsContainer from '../../components/home/rightpane/TabGroupDetailsContainer';
@@ -15,6 +15,7 @@ import {
 } from '../../redux/slices/tabContainerDataStateSlice';
 import type { tabContainerData } from '../../redux/slices/tabContainerDataStateSlice';
 import type { RenderWithProvidersResult } from '../setup/renderWithProviders';
+import { ADD_CURR_TAB_TO_WINDOW_ACTION } from '../../utils/constants/actionTypes';
 
 type TestStore = RenderWithProvidersResult['store'];
 
@@ -186,6 +187,80 @@ describe('TabGroupDetailsContainer', () => {
       store.getState().tabContainerDataState.tabGroups[0].windows[0].tabs;
     expect(tabs.some((tab) => tab.title === 'Added')).toBe(true);
     expect(tabs.some((tab) => tab.title.includes('(7)'))).toBe(false);
+  });
+});
+
+// KAN-299. The Tab Keeper page rule reaches the active-tab paths too: "Add
+// current tab" must add nothing when the active tab IS one -- the same
+// silent no-op as an empty window.
+describe('Add current tab skips a Tab Keeper page', () => {
+  test('the active tab is the tab view: nothing is added', async () => {
+    const session = buildSession();
+    const { store, seen } = await renderWithProviders(
+      <TabGroupDetailsContainer />,
+      {
+        seed: {
+          windows: [{ id: 1, type: 'normal' }],
+          tabs: [
+            {
+              id: 11,
+              windowId: 1,
+              active: true,
+              url: 'chrome-extension://faketestid/index.html?view=tab',
+              title: 'Tab Keeper',
+            },
+          ],
+        },
+        seedStore: (store) => {
+          store.dispatch(saveToTabContainerInternal(session));
+          store.dispatch(selectTabContainer('group-1'));
+        },
+      }
+    );
+
+    await userEvent.click(await screen.findByLabelText('Add current tab'));
+    // Flushes the click handler's own await (chrome.tabs.query) so a
+    // dispatch that WOULD have happened has had the chance to.
+    await act(async () => {});
+
+    // `seen` first: addCurrTabToWindowInternal always unshifts, so a
+    // mutation that lets the dispatch through also changes the length check
+    // below -- ordered the other way, that line always throws first.
+    expect(seen).not.toContain(ADD_CURR_TAB_TO_WINDOW_ACTION);
+    const tabs =
+      store.getState().tabContainerDataState.tabGroups[0].windows[0].tabs;
+    expect(tabs).toHaveLength(2);
+  });
+
+  // CONTROL: an ordinary active tab is still added, exactly as today --
+  // proves the guard above is additional behaviour, not a refusal to add
+  // anything at all.
+  test('CONTROL: an ordinary active tab is still added', async () => {
+    const session = buildSession();
+    const { store } = await renderWithProviders(<TabGroupDetailsContainer />, {
+      seed: {
+        windows: [{ id: 1, type: 'normal' }],
+        tabs: [
+          {
+            id: 11,
+            windowId: 1,
+            active: true,
+            url: 'https://added.test',
+            title: 'Added',
+          },
+        ],
+      },
+      seedStore: (store) => {
+        store.dispatch(saveToTabContainerInternal(session));
+        store.dispatch(selectTabContainer('group-1'));
+      },
+    });
+
+    await userEvent.click(await screen.findByLabelText('Add current tab'));
+
+    const tabs =
+      store.getState().tabContainerDataState.tabGroups[0].windows[0].tabs;
+    expect(tabs.some((tab) => tab.title === 'Added')).toBe(true);
   });
 });
 

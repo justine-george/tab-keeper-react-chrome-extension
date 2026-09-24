@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { useDispatch, useSelector } from 'react-redux';
 
@@ -12,11 +12,16 @@ import { AppDispatch, RootState } from '../../../redux/store';
 import { setSearchInputText } from '../../../redux/slices/globalStateSlice';
 import {
   captureOpenWindows,
+  isTabKeeperPage,
   type CaptureScope,
 } from '../../../utils/functions/capture';
 import { dropNotificationCount } from '../../../utils/functions/sessionExportHtml';
 import { saveToTabContainer } from '../../../redux/slices/tabContainerDataStateSlice';
 import { normalizeTitle } from '../../../utils/functions/local';
+import {
+  isTabView,
+  pickNameSourceTab,
+} from '../../../utils/functions/viewMode';
 import { useTranslation } from 'react-i18next';
 
 export default function UserInputContainer() {
@@ -28,39 +33,149 @@ export default function UserInputContainer() {
   const [currentTabName, setCurrentTabName] = useState<string>('');
   const [searchInput, setSearchInput] = useState<string>('');
 
+  // KAN-299. Mirrors of `newTitle` and the last suggestion this component
+  // applied, kept for the visibility handler below -- it is defined inside a
+  // mount-once effect (deliberately: see that effect's own comment), so a
+  // plain closure over `newTitle`/`currentTabName` would forever see their
+  // FIRST-render values. Both refs are written in lockstep with the state
+  // they mirror (updateUserInput for the box, applySuggestion for the
+  // suggestion), so there is nothing for the two sources to drift apart on.
+  const boxValueRef = useRef<string>('');
+  const lastSuggestionRef = useRef<string>('');
+
   const isSearchPanel = useSelector(
     (state: RootState) => state.globalState.isSearchPanel
   );
 
   useEffect(() => {
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      const currentTab = tabs[0];
-      if (currentTab && currentTab.title) {
-        // KAN-211. The name box is a SUGGESTION derived from the active tab, so
-        // it is cleaned like any other derived title -- offering "(3) Gmail" as
-        // a session name proposes storing a badge that is stale the moment it
-        // is saved. What the user then types is theirs and is never touched.
-        const suggested = dropNotificationCount(currentTab.title);
-        setCurrentTabName(suggested);
-        setNewTitle(suggested);
-      } else {
-        // Translated, so this agrees with createTabGroup's last-resort
-        // fallback below (KAN-84). Leaving one of the two as a bare literal
-        // would show a German user "New Tab Group" prefilled while storing the
-        // translated name, or the reverse, depending on which path ran.
-        setCurrentTabName(t('New Tab Group'));
-        setNewTitle(t('New Tab Group'));
+    // Guards loadSuggestion below against setting state after this
+    // component has unmounted -- its query crosses an await, and a popup
+    // that closes mid-query must not resume into a dead component.
+    // handleVisibilityChange (further down) does NOT read this: it only
+    // ever runs in the tab view, whose page is not torn down the way the
+    // popup is, and removeEventListener (its own cleanup, below) is what
+    // stops it from running at all once this effect unmounts.
+    let cancelled = false;
+
+    // KAN-211/KAN-279 D15. The name box is a SUGGESTION, so it is cleaned like
+    // any other derived title -- offering "(3) Gmail" as a session name
+    // proposes storing a badge that is stale the moment it is saved. What the
+    // user then types is theirs and is never touched. Translated, so this
+    // agrees with createTabGroup's last-resort fallback below (KAN-84):
+    // leaving one of the two as a bare literal would show a German user "New
+    // Tab Group" prefilled while storing the translated name, or the reverse,
+    // depending on which path ran.
+    function cleanSuggestion(title: string | undefined): string {
+      return title ? dropNotificationCount(title) : t('New Tab Group');
+    }
+
+    async function fetchSuggestedTitle(): Promise<string | undefined> {
+      if (isTabView()) {
+        // In the tab, the active tab IS Tab Keeper, so the suggestion comes
+        // from the most recently used tab in this window that ISN'T one
+        // (D15) -- this page's own tab always qualifies for exclusion, being
+        // a Tab Keeper page itself.
+        const tabsOfWindow = await new Promise<chrome.tabs.Tab[]>((resolve) =>
+          chrome.tabs.query({ currentWindow: true }, (tabs) => resolve(tabs))
+        );
+        return pickNameSourceTab(tabsOfWindow, isTabKeeperPage)?.title;
       }
-    });
-    // `t` is deliberately not a dependency. This effect exists to seed the
-    // name box ONCE, on mount; re-running it would overwrite whatever the user
-    // has since typed. Nothing is lost by omitting it either -- the language
-    // can only be changed from the settings page, which unmounts this
-    // component, so the next mount already picks up the new language.
+      // KAN-299. The popup's active tab is USUALLY a real
+      // page, but Switch can restore a window whose active tab is Tab
+      // Keeper's own page (a pinned tab view) -- the same D15 fallback
+      // extended past the tab view: the most recently used tab in the
+      // window that isn't one. Otherwise, unchanged: the active tab's own
+      // title.
+      const [activeTab] = await new Promise<chrome.tabs.Tab[]>((resolve) =>
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) =>
+          resolve(tabs)
+        )
+      );
+      if (!activeTab || !isTabKeeperPage(activeTab)) return activeTab?.title;
+      const tabsOfWindow = await new Promise<chrome.tabs.Tab[]>((resolve) =>
+        chrome.tabs.query({ currentWindow: true }, (tabs) => resolve(tabs))
+      );
+      return pickNameSourceTab(tabsOfWindow, isTabKeeperPage)?.title;
+    }
+
+    async function loadSuggestion() {
+      const suggested = cleanSuggestion(await fetchSuggestedTitle());
+      if (cancelled) return;
+      boxValueRef.current = suggested;
+      lastSuggestionRef.current = suggested;
+      setCurrentTabName(suggested);
+      setNewTitle(suggested);
+    }
+
+    loadSuggestion();
+
+    // KAN-299. Tab-view only: the popup remounts on every open, so its
+    // mount-once suggestion above is never stale enough to matter, but the
+    // tab can sit open for days -- long enough for the tab this suggestion
+    // was drawn from to no longer be the most recently used one. Recompute
+    // whenever the page becomes visible again.
+    if (!isTabView()) {
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    async function handleVisibilityChange() {
+      if (document.visibilityState !== 'visible') return;
+      const suggested = cleanSuggestion(await fetchSuggestedTitle());
+
+      // KAN-299. `currentTabName` is createTabGroup's FALLBACK, read only
+      // once the box itself is empty -- so it has to keep tracking the
+      // current tab whether or not the box below gets overwritten.
+      // Unconditional: without this, clearing the box (a deliberate choice
+      // the guard below respects) left a save reading a suggestion this
+      // effect gave hours earlier, from whatever tab happened to be most
+      // recently used back at MOUNT.
+      setCurrentTabName(suggested);
+
+      // The box, unlike the fallback above, is guarded: only replaced when
+      // nothing has touched it since the last suggestion this effect
+      // applied TO THE BOX. `boxValueRef` tracks the box's live value
+      // (updated on every keystroke by updateUserInput) and
+      // `lastSuggestionRef` the last suggestion this effect actually wrote
+      // into it -- the two agree only when nothing has touched the box
+      // since, which is the one case it is safe to replace.
+      //
+      // Both refs must move together, inside this branch, or not at all.
+      // Writing `lastSuggestionRef` UNCONDITIONALLY -- even when this guard
+      // declines to touch the box -- lets it drift ahead of `boxValueRef`.
+      // Repro: the user types "Mail"; Mail becomes most recent and the page
+      // goes visible (the guard correctly declines, but `lastSuggestionRef`
+      // still moves to "Mail", coincidentally matching what the user typed);
+      // Docs becomes most recent and the page goes visible again -- the two
+      // refs now spuriously agree ("Mail" === "Mail"), so the guard
+      // WRONGLY treats the box as untouched and overwrites the user's text
+      // with "Docs". A separate "dirty" boolean could drift from the box the
+      // same way; these two refs ARE the fact, but only if they move as one.
+      if (boxValueRef.current === lastSuggestionRef.current) {
+        boxValueRef.current = suggested;
+        lastSuggestionRef.current = suggested;
+        setNewTitle(suggested);
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      cancelled = true;
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+    // `t` is deliberately not a dependency. The mount-time suggestion above
+    // must run only once, on mount; re-running the whole effect on a
+    // language change would re-attach the visibility listener a second time.
+    // Nothing is lost by omitting it either -- the language can only be
+    // changed from the settings page, which unmounts this component, so the
+    // next mount already picks up the new language.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function updateUserInput(e: React.ChangeEvent<HTMLInputElement>) {
+    boxValueRef.current = e.target.value;
     setNewTitle(e.target.value);
   }
 
@@ -92,6 +207,10 @@ export default function UserInputContainer() {
       normalizeTitle(currentTabName) ||
       t('New Tab Group');
 
+    // KAN-279 D6 / KAN-300. In the tab, "the current window" includes Tab
+    // Keeper's own page -- captureOpenWindows leaves every Tab Keeper page
+    // out of its own accord now (isTabKeeperPage, capture.ts), so there is
+    // nothing left for this call site to ask for.
     const containerData = await captureOpenWindows(title, scope);
     if (!containerData) return;
 

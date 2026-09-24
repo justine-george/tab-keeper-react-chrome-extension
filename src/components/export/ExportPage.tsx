@@ -148,8 +148,9 @@ export default function ExportPage({ source }: { source: ExportSource }) {
    * "nothing open", a value is the capture. Collapsing the first two would
    * flash "Session not found" on every load.
    *
-   * The page's own tab is left out BY ID -- chrome.windows.getAll lists it
-   * too -- so another Tab Keeper page that is genuinely open still appears.
+   * The page's own tab is left out along with every other Tab Keeper page --
+   * chrome.windows.getAll lists it too -- by captureOpenWindows itself now
+   * (isTabKeeperPage, capture.ts, KAN-300).
    */
   const [captured, setCaptured] = useState<tabContainerData | null | undefined>(
     undefined
@@ -158,11 +159,9 @@ export default function ExportPage({ source }: { source: ExportSource }) {
     if (source.kind !== 'open-windows') return;
     let cancelled = false;
     (async () => {
-      const own = await chrome.tabs.getCurrent();
       const snapshot = await captureOpenWindows(
         t('Open windows'),
-        'all-windows',
-        { excludeTabId: own?.id }
+        'all-windows'
       );
       if (!cancelled) setCaptured(snapshot);
     })();

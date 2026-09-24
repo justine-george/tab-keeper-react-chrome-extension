@@ -18,7 +18,7 @@ import {
   updateWindowGroupTitle,
 } from '../../../redux/slices/tabContainerDataStateSlice';
 import { useTranslation } from 'react-i18next';
-import { toStoredTab } from '../../../utils/functions/capture';
+import { isTabKeeperPage, toStoredTab } from '../../../utils/functions/capture';
 import { RowDragArea, DraggableRow } from './rowDrag/RowDragArea';
 import { TabDragArea } from './TabDragArea';
 import { GroupDragArea } from './GroupDragArea';
@@ -105,6 +105,10 @@ export default function TabGroupDetailsContainer() {
       active: true,
       lastFocusedWindow: true,
     });
+    // KAN-299. A Tab Keeper page (the pinned tab view, say) must never be
+    // added to a window as if it were a saved tab -- the same silent no-op
+    // as an empty window elsewhere in this file.
+    if (!tab || isTabKeeperPage(tab)) return;
     // KAN-211. See toStoredTab: the normalising is done in one place so the
     // three ways to save a tab cannot disagree about what a tab is.
     const tabData = toStoredTab(tab);

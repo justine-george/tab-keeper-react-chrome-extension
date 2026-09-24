@@ -42,6 +42,7 @@ export const LIGATURE_ICON_NAMES = [
   'link',
   'mail',
   'more_vert',
+  'open_in_new',
   'playlist_add',
   'print',
   'redo',

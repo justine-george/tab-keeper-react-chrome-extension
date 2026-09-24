@@ -38,6 +38,28 @@ export type ChromeFakeHandle = {
   createdTabs: chrome.tabs.CreateProperties[];
   removedWindowIds: number[];
   groupedTabs: { groupId: number; windowId: number; tabIds: number[] }[];
+  // Every chrome.tabs.query() call, in order. Exists for tests that have to
+  // prove a listener was genuinely DETACHED rather than merely guarded --
+  // e.g. a `cancelled` flag can make a leaked visibilitychange listener's
+  // state-setting invisible without making the listener itself, or the
+  // chrome call it goes on to make, invisible too. Reading THIS is what
+  // still catches that leak.
+  tabsQueryCalls: chrome.tabs.QueryInfo[];
+  // Simulates the BROWSER changing a seeded tab on its own -- `title` and
+  // `lastAccessed` change from the user's own navigation and tab-switching,
+  // never from an extension call, so real chrome.tabs.update() has no field
+  // for either and this is not that method's fake. `patch` is narrowed to
+  // exactly those two fields for the same reason: widening it to
+  // Partial<chrome.tabs.Tab> would let a test set something only an
+  // extension call can change (`pinned`, say) through a seam meant to model
+  // the browser's own hand. Tests that need to simulate the window changing
+  // while this page was in the background (KAN-299/KAN-300) have no other
+  // seam to reach through. Throws on an unknown id so a typo'd tab id fails
+  // the test loudly rather than silently doing nothing.
+  simulateBrowserTabChange(
+    tabId: number,
+    patch: Partial<Pick<chrome.tabs.Tab, 'title' | 'lastAccessed'>>
+  ): void;
   restore(): void;
 };
 
@@ -73,8 +95,19 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
   const makeTab = (
     tab: Partial<chrome.tabs.Tab>,
     windowId: number
-  ): chrome.tabs.Tab =>
-    ({
+  ): chrome.tabs.Tab => {
+    // A seed's own `windowId` must agree with the window it is being placed
+    // IN. Without this, a seed literal naming its own `windowId` (a typed
+    // builder's default, say) would silently win over this parameter via
+    // the `...tab` spread below, moving the tab into the wrong window with
+    // no error -- a second-window tab built from a default `windowId: 1`
+    // would land in window 1 instead of the window it is nested under.
+    if (tab.windowId !== undefined && tab.windowId !== windowId) {
+      throw new Error(
+        `makeTab: seed names windowId ${tab.windowId}, but this tab is being placed in window ${windowId} -- drop the explicit windowId (it is inferred from where the tab is seeded) or make the two agree.`
+      );
+    }
+    return {
       id: nextId++,
       index: 0,
       url: '',
@@ -84,9 +117,10 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
       // would let a capture that reads tab.groupId silently treat every tab as
       // grouped-into-nothing rather than ungrouped.
       groupId: -1,
-      windowId,
       ...tab,
-    }) as chrome.tabs.Tab;
+      windowId,
+    } as chrome.tabs.Tab;
+  };
 
   for (const win of seed.windows ?? []) {
     const { tabs: inlineTabs, ...rest } = win;
@@ -162,6 +196,16 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
     createdTabs: [],
     removedWindowIds: [],
     groupedTabs: [],
+    tabsQueryCalls: [],
+    simulateBrowserTabChange(tabId, patch) {
+      const target = tabs.find((t) => t.id === tabId);
+      if (!target) {
+        throw new Error(
+          `simulateBrowserTabChange: no seeded tab with id ${tabId}`
+        );
+      }
+      Object.assign(target, patch);
+    },
     restore() {
       delete (globalThis as { chrome?: unknown }).chrome;
     },
@@ -231,6 +275,7 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
         queryInfo: chrome.tabs.QueryInfo,
         cb?: (result: chrome.tabs.Tab[]) => void
       ) => {
+        handle.tabsQueryCalls.push(queryInfo);
         const matched = tabs.filter(
           (tab) =>
             (queryInfo.active === undefined ||

@@ -46,7 +46,8 @@ import type {
   GroupRun,
 } from '../../../utils/functions/tabGroups';
 import { applyTabGroups } from '../../../utils/functions/windows';
-import { toStoredTab } from '../../../utils/functions/capture';
+import { isTabKeeperPage, toStoredTab } from '../../../utils/functions/capture';
+import { isTabView } from '../../../utils/functions/viewMode';
 
 import { DraggableRow } from './rowDrag/RowDragArea';
 import { markRowContainer } from './rowDrag/dropRules';
@@ -530,7 +531,10 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
       active: true,
       lastFocusedWindow: true,
     });
-    if (!tab) return;
+    // KAN-299. Same rule as the window-level add
+    // (TabGroupDetailsContainer): a Tab Keeper page must never be added to
+    // a group as if it were a saved tab.
+    if (!tab || isTabKeeperPage(tab)) return;
     dispatch(
       addCurrTabToChromeGroupInternal({
         tabGroupId,
@@ -871,7 +875,9 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
             />
           )}
 
-          {!isEditing && !isSearchPanel && (
+          {/* KAN-279 D13. This page IS Tab Keeper's own tab in the tab view,
+              so "current tab" could only ever mean itself; hidden there. */}
+          {!isEditing && !isSearchPanel && !isTabView() && (
             <Icon
               tooltipText={t('Add current tab')}
               ariaLabel={t('Add current tab')}
@@ -1286,15 +1292,20 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                                 startEditingGroup(item.group);
                               }}
                             />
-                            <Icon
-                              tooltipText={t('Add current tab to group')}
-                              ariaLabel={t('Add current tab to group')}
-                              type="add"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                addCurrentTabToGroup(item.group);
-                              }}
-                            />
+                            {/* KAN-279 D13. Same reasoning as the window
+                                row's Add current tab: meaningless in the tab
+                                view, so hidden there too. */}
+                            {!isTabView() && (
+                              <Icon
+                                tooltipText={t('Add current tab to group')}
+                                ariaLabel={t('Add current tab to group')}
+                                type="add"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  addCurrentTabToGroup(item.group);
+                                }}
+                              />
+                            )}
                             {/* Ungroup and delete live behind the overflow rather
                             than as two more icons: four 32px icons overlap a
                             long title from 125% zoom, and "Ungroup" is not a

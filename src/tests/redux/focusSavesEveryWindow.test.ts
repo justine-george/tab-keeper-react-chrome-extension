@@ -21,6 +21,7 @@ import {
 } from '../../redux/slices/tabContainerDataStateSlice';
 import { setupChromeFake } from '../setup/chrome.fake';
 import { makeTestStore } from '../setup/makeStore';
+import { buildChromeTab } from '../fixtures/chromeTab';
 
 const PARAMS = {
   tabGroupId: 'group-1',
@@ -146,5 +147,48 @@ describe('focus mode saves every window it is about to close (KAN-5)', () => {
 
     expect(handle.sentMessages).toHaveLength(1);
     expect(savedWindowCount).toBe(3);
+  });
+});
+
+// KAN-300. This call site passes captureOpenWindows no options at all -- the
+// Tab Keeper exclusion now lives entirely inside captureOpenWindows itself
+// (isTabKeeperPage), so a pinned tab view sitting among the windows Switch is
+// about to close must not be saved back into the session it captures.
+describe('focus mode leaves out every Tab Keeper page too (KAN-300)', () => {
+  let handle: ReturnType<typeof setupChromeFake> | undefined;
+
+  beforeEach(() => {
+    handle?.restore();
+    handle = undefined;
+  });
+
+  it('the captured session has no Tab Keeper URL', async () => {
+    handle = setupChromeFake({
+      windows: [
+        {
+          id: 1,
+          tabs: [
+            buildChromeTab({
+              id: 1,
+              url: 'chrome-extension://faketestid/index.html?view=tab',
+              title: 'Tab Keeper',
+            }),
+            buildChromeTab({ id: 2, url: 'https://a.example/', title: 'A' }),
+          ],
+        },
+      ],
+    });
+
+    const { store } = makeTestStore();
+    store.dispatch(restoreContainer(TARGET));
+    await store.dispatch(focusTabContainer(PARAMS));
+
+    const { tabGroups } = store.getState().tabContainerDataState;
+
+    // Newly saved sessions are unshifted, so the save under test is first.
+    expect(tabGroups).toHaveLength(2);
+    expect(tabGroups[0].windows[0].tabs.map((t) => t.url)).toEqual([
+      'https://a.example/',
+    ]);
   });
 });

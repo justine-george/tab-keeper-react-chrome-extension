@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 import { useDispatch, useSelector } from 'react-redux';
 
@@ -14,6 +14,7 @@ import { useThemeColors } from '../../../hooks/useThemeColors';
 import { AppDispatch, RootState } from '../../../redux/store';
 import { sessionDateLabel } from '../../../utils/functions/sessionDate';
 import {
+  isTabKeeperPage,
   readCurrentWindowGroups,
   toWindowGroupData,
 } from '../../../utils/functions/capture';
@@ -37,6 +38,10 @@ import {
 import { copySessionLinks } from '../../../utils/functions/copySessionLinks';
 import { tidySessionForExport } from '../../../utils/functions/sessionExportHtml';
 import { TOAST_MESSAGES } from '../../../utils/constants/common';
+import {
+  isTabView,
+  pickNameSourceTab,
+} from '../../../utils/functions/viewMode';
 import { useTranslation } from 'react-i18next';
 import { DURATION, ICON, TYPE } from '../../../styles/scale';
 
@@ -46,7 +51,6 @@ export default function HeroContainerRight() {
   const { t, i18n } = useTranslation();
   const [isEditing, setIsEditing] = useState(false);
   const [editableTitle, setEditableTitle] = useState('');
-  const [currentTabName, setCurrentTabName] = useState<string>('New Tab');
   const [isContainerHovered, setIsContainerHovered] = useState<boolean>(false);
   const dispatch: AppDispatch = useDispatch();
 
@@ -85,17 +89,6 @@ export default function HeroContainerRight() {
     (state: RootState) => state.settingsDataState.sessionDateBasis
   );
 
-  useEffect(() => {
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      const currentTab = tabs[0];
-      if (currentTab && currentTab.title) {
-        setCurrentTabName(currentTab.title);
-      } else {
-        setCurrentTabName('New Tab');
-      }
-    });
-  }, []);
-
   // the same list RightPane derives its mount guard from
   const selectedTabGroup = selectVisibleTabGroups(
     tabContainerDataList.tabGroups,
@@ -107,10 +100,10 @@ export default function HeroContainerRight() {
   // Belt and braces: RightPane does not mount this component when the list is
   // empty, so this should be unreachable -- but it is what makes the component
   // safe on its own terms rather than safe because of its only caller (KAN-16).
-  // It sits below every hook deliberately: an early return above the useEffect
-  // that reads the current tab name would change the hook count between the
-  // nothing-selected and selected renders, and React throws "Rendered more
-  // hooks than during the previous render" on that transition.
+  // It sits below every hook deliberately: an early return above the
+  // useSelector calls this component makes would change the hook count
+  // between the nothing-selected and selected renders, and React throws
+  // "Rendered more hooks than during the previous render" on that transition.
   if (!selectedTabGroup) return null;
 
   // `editableTitle` is a DRAFT: nothing reads it unless `isEditing` is true, so
@@ -165,10 +158,55 @@ export default function HeroContainerRight() {
       chrome.windows.getCurrent({ populate: true }, (result) => resolve(result))
     );
 
+    // KAN-279 D14 / KAN-300. Leaves out every Tab Keeper page -- the SAME
+    // rule captureOpenWindows applies (isTabKeeperPage, capture.ts), since
+    // this call site builds a window the same shape a capture would, without
+    // going through captureOpenWindows itself.
+    const tabs = (windowData.tabs ?? []).filter((tab) => !isTabKeeperPage(tab));
+    // If that empties the window, there is nothing to add.
+    if (tabs.length === 0) return;
+
+    // KAN-299, extended past the tab view. Resolved HERE, at click time --
+    // not cached from a mount-once effect. This component can
+    // stay mounted for as long as the tab view stays open, so a name read
+    // once at mount can go stale; the tab it was drawn from may no longer be
+    // the most recently used by the time this button is actually pressed.
+    //
+    // In the tab view the active tab IS Tab Keeper, so the D15 fallback --
+    // the most recently used tab in the window that isn't one -- always
+    // applies. In the popup it only kicks in when the active tab HAPPENS to
+    // be a Tab Keeper page (Switch can restore a window whose active tab is
+    // the pinned tab view); otherwise the popup keeps today's rule, the
+    // active tab's own raw title. dropNotificationCount is not applied
+    // here: toWindowGroupData already cleans whatever title it is handed,
+    // for every branch, so cleaning twice would be redundant rather than
+    // wrong.
+    async function resolveCurrentTabName(): Promise<string | undefined> {
+      if (isTabView()) {
+        const tabsOfWindow = await new Promise<chrome.tabs.Tab[]>((resolve) =>
+          chrome.tabs.query({ currentWindow: true }, (result) =>
+            resolve(result)
+          )
+        );
+        return pickNameSourceTab(tabsOfWindow, isTabKeeperPage)?.title;
+      }
+      const [activeTab] = await new Promise<chrome.tabs.Tab[]>((resolve) =>
+        chrome.tabs.query({ active: true, currentWindow: true }, (result) =>
+          resolve(result)
+        )
+      );
+      if (!activeTab || !isTabKeeperPage(activeTab)) return activeTab?.title;
+      const tabsOfWindow = await new Promise<chrome.tabs.Tab[]>((resolve) =>
+        chrome.tabs.query({ currentWindow: true }, (result) => resolve(result))
+      );
+      return pickNameSourceTab(tabsOfWindow, isTabKeeperPage)?.title;
+    }
+    const currentTabName = await resolveCurrentTabName();
+
     const read = await readCurrentWindowGroups(windowData.id);
     const window = toWindowGroupData(
-      windowData,
-      currentTabName,
+      { ...windowData, tabs },
+      currentTabName || 'New Tab',
       read?.groups,
       read?.idByChromeId ?? new Map()
     );
@@ -392,20 +430,24 @@ export default function HeroContainerRight() {
               dispatch(openAllTabContainer({ tabGroupId, goToURLText }));
             }}
           />
-          <Icon
-            tooltipText={t('Switch to session')}
-            ariaLabel={t('Switch to session')}
-            type="filter_center_focus"
-            onClick={() => {
-              dispatch(
-                requestFocusTabContainer({
-                  tabGroupId,
-                  goToURLText: t('Go to URL'),
-                  saveTitle: t('FocusAutoSaveTitle'),
-                })
-              );
-            }}
-          />
+          {/* KAN-279 D7. Switching closes the windows hosting Tab Keeper
+              itself when this page IS the tab view, so hidden there. */}
+          {!isTabView() && (
+            <Icon
+              tooltipText={t('Switch to session')}
+              ariaLabel={t('Switch to session')}
+              type="filter_center_focus"
+              onClick={() => {
+                dispatch(
+                  requestFocusTabContainer({
+                    tabGroupId,
+                    goToURLText: t('Go to URL'),
+                    saveTitle: t('FocusAutoSaveTitle'),
+                  })
+                );
+              }}
+            />
+          )}
           {/* KAN-206. Folds every window in this session, or unfolds them all.
               Third in the strip so the overflow stays last, which is the only
               position that reads as "everything after me is secondary".

@@ -18,7 +18,7 @@ import {
   setAutoSync,
 } from '../../redux/slices/settingsDataStateSlice';
 import { PRIVACY_POLICY_LINK } from '../../utils/constants/common';
-import { ICON, TYPE } from '../../styles/scale';
+import { DIALOG, ICON, TYPE } from '../../styles/scale';
 import { dialogButtonStyles } from './dialogButtons';
 
 const TITLE_ID = 'cloud-consent-title';
@@ -109,7 +109,7 @@ export const CloudConsentModal: React.FC = () => {
     transform: translate(-50%, -50%);
     margin: 0;
     padding: 20px;
-    width: 78%;
+    width: ${DIALOG.WIDTH};
     max-width: none;
     max-height: none;
     background-color: ${COLORS.PRIMARY_COLOR};

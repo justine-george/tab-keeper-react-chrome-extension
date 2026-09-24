@@ -1,5 +1,10 @@
 import { placeholderTarget } from './utils/functions/local';
 import {
+  isOpenInTabRequest,
+  openOrFocusTabView,
+  TabApi,
+} from './utils/functions/popOut';
+import {
   createWindowWithRetries,
   isRestoreSessionRequest,
   planWindowClosure,
@@ -62,10 +67,26 @@ async function restoreSession(request: RestoreSessionRequest) {
   );
 }
 
-chrome.runtime.onMessage.addListener((message) => {
-  if (!isRestoreSessionRequest(message)) return;
+// The real TabApi (see popOut.ts), pointed at chrome.tabs/chrome.windows.
+// windows.update's `{ focused: true }` is what chrome.tabs.update itself has
+// no equivalent for -- activating a tab does not raise its window.
+const chromeTabApi: TabApi = {
+  getURL: (path) => chrome.runtime.getURL(path),
+  query: (q) => chrome.tabs.query(q),
+  update: (tabId, props) => chrome.tabs.update(tabId, props),
+  focusWindow: (windowId) => chrome.windows.update(windowId, { focused: true }),
+  create: (props) => chrome.tabs.create(props),
+};
 
-  // No response is sent: by the time this finishes there is no popup left to
-  // receive one.
-  void restoreSession(message);
+chrome.runtime.onMessage.addListener((message) => {
+  if (isRestoreSessionRequest(message)) {
+    // No response is sent: by the time this finishes there is no popup left
+    // to receive one.
+    void restoreSession(message);
+    return;
+  }
+
+  if (isOpenInTabRequest(message)) {
+    void openOrFocusTabView(chromeTabApi, message);
+  }
 });
