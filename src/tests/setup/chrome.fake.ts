@@ -16,8 +16,8 @@
 // caller yet -- tabs.onCreated/onRemoved/onUpdated/onMoved/onAttached/
 // onDetached, windows.onCreated/onRemoved/update, tabGroups.onCreated/
 // onUpdated/onRemoved/onMoved -- plus ChromeFakeHandle.browser, which models
-// the BROWSER's own hand (open/close/update/move a tab, close a window, set
-// a group) by mutating state and firing the matching event, and
+// the BROWSER's own hand (open/close/update/move/activate a tab, close a
+// window, set a group) by mutating state and firing the matching event, and
 // listenerCount()/windowsGetAllCalls for proving an unmount detached
 // everything and a refresh coalesced its reads.
 
@@ -109,6 +109,10 @@ export type ChromeFakeHandle = {
     ): void;
     moveTabToWindow(tabId: number, windowId: number): void;
     closeWindow(windowId: number): void;
+    // The user switching tabs: `active` moves to this tab within its own
+    // window (other windows keep theirs) and onActivated fires. Throws on an
+    // unknown id, like closeTab.
+    activateTab(tabId: number): void;
     setGroup(
       groupId: number,
       patch: Partial<
@@ -388,6 +392,18 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
           if (tabs[i].windowId === windowId) tabs.splice(i, 1);
         }
         windowsOnRemoved.fire(windowId);
+      },
+      activateTab(tabId) {
+        const target = tabs.find((tab) => tab.id === tabId);
+        if (!target) {
+          throw new Error(
+            `browser.activateTab: no seeded tab with id ${tabId}`
+          );
+        }
+        for (const tab of tabs) {
+          if (tab.windowId === target.windowId) tab.active = tab === target;
+        }
+        tabsOnActivated.fire({ tabId, windowId: target.windowId });
       },
       setGroup(groupId, patch) {
         const target = tabGroups.find((group) => group.id === groupId);

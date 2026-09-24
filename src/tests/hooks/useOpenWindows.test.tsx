@@ -433,6 +433,41 @@ describe('useOpenWindows', () => {
     expect(result.current?.map((win) => win.id)).toEqual([1]);
   });
 
+  // A newer read that failed wrote nothing, so it must not cost an older read
+  // that succeeded its turn. If that older read is the first one, dropping it
+  // would leave the pane loading until some other event arrives.
+  test('a newer read that fails does not throw away an older read that succeeded', async () => {
+    handle = setupChromeFake(twoWindows());
+    const first = await chrome.windows.getAll({
+      populate: true,
+      windowTypes: ['normal'],
+    });
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const gone = new Error('gone');
+    vi.spyOn(chrome.windows, 'getAll')
+      .mockImplementationOnce(() => gate.then(() => first))
+      .mockRejectedValueOnce(gone);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    const { result } = renderHook(() => useOpenWindows(false));
+    await advance(0);
+    handle.browser.updateTab(11, { title: 'A2' });
+    await advance(OPEN_NOW_REFRESH_COALESCE_MS);
+    expect(warn).toHaveBeenCalledWith(
+      'Open now could not read the open windows: ',
+      gone
+    );
+    expect(result.current).toBeNull();
+
+    release();
+    await advance(0);
+
+    expect(result.current?.map((win) => win.id)).toEqual([1, 2]);
+  });
+
   // KAN-279 D12, for every read the hook starts: the first read of an effect
   // run changes the list as much as a refresh does.
   test('drag hold: a pane mounted while a row is held waits for the release before its first read', async () => {
@@ -472,6 +507,57 @@ describe('useOpenWindows', () => {
     await advance(OPEN_NOW_REFRESH_COALESCE_MS);
 
     expect(result.current?.every((win) => win.groups.length === 0)).toBe(true);
+  });
+
+  test('unmounted while a refresh waits for a held row: the release starts no read', async () => {
+    handle = setupChromeFake(twoWindows());
+    const { unmount } = renderHook(() => useOpenWindows(false));
+    await advance(0);
+
+    beginDragHold();
+    handle.browser.updateTab(11, { title: 'A2' });
+    await advance(OPEN_NOW_REFRESH_COALESCE_MS);
+    unmount();
+    const atUnmount = getAllCalls();
+
+    endDragHold();
+    await advance(500);
+
+    expect(getAllCalls()).toBe(atUnmount);
+  });
+
+  // The subscription list, pinned exactly: 7 tab events and 2 window events,
+  // plus 4 group events when groups are shown. A dropped event goes unseen
+  // until the browser happens to fire a different one.
+  test('mount subscribes exactly 9 listeners with groups off and 13 with groups on', async () => {
+    handle = setupChromeFake(twoWindows());
+    const baseline = handle.listenerCount();
+
+    const off = renderHook(() => useOpenWindows(false));
+    await advance(0);
+    expect(handle.listenerCount()).toBe(baseline + 9);
+    off.unmount();
+
+    const on = renderHook(() => useOpenWindows(true));
+    await advance(0);
+    expect(handle.listenerCount()).toBe(baseline + 13);
+    on.unmount();
+  });
+
+  // Switching tabs fires onActivated alone; nothing else would refresh the
+  // active flags.
+  test('switching tabs alone updates the active flags', async () => {
+    handle = setupChromeFake(twoWindows());
+    const { result } = renderHook(() => useOpenWindows(false));
+    await advance(0);
+    expect(result.current?.[0].tabs.map((tab) => tab.active)).toEqual([true]);
+
+    // The user switches to the tab view itself, which is not listed, so tab A
+    // is simply no longer active.
+    handle.browser.activateTab(TAB_VIEW_ID);
+    await advance(OPEN_NOW_REFRESH_COALESCE_MS);
+
+    expect(result.current?.[0].tabs.map((tab) => tab.active)).toEqual([false]);
   });
 
   test('unmount removes every listener and cancels a pending refresh', async () => {

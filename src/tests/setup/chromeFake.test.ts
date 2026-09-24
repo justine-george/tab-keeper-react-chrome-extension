@@ -477,6 +477,44 @@ describe('live browser events (KAN-280)', () => {
     handle.restore();
   });
 
+  // Switching tabs changes only which tab is active, and Chrome reports it
+  // through onActivated alone -- no onUpdated follows.
+  test('activateTab moves active within its window only and tells onActivated; an unknown id throws', async () => {
+    const handle = setupChromeFake({
+      windows: [
+        {
+          id: 1,
+          tabs: [
+            { id: 11, url: 'https://a.test/', active: true },
+            { id: 12, url: 'https://b.test/' },
+          ],
+        },
+        { id: 2, tabs: [{ id: 21, url: 'https://c.test/', active: true }] },
+      ],
+    });
+    const seen: chrome.tabs.OnActivatedInfo[] = [];
+    chrome.tabs.onActivated.addListener((info) => seen.push(info));
+
+    handle.browser.activateTab(12);
+
+    const windows = await chrome.windows.getAll({
+      populate: true,
+      windowTypes: ['normal'],
+    });
+    expect(
+      windows.map((win) => win.tabs?.map((tab) => [tab.id, tab.active]))
+    ).toEqual([
+      [
+        [11, false],
+        [12, true],
+      ],
+      [[21, true]],
+    ]);
+    expect(seen).toEqual([{ tabId: 12, windowId: 1 }]);
+    expect(() => handle.browser.activateTab(987654)).toThrow();
+    handle.restore();
+  });
+
   test('removeListener detaches, and listenerCount says so', () => {
     const handle = setupChromeFake();
     const base = handle.listenerCount();

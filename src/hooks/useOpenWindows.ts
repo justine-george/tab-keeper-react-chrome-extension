@@ -9,8 +9,8 @@ import type { OpenWindow } from '../utils/functions/openNow';
 export const OPEN_NOW_REFRESH_COALESCE_MS = 50;
 
 // What this hook needs from a chrome event. The listener ignores the event's
-// arguments (any event means "read again"), and method-parameter bivariance
-// lets every chrome.events.Event satisfy this without a cast.
+// arguments (any event means "read again"), and a listener that takes no
+// arguments fits every event's callback type, so no cast is needed.
 interface ChromeEvent {
   addListener(cb: () => void): void;
   removeListener(cb: () => void): void;
@@ -42,9 +42,12 @@ export function useOpenWindows(showGroups: boolean): OpenWindow[] | null {
     let live = true;
     let timer: ReturnType<typeof setTimeout> | null = null;
     let queuedForRelease = false;
-    // Reads can overlap; only the latest one started may apply its result.
-    // An older one settling last would put back a list already gone.
+    // Reads can overlap. A read applies only if it started after the last
+    // one applied: an older one settling last would put back a list already
+    // gone. Counted by what was APPLIED, not started, because a newer read
+    // that failed wrote nothing and must not cost an older success its turn.
     let readSeq = 0;
+    let appliedSeq = 0;
 
     const read = async (): Promise<void> => {
       const mine = ++readSeq;
@@ -58,7 +61,8 @@ export function useOpenWindows(showGroups: boolean): OpenWindow[] | null {
           // window, and "This window" must follow it.
           chrome.tabs.getCurrent(),
         ]);
-        if (!live || mine !== readSeq) return;
+        if (!live || mine <= appliedSeq) return;
+        appliedSeq = mine;
         setOpenWindows(toOpenWindows(all, groups, self?.windowId ?? null));
       } catch (error) {
         // A window closed between calls, say. Keep the last good snapshot;
