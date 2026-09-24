@@ -1,9 +1,12 @@
 import { afterEach, describe, expect, test, vi } from 'vitest';
 
+// common.ts reads window.screen at module load. In node, window is made
+// globalThis itself, so window.screen is the screen set beside it.
 vi.hoisted(() => {
-  const g = globalThis as unknown as { window?: unknown };
-  g.window = g.window ?? globalThis;
-  (g.window as { screen?: unknown }).screen = { height: 1080, width: 1920 };
+  Object.assign(globalThis, {
+    window: globalThis,
+    screen: { height: 1080, width: 1920 },
+  });
 });
 
 vi.mock('../../utils/functions/external', () => ({
@@ -106,8 +109,8 @@ describe('the Reopen offer (KAN-280 O8a)', () => {
     expect(takeReopenOffer(idB)).toBe(b);
   });
 
-  // Review Focus 6: a sync merge arriving over the Reopen toast replaces it,
-  // and the offer goes with it -- in Redux AND in the registry.
+  // KAN-280 O8a: a plain toast (a sync merge, say) replacing the Reopen toast
+  // takes the offer with it -- in Redux AND in the registry.
   test('a plain toast drops the offer', async () => {
     const [item] = await closedTabs();
     const { store } = makeTestStore();
@@ -138,6 +141,22 @@ describe('the Reopen offer (KAN-280 O8a)', () => {
     expect(openState(store)).toBe(true);
     vi.advanceTimersByTime(1);
     expect(openState(store)).toBe(false);
+  });
+
+  // A closed toast offers nothing, so the closed tab or window it named is
+  // not kept in memory after the toast has timed out.
+  test('the toast timing out drops the offer', async () => {
+    const [item] = await closedTabs();
+    const { store } = makeTestStore();
+    vi.useFakeTimers();
+
+    await store.dispatch(offerReopen(item));
+    const id = store.getState().globalState.toastReopenOfferId;
+    if (id === null) throw new Error('no offer id');
+    vi.advanceTimersByTime(REOPEN_TOAST_MS);
+
+    expect(openState(store)).toBe(false);
+    expect(takeReopenOffer(id)).toBeNull();
   });
 
   test('held, the timer stops; released, it runs out the time that was left', async () => {

@@ -871,6 +871,9 @@ function startToastTimeout(
   toastDuration = duration;
   toastTimeout = setTimeout(() => {
     toastTimeout = null;
+    // A timed-out toast offers nothing, so the closed item it named is not
+    // kept in memory (KAN-280 O8a).
+    dropReopenOffer();
     dispatch(closeToast());
   }, duration);
 }
