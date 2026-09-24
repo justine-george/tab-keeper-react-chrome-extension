@@ -2,15 +2,15 @@
 // over a mock on purpose: tests assert on resulting state rather than on the
 // fact that a function was invoked.
 //
-// Covers 25 members production code calls as of 2026-09-17 --
-// tabs.query/create/update/get/getCurrent/onActivated/group,
-// windows.getAll/getCurrent/
-// create/remove, storage.sync.get/set, runtime.sendMessage/onMessage/getURL/
-// lastError, tabGroups.query/update/TAB_GROUP_ID_NONE, permissions.contains/
-// request/remove/onAdded/onRemoved -- plus storage.sync.remove/clear and
-// permissions.getAll, which have no production call site today but are
-// implemented for API fidelity and exercised by this fake's own tests.
-// Widen this when the app calls something new.
+// Covers 28 members production code calls as of 2026-09-24 --
+// tabs.query/create/update/get/getCurrent/remove/onActivated/group,
+// windows.getAll/getCurrent/create/remove/get/update, storage.sync.get/set,
+// runtime.sendMessage/onMessage/getURL/lastError, tabGroups.query/get/
+// update/TAB_GROUP_ID_NONE, permissions.contains/request/remove/onAdded/
+// onRemoved -- plus storage.sync.remove/clear and permissions.getAll, which
+// have no production call site today but are implemented for API fidelity
+// and exercised by this fake's own tests. Widen this when the app calls
+// something new.
 //
 // KAN-280 (Open now pane) adds live event registries with no production
 // caller yet -- tabs.onCreated/onRemoved/onUpdated/onMoved/onAttached/
@@ -20,6 +20,14 @@
 // window, set a group) by mutating state and firing the matching event, and
 // liveEventListenerCount()/windowsGetAllCalls for proving an unmount detached
 // everything and a refresh coalesced its reads.
+//
+// KAN-280 Part B: an extension's OWN calls fire events too, matching real
+// Chrome -- tabs.remove fires tabs.onRemoved (and windows.onRemoved when a
+// window's last tab goes with it), tabs.create and windows.create (per tab)
+// fire tabs.onCreated, windows.create also fires windows.onCreated, and
+// tabGroups.update fires tabGroups.onUpdated. See the registries comment
+// below for the full split between what an extension call fires and what
+// only handle.browser.* (the browser's own hand) fires.
 
 export type ChromeSeed = {
   tabs?: Partial<chrome.tabs.Tab>[];
@@ -53,12 +61,21 @@ export type ChromeSeed = {
   // exactly what an ungranted profile sees rather than a stub with nothing
   // in it.
   tabGroupsApiAbsent?: boolean;
+  // Urls tabs.create and windows.create refuse, as Chrome does for a
+  // file:// page without file access or some chrome:// pages (KAN-280 Part
+  // B, Review Focus #2).
+  refusedUrls?: string[];
 };
 
 export type ChromeFakeHandle = {
   sentMessages: unknown[];
   createdTabs: chrome.tabs.CreateProperties[];
   removedWindowIds: number[];
+  // Every id chrome.tabs.remove() was asked to close, in call order --
+  // KAN-280 Part B's Close tab/Close window controls prove against this
+  // rather than re-deriving it from onRemoved, which a double-close (Review
+  // Focus #3) can fire zero times for the second call.
+  removedTabIds: number[];
   groupedTabs: { groupId: number; windowId: number; tabIds: number[] }[];
   // Every chrome.tabs.query() call, in order. Exists for tests that have to
   // prove a listener was genuinely DETACHED rather than merely guarded --
@@ -286,10 +303,14 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
       }) as chrome.tabGroups.TabGroup
   );
 
-  // KAN-280 live event registries. Not fired by any chrome.tabs/windows/
-  // tabGroups call above (those model an EXTENSION's own actions, which
-  // Chrome does not echo back as events to the caller) -- only by
-  // handle.browser.* below, which models the browser's hand.
+  // KAN-280 live event registries. tabs.remove, tabs.create, windows.create
+  // and tabGroups.update (all below) DO fire these back to their own
+  // caller, matching real Chrome -- an extension is not exempt from its own
+  // events. windows.remove fires tabs.onRemoved per tab then
+  // windows.onRemoved. Everything else here (onUpdated/onMoved/onAttached/
+  // onDetached/onActivated, tabGroups.onCreated/onRemoved/onMoved) has no
+  // extension-call trigger in this file -- only handle.browser.* below,
+  // which models the BROWSER's own hand, fires those.
   const tabsOnCreated = registry<(tab: chrome.tabs.Tab) => void>();
   const tabsOnRemoved =
     registry<(tabId: number, info: chrome.tabs.OnRemovedInfo) => void>();
@@ -330,6 +351,7 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
     sentMessages: [],
     createdTabs: [],
     removedWindowIds: [],
+    removedTabIds: [],
     groupedTabs: [],
     tabsQueryCalls: [],
     windowsGetAllCalls: 0,
@@ -364,13 +386,19 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
       },
       updateTab(tabId, patch) {
         const target = tabs.find((tab) => tab.id === tabId);
-        if (!target) return;
+        if (!target) {
+          throw new Error(`browser.updateTab: no seeded tab with id ${tabId}`);
+        }
         Object.assign(target, patch);
         tabsOnUpdated.fire(tabId, patch, target);
       },
       moveTabToWindow(tabId, windowId) {
         const index = tabs.findIndex((tab) => tab.id === tabId);
-        if (index === -1) return;
+        if (index === -1) {
+          throw new Error(
+            `browser.moveTabToWindow: no seeded tab with id ${tabId}`
+          );
+        }
         const [moved] = tabs.splice(index, 1);
         const oldWindowId = moved.windowId;
         tabsOnDetached.fire(tabId, {
@@ -408,7 +436,11 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
       },
       setGroup(groupId, patch) {
         const target = tabGroups.find((group) => group.id === groupId);
-        if (!target) return;
+        if (!target) {
+          throw new Error(
+            `browser.setGroup: no seeded group with id ${groupId}`
+          );
+        }
         Object.assign(target, patch);
         tabGroupsOnUpdated.fire(target);
       },
@@ -471,13 +503,24 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
         ),
         cb
       ),
+    get: (groupId: number, cb?: (group: chrome.tabGroups.TabGroup) => void) => {
+      const target = tabGroups.find((group) => group.id === groupId);
+      if (!target) {
+        return Promise.reject(new Error(`No group with id: ${groupId}.`));
+      }
+      return settle(target, cb);
+    },
     update: (
       groupId: number,
       props: chrome.tabGroups.UpdateProperties,
       cb?: (group?: chrome.tabGroups.TabGroup) => void
     ) => {
       const target = tabGroups.find((group) => group.id === groupId);
-      if (target) Object.assign(target, props);
+      if (!target) {
+        return Promise.reject(new Error(`No group with id: ${groupId}.`));
+      }
+      Object.assign(target, props);
+      tabGroupsOnUpdated.fire(target);
       return settle(target, cb);
     },
     onCreated: tabGroupsOnCreated,
@@ -560,21 +603,97 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
             : tabs.find((tab) => tab.id === seed.currentTabId);
         return settle(current && { ...current }, cb);
       },
+      // Chrome's own `index` clamp: the requested slot lands within [0,
+      // count], then a pinned tab is pushed back into the pinned run at the
+      // front and an unpinned one pushed past it -- a pinned tab can never
+      // sit after an unpinned one. Task 1's brief spells out this exact
+      // two-step clamp (KAN-280 Part B).
       create: (
         props: chrome.tabs.CreateProperties,
         cb?: (tab: chrome.tabs.Tab) => void
       ) => {
         handle.createdTabs.push(props);
-        const created = makeTab(
-          {
-            index: tabs.length,
-            url: props.url ?? '',
-            active: props.active ?? true,
-          },
-          props.windowId ?? DEFAULT_WINDOW_ID
+        const windowId = props.windowId ?? DEFAULT_WINDOW_ID;
+        if (!windows.some((win) => win.id === windowId)) {
+          return Promise.reject(new Error(`No window with id: ${windowId}.`));
+        }
+        const url = props.url ?? '';
+        if ((seed.refusedUrls ?? []).includes(url)) {
+          return Promise.reject(
+            new Error(`Cannot create a tab with url: ${url}`)
+          );
+        }
+        const active = props.active ?? true;
+        const pinned = props.pinned ?? false;
+        const created = makeTab({ url, active, pinned }, windowId);
+
+        const own = tabs
+          .filter((tab) => tab.windowId === windowId)
+          .sort((a, b) => a.index - b.index);
+        const pinnedCount = own.filter((tab) => tab.pinned).length;
+        const rawWant = Math.min(
+          Math.max(props.index ?? own.length, 0),
+          own.length
         );
-        tabs.push(created);
+        const want = pinned
+          ? Math.min(rawWant, pinnedCount)
+          : Math.max(rawWant, pinnedCount);
+
+        if (want < own.length) {
+          tabs.splice(tabs.indexOf(own[want]), 0, created);
+        } else if (own.length === 0) {
+          tabs.push(created);
+        } else {
+          tabs.splice(tabs.indexOf(own[own.length - 1]) + 1, 0, created);
+        }
+        reindexWindow(windowId);
+
+        if (active) {
+          for (const tab of tabs) {
+            if (tab.windowId === windowId && tab !== created) {
+              tab.active = false;
+            }
+          }
+        }
+
+        tabsOnCreated.fire(created);
         return settle(created, cb);
+      },
+      // Normalised to an array so the single-id and multi-id overloads share
+      // one path. Every id is checked to exist BEFORE anything is removed --
+      // Chrome does not half-close a batch (KAN-280 Part B, Review Focus
+      // #3's double-close needs this: a second remove() of an already-gone
+      // id must reject cleanly, not remove a sibling it was never asked
+      // about).
+      remove: (ids: number | number[], cb?: () => void) => {
+        const idList = Array.isArray(ids) ? ids : [ids];
+        const missing = idList.find((id) => !tabs.some((tab) => tab.id === id));
+        if (missing !== undefined) {
+          return Promise.reject(new Error(`No tab with id: ${missing}.`));
+        }
+        for (const id of idList) {
+          const [removed] = tabs.splice(
+            tabs.findIndex((tab) => tab.id === id),
+            1
+          );
+          handle.removedTabIds.push(id);
+          reindexWindow(removed.windowId);
+          const windowStillHasTabs = tabs.some(
+            (tab) => tab.windowId === removed.windowId
+          );
+          tabsOnRemoved.fire(id, {
+            windowId: removed.windowId,
+            isWindowClosing: !windowStillHasTabs,
+          });
+          if (!windowStillHasTabs) {
+            const windowIndex = windows.findIndex(
+              (win) => win.id === removed.windowId
+            );
+            if (windowIndex !== -1) windows.splice(windowIndex, 1);
+            windowsOnRemoved.fire(removed.windowId);
+          }
+        }
+        return settle(undefined, cb);
       },
       update: (
         tabId: number,
@@ -667,28 +786,81 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
       // tabs[0].url and then tabs.create()s the rest against its windowId, so
       // a fake that dropped the initial tab would make a restored window come
       // back one tab short.
+      //
+      // No `url` at all opens a single chrome://newtab/ tab, as Chrome does
+      // (KAN-280 Part B). Only the FIRST tab is made active, matching a real
+      // multi-url window.create().
       create: (
         data: chrome.windows.CreateData,
         cb?: (win?: chrome.windows.Window) => void
       ) => {
+        const urls =
+          typeof data.url === 'string'
+            ? [data.url]
+            : data.url ?? ['chrome://newtab/'];
+        const refused = urls.find((url) =>
+          (seed.refusedUrls ?? []).includes(url)
+        );
+        if (refused !== undefined) {
+          return Promise.reject(
+            new Error(`Cannot create a tab with url: ${refused}`)
+          );
+        }
         const created = {
           id: nextId++,
           focused: data.focused ?? false,
           type: data.type ?? 'normal',
+          left: data.left,
+          top: data.top,
+          width: data.width,
+          height: data.height,
+          state: data.state,
+          incognito: data.incognito ?? false,
         } as unknown as chrome.windows.Window;
+        const windowId = created.id as number;
         windows.push(created);
-        for (const url of typeof data.url === 'string'
-          ? [data.url]
-          : data.url ?? []) {
-          tabs.push(makeTab({ url, active: true }, created.id as number));
+        urls.forEach((url, i) => {
+          tabs.push(makeTab({ url, active: i === 0 }, windowId));
+        });
+        reindexWindow(windowId);
+        windowsOnCreated.fire(created);
+        for (const tab of tabs) {
+          if (tab.windowId === windowId) tabsOnCreated.fire(tab);
         }
         return settle(populate(created), cb);
       },
+      // Rejects on an unknown id -- but only after removedWindowIds sees the
+      // attempt, since existing tests read that list regardless of outcome.
+      // Each closing tab fires tabs.onRemoved with isWindowClosing: true
+      // BEFORE windows.onRemoved, matching real Chrome (KAN-280 Part B).
       remove: (windowId: number, cb?: () => void) => {
         handle.removedWindowIds.push(windowId);
         const index = windows.findIndex((win) => win.id === windowId);
-        if (index >= 0) windows.splice(index, 1);
-        return settle(undefined as void, cb);
+        if (index === -1) {
+          return Promise.reject(new Error(`No window with id: ${windowId}.`));
+        }
+        windows.splice(index, 1);
+        const closingTabs = tabs.filter((tab) => tab.windowId === windowId);
+        for (const tab of closingTabs) {
+          const tabIndex = tabs.indexOf(tab);
+          if (tabIndex !== -1) tabs.splice(tabIndex, 1);
+          if (tab.id !== undefined) {
+            tabsOnRemoved.fire(tab.id, { windowId, isWindowClosing: true });
+          }
+        }
+        windowsOnRemoved.fire(windowId);
+        return settle(undefined, cb);
+      },
+      get: (
+        windowId: number,
+        info?: chrome.windows.QueryOptions,
+        cb?: (win: chrome.windows.Window) => void
+      ) => {
+        const target = windows.find((win) => win.id === windowId);
+        if (!target) {
+          return Promise.reject(new Error(`No window with id: ${windowId}.`));
+        }
+        return settle(info?.populate ? populate(target) : { ...target }, cb);
       },
       // Only `focused` is sent today (switchToOpenTab, KAN-280 O6), but
       // every UpdateInfo field is applied -- narrowing to just `focused`
@@ -699,7 +871,10 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
         cb?: (win?: chrome.windows.Window) => void
       ) => {
         const target = windows.find((win) => win.id === windowId);
-        if (target) Object.assign(target, props);
+        if (!target) {
+          return Promise.reject(new Error(`No window with id: ${windowId}.`));
+        }
+        Object.assign(target, props);
         return settle(target, cb);
       },
       onCreated: windowsOnCreated,

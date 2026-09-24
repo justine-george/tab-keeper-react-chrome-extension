@@ -14,9 +14,11 @@ import {
 // assigned -- never the manifest's suggestion, which Chrome honours only if
 // the key is free -- with a button to the one place a user can change it.
 
+// windows: KAN-280 Part B. The "Change" button's chrome.tabs.create() now
+// rejects a windowId no window carries.
 const renderSessions = (commands?: chrome.commands.Command[]) =>
   renderWithProviders(<SettingsDetailsContainer />, {
-    seed: { commands },
+    seed: { commands, windows: [{ id: 1 }] },
     seedStore: (store) => {
       store.dispatch(selectCategory(SettingsCategory.SESSIONS));
     },

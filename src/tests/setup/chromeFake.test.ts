@@ -51,9 +51,13 @@ describe('chrome.tabs fake', () => {
   });
 
   test('create records the call and makes the tab queryable', async () => {
-    handle = setupChromeFake();
+    // KAN-280 Part B: tabs.create now rejects for a windowId no window
+    // carries, and an unseeded fake has no window at all -- a bare `tabs:
+    // [...]` seed relied on DEFAULT_WINDOW_ID being taken on faith, which
+    // real Chrome never does.
+    handle = setupChromeFake({ windows: [{ id: 1 }] });
 
-    chrome.tabs.create({ url: 'https://example.com/' });
+    await chrome.tabs.create({ url: 'https://example.com/' });
 
     expect(handle.createdTabs).toEqual([{ url: 'https://example.com/' }]);
     const tabs = await new Promise<chrome.tabs.Tab[]>((resolve) =>
@@ -687,6 +691,261 @@ describe('live browser events (KAN-280)', () => {
     const handle = setupChromeFake();
 
     expect(chrome.tabGroups).toBeDefined();
+    handle.restore();
+  });
+});
+
+// KAN-280 Part B's own calls (close/create/group tabs and windows) fire the
+// events Chrome fires back to the caller who made them -- the fake's header
+// used to claim otherwise. These tests prove the fake matches Chrome, not
+// the header's old (false) claim.
+describe('extension calls fire what Chrome fires (KAN-280 Part B)', () => {
+  test('tabs.remove removes the tab, reindexes, and fires onRemoved', async () => {
+    const handle = setupChromeFake({
+      windows: [
+        {
+          id: 1,
+          tabs: [
+            { url: 'https://a.test/' },
+            { url: 'https://b.test/' },
+            { url: 'https://c.test/' },
+          ],
+        },
+      ],
+    });
+    const [win] = await chrome.windows.getAll({
+      populate: true,
+      windowTypes: ['normal'],
+    });
+    const [a, b, c] = win.tabs ?? [];
+    const seen: [number, chrome.tabs.OnRemovedInfo][] = [];
+    chrome.tabs.onRemoved.addListener((id, info) => seen.push([id, info]));
+    const bId: number = b.id ?? -1;
+    await chrome.tabs.remove(bId);
+    const [after] = await chrome.windows.getAll({
+      populate: true,
+      windowTypes: ['normal'],
+    });
+    expect(after.tabs?.map((t) => [t.url, t.index])).toEqual([
+      ['https://a.test/', 0],
+      ['https://c.test/', 1],
+    ]);
+    expect(seen).toEqual([[bId, { windowId: 1, isWindowClosing: false }]]);
+    expect(handle.removedTabIds).toEqual([bId]);
+    expect([a.id, c.id]).not.toContain(bId);
+    handle.restore();
+  });
+
+  test("tabs.remove of a window's last tab closes the window, as Chrome does", async () => {
+    const handle = setupChromeFake({
+      windows: [
+        { id: 1, tabs: [{ url: 'https://a.test/' }] },
+        { id: 2, tabs: [{ url: 'https://b.test/' }] },
+      ],
+    });
+    const [, second] = await chrome.windows.getAll({
+      populate: true,
+      windowTypes: ['normal'],
+    });
+    const order: string[] = [];
+    chrome.tabs.onRemoved.addListener((_id, info) =>
+      order.push(`tab closing=${info.isWindowClosing}`)
+    );
+    chrome.windows.onRemoved.addListener((id) => order.push(`window ${id}`));
+    const secondTabId: number = second.tabs?.[0]?.id ?? -1;
+    await chrome.tabs.remove(secondTabId);
+    expect(order).toEqual(['tab closing=true', 'window 2']);
+    expect(
+      (await chrome.windows.getAll({ windowTypes: ['normal'] })).map(
+        (w) => w.id
+      )
+    ).toEqual([1]);
+    handle.restore();
+  });
+
+  test('tabs.remove rejects on an unknown id and removes nothing', async () => {
+    const handle = setupChromeFake({
+      windows: [{ id: 1, tabs: [{ url: 'https://a.test/' }] }],
+    });
+    await expect(chrome.tabs.remove(424242)).rejects.toThrow(
+      'No tab with id: 424242.'
+    );
+    expect((await chrome.tabs.query({})).length).toBe(1);
+    handle.restore();
+  });
+
+  test('windows.remove takes its tabs with it and fires both events', async () => {
+    const handle = setupChromeFake({
+      windows: [
+        { id: 1, tabs: [{ url: 'https://a.test/' }] },
+        {
+          id: 2,
+          tabs: [{ url: 'https://b.test/' }, { url: 'https://c.test/' }],
+        },
+      ],
+    });
+    const events: string[] = [];
+    chrome.tabs.onRemoved.addListener((_id, info) =>
+      events.push(`tab w${info.windowId} closing=${info.isWindowClosing}`)
+    );
+    chrome.windows.onRemoved.addListener((id) => events.push(`window ${id}`));
+    await chrome.windows.remove(2);
+    expect(events).toEqual([
+      'tab w2 closing=true',
+      'tab w2 closing=true',
+      'window 2',
+    ]);
+    expect((await chrome.tabs.query({})).map((t) => t.url)).toEqual([
+      'https://a.test/',
+    ]);
+    await expect(chrome.windows.remove(2)).rejects.toThrow(
+      'No window with id: 2.'
+    );
+    handle.restore();
+  });
+
+  test('tabs.create honours index (clamped), pinned and active, and fires onCreated', async () => {
+    const handle = setupChromeFake({
+      windows: [
+        {
+          id: 1,
+          tabs: [
+            { url: 'https://p.test/', pinned: true },
+            { url: 'https://a.test/', active: true },
+            { url: 'https://b.test/' },
+          ],
+        },
+      ],
+    });
+    const created: string[] = [];
+    chrome.tabs.onCreated.addListener((tab) => created.push(tab.url ?? ''));
+    await chrome.tabs.create({
+      windowId: 1,
+      url: 'https://mid.test/',
+      index: 2,
+      active: false,
+    });
+    await chrome.tabs.create({
+      windowId: 1,
+      url: 'https://far.test/',
+      index: 99,
+      active: true,
+    });
+    // Unpinned at index 0 is pushed past the pinned run.
+    await chrome.tabs.create({
+      windowId: 1,
+      url: 'https://first.test/',
+      index: 0,
+      active: false,
+    });
+    await chrome.tabs.create({
+      windowId: 1,
+      url: 'https://pin2.test/',
+      index: 5,
+      pinned: true,
+      active: false,
+    });
+    const tabs = await chrome.tabs.query({ windowId: 1 });
+    const sorted = [...tabs].sort((x, y) => x.index - y.index);
+    expect(sorted.map((t) => t.url)).toEqual([
+      'https://p.test/',
+      'https://pin2.test/',
+      'https://first.test/',
+      'https://a.test/',
+      'https://mid.test/',
+      'https://b.test/',
+      'https://far.test/',
+    ]);
+    expect(sorted.filter((t) => t.active).map((t) => t.url)).toEqual([
+      'https://far.test/',
+    ]);
+    expect(created).toEqual([
+      'https://mid.test/',
+      'https://far.test/',
+      'https://first.test/',
+      'https://pin2.test/',
+    ]);
+    await expect(
+      chrome.tabs.create({ windowId: 77, url: 'https://x.test/' })
+    ).rejects.toThrow('No window with id: 77.');
+    handle.restore();
+  });
+
+  test('windows.create honours bounds, state and incognito; with no url it opens a new tab page', async () => {
+    const handle = setupChromeFake({
+      windows: [{ id: 1, tabs: [{ url: 'https://a.test/' }] }],
+    });
+    const events: string[] = [];
+    chrome.windows.onCreated.addListener(() => events.push('window'));
+    chrome.tabs.onCreated.addListener((tab) => events.push(`tab ${tab.url}`));
+    const win = await chrome.windows.create({
+      left: 10,
+      top: 20,
+      width: 800,
+      height: 600,
+      focused: false,
+      incognito: true,
+    });
+    expect(win).toMatchObject({
+      left: 10,
+      top: 20,
+      width: 800,
+      height: 600,
+      focused: false,
+      incognito: true,
+    });
+    expect(win?.tabs?.map((t) => t.url)).toEqual(['chrome://newtab/']);
+    expect(events).toEqual(['window', 'tab chrome://newtab/']);
+    handle.restore();
+  });
+
+  test('a url in refusedUrls makes tabs.create and windows.create reject', async () => {
+    const handle = setupChromeFake({
+      windows: [{ id: 1, tabs: [{ url: 'https://a.test/' }] }],
+      refusedUrls: ['file:///secret'],
+    });
+    await expect(
+      chrome.tabs.create({ windowId: 1, url: 'file:///secret' })
+    ).rejects.toThrow('Cannot create a tab with url: file:///secret');
+    await expect(
+      chrome.windows.create({ url: 'file:///secret' })
+    ).rejects.toThrow('Cannot create a tab with url: file:///secret');
+    expect((await chrome.tabs.query({})).length).toBe(1);
+    handle.restore();
+  });
+
+  test('windows.get and tabGroups.get reject on an unknown id; tabGroups.update fires onUpdated', async () => {
+    const handle = setupChromeFake({
+      windows: [{ id: 1, tabs: [{ url: 'https://a.test/' }] }],
+      tabGroups: [{ id: 5, title: 'Kyoto', windowId: 1 }],
+    });
+    await expect(chrome.windows.get(9)).rejects.toThrow(
+      'No window with id: 9.'
+    );
+    await expect(chrome.tabGroups.get(9)).rejects.toThrow(
+      'No group with id: 9.'
+    );
+    const seen: boolean[] = [];
+    chrome.tabGroups.onUpdated.addListener((g) => seen.push(g.collapsed));
+    await chrome.tabGroups.update(5, { collapsed: true });
+    expect(seen).toEqual([true]);
+    expect((await chrome.tabGroups.get(5)).collapsed).toBe(true);
+    handle.restore();
+  });
+
+  test('browser.updateTab, moveTabToWindow and setGroup throw on an unknown id', () => {
+    const handle = setupChromeFake({
+      windows: [{ id: 1, tabs: [{ url: 'https://a.test/' }] }],
+    });
+    expect(() => handle.browser.updateTab(424242, { title: 'x' })).toThrow(
+      'browser.updateTab: no seeded tab with id 424242'
+    );
+    expect(() => handle.browser.moveTabToWindow(424242, 1)).toThrow(
+      'browser.moveTabToWindow: no seeded tab with id 424242'
+    );
+    expect(() => handle.browser.setGroup(424242, { title: 'x' })).toThrow(
+      'browser.setGroup: no seeded group with id 424242'
+    );
     handle.restore();
   });
 });
