@@ -215,6 +215,35 @@ describe('toOpenWindows', () => {
     ]);
   });
 
+  test('lists groups in FIRST-TAB order, not by group id', async () => {
+    // Group B's id (20) is HIGHER than group A's (10), but B's first tab
+    // comes before A's -- so a sort-by-id, or a reverse of encounter order,
+    // both disagree with this and must fail it.
+    handle = setupChromeFake({
+      windows: [
+        {
+          id: 1,
+          tabs: [
+            { url: 'https://ungrouped.test/' },
+            { url: 'https://b1.test/', groupId: 20 },
+            { url: 'https://b2.test/', groupId: 20 },
+            { url: 'https://a1.test/', groupId: 10 },
+          ],
+        },
+      ],
+      tabGroups: [
+        { id: 20, title: 'B', color: 'blue', windowId: 1 },
+        { id: 10, title: 'A', color: 'green', windowId: 1 },
+      ],
+    });
+
+    const windows = await getWindows();
+    const groups = await getGroups();
+    const result = toOpenWindows(windows, groups, null);
+
+    expect(result[0].groups.map((g) => g.id)).toEqual([20, 10]);
+  });
+
   test('the group colour is produced by sanitizeTabGroupColor, not a raw pass-through', async () => {
     handle = setupChromeFake({
       windows: [{ id: 1, tabs: [{ url: 'https://a.test/', groupId: 7 }] }],
