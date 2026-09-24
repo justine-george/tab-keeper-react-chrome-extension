@@ -227,6 +227,10 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
   // those are folded into the flat list rather than stored on the window.
   const windows: chrome.windows.Window[] = [];
   const tabs: chrome.tabs.Tab[] = [];
+  // Tabs whose seed literal named its own `index`, tracked by reference --
+  // the seed-time reindex below (KAN-280 O8) must not clobber a value the
+  // test asked for on purpose (e.g. RateAndReviewModal's `index: 3`).
+  const explicitIndexTabs = new WeakSet<chrome.tabs.Tab>();
 
   const makeTab = (
     tab: Partial<chrome.tabs.Tab>,
@@ -243,7 +247,7 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
         `makeTab: seed names windowId ${tab.windowId}, but this tab is being placed in window ${windowId} -- drop the explicit windowId (it is inferred from where the tab is seeded) or make the two agree.`
       );
     }
-    return {
+    const created = {
       id: nextId++,
       index: 0,
       url: '',
@@ -256,6 +260,8 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
       ...tab,
       windowId,
     } as chrome.tabs.Tab;
+    if (tab.index !== undefined) explicitIndexTabs.add(created);
+    return created;
   };
 
   for (const win of seed.windows ?? []) {
@@ -267,6 +273,10 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
       // it, so a window that defaulted to undefined would be invisible to
       // every query. Explicit `type` in the seed still wins.
       type: 'normal',
+      // `incognito` is a required boolean on chrome.windows.Window, so a
+      // seed that omits it must still match what Chrome always reports
+      // (KAN-280 O8) rather than leaving the field undefined.
+      incognito: false,
       ...rest,
     } as chrome.windows.Window;
     windows.push(created);
@@ -320,6 +330,21 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
         tab.index = index;
       });
   };
+
+  // A seeded tab's `index` defaults to 0 (makeTab above), which is only
+  // truthful for the first tab of its window -- so every DECLARED window
+  // whose tabs named no explicit index gets reindexed here, once, matching
+  // the order they were seeded in (KAN-280 O8's real-index requirement). A
+  // window with even one explicit index is left alone entirely: reindexing
+  // around it would need to invent a rule for how the named and unnamed
+  // tabs interleave, and no seed in this repo asks for that.
+  for (const win of windows) {
+    if (typeof win.id !== 'number') continue;
+    const windowTabs = tabs.filter((tab) => tab.windowId === win.id);
+    if (windowTabs.every((tab) => !explicitIndexTabs.has(tab))) {
+      reindexWindow(win.id);
+    }
+  }
 
   const tabGroups: chrome.tabGroups.TabGroup[] = (seed.tabGroups ?? []).map(
     (group) =>

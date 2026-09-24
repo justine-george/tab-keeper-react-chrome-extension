@@ -16,6 +16,10 @@ export interface OpenTab {
   audible: boolean;
   muted: boolean; // tab.mutedInfo?.muted ?? false
   groupId: number | null; // null when ungrouped or groups are not shown
+  // Chrome's tab.index: the tab's real position in its window, counting Tab
+  // Keeper pages that this pane leaves out. Reopen puts the tab back here
+  // (KAN-280 O8).
+  index: number;
 }
 
 export interface OpenGroup {
@@ -25,11 +29,25 @@ export interface OpenGroup {
   collapsed: boolean;
 }
 
+// A window's screen position and size -- what Reopen (KAN-280 O8) hands back
+// to windows.create. Grouped as one optional value, not four optional
+// numbers, because Chrome reports all four or none.
+export interface OpenWindowBounds {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
 export interface OpenWindow {
   id: number;
   isThisWindow: boolean;
   tabs: OpenTab[];
   groups: OpenGroup[]; // only groups with at least one listed tab, in first-tab order
+  // null when Chrome reports any of the four missing (KAN-280 O8).
+  bounds: OpenWindowBounds | null;
+  state: `${chrome.windows.WindowState}`; // 'normal' when Chrome omits it
+  incognito: boolean;
 }
 
 // A tab this pane can show: it has a Chrome-assigned id, and it is not a Tab
@@ -57,6 +75,7 @@ function toOpenTab(
     audible: tab.audible ?? false,
     muted: tab.mutedInfo?.muted ?? false,
     groupId,
+    index: tab.index,
   };
 }
 
@@ -86,6 +105,15 @@ export function toOpenWindows(
     const listableTabs = (window.tabs ?? []).filter(isListableTab);
     if (listableTabs.length === 0) continue;
 
+    const { left, top, width, height } = window;
+    const bounds =
+      left !== undefined &&
+      top !== undefined &&
+      width !== undefined &&
+      height !== undefined
+        ? { left, top, width, height }
+        : null;
+
     const openGroups: OpenGroup[] = [];
     const seenGroupIds = new Set<number>();
 
@@ -111,6 +139,9 @@ export function toOpenWindows(
       isThisWindow: windowId === thisWindowId,
       tabs: openTabs,
       groups: openGroups,
+      bounds,
+      state: window.state ?? 'normal',
+      incognito: window.incognito,
     });
   }
 

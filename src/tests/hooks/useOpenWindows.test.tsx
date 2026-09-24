@@ -143,6 +143,9 @@ describe('useOpenWindows', () => {
         id: 1,
         isThisWindow: true,
         groups: [],
+        bounds: null,
+        state: 'normal',
+        incognito: false,
         tabs: [
           {
             id: 11,
@@ -155,6 +158,9 @@ describe('useOpenWindows', () => {
             audible: false,
             muted: false,
             groupId: null,
+            // The tab view is the window's first tab (see twoWindows above),
+            // so A's real Chrome index is 1, not 0.
+            index: 1,
           },
         ],
       },
@@ -162,6 +168,9 @@ describe('useOpenWindows', () => {
         id: 2,
         isThisWindow: false,
         groups: [],
+        bounds: null,
+        state: 'normal',
+        incognito: false,
         tabs: [
           {
             id: 20,
@@ -174,6 +183,7 @@ describe('useOpenWindows', () => {
             audible: true,
             muted: false,
             groupId: null,
+            index: 0,
           },
         ],
       },
