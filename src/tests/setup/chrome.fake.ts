@@ -18,7 +18,7 @@
 // onUpdated/onRemoved/onMoved -- plus ChromeFakeHandle.browser, which models
 // the BROWSER's own hand (open/close/update/move/activate a tab, close a
 // window, set a group) by mutating state and firing the matching event, and
-// listenerCount()/windowsGetAllCalls for proving an unmount detached
+// liveEventListenerCount()/windowsGetAllCalls for proving an unmount detached
 // everything and a refresh coalesced its reads.
 
 export type ChromeSeed = {
@@ -120,12 +120,13 @@ export type ChromeFakeHandle = {
       >
     ): void;
   };
-  // The total listeners live across every KAN-280 registry (tabs.onCreated/
-  // onRemoved/onUpdated/onMoved/onAttached/onDetached/onActivated,
-  // windows.onCreated/onRemoved, tabGroups.onCreated/onUpdated/onRemoved/
-  // onMoved). Tests use it to prove an unmount detached everything, not just
-  // that the component stopped reacting to one of them.
-  listenerCount(): number;
+  // The listeners attached to the live-event registries KAN-280 added
+  // (tabs.onCreated/onRemoved/onUpdated/onMoved/onAttached/onDetached/
+  // onActivated, windows.onCreated/onRemoved, tabGroups.onCreated/onUpdated/
+  // onRemoved/onMoved), and no others. Tests use it to prove an unmount
+  // detached everything, not just that the component stopped reacting to
+  // one of them.
+  liveEventListenerCount(): number;
   restore(): void;
 };
 
@@ -412,7 +413,7 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
         tabGroupsOnUpdated.fire(target);
       },
     },
-    listenerCount() {
+    liveEventListenerCount() {
       return [
         tabsOnCreated,
         tabsOnRemoved,
@@ -689,7 +690,7 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
         if (index >= 0) windows.splice(index, 1);
         return settle(undefined as void, cb);
       },
-      // Only `focused` is exercised today (Task 3's "This window" tag), but
+      // Only `focused` is sent today (switchToOpenTab, KAN-280 O6), but
       // every UpdateInfo field is applied -- narrowing to just `focused`
       // would silently drop whatever a later caller sends alongside it.
       update: (

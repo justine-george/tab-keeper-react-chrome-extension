@@ -294,7 +294,7 @@ describe('useOpenWindows', () => {
     const window1 = result.current?.find((win) => win.id === 1);
     expect(window1?.tabs[0].groupId).toBe(GROUP_ID);
     expect(window1?.groups.map((group) => group.id)).toEqual([GROUP_ID]);
-    const listenersWithGroups = handle.listenerCount();
+    const listenersWithGroups = handle.liveEventListenerCount();
 
     rerender({ showGroups: false });
     await advance(0);
@@ -305,7 +305,7 @@ describe('useOpenWindows', () => {
     ]);
     expect(after?.groups).toEqual([]);
     // The four tabGroups listeners went with the permission.
-    expect(handle.listenerCount()).toBe(listenersWithGroups - 4);
+    expect(handle.liveEventListenerCount()).toBe(listenersWithGroups - 4);
   });
 
   test('chrome.tabGroups absent (ungranted) and showGroups false: the read still succeeds', async () => {
@@ -531,16 +531,16 @@ describe('useOpenWindows', () => {
   // until the browser happens to fire a different one.
   test('mount subscribes exactly 9 listeners with groups off and 13 with groups on', async () => {
     handle = setupChromeFake(twoWindows());
-    const baseline = handle.listenerCount();
+    const baseline = handle.liveEventListenerCount();
 
     const off = renderHook(() => useOpenWindows(false));
     await advance(0);
-    expect(handle.listenerCount()).toBe(baseline + 9);
+    expect(handle.liveEventListenerCount()).toBe(baseline + 9);
     off.unmount();
 
     const on = renderHook(() => useOpenWindows(true));
     await advance(0);
-    expect(handle.listenerCount()).toBe(baseline + 13);
+    expect(handle.liveEventListenerCount()).toBe(baseline + 13);
     on.unmount();
   });
 
@@ -562,18 +562,18 @@ describe('useOpenWindows', () => {
 
   test('unmount removes every listener and cancels a pending refresh', async () => {
     handle = setupChromeFake(twoWindows());
-    const before = handle.listenerCount();
+    const before = handle.liveEventListenerCount();
 
     const { unmount } = renderHook(() => useOpenWindows(true));
     await advance(0);
-    expect(handle.listenerCount()).toBeGreaterThan(before);
+    expect(handle.liveEventListenerCount()).toBeGreaterThan(before);
 
     // A refresh is pending when the pane goes away.
     handle.browser.updateTab(11, { title: 'A2' });
     unmount();
     const atUnmount = getAllCalls();
 
-    expect(handle.listenerCount()).toBe(before);
+    expect(handle.liveEventListenerCount()).toBe(before);
     await advance(500);
     handle.browser.openTab(1, { url: 'https://new.test/', title: 'New' });
     await advance(500);

@@ -515,16 +515,16 @@ describe('live browser events (KAN-280)', () => {
     handle.restore();
   });
 
-  test('removeListener detaches, and listenerCount says so', () => {
+  test('removeListener detaches, and liveEventListenerCount says so', () => {
     const handle = setupChromeFake();
-    const base = handle.listenerCount();
+    const base = handle.liveEventListenerCount();
     const fn = () => undefined;
     chrome.tabs.onUpdated.addListener(fn);
     chrome.windows.onRemoved.addListener(fn);
-    expect(handle.listenerCount()).toBe(base + 2);
+    expect(handle.liveEventListenerCount()).toBe(base + 2);
     chrome.tabs.onUpdated.removeListener(fn);
     chrome.windows.onRemoved.removeListener(fn);
-    expect(handle.listenerCount()).toBe(base);
+    expect(handle.liveEventListenerCount()).toBe(base);
     handle.restore();
   });
 

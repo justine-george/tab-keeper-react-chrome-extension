@@ -3,8 +3,8 @@ import { sanitizeTabGroupColor } from './tabGroups';
 import type { TabGroupColor } from './tabGroups';
 
 // What the Open now pane (KAN-280) shows for one open tab. A live read, never
-// stored: Global Constraints forbids putting chrome.windows/chrome.tabs data
-// into tabContainerDataState, localStorage or Firestore.
+// stored: KAN-280's rule is that live data never enters Redux's persisted
+// slices and is never written to localStorage or Firestore.
 export interface OpenTab {
   id: number;
   windowId: number;
@@ -34,7 +34,7 @@ export interface OpenWindow {
 
 // A tab this pane can show: it has a Chrome-assigned id, and it is not a Tab
 // Keeper page (KAN-300's rule -- see isTabKeeperPage). Narrowed with a
-// predicate rather than a cast, per Global Constraints' no-`as` rule.
+// predicate rather than a cast, so the type says what was checked.
 function isListableTab(
   tab: chrome.tabs.Tab
 ): tab is chrome.tabs.Tab & { id: number } {

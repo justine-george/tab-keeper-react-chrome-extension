@@ -51,7 +51,8 @@ export default function OpenNowWindow({
   // windowChildLinkStyle (WindowEntryContainer.tsx:334-478 when copied), NOT
   // imported: the drag engine owns that file's CSS
   // channels, so the saved pane must not change for this one. Live and saved
-  // rows must still measure the same, which Task 7's e2e pins (KAN-280).
+  // rows must still measure the same (KAN-280, "Rows look like saved rows"),
+  // which e2e/open-now.spec.ts tests 7, 7b and 7c pin.
   const containerStyle = css`
     display: flex;
     flex-direction: column;
