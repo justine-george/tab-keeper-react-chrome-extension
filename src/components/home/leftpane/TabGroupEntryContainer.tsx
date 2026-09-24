@@ -177,6 +177,30 @@ export default function TabGroupEntryContainer() {
     user-select: none;
   `;
 
+  // KAN-280 O3a. In the tab view the list box is two parts: the caption, then
+  // the scroller. The box keeps the border, margin and height the scroller
+  // had alone, so the scroller gives up the caption's height and the box does
+  // not grow. min-height: 0 lets it shrink in LeftPane's column as the lone
+  // scroller did (a scroll container's automatic minimum is 0; this box is
+  // not one).
+  const tabListBoxStyle = css`
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+    border: 1px solid ${COLORS.BORDER_COLOR};
+    margin: 8px 0;
+    user-select: none;
+  `;
+
+  const tabScrollerStyle = css`
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 0;
+    min-height: 0;
+    overflow: auto;
+  `;
+
   const emptyContainerStyle = css`
     display: flex;
     height: 100%;
@@ -191,18 +215,8 @@ export default function TabGroupEntryContainer() {
 
   const isTab = isTabView();
 
-  return (
-    <div css={containerStyle} ref={listRef}>
-      {/* KAN-280 O3. Beside Open now, the list says which sessions these
-          are. The popup has no Open now, so it has no caption either. */}
-      {isTab && (
-        <NormalLabel
-          value={t('Saved sessions')}
-          size={TYPE.META}
-          color={COLORS.LABEL_L2_COLOR}
-          style="flex-shrink: 0; padding: 8px 8px 4px 8px;"
-        />
-      )}
+  const scroller = (
+    <div css={isTab ? tabScrollerStyle : containerStyle} ref={listRef}>
       {filteredTabGroups.length === 0 ? (
         <div css={emptyContainerStyle}>
           {/* KAN-86. Was the bare literal "Empty", which rendered in English
@@ -290,6 +304,34 @@ export default function TabGroupEntryContainer() {
           </RowDragArea>
         </div>
       )}
+    </div>
+  );
+
+  // The popup has no Open now, so it has no caption either: its list is the
+  // scroller alone, as it always was.
+  if (!isTab) return scroller;
+
+  // KAN-280 O3/O3a. Beside Open now, the list says which sessions these are.
+  // Pinned by sitting OUTSIDE the scroller, not by position: sticky inside
+  // it: the drag engine measures the scroller as all rows and auto-scrolls
+  // from its edges, and a caption laid over the top rows would put hidden
+  // rows under the pointer.
+  return (
+    <div css={tabListBoxStyle}>
+      <div
+        data-caption="saved-sessions"
+        css={css`
+          flex-shrink: 0;
+        `}
+      >
+        <NormalLabel
+          value={t('Saved sessions')}
+          size={TYPE.META}
+          color={COLORS.LABEL_L2_COLOR}
+          style="padding: 8px 8px 4px 8px;"
+        />
+      </div>
+      {scroller}
     </div>
   );
 }

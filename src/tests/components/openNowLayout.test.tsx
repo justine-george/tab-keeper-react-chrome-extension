@@ -365,3 +365,69 @@ describe('the Saved sessions caption (O3)', () => {
     expect(storedFold()).toBeUndefined();
   });
 });
+
+// KAN-280 O3a. The caption is pinned by structure: it sits above the element
+// that scrolls the session list, inside the list box's border, so that
+// scroller holds session rows and nothing else. The drag engine measures the
+// scroller as all rows and auto-scrolls from its edges; a sticky caption
+// laid over the top rows would put hidden rows under the pointer.
+describe('the Saved sessions caption stays put while the list scrolls (O3a)', () => {
+  // The element the drag engine takes for the list's scroller: the nearest
+  // ancestor of a row that scrolls (RowDragArea's paneOf). jsdom does not
+  // expand the `overflow` shorthand into overflowY (measured: overflow 'auto',
+  // overflowY 'visible'), so both are read.
+  const scrolls = (value: string) => value === 'auto' || value === 'scroll';
+  function listScroller(): HTMLElement {
+    const firstRow = document.querySelector<HTMLElement>(
+      '[data-pane="sessions"] [data-drag-row-id]'
+    );
+    let el = firstRow?.parentElement ?? null;
+    while (el && el !== document.body) {
+      const style = getComputedStyle(el);
+      if (scrolls(style.overflowY) || scrolls(style.overflow)) return el;
+      el = el.parentElement;
+    }
+    throw new Error('no scroll container above the session rows');
+  }
+
+  const caption = () =>
+    document.querySelector<HTMLElement>('[data-caption="saved-sessions"]');
+
+  test('in the tab view the caption sits directly above the scroller, outside it', async () => {
+    goToTabView();
+    await renderHome();
+    await mounted();
+
+    const scroller = listScroller();
+    const label = caption();
+    if (label === null) throw new Error('no caption');
+    expect(label).toHaveTextContent('Saved sessions');
+    expect(scroller.contains(label)).toBe(false);
+    expect(label.nextElementSibling).toBe(scroller);
+    // What the scroller holds starts with the rows.
+    const firstRow = document.querySelector('[data-drag-row-id]');
+    expect(scroller.firstElementChild?.contains(firstRow)).toBe(true);
+  });
+
+  test('the caption is not sticky', async () => {
+    goToTabView();
+    await renderHome();
+    await mounted();
+
+    const label = caption();
+    if (label === null) throw new Error('no caption');
+    expect(getComputedStyle(label).position).not.toBe('sticky');
+  });
+
+  // CONTROL. The popup's list is built as before: no caption, and the
+  // scroller's first child holds the first session row.
+  test('CONTROL: the popup has no caption, and its scroller starts with the rows', async () => {
+    await renderHome();
+    await mounted();
+
+    expect(caption()).toBeNull();
+    const scroller = listScroller();
+    const firstRow = document.querySelector('[data-drag-row-id]');
+    expect(scroller.firstElementChild?.contains(firstRow)).toBe(true);
+  });
+});
