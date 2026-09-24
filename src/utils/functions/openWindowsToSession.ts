@@ -1,7 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 
 import { isTabKeeperPage, toStoredTab } from './capture';
-import { getStringDate } from './local';
+import { getStringDate, normalizeTitle } from './local';
 import type { OpenWindow } from './openNow';
 import { dropNotificationCount } from './sessionExportHtml';
 import { pickNameSourceTab } from './viewMode';
@@ -12,7 +12,7 @@ import type {
 
 // One listed window in storage shape, as toWindowGroupData writes a captured
 // one: fresh ids, the first tab's title, and chromeTabGroups only when there
-// is a group, so a window without one matches a capture byte for byte.
+// is a group, so a window without one matches a capture's shape.
 function toSavedWindow(openWindow: OpenWindow): windowGroupData {
   // Chrome's group ids last only as long as this browser session, so each
   // group gets an id of ours and its tabs point at that.
@@ -80,12 +80,19 @@ export function openWindowsToSession(
 
 // The session name the tab view would suggest for this window (rule 1): the
 // most recently used tab that is not a Tab Keeper page, cleaned of an unread
-// count, else `fallback` -- the caller's t('New Tab Group').
+// count, else `fallback` -- the caller's t('New Tab Group'). Blank is no name,
+// as in the name box (KAN-84), and a refused read names nothing: either way
+// the save still happens, under `fallback`.
 export async function suggestTitleForWindow(
   windowId: number,
   fallback: string
 ): Promise<string> {
-  const tabs = await chrome.tabs.query({ windowId });
+  let tabs: chrome.tabs.Tab[];
+  try {
+    tabs = await chrome.tabs.query({ windowId });
+  } catch {
+    return fallback;
+  }
   const picked = pickNameSourceTab(tabs, isTabKeeperPage);
-  return picked?.title ? dropNotificationCount(picked.title) : fallback;
+  return normalizeTitle(dropNotificationCount(picked?.title ?? '')) || fallback;
 }

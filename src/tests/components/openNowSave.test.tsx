@@ -184,6 +184,59 @@ describe('saving from the Open now pane (KAN-280 O13)', () => {
     );
   });
 
+  // Rule 1's name is read from Chrome, which can refuse. A save still
+  // happens, under the fallback name.
+  test('Save window saves as New Tab Group when Chrome refuses the tab read for its name', async () => {
+    const { store } = await renderOpenNow({
+      currentTabId: TAB_VIEW_ID,
+      windows: [
+        { id: 1, focused: true, tabs: [tabView(), tab(11, 'A', 100)] },
+        { id: 2, tabs: [tab(21, 'D', 200), tab(22, 'E', 300)] },
+      ],
+    });
+    const query = vi
+      .spyOn(chrome.tabs, 'query')
+      .mockRejectedValueOnce(new Error('No window with id: 2.'));
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'Save window as a session: Window 2',
+      })
+    );
+
+    const saved = await savedSession(store);
+    // PREMISE: the refused read was the name's.
+    expect(query.mock.calls[0]).toEqual([{ windowId: 2 }]);
+    expect(saved.title).toBe('New Tab Group');
+    expect(saved.windows.map(tabTitlesOf)).toEqual([['D', 'E']]);
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Window saved as a session.'
+    );
+  });
+
+  // As the name box does (KAN-84): a name of only spaces is no name.
+  test('Save window falls back to New Tab Group when the name source tab is titled only with spaces', async () => {
+    const { store } = await renderOpenNow({
+      currentTabId: TAB_VIEW_ID,
+      windows: [
+        { id: 1, focused: true, tabs: [tabView(), tab(11, 'A', 100)] },
+        {
+          id: 2,
+          tabs: [tab(21, 'D', 200), { ...tab(22, 'Blank', 500), title: '   ' }],
+        },
+      ],
+    });
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'Save window as a session: Window 2',
+      })
+    );
+
+    const saved = await savedSession(store);
+    expect(saved.title).toBe('New Tab Group');
+  });
+
   test('every window row has Save window, first in its strip', async () => {
     await renderOpenNow({
       currentTabId: TAB_VIEW_ID,
