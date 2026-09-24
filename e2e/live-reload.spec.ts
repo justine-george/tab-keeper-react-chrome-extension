@@ -17,10 +17,11 @@ import { buildContainer, buildSession } from './fixtures/seed';
 //
 // Needs no cloud config: storage events are local. Auto Sync is off (see
 // seedOnce), and each test checks that no page reached the cloud, so a sync
-// cannot be what carried a change across. The last two describes are the
-// exception: they turn Auto Sync on to check that a sync keeps each page's own
-// selection (KAN-294) and that a sync held by a drag still finishes (KAN-297),
-// and need a build with the cloud config.
+// cannot be what carried a change across. The last three describes are the
+// exception, and need a build with the cloud config: two turn Auto Sync on to
+// check that a sync keeps each page's own selection (KAN-294) and that a sync
+// held by a drag still finishes (KAN-297); the last syncs with Sync now, for
+// a local-only sync held by a drag (KAN-298).
 
 const A = buildSession({ tabGroupId: 'alpha', title: 'Alpha session' });
 const B = buildSession({ tabGroupId: 'bravo', title: 'Bravo session' });
@@ -454,6 +455,131 @@ test.describe('a sync held by a drag still finishes after a cancel (KAN-297)', (
     // held (KAN-295 broken) would reach cloud_done too, with one read only.
     expect(reads, 'the release re-ran no sync').toBe(2);
     // The cancel took page 2's rename in (the queued storage event).
+    await expect(row(page1, 'Charlie renamed')).toBeVisible();
+    await page1.screenshot({ path: testInfo.outputPath('page1-after.png') });
+  });
+});
+
+// KAN-298. The same hold on the local-only branch: the account has no cloud
+// document yet, so the sync loads localStorage and writes it up. A fresh
+// profile mints a fresh sync id, and Auto Sync is off, so nothing reads or
+// writes the cloud until Sync now -- whose read finds no document. Before the
+// fix that branch loaded page 2's write under the held row and saved it
+// mid-drag: the control reached cloud_done while the row was still held.
+//
+// Needs the cloud config, like the two describes above; skips without it.
+const WRITE = /firestore\.googleapis\.com\/.*documents:commit/;
+
+test.describe('a local-only sync holds for a drag, and finishes after a cancel (KAN-298)', () => {
+  test('no cloud document: page 2 writes while page 1 holds a row mid-sync; nothing loads or saves until Esc', async ({
+    context,
+    extensionId,
+  }, testInfo) => {
+    await seedOnce(context);
+    const cloudRequests: string[] = [];
+    const page1 = await openPage(context, extensionId, cloudRequests);
+    const page2 = await openPage(context, extensionId, cloudRequests);
+    await select(page2, C.title);
+    // Auto Sync off: neither page has touched the cloud.
+    expect(cloudRequests).toEqual([]);
+
+    // Page 1's first read waits until released.
+    let release: () => void = () => {};
+    const gate = new Promise<void>((r) => (release = r));
+    let arrived: () => void = () => {};
+    const readWaiting = new Promise<void>((r) => (arrived = r));
+    let reads = 0;
+    await page1.route(READ, async (route: Route) => {
+      reads += 1;
+      if (reads === 1) {
+        arrived();
+        await gate;
+      }
+      await route.continue();
+    });
+
+    await syncControl(page1).click();
+    // Without a cloud config the sign-in fails and the sync ends on
+    // sync_problem (KAN-289) with no read: that ends the wait early.
+    let readArrived = false;
+    void readWaiting.then(() => (readArrived = true));
+    await expect
+      .poll(
+        async () =>
+          readArrived ||
+          (await syncControl(page1).textContent()) === 'sync_problem',
+        { timeout: 20_000 }
+      )
+      .toBe(true);
+    test.skip(
+      !readArrived && !cloudRequests.some((u) => CLOUD.test(u)),
+      'this build has no cloud config (CI); nothing to sync'
+    );
+    expect(readArrived, "page 1's Sync now never read the cloud").toBe(true);
+
+    // Pick up Alpha: pressed at its centre, moved far enough to start.
+    const box = await page1.locator('[data-drag-row-id="alpha"]').boundingBox();
+    if (box === null) throw new Error('no box for the Alpha row');
+    const x = box.x + box.width / 2;
+    const y = box.y + box.height / 2;
+    await page1.mouse.move(x, y);
+    await page1.mouse.down();
+    await page1.mouse.move(x, y + 8, { steps: 4 });
+    await page1.mouse.move(x, y + 30, { steps: 6 });
+    const dragging = () =>
+      page1.evaluate(() =>
+        document.documentElement.getAttribute('data-dragging')
+      );
+    expect(await dragging(), 'the drag never started').toBe('session');
+
+    // Page 2 writes; page 1's storage event queues behind the hold.
+    await rename(page2, C.title, 'Charlie renamed');
+    await expect
+      .poll(() =>
+        page1.evaluate(() =>
+          (window.localStorage.getItem('tabContainerData') ?? '').includes(
+            'Charlie renamed'
+          )
+        )
+      )
+      .toBe(true);
+
+    const landed = page1.waitForResponse((r) => READ.test(r.url()));
+    release();
+    const read = await landed;
+    // PREMISE: the read found no document, so the sync took its local-only
+    // branch. (batchGet answers a missing document with `missing`.)
+    const readBody = await read.text();
+    expect(readBody, 'the account already has a cloud document').toContain(
+      '"missing"'
+    );
+    // Held: still running, nothing moved under the pointer, nothing written.
+    // A write is async after the branch, so give one the time to show.
+    await page1.waitForTimeout(1_500);
+    await expect(syncControl(page1)).toHaveText('cloud_sync');
+    await expect(row(page1, C.title)).toBeVisible();
+    expect(await dragging()).toBe('session');
+    expect(
+      cloudRequests.filter((u) => WRITE.test(u)),
+      'the held sync wrote mid-drag'
+    ).toEqual([]);
+    await page1.screenshot({ path: testInfo.outputPath('page1-held.png') });
+
+    await page1.keyboard.press('Escape');
+    await page1.mouse.up();
+    expect(await dragging(), 'Esc did not end the drag').toBeNull();
+
+    await softly(
+      syncControl(page1),
+      'the sync never finished after the cancel'
+    ).toHaveText('cloud_done', { timeout: 15_000 });
+    // The release re-ran the sync, and that run wrote the sessions up.
+    expect(reads, 'the release re-ran no sync').toBe(2);
+    expect(
+      cloudRequests.filter((u) => WRITE.test(u)).length,
+      'the re-run sync wrote nothing'
+    ).toBeGreaterThan(0);
+    // The cancel took page 2's rename in.
     await expect(row(page1, 'Charlie renamed')).toBeVisible();
     await page1.screenshot({ path: testInfo.outputPath('page1-after.png') });
   });

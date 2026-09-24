@@ -28,10 +28,14 @@ import {
 } from '../../redux/slices/settingsDataStateSlice';
 import {
   replaceState,
+  selectTabContainer,
   updateTabGroupTitle,
   type TabMasterContainer,
 } from '../../redux/slices/tabContainerDataStateSlice';
 import { undo } from '../../redux/slices/undoRedoSlice';
+import { beginDragHold, endDragHold } from '../../redux/dragHold';
+import { dropOnTop } from '../../redux/dropOnTop';
+import { sessionDrop } from '../../redux/dropSpecs';
 import { TAB_CONTAINER_REPLACE_STATE_ACTION } from '../../utils/constants/actionTypes';
 import {
   isValidTabMasterContainer,
@@ -131,6 +135,7 @@ beforeEach(() => {
   localStorage.clear();
 });
 afterEach(() => {
+  endDragHold();
   cleanup();
   localStorage.clear();
 });
@@ -176,5 +181,107 @@ describe("App's re-run of its local load (KAN-295)", () => {
 
     expect(seen).toContain(TAB_CONTAINER_REPLACE_STATE_ACTION);
     expect(store.getState().undoRedo.past.length).toBe(1);
+  });
+});
+
+// KAN-298. The same re-run while a row is held: loading the other page's
+// write would move the list under the pointer (KAN-279 D12). It waits for the
+// release. R3, the unheld re-run, is the KAN-295 test above.
+describe("App's re-run of its local load holds for a drag (KAN-298)", () => {
+  const ids = (store: Store) =>
+    store.getState().tabContainerDataState.tabGroups.map((g) => g.tabGroupId);
+
+  // Another open page selects a session and renames it. Its selection is its
+  // own, and must not become this page's.
+  const otherPageSelectsAndRenames = (id: string, title: string) => {
+    const other = makeTestStore().store;
+    other.dispatch(replaceState(readStored()));
+    other.dispatch(selectTabContainer(id));
+    other.dispatch(
+      updateTabGroupTitle({ tabGroupId: id, editableTitle: title })
+    );
+  };
+
+  // A row is held, the other page writes, and the effect re-runs. Checks
+  // that nothing changed while held: no load, the same sessions object, and
+  // this page's undo.
+  const heldReRun = async (store: Store, seen: string[]) => {
+    const before = store.getState();
+    beginDragHold();
+    otherPageSelectsAndRenames('alpha', 'Other page');
+    seen.length = 0;
+    otherPageTurnsAutoSyncOn(store);
+    await act(async () => {});
+    // The premise asserted here is only that Auto Sync flipped, which is an
+    // input of the effect (syncAllowed). That this flip re-runs the effect's
+    // local branch is shown by the unheld KAN-295 test above, which sees the
+    // load; a held re-run dispatches nothing that could show it here.
+    expect(store.getState().settingsDataState.isAutoSync).toBe(true);
+
+    const held = store.getState();
+    expect(seen).not.toContain(TAB_CONTAINER_REPLACE_STATE_ACTION);
+    expect(titleOf(store, 'alpha')).toBe('Alpha');
+    expect(held.tabContainerDataState).toBe(before.tabContainerDataState);
+    expect(held.undoRedo.past.length).toBe(before.undoRedo.past.length);
+  };
+
+  test("R1: held, the list stays put; a cancel takes in the latest write, keeps this page's selection, and resets undo", async () => {
+    const { store, seen } = await openApp();
+    act(() => {
+      store.dispatch(selectTabContainer('bravo'));
+      store.dispatch(
+        updateTabGroupTitle({ tabGroupId: 'bravo', editableTitle: 'Mine' })
+      );
+    });
+    expect(store.getState().undoRedo.past.length).toBeGreaterThan(0);
+    await heldReRun(store, seen);
+
+    // The other page writes again while the row is still held: the release
+    // takes in localStorage as it is then, not as it was at the re-run.
+    otherPageSelectsAndRenames('alpha', 'Other page, later');
+
+    // Released with no drop.
+    act(() => {
+      endDragHold();
+    });
+
+    const { tabContainerDataState, undoRedo } = store.getState();
+    expect({
+      alpha: titleOf(store, 'alpha'),
+      bravo: titleOf(store, 'bravo'),
+      selected: tabContainerDataState.selectedTabGroupId,
+      past: undoRedo.past.length,
+    }).toEqual({
+      alpha: 'Other page, later',
+      bravo: 'Mine',
+      selected: 'bravo',
+      past: 0,
+    });
+    act(() => {
+      store.dispatch(undo());
+    });
+    expect(titleOf(store, 'alpha')).toBe('Other page, later');
+  });
+
+  test("R2: held, a drop that lands goes on top of the other page's write", async () => {
+    const { store, seen } = await openApp();
+    await heldReRun(store, seen);
+
+    // bravo dropped above alpha; RowDragArea.finish then ends the hold.
+    act(() => {
+      store.dispatch(dropOnTop(sessionDrop('bravo', 0)));
+      endDragHold();
+    });
+
+    expect(ids(store)).toEqual(['bravo', 'alpha']);
+    expect(titleOf(store, 'alpha')).toBe('Other page');
+    const stored = readStored();
+    expect(stored.tabGroups.map((g) => g.tabGroupId)).toEqual([
+      'bravo',
+      'alpha',
+    ]);
+    expect(stored.tabGroups.find((g) => g.tabGroupId === 'alpha')?.title).toBe(
+      'Other page'
+    );
   });
 });

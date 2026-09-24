@@ -415,11 +415,9 @@ const CLOUD = /firestore\.googleapis\.com|identitytoolkit\.googleapis\.com/;
 //
 // Auto Sync off: a sync is a second route from localStorage into a page
 // (live-reload.spec.ts), and the storage event must be the only one here.
-// Measured with it on (2026-09-23): the tab view's startup sync found no
-// cloud document and took the local-only branch, which loads localStorage
-// with no drag-hold check, so the popup's save went in under the held row
-// and D landed beside it. That is a gap in the hold, reported separately,
-// not something this spec covers.
+// With it on, the tab view's startup sync finds no cloud document and takes
+// the local-only branch. That branch holds for a drag since KAN-298, and
+// live-reload.spec.ts covers it with a real cloud.
 async function seedOnce(context: BrowserContext): Promise<void> {
   await context.addInitScript(
     (seed: { sessions: string; settings: string }) => {

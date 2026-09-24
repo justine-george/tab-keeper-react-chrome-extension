@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 
 import { v4 as uuidv4 } from 'uuid';
-import { useDispatch, useSelector } from 'react-redux';
+import { useDispatch, useSelector, useStore } from 'react-redux';
 
 import { css } from '@emotion/react';
 
@@ -28,8 +28,11 @@ import {
   setUserId,
   showToast,
   loadStoredSessionsIntoPage,
+  storedLoadMustWaitForRelease,
   syncStateWithFirestore,
 } from './redux/slices/globalStateSlice';
+import { whenDragReleases } from './redux/dragHold';
+import { hydrateSessionsFromStorage } from './redux/otherPageChanges';
 import {
   hasTabGroupsPermission,
   observeTabGroupsPermission,
@@ -75,6 +78,7 @@ function App() {
   useDocumentTheme();
 
   const dispatch: AppDispatch = useDispatch();
+  const reduxStore = useStore<RootState>();
   const isSignedIn = useSelector(
     (state: RootState) => state.globalState.isSignedIn
   );
@@ -275,7 +279,20 @@ function App() {
       if (candidate !== undefined && tabDataFromLocalStorage === undefined) {
         console.warn('Ignoring unreadable tabContainerData in localStorage.');
       }
-      if (tabDataFromLocalStorage) {
+      if (
+        tabDataFromLocalStorage &&
+        storedLoadMustWaitForRelease(
+          reduxStore.getState(),
+          tabDataFromLocalStorage
+        )
+      ) {
+        // KAN-298. A re-run found another page's write while a row is held:
+        // loading it would move the list under the pointer. It is taken in at
+        // the release, from localStorage as it is THEN, with this page's
+        // selection and an undo reset. The hydrate, not a closure that checks
+        // the hold: that would queue itself again during the drop's flush.
+        whenDragReleases(() => dispatch(hydrateSessionsFromStorage()));
+      } else if (tabDataFromLocalStorage) {
         // KAN-294. On mount this is the page's first load and keeps the
         // stored selection; a re-run (sign-in, a hydrated consent or Auto Sync
         // change) keeps this page's own, not the last writer's. KAN-295: a
