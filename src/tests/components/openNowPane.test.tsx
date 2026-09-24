@@ -245,6 +245,18 @@ describe('the Open now pane (KAN-280)', () => {
 
   // Shade only: the title keeps the popup's one font weight, which
   // scaleConformance.test.ts holds (KAN-205).
+  // The shade is colour alone; aria-current is the cue that is not. Each
+  // window has one active tab, so one current row per window.
+  test('the active tab of each window is marked current', async () => {
+    await renderPane(twoWindows());
+
+    const current = screen
+      .getAllByRole('button', { current: true })
+      .map((el) => el.ariaLabel);
+    expect(current).toEqual(['Switch to tab: A', 'Switch to tab: C']);
+    expect(tabRow('B')).not.toHaveAttribute('aria-current');
+  });
+
   test('the active tab row is shaded', async () => {
     await renderPane(twoWindows());
 
@@ -366,16 +378,27 @@ describe('the Open now pane (KAN-280)', () => {
     const user = userEvent.setup();
     await renderPane(twoWindows());
 
-    await user.click(
-      within(windowBlock('Window 1')).getByRole('button', { name: 'Collapse' })
-    );
+    // Each chevron names its own window and says whether it is open, so N
+    // windows are not N identical "Collapse" buttons.
+    const chevron1 = screen.getByRole('button', {
+      name: 'Collapse: Window 1',
+    });
+    expect(chevron1).toHaveAttribute('aria-expanded', 'true');
+    expect(
+      screen.getByRole('button', { name: 'Collapse: Window 2' })
+    ).toHaveAttribute('aria-expanded', 'true');
+
+    await user.click(chevron1);
 
     expect(queryTabRow('A')).toBeNull();
     expect(queryTabRow('B')).toBeInTheDocument();
     expect(queryTabRow('C')).toBeInTheDocument();
-    // Window 1's own chevron now offers the way back.
+    // Window 1's own chevron now offers the way back, and says it is shut.
     expect(
-      within(windowBlock('Window 1')).getByRole('button', { name: 'Expand' })
+      screen.getByRole('button', { name: 'Expand: Window 1', expanded: false })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Collapse: Window 2', expanded: true })
     ).toBeInTheDocument();
   });
 });

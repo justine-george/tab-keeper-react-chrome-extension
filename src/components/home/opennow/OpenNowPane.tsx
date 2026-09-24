@@ -162,9 +162,11 @@ export default function OpenNowPane({ windows, actions }: OpenNowPaneProps) {
               }
             />
           )}
-          {actions.map((action) => (
+          {actions.map((action, index) => (
             <Icon
-              key={action.label}
+              // By position: the caller's list is fixed, and two actions may
+              // share a label.
+              key={index}
               tooltipText={action.label}
               ariaLabel={action.label}
               type={action.icon}

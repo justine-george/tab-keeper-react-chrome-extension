@@ -46,9 +46,10 @@ export default function OpenNowWindow({
   const FONT_FAMILY = useFontFamily();
   const { t } = useTranslation();
 
-  // Copied from WindowEntryContainer.tsx:334-478 (containerStyle, parentStyle,
-  // parentLeftStyle, childrenContainerStyle, childrenStyle, childLeftStyle,
-  // windowChildLinkStyle), NOT imported: the drag engine owns that file's CSS
+  // Copied from WindowEntryContainer's own containerStyle, parentStyle,
+  // parentLeftStyle, childrenContainerStyle, childrenStyle, childLeftStyle and
+  // windowChildLinkStyle (WindowEntryContainer.tsx:334-478 when copied), NOT
+  // imported: the drag engine owns that file's CSS
   // channels, so the saved pane must not change for this one. Live and saved
   // rows must still measure the same, which Task 7's e2e pins (KAN-280).
   const containerStyle = css`
@@ -147,6 +148,7 @@ export default function OpenNowWindow({
       <div key={tab.id} css={childrenStyle(tab.active)}>
         <ClickableRow
           ariaLabel={t('Switch to tab') + ': ' + tab.title}
+          ariaCurrent={tab.active}
           // Chrome rejects when the tab closed after this row was drawn. There
           // is nothing to switch to, and the next read drops the row.
           onClick={() => void switchToOpenTab(tab).catch(() => undefined)}
@@ -185,7 +187,10 @@ export default function OpenNowWindow({
         <div css={parentLeftStyle}>
           <Icon
             tooltipText={isOpen ? t('Collapse') : t('Expand')}
-            ariaLabel={isOpen ? t('Collapse') : t('Expand')}
+            // Names its window, as the tab rows name their tab, so N windows
+            // are not N identical "Collapse" buttons (KAN-280).
+            ariaLabel={(isOpen ? t('Collapse') : t('Expand')) + ': ' + title}
+            ariaExpanded={isOpen}
             type={isOpen ? 'expand_less' : 'expand_more'}
             onClick={onToggle}
           />
@@ -220,11 +225,16 @@ export default function OpenNowWindow({
               // The saved band, at rest (KAN-280: a live grouped tab sits
               // exactly where a saved one does). Copied, not shared, for the
               // reason the styles above are:
-              //   band        WindowEntryContainer.tsx:945-966
-              //   strip       GroupColorPicker.tsx:101-125
-              //   column      WindowEntryContainer.tsx:1073-1077
-              //   title row   WindowEntryContainer.tsx:1098-1120, 1218
-              //   title label WindowEntryContainer.tsx:516-522
+              // (line numbers as of the copy; the names are what to search)
+              //   band        the role="group" band's css in
+              //               WindowEntryContainer.tsx (945-966)
+              //   strip       bandStyle in GroupColorPicker.tsx (101-125)
+              //   column      the band's flex: 1 column in
+              //               WindowEntryContainer.tsx (1073-1077)
+              //   title row   the data-group-drag-handle row and its
+              //               ClickableRow style (1098-1120, 1218)
+              //   title label groupTitleLabel in
+              //               WindowEntryContainer.tsx (516-522)
               // Only the resting declarations: the drag-only rules
               // ([data-drag-held], [data-drag-removed], [data-drop-target],
               // the strip's hover widen) never apply here, and the strip's
