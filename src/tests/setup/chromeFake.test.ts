@@ -695,10 +695,11 @@ describe('live browser events (KAN-280)', () => {
   });
 });
 
-// KAN-280 Part B's own calls (close/create/group tabs and windows) fire the
-// events Chrome fires back to the caller who made them -- the fake's header
-// used to claim otherwise. These tests prove the fake matches Chrome, not
-// the header's old (false) claim.
+// KAN-280 O8: Reopen closes and recreates tabs and windows through these
+// same extension calls, and Open now refreshes off the events Chrome fires
+// for them -- so the fake has to fire tabs.onRemoved/onCreated,
+// windows.onRemoved/onCreated and tabGroups.onUpdated for its OWN calls,
+// not just for handle.browser.*'s simulated user actions.
 describe('extension calls fire what Chrome fires (KAN-280 Part B)', () => {
   test('tabs.remove removes the tab, reindexes, and fires onRemoved', async () => {
     const handle = setupChromeFake({
@@ -763,6 +764,21 @@ describe('extension calls fire what Chrome fires (KAN-280 Part B)', () => {
     handle.restore();
   });
 
+  // A bare `tabs: [...]` seed places a tab in DEFAULT_WINDOW_ID without
+  // ever declaring that window -- a fake-only convenience, not a real
+  // browser window. Losing its last tab must not report a window closing
+  // that never existed.
+  test('tabs.remove of a tab in a window the seed never declared does not fire windows.onRemoved', async () => {
+    const handle = setupChromeFake({ tabs: [{ id: 11 }] });
+    const removed: number[] = [];
+    chrome.windows.onRemoved.addListener((id) => removed.push(id));
+
+    await chrome.tabs.remove(11);
+
+    expect(removed).toEqual([]);
+    handle.restore();
+  });
+
   test('tabs.remove rejects on an unknown id and removes nothing', async () => {
     const handle = setupChromeFake({
       windows: [{ id: 1, tabs: [{ url: 'https://a.test/' }] }],
@@ -771,6 +787,142 @@ describe('extension calls fire what Chrome fires (KAN-280 Part B)', () => {
       'No tab with id: 424242.'
     );
     expect((await chrome.tabs.query({})).length).toBe(1);
+    handle.restore();
+  });
+
+  // Chromium's TabsRemoveFunction::Run loops the ids and removes each in
+  // order, stopping at the first it cannot find -- it does not check every
+  // id before touching any of them.
+  test('a batch stops at the first unknown id: ids before it are already closed, ids after are untouched', async () => {
+    const handle = setupChromeFake({
+      windows: [
+        {
+          id: 1,
+          tabs: [{ url: 'https://a.test/' }, { url: 'https://b.test/' }],
+        },
+      ],
+    });
+    const [win] = await chrome.windows.getAll({
+      populate: true,
+      windowTypes: ['normal'],
+    });
+    const [a, b] = win.tabs ?? [];
+    const aId: number = a.id ?? -1;
+    const bId: number = b.id ?? -1;
+    await expect(chrome.tabs.remove([aId, 424242, bId])).rejects.toThrow(
+      'No tab with id: 424242.'
+    );
+    const remaining = await chrome.tabs.query({});
+    expect(remaining.map((t) => t.url)).toEqual(['https://b.test/']);
+    handle.restore();
+  });
+
+  test('tabs.create with no windowId lands in the current (first-seeded) window', async () => {
+    const handle = setupChromeFake({
+      windows: [
+        { id: 7, tabs: [{ url: 'https://a.test/' }] },
+        { id: 8, tabs: [{ url: 'https://b.test/' }] },
+      ],
+    });
+    const created = await chrome.tabs.create({ url: 'https://new.test/' });
+    expect(created.windowId).toBe(7);
+    const [win7] = await chrome.windows.getAll({
+      populate: true,
+      windowTypes: ['normal'],
+    });
+    expect(win7.tabs?.map((t) => t.url)).toEqual([
+      'https://a.test/',
+      'https://new.test/',
+    ]);
+    handle.restore();
+  });
+
+  // background.ts:62 calls chrome.windows.remove(id, () => { void
+  // chrome.runtime.lastError; }) for a window the user may have already
+  // closed. Chrome (MV3) never rejects a callback-style call -- it reports
+  // failure through lastError instead, only for the callback's duration.
+  test('windows.remove with a callback reports through lastError instead of rejecting', async () => {
+    const handle = setupChromeFake({
+      windows: [{ id: 1, tabs: [{ url: 'https://a.test/' }] }],
+    });
+    let calls = 0;
+    let seenDuringCallback: string | undefined;
+    const result = await new Promise<undefined>((resolve) => {
+      chrome.windows.remove(424242, () => {
+        calls += 1;
+        seenDuringCallback = chrome.runtime.lastError?.message;
+        resolve(undefined);
+      });
+    });
+    expect(result).toBeUndefined();
+    expect(calls).toBe(1);
+    expect(seenDuringCallback).toBe('No window with id: 424242.');
+    expect(chrome.runtime.lastError).toBeUndefined();
+    handle.restore();
+  });
+
+  // Every other failure path added by this file shares the same `fail`
+  // helper as windows.remove above -- this proves each one is actually
+  // wired to it, not just the one production call site.
+  test('every other failure path also reports through lastError with a callback, never rejecting', async () => {
+    const handle = setupChromeFake({
+      windows: [{ id: 1, tabs: [{ url: 'https://a.test/' }] }],
+      tabGroups: [{ id: 5, windowId: 1 }],
+      refusedUrls: ['file:///nope'],
+    });
+    const seen: (string | undefined)[] = [];
+    await new Promise<void>((resolve) =>
+      chrome.tabs.remove(424242, () => {
+        seen.push(chrome.runtime.lastError?.message);
+        resolve();
+      })
+    );
+    await new Promise<void>((resolve) =>
+      chrome.windows.get(424242, undefined, () => {
+        seen.push(chrome.runtime.lastError?.message);
+        resolve();
+      })
+    );
+    await new Promise<void>((resolve) =>
+      chrome.windows.update(424242, {}, () => {
+        seen.push(chrome.runtime.lastError?.message);
+        resolve();
+      })
+    );
+    await new Promise<void>((resolve) =>
+      chrome.tabs.create({ windowId: 424242, url: 'https://x.test/' }, () => {
+        seen.push(chrome.runtime.lastError?.message);
+        resolve();
+      })
+    );
+    await new Promise<void>((resolve) =>
+      chrome.windows.create({ url: 'file:///nope' }, () => {
+        seen.push(chrome.runtime.lastError?.message);
+        resolve();
+      })
+    );
+    await new Promise<void>((resolve) =>
+      chrome.tabGroups.get(424242, () => {
+        seen.push(chrome.runtime.lastError?.message);
+        resolve();
+      })
+    );
+    await new Promise<void>((resolve) =>
+      chrome.tabGroups.update(424242, { collapsed: true }, () => {
+        seen.push(chrome.runtime.lastError?.message);
+        resolve();
+      })
+    );
+    expect(seen).toEqual([
+      'No tab with id: 424242.',
+      'No window with id: 424242.',
+      'No window with id: 424242.',
+      'No window with id: 424242.',
+      'Cannot create a tab with url: file:///nope',
+      'No group with id: 424242.',
+      'No group with id: 424242.',
+    ]);
+    expect(chrome.runtime.lastError).toBeUndefined();
     handle.restore();
   });
 

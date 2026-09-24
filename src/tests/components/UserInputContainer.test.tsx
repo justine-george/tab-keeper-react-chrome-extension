@@ -288,41 +288,13 @@ describe('the save row menu (KAN-208)', () => {
   });
 
   test('Export open windows… opens the live export page and saves nothing', async () => {
-    // KAN-280 Part B: tabs.create() (called with no windowId) now rejects
-    // unless DEFAULT_WINDOW_ID (1) names a real window. twoWindows keeps
-    // window 1 deliberately undeclared -- its active tab has an implicit
-    // windowId of 1 while the declared windows are 7 and 8, which keeps
-    // every seeded tab from sitting in a declared window and so keeps the
-    // currentWindow query's fallback-to-any-window behaviour alive (see the
-    // fake's own `seedPlacesEveryTabInADeclaredWindow` comment). Declaring
-    // window 1 here too would turn currentWindow filtering on and hide the
-    // active tab from it, so this test gets its own seed instead, with
-    // window 1 as the real, current window holding that tab directly.
+    // tabs.create() (called with no windowId) now lands in the fake's
+    // current window -- windows[0], window 7 here -- rather than a fixed
+    // DEFAULT_WINDOW_ID, so twoWindows' deliberately-undeclared window 1
+    // (see its own comment above) no longer needs a workaround.
     const { store, seen, chrome } = await renderWithProviders(
       <UserInputContainer />,
-      {
-        seed: {
-          windows: [
-            {
-              id: 1,
-              tabs: [
-                {
-                  id: 1,
-                  title: 'Kagi Search',
-                  url: 'https://kagi.com/',
-                  active: true,
-                },
-              ] as chrome.tabs.Tab[],
-            },
-            {
-              id: 8,
-              tabs: [
-                { id: 2, title: 'Example', url: 'https://example.com/' },
-              ] as chrome.tabs.Tab[],
-            },
-          ],
-        },
-      }
+      { seed: twoWindows }
     );
     await screen.findByDisplayValue('Kagi Search');
 
