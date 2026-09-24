@@ -20,7 +20,7 @@ const VIEW_TAB = 'index.html?view=tab';
 const OPEN_NOW = '[data-pane="open-now"]';
 const SESSIONS = '[data-pane="sessions"]';
 
-// The brief's window, used by tests 1, 2 and 4.
+// Where tests 1, 2 and 4 put the window they close and reopen.
 const BOUNDS = { left: 140, top: 90, width: 900, height: 640 };
 
 async function openPage(
@@ -55,7 +55,7 @@ const rowsIn = (block: Locator): Locator =>
   block.getByRole('button', { name: /^Switch to tab: / });
 
 const reopenButton = (page: Page): Locator =>
-  page.getByRole('status').getByRole('button', { name: 'Reopen' });
+  page.getByRole('status').getByRole('button', { name: 'Reopen', exact: true });
 
 interface MadeWindow {
   windowId: number;
