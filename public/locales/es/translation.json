@@ -220,5 +220,7 @@
   "Couldn't reopen.": "No se pudo reabrir.",
   "WindowClosed_one": "Ventana cerrada ({{count}} pestaña)",
   "WindowClosed_many": "Ventana cerrada ({{count}} pestañas)",
-  "WindowClosed_other": "Ventana cerrada ({{count}} pestañas)"
+  "WindowClosed_other": "Ventana cerrada ({{count}} pestañas)",
+  "Close tab": "Cerrar pestaña",
+  "Close window": "Cerrar ventana"
 }

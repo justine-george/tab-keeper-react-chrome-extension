@@ -217,5 +217,7 @@
   "Tab closed": "Tab geschlossen",
   "Couldn't reopen.": "Konnte nicht wieder geöffnet werden.",
   "WindowClosed_one": "Fenster geschlossen ({{count}} Tab)",
-  "WindowClosed_other": "Fenster geschlossen ({{count}} Tabs)"
+  "WindowClosed_other": "Fenster geschlossen ({{count}} Tabs)",
+  "Close tab": "Tab schließen",
+  "Close window": "Fenster schließen"
 }

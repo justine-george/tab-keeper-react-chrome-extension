@@ -214,5 +214,7 @@
   "Reopen": "再度開く",
   "Tab closed": "タブを閉じました",
   "Couldn't reopen.": "再度開けませんでした。",
-  "WindowClosed_other": "ウィンドウを閉じました（{{count}} 個のタブ）"
+  "WindowClosed_other": "ウィンドウを閉じました（{{count}} 個のタブ）",
+  "Close tab": "タブを閉じる",
+  "Close window": "ウィンドウを閉じる"
 }

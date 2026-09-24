@@ -214,5 +214,7 @@
   "Reopen": "重新開啟",
   "Tab closed": "分頁已關閉",
   "Couldn't reopen.": "無法重新開啟。",
-  "WindowClosed_other": "視窗已關閉（{{count}} 個分頁）"
+  "WindowClosed_other": "視窗已關閉（{{count}} 個分頁）",
+  "Close tab": "關閉分頁",
+  "Close window": "關閉視窗"
 }

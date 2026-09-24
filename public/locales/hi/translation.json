@@ -217,5 +217,7 @@
   "Tab closed": "टैब बंद किया गया",
   "Couldn't reopen.": "फिर से नहीं खोला जा सका।",
   "WindowClosed_one": "विंडो बंद की गई ({{count}} टैब)",
-  "WindowClosed_other": "विंडो बंद की गई ({{count}} टैब्स)"
+  "WindowClosed_other": "विंडो बंद की गई ({{count}} टैब्स)",
+  "Close tab": "टैब बंद करें",
+  "Close window": "विंडो बंद करें"
 }

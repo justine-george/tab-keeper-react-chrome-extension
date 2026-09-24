@@ -1,7 +1,8 @@
-import { Ref, useState } from 'react';
+import { Ref, useRef, useState } from 'react';
 
 import { css } from '@emotion/react';
 import { useTranslation } from 'react-i18next';
+import { useDispatch } from 'react-redux';
 
 import Icon from '../../common/Icon';
 import { NormalLabel } from '../../common/Label';
@@ -9,7 +10,10 @@ import type { IconName } from '../../common/iconNames';
 import { useFontFamily } from '../../../hooks/useFontFamily';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { formatGroupCounts } from '../../../utils/functions/local';
-import type { OpenWindow } from '../../../utils/functions/openNow';
+import type { OpenTab, OpenWindow } from '../../../utils/functions/openNow';
+import { closeOpenTab, closeOpenWindow } from '../../../utils/functions/reopen';
+import { offerReopen } from '../../../redux/reopenOffer';
+import type { AppDispatch } from '../../../redux/store';
 import { TYPE } from '../../../styles/scale';
 
 import OpenNowWindow from './OpenNowWindow';
@@ -35,9 +39,23 @@ interface OpenNowPaneProps {
   headingRef?: Ref<HTMLHeadingElement>;
 }
 
+// The first control inside a pane element: a tab row's Switch button, or a
+// window row's collapse chevron (an Icon, so role="button" on a div).
+function firstControlIn(element: Element | undefined): HTMLElement | null {
+  const control = element?.querySelector('button, [role="button"]');
+  return control instanceof HTMLElement ? control : null;
+}
+
+// Rule 8's neighbour: the element after `index`, else the one before. None
+// when `index` is -1, i.e. the element is not in the list at all.
+function neighbourAt(list: Element[], index: number): Element | undefined {
+  if (index === -1) return undefined;
+  return list[index + 1] ?? list[index - 1];
+}
+
 // The Open now pane (KAN-280): the browser's live windows, drawn the way the
-// saved-session detail draws a saved one. Presentational -- the caller reads
-// Chrome and hands the result in as `windows`.
+// saved-session detail draws a saved one. The caller reads Chrome and hands
+// the result in as `windows`; the pane closes tabs and windows itself (O7a).
 export default function OpenNowPane({
   windows,
   actions,
@@ -47,6 +65,8 @@ export default function OpenNowPane({
   const COLORS = useThemeColors();
   const FONT_FAMILY = useFontFamily();
   const { t } = useTranslation();
+  const dispatch: AppDispatch = useDispatch();
+  const paneRef = useRef<HTMLDivElement>(null);
 
   // Folded windows, by Chrome window id. Local and unsaved: a live window has
   // no identity worth keeping past this page, and an id Chrome has since
@@ -70,6 +90,53 @@ export default function OpenNowPane({
       else next.add(id);
       return next;
     });
+
+  // KAN-280 rule 8. Focus moves BEFORE the close, read from the rows on
+  // screen: the closed row is about to go, and the re-read that drops it can
+  // land before Chrome answers, taking the row this would have been measured
+  // from with it. A later refresh never moves focus.
+  const focusAfterWindowCloses = (windowId: number) => {
+    const blocks = [
+      ...(paneRef.current?.querySelectorAll('[data-open-window-id]') ?? []),
+    ];
+    const index = blocks.findIndex(
+      (block) => block.getAttribute('data-open-window-id') === String(windowId)
+    );
+    (
+      firstControlIn(neighbourAt(blocks, index)) ??
+      document.getElementById(headingId)
+    )?.focus();
+  };
+
+  // A window with no tab left to list is not listed (toOpenWindows), so a
+  // row with no neighbour takes its window row with it: focus goes where
+  // closing the window would send it, not to a chevron about to vanish.
+  const focusAfterTabCloses = (openWindow: OpenWindow, tab: OpenTab) => {
+    const block = paneRef.current?.querySelector(
+      `[data-open-window-id="${openWindow.id}"]`
+    );
+    const rows = [...(block?.querySelectorAll('[data-open-tab-id]') ?? [])];
+    const index = rows.findIndex(
+      (row) => row.getAttribute('data-open-tab-id') === String(tab.id)
+    );
+    const next = firstControlIn(neighbourAt(rows, index));
+    if (next) next.focus();
+    else focusAfterWindowCloses(openWindow.id);
+  };
+
+  // A null close means the tab or window was already gone -- a second press
+  // before the re-read, say -- so there is nothing to offer (O8a).
+  const handleCloseTab = async (openWindow: OpenWindow, tab: OpenTab) => {
+    focusAfterTabCloses(openWindow, tab);
+    const item = await closeOpenTab(openWindow, tab);
+    if (item) void dispatch(offerReopen(item));
+  };
+
+  const handleCloseWindow = async (openWindow: OpenWindow) => {
+    focusAfterWindowCloses(openWindow.id);
+    const item = await closeOpenWindow(openWindow);
+    if (item) void dispatch(offerReopen(item));
+  };
 
   // Copied from RightPane's containerStyle, so the pane sits in its column the
   // way the saved detail does.
@@ -148,7 +215,12 @@ export default function OpenNowPane({
   `;
 
   return (
-    <div css={paneStyle} role="region" aria-labelledby={headingId}>
+    <div
+      ref={paneRef}
+      css={paneStyle}
+      role="region"
+      aria-labelledby={headingId}
+    >
       <div css={headerStyle}>
         <div css={topStyle}>
           {/* tabIndex -1: focusable from script (the drawer moves focus here
@@ -232,6 +304,12 @@ export default function OpenNowPane({
               index={index}
               isOpen={!collapsedIds.has(openWindow.id)}
               onToggle={() => toggleWindow(openWindow.id)}
+              onCloseTab={(tab) => void handleCloseTab(openWindow, tab)}
+              onCloseWindow={
+                openWindow.isThisWindow
+                  ? undefined
+                  : () => void handleCloseWindow(openWindow)
+              }
             />
           ))
         )}

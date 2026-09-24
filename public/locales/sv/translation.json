@@ -217,5 +217,7 @@
   "Tab closed": "Fliken stängdes",
   "Couldn't reopen.": "Det gick inte att öppna igen.",
   "WindowClosed_one": "Fönstret stängdes ({{count}} flik)",
-  "WindowClosed_other": "Fönstret stängdes ({{count}} flikar)"
+  "WindowClosed_other": "Fönstret stängdes ({{count}} flikar)",
+  "Close tab": "Stäng flik",
+  "Close window": "Stäng fönster"
 }

@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 import { css } from '@emotion/react';
 import { useTranslation } from 'react-i18next';
 
@@ -20,7 +22,7 @@ import {
   ADJACENT_GROUP_GAP_PX,
   BAND_MARGIN_PX,
 } from '../rightpane/bandSpacing';
-import { TYPE } from '../../../styles/scale';
+import { DURATION, TYPE } from '../../../styles/scale';
 
 // WindowEntryContainer's GROUP_TITLE_SIZE, the one documented off-scale size
 // (scaleConformance.test.ts). Copied rather than exported from there, for the
@@ -32,19 +34,31 @@ interface OpenNowWindowProps {
   index: number;
   isOpen: boolean;
   onToggle: () => void;
+  onCloseTab: (tab: OpenTab) => void;
+  // Absent for "This window": closing it would close the tab view itself.
+  onCloseWindow?: () => void;
 }
 
 // One live window in the Open now pane (KAN-280): its row, its group bands
-// and its tab rows. Read-only apart from the fold and click-to-switch.
+// and its tab rows, with the fold, click-to-switch and the close controls
+// (O7a). The pane owns what a close does.
 export default function OpenNowWindow({
   openWindow,
   index,
   isOpen,
   onToggle,
+  onCloseTab,
+  onCloseWindow,
 }: OpenNowWindowProps) {
   const COLORS = useThemeColors();
   const FONT_FAMILY = useFontFamily();
   const { t } = useTranslation();
+
+  const [isParentHovered, setIsParentHovered] = useState(false);
+  // By Chrome tab id, not by position, for KAN-127's reason: a re-read (and,
+  // later, a drag) moves rows, and a position-keyed flag would then reveal
+  // whichever tab moved into the hovered slot.
+  const [hoveredTabId, setHoveredTabId] = useState<number | null>(null);
 
   // Copied from WindowEntryContainer's own containerStyle, parentStyle,
   // parentLeftStyle, childrenContainerStyle, childrenStyle, childLeftStyle and
@@ -74,6 +88,51 @@ export default function OpenNowWindow({
     align-items: center;
     flex-grow: 1;
     min-width: 0;
+  `;
+
+  // The action strips (KAN-280 O7a), copied from WindowEntryContainer's
+  // parentRightStyle and childRightStyle for the same reason, less the
+  // saved row's editing and search cases. KAN-100: the mask lands in one
+  // frame with the row's fill and only the icons ease, or the row fills in
+  // two halves with an edge between them. :focus-within is the keyboard's
+  // reveal (KAN-68).
+  const parentRightStyle = css`
+    display: flex;
+    position: absolute;
+    top: 50%;
+    right: 0;
+    transform: translateY(-50%);
+    background-color: ${isParentHovered ? COLORS.HOVER_COLOR : 'transparent'};
+    & > * {
+      opacity: ${isParentHovered ? 1 : 0};
+      transition: opacity ${DURATION.COLOR} ease-out;
+    }
+    &:focus-within {
+      background-color: ${COLORS.HOVER_COLOR};
+      & > * {
+        opacity: 1;
+      }
+    }
+  `;
+
+  const childRightStyle = (tabId: number) => css`
+    position: absolute;
+    top: 50%;
+    right: 0;
+    transform: translateY(-50%);
+    background-color: ${hoveredTabId === tabId
+      ? COLORS.HOVER_COLOR
+      : 'transparent'};
+    & > * {
+      opacity: ${hoveredTabId === tabId ? 1 : 0};
+      transition: opacity ${DURATION.COLOR} ease-out;
+    }
+    &:focus-within {
+      background-color: ${COLORS.HOVER_COLOR};
+      & > * {
+        opacity: 1;
+      }
+    }
   `;
 
   const childrenContainerStyle = css`
@@ -160,7 +219,13 @@ export default function OpenNowWindow({
 
   function renderTab(tab: OpenTab) {
     return (
-      <div key={tab.id} css={childrenStyle(tab.active)}>
+      <div
+        key={tab.id}
+        css={childrenStyle(tab.active)}
+        data-open-tab-id={tab.id}
+        onMouseEnter={() => setHoveredTabId(tab.id)}
+        onMouseLeave={() => setHoveredTabId(null)}
+      >
         <ClickableRow
           ariaLabel={t('Switch to tab') + ': ' + tab.title}
           ariaCurrent={tab.active}
@@ -186,6 +251,16 @@ export default function OpenNowWindow({
             />
           </div>
         </ClickableRow>
+        {/* data-row-actions: the stylesheet's hook for hiding the strip
+            during a drag (KAN-135), which an emotion class cannot give it. */}
+        <div data-row-actions css={childRightStyle(tab.id)}>
+          <Icon
+            tooltipText={t('Close tab')}
+            ariaLabel={t('Close tab') + ': ' + tab.title}
+            type="close"
+            onClick={() => onCloseTab(tab)}
+          />
+        </div>
       </div>
     );
   }
@@ -198,7 +273,11 @@ export default function OpenNowWindow({
 
   return (
     <div css={containerStyle} data-open-window-id={openWindow.id}>
-      <div css={parentStyle}>
+      <div
+        css={parentStyle}
+        onMouseEnter={() => setIsParentHovered(true)}
+        onMouseLeave={() => setIsParentHovered(false)}
+      >
         <div css={parentLeftStyle}>
           <Icon
             tooltipText={isOpen ? t('Collapse') : t('Expand')}
@@ -224,6 +303,16 @@ export default function OpenNowWindow({
               />
             )}
           </div>
+        </div>
+        <div data-row-actions css={parentRightStyle}>
+          {onCloseWindow && (
+            <Icon
+              tooltipText={t('Close window')}
+              ariaLabel={t('Close window') + ': ' + title}
+              type="close"
+              onClick={onCloseWindow}
+            />
+          )}
         </div>
       </div>
       {isOpen && (

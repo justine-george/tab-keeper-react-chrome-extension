@@ -220,5 +220,7 @@
   "Couldn't reopen.": "Não foi possível reabrir.",
   "WindowClosed_one": "Janela fechada ({{count}} aba)",
   "WindowClosed_many": "Janela fechada ({{count}} abas)",
-  "WindowClosed_other": "Janela fechada ({{count}} abas)"
+  "WindowClosed_other": "Janela fechada ({{count}} abas)",
+  "Close tab": "Fechar aba",
+  "Close window": "Fechar janela"
 }

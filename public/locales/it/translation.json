@@ -220,5 +220,7 @@
   "Couldn't reopen.": "Impossibile riaprire.",
   "WindowClosed_one": "Finestra chiusa ({{count}} tab)",
   "WindowClosed_many": "Finestra chiusa ({{count}} tab)",
-  "WindowClosed_other": "Finestra chiusa ({{count}} tab)"
+  "WindowClosed_other": "Finestra chiusa ({{count}} tab)",
+  "Close tab": "Chiudi scheda",
+  "Close window": "Chiudi finestra"
 }

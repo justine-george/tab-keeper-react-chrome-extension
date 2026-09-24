@@ -220,5 +220,7 @@
   "Couldn't reopen.": "Impossible de rouvrir.",
   "WindowClosed_one": "Fenêtre fermée ({{count}} onglet)",
   "WindowClosed_many": "Fenêtre fermée ({{count}} onglets)",
-  "WindowClosed_other": "Fenêtre fermée ({{count}} onglets)"
+  "WindowClosed_other": "Fenêtre fermée ({{count}} onglets)",
+  "Close tab": "Fermer l'onglet",
+  "Close window": "Fermer la fenêtre"
 }
