@@ -14,6 +14,7 @@ import { useThemeColors } from '../hooks/useThemeColors';
 import { APP_HEIGHT } from '../utils/constants/common';
 import { AppDispatch, RootState } from '../redux/store';
 import { redo, undo } from '../redux/slices/undoRedoSlice';
+import { selectIsSavedSessionFolded } from '../redux/savedSessionFold';
 import LeftPaneSettings from './settings/leftpane/LeftPaneSettings';
 import RightPaneSettings from './settings/rightpane/RightPaneSettings';
 import { closeToast } from '../redux/slices/globalStateSlice';
@@ -81,13 +82,8 @@ export default function MainContainer() {
     (state: RootState) => state.globalState.tabGroupsPromptCount
   );
 
-  // KAN-280 O4/O5. Folded, Open now takes the saved session's column. The
-  // stored choice decides, unless a saved session was clicked since (a peek).
-  const folded = useSelector(
-    (state: RootState) =>
-      state.settingsDataState.foldSavedSessionInTabView &&
-      !state.globalState.isPeekingSavedSession
-  );
+  // KAN-280 O4/O5. Folded, Open now takes the saved session's column.
+  const folded = useSelector(selectIsSavedSessionFolded);
 
   // Keyboard shortcut listener for undo/redo
   useEffect(() => {

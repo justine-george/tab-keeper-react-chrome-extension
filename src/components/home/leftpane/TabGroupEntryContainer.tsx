@@ -25,6 +25,7 @@ import { RowDragArea, DraggableRow } from '../rightpane/rowDrag/RowDragArea';
 import { dropOnTop } from '../../../redux/dropOnTop';
 import { sessionDrop } from '../../../redux/dropSpecs';
 import { peekSavedSession } from '../../../redux/slices/globalStateSlice';
+import { selectIsSavedSessionFolded } from '../../../redux/savedSessionFold';
 import { isTabView } from '../../../utils/functions/viewMode';
 import { TYPE } from '../../../styles/scale';
 
@@ -54,12 +55,8 @@ export default function TabGroupEntryContainer() {
   );
 
   // KAN-280 O5. Whether the tab view has the saved session folded away right
-  // now; the same expression MainContainer lays the grid out by.
-  const isSavedSessionFolded = useSelector(
-    (state: RootState) =>
-      state.settingsDataState.foldSavedSessionInTabView &&
-      !state.globalState.isPeekingSavedSession
-  );
+  // now; the selector MainContainer lays the grid out by.
+  const isSavedSessionFolded = useSelector(selectIsSavedSessionFolded);
 
   const selectedTabGroupId = tabContainerDataList.selectedTabGroupId;
 
@@ -167,30 +164,34 @@ export default function TabGroupEntryContainer() {
     row?.scrollIntoView({ block: 'nearest' });
   }, [selectedIndex, selectedTabGroupId]);
 
-  const containerStyle = css`
-    display: flex;
-    flex-direction: column;
-    height: 100%;
+  // The session list's frame, one declaration for both views, so the popup's
+  // list and the tab view's list box cannot drift apart (KAN-280 O3a).
+  const listFrameStyle = css`
     border: 1px solid ${COLORS.BORDER_COLOR};
     margin: 8px 0;
-    overflow: auto;
     user-select: none;
   `;
 
+  // The popup's list: the frame and the scroller in one element.
+  const popupListStyle = css`
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    ${listFrameStyle}
+    overflow: auto;
+  `;
+
   // KAN-280 O3a. In the tab view the list box is two parts: the caption, then
-  // the scroller. The box keeps the border, margin and height the scroller
-  // had alone, so the scroller gives up the caption's height and the box does
-  // not grow. min-height: 0 lets it shrink in LeftPane's column as the lone
-  // scroller did (a scroll container's automatic minimum is 0; this box is
-  // not one).
+  // the scroller. The box keeps the frame and height the popup's list has,
+  // so the scroller gives up the caption's height and the box does not grow.
+  // min-height: 0 lets it shrink in LeftPane's column as the lone scroller
+  // did (a scroll container's automatic minimum is 0; this box is not one).
   const tabListBoxStyle = css`
     display: flex;
     flex-direction: column;
     height: 100%;
     min-height: 0;
-    border: 1px solid ${COLORS.BORDER_COLOR};
-    margin: 8px 0;
-    user-select: none;
+    ${listFrameStyle}
   `;
 
   const tabScrollerStyle = css`
@@ -216,7 +217,7 @@ export default function TabGroupEntryContainer() {
   const isTab = isTabView();
 
   const scroller = (
-    <div css={isTab ? tabScrollerStyle : containerStyle} ref={listRef}>
+    <div css={isTab ? tabScrollerStyle : popupListStyle} ref={listRef}>
       {filteredTabGroups.length === 0 ? (
         <div css={emptyContainerStyle}>
           {/* KAN-86. Was the bare literal "Empty", which rendered in English
