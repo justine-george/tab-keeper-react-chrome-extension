@@ -29,6 +29,16 @@ import { DURATION, TYPE } from '../../../styles/scale';
 // reason the styles below are.
 const GROUP_TITLE_SIZE = '0.85rem';
 
+// A held Enter or Space repeats into whatever has focus, and after a close
+// that is the next row's × (KAN-280 O7b). Its repeats stop here, in the
+// capture phase, before the Icon's own keydown turns each into a click: one
+// press closes one tab. Other keys pass, so a held Tab still moves on.
+function holdBackRepeatedActivation(event: React.KeyboardEvent) {
+  if (!event.repeat || (event.key !== 'Enter' && event.key !== ' ')) return;
+  event.preventDefault();
+  event.stopPropagation();
+}
+
 interface OpenNowWindowProps {
   openWindow: OpenWindow;
   index: number;
@@ -254,8 +264,15 @@ export default function OpenNowWindow({
           </div>
         </ClickableRow>
         {/* data-row-actions: the stylesheet's hook for hiding the strip
-            during a drag (KAN-135), which an emotion class cannot give it. */}
-        <div data-row-actions css={childRightStyle(tab.id)}>
+            during a drag (KAN-135), which an emotion class cannot give it.
+            data-close-tab: where the pane finds this row's × after a close
+            (KAN-280 O7b); the strip holds the × alone. */}
+        <div
+          data-row-actions
+          data-close-tab
+          css={childRightStyle(tab.id)}
+          onKeyDownCapture={holdBackRepeatedActivation}
+        >
           <Icon
             tooltipText={t('Close tab')}
             ariaLabel={t('Close tab') + ': ' + tab.title}

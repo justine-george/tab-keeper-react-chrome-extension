@@ -256,9 +256,10 @@ describe('closing from the Open now pane (KAN-280 O7a)', () => {
     ).toBeInTheDocument();
   });
 
-  // Rule 8. Chrome's answer is held until after the re-read has dropped the
-  // row, so focus that waited for the close would find its row already gone.
-  test('after closing a tab, focus is on the next tab in its window', async () => {
+  // KAN-280 O7b. Chrome's answer is held until after the re-read has dropped
+  // the row, so focus that waited for the close would find its row already
+  // gone.
+  test("after closing a tab, focus is on the next tab's close control", async () => {
     await renderOpenNow(threeWindows());
     const release = holdTabRemoval();
 
@@ -266,16 +267,89 @@ describe('closing from the Open now pane (KAN-280 O7a)', () => {
     await waitFor(() => expect(querySwitchRow('B')).toBeNull());
     await act(async () => release());
 
-    expect(document.activeElement).toBe(switchRow('C'));
+    expect(document.activeElement).toBe(closeTabButton('C'));
+    // Focused, so revealed: the strip's :focus-within shows it.
+    expectRevealedByFocus(closeTabButton('C'));
   });
 
-  test('after closing the last tab in a window list, focus is on the previous tab', async () => {
+  test("after closing the last tab in a window list, focus is on the previous tab's close control", async () => {
     await renderOpenNow(threeWindows());
 
     fireEvent.click(closeTabButton('C'));
     await waitFor(() => expect(querySwitchRow('C')).toBeNull());
 
-    expect(document.activeElement).toBe(switchRow('B'));
+    expect(document.activeElement).toBe(closeTabButton('B'));
+  });
+
+  // KAN-280 O7b. Focus lands on the next row's ×, not its Switch button, so a
+  // second Enter closes that tab too instead of switching Chrome to it.
+  test('Enter, Enter on Close tab closes two tabs, and Reopen offers the second', async () => {
+    const { chrome: fake } = await renderOpenNow(threeWindows());
+    const user = userEvent.setup();
+    act(() => closeTabButton('B').focus());
+
+    await user.keyboard('{Enter}');
+    await waitFor(() => expect(querySwitchRow('B')).toBeNull());
+    expect(document.activeElement).toBe(closeTabButton('C'));
+
+    await user.keyboard('{Enter}');
+    await waitFor(() => expect(querySwitchRow('C')).toBeNull());
+
+    expect(fake.removedTabIds).toEqual([12, 13]);
+    // Rule 3: the offer is the latest close's, so Reopen brings back C alone.
+    fireEvent.click(
+      within(screen.getByRole('status')).getByRole('button', {
+        name: 'Reopen',
+      })
+    );
+    await waitFor(() => expect(titlesIn(1)).toEqual(['A', url('C')]));
+  });
+
+  // Presses Enter or Space on B's ×, then the same key on C's × with the
+  // given `repeat`, and waits past the 50ms re-read. user-event cannot set
+  // `repeat`, so both are fired directly.
+  async function pressThenRepeat(key: string, repeat: boolean) {
+    act(() => closeTabButton('B').focus());
+    fireEvent.keyDown(closeTabButton('B'), { key });
+    await waitFor(() => expect(querySwitchRow('B')).toBeNull());
+    fireEvent.keyDown(closeTabButton('C'), { key, repeat });
+    await act(() => new Promise((resolve) => setTimeout(resolve, 150)));
+  }
+
+  // KAN-280 O7b. A held key repeats into whatever has focus, which after the
+  // first close is the next row's ×.
+  test.each([
+    ['Enter', 'Enter'],
+    ['Space', ' '],
+  ])('a held %s on Close tab closes one tab', async (_name, key) => {
+    const { chrome: fake } = await renderOpenNow(threeWindows());
+
+    await pressThenRepeat(key, true);
+
+    expect(fake.removedTabIds).toEqual([12]);
+    expect(querySwitchRow('C')).not.toBeNull();
+  });
+
+  // CONTROL for the test above: the same wait sees a second, unrepeated press
+  // close C.
+  test('a second, unrepeated Enter on Close tab closes the next tab', async () => {
+    const { chrome: fake } = await renderOpenNow(threeWindows());
+
+    await pressThenRepeat('Enter', false);
+
+    expect(fake.removedTabIds).toEqual([12, 13]);
+    expect(querySwitchRow('C')).toBeNull();
+  });
+
+  // Only the keys that activate the control are held back: a held Tab still
+  // moves focus on past the ×.
+  test('a repeated Tab on Close tab is not held back', async () => {
+    await renderOpenNow(threeWindows());
+
+    // fireEvent returns false when a handler called preventDefault().
+    expect(
+      fireEvent.keyDown(closeTabButton('B'), { key: 'Tab', repeat: true })
+    ).toBe(true);
   });
 
   // A window with no tab left to list is no longer listed, even when Chrome
@@ -366,8 +440,8 @@ describe('closing from the Open now pane (KAN-280 O7a)', () => {
     );
   });
 
-  // Review Focus 3: a double click, or Enter held. The second tabs.remove
-  // rejects because the tab is already gone.
+  // KAN-280 O7b. Two clicks on one × before the re-read: the second
+  // tabs.remove rejects because the tab is already gone.
   test('pressing Close tab twice gives one toast and no unhandled rejection', async () => {
     const rejections: unknown[] = [];
     const onRejection = (reason: unknown) => rejections.push(reason);

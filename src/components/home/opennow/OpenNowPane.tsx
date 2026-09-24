@@ -45,10 +45,17 @@ interface OpenNowPaneProps {
   headingRef?: Ref<HTMLHeadingElement>;
 }
 
-// The first control inside a pane element: a tab row's Switch button, or a
-// window row's collapse chevron (an Icon, so role="button" on a div).
+// The first control inside a window's block: its collapse chevron (an Icon,
+// so role="button" on a div).
 function firstControlIn(element: Element | undefined): HTMLElement | null {
   const control = element?.querySelector('button, [role="button"]');
+  return control instanceof HTMLElement ? control : null;
+}
+
+// A tab row's ×, found by its strip's mark rather than by its place in the
+// row (KAN-280 O7b).
+function closeControlIn(row: Element | undefined): HTMLElement | null {
+  const control = row?.querySelector('[data-close-tab] [role="button"]');
   return control instanceof HTMLElement ? control : null;
 }
 
@@ -115,9 +122,11 @@ export default function OpenNowPane({
     )?.focus();
   };
 
-  // A window with no tab left to list is not listed (toOpenWindows), so a
-  // row with no neighbour takes its window row with it: focus goes where
-  // closing the window would send it, not to a chevron about to vanish.
+  // KAN-280 O7b: the neighbour's ×, not its Switch button, so a second Enter
+  // closes that tab too instead of switching Chrome away from Tab Keeper. A
+  // window with no tab left to list is not listed (toOpenWindows), so a row
+  // with no neighbour takes its window row with it: focus goes where closing
+  // the window would send it, not to a chevron about to vanish.
   const focusAfterTabCloses = (openWindow: OpenWindow, tab: OpenTab) => {
     const block = paneRef.current?.querySelector(
       `[data-open-window-id="${openWindow.id}"]`
@@ -126,7 +135,7 @@ export default function OpenNowPane({
     const index = rows.findIndex(
       (row) => row.getAttribute('data-open-tab-id') === String(tab.id)
     );
-    const next = firstControlIn(neighbourAt(rows, index));
+    const next = closeControlIn(neighbourAt(rows, index));
     if (next) next.focus();
     else focusAfterWindowCloses(openWindow.id);
   };
