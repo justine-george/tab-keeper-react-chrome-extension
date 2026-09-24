@@ -369,6 +369,16 @@ const pageIsBehindStorage = (
   !state.globalState.holdsPlaceholderSessions &&
   !sameContainerData(stored, state.tabContainerDataState);
 
+// KAN-298. Loading `stored` must wait for the held row's release: a row is
+// held (D12) and the load would change the list under it. The two loads of
+// localStorage as it is -- the local-only sync and App's re-run -- ask this
+// before loadStoredSessionsIntoPage. A page level with localStorage is not
+// held: loading changes nothing on screen.
+export const storedLoadMustWaitForRelease = (
+  state: RootState,
+  stored: TabMasterContainer
+): boolean => isDragHeld() && pageIsBehindStorage(state, stored);
+
 // KAN-295. The loads that take localStorage as it is: the local-only sync and
 // App's startup read. When this page was behind it, the load is a change this
 // page did not make, so undo is reset, exactly as the storage-event hydrate
@@ -552,6 +562,20 @@ export const syncStateWithFirestore = createAsyncThunk<
     } else if (tabDataFromLocalStorage) {
       // data only on localStorage
       // save back to Firestore
+      // KAN-298. The both-sides hold above, for this branch: nothing is
+      // loaded or saved while the row is held -- the save would send the
+      // pre-release state -- and the sync runs again once it is released.
+      // That re-run reads the cloud afresh, so a document another device
+      // wrote meanwhile is merged, not written over.
+      if (
+        storedLoadMustWaitForRelease(
+          thunkAPI.getState(),
+          tabDataFromLocalStorage
+        )
+      ) {
+        whenDragReleases(() => thunkAPI.dispatch(resyncAfterHold()));
+        return;
+      }
       const loaded = thunkAPI.dispatch(
         loadStoredSessionsIntoPage(tabDataFromLocalStorage)
       );

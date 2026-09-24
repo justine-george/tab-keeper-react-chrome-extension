@@ -150,6 +150,16 @@ const titleOf = (store: Store, id: string) =>
 const ids = (store: Store) =>
   store.getState().tabContainerDataState.tabGroups.map((g) => g.tabGroupId);
 
+const cloudContainer = (): TabMasterContainer => {
+  const cloud = mocks.cloud.doc;
+  if (!isValidTabMasterContainer(cloud)) {
+    throw new Error('the cloud holds no container');
+  }
+  return cloud;
+};
+const cloudTitleOf = (id: string) =>
+  cloudContainer().tabGroups.find((g) => g.tabGroupId === id)?.title;
+
 // What an undo could reverse, and whether the sync said a device changed it.
 const undoAndToast = (store: Store) => {
   const { undoRedo, globalState } = store.getState();
@@ -321,16 +331,6 @@ describe('a sync held only because this page is behind still finishes once relea
     expect(mocks.saveToFirestore).not.toHaveBeenCalled();
   };
 
-  const cloudContainer = (): TabMasterContainer => {
-    const cloud = mocks.cloud.doc;
-    if (!isValidTabMasterContainer(cloud)) {
-      throw new Error('the cloud holds no container');
-    }
-    return cloud;
-  };
-  const cloudTitleOf = (id: string) =>
-    cloudContainer().tabGroups.find((g) => g.tabGroupId === id)?.title;
-
   it('A1: a cancelled drag settles the spinner and sends what the sync found', async () => {
     const store = openPage();
     await heldSyncWhileBehind(store);
@@ -391,5 +391,152 @@ describe('a sync held only because this page is behind still finishes once relea
     expect(mocks.loadFromFirestore).toHaveBeenCalledTimes(1);
     expect(mocks.saveToFirestore).not.toHaveBeenCalled();
     expect(store.getState().globalState.syncStatus).toBe('idle');
+  });
+});
+
+// KAN-298. The same hold, on the local-only branch: no cloud document yet
+// (or none this device can see), so the sync loads localStorage and writes it
+// up. With another page's write in localStorage and not in this page, that
+// load moved the list under a held row, and its save sent it mid-drag.
+// L6, the unheld behaviour, is 'local only (no document yet)...' above.
+describe('a local-only sync that finds this page behind holds it for a drag (KAN-298)', () => {
+  // No cloud document (beforeEach): the local-only branch. Checks that
+  // nothing changed while the row is held: not this page's sessions (the same
+  // object), not its undo, not the cloud, and the spinner still spins.
+  const heldLocalOnlySync = async (store: Store) => {
+    const before = store.getState();
+    beginDragHold();
+    otherPageRenames('a', 'Other page');
+    await store.dispatch(syncStateWithFirestore());
+    await vi.advanceTimersByTimeAsync(0);
+
+    const held = store.getState();
+    expect(titleOf(store, 'a')).toBe('A');
+    expect(held.tabContainerDataState).toBe(before.tabContainerDataState);
+    expect(held.undoRedo.past.length).toBe(before.undoRedo.past.length);
+    expect(mocks.saveToFirestore).not.toHaveBeenCalled();
+    expect(mocks.cloud.doc).toBeUndefined();
+    expect(held.globalState.syncStatus).toBe('loading');
+  };
+
+  it("L1: nothing moves or saves while held; a cancel runs the sync, which takes the other page's rename in and sends it", async () => {
+    const store = openPage();
+    // Auto Sync off: with it on, this page's own rename starts a sync of its
+    // own after the release, which would send the rename whether or not the
+    // held sync ever re-ran.
+    store.dispatch(setAutoSync(false));
+    thisPageRenames(store, 'b', 'Mine');
+    await heldLocalOnlySync(store);
+    expect(store.getState().undoRedo.past.length).toBe(1);
+
+    // Released with no drop (Esc, or let go where it began).
+    endDragHold();
+    // Read before the toast's own 3 s timer could close one.
+    await vi.advanceTimersByTimeAsync(0);
+    expect(undoAndToast(store)).toEqual({
+      past: 0,
+      a: 'Other page',
+      mergedToast: false,
+    });
+
+    await vi.runAllTimersAsync();
+    expect(store.getState().globalState.syncStatus).toBe('success');
+    expect(cloudTitleOf('a')).toBe('Other page');
+    expect(cloudTitleOf('b')).toBe('Mine');
+    // Ctrl+Z cannot reverse the other page's rename.
+    store.dispatch(undo());
+    expect(titleOf(store, 'a')).toBe('Other page');
+  });
+
+  // Auto Sync off: the drop's own edit starts no sync, so only the held
+  // sync's re-run can send the drop.
+  it('L2: a drop that lands goes on top of the rename, and the sync sends both', async () => {
+    const store = openPage();
+    store.dispatch(setAutoSync(false));
+    await heldLocalOnlySync(store);
+
+    // b dropped above a; RowDragArea.finish then ends the hold.
+    store.dispatch(dropOnTop(sessionDrop('b', 0)));
+    endDragHold();
+    await vi.runAllTimersAsync();
+
+    expect(titleOf(store, 'a')).toBe('Other page');
+    expect(ids(store)).toEqual(['b', 'a']);
+    expect(store.getState().globalState.syncStatus).toBe('success');
+    expect(cloudTitleOf('a')).toBe('Other page');
+    expect(cloudContainer().tabGroups.map((g) => g.tabGroupId)).toEqual([
+      'b',
+      'a',
+    ]);
+  });
+
+  // The worst path: the held run found no document, and another device
+  // writes one before the release. A re-run that only re-read localStorage,
+  // or saved without reading the cloud again, would write over that device.
+  it("L3: another device writes while held: the drop, the other page's rename and the other device's session all survive", async () => {
+    const store = openPage();
+    store.dispatch(setAutoSync(false));
+    await heldLocalOnlySync(store);
+    mocks.cloud.doc = buildContainer([session('c', 'From another device')]);
+
+    store.dispatch(dropOnTop(sessionDrop('b', 0)));
+    endDragHold();
+    await vi.runAllTimersAsync();
+
+    expect(store.getState().globalState.syncStatus).toBe('success');
+    const everywhere = {
+      page: store.getState().tabContainerDataState,
+      localStorage: readStored(),
+      cloud: cloudContainer(),
+    };
+    for (const [where, container] of Object.entries(everywhere)) {
+      const order = container.tabGroups.map((g) => g.tabGroupId);
+      const title = (id: string) =>
+        container.tabGroups.find((g) => g.tabGroupId === id)?.title;
+      expect({ where, sessions: [...order].sort() }).toEqual({
+        where,
+        sessions: ['a', 'b', 'c'],
+      });
+      expect({ where, a: title('a'), c: title('c') }).toEqual({
+        where,
+        a: 'Other page',
+        c: 'From another device',
+      });
+      // The drop: b above a.
+      expect({
+        where,
+        bAboveA: order.indexOf('b') < order.indexOf('a'),
+      }).toEqual({ where, bAboveA: true });
+    }
+  });
+
+  it('L4: consent withdrawn while held: no sync starts, nothing is sent, and the spinner settles', async () => {
+    const store = openPage();
+    await heldLocalOnlySync(store);
+    expect(mocks.loadFromFirestore).toHaveBeenCalledTimes(1);
+
+    store.dispatch(declineCloudConsent());
+    endDragHold();
+    await vi.runAllTimersAsync();
+
+    expect(mocks.loadFromFirestore).toHaveBeenCalledTimes(1);
+    expect(mocks.saveToFirestore).not.toHaveBeenCalled();
+    expect(store.getState().globalState.syncStatus).toBe('idle');
+  });
+
+  // The hold keys on "behind", not on the hold alone: a load that changes
+  // nothing on screen has nothing to wait for.
+  it('L5 CONTROL: level with localStorage, a held row does not hold the sync: it saves as before', async () => {
+    const store = openPage();
+    thisPageRenames(store, 'b', 'Mine');
+    beginDragHold();
+
+    await store.dispatch(syncStateWithFirestore());
+    await vi.runAllTimersAsync();
+
+    expect(mocks.saveToFirestore).toHaveBeenCalledTimes(1);
+    expect(cloudTitleOf('b')).toBe('Mine');
+    expect(store.getState().globalState.syncStatus).toBe('success');
+    expect(store.getState().undoRedo.past.length).toBe(1);
   });
 });
