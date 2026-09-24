@@ -53,6 +53,14 @@ export default function TabGroupEntryContainer() {
     (state: RootState) => state.globalState.hasTabGroupsPermission
   );
 
+  // KAN-280 O5. Whether the tab view has the saved session folded away right
+  // now; the same expression MainContainer lays the grid out by.
+  const isSavedSessionFolded = useSelector(
+    (state: RootState) =>
+      state.settingsDataState.foldSavedSessionInTabView &&
+      !state.globalState.isPeekingSavedSession
+  );
+
   const selectedTabGroupId = tabContainerDataList.selectedTabGroupId;
 
   // KAN-131, at the session level and more exposed than the panes below it:
@@ -241,8 +249,12 @@ export default function TabGroupEntryContainer() {
                     onTabGroupClick={() => {
                       // KAN-280 O5. Folded, a click shows the session for
                       // now; the selected row included, since it is the
-                      // natural one to click to see it.
-                      if (isTab) dispatch(peekSavedSession());
+                      // natural one to click to see it. Only while folded: a
+                      // peek left set side by side would keep this page open
+                      // through a later fold from another page's settings.
+                      if (isTab && isSavedSessionFolded) {
+                        dispatch(peekSavedSession());
+                      }
                       if (selectedTabGroupId === tabGroupData.tabGroupId) {
                         return;
                       }

@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { cleanup, fireEvent, screen, within } from '@testing-library/react';
+import {
+  act,
+  cleanup,
+  fireEvent,
+  screen,
+  within,
+} from '@testing-library/react';
 
 import MainContainer from '../../components/MainContainer';
 import { renderWithProviders } from '../setup/renderWithProviders';
@@ -9,7 +15,11 @@ import {
 } from '../../redux/slices/tabContainerDataStateSlice';
 import { buildSession } from '../fixtures/sessionFixture';
 import { applyOtherPageSettings } from '../../redux/otherPageChanges';
-import { setTheme, Theme } from '../../redux/slices/settingsDataStateSlice';
+import {
+  hydrateSettingsFromOtherPage,
+  setTheme,
+  Theme,
+} from '../../redux/slices/settingsDataStateSlice';
 
 // KAN-280 O1/O3/O4/O5. The tab view puts Open now in its reserved third
 // column (layout A). One button folds the saved session away, so Open now
@@ -276,6 +286,39 @@ describe('the peek (O5)', () => {
     ).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: UNFOLD })).toBeInTheDocument();
     expect(storedFold()).toBe(true);
+  });
+
+  // A click while side by side is not a peek: nothing is folded away to
+  // show. Were it one, the flag would outlive the click and hold this page
+  // open through a later fold -- here, another page's, arriving as a
+  // settings hydrate (KAN-279 D9).
+  test('a click while side by side does not stop a later fold from another page', async () => {
+    goToTabView();
+    const { store } = await renderHome();
+    await mounted();
+    fireEvent.click(screen.getByRole('button', { name: UNFOLD }));
+    await screen.findByRole('button', { name: HERO_ONLY });
+    fireEvent.click(sessionRow(SECOND.title));
+    // PREMISE: still side by side after the click.
+    expect(
+      await screen.findByRole('button', { name: HERO_ONLY })
+    ).toBeInTheDocument();
+
+    act(() => {
+      store.dispatch(
+        hydrateSettingsFromOtherPage({
+          ...store.getState().settingsDataState,
+          foldSavedSessionInTabView: true,
+        })
+      );
+    });
+
+    expect(
+      screen.queryByRole('button', { name: HERO_ONLY })
+    ).not.toBeInTheDocument();
+    expect(document.querySelector('[data-pane="detail"]')).toBeNull();
+    expect(openNowPane()).not.toBeNull();
+    expect(screen.getByRole('button', { name: UNFOLD })).toBeInTheDocument();
   });
 });
 

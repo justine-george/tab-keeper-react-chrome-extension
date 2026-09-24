@@ -5,9 +5,13 @@ import { buildSession, seedSessions, seedSettings } from './fixtures/seed';
 
 // KAN-279 D1/D2. The tab view (`?view=tab`) fills the window instead of
 // sitting in the popup's fixed 790x550 box: MainContainer switches to a
-// three-column grid (356px / 1fr / 0, the last reserved and empty for the
-// Active Session pane -- KAN-280) and each pane's height becomes 100vh. The
-// popup itself must not move by a single pixel.
+// three-column grid and each pane's height becomes 100vh. The popup itself
+// must not move by a single pixel.
+//
+// KAN-280 O1/O4. The third column holds Open now when the saved session is
+// shown beside it (356px / 1fr / 340px; 420px from 1600px wide, a 44px rail
+// below 1100px). Folded, the default, Open now takes the detail column
+// instead and the third is 0.
 //
 // Panes are found by `data-pane="sessions"|"detail"` on the two container
 // divs MainContainer already renders. No existing hook reaches them: an
