@@ -2,15 +2,13 @@ import { afterEach, describe, expect, test } from 'vitest';
 
 import {
   isTabView,
-  ownTabId,
   parseViewMode,
   pickNameSourceTab,
 } from '../../../utils/functions/viewMode';
 import { setupChromeFake } from '../../setup/chrome.fake';
 
-// KAN-279 (Part D). `isTabView()` and `ownTabId()` read
-// `window.location.search` and `chrome.tabs.getCurrent()`, both of which
-// need a real DOM/global -- so this file runs under the jsdom ('components')
+// KAN-279 (Part D). `isTabView()` reads `window.location.search`, which
+// needs a real DOM -- so this file runs under the jsdom ('components')
 // project rather than 'unit' (node), despite testing plain functions and not
 // a component. `.tsx` rather than a `// @vitest-environment jsdom` pragma:
 // the project split is already by file extension (vite.config.ts), and this
@@ -64,22 +62,6 @@ describe('isTabView', () => {
   });
 });
 
-describe('ownTabId', () => {
-  test('undefined in the popup, even with a current tab seeded', async () => {
-    window.history.replaceState(null, '', '/index.html');
-    handle = setupChromeFake({ tabs: [{ id: 10 }], currentTabId: 10 });
-
-    expect(await ownTabId()).toBeUndefined();
-  });
-
-  test("the tab view's own id, from chrome.tabs.getCurrent()", async () => {
-    window.history.replaceState(null, '', '/index.html?view=tab');
-    handle = setupChromeFake({ tabs: [{ id: 10 }], currentTabId: 10 });
-
-    expect(await ownTabId()).toBe(10);
-  });
-});
-
 // Builds real chrome.tabs.Tab objects through the fake (query, not the seed
 // literals directly) so no test here casts a partial object to the full
 // Chrome type -- chrome.tabs.Tab carries a dozen required fields the fake
@@ -94,9 +76,8 @@ async function fakeTabs(
 }
 
 describe('pickNameSourceTab', () => {
-  // A predicate rather than an id (fix round 1): every call site below
-  // builds it from the id it used to pass directly, so these three keep
-  // covering the exact same cases the old signature did.
+  // pickNameSourceTab takes a predicate, not an id; this builds one FROM an
+  // id so these three keep covering "exclude this one tab" directly.
   const byId = (id: number | undefined) => (tab: chrome.tabs.Tab) =>
     tab.id === id;
 

@@ -792,6 +792,44 @@ describe('captureOpenWindows leaves out every Tab Keeper page (KAN-300)', () => 
     ]);
   });
 
+  // CONTROL: a REAL lazy-load placeholder (one that actually decodes to a
+  // page, unlike the hand-rolled one above, which has no `<a href>` for
+  // resolveTabUrl to find and so passes through unresolved) must also be
+  // kept, and stored as the RESOLVED https URL it stands for -- not the raw
+  // data: string, and not excluded just because resolving it changes the
+  // address. A predicate that excluded anything whose resolved address
+  // DIFFERS from its raw one -- rather than checking what that resolved
+  // address actually IS -- would drop this tab too, and every suspended or
+  // lazy-loaded tab standing for a genuinely ordinary page along with it.
+  test('CONTROL: a real lazy-load placeholder for a normal page is kept, stored as the resolved URL', async () => {
+    const placeholder = generatePlaceholderURL(
+      'Kagi',
+      '',
+      'https://kagi.com/',
+      'Go to URL'
+    );
+    handle = setupChromeFake({
+      windows: [
+        {
+          id: 1,
+          tabs: [
+            buildChromeTab({ id: 20, url: placeholder, title: 'Kagi' }),
+            buildChromeTab({ id: 11, url: A, title: 'A' }),
+          ],
+        },
+      ],
+    });
+
+    const captured = requireCaptured(
+      await captureOpenWindows('probe', 'all-windows')
+    );
+
+    expect(captured.windows[0].tabs.map((t) => t.url)).toEqual([
+      'https://kagi.com/',
+      A,
+    ]);
+  });
+
   // CONTROL: nothing left in captureOpenWindows depends on tab.id any more
   // (there is no excludeTabId option left to guard) -- a tab Chrome reports
   // with no id at all is kept exactly like any other non-Tab-Keeper tab.
@@ -812,8 +850,8 @@ describe('captureOpenWindows leaves out every Tab Keeper page (KAN-300)', () => 
     expect(captured.windows[0].tabs).toHaveLength(1);
   });
 
-  // Fix round 1. A lazy-load placeholder is a `data:` document, so it never
-  // matches the address prefix directly -- but an OLDER session (saved
+  // A lazy-load placeholder is a `data:` document, so it never matches the
+  // address prefix directly -- but an OLDER session (saved
   // before KAN-300's rule existed) could have stored a Tab Keeper URL as an
   // ordinary tab. Lazy-loading it later wraps THAT url in exactly this kind
   // of placeholder, and toStoredTab already resolves it before storing --

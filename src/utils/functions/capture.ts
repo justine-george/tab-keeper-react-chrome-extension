@@ -259,10 +259,10 @@ export function toWindowGroupData(
  * be an empty string if the tab has not yet committed", not undefined, so
  * this falls through on EMPTY as well as absent (`||`, not `??`).
  *
- * The address is RESOLVED (resolveTabUrl) before the check, not read raw --
- * fix round 1, a real gap the reviewer found. A lazy-load placeholder
- * (local.ts's `data:` document) does not match the raw prefix, which is
- * right for a page that has never loaded -- but an OLDER session, saved
+ * The address is RESOLVED (resolveTabUrl) before the check, not read raw.
+ * A lazy-load placeholder (local.ts's `data:` document) does not match the
+ * raw prefix, which is right for a page that has never loaded -- but an
+ * OLDER session, saved
  * before this rule existed, could have stored a Tab Keeper URL as an
  * ordinary tab; lazy-loading it later wraps THAT url in exactly this kind of
  * placeholder. `toStoredTab` already resolves before storing, so an

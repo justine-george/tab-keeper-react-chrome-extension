@@ -190,9 +190,9 @@ describe('TabGroupDetailsContainer', () => {
   });
 });
 
-// KAN-299 fix round 1. Extends the Tab Keeper page rule to the active-tab
-// paths: "Add current tab" must add nothing when the active tab IS one --
-// the same silent no-op as an empty window.
+// KAN-299. The Tab Keeper page rule reaches the active-tab paths too: "Add
+// current tab" must add nothing when the active tab IS one -- the same
+// silent no-op as an empty window.
 describe('Add current tab skips a Tab Keeper page', () => {
   test('the active tab is the tab view: nothing is added', async () => {
     const session = buildSession();

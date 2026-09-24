@@ -531,7 +531,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
       active: true,
       lastFocusedWindow: true,
     });
-    // KAN-299 fix round 1. Same rule as the window-level add
+    // KAN-299. Same rule as the window-level add
     // (TabGroupDetailsContainer): a Tab Keeper page must never be added to
     // a group as if it were a saved tab.
     if (!tab || isTabKeeperPage(tab)) return;

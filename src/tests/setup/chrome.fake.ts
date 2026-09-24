@@ -95,8 +95,19 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
   const makeTab = (
     tab: Partial<chrome.tabs.Tab>,
     windowId: number
-  ): chrome.tabs.Tab =>
-    ({
+  ): chrome.tabs.Tab => {
+    // A seed's own `windowId` must agree with the window it is being placed
+    // IN. Without this, a seed literal naming its own `windowId` (a typed
+    // builder's default, say) would silently win over this parameter via
+    // the `...tab` spread below, moving the tab into the wrong window with
+    // no error -- a second-window tab built from a default `windowId: 1`
+    // would land in window 1 instead of the window it is nested under.
+    if (tab.windowId !== undefined && tab.windowId !== windowId) {
+      throw new Error(
+        `makeTab: seed names windowId ${tab.windowId}, but this tab is being placed in window ${windowId} -- drop the explicit windowId (it is inferred from where the tab is seeded) or make the two agree.`
+      );
+    }
+    return {
       id: nextId++,
       index: 0,
       url: '',
@@ -106,9 +117,10 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
       // would let a capture that reads tab.groupId silently treat every tab as
       // grouped-into-nothing rather than ungrouped.
       groupId: -1,
-      windowId,
       ...tab,
-    }) as chrome.tabs.Tab;
+      windowId,
+    } as chrome.tabs.Tab;
+  };
 
   for (const win of seed.windows ?? []) {
     const { tabs: inlineTabs, ...rest } = win;

@@ -68,14 +68,6 @@ describe('exporting the open windows (KAN-208)', () => {
     expect(screen.getByText('2 Windows · 2 Tabs')).toBeTruthy();
   });
 
-  // DELETED (fix round 1): "naming another tab as the page still excludes
-  // export.html, by its own address" duplicated the test above. Nothing
-  // reads `currentTabId` any more -- ExportPage's own capture never calls
-  // chrome.tabs.getCurrent() (KAN-300 excludes by address, not by which tab
-  // id happens to be "the page") -- so a seed that only varies
-  // `currentTabId` exercises exactly the same code path as the test above
-  // it, with no observable way to fail differently.
-
   // KAN-300. A second, genuinely different Tab Keeper page (the tab view,
   // say, open beside this export tab) used to survive KAN-208's by-id
   // exclusion -- a DIFFERENT address, so a match-by-id rule let it through.

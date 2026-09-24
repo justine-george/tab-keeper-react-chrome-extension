@@ -6,9 +6,9 @@
 //
 // Worker-safe on purpose, like windows.ts: no import from redux/ or
 // utils/constants/common.ts (window.screen at module load), and no call
-// into viewMode.ts's isTabView()/ownTabId() -- both assume they are running
-// in a tab, which the worker never is. Only @types/chrome's ambient `chrome`
-// types are used, and only as types -- TabApi below is what background.ts
+// into viewMode.ts's isTabView() -- it assumes it is running in a tab,
+// which the worker never is. Only @types/chrome's ambient `chrome` types
+// are used, and only as types -- TabApi below is what background.ts
 // implements against the real chrome.* APIs, and what tests implement
 // against a fake.
 

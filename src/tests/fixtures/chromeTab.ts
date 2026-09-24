@@ -6,10 +6,10 @@
 // defaults to 1 -- DEFAULT_WINDOW_ID in chrome.fake.ts -- since most seeds
 // place every tab in window 1; override it for a multi-window seed.
 //
-// Shared (fix round 1 on KAN-279 Part D/KAN-300) rather than kept local to
-// one test file: tabViewOwnTab.test.tsx, capture.test.ts,
-// exportOpenWindows.test.tsx and focusSavesEveryWindow.test.ts all built
-// their own chrome.tabs.Tab literals by casting, independently.
+// Shared rather than kept local to one test file: tabViewOwnTab.test.tsx,
+// capture.test.ts, exportOpenWindows.test.tsx and
+// focusSavesEveryWindow.test.ts all built their own chrome.tabs.Tab
+// literals by casting, independently.
 export function buildChromeTab(
   overrides: Partial<chrome.tabs.Tab> = {}
 ): chrome.tabs.Tab {

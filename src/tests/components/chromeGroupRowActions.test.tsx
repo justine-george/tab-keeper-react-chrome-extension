@@ -193,9 +193,9 @@ describe('the group row action set', () => {
   });
 });
 
-// KAN-299 fix round 1. Extends the Tab Keeper page rule to the active-tab
-// paths: "Add current tab to group" must add nothing when the active tab IS
-// one -- the same rule as the window-level add (TabGroupDetailsContainer).
+// KAN-299. The Tab Keeper page rule reaches the active-tab paths too: "Add
+// current tab to group" must add nothing when the active tab IS one -- the
+// same rule as the window-level add (TabGroupDetailsContainer).
 describe('add current tab to group skips a Tab Keeper page', () => {
   test('the active tab is the tab view: nothing is added', async () => {
     const { store, seen } = await renderRow({

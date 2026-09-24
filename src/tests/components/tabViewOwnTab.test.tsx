@@ -21,12 +21,17 @@ import {
 // own page, and "the active tab" IS Tab Keeper -- so a save or an "Add
 // current window" that used the raw window/active-tab data would store the
 // extension's own page as a saved tab, and the name box would suggest "Tab
-// Keeper" as a session name. Both saves and "Add current window" leave the
-// own tab out BY ID (D6/D14), and the name box falls back to the next most
-// recently used tab, cleaned exactly like any other derived title (D15).
+// Keeper" as a session name. Both saves and "Add current window" leave
+// every Tab Keeper page out BY ADDRESS (isTabKeeperPage, capture.ts -- not
+// by id, so a second Tab Keeper page open in the same window is excluded
+// too), and the name box falls back to the next most recently used tab,
+// cleaned exactly like any other derived title (D15).
 //
-// The popup is unchanged: outside the tab view, ownTabId() is undefined and
-// every path below is a no-op.
+// Neither rule is tab-view-only. The address exclusion runs for the popup's
+// saves and "Add current window" too, and the name-box/window-title
+// fallback also applies there whenever the ACTIVE tab happens to be a Tab
+// Keeper page (Switch can restore a window whose active tab is the pinned
+// tab view) -- see the popup-specific describes below.
 
 const OWN_URL = 'chrome-extension://faketestid/index.html?view=tab';
 const DOCS_URL = 'https://docs.test/';
@@ -34,11 +39,8 @@ const MAIL_URL = 'https://mail.test/';
 const OTHER_URL = 'https://other.test/';
 
 // `tab` is `buildChromeTab` (src/tests/fixtures/chromeTab.ts), imported
-// under this file's own established short name -- fix round 1 moved the
-// builder itself out to a shared fixture (capture.test.ts,
-// exportOpenWindows.test.tsx and focusSavesEveryWindow.test.ts each built
-// their own copy independently), but every seed below still places its tabs
-// in window 1, the builder's own default, so nothing here changed.
+// under this file's own established short name. Every seed below places
+// its tabs in window 1, the builder's own default.
 
 // Window 1 holds Tab Keeper's own tab (10, most recently used) beside two
 // real tabs (11, 12).
@@ -82,7 +84,11 @@ const onlyOwnTabSeed = {
 };
 
 // CONTROL: the same three tabs, but no ?view=tab and no currentTabId -- the
-// popup, where ownTabId() must stay undefined and every path is a no-op.
+// popup. Its active tab (10) still happens to BE the tab view here, so the
+// popup's own Tab-Keeper-active-tab fallback still applies (see the
+// popup-specific describes below); what this seed controls for is what
+// stays genuinely tab-view-only -- the visibility listener never attaches
+// outside the tab view, which must stay a no-op in the popup.
 const controlSeed = {
   windows: [
     {
@@ -240,10 +246,10 @@ describe('saving in the tab view leaves out Tab Keeper itself (D6)', () => {
     const { store } = await renderWithProviders(<UserInputContainer />, {
       seed: controlSeed,
     });
-    // Barrier: waits for the mount-time suggestion, which fix round 1 made
-    // 'Docs' rather than 'Tab Keeper' for this seed (its active tab IS a Tab
-    // Keeper page -- see the describe below on the name box's own fallback).
-    // Unrelated to what this test actually checks (save exclusion).
+    // Barrier: waits for the mount-time suggestion, which is 'Docs' rather
+    // than 'Tab Keeper' for this seed (its active tab IS a Tab Keeper page
+    // -- see the describe below on the name box's own fallback). Unrelated
+    // to what this test actually checks (save exclusion).
     await screen.findByDisplayValue('Docs');
 
     await clickSaveCurrentWindow();
@@ -285,15 +291,33 @@ describe('the name box in the tab view (D15)', () => {
   // CONTROL. In the popup, with an ORDINARY active tab, the box still
   // suggests that tab's title exactly as it always has -- proves the
   // tab-view branch above, and its extension to a Tab Keeper active tab in
-  // the popup (fix round 1, below), are both ADDITIONAL behaviour, not a
-  // replacement that also changed the ordinary popup case.
+  // the popup (below), are both ADDITIONAL behaviour, not a replacement
+  // that also changed the ordinary popup case. A SECOND, more recently used,
+  // non-active tab is in the window too: if the active-tab check were ever
+  // dropped so the popup always fell back to the most-recently-used OTHER
+  // tab, that tab (not the active one) would win, and this test would show
+  // its title instead.
   test('CONTROL: in the popup, an ordinary active tab keeps its own title as the suggestion', async () => {
     await renderWithProviders(<UserInputContainer />, {
       seed: {
         windows: [
           {
             id: 1,
-            tabs: [tab({ id: 20, url: DOCS_URL, title: 'Docs', active: true })],
+            tabs: [
+              tab({
+                id: 20,
+                url: DOCS_URL,
+                title: 'Docs',
+                active: true,
+                lastAccessed: 100,
+              }),
+              tab({
+                id: 21,
+                url: MAIL_URL,
+                title: 'Mail',
+                lastAccessed: 900,
+              }),
+            ],
           },
         ],
       },
@@ -303,16 +327,54 @@ describe('the name box in the tab view (D15)', () => {
   });
 });
 
-// KAN-299 fix round 1. The name box's D15 fallback now applies in the popup
-// too: Switch can restore a window whose ACTIVE tab is the pinned tab view,
-// and the box must not offer "Tab Keeper" as a session name -- the same
+// KAN-299. The name box's D15 fallback applies in the popup too: Switch can
+// restore a window whose ACTIVE tab is the pinned tab view, and the box
+// must not offer "Tab Keeper" as a session name -- the same
 // most-recently-used-OTHER-tab rule the tab view already uses.
-describe('the popup name box falls back off a Tab Keeper active tab (KAN-299 fix round 1)', () => {
+describe('the popup name box falls back off a Tab Keeper active tab', () => {
+  // Docs is listed FIRST among the non-Tab-Keeper tabs, but Mail is the more
+  // recently used one -- so "first non-excluded tab in list order" and
+  // "most recently used" disagree, and only the correct rule picks Mail.
   test('the active tab is the tab view: suggests the most recently used OTHER tab', async () => {
-    // controlSeed's active tab (10) is the tab view -- exactly this case.
-    await renderWithProviders(<UserInputContainer />, { seed: controlSeed });
+    await renderWithProviders(<UserInputContainer />, {
+      seed: {
+        windows: [
+          {
+            id: 1,
+            tabs: [
+              tab({ id: 10, url: OWN_URL, title: 'Tab Keeper', active: true }),
+              tab({ id: 11, url: DOCS_URL, title: 'Docs', lastAccessed: 100 }),
+              tab({ id: 12, url: MAIL_URL, title: 'Mail', lastAccessed: 900 }),
+            ],
+          },
+        ],
+      },
+    });
 
-    expect(await screen.findByDisplayValue('Docs')).toBeTruthy();
+    expect(await screen.findByDisplayValue('Mail')).toBeTruthy();
+  });
+
+  // The worst path: the active tab is a Tab Keeper page AND nothing else is
+  // open in the window, so the fallback itself has no candidate tab to
+  // pick. `pickNameSourceTab` returns undefined, and the box's existing
+  // "no suggestion" fallback (`cleanSuggestion`, translated 'New Tab
+  // Group') has to apply here too, exactly as it already does for the
+  // tab-view's own equivalent worst path (`onlyOwnTabSeed`, tested above).
+  test('the active tab is the tab view and nothing else is open: falls back to the translated placeholder', async () => {
+    await renderWithProviders(<UserInputContainer />, {
+      seed: {
+        windows: [
+          {
+            id: 1,
+            tabs: [
+              tab({ id: 10, url: OWN_URL, title: 'Tab Keeper', active: true }),
+            ],
+          },
+        ],
+      },
+    });
+
+    expect(await screen.findByDisplayValue('New Tab Group')).toBeTruthy();
   });
 });
 
@@ -357,14 +419,13 @@ describe('the name box recomputes on visibility, but only in the tab view (KAN-2
     expect(screen.getByDisplayValue('My own title')).toBeTruthy();
   });
 
-  // REGRESSION, found in review and reproduced here (fix round 1). Typed
-  // text must survive not just ONE declined recompute (the CONTROL above)
-  // but a SECOND one straight after -- `lastSuggestionRef` used to move
-  // even when the guard declined to touch the box, so it could drift ahead
+  // Typed text must survive not just ONE declined recompute (the CONTROL
+  // above) but a SECOND one straight after -- `lastSuggestionRef` moving
+  // even when the guard declines to touch the box would let it drift ahead
   // of `boxValueRef` and make a LATER recompute wrongly believe the box was
   // untouched. This sequence is what surfaces that: the user's own text
   // ("Mail") happens to equal the suggestion the FIRST declined recompute
-  // computed, which is exactly the coincidence the bug needed.
+  // computed, which is exactly the coincidence that drift needs.
   test('typed text survives a second recompute straight after one the guard correctly declined', async () => {
     goToTabView();
     const { chrome: chromeHandle } = await renderWithProviders(
@@ -405,11 +466,11 @@ describe('the name box recomputes on visibility, but only in the tab view (KAN-2
       <UserInputContainer />,
       { seed: controlSeed }
     );
-    // Barrier: fix round 1 made this 'Docs', not 'Tab Keeper' -- controlSeed's
-    // active tab (10) is itself a Tab Keeper page, so the popup's own
-    // fallback picks the most recently used OTHER tab even at mount. See the
-    // describe on that fallback above; this test is about the LISTENER, not
-    // the fallback.
+    // Barrier: this is 'Docs', not 'Tab Keeper' -- controlSeed's active tab
+    // (10) is itself a Tab Keeper page, so the popup's own fallback picks
+    // the most recently used OTHER tab even at mount. See the describe on
+    // that fallback above; this test is about the LISTENER, not the
+    // fallback.
     await screen.findByDisplayValue('Docs');
 
     // Changes the EXCLUDED tab's title -- it must not matter either way,
@@ -447,7 +508,7 @@ describe('the tab-view visibility listener is removed on unmount (KAN-299)', () 
     expect(chromeHandle.tabsQueryCalls.length).toBe(queriesBeforeFlip);
   });
 
-  // Fix round 1: the `cancelled` guard this listener used to check on top of
+  // The `cancelled` guard this listener used to check on top of
   // removeEventListener was deleted from the production code. It read as
   // defence against the popup's JS context being torn down mid-await, but
   // this listener only ever runs in the tab view -- a context that is not
@@ -574,8 +635,8 @@ describe('"Add current window" in the tab view leaves out Tab Keeper itself (D14
       store.getState().tabContainerDataState.tabGroups[0].windows.length;
 
     await clickAddCurrentWindow();
-    // Flushes the click handler's own awaits (ownTabId, windows.getCurrent)
-    // so a dispatch that WOULD have happened has had the chance to.
+    // Flushes the click handler's own awaits (windows.getCurrent, the tabs
+    // query) so a dispatch that WOULD have happened has had the chance to.
     await act(async () => {});
 
     // `seen` first, for the same reason as the save-path worst case above:
@@ -719,11 +780,14 @@ describe('the popup "Add current window" name path', () => {
   });
 });
 
-// KAN-299 fix round 1. Extended past the tab view: Switch can restore a
-// window whose ACTIVE tab is the pinned tab view, and "Add current window"
-// (from the popup) must not name the new window "Tab Keeper" -- the same
+// KAN-299, extended past the tab view: Switch can restore a window whose
+// ACTIVE tab is the pinned tab view, and "Add current window" (from the
+// popup) must not name the new window "Tab Keeper" -- the same
 // most-recently-used-OTHER-tab fallback the tab view already applies.
 describe('the popup "Add current window" title falls back off a Tab Keeper active tab', () => {
+  // Docs is listed FIRST among the non-Tab-Keeper tabs, but Mail is the more
+  // recently used one -- so "first non-excluded tab in list order" and
+  // "most recently used" disagree, and only the correct rule picks Mail.
   test('the active tab is a Tab Keeper page: named from the most recently used OTHER tab', async () => {
     const { store } = await renderHeroWithSelectedSession({
       windows: [
@@ -737,8 +801,8 @@ describe('the popup "Add current window" title falls back off a Tab Keeper activ
               active: true,
               lastAccessed: 300,
             }),
-            tab({ id: 11, url: DOCS_URL, title: 'Docs', lastAccessed: 200 }),
-            tab({ id: 12, url: MAIL_URL, title: 'Mail', lastAccessed: 100 }),
+            tab({ id: 11, url: DOCS_URL, title: 'Docs', lastAccessed: 100 }),
+            tab({ id: 12, url: MAIL_URL, title: 'Mail', lastAccessed: 900 }),
           ],
         },
       ],
@@ -753,6 +817,6 @@ describe('the popup "Add current window" title falls back off a Tab Keeper activ
     );
     expect(
       store.getState().tabContainerDataState.tabGroups[0].windows[0].title
-    ).toBe('Docs');
+    ).toBe('Mail');
   });
 });

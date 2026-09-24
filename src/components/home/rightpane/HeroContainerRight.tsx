@@ -166,8 +166,8 @@ export default function HeroContainerRight() {
     // If that empties the window, there is nothing to add.
     if (tabs.length === 0) return;
 
-    // KAN-299, extended past the tab view in fix round 1. Resolved HERE, at
-    // click time -- not cached from a mount-once effect. This component can
+    // KAN-299, extended past the tab view. Resolved HERE, at click time --
+    // not cached from a mount-once effect. This component can
     // stay mounted for as long as the tab view stays open, so a name read
     // once at mount can go stale; the tab it was drawn from may no longer be
     // the most recently used by the time this button is actually pressed.

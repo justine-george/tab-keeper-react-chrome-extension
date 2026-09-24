@@ -383,3 +383,42 @@ describe('permissions', () => {
     expect(settled).toBe(false);
   });
 });
+
+// An inline tab is nested inside a specific `windows[]` entry, so its own
+// `windowId` -- if it names one at all -- has to agree with that window's
+// id. A seed literal naming a DIFFERENT one used to be silently overridden
+// with no error, which let a builder's own default `windowId` move a tab
+// into the wrong window without anything failing.
+describe('makeTab enforces the seed window', () => {
+  test('an inline tab naming a DIFFERENT windowId than the window it is seeded under throws', () => {
+    expect(() =>
+      setupChromeFake({
+        windows: [
+          {
+            id: 7,
+            tabs: [
+              { id: 1, windowId: 99, title: 'Mismatched' },
+            ] as chrome.tabs.Tab[],
+          },
+        ],
+      })
+    ).toThrow(/makeTab/);
+  });
+
+  // CONTROL: the check is for DISAGREEMENT, not for the field's mere
+  // presence -- naming the window's own id back is not an error.
+  test('CONTROL: naming the SAME windowId as the enclosing window does not throw', () => {
+    handle = setupChromeFake({
+      windows: [
+        {
+          id: 7,
+          tabs: [
+            { id: 1, windowId: 7, title: 'Consistent' },
+          ] as chrome.tabs.Tab[],
+        },
+      ],
+    });
+
+    expect(handle).toBeDefined();
+  });
+});

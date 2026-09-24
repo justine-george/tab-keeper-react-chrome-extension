@@ -54,10 +54,7 @@ export default function UserInputContainer() {
     // handleVisibilityChange (further down) does NOT read this: it only
     // ever runs in the tab view, whose page is not torn down the way the
     // popup is, and removeEventListener (its own cleanup, below) is what
-    // stops it from running at all once this effect unmounts -- fix round
-    // 1 found the flag there both unfalsifiable by any test in this stack
-    // and reasoned about for the wrong context (the popup's teardown, which
-    // this listener never runs in).
+    // stops it from running at all once this effect unmounts.
     let cancelled = false;
 
     // KAN-211/KAN-279 D15. The name box is a SUGGESTION, so it is cleaned like
@@ -83,7 +80,7 @@ export default function UserInputContainer() {
         );
         return pickNameSourceTab(tabsOfWindow, isTabKeeperPage)?.title;
       }
-      // Fix round 1 (KAN-299). The popup's active tab is USUALLY a real
+      // KAN-299. The popup's active tab is USUALLY a real
       // page, but Switch can restore a window whose active tab is Tab
       // Keeper's own page (a pinned tab view) -- the same D15 fallback
       // extended past the tab view: the most recently used tab in the
@@ -144,13 +141,12 @@ export default function UserInputContainer() {
       // into it -- the two agree only when nothing has touched the box
       // since, which is the one case it is safe to replace.
       //
-      // REGRESSION (found in review, fix round 1): both refs must move
-      // together, inside this branch, or not at all. `lastSuggestionRef`
-      // used to be written UNCONDITIONALLY, even when this guard declined
-      // to touch the box -- so it could drift ahead of `boxValueRef`. Repro:
-      // the user types "Mail"; Mail becomes most recent and the page goes
-      // visible (the guard correctly declines, but `lastSuggestionRef`
-      // still moved to "Mail", coincidentally matching what the user typed);
+      // Both refs must move together, inside this branch, or not at all.
+      // Writing `lastSuggestionRef` UNCONDITIONALLY -- even when this guard
+      // declines to touch the box -- lets it drift ahead of `boxValueRef`.
+      // Repro: the user types "Mail"; Mail becomes most recent and the page
+      // goes visible (the guard correctly declines, but `lastSuggestionRef`
+      // still moves to "Mail", coincidentally matching what the user typed);
       // Docs becomes most recent and the page goes visible again -- the two
       // refs now spuriously agree ("Mail" === "Mail"), so the guard
       // WRONGLY treats the box as untouched and overwrites the user's text
