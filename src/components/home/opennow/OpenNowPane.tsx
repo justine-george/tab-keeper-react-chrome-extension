@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { Ref, useState } from 'react';
 
 import { css } from '@emotion/react';
 import { useTranslation } from 'react-i18next';
@@ -26,12 +26,19 @@ interface OpenNowPaneProps {
   windows: OpenWindow[] | null;
   // Shown in the header's action row after the collapse toggle, in order.
   actions: OpenNowHeaderAction[];
+  // The "Open now" heading, for a caller that moves focus to it (the
+  // drawer, KAN-280 O2).
+  headingRef?: Ref<HTMLHeadingElement>;
 }
 
 // The Open now pane (KAN-280): the browser's live windows, drawn the way the
 // saved-session detail draws a saved one. Presentational -- the caller reads
 // Chrome and hands the result in as `windows`.
-export default function OpenNowPane({ windows, actions }: OpenNowPaneProps) {
+export default function OpenNowPane({
+  windows,
+  actions,
+  headingRef,
+}: OpenNowPaneProps) {
   const COLORS = useThemeColors();
   const FONT_FAMILY = useFontFamily();
   const { t } = useTranslation();
@@ -87,6 +94,14 @@ export default function OpenNowPane({ windows, actions }: OpenNowPaneProps) {
     width: 100%;
   `;
 
+  // A real heading, looking as the label did alone: the h2's own margin and
+  // bold are reset, and the label sets its size and face.
+  const headingStyle = css`
+    margin: 0;
+    font: inherit;
+    min-width: 0;
+  `;
+
   // Copied from TabGroupDetailsContainer's containerStyle.
   const bodyStyle = css`
     display: flex;
@@ -109,12 +124,16 @@ export default function OpenNowPane({ windows, actions }: OpenNowPaneProps) {
     <div css={paneStyle}>
       <div css={headerStyle}>
         <div css={topStyle}>
-          <NormalLabel
-            value={t('Open now')}
-            size={TYPE.SECTION}
-            color={COLORS.TEXT_COLOR}
-            style="height: 32px; padding-left: 8px; margin-right: 8px; max-width: 100%;"
-          />
+          {/* tabIndex -1: focusable from script (the drawer moves focus here
+              on open), never a Tab stop. */}
+          <h2 ref={headingRef} tabIndex={-1} css={headingStyle}>
+            <NormalLabel
+              value={t('Open now')}
+              size={TYPE.SECTION}
+              color={COLORS.TEXT_COLOR}
+              style="height: 32px; padding-left: 8px; margin-right: 8px; max-width: 100%;"
+            />
+          </h2>
           {/* No counts while loading, and none for an empty list: "0 Windows"
               says less than the body's own message does. */}
           {listed.length > 0 && (

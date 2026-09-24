@@ -213,5 +213,6 @@
   "No other tabs are open": "No hay otras pestañas abiertas",
   "Saved sessions": "Sesiones guardadas",
   "Fold the saved session away": "Ocultar la sesión guardada",
-  "Show the saved session": "Mostrar la sesión guardada"
+  "Show the saved session": "Mostrar la sesión guardada",
+  "Close Open now": "Cerrar el panel \"Pestañas abiertas\""
 }

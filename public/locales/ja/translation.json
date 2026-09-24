@@ -209,5 +209,6 @@
   "No other tabs are open": "他に開いているタブはありません",
   "Saved sessions": "保存済みのセッション",
   "Fold the saved session away": "保存済みのセッションを折りたたむ",
-  "Show the saved session": "保存済みのセッションを表示"
+  "Show the saved session": "保存済みのセッションを表示",
+  "Close Open now": "「現在開いているタブ」パネルを閉じる"
 }

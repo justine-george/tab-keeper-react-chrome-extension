@@ -211,5 +211,6 @@
   "No other tabs are open": "Keine anderen Tabs geöffnet",
   "Saved sessions": "Gespeicherte Sitzungen",
   "Fold the saved session away": "Gespeicherte Sitzung ausblenden",
-  "Show the saved session": "Gespeicherte Sitzung anzeigen"
+  "Show the saved session": "Gespeicherte Sitzung anzeigen",
+  "Close Open now": "Bereich \"Offene Tabs\" schließen"
 }

@@ -211,5 +211,6 @@
   "No other tabs are open": "कोई अन्य टैब खुला नहीं है",
   "Saved sessions": "सहेजे गए सेशन",
   "Fold the saved session away": "सहेजा गया सेशन छिपाएं",
-  "Show the saved session": "सहेजा गया सेशन दिखाएं"
+  "Show the saved session": "सहेजा गया सेशन दिखाएं",
+  "Close Open now": "\"अभी खुले टैब\" पैनल बंद करें"
 }

@@ -209,5 +209,6 @@
   "No other tabs are open": "没有其他打开的标签页",
   "Saved sessions": "已保存的会话",
   "Fold the saved session away": "收起已保存的会话",
-  "Show the saved session": "显示已保存的会话"
+  "Show the saved session": "显示已保存的会话",
+  "Close Open now": "关闭“当前打开的标签页”面板"
 }

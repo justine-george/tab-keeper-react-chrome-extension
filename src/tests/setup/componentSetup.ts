@@ -2,6 +2,8 @@ import { vi } from 'vitest';
 
 import '@testing-library/jest-dom/vitest';
 
+import { FakeMediaQueryList } from './mediaQueryFake';
+
 // Every component test needs this stubbed: utils/functions/external reaches
 // out to Firestore and chrome.notifications, none of which exist in jsdom.
 // Centralized here (rather than copy-pasted per test file) so a new
@@ -64,4 +66,12 @@ if (typeof HTMLDialogElement !== 'undefined') {
       this.open = false;
     };
   }
+}
+
+// KAN-280 O2. jsdom declares window.matchMedia but leaves it undefined
+// (measured: `'matchMedia' in window` is true). Every query answers false, a
+// wide window, so a component test sees the layout it saw before the narrow
+// rail existed. A test of the narrow layout replaces this with its own list.
+if (typeof window !== 'undefined' && typeof window.matchMedia !== 'function') {
+  window.matchMedia = (query: string) => new FakeMediaQueryList(query, false);
 }

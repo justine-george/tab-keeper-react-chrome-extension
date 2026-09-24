@@ -2,12 +2,15 @@ import { useDispatch, useSelector } from 'react-redux';
 
 import { useTranslation } from 'react-i18next';
 
+import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import { useOpenWindows } from '../../../hooks/useOpenWindows';
 import { endSavedSessionPeek } from '../../../redux/slices/globalStateSlice';
 import { setFoldSavedSessionInTabView } from '../../../redux/slices/settingsDataStateSlice';
 import { AppDispatch, RootState } from '../../../redux/store';
 import OpenNowPane from './OpenNowPane';
 import type { OpenNowHeaderAction } from './OpenNowPane';
+import OpenNowRail from './OpenNowRail';
+import { OPEN_NOW_RAIL_QUERY } from './railQuery';
 
 interface OpenNowColumnProps {
   // Whether the saved session is folded away, so this pane holds the detail
@@ -26,6 +29,7 @@ export default function OpenNowColumn({ folded }: OpenNowColumnProps) {
     (state: RootState) => state.globalState.hasTabGroupsPermission
   );
   const windows = useOpenWindows(hasTabGroupsPermission);
+  const isNarrow = useMediaQuery(OPEN_NOW_RAIL_QUERY);
 
   const setFolded = (fold: boolean) => {
     dispatch(setFoldSavedSessionInTabView(fold));
@@ -44,5 +48,11 @@ export default function OpenNowColumn({ folded }: OpenNowColumnProps) {
         onClick: () => setFolded(true),
       };
 
+  // O2. Side by side below 1100px the column is a rail. Folded, Open now
+  // has the detail column's width, so it is the pane at any width. The
+  // windows are read here, above the swap, so a resize does not re-read.
+  if (isNarrow && !folded) {
+    return <OpenNowRail windows={windows} foldAction={foldAction} />;
+  }
   return <OpenNowPane windows={windows} actions={[foldAction]} />;
 }

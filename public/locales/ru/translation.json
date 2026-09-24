@@ -215,5 +215,6 @@
   "No other tabs are open": "Других открытых вкладок нет",
   "Saved sessions": "Сохранённые сессии",
   "Fold the saved session away": "Скрыть сохранённую сессию",
-  "Show the saved session": "Показать сохранённую сессию"
+  "Show the saved session": "Показать сохранённую сессию",
+  "Close Open now": "Закрыть панель «Открытые вкладки»"
 }

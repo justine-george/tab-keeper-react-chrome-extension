@@ -9,6 +9,7 @@ import LeftPane from './home/leftpane/LeftPane';
 import { Toast } from './common/Toast';
 import RightPane from './home/rightpane/RightPane';
 import OpenNowColumn from './home/opennow/OpenNowColumn';
+import { OPEN_NOW_RAIL_QUERY } from './home/opennow/railQuery';
 import { useThemeColors } from '../hooks/useThemeColors';
 import { APP_HEIGHT } from '../utils/constants/common';
 import { AppDispatch, RootState } from '../redux/store';
@@ -185,7 +186,7 @@ export default function MainContainer() {
       @media (min-width: 1600px) {
         grid-template-columns: 356px minmax(0, 1fr) 420px;
       }
-      @media (max-width: 1099px) {
+      @media ${OPEN_NOW_RAIL_QUERY} {
         grid-template-columns: 356px minmax(0, 1fr) 44px;
       }
     `}

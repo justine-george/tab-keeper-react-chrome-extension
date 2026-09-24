@@ -213,5 +213,6 @@
   "No other tabs are open": "Nessun'altra scheda aperta",
   "Saved sessions": "Sessioni salvate",
   "Fold the saved session away": "Nascondi la sessione salvata",
-  "Show the saved session": "Mostra la sessione salvata"
+  "Show the saved session": "Mostra la sessione salvata",
+  "Close Open now": "Chiudi il pannello \"Schede aperte\""
 }
