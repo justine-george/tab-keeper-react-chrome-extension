@@ -10,7 +10,15 @@ import {
   seedSessions,
   seedSettings,
 } from './fixtures/seed';
-import { LIGHT_THEME } from '../src/hooks/useThemeColors';
+import { contrast, pixelsAt, rgbToHex } from './fixtures/pixels';
+import {
+  BB_PINK_THEME,
+  BLUE_THEME,
+  DARKENHEIMER_THEME,
+  LIGHT_THEME,
+  WARM_LIGHT_THEME,
+} from '../src/hooks/useThemeColors';
+import type { ThemeColors } from '../src/hooks/useThemeColors';
 import { TYPE } from '../src/styles/scale';
 
 // KAN-280 Part A on the real artifact: the Open now pane in the tab view
@@ -300,6 +308,95 @@ function expectWithinHalfPixel(
     `${what}: live ${live}, saved ${saved}`
   ).toBeLessThanOrEqual(0.5);
 }
+
+// ---- the front-tab bar (KAN-280 M3, Justine's pick B3) ----
+
+// Every theme, by the name the picker shows and the value settingsData
+// stores: the shade the bar sits on is a different colour in each.
+const FRONT_TAB_THEMES: ReadonlyArray<{
+  name: string;
+  stored: string;
+  colors: ThemeColors;
+}> = [
+  { name: 'Paper', stored: 'Light', colors: LIGHT_THEME },
+  { name: 'Parchment', stored: 'WarmLight', colors: WARM_LIGHT_THEME },
+  { name: 'Petal', stored: 'BBPink', colors: BB_PINK_THEME },
+  { name: 'Graphite', stored: 'Darkenheimer', colors: DARKENHEIMER_THEME },
+  { name: 'Ink', stored: 'Blue', colors: BLUE_THEME },
+];
+
+// WCAG's floor for a non-text mark; KAN-199's segment marker is held to it.
+const MARKER_FLOOR = 3;
+
+interface MarkerFacts {
+  // The row's ::before, as computed. Its box is not in the layout API.
+  content: string;
+  position: string;
+  left: string;
+  top: string;
+  width: string;
+  height: string;
+  color: string;
+  // The row it is drawn in.
+  rowPosition: string;
+  rowFill: string;
+  rowLeft: number;
+  rowTop: number;
+  rowHeight: number;
+}
+
+// A live tab row's front-tab bar, read from the row that holds the button.
+async function readMarker(row: Locator): Promise<MarkerFacts> {
+  await expect(row).toBeVisible();
+  const facts = await row.evaluate((button: Element) => {
+    const rowEl = button.parentElement;
+    if (rowEl === null) return null;
+    const bar = getComputedStyle(rowEl, '::before');
+    const own = getComputedStyle(rowEl);
+    const r = rowEl.getBoundingClientRect();
+    return {
+      content: bar.content,
+      position: bar.position,
+      left: bar.left,
+      top: bar.top,
+      width: bar.width,
+      height: bar.height,
+      color: bar.backgroundColor,
+      rowPosition: own.position,
+      rowFill: own.backgroundColor,
+      rowLeft: r.left,
+      rowTop: r.top,
+      rowHeight: r.height,
+    };
+  });
+  if (facts === null) throw new Error('the live tab button has no row');
+  return facts;
+}
+
+// No ::before rule computes `content` as none; an empty string is a box.
+const drawsBar = (m: MarkerFacts): boolean =>
+  m.content !== 'none' && m.content !== 'normal';
+
+// The bar's shape: 3px wide, 16px tall and centred on the 32px row, flush
+// with the row's left edge.
+function expectBarShape(m: MarkerFacts): void {
+  expect(drawsBar(m), `the row draws a bar (content ${m.content})`).toBe(true);
+  expect(m.rowPosition, 'the row positions the bar').toBe('relative');
+  expect(m.position).toBe('absolute');
+  expect(m.left, 'flush with the row').toBe('0px');
+  expect(m.width).toBe('3px');
+  expect(m.height).toBe('16px');
+  expect(m.top).toBe('8px');
+  expectWithinHalfPixel(m.rowHeight, 32, 'row height');
+}
+
+// The bar and the fill just above it, as painted: centre column of the 3px
+// bar, at the row's middle and 3px under its top edge.
+const paintedBarAndFill = (page: Page, m: MarkerFacts): Promise<string[]> =>
+  pixelsAt(page, [
+    [Math.floor(m.rowLeft) + 1, m.rowTop + m.rowHeight / 2],
+    [Math.floor(m.rowLeft) + 1, m.rowTop + 3],
+  ]);
 
 test.describe('Open now in the tab view (KAN-280)', () => {
   test('1. folded by default: Open now fills the detail column', async ({
@@ -640,6 +737,121 @@ test.describe('Open now in the tab view (KAN-280)', () => {
     expectWithinHalfPixel(live.img.width, saved.img.width, 'img width');
     expectWithinHalfPixel(live.img.height, saved.img.height, 'img height');
   });
+
+  for (const { name, stored, colors } of FRONT_TAB_THEMES) {
+    test(`7d. ${name}: the front tab has a bar that clears 3:1 on its shade and on hover; a back tab has none`, async ({
+      context,
+      extensionId,
+      serviceWorker,
+    }, testInfo) => {
+      await seedSettings(context, { theme: stored });
+      const page = await openPage(context, extensionId, VIEW_TAB, TAB_VIEWPORT);
+
+      // A second window with two tabs, the second one in front.
+      const made = await serviceWorker.evaluate(
+        async (urls: string[]) => {
+          const win = await chrome.windows.create({
+            url: urls,
+            focused: false,
+          });
+          const back = win?.tabs?.[0]?.id;
+          const front = win?.tabs?.[1]?.id;
+          if (win?.id === undefined || back === undefined) return null;
+          if (front === undefined) return null;
+          await chrome.tabs.update(front, { active: true });
+          const [b, f] = await Promise.all([
+            chrome.tabs.get(back),
+            chrome.tabs.get(front),
+          ]);
+          return { windowId: win.id, back: b.active, front: f.active };
+        },
+        [
+          'data:text/html,<title>Back</title>',
+          'data:text/html,<title>Front</title>',
+        ]
+      );
+      if (made === null) throw new Error('Chrome gave no window or tabs');
+      // PREMISE: Chrome says which of the two is in front.
+      expect(made).toMatchObject({ back: false, front: true });
+
+      const win = page.locator(
+        `${OPEN_NOW} [data-open-window-id="${made.windowId}"]`
+      );
+      const front = win.getByRole('button', {
+        name: 'Switch to tab: Front',
+        exact: true,
+      });
+      const back = win.getByRole('button', {
+        name: 'Switch to tab: Back',
+        exact: true,
+      });
+      // PREMISE: the pane knows it too.
+      await expect(front).toHaveAttribute('aria-current', 'true');
+      await expect(back).not.toHaveAttribute('aria-current');
+
+      // PREMISE: the seeded theme took, so the shade is this theme's (a
+      // misspelt theme seeds nothing, silently, and every run is Paper).
+      await page.mouse.move(0, 0);
+      await expect
+        .poll(async () => (await readMarker(front)).rowFill)
+        .toBe(rgb(colors.SECONDARY_COLOR));
+
+      const atRest = await readMarker(front);
+      expectBarShape(atRest);
+      const onShade = contrast(
+        rgbToHex(atRest.color),
+        rgbToHex(atRest.rowFill)
+      );
+      expect(
+        onShade,
+        `bar ${atRest.color} on the shade ${atRest.rowFill}`
+      ).toBeGreaterThanOrEqual(MARKER_FLOOR);
+      expect(atRest.color, 'the bar is LABEL_L2 (KAN-199)').toBe(
+        rgb(colors.LABEL_L2_COLOR)
+      );
+      const [barAtRest, shade] = await paintedBarAndFill(page, atRest);
+      // CONTROL: the sample above the bar is the row's own computed shade.
+      expect(shade, 'the fill sample lands on the shade').toBe(
+        rgbToHex(atRest.rowFill)
+      );
+      expect(barAtRest, 'the bar is painted').toBe(rgbToHex(atRest.color));
+
+      // Hovering changes the fill, not the bar.
+      await front.hover();
+      await expect
+        .poll(async () => (await readMarker(front)).rowFill)
+        .toBe(rgb(colors.HOVER_COLOR));
+      const hovered = await readMarker(front);
+      expectBarShape(hovered);
+      expect(hovered.color).toBe(atRest.color);
+      const onHover = contrast(
+        rgbToHex(hovered.color),
+        rgbToHex(hovered.rowFill)
+      );
+      expect(
+        onHover,
+        `bar ${hovered.color} on the hover fill ${hovered.rowFill}`
+      ).toBeGreaterThanOrEqual(MARKER_FLOOR);
+      const [barHovered, hoverFill] = await paintedBarAndFill(page, hovered);
+      expect(hoverFill, 'the fill sample lands on the hover fill').toBe(
+        rgbToHex(hovered.rowFill)
+      );
+      expect(barHovered, 'the bar is painted on hover').toBe(
+        rgbToHex(hovered.color)
+      );
+      console.log(
+        `[front-tab bar, ${name}] ${JSON.stringify({ onShade, onHover })}`
+      );
+
+      // A tab not in front has no bar.
+      await page.mouse.move(0, 0);
+      const behind = await readMarker(back);
+      expect(drawsBar(behind), `a back tab's content ${behind.content}`).toBe(
+        false
+      );
+      await page.screenshot({ path: testInfo.outputPath('front-tab.png') });
+    });
+  }
 
   test('8. the popup is unchanged: no Open now, no caption', async ({
     context,
@@ -1284,6 +1496,89 @@ grantedTest.describe(
           savedFacts.bandHeight,
           'band height'
         );
+      }
+    );
+
+    grantedTest(
+      '7e. a front tab in a group has the bar at its own row edge, clear of the strip',
+      async ({ context, extensionId, serviceWorker }, testInfo) => {
+        const page = await openPage(
+          context,
+          extensionId,
+          VIEW_TAB,
+          TAB_VIEWPORT
+        );
+        // A window of its own whose one tab is grouped, so it is in front.
+        const made = await serviceWorker.evaluate(async (url: string) => {
+          const win = await chrome.windows.create({ url, focused: false });
+          const tabId = win?.tabs?.[0]?.id;
+          if (win?.id === undefined || tabId === undefined) return null;
+          const groupId = await chrome.tabs.group({
+            tabIds: [tabId],
+            createProperties: { windowId: win.id },
+          });
+          await chrome.tabGroups.update(groupId, {
+            title: 'Research',
+            color: 'blue',
+          });
+          const tab = await chrome.tabs.get(tabId);
+          return { windowId: win.id, active: tab.active };
+        }, 'data:text/html,<title>Alpha</title>');
+        if (made === null) throw new Error('Chrome gave no window or tab');
+        // PREMISE: the grouped tab is its window's front tab, and the pane
+        // draws it inside the band.
+        expect(made.active).toBe(true);
+        const band = page
+          .locator(`${OPEN_NOW} [data-open-window-id="${made.windowId}"]`)
+          .getByRole('group', { name: 'Research', exact: true });
+        const row = band.getByRole('button', {
+          name: 'Switch to tab: Alpha',
+          exact: true,
+        });
+        await expect(row).toHaveAttribute('aria-current', 'true');
+
+        await page.mouse.move(0, 0);
+        const m = await readMarker(row);
+        expectBarShape(m);
+        expect(m.color).toBe(rgb(LIGHT_THEME.LABEL_L2_COLOR));
+
+        const edges = await band.evaluate((bandEl: Element) => {
+          const strip = bandEl.querySelector('[data-open-now-group-strip]');
+          const paneEl = document.querySelector('[data-pane="open-now"]');
+          if (strip === null || paneEl === null) return null;
+          const style = getComputedStyle(paneEl);
+          return {
+            contentLeft:
+              paneEl.getBoundingClientRect().left +
+              parseFloat(style.borderLeftWidth) +
+              parseFloat(style.paddingLeft),
+            stripRight: strip.getBoundingClientRect().right,
+          };
+        });
+        if (edges === null) throw new Error('the band has no strip or pane');
+        const barLeft = m.rowLeft + parseFloat(m.left);
+        console.log(
+          `[front-tab bar, grouped] ${JSON.stringify({
+            barLeft: barLeft - edges.contentLeft,
+            stripRight: edges.stripRight - edges.contentLeft,
+          })}`
+        );
+        // At its own row's edge (95px in the pane), not on the strip (79-86px).
+        expectWithinHalfPixel(barLeft - edges.contentLeft, 95, 'bar x');
+        expectWithinHalfPixel(
+          edges.stripRight - edges.contentLeft,
+          86,
+          'strip right'
+        );
+
+        const [bar, fill] = await paintedBarAndFill(page, m);
+        expect(fill, 'the fill sample lands on the shade').toBe(
+          rgbToHex(m.rowFill)
+        );
+        expect(bar, 'the bar is painted').toBe(rgbToHex(m.color));
+        await page.screenshot({
+          path: testInfo.outputPath('front-tab-grouped.png'),
+        });
       }
     );
   }
