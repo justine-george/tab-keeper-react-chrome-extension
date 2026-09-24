@@ -75,6 +75,18 @@ async function tabOf(worker: Worker, page: Page): Promise<TabFacts> {
   return matches[0];
 }
 
+test.describe('the tab view sets document.title (KAN-301)', () => {
+  test('the tab reads "Tab Keeper", not the popup\'s own <title>', async ({
+    context,
+    extensionId,
+  }) => {
+    const tab = await openPage(context, extensionId, VIEW_TAB, TAB_VIEWPORT);
+    // Poll: the title is set from an effect, after mount, not present on the
+    // navigation's initial (unrendered) document.
+    await expect.poll(() => tab.title()).toBe('Tab Keeper');
+  });
+});
+
 test.describe('Open in a tab (KAN-279 D4, D5)', () => {
   test('the first click opens one tab view, first unpinned in the window; a second click from a fresh popup focuses it', async ({
     context,

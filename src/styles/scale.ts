@@ -105,3 +105,17 @@ export const DURATION = {
   /** Anything that changes position or size. */
   MOVE: '200ms',
 } as const;
+
+/**
+ * The four confirm dialogs (CloudConsentModal, FocusConfirmModal,
+ * DeleteCloudDataModal, LoadBackupModal) each set their `<dialog>` to
+ * `width: 78%` (KAN-301). In the 790px popup that is 616.2px, chosen for
+ * that surface; in the 1280-1920px tab view (KAN-279) the same 78% grows
+ * past what a confirm dialog needs to read comfortably (998px @1280,
+ * 1498px @1920). Capping at the popup's own width keeps every dialog the
+ * size it was designed at, wherever it opens, without four independent
+ * copies of the literal drifting apart.
+ */
+export const DIALOG = {
+  WIDTH: 'min(78%, 616px)',
+} as const;

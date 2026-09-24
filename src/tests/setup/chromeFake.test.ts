@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test, vi } from 'vitest';
 
 import { setupChromeFake } from './chrome.fake';
+import { buildChromeTab } from '../fixtures/chromeTab';
 
 let handle: ReturnType<typeof setupChromeFake> | undefined;
 
@@ -397,8 +398,8 @@ describe('makeTab enforces the seed window', () => {
           {
             id: 7,
             tabs: [
-              { id: 1, windowId: 99, title: 'Mismatched' },
-            ] as chrome.tabs.Tab[],
+              buildChromeTab({ id: 1, windowId: 99, title: 'Mismatched' }),
+            ],
           },
         ],
       })
@@ -412,9 +413,7 @@ describe('makeTab enforces the seed window', () => {
       windows: [
         {
           id: 7,
-          tabs: [
-            { id: 1, windowId: 7, title: 'Consistent' },
-          ] as chrome.tabs.Tab[],
+          tabs: [buildChromeTab({ id: 1, windowId: 7, title: 'Consistent' })],
         },
       ],
     });

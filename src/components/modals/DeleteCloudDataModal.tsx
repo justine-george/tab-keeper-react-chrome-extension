@@ -11,7 +11,7 @@ import {
   closeDeleteCloudDataModal,
   deleteCloudData,
 } from '../../redux/slices/globalStateSlice';
-import { TYPE } from '../../styles/scale';
+import { DIALOG, TYPE } from '../../styles/scale';
 import { dialogButtonStyles } from './dialogButtons';
 
 const TITLE_ID = 'delete-cloud-data-title';
@@ -66,7 +66,7 @@ export const DeleteCloudDataModal: React.FC = () => {
     transform: translate(-50%, -50%);
     margin: 0;
     padding: 20px;
-    width: 78%;
+    width: ${DIALOG.WIDTH};
     max-width: none;
     max-height: none;
     background-color: ${COLORS.PRIMARY_COLOR};

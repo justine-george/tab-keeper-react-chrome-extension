@@ -14,6 +14,7 @@ import { useThemeColors } from './hooks/useThemeColors';
 import { useDocumentTheme } from './hooks/useDocumentTheme';
 import { useOtherPageChanges } from './hooks/useOtherPageChanges';
 import { useTabCloudReads } from './hooks/useTabCloudReads';
+import { useDocumentTitle } from './hooks/useDocumentTitle';
 import { isTabView } from './utils/functions/viewMode';
 import {
   openRateAndReviewModal,
@@ -60,6 +61,10 @@ function App() {
   // KAN-279 D11. The tab view's own periodic/on-focus cloud read; a no-op in
   // the popup (isTabView() gates the whole effect inside the hook).
   useTabCloudReads();
+
+  // KAN-301. document.title, in the tab view only; a no-op in the popup
+  // (isTabView() gates the whole effect inside the hook).
+  useDocumentTitle();
 
   const COLORS = useThemeColors();
 
