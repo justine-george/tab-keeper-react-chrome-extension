@@ -400,6 +400,80 @@ describe('useOpenWindows', () => {
     expect(titlesIn(result.current, 2)).toEqual(['B2']);
   });
 
+  // Two reads can overlap. If the older one settles last, applying it would
+  // show a list that is already gone -- a closed tab stays listed until some
+  // other event happens to arrive.
+  test('an older read that settles after a newer one is dropped, so the newer list stays', async () => {
+    handle = setupChromeFake(twoWindows());
+    // The state before tab B closes, served late to the mount read.
+    const older = await chrome.windows.getAll({
+      populate: true,
+      windowTypes: ['normal'],
+    });
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    vi.spyOn(chrome.windows, 'getAll').mockImplementationOnce(() =>
+      gate.then(() => older)
+    );
+
+    const { result } = renderHook(() => useOpenWindows(false));
+    await advance(0);
+    expect(result.current).toBeNull();
+
+    // Window 2 held only tab B, so closing it drops the window.
+    handle.browser.closeTab(20);
+    await advance(OPEN_NOW_REFRESH_COALESCE_MS);
+    expect(result.current?.map((win) => win.id)).toEqual([1]);
+
+    release();
+    await advance(0);
+
+    expect(result.current?.map((win) => win.id)).toEqual([1]);
+  });
+
+  // KAN-279 D12, for every read the hook starts: the first read of an effect
+  // run changes the list as much as a refresh does.
+  test('drag hold: a pane mounted while a row is held waits for the release before its first read', async () => {
+    handle = setupChromeFake(twoWindows());
+    beginDragHold();
+
+    const { result } = renderHook(() => useOpenWindows(false));
+    await advance(500);
+
+    expect(getAllCalls()).toBe(0);
+    expect(result.current).toBeNull();
+
+    endDragHold();
+    await advance(OPEN_NOW_REFRESH_COALESCE_MS);
+
+    expect(titlesIn(result.current, 1)).toEqual(['A']);
+  });
+
+  test('drag hold: a showGroups change while a row is held re-reads only after the release', async () => {
+    handle = setupChromeFake(twoWindows({ grouped: true }));
+    const { result, rerender } = renderHook(
+      ({ showGroups }) => useOpenWindows(showGroups),
+      { initialProps: { showGroups: true } }
+    );
+    await advance(0);
+    const beforeHold = result.current;
+    const afterFirstRead = getAllCalls();
+
+    beginDragHold();
+    rerender({ showGroups: false });
+    await advance(500);
+
+    expect(getAllCalls()).toBe(afterFirstRead);
+    expect(result.current).toBe(beforeHold);
+
+    endDragHold();
+    await advance(OPEN_NOW_REFRESH_COALESCE_MS);
+
+    expect(result.current?.every((win) => win.groups.length === 0)).toBe(true);
+  });
+
   test('unmount removes every listener and cancels a pending refresh', async () => {
     handle = setupChromeFake(twoWindows());
     const before = handle.listenerCount();

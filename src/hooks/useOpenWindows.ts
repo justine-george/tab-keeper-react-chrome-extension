@@ -24,9 +24,10 @@ interface ChromeEvent {
  * Nothing read here is stored or synced: the snapshot lives in this hook's
  * state and nowhere else.
  *
- * Events are coalesced (OPEN_NOW_REFRESH_COALESCE_MS), and a refresh that
- * comes due while a row is held waits for the drop (KAN-279 D12): the drag
- * engine measures rows once, so a list that moves under the pointer breaks it.
+ * Events are coalesced (OPEN_NOW_REFRESH_COALESCE_MS). Any read that comes
+ * due while a row is held, the first one included, waits for the drop
+ * (KAN-279 D12): the drag engine measures rows once, so a list that moves
+ * under the pointer breaks it.
  *
  * `showGroups` is whether the tabGroups permission is held. Chrome removes
  * `chrome.tabGroups` when it is revoked, so both are checked before the
@@ -41,8 +42,12 @@ export function useOpenWindows(showGroups: boolean): OpenWindow[] | null {
     let live = true;
     let timer: ReturnType<typeof setTimeout> | null = null;
     let queuedForRelease = false;
+    // Reads can overlap; only the latest one started may apply its result.
+    // An older one settling last would put back a list already gone.
+    let readSeq = 0;
 
     const read = async (): Promise<void> => {
+      const mine = ++readSeq;
       try {
         const [all, groups, self] = await Promise.all([
           chrome.windows.getAll({ populate: true, windowTypes: ['normal'] }),
@@ -53,7 +58,7 @@ export function useOpenWindows(showGroups: boolean): OpenWindow[] | null {
           // window, and "This window" must follow it.
           chrome.tabs.getCurrent(),
         ]);
-        if (!live) return;
+        if (!live || mine !== readSeq) return;
         setOpenWindows(toOpenWindows(all, groups, self?.windowId ?? null));
       } catch (error) {
         // A window closed between calls, say. Keep the last good snapshot;
@@ -62,25 +67,31 @@ export function useOpenWindows(showGroups: boolean): OpenWindow[] | null {
       }
     };
 
-    const schedule = (): void => {
+    // Every read this hook starts goes through here, the first one of an
+    // effect run included: any of them can move the list under a held row.
+    // Checked at the moment of reading, not when a timer was set: a drop
+    // flushes the held queue before it ends the hold, so a queued refresh can
+    // arrive here with the row still held.
+    const readUnlessHeld = (): void => {
+      if (isDragHeld()) {
+        if (queuedForRelease) return;
+        queuedForRelease = true;
+        whenDragReleases(() => {
+          queuedForRelease = false;
+          if (live) schedule();
+        });
+        return;
+      }
+      void read();
+    };
+
+    function schedule(): void {
       if (timer !== null) return;
       timer = setTimeout(() => {
         timer = null;
-        // Checked when the timer fires, not when it was set: a drop flushes
-        // the held queue before it ends the hold, so a queued refresh can
-        // arrive here with the row still held.
-        if (isDragHeld()) {
-          if (queuedForRelease) return;
-          queuedForRelease = true;
-          whenDragReleases(() => {
-            queuedForRelease = false;
-            if (live) schedule();
-          });
-          return;
-        }
-        void read();
+        readUnlessHeld();
       }, OPEN_NOW_REFRESH_COALESCE_MS);
-    };
+    }
 
     const events: ChromeEvent[] = [
       chrome.tabs.onCreated,
@@ -103,7 +114,7 @@ export function useOpenWindows(showGroups: boolean): OpenWindow[] | null {
     }
     for (const event of events) event.addListener(schedule);
 
-    void read();
+    readUnlessHeld();
 
     return () => {
       live = false;
