@@ -201,5 +201,10 @@
   "Your latest changes are on their way to the cloud.": "최근 변경사항을 클라우드로 보내는 중입니다.",
   "Sync is off": "동기화 꺼짐",
   "Your sessions stay on this device. Turn on Auto Sync, or press the cloud button on the home screen, to start syncing.": "세션은 이 기기에만 보관됩니다. 동기화를 시작하려면 자동 동기화를 켜거나 홈 화면의 클라우드 버튼을 누르세요.",
-  "EnableSyncOnceFine": "한 번만 동기화합니다. 설정 → 동기화 및 백업에서 켜기 전까지 자동 동기화는 꺼진 상태로 유지됩니다. 익명 ID로 저장되며 계정이나 이메일은 필요 없습니다."
+  "EnableSyncOnceFine": "한 번만 동기화합니다. 설정 → 동기화 및 백업에서 켜기 전까지 자동 동기화는 꺼진 상태로 유지됩니다. 익명 ID로 저장되며 계정이나 이메일은 필요 없습니다.",
+  "Open now": "지금 열려 있는 탭",
+  "Updates as you browse": "탐색하는 동안 업데이트됩니다",
+  "This window": "이 창",
+  "Switch to tab": "탭으로 전환",
+  "No other tabs are open": "열려 있는 다른 탭이 없습니다"
 }

@@ -201,5 +201,10 @@
   "Your latest changes are on their way to the cloud.": "你的最新變更正在上傳到雲端。",
   "Sync is off": "同步已關閉",
   "Your sessions stay on this device. Turn on Auto Sync, or press the cloud button on the home screen, to start syncing.": "你的工作階段只會保留在這部裝置上。開啟自動同步，或按下主畫面上的雲端按鈕，即可開始同步。",
-  "EnableSyncOnceFine": "這只會同步一次。自動同步會維持關閉，直到你在「設定 → 同步與備份」中開啟。以匿名 ID 儲存，不需要帳戶或電子郵件。"
+  "EnableSyncOnceFine": "這只會同步一次。自動同步會維持關閉，直到你在「設定 → 同步與備份」中開啟。以匿名 ID 儲存，不需要帳戶或電子郵件。",
+  "Open now": "目前開啟的分頁",
+  "Updates as you browse": "隨瀏覽即時更新",
+  "This window": "這個視窗",
+  "Switch to tab": "切換至分頁",
+  "No other tabs are open": "沒有其他開啟的分頁"
 }

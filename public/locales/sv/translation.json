@@ -203,5 +203,10 @@
   "Your latest changes are on their way to the cloud.": "Dina senaste ändringar är på väg till molnet.",
   "Sync is off": "Synk är avstängd",
   "Your sessions stay on this device. Turn on Auto Sync, or press the cloud button on the home screen, to start syncing.": "Dina sessioner stannar på den här enheten. Aktivera Autosynk, eller tryck på molnknappen på startskärmen, för att börja synka.",
-  "EnableSyncOnceFine": "Det här synkar en gång. Autosynk förblir avstängd tills du aktiverar det i Inställningar → Synk & säkerhetskopia. Lagras under ett anonymt ID, utan konto eller e-post."
+  "EnableSyncOnceFine": "Det här synkar en gång. Autosynk förblir avstängd tills du aktiverar det i Inställningar → Synk & säkerhetskopia. Lagras under ett anonymt ID, utan konto eller e-post.",
+  "Open now": "Öppet nu",
+  "Updates as you browse": "Uppdateras medan du surfar",
+  "This window": "Det här fönstret",
+  "Switch to tab": "Växla till flik",
+  "No other tabs are open": "Inga andra flikar är öppna"
 }

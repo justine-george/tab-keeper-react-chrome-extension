@@ -201,5 +201,10 @@
   "Your latest changes are on their way to the cloud.": "您的最新更改正在发送到云端。",
   "Sync is off": "同步已关闭",
   "Your sessions stay on this device. Turn on Auto Sync, or press the cloud button on the home screen, to start syncing.": "您的会话只保留在此设备上。开启自动同步，或按主屏幕上的云按钮，即可开始同步。",
-  "EnableSyncOnceFine": "这只会同步一次。自动同步保持关闭，直到您在 设置 → 同步与备份 中开启。以匿名 ID 存储，无需账户或邮箱。"
+  "EnableSyncOnceFine": "这只会同步一次。自动同步保持关闭，直到您在 设置 → 同步与备份 中开启。以匿名 ID 存储，无需账户或邮箱。",
+  "Open now": "当前打开的标签页",
+  "Updates as you browse": "随浏览实时更新",
+  "This window": "此窗口",
+  "Switch to tab": "切换到标签页",
+  "No other tabs are open": "没有其他打开的标签页"
 }
