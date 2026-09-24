@@ -203,5 +203,14 @@
   "Your latest changes are on their way to the cloud.": "आपके नवीनतम बदलाव क्लाउड पर भेजे जा रहे हैं।",
   "Sync is off": "सिंक बंद है",
   "Your sessions stay on this device. Turn on Auto Sync, or press the cloud button on the home screen, to start syncing.": "आपके सेशन इसी डिवाइस पर रहते हैं। सिंक शुरू करने के लिए ऑटो सिंक चालू करें, या होम स्क्रीन पर क्लाउड बटन दबाएँ।",
-  "EnableSyncOnceFine": "यह एक बार सिंक करता है। ऑटो सिंक तब तक बंद रहता है जब तक आप इसे सेटिंग्स → सिंक और बैकअप में चालू नहीं करते। एक गुमनाम ID के साथ सहेजा जाता है, न खाता, न ईमेल।"
+  "EnableSyncOnceFine": "यह एक बार सिंक करता है। ऑटो सिंक तब तक बंद रहता है जब तक आप इसे सेटिंग्स → सिंक और बैकअप में चालू नहीं करते। एक गुमनाम ID के साथ सहेजा जाता है, न खाता, न ईमेल।",
+  "Open now": "अभी खुले टैब",
+  "Updates as you browse": "ब्राउज़ करते समय अपडेट होता है",
+  "This window": "यह विंडो",
+  "Switch to tab": "टैब पर जाएं",
+  "No other tabs are open": "कोई अन्य टैब खुला नहीं है",
+  "Saved sessions": "सहेजे गए सेशन",
+  "Fold the saved session away": "सहेजा गया सेशन छिपाएं",
+  "Show the saved session": "सहेजा गया सेशन दिखाएं",
+  "Close Open now": "\"अभी खुले टैब\" पैनल बंद करें"
 }

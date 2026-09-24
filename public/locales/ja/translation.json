@@ -201,5 +201,14 @@
   "Your latest changes are on their way to the cloud.": "最新の変更をクラウドに送信しています。",
   "Sync is off": "同期はオフです",
   "Your sessions stay on this device. Turn on Auto Sync, or press the cloud button on the home screen, to start syncing.": "セッションはこのデバイスにとどまります。自動同期をオンにするか、ホーム画面のクラウドボタンを押すと同期が始まります。",
-  "EnableSyncOnceFine": "今回だけ同期します。自動同期は、設定 → 同期とバックアップ でオンにするまでオフのままです。匿名 ID のもとで保存され、アカウントもメールも不要です。"
+  "EnableSyncOnceFine": "今回だけ同期します。自動同期は、設定 → 同期とバックアップ でオンにするまでオフのままです。匿名 ID のもとで保存され、アカウントもメールも不要です。",
+  "Open now": "現在開いているタブ",
+  "Updates as you browse": "ブラウジングに合わせて更新されます",
+  "This window": "このウィンドウ",
+  "Switch to tab": "タブに切り替え",
+  "No other tabs are open": "他に開いているタブはありません",
+  "Saved sessions": "保存済みのセッション",
+  "Fold the saved session away": "保存済みのセッションを折りたたむ",
+  "Show the saved session": "保存済みのセッションを表示",
+  "Close Open now": "「現在開いているタブ」パネルを閉じる"
 }

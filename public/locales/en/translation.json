@@ -203,5 +203,14 @@
   "Your latest changes are on their way to the cloud.": "Your latest changes are on their way to the cloud.",
   "Sync is off": "Sync is off",
   "Your sessions stay on this device. Turn on Auto Sync, or press the cloud button on the home screen, to start syncing.": "Your sessions stay on this device. Turn on Auto Sync, or press the cloud button on the home screen, to start syncing.",
-  "EnableSyncOnceFine": "This syncs once. Auto Sync stays off until you turn it on in Settings → Sync & Backup. Stored under an anonymous ID, no account or email."
+  "EnableSyncOnceFine": "This syncs once. Auto Sync stays off until you turn it on in Settings → Sync & Backup. Stored under an anonymous ID, no account or email.",
+  "Open now": "Open now",
+  "Updates as you browse": "Updates as you browse",
+  "This window": "This window",
+  "Switch to tab": "Switch to tab",
+  "No other tabs are open": "No other tabs are open",
+  "Saved sessions": "Saved sessions",
+  "Fold the saved session away": "Fold the saved session away",
+  "Show the saved session": "Show the saved session",
+  "Close Open now": "Close Open now"
 }

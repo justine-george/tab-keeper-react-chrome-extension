@@ -1,13 +1,17 @@
 import type { Page } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
-import { buildSession, seedSessions } from './fixtures/seed';
+import { buildSession, seedSessions, seedSettings } from './fixtures/seed';
 
 // KAN-279 D1/D2. The tab view (`?view=tab`) fills the window instead of
 // sitting in the popup's fixed 790x550 box: MainContainer switches to a
-// three-column grid (356px / 1fr / 0, the last reserved and empty for the
-// Active Session pane -- KAN-280) and each pane's height becomes 100vh. The
-// popup itself must not move by a single pixel.
+// three-column grid and each pane's height becomes 100vh. The popup itself
+// must not move by a single pixel.
+//
+// KAN-280 O1/O4. The third column holds Open now when the saved session is
+// shown beside it (356px / 1fr / 340px; 420px from 1600px wide, a 44px rail
+// below 1100px). Folded, the default, Open now takes the detail column
+// instead and the third is 0.
 //
 // Panes are found by `data-pane="sessions"|"detail"` on the two container
 // divs MainContainer already renders. No existing hook reaches them: an
@@ -75,6 +79,9 @@ test('tab view at 1280x800: the sessions pane is 356px and the detail pane fills
   context,
   extensionId,
 }) => {
+  // KAN-280 O5. Folded by default, there is no detail pane to measure; side
+  // by side, it fills what the sessions pane and Open now leave.
+  await seedSettings(context, { foldSavedSessionInTabView: false });
   const page = await seedAndOpen(
     context,
     extensionId,
@@ -88,7 +95,8 @@ test('tab view at 1280x800: the sessions pane is 356px and the detail pane fills
   expect(sessions.width).toBeGreaterThanOrEqual(355);
   expect(sessions.width).toBeLessThanOrEqual(357);
 
-  const expectedDetailWidth = TAB_VIEWPORT.width - 356;
+  // KAN-280 O1: Open now's column is 340px below 1600px wide.
+  const expectedDetailWidth = TAB_VIEWPORT.width - 356 - 340;
   expect(detail.width).toBeGreaterThanOrEqual(expectedDetailWidth - 2);
   expect(detail.width).toBeLessThanOrEqual(expectedDetailWidth + 2);
 

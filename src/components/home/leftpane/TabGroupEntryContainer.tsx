@@ -24,6 +24,10 @@ import { useTranslation } from 'react-i18next';
 import { RowDragArea, DraggableRow } from '../rightpane/rowDrag/RowDragArea';
 import { dropOnTop } from '../../../redux/dropOnTop';
 import { sessionDrop } from '../../../redux/dropSpecs';
+import { peekSavedSession } from '../../../redux/slices/globalStateSlice';
+import { selectIsSavedSessionFolded } from '../../../redux/savedSessionFold';
+import { isTabView } from '../../../utils/functions/viewMode';
+import { TYPE } from '../../../styles/scale';
 
 export default function TabGroupEntryContainer() {
   const COLORS = useThemeColors();
@@ -49,6 +53,10 @@ export default function TabGroupEntryContainer() {
   const hasTabGroupsPermission = useSelector(
     (state: RootState) => state.globalState.hasTabGroupsPermission
   );
+
+  // KAN-280 O5. Whether the tab view has the saved session folded away right
+  // now; the selector MainContainer lays the grid out by.
+  const isSavedSessionFolded = useSelector(selectIsSavedSessionFolded);
 
   const selectedTabGroupId = tabContainerDataList.selectedTabGroupId;
 
@@ -156,14 +164,42 @@ export default function TabGroupEntryContainer() {
     row?.scrollIntoView({ block: 'nearest' });
   }, [selectedIndex, selectedTabGroupId]);
 
-  const containerStyle = css`
+  // The session list's frame, one declaration for both views, so the popup's
+  // list and the tab view's list box cannot drift apart (KAN-280 O3a).
+  const listFrameStyle = css`
+    border: 1px solid ${COLORS.BORDER_COLOR};
+    margin: 8px 0;
+    user-select: none;
+  `;
+
+  // The popup's list: the frame and the scroller in one element.
+  const popupListStyle = css`
     display: flex;
     flex-direction: column;
     height: 100%;
-    border: 1px solid ${COLORS.BORDER_COLOR};
-    margin: 8px 0;
+    ${listFrameStyle}
     overflow: auto;
-    user-select: none;
+  `;
+
+  // KAN-280 O3a. In the tab view the list box is two parts: the caption, then
+  // the scroller. The box keeps the frame and height the popup's list has,
+  // so the scroller gives up the caption's height and the box does not grow.
+  // min-height: 0 lets it shrink in LeftPane's column as the lone scroller
+  // did (a scroll container's automatic minimum is 0; this box is not one).
+  const tabListBoxStyle = css`
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+    ${listFrameStyle}
+  `;
+
+  const tabScrollerStyle = css`
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 0;
+    min-height: 0;
+    overflow: auto;
   `;
 
   const emptyContainerStyle = css`
@@ -178,8 +214,10 @@ export default function TabGroupEntryContainer() {
     flex-direction: column;
   `;
 
-  return (
-    <div css={containerStyle} ref={listRef}>
+  const isTab = isTabView();
+
+  const scroller = (
+    <div css={isTab ? tabScrollerStyle : popupListStyle} ref={listRef}>
       {filteredTabGroups.length === 0 ? (
         <div css={emptyContainerStyle}>
           {/* KAN-86. Was the bare literal "Empty", which rendered in English
@@ -224,6 +262,14 @@ export default function TabGroupEntryContainer() {
                   <TabGroupEntry
                     tabGroupData={tabGroupData}
                     onTabGroupClick={() => {
+                      // KAN-280 O5. Folded, a click shows the session for
+                      // now; the selected row included, since it is the
+                      // natural one to click to see it. Only while folded: a
+                      // peek left set side by side would keep this page open
+                      // through a later fold from another page's settings.
+                      if (isTab && isSavedSessionFolded) {
+                        dispatch(peekSavedSession());
+                      }
                       if (selectedTabGroupId === tabGroupData.tabGroupId) {
                         return;
                       }
@@ -259,6 +305,34 @@ export default function TabGroupEntryContainer() {
           </RowDragArea>
         </div>
       )}
+    </div>
+  );
+
+  // The popup has no Open now, so it has no caption either: its list is the
+  // scroller alone, as it always was.
+  if (!isTab) return scroller;
+
+  // KAN-280 O3/O3a. Beside Open now, the list says which sessions these are.
+  // Pinned by sitting OUTSIDE the scroller, not by position: sticky inside
+  // it: the drag engine measures the scroller as all rows and auto-scrolls
+  // from its edges, and a caption laid over the top rows would put hidden
+  // rows under the pointer.
+  return (
+    <div css={tabListBoxStyle}>
+      <div
+        data-caption="saved-sessions"
+        css={css`
+          flex-shrink: 0;
+        `}
+      >
+        <NormalLabel
+          value={t('Saved sessions')}
+          size={TYPE.META}
+          color={COLORS.LABEL_L2_COLOR}
+          style="padding: 8px 8px 4px 8px;"
+        />
+      </div>
+      {scroller}
     </div>
   );
 }

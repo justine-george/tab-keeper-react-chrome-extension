@@ -113,6 +113,17 @@ export interface SettingsData {
    * and cheaper than a container field with its own last-writer-wins rule.
    */
   sessionDateBasis: SessionDateBasis;
+  /**
+   * Whether the tab view opens with the saved session folded away, so Open
+   * now takes its column (KAN-280 O4/O5). True until the fold button is
+   * pressed, so a first open is folded. Only that button writes it: a peek
+   * (globalState.isPeekingSavedSession) shows the session for now and leaves
+   * this alone.
+   *
+   * DEVICE-LOCAL, like everything else here: saveToFirestore sends
+   * tabContainerData and nothing else.
+   */
+  foldSavedSessionInTabView: boolean;
 }
 
 /**
@@ -176,6 +187,9 @@ const defaultSettings: SettingsData = {
   isTabGroupsPromptAnsweredOnce: false,
   isNeverAskAgainForTabGroups: false,
   sessionDateBasis: 'edited',
+  // KAN-280 O5. Also what a user whose saved settings predate the field
+  // gets: initialState lays the stored object over these defaults.
+  foldSavedSessionInTabView: true,
 };
 
 export const initialState: SettingsData = {
@@ -328,6 +342,14 @@ export const settingsDataStateSlice = createSlice({
       saveToLocalStorage('settingsData', state);
     },
 
+    // KAN-280 O5. The fold button's choice, and nothing else's.
+    setFoldSavedSessionInTabView: (state, action: PayloadAction<boolean>) => {
+      state.foldSavedSessionInTabView = action.payload;
+
+      // Save updated state to localStorage
+      saveToLocalStorage('settingsData', state);
+    },
+
     replaceState: (state, action: PayloadAction<typeof state>) => {
       // Save updated state to localStorage
       saveToLocalStorage('settingsData', state);
@@ -365,6 +387,7 @@ export const {
   setNeverAskAgainForTabGroups,
   setSessionDateBasis,
   setExportLayout,
+  setFoldSavedSessionInTabView,
   hydrateSettingsFromOtherPage,
 } = settingsDataStateSlice.actions;
 

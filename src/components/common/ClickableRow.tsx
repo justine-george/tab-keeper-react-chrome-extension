@@ -12,6 +12,11 @@ interface ClickableRowProps {
   ariaLabel: string;
   onClick: () => void;
   tooltipText?: string;
+  /**
+   * Marks the row as the current one of its set -- the tab Chrome is showing,
+   * in the Open now pane (KAN-280). A cue that is not colour alone.
+   */
+  ariaCurrent?: boolean;
   style?: string;
   children: React.ReactNode;
 }
@@ -33,6 +38,7 @@ const ClickableRow: React.FC<ClickableRowProps> = ({
   ariaLabel,
   onClick,
   tooltipText,
+  ariaCurrent,
   style,
   children,
 }) => {
@@ -62,6 +68,7 @@ const ClickableRow: React.FC<ClickableRowProps> = ({
       type="button"
       title={tooltipText}
       aria-label={ariaLabel}
+      aria-current={ariaCurrent ? 'true' : undefined}
       css={rowStyle}
       onClick={onClick}
     >

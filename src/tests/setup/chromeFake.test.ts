@@ -421,3 +421,272 @@ describe('makeTab enforces the seed window', () => {
     expect(handle).toBeDefined();
   });
 });
+
+// KAN-280 (Open now pane). The pane subscribes directly to the live chrome
+// events a real window/tab/group change fires -- these tests prove the fake
+// fires them the way Chrome does, through handle.browser.*, which models
+// the BROWSER's own hand rather than an extension call.
+describe('live browser events (KAN-280)', () => {
+  test('openTab adds a tab to the window and tells onCreated listeners', async () => {
+    const handle = setupChromeFake({
+      windows: [{ id: 1, tabs: [{ url: 'https://a.test/' }] }],
+    });
+    const seen: number[] = [];
+    chrome.tabs.onCreated.addListener((tab) => seen.push(tab.windowId));
+    const tab = handle.browser.openTab(1, {
+      url: 'https://b.test/',
+      title: 'B',
+    });
+    const [win] = await chrome.windows.getAll({
+      populate: true,
+      windowTypes: ['normal'],
+    });
+    expect(win.tabs?.map((t) => t.url)).toEqual([
+      'https://a.test/',
+      'https://b.test/',
+    ]);
+    expect(seen).toEqual([1]);
+    expect(tab.id).toEqual(expect.any(Number));
+    handle.restore();
+  });
+
+  test('closeTab removes the tab and tells onRemoved; an unknown id throws', async () => {
+    const handle = setupChromeFake({
+      windows: [
+        {
+          id: 1,
+          tabs: [{ url: 'https://a.test/' }, { url: 'https://b.test/' }],
+        },
+      ],
+    });
+    const [win] = await chrome.windows.getAll({
+      populate: true,
+      windowTypes: ['normal'],
+    });
+    const removed: number[] = [];
+    chrome.tabs.onRemoved.addListener((id) => removed.push(id));
+    const first = win.tabs?.[0]?.id ?? -1;
+    handle.browser.closeTab(first);
+    const [after] = await chrome.windows.getAll({
+      populate: true,
+      windowTypes: ['normal'],
+    });
+    expect(after.tabs?.map((t) => t.url)).toEqual(['https://b.test/']);
+    expect(removed).toEqual([first]);
+    expect(() => handle.browser.closeTab(987654)).toThrow();
+    handle.restore();
+  });
+
+  // Switching tabs changes only which tab is active, and Chrome reports it
+  // through onActivated alone -- no onUpdated follows.
+  test('activateTab moves active within its window only and tells onActivated; an unknown id throws', async () => {
+    const handle = setupChromeFake({
+      windows: [
+        {
+          id: 1,
+          tabs: [
+            { id: 11, url: 'https://a.test/', active: true },
+            { id: 12, url: 'https://b.test/' },
+          ],
+        },
+        { id: 2, tabs: [{ id: 21, url: 'https://c.test/', active: true }] },
+      ],
+    });
+    const seen: chrome.tabs.OnActivatedInfo[] = [];
+    chrome.tabs.onActivated.addListener((info) => seen.push(info));
+
+    handle.browser.activateTab(12);
+
+    const windows = await chrome.windows.getAll({
+      populate: true,
+      windowTypes: ['normal'],
+    });
+    expect(
+      windows.map((win) => win.tabs?.map((tab) => [tab.id, tab.active]))
+    ).toEqual([
+      [
+        [11, false],
+        [12, true],
+      ],
+      [[21, true]],
+    ]);
+    expect(seen).toEqual([{ tabId: 12, windowId: 1 }]);
+    expect(() => handle.browser.activateTab(987654)).toThrow();
+    handle.restore();
+  });
+
+  test('removeListener detaches, and liveEventListenerCount says so', () => {
+    const handle = setupChromeFake();
+    const base = handle.liveEventListenerCount();
+    const fn = () => undefined;
+    chrome.tabs.onUpdated.addListener(fn);
+    chrome.windows.onRemoved.addListener(fn);
+    expect(handle.liveEventListenerCount()).toBe(base + 2);
+    chrome.tabs.onUpdated.removeListener(fn);
+    chrome.windows.onRemoved.removeListener(fn);
+    expect(handle.liveEventListenerCount()).toBe(base);
+    handle.restore();
+  });
+
+  test('moveTabToWindow fires onDetached then onAttached, and the tab changes window', async () => {
+    const handle = setupChromeFake({
+      windows: [
+        { id: 1, tabs: [{ url: 'https://a.test/' }] },
+        { id: 2, tabs: [{ url: 'https://b.test/' }] },
+      ],
+    });
+    const order: string[] = [];
+    chrome.tabs.onDetached.addListener(() => order.push('detached'));
+    chrome.tabs.onAttached.addListener(() => order.push('attached'));
+    const [w1] = await chrome.windows.getAll({
+      populate: true,
+      windowTypes: ['normal'],
+    });
+    handle.browser.moveTabToWindow(w1.tabs?.[0]?.id ?? -1, 2);
+    const all = await chrome.windows.getAll({
+      populate: true,
+      windowTypes: ['normal'],
+    });
+    expect(all.find((w) => w.id === 2)?.tabs?.map((t) => t.url)).toEqual([
+      'https://b.test/',
+      'https://a.test/',
+    ]);
+    expect(order).toEqual(['detached', 'attached']);
+    handle.restore();
+  });
+
+  // Task 3's "This window follows the tab view" pane re-reads
+  // tabs.getCurrent() on every refresh so the "This window" tag stays on
+  // whichever window the tab view itself is now in. getCurrent must see the
+  // move, not the window the tab view opened in.
+  test('getCurrent follows the tab that moveTabToWindow moved', async () => {
+    const handle = setupChromeFake({
+      windows: [
+        { id: 1, tabs: [{ id: 501, url: 'https://tab-keeper.test/' }] },
+        { id: 2, tabs: [{ url: 'https://b.test/' }] },
+      ],
+      currentTabId: 501,
+    });
+
+    handle.browser.moveTabToWindow(501, 2);
+
+    const current = await chrome.tabs.getCurrent();
+    expect(current?.windowId).toBe(2);
+    handle.restore();
+  });
+
+  // Chrome answers with a copy. A live object would let a caller that asked
+  // once see every later move anyway, hiding a stale read (KAN-280).
+  test('getCurrent answers a snapshot: a later move does not change a tab it already returned', async () => {
+    const handle = setupChromeFake({
+      windows: [
+        { id: 1, tabs: [{ id: 501, url: 'https://tab-keeper.test/' }] },
+        { id: 2, tabs: [{ url: 'https://b.test/' }] },
+      ],
+      currentTabId: 501,
+    });
+    const before = await chrome.tabs.getCurrent();
+
+    handle.browser.moveTabToWindow(501, 2);
+
+    expect(before?.windowId).toBe(1);
+    handle.restore();
+  });
+
+  test('windowsGetAllCalls counts every getAll', async () => {
+    const handle = setupChromeFake();
+    await chrome.windows.getAll({});
+    await chrome.windows.getAll({ populate: true });
+    expect(handle.windowsGetAllCalls).toBe(2);
+    handle.restore();
+  });
+
+  test('closeWindow removes the window and its tabs, and tells onRemoved', async () => {
+    const handle = setupChromeFake({
+      windows: [
+        { id: 1, tabs: [{ url: 'https://a.test/' }] },
+        { id: 2, tabs: [{ url: 'https://b.test/' }] },
+      ],
+    });
+    const removed: number[] = [];
+    chrome.windows.onRemoved.addListener((id) => removed.push(id));
+
+    handle.browser.closeWindow(1);
+
+    const all = await chrome.windows.getAll({
+      populate: true,
+      windowTypes: ['normal'],
+    });
+    expect(all.map((w) => w.id)).toEqual([2]);
+    const remainingTabs = await chrome.tabs.query({});
+    expect(remainingTabs.map((t) => t.url)).toEqual(['https://b.test/']);
+    expect(removed).toEqual([1]);
+    handle.restore();
+  });
+
+  test('setGroup applies title, color and collapsed, and tells onUpdated', async () => {
+    const handle = setupChromeFake({
+      windows: [{ id: 1 }],
+      tabGroups: [
+        { id: 5, windowId: 1, title: 'Old', color: 'grey', collapsed: false },
+      ],
+    });
+    const seen: chrome.tabGroups.TabGroup[] = [];
+    chrome.tabGroups.onUpdated.addListener((group) => seen.push(group));
+
+    handle.browser.setGroup(5, {
+      title: 'New',
+      color: 'blue',
+      collapsed: true,
+    });
+
+    const [group] = await chrome.tabGroups.query({ windowId: 1 });
+    expect(group).toMatchObject({
+      title: 'New',
+      color: 'blue',
+      collapsed: true,
+    });
+    expect(seen).toEqual([group]);
+    handle.restore();
+  });
+
+  test('windows.update applies focused and returns the window', async () => {
+    const handle = setupChromeFake({ windows: [{ id: 1, focused: false }] });
+
+    const updated = await chrome.windows.update(1, { focused: true });
+
+    expect(updated.focused).toBe(true);
+    const [win] = await chrome.windows.getAll({});
+    expect(win.focused).toBe(true);
+    handle.restore();
+  });
+
+  test('hasListener reports whether a given function is registered', () => {
+    const handle = setupChromeFake();
+    const fn = () => undefined;
+
+    expect(chrome.tabs.onCreated.hasListener(fn)).toBe(false);
+    chrome.tabs.onCreated.addListener(fn);
+    expect(chrome.tabs.onCreated.hasListener(fn)).toBe(true);
+    chrome.tabs.onCreated.removeListener(fn);
+    expect(chrome.tabs.onCreated.hasListener(fn)).toBe(false);
+    handle.restore();
+  });
+
+  test('tabGroupsApiAbsent leaves chrome.tabGroups undefined, as Chrome does while the permission is ungranted', () => {
+    const handle = setupChromeFake({ tabGroupsApiAbsent: true });
+
+    expect(chrome.tabGroups).toBeUndefined();
+    handle.restore();
+  });
+
+  // CONTROL: without the flag, chrome.tabGroups is defined -- proves the
+  // assertion above exercises the flag, not an accident of the fake always
+  // leaving the member undefined.
+  test('CONTROL: without tabGroupsApiAbsent, chrome.tabGroups stays defined', () => {
+    const handle = setupChromeFake();
+
+    expect(chrome.tabGroups).toBeDefined();
+    handle.restore();
+  });
+});
