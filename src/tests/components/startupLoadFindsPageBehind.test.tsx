@@ -212,7 +212,10 @@ describe("App's re-run of its local load holds for a drag (KAN-298)", () => {
     seen.length = 0;
     otherPageTurnsAutoSyncOn(store);
     await act(async () => {});
-    // The premise: the effect's inputs changed, so it did re-run.
+    // The premise asserted here is only that Auto Sync flipped, which is an
+    // input of the effect (syncAllowed). That this flip re-runs the effect's
+    // local branch is shown by the unheld KAN-295 test above, which sees the
+    // load; a held re-run dispatches nothing that could show it here.
     expect(store.getState().settingsDataState.isAutoSync).toBe(true);
 
     const held = store.getState();

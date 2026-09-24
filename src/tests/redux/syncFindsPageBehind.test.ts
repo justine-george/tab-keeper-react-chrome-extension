@@ -416,6 +416,11 @@ describe('a local-only sync that finds this page behind holds it for a drag (KAN
     expect(held.undoRedo.past.length).toBe(before.undoRedo.past.length);
     expect(mocks.saveToFirestore).not.toHaveBeenCalled();
     expect(mocks.cloud.doc).toBeUndefined();
+    // Returned before setIsDirtyWithoutSync too: a flag set here would let
+    // any save made during the hold send this page's pre-release state.
+    // Unchanged, not false: L1's own rename has already set it. (Setting it
+    // also resets syncStatus to 'idle', so the next line catches it too.)
+    expect(held.globalState.isDirty).toBe(before.globalState.isDirty);
     expect(held.globalState.syncStatus).toBe('loading');
   };
 
