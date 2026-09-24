@@ -9,6 +9,10 @@ import type { ChromeSeed } from '../setup/chrome.fake';
 import { toOpenWindows } from '../../utils/functions/openNow';
 import { LIGHT_THEME } from '../../hooks/useThemeColors';
 import { TAB_GROUP_COLOR_HEX } from '../../utils/functions/tabGroups';
+// The saved window, rendered only to compare its band with the live one: the
+// pane copies the declarations rather than sharing them (KAN-280).
+import WindowEntryContainer from '../../components/home/rightpane/WindowEntryContainer';
+import { setHasTabGroupsPermission } from '../../redux/slices/globalStateSlice';
 
 // KAN-280 Part A, Task 4. The Open now pane's presentational half: it is
 // handed `windows` and draws them. The hook that reads Chrome is Task 3's and
@@ -117,6 +121,13 @@ async function renderPane(
   result.rerender(<OpenNowPane windows={windows} actions={actions} />);
   return { ...result, windows };
 }
+
+// A live band's colour strip.
+const stripOf = (band: HTMLElement): HTMLElement => {
+  const strip = band.querySelector('[data-open-now-group-strip]');
+  if (!(strip instanceof HTMLElement)) throw new Error('band has no strip');
+  return strip;
+};
 
 const tabRow = (title: string) =>
   screen.getByRole('button', { name: `Switch to tab: ${title}` });
@@ -270,8 +281,8 @@ describe('the Open now pane (KAN-280)', () => {
     expect(within(band).getByText('G1')).toBeInTheDocument();
     expect(within(band).getByText('G2')).toBeInTheDocument();
     expect(within(band).queryByText('Loose')).toBeNull();
-    expect(getComputedStyle(band).borderLeft).toBe(
-      `4px solid ${hex(TAB_GROUP_COLOR_HEX.blue)}`
+    expect(getComputedStyle(stripOf(band)).backgroundColor).toBe(
+      hex(TAB_GROUP_COLOR_HEX.blue)
     );
   });
 
@@ -366,5 +377,317 @@ describe('the Open now pane (KAN-280)', () => {
     expect(
       within(windowBlock('Window 1')).getByRole('button', { name: 'Expand' })
     ).toBeInTheDocument();
+  });
+});
+
+// Two adjacent groups after a loose tab, the same in both panes: Research
+// (blue, G1 G2) then Later (red, H1), so the second band is the "after a
+// group" one (KAN-179).
+const geometrySeed = (): ChromeSeed => ({
+  windows: [
+    {
+      id: 1,
+      tabs: [
+        { title: 'Loose', url: 'https://loose.test/', pinned: false },
+        { title: 'G1', url: 'https://g1.test/', pinned: false, groupId: 50 },
+        { title: 'G2', url: 'https://g2.test/', pinned: false, groupId: 50 },
+        { title: 'H1', url: 'https://h1.test/', pinned: false, groupId: 60 },
+      ],
+    },
+  ],
+  tabGroups: [
+    { id: 50, title: 'Research', color: 'blue', windowId: 1 },
+    { id: 60, title: 'Later', color: 'red', windowId: 1 },
+  ],
+});
+
+async function renderSavedWindow() {
+  return renderWithProviders(
+    <WindowEntryContainer
+      title="Window 1"
+      tabGroupId="tg1"
+      windowId="w1"
+      tabs={[
+        { tabId: 'l', favicon: '', title: 'Loose', url: 'https://loose.test/' },
+        {
+          tabId: 'g1',
+          favicon: '',
+          title: 'G1',
+          url: 'https://g1.test/',
+          chromeGroupId: 'R',
+        },
+        {
+          tabId: 'g2',
+          favicon: '',
+          title: 'G2',
+          url: 'https://g2.test/',
+          chromeGroupId: 'R',
+        },
+        {
+          tabId: 'h1',
+          favicon: '',
+          title: 'H1',
+          url: 'https://h1.test/',
+          chromeGroupId: 'L',
+        },
+      ]}
+      chromeTabGroups={[
+        { groupId: 'R', title: 'Research', color: 'blue' },
+        { groupId: 'L', title: 'Later', color: 'red' },
+      ]}
+      onWindowTitleClick={() => undefined}
+      onUpdateWindowGroupTitle={() => undefined}
+      onAddCurrTabToWindowClick={() => undefined}
+      onDeleteClick={() => undefined}
+    />,
+    { seedStore: (store) => store.dispatch(setHasTabGroupsPermission(true)) }
+  );
+}
+
+// Reads the named computed properties into a plain object, so two elements
+// can be compared with one toEqual that names the property that differs.
+function stylesOf(el: Element, props: readonly string[]) {
+  const cs = getComputedStyle(el);
+  return Object.fromEntries(props.map((p) => [p, cs.getPropertyValue(p)]));
+}
+
+const px = (value: string): number => Number.parseFloat(value) || 0;
+
+// A border only takes room when it is drawn. jsdom reports the initial
+// "medium" width (as 16px) on a box whose border-style is none, where a
+// browser computes 0.
+const borderPx = (cs: CSSStyleDeclaration, side: 'left' | 'right'): number =>
+  ['', 'none', 'hidden'].includes(cs.getPropertyValue(`border-${side}-style`))
+    ? 0
+    : px(cs.getPropertyValue(`border-${side}-width`));
+
+// The horizontal room a band's colour strip takes beside the content column:
+// its width plus every margin, border and padding on it and on any wrapper
+// between it and the band (the saved strip sits inside GroupColorPicker's two
+// wrappers; the live one is the band's own child).
+function stripFootprint(strip: Element, band: Element): number {
+  let total = px(getComputedStyle(strip).width);
+  for (
+    let node: Element | null = strip;
+    node && node !== band;
+    node = node.parentElement
+  ) {
+    const cs = getComputedStyle(node);
+    total +=
+      px(cs.marginLeft) +
+      px(cs.marginRight) +
+      borderPx(cs, 'left') +
+      borderPx(cs, 'right') +
+      px(cs.paddingLeft) +
+      px(cs.paddingRight);
+  }
+  return total;
+}
+
+// How far an element's content is pushed right by everything between it and
+// its window block: each box's left margin, border and padding, plus, where
+// the chain passes through a band, the strip's footprint beside the column.
+// jsdom has no layout, so this adds up the declarations that make the offset
+// instead of measuring it; Task 7's e2e measures the pixels.
+function insetWithinWindow(
+  el: Element,
+  windowBlock: Element,
+  band: Element,
+  strip: Element
+): number {
+  let total = 0;
+  for (
+    let node: Element | null = el;
+    node && node !== windowBlock;
+    node = node.parentElement
+  ) {
+    const cs = getComputedStyle(node);
+    total += px(cs.marginLeft) + borderPx(cs, 'left') + px(cs.paddingLeft);
+    if (node.parentElement === band) total += stripFootprint(strip, band);
+  }
+  return total;
+}
+
+type BandGeometry = {
+  band: Record<string, string>;
+  afterGroupMarginTop: string;
+  strip: Record<string, string>;
+  column: Record<string, string>;
+  titleRow: Record<string, string>;
+  titleLabel: Record<string, string>;
+  titleInset: number;
+  stripFootprint: number;
+  groupedTabInset: number;
+  looseTabInset: number;
+};
+
+// The declarations that set where a band and its rows sit.
+const BAND_PROPS = [
+  'display',
+  'align-items',
+  'margin-top',
+  'margin-bottom',
+  'margin-left',
+  'margin-right',
+  'padding-left',
+  'padding-top',
+  'padding-bottom',
+  'border-left-style',
+] as const;
+const STRIP_PROPS = [
+  'flex-grow',
+  'flex-shrink',
+  'flex-basis',
+  'width',
+  'margin-left',
+  'margin-right',
+  'align-self',
+  'background-color',
+] as const;
+const COLUMN_PROPS = [
+  'flex-grow',
+  'flex-shrink',
+  'min-width',
+  'margin-left',
+  'padding-left',
+] as const;
+const TITLE_ROW_PROPS = [
+  'display',
+  'align-items',
+  'min-height',
+  'margin-left',
+  'padding-left',
+] as const;
+const TITLE_LABEL_PROPS = ['font-size', 'padding-left', 'color'] as const;
+
+function readBandGeometry(
+  firstBand: Element,
+  secondBand: Element,
+  strip: Element,
+  titleRow: Element,
+  windowBlock: Element,
+  groupedTabContent: Element,
+  looseTabContent: Element
+): BandGeometry {
+  const column = titleRow.parentElement;
+  if (!column) throw new Error('title row has no column');
+  const titleText = required(
+    screen.getAllByText('Research').find((label) => titleRow.contains(label)) ??
+      null,
+    'title label inside the title row'
+  );
+  return {
+    band: stylesOf(firstBand, BAND_PROPS),
+    afterGroupMarginTop: getComputedStyle(secondBand).marginTop,
+    strip: stylesOf(strip, STRIP_PROPS),
+    column: stylesOf(column, COLUMN_PROPS),
+    titleRow: stylesOf(titleRow, TITLE_ROW_PROPS),
+    titleLabel: stylesOf(titleText, TITLE_LABEL_PROPS),
+    titleInset: insetWithinWindow(titleText, windowBlock, firstBand, strip),
+    stripFootprint: stripFootprint(strip, firstBand),
+    groupedTabInset: insetWithinWindow(
+      groupedTabContent,
+      windowBlock,
+      firstBand,
+      strip
+    ),
+    looseTabInset: insetWithinWindow(
+      looseTabContent,
+      windowBlock,
+      firstBand,
+      strip
+    ),
+  };
+}
+
+// The first child of a tab row's button: the favicon, the first thing drawn.
+function firstContentOf(button: HTMLElement): Element {
+  const first = button.firstElementChild;
+  if (!first) throw new Error('tab row button is empty');
+  return first;
+}
+
+function required<T extends Element>(el: T | null, what: string): T {
+  if (!el) throw new Error(`missing ${what}`);
+  return el;
+}
+
+describe('the live group band matches the saved one (KAN-280)', () => {
+  test('band, strip, title row and tab indent compute the same as a saved band', async () => {
+    const saved = await renderSavedWindow();
+    const savedBand = required(
+      document.querySelector('[data-band-id="R"]'),
+      'saved band R'
+    );
+    const savedStrip = required(
+      savedBand.querySelector('[data-group-color-strip]'),
+      'saved strip'
+    );
+    const savedStripStyle = getComputedStyle(savedStrip);
+    const savedStripMargins = [
+      savedStripStyle.marginTop,
+      savedStripStyle.marginBottom,
+    ];
+    const savedGeometry = readBandGeometry(
+      savedBand,
+      required(document.querySelector('[data-band-id="L"]'), 'saved band L'),
+      savedStrip,
+      required(
+        savedBand.querySelector('[data-group-drag-handle]'),
+        'saved title row'
+      ),
+      required(
+        document.querySelector('[data-drop-window-id]'),
+        'saved window block'
+      ),
+      firstContentOf(
+        screen.getByRole('button', { name: 'Open in new tab: G1' })
+      ),
+      firstContentOf(
+        screen.getByRole('button', { name: 'Open in new tab: Loose' })
+      )
+    );
+    saved.unmount();
+
+    await renderPane(geometrySeed(), { thisWindowId: 1 });
+    const liveBand = screen.getByRole('group', { name: 'Research' });
+    const liveStrip = stripOf(liveBand);
+    const liveGeometry = readBandGeometry(
+      liveBand,
+      screen.getByRole('group', { name: 'Later' }),
+      liveStrip,
+      required(
+        liveStrip.nextElementSibling?.firstElementChild ?? null,
+        'live title row'
+      ),
+      required(
+        document.querySelector('[data-open-window-id]'),
+        'live window block'
+      ),
+      firstContentOf(tabRow('G1')),
+      firstContentOf(tabRow('Loose'))
+    );
+
+    // The saved strip's vertical margins are the drag's frame variables,
+    // which jsdom leaves unresolved. Pinned apart: the saved source still
+    // rests at 0 (their fallback), and the live strip is written as that 0.
+    expect(savedStripMargins).toEqual([
+      'var(--frame-top, 0px)',
+      'calc(-1 * var(--frame-bottom, 0px))',
+    ]);
+    expect([
+      getComputedStyle(liveStrip).marginTop,
+      getComputedStyle(liveStrip).marginBottom,
+    ]).toEqual(['0px', '0px']);
+
+    expect(liveGeometry).toEqual(savedGeometry);
+
+    // And the numbers themselves, so both drifting together cannot pass:
+    // a 7px strip with a 9px gap (GroupColorPicker.tsx:101-104), and a
+    // grouped tab 16px further in than a loose one.
+    expect(liveGeometry.strip.width).toBe('7px');
+    expect(liveGeometry.strip['margin-right']).toBe('9px');
+    expect(liveGeometry.stripFootprint).toBe(16);
+    expect(liveGeometry.groupedTabInset - liveGeometry.looseTabInset).toBe(16);
   });
 });

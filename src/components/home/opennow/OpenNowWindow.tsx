@@ -16,7 +16,10 @@ import {
   sanitizeTabGroupColor,
   TAB_GROUP_COLOR_HEX,
 } from '../../../utils/functions/tabGroups';
-import { BAND_MARGIN_PX } from '../rightpane/bandSpacing';
+import {
+  ADJACENT_GROUP_GAP_PX,
+  BAND_MARGIN_PX,
+} from '../rightpane/bandSpacing';
 import { TYPE } from '../../../styles/scale';
 
 // WindowEntryContainer's GROUP_TITLE_SIZE, the one documented off-scale size
@@ -205,46 +208,102 @@ export default function OpenNowWindow({
       </div>
       {isOpen && (
         <div css={childrenContainerStyle}>
-          {runs.map((run) => {
+          {runs.map((run, runIndex) => {
             if (run.kind === 'ungrouped') {
               return renderTabsOf(run.tabs.map((tab) => tab.tabId));
             }
             // Already a TabGroupColor on the way in; the partition hands it
             // back as the saved shape's string, so it is narrowed again.
             const color = sanitizeTabGroupColor(run.group.color);
+            const groupName = run.group.title || t('Unnamed group');
             return (
-              // The saved band's shape: the group's colour down the left, its
-              // title above its tabs (KAN-280).
+              // The saved band, at rest (KAN-280: a live grouped tab sits
+              // exactly where a saved one does). Copied, not shared, for the
+              // reason the styles above are:
+              //   band        WindowEntryContainer.tsx:945-966
+              //   strip       GroupColorPicker.tsx:101-125
+              //   column      WindowEntryContainer.tsx:1073-1077
+              //   title row   WindowEntryContainer.tsx:1098-1120, 1218
+              //   title label WindowEntryContainer.tsx:516-522
+              // Only the resting declarations: the drag-only rules
+              // ([data-drag-held], [data-drag-removed], [data-drop-target],
+              // the strip's hover widen) never apply here, and the strip's
+              // var(--frame-top, 0px) / var(--frame-bottom, 0px) margins are
+              // written as their resting 0.
               <div
                 key={run.group.groupId}
                 role="group"
-                aria-label={run.group.title || t('Unnamed group')}
+                aria-label={groupName}
+                data-after-group={
+                  runIndex > 0 && runs[runIndex - 1].kind === 'group'
+                    ? ''
+                    : undefined
+                }
                 css={css`
+                  display: flex;
+                  align-items: stretch;
                   margin: ${BAND_MARGIN_PX}px 0;
-                  border-left: 4px solid ${TAB_GROUP_COLOR_HEX[color]};
+                  &[data-after-group] {
+                    margin-top: ${ADJACENT_GROUP_GAP_PX}px;
+                  }
                 `}
               >
                 <div
+                  aria-hidden="true"
+                  data-open-now-group-strip
                   css={css`
-                    display: flex;
-                    align-items: center;
-                    min-height: 32px;
+                    flex: 0 0 7px;
+                    width: 7px;
+                    margin-right: 9px;
+                    align-self: stretch;
+                    background-color: ${TAB_GROUP_COLOR_HEX[color]};
+                    margin-top: 0px;
+                    margin-bottom: 0px;
+                  `}
+                />
+                <div
+                  css={css`
+                    flex: 1;
+                    min-width: 0;
                   `}
                 >
-                  <NormalLabel
-                    value={run.group.title || t('Unnamed group')}
-                    color={
-                      run.group.title
-                        ? COLORS.LABEL_L2_COLOR
-                        : COLORS.LABEL_L3_COLOR
-                    }
-                    size={GROUP_TITLE_SIZE}
-                    style={`padding-left: 4px;${
-                      run.group.title ? '' : ' font-style: italic;'
-                    }`}
-                  />
+                  {/* No hover fill: unlike the saved title, this one opens
+                      nothing. The saved row's padding-right: 100px keeps its
+                      title clear of the action strip; there is none here. */}
+                  <div
+                    css={css`
+                      position: relative;
+                      display: flex;
+                      align-items: center;
+                      min-height: 32px;
+                    `}
+                  >
+                    <div
+                      css={css`
+                        display: flex;
+                        align-items: center;
+                        align-self: stretch;
+                        min-width: 0;
+                        width: 100%;
+                        box-sizing: border-box;
+                      `}
+                    >
+                      <NormalLabel
+                        value={groupName}
+                        color={
+                          run.group.title
+                            ? COLORS.LABEL_L2_COLOR
+                            : COLORS.LABEL_L3_COLOR
+                        }
+                        size={GROUP_TITLE_SIZE}
+                        style={`padding-left: 4px;${
+                          run.group.title ? '' : ' font-style: italic;'
+                        }`}
+                      />
+                    </div>
+                  </div>
+                  <div>{renderTabsOf(run.tabs.map((tab) => tab.tabId))}</div>
                 </div>
-                {renderTabsOf(run.tabs.map((tab) => tab.tabId))}
               </div>
             );
           })}
