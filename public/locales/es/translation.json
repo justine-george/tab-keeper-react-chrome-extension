@@ -210,5 +210,8 @@
   "Updates as you browse": "Se actualiza mientras navegas",
   "This window": "Esta ventana",
   "Switch to tab": "Cambiar a la pestaña",
-  "No other tabs are open": "No hay otras pestañas abiertas"
+  "No other tabs are open": "No hay otras pestañas abiertas",
+  "Saved sessions": "Sesiones guardadas",
+  "Fold the saved session away": "Ocultar la sesión guardada",
+  "Show the saved session": "Mostrar la sesión guardada"
 }

@@ -24,6 +24,9 @@ import { useTranslation } from 'react-i18next';
 import { RowDragArea, DraggableRow } from '../rightpane/rowDrag/RowDragArea';
 import { dropOnTop } from '../../../redux/dropOnTop';
 import { sessionDrop } from '../../../redux/dropSpecs';
+import { peekSavedSession } from '../../../redux/slices/globalStateSlice';
+import { isTabView } from '../../../utils/functions/viewMode';
+import { TYPE } from '../../../styles/scale';
 
 export default function TabGroupEntryContainer() {
   const COLORS = useThemeColors();
@@ -178,8 +181,20 @@ export default function TabGroupEntryContainer() {
     flex-direction: column;
   `;
 
+  const isTab = isTabView();
+
   return (
     <div css={containerStyle} ref={listRef}>
+      {/* KAN-280 O3. Beside Open now, the list says which sessions these
+          are. The popup has no Open now, so it has no caption either. */}
+      {isTab && (
+        <NormalLabel
+          value={t('Saved sessions')}
+          size={TYPE.META}
+          color={COLORS.LABEL_L2_COLOR}
+          style="flex-shrink: 0; padding: 8px 8px 4px 8px;"
+        />
+      )}
       {filteredTabGroups.length === 0 ? (
         <div css={emptyContainerStyle}>
           {/* KAN-86. Was the bare literal "Empty", which rendered in English
@@ -224,6 +239,10 @@ export default function TabGroupEntryContainer() {
                   <TabGroupEntry
                     tabGroupData={tabGroupData}
                     onTabGroupClick={() => {
+                      // KAN-280 O5. Folded, a click shows the session for
+                      // now; the selected row included, since it is the
+                      // natural one to click to see it.
+                      if (isTab) dispatch(peekSavedSession());
                       if (selectedTabGroupId === tabGroupData.tabGroupId) {
                         return;
                       }

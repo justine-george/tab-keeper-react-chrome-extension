@@ -3,7 +3,12 @@ import type { BrowserContext, Page, Worker } from '@playwright/test';
 import { test, expect } from './fixtures/extension';
 import { grantedTest } from './fixtures/grantedExtension';
 import { saveRowMenu } from './fixtures/menus';
-import { buildContainer, buildSession, seedSessions } from './fixtures/seed';
+import {
+  buildContainer,
+  buildSession,
+  seedSessions,
+  seedSettings,
+} from './fixtures/seed';
 
 // KAN-279 Part D on the real artifact: Tab Keeper in its own tab
 // (`index.html?view=tab`) beside the popup page (`index.html`, driven as a
@@ -266,6 +271,9 @@ grantedTest.describe('controls the tab view hides (KAN-279 D7, D13)', () => {
         ...buildContainer([GROUPED]),
         selectedTabGroupId: GROUPED.tabGroupId,
       });
+      // KAN-280 O5. The tab view opens folded by default; this checks the
+      // saved detail's toolbar and group band, so it opens side by side.
+      await seedSettings(context, { foldSavedSessionInTabView: false });
       const popup = await openPage(
         context,
         extensionId,

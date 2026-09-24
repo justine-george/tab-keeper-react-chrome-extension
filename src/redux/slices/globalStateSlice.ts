@@ -165,6 +165,10 @@ export interface Global {
   // lands. Session-only, like every flag here.
   syncsInFlight: number;
   isSyncQueued: boolean;
+  // KAN-280 O5. A saved session clicked while the tab view is folded shows
+  // beside Open now until the fold button is next pressed. Session-only, so
+  // a new page opens as the stored setting says.
+  isPeekingSavedSession: boolean;
 }
 
 // The windows folded shut in one session. `windowIds` may hold ids that the
@@ -266,6 +270,7 @@ export const initialState: Global = {
   collapsedWindows: null,
   syncsInFlight: 0,
   isSyncQueued: false,
+  isPeekingSavedSession: false,
 };
 
 // save data to Firestore if dirty, saves latest to localStorage at the end
@@ -1088,6 +1093,14 @@ export const globalStateSlice = createSlice({
     ) => {
       state.collapsedWindows = action.payload;
     },
+
+    peekSavedSession: (state) => {
+      state.isPeekingSavedSession = true;
+    },
+
+    endSavedSessionPeek: (state) => {
+      state.isPeekingSavedSession = false;
+    },
   },
 
   extraReducers: (builder) => {
@@ -1219,6 +1232,8 @@ export const {
   setHasTabGroupsPermission,
   toggleWindowCollapse,
   setAllWindowsCollapsed,
+  peekSavedSession,
+  endSavedSessionPeek,
 } = globalStateSlice.actions;
 
 export default globalStateSlice.reducer;

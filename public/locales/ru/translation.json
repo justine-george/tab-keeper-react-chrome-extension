@@ -212,5 +212,8 @@
   "Updates as you browse": "Обновляется по мере работы в браузере",
   "This window": "Это окно",
   "Switch to tab": "Перейти на вкладку",
-  "No other tabs are open": "Других открытых вкладок нет"
+  "No other tabs are open": "Других открытых вкладок нет",
+  "Saved sessions": "Сохранённые сессии",
+  "Fold the saved session away": "Скрыть сохранённую сессию",
+  "Show the saved session": "Показать сохранённую сессию"
 }

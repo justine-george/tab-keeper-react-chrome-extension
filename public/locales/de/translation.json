@@ -208,5 +208,8 @@
   "Updates as you browse": "Aktualisiert sich, während Sie surfen",
   "This window": "Dieses Fenster",
   "Switch to tab": "Zum Tab wechseln",
-  "No other tabs are open": "Keine anderen Tabs geöffnet"
+  "No other tabs are open": "Keine anderen Tabs geöffnet",
+  "Saved sessions": "Gespeicherte Sitzungen",
+  "Fold the saved session away": "Gespeicherte Sitzung ausblenden",
+  "Show the saved session": "Gespeicherte Sitzung anzeigen"
 }

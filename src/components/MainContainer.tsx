@@ -8,6 +8,7 @@ import { isTabView } from '../utils/functions/viewMode';
 import LeftPane from './home/leftpane/LeftPane';
 import { Toast } from './common/Toast';
 import RightPane from './home/rightpane/RightPane';
+import OpenNowColumn from './home/opennow/OpenNowColumn';
 import { useThemeColors } from '../hooks/useThemeColors';
 import { APP_HEIGHT } from '../utils/constants/common';
 import { AppDispatch, RootState } from '../redux/store';
@@ -77,6 +78,14 @@ export default function MainContainer() {
 
   const tabGroupsPromptCount = useSelector(
     (state: RootState) => state.globalState.tabGroupsPromptCount
+  );
+
+  // KAN-280 O4/O5. Folded, Open now takes the saved session's column. The
+  // stored choice decides, unless a saved session was clicked since (a peek).
+  const folded = useSelector(
+    (state: RootState) =>
+      state.settingsDataState.foldSavedSessionInTabView &&
+      !state.globalState.isPeekingSavedSession
   );
 
   // Keyboard shortcut listener for undo/redo
@@ -161,12 +170,25 @@ export default function MainContainer() {
   // KAN-279 D1/D2. The tab view fills the window instead of sitting in the
   // popup's fixed 790x550 box. 356px and 238px are the popup's own 45% and
   // 30% of 790px, rounded, so the left pane reads the same size it does in
-  // the popup. The third column stays 0-width and named but empty -- it is
-  // reserved for the Active Session pane (KAN-280) and has no element yet.
+  // the popup.
+  //
+  // KAN-280 O1/O4. The third column is Open now's, side by side: 340px, 420px
+  // from 1600px wide. Below 1100px it is the 44px rail's (O2). Folded it is 0
+  // at every width, and Open now sits in `detail` instead: the same grid
+  // either way, so nothing changes sides.
   const tabContainerStyle = css`
     display: grid;
-    grid-template-columns: 356px minmax(0, 1fr) 0;
+    grid-template-columns: 356px minmax(0, 1fr) ${folded ? '0' : '340px'};
     grid-template-areas: 'sessions detail active-session';
+    ${!folded &&
+    css`
+      @media (min-width: 1600px) {
+        grid-template-columns: 356px minmax(0, 1fr) 420px;
+      }
+      @media (max-width: 1099px) {
+        grid-template-columns: 356px minmax(0, 1fr) 44px;
+      }
+    `}
   `;
 
   const tabContainerSettingsStyle = css`
@@ -196,6 +218,17 @@ export default function MainContainer() {
     border: 1px solid ${COLORS.BORDER_COLOR};
   `;
 
+  const tabOpenNowPaneStyle = css`
+    grid-area: ${folded ? 'detail' : 'active-session'};
+    width: auto;
+    height: 100vh;
+    min-width: 0;
+    overflow: hidden;
+    border: 1px solid ${COLORS.BORDER_COLOR};
+    /* Side by side, the detail pane's right border is already this edge. */
+    ${!folded && 'border-left: none;'}
+  `;
+
   const isTab = isTabView();
 
   return (
@@ -205,12 +238,24 @@ export default function MainContainer() {
           <div css={isTab ? tabPaneStyle : leftPaneStyle} data-pane="sessions">
             <LeftPane />
           </div>
-          <div
-            css={isTab ? tabDetailPaneStyle : rightPaneStyle}
-            data-pane="detail"
-          >
-            <RightPane />
-          </div>
+          {/* KAN-280 O4. Folded, the saved detail is not rendered at all.
+              This slot stays in place either way, so Open now keeps its
+              position among the children and is not remounted by a fold. */}
+          {!(isTab && folded) && (
+            <div
+              css={isTab ? tabDetailPaneStyle : rightPaneStyle}
+              data-pane="detail"
+            >
+              <RightPane />
+            </div>
+          )}
+          {/* KAN-280. The tab view only: in the popup a click on a live tab
+              would switch to it and close the popup. */}
+          {isTab && (
+            <div css={tabOpenNowPaneStyle} data-pane="open-now">
+              <OpenNowColumn folded={folded} />
+            </div>
+          )}
         </div>
       ) : (
         <div css={isTab ? tabContainerSettingsStyle : containerStyle}>

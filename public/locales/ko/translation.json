@@ -206,5 +206,8 @@
   "Updates as you browse": "탐색하는 동안 업데이트됩니다",
   "This window": "이 창",
   "Switch to tab": "탭으로 전환",
-  "No other tabs are open": "열려 있는 다른 탭이 없습니다"
+  "No other tabs are open": "열려 있는 다른 탭이 없습니다",
+  "Saved sessions": "저장된 세션",
+  "Fold the saved session away": "저장된 세션 접기",
+  "Show the saved session": "저장된 세션 보기"
 }
