@@ -253,10 +253,10 @@ describe('the Open now pane (KAN-280)', () => {
     }
   });
 
-  // Shade only: the title keeps the popup's one font weight, which
-  // scaleConformance.test.ts holds (KAN-205).
-  // The shade is colour alone; aria-current is the cue that is not. Each
-  // window has one active tab, so one current row per window.
+  // The title keeps the popup's one font weight (scaleConformance.test.ts,
+  // KAN-205). The front tab's bar (KAN-280) is not visible to jsdom; e2e 7d/7e
+  // cover it. aria-current is the cue that is not visual. Each window has one
+  // active tab, so one current row per window.
   test('the active tab of each window is marked current', async () => {
     await renderPane(twoWindows());
 
