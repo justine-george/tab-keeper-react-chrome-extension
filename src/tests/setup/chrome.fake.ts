@@ -48,9 +48,10 @@ export type ChromeSeed = {
   // before permissions.request() settles. See the KAN-11 spike.
   requestNeverSettles?: boolean;
   // Chrome leaves chrome.tabGroups undefined while the tabGroups permission
-  // is ungranted (KAN-280 review focus #4). True omits the member entirely
-  // from the installed fake, so a caller sees exactly what an ungranted
-  // profile sees rather than a stub with nothing in it.
+  // is ungranted, and the Open now pane (KAN-280) must survive that. True
+  // omits the member entirely from the installed fake, so a caller sees
+  // exactly what an ungranted profile sees rather than a stub with nothing
+  // in it.
   tabGroupsApiAbsent?: boolean;
 };
 
@@ -570,9 +571,9 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
       onMoved: tabsOnMoved,
       onAttached: tabsOnAttached,
       onDetached: tabsOnDetached,
-      // Was a no-op stub; background.ts:20 registers a real listener here, so
-      // this must keep working exactly as it did (see the KAN-280 controller
-      // ruling for this task).
+      // Was a no-op stub; background.ts:20 registers a real listener here on
+      // every tab switch, so a real registry must keep that working exactly
+      // as it did.
       onActivated: tabsOnActivated,
       group: (
         options: chrome.tabs.GroupOptions,
@@ -698,8 +699,9 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
 
     // Absent entirely (not present-but-undefined) when the seed says the
     // permission is ungranted, matching what Chrome hands an ungranted
-    // profile -- KAN-280 review focus #4, and what Task 3 relies on so it
-    // never has to reach for a cast to unset it.
+    // profile: the member is missing from the namespace, not a stub with
+    // nothing in it, and code that reaches for it without checking first
+    // must fail the same way it would in a real browser.
     ...(seed.tabGroupsApiAbsent ? {} : { tabGroups: tabGroupsApi }),
 
     commands: {

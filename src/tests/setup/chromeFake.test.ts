@@ -517,6 +517,26 @@ describe('live browser events (KAN-280)', () => {
     handle.restore();
   });
 
+  // Task 3's "This window follows the tab view" pane re-reads
+  // tabs.getCurrent() on every refresh so the "This window" tag stays on
+  // whichever window the tab view itself is now in. getCurrent must see the
+  // move, not the window the tab view opened in.
+  test('getCurrent follows the tab that moveTabToWindow moved', async () => {
+    const handle = setupChromeFake({
+      windows: [
+        { id: 1, tabs: [{ id: 501, url: 'https://tab-keeper.test/' }] },
+        { id: 2, tabs: [{ url: 'https://b.test/' }] },
+      ],
+      currentTabId: 501,
+    });
+
+    handle.browser.moveTabToWindow(501, 2);
+
+    const current = await chrome.tabs.getCurrent();
+    expect(current?.windowId).toBe(2);
+    handle.restore();
+  });
+
   test('windowsGetAllCalls counts every getAll', async () => {
     const handle = setupChromeFake();
     await chrome.windows.getAll({});
