@@ -1,3 +1,5 @@
+import { deflateSync } from 'node:zlib';
+
 import type { BrowserContext, Locator, Page, Worker } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
@@ -160,6 +162,142 @@ const foldButton = (page: Page) =>
     name: 'Fold the saved session away',
     exact: true,
   });
+
+// ---- 7. live rows measure like saved rows ----
+
+// A 16x16 opaque PNG, built here so the spec carries no binary fixture.
+function solidPng(size: number): Buffer {
+  const crcTable = Array.from({ length: 256 }, (_, n) => {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    return c >>> 0;
+  });
+  const crc = (bytes: Buffer): number => {
+    let c = 0xffffffff;
+    for (const b of bytes) c = crcTable[(c ^ b) & 0xff] ^ (c >>> 8);
+    return (c ^ 0xffffffff) >>> 0;
+  };
+  const chunk = (type: string, data: Buffer): Buffer => {
+    const length = Buffer.alloc(4);
+    length.writeUInt32BE(data.length);
+    const body = Buffer.concat([Buffer.from(type, 'ascii'), data]);
+    const sum = Buffer.alloc(4);
+    sum.writeUInt32BE(crc(body));
+    return Buffer.concat([length, body, sum]);
+  };
+  const header = Buffer.alloc(13);
+  header.writeUInt32BE(size, 0);
+  header.writeUInt32BE(size, 4);
+  header[8] = 8; // bit depth
+  header[9] = 2; // truecolour RGB
+  // Each scanline: filter byte 0, then one blue RGB pixel per column.
+  const row = Buffer.concat([
+    Buffer.from([0]),
+    ...Array.from({ length: size }, () => Buffer.from([0x1a, 0x73, 0xe8])),
+  ]);
+  const pixels = deflateSync(
+    Buffer.concat(Array.from({ length: size }, () => row))
+  );
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    chunk('IHDR', header),
+    chunk('IDAT', pixels),
+    chunk('IEND', Buffer.alloc(0)),
+  ]);
+}
+
+const FAVICON_ORIGIN = 'https://favicon.test';
+const FAVICON_URL = `${FAVICON_ORIGIN}/icon.png`;
+const FAVICON_PNG = solidPng(16);
+
+// One selected session with one tab, shown side by side, so its tab row is
+// on screen next to Open now.
+async function seedSavedTab(
+  context: BrowserContext,
+  tab: { favicon: string; url: string }
+): Promise<void> {
+  const saved = buildSession({
+    tabGroupId: 'saved',
+    title: 'Saved session',
+    isSelected: true,
+    windows: [
+      {
+        windowId: 'w1',
+        windowHeight: 1080,
+        windowWidth: 1920,
+        windowOffsetTop: 0,
+        windowOffsetLeft: 0,
+        tabCount: 1,
+        title: 'w1',
+        tabs: [{ tabId: 't1', title: 'Saved tab', ...tab }],
+      },
+    ],
+  });
+  await seedSessions(context, {
+    ...buildContainer([saved]),
+    selectedTabGroupId: saved.tabGroupId,
+  });
+  await seedSettings(context, { foldSavedSessionInTabView: false });
+}
+
+const savedTabRow = (page: Page): Locator =>
+  page
+    .locator(DETAIL)
+    .getByRole('button', { name: 'Open in new tab: Saved tab', exact: true });
+
+interface HorizontalBox {
+  left: number;
+  width: number;
+  height: number;
+}
+
+interface RowFacts {
+  rowHeight: number;
+  // The Icon's own box, and the <img> inside it when it drew one.
+  icon: HorizontalBox;
+  img: HorizontalBox | null;
+}
+
+// A tab row's height, and its favicon's box with `left` measured from the
+// pane's content box (inside its border and padding): the two panes' own
+// borders differ.
+async function measureRow(row: Locator, pane: string): Promise<RowFacts> {
+  await expect(row).toBeVisible();
+  const facts = await row.evaluate((button: Element, paneSelector: string) => {
+    const paneEl = document.querySelector(paneSelector);
+    const icon = button.firstElementChild;
+    const rowEl = button.parentElement;
+    if (paneEl === null || icon === null || rowEl === null) return null;
+    const style = getComputedStyle(paneEl);
+    const contentLeft =
+      paneEl.getBoundingClientRect().left +
+      parseFloat(style.borderLeftWidth) +
+      parseFloat(style.paddingLeft);
+    const boxOf = (el: Element) => {
+      const r = el.getBoundingClientRect();
+      return { left: r.left - contentLeft, width: r.width, height: r.height };
+    };
+    const img = icon.querySelector('img');
+    return {
+      rowHeight: rowEl.getBoundingClientRect().height,
+      icon: boxOf(icon),
+      img: img === null ? null : boxOf(img),
+    };
+  }, pane);
+  if (facts === null) throw new Error('a row is missing its pane, icon or row');
+  return facts;
+}
+
+function expectWithinHalfPixel(
+  live: number,
+  saved: number,
+  what: string
+): void {
+  expect(
+    Math.abs(live - saved),
+    `${what}: live ${live}, saved ${saved}`
+  ).toBeLessThanOrEqual(0.5);
+}
 
 test.describe('Open now in the tab view (KAN-280)', () => {
   test('1. folded by default: Open now fills the detail column', async ({
@@ -409,89 +547,96 @@ test.describe('Open now in the tab view (KAN-280)', () => {
     expect(hits).toEqual({ onToast: 'toast', aboveToast: 'drawer' });
   });
 
-  test('7. a live tab row measures like a saved tab row', async ({
+  test('7. a live tab row measures like a saved tab row: the globe glyph', async ({
     context,
     extensionId,
     serviceWorker,
   }, testInfo) => {
-    // The saved session's one tab has no favicon and a URL Chrome has no
-    // favicon service for, so it draws the globe glyph, as a data: tab does.
-    const saved = buildSession({
-      tabGroupId: 'saved',
-      title: 'Saved session',
-      isSelected: true,
-      windows: [
-        {
-          windowId: 'w1',
-          windowHeight: 1080,
-          windowWidth: 1920,
-          windowOffsetTop: 0,
-          windowOffsetLeft: 0,
-          tabCount: 1,
-          title: 'w1',
-          tabs: [
-            {
-              tabId: 't1',
-              favicon: '',
-              title: 'Saved tab',
-              url: 'chrome://version/',
-            },
-          ],
-        },
-      ],
-    });
-    await seedSessions(context, {
-      ...buildContainer([saved]),
-      selectedTabGroupId: saved.tabGroupId,
-    });
-    await seedSettings(context, { foldSavedSessionInTabView: false });
+    // The saved tab has no favicon and a URL Chrome has no favicon service
+    // for, so it draws the globe glyph, as a data: tab does.
+    await seedSavedTab(context, { favicon: '', url: 'chrome://version/' });
     const page = await openPage(context, extensionId, VIEW_TAB, TAB_VIEWPORT);
     await openTab(serviceWorker, 'Alpha');
 
-    const savedRow = page
-      .locator(DETAIL)
-      .getByRole('button', { name: 'Open in new tab: Saved tab', exact: true });
-    await expect(savedRow).toBeVisible();
-    await expect(liveRow(page, 'Alpha')).toBeVisible();
-
-    // The row's height, and its favicon's left edge from the pane's content
-    // box (inside its border and padding): the panes' own borders differ.
-    const measure = (row: Locator, pane: string) =>
-      row.evaluate((button: Element, paneSelector: string) => {
-        const paneEl = document.querySelector(paneSelector);
-        const icon = button.firstElementChild;
-        const rowEl = button.parentElement;
-        if (paneEl === null || icon === null || rowEl === null) return null;
-        const style = getComputedStyle(paneEl);
-        const contentLeft =
-          paneEl.getBoundingClientRect().left +
-          parseFloat(style.borderLeftWidth) +
-          parseFloat(style.paddingLeft);
-        return {
-          rowHeight: rowEl.getBoundingClientRect().height,
-          faviconLeft: icon.getBoundingClientRect().left - contentLeft,
-          faviconIsImage: icon.querySelector('img') !== null,
-        };
-      }, pane);
-
-    const savedFacts = await measure(savedRow, DETAIL);
-    const liveFacts = await measure(liveRow(page, 'Alpha'), OPEN_NOW);
-    console.log(`[row match] ${JSON.stringify({ savedFacts, liveFacts })}`);
+    const saved = await measureRow(savedTabRow(page), DETAIL);
+    const live = await measureRow(liveRow(page, 'Alpha'), OPEN_NOW);
+    console.log(`[row match, glyph] ${JSON.stringify({ saved, live })}`);
     await page.screenshot({ path: testInfo.outputPath('rows.png') });
-    if (savedFacts === null || liveFacts === null) {
-      throw new Error('a row is missing its pane, icon or row box');
+    // PREMISE: both draw the glyph, so this compares rows, not an image
+    // against a glyph.
+    expect(saved.img, 'the saved row drew an image').toBeNull();
+    expect(live.img, 'the live row drew an image').toBeNull();
+    expectWithinHalfPixel(live.rowHeight, saved.rowHeight, 'row height');
+    expectWithinHalfPixel(live.icon.left, saved.icon.left, 'favicon offset');
+  });
+
+  test('7b. a live tab row measures like a saved tab row: an image favicon', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }, testInfo) => {
+    // A page answered locally, whose <link rel="icon"> Chrome loads, so the
+    // live tab gets a favIconUrl. The saved tab carries the same URL, so both
+    // rows draw an <img> of the same picture.
+    await context.route(`${FAVICON_ORIGIN}/**`, (route) =>
+      route.request().url() === FAVICON_URL
+        ? route.fulfill({ contentType: 'image/png', body: FAVICON_PNG })
+        : route.fulfill({
+            contentType: 'text/html',
+            body: `<link rel="icon" href="${FAVICON_URL}"><title>Iconic</title>`,
+          })
+    );
+    await seedSavedTab(context, {
+      favicon: FAVICON_URL,
+      url: `${FAVICON_ORIGIN}/`,
+    });
+    const page = await openPage(context, extensionId, VIEW_TAB, TAB_VIEWPORT);
+    // Opened active: measured, a background tab created this way never
+    // requests its https page in this harness, so it never gets an icon.
+    // The tab view is brought back to the front once the icon is read.
+    const id = await serviceWorker.evaluate(
+      (url: string) =>
+        chrome.tabs.create({ url, active: true }).then((t) => t.id ?? null),
+      `${FAVICON_ORIGIN}/`
+    );
+    if (id === null) throw new Error('Chrome gave the Iconic tab no id');
+    // PREMISE: Chrome read the page's icon, so the live row has one to draw.
+    await expect
+      .poll(() =>
+        serviceWorker.evaluate(
+          (tabId: number) => chrome.tabs.get(tabId).then((t) => t.favIconUrl),
+          id
+        )
+      )
+      .toBe(FAVICON_URL);
+    await page.bringToFront();
+
+    // PREMISE: both rows draw the decoded image, not the globe fallback.
+    const imageOf = (row: Locator) =>
+      row.locator('img').evaluate((img: HTMLImageElement) => ({
+        src: img.currentSrc,
+        decoded: img.complete && img.naturalWidth > 0,
+      }));
+    await expect
+      .poll(() => imageOf(savedTabRow(page)))
+      .toEqual({ src: FAVICON_URL, decoded: true });
+    await expect
+      .poll(() => imageOf(liveRow(page, 'Iconic')))
+      .toEqual({ src: FAVICON_URL, decoded: true });
+
+    const saved = await measureRow(savedTabRow(page), DETAIL);
+    const live = await measureRow(liveRow(page, 'Iconic'), OPEN_NOW);
+    console.log(`[row match, image] ${JSON.stringify({ saved, live })}`);
+    await page.screenshot({ path: testInfo.outputPath('rows-image.png') });
+    if (saved.img === null || live.img === null) {
+      throw new Error(
+        'a row lost its <img> between the premise and the measure'
+      );
     }
-    // PREMISE: both draw the same kind of icon, so the heights compare rows,
-    // not an image against a glyph.
-    expect(liveFacts.faviconIsImage).toBe(savedFacts.faviconIsImage);
-    expect(
-      Math.abs(liveFacts.rowHeight - savedFacts.rowHeight),
-      'row height'
-    ).toBeLessThanOrEqual(0.5);
-    expect(
-      Math.abs(liveFacts.faviconLeft - savedFacts.faviconLeft),
-      'favicon offset'
-    ).toBeLessThanOrEqual(0.5);
+    expectWithinHalfPixel(live.rowHeight, saved.rowHeight, 'row height');
+    expectWithinHalfPixel(live.img.left, saved.img.left, 'img left offset');
+    expectWithinHalfPixel(live.img.width, saved.img.width, 'img width');
+    expectWithinHalfPixel(live.img.height, saved.img.height, 'img height');
   });
 
   test('8. the popup is unchanged: no Open now, no caption', async ({
