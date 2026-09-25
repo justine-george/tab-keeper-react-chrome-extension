@@ -288,6 +288,8 @@ describe('the save row menu (KAN-208)', () => {
   });
 
   test('Export open windows… opens the live export page and saves nothing', async () => {
+    // tabs.create() (called with no windowId) lands in the fake's current
+    // window -- windows[0], window 7 here.
     const { store, seen, chrome } = await renderWithProviders(
       <UserInputContainer />,
       { seed: twoWindows }

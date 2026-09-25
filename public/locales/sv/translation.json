@@ -212,5 +212,15 @@
   "Saved sessions": "Sparade sessioner",
   "Fold the saved session away": "Dölj den sparade sessionen",
   "Show the saved session": "Visa den sparade sessionen",
-  "Close Open now": "Stäng panelen ”Öppna flikar”"
+  "Close Open now": "Stäng panelen ”Öppna flikar”",
+  "Reopen": "Öppna igen",
+  "Ctrl": "Ctrl",
+  "Tab closed": "Fliken stängdes",
+  "Couldn't reopen.": "Det gick inte att öppna igen.",
+  "WindowClosed_one": "Fönstret stängdes ({{count}} flik)",
+  "WindowClosed_other": "Fönstret stängdes ({{count}} flikar)",
+  "Close tab": "Stäng flik",
+  "Close window": "Stäng fönster",
+  "Save window as a session": "Spara fönstret som en session",
+  "Window saved as a session.": "Fönstret har sparats som en session."
 }

@@ -43,7 +43,9 @@ const GROUPS = [
 
 const render = ({ permission = true, search = false } = {}) =>
   renderWithProviders(<TabGroupDetailsContainer />, {
+    // tabs.create rejects a windowId no window carries, as Chrome does.
     seed: {
+      windows: [{ id: 1 }],
       tabs: [
         { id: 1, active: true, url: 'https://current.test', title: 'Current' },
       ],

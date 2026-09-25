@@ -192,7 +192,9 @@ export async function readCurrentWindowGroups(
  * `chromeGroupId` is the caller's to add: only a window capture knows the
  * mapping from Chrome's numeric ids to ours.
  */
-export function toStoredTab(tab: chrome.tabs.Tab): tabData {
+export function toStoredTab(
+  tab: Pick<chrome.tabs.Tab, 'favIconUrl' | 'title' | 'url'>
+): tabData {
   return {
     tabId: uuidv4(),
     favicon: tab.favIconUrl || '',

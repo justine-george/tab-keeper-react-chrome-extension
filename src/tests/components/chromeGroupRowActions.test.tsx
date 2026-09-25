@@ -40,7 +40,11 @@ const GROUPS: chromeTabGroupData[] = [
   { groupId: 'grp', title: 'Research', color: 'blue' },
 ];
 
+// tabs.create rejects a windowId no window carries, as Chrome does, so
+// every seed that exercises it needs the window declared, not just implied
+// by DEFAULT_WINDOW_ID.
 const DEFAULT_SEED: ChromeSeed = {
+  windows: [{ id: 1 }],
   tabs: [{ id: 1, active: true, url: 'https://added.test', title: 'Added' }],
 };
 
@@ -200,6 +204,7 @@ describe('add current tab to group skips a Tab Keeper page', () => {
   test('the active tab is the tab view: nothing is added', async () => {
     const { store, seen } = await renderRow({
       seed: {
+        windows: [{ id: 1 }],
         tabs: [
           {
             id: 1,

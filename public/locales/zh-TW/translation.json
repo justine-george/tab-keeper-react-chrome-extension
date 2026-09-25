@@ -210,5 +210,14 @@
   "Saved sessions": "已儲存的工作階段",
   "Fold the saved session away": "收合已儲存的工作階段",
   "Show the saved session": "顯示已儲存的工作階段",
-  "Close Open now": "關閉「目前開啟的分頁」面板"
+  "Close Open now": "關閉「目前開啟的分頁」面板",
+  "Reopen": "重新開啟",
+  "Ctrl": "Ctrl",
+  "Tab closed": "分頁已關閉",
+  "Couldn't reopen.": "無法重新開啟。",
+  "WindowClosed_other": "視窗已關閉（{{count}} 個分頁）",
+  "Close tab": "關閉分頁",
+  "Close window": "關閉視窗",
+  "Save window as a session": "將視窗儲存為工作階段",
+  "Window saved as a session.": "已將視窗儲存為工作階段。"
 }

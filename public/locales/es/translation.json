@@ -214,5 +214,16 @@
   "Saved sessions": "Sesiones guardadas",
   "Fold the saved session away": "Ocultar la sesión guardada",
   "Show the saved session": "Mostrar la sesión guardada",
-  "Close Open now": "Cerrar el panel \"Pestañas abiertas\""
+  "Close Open now": "Cerrar el panel \"Pestañas abiertas\"",
+  "Reopen": "Reabrir",
+  "Ctrl": "Ctrl",
+  "Tab closed": "Pestaña cerrada",
+  "Couldn't reopen.": "No se pudo reabrir.",
+  "WindowClosed_one": "Ventana cerrada ({{count}} pestaña)",
+  "WindowClosed_many": "Ventana cerrada ({{count}} pestañas)",
+  "WindowClosed_other": "Ventana cerrada ({{count}} pestañas)",
+  "Close tab": "Cerrar pestaña",
+  "Close window": "Cerrar ventana",
+  "Save window as a session": "Guardar ventana como sesión",
+  "Window saved as a session.": "Ventana guardada como sesión."
 }

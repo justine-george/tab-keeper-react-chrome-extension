@@ -212,5 +212,15 @@
   "Saved sessions": "सहेजे गए सेशन",
   "Fold the saved session away": "सहेजा गया सेशन छिपाएं",
   "Show the saved session": "सहेजा गया सेशन दिखाएं",
-  "Close Open now": "\"अभी खुले टैब\" पैनल बंद करें"
+  "Close Open now": "\"अभी खुले टैब\" पैनल बंद करें",
+  "Reopen": "फिर से खोलें",
+  "Ctrl": "Ctrl",
+  "Tab closed": "टैब बंद किया गया",
+  "Couldn't reopen.": "फिर से नहीं खोला जा सका।",
+  "WindowClosed_one": "विंडो बंद की गई ({{count}} टैब)",
+  "WindowClosed_other": "विंडो बंद की गई ({{count}} टैब्स)",
+  "Close tab": "टैब बंद करें",
+  "Close window": "विंडो बंद करें",
+  "Save window as a session": "विंडो को सत्र के रूप में सहेजें",
+  "Window saved as a session.": "विंडो सत्र के रूप में सहेजी गई।"
 }

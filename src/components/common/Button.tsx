@@ -60,6 +60,13 @@ interface ButtonProps {
     /** The crossfade's length. 200ms; shorter for a control used in runs. */
     durationMs?: number;
   };
+  /**
+   * A key that does the same as pressing the button, shown after its label
+   * (KAN-311): "Reopen ⌘Z". Announced through aria-keyshortcuts, in the
+   * WAI-ARIA form ("Meta+Z"), so the shown text is hidden from the accessible
+   * name, which stays the label alone.
+   */
+  keyHint?: { text: string; ariaKeyShortcuts: string };
 }
 
 /**
@@ -86,6 +93,7 @@ const Button: React.FC<ButtonProps> = ({
   variant = 'quiet',
   ariaDisabled,
   secondFace,
+  keyHint,
 }) => {
   const COLORS = useThemeColors();
   const FONT_FAMILY = useFontFamily();
@@ -153,12 +161,20 @@ const Button: React.FC<ButtonProps> = ({
     cursor: pointer;
     transition: background-color ${DURATION.COLOR};
     color: ${COLORS.TEXT_COLOR};
+    /* KAN-311. A key hint steps up to TEXT on the same trigger as the fill,
+       so it never sits on the darker fill in its resting colour. */
     &:hover {
       background-color: ${PALETTE.hover};
+      [data-key-hint] {
+        color: ${COLORS.TEXT_COLOR};
+      }
     }
     /* KAN-205. One rung past the hover, so a click confirms itself. */
     &:active {
       background-color: ${PALETTE.press};
+      [data-key-hint] {
+        color: ${COLORS.TEXT_COLOR};
+      }
     }
     ${style && style}
     ${unavailableStyle}
@@ -235,6 +251,19 @@ const Button: React.FC<ButtonProps> = ({
     </>
   );
 
+  // At rest LABEL_L1: the quietest label token that clears 4.5:1 against
+  // CHIP_COLOR in every theme (KAN-311, following KAN-199's rule); L2 falls
+  // to 2.62:1 in Petal. On the hover and press fills L1 falls to 4.07:1 and
+  // 3.47:1 (Ink), so there the hint takes TEXT (buttonStyle above), which
+  // clears 4.87:1 on the press fill at worst. It changes colour with the
+  // fill's own transition. Measured on the chip's three fills, its one
+  // caller's: on another variant it has to be measured again.
+  const keyHintStyle = css`
+    padding-left: 6px;
+    color: ${COLORS.LABEL_L1_COLOR};
+    transition: color ${DURATION.COLOR};
+  `;
+
   // No wrapper element: the button must be the flex child itself, otherwise a
   // width: 100% passed through `style` resolves against a shrink-wrapped div
   // and collapses back to the button's own text width.
@@ -254,6 +283,7 @@ const Button: React.FC<ButtonProps> = ({
       aria-label={ariaLabel}
       aria-pressed={ariaPressed}
       aria-disabled={ariaDisabled || undefined}
+      aria-keyshortcuts={keyHint?.ariaKeyShortcuts}
       data-second-face-shown={secondFace ? String(secondFace.shown) : undefined}
       css={buttonStyle}
       onClick={ariaDisabled ? undefined : onClick}
@@ -280,6 +310,11 @@ const Button: React.FC<ButtonProps> = ({
         </span>
       ) : (
         face(iconType, text)
+      )}
+      {keyHint && (
+        <span data-key-hint aria-hidden="true" css={keyHintStyle}>
+          {keyHint.text}
+        </span>
       )}
     </button>
   );

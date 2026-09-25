@@ -53,8 +53,12 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+// Export's chrome.tabs.create() rejects a windowId no window carries, as
+// Chrome does, so a window has to be seeded even though nothing here reads
+// it back.
 const renderHeader = () =>
   renderWithProviders(<HeroContainerRight />, {
+    seed: { windows: [{ id: 1 }] },
     seedStore: (store) => {
       store.dispatch(replaceState(buildContainer([SESSION])));
       store.dispatch(selectTabContainer('session-kyoto'));
@@ -132,6 +136,7 @@ describe('the session header keeps two actions and a menu (KAN-193)', () => {
   test('Export is for the selected session, not the first one', async () => {
     const user = userEvent.setup();
     const { chrome } = await renderWithProviders(<HeroContainerRight />, {
+      seed: { windows: [{ id: 1 }] },
       seedStore: (store) => {
         store.dispatch(
           replaceState(

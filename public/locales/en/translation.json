@@ -212,5 +212,15 @@
   "Saved sessions": "Saved sessions",
   "Fold the saved session away": "Fold the saved session away",
   "Show the saved session": "Show the saved session",
-  "Close Open now": "Close Open now"
+  "Close Open now": "Close Open now",
+  "Reopen": "Reopen",
+  "Ctrl": "Ctrl",
+  "Tab closed": "Tab closed",
+  "Couldn't reopen.": "Couldn't reopen.",
+  "WindowClosed_one": "Window closed ({{count}} tab)",
+  "WindowClosed_other": "Window closed ({{count}} tabs)",
+  "Close tab": "Close tab",
+  "Close window": "Close window",
+  "Save window as a session": "Save window as a session",
+  "Window saved as a session.": "Window saved as a session."
 }

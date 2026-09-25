@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 import { useDispatch, useSelector } from 'react-redux';
 
@@ -18,6 +18,7 @@ import { selectIsSavedSessionFolded } from '../redux/savedSessionFold';
 import LeftPaneSettings from './settings/leftpane/LeftPaneSettings';
 import RightPaneSettings from './settings/rightpane/RightPaneSettings';
 import { closeToast } from '../redux/slices/globalStateSlice';
+import { reopenFromOffer } from '../redux/reopenOffer';
 import { RateAndReviewModal } from './modals/RateAndReviewModal';
 import { FocusConfirmModal } from './modals/FocusConfirmModal';
 import { DeleteCloudDataModal } from './modals/DeleteCloudDataModal';
@@ -53,10 +54,6 @@ export default function MainContainer() {
   const COLORS = useThemeColors();
   const dispatch: AppDispatch = useDispatch();
 
-  const isToastOpen = useSelector(
-    (state: RootState) => state.globalState.isToastOpen
-  );
-
   const isSettingsPage = useSelector(
     (state: RootState) => state.globalState.isSettingsPage
   );
@@ -82,17 +79,45 @@ export default function MainContainer() {
     (state: RootState) => state.globalState.tabGroupsPromptCount
   );
 
+  // KAN-311 (O8c). The close the Reopen toast offers, while it shows. The
+  // slice keeps the id after the toast closes, so both are read.
+  const shownReopenOfferId = useSelector((state: RootState) =>
+    state.globalState.isToastOpen ? state.globalState.toastReopenOfferId : null
+  );
+
   // KAN-280 O4/O5. Folded, Open now takes the saved session's column.
   const folded = useSelector(selectIsSavedSessionFolded);
+
+  // KAN-311 (O8c). Set when the key takes a Reopen offer, while that press
+  // may still be held: its repeats would otherwise go on to undo
+  // saved-session edits once the toast has gone.
+  const heldAfterReopen = useRef(false);
 
   // Keyboard shortcut listener for undo/redo
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
+      // Any fresh press ends a hold after Reopen (KAN-311), wherever it
+      // lands, a text field included, so the hold cannot outlive the
+      // gesture if a keyup never arrives. Only clears; it prevents nothing.
+      if (!event.repeat) heldAfterReopen.current = false;
+
       // Guard the whole handler, not just undo: redo is native inside a text
       // field too (cmd+shift+z on macOS, ctrl+y on Windows).
       if (isNativelyUndoableTarget(event.target)) return;
 
       if (isSettingsPage) return;
+
+      // A held key's repeats after it took the offer are dropped, so they
+      // cannot go on to undo saved-session edits. Below the guards: a repeat
+      // landing in a text field is still the field's own undo.
+      if (
+        heldAfterReopen.current &&
+        event.repeat &&
+        event.key.toLowerCase() === 'z'
+      ) {
+        event.preventDefault();
+        return;
+      }
 
       // Every chord needs a platform modifier. ctrl and meta are treated
       // interchangeably so one handler serves Windows/Linux and macOS.
@@ -107,9 +132,22 @@ export default function MainContainer() {
       // Redo is tested first and returns. That ordering is what keeps the
       // chords mutually exclusive: shift+z has to stop here, or it goes on to
       // satisfy the plain-undo branch as well and the two cancel out.
+      //
+      // KAN-311 (O8c). An undo or redo dismisses a plain toast, but not a
+      // Reopen offer: the offer is still there to take.
       if (key === 'y' || (key === 'z' && event.shiftKey)) {
         dispatch(redo());
-        dispatch(closeToast());
+        if (shownReopenOfferId === null) dispatch(closeToast());
+        event.preventDefault();
+        return;
+      }
+
+      // While a Reopen offer shows, the key takes it, as pressing Reopen does,
+      // and undoes nothing (O8c). A second press before this re-renders finds
+      // the offer taken and does nothing either.
+      if (key === 'z' && shownReopenOfferId !== null) {
+        void dispatch(reopenFromOffer(shownReopenOfferId));
+        heldAfterReopen.current = true;
         event.preventDefault();
         return;
       }
@@ -120,13 +158,26 @@ export default function MainContainer() {
         event.preventDefault();
       }
     }
+    // The hold ends when Z is let go, or the modifier is: macOS Chrome sends
+    // no Z keyup while ⌘ is still down.
+    function handleKeyUp(event: KeyboardEvent) {
+      if (
+        event.key.toLowerCase() === 'z' ||
+        event.key === 'Meta' ||
+        event.key === 'Control'
+      ) {
+        heldAfterReopen.current = false;
+      }
+    }
     window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
 
     // cleanup
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [isSettingsPage, dispatch]);
+  }, [isSettingsPage, shownReopenOfferId, dispatch]);
 
   const containerStyle = css`
     display: flex;
@@ -270,7 +321,9 @@ export default function MainContainer() {
           </div>
         </div>
       )}
-      {isToastOpen && <Toast />}
+      {/* Always mounted: its role="status" region has to exist before a
+          toast's text arrives for a screen reader to hear it (KAN-280 O8a). */}
+      <Toast />
       {isRateAndReviewModalOpen && <RateAndReviewModal />}
       {tabGroupsPromptCount !== null && <TabGroupsPermissionModal />}
       {focusRequest && <FocusConfirmModal />}

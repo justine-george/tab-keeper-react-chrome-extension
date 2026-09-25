@@ -312,6 +312,75 @@ describe('toOpenWindows', () => {
   });
 });
 
+describe('what a recreate needs (KAN-280 O8)', () => {
+  test('each window carries its bounds, state and incognito flag', async () => {
+    handle = setupChromeFake({
+      windows: [
+        {
+          id: 1,
+          left: 10,
+          top: 20,
+          width: 800,
+          height: 600,
+          state: 'maximized',
+          incognito: false,
+          tabs: [{ url: 'https://a.test/' }],
+        },
+        {
+          id: 2,
+          state: 'minimized',
+          incognito: true,
+          tabs: [{ url: 'https://b.test/' }],
+        },
+      ],
+    });
+    const all = await getWindows();
+    const [first, second] = toOpenWindows(all, null, null);
+    expect([first.bounds, first.state, first.incognito]).toEqual([
+      { left: 10, top: 20, width: 800, height: 600 },
+      'maximized',
+      false,
+    ]);
+    expect([second.bounds, second.state, second.incognito]).toEqual([
+      null,
+      'minimized',
+      true,
+    ]);
+  });
+
+  test("a tab's index is Chrome's, counting the Tab Keeper pages the pane leaves out", async () => {
+    handle = setupChromeFake({
+      windows: [
+        {
+          id: 1,
+          tabs: [
+            { url: 'https://a.test/' },
+            { url: tabKeeperUrl() },
+            { url: 'https://b.test/' },
+          ],
+        },
+      ],
+    });
+    const all = await getWindows();
+    const [win] = toOpenWindows(all, null, null);
+    expect(win.tabs.map((t) => [t.url, t.index])).toEqual([
+      ['https://a.test/', 0],
+      ['https://b.test/', 2],
+    ]);
+  });
+
+  test('state is normal when Chrome omits it', async () => {
+    // The fake's seeded window carries no `state` unless the seed names one.
+    handle = setupChromeFake({
+      windows: [{ id: 3, tabs: [{ url: 'https://c.test/' }] }],
+    });
+    const all = await getWindows();
+    expect(all[0].state).toBeUndefined(); // the premise
+    const [win] = toOpenWindows(all, null, null);
+    expect(win.state).toBe('normal');
+  });
+});
+
 describe('switchToOpenTab', () => {
   test('activates the tab and focuses its window', async () => {
     handle = setupChromeFake({
@@ -338,6 +407,7 @@ describe('switchToOpenTab', () => {
       audible: false,
       muted: false,
       groupId: null,
+      index: 0,
     };
 
     await switchToOpenTab(openTab);

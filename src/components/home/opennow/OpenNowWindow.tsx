@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 import { css } from '@emotion/react';
 import { useTranslation } from 'react-i18next';
 
@@ -20,31 +22,66 @@ import {
   ADJACENT_GROUP_GAP_PX,
   BAND_MARGIN_PX,
 } from '../rightpane/bandSpacing';
-import { TYPE } from '../../../styles/scale';
+import { DURATION, TYPE } from '../../../styles/scale';
 
 // WindowEntryContainer's GROUP_TITLE_SIZE, the one documented off-scale size
 // (scaleConformance.test.ts). Copied rather than exported from there, for the
 // reason the styles below are.
 const GROUP_TITLE_SIZE = '0.85rem';
 
+// A held Enter or Space repeats into whatever has focus, and after a close
+// that is the next row's × (KAN-280 O7b). Its repeats stop here, in the
+// capture phase, before the Icon's own keydown turns each into a click: one
+// press closes one tab. Other keys pass, so a held Tab still moves on.
+function holdBackRepeatedActivation(event: React.KeyboardEvent) {
+  if (!event.repeat || (event.key !== 'Enter' && event.key !== ' ')) return;
+  event.preventDefault();
+  event.stopPropagation();
+}
+
+// A double-click's first click closes its row, and the row below moves up
+// under the pointer, so its second click lands on that row's close control
+// (KAN-280 O7c). A click whose count is past 1 is that second click, and it
+// closes nothing. Icon's key press arrives through click() with a count of 0.
+function onFirstClickOnly(close: () => void): React.MouseEventHandler {
+  return (event) => {
+    if (event.detail > 1) return;
+    close();
+  };
+}
+
 interface OpenNowWindowProps {
   openWindow: OpenWindow;
   index: number;
   isOpen: boolean;
   onToggle: () => void;
+  onCloseTab: (tab: OpenTab) => void;
+  onSaveWindow: () => void;
+  // Absent for "This window": closing it would close the tab view itself.
+  onCloseWindow?: () => void;
 }
 
 // One live window in the Open now pane (KAN-280): its row, its group bands
-// and its tab rows. Read-only apart from the fold and click-to-switch.
+// and its tab rows, with the fold, click-to-switch and the close controls
+// (O7a), and Save window (O13). The pane owns what a close or a save does.
 export default function OpenNowWindow({
   openWindow,
   index,
   isOpen,
   onToggle,
+  onCloseTab,
+  onSaveWindow,
+  onCloseWindow,
 }: OpenNowWindowProps) {
   const COLORS = useThemeColors();
   const FONT_FAMILY = useFontFamily();
   const { t } = useTranslation();
+
+  const [isParentHovered, setIsParentHovered] = useState(false);
+  // By Chrome tab id, not by position, for KAN-127's reason: a re-read (and,
+  // later, a drag) moves rows, and a position-keyed flag would then reveal
+  // whichever tab moved into the hovered slot.
+  const [hoveredTabId, setHoveredTabId] = useState<number | null>(null);
 
   // Copied from WindowEntryContainer's own containerStyle, parentStyle,
   // parentLeftStyle, childrenContainerStyle, childrenStyle, childLeftStyle and
@@ -74,6 +111,54 @@ export default function OpenNowWindow({
     align-items: center;
     flex-grow: 1;
     min-width: 0;
+  `;
+
+  // The action strips (KAN-280 O7a), copied from WindowEntryContainer's
+  // parentRightStyle and childRightStyle for the same reason, less the
+  // saved row's editing and search cases. KAN-100: the mask lands in one
+  // frame with the row's fill and only the icons ease, or the row fills in
+  // two halves with an edge between them. Keyboard focus reveals them too
+  // (KAN-68), and only keyboard focus: after a mouse close, focus moves to
+  // the next row's × (O7b), and :focus-within would show it under a pointer
+  // that has moved on (KAN-280 O7d). :has(:focus-visible), as KAN-94's
+  // TabGroupEntry does.
+  const parentRightStyle = css`
+    display: flex;
+    position: absolute;
+    top: 50%;
+    right: 0;
+    transform: translateY(-50%);
+    background-color: ${isParentHovered ? COLORS.HOVER_COLOR : 'transparent'};
+    & > * {
+      opacity: ${isParentHovered ? 1 : 0};
+      transition: opacity ${DURATION.COLOR} ease-out;
+    }
+    &:has(:focus-visible) {
+      background-color: ${COLORS.HOVER_COLOR};
+      & > * {
+        opacity: 1;
+      }
+    }
+  `;
+
+  const childRightStyle = (tabId: number) => css`
+    position: absolute;
+    top: 50%;
+    right: 0;
+    transform: translateY(-50%);
+    background-color: ${hoveredTabId === tabId
+      ? COLORS.HOVER_COLOR
+      : 'transparent'};
+    & > * {
+      opacity: ${hoveredTabId === tabId ? 1 : 0};
+      transition: opacity ${DURATION.COLOR} ease-out;
+    }
+    &:has(:focus-visible) {
+      background-color: ${COLORS.HOVER_COLOR};
+      & > * {
+        opacity: 1;
+      }
+    }
   `;
 
   const childrenContainerStyle = css`
@@ -160,7 +245,13 @@ export default function OpenNowWindow({
 
   function renderTab(tab: OpenTab) {
     return (
-      <div key={tab.id} css={childrenStyle(tab.active)}>
+      <div
+        key={tab.id}
+        css={childrenStyle(tab.active)}
+        data-open-tab-id={tab.id}
+        onMouseEnter={() => setHoveredTabId(tab.id)}
+        onMouseLeave={() => setHoveredTabId(null)}
+      >
         <ClickableRow
           ariaLabel={t('Switch to tab') + ': ' + tab.title}
           ariaCurrent={tab.active}
@@ -186,6 +277,23 @@ export default function OpenNowWindow({
             />
           </div>
         </ClickableRow>
+        {/* data-row-actions: the stylesheet's hook for hiding the strip
+            during a drag (KAN-135), which an emotion class cannot give it.
+            data-close-tab: where the pane finds this row's × after a close
+            (KAN-280 O7b); the strip holds the × alone. */}
+        <div
+          data-row-actions
+          data-close-tab
+          css={childRightStyle(tab.id)}
+          onKeyDownCapture={holdBackRepeatedActivation}
+        >
+          <Icon
+            tooltipText={t('Close tab')}
+            ariaLabel={t('Close tab') + ': ' + tab.title}
+            type="close"
+            onClick={onFirstClickOnly(() => onCloseTab(tab))}
+          />
+        </div>
       </div>
     );
   }
@@ -198,7 +306,11 @@ export default function OpenNowWindow({
 
   return (
     <div css={containerStyle} data-open-window-id={openWindow.id}>
-      <div css={parentStyle}>
+      <div
+        css={parentStyle}
+        onMouseEnter={() => setIsParentHovered(true)}
+        onMouseLeave={() => setIsParentHovered(false)}
+      >
         <div css={parentLeftStyle}>
           <Icon
             tooltipText={isOpen ? t('Collapse') : t('Expand')}
@@ -224,6 +336,22 @@ export default function OpenNowWindow({
               />
             )}
           </div>
+        </div>
+        <div data-row-actions css={parentRightStyle}>
+          <Icon
+            tooltipText={t('Save window as a session')}
+            ariaLabel={t('Save window as a session') + ': ' + title}
+            type="add_box"
+            onClick={onSaveWindow}
+          />
+          {onCloseWindow && (
+            <Icon
+              tooltipText={t('Close window')}
+              ariaLabel={t('Close window') + ': ' + title}
+              type="close"
+              onClick={onFirstClickOnly(onCloseWindow)}
+            />
+          )}
         </div>
       </div>
       {isOpen && (
