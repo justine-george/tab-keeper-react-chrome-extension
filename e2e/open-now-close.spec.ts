@@ -1582,10 +1582,17 @@ test.describe('A double-click and a mouse close (KAN-280 O7c, O7d)', () => {
         { detail: 1, on: 'Close tab: B' },
         { detail: clickCount, on: 'Close tab: C' },
       ]);
-      // Time for a close the guard failed to stop to reach Chrome; the
-      // CONTROL run sees C gone within it.
-      await page.waitForTimeout(500);
-      expect(await titlesIn(serviceWorker, made.windowId)).toEqual(left);
+      if (clickCount > 1) {
+        // A negative: time for a close the guard failed to stop to reach
+        // Chrome. With the guard dropped, C was gone within it.
+        await page.waitForTimeout(500);
+        expect(await titlesIn(serviceWorker, made.windowId)).toEqual(left);
+      } else {
+        // A positive: polled, so a slow runner's late close still counts.
+        await expect
+          .poll(() => titlesIn(serviceWorker, made.windowId))
+          .toEqual(left);
+      }
     });
   }
 
