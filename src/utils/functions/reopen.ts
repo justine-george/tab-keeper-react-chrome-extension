@@ -219,27 +219,41 @@ async function recreateTab(
 
   let reopened: chrome.tabs.Tab;
   try {
-    // `active: true` raises the tab within its window without focusing the
-    // window (rule 5). An index past the end is clamped by Chrome.
+    // Created in the background even when it was the front tab: Chrome
+    // expands a collapsed group a tab is created into active, and taking the
+    // tab back out leaves that group expanded (KAN-280 rule 6, KAN-310). An
+    // index past the end is clamped by Chrome.
     reopened = await chrome.tabs.create({
       windowId: item.window.id,
       url: item.tab.url,
       index: item.tab.index,
       pinned: item.tab.pinned,
-      active: item.tab.active,
+      active: false,
     });
   } catch (error) {
     console.warn('Could not reopen a tab: ', error);
     return false;
   }
+  if (reopened.id === undefined) return true;
 
   // Undefined while the tabGroups permission is ungranted; the snapshot
   // then could not see groups, so an ungrouped tab is not known to be one.
-  if (chrome.tabGroups && reopened.id !== undefined) {
+  if (chrome.tabGroups) {
     if (item.group) {
       await regroup(reopened.id, item.window.id, item.group);
     } else if (reopened.groupId !== chrome.tabGroups.TAB_GROUP_ID_NONE) {
       await leaveGroup(reopened.id);
+    }
+  }
+
+  // To the front only once it is in its own group or none (KAN-310). This
+  // raises it within its window without focusing the window (rule 5). Its
+  // own group, if collapsed, expands to show it, as it would in Chrome.
+  if (item.tab.active) {
+    try {
+      await chrome.tabs.update(reopened.id, { active: true });
+    } catch (error) {
+      console.warn('Could not bring a reopened tab to the front: ', error);
     }
   }
   return true;

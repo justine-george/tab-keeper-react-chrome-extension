@@ -700,6 +700,161 @@ describe('reopenClosed: a closed tab (KAN-280 O8, rule 6)', () => {
     });
   });
 
+  // Chrome expands a collapsed group when a tab is created into it ACTIVE,
+  // and taking the tab back out does not collapse the group again (measured
+  // 2026-09-24). The fake does not model that expand, so these pin the order
+  // that avoids it: create inactive, do the group step, then activate
+  // (KAN-280 rule 6, KAN-310).
+  describe('a front tab is activated only after its group step (KAN-310)', () => {
+    // a, x, b, z in window 2 with x in front. x closes, z comes to the
+    // front, then a and b are grouped over x's old spot and collapsed.
+    async function closeFrontXUnderCollapsedGroup() {
+      const fake = setupChromeFake({
+        grantedPermissions: ['tabGroups'],
+        windows: [
+          tabKeeperWindow,
+          {
+            id: 2,
+            tabs: [
+              { url: url('a') },
+              { url: url('x'), active: true },
+              { url: url('b') },
+              { url: url('z') },
+            ],
+          },
+        ],
+      });
+      handle = fake;
+      const w2 = await openWindow(2);
+      const item = await closeOpenTab(w2, tabIn(w2, 'x'));
+      if (!item) throw new Error('close failed');
+      const a = await tabNamed(2, 'a');
+      const b = await tabNamed(2, 'b');
+      const z = await tabNamed(2, 'z');
+      if (a.id === undefined || b.id === undefined || z.id === undefined) {
+        throw new Error('no ids');
+      }
+      fake.browser.activateTab(z.id);
+      const overSpot = await chrome.tabs.group({
+        createProperties: { windowId: 2 },
+        tabIds: [a.id, b.id],
+      });
+      await chrome.tabGroups.update(overSpot, { collapsed: true });
+      return { item, fake };
+    }
+
+    // Called through: each spy records its calls and Chrome still runs.
+    const spyOnTabSteps = () => ({
+      group: vi.spyOn(chrome.tabs, 'group'),
+      ungroup: vi.spyOn(chrome.tabs, 'ungroup'),
+      update: vi.spyOn(chrome.tabs, 'update'),
+    });
+
+    test('an ungrouped front tab is created in the background, taken out of the group, then brought to the front', async () => {
+      const { item, fake } = await closeFrontXUnderCollapsedGroup();
+      expect(item).toMatchObject({
+        kind: 'tab',
+        group: null,
+        tab: { active: true },
+      });
+      const steps = spyOnTabSteps();
+
+      expect(await reopenClosed(item)).toBe(true);
+
+      const x = await tabNamed(2, 'x');
+      expect(x).toMatchObject({ active: true, groupId: -1 });
+      expect(fake.createdTabs).toEqual([
+        expect.objectContaining({ url: url('x'), active: false }),
+      ]);
+      expect(steps.ungroup).toHaveBeenCalledTimes(1);
+      expect(steps.update).toHaveBeenCalledTimes(1);
+      expect(steps.update).toHaveBeenCalledWith(x.id, { active: true });
+      expect(steps.update.mock.invocationCallOrder[0]).toBeGreaterThan(
+        steps.ungroup.mock.invocationCallOrder[0]
+      );
+    });
+
+    test('a front tab rejoining its surviving group is brought to the front after it joins', async () => {
+      handle = setupChromeFake({
+        grantedPermissions: ['tabGroups'],
+        windows: [
+          tabKeeperWindow,
+          {
+            id: 2,
+            tabs: [
+              { url: url('a'), groupId: 50 },
+              { url: url('x'), groupId: 50, active: true },
+              { url: url('b'), groupId: 50 },
+              { url: url('z') },
+            ],
+          },
+        ],
+        tabGroups: [{ id: 50, windowId: 2, title: 'Kyoto', color: 'green' }],
+      });
+      const w2 = await openWindow(2);
+      const item = await closeOpenTab(w2, tabIn(w2, 'x'));
+      if (!item) throw new Error('close failed');
+      const z = await tabNamed(2, 'z');
+      if (z.id === undefined) throw new Error('no id');
+      handle.browser.activateTab(z.id);
+      const steps = spyOnTabSteps();
+
+      expect(await reopenClosed(item)).toBe(true);
+
+      const x = await tabNamed(2, 'x');
+      expect(x).toMatchObject({ active: true, groupId: 50 });
+      expect(handle.createdTabs).toEqual([
+        expect.objectContaining({ url: url('x'), active: false }),
+      ]);
+      expect(steps.group).toHaveBeenCalledTimes(1);
+      expect(steps.update).toHaveBeenCalledTimes(1);
+      expect(steps.update).toHaveBeenCalledWith(x.id, { active: true });
+      expect(steps.update.mock.invocationCallOrder[0]).toBeGreaterThan(
+        steps.group.mock.invocationCallOrder[0]
+      );
+    });
+
+    test('CONTROL: a background tab is never brought to the front', async () => {
+      handle = setupChromeFake({
+        grantedPermissions: ['tabGroups'],
+        windows: [
+          tabKeeperWindow,
+          {
+            id: 2,
+            tabs: [
+              { url: url('a'), active: true },
+              { url: url('x') },
+              { url: url('b') },
+            ],
+          },
+        ],
+      });
+      const w2 = await openWindow(2);
+      const item = await closeOpenTab(w2, tabIn(w2, 'x'));
+      if (!item) throw new Error('close failed');
+      const steps = spyOnTabSteps();
+
+      expect(await reopenClosed(item)).toBe(true);
+
+      expect(await tabNamed(2, 'x')).toMatchObject({ active: false });
+      expect(steps.update).not.toHaveBeenCalled();
+    });
+
+    test('when Chrome will not bring it to the front, the tab is still reopened, ungrouped, with a warning', async () => {
+      const { item } = await closeFrontXUnderCollapsedGroup();
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      vi.spyOn(chrome.tabs, 'update').mockRejectedValueOnce(
+        new Error('Tabs cannot be edited right now.')
+      );
+
+      expect(await reopenClosed(item)).toBe(true);
+
+      expect(await shape(2)).toEqual(['a', 'x', 'b', 'z*']);
+      expect((await tabNamed(2, 'x')).groupId).toBe(-1);
+      expect(warn).toHaveBeenCalledTimes(1);
+    });
+  });
+
   test('an index past the end of a window that shrank lands at the end', async () => {
     handle = setupChromeFake({
       windows: [
