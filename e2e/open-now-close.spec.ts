@@ -471,6 +471,53 @@ grantedTest.describe('Close and Reopen a window (KAN-280 O8)', () => {
   );
 });
 
+grantedTest.describe(
+  'Reopen and a group formed since the close (KAN-309)',
+  () => {
+    grantedTest(
+      '9. an ungrouped tab reopened inside a group that formed over its spot comes back ungrouped',
+      async ({ context, extensionId, serviceWorker }) => {
+        const page = await openPage(
+          context,
+          extensionId,
+          VIEW_TAB,
+          TAB_VIEWPORT
+        );
+        const made = await openWindow(serviceWorker, ['A', 'X', 'B']);
+        const [a, , b] = made.tabIds;
+        const block = windowBlock(page, made.windowId);
+        await expect(rowsIn(block)).toHaveCount(3);
+        const layout = async () =>
+          (await windowFacts(serviceWorker, made.windowId, true))?.tabs.map(
+            (t) => `${t.title}:${t.group?.title ?? '-'}`
+          );
+        // PREMISE: X is ungrouped, at index 1.
+        await expect.poll(layout).toEqual(['A:-', 'X:-', 'B:-']);
+
+        await closeTabIn(block, 'X').click();
+        await expect.poll(layout).toEqual(['A:-', 'B:-']);
+        await expect(page.getByRole('status')).toContainText('Tab closed');
+        // A and B grouped after the close: X's old index is now inside the
+        // group's run, where Chrome puts a created tab into the group.
+        await serviceWorker.evaluate(
+          async ({ windowId, a, b }) => {
+            const here = await chrome.tabs.group({
+              tabIds: [a, b],
+              createProperties: { windowId },
+            });
+            await chrome.tabGroups.update(here, { title: 'Here' });
+          },
+          { windowId: made.windowId, a, b }
+        );
+        await expect.poll(layout).toEqual(['A:Here', 'B:Here']);
+
+        await reopenButton(page).click();
+        await expect.poll(layout).toEqual(['A:Here', 'B:Here', 'X:-']);
+      }
+    );
+  }
+);
+
 test.describe('Open now close controls in a real browser (KAN-280)', () => {
   test('3. a closed tab comes back in place', async ({
     context,

@@ -2,10 +2,10 @@
 // over a mock on purpose: tests assert on resulting state rather than on the
 // fact that a function was invoked.
 //
-// Covers 26 members production code calls as of 2026-09-24 --
-// tabs.query/create/update/get/getCurrent/onActivated/group, windows.getAll/
-// getCurrent/create/remove/update, storage.sync.get/set, runtime.
-// sendMessage/onMessage/getURL/lastError, tabGroups.query/update/
+// Covers 27 members production code calls as of 2026-09-24 --
+// tabs.query/create/update/get/getCurrent/onActivated/group/ungroup,
+// windows.getAll/getCurrent/create/remove/update, storage.sync.get/set,
+// runtime.sendMessage/onMessage/getURL/lastError, tabGroups.query/update/
 // TAB_GROUP_ID_NONE, permissions.contains/request/remove/onAdded/onRemoved
 // -- plus storage.sync.remove/clear, permissions.getAll and tabs.remove/
 // windows.get/tabGroups.get (added ahead of the production callers Part B's
@@ -708,6 +708,23 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
           ? Math.min(rawWant, pinnedCount)
           : Math.max(rawWant, pinnedCount);
 
+        // Chrome's rule for a tab inserted inside a group's run: strictly
+        // between two tabs of one group, it joins that group (Chromium's
+        // TabStripModel keeps a group contiguous). Measured 2026-09-24 in
+        // the real browser: inside a run it joins; at the run's first slot
+        // or one past its last it does not. Reopen (KAN-280, KAN-309) has to
+        // undo this for a tab that was ungrouped.
+        const before = own[want - 1];
+        const after = own[want];
+        if (
+          before !== undefined &&
+          after !== undefined &&
+          before.groupId !== -1 &&
+          before.groupId === after.groupId
+        ) {
+          created.groupId = before.groupId;
+        }
+
         if (want < own.length) {
           tabs.splice(tabs.indexOf(own[want]), 0, created);
         } else if (own.length === 0) {
@@ -817,6 +834,23 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
         }
         handle.groupedTabs.push({ groupId, windowId, tabIds });
         return settle(groupId, cb);
+      },
+      // Every id is checked before any tab changes; an unknown one rejects
+      // (or, with a callback, sets lastError) and leaves every tab as it
+      // was. Only `groupId` changes: real Chrome also moves a tab ungrouped
+      // from inside a run out of it (measured 2026-09-24: from between the
+      // run's two tabs to just after them), which this fake does not model
+      // (KAN-309).
+      ungroup: (tabIds: number | number[], cb?: () => void) => {
+        const idList = Array.isArray(tabIds) ? tabIds : [tabIds];
+        const unknown = idList.find((id) => !tabs.some((tab) => tab.id === id));
+        if (unknown !== undefined) {
+          return fail<void>(`No tab with id: ${unknown}.`, cb);
+        }
+        for (const tab of tabs) {
+          if (tab.id !== undefined && idList.includes(tab.id)) tab.groupId = -1;
+        }
+        return settle(undefined, cb);
       },
     },
 

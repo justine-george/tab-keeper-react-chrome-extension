@@ -337,6 +337,89 @@ describe('tab groups', () => {
     const [group] = await chrome.tabGroups.query({ windowId: 1 });
     expect(group).toMatchObject({ id: groupId, title: 'Work', color: 'blue' });
   });
+
+  // KAN-309: Chrome's rule, measured in the real browser on 2026-09-24.
+  test('tabs.create strictly between two tabs of one group joins it; at either edge of the run it does not', async () => {
+    handle = setupChromeFake({
+      windows: [
+        {
+          id: 1,
+          tabs: [
+            { url: 'https://a.test/', groupId: 5 },
+            { url: 'https://b.test/', groupId: 5 },
+            { url: 'https://c.test/' },
+          ],
+        },
+      ],
+      tabGroups: [{ id: 5, windowId: 1 }],
+    });
+    await chrome.tabs.create({
+      windowId: 1,
+      url: 'https://in.test/',
+      index: 1,
+    });
+    await chrome.tabs.create({
+      windowId: 1,
+      url: 'https://before.test/',
+      index: 0,
+    });
+    // After the run: between b (group 5) and c (ungrouped).
+    await chrome.tabs.create({
+      windowId: 1,
+      url: 'https://after.test/',
+      index: 4,
+    });
+    await chrome.tabs.create({ windowId: 1, url: 'https://end.test/' });
+
+    const inOrder = (await chrome.tabs.query({ windowId: 1 }))
+      .sort((x, y) => x.index - y.index)
+      .map((t) => `${t.url?.slice(8, -6)}:${t.groupId}`);
+    expect(inOrder).toEqual([
+      'before:-1',
+      'a:5',
+      'in:5',
+      'b:5',
+      'after:-1',
+      'c:-1',
+      'end:-1',
+    ]);
+  });
+
+  test('tabs.ungroup takes a tab out of its group, and rejects an unknown id without changing anything', async () => {
+    handle = setupChromeFake({
+      windows: [
+        {
+          id: 1,
+          tabs: [
+            { id: 11, groupId: 5 },
+            { id: 12, groupId: 5 },
+          ],
+        },
+      ],
+      tabGroups: [{ id: 5, windowId: 1 }],
+    });
+    const groups = async () =>
+      (await chrome.tabs.query({ windowId: 1 })).map((t) => t.groupId);
+
+    await chrome.tabs.ungroup(11);
+    expect(await groups()).toEqual([-1, 5]);
+
+    await expect(chrome.tabs.ungroup([12, 424242])).rejects.toThrow(
+      'No tab with id: 424242.'
+    );
+    expect(await groups()).toEqual([-1, 5]);
+
+    // The callback form reports through lastError, never rejecting.
+    const seen: (string | undefined)[] = [];
+    await new Promise<void>((resolve) =>
+      chrome.tabs.ungroup(424242, () => {
+        seen.push(chrome.runtime.lastError?.message);
+        resolve();
+      })
+    );
+    expect(seen).toEqual(['No tab with id: 424242.']);
+    expect(chrome.runtime.lastError).toBeUndefined();
+  });
 });
 
 describe('permissions', () => {

@@ -233,10 +233,28 @@ async function recreateTab(
     return false;
   }
 
-  if (item.group && chrome.tabGroups && reopened.id !== undefined) {
-    await regroup(reopened.id, item.window.id, item.group);
+  // Undefined while the tabGroups permission is ungranted; the snapshot
+  // then could not see groups, so an ungrouped tab is not known to be one.
+  if (chrome.tabGroups && reopened.id !== undefined) {
+    if (item.group) {
+      await regroup(reopened.id, item.window.id, item.group);
+    } else if (reopened.groupId !== chrome.tabGroups.TAB_GROUP_ID_NONE) {
+      await leaveGroup(reopened.id);
+    }
   }
   return true;
+}
+
+// Chrome puts a tab created strictly between two tabs of one group into that
+// group. A tab that was ungrouped when it closed comes back ungrouped
+// (KAN-280 rule 6, KAN-309). It is still reopened if this fails, so it only
+// warns.
+async function leaveGroup(tabId: number): Promise<void> {
+  try {
+    await chrome.tabs.ungroup(tabId);
+  } catch (error) {
+    console.warn('Could not take a reopened tab out of a group: ', error);
+  }
 }
 
 // Joins the old group if it still exists in the tab's window; otherwise makes

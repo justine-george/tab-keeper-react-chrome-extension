@@ -596,6 +596,110 @@ describe('reopenClosed: a closed tab (KAN-280 O8, rule 6)', () => {
     expect(await shape(idOf(reopened))).toEqual(['solo*']);
   });
 
+  // KAN-309: Chrome puts a tab created inside a group's run into that group.
+  describe("a group formed over the tab's old spot since the close", () => {
+    // a, x, b in window 2; x (at index 1) is the one closed, then a and b
+    // are grouped together, so x's old index is inside that group's run.
+    const seedAXB = (xGroupId?: number) =>
+      setupChromeFake({
+        grantedPermissions: ['tabGroups'],
+        windows: [
+          tabKeeperWindow,
+          {
+            id: 2,
+            tabs: [
+              { url: url('a'), active: true },
+              xGroupId === undefined
+                ? { url: url('x') }
+                : { url: url('x'), groupId: xGroupId },
+              { url: url('b') },
+            ],
+          },
+        ],
+        tabGroups:
+          xGroupId === undefined
+            ? []
+            : [{ id: xGroupId, windowId: 2, title: 'Kept', color: 'cyan' }],
+      });
+
+    async function closeXThenGroupAB() {
+      const w2 = await openWindow(2);
+      const item = await closeOpenTab(w2, tabIn(w2, 'x'));
+      if (!item) throw new Error('close failed');
+      const a = await tabNamed(2, 'a');
+      const b = await tabNamed(2, 'b');
+      if (a.id === undefined || b.id === undefined) throw new Error('no ids');
+      const overSpot = await chrome.tabs.group({
+        createProperties: { windowId: 2 },
+        tabIds: [a.id, b.id],
+      });
+      return { item, overSpot };
+    }
+
+    test('an ungrouped tab comes back ungrouped', async () => {
+      handle = seedAXB();
+      const { item, overSpot } = await closeXThenGroupAB();
+      expect(item).toMatchObject({ kind: 'tab', group: null });
+
+      expect(await reopenClosed(item)).toBe(true);
+
+      expect((await tabNamed(2, 'x')).groupId).toBe(-1);
+      expect((await tabNamed(2, 'a')).groupId).toBe(overSpot);
+      expect((await tabNamed(2, 'b')).groupId).toBe(overSpot);
+    });
+
+    test('when Chrome will not ungroup it, the tab is still reopened, with a warning', async () => {
+      handle = seedAXB();
+      const { item } = await closeXThenGroupAB();
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      vi.spyOn(chrome.tabs, 'ungroup').mockRejectedValueOnce(
+        new Error('Tabs cannot be edited right now.')
+      );
+
+      expect(await reopenClosed(item)).toBe(true);
+
+      expect(await shape(2)).toEqual(['a*', 'x', 'b']);
+      expect(warn).toHaveBeenCalledTimes(1);
+    });
+
+    test('CONTROL: a grouped tab still goes back into its own group', async () => {
+      handle = seedAXB(50);
+      const { item } = await closeXThenGroupAB();
+      expect(item).toMatchObject({ kind: 'tab', group: { id: 50 } });
+
+      expect(await reopenClosed(item)).toBe(true);
+
+      expect((await tabNamed(2, 'x')).groupId).toBe(50);
+    });
+
+    test('with tabGroups ungranted, the snapshot cannot know the group, so the tab is left where Chrome put it', async () => {
+      // x really is in group 5, but without the permission the snapshot
+      // reports it ungrouped. Ungrouping it on Reopen would be a guess.
+      handle = setupChromeFake({
+        tabGroupsApiAbsent: true,
+        windows: [
+          tabKeeperWindow,
+          {
+            id: 2,
+            tabs: [
+              { url: url('a'), groupId: 5, active: true },
+              { url: url('x'), groupId: 5 },
+              { url: url('b'), groupId: 5 },
+            ],
+          },
+        ],
+      });
+      const w2 = await openWindow(2);
+      const item = await closeOpenTab(w2, tabIn(w2, 'x'));
+      if (!item) throw new Error('close failed');
+      expect(item).toMatchObject({ kind: 'tab', group: null });
+
+      expect(await reopenClosed(item)).toBe(true);
+
+      expect((await tabNamed(2, 'x')).groupId).toBe(5);
+    });
+  });
+
   test('an index past the end of a window that shrank lands at the end', async () => {
     handle = setupChromeFake({
       windows: [
