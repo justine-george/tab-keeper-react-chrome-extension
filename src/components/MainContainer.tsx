@@ -96,21 +96,28 @@ export default function MainContainer() {
   // Keyboard shortcut listener for undo/redo
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
-      // A held key's repeats after it took the offer are dropped. Any fresh
-      // press ends the hold, so it cannot stick if a keyup never arrives.
-      if (heldAfterReopen.current) {
-        if (event.repeat && event.key.toLowerCase() === 'z') {
-          event.preventDefault();
-          return;
-        }
-        if (!event.repeat) heldAfterReopen.current = false;
-      }
+      // Any fresh press ends a hold after Reopen (KAN-311), wherever it
+      // lands, a text field included, so the hold cannot outlive the
+      // gesture if a keyup never arrives. Only clears; it prevents nothing.
+      if (!event.repeat) heldAfterReopen.current = false;
 
       // Guard the whole handler, not just undo: redo is native inside a text
       // field too (cmd+shift+z on macOS, ctrl+y on Windows).
       if (isNativelyUndoableTarget(event.target)) return;
 
       if (isSettingsPage) return;
+
+      // A held key's repeats after it took the offer are dropped, so they
+      // cannot go on to undo saved-session edits. Below the guards: a repeat
+      // landing in a text field is still the field's own undo.
+      if (
+        heldAfterReopen.current &&
+        event.repeat &&
+        event.key.toLowerCase() === 'z'
+      ) {
+        event.preventDefault();
+        return;
+      }
 
       // Every chord needs a platform modifier. ctrl and meta are treated
       // interchangeably so one handler serves Windows/Linux and macOS.

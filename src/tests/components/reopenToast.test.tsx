@@ -695,6 +695,43 @@ describe('the ⌘Z / Ctrl+Z key reopens while the toast shows (KAN-311)', () => 
       expect(undoRedoIn(seen.slice(before))).toEqual([UNDO]);
     });
 
+    // KAN-52 still holds while the key is held: focus moving into a text
+    // field mid-hold leaves the field's own undo alone.
+    test('a repeat into a text field is left to the field', async () => {
+      const { seen } = await offerTakenByKey();
+      const input = document.createElement('input');
+      document.body.append(input);
+      const before = seen.length;
+
+      let event: KeyboardEvent | undefined;
+      act(() => {
+        event = press(input, { key: 'z', ctrlKey: true, repeat: true });
+      });
+      input.remove();
+
+      expect(event?.defaultPrevented).toBe(false);
+      expect(undoRedoIn(seen.slice(before))).toEqual([]);
+    });
+
+    // The hold ends with the gesture, wherever the next press lands: a fresh
+    // press inside a text field ends it too.
+    test('a fresh press in a text field ends the hold', async () => {
+      const { seen } = await offerTakenByKey();
+      const input = document.createElement('input');
+      document.body.append(input);
+      act(() => {
+        press(input, { key: 'a' });
+      });
+      input.remove();
+      const before = seen.length;
+
+      act(() => {
+        press(document.body, { key: 'z', ctrlKey: true, repeat: true });
+      });
+
+      expect(undoRedoIn(seen.slice(before))).toEqual([UNDO]);
+    });
+
     // Each way out, on its own: after it, a repeat is an ordinary undo
     // again, so the hold cannot stick.
     test.each([
