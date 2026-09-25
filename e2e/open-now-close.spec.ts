@@ -9,7 +9,16 @@ import {
   seedSessions,
   seedSettings,
 } from './fixtures/seed';
+import { contrast, pixelsAt, rgbToHex } from './fixtures/pixels';
 import { isValidTabMasterContainer } from '../src/utils/functions/local';
+import {
+  BB_PINK_THEME,
+  BLUE_THEME,
+  DARKENHEIMER_THEME,
+  LIGHT_THEME,
+  WARM_LIGHT_THEME,
+} from '../src/hooks/useThemeColors';
+import type { ThemeColors } from '../src/hooks/useThemeColors';
 
 // KAN-280 on the real artifact: Open now's close controls, the Reopen
 // toast and Save window / Save all. What jsdom cannot show: Chrome's own
@@ -1082,75 +1091,105 @@ test.describe('The Reopen toast is as wide as its line (KAN-280 O8b)', () => {
     return width;
   };
 
+  // The Reopen button's key hint (KAN-311) is ⌘Z on a Mac and Ctrl+Z (de
+  // Strg+Z) elsewhere, whatever machine runs this, so each is measured.
+  // Overridden in the page, before the app reads it, as
+  // first-run-language.spec.ts does for the UI language.
+  const platformSays = (context: BrowserContext, os: 'mac' | 'win') =>
+    context.addInitScript((platformOs: 'mac' | 'win') => {
+      const runtime = globalThis.chrome?.runtime;
+      if (runtime) {
+        Object.defineProperty(runtime, 'getPlatformInfo', {
+          value: async () => ({ os: platformOs, arch: 'x86-64' }),
+          configurable: true,
+        });
+      }
+    }, os);
+
   for (const lang of ['ru', 'de', 'ja']) {
-    test(`11. ${lang}: "Window closed (5 tabs)" shows whole, in a toast 300 to 460px wide`, async ({
-      context,
-      extensionId,
-      serviceWorker,
-    }) => {
-      const strings = localeStrings(lang);
-      await seedSettings(context, { language: lang });
-      const page = await openPage(
+    for (const os of ['mac', 'win'] as const) {
+      test(`11. ${lang}, ${os}: "Window closed (5 tabs)" shows whole, in a toast 300 to 460px wide`, async ({
         context,
         extensionId,
-        VIEW_TAB,
-        TAB_VIEWPORT,
-        strings
-      );
-      // CONTROL: the page is in the seeded language, so the line measured
-      // below is its translation and not en's.
-      await expect(page.locator('html')).toHaveAttribute('lang', lang);
+        serviceWorker,
+      }) => {
+        const strings = localeStrings(lang);
+        await seedSettings(context, { language: lang });
+        await platformSays(context, os);
+        const page = await openPage(
+          context,
+          extensionId,
+          VIEW_TAB,
+          TAB_VIEWPORT,
+          strings
+        );
+        // CONTROL: the page is in the seeded language, so the line measured
+        // below is its translation and not en's.
+        await expect(page.locator('html')).toHaveAttribute('lang', lang);
 
-      const made = await openWindow(serviceWorker, [
-        'One',
-        'Two',
-        'Three',
-        'Four',
-        'Five',
-      ]);
-      const block = windowBlock(page, made.windowId);
-      await expect(
-        block.getByRole('button', { name: `${strings['Switch to tab']}: ` })
-      ).toHaveCount(5);
-      await block
-        .getByRole('button', { name: `${strings['Close window']}: ` })
-        .click();
+        const made = await openWindow(serviceWorker, [
+          'One',
+          'Two',
+          'Three',
+          'Four',
+          'Five',
+        ]);
+        const block = windowBlock(page, made.windowId);
+        await expect(
+          block.getByRole('button', { name: `${strings['Switch to tab']}: ` })
+        ).toHaveCount(5);
+        await block
+          .getByRole('button', { name: `${strings['Close window']}: ` })
+          .click();
 
-      const plural = new Intl.PluralRules(lang).select(5);
-      const message = strings[`WindowClosed_${plural}`].replace(
-        '{{count}}',
-        '5'
-      );
-      const toast = toastIn(page);
-      await expect(toast).toContainText(message);
-      const reopen = toast.getByRole('button', {
-        name: strings.Reopen,
-        exact: true,
+        const plural = new Intl.PluralRules(lang).select(5);
+        const message = strings[`WindowClosed_${plural}`].replace(
+          '{{count}}',
+          '5'
+        );
+        const toast = toastIn(page);
+        await expect(toast).toContainText(message);
+        const reopen = toast.getByRole('button', {
+          name: strings.Reopen,
+          exact: true,
+        });
+        await expect(reopen).toBeVisible();
+
+        const line = toast.locator('> span');
+        const measured = await line.evaluate((span: HTMLElement) => ({
+          text: span.innerText,
+          scrollWidth: span.scrollWidth,
+          clientWidth: span.clientWidth,
+          right: span.getBoundingClientRect().right,
+        }));
+        const toastBox = await toast.boundingBox();
+        const reopenBox = await reopen.boundingBox();
+        if (toastBox === null || reopenBox === null) {
+          throw new Error('the toast or its Reopen button has no box');
+        }
+        // The whole line, count included, and none of it cut off: an ellipsis
+        // leaves innerText whole, so the widths are what show a cut.
+        expect(measured.text).toBe(message);
+        expect(measured.text).toContain('5');
+        expect(measured.scrollWidth).toBeLessThanOrEqual(measured.clientWidth);
+        // Nor hidden under the button.
+        expect(measured.right).toBeLessThanOrEqual(reopenBox.x);
+        expect(toastBox.width).toBeGreaterThanOrEqual(300);
+        expect(toastBox.width).toBeLessThanOrEqual(460);
+        // The Reopen button carries its key hint (KAN-311), so this width
+        // includes it: the platform's own form.
+        await expect(reopen.locator('[data-key-hint]')).toHaveText(
+          os === 'mac' ? '⌘Z' : `${strings.Ctrl}+Z`
+        );
+        console.log(
+          `[reopen toast, ${lang}, ${os}] ${JSON.stringify({
+            toast: toastBox.width,
+            reopen: reopenBox.width,
+            hint: await reopen.locator('[data-key-hint]').innerText(),
+          })}`
+        );
       });
-      await expect(reopen).toBeVisible();
-
-      const line = toast.locator('> span');
-      const measured = await line.evaluate((span: HTMLElement) => ({
-        text: span.innerText,
-        scrollWidth: span.scrollWidth,
-        clientWidth: span.clientWidth,
-        right: span.getBoundingClientRect().right,
-      }));
-      const toastBox = await toast.boundingBox();
-      const reopenBox = await reopen.boundingBox();
-      if (toastBox === null || reopenBox === null) {
-        throw new Error('the toast or its Reopen button has no box');
-      }
-      // The whole line, count included, and none of it cut off: an ellipsis
-      // leaves innerText whole, so the widths are what show a cut.
-      expect(measured.text).toBe(message);
-      expect(measured.text).toContain('5');
-      expect(measured.scrollWidth).toBeLessThanOrEqual(measured.clientWidth);
-      // Nor hidden under the button.
-      expect(measured.right).toBeLessThanOrEqual(reopenBox.x);
-      expect(toastBox.width).toBeGreaterThanOrEqual(300);
-      expect(toastBox.width).toBeLessThanOrEqual(460);
-    });
+    }
   }
 
   test('12. CONTROL: a plain toast stays 300px, even when its message wraps', async ({
@@ -1256,4 +1295,166 @@ test.describe('The Reopen toast is as wide as its line (KAN-280 O8b)', () => {
       }));
     expect(line.scrollWidth).toBeGreaterThan(line.clientWidth);
   });
+});
+
+// KAN-311 (O8c) on the real artifact. While the Reopen toast shows, ⌘Z on a
+// Mac and Ctrl+Z elsewhere takes the offer; with no offer showing, the same
+// key is the app's undo again. The harness runs on macOS locally and Linux in
+// CI, so the modifier is read from Chrome, as the app reads it.
+test.describe('The Reopen key (KAN-311)', () => {
+  const storedTitles = async (page: Page): Promise<string[]> => {
+    const raw = await page.evaluate(() =>
+      localStorage.getItem('tabContainerData')
+    );
+    const parsed: unknown = JSON.parse(raw ?? 'null');
+    if (!isValidTabMasterContainer(parsed)) return [];
+    return parsed.tabGroups.map((session) => session.title);
+  };
+
+  test('14. the platform key reopens a tab closed from the keyboard, focus lands on its ×, and no saved edit is undone', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    // Out of name order, so sorting by name is an edit undo can reverse.
+    await seedSessions(
+      context,
+      buildContainer([
+        buildSession({ tabGroupId: 'zeta', title: 'Zeta' }),
+        buildSession({ tabGroupId: 'alpha', title: 'Alpha' }),
+      ])
+    );
+    const page = await openPage(context, extensionId, VIEW_TAB, TAB_VIEWPORT);
+    const os = await serviceWorker.evaluate(
+      async () => (await chrome.runtime.getPlatformInfo()).os
+    );
+    const modifier = os === 'mac' ? 'Meta' : 'Control';
+
+    // A saved-session edit the key must not undo while the offer shows.
+    await page
+      .getByRole('button', { name: 'Sort sessions', exact: true })
+      .click();
+    await page.getByRole('menuitemradio', { name: 'Name' }).click();
+    await expect.poll(() => storedTitles(page)).toEqual(['Alpha', 'Zeta']);
+
+    const made = await openWindow(serviceWorker, ['A', 'B', 'C']);
+    const block = windowBlock(page, made.windowId);
+    await expect(rowsIn(block)).toHaveCount(3);
+    await closeTabIn(block, 'B').focus();
+    await page.keyboard.press('Enter');
+    await expect
+      .poll(() => titlesIn(serviceWorker, made.windowId))
+      .toEqual(['A', 'C']);
+    // PREMISE: the close moved focus on (rule 8), away from where B comes
+    // back, and the offer is up.
+    await expect(closeTabIn(block, 'C')).toBeFocused();
+    await expect(reopenButton(page)).toBeVisible();
+    // The hint names the key this platform's keyboard has.
+    await expect(reopenButton(page)).toContainText(
+      os === 'mac' ? '⌘Z' : 'Ctrl+Z'
+    );
+    await expect(reopenButton(page)).toHaveAttribute(
+      'aria-keyshortcuts',
+      `${modifier}+Z`
+    );
+
+    await page.keyboard.press(`${modifier}+z`);
+
+    await expect
+      .poll(() => titlesIn(serviceWorker, made.windowId))
+      .toEqual(['A', 'B', 'C']);
+    await expect(closeTabIn(block, 'B')).toBeFocused();
+    await expect(reopenButton(page)).toHaveCount(0);
+    // Given time for a wrongly dispatched undo to land, the sort stands.
+    await page.waitForTimeout(500);
+    expect(await storedTitles(page)).toEqual(['Alpha', 'Zeta']);
+
+    // CONTROL: with no offer showing, the same key undoes the sort, so the
+    // assertion above could have seen an undo.
+    await page.keyboard.press(`${modifier}+z`);
+    await expect.poll(() => storedTitles(page)).toEqual(['Zeta', 'Alpha']);
+  });
+
+  // Every theme, by the value settingsData stores: CHIP_COLOR differs in
+  // each.
+  const THEMES: ReadonlyArray<{
+    name: string;
+    stored: string;
+    colors: ThemeColors;
+  }> = [
+    { name: 'Paper', stored: 'Light', colors: LIGHT_THEME },
+    { name: 'Parchment', stored: 'WarmLight', colors: WARM_LIGHT_THEME },
+    { name: 'Petal', stored: 'BBPink', colors: BB_PINK_THEME },
+    { name: 'Graphite', stored: 'Darkenheimer', colors: DARKENHEIMER_THEME },
+    { name: 'Ink', stored: 'Blue', colors: BLUE_THEME },
+  ];
+
+  for (const { name, stored, colors } of THEMES) {
+    test(`15. ${name}: the key hint clears 4.5:1 on the Reopen chip, as painted`, async ({
+      context,
+      extensionId,
+      serviceWorker,
+    }, testInfo) => {
+      await seedSettings(context, { theme: stored });
+      const page = await openPage(context, extensionId, VIEW_TAB, TAB_VIEWPORT);
+      const made = await openWindow(serviceWorker, ['Keep', 'Drop']);
+      const block = windowBlock(page, made.windowId);
+      await expect(rowsIn(block)).toHaveCount(2);
+      await closeTabIn(block, 'Drop').click();
+      const reopen = reopenButton(page);
+      await expect(reopen).toBeVisible();
+      // At rest: no pointer over the chip.
+      await page.mouse.move(TAB_VIEWPORT.width - 10, 10);
+      const hint = reopen.locator('[data-key-hint]');
+      await expect(hint).toBeVisible();
+
+      // PREMISE: the seeded theme took, so the chip is this theme's.
+      const chipFill = await reopen.evaluate(
+        (el: Element) => getComputedStyle(el).backgroundColor
+      );
+      expect(rgbToHex(chipFill)).toBe(colors.CHIP_COLOR);
+
+      const box = await hint.boundingBox();
+      const buttonBox = await reopen.boundingBox();
+      if (box === null || buttonBox === null) {
+        throw new Error('the hint or its button has no box');
+      }
+      // Every pixel of the hint's box, plus one on the chip's own fill above
+      // the text, all from one screenshot.
+      const points: Array<[number, number]> = [];
+      for (let y = Math.ceil(box.y); y < box.y + box.height; y++) {
+        for (let x = Math.ceil(box.x); x < box.x + box.width; x++) {
+          points.push([x, y]);
+        }
+      }
+      const chipPoint: [number, number] = [box.x + 1, buttonBox.y + 2];
+      const painted = await pixelsAt(page, [chipPoint, ...points]);
+      const [chip, ...inHint] = painted;
+      // CONTROL: the chip sample is the chip's fill, so the decode is
+      // faithful and the ratio below is against the real backdrop.
+      expect(chip, 'the chip sample lands on the chip').toBe(colors.CHIP_COLOR);
+
+      // The glyphs' solid cores carry the text colour; anti-aliased edges
+      // only blend toward the chip. So the ink is the pixel furthest from
+      // the chip.
+      const ink = inHint.reduce((best, pixel) =>
+        contrast(pixel, chip) > contrast(best, chip) ? pixel : best
+      );
+      const inkColor = await hint.evaluate(
+        (el: Element) => getComputedStyle(el).color
+      );
+      const ratio = contrast(ink, chip);
+      console.log(
+        `[key hint, ${name}] ${JSON.stringify({
+          ink,
+          token: rgbToHex(inkColor),
+          chip,
+          ratio: Number(ratio.toFixed(2)),
+        })}`
+      );
+      expect(ink, 'the hint is painted in its colour').toBe(rgbToHex(inkColor));
+      expect(ratio, `hint ${ink} on chip ${chip}`).toBeGreaterThanOrEqual(4.5);
+      await page.screenshot({ path: testInfo.outputPath('key-hint.png') });
+    });
+  }
 });
