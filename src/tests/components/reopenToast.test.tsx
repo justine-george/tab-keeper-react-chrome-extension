@@ -333,6 +333,42 @@ describe('the Reopen toast (KAN-280 O8a)', () => {
     expect(store.getState().globalState.isToastOpen).toBe(false);
   });
 
+  // KAN-280 O8b. At 300px the count was cut off in 8 of 13 locales, so a
+  // toast offering Reopen is as wide as its one line, from 300 to 460px. jsdom
+  // cannot lay text out: the widths themselves are measured in
+  // e2e/open-now-close.spec.ts. This pins only the rule that differs.
+  test('the Reopen toast sizes to its line, 300 to 460px; a plain toast stays 300px', async () => {
+    const { store } = await renderWithProviders(<Toast />, {
+      seed: twoTabSeed,
+    });
+    await act(async () => {
+      await store.dispatch(
+        showToast({ toastText: TOAST_MESSAGES.SYNC_MERGED })
+      );
+    });
+    // CONTROL: the plain toast's fixed width reads here, so its absence on
+    // the Reopen toast below is not a blind read.
+    expect(visibleToast()).toHaveStyle({ width: '300px' });
+
+    const item = await closeTabB();
+    await act(async () => {
+      await store.dispatch(offerReopen(item));
+    });
+    const toast = visibleToast();
+    // PREMISE: this is the Reopen toast.
+    expect(toast).toContainElement(
+      screen.getByRole('button', { name: 'Reopen' })
+    );
+    expect(toast).not.toHaveStyle({ width: '300px' });
+    // jsdom resolves the min() against its 1024px window, so the cap reads
+    // as the 460px that wins there.
+    expect(toast).toHaveStyle({
+      width: 'max-content',
+      minWidth: '300px',
+      maxWidth: '460px',
+    });
+  });
+
   test('ru counts: 1, 2 and 5 tabs read in the right plural', async () => {
     const seed: ChromeSeed = {
       windows: [

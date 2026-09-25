@@ -2,6 +2,13 @@ import type { BrowserContext, Locator, Page, Worker } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
 import { grantedTest } from './fixtures/grantedExtension';
+import { localeStrings } from './fixtures/locales';
+import {
+  buildContainer,
+  buildSession,
+  seedSessions,
+  seedSettings,
+} from './fixtures/seed';
 import { isValidTabMasterContainer } from '../src/utils/functions/local';
 
 // KAN-280 Part B on the real artifact: Open now's close controls, the Reopen
@@ -29,14 +36,17 @@ async function openPage(
   context: BrowserContext,
   extensionId: string,
   path: string,
-  viewport: { width: number; height: number }
+  viewport: { width: number; height: number },
+  strings: Record<string, string> = localeStrings('en')
 ): Promise<Page> {
   const page = await context.newPage();
   await page.setViewportSize(viewport);
   await page.goto(`chrome-extension://${extensionId}/${path}`);
   // Barrier: goto resolves before React mounts. "Sort sessions" is in the
   // header of both the popup and the tab view.
-  await page.getByRole('button', { name: 'Sort sessions' }).waitFor();
+  await page
+    .getByRole('button', { name: strings['Sort sessions'], exact: true })
+    .waitFor();
   return page;
 }
 
@@ -844,5 +854,209 @@ test.describe('Open now close controls in a real browser (KAN-280)', () => {
     expect(everyUrl.filter((u) => u.startsWith('chrome-extension://'))).toEqual(
       []
     );
+  });
+});
+
+// KAN-280 O8b. At a fixed 300px, "Window closed (5 tabs)" lost its count
+// behind the longer translations of "Reopen" in 8 of 13 locales. A toast
+// offering Reopen is as wide as its one line, from 300 to 460px; a plain toast
+// stays 300px. ru, de and ja have the widest lines.
+test.describe('The Reopen toast is as wide as its line (KAN-280 O8b)', () => {
+  const toastIn = (page: Page): Locator =>
+    page.getByRole('status').locator('> div');
+
+  // The width a toast would have if it were sized to its whole line, however
+  // it is actually sized: a hidden copy on one line, beside it so it takes
+  // the same font.
+  const oneLineWidth = async (toast: Locator): Promise<number> => {
+    const width = await toast.evaluate((el: Element) => {
+      const copy = el.cloneNode(true);
+      if (!(copy instanceof HTMLElement) || el.parentElement === null) {
+        return null;
+      }
+      copy.style.cssText =
+        'width: max-content; min-width: 0; max-width: none; white-space: nowrap; visibility: hidden';
+      el.parentElement.append(copy);
+      const oneLine = copy.getBoundingClientRect().width;
+      copy.remove();
+      return oneLine;
+    });
+    if (width === null) throw new Error('the toast could not be copied');
+    return width;
+  };
+
+  for (const lang of ['ru', 'de', 'ja']) {
+    test(`11. ${lang}: "Window closed (5 tabs)" shows whole, in a toast 300 to 460px wide`, async ({
+      context,
+      extensionId,
+      serviceWorker,
+    }) => {
+      const strings = localeStrings(lang);
+      await seedSettings(context, { language: lang });
+      const page = await openPage(
+        context,
+        extensionId,
+        VIEW_TAB,
+        TAB_VIEWPORT,
+        strings
+      );
+      // CONTROL: the page is in the seeded language, so the line measured
+      // below is its translation and not en's.
+      await expect(page.locator('html')).toHaveAttribute('lang', lang);
+
+      const made = await openWindow(serviceWorker, [
+        'One',
+        'Two',
+        'Three',
+        'Four',
+        'Five',
+      ]);
+      const block = windowBlock(page, made.windowId);
+      await expect(
+        block.getByRole('button', { name: `${strings['Switch to tab']}: ` })
+      ).toHaveCount(5);
+      await block
+        .getByRole('button', { name: `${strings['Close window']}: ` })
+        .click();
+
+      const plural = new Intl.PluralRules(lang).select(5);
+      const message = strings[`WindowClosed_${plural}`].replace(
+        '{{count}}',
+        '5'
+      );
+      const toast = toastIn(page);
+      await expect(toast).toContainText(message);
+      const reopen = toast.getByRole('button', {
+        name: strings.Reopen,
+        exact: true,
+      });
+      await expect(reopen).toBeVisible();
+
+      const line = toast.locator('> span');
+      const measured = await line.evaluate((span: HTMLElement) => ({
+        text: span.innerText,
+        scrollWidth: span.scrollWidth,
+        clientWidth: span.clientWidth,
+        right: span.getBoundingClientRect().right,
+      }));
+      const toastBox = await toast.boundingBox();
+      const reopenBox = await reopen.boundingBox();
+      if (toastBox === null || reopenBox === null) {
+        throw new Error('the toast or its Reopen button has no box');
+      }
+      // The whole line, count included, and none of it cut off: an ellipsis
+      // leaves innerText whole, so the widths are what show a cut.
+      expect(measured.text).toBe(message);
+      expect(measured.text).toContain('5');
+      expect(measured.scrollWidth).toBeLessThanOrEqual(measured.clientWidth);
+      // Nor hidden under the button.
+      expect(measured.right).toBeLessThanOrEqual(reopenBox.x);
+      expect(toastBox.width).toBeGreaterThanOrEqual(300);
+      expect(toastBox.width).toBeLessThanOrEqual(460);
+    });
+  }
+
+  test('12. CONTROL: a plain toast stays 300px, even when its message wraps', async ({
+    context,
+    extensionId,
+  }) => {
+    // Out of name order, so sorting by name moves them and says so.
+    await seedSessions(
+      context,
+      buildContainer([
+        buildSession({ tabGroupId: 'zeta', title: 'Zeta' }),
+        buildSession({ tabGroupId: 'alpha', title: 'Alpha' }),
+      ])
+    );
+    const page = await openPage(context, extensionId, VIEW_TAB, TAB_VIEWPORT);
+    await page
+      .getByRole('button', { name: 'Sort sessions', exact: true })
+      .click();
+    await page.getByRole('menuitemradio', { name: 'Name' }).click();
+
+    const toast = toastIn(page);
+    await expect(toast).toHaveText(
+      'Sessions reordered. Undo to restore the previous order.'
+    );
+    // PREMISE: the message is longer than a 300px line, so a toast sized to
+    // its content would be wider than 300px.
+    expect(await oneLineWidth(toast)).toBeGreaterThan(300);
+    const box = await toast.boundingBox();
+    expect(box?.width).toBe(300);
+  });
+
+  // Off the happy path: a window narrower than the line. The cap is the
+  // window less the toast's 20px each side, so the toast stays inside it,
+  // Reopen stays whole, and the message ellipses as a last resort.
+  test('13. ja in a 400px window: the toast stays inside it, Reopen whole, and the line ellipses', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    const strings = localeStrings('ja');
+    // Side by side, so Open now is the rail's drawer rather than a folded
+    // column squeezed to the right of the sessions.
+    await seedSettings(context, {
+      language: 'ja',
+      foldSavedSessionInTabView: false,
+    });
+    const viewport = { width: 400, height: 700 };
+    const page = await openPage(
+      context,
+      extensionId,
+      VIEW_TAB,
+      viewport,
+      strings
+    );
+    await expect(page.locator('html')).toHaveAttribute('lang', 'ja');
+    const made = await openWindow(serviceWorker, [
+      'One',
+      'Two',
+      'Three',
+      'Four',
+      'Five',
+    ]);
+    // Below 1100px Open now is a drawer behind a rail button.
+    await page
+      .getByRole('button', { name: new RegExp(`^${strings['Open now']}`) })
+      .click();
+    const block = windowBlock(page, made.windowId);
+    await expect(
+      block.getByRole('button', { name: `${strings['Switch to tab']}: ` })
+    ).toHaveCount(5);
+    await block
+      .getByRole('button', { name: `${strings['Close window']}: ` })
+      .click();
+
+    const toast = toastIn(page);
+    const reopen = toast.getByRole('button', {
+      name: strings.Reopen,
+      exact: true,
+    });
+    await expect(reopen).toBeVisible();
+    const toastBox = await toast.boundingBox();
+    const reopenBox = await reopen.boundingBox();
+    if (toastBox === null || reopenBox === null) {
+      throw new Error('the toast or its Reopen button has no box');
+    }
+    // PREMISE: the whole line is wider than the window less 20px each side,
+    // so this is the last resort and not the 300-460px case above.
+    expect(await oneLineWidth(toast)).toBeGreaterThan(viewport.width - 40);
+    expect(toastBox.x).toBe(20);
+    expect(toastBox.x + toastBox.width).toBeLessThanOrEqual(
+      viewport.width - 20
+    );
+    expect(reopenBox.x).toBeGreaterThanOrEqual(toastBox.x);
+    expect(reopenBox.x + reopenBox.width).toBeLessThanOrEqual(
+      toastBox.x + toastBox.width
+    );
+    // The message gives way, not the button.
+    const line = await toast
+      .locator('> span')
+      .evaluate((span: HTMLElement) => ({
+        scrollWidth: span.scrollWidth,
+        clientWidth: span.clientWidth,
+      }));
+    expect(line.scrollWidth).toBeGreaterThan(line.clientWidth);
   });
 });
