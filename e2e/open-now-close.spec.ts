@@ -1071,8 +1071,10 @@ test.describe('Open now close controls in a real browser (KAN-280)', () => {
 
 // KAN-280 O8b. At a fixed 300px, "Window closed (5 tabs)" lost its count
 // behind the longer translations of "Reopen" in 8 of 13 locales. A toast
-// offering Reopen is as wide as its one line, from 300 to 460px; a plain toast
-// stays 300px. ru, de and ja have the widest lines.
+// offering Reopen is as wide as its one line, from 300px to 30rem; a plain
+// toast stays 300px. ru, de and ja have the widest lines. The cap is in rem
+// because Chrome's Font size setting scales the root, and the text with it
+// (KAN-312).
 test.describe('The Reopen toast is as wide as its line (KAN-280 O8b)', () => {
   const toastIn = (page: Page): Locator =>
     page.getByRole('status').locator('> div');
@@ -1112,90 +1114,134 @@ test.describe('The Reopen toast is as wide as its line (KAN-280 O8b)', () => {
       }
     }, os);
 
-  for (const lang of ['ru', 'de', 'ja']) {
-    for (const os of ['mac', 'win'] as const) {
-      test(`11. ${lang}, ${os}: "Window closed (5 tabs)" shows whole, in a toast 300 to 460px wide`, async ({
+  // The toast's cap, 30rem, in px at the page's own root.
+  const thirtyRem = (page: Page): Promise<number> =>
+    page.evaluate(
+      () => 30 * parseFloat(getComputedStyle(document.documentElement).fontSize)
+    );
+
+  // 11 at the default root, where the widest line is ja with Ctrl+Z (459px
+  // on CI's Linux fonts). 11b at Chrome's Font size "Large", which sets the
+  // root to 20px: de needs 525px, ru 508 and ja 550 there, so a cap in px
+  // (480px is 30rem at the default root) cuts all three (KAN-312).
+  interface WidestLine {
+    name: string;
+    lang: string;
+    os: 'mac' | 'win';
+    rootPx: number | null;
+  }
+  const widestLines: WidestLine[] = [
+    ...['ru', 'de', 'ja'].flatMap((lang) =>
+      (['mac', 'win'] as const).map(
+        (os): WidestLine => ({
+          name: `11. ${lang}, ${os}: "Window closed (5 tabs)" shows whole, in a toast 300px to 30rem wide`,
+          lang,
+          os,
+          rootPx: null,
+        })
+      )
+    ),
+    ...['de', 'ru', 'ja'].map(
+      (lang): WidestLine => ({
+        name: `11b. ${lang}, win, font size Large (a 20px root): "Window closed (5 tabs)" shows whole, in a toast at most 30rem wide`,
+        lang,
+        os: 'win',
+        rootPx: 20,
+      })
+    ),
+  ];
+  for (const { name, lang, os, rootPx } of widestLines) {
+    test(name, async ({ context, extensionId, serviceWorker }) => {
+      const strings = localeStrings(lang);
+      await seedSettings(context, { language: lang });
+      await platformSays(context, os);
+      const page = await openPage(
         context,
         extensionId,
-        serviceWorker,
-      }) => {
-        const strings = localeStrings(lang);
-        await seedSettings(context, { language: lang });
-        await platformSays(context, os);
-        const page = await openPage(
-          context,
-          extensionId,
-          VIEW_TAB,
-          TAB_VIEWPORT,
-          strings
-        );
-        // CONTROL: the page is in the seeded language, so the line measured
-        // below is its translation and not en's.
-        await expect(page.locator('html')).toHaveAttribute('lang', lang);
+        VIEW_TAB,
+        TAB_VIEWPORT,
+        strings
+      );
+      // CONTROL: the page is in the seeded language, so the line measured
+      // below is its translation and not en's.
+      await expect(page.locator('html')).toHaveAttribute('lang', lang);
+      if (rootPx !== null) {
+        // What Chrome's Font size setting does (measured: Large gives a
+        // 20px root), set in the page, where every rem follows it.
+        await page.evaluate((px: number) => {
+          document.documentElement.style.fontSize = `${px}px`;
+        }, rootPx);
+        // PREMISE: the root really is that size before the toast shows.
+        expect(
+          await page.evaluate(
+            () => getComputedStyle(document.documentElement).fontSize
+          )
+        ).toBe(`${rootPx}px`);
+      }
 
-        const made = await openWindow(serviceWorker, [
-          'One',
-          'Two',
-          'Three',
-          'Four',
-          'Five',
-        ]);
-        const block = windowBlock(page, made.windowId);
-        await expect(
-          block.getByRole('button', { name: `${strings['Switch to tab']}: ` })
-        ).toHaveCount(5);
-        await block
-          .getByRole('button', { name: `${strings['Close window']}: ` })
-          .click();
+      const made = await openWindow(serviceWorker, [
+        'One',
+        'Two',
+        'Three',
+        'Four',
+        'Five',
+      ]);
+      const block = windowBlock(page, made.windowId);
+      await expect(
+        block.getByRole('button', { name: `${strings['Switch to tab']}: ` })
+      ).toHaveCount(5);
+      await block
+        .getByRole('button', { name: `${strings['Close window']}: ` })
+        .click();
 
-        const plural = new Intl.PluralRules(lang).select(5);
-        const message = strings[`WindowClosed_${plural}`].replace(
-          '{{count}}',
-          '5'
-        );
-        const toast = toastIn(page);
-        await expect(toast).toContainText(message);
-        const reopen = toast.getByRole('button', {
-          name: strings.Reopen,
-          exact: true,
-        });
-        await expect(reopen).toBeVisible();
-
-        const line = toast.locator('> span');
-        const measured = await line.evaluate((span: HTMLElement) => ({
-          text: span.innerText,
-          scrollWidth: span.scrollWidth,
-          clientWidth: span.clientWidth,
-          right: span.getBoundingClientRect().right,
-        }));
-        const toastBox = await toast.boundingBox();
-        const reopenBox = await reopen.boundingBox();
-        if (toastBox === null || reopenBox === null) {
-          throw new Error('the toast or its Reopen button has no box');
-        }
-        // The whole line, count included, and none of it cut off: an ellipsis
-        // leaves innerText whole, so the widths are what show a cut.
-        expect(measured.text).toBe(message);
-        expect(measured.text).toContain('5');
-        expect(measured.scrollWidth).toBeLessThanOrEqual(measured.clientWidth);
-        // Nor hidden under the button.
-        expect(measured.right).toBeLessThanOrEqual(reopenBox.x);
-        expect(toastBox.width).toBeGreaterThanOrEqual(300);
-        expect(toastBox.width).toBeLessThanOrEqual(460);
-        // The Reopen button carries its key hint (KAN-311), so this width
-        // includes it: the platform's own form.
-        await expect(reopen.locator('[data-key-hint]')).toHaveText(
-          os === 'mac' ? '⌘Z' : `${strings.Ctrl}+Z`
-        );
-        console.log(
-          `[reopen toast, ${lang}, ${os}] ${JSON.stringify({
-            toast: toastBox.width,
-            reopen: reopenBox.width,
-            hint: await reopen.locator('[data-key-hint]').innerText(),
-          })}`
-        );
+      const plural = new Intl.PluralRules(lang).select(5);
+      const message = strings[`WindowClosed_${plural}`].replace(
+        '{{count}}',
+        '5'
+      );
+      const toast = toastIn(page);
+      await expect(toast).toContainText(message);
+      const reopen = toast.getByRole('button', {
+        name: strings.Reopen,
+        exact: true,
       });
-    }
+      await expect(reopen).toBeVisible();
+
+      const line = toast.locator('> span');
+      const measured = await line.evaluate((span: HTMLElement) => ({
+        text: span.innerText,
+        scrollWidth: span.scrollWidth,
+        clientWidth: span.clientWidth,
+        right: span.getBoundingClientRect().right,
+      }));
+      const toastBox = await toast.boundingBox();
+      const reopenBox = await reopen.boundingBox();
+      if (toastBox === null || reopenBox === null) {
+        throw new Error('the toast or its Reopen button has no box');
+      }
+      // The whole line, count included, and none of it cut off: an ellipsis
+      // leaves innerText whole, so the widths are what show a cut.
+      expect(measured.text).toBe(message);
+      expect(measured.text).toContain('5');
+      expect(measured.scrollWidth).toBeLessThanOrEqual(measured.clientWidth);
+      // Nor hidden under the button.
+      expect(measured.right).toBeLessThanOrEqual(reopenBox.x);
+      expect(toastBox.width).toBeGreaterThanOrEqual(300);
+      expect(toastBox.width).toBeLessThanOrEqual(await thirtyRem(page));
+      // The Reopen button carries its key hint (KAN-311), so this width
+      // includes it: the platform's own form.
+      await expect(reopen.locator('[data-key-hint]')).toHaveText(
+        os === 'mac' ? '⌘Z' : `${strings.Ctrl}+Z`
+      );
+      console.log(
+        `[reopen toast, ${lang}, ${os}] ${JSON.stringify({
+          toast: toastBox.width,
+          reopen: reopenBox.width,
+          hint: await reopen.locator('[data-key-hint]').innerText(),
+          cap: await thirtyRem(page),
+        })}`
+      );
+    });
   }
 
   test('12. CONTROL: a plain toast stays 300px, even when its message wraps', async ({
@@ -1282,8 +1328,10 @@ test.describe('The Reopen toast is as wide as its line (KAN-280 O8b)', () => {
       throw new Error('the toast or its Reopen button has no box');
     }
     // PREMISE: the whole line is wider than the window less 20px each side,
-    // so this is the last resort and not the 300-460px case above.
+    // and so is 30rem, so the window is the cap that binds: this is the last
+    // resort and not the 300px-to-30rem case above.
     expect(await oneLineWidth(toast)).toBeGreaterThan(viewport.width - 40);
+    expect(await thirtyRem(page)).toBeGreaterThan(viewport.width - 40);
     expect(toastBox.x).toBe(20);
     expect(toastBox.x + toastBox.width).toBeLessThanOrEqual(
       viewport.width - 20

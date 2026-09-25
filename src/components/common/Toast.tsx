@@ -87,15 +87,17 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
 
   // The message on the left, Reopen at the right end (KAN-280 O8a). At 300px
   // the count was cut off in most locales, so the toast is as wide as its one
-  // line, up to 460px, growing away from the edge it is anchored to (O8b).
-  // Past that the message ellipses rather than pushing the button out.
+  // line, up to 30rem, growing away from the edge it is anchored to (O8b).
+  // Past that the message ellipses rather than pushing the button out. The
+  // cap is in rem because Chrome's Font size setting scales the text, so a
+  // px cap cut the count at "Large" (KAN-312).
   const offerStyle = css`
     justify-content: space-between;
     gap: 8px;
     padding: 6px 6px 6px 12px;
     width: max-content;
     min-width: 300px;
-    max-width: min(460px, calc(100vw - 40px));
+    max-width: min(30rem, calc(100vw - 40px));
   `;
   const messageStyle = css`
     min-width: 0;

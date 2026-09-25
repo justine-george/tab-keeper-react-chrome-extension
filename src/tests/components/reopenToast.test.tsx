@@ -346,10 +346,10 @@ describe('the Reopen toast (KAN-280 O8a)', () => {
   });
 
   // KAN-280 O8b. At 300px the count was cut off in 8 of 13 locales, so a
-  // toast offering Reopen is as wide as its one line, from 300 to 460px. jsdom
-  // cannot lay text out: the widths themselves are measured in
+  // toast offering Reopen is as wide as its one line, from 300px to 30rem.
+  // jsdom cannot lay text out: the widths themselves are measured in
   // e2e/open-now-close.spec.ts. This pins only the rule that differs.
-  test('the Reopen toast sizes to its line, 300 to 460px; a plain toast stays 300px', async () => {
+  test('the Reopen toast sizes to its line, 300px to 30rem; a plain toast stays 300px', async () => {
     const { store } = await renderWithProviders(<Toast />, {
       seed: twoTabSeed,
     });
@@ -372,12 +372,13 @@ describe('the Reopen toast (KAN-280 O8a)', () => {
       screen.getByRole('button', { name: 'Reopen' })
     );
     expect(toast).not.toHaveStyle({ width: '300px' });
-    // jsdom resolves the min() against its 1024px window, so the cap reads
-    // as the 460px that wins there.
+    // jsdom resolves the min() against its 1024px window and 16px root, so
+    // the cap reads as 30rem's 480px. It reads the same for a 480px cap: that
+    // the cap follows the root is e2e test 11b's (KAN-312).
     expect(toast).toHaveStyle({
       width: 'max-content',
       minWidth: '300px',
-      maxWidth: '460px',
+      maxWidth: '480px',
     });
   });
 
