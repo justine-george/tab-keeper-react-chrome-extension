@@ -503,8 +503,8 @@ grantedTest.describe('Close and Reopen a window (KAN-280 O8)', () => {
 });
 
 // What Chrome reported about a tab's group while a Reopen ran: the group a
-// created tab was put in, then each change of it. Test 10's recorder keeps
-// these on the service worker's global, under this name.
+// created tab was put in, then each change of it. recordGroupSteps keeps
+// these on the service worker's global, under this name (tests 10 and 14).
 const GROUP_STEPS = 'kan309GroupSteps';
 
 interface GroupStep {
@@ -526,6 +526,46 @@ const isGroupSteps = (value: unknown): value is GroupStep[] =>
       'groupId' in step &&
       typeof step.groupId === 'number'
   );
+
+// Starts recording every tab's group steps from this moment on.
+const recordGroupSteps = (worker: Worker): Promise<void> =>
+  worker.evaluate((key: string) => {
+    const steps: GroupStep[] = [];
+    Reflect.set(globalThis, key, steps);
+    chrome.tabs.onCreated.addListener((tab) => {
+      steps.push({
+        tabId: tab.id ?? -1,
+        event: 'created',
+        groupId: tab.groupId,
+      });
+    });
+    chrome.tabs.onUpdated.addListener((tabId, change) => {
+      if (change.groupId === undefined) return;
+      steps.push({ tabId, event: 'updated', groupId: change.groupId });
+    });
+  }, GROUP_STEPS);
+
+// The steps recorded for the tab titled `title` in a window, in order.
+async function groupStepsOf(
+  worker: Worker,
+  windowId: number,
+  title: string
+): Promise<Pick<GroupStep, 'event' | 'groupId'>[]> {
+  const tabId = await worker.evaluate(
+    async ({ windowId, title }) =>
+      (await chrome.tabs.query({ windowId })).find((t) => t.title === title)
+        ?.id,
+    { windowId, title }
+  );
+  const recorded: unknown = await worker.evaluate(
+    (key: string): unknown => Reflect.get(globalThis, key),
+    GROUP_STEPS
+  );
+  if (!isGroupSteps(recorded)) throw new Error('no group steps recorded');
+  return recorded
+    .filter((step) => step.tabId === tabId)
+    .map(({ event, groupId }) => ({ event, groupId }));
+}
 
 grantedTest.describe(
   'Reopen and a group formed since the close (KAN-309)',
@@ -571,46 +611,100 @@ grantedTest.describe(
         // Records every tab's group from here on, so the pass below can show
         // X was created inside the run and taken out, not created at the end
         // (where it would never have joined Here, and would pass as well).
-        await serviceWorker.evaluate((key: string) => {
-          const steps: {
-            tabId: number;
-            event: 'created' | 'updated';
-            groupId: number;
-          }[] = [];
-          Reflect.set(globalThis, key, steps);
-          chrome.tabs.onCreated.addListener((tab) => {
-            steps.push({
-              tabId: tab.id ?? -1,
-              event: 'created',
-              groupId: tab.groupId,
-            });
-          });
-          chrome.tabs.onUpdated.addListener((tabId, change) => {
-            if (change.groupId === undefined) return;
-            steps.push({ tabId, event: 'updated', groupId: change.groupId });
-          });
-        }, GROUP_STEPS);
+        await recordGroupSteps(serviceWorker);
 
         await reopenButton(page).click();
         await expect.poll(layout).toEqual(['A:Here', 'B:Here', 'X:-']);
 
-        const x = await serviceWorker.evaluate(
-          async ({ windowId }) =>
-            (await chrome.tabs.query({ windowId })).find((t) => t.title === 'X')
-              ?.id,
-          { windowId: made.windowId }
-        );
-        const recorded: unknown = await serviceWorker.evaluate(
-          (key: string): unknown => Reflect.get(globalThis, key),
-          GROUP_STEPS
-        );
-        if (!isGroupSteps(recorded)) throw new Error('no group steps recorded');
         // X was created inside Here, then taken out of it.
-        expect(
-          recorded
-            .filter((step) => step.tabId === x)
-            .map(({ event, groupId }) => ({ event, groupId }))
-        ).toEqual([
+        expect(await groupStepsOf(serviceWorker, made.windowId, 'X')).toEqual([
+          { event: 'created', groupId: here },
+          { event: 'updated', groupId: -1 },
+        ]);
+      }
+    );
+  }
+);
+
+grantedTest.describe(
+  'Reopen and a collapsed group over the front tab spot (KAN-310)',
+  () => {
+    grantedTest(
+      "14. a front tab reopened inside a collapsed group's run comes back in front, and the group stays collapsed",
+      async ({ context, extensionId, serviceWorker }) => {
+        const page = await openPage(
+          context,
+          extensionId,
+          VIEW_TAB,
+          TAB_VIEWPORT
+        );
+        const made = await openWindow(serviceWorker, ['A', 'X', 'B', 'Z']);
+        const [a, x, b, z] = made.tabIds;
+        const block = windowBlock(page, made.windowId);
+        await serviceWorker.evaluate(async (id: number) => {
+          await chrome.tabs.update(id, { active: true });
+        }, x);
+        // Each tab as `title*` when in front, `[group,collapsed|open]` when
+        // grouped.
+        const layout = async () =>
+          (await windowFacts(serviceWorker, made.windowId, true))?.tabs.map(
+            (t) =>
+              `${t.title}${t.active ? '*' : ''}${
+                t.group
+                  ? `[${t.group.title},${
+                      t.group.collapsed ? 'collapsed' : 'open'
+                    }]`
+                  : ''
+              }`
+          );
+        // PREMISE: X is ungrouped, at index 1, and the tab in front; the pane
+        // has read it so (the close snapshot says active).
+        await expect.poll(layout).toEqual(['A', 'X*', 'B', 'Z']);
+        await expect(liveRowIn(block, 'X')).toHaveAttribute(
+          'aria-current',
+          'true'
+        );
+
+        await closeTabIn(block, 'X').click();
+        await expect(page.getByRole('status')).toContainText('Tab closed');
+        // Z to the front, then A and B grouped as H and collapsed: X's old
+        // index is now inside a collapsed run.
+        const here = await serviceWorker.evaluate(
+          async ({ windowId, a, b, z }) => {
+            await chrome.tabs.update(z, { active: true });
+            const group = await chrome.tabs.group({
+              tabIds: [a, b],
+              createProperties: { windowId },
+            });
+            await chrome.tabGroups.update(group, {
+              title: 'H',
+              collapsed: true,
+            });
+            return group;
+          },
+          { windowId: made.windowId, a, b, z }
+        );
+        await expect
+          .poll(layout)
+          .toEqual(['A[H,collapsed]', 'B[H,collapsed]', 'Z*']);
+
+        // Records X's group from here on, so the pass below shows X really
+        // was created inside H (where an active create expands it), not
+        // somewhere a create never touches H.
+        await recordGroupSteps(serviceWorker);
+
+        await reopenButton(page).click();
+        // Chrome moves X past the run when it leaves H (KAN-309).
+        const settled = ['A[H,collapsed]', 'B[H,collapsed]', 'X*', 'Z'];
+        await expect.poll(layout).toEqual(settled);
+        // Held for a second, so a late expand would be seen.
+        for (let sample = 0; sample < 10; sample += 1) {
+          await page.waitForTimeout(100);
+          expect(await layout()).toEqual(settled);
+        }
+
+        // PREMISE: X was created inside H, then taken out of it.
+        expect(await groupStepsOf(serviceWorker, made.windowId, 'X')).toEqual([
           { event: 'created', groupId: here },
           { event: 'updated', groupId: -1 },
         ]);
