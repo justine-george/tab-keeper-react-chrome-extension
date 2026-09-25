@@ -64,6 +64,12 @@ async function openPage(
   return page;
 }
 
+// A #RRGGBB token as getComputedStyle spells it.
+const rgb = (hex: string): string => {
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+  return `rgb(${r}, ${g}, ${b})`;
+};
+
 const dataUrl = (title: string) => `data:text/html,<title>${title}</title>`;
 
 // One Chrome window's block in the Open now pane.
@@ -1363,10 +1369,12 @@ test.describe('The Reopen key (KAN-311)', () => {
     await expect
       .poll(() => titlesIn(serviceWorker, made.windowId))
       .toEqual(['A', 'B', 'C']);
+    // Settled: B is back and its × has focus, which happens after the key's
+    // handler has run and after the reopen resolved. An undo dispatched by
+    // that keydown writes storage in its reducer, synchronously, so it would
+    // already show here.
     await expect(closeTabIn(block, 'B')).toBeFocused();
     await expect(reopenButton(page)).toHaveCount(0);
-    // Given time for a wrongly dispatched undo to land, the sort stands.
-    await page.waitForTimeout(500);
     expect(await storedTitles(page)).toEqual(['Alpha', 'Zeta']);
 
     // CONTROL: with no offer showing, the same key undoes the sort, so the
@@ -1390,7 +1398,7 @@ test.describe('The Reopen key (KAN-311)', () => {
   ];
 
   for (const { name, stored, colors } of THEMES) {
-    test(`15. ${name}: the key hint clears 4.5:1 on the Reopen chip, as painted`, async ({
+    test(`15. ${name}: the key hint clears 4.5:1 on the Reopen chip at rest, hovered and pressed, as painted`, async ({
       context,
       extensionId,
       serviceWorker,
@@ -1403,58 +1411,95 @@ test.describe('The Reopen key (KAN-311)', () => {
       await closeTabIn(block, 'Drop').click();
       const reopen = reopenButton(page);
       await expect(reopen).toBeVisible();
-      // At rest: no pointer over the chip.
-      await page.mouse.move(TAB_VIEWPORT.width - 10, 10);
       const hint = reopen.locator('[data-key-hint]');
       await expect(hint).toBeVisible();
-
-      // PREMISE: the seeded theme took, so the chip is this theme's.
-      const chipFill = await reopen.evaluate(
-        (el: Element) => getComputedStyle(el).backgroundColor
-      );
-      expect(rgbToHex(chipFill)).toBe(colors.CHIP_COLOR);
+      const away: [number, number] = [TAB_VIEWPORT.width - 10, 10];
 
       const box = await hint.boundingBox();
       const buttonBox = await reopen.boundingBox();
       if (box === null || buttonBox === null) {
         throw new Error('the hint or its button has no box');
       }
-      // Every pixel of the hint's box, plus one on the chip's own fill above
-      // the text, all from one screenshot.
-      const points: Array<[number, number]> = [];
-      for (let y = Math.ceil(box.y); y < box.y + box.height; y++) {
-        for (let x = Math.ceil(box.x); x < box.x + box.width; x++) {
-          points.push([x, y]);
-        }
-      }
-      const chipPoint: [number, number] = [box.x + 1, buttonBox.y + 2];
-      const painted = await pixelsAt(page, [chipPoint, ...points]);
-      const [chip, ...inHint] = painted;
-      // CONTROL: the chip sample is the chip's fill, so the decode is
-      // faithful and the ratio below is against the real backdrop.
-      expect(chip, 'the chip sample lands on the chip').toBe(colors.CHIP_COLOR);
+      // Over the button's icon, clear of the hint's own pixels.
+      const onButton: [number, number] = [
+        buttonBox.x + 8,
+        buttonBox.y + buttonBox.height / 2,
+      ];
 
-      // The glyphs' solid cores carry the text colour; anti-aliased edges
-      // only blend toward the chip. So the ink is the pixel furthest from
-      // the chip.
-      const ink = inHint.reduce((best, pixel) =>
-        contrast(pixel, chip) > contrast(best, chip) ? pixel : best
-      );
-      const inkColor = await hint.evaluate(
-        (el: Element) => getComputedStyle(el).color
-      );
-      const ratio = contrast(ink, chip);
-      console.log(
-        `[key hint, ${name}] ${JSON.stringify({
-          ink,
-          token: rgbToHex(inkColor),
-          chip,
-          ratio: Number(ratio.toFixed(2)),
-        })}`
-      );
-      expect(ink, 'the hint is painted in its colour').toBe(rgbToHex(inkColor));
-      expect(ratio, `hint ${ink} on chip ${chip}`).toBeGreaterThanOrEqual(4.5);
-      await page.screenshot({ path: testInfo.outputPath('key-hint.png') });
+      // Measures the hint against the fill the chip shows in `state`, once
+      // that fill has settled: the fill and the hint both transition, and a
+      // pixel read mid-way is neither colour.
+      const measure = async (state: string, fill: string) => {
+        // PREMISE: the chip shows this state's fill (and, at rest, the seeded
+        // theme took).
+        await expect
+          .poll(async () =>
+            reopen.evaluate((el: Element) => ({
+              fill: getComputedStyle(el).backgroundColor,
+              moving: el.getAnimations({ subtree: true }).length,
+            }))
+          )
+          .toEqual({ fill: rgb(fill), moving: 0 });
+
+        // Every pixel of the hint's box, plus one on the chip's own fill
+        // above the text, all from one screenshot.
+        const points: Array<[number, number]> = [];
+        for (let y = Math.ceil(box.y); y < box.y + box.height; y++) {
+          for (let x = Math.ceil(box.x); x < box.x + box.width; x++) {
+            points.push([x, y]);
+          }
+        }
+        const chipPoint: [number, number] = [box.x + 1, buttonBox.y + 2];
+        const [chip, ...inHint] = await pixelsAt(page, [chipPoint, ...points]);
+        // CONTROL: the chip sample is the fill, so the decode is faithful and
+        // the ratio below is against the real backdrop.
+        expect(chip, `${state}: the chip sample lands on the fill`).toBe(fill);
+
+        // The glyphs' solid cores carry the text colour; anti-aliased edges
+        // only blend toward the fill. So the ink is the pixel furthest from
+        // the fill.
+        const ink = inHint.reduce((best, pixel) =>
+          contrast(pixel, chip) > contrast(best, chip) ? pixel : best
+        );
+        const inkColor = await hint.evaluate(
+          (el: Element) => getComputedStyle(el).color
+        );
+        const ratio = contrast(ink, chip);
+        console.log(
+          `[key hint, ${name}, ${state}] ${JSON.stringify({
+            ink,
+            token: rgbToHex(inkColor),
+            fill: chip,
+            ratio: Number(ratio.toFixed(2)),
+          })}`
+        );
+        expect(ink, `${state}: the hint is painted in its colour`).toBe(
+          rgbToHex(inkColor)
+        );
+        expect(
+          ratio,
+          `${state}: hint ${ink} on ${chip}`
+        ).toBeGreaterThanOrEqual(4.5);
+        await page.screenshot({ path: testInfo.outputPath(`${state}.png`) });
+      };
+
+      await page.mouse.move(...away);
+      await measure('rest', colors.CHIP_COLOR);
+
+      await page.mouse.move(...onButton);
+      await measure('hover', colors.ICON_HOVER_COLOR);
+
+      // Pressed, with the pointer then moved off: the press fill holds until
+      // the button is let go, and without the hover the hint's colour there
+      // is the press's doing alone. Let go away from the button, so nothing
+      // is clicked.
+      await page.mouse.down();
+      await page.mouse.move(...away);
+      await measure('pressed', colors.ICON_ACTIVE_COLOR);
+      await page.mouse.up();
+      await expect
+        .poll(() => titlesIn(serviceWorker, made.windowId))
+        .toEqual(['Keep']);
     });
   }
 });
