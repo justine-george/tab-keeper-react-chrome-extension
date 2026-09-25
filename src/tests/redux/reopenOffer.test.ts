@@ -29,9 +29,16 @@ import {
 } from '../../redux/slices/globalStateSlice';
 import {
   offerReopen,
+  reopenFromOffer,
   REOPEN_TOAST_MS,
   takeReopenOffer,
 } from '../../redux/reopenOffer';
+import {
+  clearReopenFocus,
+  expectReopenedRow,
+  pendingReopenFocus,
+  REOPEN_FOCUS_MS,
+} from '../../redux/reopenFocus';
 import {
   TOAST_MESSAGES,
   WINDOW_CLOSED_FRAME,
@@ -43,6 +50,7 @@ import {
 let handle: ChromeFakeHandle | undefined;
 
 afterEach(() => {
+  clearReopenFocus();
   handle?.restore();
   handle = undefined;
   vi.useRealTimers();
@@ -208,5 +216,154 @@ describe('the Reopen offer (KAN-280 O8a)', () => {
     const { toastText, toastParams } = store.getState().globalState;
     expect(toastText).toBe(TOAST_MESSAGES.TAB_CLOSED);
     expect(toastParams).toBeUndefined();
+  });
+});
+
+// KAN-311 (O8c). The Reopen button and the ⌘Z / Ctrl+Z key both dispatch
+// this one thunk, so the two cannot drift apart.
+describe('reopenFromOffer (KAN-311)', () => {
+  const offerId = (store: ReturnType<typeof makeTestStore>['store']) => {
+    const id = store.getState().globalState.toastReopenOfferId;
+    if (id === null) throw new Error('no offer id');
+    return id;
+  };
+  // Window 2 keeps a, so b reopens into it.
+  const closedB = async (): Promise<ClosedItem> => {
+    handle = setupChromeFake({
+      windows: [
+        { id: 1, focused: true, tabs: [{ url: url('home'), active: true }] },
+        { id: 2, tabs: [{ url: url('a') }, { url: url('b') }] },
+      ],
+    });
+    const w2 = await openWindow(2);
+    const item = await closeOpenTab(w2, w2.tabs[1]);
+    if (!item) throw new Error('close failed');
+    return item;
+  };
+  const urlsIn = async (windowId: number) =>
+    (await chrome.tabs.query({ windowId }))
+      .sort((x, y) => x.index - y.index)
+      .map((tab) => tab.url);
+
+  test('takes the offer, closes the toast, reopens, and names the new tab for focus', async () => {
+    const item = await closedB();
+    const { store } = makeTestStore();
+    await store.dispatch(offerReopen(item));
+    const id = offerId(store);
+
+    await store.dispatch(reopenFromOffer(id));
+
+    expect(openState(store)).toBe(false);
+    expect(await urlsIn(2)).toEqual([url('a'), url('b')]);
+    const back = (await chrome.tabs.query({ windowId: 2 })).find(
+      (tab) => tab.url === url('b')
+    );
+    expect(back?.id).toBeDefined();
+    expect(pendingReopenFocus()).toEqual({ kind: 'tab', tabId: back?.id });
+    // Taken: the offer is gone from the registry.
+    expect(takeReopenOffer(id)).toBeNull();
+  });
+
+  test('a second dispatch for the same offer does nothing', async () => {
+    const item = await closedB();
+    const { store } = makeTestStore();
+    await store.dispatch(offerReopen(item));
+    const id = offerId(store);
+
+    await Promise.all([
+      store.dispatch(reopenFromOffer(id)),
+      store.dispatch(reopenFromOffer(id)),
+    ]);
+
+    expect(handle?.createdTabs).toHaveLength(1);
+    expect(await urlsIn(2)).toEqual([url('a'), url('b')]);
+  });
+
+  // An offer a plain toast replaced cannot be taken, and the plain toast it
+  // did not offer stays up.
+  test('an offer already dropped reopens nothing and leaves the toast showing', async () => {
+    const item = await closedB();
+    const { store } = makeTestStore();
+    await store.dispatch(offerReopen(item));
+    const id = offerId(store);
+    await store.dispatch(showToast({ toastText: TOAST_MESSAGES.SYNC_MERGED }));
+
+    await store.dispatch(reopenFromOffer(id));
+
+    expect(handle?.createdTabs).toEqual([]);
+    expect(openState(store)).toBe(true);
+    expect(store.getState().globalState.toastText).toBe(
+      TOAST_MESSAGES.SYNC_MERGED
+    );
+    expect(pendingReopenFocus()).toBeNull();
+  });
+
+  test('nothing coming back says so, and asks for no focus move', async () => {
+    handle = setupChromeFake({
+      refusedUrls: [url('b')],
+      windows: [
+        { id: 1, focused: true, tabs: [{ url: url('home'), active: true }] },
+        { id: 2, tabs: [{ url: url('a') }, { url: url('b') }] },
+      ],
+    });
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const w2 = await openWindow(2);
+    const item = await closeOpenTab(w2, w2.tabs[1]);
+    if (!item) throw new Error('close failed');
+    const { store } = makeTestStore();
+    await store.dispatch(offerReopen(item));
+
+    await store.dispatch(reopenFromOffer(offerId(store)));
+
+    // PREMISE: Chrome was asked, and refused.
+    expect(handle.createdTabs).toHaveLength(1);
+    expect(store.getState().globalState.toastText).toBe(
+      TOAST_MESSAGES.REOPEN_FAILED
+    );
+    expect(openState(store)).toBe(true);
+    expect(pendingReopenFocus()).toBeNull();
+  });
+
+  test('a reopened window is named for focus by its new id', async () => {
+    handle = setupChromeFake({
+      windows: [
+        { id: 1, focused: true, tabs: [{ url: url('home'), active: true }] },
+        { id: 2, tabs: [{ url: url('a') }] },
+      ],
+    });
+    const item = await closeOpenWindow(await openWindow(2));
+    if (!item) throw new Error('close failed');
+    const { store } = makeTestStore();
+    await store.dispatch(offerReopen(item));
+
+    await store.dispatch(reopenFromOffer(offerId(store)));
+
+    const ids = (await chrome.windows.getAll({})).map((w) => w.id);
+    const made = ids.find((id) => id !== 1);
+    expect(made).toBeDefined();
+    expect(pendingReopenFocus()).toEqual({ kind: 'window', windowId: made });
+  });
+});
+
+describe('the reopened row to focus (KAN-311)', () => {
+  test('is kept for 3 seconds, then forgotten', () => {
+    vi.useFakeTimers();
+    expect(REOPEN_FOCUS_MS).toBe(3000);
+
+    expectReopenedRow({ kind: 'tab', tabId: 7 });
+    vi.advanceTimersByTime(REOPEN_FOCUS_MS - 1);
+    expect(pendingReopenFocus()).toEqual({ kind: 'tab', tabId: 7 });
+    vi.advanceTimersByTime(1);
+    expect(pendingReopenFocus()).toBeNull();
+  });
+
+  test('a newer reopen replaces it, with its own 3 seconds', () => {
+    vi.useFakeTimers();
+    expectReopenedRow({ kind: 'tab', tabId: 7 });
+    vi.advanceTimersByTime(2000);
+    expectReopenedRow({ kind: 'window', windowId: 9 });
+    vi.advanceTimersByTime(2000);
+
+    expect(pendingReopenFocus()).toEqual({ kind: 'window', windowId: 9 });
   });
 });

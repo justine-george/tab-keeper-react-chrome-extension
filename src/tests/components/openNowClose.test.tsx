@@ -14,6 +14,11 @@ import { LIGHT_THEME } from '../../hooks/useThemeColors';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { setupChromeFake } from '../setup/chrome.fake';
 import type { ChromeSeed } from '../setup/chrome.fake';
+import {
+  clearReopenFocus,
+  expectReopenedRow,
+  REOPEN_FOCUS_MS,
+} from '../../redux/reopenFocus';
 
 // KAN-280 O7a. The Open now pane's close controls: × on each tab row, Close
 // window on every window row but "This window", the Reopen offer after each
@@ -171,6 +176,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  clearReopenFocus();
   vi.restoreAllMocks();
 });
 
@@ -616,5 +622,122 @@ describe('closing from the Open now pane (KAN-280 O7a)', () => {
     fireEvent.mouseLeave(row);
 
     expect(getComputedStyle(close).opacity).toBe('0');
+  });
+
+  // KAN-311 (O8c). After Reopen, focus goes to what came back -- a tab's ×,
+  // a window's chevron -- so the keyboard is where the user was.
+  describe('focus after Reopen (KAN-311)', () => {
+    const reopenButton = () =>
+      within(screen.getByRole('status')).getByRole('button', {
+        name: 'Reopen',
+      });
+
+    test("the reopened tab's × has focus once the pane lists it", async () => {
+      await renderOpenNow(threeWindows());
+      fireEvent.click(closeTabButton('B'));
+      await waitFor(() => expect(querySwitchRow('B')).toBeNull());
+      // PREMISE: the close moved focus to C's ×, not to where B comes back.
+      expect(document.activeElement).toBe(closeTabButton('C'));
+
+      fireEvent.click(reopenButton());
+
+      // A reopened tab shows its address until its page loads.
+      await waitFor(() =>
+        expect(document.activeElement).toBe(closeTabButton(url('B')))
+      );
+      expect(
+        closeTabButton(url('B'))
+          .closest('[data-open-tab-id]')
+          ?.getAttribute('data-open-tab-id')
+      ).not.toBe('12');
+    });
+
+    test("a reopened window's chevron has focus once the pane lists it", async () => {
+      await renderOpenNow(threeWindows());
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Close window: Window 2' })
+      );
+      await waitFor(() =>
+        expect(document.querySelector('[data-open-window-id="2"]')).toBeNull()
+      );
+
+      fireEvent.click(reopenButton());
+
+      const newBlock = async () => {
+        const block = [
+          ...document.querySelectorAll('[data-open-window-id]'),
+        ].find(
+          (el) =>
+            !['1', '3'].includes(el.getAttribute('data-open-window-id') ?? '')
+        );
+        if (!(block instanceof HTMLElement)) throw new Error('not back yet');
+        return block;
+      };
+      await waitFor(async () => {
+        const block = await newBlock();
+        expect(document.activeElement).toBe(
+          within(block).getAllByRole('button')[0]
+        );
+      });
+      // The chevron, by its own name.
+      expect(document.activeElement).toHaveAttribute('aria-expanded', 'true');
+    });
+
+    // The subscription, not only the re-read: a row already on screen when
+    // Reopen names it still gets focus.
+    test('a row already listed when Reopen names it gets focus at once', async () => {
+      await renderOpenNow(threeWindows());
+      act(() => switchRow('A').focus());
+
+      act(() => expectReopenedRow({ kind: 'tab', tabId: 12 }));
+
+      expect(document.activeElement).toBe(closeTabButton('B'));
+    });
+
+    // The pane's read is held back with the list as it was before the
+    // reopen, so the row cannot appear until the hold ends.
+    async function reopenWithTheRowHeldBack() {
+      const rendered = await renderOpenNow(threeWindows());
+      fireEvent.click(closeTabButton('B'));
+      await waitFor(() => expect(querySwitchRow('B')).toBeNull());
+      const before = await chrome.windows.getAll({
+        populate: true,
+        windowTypes: ['normal'],
+      });
+      const getAll = vi
+        .spyOn(chrome.windows, 'getAll')
+        .mockImplementation(async () => before);
+      act(() => switchRow('A').focus());
+
+      fireEvent.click(reopenButton());
+      await waitFor(() => expect(rendered.chrome.createdTabs).toHaveLength(1));
+      // Let the re-read the create set off land, on the held list.
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      expect(querySwitchRow(url('B'))).toBeNull();
+      return { ...rendered, getAll };
+    }
+
+    test('CONTROL: a row that appears late, within 3 seconds, still gets focus', async () => {
+      const { chrome: fake, getAll } = await reopenWithTheRowHeldBack();
+
+      getAll.mockRestore();
+      act(() => fake.browser.updateTab(11, { title: 'A2' }));
+
+      await waitFor(() =>
+        expect(document.activeElement).toBe(closeTabButton(url('B')))
+      );
+    });
+
+    test('a row that appears after 3 seconds leaves focus where it is', async () => {
+      const { chrome: fake, getAll } = await reopenWithTheRowHeldBack();
+      const now = Date.now();
+      vi.spyOn(Date, 'now').mockReturnValue(now + REOPEN_FOCUS_MS);
+
+      getAll.mockRestore();
+      act(() => fake.browser.updateTab(11, { title: 'A2' }));
+
+      await screen.findByRole('button', { name: `Close tab: ${url('B')}` });
+      expect(document.activeElement).toBe(switchRow('A2'));
+    });
   });
 });

@@ -1,4 +1,4 @@
-import { Ref, useRef, useState } from 'react';
+import { Ref, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 
 import { css } from '@emotion/react';
 import { useTranslation } from 'react-i18next';
@@ -17,6 +17,11 @@ import {
 } from '../../../utils/functions/openWindowsToSession';
 import { closeOpenTab, closeOpenWindow } from '../../../utils/functions/reopen';
 import { offerReopen } from '../../../redux/reopenOffer';
+import {
+  clearReopenFocus,
+  pendingReopenFocus,
+  subscribeReopenFocus,
+} from '../../../redux/reopenFocus';
 import { saveToTabContainer } from '../../../redux/slices/tabContainerDataStateSlice';
 import type { AppDispatch } from '../../../redux/store';
 import { TYPE } from '../../../styles/scale';
@@ -47,14 +52,16 @@ interface OpenNowPaneProps {
 
 // The first control inside a window's block: its collapse chevron (an Icon,
 // so role="button" on a div).
-function firstControlIn(element: Element | undefined): HTMLElement | null {
+function firstControlIn(
+  element: Element | null | undefined
+): HTMLElement | null {
   const control = element?.querySelector('button, [role="button"]');
   return control instanceof HTMLElement ? control : null;
 }
 
 // A tab row's ×, found by its strip's mark rather than by its place in the
 // row (KAN-280 O7b).
-function closeControlIn(row: Element | undefined): HTMLElement | null {
+function closeControlIn(row: Element | null | undefined): HTMLElement | null {
   const control = row?.querySelector('[data-close-tab] [role="button"]');
   return control instanceof HTMLElement ? control : null;
 }
@@ -139,6 +146,32 @@ export default function OpenNowPane({
     if (next) next.focus();
     else focusAfterWindowCloses(openWindow.id);
   };
+
+  // KAN-311 (O8c). After Reopen, focus goes to the reopened tab's × or the
+  // reopened window's chevron, as soon as a re-read lists it -- or at once,
+  // if one already has. A row still missing after REOPEN_FOCUS_MS leaves
+  // focus where it is.
+  const reopenedRow = useSyncExternalStore(
+    subscribeReopenFocus,
+    pendingReopenFocus
+  );
+  useEffect(() => {
+    if (reopenedRow === null) return;
+    const pane = paneRef.current;
+    const control =
+      reopenedRow.kind === 'tab'
+        ? closeControlIn(
+            pane?.querySelector(`[data-open-tab-id="${reopenedRow.tabId}"]`)
+          )
+        : firstControlIn(
+            pane?.querySelector(
+              `[data-open-window-id="${reopenedRow.windowId}"]`
+            )
+          );
+    if (control === null) return;
+    control.focus();
+    clearReopenFocus();
+  }, [reopenedRow, windows]);
 
   // A null close means the tab or window was already gone -- a second press
   // before the re-read, say -- so there is nothing to offer (O8a).

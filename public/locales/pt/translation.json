@@ -216,6 +216,7 @@
   "Show the saved session": "Mostrar a sessão salva",
   "Close Open now": "Fechar o painel \"Abas abertas\"",
   "Reopen": "Reabrir",
+  "Ctrl": "Ctrl",
   "Tab closed": "Aba fechada",
   "Couldn't reopen.": "Não foi possível reabrir.",
   "WindowClosed_one": "Janela fechada ({{count}} aba)",

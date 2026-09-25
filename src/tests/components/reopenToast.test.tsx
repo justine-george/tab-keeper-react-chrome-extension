@@ -1,6 +1,13 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { act, fireEvent, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 
+import de from '../../../public/locales/de/translation.json';
 import ru from '../../../public/locales/ru/translation.json';
 import MainContainer from '../../components/MainContainer';
 import { Toast } from '../../components/common/Toast';
@@ -10,6 +17,7 @@ import { TOAST_MESSAGES } from '../../utils/constants/common';
 import { toOpenWindows } from '../../utils/functions/openNow';
 import type { OpenWindow } from '../../utils/functions/openNow';
 import { closeOpenTab, closeOpenWindow } from '../../utils/functions/reopen';
+import { clearReopenFocus } from '../../redux/reopenFocus';
 import type { ClosedItem } from '../../utils/functions/reopen';
 import type { ChromeSeed } from '../setup/chrome.fake';
 import { initTestI18n, testI18n } from '../setup/i18nForTests';
@@ -25,6 +33,7 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  clearReopenFocus();
   vi.useRealTimers();
   vi.restoreAllMocks();
   // The instance is shared, so a leaked locale would run later tests in it.
@@ -406,5 +415,296 @@ describe('the Reopen toast (KAN-280 O8a)', () => {
     }
     // The three forms really differ, so one wrong pick cannot pass as another.
     expect(new Set(expected.map(([, text]) => text)).size).toBe(3);
+  });
+});
+
+// KAN-311 (O8c). While the Reopen toast shows, ⌘Z on a Mac and Ctrl+Z
+// elsewhere takes the offer, exactly as pressing Reopen does, and does not
+// undo a saved-session edit. The handler treats ctrl and meta alike, as it
+// always has for undo.
+describe('the ⌘Z / Ctrl+Z key reopens while the toast shows (KAN-311)', () => {
+  const UNDO = 'undoRedo/undo';
+  const REDO = 'undoRedo/redo';
+
+  // Dispatched rather than typed: the listener is on `window`, and the event
+  // carries its target, as a real keypress does.
+  function press(
+    target: EventTarget,
+    chord: {
+      key: string;
+      ctrlKey?: boolean;
+      metaKey?: boolean;
+      shiftKey?: boolean;
+    }
+  ): KeyboardEvent {
+    const event = new KeyboardEvent('keydown', {
+      bubbles: true,
+      cancelable: true,
+      ...chord,
+    });
+    target.dispatchEvent(event);
+    return event;
+  }
+
+  async function withOffer() {
+    const rendered = await renderWithProviders(<MainContainer />, {
+      seed: twoTabSeed,
+    });
+    const item = await closeTabB();
+    await act(async () => {
+      await rendered.store.dispatch(offerReopen(item));
+    });
+    // PREMISE: the Reopen toast is up.
+    expect(
+      within(screen.getByRole('status')).getByRole('button', {
+        name: 'Reopen',
+      })
+    ).toBeTruthy();
+    return rendered;
+  }
+
+  const undoRedoIn = (seen: string[]) =>
+    seen.filter((type) => type === UNDO || type === REDO);
+
+  test('Ctrl+Z takes the offer and does not undo', async () => {
+    const { store, seen } = await withOffer();
+    const before = seen.length;
+
+    let event: KeyboardEvent | undefined;
+    act(() => {
+      event = press(document.body, { key: 'z', ctrlKey: true });
+    });
+
+    await waitFor(async () => {
+      expect(await urlsIn(2)).toEqual([url('a'), url('b')]);
+    });
+    expect(event?.defaultPrevented).toBe(true);
+    expect(undoRedoIn(seen.slice(before))).toEqual([]);
+    expect(store.getState().globalState.isToastOpen).toBe(false);
+  });
+
+  test('⌘Z takes it too', async () => {
+    const { seen } = await withOffer();
+    const before = seen.length;
+
+    act(() => {
+      press(document.body, { key: 'z', metaKey: true });
+    });
+
+    await waitFor(async () => {
+      expect(await urlsIn(2)).toEqual([url('a'), url('b')]);
+    });
+    expect(undoRedoIn(seen.slice(before))).toEqual([]);
+  });
+
+  test('CONTROL: with no toast showing, the same key undoes', async () => {
+    const { seen, chrome: fake } = await renderWithProviders(
+      <MainContainer />,
+      { seed: twoTabSeed }
+    );
+    const before = seen.length;
+
+    let event: KeyboardEvent | undefined;
+    act(() => {
+      event = press(document.body, { key: 'z', ctrlKey: true });
+    });
+
+    expect(undoRedoIn(seen.slice(before))).toEqual([UNDO]);
+    expect(event?.defaultPrevented).toBe(true);
+    expect(fake.createdTabs).toEqual([]);
+  });
+
+  // The slice leaves toastReopenOfferId set when a toast closes, so an offer
+  // that has timed out must not keep the key from undoing.
+  test('once the offer has timed out, the key undoes again', async () => {
+    const {
+      store,
+      seen,
+      chrome: fake,
+    } = await renderWithProviders(<MainContainer />, { seed: twoTabSeed });
+    const item = await closeTabB();
+    vi.useFakeTimers();
+    await act(async () => {
+      await store.dispatch(offerReopen(item));
+    });
+    act(() => vi.advanceTimersByTime(REOPEN_TOAST_MS));
+    // PREMISE: the toast has gone, and the slice still names the offer.
+    expect(store.getState().globalState.isToastOpen).toBe(false);
+    expect(store.getState().globalState.toastReopenOfferId).not.toBeNull();
+    const before = seen.length;
+
+    act(() => {
+      press(document.body, { key: 'z', ctrlKey: true });
+    });
+
+    expect(undoRedoIn(seen.slice(before))).toEqual([UNDO]);
+    expect(fake.createdTabs).toEqual([]);
+  });
+
+  test('redo while the offer shows redoes and keeps the toast', async () => {
+    const { store, seen } = await withOffer();
+    const before = seen.length;
+
+    act(() => {
+      press(document.body, { key: 'Z', ctrlKey: true, shiftKey: true });
+    });
+
+    expect(undoRedoIn(seen.slice(before))).toEqual([REDO]);
+    expect(store.getState().globalState.isToastOpen).toBe(true);
+    expect(
+      within(screen.getByRole('status')).getByRole('button', {
+        name: 'Reopen',
+      })
+    ).toBeTruthy();
+  });
+
+  test('CONTROL: undo and redo still close a plain toast', async () => {
+    const { store } = await renderWithProviders(<MainContainer />, {
+      seed: twoTabSeed,
+    });
+    for (const chord of [
+      { key: 'z', ctrlKey: true },
+      { key: 'Z', ctrlKey: true, shiftKey: true },
+    ]) {
+      await act(async () => {
+        await store.dispatch(
+          showToast({ toastText: TOAST_MESSAGES.SYNC_MERGED })
+        );
+      });
+      expect(store.getState().globalState.isToastOpen).toBe(true);
+
+      act(() => {
+        press(document.body, chord);
+      });
+
+      expect(store.getState().globalState.isToastOpen).toBe(false);
+    }
+  });
+
+  // KAN-52: inside a text field the key is the field's own undo.
+  test('in a text field the key is left to the field', async () => {
+    const { store, seen, chrome: fake } = await withOffer();
+    const input = document.createElement('input');
+    document.body.append(input);
+    const before = seen.length;
+
+    let event: KeyboardEvent | undefined;
+    act(() => {
+      event = press(input, { key: 'z', ctrlKey: true });
+    });
+    input.remove();
+
+    expect(event?.defaultPrevented).toBe(false);
+    expect(undoRedoIn(seen.slice(before))).toEqual([]);
+    expect(fake.createdTabs).toEqual([]);
+    expect(store.getState().globalState.isToastOpen).toBe(true);
+  });
+
+  // Rule 4, by key: two presses before React re-renders -- a held key's
+  // first repeat can land that fast -- take the offer once, and the second
+  // does not fall through to an undo either.
+  test('two presses take the offer once and undo nothing', async () => {
+    const { seen, chrome: fake } = await withOffer();
+    const before = seen.length;
+
+    act(() => {
+      press(document.body, { key: 'z', ctrlKey: true });
+      press(document.body, { key: 'z', ctrlKey: true });
+    });
+
+    await waitFor(async () => {
+      expect(await urlsIn(2)).toEqual([url('a'), url('b')]);
+    });
+    expect(fake.createdTabs).toHaveLength(1);
+    expect(undoRedoIn(seen.slice(before))).toEqual([]);
+  });
+});
+
+// KAN-311 (O8c). The Reopen button shows its key: ⌘Z on a Mac, Ctrl+Z (the
+// modifier's word translated) anywhere else. The hint is hidden from the
+// accessible name, which stays "Reopen"; aria-keyshortcuts carries the key.
+describe('the Reopen button shows its key (KAN-311)', () => {
+  async function reopenButtonWith(seed: ChromeSeed) {
+    const { store } = await renderWithProviders(<Toast />, { seed });
+    const item = await closeTabB();
+    await act(async () => {
+      await store.dispatch(offerReopen(item));
+    });
+    return within(screen.getByRole('status')).getByRole('button', {
+      name: testI18n.t('Reopen'),
+    });
+  }
+
+  test('⌘Z on a Mac', async () => {
+    const button = await reopenButtonWith({ ...twoTabSeed, platformOs: 'mac' });
+    await waitFor(() => expect(button).toHaveTextContent('⌘Z'));
+    expect(button).toHaveAttribute('aria-keyshortcuts', 'Meta+Z');
+    expect(button).not.toHaveTextContent('Ctrl');
+  });
+
+  test('Ctrl+Z on Windows', async () => {
+    const button = await reopenButtonWith({ ...twoTabSeed, platformOs: 'win' });
+    // Given time to arrive, so a Mac hint arriving late would show here.
+    await act(async () => {
+      await chrome.runtime.getPlatformInfo();
+    });
+    expect(button).toHaveTextContent('Ctrl+Z');
+    expect(button).toHaveAttribute('aria-keyshortcuts', 'Control+Z');
+    expect(button).not.toHaveTextContent('⌘');
+  });
+
+  test('de: Strg+Z', async () => {
+    const button = await reopenButtonWith({
+      ...twoTabSeed,
+      platformOs: 'linux',
+    });
+    // CONTROL: English first, so the German below is the switch's doing.
+    expect(button).toHaveTextContent('ReopenCtrl+Z');
+    testI18n.addResourceBundle('de', 'translation', de, true, true);
+    await act(async () => {
+      await testI18n.changeLanguage('de');
+    });
+    expect(testI18n.language).toBe('de');
+    expect(de.Ctrl).toBe('Strg');
+
+    expect(button).toHaveTextContent(`${de.Reopen}Strg+Z`);
+  });
+
+  test('the accessible name stays "Reopen"', async () => {
+    const button = await reopenButtonWith({ ...twoTabSeed, platformOs: 'mac' });
+    await waitFor(() => expect(button).toHaveTextContent('⌘Z'));
+    expect(button).toHaveAccessibleName('Reopen');
+  });
+
+  // Until Chrome answers, and if it never does, the hint is the Ctrl form:
+  // the form for most platforms, and never a ⌘ on a keyboard without one.
+  // Seeded as a Mac, so a hint read from the platform would be ⌘Z.
+  test('Ctrl+Z while the platform is unknown, and if reading it fails', async () => {
+    for (const answer of ['never', 'reject'] as const) {
+      const { store, rerender, unmount } = await renderWithProviders(
+        <Toast key="before" />,
+        { seed: { ...twoTabSeed, platformOs: 'mac' } }
+      );
+      vi.spyOn(chrome.runtime, 'getPlatformInfo').mockImplementation(() =>
+        answer === 'never'
+          ? new Promise<chrome.runtime.PlatformInfo>(() => {})
+          : Promise.reject(new Error('no platform'))
+      );
+      // A fresh Toast, so it reads the platform through the spy.
+      rerender(<Toast key="after" />);
+      const item = await closeTabB();
+      await act(async () => {
+        await store.dispatch(offerReopen(item));
+      });
+      const button = within(screen.getByRole('status')).getByRole('button', {
+        name: 'Reopen',
+      });
+
+      expect(chrome.runtime.getPlatformInfo).toHaveBeenCalled();
+      expect(button, answer).toHaveTextContent('Ctrl+Z');
+      expect(button, answer).toHaveAttribute('aria-keyshortcuts', 'Control+Z');
+      unmount();
+      vi.restoreAllMocks();
+    }
   });
 });

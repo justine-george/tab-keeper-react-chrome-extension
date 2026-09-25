@@ -214,6 +214,7 @@
   "Show the saved session": "सहेजा गया सेशन दिखाएं",
   "Close Open now": "\"अभी खुले टैब\" पैनल बंद करें",
   "Reopen": "फिर से खोलें",
+  "Ctrl": "Ctrl",
   "Tab closed": "टैब बंद किया गया",
   "Couldn't reopen.": "फिर से नहीं खोला जा सका।",
   "WindowClosed_one": "विंडो बंद की गई ({{count}} टैब)",

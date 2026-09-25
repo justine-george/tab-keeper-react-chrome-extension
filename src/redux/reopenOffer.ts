@@ -1,7 +1,9 @@
 import { createAsyncThunk } from '@reduxjs/toolkit';
 
-import { showToast } from './slices/globalStateSlice';
-import { storeReopenOffer } from './reopenOfferStore';
+import { closeToast, showToast } from './slices/globalStateSlice';
+import { expectReopenedRow } from './reopenFocus';
+import { storeReopenOffer, takeReopenOffer } from './reopenOfferStore';
+import { reopenClosed } from '../utils/functions/reopen';
 import type { ClosedItem } from '../utils/functions/reopen';
 import { TOAST_MESSAGES, WINDOW_CLOSED_FRAME } from '../utils/constants/common';
 
@@ -30,5 +32,27 @@ export const offerReopen = createAsyncThunk(
             reopenOfferId,
           })
     );
+  }
+);
+
+// Takes the offer and reopens what it names: the Reopen button and the ⌘Z /
+// Ctrl+Z key both come here (KAN-311, O8c). An offer already taken, or
+// replaced, does nothing and leaves whatever toast shows now. Nothing coming
+// back says so (rule 10); anything that does gets focus once Open now lists
+// it.
+export const reopenFromOffer = createAsyncThunk(
+  'global/reopenFromOffer',
+  async (offerId: number, thunkAPI) => {
+    const item = takeReopenOffer(offerId);
+    if (item === null) return;
+    thunkAPI.dispatch(closeToast());
+    const reopened = await reopenClosed(item);
+    if (reopened === null) {
+      await thunkAPI.dispatch(
+        showToast({ toastText: TOAST_MESSAGES.REOPEN_FAILED })
+      );
+      return;
+    }
+    expectReopenedRow(reopened);
   }
 );

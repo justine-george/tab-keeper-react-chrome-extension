@@ -214,6 +214,7 @@
   "Show the saved session": "Gespeicherte Sitzung anzeigen",
   "Close Open now": "Bereich \"Offene Tabs\" schließen",
   "Reopen": "Wieder öffnen",
+  "Ctrl": "Strg",
   "Tab closed": "Tab geschlossen",
   "Couldn't reopen.": "Konnte nicht wieder geöffnet werden.",
   "WindowClosed_one": "Fenster geschlossen ({{count}} Tab)",

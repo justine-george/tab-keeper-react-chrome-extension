@@ -214,6 +214,7 @@
   "Show the saved session": "Visa den sparade sessionen",
   "Close Open now": "Stäng panelen ”Öppna flikar”",
   "Reopen": "Öppna igen",
+  "Ctrl": "Ctrl",
   "Tab closed": "Fliken stängdes",
   "Couldn't reopen.": "Det gick inte att öppna igen.",
   "WindowClosed_one": "Fönstret stängdes ({{count}} flik)",

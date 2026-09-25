@@ -218,6 +218,7 @@
   "Show the saved session": "Показать сохранённую сессию",
   "Close Open now": "Закрыть панель «Открытые вкладки»",
   "Reopen": "Открыть снова",
+  "Ctrl": "Ctrl",
   "Tab closed": "Вкладка закрыта",
   "Couldn't reopen.": "Не удалось открыть снова.",
   "WindowClosed_one": "Окно закрыто ({{count}} вкладка)",

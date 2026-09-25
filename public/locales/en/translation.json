@@ -214,6 +214,7 @@
   "Show the saved session": "Show the saved session",
   "Close Open now": "Close Open now",
   "Reopen": "Reopen",
+  "Ctrl": "Ctrl",
   "Tab closed": "Tab closed",
   "Couldn't reopen.": "Couldn't reopen.",
   "WindowClosed_one": "Window closed ({{count}} tab)",

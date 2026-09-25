@@ -18,6 +18,7 @@ import { selectIsSavedSessionFolded } from '../redux/savedSessionFold';
 import LeftPaneSettings from './settings/leftpane/LeftPaneSettings';
 import RightPaneSettings from './settings/rightpane/RightPaneSettings';
 import { closeToast } from '../redux/slices/globalStateSlice';
+import { reopenFromOffer } from '../redux/reopenOffer';
 import { RateAndReviewModal } from './modals/RateAndReviewModal';
 import { FocusConfirmModal } from './modals/FocusConfirmModal';
 import { DeleteCloudDataModal } from './modals/DeleteCloudDataModal';
@@ -78,6 +79,12 @@ export default function MainContainer() {
     (state: RootState) => state.globalState.tabGroupsPromptCount
   );
 
+  // KAN-311 (O8c). The close the Reopen toast offers, while it shows. The
+  // slice keeps the id after the toast closes, so both are read.
+  const shownReopenOfferId = useSelector((state: RootState) =>
+    state.globalState.isToastOpen ? state.globalState.toastReopenOfferId : null
+  );
+
   // KAN-280 O4/O5. Folded, Open now takes the saved session's column.
   const folded = useSelector(selectIsSavedSessionFolded);
 
@@ -103,9 +110,22 @@ export default function MainContainer() {
       // Redo is tested first and returns. That ordering is what keeps the
       // chords mutually exclusive: shift+z has to stop here, or it goes on to
       // satisfy the plain-undo branch as well and the two cancel out.
+      //
+      // KAN-311 (O8c). An undo or redo dismisses a plain toast, but not a
+      // Reopen offer: the offer is still there to take.
       if (key === 'y' || (key === 'z' && event.shiftKey)) {
         dispatch(redo());
-        dispatch(closeToast());
+        if (shownReopenOfferId === null) dispatch(closeToast());
+        event.preventDefault();
+        return;
+      }
+
+      // While a Reopen offer shows, the key takes it, as pressing Reopen does,
+      // and undoes nothing (O8c, replacing rule 9's "never reopens"). A
+      // second press before this re-renders finds the offer taken and does
+      // nothing either.
+      if (key === 'z' && shownReopenOfferId !== null) {
+        void dispatch(reopenFromOffer(shownReopenOfferId));
         event.preventDefault();
         return;
       }
@@ -122,7 +142,7 @@ export default function MainContainer() {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isSettingsPage, dispatch]);
+  }, [isSettingsPage, shownReopenOfferId, dispatch]);
 
   const containerStyle = css`
     display: flex;

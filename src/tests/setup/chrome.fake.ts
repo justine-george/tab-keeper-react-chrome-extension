@@ -2,10 +2,11 @@
 // over a mock on purpose: tests assert on resulting state rather than on the
 // fact that a function was invoked.
 //
-// Covers 30 members production code calls as of 2026-09-24 --
+// Covers 31 members production code calls as of 2026-09-24 --
 // tabs.query/create/update/get/getCurrent/onActivated/group/ungroup/remove,
 // windows.getAll/getCurrent/create/remove/update/get, storage.sync.get/set,
-// runtime.sendMessage/onMessage/getURL/lastError, tabGroups.query/update/get/
+// runtime.sendMessage/onMessage/getURL/lastError/getPlatformInfo (the Reopen
+// button's ⌘Z or Ctrl+Z hint, KAN-311), tabGroups.query/update/get/
 // TAB_GROUP_ID_NONE, permissions.contains/request/remove/onAdded/onRemoved --
 // tabs.remove, windows.get and tabGroups.get are reopen.ts's calls (KAN-280
 // O8): tabs.remove closes a tab and drops the seed tab a recreated window
@@ -16,10 +17,11 @@
 // fake's own tests, with no production call site today.
 // Widen this when the app calls something new.
 //
-// KAN-280 (Open now pane) adds live event registries with no production
-// caller yet -- tabs.onCreated/onRemoved/onUpdated/onMoved/onAttached/
-// onDetached, windows.onCreated/onRemoved, tabGroups.onCreated/onUpdated/
-// onRemoved/onMoved -- plus ChromeFakeHandle.browser, which models the
+// KAN-280 (Open now pane) adds live event registries, which
+// src/hooks/useOpenWindows.ts listens on to keep the pane current --
+// tabs.onCreated/onRemoved/onUpdated/onMoved/onAttached/onDetached,
+// windows.onCreated/onRemoved, tabGroups.onCreated/onUpdated/onRemoved/
+// onMoved -- plus ChromeFakeHandle.browser, which models the
 // BROWSER's own hand (open/close/update/move/activate a tab, close a
 // window, set a group) by mutating state and firing the matching event, and
 // liveEventListenerCount()/windowsGetAllCalls for proving an unmount detached
@@ -71,6 +73,10 @@ export type ChromeSeed = {
   // (KAN-280 O8) recreates a tab at its real address and has to survive
   // Chrome declining some of them.
   refusedUrls?: string[];
+  // What runtime.getPlatformInfo() reports as the os (KAN-311: the Reopen
+  // button hints ⌘Z on a Mac, Ctrl+Z elsewhere). Absent means 'linux', the
+  // non-Mac form, so a test that seeds nothing never sees the Mac one.
+  platformOs?: chrome.runtime.PlatformInfo['os'];
 };
 
 export type ChromeFakeHandle = {
@@ -1009,6 +1015,11 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
         removeListener: () => undefined,
       },
       getURL: (path: string) => `chrome-extension://faketestid/${path}`,
+      getPlatformInfo: (cb?: (info: chrome.runtime.PlatformInfo) => void) =>
+        settle<chrome.runtime.PlatformInfo>(
+          { os: seed.platformOs ?? 'linux', arch: 'x86-64' },
+          cb
+        ),
       // A live read of `fail`'s own state above, not a static field -- a
       // caller reading this mid-callback has to see what `fail` just set.
       get lastError(): chrome.runtime.LastError | undefined {

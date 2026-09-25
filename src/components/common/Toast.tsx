@@ -1,18 +1,11 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 
 import { css } from '@emotion/react';
 
 import { AppDispatch, RootState } from '../../redux/store';
-import {
-  closeToast,
-  holdToast,
-  releaseToast,
-  showToast,
-} from '../../redux/slices/globalStateSlice';
-import { takeReopenOffer } from '../../redux/reopenOffer';
-import { reopenClosed } from '../../utils/functions/reopen';
-import { TOAST_MESSAGES } from '../../utils/constants/common';
+import { holdToast, releaseToast } from '../../redux/slices/globalStateSlice';
+import { reopenFromOffer } from '../../redux/reopenOffer';
 import { useFontFamily } from '../../hooks/useFontFamily';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { useTranslation } from 'react-i18next';
@@ -111,14 +104,27 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
     white-space: nowrap;
   `;
 
-  const reopen = (id: number) => {
-    const item = takeReopenOffer(id);
-    dispatch(closeToast());
-    if (item === null) return;
-    void reopenClosed(item).then((ok) => {
-      if (!ok) dispatch(showToast({ toastText: TOAST_MESSAGES.REOPEN_FAILED }));
-    });
-  };
+  // KAN-311 (O8c). ⌘Z on a Mac, Ctrl+Z anywhere else, as MainContainer's
+  // key handler takes it. Read once; until Chrome answers, and if it never
+  // does, the Ctrl form shows: most keyboards have no ⌘.
+  const [isMac, setIsMac] = useState(false);
+  useEffect(() => {
+    let live = true;
+    chrome.runtime
+      .getPlatformInfo()
+      .then((info) => {
+        if (live) setIsMac(info.os === 'mac');
+      })
+      .catch((error: unknown) => {
+        console.warn('Could not read the platform: ', error);
+      });
+    return () => {
+      live = false;
+    };
+  }, []);
+  const reopenKeyHint = isMac
+    ? { text: '⌘Z', ariaKeyShortcuts: 'Meta+Z' }
+    : { text: `${t('Ctrl')}+Z`, ariaKeyShortcuts: 'Control+Z' };
 
   // toastText is a key and toastParams its interpolation values (KAN-86).
   // t() with no matching key returns the key unchanged, which is what keeps a
@@ -155,7 +161,8 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
               variant="chip"
               iconType="undo"
               text={t('Reopen')}
-              onClick={() => reopen(offerId)}
+              keyHint={reopenKeyHint}
+              onClick={() => void dispatch(reopenFromOffer(offerId))}
               style={`
                 height: 34px;
                 padding: 0 14px;

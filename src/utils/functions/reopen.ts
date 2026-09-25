@@ -65,16 +65,23 @@ export async function closeOpenWindow(
   return { kind: 'window', window: placed };
 }
 
+// What Reopen brought back, by the new id Chrome gave it: focus goes to its
+// row once Open now lists it (KAN-311, O8c). A tab whose window had gone is
+// still a tab, in the window made around it.
+export type Reopened =
+  | { kind: 'tab'; tabId: number }
+  | { kind: 'window'; windowId: number };
+
 // Recreates a ClosedItem exactly (KAN-280 O8, rules 5, 6, 7 and 10). Resolves
-// true when anything came back, false when nothing could. Never rejects.
-export async function reopenClosed(item: ClosedItem): Promise<boolean> {
+// to what came back, or null when nothing could. Never rejects.
+export async function reopenClosed(item: ClosedItem): Promise<Reopened | null> {
   try {
-    return item.kind === 'window'
-      ? await recreateWindow(item.window)
-      : await recreateTab(item);
+    if (item.kind === 'tab') return await recreateTab(item);
+    const rebuilt = await recreateWindow(item.window);
+    return rebuilt && { kind: 'window', windowId: rebuilt.windowId };
   } catch (error) {
     console.warn('Could not reopen: ', error);
-    return false;
+    return null;
   }
 }
 
@@ -83,6 +90,13 @@ type WindowSnapshot = Pick<
   'bounds' | 'state' | 'incognito' | 'tabs' | 'groups'
 >;
 
+// A recreated window, and each tab that came back into it: the new tab id by
+// the old one. Never empty: a window nothing came back into is removed.
+type RebuiltWindow = {
+  windowId: number;
+  createdByOldId: ReadonlyMap<number, number>;
+};
+
 // Rule 5: the window comes back unfocused, in its old bounds and state.
 //
 // It is created EMPTY -- Chrome opens a seed chrome://newtab/ tab -- and the
@@ -90,7 +104,9 @@ type WindowSnapshot = Pick<
 // rejects outright, so passing the urls to windows.create would lose every
 // tab to one that Chrome declines (rule 10). The seed goes once the real tabs
 // are in.
-async function recreateWindow(snapshot: WindowSnapshot): Promise<boolean> {
+async function recreateWindow(
+  snapshot: WindowSnapshot
+): Promise<RebuiltWindow | null> {
   let created: chrome.windows.Window | undefined;
   try {
     created = await chrome.windows.create({
@@ -100,10 +116,10 @@ async function recreateWindow(snapshot: WindowSnapshot): Promise<boolean> {
     });
   } catch (error) {
     console.warn('Could not reopen a window: ', error);
-    return false;
+    return null;
   }
   const windowId = created?.id;
-  if (windowId === undefined) return false;
+  if (windowId === undefined) return null;
   const seedTabId = created?.tabs?.[0]?.id;
 
   // Rule 7: each tab loads its real address, never the lazy-load placeholder
@@ -133,7 +149,7 @@ async function recreateWindow(snapshot: WindowSnapshot): Promise<boolean> {
     } catch (error) {
       console.warn('Could not remove an empty reopened window: ', error);
     }
-    return false;
+    return null;
   }
 
   const activeTab = snapshot.tabs.find((tab) => tab.active);
@@ -198,7 +214,7 @@ async function recreateWindow(snapshot: WindowSnapshot): Promise<boolean> {
     }
   }
 
-  return true;
+  return { windowId, createdByOldId };
 }
 
 // Rule 6: the tab goes back to its window at its Chrome index, pinned or
@@ -206,15 +222,17 @@ async function recreateWindow(snapshot: WindowSnapshot): Promise<boolean> {
 // the window's last tab, say -- the window is recreated around it.
 async function recreateTab(
   item: Extract<ClosedItem, { kind: 'tab' }>
-): Promise<boolean> {
+): Promise<Reopened | null> {
   try {
     await chrome.windows.get(item.window.id);
   } catch {
-    return recreateWindow({
+    const rebuilt = await recreateWindow({
       ...item.window,
       tabs: [item.tab],
       groups: item.group ? [item.group] : [],
     });
+    const tabId = rebuilt?.createdByOldId.get(item.tab.id);
+    return tabId === undefined ? null : { kind: 'tab', tabId };
   }
 
   let reopened: chrome.tabs.Tab;
@@ -232,9 +250,14 @@ async function recreateTab(
     });
   } catch (error) {
     console.warn('Could not reopen a tab: ', error);
-    return false;
+    return null;
   }
-  if (reopened.id === undefined) return true;
+  // Chrome gives every tab it creates an id. Without one there is nothing to
+  // group, raise or focus, and no way to tell the tab apart from any other.
+  if (reopened.id === undefined) {
+    console.warn('Chrome gave a reopened tab no id');
+    return null;
+  }
 
   // Undefined while the tabGroups permission is ungranted; the snapshot
   // then could not see groups, so an ungrouped tab is not known to be one.
@@ -256,7 +279,7 @@ async function recreateTab(
       console.warn('Could not bring a reopened tab to the front: ', error);
     }
   }
-  return true;
+  return { kind: 'tab', tabId: reopened.id };
 }
 
 // Chrome puts a tab created strictly between two tabs of one group into that

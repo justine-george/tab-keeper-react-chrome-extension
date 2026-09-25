@@ -271,6 +271,25 @@ describe('chrome.runtime fake', () => {
     expect(cb).toHaveBeenCalledTimes(1);
     expect(handle.sentMessages).toEqual([{ type: 'FOCUS_TAB_CONTAINER' }]);
   });
+
+  // KAN-311. The Reopen button's key hint follows the platform.
+  test('getPlatformInfo reports linux unless a platform is seeded', async () => {
+    handle = setupChromeFake();
+    expect((await chrome.runtime.getPlatformInfo()).os).toBe('linux');
+    handle.restore();
+
+    handle = setupChromeFake({ platformOs: 'mac' });
+    expect((await chrome.runtime.getPlatformInfo()).os).toBe('mac');
+  });
+
+  test('getPlatformInfo also takes a callback', () => {
+    handle = setupChromeFake({ platformOs: 'win' });
+    const cb = vi.fn();
+
+    void chrome.runtime.getPlatformInfo(cb);
+
+    expect(cb).toHaveBeenCalledWith(expect.objectContaining({ os: 'win' }));
+  });
 });
 
 describe('tab groups', () => {

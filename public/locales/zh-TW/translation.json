@@ -212,6 +212,7 @@
   "Show the saved session": "顯示已儲存的工作階段",
   "Close Open now": "關閉「目前開啟的分頁」面板",
   "Reopen": "重新開啟",
+  "Ctrl": "Ctrl",
   "Tab closed": "分頁已關閉",
   "Couldn't reopen.": "無法重新開啟。",
   "WindowClosed_other": "視窗已關閉（{{count}} 個分頁）",
