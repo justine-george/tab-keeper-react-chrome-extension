@@ -12,7 +12,10 @@ import ru from '../../../public/locales/ru/translation.json';
 import MainContainer from '../../components/MainContainer';
 import { Toast } from '../../components/common/Toast';
 import { offerReopen, REOPEN_TOAST_MS } from '../../redux/reopenOffer';
-import { showToast } from '../../redux/slices/globalStateSlice';
+import {
+  openSettingsPage,
+  showToast,
+} from '../../redux/slices/globalStateSlice';
 import { TOAST_MESSAGES } from '../../utils/constants/common';
 import { toOpenWindows } from '../../utils/functions/openNow';
 import type { OpenWindow } from '../../utils/functions/openNow';
@@ -435,6 +438,7 @@ describe('the ⌘Z / Ctrl+Z key reopens while the toast shows (KAN-311)', () => 
       ctrlKey?: boolean;
       metaKey?: boolean;
       shiftKey?: boolean;
+      repeat?: boolean;
     }
   ): KeyboardEvent {
     const event = new KeyboardEvent('keydown', {
@@ -600,9 +604,10 @@ describe('the ⌘Z / Ctrl+Z key reopens while the toast shows (KAN-311)', () => 
     expect(store.getState().globalState.isToastOpen).toBe(true);
   });
 
-  // Rule 4, by key: two presses before React re-renders -- a held key's
-  // first repeat can land that fast -- take the offer once, and the second
-  // does not fall through to an undo either.
+  // Rule 4, by key: two presses before React re-renders -- a fast double
+  // tap -- take the offer once, and the second does not fall through to an
+  // undo either. A held key's repeats, which arrive after the re-render, are
+  // the next describe's.
   test('two presses take the offer once and undo nothing', async () => {
     const { seen, chrome: fake } = await withOffer();
     const before = seen.length;
@@ -617,6 +622,103 @@ describe('the ⌘Z / Ctrl+Z key reopens while the toast shows (KAN-311)', () => 
     });
     expect(fake.createdTabs).toHaveLength(1);
     expect(undoRedoIn(seen.slice(before))).toEqual([]);
+  });
+
+  // A held ⌘Z / Ctrl+Z: the first press takes the offer, and its repeats,
+  // arriving once the toast has gone, must not go on to undo saved-session
+  // edits. The hold ends on the Z keyup, on the modifier's keyup (macOS
+  // Chrome sends no Z keyup while ⌘ is down), or on any fresh press.
+  describe('a held key', () => {
+    function release(key: string): void {
+      act(() => {
+        document.body.dispatchEvent(
+          new KeyboardEvent('keyup', { bubbles: true, key })
+        );
+      });
+    }
+
+    async function offerTakenByKey() {
+      const rendered = await withOffer();
+      act(() => {
+        press(document.body, { key: 'z', metaKey: true });
+      });
+      await waitFor(async () => {
+        expect(await urlsIn(2)).toEqual([url('a'), url('b')]);
+      });
+      // PREMISE: the toast has gone and re-rendered away, so the handler
+      // itself no longer sees an offer.
+      expect(rendered.store.getState().globalState.isToastOpen).toBe(false);
+      expect(screen.queryByRole('button', { name: 'Reopen' })).toBeNull();
+      return rendered;
+    }
+
+    test('its repeats undo nothing', async () => {
+      const { seen } = await offerTakenByKey();
+      const before = seen.length;
+
+      let event: KeyboardEvent | undefined;
+      act(() => {
+        event = press(document.body, {
+          key: 'z',
+          metaKey: true,
+          repeat: true,
+        });
+        press(document.body, { key: 'z', metaKey: true, repeat: true });
+      });
+
+      expect(undoRedoIn(seen.slice(before))).toEqual([]);
+      expect(event?.defaultPrevented).toBe(true);
+    });
+
+    test('CONTROL: let go, a fresh press undoes', async () => {
+      const { seen } = await offerTakenByKey();
+      release('z');
+      release('Meta');
+      const before = seen.length;
+
+      act(() => {
+        press(document.body, { key: 'z', metaKey: true });
+      });
+
+      expect(undoRedoIn(seen.slice(before))).toEqual([UNDO]);
+    });
+
+    test('⌘ let go with no Z keyup, as macOS sends it: a fresh press undoes', async () => {
+      const { seen } = await offerTakenByKey();
+      release('Meta');
+      const before = seen.length;
+
+      act(() => {
+        press(document.body, { key: 'z', metaKey: true });
+      });
+
+      expect(undoRedoIn(seen.slice(before))).toEqual([UNDO]);
+    });
+
+    // Each way out, on its own: after it, a repeat is an ordinary undo
+    // again, so the hold cannot stick.
+    test.each([
+      ['Z let go', () => release('z')],
+      ['⌘ let go', () => release('Meta')],
+      ['Ctrl let go', () => release('Control')],
+      [
+        'another key pressed',
+        () =>
+          act(() => {
+            press(document.body, { key: 'Shift' });
+          }),
+      ],
+    ])('%s ends the hold', async (_, endHold) => {
+      const { seen } = await offerTakenByKey();
+      endHold();
+      const before = seen.length;
+
+      act(() => {
+        press(document.body, { key: 'z', ctrlKey: true, repeat: true });
+      });
+
+      expect(undoRedoIn(seen.slice(before))).toEqual([UNDO]);
+    });
   });
 });
 
@@ -674,6 +776,33 @@ describe('the Reopen button shows its key (KAN-311)', () => {
     const button = await reopenButtonWith({ ...twoTabSeed, platformOs: 'mac' });
     await waitFor(() => expect(button).toHaveTextContent('⌘Z'));
     expect(button).toHaveAccessibleName('Reopen');
+  });
+
+  // The key does nothing on the settings page, so neither does its hint:
+  // the button stays, without the key.
+  test('on the settings page the hint is hidden and the button stays', async () => {
+    const { store } = await renderWithProviders(<Toast />, {
+      seed: { ...twoTabSeed, platformOs: 'mac' },
+    });
+    const item = await closeTabB();
+    await act(async () => {
+      await store.dispatch(offerReopen(item));
+    });
+    const reopen = () =>
+      within(screen.getByRole('status')).getByRole('button', {
+        name: 'Reopen',
+      });
+    // CONTROL: off the settings page the hint shows.
+    await waitFor(() => expect(reopen()).toHaveTextContent('⌘Z'));
+
+    await act(async () => {
+      await store.dispatch(openSettingsPage(undefined));
+    });
+
+    expect(store.getState().globalState.isSettingsPage).toBe(true);
+    expect(reopen().querySelector('[data-key-hint]')).toBeNull();
+    expect(reopen()).not.toHaveTextContent('⌘Z');
+    expect(reopen()).not.toHaveAttribute('aria-keyshortcuts');
   });
 
   // Until Chrome answers, and if it never does, the hint is the Ctrl form:

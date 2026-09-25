@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 import { useDispatch, useSelector } from 'react-redux';
 
@@ -88,9 +88,24 @@ export default function MainContainer() {
   // KAN-280 O4/O5. Folded, Open now takes the saved session's column.
   const folded = useSelector(selectIsSavedSessionFolded);
 
+  // KAN-311 (O8c). Set when the key takes a Reopen offer, while that press
+  // may still be held: its repeats would otherwise go on to undo
+  // saved-session edits once the toast has gone.
+  const heldAfterReopen = useRef(false);
+
   // Keyboard shortcut listener for undo/redo
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
+      // A held key's repeats after it took the offer are dropped. Any fresh
+      // press ends the hold, so it cannot stick if a keyup never arrives.
+      if (heldAfterReopen.current) {
+        if (event.repeat && event.key.toLowerCase() === 'z') {
+          event.preventDefault();
+          return;
+        }
+        if (!event.repeat) heldAfterReopen.current = false;
+      }
+
       // Guard the whole handler, not just undo: redo is native inside a text
       // field too (cmd+shift+z on macOS, ctrl+y on Windows).
       if (isNativelyUndoableTarget(event.target)) return;
@@ -121,11 +136,11 @@ export default function MainContainer() {
       }
 
       // While a Reopen offer shows, the key takes it, as pressing Reopen does,
-      // and undoes nothing (O8c, replacing rule 9's "never reopens"). A
-      // second press before this re-renders finds the offer taken and does
-      // nothing either.
+      // and undoes nothing (O8c). A second press before this re-renders finds
+      // the offer taken and does nothing either.
       if (key === 'z' && shownReopenOfferId !== null) {
         void dispatch(reopenFromOffer(shownReopenOfferId));
+        heldAfterReopen.current = true;
         event.preventDefault();
         return;
       }
@@ -136,11 +151,24 @@ export default function MainContainer() {
         event.preventDefault();
       }
     }
+    // The hold ends when Z is let go, or the modifier is: macOS Chrome sends
+    // no Z keyup while ⌘ is still down.
+    function handleKeyUp(event: KeyboardEvent) {
+      if (
+        event.key.toLowerCase() === 'z' ||
+        event.key === 'Meta' ||
+        event.key === 'Control'
+      ) {
+        heldAfterReopen.current = false;
+      }
+    }
     window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
 
     // cleanup
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
     };
   }, [isSettingsPage, shownReopenOfferId, dispatch]);
 

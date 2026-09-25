@@ -161,7 +161,9 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
               variant="chip"
               iconType="undo"
               text={t('Reopen')}
-              keyHint={reopenKeyHint}
+              // The key does nothing on the settings page (MainContainer
+              // stands down there), so the hint would name a dead key.
+              keyHint={isSettingsPage ? undefined : reopenKeyHint}
               onClick={() => void dispatch(reopenFromOffer(offerId))}
               style={`
                 height: 34px;

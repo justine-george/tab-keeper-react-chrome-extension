@@ -38,6 +38,7 @@ import {
   expectReopenedRow,
   pendingReopenFocus,
   REOPEN_FOCUS_MS,
+  subscribeReopenFocus,
 } from '../../redux/reopenFocus';
 import {
   TOAST_MESSAGES,
@@ -355,6 +356,23 @@ describe('the reopened row to focus (KAN-311)', () => {
     expect(pendingReopenFocus()).toEqual({ kind: 'tab', tabId: 7 });
     vi.advanceTimersByTime(1);
     expect(pendingReopenFocus()).toBeNull();
+  });
+
+  // The pane reads it through useSyncExternalStore, which re-reads only when
+  // told: expiry is a change like any other.
+  test('its expiry is announced to subscribers', () => {
+    vi.useFakeTimers();
+    expectReopenedRow({ kind: 'tab', tabId: 7 });
+    const listener = vi.fn();
+    const unsubscribe = subscribeReopenFocus(listener);
+
+    vi.advanceTimersByTime(REOPEN_FOCUS_MS - 1);
+    expect(listener).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
+
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(pendingReopenFocus()).toBeNull();
+    unsubscribe();
   });
 
   test('a newer reopen replaces it, with its own 3 seconds', () => {

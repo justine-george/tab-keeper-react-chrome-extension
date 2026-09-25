@@ -7,7 +7,8 @@ import type { Reopened } from '../utils/functions/reopen';
 // a live tab or window id is never stored.
 export const REOPEN_FOCUS_MS = 3000;
 
-let pending: { target: Reopened; until: number } | null = null;
+let pending: Reopened | null = null;
+let expiry: ReturnType<typeof setTimeout> | null = null;
 const listeners = new Set<() => void>();
 
 function notify(): void {
@@ -17,19 +18,24 @@ function notify(): void {
 // Replaces any earlier one. If the row has not appeared within
 // REOPEN_FOCUS_MS it is forgotten, and focus stays where it is.
 export function expectReopenedRow(target: Reopened): void {
-  pending = { target, until: Date.now() + REOPEN_FOCUS_MS };
+  if (expiry !== null) clearTimeout(expiry);
+  pending = target;
+  expiry = setTimeout(clearReopenFocus, REOPEN_FOCUS_MS);
   notify();
 }
 
-// The row still waiting for focus, or null once it has expired. The same
-// object on every call until it changes, as useSyncExternalStore needs.
+// The row still waiting for focus, or null. A plain read: the same object on
+// every call until it changes, as useSyncExternalStore needs.
 export function pendingReopenFocus(): Reopened | null {
-  if (pending !== null && Date.now() >= pending.until) pending = null;
-  return pending?.target ?? null;
+  return pending;
 }
 
-// The row has focus: nothing is waiting any more.
+// The row has focus, or its time ran out: nothing is waiting any more.
 export function clearReopenFocus(): void {
+  if (expiry !== null) {
+    clearTimeout(expiry);
+    expiry = null;
+  }
   if (pending === null) return;
   pending = null;
   notify();

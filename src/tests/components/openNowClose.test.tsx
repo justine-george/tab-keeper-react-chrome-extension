@@ -177,6 +177,7 @@ beforeEach(() => {
 
 afterEach(() => {
   clearReopenFocus();
+  vi.useRealTimers();
   vi.restoreAllMocks();
 });
 
@@ -729,9 +730,11 @@ describe('closing from the Open now pane (KAN-280 O7a)', () => {
     });
 
     test('a row that appears after 3 seconds leaves focus where it is', async () => {
+      // Fake timers that still run in real time, so the pane's re-reads and
+      // waitFor work as elsewhere, and the 3s can be skipped.
+      vi.useFakeTimers({ shouldAdvanceTime: true });
       const { chrome: fake, getAll } = await reopenWithTheRowHeldBack();
-      const now = Date.now();
-      vi.spyOn(Date, 'now').mockReturnValue(now + REOPEN_FOCUS_MS);
+      act(() => vi.advanceTimersByTime(REOPEN_FOCUS_MS));
 
       getAll.mockRestore();
       act(() => fake.browser.updateTab(11, { title: 'A2' }));
