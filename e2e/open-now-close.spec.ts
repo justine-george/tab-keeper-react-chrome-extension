@@ -27,6 +27,11 @@ const VIEW_TAB = 'index.html?view=tab';
 const OPEN_NOW = '[data-pane="open-now"]';
 const SESSIONS = '[data-pane="sessions"]';
 
+// The Reopen toast's time on screen, REOPEN_TOAST_MS in
+// src/redux/reopenOffer.ts. Not imported: that module pulls in the store,
+// which Node cannot load (manifest.json needs an import attribute).
+const REOPEN_TOAST_MS = 8000;
+
 // Where tests 1, 2 and 4 put the window they close and reopen.
 const BOUNDS = { left: 140, top: 90, width: 900, height: 640 };
 // Where test 2 moves it after Open now has read it (KAN-308).
@@ -213,33 +218,47 @@ const titlesIn = async (worker: Worker, windowId: number): Promise<string[]> =>
 
 // The four-tab window of tests 1 and 2: Pin pinned; Temple and Garden in
 // "Kyoto"/blue; Receipt in "Later"/red, collapsed; Garden active.
+//
+// Garden's activation is the LAST arranging event, and the one change the
+// pane renders (aria-current), so a pane showing Garden in front has read the
+// window after every arranging event. Collapsing Later last instead left the
+// final event invisible to the pane (it does not render collapse).
 async function openKyotoWindow(worker: Worker): Promise<MadeWindow> {
   const made = await openWindow(
     worker,
     ['Pin', 'Temple', 'Garden', 'Receipt'],
     BOUNDS
   );
-  await worker.evaluate(async ({ windowId, tabIds }) => {
-    const [pin, temple, garden, receipt] = tabIds;
-    await chrome.tabs.update(pin, { pinned: true });
-    const kyoto = await chrome.tabs.group({
-      tabIds: [temple, garden],
-      createProperties: { windowId },
-    });
-    await chrome.tabGroups.update(kyoto, { title: 'Kyoto', color: 'blue' });
-    const later = await chrome.tabs.group({
-      tabIds: [receipt],
-      createProperties: { windowId },
-    });
-    await chrome.tabGroups.update(later, { title: 'Later', color: 'red' });
-    await chrome.tabs.update(garden, { active: true });
-    await chrome.tabGroups.update(later, { collapsed: true });
-  }, made);
+  const gardenWasActive = await worker.evaluate(
+    async ({ windowId, tabIds }) => {
+      const [pin, temple, garden, receipt] = tabIds;
+      await chrome.tabs.update(pin, { pinned: true });
+      const kyoto = await chrome.tabs.group({
+        tabIds: [temple, garden],
+        createProperties: { windowId },
+      });
+      await chrome.tabGroups.update(kyoto, { title: 'Kyoto', color: 'blue' });
+      const later = await chrome.tabs.group({
+        tabIds: [receipt],
+        createProperties: { windowId },
+      });
+      await chrome.tabGroups.update(later, { title: 'Later', color: 'red' });
+      await chrome.tabGroups.update(later, { collapsed: true });
+      const wasActive = (await chrome.tabs.get(garden)).active;
+      await chrome.tabs.update(garden, { active: true });
+      return wasActive;
+    },
+    made
+  );
+  // PREMISE: the activation is a change, so the pane cannot have shown
+  // Garden in front before it.
+  if (gardenWasActive) throw new Error('Garden was already the active tab');
   return made;
 }
 
 // PREMISE: the pane lists the Kyoto window with all four tabs and both
-// groups, and Garden as the tab in front, so it has read the arranged window.
+// groups, and Garden as the tab in front, so it has read the arranged window
+// (Garden's activation is the last arranging event, see openKyotoWindow).
 async function expectPaneListsKyoto(page: Page, made: MadeWindow) {
   const block = windowBlock(page, made.windowId);
   await expect(rowsIn(block)).toHaveCount(4);
@@ -358,8 +377,10 @@ grantedTest.describe('Close and Reopen a window (KAN-280 O8)', () => {
       const page = await openPage(context, extensionId, VIEW_TAB, TAB_VIEWPORT);
       const tabView = await tabViewIds(page);
       const made = await openKyotoWindow(serviceWorker);
+      // Read barrier: Garden in front is the last arranging event, so the
+      // pane has read the window after it.
       await expectPaneListsKyoto(page, made);
-      // Lets the re-read of the last arranging event land, so the move
+      // And lets any re-read still coalescing behind it land, so the move
       // below comes after the pane's last read of this window.
       await page.waitForTimeout(500);
 
@@ -481,11 +502,36 @@ grantedTest.describe('Close and Reopen a window (KAN-280 O8)', () => {
   );
 });
 
+// What Chrome reported about a tab's group while a Reopen ran: the group a
+// created tab was put in, then each change of it. Test 10's recorder keeps
+// these on the service worker's global, under this name.
+const GROUP_STEPS = 'kan309GroupSteps';
+
+interface GroupStep {
+  tabId: number;
+  event: 'created' | 'updated';
+  groupId: number;
+}
+
+const isGroupSteps = (value: unknown): value is GroupStep[] =>
+  Array.isArray(value) &&
+  value.every(
+    (step: unknown) =>
+      typeof step === 'object' &&
+      step !== null &&
+      'tabId' in step &&
+      typeof step.tabId === 'number' &&
+      'event' in step &&
+      (step.event === 'created' || step.event === 'updated') &&
+      'groupId' in step &&
+      typeof step.groupId === 'number'
+  );
+
 grantedTest.describe(
   'Reopen and a group formed since the close (KAN-309)',
   () => {
     grantedTest(
-      '9. an ungrouped tab reopened inside a group that formed over its spot comes back ungrouped',
+      '10. an ungrouped tab reopened inside a group that formed over its spot comes back ungrouped',
       async ({ context, extensionId, serviceWorker }) => {
         const page = await openPage(
           context,
@@ -509,20 +555,65 @@ grantedTest.describe(
         await expect(page.getByRole('status')).toContainText('Tab closed');
         // A and B grouped after the close: X's old index is now inside the
         // group's run, where Chrome puts a created tab into the group.
-        await serviceWorker.evaluate(
+        const here = await serviceWorker.evaluate(
           async ({ windowId, a, b }) => {
-            const here = await chrome.tabs.group({
+            const group = await chrome.tabs.group({
               tabIds: [a, b],
               createProperties: { windowId },
             });
-            await chrome.tabGroups.update(here, { title: 'Here' });
+            await chrome.tabGroups.update(group, { title: 'Here' });
+            return group;
           },
           { windowId: made.windowId, a, b }
         );
         await expect.poll(layout).toEqual(['A:Here', 'B:Here']);
 
+        // Records every tab's group from here on, so the pass below can show
+        // X was created inside the run and taken out, not created at the end
+        // (where it would never have joined Here, and would pass as well).
+        await serviceWorker.evaluate((key: string) => {
+          const steps: {
+            tabId: number;
+            event: 'created' | 'updated';
+            groupId: number;
+          }[] = [];
+          Reflect.set(globalThis, key, steps);
+          chrome.tabs.onCreated.addListener((tab) => {
+            steps.push({
+              tabId: tab.id ?? -1,
+              event: 'created',
+              groupId: tab.groupId,
+            });
+          });
+          chrome.tabs.onUpdated.addListener((tabId, change) => {
+            if (change.groupId === undefined) return;
+            steps.push({ tabId, event: 'updated', groupId: change.groupId });
+          });
+        }, GROUP_STEPS);
+
         await reopenButton(page).click();
         await expect.poll(layout).toEqual(['A:Here', 'B:Here', 'X:-']);
+
+        const x = await serviceWorker.evaluate(
+          async ({ windowId }) =>
+            (await chrome.tabs.query({ windowId })).find((t) => t.title === 'X')
+              ?.id,
+          { windowId: made.windowId }
+        );
+        const recorded: unknown = await serviceWorker.evaluate(
+          (key: string): unknown => Reflect.get(globalThis, key),
+          GROUP_STEPS
+        );
+        if (!isGroupSteps(recorded)) throw new Error('no group steps recorded');
+        // X was created inside Here, then taken out of it.
+        expect(
+          recorded
+            .filter((step) => step.tabId === x)
+            .map(({ event, groupId }) => ({ event, groupId }))
+        ).toEqual([
+          { event: 'created', groupId: here },
+          { event: 'updated', groupId: -1 },
+        ]);
       }
     );
   }
@@ -618,8 +709,8 @@ test.describe('Open now close controls in a real browser (KAN-280)', () => {
     extensionId,
     serviceWorker,
   }) => {
-    // Two waits of up to 9s each, measured at 18.2s in all: past the 30s
-    // default on a slow runner.
+    // Waits of 4s, 9s and up to 5s, about 18s in all: past the 30s default
+    // on a slow runner.
     test.setTimeout(60_000);
     const page = await openPage(context, extensionId, VIEW_TAB, TAB_VIEWPORT);
     const made = await openWindow(serviceWorker, ['Keep', 'Drop']);
@@ -629,16 +720,28 @@ test.describe('Open now close controls in a real browser (KAN-280)', () => {
     await closeTabIn(block, 'Drop').click();
     const status = page.getByRole('status');
     await expect(status).toContainText('Tab closed');
+    // The toast was up by now, so at least this much of its 8s has gone by
+    // the time the pointer arrives.
+    const seenAt = Date.now();
 
+    // Half its time spent before the hover, so a timer that restarted the
+    // full 8s on leaving would show as twice the time left.
+    await page.waitForTimeout(4000);
+    const spent = Date.now() - seenAt;
     await status.getByText('Tab closed').hover();
     // The duration under test: past the toast's 8s.
     await page.waitForTimeout(9000);
     await expect(status).toContainText('Tab closed');
     await expect(reopenButton(page)).toBeVisible();
 
-    // Away, it resumes with the time it had left, under 8s.
+    // Away, it resumes with the time it had left: at most 8s less what was
+    // spent before the hover (about 4s), where a restart would take 8s. The
+    // 1s on top is for the poll and the pointer's own travel.
     await page.mouse.move(TAB_VIEWPORT.width - 10, 10);
-    await expect(status).not.toContainText('Tab closed', { timeout: 8500 });
+    const timeLeft = REOPEN_TOAST_MS - spent;
+    await expect(status).not.toContainText('Tab closed', {
+      timeout: timeLeft + 1000,
+    });
     await expect(reopenButton(page)).toHaveCount(0);
   });
 
