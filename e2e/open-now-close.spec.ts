@@ -1503,3 +1503,151 @@ test.describe('The Reopen key (KAN-311)', () => {
     });
   }
 });
+
+test.describe('A double-click and a mouse close (KAN-280 O7c, O7d)', () => {
+  // KAN-280 O7c. The first click of a double-click closes B, C's row moves up
+  // under the pointer, and the second click lands on C's ×. Driven with the
+  // mouse's own click count rather than dblclick(), which sends both clicks
+  // before the pane re-reads, so its second click finds B's × still there
+  // and would pass with no guard at all. The count-1 run is the CONTROL: the
+  // same two clicks, each a click of its own, close B and C.
+  const runs: { name: string; clickCount: number; left: string[] }[] = [
+    {
+      name: "16. a double-click on × closes one tab: the second click, on the next row's ×, closes nothing",
+      clickCount: 2,
+      left: ['A', 'C'],
+    },
+    {
+      name: '16b. CONTROL: two single clicks there close two tabs',
+      clickCount: 1,
+      left: ['A'],
+    },
+  ];
+  for (const { name, clickCount, left } of runs) {
+    test(name, async ({ context, extensionId, serviceWorker }) => {
+      const page = await openPage(context, extensionId, VIEW_TAB, TAB_VIEWPORT);
+      const made = await openWindow(serviceWorker, ['A', 'B', 'C']);
+      const block = windowBlock(page, made.windowId);
+      await expect(rowsIn(block)).toHaveCount(3);
+      await page.evaluate(() => {
+        const seen: { detail: number; on: string | null }[] = [];
+        document.documentElement.dataset.clicksSeen = '[]';
+        window.addEventListener(
+          'click',
+          (event) => {
+            const target =
+              event.target instanceof Element
+                ? event.target.closest('[role="button"]')
+                : null;
+            seen.push({
+              detail: event.detail,
+              on: target?.getAttribute('aria-label') ?? null,
+            });
+            document.documentElement.dataset.clicksSeen = JSON.stringify(seen);
+          },
+          { capture: true }
+        );
+      });
+      const clicksSeen = async (): Promise<unknown> =>
+        JSON.parse(
+          await page.evaluate(
+            () => document.documentElement.dataset.clicksSeen ?? ''
+          )
+        );
+      const box = await closeTabIn(block, 'B').boundingBox();
+      if (box === null) throw new Error("B's × has no box");
+      const at = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+      const controlAt = () =>
+        page.evaluate(
+          ({ x, y }) =>
+            document
+              .elementFromPoint(x, y)
+              ?.closest('[role="button"]')
+              ?.getAttribute('aria-label') ?? null,
+          at
+        );
+
+      await page.mouse.move(at.x, at.y);
+      await page.mouse.down({ clickCount: 1 });
+      await page.mouse.up({ clickCount: 1 });
+      await expect(liveRowIn(block, 'B')).toHaveCount(0);
+      // PREMISE: C's × has moved up under the pointer.
+      await expect.poll(controlAt).toBe('Close tab: C');
+      await page.mouse.down({ clickCount });
+      await page.mouse.up({ clickCount });
+
+      // PREMISE: both clicks reached the page, the second on C's × with the
+      // count under test.
+      expect(await clicksSeen()).toEqual([
+        { detail: 1, on: 'Close tab: B' },
+        { detail: clickCount, on: 'Close tab: C' },
+      ]);
+      // Time for a close the guard failed to stop to reach Chrome; the
+      // CONTROL run sees C gone within it.
+      await page.waitForTimeout(500);
+      expect(await titlesIn(serviceWorker, made.windowId)).toEqual(left);
+    });
+  }
+
+  // KAN-280 O7d. Focus still moves to the next row's × after a mouse close
+  // (O7b), but Chrome does not count a focus that follows a click as one to
+  // show, so the strip stays hidden, mask and all, once the pointer leaves.
+  // The keyboard's close is the CONTROL: the same move reveals it.
+  test("17. a mouse close focuses the next row's × without showing it; a keyboard close shows it", async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    const page = await openPage(context, extensionId, VIEW_TAB, TAB_VIEWPORT);
+    const NO_MASK = 'rgba(0, 0, 0, 0)';
+    const opacityOf = (locator: Locator) =>
+      locator.evaluate((el: Element) => getComputedStyle(el).opacity);
+    const maskOf = (locator: Locator) =>
+      locator.evaluate((el: Element) =>
+        el.parentElement === null
+          ? null
+          : getComputedStyle(el.parentElement).backgroundColor
+      );
+    const isFocusVisible = (locator: Locator) =>
+      locator.evaluate((el: Element) => el.matches(':focus-visible'));
+
+    const mouse = await openWindow(serviceWorker, ['A', 'B', 'C']);
+    const mouseBlock = windowBlock(page, mouse.windowId);
+    await expect(rowsIn(mouseBlock)).toHaveCount(3);
+
+    await closeTabIn(mouseBlock, 'B').click();
+    await expect
+      .poll(() => titlesIn(serviceWorker, mouse.windowId))
+      .toEqual(['A', 'C']);
+    await page.mouse.move(0, 0);
+
+    const mouseNext = closeTabIn(mouseBlock, 'C');
+    await expect(mouseNext).toBeFocused();
+    expect(
+      await isFocusVisible(mouseNext),
+      'Chrome marks the × focused after a click as not to be shown'
+    ).toBe(false);
+    await expect.poll(() => opacityOf(mouseNext)).toBe('0');
+    await expect.poll(() => maskOf(mouseNext)).toBe(NO_MASK);
+
+    const keys = await openWindow(serviceWorker, ['A', 'B', 'C']);
+    const keysBlock = windowBlock(page, keys.windowId);
+    await expect(rowsIn(keysBlock)).toHaveCount(3);
+
+    await liveRowIn(keysBlock, 'B').focus();
+    await page.keyboard.press('Tab');
+    await expect(closeTabIn(keysBlock, 'B')).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect
+      .poll(() => titlesIn(serviceWorker, keys.windowId))
+      .toEqual(['A', 'C']);
+
+    const keysNext = closeTabIn(keysBlock, 'C');
+    await expect(keysNext).toBeFocused();
+    expect(await isFocusVisible(keysNext)).toBe(true);
+    await expect.poll(() => opacityOf(keysNext)).toBe('1');
+    await expect
+      .poll(() => maskOf(keysNext))
+      .toBe(rgb(LIGHT_THEME.HOVER_COLOR));
+  });
+});

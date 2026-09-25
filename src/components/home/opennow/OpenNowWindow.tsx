@@ -39,6 +39,17 @@ function holdBackRepeatedActivation(event: React.KeyboardEvent) {
   event.stopPropagation();
 }
 
+// A double-click's first click closes its row, and the row below moves up
+// under the pointer, so its second click lands on that row's close control
+// (KAN-280 O7c). A click whose count is past 1 is that second click, and it
+// closes nothing. Icon's key press arrives through click() with a count of 0.
+function onFirstClickOnly(close: () => void): React.MouseEventHandler {
+  return (event) => {
+    if (event.detail > 1) return;
+    close();
+  };
+}
+
 interface OpenNowWindowProps {
   openWindow: OpenWindow;
   index: number;
@@ -106,8 +117,11 @@ export default function OpenNowWindow({
   // parentRightStyle and childRightStyle for the same reason, less the
   // saved row's editing and search cases. KAN-100: the mask lands in one
   // frame with the row's fill and only the icons ease, or the row fills in
-  // two halves with an edge between them. :focus-within is the keyboard's
-  // reveal (KAN-68).
+  // two halves with an edge between them. Keyboard focus reveals them too
+  // (KAN-68), and only keyboard focus: after a mouse close, focus moves to
+  // the next row's × (O7b), and :focus-within would show it under a pointer
+  // that has moved on (KAN-280 O7d). :has(:focus-visible), as KAN-94's
+  // TabGroupEntry does.
   const parentRightStyle = css`
     display: flex;
     position: absolute;
@@ -119,7 +133,7 @@ export default function OpenNowWindow({
       opacity: ${isParentHovered ? 1 : 0};
       transition: opacity ${DURATION.COLOR} ease-out;
     }
-    &:focus-within {
+    &:has(:focus-visible) {
       background-color: ${COLORS.HOVER_COLOR};
       & > * {
         opacity: 1;
@@ -139,7 +153,7 @@ export default function OpenNowWindow({
       opacity: ${hoveredTabId === tabId ? 1 : 0};
       transition: opacity ${DURATION.COLOR} ease-out;
     }
-    &:focus-within {
+    &:has(:focus-visible) {
       background-color: ${COLORS.HOVER_COLOR};
       & > * {
         opacity: 1;
@@ -277,7 +291,7 @@ export default function OpenNowWindow({
             tooltipText={t('Close tab')}
             ariaLabel={t('Close tab') + ': ' + tab.title}
             type="close"
-            onClick={() => onCloseTab(tab)}
+            onClick={onFirstClickOnly(() => onCloseTab(tab))}
           />
         </div>
       </div>
@@ -335,7 +349,7 @@ export default function OpenNowWindow({
               tooltipText={t('Close window')}
               ariaLabel={t('Close window') + ': ' + title}
               type="close"
-              onClick={onCloseWindow}
+              onClick={onFirstClickOnly(onCloseWindow)}
             />
           )}
         </div>

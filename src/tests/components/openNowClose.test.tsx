@@ -275,8 +275,6 @@ describe('closing from the Open now pane (KAN-280 O7a)', () => {
     await act(async () => release());
 
     expect(document.activeElement).toBe(closeTabButton('C'));
-    // Focused, so revealed: the strip's :focus-within shows it.
-    expectRevealedByFocus(closeTabButton('C'));
   });
 
   test("after closing the last tab in a window list, focus is on the previous tab's close control", async () => {
@@ -290,6 +288,8 @@ describe('closing from the Open now pane (KAN-280 O7a)', () => {
 
   // KAN-280 O7b. Focus lands on the next row's ×, not its Switch button, so a
   // second Enter closes that tab too instead of switching Chrome to it.
+  // Icon turns each press into a click() whose detail is 0, which O7c's
+  // double-click guard lets through.
   test('Enter, Enter on Close tab closes two tabs, and Reopen offers the second', async () => {
     const { chrome: fake } = await renderOpenNow(threeWindows());
     const user = userEvent.setup();
@@ -358,6 +358,59 @@ describe('closing from the Open now pane (KAN-280 O7a)', () => {
       fireEvent.keyDown(closeTabButton('B'), { key: 'Tab', repeat: true })
     ).toBe(true);
   });
+
+  // KAN-280 O7c. A double-click's first click closes its row, the row below
+  // moves up under the pointer, and the second click lands on that row's ×.
+  // The second click is the one whose detail is 2. The detail-1 row is the
+  // CONTROL: the same wait sees a click of its own close C.
+  test.each([
+    [2, [12]],
+    [1, [12, 13]],
+  ])(
+    "after B's × closes B, a click with detail %i on C's × leaves %j closed",
+    async (detail, closed) => {
+      const { chrome: fake } = await renderOpenNow(threeWindows());
+
+      fireEvent.click(closeTabButton('B'), { detail: 1 });
+      await waitFor(() => expect(querySwitchRow('B')).toBeNull());
+      fireEvent.click(closeTabButton('C'), { detail });
+      await act(() => new Promise((resolve) => setTimeout(resolve, 150)));
+
+      expect(fake.removedTabIds).toEqual(closed);
+    }
+  );
+
+  // The same for Close window: window 3 moves up into Window 2's place.
+  test.each([
+    [2, [2]],
+    [1, [2, 3]],
+  ])(
+    'after Close window closes window 2, a click with detail %i on the next one leaves %j closed',
+    async (detail, closed) => {
+      const { chrome: fake } = await renderOpenNow(threeWindows());
+
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Close window: Window 2' }),
+        { detail: 1 }
+      );
+      await waitFor(() =>
+        expect(document.querySelector('[data-open-window-id="2"]')).toBeNull()
+      );
+      // PREMISE: window 3 is now the one named Window 2.
+      expect(
+        within(blockOf(3)).getByRole('button', {
+          name: 'Close window: Window 2',
+        })
+      ).toBeInTheDocument();
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Close window: Window 2' }),
+        { detail }
+      );
+      await act(() => new Promise((resolve) => setTimeout(resolve, 150)));
+
+      expect(fake.removedWindowIds).toEqual(closed);
+    }
+  );
 
   // A window with no tab left to list is no longer listed, even when Chrome
   // keeps it open for a Tab Keeper page (KAN-300's rule): its row goes with
@@ -528,23 +581,29 @@ describe('closing from the Open now pane (KAN-280 O7a)', () => {
     expect(document.activeElement).toBe(switchRow('B'));
   });
 
-  // jsdom cannot cascade the reveal itself: its selector engine does not
-  // match `.strip:focus-within > *`, so a computed opacity reads 0 either
-  // way. So: focus is in the strip, and the strip's own rule reveals.
-  function expectRevealedByFocus(control: HTMLElement): void {
+  // KAN-280 O7d: the strip reveals, mask and all, on keyboard focus only,
+  // so a mouse close does not show the next row's ×. jsdom has no
+  // :focus-visible heuristic (it matches no element, however focused), so
+  // the reveal itself is tested in the real browser
+  // (e2e/open-now-close.spec.ts, test 17). Here: focus is in the strip, and
+  // the strip's own rules reveal on :has(:focus-visible), never on any focus
+  // at all.
+  function expectRevealedByKeyboardFocus(control: HTMLElement): void {
     expect(document.activeElement).toBe(control);
     const strip = control.closest('[data-row-actions]');
     if (!(strip instanceof HTMLElement)) throw new Error('no action strip');
-    expect(strip.matches(':focus-within')).toBe(true);
     const rules = rulesFor(strip);
     expect(rules).toContainEqual(
-      expect.stringMatching(/:focus-within>\* \{ opacity: 1; \}/)
+      expect.stringMatching(/:has\(:focus-visible\)>\* \{ opacity: 1; \}/)
     );
     expect(rules).toContainEqual(
       expect.stringMatching(
-        new RegExp(`:focus-within \\{ background-color: ${HOVER_RGB}; \\}`)
+        new RegExp(
+          `:has\\(:focus-visible\\) \\{ background-color: ${HOVER_RGB}; \\}`
+        )
       )
     );
+    expect(rules.join('\n')).not.toMatch(/:focus-within/);
   }
 
   test('the close control is revealed by keyboard focus', async () => {
@@ -554,7 +613,7 @@ describe('closing from the Open now pane (KAN-280 O7a)', () => {
 
     await user.tab();
 
-    expectRevealedByFocus(closeTabButton('B'));
+    expectRevealedByKeyboardFocus(closeTabButton('B'));
   });
 
   // Save window (O13) comes first in the strip, so Close window is the
@@ -567,7 +626,7 @@ describe('closing from the Open now pane (KAN-280 O7a)', () => {
     await user.tab();
     await user.tab();
 
-    expectRevealedByFocus(
+    expectRevealedByKeyboardFocus(
       screen.getByRole('button', { name: 'Close window: Window 2' })
     );
   });
