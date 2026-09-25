@@ -22,7 +22,7 @@
 // tabs.onCreated/onRemoved/onUpdated/onMoved/onAttached/onDetached,
 // windows.onCreated/onRemoved, tabGroups.onCreated/onUpdated/onRemoved/
 // onMoved -- plus ChromeFakeHandle.browser, which models the
-// BROWSER's own hand (open/close/update/move/activate a tab, close a
+// BROWSER's own hand (open/close/update/mute/move/activate a tab, close a
 // window, set a group) by mutating state and firing the matching event, and
 // liveEventListenerCount()/windowsGetAllCalls for proving an unmount detached
 // everything and a refresh coalesced its reads.
@@ -139,7 +139,7 @@ export type ChromeFakeHandle = {
       patch: Partial<
         Pick<
           chrome.tabs.Tab,
-          'title' | 'url' | 'favIconUrl' | 'audible' | 'status'
+          'title' | 'url' | 'favIconUrl' | 'audible' | 'status' | 'mutedInfo'
         >
       >
     ): void;
@@ -266,6 +266,11 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
       // would let a capture that reads tab.groupId silently treat every tab as
       // grouped-into-nothing rather than ungrouped.
       groupId: -1,
+      // No real tab is ever missing these (KAN-280 O10). A seed's own values
+      // still win via the `...tab` spread below.
+      pinned: false,
+      audible: false,
+      mutedInfo: { muted: false },
       ...tab,
       windowId,
     } as chrome.tabs.Tab;
@@ -801,7 +806,23 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
         cb?: (tab?: chrome.tabs.Tab) => void
       ) => {
         const target = tabs.find((tab) => tab.id === tabId);
-        if (target) Object.assign(target, props);
+        if (!target)
+          return fail<chrome.tabs.Tab>(`No tab with id: ${tabId}.`, cb);
+        const { muted, ...rest } = props;
+        Object.assign(target, rest);
+        if (
+          muted !== undefined &&
+          muted !== (target.mutedInfo?.muted ?? false)
+        ) {
+          // Measured (KAN-280 O10): Chrome reports an extension's mute this way,
+          // and a mute that changes nothing fires nothing.
+          target.mutedInfo = {
+            muted,
+            reason: 'extension',
+            extensionId: 'faketestid',
+          };
+          tabsOnUpdated.fire(tabId, { mutedInfo: target.mutedInfo }, target);
+        }
         return settle(target, cb);
       },
       get: (tabId: number, cb?: (tab: chrome.tabs.Tab) => void) =>
@@ -1006,6 +1027,9 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
     },
 
     runtime: {
+      // The id an extension mute stamps onto mutedInfo.extensionId
+      // (KAN-280 O10), and what getURL already builds its path on.
+      id: 'faketestid',
       sendMessage: (message: unknown, cb?: (response: unknown) => void) => {
         handle.sentMessages.push(message);
         return settle(undefined, cb);

@@ -441,6 +441,92 @@ describe('tab groups', () => {
   });
 });
 
+// KAN-280 O10. The speaker button needs mutedInfo shaped exactly as real
+// Chrome reports it, so the fake has to model chrome.tabs.update({muted})
+// rather than the stray `muted` field the gap version wrote.
+describe('mute (KAN-280 O10)', () => {
+  test('a seeded tab reports the fields every real tab has', async () => {
+    handle = setupChromeFake({
+      windows: [{ tabs: [{ url: 'https://a.test/' }] }],
+    });
+    const [tab] = await chrome.tabs.query({});
+    expect(tab.pinned).toBe(false);
+    expect(tab.audible).toBe(false);
+    expect(tab.mutedInfo).toEqual({ muted: false });
+  });
+
+  test("a seed's own mute and sound win over the defaults", async () => {
+    handle = setupChromeFake({
+      windows: [
+        {
+          tabs: [
+            {
+              url: 'https://a.test/',
+              audible: true,
+              mutedInfo: { muted: true },
+            },
+          ],
+        },
+      ],
+    });
+    const [tab] = await chrome.tabs.query({});
+    expect(tab.audible).toBe(true);
+    expect(tab.mutedInfo).toEqual({ muted: true });
+  });
+
+  test("update({muted}) sets mutedInfo as Chrome reports it, fires onUpdated once, and adds no 'muted' field", async () => {
+    handle = setupChromeFake({
+      windows: [{ tabs: [{ url: 'https://a.test/' }] }],
+    });
+    const [{ id }] = await chrome.tabs.query({});
+    if (id === undefined) throw new Error('seeded tab has no id');
+    const changes: chrome.tabs.OnUpdatedInfo[] = [];
+    chrome.tabs.onUpdated.addListener((_id, change) => changes.push(change));
+
+    const updated = await chrome.tabs.update(id, { muted: true });
+    await chrome.tabs.update(id, { muted: true }); // a repeat: Chrome fires nothing
+
+    const want = {
+      muted: true,
+      reason: 'extension',
+      extensionId: 'faketestid',
+    };
+    expect(updated?.mutedInfo).toEqual(want);
+    expect(changes).toEqual([{ mutedInfo: want }]);
+    const [tab] = await chrome.tabs.query({});
+    expect(Object.keys(tab)).not.toContain('muted');
+  });
+
+  test('update on an unknown id rejects and changes nothing', async () => {
+    handle = setupChromeFake({
+      windows: [{ tabs: [{ url: 'https://a.test/' }] }],
+    });
+    await expect(chrome.tabs.update(999999, { muted: true })).rejects.toThrow(
+      'No tab with id: 999999.'
+    );
+  });
+
+  // Chrome's own UI can mute a tab too, not just an extension -- Open now
+  // (KAN-280) has to show through that the same way it shows extension mutes.
+  test('browser.updateTab accepts mutedInfo and fires onUpdated with it', async () => {
+    handle = setupChromeFake({
+      windows: [{ tabs: [{ url: 'https://a.test/' }] }],
+    });
+    const [{ id }] = await chrome.tabs.query({});
+    if (id === undefined) throw new Error('seeded tab has no id');
+    const changes: chrome.tabs.OnUpdatedInfo[] = [];
+    chrome.tabs.onUpdated.addListener((_id, change) => changes.push(change));
+
+    handle.browser.updateTab(id, {
+      mutedInfo: { muted: true, reason: 'user' },
+    });
+
+    expect(changes).toEqual([{ mutedInfo: { muted: true, reason: 'user' } }]);
+    const [tab] = await chrome.tabs.query({});
+    expect(tab.mutedInfo).toEqual({ muted: true, reason: 'user' });
+  });
+});
+
 describe('permissions', () => {
   test('contains reports false for a permission that was not granted', async () => {
     handle = setupChromeFake();
