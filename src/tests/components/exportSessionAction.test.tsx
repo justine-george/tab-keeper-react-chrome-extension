@@ -53,9 +53,9 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-// KAN-280 Part B: Export's chrome.tabs.create() now rejects a windowId no
-// window carries, so a window has to be seeded even though nothing here
-// reads it back.
+// Export's chrome.tabs.create() rejects a windowId no window carries, as
+// Chrome does, so a window has to be seeded even though nothing here reads
+// it back.
 const renderHeader = () =>
   renderWithProviders(<HeroContainerRight />, {
     seed: { windows: [{ id: 1 }] },

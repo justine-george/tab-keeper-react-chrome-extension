@@ -32,8 +32,8 @@ const asWritten = (hex: string) => {
 /** A TYPE step as jsdom reports it: rem resolved against the 16px root. */
 const px = (rem: string) => `${parseFloat(rem) * 16}px`;
 
-// KAN-280 Part B: the Privacy policy link's chrome.tabs.create() now rejects
-// a windowId no window carries.
+// The Privacy policy link's chrome.tabs.create() rejects a windowId no
+// window carries, as Chrome does.
 const renderAbout = () =>
   renderWithProviders(<SettingsDetailsContainer />, {
     seed: { windows: [{ id: 1 }] },

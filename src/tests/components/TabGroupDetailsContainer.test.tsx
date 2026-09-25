@@ -74,8 +74,7 @@ describe('TabGroupDetailsContainer', () => {
 
   test('clicking a tab opens it via the chrome fake', async () => {
     const { chrome } = await renderWithProviders(<TabGroupDetailsContainer />, {
-      // KAN-280 Part B: tabs.create now rejects a windowId no window
-      // carries.
+      // tabs.create rejects a windowId no window carries, as Chrome does.
       seed: { windows: [{ id: 1 }], tabs: [{ id: 1, index: 0, active: true }] },
       seedStore: (store) => {
         store.dispatch(saveToTabContainerInternal(buildSession()));

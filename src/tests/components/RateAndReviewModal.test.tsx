@@ -30,8 +30,7 @@ const openModal = (store: { dispatch: (a: unknown) => void }) =>
 
 // handleRateExtension reads `tabs[0].index` from a currentWindow query, so
 // there has to be an active tab or it throws before reaching tabs.create.
-// windows: KAN-280 Part B: tabs.create now rejects a windowId no window
-// carries.
+// windows: tabs.create rejects a windowId no window carries, as Chrome does.
 const ACTIVE_TAB = {
   windows: [{ id: 1 }],
   tabs: [{ active: true, index: 3 }],

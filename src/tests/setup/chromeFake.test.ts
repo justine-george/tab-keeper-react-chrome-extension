@@ -51,10 +51,10 @@ describe('chrome.tabs fake', () => {
   });
 
   test('create records the call and makes the tab queryable', async () => {
-    // KAN-280 Part B: tabs.create now rejects for a windowId no window
-    // carries, and an unseeded fake has no window at all -- a bare `tabs:
-    // [...]` seed relied on DEFAULT_WINDOW_ID being taken on faith, which
-    // real Chrome never does.
+    // tabs.create rejects for a windowId no window carries, as Chrome does,
+    // and an unseeded fake has no window at all -- a bare `tabs: [...]`
+    // seed relied on DEFAULT_WINDOW_ID being taken on faith, which real
+    // Chrome never does.
     handle = setupChromeFake({ windows: [{ id: 1 }] });
 
     await chrome.tabs.create({ url: 'https://example.com/' });
@@ -642,10 +642,10 @@ describe('live browser events (KAN-280)', () => {
     handle.restore();
   });
 
-  // Task 3's "This window follows the tab view" pane re-reads
-  // tabs.getCurrent() on every refresh so the "This window" tag stays on
-  // whichever window the tab view itself is now in. getCurrent must see the
-  // move, not the window the tab view opened in.
+  // The "This window follows the tab view" pane re-reads tabs.getCurrent()
+  // on every refresh so the "This window" tag stays on whichever window the
+  // tab view itself is now in. getCurrent must see the move, not the window
+  // the tab view opened in.
   test('getCurrent follows the tab that moveTabToWindow moved', async () => {
     const handle = setupChromeFake({
       windows: [
@@ -783,7 +783,7 @@ describe('live browser events (KAN-280)', () => {
 // for them -- so the fake has to fire tabs.onRemoved/onCreated,
 // windows.onRemoved/onCreated and tabGroups.onUpdated for its OWN calls,
 // not just for handle.browser.*'s simulated user actions.
-describe('extension calls fire what Chrome fires (KAN-280 Part B)', () => {
+describe('extension calls fire what Chrome fires (KAN-280 O8)', () => {
   test('tabs.remove removes the tab, reindexes, and fires onRemoved', async () => {
     const handle = setupChromeFake({
       windows: [

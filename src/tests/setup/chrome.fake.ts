@@ -2,15 +2,18 @@
 // over a mock on purpose: tests assert on resulting state rather than on the
 // fact that a function was invoked.
 //
-// Covers 27 members production code calls as of 2026-09-24 --
-// tabs.query/create/update/get/getCurrent/onActivated/group/ungroup,
-// windows.getAll/getCurrent/create/remove/update, storage.sync.get/set,
-// runtime.sendMessage/onMessage/getURL/lastError, tabGroups.query/update/
-// TAB_GROUP_ID_NONE, permissions.contains/request/remove/onAdded/onRemoved
-// -- plus storage.sync.remove/clear, permissions.getAll and tabs.remove/
-// windows.get/tabGroups.get (added ahead of the production callers Part B's
-// later tasks add), none of which have a production call site today but are
-// implemented for API fidelity and exercised by this fake's own tests.
+// Covers 30 members production code calls as of 2026-09-24 --
+// tabs.query/create/update/get/getCurrent/onActivated/group/ungroup/remove,
+// windows.getAll/getCurrent/create/remove/update/get, storage.sync.get/set,
+// runtime.sendMessage/onMessage/getURL/lastError, tabGroups.query/update/get/
+// TAB_GROUP_ID_NONE, permissions.contains/request/remove/onAdded/onRemoved --
+// tabs.remove, windows.get and tabGroups.get are reopen.ts's calls (KAN-280
+// O8): tabs.remove closes a tab and drops the seed tab a recreated window
+// opens with; windows.get checks whether a tab's old window is still open
+// before reopening into it; tabGroups.get checks whether an old group still
+// exists before rejoining it. Plus storage.sync.remove/clear and
+// permissions.getAll, implemented for API fidelity and exercised by this
+// fake's own tests, with no production call site today.
 // Widen this when the app calls something new.
 //
 // KAN-280 (Open now pane) adds live event registries with no production
@@ -109,7 +112,7 @@ export type ChromeFakeHandle = {
     tabId: number,
     patch: Partial<Pick<chrome.tabs.Tab, 'title' | 'lastAccessed'>>
   ): void;
-  // Every chrome.windows.getAll() call, in order it happened. Task 3's
+  // Every chrome.windows.getAll() call, in order it happened. The
   // refresh-coalescing test proves a burst of events caused ONE re-read (or
   // two, at the edges of the window) rather than one per event -- a count a
   // fired listener can't show on its own.
@@ -896,7 +899,7 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
       // back one tab short.
       //
       // No `url` at all opens a single chrome://newtab/ tab, as Chrome does
-      // (KAN-280 Part B). Only the FIRST tab is made active, matching a real
+      // (KAN-280 O8). Only the FIRST tab is made active, matching a real
       // multi-url window.create().
       create: (
         data: chrome.windows.CreateData,
@@ -941,7 +944,7 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
       // Rejects on an unknown id -- but only after removedWindowIds sees the
       // attempt, since existing tests read that list regardless of outcome.
       // Each closing tab fires tabs.onRemoved with isWindowClosing: true
-      // BEFORE windows.onRemoved, matching real Chrome (KAN-280 Part B).
+      // BEFORE windows.onRemoved, matching real Chrome (KAN-280 O8).
       remove: (windowId: number, cb?: () => void) => {
         handle.removedWindowIds.push(windowId);
         const index = windows.findIndex((win) => win.id === windowId);

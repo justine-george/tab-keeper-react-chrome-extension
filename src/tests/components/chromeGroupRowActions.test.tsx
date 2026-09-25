@@ -40,7 +40,7 @@ const GROUPS: chromeTabGroupData[] = [
   { groupId: 'grp', title: 'Research', color: 'blue' },
 ];
 
-// KAN-280 Part B: tabs.create now rejects a windowId no window carries, so
+// tabs.create rejects a windowId no window carries, as Chrome does, so
 // every seed that exercises it needs the window declared, not just implied
 // by DEFAULT_WINDOW_ID.
 const DEFAULT_SEED: ChromeSeed = {

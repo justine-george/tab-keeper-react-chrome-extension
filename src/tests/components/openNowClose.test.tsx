@@ -440,7 +440,33 @@ describe('closing from the Open now pane (KAN-280 O7a)', () => {
     );
   });
 
-  // KAN-280 O7b. Two clicks on one × before the re-read: the second
+  // KAN-280 rule 8: the NEXT window's chevron, before the previous one. The
+  // test above only closes the first and the last of the four windows, so a
+  // rule that tried previous before next would pass it too (both windows
+  // have no previous, or no next). Closing the middle one is the only case
+  // that tells the two rules apart.
+  test('closing the middle window of three moves focus to the later window, not the earlier one', async () => {
+    await renderOpenNow({
+      currentTabId: TAB_VIEW_ID,
+      windows: [
+        { id: 1, tabs: [{ id: TAB_VIEW_ID, url: tabViewUrl() }] },
+        { id: 2, tabs: [tab(21, 'D')] },
+        { id: 3, tabs: [tab(31, 'E')] },
+        { id: 4, tabs: [tab(41, 'F')] },
+      ],
+    });
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Close window: Window 2' })
+    );
+    await waitFor(() =>
+      expect(document.querySelector('[data-open-window-id="3"]')).toBeNull()
+    );
+
+    expect(document.activeElement).toBe(chevronOf(4));
+  });
+
+  // KAN-280 rule 4 / O8a. Two clicks on one × before the re-read: the second
   // tabs.remove rejects because the tab is already gone.
   test('pressing Close tab twice gives one toast and no unhandled rejection', async () => {
     const rejections: unknown[] = [];

@@ -11,7 +11,7 @@ import {
 } from './fixtures/seed';
 import { isValidTabMasterContainer } from '../src/utils/functions/local';
 
-// KAN-280 Part B on the real artifact: Open now's close controls, the Reopen
+// KAN-280 on the real artifact: Open now's close controls, the Reopen
 // toast and Save window / Save all. What jsdom cannot show: Chrome's own
 // recreate (bounds, state, pins, groups, focus), the real toast under the
 // pointer, the keyboard after a real close, and the accessibility tree.
@@ -505,7 +505,7 @@ grantedTest.describe('Close and Reopen a window (KAN-280 O8)', () => {
 // What Chrome reported about a tab's group while a Reopen ran: the group a
 // created tab was put in, then each change of it. recordGroupSteps keeps
 // these on the service worker's global, under this name (tests 10 and 14).
-const GROUP_STEPS = 'kan309GroupSteps';
+const GROUP_STEPS = 'reopenGroupSteps';
 
 interface GroupStep {
   tabId: number;
