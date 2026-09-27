@@ -48,8 +48,8 @@ async function withCurrentPlacement(
 // Chrome's recently closed list, newest first, or null when `sessions` is not
 // held. Held means both: chrome.sessions is there (it is undefined before the
 // first grant) and the grant is (after a revoke the member stays, but every
-// call on it throws at once). Read straight after the remove: the entry is
-// already listed by then (Task 1, Q1).
+// call on it throws at once). A close reads it just before its remove and
+// again straight after: the entry is already listed by then (Task 1, Q1).
 async function recentlyClosed(): Promise<chrome.sessions.Session[] | null> {
   try {
     if (!chrome.sessions || !(await hasSessionsPermission())) return null;
@@ -60,33 +60,63 @@ async function recentlyClosed(): Promise<chrome.sessions.Session[] | null> {
   }
 }
 
-// When unsure, null: a missing id only costs the history (Reopen recreates),
-// but a wrong one would restore the wrong tab or window.
+// The ids of the entries Chrome lists now, read just before a close so the
+// entry that close adds can be told apart from any already there. null when
+// `sessions` is not held or the read failed.
+async function listedEntryIds(): Promise<ReadonlySet<string> | null> {
+  const entries = await recentlyClosed();
+  if (entries === null) return null;
+  return new Set(
+    entries.flatMap((entry) => {
+      const id = entry.tab?.sessionId ?? entry.window?.sessionId;
+      return id === undefined ? [] : [id];
+    })
+  );
+}
+
+// The id of the ONE entry the close added that `idIfMatching` accepts, else
+// null. When unsure, null: a missing id only costs the history (Reopen
+// recreates), but a wrong one would restore the wrong tab or window.
 //
 // Never simply the newest entry: two closes issued together list the second
-// first (Task 1, Q1). The kind follows the call, not the tab count -- a
-// tabs.remove always leaves a tab entry -- so only a tab entry can be a tab's.
-async function closedTabEntryId(tab: OpenTab): Promise<string | null> {
-  const entries = await recentlyClosed();
-  const entry = entries?.find((candidate) => candidate.tab?.url === tab.url);
-  return entry?.tab?.sessionId ?? null;
+// first (Task 1, Q1). And never the first match either: ambiguity must be
+// null, never a guess -- two same-address tabs closed together leave two
+// new entries nothing in them tells apart.
+async function addedEntryId(
+  listedBefore: ReadonlySet<string> | null,
+  idIfMatching: (entry: chrome.sessions.Session) => string | undefined
+): Promise<string | null> {
+  if (listedBefore === null) return null;
+  const added = ((await recentlyClosed()) ?? []).flatMap((entry) => {
+    const id = idIfMatching(entry);
+    return id === undefined || listedBefore.has(id) ? [] : [id];
+  });
+  const [only, ...others] = added;
+  return only !== undefined && others.length === 0 ? only : null;
+}
+
+// The kind follows the call, not the tab count -- a tabs.remove always leaves
+// a tab entry -- so only a tab entry can be a tab's.
+function tabEntryIdIfMatching(
+  tab: OpenTab
+): (entry: chrome.sessions.Session) => string | undefined {
+  return (entry) =>
+    entry.tab?.url === tab.url ? entry.tab.sessionId : undefined;
 }
 
 // Only a window entry, holding the snapshot's addresses in the same order.
-async function closedWindowEntryId(
+function windowEntryIdIfMatching(
   openWindow: OpenWindow
-): Promise<string | null> {
+): (entry: chrome.sessions.Session) => string | undefined {
   const urls = openWindow.tabs.map((tab) => tab.url);
-  const entries = await recentlyClosed();
-  const entry = entries?.find((candidate) => {
-    const closedTabs = candidate.window?.tabs;
-    return (
-      closedTabs !== undefined &&
+  return (entry) => {
+    const closedTabs = entry.window?.tabs;
+    return closedTabs !== undefined &&
       closedTabs.length === urls.length &&
       closedTabs.every((closed, index) => closed.url === urls[index])
-    );
-  });
-  return entry?.window?.sessionId ?? null;
+      ? entry.window?.sessionId
+      : undefined;
+  };
 }
 
 // Resolves to the ClosedItem when Chrome closed it, or null when it could not
@@ -97,6 +127,7 @@ export async function closeOpenTab(
   tab: OpenTab
 ): Promise<ClosedItem | null> {
   const placed = await withCurrentPlacement(openWindow);
+  const listedBefore = await listedEntryIds();
   try {
     await chrome.tabs.remove(tab.id);
   } catch {
@@ -107,7 +138,10 @@ export async function closeOpenTab(
     tab,
     group: openWindow.groups.find((group) => group.id === tab.groupId) ?? null,
     window: placed,
-    restorableSessionId: await closedTabEntryId(tab),
+    restorableSessionId: await addedEntryId(
+      listedBefore,
+      tabEntryIdIfMatching(tab)
+    ),
   };
 }
 
@@ -115,6 +149,7 @@ export async function closeOpenWindow(
   openWindow: OpenWindow
 ): Promise<ClosedItem | null> {
   const placed = await withCurrentPlacement(openWindow);
+  const listedBefore = await listedEntryIds();
   try {
     await chrome.windows.remove(openWindow.id);
   } catch {
@@ -123,7 +158,10 @@ export async function closeOpenWindow(
   return {
     kind: 'window',
     window: placed,
-    restorableSessionId: await closedWindowEntryId(openWindow),
+    restorableSessionId: await addedEntryId(
+      listedBefore,
+      windowEntryIdIfMatching(openWindow)
+    ),
   };
 }
 

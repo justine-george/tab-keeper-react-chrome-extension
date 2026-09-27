@@ -1178,6 +1178,73 @@ describe('closeOpenTab / closeOpenWindow record Chrome’s recently closed entry
     expect(itemC?.restorableSessionId).toBe(idC);
   });
 
+  // Nothing in an entry tells two same-address tabs apart, so a close may
+  // record null here -- but never the OTHER tab's id, which would restore
+  // the wrong one.
+  test('two tabs at the SAME address closed together never record each other’s id', async () => {
+    handle = setupChromeFake({
+      grantedPermissions: ['sessions'],
+      windows: [
+        tabKeeperWindow,
+        {
+          id: 2,
+          tabs: [
+            { url: url('a'), active: true },
+            { url: url('x') },
+            { url: url('x') },
+          ],
+        },
+      ],
+    });
+    const w2 = await openWindow(2);
+    const [first, second] = w2.tabs.filter((tab) => tab.url === url('x'));
+    if (!first || !second) throw new Error('no two x tabs');
+
+    const [firstItem, secondItem] = await Promise.all([
+      closeOpenTab(w2, first),
+      closeOpenTab(w2, second),
+    ]);
+
+    // The later close is listed first.
+    const [secondEntry, firstEntry] = await chrome.sessions.getRecentlyClosed();
+    expect(firstEntry.tab?.url).toBe(url('x'));
+    expect(secondEntry.tab?.url).toBe(url('x'));
+    const firstId = firstEntry.tab?.sessionId;
+    const secondId = secondEntry.tab?.sessionId;
+    expect(firstId).toEqual(expect.any(String));
+    expect(secondId).toEqual(expect.any(String));
+    expect(firstId).not.toBe(secondId);
+    expect(firstItem).toMatchObject({ kind: 'tab', tab: first });
+    expect(secondItem).toMatchObject({ kind: 'tab', tab: second });
+    expect([firstId, null]).toContain(firstItem?.restorableSessionId);
+    expect([secondId, null]).toContain(secondItem?.restorableSessionId);
+  });
+
+  test('an earlier close at the same address is not taken: a new close records its own entry', async () => {
+    handle = setupChromeFake({
+      grantedPermissions: ['sessions'],
+      windows: [
+        tabKeeperWindow,
+        { id: 2, tabs: [{ url: url('a'), active: true }, { url: url('x') }] },
+        { id: 3, tabs: [{ url: url('b'), active: true }, { url: url('x') }] },
+      ],
+    });
+    const w2 = await openWindow(2);
+    const w3 = await openWindow(3);
+    const earlier = await closeOpenTab(w3, tabIn(w3, 'x'));
+
+    const item = await closeOpenTab(w2, tabIn(w2, 'x'));
+
+    const [newest, older] = await chrome.sessions.getRecentlyClosed();
+    // The premise: both entries are at that address, and the earlier close
+    // recorded the older one.
+    expect(newest.tab?.url).toBe(url('x'));
+    expect(older.tab?.url).toBe(url('x'));
+    expect(earlier?.restorableSessionId).toBe(older.tab?.sessionId);
+    expect(newest.tab?.sessionId).toEqual(expect.any(String));
+    expect(item?.restorableSessionId).toBe(newest.tab?.sessionId);
+  });
+
   // A tab and a one-tab window at the same address, closed together: the
   // newest entry at that address is the OTHER kind for whichever close
   // started first, so each order proves one side's kind check.
