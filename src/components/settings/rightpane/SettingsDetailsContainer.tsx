@@ -1,4 +1,4 @@
-import { Fragment } from 'react';
+import { Fragment, useId } from 'react';
 
 import { useDispatch, useSelector } from 'react-redux';
 
@@ -111,6 +111,8 @@ const SETTINGS_PAIR_METRICS: SlidingPairMetrics = {
 const SettingsDetailsContainer: React.FC = () => {
   const COLORS = useThemeColors();
   const FONT_FAMILY = useFontFamily();
+  // The tab-history help line's id, which its pair points at (KAN-280).
+  const tabHistoryHelpId = useId();
   const popupShortcut = usePopupShortcut();
   const { i18n } = useTranslation();
   const { t } = useTranslation();
@@ -677,6 +679,7 @@ const SettingsDetailsContainer: React.FC = () => {
               value={hasSessions ? 'on' : 'off'}
               onChange={handleChooseTabHistory}
               metrics={SETTINGS_PAIR_METRICS}
+              describedBy={tabHistoryHelpId}
             />
           </div>
 
@@ -686,6 +689,7 @@ const SettingsDetailsContainer: React.FC = () => {
               reading width, since the tab view's pane is far wider than a
               sentence should run. */}
           <p
+            id={tabHistoryHelpId}
             css={css`
               margin: 8px 0 0;
               max-width: 36rem;

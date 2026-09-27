@@ -97,6 +97,27 @@ describe('the tab-history row sits under Save Tab Groups', () => {
       pair().compareDocumentPosition(help) & Node.DOCUMENT_POSITION_FOLLOWING
     ).toBeTruthy();
   });
+
+  // Fix round 1. A screen reader lands on the pair and hears its name and
+  // On/Off; without this it never hears what the switch does. The description
+  // is on the element carrying role="group" (SlidingPair's track), where ARIA
+  // allows it -- on a role-less wrapper it would be ignored.
+  test('the pair is described by the help line', async () => {
+    await renderSessions(false);
+
+    expect(pair()).toHaveAccessibleDescription(HELP);
+  });
+
+  // Only this row opts in: the pair above it has no help line to point at.
+  test('the Save Tab Groups pair carries no description', async () => {
+    await renderSessions(false);
+
+    const saveTabGroups = screen.getByRole('group', {
+      name: 'Save Tab Groups',
+    });
+    expect(saveTabGroups.hasAttribute('aria-describedby')).toBe(false);
+    expect(saveTabGroups).toHaveAccessibleDescription('');
+  });
 });
 
 describe('the pressed side is what Chrome holds, not a stored setting', () => {
