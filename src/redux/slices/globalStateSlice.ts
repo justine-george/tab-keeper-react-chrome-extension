@@ -136,6 +136,10 @@ export interface Global {
   // the permission change listeners -- never persisted, because the user can
   // revoke it from chrome://extensions while the extension is not running.
   hasTabGroupsPermission: boolean;
+  // Same contract as hasTabGroupsPermission above, for the "sessions"
+  // permission (KAN-280 Part D): mirrors chrome.permissions.contains(),
+  // re-read on mount and updated by the change listener, never persisted.
+  hasSessionsPermission: boolean;
   // Which windows of the selected session are folded shut in the right pane,
   // and which session they belong to (KAN-206). Null when nothing is folded.
   //
@@ -274,6 +278,7 @@ export const initialState: Global = {
   cloudConsentVariant: 'welcome',
   cloudConsentThen: null,
   hasTabGroupsPermission: false,
+  hasSessionsPermission: false,
   collapsedWindows: null,
   syncsInFlight: 0,
   isSyncQueued: false,
@@ -1123,6 +1128,10 @@ export const globalStateSlice = createSlice({
       state.hasTabGroupsPermission = action.payload;
     },
 
+    setHasSessionsPermission: (state, action: PayloadAction<boolean>) => {
+      state.hasSessionsPermission = action.payload;
+    },
+
     // One window's chevron (KAN-206). Folding a window in a session other than
     // the one currently recorded DISCARDS the old set rather than merging into
     // it: the set names a single session, and two sessions' ids in one list is
@@ -1292,6 +1301,7 @@ export const {
   setUserId,
   removeUserId,
   setHasTabGroupsPermission,
+  setHasSessionsPermission,
   toggleWindowCollapse,
   setAllWindowsCollapsed,
   peekSavedSession,

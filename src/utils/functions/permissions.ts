@@ -1,13 +1,24 @@
-// The "tabGroups" permission, and only that permission.
+// The "tabGroups" and "sessions" permissions -- and, within each function
+// pair, only that one permission.
 //
-// It is OPTIONAL rather than required because it is warning-bearing ("View and
-// manage your tab groups"): adding it to manifest `permissions` would leave
-// the extension disabled for every existing install until each user clicked
-// through a prompt, which for a sync tool means sync silently stopping for
-// people who never asked for tab groups.
+// tabGroups is OPTIONAL rather than required because it is warning-bearing
+// ("View and manage your tab groups"): adding it to manifest `permissions`
+// would leave the extension disabled for every existing install until each
+// user clicked through a prompt, which for a sync tool means sync silently
+// stopping for people who never asked for tab groups.
+//
+// sessions is optional for a different reason: it carries NO warning (spec
+// O9), so there is no install-time cost to weigh -- it is simply off by
+// default like every optional permission. Measured 2026-09-27: requesting it
+// shows no Chrome prompt at all, and a real popup survives the request every
+// time (unlike tabGroups.request, below).
 
 const TAB_GROUPS: chrome.permissions.Permissions = {
   permissions: ['tabGroups'],
+};
+
+const SESSIONS: chrome.permissions.Permissions = {
+  permissions: ['sessions'],
 };
 
 // Whether the profile holds the grant right now.
@@ -58,5 +69,46 @@ export function observeTabGroupsPermission(
   });
   chrome.permissions.onRemoved.addListener((permissions) => {
     if (permissions.permissions?.includes('tabGroups')) onChange(false);
+  });
+}
+
+// Whether the profile holds the grant right now. The only source of truth,
+// same as hasTabGroupsPermission -- and for the same reason `typeof
+// chrome.sessions` cannot stand in for it: measured 2026-09-27, after a
+// revoke chrome.sessions stays DEFINED in a live page but every call on it
+// throws, so its mere presence proves nothing about the grant.
+export async function hasSessionsPermission(): Promise<boolean> {
+  if (typeof chrome === 'undefined' || !chrome.permissions) return false;
+  try {
+    return await chrome.permissions.contains(SESSIONS);
+  } catch {
+    return false;
+  }
+}
+
+// Ask for the grant. Returns NOTHING, on purpose, matching
+// requestTabGroupsPermission -- Chrome shows no prompt for `sessions`, but the
+// outcome still arrives through hasSessionsPermission() or
+// observeSessionsPermission() rather than this call, so callers never await a
+// promise that might not settle.
+export function requestSessionsPermission(): void {
+  if (typeof chrome === 'undefined' || !chrome.permissions) return;
+  void Promise.resolve(chrome.permissions.request(SESSIONS)).catch(() => {});
+}
+
+export function removeSessionsPermission(): void {
+  if (typeof chrome === 'undefined' || !chrome.permissions) return;
+  void Promise.resolve(chrome.permissions.remove(SESSIONS)).catch(() => {});
+}
+
+export function observeSessionsPermission(
+  onChange: (granted: boolean) => void
+): void {
+  if (typeof chrome === 'undefined' || !chrome.permissions) return;
+  chrome.permissions.onAdded.addListener((permissions) => {
+    if (permissions.permissions?.includes('sessions')) onChange(true);
+  });
+  chrome.permissions.onRemoved.addListener((permissions) => {
+    if (permissions.permissions?.includes('sessions')) onChange(false);
   });
 }

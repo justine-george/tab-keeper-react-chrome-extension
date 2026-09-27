@@ -23,6 +23,7 @@ import {
   setCloudConfigured,
   openCloudConsentModal,
   setHasTabGroupsPermission,
+  setHasSessionsPermission,
   setLoggedOut,
   setSignedIn,
   setUserId,
@@ -36,6 +37,8 @@ import { hydrateSessionsFromStorage } from './redux/otherPageChanges';
 import {
   hasTabGroupsPermission,
   observeTabGroupsPermission,
+  hasSessionsPermission,
+  observeSessionsPermission,
 } from './utils/functions/permissions';
 import { shouldOfferTabGroups } from './utils/functions/tabGroupsOffer';
 
@@ -252,6 +255,13 @@ function App() {
     );
     observeTabGroupsPermission((granted) =>
       dispatch(setHasTabGroupsPermission(granted))
+    );
+
+    void hasSessionsPermission().then((granted) =>
+      dispatch(setHasSessionsPermission(granted))
+    );
+    observeSessionsPermission((granted) =>
+      dispatch(setHasSessionsPermission(granted))
     );
   }, []);
 
