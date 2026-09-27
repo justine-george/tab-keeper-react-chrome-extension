@@ -54,7 +54,9 @@ const speakerButtonStyle = `
 // A held Enter or Space repeats into whatever has focus, and after a close
 // that is the next row's × (KAN-280 O7b). Its repeats stop here, in the
 // capture phase, before the Icon's own keydown turns each into a click: one
-// press closes one tab. Other keys pass, so a held Tab still moves on.
+// press closes one tab. Other keys pass, so a held Tab still moves on. The
+// speaker is a native <button>, whose repeats would each be the browser's own
+// click, so they stop here too: one press toggles once (KAN-280 O10a, O7b).
 function holdBackRepeatedActivation(event: React.KeyboardEvent) {
   if (!event.repeat || (event.key !== 'Enter' && event.key !== ' ')) return;
   event.preventDefault();

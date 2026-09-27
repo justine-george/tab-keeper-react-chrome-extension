@@ -248,7 +248,7 @@ test.describe('Mute without sound (KAN-280 O10a)', () => {
     { rootPx: 20, slotPx: 38 },
   ];
   for (const { rootPx, slotPx } of roots) {
-    test(`3. at a ${rootPx}px root the speaker meets × on its left, × keeps its column, and a long title stops before the speaker`, async ({
+    test(`3. at a ${rootPx}px root the speaker meets × on its left, × keeps its column, and a long title stops before the speaker, in a row as tall as one without`, async ({
       context,
       extensionId,
       serviceWorker,
@@ -289,15 +289,16 @@ test.describe('Mute without sound (KAN-280 O10a)', () => {
             const row = (id: number) =>
               document.querySelector(`[data-open-tab-id="${id}"]`);
             const loudRow = row(loud);
+            const quietRow = row(quiet);
             const titleText = [
               ...(loudRow?.querySelectorAll('span') ?? []),
             ].find((span) => span.textContent === long);
             return {
               speaker: box(loudRow?.querySelector('[data-speaker] button')),
               close: box(loudRow?.querySelector('[data-close-tab] > *')),
-              quietClose: box(
-                row(quiet)?.querySelector('[data-close-tab] > *')
-              ),
+              quietClose: box(quietRow?.querySelector('[data-close-tab] > *')),
+              loudRowHeight: loudRow?.getBoundingClientRect().height ?? null,
+              quietRowHeight: quietRow?.getBoundingClientRect().height ?? null,
               title: box(titleText),
               ellipsized:
                 titleText !== undefined &&
@@ -308,9 +309,23 @@ test.describe('Mute without sound (KAN-280 O10a)', () => {
         );
 
       await expect(async () => {
-        const { speaker, close, quietClose, title, ellipsized } =
-          await measure();
-        if (!speaker || !close || !quietClose || !title) {
+        const {
+          speaker,
+          close,
+          quietClose,
+          title,
+          ellipsized,
+          loudRowHeight,
+          quietRowHeight,
+        } = await measure();
+        if (
+          !speaker ||
+          !close ||
+          !quietClose ||
+          !title ||
+          loudRowHeight === null ||
+          quietRowHeight === null
+        ) {
           throw new Error('a row is missing a part');
         }
         // PREMISE: the title is long enough to be cut.
@@ -322,6 +337,13 @@ test.describe('Mute without sound (KAN-280 O10a)', () => {
         expect(title.right).toBeLessThanOrEqual(speaker.left);
         expect(Math.abs(speaker.width - slotPx)).toBeLessThanOrEqual(0.5);
         expect(Math.abs(close.width - slotPx)).toBeLessThanOrEqual(0.5);
+        // The speaker is the one new in-flow part of a row, and it must not
+        // make its row taller than a row without one ("Rows look like saved
+        // rows").
+        expect(
+          Math.abs(loudRowHeight - quietRowHeight),
+          `row heights: ${loudRowHeight} with a speaker, ${quietRowHeight} without`
+        ).toBeLessThanOrEqual(0.5);
       }).toPass({ timeout: 5000 });
     });
   }
