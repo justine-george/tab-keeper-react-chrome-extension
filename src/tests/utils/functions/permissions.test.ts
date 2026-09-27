@@ -182,10 +182,15 @@ describe('hasSessionsPermission', () => {
     expect(await hasSessionsPermission()).toBe(false);
   });
 
+  // Reflect.deleteProperty rather than the cast-and-`!`-assert `delete
+  // (globalThis as {...}).chrome!.permissions` idiom the tabGroups test above
+  // uses: `chrome.permissions` is typed as always present, so a plain `delete`
+  // needs a cast to make it optional first. Reflect.deleteProperty's target
+  // parameter is just `object`, which `chrome` already satisfies with no
+  // widening, and it drops the property with no non-null assertion needed.
   test('false, not a throw, when the API is missing entirely', async () => {
     handle = setupChromeFake();
-    delete (globalThis as { chrome?: { permissions?: unknown } }).chrome!
-      .permissions;
+    Reflect.deleteProperty(chrome, 'permissions');
     await expect(hasSessionsPermission()).resolves.toBe(false);
   });
 });

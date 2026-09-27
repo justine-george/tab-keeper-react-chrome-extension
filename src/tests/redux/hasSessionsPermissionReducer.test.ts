@@ -4,10 +4,21 @@ import { describe, expect, test, vi } from 'vitest';
 // graph is evaluated, and common.ts reads window.screen at module load. Keep
 // in step with src/tests/setup/domStub.ts (see tabContainerReducers.test.ts,
 // which needs the same stub for the same reason).
+//
+// Reflect.get/set rather than a cast to `{ window?: unknown }`: globalThis has
+// no `window` property in this (non-DOM) vitest project, so setting one
+// through a plain assignment would need a cast to widen its type first.
+// Reflect's generic signatures accept any target/key/value without that
+// widening, and the `typeof ... === 'object'` check below narrows the existing
+// value instead of asserting it.
 vi.hoisted(() => {
-  const g = globalThis as unknown as { window?: unknown };
-  g.window = g.window ?? globalThis;
-  (g.window as { screen?: unknown }).screen = { height: 1080, width: 1920 };
+  const existingWindow: unknown = Reflect.get(globalThis, 'window');
+  const windowTarget: object =
+    typeof existingWindow === 'object' && existingWindow !== null
+      ? existingWindow
+      : globalThis;
+  Reflect.set(globalThis, 'window', windowTarget);
+  Reflect.set(windowTarget, 'screen', { height: 1080, width: 1920 });
 });
 
 // Not optional, and not about this test's subject. Importing globalStateSlice
