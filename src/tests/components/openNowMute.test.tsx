@@ -464,6 +464,37 @@ describe('a speaker held by the pointer or focus (KAN-280 O10a rule 4A)', () => 
     expect(querySpeaker('Podcast')).toBeNull();
   });
 
+  // A press on an already-focused speaker leaves the pointer-press ref set
+  // (no focus event refires to consume it, per the test above). If nothing
+  // clears it, a later GENUINE keyboard refocus of the same tab reads as the
+  // old press's own and starts no focus hold.
+  test('a genuine keyboard refocus after a press-while-focused still holds the speaker', async () => {
+    await renderOpenNow(soundWindows());
+    const user = userEvent.setup();
+    act(() => switchRow('Podcast').focus());
+    await user.tab();
+    expect(document.activeElement).toBe(speaker('Podcast'));
+
+    // (c)'s setup: a mouse press (and click) on an already-focused speaker.
+    await user.click(speaker('Podcast'));
+    await waitFor(() =>
+      expect(speaker('Podcast')).toHaveAttribute('aria-pressed', 'false')
+    );
+
+    // Tab away and back by keyboard alone, while the pointer hold (still up
+    // from the press) keeps the speaker on screen to tab through.
+    await user.tab();
+    expect(document.activeElement).toBe(closeTabButton('Podcast'));
+    await user.tab({ shift: true });
+    expect(document.activeElement).toBe(speaker('Podcast'));
+
+    // Only the fresh keyboard focus can be holding it now.
+    await user.unhover(speaker('Podcast'));
+    expect(querySpeaker('Podcast')).not.toBeNull();
+    expect(speaker('Podcast')).toHaveAttribute('aria-pressed', 'false');
+    expect(document.activeElement).toBe(speaker('Podcast'));
+  });
+
   // CONTROL: proves the hold above, rather than a stale read, is what keeps
   // the speaker up. Must stay green throughout.
   test('CONTROL: without the pointer or focus, a speaker goes as soon as its reason does', async () => {

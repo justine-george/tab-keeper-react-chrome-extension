@@ -374,9 +374,18 @@ export default function OpenNowWindow({
               }
               setFocusSpeakerTabId(tab.id);
             }}
-            onBlur={() =>
-              setFocusSpeakerTabId((id) => (id === tab.id ? null : id))
-            }
+            onBlur={() => {
+              setFocusSpeakerTabId((id) => (id === tab.id ? null : id));
+              // A press on an already-focused speaker never re-fires focus,
+              // so onFocus above never gets a turn to consume the ref
+              // (KAN-280 O10a rule 4A). Once focus actually leaves, that
+              // press is over regardless of how it ended (a click, or a
+              // drag released elsewhere) -- clear it here so a later,
+              // genuine refocus of this tab is never mistaken for it.
+              if (pointerPressTabIdRef.current === tab.id) {
+                pointerPressTabIdRef.current = null;
+              }
+            }}
           >
             <Button
               iconType="volume_up"
