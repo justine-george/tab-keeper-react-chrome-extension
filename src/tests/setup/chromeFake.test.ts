@@ -2538,3 +2538,77 @@ describe('windows.create reports a state', () => {
     expect((await chrome.windows.get(created?.id ?? -1)).state).toBe('normal');
   });
 });
+
+describe('focusing a minimized window restores it (KAN-280 Part D)', () => {
+  // Modelled, not measured: a window that takes the focus is shown, so a
+  // minimized one comes back normal. Reopen with history re-minimizes a
+  // window the restore focused; without this the fake could not show why.
+  const seed = () =>
+    setupChromeFake({
+      grantedPermissions: ['sessions'],
+      windows: [
+        { id: 1, focused: true, tabs: [{ id: 11, url: 'https://a.test/' }] },
+        {
+          id: 2,
+          state: 'minimized',
+          tabs: [
+            { id: 21, url: 'https://c.test/', active: true },
+            { id: 22, url: 'https://d.test/' },
+          ],
+        },
+      ],
+    });
+
+  test('windows.update({focused: true}) on a minimized window makes it normal', async () => {
+    handle = seed();
+
+    await chrome.windows.update(2, { focused: true });
+
+    expect((await chrome.windows.get(2)).state).toBe('normal');
+  });
+
+  test('a restore into a minimized window makes it normal', async () => {
+    handle = seed();
+    await chrome.tabs.remove(22);
+    const [entry] = await chrome.sessions.getRecentlyClosed();
+
+    await chrome.sessions.restore(entry.tab?.sessionId ?? 'missing');
+
+    expect((await chrome.windows.get(2)).state).toBe('normal');
+  });
+
+  test('CONTROL: focusing a maximized window leaves it maximized', async () => {
+    handle = setupChromeFake({
+      windows: [
+        { id: 1, focused: true, tabs: [{ id: 11, url: 'https://a.test/' }] },
+        {
+          id: 2,
+          state: 'maximized',
+          tabs: [{ id: 21, url: 'https://c.test/' }],
+        },
+      ],
+    });
+
+    await chrome.windows.update(2, { focused: true });
+
+    expect((await chrome.windows.get(2)).state).toBe('maximized');
+  });
+});
+
+describe('handle.groupState reads a group without the tabGroups API', () => {
+  // Without the tabGroups grant the extension cannot see groups, but the
+  // browser still has them; tests of that case read them here.
+  test('reads a group whose API is absent, and undefined for an unknown id', () => {
+    handle = setupChromeFake({
+      tabGroupsApiAbsent: true,
+      windows: [
+        { id: 1, tabs: [{ id: 11, url: 'https://a.test/', groupId: 5 }] },
+      ],
+      tabGroups: [{ id: 5, windowId: 1, title: 'G', collapsed: true }],
+    });
+
+    expect(chrome.tabGroups).toBeUndefined();
+    expect(handle.groupState(5)).toMatchObject({ title: 'G', collapsed: true });
+    expect(handle.groupState(6)).toBeUndefined();
+  });
+});

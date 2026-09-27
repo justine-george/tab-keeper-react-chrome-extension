@@ -183,6 +183,11 @@ export type ChromeFakeHandle = {
   // evidence, and nothing is added to chrome.tabs.Tab for it. Throws on an id
   // no open tab carries, so a typo'd id fails loudly.
   restoredFromSession(tabId: number): boolean;
+  // A group as the browser holds it, readable even while the tabGroups
+  // permission is ungranted and chrome.tabGroups is absent -- the extension
+  // cannot see groups then, but the user's groups still exist. A copy;
+  // undefined for an id no group carries.
+  groupState(groupId: number): chrome.tabGroups.TabGroup | undefined;
   restore(): void;
 };
 
@@ -538,8 +543,14 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
   // so does windows.update({focused: true}) -- Reopen's undo refocuses the
   // window that had it before (KAN-280 Part D).
   let lastFocusedWindowId = windows.find((win) => win.focused)?.id;
+  // A window that takes the focus is shown, so a minimized one comes back
+  // normal. Modelled, not measured (Reopen with history re-minimizes a
+  // window its restore focused, KAN-280 Part D).
   const focusWindow = (windowId: number): void => {
-    for (const win of windows) win.focused = win.id === windowId;
+    for (const win of windows) {
+      win.focused = win.id === windowId;
+      if (win.focused && win.state === 'minimized') win.state = 'normal';
+    }
     lastFocusedWindowId = windowId;
   };
 
@@ -969,6 +980,10 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
         throw new Error(`restoredFromSession: no tab with id ${tabId}`);
       }
       return restoredTabs.has(target);
+    },
+    groupState(groupId) {
+      const group = tabGroups.find((g) => g.id === groupId);
+      return group && { ...group };
     },
     restore() {
       delete (globalThis as { chrome?: unknown }).chrome;
