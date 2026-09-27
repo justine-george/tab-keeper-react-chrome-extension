@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 import { css } from '@emotion/react';
 import { useTranslation } from 'react-i18next';
@@ -115,6 +115,34 @@ export default function OpenNowWindow({
   const [focusSpeakerTabId, setFocusSpeakerTabId] = useState<number | null>(
     null
   );
+  // A row can leave this window (a move, KAN-127) with no mouseleave or blur
+  // on its speaker to release a hold -- jsdom fires neither for a removed
+  // element, and a real browser fires blur but not mouseleave. Left stale,
+  // the id would light up a phantom speaker if the same tab id returns here.
+  // A hold only ever means "on a row of THIS window", so it cannot outlive
+  // that row. Corrected during render, not in an effect
+  // (react-hooks/set-state-in-effect, KAN-51): each check only fires the
+  // setState it guards, and only on the render where the held tab has
+  // actually gone, so it settles in the same extra pass React already gives
+  // a render-time state correction.
+  if (
+    pointerSpeakerTabId !== null &&
+    !openWindow.tabs.some((tab) => tab.id === pointerSpeakerTabId)
+  ) {
+    setPointerSpeakerTabId(null);
+  }
+  if (
+    focusSpeakerTabId !== null &&
+    !openWindow.tabs.some((tab) => tab.id === focusSpeakerTabId)
+  ) {
+    setFocusSpeakerTabId(null);
+  }
+  // A mousedown on the speaker precedes both jsdom's userEvent and real
+  // Chromium's own focus (measured order: pointerdown, mousedown, focus), so
+  // it marks the focus that follows as pointer-caused. :focus-visible would
+  // say the same thing (KAN-280 O7d's precedent), but jsdom 30.0.1 never
+  // matches it even once focused, so this tracks the press directly instead.
+  const pointerPressTabIdRef = useRef<number | null>(null);
 
   // Copied from WindowEntryContainer's own containerStyle, parentStyle,
   // parentLeftStyle, childrenContainerStyle, childrenStyle, childLeftStyle and
@@ -329,7 +357,23 @@ export default function OpenNowWindow({
             onMouseLeave={() =>
               setPointerSpeakerTabId((id) => (id === tab.id ? null : id))
             }
-            onFocus={() => setFocusSpeakerTabId(tab.id)}
+            // A press hands the hold to the pointer outright: it marks the
+            // focus that follows as the press's own (consumed below, so it
+            // never starts a focus hold), and drops any focus hold this tab
+            // already had, since a keyboard-focused speaker can still be
+            // clicked.
+            onMouseDown={() => {
+              pointerPressTabIdRef.current = tab.id;
+              setPointerSpeakerTabId(tab.id);
+              setFocusSpeakerTabId((id) => (id === tab.id ? null : id));
+            }}
+            onFocus={() => {
+              if (pointerPressTabIdRef.current === tab.id) {
+                pointerPressTabIdRef.current = null;
+                return;
+              }
+              setFocusSpeakerTabId(tab.id);
+            }}
             onBlur={() =>
               setFocusSpeakerTabId((id) => (id === tab.id ? null : id))
             }

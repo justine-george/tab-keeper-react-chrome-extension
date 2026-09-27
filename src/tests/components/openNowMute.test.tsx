@@ -377,16 +377,17 @@ describe('the Open now speaker (KAN-280 O10a)', () => {
 
 describe('a speaker held by the pointer or focus (KAN-280 O10a rule 4A)', () => {
   // Review Focus 1: the reason goes away as Chrome answers the click. The
-  // speaker must not flash out and back while the pointer is still on it.
-  test('unmuting a silent tab under the pointer keeps the speaker up until it leaves', async () => {
+  // speaker must not flash out and back while the pointer is still on it --
+  // even though a real mouse click also focuses the button (measured: true
+  // in both jsdom's userEvent and real Chromium). A press hands the hold to
+  // the pointer, so unhovering afterwards must still take the speaker away.
+  test('unmuting a silent tab with a mouse click keeps the speaker up only while the pointer stays', async () => {
     await renderOpenNow(soundWindows());
     const user = userEvent.setup();
 
-    await user.hover(speaker('Podcast'));
-    // fireEvent, not userEvent.click: a real click also focuses the button,
-    // which would hold the speaker up on its own and hide what the pointer
-    // alone is doing here.
-    fireEvent.click(speaker('Podcast'), { detail: 1 });
+    await user.click(speaker('Podcast'));
+    // PREMISE: the click also focused the button.
+    expect(document.activeElement).toBe(speaker('Podcast'));
     await waitFor(() =>
       expect(speaker('Podcast')).toHaveAttribute('aria-pressed', 'false')
     );
@@ -398,6 +399,8 @@ describe('a speaker held by the pointer or focus (KAN-280 O10a rule 4A)', () => 
       'false'
     );
 
+    // Still focused, yet unhovering takes it away: the press's focus never
+    // started a focus hold of its own.
     await user.unhover(speaker('Podcast'));
     expect(querySpeaker('Podcast')).toBeNull();
   });
@@ -417,6 +420,9 @@ describe('a speaker held by the pointer or focus (KAN-280 O10a rule 4A)', () => 
     expect(querySpeaker('Radio')).toBeNull();
   });
 
+  // KEYBOARD focus, not a click: switchRow.focus() and user.tab() move focus
+  // with no mouse event at all, so this is the one hold a press never
+  // touches.
   test('focus holds a speaker up the same way, and moving on releases it', async () => {
     await renderOpenNow(soundWindows());
     const user = userEvent.setup();
@@ -433,6 +439,28 @@ describe('a speaker held by the pointer or focus (KAN-280 O10a rule 4A)', () => 
 
     await user.tab();
     expect(document.activeElement).toBe(closeTabButton('Podcast'));
+    expect(querySpeaker('Podcast')).toBeNull();
+  });
+
+  // A mouse press on an already keyboard-focused speaker: the element does
+  // not re-fire focus (it already has it), so only the press's own hand-off
+  // -- not the onFocus guard above -- can release the focus half of the
+  // hold.
+  test('a mouse press on an already-focused speaker hands its hold to the pointer', async () => {
+    await renderOpenNow(soundWindows());
+    const user = userEvent.setup();
+    act(() => switchRow('Podcast').focus());
+    await user.tab();
+    expect(document.activeElement).toBe(speaker('Podcast'));
+
+    await user.click(speaker('Podcast'));
+    await waitFor(() =>
+      expect(speaker('Podcast')).toHaveAttribute('aria-pressed', 'false')
+    );
+    await pastTheReRead();
+    expect(speaker('Podcast')).toHaveAttribute('aria-pressed', 'false');
+
+    await user.unhover(speaker('Podcast'));
     expect(querySpeaker('Podcast')).toBeNull();
   });
 
@@ -483,5 +511,51 @@ describe('a speaker held by the pointer or focus (KAN-280 O10a rule 4A)', () => 
     await user.hover(rowOf(DOCS));
 
     expect(querySpeaker('Docs')).toBeNull();
+  });
+
+  // A moved-away tab fires no mouseleave (browsers give none for a removed
+  // element), so a stale pointer hold would light up a phantom speaker if
+  // the same id (KAN-127) comes back to this window. A hold only ever means
+  // "on a row of this window".
+  test('a pointer hold ends when its tab leaves this window, even if the same id returns', async () => {
+    const { chrome: fake } = await renderOpenNow(soundWindows());
+
+    fireEvent.mouseEnter(speaker('Radio'));
+    act(() => fake.browser.updateTab(RADIO, { audible: false }));
+    await pastTheReRead();
+    // PREMISE: Radio's speaker is up only because the pointer holds it.
+    expect(speaker('Radio')).toHaveAttribute('aria-pressed', 'false');
+
+    act(() => fake.browser.moveTabToWindow(RADIO, 1));
+    await pastTheReRead();
+    act(() => fake.browser.moveTabToWindow(RADIO, 2));
+    await pastTheReRead();
+
+    expect(querySpeaker('Radio')).toBeNull();
+  });
+
+  // The same staleness for a focus hold. Real browsers fire blur when a
+  // focused element is removed, which would clear this on its own -- but
+  // jsdom 30.0.1 fires no blur for a node removed out from under focus
+  // (measured), so the same window-membership rule has to hold the line
+  // here too.
+  test('a focus hold ends when its tab leaves this window, even if the same id returns', async () => {
+    const { chrome: fake } = await renderOpenNow(soundWindows());
+    const user = userEvent.setup();
+    act(() => switchRow('Radio').focus());
+    await user.tab();
+    expect(document.activeElement).toBe(speaker('Radio'));
+
+    act(() => fake.browser.updateTab(RADIO, { audible: false }));
+    await pastTheReRead();
+    // PREMISE: Radio's speaker is up only because focus holds it.
+    expect(speaker('Radio')).toHaveAttribute('aria-pressed', 'false');
+
+    act(() => fake.browser.moveTabToWindow(RADIO, 1));
+    await pastTheReRead();
+    act(() => fake.browser.moveTabToWindow(RADIO, 2));
+    await pastTheReRead();
+
+    expect(querySpeaker('Radio')).toBeNull();
   });
 });
