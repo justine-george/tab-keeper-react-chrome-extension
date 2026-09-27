@@ -6,7 +6,8 @@ import type {
   OpenWindowBounds,
 } from './openNow';
 import { hasSessionsPermission } from './permissions';
-import { sanitizeTabGroupColor } from './tabGroups';
+import { isReopened, REOPEN_WITH_HISTORY_MESSAGE } from './reopenRequest';
+import type { ReopenWithHistoryRequest } from './reopenRequest';
 
 // Close a live tab or window from the Open now pane, and put it back exactly
 // with Reopen (KAN-280 O8). DOM-free -- no `window`, no `document`, and never
@@ -238,15 +239,6 @@ export async function recreateClosed(
     console.warn('Could not reopen: ', error);
     return null;
   }
-}
-
-// What the page asks the service worker for (KAN-280 Part D). The item
-// arrives as a structured clone, checked by isReopenWithHistoryRequest.
-export const REOPEN_WITH_HISTORY_MESSAGE = 'reopenWithHistory';
-
-export interface ReopenWithHistoryRequest {
-  type: typeof REOPEN_WITH_HISTORY_MESSAGE;
-  item: ClosedItem;
 }
 
 // Runs in the service worker. Brings the item back through Chrome's recently
@@ -525,13 +517,6 @@ async function placeWindow(
   );
 }
 
-function isReopened(value: unknown): value is Reopened {
-  if (!isRecord(value)) return false;
-  if (value.kind === 'tab') return typeof value.tabId === 'number';
-  if (value.kind === 'window') return typeof value.windowId === 'number';
-  return false;
-}
-
 type WindowSnapshot = Pick<
   OpenWindow,
   'bounds' | 'state' | 'incognito' | 'tabs' | 'groups'
@@ -771,99 +756,4 @@ async function regroup(
   } catch (error) {
     console.warn('Could not regroup a reopened tab: ', error);
   }
-}
-
-// The request guard. The item crosses from the page as a structured clone, so
-// every field reopening reads is checked here, in the worker, before it is
-// trusted.
-export function isReopenWithHistoryRequest(
-  message: unknown
-): message is ReopenWithHistoryRequest {
-  return (
-    isRecord(message) &&
-    message.type === REOPEN_WITH_HISTORY_MESSAGE &&
-    isClosedItem(message.item)
-  );
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
-
-function isClosedItem(value: unknown): value is ClosedItem {
-  if (!isRecord(value)) return false;
-  if (
-    typeof value.restorableSessionId !== 'string' &&
-    value.restorableSessionId !== null
-  ) {
-    return false;
-  }
-  if (!isOpenWindow(value.window)) return false;
-  if (value.kind === 'window') return true;
-  return (
-    value.kind === 'tab' &&
-    isOpenTab(value.tab) &&
-    (value.group === null || isOpenGroup(value.group))
-  );
-}
-
-const WINDOW_STATES: readonly unknown[] = [
-  'normal',
-  'minimized',
-  'maximized',
-  'fullscreen',
-  'locked-fullscreen',
-];
-
-function isOpenWindow(value: unknown): value is OpenWindow {
-  return (
-    isRecord(value) &&
-    typeof value.id === 'number' &&
-    typeof value.isThisWindow === 'boolean' &&
-    Array.isArray(value.tabs) &&
-    value.tabs.every(isOpenTab) &&
-    Array.isArray(value.groups) &&
-    value.groups.every(isOpenGroup) &&
-    (value.bounds === null || isBounds(value.bounds)) &&
-    WINDOW_STATES.includes(value.state) &&
-    typeof value.incognito === 'boolean'
-  );
-}
-
-function isBounds(value: unknown): value is OpenWindowBounds {
-  return (
-    isRecord(value) &&
-    typeof value.left === 'number' &&
-    typeof value.top === 'number' &&
-    typeof value.width === 'number' &&
-    typeof value.height === 'number'
-  );
-}
-
-function isOpenTab(value: unknown): value is OpenTab {
-  return (
-    isRecord(value) &&
-    typeof value.id === 'number' &&
-    typeof value.windowId === 'number' &&
-    typeof value.title === 'string' &&
-    typeof value.url === 'string' &&
-    typeof value.favIconUrl === 'string' &&
-    typeof value.active === 'boolean' &&
-    typeof value.pinned === 'boolean' &&
-    typeof value.audible === 'boolean' &&
-    typeof value.muted === 'boolean' &&
-    (value.groupId === null || typeof value.groupId === 'number') &&
-    typeof value.index === 'number'
-  );
-}
-
-function isOpenGroup(value: unknown): value is OpenGroup {
-  return (
-    isRecord(value) &&
-    typeof value.id === 'number' &&
-    typeof value.title === 'string' &&
-    typeof value.color === 'string' &&
-    sanitizeTabGroupColor(value.color) === value.color &&
-    typeof value.collapsed === 'boolean'
-  );
 }

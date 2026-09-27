@@ -4,10 +4,8 @@ import {
   openOrFocusTabView,
   TabApi,
 } from './utils/functions/popOut';
-import {
-  isReopenWithHistoryRequest,
-  reopenWithHistory,
-} from './utils/functions/reopen';
+import { reopenWithHistory } from './utils/functions/reopen';
+import { isReopenWithHistoryRequest } from './utils/functions/reopenRequest';
 import {
   createWindowWithRetries,
   isRestoreSessionRequest,

@@ -5,12 +5,11 @@ import type { OpenTab, OpenWindow } from '../../../utils/functions/openNow';
 import {
   closeOpenTab,
   closeOpenWindow,
-  isReopenWithHistoryRequest,
   recreateClosed,
-  REOPEN_WITH_HISTORY_MESSAGE,
   reopenClosed,
   reopenWithHistory,
 } from '../../../utils/functions/reopen';
+import { REOPEN_WITH_HISTORY_MESSAGE } from '../../../utils/functions/reopenRequest';
 import type { ClosedItem, Reopened } from '../../../utils/functions/reopen';
 import { setupChromeFake } from '../../setup/chrome.fake';
 import type { ChromeFakeHandle, ChromeSeed } from '../../setup/chrome.fake';
@@ -687,72 +686,6 @@ describe('reopenWithHistory falls back to recreate (KAN-280 Part D)', () => {
     expect(handle.restoredFromSession(reopened.tabId)).toBe(true);
     expect(handle.createdTabs).toEqual([]);
     expect(warn).toHaveBeenCalledTimes(1);
-  });
-});
-
-describe('the request the page sends the worker (KAN-280 Part D)', () => {
-  const seed: ChromeSeed = {
-    grantedPermissions: GRANTED,
-    windows: [
-      tabViewWindow,
-      {
-        id: 2,
-        left: 10,
-        top: 20,
-        width: 800,
-        height: 600,
-        tabs: [{ url: url('a'), active: true, groupId: 50 }, { url: url('b') }],
-      },
-    ],
-    tabGroups: [{ id: 50, windowId: 2, title: 'Kyoto', color: 'blue' }],
-  };
-
-  // What arrives in the worker is a structured clone of what was sent.
-  const asReceived = (value: unknown): unknown => structuredClone(value);
-
-  test('accepts a real tab item and a real window item as they arrive', async () => {
-    handle = setupChromeFake(seed);
-    const tab = await closeTab(2, 'b');
-    const win = await closeWindow(2);
-
-    for (const item of [tab, win]) {
-      expect(
-        isReopenWithHistoryRequest(
-          asReceived({ type: REOPEN_WITH_HISTORY_MESSAGE, item })
-        )
-      ).toBe(true);
-    }
-  });
-
-  test('rejects anything malformed', async () => {
-    handle = setupChromeFake(seed);
-    const item = await closeTab(2, 'b');
-    if (item?.kind !== 'tab') throw new Error('close failed');
-    const type = REOPEN_WITH_HISTORY_MESSAGE;
-
-    for (const message of [
-      null,
-      undefined,
-      'reopenWithHistory',
-      { type },
-      { type: 'restoreSession', item },
-      { type, item: null },
-      { type, item: { ...item, kind: 'group' } },
-      { type, item: { ...item, restorableSessionId: 7 } },
-      { type, item: { ...item, tab: undefined } },
-      { type, item: { ...item, tab: { ...item.tab, index: '2' } } },
-      { type, item: { ...item, tab: { ...item.tab, url: 1 } } },
-      { type, item: { ...item, group: 'none' } },
-      { type, item: { ...item, window: { ...item.window, tabs: 'x' } } },
-      { type, item: { ...item, window: { ...item.window, groups: {} } } },
-      { type, item: { ...item, window: { ...item.window, id: '2' } } },
-      {
-        type,
-        item: { ...item, window: { ...item.window, tabs: [{ url: 'x' }] } },
-      },
-    ]) {
-      expect(isReopenWithHistoryRequest(asReceived(message))).toBe(false);
-    }
   });
 });
 
