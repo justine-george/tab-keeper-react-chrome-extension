@@ -42,7 +42,11 @@
 // restore, present only once `sessions` has been granted, fed by this fake's
 // own tabs.remove and windows.remove. Every rule is one Task 1 measured in
 // Chromium 151 (docs/superpowers/plans/2026-09-27-open-now-part-d.md, "Task 1
-// results"), cited as "Task 1, Qn" where it is modelled.
+// results"), cited as "Task 1, Qn" where it is modelled. Reopen then undoes
+// what a restore did to focus and order, so the fake also keeps one front tab
+// per window and one focused window, and adds tabs.move,
+// windows.getLastFocused and a runtime.onMessage that sendMessage reaches
+// (the page asks the service worker, and reads its answer).
 
 export type ChromeSeed = {
   tabs?: Partial<chrome.tabs.Tab>[];
@@ -462,6 +466,15 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
   const tabGroupsOnMoved =
     registry<(group: chrome.tabGroups.TabGroup) => void>();
 
+  // runtime.onMessage's listeners. Not a Registry: a listener's RETURN
+  // value matters here (true keeps the channel open for sendResponse).
+  type MessageListener = (
+    message: unknown,
+    sender: chrome.runtime.MessageSender,
+    sendResponse: (response?: unknown) => void
+  ) => boolean | void;
+  const messageListeners = new Set<MessageListener>();
+
   const granted = new Set(seed.grantedPermissions ?? []);
   const permissionListeners = {
     added: [] as ((p: chrome.permissions.Permissions) => void)[],
@@ -519,10 +532,15 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
     tabGroupsOnRemoved.fire(gone);
   };
 
-  // Only one window has focus. A restore takes it (Task 1, Q2b: the target
-  // window became focused and getLastFocused, 16/16 observable).
+  // Only one window has focus, and the one that has it is what
+  // windows.getLastFocused answers. A restore takes it (Task 1, Q2b: the
+  // target window became focused and getLastFocused, 16/16 observable), and
+  // so does windows.update({focused: true}) -- Reopen's undo refocuses the
+  // window that had it before (KAN-280 Part D).
+  let lastFocusedWindowId = windows.find((win) => win.focused)?.id;
   const focusWindow = (windowId: number): void => {
     for (const win of windows) win.focused = win.id === windowId;
+    lastFocusedWindowId = windowId;
   };
 
   // The recently-closed list, newest first. Recorded whatever the grant --
@@ -689,14 +707,16 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
   const restoreWindowEntry = (
     entry: Extract<ClosedEntry, { kind: 'window' }>
   ): chrome.sessions.Session => {
-    const { left, top, width, height, state, type, incognito, alwaysOnTop } =
+    // Task 1, Q2: a maximized window came back `normal` (2/2). Only
+    // maximized was measured; every state comes back normal here.
+    const { left, top, width, height, type, incognito, alwaysOnTop } =
       entry.window;
     const opened = openRestoredWindow({
       left,
       top,
       width,
       height,
-      state,
+      state: 'normal',
       type,
       incognito,
       alwaysOnTop,
@@ -1208,6 +1228,24 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
           return fail<chrome.tabs.Tab>(`No tab with id: ${tabId}.`, cb);
         const { muted, ...rest } = props;
         Object.assign(target, rest);
+        // A window has one front tab: activating one takes the front from
+        // the rest of its window, and from no other window (Task 1, Q2b:
+        // other windows' front tabs were untouched, 25/25). A tab in a
+        // collapsed group expands that group to show it, as reopen.ts's
+        // recreateTab relies on (KAN-310; measured 2026-09-24 for a tab
+        // CREATED active, not measured for tabs.update).
+        if (rest.active === true) {
+          for (const tab of tabs) {
+            if (tab.windowId === target.windowId && tab !== target) {
+              tab.active = false;
+            }
+          }
+          const group = tabGroups.find((g) => g.id === target.groupId);
+          if (group?.collapsed) {
+            group.collapsed = false;
+            tabGroupsOnUpdated.fire(group);
+          }
+        }
         if (
           muted !== undefined &&
           muted !== (target.mutedInfo?.muted ?? false)
@@ -1225,6 +1263,67 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
       },
       get: (tabId: number, cb?: (tab: chrome.tabs.Tab) => void) =>
         settle(tabs.find((tab) => tab.id === tabId) as chrome.tabs.Tab, cb),
+      // One tab, within its own window (no product code moves a tab to
+      // another window with this). The index is clamped the way tabs.create
+      // clamps it (clampSlot), with -1 meaning the end. Afterwards the tab's
+      // group follows Chromium's contiguity rule, the one tabs.create above
+      // follows (measured 2026-09-24 for a create; for a move it is modelled
+      // on the same rule, not measured): strictly inside another group's run
+      // it joins that group; cut off from the rest of its own group it
+      // leaves it.
+      move: (
+        tabId: number,
+        props: chrome.tabs.MoveProperties,
+        cb?: (tab?: chrome.tabs.Tab) => void
+      ) => {
+        const target = tabs.find((tab) => tab.id === tabId);
+        if (!target)
+          return fail<chrome.tabs.Tab>(`No tab with id: ${tabId}.`, cb);
+        if (
+          props.windowId !== undefined &&
+          props.windowId !== target.windowId
+        ) {
+          throw new Error(
+            'tabs.move to another window is not modelled by the chrome fake -- model it before depending on it.'
+          );
+        }
+        const windowId = target.windowId;
+        const fromIndex = target.index;
+        const others = windowTabsInOrder(windowId).filter((t) => t !== target);
+        const slot = clampSlot(
+          others,
+          props.index === -1 ? others.length : props.index,
+          target.pinned
+        );
+        tabs.splice(tabs.indexOf(target), 1);
+        insertAtSlot(target, others, slot);
+
+        const left = others[slot - 1];
+        const right = others[slot];
+        const own = target.groupId;
+        if (own !== left?.groupId && own !== right?.groupId) {
+          if (
+            left !== undefined &&
+            right !== undefined &&
+            left.groupId !== -1 &&
+            left.groupId === right.groupId
+          ) {
+            target.groupId = left.groupId;
+            dropGroupIfEmpty(own);
+          } else if (own !== -1 && others.some((t) => t.groupId === own)) {
+            target.groupId = -1;
+          }
+        }
+
+        if (target.index !== fromIndex) {
+          tabsOnMoved.fire(tabId, {
+            windowId,
+            fromIndex,
+            toIndex: target.index,
+          });
+        }
+        return settle(target, cb);
+      },
       onCreated: tabsOnCreated,
       onRemoved: tabsOnRemoved,
       onUpdated: tabsOnUpdated,
@@ -1430,8 +1529,28 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
             cb
           );
         }
-        Object.assign(target, props);
+        const { focused, ...rest } = props;
+        Object.assign(target, rest);
+        // Focusing one window unfocuses every other (focusWindow above).
+        // `focused: false` is only recorded: Chrome would hand the focus to
+        // another window, and no product code sends it.
+        if (focused === true) focusWindow(windowId);
+        else if (focused === false) target.focused = false;
         return settle(target, cb);
+      },
+      // The window focusWindow last focused; if that one has closed, the
+      // first window still open (Chrome picks the next most recent, which
+      // the fake does not track).
+      getLastFocused: (
+        info?: chrome.windows.QueryOptions,
+        cb?: (win?: chrome.windows.Window) => void
+      ) => {
+        const target =
+          windows.find((win) => win.id === lastFocusedWindowId) ?? windows[0];
+        if (!target) {
+          return fail<chrome.windows.Window>('No last-focused window', cb);
+        }
+        return settle(info?.populate ? populate(target) : { ...target }, cb);
       },
       onCreated: windowsOnCreated,
       onRemoved: windowsOnRemoved,
@@ -1441,13 +1560,47 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
       // The id an extension mute stamps onto mutedInfo.extensionId
       // (KAN-280 O10), and what getURL already builds its path on.
       id: 'faketestid',
+      // Delivered to every onMessage listener, as the service worker's are
+      // (KAN-280 Part D: Reopen asks the worker and reads its answer). A
+      // listener that answers with sendResponse settles the call with that
+      // answer; one that returns true keeps it open until it does. When no
+      // listener does either, it settles undefined (the fake's choice:
+      // Chrome's answer there was not measured, and no product code relies on
+      // it). With no listener at all it resolves undefined, as this fake
+      // always has --
+      // Chrome would reject ("Could not establish connection. Receiving end
+      // does not exist."), but the existing callers send without a listener
+      // and without catching, and a rejection there would fail their tests
+      // for a reason that is not theirs. A test of the rejection stubs it.
       sendMessage: (message: unknown, cb?: (response: unknown) => void) => {
         handle.sentMessages.push(message);
-        return settle(undefined, cb);
+        if (messageListeners.size === 0) return settle(undefined, cb);
+        return new Promise<unknown>((resolve) => {
+          let answered = false;
+          const sendResponse = (response?: unknown) => {
+            if (answered) return;
+            answered = true;
+            cb?.(response);
+            resolve(response);
+          };
+          let keptOpen = false;
+          for (const listener of [...messageListeners]) {
+            if (
+              listener(message, { id: 'faketestid' }, sendResponse) === true
+            ) {
+              keptOpen = true;
+            }
+          }
+          if (!keptOpen) sendResponse(undefined);
+        });
       },
       onMessage: {
-        addListener: () => undefined,
-        removeListener: () => undefined,
+        addListener: (listener: MessageListener) =>
+          void messageListeners.add(listener),
+        removeListener: (listener: MessageListener) =>
+          void messageListeners.delete(listener),
+        hasListener: (listener: MessageListener) =>
+          messageListeners.has(listener),
       },
       getURL: (path: string) => `chrome-extension://faketestid/${path}`,
       getPlatformInfo: (cb?: (info: chrome.runtime.PlatformInfo) => void) =>

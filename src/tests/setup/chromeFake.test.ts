@@ -2158,3 +2158,308 @@ describe('a group goes with its last tab (KAN-280 Part D)', () => {
     expect(removed).toEqual([5]);
   });
 });
+
+// KAN-280 Part D, Task 6. Reopen through chrome.sessions has to UNDO what a
+// restore does to focus, the front tab, a group's collapsed state and the
+// tab's index. Each of these is only testable if the fake keeps Chrome's
+// invariants: one active tab per window, one focused window.
+describe('one front tab per window, one focused window (KAN-280 Part D)', () => {
+  const twoWindows = () =>
+    setupChromeFake({
+      windows: [
+        {
+          id: 1,
+          focused: true,
+          tabs: [
+            { id: 11, url: 'https://a.test/', active: true },
+            { id: 12, url: 'https://b.test/' },
+          ],
+        },
+        {
+          id: 2,
+          tabs: [
+            { id: 21, url: 'https://c.test/', active: true },
+            { id: 22, url: 'https://d.test/', groupId: 5 },
+            { id: 23, url: 'https://e.test/', groupId: 5 },
+          ],
+        },
+      ],
+      tabGroups: [{ id: 5, windowId: 2, collapsed: true }],
+    });
+
+  const activeIds = async () =>
+    (await chrome.tabs.query({ active: true })).map((t) => t.id);
+
+  test('tabs.update({active: true}) takes the front from the other tabs of its window only', async () => {
+    handle = twoWindows();
+
+    await chrome.tabs.update(12, { active: true });
+
+    expect(await activeIds()).toEqual([12, 21]);
+  });
+
+  test('tabs.update({active: true}) on a tab in a collapsed group expands the group', async () => {
+    handle = twoWindows();
+    const updated: boolean[] = [];
+    chrome.tabGroups.onUpdated.addListener((g) => updated.push(g.collapsed));
+
+    await chrome.tabs.update(23, { active: true });
+
+    expect((await chrome.tabGroups.get(5)).collapsed).toBe(false);
+    expect(updated).toEqual([false]);
+    expect(await activeIds()).toEqual([11, 23]);
+  });
+
+  test('CONTROL: activating a tab outside a collapsed group leaves it collapsed', async () => {
+    handle = twoWindows();
+
+    await chrome.tabs.update(21, { active: true });
+
+    expect((await chrome.tabGroups.get(5)).collapsed).toBe(true);
+  });
+
+  test('windows.update({focused: true}) takes the focus from every other window', async () => {
+    handle = twoWindows();
+
+    await chrome.windows.update(2, { focused: true });
+
+    const all = await chrome.windows.getAll({});
+    expect(all.map((w) => [w.id, w.focused])).toEqual([
+      [1, false],
+      [2, true],
+    ]);
+  });
+
+  test('getLastFocused is the seeded focused window, then the one focused since', async () => {
+    handle = twoWindows();
+
+    expect((await chrome.windows.getLastFocused()).id).toBe(1);
+    await chrome.windows.update(2, { focused: true });
+    expect((await chrome.windows.getLastFocused()).id).toBe(2);
+  });
+
+  test('getLastFocused follows a restore, which takes the focus (Task 1, Q2b)', async () => {
+    handle = setupChromeFake({
+      grantedPermissions: ['sessions'],
+      windows: [
+        { id: 1, focused: true, tabs: [{ id: 11, url: 'https://a.test/' }] },
+        {
+          id: 2,
+          tabs: [
+            { id: 21, url: 'https://c.test/', active: true },
+            { id: 22, url: 'https://d.test/' },
+          ],
+        },
+      ],
+    });
+    await chrome.tabs.remove(22);
+    const [entry] = await chrome.sessions.getRecentlyClosed();
+
+    await chrome.sessions.restore(entry.tab?.sessionId ?? 'missing');
+
+    expect((await chrome.windows.getLastFocused()).id).toBe(2);
+  });
+});
+
+// Chrome's tabs.move. Reopen puts a restored tab back at the index it closed
+// at, because a restore lands it at the END of a group that still has other
+// tabs (Task 1, Q2).
+describe('chrome.tabs.move (KAN-280 Part D)', () => {
+  const strip = async (windowId: number) =>
+    (await chrome.tabs.query({ windowId }))
+      .sort((a, b) => a.index - b.index)
+      .map((t) => `${t.id}${t.groupId === -1 ? '' : `g${t.groupId}`}`);
+
+  const seed = () =>
+    setupChromeFake({
+      windows: [
+        {
+          id: 1,
+          tabs: [
+            { id: 10, url: 'https://p.test/', pinned: true },
+            { id: 11, url: 'https://a.test/', active: true },
+            { id: 12, url: 'https://b.test/', groupId: 5 },
+            { id: 13, url: 'https://c.test/', groupId: 5 },
+            { id: 14, url: 'https://d.test/', groupId: 5 },
+            { id: 15, url: 'https://e.test/' },
+          ],
+        },
+      ],
+      tabGroups: [{ id: 5, windowId: 1 }],
+    });
+
+  test('moves a tab to an index and fires tabs.onMoved', async () => {
+    handle = seed();
+    const moved: chrome.tabs.OnMovedInfo[] = [];
+    chrome.tabs.onMoved.addListener((_id, info) => moved.push(info));
+
+    const tab = await chrome.tabs.move(15, { index: 1 });
+
+    expect(tab).toMatchObject({ id: 15, index: 1 });
+    expect(await strip(1)).toEqual(['10', '15', '11', '12g5', '13g5', '14g5']);
+    expect(moved).toEqual([{ windowId: 1, fromIndex: 5, toIndex: 1 }]);
+  });
+
+  test('an index past the end, or -1, lands last', async () => {
+    handle = seed();
+
+    await chrome.tabs.move(11, { index: 99 });
+    expect(await strip(1)).toEqual(['10', '12g5', '13g5', '14g5', '15', '11']);
+    await chrome.tabs.move(12, { index: -1 });
+    expect(await strip(1)).toEqual(['10', '13g5', '14g5', '15', '11', '12']);
+  });
+
+  test('an unpinned tab cannot go before a pinned one', async () => {
+    handle = seed();
+
+    await chrome.tabs.move(15, { index: 0 });
+
+    expect(await strip(1)).toEqual(['10', '15', '11', '12g5', '13g5', '14g5']);
+  });
+
+  test('a grouped tab moved within its group stays in it', async () => {
+    handle = seed();
+
+    await chrome.tabs.move(14, { index: 2 });
+
+    expect(await strip(1)).toEqual(['10', '11', '14g5', '12g5', '13g5', '15']);
+  });
+
+  test('a grouped tab moved out of its group leaves it', async () => {
+    handle = seed();
+
+    await chrome.tabs.move(13, { index: 1 });
+
+    expect(await strip(1)).toEqual(['10', '13', '11', '12g5', '14g5', '15']);
+  });
+
+  test('an ungrouped tab moved strictly inside a group joins it', async () => {
+    handle = seed();
+
+    await chrome.tabs.move(15, { index: 3 });
+
+    expect(await strip(1)).toEqual([
+      '10',
+      '11',
+      '12g5',
+      '15g5',
+      '13g5',
+      '14g5',
+    ]);
+  });
+
+  test('CONTROL: an ungrouped tab moved to a group edge stays ungrouped', async () => {
+    handle = seed();
+
+    await chrome.tabs.move(11, { index: 4 });
+
+    expect(await strip(1)).toEqual(['10', '12g5', '13g5', '14g5', '11', '15']);
+  });
+
+  test('an unknown tab rejects and moves nothing', async () => {
+    handle = seed();
+
+    await expect(chrome.tabs.move(99, { index: 0 })).rejects.toThrow(
+      'No tab with id: 99.'
+    );
+    expect(await strip(1)).toEqual(['10', '11', '12g5', '13g5', '14g5', '15']);
+  });
+});
+
+describe('a restored window comes back normal (Task 1, Q2)', () => {
+  test('a maximized window is restored in the normal state', async () => {
+    handle = setupChromeFake({
+      grantedPermissions: ['sessions'],
+      windows: [
+        { id: 1, focused: true, tabs: [{ id: 11, url: 'https://a.test/' }] },
+        {
+          id: 2,
+          state: 'maximized',
+          tabs: [{ id: 21, url: 'https://c.test/' }],
+        },
+      ],
+    });
+    await chrome.windows.remove(2);
+    const [entry] = await chrome.sessions.getRecentlyClosed();
+
+    const result = await chrome.sessions.restore(
+      entry.window?.sessionId ?? 'missing'
+    );
+
+    expect(result.window?.state).toBe('normal');
+    expect((await chrome.windows.get(result.window?.id ?? -1)).state).toBe(
+      'normal'
+    );
+  });
+});
+
+// The worker answers the page through runtime.onMessage (KAN-280 Part D):
+// the page sends, a listener registered with addListener gets the message,
+// and returning true keeps the channel open for an asynchronous sendResponse.
+describe('runtime messaging reaches onMessage listeners', () => {
+  test('a listener gets the message and answers synchronously', async () => {
+    handle = setupChromeFake();
+    chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+      sendResponse({ echoed: message });
+    });
+
+    expect(await chrome.runtime.sendMessage({ type: 'ping' })).toEqual({
+      echoed: { type: 'ping' },
+    });
+  });
+
+  test('a listener returning true answers later through sendResponse', async () => {
+    handle = setupChromeFake();
+    chrome.runtime.onMessage.addListener((_message, _sender, sendResponse) => {
+      void Promise.resolve().then(() => sendResponse('later'));
+      return true;
+    });
+
+    expect(await chrome.runtime.sendMessage({ type: 'ping' })).toBe('later');
+  });
+
+  test('the callback form gets the answer too', async () => {
+    handle = setupChromeFake();
+    chrome.runtime.onMessage.addListener((_message, _sender, sendResponse) => {
+      void Promise.resolve().then(() => sendResponse('later'));
+      return true;
+    });
+    const answer = await new Promise((resolve) =>
+      chrome.runtime.sendMessage({ type: 'ping' }, resolve)
+    );
+
+    expect(answer).toBe('later');
+  });
+
+  test('a listener that neither answers nor returns true settles it undefined', async () => {
+    handle = setupChromeFake();
+    const heard: unknown[] = [];
+    chrome.runtime.onMessage.addListener((message) => {
+      heard.push(message);
+    });
+
+    expect(await chrome.runtime.sendMessage({ type: 'ping' })).toBeUndefined();
+    expect(heard).toEqual([{ type: 'ping' }]);
+  });
+
+  test('with no listener it still resolves undefined, as before', async () => {
+    handle = setupChromeFake();
+
+    expect(await chrome.runtime.sendMessage({ type: 'ping' })).toBeUndefined();
+    expect(handle.sentMessages).toEqual([{ type: 'ping' }]);
+  });
+
+  test('a removed listener hears nothing', async () => {
+    handle = setupChromeFake();
+    const heard: unknown[] = [];
+    const listener = (message: unknown) => {
+      heard.push(message);
+    };
+    chrome.runtime.onMessage.addListener(listener);
+    chrome.runtime.onMessage.removeListener(listener);
+
+    await chrome.runtime.sendMessage({ type: 'ping' });
+
+    expect(heard).toEqual([]);
+  });
+});
