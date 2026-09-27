@@ -346,6 +346,41 @@ describe('reopenFromOffer (KAN-311)', () => {
   });
 });
 
+// KAN-280 Part D: with `sessions` held, the service worker restores the item
+// with its history and answers with the new ids; the row focus follows them.
+describe('reopenFromOffer with history (KAN-280 Part D)', () => {
+  test('names the tab the worker restored for focus', async () => {
+    handle = setupChromeFake({
+      grantedPermissions: ['sessions'],
+      windows: [
+        { id: 1, focused: true, tabs: [{ url: url('home'), active: true }] },
+        { id: 2, tabs: [{ url: url('a'), active: true }, { url: url('b') }] },
+      ],
+    });
+    vi.resetModules();
+    await import('../../background');
+    const w2 = await openWindow(2);
+    const item = await closeOpenTab(w2, w2.tabs[1]);
+    if (!item) throw new Error('close failed');
+    // PREMISE: the close recorded Chrome's entry, so this goes to the worker.
+    expect(item.restorableSessionId).toEqual(expect.any(String));
+    const { store } = makeTestStore();
+    await store.dispatch(offerReopen(item));
+    const id = store.getState().globalState.toastReopenOfferId;
+    if (id === null) throw new Error('no offer id');
+
+    await store.dispatch(reopenFromOffer(id));
+
+    const back = (await chrome.tabs.query({ windowId: 2 })).find(
+      (tab) => tab.url === url('b')
+    );
+    if (back?.id === undefined) throw new Error('b did not come back');
+    expect(handle.restoredFromSession(back.id)).toBe(true);
+    expect(pendingReopenFocus()).toEqual({ kind: 'tab', tabId: back.id });
+    expect(openState(store)).toBe(false);
+  });
+});
+
 describe('the reopened row to focus (KAN-311)', () => {
   test('is kept for 3 seconds, then forgotten', () => {
     vi.useFakeTimers();

@@ -5,6 +5,10 @@ import {
   TabApi,
 } from './utils/functions/popOut';
 import {
+  isReopenWithHistoryRequest,
+  reopenWithHistory,
+} from './utils/functions/reopen';
+import {
   createWindowWithRetries,
   isRestoreSessionRequest,
   planWindowClosure,
@@ -78,7 +82,17 @@ const chromeTabApi: TabApi = {
   create: (props) => chrome.tabs.create(props),
 };
 
-chrome.runtime.onMessage.addListener((message) => {
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  // Open now's Reopen with history (KAN-280 Part D). Here, not in the page:
+  // the restore focuses a window, and the undo after it has to outlive the
+  // popup. The answer carries the new ids for the tab view's row focus
+  // (KAN-311); returning true keeps the channel open for it. A popup is gone
+  // by then, and never reads it.
+  if (isReopenWithHistoryRequest(message)) {
+    void reopenWithHistory(message.item).then(sendResponse);
+    return true;
+  }
+
   if (isRestoreSessionRequest(message)) {
     // No response is sent: by the time this finishes there is no popup left
     // to receive one.
