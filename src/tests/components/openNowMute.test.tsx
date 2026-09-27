@@ -374,3 +374,114 @@ describe('the Open now speaker (KAN-280 O10a)', () => {
     expect(strip.contains(document.activeElement)).toBe(false);
   });
 });
+
+describe('a speaker held by the pointer or focus (KAN-280 O10a rule 4A)', () => {
+  // Review Focus 1: the reason goes away as Chrome answers the click. The
+  // speaker must not flash out and back while the pointer is still on it.
+  test('unmuting a silent tab under the pointer keeps the speaker up until it leaves', async () => {
+    await renderOpenNow(soundWindows());
+    const user = userEvent.setup();
+
+    await user.hover(speaker('Podcast'));
+    // fireEvent, not userEvent.click: a real click also focuses the button,
+    // which would hold the speaker up on its own and hide what the pointer
+    // alone is doing here.
+    fireEvent.click(speaker('Podcast'), { detail: 1 });
+    await waitFor(() =>
+      expect(speaker('Podcast')).toHaveAttribute('aria-pressed', 'false')
+    );
+    // The re-read that follows must not pull it out from under the pointer.
+    await pastTheReRead();
+    expect(speaker('Podcast')).toHaveAttribute('aria-pressed', 'false');
+    expect(speaker('Podcast')).toHaveAttribute(
+      'data-second-face-shown',
+      'false'
+    );
+
+    await user.unhover(speaker('Podcast'));
+    expect(querySpeaker('Podcast')).toBeNull();
+  });
+
+  // Review Focus 2: sound stops between tracks while the pointer is still on
+  // the speaker. Same hold, same exit.
+  test('a tab that stops playing under the pointer keeps its speaker up until it leaves', async () => {
+    const { chrome: fake } = await renderOpenNow(soundWindows());
+    const user = userEvent.setup();
+
+    await user.hover(speaker('Radio'));
+    act(() => fake.browser.updateTab(RADIO, { audible: false }));
+    await pastTheReRead();
+    expect(speaker('Radio')).toHaveAttribute('aria-pressed', 'false');
+
+    await user.unhover(speaker('Radio'));
+    expect(querySpeaker('Radio')).toBeNull();
+  });
+
+  test('focus holds a speaker up the same way, and moving on releases it', async () => {
+    await renderOpenNow(soundWindows());
+    const user = userEvent.setup();
+    act(() => switchRow('Podcast').focus());
+
+    await user.tab();
+    expect(document.activeElement).toBe(speaker('Podcast'));
+
+    await user.keyboard('{Enter}');
+    await waitFor(() =>
+      expect(speaker('Podcast')).toHaveAttribute('aria-pressed', 'false')
+    );
+    expect(document.activeElement).toBe(speaker('Podcast'));
+
+    await user.tab();
+    expect(document.activeElement).toBe(closeTabButton('Podcast'));
+    expect(querySpeaker('Podcast')).toBeNull();
+  });
+
+  // CONTROL: proves the hold above, rather than a stale read, is what keeps
+  // the speaker up. Must stay green throughout.
+  test('CONTROL: without the pointer or focus, a speaker goes as soon as its reason does', async () => {
+    const { chrome: fake } = await renderOpenNow(soundWindows());
+
+    act(() => fake.browser.updateTab(RADIO, { audible: false }));
+
+    await waitFor(() => expect(querySpeaker('Radio')).toBeNull());
+  });
+
+  // KAN-127: the hold is keyed by tab id, not "a pointer is somewhere on the
+  // pane". A stale leave from a tab that was never held must not release a
+  // different tab's hold -- ordered so that mattering is exactly what a
+  // clear-unconditionally bug would get wrong.
+  test('a hold on one tab is not released by a leave from another', async () => {
+    const { chrome: fake } = await renderOpenNow(soundWindows());
+    const user = userEvent.setup();
+
+    await user.hover(speaker('Radio'));
+    act(() => fake.browser.updateTab(RADIO, { audible: false }));
+    await pastTheReRead();
+    // PREMISE: Radio's speaker is up only because the pointer holds it.
+    expect(speaker('Radio')).toHaveAttribute('aria-pressed', 'false');
+
+    // Meet's speaker was never hovered, so its leave carries Meet's id, not
+    // Radio's -- it must not clear Radio's hold.
+    fireEvent.mouseLeave(speaker('Meet'));
+    expect(speaker('Radio')).toHaveAttribute('aria-pressed', 'false');
+
+    act(() => fake.browser.updateTab(MEET, { audible: false }));
+    await act(async () => {
+      await chrome.tabs.update(MEET, { muted: false });
+    });
+
+    await waitFor(() => expect(querySpeaker('Meet')).toBeNull());
+    expect(speaker('Radio')).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  // Only a speaker that is already shown can be held: hovering a silent,
+  // unmuted tab's row (where a speaker would sit) never grows one.
+  test('hovering a silent tab never grows it a speaker', async () => {
+    await renderOpenNow(soundWindows());
+    const user = userEvent.setup();
+
+    await user.hover(rowOf(DOCS));
+
+    expect(querySpeaker('Docs')).toBeNull();
+  });
+});

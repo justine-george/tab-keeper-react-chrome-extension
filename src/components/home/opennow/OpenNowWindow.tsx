@@ -105,6 +105,16 @@ export default function OpenNowWindow({
   // later, a drag) moves rows, and a position-keyed flag would then reveal
   // whichever tab moved into the hovered slot.
   const [hoveredTabId, setHoveredTabId] = useState<number | null>(null);
+  // KAN-280 O10a rule 4A: a speaker whose reason (audible/muted) went away
+  // stays while the pointer or focus is still on it, so the target does not
+  // vanish out from under a click or between tracks. Keyed by tab id for
+  // hoveredTabId's own reason above (KAN-127).
+  const [pointerSpeakerTabId, setPointerSpeakerTabId] = useState<number | null>(
+    null
+  );
+  const [focusSpeakerTabId, setFocusSpeakerTabId] = useState<number | null>(
+    null
+  );
 
   // Copied from WindowEntryContainer's own containerStyle, parentStyle,
   // parentLeftStyle, childrenContainerStyle, childrenStyle, childLeftStyle and
@@ -300,15 +310,29 @@ export default function OpenNowWindow({
             />
           </div>
         </ClickableRow>
-        {(tab.audible || tab.muted) && (
+        {(tab.audible ||
+          tab.muted ||
+          pointerSpeakerTabId === tab.id ||
+          focusSpeakerTabId === tab.id) && (
           // KAN-280 O10a (1B): after the Switch button and one slot in from
           // the edge, so × keeps the same column on every row. Its own
           // button, never inside the Switch button. A double-click (O7c) and
-          // a held key (O7b) each toggle once.
+          // a held key (O7b) each toggle once. Rule 4A: a click that removes
+          // the thing it clicked, or a speaker that goes between tracks,
+          // loses the pointer's target, so the hold above keeps it up until
+          // the pointer or focus leaves.
           <span
             data-speaker
             css={speakerSlotStyle}
             onKeyDownCapture={holdBackRepeatedActivation}
+            onMouseEnter={() => setPointerSpeakerTabId(tab.id)}
+            onMouseLeave={() =>
+              setPointerSpeakerTabId((id) => (id === tab.id ? null : id))
+            }
+            onFocus={() => setFocusSpeakerTabId(tab.id)}
+            onBlur={() =>
+              setFocusSpeakerTabId((id) => (id === tab.id ? null : id))
+            }
           >
             <Button
               iconType="volume_up"
