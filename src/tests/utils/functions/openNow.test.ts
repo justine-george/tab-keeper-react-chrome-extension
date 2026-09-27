@@ -20,7 +20,6 @@ vi.mock('../../../utils/functions/tabGroups', async (importOriginal) => {
 
 import {
   toOpenWindows,
-  setOpenTabMuted,
   switchToOpenTab,
 } from '../../../utils/functions/openNow';
 import type { OpenTab } from '../../../utils/functions/openNow';
@@ -421,32 +420,5 @@ describe('switchToOpenTab', () => {
     const afterAll = await chrome.windows.getAll({});
     const focused = afterAll.find((w) => w.id === 2);
     expect(focused?.focused).toBe(true);
-  });
-});
-
-// KAN-280 O10: the Open now speaker.
-describe('setOpenTabMuted', () => {
-  test('mutes the tab in Chrome', async () => {
-    handle = setupChromeFake({
-      windows: [{ id: 1, focused: true, tabs: [{ url: 'https://a.test/' }] }],
-    });
-    const [window] = await chrome.windows.getAll({ populate: true });
-    const tabId = window.tabs?.[0]?.id;
-    if (typeof tabId !== 'number') throw new Error('seeded tab has no id');
-
-    await setOpenTabMuted(tabId, true);
-
-    const tab = await chrome.tabs.get(tabId);
-    expect(tab.mutedInfo?.muted).toBe(true);
-  });
-
-  test("passes Chrome's refusal on when the tab has gone", async () => {
-    handle = setupChromeFake({
-      windows: [{ id: 1, focused: true, tabs: [{ url: 'https://a.test/' }] }],
-    });
-
-    await expect(setOpenTabMuted(999999, true)).rejects.toThrow(
-      'No tab with id'
-    );
   });
 });

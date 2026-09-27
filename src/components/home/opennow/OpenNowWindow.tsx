@@ -1,9 +1,8 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 
 import { css } from '@emotion/react';
 import { useTranslation } from 'react-i18next';
 
-import Button from '../../common/Button';
 import ClickableRow from '../../common/ClickableRow';
 import Icon from '../../common/Icon';
 import { NormalLabel } from '../../common/Label';
@@ -12,10 +11,7 @@ import { useFontFamily } from '../../../hooks/useFontFamily';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { NON_INTERACTIVE_ICON_STYLE } from '../../../utils/constants/common';
 import { resolveFaviconUrl } from '../../../utils/functions/local';
-import {
-  setOpenTabMuted,
-  switchToOpenTab,
-} from '../../../utils/functions/openNow';
+import { switchToOpenTab } from '../../../utils/functions/openNow';
 import type { OpenTab, OpenWindow } from '../../../utils/functions/openNow';
 import {
   partitionTabsIntoRuns,
@@ -36,27 +32,30 @@ const GROUP_TITLE_SIZE = '0.85rem';
 // Icon's box: its glyph plus 4px padding a side. rem-based, so it follows
 // Chrome's font size (KAN-312).
 const ICON_SLOT = `calc(${ICON.DEFAULT} + 8px)`;
+// One slot in from the row's edge, so × keeps the same column on every row
+// (KAN-280 O10a 1B, kept by O10b).
 const speakerSlotStyle = css`
   display: flex;
   align-items: center;
   flex: none;
   margin-right: ${ICON_SLOT};
 `;
-// The icon slot × uses: no border, no resting fill. Button's quiet palette
-// still gives it the icon hover and press fills.
-const speakerButtonStyle = `
-  border: none;
-  padding: 0;
-  height: auto;
-  background-color: transparent;
+// Screen-reader text for the sound (KAN-280 O10b), as ExportPage's copied
+// status is hidden (KAN-221). The row is position: relative, so it stays in.
+const soundDescriptionStyle = css`
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 `;
 
 // A held Enter or Space repeats into whatever has focus, and after a close
 // that is the next row's × (KAN-280 O7b). Its repeats stop here, in the
 // capture phase, before the Icon's own keydown turns each into a click: one
-// press closes one tab. Other keys pass, so a held Tab still moves on. The
-// speaker is a native <button>, whose repeats would each be the browser's own
-// click, so they stop here too: one press toggles once (KAN-280 O10a, O7b).
+// press closes one tab. Other keys pass, so a held Tab still moves on.
 function holdBackRepeatedActivation(event: React.KeyboardEvent) {
   if (!event.repeat || (event.key !== 'Enter' && event.key !== ' ')) return;
   event.preventDefault();
@@ -65,9 +64,8 @@ function holdBackRepeatedActivation(event: React.KeyboardEvent) {
 
 // A click whose count is past 1 is a double-click's second click, and it
 // does nothing (KAN-280 O7c). On a close, the row below has moved up under
-// the pointer, so it would close that row too. On the speaker (O10a), it
-// would undo the first click. Icon's key press arrives through click() with
-// a count of 0.
+// the pointer, so it would close that row too. Icon's key press arrives
+// through click() with a count of 0.
 function onFirstClickOnly(action: () => void): React.MouseEventHandler {
   return (event) => {
     if (event.detail > 1) return;
@@ -107,44 +105,6 @@ export default function OpenNowWindow({
   // later, a drag) moves rows, and a position-keyed flag would then reveal
   // whichever tab moved into the hovered slot.
   const [hoveredTabId, setHoveredTabId] = useState<number | null>(null);
-  // KAN-280 O10a rule 4A: a speaker whose reason (audible/muted) went away
-  // stays while the pointer or focus is still on it, so the target does not
-  // vanish out from under a click or between tracks. Keyed by tab id for
-  // hoveredTabId's own reason above (KAN-127).
-  const [pointerSpeakerTabId, setPointerSpeakerTabId] = useState<number | null>(
-    null
-  );
-  const [focusSpeakerTabId, setFocusSpeakerTabId] = useState<number | null>(
-    null
-  );
-  // A row can leave this window (a move, KAN-127) with no mouseleave or blur
-  // on its speaker to release a hold -- jsdom fires neither for a removed
-  // element, and a real browser fires blur but not mouseleave. Left stale,
-  // the id would light up a phantom speaker if the same tab id returns here.
-  // A hold only ever means "on a row of THIS window", so it cannot outlive
-  // that row. Corrected during render, not in an effect
-  // (react-hooks/set-state-in-effect, KAN-51): each check only fires the
-  // setState it guards, and only on the render where the held tab has
-  // actually gone, so it settles in the same extra pass React already gives
-  // a render-time state correction.
-  if (
-    pointerSpeakerTabId !== null &&
-    !openWindow.tabs.some((tab) => tab.id === pointerSpeakerTabId)
-  ) {
-    setPointerSpeakerTabId(null);
-  }
-  if (
-    focusSpeakerTabId !== null &&
-    !openWindow.tabs.some((tab) => tab.id === focusSpeakerTabId)
-  ) {
-    setFocusSpeakerTabId(null);
-  }
-  // A mousedown on the speaker precedes both jsdom's userEvent and real
-  // Chromium's own focus (measured order: pointerdown, mousedown, focus), so
-  // it marks the focus that follows as pointer-caused. :focus-visible would
-  // say the same thing (KAN-280 O7d's precedent), but jsdom 30.0.1 never
-  // matches it even once focused, so this tracks the press directly instead.
-  const pointerPressTabIdRef = useRef<number | null>(null);
 
   // Copied from WindowEntryContainer's own containerStyle, parentStyle,
   // parentLeftStyle, childrenContainerStyle, childrenStyle, childLeftStyle and
@@ -307,6 +267,16 @@ export default function OpenNowWindow({
   );
 
   function renderTab(tab: OpenTab) {
+    // KAN-280 O10b: the speaker shows Chrome's sound and changes nothing.
+    // Tab Keeper never mutes, because Chrome's own controls cannot undo an
+    // extension's mute (KAN-315, measured). Muted wins over playing.
+    // t() on literals: keyCoverage cannot see a key passed as a variable.
+    const sound = tab.muted
+      ? t('Audio muted')
+      : tab.audible
+        ? t('Audio playing')
+        : null;
+    const soundId = `open-now-sound-${tab.id}`;
     return (
       <div
         key={tab.id}
@@ -318,6 +288,7 @@ export default function OpenNowWindow({
         <ClickableRow
           ariaLabel={t('Switch to tab') + ': ' + tab.title}
           ariaCurrent={tab.active}
+          ariaDescribedBy={sound === null ? undefined : soundId}
           // Chrome rejects when the tab closed after this row was drawn. There
           // is nothing to switch to, and the next read drops the row.
           onClick={() => void switchToOpenTab(tab).catch(() => undefined)}
@@ -339,77 +310,21 @@ export default function OpenNowWindow({
               style="padding-left: 4px; height: 100%; max-width: 100%;"
             />
           </div>
+          {sound !== null && (
+            // Inside the Switch button, so a click on it switches to the
+            // tab, where Chrome's own mute is. A presentational Icon is
+            // aria-hidden; the description below says the sound instead.
+            <span data-speaker css={speakerSlotStyle}>
+              <Icon
+                type={tab.muted ? 'volume_off' : 'volume_up'}
+                style={NON_INTERACTIVE_ICON_STYLE}
+              />
+            </span>
+          )}
         </ClickableRow>
-        {(tab.audible ||
-          tab.muted ||
-          pointerSpeakerTabId === tab.id ||
-          focusSpeakerTabId === tab.id) && (
-          // KAN-280 O10a (1B): after the Switch button and one slot in from
-          // the edge, so × keeps the same column on every row. Its own
-          // button, never inside the Switch button. A double-click (O7c) and
-          // a held key (O7b) each toggle once. Rule 4A: a click that removes
-          // the thing it clicked, or a speaker that goes between tracks,
-          // loses the pointer's target, so the hold above keeps it up until
-          // the pointer or focus leaves.
-          <span
-            data-speaker
-            css={speakerSlotStyle}
-            onKeyDownCapture={holdBackRepeatedActivation}
-            onMouseEnter={() => setPointerSpeakerTabId(tab.id)}
-            onMouseLeave={() =>
-              setPointerSpeakerTabId((id) => (id === tab.id ? null : id))
-            }
-            // A press hands the hold to the pointer outright: it marks the
-            // focus that follows as the press's own (consumed below, so it
-            // never starts a focus hold), and drops any focus hold this tab
-            // already had, since a keyboard-focused speaker can still be
-            // clicked.
-            onMouseDown={() => {
-              pointerPressTabIdRef.current = tab.id;
-              setPointerSpeakerTabId(tab.id);
-              setFocusSpeakerTabId((id) => (id === tab.id ? null : id));
-            }}
-            onFocus={() => {
-              if (pointerPressTabIdRef.current === tab.id) {
-                pointerPressTabIdRef.current = null;
-                return;
-              }
-              setFocusSpeakerTabId(tab.id);
-            }}
-            onBlur={() => {
-              setFocusSpeakerTabId((id) => (id === tab.id ? null : id));
-              // A press on an already-focused speaker never re-fires focus,
-              // so onFocus above never gets a turn to consume the ref
-              // (KAN-280 O10a rule 4A). Once focus actually leaves, that
-              // press is over regardless of how it ended (a click, or a
-              // drag released elsewhere) -- clear it here so a later,
-              // genuine refocus of this tab is never mistaken for it.
-              if (pointerPressTabIdRef.current === tab.id) {
-                pointerPressTabIdRef.current = null;
-              }
-            }}
-          >
-            <Button
-              iconType="volume_up"
-              secondFace={{
-                iconType: 'volume_off',
-                shown: tab.muted,
-                durationMs: 150,
-              }}
-              ariaLabel={t('Mute tab') + ': ' + tab.title}
-              ariaPressed={tab.muted}
-              tooltipText={t('Mute tab')}
-              // The glyph waits for Chrome's answer through the live read
-              // (O10a). A refusal means the tab closed; the next read drops
-              // the row.
-              onClick={onFirstClickOnly(
-                () =>
-                  void setOpenTabMuted(tab.id, !tab.muted).catch(
-                    () => undefined
-                  )
-              )}
-              style={speakerButtonStyle}
-            />
+        {sound !== null && (
+          <span id={soundId} css={soundDescriptionStyle}>
+            {sound}
           </span>
         )}
         {/* data-row-actions: the stylesheet's hook for hiding the strip

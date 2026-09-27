@@ -223,7 +223,8 @@
   "WindowClosed_many": "Ventana cerrada ({{count}} pestañas)",
   "WindowClosed_other": "Ventana cerrada ({{count}} pestañas)",
   "Close tab": "Cerrar pestaña",
-  "Mute tab": "Silenciar pestaña",
+  "Audio playing": "Reproduciendo audio",
+  "Audio muted": "Audio silenciado",
   "Close window": "Cerrar ventana",
   "Save window as a session": "Guardar ventana como sesión",
   "Window saved as a session.": "Ventana guardada como sesión."

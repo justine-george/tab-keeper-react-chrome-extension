@@ -217,7 +217,8 @@
   "Couldn't reopen.": "再度開けませんでした。",
   "WindowClosed_other": "ウィンドウを閉じました（{{count}} 個のタブ）",
   "Close tab": "タブを閉じる",
-  "Mute tab": "タブをミュート",
+  "Audio playing": "音声を再生中",
+  "Audio muted": "ミュート中",
   "Close window": "ウィンドウを閉じる",
   "Save window as a session": "ウィンドウをセッションとして保存",
   "Window saved as a session.": "ウィンドウをセッションとして保存しました。"
