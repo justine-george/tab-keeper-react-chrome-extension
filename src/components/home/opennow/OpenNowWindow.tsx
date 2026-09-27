@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { css } from '@emotion/react';
 import { useTranslation } from 'react-i18next';
 
+import Button from '../../common/Button';
 import ClickableRow from '../../common/ClickableRow';
 import Icon from '../../common/Icon';
 import { NormalLabel } from '../../common/Label';
@@ -11,7 +12,10 @@ import { useFontFamily } from '../../../hooks/useFontFamily';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { NON_INTERACTIVE_ICON_STYLE } from '../../../utils/constants/common';
 import { resolveFaviconUrl } from '../../../utils/functions/local';
-import { switchToOpenTab } from '../../../utils/functions/openNow';
+import {
+  setOpenTabMuted,
+  switchToOpenTab,
+} from '../../../utils/functions/openNow';
 import type { OpenTab, OpenWindow } from '../../../utils/functions/openNow';
 import {
   partitionTabsIntoRuns,
@@ -22,12 +26,30 @@ import {
   ADJACENT_GROUP_GAP_PX,
   BAND_MARGIN_PX,
 } from '../rightpane/bandSpacing';
-import { DURATION, TYPE } from '../../../styles/scale';
+import { DURATION, ICON, TYPE } from '../../../styles/scale';
 
 // WindowEntryContainer's GROUP_TITLE_SIZE, the one documented off-scale size
 // (scaleConformance.test.ts). Copied rather than exported from there, for the
 // reason the styles below are.
 const GROUP_TITLE_SIZE = '0.85rem';
+
+// Icon's box: its glyph plus 4px padding a side. rem-based, so it follows
+// Chrome's font size (KAN-312).
+const ICON_SLOT = `calc(${ICON.DEFAULT} + 8px)`;
+const speakerSlotStyle = css`
+  display: flex;
+  align-items: center;
+  flex: none;
+  margin-right: ${ICON_SLOT};
+`;
+// The 32px icon slot × uses: no border, no resting fill. Button's quiet
+// palette still gives it the icon hover and press fills.
+const speakerButtonStyle = `
+  border: none;
+  padding: 0;
+  height: auto;
+  background-color: transparent;
+`;
 
 // A held Enter or Space repeats into whatever has focus, and after a close
 // that is the next row's × (KAN-280 O7b). Its repeats stop here, in the
@@ -277,6 +299,39 @@ export default function OpenNowWindow({
             />
           </div>
         </ClickableRow>
+        {(tab.audible || tab.muted) && (
+          // KAN-280 O10a (1B): after the Switch button and one slot in from
+          // the edge, so × keeps the same column on every row. Its own
+          // button, never inside the Switch button. A double-click (O7c) and
+          // a held key (O7b) each toggle once.
+          <span
+            data-speaker
+            css={speakerSlotStyle}
+            onKeyDownCapture={holdBackRepeatedActivation}
+          >
+            <Button
+              iconType="volume_up"
+              secondFace={{
+                iconType: 'volume_off',
+                shown: tab.muted,
+                durationMs: 150,
+              }}
+              ariaLabel={t('Mute tab') + ': ' + tab.title}
+              ariaPressed={tab.muted}
+              tooltipText={t('Mute tab')}
+              // The glyph waits for Chrome's answer through the live read
+              // (O10a). A refusal means the tab closed; the next read drops
+              // the row.
+              onClick={onFirstClickOnly(
+                () =>
+                  void setOpenTabMuted(tab.id, !tab.muted).catch(
+                    () => undefined
+                  )
+              )}
+              style={speakerButtonStyle}
+            />
+          </span>
+        )}
         {/* data-row-actions: the stylesheet's hook for hiding the strip
             during a drag (KAN-135), which an emotion class cannot give it.
             data-close-tab: where the pane finds this row's × after a close

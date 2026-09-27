@@ -162,3 +162,13 @@ export async function switchToOpenTab(tab: OpenTab): Promise<void> {
   await chrome.tabs.update(tab.id, { active: true });
   await chrome.windows.update(tab.windowId, { focused: true });
 }
+
+// The Open now speaker (KAN-280 O10). No permission is needed to mute. The
+// pane shows the result only when Chrome's onUpdated comes back through the
+// live read, so a refused mute never shows as done.
+export async function setOpenTabMuted(
+  tabId: number,
+  muted: boolean
+): Promise<void> {
+  await chrome.tabs.update(tabId, { muted });
+}

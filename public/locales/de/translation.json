@@ -220,6 +220,7 @@
   "WindowClosed_one": "Fenster geschlossen ({{count}} Tab)",
   "WindowClosed_other": "Fenster geschlossen ({{count}} Tabs)",
   "Close tab": "Tab schließen",
+  "Mute tab": "Tab stummschalten",
   "Close window": "Fenster schließen",
   "Save window as a session": "Fenster als Sitzung speichern",
   "Window saved as a session.": "Fenster als Sitzung gespeichert."

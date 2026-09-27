@@ -226,6 +226,7 @@
   "WindowClosed_many": "Окно закрыто ({{count}} вкладок)",
   "WindowClosed_other": "Окно закрыто ({{count}} вкладки)",
   "Close tab": "Закрыть вкладку",
+  "Mute tab": "Отключить звук на вкладке",
   "Close window": "Закрыть окно",
   "Save window as a session": "Сохранить окно как сессию",
   "Window saved as a session.": "Окно сохранено как сессия."

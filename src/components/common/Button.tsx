@@ -10,7 +10,8 @@ import { CONTROL, DURATION, RADIUS, TYPE } from '../../styles/scale';
 
 interface ButtonProps {
   text?: string;
-  onClick?: () => void;
+  // The click itself, so a handler can read its count (KAN-280 O7c).
+  onClick?: (event: React.MouseEvent<HTMLButtonElement>) => void;
   imageSrc?: string;
   iconType?: IconName;
   ariaLabel?: string;
