@@ -26,6 +26,7 @@ export const test = base.extend<{
   serviceWorker: Worker;
   extensionId: string;
   showScrollbars: boolean;
+  audibleTabs: boolean;
   freshProfile: boolean;
 }>({
   // Playwright launches headless Chromium with --hide-scrollbars, so every
@@ -35,6 +36,17 @@ export const test = base.extend<{
   // `test.use({ showScrollbars: true })`.
   showScrollbars: [false, { option: true }],
 
+  // Playwright also launches with --mute-audio, and under it a tab playing
+  // sound never reports `audible: true`. Dropping the flag is not enough on
+  // its own: the tab then plays to the machine's real output, and when that
+  // device stalls the page's audio clock stops and Chrome never hears it
+  // (measured 2026-09-27 on a Mac: 20s, never audible). So this also swaps in
+  // Chrome's fake output device, which always runs and never makes a sound:
+  // audible within ~0.1s, 4 runs of 4. Off by default so every other spec
+  // keeps a muted browser. Opt in with `test.use({ audibleTabs: true })`
+  // (KAN-280 O10a).
+  audibleTabs: [false, { option: true }],
+
   // KAN-259. A fresh profile is asked the cloud question on first open, as a
   // modal that intercepts every click behind it, so by default the profile
   // starts as a user who said yes. `test.use({ freshProfile: true })` leaves
@@ -43,7 +55,7 @@ export const test = base.extend<{
   // on every page: a seed of "no answer" would erase the answer on reopen.
   freshProfile: [false, { option: true }],
 
-  context: async ({ showScrollbars, freshProfile }, use) => {
+  context: async ({ showScrollbars, audibleTabs, freshProfile }, use) => {
     // A throwaway profile per test: extension state (localStorage,
     // chrome.storage) persists in the profile, so sharing one would let tests
     // leak into each other.
@@ -55,8 +67,15 @@ export const test = base.extend<{
       // 2026-09-01 across all three modes.
       headless: true,
       channel: 'chromium',
-      ignoreDefaultArgs: showScrollbars ? ['--hide-scrollbars'] : [],
-      args: [`--disable-extensions-except=${DIST}`, `--load-extension=${DIST}`],
+      ignoreDefaultArgs: [
+        ...(showScrollbars ? ['--hide-scrollbars'] : []),
+        ...(audibleTabs ? ['--mute-audio'] : []),
+      ],
+      args: [
+        ...(audibleTabs ? ['--disable-audio-output'] : []),
+        `--disable-extensions-except=${DIST}`,
+        `--load-extension=${DIST}`,
+      ],
     });
 
     // KAN-259, see the freshProfile option above.
