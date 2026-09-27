@@ -648,6 +648,8 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
       ? undefined
       : openRestoredWindow({
           type: 'normal',
+          // Chrome reports a state for every window; a new one is normal.
+          state: 'normal',
           incognito: was.incognito,
           alwaysOnTop: false,
         });
@@ -758,6 +760,13 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
       return tab;
     });
     reindexWindow(windowId);
+    // A front tab is never inside a collapsed group (tabs.update's rule
+    // above): the front tab's own group, if collapsed, comes back expanded.
+    // Not measured for a restore -- Task 1's tab 0 was pinned.
+    const front = created[activeSlot];
+    for (const group of newGroups.values()) {
+      if (group.id === front?.groupId) group.collapsed = false;
+    }
     tabGroups.push(...newGroups.values());
     focusWindow(windowId);
 
@@ -1450,7 +1459,9 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
           top: data.top,
           width: data.width,
           height: data.height,
-          state: data.state,
+          // Chrome reports a state for every window; with none asked for,
+          // a new window is normal.
+          state: data.state ?? 'normal',
           incognito: data.incognito ?? false,
         } as unknown as chrome.windows.Window;
         const windowId = created.id as number;

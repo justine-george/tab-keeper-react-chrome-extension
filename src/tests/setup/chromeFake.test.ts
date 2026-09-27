@@ -2366,7 +2366,68 @@ describe('chrome.tabs.move (KAN-280 Part D)', () => {
   });
 });
 
+describe('a restored window never has its front tab in a collapsed group', () => {
+  // Task 1, Q2b: when the active tab was grouped, tab 0 comes back active.
+  // Chrome never shows a front tab inside a collapsed group, so tab 0's own
+  // group, if collapsed, comes back expanded -- the rule tabs.update follows
+  // in this fake. Not measured for a restore: Task 1's tab 0 was pinned.
+  test("tab 0's collapsed group is expanded when tab 0 comes back in front", async () => {
+    handle = setupChromeFake({
+      grantedPermissions: ['sessions', 'tabGroups'],
+      windows: [
+        { id: 1, focused: true, tabs: [{ id: 11, url: 'https://a.test/' }] },
+        {
+          id: 2,
+          tabs: [
+            { id: 21, url: 'https://x.test/', groupId: 51 },
+            { id: 22, url: 'https://y.test/', groupId: 50, active: true },
+          ],
+        },
+      ],
+      tabGroups: [
+        { id: 50, windowId: 2, title: 'Now' },
+        { id: 51, windowId: 2, title: 'Later', collapsed: true },
+      ],
+    });
+    await chrome.windows.remove(2);
+    const [entry] = await chrome.sessions.getRecentlyClosed();
+
+    const result = await chrome.sessions.restore(
+      entry.window?.sessionId ?? 'missing'
+    );
+
+    const groups = await chrome.tabGroups.query({
+      windowId: result.window?.id,
+    });
+    expect(groups.map((g) => [g.title, g.collapsed])).toEqual([
+      ['Later', false],
+      ['Now', false],
+    ]);
+    expect(result.window?.tabs?.[0]).toMatchObject({ active: true });
+  });
+});
+
 describe('a restored window comes back normal (Task 1, Q2)', () => {
+  test("the new window a window's only tab is restored into is normal", async () => {
+    handle = setupChromeFake({
+      grantedPermissions: ['sessions'],
+      windows: [
+        { id: 1, focused: true, tabs: [{ id: 11, url: 'https://a.test/' }] },
+        { id: 2, tabs: [{ id: 21, url: 'https://c.test/' }] },
+      ],
+    });
+    await chrome.tabs.remove(21);
+    const [entry] = await chrome.sessions.getRecentlyClosed();
+
+    const result = await chrome.sessions.restore(
+      entry.tab?.sessionId ?? 'missing'
+    );
+
+    expect((await chrome.windows.get(result.tab?.windowId ?? -1)).state).toBe(
+      'normal'
+    );
+  });
+
   test('a maximized window is restored in the normal state', async () => {
     handle = setupChromeFake({
       grantedPermissions: ['sessions'],
@@ -2461,5 +2522,19 @@ describe('runtime messaging reaches onMessage listeners', () => {
     await chrome.runtime.sendMessage({ type: 'ping' });
 
     expect(heard).toEqual([]);
+  });
+});
+
+describe('windows.create reports a state', () => {
+  // Chrome reports every window's state; a window created without one is
+  // normal. Reopen's equivalence tests compare a recreated window's state
+  // with a restored one's (KAN-280 Part D).
+  test('a window created without a state is normal', async () => {
+    handle = setupChromeFake();
+
+    const created = await chrome.windows.create({ focused: false });
+
+    expect(created?.state).toBe('normal');
+    expect((await chrome.windows.get(created?.id ?? -1)).state).toBe('normal');
   });
 });
