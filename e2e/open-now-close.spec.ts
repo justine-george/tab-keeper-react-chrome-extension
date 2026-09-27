@@ -645,7 +645,7 @@ grantedTest.describe(
   'Reopen and a collapsed group over the front tab spot (KAN-310)',
   () => {
     grantedTest(
-      "14. a front tab reopened inside a collapsed group's run comes back in front, and the group stays collapsed",
+      "9. a front tab reopened inside a collapsed group's run comes back in front, and the group stays collapsed",
       async ({ context, extensionId, serviceWorker }) => {
         const page = await openPage(
           context,
