@@ -11,6 +11,7 @@ import {
 } from '../../../utils/functions/reopen';
 import { REOPEN_WITH_HISTORY_MESSAGE } from '../../../utils/functions/reopenRequest';
 import type { ClosedItem, Reopened } from '../../../utils/functions/reopen';
+import type * as ReopenModule from '../../../utils/functions/reopen';
 import { setupChromeFake } from '../../setup/chrome.fake';
 import type { ChromeFakeHandle, ChromeSeed } from '../../setup/chrome.fake';
 
@@ -368,6 +369,27 @@ const scenarios: Record<string, Scenario> = {
     },
   },
 
+  // The restore focuses the window, which shows it; recreate never focuses
+  // it, so it stays minimized.
+  'a background tab back into a minimized window': {
+    seed: {
+      grantedPermissions: GRANTED,
+      windows: [
+        tabViewWindow,
+        {
+          id: 2,
+          state: 'minimized',
+          tabs: [
+            { url: url('a'), active: true },
+            { url: url('b') },
+            { url: url('c') },
+          ],
+        },
+      ],
+    },
+    close: () => closeTab(2, 'b'),
+  },
+
   // Task 1, Q1b: the entry is a TAB entry, and it restores into a new window.
   "a window's only tab, whose window went with it": {
     seed: {
@@ -459,6 +481,25 @@ const scenarios: Record<string, Scenario> = {
       tabGroups: [
         { id: 50, windowId: 2, title: 'Now', color: 'blue' },
         { id: 51, windowId: 2, title: 'Later', color: 'red', collapsed: true },
+      ],
+    },
+    close: () => closeWindow(2),
+  },
+
+  'a minimized window': {
+    seed: {
+      grantedPermissions: GRANTED,
+      windows: [
+        tabViewWindow,
+        {
+          id: 2,
+          left: 50,
+          top: 60,
+          width: 800,
+          height: 600,
+          state: 'minimized',
+          tabs: [{ url: url('a'), active: true }, { url: url('b') }],
+        },
       ],
     },
     close: () => closeWindow(2),
@@ -689,6 +730,146 @@ describe('reopenWithHistory falls back to recreate (KAN-280 Part D)', () => {
   });
 });
 
+// Without the tabGroups grant (Justine's ruling, fix round 1): the history
+// path keeps the tab or window in its real Chrome group, where recreate
+// cannot see groups and drops it. Kept on purpose -- it is closer to O8's
+// "put it back exactly", and ungrouping would break the user's real group.
+// Nothing here may throw or warn.
+describe('reopenWithHistory without the tabGroups grant (KAN-280 Part D)', () => {
+  const seed: ChromeSeed = {
+    grantedPermissions: ['sessions'],
+    tabGroupsApiAbsent: true,
+    windows: [
+      tabViewWindow,
+      {
+        id: 2,
+        tabs: [
+          { url: url('z'), active: true },
+          { url: url('a'), groupId: 50 },
+          { url: url('b'), groupId: 50 },
+          { url: url('c') },
+        ],
+      },
+    ],
+    tabGroups: [
+      { id: 50, windowId: 2, title: 'Kyoto', color: 'blue', collapsed: true },
+    ],
+  };
+
+  const strip = async (windowId: number) =>
+    (await chrome.tabs.query({ windowId }))
+      .sort((x, y) => x.index - y.index)
+      .map(
+        (t) =>
+          `${(t.url ?? '').slice(8, -6)}${t.active ? '*' : ''} g${t.groupId}`
+      );
+
+  test('a tab comes back in its group, in its place, with nothing thrown or warned', async () => {
+    handle = setupChromeFake(seed);
+    const item = await closeTab(2, 'a');
+    if (!item) throw new Error('close failed');
+    // PREMISE: the page could not see the group.
+    expect(chrome.tabGroups).toBeUndefined();
+    expect(item).toMatchObject({ group: null, tab: { groupId: null } });
+    const warn = vi.spyOn(console, 'warn');
+
+    const reopened = await reopenWithHistory(item);
+
+    if (reopened?.kind !== 'tab') throw new Error('no tab came back');
+    expect(handle.restoredFromSession(reopened.tabId)).toBe(true);
+    expect(await strip(2)).toEqual(['z* g-1', 'a g50', 'b g50', 'c g-1']);
+    expect((await chrome.windows.getLastFocused()).id).toBe(1);
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  // Known limitation: the restore expands a collapsed group it lands in, and
+  // without the grant there is no call that can collapse it again.
+  test('KNOWN LIMITATION: a collapsed group the restore expanded stays expanded', async () => {
+    handle = setupChromeFake(seed);
+    const item = await closeTab(2, 'a');
+    if (!item) throw new Error('close failed');
+
+    await reopenWithHistory(item);
+
+    expect(handle.groupState(50)?.collapsed).toBe(false);
+  });
+
+  test('a window comes back with its groups, with nothing thrown or warned', async () => {
+    handle = setupChromeFake(seed);
+    const item = await closeWindow(2);
+    if (!item) throw new Error('close failed');
+    const warn = vi.spyOn(console, 'warn');
+
+    const reopened = await reopenWithHistory(item);
+
+    if (reopened?.kind !== 'window') throw new Error('no window came back');
+    const tabs = (
+      await chrome.tabs.query({ windowId: reopened.windowId })
+    ).sort((x, y) => x.index - y.index);
+    const [z, a, b, c] = tabs;
+    expect(z).toMatchObject({ url: url('z'), active: true, groupId: -1 });
+    expect(a.groupId).not.toBe(-1);
+    expect(b.groupId).toBe(a.groupId);
+    expect(c.groupId).toBe(-1);
+    expect(handle.groupState(a.groupId)).toMatchObject({
+      title: 'Kyoto',
+      color: 'blue',
+      collapsed: true,
+    });
+    expect((await chrome.windows.getLastFocused()).id).toBe(1);
+    expect(warn).not.toHaveBeenCalled();
+  });
+});
+
+describe('a read before the restore that throws at once (KAN-280 Part D)', () => {
+  // After a revoke, sessions calls throw synchronously (Task 1, Q4);
+  // tabGroups may too. A throw before the restore must not end the Reopen
+  // with nothing reopened.
+  test('tabGroups.get throwing synchronously still reopens with history', async () => {
+    handle = setupChromeFake(
+      scenarios['a background tab back into a group collapsed since the close']
+        .seed
+    );
+    const item = await closeTab(2, 'b');
+    if (!item) throw new Error('close failed');
+    vi.spyOn(chrome.tabGroups, 'get').mockImplementation(() => {
+      throw new Error("'tabGroups.get' is not available in this context.");
+    });
+
+    const reopened = await reopenWithHistory(item);
+
+    if (reopened?.kind !== 'tab') throw new Error('nothing came back');
+    expect(handle.restoredFromSession(reopened.tabId)).toBe(true);
+  });
+});
+
+describe('after a restore that ran, the ids are answered even if the undo throws (KAN-280 Part D)', () => {
+  test('an undo that throws outright still resolves the restored tab', async () => {
+    handle = setupChromeFake(scenarios['a tab back into another window'].seed);
+    const item = await closeTab(2, 'b');
+    if (!item) throw new Error('close failed');
+    const [a] = await chrome.tabs.query({ url: url('a') });
+    // A restore whose result can be read once, then throws: the undo, which
+    // reads it again, blows up after the ids were taken.
+    let reads = 0;
+    const session: chrome.sessions.Session = {
+      lastModified: 0,
+      get tab() {
+        reads += 1;
+        if (reads > 1) throw new Error('boom');
+        return a;
+      },
+    };
+    vi.spyOn(chrome.sessions, 'restore').mockImplementation(
+      async () => session
+    );
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    expect(await reopenWithHistory(item)).toEqual({ kind: 'tab', tabId: a.id });
+    expect(handle.createdTabs).toEqual([]);
+  });
+});
+
 // The worker's side: background.ts answers the request with what came back.
 // Loaded fresh against each test's fake, as Chrome starts the worker.
 async function startWorker(): Promise<void> {
@@ -718,6 +899,30 @@ describe('the service worker answers the request (KAN-280 Part D)', () => {
     const b = await tabIdNamed('b');
     expect(answer).toEqual({ kind: 'tab', tabId: b });
     expect(handle.restoredFromSession(b)).toBe(true);
+  });
+
+  test('a handler that throws still answers, with null', async () => {
+    handle = setupChromeFake(seed);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    vi.resetModules();
+    vi.doMock('../../../utils/functions/reopen', async (importOriginal) => ({
+      ...(await importOriginal<typeof ReopenModule>()),
+      reopenWithHistory: () => Promise.reject(new Error('boom')),
+    }));
+    try {
+      await import('../../../background');
+      const item = await closeTab(2, 'b');
+
+      const answer = await chrome.runtime.sendMessage({
+        type: REOPEN_WITH_HISTORY_MESSAGE,
+        item,
+      });
+
+      expect(answer).toBeNull();
+      expect(warn).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.doUnmock('../../../utils/functions/reopen');
+    }
   });
 
   test('a malformed request gets no answer and reopens nothing', async () => {
@@ -803,6 +1008,23 @@ describe('reopenClosed, the page side (KAN-280 Part D)', () => {
       expect.objectContaining({ url: url('b') }),
     ]);
     expect(await tabsAt(url('b'))).toHaveLength(1);
+  });
+
+  // The worker may have run it: its restore could have happened before the
+  // channel closed. Never a second, local recreate (Justine's ruling).
+  test('any other rejection (the port closed) recreates nothing', async () => {
+    handle = setupChromeFake(seed(GRANTED));
+    const item = await closeTab(2, 'b');
+    if (!item) throw new Error('close failed');
+    vi.spyOn(chrome.runtime, 'sendMessage').mockRejectedValue(
+      new Error('The message port closed before a response was received.')
+    );
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    expect(await reopenClosed(item)).toBeNull();
+    expect(handle.createdTabs).toEqual([]);
+    expect(await tabsAt(url('b'))).toEqual([]);
+    expect(warn).toHaveBeenCalledTimes(1);
   });
 
   // A stand-in worker that answers every message with `answer`.

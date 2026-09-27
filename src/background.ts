@@ -85,9 +85,14 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   // the restore focuses a window, and the undo after it has to outlive the
   // popup. The answer carries the new ids for the tab view's row focus
   // (KAN-311); returning true keeps the channel open for it. A popup is gone
-  // by then, and never reads it.
+  // by then, and never reads it. It ALWAYS answers: a throw answers null, so
+  // the page never mistakes silence for "nothing ran" and reopens a second
+  // time.
   if (isReopenWithHistoryRequest(message)) {
-    void reopenWithHistory(message.item).then(sendResponse);
+    void reopenWithHistory(message.item).then(sendResponse, (error) => {
+      console.warn('Reopen with history failed: ', error);
+      sendResponse(null);
+    });
     return true;
   }
 
