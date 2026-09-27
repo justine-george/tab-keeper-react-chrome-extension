@@ -65,6 +65,8 @@ export const LIGATURE_ICON_NAMES = [
   'upload',
   'visibility',
   'visibility_off',
+  'volume_off',
+  'volume_up',
   'web_asset',
 ] as const;
 

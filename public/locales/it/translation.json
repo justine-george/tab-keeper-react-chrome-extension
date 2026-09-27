@@ -223,6 +223,8 @@
   "WindowClosed_many": "Finestra chiusa ({{count}} schede)",
   "WindowClosed_other": "Finestra chiusa ({{count}} schede)",
   "Close tab": "Chiudi scheda",
+  "Audio playing": "Riproduzione audio in corso",
+  "Audio muted": "Audio disattivato",
   "Close window": "Chiudi finestra",
   "Save window as a session": "Salva la finestra come sessione",
   "Window saved as a session.": "Finestra salvata come sessione."

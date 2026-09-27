@@ -17,6 +17,11 @@ interface ClickableRowProps {
    * in the Open now pane (KAN-280). A cue that is not colour alone.
    */
   ariaCurrent?: boolean;
+  /**
+   * The id of an element whose text describes the row beyond its name -- a
+   * live tab's sound, in the Open now pane (KAN-280 O10b).
+   */
+  ariaDescribedBy?: string;
   style?: string;
   children: React.ReactNode;
 }
@@ -39,6 +44,7 @@ const ClickableRow: React.FC<ClickableRowProps> = ({
   onClick,
   tooltipText,
   ariaCurrent,
+  ariaDescribedBy,
   style,
   children,
 }) => {
@@ -69,6 +75,7 @@ const ClickableRow: React.FC<ClickableRowProps> = ({
       title={tooltipText}
       aria-label={ariaLabel}
       aria-current={ariaCurrent ? 'true' : undefined}
+      aria-describedby={ariaDescribedBy}
       css={rowStyle}
       onClick={onClick}
     >

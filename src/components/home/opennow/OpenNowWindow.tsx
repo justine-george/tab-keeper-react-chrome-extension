@@ -22,12 +22,35 @@ import {
   ADJACENT_GROUP_GAP_PX,
   BAND_MARGIN_PX,
 } from '../rightpane/bandSpacing';
-import { DURATION, TYPE } from '../../../styles/scale';
+import { DURATION, ICON, TYPE } from '../../../styles/scale';
 
 // WindowEntryContainer's GROUP_TITLE_SIZE, the one documented off-scale size
 // (scaleConformance.test.ts). Copied rather than exported from there, for the
 // reason the styles below are.
 const GROUP_TITLE_SIZE = '0.85rem';
+
+// Icon's box: its glyph plus 4px padding a side. rem-based, so it follows
+// Chrome's font size (KAN-312).
+const ICON_SLOT = `calc(${ICON.DEFAULT} + 8px)`;
+// One slot in from the row's edge, so × keeps the same column on every row
+// (KAN-280 O10a 1B, kept by O10b).
+const speakerSlotStyle = css`
+  display: flex;
+  align-items: center;
+  flex: none;
+  margin-right: ${ICON_SLOT};
+`;
+// Screen-reader text for the sound (KAN-280 O10b), as ExportPage's copied
+// status is hidden (KAN-221). The row is position: relative, so it stays in.
+const soundDescriptionStyle = css`
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+`;
 
 // A held Enter or Space repeats into whatever has focus, and after a close
 // that is the next row's × (KAN-280 O7b). Its repeats stop here, in the
@@ -39,14 +62,14 @@ function holdBackRepeatedActivation(event: React.KeyboardEvent) {
   event.stopPropagation();
 }
 
-// A double-click's first click closes its row, and the row below moves up
-// under the pointer, so its second click lands on that row's close control
-// (KAN-280 O7c). A click whose count is past 1 is that second click, and it
-// closes nothing. Icon's key press arrives through click() with a count of 0.
-function onFirstClickOnly(close: () => void): React.MouseEventHandler {
+// A click whose count is past 1 is a double-click's second click, and it
+// does nothing (KAN-280 O7c). On a close, the row below has moved up under
+// the pointer, so it would close that row too. Icon's key press arrives
+// through click() with a count of 0.
+function onFirstClickOnly(action: () => void): React.MouseEventHandler {
   return (event) => {
     if (event.detail > 1) return;
-    close();
+    action();
   };
 }
 
@@ -244,6 +267,16 @@ export default function OpenNowWindow({
   );
 
   function renderTab(tab: OpenTab) {
+    // KAN-280 O10b: the speaker shows Chrome's sound and changes nothing.
+    // Tab Keeper never mutes, because Chrome's own controls cannot undo an
+    // extension's mute (KAN-315, measured). Muted wins over playing.
+    // t() on literals: keyCoverage cannot see a key passed as a variable.
+    const sound = tab.muted
+      ? t('Audio muted')
+      : tab.audible
+        ? t('Audio playing')
+        : null;
+    const soundId = `open-now-sound-${tab.id}`;
     return (
       <div
         key={tab.id}
@@ -255,6 +288,7 @@ export default function OpenNowWindow({
         <ClickableRow
           ariaLabel={t('Switch to tab') + ': ' + tab.title}
           ariaCurrent={tab.active}
+          ariaDescribedBy={sound === null ? undefined : soundId}
           // Chrome rejects when the tab closed after this row was drawn. There
           // is nothing to switch to, and the next read drops the row.
           onClick={() => void switchToOpenTab(tab).catch(() => undefined)}
@@ -276,7 +310,23 @@ export default function OpenNowWindow({
               style="padding-left: 4px; height: 100%; max-width: 100%;"
             />
           </div>
+          {sound !== null && (
+            // Inside the Switch button, so a click on it switches to the
+            // tab, where Chrome's own mute is. A presentational Icon is
+            // aria-hidden; the description below says the sound instead.
+            <span data-speaker css={speakerSlotStyle}>
+              <Icon
+                type={tab.muted ? 'volume_off' : 'volume_up'}
+                style={NON_INTERACTIVE_ICON_STYLE}
+              />
+            </span>
+          )}
         </ClickableRow>
+        {sound !== null && (
+          <span id={soundId} css={soundDescriptionStyle}>
+            {sound}
+          </span>
+        )}
         {/* data-row-actions: the stylesheet's hook for hiding the strip
             during a drag (KAN-135), which an emotion class cannot give it.
             data-close-tab: where the pane finds this row's × after a close

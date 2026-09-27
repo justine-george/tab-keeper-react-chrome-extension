@@ -217,6 +217,8 @@
   "Couldn't reopen.": "无法重新打开。",
   "WindowClosed_other": "窗口已关闭（{{count}} 个标签页）",
   "Close tab": "关闭标签页",
+  "Audio playing": "正在播放音频",
+  "Audio muted": "音频已静音",
   "Close window": "关闭窗口",
   "Save window as a session": "将窗口保存为会话",
   "Window saved as a session.": "已将窗口保存为会话。"
