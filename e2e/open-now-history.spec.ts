@@ -809,10 +809,11 @@ grantedTest.describe('Reopen with history (KAN-280 Part D)', () => {
       );
       if (made === null) throw new Error('Chrome gave no window or tab ids');
       const [, loose, grouped, next] = made.ids;
-      for (const [tabId, key] of [
+      const histories: [number, string][] = [
         [loose, 'loose'],
         [grouped, 'grouped'],
-      ] as const) {
+      ];
+      for (const [tabId, key] of histories) {
         await navigate(serviceWorker, tabId, site(key, 2));
         await navigate(serviceWorker, tabId, site(key, 3));
       }
