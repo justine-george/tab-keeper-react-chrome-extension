@@ -87,6 +87,8 @@
   "Ink": "Tinte",
   "Auto Sync": "Auto-Sync",
   "Save Tab Groups": "Tab-Gruppen speichern",
+  "Bring back tab history when reopening": "Tab-Verlauf beim Wiederöffnen wiederherstellen",
+  "Reopening a closed tab or window from Open now also brings back its Back and Forward pages. It uses Chrome’s list of recently closed tabs.": "Wenn Sie einen geschlossenen Tab oder ein geschlossenes Fenster über \"Offene Tabs\" wieder öffnen, werden auch die Seiten für Zurück und Vorwärts wiederhergestellt. Dafür wird die Chrome-Liste der zuletzt geschlossenen Tabs verwendet.",
   "Sync Status": "Sync-Status",
   "Chrome’s sync storage isn’t available in this profile, so your sessions stay on this device.": "Der Chrome-Sync-Speicher ist in diesem Profil nicht verfügbar, daher bleiben Ihre Sitzungen auf diesem Gerät.",
   "Cloud sync on": "Cloud-Sync aktiv",

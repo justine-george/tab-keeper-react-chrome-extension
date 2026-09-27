@@ -42,9 +42,14 @@ describe('the settings rail names what each pane holds (KAN-253)', () => {
     expect(en).not.toHaveProperty('Data Management');
   });
 
-  test('Sessions holds Save Tab Groups and the shortcut, and nothing about backup', async () => {
+  test('Sessions holds Save Tab Groups, tab history and the shortcut, and nothing about backup', async () => {
     await renderOn(SettingsCategory.SESSIONS);
     expect(screen.getByRole('group', { name: 'Save Tab Groups' })).toBeTruthy();
+    expect(
+      screen.getByRole('group', {
+        name: 'Bring back tab history when reopening',
+      })
+    ).toBeTruthy();
     expect(screen.getByText('Keyboard shortcut')).toBeTruthy();
     expect(screen.queryByText('Backup')).toBeNull();
     expect(
@@ -82,11 +87,11 @@ describe('sections within a pane sit 32px apart, as About blocks do', () => {
     expect(margins).toEqual(['20px', '32px', '32px', '32px']);
   });
 
-  test('Sessions: first at 20px, the shortcut row at 32px', async () => {
+  test('Sessions: first at 20px, the tab-history and shortcut rows at 32px', async () => {
     const { container } = await renderOn(SettingsCategory.SESSIONS);
     const margins = [
       ...container.querySelectorAll<HTMLElement>('[data-settings-section]'),
     ].map((el) => getComputedStyle(el).marginTop);
-    expect(margins).toEqual(['20px', '32px']);
+    expect(margins).toEqual(['20px', '32px', '32px']);
   });
 });

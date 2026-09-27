@@ -84,6 +84,8 @@
   "Ink": "잉크",
   "Auto Sync": "자동 동기화",
   "Save Tab Groups": "탭 그룹 저장",
+  "Bring back tab history when reopening": "다시 열 때 탭 기록 복원",
+  "Reopening a closed tab or window from Open now also brings back its Back and Forward pages. It uses Chrome’s list of recently closed tabs.": "\"지금 열려 있는 탭\"에서 닫은 탭이나 창을 다시 열면 뒤로 및 앞으로 페이지도 함께 복원됩니다. Chrome의 최근에 닫은 탭 목록을 사용합니다.",
   "Sync Status": "동기화 상태",
   "Chrome’s sync storage isn’t available in this profile, so your sessions stay on this device.": "이 Chrome 프로필에서는 동기화 저장소를 사용할 수 없으므로 세션이 이 기기에만 보관됩니다.",
   "Cloud sync on": "클라우드 동기화 켜짐",

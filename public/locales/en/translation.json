@@ -86,6 +86,8 @@
   "Ink": "Ink",
   "Auto Sync": "Auto Sync",
   "Save Tab Groups": "Save Tab Groups",
+  "Bring back tab history when reopening": "Bring back tab history when reopening",
+  "Reopening a closed tab or window from Open now also brings back its Back and Forward pages. It uses Chrome’s list of recently closed tabs.": "Reopening a closed tab or window from Open now also brings back its Back and Forward pages. It uses Chrome’s list of recently closed tabs.",
   "Sync Status": "Sync Status",
   "Chrome’s sync storage isn’t available in this profile, so your sessions stay on this device.": "Chrome’s sync storage isn’t available in this profile, so your sessions stay on this device.",
   "Cloud sync on": "Cloud sync on",

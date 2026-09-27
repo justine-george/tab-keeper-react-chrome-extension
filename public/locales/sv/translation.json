@@ -86,6 +86,8 @@
   "Ink": "Bläck",
   "Auto Sync": "Autosynk",
   "Save Tab Groups": "Spara flikgrupper",
+  "Bring back tab history when reopening": "Återställ flikhistoriken vid återöppning",
+  "Reopening a closed tab or window from Open now also brings back its Back and Forward pages. It uses Chrome’s list of recently closed tabs.": "När du öppnar en stängd flik eller ett stängt fönster igen från ”Öppna flikar” kommer även sidorna för Bakåt och Framåt tillbaka. Chromes lista över nyligen stängda flikar används.",
   "Sync Status": "Synkstatus",
   "Chrome’s sync storage isn’t available in this profile, so your sessions stay on this device.": "Chromes synklagring är inte tillgänglig i den här profilen, så dina sessioner stannar på den här enheten.",
   "Cloud sync on": "Molnsynk på",

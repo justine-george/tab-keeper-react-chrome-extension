@@ -100,7 +100,9 @@ describe('settings toggles say which setting they control (KAN-88)', () => {
   // defect; it became a pair after Auto Sync did (KAN-249). The memory
   // setting that sat above it is gone (KAN-250): restores always open later
   // tabs as placeholders, so there is nothing to choose.
-  test('Sessions has one pair, Save Tab Groups, and no memory setting', async () => {
+  // KAN-280 added the second pair, "Bring back tab history when reopening";
+  // tabHistoryRow.test.tsx covers it.
+  test('Sessions has two pairs, Save Tab Groups and tab history, and no memory setting', async () => {
     await renderOn(SettingsCategory.SESSIONS);
 
     const groups = screen.getByRole('group', { name: 'Save Tab Groups' });
@@ -109,7 +111,9 @@ describe('settings toggles say which setting they control (KAN-88)', () => {
         .getByRole('button', { name: 'Off' })
         .getAttribute('aria-pressed')
     ).toBe('true');
-    expect(screen.getAllByRole('group')).toHaveLength(1);
+    expect(
+      screen.getAllByRole('group').map((g) => g.getAttribute('aria-label'))
+    ).toEqual(['Save Tab Groups', 'Bring back tab history when reopening']);
     expect(
       screen.queryByText('Optimize Memory Usage On Session Restore')
     ).toBeNull();

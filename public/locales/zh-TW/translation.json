@@ -84,6 +84,8 @@
   "Ink": "墨水",
   "Auto Sync": "自動同步",
   "Save Tab Groups": "儲存分頁群組",
+  "Bring back tab history when reopening": "重新開啟時還原分頁歷史記錄",
+  "Reopening a closed tab or window from Open now also brings back its Back and Forward pages. It uses Chrome’s list of recently closed tabs.": "從「目前開啟的分頁」重新開啟已關閉的分頁或視窗時，也會還原其「上一頁」和「下一頁」的網頁。此功能使用 Chrome 最近關閉的分頁清單。",
   "Sync Status": "同步狀態",
   "Chrome’s sync storage isn’t available in this profile, so your sessions stay on this device.": "這個 Chrome 設定檔無法使用同步儲存空間，因此你的工作階段只會保留在這部裝置上。",
   "Cloud sync on": "雲端同步已開啟",
