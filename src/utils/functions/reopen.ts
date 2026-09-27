@@ -1,5 +1,6 @@
 import { toOpenWindowBounds } from './openNow';
 import type { OpenGroup, OpenTab, OpenWindow } from './openNow';
+import { hasSessionsPermission } from './permissions';
 
 // Close a live tab or window from the Open now pane, and put it back exactly
 // with Reopen (KAN-280 O8). DOM-free -- no `window`, no `document` -- so it
@@ -7,11 +8,22 @@ import type { OpenGroup, OpenTab, OpenWindow } from './openNow';
 
 // What a close leaves behind for Reopen (KAN-280 O8): the snapshot Open now
 // held at the moment of closing. Never stored.
+//
+// `restorableSessionId` is the id of Chrome's own recently closed entry for
+// this close, recorded the moment it closed -- Reopen can come after other
+// closes, so it is never searched for later (KAN-280 Part D). null when the
+// `sessions` permission is not held or no entry matched.
 export type ClosedItem =
-  | { kind: 'window'; window: OpenWindow }
+  | { kind: 'window'; window: OpenWindow; restorableSessionId: string | null }
   // `window` is the tab's whole window as it was, so a window that closed
   // with its last tab can be rebuilt in its old place.
-  | { kind: 'tab'; tab: OpenTab; group: OpenGroup | null; window: OpenWindow };
+  | {
+      kind: 'tab';
+      tab: OpenTab;
+      group: OpenGroup | null;
+      window: OpenWindow;
+      restorableSessionId: string | null;
+    };
 
 // The snapshot with the window's bounds and state as Chrome reports them
 // now (KAN-280 rule 5, KAN-308). A move, resize or maximize fires no event
@@ -33,8 +45,53 @@ async function withCurrentPlacement(
   }
 }
 
+// Chrome's recently closed list, newest first, or null when `sessions` is not
+// held. Held means both: chrome.sessions is there (it is undefined before the
+// first grant) and the grant is (after a revoke the member stays, but every
+// call on it throws at once). Read straight after the remove: the entry is
+// already listed by then (Task 1, Q1).
+async function recentlyClosed(): Promise<chrome.sessions.Session[] | null> {
+  try {
+    if (!chrome.sessions || !(await hasSessionsPermission())) return null;
+    return await chrome.sessions.getRecentlyClosed();
+  } catch (error) {
+    console.warn('Could not read the recently closed list: ', error);
+    return null;
+  }
+}
+
+// When unsure, null: a missing id only costs the history (Reopen recreates),
+// but a wrong one would restore the wrong tab or window.
+//
+// Never simply the newest entry: two closes issued together list the second
+// first (Task 1, Q1). The kind follows the call, not the tab count -- a
+// tabs.remove always leaves a tab entry -- so only a tab entry can be a tab's.
+async function closedTabEntryId(tab: OpenTab): Promise<string | null> {
+  const entries = await recentlyClosed();
+  const entry = entries?.find((candidate) => candidate.tab?.url === tab.url);
+  return entry?.tab?.sessionId ?? null;
+}
+
+// Only a window entry, holding the snapshot's addresses in the same order.
+async function closedWindowEntryId(
+  openWindow: OpenWindow
+): Promise<string | null> {
+  const urls = openWindow.tabs.map((tab) => tab.url);
+  const entries = await recentlyClosed();
+  const entry = entries?.find((candidate) => {
+    const closedTabs = candidate.window?.tabs;
+    return (
+      closedTabs !== undefined &&
+      closedTabs.length === urls.length &&
+      closedTabs.every((closed, index) => closed.url === urls[index])
+    );
+  });
+  return entry?.window?.sessionId ?? null;
+}
+
 // Resolves to the ClosedItem when Chrome closed it, or null when it could not
-// (the tab or window was already gone). Never rejects.
+// (the tab or window was already gone). Never rejects: the close stands even
+// when its recently closed entry cannot be read.
 export async function closeOpenTab(
   openWindow: OpenWindow,
   tab: OpenTab
@@ -50,6 +107,7 @@ export async function closeOpenTab(
     tab,
     group: openWindow.groups.find((group) => group.id === tab.groupId) ?? null,
     window: placed,
+    restorableSessionId: await closedTabEntryId(tab),
   };
 }
 
@@ -62,7 +120,11 @@ export async function closeOpenWindow(
   } catch {
     return null;
   }
-  return { kind: 'window', window: placed };
+  return {
+    kind: 'window',
+    window: placed,
+    restorableSessionId: await closedWindowEntryId(openWindow),
+  };
 }
 
 // What Reopen brought back, by the new id Chrome gave it: focus goes to its
