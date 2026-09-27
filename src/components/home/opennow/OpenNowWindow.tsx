@@ -42,8 +42,8 @@ const speakerSlotStyle = css`
   flex: none;
   margin-right: ${ICON_SLOT};
 `;
-// The 32px icon slot × uses: no border, no resting fill. Button's quiet
-// palette still gives it the icon hover and press fills.
+// The icon slot × uses: no border, no resting fill. Button's quiet palette
+// still gives it the icon hover and press fills.
 const speakerButtonStyle = `
   border: none;
   padding: 0;
@@ -61,14 +61,15 @@ function holdBackRepeatedActivation(event: React.KeyboardEvent) {
   event.stopPropagation();
 }
 
-// A double-click's first click closes its row, and the row below moves up
-// under the pointer, so its second click lands on that row's close control
-// (KAN-280 O7c). A click whose count is past 1 is that second click, and it
-// closes nothing. Icon's key press arrives through click() with a count of 0.
-function onFirstClickOnly(close: () => void): React.MouseEventHandler {
+// A click whose count is past 1 is a double-click's second click, and it
+// does nothing (KAN-280 O7c). On a close, the row below has moved up under
+// the pointer, so it would close that row too. On the speaker (O10a), it
+// would undo the first click. Icon's key press arrives through click() with
+// a count of 0.
+function onFirstClickOnly(action: () => void): React.MouseEventHandler {
   return (event) => {
     if (event.detail > 1) return;
-    close();
+    action();
   };
 }
 
