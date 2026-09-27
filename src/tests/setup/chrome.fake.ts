@@ -2,7 +2,9 @@
 // over a mock on purpose: tests assert on resulting state rather than on the
 // fact that a function was invoked.
 //
-// Covers 31 members production code calls as of 2026-09-24 --
+// Covers 31 members production code calls as of 2026-09-24 (plus
+// sessions.getRecentlyClosed/restore, modelled ahead of KAN-280 Part D's
+// Reopen calling them -- see below) --
 // tabs.query/create/update/get/getCurrent/onActivated/group/ungroup/remove,
 // windows.getAll/getCurrent/create/remove/update/get, storage.sync.get/set,
 // runtime.sendMessage/onMessage/getURL/lastError/getPlatformInfo (the Reopen
@@ -35,6 +37,12 @@
 // it), tabs.create and windows.create (per tab) fire tabs.onCreated,
 // windows.create also fires windows.onCreated, and tabGroups.update fires
 // tabGroups.onUpdated. See the registries comment below for the full split.
+//
+// KAN-280 Part D (Reopen through chrome.sessions): sessions.getRecentlyClosed/
+// restore, present only once `sessions` has been granted, fed by this fake's
+// own tabs.remove and windows.remove. Every rule is one Task 1 measured in
+// Chromium 151 (docs/superpowers/plans/2026-09-27-open-now-part-d.md, "Task 1
+// results"), cited as "Task 1, Qn" where it is modelled.
 
 export type ChromeSeed = {
   tabs?: Partial<chrome.tabs.Tab>[];
@@ -53,7 +61,8 @@ export type ChromeSeed = {
   storage?: Record<string, unknown>;
   tabGroups?: Partial<chrome.tabGroups.TabGroup>[];
   // Optional permissions the profile already holds. Defaults to none, which is
-  // what a fresh install looks like.
+  // what a fresh install looks like. Holding `sessions` here makes
+  // chrome.sessions present from the start (Task 1, Q4).
   grantedPermissions?: chrome.runtime.ManifestPermission[];
   // What chrome.commands.getAll() reports (KAN-256). Absent means no
   // commands are declared -- an empty list, as Chrome returns for an
@@ -163,8 +172,46 @@ export type ChromeFakeHandle = {
   // detached everything, not just that the component stopped reacting to
   // one of them.
   liveEventListenerCount(): number;
+  // Whether this tab came back through chrome.sessions.restore rather than
+  // being made by tabs.create, windows.create or the seed. Chrome's own
+  // evidence is the page's history.length (Task 1, Q2: 3 after a restore, 1
+  // after a recreate), and the fake has no page to hold one -- this is that
+  // evidence, and nothing is added to chrome.tabs.Tab for it. Throws on an id
+  // no open tab carries, so a typo'd id fails loudly.
+  restoredFromSession(tabId: number): boolean;
   restore(): void;
 };
+
+// A tab's group as it was when the tab closed -- what sessions.restore needs
+// to bring the group back with the same title and colour (Task 1, Q2).
+type ClosedGroup = Pick<
+  chrome.tabGroups.TabGroup,
+  'id' | 'title' | 'color' | 'collapsed'
+>;
+// A closed tab as the fake remembers it: the tab exactly as it was (its REAL
+// windowId, groupId and index -- the Session view hides them, as Chrome
+// does), its group, and the session id Chrome would hand out for it.
+type ClosedTab = {
+  sessionId: string;
+  tab: chrome.tabs.Tab;
+  group: ClosedGroup | undefined;
+};
+// One recently-closed entry. Its kind follows the CALL that closed it, not
+// how many tabs went (Task 1, Q1b): tabs.remove makes a 'tab' entry even for
+// a window's only tab, windows.remove makes a 'window' entry even for one tab.
+type ClosedEntry =
+  | { kind: 'tab'; lastModified: number; closed: ClosedTab }
+  | {
+      kind: 'window';
+      lastModified: number;
+      sessionId: string;
+      window: chrome.windows.Window;
+      tabs: ClosedTab[];
+    };
+
+// Chrome's cap on the recently-closed list (Task 1, Q3: 30 later closes
+// pushed an id out, and the oldest id still listed restored).
+const MAX_SESSION_RESULTS = 25;
 
 // Callers pass either a callback or use the returned promise. Supporting both
 // is not optional: App.tsx uses the promise form, capture.ts the callback one.
@@ -377,8 +424,12 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
   // and tabGroups.update (all below) DO fire these back to their own
   // caller, matching real Chrome -- an extension is not exempt from its own
   // events. windows.remove fires tabs.onRemoved per tab then
-  // windows.onRemoved. Everything else here (onUpdated/onMoved/onAttached/
-  // onDetached/onActivated, tabGroups.onCreated/onRemoved/onMoved) has no
+  // windows.onRemoved. tabs.remove and windows.remove also fire
+  // tabGroups.onRemoved for a group whose last tab they closed (KAN-280 Part
+  // D). sessions.restore fires what tabs.create/windows.create/
+  // tabGroups.update fire for the same change, plus tabGroups.onCreated for
+  // a group it brings back. Everything else here (onUpdated/onMoved/
+  // onAttached/onDetached/onActivated, tabGroups.onMoved) has no
   // extension-call trigger in this file -- only handle.browser.* below,
   // which models the BROWSER's own hand, fires those.
   const tabsOnCreated = registry<(tab: chrome.tabs.Tab) => void>();
@@ -415,6 +466,357 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
   const permissionListeners = {
     added: [] as ((p: chrome.permissions.Permissions) => void)[],
     removed: [] as ((p: chrome.permissions.Permissions) => void)[],
+  };
+
+  // A window's tabs in strip order, for working out where a tab lands.
+  const windowTabsInOrder = (windowId: number): chrome.tabs.Tab[] =>
+    tabs
+      .filter((tab) => tab.windowId === windowId)
+      .sort((a, b) => a.index - b.index);
+
+  // Chrome's own `index` clamp: the requested slot lands within [0,
+  // count], then a pinned tab is pushed back into the pinned run at the
+  // front and an unpinned one pushed past it -- a pinned tab can never
+  // sit after an unpinned one (KAN-280).
+  const clampSlot = (
+    own: chrome.tabs.Tab[],
+    requested: number | undefined,
+    pinned: boolean
+  ): number => {
+    const pinnedCount = own.filter((tab) => tab.pinned).length;
+    const rawWant = Math.min(Math.max(requested ?? own.length, 0), own.length);
+    return pinned
+      ? Math.min(rawWant, pinnedCount)
+      : Math.max(rawWant, pinnedCount);
+  };
+
+  // Puts `tab` into the flat `tabs` list so it sits at `slot` among `own`
+  // (its window's tabs in order), then reindexes that window.
+  const insertAtSlot = (
+    tab: chrome.tabs.Tab,
+    own: chrome.tabs.Tab[],
+    slot: number
+  ): void => {
+    if (slot < own.length) {
+      tabs.splice(tabs.indexOf(own[slot]), 0, tab);
+    } else if (own.length === 0) {
+      tabs.push(tab);
+    } else {
+      tabs.splice(tabs.indexOf(own[own.length - 1]) + 1, 0, tab);
+    }
+    reindexWindow(tab.windowId);
+  };
+
+  // Chrome removes a group with its last tab (the reopen.ts tests already
+  // rely on tabGroups.get rejecting for it), and sessions.restore brings
+  // such a group back under its old id (Task 1, Q2) -- which the fake can
+  // only show if the group really went.
+  const dropGroupIfEmpty = (groupId: number): void => {
+    if (groupId === -1 || tabs.some((tab) => tab.groupId === groupId)) return;
+    const index = tabGroups.findIndex((group) => group.id === groupId);
+    if (index === -1) return;
+    const [gone] = tabGroups.splice(index, 1);
+    tabGroupsOnRemoved.fire(gone);
+  };
+
+  // Only one window has focus. A restore takes it (Task 1, Q2b: the target
+  // window became focused and getLastFocused, 16/16 observable).
+  const focusWindow = (windowId: number): void => {
+    for (const win of windows) win.focused = win.id === windowId;
+  };
+
+  // The recently-closed list, newest first. Recorded whatever the grant --
+  // Chrome keeps its list regardless of the extension's permission; only
+  // the API calls are gated.
+  const recentlyClosed: ClosedEntry[] = [];
+  let nextSessionId = 1;
+  // Tabs sessions.restore made, for handle.restoredFromSession. By
+  // reference, so a tab closed and reopened by other means never inherits it.
+  const restoredTabs = new WeakSet<chrome.tabs.Tab>();
+
+  // Called with the tab ALREADY out of `tabs` but its group not yet
+  // dropped, so the group can still be read (Task 1, Q2 needs its title and
+  // colour).
+  const rememberClosedTab = (tab: chrome.tabs.Tab): ClosedTab => {
+    const group = tabGroups.find((g) => g.id === tab.groupId);
+    return {
+      sessionId: String(nextSessionId++),
+      tab: { ...tab },
+      group: group && {
+        id: group.id,
+        title: group.title,
+        color: group.color,
+        collapsed: group.collapsed,
+      },
+    };
+  };
+  // Task 1, Q1: the entry is there the moment the remove resolves, and at
+  // most MAX_SESSION_RESULTS are kept -- the oldest drop off.
+  const recordClosed = (entry: ClosedEntry): void => {
+    recentlyClosed.unshift(entry);
+    recentlyClosed.splice(MAX_SESSION_RESULTS);
+  };
+  // Task 1, Q1: lastModified is whole seconds.
+  const nowInSeconds = (): number => Math.floor(Date.now() / 1000);
+
+  // What getRecentlyClosed hands out (Task 1, Q1): no `id`, and windowId
+  // and groupId always 0, grouped or not -- neither identifies anything.
+  const sessionTabView = ({ sessionId, tab }: ClosedTab): chrome.tabs.Tab => {
+    const view: chrome.tabs.Tab = {
+      ...tab,
+      windowId: 0,
+      groupId: 0,
+      sessionId,
+    };
+    delete view.id;
+    return view;
+  };
+  const sessionView = (entry: ClosedEntry): chrome.sessions.Session => {
+    if (entry.kind === 'tab') {
+      return {
+        lastModified: entry.lastModified,
+        tab: sessionTabView(entry.closed),
+      };
+    }
+    const view: chrome.windows.Window = {
+      ...entry.window,
+      sessionId: entry.sessionId,
+      focused: false,
+      tabs: entry.tabs.map(sessionTabView),
+    };
+    delete view.id;
+    return { lastModified: entry.lastModified, window: view };
+  };
+
+  // Opens a window for a restore and returns its id. Unfocused here; the
+  // caller focuses it once its tabs are in.
+  const openRestoredWindow = (
+    from: Pick<
+      chrome.windows.Window,
+      | 'left'
+      | 'top'
+      | 'width'
+      | 'height'
+      | 'state'
+      | 'type'
+      | 'incognito'
+      | 'alwaysOnTop'
+    >
+  ): { id: number; window: chrome.windows.Window } => {
+    const id = nextId++;
+    const win: chrome.windows.Window = { ...from, id, focused: false };
+    windows.push(win);
+    return { id, window: win };
+  };
+
+  // Task 1, Q2 and Q2b. The tab returns to its old window if that is still
+  // open, else to a NEW window (Q1b). It keeps its index -- except that when
+  // its old group still has other tabs there, it lands at the END of that
+  // group (1 -> 2, 5/5) -- its pinned state, and its group id, recreating
+  // the group with the same id, title and colour if it had gone (7/7). It
+  // is made active, its window takes the focus, and a collapsed group it
+  // lands in is expanded (3/3). The other windows' active tabs are untouched
+  // (25/25). The ORDER of the events it fires was not measured.
+  //
+  // A tab whose group the seed never declared (a groupId with no
+  // tabGroups record) comes back with that groupId and still no record: the
+  // fake repeats the seed's own gap rather than inventing a title or colour.
+  const restoreTabEntry = (
+    entry: Extract<ClosedEntry, { kind: 'tab' }>
+  ): chrome.sessions.Session => {
+    const { tab: was, group } = entry.closed;
+    const stillOpen = windows.some((win) => win.id === was.windowId);
+    const opened = stillOpen
+      ? undefined
+      : openRestoredWindow({
+          type: 'normal',
+          incognito: was.incognito,
+          alwaysOnTop: false,
+        });
+    const windowId = opened?.id ?? was.windowId;
+
+    const own = windowTabsInOrder(windowId);
+    const groupMates =
+      was.groupId === -1 ? [] : own.filter((t) => t.groupId === was.groupId);
+    const lastMate = groupMates[groupMates.length - 1];
+    const slot =
+      lastMate === undefined
+        ? clampSlot(own, was.index, was.pinned)
+        : lastMate.index + 1;
+    const created = makeTab(
+      {
+        url: was.url,
+        title: was.title,
+        favIconUrl: was.favIconUrl,
+        pinned: was.pinned,
+        groupId: was.groupId,
+        active: true,
+      },
+      windowId
+    );
+    insertAtSlot(created, own, slot);
+    for (const tab of own) tab.active = false;
+    restoredTabs.add(created);
+    focusWindow(windowId);
+
+    if (opened) windowsOnCreated.fire(opened.window);
+    tabsOnCreated.fire(created);
+    if (group) {
+      const existing = tabGroups.find((g) => g.id === group.id);
+      if (!existing) {
+        const recreated: chrome.tabGroups.TabGroup = {
+          ...group,
+          collapsed: false,
+          shared: false,
+          windowId,
+        };
+        tabGroups.push(recreated);
+        tabGroupsOnCreated.fire(recreated);
+      } else if (existing.collapsed) {
+        existing.collapsed = false;
+        tabGroupsOnUpdated.fire(existing);
+      }
+    }
+    return { lastModified: entry.lastModified, tab: { ...created } };
+  };
+
+  // Task 1, Q2 and Q2b. A NEW window with the entry's bounds and tabs, pinned
+  // kept, each group under a NEW id with the same title, colour and
+  // collapsed state (9/9), and the focus. Its active tab is the one active at
+  // close -- unless that tab was in a group, when tab 0 comes back active
+  // instead (2/2). A tab whose group was never declared comes back
+  // ungrouped: a new id needs a record to copy, and there is none.
+  const restoreWindowEntry = (
+    entry: Extract<ClosedEntry, { kind: 'window' }>
+  ): chrome.sessions.Session => {
+    const { left, top, width, height, state, type, incognito, alwaysOnTop } =
+      entry.window;
+    const opened = openRestoredWindow({
+      left,
+      top,
+      width,
+      height,
+      state,
+      type,
+      incognito,
+      alwaysOnTop,
+    });
+    const windowId = opened.id;
+
+    const newGroups = new Map<number, chrome.tabGroups.TabGroup>();
+    for (const { group } of entry.tabs) {
+      if (group && !newGroups.has(group.id)) {
+        newGroups.set(group.id, {
+          id: nextId++,
+          title: group.title,
+          color: group.color,
+          collapsed: group.collapsed,
+          shared: false,
+          windowId,
+        });
+      }
+    }
+    const activeAtClose = entry.tabs.find(({ tab }) => tab.active);
+    const activeSlot =
+      activeAtClose === undefined || activeAtClose.tab.groupId !== -1
+        ? 0
+        : entry.tabs.indexOf(activeAtClose);
+    const created = entry.tabs.map(({ tab: was }, slot) => {
+      const tab = makeTab(
+        {
+          url: was.url,
+          title: was.title,
+          favIconUrl: was.favIconUrl,
+          pinned: was.pinned,
+          groupId: newGroups.get(was.groupId)?.id ?? -1,
+          active: slot === activeSlot,
+        },
+        windowId
+      );
+      tabs.push(tab);
+      restoredTabs.add(tab);
+      return tab;
+    });
+    reindexWindow(windowId);
+    tabGroups.push(...newGroups.values());
+    focusWindow(windowId);
+
+    windowsOnCreated.fire(opened.window);
+    for (const tab of created) tabsOnCreated.fire(tab);
+    for (const group of newGroups.values()) tabGroupsOnCreated.fire(group);
+    return {
+      lastModified: entry.lastModified,
+      window: populate(opened.window),
+    };
+  };
+
+  // Task 1, Q4: after a revoke chrome.sessions stays defined, but every call
+  // throws SYNCHRONOUSLY with this message -- not a rejected promise.
+  const assertSessionsGranted = (method: string): void => {
+    if (!granted.has('sessions')) {
+      throw new Error(`'sessions.${method}' is not available in this context.`);
+    }
+  };
+
+  const sessionsApi = {
+    MAX_SESSION_RESULTS,
+    getRecentlyClosed: (
+      filter?: chrome.sessions.Filter,
+      cb?: (sessions: chrome.sessions.Session[]) => void
+    ) => {
+      assertSessionsGranted('getRecentlyClosed');
+      return settle(
+        recentlyClosed
+          .slice(0, filter?.maxResults ?? MAX_SESSION_RESULTS)
+          .map(sessionView),
+        cb
+      );
+    },
+    restore: (
+      sessionId?: string,
+      cb?: (session?: chrome.sessions.Session) => void
+    ) => {
+      assertSessionsGranted('restore');
+      // No product code calls either form below. Thrown, not rejected, so a
+      // future caller that reaches for one notices at once.
+      if (sessionId === undefined) {
+        throw new Error(
+          'sessions.restore() with no sessionId is not modelled by the chrome fake -- model it before depending on it.'
+        );
+      }
+      if (
+        recentlyClosed.some(
+          (entry) =>
+            entry.kind === 'window' &&
+            entry.tabs.some((closed) => closed.sessionId === sessionId)
+        )
+      ) {
+        throw new Error(
+          `sessions.restore("${sessionId}") names one tab inside a window entry, which is not modelled by the chrome fake -- model it before depending on it.`
+        );
+      }
+      // Task 1, Q3: an id that never existed, was already restored or was
+      // pushed out of the list rejects with exactly this, and changes
+      // nothing. Restoring consumes the entry.
+      const index = recentlyClosed.findIndex((entry) =>
+        entry.kind === 'tab'
+          ? entry.closed.sessionId === sessionId
+          : entry.sessionId === sessionId
+      );
+      if (index === -1) {
+        return fail<chrome.sessions.Session>(
+          `Invalid session id: "${sessionId}".`,
+          cb
+        );
+      }
+      const [entry] = recentlyClosed.splice(index, 1);
+      return settle(
+        entry.kind === 'tab'
+          ? restoreTabEntry(entry)
+          : restoreWindowEntry(entry),
+        cb
+      );
+    },
   };
 
   const handle: ChromeFakeHandle = {
@@ -531,6 +933,13 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
         tabGroupsOnRemoved,
         tabGroupsOnMoved,
       ].reduce((total, r) => total + r.size(), 0);
+    },
+    restoredFromSession(tabId) {
+      const target = tabs.find((tab) => tab.id === tabId);
+      if (!target) {
+        throw new Error(`restoredFromSession: no tab with id ${tabId}`);
+      }
+      return restoredTabs.has(target);
     },
     restore() {
       delete (globalThis as { chrome?: unknown }).chrome;
@@ -682,10 +1091,7 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
             : tabs.find((tab) => tab.id === seed.currentTabId);
         return settle(current && { ...current }, cb);
       },
-      // Chrome's own `index` clamp: the requested slot lands within [0,
-      // count], then a pinned tab is pushed back into the pinned run at the
-      // front and an unpinned one pushed past it -- a pinned tab can never
-      // sit after an unpinned one (KAN-280).
+      // Chrome's own `index` clamp (clampSlot above).
       create: (
         props: chrome.tabs.CreateProperties,
         cb?: (tab?: chrome.tabs.Tab) => void
@@ -710,17 +1116,8 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
         const pinned = props.pinned ?? false;
         const created = makeTab({ url, active, pinned }, windowId);
 
-        const own = tabs
-          .filter((tab) => tab.windowId === windowId)
-          .sort((a, b) => a.index - b.index);
-        const pinnedCount = own.filter((tab) => tab.pinned).length;
-        const rawWant = Math.min(
-          Math.max(props.index ?? own.length, 0),
-          own.length
-        );
-        const want = pinned
-          ? Math.min(rawWant, pinnedCount)
-          : Math.max(rawWant, pinnedCount);
+        const own = windowTabsInOrder(windowId);
+        const want = clampSlot(own, props.index, pinned);
 
         // Chrome's rule for a tab inserted inside a group's run: strictly
         // between two tabs of one group, it joins that group (Chromium's
@@ -739,14 +1136,7 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
           created.groupId = before.groupId;
         }
 
-        if (want < own.length) {
-          tabs.splice(tabs.indexOf(own[want]), 0, created);
-        } else if (own.length === 0) {
-          tabs.push(created);
-        } else {
-          tabs.splice(tabs.indexOf(own[own.length - 1]) + 1, 0, created);
-        }
-        reindexWindow(windowId);
+        insertAtSlot(created, own, want);
 
         if (active) {
           for (const tab of tabs) {
@@ -776,6 +1166,13 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
           }
           const [removed] = tabs.splice(index, 1);
           handle.removedTabIds.push(id);
+          // Task 1, Q1b: a tabs.remove always leaves a TAB entry, even for
+          // a window's only tab.
+          recordClosed({
+            kind: 'tab',
+            lastModified: nowInSeconds(),
+            closed: rememberClosedTab(removed),
+          });
           reindexWindow(removed.windowId);
           const windowStillHasTabs = tabs.some(
             (tab) => tab.windowId === removed.windowId
@@ -784,6 +1181,7 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
             windowId: removed.windowId,
             isWindowClosing: !windowStillHasTabs,
           });
+          dropGroupIfEmpty(removed.groupId);
           if (!windowStillHasTabs) {
             const windowIndex = windows.findIndex(
               (win) => win.id === removed.windowId
@@ -978,15 +1376,28 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
         if (index === -1) {
           return fail<void>(`No window with id: ${windowId}.`, cb);
         }
-        windows.splice(index, 1);
-        const closingTabs = tabs.filter((tab) => tab.windowId === windowId);
+        const [closing] = windows.splice(index, 1);
+        const closingTabs = windowTabsInOrder(windowId);
         for (const tab of closingTabs) {
           const tabIndex = tabs.indexOf(tab);
           if (tabIndex !== -1) tabs.splice(tabIndex, 1);
+        }
+        // Task 1, Q1b: a windows.remove always leaves a WINDOW entry, even
+        // for a one-tab window, and each tab in it gets its own sessionId.
+        // Read before dropGroupIfEmpty below, while the groups still exist.
+        recordClosed({
+          kind: 'window',
+          lastModified: nowInSeconds(),
+          sessionId: String(nextSessionId++),
+          window: { ...closing },
+          tabs: closingTabs.map(rememberClosedTab),
+        });
+        for (const tab of closingTabs) {
           if (tab.id !== undefined) {
             tabsOnRemoved.fire(tab.id, { windowId, isWindowClosing: true });
           }
         }
+        for (const tab of closingTabs) dropGroupIfEmpty(tab.groupId);
         windowsOnRemoved.fire(windowId);
         return settle(undefined, cb);
       },
@@ -1058,6 +1469,12 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
     // must fail the same way it would in a real browser.
     ...(seed.tabGroupsApiAbsent ? {} : { tabGroups: tabGroupsApi }),
 
+    // Task 1, Q4: undefined until `sessions` is first granted -- the member
+    // is missing, like tabGroups above. A grant later in the test adds it to
+    // this same object (see permissions.request); a revoke never takes it
+    // away (assertSessionsGranted above).
+    ...(granted.has('sessions') ? { sessions: sessionsApi } : {}),
+
     commands: {
       getAll: (cb?: (commands: chrome.commands.Command[]) => void) =>
         settle(seed.commands ?? [], cb),
@@ -1080,6 +1497,12 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
         // requestNeverSettles lets a test reproduce that shape exactly.
         if (seed.requestNeverSettles) return new Promise<boolean>(() => {});
         for (const name of permissions.permissions ?? []) granted.add(name);
+        // Task 1, Q4: a grant makes chrome.sessions usable in the SAME page
+        // with no reload. Added before onAdded fires, so a listener can use
+        // it (that ordering is this fake's choice; Task 1 did not measure it).
+        if (granted.has('sessions')) {
+          Object.assign(chromeFake, { sessions: sessionsApi });
+        }
         permissionListeners.added.forEach((listener) => listener(permissions));
         return settle(true, cb);
       },

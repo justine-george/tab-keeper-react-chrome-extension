@@ -662,14 +662,22 @@ describe('reopenClosed: a closed tab (KAN-280 O8, rule 6)', () => {
       expect(warn).toHaveBeenCalledTimes(1);
     });
 
+    // x was group 50's only tab, so Chrome dropped the group with it and
+    // Reopen makes one like it -- a new id, but not the group formed over
+    // x's old spot.
     test('CONTROL: a grouped tab still goes back into its own group', async () => {
       handle = seedAXB(50);
-      const { item } = await closeXThenGroupAB();
+      const { item, overSpot } = await closeXThenGroupAB();
       expect(item).toMatchObject({ kind: 'tab', group: { id: 50 } });
 
       expect(await reopenClosed(item)).toMatchObject({ kind: 'tab' });
 
-      expect((await tabNamed(2, 'x')).groupId).toBe(50);
+      const x = await tabNamed(2, 'x');
+      expect(x.groupId).not.toBe(overSpot);
+      expect(await chrome.tabGroups.get(x.groupId)).toMatchObject({
+        title: 'Kept',
+        color: 'cyan',
+      });
     });
 
     test('with tabGroups ungranted, the snapshot cannot know the group, so the tab is left where Chrome put it', async () => {
