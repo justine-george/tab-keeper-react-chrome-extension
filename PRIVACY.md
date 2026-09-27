@@ -2,7 +2,7 @@
 
 **Tab Keeper — Chrome extension**
 
-Last updated: 21 September 2026
+Last updated: 27 September 2026
 
 Tab Keeper saves your open windows and tabs as sessions so you can reopen them later. This policy explains what information Tab Keeper handles, how it is used, where it is stored, and how you can remove it.
 
@@ -105,6 +105,7 @@ If you cannot use the deletion control, contact the developer at the address bel
 - **`storage`:** Stores the anonymous sync identifier in Chrome sync storage.
 - **`favicon`:** Retrieves tab icons from Chrome's favicon cache.
 - **`tabGroups` (optional):** Saves and restores Chrome tab groups. Tab Keeper requests this permission only after you choose to enable the feature.
+- **`sessions` (optional):** Reads Chrome's list of recently closed tabs and windows on this device, to find the tab or window you just closed from Open now and bring it back with its Back and Forward pages. Tab Keeper requests it only after you turn on "Bring back tab history when reopening" in Settings, and turning the setting off gives the permission back. Nothing from that list is stored or sent anywhere.
 
 ## Security
 
