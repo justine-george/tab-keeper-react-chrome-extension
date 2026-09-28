@@ -117,6 +117,15 @@ async function cameBackWithHistory(
   );
 }
 
+// Groups two named tabs of window 2 as a collapsed "H".
+async function collapseOver(first: string, second: string): Promise<void> {
+  const group = await chrome.tabs.group({
+    createProperties: { windowId: 2 },
+    tabIds: [await tabIdNamed(first), await tabIdNamed(second)],
+  });
+  await chrome.tabGroups.update(group, { title: 'H', collapsed: true });
+}
+
 type Scenario = {
   seed: ChromeSeed;
   close: () => Promise<ClosedItem | null>;
@@ -345,6 +354,55 @@ const scenarios: Record<string, Scenario> = {
         tabIds: [await tabIdNamed('a'), await tabIdNamed('b')],
       });
       await chrome.tabGroups.update(group, { title: 'Over', color: 'pink' });
+    },
+  },
+
+  // KAN-316 (Task 8, M2): a collapsed group formed over its spot since the
+  // close. Chrome restores it just after the group, still collapsed, and in
+  // front; moving it back while it is in front joins the group and expands
+  // it. Recreate creates it in the background, so the group stays collapsed.
+  'an ungrouped tab back right after a collapsed group': {
+    seed: {
+      grantedPermissions: GRANTED,
+      windows: [
+        tabViewWindow,
+        {
+          id: 2,
+          tabs: [
+            { url: url('a') },
+            { url: url('x') },
+            { url: url('b') },
+            { url: url('z'), active: true },
+          ],
+        },
+      ],
+    },
+    close: () => closeTab(2, 'x'),
+    between: async () => collapseOver('a', 'b'),
+  },
+
+  // The same, for a tab that was in front: recreate still leaves the group
+  // collapsed, and brings the tab to the front outside it.
+  'an ungrouped tab that was in front, back right after a collapsed group': {
+    seed: {
+      grantedPermissions: GRANTED,
+      windows: [
+        tabViewWindow,
+        {
+          id: 2,
+          tabs: [
+            { url: url('a') },
+            { url: url('x'), active: true },
+            { url: url('b') },
+            { url: url('z') },
+          ],
+        },
+      ],
+    },
+    close: () => closeTab(2, 'x'),
+    between: async (fake) => {
+      fake.browser.activateTab(await tabIdNamed('z'));
+      await collapseOver('a', 'b');
     },
   },
 
@@ -584,6 +642,68 @@ describe('KNOWN LIMITATION: a reopened window keeps history only for its ungroup
       [url('c'), true, false],
       [url('d'), false, true],
     ]);
+  });
+});
+
+describe("a collapsed group over the tab's old spot (KAN-316)", () => {
+  const scenario =
+    scenarios['an ungrouped tab back right after a collapsed group'];
+
+  // The group's collapsed state each time Chrome reports it changed.
+  const watchGroup = (title: string): boolean[] => {
+    const seen: boolean[] = [];
+    chrome.tabGroups.onUpdated.addListener((group) => {
+      if (group.title === title) seen.push(group.collapsed);
+    });
+    return seen;
+  };
+
+  test('the group is never expanded on the way, not only collapsed at the end', async () => {
+    handle = setupChromeFake(scenario.seed);
+    const item = await scenario.close();
+    if (!item) throw new Error('close failed');
+    await scenario.between?.(handle);
+    const seen = watchGroup('H');
+
+    const reopened = await reopenWithHistory(item);
+
+    if (reopened?.kind !== 'tab') throw new Error('no tab came back');
+    // PREMISE: it came back through the restore, which put it in front.
+    expect(handle.restoredFromSession(reopened.tabId)).toBe(true);
+    expect(seen).toEqual([]);
+  });
+
+  // Worst path: with no front tab to give back, the tab is still in front
+  // when it moves, so the move expands the group. The backstop collapses it.
+  test('when the front tab cannot be read, the group is still collapsed again', async () => {
+    handle = setupChromeFake(scenario.seed);
+    const item = await scenario.close();
+    if (!item) throw new Error('close failed');
+    await scenario.between?.(handle);
+    const query = chrome.tabs.query;
+    vi.spyOn(chrome.tabs, 'query').mockImplementation((info) =>
+      info.active === true
+        ? Promise.reject(new Error('Tabs cannot be read right now.'))
+        : query(info)
+    );
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const seen = watchGroup('H');
+
+    const reopened = await reopenWithHistory(item);
+
+    if (reopened?.kind !== 'tab') throw new Error('no tab came back');
+    // PREMISE: the move did expand it along the way.
+    expect(seen).toEqual([false, true]);
+    expect(
+      (await chrome.tabGroups.query({ windowId: 2 })).map((g) => [
+        g.title,
+        g.collapsed,
+      ])
+    ).toEqual([['H', true]]);
+    expect(warn).toHaveBeenCalledWith(
+      'Could not read the front tab: ',
+      expect.any(Error)
+    );
   });
 });
 

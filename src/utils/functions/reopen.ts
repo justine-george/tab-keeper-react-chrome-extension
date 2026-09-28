@@ -368,6 +368,10 @@ type TabPlace = {
   // minimized stays minimized under recreate, which never focuses it -- but
   // the restore focuses it, which shows it.
   windowState: OpenWindow['state'] | null;
+  // The groups in that window that were collapsed before the restore. Empty
+  // without the tabGroups grant, for a window that has gone, or when the
+  // read failed.
+  collapsedGroupIds: number[];
 };
 
 async function tabPlaceNow(
@@ -383,6 +387,7 @@ async function tabPlaceNow(
       frontTabId: null,
       groupCollapsed: item.group?.collapsed ?? null,
       windowState: item.window.state,
+      collapsedGroupIds: [],
     };
   }
   let frontTabId: number | null = null;
@@ -406,7 +411,22 @@ async function tabPlaceNow(
     frontTabId,
     groupCollapsed,
     windowState: minimized ? 'minimized' : null,
+    collapsedGroupIds: await collapsedGroupIdsIn(windowId),
   };
+}
+
+// The ids of the collapsed groups in a window, or none when the tabGroups
+// grant is not held or the read fails (a synchronous throw included, as for
+// liveGroup).
+async function collapsedGroupIdsIn(windowId: number): Promise<number[]> {
+  if (!chrome.tabGroups) return [];
+  try {
+    const groups = await chrome.tabGroups.query({ windowId });
+    return groups.filter((group) => group.collapsed).map((group) => group.id);
+  } catch (error) {
+    console.warn('Could not read the collapsed tab groups: ', error);
+    return [];
+  }
 }
 
 // The group as Chrome has it now, or null: gone, not visible without the
@@ -442,8 +462,19 @@ async function undoTabRestore(
     return;
   }
   const windowId = tab.windowId;
+  const frontTabId = place.frontTabId;
 
   if (place.windowStillOpen) {
+    // The front goes back BEFORE the move. Moved while in front into a
+    // collapsed group's run, the tab joins that group and expands it, and
+    // nothing collapses it again (KAN-316, Task 8 M2). Moved in the
+    // background it joins without expanding, as recreateTab's background
+    // create does.
+    if (frontTabId !== null) {
+      await step('Could not bring the front tab back: ', () =>
+        chrome.tabs.update(frontTabId, { active: true })
+      );
+    }
     await step('Could not move a reopened tab back to its place: ', () =>
       chrome.tabs.move(tabId, { index: item.tab.index })
     );
@@ -462,10 +493,12 @@ async function undoTabRestore(
       settleGroup(tabId, windowId, tab.groupId, item.group)
     );
   }
-  const frontTabId = place.frontTabId;
-  if (!item.tab.active && frontTabId !== null) {
-    await step('Could not bring the front tab back: ', () =>
-      chrome.tabs.update(frontTabId, { active: true })
+  // A tab that was in front goes back to the front once it is in its own
+  // group or none, as recreateTab does (KAN-310). Only when the front was
+  // taken from it above.
+  if (item.tab.active && frontTabId !== null) {
+    await step('Could not bring a reopened tab to the front: ', () =>
+      chrome.tabs.update(tabId, { active: true })
     );
   }
   // After the front tab, so a collapse never hides the tab in front.
@@ -478,8 +511,31 @@ async function undoTabRestore(
       }
     });
   }
+  // Backstop: a group collapsed before the restore that is expanded now is
+  // collapsed again -- unless recreate expands it too, which it does only
+  // for the group of a tab it brings to the front (KAN-316).
+  if (chrome.tabGroups && place.collapsedGroupIds.length > 0) {
+    await step('Could not collapse a tab group again: ', () =>
+      recollapse(tabId, item.tab.active, place.collapsedGroupIds)
+    );
+  }
   if (place.windowState !== null) {
     await restoreWindowState(windowId, place.windowState);
+  }
+}
+
+async function recollapse(
+  tabId: number,
+  inFront: boolean,
+  groupIds: number[]
+): Promise<void> {
+  const { groupId: ownGroupId } = await chrome.tabs.get(tabId);
+  for (const groupId of groupIds) {
+    if (inFront && groupId === ownGroupId) continue;
+    const group = await liveGroup(groupId);
+    if (group && !group.collapsed) {
+      await chrome.tabGroups.update(groupId, { collapsed: true });
+    }
   }
 }
 
