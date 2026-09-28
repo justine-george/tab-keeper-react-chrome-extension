@@ -813,6 +813,128 @@ describe('moveOpenTab: groups, with the grant (ledger R16)', () => {
     });
   });
 
+  // KAN-322 review, Minor gap 2. bandAt names the band whenever the pointer
+  // is inside it, so a real drag can never hand moveOpenTab a no-band slot
+  // between two VISIBLE group members -- one of them would always carry a
+  // toGroupId. This pins what the code does if it is ever fed that input
+  // anyway, so a change to run detection that silently starts producing a
+  // different answer here is noticed even though no drag can trigger it.
+  test("a no-band slot between two VISIBLE group members lands at the run's head (retired input)", async () => {
+    handle = withGroup();
+
+    const moved = await moveOpenTab(
+      tabMove(22, 2, 1, 2),
+      await snapshot(),
+      true
+    );
+
+    expect(await strip(1)).toEqual(['11*', '22', '12g5', '13g5', '14']);
+    expect(await strip(2)).toEqual(['21*']);
+    expect(moved).toEqual([
+      { tabId: 22, before: place(2, 1), after: place(1, 1) },
+    ]);
+  });
+
+  // KAN-322 review, Minor gap 3 (R34). groupRunAround's `while` loop must
+  // walk back past every hidden Tab Keeper page that leads the run to find
+  // its true start. The single-hidden-page cases above never exercise that
+  // walk: their `start` is already the run's start the moment it is read, so
+  // the loop body never runs. With two hidden pages leading the run, the
+  // walk must step back once to reach the true start.
+  describe('several hidden Tab Keeper pages lead the run (R34)', () => {
+    // W1 [11*, 9=Tab Keeper g5, 10=Tab Keeper g5, 12g5, 13g5, 14]:
+    // rows 11, 12, 13, 14. W2 [21*, 22].
+    const twoHiddenFirst = () =>
+      setupChromeFake({
+        windows: [
+          {
+            id: 1,
+            tabs: [
+              { id: 11, active: true },
+              { id: 9, url: TAB_KEEPER_PAGE, groupId: 5 },
+              { id: 10, url: TAB_KEEPER_PAGE, groupId: 5 },
+              { id: 12, groupId: 5 },
+              { id: 13, groupId: 5 },
+              { id: 14 },
+            ],
+          },
+          { id: 2, tabs: [{ id: 21, active: true }, { id: 22 }] },
+        ],
+        tabGroups: [{ id: 5, windowId: 1, title: 'Work', color: 'blue' }],
+      });
+
+    test('from another window, just above the band: loose, before both hidden pages', async () => {
+      handle = twoHiddenFirst();
+
+      // toIndex 1 is before 12, Chrome's index 3: inside the run [1..4].
+      const moved = await moveOpenTab(
+        tabMove(22, 2, 1, 1),
+        await snapshot(),
+        true
+      );
+
+      expect(await strip(1)).toEqual([
+        '11*',
+        '22',
+        '9g5',
+        '10g5',
+        '12g5',
+        '13g5',
+        '14',
+      ]);
+      expect(await strip(2)).toEqual(['21*']);
+      expect(moved).toEqual([
+        { tabId: 22, before: place(2, 1), after: place(1, 1) },
+      ]);
+    });
+
+    test('within the window, just above the band: loose, before both hidden pages', async () => {
+      handle = twoHiddenFirst();
+
+      // Rows without 14: [11, 12, 13]; toIndex 1 is before 12.
+      const moved = await moveOpenTab(
+        tabMove(14, 1, 1, 1),
+        await snapshot(),
+        true
+      );
+
+      expect(await strip(1)).toEqual([
+        '11*',
+        '14',
+        '9g5',
+        '10g5',
+        '12g5',
+        '13g5',
+      ]);
+      expect(moved).toEqual([
+        { tabId: 14, before: place(1, 5), after: place(1, 1) },
+      ]);
+    });
+
+    test('CONTROL: from another window, inside the band at the same slot: joins before the first shown member', async () => {
+      handle = twoHiddenFirst();
+
+      const moved = await moveOpenTab(
+        tabMove(22, 2, 1, 1, 5),
+        await snapshot(),
+        true
+      );
+
+      expect(await strip(1)).toEqual([
+        '11*',
+        '9g5',
+        '10g5',
+        '22g5',
+        '12g5',
+        '13g5',
+        '14',
+      ]);
+      expect(moved).toEqual([
+        { tabId: 22, before: place(2, 1), after: place(1, 3, 5, WORK) },
+      ]);
+    });
+  });
+
   describe('what it refuses', () => {
     test.each([
       ['a group the snapshot does not have', tabMove(14, 1, 1, 1, 9)],
@@ -863,11 +985,13 @@ describe('moveOpenTab: groups, with the grant (ledger R16)', () => {
     // (R34), so Chrome's refusal is staged directly.
     test('Chrome refuses the move from another window: null, nothing moves', async () => {
       handle = withGroup();
-      vi.spyOn(chrome.tabs, 'move').mockRejectedValue(
-        new Error(
-          'Tab operation is invalid as the specified input would disrupt group continuity in the tab strip.'
-        )
-      );
+      const moveSpy = vi
+        .spyOn(chrome.tabs, 'move')
+        .mockRejectedValue(
+          new Error(
+            'Tab operation is invalid as the specified input would disrupt group continuity in the tab strip.'
+          )
+        );
 
       const moved = await moveOpenTab(
         tabMove(22, 2, 1, 3),
@@ -878,6 +1002,11 @@ describe('moveOpenTab: groups, with the grant (ledger R16)', () => {
       expect(moved).toBeNull();
       expect(await strip(1)).toEqual(['11*', '12g5', '13g5', '14']);
       expect(await strip(2)).toEqual(['21*', '22']);
+      // The refusal has to come from THIS call: an earlier `return null`
+      // (the readTab premise, belowPinnedRun, groupRunAround) would leave
+      // the strips unchanged too and pass the assertions above vacuously.
+      expect(moveSpy).toHaveBeenCalledTimes(1);
+      expect(moveSpy).toHaveBeenCalledWith(22, { windowId: 1, index: 3 });
     });
 
     test('Chrome refuses the tabs.group after the move: null, the tab stays where Chrome put it', async () => {
