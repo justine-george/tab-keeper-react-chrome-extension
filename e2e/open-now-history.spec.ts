@@ -1063,170 +1063,200 @@ test.describe('measured: a minimized window (KAN-280 Part D)', () => {
   });
 });
 
-grantedTest.describe(
-  'measured: an ungrouped tab and a collapsed group (KAN-280 Part D)',
-  () => {
-    // Each tab as `title*` when in front, `[group,collapsed|open]` when grouped.
-    const layoutOf = (worker: Worker, windowId: number): Promise<string[]> =>
-      worker.evaluate(async (id: number) => {
-        const out: string[] = [];
-        for (const tab of await chrome.tabs.query({ windowId: id })) {
-          const group =
-            tab.groupId === -1 ? null : await chrome.tabGroups.get(tab.groupId);
-          const title = (tab.title ?? '').replace(/^p3 .*/, 'X');
-          out.push(
-            `${title}${tab.active ? '*' : ''}${
-              group
-                ? `[${group.title},${group.collapsed ? 'collapsed' : 'open'}]`
-                : ''
-            }`
-          );
-        }
-        return out;
-      }, windowId);
+grantedTest.describe('an ungrouped tab and a collapsed group (KAN-316)', () => {
+  // Each tab as `title*` when in front, `[group,collapsed|open]` when grouped.
+  const layoutOf = (worker: Worker, windowId: number): Promise<string[]> =>
+    worker.evaluate(async (id: number) => {
+      const out: string[] = [];
+      for (const tab of await chrome.tabs.query({ windowId: id })) {
+        const group =
+          tab.groupId === -1 ? null : await chrome.tabGroups.get(tab.groupId);
+        const title = (tab.title ?? '').replace(/^p3 .*/, 'X');
+        out.push(
+          `${title}${tab.active ? '*' : ''}${
+            group
+              ? `[${group.title},${group.collapsed ? 'collapsed' : 'open'}]`
+              : ''
+          }`
+        );
+      }
+      return out;
+    }, windowId);
 
-    // [A, X, B, Z], Z in front; X went p1 → p2 → p3.
-    async function openFourTabs(
-      context: BrowserContext,
-      worker: Worker,
-      site: Site,
-      key: string
-    ) {
-      const made = await worker.evaluate(
-        async ({ urls }) => {
-          const win = await chrome.windows.create({
-            focused: false,
-            url: urls,
-          });
-          const ids = (win?.tabs ?? []).flatMap((tab) =>
-            tab.id === undefined ? [] : [tab.id]
-          );
-          if (win?.id === undefined || ids.length !== urls.length) return null;
-          await chrome.tabs.update(ids[3], { active: true });
-          return { windowId: win.id, ids };
-        },
-        {
-          urls: [dataUrl('A'), site(key, 1), dataUrl('B'), dataUrl('Z')],
-        }
-      );
-      if (made === null) throw new Error('Chrome gave no window or tab ids');
-      const [a, x, b] = made.ids;
-      await navigate(worker, x, site(key, 2));
-      await navigate(worker, x, site(key, 3));
+  // [A, X, B, Z], Z in front; X went p1 → p2 → p3.
+  async function openFourTabs(
+    context: BrowserContext,
+    worker: Worker,
+    site: Site,
+    key: string
+  ) {
+    const made = await worker.evaluate(
+      async ({ urls }) => {
+        const win = await chrome.windows.create({
+          focused: false,
+          url: urls,
+        });
+        const ids = (win?.tabs ?? []).flatMap((tab) =>
+          tab.id === undefined ? [] : [tab.id]
+        );
+        if (win?.id === undefined || ids.length !== urls.length) return null;
+        await chrome.tabs.update(ids[3], { active: true });
+        return { windowId: win.id, ids };
+      },
+      {
+        urls: [dataUrl('A'), site(key, 1), dataUrl('B'), dataUrl('Z')],
+      }
+    );
+    if (made === null) throw new Error('Chrome gave no window or tab ids');
+    const [a, x, b] = made.ids;
+    await navigate(worker, x, site(key, 2));
+    await navigate(worker, x, site(key, 3));
+    await expect
+      .poll(() => historyLengthsAt(context, site(key, 3)))
+      .toEqual([3]);
+    return { windowId: made.windowId, a, b, url: site(key, 3) };
+  }
+
+  // A and B grouped as H and collapsed, after X has closed: X's old index is
+  // now inside a collapsed run.
+  const collapseAroundTheGap = (
+    worker: Worker,
+    windowId: number,
+    tabIds: [number, number]
+  ) =>
+    worker.evaluate(
+      async ({ windowId, tabIds }) => {
+        const group = await chrome.tabs.group({
+          tabIds,
+          createProperties: { windowId },
+        });
+        await chrome.tabGroups.update(group, { title: 'H', collapsed: true });
+      },
+      { windowId, tabIds }
+    );
+
+  // Every collapsed change Chrome reports for a group, as `title:open` or
+  // `title:collapsed`, recorded in the worker from now on.
+  const recordGroupChanges = (worker: Worker) =>
+    worker.evaluate(() => {
+      const changes: string[] = [];
+      Reflect.set(globalThis, 'groupChanges', changes);
+      chrome.tabGroups.onUpdated.addListener((group) => {
+        changes.push(
+          `${group.title}:${group.collapsed ? 'collapsed' : 'open'}`
+        );
+      });
+    });
+  const groupChanges = async (worker: Worker): Promise<string[]> => {
+    const changes: unknown = await worker.evaluate(() =>
+      Reflect.get(globalThis, 'groupChanges')
+    );
+    return Array.isArray(changes)
+      ? changes.filter((c): c is string => typeof c === 'string')
+      : [];
+  };
+
+  // Task 8, M2 raw. The chrome fake's restore follows this (KAN-316).
+  grantedTest(
+    '10. raw: Chrome restores an ungrouped tab just after a collapsed group, in front, and leaves the group collapsed',
+    async ({ context, extensionId, serviceWorker }) => {
+      const site = await servePages(context);
+      await turnHistoryOn(context, extensionId);
+      await openPage(context, extensionId, VIEW_TAB, TAB_VIEWPORT);
+      const made = await openFourTabs(context, serviceWorker, site, 'tenraw');
+      const x = (await tabsAt(serviceWorker, made.url))[0]?.id ?? -1;
+      await serviceWorker.evaluate((id: number) => chrome.tabs.remove(id), x);
+      const sessionId = await serviceWorker.evaluate(async () => {
+        const [entry] = await chrome.sessions.getRecentlyClosed({
+          maxResults: 1,
+        });
+        return entry?.tab?.sessionId ?? '';
+      });
+      await collapseAroundTheGap(serviceWorker, made.windowId, [
+        made.a,
+        made.b,
+      ]);
+      // PREMISE: the gap is inside a collapsed run.
       await expect
-        .poll(() => historyLengthsAt(context, site(key, 3)))
-        .toEqual([3]);
-      return { windowId: made.windowId, a, b, url: site(key, 3) };
-    }
+        .poll(() => layoutOf(serviceWorker, made.windowId))
+        .toEqual(['A[H,collapsed]', 'B[H,collapsed]', 'Z*']);
 
-    // A and B grouped as H and collapsed, after X has closed: X's old index is
-    // now inside a collapsed run.
-    const collapseAroundTheGap = (
-      worker: Worker,
-      windowId: number,
-      tabIds: [number, number]
-    ) =>
-      worker.evaluate(
-        async ({ windowId, tabIds }) => {
-          const group = await chrome.tabs.group({
-            tabIds,
-            createProperties: { windowId },
-          });
-          await chrome.tabGroups.update(group, { title: 'H', collapsed: true });
-        },
-        { windowId, tabIds }
+      await serviceWorker.evaluate(
+        (id: string) => chrome.sessions.restore(id),
+        sessionId
       );
+      await expect
+        .poll(async () => (await tabsAt(serviceWorker, made.url)).length)
+        .toBe(1);
+      await settle(500);
+      expect(await layoutOf(serviceWorker, made.windowId)).toEqual([
+        'A[H,collapsed]',
+        'B[H,collapsed]',
+        'X*',
+        'Z',
+      ]);
+    }
+  );
 
+  // KAN-316: On ends exactly where Off (recreate) does -- H collapsed, X
+  // ungrouped just after it, Z still in front -- and H never opens on the
+  // way. Only the history differs.
+  for (const history of [true, false]) {
     grantedTest(
-      '10. raw: Chrome restores an ungrouped tab between two tabs of a collapsed group',
+      `10b. ${
+        history ? 'On' : 'CONTROL, Off'
+      }: Reopen of that tab leaves the group collapsed, as recreate does (KAN-316)`,
       async ({ context, extensionId, serviceWorker }) => {
         const site = await servePages(context);
-        await turnHistoryOn(context, extensionId);
-        await openPage(context, extensionId, VIEW_TAB, TAB_VIEWPORT);
-        const made = await openFourTabs(context, serviceWorker, site, 'tenraw');
-        const x = (await tabsAt(serviceWorker, made.url))[0]?.id ?? -1;
-        await serviceWorker.evaluate((id: number) => chrome.tabs.remove(id), x);
-        const sessionId = await serviceWorker.evaluate(async () => {
-          const [entry] = await chrome.sessions.getRecentlyClosed({
-            maxResults: 1,
-          });
-          return entry?.tab?.sessionId ?? '';
-        });
+        if (history) await turnHistoryOn(context, extensionId);
+        const page = await openPage(
+          context,
+          extensionId,
+          VIEW_TAB,
+          TAB_VIEWPORT
+        );
+        const made = await openFourTabs(
+          context,
+          serviceWorker,
+          site,
+          history ? 'tenon' : 'tenoff'
+        );
+        const block = windowBlock(page, made.windowId);
+        const title = pageTitle(history ? 'tenon' : 'tenoff', 3);
+        await expect(liveRowIn(block, title)).toBeVisible();
+        await closeTabIn(block, title).click();
+        await expect
+          .poll(async () => (await tabsAt(serviceWorker, made.url)).length)
+          .toBe(0);
         await collapseAroundTheGap(serviceWorker, made.windowId, [
           made.a,
           made.b,
         ]);
-        // PREMISE: the gap is inside a collapsed run.
         await expect
           .poll(() => layoutOf(serviceWorker, made.windowId))
           .toEqual(['A[H,collapsed]', 'B[H,collapsed]', 'Z*']);
+        await recordGroupChanges(serviceWorker);
 
-        await serviceWorker.evaluate(
-          (id: string) => chrome.sessions.restore(id),
-          sessionId
-        );
-        await expect
-          .poll(async () => (await tabsAt(serviceWorker, made.url)).length)
-          .toBe(1);
-        await settle(500);
-        console.log(
-          `[10] raw restore: ${JSON.stringify(
-            await layoutOf(serviceWorker, made.windowId)
-          )}`
-        );
+        await pressReopen(page, serviceWorker, 'button');
+        await expectCopies(serviceWorker, made.url, 1);
+        await page.waitForTimeout(1000);
+
+        expect(await layoutOf(serviceWorker, made.windowId)).toEqual([
+          'A[H,collapsed]',
+          'B[H,collapsed]',
+          'X',
+          'Z*',
+        ]);
+        expect(await groupChanges(serviceWorker)).not.toContain('H:open');
+        // PREMISE: On came back through Chrome's restore, Off through a
+        // recreate.
+        expect(await historyLengthsAt(context, made.url)).toEqual([
+          history ? 3 : 1,
+        ]);
       }
     );
-
-    for (const history of [true, false]) {
-      grantedTest(
-        `10b. ${
-          history ? 'On' : 'CONTROL, Off'
-        }: Reopen of that tab, from Open now`,
-        async ({ context, extensionId, serviceWorker }) => {
-          const site = await servePages(context);
-          if (history) await turnHistoryOn(context, extensionId);
-          const page = await openPage(
-            context,
-            extensionId,
-            VIEW_TAB,
-            TAB_VIEWPORT
-          );
-          const made = await openFourTabs(
-            context,
-            serviceWorker,
-            site,
-            history ? 'tenon' : 'tenoff'
-          );
-          const block = windowBlock(page, made.windowId);
-          const title = pageTitle(history ? 'tenon' : 'tenoff', 3);
-          await expect(liveRowIn(block, title)).toBeVisible();
-          await closeTabIn(block, title).click();
-          await expect
-            .poll(async () => (await tabsAt(serviceWorker, made.url)).length)
-            .toBe(0);
-          await collapseAroundTheGap(serviceWorker, made.windowId, [
-            made.a,
-            made.b,
-          ]);
-          await expect
-            .poll(() => layoutOf(serviceWorker, made.windowId))
-            .toEqual(['A[H,collapsed]', 'B[H,collapsed]', 'Z*']);
-
-          await pressReopen(page, serviceWorker, 'button');
-          await expectCopies(serviceWorker, made.url, 1);
-          await page.waitForTimeout(1000);
-          console.log(
-            `[10b ${history ? 'On' : 'Off'}] end: ${JSON.stringify(
-              await layoutOf(serviceWorker, made.windowId)
-            )} history ${JSON.stringify(
-              await historyLengthsAt(context, made.url)
-            )}`
-          );
-        }
-      );
-    }
   }
-);
+});
 
 test.describe('measured: what sendMessage says (KAN-280 Part D)', () => {
   test('11. the rejection with no receiving end is the text the page falls back on; what an unanswered message resolves with', async ({
