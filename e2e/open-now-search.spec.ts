@@ -607,67 +607,77 @@ test.describe('the placeholder fits in every locale (KAN-330)', () => {
 //    "activeAfterShiftTab":"INPUT[Search open tabs]","value":"one",
 //    "heldAfterTyping":false,"drawn":["Switch to tab: Row one"],
 //    "heldBeforeUp":false,"indicesAfter":[1,2,0],"heldAfterUp":false}
-// Waiting on the controller's ruling (fix: a live drag cancels when a search
-// starts); fixme until then.
+// KAN-335: a live drag now cancels when a search starts, the way Esc
+// cancels one, so the release that follows moves nothing.
 test.describe('a search typed while a row is held (KAN-330)', () => {
-  test.fixme(
-    'a search that starts mid-drag cancels the drag: Chrome keeps its order',
-    async ({ context, extensionId, serviceWorker }) => {
-      const ids = await openWindow(serviceWorker, [
-        'Row one',
-        'Row two',
-        'Row three',
-      ]);
-      const [, , rowThree] = ids;
-      if (rowThree === undefined) throw new Error('no Row three');
-      const page = await openPage(context, extensionId, VIEW_TAB, {
-        width: 1600,
-        height: 800,
-      });
-      const indices = () =>
-        serviceWorker.evaluate(
-          async (tabIds: number[]) =>
-            Promise.all(
-              tabIds.map(async (id) => (await chrome.tabs.get(id)).index)
-            ),
-          ids
-        );
-      const fieldFocused = () =>
-        field(page).evaluate((input) => input === document.activeElement);
-      await expect(liveRow(page, 'Row three')).toBeVisible();
-      const before = await indices();
-      const one = await liveRow(page, 'Row one').boundingBox();
-      const from = await liveRow(page, 'Row three').boundingBox();
-      if (one === null || from === null) throw new Error('a row has no box');
-      const x = from.x + from.width / 2;
-      const y = from.y + from.height / 2;
-
-      await page.mouse.move(x, y);
-      await page.mouse.down();
-      await page.mouse.move(x, y + 10, { steps: 3 });
-      // PREMISE: the row is held, so a release now would move it.
-      await expect.poll(() => isHeld(page)).toBe(true);
-
-      // Keyboard focus walks back to the field with the row still held.
-      for (let i = 0; i < 30 && !(await fieldFocused()); i++) {
-        await page.keyboard.press('Shift+Tab');
-      }
-      expect(await fieldFocused(), 'Shift+Tab never reached the field').toBe(
-        true
+  test('a search that starts mid-drag cancels the drag: Chrome keeps its order', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    const ids = await openWindow(serviceWorker, [
+      'Row one',
+      'Row two',
+      'Row three',
+    ]);
+    const [, , rowThree] = ids;
+    if (rowThree === undefined) throw new Error('no Row three');
+    const page = await openPage(context, extensionId, VIEW_TAB, {
+      width: 1600,
+      height: 800,
+    });
+    const indices = () =>
+      serviceWorker.evaluate(
+        async (tabIds: number[]) =>
+          Promise.all(
+            tabIds.map(async (id) => (await chrome.tabs.get(id)).index)
+          ),
+        ids
       );
-      await page.keyboard.type('one');
-      await expect(field(page)).toHaveValue('one');
-      // The search hides the held row.
-      await expect(liveRow(page, 'Row three')).toHaveCount(0);
+    const fieldFocused = () =>
+      field(page).evaluate((input) => input === document.activeElement);
+    await expect(liveRow(page, 'Row three')).toBeVisible();
+    const before = await indices();
+    const one = await liveRow(page, 'Row one').boundingBox();
+    const from = await liveRow(page, 'Row three').boundingBox();
+    if (one === null || from === null) throw new Error('a row has no box');
+    const x = from.x + from.width / 2;
+    const y = from.y + from.height / 2;
 
-      // Released where, before the search, Row three would land above Row one.
-      await page.mouse.move(x, one.y - 2, { steps: 10 });
-      await page.waitForTimeout(350);
-      await page.mouse.up();
-      await page.waitForTimeout(800);
-      expect(await indices()).toEqual(before);
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    await page.mouse.move(x, y + 10, { steps: 3 });
+    // PREMISE: the row is held, so a release now would move it.
+    await expect.poll(() => isHeld(page)).toBe(true);
+
+    // Keyboard focus walks back to the field with the row still held.
+    for (let i = 0; i < 30 && !(await fieldFocused()); i++) {
+      await page.keyboard.press('Shift+Tab');
     }
-  );
+    expect(await fieldFocused(), 'Shift+Tab never reached the field').toBe(
+      true
+    );
+    await page.keyboard.type('one');
+    await expect(field(page)).toHaveValue('one');
+    // The search hides the held row.
+    await expect(liveRow(page, 'Row three')).toHaveCount(0);
+    // And cancels the drag there, not at the release: the document stops
+    // being flagged as dragging while the mouse is still down (KAN-335).
+    await expect
+      .poll(() =>
+        page.evaluate(() =>
+          document.documentElement.hasAttribute('data-dragging')
+        )
+      )
+      .toBe(false);
+
+    // Released where, before the search, Row three would land above Row one.
+    await page.mouse.move(x, one.y - 2, { steps: 10 });
+    await page.waitForTimeout(350);
+    await page.mouse.up();
+    await page.waitForTimeout(800);
+    expect(await indices()).toEqual(before);
+  });
 });
 
 // ---- measured: the two × columns with a classic scrollbar ----

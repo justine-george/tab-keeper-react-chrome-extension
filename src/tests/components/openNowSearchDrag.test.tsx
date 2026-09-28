@@ -191,12 +191,13 @@ describe('drag is off while searching (KAN-330 O14c)', () => {
 });
 
 describe('a search that starts while a row is held (KAN-330 O14c)', () => {
-  // KAN-330 mid-drag search: reproduction, see report. `disabled` only gates
-  // `begin`, so a search that starts after pick-up neither cancels the drag
-  // nor is seen by it: the search hides the held row, and the release still
-  // moves it, to a place worked out from the rows as they were measured
-  // before the filter. The wanted behaviour is asserted (nothing moves).
-  test.skip('B held past the threshold, then the text changes, then released among the original rows', async () => {
+  // KAN-330 mid-drag search: the reproduction, and now the guard for
+  // KAN-335. `disabled` used to gate only `begin`, so a search that started
+  // after pick-up neither cancelled the drag nor was seen by it: the search
+  // hid the held row, and the release still moved it, to a place worked out
+  // from the rows as they were measured before the filter. A drag that is
+  // disabled mid-flight now cancels as Esc does, so nothing moves.
+  test('B held past the threshold, then the text changes, then released among the original rows', async () => {
     const { top, onMoved } = await renderSearchable(seed(), false);
     const from = (top.get('12') ?? 0) + ROW / 2;
     fireEvent.pointerDown(tabRow(12), {

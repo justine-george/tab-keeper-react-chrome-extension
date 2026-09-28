@@ -1387,6 +1387,18 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     window.addEventListener('keydown', onKey);
     window.addEventListener('click', onClickCapture, true);
     window.addEventListener('pointerdown', onPointerDownCapture, true);
+
+    // A list that turns drag off while a row is held cancels that drag, and
+    // through Esc's own finish(false), not a copy of it (KAN-335, O14c).
+    // `begin` alone only stops the NEXT drag: Open now turns drag off when a
+    // search starts, a search can start with a row held (Shift+Tab back to the
+    // field), and the release then committed a move worked out from rows the
+    // search had hidden. finish touches the held row only to remove its
+    // marker, which is safe on an element the search has unmounted. A press
+    // still under the threshold is dropped the same way, so it cannot go on
+    // to start a drag the list has turned off.
+    if (disabled && live.current) finish(false);
+
     return () => {
       window.removeEventListener('pointermove', onMoveEvent);
       window.removeEventListener('pointerup', onUp);
@@ -1412,6 +1424,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     restoreScrollIfNoDrop,
     landingRange,
     acceptsWindow,
+    disabled,
   ]);
 
   // A drag interrupted by UNMOUNT must not leave the document stuck in a drag.
