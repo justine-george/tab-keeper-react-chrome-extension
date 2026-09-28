@@ -440,6 +440,25 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
         ...group,
       }) as chrome.tabGroups.TabGroup
   );
+  // A tab seeded with a groupId is in a group Chrome has, whether or not the
+  // extension may see it: an ungranted seed naturally leaves `tabGroups`
+  // out. So a group the seed does not declare gets a record of its own
+  // (untitled, grey, expanded, in the first such tab's window), and
+  // tabs.group({groupId}) can join it as Chrome would (Part E Task 6a
+  // review, Minor 2).
+  for (const tab of tabs) {
+    if (tab.groupId === -1 || tabGroups.some((g) => g.id === tab.groupId)) {
+      continue;
+    }
+    tabGroups.push({
+      id: tab.groupId,
+      collapsed: false,
+      color: 'grey',
+      shared: false,
+      title: '',
+      windowId: tab.windowId,
+    });
+  }
 
   // KAN-280 live event registries. tabs.remove, tabs.create, windows.create
   // and tabGroups.update (all below) DO fire these back to their own
@@ -630,29 +649,64 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
     return true;
   };
 
-  // The tab a window brings to the front when its front tab (or a group
-  // holding it) leaves. `rest` is the window's remaining tabs in order and
-  // `position` is where the leaver sat among them. First a tab of the group
-  // the leaving tab was in: the nearest to its right, else to its left, even
-  // over an ungrouped right neighbour (Part E Task 6a, Q1, Q5#10, Q5#11).
-  // Otherwise the nearest tab to the right that is not in a collapsed group,
-  // else to the left (Q5#9: a collapsed group on the right is skipped; the
-  // right-else-left order is Part E Task 1, Q1_cross#5, Q5#3). Not
-  // measured: a window whose remaining tabs are ALL in collapsed groups --
-  // the fake then takes the right neighbour, else the left one.
+  // The tab a window brings to the front when its front tab leaves, by
+  // `call` (tabs.move moves one tab; tabGroups.move carries the front tab
+  // with its group). `rest` is the window's remaining tabs in order,
+  // `position` is where the leaver sat among them, and `formerGroupId` the
+  // group it left (-1 for tabGroups.move: every tab of it leaves). In order:
+  //  1. A tab of the group it left: the nearest to its right, else to its
+  //     left, even over an ungrouped right neighbour (Part E Task 6a, Q1,
+  //     Q5#10, Q5#11; fix round 1, C#0/C#1: a mate on each side, the right
+  //     one).
+  //  2. tabs.move: a tab opened by the leaver's own opener (a sibling),
+  //     before the opener itself (fix round 1, E2, E2b: one sibling, to the
+  //     left, over the right neighbour and the opener); then the opener (E3,
+  //     E3b: to the left, over the right neighbour). A tab the leaver itself
+  //     opened does NOT count here (E1, E1b, F1).
+  //     tabGroups.move: a tab the carried tab opened (fix round 1, F2, F3;
+  //     Task 1 Q5#4 repeated as D#4: one such tab, to the left, over the
+  //     left and the right neighbour).
+  //  3. The nearest tab to the right that is not in a collapsed group, else
+  //     to the left (Q5#9 skips a collapsed group on the right; right:
+  //     Part E Task 1, Q1_cross#5, Q5#3; left: fix round 1, F1 CONTROL, E3
+  //     CONTROL, B#1, B#3).
+  // Not measured, and the fake's choice: several siblings or opened tabs
+  // (it takes the nearest, right first), a sibling, an opener or an opened
+  // tab on the right or in a collapsed group (it takes it anyway), a
+  // group-mate against a sibling or the opener (mates first), siblings and
+  // the opener for tabGroups.move (ignored), and a window whose remaining
+  // tabs are ALL in collapsed groups (the right neighbour, else the left).
   const nextFrontTab = (
     rest: chrome.tabs.Tab[],
     position: number,
-    formerGroupId: number
+    leaving: chrome.tabs.Tab,
+    formerGroupId: number,
+    call: 'tabs.move' | 'tabGroups.move'
   ): chrome.tabs.Tab | undefined => {
-    const mates =
-      formerGroupId === -1
-        ? []
-        : rest.filter((tab) => tab.groupId === formerGroupId);
+    const nearest = (
+      candidates: chrome.tabs.Tab[]
+    ): chrome.tabs.Tab | undefined =>
+      candidates.find((tab) => rest.indexOf(tab) >= position) ??
+      candidates[candidates.length - 1];
     const mate =
-      mates.find((tab) => rest.indexOf(tab) >= position) ??
-      mates[mates.length - 1];
+      formerGroupId === -1
+        ? undefined
+        : nearest(rest.filter((tab) => tab.groupId === formerGroupId));
     if (mate !== undefined) return mate;
+    const opener = leaving.openerTabId;
+    if (call === 'tabs.move' && opener !== undefined) {
+      const related =
+        nearest(rest.filter((tab) => tab.openerTabId === opener)) ??
+        rest.find((tab) => tab.id === opener);
+      if (related !== undefined) return related;
+    }
+    const leaverId = leaving.id;
+    if (call === 'tabGroups.move' && leaverId !== undefined) {
+      const opened = nearest(
+        rest.filter((tab) => tab.openerTabId === leaverId)
+      );
+      if (opened !== undefined) return opened;
+    }
     const shown = (tab: chrome.tabs.Tab): boolean =>
       !tabGroups.some((group) => group.id === tab.groupId && group.collapsed);
     return (
@@ -676,7 +730,9 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
       ? nextFrontTab(
           windowTabsInOrder(fromWindowId).filter((t) => t !== tab),
           oldPosition,
-          formerGroupId
+          tab,
+          formerGroupId,
+          'tabs.move'
         )
       : undefined;
     const reopened = tabGroups.find(
@@ -932,9 +988,10 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
   // 8, M2 raw). A minimized window it lands in comes back normal (Task 8,
   // M1) -- the restore shows it, where a plain focus does not.
   //
-  // A tab whose group the seed never declared (a groupId with no
-  // tabGroups record) comes back with that groupId and still no record: the
-  // fake repeats the seed's own gap rather than inventing a title or colour.
+  // A closed tab whose group had no tabGroups record comes back with that
+  // groupId and still no record, rather than an invented title or colour.
+  // Seeds can no longer make that gap (every seeded groupId gets a record,
+  // Part E Task 6a review, Minor 2), so this is a guard, not a modelled case.
   const restoreTabEntry = (
     entry: Extract<ClosedEntry, { kind: 'tab' }>
   ): chrome.sessions.Session => {
@@ -1011,8 +1068,8 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
   // kept, each group under a NEW id with the same title, colour and
   // collapsed state (9/9), and the focus. Its active tab is the one active at
   // close -- unless that tab was in a group, when tab 0 comes back active
-  // instead (2/2). A tab whose group was never declared comes back
-  // ungrouped: a new id needs a record to copy, and there is none.
+  // instead (2/2). A tab whose group had no record comes back ungrouped: a
+  // new id needs a record to copy (a guard; seeds always make one now).
   //
   // Only the tabs that were UNGROUPED come back with their history; a tab
   // that was in a group comes back as if newly created (Task 8, finding A,
@@ -1437,7 +1494,14 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
         detachTab(tab, groupId);
       }
       const sourceFront =
-        carried && nextFrontTab(windowTabsInOrder(fromWindowId), position, -1);
+        carried &&
+        nextFrontTab(
+          windowTabsInOrder(fromWindowId),
+          position,
+          carried,
+          -1,
+          'tabGroups.move'
+        );
       if (sourceFront) {
         sourceFront.active = true;
         tabsOnActivated.fire({

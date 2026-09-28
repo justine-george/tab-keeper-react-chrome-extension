@@ -2971,7 +2971,8 @@ describe('moves Chrome measured for Open now drag (KAN-280 Part E)', () => {
       ]);
     });
 
-    // Part E Task 1, Q5: Q5#4, the active tab was its window's last.
+    // Part E Task 6a fix round 1, F1 CONTROL (also E3 CONTROL, B#1): the
+    // active tab was its window's last, and no tab has an opener.
     test('an ACTIVE last tab leaving activates the tab to its left', async () => {
       handle = setupChromeFake({
         windows: [
@@ -3486,7 +3487,11 @@ describe('moves Chrome measured for Open now drag (KAN-280 Part E)', () => {
     });
 
     // Part E Task 1, Q5: Q5#4 -- W2 [a, z, b, y@G*] -> W1 [c*, x] index 0.
-    test("a group holding its window's ACTIVE tab carries it: active in the destination, a neighbour active in the source", async () => {
+    // Chrome brought z forward, not the left neighbour b: z was opened by y
+    // (z's openerTabId is y, recorded in Part E Task 6a fix round 1, D#4,
+    // which repeats Task 1's Q5 sequence, 3/3), and a tabGroups.move takes
+    // a tab the carried tab opened first (fix round 1, F2, F3).
+    test("a group holding its window's ACTIVE tab carries it: active in the destination, the tab it opened active in the source", async () => {
       handle = setupChromeFake({
         windows: [
           { id: 1, tabs: [{ id: 11, active: true }, { id: 12 }] },
@@ -3494,7 +3499,7 @@ describe('moves Chrome measured for Open now drag (KAN-280 Part E)', () => {
             id: 2,
             tabs: [
               { id: 21 },
-              { id: 22 },
+              { id: 22, openerTabId: 24 },
               { id: 23 },
               { id: 24, groupId: 5, active: true },
             ],
@@ -3507,12 +3512,12 @@ describe('moves Chrome measured for Open now drag (KAN-280 Part E)', () => {
       await chrome.tabGroups.move(5, { windowId: 1, index: 0 });
 
       expect(await strip(1)).toEqual(['24*g5', '11', '12']);
-      expect(await strip(2)).toEqual(['21', '22', '23*']);
+      expect(await strip(2)).toEqual(['21', '22*', '23']);
       expect(log).toEqual([
         'group removed 5',
         'updated 24 {"groupId":-1}',
         'detached 24 w2@3',
-        'activated 23 w2',
+        'activated 22 w2',
         'attached 24 w1@0',
         'updated 24 {"groupId":5}',
         'activated 24 w1',
@@ -4457,5 +4462,149 @@ describe('moves Chrome measured for Open now drag (KAN-280 Part E)', () => {
         expect(log.filter((line) => line.startsWith('activated'))).toEqual([]);
       }
     );
+  });
+
+  describe('Part E Task 6a fix round 1: openers and seeded groups', () => {
+    // W1 built as `tabs`, W2 [p*]; `leaver` is W1's front tab.
+    const openerSeed = (tabs: Partial<chrome.tabs.Tab>[]) =>
+      setupChromeFake({
+        windows: [
+          { id: 1, tabs },
+          { id: 2, tabs: [{ id: 21, active: true }] },
+        ],
+        tabGroups: [{ id: 5, windowId: 1 }],
+      });
+
+    // Fix round 1, E2 (3/3), with E2 CONTROL (no openers: y).
+    test('tabs.move: a tab opened by the same opener beats the right neighbour', async () => {
+      // [o, s1^o, x, s2^o*, y]
+      handle = openerSeed([
+        { id: 11 },
+        { id: 12, openerTabId: 11 },
+        { id: 13 },
+        { id: 14, openerTabId: 11, active: true },
+        { id: 15 },
+      ]);
+
+      await chrome.tabs.move(14, { windowId: 2, index: 0 });
+
+      expect(await strip(1)).toEqual(['11', '12*', '13', '15']);
+    });
+
+    // Fix round 1, E3b (3/3), with E3 CONTROL (no opener: the left neighbour).
+    test("tabs.move: with no sibling, the tab's opener beats the right neighbour", async () => {
+      // [o, x, s^o*, y]
+      handle = openerSeed([
+        { id: 11 },
+        { id: 12 },
+        { id: 13, openerTabId: 11, active: true },
+        { id: 14 },
+      ]);
+
+      await chrome.tabs.move(13, { windowId: 2, index: 0 });
+
+      expect(await strip(1)).toEqual(['11*', '12', '14']);
+    });
+
+    // Fix round 1, E1b and E1 (3/3 each): a tab the leaver opened does not
+    // count for tabs.move, to its left or its right.
+    test('CONTROL: tabs.move ignores a tab the leaving tab opened', async () => {
+      // [k^c, x, c*, y]
+      handle = openerSeed([
+        { id: 11, openerTabId: 13 },
+        { id: 12 },
+        { id: 13, active: true },
+        { id: 14 },
+      ]);
+
+      await chrome.tabs.move(13, { windowId: 2, index: 0 });
+
+      expect(await strip(1)).toEqual(['11', '12', '14*']);
+    });
+
+    // Fix round 1, F3 (3/3), with F3 CONTROL (no opener: d, the right
+    // neighbour).
+    test('tabGroups.move: a tab the carried front tab opened beats the right neighbour', async () => {
+      // [a, k^c, b, G(c*), d]
+      handle = openerSeed([
+        { id: 11 },
+        { id: 12, openerTabId: 14 },
+        { id: 13 },
+        { id: 14, groupId: 5, active: true },
+        { id: 15 },
+      ]);
+
+      await chrome.tabGroups.move(5, { windowId: 2, index: 0 });
+
+      expect(await strip(1)).toEqual(['11', '12*', '13', '15']);
+    });
+
+    // Fix round 1, F3 CONTROL (3/3).
+    test('CONTROL: tabGroups.move with no opener takes the right neighbour', async () => {
+      handle = openerSeed([
+        { id: 11 },
+        { id: 12 },
+        { id: 13 },
+        { id: 14, groupId: 5, active: true },
+        { id: 15 },
+      ]);
+
+      await chrome.tabGroups.move(5, { windowId: 2, index: 0 });
+
+      expect(await strip(1)).toEqual(['11', '12', '13', '15*']);
+    });
+
+    // Fix round 1, C#0 and C#1 (3/3 each): group-mates on both sides, the
+    // right one comes forward (a collapsed group expands first).
+    test.each([false, true])(
+      "the leaving tab's group-mate on its RIGHT comes forward when it has one on each side (collapsed: %s)",
+      async (collapsed) => {
+        handle = setupChromeFake({
+          windows: [
+            {
+              id: 1,
+              tabs: [
+                { id: 11 },
+                { id: 12, groupId: 5 },
+                { id: 13, groupId: 5, active: true },
+                { id: 14, groupId: 5 },
+                { id: 15 },
+              ],
+            },
+            { id: 2, tabs: [{ id: 21, active: true }] },
+          ],
+          tabGroups: [{ id: 5, windowId: 1, collapsed }],
+        });
+
+        await chrome.tabs.move(13, { windowId: 2, index: 0 });
+
+        expect(await strip(1)).toEqual(['11', '12g5', '14*g5', '15']);
+        expect(handle.groupState(5)?.collapsed).toBe(false);
+      }
+    );
+
+    // Review Minor 2: Chrome has the group whether or not the extension may
+    // see it, so a seeded tab's groupId is a group the fake has too.
+    test('a group named only by a seeded tab exists: tabs.group can join it, without the grant', async () => {
+      handle = setupChromeFake({
+        tabGroupsApiAbsent: true,
+        windows: [
+          {
+            id: 1,
+            tabs: [
+              { id: 11, active: true },
+              { id: 12, groupId: 5 },
+              { id: 13 },
+            ],
+          },
+        ],
+      });
+
+      const groupId = await chrome.tabs.group({ groupId: 5, tabIds: [13] });
+
+      expect(groupId).toBe(5);
+      expect(await strip(1)).toEqual(['11*', '12g5', '13g5']);
+      expect(handle.groupState(5)).toMatchObject({ windowId: 1 });
+    });
   });
 });
