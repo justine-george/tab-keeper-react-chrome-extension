@@ -231,6 +231,23 @@ describe('moveOpenTab: where a tab lands', () => {
       ]);
     });
 
+    test('dropped in place before the hidden page: no move call, the strip unchanged', async () => {
+      handle = withHiddenPages();
+      const moveSpy = vi.spyOn(chrome.tabs, 'move');
+
+      const moved = await moveOpenTab(
+        tabMove(11, 1, 1, 0),
+        await snapshot(),
+        false
+      );
+
+      expect(moveSpy).not.toHaveBeenCalled();
+      expect(await strip(1)).toEqual(['11*', '12', '13', '14']);
+      expect(moved).toEqual([
+        { tabId: 11, before: place(1, 0), after: place(1, 0) },
+      ]);
+    });
+
     test('across windows: the slot as it stands, past the hidden page', async () => {
       handle = withHiddenPages();
 
@@ -280,6 +297,19 @@ describe('moveOpenTab: what it refuses', () => {
     expect(moveSpy).not.toHaveBeenCalled();
     expect(getSpy).not.toHaveBeenCalled();
     expect(await strip(1)).toEqual(['11*', '12', '13']);
+  });
+
+  test('a tab whose index changed since the snapshot: null, no move call', async () => {
+    handle = oneWindow();
+    const windows = await snapshot();
+    await chrome.tabs.move(13, { index: 0 });
+    const moveSpy = vi.spyOn(chrome.tabs, 'move');
+
+    const moved = await moveOpenTab(tabMove(11, 1, 1, 2), windows, false);
+
+    expect(moved).toBeNull();
+    expect(moveSpy).not.toHaveBeenCalled();
+    expect(await strip(1)).toEqual(['13', '11*', '12']);
   });
 
   test('a tab closed before the drop: null, no throw', async () => {
@@ -379,7 +409,10 @@ describe('moveOpenTab: pinned tabs and profiles (ledger R15)', () => {
   test('a tab moved to another window since the snapshot is refused', async () => {
     handle = pinnedAndIncognito();
     const windows = await snapshot();
+    // At the same index there, so only the window says the snapshot is stale.
+    handle.browser.openTab(2, {});
     handle.browser.moveTabToWindow(13, 2);
+    expect((await chrome.tabs.get(13)).index).toBe(2);
     const moveSpy = vi.spyOn(chrome.tabs, 'move');
 
     const moved = await moveOpenTab(tabMove(13, 1, 1, 2), windows, false);
@@ -1029,6 +1062,46 @@ describe('moveOpenGroup', () => {
       ]);
     });
 
+    test('dropped in place before the hidden page: no move call, the strip unchanged', async () => {
+      handle = setupChromeFake({
+        windows: [
+          {
+            id: 1,
+            tabs: [
+              { id: 11, active: true },
+              { id: 12, groupId: 5 },
+              { id: 13, groupId: 5 },
+              { id: 14, url: TAB_KEEPER_PAGE },
+              { id: 15 },
+            ],
+          },
+        ],
+        tabGroups: [{ id: 5, windowId: 1, title: 'Work', color: 'blue' }],
+      });
+      const groupMoveSpy = vi.spyOn(chrome.tabGroups, 'move');
+
+      // Rows without the group: [11, 15]; toIndex 1 is where it was picked up.
+      const moved = await moveOpenGroup(
+        groupMove(5, 1, 1, 1),
+        await snapshot()
+      );
+
+      expect(groupMoveSpy).not.toHaveBeenCalled();
+      expect(await strip(1)).toEqual(['11*', '12g5', '13g5', '14', '15']);
+      expect(moved).toEqual([
+        {
+          tabId: 12,
+          before: place(1, 1, 5, WORK),
+          after: place(1, 1, 5, WORK),
+        },
+        {
+          tabId: 13,
+          before: place(1, 2, 5, WORK),
+          after: place(1, 2, 5, WORK),
+        },
+      ]);
+    });
+
     test('one inside the group moves with it, and is in the record', async () => {
       handle = setupChromeFake({
         windows: [
@@ -1236,6 +1309,27 @@ describe('moveOpenGroup', () => {
 
       expect(await moveOpenGroup(groupMove(5, 1, 1, 0), windows)).toBeNull();
       expect(querySpy).not.toHaveBeenCalled();
+    });
+
+    test('a group whose index changed since the snapshot: null, no move call', async () => {
+      handle = withGroup();
+      const windows = await snapshot();
+      await chrome.tabs.move(15, { index: 0 });
+      const groupMoveSpy = vi.spyOn(chrome.tabGroups, 'move');
+
+      expect(await moveOpenGroup(groupMove(5, 1, 1, 0), windows)).toBeNull();
+      expect(groupMoveSpy).not.toHaveBeenCalled();
+      expect(await strip(1)).toEqual(['15', '11*', '12g5', '13g5', '14']);
+    });
+
+    test('a group that lost a listed tab since the snapshot: null, no move call', async () => {
+      handle = withGroup();
+      const windows = await snapshot();
+      handle.browser.closeTab(13);
+      const groupMoveSpy = vi.spyOn(chrome.tabGroups, 'move');
+
+      expect(await moveOpenGroup(groupMove(5, 1, 1, 0), windows)).toBeNull();
+      expect(groupMoveSpy).not.toHaveBeenCalled();
     });
 
     test('a group whose tabs all closed before the drop: null', async () => {

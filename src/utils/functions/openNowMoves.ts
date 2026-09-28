@@ -144,24 +144,43 @@ interface RowSpan {
   last: number;
 }
 
-// A drop at visible row `toIndex`, as a slot in Chrome's strip as it stands:
-// right before the row now at toIndex, else right after the last row (ledger
-// R4). Through the rows' real indices, never by counting rows, because hidden
-// Tab Keeper pages sit between them. `rows` leaves out the row being moved;
-// when that was its window's only row, the drop is in place, at `inPlace`
-// (where the row stands). Null for a toIndex outside [0, rows].
-function slotBefore(
+// Where a drop at visible row `toIndex` lands in Chrome's strip.
+//
+// A slot as it stands: right before the row now at toIndex, else right after
+// the last row (ledger R4). Through the rows' real indices, never by counting
+// rows, because hidden Tab Keeper pages sit between them. `rows` leaves out
+// the row being moved.
+//
+// `standsAt` is where the moving row's first tab stands, when it is in this
+// window (null when it comes from another). If it already lies in the gap the
+// drop names -- after the row before toIndex, before the row at it -- the drop
+// is in place and nothing is to move: "before the next row" would carry it
+// across a hidden page between it and that row (Task 6b review, Important 1).
+//
+// Null for a toIndex outside [0, rows].
+type Landing = { inPlace: true } | { inPlace: false; slot: number };
+
+function landingOf(
   rows: readonly RowSpan[],
   toIndex: number,
-  inPlace: number
-): number | null {
+  standsAt: number | null
+): Landing | null {
   if (!Number.isInteger(toIndex) || toIndex < 0 || toIndex > rows.length) {
     return null;
   }
-  const at = rows[toIndex];
-  if (at !== undefined) return at.first;
-  const last = rows[rows.length - 1];
-  return last === undefined ? inPlace : last.last + 1;
+  const previous = rows[toIndex - 1];
+  const next = rows[toIndex];
+  if (
+    standsAt !== null &&
+    (previous === undefined || previous.last < standsAt) &&
+    (next === undefined || standsAt < next.first)
+  ) {
+    return { inPlace: true };
+  }
+  if (next !== undefined) return { inPlace: false, slot: next.first };
+  return previous === undefined
+    ? null
+    : { inPlace: false, slot: previous.last + 1 };
 }
 
 // A slot as it stands, as the index Chrome takes for a move within one
@@ -211,19 +230,25 @@ export async function moveOpenTab(
   const rows = to.tabs
     .filter((tab) => tab.id !== held.id)
     .map((tab) => ({ first: tab.index, last: tab.index }));
-  const slot = slotBefore(rows, move.toIndex, held.index);
-  if (slot === null) return null;
+  const landing = landingOf(rows, move.toIndex, across ? null : held.index);
+  if (landing === null) return null;
 
   // Chrome's own answer at drop time (ledger R3). A tab that has left the
-  // window the snapshot put it in, or been pinned since, makes the snapshot's
-  // indices and the K1 check above stale: refused.
+  // window the snapshot put it in, moved within it, or been pinned since,
+  // makes the snapshot's indices and the K1 check above stale: refused, and
+  // the list re-reads (O11b).
   const now = await readTab(held.id);
-  if (now === null || now.windowId !== from.id) return null;
+  if (now === null || now.windowId !== from.id || now.index !== held.index) {
+    return null;
+  }
   if (across && now.pinned) return null;
   const before = await placeOf(now, hasTabGroups);
   if (before === null) return null;
 
-  if (across && toGroupId !== NO_GROUP) {
+  if (landing.inPlace) {
+    // Already where the drop names; only its group may change, below.
+  } else if (across && toGroupId !== NO_GROUP) {
+    const { slot } = landing;
     // One tabs.move into another window's run is refused (Task 1 Q3), so the
     // tab joins first -- tabs.group carries it to the END of the run, in the
     // group's window -- and then moves within that window. The slot as it
@@ -242,6 +267,7 @@ export async function moveOpenTab(
       if (placed === REFUSED) return null;
     }
   } else {
+    const { slot } = landing;
     const moved = await attempt(() =>
       across
         ? chrome.tabs.move(held.id, { windowId: to.id, index: slot })
@@ -319,18 +345,23 @@ export async function moveOpenGroup(
   const group = groupById.get(move.groupId);
   const from = windowById.get(move.fromWindowId);
   const to = windowById.get(move.toWindowId);
-  if (!group || !from || !to || group.windowId !== from.id) return null;
+  if (!group || !from || !to) return null;
   const across = to.id !== from.id;
   // Refused before any call (ledger R15, O11d). No pinned rule: a pinned tab
   // is never in a group.
   if (across && from.incognito !== to.incognito) return null;
 
-  // Where the group stands in the snapshot: its first listed tab.
-  const stands = Math.min(
-    ...from.tabs.filter((tab) => tab.groupId === group.id).map((t) => t.index)
+  // The group's listed tabs in the snapshot; the first is where it stands.
+  // None when the group is not in `from`: refused.
+  const listed = from.tabs.filter((tab) => tab.groupId === group.id);
+  const standsAt = listed[0]?.index;
+  if (standsAt === undefined) return null;
+  const landing = landingOf(
+    topLevelRows(to, group.id),
+    move.toIndex,
+    across ? null : standsAt
   );
-  const slot = slotBefore(topLevelRows(to, group.id), move.toIndex, stands);
-  if (slot === null) return null;
+  if (landing === null) return null;
 
   // The group's tabs as Chrome has them at drop time (ledger R3), hidden Tab
   // Keeper pages in it included: they move with it, so they are counted and
@@ -353,6 +384,14 @@ export async function moveOpenGroup(
     .sort((a, b) => a.state.index - b.state.index);
   const head = members[0];
   if (head === undefined) return null;
+  // Every listed tab still in the group, where the snapshot put it -- else the
+  // strip changed under the drag hold and the snapshot's slot can't be placed
+  // honestly: refused, and the list re-reads (O11b).
+  const stale = listed.some(
+    (tab) =>
+      members.find((member) => member.id === tab.id)?.state.index !== tab.index
+  );
+  if (stale) return null;
   // Non-empty, as tabs.group's tabIds must be.
   const ids: [number, ...number[]] = [
     head.id,
@@ -368,13 +407,16 @@ export async function moveOpenGroup(
   const look = befores[0]?.before.group;
   if (!look) return null;
 
-  if (!across) {
-    const index = finalIndex(slot, head.state.index, members.length);
+  if (landing.inPlace) {
+    // Already where the drop names: nothing moves.
+  } else if (!across) {
+    const index = finalIndex(landing.slot, head.state.index, members.length);
     const moved = await attempt(() =>
       chrome.tabGroups.move(group.id, { index })
     );
     if (moved === REFUSED) return null;
   } else if (!members.some((member) => member.state.active)) {
+    const { slot } = landing;
     const moved = await attempt(() =>
       chrome.tabGroups.move(group.id, { windowId: to.id, index: slot })
     );
@@ -382,12 +424,15 @@ export async function moveOpenGroup(
   } else {
     // G1. Any step Chrome refuses ends the move where Chrome left it, with no
     // record (ledger R17): an array tabs.move is not atomic (Task 6a Q1).
+    const { slot } = landing;
     const moved = await attempt(() =>
       chrome.tabs.move(ids, { windowId: to.id, index: slot })
     );
     if (moved === REFUSED) return null;
     // createProperties.windowId, or Chrome makes the group in the CURRENT
-    // window and moves the tabs there (Task 6a Q3).
+    // window and moves the tabs there (Task 6a Q3). The order of tabIds is
+    // unmeasured and harmless: `ids` is in strip order, and the tabs.move
+    // above has just put them side by side in that order.
     const newId = await attempt(() =>
       chrome.tabs.group({ tabIds: ids, createProperties: { windowId: to.id } })
     );
