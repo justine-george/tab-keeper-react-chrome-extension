@@ -17,11 +17,19 @@ vi.mock('../../utils/functions/openNowMoves', async (importOriginal) => {
 
 import OpenNowPane from '../../components/home/opennow/OpenNowPane';
 import { setHasTabGroupsPermission } from '../../redux/slices/globalStateSlice';
-import { toOpenWindows } from '../../utils/functions/openNow';
 import type { OpenWindow } from '../../utils/functions/openNow';
 import { moveOpenGroup, moveOpenTab } from '../../utils/functions/openNowMoves';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import type { ChromeSeed } from '../setup/chrome.fake';
+import {
+  ROW,
+  drag,
+  find,
+  layOut,
+  snapshot,
+  tabRow,
+  url,
+} from '../setup/openNowDragHarness';
 
 // KAN-330 O14c. While the Open now field holds a search, no tab or group row
 // can be picked up; clearing the search turns drag back on. The helpers below
@@ -30,9 +38,6 @@ import type { ChromeSeed } from '../setup/chrome.fake';
 // typing reaches it. Every search here is "test", which matches every tab, so
 // every row is still drawn and layOut can measure all of them: the search is
 // the only thing that differs from the plain drag tests.
-
-const ROW = 32;
-const GAP = 8;
 
 beforeEach(() => {
   vi.mocked(moveOpenTab).mockClear();
@@ -43,82 +48,6 @@ afterEach(() => {
   cleanup();
   document.documentElement.removeAttribute('data-dragging');
 });
-
-const box = (top: number, height: number): DOMRect => ({
-  top,
-  bottom: top + height,
-  left: 0,
-  right: 300,
-  height,
-  width: 300,
-  x: 0,
-  y: top,
-  toJSON: () => ({}),
-});
-
-const url = (name: string) => `https://${name}.test/`;
-
-async function snapshot(hasTabGroups: boolean): Promise<OpenWindow[]> {
-  const all = await chrome.windows.getAll({
-    populate: true,
-    windowTypes: ['normal'],
-  });
-  const groups =
-    hasTabGroups && chrome.tabGroups ? await chrome.tabGroups.query({}) : null;
-  return toOpenWindows(all, groups, null);
-}
-
-function find(selector: string): HTMLElement {
-  const el = document.querySelector<HTMLElement>(selector);
-  if (!el) throw new Error(`nothing matches ${selector}`);
-  return el;
-}
-
-function layOut(windows: readonly OpenWindow[]) {
-  const top = new Map<string, number>();
-  let y = 0;
-  for (const window of windows) {
-    const start = y;
-    y += ROW; // the window's own row
-    top.set(`window:${window.id}`, start);
-    const seen = new Set<number>();
-    for (const tab of window.tabs) {
-      if (tab.groupId !== null && !seen.has(tab.groupId)) {
-        seen.add(tab.groupId);
-        const members = window.tabs.filter((t) => t.groupId === tab.groupId);
-        const groupTop = y;
-        const height = ROW * (members.length + 1);
-        find(
-          `[data-drag-row-id="group:${tab.groupId}"]`
-        ).getBoundingClientRect = () => box(groupTop, height);
-        find(`[data-fixed-row-id="${tab.groupId}"]`).getBoundingClientRect =
-          () => box(groupTop, ROW);
-        top.set(`group:${tab.groupId}`, groupTop);
-        y += ROW;
-      }
-      const rowTop = y;
-      find(`[data-drag-row-id="${tab.id}"]`).getBoundingClientRect = () =>
-        box(rowTop, ROW);
-      if (tab.groupId === null) {
-        find(`[data-drag-row-id="tab:${tab.id}"]`).getBoundingClientRect = () =>
-          box(rowTop, ROW);
-      }
-      top.set(String(tab.id), rowTop);
-      y += ROW;
-      const last = window.tabs.filter((t) => t.groupId === tab.groupId).pop();
-      if (tab.groupId !== null && last === tab) {
-        find(
-          `[data-fixed-row-id="${tab.groupId}:tail"]`
-        ).getBoundingClientRect = () => box(y, 0);
-      }
-    }
-    const height = y - start;
-    find(`[data-drop-window-id="${window.id}"]`).getBoundingClientRect = () =>
-      box(start, height);
-    y += GAP;
-  }
-  return top;
-}
 
 function SearchablePane({
   windows,
@@ -158,14 +87,6 @@ async function renderSearchable(seed: ChromeSeed, hasTabGroups: boolean) {
   return { ...result, windows, onMoved, top: layOut(windows) };
 }
 
-function drag(el: HTMLElement, from: number, to: number) {
-  fireEvent.pointerDown(el, { clientX: 10, clientY: from, button: 0 });
-  fireEvent.pointerMove(document, { clientX: 10, clientY: from + 8 });
-  fireEvent.pointerMove(document, { clientX: 10, clientY: to });
-  fireEvent.pointerUp(document, { clientX: 10, clientY: to });
-}
-
-const tabRow = (id: number) => find(`[data-drag-row-id="${id}"]`);
 const searchBox = () =>
   screen.getByRole('textbox', { name: 'Search open tabs' });
 
