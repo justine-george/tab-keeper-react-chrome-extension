@@ -17,6 +17,12 @@ interface OpenNowRailProps {
   // The rail's button. The caller holds it so an unfold that brings the rail
   // back can focus it (OpenNowColumn).
   buttonRef: RefObject<HTMLButtonElement>;
+  // The search field's text (KAN-330 O14). Held by OpenNowColumn, above the
+  // pane <-> drawer swap, so a resize or a drawer close keeps it.
+  searchText: string;
+  onSearchTextChange: (text: string) => void;
+  // The field. The caller holds it so the drawer can focus it on open (R1).
+  searchInputRef: RefObject<HTMLInputElement>;
 }
 
 // KAN-280 O2. A 44px column with one button, which opens Open now as a 380px
@@ -26,6 +32,9 @@ export default function OpenNowRail({
   windows,
   foldAction,
   buttonRef,
+  searchText,
+  onSearchTextChange,
+  searchInputRef,
 }: OpenNowRailProps) {
   const COLORS = useThemeColors();
   const { t } = useTranslation();
@@ -137,6 +146,9 @@ export default function OpenNowRail({
             ]}
             headingId={headingId}
             headingRef={headingRef}
+            searchText={searchText}
+            onSearchTextChange={onSearchTextChange}
+            searchInputRef={searchInputRef}
           />
         </div>
       )}

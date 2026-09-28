@@ -1,4 +1,11 @@
-import { Ref, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import {
+  Ref,
+  RefObject,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 
 import { css } from '@emotion/react';
 import { useTranslation } from 'react-i18next';
@@ -16,6 +23,7 @@ import {
   openWindowsToSession,
   suggestTitleForWindow,
 } from '../../../utils/functions/openWindowsToSession';
+import { searchTermOf } from '../../../utils/functions/openNowSearch';
 import { closeOpenTab, closeOpenWindow } from '../../../utils/functions/reopen';
 import { offerReopen } from '../../../redux/reopenOffer';
 import {
@@ -28,6 +36,7 @@ import type { AppDispatch, RootState } from '../../../redux/store';
 import { TYPE } from '../../../styles/scale';
 
 import { RowDragArea } from '../rightpane/rowDrag/RowDragArea';
+import OpenNowSearchRow from './OpenNowSearchRow';
 import OpenNowWindow from './OpenNowWindow';
 import {
   OPEN_ITEMS_SCOPE,
@@ -55,6 +64,12 @@ interface OpenNowPaneProps {
   // The "Open now" heading, for a caller that moves focus to it (the
   // drawer, KAN-280 O2).
   headingRef?: Ref<HTMLHeadingElement>;
+  // The search field's text (KAN-330 O14). Held by OpenNowColumn, above the
+  // pane <-> drawer swap, so a resize or a drawer close keeps it.
+  searchText: string;
+  onSearchTextChange: (text: string) => void;
+  // The field. The caller holds it so the drawer can focus it on open (R1).
+  searchInputRef: RefObject<HTMLInputElement>;
   // Told of every drag Chrome carried out, with each moved tab's place before
   // and after (KAN-280 Part E), after the drop is kept for ⌘Z. No product
   // caller passes it: the undo record is kept by useOpenNowDrop itself
@@ -74,6 +89,17 @@ function firstControlIn(
 ): HTMLElement | null {
   const control = element?.querySelector('button, [role="button"]');
   return control instanceof HTMLElement ? control : null;
+}
+
+// The Switch buttons of the tab rows drawn, top to bottom (KAN-330 O14b).
+// Read from the DOM, like rule 8's neighbours: what is drawn is the truth,
+// search, folds and all.
+function drawnSwitchButtons(pane: HTMLElement | null): HTMLButtonElement[] {
+  return [
+    ...(pane?.querySelectorAll<HTMLButtonElement>(
+      '[data-open-tab-id] > button'
+    ) ?? []),
+  ];
 }
 
 // A tab row's ×, found by its strip's mark rather than by its place in the
@@ -99,6 +125,9 @@ export default function OpenNowPane({
   actions,
   headingId,
   headingRef,
+  searchText,
+  onSearchTextChange,
+  searchInputRef,
   onMoved,
 }: OpenNowPaneProps) {
   const COLORS = useThemeColors();
@@ -316,16 +345,40 @@ export default function OpenNowPane({
     text-overflow: ellipsis;
   `;
 
-  // Copied from TabGroupDetailsContainer's containerStyle.
-  const bodyStyle = css`
+  // The list box: the search row, then the scroller (KAN-330 P2a). The row
+  // is pinned by sitting outside the scroller, as the Saved sessions caption
+  // is (O3a): a row laid over the top rows would put hidden rows under the
+  // pointer during a drag. The box is copied from TabGroupDetailsContainer's
+  // containerStyle, less the overflow, which the scroller now holds.
+  const listBoxStyle = css`
     display: flex;
     flex-direction: column;
     flex-grow: 1;
+    min-height: 0;
     margin-top: 8px;
     border: 1px solid ${COLORS.BORDER_COLOR};
-    overflow: auto;
     user-select: none;
   `;
+
+  const scrollerStyle = css`
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 0;
+    min-height: 0;
+    overflow: auto;
+  `;
+
+  const searchTerm = searchTermOf(searchText);
+
+  const focusFirstDrawnTab = () =>
+    drawnSwitchButtons(paneRef.current)[0]?.focus();
+
+  // O14b: only while a search is held. An empty field must never switch
+  // Chrome away from Tab Keeper.
+  const switchToFirstDrawnTab = () => {
+    if (searchTerm === null) return;
+    drawnSwitchButtons(paneRef.current)[0]?.click();
+  };
 
   const emptyStyle = css`
     display: flex;
@@ -417,65 +470,74 @@ export default function OpenNowPane({
           ))}
         </div>
       </div>
-      <div css={bodyStyle}>
-        {windows !== null && windows.length === 0 ? (
-          <div css={emptyStyle}>
-            <NormalLabel
-              value={t('No other tabs are open')}
-              color={COLORS.LABEL_L2_COLOR}
-            />
-          </div>
-        ) : (
-          // The saved pane's two lists over every window (TabDragArea,
-          // GroupDragArea), under Open now's own scopes: a tab at a time,
-          // and a whole group by its title row. No clampDropToEnds: a
-          // window's tab list is nested, and a release outside every window
-          // must be refused (isInsideList, KAN-132).
-          <RowDragArea
-            scope={OPEN_TABS_SCOPE}
-            rowIds={drop.tabs.rowIds}
-            onMove={drop.tabs.onMove}
-            dragKind="tab"
-            dropsAcrossWindows
-            resolveDrop={drop.tabs.resolveDrop}
-            onDropTargetChange={drop.tabs.onDropTargetChange}
-            landsBesideFixedRow={drop.tabs.landsBesideFixedRow}
-            fixedRowsRemovedBy={drop.tabs.fixedRowsRemovedBy}
-            gapChangesBy={drop.tabs.gapChangesBy}
-            fixedRowSelector="[data-fixed-row-id]"
-            landingRange={drop.tabs.landingRange}
-            acceptsWindow={drop.tabs.acceptsWindow}
-          >
+      <div css={listBoxStyle}>
+        <OpenNowSearchRow
+          text={searchText}
+          onTextChange={onSearchTextChange}
+          inputRef={searchInputRef}
+          onArrowDown={focusFirstDrawnTab}
+          onEnter={switchToFirstDrawnTab}
+        />
+        <div css={scrollerStyle}>
+          {windows !== null && windows.length === 0 ? (
+            <div css={emptyStyle}>
+              <NormalLabel
+                value={t('No other tabs are open')}
+                color={COLORS.LABEL_L2_COLOR}
+              />
+            </div>
+          ) : (
+            // The saved pane's two lists over every window (TabDragArea,
+            // GroupDragArea), under Open now's own scopes: a tab at a time,
+            // and a whole group by its title row. No clampDropToEnds: a
+            // window's tab list is nested, and a release outside every window
+            // must be refused (isInsideList, KAN-132).
             <RowDragArea
-              scope={OPEN_ITEMS_SCOPE}
-              rowIds={drop.items.rowIds}
-              onMove={drop.items.onMove}
-              dragKind="group"
+              scope={OPEN_TABS_SCOPE}
+              rowIds={drop.tabs.rowIds}
+              onMove={drop.tabs.onMove}
+              dragKind="tab"
               dropsAcrossWindows
-              handleSelector="[data-group-drag-handle]"
-              restoreScrollIfNoDrop
-              landingRange={drop.items.landingRange}
-              acceptsWindow={drop.items.acceptsWindow}
+              resolveDrop={drop.tabs.resolveDrop}
+              onDropTargetChange={drop.tabs.onDropTargetChange}
+              landsBesideFixedRow={drop.tabs.landsBesideFixedRow}
+              fixedRowsRemovedBy={drop.tabs.fixedRowsRemovedBy}
+              gapChangesBy={drop.tabs.gapChangesBy}
+              fixedRowSelector="[data-fixed-row-id]"
+              landingRange={drop.tabs.landingRange}
+              acceptsWindow={drop.tabs.acceptsWindow}
             >
-              {listed.map((openWindow, index) => (
-                <OpenNowWindow
-                  key={openWindow.id}
-                  openWindow={openWindow}
-                  index={index}
-                  isOpen={!collapsedIds.has(openWindow.id)}
-                  onToggle={() => toggleWindow(openWindow.id)}
-                  onCloseTab={(tab) => void handleCloseTab(openWindow, tab)}
-                  onSaveWindow={() => void handleSaveWindow(openWindow)}
-                  onCloseWindow={
-                    openWindow.isThisWindow
-                      ? undefined
-                      : () => void handleCloseWindow(openWindow)
-                  }
-                />
-              ))}
+              <RowDragArea
+                scope={OPEN_ITEMS_SCOPE}
+                rowIds={drop.items.rowIds}
+                onMove={drop.items.onMove}
+                dragKind="group"
+                dropsAcrossWindows
+                handleSelector="[data-group-drag-handle]"
+                restoreScrollIfNoDrop
+                landingRange={drop.items.landingRange}
+                acceptsWindow={drop.items.acceptsWindow}
+              >
+                {listed.map((openWindow, index) => (
+                  <OpenNowWindow
+                    key={openWindow.id}
+                    openWindow={openWindow}
+                    index={index}
+                    isOpen={!collapsedIds.has(openWindow.id)}
+                    onToggle={() => toggleWindow(openWindow.id)}
+                    onCloseTab={(tab) => void handleCloseTab(openWindow, tab)}
+                    onSaveWindow={() => void handleSaveWindow(openWindow)}
+                    onCloseWindow={
+                      openWindow.isThisWindow
+                        ? undefined
+                        : () => void handleCloseWindow(openWindow)
+                    }
+                  />
+                ))}
+              </RowDragArea>
             </RowDragArea>
-          </RowDragArea>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );

@@ -1,3 +1,4 @@
+import { createRef } from 'react';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 
@@ -139,6 +140,9 @@ async function renderPane(seed: ChromeSeed, hasTabGroups: boolean) {
       windows={null}
       actions={[]}
       headingId="open-now-heading"
+      searchText=""
+      onSearchTextChange={() => undefined}
+      searchInputRef={createRef<HTMLInputElement>()}
       onMoved={onMoved}
     />,
     {
@@ -153,6 +157,9 @@ async function renderPane(seed: ChromeSeed, hasTabGroups: boolean) {
       windows={windows}
       actions={[]}
       headingId="open-now-heading"
+      searchText=""
+      onSearchTextChange={() => undefined}
+      searchInputRef={createRef<HTMLInputElement>()}
       onMoved={onMoved}
     />
   );
