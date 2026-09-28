@@ -269,8 +269,20 @@ export interface RowDragAreaProps {
    * decision the preview and the release share, so the slot the user is shown
    * is the one the release commits.
    *
-   * A range that holds no index (`max < min`) refuses the drop, like a release
-   * outside the list. Absent, nothing is clamped; saved lists pass none.
+   * A CLAMPED LANDING HAS NO TARGET. It lands where the pointer is not, so
+   * the band `resolveDrop` names under the pointer is not what it lands on:
+   * no band is marked (`onDropTargetChange`), `landsBesideFixedRow`,
+   * `fixedRowsRemovedBy` and `gapChangesBy` are asked with `target`
+   * undefined, and `onMove` gets `dropTargetId` undefined. A landing the
+   * range leaves where the pointer put it keeps the band as its target.
+   *
+   * The range is also bounded to the indices that exist: 0 up to the
+   * window's row count with the held row lifted out (one past its last
+   * row). A range that holds none of those -- `max < min`, or wholly past
+   * either end -- refuses the drop, like a release outside the list. A
+   * window that draws no rows (collapsed) holds only index 0.
+   *
+   * Absent, nothing is clamped; saved lists pass none.
    */
   landingRange?: (
     rowId: string,

@@ -361,3 +361,166 @@ describe('in a list with no windows', () => {
     expect(acceptsWindow).not.toHaveBeenCalled();
   });
 });
+
+// A clamped landing lands where the pointer is NOT, so the band under the
+// pointer is not what it lands on. Before this, the index was clamped but the
+// band stayed the target: the band was marked, the list's fixed-row answer
+// drew the slot inside it ("joins G at its head"), and the release committed
+// the clamped index WITH group G -- a preview and a release that disagree.
+//
+// A flat list with one group, as a tab list draws it. p0 and p1 are the
+// pinned run (range 0..1 for p0); the band G spans its title and members.
+//
+//   p0 0..20   p1 20..40   p2 40..60   [G title 60..80   g0 80..100   g1 100..120]
+describe('a clamped landing does not land on the band under the pointer', () => {
+  const TOPS: Record<string, number> = {
+    p0: 0,
+    p1: 20,
+    p2: 40,
+    G: 60,
+    g0: 80,
+    g1: 100,
+  };
+  const ROWS = ['p0', 'p1', 'p2', 'g0', 'g1'];
+  const topIn = (id: string): number => {
+    const top = TOPS[id];
+    if (top === undefined) throw new Error(`no row ${id}`);
+    return top;
+  };
+
+  // The band is G's title and members; resolveDrop names it by pointer y.
+  const resolveDrop: NonNullable<RowDragAreaProps['resolveDrop']> = (
+    _within,
+    _x,
+    y
+  ) => ({ bandId: y >= 60 && y < 120 ? 'G' : undefined });
+  // The tab list's head rule: a row landing inside G at or above its first
+  // member (index 2, with p0 lifted out) joins it under the title.
+  const landsBesideFixedRow: NonNullable<
+    RowDragAreaProps['landsBesideFixedRow']
+  > = (_rowId, toIndex, target) =>
+    target === 'G' && toIndex <= 2
+      ? { fixedRowId: 'G', side: 'after' }
+      : undefined;
+
+  const hold = (landingRange: Limits['landingRange'], y: number) => {
+    const onMove = vi.fn();
+    const onDropTargetChange = vi.fn();
+    const { container } = render(
+      <RowDragArea
+        rowIds={ROWS}
+        onMove={onMove}
+        fixedRowSelector="[data-fixed-row-id]"
+        resolveDrop={resolveDrop}
+        onDropTargetChange={onDropTargetChange}
+        landsBesideFixedRow={landsBesideFixedRow}
+        landingRange={landingRange}
+      >
+        {['p0', 'p1', 'p2'].map((id) => (
+          <DraggableRow key={id} rowId={id}>
+            <div>Row {id}</div>
+          </DraggableRow>
+        ))}
+        <div data-fixed-row-id="G">G</div>
+        {['g0', 'g1'].map((id) => (
+          <DraggableRow key={id} rowId={id}>
+            <div>Row {id}</div>
+          </DraggableRow>
+        ))}
+      </RowDragArea>
+    );
+    for (const id of ROWS) {
+      find(container, `[data-drag-row-id="${id}"]`).getBoundingClientRect =
+        () => box(topIn(id), ROW_H);
+    }
+    find(container, '[data-fixed-row-id="G"]').getBoundingClientRect = () =>
+      box(topIn('G'), ROW_H);
+
+    const row = find(container, '[data-drag-row-id="p0"]');
+    fireEvent.pointerDown(row, { clientX: 10, clientY: 10, button: 0 });
+    fireEvent.pointerMove(document, { clientX: 10, clientY: 18 });
+    fireEvent.pointerMove(document, { clientX: 10, clientY: y });
+
+    const shifted: Record<string, number> = {};
+    for (const id of ROWS) {
+      if (id === 'p0') continue;
+      const shift = translateOf(find(container, `[data-drag-row-id="${id}"]`));
+      if (shift !== 0) shifted[id] = shift;
+    }
+    const wrapper = find(container, '[data-drag-row-id="p0"]');
+    const slotTop =
+      topIn('p0') +
+      translateOf(wrapper) +
+      translateOf(find(wrapper, '[data-drag-landing-slot]'));
+    const marked = onDropTargetChange.mock.calls.map((c) => c[0]);
+
+    fireEvent.pointerUp(document, { clientX: 10, clientY: y });
+    return { shifted, slotTop, marked, released: onMove.mock.calls };
+  };
+
+  // y 85: inside G, above g0's midpoint. p1 and p2 are passed: index 2.
+  test('CONTROL: without the range, p0 held in G joins G at its head', () => {
+    const { shifted, slotTop, marked, released } = hold(undefined, 85);
+    expect(marked).toContain('G');
+    // p1, p2 and G's title close up; the slot is drawn under the title.
+    expect(shifted).toEqual({ p1: -ROW_H, p2: -ROW_H });
+    expect(slotTop).toBe(topIn('g0') - ROW_H);
+    expect(released).toEqual([['p0', 2, 'G']]);
+  });
+
+  test('clamped to 0..1, the same hold marks no band, draws the slot at 1, and releases with no target', () => {
+    const { shifted, slotTop, marked, released } = hold(
+      () => ({ min: 0, max: 1 }),
+      85
+    );
+    expect(marked).not.toContain('G');
+    expect(shifted).toEqual({ p1: -ROW_H });
+    expect(slotTop).toBe(topIn('p1'));
+    expect(released).toEqual([['p0', 1, undefined]]);
+  });
+
+  // A range that does not clamp THIS landing leaves the band its target.
+  test('in range, the band is still the target', () => {
+    const { marked, released } = hold(() => ({ min: 0, max: 4 }), 85);
+    expect(marked).toContain('G');
+    expect(released).toEqual([['p0', 2, 'G']]);
+  });
+});
+
+// The range is bounded to the indices that exist in the landing window: 0 up
+// to its row count with the held one lifted out. Past that, in the row's own
+// window there is no row to draw the slot in front of, so the preview showed
+// nothing moving while the release committed the out-of-range index.
+describe('a range past the window’s end', () => {
+  test('CONTROL: a range reaching past the end, that also holds a real index, lands on it', () => {
+    const { preview, released } = holdAndRelease(
+      { landingRange: () => ({ min: 2, max: 9 }) },
+      'a0',
+      12
+    );
+    expect(preview.shifted).toEqual({ a1: -ROW_H, a2: -ROW_H });
+    expect(preview.slotTop).toBe(topOf('a2'));
+    expect(released).toEqual([['a0', 2, undefined, 'wA']]);
+  });
+
+  test('a range wholly past the end refuses: nothing steps aside, nothing moves', () => {
+    const { preview, released } = holdAndRelease(
+      { landingRange: () => ({ min: 3, max: 9 }) },
+      'a0',
+      12
+    );
+    expect(preview.shifted).toEqual({});
+    expect(preview.slotTop).toBe(topOf('a0'));
+    expect(released).toEqual([]);
+  });
+
+  test('a range wholly below 0 refuses too', () => {
+    const { preview, released } = holdAndRelease(
+      { landingRange: () => ({ min: -3, max: -1 }) },
+      'a0',
+      12
+    );
+    expect(preview.shifted).toEqual({});
+    expect(released).toEqual([]);
+  });
+});
