@@ -213,6 +213,7 @@
   "Fold the saved session away": "收合已儲存的工作階段",
   "Show the saved session": "顯示已儲存的工作階段",
   "Close Open now": "關閉「目前開啟的分頁」面板",
+  "Resize Open now": "調整「目前開啟的分頁」面板寬度",
   "Reopen": "重新開啟",
   "Ctrl": "Ctrl",
   "Tab closed": "分頁已關閉",

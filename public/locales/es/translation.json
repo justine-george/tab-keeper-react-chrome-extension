@@ -217,6 +217,7 @@
   "Fold the saved session away": "Ocultar la sesión guardada",
   "Show the saved session": "Mostrar la sesión guardada",
   "Close Open now": "Cerrar el panel \"Pestañas abiertas\"",
+  "Resize Open now": "Cambiar el ancho del panel \"Pestañas abiertas\"",
   "Reopen": "Reabrir",
   "Ctrl": "Ctrl",
   "Tab closed": "Pestaña cerrada",

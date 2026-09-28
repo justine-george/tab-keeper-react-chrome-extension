@@ -213,6 +213,7 @@
   "Fold the saved session away": "保存済みのセッションを折りたたむ",
   "Show the saved session": "保存済みのセッションを表示",
   "Close Open now": "「現在開いているタブ」パネルを閉じる",
+  "Resize Open now": "「現在開いているタブ」パネルの幅を変更",
   "Reopen": "再度開く",
   "Ctrl": "Ctrl",
   "Tab closed": "タブを閉じました",
