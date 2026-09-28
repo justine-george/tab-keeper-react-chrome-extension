@@ -1307,15 +1307,17 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
       },
       get: (tabId: number, cb?: (tab: chrome.tabs.Tab) => void) =>
         settle(tabs.find((tab) => tab.id === tabId) as chrome.tabs.Tab, cb),
-      // One tab, within its own window (no product code moves a tab to
-      // another window with this). The index is clamped the way tabs.create
-      // clamps it (clampSlot), with -1 meaning the end. Afterwards the tab's
-      // group follows Chromium's contiguity rule, the one tabs.create above
-      // follows (measured 2026-09-24 for a create; for a move it is modelled
-      // on the same rule, not measured): strictly inside another group's run
-      // it joins that group; cut off from the rest of its own group it
-      // leaves it. An ACTIVE tab joining a collapsed group expands it; an
-      // inactive one joins and leaves it collapsed (Task 8, M2 cause).
+      // One tab. Within its own window the index is the tab's FINAL index,
+      // clamped the way tabs.create clamps it (clampSlot), with -1 meaning
+      // the end (Part E Task 1, Q1, Q2). Afterwards the tab's group follows
+      // Chromium's contiguity rule, the one tabs.create above follows
+      // (measured for a move too, Part E Task 1, Q3): strictly inside
+      // another group's run it joins that group; cut off from the rest of
+      // its own group it leaves it, even to a slot right beside the run. A
+      // join or leave fires tabs.onUpdated {groupId} BEFORE tabs.onMoved. An
+      // ACTIVE tab joining a collapsed group expands it, and that
+      // tabGroups.onUpdated comes after onMoved; an inactive one joins and
+      // leaves it collapsed (Task 8, M2 cause; Part E Task 1, Q3, Q6).
       move: (
         tabId: number,
         props: chrome.tabs.MoveProperties,
@@ -1346,6 +1348,7 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
         const left = others[slot - 1];
         const right = others[slot];
         const own = target.groupId;
+        let expanded: chrome.tabGroups.TabGroup | undefined;
         if (own !== left?.groupId && own !== right?.groupId) {
           if (
             left !== undefined &&
@@ -1354,14 +1357,16 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
             left.groupId === right.groupId
           ) {
             target.groupId = left.groupId;
+            tabsOnUpdated.fire(tabId, { groupId: target.groupId }, target);
             dropGroupIfEmpty(own);
             const joined = tabGroups.find((g) => g.id === target.groupId);
             if (target.active && joined?.collapsed) {
               joined.collapsed = false;
-              tabGroupsOnUpdated.fire(joined);
+              expanded = joined;
             }
           } else if (own !== -1 && others.some((t) => t.groupId === own)) {
             target.groupId = -1;
+            tabsOnUpdated.fire(tabId, { groupId: -1 }, target);
           }
         }
 
@@ -1372,6 +1377,7 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
             toIndex: target.index,
           });
         }
+        if (expanded) tabGroupsOnUpdated.fire(expanded);
         return settle(target, cb);
       },
       onCreated: tabsOnCreated,

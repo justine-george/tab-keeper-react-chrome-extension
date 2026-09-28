@@ -2792,3 +2792,119 @@ describe('the fake follows what real Chrome measured (Task 8, KAN-316)', () => {
     expect(handle.restoredFromSession(result.tab?.id ?? -1)).toBe(true);
   });
 });
+
+// What real Chrome does when Open now's drag drops a tab or a group (KAN-280
+// Part E). Every expectation is one Part E Task 1 measured in Chromium 151
+// (docs/superpowers/plans/2026-09-28-open-now-part-e.md, "Task 1 results"),
+// cited as "Part E Task 1, Qn".
+describe('moves Chrome measured for Open now drag (KAN-280 Part E)', () => {
+  // `P` pinned, `*` active, `gN` in group N.
+  const strip = async (windowId: number) =>
+    (await chrome.tabs.query({ windowId }))
+      .sort((a, b) => a.index - b.index)
+      .map(
+        (t) =>
+          `${t.id}${t.pinned ? 'P' : ''}${t.active ? '*' : ''}${
+            t.groupId === -1 ? '' : `g${t.groupId}`
+          }`
+      );
+
+  // Every event a move can fire, in the order they fired.
+  const recordEvents = (): string[] => {
+    const log: string[] = [];
+    chrome.tabs.onMoved.addListener((id, info) =>
+      log.push(`moved ${id} ${info.fromIndex}->${info.toIndex}`)
+    );
+    chrome.tabs.onUpdated.addListener((id, change) =>
+      log.push(`updated ${id} ${JSON.stringify(change)}`)
+    );
+    chrome.tabs.onDetached.addListener((id, info) =>
+      log.push(`detached ${id} w${info.oldWindowId}@${info.oldPosition}`)
+    );
+    chrome.tabs.onAttached.addListener((id, info) =>
+      log.push(`attached ${id} w${info.newWindowId}@${info.newPosition}`)
+    );
+    chrome.tabs.onActivated.addListener((info) =>
+      log.push(`activated ${info.tabId} w${info.windowId}`)
+    );
+    chrome.tabGroups.onCreated.addListener((g) =>
+      log.push(`group created ${g.id} w${g.windowId}`)
+    );
+    chrome.tabGroups.onUpdated.addListener((g) =>
+      log.push(`group updated ${g.id} collapsed=${g.collapsed}`)
+    );
+    chrome.tabGroups.onRemoved.addListener((g) =>
+      log.push(`group removed ${g.id}`)
+    );
+    chrome.tabGroups.onMoved.addListener((g) =>
+      log.push(`group moved ${g.id} w${g.windowId}`)
+    );
+    chrome.windows.onRemoved.addListener((id) =>
+      log.push(`window removed ${id}`)
+    );
+    return log;
+  };
+
+  describe('tabs.move in one window joins or leaves a group (Part E Task 1, Q3, Q6)', () => {
+    // [a*, g1@5, g2@5, b]
+    const joinSeed = (active: 'a' | 'b', collapsed: boolean) =>
+      setupChromeFake({
+        windows: [
+          {
+            id: 1,
+            tabs: [
+              { id: 11, active: active === 'a' },
+              { id: 12, groupId: 5 },
+              { id: 13, groupId: 5 },
+              { id: 14, active: active === 'b' },
+            ],
+          },
+        ],
+        tabGroups: [{ id: 5, windowId: 1, collapsed }],
+      });
+
+    test('a tab moved strictly inside a run fires onUpdated {groupId} BEFORE onMoved', async () => {
+      handle = joinSeed('a', false);
+      const log = recordEvents();
+
+      await chrome.tabs.move(14, { index: 2 });
+
+      expect(await strip(1)).toEqual(['11*', '12g5', '14g5', '13g5']);
+      expect(log).toEqual(['updated 14 {"groupId":5}', 'moved 14 3->2']);
+    });
+
+    test('an active tab joining a collapsed group: onUpdated, onMoved, then the group expands', async () => {
+      handle = joinSeed('b', true);
+      const log = recordEvents();
+
+      await chrome.tabs.move(14, { index: 2 });
+
+      expect(await strip(1)).toEqual(['11', '12g5', '14*g5', '13g5']);
+      expect(log).toEqual([
+        'updated 14 {"groupId":5}',
+        'moved 14 3->2',
+        'group updated 5 collapsed=false',
+      ]);
+    });
+
+    test('a grouped tab moved out of its run fires onUpdated {groupId:-1} BEFORE onMoved', async () => {
+      handle = joinSeed('a', false);
+      const log = recordEvents();
+
+      await chrome.tabs.move(12, { index: 0 });
+
+      expect(await strip(1)).toEqual(['12', '11*', '13g5', '14']);
+      expect(log).toEqual(['updated 12 {"groupId":-1}', 'moved 12 1->0']);
+    });
+
+    test('CONTROL: a grouped tab moved within its run fires onMoved only', async () => {
+      handle = joinSeed('a', false);
+      const log = recordEvents();
+
+      await chrome.tabs.move(12, { index: 2 });
+
+      expect(await strip(1)).toEqual(['11*', '13g5', '12g5', '14']);
+      expect(log).toEqual(['moved 12 1->2']);
+    });
+  });
+});
