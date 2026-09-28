@@ -1663,8 +1663,13 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
       // A tab from ANOTHER window is moved into the group's window at the
       // END of the group's run, collapsed state kept: transferTab puts it at
       // that window's end (onDetached, onAttached), then onUpdated {groupId},
-      // then onMoved into the run (Q3_group#0, #1). A tab from the other
-      // profile rejects with Chrome's message and nothing changes (Q4).
+      // then onMoved into the run (Q3_group#0, #1). Only an ungrouped,
+      // unpinned, INACTIVE arriving tab was measured; for a pinned, grouped
+      // or active one the fake assumes tabs.move's cross-window rules
+      // (transferTab: unpinned first, leaves its old group, arrives inactive
+      // while its old window activates a neighbour) -- not measured. A tab
+      // from the other profile rejects with Chrome's message and nothing
+      // changes (Q4).
       group: (
         options: chrome.tabs.GroupOptions,
         cb?: (groupId?: number) => void
