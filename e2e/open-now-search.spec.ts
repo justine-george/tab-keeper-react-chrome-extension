@@ -343,29 +343,58 @@ test.describe('Open now search (KAN-330)', () => {
     await expect(field(page)).toHaveValue('');
   });
 
-  test('Enter in the field switches Chrome to the first tab drawn', async ({
+  test('Enter in the field switches Chrome to the first tab drawn, and does nothing with the field empty', async ({
     context,
     extensionId,
     serviceWorker,
   }) => {
-    await openTab(serviceWorker, 'Alpha');
-    const beta = await openTab(serviceWorker, 'Beta');
+    const kyoto = await openTab(serviceWorker, 'Trip Kyoto');
+    const osaka = await openTab(serviceWorker, 'Trip Osaka');
+    await openTab(serviceWorker, 'Rail pass');
     const page = await openPage(context, extensionId, VIEW_TAB, {
       width: 1600,
       height: 800,
     });
-    const betaActive = () =>
+    const isActive = (id: number) =>
       serviceWorker.evaluate(
-        async (id: number) => (await chrome.tabs.get(id)).active,
-        beta
+        async (tabId: number) => (await chrome.tabs.get(tabId)).active,
+        id
       );
-    // PREMISE: Beta opened in the background, so Enter has work to do.
-    expect(await betaActive()).toBe(false);
+    const activeTabs = () =>
+      serviceWorker.evaluate(async () =>
+        (await chrome.tabs.query({ active: true })).map((t) => t.id ?? -1)
+      );
+    const drawnTitles = () =>
+      page
+        .locator(`${OPEN_NOW} [data-open-tab-id] > button`)
+        .evaluateAll((buttons) =>
+          buttons.map((b) => b.getAttribute('aria-label'))
+        );
+    await expect(liveRow(page, 'Rail pass')).toBeVisible();
+    // PREMISE: both opened in the background, so Enter has work to do.
+    expect(await isActive(kyoto)).toBe(false);
+    expect(await isActive(osaka)).toBe(false);
 
-    await field(page).fill('beta');
-    await expect(liveRow(page, 'Alpha')).toHaveCount(0);
+    // With the field empty, Enter never switches Chrome away from Tab Keeper.
+    const before = await activeTabs();
+    await field(page).focus();
+    await expect(field(page)).toHaveValue('');
     await field(page).press('Enter');
-    await expect.poll(betaActive).toBe(true);
+    await page.waitForTimeout(500);
+    expect(await activeTabs()).toEqual(before);
+
+    // The CONTROL for the case above: with a search held, the same Enter
+    // switches -- to the FIRST drawn match, not merely to a match.
+    await field(page).fill('trip');
+    await expect(liveRow(page, 'Rail pass')).toHaveCount(0);
+    // PREMISE: two tabs are drawn, Kyoto first.
+    expect(await drawnTitles()).toEqual([
+      'Switch to tab: Trip Kyoto',
+      'Switch to tab: Trip Osaka',
+    ]);
+    await field(page).press('Enter');
+    await expect.poll(() => isActive(kyoto)).toBe(true);
+    expect(await isActive(osaka)).toBe(false);
   });
 
   test('a real drag is refused while a search is held; the same drag after Esc moves the tab', async ({
@@ -544,7 +573,7 @@ const placeholderFit = (page: Page): Promise<Fit | null> =>
 
 test.describe('the placeholder fits in every locale (KAN-330)', () => {
   for (const language of LANGUAGES) {
-    test(`${language}: side by side at 1317px and in the 1024px drawer`, async ({
+    test(`${language}: side by side at 1317px and 1100px, and in the 1024px drawer`, async ({
       context,
       extensionId,
     }) => {
@@ -557,8 +586,11 @@ test.describe('the placeholder fits in every locale (KAN-330)', () => {
         language,
         foldSavedSessionInTabView: false,
       });
+      // 1100px is Open now's narrowest side-by-side layout (below it, the
+      // rail): the least room the field gets outside the drawer.
       for (const [width, height, drawer] of [
         [1317, 800, false],
+        [1100, 800, false],
         [1024, 768, true],
       ] as const) {
         const page = await context.newPage();
@@ -684,13 +716,12 @@ test.describe('a search typed while a row is held (KAN-330)', () => {
 
 // Headless hides scrollbars by default, and a classic bar takes its width
 // from the scroller only: the tab rows' × moves left by it, the search row's
-// (outside the scroller) does not. Measured, not asserted, so the PR can
-// state the offset; the test holds only that both boxes exist and the list
-// really scrolls.
+// (outside the scroller) does not. KAN-336: known offset under a classic
+// scrollbar; update when KAN-336 lands.
 test.describe('with a classic scrollbar (KAN-330)', () => {
   test.use({ showScrollbars: true });
 
-  test('the search row × and a tab row × with the list overflowing: measured', async ({
+  test("a tab row's × sits one scrollbar width left of the search row's × (KAN-336)", async ({
     context,
     extensionId,
     serviceWorker,
@@ -742,9 +773,15 @@ test.describe('with a classic scrollbar (KAN-330)', () => {
     await expect(liveRow(page, 'Tab 30')).toHaveCount(1);
     const m = await measure();
     console.log(`[scrollbar ×] ${JSON.stringify(m)}`);
+    // PREMISES: the list scrolls, and the bar takes room from it.
     expect(m.overflows).toBe(true);
-    expect(m.searchX).not.toBeNull();
-    expect(m.tabX).not.toBeNull();
+    if (m.searchX === null || m.tabX === null || m.scrollbar === null) {
+      throw new Error(`a box is missing: ${JSON.stringify(m)}`);
+    }
+    expect(m.scrollbar).toBeGreaterThan(0);
+    // KAN-336: known offset under a classic scrollbar; update when KAN-336
+    // lands. Exactly the bar's measured width (10px here).
+    expect(m.searchX.x - m.tabX.x).toBeCloseTo(m.scrollbar, 0);
   });
 });
 
