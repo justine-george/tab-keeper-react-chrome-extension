@@ -9,6 +9,7 @@ import { useFontFamily } from '../../../hooks/useFontFamily';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { NON_INTERACTIVE_ICON_STYLE } from '../../../utils/constants/common';
 import { ICON, TYPE } from '../../../styles/scale';
+import { SEARCH_SHORTCUT_KEY } from './searchShortcut';
 
 // KAN-330 O14d E: the header's action row height (8px + CONTROL.ROW), with
 // 4px of space under the divider before the first window row.
@@ -17,10 +18,6 @@ const ROW_GAP = '4px';
 // OpenNowWindow's ICON_SLOT: an Icon's box. rem-based, so it follows
 // Chrome's font size (KAN-312) as the window row's columns do.
 const ICON_SLOT = `calc(${ICON.DEFAULT} + 8px)`;
-
-// The key that focuses the field. A key on the keyboard, the same in every
-// locale, so it is not a t() string.
-export const SEARCH_SHORTCUT_KEY = '/';
 
 interface OpenNowSearchRowProps {
   text: string;
