@@ -18,6 +18,10 @@ const ROW_GAP = '4px';
 // Chrome's font size (KAN-312) as the window row's columns do.
 const ICON_SLOT = `calc(${ICON.DEFAULT} + 8px)`;
 
+// The key that focuses the field. A key on the keyboard, the same in every
+// locale, so it is not a t() string.
+export const SEARCH_SHORTCUT_KEY = '/';
+
 interface OpenNowSearchRowProps {
   text: string;
   onTextChange: (text: string) => void;
@@ -119,7 +123,7 @@ export default function OpenNowSearchRow({
         value={text}
         placeholder={t('Search open tabs')}
         aria-label={t('Search open tabs')}
-        aria-keyshortcuts="/"
+        aria-keyshortcuts={SEARCH_SHORTCUT_KEY}
         autoComplete="off"
         spellCheck={false}
         onChange={(event) => onTextChange(event.target.value)}
@@ -129,7 +133,7 @@ export default function OpenNowSearchRow({
       <span css={endSlotStyle}>
         {text === '' ? (
           <span aria-hidden="true">
-            <Tag value="/" />
+            <Tag value={SEARCH_SHORTCUT_KEY} />
           </span>
         ) : (
           <Icon
