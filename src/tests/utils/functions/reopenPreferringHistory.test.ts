@@ -15,6 +15,15 @@ import type * as ReopenModule from '../../../utils/functions/reopen';
 import { setupChromeFake } from '../../setup/chrome.fake';
 import type { ChromeFakeHandle, ChromeSeed } from '../../setup/chrome.fake';
 
+// This file runs under vitest's 'node' project, so `process` genuinely
+// exists at runtime -- tsconfig.json just omits @types/node from `types` so
+// APP code cannot reach for Node APIs a browser extension does not have.
+// Same local shim as permissions.test.ts's own unhandled-rejection test.
+declare const process: {
+  once(event: 'unhandledRejection', listener: () => void): void;
+  removeListener(event: 'unhandledRejection', listener: () => void): void;
+};
+
 // KAN-280 Part D, Task 6. With `sessions` held, Reopen brings a closed tab or
 // window back through chrome.sessions.restore, so its Back/Forward history
 // comes back. Chrome's restore also activates the tab, focuses its window,
@@ -1101,6 +1110,42 @@ describe('the service worker answers the request (KAN-280 Part D)', () => {
     expect(
       (await chrome.tabs.query({})).filter((t) => t.url === url('b'))
     ).toEqual([]);
+  });
+
+  // Final fix wave, Item 3: sendResponse answers a message port that can
+  // already be gone (the popup that asked was destroyed). Called directly
+  // with a sendResponse that throws, bypassing the fake's own sendMessage
+  // plumbing -- that closure never throws, so it cannot exercise this.
+  test('a sendResponse that throws produces no unhandled rejection', async () => {
+    handle = setupChromeFake(seed);
+    const addListener = vi.spyOn(chrome.runtime.onMessage, 'addListener');
+    await startWorker();
+    const [listener] = addListener.mock.calls[0];
+    const item = await closeTab(2, 'b');
+    if (!item) throw new Error('close failed');
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    let sawUnhandledRejection = false;
+    const onUnhandledRejection = () => {
+      sawUnhandledRejection = true;
+    };
+    process.once('unhandledRejection', onUnhandledRejection);
+
+    listener(
+      { type: REOPEN_PREFERRING_HISTORY_MESSAGE, item },
+      { id: 'faketestid' },
+      () => {
+        throw new Error('the popup is gone');
+      }
+    );
+
+    // A macrotask tick, not just a microtask: Node fires 'unhandledRejection'
+    // on a later tick than the promise chain settles (mirrors the idiom in
+    // permissions.test.ts's own rejection test).
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    process.removeListener('unhandledRejection', onUnhandledRejection);
+    expect(sawUnhandledRejection).toBe(false);
   });
 });
 

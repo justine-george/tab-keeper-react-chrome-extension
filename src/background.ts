@@ -5,6 +5,7 @@ import {
   TabApi,
 } from './utils/functions/popOut';
 import { reopenPreferringHistory } from './utils/functions/reopen';
+import type { Reopened } from './utils/functions/reopen';
 import { isReopenPreferringHistoryRequest } from './utils/functions/reopenRequest';
 import {
   createWindowWithRetries,
@@ -89,9 +90,19 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   // the page never mistakes silence for "nothing ran" and reopens a second
   // time.
   if (isReopenPreferringHistoryRequest(message)) {
-    void reopenPreferringHistory(message.item).then(sendResponse, (error) => {
+    // sendResponse can throw: the popup that asked may already be gone by
+    // the time the answer is ready. That is not a double reopen (the item
+    // already came back or was recreated either way), so it only warns.
+    const answer = (value: Reopened | null) => {
+      try {
+        sendResponse(value);
+      } catch (error) {
+        console.warn('Could not answer Reopen: ', error);
+      }
+    };
+    void reopenPreferringHistory(message.item).then(answer, (error) => {
       console.warn('Reopen failed: ', error);
-      sendResponse(null);
+      answer(null);
     });
     return true;
   }
