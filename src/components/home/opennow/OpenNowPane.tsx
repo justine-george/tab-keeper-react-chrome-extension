@@ -551,6 +551,10 @@ export default function OpenNowPane({
               fixedRowSelector="[data-fixed-row-id]"
               landingRange={drop.tabs.landingRange}
               acceptsWindow={drop.tabs.acceptsWindow}
+              // KAN-330 O14c: no row can be picked up while a search is held.
+              // The same rule as the saved pane's search (KAN-140), keyed on
+              // the term because Open now's field has no separate mode.
+              disabled={searchTerm !== null}
             >
               <RowDragArea
                 scope={OPEN_ITEMS_SCOPE}
@@ -562,6 +566,7 @@ export default function OpenNowPane({
                 restoreScrollIfNoDrop
                 landingRange={drop.items.landingRange}
                 acceptsWindow={drop.items.acceptsWindow}
+                disabled={searchTerm !== null}
               >
                 {listed.map((openWindow, index) => {
                   // Hidden by the search. `index` is still the window's place
