@@ -8,7 +8,7 @@ import { OPEN_NOW_RAIL_QUERY } from '../../components/home/opennow/railQuery';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { testI18n } from '../setup/i18nForTests';
 import { FakeMediaQueryList } from '../setup/mediaQueryFake';
-import { hoverRulesFor } from '../setup/hoverRules';
+import { classRulesFor } from '../setup/hoverRules';
 import { openNowTrack } from '../setup/openNowTrack';
 import { LIGHT_THEME } from '../../hooks/useThemeColors';
 import {
@@ -639,18 +639,21 @@ const rgb = (hex: string) => {
   return `rgb(${r}, ${g}, ${b})`;
 };
 
-// The declarations of the injected rule whose selector list includes exactly
-// `selector`, or null when no rule has it.
+// The declarations of every injected rule whose selector list includes
+// exactly `selector`, joined, or null when no rule has it. Every rule: one
+// state's declarations can be split over several (the focus ring is a rule
+// of its own, beside the one it shares with hover).
 function declarationsFor(el: Element, selector: string): string | null {
-  for (const rule of hoverRulesFor(el).split('\n')) {
+  const found: string[] = [];
+  for (const rule of classRulesFor(el).split('\n')) {
     const open = rule.indexOf('{');
     const selectors = rule
       .slice(0, open)
       .split(',')
       .map((part) => part.trim());
-    if (selectors.includes(selector)) return rule.slice(open);
+    if (selectors.includes(selector)) found.push(rule.slice(open));
   }
-  return null;
+  return found.length === 0 ? null : found.join('\n');
 }
 
 const gripClass = (el: Element) => {
@@ -669,6 +672,40 @@ describe('the grip lights on hover and during its drag (O1a G A)', () => {
       `background-color: ${rgb(LIGHT_THEME.HOVER_COLOR)}`
     );
     expect(declarationsFor(grip(), `${cls}:hover>span>span`)).toContain(
+      `background-color: ${rgb(LIGHT_THEME.TEXT_COLOR)}`
+    );
+  });
+
+  // O1a: "on hover, keyboard focus and during the drag, TEXT_COLOR on a
+  // HOVER_COLOR chip, plus the app's focus ring on keyboard focus".
+  test("keyboard-focused, it has the hover colours and the app's focus ring", async () => {
+    await renderHome();
+    await mounted();
+    const cls = gripClass(grip());
+
+    expect(declarationsFor(grip(), `${cls}:focus-visible>span`)).toContain(
+      `background-color: ${rgb(LIGHT_THEME.HOVER_COLOR)}`
+    );
+    expect(declarationsFor(grip(), `${cls}:focus-visible>span>span`)).toContain(
+      `background-color: ${rgb(LIGHT_THEME.TEXT_COLOR)}`
+    );
+    // The app's ring (dialogButtons.ts): 2px of TEXT_COLOR, on the chip.
+    // jsdom keeps an outline shorthand's colour as written (hex), unlike a
+    // background-color, which it serialises as rgb().
+    expect(
+      declarationsFor(grip(), `${cls}:focus-visible>span`)?.toLowerCase()
+    ).toContain(`outline: 2px solid ${LIGHT_THEME.TEXT_COLOR.toLowerCase()}`);
+  });
+
+  test('during its drag ([data-active]) it has the hover colours', async () => {
+    await renderHome();
+    await mounted();
+    const cls = gripClass(grip());
+
+    expect(declarationsFor(grip(), `${cls}[data-active]>span`)).toContain(
+      `background-color: ${rgb(LIGHT_THEME.HOVER_COLOR)}`
+    );
+    expect(declarationsFor(grip(), `${cls}[data-active]>span>span`)).toContain(
       `background-color: ${rgb(LIGHT_THEME.TEXT_COLOR)}`
     );
   });
