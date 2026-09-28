@@ -162,7 +162,8 @@ export interface TabMove {
   toGroupId?: string;
 }
 
-// The same for a whole group. `toIndex` counts `toWindowId`'s top-level rows.
+// The same for a whole group. `toIndex` counts `toWindowId`'s top-level rows
+// with the held group lifted out.
 export interface GroupMove {
   groupId: string;
   fromWindowId: string;
