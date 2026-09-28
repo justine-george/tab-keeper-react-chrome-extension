@@ -194,8 +194,9 @@ describe('only side by side (O1a)', () => {
     expect(document.querySelector('[data-resize-grip]')).toBeNull();
   });
 
-  // Leaving Settings mounts a new grid element. Its width comes from a
-  // property set on the element, so the new one must get it too.
+  // React reuses the grid element for Settings' own grid (same type, same
+  // slot), and the width is a property set on that element. So the property
+  // outlives Settings; these two check it is RIGHT when Settings closes.
   test('back from Settings, the grip and the width are back', async () => {
     const { store } = await renderHome({ width: 700 });
     await mounted();
@@ -211,6 +212,31 @@ describe('only side by side (O1a)', () => {
 
     expect(grip()).toHaveAttribute('aria-valuenow', '700');
     expect(openNowTrack()).toBe('700px');
+  });
+
+  // The width did not change above, so a property left over from before
+  // Settings reads right. Here the window narrows while Settings is open.
+  test("back from Settings after the window narrowed, the width is the new window's", async () => {
+    const { store } = await renderHome();
+    await mounted();
+    expect(openNowTrack()).toBe('622px');
+    const gridBefore = document.querySelector('[data-pane="open-now"]')
+      ?.parentElement;
+    await act(async () => {
+      await store.dispatch(openSettingsPage(undefined));
+    });
+
+    setViewportWidth(1280);
+    act(() => {
+      store.dispatch(closeSettingsPage());
+    });
+
+    // PREMISE: the same grid element came back, with the old property on it.
+    expect(
+      document.querySelector('[data-pane="open-now"]')?.parentElement
+    ).toBe(gridBefore);
+    expect(grip()).toHaveAttribute('aria-valuenow', '444');
+    expect(openNowTrack()).toBe('444px');
   });
 
   test('not in the popup', async () => {

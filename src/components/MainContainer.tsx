@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useDispatch, useSelector } from 'react-redux';
 
@@ -119,18 +119,21 @@ export default function MainContainer() {
     liveOpenNowWidth ?? openNowWidth,
     viewportWidth
   );
-  const tabGridRef = useRef<HTMLDivElement>(null);
   const isTab = isTabView();
-  // Before paint. The popup never attaches the ref, so this is a no-op
-  // there. React reuses this same <div> for Settings' grid (same type, same
-  // slot), so the property is still on it when Settings closes; the
-  // Settings round trip in openNowResizeGrip.test.tsx fails if it is not.
-  useLayoutEffect(() => {
-    tabGridRef.current?.style.setProperty(
-      '--open-now-width',
-      `${openNowTrackWidth}px`
-    );
-  }, [openNowTrackWidth]);
+  // A callback ref, not an effect keyed on the width: React calls it each
+  // time the grid element attaches, not only when the width changes. That
+  // matters leaving Settings: React reuses this same <div> for Settings' grid
+  // (same type, same slot) and detaches the ref there, so an effect would
+  // find no element, and on the way back the width it wrote before Settings
+  // would stay, even if the window was resized meanwhile. A new width is a
+  // new callback, which React also attaches. Both run in the commit, before
+  // paint. The popup never attaches it.
+  const tabGridRef = useCallback(
+    (grid: HTMLDivElement | null) => {
+      grid?.style.setProperty('--open-now-width', `${openNowTrackWidth}px`);
+    },
+    [openNowTrackWidth]
+  );
 
   // KAN-280 O11f. An Open now drop's undo sets a group's look only with the
   // grant.
