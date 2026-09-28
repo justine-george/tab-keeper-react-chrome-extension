@@ -90,7 +90,7 @@
   "Auto Sync": "Sincronização Automática",
   "Save Tab Groups": "Salvar grupos de guias",
   "Bring back tab history when reopening": "Recuperar o histórico das abas ao reabrir",
-  "Reopening a closed tab or window from Open now also brings back its Back and Forward pages. It uses Chrome’s list of recently closed tabs.": "Reabrir uma aba ou janela fechada em \"Abas abertas\" também recupera suas páginas de Voltar e Avançar. Isso usa a lista de abas fechadas recentemente do Chrome.",
+  "Reopening a closed tab or window from Open now also brings back its Back and Forward pages, except for grouped tabs in a reopened window. It uses Chrome’s list of recently closed tabs.": "Reabrir uma aba ou janela fechada em \"Abas abertas\" também recupera suas páginas de Voltar e Avançar, exceto as abas agrupadas em uma janela reaberta. Isso usa a lista de abas fechadas recentemente do Chrome.",
   "Sync Status": "Status de Sincronização",
   "Chrome’s sync storage isn’t available in this profile, so your sessions stay on this device.": "O armazenamento de sincronização do Chrome não está disponível neste perfil, então suas sessões ficam neste dispositivo.",
   "Cloud sync on": "Sincronização na nuvem ativa",

@@ -42,7 +42,7 @@ const OPEN_NOW = '[data-pane="open-now"]';
 
 const HISTORY_ROW = 'Bring back tab history when reopening';
 const HISTORY_HELP =
-  'Reopening a closed tab or window from Open now also brings back its Back and Forward pages. It uses Chrome’s list of recently closed tabs.';
+  'Reopening a closed tab or window from Open now also brings back its Back and Forward pages, except for grouped tabs in a reopened window. It uses Chrome’s list of recently closed tabs.';
 const REOPEN_FAILED = "Couldn't reopen.";
 
 // The address of page n of a test's pages under `key`: /pN?k=KEY on the

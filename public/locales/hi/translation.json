@@ -88,7 +88,7 @@
   "Auto Sync": "स्वतः सिंक",
   "Save Tab Groups": "टैब समूह सहेजें",
   "Bring back tab history when reopening": "फिर से खोलने पर टैब का इतिहास वापस लाएं",
-  "Reopening a closed tab or window from Open now also brings back its Back and Forward pages. It uses Chrome’s list of recently closed tabs.": "\"अभी खुले टैब\" से किसी बंद टैब या विंडो को फिर से खोलने पर उसके वापस जाएं और आगे जाएं वाले पेज भी लौट आते हैं। इसके लिए Chrome की हाल ही में बंद किए गए टैब की सूची का इस्तेमाल होता है।",
+  "Reopening a closed tab or window from Open now also brings back its Back and Forward pages, except for grouped tabs in a reopened window. It uses Chrome’s list of recently closed tabs.": "\"अभी खुले टैब\" से किसी बंद टैब या विंडो को फिर से खोलने पर उसके वापस जाएं और आगे जाएं वाले पेज भी लौट आते हैं, सिवाय फिर से खोली गई विंडो में मौजूद समूहबद्ध टैब के। इसके लिए Chrome की हाल ही में बंद किए गए टैब की सूची का इस्तेमाल होता है।",
   "Sync Status": "सिंक स्थिति",
   "Chrome’s sync storage isn’t available in this profile, so your sessions stay on this device.": "इस प्रोफ़ाइल में Chrome का सिंक स्टोरेज उपलब्ध नहीं है, इसलिए आपके सेशन सिर्फ़ इसी डिवाइस पर रहते हैं।",
   "Cloud sync on": "क्लाउड सिंक चालू है",

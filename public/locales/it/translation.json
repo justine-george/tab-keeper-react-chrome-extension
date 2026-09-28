@@ -90,7 +90,7 @@
   "Auto Sync": "Auto sincronizzazione",
   "Save Tab Groups": "Salva gruppi di schede",
   "Bring back tab history when reopening": "Ripristina la cronologia delle schede alla riapertura",
-  "Reopening a closed tab or window from Open now also brings back its Back and Forward pages. It uses Chrome’s list of recently closed tabs.": "Riaprendo una scheda o una finestra chiusa da \"Schede aperte\" si recuperano anche le sue pagine Indietro e Avanti. Usa l’elenco delle schede chiuse di recente di Chrome.",
+  "Reopening a closed tab or window from Open now also brings back its Back and Forward pages, except for grouped tabs in a reopened window. It uses Chrome’s list of recently closed tabs.": "Riaprendo una scheda o una finestra chiusa da \"Schede aperte\" si recuperano anche le sue pagine Indietro e Avanti, tranne le schede raggruppate in una finestra riaperta. Usa l’elenco delle schede chiuse di recente di Chrome.",
   "Sync Status": "Stato sincronizzazione",
   "Chrome’s sync storage isn’t available in this profile, so your sessions stay on this device.": "L’archivio di sincronizzazione di Chrome non è disponibile in questo profilo, quindi le tue sessioni restano su questo dispositivo.",
   "Cloud sync on": "Sincronizzazione cloud attiva",

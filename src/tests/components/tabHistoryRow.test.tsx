@@ -36,7 +36,7 @@ import {
 
 const LABEL = 'Bring back tab history when reopening';
 const HELP =
-  'Reopening a closed tab or window from Open now also brings back its Back and Forward pages. It uses Chrome’s list of recently closed tabs.';
+  'Reopening a closed tab or window from Open now also brings back its Back and Forward pages, except for grouped tabs in a reopened window. It uses Chrome’s list of recently closed tabs.';
 
 const renderSessions = (granted: boolean) =>
   renderWithProviders(<SettingsDetailsContainer />, {
