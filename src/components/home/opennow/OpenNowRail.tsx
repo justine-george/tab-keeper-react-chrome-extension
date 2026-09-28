@@ -3,6 +3,7 @@ import { RefObject, useEffect, useId, useRef, useState } from 'react';
 import { css } from '@emotion/react';
 import { useTranslation } from 'react-i18next';
 
+import { useSearchShortcut } from '../../../hooks/useSearchShortcut';
 import Icon from '../../common/Icon';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { formatTabCount } from '../../../utils/functions/local';
@@ -44,11 +45,29 @@ export default function OpenNowRail({
   const [isOpen, setIsOpen] = useState(false);
   const headingRef = useRef<HTMLHeadingElement>(null);
 
-  // On open, focus goes to the drawer's heading, so a screen reader announces
-  // where it landed and Tab continues into the drawer.
+  // KAN-330 R1. Opened by `/`, the drawer puts the cursor in its search
+  // field; opened by the button, focus goes to the drawer's heading, so a
+  // screen reader announces where it landed and Tab continues into the
+  // drawer (O2).
+  const openedByShortcut = useRef(false);
+  useSearchShortcut(
+    isOpen
+      ? null
+      : () => {
+          openedByShortcut.current = true;
+          setIsOpen(true);
+        }
+  );
   useEffect(() => {
-    if (isOpen) headingRef.current?.focus();
-  }, [isOpen]);
+    if (!isOpen) return;
+    if (openedByShortcut.current) {
+      openedByShortcut.current = false;
+      searchInputRef.current?.focus();
+      searchInputRef.current?.select();
+    } else {
+      headingRef.current?.focus();
+    }
+  }, [isOpen, searchInputRef]);
 
   // Back to the button that opened it, so the user's place is kept.
   const close = () => {

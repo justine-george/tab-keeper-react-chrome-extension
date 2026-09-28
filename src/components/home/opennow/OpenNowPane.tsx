@@ -1,4 +1,5 @@
 import {
+  KeyboardEvent,
   Ref,
   RefObject,
   useEffect,
@@ -14,6 +15,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import Icon from '../../common/Icon';
 import { NormalLabel } from '../../common/Label';
 import type { IconName } from '../../common/iconNames';
+import { useSearchShortcut } from '../../../hooks/useSearchShortcut';
 import { useFontFamily } from '../../../hooks/useFontFamily';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { formatOpenNowCounts } from '../../../utils/functions/local';
@@ -401,6 +403,31 @@ export default function OpenNowPane({
     overflow: auto;
   `;
 
+  // KAN-330 O14b. The pane is mounted only in the tab view, and only one is
+  // mounted at a time (side by side, folded, or in the drawer). Focus and
+  // select only: the text changes through the row's onTextChange alone.
+  const focusSearchField = () => {
+    const input = searchInputRef.current;
+    if (input === null) return;
+    input.focus();
+    input.select();
+  };
+  useSearchShortcut(focusSearchField);
+
+  // KAN-330 K1. Down/up on a drawn tab's Switch button move to the next or
+  // previous one; up on the first goes back to the field. Other targets (a
+  // x, a chevron) keep the keys.
+  const handleListKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
+    const buttons = drawnSwitchButtons(paneRef.current);
+    const index = buttons.findIndex((button) => button === event.target);
+    if (index === -1) return;
+    event.preventDefault();
+    if (event.key === 'ArrowDown') buttons[index + 1]?.focus();
+    else if (index === 0) searchInputRef.current?.focus();
+    else buttons[index - 1]?.focus();
+  };
+
   const focusFirstDrawnTab = () =>
     drawnSwitchButtons(paneRef.current)[0]?.focus();
 
@@ -516,7 +543,7 @@ export default function OpenNowPane({
           onArrowDown={focusFirstDrawnTab}
           onEnter={switchToFirstDrawnTab}
         />
-        <div css={scrollerStyle}>
+        <div css={scrollerStyle} onKeyDown={handleListKeyDown}>
           {windows !== null && windows.length === 0 ? (
             <div css={emptyStyle}>
               <NormalLabel

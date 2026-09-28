@@ -414,3 +414,34 @@ describe('folds during a search (O14d F1)', () => {
     expect(drawnTitles()).toHaveLength(6);
   });
 });
+
+describe('↓ and ↑ between the rows (O14d K1)', () => {
+  test('↓/↑ move between drawn tabs; ↑ on the first goes back to the field', async () => {
+    await renderOpenNow(threeWindows());
+    await userEvent.setup().type(field(), 'kyoto');
+    fireEvent.keyDown(field(), { key: 'ArrowDown' });
+    const first = screen.getByRole('button', {
+      name: 'Switch to tab: Kyoto maps',
+    });
+    const second = screen.getByRole('button', {
+      name: 'Switch to tab: Kyoto stay',
+    });
+    expect(document.activeElement).toBe(first);
+    fireEvent.keyDown(first, { key: 'ArrowDown' });
+    expect(document.activeElement).toBe(second);
+    fireEvent.keyDown(second, { key: 'ArrowDown' }); // last: stays
+    expect(document.activeElement).toBe(second);
+    fireEvent.keyDown(second, { key: 'ArrowUp' });
+    expect(document.activeElement).toBe(first);
+    fireEvent.keyDown(first, { key: 'ArrowUp' });
+    expect(document.activeElement).toBe(field());
+  });
+
+  test('arrows on a × do nothing', async () => {
+    await renderOpenNow(threeWindows());
+    const close = screen.getByRole('button', { name: 'Close tab: Kyoto maps' });
+    act(() => close.focus());
+    fireEvent.keyDown(close, { key: 'ArrowDown' });
+    expect(document.activeElement).toBe(close);
+  });
+});
