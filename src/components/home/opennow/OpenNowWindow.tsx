@@ -32,17 +32,23 @@ const GROUP_TITLE_SIZE = '0.85rem';
 // Icon's box: its glyph plus 4px padding a side. rem-based, so it follows
 // Chrome's font size (KAN-312).
 const ICON_SLOT = `calc(${ICON.DEFAULT} + 8px)`;
-// One slot in from the row's edge, so × keeps the same column on every row
+// The row's marks, the pin (O11c) then the speaker (O10b), side by side and
+// one slot in from the row's edge, so × keeps the same column on every row
 // (KAN-280 O10a 1B, kept by O10b).
-const speakerSlotStyle = css`
+const markSlotStyle = css`
   display: flex;
   align-items: center;
   flex: none;
   margin-right: ${ICON_SLOT};
 `;
-// Screen-reader text for the sound (KAN-280 O10b), as ExportPage's copied
-// status is hidden (KAN-221). The row is position: relative, so it stays in.
-const soundDescriptionStyle = css`
+const markStyle = css`
+  display: flex;
+  align-items: center;
+`;
+// Screen-reader text for the pin and the sound (KAN-280 O11c, O10b), as
+// ExportPage's copied status is hidden (KAN-221). The row is
+// position: relative, so it stays in.
+const descriptionStyle = css`
   position: absolute;
   width: 1px;
   height: 1px;
@@ -277,6 +283,13 @@ export default function OpenNowWindow({
         ? t('Audio playing')
         : null;
     const soundId = `open-now-sound-${tab.id}`;
+    // KAN-280 O11c: "Pinned", then the sound. Two ids, so each phrase stays
+    // the locale's own and the browser joins them (no joiner, KAN-307).
+    const pinnedId = `open-now-pinned-${tab.id}`;
+    const describedBy = [
+      ...(tab.pinned ? [pinnedId] : []),
+      ...(sound === null ? [] : [soundId]),
+    ].join(' ');
     return (
       <div
         key={tab.id}
@@ -288,7 +301,7 @@ export default function OpenNowWindow({
         <ClickableRow
           ariaLabel={t('Switch to tab') + ': ' + tab.title}
           ariaCurrent={tab.active}
-          ariaDescribedBy={sound === null ? undefined : soundId}
+          ariaDescribedBy={describedBy === '' ? undefined : describedBy}
           // Chrome rejects when the tab closed after this row was drawn. There
           // is nothing to switch to, and the next read drops the row.
           onClick={() => void switchToOpenTab(tab).catch(() => undefined)}
@@ -310,20 +323,35 @@ export default function OpenNowWindow({
               style="padding-left: 4px; height: 100%; max-width: 100%;"
             />
           </div>
-          {sound !== null && (
-            // Inside the Switch button, so a click on it switches to the
-            // tab, where Chrome's own mute is. A presentational Icon is
-            // aria-hidden; the description below says the sound instead.
-            <span data-speaker css={speakerSlotStyle}>
-              <Icon
-                type={tab.muted ? 'volume_off' : 'volume_up'}
-                style={NON_INTERACTIVE_ICON_STYLE}
-              />
+          {(tab.pinned || sound !== null) && (
+            // Inside the Switch button, so a click on a mark switches to the
+            // tab, where Chrome's own pin and mute are. A presentational Icon
+            // is aria-hidden; the descriptions below say the pin and the
+            // sound instead.
+            <span css={markSlotStyle}>
+              {tab.pinned && (
+                <span data-pin css={markStyle}>
+                  <Icon type="keep" style={NON_INTERACTIVE_ICON_STYLE} />
+                </span>
+              )}
+              {sound !== null && (
+                <span data-speaker css={markStyle}>
+                  <Icon
+                    type={tab.muted ? 'volume_off' : 'volume_up'}
+                    style={NON_INTERACTIVE_ICON_STYLE}
+                  />
+                </span>
+              )}
             </span>
           )}
         </ClickableRow>
+        {tab.pinned && (
+          <span id={pinnedId} css={descriptionStyle}>
+            {t('Pinned')}
+          </span>
+        )}
         {sound !== null && (
-          <span id={soundId} css={soundDescriptionStyle}>
+          <span id={soundId} css={descriptionStyle}>
             {sound}
           </span>
         )}
