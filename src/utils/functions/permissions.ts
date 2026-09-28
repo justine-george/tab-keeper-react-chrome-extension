@@ -23,9 +23,11 @@ const SESSIONS: chrome.permissions.Permissions = {
 
 // Whether the profile holds the grant right now.
 //
-// This is the ONLY source of truth. No stored boolean mirrors it: the user can
-// revoke from chrome://extensions while the extension is not running, and a
-// mirror would then disagree with reality.
+// This is the ONLY source of truth. No stored boolean mirrors it: Chrome holds
+// the grant, and another Tab Keeper page (the popup and the tab view share it)
+// can give it back while this one is closed, so a mirror could disagree with
+// reality. chrome://extensions itself has no control for removing one API
+// permission (measured 2026-09-27: only on/off, pin, incognito and file URLs).
 export async function hasTabGroupsPermission(): Promise<boolean> {
   if (typeof chrome === 'undefined' || !chrome.permissions) return false;
   try {
@@ -58,8 +60,8 @@ export function removeTabGroupsPermission(): void {
 }
 
 // Fires whenever the grant changes while this context is alive. Both halves
-// are wired: a user can revoke from chrome://extensions just as easily as they
-// can grant from the settings toggle.
+// are wired: the Settings toggle in another Tab Keeper page can give the
+// grant back just as it can ask for it.
 export function observeTabGroupsPermission(
   onChange: (granted: boolean) => void
 ): void {
