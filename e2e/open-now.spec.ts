@@ -495,7 +495,7 @@ test.describe('Open now in the tab view (KAN-280)', () => {
     expect(page.isClosed()).toBe(false);
   });
 
-  test('4. side by side it is 340px, 420px from 1600px; the fold persists across a reload', async ({
+  test('4. side by side it is an even split (D1): 444px at 1280, 782px at 1920; the fold persists across a reload', async ({
     context,
     extensionId,
   }, testInfo) => {
@@ -505,10 +505,10 @@ test.describe('Open now in the tab view (KAN-280)', () => {
 
     await showButton(page).click();
     await expect(page.locator(DETAIL)).toBeVisible();
-    await expectSideBySide(page, 340);
+    await expectSideBySide(page, 444);
 
     await page.setViewportSize(WIDE_VIEWPORT);
-    await expectSideBySide(page, 420);
+    await expectSideBySide(page, 782);
     await page.screenshot({ path: testInfo.outputPath('side-by-side.png') });
 
     await foldButton(page).click();
@@ -524,7 +524,7 @@ test.describe('Open now in the tab view (KAN-280)', () => {
     await reload(page);
     await expect(foldButton(page)).toBeVisible();
     await expect(page.locator(DETAIL)).toBeVisible();
-    await expectSideBySide(page, 420);
+    await expectSideBySide(page, 782);
   });
 
   test('5. folded, clicking a saved session shows it for now; a reload is folded again', async ({
@@ -541,7 +541,8 @@ test.describe('Open now in the tab view (KAN-280)', () => {
       .getByRole('button', { name: OTHER.title, exact: true })
       .click();
     await expect(page.locator(DETAIL)).toBeVisible();
-    await expectSideBySide(page, 340);
+    // KAN-321 O1 (D1): the default at TAB_VIEWPORT's 1280px is 444.
+    await expectSideBySide(page, 444);
 
     // A peek changes no setting, so the next page opens as stored: folded.
     await reload(page);

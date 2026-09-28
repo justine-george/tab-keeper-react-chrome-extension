@@ -10,7 +10,9 @@ import { Toast } from './common/Toast';
 import RightPane from './home/rightpane/RightPane';
 import OpenNowColumn from './home/opennow/OpenNowColumn';
 import { OPEN_NOW_RAIL_QUERY } from './home/opennow/railQuery';
+import { shownOpenNowWidth } from './home/opennow/openNowWidth';
 import { useThemeColors } from '../hooks/useThemeColors';
+import { useViewportWidth } from '../hooks/useViewportWidth';
 import { APP_HEIGHT } from '../utils/constants/common';
 import { AppDispatch, RootState } from '../redux/store';
 import { redo, undo } from '../redux/slices/undoRedoSlice';
@@ -89,6 +91,14 @@ export default function MainContainer() {
 
   // KAN-280 O4/O5. Folded, Open now takes the saved session's column.
   const folded = useSelector(selectIsSavedSessionFolded);
+
+  // KAN-321 O1/O1a. The user's dragged width (or null, the default) and the
+  // window's current CSS width; shownOpenNowWidth (openNowWidth.ts) turns
+  // the two into the side-by-side track below.
+  const openNowWidth = useSelector(
+    (state: RootState) => state.settingsDataState.openNowWidth
+  );
+  const viewportWidth = useViewportWidth();
 
   // KAN-280 O11f. An Open now drop's undo sets a group's look only with the
   // grant.
@@ -246,19 +256,19 @@ export default function MainContainer() {
   // 30% of 790px, rounded, so the left pane reads the same size it does in
   // the popup.
   //
-  // KAN-280 O1/O4. The third column is Open now's, side by side: 340px, 420px
-  // from 1600px wide. Below 1100px it is the 44px rail's (O2). Folded it is 0
-  // at every width, and Open now sits in `detail` instead: the same grid
-  // either way, so nothing changes sides.
+  // KAN-280 O1/O4. The third column is Open now's, side by side: its width
+  // comes from openNowWidth.ts (O1/O1a) -- the stored drag, or the default,
+  // clamped to this window's limits. Below 1100px it is the 44px rail's
+  // (O2). Folded it is 0 at every width, and Open now sits in `detail`
+  // instead: the same grid either way, so nothing changes sides.
   const tabContainerStyle = css`
     display: grid;
-    grid-template-columns: 356px minmax(0, 1fr) ${folded ? '0' : '340px'};
+    grid-template-columns: 356px minmax(0, 1fr) ${folded
+        ? '0'
+        : `${shownOpenNowWidth(openNowWidth, viewportWidth)}px`};
     grid-template-areas: 'sessions detail active-session';
     ${!folded &&
     css`
-      @media (min-width: 1600px) {
-        grid-template-columns: 356px minmax(0, 1fr) 420px;
-      }
       @media ${OPEN_NOW_RAIL_QUERY} {
         grid-template-columns: 356px minmax(0, 1fr) 44px;
       }

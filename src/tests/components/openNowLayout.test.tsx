@@ -17,6 +17,7 @@ import { buildSession } from '../fixtures/sessionFixture';
 import { applyOtherPageSettings } from '../../redux/otherPageChanges';
 import {
   hydrateSettingsFromOtherPage,
+  setOpenNowWidth,
   setTheme,
   Theme,
 } from '../../redux/slices/settingsDataStateSlice';
@@ -429,5 +430,90 @@ describe('the Saved sessions caption stays put while the list scrolls (O3a)', ()
     const scroller = listScroller();
     const firstRow = document.querySelector('[data-drag-row-id]');
     expect(scroller.firstElementChild?.contains(firstRow)).toBe(true);
+  });
+});
+
+// KAN-321 O1/O1a. Side by side, the third column's width comes from
+// openNowWidth.ts (shownOpenNowWidth), not a fixed 340px/420px. jsdom DOES
+// resolve Emotion's grid-template-columns (checked directly: a plain <div
+// css={...}> with a grid-template-columns rule reads back through
+// getComputedStyle exactly as written), so these assert on the resolved
+// track list rather than the `css` class's rule text.
+describe('KAN-321 width: the grid tracks follow openNowWidth.ts (D1)', () => {
+  const ORIGINAL_INNER_WIDTH = window.innerWidth;
+
+  const setViewportWidth = (width: number) => {
+    act(() => {
+      Object.defineProperty(window, 'innerWidth', {
+        configurable: true,
+        value: width,
+      });
+      window.dispatchEvent(new Event('resize'));
+    });
+  };
+
+  afterEach(() => {
+    Object.defineProperty(window, 'innerWidth', {
+      configurable: true,
+      value: ORIGINAL_INNER_WIDTH,
+    });
+  });
+
+  // The grid is the parent of the pane itself: MainContainer puts
+  // data-pane="open-now" directly on the grid item.
+  function gridTemplateColumns(): string {
+    const pane = openNowPane();
+    if (pane === null) throw new Error('no open-now pane');
+    const grid = pane.parentElement;
+    if (grid === null) throw new Error('open-now pane has no parent');
+    return getComputedStyle(grid).gridTemplateColumns;
+  }
+
+  const showSideBySide = async () => {
+    fireEvent.click(screen.getByRole('button', { name: UNFOLD }));
+    await screen.findByRole('button', { name: HERO_ONLY });
+  };
+
+  test('at 1600px wide with no stored width, the third track is the default, 622px', async () => {
+    setViewportWidth(1600);
+    goToTabView();
+    await renderHome();
+    await mounted();
+    await showSideBySide();
+
+    expect(gridTemplateColumns()).toContain('622px');
+  });
+
+  test('a stored width of 500 shows as 500px at 1600px wide', async () => {
+    setViewportWidth(1600);
+    goToTabView();
+    const { store } = await renderHome();
+    act(() => {
+      store.dispatch(setOpenNowWidth(500));
+    });
+    await mounted();
+    await showSideBySide();
+
+    expect(gridTemplateColumns()).toContain('500px');
+  });
+
+  // The window narrows after a wide drag (Review Focus 1): the stored width
+  // is kept, the shown width clamps to the new window's limit, and widening
+  // the window back brings the user's stored width back -- with no further
+  // dispatch, because shownOpenNowWidth is re-evaluated on every render.
+  test('resizing to 1280 clamps a 700 stored width to 444px; back to 1600 it is 700px again', async () => {
+    setViewportWidth(1280);
+    goToTabView();
+    const { store } = await renderHome();
+    act(() => {
+      store.dispatch(setOpenNowWidth(700));
+    });
+    await mounted();
+    await showSideBySide();
+    expect(gridTemplateColumns()).toContain('444px');
+
+    setViewportWidth(1600);
+
+    expect(gridTemplateColumns()).toContain('700px');
   });
 });
