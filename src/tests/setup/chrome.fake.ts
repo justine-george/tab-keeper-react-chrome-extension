@@ -1657,18 +1657,48 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
       // every tab switch, so a real registry must keep that working exactly
       // as it did.
       onActivated: tabsOnActivated,
+      // A tab already in the group's window joins it in place and fires
+      // tabs.onUpdated {groupId} (Part E Task 1, Q3: Q3_group#2 -- measured
+      // joining an existing group; for a new group it is assumed the same).
+      // A tab from ANOTHER window is moved into the group's window at the
+      // END of the group's run, collapsed state kept: transferTab puts it at
+      // that window's end (onDetached, onAttached), then onUpdated {groupId},
+      // then onMoved into the run (Q3_group#0, #1). A tab from the other
+      // profile rejects with Chrome's message and nothing changes (Q4).
       group: (
         options: chrome.tabs.GroupOptions,
-        cb?: (groupId: number) => void
+        cb?: (groupId?: number) => void
       ) => {
         const tabIds = Array.isArray(options.tabIds)
           ? options.tabIds
           : [options.tabIds as number];
         const windowId =
           options.createProperties?.windowId ?? DEFAULT_WINDOW_ID;
+        const targets = tabIds.flatMap((tabId) => {
+          const target = tabs.find((tab) => tab.id === tabId);
+          return target ? [target] : [];
+        });
+        const existing = tabGroups.find(
+          (group) => group.id === options.groupId
+        );
+        const arriving = existing
+          ? targets.filter((tab) => tab.windowId !== existing.windowId)
+          : [];
+        if (
+          existing &&
+          arriving.some((tab) => !sameProfile(tab.windowId, existing.windowId))
+        ) {
+          return fail<number>(OTHER_PROFILE, cb);
+        }
+        for (const from of new Set(arriving.map((tab) => tab.windowId))) {
+          assertLeavesATab(
+            from,
+            arriving.filter((tab) => tab.windowId === from).length
+          );
+        }
         const groupId = options.groupId ?? nextId++;
 
-        if (!tabGroups.some((group) => group.id === groupId)) {
+        if (!existing) {
           tabGroups.push({
             id: groupId,
             collapsed: false,
@@ -1678,9 +1708,21 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
             windowId,
           } as chrome.tabGroups.TabGroup);
         }
-        for (const tabId of tabIds) {
-          const target = tabs.find((tab) => tab.id === tabId);
-          if (target) target.groupId = groupId;
+        for (const target of targets) {
+          if (existing && arriving.includes(target)) {
+            const home = existing.windowId;
+            transferTab(target, home, windowTabsInOrder(home).length);
+            target.groupId = groupId;
+            tabsOnUpdated.fire(idOf(target), { groupId }, target);
+            const run = windowTabsInOrder(home).filter(
+              (tab) => tab.groupId === groupId && tab !== target
+            );
+            const tail = run[run.length - 1];
+            if (tail !== undefined) moveWithinWindow(target, tail.index + 1);
+          } else if (target.groupId !== groupId) {
+            target.groupId = groupId;
+            tabsOnUpdated.fire(idOf(target), { groupId }, target);
+          }
         }
         handle.groupedTabs.push({ groupId, windowId, tabIds });
         return settle(groupId, cb);
