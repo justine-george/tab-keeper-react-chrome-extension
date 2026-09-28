@@ -245,6 +245,22 @@ async function historyLengthsAt(
   return lengths.sort((a, b) => a - b);
 }
 
+// Waits for Chrome to report the tab loaded at `url`.
+async function loadedAt(
+  worker: Worker,
+  tabId: number,
+  url: string
+): Promise<void> {
+  await expect
+    .poll(() =>
+      worker.evaluate(async (id: number) => {
+        const tab = await chrome.tabs.get(id);
+        return tab.status === 'complete' ? tab.url : null;
+      }, tabId)
+    )
+    .toBe(url);
+}
+
 // Navigates a tab to `url` through Chrome, as a user's address bar would, and
 // waits for Chrome to report it loaded there.
 async function navigate(
@@ -258,14 +274,7 @@ async function navigate(
     },
     { tabId, url }
   );
-  await expect
-    .poll(() =>
-      worker.evaluate(async (id: number) => {
-        const tab = await chrome.tabs.get(id);
-        return tab.status === 'complete' ? tab.url : null;
-      }, tabId)
-    )
-    .toBe(url);
+  await loadedAt(worker, tabId, url);
 }
 
 interface HistoryWindow {
@@ -303,6 +312,11 @@ async function openHistoryWindow(
   );
   if (made === null) throw new Error('Chrome gave no window or tab ids');
   const [frontId, historyId, nextId] = made.ids;
+  // p1 must finish loading first: a navigation that starts while the first
+  // page is still loading REPLACES its history entry, so the tab ended with
+  // history.length 2, not 3. Seen on CI (run 36385824406, test 8); forced
+  // here with p1 delayed 1.5s, 2 of 2.
+  await loadedAt(worker, historyId, site(key, 1));
   await navigate(worker, historyId, site(key, 2));
   await navigate(worker, historyId, site(key, 3));
 
@@ -814,6 +828,8 @@ grantedTest.describe('Reopen with history (KAN-280 Part D)', () => {
         [grouped, 'grouped'],
       ];
       for (const [tabId, key] of histories) {
+        // p1 loaded first, or p2 replaces its entry (see openHistoryWindow).
+        await loadedAt(serviceWorker, tabId, site(key, 1));
         await navigate(serviceWorker, tabId, site(key, 2));
         await navigate(serviceWorker, tabId, site(key, 3));
       }
@@ -1109,6 +1125,8 @@ grantedTest.describe('an ungrouped tab and a collapsed group (KAN-316)', () => {
     );
     if (made === null) throw new Error('Chrome gave no window or tab ids');
     const [a, x, b] = made.ids;
+    // p1 loaded first, or p2 replaces its entry (see openHistoryWindow).
+    await loadedAt(worker, x, site(key, 1));
     await navigate(worker, x, site(key, 2));
     await navigate(worker, x, site(key, 3));
     await expect
