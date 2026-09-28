@@ -772,10 +772,12 @@ test.describe('resizing Open now (KAN-321 O1, O1a)', () => {
     const focusLastIn = (paneName: string) =>
       page.evaluate(
         ([name, selector]) => {
+          // Scoped by the pane element, not by prefixing the selector: a
+          // prefix would reach only the first of its comma-separated parts.
+          const paneEl = document.querySelector(`[data-pane="${name}"]`);
+          if (paneEl === null) return null;
           const stops = [
-            ...document.querySelectorAll<HTMLElement>(
-              `[data-pane="${name}"] ${selector}`
-            ),
+            ...paneEl.querySelectorAll<HTMLElement>(selector),
           ].filter(
             (el) =>
               !el.hasAttribute('disabled') &&
@@ -817,11 +819,9 @@ test.describe('resizing Open now (KAN-321 O1, O1a)', () => {
     // ...its FIRST control: nothing of Open now's comes before the grip.
     expect(
       await page.evaluate((selector) => {
-        const first = [
-          ...document.querySelectorAll<HTMLElement>(
-            `[data-pane="open-now"] ${selector}`
-          ),
-        ].find(
+        const paneEl = document.querySelector('[data-pane="open-now"]');
+        if (paneEl === null) return false;
+        const first = [...paneEl.querySelectorAll<HTMLElement>(selector)].find(
           (el) =>
             !el.hasAttribute('disabled') &&
             el.tabIndex >= 0 &&
@@ -1071,6 +1071,28 @@ test.describe('resizing Open now (KAN-321 O1, O1a)', () => {
     expect(rgbToHex(seen.chipColour)).toBe(LIGHT_THEME.PRIMARY_COLOR);
     // And no resize cursor: the row drag's own grabbing hand.
     expect(seen.gripCursor).toBe('grabbing');
+  });
+
+  // Settings reuses the grid element, with the width written on it before
+  // Settings opened. Back from Settings, the width is this window's.
+  test('11. a window resized while on Settings: back, Open now fits the new window', async ({
+    context,
+    extensionId,
+  }) => {
+    await seedOnce(context, {});
+    const page = await openPage(context, extensionId, VIEW_TAB, WIDE);
+    await expectOpenNow(page, 622);
+
+    await page.getByRole('button', { name: 'Settings' }).click();
+    await expect(page.getByText('Themes')).toBeVisible();
+    await page.setViewportSize(MEDIUM);
+    await page.getByRole('button', { name: 'Go back' }).click();
+
+    await expectOpenNow(page, 444);
+    expect(await widthOf(page, DETAIL)).toBe(480);
+    await expect(
+      page.getByRole('separator', { name: 'Resize Open now' })
+    ).toHaveAttribute('aria-valuenow', '444');
   });
 });
 
