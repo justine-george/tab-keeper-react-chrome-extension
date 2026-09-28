@@ -352,3 +352,65 @@ describe('a search draws only the matching tabs (O14a)', () => {
     ]);
   });
 });
+
+const chevronOf = (windowId: number): HTMLElement => {
+  const block = document.querySelector(`[data-open-window-id="${windowId}"]`);
+  if (!(block instanceof HTMLElement))
+    throw new Error(`no block for window ${windowId}`);
+  return within(block).getAllByRole('button')[0];
+};
+
+describe('folds during a search (O14d F1)', () => {
+  test('a folded window with a match is drawn open while searching', async () => {
+    await renderOpenNow(threeWindows());
+    fireEvent.click(chevronOf(2)); // fold W2 before searching
+    expect(drawnTitles()).not.toContain('Kyoto stay');
+    await userEvent.setup().type(field(), 'kyoto');
+    expect(drawnTitles()).toEqual(['Kyoto maps', 'Kyoto stay']);
+    expect(chevronOf(2)).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  test('folding works during a search, and clearing restores the folds from before', async () => {
+    await renderOpenNow(threeWindows());
+    const user = userEvent.setup();
+    fireEvent.click(chevronOf(2)); // folded before: W2
+    await user.type(field(), 'kyoto');
+    fireEvent.click(chevronOf(1)); // folded during: W1
+    expect(drawnTitles()).toEqual(['Kyoto stay']);
+    await user.click(screen.getByRole('button', { name: 'Clear search' }));
+    expect(chevronOf(1)).toHaveAttribute('aria-expanded', 'true');
+    expect(chevronOf(2)).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  test('each new search starts with every matching window open', async () => {
+    await renderOpenNow(threeWindows());
+    const user = userEvent.setup();
+    await user.type(field(), 'kyoto');
+    fireEvent.click(chevronOf(1));
+    await user.click(screen.getByRole('button', { name: 'Clear search' }));
+    await user.type(field(), 'kyoto');
+    expect(chevronOf(1)).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  test('Esc in the field ends the search too, so the next one starts open', async () => {
+    await renderOpenNow(threeWindows());
+    const user = userEvent.setup();
+    await user.type(field(), 'kyoto');
+    fireEvent.click(chevronOf(1));
+    await user.keyboard('{Escape}');
+    await user.type(field(), 'kyoto');
+    expect(chevronOf(1)).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  test('Collapse all during a search folds the drawn windows, and not the folds from before', async () => {
+    await renderOpenNow(threeWindows());
+    const user = userEvent.setup();
+    await user.type(field(), 'kyoto');
+    await user.click(
+      screen.getByRole('button', { name: 'Collapse all windows' })
+    );
+    expect(drawnTitles()).toEqual([]);
+    await user.click(screen.getByRole('button', { name: 'Clear search' }));
+    expect(drawnTitles()).toHaveLength(6);
+  });
+});

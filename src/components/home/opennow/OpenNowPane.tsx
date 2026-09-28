@@ -150,10 +150,39 @@ export default function OpenNowPane({
   const listed = windows ?? NO_WINDOWS;
   const tabCount = listed.reduce((sum, w) => sum + w.tabs.length, 0);
 
+  const searchTerm = searchTermOf(searchText);
+  // KAN-330 O14a. Computed once per render; null when no search is held.
+  const matches =
+    searchTerm === null ? null : matchOpenWindows(listed, searchTerm);
+
+  // KAN-330 F1. Folds made during a search, kept apart from the ones before
+  // it, so a search shows every match and clearing it puts the user's own
+  // folds back. Each search starts from an empty set.
+  const [searchCollapsedIds, setSearchCollapsedIds] = useState<
+    ReadonlySet<number>
+  >(() => new Set());
+  const foldedIds = searchTerm === null ? collapsedIds : searchCollapsedIds;
+  const setFoldedIds =
+    searchTerm === null ? setCollapsedIds : setSearchCollapsedIds;
+
+  // A search starting (no term -> a term) starts its own folds afresh. Every
+  // way the text changes -- typing, the clear x, Esc -- comes through here.
+  const handleSearchTextChange = (text: string) => {
+    if (searchTerm === null && searchTermOf(text) !== null) {
+      setSearchCollapsedIds(new Set());
+    }
+    onSearchTextChange(text);
+  };
+
+  // What Collapse all acts on: the windows drawn, so during a search it
+  // leaves the folds from before alone.
+  const drawnWindows =
+    matches === null ? listed : listed.filter((w) => matches.has(w.id));
+
   // Majority rules, as the saved header's toggle (KAN-206): it asks whether
   // any window on screen is open, so unfolding one by hand never leaves it
   // offering the opposite of what the pane needs.
-  const anyWindowOpen = listed.some((w) => !collapsedIds.has(w.id));
+  const anyWindowOpen = drawnWindows.some((w) => !foldedIds.has(w.id));
 
   // KAN-280 Part E (O11). Tabs and whole groups are dragged here as in a
   // saved session, and a drop moves the real tabs. Groups are shown only
@@ -164,12 +193,12 @@ export default function OpenNowPane({
   const drop = useOpenNowDrop({
     windows: listed,
     hasTabGroups: hasTabGroupsPermission,
-    collapsedIds,
+    collapsedIds: foldedIds,
     onMoved,
   });
 
   const toggleWindow = (id: number) =>
-    setCollapsedIds((prev) => {
+    setFoldedIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
@@ -372,11 +401,6 @@ export default function OpenNowPane({
     overflow: auto;
   `;
 
-  const searchTerm = searchTermOf(searchText);
-  // KAN-330 O14a. Computed once per render; null when no search is held.
-  const matches =
-    searchTerm === null ? null : matchOpenWindows(listed, searchTerm);
-
   const focusFirstDrawnTab = () =>
     drawnSwitchButtons(paneRef.current)[0]?.focus();
 
@@ -454,8 +478,10 @@ export default function OpenNowPane({
               }
               type={anyWindowOpen ? 'unfold_less' : 'unfold_more'}
               onClick={() =>
-                setCollapsedIds(
-                  anyWindowOpen ? new Set(listed.map((w) => w.id)) : new Set()
+                setFoldedIds(
+                  anyWindowOpen
+                    ? new Set(drawnWindows.map((w) => w.id))
+                    : new Set()
                 )
               }
             />
@@ -485,7 +511,7 @@ export default function OpenNowPane({
       <div css={listBoxStyle}>
         <OpenNowSearchRow
           text={searchText}
-          onTextChange={onSearchTextChange}
+          onTextChange={handleSearchTextChange}
           inputRef={searchInputRef}
           onArrowDown={focusFirstDrawnTab}
           onEnter={switchToFirstDrawnTab}
@@ -551,7 +577,7 @@ export default function OpenNowPane({
                       openWindow={openWindow}
                       index={index}
                       matchedTabIds={matchedTabIds}
-                      isOpen={!collapsedIds.has(openWindow.id)}
+                      isOpen={!foldedIds.has(openWindow.id)}
                       onToggle={() => toggleWindow(openWindow.id)}
                       onCloseTab={(tab) => void handleCloseTab(openWindow, tab)}
                       onSaveWindow={() => void handleSaveWindow(openWindow)}
