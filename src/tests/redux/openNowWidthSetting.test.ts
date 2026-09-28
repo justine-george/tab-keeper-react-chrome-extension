@@ -3,10 +3,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 // Inlined rather than imported: a vi.hoisted block runs before the module
 // graph is evaluated, and common.ts reads window.screen at module load (via
 // makeTestStore's rootReducer -> globalStateSlice -> undoRedoSlice chain).
+// No `window` exists yet in this node project, so `window` is set to
+// `globalThis` itself (rather than a separate object) purely so that
+// `window.screen` and `globalThis.screen` name the same property.
 vi.hoisted(() => {
-  const g = globalThis as unknown as { window?: unknown };
-  g.window = g.window ?? globalThis;
-  (g.window as { screen?: unknown }).screen = { height: 1080, width: 1920 };
+  Object.assign(globalThis, {
+    window: globalThis,
+    screen: { height: 1080, width: 1920 },
+  });
 });
 
 import { applyOtherPageSettings } from '../../redux/otherPageChanges';
