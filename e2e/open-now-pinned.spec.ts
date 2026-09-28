@@ -1,6 +1,8 @@
 import type { BrowserContext, Locator, Page, Worker } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
+import { pixelsAt, rgbToHex } from './fixtures/pixels';
+import { LIGHT_THEME } from '../src/hooks/useThemeColors';
 
 // KAN-280 O11c on the real artifact: a pinned tab's row in Open now shows a
 // pin mark (`keep`) in the icon slot left of ×, the O10b speaker's slot, and
@@ -38,6 +40,8 @@ const liveRowIn = (block: Locator, title: string): Locator =>
 // The marks live inside the tab's Switch button (O10b, O11c).
 const pinIn = (block: Locator, title: string): Locator =>
   liveRowIn(block, title).locator('[data-pin]');
+const closeTabIn = (block: Locator, title: string): Locator =>
+  block.getByRole('button', { name: `Close tab: ${title}`, exact: true });
 const speakerIn = (block: Locator, title: string): Locator =>
   liveRowIn(block, title).locator('[data-speaker]');
 
@@ -256,6 +260,147 @@ test.describe('The pin mark (KAN-280 O11c)', () => {
           Math.abs(m.bothHeight - m.quietHeight),
           `row heights: ${m.bothHeight} pinned with sound, ${m.quietHeight} not`
         ).toBeLessThanOrEqual(0.5);
+      }).toPass({ timeout: 5000 });
+    });
+  }
+});
+
+// KAN-280 O11c, D F N (settled 2026-09-28): a 1px DIVIDER_COLOR line over
+// the last pinned row's bottom pixel, from the favicon's left edge to the
+// row's end, on top of the hover shade, and none in a window whose tabs are
+// all pinned. The default theme is Paper (LIGHT_THEME). Pixels, not only the
+// computed style: a line can be styled and still be painted over.
+test.describe('The pinned line (KAN-280 O11c, D F N)', () => {
+  const roots = [16, 20];
+  for (const rootPx of roots) {
+    test(`3. at a ${rootPx}px root the line is on the last pinned row only, in the divider colour, from the favicon to the row's end, over the hover shade, and adds no height`, async ({
+      context,
+      extensionId,
+      serviceWorker,
+    }) => {
+      const page = await openPage(context, extensionId);
+      await page.evaluate((px: number) => {
+        document.documentElement.style.fontSize = `${px}px`;
+      }, rootPx);
+      // PREMISE: the root really is that size.
+      expect(
+        await page.evaluate(
+          () => getComputedStyle(document.documentElement).fontSize
+        )
+      ).toBe(`${rootPx}px`);
+
+      const made = await openWindow(serviceWorker, [
+        dataUrl('Mail'),
+        dataUrl('Cal'),
+        dataUrl('Docs'),
+        dataUrl('News'),
+      ]);
+      const [mail, cal, docs] = made.tabIds;
+      await pin(serviceWorker, [mail, cal]);
+      const allPinned = await openWindow(serviceWorker, [
+        dataUrl('Chat'),
+        dataUrl('Music'),
+      ]);
+      await pin(serviceWorker, allPinned.tabIds);
+      const block = windowBlock(page, made.windowId);
+      const allPinnedBlock = windowBlock(page, allPinned.windowId);
+      await expect(pinIn(block, 'Cal')).toBeVisible();
+      await expect(pinIn(allPinnedBlock, 'Music')).toBeVisible();
+
+      // Only the last pinned row of the mixed window carries the line.
+      const boundaries = (windowId: number) =>
+        page.evaluate(
+          (windowId: number) =>
+            [
+              ...document.querySelectorAll(
+                `[data-open-window-id="${windowId}"] [data-pinned-boundary]`
+              ),
+            ].map((row) => Number(row.getAttribute('data-open-tab-id'))),
+          windowId
+        );
+      expect(await boundaries(made.windowId)).toEqual([cal]);
+      expect(await boundaries(allPinned.windowId)).toEqual([]);
+
+      const measure = () =>
+        page.evaluate(
+          ({ cal, docs }) => {
+            const row = (id: number) =>
+              document.querySelector(`[data-open-tab-id="${id}"]`);
+            const calRow = row(cal);
+            const docsRow = row(docs);
+            // The favicon's box: an <img>, or the globe glyph drawn in its
+            // place when the page has none (these data: tabs), the first
+            // child of the row's first Icon.
+            const favicon = calRow?.querySelector(
+              'button > div:first-child > *'
+            );
+            if (!calRow || !docsRow || !favicon) return null;
+            const line = getComputedStyle(calRow, '::after');
+            const rowBox = calRow.getBoundingClientRect();
+            return {
+              lineContent: line.content,
+              lineColor: line.backgroundColor,
+              lineLeft: rowBox.left + parseFloat(line.left),
+              lineRight: rowBox.right - parseFloat(line.right),
+              lineTop:
+                rowBox.bottom -
+                parseFloat(line.bottom) -
+                parseFloat(line.height),
+              lineHeight: parseFloat(line.height),
+              faviconLeft: favicon.getBoundingClientRect().left,
+              rowLeft: rowBox.left,
+              rowRight: rowBox.right,
+              rowTop: rowBox.top,
+              rowBottom: rowBox.bottom,
+              calHeight: rowBox.height,
+              docsHeight: docsRow.getBoundingClientRect().height,
+              docsLine: getComputedStyle(docsRow, '::after').content,
+            };
+          },
+          { cal, docs }
+        );
+
+      const at = await measure();
+      if (at === null) throw new Error('a row is missing a part');
+      // The token, in the computed style.
+      expect(at.lineContent).not.toBe('none');
+      expect(rgbToHex(at.lineColor)).toBe(LIGHT_THEME.DIVIDER_COLOR);
+      expect(at.docsLine).toBe('none');
+      // Its extent: favicon's left edge to the row's end, the bottom pixel.
+      expect(Math.abs(at.lineLeft - at.faviconLeft)).toBeLessThanOrEqual(0.5);
+      expect(Math.abs(at.lineRight - at.rowRight)).toBeLessThanOrEqual(0.5);
+      expect(at.lineHeight).toBe(1);
+      expect(Math.abs(at.lineTop - (at.rowBottom - 1))).toBeLessThanOrEqual(
+        0.5
+      );
+      // It adds no height: the pinned row with the line is as tall as an
+      // unpinned row without one.
+      expect(
+        Math.abs(at.calHeight - at.docsHeight),
+        `row heights: ${at.calHeight} with the line, ${at.docsHeight} without`
+      ).toBeLessThanOrEqual(0.5);
+
+      // Painted, hovered: the line wins over the row's hover shade AND over
+      // the × strip's shade at the row's right end.
+      await liveRowIn(block, 'Cal').hover();
+      await expect(closeTabIn(block, 'Cal')).toBeVisible();
+      await expect(async () => {
+        // The row's bottom pixel. pixelsAt rounds, so an integer, not a
+        // pixel centre: at.rowBottom - 0.5 would round onto the next row.
+        const y = Math.ceil(at.rowBottom) - 1;
+        const [aboveLine, beforeFavicon, mid, rightEnd] = await pixelsAt(page, [
+          [(at.rowLeft + at.rowRight) / 2, at.rowBottom - 4],
+          [at.faviconLeft - 2, y],
+          [(at.rowLeft + at.rowRight) / 2, y],
+          [at.rowRight - 3, y],
+        ]);
+        // CONTROL: the decode is faithful; the hover shade is where expected.
+        expect(aboveLine).toBe(LIGHT_THEME.HOVER_COLOR);
+        // Left of the favicon, the bottom pixel is the hover shade: the line
+        // starts at the favicon.
+        expect(beforeFavicon).toBe(LIGHT_THEME.HOVER_COLOR);
+        expect(mid).toBe(LIGHT_THEME.DIVIDER_COLOR);
+        expect(rightEnd).toBe(LIGHT_THEME.DIVIDER_COLOR);
       }).toPass({ timeout: 5000 });
     });
   }
