@@ -885,6 +885,125 @@ describe('moveOpenTab: without the grant, only tabs.move (E4)', () => {
       { tabId: 22, before: place(2, 1), after: place(1, 3) },
     ]);
   });
+
+  // KAN-322 (spec O11e): without the grant the group's tabs draw as loose
+  // rows, so the engine offers the slot between them. One tabs.move from
+  // another window into a run is refused (Task 1 Q3), so the drop joins the
+  // group with tabs.group, which works without the grant (Task 6a Q3), and
+  // lands where the preview showed.
+  describe('from another window, between two tabs of one Chrome group (KAN-322)', () => {
+    test('joins that group, at the slot the preview showed', async () => {
+      handle = ungranted(true);
+
+      // W1's rows [11, 12, 13, 14]; toIndex 2 is between 12 and 13.
+      const moved = await moveOpenTab(
+        tabMove(22, 2, 1, 2),
+        await snapshot(),
+        false
+      );
+
+      expect(await strip(1)).toEqual(['11*', '12g5', '22g5', '13g5', '14']);
+      expect(await strip(2)).toEqual(['21*']);
+      expect(moved).toEqual([
+        { tabId: 22, before: place(2, 1), after: place(1, 2, 5, null) },
+      ]);
+    });
+
+    test('with the tabGroups API present but not granted, no tabGroups call', async () => {
+      handle = ungranted(false);
+      const calls = [
+        vi.spyOn(chrome.tabGroups, 'get'),
+        vi.spyOn(chrome.tabGroups, 'query'),
+        vi.spyOn(chrome.tabGroups, 'update'),
+        vi.spyOn(chrome.tabGroups, 'move'),
+      ];
+      const windows = await snapshot();
+      for (const call of calls) call.mockClear();
+
+      const moved = await moveOpenTab(tabMove(22, 2, 1, 2), windows, false);
+
+      expect(await strip(1)).toEqual(['11*', '12g5', '22g5', '13g5', '14']);
+      expect(moved).toEqual([
+        { tabId: 22, before: place(2, 1), after: place(1, 2, 5, null) },
+      ]);
+      for (const call of calls) expect(call).not.toHaveBeenCalled();
+    });
+
+    test("a hidden Tab Keeper page as the group's first tab: before the first shown member joins too", async () => {
+      // W1 [11*, 10=Tab Keeper g5, 12g5, 13g5, 14]: rows 11, 12, 13, 14.
+      handle = setupChromeFake({
+        tabGroupsApiAbsent: true,
+        windows: [
+          {
+            id: 1,
+            tabs: [
+              { id: 11, active: true },
+              { id: 10, url: TAB_KEEPER_PAGE, groupId: 5 },
+              { id: 12, groupId: 5 },
+              { id: 13, groupId: 5 },
+              { id: 14 },
+            ],
+          },
+          { id: 2, tabs: [{ id: 21, active: true }, { id: 22 }] },
+        ],
+      });
+
+      // toIndex 1 is before 12, which is Chrome's index 2: inside the run.
+      const moved = await moveOpenTab(
+        tabMove(22, 2, 1, 1),
+        await snapshot(),
+        false
+      );
+
+      expect(await strip(1)).toEqual([
+        '11*',
+        '10g5',
+        '22g5',
+        '12g5',
+        '13g5',
+        '14',
+      ]);
+      expect(moved).toEqual([
+        { tabId: 22, before: place(2, 1), after: place(1, 2, 5, null) },
+      ]);
+    });
+
+    test('CONTROL: just past the run, one plain tabs.move and no group', async () => {
+      handle = ungranted(true);
+      const groupSpy = vi.spyOn(chrome.tabs, 'group');
+
+      // toIndex 3 is before 14: the slot right after the run.
+      const moved = await moveOpenTab(
+        tabMove(22, 2, 1, 3),
+        await snapshot(),
+        false
+      );
+
+      expect(await strip(1)).toEqual(['11*', '12g5', '13g5', '22', '14']);
+      expect(groupSpy).not.toHaveBeenCalled();
+      expect(moved).toEqual([
+        { tabId: 22, before: place(2, 1), after: place(1, 3) },
+      ]);
+    });
+
+    test("CONTROL: at the run's head slot, one plain tabs.move and no group", async () => {
+      handle = ungranted(true);
+      const groupSpy = vi.spyOn(chrome.tabs, 'group');
+
+      // toIndex 1 is before 12, the run's first tab: not inside the run.
+      const moved = await moveOpenTab(
+        tabMove(22, 2, 1, 1),
+        await snapshot(),
+        false
+      );
+
+      expect(await strip(1)).toEqual(['11*', '22', '12g5', '13g5', '14']);
+      expect(groupSpy).not.toHaveBeenCalled();
+      expect(moved).toEqual([
+        { tabId: 22, before: place(2, 1), after: place(1, 1) },
+      ]);
+    });
+  });
 });
 
 describe('moveOpenGroup', () => {

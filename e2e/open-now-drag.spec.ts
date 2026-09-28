@@ -1,5 +1,6 @@
 import type { BrowserContext, Locator, Page, Worker } from '@playwright/test';
 
+import { test as ungrantedTest } from './fixtures/extension';
 import { grantedTest as test, expect } from './fixtures/grantedExtension';
 import { seedSettings } from './fixtures/seed';
 
@@ -1676,6 +1677,67 @@ test.describe("the tab view's own page (KAN-280 O11h T1, Review Focus 2)", () =>
     expect(await frontTab(worker, a.windowId)).toBe(a.tab('a1'));
   });
 });
+
+// ---- 12: without the tabGroups grant ------------------------------------------
+
+// KAN-322 (spec O11e). Without the grant Open now shows no groups, so a
+// Chrome group's tabs are loose rows and the engine offers the slot between
+// two of them. One tabs.move from another window into a group's run is
+// refused (Task 1 Q3), so the drop joins the group with tabs.group (which
+// works without the grant, Task 6a Q3) and lands where the preview showed.
+// On 0a1489f's build the release was refused and the tab went back.
+ungrantedTest(
+  '12. without the grant, a tab from another window dropped between two grouped tabs joins that group where the preview showed (KAN-322)',
+  async ({ context, extensionId, serviceWorker: worker }) => {
+    // PREMISE: the ungranted fixture, where chrome.tabGroups does not exist.
+    expect(await worker.evaluate(() => typeof chrome.tabGroups)).toBe(
+      'undefined'
+    );
+    const page = await openTabView(context, extensionId);
+    const a = await openWindow(worker, ['a0', 'a1']);
+    const b = await openWindow(worker, ['b0', 'g1', 'g2', 'b3']);
+    const grouping: { windowId: number; tabIds: [number, ...number[]] } = {
+      windowId: b.windowId,
+      tabIds: [b.tab('g1'), b.tab('g2')],
+    };
+    const g = await worker.evaluate(
+      ({ windowId, tabIds }) =>
+        chrome.tabs.group({ tabIds, createProperties: { windowId } }),
+      grouping
+    );
+    // PREMISE: Chrome has the group, and the list draws its tabs as loose rows.
+    expect((await chromeTab(worker, b.tab('g1')))?.groupId).toBe(g);
+    expect((await chromeTab(worker, b.tab('g2')))?.groupId).toBe(g);
+    await expect(tabRow(page, b.tab('b3'))).toBeVisible();
+    expect(await shownPlace(page, b.tab('g2'))).toMatchObject({ band: null });
+    await paneFits(page);
+
+    // a1 between g1 and g2.
+    const preview = await dragTab(page, a.tab('a1'), () =>
+      justInside(page, b.tab('g2'))
+    );
+    expect(preview).toMatchObject({ windowId: b.windowId, index: 2, lit: [] });
+
+    await expect
+      .poll(() => chromeOrder(worker, b.windowId))
+      .toEqual([
+        b.tab('b0'),
+        b.tab('g1'),
+        a.tab('a1'),
+        b.tab('g2'),
+        b.tab('b3'),
+      ]);
+    expect((await chromeTab(worker, a.tab('a1')))?.groupId).toBe(g);
+    expect(await chromeOrder(worker, a.windowId)).toEqual([a.tab('a0')]);
+    await listMatchesChrome(
+      page,
+      worker,
+      [a.windowId, b.windowId],
+      extensionId
+    );
+    await expectLandedAsPreviewed(page, a.tab('a1'), preview);
+  }
+);
 
 // ---- 9: the drawer ---------------------------------------------------------------
 

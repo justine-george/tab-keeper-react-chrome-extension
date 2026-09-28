@@ -234,14 +234,36 @@ async function joinAcross(
   return placed !== REFUSED;
 }
 
+// The group whose run `slot` lies strictly inside in `windowId`'s strip as
+// Chrome has it now: the tabs either side of the slot are in one group.
+// NO_GROUP when they are not; null when Chrome won't list the window.
+// tabs.query reports groupId without the tabGroups grant (Task 6a Q3), and
+// hidden Tab Keeper pages are in the strip, so a run they start or end is
+// seen whole.
+async function groupAroundSlot(
+  windowId: number,
+  slot: number
+): Promise<number | null> {
+  const strip = await attempt(() => chrome.tabs.query({ windowId }));
+  if (strip === REFUSED) return null;
+  const groupAt = (index: number) =>
+    strip.find((tab) => tab.index === index)?.groupId;
+  const left = groupAt(slot - 1);
+  return left !== undefined && left !== NO_GROUP && left === groupAt(slot)
+    ? left
+    : NO_GROUP;
+}
+
 // One tab to the visible row `move.toIndex` of `move.toWindowId`.
 //
 // With the grant (`hasTabGroups`), the tab ends in the group whose band the
 // release landed in (`move.toGroupId`), or in none: Chrome's own join rule
 // ("strictly inside a run", Task 1 Q3) differs from the band's at a run's head
 // and tail, so the group is set right after the move (ledger R16). Without the
-// grant there are no bands; only tabs.move is called, and Chrome's own join or
-// leave stands (E4).
+// grant there are no bands; tabs.move is called, and Chrome's own join or
+// leave stands (E4) -- except from another window into a group's run, which
+// Chrome refuses as one tabs.move, so the tab joins with tabs.group first
+// (KAN-322).
 export async function moveOpenTab(
   move: TabMove,
   windows: readonly OpenWindow[],
@@ -303,12 +325,26 @@ export async function moveOpenTab(
     if (!(await joinAcross(held.id, toGroupId, target.slot))) return null;
   } else {
     const { slot } = target;
-    const moved = await attempt(() =>
-      across
-        ? chrome.tabs.move(held.id, { windowId: to.id, index: slot })
-        : chrome.tabs.move(held.id, { index: finalIndex(slot, held.index, 1) })
-    );
-    if (moved === REFUSED) return null;
+    // Without the grant a group's tabs draw as loose rows, so the preview
+    // can show a slot inside a run. Within a window Chrome joins the tab to
+    // that group itself; from another window one tabs.move there is refused
+    // (Task 1 Q3), so the tab joins the group the same way a band drop does,
+    // at the same slot (KAN-322, spec O11e).
+    const runGroup =
+      across && !hasTabGroups ? await groupAroundSlot(to.id, slot) : NO_GROUP;
+    if (runGroup === null) return null;
+    if (runGroup !== NO_GROUP) {
+      if (!(await joinAcross(held.id, runGroup, slot))) return null;
+    } else {
+      const moved = await attempt(() =>
+        across
+          ? chrome.tabs.move(held.id, { windowId: to.id, index: slot })
+          : chrome.tabs.move(held.id, {
+              index: finalIndex(slot, held.index, 1),
+            })
+      );
+      if (moved === REFUSED) return null;
+    }
   }
 
   if (hasTabGroups) {

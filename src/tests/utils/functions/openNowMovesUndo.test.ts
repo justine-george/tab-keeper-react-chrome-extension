@@ -370,6 +370,19 @@ describe('undoOpenNowDrop: without the grant (spec O11e, E4)', () => {
 
     expect(await strip(1)).toEqual(['11*', '12g5', '13g5', '14']);
   });
+
+  test('a tab from another window that joined an invisible group (KAN-322) goes back to its window, ungrouped', async () => {
+    handle = setupChromeFake(grouped(true));
+    const drop = await dropTab(tabMove(22, 2, 1, 2), false);
+    // PREMISE: it joined group 5 between 12 and 13, and the record says so.
+    expect(await strip(1)).toEqual(['11*', '12g5', '22g5', '13g5', '14']);
+    expect(drop.moved.map(({ after }) => after.groupId)).toEqual([5]);
+
+    expect(await undoOpenNowDrop(drop, false)).toBe('undone');
+
+    expect(await strip(1)).toEqual(['11*', '12g5', '13g5', '14']);
+    expect(await strip(2)).toEqual(['21*', '22']);
+  });
 });
 
 describe('undoOpenNowDrop: a group goes back', () => {
