@@ -291,7 +291,7 @@ describe('only side by side (O1a)', () => {
     await act(async () => {
       await store.dispatch(openSettingsPage(undefined));
     });
-    // PREMISE: Settings replaced the grid.
+    // PREMISE: Settings replaced Open now.
     expect(document.querySelector('[data-pane="open-now"]')).toBeNull();
 
     act(() => {

@@ -108,13 +108,14 @@ export default function MainContainer() {
   // O2. Below 1100px Open now's column is the rail, with no line to drag.
   const isNarrow = useMediaQuery(OPEN_NOW_RAIL_QUERY);
 
-  // Open now's side-by-side track, in px: the drag in flight, else the
-  // stored width (or the default), clamped to this window (openNowWidth.ts)
-  // -- the live width too, so a window that narrows mid-drag clamps it at
-  // once, not at the next pointermove. It reaches the grid as
-  // --open-now-width, set on the grid element here, not through its Emotion
-  // class: a drag changes it on every pointermove, and a class per width
-  // would insert a stylesheet rule per pixel.
+  // Open now's drawn width, in px: the drag in flight, else the stored width
+  // (or the default), clamped to this window (openNowWidth.ts) -- the live
+  // width too, so a window that narrows mid-drag clamps it at once, not at
+  // the next pointermove. Computed once here and used two places, so they
+  // cannot disagree: it reaches the grid as --open-now-width, set on the grid
+  // element below (not through its Emotion class: a drag changes it on every
+  // pointermove, and a class per width would insert a stylesheet rule per
+  // pixel), and it is handed to the grip as drawnWidth.
   const openNowTrackWidth = shownOpenNowWidth(
     liveOpenNowWidth ?? openNowWidth,
     viewportWidth
@@ -383,7 +384,7 @@ export default function MainContainer() {
               now is not remounted when it comes or goes. */}
           {showResizeGrip && (
             <OpenNowResizeGrip
-              liveWidth={liveOpenNowWidth}
+              drawnWidth={openNowTrackWidth}
               onLiveWidth={setLiveOpenNowWidth}
             />
           )}

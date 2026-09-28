@@ -55,14 +55,15 @@ export function clampOpenNowWidth(
   return Math.min(max, Math.max(min, Math.round(width)));
 }
 
-// What the column is drawn at: the stored choice (or the default), clamped to
-// this window's limits. The stored value itself is never rewritten here.
+// What the column is drawn at: the width the user chose -- stored, or a
+// drag's live width -- or the default when there is neither, clamped to this
+// window's limits. Never rewrites what it's given.
 export function shownOpenNowWidth(
-  stored: number | null,
+  chosen: number | null,
   viewportWidth: number
 ): number {
   return clampOpenNowWidth(
-    stored ?? defaultOpenNowWidth(viewportWidth),
+    chosen ?? defaultOpenNowWidth(viewportWidth),
     viewportWidth
   );
 }

@@ -22,9 +22,12 @@ import {
 } from './openNowWidth';
 
 interface OpenNowResizeGripProps {
-  // The width a drag in flight is showing, or null when there is none.
-  // MainContainer holds it, because it draws the grid track from it.
-  liveWidth: number | null;
+  // What to draw and report as aria-valuenow: the drag's live width, or the
+  // resting width when none is running, clamped to this window
+  // (openNowWidth.ts). MainContainer computes this once -- it is the same
+  // number it writes to the grid's --open-now-width -- so the grip and the
+  // grid can never disagree.
+  drawnWidth: number;
   // Reports each width the drag shows, and null when the drag ends. Keep it
   // stable (a state setter): a new function re-binds the drag's listeners.
   onLiveWidth: (width: number | null) => void;
@@ -44,7 +47,7 @@ interface Drag {
 // folded, not the rail), as a grid item of its own beside the panes -- so a
 // press here is inside no RowDragArea list and can never start a row drag.
 export default function OpenNowResizeGrip({
-  liveWidth,
+  drawnWidth,
   onLiveWidth,
 }: OpenNowResizeGripProps) {
   const { t } = useTranslation();
@@ -55,11 +58,9 @@ export default function OpenNowResizeGrip({
     (state: RootState) => state.settingsDataState.openNowWidth
   );
   const viewportWidth = useViewportWidth();
-  const shownWidth = shownOpenNowWidth(storedWidth, viewportWidth);
-  // What the track is drawn at (MainContainer computes it the same way): a
-  // drag's live width clamped to this window too, so a window that narrows
-  // mid-drag is heard at its new limit before the next move.
-  const drawnWidth = shownOpenNowWidth(liveWidth ?? storedWidth, viewportWidth);
+  // The width drawn when no drag is running: a press starts from here, and
+  // so does an arrow key (neither runs mid-drag).
+  const restingWidth = shownOpenNowWidth(storedWidth, viewportWidth);
   const { min, max } = openNowWidthLimits(viewportWidth);
 
   const drag = useRef<Drag | null>(null);
@@ -131,8 +132,8 @@ export default function OpenNowResizeGrip({
     event.preventDefault();
     drag.current = {
       startX: event.clientX,
-      startWidth: shownWidth,
-      width: shownWidth,
+      startWidth: restingWidth,
+      width: restingWidth,
     };
     setIsResizing(true);
   };
@@ -147,8 +148,8 @@ export default function OpenNowResizeGrip({
     else if (event.key === 'ArrowRight') step = -OPEN_NOW_KEY_STEP;
     else return;
     event.preventDefault();
-    const next = clampOpenNowWidth(shownWidth + step, viewportWidth);
-    if (next !== shownWidth) dispatch(setOpenNowWidth(next));
+    const next = clampOpenNowWidth(restingWidth + step, viewportWidth);
+    if (next !== restingWidth) dispatch(setOpenNowWidth(next));
   };
 
   const onDoubleClick = () => {
