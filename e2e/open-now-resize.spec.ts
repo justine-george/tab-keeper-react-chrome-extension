@@ -430,11 +430,56 @@ async function pickUp(page: Page, row: Locator) {
   return { x, y: y + 10 };
 }
 
-// Moves with the row held, then rests past DURATION.MOVE (200ms) so the rows
-// have eased to their commanded places, as a user pausing to aim sees them.
+// Every drag row's commanded and current offset, the landing slot's top, and
+// how many transitions are still running on the rows: one sample of what a
+// user pausing to aim would see.
+const dragLayoutSample = (page: Page) =>
+  page.evaluate(() => {
+    const rows = [
+      ...document.querySelectorAll<HTMLElement>('[data-drag-row-id]'),
+    ];
+    const offsets = rows.map(
+      (row) =>
+        `${row.style.transform}|${new DOMMatrixReadOnly(
+          getComputedStyle(row).transform
+        ).m42.toFixed(2)}`
+    );
+    const slot = document.querySelector('[data-drag-landing-slot]');
+    const running = document.getAnimations().filter((animation) => {
+      const effect = animation.effect;
+      return (
+        animation.playState === 'running' &&
+        effect instanceof KeyframeEffect &&
+        effect.target instanceof Element &&
+        effect.target.closest('[data-drag-row-id]') !== null
+      );
+    }).length;
+    return {
+      layout: JSON.stringify([
+        offsets,
+        slot?.getBoundingClientRect().top ?? null,
+      ]),
+      running,
+    };
+  });
+
+// Moves with the row held, then waits until the rows have eased to their
+// commanded places (rows ease over DURATION.MOVE): no transition running on
+// any drag row, and two consecutive samples reading the same layout.
 async function moveHeld(page: Page, x: number, y: number) {
   await page.mouse.move(x, y, { steps: 10 });
-  await page.waitForTimeout(350);
+  let previous = '';
+  await expect
+    .poll(
+      async () => {
+        const { layout, running } = await dragLayoutSample(page);
+        const settled = running === 0 && layout === previous;
+        previous = layout;
+        return settled;
+      },
+      { message: 'the rows never settled', intervals: [50] }
+    )
+    .toBe(true);
 }
 
 // Where the saved list's scrolling pane is, and whether it scrolls.
