@@ -53,14 +53,28 @@ describe('enabled controls are reachable by keyboard', () => {
   // of "is not -1" assertions would pass just as happily against a harness
   // that had stopped rendering tabindex at all.
   //
-  // A presentational Icon is the right control because it is deliberately
-  // outside the tab order both before and after this change: with no onClick
-  // there is nothing to activate.
-  test('CONTROL: a presentational Icon stays outside the tab order', async () => {
+  // A plain element with tabIndex={-1}, rendered through the same harness. It
+  // used to be a presentational Icon, until KAN-318 took the Icon's tabindex
+  // away altogether.
+  test('CONTROL: the harness shows a tabindex of -1 that is really there', async () => {
+    const { container } = await renderWithProviders(<div tabIndex={-1} />);
+
+    const control = container.firstElementChild;
+    expect(control).toBeInstanceOf(HTMLElement);
+    expect(control?.getAttribute('tabindex')).toBe(TAB_ORDER_EXCLUDED);
+  });
+
+  // KAN-318. A presentational Icon is aria-hidden, so it must not be able to
+  // hold focus either. With tabindex="-1" a click on the glyph inside a
+  // button focused the hidden glyph instead of the button, and Chrome logged
+  // "Blocked aria-hidden on an element because its descendant retained
+  // focus". With no tabindex at all, the click focuses the button around it.
+  test('a presentational Icon cannot take focus at all (KAN-318)', async () => {
     const { container } = await renderWithProviders(<Icon type="web_asset" />);
 
-    const icon = container.firstElementChild as HTMLElement;
-    expect(tabIndexOf(icon)).toBe(TAB_ORDER_EXCLUDED);
+    const icon = container.firstElementChild;
+    expect(icon?.getAttribute('aria-hidden')).toBe('true');
+    expect(icon?.hasAttribute('tabindex')).toBe(false);
   });
 
   test('a Button with an onClick is in the tab order (KAN-67)', async () => {
