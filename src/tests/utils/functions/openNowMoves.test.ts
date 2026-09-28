@@ -1341,7 +1341,10 @@ describe('moveOpenGroup', () => {
       expect(await moveOpenGroup(groupMove(5, 1, 1, 2), windows)).toBeNull();
     });
 
-    test('Chrome refuses a slot in the pinned run: null, nothing moves', async () => {
+    // Task 6c fix round 1: a slot in the pinned run is no longer passed to
+    // Chrome (it lands just below the run), so Chrome's own refusal is
+    // staged directly.
+    test('within its window, a slot in the pinned run lands just below it', async () => {
       handle = setupChromeFake({
         windows: [
           {
@@ -1362,8 +1365,177 @@ describe('moveOpenGroup', () => {
         await snapshot()
       );
 
-      expect(moved).toBeNull();
-      expect(await strip(1)).toEqual(['10P', '11*', '12g5', '13g5']);
+      expect(moved).not.toBeNull();
+      expect(await strip(1)).toEqual(['10P', '12g5', '13g5', '11*']);
     });
+
+    test('Chrome refuses tabGroups.move: null, nothing moves', async () => {
+      handle = withGroup();
+      vi.spyOn(chrome.tabGroups, 'move').mockRejectedValue(
+        new Error(
+          'Cannot move the group to an index that is in the middle of pinned tabs.'
+        )
+      );
+
+      const moved = await moveOpenGroup(
+        groupMove(5, 1, 1, 3),
+        await snapshot()
+      );
+
+      expect(moved).toBeNull();
+      expect(await strip(1)).toEqual(['11*', '12g5', '13g5', '14', '15']);
+    });
+  });
+});
+
+// Task 6c fix round 1 (review Important 1, spec O11c). The engine commits
+// index 0 for a FOLDED window, which draws no rows, and the snapshot leaves
+// out hidden Tab Keeper pages, so a visible index can name a slot inside the
+// pinned run as Chrome has it. An unpinned tab or a group is placed no
+// earlier than the end of that run, read from Chrome at drop time -- the
+// slot the preview drew under the pinned line.
+describe('an unpinned tab or a group lands below the pinned run as Chrome has it', () => {
+  // W1 [11*, 12g5, 13g5, 14], group 5 "Work"; W2 [21P, 22P, 23*, 24];
+  // W3 [31P*, 32P], every tab pinned; W4 [41P*, 42P=Tab Keeper], whose
+  // visible tabs are all pinned and whose pinned run ends at a hidden page.
+  const pinnedWindows = () =>
+    setupChromeFake({
+      windows: [
+        {
+          id: 1,
+          tabs: [
+            { id: 11, active: true },
+            { id: 12, groupId: 5 },
+            { id: 13, groupId: 5 },
+            { id: 14 },
+          ],
+        },
+        {
+          id: 2,
+          tabs: [
+            { id: 21, pinned: true },
+            { id: 22, pinned: true },
+            { id: 23, active: true },
+            { id: 24 },
+          ],
+        },
+        {
+          id: 3,
+          tabs: [
+            { id: 31, pinned: true, active: true },
+            { id: 32, pinned: true },
+          ],
+        },
+        {
+          id: 4,
+          tabs: [
+            { id: 41, pinned: true, active: true },
+            { id: 42, pinned: true, url: TAB_KEEPER_PAGE },
+          ],
+        },
+      ],
+      tabGroups: [{ id: 5, windowId: 1, title: 'Work', color: 'blue' }],
+    });
+
+  test('a group dropped at 0 on a folded window with pinned tabs: the first unpinned index', async () => {
+    handle = pinnedWindows();
+    const groupMoveSpy = vi.spyOn(chrome.tabGroups, 'move');
+
+    const moved = await moveOpenGroup(groupMove(5, 1, 2, 0), await snapshot());
+
+    expect(moved).not.toBeNull();
+    expect(groupMoveSpy).toHaveBeenCalledWith(5, { windowId: 2, index: 2 });
+    expect(await strip(2)).toEqual(['21P', '22P', '12g5', '13g5', '23*', '24']);
+  });
+
+  test('an unpinned tab dropped at 0 on a folded window with pinned tabs: asked for the first unpinned index', async () => {
+    handle = pinnedWindows();
+    const moveSpy = vi.spyOn(chrome.tabs, 'move');
+
+    const moved = await moveOpenTab(
+      tabMove(14, 1, 2, 0),
+      await snapshot(),
+      true
+    );
+
+    expect(moved).not.toBeNull();
+    expect(moveSpy).toHaveBeenCalledWith(14, { windowId: 2, index: 2 });
+    expect(await strip(2)).toEqual(['21P', '22P', '14', '23*', '24']);
+  });
+
+  test.each([
+    ['a window whose tabs are all pinned, folded (toIndex 0)', 3, 0, '31P*'],
+    // Unfolded: landingRange puts the drop at the end of the VISIBLE pinned
+    // tabs, which is the hidden page's own slot.
+    ['a hidden pinned Tab Keeper page ending the run', 4, 1, '41P*'],
+  ])(
+    '%s: a group lands at the end of the run',
+    async (_name, to, at, first) => {
+      handle = pinnedWindows();
+      const groupMoveSpy = vi.spyOn(chrome.tabGroups, 'move');
+
+      const moved = await moveOpenGroup(
+        groupMove(5, 1, to, at),
+        await snapshot()
+      );
+
+      expect(moved).not.toBeNull();
+      expect(groupMoveSpy).toHaveBeenCalledWith(5, { windowId: to, index: 2 });
+      expect((await strip(to)).slice(0, 1)).toEqual([first]);
+      expect((await strip(to)).slice(2)).toEqual(['12g5', '13g5']);
+    }
+  );
+
+  test.each([
+    ['a window whose tabs are all pinned, folded (toIndex 0)', 3, 0],
+    ['a hidden pinned Tab Keeper page ending the run', 4, 1],
+  ])('%s: a tab is asked for the end of the run', async (_name, to, at) => {
+    handle = pinnedWindows();
+    const moveSpy = vi.spyOn(chrome.tabs, 'move');
+
+    const moved = await moveOpenTab(
+      tabMove(14, 1, to, at),
+      await snapshot(),
+      true
+    );
+
+    expect(moved).not.toBeNull();
+    expect(moveSpy).toHaveBeenCalledWith(14, { windowId: to, index: 2 });
+    expect((await strip(to))[2]).toBe('14');
+  });
+
+  // CONTROL, unchanged by the floor: a hidden pinned page before the rows
+  // is already passed, because the slot is the next visible row's own.
+  test('CONTROL: within its window, past a hidden pinned page at the front', async () => {
+    handle = setupChromeFake({
+      windows: [
+        {
+          id: 1,
+          tabs: [
+            { id: 10, pinned: true, url: TAB_KEEPER_PAGE },
+            { id: 11, active: true },
+            { id: 12 },
+          ],
+        },
+      ],
+    });
+    const moveSpy = vi.spyOn(chrome.tabs, 'move');
+
+    expect(
+      await moveOpenTab(tabMove(12, 1, 1, 0), await snapshot(), false)
+    ).not.toBeNull();
+    expect(moveSpy).toHaveBeenCalledWith(12, { index: 1 });
+    expect(await strip(1)).toEqual(['10P', '12', '11*']);
+  });
+
+  test('CONTROL: a pinned tab keeps its place in the run: no floor for it', async () => {
+    handle = pinnedWindows();
+    const moveSpy = vi.spyOn(chrome.tabs, 'move');
+
+    expect(
+      await moveOpenTab(tabMove(22, 2, 2, 0), await snapshot(), true)
+    ).not.toBeNull();
+    expect(moveSpy).toHaveBeenCalledWith(22, { index: 0 });
+    expect(await strip(2)).toEqual(['22P', '21P', '23*', '24']);
   });
 });

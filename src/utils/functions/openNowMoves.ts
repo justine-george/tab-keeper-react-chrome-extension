@@ -183,6 +183,25 @@ function landingOf(
     : { inPlace: false, slot: previous.last + 1 };
 }
 
+// A landing no earlier than the end of `windowId`'s pinned run as Chrome has
+// it now, for a tab or group that is not pinned (spec O11c: it lands below
+// the line). The engine's landingRange already keeps an unfolded drop below
+// the VISIBLE pinned tabs, so for those this changes nothing. It matters
+// where the visible rows don't reach the run's end: a folded window, which
+// draws no rows and so takes index 0, and a hidden pinned Tab Keeper page,
+// which the snapshot leaves out. Chrome refuses a group there (Task 1 Q3)
+// and only clamps a tab. Pinned tabs come first in a window, so the run ends
+// at the count of pinned tabs. Null when Chrome won't list the window.
+async function belowPinnedRun(
+  windowId: number,
+  landing: { inPlace: false; slot: number }
+): Promise<Landing | null> {
+  const strip = await attempt(() => chrome.tabs.query({ windowId }));
+  if (strip === REFUSED) return null;
+  const runEnd = strip.filter((tab) => tab.pinned).length;
+  return { inPlace: false, slot: Math.max(landing.slot, runEnd) };
+}
+
 // A slot as it stands, as the index Chrome takes for a move within one
 // window: the FINAL index, counted with the moving tabs removed (Task 1 Q1
 // for tabs.move, Q3 for tabGroups.move). `first` and `count` are the moving
@@ -244,11 +263,18 @@ export async function moveOpenTab(
   if (across && now.pinned) return null;
   const before = await placeOf(now, hasTabGroups);
   if (before === null) return null;
+  // A pinned tab stays within the run (landingRange, K1), so only an
+  // unpinned one is kept below it.
+  const target =
+    landing.inPlace || held.pinned
+      ? landing
+      : await belowPinnedRun(to.id, landing);
+  if (target === null) return null;
 
-  if (landing.inPlace) {
+  if (target.inPlace) {
     // Already where the drop names; only its group may change, below.
   } else if (across && toGroupId !== NO_GROUP) {
-    const { slot } = landing;
+    const { slot } = target;
     // One tabs.move into another window's run is refused (Task 1 Q3), so the
     // tab joins first -- tabs.group carries it to the END of the run, in the
     // group's window -- and then moves within that window. The slot as it
@@ -267,7 +293,7 @@ export async function moveOpenTab(
       if (placed === REFUSED) return null;
     }
   } else {
-    const { slot } = landing;
+    const { slot } = target;
     const moved = await attempt(() =>
       across
         ? chrome.tabs.move(held.id, { windowId: to.id, index: slot })
@@ -406,17 +432,22 @@ export async function moveOpenGroup(
   }
   const look = befores[0]?.before.group;
   if (!look) return null;
+  // A group is never pinned, so it is always kept below the run.
+  const target = landing.inPlace
+    ? landing
+    : await belowPinnedRun(to.id, landing);
+  if (target === null) return null;
 
-  if (landing.inPlace) {
+  if (target.inPlace) {
     // Already where the drop names: nothing moves.
   } else if (!across) {
-    const index = finalIndex(landing.slot, head.state.index, members.length);
+    const index = finalIndex(target.slot, head.state.index, members.length);
     const moved = await attempt(() =>
       chrome.tabGroups.move(group.id, { index })
     );
     if (moved === REFUSED) return null;
   } else if (!members.some((member) => member.state.active)) {
-    const { slot } = landing;
+    const { slot } = target;
     const moved = await attempt(() =>
       chrome.tabGroups.move(group.id, { windowId: to.id, index: slot })
     );
@@ -424,7 +455,7 @@ export async function moveOpenGroup(
   } else {
     // G1. Any step Chrome refuses ends the move where Chrome left it, with no
     // record (ledger R17): an array tabs.move is not atomic (Task 6a Q1).
-    const { slot } = landing;
+    const { slot } = target;
     const moved = await attempt(() =>
       chrome.tabs.move(ids, { windowId: to.id, index: slot })
     );
