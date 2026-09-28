@@ -9,6 +9,7 @@ import {
 
 import MainContainer from '../../components/MainContainer';
 import { renderWithProviders } from '../setup/renderWithProviders';
+import { openNowTrack } from '../setup/openNowTrack';
 import {
   saveToTabContainerInternal,
   selectTabContainer,
@@ -434,11 +435,10 @@ describe('the Saved sessions caption stays put while the list scrolls (O3a)', ()
 });
 
 // KAN-321 O1/O1a. Side by side, the third column's width comes from
-// openNowWidth.ts (shownOpenNowWidth), not a fixed 340px/420px. jsdom DOES
-// resolve Emotion's grid-template-columns (checked directly: a plain <div
-// css={...}> with a grid-template-columns rule reads back through
-// getComputedStyle exactly as written), so these assert on the resolved
-// track list rather than the `css` class's rule text.
+// openNowWidth.ts (shownOpenNowWidth), not a fixed 340px/420px. The track
+// is var(--open-now-width), set on the grid element; openNowTrack() reads the
+// computed track list and resolves that var() from the same element, so
+// these assert the px width the column is drawn at.
 describe('KAN-321 width: the grid tracks follow openNowWidth.ts (D1)', () => {
   const ORIGINAL_INNER_WIDTH = window.innerWidth;
 
@@ -459,16 +459,6 @@ describe('KAN-321 width: the grid tracks follow openNowWidth.ts (D1)', () => {
     });
   });
 
-  // The grid is the parent of the pane itself: MainContainer puts
-  // data-pane="open-now" directly on the grid item.
-  function gridTemplateColumns(): string {
-    const pane = openNowPane();
-    if (pane === null) throw new Error('no open-now pane');
-    const grid = pane.parentElement;
-    if (grid === null) throw new Error('open-now pane has no parent');
-    return getComputedStyle(grid).gridTemplateColumns;
-  }
-
   const showSideBySide = async () => {
     fireEvent.click(screen.getByRole('button', { name: UNFOLD }));
     await screen.findByRole('button', { name: HERO_ONLY });
@@ -481,7 +471,7 @@ describe('KAN-321 width: the grid tracks follow openNowWidth.ts (D1)', () => {
     await mounted();
     await showSideBySide();
 
-    expect(gridTemplateColumns()).toContain('622px');
+    expect(openNowTrack()).toBe('622px');
   });
 
   test('a stored width of 500 shows as 500px at 1600px wide', async () => {
@@ -494,7 +484,7 @@ describe('KAN-321 width: the grid tracks follow openNowWidth.ts (D1)', () => {
     await mounted();
     await showSideBySide();
 
-    expect(gridTemplateColumns()).toContain('500px');
+    expect(openNowTrack()).toBe('500px');
   });
 
   // The window narrows after a wide drag (Review Focus 1): the stored width
@@ -510,10 +500,10 @@ describe('KAN-321 width: the grid tracks follow openNowWidth.ts (D1)', () => {
     });
     await mounted();
     await showSideBySide();
-    expect(gridTemplateColumns()).toContain('444px');
+    expect(openNowTrack()).toBe('444px');
 
     setViewportWidth(1600);
 
-    expect(gridTemplateColumns()).toContain('700px');
+    expect(openNowTrack()).toBe('700px');
   });
 });

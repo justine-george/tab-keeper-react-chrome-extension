@@ -1,10 +1,12 @@
+import { memo } from 'react';
+
 import { css } from '@emotion/react';
 
 import HeroContainerLeft from './HeroContainerLeft';
 import UserInputContainer from './UserInputContainer';
 import TabGroupEntryContainer from './TabGroupEntryContainer';
 
-export default function LeftPane() {
+function LeftPane() {
   const containerStyle = css`
     display: flex;
     flex-direction: column;
@@ -20,3 +22,7 @@ export default function LeftPane() {
     </div>
   );
 }
+
+// Memoised (KAN-321 O1a): MainContainer re-renders on every pointermove of
+// an Open now resize, and this pane has nothing to redraw for it.
+export default memo(LeftPane);

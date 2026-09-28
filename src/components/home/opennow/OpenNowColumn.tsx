@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef } from 'react';
+import { memo, useEffect, useId, useRef } from 'react';
 
 import { useDispatch, useSelector } from 'react-redux';
 
@@ -23,7 +23,7 @@ interface OpenNowColumnProps {
 // KAN-280 O4. Open now with its live windows and the fold button. The button
 // is the only thing that writes the fold setting, and either press ends a
 // peek: what the user pressed is what they see.
-export default function OpenNowColumn({ folded }: OpenNowColumnProps) {
+function OpenNowColumn({ folded }: OpenNowColumnProps) {
   const { t } = useTranslation();
   const dispatch: AppDispatch = useDispatch();
 
@@ -88,3 +88,7 @@ export default function OpenNowColumn({ folded }: OpenNowColumnProps) {
     />
   );
 }
+
+// Memoised (KAN-321 O1a): MainContainer re-renders on every pointermove of
+// an Open now resize, and this pane has nothing to redraw for it.
+export default memo(OpenNowColumn);

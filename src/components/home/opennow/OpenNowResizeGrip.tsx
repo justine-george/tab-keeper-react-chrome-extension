@@ -69,7 +69,10 @@ export default function OpenNowResizeGrip({
   // capture), from the press until the drag ends. Every way it ends -- the
   // release, pointercancel, Escape, the window losing focus, or this grip
   // unmounting mid-drag -- runs the same cleanup: listeners off, the root
-  // flag off, the live width handed back.
+  // flag off, the live width handed back. Only the release saves (O1a:
+  // "saved on release"). pointercancel, the window losing focus and Escape
+  // end the drag WITHOUT saving, and Open now goes back to its width from
+  // before the press.
   useEffect(() => {
     if (!isResizing) return;
     const root = document.documentElement;

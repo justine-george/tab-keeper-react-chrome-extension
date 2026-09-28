@@ -8,6 +8,7 @@ import { renderWithProviders } from '../setup/renderWithProviders';
 import { testI18n } from '../setup/i18nForTests';
 import { FakeMediaQueryList } from '../setup/mediaQueryFake';
 import { hoverRulesFor } from '../setup/hoverRules';
+import { openNowTrack } from '../setup/openNowTrack';
 import { LIGHT_THEME } from '../../hooks/useThemeColors';
 import {
   saveToTabContainerInternal,
@@ -17,7 +18,10 @@ import {
   setFoldSavedSessionInTabView,
   setOpenNowWidth,
 } from '../../redux/slices/settingsDataStateSlice';
-import { openSettingsPage } from '../../redux/slices/globalStateSlice';
+import {
+  closeSettingsPage,
+  openSettingsPage,
+} from '../../redux/slices/globalStateSlice';
 import { buildSession } from '../fixtures/sessionFixture';
 
 // KAN-321 O1a. The grip on the line between the saved session and Open now:
@@ -88,16 +92,6 @@ function storedWidth(): number | null {
     return parsed.openNowWidth;
   }
   return null;
-}
-
-// The third track, as the grid resolves it.
-function openNowTrack(): string {
-  const pane = document.querySelector<HTMLElement>('[data-pane="open-now"]');
-  if (pane === null) throw new Error('no open-now pane');
-  const grid = pane.parentElement;
-  if (grid === null) throw new Error('open-now pane has no parent');
-  const tracks = getComputedStyle(grid).gridTemplateColumns.split(' ');
-  return tracks[tracks.length - 1];
 }
 
 const widthWrites = (seen: string[]) =>
@@ -198,6 +192,25 @@ describe('only side by side (O1a)', () => {
 
     expect(screen.queryByRole('separator')).not.toBeInTheDocument();
     expect(document.querySelector('[data-resize-grip]')).toBeNull();
+  });
+
+  // Leaving Settings mounts a new grid element. Its width comes from a
+  // property set on the element, so the new one must get it too.
+  test('back from Settings, the grip and the width are back', async () => {
+    const { store } = await renderHome({ width: 700 });
+    await mounted();
+    await act(async () => {
+      await store.dispatch(openSettingsPage(undefined));
+    });
+    // PREMISE: Settings replaced the grid.
+    expect(document.querySelector('[data-pane="open-now"]')).toBeNull();
+
+    act(() => {
+      store.dispatch(closeSettingsPage());
+    });
+
+    expect(grip()).toHaveAttribute('aria-valuenow', '700');
+    expect(openNowTrack()).toBe('700px');
   });
 
   test('not in the popup', async () => {
@@ -523,18 +536,7 @@ describe('isolation from the row drag (O1a)', () => {
     ).toContain(`background-color: ${rgb(LIGHT_THEME.LABEL_L2_COLOR)}`);
   });
 
-  test('a press on the grip starts no row drag', async () => {
-    await renderHome();
-    await mounted();
-
-    press(1000);
-    moveTo(900);
-    moveTo(800);
-
-    expect(document.documentElement.hasAttribute('data-dragging')).toBe(false);
-    release(800);
-    expect(document.documentElement.hasAttribute('data-dragging')).toBe(false);
-  });
+  // A press starting no row drag: covered by the separator test's closest('[data-pane]') check and Task 5's e2e.
 });
 
 describe('the name in another language', () => {
