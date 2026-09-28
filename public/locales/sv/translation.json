@@ -228,5 +228,10 @@
   "Pinned": "Fäst",
   "Close window": "Stäng fönster",
   "Save window as a session": "Spara fönstret som en session",
-  "Window saved as a session.": "Fönstret har sparats som en session."
+  "Window saved as a session.": "Fönstret har sparats som en session.",
+  "Search open tabs": "Sök öppna flikar",
+  "Clear search": "Rensa sökning",
+  "NoOpenTabMatches": "Ingen öppen flik matchar ”{{text}}”",
+  "TabCountShownOfTotal_one": "{{shown}} av {{count}} Flik",
+  "TabCountShownOfTotal_other": "{{shown}} av {{count}} Flikar"
 }

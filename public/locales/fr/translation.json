@@ -231,5 +231,11 @@
   "Pinned": "Épinglé",
   "Close window": "Fermer la fenêtre",
   "Save window as a session": "Enregistrer la fenêtre comme session",
-  "Window saved as a session.": "Fenêtre enregistrée comme session."
+  "Window saved as a session.": "Fenêtre enregistrée comme session.",
+  "Search open tabs": "Rechercher un onglet ouvert",
+  "Clear search": "Effacer la recherche",
+  "NoOpenTabMatches": "Aucun onglet ouvert ne correspond à « {{text}} »",
+  "TabCountShownOfTotal_one": "{{shown}} sur {{count}} Onglet",
+  "TabCountShownOfTotal_many": "{{shown}} sur {{count}} Onglets",
+  "TabCountShownOfTotal_other": "{{shown}} sur {{count}} Onglets"
 }

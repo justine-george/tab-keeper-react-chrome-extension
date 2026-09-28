@@ -231,5 +231,11 @@
   "Pinned": "Fissata",
   "Close window": "Chiudi finestra",
   "Save window as a session": "Salva la finestra come sessione",
-  "Window saved as a session.": "Finestra salvata come sessione."
+  "Window saved as a session.": "Finestra salvata come sessione.",
+  "Search open tabs": "Cerca schede aperte",
+  "Clear search": "Cancella ricerca",
+  "NoOpenTabMatches": "Nessuna scheda aperta corrisponde a \"{{text}}\"",
+  "TabCountShownOfTotal_one": "{{shown}} di {{count}} Tab",
+  "TabCountShownOfTotal_many": "{{shown}} di {{count}} Tab",
+  "TabCountShownOfTotal_other": "{{shown}} di {{count}} Tab"
 }

@@ -231,5 +231,11 @@
   "Pinned": "Fixada",
   "Close window": "Fechar janela",
   "Save window as a session": "Salvar janela como sessão",
-  "Window saved as a session.": "Janela salva como sessão."
+  "Window saved as a session.": "Janela salva como sessão.",
+  "Search open tabs": "Pesquisar abas abertas",
+  "Clear search": "Limpar pesquisa",
+  "NoOpenTabMatches": "Nenhuma aba aberta corresponde a \"{{text}}\"",
+  "TabCountShownOfTotal_one": "{{shown}} de {{count}} Aba",
+  "TabCountShownOfTotal_many": "{{shown}} de {{count}} Abas",
+  "TabCountShownOfTotal_other": "{{shown}} de {{count}} Abas"
 }

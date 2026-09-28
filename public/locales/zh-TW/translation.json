@@ -225,5 +225,9 @@
   "Pinned": "已固定",
   "Close window": "關閉視窗",
   "Save window as a session": "將視窗儲存為工作階段",
-  "Window saved as a session.": "已將視窗儲存為工作階段。"
+  "Window saved as a session.": "已將視窗儲存為工作階段。",
+  "Search open tabs": "搜尋開啟的分頁",
+  "Clear search": "清除搜尋",
+  "NoOpenTabMatches": "沒有符合「{{text}}」的開啟分頁",
+  "TabCountShownOfTotal_other": "{{count}} 個分頁中的 {{shown}} 個"
 }
