@@ -249,21 +249,73 @@ const groupLook = (worker: ChromeContext, groupId: number) =>
     return { title: group.title ?? '', color: group.color };
   }, groupId);
 
+// A window's order and the one group `tabIds` share, with that group's look,
+// read in ONE call: a G1 move is three Chrome calls (tabs.move, tabs.group,
+// tabGroups.update; openNowMoves' moveAsNewGroup), and separate reads taken
+// between them can each see a different step. `group` is null unless every
+// one of `tabIds` is in the same group.
+const groupedEndState = (
+  worker: ChromeContext,
+  windowId: number,
+  tabIds: number[]
+) =>
+  worker.evaluate(
+    async ({ windowId, tabIds }) => {
+      const tabs = await chrome.tabs.query({ windowId });
+      const ids = new Set(
+        tabIds.map((id) => tabs.find((tab) => tab.id === id)?.groupId ?? -1)
+      );
+      const [only] = [...ids];
+      const group =
+        ids.size === 1 && only !== undefined && only !== -1 ? only : null;
+      const look = group === null ? null : await chrome.tabGroups.get(group);
+      return {
+        order: tabs.flatMap((tab) => (tab.id === undefined ? [] : [tab.id])),
+        group,
+        title: look?.title ?? null,
+        color: look?.color ?? null,
+      };
+    },
+    { windowId, tabIds }
+  );
+
 // ---- Staging -----------------------------------------------------------------
 
-interface Made {
+// A window the spec made, and its tabs' ids by the titles it was made
+// with: `tab` answers only for those titles, so a typo does not compile.
+interface Made<T extends string> {
   windowId: number;
-  // Tab ids by title.
-  tab: Record<string, number>;
+  tab: (title: T) => number;
+}
+
+function made<T extends string>(
+  windowId: number,
+  titles: readonly T[],
+  tabIds: readonly number[]
+): Made<T> {
+  const ids = new Map<T, number>();
+  titles.forEach((title, i) => {
+    const id = tabIds[i];
+    if (id === undefined) throw new Error(`Chrome gave no id for ${title}`);
+    ids.set(title, id);
+  });
+  return {
+    windowId,
+    tab: (title) => {
+      const id = ids.get(title);
+      if (id === undefined) throw new Error(`no tab titled ${title}`);
+      return id;
+    },
+  };
 }
 
 // A window the browser opens, unfocused so the tab view stays in front, with
 // one tab per title, in order.
-async function openWindow(
+async function openWindow<T extends string>(
   worker: ChromeContext,
-  titles: string[]
-): Promise<Made> {
-  const made = await worker.evaluate(async (urls: string[]) => {
+  titles: readonly T[]
+): Promise<Made<T>> {
+  const opened = await worker.evaluate(async (urls: string[]) => {
     const win = await chrome.windows.create({ focused: false, url: urls });
     const tabIds = (win?.tabs ?? []).flatMap((tab) =>
       tab.id === undefined ? [] : [tab.id]
@@ -271,11 +323,8 @@ async function openWindow(
     if (win?.id === undefined || tabIds.length !== urls.length) return null;
     return { windowId: win.id, tabIds };
   }, titles.map(dataUrl));
-  if (made === null) throw new Error('Chrome gave no window or tab ids');
-  return {
-    windowId: made.windowId,
-    tab: Object.fromEntries(titles.map((t, i) => [t, made.tabIds[i]])),
-  };
+  if (opened === null) throw new Error('Chrome gave no window or tab ids');
+  return made(opened.windowId, titles, opened.tabIds);
 }
 
 const makeGroup = (
@@ -489,6 +538,49 @@ async function expectLandedAsPreviewed(
   });
 }
 
+// The refused preview, exactly: where a release would be refused, the
+// engine draws the row going back where it came from -- its own slot open in
+// its own window, no row stepping aside, no band lit (RowDragArea, KAN-172).
+// So every refusal is held to that at each point AND at the release, and the
+// release must then leave the row there, as that preview promised.
+const refusedPreview = (held: string, home: Shown, scope: Scope): Preview => ({
+  held,
+  windowId: home.windowId,
+  index: scope === 'tabs' ? home.index : home.item,
+  lit: [],
+});
+
+// Holds a tab over each point `aims` names, in windows that refuse it, then
+// releases on the last. The tab must be back at `home` in Chrome and in the
+// list, as the preview at release showed.
+async function expectTabRefused(
+  page: Page,
+  chromeContext: ChromeContext,
+  tabId: number,
+  aims: (() => Promise<number>)[],
+  windowIds: number[],
+  extensionId: string
+) {
+  const home = await shownPlace(page, tabId);
+  if (home === null) throw new Error('the tab is not listed');
+  const expected = refusedPreview(String(tabId), home, 'tabs');
+  const { x } = await pickUp(page, tabRow(page, tabId));
+  for (const aim of aims) {
+    await moveTo(page, x, await aim());
+    expect(await previewNow(page, 'tabs')).toEqual(expected);
+  }
+  const preview = await release(page, 'tabs');
+  expect(preview).toEqual(expected);
+  // A move lands within ~15ms of its call (Task 1 Q6); a refused release
+  // makes none, so after this the list has nothing left to catch up on.
+  await page.waitForTimeout(500);
+  expect(await chromeTab(chromeContext, tabId)).toMatchObject({
+    windowId: home.windowId,
+  });
+  await listMatchesChrome(page, chromeContext, windowIds, extensionId);
+  await expectLandedAsPreviewed(page, tabId, preview);
+}
+
 // ---- 1-4: moves ---------------------------------------------------------------
 
 test.describe('a drop moves the real tabs where the preview showed (KAN-280 O11, O11b)', () => {
@@ -499,19 +591,19 @@ test.describe('a drop moves the real tabs where the preview showed (KAN-280 O11,
   }) => {
     const page = await openTabView(context, extensionId);
     const a = await openWindow(worker, ['a0', 'a1', 'a2', 'a3']);
-    await expect(tabRow(page, a.tab.a3)).toBeVisible();
+    await expect(tabRow(page, a.tab('a3'))).toBeVisible();
     await paneFits(page);
 
-    const preview = await dragTab(page, a.tab.a3, () =>
-      justInside(page, a.tab.a1)
+    const preview = await dragTab(page, a.tab('a3'), () =>
+      justInside(page, a.tab('a1'))
     );
     expect(preview).toMatchObject({ windowId: a.windowId, index: 1 });
 
     await expect
       .poll(() => chromeOrder(worker, a.windowId))
-      .toEqual([a.tab.a0, a.tab.a3, a.tab.a1, a.tab.a2]);
+      .toEqual([a.tab('a0'), a.tab('a3'), a.tab('a1'), a.tab('a2')]);
     await listMatchesChrome(page, worker, [a.windowId], extensionId);
-    await expectLandedAsPreviewed(page, a.tab.a3, preview);
+    await expectLandedAsPreviewed(page, a.tab('a3'), preview);
   });
 
   test('2. a tab moved into another window', async ({
@@ -522,29 +614,32 @@ test.describe('a drop moves the real tabs where the preview showed (KAN-280 O11,
     const page = await openTabView(context, extensionId);
     const a = await openWindow(worker, ['a0', 'a1', 'a2']);
     const b = await openWindow(worker, ['b0', 'b1', 'b2']);
-    await expect(tabRow(page, b.tab.b2)).toBeVisible();
+    await expect(tabRow(page, b.tab('b2'))).toBeVisible();
     await paneFits(page);
     const fronts = [
       await frontTab(worker, a.windowId),
       await frontTab(worker, b.windowId),
     ];
 
-    const preview = await dragTab(page, a.tab.a1, () =>
-      justInside(page, b.tab.b1)
+    const preview = await dragTab(page, a.tab('a1'), () =>
+      justInside(page, b.tab('b1'))
     );
     expect(preview).toMatchObject({ windowId: b.windowId, index: 1 });
 
     await expect
       .poll(() => chromeOrder(worker, b.windowId))
-      .toEqual([b.tab.b0, a.tab.a1, b.tab.b1, b.tab.b2]);
-    expect(await chromeOrder(worker, a.windowId)).toEqual([a.tab.a0, a.tab.a2]);
+      .toEqual([b.tab('b0'), a.tab('a1'), b.tab('b1'), b.tab('b2')]);
+    expect(await chromeOrder(worker, a.windowId)).toEqual([
+      a.tab('a0'),
+      a.tab('a2'),
+    ]);
     await listMatchesChrome(
       page,
       worker,
       [a.windowId, b.windowId],
       extensionId
     );
-    await expectLandedAsPreviewed(page, a.tab.a1, preview);
+    await expectLandedAsPreviewed(page, a.tab('a1'), preview);
     // An inactive tab: neither window's front tab changes (Task 1 Q5).
     expect([
       await frontTab(worker, a.windowId),
@@ -562,17 +657,17 @@ test.describe('a drop moves the real tabs where the preview showed (KAN-280 O11,
     const g = await makeGroup(
       worker,
       a.windowId,
-      [a.tab.g1, a.tab.g2],
+      [a.tab('g1'), a.tab('g2')],
       'Grp',
       'blue'
     );
-    await expect(tabRow(page, a.tab.a3)).toBeVisible();
+    await expect(tabRow(page, a.tab('a3'))).toBeVisible();
     await expect(groupTitle(page, a.windowId, 'Grp')).toBeVisible();
     await paneFits(page);
 
     // Into: a3 between g1 and g2, inside the band.
-    const into = await dragTab(page, a.tab.a3, () =>
-      justInside(page, a.tab.g2)
+    const into = await dragTab(page, a.tab('a3'), () =>
+      justInside(page, a.tab('g2'))
     );
     expect(into).toMatchObject({
       windowId: a.windowId,
@@ -580,31 +675,33 @@ test.describe('a drop moves the real tabs where the preview showed (KAN-280 O11,
       lit: [String(g)],
     });
     await expect
-      .poll(async () => (await chromeTab(worker, a.tab.a3))?.groupId)
+      .poll(async () => (await chromeTab(worker, a.tab('a3')))?.groupId)
       .toBe(g);
     expect(await chromeOrder(worker, a.windowId)).toEqual([
-      a.tab.a0,
-      a.tab.g1,
-      a.tab.a3,
-      a.tab.g2,
+      a.tab('a0'),
+      a.tab('g1'),
+      a.tab('a3'),
+      a.tab('g2'),
     ]);
     await listMatchesChrome(page, worker, [a.windowId], extensionId);
-    await expectLandedAsPreviewed(page, a.tab.a3, into);
+    await expectLandedAsPreviewed(page, a.tab('a3'), into);
 
     // Out: g1 above a0, outside every band.
-    const out = await dragTab(page, a.tab.g1, () => justInside(page, a.tab.a0));
+    const out = await dragTab(page, a.tab('g1'), () =>
+      justInside(page, a.tab('a0'))
+    );
     expect(out).toMatchObject({ windowId: a.windowId, index: 0, lit: [] });
     await expect
-      .poll(async () => (await chromeTab(worker, a.tab.g1))?.groupId)
+      .poll(async () => (await chromeTab(worker, a.tab('g1')))?.groupId)
       .toBe(-1);
     expect(await chromeOrder(worker, a.windowId)).toEqual([
-      a.tab.g1,
-      a.tab.a0,
-      a.tab.a3,
-      a.tab.g2,
+      a.tab('g1'),
+      a.tab('a0'),
+      a.tab('a3'),
+      a.tab('g2'),
     ]);
     await listMatchesChrome(page, worker, [a.windowId], extensionId);
-    await expectLandedAsPreviewed(page, a.tab.g1, out);
+    await expectLandedAsPreviewed(page, a.tab('g1'), out);
   });
 });
 
@@ -622,9 +719,11 @@ async function dragGroup(
   return release(page, 'items');
 }
 
-// Samples a window's rows and bands on every frame from now until stopped,
-// keeping each distinct picture once: whether a multi-call move shows an
-// intermediate state after the hold ends (ledger, Task 6c).
+// A PROBE, not an assertion: samples the windows' rows and bands on every
+// frame from now until stopped, keeping each distinct picture once, and the
+// test attaches them. Whether a multi-call move shows an intermediate state
+// after the hold ends (ledger, Task 6c) is recorded for review; headless
+// runs so far show none (Task 8 report), but CI timing is not promised.
 async function startSampling(page: Page, windowIds: number[]) {
   await page.evaluate((windowIds) => {
     const seen: string[] = [];
@@ -687,28 +786,34 @@ test.describe('a whole group (KAN-280 O11a Q1, O11g G1)', () => {
     const g = await makeGroup(
       worker,
       a.windowId,
-      [a.tab.g1, a.tab.g2],
+      [a.tab('g1'), a.tab('g2')],
       'Grp',
       'blue'
     );
-    await activate(worker, a.tab.a0);
+    await activate(worker, a.tab('a0'));
     await expect(groupTitle(page, a.windowId, 'Grp')).toBeVisible();
     await paneFits(page);
 
     // Below a3, above a4: items [a0, a3, G, a4] with the group lifted out.
     const preview = await dragGroup(page, a.windowId, 'Grp', () =>
-      justInside(page, a.tab.a4)
+      justInside(page, a.tab('a4'))
     );
     expect(preview).toMatchObject({ windowId: a.windowId, index: 2 });
 
     await expect
       .poll(() => chromeOrder(worker, a.windowId))
-      .toEqual([a.tab.a0, a.tab.a3, a.tab.g1, a.tab.g2, a.tab.a4]);
-    expect((await chromeTab(worker, a.tab.g1))?.groupId).toBe(g);
+      .toEqual([
+        a.tab('a0'),
+        a.tab('a3'),
+        a.tab('g1'),
+        a.tab('g2'),
+        a.tab('a4'),
+      ]);
+    expect((await chromeTab(worker, a.tab('g1')))?.groupId).toBe(g);
     expect(await groupLook(worker, g)).toEqual({ title: 'Grp', color: 'blue' });
     await listMatchesChrome(page, worker, [a.windowId], extensionId);
-    expect((await shownPlace(page, a.tab.g1))?.item).toBe(preview.index);
-    expect(await frontTab(worker, a.windowId)).toBe(a.tab.a0);
+    expect((await shownPlace(page, a.tab('g1')))?.item).toBe(preview.index);
+    expect(await frontTab(worker, a.windowId)).toBe(a.tab('a0'));
   });
 
   test('4b. into another window, by tabGroups.move: same id, same look, no front tab changes', async ({
@@ -722,25 +827,34 @@ test.describe('a whole group (KAN-280 O11a Q1, O11g G1)', () => {
     const g = await makeGroup(
       worker,
       a.windowId,
-      [a.tab.g1, a.tab.g2],
+      [a.tab('g1'), a.tab('g2')],
       'Grp',
       'red'
     );
-    await activate(worker, a.tab.a0);
+    await activate(worker, a.tab('a0'));
     await expect(groupTitle(page, a.windowId, 'Grp')).toBeVisible();
-    await expect(tabRow(page, b.tab.b2)).toBeVisible();
+    await expect(tabRow(page, b.tab('b2'))).toBeVisible();
     await paneFits(page);
 
     const preview = await dragGroup(page, a.windowId, 'Grp', () =>
-      justInside(page, b.tab.b1)
+      justInside(page, b.tab('b1'))
     );
     expect(preview).toMatchObject({ windowId: b.windowId, index: 1 });
 
     await expect
       .poll(() => chromeOrder(worker, b.windowId))
-      .toEqual([b.tab.b0, a.tab.g1, a.tab.g2, b.tab.b1, b.tab.b2]);
-    expect(await chromeOrder(worker, a.windowId)).toEqual([a.tab.a0, a.tab.a3]);
-    expect((await chromeTab(worker, a.tab.g1))?.groupId).toBe(g);
+      .toEqual([
+        b.tab('b0'),
+        a.tab('g1'),
+        a.tab('g2'),
+        b.tab('b1'),
+        b.tab('b2'),
+      ]);
+    expect(await chromeOrder(worker, a.windowId)).toEqual([
+      a.tab('a0'),
+      a.tab('a3'),
+    ]);
+    expect((await chromeTab(worker, a.tab('g1')))?.groupId).toBe(g);
     expect(await groupLook(worker, g)).toEqual({ title: 'Grp', color: 'red' });
     await listMatchesChrome(
       page,
@@ -748,9 +862,9 @@ test.describe('a whole group (KAN-280 O11a Q1, O11g G1)', () => {
       [a.windowId, b.windowId],
       extensionId
     );
-    expect((await shownPlace(page, a.tab.g1))?.item).toBe(preview.index);
-    expect(await frontTab(worker, a.windowId)).toBe(a.tab.a0);
-    expect(await frontTab(worker, b.windowId)).toBe(b.tab.b0);
+    expect((await shownPlace(page, a.tab('g1')))?.item).toBe(preview.index);
+    expect(await frontTab(worker, a.windowId)).toBe(a.tab('a0'));
+    expect(await frontTab(worker, b.windowId)).toBe(b.tab('b0'));
   });
 
   // G1: tabGroups.move would make g1 the destination's front tab (Task 1
@@ -771,39 +885,45 @@ test.describe('a whole group (KAN-280 O11a Q1, O11g G1)', () => {
     const g = await makeGroup(
       worker,
       a.windowId,
-      [a.tab.g1, a.tab.g2],
+      [a.tab('g1'), a.tab('g2')],
       'Front',
       'green'
     );
-    await activate(worker, a.tab.g1);
+    await activate(worker, a.tab('g1'));
     // PREMISE: g1 is A's front tab, b0 is B's.
-    expect(await frontTab(worker, a.windowId)).toBe(a.tab.g1);
-    expect(await frontTab(worker, b.windowId)).toBe(b.tab.b0);
+    expect(await frontTab(worker, a.windowId)).toBe(a.tab('g1'));
+    expect(await frontTab(worker, b.windowId)).toBe(b.tab('b0'));
     await expect(groupTitle(page, a.windowId, 'Front')).toBeVisible();
-    await expect(tabRow(page, b.tab.b2)).toBeVisible();
+    await expect(tabRow(page, b.tab('b2'))).toBeVisible();
     await paneFits(page);
 
     const { x } = await pickUp(page, groupTitle(page, a.windowId, 'Front'));
     await page.waitForTimeout(350);
-    await moveTo(page, x, await justInside(page, b.tab.b1));
+    await moveTo(page, x, await justInside(page, b.tab('b1')));
     await startSampling(page, [a.windowId, b.windowId]);
     const preview = await release(page, 'items');
     expect(preview).toMatchObject({ windowId: b.windowId, index: 1 });
 
+    // The whole end state in one poll: B's order, g1 and g2 in one group
+    // other than g, and that group's look.
+    const moved = [a.tab('g1'), a.tab('g2')];
     await expect
-      .poll(async () => (await chromeTab(worker, a.tab.g2))?.groupId ?? -1)
-      .not.toBe(-1);
-    await expect
-      .poll(() => chromeOrder(worker, b.windowId))
-      .toEqual([b.tab.b0, a.tab.g1, a.tab.g2, b.tab.b1, b.tab.b2]);
-    const regrouped = (await chromeTab(worker, a.tab.g1))?.groupId ?? -1;
-    expect(regrouped).not.toBe(-1);
-    expect(regrouped).not.toBe(g);
-    expect((await chromeTab(worker, a.tab.g2))?.groupId).toBe(regrouped);
-    expect(await groupLook(worker, regrouped)).toEqual({
-      title: 'Front',
-      color: 'green',
-    });
+      .poll(async () => {
+        const end = await groupedEndState(worker, b.windowId, moved);
+        return { ...end, group: end.group !== null && end.group !== g };
+      })
+      .toEqual({
+        order: [
+          b.tab('b0'),
+          a.tab('g1'),
+          a.tab('g2'),
+          b.tab('b1'),
+          b.tab('b2'),
+        ],
+        group: true,
+        title: 'Front',
+        color: 'green',
+      });
     await listMatchesChrome(
       page,
       worker,
@@ -811,20 +931,15 @@ test.describe('a whole group (KAN-280 O11a Q1, O11g G1)', () => {
       extensionId
     );
     const pictures = await stopSampling(page);
-    console.log(
-      `4c flicker samples (A | B), ${pictures.length}:\n  ${pictures.join(
-        '\n  '
-      )}`
-    );
     await test.info().attach('4c-flicker-samples', {
       body: JSON.stringify(pictures, null, 2),
       contentType: 'application/json',
     });
-    expect((await shownPlace(page, a.tab.g1))?.item).toBe(preview.index);
+    expect((await shownPlace(page, a.tab('g1')))?.item).toBe(preview.index);
     // Every window's front tab, as Chrome's neighbour rule says: B keeps b0,
     // and A shows the tab after the group's run.
-    expect(await frontTab(worker, b.windowId)).toBe(b.tab.b0);
-    expect(await frontTab(worker, a.windowId)).toBe(a.tab.a3);
+    expect(await frontTab(worker, b.windowId)).toBe(b.tab('b0'));
+    expect(await frontTab(worker, a.windowId)).toBe(a.tab('a3'));
     expect(await frontTab(worker, self.windowId)).toBe(self.id);
   });
 });
@@ -840,14 +955,14 @@ test.describe('the pinned boundary (KAN-280 O11c, K1)', () => {
     // Pinned before the tab view opens, so its first read has them: a
     // premise that holds on any build (main's rows have no pin mark).
     const a = await openWindow(worker, ['p0', 'p1', 'a2', 'a3', 'a4']);
-    await pin(worker, [a.tab.p0, a.tab.p1]);
+    await pin(worker, [a.tab('p0'), a.tab('p1')]);
     const page = await openTabView(context, extensionId);
-    await expect(tabRow(page, a.tab.a4)).toBeVisible();
+    await expect(tabRow(page, a.tab('a4'))).toBeVisible();
     await paneFits(page);
 
-    const { x } = await pickUp(page, tabRow(page, a.tab.a4));
+    const { x } = await pickUp(page, tabRow(page, a.tab('a4')));
     // Over every point of the pinned run, the slot is below it.
-    const top = (await boxOf(tabRow(page, a.tab.p0))).y;
+    const top = (await boxOf(tabRow(page, a.tab('p0')))).y;
     const seen: (number | null)[] = [];
     for (const y of [top + 4, top + 16, top + 28, top + 36, top + 50]) {
       await moveTo(page, x, y);
@@ -861,10 +976,16 @@ test.describe('the pinned boundary (KAN-280 O11c, K1)', () => {
 
     await expect
       .poll(() => chromeOrder(worker, a.windowId))
-      .toEqual([a.tab.p0, a.tab.p1, a.tab.a4, a.tab.a2, a.tab.a3]);
-    expect((await chromeTab(worker, a.tab.a4))?.pinned).toBe(false);
+      .toEqual([
+        a.tab('p0'),
+        a.tab('p1'),
+        a.tab('a4'),
+        a.tab('a2'),
+        a.tab('a3'),
+      ]);
+    expect((await chromeTab(worker, a.tab('a4')))?.pinned).toBe(false);
     await listMatchesChrome(page, worker, [a.windowId], extensionId);
-    await expectLandedAsPreviewed(page, a.tab.a4, preview);
+    await expectLandedAsPreviewed(page, a.tab('a4'), preview);
   });
 
   test('5b. a pinned tab held below the run is only shown slots inside it, and stays pinned', async ({
@@ -875,14 +996,14 @@ test.describe('the pinned boundary (KAN-280 O11c, K1)', () => {
     // Pinned before the tab view opens, so its first read has them: a
     // premise that holds on any build (main's rows have no pin mark).
     const a = await openWindow(worker, ['p0', 'p1', 'a2', 'a3', 'a4']);
-    await pin(worker, [a.tab.p0, a.tab.p1]);
+    await pin(worker, [a.tab('p0'), a.tab('p1')]);
     const page = await openTabView(context, extensionId);
-    await expect(tabRow(page, a.tab.a4)).toBeVisible();
+    await expect(tabRow(page, a.tab('a4'))).toBeVisible();
     await paneFits(page);
 
-    const { x } = await pickUp(page, tabRow(page, a.tab.p0));
+    const { x } = await pickUp(page, tabRow(page, a.tab('p0')));
     const seen: (number | null)[] = [];
-    for (const id of [a.tab.a2, a.tab.a3, a.tab.a4]) {
+    for (const id of [a.tab('a2'), a.tab('a3'), a.tab('a4')]) {
       await moveTo(page, x, await justBelow(page, id));
       seen.push((await previewNow(page, 'tabs'))?.index ?? null);
     }
@@ -893,10 +1014,16 @@ test.describe('the pinned boundary (KAN-280 O11c, K1)', () => {
 
     await expect
       .poll(() => chromeOrder(worker, a.windowId))
-      .toEqual([a.tab.p1, a.tab.p0, a.tab.a2, a.tab.a3, a.tab.a4]);
-    expect((await chromeTab(worker, a.tab.p0))?.pinned).toBe(true);
+      .toEqual([
+        a.tab('p1'),
+        a.tab('p0'),
+        a.tab('a2'),
+        a.tab('a3'),
+        a.tab('a4'),
+      ]);
+    expect((await chromeTab(worker, a.tab('p0')))?.pinned).toBe(true);
     await listMatchesChrome(page, worker, [a.windowId], extensionId);
-    await expectLandedAsPreviewed(page, a.tab.p0, preview);
+    await expectLandedAsPreviewed(page, a.tab('p0'), preview);
   });
 
   test('5c. K1: a pinned tab held over another window is shown no slot there, and a release puts it back, pinned', async ({
@@ -908,15 +1035,15 @@ test.describe('the pinned boundary (KAN-280 O11c, K1)', () => {
     // premise that holds on any build (main's rows have no pin mark).
     const a = await openWindow(worker, ['p0', 'a1', 'a2']);
     const b = await openWindow(worker, ['b0', 'b1', 'b2']);
-    await pin(worker, [a.tab.p0]);
+    await pin(worker, [a.tab('p0')]);
     const page = await openTabView(context, extensionId);
-    await expect(tabRow(page, a.tab.a2)).toBeVisible();
-    await expect(tabRow(page, b.tab.b2)).toBeVisible();
+    await expect(tabRow(page, a.tab('a2'))).toBeVisible();
+    await expect(tabRow(page, b.tab('b2'))).toBeVisible();
     await paneFits(page);
 
     // CONTROL: an unpinned tab held at the same point IS shown a slot in B.
-    const control = await pickUp(page, tabRow(page, a.tab.a1));
-    await moveTo(page, control.x, await justInside(page, b.tab.b1));
+    const control = await pickUp(page, tabRow(page, a.tab('a1')));
+    await moveTo(page, control.x, await justInside(page, b.tab('b1')));
     expect(await previewNow(page, 'tabs')).toMatchObject({
       windowId: b.windowId,
       index: 1,
@@ -926,29 +1053,29 @@ test.describe('the pinned boundary (KAN-280 O11c, K1)', () => {
     await page.waitForTimeout(300);
     // PREMISE: Escape cancelled the control; nothing moved.
     expect(await chromeOrder(worker, a.windowId)).toEqual([
-      a.tab.p0,
-      a.tab.a1,
-      a.tab.a2,
+      a.tab('p0'),
+      a.tab('a1'),
+      a.tab('a2'),
     ]);
 
-    const { x } = await pickUp(page, tabRow(page, a.tab.p0));
-    for (const id of [b.tab.b0, b.tab.b1, b.tab.b2]) {
-      await moveTo(page, x, await justInside(page, id));
-      const now = await previewNow(page, 'tabs');
-      // Held all along, and never a slot in B.
-      expect(now?.held).toBe(String(a.tab.p0));
-      expect(now?.windowId).not.toBe(b.windowId);
-    }
-    const preview = await release(page, 'tabs');
-    expect(preview.windowId).not.toBe(b.windowId);
-
-    await page.waitForTimeout(500);
+    // Over each row of B, and released there: the refused preview (p0's
+    // own slot, index 0 in A), and p0 back there.
+    await expectTabRefused(
+      page,
+      worker,
+      a.tab('p0'),
+      [b.tab('b0'), b.tab('b1'), b.tab('b2')].map(
+        (id) => () => justInside(page, id)
+      ),
+      [a.windowId, b.windowId],
+      extensionId
+    );
     expect(await chromeOrder(worker, b.windowId)).toEqual([
-      b.tab.b0,
-      b.tab.b1,
-      b.tab.b2,
+      b.tab('b0'),
+      b.tab('b1'),
+      b.tab('b2'),
     ]);
-    expect(await chromeTab(worker, a.tab.p0)).toMatchObject({
+    expect(await chromeTab(worker, a.tab('p0'))).toMatchObject({
       windowId: a.windowId,
       index: 0,
       pinned: true,
@@ -1022,8 +1149,10 @@ test("6. incognito and normal windows refuse each other's rows: no slot, and a r
     await page.evaluate(() => chrome.extension.isAllowedIncognitoAccess())
   ).toBe(true);
 
-  const incognitoWindow = async (titles: string[]): Promise<Made> => {
-    const made = await page.evaluate(async (urls: string[]) => {
+  const incognitoWindow = async <T extends string>(
+    titles: readonly T[]
+  ): Promise<Made<T>> => {
+    const opened = await page.evaluate(async (urls: string[]) => {
       const win = await chrome.windows.create({
         focused: false,
         incognito: true,
@@ -1035,66 +1164,66 @@ test("6. incognito and normal windows refuse each other's rows: no slot, and a r
       if (win?.id === undefined || win.incognito !== true) return null;
       return { windowId: win.id, tabIds };
     }, titles.map(dataUrl));
-    if (made === null) throw new Error('Chrome gave no incognito window');
-    return {
-      windowId: made.windowId,
-      tab: Object.fromEntries(titles.map((t, i) => [t, made.tabIds[i]])),
-    };
+    if (opened === null) throw new Error('Chrome gave no incognito window');
+    return made(opened.windowId, titles, opened.tabIds);
   };
   const n = await openWindow(page, ['n0', 'n1', 'n2']);
   const m = await openWindow(page, ['m0', 'm1', 'm2']);
   const i = await incognitoWindow(['i0', 'i1', 'i2']);
   const j = await incognitoWindow(['j0', 'j1']);
   const all = [n.windowId, m.windowId, i.windowId, j.windowId];
-  await expect(tabRow(page, j.tab.j1)).toBeVisible();
+  await expect(tabRow(page, j.tab('j1'))).toBeVisible();
   await paneFits(page);
 
-  // Held over a window of the other profile: held, and no slot there.
-  const refusedOver = async (tabId: number, own: number, other: Made) => {
-    const { x } = await pickUp(page, tabRow(page, tabId));
-    for (const id of Object.values(other.tab)) {
-      await moveTo(page, x, await justInside(page, id));
-      const now = await previewNow(page, 'tabs');
-      expect(now?.held).toBe(String(tabId));
-      expect(now?.windowId).not.toBe(other.windowId);
-    }
-    const preview = await release(page, 'tabs');
-    expect(preview.windowId).not.toBe(other.windowId);
-    await page.waitForTimeout(500);
-    expect(await chromeTab(page, tabId)).toMatchObject({ windowId: own });
-  };
-  await refusedOver(n.tab.n0, n.windowId, i);
-  await refusedOver(i.tab.i0, i.windowId, m);
+  // Held over each row of a window of the other profile, and released
+  // there: the refused preview (its own slot), and back in its own place.
+  const over = (ids: number[]) => ids.map((id) => () => justInside(page, id));
+  await expectTabRefused(
+    page,
+    page,
+    n.tab('n0'),
+    over([i.tab('i0'), i.tab('i1'), i.tab('i2')]),
+    all,
+    extensionId
+  );
+  await expectTabRefused(
+    page,
+    page,
+    i.tab('i0'),
+    over([m.tab('m0'), m.tab('m1'), m.tab('m2')]),
+    all,
+    extensionId
+  );
   expect(await chromeOrder(page, n.windowId)).toEqual([
-    n.tab.n0,
-    n.tab.n1,
-    n.tab.n2,
+    n.tab('n0'),
+    n.tab('n1'),
+    n.tab('n2'),
   ]);
   expect(await chromeOrder(page, i.windowId)).toEqual([
-    i.tab.i0,
-    i.tab.i1,
-    i.tab.i2,
+    i.tab('i0'),
+    i.tab('i1'),
+    i.tab('i2'),
   ]);
   await listMatchesChrome(page, page, all, extensionId);
 
   // CONTROLS: within a profile, the same gesture moves the tab.
-  const normal = await dragTab(page, n.tab.n1, () =>
-    justInside(page, m.tab.m1)
+  const normal = await dragTab(page, n.tab('n1'), () =>
+    justInside(page, m.tab('m1'))
   );
   expect(normal).toMatchObject({ windowId: m.windowId, index: 1 });
   await expect
     .poll(() => chromeOrder(page, m.windowId))
-    .toEqual([m.tab.m0, n.tab.n1, m.tab.m1, m.tab.m2]);
-  const incognito = await dragTab(page, i.tab.i1, () =>
-    justInside(page, j.tab.j1)
+    .toEqual([m.tab('m0'), n.tab('n1'), m.tab('m1'), m.tab('m2')]);
+  const incognito = await dragTab(page, i.tab('i1'), () =>
+    justInside(page, j.tab('j1'))
   );
   expect(incognito).toMatchObject({ windowId: j.windowId, index: 1 });
   await expect
     .poll(() => chromeOrder(page, j.windowId))
-    .toEqual([j.tab.j0, i.tab.i1, j.tab.j1]);
+    .toEqual([j.tab('j0'), i.tab('i1'), j.tab('j1')]);
   await listMatchesChrome(page, page, all, extensionId);
-  await expectLandedAsPreviewed(page, n.tab.n1, normal);
-  await expectLandedAsPreviewed(page, i.tab.i1, incognito);
+  await expectLandedAsPreviewed(page, n.tab('n1'), normal);
+  await expectLandedAsPreviewed(page, i.tab('i1'), incognito);
 });
 
 // ---- 7: undo -------------------------------------------------------------------
@@ -1132,13 +1261,13 @@ test.describe('⌘Z undoes an Open now drag (KAN-280 O11f, U1)', () => {
   }) => {
     const page = await openTabView(context, extensionId);
     const a = await openWindow(worker, ['a0', 'a1', 'a2', 'a3']);
-    await expect(tabRow(page, a.tab.a3)).toBeVisible();
-    const start = [a.tab.a0, a.tab.a1, a.tab.a2, a.tab.a3];
+    await expect(tabRow(page, a.tab('a3'))).toBeVisible();
+    const start = [a.tab('a0'), a.tab('a1'), a.tab('a2'), a.tab('a3')];
 
-    await dragTab(page, a.tab.a3, () => justInside(page, a.tab.a1));
+    await dragTab(page, a.tab('a3'), () => justInside(page, a.tab('a1')));
     await expect
       .poll(() => chromeOrder(worker, a.windowId))
-      .toEqual([a.tab.a0, a.tab.a3, a.tab.a1, a.tab.a2]);
+      .toEqual([a.tab('a0'), a.tab('a3'), a.tab('a1'), a.tab('a2')]);
     await listMatchesChrome(page, worker, [a.windowId], extensionId);
 
     await undoKey(page);
@@ -1154,12 +1283,12 @@ test.describe('⌘Z undoes an Open now drag (KAN-280 O11f, U1)', () => {
     const page = await openTabView(context, extensionId);
     const a = await openWindow(worker, ['a0', 'a1', 'a2']);
     const b = await openWindow(worker, ['b0', 'b1', 'b2']);
-    await expect(tabRow(page, b.tab.b2)).toBeVisible();
+    await expect(tabRow(page, b.tab('b2'))).toBeVisible();
 
-    await dragTab(page, a.tab.a1, () => justInside(page, b.tab.b1));
+    await dragTab(page, a.tab('a1'), () => justInside(page, b.tab('b1')));
     await expect
       .poll(() => chromeOrder(worker, b.windowId))
-      .toEqual([b.tab.b0, a.tab.a1, b.tab.b1, b.tab.b2]);
+      .toEqual([b.tab('b0'), a.tab('a1'), b.tab('b1'), b.tab('b2')]);
     await listMatchesChrome(
       page,
       worker,
@@ -1170,11 +1299,11 @@ test.describe('⌘Z undoes an Open now drag (KAN-280 O11f, U1)', () => {
     await undoKey(page);
     await expect
       .poll(() => chromeOrder(worker, a.windowId))
-      .toEqual([a.tab.a0, a.tab.a1, a.tab.a2]);
+      .toEqual([a.tab('a0'), a.tab('a1'), a.tab('a2')]);
     expect(await chromeOrder(worker, b.windowId)).toEqual([
-      b.tab.b0,
-      b.tab.b1,
-      b.tab.b2,
+      b.tab('b0'),
+      b.tab('b1'),
+      b.tab('b2'),
     ]);
     await listMatchesChrome(
       page,
@@ -1195,20 +1324,22 @@ test.describe('⌘Z undoes an Open now drag (KAN-280 O11f, U1)', () => {
     const g = await makeGroup(
       worker,
       a.windowId,
-      [a.tab.g1, a.tab.g2],
+      [a.tab('g1'), a.tab('g2')],
       'Grp',
       'red'
     );
-    await activate(worker, a.tab.a0);
+    await activate(worker, a.tab('a0'));
     await expect(groupTitle(page, a.windowId, 'Grp')).toBeVisible();
-    await expect(tabRow(page, b.tab.b1)).toBeVisible();
-    const startA = [a.tab.a0, a.tab.g1, a.tab.g2, a.tab.a3];
+    await expect(tabRow(page, b.tab('b1'))).toBeVisible();
+    const startA = [a.tab('a0'), a.tab('g1'), a.tab('g2'), a.tab('a3')];
 
     // tabGroups.move, then ⌘Z: the same group back where it was.
-    await dragGroup(page, a.windowId, 'Grp', () => justInside(page, b.tab.b1));
+    await dragGroup(page, a.windowId, 'Grp', () =>
+      justInside(page, b.tab('b1'))
+    );
     await expect
       .poll(() => chromeOrder(worker, b.windowId))
-      .toEqual([b.tab.b0, a.tab.g1, a.tab.g2, b.tab.b1]);
+      .toEqual([b.tab('b0'), a.tab('g1'), a.tab('g2'), b.tab('b1')]);
     await listMatchesChrome(
       page,
       worker,
@@ -1217,8 +1348,11 @@ test.describe('⌘Z undoes an Open now drag (KAN-280 O11f, U1)', () => {
     );
     await undoKey(page);
     await expect.poll(() => chromeOrder(worker, a.windowId)).toEqual(startA);
-    expect((await chromeTab(worker, a.tab.g1))?.groupId).toBe(g);
-    expect(await chromeOrder(worker, b.windowId)).toEqual([b.tab.b0, b.tab.b1]);
+    expect((await chromeTab(worker, a.tab('g1')))?.groupId).toBe(g);
+    expect(await chromeOrder(worker, b.windowId)).toEqual([
+      b.tab('b0'),
+      b.tab('b1'),
+    ]);
     await listMatchesChrome(
       page,
       worker,
@@ -1227,20 +1361,30 @@ test.describe('⌘Z undoes an Open now drag (KAN-280 O11f, U1)', () => {
     );
 
     // G1 (g1 is A's front tab), then ⌘Z: back in A with the look, as a group.
-    await activate(worker, a.tab.g1);
+    await activate(worker, a.tab('g1'));
     await listMatchesChrome(
       page,
       worker,
       [a.windowId, b.windowId],
       extensionId
     );
-    await dragGroup(page, a.windowId, 'Grp', () => justInside(page, b.tab.b1));
+    await dragGroup(page, a.windowId, 'Grp', () =>
+      justInside(page, b.tab('b1'))
+    );
+    // The whole G1 end state at once, so the drop's record is kept before
+    // the key is pressed.
+    const members = [a.tab('g1'), a.tab('g2')];
     await expect
-      .poll(() => chromeOrder(worker, b.windowId))
-      .toEqual([b.tab.b0, a.tab.g1, a.tab.g2, b.tab.b1]);
-    await expect
-      .poll(async () => (await chromeTab(worker, a.tab.g2))?.groupId ?? -1)
-      .not.toBe(-1);
+      .poll(async () => {
+        const end = await groupedEndState(worker, b.windowId, members);
+        return { ...end, group: end.group !== null && end.group !== g };
+      })
+      .toEqual({
+        order: [b.tab('b0'), a.tab('g1'), a.tab('g2'), b.tab('b1')],
+        group: true,
+        title: 'Grp',
+        color: 'red',
+      });
     await listMatchesChrome(
       page,
       worker,
@@ -1248,18 +1392,17 @@ test.describe('⌘Z undoes an Open now drag (KAN-280 O11f, U1)', () => {
       extensionId
     );
     await undoKey(page);
-    await expect.poll(() => chromeOrder(worker, a.windowId)).toEqual(startA);
     await expect
-      .poll(async () => (await chromeTab(worker, a.tab.g2))?.groupId ?? -1)
-      .not.toBe(-1);
-    const back = (await chromeTab(worker, a.tab.g1))?.groupId ?? -1;
-    expect((await chromeTab(worker, a.tab.g2))?.groupId).toBe(back);
-    expect(await groupLook(worker, back)).toEqual({
-      title: 'Grp',
-      color: 'red',
-    });
-    expect(await chromeOrder(worker, b.windowId)).toEqual([b.tab.b0, b.tab.b1]);
-    expect(await frontTab(worker, b.windowId)).toBe(b.tab.b0);
+      .poll(async () => {
+        const end = await groupedEndState(worker, a.windowId, members);
+        return { ...end, group: end.group !== null };
+      })
+      .toEqual({ order: startA, group: true, title: 'Grp', color: 'red' });
+    expect(await chromeOrder(worker, b.windowId)).toEqual([
+      b.tab('b0'),
+      b.tab('b1'),
+    ]);
+    expect(await frontTab(worker, b.windowId)).toBe(b.tab('b0'));
     await listMatchesChrome(
       page,
       worker,
@@ -1283,24 +1426,24 @@ test.describe('⌘Z undoes an Open now drag (KAN-280 O11f, U1)', () => {
     }) => {
       const page = await openTabView(context, extensionId);
       const a = await openWindow(worker, ['a0', 'a1', 'a2', 'a3']);
-      await expect(tabRow(page, a.tab.a3)).toBeVisible();
+      await expect(tabRow(page, a.tab('a3'))).toBeVisible();
       const saved = await saveAll(page);
 
-      await dragTab(page, a.tab.a3, () => justInside(page, a.tab.a1));
+      await dragTab(page, a.tab('a3'), () => justInside(page, a.tab('a1')));
       await expect
         .poll(() => chromeOrder(worker, a.windowId))
-        .toEqual([a.tab.a0, a.tab.a3, a.tab.a1, a.tab.a2]);
+        .toEqual([a.tab('a0'), a.tab('a3'), a.tab('a1'), a.tab('a2')]);
 
       const expected =
         stale === 'moved by hand'
-          ? [a.tab.a3, a.tab.a0, a.tab.a1, a.tab.a2]
-          : [a.tab.a0, a.tab.a1, a.tab.a2];
+          ? [a.tab('a3'), a.tab('a0'), a.tab('a1'), a.tab('a2')]
+          : [a.tab('a0'), a.tab('a1'), a.tab('a2')];
       await worker.evaluate(
         async ({ id, move }) => {
           if (move) await chrome.tabs.move(id, { index: 0 });
           else await chrome.tabs.remove(id);
         },
-        { id: a.tab.a3, move: stale === 'moved by hand' }
+        { id: a.tab('a3'), move: stale === 'moved by hand' }
       );
       await expect
         .poll(() => chromeOrder(worker, a.windowId))
@@ -1328,17 +1471,17 @@ test.describe('⌘Z undoes an Open now drag (KAN-280 O11f, U1)', () => {
   }) => {
     const page = await openTabView(context, extensionId);
     const a = await openWindow(worker, ['a0', 'a1', 'a2']);
-    await expect(tabRow(page, a.tab.a2)).toBeVisible();
-    const start = [a.tab.a0, a.tab.a1, a.tab.a2];
+    await expect(tabRow(page, a.tab('a2'))).toBeVisible();
+    const start = [a.tab('a0'), a.tab('a1'), a.tab('a2')];
     const fronts = await frontTab(worker, a.windowId);
     const saved = await saveAll(page);
 
     // Held, moved within its own slot, released: a drop in place.
-    const { x, y } = await pickUp(page, tabRow(page, a.tab.a1));
+    const { x, y } = await pickUp(page, tabRow(page, a.tab('a1')));
     await moveTo(page, x + 40, y - 4);
     const preview = await release(page, 'tabs');
     expect(preview).toMatchObject({
-      held: String(a.tab.a1),
+      held: String(a.tab('a1')),
       windowId: a.windowId,
       index: 1,
     });
@@ -1388,47 +1531,65 @@ test.describe("the tab view's own page (KAN-280 O11h T1, Review Focus 2)", () =>
     );
     const b = await openWindow(worker, ['b0', 'b1', 'b2']);
     await expect(groupTitle(page, home, 'Home')).toBeVisible();
-    await expect(tabRow(page, b.tab.b2)).toBeVisible();
+    await expect(tabRow(page, b.tab('b2'))).toBeVisible();
     await expect(tabRow(page, c0)).toBeVisible();
     await paneFits(page);
     const homeStart = await chromeOrder(worker, home);
 
     // CONTROL: a group NOT holding this page is shown a slot in B.
     const other = await openWindow(worker, ['o0', 'o1']);
-    await makeGroup(worker, other.windowId, [other.tab.o0], 'Other', 'cyan');
+    await makeGroup(worker, other.windowId, [other.tab('o0')], 'Other', 'cyan');
     await expect(groupTitle(page, other.windowId, 'Other')).toBeVisible();
     const control = await pickUp(
       page,
       groupTitle(page, other.windowId, 'Other')
     );
     await page.waitForTimeout(350);
-    await moveTo(page, control.x, await justInside(page, b.tab.b1));
+    await moveTo(page, control.x, await justInside(page, b.tab('b1')));
     expect(await previewNow(page, 'items')).toMatchObject({
       windowId: b.windowId,
     });
     await page.keyboard.press('Escape');
     await page.mouse.up();
     await page.waitForTimeout(300);
+    // PREMISE: Escape cancelled the control; nothing moved.
+    expect(await chromeOrder(worker, other.windowId)).toEqual([
+      other.tab('o0'),
+      other.tab('o1'),
+    ]);
+    expect(await chromeOrder(worker, b.windowId)).toEqual([
+      b.tab('b0'),
+      b.tab('b1'),
+      b.tab('b2'),
+    ]);
 
-    // Held over B: no slot there; released: back where it was.
+    // Held over each row of B, and released there: the refused preview (the
+    // group's own slot in This window), and the group back there.
+    const before = await shownPlace(page, blank.id);
+    if (before === null) throw new Error('the Home group is not listed');
+    const expected = refusedPreview(`group:${g}`, before, 'items');
     const { x } = await pickUp(page, groupTitle(page, home, 'Home'));
     await page.waitForTimeout(350);
-    for (const id of [b.tab.b0, b.tab.b1, b.tab.b2]) {
+    for (const id of [b.tab('b0'), b.tab('b1'), b.tab('b2')]) {
       await moveTo(page, x, await justInside(page, id));
-      const now = await previewNow(page, 'items');
-      expect(now?.held).toBe(`group:${g}`);
-      expect(now?.windowId).not.toBe(b.windowId);
+      expect(await previewNow(page, 'items')).toEqual(expected);
     }
     const refused = await release(page, 'items');
-    expect(refused.windowId).not.toBe(b.windowId);
+    expect(refused).toEqual(expected);
     await page.waitForTimeout(500);
     expect(await chromeOrder(worker, home)).toEqual(homeStart);
     expect(await chromeOrder(worker, b.windowId)).toEqual([
-      b.tab.b0,
-      b.tab.b1,
-      b.tab.b2,
+      b.tab('b0'),
+      b.tab('b1'),
+      b.tab('b2'),
     ]);
     expect((await chromeTab(worker, pageTab))?.groupId).toBe(g);
+    await listMatchesChrome(page, worker, [home, b.windowId], extensionId);
+    const back = await shownPlace(page, blank.id);
+    expect({ windowId: back?.windowId, item: back?.item }).toEqual({
+      windowId: refused.windowId,
+      item: refused.index,
+    });
 
     // Within its own window: below c0.
     const moved = await dragGroup(page, home, 'Home', () =>
@@ -1465,20 +1626,20 @@ test.describe("the tab view's own page (KAN-280 O11h T1, Review Focus 2)", () =>
     const g = await makeGroup(
       worker,
       b.windowId,
-      [b.tab.g1, b.tab.g2],
+      [b.tab('g1'), b.tab('g2')],
       'Join',
       'yellow'
     );
-    await activate(worker, a.tab.a0);
-    await activate(worker, b.tab.b0);
+    await activate(worker, a.tab('a0'));
+    await activate(worker, b.tab('b0'));
     // PREMISE: a0 is A's front tab, b0 is B's.
-    expect(await frontTab(worker, a.windowId)).toBe(a.tab.a0);
-    expect(await frontTab(worker, b.windowId)).toBe(b.tab.b0);
+    expect(await frontTab(worker, a.windowId)).toBe(a.tab('a0'));
+    expect(await frontTab(worker, b.windowId)).toBe(b.tab('b0'));
     await expect(groupTitle(page, b.windowId, 'Join')).toBeVisible();
     await paneFits(page);
 
-    const { x } = await pickUp(page, tabRow(page, a.tab.a0));
-    await moveTo(page, x, await justInside(page, b.tab.g2));
+    const { x } = await pickUp(page, tabRow(page, a.tab('a0')));
+    await moveTo(page, x, await justInside(page, b.tab('g2')));
     await startSampling(page, [a.windowId, b.windowId]);
     const preview = await release(page, 'tabs');
     expect(preview).toMatchObject({
@@ -1489,8 +1650,14 @@ test.describe("the tab view's own page (KAN-280 O11h T1, Review Focus 2)", () =>
 
     await expect
       .poll(() => chromeOrder(worker, b.windowId))
-      .toEqual([b.tab.b0, b.tab.g1, a.tab.a0, b.tab.g2, b.tab.b3]);
-    expect((await chromeTab(worker, a.tab.a0))?.groupId).toBe(g);
+      .toEqual([
+        b.tab('b0'),
+        b.tab('g1'),
+        a.tab('a0'),
+        b.tab('g2'),
+        b.tab('b3'),
+      ]);
+    expect((await chromeTab(worker, a.tab('a0')))?.groupId).toBe(g);
     await listMatchesChrome(
       page,
       worker,
@@ -1498,20 +1665,15 @@ test.describe("the tab view's own page (KAN-280 O11h T1, Review Focus 2)", () =>
       extensionId
     );
     const pictures = await stopSampling(page);
-    console.log(
-      `8b flicker samples (A | B), ${pictures.length}:\n  ${pictures.join(
-        '\n  '
-      )}`
-    );
     await test.info().attach('8b-flicker-samples', {
       body: JSON.stringify(pictures, null, 2),
       contentType: 'application/json',
     });
-    await expectLandedAsPreviewed(page, a.tab.a0, preview);
+    await expectLandedAsPreviewed(page, a.tab('a0'), preview);
     // It arrives behind; B keeps b0; A shows its neighbour a1.
-    expect((await chromeTab(worker, a.tab.a0))?.active).toBe(false);
-    expect(await frontTab(worker, b.windowId)).toBe(b.tab.b0);
-    expect(await frontTab(worker, a.windowId)).toBe(a.tab.a1);
+    expect((await chromeTab(worker, a.tab('a0')))?.active).toBe(false);
+    expect(await frontTab(worker, b.windowId)).toBe(b.tab('b0'));
+    expect(await frontTab(worker, a.windowId)).toBe(a.tab('a1'));
   });
 });
 
@@ -1532,35 +1694,34 @@ test("9. in the narrow tab view's drawer, a drop moves the real tab as in the pa
   await page.getByRole('button', { name: /^Open now/ }).click();
   const drawer = page.getByRole('dialog', { name: 'Open now' });
   await expect(drawer).toBeVisible();
-  await expect(tabRow(page, b.tab.b1)).toBeVisible();
+  await expect(tabRow(page, b.tab('b1'))).toBeVisible();
 
-  const preview = await dragTab(page, a.tab.a2, () =>
-    justInside(page, b.tab.b1)
+  const preview = await dragTab(page, a.tab('a2'), () =>
+    justInside(page, b.tab('b1'))
   );
   expect(preview).toMatchObject({ windowId: b.windowId, index: 1 });
   await expect
     .poll(() => chromeOrder(worker, b.windowId))
-    .toEqual([b.tab.b0, a.tab.a2, b.tab.b1]);
+    .toEqual([b.tab('b0'), a.tab('a2'), b.tab('b1')]);
   await listMatchesChrome(page, worker, [a.windowId, b.windowId], extensionId);
-  await expectLandedAsPreviewed(page, a.tab.a2, preview);
+  await expectLandedAsPreviewed(page, a.tab('a2'), preview);
   await expect(drawer).toBeVisible();
 });
 
 // ---- 11: the scroll after a drop (ledger R22) -------------------------------
 
-// Open now does not reorder until the re-read, so the engine's follow-the-
-// drop (a scrollIntoView on the next frame, KAN-155) would aim at the row's
-// OLD place. Task 6c turned it off for Open now (followDroppedRow={false}),
-// but its probe auto-scrolled UP, where the old place stayed on screen and
-// both builds ended the same. This one is aimed to tell them apart: from a
-// scrolled position, grab a row near the top, auto-scroll DOWN until its old
-// place is off screen above, and release there.
+// The guard that a drop does not throw the view back. Open now does not
+// reorder until the re-read, so the engine's follow-the-drop (a
+// scrollIntoView on the next frame, KAN-155) could aim at the row's OLD
+// place. The case most likely to show it: from a scrolled position, grab a
+// row near the top, auto-scroll DOWN until its old place is off screen
+// above, and release far below it, in another window.
 //
-// Measured on a build with the follow turned back on (Task 8, ledger R22):
-// that build passes too. Its one scrollIntoView lands on the row already
-// re-read into its NEW place (top 687 in a 123-791 pane), so `nearest`
-// scrolls nothing. So this pins what the user sees after such a drop, not
-// the prop: no build tried here jumps.
+// Measured (Task 8, ledger R22): the follow's one scrollIntoView lands on the
+// row already re-read into its NEW place (top 687 in a 123-791 pane), so
+// `nearest` scrolls nothing, and Open now keeps the saved lists' follow
+// (R28 removed the opt-out Task 6c had added). This pins what the user sees:
+// if the follow ever outran the re-read, the view would jump back.
 test('11. after an auto-scrolled drop, the pane stays where the drop left it, and the moved row is on screen', async ({
   context,
   extensionId,
@@ -1573,7 +1734,7 @@ test('11. after an auto-scrolled drop, the pane stays where the drop left it, an
   const b = await openWindow(worker, titles('b'));
   const c = await openWindow(worker, titles('c'));
   const windows = [a.windowId, b.windowId, c.windowId];
-  await expect(tabRow(page, c.tab.c11)).toBeAttached();
+  await expect(tabRow(page, c.tab('c11'))).toBeAttached();
 
   const startTop = 300;
   await page.evaluate((top) => {
@@ -1597,6 +1758,7 @@ test('11. after an auto-scrolled drop, the pane stays where the drop left it, an
           return {
             id: Number(row.getAttribute('data-open-tab-id')),
             top: r.top,
+            height: r.height,
           };
       }
       return null;
@@ -1606,7 +1768,8 @@ test('11. after an auto-scrolled drop, the pane stays where the drop left it, an
   if (grab === null) throw new Error('no row to grab');
   // The row's old place in content space: off screen once scrollTop passes
   // its bottom.
-  const oldBottom = grab.top - pane.top + startTop + 32;
+  const oldBottom = grab.top - pane.top + startTop + grab.height;
+  const grabbedFrom = (await shownPlace(page, grab.id))?.windowId;
 
   const { x } = await pickUp(page, tabRow(page, grab.id));
   // PREMISE: the pick-up did not scroll (it is clear of the edge zones).
@@ -1614,7 +1777,7 @@ test('11. after an auto-scrolled drop, the pane stays where the drop left it, an
   await page.mouse.move(x, pane.bottom - 10, { steps: 10 });
   await expect
     .poll(async () => (await paneOf(page))?.scrollTop ?? 0, { timeout: 10000 })
-    .toBeGreaterThan(oldBottom + 32);
+    .toBeGreaterThan(oldBottom + grab.height);
   // Out of the zone, so the scroll rests before the release.
   await moveTo(page, x, pane.bottom - EDGE_ZONE_PX - 40);
   const atRest = (await paneOf(page))?.scrollTop ?? 0;
@@ -1647,22 +1810,31 @@ test('11. after an auto-scrolled drop, the pane stays where the drop left it, an
     .toBe(6);
   const frames = await page.evaluate(() => window.__openNowScrollLog ?? []);
 
+  // PREMISE: the drop crossed windows, so a change of window in Chrome is
+  // the move having happened.
+  expect(preview.windowId).not.toBe(grabbedFrom);
   await expect
     .poll(async () => (await chromeTab(worker, grab.id))?.windowId)
     .toBe(preview.windowId);
   await listMatchesChrome(page, worker, windows, extensionId);
-  await page.waitForTimeout(300);
   const after = await paneOf(page);
   const rowBox = await boxOf(tabRow(page, grab.id));
-  console.log(
-    `R22: before ${startTop}, at rest ${atRest}, release+frames ${frames.join(
-      ' '
-    )}, after re-read ${after?.scrollTop}; old place bottom ${oldBottom}; row now ${Math.round(
-      rowBox.y
-    )}..${Math.round(rowBox.y + rowBox.height)} in pane ${Math.round(
-      pane.top
-    )}..${Math.round(pane.bottom)}`
-  );
+  await test.info().attach('scroll-after-drop', {
+    body: JSON.stringify(
+      {
+        before: startTop,
+        atRest,
+        releaseAndFrames: frames,
+        afterReread: after?.scrollTop,
+        oldBottom,
+        rowNow: [rowBox.y, rowBox.y + rowBox.height],
+        pane: [pane.top, pane.bottom],
+      },
+      null,
+      2
+    ),
+    contentType: 'application/json',
+  });
 
   await expectLandedAsPreviewed(page, grab.id, preview);
   // The scroll never followed the row back to its old place: through the
