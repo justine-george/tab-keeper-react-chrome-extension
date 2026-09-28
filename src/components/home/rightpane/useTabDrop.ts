@@ -16,7 +16,6 @@ import { useCallback, useMemo } from 'react';
 import { useDispatch } from 'react-redux';
 
 import type { AppDispatch } from '../../../redux/store';
-import type { tabData } from '../../../redux/slices/tabContainerDataStateSlice';
 import { dropOnTop } from '../../../redux/dropOnTop';
 import { tabDrop } from '../../../redux/dropSpecs';
 import {
@@ -29,10 +28,13 @@ import {
   bandAt,
   groupEndingAbove,
   type BandGapChange,
+  type DragTab,
+  type DragWindows,
   type DropTarget,
   type FixedRowLanding,
   type PaneWindows,
   type RemovedFixedRows,
+  type TabMove,
 } from './rowDrag/dropRules';
 import { ADJACENT_GROUP_GAP_PX, BAND_MARGIN_PX } from './bandSpacing';
 
@@ -65,8 +67,8 @@ interface BandNeighbours {
 }
 
 export function groupEdgesOf(
-  tabs: tabData[],
-  groups: chromeTabGroupData[] | undefined
+  tabs: readonly DragTab[],
+  groups: readonly chromeTabGroupData[] | undefined
 ): WindowGroupEdges {
   const indexOfTab = new Map(tabs.map((tab, i) => [tab.tabId, i]));
   const groupFirstIndex = new Map<string, number>();
@@ -419,18 +421,17 @@ export function fixedRowsRemovedByIn(
 }
 
 /**
- * Everything a `tabs` drag area needs from the windows it lists. Read by
- * TabDragArea, the one place a tab list is wired up.
+ * Everything a `tabs` drag area needs from the windows it lists, except what a
+ * drop does: where rows are, which band a pointer is over, and what a release
+ * there would move where (describeTabMove). Asks nothing of Redux, so any list
+ * of windows that can name its tabs and groups by string id can use it.
  */
-export function useTabDrop(
-  tabList: PaneWindows,
+export function useTabDropGeometry(
+  windows: DragWindows,
   hasTabGroupsPermission: boolean
 ) {
-  const dispatch: AppDispatch = useDispatch();
-  const { windows, tabGroupId } = tabList;
-
-  // Every tab in the session, in render order. A tab drag must be able to name
-  // a row in ANOTHER window, which a per-window area cannot do.
+  // Every tab in every window listed, in render order. A tab drag must be able
+  // to name a row in ANOTHER window, which a per-window area cannot do.
   const rowIds = useMemo(
     () => windows.flatMap((w) => w.tabs.map((t) => t.tabId)),
     [windows]
@@ -533,35 +534,28 @@ export function useTabDrop(
   );
 
   // `toIndex` is WINDOW-LOCAL: the area counts only the rows of `toWindowId`,
-  // the window the release landed in, which is the index the reducer applies
-  // to that window's stored tabs.
-  //
-  // Two reducers, not one widened one (spec 7): moveTabInternal's no-op guard
-  // and its prune ordering both rest on the tab never leaving the array it was
-  // spliced from. A drop that names no window has nowhere to go.
-  const onMove = useCallback(
+  // the window the release landed in. A tab this list does not hold, or a drop
+  // that names no window, describes no move.
+  const describeTabMove = useCallback(
     (
-      tabId: string,
+      rowId: string,
       toIndex: number,
-      toChromeGroupId?: string,
-      toWindowId?: string
-    ) => {
-      const fromWindowId = windowOfTab.get(tabId);
-      if (fromWindowId === undefined || toWindowId === undefined) return;
-      dispatch(
-        dropOnTop(
-          tabDrop({
-            tabGroupId,
-            tabId,
-            fromWindowId,
-            toWindowId,
-            toIndex,
-            toChromeGroupId,
-          })
-        )
-      );
+      dropTargetId: string | undefined,
+      toWindowId: string | undefined
+    ): TabMove | undefined => {
+      const fromWindowId = windowOfTab.get(rowId);
+      if (fromWindowId === undefined || toWindowId === undefined) {
+        return undefined;
+      }
+      return {
+        tabId: rowId,
+        fromWindowId,
+        toWindowId,
+        toIndex,
+        toGroupId: dropTargetId,
+      };
     },
-    [dispatch, tabGroupId, windowOfTab]
+    [windowOfTab]
   );
 
   const landsBesideFixedRow = useCallback(
@@ -654,11 +648,57 @@ export function useTabDrop(
 
   return {
     rowIds,
-    onMove,
     resolveDrop,
     onDropTargetChange,
     landsBesideFixedRow,
     fixedRowsRemovedBy,
     gapChangesBy,
+    describeTabMove,
   };
+}
+
+/**
+ * Everything a `tabs` drag area needs from a saved session's windows. Read by
+ * TabDragArea, the one place a saved tab list is wired up.
+ */
+export function useTabDrop(
+  tabList: PaneWindows,
+  hasTabGroupsPermission: boolean
+) {
+  const dispatch: AppDispatch = useDispatch();
+  const { windows, tabGroupId } = tabList;
+  const { describeTabMove, ...geometry } = useTabDropGeometry(
+    windows,
+    hasTabGroupsPermission
+  );
+
+  // Two reducers, not one widened one (spec 7): moveTabInternal's no-op guard
+  // and its prune ordering both rest on the tab never leaving the array it was
+  // spliced from. tabDrop picks between them on the two window ids.
+  const onMove = useCallback(
+    (
+      tabId: string,
+      toIndex: number,
+      toChromeGroupId?: string,
+      toWindowId?: string
+    ) => {
+      const move = describeTabMove(tabId, toIndex, toChromeGroupId, toWindowId);
+      if (move === undefined) return;
+      dispatch(
+        dropOnTop(
+          tabDrop({
+            tabGroupId,
+            tabId: move.tabId,
+            fromWindowId: move.fromWindowId,
+            toWindowId: move.toWindowId,
+            toIndex: move.toIndex,
+            toChromeGroupId: move.toGroupId,
+          })
+        )
+      );
+    },
+    [dispatch, tabGroupId, describeTabMove]
+  );
+
+  return { ...geometry, onMove };
 }

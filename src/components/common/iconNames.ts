@@ -36,6 +36,7 @@ export const LIGATURE_ICON_NAMES = [
   'globe',
   'history',
   'ios_share',
+  'keep',
   'keyboard',
   'keyboard_double_arrow_left',
   'keyboard_double_arrow_right',

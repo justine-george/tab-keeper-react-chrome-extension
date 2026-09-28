@@ -2792,3 +2792,1819 @@ describe('the fake follows what real Chrome measured (Task 8, KAN-316)', () => {
     expect(handle.restoredFromSession(result.tab?.id ?? -1)).toBe(true);
   });
 });
+
+// What real Chrome does when Open now's drag drops a tab or a group (KAN-280
+// Part E). Every expectation is one Part E Task 1 measured in Chromium 151
+// (docs/superpowers/plans/2026-09-28-open-now-part-e.md, "Task 1 results"),
+// cited as "Part E Task 1, Qn".
+describe('moves Chrome measured for Open now drag (KAN-280 Part E)', () => {
+  // `P` pinned, `*` active, `gN` in group N.
+  const strip = async (windowId: number) =>
+    (await chrome.tabs.query({ windowId }))
+      .sort((a, b) => a.index - b.index)
+      .map(
+        (t) =>
+          `${t.id}${t.pinned ? 'P' : ''}${t.active ? '*' : ''}${
+            t.groupId === -1 ? '' : `g${t.groupId}`
+          }`
+      );
+
+  // Every event a move can fire, in the order they fired.
+  const recordEvents = (): string[] => {
+    const log: string[] = [];
+    chrome.tabs.onMoved.addListener((id, info) =>
+      log.push(`moved ${id} ${info.fromIndex}->${info.toIndex}`)
+    );
+    chrome.tabs.onUpdated.addListener((id, change) =>
+      log.push(`updated ${id} ${JSON.stringify(change)}`)
+    );
+    chrome.tabs.onDetached.addListener((id, info) =>
+      log.push(`detached ${id} w${info.oldWindowId}@${info.oldPosition}`)
+    );
+    chrome.tabs.onAttached.addListener((id, info) =>
+      log.push(`attached ${id} w${info.newWindowId}@${info.newPosition}`)
+    );
+    chrome.tabs.onActivated.addListener((info) =>
+      log.push(`activated ${info.tabId} w${info.windowId}`)
+    );
+    chrome.tabGroups.onCreated.addListener((g) =>
+      log.push(`group created ${g.id} w${g.windowId}`)
+    );
+    chrome.tabGroups.onUpdated.addListener((g) =>
+      log.push(`group updated ${g.id} collapsed=${g.collapsed}`)
+    );
+    chrome.tabGroups.onRemoved.addListener((g) =>
+      log.push(`group removed ${g.id}`)
+    );
+    chrome.tabGroups.onMoved.addListener((g) =>
+      log.push(`group moved ${g.id} w${g.windowId}`)
+    );
+    chrome.windows.onRemoved.addListener((id) =>
+      log.push(`window removed ${id}`)
+    );
+    return log;
+  };
+
+  describe('tabs.move in one window joins or leaves a group (Part E Task 1, Q3, Q6)', () => {
+    // [a*, g1@5, g2@5, b]
+    const joinSeed = (active: 'a' | 'b', collapsed: boolean) =>
+      setupChromeFake({
+        windows: [
+          {
+            id: 1,
+            tabs: [
+              { id: 11, active: active === 'a' },
+              { id: 12, groupId: 5 },
+              { id: 13, groupId: 5 },
+              { id: 14, active: active === 'b' },
+            ],
+          },
+        ],
+        tabGroups: [{ id: 5, windowId: 1, collapsed }],
+      });
+
+    test('a tab moved strictly inside a run fires onUpdated {groupId} BEFORE onMoved', async () => {
+      handle = joinSeed('a', false);
+      const log = recordEvents();
+
+      await chrome.tabs.move(14, { index: 2 });
+
+      expect(await strip(1)).toEqual(['11*', '12g5', '14g5', '13g5']);
+      expect(log).toEqual(['updated 14 {"groupId":5}', 'moved 14 3->2']);
+    });
+
+    test('an active tab joining a collapsed group: onUpdated, onMoved, then the group expands', async () => {
+      handle = joinSeed('b', true);
+      const log = recordEvents();
+
+      await chrome.tabs.move(14, { index: 2 });
+
+      expect(await strip(1)).toEqual(['11', '12g5', '14*g5', '13g5']);
+      expect(log).toEqual([
+        'updated 14 {"groupId":5}',
+        'moved 14 3->2',
+        'group updated 5 collapsed=false',
+      ]);
+    });
+
+    test('a grouped tab moved out of its run fires onUpdated {groupId:-1} BEFORE onMoved', async () => {
+      handle = joinSeed('a', false);
+      const log = recordEvents();
+
+      await chrome.tabs.move(12, { index: 0 });
+
+      expect(await strip(1)).toEqual(['12', '11*', '13g5', '14']);
+      expect(log).toEqual(['updated 12 {"groupId":-1}', 'moved 12 1->0']);
+    });
+
+    test('CONTROL: a grouped tab moved within its run fires onMoved only', async () => {
+      handle = joinSeed('a', false);
+      const log = recordEvents();
+
+      await chrome.tabs.move(12, { index: 2 });
+
+      expect(await strip(1)).toEqual(['11*', '13g5', '12g5', '14']);
+      expect(log).toEqual(['moved 12 1->2']);
+    });
+  });
+
+  describe('tabs.move to another window (Part E Task 1, Q1, Q2, Q3, Q4, Q5)', () => {
+    // W1 [a*, b, c], W2 [x*, y, z]
+    const twoWindows = () =>
+      setupChromeFake({
+        windows: [
+          {
+            id: 1,
+            tabs: [{ id: 11, active: true }, { id: 12 }, { id: 13 }],
+          },
+          {
+            id: 2,
+            tabs: [{ id: 21, active: true }, { id: 22 }, { id: 23 }],
+          },
+        ],
+      });
+
+    // Part E Task 1, Q1: the index is a slot in the destination AS IT
+    // STANDS -- insert before the tab now at that index.
+    test.each([
+      [0, ['12', '21*', '22', '23'], 0],
+      [1, ['21*', '12', '22', '23'], 1],
+      [3, ['21*', '22', '23', '12'], 3],
+      [-1, ['21*', '22', '23', '12'], 3],
+      [99, ['21*', '22', '23', '12'], 3],
+    ])(
+      'index %i lands at the slot in the destination as it stands',
+      async (index, destination, landed) => {
+        handle = twoWindows();
+
+        const tab = await chrome.tabs.move(12, { windowId: 2, index });
+
+        expect(tab).toMatchObject({ id: 12, windowId: 2, index: landed });
+        expect(await strip(1)).toEqual(['11*', '13']);
+        expect(await strip(2)).toEqual(destination);
+      }
+    );
+
+    test('fires onDetached then onAttached, and no onMoved', async () => {
+      handle = twoWindows();
+      const log = recordEvents();
+
+      await chrome.tabs.move(12, { windowId: 2, index: 1 });
+
+      expect(log).toEqual(['detached 12 w1@1', 'attached 12 w2@1']);
+    });
+
+    // Part E Task 1, Q5: Q1_cross#5 (a at 0 -> b) and Q5#3 (x in the
+    // middle -> the tab to its right).
+    test('the ACTIVE tab arrives inactive, and its old window activates the tab to its right', async () => {
+      handle = twoWindows();
+      const log = recordEvents();
+
+      await chrome.tabs.move(11, { windowId: 2, index: 1 });
+
+      expect(await strip(1)).toEqual(['12*', '13']);
+      expect(await strip(2)).toEqual(['21*', '11', '22', '23']);
+      expect(log).toEqual([
+        'detached 11 w1@0',
+        'activated 12 w1',
+        'attached 11 w2@1',
+      ]);
+    });
+
+    // Part E Task 6a fix round 1, F1 CONTROL (also E3 CONTROL, B#1): the
+    // active tab was its window's last, and no tab has an opener.
+    test('an ACTIVE last tab leaving activates the tab to its left', async () => {
+      handle = setupChromeFake({
+        windows: [
+          { id: 1, tabs: [{ id: 11 }, { id: 12 }, { id: 13, active: true }] },
+          { id: 2, tabs: [{ id: 21, active: true }] },
+        ],
+      });
+
+      await chrome.tabs.move(13, { windowId: 2, index: 0 });
+
+      expect(await strip(1)).toEqual(['11', '12*']);
+      expect(await strip(2)).toEqual(['13', '21*']);
+    });
+
+    test('CONTROL: an inactive tab leaving changes no active tab and fires no onActivated', async () => {
+      handle = twoWindows();
+      const log = recordEvents();
+
+      await chrome.tabs.move(13, { windowId: 2, index: 0 });
+
+      expect(await strip(1)).toEqual(['11*', '12']);
+      expect(await strip(2)).toEqual(['13', '21*', '22', '23']);
+      expect(log.filter((line) => line.startsWith('activated'))).toEqual([]);
+    });
+
+    // W1 [p1P*, a, b], W2 [q1P*, q2P, x, y]
+    const pinnedWindows = () =>
+      setupChromeFake({
+        windows: [
+          {
+            id: 1,
+            tabs: [
+              { id: 11, pinned: true, active: true },
+              { id: 12 },
+              { id: 13 },
+            ],
+          },
+          {
+            id: 2,
+            tabs: [
+              { id: 21, pinned: true, active: true },
+              { id: 22, pinned: true },
+              { id: 23 },
+              { id: 24 },
+            ],
+          },
+        ],
+      });
+
+    // Part E Task 1, Q2: Q2#8 (index 3) and Q2#9 (index 0, lands at 2).
+    test.each([
+      [3, ['21P*', '22P', '23', '11', '24'], 3],
+      [0, ['21P*', '22P', '11', '23', '24'], 2],
+    ])(
+      'a PINNED tab is unpinned first (onUpdated {pinned:false}), then lands below the pinned run -- index %i',
+      async (index, destination, landed) => {
+        handle = pinnedWindows();
+        const log = recordEvents();
+
+        const tab = await chrome.tabs.move(11, { windowId: 2, index });
+
+        expect(tab).toMatchObject({ pinned: false, index: landed });
+        expect(await strip(1)).toEqual(['12*', '13']);
+        expect(await strip(2)).toEqual(destination);
+        expect(log).toEqual([
+          'updated 11 {"pinned":false}',
+          'detached 11 w1@0',
+          'activated 12 w1',
+          `attached 11 w2@${landed}`,
+        ]);
+      }
+    );
+
+    // Part E Task 1, Q2: Q2#10.
+    test('an unpinned tab aimed into the pinned run is clamped past it', async () => {
+      handle = pinnedWindows();
+
+      await chrome.tabs.move(12, { windowId: 2, index: 0 });
+
+      expect(await strip(2)).toEqual(['21P*', '22P', '12', '23', '24']);
+    });
+
+    // Part E Task 1, Q3: Q3_leave#7.
+    test('a grouped tab leaves its group: onUpdated {groupId:-1}, then detach and attach', async () => {
+      handle = setupChromeFake({
+        windows: [
+          {
+            id: 1,
+            tabs: [
+              { id: 11, active: true },
+              { id: 12, groupId: 5 },
+              { id: 13, groupId: 5 },
+            ],
+          },
+          { id: 2, tabs: [{ id: 21, active: true }, { id: 22 }] },
+        ],
+        tabGroups: [{ id: 5, windowId: 1 }],
+      });
+      const log = recordEvents();
+
+      await chrome.tabs.move(13, { windowId: 2, index: 1 });
+
+      expect(await strip(1)).toEqual(['11*', '12g5']);
+      expect(await strip(2)).toEqual(['21*', '13', '22']);
+      expect(log).toEqual([
+        'updated 13 {"groupId":-1}',
+        'detached 13 w1@2',
+        'attached 13 w2@1',
+      ]);
+    });
+
+    // Part E Task 1, Q3: Q3_leave#8.
+    test("a group's last tab leaving removes the group, before the detach", async () => {
+      handle = setupChromeFake({
+        windows: [
+          {
+            id: 1,
+            tabs: [
+              { id: 11, active: true },
+              { id: 12, groupId: 5 },
+            ],
+          },
+          { id: 2, tabs: [{ id: 21, active: true }, { id: 22 }] },
+        ],
+        tabGroups: [{ id: 5, windowId: 1 }],
+      });
+      const log = recordEvents();
+
+      await chrome.tabs.move(12, { windowId: 2, index: -1 });
+
+      expect(await strip(2)).toEqual(['21*', '22', '12']);
+      expect(handle.groupState(5)).toBeUndefined();
+      expect(log).toEqual([
+        'updated 12 {"groupId":-1}',
+        'group removed 5',
+        'detached 12 w1@1',
+        'attached 12 w2@2',
+      ]);
+    });
+
+    // W1 [a*, g1@5, g2@5, b], W2 [x*, y]
+    const groupAcross = (collapsed: boolean) =>
+      setupChromeFake({
+        windows: [
+          {
+            id: 1,
+            tabs: [
+              { id: 11, active: true },
+              { id: 12, groupId: 5 },
+              { id: 13, groupId: 5 },
+              { id: 14 },
+            ],
+          },
+          { id: 2, tabs: [{ id: 21, active: true }, { id: 22 }] },
+        ],
+        tabGroups: [{ id: 5, windowId: 1, collapsed }],
+      });
+
+    // Part E Task 1, Q3: Q3_join#8-#11, 3/3 each.
+    test.each([
+      [22, false],
+      [22, true],
+      [21, false],
+      [21, true],
+    ])(
+      "tab %i into the middle of another window's group run (collapsed: %s) REJECTS, and nothing moves or fires",
+      async (tabId, collapsed) => {
+        handle = groupAcross(collapsed);
+        const log = recordEvents();
+
+        await expect(
+          chrome.tabs.move(tabId, { windowId: 1, index: 2 })
+        ).rejects.toThrow(
+          'Tab operation is invalid as the specified input would disrupt group continuity in the tab strip.'
+        );
+
+        expect(await strip(1)).toEqual(['11*', '12g5', '13g5', '14']);
+        expect(await strip(2)).toEqual(['21*', '22']);
+        expect(log).toEqual([]);
+      }
+    );
+
+    test("CONTROL: to a run's edge in another window it moves, ungrouped", async () => {
+      handle = groupAcross(false);
+
+      await chrome.tabs.move(22, { windowId: 1, index: 3 });
+
+      expect(await strip(1)).toEqual(['11*', '12g5', '13g5', '22', '14']);
+    });
+
+    // W1 normal [a*, b], W3 incognito [i*, j], W4 incognito [k*]
+    const profiles = () =>
+      setupChromeFake({
+        windows: [
+          { id: 1, tabs: [{ id: 11, active: true }, { id: 12 }] },
+          {
+            id: 3,
+            incognito: true,
+            tabs: [{ id: 31, active: true }, { id: 32 }],
+          },
+          { id: 4, incognito: true, tabs: [{ id: 41, active: true }] },
+        ],
+      });
+
+    // Part E Task 1, Q4, 3/3 each direction.
+    test.each([
+      [12, 3],
+      [32, 1],
+    ])(
+      'tab %i to window %i, across profiles, REJECTS and nothing moves or fires',
+      async (tabId, windowId) => {
+        handle = profiles();
+        const log = recordEvents();
+
+        await expect(
+          chrome.tabs.move(tabId, { windowId, index: 0 })
+        ).rejects.toThrow(
+          'Tabs can only be moved between windows in the same profile.'
+        );
+
+        expect(await strip(1)).toEqual(['11*', '12']);
+        expect(await strip(3)).toEqual(['31*', '32']);
+        expect(log).toEqual([]);
+      }
+    );
+
+    test('CONTROL: incognito to incognito moves', async () => {
+      handle = profiles();
+
+      await chrome.tabs.move(32, { windowId: 4, index: -1 });
+
+      expect(await strip(3)).toEqual(['31*']);
+      expect(await strip(4)).toEqual(['41*', '32']);
+    });
+
+    test('a refusal with a callback reports lastError and moves nothing', async () => {
+      handle = profiles();
+      let seen: string | undefined;
+
+      await chrome.tabs.move(12, { windowId: 3, index: 0 }, () => {
+        seen = chrome.runtime.lastError?.message;
+      });
+
+      expect(seen).toBe(
+        'Tabs can only be moved between windows in the same profile.'
+      );
+      expect(await strip(1)).toEqual(['11*', '12']);
+    });
+
+    test('an unknown window rejects and moves nothing', async () => {
+      handle = twoWindows();
+
+      await expect(
+        chrome.tabs.move(12, { windowId: 99, index: 0 })
+      ).rejects.toThrow('No window with id: 99.');
+      expect(await strip(1)).toEqual(['11*', '12', '13']);
+    });
+  });
+
+  describe('tabGroups.move (Part E Task 1, Q3, Q4, Q5, Q6)', () => {
+    // [a*, G(g1, g2), b, c]
+    const oneWindow = () =>
+      setupChromeFake({
+        windows: [
+          {
+            id: 1,
+            tabs: [
+              { id: 11, active: true },
+              { id: 12, groupId: 5 },
+              { id: 13, groupId: 5 },
+              { id: 14 },
+              { id: 15 },
+            ],
+          },
+        ],
+        tabGroups: [{ id: 5, windowId: 1 }],
+      });
+
+    // Part E Task 1, Q3: Q3_group#4-#7. The index is the group's first
+    // tab's final index, counted with the group removed.
+    test.each([
+      [0, ['12g5', '13g5', '11*', '14', '15']],
+      [2, ['11*', '14', '12g5', '13g5', '15']],
+      [3, ['11*', '14', '15', '12g5', '13g5']],
+      [-1, ['11*', '14', '15', '12g5', '13g5']],
+    ])('in one window, index %i', async (index, after) => {
+      handle = oneWindow();
+
+      const group = await chrome.tabGroups.move(5, { index });
+
+      expect(group).toMatchObject({ id: 5, windowId: 1 });
+      expect(await strip(1)).toEqual(after);
+    });
+
+    // Part E Task 1, Q6: Q3_group#4 (left: first tab first) and #5
+    // (right: last tab first), then tabGroups.onMoved.
+    test('in one window: one onMoved per tab, in the order they move, then tabGroups.onMoved', async () => {
+      handle = oneWindow();
+      const log = recordEvents();
+
+      await chrome.tabGroups.move(5, { index: 0 });
+      await chrome.tabGroups.move(5, { index: 3 });
+
+      expect(log).toEqual([
+        'moved 12 1->0',
+        'moved 13 2->1',
+        'group moved 5 w1',
+        'moved 13 1->4',
+        'moved 12 0->3',
+        'group moved 5 w1',
+      ]);
+    });
+
+    // Not measured for a group: the no-op rule Part E Task 1, Q1 measured
+    // for tabs.move (nothing fires) is assumed to hold.
+    test('in one window, a move that changes nothing fires nothing', async () => {
+      handle = oneWindow();
+      const log = recordEvents();
+
+      await chrome.tabGroups.move(5, { index: 1 });
+
+      expect(await strip(1)).toEqual(['11*', '12g5', '13g5', '14', '15']);
+      expect(log).toEqual([]);
+    });
+
+    // [p1P*, p2P, a, G(g1, g2), b]
+    const pinnedRun = () =>
+      setupChromeFake({
+        windows: [
+          {
+            id: 1,
+            tabs: [
+              { id: 11, pinned: true, active: true },
+              { id: 12, pinned: true },
+              { id: 13 },
+              { id: 14, groupId: 5 },
+              { id: 15, groupId: 5 },
+              { id: 16 },
+            ],
+          },
+        ],
+        tabGroups: [{ id: 5, windowId: 1 }],
+      });
+
+    // Part E Task 1, Q3: Q3_group#12, #13.
+    test.each([0, 1])(
+      'into the pinned run (index %i) REJECTS, and nothing moves or fires',
+      async (index) => {
+        handle = pinnedRun();
+        const log = recordEvents();
+
+        await expect(chrome.tabGroups.move(5, { index })).rejects.toThrow(
+          'Cannot move the group to an index that is in the middle of pinned tabs.'
+        );
+
+        expect(await strip(1)).toEqual([
+          '11P*',
+          '12P',
+          '13',
+          '14g5',
+          '15g5',
+          '16',
+        ]);
+        expect(log).toEqual([]);
+      }
+    );
+
+    test('CONTROL: to the first unpinned slot it moves', async () => {
+      handle = pinnedRun();
+
+      await chrome.tabGroups.move(5, { index: 2 });
+
+      expect(await strip(1)).toEqual([
+        '11P*',
+        '12P',
+        '14g5',
+        '15g5',
+        '13',
+        '16',
+      ]);
+    });
+
+    // [a*, H(h1, h2), b, G(g1, g2)]
+    const twoGroups = () =>
+      setupChromeFake({
+        windows: [
+          {
+            id: 1,
+            tabs: [
+              { id: 11, active: true },
+              { id: 12, groupId: 6 },
+              { id: 13, groupId: 6 },
+              { id: 14 },
+              { id: 15, groupId: 5 },
+              { id: 16, groupId: 5 },
+            ],
+          },
+        ],
+        tabGroups: [
+          { id: 5, windowId: 1 },
+          { id: 6, windowId: 1 },
+        ],
+      });
+
+    // Part E Task 1, Q3: Q3_group#16.
+    test('into the middle of another group REJECTS, and nothing moves or fires', async () => {
+      handle = twoGroups();
+      const log = recordEvents();
+
+      await expect(chrome.tabGroups.move(5, { index: 2 })).rejects.toThrow(
+        'Cannot move the group to an index that is in the middle of another group.'
+      );
+
+      expect(await strip(1)).toEqual([
+        '11*',
+        '12g6',
+        '13g6',
+        '14',
+        '15g5',
+        '16g5',
+      ]);
+      expect(log).toEqual([]);
+    });
+
+    // Part E Task 1, Q3: Q3_group#17.
+    test("CONTROL: to the other group's head it moves", async () => {
+      handle = twoGroups();
+
+      await chrome.tabGroups.move(5, { index: 1 });
+
+      expect(await strip(1)).toEqual([
+        '11*',
+        '15g5',
+        '16g5',
+        '12g6',
+        '13g6',
+        '14',
+      ]);
+    });
+
+    // W1 [a*, G(g1, g2)], W2 [x*, y, z]
+    const groupAcross = (collapsed: boolean) =>
+      setupChromeFake({
+        windows: [
+          {
+            id: 1,
+            tabs: [
+              { id: 11, active: true },
+              { id: 12, groupId: 5 },
+              { id: 13, groupId: 5 },
+            ],
+          },
+          {
+            id: 2,
+            tabs: [{ id: 21, active: true }, { id: 22 }, { id: 23 }],
+          },
+        ],
+        tabGroups: [{ id: 5, windowId: 1, collapsed, title: 'G' }],
+      });
+
+    // Part E Task 1, Q3: Q3_group#8-#11.
+    test.each([
+      [1, ['21*', '12g5', '13g5', '22', '23']],
+      [-1, ['21*', '22', '23', '12g5', '13g5']],
+      [0, ['12g5', '13g5', '21*', '22', '23']],
+    ])(
+      'to another window, index %i is a slot in the destination as it stands; same id, collapsed kept',
+      async (index, after) => {
+        handle = groupAcross(true);
+
+        const group = await chrome.tabGroups.move(5, { windowId: 2, index });
+
+        expect(group).toMatchObject({ id: 5, windowId: 2, collapsed: true });
+        expect(await strip(1)).toEqual(['11*']);
+        expect(await strip(2)).toEqual(after);
+        expect(handle.groupState(5)).toMatchObject({
+          windowId: 2,
+          collapsed: true,
+          title: 'G',
+        });
+      }
+    );
+
+    test('CONTROL: an expanded group stays expanded across windows', async () => {
+      handle = groupAcross(false);
+
+      await chrome.tabGroups.move(5, { windowId: 2, index: 1 });
+
+      expect(handle.groupState(5)?.collapsed).toBe(false);
+    });
+
+    // Part E Task 1, Q3, Q6: Q3_group#8, verbatim order.
+    test('to another window Chrome reports a remove and re-create, and no tabGroups.onMoved', async () => {
+      handle = groupAcross(true);
+      const log = recordEvents();
+
+      await chrome.tabGroups.move(5, { windowId: 2, index: 1 });
+
+      expect(log).toEqual([
+        'group removed 5',
+        'updated 13 {"groupId":-1}',
+        'detached 13 w1@2',
+        'updated 12 {"groupId":-1}',
+        'detached 12 w1@1',
+        'attached 12 w2@1',
+        'updated 12 {"groupId":5}',
+        'attached 13 w2@2',
+        'updated 13 {"groupId":5}',
+        'group created 5 w2',
+        'group updated 5 collapsed=true',
+      ]);
+    });
+
+    // Part E Task 1, Q5: Q5#4 -- W2 [a, z, b, y@G*] -> W1 [c*, x] index 0.
+    // Chrome brought z forward, not the left neighbour b: z was opened by y
+    // (z's openerTabId is y, recorded in Part E Task 6a fix round 1, D#4,
+    // which repeats Task 1's Q5 sequence, 3/3), and a tabGroups.move takes
+    // a tab the carried tab opened first (fix round 1, F2, F3).
+    test("a group holding its window's ACTIVE tab carries it: active in the destination, the tab it opened active in the source", async () => {
+      handle = setupChromeFake({
+        windows: [
+          { id: 1, tabs: [{ id: 11, active: true }, { id: 12 }] },
+          {
+            id: 2,
+            tabs: [
+              { id: 21 },
+              { id: 22, openerTabId: 24 },
+              { id: 23 },
+              { id: 24, groupId: 5, active: true },
+            ],
+          },
+        ],
+        tabGroups: [{ id: 5, windowId: 2 }],
+      });
+      const log = recordEvents();
+
+      await chrome.tabGroups.move(5, { windowId: 1, index: 0 });
+
+      expect(await strip(1)).toEqual(['24*g5', '11', '12']);
+      expect(await strip(2)).toEqual(['21', '22*', '23']);
+      expect(log).toEqual([
+        'group removed 5',
+        'updated 24 {"groupId":-1}',
+        'detached 24 w2@3',
+        'activated 22 w2',
+        'attached 24 w1@0',
+        'updated 24 {"groupId":5}',
+        'activated 24 w1',
+        'group created 5 w1',
+        'group updated 5 collapsed=false',
+      ]);
+    });
+
+    test("CONTROL: a group without its window's active tab leaves the destination's active tab alone", async () => {
+      handle = groupAcross(false);
+
+      await chrome.tabGroups.move(5, { windowId: 2, index: 1 });
+
+      expect(await strip(1)).toEqual(['11*']);
+      expect(await strip(2)).toEqual(['21*', '12g5', '13g5', '22', '23']);
+    });
+
+    // Part E Task 1, Q3: Q3_group#15.
+    test("into another window's pinned run REJECTS, and nothing moves or fires", async () => {
+      handle = setupChromeFake({
+        windows: [
+          {
+            id: 1,
+            tabs: [
+              { id: 11, active: true },
+              { id: 12, groupId: 5 },
+              { id: 13, groupId: 5 },
+            ],
+          },
+          {
+            id: 2,
+            tabs: [
+              { id: 21, pinned: true, active: true },
+              { id: 22, pinned: true },
+              { id: 23 },
+            ],
+          },
+        ],
+        tabGroups: [{ id: 5, windowId: 1 }],
+      });
+      const log = recordEvents();
+
+      await expect(
+        chrome.tabGroups.move(5, { windowId: 2, index: 0 })
+      ).rejects.toThrow(
+        'Cannot move the group to an index that is in the middle of pinned tabs.'
+      );
+
+      expect(await strip(1)).toEqual(['11*', '12g5', '13g5']);
+      expect(await strip(2)).toEqual(['21P*', '22P', '23']);
+      expect(log).toEqual([]);
+    });
+
+    // Part E Task 1, Q4.
+    test('to a window in the other profile REJECTS, and nothing moves or fires', async () => {
+      handle = setupChromeFake({
+        windows: [
+          {
+            id: 1,
+            tabs: [
+              { id: 11, active: true },
+              { id: 12, groupId: 5 },
+            ],
+          },
+          { id: 3, incognito: true, tabs: [{ id: 31, active: true }] },
+        ],
+        tabGroups: [{ id: 5, windowId: 1 }],
+      });
+      const log = recordEvents();
+
+      await expect(
+        chrome.tabGroups.move(5, { windowId: 3, index: 0 })
+      ).rejects.toThrow(
+        'Tabs can only be moved between windows in the same profile.'
+      );
+
+      expect(await strip(1)).toEqual(['11*', '12g5']);
+      expect(await strip(3)).toEqual(['31*']);
+      expect(log).toEqual([]);
+    });
+
+    test('an unknown group rejects', async () => {
+      handle = oneWindow();
+
+      await expect(chrome.tabGroups.move(99, { index: 0 })).rejects.toThrow(
+        'No group with id: 99.'
+      );
+    });
+  });
+
+  describe('tabs.group({groupId}) with a tab from another window (Part E Task 1, Q3, Q4)', () => {
+    // W1 [a*, g1@5, g2@5, b], W2 [x*, y]
+    const groupAcross = (collapsed: boolean) =>
+      setupChromeFake({
+        windows: [
+          {
+            id: 1,
+            tabs: [
+              { id: 11, active: true },
+              { id: 12, groupId: 5 },
+              { id: 13, groupId: 5 },
+              { id: 14 },
+            ],
+          },
+          { id: 2, tabs: [{ id: 21, active: true }, { id: 22 }] },
+        ],
+        tabGroups: [{ id: 5, windowId: 1, collapsed }],
+      });
+
+    // Part E Task 1, Q3: Q3_group#0, #1.
+    test.each([false, true])(
+      "moves it to the END of the group's run in the group's window (collapsed: %s kept)",
+      async (collapsed) => {
+        handle = groupAcross(collapsed);
+
+        const groupId = await chrome.tabs.group({ groupId: 5, tabIds: [22] });
+
+        expect(groupId).toBe(5);
+        expect(await strip(1)).toEqual(['11*', '12g5', '13g5', '22g5', '14']);
+        expect(await strip(2)).toEqual(['21*']);
+        expect(handle.groupState(5)?.collapsed).toBe(collapsed);
+      }
+    );
+
+    // Part E Task 1, Q3, Q6: attached at the window's end, then moved in.
+    test('fires onDetached, onAttached at the end, onUpdated {groupId}, then onMoved into the run', async () => {
+      handle = groupAcross(false);
+      const log = recordEvents();
+
+      await chrome.tabs.group({ groupId: 5, tabIds: [22] });
+
+      expect(log).toEqual([
+        'detached 22 w2@1',
+        'attached 22 w1@4',
+        'updated 22 {"groupId":5}',
+        'moved 22 4->3',
+      ]);
+    });
+
+    // Part E Task 1, Q3: Q3_group#2.
+    test('CONTROL: a tab from the same window joins in place, with onUpdated {groupId} only', async () => {
+      handle = groupAcross(false);
+      const log = recordEvents();
+
+      await chrome.tabs.group({ groupId: 5, tabIds: [11] });
+
+      expect(await strip(1)).toEqual(['11*g5', '12g5', '13g5', '14']);
+      expect(log).toEqual(['updated 11 {"groupId":5}']);
+    });
+
+    // Part E Task 1, Q4.
+    test('a tab from the other profile REJECTS, and nothing moves or fires', async () => {
+      handle = setupChromeFake({
+        windows: [
+          {
+            id: 1,
+            tabs: [
+              { id: 11, active: true },
+              { id: 12, groupId: 5 },
+            ],
+          },
+          {
+            id: 3,
+            incognito: true,
+            tabs: [{ id: 31, active: true }, { id: 32 }],
+          },
+        ],
+        tabGroups: [{ id: 5, windowId: 1 }],
+      });
+      const log = recordEvents();
+
+      await expect(
+        chrome.tabs.group({ groupId: 5, tabIds: [32] })
+      ).rejects.toThrow(
+        'Tabs can only be moved between windows in the same profile.'
+      );
+
+      expect(await strip(1)).toEqual(['11*', '12g5']);
+      expect(await strip(3)).toEqual(['31*', '32']);
+      expect(handle.groupedTabs).toEqual([]);
+      expect(log).toEqual([]);
+    });
+  });
+
+  describe('Part E Task 6a: G1, grouping without the grant, a window emptied', () => {
+    // windows.onRemoved for a window emptied by a move arrives AFTER the
+    // call resolves (Part E Task 6a, Q4), so a test waits one task for it.
+    const nextTask = () => new Promise<void>((done) => setTimeout(done, 0));
+
+    // Without the grant chrome.tabGroups is absent, so only tabs.* events.
+    const recordTabEvents = (): string[] => {
+      const log: string[] = [];
+      chrome.tabs.onMoved.addListener((id, info) =>
+        log.push(`moved ${id} ${info.fromIndex}->${info.toIndex}`)
+      );
+      chrome.tabs.onUpdated.addListener((id, change) =>
+        log.push(`updated ${id} ${JSON.stringify(change)}`)
+      );
+      chrome.tabs.onDetached.addListener((id, info) =>
+        log.push(`detached ${id} w${info.oldWindowId}@${info.oldPosition}`)
+      );
+      chrome.tabs.onAttached.addListener((id, info) =>
+        log.push(`attached ${id} w${info.newWindowId}@${info.newPosition}`)
+      );
+      return log;
+    };
+
+    describe("a window's last tab leaving closes it (Part E Task 6a, Q4)", () => {
+      // Part E Task 6a, Q4#0 (both fixtures) and Q6.
+      test('tabs.move resolves, the window is gone at once, and windows.onRemoved follows the call', async () => {
+        handle = setupChromeFake({
+          windows: [
+            { id: 1, tabs: [{ id: 11, active: true }] },
+            { id: 2, tabs: [{ id: 21, active: true }, { id: 22 }] },
+          ],
+        });
+        const log = recordEvents();
+
+        const moved = await chrome.tabs.move(11, { windowId: 2, index: 0 });
+
+        expect(moved).toMatchObject({ id: 11, windowId: 2, index: 0 });
+        expect(moved.active).toBe(false);
+        expect(await strip(2)).toEqual(['11', '21*', '22']);
+        expect((await chrome.windows.getAll({})).map((win) => win.id)).toEqual([
+          2,
+        ]);
+        await expect(chrome.windows.get(1)).rejects.toThrow(
+          'No window with id: 1.'
+        );
+        expect(log).toEqual(['detached 11 w1@0', 'attached 11 w2@0']);
+        await nextTask();
+        expect(log).toEqual([
+          'detached 11 w1@0',
+          'attached 11 w2@0',
+          'window removed 1',
+        ]);
+      });
+
+      // Part E Task 6a, Q4#1.
+      test('CONTROL: a window that keeps a tab stays open', async () => {
+        handle = setupChromeFake({
+          windows: [
+            { id: 1, tabs: [{ id: 11, active: true }, { id: 12 }] },
+            { id: 2, tabs: [{ id: 21, active: true }] },
+          ],
+        });
+        const log = recordEvents();
+
+        await chrome.tabs.move(12, { windowId: 2, index: 0 });
+        await nextTask();
+
+        expect(await strip(1)).toEqual(['11*']);
+        expect(log).toEqual(['detached 12 w1@1', 'attached 12 w2@0']);
+      });
+
+      // Part E Task 6a, Q4#2: the carried front tab activates after BOTH
+      // tabs attached, and the window goes after the call resolves.
+      test("tabGroups.move of a window's only group", async () => {
+        handle = setupChromeFake({
+          windows: [
+            {
+              id: 1,
+              tabs: [
+                { id: 12, groupId: 5, active: true },
+                { id: 13, groupId: 5 },
+              ],
+            },
+            {
+              id: 2,
+              tabs: [{ id: 21 }, { id: 22, active: true }, { id: 23 }],
+            },
+          ],
+          tabGroups: [{ id: 5, windowId: 1 }],
+        });
+        const log = recordEvents();
+
+        await chrome.tabGroups.move(5, { windowId: 2, index: 1 });
+
+        expect(await strip(2)).toEqual(['21', '12*g5', '13g5', '22', '23']);
+        expect((await chrome.windows.getAll({})).map((win) => win.id)).toEqual([
+          2,
+        ]);
+        await nextTask();
+        expect(log).toEqual([
+          'group removed 5',
+          'updated 13 {"groupId":-1}',
+          'detached 13 w1@1',
+          'updated 12 {"groupId":-1}',
+          'detached 12 w1@0',
+          'attached 12 w2@1',
+          'updated 12 {"groupId":5}',
+          'attached 13 w2@2',
+          'updated 13 {"groupId":5}',
+          'activated 12 w2',
+          'group created 5 w2',
+          'group updated 5 collapsed=false',
+          'window removed 1',
+        ]);
+      });
+
+      // Part E Task 6a, Q5#2.
+      test("tabs.group taking a window's only tab into another window's group", async () => {
+        handle = setupChromeFake({
+          windows: [
+            {
+              id: 1,
+              tabs: [
+                { id: 11, active: true },
+                { id: 12, groupId: 5 },
+                { id: 13, groupId: 5 },
+                { id: 14 },
+              ],
+            },
+            { id: 2, tabs: [{ id: 21, active: true }] },
+          ],
+          tabGroups: [{ id: 5, windowId: 1 }],
+        });
+        const log = recordEvents();
+
+        await chrome.tabs.group({ groupId: 5, tabIds: [21] });
+
+        expect(await strip(1)).toEqual(['11*', '12g5', '13g5', '21g5', '14']);
+        await nextTask();
+        expect(log).toEqual([
+          'detached 21 w2@0',
+          'attached 21 w1@4',
+          'updated 21 {"groupId":5}',
+          'moved 21 4->3',
+          'window removed 2',
+        ]);
+      });
+
+      // Part E Task 6a, Q4#5: G1 (b) when the group is its window's only
+      // content.
+      test('an array tabs.move that empties its window', async () => {
+        handle = setupChromeFake({
+          windows: [
+            {
+              id: 1,
+              tabs: [
+                { id: 12, groupId: 5, active: true },
+                { id: 13, groupId: 5 },
+              ],
+            },
+            {
+              id: 2,
+              tabs: [{ id: 21 }, { id: 22, active: true }, { id: 23 }],
+            },
+          ],
+          tabGroups: [{ id: 5, windowId: 1 }],
+        });
+        const log = recordEvents();
+
+        await chrome.tabs.move([12, 13], { windowId: 2, index: 1 });
+
+        expect(await strip(2)).toEqual(['21', '12', '13', '22*', '23']);
+        await nextTask();
+        expect(log).toEqual([
+          'updated 12 {"groupId":-1}',
+          'detached 12 w1@0',
+          'activated 13 w1',
+          'attached 12 w2@1',
+          'updated 13 {"groupId":-1}',
+          'group removed 5',
+          'detached 13 w1@0',
+          'attached 13 w2@2',
+          'window removed 1',
+        ]);
+      });
+    });
+
+    describe('the G1 sequence (Part E Task 6a, Q1)', () => {
+      // W1 [a, G(g1*, g2) "Gt" blue, b], W2 [x, y*, z]
+      const g1Seed = (collapsed: boolean) =>
+        setupChromeFake({
+          windows: [
+            {
+              id: 1,
+              tabs: [
+                { id: 11 },
+                { id: 12, groupId: 5, active: true },
+                { id: 13, groupId: 5 },
+                { id: 14 },
+              ],
+            },
+            {
+              id: 2,
+              tabs: [{ id: 21 }, { id: 22, active: true }, { id: 23 }],
+            },
+          ],
+          tabGroups: [
+            { id: 5, windowId: 1, title: 'Gt', color: 'blue', collapsed },
+          ],
+        });
+
+      // Part E Task 6a, Q1#2, Q1#3: 3/3 each, the same order as variant (a).
+      test.each([false, true])(
+        'array tabs.move, tabs.group in the destination, tabGroups.update (collapsed: %s)',
+        async (collapsed) => {
+          handle = g1Seed(collapsed);
+          const log = recordEvents();
+
+          const moved = await chrome.tabs.move([12, 13], {
+            windowId: 2,
+            index: 1,
+          });
+          const newId = await chrome.tabs.group({
+            tabIds: [12, 13],
+            createProperties: { windowId: 2 },
+          });
+          await chrome.tabGroups.update(newId, {
+            title: 'Gt',
+            color: 'blue',
+            collapsed,
+          });
+
+          expect(moved.map((tab) => [tab.id, tab.windowId, tab.index])).toEqual(
+            [
+              [12, 2, 1],
+              [13, 2, 2],
+            ]
+          );
+          expect(newId).not.toBe(5);
+          expect(handle.groupState(5)).toBeUndefined();
+          expect(handle.groupState(newId)).toMatchObject({
+            windowId: 2,
+            title: 'Gt',
+            color: 'blue',
+            collapsed,
+          });
+          expect(await strip(1)).toEqual(['11', '14*']);
+          expect(await strip(2)).toEqual([
+            '21',
+            `12g${newId}`,
+            `13g${newId}`,
+            '22*',
+            '23',
+          ]);
+          expect(log).toEqual([
+            'updated 12 {"groupId":-1}',
+            ...(collapsed ? ['group updated 5 collapsed=false'] : []),
+            'detached 12 w1@1',
+            'activated 13 w1',
+            'attached 12 w2@1',
+            'updated 13 {"groupId":-1}',
+            'group removed 5',
+            'detached 13 w1@1',
+            'activated 14 w1',
+            'attached 13 w2@2',
+            `updated 12 {"groupId":${newId}}`,
+            `updated 13 {"groupId":${newId}}`,
+            `group created ${newId} w2`,
+            `group updated ${newId} collapsed=false`,
+            `group updated ${newId} collapsed=${collapsed}`,
+          ]);
+        }
+      );
+
+      // Part E Task 6a, Q5#0, Q5#1: an array move is not atomic.
+      test('an array tabs.move with an unknown id second moves the first tab, then rejects', async () => {
+        handle = g1Seed(false);
+
+        await expect(
+          chrome.tabs.move([12, 999999], { windowId: 2, index: 1 })
+        ).rejects.toThrow('No tab with id: 999999.');
+
+        expect(await strip(1)).toEqual(['11', '13*g5', '14']);
+        expect(await strip(2)).toEqual(['21', '12', '22*', '23']);
+      });
+
+      test('an array tabs.move with an unknown id first rejects and moves nothing', async () => {
+        handle = g1Seed(false);
+        const log = recordEvents();
+
+        await expect(
+          chrome.tabs.move([999999, 12], { windowId: 2, index: 1 })
+        ).rejects.toThrow('No tab with id: 999999.');
+
+        expect(await strip(1)).toEqual(['11', '12*g5', '13g5', '14']);
+        expect(log).toEqual([]);
+      });
+
+      // Not measured: an array move within one window, with or without
+      // naming it.
+      test.each([undefined, 1])(
+        'an array tabs.move within one window (windowId %s) throws: not modelled',
+        async (windowId) => {
+          handle = g1Seed(false);
+
+          expect(() =>
+            chrome.tabs.move([11, 14], { windowId, index: 0 })
+          ).toThrow(/not modelled/);
+          expect(await strip(1)).toEqual(['11', '12*g5', '13g5', '14']);
+        }
+      );
+    });
+
+    describe('tabs.group and tabs.ungroup (Part E Task 6a, Q3)', () => {
+      // Part E Task 6a, Q1 and Q3b#2.
+      test('a new group fires onUpdated {groupId} per tab, then tabGroups.onCreated and onUpdated', async () => {
+        handle = setupChromeFake({
+          windows: [
+            { id: 1, tabs: [{ id: 11, active: true }, { id: 12 }, { id: 13 }] },
+          ],
+        });
+        const log = recordEvents();
+
+        const groupId = await chrome.tabs.group({
+          tabIds: [12, 13],
+          createProperties: { windowId: 1 },
+        });
+
+        expect(handle.groupState(groupId)).toMatchObject({
+          windowId: 1,
+          title: '',
+          color: 'grey',
+          collapsed: false,
+        });
+        expect(log).toEqual([
+          `updated 12 {"groupId":${groupId}}`,
+          `updated 13 {"groupId":${groupId}}`,
+          `group created ${groupId} w1`,
+          `group updated ${groupId} collapsed=false`,
+        ]);
+      });
+
+      // Part E Task 6a, Q5#3.
+      test('a new group in ANOTHER window moves the tabs to its end first', async () => {
+        handle = setupChromeFake({
+          windows: [
+            { id: 1, tabs: [{ id: 11, active: true }, { id: 12 }, { id: 13 }] },
+            { id: 2, tabs: [{ id: 21, active: true }, { id: 22 }] },
+          ],
+        });
+        const log = recordEvents();
+
+        const groupId = await chrome.tabs.group({
+          tabIds: [12, 13],
+          createProperties: { windowId: 2 },
+        });
+
+        expect(await strip(1)).toEqual(['11*']);
+        expect(await strip(2)).toEqual([
+          '21*',
+          '22',
+          `12g${groupId}`,
+          `13g${groupId}`,
+        ]);
+        expect(log).toEqual([
+          'detached 12 w1@1',
+          'attached 12 w2@2',
+          'detached 13 w1@1',
+          'attached 13 w2@3',
+          `updated 12 {"groupId":${groupId}}`,
+          `updated 13 {"groupId":${groupId}}`,
+          `group created ${groupId} w2`,
+          `group updated ${groupId} collapsed=false`,
+        ]);
+      });
+
+      // Part E Task 6a, Q3b#7: 3/3 with and without the grant.
+      test('a group id Chrome no longer has REJECTS, and nothing changes or fires', async () => {
+        handle = setupChromeFake({
+          windows: [{ id: 1, tabs: [{ id: 11, active: true }, { id: 12 }] }],
+        });
+        const log = recordEvents();
+
+        await expect(
+          chrome.tabs.group({ groupId: 77, tabIds: [12] })
+        ).rejects.toThrow('No group with id: 77.');
+
+        expect(await strip(1)).toEqual(['11*', '12']);
+        expect(handle.groupedTabs).toEqual([]);
+        expect(log).toEqual([]);
+      });
+
+      // W1 [a*, g1@5, b, c]
+      const runSeed = () =>
+        setupChromeFake({
+          windows: [
+            {
+              id: 1,
+              tabs: [
+                { id: 11, active: true },
+                { id: 12, groupId: 5 },
+                { id: 13 },
+                { id: 14 },
+              ],
+            },
+          ],
+          tabGroups: [{ id: 5, windowId: 1 }],
+        });
+
+      // Part E Task 6a, Q3b#3 (both fixtures).
+      test('into a group in its own window, from the right and not adjacent: to the run tail', async () => {
+        handle = runSeed();
+        const log = recordEvents();
+
+        await chrome.tabs.group({ groupId: 5, tabIds: [14] });
+
+        expect(await strip(1)).toEqual(['11*', '12g5', '14g5', '13']);
+        expect(log).toEqual(['updated 14 {"groupId":5}', 'moved 14 3->2']);
+      });
+
+      // Part E Task 6a, Q5#4.
+      test('into a group in its own window, from the left and not adjacent: to the run head', async () => {
+        handle = setupChromeFake({
+          windows: [
+            {
+              id: 1,
+              tabs: [
+                { id: 11 },
+                { id: 12, active: true },
+                { id: 13, groupId: 5 },
+                { id: 14, groupId: 5 },
+                { id: 15 },
+              ],
+            },
+          ],
+          tabGroups: [{ id: 5, windowId: 1 }],
+        });
+        const log = recordEvents();
+
+        await chrome.tabs.group({ groupId: 5, tabIds: [11] });
+
+        expect(await strip(1)).toEqual(['12*', '11g5', '13g5', '14g5', '15']);
+        expect(log).toEqual(['updated 11 {"groupId":5}', 'moved 11 0->1']);
+      });
+
+      // Part E Task 6a, Q5#5.
+      test('CONTROL: adjacent to the run it joins in place', async () => {
+        handle = runSeed();
+        const log = recordEvents();
+
+        await chrome.tabs.group({ groupId: 5, tabIds: [13] });
+
+        expect(await strip(1)).toEqual(['11*', '12g5', '13g5', '14']);
+        expect(log).toEqual(['updated 13 {"groupId":5}']);
+      });
+
+      // W1 [a*, g1@5, g2@5, g3@5, b]
+      const ungroupSeed = () =>
+        setupChromeFake({
+          windows: [
+            {
+              id: 1,
+              tabs: [
+                { id: 11, active: true },
+                { id: 12, groupId: 5 },
+                { id: 13, groupId: 5 },
+                { id: 14, groupId: 5 },
+                { id: 15 },
+              ],
+            },
+          ],
+          tabGroups: [{ id: 5, windowId: 1 }],
+        });
+
+      // Part E Task 6a, Q5#6 (and Q3#3, both fixtures).
+      test('tabs.ungroup of a tab mid-run moves it to just after the run', async () => {
+        handle = ungroupSeed();
+        const log = recordEvents();
+
+        await chrome.tabs.ungroup([13]);
+
+        expect(await strip(1)).toEqual(['11*', '12g5', '14g5', '13', '15']);
+        expect(log).toEqual(['updated 13 {"groupId":-1}', 'moved 13 2->3']);
+      });
+
+      // Part E Task 6a, Q5#7, Q5#8, Q3b#5.
+      test.each([
+        [14, [], ['11*', '12g5', '13g5', '14', '15']],
+        [12, [13], ['11*', '12', '13', '14g5', '15']],
+      ])(
+        'tabs.ungroup of %i (and %j) at the run edge leaves them in place, onUpdated each',
+        async (first, rest, after) => {
+          handle = ungroupSeed();
+          const log = recordEvents();
+
+          await chrome.tabs.ungroup([first, ...rest]);
+
+          expect(await strip(1)).toEqual(after);
+          expect(log).toEqual(
+            [first, ...rest].map((id) => `updated ${id} {"groupId":-1}`)
+          );
+        }
+      );
+
+      // Part E Task 6a, Q3b#6.
+      test("tabs.ungroup of a group's last tabs removes the group", async () => {
+        handle = setupChromeFake({
+          windows: [
+            {
+              id: 1,
+              tabs: [
+                { id: 11, active: true },
+                { id: 12, groupId: 5 },
+                { id: 13, groupId: 5 },
+              ],
+            },
+          ],
+          tabGroups: [{ id: 5, windowId: 1 }],
+        });
+        const log = recordEvents();
+
+        await chrome.tabs.ungroup([12, 13]);
+
+        expect(handle.groupState(5)).toBeUndefined();
+        expect(log).toEqual([
+          'updated 12 {"groupId":-1}',
+          'updated 13 {"groupId":-1}',
+          'group removed 5',
+        ]);
+      });
+
+      // W1 [a*, b, c, d], W2 [x*, y]; the tabGroups permission ungranted.
+      const ungrantedSeed = () =>
+        setupChromeFake({
+          tabGroupsApiAbsent: true,
+          windows: [
+            {
+              id: 1,
+              tabs: [
+                { id: 11, active: true },
+                { id: 12 },
+                { id: 13 },
+                { id: 14 },
+              ],
+            },
+            { id: 2, tabs: [{ id: 21, active: true }, { id: 22 }] },
+          ],
+        });
+
+      // Part E Task 6a, Q3b#2 ungranted.
+      test('WITHOUT the grant, tabs.group makes a group and tabs.get reports its id', async () => {
+        handle = ungrantedSeed();
+        const log = recordTabEvents();
+
+        const groupId = await chrome.tabs.group({
+          tabIds: [12],
+          createProperties: { windowId: 1 },
+        });
+
+        expect(chrome.tabGroups).toBeUndefined();
+        expect((await chrome.tabs.get(12)).groupId).toBe(groupId);
+        expect(log).toEqual([`updated 12 {"groupId":${groupId}}`]);
+      });
+
+      // Part E Task 6a, Q3b#3, Q3b#4 ungranted.
+      test('WITHOUT the grant, tabs.group joins an existing group from its own window and another', async () => {
+        handle = ungrantedSeed();
+        const groupId = await chrome.tabs.group({
+          tabIds: [12],
+          createProperties: { windowId: 1 },
+        });
+        const log = recordTabEvents();
+
+        await chrome.tabs.group({ groupId, tabIds: [14] });
+        await chrome.tabs.group({ groupId, tabIds: [22] });
+
+        expect(await strip(1)).toEqual([
+          '11*',
+          `12g${groupId}`,
+          `14g${groupId}`,
+          `22g${groupId}`,
+          '13',
+        ]);
+        expect((await chrome.tabs.get(22)).groupId).toBe(groupId);
+        expect(log).toEqual([
+          `updated 14 {"groupId":${groupId}}`,
+          'moved 14 3->2',
+          'detached 22 w2@1',
+          'attached 22 w1@4',
+          `updated 22 {"groupId":${groupId}}`,
+          'moved 22 4->3',
+        ]);
+      });
+
+      // Part E Task 6a, Q3#3 ungranted.
+      test('WITHOUT the grant, tabs.ungroup works and moves a mid-run tab out', async () => {
+        handle = ungrantedSeed();
+        const groupId = await chrome.tabs.group({
+          tabIds: [12, 13, 14],
+          createProperties: { windowId: 1 },
+        });
+        const log = recordTabEvents();
+
+        await chrome.tabs.ungroup([13]);
+
+        expect((await chrome.tabs.get(13)).groupId).toBe(-1);
+        expect(await strip(1)).toEqual([
+          '11*',
+          `12g${groupId}`,
+          `14g${groupId}`,
+          '13',
+        ]);
+        expect(log).toEqual(['updated 13 {"groupId":-1}', 'moved 13 2->3']);
+      });
+    });
+
+    describe("the source window's next front tab (Part E Task 6a, Q5)", () => {
+      // W1 [a, g1@5, g2@5, b] (active and collapsed per case), W2 [x*]
+      const frontSeed = (active: number) =>
+        setupChromeFake({
+          windows: [
+            {
+              id: 1,
+              tabs: [
+                { id: 11, active: active === 11 },
+                { id: 12, groupId: 5, active: active === 12 },
+                { id: 13, groupId: 5, active: active === 13 },
+                { id: 14 },
+              ],
+            },
+            { id: 2, tabs: [{ id: 21, active: true }] },
+          ],
+          tabGroups: [{ id: 5, windowId: 1, collapsed: true }],
+        });
+
+      // Part E Task 6a, Q5#9.
+      test('an ungrouped front tab leaving skips tabs in a collapsed group', async () => {
+        handle = frontSeed(11);
+        const log = recordEvents();
+
+        await chrome.tabs.move(11, { windowId: 2, index: 0 });
+
+        expect(await strip(1)).toEqual(['12g5', '13g5', '14*']);
+        expect(handle.groupState(5)?.collapsed).toBe(true);
+        expect(log).toEqual([
+          'detached 11 w1@0',
+          'activated 14 w1',
+          'attached 11 w2@0',
+        ]);
+      });
+
+      // Part E Task 6a, Q5#10 (right) and Q5#11 (left, over the ungrouped
+      // right neighbour).
+      test.each([
+        [12, 13, 1, ['11', '13*g5', '14']],
+        [13, 12, 2, ['11', '12*g5', '14']],
+      ])(
+        'front tab %i leaving its collapsed group: %i, of the same group, comes to the front and the group expands first',
+        async (leaving, next, position, after) => {
+          handle = frontSeed(leaving);
+          const log = recordEvents();
+
+          await chrome.tabs.move(leaving, { windowId: 2, index: 0 });
+
+          expect(await strip(1)).toEqual(after);
+          expect(log).toEqual([
+            `updated ${leaving} {"groupId":-1}`,
+            'group updated 5 collapsed=false',
+            `detached ${leaving} w1@${position}`,
+            `activated ${next} w1`,
+            `attached ${leaving} w2@0`,
+          ]);
+        }
+      );
+
+      // Part E Task 6a, Q5#12, Q5#13: the source picks its new front tab
+      // after ALL the group's tabs left, the destination after all arrived.
+      test.each([12, 13])(
+        'tabGroups.move carrying front tab %i: the source activates once all left, the destination once all arrived',
+        async (front) => {
+          handle = setupChromeFake({
+            windows: [
+              {
+                id: 1,
+                tabs: [
+                  { id: 11 },
+                  { id: 12, groupId: 5, active: front === 12 },
+                  { id: 13, groupId: 5, active: front === 13 },
+                  { id: 14 },
+                ],
+              },
+              {
+                id: 2,
+                tabs: [{ id: 21 }, { id: 22, active: true }, { id: 23 }],
+              },
+            ],
+            tabGroups: [{ id: 5, windowId: 1 }],
+          });
+          const log = recordEvents();
+
+          await chrome.tabGroups.move(5, { windowId: 2, index: 1 });
+
+          expect(await strip(1)).toEqual(['11', '14*']);
+          expect(await strip(2)).toEqual([
+            '21',
+            front === 12 ? '12*g5' : '12g5',
+            front === 13 ? '13*g5' : '13g5',
+            '22',
+            '23',
+          ]);
+          expect(log).toEqual([
+            'group removed 5',
+            'updated 13 {"groupId":-1}',
+            'detached 13 w1@2',
+            'updated 12 {"groupId":-1}',
+            'detached 12 w1@1',
+            'activated 14 w1',
+            'attached 12 w2@1',
+            'updated 12 {"groupId":5}',
+            'attached 13 w2@2',
+            'updated 13 {"groupId":5}',
+            `activated ${front} w2`,
+            'group created 5 w2',
+            'group updated 5 collapsed=false',
+          ]);
+        }
+      );
+    });
+
+    // Part E Task 6a, Q2 (ruling R13): 3/3 at each index; control: a
+    // tabs.update({active}) in the same run moved the front tab.
+    test.each([
+      [3, ['11', '14', '15', '12*g5', '13g5']],
+      [0, ['12*g5', '13g5', '11', '14', '15']],
+    ])(
+      "tabGroups.move in its own window to %i keeps the group's front tab in front",
+      async (index, after) => {
+        handle = setupChromeFake({
+          windows: [
+            {
+              id: 1,
+              tabs: [
+                { id: 11 },
+                { id: 12, groupId: 5, active: true },
+                { id: 13, groupId: 5 },
+                { id: 14 },
+                { id: 15 },
+              ],
+            },
+          ],
+          tabGroups: [{ id: 5, windowId: 1 }],
+        });
+        const log = recordEvents();
+
+        await chrome.tabGroups.move(5, { index });
+
+        expect(await strip(1)).toEqual(after);
+        expect(log.filter((line) => line.startsWith('activated'))).toEqual([]);
+      }
+    );
+  });
+
+  describe('Part E Task 6a fix round 1: openers and seeded groups', () => {
+    // W1 built as `tabs`, W2 [p*]; `leaver` is W1's front tab.
+    const openerSeed = (tabs: Partial<chrome.tabs.Tab>[]) =>
+      setupChromeFake({
+        windows: [
+          { id: 1, tabs },
+          { id: 2, tabs: [{ id: 21, active: true }] },
+        ],
+        tabGroups: [{ id: 5, windowId: 1 }],
+      });
+
+    // Fix round 1, E2 (3/3), with E2 CONTROL (no openers: y).
+    test('tabs.move: a tab opened by the same opener beats the right neighbour', async () => {
+      // [o, s1^o, x, s2^o*, y]
+      handle = openerSeed([
+        { id: 11 },
+        { id: 12, openerTabId: 11 },
+        { id: 13 },
+        { id: 14, openerTabId: 11, active: true },
+        { id: 15 },
+      ]);
+
+      await chrome.tabs.move(14, { windowId: 2, index: 0 });
+
+      expect(await strip(1)).toEqual(['11', '12*', '13', '15']);
+    });
+
+    // Fix round 1, E3b (3/3), with E3 CONTROL (no opener: the left neighbour).
+    test("tabs.move: with no sibling, the tab's opener beats the right neighbour", async () => {
+      // [o, x, s^o*, y]
+      handle = openerSeed([
+        { id: 11 },
+        { id: 12 },
+        { id: 13, openerTabId: 11, active: true },
+        { id: 14 },
+      ]);
+
+      await chrome.tabs.move(13, { windowId: 2, index: 0 });
+
+      expect(await strip(1)).toEqual(['11*', '12', '14']);
+    });
+
+    // Fix round 1, E1b and E1 (3/3 each): a tab the leaver opened does not
+    // count for tabs.move, to its left or its right.
+    test('CONTROL: tabs.move ignores a tab the leaving tab opened', async () => {
+      // [k^c, x, c*, y]
+      handle = openerSeed([
+        { id: 11, openerTabId: 13 },
+        { id: 12 },
+        { id: 13, active: true },
+        { id: 14 },
+      ]);
+
+      await chrome.tabs.move(13, { windowId: 2, index: 0 });
+
+      expect(await strip(1)).toEqual(['11', '12', '14*']);
+    });
+
+    // Fix round 1, F3 (3/3), with F3 CONTROL (no opener: d, the right
+    // neighbour).
+    test('tabGroups.move: a tab the carried front tab opened beats the right neighbour', async () => {
+      // [a, k^c, b, G(c*), d]
+      handle = openerSeed([
+        { id: 11 },
+        { id: 12, openerTabId: 14 },
+        { id: 13 },
+        { id: 14, groupId: 5, active: true },
+        { id: 15 },
+      ]);
+
+      await chrome.tabGroups.move(5, { windowId: 2, index: 0 });
+
+      expect(await strip(1)).toEqual(['11', '12*', '13', '15']);
+    });
+
+    // Fix round 1, F3 CONTROL (3/3).
+    test('CONTROL: tabGroups.move with no opener takes the right neighbour', async () => {
+      handle = openerSeed([
+        { id: 11 },
+        { id: 12 },
+        { id: 13 },
+        { id: 14, groupId: 5, active: true },
+        { id: 15 },
+      ]);
+
+      await chrome.tabGroups.move(5, { windowId: 2, index: 0 });
+
+      expect(await strip(1)).toEqual(['11', '12', '13', '15*']);
+    });
+
+    // Fix round 1, C#0 and C#1 (3/3 each): group-mates on both sides, the
+    // right one comes forward (a collapsed group expands first).
+    test.each([false, true])(
+      "the leaving tab's group-mate on its RIGHT comes forward when it has one on each side (collapsed: %s)",
+      async (collapsed) => {
+        handle = setupChromeFake({
+          windows: [
+            {
+              id: 1,
+              tabs: [
+                { id: 11 },
+                { id: 12, groupId: 5 },
+                { id: 13, groupId: 5, active: true },
+                { id: 14, groupId: 5 },
+                { id: 15 },
+              ],
+            },
+            { id: 2, tabs: [{ id: 21, active: true }] },
+          ],
+          tabGroups: [{ id: 5, windowId: 1, collapsed }],
+        });
+
+        await chrome.tabs.move(13, { windowId: 2, index: 0 });
+
+        expect(await strip(1)).toEqual(['11', '12g5', '14*g5', '15']);
+        expect(handle.groupState(5)?.collapsed).toBe(false);
+      }
+    );
+
+    // Review Minor 2: Chrome has the group whether or not the extension may
+    // see it, so a seeded tab's groupId is a group the fake has too.
+    test('a group named only by a seeded tab exists: tabs.group can join it, without the grant', async () => {
+      handle = setupChromeFake({
+        tabGroupsApiAbsent: true,
+        windows: [
+          {
+            id: 1,
+            tabs: [
+              { id: 11, active: true },
+              { id: 12, groupId: 5 },
+              { id: 13 },
+            ],
+          },
+        ],
+      });
+
+      const groupId = await chrome.tabs.group({ groupId: 5, tabIds: [13] });
+
+      expect(groupId).toBe(5);
+      expect(await strip(1)).toEqual(['11*', '12g5', '13g5']);
+      expect(handle.groupState(5)).toMatchObject({ windowId: 1 });
+    });
+  });
+});

@@ -29,19 +29,18 @@ import {
   itemIdOf,
   groupIdOfItemId,
 } from '../../../utils/functions/tabGroups';
-import type { PaneWindows } from './rowDrag/dropRules';
+import type { DragWindows, GroupMove, PaneWindows } from './rowDrag/dropRules';
 
 /**
- * Everything an `items` drag area needs from the windows it lists. Read by
- * GroupDragArea, the one place an items list is wired up.
+ * Everything an `items` drag area needs from the windows it lists, except what
+ * a drop does: the rows, and what a release would move where
+ * (describeGroupMove). Asks nothing of Redux, so any list of windows that can
+ * name its tabs and groups by string id can use it.
  */
-export function useGroupDrop(
-  itemList: PaneWindows,
+export function useGroupDropGeometry(
+  windows: DragWindows,
   hasTabGroupsPermission: boolean
 ) {
-  const dispatch: AppDispatch = useDispatch();
-  const { windows, tabGroupId } = itemList;
-
   // Each window's top-level rows as drawn, built from the same partition
   // WindowEntryContainer renders -- including the permission gate, so the
   // positions are those of the rows the user actually sees, and
@@ -81,16 +80,53 @@ export function useGroupDrop(
   }, [itemIdsByWindow]);
 
   // `toIndex` is WINDOW-LOCAL: the area counts only the rows of the window the
-  // release landed in, which is the index the reducer below applies to THAT
-  // window's own items.
-  //
-  // WHICH IS WHY THE LANDING WINDOW IS ROUTED ON RATHER THAN IGNORED. The two
+  // release landed in. Only a group row has a handle, so a loose tab's id
+  // never arrives; if one did, or the drop names no window, it describes no
+  // move.
+  const describeGroupMove = useCallback(
+    (
+      rowId: string,
+      toIndex: number,
+      toWindowId: string | undefined
+    ): GroupMove | undefined => {
+      const groupId = groupIdOfItemId(rowId);
+      if (groupId === undefined) return undefined;
+      const fromWindowId = windowOfGroup.get(groupId);
+      if (fromWindowId === undefined || toWindowId === undefined) {
+        return undefined;
+      }
+      return { groupId, fromWindowId, toWindowId, toIndex };
+    },
+    [windowOfGroup]
+  );
+
+  return { rowIds, describeGroupMove };
+}
+
+/**
+ * Everything an `items` drag area needs from a saved session's windows. Read
+ * by GroupDragArea, the one place a saved items list is wired up.
+ */
+export function useGroupDrop(
+  itemList: PaneWindows,
+  hasTabGroupsPermission: boolean
+) {
+  const dispatch: AppDispatch = useDispatch();
+  const { windows, tabGroupId } = itemList;
+  const { rowIds, describeGroupMove } = useGroupDropGeometry(
+    windows,
+    hasTabGroupsPermission
+  );
+
+  // The move's `toIndex` counts the LANDING window's items, which is why the
+  // landing window is routed on rather than ignored. The two
   // reducers count `toIndex` in different lists: moveChromeGroupInternal in the
   // source window's items (where the group still sits, so the last slot is
   // `length - 1`), moveChromeGroupAcrossWindowsInternal in the DESTINATION's
   // with the group not yet among them (so the last slot is `length`). Handing
   // either one the other's index is a silent wrong move that dirties the
   // session for a cloud write -- measured, not assumed (KAN-131, KAN-132).
+  // groupDrop picks between them on the two window ids.
   //
   // Two reducers, not one widened one (§11.4), for the reason §7 gives for
   // tabs: the reorder's no-op guard compares one window's item indices, and it
@@ -108,18 +144,21 @@ export function useGroupDrop(
       _dropTargetId: string | undefined,
       toWindowId?: string
     ) => {
-      const groupId = groupIdOfItemId(itemId);
-      // Only a group row has a handle, so a loose tab's id never arrives.
-      if (groupId === undefined) return;
-      const fromWindowId = windowOfGroup.get(groupId);
-      if (fromWindowId === undefined || toWindowId === undefined) return;
+      const move = describeGroupMove(itemId, toIndex, toWindowId);
+      if (move === undefined) return;
       dispatch(
         dropOnTop(
-          groupDrop({ tabGroupId, groupId, fromWindowId, toWindowId, toIndex })
+          groupDrop({
+            tabGroupId,
+            groupId: move.groupId,
+            fromWindowId: move.fromWindowId,
+            toWindowId: move.toWindowId,
+            toIndex: move.toIndex,
+          })
         )
       );
     },
-    [dispatch, tabGroupId, windowOfGroup]
+    [dispatch, tabGroupId, describeGroupMove]
   );
 
   return { rowIds, onMove };

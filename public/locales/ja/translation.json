@@ -221,6 +221,7 @@
   "Close tab": "タブを閉じる",
   "Audio playing": "音声を再生中",
   "Audio muted": "ミュート中",
+  "Pinned": "固定済み",
   "Close window": "ウィンドウを閉じる",
   "Save window as a session": "ウィンドウをセッションとして保存",
   "Window saved as a session.": "ウィンドウをセッションとして保存しました。"

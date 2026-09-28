@@ -9,6 +9,7 @@ import type { ChromeSeed } from '../setup/chrome.fake';
 import { toOpenWindows } from '../../utils/functions/openNow';
 import { LIGHT_THEME } from '../../hooks/useThemeColors';
 import { TAB_GROUP_COLOR_HEX } from '../../utils/functions/tabGroups';
+import { DURATION } from '../../styles/scale';
 // The saved window, rendered only to compare its band with the live one: the
 // pane copies the declarations rather than sharing them (KAN-280).
 import WindowEntryContainer from '../../components/home/rightpane/WindowEntryContainer';
@@ -708,9 +709,10 @@ describe('the live group band matches the saved one (KAN-280)', () => {
       firstContentOf(tabRow('Loose'))
     );
 
-    // The saved strip's vertical margins are the drag's frame variables,
-    // which jsdom leaves unresolved. Pinned apart: the saved source still
-    // rests at 0 (their fallback), and the live strip is written as that 0.
+    // The strip's vertical margins are the drag's frame variables, which
+    // jsdom leaves unresolved; both rest at 0, their fallback. Since Part E
+    // the live strip follows a drag too (KAN-280 O11b), so it carries the
+    // same two declarations rather than their resting 0.
     expect(savedStripMargins).toEqual([
       'var(--frame-top, 0px)',
       'calc(-1 * var(--frame-bottom, 0px))',
@@ -718,7 +720,7 @@ describe('the live group band matches the saved one (KAN-280)', () => {
     expect([
       getComputedStyle(liveStrip).marginTop,
       getComputedStyle(liveStrip).marginBottom,
-    ]).toEqual(['0px', '0px']);
+    ]).toEqual(savedStripMargins);
 
     expect(liveGeometry).toEqual(savedGeometry);
 
@@ -729,5 +731,35 @@ describe('the live group band matches the saved one (KAN-280)', () => {
     expect(liveGeometry.strip['margin-right']).toBe('9px');
     expect(liveGeometry.stripFootprint).toBe(16);
     expect(liveGeometry.groupedTabInset - liveGeometry.looseTabInset).toBe(16);
+  });
+
+  // KAN-328. The live strip widens for a drop target as the saved one does
+  // (KAN-164), so it must ease there as the saved one does, not jump.
+  test("the strip's transition is the saved strip's", async () => {
+    const transitionOf = (strip: Element) =>
+      stylesOf(strip, [
+        'transition-property',
+        'transition-duration',
+        'transition-timing-function',
+      ]);
+    const saved = await renderSavedWindow();
+    const savedStrip = required(
+      document.querySelector('[data-band-id="R"] [data-group-color-strip]'),
+      'saved strip'
+    );
+    const savedTransition = transitionOf(savedStrip);
+    saved.unmount();
+
+    await renderPane(geometrySeed(), { thisWindowId: 1 });
+    const liveStrip = stripOf(screen.getByRole('group', { name: 'Research' }));
+
+    expect(transitionOf(liveStrip)).toEqual(savedTransition);
+    // And the values, so both losing it together cannot pass.
+    expect(savedTransition).toEqual({
+      // jsdom serialises the list without spaces.
+      'transition-property': 'width,flex-basis,margin-right,transform',
+      'transition-duration': DURATION.COLOR,
+      'transition-timing-function': 'cubic-bezier(0.2, 0, 0, 1)',
+    });
   });
 });

@@ -43,6 +43,7 @@ import {
   MERGE_SESSIONS_FROM_BACKUP_ACTION,
 } from '../../utils/constants/actionTypes';
 import type { RootState } from '../store';
+import { noteTabKeeperAction } from '../openNowMoveUndo';
 
 // add actions to capture under undo/redo
 const actionsToCapture = [
@@ -280,6 +281,10 @@ export const customMiddleware: Middleware = (store) => {
       );
 
       if (!isViewStateOnly) {
+        // A new saved-session change: the most recent Tab Keeper action now,
+        // so an Open now drop before it is no longer ⌘Z's (KAN-280 O11f,
+        // ledger R23). An undo or redo step, above, is not a new change.
+        noteTabKeeperAction();
         store.dispatch(setIsDirty());
       }
     }

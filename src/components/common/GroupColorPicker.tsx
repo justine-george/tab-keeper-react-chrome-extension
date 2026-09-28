@@ -5,7 +5,8 @@ import { useTranslation } from 'react-i18next';
 
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { usePopoverList } from '../../hooks/usePopoverList';
-import { DURATION, RADIUS } from '../../styles/scale';
+import { RADIUS } from '../../styles/scale';
+import { GROUP_STRIP_TRANSITION } from './groupColorStrip';
 import {
   TAB_GROUP_COLOR_HEX,
   sanitizeTabGroupColor,
@@ -196,12 +197,10 @@ const GroupColorPicker: React.FC<GroupColorPickerProps> = ({
           css={css`
             ${bandStyle};
             cursor: pointer;
-            /* Named properties, never the all keyword. */
-            /* transform joins the list for KAN-165: the strip travels
-               with its group's tabs and must glide as they do. */
-            transition-property: width, flex-basis, margin-right, transform;
-            transition-duration: ${DURATION.COLOR};
-            transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+            /* transform is in it for KAN-165: the strip travels with its
+               group's tabs and must glide as they do. Shared with Open
+               now's strip (KAN-328). */
+            ${GROUP_STRIP_TRANSITION};
             /* 11px + 5px, still 16px. Widening without shrinking the margin
                pushes every row in the group sideways on hover.
 

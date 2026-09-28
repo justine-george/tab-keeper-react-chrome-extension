@@ -303,8 +303,11 @@ describe('toOpenWindows', () => {
       windows: [{ id: 1, tabs: [{ url: 'https://a.test/', groupId: 999 }] }],
     });
 
+    // Chrome always has a grouped tab's group (and so does the fake), but
+    // the two reads are separate calls: a group made between them is in the
+    // tabs read and missing from the groups read, as here.
     const windows = await getWindows();
-    const groups = await getGroups();
+    const groups = (await getGroups()).filter((group) => group.id !== 999);
     const result = toOpenWindows(windows, groups, null);
 
     expect(result[0].tabs[0].groupId).toBeNull();

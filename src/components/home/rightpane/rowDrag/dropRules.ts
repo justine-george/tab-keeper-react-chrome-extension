@@ -8,6 +8,7 @@ import type { ReactNode } from 'react';
 
 import type { LandingSide } from '../../../../utils/functions/dragPreview';
 import type { windowGroupData } from '../../../../redux/slices/tabContainerDataStateSlice';
+import type { chromeTabGroupData } from '../../../../utils/functions/tabGroups';
 
 export const ACTIVATION_DISTANCE_PX = 5;
 
@@ -131,6 +132,45 @@ export interface PaneWindows {
   >[];
 }
 
+// The windows a tab or group drag's GEOMETRY reads: which rows there are, which
+// window and group each sits in, and each window's groups. Narrower than
+// PaneWindows on purpose -- no session, no stored tab fields -- so a list of
+// live Chrome windows (KAN-280 Open now) can supply it with its ids as strings,
+// and a saved session's windows satisfy it as they are.
+export type DragWindows = readonly {
+  windowId: string;
+  tabs: readonly DragTab[];
+  chromeTabGroups?: readonly chromeTabGroupData[];
+}[];
+
+// One tab row of a DragWindows window. `chromeGroupId` names one of that
+// window's chromeTabGroups; absent means the tab is loose.
+export interface DragTab {
+  tabId: string;
+  pinned?: boolean;
+  chromeGroupId?: string;
+}
+
+// What a committed tab drop asks for, before anything decides how to carry it
+// out. `toIndex` counts `toWindowId`'s rows with the held tab lifted out, and
+// `toGroupId` is the group whose band the release landed in, if any.
+export interface TabMove {
+  tabId: string;
+  fromWindowId: string;
+  toWindowId: string;
+  toIndex: number;
+  toGroupId?: string;
+}
+
+// The same for a whole group. `toIndex` counts `toWindowId`'s top-level rows
+// with the held group lifted out.
+export interface GroupMove {
+  groupId: string;
+  fromWindowId: string;
+  toWindowId: string;
+  toIndex: number;
+}
+
 export interface RowDragAreaProps {
   // Flat, in render order. For a list with no windows, index into this is what
   // onMove's toIndex means; for one whose rows sit in windows, see onMove.
@@ -217,6 +257,50 @@ export interface RowDragAreaProps {
    * does is the auto-scroll the user asked for by holding near an edge.
    */
   restoreScrollIfNoDrop?: boolean;
+  /**
+   * The landing indices a drop of `rowId` into `windowId` may take, both ends
+   * inclusive (KAN-280). The landing is clamped into it.
+   *
+   * IN `onMove`'S `toIndex` SPACE: counted among `windowId`'s rows with the
+   * held one lifted out, or among every row for a list with no windows, where
+   * `windowId` is undefined.
+   *
+   * For a list whose drops Chrome clamps -- a pinned tab cannot leave the
+   * pinned run, nor another tab enter it. Clamped ONCE, in the landing
+   * decision the preview and the release share, so the slot the user is shown
+   * is the one the release commits.
+   *
+   * A CLAMPED LANDING HAS NO TARGET. It lands where the pointer is not, so
+   * the band `resolveDrop` names under the pointer is not what it lands on:
+   * no band is marked (`onDropTargetChange`), `landsBesideFixedRow`,
+   * `fixedRowsRemovedBy` and `gapChangesBy` are asked with `target`
+   * undefined, and `onMove` gets `dropTargetId` undefined. A landing the
+   * range leaves where the pointer put it keeps the band as its target.
+   *
+   * The range is also bounded to the indices that exist: 0 up to the
+   * window's row count with the held row lifted out (one past its last
+   * row). A range that holds none of those -- `max < min`, or wholly past
+   * either end -- refuses the drop, like a release outside the list. A
+   * window that draws no rows (collapsed) holds only index 0.
+   *
+   * Absent, nothing is clamped; saved lists pass none.
+   */
+  landingRange?: (
+    rowId: string,
+    windowId: string | undefined
+  ) => { min: number; max: number };
+  /**
+   * Whether a drop of `rowId` may land in `windowId` at all (KAN-280). A
+   * window that refuses is treated exactly like a release outside the list:
+   * no row steps aside, no target is marked in it, and the release puts the
+   * row back.
+   *
+   * For a list whose drops Chrome refuses across windows -- a pinned tab, a
+   * normal tab into an incognito window. Asked about the window the release
+   * would land in, the row's own included; never asked in a list with no
+   * windows. Absent, every window accepts; saved lists pass none.
+   */
+  acceptsWindow?: (rowId: string, windowId: string) => boolean;
   resolveDrop?: ResolveDrop;
   /**
    * Called while the drag is live, whenever `resolveDrop` starts or stops

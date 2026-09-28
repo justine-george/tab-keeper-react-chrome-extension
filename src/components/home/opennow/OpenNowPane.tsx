@@ -2,7 +2,7 @@ import { Ref, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 
 import { css } from '@emotion/react';
 import { useTranslation } from 'react-i18next';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 
 import Icon from '../../common/Icon';
 import { NormalLabel } from '../../common/Label';
@@ -11,6 +11,7 @@ import { useFontFamily } from '../../../hooks/useFontFamily';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { formatGroupCounts } from '../../../utils/functions/local';
 import type { OpenTab, OpenWindow } from '../../../utils/functions/openNow';
+import type { MovedTabs } from '../../../utils/functions/openNowMoves';
 import {
   openWindowsToSession,
   suggestTitleForWindow,
@@ -23,10 +24,16 @@ import {
   subscribeReopenFocus,
 } from '../../../redux/reopenFocus';
 import { saveToTabContainer } from '../../../redux/slices/tabContainerDataStateSlice';
-import type { AppDispatch } from '../../../redux/store';
+import type { AppDispatch, RootState } from '../../../redux/store';
 import { TYPE } from '../../../styles/scale';
 
+import { RowDragArea } from '../rightpane/rowDrag/RowDragArea';
 import OpenNowWindow from './OpenNowWindow';
+import {
+  OPEN_ITEMS_SCOPE,
+  OPEN_TABS_SCOPE,
+  useOpenNowDrop,
+} from './useOpenNowDrop';
 
 export type OpenNowHeaderAction = {
   icon: IconName;
@@ -48,7 +55,17 @@ interface OpenNowPaneProps {
   // The "Open now" heading, for a caller that moves focus to it (the
   // drawer, KAN-280 O2).
   headingRef?: Ref<HTMLHeadingElement>;
+  // Told of every drag Chrome carried out, with each moved tab's place before
+  // and after (KAN-280 Part E), after the drop is kept for ⌘Z. No product
+  // caller passes it: the undo record is kept by useOpenNowDrop itself
+  // (storeOpenNowDrop), whether or not this is given. The drag tests use it
+  // to know a committed drop has settled.
+  onMoved?: (moved: MovedTabs) => void;
 }
+
+// Stands in for `windows` while the first read is in flight, the same array
+// every time, so the drag tables built from it are not rebuilt per render.
+const NO_WINDOWS: OpenWindow[] = [];
 
 // The first control inside a window's block: its collapse chevron (an Icon,
 // so role="button" on a div).
@@ -82,6 +99,7 @@ export default function OpenNowPane({
   actions,
   headingId,
   headingRef,
+  onMoved,
 }: OpenNowPaneProps) {
   const COLORS = useThemeColors();
   const FONT_FAMILY = useFontFamily();
@@ -96,13 +114,26 @@ export default function OpenNowPane({
     () => new Set()
   );
 
-  const listed = windows ?? [];
+  const listed = windows ?? NO_WINDOWS;
   const tabCount = listed.reduce((sum, w) => sum + w.tabs.length, 0);
 
   // Majority rules, as the saved header's toggle (KAN-206): it asks whether
   // any window on screen is open, so unfolding one by hand never leaves it
   // offering the opposite of what the pane needs.
   const anyWindowOpen = listed.some((w) => !collapsedIds.has(w.id));
+
+  // KAN-280 Part E (O11). Tabs and whole groups are dragged here as in a
+  // saved session, and a drop moves the real tabs. Groups are shown only
+  // with the grant, so without it there is no group to hold (O11e).
+  const hasTabGroupsPermission = useSelector(
+    (state: RootState) => state.globalState.hasTabGroupsPermission
+  );
+  const drop = useOpenNowDrop({
+    windows: listed,
+    hasTabGroups: hasTabGroupsPermission,
+    collapsedIds,
+    onMoved,
+  });
 
   const toggleWindow = (id: number) =>
     setCollapsedIds((prev) => {
@@ -390,22 +421,55 @@ export default function OpenNowPane({
             />
           </div>
         ) : (
-          listed.map((openWindow, index) => (
-            <OpenNowWindow
-              key={openWindow.id}
-              openWindow={openWindow}
-              index={index}
-              isOpen={!collapsedIds.has(openWindow.id)}
-              onToggle={() => toggleWindow(openWindow.id)}
-              onCloseTab={(tab) => void handleCloseTab(openWindow, tab)}
-              onSaveWindow={() => void handleSaveWindow(openWindow)}
-              onCloseWindow={
-                openWindow.isThisWindow
-                  ? undefined
-                  : () => void handleCloseWindow(openWindow)
-              }
-            />
-          ))
+          // The saved pane's two lists over every window (TabDragArea,
+          // GroupDragArea), under Open now's own scopes: a tab at a time,
+          // and a whole group by its title row. No clampDropToEnds: a
+          // window's tab list is nested, and a release outside every window
+          // must be refused (isInsideList, KAN-132).
+          <RowDragArea
+            scope={OPEN_TABS_SCOPE}
+            rowIds={drop.tabs.rowIds}
+            onMove={drop.tabs.onMove}
+            dragKind="tab"
+            dropsAcrossWindows
+            resolveDrop={drop.tabs.resolveDrop}
+            onDropTargetChange={drop.tabs.onDropTargetChange}
+            landsBesideFixedRow={drop.tabs.landsBesideFixedRow}
+            fixedRowsRemovedBy={drop.tabs.fixedRowsRemovedBy}
+            gapChangesBy={drop.tabs.gapChangesBy}
+            fixedRowSelector="[data-fixed-row-id]"
+            landingRange={drop.tabs.landingRange}
+            acceptsWindow={drop.tabs.acceptsWindow}
+          >
+            <RowDragArea
+              scope={OPEN_ITEMS_SCOPE}
+              rowIds={drop.items.rowIds}
+              onMove={drop.items.onMove}
+              dragKind="group"
+              dropsAcrossWindows
+              handleSelector="[data-group-drag-handle]"
+              restoreScrollIfNoDrop
+              landingRange={drop.items.landingRange}
+              acceptsWindow={drop.items.acceptsWindow}
+            >
+              {listed.map((openWindow, index) => (
+                <OpenNowWindow
+                  key={openWindow.id}
+                  openWindow={openWindow}
+                  index={index}
+                  isOpen={!collapsedIds.has(openWindow.id)}
+                  onToggle={() => toggleWindow(openWindow.id)}
+                  onCloseTab={(tab) => void handleCloseTab(openWindow, tab)}
+                  onSaveWindow={() => void handleSaveWindow(openWindow)}
+                  onCloseWindow={
+                    openWindow.isThisWindow
+                      ? undefined
+                      : () => void handleCloseWindow(openWindow)
+                  }
+                />
+              ))}
+            </RowDragArea>
+          </RowDragArea>
         )}
       </div>
     </div>

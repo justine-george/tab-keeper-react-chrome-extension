@@ -6,6 +6,9 @@ import Icon from '../../components/common/Icon';
 import Button from '../../components/common/Button';
 import OverflowMenu from '../../components/common/OverflowMenu';
 import SettingsCategoryContainer from '../../components/settings/leftpane/SettingsCategoryContainer';
+import OpenNowPane from '../../components/home/opennow/OpenNowPane';
+import { toOpenWindows } from '../../utils/functions/openNow';
+import type { ChromeSeed } from '../setup/chrome.fake';
 import { LIGHT_THEME } from '../../hooks/useThemeColors';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { activeRulesFor, hoverRulesFor } from '../setup/hoverRules';
@@ -130,5 +133,58 @@ describe('a press is confirmed on every interactive surface (KAN-205)', () => {
     const icon = document.querySelector('.material-symbols-outlined')!;
     expect(activeRulesFor(icon)).toBe('');
     expect(hoverRulesFor(icon)).toBe('');
+  });
+});
+
+// KAN-329. KAN-217's held fill is for a MENU trigger: the control that owns
+// an open menu. A fold chevron is a disclosure; it says aria-expanded too
+// (screen readers need it), but an open window is not a held press. Open
+// now's windows start open, so the chevron filled on mount. Read from the
+// computed style: jsdom resolves attribute selectors, and neither element
+// is hovered or pressed here.
+describe('only a menu trigger holds a fill while expanded (KAN-329)', () => {
+  test("an open window's fold chevron in Open now shows no pressed fill", async () => {
+    const seed: ChromeSeed = {
+      windows: [{ id: 1, tabs: [{ title: 'A', url: 'https://a.test/' }] }],
+    };
+    const result = await renderWithProviders(
+      <OpenNowPane windows={null} actions={[]} headingId="h" />,
+      { seed }
+    );
+    const windows = toOpenWindows(
+      await chrome.windows.getAll({ populate: true, windowTypes: ['normal'] }),
+      null,
+      null
+    );
+    result.rerender(
+      <OpenNowPane windows={windows} actions={[]} headingId="h" />
+    );
+
+    // PREMISE: the window is open, and its chevron says so.
+    const chevron = screen.getByRole('button', {
+      name: 'Collapse: Window 1',
+      expanded: true,
+    });
+    expect(getComputedStyle(chevron).backgroundColor).not.toMatch(ICON_PRESSED);
+  });
+
+  test('CONTROL: an open menu trigger still holds the pressed fill (KAN-217)', async () => {
+    const user = userEvent.setup();
+    await renderWithProviders(
+      <OverflowMenu
+        ariaLabel="More actions"
+        items={[
+          { key: 'a', label: 'Ungroup', icon: 'label_off', onSelect: vi.fn() },
+        ]}
+      />
+    );
+    const trigger = screen.getByRole('button', { name: 'More actions' });
+    // CONTROL: closed, it rests unfilled.
+    expect(getComputedStyle(trigger).backgroundColor).not.toMatch(ICON_PRESSED);
+
+    await user.click(trigger);
+
+    expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    expect(getComputedStyle(trigger).backgroundColor).toMatch(ICON_PRESSED);
   });
 });

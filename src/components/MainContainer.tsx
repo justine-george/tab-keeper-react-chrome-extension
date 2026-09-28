@@ -19,6 +19,8 @@ import LeftPaneSettings from './settings/leftpane/LeftPaneSettings';
 import RightPaneSettings from './settings/rightpane/RightPaneSettings';
 import { closeToast } from '../redux/slices/globalStateSlice';
 import { reopenFromOffer } from '../redux/reopenOffer';
+import { takeOpenNowDrop } from '../redux/openNowMoveUndo';
+import { undoOpenNowDrop } from '../utils/functions/openNowMoves';
 import { RateAndReviewModal } from './modals/RateAndReviewModal';
 import { FocusConfirmModal } from './modals/FocusConfirmModal';
 import { DeleteCloudDataModal } from './modals/DeleteCloudDataModal';
@@ -88,18 +90,24 @@ export default function MainContainer() {
   // KAN-280 O4/O5. Folded, Open now takes the saved session's column.
   const folded = useSelector(selectIsSavedSessionFolded);
 
-  // KAN-311 (O8c). Set when the key takes a Reopen offer, while that press
-  // may still be held: its repeats would otherwise go on to undo
-  // saved-session edits once the toast has gone.
-  const heldAfterReopen = useRef(false);
+  // KAN-280 O11f. An Open now drop's undo sets a group's look only with the
+  // grant.
+  const hasTabGroupsPermission = useSelector(
+    (state: RootState) => state.globalState.hasTabGroupsPermission
+  );
+
+  // Set when the key takes a Reopen offer (KAN-311, O8c) or undoes an Open
+  // now drop (KAN-280 O11f) -- each done once -- while that press may still
+  // be held: its repeats would otherwise go on to undo saved-session edits.
+  const heldAfterOneTimeUndo = useRef(false);
 
   // Keyboard shortcut listener for undo/redo
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
-      // Any fresh press ends a hold after Reopen (KAN-311), wherever it
-      // lands, a text field included, so the hold cannot outlive the
+      // Any fresh press ends a hold after a one-time undo (KAN-311), wherever
+      // it lands, a text field included, so the hold cannot outlive the
       // gesture if a keyup never arrives. Only clears; it prevents nothing.
-      if (!event.repeat) heldAfterReopen.current = false;
+      if (!event.repeat) heldAfterOneTimeUndo.current = false;
 
       // Guard the whole handler, not just undo: redo is native inside a text
       // field too (cmd+shift+z on macOS, ctrl+y on Windows).
@@ -107,11 +115,12 @@ export default function MainContainer() {
 
       if (isSettingsPage) return;
 
-      // A held key's repeats after it took the offer are dropped, so they
-      // cannot go on to undo saved-session edits. Below the guards: a repeat
-      // landing in a text field is still the field's own undo.
+      // A held key's repeats after it took the offer or undid a drop are
+      // dropped, so they cannot go on to undo saved-session edits. Below the
+      // guards: a repeat landing in a text field is still the field's own
+      // undo.
       if (
-        heldAfterReopen.current &&
+        heldAfterOneTimeUndo.current &&
         event.repeat &&
         event.key.toLowerCase() === 'z'
       ) {
@@ -142,12 +151,29 @@ export default function MainContainer() {
         return;
       }
 
+      // KAN-280 O11f. An Open now drop, when it is the most recent Tab Keeper
+      // action (a Reopen offer shown or a saved-session change since would
+      // have retired it), is what the key undoes -- and only that. A drop
+      // whose tabs have moved or closed since does nothing, and the key does
+      // not fall through to an older action. It is taken either way, and has
+      // no redo (ledger R5). Only the tab view has Open now, so the popup
+      // never keeps a drop and its key works as before.
+      if (key === 'z') {
+        const drop = takeOpenNowDrop();
+        if (drop !== null) {
+          void undoOpenNowDrop(drop, hasTabGroupsPermission);
+          heldAfterOneTimeUndo.current = true;
+          event.preventDefault();
+          return;
+        }
+      }
+
       // While a Reopen offer shows, the key takes it, as pressing Reopen does,
       // and undoes nothing (O8c). A second press before this re-renders finds
       // the offer taken and does nothing either.
       if (key === 'z' && shownReopenOfferId !== null) {
         void dispatch(reopenFromOffer(shownReopenOfferId));
-        heldAfterReopen.current = true;
+        heldAfterOneTimeUndo.current = true;
         event.preventDefault();
         return;
       }
@@ -166,7 +192,7 @@ export default function MainContainer() {
         event.key === 'Meta' ||
         event.key === 'Control'
       ) {
-        heldAfterReopen.current = false;
+        heldAfterOneTimeUndo.current = false;
       }
     }
     window.addEventListener('keydown', handleKeyDown);
@@ -177,7 +203,7 @@ export default function MainContainer() {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [isSettingsPage, shownReopenOfferId, dispatch]);
+  }, [isSettingsPage, shownReopenOfferId, hasTabGroupsPermission, dispatch]);
 
   const containerStyle = css`
     display: flex;

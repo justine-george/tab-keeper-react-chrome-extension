@@ -222,8 +222,12 @@ const Icon: React.FC<IconProps> = ({
        the menu moves the pointer onto it and off the trigger, so :hover alone
        dropped the fill while the menu was still on screen -- and a menu opened
        from the keyboard never filled at all. Last, so it wins over :hover and
-       :active at equal specificity whether or not the pointer is here. */
-    &[aria-expanded='true'] {
+       :active whether or not the pointer is here.
+
+       KAN-329. Only a trigger that owns a popup: a fold chevron says
+       aria-expanded too, as a disclosure must, but an open window is not a
+       held press, and it filled from mount. */
+    &[aria-haspopup][aria-expanded='true'] {
       background-color: ${COLORS.ICON_ACTIVE_COLOR};
     }`}
     ${style && style}

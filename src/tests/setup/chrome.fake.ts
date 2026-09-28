@@ -47,6 +47,18 @@
 // per window and one focused window, and adds tabs.move,
 // windows.getLastFocused and a runtime.onMessage that sendMessage reaches
 // (the page asks the service worker, and reads its answer).
+//
+// KAN-280 Part E (Open now drag): tabs.move to another window, tabs.group
+// into another window's group, and tabGroups.move, each firing the events
+// Chrome fires and refusing what Chrome refuses. Every rule is one Part E
+// Task 1 measured in Chromium 151
+// (docs/superpowers/plans/2026-09-28-open-now-part-e.md, "Task 1 results"),
+// cited as "Part E Task 1, Qn". Windows carry `incognito` (default false),
+// which is the profile a move may not cross. Part E Task 6a added the G1
+// sequence (an array tabs.move, tabs.group making a group in another
+// window), tabs.group/ungroup's own moves and events, and a window closing
+// when its last tab leaves, cited as "Part E Task 6a, Qn" (same plan,
+// "### Task 6a").
 
 export type ChromeSeed = {
   tabs?: Partial<chrome.tabs.Tab>[];
@@ -428,6 +440,25 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
         ...group,
       }) as chrome.tabGroups.TabGroup
   );
+  // A tab seeded with a groupId is in a group Chrome has, whether or not the
+  // extension may see it: an ungranted seed naturally leaves `tabGroups`
+  // out. So a group the seed does not declare gets a record of its own
+  // (untitled, grey, expanded, in the first such tab's window), and
+  // tabs.group({groupId}) can join it as Chrome would (Part E Task 6a
+  // review, Minor 2).
+  for (const tab of tabs) {
+    if (tab.groupId === -1 || tabGroups.some((g) => g.id === tab.groupId)) {
+      continue;
+    }
+    tabGroups.push({
+      id: tab.groupId,
+      collapsed: false,
+      color: 'grey',
+      shared: false,
+      title: '',
+      windowId: tab.windowId,
+    });
+  }
 
   // KAN-280 live event registries. tabs.remove, tabs.create, windows.create
   // and tabGroups.update (all below) DO fire these back to their own
@@ -437,10 +468,12 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
   // tabGroups.onRemoved for a group whose last tab they closed (KAN-280 Part
   // D). sessions.restore fires what tabs.create/windows.create/
   // tabGroups.update fire for the same change, plus tabGroups.onCreated for
-  // a group it brings back. Everything else here (onUpdated/onMoved/
-  // onAttached/onDetached/onActivated, tabGroups.onMoved) has no
-  // extension-call trigger in this file -- only handle.browser.* below,
-  // which models the BROWSER's own hand, fires those.
+  // a group it brings back. tabs.move, tabs.group and tabGroups.move fire
+  // what Chrome fires for a move (Part E Task 1, Q6): onMoved, onUpdated
+  // {groupId} or {pinned}, tabGroups.onMoved, and across windows
+  // onDetached/onAttached/onActivated with a group's remove and re-create.
+  // handle.browser.* below, which models the BROWSER's own hand, fires
+  // these too.
   const tabsOnCreated = registry<(tab: chrome.tabs.Tab) => void>();
   const tabsOnRemoved =
     registry<(tabId: number, info: chrome.tabs.OnRemovedInfo) => void>();
@@ -535,6 +568,309 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
     if (index === -1) return;
     const [gone] = tabGroups.splice(index, 1);
     tabGroupsOnRemoved.fire(gone);
+  };
+
+  // The group whose run `slot` is strictly inside -- between two tabs of one
+  // group among `own` (a window's tabs in order) -- or undefined.
+  const groupRunAt = (
+    own: chrome.tabs.Tab[],
+    slot: number
+  ): number | undefined => {
+    const before = own[slot - 1];
+    const after = own[slot];
+    return before !== undefined &&
+      after !== undefined &&
+      before.groupId !== -1 &&
+      before.groupId === after.groupId
+      ? before.groupId
+      : undefined;
+  };
+
+  // Chrome's refusals for a move, verbatim (Part E Task 1, Q3 and Q4). A
+  // refused call moves nothing and fires nothing.
+  const DISRUPTS_GROUP =
+    'Tab operation is invalid as the specified input would disrupt group continuity in the tab strip.';
+  const OTHER_PROFILE =
+    'Tabs can only be moved between windows in the same profile.';
+  const GROUP_INTO_PINNED =
+    'Cannot move the group to an index that is in the middle of pinned tabs.';
+  const GROUP_INTO_GROUP =
+    'Cannot move the group to an index that is in the middle of another group.';
+
+  // An incognito window and a normal one are different profiles (Part E
+  // Task 1, Q4). A tab whose window the seed never declared (a bare `tabs:
+  // [...]` seed) counts as normal.
+  const sameProfile = (a: number, b: number): boolean =>
+    (windows.find((win) => win.id === a)?.incognito ?? false) ===
+    (windows.find((win) => win.id === b)?.incognito ?? false);
+
+  // A window whose last tab leaves closes (Part E Task 6a, Q4: tabs.move,
+  // an array tabs.move, tabGroups.move and tabs.group, 3/3 each). The call
+  // resolves first and the window is already gone -- windows.getAll right
+  // after it no longer lists it (Q6) -- while windows.onRemoved arrives
+  // 2-5ms AFTER the call resolved, so the fake fires it on the next task,
+  // not inside the call. No tabs.onRemoved: no tab closed. Not measured:
+  // whether the window enters the recently-closed list, and which window
+  // has focus afterwards; the fake records nothing and leaves focus alone.
+  const closeIfEmpty = (windowId: number): void => {
+    if (windowTabsInOrder(windowId).length > 0) return;
+    const index = windows.findIndex((win) => win.id === windowId);
+    if (index === -1) return;
+    windows.splice(index, 1);
+    setTimeout(() => windowsOnRemoved.fire(windowId), 0);
+  };
+
+  // Every tab the fake holds was minted an id by makeTab; chrome.tabs.Tab
+  // only types it optional because a Session's tab has none.
+  const idOf = (tab: chrome.tabs.Tab): number => {
+    if (tab.id === undefined) {
+      throw new Error('chrome fake: a tab in the strip has no id');
+    }
+    return tab.id;
+  };
+
+  // Moves `tab` to `finalIndex` in its own window (counted with the tab
+  // removed), firing tabs.onMoved unless it ends where it was (Part E Task 1,
+  // Q1: a no-op fires nothing). Leaves its group alone. Whether it moved.
+  const moveWithinWindow = (
+    tab: chrome.tabs.Tab,
+    finalIndex: number
+  ): boolean => {
+    const fromIndex = tab.index;
+    const others = windowTabsInOrder(tab.windowId).filter((t) => t !== tab);
+    tabs.splice(tabs.indexOf(tab), 1);
+    insertAtSlot(tab, others, finalIndex);
+    if (tab.index === fromIndex) return false;
+    tabsOnMoved.fire(idOf(tab), {
+      windowId: tab.windowId,
+      fromIndex,
+      toIndex: tab.index,
+    });
+    return true;
+  };
+
+  // The tab a window brings to the front when its front tab leaves, by
+  // `call` (tabs.move moves one tab; tabGroups.move carries the front tab
+  // with its group). `rest` is the window's remaining tabs in order,
+  // `position` is where the leaver sat among them, and `formerGroupId` the
+  // group it left (-1 for tabGroups.move: every tab of it leaves). In order:
+  //  1. A tab of the group it left: the nearest to its right, else to its
+  //     left, even over an ungrouped right neighbour (Part E Task 6a, Q1,
+  //     Q5#10, Q5#11; fix round 1, C#0/C#1: a mate on each side, the right
+  //     one).
+  //  2. tabs.move: a tab opened by the leaver's own opener (a sibling),
+  //     before the opener itself (fix round 1, E2, E2b: one sibling, to the
+  //     left, over the right neighbour and the opener); then the opener (E3,
+  //     E3b: to the left, over the right neighbour). A tab the leaver itself
+  //     opened does NOT count here (E1, E1b, F1).
+  //     tabGroups.move: a tab the carried tab opened (fix round 1, F2, F3;
+  //     Task 1 Q5#4 repeated as D#4: one such tab, to the left, over the
+  //     left and the right neighbour).
+  //  3. The nearest tab to the right that is not in a collapsed group, else
+  //     to the left (Q5#9 skips a collapsed group on the right; right:
+  //     Part E Task 1, Q1_cross#5, Q5#3; left: fix round 1, F1 CONTROL, E3
+  //     CONTROL, B#1, B#3).
+  // Not measured, and the fake's choice: several siblings or opened tabs
+  // (it takes the nearest, right first), a sibling, an opener or an opened
+  // tab on the right or in a collapsed group (it takes it anyway), a
+  // group-mate against a sibling or the opener (mates first), siblings and
+  // the opener for tabGroups.move (ignored), and a window whose remaining
+  // tabs are ALL in collapsed groups (the right neighbour, else the left).
+  const nextFrontTab = (
+    rest: chrome.tabs.Tab[],
+    position: number,
+    leaving: chrome.tabs.Tab,
+    formerGroupId: number,
+    call: 'tabs.move' | 'tabGroups.move'
+  ): chrome.tabs.Tab | undefined => {
+    const nearest = (
+      candidates: chrome.tabs.Tab[]
+    ): chrome.tabs.Tab | undefined =>
+      candidates.find((tab) => rest.indexOf(tab) >= position) ??
+      candidates[candidates.length - 1];
+    const mate =
+      formerGroupId === -1
+        ? undefined
+        : nearest(rest.filter((tab) => tab.groupId === formerGroupId));
+    if (mate !== undefined) return mate;
+    const opener = leaving.openerTabId;
+    if (call === 'tabs.move' && opener !== undefined) {
+      const related =
+        nearest(rest.filter((tab) => tab.openerTabId === opener)) ??
+        rest.find((tab) => tab.id === opener);
+      if (related !== undefined) return related;
+    }
+    const leaverId = leaving.id;
+    if (call === 'tabGroups.move' && leaverId !== undefined) {
+      const opened = nearest(
+        rest.filter((tab) => tab.openerTabId === leaverId)
+      );
+      if (opened !== undefined) return opened;
+    }
+    const shown = (tab: chrome.tabs.Tab): boolean =>
+      !tabGroups.some((group) => group.id === tab.groupId && group.collapsed);
+    return (
+      rest.slice(position).find(shown) ??
+      rest.slice(0, position).reverse().find(shown) ??
+      rest[position] ??
+      rest[rest.length - 1]
+    );
+  };
+
+  // Takes `tab` out of its window and fires onDetached. When it was its
+  // window's ACTIVE tab, the window then activates nextFrontTab and fires
+  // onActivated, and the tab itself goes inactive. `formerGroupId` is the
+  // group the tab was in before this move took it out. When that next tab
+  // is in a collapsed group, the group expands, and its tabGroups.onUpdated
+  // fires BEFORE the onDetached (Part E Task 6a, Q1#1, Q5#10, Q5#11).
+  const detachTab = (tab: chrome.tabs.Tab, formerGroupId: number): void => {
+    const fromWindowId = tab.windowId;
+    const oldPosition = tab.index;
+    const next = tab.active
+      ? nextFrontTab(
+          windowTabsInOrder(fromWindowId).filter((t) => t !== tab),
+          oldPosition,
+          tab,
+          formerGroupId,
+          'tabs.move'
+        )
+      : undefined;
+    const reopened = tabGroups.find(
+      (group) => group.id === next?.groupId && group.collapsed
+    );
+    if (reopened) {
+      reopened.collapsed = false;
+      tabGroupsOnUpdated.fire(reopened);
+    }
+    tabs.splice(tabs.indexOf(tab), 1);
+    reindexWindow(fromWindowId);
+    tabsOnDetached.fire(idOf(tab), { oldWindowId: fromWindowId, oldPosition });
+    if (tab.active) {
+      tab.active = false;
+      if (next !== undefined) {
+        next.active = true;
+        tabsOnActivated.fire({ tabId: idOf(next), windowId: fromWindowId });
+      }
+    }
+  };
+
+  // Puts a detached `tab` at `slot` among `toWindowId`'s tabs as they stand
+  // and fires onAttached.
+  const attachTab = (
+    tab: chrome.tabs.Tab,
+    toWindowId: number,
+    slot: number
+  ): void => {
+    const destination = windowTabsInOrder(toWindowId);
+    tab.windowId = toWindowId;
+    insertAtSlot(tab, destination, slot);
+    tabsOnAttached.fire(idOf(tab), {
+      newWindowId: toWindowId,
+      newPosition: tab.index,
+    });
+  };
+
+  // One tab to another window, as tabs.move does it (Part E Task 1, Q1, Q2,
+  // Q3, Q5, Q6): a pinned tab is unpinned first (onUpdated {pinned:false});
+  // a grouped one leaves its group (onUpdated {groupId:-1}, then
+  // tabGroups.onRemoved if it was the group's last tab); then detachTab and
+  // attachTab. The tab arrives inactive, and the destination's own active
+  // tab is untouched. No onMoved. The caller has already checked the move
+  // is allowed.
+  const transferTab = (
+    tab: chrome.tabs.Tab,
+    toWindowId: number,
+    slot: number
+  ): void => {
+    if (tab.pinned) {
+      tab.pinned = false;
+      tabsOnUpdated.fire(idOf(tab), { pinned: false }, tab);
+    }
+    const oldGroupId = tab.groupId;
+    if (oldGroupId !== -1) {
+      tab.groupId = -1;
+      tabsOnUpdated.fire(idOf(tab), { groupId: -1 }, tab);
+      dropGroupIfEmpty(oldGroupId);
+    }
+    detachTab(tab, oldGroupId);
+    attachTab(tab, toWindowId, slot);
+  };
+
+  // tabs.move of one tab to ANOTHER window: `index` is a slot in the
+  // destination as it stands, -1 or past the end meaning last (Part E Task
+  // 1, Q1), and the move is transferTab's. Refused, moving nothing: an
+  // unknown window, a window in the other profile (Q4), and a slot strictly
+  // inside a group's run (Q3 -- a cross-window move never joins a group).
+  // Chrome's message for a refusal, or undefined once the tab moved. The
+  // caller closes the window it may have emptied.
+  const moveAcross = (
+    target: chrome.tabs.Tab,
+    toWindowId: number,
+    index: number
+  ): string | undefined => {
+    if (!windows.some((win) => win.id === toWindowId)) {
+      return `No window with id: ${toWindowId}.`;
+    }
+    if (!sameProfile(target.windowId, toWindowId)) return OTHER_PROFILE;
+    // It arrives unpinned (transferTab), so it is clamped as an unpinned
+    // tab: past the destination's pinned run.
+    const destination = windowTabsInOrder(toWindowId);
+    const slot = clampSlot(
+      destination,
+      index === -1 ? destination.length : index,
+      false
+    );
+    if (groupRunAt(destination, slot) !== undefined) return DISRUPTS_GROUP;
+    transferTab(target, toWindowId, slot);
+    return undefined;
+  };
+
+  // tabs.move with an ARRAY of tab ids, to another window (Part E Task 6a,
+  // Q1#2, Q1#3, Q4#5): one tab at a time, in order, each exactly as the
+  // one-tab move (moveAcross) does it, to the slots index, index + 1, ...;
+  // the events come tab by tab, the same as two tabs.move calls fire them.
+  // It is NOT atomic: an unknown id rejects when its turn comes, after the
+  // tabs before it moved (Q5#0, Q5#1), and the fake treats a refusal the
+  // same way (not measured for a refusal other than an unknown id). A
+  // window it empties closes after the call (Q4#5). Not measured, and
+  // thrown before anything changes: an array within one window (no
+  // windowId, or the tabs already in it), tabs from more than one window,
+  // and -1 as the index.
+  const moveTabsAcross = (
+    tabIds: number[],
+    props: chrome.tabs.MoveProperties,
+    cb?: (moved?: chrome.tabs.Tab[]) => void
+  ): Promise<chrome.tabs.Tab[] | undefined> => {
+    const toWindowId = props.windowId;
+    const from = new Set(
+      tabs
+        .filter((tab) => tab.id !== undefined && tabIds.includes(tab.id))
+        .map((tab) => tab.windowId)
+    );
+    if (
+      toWindowId === undefined ||
+      from.has(toWindowId) ||
+      from.size > 1 ||
+      props.index < 0
+    ) {
+      throw new Error(
+        'tabs.move with an array of tabs within one window, from several windows, or to index -1 is not modelled by the chrome fake -- model it before depending on it.'
+      );
+    }
+    const moved: chrome.tabs.Tab[] = [];
+    let refused: string | undefined;
+    for (const [i, tabId] of tabIds.entries()) {
+      const target = tabs.find((tab) => tab.id === tabId);
+      refused = target
+        ? moveAcross(target, toWindowId, props.index + i)
+        : `No tab with id: ${tabId}.`;
+      if (refused !== undefined || !target) break;
+      moved.push(target);
+    }
+    for (const windowId of from) closeIfEmpty(windowId);
+    return refused === undefined
+      ? settle(moved, cb)
+      : fail<chrome.tabs.Tab[]>(refused, cb);
   };
 
   // Only one window has focus, and the one that has it is what
@@ -652,9 +988,10 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
   // 8, M2 raw). A minimized window it lands in comes back normal (Task 8,
   // M1) -- the restore shows it, where a plain focus does not.
   //
-  // A tab whose group the seed never declared (a groupId with no
-  // tabGroups record) comes back with that groupId and still no record: the
-  // fake repeats the seed's own gap rather than inventing a title or colour.
+  // A closed tab whose group had no tabGroups record comes back with that
+  // groupId and still no record, rather than an invented title or colour.
+  // Seeds can no longer make that gap (every seeded groupId gets a record,
+  // Part E Task 6a review, Minor 2), so this is a guard, not a modelled case.
   const restoreTabEntry = (
     entry: Extract<ClosedEntry, { kind: 'tab' }>
   ): chrome.sessions.Session => {
@@ -731,8 +1068,8 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
   // kept, each group under a NEW id with the same title, colour and
   // collapsed state (9/9), and the focus. Its active tab is the one active at
   // close -- unless that tab was in a group, when tab 0 comes back active
-  // instead (2/2). A tab whose group was never declared comes back
-  // ungrouped: a new id needs a record to copy, and there is none.
+  // instead (2/2). A tab whose group had no record comes back ungrouped: a
+  // new id needs a record to copy (a guard; seeds always make one now).
   //
   // Only the tabs that were UNGROUPED come back with their history; a tab
   // that was in a group comes back as if newly created (Task 8, finding A,
@@ -1075,6 +1412,121 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
       tabGroupsOnUpdated.fire(target);
       return settle(target, cb);
     },
+    // Part E Task 1, Q3, Q4, Q5, Q6. In its own window the index is the
+    // group's first tab's final index, counted with the group removed; each
+    // tab moves in turn (leftward first tab first, rightward last tab first,
+    // one tabs.onMoved each), then tabGroups.onMoved. To another window the
+    // index is a slot in the destination as it stands, and Chrome reports a
+    // remove and re-create under the SAME id with collapsed kept:
+    // tabGroups.onRemoved; last tab to first, onUpdated {groupId:-1} and
+    // detachTab; first to last, attachTab and onUpdated {groupId}; then
+    // tabGroups.onCreated and onUpdated -- no tabGroups.onMoved. A group
+    // holding its window's active tab carries it: it becomes the
+    // destination's active tab (Q5#4). The source picks its new front tab
+    // (nextFrontTab) only once ALL the group's tabs left, and the destination
+    // activates the carried tab only once all arrived, before
+    // tabGroups.onCreated (Part E Task 6a, Q4#2, Q5#12, Q5#13: two-tab
+    // groups, either tab in front). -1 or past the end means last.
+    // Refused, moving nothing: a slot inside the pinned run or strictly
+    // inside another group's run, and a window in the other profile.
+    // Nothing fires for a move that changes nothing (the no-op rule tabs.move
+    // measured, Q1; not measured for a group).
+    move: (
+      groupId: number,
+      props: chrome.tabGroups.MoveProperties,
+      cb?: (group?: chrome.tabGroups.TabGroup) => void
+    ) => {
+      const group = tabGroups.find((g) => g.id === groupId);
+      if (!group) {
+        return fail<chrome.tabGroups.TabGroup>(
+          `No group with id: ${groupId}.`,
+          cb
+        );
+      }
+      const fromWindowId = group.windowId;
+      const toWindowId = props.windowId ?? fromWindowId;
+      if (!windows.some((win) => win.id === toWindowId)) {
+        return fail<chrome.tabGroups.TabGroup>(
+          `No window with id: ${toWindowId}.`,
+          cb
+        );
+      }
+      if (!sameProfile(fromWindowId, toWindowId)) {
+        return fail<chrome.tabGroups.TabGroup>(OTHER_PROFILE, cb);
+      }
+      const members = windowTabsInOrder(fromWindowId).filter(
+        (tab) => tab.groupId === groupId
+      );
+      const others = windowTabsInOrder(toWindowId).filter(
+        (tab) => tab.groupId !== groupId
+      );
+      const slot =
+        props.index === -1
+          ? others.length
+          : Math.min(props.index, others.length);
+      if (slot < others.filter((tab) => tab.pinned).length) {
+        return fail<chrome.tabGroups.TabGroup>(GROUP_INTO_PINNED, cb);
+      }
+      if (groupRunAt(others, slot) !== undefined) {
+        return fail<chrome.tabGroups.TabGroup>(GROUP_INTO_GROUP, cb);
+      }
+
+      if (toWindowId === fromWindowId) {
+        const leftward = slot < (members[0]?.index ?? slot);
+        const order = leftward ? members : [...members].reverse();
+        let moved = false;
+        for (const tab of order) {
+          if (moveWithinWindow(tab, slot + members.indexOf(tab))) moved = true;
+        }
+        if (moved) tabGroupsOnMoved.fire(group);
+        return settle(group, cb);
+      }
+
+      tabGroups.splice(tabGroups.indexOf(group), 1);
+      tabGroupsOnRemoved.fire({ ...group });
+      const carried = members.find((tab) => tab.active);
+      const position = members[0]?.index ?? 0;
+      // Inactive while it leaves, so detachTab picks no front tab per tab.
+      if (carried) carried.active = false;
+      for (const tab of [...members].reverse()) {
+        tab.groupId = -1;
+        tabsOnUpdated.fire(idOf(tab), { groupId: -1 }, tab);
+        detachTab(tab, groupId);
+      }
+      const sourceFront =
+        carried &&
+        nextFrontTab(
+          windowTabsInOrder(fromWindowId),
+          position,
+          carried,
+          -1,
+          'tabGroups.move'
+        );
+      if (sourceFront) {
+        sourceFront.active = true;
+        tabsOnActivated.fire({
+          tabId: idOf(sourceFront),
+          windowId: fromWindowId,
+        });
+      }
+      members.forEach((tab, i) => {
+        attachTab(tab, toWindowId, slot + i);
+        tab.groupId = groupId;
+        tabsOnUpdated.fire(idOf(tab), { groupId }, tab);
+      });
+      if (carried) {
+        for (const other of windowTabsInOrder(toWindowId)) {
+          other.active = other === carried;
+        }
+        tabsOnActivated.fire({ tabId: idOf(carried), windowId: toWindowId });
+      }
+      group.windowId = toWindowId;
+      tabGroups.push(group);
+      tabGroupsOnCreated.fire(group);
+      tabGroupsOnUpdated.fire(group);
+      closeIfEmpty(fromWindowId);
+      return settle(group, cb);
+    },
     onCreated: tabGroupsOnCreated,
     onUpdated: tabGroupsOnUpdated,
     onRemoved: tabGroupsOnRemoved,
@@ -1307,20 +1759,27 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
       },
       get: (tabId: number, cb?: (tab: chrome.tabs.Tab) => void) =>
         settle(tabs.find((tab) => tab.id === tabId) as chrome.tabs.Tab, cb),
-      // One tab, within its own window (no product code moves a tab to
-      // another window with this). The index is clamped the way tabs.create
-      // clamps it (clampSlot), with -1 meaning the end. Afterwards the tab's
-      // group follows Chromium's contiguity rule, the one tabs.create above
-      // follows (measured 2026-09-24 for a create; for a move it is modelled
-      // on the same rule, not measured): strictly inside another group's run
-      // it joins that group; cut off from the rest of its own group it
-      // leaves it. An ACTIVE tab joining a collapsed group expands it; an
-      // inactive one joins and leaves it collapsed (Task 8, M2 cause).
+      // One tab. Within its own window the index is the tab's FINAL index,
+      // clamped the way tabs.create clamps it (clampSlot), with -1 meaning
+      // the end (Part E Task 1, Q1, Q2). Afterwards the tab's group follows
+      // Chromium's contiguity rule, the one tabs.create above follows
+      // (measured for a move too, Part E Task 1, Q3): strictly inside
+      // another group's run it joins that group; cut off from the rest of
+      // its own group it leaves it, even to a slot right beside the run. A
+      // join or leave fires tabs.onUpdated {groupId} BEFORE tabs.onMoved. An
+      // ACTIVE tab joining a collapsed group expands it, and that
+      // tabGroups.onUpdated comes after onMoved; an inactive one joins and
+      // leaves it collapsed (Task 8, M2 cause; Part E Task 1, Q3, Q6).
+      //
+      // To another window, see moveAcross; a window it empties closes after
+      // the call (closeIfEmpty). An array of tab ids: moveTabsAcross.
       move: (
-        tabId: number,
+        tabIds: number | number[],
         props: chrome.tabs.MoveProperties,
-        cb?: (tab?: chrome.tabs.Tab) => void
+        cb?: (moved?: chrome.tabs.Tab | chrome.tabs.Tab[]) => void
       ) => {
+        if (Array.isArray(tabIds)) return moveTabsAcross(tabIds, props, cb);
+        const tabId = tabIds;
         const target = tabs.find((tab) => tab.id === tabId);
         if (!target)
           return fail<chrome.tabs.Tab>(`No tab with id: ${tabId}.`, cb);
@@ -1328,9 +1787,13 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
           props.windowId !== undefined &&
           props.windowId !== target.windowId
         ) {
-          throw new Error(
-            'tabs.move to another window is not modelled by the chrome fake -- model it before depending on it.'
-          );
+          const fromWindowId = target.windowId;
+          const refused = moveAcross(target, props.windowId, props.index);
+          if (refused !== undefined) {
+            return fail<chrome.tabs.Tab>(refused, cb);
+          }
+          closeIfEmpty(fromWindowId);
+          return settle(target, cb);
         }
         const windowId = target.windowId;
         const fromIndex = target.index;
@@ -1346,6 +1809,7 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
         const left = others[slot - 1];
         const right = others[slot];
         const own = target.groupId;
+        let expanded: chrome.tabGroups.TabGroup | undefined;
         if (own !== left?.groupId && own !== right?.groupId) {
           if (
             left !== undefined &&
@@ -1354,14 +1818,16 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
             left.groupId === right.groupId
           ) {
             target.groupId = left.groupId;
+            tabsOnUpdated.fire(tabId, { groupId: target.groupId }, target);
             dropGroupIfEmpty(own);
             const joined = tabGroups.find((g) => g.id === target.groupId);
             if (target.active && joined?.collapsed) {
               joined.collapsed = false;
-              tabGroupsOnUpdated.fire(joined);
+              expanded = joined;
             }
           } else if (own !== -1 && others.some((t) => t.groupId === own)) {
             target.groupId = -1;
+            tabsOnUpdated.fire(tabId, { groupId: -1 }, target);
           }
         }
 
@@ -1372,6 +1838,7 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
             toIndex: target.index,
           });
         }
+        if (expanded) tabGroupsOnUpdated.fire(expanded);
         return settle(target, cb);
       },
       onCreated: tabsOnCreated,
@@ -1384,48 +1851,156 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
       // every tab switch, so a real registry must keep that working exactly
       // as it did.
       onActivated: tabsOnActivated,
+      // Into an EXISTING group (Part E Task 1, Q3; Part E Task 6a, Q3): a tab
+      // in the group's own window next to the run joins in place, firing
+      // tabs.onUpdated {groupId} only (Q3_group#2, 6a Q5#5); one further
+      // off moves to the run's NEAR end -- after its tail from the right,
+      // before its head from the left -- firing onUpdated {groupId} then
+      // onMoved (6a Q3b#3 both fixtures, Q5#4). A tab from ANOTHER window
+      // is moved into the group's window at the END of the group's run,
+      // collapsed state kept: transferTab puts it at that window's end
+      // (onDetached, onAttached), then onUpdated {groupId}, then onMoved
+      // into the run (Q3_group#0, #1; 6a Q3b#4 without the grant too). Only
+      // an ungrouped, unpinned, INACTIVE arriving tab was measured; for a
+      // pinned, grouped or active one the fake assumes tabs.move's
+      // cross-window rules (transferTab: unpinned first, leaves its old
+      // group, arrives inactive while its old window activates a
+      // neighbour) -- not measured. A group Chrome no longer has rejects
+      // "No group with id: N." and nothing changes (6a Q3b#7, with and
+      // without the grant).
+      //
+      // A NEW group (6a Q1, Q3b#2, Q5#3): tabs outside
+      // createProperties.windowId first move to that window's END, in order
+      // (onDetached, onAttached each), then every tab fires onUpdated
+      // {groupId}, then tabGroups.onCreated and tabGroups.onUpdated (title
+      // "", grey, expanded). Only plain tabs were measured moving in. Not
+      // modelled: with no createProperties Chrome uses the CURRENT window
+      // (from the worker, the last-focused one, 6a Q3b#0) and moves the
+      // tabs there; the fake records DEFAULT_WINDOW_ID and moves nothing.
+      // Not measured: several tabs joining in one call (the fake applies the
+      // one-tab rules in order), and a new group's tabs from another
+      // profile (the fake rejects as it does for an existing group).
+      //
+      // A tab from the other profile rejects with Chrome's message and
+      // nothing changes (Q4). A window emptied by the call closes after it
+      // (6a Q5#2).
       group: (
         options: chrome.tabs.GroupOptions,
-        cb?: (groupId: number) => void
+        cb?: (groupId?: number) => void
       ) => {
         const tabIds = Array.isArray(options.tabIds)
           ? options.tabIds
           : [options.tabIds as number];
         const windowId =
           options.createProperties?.windowId ?? DEFAULT_WINDOW_ID;
+        const targets = tabIds.flatMap((tabId) => {
+          const target = tabs.find((tab) => tab.id === tabId);
+          return target ? [target] : [];
+        });
+        const existing = tabGroups.find(
+          (group) => group.id === options.groupId
+        );
+        if (options.groupId !== undefined && !existing) {
+          return fail<number>(`No group with id: ${options.groupId}.`, cb);
+        }
+        const home = existing
+          ? existing.windowId
+          : options.createProperties?.windowId;
+        const arriving =
+          home === undefined
+            ? []
+            : targets.filter((tab) => tab.windowId !== home);
+        if (
+          home !== undefined &&
+          arriving.some((tab) => !sameProfile(tab.windowId, home))
+        ) {
+          return fail<number>(OTHER_PROFILE, cb);
+        }
+        const sources = new Set(arriving.map((tab) => tab.windowId));
         const groupId = options.groupId ?? nextId++;
 
-        if (!tabGroups.some((group) => group.id === groupId)) {
-          tabGroups.push({
+        if (!existing) {
+          for (const target of arriving) {
+            transferTab(target, windowId, windowTabsInOrder(windowId).length);
+          }
+          const created: chrome.tabGroups.TabGroup = {
             id: groupId,
             collapsed: false,
             color: 'grey',
             shared: false,
             title: '',
             windowId,
-          } as chrome.tabGroups.TabGroup);
-        }
-        for (const tabId of tabIds) {
-          const target = tabs.find((tab) => tab.id === tabId);
-          if (target) target.groupId = groupId;
+          };
+          tabGroups.push(created);
+          for (const target of targets) {
+            if (target.groupId === groupId) continue;
+            target.groupId = groupId;
+            tabsOnUpdated.fire(idOf(target), { groupId }, target);
+          }
+          tabGroupsOnCreated.fire(created);
+          tabGroupsOnUpdated.fire(created);
+        } else {
+          for (const target of targets) {
+            if (arriving.includes(target)) {
+              const into = existing.windowId;
+              transferTab(target, into, windowTabsInOrder(into).length);
+              target.groupId = groupId;
+              tabsOnUpdated.fire(idOf(target), { groupId }, target);
+              const run = windowTabsInOrder(into).filter(
+                (tab) => tab.groupId === groupId && tab !== target
+              );
+              const tail = run[run.length - 1];
+              if (tail !== undefined) moveWithinWindow(target, tail.index + 1);
+            } else if (target.groupId !== groupId) {
+              const run = windowTabsInOrder(target.windowId).filter(
+                (tab) => tab.groupId === groupId
+              );
+              target.groupId = groupId;
+              tabsOnUpdated.fire(idOf(target), { groupId }, target);
+              const head = run[0];
+              const tail = run[run.length - 1];
+              if (tail !== undefined && target.index > tail.index + 1) {
+                moveWithinWindow(target, tail.index + 1);
+              } else if (head !== undefined && target.index < head.index - 1) {
+                moveWithinWindow(target, head.index - 1);
+              }
+            }
+          }
         }
         handle.groupedTabs.push({ groupId, windowId, tabIds });
+        for (const from of sources) closeIfEmpty(from);
         return settle(groupId, cb);
       },
       // Every id is checked before any tab changes; an unknown one rejects
       // (or, with a callback, sets lastError) and leaves every tab as it
-      // was. Only `groupId` changes: real Chrome also moves a tab ungrouped
-      // from inside a run out of it (measured 2026-09-24: from between the
-      // run's two tabs to just after them), which this fake does not model
-      // (KAN-309).
+      // was. Then tab by tab, in the order given (Part E Task 6a, Q3#3 both
+      // fixtures, Q3b#5, Q3b#6, Q5#6-#8; also measured 2026-09-24, KAN-309):
+      // tabs.onUpdated {groupId:-1}; a tab from the MIDDLE of its run then
+      // moves to just after the run (onMoved), while the run's head or tail
+      // stays where it is; a group left with no tabs is removed
+      // (tabGroups.onRemoved, after that tab's onUpdated). Not measured: a
+      // tab that is in no group -- the fake fires nothing for it.
       ungroup: (tabIds: number | number[], cb?: () => void) => {
         const idList = Array.isArray(tabIds) ? tabIds : [tabIds];
         const unknown = idList.find((id) => !tabs.some((tab) => tab.id === id));
         if (unknown !== undefined) {
           return fail<void>(`No tab with id: ${unknown}.`, cb);
         }
-        for (const tab of tabs) {
-          if (tab.id !== undefined && idList.includes(tab.id)) tab.groupId = -1;
+        for (const id of idList) {
+          const tab = tabs.find((t) => t.id === id);
+          if (tab === undefined || tab.groupId === -1) continue;
+          const groupId = tab.groupId;
+          const run = windowTabsInOrder(tab.windowId).filter(
+            (t) => t.groupId === groupId
+          );
+          const head = run[0];
+          const tail = run[run.length - 1];
+          tab.groupId = -1;
+          tabsOnUpdated.fire(id, { groupId: -1 }, tab);
+          if (tail !== undefined && tab !== head && tab !== tail) {
+            moveWithinWindow(tab, tail.index);
+          }
+          dropGroupIfEmpty(groupId);
         }
         return settle(undefined, cb);
       },

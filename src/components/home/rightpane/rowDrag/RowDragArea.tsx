@@ -150,6 +150,10 @@ type Slot = WindowedSlot;
 interface Landing {
   windowId: string | undefined;
   index: number;
+  // The list's landingRange moved the index off the one the pointer names
+  // (KAN-280). Such a landing is not where the pointer is, so nothing under
+  // the pointer is its target -- see targetOf.
+  clamped: boolean;
 }
 
 // How much room a row takes up: its border box plus the margin that separates
@@ -265,6 +269,8 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
   dropsAcrossWindows = false,
   clampDropToEnds = false,
   restoreScrollIfNoDrop = false,
+  landingRange,
+  acceptsWindow,
   resolveDrop,
   onDropTargetChange,
   fixedRowSelector,
@@ -496,6 +502,17 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       windowId: string | undefined
     ) => l.rects.filter((r) => r.windowId === windowId);
 
+    // Does the list refuse this row in this window (KAN-280)? Only a window a
+    // list opted to judge can refuse: with no `acceptsWindow`, or no window at
+    // all, the answer is always no.
+    const refuses = (
+      l: NonNullable<typeof live.current>,
+      windowId: string | undefined
+    ) =>
+      windowId !== undefined &&
+      acceptsWindow !== undefined &&
+      !acceptsWindow(l.rowId, windowId);
+
     // What resolveDrop is handed: the block the pointer is over (KAN-132). A
     // band belongs to exactly one window, so a wider search could only answer
     // with a band this release does not land in. Outside every block it is the
@@ -506,10 +523,19 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     // in this move's own flow already has one, computed once for that flow --
     // see the perf note on blockUnderPointer above. Passing it in is what
     // keeps this a second READ of that answer, not a second forced layout.
+    //
+    // A block whose window refuses the row is searched as if the pointer were
+    // outside every block (KAN-280): a band there is not a place this release
+    // can land, so it must not be marked as one.
     const dropRoot = (
       l: NonNullable<typeof live.current>,
       block: HTMLElement | null
-    ) => block ?? l.heldWindow ?? containerRef.current;
+    ) =>
+      (block !== null && !refuses(l, block.dataset.dropWindowId)
+        ? block
+        : null) ??
+      l.heldWindow ??
+      containerRef.current;
 
     // The slot a landing IN THE HELD ROW'S OWN WINDOW names, in the list AS
     // DRAWN, which spans the whole pane (KAN-132). The landing index counts one
@@ -623,6 +649,11 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         return undefined;
       }
 
+      // A window the list refuses for this row is refused like a release
+      // outside the list (KAN-280): beside the containment check above, never
+      // by loosening it. Which windows refuse which rows is the list's rule.
+      if (refuses(l, windowId)) return undefined;
+
       // The count of rows whose midpoint the pointer has passed IS the index
       // the row lands at, because that count indexes the list with the held
       // row already lifted out of it.
@@ -636,16 +667,52 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // the index is applied to. Counted across the pane it would include
       // every row of every window above (KAN-131, one level up).
       const others = rows.filter((r) => r.id !== l.rowId);
-      return { windowId, index: others.filter((r) => dropY > r.mid).length };
+      const passed = others.filter((r) => dropY > r.mid).length;
+
+      // Clamped HERE, in the one decision both the preview and the release
+      // read (KAN-280), so the slot drawn is the slot committed. The range is
+      // in this same space: this window's rows, the held one lifted out.
+      if (landingRange === undefined) {
+        return { windowId, index: passed, clamped: false };
+      }
+      const range = landingRange(l.rowId, windowId);
+      // Bounded to the indices that exist: 0, up to one past the last row. An
+      // index past them has no slot to draw -- in the row's own window the
+      // preview fell back to "nothing moves" while the release committed it.
+      const min = Math.max(range.min, 0);
+      const max = Math.min(range.max, others.length);
+      // A range holding no index that exists is a window nothing can land in.
+      if (max < min) return undefined;
+      const index = Math.min(max, Math.max(min, passed));
+      return { windowId, index, clamped: index !== passed };
     };
 
-    // Returns the element resolveDrop was asked against, so a caller that
-    // needs to ask it something else at this SAME pointer position (the
-    // drop-target notifier in onMoveEvent) can reuse the answer instead of
-    // re-running the hit test -- see the perf note on blockUnderPointer.
+    // What a release at `landing` lands ON: the band resolveDrop names under
+    // the pointer -- unless the landing was clamped (KAN-280). A clamped
+    // landing is not where the pointer is, so the band under the pointer is
+    // not its target: marking it, drawing the slot beside it, and committing
+    // it with the clamped index would preview "joins G at its head" and
+    // release "at the pinned end, into G".
+    //
+    // THE ONE ANSWER for the preview, the mark and the release alike, so the
+    // three cannot drift apart. A refused landing (undefined) still asks, as
+    // it always has: nothing commits it, and the mark is the list's to show.
+    const targetOf = (
+      l: NonNullable<typeof live.current>,
+      block: HTMLElement | null,
+      landing: Landing | undefined
+    ): string | undefined =>
+      landing?.clamped === true
+        ? undefined
+        : resolveDrop?.(dropRoot(l, block), l.lastX, l.lastY)?.bandId;
+
+    // Returns the target this preview was drawn for, so the drop-target
+    // notifier in onMoveEvent marks exactly that band, at this SAME pointer
+    // position, instead of re-running the hit test -- see the perf note on
+    // blockUnderPointer -- or deciding the target a second time (KAN-280).
     const update = (
       l: NonNullable<typeof live.current>
-    ): HTMLElement | null => {
+    ): string | undefined => {
       // Computed ONCE for this whole move and threaded down, not re-read by
       // landingOf and dropRoot separately -- see the perf note on
       // blockUnderPointer above.
@@ -672,8 +739,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // change more than an index -- a tab released inside a group's band joins
       // that group -- and the user cannot see a rule that is only consulted
       // once the pointer is already up.
-      const root = dropRoot(l, block);
-      const target = resolveDrop?.(root, l.lastX, l.lastY)?.bandId;
+      const target = targetOf(l, block, landing);
 
       // The whole preview in the list AS DRAWN, decided once (KAN-166). The
       // shifts, the frame and the landing slot all come off this one pair of
@@ -887,7 +953,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         removedFixedRows: span?.keys ?? [],
       });
 
-      return root;
+      return target;
     };
 
     // Drag the list along when the pointer is held near its edge, so a target
@@ -1132,10 +1198,11 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         }
       }
 
-      // The root update() resolved its own resolveDrop call against, for this
-      // SAME pointer position -- reused below rather than hit-tested again,
-      // see the perf note on blockUnderPointer.
-      const root = update(l);
+      // The target update() drew this preview for, at this SAME pointer
+      // position -- marked below rather than decided again, so the band that
+      // lights up is the one the preview and the release use (KAN-280), and
+      // no second hit test runs (see the perf note on blockUnderPointer).
+      const target = update(l);
 
       if (onDropTargetChange && resolveDrop) {
         // Compared and forwarded as `.bandId`, not the object resolveDrop
@@ -1144,12 +1211,11 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         // onDropTargetChange every move instead of only on a real change
         // (KAN-164's whole point). onDropTargetChange's contract is
         // unchanged by KAN-132 -- it still names a band, not a window.
-        const t = resolveDrop(root, l.lastX, l.lastY).bandId;
-        if (t !== l.dropTarget) {
-          l.dropTarget = t;
+        if (target !== l.dropTarget) {
+          l.dropTarget = target;
           // The whole list, not the window the target is in: the mark being
           // replaced may sit in the window the pointer has just left (KAN-132).
-          onDropTargetChange(t, containerRef.current);
+          onDropTargetChange(target, containerRef.current);
         }
       }
     };
@@ -1189,8 +1255,8 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         // Window-local, in the window named beside it -- see Landing.
         toIndex: landing.index,
         toWindowId: landing.windowId,
-        dropTargetId: resolveDrop?.(dropRoot(l, block), l.lastX, l.lastY)
-          ?.bandId,
+        // The same answer the preview drew and marked -- see targetOf.
+        dropTargetId: targetOf(l, block, landing),
       };
     };
 
@@ -1344,6 +1410,8 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     dragKind,
     dropsAcrossWindows,
     restoreScrollIfNoDrop,
+    landingRange,
+    acceptsWindow,
   ]);
 
   // A drag interrupted by UNMOUNT must not leave the document stuck in a drag.
