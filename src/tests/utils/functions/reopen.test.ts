@@ -865,7 +865,9 @@ describe('reopenClosed: a closed tab (KAN-280 O8, rule 6)', () => {
 
       expect(await reopenClosed(item)).toMatchObject({ kind: 'tab' });
 
-      expect(await shape(2)).toEqual(['a', 'x', 'b', 'z*']);
+      // x came back inside a and b's run, and ungrouping it moves it to just
+      // after the run, as Chrome does (KAN-309; Part E Task 6a, Q5#6).
+      expect(await shape(2)).toEqual(['a', 'b', 'x', 'z*']);
       expect((await tabNamed(2, 'x')).groupId).toBe(-1);
       expect(warn).toHaveBeenCalledTimes(1);
     });
