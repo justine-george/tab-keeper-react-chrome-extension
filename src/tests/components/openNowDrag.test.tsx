@@ -79,14 +79,20 @@ function find(selector: string): HTMLElement {
 // Gives every drawn part of `windows` its box, top to bottom, and returns
 // where each row and title row sits. A group is its title row, then its
 // tabs; its item row spans all of that.
-function layOut(windows: readonly OpenWindow[]) {
+function layOut(
+  windows: readonly OpenWindow[],
+  folded: ReadonlySet<number> = new Set()
+) {
   const top = new Map<string, number>();
   let y = 0;
   for (const window of windows) {
     const start = y;
     y += ROW; // the window's own row
+    top.set(`window:${window.id}`, start);
+    // A folded window draws its own row alone.
+    const drawn = folded.has(window.id) ? [] : window.tabs;
     const seen = new Set<number>();
-    for (const tab of window.tabs) {
+    for (const tab of drawn) {
       if (tab.groupId !== null && !seen.has(tab.groupId)) {
         seen.add(tab.groupId);
         const members = window.tabs.filter((t) => t.groupId === tab.groupId);
@@ -317,5 +323,112 @@ describe('a group dragged in Open now by its title row moves the real group', ()
     await renderPane(seed(), false);
     expect(document.querySelector('[data-fixed-row-id]')).toBeNull();
     expect(document.querySelector('[data-group-drag-handle]')).toBeNull();
+  });
+});
+
+// Task 6c fix round 1 (review Important 1, spec O11c). A folded window draws
+// no rows, so the engine lands a drop there at index 0 -- and the release must
+// land below the window's pinned tabs, where the preview's "under the header"
+// can honestly mean, not in the run Chrome refuses a group.
+describe('a group dropped on a folded window with pinned tabs', () => {
+  // W1 [11*, G(12, 13)], W2 [21P, 22P, 23*]
+  const seed = (): ChromeSeed => ({
+    windows: [
+      {
+        id: 1,
+        tabs: [
+          { id: 11, url: url('a'), title: 'A', active: true },
+          { id: 12, url: url('g1'), title: 'G1', groupId: 50 },
+          { id: 13, url: url('g2'), title: 'G2', groupId: 50 },
+        ],
+      },
+      {
+        id: 2,
+        tabs: [
+          { id: 21, url: url('p1'), title: 'P1', pinned: true },
+          { id: 22, url: url('p2'), title: 'P2', pinned: true },
+          { id: 23, url: url('c'), title: 'C', active: true },
+        ],
+      },
+    ],
+    tabGroups: [{ id: 50, title: 'Research', color: 'blue', windowId: 1 }],
+  });
+
+  test('lands at the first unpinned index in Chrome', async () => {
+    const { windows, onMoved } = await renderPane(seed(), true);
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse: Window 2' }));
+    await waitFor(() =>
+      expect(document.querySelector('[data-drag-row-id="21"]')).toBeNull()
+    );
+    const top = layOut(windows, new Set([2]));
+    const groupsMove = vi.spyOn(chrome.tabGroups, 'move');
+    drag(
+      find('[data-fixed-row-id="50"]'),
+      (top.get('group:50') ?? 0) + ROW / 2,
+      (top.get('window:2') ?? 0) + ROW / 2
+    );
+    await waitFor(() => expect(onMoved).toHaveBeenCalledTimes(1));
+    expect(moveOpenGroup).toHaveBeenCalledWith(
+      { groupId: '50', fromWindowId: '1', toWindowId: '2', toIndex: 0 },
+      expect.anything()
+    );
+    expect(groupsMove).toHaveBeenCalledWith(50, { windowId: 2, index: 2 });
+    const g1 = await chrome.tabs.get(12);
+    expect([g1.windowId, g1.index, g1.groupId]).toEqual([2, 2, 50]);
+  });
+});
+
+// Task 6c fix round 1 (review Minor 1). The engine follows a dropped row on
+// the next frame, assuming the list was reordered at the drop. Open now's is
+// not -- Chrome moves the tabs and a later re-read shows them -- so following
+// would scroll to the row's OLD place. Both of the pane's lists opt out.
+describe('after a drop, Open now leaves the scroll to the re-read', () => {
+  const seed = (): ChromeSeed => ({
+    windows: [
+      {
+        id: 1,
+        tabs: [
+          { id: 11, url: url('a'), title: 'A', active: true },
+          { id: 12, url: url('g1'), title: 'G1', groupId: 50 },
+          { id: 13, url: url('g2'), title: 'G2', groupId: 50 },
+        ],
+      },
+      {
+        id: 2,
+        tabs: [
+          { id: 21, url: url('c'), title: 'C', active: true },
+          { id: 22, url: url('d'), title: 'D' },
+        ],
+      },
+    ],
+    tabGroups: [{ id: 50, title: 'Research', color: 'blue', windowId: 1 }],
+  });
+
+  // The follow runs on the next frame, so one frame is let pass first.
+  const nextFrame = () =>
+    new Promise((resolve) => requestAnimationFrame(resolve));
+
+  test('a committed tab drop scrolls no row into view', async () => {
+    const { top, onMoved } = await renderPane(seed(), true);
+    const scrolled = vi.spyOn(Element.prototype, 'scrollIntoView');
+    drag(tabRow(11), (top.get('11') ?? 0) + ROW / 2, (top.get('22') ?? 0) + 2);
+    await waitFor(() => expect(onMoved).toHaveBeenCalledTimes(1));
+    await nextFrame();
+    expect(scrolled).not.toHaveBeenCalled();
+    scrolled.mockRestore();
+  });
+
+  test('a committed group drop scrolls no row into view', async () => {
+    const { top, onMoved } = await renderPane(seed(), true);
+    const scrolled = vi.spyOn(Element.prototype, 'scrollIntoView');
+    drag(
+      find('[data-fixed-row-id="50"]'),
+      (top.get('group:50') ?? 0) + ROW / 2,
+      (top.get('22') ?? 0) + 2
+    );
+    await waitFor(() => expect(onMoved).toHaveBeenCalledTimes(1));
+    await nextFrame();
+    expect(scrolled).not.toHaveBeenCalled();
+    scrolled.mockRestore();
   });
 });

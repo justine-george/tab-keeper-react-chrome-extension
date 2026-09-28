@@ -42,9 +42,19 @@ const box = (top: number, height: number) =>
     toJSON: () => ({}),
   }) as DOMRect;
 
-const Harness = ({ onMove }: { onMove: () => void }) => (
+const Harness = ({
+  onMove,
+  followDroppedRow,
+}: {
+  onMove: () => void;
+  followDroppedRow?: boolean;
+}) => (
   <div data-testid="scroller" style={{ overflowY: 'auto' }}>
-    <RowDragArea rowIds={['a', 'b', 'c', 'd']} onMove={onMove}>
+    <RowDragArea
+      rowIds={['a', 'b', 'c', 'd']}
+      onMove={onMove}
+      followDroppedRow={followDroppedRow}
+    >
       {['a', 'b', 'c', 'd'].map((id) => (
         <DraggableRow key={id} rowId={id}>
           <div>Row {id.toUpperCase()}</div>
@@ -319,6 +329,21 @@ describe('after a drop, the row you placed is brought into view', () => {
     drag('Row A', 88, true);
 
     expect(scrolled).toEqual([{ rowId: 'a', options: { block: 'nearest' } }]);
+  });
+
+  // KAN-280 Part E. A list that is not reordered at the drop -- Open now,
+  // where Chrome moves the tabs and a later re-read shows them -- opts out:
+  // the dropped row is still in its OLD place when the frame runs, so
+  // following it would scroll back to where the drag began. The test above
+  // is the control: without the prop, the follow is unchanged.
+  test('with followDroppedRow off, a committed drop scrolls nothing and still moves', () => {
+    const onMove = vi.fn();
+    render(<Harness onMove={onMove} followDroppedRow={false} />);
+
+    drag('Row A', 88, true);
+
+    expect(onMove).toHaveBeenCalledTimes(1);
+    expect(scrolled).toEqual([]);
   });
 
   // THE CONTROL. A cancelled drag moved nothing, and yanking the list after an

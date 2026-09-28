@@ -269,6 +269,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
   dropsAcrossWindows = false,
   clampDropToEnds = false,
   restoreScrollIfNoDrop = false,
+  followDroppedRow = true,
   landingRange,
   acceptsWindow,
   resolveDrop,
@@ -1325,10 +1326,14 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
           //
           // Only on a COMMITTED drop, which is the only case with a new place to
           // show. A drag that commits nothing is the branch below.
-          const dropped = l.rowId;
-          requestAnimationFrame(() => {
-            rows.current.get(dropped)?.scrollIntoView({ block: 'nearest' });
-          });
+          //
+          // Unless the list is reordered only later (followDroppedRow).
+          if (followDroppedRow) {
+            const dropped = l.rowId;
+            requestAnimationFrame(() => {
+              rows.current.get(dropped)?.scrollIntoView({ block: 'nearest' });
+            });
+          }
         } else if (restoreScrollIfNoDrop && l.scroller) {
           // Put the view back (KAN-157). For a window drag "nothing happened" is
           // not the same as "leave the scroll alone": the collapse already
@@ -1410,6 +1415,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     dragKind,
     dropsAcrossWindows,
     restoreScrollIfNoDrop,
+    followDroppedRow,
     landingRange,
     acceptsWindow,
   ]);

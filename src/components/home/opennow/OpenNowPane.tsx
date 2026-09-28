@@ -422,7 +422,9 @@ export default function OpenNowPane({
           // GroupDragArea), under Open now's own scopes: a tab at a time,
           // and a whole group by its title row. No clampDropToEnds: a
           // window's tab list is nested, and a release outside every window
-          // must be refused (isInsideList, KAN-132).
+          // must be refused (isInsideList, KAN-132). followDroppedRow off
+          // on both: a drop reorders nothing here until the re-read, so the
+          // engine's follow would scroll to the row's OLD place.
           <RowDragArea
             scope={OPEN_TABS_SCOPE}
             rowIds={drop.tabs.rowIds}
@@ -437,6 +439,7 @@ export default function OpenNowPane({
             fixedRowSelector="[data-fixed-row-id]"
             landingRange={drop.tabs.landingRange}
             acceptsWindow={drop.tabs.acceptsWindow}
+            followDroppedRow={false}
           >
             <RowDragArea
               scope={OPEN_ITEMS_SCOPE}
@@ -448,6 +451,7 @@ export default function OpenNowPane({
               restoreScrollIfNoDrop
               landingRange={drop.items.landingRange}
               acceptsWindow={drop.items.acceptsWindow}
+              followDroppedRow={false}
             >
               {listed.map((openWindow, index) => (
                 <OpenNowWindow
