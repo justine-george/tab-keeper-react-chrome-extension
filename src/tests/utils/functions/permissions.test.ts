@@ -9,6 +9,10 @@ import {
   observeTabGroupsPermission,
   removeTabGroupsPermission,
   requestTabGroupsPermission,
+  hasSessionsPermission,
+  observeSessionsPermission,
+  removeSessionsPermission,
+  requestSessionsPermission,
 } from '../../../utils/functions/permissions';
 
 let handle: ChromeFakeHandle;
@@ -140,6 +144,124 @@ describe('observeTabGroupsPermission', () => {
     };
     await permissions.request({ permissions: ['bookmarks'] });
     await permissions.remove({ permissions: ['bookmarks'] });
+
+    expect(seen).toEqual([]);
+  });
+
+  // The other half of the same guard: a tabGroups observer must not fire for
+  // a `sessions` change either, now that both permissions share this file.
+  test('a sessions change does not report a tabGroups change', async () => {
+    handle = setupChromeFake();
+    const seen: boolean[] = [];
+    observeTabGroupsPermission((granted) => seen.push(granted));
+
+    requestSessionsPermission();
+    await Promise.resolve();
+    removeSessionsPermission();
+    await Promise.resolve();
+
+    expect(seen).toEqual([]);
+  });
+});
+
+describe('hasSessionsPermission', () => {
+  test('false on a profile that has not granted it', async () => {
+    handle = setupChromeFake();
+    expect(await hasSessionsPermission()).toBe(false);
+  });
+
+  test('true once granted', async () => {
+    handle = setupChromeFake({ grantedPermissions: ['sessions'] });
+    expect(await hasSessionsPermission()).toBe(true);
+  });
+
+  test('false after a remove', async () => {
+    handle = setupChromeFake({ grantedPermissions: ['sessions'] });
+    removeSessionsPermission();
+    await Promise.resolve();
+    expect(await hasSessionsPermission()).toBe(false);
+  });
+
+  // Reflect.deleteProperty rather than the cast-and-`!`-assert `delete
+  // (globalThis as {...}).chrome!.permissions` idiom the tabGroups test above
+  // uses: `chrome.permissions` is typed as always present, so a plain `delete`
+  // needs a cast to make it optional first. Reflect.deleteProperty's target
+  // parameter is just `object`, which `chrome` already satisfies with no
+  // widening, and it drops the property with no non-null assertion needed.
+  test('false, not a throw, when the API is missing entirely', async () => {
+    handle = setupChromeFake();
+    Reflect.deleteProperty(chrome, 'permissions');
+    await expect(hasSessionsPermission()).resolves.toBe(false);
+  });
+});
+
+describe('requestSessionsPermission', () => {
+  test('returns undefined rather than a promise', () => {
+    handle = setupChromeFake();
+    expect(requestSessionsPermission()).toBeUndefined();
+  });
+
+  test('grants in the fake, observable through contains()', async () => {
+    handle = setupChromeFake();
+    requestSessionsPermission();
+    await Promise.resolve();
+    expect(await hasSessionsPermission()).toBe(true);
+  });
+
+  // Mirrors requestTabGroupsPermission's rejection test above: a rejecting
+  // request must not throw, synchronously or as an unhandled rejection.
+  test('swallows a rejection from chrome.permissions.request', async () => {
+    handle = setupChromeFake();
+    Reflect.set(chrome.permissions, 'request', () =>
+      Promise.reject(new Error('user gesture required'))
+    );
+
+    let sawUnhandledRejection = false;
+    const onUnhandledRejection = () => {
+      sawUnhandledRejection = true;
+    };
+    process.once('unhandledRejection', onUnhandledRejection);
+
+    expect(() => requestSessionsPermission()).not.toThrow();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    process.removeListener('unhandledRejection', onUnhandledRejection);
+    expect(sawUnhandledRejection).toBe(false);
+  });
+});
+
+describe('removeSessionsPermission', () => {
+  test('revokes a granted permission', async () => {
+    handle = setupChromeFake({ grantedPermissions: ['sessions'] });
+    removeSessionsPermission();
+    await Promise.resolve();
+    expect(await hasSessionsPermission()).toBe(false);
+  });
+});
+
+describe('observeSessionsPermission', () => {
+  test('reports both a grant and a revocation', async () => {
+    handle = setupChromeFake();
+    const seen: boolean[] = [];
+    observeSessionsPermission((granted) => seen.push(granted));
+
+    requestSessionsPermission();
+    await Promise.resolve();
+    removeSessionsPermission();
+    await Promise.resolve();
+
+    expect(seen).toEqual([true, false]);
+  });
+
+  test('a change to tabGroups does not report a sessions change', async () => {
+    handle = setupChromeFake();
+    const seen: boolean[] = [];
+    observeSessionsPermission((granted) => seen.push(granted));
+
+    requestTabGroupsPermission();
+    await Promise.resolve();
+    removeTabGroupsPermission();
+    await Promise.resolve();
 
     expect(seen).toEqual([]);
   });

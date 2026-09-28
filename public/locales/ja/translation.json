@@ -85,6 +85,8 @@
   "Ink": "インク",
   "Auto Sync": "自動同期",
   "Save Tab Groups": "タブグループを保存",
+  "Bring back tab history when reopening": "再度開くときにタブの履歴を復元",
+  "Reopening a closed tab or window from Open now also brings back its Back and Forward pages, except for grouped tabs in a reopened window. It uses Chrome’s list of recently closed tabs.": "「現在開いているタブ」から閉じたタブやウィンドウを再度開くと、「戻る」と「進む」のページも元に戻りますが、再度開いたウィンドウ内のグループ化されたタブを除きます。Chrome の最近閉じたタブの一覧を使用します。",
   "Sync Status": "同期ステータス",
   "Chrome’s sync storage isn’t available in this profile, so your sessions stay on this device.": "このプロフィールでは Chrome の同期ストレージを利用できないため、セッションはこのデバイスにのみ保存されます。",
   "Cloud sync on": "クラウド同期オン",

@@ -35,14 +35,22 @@ async function openSessions(
 }
 
 test.describe('the Sessions pane (KAN-249, KAN-250, KAN-253)', () => {
-  test('one pair, Save Tab Groups, Off pressed, on the popup scale; no memory setting, no backup', async ({
+  test('two pairs, Save Tab Groups then tab history (KAN-280), Save Tab Groups Off pressed, on the popup scale; no memory setting, no backup', async ({
     context,
     extensionId,
   }) => {
     const page = await openSessions(context, extensionId);
 
+    // KAN-280 Part D added the second pair, "Bring back tab history when
+    // reopening", under Save Tab Groups; its own spec is
+    // open-now-history.spec.ts.
     const groups = page.getByRole('group');
-    await expect(groups).toHaveCount(1);
+    await expect(groups).toHaveCount(2);
+    expect(
+      await groups.evaluateAll((pairs) =>
+        pairs.map((pair) => pair.getAttribute('aria-label'))
+      )
+    ).toEqual(['Save Tab Groups', 'Bring back tab history when reopening']);
     const pair = page.getByRole('group', { name: 'Save Tab Groups' });
     await expect(pair.getByRole('button', { name: 'Off' })).toHaveAttribute(
       'aria-pressed',

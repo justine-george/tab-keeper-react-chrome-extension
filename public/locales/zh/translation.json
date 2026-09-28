@@ -85,6 +85,8 @@
   "Ink": "墨水",
   "Auto Sync": "自动同步",
   "Save Tab Groups": "保存标签组",
+  "Bring back tab history when reopening": "重新打开时恢复标签页历史记录",
+  "Reopening a closed tab or window from Open now also brings back its Back and Forward pages, except for grouped tabs in a reopened window. It uses Chrome’s list of recently closed tabs.": "从“当前打开的标签页”重新打开已关闭的标签页或窗口时，也会恢复其“返回”和“前进”页面，但重新打开的窗口中已分组的标签页除外。此功能使用 Chrome 最近关闭的标签页列表。",
   "Sync Status": "同步状态",
   "Chrome’s sync storage isn’t available in this profile, so your sessions stay on this device.": "此 Chrome 个人资料无法使用同步存储空间，因此会话只会保留在此设备上。",
   "Cloud sync on": "云同步已开启",

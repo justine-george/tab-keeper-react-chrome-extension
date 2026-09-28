@@ -4,6 +4,9 @@ import {
   openOrFocusTabView,
   TabApi,
 } from './utils/functions/popOut';
+import { reopenPreferringHistory } from './utils/functions/reopen';
+import type { Reopened } from './utils/functions/reopen';
+import { isReopenPreferringHistoryRequest } from './utils/functions/reopenRequest';
 import {
   createWindowWithRetries,
   isRestoreSessionRequest,
@@ -78,7 +81,32 @@ const chromeTabApi: TabApi = {
   create: (props) => chrome.tabs.create(props),
 };
 
-chrome.runtime.onMessage.addListener((message) => {
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  // Open now's Reopen with history (KAN-280 Part D). Here, not in the page:
+  // the restore focuses a window, and the undo after it has to outlive the
+  // popup. The answer carries the new ids for the tab view's row focus
+  // (KAN-311); returning true keeps the channel open for it. A popup is gone
+  // by then, and never reads it. It ALWAYS answers: a throw answers null, so
+  // the page never mistakes silence for "nothing ran" and reopens a second
+  // time.
+  if (isReopenPreferringHistoryRequest(message)) {
+    // sendResponse can throw: the popup that asked may already be gone by
+    // the time the answer is ready. That is not a double reopen (the item
+    // already came back or was recreated either way), so it only warns.
+    const answer = (value: Reopened | null) => {
+      try {
+        sendResponse(value);
+      } catch (error) {
+        console.warn('Could not answer Reopen: ', error);
+      }
+    };
+    void reopenPreferringHistory(message.item).then(answer, (error) => {
+      console.warn('Reopen failed: ', error);
+      answer(null);
+    });
+    return true;
+  }
+
   if (isRestoreSessionRequest(message)) {
     // No response is sent: by the time this finishes there is no popup left
     // to receive one.

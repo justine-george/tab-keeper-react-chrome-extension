@@ -1,17 +1,37 @@
 import { toOpenWindowBounds } from './openNow';
-import type { OpenGroup, OpenTab, OpenWindow } from './openNow';
+import type {
+  OpenGroup,
+  OpenTab,
+  OpenWindow,
+  OpenWindowBounds,
+} from './openNow';
+import { hasSessionsPermission } from './permissions';
+import { isReopened, REOPEN_PREFERRING_HISTORY_MESSAGE } from './reopenRequest';
+import type { ReopenPreferringHistoryRequest } from './reopenRequest';
 
 // Close a live tab or window from the Open now pane, and put it back exactly
-// with Reopen (KAN-280 O8). DOM-free -- no `window`, no `document` -- so it
-// stays usable from the service worker if Reopen ever has to outlive the page.
+// with Reopen (KAN-280 O8). DOM-free -- no `window`, no `document`, and never
+// src/utils/constants/common.ts, which reads window.screen at load: the
+// service worker imports this file for Reopen with history (KAN-280 Part D).
 
 // What a close leaves behind for Reopen (KAN-280 O8): the snapshot Open now
 // held at the moment of closing. Never stored.
+//
+// `restorableSessionId` is the id of Chrome's own recently closed entry for
+// this close, recorded the moment it closed -- Reopen can come after other
+// closes, so it is never searched for later (KAN-280 Part D). null when the
+// `sessions` permission is not held or no entry matched.
 export type ClosedItem =
-  | { kind: 'window'; window: OpenWindow }
+  | { kind: 'window'; window: OpenWindow; restorableSessionId: string | null }
   // `window` is the tab's whole window as it was, so a window that closed
   // with its last tab can be rebuilt in its old place.
-  | { kind: 'tab'; tab: OpenTab; group: OpenGroup | null; window: OpenWindow };
+  | {
+      kind: 'tab';
+      tab: OpenTab;
+      group: OpenGroup | null;
+      window: OpenWindow;
+      restorableSessionId: string | null;
+    };
 
 // The snapshot with the window's bounds and state as Chrome reports them
 // now (KAN-280 rule 5, KAN-308). A move, resize or maximize fires no event
@@ -33,13 +53,95 @@ async function withCurrentPlacement(
   }
 }
 
+// Whether the `sessions` permission is held right now. Held means both:
+// chrome.sessions is there (it is undefined before the first grant) and the
+// grant is (after a revoke the member stays, but every call on it throws at
+// once, Task 1 Q4).
+async function sessionsHeld(): Promise<boolean> {
+  return chrome.sessions !== undefined && (await hasSessionsPermission());
+}
+
+// Chrome's recently closed list, newest first, or null when `sessions` is not
+// held. A close reads it just before its remove and again straight after: the
+// entry is already listed by then (Task 1, Q1).
+async function recentlyClosed(): Promise<chrome.sessions.Session[] | null> {
+  try {
+    if (!(await sessionsHeld())) return null;
+    return await chrome.sessions.getRecentlyClosed();
+  } catch (error) {
+    console.warn('Could not read the recently closed list: ', error);
+    return null;
+  }
+}
+
+// The ids of the entries Chrome lists now, read just before a close so the
+// entry that close adds can be told apart from any already there. null when
+// `sessions` is not held or the read failed.
+async function listedEntryIds(): Promise<ReadonlySet<string> | null> {
+  const entries = await recentlyClosed();
+  if (entries === null) return null;
+  return new Set(
+    entries.flatMap((entry) => {
+      const id = entry.tab?.sessionId ?? entry.window?.sessionId;
+      return id === undefined ? [] : [id];
+    })
+  );
+}
+
+// The id of the ONE entry the close added that `idIfMatching` accepts, else
+// null. When unsure, null: a missing id only costs the history (Reopen
+// recreates), but a wrong one would restore the wrong tab or window.
+//
+// Never simply the newest entry: two closes issued together list the second
+// first (Task 1, Q1). And never the first match either: ambiguity must be
+// null, never a guess -- two same-address tabs closed together leave two
+// new entries nothing in them tells apart.
+async function addedEntryId(
+  listedBefore: ReadonlySet<string> | null,
+  idIfMatching: (entry: chrome.sessions.Session) => string | undefined
+): Promise<string | null> {
+  if (listedBefore === null) return null;
+  const added = ((await recentlyClosed()) ?? []).flatMap((entry) => {
+    const id = idIfMatching(entry);
+    return id === undefined || listedBefore.has(id) ? [] : [id];
+  });
+  const [only, ...others] = added;
+  return only !== undefined && others.length === 0 ? only : null;
+}
+
+// The kind follows the call, not the tab count -- a tabs.remove always leaves
+// a tab entry -- so only a tab entry can be a tab's.
+function tabEntryIdIfMatching(
+  tab: OpenTab
+): (entry: chrome.sessions.Session) => string | undefined {
+  return (entry) =>
+    entry.tab?.url === tab.url ? entry.tab.sessionId : undefined;
+}
+
+// Only a window entry, holding the snapshot's addresses in the same order.
+function windowEntryIdIfMatching(
+  openWindow: OpenWindow
+): (entry: chrome.sessions.Session) => string | undefined {
+  const urls = openWindow.tabs.map((tab) => tab.url);
+  return (entry) => {
+    const closedTabs = entry.window?.tabs;
+    return closedTabs !== undefined &&
+      closedTabs.length === urls.length &&
+      closedTabs.every((closed, index) => closed.url === urls[index])
+      ? entry.window?.sessionId
+      : undefined;
+  };
+}
+
 // Resolves to the ClosedItem when Chrome closed it, or null when it could not
-// (the tab or window was already gone). Never rejects.
+// (the tab or window was already gone). Never rejects: the close stands even
+// when its recently closed entry cannot be read.
 export async function closeOpenTab(
   openWindow: OpenWindow,
   tab: OpenTab
 ): Promise<ClosedItem | null> {
   const placed = await withCurrentPlacement(openWindow);
+  const listedBefore = await listedEntryIds();
   try {
     await chrome.tabs.remove(tab.id);
   } catch {
@@ -50,6 +152,10 @@ export async function closeOpenTab(
     tab,
     group: openWindow.groups.find((group) => group.id === tab.groupId) ?? null,
     window: placed,
+    restorableSessionId: await addedEntryId(
+      listedBefore,
+      tabEntryIdIfMatching(tab)
+    ),
   };
 }
 
@@ -57,12 +163,20 @@ export async function closeOpenWindow(
   openWindow: OpenWindow
 ): Promise<ClosedItem | null> {
   const placed = await withCurrentPlacement(openWindow);
+  const listedBefore = await listedEntryIds();
   try {
     await chrome.windows.remove(openWindow.id);
   } catch {
     return null;
   }
-  return { kind: 'window', window: placed };
+  return {
+    kind: 'window',
+    window: placed,
+    restorableSessionId: await addedEntryId(
+      listedBefore,
+      windowEntryIdIfMatching(openWindow)
+    ),
+  };
 }
 
 // What Reopen brought back, by the new id Chrome gave it: focus goes to its
@@ -72,9 +186,59 @@ export type Reopened =
   | { kind: 'tab'; tabId: number }
   | { kind: 'window'; windowId: number };
 
-// Recreates a ClosedItem exactly (KAN-280 O8, rules 5, 6, 7 and 10). Resolves
-// to what came back, or null when nothing could. Never rejects.
+// Reopen, from the page (the toast's button and ⌘Z / Ctrl+Z, KAN-311). An
+// item with Chrome's recently closed id goes to the service worker, which
+// reopens it, preferring its history (reopenPreferringHistory): the popup
+// cannot finish that, because the restore's focus change destroys it
+// part-way (measured 6/6, KAN-280 Part D). In the popup the answer then
+// never arrives, which is accepted (P1); the tab view gets it, for KAN-311's
+// row focus. An item with no id is recreated here, as before.
+//
+// Only a message Chrome could not deliver -- no receiving end, so nothing
+// ran -- is recreated here. Any other failure (the channel closed before the
+// answer, say) may follow a restore that ran, so it reopens nothing more:
+// never a second, local recreate after a restore (Justine's ruling). There
+// is no timeout, for the same reason. Resolves to what came back, or null.
+// Never rejects.
 export async function reopenClosed(item: ClosedItem): Promise<Reopened | null> {
+  if (item.restorableSessionId === null) return recreateClosed(item);
+  const request: ReopenPreferringHistoryRequest = {
+    type: REOPEN_PREFERRING_HISTORY_MESSAGE,
+    item,
+  };
+  let answer: unknown;
+  try {
+    answer = await chrome.runtime.sendMessage<
+      ReopenPreferringHistoryRequest,
+      unknown
+    >(request);
+  } catch (error) {
+    if (error instanceof Error && error.message.includes(NO_RECEIVING_END)) {
+      console.warn('No service worker to ask, so reopening here: ', error);
+      return recreateClosed(item);
+    }
+    console.warn('Reopen may or may not have run in the worker: ', error);
+    return null;
+  }
+  if (answer === null || isReopened(answer)) return answer;
+  // The worker answers every request it accepts with a Reopened or null, so
+  // this is a request it did not run -- or a worker from another build.
+  // Nothing is recreated: that could double a restore.
+  console.warn('The service worker answered Reopen with: ', answer);
+  return null;
+}
+
+// What Chrome's sendMessage rejects with when no listener exists to receive
+// the message: then the worker never ran it.
+const NO_RECEIVING_END =
+  'Could not establish connection. Receiving end does not exist.';
+
+// Recreates a ClosedItem exactly (KAN-280 O8, rules 5, 6, 7 and 10), with a
+// new history. Resolves to what came back, or null when nothing could. Never
+// rejects.
+export async function recreateClosed(
+  item: ClosedItem
+): Promise<Reopened | null> {
   try {
     if (item.kind === 'tab') return await recreateTab(item);
     const rebuilt = await recreateWindow(item.window);
@@ -83,6 +247,386 @@ export async function reopenClosed(item: ClosedItem): Promise<Reopened | null> {
     console.warn('Could not reopen: ', error);
     return null;
   }
+}
+
+// Runs in the service worker. Brings the item back through Chrome's recently
+// closed list, so its Back and Forward pages come back too, and then undoes
+// everything else the restore changed, so the end state is exactly what
+// recreateClosed leaves (Justine, 2026-09-27: B). The one difference is the
+// history.
+//
+// Recreates instead when `sessions` is not held, the id is null, or Chrome
+// refuses the id (already restored, e.g. with Ctrl+Shift+T, or pushed out of
+// its list of 25: `Invalid session id`), or the call throws at once (revoked
+// mid-way, Task 1 Q4). Once the restore has run, nothing is ever recreated:
+// its ids are the answer, and a failed undo step -- or an undo that throws
+// outright -- only warns, because the item did come back. Resolves to what
+// came back, or null. Never rejects.
+export async function reopenPreferringHistory(
+  item: ClosedItem
+): Promise<Reopened | null> {
+  try {
+    const sessionId = item.restorableSessionId;
+    if (sessionId === null || !(await sessionsHeld())) {
+      return await recreateClosed(item);
+    }
+    // Read before the restore, which changes all of it.
+    const focusedWindowId = await lastFocusedWindowId();
+    if (item.kind === 'tab') {
+      const place = await tabPlaceNow(item);
+      const restored = await restoreEntry(sessionId);
+      if (restored === null) return await recreateClosed(item);
+      // Taken before the undo, so whatever the undo does, they are answered.
+      const tabId = restored.tab?.id;
+      await finishUndo(() =>
+        undoTabRestore(item, restored, focusedWindowId, place)
+      );
+      return tabId === undefined ? null : { kind: 'tab', tabId };
+    }
+    const restored = await restoreEntry(sessionId);
+    if (restored === null) return await recreateClosed(item);
+    const windowId = restored.window?.id;
+    await finishUndo(() =>
+      undoWindowRestore(item.window, restored, focusedWindowId)
+    );
+    return windowId === undefined ? null : { kind: 'window', windowId };
+  } catch (error) {
+    console.warn('Could not reopen: ', error);
+    return null;
+  }
+}
+
+// Chrome's restore of one recently closed entry, or null when it refused: a
+// spent or unknown id rejects with `Invalid session id: "<id>".` and changes
+// nothing (Task 1, Q3); after a revoke the call throws at once (Q4). Either
+// way nothing came back, so recreating is safe.
+async function restoreEntry(
+  sessionId: string
+): Promise<chrome.sessions.Session | null> {
+  try {
+    return await chrome.sessions.restore(sessionId);
+  } catch (error) {
+    console.warn('Could not reopen through Chrome, so recreating: ', error);
+    return null;
+  }
+}
+
+// The whole undo, after a restore that ran: anything it throws only warns.
+async function finishUndo(undo: () => Promise<void>): Promise<void> {
+  try {
+    await undo();
+  } catch (error) {
+    console.warn('Could not finish putting a reopened item back: ', error);
+  }
+}
+
+// One undo step: a failure warns and the rest still run.
+async function step(failure: string, run: () => Promise<unknown>) {
+  try {
+    await run();
+  } catch (error) {
+    console.warn(failure, error);
+  }
+}
+
+async function lastFocusedWindowId(): Promise<number | null> {
+  try {
+    return (await chrome.windows.getLastFocused()).id ?? null;
+  } catch (error) {
+    console.warn('Could not read the focused window: ', error);
+    return null;
+  }
+}
+
+// Undo step one, always FIRST: the focus goes back where it was. Measured
+// (headed, 2026-09-27): focus first gave today's end state 12/12 with a
+// ~35 ms flash; focusing last lengthens the flash.
+async function refocus(windowId: number | null): Promise<void> {
+  if (windowId === null) return;
+  await step('Could not give the focus back: ', () =>
+    chrome.windows.update(windowId, { focused: true })
+  );
+}
+
+// Where a closed tab would go back to now, and what recreateTab would leave
+// there -- read before the restore.
+type TabPlace = {
+  // False when the tab's window has gone (it was the window's last tab):
+  // the restore then makes a new window, as recreate does (Task 1, Q1b).
+  windowStillOpen: boolean;
+  // The tab in front of that window now. recreateTab brings the reopened tab
+  // to the front only if it was in front when it closed.
+  frontTabId: number | null;
+  // The collapsed state recreate leaves the tab's group in, or null for no
+  // group. recreateTab rejoins a group still in the window AS IT IS NOW, or
+  // makes a new one as the snapshot had it; bringing the tab to the front
+  // then expands it. In a new window (recreateWindow) the group is collapsed
+  // last, as the snapshot had it.
+  groupCollapsed: boolean | null;
+  // The window state to put back last, or null for none. A new window gets
+  // the snapshot's, as recreateWindow applies it. A window still open that is
+  // minimized stays minimized under recreate, which never focuses it -- but
+  // the restore focuses it, which shows it.
+  windowState: OpenWindow['state'] | null;
+  // The groups in that window that were collapsed before the restore. Empty
+  // without the tabGroups grant, for a window that has gone, or when the
+  // read failed.
+  collapsedGroupIds: number[];
+};
+
+async function tabPlaceNow(
+  item: Extract<ClosedItem, { kind: 'tab' }>
+): Promise<TabPlace> {
+  const windowId = item.window.id;
+  let minimized: boolean;
+  try {
+    minimized = (await chrome.windows.get(windowId)).state === 'minimized';
+  } catch {
+    return {
+      windowStillOpen: false,
+      frontTabId: null,
+      groupCollapsed: item.group?.collapsed ?? null,
+      windowState: item.window.state,
+      collapsedGroupIds: [],
+    };
+  }
+  let frontTabId: number | null = null;
+  try {
+    const [front] = await chrome.tabs.query({ windowId, active: true });
+    frontTabId = front?.id ?? null;
+  } catch (error) {
+    console.warn('Could not read the front tab: ', error);
+  }
+  let groupCollapsed: boolean | null = null;
+  if (item.group) {
+    const live = await liveGroup(item.group.id);
+    const asNow =
+      live && live.windowId === windowId
+        ? live.collapsed
+        : item.group.collapsed;
+    groupCollapsed = item.tab.active ? false : asNow;
+  }
+  return {
+    windowStillOpen: true,
+    frontTabId,
+    groupCollapsed,
+    windowState: minimized ? 'minimized' : null,
+    collapsedGroupIds: await collapsedGroupIdsIn(windowId),
+  };
+}
+
+// The ids of the collapsed groups in a window, or none when the tabGroups
+// grant is not held or the read fails (a synchronous throw included, as for
+// liveGroup).
+async function collapsedGroupIdsIn(windowId: number): Promise<number[]> {
+  if (!chrome.tabGroups) return [];
+  try {
+    const groups = await chrome.tabGroups.query({ windowId });
+    return groups.filter((group) => group.collapsed).map((group) => group.id);
+  } catch (error) {
+    console.warn('Could not read the collapsed tab groups: ', error);
+    return [];
+  }
+}
+
+// The group as Chrome has it now, or null: gone, not visible without the
+// tabGroups grant, or the read failed. A synchronous throw is caught too
+// (after a revoke, calls can throw at once, Task 1 Q4), so a read before the
+// restore never ends the Reopen with nothing reopened.
+async function liveGroup(
+  groupId: number
+): Promise<chrome.tabGroups.TabGroup | null> {
+  if (!chrome.tabGroups) return null;
+  try {
+    return await chrome.tabGroups.get(groupId);
+  } catch {
+    return null;
+  }
+}
+
+// A restored tab is made active, its window focused, a collapsed group it
+// lands in expanded, and, in a group that still has tabs, it lands at the
+// group's END (Task 1, Q2, Q2b). Each is put back as recreateTab leaves it.
+async function undoTabRestore(
+  item: Extract<ClosedItem, { kind: 'tab' }>,
+  restored: chrome.sessions.Session,
+  focusedWindowId: number | null,
+  place: TabPlace
+): Promise<void> {
+  await refocus(focusedWindowId);
+  const tab = restored.tab;
+  const tabId = tab?.id;
+  if (tab === undefined || tabId === undefined) {
+    // It came back, but there is nothing to undo on or to focus.
+    console.warn('Chrome restored a tab without saying which');
+    return;
+  }
+  const windowId = tab.windowId;
+  const frontTabId = place.frontTabId;
+
+  if (place.windowStillOpen) {
+    // The front goes back BEFORE the move. Moved while in front into a
+    // collapsed group's run, the tab joins that group and expands it, and
+    // nothing collapses it again (KAN-316, Task 8 M2). Moved in the
+    // background it joins without expanding, as recreateTab's background
+    // create does.
+    if (frontTabId !== null) {
+      await step('Could not bring the front tab back: ', () =>
+        chrome.tabs.update(frontTabId, { active: true })
+      );
+    }
+    await step('Could not move a reopened tab back to its place: ', () =>
+      chrome.tabs.move(tabId, { index: item.tab.index })
+    );
+  } else if (item.window.bounds) {
+    await placeWindow(windowId, item.window.bounds);
+  }
+  // Without the tabGroups grant chrome.tabGroups is undefined and every
+  // group step is skipped: the tab stays in the real group Chrome restored
+  // it to, where recreate (which cannot see groups) drops it. Kept on
+  // purpose (Justine's ruling, KAN-280 Part D): closer to putting it back
+  // exactly, and ungrouping would break the user's real group. Known
+  // limitation: a collapsed group the restore expanded stays expanded, as
+  // nothing can collapse it without the grant.
+  if (chrome.tabGroups) {
+    await step('Could not regroup a reopened tab: ', () =>
+      settleGroup(tabId, windowId, tab.groupId, item.group)
+    );
+  }
+  // A tab that was in front goes back to the front once it is in its own
+  // group or none, as recreateTab does (KAN-310). Only when the front was
+  // taken from it above.
+  if (item.tab.active && frontTabId !== null) {
+    await step('Could not bring a reopened tab to the front: ', () =>
+      chrome.tabs.update(tabId, { active: true })
+    );
+  }
+  // After the front tab, so a collapse never hides the tab in front.
+  const collapsed = place.groupCollapsed;
+  if (chrome.tabGroups && collapsed !== null) {
+    await step('Could not collapse a reopened tab group: ', async () => {
+      const { groupId } = await chrome.tabs.get(tabId);
+      if (groupId !== chrome.tabGroups.TAB_GROUP_ID_NONE) {
+        await chrome.tabGroups.update(groupId, { collapsed });
+      }
+    });
+  }
+  // Backstop: a group collapsed before the restore that is expanded now is
+  // collapsed again -- unless recreate expands it too, which it does only
+  // for the group of a tab it brings to the front (KAN-316).
+  if (chrome.tabGroups && place.collapsedGroupIds.length > 0) {
+    await step('Could not collapse a tab group again: ', () =>
+      recollapse(tabId, item.tab.active, place.collapsedGroupIds)
+    );
+  }
+  if (place.windowState !== null) {
+    await restoreWindowState(windowId, place.windowState);
+  }
+}
+
+async function recollapse(
+  tabId: number,
+  inFront: boolean,
+  groupIds: number[]
+): Promise<void> {
+  const { groupId: ownGroupId } = await chrome.tabs.get(tabId);
+  for (const groupId of groupIds) {
+    if (inFront && groupId === ownGroupId) continue;
+    const group = await liveGroup(groupId);
+    if (group && !group.collapsed) {
+      await chrome.tabGroups.update(groupId, { collapsed: true });
+    }
+  }
+}
+
+// After the move, the tab is in its group, or in none, as recreateTab leaves
+// it: a move can take it out of its group or into another (Chrome keeps a
+// group contiguous).
+async function settleGroup(
+  tabId: number,
+  windowId: number,
+  restoredGroupId: number,
+  group: OpenGroup | null
+): Promise<void> {
+  const none = chrome.tabGroups.TAB_GROUP_ID_NONE;
+  const { groupId } = await chrome.tabs.get(tabId);
+  if (group === null) {
+    if (groupId !== none) await leaveGroup(tabId);
+    return;
+  }
+  if (restoredGroupId === none) {
+    await regroup(tabId, windowId, group);
+  } else if (groupId !== restoredGroupId) {
+    await chrome.tabs.group({ groupId: restoredGroupId, tabIds: [tabId] });
+  }
+}
+
+// A restored window comes back focused, with its first tab active when its
+// active tab was in a group, and `normal` when it was maximized (Task 1, Q2,
+// Q2b). Put back as recreateWindow leaves it: unfocused, the snapshot's
+// active tab in front, each group as the snapshot had it, the snapshot's
+// bounds, then its state last.
+async function undoWindowRestore(
+  snapshot: OpenWindow,
+  restored: chrome.sessions.Session,
+  focusedWindowId: number | null
+): Promise<void> {
+  await refocus(focusedWindowId);
+  const windowId = restored.window?.id;
+  if (windowId === undefined) {
+    console.warn('Chrome restored a window without saying which');
+    return;
+  }
+  if (snapshot.bounds) await placeWindow(windowId, snapshot.bounds);
+
+  // Chrome brings the tabs back in the snapshot's order: the entry was
+  // matched on exactly these addresses at close (Task 5). A different count
+  // leaves the front tab and groups as Chrome made them.
+  const restoredTabs = restored.window?.tabs ?? [];
+  if (restoredTabs.length === snapshot.tabs.length) {
+    const activeAt = snapshot.tabs.findIndex((tab) => tab.active);
+    const activeId = restoredTabs[Math.max(activeAt, 0)]?.id;
+    if (activeId !== undefined) {
+      await step('Could not activate a reopened tab: ', () =>
+        chrome.tabs.update(activeId, { active: true })
+      );
+    }
+    // Without the tabGroups grant this is skipped, and snapshot.groups is
+    // empty anyway: the tabs stay in the groups Chrome restored them to, a
+    // known, kept difference from recreate (see undoTabRestore).
+    if (chrome.tabGroups) {
+      for (const group of snapshot.groups) {
+        const at = snapshot.tabs.findIndex((tab) => tab.groupId === group.id);
+        const groupId = restoredTabs[at]?.groupId;
+        if (
+          groupId === undefined ||
+          groupId === chrome.tabGroups.TAB_GROUP_ID_NONE
+        ) {
+          continue;
+        }
+        await step('Could not restore a reopened tab group: ', () =>
+          chrome.tabGroups.update(groupId, {
+            title: group.title,
+            color: group.color,
+            collapsed: group.collapsed,
+          })
+        );
+      }
+    }
+  } else {
+    console.warn('Chrome restored a window with different tabs');
+  }
+
+  await restoreWindowState(windowId, snapshot.state);
+}
+
+async function placeWindow(
+  windowId: number,
+  bounds: OpenWindowBounds
+): Promise<void> {
+  await step('Could not put a reopened window back in its place: ', () =>
+    chrome.windows.update(windowId, { ...bounds })
+  );
 }
 
 type WindowSnapshot = Pick<
@@ -199,22 +743,26 @@ async function recreateWindow(
     }
   }
 
-  // Last, because windows.create cannot combine `focused: false` with a
-  // maximized or fullscreen state. 'locked-fullscreen' needs a kiosk
-  // permission this extension does not hold, so it comes back normal.
-  if (
-    snapshot.state === 'minimized' ||
-    snapshot.state === 'maximized' ||
-    snapshot.state === 'fullscreen'
-  ) {
-    try {
-      await chrome.windows.update(windowId, { state: snapshot.state });
-    } catch (error) {
-      console.warn('Could not restore a reopened window state: ', error);
-    }
-  }
-
+  await restoreWindowState(windowId, snapshot.state);
   return { windowId, createdByOldId };
+}
+
+// Last, because windows.create cannot combine `focused: false` with a
+// maximized or fullscreen state. 'locked-fullscreen' needs a kiosk
+// permission this extension does not hold, so it comes back normal.
+async function restoreWindowState(
+  windowId: number,
+  state: OpenWindow['state']
+): Promise<void> {
+  if (
+    state === 'minimized' ||
+    state === 'maximized' ||
+    state === 'fullscreen'
+  ) {
+    await step('Could not restore a reopened window state: ', () =>
+      chrome.windows.update(windowId, { state })
+    );
+  }
 }
 
 // Rule 6: the tab goes back to its window at its Chrome index, pinned or

@@ -22,7 +22,7 @@
     "type": "module"
   },
   "permissions": ["tabs", "storage", "favicon"],
-  "optional_permissions": ["tabGroups"],
+  "optional_permissions": ["tabGroups", "sessions"],
   "icons": {
     "16": "icons/icon16.png",
     "32": "icons/icon32.png",

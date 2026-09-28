@@ -91,6 +91,8 @@
   "Ink": "Чернила",
   "Auto Sync": "Авто синхронизация",
   "Save Tab Groups": "Сохранять группы вкладок",
+  "Bring back tab history when reopening": "Восстанавливать историю вкладки при повторном открытии",
+  "Reopening a closed tab or window from Open now also brings back its Back and Forward pages, except for grouped tabs in a reopened window. It uses Chrome’s list of recently closed tabs.": "При повторном открытии закрытой вкладки или окна на панели «Открытые вкладки» также возвращаются страницы для кнопок «Назад» и «Вперед», кроме сгруппированных вкладок в повторно открытом окне. Для этого используется список недавно закрытых вкладок Chrome.",
   "Sync Status": "Статус синхронизации",
   "Chrome’s sync storage isn’t available in this profile, so your sessions stay on this device.": "Хранилище синхронизации Chrome недоступно в этом профиле, поэтому ваши сессии остаются на этом устройстве.",
   "Cloud sync on": "Облачная синхронизация включена",

@@ -72,12 +72,19 @@ export default function SlidingPair<T extends string>({
   value,
   onChange,
   metrics,
+  describedBy,
 }: {
   label: string;
   options: readonly [SlidingOption<T>, SlidingOption<T>];
   value: T;
   onChange: (value: T) => void;
   metrics: SlidingPairMetrics;
+  /**
+   * The id of a caller's help text, set as `aria-describedby` on the
+   * role="group" track -- the element that carries the pair's name, so the
+   * help is announced with it. Omitted, the pair has no such attribute.
+   */
+  describedBy?: string;
 }) {
   const COLORS = useThemeColors();
   const FONT_FAMILY = useFontFamily();
@@ -219,7 +226,12 @@ export default function SlidingPair<T extends string>({
     );
 
   return (
-    <span css={trackStyle} role="group" aria-label={label}>
+    <span
+      css={trackStyle}
+      role="group"
+      aria-label={label}
+      aria-describedby={describedBy}
+    >
       {options.map((option, index) => (
         <button
           key={option.value}
