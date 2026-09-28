@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { act, fireEvent, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 
 import de from '../../../public/locales/de/translation.json';
 import MainContainer from '../../components/MainContainer';
@@ -140,6 +141,93 @@ describe('the grip is a separator (O1a)', () => {
     // A grid child of its own, beside the panes: inside none of them, so no
     // row drag can start from it.
     expect(separator.closest('[data-pane]')).toBeNull();
+  });
+});
+
+// The controls Tab stops at inside `root`, in document order.
+const TABBABLE =
+  'a[href], button, input, select, textarea, [tabindex]:not([tabindex="-1"])';
+function tabStops(root: Element): HTMLElement[] {
+  return [...root.querySelectorAll<HTMLElement>(TABBABLE)].filter(
+    (el) => !el.hasAttribute('disabled') && el.tabIndex >= 0
+  );
+}
+
+function pane(name: 'detail' | 'open-now'): HTMLElement {
+  const el = document.querySelector<HTMLElement>(`[data-pane="${name}"]`);
+  if (el === null) throw new Error(`no ${name} pane`);
+  return el;
+}
+
+// WCAG 2.4.3 and the APG window splitter: the separator sits between the two
+// panes it resizes, in the focus order and in what a screen reader reads, not
+// after all of Open now's controls.
+describe('the grip is between the panes in the focus order (O1a)', () => {
+  test("Tab from the saved detail's last control reaches the grip, then Open now's first", async () => {
+    await renderHome();
+    await mounted();
+    await screen.findByText('Updates as you browse');
+    const user = userEvent.setup();
+    const detailStops = tabStops(pane('detail'));
+    const openNowStops = tabStops(pane('open-now'));
+    // PREMISE: both panes have controls to walk between.
+    expect(detailStops.length).toBeGreaterThan(0);
+    expect(openNowStops.length).toBeGreaterThan(0);
+
+    detailStops[detailStops.length - 1].focus();
+    await user.tab();
+    expect(grip()).toHaveFocus();
+    await user.tab();
+    expect(openNowStops[0]).toHaveFocus();
+  });
+
+  // user-event walks the DOM order, as a browser does with no positive
+  // tabindex; this is that order stated directly (the real walk is e2e 5).
+  test('in the DOM, the grip comes after the detail and before Open now', async () => {
+    await renderHome();
+    await mounted();
+
+    expect(
+      pane('detail').compareDocumentPosition(grip()) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+    expect(
+      grip().compareDocumentPosition(pane('open-now')) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+  });
+
+  // The grip comes and goes (the rail, a fold); Open now must not remount
+  // when it does, or its scroll, focus and live-window state are lost.
+  test('Open now is not remounted when the grip goes and comes back', async () => {
+    const railQuery = new FakeMediaQueryList(OPEN_NOW_RAIL_QUERY, false);
+    vi.spyOn(window, 'matchMedia').mockImplementation((query: string) =>
+      query === OPEN_NOW_RAIL_QUERY
+        ? railQuery
+        : new FakeMediaQueryList(query, false)
+    );
+    const { store } = await renderHome();
+    await mounted();
+    const openNow = pane('open-now');
+
+    act(() => railQuery.setMatches(true));
+    // PREMISE: the grip went.
+    expect(screen.queryByRole('separator')).not.toBeInTheDocument();
+    expect(pane('open-now')).toBe(openNow);
+    act(() => railQuery.setMatches(false));
+    expect(grip()).toBeInTheDocument();
+    expect(pane('open-now')).toBe(openNow);
+
+    act(() => {
+      store.dispatch(setFoldSavedSessionInTabView(true));
+    });
+    expect(screen.queryByRole('separator')).not.toBeInTheDocument();
+    expect(pane('open-now')).toBe(openNow);
+    act(() => {
+      store.dispatch(setFoldSavedSessionInTabView(false));
+    });
+    expect(grip()).toBeInTheDocument();
+    expect(pane('open-now')).toBe(openNow);
   });
 });
 

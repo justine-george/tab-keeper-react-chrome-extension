@@ -373,21 +373,26 @@ export default function MainContainer() {
               <RightPane />
             </div>
           )}
+          {/* KAN-321 O1a. A grid item of its own on the line; inside no
+              pane, so a press on it is inside no row list and starts no row
+              drag. Between the two panes it resizes, so Tab and a screen
+              reader reach it after the saved detail and before Open now
+              (WCAG 2.4.3, the APG window splitter); its z-index, not its
+              place, paints it over their padding. Like the detail's, this
+              slot stays in place when the grip is hidden (false), so Open
+              now is not remounted when it comes or goes. */}
+          {showResizeGrip && (
+            <OpenNowResizeGrip
+              liveWidth={liveOpenNowWidth}
+              onLiveWidth={setLiveOpenNowWidth}
+            />
+          )}
           {/* KAN-280. The tab view only: in the popup a click on a live tab
               would switch to it and close the popup. */}
           {isTab && (
             <div css={tabOpenNowPaneStyle} data-pane="open-now">
               <OpenNowColumn folded={folded} />
             </div>
-          )}
-          {/* KAN-321 O1a. A grid item of its own on the line, after the
-              panes so it paints over their padding; inside no pane, so a
-              press on it is inside no row list and starts no row drag. */}
-          {showResizeGrip && (
-            <OpenNowResizeGrip
-              liveWidth={liveOpenNowWidth}
-              onLiveWidth={setLiveOpenNowWidth}
-            />
           )}
         </div>
       ) : (

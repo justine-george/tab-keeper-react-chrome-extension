@@ -764,21 +764,46 @@ test.describe('resizing Open now (KAN-321 O1, O1a)', () => {
     const page = await openPage(context, extensionId, VIEW_TAB, WIDE);
     await expectOpenNow(page, 622);
 
-    // A real Tab walk from a known control: Open now's fold button.
-    await foldButton(page).focus();
-    const walk: string[] = [];
-    for (let i = 0; i < 40; i++) {
-      await page.keyboard.press('Tab');
-      const at = await page.evaluate(() => {
+    // A real Tab walk between the panes: the grip comes right after the
+    // saved detail's last control and right before Open now's first (WCAG
+    // 2.4.3, the APG window splitter), not after all of Open now.
+    const TABBABLE =
+      'a[href], button, input, select, textarea, [tabindex]:not([tabindex="-1"])';
+    const focusLastIn = (paneName: string) =>
+      page.evaluate(
+        ([name, selector]) => {
+          const stops = [
+            ...document.querySelectorAll<HTMLElement>(
+              `[data-pane="${name}"] ${selector}`
+            ),
+          ].filter(
+            (el) =>
+              !el.hasAttribute('disabled') &&
+              el.tabIndex >= 0 &&
+              el.getClientRects().length > 0
+          );
+          const last = stops[stops.length - 1];
+          if (last === undefined) return null;
+          last.focus();
+          return last.getAttribute('aria-label') ?? last.tagName;
+        },
+        [paneName, TABBABLE]
+      );
+    const focusedPlace = () =>
+      page.evaluate(() => {
         const el = document.activeElement;
         if (el === null) return 'nothing';
         if (el.hasAttribute('data-resize-grip')) return 'GRIP';
-        return el.getAttribute('aria-label') ?? el.tagName;
+        const paneEl = el.closest('[data-pane]');
+        return paneEl === null
+          ? 'outside the panes'
+          : paneEl.getAttribute('data-pane') ?? 'unnamed pane';
       });
-      walk.push(at);
-      if (at === 'GRIP') break;
-    }
-    expect(walk[walk.length - 1], `Tab walk: ${walk.join(' > ')}`).toBe('GRIP');
+    // PREMISE: the saved detail has a control to start from.
+    expect(await focusLastIn('detail')).not.toBeNull();
+    expect(await focusedPlace()).toBe('detail');
+    await page.keyboard.press('Tab');
+    expect(await focusedPlace()).toBe('GRIP');
     const grip = page.getByRole('separator', { name: 'Resize Open now' });
     await expect(grip).toBeFocused();
     // Keyboard focus, so the ring shows.
@@ -786,6 +811,27 @@ test.describe('resizing Open now (KAN-321 O1, O1a)', () => {
       true
     );
     await expect(grip).toHaveAttribute('aria-valuenow', '622');
+    // The next Tab goes into Open now, then back to the grip for the keys.
+    await page.keyboard.press('Tab');
+    expect(await focusedPlace()).toBe('open-now');
+    // ...its FIRST control: nothing of Open now's comes before the grip.
+    expect(
+      await page.evaluate((selector) => {
+        const first = [
+          ...document.querySelectorAll<HTMLElement>(
+            `[data-pane="open-now"] ${selector}`
+          ),
+        ].find(
+          (el) =>
+            !el.hasAttribute('disabled') &&
+            el.tabIndex >= 0 &&
+            el.getClientRects().length > 0
+        );
+        return first !== undefined && first === document.activeElement;
+      }, TABBABLE)
+    ).toBe(true);
+    await page.keyboard.press('Shift+Tab');
+    await expect(grip).toBeFocused();
 
     await page.keyboard.press('ArrowLeft');
     await expectOpenNow(page, 638);
