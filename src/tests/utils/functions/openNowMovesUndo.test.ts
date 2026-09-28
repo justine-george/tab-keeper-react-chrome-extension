@@ -592,6 +592,49 @@ describe('undoOpenNowDrop: stale (Review Focus 3)', () => {
     expect(await strip(1)).toEqual(['13', '11*', '14']);
   });
 
+  // KAN-323: a place is window, index AND group. A tab regrouped by hand
+  // where the drop left it is not where the drop left it.
+  test('a tab regrouped by hand in place since the drop: nothing moves, and the new group survives', async () => {
+    handle = setupChromeFake(grouped());
+    const drop = await dropTab(tabMove(14, 1, 1, 3, 5), true);
+    expect(await strip(1)).toEqual(['11*', '12g5', '13g5', '14g5']);
+    // By hand: 14 into a new group "Mine", where it stands.
+    const mine = await chrome.tabs.group({
+      tabIds: [14],
+      createProperties: { windowId: 1 },
+    });
+    await chrome.tabGroups.update(mine, { title: 'Mine' });
+    // PREMISE: only its group changed; its window and index did not.
+    expect(await strip(1)).toEqual(['11*', '12g5', '13g5', `14g${mine}`]);
+    const moveSpy = vi.spyOn(chrome.tabs, 'move');
+    const ungroupSpy = vi.spyOn(chrome.tabs, 'ungroup');
+
+    expect(await undoOpenNowDrop(drop, true)).toBe('stale');
+
+    expect(moveSpy).not.toHaveBeenCalled();
+    expect(ungroupSpy).not.toHaveBeenCalled();
+    expect(await strip(1)).toEqual(['11*', '12g5', '13g5', `14g${mine}`]);
+    expect((await chrome.tabGroups.get(mine)).title).toBe('Mine');
+  });
+
+  test('without the grant, a tab grouped by hand in place since the drop: nothing moves', async () => {
+    handle = setupChromeFake(grouped(true));
+    // Just past group 5's run: loose.
+    const drop = await dropTab(tabMove(22, 2, 1, 3), false);
+    expect(await strip(1)).toEqual(['11*', '12g5', '13g5', '22', '14']);
+    // By hand: 22 joins group 5 where it stands (it is beside the run).
+    await chrome.tabs.group({ groupId: 5, tabIds: [22] });
+    // PREMISE: only its group changed.
+    expect(await strip(1)).toEqual(['11*', '12g5', '13g5', '22g5', '14']);
+    const moveSpy = vi.spyOn(chrome.tabs, 'move');
+
+    expect(await undoOpenNowDrop(drop, false)).toBe('stale');
+
+    expect(moveSpy).not.toHaveBeenCalled();
+    expect(await strip(1)).toEqual(['11*', '12g5', '13g5', '22g5', '14']);
+    expect(await strip(2)).toEqual(['21*']);
+  });
+
   test("one of a group's tabs closed since the drop: nothing moves", async () => {
     handle = setupChromeFake(grouped());
     const drop = await dropGroup(groupMove(5, 1, 2, 1));

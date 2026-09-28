@@ -582,9 +582,12 @@ export function changedAnyPlace(moved: MovedTabs): boolean {
 export type UndoOutcome = 'undone' | 'stale' | 'refused';
 
 // Each recorded tab as Chrome has it now, when every one is still where the
-// drop left it (its `after` window and index, ledger R14); null when any
-// has moved or closed since. Hidden Tab Keeper pages that moved with a group
-// are in the record, so they are checked too.
+// drop left it (its `after` window, index and group, ledger R14); null when
+// any has moved, been regrouped or closed since. A tab regrouped by hand in
+// place is not where the drop left it: putting it back would ungroup it and
+// can remove the group the user made (KAN-323). tabs.get reports groupId
+// without the tabGroups grant (Task 6a Q3). Hidden Tab Keeper pages that
+// moved with a group are in the record, so they are checked too.
 async function whereTheDropLeftThem(
   moved: MovedTabs
 ): Promise<TabState[] | null> {
@@ -594,7 +597,8 @@ async function whereTheDropLeftThem(
     if (
       now === null ||
       now.windowId !== after.windowId ||
-      now.index !== after.index
+      now.index !== after.index ||
+      now.groupId !== after.groupId
     ) {
       return null;
     }
