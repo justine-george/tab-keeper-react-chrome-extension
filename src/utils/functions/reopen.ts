@@ -6,8 +6,8 @@ import type {
   OpenWindowBounds,
 } from './openNow';
 import { hasSessionsPermission } from './permissions';
-import { isReopened, REOPEN_WITH_HISTORY_MESSAGE } from './reopenRequest';
-import type { ReopenWithHistoryRequest } from './reopenRequest';
+import { isReopened, REOPEN_PREFERRING_HISTORY_MESSAGE } from './reopenRequest';
+import type { ReopenPreferringHistoryRequest } from './reopenRequest';
 
 // Close a live tab or window from the Open now pane, and put it back exactly
 // with Reopen (KAN-280 O8). DOM-free -- no `window`, no `document`, and never
@@ -188,11 +188,11 @@ export type Reopened =
 
 // Reopen, from the page (the toast's button and ⌘Z / Ctrl+Z, KAN-311). An
 // item with Chrome's recently closed id goes to the service worker, which
-// restores it with its history (reopenWithHistory): the popup cannot finish
-// that, because the restore's focus change destroys it part-way (measured
-// 6/6, KAN-280 Part D). In the popup the answer then never arrives, which is
-// accepted (P1); the tab view gets it, for KAN-311's row focus. An item with
-// no id is recreated here, as before.
+// reopens it, preferring its history (reopenPreferringHistory): the popup
+// cannot finish that, because the restore's focus change destroys it
+// part-way (measured 6/6, KAN-280 Part D). In the popup the answer then
+// never arrives, which is accepted (P1); the tab view gets it, for KAN-311's
+// row focus. An item with no id is recreated here, as before.
 //
 // Only a message Chrome could not deliver -- no receiving end, so nothing
 // ran -- is recreated here. Any other failure (the channel closed before the
@@ -202,14 +202,14 @@ export type Reopened =
 // Never rejects.
 export async function reopenClosed(item: ClosedItem): Promise<Reopened | null> {
   if (item.restorableSessionId === null) return recreateClosed(item);
-  const request: ReopenWithHistoryRequest = {
-    type: REOPEN_WITH_HISTORY_MESSAGE,
+  const request: ReopenPreferringHistoryRequest = {
+    type: REOPEN_PREFERRING_HISTORY_MESSAGE,
     item,
   };
   let answer: unknown;
   try {
     answer = await chrome.runtime.sendMessage<
-      ReopenWithHistoryRequest,
+      ReopenPreferringHistoryRequest,
       unknown
     >(request);
   } catch (error) {
@@ -262,7 +262,7 @@ export async function recreateClosed(
 // its ids are the answer, and a failed undo step -- or an undo that throws
 // outright -- only warns, because the item did come back. Resolves to what
 // came back, or null. Never rejects.
-export async function reopenWithHistory(
+export async function reopenPreferringHistory(
   item: ClosedItem
 ): Promise<Reopened | null> {
   try {

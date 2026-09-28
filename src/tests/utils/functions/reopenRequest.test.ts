@@ -4,8 +4,8 @@ import { toOpenWindows } from '../../../utils/functions/openNow';
 import type { OpenWindow } from '../../../utils/functions/openNow';
 import { closeOpenTab, closeOpenWindow } from '../../../utils/functions/reopen';
 import {
-  isReopenWithHistoryRequest,
-  REOPEN_WITH_HISTORY_MESSAGE,
+  isReopenPreferringHistoryRequest,
+  REOPEN_PREFERRING_HISTORY_MESSAGE,
 } from '../../../utils/functions/reopenRequest';
 import { setupChromeFake } from '../../setup/chrome.fake';
 import type { ChromeFakeHandle, ChromeSeed } from '../../setup/chrome.fake';
@@ -81,8 +81,8 @@ describe('the request the page sends the worker (KAN-280 Part D)', () => {
 
     for (const item of [tab, win]) {
       expect(
-        isReopenWithHistoryRequest(
-          asReceived({ type: REOPEN_WITH_HISTORY_MESSAGE, item })
+        isReopenPreferringHistoryRequest(
+          asReceived({ type: REOPEN_PREFERRING_HISTORY_MESSAGE, item })
         )
       ).toBe(true);
     }
@@ -92,12 +92,12 @@ describe('the request the page sends the worker (KAN-280 Part D)', () => {
     handle = setupChromeFake(seed);
     const item = await closeTab(2, 'b');
     if (item?.kind !== 'tab') throw new Error('close failed');
-    const type = REOPEN_WITH_HISTORY_MESSAGE;
+    const type = REOPEN_PREFERRING_HISTORY_MESSAGE;
 
     for (const message of [
       null,
       undefined,
-      'reopenWithHistory',
+      'reopenPreferringHistory',
       { type },
       { type: 'restoreSession', item },
       { type, item: null },
@@ -115,7 +115,7 @@ describe('the request the page sends the worker (KAN-280 Part D)', () => {
         item: { ...item, window: { ...item.window, tabs: [{ url: 'x' }] } },
       },
     ]) {
-      expect(isReopenWithHistoryRequest(asReceived(message))).toBe(false);
+      expect(isReopenPreferringHistoryRequest(asReceived(message))).toBe(false);
     }
   });
 });

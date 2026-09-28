@@ -7,9 +7,9 @@ import {
   closeOpenWindow,
   recreateClosed,
   reopenClosed,
-  reopenWithHistory,
+  reopenPreferringHistory,
 } from '../../../utils/functions/reopen';
-import { REOPEN_WITH_HISTORY_MESSAGE } from '../../../utils/functions/reopenRequest';
+import { REOPEN_PREFERRING_HISTORY_MESSAGE } from '../../../utils/functions/reopenRequest';
 import type { ClosedItem, Reopened } from '../../../utils/functions/reopen';
 import type * as ReopenModule from '../../../utils/functions/reopen';
 import { setupChromeFake } from '../../setup/chrome.fake';
@@ -587,9 +587,9 @@ const scenarios: Record<string, Scenario> = {
   },
 };
 
-describe('reopenWithHistory ends exactly where recreate does (KAN-280 Part D)', () => {
+describe('reopenPreferringHistory ends exactly where recreate does (KAN-280 Part D)', () => {
   test.each(Object.entries(scenarios))('%s', async (_name, scenario) => {
-    const history = await run(scenario, reopenWithHistory);
+    const history = await run(scenario, reopenPreferringHistory);
     const recreated = await run(scenario, recreateClosed);
 
     // PREMISE: the close recorded Chrome's entry, so the history path had
@@ -603,7 +603,7 @@ describe('reopenWithHistory ends exactly where recreate does (KAN-280 Part D)', 
   test.each(Object.entries(scenarios))(
     '%s: the window focused before is focused after',
     async (_name, scenario) => {
-      const history = await run(scenario, reopenWithHistory);
+      const history = await run(scenario, reopenPreferringHistory);
 
       expect(history.focusedAfter).toBe(history.focusedBefore);
       const focused = history.world.windows.filter((w) => w.focused);
@@ -623,7 +623,7 @@ describe('KNOWN LIMITATION: a reopened window keeps history only for its ungroup
     const item = await closeWindow(2);
     if (!item) throw new Error('close failed');
 
-    const reopened = await reopenWithHistory(item);
+    const reopened = await reopenPreferringHistory(item);
 
     if (reopened?.kind !== 'window') throw new Error('no window came back');
     const tabs = (
@@ -665,7 +665,7 @@ describe("a collapsed group over the tab's old spot (KAN-316)", () => {
     await scenario.between?.(handle);
     const seen = watchGroup('H');
 
-    const reopened = await reopenWithHistory(item);
+    const reopened = await reopenPreferringHistory(item);
 
     if (reopened?.kind !== 'tab') throw new Error('no tab came back');
     // PREMISE: it came back through the restore, which put it in front.
@@ -689,7 +689,7 @@ describe("a collapsed group over the tab's old spot (KAN-316)", () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const seen = watchGroup('H');
 
-    const reopened = await reopenWithHistory(item);
+    const reopened = await reopenPreferringHistory(item);
 
     if (reopened?.kind !== 'tab') throw new Error('no tab came back');
     // PREMISE: the move did expand it along the way.
@@ -726,7 +726,7 @@ describe('the undo refocuses first (KAN-280 Part D)', () => {
       vi.spyOn(chrome.tabGroups, 'update'),
     ];
 
-    expect(await reopenWithHistory(item)).toMatchObject({ kind: 'tab' });
+    expect(await reopenPreferringHistory(item)).toMatchObject({ kind: 'tab' });
 
     expect(windowUpdate).toHaveBeenCalledWith(1, { focused: true });
     const [refocus] = windowUpdate.mock.invocationCallOrder;
@@ -754,7 +754,9 @@ describe('the undo refocuses first for a window too (KAN-280 Part D)', () => {
       vi.spyOn(chrome.tabGroups, 'update'),
     ];
 
-    expect(await reopenWithHistory(item)).toMatchObject({ kind: 'window' });
+    expect(await reopenPreferringHistory(item)).toMatchObject({
+      kind: 'window',
+    });
 
     // PREMISE: the bounds went back too, through a second window update.
     expect(windowUpdate.mock.calls).toEqual([
@@ -771,7 +773,7 @@ describe('the undo refocuses first for a window too (KAN-280 Part D)', () => {
   });
 });
 
-describe('reopenWithHistory falls back to recreate (KAN-280 Part D)', () => {
+describe('reopenPreferringHistory falls back to recreate (KAN-280 Part D)', () => {
   const seed: ChromeSeed = {
     grantedPermissions: GRANTED,
     windows: [
@@ -797,7 +799,7 @@ describe('reopenWithHistory falls back to recreate (KAN-280 Part D)', () => {
     await chrome.sessions.restore(item.restorableSessionId);
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
-    const reopened = await reopenWithHistory(item);
+    const reopened = await reopenPreferringHistory(item);
 
     if (reopened?.kind !== 'tab') throw new Error('no tab came back');
     expect(handle.restoredFromSession(reopened.tabId)).toBe(false);
@@ -817,7 +819,7 @@ describe('reopenWithHistory falls back to recreate (KAN-280 Part D)', () => {
     });
     vi.spyOn(console, 'warn').mockImplementation(() => {});
 
-    const reopened = await reopenWithHistory(item);
+    const reopened = await reopenPreferringHistory(item);
 
     if (reopened?.kind !== 'tab') throw new Error('no tab came back');
     expect(handle.restoredFromSession(reopened.tabId)).toBe(false);
@@ -833,7 +835,7 @@ describe('reopenWithHistory falls back to recreate (KAN-280 Part D)', () => {
     expect(chrome.sessions).toBeDefined();
     const restore = vi.spyOn(chrome.sessions, 'restore');
 
-    const reopened = await reopenWithHistory(item);
+    const reopened = await reopenPreferringHistory(item);
 
     if (reopened?.kind !== 'tab') throw new Error('no tab came back');
     expect(restore).not.toHaveBeenCalled();
@@ -847,7 +849,7 @@ describe('reopenWithHistory falls back to recreate (KAN-280 Part D)', () => {
     if (!item) throw new Error('close failed');
     const restore = vi.spyOn(chrome.sessions, 'restore');
 
-    const reopened = await reopenWithHistory({
+    const reopened = await reopenPreferringHistory({
       ...item,
       restorableSessionId: null,
     });
@@ -861,7 +863,7 @@ describe('reopenWithHistory falls back to recreate (KAN-280 Part D)', () => {
     const item = await closeTab(2, 'b');
     if (!item) throw new Error('close failed');
 
-    const reopened = await reopenWithHistory(item);
+    const reopened = await reopenPreferringHistory(item);
 
     if (reopened?.kind !== 'tab') throw new Error('no tab came back');
     expect(handle.restoredFromSession(reopened.tabId)).toBe(true);
@@ -878,7 +880,7 @@ describe('reopenWithHistory falls back to recreate (KAN-280 Part D)', () => {
     );
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
-    const reopened = await reopenWithHistory(item);
+    const reopened = await reopenPreferringHistory(item);
 
     if (reopened?.kind !== 'tab') throw new Error('no tab came back');
     expect(handle.restoredFromSession(reopened.tabId)).toBe(true);
@@ -892,7 +894,7 @@ describe('reopenWithHistory falls back to recreate (KAN-280 Part D)', () => {
 // cannot see groups and drops it. Kept on purpose -- it is closer to O8's
 // "put it back exactly", and ungrouping would break the user's real group.
 // Nothing here may throw or warn.
-describe('reopenWithHistory without the tabGroups grant (KAN-280 Part D)', () => {
+describe('reopenPreferringHistory without the tabGroups grant (KAN-280 Part D)', () => {
   const seed: ChromeSeed = {
     grantedPermissions: ['sessions'],
     tabGroupsApiAbsent: true,
@@ -930,7 +932,7 @@ describe('reopenWithHistory without the tabGroups grant (KAN-280 Part D)', () =>
     expect(item).toMatchObject({ group: null, tab: { groupId: null } });
     const warn = vi.spyOn(console, 'warn');
 
-    const reopened = await reopenWithHistory(item);
+    const reopened = await reopenPreferringHistory(item);
 
     if (reopened?.kind !== 'tab') throw new Error('no tab came back');
     expect(handle.restoredFromSession(reopened.tabId)).toBe(true);
@@ -946,7 +948,7 @@ describe('reopenWithHistory without the tabGroups grant (KAN-280 Part D)', () =>
     const item = await closeTab(2, 'a');
     if (!item) throw new Error('close failed');
 
-    await reopenWithHistory(item);
+    await reopenPreferringHistory(item);
 
     expect(handle.groupState(50)?.collapsed).toBe(false);
   });
@@ -957,7 +959,7 @@ describe('reopenWithHistory without the tabGroups grant (KAN-280 Part D)', () =>
     if (!item) throw new Error('close failed');
     const warn = vi.spyOn(console, 'warn');
 
-    const reopened = await reopenWithHistory(item);
+    const reopened = await reopenPreferringHistory(item);
 
     if (reopened?.kind !== 'window') throw new Error('no window came back');
     const tabs = (
@@ -993,7 +995,7 @@ describe('a read before the restore that throws at once (KAN-280 Part D)', () =>
       throw new Error("'tabGroups.get' is not available in this context.");
     });
 
-    const reopened = await reopenWithHistory(item);
+    const reopened = await reopenPreferringHistory(item);
 
     if (reopened?.kind !== 'tab') throw new Error('nothing came back');
     expect(handle.restoredFromSession(reopened.tabId)).toBe(true);
@@ -1022,7 +1024,10 @@ describe('after a restore that ran, the ids are answered even if the undo throws
     );
     vi.spyOn(console, 'warn').mockImplementation(() => {});
 
-    expect(await reopenWithHistory(item)).toEqual({ kind: 'tab', tabId: a.id });
+    expect(await reopenPreferringHistory(item)).toEqual({
+      kind: 'tab',
+      tabId: a.id,
+    });
     expect(handle.createdTabs).toEqual([]);
   });
 });
@@ -1049,7 +1054,7 @@ describe('the service worker answers the request (KAN-280 Part D)', () => {
     const item = await closeTab(2, 'b');
 
     const answer = await chrome.runtime.sendMessage({
-      type: REOPEN_WITH_HISTORY_MESSAGE,
+      type: REOPEN_PREFERRING_HISTORY_MESSAGE,
       item,
     });
 
@@ -1064,14 +1069,14 @@ describe('the service worker answers the request (KAN-280 Part D)', () => {
     vi.resetModules();
     vi.doMock('../../../utils/functions/reopen', async (importOriginal) => ({
       ...(await importOriginal<typeof ReopenModule>()),
-      reopenWithHistory: () => Promise.reject(new Error('boom')),
+      reopenPreferringHistory: () => Promise.reject(new Error('boom')),
     }));
     try {
       await import('../../../background');
       const item = await closeTab(2, 'b');
 
       const answer = await chrome.runtime.sendMessage({
-        type: REOPEN_WITH_HISTORY_MESSAGE,
+        type: REOPEN_PREFERRING_HISTORY_MESSAGE,
         item,
       });
 
@@ -1088,7 +1093,7 @@ describe('the service worker answers the request (KAN-280 Part D)', () => {
     const item = await closeTab(2, 'b');
 
     const answer = await chrome.runtime.sendMessage({
-      type: REOPEN_WITH_HISTORY_MESSAGE,
+      type: REOPEN_PREFERRING_HISTORY_MESSAGE,
       item: { ...item, kind: 'group' },
     });
 
@@ -1122,7 +1127,7 @@ describe('reopenClosed, the page side (KAN-280 Part D)', () => {
     const b = await tabIdNamed('b');
     expect(reopened).toEqual({ kind: 'tab', tabId: b });
     expect(handle.sentMessages).toEqual([
-      { type: REOPEN_WITH_HISTORY_MESSAGE, item },
+      { type: REOPEN_PREFERRING_HISTORY_MESSAGE, item },
     ]);
     expect(handle.restoredFromSession(b)).toBe(true);
     // Never a second, local recreate after a restore that ran.

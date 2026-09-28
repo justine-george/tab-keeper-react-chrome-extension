@@ -4,8 +4,8 @@ import {
   openOrFocusTabView,
   TabApi,
 } from './utils/functions/popOut';
-import { reopenWithHistory } from './utils/functions/reopen';
-import { isReopenWithHistoryRequest } from './utils/functions/reopenRequest';
+import { reopenPreferringHistory } from './utils/functions/reopen';
+import { isReopenPreferringHistoryRequest } from './utils/functions/reopenRequest';
 import {
   createWindowWithRetries,
   isRestoreSessionRequest,
@@ -88,9 +88,9 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   // by then, and never reads it. It ALWAYS answers: a throw answers null, so
   // the page never mistakes silence for "nothing ran" and reopens a second
   // time.
-  if (isReopenWithHistoryRequest(message)) {
-    void reopenWithHistory(message.item).then(sendResponse, (error) => {
-      console.warn('Reopen with history failed: ', error);
+  if (isReopenPreferringHistoryRequest(message)) {
+    void reopenPreferringHistory(message.item).then(sendResponse, (error) => {
+      console.warn('Reopen failed: ', error);
       sendResponse(null);
     });
     return true;

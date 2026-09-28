@@ -8,16 +8,16 @@ import type {
 import { sanitizeTabGroupColor } from './tabGroups';
 
 // The message Open now's page sends the service worker to reopen a closed
-// tab or window with its history, and the checks on both ends of it
-// (KAN-280 Part D). DOM-free and free of runtime imports beyond tabGroups.ts:
-// the service worker loads this file.
+// tab or window, preferring its history when Chrome still has it, and the
+// checks on both ends of it (KAN-280 Part D). DOM-free and free of runtime
+// imports beyond tabGroups.ts: the service worker loads this file.
 
 // What the page asks the service worker for. The item arrives as a
-// structured clone, checked by isReopenWithHistoryRequest.
-export const REOPEN_WITH_HISTORY_MESSAGE = 'reopenWithHistory';
+// structured clone, checked by isReopenPreferringHistoryRequest.
+export const REOPEN_PREFERRING_HISTORY_MESSAGE = 'reopenPreferringHistory';
 
-export interface ReopenWithHistoryRequest {
-  type: typeof REOPEN_WITH_HISTORY_MESSAGE;
+export interface ReopenPreferringHistoryRequest {
+  type: typeof REOPEN_PREFERRING_HISTORY_MESSAGE;
   item: ClosedItem;
 }
 
@@ -32,12 +32,12 @@ export function isReopened(value: unknown): value is Reopened {
 // The request guard. The item crosses from the page as a structured clone, so
 // every field reopening reads is checked here, in the worker, before it is
 // trusted.
-export function isReopenWithHistoryRequest(
+export function isReopenPreferringHistoryRequest(
   message: unknown
-): message is ReopenWithHistoryRequest {
+): message is ReopenPreferringHistoryRequest {
   return (
     isRecord(message) &&
-    message.type === REOPEN_WITH_HISTORY_MESSAGE &&
+    message.type === REOPEN_PREFERRING_HISTORY_MESSAGE &&
     isClosedItem(message.item)
   );
 }
