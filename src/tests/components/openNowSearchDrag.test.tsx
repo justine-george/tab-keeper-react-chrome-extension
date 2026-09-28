@@ -189,3 +189,29 @@ describe('drag is off while searching (KAN-330 O14c)', () => {
     expect(moveOpenGroup).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('a search that starts while a row is held (KAN-330 O14c)', () => {
+  // KAN-330 mid-drag search: reproduction, see report. `disabled` only gates
+  // `begin`, so a search that starts after pick-up neither cancels the drag
+  // nor is seen by it: the search hides the held row, and the release still
+  // moves it, to a place worked out from the rows as they were measured
+  // before the filter. The wanted behaviour is asserted (nothing moves).
+  test.skip('B held past the threshold, then the text changes, then released among the original rows', async () => {
+    const { top, onMoved } = await renderSearchable(seed(), false);
+    const from = (top.get('12') ?? 0) + ROW / 2;
+    fireEvent.pointerDown(tabRow(12), {
+      clientX: 10,
+      clientY: from,
+      button: 0,
+    });
+    fireEvent.pointerMove(document, { clientX: 10, clientY: from + 8 });
+    // Only D matches, so the held row B is no longer drawn.
+    fireEvent.change(searchBox(), { target: { value: 'd.test' } });
+    const to = (top.get('22') ?? 0) + 2;
+    fireEvent.pointerMove(document, { clientX: 10, clientY: to });
+    fireEvent.pointerUp(document, { clientX: 10, clientY: to });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(moveOpenTab).not.toHaveBeenCalled();
+    expect(onMoved).not.toHaveBeenCalled();
+  });
+});
