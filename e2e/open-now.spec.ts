@@ -1144,16 +1144,44 @@ test.describe('Open now heading and empty-list layout (KAN-280)', () => {
     });
     expect(facts.text.left).toBe(8);
     expect(facts.text.top).toBe((facts.box.height - facts.text.height) / 2);
-    // The section size and the header's face and weight, in TEXT_COLOR (the
-    // profile opens in Light), cut with an ellipsis when it cannot fit.
+    // O1b: the body size and LABEL_L1_COLOR (the profile opens in Light) --
+    // "Open now" names a panel, so it steps down from the section size and
+    // TEXT_COLOR it drew at before -- and the header's face and weight, cut
+    // with an ellipsis when it cannot fit.
     expect(facts.fontSize).toBeCloseTo(
-      facts.rootFontSize * parseFloat(TYPE.SECTION),
+      facts.rootFontSize * parseFloat(TYPE.BODY),
       2
     );
     expect(facts.fontFamily).toBe(facts.headerFontFamily);
     expect(facts.fontWeight).toBe(facts.headerFontWeight);
-    expect(facts.color).toBe(rgb(LIGHT_THEME.TEXT_COLOR));
+    expect(facts.color).toBe(rgb(LIGHT_THEME.LABEL_L1_COLOR));
     expect(facts.textOverflow).toBe('ellipsis');
+  });
+
+  // O1b: the heading steps down INSIDE its existing 32px line, so the
+  // header's height must not move -- if it did, Open now's rows would sit
+  // out of step with the saved detail's, and the sessions list's, below
+  // their own same-height headers. Side by side is the only layout where
+  // all three list boxes are on screen together.
+  test('side by side, the three list boxes still start level (O1b)', async ({
+    context,
+    extensionId,
+  }) => {
+    await seedTwoSessions(context);
+    const page = await openPage(context, extensionId, VIEW_TAB, {
+      width: 1600,
+      height: 800,
+    });
+    await showButton(page).click();
+    await expect(page.locator(DETAIL)).toBeVisible();
+    await expectSideBySide(page, 622);
+
+    const sessionsList = await need(page, `${SESSIONS} > div > div:last-child`);
+    const detailList = await need(page, `${DETAIL} > div > div:last-child`);
+    const openNowList = await need(page, `${OPEN_NOW} > div > div:last-child`);
+
+    expect(Math.abs(openNowList.top - detailList.top)).toBeLessThanOrEqual(1);
+    expect(Math.abs(sessionsList.top - detailList.top)).toBeLessThanOrEqual(1);
   });
 
   test('"Empty" stays centred in an empty session list under the caption', async ({

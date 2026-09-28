@@ -398,7 +398,7 @@ describe('focus after a fold or unfold (O2)', () => {
 // bold; neither may show (scaleConformance: the popup declares no font
 // weight, so the heading's weight is whatever it inherits).
 describe('the Open now heading looks as the label did', () => {
-  test("the h2 has no margin, the section size, and its header's weight", async () => {
+  test("the h2 has no margin, the body size (O1b), and its header's weight", async () => {
     await renderWithProviders(
       <OpenNowPane windows={[]} actions={[]} headingId="open-now-heading" />
     );
@@ -409,9 +409,11 @@ describe('the Open now heading looks as the label did', () => {
 
     expect(getComputedStyle(heading).marginTop).toBe('0px');
     expect(getComputedStyle(heading).marginBottom).toBe('0px');
-    // jsdom resolves rem against a 16px root (measured: 1.1rem is 17.6px).
+    // O1b: the heading steps down to TYPE.BODY -- the same size everywhere
+    // Open now appears, the drawer included. jsdom resolves rem against a
+    // 16px root (measured: 0.9rem is 14.4px).
     expect(getComputedStyle(heading).fontSize).toBe(
-      `${parseFloat(TYPE.SECTION) * 16}px`
+      `${parseFloat(TYPE.BODY) * 16}px`
     );
     // jsdom's own sheet makes an h2 bold (measured: 'bold'); the heading
     // must read the weight its header does, as the label did.

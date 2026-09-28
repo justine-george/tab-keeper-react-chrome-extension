@@ -262,7 +262,9 @@ export default function OpenNowPane({
     height: 100%;
   `;
 
-  // Copied from HeroContainerRight's containerStyle and topStyle.
+  // Copied from HeroContainerRight's containerStyle and topStyle, less the
+  // fill: O1b steps this header down to the list's plain header on the
+  // left, so the saved session's own name is what leads. The border stays.
   const headerStyle = css`
     display: flex;
     flex-direction: column;
@@ -271,7 +273,6 @@ export default function OpenNowPane({
     border: 1px solid ${COLORS.BORDER_COLOR};
     font-family: ${FONT_FAMILY};
     user-select: none;
-    background-color: ${COLORS.SECONDARY_COLOR};
     width: 100%;
   `;
 
@@ -286,6 +287,10 @@ export default function OpenNowPane({
   // content and NormalLabel renders a div. The h2's own margin and bold are
   // reset, and the label's margin-right is padding here, so the h2 keeps the
   // header's full width and the text the same room.
+  //
+  // O1b: "Open now" names a panel, not the pane's content, so it steps down
+  // from TYPE.SECTION/TEXT_COLOR to TYPE.BODY/LABEL_L1_COLOR -- inside the
+  // same 32px line, so the header's height does not move.
   const headingStyle = css`
     display: flex;
     align-items: center;
@@ -295,9 +300,9 @@ export default function OpenNowPane({
     margin: 0;
     padding: 0 8px;
     font-family: ${FONT_FAMILY};
-    font-size: ${TYPE.SECTION};
+    font-size: ${TYPE.BODY};
     font-weight: inherit;
-    color: ${COLORS.TEXT_COLOR};
+    color: ${COLORS.LABEL_L1_COLOR};
     overflow: hidden;
     white-space: nowrap;
   `;
@@ -336,7 +341,7 @@ export default function OpenNowPane({
       role="region"
       aria-labelledby={headingId}
     >
-      <div css={headerStyle}>
+      <div css={headerStyle} data-open-now-header>
         <div css={topStyle}>
           {/* tabIndex -1: focusable from script (the drawer moves focus here
               on open), never a Tab stop. */}
