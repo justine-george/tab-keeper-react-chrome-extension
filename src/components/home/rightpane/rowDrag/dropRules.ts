@@ -256,6 +256,38 @@ export interface RowDragAreaProps {
    * does is the auto-scroll the user asked for by holding near an edge.
    */
   restoreScrollIfNoDrop?: boolean;
+  /**
+   * The landing indices a drop of `rowId` into `windowId` may take, both ends
+   * inclusive (KAN-280). The landing is clamped into it.
+   *
+   * IN `onMove`'S `toIndex` SPACE: counted among `windowId`'s rows with the
+   * held one lifted out, or among every row for a list with no windows, where
+   * `windowId` is undefined.
+   *
+   * For a list whose drops Chrome clamps -- a pinned tab cannot leave the
+   * pinned run, nor another tab enter it. Clamped ONCE, in the landing
+   * decision the preview and the release share, so the slot the user is shown
+   * is the one the release commits.
+   *
+   * A range that holds no index (`max < min`) refuses the drop, like a release
+   * outside the list. Absent, nothing is clamped; saved lists pass none.
+   */
+  landingRange?: (
+    rowId: string,
+    windowId: string | undefined
+  ) => { min: number; max: number };
+  /**
+   * Whether a drop of `rowId` may land in `windowId` at all (KAN-280). A
+   * window that refuses is treated exactly like a release outside the list:
+   * no row steps aside, no target is marked in it, and the release puts the
+   * row back.
+   *
+   * For a list whose drops Chrome refuses across windows -- a pinned tab, a
+   * normal tab into an incognito window. Asked about the window the release
+   * would land in, the row's own included; never asked in a list with no
+   * windows. Absent, every window accepts; saved lists pass none.
+   */
+  acceptsWindow?: (rowId: string, windowId: string) => boolean;
   resolveDrop?: ResolveDrop;
   /**
    * Called while the drag is live, whenever `resolveDrop` starts or stops

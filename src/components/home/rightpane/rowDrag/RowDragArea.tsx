@@ -265,6 +265,8 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
   dropsAcrossWindows = false,
   clampDropToEnds = false,
   restoreScrollIfNoDrop = false,
+  landingRange,
+  acceptsWindow,
   resolveDrop,
   onDropTargetChange,
   fixedRowSelector,
@@ -496,6 +498,17 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       windowId: string | undefined
     ) => l.rects.filter((r) => r.windowId === windowId);
 
+    // Does the list refuse this row in this window (KAN-280)? Only a window a
+    // list opted to judge can refuse: with no `acceptsWindow`, or no window at
+    // all, the answer is always no.
+    const refuses = (
+      l: NonNullable<typeof live.current>,
+      windowId: string | undefined
+    ) =>
+      windowId !== undefined &&
+      acceptsWindow !== undefined &&
+      !acceptsWindow(l.rowId, windowId);
+
     // What resolveDrop is handed: the block the pointer is over (KAN-132). A
     // band belongs to exactly one window, so a wider search could only answer
     // with a band this release does not land in. Outside every block it is the
@@ -506,10 +519,19 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     // in this move's own flow already has one, computed once for that flow --
     // see the perf note on blockUnderPointer above. Passing it in is what
     // keeps this a second READ of that answer, not a second forced layout.
+    //
+    // A block whose window refuses the row is searched as if the pointer were
+    // outside every block (KAN-280): a band there is not a place this release
+    // can land, so it must not be marked as one.
     const dropRoot = (
       l: NonNullable<typeof live.current>,
       block: HTMLElement | null
-    ) => block ?? l.heldWindow ?? containerRef.current;
+    ) =>
+      (block !== null && !refuses(l, block.dataset.dropWindowId)
+        ? block
+        : null) ??
+      l.heldWindow ??
+      containerRef.current;
 
     // The slot a landing IN THE HELD ROW'S OWN WINDOW names, in the list AS
     // DRAWN, which spans the whole pane (KAN-132). The landing index counts one
@@ -623,6 +645,11 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         return undefined;
       }
 
+      // A window the list refuses for this row is refused like a release
+      // outside the list (KAN-280): beside the containment check above, never
+      // by loosening it. Which windows refuse which rows is the list's rule.
+      if (refuses(l, windowId)) return undefined;
+
       // The count of rows whose midpoint the pointer has passed IS the index
       // the row lands at, because that count indexes the list with the held
       // row already lifted out of it.
@@ -636,7 +663,19 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // the index is applied to. Counted across the pane it would include
       // every row of every window above (KAN-131, one level up).
       const others = rows.filter((r) => r.id !== l.rowId);
-      return { windowId, index: others.filter((r) => dropY > r.mid).length };
+      const passed = others.filter((r) => dropY > r.mid).length;
+
+      // Clamped HERE, in the one decision both the preview and the release
+      // read (KAN-280), so the slot drawn is the slot committed. The range is
+      // in this same space: this window's rows, the held one lifted out.
+      if (landingRange === undefined) return { windowId, index: passed };
+      const range = landingRange(l.rowId, windowId);
+      // A range holding no index is a window nothing can land in.
+      if (range.max < range.min) return undefined;
+      return {
+        windowId,
+        index: Math.min(range.max, Math.max(range.min, passed)),
+      };
     };
 
     // Returns the element resolveDrop was asked against, so a caller that
@@ -1344,6 +1383,8 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     dragKind,
     dropsAcrossWindows,
     restoreScrollIfNoDrop,
+    landingRange,
+    acceptsWindow,
   ]);
 
   // A drag interrupted by UNMOUNT must not leave the document stuck in a drag.
