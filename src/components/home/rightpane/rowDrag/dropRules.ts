@@ -8,6 +8,7 @@ import type { ReactNode } from 'react';
 
 import type { LandingSide } from '../../../../utils/functions/dragPreview';
 import type { windowGroupData } from '../../../../redux/slices/tabContainerDataStateSlice';
+import type { chromeTabGroupData } from '../../../../utils/functions/tabGroups';
 
 export const ACTIVATION_DISTANCE_PX = 5;
 
@@ -129,6 +130,44 @@ export interface PaneWindows {
     windowGroupData,
     'windowId' | 'tabs' | 'chromeTabGroups'
   >[];
+}
+
+// The windows a tab or group drag's GEOMETRY reads: which rows there are, which
+// window and group each sits in, and each window's groups. Narrower than
+// PaneWindows on purpose -- no session, no stored tab fields -- so a list of
+// live Chrome windows (KAN-280 Open now) can supply it with its ids as strings,
+// and a saved session's windows satisfy it as they are.
+export type DragWindows = readonly {
+  windowId: string;
+  tabs: readonly DragTab[];
+  chromeTabGroups?: readonly chromeTabGroupData[];
+}[];
+
+// One tab row of a DragWindows window. `chromeGroupId` names one of that
+// window's chromeTabGroups; absent means the tab is loose.
+export interface DragTab {
+  tabId: string;
+  pinned?: boolean;
+  chromeGroupId?: string;
+}
+
+// What a committed tab drop asks for, before anything decides how to carry it
+// out. `toIndex` counts `toWindowId`'s rows with the held tab lifted out, and
+// `toGroupId` is the group whose band the release landed in, if any.
+export interface TabMove {
+  tabId: string;
+  fromWindowId: string;
+  toWindowId: string;
+  toIndex: number;
+  toGroupId?: string;
+}
+
+// The same for a whole group. `toIndex` counts `toWindowId`'s top-level rows.
+export interface GroupMove {
+  groupId: string;
+  fromWindowId: string;
+  toWindowId: string;
+  toIndex: number;
 }
 
 export interface RowDragAreaProps {
