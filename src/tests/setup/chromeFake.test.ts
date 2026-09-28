@@ -2539,44 +2539,9 @@ describe('windows.create reports a state', () => {
   });
 });
 
-describe('focusing a minimized window restores it (KAN-280 Part D)', () => {
-  // Modelled, not measured: a window that takes the focus is shown, so a
-  // minimized one comes back normal. Reopen with history re-minimizes a
-  // window the restore focused; without this the fake could not show why.
-  const seed = () =>
-    setupChromeFake({
-      grantedPermissions: ['sessions'],
-      windows: [
-        { id: 1, focused: true, tabs: [{ id: 11, url: 'https://a.test/' }] },
-        {
-          id: 2,
-          state: 'minimized',
-          tabs: [
-            { id: 21, url: 'https://c.test/', active: true },
-            { id: 22, url: 'https://d.test/' },
-          ],
-        },
-      ],
-    });
-
-  test('windows.update({focused: true}) on a minimized window makes it normal', async () => {
-    handle = seed();
-
-    await chrome.windows.update(2, { focused: true });
-
-    expect((await chrome.windows.get(2)).state).toBe('normal');
-  });
-
-  test('a restore into a minimized window makes it normal', async () => {
-    handle = seed();
-    await chrome.tabs.remove(22);
-    const [entry] = await chrome.sessions.getRecentlyClosed();
-
-    await chrome.sessions.restore(entry.tab?.sessionId ?? 'missing');
-
-    expect((await chrome.windows.get(2)).state).toBe('normal');
-  });
-
+describe('focusing a window keeps its state (KAN-280 Part D)', () => {
+  // A minimized window: see "the fake follows what real Chrome measured"
+  // below (Task 8, M1).
   test('CONTROL: focusing a maximized window leaves it maximized', async () => {
     handle = setupChromeFake({
       windows: [
@@ -2610,5 +2575,220 @@ describe('handle.groupState reads a group without the tabGroups API', () => {
     expect(chrome.tabGroups).toBeUndefined();
     expect(handle.groupState(5)).toMatchObject({ title: 'G', collapsed: true });
     expect(handle.groupState(6)).toBeUndefined();
+  });
+});
+
+// Four rules Task 8 measured in real Chromium 151 (e2e/open-now-history.spec.ts,
+// report sections "Measurements carried from the reviews" and "Other
+// real-Chrome findings"), where the fake had modelled something else.
+describe('the fake follows what real Chrome measured (Task 8, KAN-316)', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const strip = async (windowId: number) =>
+    (await chrome.tabs.query({ windowId }))
+      .sort((a, b) => a.index - b.index)
+      .map(
+        (t) =>
+          `${t.id}${t.active ? '*' : ''}${
+            t.groupId === -1 ? '' : `g${t.groupId}`
+          }`
+      );
+
+  // [A, X, B, Z] with Z in front; X closes, then A and B are grouped as a
+  // collapsed H, so X's old index 1 is inside H's run.
+  const collapsedAroundTheGap = async () => {
+    const fake = setupChromeFake({
+      grantedPermissions: ['sessions', 'tabGroups'],
+      windows: [
+        {
+          id: 1,
+          focused: true,
+          tabs: [
+            { id: 11, url: 'https://a.test/' },
+            { id: 12, url: 'https://x.test/' },
+            { id: 13, url: 'https://b.test/' },
+            { id: 14, url: 'https://z.test/', active: true },
+          ],
+        },
+      ],
+    });
+    await chrome.tabs.remove(12);
+    const group = await chrome.tabs.group({
+      createProperties: { windowId: 1 },
+      tabIds: [11, 13],
+    });
+    await chrome.tabGroups.update(group, { title: 'H', collapsed: true });
+    return { fake, group };
+  };
+
+  // Task 8, M2 raw: ["A[H,collapsed]","B[H,collapsed]","X*","Z"].
+  test('M2 raw: an ungrouped tab whose old index is inside a group run is restored AFTER the run, and the group stays collapsed', async () => {
+    const { fake, group } = await collapsedAroundTheGap();
+    handle = fake;
+    const [entry] = await chrome.sessions.getRecentlyClosed();
+
+    const result = await chrome.sessions.restore(
+      entry.tab?.sessionId ?? 'missing'
+    );
+
+    const x = result.tab?.id ?? -1;
+    expect(await strip(1)).toEqual([
+      `11g${group}`,
+      `13g${group}`,
+      `${x}*`,
+      '14',
+    ]);
+    expect((await chrome.tabGroups.get(group)).collapsed).toBe(true);
+  });
+
+  // Task 8, M2 cause: the undo's move of the still-active restored tab into
+  // H's run joined H and expanded it.
+  test('M2 cause: an ACTIVE tab moved into a collapsed group run joins the group and expands it', async () => {
+    const { fake, group } = await collapsedAroundTheGap();
+    handle = fake;
+    const [entry] = await chrome.sessions.getRecentlyClosed();
+    const restored = await chrome.sessions.restore(
+      entry.tab?.sessionId ?? 'missing'
+    );
+    const x = restored.tab?.id ?? -1;
+    const updated: boolean[] = [];
+    chrome.tabGroups.onUpdated.addListener((g) => updated.push(g.collapsed));
+
+    await chrome.tabs.move(x, { index: 1 });
+
+    expect(await strip(1)).toEqual([
+      `11g${group}`,
+      `${x}*g${group}`,
+      `13g${group}`,
+      '14',
+    ]);
+    expect((await chrome.tabGroups.get(group)).collapsed).toBe(false);
+    expect(updated).toEqual([false]);
+  });
+
+  test('M2 cause, CONTROL: an INACTIVE tab moved into a collapsed group run joins it and leaves it collapsed', async () => {
+    const { fake, group } = await collapsedAroundTheGap();
+    handle = fake;
+    const [entry] = await chrome.sessions.getRecentlyClosed();
+    const restored = await chrome.sessions.restore(
+      entry.tab?.sessionId ?? 'missing'
+    );
+    const x = restored.tab?.id ?? -1;
+    await chrome.tabs.update(14, { active: true });
+
+    await chrome.tabs.move(x, { index: 1 });
+
+    expect(await strip(1)).toEqual([
+      `11g${group}`,
+      `${x}g${group}`,
+      `13g${group}`,
+      '14*',
+    ]);
+    expect((await chrome.tabGroups.get(group)).collapsed).toBe(true);
+  });
+
+  const withMinimized = () =>
+    setupChromeFake({
+      grantedPermissions: ['sessions'],
+      windows: [
+        { id: 1, focused: true, tabs: [{ id: 11, url: 'https://a.test/' }] },
+        {
+          id: 2,
+          state: 'minimized',
+          tabs: [
+            { id: 21, url: 'https://c.test/', active: true },
+            { id: 22, url: 'https://d.test/' },
+          ],
+        },
+      ],
+    });
+
+  // Task 8, M1: `{"afterFocus":"minimized","afterRestore":"normal"}`.
+  test('M1: windows.update({focused: true}) leaves a minimized window minimized', async () => {
+    handle = withMinimized();
+
+    await chrome.windows.update(2, { focused: true });
+
+    expect((await chrome.windows.get(2)).state).toBe('minimized');
+    expect((await chrome.windows.getLastFocused()).id).toBe(2);
+  });
+
+  test('M1: a restore into a minimized window makes it normal', async () => {
+    handle = withMinimized();
+    await chrome.tabs.remove(22);
+    const [entry] = await chrome.sessions.getRecentlyClosed();
+
+    await chrome.sessions.restore(entry.tab?.sessionId ?? 'missing');
+
+    expect((await chrome.windows.get(2)).state).toBe('normal');
+  });
+
+  // Task 8, finding A (KAN-317): 7b measured history [3] for an ungrouped
+  // tab and [1] for a grouped one after a window restore.
+  test('finding A: a WINDOW restore brings its grouped tabs back without history, its ungrouped ones with it', async () => {
+    handle = setupChromeFake({
+      grantedPermissions: ['sessions', 'tabGroups'],
+      windows: [
+        { id: 1, focused: true, tabs: [{ id: 11, url: 'https://v.test/' }] },
+        {
+          id: 2,
+          tabs: [
+            { id: 21, url: 'https://loose.test/', active: true },
+            { id: 22, url: 'https://g1.test/', groupId: 5 },
+            { id: 23, url: 'https://g2.test/', groupId: 5 },
+            { id: 24, url: 'https://end.test/' },
+          ],
+        },
+      ],
+      tabGroups: [{ id: 5, windowId: 2, title: 'G' }],
+    });
+    await chrome.windows.remove(2);
+    const [entry] = await chrome.sessions.getRecentlyClosed();
+
+    const result = await chrome.sessions.restore(
+      entry.window?.sessionId ?? 'missing'
+    );
+
+    expect(
+      (result.window?.tabs ?? []).map((t) => [
+        t.url,
+        t.groupId !== -1,
+        handle?.restoredFromSession(t.id ?? -1),
+      ])
+    ).toEqual([
+      ['https://loose.test/', false, true],
+      ['https://g1.test/', true, false],
+      ['https://g2.test/', true, false],
+      ['https://end.test/', false, true],
+    ]);
+  });
+
+  // Task 8, finding A: 4, 4b and 13 all gave history 3 for a grouped tab.
+  test('finding A, CONTROL: a single-tab restore of a grouped tab keeps its history', async () => {
+    handle = setupChromeFake({
+      grantedPermissions: ['sessions', 'tabGroups'],
+      windows: [
+        {
+          id: 1,
+          tabs: [
+            { id: 11, url: 'https://a.test/', active: true },
+            { id: 12, url: 'https://g1.test/', groupId: 5 },
+            { id: 13, url: 'https://g2.test/', groupId: 5 },
+          ],
+        },
+      ],
+      tabGroups: [{ id: 5, windowId: 1, title: 'G' }],
+    });
+    await chrome.tabs.remove(12);
+    const [entry] = await chrome.sessions.getRecentlyClosed();
+
+    const result = await chrome.sessions.restore(
+      entry.tab?.sessionId ?? 'missing'
+    );
+
+    expect(result.tab?.groupId).toBe(5);
+    expect(handle.restoredFromSession(result.tab?.id ?? -1)).toBe(true);
   });
 });

@@ -543,13 +543,12 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
   // so does windows.update({focused: true}) -- Reopen's undo refocuses the
   // window that had it before (KAN-280 Part D).
   let lastFocusedWindowId = windows.find((win) => win.focused)?.id;
-  // A window that takes the focus is shown, so a minimized one comes back
-  // normal. Modelled, not measured (Reopen with history re-minimizes a
-  // window its restore focused, KAN-280 Part D).
+  // Focus alone does not show a minimized window: it stays minimized (Task
+  // 8, M1, headless Chromium 151). A restore into one does show it -- see
+  // restoreTabEntry.
   const focusWindow = (windowId: number): void => {
     for (const win of windows) {
       win.focused = win.id === windowId;
-      if (win.focused && win.state === 'minimized') win.state = 'normal';
     }
     lastFocusedWindowId = windowId;
   };
@@ -647,6 +646,12 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
   // lands in is expanded (3/3). The other windows' active tabs are untouched
   // (25/25). The ORDER of the events it fires was not measured.
   //
+  // A tab that comes back ungrouped never lands inside another group's run:
+  // when its old index now falls strictly between two tabs of one group, it
+  // lands just AFTER that run, and the group keeps its collapsed state (Task
+  // 8, M2 raw). A minimized window it lands in comes back normal (Task 8,
+  // M1) -- the restore shows it, where a plain focus does not.
+  //
   // A tab whose group the seed never declared (a groupId with no
   // tabGroups record) comes back with that groupId and still no record: the
   // fake repeats the seed's own gap rather than inventing a title or colour.
@@ -670,10 +675,19 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
     const groupMates =
       was.groupId === -1 ? [] : own.filter((t) => t.groupId === was.groupId);
     const lastMate = groupMates[groupMates.length - 1];
-    const slot =
+    let slot =
       lastMate === undefined
         ? clampSlot(own, was.index, was.pinned)
         : lastMate.index + 1;
+    const runGroupId = own[slot - 1]?.groupId;
+    if (
+      lastMate === undefined &&
+      runGroupId !== undefined &&
+      runGroupId !== -1 &&
+      own[slot]?.groupId === runGroupId
+    ) {
+      while (own[slot]?.groupId === runGroupId) slot += 1;
+    }
     const created = makeTab(
       {
         url: was.url,
@@ -689,6 +703,8 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
     for (const tab of own) tab.active = false;
     restoredTabs.add(created);
     focusWindow(windowId);
+    const target = windows.find((win) => win.id === windowId);
+    if (target?.state === 'minimized') target.state = 'normal';
 
     if (opened) windowsOnCreated.fire(opened.window);
     tabsOnCreated.fire(created);
@@ -717,6 +733,10 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
   // close -- unless that tab was in a group, when tab 0 comes back active
   // instead (2/2). A tab whose group was never declared comes back
   // ungrouped: a new id needs a record to copy, and there is none.
+  //
+  // Only the tabs that were UNGROUPED come back with their history; a tab
+  // that was in a group comes back as if newly created (Task 8, finding A,
+  // KAN-317: history.length 3 for an ungrouped tab, 1 for a grouped one).
   const restoreWindowEntry = (
     entry: Extract<ClosedEntry, { kind: 'window' }>
   ): chrome.sessions.Session => {
@@ -767,7 +787,7 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
         windowId
       );
       tabs.push(tab);
-      restoredTabs.add(tab);
+      if (was.groupId === -1) restoredTabs.add(tab);
       return tab;
     });
     reindexWindow(windowId);
@@ -1294,7 +1314,8 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
       // follows (measured 2026-09-24 for a create; for a move it is modelled
       // on the same rule, not measured): strictly inside another group's run
       // it joins that group; cut off from the rest of its own group it
-      // leaves it.
+      // leaves it. An ACTIVE tab joining a collapsed group expands it; an
+      // inactive one joins and leaves it collapsed (Task 8, M2 cause).
       move: (
         tabId: number,
         props: chrome.tabs.MoveProperties,
@@ -1334,6 +1355,11 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
           ) {
             target.groupId = left.groupId;
             dropGroupIfEmpty(own);
+            const joined = tabGroups.find((g) => g.id === target.groupId);
+            if (target.active && joined?.collapsed) {
+              joined.collapsed = false;
+              tabGroupsOnUpdated.fire(joined);
+            }
           } else if (own !== -1 && others.some((t) => t.groupId === own)) {
             target.groupId = -1;
           }

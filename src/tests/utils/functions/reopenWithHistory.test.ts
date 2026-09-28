@@ -100,16 +100,20 @@ async function describeWorld() {
 }
 
 // Whether what came back came through chrome.sessions (Task 2's marker for
-// history.length): a tab, or every tab of a window.
+// history.length): a tab, or every UNGROUPED tab of a window. Chrome brings
+// a window's grouped tabs back without their history (Task 8, finding A,
+// KAN-317), so those are pinned apart, under "KNOWN LIMITATION" below.
 async function cameBackWithHistory(
   fake: ChromeFakeHandle,
   reopened: Reopened
 ): Promise<boolean> {
   if (reopened.kind === 'tab') return fake.restoredFromSession(reopened.tabId);
-  const tabs = await chrome.tabs.query({ windowId: reopened.windowId });
+  const ungrouped = (
+    await chrome.tabs.query({ windowId: reopened.windowId })
+  ).filter((t) => t.groupId === -1);
   return (
-    tabs.length > 0 &&
-    tabs.every((t) => t.id !== undefined && fake.restoredFromSession(t.id))
+    ungrouped.length > 0 &&
+    ungrouped.every((t) => t.id !== undefined && fake.restoredFromSession(t.id))
   );
 }
 
@@ -548,6 +552,39 @@ describe('reopenWithHistory ends exactly where recreate does (KAN-280 Part D)', 
       expect(focused).toHaveLength(1);
     }
   );
+});
+
+// Task 8, finding A (KAN-317): a window restore brings its grouped tabs back
+// without their Back and Forward pages. Nothing after the restore can add
+// them, so the history path keeps them as Chrome made them.
+describe('KNOWN LIMITATION: a reopened window keeps history only for its ungrouped tabs (KAN-317)', () => {
+  test('its grouped tabs come back without history, its ungrouped ones with it', async () => {
+    handle = setupChromeFake(
+      scenarios['a window whose active tab was in a group'].seed
+    );
+    const item = await closeWindow(2);
+    if (!item) throw new Error('close failed');
+
+    const reopened = await reopenWithHistory(item);
+
+    if (reopened?.kind !== 'window') throw new Error('no window came back');
+    const tabs = (
+      await chrome.tabs.query({ windowId: reopened.windowId })
+    ).sort((a, b) => a.index - b.index);
+    expect(
+      tabs.map((t) => [
+        t.url,
+        t.groupId !== -1,
+        handle?.restoredFromSession(t.id ?? -1),
+      ])
+    ).toEqual([
+      [url('p'), false, true],
+      [url('a'), true, false],
+      [url('b'), true, false],
+      [url('c'), true, false],
+      [url('d'), false, true],
+    ]);
+  });
 });
 
 describe('the undo refocuses first (KAN-280 Part D)', () => {
