@@ -89,6 +89,10 @@ function onFirstClickOnly(action: () => void): React.MouseEventHandler {
 interface OpenNowWindowProps {
   openWindow: OpenWindow;
   index: number;
+  // KAN-330 O14a. The ids of this window's tabs a search matches, or null
+  // when no search is held and every tab is drawn. The window itself stays
+  // whole: every action below still gets all of its tabs.
+  matchedTabIds: ReadonlySet<number> | null;
   isOpen: boolean;
   onToggle: () => void;
   onCloseTab: (tab: OpenTab) => void;
@@ -103,6 +107,7 @@ interface OpenNowWindowProps {
 export default function OpenNowWindow({
   openWindow,
   index,
+  matchedTabIds,
   isOpen,
   onToggle,
   onCloseTab,
@@ -289,9 +294,15 @@ export default function OpenNowWindow({
   // afterwards. One partition rule for both panes, so a live group draws where
   // the saved one would -- and the one the drag geometry counts rows with
   // (useOpenNowDrop), so a drop's index names the row drawn there (KAN-131).
+  // KAN-330 O14a. What this window draws: every tab, or a search's matches.
+  // Only drawing narrows; the handlers below still get the whole window.
+  const drawnTabs =
+    matchedTabIds === null
+      ? openWindow.tabs
+      : openWindow.tabs.filter((tab) => matchedTabIds.has(tab.id));
   const tabsById = new Map(openWindow.tabs.map((tab) => [String(tab.id), tab]));
   const items = partitionTabsIntoItems(
-    openWindow.tabs.map((tab) => ({
+    drawnTabs.map((tab) => ({
       tabId: String(tab.id),
       favicon: tab.favIconUrl,
       title: tab.title,
@@ -307,10 +318,12 @@ export default function OpenNowWindow({
 
   // The row that carries the pinned line: the last pinned tab, and only when
   // an unpinned tab follows it (O11c N). Pinned tabs come first in a Chrome
-  // window, so "the last pinned" is the end of the pinned run.
-  const pinnedTabs = openWindow.tabs.filter((tab) => tab.pinned);
+  // window, so "the last pinned" is the end of the pinned run -- the last
+  // pinned DRAWN tab (KAN-330 O14a): under a search the last pinned tab may
+  // be hidden, and the line would be drawn nowhere.
+  const pinnedTabs = drawnTabs.filter((tab) => tab.pinned);
   const pinnedBoundaryTabId =
-    pinnedTabs.length > 0 && pinnedTabs.length < openWindow.tabs.length
+    pinnedTabs.length > 0 && pinnedTabs.length < drawnTabs.length
       ? pinnedTabs[pinnedTabs.length - 1].id
       : null;
 

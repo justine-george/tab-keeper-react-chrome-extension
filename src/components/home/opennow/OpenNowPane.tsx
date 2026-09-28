@@ -16,14 +16,18 @@ import { NormalLabel } from '../../common/Label';
 import type { IconName } from '../../common/iconNames';
 import { useFontFamily } from '../../../hooks/useFontFamily';
 import { useThemeColors } from '../../../hooks/useThemeColors';
-import { formatGroupCounts } from '../../../utils/functions/local';
+import { formatOpenNowCounts } from '../../../utils/functions/local';
 import type { OpenTab, OpenWindow } from '../../../utils/functions/openNow';
 import type { MovedTabs } from '../../../utils/functions/openNowMoves';
 import {
   openWindowsToSession,
   suggestTitleForWindow,
 } from '../../../utils/functions/openWindowsToSession';
-import { searchTermOf } from '../../../utils/functions/openNowSearch';
+import {
+  countMatchedTabs,
+  matchOpenWindows,
+  searchTermOf,
+} from '../../../utils/functions/openNowSearch';
 import { closeOpenTab, closeOpenWindow } from '../../../utils/functions/reopen';
 import { offerReopen } from '../../../redux/reopenOffer';
 import {
@@ -369,6 +373,9 @@ export default function OpenNowPane({
   `;
 
   const searchTerm = searchTermOf(searchText);
+  // KAN-330 O14a. Computed once per render; null when no search is held.
+  const matches =
+    searchTerm === null ? null : matchOpenWindows(listed, searchTerm);
 
   const focusFirstDrawnTab = () =>
     drawnSwitchButtons(paneRef.current)[0]?.focus();
@@ -405,7 +412,12 @@ export default function OpenNowPane({
               says less than the body's own message does. */}
           {listed.length > 0 && (
             <NormalLabel
-              value={formatGroupCounts(listed.length, tabCount, false, t)}
+              value={formatOpenNowCounts(
+                listed.length,
+                tabCount,
+                matches === null ? null : countMatchedTabs(matches),
+                t
+              )}
               size={TYPE.META}
               color={COLORS.LABEL_L1_COLOR}
               style="padding-top: 2px; padding-left: 8px;"
@@ -486,6 +498,13 @@ export default function OpenNowPane({
                 color={COLORS.LABEL_L2_COLOR}
               />
             </div>
+          ) : matches !== null && matches.size === 0 ? (
+            <div css={emptyStyle}>
+              <NormalLabel
+                value={t('NoOpenTabMatches', { text: searchText.trim() })}
+                color={COLORS.LABEL_L2_COLOR}
+              />
+            </div>
           ) : (
             // The saved pane's two lists over every window (TabDragArea,
             // GroupDragArea), under Open now's own scopes: a tab at a time,
@@ -518,22 +537,32 @@ export default function OpenNowPane({
                 landingRange={drop.items.landingRange}
                 acceptsWindow={drop.items.acceptsWindow}
               >
-                {listed.map((openWindow, index) => (
-                  <OpenNowWindow
-                    key={openWindow.id}
-                    openWindow={openWindow}
-                    index={index}
-                    isOpen={!collapsedIds.has(openWindow.id)}
-                    onToggle={() => toggleWindow(openWindow.id)}
-                    onCloseTab={(tab) => void handleCloseTab(openWindow, tab)}
-                    onSaveWindow={() => void handleSaveWindow(openWindow)}
-                    onCloseWindow={
-                      openWindow.isThisWindow
-                        ? undefined
-                        : () => void handleCloseWindow(openWindow)
-                    }
-                  />
-                ))}
+                {listed.map((openWindow, index) => {
+                  // Hidden by the search. `index` is still the window's place
+                  // in the WHOLE list, so "Window 3" stays Window 3 (O14a).
+                  const matchedTabIds =
+                    matches === null
+                      ? null
+                      : matches.get(openWindow.id) ?? null;
+                  if (matches !== null && matchedTabIds === null) return null;
+                  return (
+                    <OpenNowWindow
+                      key={openWindow.id}
+                      openWindow={openWindow}
+                      index={index}
+                      matchedTabIds={matchedTabIds}
+                      isOpen={!collapsedIds.has(openWindow.id)}
+                      onToggle={() => toggleWindow(openWindow.id)}
+                      onCloseTab={(tab) => void handleCloseTab(openWindow, tab)}
+                      onSaveWindow={() => void handleSaveWindow(openWindow)}
+                      onCloseWindow={
+                        openWindow.isThisWindow
+                          ? undefined
+                          : () => void handleCloseWindow(openWindow)
+                      }
+                    />
+                  );
+                })}
               </RowDragArea>
             </RowDragArea>
           )}
