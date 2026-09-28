@@ -257,20 +257,6 @@ export interface RowDragAreaProps {
    */
   restoreScrollIfNoDrop?: boolean;
   /**
-   * After a committed drop, scroll the dropped row into view on the next
-   * frame (KAN-155). ON BY DEFAULT, and every saved list keeps it.
-   *
-   * The follow assumes the list was REORDERED at the drop, so the row is
-   * already in its new place when the frame runs. A list whose drop only
-   * asks for a change that arrives later -- Open now (KAN-280 Part E), where
-   * Chrome moves the tabs and the re-read that shows them comes after
-   * Chrome's events -- would be followed to the row's OLD place, which after
-   * an auto-scrolling drag is back where the drag began. Such a list turns
-   * this off: the scroll stays where the drop left it, and the re-read
-   * decides from there.
-   */
-  followDroppedRow?: boolean;
-  /**
    * The landing indices a drop of `rowId` into `windowId` may take, both ends
    * inclusive (KAN-280). The landing is clamped into it.
    *
