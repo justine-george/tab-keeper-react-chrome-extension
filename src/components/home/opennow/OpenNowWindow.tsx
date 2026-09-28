@@ -14,7 +14,8 @@ import { resolveFaviconUrl } from '../../../utils/functions/local';
 import { switchToOpenTab } from '../../../utils/functions/openNow';
 import type { OpenTab, OpenWindow } from '../../../utils/functions/openNow';
 import {
-  partitionTabsIntoRuns,
+  itemIdOf,
+  partitionTabsIntoItems,
   sanitizeTabGroupColor,
   TAB_GROUP_COLOR_HEX,
 } from '../../../utils/functions/tabGroups';
@@ -22,7 +23,12 @@ import {
   ADJACENT_GROUP_GAP_PX,
   BAND_MARGIN_PX,
 } from '../rightpane/bandSpacing';
-import { DURATION, ICON, TYPE } from '../../../styles/scale';
+import { DraggableRow } from '../rightpane/rowDrag/RowDragArea';
+import { useDragState } from '../rightpane/rowDrag/dragContext';
+import { markRowContainer } from '../rightpane/rowDrag/dropRules';
+import { GroupFrameFollower } from '../rightpane/rowDrag/GroupFrameFollower';
+import { DURATION, ICON, RADIUS, TYPE } from '../../../styles/scale';
+import { OPEN_ITEMS_SCOPE, OPEN_TABS_SCOPE } from './useOpenNowDrop';
 
 // WindowEntryContainer's GROUP_TITLE_SIZE, the one documented off-scale size
 // (scaleConformance.test.ts). Copied rather than exported from there, for the
@@ -105,6 +111,16 @@ export default function OpenNowWindow({
   const COLORS = useThemeColors();
   const FONT_FAMILY = useFontFamily();
   const { t } = useTranslation();
+
+  // How far this window's block moves to make room for a row landing in
+  // another one (KAN-184), as a saved window's does. Either list can carry a
+  // row across windows, and only one of them is ever dragging.
+  const windowKey = String(openWindow.id);
+  const tabDrag = useDragState(OPEN_TABS_SCOPE);
+  const itemDrag = useDragState(OPEN_ITEMS_SCOPE);
+  const windowShift =
+    (tabDrag?.windowShifts[windowKey] ?? 0) ||
+    (itemDrag?.windowShifts[windowKey] ?? 0);
 
   const [isParentHovered, setIsParentHovered] = useState(false);
   // By Chrome tab id, not by position, for KAN-127's reason: a re-read (and,
@@ -268,11 +284,12 @@ export default function OpenNowWindow({
 
   const title = t('Window') + ' ' + (index + 1);
 
-  // The adapters partitionTabsIntoRuns takes, keyed back to the OpenTab by id
+  // The adapters partitionTabsIntoItems takes, keyed back to the OpenTab by id
   // afterwards. One partition rule for both panes, so a live group draws where
-  // the saved one would.
+  // the saved one would -- and the one the drag geometry counts rows with
+  // (useOpenNowDrop), so a drop's index names the row drawn there (KAN-131).
   const tabsById = new Map(openWindow.tabs.map((tab) => [String(tab.id), tab]));
-  const runs = partitionTabsIntoRuns(
+  const items = partitionTabsIntoItems(
     openWindow.tabs.map((tab) => ({
       tabId: String(tab.id),
       favicon: tab.favIconUrl,
@@ -401,14 +418,30 @@ export default function OpenNowWindow({
     );
   }
 
-  const renderTabsOf = (tabIds: string[]) =>
-    tabIds.flatMap((tabId) => {
-      const tab = tabsById.get(tabId);
-      return tab ? [renderTab(tab)] : [];
-    });
+  // A tab row, as a row of the `tabs` list (KAN-280 Part E).
+  const renderTabRow = (tabId: string) => {
+    const tab = tabsById.get(tabId);
+    return tab ? (
+      <DraggableRow key={tabId} scope={OPEN_TABS_SCOPE} rowId={tabId}>
+        {renderTab(tab)}
+      </DraggableRow>
+    ) : null;
+  };
 
   return (
-    <div css={containerStyle} data-open-window-id={openWindow.id}>
+    // data-drop-window-id: the whole block is what the drag engine hit-tests
+    // for "this window" (KAN-132), header and a folded window included. Its
+    // shift is published back so that hit test can subtract it, and is not
+    // eased, as in WindowEntryContainer (KAN-184).
+    <div
+      css={containerStyle}
+      data-open-window-id={openWindow.id}
+      data-drop-window-id={windowKey}
+      data-window-shift={windowShift || undefined}
+      style={{
+        transform: windowShift ? `translateY(${windowShift}px)` : undefined,
+      }}
+    >
       <div
         css={parentStyle}
         onMouseEnter={() => setIsParentHovered(true)}
@@ -458,15 +491,27 @@ export default function OpenNowWindow({
         </div>
       </div>
       {isOpen && (
-        <div css={childrenContainerStyle}>
-          {runs.map((run, runIndex) => {
-            if (run.kind === 'ungrouped') {
-              return renderTabsOf(run.tabs.map((tab) => tab.tabId));
+        // markRowContainer: this box holds one window's worth of the
+        // pane-wide lists, so no row's footprint is measured on it (KAN-132).
+        <div css={childrenContainerStyle} ref={markRowContainer}>
+          {items.map((item, itemIndex) => {
+            // A loose tab is one row of each list: the `items` list, where a
+            // group is one row too, and the `tabs` list inside it.
+            if (item.kind === 'tab') {
+              return (
+                <DraggableRow
+                  key={itemIdOf(item)}
+                  scope={OPEN_ITEMS_SCOPE}
+                  rowId={itemIdOf(item)}
+                >
+                  {renderTabRow(item.tab.tabId)}
+                </DraggableRow>
+              );
             }
             // Already a TabGroupColor on the way in; the partition hands it
             // back as the saved shape's string, so it is narrowed again.
-            const color = sanitizeTabGroupColor(run.group.color);
-            const groupName = run.group.title || t('Unnamed group');
+            const color = sanitizeTabGroupColor(item.group.color);
+            const groupName = item.group.title || t('Unnamed group');
             return (
               // The saved band, at rest (KAN-280: a live grouped tab sits
               // exactly where a saved one does). Copied, not shared, for the
@@ -481,86 +526,147 @@ export default function OpenNowWindow({
               //               ClickableRow style (1098-1120, 1218)
               //   title label groupTitleLabel in
               //               WindowEntryContainer.tsx (516-522)
-              // Only the resting declarations: the drag-only rules
-              // ([data-drag-held], [data-drag-removed], [data-drop-target],
-              // the strip's hover widen) never apply here, and the strip's
-              // var(--frame-top, 0px) / var(--frame-bottom, 0px) margins are
-              // written as their resting 0.
-              <div
-                key={run.group.groupId}
-                role="group"
-                aria-label={groupName}
-                data-after-group={
-                  runIndex > 0 && runs[runIndex - 1].kind === 'group'
-                    ? ''
-                    : undefined
-                }
-                css={css`
-                  display: flex;
-                  align-items: stretch;
-                  margin: ${BAND_MARGIN_PX}px 0;
-                  &[data-after-group] {
-                    margin-top: ${ADJACENT_GROUP_GAP_PX}px;
-                  }
-                `}
+              // With the drag rules too (KAN-280 Part E): the band is the
+              // `items` list's row for its group, and its frame follows a tab
+              // drag through GroupFrameFollower, as a saved band's does. Not
+              // the strip's hover widen: this strip opens nothing.
+              <DraggableRow
+                key={itemIdOf(item)}
+                scope={OPEN_ITEMS_SCOPE}
+                rowId={itemIdOf(item)}
               >
                 <div
-                  aria-hidden="true"
-                  data-open-now-group-strip
+                  data-band-id={item.group.groupId}
+                  role="group"
+                  aria-label={groupName}
+                  data-after-group={
+                    itemIndex > 0 && items[itemIndex - 1].kind === 'group'
+                      ? ''
+                      : undefined
+                  }
                   css={css`
-                    flex: 0 0 7px;
-                    width: 7px;
-                    margin-right: 9px;
-                    align-self: stretch;
-                    background-color: ${TAB_GROUP_COLOR_HEX[color]};
-                    margin-top: 0px;
-                    margin-bottom: 0px;
-                  `}
-                />
-                <div
-                  css={css`
-                    flex: 1;
-                    min-width: 0;
+                    display: flex;
+                    align-items: stretch;
+                    margin: ${BAND_MARGIN_PX}px 0;
+                    &[data-after-group] {
+                      margin-top: ${ADJACENT_GROUP_GAP_PX}px;
+                    }
+                    /* KAN-186: the held group paints its row's hover fill,
+                       so its strip's margin is no window onto the rows it
+                       passes over. */
+                    [data-drag-held] & {
+                      background-color: ${COLORS.HOVER_COLOR};
+                    }
+                    /* KAN-169: a drop that empties this group fades its
+                       title row and strip as the rows below close up. */
+                    &[data-drag-removed] [data-group-drag-handle],
+                    &[data-drag-removed] [data-group-color-strip] {
+                      opacity: 0;
+                      transition: opacity ${DURATION.MOVE} ease;
+                    }
+                    /* KAN-164: a tab released here joins this group, which
+                       answers in its own colour. */
+                    &[data-drop-target] {
+                      background-color: color-mix(
+                        in srgb,
+                        var(--band-color, transparent) 18%,
+                        transparent
+                      );
+                      border-radius: ${RADIUS.SQUARE};
+                    }
                   `}
                 >
-                  {/* No hover fill: unlike the saved title, this one opens
-                      nothing. The saved row's padding-right: 100px keeps its
-                      title clear of the action strip; there is none here. */}
+                  <GroupFrameFollower
+                    groupId={item.group.groupId}
+                    scope={OPEN_TABS_SCOPE}
+                  />
+                  {/* The strip's length follows the frame through margins
+                      (KAN-171) and it widens for a drop target (KAN-164),
+                      as GroupColorPicker's bandStyle does; both are 0 and
+                      7px at rest. */}
+                  <div
+                    aria-hidden="true"
+                    data-open-now-group-strip
+                    data-group-color-strip
+                    css={css`
+                      flex: 0 0 7px;
+                      width: 7px;
+                      margin-right: 9px;
+                      align-self: stretch;
+                      background-color: ${TAB_GROUP_COLOR_HEX[color]};
+                      margin-top: var(--frame-top, 0px);
+                      margin-bottom: calc(-1 * var(--frame-bottom, 0px));
+                      [data-drop-target] & {
+                        flex-basis: 16px;
+                        width: 16px;
+                        margin-right: 0;
+                      }
+                    `}
+                  />
                   <div
                     css={css`
-                      position: relative;
-                      display: flex;
-                      align-items: center;
-                      min-height: 32px;
+                      flex: 1;
+                      min-width: 0;
                     `}
                   >
+                    {/* No hover fill: unlike the saved title, this one opens
+                      nothing. The saved row's padding-right: 100px keeps its
+                      title clear of the action strip; there is none here.
+                      data-group-drag-handle: a group is held by this row
+                      (KAN-160). data-fixed-row-id: drawn in the tab list
+                      but not one of its rows (KAN-166); it glides with the
+                      rows (KAN-165). */}
                     <div
+                      data-group-drag-handle
+                      data-fixed-row-id={item.group.groupId}
                       css={css`
+                        position: relative;
                         display: flex;
                         align-items: center;
-                        align-self: stretch;
-                        min-width: 0;
-                        width: 100%;
-                        box-sizing: border-box;
+                        min-height: 32px;
+                        transition: transform ${DURATION.MOVE} ease;
                       `}
                     >
-                      <NormalLabel
-                        value={groupName}
-                        color={
-                          run.group.title
-                            ? COLORS.LABEL_L2_COLOR
-                            : COLORS.LABEL_L3_COLOR
-                        }
-                        size={GROUP_TITLE_SIZE}
-                        style={`padding-left: 4px;${
-                          run.group.title ? '' : ' font-style: italic;'
-                        }`}
+                      <div
+                        css={css`
+                          display: flex;
+                          align-items: center;
+                          align-self: stretch;
+                          min-width: 0;
+                          width: 100%;
+                          box-sizing: border-box;
+                        `}
+                      >
+                        <NormalLabel
+                          value={groupName}
+                          color={
+                            item.group.title
+                              ? COLORS.LABEL_L2_COLOR
+                              : COLORS.LABEL_L3_COLOR
+                          }
+                          size={GROUP_TITLE_SIZE}
+                          style={`padding-left: 4px;${
+                            item.group.title ? '' : ' font-style: italic;'
+                          }`}
+                        />
+                      </div>
+                    </div>
+                    {/* data-group-tabs: the held group folds to its title
+                      row (App.css, KAN-160). The zero-height marker is the
+                      group's tail in the drawn list (KAN-175). */}
+                    <div data-group-tabs>
+                      {item.tabs.map((tab) => renderTabRow(tab.tabId))}
+                      <div
+                        aria-hidden="true"
+                        data-fixed-row-id={`${item.group.groupId}:tail`}
+                        css={css`
+                          height: 0;
+                        `}
                       />
                     </div>
                   </div>
-                  <div>{renderTabsOf(run.tabs.map((tab) => tab.tabId))}</div>
                 </div>
-              </div>
+              </DraggableRow>
             );
           })}
         </div>

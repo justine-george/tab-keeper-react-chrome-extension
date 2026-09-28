@@ -708,9 +708,10 @@ describe('the live group band matches the saved one (KAN-280)', () => {
       firstContentOf(tabRow('Loose'))
     );
 
-    // The saved strip's vertical margins are the drag's frame variables,
-    // which jsdom leaves unresolved. Pinned apart: the saved source still
-    // rests at 0 (their fallback), and the live strip is written as that 0.
+    // The strip's vertical margins are the drag's frame variables, which
+    // jsdom leaves unresolved; both rest at 0, their fallback. Since Part E
+    // the live strip follows a drag too (KAN-280 O11b), so it carries the
+    // same two declarations rather than their resting 0.
     expect(savedStripMargins).toEqual([
       'var(--frame-top, 0px)',
       'calc(-1 * var(--frame-bottom, 0px))',
@@ -718,7 +719,7 @@ describe('the live group band matches the saved one (KAN-280)', () => {
     expect([
       getComputedStyle(liveStrip).marginTop,
       getComputedStyle(liveStrip).marginBottom,
-    ]).toEqual(['0px', '0px']);
+    ]).toEqual(savedStripMargins);
 
     expect(liveGeometry).toEqual(savedGeometry);
 
