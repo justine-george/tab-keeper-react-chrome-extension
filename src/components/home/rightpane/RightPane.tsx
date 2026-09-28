@@ -1,3 +1,5 @@
+import { memo } from 'react';
+
 import { useSelector } from 'react-redux';
 
 import { css } from '@emotion/react';
@@ -7,7 +9,7 @@ import HeroContainerRight from './HeroContainerRight';
 import { selectVisibleTabGroups } from '../../../utils/functions/local';
 import TabGroupDetailsContainer from './TabGroupDetailsContainer';
 
-export default function RightPane() {
+function RightPane() {
   const tabContainerDataList = useSelector(
     (state: RootState) => state.tabContainerDataState
   );
@@ -55,3 +57,7 @@ export default function RightPane() {
     </>
   );
 }
+
+// Memoised (KAN-321 O1a): MainContainer re-renders on every pointermove of
+// an Open now resize, and this pane has nothing to redraw for it.
+export default memo(RightPane);

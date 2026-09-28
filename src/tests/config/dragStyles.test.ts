@@ -108,3 +108,18 @@ describe('the group-drag fold rule', () => {
     expect(flat).not.toContain('[data-dragging] [data-drag-held]');
   });
 });
+
+// KAN-321 O1a. Resizing Open now shows the resize cursor and selects nothing,
+// wherever the pointer strays. The same shape as the drag rule, for the same
+// KAN-134 reason: a flag and a descendant rule, never body.style.
+describe('the Open now resize rule', () => {
+  const rule = flat.match(/\[data-resizing\] \* \{[^}]*\}/)?.[0] ?? '';
+
+  test('every element shows the resize cursor, important', () => {
+    expect(rule).toContain('cursor: col-resize !important');
+  });
+
+  test('and nothing selects', () => {
+    expect(rule).toContain('user-select: none !important');
+  });
+});

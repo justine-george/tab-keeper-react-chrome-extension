@@ -40,6 +40,15 @@ body {
   user-select: none !important;
 }
 
+/* KAN-321 O1a. While Open now is being resized, every element shows the
+   resize cursor and nothing selects, wherever the pointer strays. A flag and
+   a descendant rule, not body.style (KAN-134: a descendant's own cursor
+   always beats an inherited one). */
+[data-resizing] * {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+
 /* A row's own actions must not ride the pointer while it is being dragged
    (KAN-135). The held row is translated to follow the pointer, so it never
    stops being the hovered element and keeps its strip revealed; rows shifting

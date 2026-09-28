@@ -3,6 +3,7 @@ import type { RootState } from './store';
 import { isDragHeld, whenDragReleases } from './dragHold';
 import { hydrateFromOtherPage } from './slices/tabContainerDataStateSlice';
 import {
+  asOpenNowWidth,
   asShippedLanguage,
   hydrateSettingsFromOtherPage,
   type Language,
@@ -95,6 +96,12 @@ export const applyOtherPageSettings =
       ...current,
       ...incoming,
       language: asShippedLanguage(incoming.language) ?? current.language,
+      // Guarded like the language: a width is laid straight into the grid.
+      // Absent means an older page wrote this; keep ours.
+      openNowWidth:
+        'openNowWidth' in incoming
+          ? asOpenNowWidth(incoming.openNowWidth)
+          : current.openNowWidth,
     };
     if (sameIgnoringKeyOrder(next, current)) return { languageChanged: null };
 

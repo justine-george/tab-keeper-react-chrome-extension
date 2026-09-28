@@ -124,6 +124,29 @@ export interface SettingsData {
    * tabContainerData and nothing else.
    */
   foldSavedSessionInTabView: boolean;
+  /**
+   * The width the user dragged Open now to (KAN-321 O1a), in CSS px, or null
+   * for the O1 default. The STORED choice, not what is shown: the shown width
+   * is clamped to the window's current limits at render (openNowWidth.ts),
+   * so a window that narrows and widens again gets this back.
+   *
+   * DEVICE-LOCAL, like everything else here: saveToFirestore sends
+   * tabContainerData and nothing else. Screens differ between devices.
+   */
+  openNowWidth: number | null;
+}
+
+/**
+ * A stored Open now width, if it is one: a finite number above zero, rounded
+ * to whole px. Anything else reads as null (the default). asPartialSettings
+ * checks only that settingsData is an object, so without this a hand-edited or
+ * corrupted value would reach the grid as `NaNpx`. Range is not checked here:
+ * the limits depend on the window, which storage cannot know.
+ */
+export function asOpenNowWidth(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0
+    ? Math.round(value)
+    : null;
 }
 
 /**
@@ -190,6 +213,7 @@ const defaultSettings: SettingsData = {
   // KAN-280 O5. Also what a user whose saved settings predate the field
   // gets: initialState lays the stored object over these defaults.
   foldSavedSessionInTabView: true,
+  openNowWidth: null,
 };
 
 export const initialState: SettingsData = {
@@ -200,6 +224,10 @@ export const initialState: SettingsData = {
   // only in i18n.tsx showed German once: this still held `en`, the first-run
   // consent answer saved it, and every later open was English.
   language: startupLanguage(settingsDataLocal.language, readUiLanguage()),
+  // KAN-321 O1a. Guarded rather than spread straight through: settingsDataLocal
+  // is unvalidated (asPartialSettings checks only "is an object"), so a
+  // hand-edited or corrupted value must not survive into the grid.
+  openNowWidth: asOpenNowWidth(settingsDataLocal.openNowWidth),
 };
 
 export const settingsDataStateSlice = createSlice({
@@ -350,6 +378,14 @@ export const settingsDataStateSlice = createSlice({
       saveToLocalStorage('settingsData', state);
     },
 
+    // KAN-321 O1a. The grip's release, an arrow key, or a double-click (null).
+    setOpenNowWidth: (state, action: PayloadAction<number | null>) => {
+      state.openNowWidth = action.payload;
+
+      // Save updated state to localStorage
+      saveToLocalStorage('settingsData', state);
+    },
+
     replaceState: (state, action: PayloadAction<typeof state>) => {
       // Save updated state to localStorage
       saveToLocalStorage('settingsData', state);
@@ -388,6 +424,7 @@ export const {
   setSessionDateBasis,
   setExportLayout,
   setFoldSavedSessionInTabView,
+  setOpenNowWidth,
   hydrateSettingsFromOtherPage,
 } = settingsDataStateSlice.actions;
 

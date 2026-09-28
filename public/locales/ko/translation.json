@@ -213,6 +213,7 @@
   "Fold the saved session away": "저장된 세션 접기",
   "Show the saved session": "저장된 세션 보기",
   "Close Open now": "\"지금 열려 있는 탭\" 패널 닫기",
+  "Resize Open now": "\"지금 열려 있는 탭\" 패널 너비 조절",
   "Reopen": "다시 열기",
   "Ctrl": "Ctrl",
   "Tab closed": "탭을 닫았습니다",

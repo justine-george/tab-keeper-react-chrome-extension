@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useDispatch, useSelector } from 'react-redux';
 
@@ -9,8 +9,15 @@ import LeftPane from './home/leftpane/LeftPane';
 import { Toast } from './common/Toast';
 import RightPane from './home/rightpane/RightPane';
 import OpenNowColumn from './home/opennow/OpenNowColumn';
+import OpenNowResizeGrip from './home/opennow/OpenNowResizeGrip';
 import { OPEN_NOW_RAIL_QUERY } from './home/opennow/railQuery';
+import {
+  isOpenNowResizable,
+  shownOpenNowWidth,
+} from './home/opennow/openNowWidth';
+import { useMediaQuery } from '../hooks/useMediaQuery';
 import { useThemeColors } from '../hooks/useThemeColors';
+import { useViewportWidth } from '../hooks/useViewportWidth';
 import { APP_HEIGHT } from '../utils/constants/common';
 import { AppDispatch, RootState } from '../redux/store';
 import { redo, undo } from '../redux/slices/undoRedoSlice';
@@ -89,6 +96,48 @@ export default function MainContainer() {
 
   // KAN-280 O4/O5. Folded, Open now takes the saved session's column.
   const folded = useSelector(selectIsSavedSessionFolded);
+
+  // KAN-321 O1/O1a. The user's dragged width (or null, the default) and the
+  // window's current CSS width; shownOpenNowWidth (openNowWidth.ts) turns
+  // the two into the side-by-side track below.
+  const openNowWidth = useSelector(
+    (state: RootState) => state.settingsDataState.openNowWidth
+  );
+  const viewportWidth = useViewportWidth();
+  // The width a grip drag in flight is showing (null when there is none).
+  // Held here, not in the grip, because the grid track below is drawn from
+  // it; the store only takes the width on release.
+  const [liveOpenNowWidth, setLiveOpenNowWidth] = useState<number | null>(null);
+  // O2. Below 1100px Open now's column is the rail, with no line to drag.
+  const isNarrow = useMediaQuery(OPEN_NOW_RAIL_QUERY);
+
+  // Open now's drawn width, in px: the drag in flight, else the stored width
+  // (or the default), clamped to this window (openNowWidth.ts) -- the live
+  // width too, so a window that narrows mid-drag clamps it at once, not at
+  // the next pointermove. Computed once here and used two places, so they
+  // cannot disagree: it reaches the grid as --open-now-width, set on the grid
+  // element below (not through its Emotion class: a drag changes it on every
+  // pointermove, and a class per width would insert a stylesheet rule per
+  // pixel), and it is handed to the grip as drawnWidth.
+  const openNowTrackWidth = shownOpenNowWidth(
+    liveOpenNowWidth ?? openNowWidth,
+    viewportWidth
+  );
+  const isTab = isTabView();
+  // A callback ref, not an effect keyed on the width: React calls it each
+  // time the grid element attaches, not only when the width changes. That
+  // matters leaving Settings: React reuses this same <div> for Settings' grid
+  // (same type, same slot) and detaches the ref there, so an effect would
+  // find no element, and on the way back the width it wrote before Settings
+  // would stay, even if the window was resized meanwhile. A new width is a
+  // new callback, which React also attaches. Both run in the commit, before
+  // paint. The popup never attaches it.
+  const tabGridRef = useCallback(
+    (grid: HTMLDivElement | null) => {
+      grid?.style.setProperty('--open-now-width', `${openNowTrackWidth}px`);
+    },
+    [openNowTrackWidth]
+  );
 
   // KAN-280 O11f. An Open now drop's undo sets a group's look only with the
   // grant.
@@ -246,19 +295,18 @@ export default function MainContainer() {
   // 30% of 790px, rounded, so the left pane reads the same size it does in
   // the popup.
   //
-  // KAN-280 O1/O4. The third column is Open now's, side by side: 340px, 420px
-  // from 1600px wide. Below 1100px it is the 44px rail's (O2). Folded it is 0
-  // at every width, and Open now sits in `detail` instead: the same grid
-  // either way, so nothing changes sides.
+  // KAN-280 O1/O4. The third column is Open now's, side by side: its width
+  // is --open-now-width (openNowTrackWidth above). Below 1100px it is the
+  // 44px rail's (O2). Folded it is 0 at every width, and Open now sits in
+  // `detail` instead: the same grid either way, so nothing changes sides.
   const tabContainerStyle = css`
     display: grid;
-    grid-template-columns: 356px minmax(0, 1fr) ${folded ? '0' : '340px'};
+    grid-template-columns: 356px minmax(0, 1fr) ${folded
+        ? '0'
+        : 'var(--open-now-width)'};
     grid-template-areas: 'sessions detail active-session';
     ${!folded &&
     css`
-      @media (min-width: 1600px) {
-        grid-template-columns: 356px minmax(0, 1fr) 420px;
-      }
       @media ${OPEN_NOW_RAIL_QUERY} {
         grid-template-columns: 356px minmax(0, 1fr) 44px;
       }
@@ -303,12 +351,21 @@ export default function MainContainer() {
     ${!folded && 'border-left: none;'}
   `;
 
-  const isTab = isTabView();
+  // KAN-321 O1a. Only side by side is there a line between the saved
+  // session and Open now to drag, and only where the window leaves both
+  // panes their 480px is there a range to drag it through (above 1316px).
+  // Settings needs no test here: it renders its own grid below, with no Open
+  // now and no grip.
+  const showResizeGrip =
+    isTab && !folded && !isNarrow && isOpenNowResizable(viewportWidth);
 
   return (
     <div>
       {!isSettingsPage ? (
-        <div css={isTab ? tabContainerStyle : containerStyle}>
+        <div
+          ref={isTab ? tabGridRef : undefined}
+          css={isTab ? tabContainerStyle : containerStyle}
+        >
           <div css={isTab ? tabPaneStyle : leftPaneStyle} data-pane="sessions">
             <LeftPane />
           </div>
@@ -322,6 +379,20 @@ export default function MainContainer() {
             >
               <RightPane />
             </div>
+          )}
+          {/* KAN-321 O1a. A grid item of its own on the line; inside no
+              pane, so a press on it is inside no row list and starts no row
+              drag. Between the two panes it resizes, so Tab and a screen
+              reader reach it after the saved detail and before Open now
+              (WCAG 2.4.3, the APG window splitter); its z-index, not its
+              place, paints it over their padding. Like the detail's, this
+              slot stays in place when the grip is hidden (false), so Open
+              now is not remounted when it comes or goes. */}
+          {showResizeGrip && (
+            <OpenNowResizeGrip
+              drawnWidth={openNowTrackWidth}
+              onLiveWidth={setLiveOpenNowWidth}
+            />
           )}
           {/* KAN-280. The tab view only: in the popup a click on a live tab
               would switch to it and close the popup. */}

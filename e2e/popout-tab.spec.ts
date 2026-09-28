@@ -9,9 +9,9 @@ import { buildSession, seedSessions, seedSettings } from './fixtures/seed';
 // must not move by a single pixel.
 //
 // KAN-280 O1/O4. The third column holds Open now when the saved session is
-// shown beside it (356px / 1fr / 340px; 420px from 1600px wide, a 44px rail
-// below 1100px). Folded, the default, Open now takes the detail column
-// instead and the third is 0.
+// shown beside it (356px / 1fr / its width from openNowWidth.ts, KAN-321 O1,
+// D1 by default; a 44px rail below 1100px). Folded, the default, Open now
+// takes the detail column instead and the third is 0.
 //
 // Panes are found by `data-pane="sessions"|"detail"` on the two container
 // divs MainContainer already renders. No existing hook reaches them: an
@@ -95,8 +95,8 @@ test('tab view at 1280x800: the sessions pane is 356px and the detail pane fills
   expect(sessions.width).toBeGreaterThanOrEqual(355);
   expect(sessions.width).toBeLessThanOrEqual(357);
 
-  // KAN-280 O1: Open now's column is 340px below 1600px wide.
-  const expectedDetailWidth = TAB_VIEWPORT.width - 356 - 340;
+  // KAN-321 O1 (D1): at TAB_VIEWPORT's 1280px, Open now's default is 444px.
+  const expectedDetailWidth = TAB_VIEWPORT.width - 356 - 444;
   expect(detail.width).toBeGreaterThanOrEqual(expectedDetailWidth - 2);
   expect(detail.width).toBeLessThanOrEqual(expectedDetailWidth + 2);
 

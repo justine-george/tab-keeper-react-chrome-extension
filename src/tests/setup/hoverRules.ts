@@ -27,6 +27,16 @@ export function activeRulesFor(el: Element): string {
   return rulesFor(el, ':active');
 }
 
+/**
+ * Every rule in the document that targets one of `el`'s classes, whatever
+ * its state: `:focus-visible` and attribute states like `[data-active]` too.
+ * For a component whose states share one rule or are split over several, so
+ * a test can collect every declaration a given selector gets.
+ */
+export function classRulesFor(el: Element): string {
+  return rulesFor(el, '');
+}
+
 function rulesFor(el: Element, pseudo: string): string {
   const classes = [...el.classList].map((c) => `.${c}`);
   const out: string[] = [];

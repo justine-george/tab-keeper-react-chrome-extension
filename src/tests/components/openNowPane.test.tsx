@@ -9,7 +9,7 @@ import type { ChromeSeed } from '../setup/chrome.fake';
 import { toOpenWindows } from '../../utils/functions/openNow';
 import { LIGHT_THEME } from '../../hooks/useThemeColors';
 import { TAB_GROUP_COLOR_HEX } from '../../utils/functions/tabGroups';
-import { DURATION } from '../../styles/scale';
+import { DURATION, TYPE } from '../../styles/scale';
 // The saved window, rendered only to compare its band with the live one: the
 // pane copies the declarations rather than sharing them (KAN-280).
 import WindowEntryContainer from '../../components/home/rightpane/WindowEntryContainer';
@@ -418,6 +418,46 @@ describe('the Open now pane (KAN-280)', () => {
     expect(
       screen.getByRole('button', { name: 'Collapse: Window 2', expanded: true })
     ).toBeInTheDocument();
+  });
+});
+
+// KAN-321 O1b. "Open now" names a panel; the saved session's own name is the
+// pane's content, so once the two panes can be the same width the heading
+// steps down and lets that name lead. Same heading everywhere Open now
+// appears (side by side, folded, the O2 drawer) -- one style, so this pane's
+// own render is the only place to pin it.
+describe('the Open now heading steps down so the saved name leads (KAN-321 O1b)', () => {
+  test('the h2 is TYPE.BODY/LABEL_L1_COLOR, still 32px high', async () => {
+    await renderPane(twoWindows());
+
+    const heading = screen.getByRole('heading', { name: 'Open now' });
+
+    expect(getComputedStyle(heading).fontSize).toBe(
+      `${parseFloat(TYPE.BODY) * 16}px`
+    );
+    expect(getComputedStyle(heading).color).toBe(
+      hex(LIGHT_THEME.LABEL_L1_COLOR)
+    );
+    // O1b: "inside its existing 32px line" -- the header's height must not
+    // move when the text inside it shrinks.
+    expect(getComputedStyle(heading).height).toBe('32px');
+  });
+
+  test('the header box drops its fill but keeps its border (O1b)', async () => {
+    await renderPane(twoWindows());
+
+    const header = document.querySelector('[data-open-now-header]');
+    if (!(header instanceof HTMLElement)) {
+      throw new Error('no [data-open-now-header] box');
+    }
+
+    // Transparent, like the saved list's plain header -- not the
+    // SECONDARY_COLOR fill HeroContainerRight's header keeps.
+    expect(getComputedStyle(header).backgroundColor).toBe('rgba(0, 0, 0, 0)');
+    expect(getComputedStyle(header).backgroundColor).not.toBe(
+      hex(LIGHT_THEME.SECONDARY_COLOR)
+    );
+    expect(getComputedStyle(header).borderTopStyle).toBe('solid');
   });
 });
 
