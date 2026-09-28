@@ -498,7 +498,7 @@ export default function OpenNowPane({
                 color={COLORS.LABEL_L2_COLOR}
               />
             </div>
-          ) : matches !== null && matches.size === 0 ? (
+          ) : windows !== null && matches !== null && matches.size === 0 ? (
             <div css={emptyStyle}>
               <NormalLabel
                 value={t('NoOpenTabMatches', { text: searchText.trim() })}

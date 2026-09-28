@@ -1,3 +1,4 @@
+import { createRef } from 'react';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import {
   act,
@@ -17,6 +18,7 @@ vi.mock('../../utils/functions/reopen', async (importOriginal) => {
 
 import { closeOpenWindow } from '../../utils/functions/reopen';
 import { setHasTabGroupsPermission } from '../../redux/slices/globalStateSlice';
+import OpenNowPane from '../../components/home/opennow/OpenNowPane';
 import OpenNowColumn from '../../components/home/opennow/OpenNowColumn';
 import { Toast } from '../../components/common/Toast';
 import { renderWithProviders } from '../setup/renderWithProviders';
@@ -228,8 +230,16 @@ describe('a search draws only the matching tabs (O14a)', () => {
   test('a tab renamed to match appears', async () => {
     const { chrome: fake } = await renderOpenNow(threeWindows());
     await userEvent.setup().type(field(), 'kyoto');
+    // PREMISE: the search is narrowing, and Laws of UX is not drawn.
+    expect(drawnTitles()).toEqual(['Kyoto maps', 'Kyoto stay']);
     act(() => fake.browser.updateTab(31, { title: 'Kyoto temples' }));
-    await waitFor(() => expect(drawnTitles()).toContain('Kyoto temples'));
+    await waitFor(() =>
+      expect(drawnTitles()).toEqual([
+        'Kyoto maps',
+        'Kyoto stay',
+        'Kyoto temples',
+      ])
+    );
   });
 
   test('closing the last match hides its window and focus moves on (O7b)', async () => {
@@ -249,6 +259,8 @@ describe('a search draws only the matching tabs (O14a)', () => {
   });
 
   test('Close window under a search closes, and Reopen brings back, every tab', async () => {
+    // The spy is module-level and never reset: start from no calls.
+    vi.mocked(closeOpenWindow).mockClear();
     await renderOpenNow(threeWindows());
     await userEvent.setup().type(field(), 'osaka');
     fireEvent.click(
@@ -308,6 +320,21 @@ describe('a search draws only the matching tabs (O14a)', () => {
     const [saved] = store.getState().tabContainerDataState.tabGroups;
     expect(saved.windowCount).toBe(3);
     expect(saved.tabCount).toBe(6);
+  });
+
+  test('typing before the first read lands does not claim there is no match', async () => {
+    await renderWithProviders(
+      <OpenNowPane
+        windows={null}
+        actions={[]}
+        headingId="open-now-heading"
+        searchText="zzz"
+        onSearchTextChange={() => undefined}
+        searchInputRef={createRef<HTMLInputElement>()}
+      />,
+      { seed: threeWindows() }
+    );
+    expect(screen.queryByText('No open tab matches "zzz"')).toBeNull();
   });
 
   test('clearing the search draws everything again', async () => {
