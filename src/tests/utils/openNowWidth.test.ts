@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   clampOpenNowWidth,
   defaultOpenNowWidth,
+  isOpenNowResizable,
   openNowWidthLimits,
   shownOpenNowWidth,
 } from '../../components/home/opennow/openNowWidth';
@@ -27,34 +28,52 @@ describe('defaultOpenNowWidth (D1)', () => {
 });
 
 describe('openNowWidthLimits (L1)', () => {
-  it('min is always the floor, 300', () => {
-    expect(openNowWidthLimits(1100).min).toBe(300);
-    expect(openNowWidthLimits(1920).min).toBe(300);
-  });
+  // Both panes keep at least 480px: Open now's min is 480, unless its
+  // default is narrower, and the max leaves the saved session its 480 (never
+  // below the default). At 1316px and narrower the two cannot both fit, and
+  // min = max = the default.
+  it.each([
+    // [viewport, default, min, max]
+    [1100, 340, 340, 340],
+    [1280, 444, 444, 444],
+    [1316, 480, 480, 480],
+    [1320, 482, 480, 484],
+    [1440, 542, 480, 604],
+    [1600, 622, 480, 764],
+    [1920, 782, 480, 1084],
+    [2560, 1102, 480, 1724],
+  ])(
+    'at %ipx wide the default is %i, the range %i..%i',
+    (viewportWidth, wanted, min, max) => {
+      expect(defaultOpenNowWidth(viewportWidth)).toBe(wanted);
+      expect(openNowWidthLimits(viewportWidth)).toEqual({ min, max });
+    }
+  );
 
-  // At 1100 the even split (372) would leave the saved session under 480px,
-  // so the default floor (340) wins and the max cannot be below it.
-  it('max at 1100 is the default floor, 340 (264 < 340)', () => {
-    expect(openNowWidthLimits(1100).max).toBe(340);
-  });
-
-  it('max at 1280 is 444', () => {
-    expect(openNowWidthLimits(1280).max).toBe(444);
-  });
-
-  it('max at 1600 is 764', () => {
-    expect(openNowWidthLimits(1600).max).toBe(764);
-  });
-
-  // L1: the max is never below the default, so the default is always a
-  // width the drag can reach.
-  it('the default is always inside the limits, from 1100 to 3000', () => {
+  // L1: the default is always a width the drag can reach, and the range is
+  // empty exactly where the two 480px floors cannot both fit.
+  it('min <= default <= max from 1100 to 3000, and min < max exactly above 1316', () => {
     for (let w = 1100; w <= 3000; w++) {
       const { min, max } = openNowWidthLimits(w);
       const wanted = defaultOpenNowWidth(w);
-      expect(wanted).toBeGreaterThanOrEqual(min);
-      expect(wanted).toBeLessThanOrEqual(max);
+      expect(min, `min at ${w}`).toBeLessThanOrEqual(wanted);
+      expect(wanted, `default at ${w}`).toBeLessThanOrEqual(max);
+      expect(min < max, `min < max at ${w}`).toBe(w > 1316);
     }
+  });
+});
+
+// The grip's render condition (MainContainer): a range to drag through.
+describe('isOpenNowResizable', () => {
+  it.each([
+    [1100, false],
+    [1280, false],
+    [1316, false],
+    [1317, true],
+    [1320, true],
+    [1600, true],
+  ])('at %ipx wide -> %s', (viewportWidth, expected) => {
+    expect(isOpenNowResizable(viewportWidth)).toBe(expected);
   });
 });
 
@@ -67,8 +86,16 @@ describe('shownOpenNowWidth', () => {
     expect(shownOpenNowWidth(500, 1600)).toBe(500);
   });
 
-  it('a stored width below the floor clamps up to it', () => {
-    expect(shownOpenNowWidth(200, 1600)).toBe(300);
+  // 300 was the min before 2026-09-28; a width stored then shows as the
+  // new min, 480, and is not rewritten (openNowLayout.test.tsx).
+  it('a stored width below the min clamps up to it', () => {
+    expect(shownOpenNowWidth(300, 1600)).toBe(480);
+  });
+
+  // Where the range is empty, every stored width shows as the default.
+  it('where the range is empty, any stored width shows as the default', () => {
+    expect(shownOpenNowWidth(300, 1280)).toBe(444);
+    expect(shownOpenNowWidth(700, 1280)).toBe(444);
   });
 
   it('a stored width above the max clamps down to it', () => {
@@ -93,7 +120,7 @@ describe('clampOpenNowWidth', () => {
   });
 
   it("clamps to this window's limits", () => {
-    expect(clampOpenNowWidth(200, 1600)).toBe(300);
+    expect(clampOpenNowWidth(200, 1600)).toBe(480);
     expect(clampOpenNowWidth(2000, 1600)).toBe(764);
     expect(clampOpenNowWidth(700, 1280)).toBe(444);
   });

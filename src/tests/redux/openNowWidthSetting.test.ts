@@ -41,7 +41,7 @@ describe('asOpenNowWidth', () => {
     expect(asOpenNowWidth(412.6)).toBe(413);
   });
 
-  // Range (300..max) is the shown-width rule's job (openNowWidth.ts, Task 2):
+  // Range (min..max) is the shown-width rule's job (openNowWidth.ts, Task 2):
   // storage cannot know the window's current limits, so a value here is
   // accepted as long as it is a sane stored number.
   it('accepts a value far outside any window range: range-checking is not storage’s job', () => {

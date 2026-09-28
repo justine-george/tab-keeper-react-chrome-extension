@@ -11,7 +11,10 @@ import RightPane from './home/rightpane/RightPane';
 import OpenNowColumn from './home/opennow/OpenNowColumn';
 import OpenNowResizeGrip from './home/opennow/OpenNowResizeGrip';
 import { OPEN_NOW_RAIL_QUERY } from './home/opennow/railQuery';
-import { shownOpenNowWidth } from './home/opennow/openNowWidth';
+import {
+  isOpenNowResizable,
+  shownOpenNowWidth,
+} from './home/opennow/openNowWidth';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { useThemeColors } from '../hooks/useThemeColors';
 import { useViewportWidth } from '../hooks/useViewportWidth';
@@ -349,9 +352,12 @@ export default function MainContainer() {
   `;
 
   // KAN-321 O1a. Only side by side is there a line between the saved
-  // session and Open now to drag. Settings needs no test here: it renders
-  // its own grid below, with no Open now and no grip.
-  const showResizeGrip = isTab && !folded && !isNarrow;
+  // session and Open now to drag, and only where the window leaves both
+  // panes their 480px is there a range to drag it through (above 1316px).
+  // Settings needs no test here: it renders its own grid below, with no Open
+  // now and no grip.
+  const showResizeGrip =
+    isTab && !folded && !isNarrow && isOpenNowResizable(viewportWidth);
 
   return (
     <div>

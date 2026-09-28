@@ -44,8 +44,11 @@ interface Drag {
 // A pointer drag resizes Open now live and saves once, on release; the arrow
 // keys save after each press; a double-click resets to the default (null).
 // MainContainer renders it only side by side (tab view, not Settings, not
-// folded, not the rail), as a grid item of its own beside the panes -- so a
-// press here is inside no RowDragArea list and can never start a row drag.
+// folded, not the rail) and only where the window leaves a range to drag
+// through (isOpenNowResizable, above 1316px), as a grid item of its own
+// beside the panes -- so a press here is inside no RowDragArea list and can
+// never start a row drag. A window narrowed past 1316px mid-drag unmounts
+// it, which ends the drag like a cancel (the effect's cleanup below).
 export default function OpenNowResizeGrip({
   drawnWidth,
   onLiveWidth,

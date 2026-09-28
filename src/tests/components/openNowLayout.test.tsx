@@ -506,4 +506,24 @@ describe('KAN-321 width: the grid tracks follow openNowWidth.ts (D1)', () => {
 
     expect(openNowTrack()).toBe('700px');
   });
+
+  // O1a, revised 2026-09-28: Open now's min went from 300 to 480. A width
+  // stored under the old min is drawn at the new one, and kept as it was:
+  // only the SHOWN width is clamped, and nothing rewrites the stored one.
+  test('a width stored under the old 300 min shows as 480px at 1600, and stays 300 in storage', async () => {
+    setViewportWidth(1600);
+    goToTabView();
+    const { store } = await renderHome();
+    act(() => {
+      store.dispatch(setOpenNowWidth(300));
+    });
+    await mounted();
+    await showSideBySide();
+
+    expect(openNowTrack()).toBe('480px');
+    expect(store.getState().settingsDataState.openNowWidth).toBe(300);
+    const raw = localStorage.getItem('settingsData');
+    const saved: unknown = raw === null ? null : JSON.parse(raw);
+    expect(saved).toMatchObject({ openNowWidth: 300 });
+  });
 });
