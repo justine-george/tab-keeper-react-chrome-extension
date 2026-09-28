@@ -156,3 +156,59 @@ describe('the Open now pin mark (KAN-280 O11c)', () => {
     expect(switchRow('Radio')).toHaveAccessibleName('Switch to tab: Radio');
   });
 });
+
+// KAN-280 O11c, D F N (settled 2026-09-28). A 1px line in DIVIDER_COLOR over
+// the last pinned row's bottom pixel, where pinned tabs end and the others
+// begin. The row that carries it is marked data-pinned-boundary; the line
+// itself is a ::after, which jsdom cannot paint, so its colour, extent and
+// place above the hover shade are e2e/open-now-pinned.spec.ts's.
+const ALL_PINNED_WINDOW_ID = 3;
+
+function withAllPinnedWindow(): ChromeSeed {
+  const seed = pinnedWindows();
+  return {
+    ...seed,
+    windows: [
+      ...(seed.windows ?? []),
+      {
+        id: ALL_PINNED_WINDOW_ID,
+        tabs: [
+          { id: 31, title: 'Cal', url: url('Cal'), pinned: true },
+          { id: 32, title: 'Chat', url: url('Chat'), pinned: true },
+        ],
+      },
+    ],
+  };
+}
+
+const boundaryRows = (windowId: number): number[] =>
+  [
+    ...document.querySelectorAll(
+      `[data-open-window-id="${windowId}"] [data-open-tab-id]`
+    ),
+  ]
+    .filter((row) => row.hasAttribute('data-pinned-boundary'))
+    .map((row) => Number(row.getAttribute('data-open-tab-id')));
+
+describe('the Open now pinned line (KAN-280 O11c, D F N)', () => {
+  test('sits on the last pinned row only, and not on a window without pinned tabs', async () => {
+    await renderOpenNow(withAllPinnedWindow());
+
+    expect(boundaryRows(2)).toEqual([RADIO]);
+    // CONTROL: the query sees rows of window 1, which has no pinned tab.
+    expect(
+      document.querySelectorAll('[data-open-window-id="1"] [data-open-tab-id]')
+        .length
+    ).toBeGreaterThan(0);
+    expect(boundaryRows(1)).toEqual([]);
+  });
+
+  test('is not drawn when every tab in the window is pinned: nothing follows to separate', async () => {
+    await renderOpenNow(withAllPinnedWindow());
+
+    // PREMISE: both rows are there and pinned.
+    expect(pin(31)).toBeInTheDocument();
+    expect(pin(32)).toBeInTheDocument();
+    expect(boundaryRows(ALL_PINNED_WINDOW_ID)).toEqual([]);
+  });
+});

@@ -219,6 +219,21 @@ export default function OpenNowWindow({
     &:hover {
       background-color: ${COLORS.HOVER_COLOR};
     }
+    /* KAN-280 O11c (D F N): where the pinned tabs end. DIVIDER_COLOR, the
+       row divider (KAN-189). Over the row's bottom pixel, so it adds no
+       height and the drag geometry does not move. From the favicon's left
+       edge (Icon's 4px padding) to the row's end. Last in the row, so it
+       paints over the hover shade and the × strip's. */
+    &[data-pinned-boundary]::after {
+      content: '';
+      position: absolute;
+      left: 4px;
+      right: 0;
+      bottom: 0;
+      height: 1px;
+      background: ${COLORS.DIVIDER_COLOR};
+      pointer-events: none;
+    }
   `;
 
   // A plain string, not css``: handed to ClickableRow's `style` prop.
@@ -272,6 +287,15 @@ export default function OpenNowWindow({
     }))
   );
 
+  // The row that carries the pinned line: the last pinned tab, and only when
+  // an unpinned tab follows it (O11c N). Pinned tabs come first in a Chrome
+  // window, so "the last pinned" is the end of the pinned run.
+  const pinnedTabs = openWindow.tabs.filter((tab) => tab.pinned);
+  const pinnedBoundaryTabId =
+    pinnedTabs.length > 0 && pinnedTabs.length < openWindow.tabs.length
+      ? pinnedTabs[pinnedTabs.length - 1].id
+      : null;
+
   function renderTab(tab: OpenTab) {
     // KAN-280 O10b: the speaker shows Chrome's sound and changes nothing.
     // Tab Keeper never mutes, because Chrome's own controls cannot undo an
@@ -295,6 +319,7 @@ export default function OpenNowWindow({
         key={tab.id}
         css={childrenStyle(tab.active)}
         data-open-tab-id={tab.id}
+        data-pinned-boundary={tab.id === pinnedBoundaryTabId ? '' : undefined}
         onMouseEnter={() => setHoveredTabId(tab.id)}
         onMouseLeave={() => setHoveredTabId(null)}
       >
