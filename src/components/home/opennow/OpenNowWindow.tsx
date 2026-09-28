@@ -7,6 +7,7 @@ import ClickableRow from '../../common/ClickableRow';
 import Icon from '../../common/Icon';
 import { NormalLabel } from '../../common/Label';
 import { Tag } from '../../common/Tag';
+import { GROUP_STRIP_TRANSITION } from '../../common/groupColorStrip';
 import { useFontFamily } from '../../../hooks/useFontFamily';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { NON_INTERACTIVE_ICON_STYLE } from '../../../utils/constants/common';
@@ -583,7 +584,8 @@ export default function OpenNowWindow({
                   {/* The strip's length follows the frame through margins
                       (KAN-171) and it widens for a drop target (KAN-164),
                       as GroupColorPicker's bandStyle does; both are 0 and
-                      7px at rest. */}
+                      7px at rest. It eases as the saved strip does, through
+                      the same fragment (KAN-328). */}
                   <div
                     aria-hidden="true"
                     data-open-now-group-strip
@@ -596,6 +598,7 @@ export default function OpenNowWindow({
                       background-color: ${TAB_GROUP_COLOR_HEX[color]};
                       margin-top: var(--frame-top, 0px);
                       margin-bottom: calc(-1 * var(--frame-bottom, 0px));
+                      ${GROUP_STRIP_TRANSITION};
                       [data-drop-target] & {
                         flex-basis: 16px;
                         width: 16px;
