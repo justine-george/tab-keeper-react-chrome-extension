@@ -212,11 +212,9 @@ describe('requestSessionsPermission', () => {
   // request must not throw, synchronously or as an unhandled rejection.
   test('swallows a rejection from chrome.permissions.request', async () => {
     handle = setupChromeFake();
-    const permissions = chrome.permissions as unknown as {
-      request: () => Promise<boolean>;
-    };
-    permissions.request = () =>
-      Promise.reject(new Error('user gesture required'));
+    Reflect.set(chrome.permissions, 'request', () =>
+      Promise.reject(new Error('user gesture required'))
+    );
 
     let sawUnhandledRejection = false;
     const onUnhandledRejection = () => {
