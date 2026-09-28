@@ -3,6 +3,7 @@ import { createAsyncThunk } from '@reduxjs/toolkit';
 import { closeToast, showToast } from './slices/globalStateSlice';
 import { expectReopenedRow } from './reopenFocus';
 import { storeReopenOffer, takeReopenOffer } from './reopenOfferStore';
+import { noteTabKeeperAction } from './openNowMoveUndo';
 import { reopenClosed } from '../utils/functions/reopen';
 import type { ClosedItem } from '../utils/functions/reopen';
 import { TOAST_MESSAGES, WINDOW_CLOSED_FRAME } from '../utils/constants/common';
@@ -18,6 +19,9 @@ export const offerReopen = createAsyncThunk(
   'global/offerReopen',
   async (item: ClosedItem, thunkAPI) => {
     const reopenOfferId = storeReopenOffer(item);
+    // The most recent Tab Keeper action now: an Open now drop before it is
+    // no longer ⌘Z's (KAN-280 O11f, ledger R23).
+    noteTabKeeperAction();
     await thunkAPI.dispatch(
       item.kind === 'tab'
         ? showToast({

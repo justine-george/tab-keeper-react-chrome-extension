@@ -22,6 +22,10 @@ import { toOpenWindows } from '../../utils/functions/openNow';
 import type { OpenWindow } from '../../utils/functions/openNow';
 import { moveOpenGroup, moveOpenTab } from '../../utils/functions/openNowMoves';
 import type { MovedTabs } from '../../utils/functions/openNowMoves';
+import {
+  noteTabKeeperAction,
+  takeOpenNowDrop,
+} from '../../redux/openNowMoveUndo';
 import { setupChromeFake } from '../setup/chrome.fake';
 import type { ChromeFakeHandle, ChromeSeed } from '../setup/chrome.fake';
 
@@ -42,6 +46,8 @@ afterEach(() => {
   cleanup();
   handle?.restore();
   handle = undefined;
+  // A drop a test stored is module state: a later action retires it.
+  noteTabKeeperAction();
 });
 
 // The tab view's own address, which Open now leaves out (the same trick as
@@ -510,5 +516,60 @@ describe('a drop becomes Chrome calls, or none', () => {
     ).toBe(null);
     expect(moveOpenTab).toHaveBeenCalled();
     expect(onMoved).not.toHaveBeenCalled();
+  });
+});
+
+// Spec O11f, ledger R23: a drop that changed something is what ⌘Z undoes
+// next; a drop in place is not an action at all.
+describe('a drop is kept for ⌘Z', () => {
+  test('a tab drop that moved the tab, as a tab drop', async () => {
+    const { result } = renderDrop(await install(fourWindows()));
+    const moved = await result.current.tabs.onMove(
+      String(LOOSE_A),
+      1,
+      undefined,
+      '2'
+    );
+    if (moved === null) throw new Error('PREMISE: the drop was refused');
+
+    expect(takeOpenNowDrop()).toEqual({ kind: 'tab', moved });
+  });
+
+  test('a group drop, as a group drop', async () => {
+    const { result } = renderDrop(await install(fourWindows()));
+    const moved = await result.current.items.onMove(
+      groupItem,
+      2,
+      undefined,
+      '1'
+    );
+    if (moved === null) throw new Error('PREMISE: the drop was refused');
+
+    expect(takeOpenNowDrop()).toEqual({ kind: 'group', moved });
+  });
+
+  test('a drop in place is neither kept nor an action: the drop before it is still the one ⌘Z undoes', async () => {
+    const { result } = renderDrop(await install(fourWindows()));
+    const earlier = await result.current.tabs.onMove(
+      String(LOOSE_A),
+      1,
+      undefined,
+      '2'
+    );
+    if (earlier === null) throw new Error('PREMISE: the drop was refused');
+    // AP2 where it stands, in a window the first drop left alone.
+    const inPlace = await result.current.tabs.onMove(
+      String(ALL_PINNED_2),
+      1,
+      undefined,
+      '3'
+    );
+    // PREMISE: Chrome was asked, and nothing changed.
+    expect(inPlace).not.toBeNull();
+    expect(
+      inPlace?.every(({ before, after }) => before.index === after.index)
+    ).toBe(true);
+
+    expect(takeOpenNowDrop()).toEqual({ kind: 'tab', moved: earlier });
   });
 });
