@@ -260,6 +260,42 @@ describe('the arrow keys (O1a)', () => {
     expect(storedWidth()).toBe(300);
     expect(grip()).toHaveAttribute('aria-valuenow', '300');
   });
+
+  // O1a: "the stored width is kept". At 1280 a stored 764 shows as the max,
+  // 444; ← there cannot widen anything, so it must not save 444 over 764.
+  test('ArrowLeft at a clamped max saves nothing, and widening brings the stored width back', async () => {
+    const { seen } = await renderHome({ width: 764 });
+    await mounted();
+    setViewportWidth(1280);
+    // PREMISE: the stored width is clamped to 1280's max.
+    expect(grip()).toHaveAttribute('aria-valuenow', '444');
+    const writesBefore = widthWrites(seen);
+
+    // Still taken: the page must not scroll under the grip.
+    expect(fireEvent.keyDown(grip(), { key: 'ArrowLeft' })).toBe(false);
+
+    expect(widthWrites(seen)).toBe(writesBefore);
+    expect(storedWidth()).toBe(764);
+    setViewportWidth(1600);
+    expect(grip()).toHaveAttribute('aria-valuenow', '764');
+    expect(openNowTrack()).toBe('764px');
+  });
+
+  // The mirror at the min. The min does not move with the window, so the
+  // only stored width it can hide is one under 300 (a hand-edited value;
+  // asOpenNowWidth keeps any positive number).
+  test('ArrowRight at a clamped min saves nothing', async () => {
+    const { seen } = await renderHome({ width: 250 });
+    await mounted();
+    // PREMISE: the stored width is clamped up to the min.
+    expect(grip()).toHaveAttribute('aria-valuenow', '300');
+    const writesBefore = widthWrites(seen);
+
+    expect(fireEvent.keyDown(grip(), { key: 'ArrowRight' })).toBe(false);
+
+    expect(widthWrites(seen)).toBe(writesBefore);
+    expect(storedWidth()).toBe(250);
+  });
 });
 
 describe('the pointer drag (O1a, Review Focus 4)', () => {

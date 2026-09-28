@@ -133,22 +133,18 @@ export default function OpenNowResizeGrip({
     setIsResizing(true);
   };
 
+  // ← widens Open now, → narrows it. A press at a limit changes nothing, so
+  // it saves nothing: at a window's clamped max, saving the shown width would
+  // overwrite the stored one, and widening the window would no longer bring
+  // it back (O1a, "the stored width is kept"). The key is taken either way.
   const onKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
-    if (event.key === 'ArrowLeft') {
-      event.preventDefault();
-      dispatch(
-        setOpenNowWidth(
-          clampOpenNowWidth(shownWidth + OPEN_NOW_KEY_STEP, viewportWidth)
-        )
-      );
-    } else if (event.key === 'ArrowRight') {
-      event.preventDefault();
-      dispatch(
-        setOpenNowWidth(
-          clampOpenNowWidth(shownWidth - OPEN_NOW_KEY_STEP, viewportWidth)
-        )
-      );
-    }
+    let step: number;
+    if (event.key === 'ArrowLeft') step = OPEN_NOW_KEY_STEP;
+    else if (event.key === 'ArrowRight') step = -OPEN_NOW_KEY_STEP;
+    else return;
+    event.preventDefault();
+    const next = clampOpenNowWidth(shownWidth + step, viewportWidth);
+    if (next !== shownWidth) dispatch(setOpenNowWidth(next));
   };
 
   const onDoubleClick = () => {
