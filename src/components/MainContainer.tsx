@@ -109,12 +109,16 @@ export default function MainContainer() {
   const isNarrow = useMediaQuery(OPEN_NOW_RAIL_QUERY);
 
   // Open now's side-by-side track, in px: the drag in flight, else the
-  // stored width (or the default) clamped to this window (openNowWidth.ts).
-  // It reaches the grid as --open-now-width, set on the grid element here,
-  // not through its Emotion class: a drag changes it on every pointermove,
-  // and a class per width would insert a stylesheet rule per pixel.
-  const openNowTrackWidth =
-    liveOpenNowWidth ?? shownOpenNowWidth(openNowWidth, viewportWidth);
+  // stored width (or the default), clamped to this window (openNowWidth.ts)
+  // -- the live width too, so a window that narrows mid-drag clamps it at
+  // once, not at the next pointermove. It reaches the grid as
+  // --open-now-width, set on the grid element here, not through its Emotion
+  // class: a drag changes it on every pointermove, and a class per width
+  // would insert a stylesheet rule per pixel.
+  const openNowTrackWidth = shownOpenNowWidth(
+    liveOpenNowWidth ?? openNowWidth,
+    viewportWidth
+  );
   const tabGridRef = useRef<HTMLDivElement>(null);
   const isTab = isTabView();
   // Before paint. The popup never attaches the ref, so this is a no-op

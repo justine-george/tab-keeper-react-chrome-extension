@@ -56,6 +56,10 @@ export default function OpenNowResizeGrip({
   );
   const viewportWidth = useViewportWidth();
   const shownWidth = shownOpenNowWidth(storedWidth, viewportWidth);
+  // What the track is drawn at (MainContainer computes it the same way): a
+  // drag's live width clamped to this window too, so a window that narrows
+  // mid-drag is heard at its new limit before the next move.
+  const drawnWidth = shownOpenNowWidth(liveWidth ?? storedWidth, viewportWidth);
   const { min, max } = openNowWidthLimits(viewportWidth);
 
   const drag = useRef<Drag | null>(null);
@@ -223,7 +227,7 @@ export default function OpenNowResizeGrip({
       role="separator"
       aria-orientation="vertical"
       aria-label={t('Resize Open now')}
-      aria-valuenow={liveWidth ?? shownWidth}
+      aria-valuenow={drawnWidth}
       aria-valuemin={min}
       aria-valuemax={max}
       tabIndex={0}

@@ -334,6 +334,24 @@ describe('the pointer drag (O1a, Review Focus 4)', () => {
     expect(storedWidth()).toBe(300);
   });
 
+  // The window narrows under a drag: the limits follow it at once, not at
+  // the next pointermove.
+  test('a window narrowed mid-drag clamps the live width before the next move', async () => {
+    await renderHome();
+    await mounted();
+
+    press(1000);
+    moveTo(900);
+    // PREMISE: the drag shows a width above 1280's max, 444.
+    expect(openNowTrack()).toBe('722px');
+
+    setViewportWidth(1280);
+
+    expect(openNowTrack()).toBe('444px');
+    expect(grip()).toHaveAttribute('aria-valuenow', '444');
+    release(900);
+  });
+
   test('Escape mid-drag puts the width back and saves nothing', async () => {
     const { seen } = await renderHome();
     await mounted();
