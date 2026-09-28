@@ -234,24 +234,32 @@ async function joinAcross(
   return placed !== REFUSED;
 }
 
-// The group whose run `slot` lies strictly inside in `windowId`'s strip as
-// Chrome has it now: the tabs either side of the slot are in one group.
-// NO_GROUP when they are not; null when Chrome won't list the window.
-// tabs.query reports groupId without the tabGroups grant (Task 6a Q3), and
-// hidden Tab Keeper pages are in the strip, so a run they start or end is
-// seen whole.
-async function groupAroundSlot(
+// The group run `slot` lies strictly inside, in `windowId`'s strip as Chrome
+// has it now: the tabs either side of the slot are in one group. `start` is
+// the run's first index. `{ inside: false }` when the slot is not inside a
+// run; null when Chrome won't list the window. tabs.query reports groupId
+// without the tabGroups grant (Task 6a Q3), and hidden Tab Keeper pages are
+// in the strip, so a run they start or end is seen whole.
+type RunAround =
+  | { inside: false }
+  | { inside: true; groupId: number; start: number };
+
+const NOT_INSIDE: RunAround = { inside: false };
+
+async function groupRunAround(
   windowId: number,
   slot: number
-): Promise<number | null> {
+): Promise<RunAround | null> {
   const strip = await attempt(() => chrome.tabs.query({ windowId }));
   if (strip === REFUSED) return null;
   const groupAt = (index: number) =>
     strip.find((tab) => tab.index === index)?.groupId;
-  const left = groupAt(slot - 1);
-  return left !== undefined && left !== NO_GROUP && left === groupAt(slot)
-    ? left
-    : NO_GROUP;
+  const groupId = groupAt(slot - 1);
+  if (groupId === undefined || groupId === NO_GROUP) return NOT_INSIDE;
+  if (groupAt(slot) !== groupId) return NOT_INSIDE;
+  let start = slot - 1;
+  while (groupAt(start - 1) === groupId) start -= 1;
+  return { inside: true, groupId, start };
 }
 
 // One tab to the visible row `move.toIndex` of `move.toWindowId`.
@@ -324,18 +332,24 @@ export async function moveOpenTab(
     // tab, the strip is the one the slot was read from.
     if (!(await joinAcross(held.id, toGroupId, target.slot))) return null;
   } else {
-    const { slot } = target;
-    // Without the grant a group's tabs draw as loose rows, so the preview
-    // can show a slot inside a run. Within a window Chrome joins the tab to
-    // that group itself; from another window one tabs.move there is refused
-    // (Task 1 Q3), so the tab joins the group the same way a band drop does,
-    // at the same slot (KAN-322, spec O11e).
-    const runGroup =
-      across && !hasTabGroups ? await groupAroundSlot(to.id, slot) : NO_GROUP;
-    if (runGroup === null) return null;
-    if (runGroup !== NO_GROUP) {
-      if (!(await joinAcross(held.id, runGroup, slot))) return null;
+    // Chrome's strip can put the slot inside a group's run where the preview
+    // showed no band there:
+    // - Without the grant a group's tabs draw as loose rows. Within a window
+    //   Chrome joins the tab to that group itself; from another window one
+    //   tabs.move there is refused (Task 1 Q3), so the tab joins the group
+    //   the way a band drop does, at the same slot (KAN-322, spec O11e).
+    // - With the grant and no band named, the preview showed the tab loose.
+    //   That slot is inside the run only when a hidden Tab Keeper page is the
+    //   run's first tab, so the tab lands before the whole run, loose: the
+    //   run's head slot, where Chrome neither joins nor refuses (Task 1 Q3;
+    //   KAN-322, ruling R34).
+    const readRun = hasTabGroups ? toGroupId === NO_GROUP : across;
+    const run = readRun ? await groupRunAround(to.id, target.slot) : NOT_INSIDE;
+    if (run === null) return null;
+    if (run.inside && !hasTabGroups) {
+      if (!(await joinAcross(held.id, run.groupId, target.slot))) return null;
     } else {
+      const slot = run.inside ? run.start : target.slot;
       const moved = await attempt(() =>
         across
           ? chrome.tabs.move(held.id, { windowId: to.id, index: slot })
