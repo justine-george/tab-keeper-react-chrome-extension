@@ -133,6 +133,39 @@ test.describe('accessible controls', () => {
     ).toMatchAriaSnapshot(`- button "Go back": Back`);
   });
 
+  // KAN-318. A presentational icon is aria-hidden, so a click on it must not
+  // leave focus on it. With tabindex="-1" a click on the glyph inside a
+  // button focused the hidden glyph instead of the button, and Chrome logged
+  // "Blocked aria-hidden on an element because its descendant retained
+  // focus". A real mouse press, because locator.focus() would prove nothing
+  // about where a press puts focus. Read at mousedown, before the release:
+  // Search's click opens the search view and moves focus to Go back, so what
+  // focus does after the click says nothing about where the press put it.
+  test('a press on a button’s icon focuses the button, not the icon (KAN-318)', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    const search = page.getByRole('button', { name: 'Search', exact: true });
+    const glyph = search.locator('[aria-hidden="true"]').first();
+    await expect(glyph).toBeVisible();
+
+    const box = await glyph.boundingBox();
+    expect(box, 'the glyph has no box to press').not.toBeNull();
+    if (box === null) return;
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+
+    await expect(search).toBeFocused();
+    const focusedIsHidden = await page.evaluate(
+      () => document.activeElement?.closest('[aria-hidden="true"]') !== null
+    );
+    expect(focusedIsHidden, 'focus sits inside an aria-hidden element').toBe(
+      false
+    );
+    await page.mouse.up();
+  });
+
   // Icon renders div[role=button] rather than a real <button>, because
   // Button.tsx nests an Icon inside its own <button> and nested buttons are
   // invalid HTML. That means its key handling is hand-rolled, and a

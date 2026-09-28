@@ -249,8 +249,10 @@ const Icon: React.FC<IconProps> = ({
       aria-disabled={disable ? true : undefined}
       // Hover state must never reach this: it is a pointer-only signal, and
       // routing it here is what made eight row controls keyboard-unreachable
-      // (KAN-68).
-      tabIndex={onClick ? 0 : -1}
+      // (KAN-68). A presentational icon gets no tabindex at all, not -1: -1
+      // still let a click focus it, so a click on the glyph inside a button
+      // put focus on this aria-hidden div instead of the button (KAN-318).
+      tabIndex={onClick ? 0 : undefined}
       css={containerStyle}
       onClick={!disable ? onClick : undefined}
       onKeyDown={(e) => handleKeyPress(e)}
