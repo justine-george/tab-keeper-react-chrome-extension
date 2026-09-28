@@ -2,8 +2,10 @@
 // width. The grid, the grip's aria values and its arrow keys all read these,
 // so what is drawn and what a screen reader hears cannot disagree.
 //
-// Side by side only (>= 1100px, not folded): the rail and the drawer (O2)
-// have their own fixed widths and never call this.
+// The numbers mean something side by side only (>= 1100px, not folded).
+// MainContainer still computes the width on every tab-view render, at any
+// width; below 1100px the rail's media query (O2) and folded the 0 track (O4)
+// override it, so there it is computed and never drawn.
 
 const LIST_WIDTH = 356;
 const SAVED_MIN_WIDTH = 480;
@@ -43,13 +45,24 @@ export function openNowWidthLimits(viewportWidth: number): {
   };
 }
 
+// Any width, as a whole px inside this window's limits. The one clamp: the
+// shown width, a drag's live width and the arrow keys all go through it.
+export function clampOpenNowWidth(
+  width: number,
+  viewportWidth: number
+): number {
+  const { min, max } = openNowWidthLimits(viewportWidth);
+  return Math.min(max, Math.max(min, Math.round(width)));
+}
+
 // What the column is drawn at: the stored choice (or the default), clamped to
 // this window's limits. The stored value itself is never rewritten here.
 export function shownOpenNowWidth(
   stored: number | null,
   viewportWidth: number
 ): number {
-  const { min, max } = openNowWidthLimits(viewportWidth);
-  const wanted = stored ?? defaultOpenNowWidth(viewportWidth);
-  return Math.min(max, Math.max(min, Math.round(wanted)));
+  return clampOpenNowWidth(
+    stored ?? defaultOpenNowWidth(viewportWidth),
+    viewportWidth
+  );
 }

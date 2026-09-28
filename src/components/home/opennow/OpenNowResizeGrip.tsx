@@ -16,6 +16,7 @@ import { setOpenNowWidth } from '../../../redux/slices/settingsDataStateSlice';
 import { AppDispatch, RootState } from '../../../redux/store';
 import {
   OPEN_NOW_KEY_STEP,
+  clampOpenNowWidth,
   openNowWidthLimits,
   shownOpenNowWidth,
 } from './openNowWidth';
@@ -35,11 +36,6 @@ interface Drag {
   startWidth: number;
   width: number;
 }
-
-const clampTo = (width: number, viewportWidth: number): number => {
-  const { min, max } = openNowWidthLimits(viewportWidth);
-  return Math.min(max, Math.max(min, Math.round(width)));
-};
 
 // KAN-321 O1a. The grip on the line between the saved session and Open now.
 // A pointer drag resizes Open now live and saves once, on release; the arrow
@@ -95,7 +91,7 @@ export default function OpenNowResizeGrip({
       if (current === null) return;
       // Dragging LEFT widens Open now: its left edge is the line. The limits
       // are read at the move, from the width useViewportWidth reports too.
-      current.width = clampTo(
+      current.width = clampOpenNowWidth(
         current.startWidth + (current.startX - event.clientX),
         window.innerWidth
       );
@@ -141,12 +137,16 @@ export default function OpenNowResizeGrip({
     if (event.key === 'ArrowLeft') {
       event.preventDefault();
       dispatch(
-        setOpenNowWidth(clampTo(shownWidth + OPEN_NOW_KEY_STEP, viewportWidth))
+        setOpenNowWidth(
+          clampOpenNowWidth(shownWidth + OPEN_NOW_KEY_STEP, viewportWidth)
+        )
       );
     } else if (event.key === 'ArrowRight') {
       event.preventDefault();
       dispatch(
-        setOpenNowWidth(clampTo(shownWidth - OPEN_NOW_KEY_STEP, viewportWidth))
+        setOpenNowWidth(
+          clampOpenNowWidth(shownWidth - OPEN_NOW_KEY_STEP, viewportWidth)
+        )
       );
     }
   };

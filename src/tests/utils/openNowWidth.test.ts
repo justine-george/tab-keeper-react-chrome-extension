@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  clampOpenNowWidth,
   defaultOpenNowWidth,
   openNowWidthLimits,
   shownOpenNowWidth,
@@ -80,6 +81,25 @@ describe('shownOpenNowWidth', () => {
   it('the same stored width clamps at 1280, then comes back unclamped at 1600', () => {
     expect(shownOpenNowWidth(700, 1280)).toBe(444);
     expect(shownOpenNowWidth(700, 1600)).toBe(700);
+  });
+});
+
+// The one clamp: shownOpenNowWidth, the drag's live width and the arrow keys
+// all go through it, so none of them can round or clamp differently.
+describe('clampOpenNowWidth', () => {
+  it('rounds a fractional width to whole px', () => {
+    expect(clampOpenNowWidth(500.4, 1600)).toBe(500);
+    expect(clampOpenNowWidth(500.6, 1600)).toBe(501);
+  });
+
+  it("clamps to this window's limits", () => {
+    expect(clampOpenNowWidth(200, 1600)).toBe(300);
+    expect(clampOpenNowWidth(2000, 1600)).toBe(764);
+    expect(clampOpenNowWidth(700, 1280)).toBe(444);
+  });
+
+  it('shownOpenNowWidth rounds through it', () => {
+    expect(shownOpenNowWidth(500.6, 1600)).toBe(501);
   });
 });
 
