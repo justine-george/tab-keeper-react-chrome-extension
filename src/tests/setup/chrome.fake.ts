@@ -2141,9 +2141,10 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
         }
         return settle(info?.populate ? populate(target) : { ...target }, cb);
       },
-      // Only `focused` is sent today (switchToOpenTab, KAN-280 O6), but
-      // every UpdateInfo field is applied -- narrowing to just `focused`
-      // would silently drop whatever a later caller sends alongside it.
+      // Callers send focus alone (focusOpenWindow, KAN-331), bounds
+      // (placeWindow in reopen.ts) and `{ state }` alone (reopen.ts's state
+      // restore). Every UpdateInfo field is applied -- narrowing to just
+      // `focused` would silently drop whatever a caller sends alongside it.
       update: (
         windowId: number,
         props: chrome.windows.UpdateInfo,

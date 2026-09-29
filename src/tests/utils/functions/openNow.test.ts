@@ -21,6 +21,7 @@ vi.mock('../../../utils/functions/tabGroups', async (importOriginal) => {
 import {
   toOpenWindows,
   switchToOpenTab,
+  focusOpenWindow,
 } from '../../../utils/functions/openNow';
 import type { OpenTab } from '../../../utils/functions/openNow';
 import { sanitizeTabGroupColor } from '../../../utils/functions/tabGroups';
@@ -423,5 +424,31 @@ describe('switchToOpenTab', () => {
     const afterAll = await chrome.windows.getAll({});
     const focused = afterAll.find((w) => w.id === 2);
     expect(focused?.focused).toBe(true);
+  });
+});
+
+describe('focusOpenWindow (KAN-331)', () => {
+  test.each(['normal', 'minimized', 'maximized', 'fullscreen'] as const)(
+    'a %s window gets focus alone: no state is sent',
+    async (state) => {
+      handle = setupChromeFake({
+        windows: [
+          { id: 1, focused: true, tabs: [{ url: 'https://a.test/' }] },
+          { id: 2, focused: false, state, tabs: [{ url: 'https://b.test/' }] },
+        ],
+      });
+      const update = vi.spyOn(chrome.windows, 'update');
+      await focusOpenWindow(2);
+      expect(update).toHaveBeenCalledTimes(1);
+      expect(update).toHaveBeenCalledWith(2, { focused: true });
+      expect((await chrome.windows.getLastFocused()).id).toBe(2);
+    }
+  );
+
+  test('a window that is gone rejects, for the caller to swallow', async () => {
+    handle = setupChromeFake({
+      windows: [{ id: 1, focused: true, tabs: [{ url: 'https://a.test/' }] }],
+    });
+    await expect(focusOpenWindow(99)).rejects.toThrow('No window with id: 99.');
   });
 });
