@@ -518,7 +518,7 @@ describe('focusOpenWindow (KAN-331 O15b M1)', () => {
     }
   );
 
-  test('the focus is the last call: nothing is sequenced after it', async () => {
+  test('reads the window, then focuses it: one get, then one update', async () => {
     handle = setupChromeFake({
       windows: [
         { id: 1, focused: true, tabs: [{ url: 'https://a.test/' }] },

@@ -200,6 +200,22 @@ describe('a window row goes to its window (KAN-331 O15)', () => {
     ).toEqual([]);
   });
 
+  test('Close window never focuses a window', async () => {
+    await renderOpenNow(threeWindows());
+    const update = vi.spyOn(chrome.windows, 'update');
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Close window: Window 2' })
+    );
+    await waitFor(() =>
+      expect(document.querySelector('[data-open-window-id="2"]')).toBeNull()
+    );
+    // Same settle as above: a late focus lands after the click returns.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(
+      update.mock.calls.filter(([, info]) => info.focused === true)
+    ).toEqual([]);
+  });
+
   test('S2: while a search is held no row is a button; clearing brings them back', async () => {
     await renderOpenNow(threeWindows());
     const field = screen.getByRole('textbox', { name: 'Search open tabs' });

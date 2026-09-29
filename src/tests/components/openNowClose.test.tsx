@@ -616,9 +616,9 @@ describe('closing from the Open now pane (KAN-280 O7a)', () => {
     expectRevealedByKeyboardFocus(closeTabButton('B'));
   });
 
-  // The row's button (KAN-331 O15) comes after the chevron and Save window
-  // (O13) first in the strip, so Close window is the third Tab stop after the
-  // chevron.
+  // A window row's Tab order is the chevron, the Go to window button (KAN-331
+  // O15), Save window (O13), then Close window, so Close window is the third
+  // Tab stop after the chevron.
   test('Close window is revealed by keyboard focus', async () => {
     await renderOpenNow(threeWindows());
     const user = userEvent.setup();
