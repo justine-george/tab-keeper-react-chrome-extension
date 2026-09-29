@@ -64,9 +64,12 @@ async function boxOf(locator: Locator): Promise<Box> {
 /** An icon's box: the glyph plus Icon's 4px padding on each side. */
 const iconBox = (rootPx: number) => parseFloat(ICON.DEFAULT) * rootPx + 8;
 
-test.describe('every header control has the same box (KAN-340 I1)', () => {
+/** The two glyphs drawn at ICON.MEDIUM inside a DEFAULT box. */
+const MEDIUM_GLYPHS = ['Settings', 'Open in a tab'];
+
+test.describe('every header control has the same box (KAN-340)', () => {
   for (const rootPx of ROOTS) {
-    test(`at a ${rootPx}px root, the gear draws smaller in the same box`, async ({
+    test(`at a ${rootPx}px root, the gear and the arrows draw at MEDIUM in the same box`, async ({
       context,
       extensionId,
     }) => {
@@ -78,14 +81,15 @@ test.describe('every header control has the same box (KAN-340 I1)', () => {
           .soft({ name, width: box.width, height: box.height })
           .toEqual({ name, width: iconBox(rootPx), height: iconBox(rootPx) });
       }
-      // The control for the box assertion: the gear really is smaller
+      // The control for the box assertion: these two really are smaller
       // inside it, so equal boxes are not equal glyphs.
-      const gear = control(page, 'Settings').locator(
-        '.material-symbols-outlined'
-      );
-      expect(await gear.evaluate((el) => getComputedStyle(el).fontSize)).toBe(
-        `${parseFloat(ICON.SMALL) * rootPx}px`
-      );
+      for (const name of MEDIUM_GLYPHS) {
+        const glyph = control(page, name).locator('.material-symbols-outlined');
+        expect({
+          name,
+          size: await glyph.evaluate((el) => getComputedStyle(el).fontSize),
+        }).toEqual({ name, size: `${parseFloat(ICON.MEDIUM) * rootPx}px` });
+      }
     });
   }
 });

@@ -281,6 +281,11 @@ export default function MenuContainer() {
             ariaLabel={t('Open in a tab')}
             tooltipText={t('Open in a tab')}
             type="open_in_full"
+            // KAN-340. Thin, but its arrows reach the corners: at DEFAULT its
+            // ink spans 18.5px square, the largest in the row, and it read big.
+            // MEDIUM (17px) matches the gear, in the same box.
+            size={ICON.MEDIUM}
+            boxSizedFor={ICON.DEFAULT}
             onClick={handleClickOpenInTab}
           />
         )}
@@ -320,10 +325,11 @@ export default function MenuContainer() {
           ariaLabel={t('Settings')}
           tooltipText={t('Settings')}
           type="settings"
-          // KAN-340 I1. The heaviest glyph in the row: at 24px its ink is
-          // 20x20, 2.6x Sort's. Drawn at SMALL it sits in line with Undo and
-          // Sync, in the same box, so nothing moves and the target stays whole.
-          size={ICON.SMALL}
+          // KAN-340. The heaviest glyph in the row: at DEFAULT its ink is
+          // 20.5px square, 2.6x Sort's; at SMALL it read too small beside the
+          // 22.5px-wide cloud. MEDIUM (18.5px of ink) sits between Undo and
+          // Search, in the same box, so nothing moves and the target stays whole.
+          size={ICON.MEDIUM}
           boxSizedFor={ICON.DEFAULT}
           onClick={handleClickSettings}
           animationFrom={`transform: rotate(0deg);`}

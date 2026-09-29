@@ -5,9 +5,11 @@ import MenuContainer from '../../components/home/leftpane/MenuContainer';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { ICON } from '../../styles/scale';
 
-// KAN-340 I1. The gear is the heaviest glyph in the row (20x20 of ink, 2.6x
-// Sort's), so it alone draws at ICON.SMALL. Its BOX is unchanged; that is a
-// layout fact jsdom cannot measure, so e2e/home-header.spec.ts owns it.
+// KAN-340. Two glyphs in the row read wrong at DEFAULT: the gear (the
+// heaviest ink) and open_in_full (thin, but reaching its corners). Both draw
+// at ICON.MEDIUM, picked by Justine from a side-by-side mock after SMALL made
+// the gear read too small. Their BOXES are unchanged; that is a layout fact
+// jsdom cannot measure, so e2e/home-header.spec.ts owns it.
 
 /** An ICON step as jsdom reports it: rem resolved against the 16px root. */
 const px = (rem: string) => `${parseFloat(rem) * 16}px`;
@@ -20,25 +22,24 @@ function glyphSize(name: string): string {
   return getComputedStyle(glyph).fontSize;
 }
 
-describe('home header glyph sizes (KAN-340 I1)', () => {
-  test('Settings draws its gear at ICON.SMALL', async () => {
+describe('home header glyph sizes (KAN-340)', () => {
+  test('Settings and Open in a tab draw at ICON.MEDIUM', async () => {
     await renderWithProviders(<MenuContainer />);
 
-    expect(glyphSize('Settings')).toBe(px(ICON.SMALL));
+    for (const name of ['Settings', 'Open in a tab']) {
+      expect({ name, size: glyphSize(name) }).toEqual({
+        name,
+        size: px(ICON.MEDIUM),
+      });
+    }
   });
 
-  // The guard against a blanket change: shrinking the whole row would pass
+  // The guard against a blanket change: resizing the whole row would pass
   // the test above.
   test('every other header icon stays at ICON.DEFAULT', async () => {
     await renderWithProviders(<MenuContainer />);
 
-    for (const name of [
-      'Open in a tab',
-      'Sort sessions',
-      'Undo',
-      'Redo',
-      'Sync now',
-    ]) {
+    for (const name of ['Sort sessions', 'Undo', 'Redo', 'Sync now']) {
       expect({ name, size: glyphSize(name) }).toEqual({
         name,
         size: px(ICON.DEFAULT),

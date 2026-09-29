@@ -73,7 +73,8 @@ export const CONTROL = {
 } as const;
 
 /**
- * Icon sizes. Two levels, because the app genuinely uses two.
+ * Icon sizes. Two main levels, because the app genuinely uses two, and one
+ * between them for glyphs that read wrong at either (KAN-340).
  *
  * Collapsing these to one was tried and reverted: every icon at DEFAULT made
  * the save pair and the "add current window" control heavier than the jobs they
@@ -84,10 +85,22 @@ export const CONTROL = {
  * jobs (1.3rem, 1.5rem and a 28px one-off), which is how the toolbar came to
  * read as undersized next to its neighbour. Two named levels, and a third is a
  * line in this file when something needs it -- not an override at a call site.
+ *
+ * MEDIUM is that line. Two glyphs in the home header's row of DEFAULT icons
+ * read wrong at both levels: the gear (the heaviest ink in the row) looked
+ * too big at DEFAULT and too small at SMALL beside the 22.5px-wide cloud, and
+ * open_in_full, thin but reaching its corners, looked big at DEFAULT. At
+ * MEDIUM both sit between Undo (16.5px of ink) and Search (18.5px). Measured
+ * with the bundled font; Justine picked it from a side-by-side mock.
  */
 export const ICON = {
   /** Secondary or inline actions, subordinate to the control they sit in. */
   SMALL: '1.25rem',
+  /**
+   * A glyph among DEFAULT neighbours whose ink reads too big at DEFAULT and
+   * too small at SMALL. Drawn in a DEFAULT box (Icon's `boxSizedFor`).
+   */
+  MEDIUM: '1.375rem',
   /** The default. Toolbar, row actions, menu items. */
   DEFAULT: '1.5rem',
 } as const;
