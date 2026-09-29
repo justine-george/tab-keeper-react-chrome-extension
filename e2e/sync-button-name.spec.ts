@@ -80,6 +80,12 @@ test.describe('the header sync button says what is true (KAN-342)', () => {
   }) => {
     await seedUnusableToken(serviceWorker);
     const page = await openHome(context, extensionId);
+    // PREMISE: the token has been read and refused. The store starts signed
+    // out, so without this the button reads "Sync unavailable" at mount
+    // whatever the token says, and a broken token path could still pass.
+    await expect(page.getByRole('status')).toContainText(
+      'Sync unavailable: your saved account token could not be read.'
+    );
 
     const sync = button(page, 'Sync unavailable');
     await expect(sync).toHaveAttribute('aria-disabled', 'true');
