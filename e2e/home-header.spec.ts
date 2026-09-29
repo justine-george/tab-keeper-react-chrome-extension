@@ -185,40 +185,105 @@ test.describe('the icons sit in three pairs, 8px apart (KAN-340 A + R1)', () => 
   }
 });
 
-// KAN-344. The gear's hover turn: half a turn (the gear's six teeth only
-// repeat exactly at 180°), past it and back, eased in and out as a
-// transition so leaving mid-turn reverses it instead of snapping. Only for a
-// fine pointer that hovers, never from the keyboard, and not at all when the
-// system asks for reduced motion.
+// KAN-344. Hover motions, settled by Justine from side-by-side mocks: the
+// gear winds up half a turn (its six teeth only repeat exactly at 180°),
+// Open in a tab stretches, and Search's magnifier leans in. Each goes past
+// its pose a little and settles, and eases back when the pointer leaves --
+// a transition, so leaving early reverses instead of snapping. Only for a
+// fine pointer that hovers, never from the keyboard, and not at all when
+// the system asks for reduced motion. Sort, Undo, Redo and Sync stay still.
 
-/** The gear's glyph, the element that turns. */
-const gearGlyph = (page: Page): Locator =>
-  control(page, 'Settings').locator('.material-symbols-outlined');
+type Pose = { angle: number; scale: number };
+
+interface HoverMotionCase {
+  /** The button's accessible name. */
+  name: string;
+  /** The pose it settles in while hovered. */
+  pose: Pose;
+  /** Where the pointer goes: somewhere on the button that is not the glyph. */
+  pointAt: (page: Page) => Promise<void>;
+  /**
+   * Whether the button paints a hover fill. The icon buttons do; the Search
+   * title button never has (ClickableRow resets its background), so with
+   * reduced motion its only answer is the pointer cursor.
+   */
+  hasHoverFill: boolean;
+}
+
+const MOTIONS: HoverMotionCase[] = [
+  {
+    name: 'Settings',
+    pose: { angle: 180, scale: 1 },
+    pointAt: (page) =>
+      control(page, 'Settings').hover({ position: { x: 2, y: 2 } }),
+    hasHoverFill: true,
+  },
+  {
+    name: 'Open in a tab',
+    pose: { angle: 0, scale: 1.14 },
+    pointAt: (page) =>
+      control(page, 'Open in a tab').hover({ position: { x: 2, y: 2 } }),
+    hasHoverFill: true,
+  },
+  {
+    // The magnifier moves when the pointer is anywhere on the title button,
+    // here its words.
+    name: 'Search',
+    pose: { angle: -14, scale: 1.06 },
+    pointAt: (page) =>
+      control(page, 'Search').getByText('Tab Keeper', { exact: true }).hover(),
+    hasHoverFill: false,
+  },
+];
+
+/** Buttons that have no motion: only the hover fill answers. */
+const STILL = ['Sort sessions', 'Sync now'];
+
+const glyphOf = (page: Page, name: string): Locator =>
+  control(page, name).locator('.material-symbols-outlined');
 
 /**
- * The glyph's drawn angle in degrees on every frame for `ms`, while `act`
- * runs: its `rotate` plus whatever its `transform` turns, so the reading
- * doesn't depend on which property the code uses.
+ * How far along a pose is, as a fraction of the way from rest to `target`:
+ * 0 at rest, 1 at the target, above 1 past it. Reads rotation OR scale,
+ * whichever the target moves.
  */
-async function turnDuring(
-  page: Page,
+function progress(pose: Pose, target: Pose): number {
+  return target.angle !== 0
+    ? pose.angle / target.angle
+    : (pose.scale - 1) / (target.scale - 1);
+}
+
+const atRest = (pose: Pose) =>
+  Math.abs(pose.angle) < 0.01 && Math.abs(pose.scale - 1) < 0.0001;
+
+/**
+ * The glyph's drawn pose on every frame for `ms`, while `act` runs: its
+ * `rotate` and `scale` combined with whatever its `transform` does, so the
+ * reading doesn't depend on which properties the code uses.
+ */
+async function posesDuring(
+  glyph: Locator,
   ms: number,
   act: () => Promise<void>
-): Promise<number[]> {
-  const samples = gearGlyph(page).evaluate(
+): Promise<Pose[]> {
+  const samples = glyph.evaluate(
     (el, forMs) =>
-      new Promise<number[]>((resolve) => {
-        const angle = () => {
+      new Promise<Pose[]>((resolve) => {
+        const read = (): Pose => {
           const cs = getComputedStyle(el);
           const rotate = cs.rotate === 'none' ? 0 : parseFloat(cs.rotate);
+          const scale = cs.scale === 'none' ? 1 : parseFloat(cs.scale);
           const m =
             cs.transform === 'none' ? null : new DOMMatrix(cs.transform);
-          return rotate + (m ? (Math.atan2(m.b, m.a) * 180) / Math.PI : 0);
+          return {
+            angle: rotate + (m ? (Math.atan2(m.b, m.a) * 180) / Math.PI : 0),
+            scale: scale * (m ? Math.hypot(m.a, m.b) : 1),
+          };
         };
-        const out: number[] = [];
+        const out: Pose[] = [];
         const start = performance.now();
         const tick = () => {
-          out.push(angle());
+          out.push(read());
           if (performance.now() - start < forMs) requestAnimationFrame(tick);
           else resolve(out);
         };
@@ -230,119 +295,177 @@ async function turnDuring(
   return samples;
 }
 
-/** A point in the gear button's ring, outside the glyph itself. */
-async function hoverRing(page: Page): Promise<void> {
-  await control(page, 'Settings').hover({ position: { x: 2, y: 2 } });
+/**
+ * The pose in the `pointerleave` handler's own task, before any frame: a
+ * keyframe animation on :hover is already gone then (rest); a transition is
+ * still where it was. Frame-rate independent, so a slow CI runner can't
+ * fake it.
+ */
+function poseAtLeave(page: Page, name: string): Promise<Pose> {
+  return page.evaluate(
+    (label) =>
+      new Promise<Pose>((resolve, reject) => {
+        const button = document.querySelector(`[aria-label="${label}"]`);
+        const glyph = button?.querySelector('.material-symbols-outlined');
+        if (!button || !glyph) {
+          reject(new Error(`no glyph in "${label}"`));
+          return;
+        }
+        button.addEventListener(
+          'pointerleave',
+          () => {
+            const cs = getComputedStyle(glyph);
+            const rotate = cs.rotate === 'none' ? 0 : parseFloat(cs.rotate);
+            const scale = cs.scale === 'none' ? 1 : parseFloat(cs.scale);
+            const m =
+              cs.transform === 'none' ? null : new DOMMatrix(cs.transform);
+            resolve({
+              angle: rotate + (m ? (Math.atan2(m.b, m.a) * 180) / Math.PI : 0),
+              scale: scale * (m ? Math.hypot(m.a, m.b) : 1),
+            });
+          },
+          { once: true }
+        );
+      }),
+    name
+  );
 }
 
-test.describe('the gear winds up on hover (KAN-344)', () => {
-  test('pointing anywhere on the button turns it half a turn, past 180° and back to it', async ({
-    context,
-    extensionId,
-  }) => {
-    const page = await openHome(context, extensionId, 'popup', 16);
+test.describe('hover motions (KAN-344)', () => {
+  for (const motion of MOTIONS) {
+    test(`${motion.name}: pointing at the button goes past its pose and settles on it`, async ({
+      context,
+      extensionId,
+    }) => {
+      const page = await openHome(context, extensionId, 'popup', 16);
 
-    const turns = await turnDuring(page, 900, () => hoverRing(page));
+      const poses = await posesDuring(glyphOf(page, motion.name), 900, () =>
+        motion.pointAt(page)
+      );
 
-    expect(Math.max(...turns), 'it overshoots').toBeGreaterThan(181);
-    expect(turns[turns.length - 1], 'it settles on 180°').toBeCloseTo(180, 1);
-  });
-
-  test('leaving mid-turn turns it back from where it was, without a jump', async ({
-    context,
-    extensionId,
-  }) => {
-    const page = await openHome(context, extensionId, 'popup', 16);
-    await hoverRing(page);
-    await page.waitForTimeout(150);
-
-    // Read in the leave event's own task, before any frame: a keyframe
-    // animation on :hover is gone by then (0°); a transition is still where
-    // it was. Frame-rate independent, so a slow CI runner can't fake it.
-    const atLeave = page.evaluate(
-      () =>
-        new Promise<number>((resolve) => {
-          const button = document.querySelector('[aria-label="Settings"]');
-          const glyph = button?.querySelector('.material-symbols-outlined');
-          if (!button || !glyph) throw new Error('no Settings glyph');
-          button.addEventListener(
-            'pointerleave',
-            () => {
-              const cs = getComputedStyle(glyph);
-              const rotate = cs.rotate === 'none' ? 0 : parseFloat(cs.rotate);
-              const m =
-                cs.transform === 'none' ? null : new DOMMatrix(cs.transform);
-              resolve(
-                rotate + (m ? (Math.atan2(m.b, m.a) * 180) / Math.PI : 0)
-              );
-            },
-            { once: true }
-          );
-        })
-    );
-    const turns = await turnDuring(page, 500, () => page.mouse.move(2, 540));
-
-    expect(await atLeave, 'no snap on leave').toBeGreaterThan(30);
-    expect(turns[turns.length - 1], 'back at rest').toBeCloseTo(0, 1);
-  });
-
-  test('with reduced motion it does not turn, and the hover fill still answers', async ({
-    context,
-    extensionId,
-  }) => {
-    const page = await openHome(context, extensionId, 'popup', 16);
-    await page.emulateMedia({ reducedMotion: 'reduce' });
-
-    // The glyph's centre, where the pre-KAN-344 spin started: pointing at
-    // the ring alone would pass against it.
-    const turns = await turnDuring(page, 700, () =>
-      control(page, 'Settings').hover()
-    );
-
-    expect(Math.max(...turns.map(Math.abs))).toBe(0);
-    expect(
-      await control(page, 'Settings').evaluate(
-        (el) => getComputedStyle(el).backgroundColor
-      ),
-      'the hover fill is the feedback'
-    ).not.toBe('rgba(0, 0, 0, 0)');
-  });
-
-  test('tabbing onto the gear does not turn it', async ({
-    context,
-    extensionId,
-  }) => {
-    const page = await openHome(context, extensionId, 'popup', 16);
-    await control(page, 'Sync now').focus();
-
-    const turns = await turnDuring(page, 700, () => page.keyboard.press('Tab'));
-
-    await expect(control(page, 'Settings')).toBeFocused();
-    expect(Math.max(...turns.map(Math.abs))).toBe(0);
-  });
-
-  test('on a touch screen it does not turn', async ({
-    context,
-    extensionId,
-  }) => {
-    const page = await openHome(context, extensionId, 'popup', 16);
-    const cdp = await context.newCDPSession(page);
-    await cdp.send('Emulation.setTouchEmulationEnabled', {
-      enabled: true,
-      maxTouchPoints: 1,
+      const peak = Math.max(...poses.map((p) => progress(p, motion.pose)));
+      const last = poses[poses.length - 1];
+      expect(peak, 'it goes a little past its pose').toBeGreaterThan(1.005);
+      expect(last.angle, 'it settles on its angle').toBeCloseTo(
+        motion.pose.angle,
+        1
+      );
+      expect(last.scale, 'it settles on its size').toBeCloseTo(
+        motion.pose.scale,
+        3
+      );
     });
-    // The premise: the page now reports a touch pointer that can't hover.
-    expect(
-      await page.evaluate(
-        () => matchMedia('(hover: hover) and (pointer: fine)').matches
-      )
-    ).toBe(false);
 
-    // The glyph's centre, as in the reduced-motion test.
-    const turns = await turnDuring(page, 700, () =>
-      control(page, 'Settings').hover()
-    );
+    test(`${motion.name}: leaving early eases back from where it was, without a jump`, async ({
+      context,
+      extensionId,
+    }) => {
+      const page = await openHome(context, extensionId, 'popup', 16);
+      await motion.pointAt(page);
+      await page.waitForTimeout(90);
 
-    expect(Math.max(...turns.map(Math.abs))).toBe(0);
-  });
+      const atLeave = poseAtLeave(page, motion.name);
+      const poses = await posesDuring(glyphOf(page, motion.name), 500, () =>
+        page.mouse.move(2, 540)
+      );
+
+      expect(
+        progress(await atLeave, motion.pose),
+        'no snap on leave'
+      ).toBeGreaterThan(0.15);
+      expect(atRest(poses[poses.length - 1]), 'back at rest').toBe(true);
+    });
+
+    test(`${motion.name}: nothing moves with reduced motion, and the hover fill still answers`, async ({
+      context,
+      extensionId,
+    }) => {
+      const page = await openHome(context, extensionId, 'popup', 16);
+      await page.emulateMedia({ reducedMotion: 'reduce' });
+
+      // The glyph's centre as well as the rest of the button: the
+      // pre-KAN-344 gear spun only when the glyph itself was hovered.
+      const poses = await posesDuring(
+        glyphOf(page, motion.name),
+        700,
+        async () => {
+          await glyphOf(page, motion.name).hover();
+          await motion.pointAt(page);
+        }
+      );
+
+      expect(poses.every(atRest)).toBe(true);
+      if (motion.hasHoverFill)
+        expect(
+          await control(page, motion.name).evaluate(
+            (el) => getComputedStyle(el).backgroundColor
+          ),
+          'the hover fill is the feedback'
+        ).not.toBe('rgba(0, 0, 0, 0)');
+    });
+
+    test(`${motion.name}: reaching it from the keyboard moves nothing`, async ({
+      context,
+      extensionId,
+    }) => {
+      const page = await openHome(context, extensionId, 'popup', 16);
+      await control(page, motion.name).focus();
+
+      const poses = await posesDuring(
+        glyphOf(page, motion.name),
+        700,
+        async () => {
+          await page.keyboard.press('Shift+Tab');
+          await page.keyboard.press('Tab');
+        }
+      );
+
+      await expect(control(page, motion.name)).toBeFocused();
+      expect(poses.every(atRest)).toBe(true);
+    });
+
+    test(`${motion.name}: on a touch screen nothing moves`, async ({
+      context,
+      extensionId,
+    }) => {
+      const page = await openHome(context, extensionId, 'popup', 16);
+      const cdp = await context.newCDPSession(page);
+      await cdp.send('Emulation.setTouchEmulationEnabled', {
+        enabled: true,
+        maxTouchPoints: 1,
+      });
+      // The premise: the page now reports a touch pointer that can't hover.
+      expect(
+        await page.evaluate(
+          () => matchMedia('(hover: hover) and (pointer: fine)').matches
+        )
+      ).toBe(false);
+
+      const poses = await posesDuring(
+        glyphOf(page, motion.name),
+        700,
+        async () => {
+          await glyphOf(page, motion.name).hover();
+          await motion.pointAt(page);
+        }
+      );
+
+      expect(poses.every(atRest)).toBe(true);
+    });
+  }
+
+  for (const name of STILL) {
+    test(`${name} stays still on hover; only its fill answers`, async ({
+      context,
+      extensionId,
+    }) => {
+      const page = await openHome(context, extensionId, 'popup', 16);
+
+      const poses = await posesDuring(glyphOf(page, name), 700, () =>
+        control(page, name).hover()
+      );
+
+      expect(poses.every(atRest)).toBe(true);
+    });
+  }
 });

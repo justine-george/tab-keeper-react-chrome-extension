@@ -15,7 +15,8 @@ import {
   openSearchPanel,
 } from '../../../redux/slices/globalStateSlice';
 import { useTranslation } from 'react-i18next';
-import { TYPE } from '../../../styles/scale';
+import { DURATION, TYPE } from '../../../styles/scale';
+import { hoverMotionCss } from '../../common/hoverMotion';
 
 export default function HeroContainer() {
   const COLORS = useThemeColors();
@@ -75,7 +76,11 @@ export default function HeroContainer() {
         ariaLabel={t('Search')}
         tooltipText={t('Search')}
         onClick={handleClickSearch}
-        style="display: flex; align-items: center; min-width: 0;"
+        // KAN-344. The magnifier leans in when the pointer is anywhere on the
+        // title, since the whole title is the Search button.
+        style={`display: flex; align-items: center; min-width: 0; ${hoverMotionCss(
+          { rotate: '-14deg', scale: 1.06, duration: DURATION.MOVE }
+        )}`}
       >
         <Icon type="search" />
         <NormalLabel

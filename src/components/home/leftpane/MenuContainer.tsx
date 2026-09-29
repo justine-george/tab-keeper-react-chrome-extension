@@ -25,7 +25,7 @@ import {
 import { SettingsCategory } from '../../../redux/slices/settingsCategoryStateSlice';
 import { setSessionDateBasis } from '../../../redux/slices/settingsDataStateSlice';
 import { useTranslation } from 'react-i18next';
-import { ICON } from '../../../styles/scale';
+import { DURATION, ICON } from '../../../styles/scale';
 import type { IconName } from '../../common/iconNames';
 import { isTabView } from '../../../utils/functions/viewMode';
 import {
@@ -286,6 +286,8 @@ export default function MenuContainer() {
             // MEDIUM (17px) matches the gear, in the same box.
             size={ICON.MEDIUM}
             boxSizedFor={ICON.DEFAULT}
+            // KAN-344. It stretches: "the same thing, bigger".
+            hoverMotion={{ scale: 1.14, duration: DURATION.MOVE }}
             onClick={handleClickOpenInTab}
           />
         )}
@@ -332,9 +334,10 @@ export default function MenuContainer() {
           size={ICON.MEDIUM}
           boxSizedFor={ICON.DEFAULT}
           onClick={handleClickSettings}
-          // KAN-344. Half a turn: the gear has six teeth, but only 180deg is
-          // the same pose (120deg differs by 8% of its ink, so it jumped).
-          hoverTurn="180deg"
+          // KAN-344. Half a turn, the one flourish in the row: the gear has
+          // six teeth, but only 180deg is the same pose (120deg differs by 8%
+          // of its ink, so it jumped).
+          hoverMotion={{ rotate: '180deg', duration: DURATION.FLOURISH }}
         />
       </div>
     </div>

@@ -3,7 +3,9 @@ import React, { MouseEventHandler } from 'react';
 import { css } from '@emotion/react';
 
 import { useThemeColors } from '../../hooks/useThemeColors';
-import { DURATION, EASE, ICON } from '../../styles/scale';
+import { DURATION, ICON } from '../../styles/scale';
+import { hoverMotionCss } from './hoverMotion';
+import type { HoverMotion } from './hoverMotion';
 import type { BrandIconName, IconName } from './iconNames';
 
 /**
@@ -49,14 +51,10 @@ interface IconBaseProps {
    */
   disable?: boolean;
   /**
-   * The angle the glyph turns to while a fine pointer is over the button,
-   * overshooting it a little and settling; it turns back when the pointer
-   * leaves. A transition, so leaving mid-turn reverses from wherever it got
-   * to. Choose an angle at which the glyph looks identical to 0deg, or it
-   * visibly jumps at rest. Nothing moves for a keyboard focus, a touch
-   * screen, or a reduced-motion preference (KAN-344).
+   * What the glyph does while a fine pointer is over the button, if
+   * anything (KAN-344). Only an actionable Icon moves; see hoverMotion.ts.
    */
-  hoverTurn?: `${number}deg`;
+  hoverMotion?: HoverMotion;
   backgroundColor?: string;
   /**
    * The glyph's colour. Defaults to TEXT_COLOR, which is right on every
@@ -111,7 +109,7 @@ const Icon: React.FC<IconProps> = ({
   faviconUrl,
   onClick,
   disable,
-  hoverTurn,
+  hoverMotion,
   // Transparent by default, so an Icon paints nothing of its own unless a
   // caller asks for it (KAN-98). It used to be undefined, which emotion
   // emitted as `background-color: undefined` for the browser to discard --
@@ -227,24 +225,7 @@ const Icon: React.FC<IconProps> = ({
     &[aria-haspopup][aria-expanded='true'] {
       background-color: ${COLORS.ICON_ACTIVE_COLOR};
     }
-    ${
-      hoverTurn
-        ? /* KAN-344. On the whole button's :hover, not the glyph's, so the
-             ring around the glyph starts it too. Gated three ways: a pointer
-             that hovers (a tap would leave it stuck), no reduced-motion
-             preference, and :hover alone, so a keyboard focus never moves
-             it. In with an overshoot, back out plainly. */
-          `@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
-            & .material-symbols-outlined, & svg {
-              transition: rotate ${DURATION.MOVE} ${EASE.OUT};
-            }
-            &:hover .material-symbols-outlined, &:hover svg {
-              rotate: ${hoverTurn};
-              transition: rotate ${DURATION.FLOURISH} ${EASE.OUT_BACK};
-            }
-          }`
-        : ''
-    }`}
+    ${hoverMotion ? hoverMotionCss(hoverMotion) : ''}`}
     ${style && style}
   `;
 
