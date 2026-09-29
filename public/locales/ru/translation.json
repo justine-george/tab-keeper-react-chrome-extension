@@ -234,5 +234,12 @@
   "Pinned": "Закреплена",
   "Close window": "Закрыть окно",
   "Save window as a session": "Сохранить окно как сессию",
-  "Window saved as a session.": "Окно сохранено как сессия."
+  "Window saved as a session.": "Окно сохранено как сессия.",
+  "Search open tabs": "Поиск открытых вкладок",
+  "Clear search": "Очистить поиск",
+  "NoOpenTabMatches": "Нет открытых вкладок, совпадающих с «{{text}}»",
+  "TabCountShownOfTotal_one": "{{shown}} из {{count}} вкладки",
+  "TabCountShownOfTotal_few": "{{shown}} из {{count}} вкладок",
+  "TabCountShownOfTotal_many": "{{shown}} из {{count}} вкладок",
+  "TabCountShownOfTotal_other": "{{shown}} из {{count}} вкладки"
 }

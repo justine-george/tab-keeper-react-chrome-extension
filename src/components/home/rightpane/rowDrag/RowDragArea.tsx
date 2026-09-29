@@ -1260,7 +1260,10 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       };
     };
 
-    const finish = (commit: boolean) => {
+    // `pressStillDown` is true for a cancel the pointer has not ended -- Esc,
+    // or the list turning drag off (KAN-335) -- whose press will still be
+    // released, and whose release Chrome may still turn into a click.
+    const finish = (commit: boolean, pressStillDown: boolean) => {
       const l = live.current;
       live.current = null;
       setDrag(null);
@@ -1290,7 +1293,16 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // Armed for a real drag whether it committed, was refused, or was
       // cancelled with Esc: in every case the user was dragging, and in none
       // did they ask for the row they were holding to open.
-      suppressClickUntil.current = performance.now() + 400;
+      //
+      // A cancel with the press still down is armed until that press's own
+      // release, and onUp starts the 400ms from there (KAN-335): the click
+      // follows the release, not the cancel, and the release can come any
+      // time later. Measured on the real artifact: 800ms after an Esc, a
+      // release back on the held row opened its tab. While it waits it eats
+      // no click (KAN-337, see onClickCapture).
+      suppressClickUntil.current = pressStillDown
+        ? Number.POSITIVE_INFINITY
+        : performance.now() + 400;
 
       try {
         if (drop) {
@@ -1351,14 +1363,28 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       }
     };
 
-    const onUp = () => finish(true);
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') finish(false);
+    const onUp = () => {
+      finish(true, false);
+      // The release of a press whose drag was cancelled earlier (see finish).
+      if (suppressClickUntil.current === Number.POSITIVE_INFINITY)
+        suppressClickUntil.current = performance.now() + 400;
     };
-    const onCancel = () => finish(false);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') finish(false, true);
+    };
+    // After a pointercancel Chrome dispatches no click. A suppression still
+    // waiting for this press's release eats nothing while it waits (see
+    // onClickCapture), and the next press disarms it.
+    const onCancel = () => finish(false, false);
     // Capture, on window: this has to run before React's root delegation gets
     // the chance to dispatch the row's onClick.
     const onClickCapture = (e: MouseEvent) => {
+      // Still waiting for a cancelled press's release (see finish): the
+      // press's own click only ever follows its pointerup, and onUp has
+      // turned this into the 400ms by then. A click now has no press behind
+      // it -- Enter or Space on a focused control -- and is the user's
+      // (KAN-337).
+      if (suppressClickUntil.current === Number.POSITIVE_INFINITY) return;
       if (performance.now() >= suppressClickUntil.current) return;
       suppressClickUntil.current = 0;
       e.preventDefault();
@@ -1387,6 +1413,18 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     window.addEventListener('keydown', onKey);
     window.addEventListener('click', onClickCapture, true);
     window.addEventListener('pointerdown', onPointerDownCapture, true);
+
+    // A list that turns drag off while a row is held cancels that drag, and
+    // through Esc's own finish(false, true), not a copy of it (KAN-335, O14c).
+    // `begin` alone only stops the NEXT drag: Open now turns drag off when a
+    // search starts, a search can start with a row held (Shift+Tab back to the
+    // field), and the release then committed a move worked out from rows the
+    // search had hidden. finish touches the held row only to remove its
+    // marker, which is safe on an element the search has unmounted. A press
+    // still under the threshold is dropped the same way, so it cannot go on
+    // to start a drag the list has turned off.
+    if (disabled && live.current) finish(false, true);
+
     return () => {
       window.removeEventListener('pointermove', onMoveEvent);
       window.removeEventListener('pointerup', onUp);
@@ -1412,6 +1450,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     restoreScrollIfNoDrop,
     landingRange,
     acceptsWindow,
+    disabled,
   ]);
 
   // A drag interrupted by UNMOUNT must not leave the document stuck in a drag.

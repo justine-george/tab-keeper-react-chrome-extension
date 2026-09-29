@@ -228,5 +228,10 @@
   "Pinned": "Pinned",
   "Close window": "Close window",
   "Save window as a session": "Save window as a session",
-  "Window saved as a session.": "Window saved as a session."
+  "Window saved as a session.": "Window saved as a session.",
+  "Search open tabs": "Search open tabs",
+  "Clear search": "Clear search",
+  "NoOpenTabMatches": "No open tab matches \"{{text}}\"",
+  "TabCountShownOfTotal_one": "{{shown}} of {{count}} Tab",
+  "TabCountShownOfTotal_other": "{{shown}} of {{count}} Tabs"
 }

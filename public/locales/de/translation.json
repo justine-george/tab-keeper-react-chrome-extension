@@ -228,5 +228,10 @@
   "Pinned": "Angeheftet",
   "Close window": "Fenster schließen",
   "Save window as a session": "Fenster als Sitzung speichern",
-  "Window saved as a session.": "Fenster als Sitzung gespeichert."
+  "Window saved as a session.": "Fenster als Sitzung gespeichert.",
+  "Search open tabs": "Offene Tabs durchsuchen",
+  "Clear search": "Suche löschen",
+  "NoOpenTabMatches": "Kein offener Tab passt zu „{{text}}“",
+  "TabCountShownOfTotal_one": "{{shown}} von {{count}} Tab",
+  "TabCountShownOfTotal_other": "{{shown}} von {{count}} Tabs"
 }

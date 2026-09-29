@@ -1,3 +1,4 @@
+import { createRef } from 'react';
 import { describe, expect, test, vi } from 'vitest';
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -115,6 +116,9 @@ async function renderPane(
       windows={null}
       actions={actions}
       headingId="open-now-heading"
+      searchText=""
+      onSearchTextChange={() => undefined}
+      searchInputRef={createRef<HTMLInputElement>()}
     />,
     { seed }
   );
@@ -128,6 +132,9 @@ async function renderPane(
       windows={windows}
       actions={actions}
       headingId="open-now-heading"
+      searchText=""
+      onSearchTextChange={() => undefined}
+      searchInputRef={createRef<HTMLInputElement>()}
     />
   );
   return { ...result, windows };
@@ -324,7 +331,14 @@ describe('the Open now pane (KAN-280)', () => {
 
   test('an empty list says no other tabs are open, and has no counts line', async () => {
     await renderWithProviders(
-      <OpenNowPane windows={[]} actions={[]} headingId="open-now-heading" />
+      <OpenNowPane
+        windows={[]}
+        actions={[]}
+        headingId="open-now-heading"
+        searchText=""
+        onSearchTextChange={() => undefined}
+        searchInputRef={createRef<HTMLInputElement>()}
+      />
     );
 
     expect(screen.getByText('No other tabs are open')).toBeInTheDocument();
@@ -334,7 +348,14 @@ describe('the Open now pane (KAN-280)', () => {
 
   test('while loading (null) there is no counts line and the body is empty', async () => {
     await renderWithProviders(
-      <OpenNowPane windows={null} actions={[]} headingId="open-now-heading" />
+      <OpenNowPane
+        windows={null}
+        actions={[]}
+        headingId="open-now-heading"
+        searchText=""
+        onSearchTextChange={() => undefined}
+        searchInputRef={createRef<HTMLInputElement>()}
+      />
     );
 
     expect(screen.getByText('Open now')).toBeInTheDocument();

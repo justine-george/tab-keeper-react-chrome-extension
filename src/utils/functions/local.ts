@@ -302,6 +302,26 @@ export const formatGroupCounts = (
 export const formatTabCount = (count: number, t: TFunction): string =>
   t('TabCount', { count });
 
+/**
+ * Open now's header count (KAN-280, KAN-330 O14a). Without a search it is
+ * formatGroupCounts' unfiltered phrase. With one, the tab half says how many
+ * of the total are drawn; the window count stays the total, because a window
+ * the search hides is still open.
+ */
+export const formatOpenNowCounts = (
+  windowCount: number,
+  tabCount: number,
+  matchedTabCount: number | null,
+  t: TFunction
+): string =>
+  matchedTabCount === null
+    ? formatGroupCounts(windowCount, tabCount, false, t)
+    : `${t('WindowCount', { count: windowCount })}` +
+      ` · ${t('TabCountShownOfTotal', {
+        count: tabCount,
+        shown: matchedTabCount,
+      })}`;
+
 // save data to local storage
 export const saveToLocalStorage = (key: string, data: any): void => {
   try {

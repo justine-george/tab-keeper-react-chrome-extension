@@ -1,4 +1,12 @@
-import { Ref, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import {
+  KeyboardEvent,
+  Ref,
+  RefObject,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 
 import { css } from '@emotion/react';
 import { useTranslation } from 'react-i18next';
@@ -7,15 +15,21 @@ import { useDispatch, useSelector } from 'react-redux';
 import Icon from '../../common/Icon';
 import { NormalLabel } from '../../common/Label';
 import type { IconName } from '../../common/iconNames';
+import { useSearchShortcut } from '../../../hooks/useSearchShortcut';
 import { useFontFamily } from '../../../hooks/useFontFamily';
 import { useThemeColors } from '../../../hooks/useThemeColors';
-import { formatGroupCounts } from '../../../utils/functions/local';
+import { formatOpenNowCounts } from '../../../utils/functions/local';
 import type { OpenTab, OpenWindow } from '../../../utils/functions/openNow';
 import type { MovedTabs } from '../../../utils/functions/openNowMoves';
 import {
   openWindowsToSession,
   suggestTitleForWindow,
 } from '../../../utils/functions/openWindowsToSession';
+import {
+  countMatchedTabs,
+  matchOpenWindows,
+  searchTermOf,
+} from '../../../utils/functions/openNowSearch';
 import { closeOpenTab, closeOpenWindow } from '../../../utils/functions/reopen';
 import { offerReopen } from '../../../redux/reopenOffer';
 import {
@@ -28,6 +42,7 @@ import type { AppDispatch, RootState } from '../../../redux/store';
 import { TYPE } from '../../../styles/scale';
 
 import { RowDragArea } from '../rightpane/rowDrag/RowDragArea';
+import OpenNowSearchRow from './OpenNowSearchRow';
 import OpenNowWindow from './OpenNowWindow';
 import {
   OPEN_ITEMS_SCOPE,
@@ -55,6 +70,12 @@ interface OpenNowPaneProps {
   // The "Open now" heading, for a caller that moves focus to it (the
   // drawer, KAN-280 O2).
   headingRef?: Ref<HTMLHeadingElement>;
+  // The search field's text (KAN-330 O14). Held by OpenNowColumn, above the
+  // pane ↔ drawer swap, so a resize or a drawer close keeps it.
+  searchText: string;
+  onSearchTextChange: (text: string) => void;
+  // The field. The caller holds it so the drawer can focus it on open (R1).
+  searchInputRef: RefObject<HTMLInputElement>;
   // Told of every drag Chrome carried out, with each moved tab's place before
   // and after (KAN-280 Part E), after the drop is kept for ⌘Z. No product
   // caller passes it: the undo record is kept by useOpenNowDrop itself
@@ -74,6 +95,17 @@ function firstControlIn(
 ): HTMLElement | null {
   const control = element?.querySelector('button, [role="button"]');
   return control instanceof HTMLElement ? control : null;
+}
+
+// The Switch buttons of the tab rows drawn, top to bottom (KAN-330 O14b).
+// Read from the DOM, like rule 8's neighbours: what is drawn is the truth,
+// search, folds and all.
+function drawnSwitchButtons(pane: HTMLElement | null): HTMLButtonElement[] {
+  return [
+    ...(pane?.querySelectorAll<HTMLButtonElement>(
+      '[data-open-tab-id] > button'
+    ) ?? []),
+  ];
 }
 
 // A tab row's ×, found by its strip's mark rather than by its place in the
@@ -99,6 +131,9 @@ export default function OpenNowPane({
   actions,
   headingId,
   headingRef,
+  searchText,
+  onSearchTextChange,
+  searchInputRef,
   onMoved,
 }: OpenNowPaneProps) {
   const COLORS = useThemeColors();
@@ -117,10 +152,39 @@ export default function OpenNowPane({
   const listed = windows ?? NO_WINDOWS;
   const tabCount = listed.reduce((sum, w) => sum + w.tabs.length, 0);
 
+  const searchTerm = searchTermOf(searchText);
+  // KAN-330 O14a. Computed once per render; null when no search is held.
+  const matches =
+    searchTerm === null ? null : matchOpenWindows(listed, searchTerm);
+
+  // KAN-330 F1. Folds made during a search, kept apart from the ones before
+  // it, so a search shows every match and clearing it puts the user's own
+  // folds back. Each search starts from an empty set.
+  const [searchCollapsedIds, setSearchCollapsedIds] = useState<
+    ReadonlySet<number>
+  >(() => new Set());
+  const foldedIds = searchTerm === null ? collapsedIds : searchCollapsedIds;
+  const setFoldedIds =
+    searchTerm === null ? setCollapsedIds : setSearchCollapsedIds;
+
+  // A search starting (no term -> a term) starts its own folds afresh. Every
+  // way the text changes -- typing, the clear ×, Esc -- comes through here.
+  const handleSearchTextChange = (text: string) => {
+    if (searchTerm === null && searchTermOf(text) !== null) {
+      setSearchCollapsedIds(new Set());
+    }
+    onSearchTextChange(text);
+  };
+
+  // What Collapse all acts on: the windows drawn, so during a search it
+  // leaves the folds from before alone.
+  const drawnWindows =
+    matches === null ? listed : listed.filter((w) => matches.has(w.id));
+
   // Majority rules, as the saved header's toggle (KAN-206): it asks whether
   // any window on screen is open, so unfolding one by hand never leaves it
   // offering the opposite of what the pane needs.
-  const anyWindowOpen = listed.some((w) => !collapsedIds.has(w.id));
+  const anyWindowOpen = drawnWindows.some((w) => !foldedIds.has(w.id));
 
   // KAN-280 Part E (O11). Tabs and whole groups are dragged here as in a
   // saved session, and a drop moves the real tabs. Groups are shown only
@@ -128,15 +192,18 @@ export default function OpenNowPane({
   const hasTabGroupsPermission = useSelector(
     (state: RootState) => state.globalState.hasTabGroupsPermission
   );
+  // The whole list, not only what a search draws: safe only because drag is
+  // off while a search is held (O14c) and a search that starts mid-drag
+  // cancels the drag (KAN-335).
   const drop = useOpenNowDrop({
     windows: listed,
     hasTabGroups: hasTabGroupsPermission,
-    collapsedIds,
+    collapsedIds: foldedIds,
     onMoved,
   });
 
   const toggleWindow = (id: number) =>
-    setCollapsedIds((prev) => {
+    setFoldedIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
@@ -316,16 +383,63 @@ export default function OpenNowPane({
     text-overflow: ellipsis;
   `;
 
-  // Copied from TabGroupDetailsContainer's containerStyle.
-  const bodyStyle = css`
+  // The list box: the search row, then the scroller (KAN-330 P2a). The row
+  // is pinned by sitting outside the scroller, as the Saved sessions caption
+  // is (O3a): a row laid over the top rows would put hidden rows under the
+  // pointer during a drag. The box is copied from TabGroupDetailsContainer's
+  // containerStyle, less the overflow, which the scroller now holds.
+  const listBoxStyle = css`
     display: flex;
     flex-direction: column;
     flex-grow: 1;
+    min-height: 0;
     margin-top: 8px;
     border: 1px solid ${COLORS.BORDER_COLOR};
-    overflow: auto;
     user-select: none;
   `;
+
+  const scrollerStyle = css`
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 0;
+    min-height: 0;
+    overflow: auto;
+  `;
+
+  // KAN-330 O14b. The pane is mounted only in the tab view, and only one is
+  // mounted at a time (side by side, folded, or in the drawer). Focus and
+  // select only: the text changes through the row's onTextChange alone.
+  const focusSearchField = () => {
+    const input = searchInputRef.current;
+    if (input === null) return;
+    input.focus();
+    input.select();
+  };
+  useSearchShortcut(focusSearchField);
+
+  // KAN-330 K1. ↓/↑ on a drawn tab's Switch button move to the next or
+  // previous one; ↑ on the first goes back to the field. Other targets (a
+  // ×, a chevron) keep the keys.
+  const handleListKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
+    const buttons = drawnSwitchButtons(paneRef.current);
+    const index = buttons.findIndex((button) => button === event.target);
+    if (index === -1) return;
+    event.preventDefault();
+    if (event.key === 'ArrowDown') buttons[index + 1]?.focus();
+    else if (index === 0) searchInputRef.current?.focus();
+    else buttons[index - 1]?.focus();
+  };
+
+  const focusFirstDrawnTab = () =>
+    drawnSwitchButtons(paneRef.current)[0]?.focus();
+
+  // O14b: only while a search is held. An empty field must never switch
+  // Chrome away from Tab Keeper.
+  const switchToFirstDrawnTab = () => {
+    if (searchTerm === null) return;
+    drawnSwitchButtons(paneRef.current)[0]?.click();
+  };
 
   const emptyStyle = css`
     display: flex;
@@ -352,7 +466,12 @@ export default function OpenNowPane({
               says less than the body's own message does. */}
           {listed.length > 0 && (
             <NormalLabel
-              value={formatGroupCounts(listed.length, tabCount, false, t)}
+              value={formatOpenNowCounts(
+                listed.length,
+                tabCount,
+                matches === null ? null : countMatchedTabs(matches),
+                t
+              )}
               size={TYPE.META}
               color={COLORS.LABEL_L1_COLOR}
               style="padding-top: 2px; padding-left: 8px;"
@@ -389,8 +508,10 @@ export default function OpenNowPane({
               }
               type={anyWindowOpen ? 'unfold_less' : 'unfold_more'}
               onClick={() =>
-                setCollapsedIds(
-                  anyWindowOpen ? new Set(listed.map((w) => w.id)) : new Set()
+                setFoldedIds(
+                  anyWindowOpen
+                    ? new Set(drawnWindows.map((w) => w.id))
+                    : new Set()
                 )
               }
             />
@@ -417,65 +538,99 @@ export default function OpenNowPane({
           ))}
         </div>
       </div>
-      <div css={bodyStyle}>
-        {windows !== null && windows.length === 0 ? (
-          <div css={emptyStyle}>
-            <NormalLabel
-              value={t('No other tabs are open')}
-              color={COLORS.LABEL_L2_COLOR}
-            />
-          </div>
-        ) : (
-          // The saved pane's two lists over every window (TabDragArea,
-          // GroupDragArea), under Open now's own scopes: a tab at a time,
-          // and a whole group by its title row. No clampDropToEnds: a
-          // window's tab list is nested, and a release outside every window
-          // must be refused (isInsideList, KAN-132).
-          <RowDragArea
-            scope={OPEN_TABS_SCOPE}
-            rowIds={drop.tabs.rowIds}
-            onMove={drop.tabs.onMove}
-            dragKind="tab"
-            dropsAcrossWindows
-            resolveDrop={drop.tabs.resolveDrop}
-            onDropTargetChange={drop.tabs.onDropTargetChange}
-            landsBesideFixedRow={drop.tabs.landsBesideFixedRow}
-            fixedRowsRemovedBy={drop.tabs.fixedRowsRemovedBy}
-            gapChangesBy={drop.tabs.gapChangesBy}
-            fixedRowSelector="[data-fixed-row-id]"
-            landingRange={drop.tabs.landingRange}
-            acceptsWindow={drop.tabs.acceptsWindow}
-          >
+      <div css={listBoxStyle}>
+        <OpenNowSearchRow
+          text={searchText}
+          onTextChange={handleSearchTextChange}
+          inputRef={searchInputRef}
+          onArrowDown={focusFirstDrawnTab}
+          onEnter={switchToFirstDrawnTab}
+        />
+        <div css={scrollerStyle} onKeyDown={handleListKeyDown}>
+          {windows !== null && windows.length === 0 ? (
+            <div css={emptyStyle}>
+              <NormalLabel
+                value={t('No other tabs are open')}
+                color={COLORS.LABEL_L2_COLOR}
+              />
+            </div>
+          ) : windows !== null && matches !== null && matches.size === 0 ? (
+            <div css={emptyStyle}>
+              <NormalLabel
+                value={t('NoOpenTabMatches', { text: searchText.trim() })}
+                color={COLORS.LABEL_L2_COLOR}
+              />
+            </div>
+          ) : (
+            // The saved pane's two lists over every window (TabDragArea,
+            // GroupDragArea), under Open now's own scopes: a tab at a time,
+            // and a whole group by its title row. No clampDropToEnds: a
+            // window's tab list is nested, and a release outside every window
+            // must be refused (isInsideList, KAN-132).
             <RowDragArea
-              scope={OPEN_ITEMS_SCOPE}
-              rowIds={drop.items.rowIds}
-              onMove={drop.items.onMove}
-              dragKind="group"
+              scope={OPEN_TABS_SCOPE}
+              rowIds={drop.tabs.rowIds}
+              onMove={drop.tabs.onMove}
+              dragKind="tab"
               dropsAcrossWindows
-              handleSelector="[data-group-drag-handle]"
-              restoreScrollIfNoDrop
-              landingRange={drop.items.landingRange}
-              acceptsWindow={drop.items.acceptsWindow}
+              resolveDrop={drop.tabs.resolveDrop}
+              onDropTargetChange={drop.tabs.onDropTargetChange}
+              landsBesideFixedRow={drop.tabs.landsBesideFixedRow}
+              fixedRowsRemovedBy={drop.tabs.fixedRowsRemovedBy}
+              gapChangesBy={drop.tabs.gapChangesBy}
+              fixedRowSelector="[data-fixed-row-id]"
+              landingRange={drop.tabs.landingRange}
+              acceptsWindow={drop.tabs.acceptsWindow}
+              // KAN-330 O14c: no row can be picked up while a search is held.
+              // The same rule as the saved pane's search (KAN-140), keyed on
+              // the term because Open now's field has no separate mode.
+              disabled={searchTerm !== null}
             >
-              {listed.map((openWindow, index) => (
-                <OpenNowWindow
-                  key={openWindow.id}
-                  openWindow={openWindow}
-                  index={index}
-                  isOpen={!collapsedIds.has(openWindow.id)}
-                  onToggle={() => toggleWindow(openWindow.id)}
-                  onCloseTab={(tab) => void handleCloseTab(openWindow, tab)}
-                  onSaveWindow={() => void handleSaveWindow(openWindow)}
-                  onCloseWindow={
-                    openWindow.isThisWindow
-                      ? undefined
-                      : () => void handleCloseWindow(openWindow)
-                  }
-                />
-              ))}
+              <RowDragArea
+                scope={OPEN_ITEMS_SCOPE}
+                rowIds={drop.items.rowIds}
+                onMove={drop.items.onMove}
+                dragKind="group"
+                dropsAcrossWindows
+                handleSelector="[data-group-drag-handle]"
+                restoreScrollIfNoDrop
+                landingRange={drop.items.landingRange}
+                acceptsWindow={drop.items.acceptsWindow}
+                disabled={searchTerm !== null}
+              >
+                {listed.map((openWindow, index) => {
+                  // Hidden by the search. `index` is still the window's place
+                  // in the WHOLE list, so "Window 3" stays Window 3 (O14a).
+                  const matchedTabIds =
+                    matches === null
+                      ? null
+                      : matches.get(openWindow.id) ?? null;
+                  if (matches !== null && matchedTabIds === null) return null;
+                  return (
+                    <OpenNowWindow
+                      key={openWindow.id}
+                      openWindow={openWindow}
+                      index={index}
+                      matchedTabIds={matchedTabIds}
+                      isOpen={!foldedIds.has(openWindow.id)}
+                      onToggle={() => toggleWindow(openWindow.id)}
+                      onCloseTab={(tab) => void handleCloseTab(openWindow, tab)}
+                      // Whole-window handlers. The row offers them only while
+                      // no search is held (O14e), so they never act on tabs
+                      // the search hides.
+                      onSaveWindow={() => void handleSaveWindow(openWindow)}
+                      onCloseWindow={
+                        openWindow.isThisWindow
+                          ? undefined
+                          : () => void handleCloseWindow(openWindow)
+                      }
+                    />
+                  );
+                })}
+              </RowDragArea>
             </RowDragArea>
-          </RowDragArea>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );

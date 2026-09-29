@@ -225,5 +225,9 @@
   "Pinned": "고정됨",
   "Close window": "창 닫기",
   "Save window as a session": "창을 세션으로 저장",
-  "Window saved as a session.": "창을 세션으로 저장했습니다."
+  "Window saved as a session.": "창을 세션으로 저장했습니다.",
+  "Search open tabs": "열린 탭 검색",
+  "Clear search": "검색 지우기",
+  "NoOpenTabMatches": "\"{{text}}\" 검색어와 일치하는 열린 탭이 없습니다",
+  "TabCountShownOfTotal_other": "탭 {{count}}개 중 {{shown}}개"
 }

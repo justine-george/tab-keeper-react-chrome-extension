@@ -1,3 +1,4 @@
+import { createRef } from 'react';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { act, fireEvent, screen, within } from '@testing-library/react';
 
@@ -400,7 +401,14 @@ describe('focus after a fold or unfold (O2)', () => {
 describe('the Open now heading looks as the label did', () => {
   test("the h2 has no margin, the body size (O1b), and its header's weight", async () => {
     await renderWithProviders(
-      <OpenNowPane windows={[]} actions={[]} headingId="open-now-heading" />
+      <OpenNowPane
+        windows={[]}
+        actions={[]}
+        headingId="open-now-heading"
+        searchText=""
+        onSearchTextChange={() => undefined}
+        searchInputRef={createRef<HTMLInputElement>()}
+      />
     );
 
     const heading = screen.getByRole('heading', { name: 'Open now' });

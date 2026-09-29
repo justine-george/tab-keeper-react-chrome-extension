@@ -1,3 +1,4 @@
+import { createRef } from 'react';
 import { describe, expect, test, vi } from 'vitest';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -148,7 +149,14 @@ describe('only a menu trigger holds a fill while expanded (KAN-329)', () => {
       windows: [{ id: 1, tabs: [{ title: 'A', url: 'https://a.test/' }] }],
     };
     const result = await renderWithProviders(
-      <OpenNowPane windows={null} actions={[]} headingId="h" />,
+      <OpenNowPane
+        windows={null}
+        actions={[]}
+        headingId="h"
+        searchText=""
+        onSearchTextChange={() => undefined}
+        searchInputRef={createRef<HTMLInputElement>()}
+      />,
       { seed }
     );
     const windows = toOpenWindows(
@@ -157,7 +165,14 @@ describe('only a menu trigger holds a fill while expanded (KAN-329)', () => {
       null
     );
     result.rerender(
-      <OpenNowPane windows={windows} actions={[]} headingId="h" />
+      <OpenNowPane
+        windows={windows}
+        actions={[]}
+        headingId="h"
+        searchText=""
+        onSearchTextChange={() => undefined}
+        searchInputRef={createRef<HTMLInputElement>()}
+      />
     );
 
     // PREMISE: the window is open, and its chevron says so.

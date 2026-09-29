@@ -1,4 +1,4 @@
-import { memo, useEffect, useId, useRef } from 'react';
+import { memo, useEffect, useId, useRef, useState } from 'react';
 
 import { useDispatch, useSelector } from 'react-redux';
 
@@ -35,6 +35,11 @@ function OpenNowColumn({ folded }: OpenNowColumnProps) {
   // O2. Side by side below 1100px the column is a rail. Folded, Open now
   // has the detail column's width, so it is the pane at any width.
   const showRail = isNarrow && !folded;
+
+  // KAN-330 O14. The search text lives here, above the rail <-> pane swap,
+  // so a resize across 1100px or a drawer close keeps it. Never stored.
+  const [searchText, setSearchText] = useState('');
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const headingId = useId();
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -76,6 +81,9 @@ function OpenNowColumn({ folded }: OpenNowColumnProps) {
         windows={windows}
         foldAction={foldAction}
         buttonRef={railButtonRef}
+        searchText={searchText}
+        onSearchTextChange={setSearchText}
+        searchInputRef={searchInputRef}
       />
     );
   }
@@ -85,6 +93,9 @@ function OpenNowColumn({ folded }: OpenNowColumnProps) {
       actions={[foldAction]}
       headingId={headingId}
       headingRef={headingRef}
+      searchText={searchText}
+      onSearchTextChange={setSearchText}
+      searchInputRef={searchInputRef}
     />
   );
 }

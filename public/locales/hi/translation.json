@@ -228,5 +228,10 @@
   "Pinned": "पिन किया गया",
   "Close window": "विंडो बंद करें",
   "Save window as a session": "विंडो को सत्र के रूप में सहेजें",
-  "Window saved as a session.": "विंडो सत्र के रूप में सहेजी गई।"
+  "Window saved as a session.": "विंडो सत्र के रूप में सहेजी गई।",
+  "Search open tabs": "खुले टैब खोजें",
+  "Clear search": "खोज साफ़ करें",
+  "NoOpenTabMatches": "\"{{text}}\" से मेल खाता कोई खुला टैब नहीं है",
+  "TabCountShownOfTotal_one": "{{count}} में से {{shown}} टैब",
+  "TabCountShownOfTotal_other": "{{count}} में से {{shown}} टैब्स"
 }

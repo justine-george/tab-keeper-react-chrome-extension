@@ -225,5 +225,9 @@
   "Pinned": "固定済み",
   "Close window": "ウィンドウを閉じる",
   "Save window as a session": "ウィンドウをセッションとして保存",
-  "Window saved as a session.": "ウィンドウをセッションとして保存しました。"
+  "Window saved as a session.": "ウィンドウをセッションとして保存しました。",
+  "Search open tabs": "開いているタブを検索",
+  "Clear search": "検索をクリア",
+  "NoOpenTabMatches": "「{{text}}」に一致する開いているタブはありません",
+  "TabCountShownOfTotal_other": "{{count}} 個中 {{shown}} 個のタブ"
 }

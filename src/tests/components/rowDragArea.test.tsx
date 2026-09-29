@@ -6,6 +6,11 @@ import {
   DraggableRow,
 } from '../../components/home/rightpane/rowDrag/RowDragArea';
 import { bandAt } from '../../components/home/rightpane/rowDrag/dropRules';
+import {
+  endDragHold,
+  isDragHeld,
+  whenDragReleases,
+} from '../../redux/dragHold';
 
 // The drag layer on its own, without WindowEntryContainer around it. What is
 // pinned here is the BEHAVIOUR the pane relies on -- when a drag starts, where
@@ -51,6 +56,7 @@ type OnDropTargetChange = (
 const Harness = ({
   onMove,
   onDropTargetChange,
+  disabled,
 }: {
   onMove: OnMove;
   // Optional and additive: every existing Harness usage renders with this
@@ -58,6 +64,8 @@ const Harness = ({
   // "nobody is listening" -- see the `if (onDropTargetChange && resolveDrop)`
   // guard beside the notifier.
   onDropTargetChange?: OnDropTargetChange;
+  // Optional for the same reason; RowDragArea defaults it to false.
+  disabled?: boolean;
 }) => (
   // `bandAt` is passed in rather than known to the area: the tab list is the
   // only caller that has a membership question at all.
@@ -66,6 +74,7 @@ const Harness = ({
     onMove={onMove}
     resolveDrop={resolveDrop}
     onDropTargetChange={onDropTargetChange}
+    disabled={disabled}
   >
     {/* Row `a` sits inside a band; `b` and `c` do not. */}
     <div data-band-id="grp" data-testid="band">
@@ -352,6 +361,191 @@ describe('when a drag should not happen at all', () => {
     moveTo(85);
     release(85);
 
+    expect(onMove).not.toHaveBeenCalled();
+  });
+});
+
+// KAN-335 (O14c). A list that turns drag off while a row is already held --
+// Open now, when a search starts mid-drag -- cancels that drag, and it ends
+// the way Esc ends one: nothing moves, the row goes back, the flag and the
+// hold (KAN-279 D12) are released with the held change run once, and the
+// click Chrome synthesizes for the release is swallowed. Every assertion runs
+// against Esc too, so "as Esc does" is checked here rather than claimed.
+describe('a drag disabled while held ends as Esc ends it (KAN-335)', () => {
+  let clicks: number;
+  const onClick = () => {
+    clicks += 1;
+  };
+
+  beforeEach(() => {
+    clicks = 0;
+    // Bubble phase on document, where React's root delegation sits: a click
+    // this never sees is a click no row handler runs on.
+    document.addEventListener('click', onClick);
+  });
+
+  afterEach(() => {
+    document.removeEventListener('click', onClick);
+    endDragHold();
+    document.documentElement.removeAttribute('data-dragging');
+  });
+
+  const ways: Array<'Escape' | 'disabled'> = ['Escape', 'disabled'];
+
+  test.each(ways)(
+    '%s: nothing moves, the hold is released once, and the release click is swallowed',
+    (way) => {
+      const onMove = vi.fn<OnMove>();
+      const { rerender } = render(<Harness onMove={onMove} />);
+      layout();
+      press('Row A', 15);
+      moveTo(85);
+      // The premise: a started drag, holding, with a change waiting on it.
+      expect(isDragHeld()).toBe(true);
+      expect(nodeFor('Row A').style.transform).not.toBe('');
+      const held = vi.fn();
+      whenDragReleases(held);
+
+      if (way === 'Escape') fireEvent.keyDown(window, { key: 'Escape' });
+      else rerender(<Harness onMove={onMove} disabled />);
+
+      // Ended at the cancel, before any release.
+      expect(isDragHeld()).toBe(false);
+      expect(held).toHaveBeenCalledTimes(1);
+      expect(document.documentElement.hasAttribute('data-dragging')).toBe(
+        false
+      );
+      expect(nodeFor('Row A').style.transform).toBe('');
+
+      // The release that follows does nothing, and the click Chrome
+      // dispatches for it opens nothing.
+      release(85);
+      fireEvent.click(nodeFor('Row A'), { clientX: 10, clientY: 85 });
+      expect(onMove).not.toHaveBeenCalled();
+      expect(clicks).toBe(0);
+    }
+  );
+
+  // The cancelled press's own click, however late its release comes. Chrome
+  // dispatches it when the press and the release share an element -- the
+  // held row, back in place after the cancel -- and a release is not bound by
+  // the 400ms a drop's click has: measured on the real artifact, a release
+  // 800ms after the cancel opened the tab (e2e/open-now-search.spec.ts).
+  test.each(ways)(
+    '%s: a release long after the cancel opens nothing, and the next click does',
+    (way) => {
+      const now = vi.spyOn(performance, 'now').mockReturnValue(1000);
+      try {
+        const onMove = vi.fn<OnMove>();
+        const { rerender } = render(<Harness onMove={onMove} />);
+        layout();
+        press('Row A', 15);
+        moveTo(85);
+        expect(isDragHeld()).toBe(true);
+
+        if (way === 'Escape') fireEvent.keyDown(window, { key: 'Escape' });
+        else rerender(<Harness onMove={onMove} disabled />);
+
+        // Five seconds on, well past any window a clock would give it.
+        now.mockReturnValue(6000);
+        release(15);
+        fireEvent.click(nodeFor('Row A'), { clientX: 10, clientY: 15 });
+        expect(clicks).toBe(0);
+
+        // CONTROL: a new press is a new gesture, and its click goes through.
+        press('Row A', 15);
+        release(15);
+        fireEvent.click(nodeFor('Row A'), { clientX: 10, clientY: 15 });
+        expect(clicks).toBe(1);
+        expect(onMove).not.toHaveBeenCalled();
+      } finally {
+        now.mockRestore();
+      }
+    }
+  );
+
+  // Armed until the release is not armed for ever: from the release it is the
+  // usual 400ms. A release off the row gets no click from Chrome, and a click
+  // with no press of its own -- Enter or Space on a focused button -- must
+  // not be the one that spends it.
+  test.each(ways)(
+    '%s: 400ms after the release, a click with no press goes through',
+    (way) => {
+      const now = vi.spyOn(performance, 'now').mockReturnValue(1000);
+      try {
+        const onMove = vi.fn<OnMove>();
+        const { rerender } = render(<Harness onMove={onMove} />);
+        layout();
+        press('Row A', 15);
+        moveTo(85);
+        expect(isDragHeld()).toBe(true);
+
+        if (way === 'Escape') fireEvent.keyDown(window, { key: 'Escape' });
+        else rerender(<Harness onMove={onMove} disabled />);
+
+        now.mockReturnValue(6000);
+        release(85);
+        now.mockReturnValue(6401);
+        fireEvent.click(nodeFor('Row A'));
+        expect(clicks).toBe(1);
+      } finally {
+        now.mockRestore();
+      }
+    }
+  );
+
+  // A pointer Chrome cancels is never released, so the suppression is left
+  // waiting for a release that never comes; a click meanwhile still goes
+  // through.
+  test('after an Esc and a pointercancel, a click goes through', () => {
+    const onMove = vi.fn<OnMove>();
+    render(<Harness onMove={onMove} />);
+    layout();
+    press('Row A', 15);
+    moveTo(85);
+    expect(isDragHeld()).toBe(true);
+    fireEvent.keyDown(window, { key: 'Escape' });
+    fireEvent.pointerCancel(document, { clientX: 10, clientY: 85 });
+    fireEvent.click(nodeFor('Row A'));
+    expect(clicks).toBe(1);
+  });
+
+  // While the cancelled press is still down, a click with no press of its
+  // own -- Enter or Space on a row reached with the arrows, Undo, a dialog
+  // button -- is the user's, not Chrome's for the press (that one only ever
+  // follows the pointerup), so it goes through (KAN-337).
+  test.each(ways)(
+    '%s, press still down: a keyboard click on another row goes through',
+    (way) => {
+      const onMove = vi.fn<OnMove>();
+      const { rerender } = render(<Harness onMove={onMove} />);
+      layout();
+      press('Row A', 15);
+      moveTo(85);
+      expect(isDragHeld()).toBe(true);
+
+      if (way === 'Escape') fireEvent.keyDown(window, { key: 'Escape' });
+      else rerender(<Harness onMove={onMove} disabled />);
+
+      fireEvent.click(nodeFor('Row B'));
+      expect(clicks).toBe(1);
+      expect(onMove).not.toHaveBeenCalled();
+    }
+  );
+
+  // A press still under the threshold when drag turns off is dropped too:
+  // left alone, the next move past the threshold would start a drag in a list
+  // that has turned drag off.
+  test('a press under the threshold when drag turns off never becomes a drag', () => {
+    const onMove = vi.fn<OnMove>();
+    const { rerender } = render(<Harness onMove={onMove} />);
+    layout();
+    press('Row A', 15);
+    rerender(<Harness onMove={onMove} disabled />);
+    moveTo(85);
+    expect(isDragHeld()).toBe(false);
+    expect(document.documentElement.hasAttribute('data-dragging')).toBe(false);
+    release(85);
     expect(onMove).not.toHaveBeenCalled();
   });
 });

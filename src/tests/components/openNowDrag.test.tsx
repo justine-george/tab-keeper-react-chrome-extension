@@ -1,3 +1,4 @@
+import { createRef } from 'react';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 
@@ -15,11 +16,18 @@ vi.mock('../../utils/functions/openNowMoves', async (importOriginal) => {
 
 import OpenNowPane from '../../components/home/opennow/OpenNowPane';
 import { setHasTabGroupsPermission } from '../../redux/slices/globalStateSlice';
-import { toOpenWindows } from '../../utils/functions/openNow';
-import type { OpenWindow } from '../../utils/functions/openNow';
 import { moveOpenGroup, moveOpenTab } from '../../utils/functions/openNowMoves';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import type { ChromeSeed } from '../setup/chrome.fake';
+import {
+  ROW,
+  drag,
+  find,
+  layOut,
+  snapshot,
+  tabRow,
+  url,
+} from '../setup/openNowDragHarness';
 
 // KAN-280 Part E, Task 6c. The Open now pane's rows are the drag engine's
 // rows: a tab or a whole group dragged there and released makes the Chrome
@@ -33,9 +41,6 @@ import type { ChromeSeed } from '../setup/chrome.fake';
 //   (gap 8)
 //   W2 block  ...      header, then its rows
 
-const ROW = 32;
-const GAP = 8;
-
 beforeEach(() => {
   vi.mocked(moveOpenTab).mockClear();
   vi.mocked(moveOpenGroup).mockClear();
@@ -46,90 +51,6 @@ afterEach(() => {
   document.documentElement.removeAttribute('data-dragging');
 });
 
-const box = (top: number, height: number): DOMRect => ({
-  top,
-  bottom: top + height,
-  left: 0,
-  right: 300,
-  height,
-  width: 300,
-  x: 0,
-  y: top,
-  toJSON: () => ({}),
-});
-
-const url = (name: string) => `https://${name}.test/`;
-
-async function snapshot(hasTabGroups: boolean): Promise<OpenWindow[]> {
-  const all = await chrome.windows.getAll({
-    populate: true,
-    windowTypes: ['normal'],
-  });
-  const groups =
-    hasTabGroups && chrome.tabGroups ? await chrome.tabGroups.query({}) : null;
-  return toOpenWindows(all, groups, null);
-}
-
-function find(selector: string): HTMLElement {
-  const el = document.querySelector<HTMLElement>(selector);
-  if (!el) throw new Error(`nothing matches ${selector}`);
-  return el;
-}
-
-// Gives every drawn part of `windows` its box, top to bottom, and returns
-// where each row and title row sits. A group is its title row, then its
-// tabs; its item row spans all of that.
-function layOut(
-  windows: readonly OpenWindow[],
-  folded: ReadonlySet<number> = new Set()
-) {
-  const top = new Map<string, number>();
-  let y = 0;
-  for (const window of windows) {
-    const start = y;
-    y += ROW; // the window's own row
-    top.set(`window:${window.id}`, start);
-    // A folded window draws its own row alone.
-    const drawn = folded.has(window.id) ? [] : window.tabs;
-    const seen = new Set<number>();
-    for (const tab of drawn) {
-      if (tab.groupId !== null && !seen.has(tab.groupId)) {
-        seen.add(tab.groupId);
-        const members = window.tabs.filter((t) => t.groupId === tab.groupId);
-        const groupTop = y;
-        const height = ROW * (members.length + 1);
-        find(
-          `[data-drag-row-id="group:${tab.groupId}"]`
-        ).getBoundingClientRect = () => box(groupTop, height);
-        find(`[data-fixed-row-id="${tab.groupId}"]`).getBoundingClientRect =
-          () => box(groupTop, ROW);
-        top.set(`group:${tab.groupId}`, groupTop);
-        y += ROW;
-      }
-      const rowTop = y;
-      find(`[data-drag-row-id="${tab.id}"]`).getBoundingClientRect = () =>
-        box(rowTop, ROW);
-      if (tab.groupId === null) {
-        find(`[data-drag-row-id="tab:${tab.id}"]`).getBoundingClientRect = () =>
-          box(rowTop, ROW);
-      }
-      top.set(String(tab.id), rowTop);
-      y += ROW;
-      const last = window.tabs.filter((t) => t.groupId === tab.groupId).pop();
-      if (tab.groupId !== null && last === tab) {
-        find(
-          `[data-fixed-row-id="${tab.groupId}:tail"]`
-        ).getBoundingClientRect = () => box(y, 0);
-      }
-    }
-    const height = y - start;
-    find(`[data-drop-window-id="${window.id}"]`).getBoundingClientRect = () =>
-      box(start, height);
-    y += GAP;
-  }
-  return top;
-}
-
 async function renderPane(seed: ChromeSeed, hasTabGroups: boolean) {
   const onMoved = vi.fn();
   // The fake is installed by renderWithProviders; the snapshot is read from
@@ -139,6 +60,9 @@ async function renderPane(seed: ChromeSeed, hasTabGroups: boolean) {
       windows={null}
       actions={[]}
       headingId="open-now-heading"
+      searchText=""
+      onSearchTextChange={() => undefined}
+      searchInputRef={createRef<HTMLInputElement>()}
       onMoved={onMoved}
     />,
     {
@@ -153,23 +77,15 @@ async function renderPane(seed: ChromeSeed, hasTabGroups: boolean) {
       windows={windows}
       actions={[]}
       headingId="open-now-heading"
+      searchText=""
+      onSearchTextChange={() => undefined}
+      searchInputRef={createRef<HTMLInputElement>()}
       onMoved={onMoved}
     />
   );
   await screen.findAllByRole('button', { name: /^Switch to tab: / });
   return { ...result, windows, onMoved, top: layOut(windows) };
 }
-
-// Presses `el` at y, crosses the activation distance, holds at `to`, and
-// releases there.
-function drag(el: HTMLElement, from: number, to: number) {
-  fireEvent.pointerDown(el, { clientX: 10, clientY: from, button: 0 });
-  fireEvent.pointerMove(document, { clientX: 10, clientY: from + 8 });
-  fireEvent.pointerMove(document, { clientX: 10, clientY: to });
-  fireEvent.pointerUp(document, { clientX: 10, clientY: to });
-}
-
-const tabRow = (id: number) => find(`[data-drag-row-id="${id}"]`);
 
 describe('a tab dragged in Open now moves the real tab', () => {
   // W1 [11*, 12], W2 [21*, 22]
