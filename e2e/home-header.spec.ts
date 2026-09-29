@@ -100,6 +100,19 @@ async function gapsBetween(page: Page, names: string[]): Promise<number[]> {
   return boxes.slice(1).map((b, i) => b.x - (boxes[i].x + boxes[i].width));
 }
 
+/**
+ * Space between the icon cluster's left edge and its first control. The
+ * cluster is right-aligned, so a stray gap lands HERE, on the left, taking
+ * room from the title: every between-controls gap and every right inset
+ * still reads correct with a margin on each pair instead of a gap on the
+ * cluster. The cluster is the row's last child, which shrinks to fit it.
+ */
+async function leadingGap(page: Page, firstName: string): Promise<number> {
+  const cluster = await boxOf(headerRow(page).locator(':scope > :last-child'));
+  const first = await boxOf(control(page, firstName));
+  return first.x - cluster.x;
+}
+
 /** How far each control's right edge sits from the header row's right edge. */
 async function insetsFromRight(page: Page, names: string[]): Promise<number[]> {
   const row = await boxOf(headerRow(page));
@@ -117,6 +130,7 @@ test.describe('the icons sit in three pairs, 8px apart (KAN-340 A + R1)', () => 
 
       // [Open in a tab, Sort] [Undo, Redo] [Sync, Settings]
       expect(await gapsBetween(page, POPUP_ORDER)).toEqual([0, 8, 0, 8, 0]);
+      expect(await leadingGap(page, POPUP_ORDER[0]), 'no leading gap').toBe(0);
 
       const row = await boxOf(headerRow(page));
       const search = await boxOf(control(page, 'Search'));
@@ -145,6 +159,10 @@ test.describe('the icons sit in three pairs, 8px apart (KAN-340 A + R1)', () => 
 
       await expect(control(page, 'Open in a tab')).toHaveCount(0);
       expect(await gapsBetween(page, SHARED)).toEqual([8, 0, 8, 0]);
+      expect(
+        await leadingGap(page, SHARED[0]),
+        'no leading gap where Open in a tab would be'
+      ).toBe(0);
       const [lastInset] = await insetsFromRight(page, ['Settings']);
       expect(lastInset, 'no stray gap after Settings').toBe(0);
     });
