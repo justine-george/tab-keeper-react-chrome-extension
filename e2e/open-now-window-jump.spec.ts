@@ -83,11 +83,15 @@ const lastFocused = (worker: Worker): Promise<number | null> =>
     async () => (await chrome.windows.getLastFocused()).id ?? null
   );
 
-const windowState = (worker: Worker, windowId: number): Promise<string> =>
-  worker.evaluate(
-    async (id: number) => (await chrome.windows.get(id)).state ?? '',
+async function windowState(worker: Worker, windowId: number): Promise<string> {
+  const state = await worker.evaluate(
+    async (id: number) => (await chrome.windows.get(id)).state ?? null,
     windowId
   );
+  if (state === null)
+    throw new Error(`Chrome gave window ${windowId} no state`);
+  return state;
+}
 
 const setState = (
   worker: Worker,
@@ -101,12 +105,15 @@ const setState = (
     { id: windowId, state }
   );
 
-const activeTabIn = (worker: Worker, windowId: number): Promise<number> =>
-  worker.evaluate(
+async function activeTabIn(worker: Worker, windowId: number): Promise<number> {
+  const id = await worker.evaluate(
     async (id: number) =>
-      (await chrome.tabs.query({ windowId: id, active: true }))[0]?.id ?? -1,
+      (await chrome.tabs.query({ windowId: id, active: true }))[0]?.id ?? null,
     windowId
   );
+  if (id === null) throw new Error(`window ${windowId} has no active tab`);
+  return id;
+}
 
 const windowOfTab = (worker: Worker, tabId: number): Promise<number> =>
   worker.evaluate(
@@ -363,6 +370,29 @@ test.describe('a window row goes to its window (KAN-331, KAN-341)', () => {
     await expect.poll(() => lastFocused(serviceWorker)).toBe(made.windowId);
   });
 
+  test('5b. a maximized window that is not minimized comes to the front and stays maximized', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    const { block, home, made } = await setUp(
+      context,
+      extensionId,
+      serviceWorker,
+      ['Alpha']
+    );
+    await setState(serviceWorker, made.windowId, 'maximized');
+    // PREMISE: Chrome really maximized it, and it did not take the front.
+    await expect
+      .poll(() => windowState(serviceWorker, made.windowId))
+      .toBe('maximized');
+    expect(await lastFocused(serviceWorker)).toBe(home);
+
+    await (await goTo(block)).click();
+    await expect.poll(() => lastFocused(serviceWorker)).toBe(made.windowId);
+    expect(await windowState(serviceWorker, made.windowId)).toBe('maximized');
+  });
+
   test('6. KAN-341: a tab click in a minimized window brings the window back with that tab in front', async ({
     context,
     extensionId,
@@ -403,19 +433,21 @@ test.describe('a window row goes to its window (KAN-331, KAN-341)', () => {
     const hover = rgb(LIGHT_THEME.HOVER_COLOR);
     const homeRow = windowRow(homeBlock);
     const homeStrip = homeRow.locator('[data-row-actions] > *').first();
+    const stripOpacity = () =>
+      homeStrip.evaluate((el) => getComputedStyle(el).opacity);
     await pointerAway(page);
+    // PREMISE: at rest the strip is hidden, so its showing below means the
+    // pointer really reached the row.
+    await expect.poll(stripOpacity).toBe('0');
     const resting = await backgroundOf(homeRow);
     // PREMISE: at rest the row is not the hover colour, so "stays resting"
     // below can tell the two apart.
-    console.log(`[7] resting ${resting}, hover ${hover}`);
     expect(resting).not.toBe(hover);
     await expect.poll(() => backgroundOf(windowRow(block))).toBe(resting);
 
     await windowTitle(homeBlock).hover();
     // The pointer really is over the row: its Save window strip shows.
-    await expect
-      .poll(() => homeStrip.evaluate((el) => getComputedStyle(el).opacity))
-      .toBe('1');
+    await expect.poll(stripOpacity).toBe('1');
     expect(await backgroundOf(homeRow)).toBe(resting);
 
     // CONTROL: the same hover on a row that goes to its window shades it.
@@ -443,7 +475,6 @@ test.describe('a window row goes to its window (KAN-331, KAN-341)', () => {
     expect(onButton.cursor).toBe('pointer');
 
     const onThis = await cursorOver(page, windowTitle(homeBlock));
-    console.log(`[8] ${JSON.stringify({ onButton, onThis })}`);
     expect(onThis.text).toBe(homeTitle);
     expect(onThis.cursor).not.toBe('pointer');
   });
@@ -478,7 +509,6 @@ test.describe('a window row goes to its window (KAN-331, KAN-341)', () => {
       () => lastFocused(serviceWorker),
       made.windowId
     );
-    console.log(`[9] control focus took ${took}ms`);
     expect(took).toBeLessThan(QUIET_MS);
   });
 
@@ -498,9 +528,10 @@ test.describe('a window row goes to its window (KAN-331, KAN-341)', () => {
     // A tab of This window to drag.
     const homeRow = await serviceWorker.evaluate(
       async ({ windowId, url }) =>
-        (await chrome.tabs.create({ windowId, url, active: false })).id ?? -1,
+        (await chrome.tabs.create({ windowId, url, active: false })).id ?? null,
       { windowId: home, url: dataUrl('Home row') }
     );
+    if (homeRow === null) throw new Error('Chrome gave the Home row no id');
     await expect(liveRowIn(homeBlock, 'Home row')).toBeVisible();
 
     // (a) This window's tab, carried onto the other window's row and dropped
@@ -571,7 +602,6 @@ test.describe('a window row goes to its window (KAN-331, KAN-341)', () => {
       () => isActive(serviceWorker, farTwo),
       true
     );
-    console.log(`[10] controls took ${took}ms (focus), ${tookTab}ms (tab)`);
     expect(tookTab).toBeLessThan(QUIET_MS);
   });
 
