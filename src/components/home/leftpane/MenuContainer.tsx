@@ -121,8 +121,8 @@ export default function MenuContainer() {
     chrome.runtime.sendMessage(request);
   }
 
-  // The control offers "sync now" only when syncing is possible AND something
-  // is out of sync. Every other case shows what is true instead.
+  // The control shows the `sync` glyph only when syncing is possible AND
+  // something may be out of sync. Every other case shows what is true instead.
   //
   // `isSignedIn` is checked FIRST and beats any status, because it is the only
   // one of the two that decides whether the action can work at all. It is not

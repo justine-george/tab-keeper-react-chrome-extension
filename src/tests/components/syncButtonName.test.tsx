@@ -83,6 +83,19 @@ const CASES: Case[] = [
     dimmed: false,
   },
   {
+    // KAN-346: a Sync now press with Auto Sync off can fail too.
+    state: 'manual, failed',
+    seed: (s) => {
+      ready(s);
+      s.dispatch(toggleAutoSync());
+      s.dispatch(setSyncStatus('error'));
+    },
+    name: 'Sync now',
+    description: 'Last sync failed',
+    tooltip: 'Last sync failed\nSync now',
+    dimmed: false,
+  },
+  {
     state: 'failed',
     seed: (s) => {
       ready(s);
