@@ -61,6 +61,14 @@ interface IconBaseProps {
   tooltipText?: string;
   text?: string;
   size?: string;
+  /**
+   * Draw the glyph at `size` inside the box an ICON.DEFAULT glyph gets, so a
+   * lighter glyph can sit among full-size neighbours without its target, its
+   * hover fill or its neighbours' positions changing (KAN-340). Derived from
+   * the two tokens rather than a px padding: every size here is rem, and a
+   * px value that matches at a 16px root is a pixel off at Chrome's "Large".
+   */
+  boxSizedFor?: typeof ICON.DEFAULT;
   style?: string;
   /**
    * Only meaningful on an actionable Icon, i.e. one with an onClick. A
@@ -110,6 +118,7 @@ const Icon: React.FC<IconProps> = ({
   tooltipText,
   text,
   size = ICON.DEFAULT,
+  boxSizedFor,
   style,
   ariaHasPopup,
   ariaExpanded,
@@ -195,7 +204,9 @@ const Icon: React.FC<IconProps> = ({
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    padding: 4px;
+    padding: ${boxSizedFor
+      ? `calc(4px + (${boxSizedFor} - ${size}) / 2)`
+      : '4px'};
     cursor: ${isActionable ? 'pointer' : 'inherit'};
     user-select: none;
     transition: background-color ${DURATION.MOVE};

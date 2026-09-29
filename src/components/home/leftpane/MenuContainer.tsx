@@ -25,6 +25,7 @@ import {
 import { SettingsCategory } from '../../../redux/slices/settingsCategoryStateSlice';
 import { setSessionDateBasis } from '../../../redux/slices/settingsDataStateSlice';
 import { useTranslation } from 'react-i18next';
+import { ICON } from '../../../styles/scale';
 import type { IconName } from '../../common/iconNames';
 import { isTabView } from '../../../utils/functions/viewMode';
 import {
@@ -303,6 +304,11 @@ export default function MenuContainer() {
         ariaLabel={t('Settings')}
         tooltipText={t('Settings')}
         type="settings"
+        // KAN-340 I1. The heaviest glyph in the row: at 24px its ink is
+        // 20x20, 2.6x Sort's. Drawn at SMALL it sits in line with Undo and
+        // Sync, in the same box, so nothing moves and the target stays whole.
+        size={ICON.SMALL}
+        boxSizedFor={ICON.DEFAULT}
         onClick={handleClickSettings}
         animationFrom={`transform: rotate(0deg);`}
         animationTo={`transform: rotate(120deg);`}
