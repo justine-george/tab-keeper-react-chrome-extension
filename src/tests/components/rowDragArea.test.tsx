@@ -426,6 +426,89 @@ describe('a drag disabled while held ends as Esc ends it (KAN-335)', () => {
     }
   );
 
+  // The cancelled press's own click, however late its release comes. Chrome
+  // dispatches it when the press and the release share an element -- the
+  // held row, back in place after the cancel -- and a release is not bound by
+  // the 400ms a drop's click has: measured on the real artifact, a release
+  // 800ms after the cancel opened the tab (e2e/open-now-search.spec.ts).
+  test.each(ways)(
+    '%s: a release long after the cancel opens nothing, and the next click does',
+    (way) => {
+      const now = vi.spyOn(performance, 'now').mockReturnValue(1000);
+      try {
+        const onMove = vi.fn<OnMove>();
+        const { rerender } = render(<Harness onMove={onMove} />);
+        layout();
+        press('Row A', 15);
+        moveTo(85);
+        expect(isDragHeld()).toBe(true);
+
+        if (way === 'Escape') fireEvent.keyDown(window, { key: 'Escape' });
+        else rerender(<Harness onMove={onMove} disabled />);
+
+        // Five seconds on, well past any window a clock would give it.
+        now.mockReturnValue(6000);
+        release(15);
+        fireEvent.click(nodeFor('Row A'), { clientX: 10, clientY: 15 });
+        expect(clicks).toBe(0);
+
+        // CONTROL: a new press is a new gesture, and its click goes through.
+        press('Row A', 15);
+        release(15);
+        fireEvent.click(nodeFor('Row A'), { clientX: 10, clientY: 15 });
+        expect(clicks).toBe(1);
+        expect(onMove).not.toHaveBeenCalled();
+      } finally {
+        now.mockRestore();
+      }
+    }
+  );
+
+  // Armed until the release is not armed for ever: from the release it is the
+  // usual 400ms. A release off the row gets no click from Chrome, and a click
+  // with no press of its own -- Enter or Space on a focused button -- must
+  // not be the one that spends it.
+  test.each(ways)(
+    '%s: 400ms after the release, a click with no press goes through',
+    (way) => {
+      const now = vi.spyOn(performance, 'now').mockReturnValue(1000);
+      try {
+        const onMove = vi.fn<OnMove>();
+        const { rerender } = render(<Harness onMove={onMove} />);
+        layout();
+        press('Row A', 15);
+        moveTo(85);
+        expect(isDragHeld()).toBe(true);
+
+        if (way === 'Escape') fireEvent.keyDown(window, { key: 'Escape' });
+        else rerender(<Harness onMove={onMove} disabled />);
+
+        now.mockReturnValue(6000);
+        release(85);
+        now.mockReturnValue(6401);
+        fireEvent.click(nodeFor('Row A'));
+        expect(clicks).toBe(1);
+      } finally {
+        now.mockRestore();
+      }
+    }
+  );
+
+  // A pointer Chrome cancels is never released and gets no click, so what
+  // waited for its release is dropped with it.
+  test('after an Esc, a pointercancel drops the suppression', () => {
+    const onMove = vi.fn<OnMove>();
+    render(<Harness onMove={onMove} />);
+    layout();
+    press('Row A', 15);
+    moveTo(85);
+    expect(isDragHeld()).toBe(true);
+    fireEvent.keyDown(window, { key: 'Escape' });
+    fireEvent.pointerCancel(document, { clientX: 10, clientY: 85 });
+    fireEvent.click(nodeFor('Row A'));
+    expect(clicks).toBe(1);
+  });
+
   // A press still under the threshold when drag turns off is dropped too:
   // left alone, the next move past the threshold would start a drag in a list
   // that has turned drag off.

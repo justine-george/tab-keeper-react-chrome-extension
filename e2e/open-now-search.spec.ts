@@ -652,8 +652,20 @@ test.describe('a search typed while a row is held (KAN-330)', () => {
       'Row two',
       'Row three',
     ]);
-    const [, , rowThree] = ids;
-    if (rowThree === undefined) throw new Error('no Row three');
+    const [rowOne, , rowThree] = ids;
+    if (rowOne === undefined || rowThree === undefined)
+      throw new Error('no Row one or Row three');
+    // Row three active in its window, so a click that reaches Row one's
+    // Switch button has something to change.
+    await serviceWorker.evaluate(
+      (id: number) => chrome.tabs.update(id, { active: true }),
+      rowThree
+    );
+    const isActive = (id: number) =>
+      serviceWorker.evaluate(
+        async (tabId: number) => (await chrome.tabs.get(tabId)).active,
+        id
+      );
     const page = await openPage(context, extensionId, VIEW_TAB, {
       width: 1600,
       height: 800,
@@ -703,13 +715,119 @@ test.describe('a search typed while a row is held (KAN-330)', () => {
       )
       .toBe(false);
 
-    // Released where, before the search, Row three would land above Row one.
-    await page.mouse.move(x, one.y - 2, { steps: 10 });
-    await page.waitForTimeout(350);
+    // Released late, on Row one's Switch button: past the 400ms the
+    // suppression is armed for, so only the gesture can keep this from
+    // opening Row one. Measured 2026-09-28 before the fix: no click event
+    // reached the page at all (the press's row was unmounted by the search,
+    // so the press and the release share no button), Row one stayed
+    // inactive, and a plain click on it afterwards switched.
+    // {"rowOneActive":false,"rowThreeActive":true,"indices":[0,1,2]}
+    expect(await isActive(rowOne)).toBe(false);
+    await page.waitForTimeout(800);
+    const target = await liveRow(page, 'Row one').boundingBox();
+    if (target === null) throw new Error('Row one has no box');
+    await page.mouse.move(
+      target.x + target.width / 2,
+      target.y + target.height / 2,
+      { steps: 10 }
+    );
     await page.mouse.up();
     await page.waitForTimeout(800);
     expect(await indices()).toEqual(before);
+    expect(await isActive(rowOne)).toBe(false);
+    // CONTROL: an ordinary click on the same button switches, so the check
+    // above can see a switch.
+    await liveRow(page, 'Row one').click();
+    await expect.poll(() => isActive(rowOne)).toBe(true);
   });
+
+  // KAN-335's worst path. When the row stays drawn after the cancel, the
+  // press and a release back on it share the row, so Chrome dispatches a
+  // click for them however late the release comes. Measured 2026-09-28
+  // before the fix, both ways: the click reached the row's DIV 800ms after
+  // the cancel and Chrome switched to Row three.
+  // {"before":{"rowOne":true,"rowThree":false},"clicks":["DIV[]"],
+  //  "after":{"rowOne":false,"rowThree":true}}
+  const cancels: Array<'a search that keeps the row' | 'Esc'> = [
+    'a search that keeps the row',
+    'Esc',
+  ];
+  for (const cancel of cancels) {
+    test(`${cancel} cancels the drag, and a late release on the held row opens nothing`, async ({
+      context,
+      extensionId,
+      serviceWorker,
+    }) => {
+      const [rowOne, , rowThree] = await openWindow(serviceWorker, [
+        'Row one',
+        'Row two',
+        'Row three',
+      ]);
+      if (rowOne === undefined || rowThree === undefined)
+        throw new Error('no Row one or Row three');
+      await serviceWorker.evaluate(
+        (id: number) => chrome.tabs.update(id, { active: true }),
+        rowOne
+      );
+      const isActive = (id: number) =>
+        serviceWorker.evaluate(
+          async (tabId: number) => (await chrome.tabs.get(tabId)).active,
+          id
+        );
+      const page = await openPage(context, extensionId, VIEW_TAB, {
+        width: 1600,
+        height: 800,
+      });
+      await expect(liveRow(page, 'Row three')).toBeVisible();
+      const from = await liveRow(page, 'Row three').boundingBox();
+      if (from === null) throw new Error('Row three has no box');
+      const x = from.x + from.width / 2;
+      const y = from.y + from.height / 2;
+      await page.mouse.move(x, y);
+      await page.mouse.down();
+      await page.mouse.move(x, y + 10, { steps: 3 });
+      await expect.poll(() => isHeld(page)).toBe(true);
+
+      if (cancel === 'Esc') {
+        await page.keyboard.press('Escape');
+      } else {
+        const fieldFocused = () =>
+          field(page).evaluate((input) => input === document.activeElement);
+        for (let i = 0; i < 30 && !(await fieldFocused()); i++) {
+          await page.keyboard.press('Shift+Tab');
+        }
+        await page.keyboard.type('row');
+        await expect(field(page)).toHaveValue('row');
+      }
+      await expect
+        .poll(() =>
+          page.evaluate(() =>
+            document.documentElement.hasAttribute('data-dragging')
+          )
+        )
+        .toBe(false);
+
+      // Twice the 400ms a release's suppression lasts, then back onto the
+      // row that was held and released there.
+      await page.waitForTimeout(800);
+      const back = await liveRow(page, 'Row three').boundingBox();
+      if (back === null) throw new Error('Row three has no box');
+      await page.mouse.move(back.x + back.width / 2, back.y + back.height / 2, {
+        steps: 10,
+      });
+      // PREMISE: Row three is not the active tab, so a switch would show.
+      expect(await isActive(rowThree)).toBe(false);
+      await page.mouse.up();
+      await page.waitForTimeout(800);
+      expect(await isActive(rowThree)).toBe(false);
+      expect(await isActive(rowOne)).toBe(true);
+
+      // CONTROL: the next ordinary click on the same row switches -- the
+      // suppression ate only the cancelled press's own click.
+      await liveRow(page, 'Row three').click();
+      await expect.poll(() => isActive(rowThree)).toBe(true);
+    });
+  }
 });
 
 // ---- measured: the two × columns with a classic scrollbar ----
