@@ -71,7 +71,7 @@ interface OpenNowPaneProps {
   // drawer, KAN-280 O2).
   headingRef?: Ref<HTMLHeadingElement>;
   // The search field's text (KAN-330 O14). Held by OpenNowColumn, above the
-  // pane <-> drawer swap, so a resize or a drawer close keeps it.
+  // pane ↔ drawer swap, so a resize or a drawer close keeps it.
   searchText: string;
   onSearchTextChange: (text: string) => void;
   // The field. The caller holds it so the drawer can focus it on open (R1).
@@ -168,7 +168,7 @@ export default function OpenNowPane({
     searchTerm === null ? setCollapsedIds : setSearchCollapsedIds;
 
   // A search starting (no term -> a term) starts its own folds afresh. Every
-  // way the text changes -- typing, the clear x, Esc -- comes through here.
+  // way the text changes -- typing, the clear ×, Esc -- comes through here.
   const handleSearchTextChange = (text: string) => {
     if (searchTerm === null && searchTermOf(text) !== null) {
       setSearchCollapsedIds(new Set());
@@ -192,6 +192,9 @@ export default function OpenNowPane({
   const hasTabGroupsPermission = useSelector(
     (state: RootState) => state.globalState.hasTabGroupsPermission
   );
+  // The whole list, not only what a search draws: safe only because drag is
+  // off while a search is held (O14c) and a search that starts mid-drag
+  // cancels the drag (KAN-335).
   const drop = useOpenNowDrop({
     windows: listed,
     hasTabGroups: hasTabGroupsPermission,
@@ -414,9 +417,9 @@ export default function OpenNowPane({
   };
   useSearchShortcut(focusSearchField);
 
-  // KAN-330 K1. Down/up on a drawn tab's Switch button move to the next or
-  // previous one; up on the first goes back to the field. Other targets (a
-  // x, a chevron) keep the keys.
+  // KAN-330 K1. ↓/↑ on a drawn tab's Switch button move to the next or
+  // previous one; ↑ on the first goes back to the field. Other targets (a
+  // ×, a chevron) keep the keys.
   const handleListKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
     const buttons = drawnSwitchButtons(paneRef.current);

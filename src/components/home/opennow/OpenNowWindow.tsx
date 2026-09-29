@@ -294,6 +294,9 @@ export default function OpenNowWindow({
   // afterwards. One partition rule for both panes, so a live group draws where
   // the saved one would -- and the one the drag geometry counts rows with
   // (useOpenNowDrop), so a drop's index names the row drawn there (KAN-131).
+  // That geometry reads the whole window, not only what a search draws: safe
+  // only because drag is off while a search is held (O14c) and a search that
+  // starts mid-drag cancels the drag (KAN-335).
   // KAN-330 O14a. What this window draws: every tab, or a search's matches.
   // Only drawing narrows; the handlers below still get the whole window.
   const drawnTabs =

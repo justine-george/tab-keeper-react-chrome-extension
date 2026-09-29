@@ -19,7 +19,7 @@ interface OpenNowRailProps {
   // back can focus it (OpenNowColumn).
   buttonRef: RefObject<HTMLButtonElement>;
   // The search field's text (KAN-330 O14). Held by OpenNowColumn, above the
-  // pane <-> drawer swap, so a resize or a drawer close keeps it.
+  // pane ↔ drawer swap, so a resize or a drawer close keeps it.
   searchText: string;
   onSearchTextChange: (text: string) => void;
   // The field. The caller holds it so the drawer can focus it on open (R1).

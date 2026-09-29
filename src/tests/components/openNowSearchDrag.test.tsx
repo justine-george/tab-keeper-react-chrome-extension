@@ -32,12 +32,12 @@ import {
 } from '../setup/openNowDragHarness';
 
 // KAN-330 O14c. While the Open now field holds a search, no tab or group row
-// can be picked up; clearing the search turns drag back on. The helpers below
-// are openNowDrag.test.tsx's (ROW, GAP, box, url, snapshot, find, layOut,
-// drag, tabRow), trimmed to what these tests use; the pane is stateful so
-// typing reaches it. Every search here is "test", which matches every tab, so
-// every row is still drawn and layOut can measure all of them: the search is
-// the only thing that differs from the plain drag tests.
+// can be picked up; clearing the search turns drag back on. The helpers are
+// the ones openNowDrag.test.tsx uses, both importing them from
+// setup/openNowDragHarness; the pane is stateful so typing reaches it. Every
+// search here is "test", which matches every tab, so every row is still
+// drawn and layOut can measure all of them: the search is the only thing
+// that differs from the plain drag tests.
 
 beforeEach(() => {
   vi.mocked(moveOpenTab).mockClear();
