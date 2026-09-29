@@ -32,6 +32,7 @@ import {
   type SyncKind,
 } from '../../settings/rightpane/Account/describeSyncState';
 import { isTabView } from '../../../utils/functions/viewMode';
+import { getPrettyDate } from '../../../utils/functions/local';
 import {
   OPEN_IN_TAB_MESSAGE,
   OpenInTabRequest,
@@ -53,6 +54,9 @@ export default function MenuContainer() {
   );
   const isAutoSync = useSelector(
     (state: RootState) => state.settingsDataState.isAutoSync
+  );
+  const lastSyncedTime = useSelector(
+    (state: RootState) => state.settingsDataState.lastSyncedTime
   );
 
   // i18n.language feeds the reducer's title collation; see sortItems below.
@@ -169,6 +173,19 @@ export default function MenuContainer() {
       syncStatus,
     }).kind
   );
+
+  // Once synced there is nothing known to send, so the second line says when
+  // instead of "Sync now", as the card does (KAN-255). A click still reads
+  // the cloud for other devices' changes -- firestore/lite has no listener --
+  // so the name stays the action. Keyed on the glyph that says synced.
+  const syncedWhen =
+    syncIconType === 'cloud_done' && lastSyncedTime !== ''
+      ? t('Last synced {{time}}', {
+          time: getPrettyDate(lastSyncedTime, i18n.language),
+        })
+      : null;
+  const syncDetail =
+    syncedWhen === null ? syncState : `${syncState}\n${syncedWhen}`;
 
   // One literal key per state, so keyCoverage sees every one. The card's own
   // t(state.title) takes a variable, which it can't check.
@@ -365,8 +382,13 @@ export default function MenuContainer() {
       <div css={pairStyle}>
         <Icon
           ariaLabel={dimmedBecause ?? t('Sync now')}
-          ariaDescription={dimmedBecause === null ? syncState : undefined}
-          tooltipText={dimmedBecause ?? `${syncState}\n${t('Sync now')}`}
+          ariaDescription={dimmedBecause === null ? syncDetail : undefined}
+          tooltipText={
+            dimmedBecause ??
+            (syncedWhen === null
+              ? `${syncState}\n${t('Sync now')}`
+              : syncDetail)
+          }
           type={syncIconType}
           onClick={handleClickSync}
           disable={dimmedBecause !== null}

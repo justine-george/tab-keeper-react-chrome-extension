@@ -12,8 +12,10 @@ import {
 import {
   declineCloudConsent,
   grantCloudConsent,
+  setLastSyncedTime,
   toggleAutoSync,
 } from '../../redux/slices/settingsDataStateSlice';
+import { getPrettyDate } from '../../utils/functions/local';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { testI18n } from '../setup/i18nForTests';
 import type { makeTestStore } from '../setup/makeStore';
@@ -32,6 +34,10 @@ import type { makeTestStore } from '../setup/makeStore';
 // where the card keeps describing the setting.
 
 type Store = ReturnType<typeof makeTestStore>['store'];
+
+/** When the last sync finished, as the card shows it (KAN-255). */
+const SYNCED_AT = Date.UTC(2026, 8, 29, 23, 28, 40);
+const WHEN = `Last synced ${getPrettyDate(SYNCED_AT, 'en')}`;
 
 /** Signed in, a cloud configured, and the sync question answered yes. */
 function ready(store: Store): void {
@@ -99,6 +105,8 @@ const CASES: Case[] = [
     state: 'failed',
     seed: (s) => {
       ready(s);
+      // A time on record must not read as reassurance over a failure.
+      s.dispatch(setLastSyncedTime(SYNCED_AT));
       s.dispatch(setSyncStatus('error'));
     },
     name: 'Sync now',
@@ -118,10 +126,54 @@ const CASES: Case[] = [
     dimmed: true,
   },
   {
+    // Once synced there is nothing known to send, so the second line says
+    // when, as the card does (Justine's pick A, 2026-09-29). A click still
+    // reads the cloud for other devices' changes, so the name stays.
     state: 'synced',
     seed: (s) => {
       ready(s);
+      s.dispatch(setLastSyncedTime(SYNCED_AT));
       s.dispatch(setSyncStatus('success'));
+    },
+    name: 'Sync now',
+    description: `Cloud sync on\n${WHEN}`,
+    tooltip: `Cloud sync on\n${WHEN}`,
+    dimmed: false,
+  },
+  {
+    state: 'manual, synced',
+    seed: (s) => {
+      ready(s);
+      s.dispatch(toggleAutoSync());
+      s.dispatch(setLastSyncedTime(SYNCED_AT));
+      s.dispatch(setSyncStatus('success'));
+    },
+    name: 'Sync now',
+    description: `Manual sync\n${WHEN}`,
+    tooltip: `Manual sync\n${WHEN}`,
+    dimmed: false,
+  },
+  {
+    // Worst path: the glyph says synced but no time was stored. Nothing to
+    // say when, so the action line stays.
+    state: 'synced, no time recorded',
+    seed: (s) => {
+      ready(s);
+      s.dispatch(setSyncStatus('success'));
+    },
+    name: 'Sync now',
+    description: 'Cloud sync on',
+    tooltip: 'Cloud sync on\nSync now',
+    dimmed: false,
+  },
+  {
+    // An edit here hasn't reached the cloud (the `sync` glyph), so "Sync now"
+    // is true, even with an earlier sync's time on record.
+    state: 'not synced yet, an earlier time on record',
+    seed: (s) => {
+      ready(s);
+      s.dispatch(setLastSyncedTime(SYNCED_AT));
+      s.dispatch(setSyncStatus('idle'));
     },
     name: 'Sync now',
     description: 'Cloud sync on',
@@ -171,17 +223,19 @@ const SYNC_GLYPHS = [
 ];
 
 /**
- * The words the rendered sync button uses for the state: its description when
- * it is clickable, its name when it is dimmed.
+ * The words the rendered sync button uses for the state: its description's
+ * first line when it is clickable (a second line may say when it synced), its
+ * name when it is dimmed.
  */
 function renderedStateWords(): string | null {
   const button = screen
     .getAllByRole('button')
     .find((b) => SYNC_GLYPHS.includes(b.textContent ?? ''));
   if (button === undefined) throw new Error('no sync button in the header');
-  return (
-    button.getAttribute('aria-description') ?? button.getAttribute('aria-label')
-  );
+  const description = button.getAttribute('aria-description');
+  return description === null
+    ? button.getAttribute('aria-label')
+    : description.split('\n')[0];
 }
 
 /** The Sync & Backup card's title key for the store's current facts. */
