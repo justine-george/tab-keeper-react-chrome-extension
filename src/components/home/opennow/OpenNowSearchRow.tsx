@@ -44,6 +44,16 @@ export default function OpenNowSearchRow({
   const { t } = useTranslation();
 
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    // While an IME composes a word, its keys are the IME's: the Enter that
+    // confirms the word, the arrows that pick a candidate, the Esc that
+    // cancels it. Measured in Chromium, each arrives here with isComposing
+    // true, and acted on it switched Chrome to a tab, took focus out of the
+    // field mid-word, and emptied the field. Stopped as well, so the
+    // drawer's Esc (O2) does not close around a word being cancelled.
+    if (event.nativeEvent.isComposing) {
+      event.stopPropagation();
+      return;
+    }
     if (event.key === 'ArrowDown') {
       event.preventDefault();
       onArrowDown();

@@ -1,4 +1,9 @@
-import type { BrowserContext, Page, Worker } from '@playwright/test';
+import type {
+  BrowserContext,
+  CDPSession,
+  Page,
+  Worker,
+} from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
 import { localeStrings } from './fixtures/locales';
@@ -44,7 +49,8 @@ async function openTab(worker: Worker, title: string): Promise<number> {
   const id = await worker.evaluate(
     (url: string) =>
       chrome.tabs.create({ url, active: false }).then((t) => t.id ?? null),
-    `data:text/html,<title>${title}</title>`
+    // utf-8, or a title outside Latin-1 (the IME cases) arrives garbled.
+    `data:text/html;charset=utf-8,<title>${title}</title>`
   );
   if (id === null) throw new Error(`Chrome gave the ${title} tab no id`);
   return id;
@@ -828,6 +834,116 @@ test.describe('a search typed while a row is held (KAN-330)', () => {
       await expect.poll(() => isActive(rowThree)).toBe(true);
     });
   }
+});
+
+// ---- an IME composing a word in the field ----
+
+// Measured 2026-09-28 (headless Chromium, this build before the fix), with
+// CDP's Input.imeSetComposition('きょう') then Input.dispatchKeyEvent: every
+// key reached the field's handler with isComposing true, and acted on it.
+// {"mode":"enter13","log":[{"type":"compositionstart"},{"type":"keydown",
+//  "key":"Enter","keyCode":13,"isComposing":true,"value":"きょう"},
+//  {"type":"compositionend"}],"value":"きょう","targetActive":true}
+// The same with keyCode 229 switched too; ↓ left the field
+// (fieldFocused false); Esc emptied it (value ""). The control, the same
+// Enter with the text typed and no composition, arrived with isComposing
+// false and switched.
+test.describe('an IME composing a word in the field (KAN-330)', () => {
+  // The tab the word matches, and the only one drawn while it is composed.
+  async function composing(
+    page: Page,
+    context: BrowserContext
+  ): Promise<CDPSession> {
+    await expect(liveRow(page, 'きょうの予定')).toBeVisible();
+    await field(page).focus();
+    const cdp = await context.newCDPSession(page);
+    await cdp.send('Input.imeSetComposition', {
+      text: 'きょう',
+      selectionStart: 3,
+      selectionEnd: 3,
+    });
+    await expect(field(page)).toHaveValue('きょう');
+    // PREMISE: the composed text is already the search.
+    await expect(liveRow(page, 'Other tab')).toHaveCount(0);
+    return cdp;
+  }
+
+  const keys = {
+    Enter: { key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 },
+    'Enter (229)': { key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 229 },
+    ArrowDown: {
+      key: 'ArrowDown',
+      code: 'ArrowDown',
+      windowsVirtualKeyCode: 40,
+    },
+    Escape: { key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 },
+  };
+
+  for (const [name, key] of Object.entries(keys)) {
+    test(`${name} while composing leaves the tab, the focus and the text alone`, async ({
+      context,
+      extensionId,
+      serviceWorker,
+    }) => {
+      const target = await openTab(serviceWorker, 'きょうの予定');
+      await openTab(serviceWorker, 'Other tab');
+      const page = await openPage(context, extensionId, VIEW_TAB, {
+        width: 1600,
+        height: 800,
+      });
+      const cdp = await composing(page, context);
+      await cdp.send('Input.dispatchKeyEvent', { type: 'rawKeyDown', ...key });
+      await cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', ...key });
+      await page.waitForTimeout(500);
+      const tabActive = () =>
+        serviceWorker.evaluate(
+          async (id: number) => (await chrome.tabs.get(id)).active,
+          target
+        );
+      expect(await tabActive()).toBe(false);
+      await expect(field(page)).toBeFocused();
+      await expect(field(page)).toHaveValue('きょう');
+
+      // CONTROL: the same text typed rather than composed, and Enter
+      // switches to the same tab.
+      await field(page).fill('きょう');
+      await field(page).press('Enter');
+      await expect.poll(tabActive).toBe(true);
+    });
+  }
+
+  test('Esc while composing in the drawer leaves the drawer open', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    await openTab(serviceWorker, 'きょうの予定');
+    await openTab(serviceWorker, 'Other tab');
+    await seedTwoSessions(context);
+    await seedSideBySide(context);
+    const page = await openPage(context, extensionId, VIEW_TAB, {
+      width: 1024,
+      height: 768,
+    });
+    await railButton(page).click();
+    const drawer = page.getByRole('dialog', { name: 'Open now' });
+    await expect(drawer).toBeVisible();
+    const cdp = await composing(page, context);
+    const esc = { key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 };
+    await cdp.send('Input.dispatchKeyEvent', { type: 'rawKeyDown', ...esc });
+    await cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', ...esc });
+    await page.waitForTimeout(300);
+    await expect(drawer).toBeVisible();
+    await expect(field(page)).toHaveValue('きょう');
+
+    // CONTROL: the same text typed rather than composed, Esc clears it, and
+    // Esc again closes the drawer.
+    await field(page).fill('きょう');
+    await page.keyboard.press('Escape');
+    await expect(field(page)).toHaveValue('');
+    await page.keyboard.press('Escape');
+    await expect(drawer).toHaveCount(0);
+  });
 });
 
 // ---- measured: the two × columns with a classic scrollbar ----
