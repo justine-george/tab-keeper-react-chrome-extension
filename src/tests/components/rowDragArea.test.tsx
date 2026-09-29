@@ -494,9 +494,10 @@ describe('a drag disabled while held ends as Esc ends it (KAN-335)', () => {
     }
   );
 
-  // A pointer Chrome cancels is never released and gets no click, so what
-  // waited for its release is dropped with it.
-  test('after an Esc, a pointercancel drops the suppression', () => {
+  // A pointer Chrome cancels is never released, so the suppression is left
+  // waiting for a release that never comes; a click meanwhile still goes
+  // through.
+  test('after an Esc and a pointercancel, a click goes through', () => {
     const onMove = vi.fn<OnMove>();
     render(<Harness onMove={onMove} />);
     layout();
@@ -508,6 +509,29 @@ describe('a drag disabled while held ends as Esc ends it (KAN-335)', () => {
     fireEvent.click(nodeFor('Row A'));
     expect(clicks).toBe(1);
   });
+
+  // While the cancelled press is still down, a click with no press of its
+  // own -- Enter or Space on a row reached with the arrows, Undo, a dialog
+  // button -- is the user's, not Chrome's for the press (that one only ever
+  // follows the pointerup), so it goes through (KAN-337).
+  test.each(ways)(
+    '%s, press still down: a keyboard click on another row goes through',
+    (way) => {
+      const onMove = vi.fn<OnMove>();
+      const { rerender } = render(<Harness onMove={onMove} />);
+      layout();
+      press('Row A', 15);
+      moveTo(85);
+      expect(isDragHeld()).toBe(true);
+
+      if (way === 'Escape') fireEvent.keyDown(window, { key: 'Escape' });
+      else rerender(<Harness onMove={onMove} disabled />);
+
+      fireEvent.click(nodeFor('Row B'));
+      expect(clicks).toBe(1);
+      expect(onMove).not.toHaveBeenCalled();
+    }
+  );
 
   // A press still under the threshold when drag turns off is dropped too:
   // left alone, the next move past the threshold would start a drag in a list

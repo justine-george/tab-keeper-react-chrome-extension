@@ -721,13 +721,17 @@ test.describe('a search typed while a row is held (KAN-330)', () => {
       )
       .toBe(false);
 
-    // Released late, on Row one's Switch button: past the 400ms the
-    // suppression is armed for, so only the gesture can keep this from
-    // opening Row one. Measured 2026-09-28 before the fix: no click event
-    // reached the page at all (the press's row was unmounted by the search,
-    // so the press and the release share no button), Row one stayed
-    // inactive, and a plain click on it afterwards switched.
+    // Released late, 800ms after the cancel, on Row one's Switch button.
+    // Measured 2026-09-28, before the late-release fix (d63ef50): no click
+    // event reached the page at all -- the press's row was unmounted by the
+    // search, so the press and the release share no element and Chrome
+    // dispatches none -- Row one stayed inactive, and a plain click on it
+    // afterwards switched.
     // {"rowOneActive":false,"rowThreeActive":true,"indices":[0,1,2]}
+    // Since that fix a click for this release would be swallowed anyway (the
+    // suppression waits for the cancelled press's pointerup, then lasts
+    // 400ms), so two things now keep Row one shut. The case where Chrome
+    // does dispatch the click is the pair of tests below.
     expect(await isActive(rowOne)).toBe(false);
     await page.waitForTimeout(800);
     const target = await liveRow(page, 'Row one').boundingBox();

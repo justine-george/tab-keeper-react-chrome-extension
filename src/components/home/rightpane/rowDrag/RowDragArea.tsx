@@ -1298,7 +1298,8 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // release, and onUp starts the 400ms from there (KAN-335): the click
       // follows the release, not the cancel, and the release can come any
       // time later. Measured on the real artifact: 800ms after an Esc, a
-      // release back on the held row opened its tab.
+      // release back on the held row opened its tab. While it waits it eats
+      // no click (KAN-337, see onClickCapture).
       suppressClickUntil.current = pressStillDown
         ? Number.POSITIVE_INFINITY
         : performance.now() + 400;
@@ -1371,16 +1372,19 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') finish(false, true);
     };
-    // The pointer is gone: Chrome dispatches no click after a pointercancel,
-    // so a suppression still waiting for this press's release is dropped.
-    const onCancel = () => {
-      finish(false, false);
-      if (suppressClickUntil.current === Number.POSITIVE_INFINITY)
-        suppressClickUntil.current = 0;
-    };
+    // After a pointercancel Chrome dispatches no click. A suppression still
+    // waiting for this press's release eats nothing while it waits (see
+    // onClickCapture), and the next press disarms it.
+    const onCancel = () => finish(false, false);
     // Capture, on window: this has to run before React's root delegation gets
     // the chance to dispatch the row's onClick.
     const onClickCapture = (e: MouseEvent) => {
+      // Still waiting for a cancelled press's release (see finish): the
+      // press's own click only ever follows its pointerup, and onUp has
+      // turned this into the 400ms by then. A click now has no press behind
+      // it -- Enter or Space on a focused control -- and is the user's
+      // (KAN-337).
+      if (suppressClickUntil.current === Number.POSITIVE_INFINITY) return;
       if (performance.now() >= suppressClickUntil.current) return;
       suppressClickUntil.current = 0;
       e.preventDefault();
