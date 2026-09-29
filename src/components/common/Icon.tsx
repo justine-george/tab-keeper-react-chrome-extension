@@ -1,9 +1,11 @@
 import React, { MouseEventHandler } from 'react';
 
-import { css, keyframes } from '@emotion/react';
+import { css } from '@emotion/react';
 
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { DURATION, ICON } from '../../styles/scale';
+import { hoverMotionCss } from './hoverMotion';
+import type { HoverMotion } from './hoverMotion';
 import type { BrandIconName, IconName } from './iconNames';
 
 /**
@@ -48,9 +50,11 @@ interface IconBaseProps {
    * comment on aria-disabled below.
    */
   disable?: boolean;
-  animationFrom?: string;
-  animationTo?: string;
-  animationDuration?: string;
+  /**
+   * What the glyph does while a fine pointer is over the button, if
+   * anything (KAN-344). Only an actionable Icon moves; see hoverMotion.ts.
+   */
+  hoverMotion?: HoverMotion;
   backgroundColor?: string;
   /**
    * The glyph's colour. Defaults to TEXT_COLOR, which is right on every
@@ -61,6 +65,14 @@ interface IconBaseProps {
   tooltipText?: string;
   text?: string;
   size?: string;
+  /**
+   * Draw the glyph at `size` inside the box an ICON.DEFAULT glyph gets, so a
+   * lighter glyph can sit among full-size neighbours without its target, its
+   * hover fill or its neighbours' positions changing (KAN-340). Derived from
+   * the two tokens rather than a px padding: every size here is rem, and a
+   * px value that matches at a 16px root is a pixel off at Chrome's "Large".
+   */
+  boxSizedFor?: typeof ICON.DEFAULT;
   style?: string;
   /**
    * Only meaningful on an actionable Icon, i.e. one with an onClick. A
@@ -97,9 +109,7 @@ const Icon: React.FC<IconProps> = ({
   faviconUrl,
   onClick,
   disable,
-  animationFrom,
-  animationTo,
-  animationDuration,
+  hoverMotion,
   // Transparent by default, so an Icon paints nothing of its own unless a
   // caller asks for it (KAN-98). It used to be undefined, which emotion
   // emitted as `background-color: undefined` for the browser to discard --
@@ -110,6 +120,7 @@ const Icon: React.FC<IconProps> = ({
   tooltipText,
   text,
   size = ICON.DEFAULT,
+  boxSizedFor,
   style,
   ariaHasPopup,
   ariaExpanded,
@@ -134,23 +145,6 @@ const Icon: React.FC<IconProps> = ({
     e.currentTarget.click();
   }
 
-  // Define keyframe animation
-  const hoverAnimation =
-    animationFrom &&
-    animationTo &&
-    css`
-      &:hover {
-        animation: ${keyframes`
-      from {
-        ${animationFrom}
-      }
-      to {
-        ${animationTo}
-      }
-    `} ${animationDuration ? animationDuration : `0.25s`} linear 1;
-      }
-    `;
-
   const hoverColor =
     type === 'delete'
       ? COLORS.DELETE_ICON_HOVER_COLOR
@@ -162,7 +156,6 @@ const Icon: React.FC<IconProps> = ({
     height: ${size};
     object-fit: contain;
     color: ${color ?? COLORS.TEXT_COLOR};
-    ${hoverAnimation}
   `;
 
   // An icon affords a click when it has one to give and is not disabled. This
@@ -195,7 +188,9 @@ const Icon: React.FC<IconProps> = ({
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    padding: 4px;
+    padding: ${boxSizedFor
+      ? `calc(4px + (${boxSizedFor} - ${size}) / 2)`
+      : '4px'};
     cursor: ${isActionable ? 'pointer' : 'inherit'};
     user-select: none;
     transition: background-color ${DURATION.MOVE};
@@ -229,7 +224,8 @@ const Icon: React.FC<IconProps> = ({
        held press, and it filled from mount. */
     &[aria-haspopup][aria-expanded='true'] {
       background-color: ${COLORS.ICON_ACTIVE_COLOR};
-    }`}
+    }
+    ${hoverMotion ? hoverMotionCss(hoverMotion) : ''}`}
     ${style && style}
   `;
 
