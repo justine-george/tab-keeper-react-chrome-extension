@@ -27,6 +27,10 @@ import { setSessionDateBasis } from '../../../redux/slices/settingsDataStateSlic
 import { useTranslation } from 'react-i18next';
 import { DURATION, ICON } from '../../../styles/scale';
 import type { IconName } from '../../common/iconNames';
+import {
+  describeSyncState,
+  type SyncKind,
+} from '../../settings/rightpane/Account/describeSyncState';
 import { isTabView } from '../../../utils/functions/viewMode';
 import {
   OPEN_IN_TAB_MESSAGE,
@@ -43,6 +47,12 @@ export default function MenuContainer() {
 
   const isSignedIn = useSelector(
     (state: RootState) => state.globalState.isSignedIn
+  );
+  const isCloudConfigured = useSelector(
+    (state: RootState) => state.globalState.isCloudConfigured
+  );
+  const isAutoSync = useSelector(
+    (state: RootState) => state.settingsDataState.isAutoSync
   );
 
   // i18n.language feeds the reducer's title collation; see sortItems below.
@@ -126,20 +136,57 @@ export default function MenuContainer() {
   // popup open, so `isDirty === false` means "no edits yet this session", not
   // "the two sides agree" -- with auto-sync off nothing has been compared at
   // all. Only a completed sync knows that, which is what syncStatus records.
+  //
+  // KAN-342. The words follow the same rule. A dimmed button has nothing to
+  // press, so its name is why it is dimmed. A running sync is "Syncing…" in
+  // every mode: describeSyncState puts Auto Sync first because the card
+  // describes the setting, and under Manual sync it would name a dimmed
+  // button "Manual sync", which says nothing about why it is dimmed.
   let syncIconType: IconName;
-  let isDisabled = false;
+  let dimmedBecause: string | null = null;
   if (!isSignedIn) {
     syncIconType = 'cloud_off';
-    isDisabled = true;
+    dimmedBecause = t('Sync unavailable');
   } else if (syncStatus === 'loading') {
     syncIconType = 'cloud_sync';
-    isDisabled = true;
+    dimmedBecause = t('Syncing…');
   } else if (syncStatus === 'error') {
     syncIconType = 'sync_problem';
   } else if (syncStatus === 'success') {
     syncIconType = 'cloud_done';
   } else {
     syncIconType = 'sync';
+  }
+
+  // A clickable button keeps its action as its name. The state, in the Sync &
+  // Backup card's words, is its description and the tooltip's first line.
+  const syncState = syncStateWords(
+    describeSyncState({
+      isSignedIn,
+      isAutoSync,
+      isCloudConfigured,
+      cloudConsent,
+      syncStatus,
+    }).kind
+  );
+
+  // One literal key per state, so keyCoverage sees every one. The card's own
+  // t(state.title) takes a variable, which it can't check.
+  function syncStateWords(kind: SyncKind): string {
+    switch (kind) {
+      case 'unavailable':
+        return t('Sync unavailable');
+      case 'off':
+        return t('Sync is off');
+      case 'manual':
+        return t('Manual sync');
+      case 'failed':
+        return t('Last sync failed');
+      case 'syncing':
+        return t('Syncing…');
+      case 'on':
+        return t('Cloud sync on');
+    }
   }
 
   // The list is in its natural order iff nothing carries a manual rank. Derived,
@@ -317,11 +364,12 @@ export default function MenuContainer() {
       </div>
       <div css={pairStyle}>
         <Icon
-          ariaLabel={t('Sync now')}
-          tooltipText={t('Sync now')}
+          ariaLabel={dimmedBecause ?? t('Sync now')}
+          ariaDescription={dimmedBecause === null ? syncState : undefined}
+          tooltipText={dimmedBecause ?? `${syncState}\n${t('Sync now')}`}
           type={syncIconType}
           onClick={handleClickSync}
-          disable={isDisabled}
+          disable={dimmedBecause !== null}
         />
         <Icon
           ariaLabel={t('Settings')}

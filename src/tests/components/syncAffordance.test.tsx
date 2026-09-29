@@ -22,7 +22,9 @@ const renderMenu = (
   seed: (store: { dispatch: (a: unknown) => void }) => void
 ) => renderWithProviders(<MenuContainer />, { seedStore: seed });
 
-const syncControl = () => screen.getByRole('button', { name: 'Sync now' });
+// A dimmed control is named for why it is dimmed (KAN-342), so the dimmed
+// cases below name it that way.
+const syncControl = (name = 'Sync now') => screen.getByRole('button', { name });
 
 describe('the header sync affordance', () => {
   // CONTROL for every assertion below: this is the one case that SHOULD offer
@@ -53,8 +55,8 @@ describe('the header sync affordance', () => {
       store.dispatch(setSyncStatus('loading'));
     });
 
-    expect(syncControl().textContent).toBe('cloud_sync');
-    expect(syncControl().getAttribute('aria-disabled')).toBe('true');
+    expect(syncControl('Syncing…').textContent).toBe('cloud_sync');
+    expect(syncControl('Syncing…').getAttribute('aria-disabled')).toBe('true');
   });
 
   // KAN-263. The test above seeds 'loading' by hand; this one gets there the
@@ -68,8 +70,8 @@ describe('the header sync affordance', () => {
       store.dispatch(syncStateWithFirestore.pending('read-phase', undefined));
     });
 
-    expect(syncControl().textContent).toBe('cloud_sync');
-    expect(syncControl().getAttribute('aria-disabled')).toBe('true');
+    expect(syncControl('Syncing…').textContent).toBe('cloud_sync');
+    expect(syncControl('Syncing…').getAttribute('aria-disabled')).toBe('true');
   });
 
   test('reports a problem rather than inviting another attempt', async () => {
@@ -92,8 +94,10 @@ describe('the header sync affordance', () => {
       store.dispatch(setSyncStatus('idle'));
     });
 
-    expect(syncControl().textContent).toBe('cloud_off');
-    expect(syncControl().getAttribute('aria-disabled')).toBe('true');
+    expect(syncControl('Sync unavailable').textContent).toBe('cloud_off');
+    expect(syncControl('Sync unavailable').getAttribute('aria-disabled')).toBe(
+      'true'
+    );
   });
 
   // Signed out must win over a stale status. setLoggedOut already resets
@@ -106,6 +110,6 @@ describe('the header sync affordance', () => {
       store.dispatch(setLoggedOut());
     });
 
-    expect(syncControl().textContent).toBe('cloud_off');
+    expect(syncControl('Sync unavailable').textContent).toBe('cloud_off');
   });
 });
