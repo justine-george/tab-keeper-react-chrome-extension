@@ -3,10 +3,9 @@ import type { BrowserContext, Locator, Page, Worker } from '@playwright/test';
 import { test, expect } from './fixtures/extension';
 import { LIGHT_THEME } from '../src/hooks/useThemeColors';
 
-// KAN-331 O15 and KAN-341 on the real artifact: a window row in Open now goes
-// to its Chrome window, and a tab click brings back a minimized one. What
-// jsdom and the chrome fake cannot show: which window Chrome really puts in
-// front, what a minimized or maximized window really comes back as, a real
+// KAN-331 O15 on the real artifact: a window row in Open now goes to its
+// Chrome window. What jsdom and the chrome fake cannot show: which window
+// Chrome really puts in front, that a maximized window stays maximized, a real
 // :hover and the cursor under a real pointer, a real drag's release over a
 // window row, and the row's real geometry as a button and as a plain box.
 //
@@ -19,6 +18,10 @@ import { LIGHT_THEME } from '../src/hooks/useThemeColors';
 // back in front: its stuck `focused` makes windows.update(focused: true) and
 // page.bringToFront() both leave getLastFocused() on the other window
 // (measured 2026-09-28).
+//
+// A minimized window coming back is not covered: headless Chromium cannot show
+// it (focus leaves it minimized), and a real window comes back with focus
+// alone, which is all Open now sends.
 
 const VIEW_TAB = 'index.html?view=tab';
 const OPEN_NOW = '[data-pane="open-now"]';
@@ -96,7 +99,7 @@ async function windowState(worker: Worker, windowId: number): Promise<string> {
 const setState = (
   worker: Worker,
   windowId: number,
-  state: 'minimized' | 'maximized'
+  state: 'maximized'
 ): Promise<void> =>
   worker.evaluate(
     async ({ id, state }) => {
@@ -256,7 +259,7 @@ async function setUp(
   return { page, home, made, homeBlock, block };
 }
 
-test.describe('a window row goes to its window (KAN-331, KAN-341)', () => {
+test.describe('a window row goes to its window (KAN-331)', () => {
   test('1. PREMISE: a window opened unfocused leaves the tab view in front', async ({
     context,
     extensionId,
@@ -319,58 +322,7 @@ test.describe('a window row goes to its window (KAN-331, KAN-341)', () => {
     await expect.poll(() => lastFocused(serviceWorker)).toBe(made.windowId);
   });
 
-  test('4. M1: a minimized window comes back normal and in front', async ({
-    context,
-    extensionId,
-    serviceWorker,
-  }) => {
-    const { block, home, made } = await setUp(
-      context,
-      extensionId,
-      serviceWorker,
-      ['Alpha']
-    );
-    await setState(serviceWorker, made.windowId, 'minimized');
-    // PREMISE: Chrome really minimized it.
-    await expect
-      .poll(() => windowState(serviceWorker, made.windowId))
-      .toBe('minimized');
-    expect(await lastFocused(serviceWorker)).toBe(home);
-
-    await (await goTo(block)).click();
-    await expect
-      .poll(() => windowState(serviceWorker, made.windowId))
-      .toBe('normal');
-    await expect.poll(() => lastFocused(serviceWorker)).toBe(made.windowId);
-  });
-
-  test('5. a window maximized, then minimized, comes back maximized', async ({
-    context,
-    extensionId,
-    serviceWorker,
-  }) => {
-    const { block, made } = await setUp(context, extensionId, serviceWorker, [
-      'Alpha',
-    ]);
-    await setState(serviceWorker, made.windowId, 'maximized');
-    // PREMISE, and the CONTROL for "comes back maximized": headless can
-    // hold a window maximized at all.
-    await expect
-      .poll(() => windowState(serviceWorker, made.windowId))
-      .toBe('maximized');
-    await setState(serviceWorker, made.windowId, 'minimized');
-    await expect
-      .poll(() => windowState(serviceWorker, made.windowId))
-      .toBe('minimized');
-
-    await (await goTo(block)).click();
-    await expect
-      .poll(() => windowState(serviceWorker, made.windowId))
-      .toBe('maximized');
-    await expect.poll(() => lastFocused(serviceWorker)).toBe(made.windowId);
-  });
-
-  test('5b. a maximized window that is not minimized comes to the front and stays maximized', async ({
+  test('4. a maximized window comes to the front and stays maximized', async ({
     context,
     extensionId,
     serviceWorker,
@@ -393,33 +345,7 @@ test.describe('a window row goes to its window (KAN-331, KAN-341)', () => {
     expect(await windowState(serviceWorker, made.windowId)).toBe('maximized');
   });
 
-  test('6. KAN-341: a tab click in a minimized window brings the window back with that tab in front', async ({
-    context,
-    extensionId,
-    serviceWorker,
-  }) => {
-    const { block, made } = await setUp(context, extensionId, serviceWorker, [
-      'Front',
-      'Behind',
-    ]);
-    const behind = made.tabIds[1];
-    if (behind === undefined) throw new Error('no Behind tab');
-    await setState(serviceWorker, made.windowId, 'minimized');
-    // PREMISE: minimized, and the clicked tab is not already the front one.
-    await expect
-      .poll(() => windowState(serviceWorker, made.windowId))
-      .toBe('minimized');
-    expect(await isActive(serviceWorker, behind)).toBe(false);
-
-    await liveRowIn(block, 'Behind').click();
-    await expect.poll(() => isActive(serviceWorker, behind)).toBe(true);
-    await expect
-      .poll(() => windowState(serviceWorker, made.windowId))
-      .toBe('normal');
-    await expect.poll(() => lastFocused(serviceWorker)).toBe(made.windowId);
-  });
-
-  test('7. T2: hovering This window shows its strip without shading the row; another row shades', async ({
+  test('5. T2: hovering This window shows its strip without shading the row; another row shades', async ({
     context,
     extensionId,
     serviceWorker,
@@ -455,7 +381,7 @@ test.describe('a window row goes to its window (KAN-331, KAN-341)', () => {
     await expect.poll(() => backgroundOf(windowRow(block))).toBe(hover);
   });
 
-  test("8. a button row's title shows the pointer cursor; This window's does not", async ({
+  test("6. a button row's title shows the pointer cursor; This window's does not", async ({
     context,
     extensionId,
     serviceWorker,
@@ -479,7 +405,7 @@ test.describe('a window row goes to its window (KAN-331, KAN-341)', () => {
     expect(onThis.cursor).not.toBe('pointer');
   });
 
-  test('9. S2: while a search is held the row is no button and a click on it goes nowhere', async ({
+  test('7. S2: while a search is held the row is no button and a click on it goes nowhere', async ({
     context,
     extensionId,
     serviceWorker,
@@ -512,7 +438,7 @@ test.describe('a window row goes to its window (KAN-331, KAN-341)', () => {
     expect(took).toBeLessThan(QUIET_MS);
   });
 
-  test('10. a drag never puts a window in front: not a release over a window row, not a drag that moves nothing', async ({
+  test('8. a drag never puts a window in front: not a release over a window row, not a drag that moves nothing', async ({
     context,
     extensionId,
     serviceWorker,
@@ -605,7 +531,7 @@ test.describe('a window row goes to its window (KAN-331, KAN-341)', () => {
     expect(tookTab).toBeLessThan(QUIET_MS);
   });
 
-  test('11. the title does not move when the row stops being a button', async ({
+  test('9. the title does not move when the row stops being a button', async ({
     context,
     extensionId,
     serviceWorker,

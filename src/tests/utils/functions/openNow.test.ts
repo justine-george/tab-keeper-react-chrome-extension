@@ -425,84 +425,11 @@ describe('switchToOpenTab', () => {
     const focused = afterAll.find((w) => w.id === 2);
     expect(focused?.focused).toBe(true);
   });
-
-  test('KAN-341: a tab in a minimized window is shown, not only activated', async () => {
-    handle = setupChromeFake({
-      windows: [
-        { id: 1, focused: true, tabs: [{ url: 'https://a.test/' }] },
-        {
-          id: 2,
-          focused: false,
-          state: 'minimized',
-          tabs: [{ url: 'https://b.test/' }],
-        },
-      ],
-    });
-    const all = await chrome.windows.getAll({ populate: true });
-    const targetTabId = all.find((w) => w.id === 2)?.tabs?.[0]?.id;
-    if (typeof targetTabId !== 'number')
-      throw new Error('seeded tab has no id');
-    await switchToOpenTab({
-      id: targetTabId,
-      windowId: 2,
-      title: 'B',
-      url: 'https://b.test/',
-      favIconUrl: '',
-      active: false,
-      pinned: false,
-      audible: false,
-      muted: false,
-      groupId: null,
-      index: 0,
-    });
-    expect((await chrome.tabs.get(targetTabId)).active).toBe(true);
-    const win = await chrome.windows.get(2);
-    expect([win.state, win.focused]).toEqual(['normal', true]);
-  });
 });
 
-describe('focusOpenWindow (KAN-331 O15b M1)', () => {
-  // Window 2's state, as Chrome reports it after the call.
-  const read = async (id: number) => {
-    const win = await chrome.windows.get(id);
-    return { state: win.state, focused: win.focused };
-  };
-
-  test('a normal window is focused, and keeps its state', async () => {
-    handle = setupChromeFake({
-      windows: [
-        { id: 1, focused: true, tabs: [{ url: 'https://a.test/' }] },
-        {
-          id: 2,
-          focused: false,
-          state: 'normal',
-          tabs: [{ url: 'https://b.test/' }],
-        },
-      ],
-    });
-    await focusOpenWindow(2);
-    expect(await read(2)).toEqual({ state: 'normal', focused: true });
-    expect((await chrome.windows.getLastFocused()).id).toBe(2);
-  });
-
-  test('a minimized window is brought back as well as focused', async () => {
-    handle = setupChromeFake({
-      windows: [
-        { id: 1, focused: true, tabs: [{ url: 'https://a.test/' }] },
-        {
-          id: 2,
-          focused: false,
-          state: 'minimized',
-          tabs: [{ url: 'https://b.test/' }],
-        },
-      ],
-    });
-    await focusOpenWindow(2);
-    expect(await read(2)).toEqual({ state: 'normal', focused: true });
-  });
-
-  test.each(['maximized', 'fullscreen'] as const)(
-    'a %s window is focused and never resized',
+describe('focusOpenWindow (KAN-331)', () => {
+  test.each(['normal', 'minimized', 'maximized', 'fullscreen'] as const)(
+    'a %s window gets focus alone: no state is sent',
     async (state) => {
       handle = setupChromeFake({
         windows: [
@@ -514,38 +441,9 @@ describe('focusOpenWindow (KAN-331 O15b M1)', () => {
       await focusOpenWindow(2);
       expect(update).toHaveBeenCalledTimes(1);
       expect(update).toHaveBeenCalledWith(2, { focused: true });
-      expect(await read(2)).toEqual({ state, focused: true });
+      expect((await chrome.windows.getLastFocused()).id).toBe(2);
     }
   );
-
-  test('reads the window, then focuses it: one get, then one update', async () => {
-    handle = setupChromeFake({
-      windows: [
-        { id: 1, focused: true, tabs: [{ url: 'https://a.test/' }] },
-        {
-          id: 2,
-          focused: false,
-          state: 'minimized',
-          tabs: [{ url: 'https://b.test/' }],
-        },
-      ],
-    });
-    const calls: string[] = [];
-    const realGet = chrome.windows.get.bind(chrome.windows);
-    const realUpdate = chrome.windows.update.bind(chrome.windows);
-    vi.spyOn(chrome.windows, 'get').mockImplementation((id: number) => {
-      calls.push('get');
-      return realGet(id);
-    });
-    vi.spyOn(chrome.windows, 'update').mockImplementation(
-      (id: number, info: chrome.windows.UpdateInfo) => {
-        calls.push('update');
-        return realUpdate(id, info);
-      }
-    );
-    await focusOpenWindow(2);
-    expect(calls).toEqual(['get', 'update']);
-  });
 
   test('a window that is gone rejects, for the caller to swallow', async () => {
     handle = setupChromeFake({

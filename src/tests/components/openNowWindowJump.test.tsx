@@ -192,8 +192,8 @@ describe('a window row goes to its window (KAN-331 O15)', () => {
     await userEvent.click(
       screen.getByRole('button', { name: 'Save window as a session: Window 2' })
     );
-    // focusOpenWindow reads the window before it updates it, so a late focus
-    // lands after the click returns; give it the time the gone-window test does.
+    // The focus is async, so a late one lands after the click returns; give
+    // it the time the gone-window test does.
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(
       update.mock.calls.filter(([, info]) => info.focused === true)
@@ -245,7 +245,7 @@ describe('a window row goes to its window (KAN-331 O15)', () => {
     const unhandled: unknown[] = [];
     const onUnhandled = (reason: unknown) => unhandled.push(reason);
     process.on('unhandledRejection', onUnhandled);
-    vi.spyOn(chrome.windows, 'get').mockRejectedValue(
+    vi.spyOn(chrome.windows, 'update').mockRejectedValue(
       new Error('No window with id: 2.')
     );
     await userEvent.click(goTo(2) ?? document.body);
