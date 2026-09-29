@@ -12,7 +12,10 @@ import { useFontFamily } from '../../../hooks/useFontFamily';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { NON_INTERACTIVE_ICON_STYLE } from '../../../utils/constants/common';
 import { resolveFaviconUrl } from '../../../utils/functions/local';
-import { switchToOpenTab } from '../../../utils/functions/openNow';
+import {
+  focusOpenWindow,
+  switchToOpenTab,
+} from '../../../utils/functions/openNow';
 import type { OpenTab, OpenWindow } from '../../../utils/functions/openNow';
 import {
   itemIdOf,
@@ -149,13 +152,24 @@ export default function OpenNowWindow({
     margin-bottom: 8px;
   `;
 
+  // O14e. While a search is held its Save window and Close window would act on
+  // tabs the search hides, with nothing on screen saying so, so the strip is
+  // not rendered at all (out of the tab order too). Clearing the search
+  // brings both back.
+  const offersWindowActions = matchedTabIds === null;
+  // KAN-331 O15. The row takes you to its window: not "This window" (W2 A,
+  // you are in it), and not while a search is held (S2). Only a row that
+  // does this shades on hover (T2): "This window"'s strip still appears, on
+  // its own patch, without the row looking clickable.
+  const goesToWindow = !openWindow.isThisWindow && matchedTabIds === null;
+
   const parentStyle = css`
     position: relative;
     display: flex;
     justify-content: space-between;
-    &:hover {
-      background-color: ${COLORS.HOVER_COLOR};
-    }
+    ${goesToWindow
+      ? `&:hover { background-color: ${COLORS.HOVER_COLOR}; }`
+      : ''}
   `;
 
   const parentLeftStyle = css`
@@ -280,6 +294,17 @@ export default function OpenNowWindow({
     cursor: pointer;
   `;
 
+  // The window glyph and the title, as one box: a button when the row goes
+  // to its window, a plain box otherwise. The same layout either way, so a
+  // row's title does not move when it stops being a button (S2).
+  const windowLabelStyle = `
+    display: flex;
+    align-items: center;
+    flex-grow: 1;
+    min-width: 0;
+    height: 100%;
+  `;
+
   const windowTitleStyle = css`
     display: flex;
     align-items: center;
@@ -291,6 +316,26 @@ export default function OpenNowWindow({
 
   const title = t('Window') + ' ' + (index + 1);
 
+  const windowLabel = (
+    <>
+      <Icon type="web_asset" style={NON_INTERACTIVE_ICON_STYLE} />
+      <div css={windowTitleStyle}>
+        <NormalLabel
+          value={title}
+          color={COLORS.TEXT_COLOR}
+          size={TYPE.BODY}
+          style="padding-left: 8px; height: 100%; max-width: 100%;"
+        />
+        {openWindow.isThisWindow && (
+          <Tag
+            value={t('This window')}
+            style="margin-left: 8px; flex-shrink: 0; white-space: nowrap;"
+          />
+        )}
+      </div>
+    </>
+  );
+
   // The adapters partitionTabsIntoItems takes, keyed back to the OpenTab by id
   // afterwards. One partition rule for both panes, so a live group draws where
   // the saved one would -- and the one the drag geometry counts rows with
@@ -300,11 +345,6 @@ export default function OpenNowWindow({
   // starts mid-drag cancels the drag (KAN-335).
   // KAN-330 O14a. What this window draws: every tab, or a search's matches.
   // Only drawing narrows; the handlers below still get the whole window.
-  // O14e. While a search is held its Save window and Close window would act on
-  // tabs the search hides, with nothing on screen saying so, so the strip is
-  // not rendered at all (out of the tab order too). Clearing the search
-  // brings both back.
-  const offersWindowActions = matchedTabIds === null;
   const drawnTabs =
     matchedTabIds === null
       ? openWindow.tabs
@@ -467,6 +507,8 @@ export default function OpenNowWindow({
     >
       <div
         css={parentStyle}
+        // The e2e specs find a window's row by this.
+        data-window-row
         onMouseEnter={() => setIsParentHovered(true)}
         onMouseLeave={() => setIsParentHovered(false)}
       >
@@ -480,21 +522,23 @@ export default function OpenNowWindow({
             type={isOpen ? 'expand_less' : 'expand_more'}
             onClick={onToggle}
           />
-          <Icon type="web_asset" style={NON_INTERACTIVE_ICON_STYLE} />
-          <div css={windowTitleStyle}>
-            <NormalLabel
-              value={title}
-              color={COLORS.TEXT_COLOR}
-              size={TYPE.BODY}
-              style="padding-left: 8px; height: 100%; max-width: 100%;"
-            />
-            {openWindow.isThisWindow && (
-              <Tag
-                value={t('This window')}
-                style="margin-left: 8px; flex-shrink: 0; white-space: nowrap;"
-              />
-            )}
-          </div>
+          {goesToWindow ? (
+            <ClickableRow
+              ariaLabel={t('Go to window') + ': ' + title}
+              tooltipText={t('Go to window')}
+              // Chrome rejects when the window closed after this row was
+              // drawn. There is nothing to go to, and the next read drops
+              // the row. Nothing runs after the focus (O15).
+              onClick={() =>
+                void focusOpenWindow(openWindow.id).catch(() => undefined)
+              }
+              style={windowLabelStyle}
+            >
+              {windowLabel}
+            </ClickableRow>
+          ) : (
+            <div css={css(windowLabelStyle)}>{windowLabel}</div>
+          )}
         </div>
         {offersWindowActions && (
           <div data-row-actions css={parentRightStyle}>
