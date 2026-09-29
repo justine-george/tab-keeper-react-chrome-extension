@@ -159,6 +159,37 @@ describe('/ focuses the search (O14b)', () => {
     expect(document.activeElement).toBe(button);
   });
 
+  // The rail listens for / only while the drawer is closed. Were it to hear a
+  // / pressed inside the open drawer, it would note "opened by the shortcut"
+  // for an opening that never happens, and the NEXT opening by the button
+  // would put the cursor in the field instead of on the heading (O2).
+  test('/ inside the open drawer does not change where the next button opening lands', async () => {
+    installMatchMedia(true);
+    await renderHome(false);
+    const button = await railButton();
+    fireEvent.click(button);
+    const drawer = drawerOf(button);
+    const heading = within(drawer).getByRole('heading', { name: 'Open now' });
+    // PREMISE: opened by the button, focus is on the heading.
+    expect(document.activeElement).toBe(heading);
+
+    const user = userEvent.setup();
+    await user.keyboard('/');
+    expect(document.activeElement).toBe(field());
+    expect(field()).toHaveValue('');
+    expect(button).toHaveAttribute('aria-expanded', 'true');
+
+    // Empty, so Esc closes, and focus goes back to the rail button.
+    await user.keyboard('{Escape}');
+    expect(button).toHaveAttribute('aria-expanded', 'false');
+    expect(document.activeElement).toBe(button);
+
+    fireEvent.click(button);
+    expect(document.activeElement).toBe(
+      within(drawerOf(button)).getByRole('heading', { name: 'Open now' })
+    );
+  });
+
   test('the text survives closing and reopening the drawer', async () => {
     installMatchMedia(true);
     await renderHome(false);
