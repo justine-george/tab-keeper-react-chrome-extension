@@ -458,6 +458,64 @@ test.describe('Open now search (KAN-330)', () => {
       .toBeLessThan(before);
   });
 
+  test('a window row offers no Save window or Close window while a search is held; Esc brings both back (O14e)', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    await openWindow(serviceWorker, ['Kyoto maps', 'Osaka flights']);
+    const page = await openPage(context, extensionId, VIEW_TAB, {
+      width: 1600,
+      height: 800,
+    });
+    // The new window's block, found by the tab that matches the search below,
+    // so it stays drawn under it: not "This
+    // window", so it has a Close window.
+    const block = page.locator(`${OPEN_NOW} [data-open-window-id]`).filter({
+      has: page.getByRole('button', {
+        name: 'Switch to tab: Kyoto maps',
+        exact: true,
+      }),
+    });
+    const saveWindow = block.getByRole('button', {
+      name: /^Save window as a session: /,
+    });
+    const closeWindow = block.getByRole('button', {
+      name: /^Close window: /,
+    });
+    const closeTab = block.getByRole('button', {
+      name: 'Close tab: Kyoto maps',
+      exact: true,
+    });
+    const hoverWindowRow = () =>
+      block.getByRole('button', { name: /^Collapse: / }).hover();
+
+    // PREMISE: before the search, hovering the window row shows both.
+    await liveRow(page, 'Osaka flights').waitFor();
+    await hoverWindowRow();
+    await expect(saveWindow).toHaveCount(1);
+    await expect(closeWindow).toHaveCount(1);
+    await expect(saveWindow).toBeVisible();
+    await expect(closeWindow).toBeVisible();
+
+    await field(page).fill('kyoto');
+    await expect(liveRow(page, 'Kyoto maps')).toBeVisible();
+    await expect(liveRow(page, 'Osaka flights')).toHaveCount(0);
+    await hoverWindowRow();
+    await expect(saveWindow).toHaveCount(0);
+    await expect(closeWindow).toHaveCount(0);
+    // The tab row keeps its x.
+    await liveRow(page, 'Kyoto maps').hover();
+    await expect(closeTab).toBeVisible();
+
+    // CONTROL: Esc clears the search and both are back.
+    await field(page).press('Escape');
+    await expect(field(page)).toHaveValue('');
+    await hoverWindowRow();
+    await expect(saveWindow).toBeVisible();
+    await expect(closeWindow).toBeVisible();
+  });
+
   test('Esc in the drawer clears the field, then closes the drawer', async ({
     context,
     extensionId,

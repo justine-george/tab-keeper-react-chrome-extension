@@ -615,6 +615,9 @@ export default function OpenNowPane({
                       isOpen={!foldedIds.has(openWindow.id)}
                       onToggle={() => toggleWindow(openWindow.id)}
                       onCloseTab={(tab) => void handleCloseTab(openWindow, tab)}
+                      // Whole-window handlers. The row offers them only while
+                      // no search is held (O14e), so they never act on tabs
+                      // the search hides.
                       onSaveWindow={() => void handleSaveWindow(openWindow)}
                       onCloseWindow={
                         openWindow.isThisWindow

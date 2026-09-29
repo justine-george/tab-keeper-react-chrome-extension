@@ -91,7 +91,8 @@ interface OpenNowWindowProps {
   index: number;
   // KAN-330 O14a. The ids of this window's tabs a search matches, or null
   // when no search is held and every tab is drawn. The window itself stays
-  // whole: every action below still gets all of its tabs.
+  // whole: a tab's click and close still act on the real tab. The window's own
+  // Save and Close are not offered while a search is held (O14e).
   matchedTabIds: ReadonlySet<number> | null;
   isOpen: boolean;
   onToggle: () => void;
@@ -299,6 +300,11 @@ export default function OpenNowWindow({
   // starts mid-drag cancels the drag (KAN-335).
   // KAN-330 O14a. What this window draws: every tab, or a search's matches.
   // Only drawing narrows; the handlers below still get the whole window.
+  // O14e. While a search is held its Save window and Close window would act on
+  // tabs the search hides, with nothing on screen saying so, so the strip is
+  // not rendered at all (out of the tab order too). Clearing the search
+  // brings both back.
+  const offersWindowActions = matchedTabIds === null;
   const drawnTabs =
     matchedTabIds === null
       ? openWindow.tabs
@@ -490,22 +496,24 @@ export default function OpenNowWindow({
             )}
           </div>
         </div>
-        <div data-row-actions css={parentRightStyle}>
-          <Icon
-            tooltipText={t('Save window as a session')}
-            ariaLabel={t('Save window as a session') + ': ' + title}
-            type="add_box"
-            onClick={onSaveWindow}
-          />
-          {onCloseWindow && (
+        {offersWindowActions && (
+          <div data-row-actions css={parentRightStyle}>
             <Icon
-              tooltipText={t('Close window')}
-              ariaLabel={t('Close window') + ': ' + title}
-              type="close"
-              onClick={onFirstClickOnly(onCloseWindow)}
+              tooltipText={t('Save window as a session')}
+              ariaLabel={t('Save window as a session') + ': ' + title}
+              type="add_box"
+              onClick={onSaveWindow}
             />
-          )}
-        </div>
+            {onCloseWindow && (
+              <Icon
+                tooltipText={t('Close window')}
+                ariaLabel={t('Close window') + ': ' + title}
+                type="close"
+                onClick={onFirstClickOnly(onCloseWindow)}
+              />
+            )}
+          </div>
+        )}
       </div>
       {isOpen && (
         // markRowContainer: this box holds one window's worth of the

@@ -23,10 +23,12 @@ export function openTabMatches(tab: OpenTab, term: string): boolean {
  * What a search draws: window id -> the ids of its matching tabs. A window
  * with no match has no entry.
  *
- * Ids, never narrowed windows. The pane still hands every action the whole
- * OpenWindow (O14a): Close window's Reopen recreates the snapshot it was
- * given, so a window narrowed to its matches would come back without the
- * tabs the search hid.
+ * Ids, never narrowed windows. The pane still hands every handler the whole
+ * OpenWindow (O14a), so Save all saves every window, hidden ones included,
+ * and a window's Save and Close, which are not offered while a search is held
+ * (O14e), act on the whole window once the search is cleared. A window
+ * narrowed to its matches would save or reopen without the tabs the search
+ * hid.
  */
 export type OpenNowMatches = ReadonlyMap<number, ReadonlySet<number>>;
 

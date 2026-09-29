@@ -10,13 +10,6 @@ import {
 } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
-vi.mock('../../utils/functions/reopen', async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import('../../utils/functions/reopen')>();
-  return { ...actual, closeOpenWindow: vi.fn(actual.closeOpenWindow) };
-});
-
-import { closeOpenWindow } from '../../utils/functions/reopen';
 import { setHasTabGroupsPermission } from '../../redux/slices/globalStateSlice';
 import OpenNowPane from '../../components/home/opennow/OpenNowPane';
 import OpenNowColumn from '../../components/home/opennow/OpenNowColumn';
@@ -258,54 +251,43 @@ describe('a search draws only the matching tabs (O14a)', () => {
     );
   });
 
-  test('Close window under a search closes, and Reopen brings back, every tab', async () => {
-    // The spy is module-level and never reset: start from no calls.
-    vi.mocked(closeOpenWindow).mockClear();
+  test('a window row offers no Save window or Close window while a search is held (O14e)', async () => {
     await renderOpenNow(threeWindows());
-    await userEvent.setup().type(field(), 'osaka');
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Close window: Window 1' })
-    );
-    await waitFor(() => expect(closeOpenWindow).toHaveBeenCalledTimes(1));
-    const [closed] = vi.mocked(closeOpenWindow).mock.calls[0];
-    expect(closed.tabs.map((t) => t.title)).toEqual([
-      'Kyoto maps',
-      'Osaka flights',
-      'Rail pass',
-    ]);
-    fireEvent.click(
-      await within(screen.getByRole('status')).findByRole('button', {
-        name: 'Reopen',
-      })
-    );
-    // The fake opens a reopened tab untitled, so it is told apart by address.
-    await waitFor(async () => {
-      const urls = (await chrome.windows.getAll({ populate: true })).map((w) =>
-        (w.tabs ?? []).map((t) => t.url)
-      );
-      expect(urls).toContainEqual([
-        url('Kyoto maps'),
-        url('Osaka flights'),
-        url('Rail pass'),
-      ]);
-    });
-  });
+    const save = (n: number) =>
+      screen.queryByRole('button', {
+        name: `Save window as a session: Window ${n}`,
+      });
+    const close = (n: number) =>
+      screen.queryByRole('button', { name: `Close window: Window ${n}` });
+    // PREMISE: with no search, both are offered.
+    expect(save(1)).not.toBeNull();
+    expect(save(2)).not.toBeNull();
+    expect(close(2)).not.toBeNull();
 
-  test('Save window under a search saves every tab', async () => {
-    const { store } = await renderOpenNow(threeWindows());
-    await userEvent.setup().type(field(), 'osaka');
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Save window as a session: Window 1' })
-    );
-    await waitFor(() =>
-      expect(store.getState().tabContainerDataState.tabGroups).toHaveLength(1)
-    );
-    const [saved] = store.getState().tabContainerDataState.tabGroups;
-    expect(saved.windows[0].tabs.map((t) => t.title)).toEqual([
-      'Kyoto maps',
-      'Osaka flights',
-      'Rail pass',
-    ]);
+    const user = userEvent.setup();
+    await user.type(field(), 'kyoto');
+    // Windows 1 and 2 are still drawn (each holds a match); 3 is hidden.
+    expect(drawnTitles()).toEqual(['Kyoto maps', 'Kyoto stay']);
+    for (const n of [1, 2]) {
+      expect(save(n)).toBeNull();
+      expect(close(n)).toBeNull();
+    }
+    // A tab row keeps its x, and the window row itself stays.
+    expect(
+      screen.getByRole('button', { name: 'Close tab: Kyoto maps' })
+    ).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: 'Close tab: Kyoto stay' })
+    ).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: 'Collapse: Window 2' })
+    ).toBeTruthy();
+
+    // CONTROL: clearing the search brings both back.
+    await user.click(screen.getByRole('button', { name: 'Clear search' }));
+    expect(save(1)).not.toBeNull();
+    expect(save(2)).not.toBeNull();
+    expect(close(2)).not.toBeNull();
   });
 
   test('Save all under a search saves every window, hidden ones included', async () => {
