@@ -267,7 +267,7 @@ export default function MenuContainer() {
         <Icon
           ariaLabel={t('Open in a tab')}
           tooltipText={t('Open in a tab')}
-          type="open_in_new"
+          type="open_in_full"
           onClick={handleClickOpenInTab}
         />
       )}
