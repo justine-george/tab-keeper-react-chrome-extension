@@ -164,13 +164,12 @@ export async function switchToOpenTab(tab: OpenTab): Promise<void> {
 }
 
 // Brings a window to the front -- a window row's click in the Open now pane
-// (KAN-331) and the end of a tab switch (O6). Sends focus alone, never a
-// `state`: in a real window focus alone brings a minimized one back (headed
-// macOS, measured 2026-09-28; headless Chromium leaves it minimized, which is
-// where KAN-341 came from), and `state: 'normal'` lost a maximized-then-
-// minimized window's maximize on Linux (CI). Any `state` would also shrink a
-// maximized or full-screen window. Rejects when the window has gone; the
-// caller decides what that means.
+// (KAN-331) and the end of a tab switch (O6). Focus alone, never a `state`:
+// in a real window focus alone brings a minimized one back (headed macOS,
+// measured 2026-09-28; headless Chromium leaves it minimized, KAN-341), and
+// `state: 'normal'` un-maximized a maximized-then-minimized window on Linux
+// (CI) and would shrink a maximized or full-screen one. Rejects when the
+// window has gone; the caller decides what that means.
 export async function focusOpenWindow(windowId: number): Promise<void> {
   await chrome.windows.update(windowId, { focused: true });
 }
