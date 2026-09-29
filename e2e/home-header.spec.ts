@@ -184,3 +184,165 @@ test.describe('the icons sit in three pairs, 8px apart (KAN-340 A + R1)', () => 
     });
   }
 });
+
+// KAN-344. The gear's hover turn: half a turn (the gear's six teeth only
+// repeat exactly at 180°), past it and back, eased in and out as a
+// transition so leaving mid-turn reverses it instead of snapping. Only for a
+// fine pointer that hovers, never from the keyboard, and not at all when the
+// system asks for reduced motion.
+
+/** The gear's glyph, the element that turns. */
+const gearGlyph = (page: Page): Locator =>
+  control(page, 'Settings').locator('.material-symbols-outlined');
+
+/**
+ * The glyph's drawn angle in degrees on every frame for `ms`, while `act`
+ * runs: its `rotate` plus whatever its `transform` turns, so the reading
+ * doesn't depend on which property the code uses.
+ */
+async function turnDuring(
+  page: Page,
+  ms: number,
+  act: () => Promise<void>
+): Promise<number[]> {
+  const samples = gearGlyph(page).evaluate(
+    (el, forMs) =>
+      new Promise<number[]>((resolve) => {
+        const angle = () => {
+          const cs = getComputedStyle(el);
+          const rotate = cs.rotate === 'none' ? 0 : parseFloat(cs.rotate);
+          const m =
+            cs.transform === 'none' ? null : new DOMMatrix(cs.transform);
+          return rotate + (m ? (Math.atan2(m.b, m.a) * 180) / Math.PI : 0);
+        };
+        const out: number[] = [];
+        const start = performance.now();
+        const tick = () => {
+          out.push(angle());
+          if (performance.now() - start < forMs) requestAnimationFrame(tick);
+          else resolve(out);
+        };
+        requestAnimationFrame(tick);
+      }),
+    ms
+  );
+  await act();
+  return samples;
+}
+
+/** A point in the gear button's ring, outside the glyph itself. */
+async function hoverRing(page: Page): Promise<void> {
+  await control(page, 'Settings').hover({ position: { x: 2, y: 2 } });
+}
+
+test.describe('the gear winds up on hover (KAN-344)', () => {
+  test('pointing anywhere on the button turns it half a turn, past 180° and back to it', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openHome(context, extensionId, 'popup', 16);
+
+    const turns = await turnDuring(page, 900, () => hoverRing(page));
+
+    expect(Math.max(...turns), 'it overshoots').toBeGreaterThan(181);
+    expect(turns[turns.length - 1], 'it settles on 180°').toBeCloseTo(180, 1);
+  });
+
+  test('leaving mid-turn turns it back from where it was, without a jump', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openHome(context, extensionId, 'popup', 16);
+    await hoverRing(page);
+    await page.waitForTimeout(150);
+
+    // Read in the leave event's own task, before any frame: a keyframe
+    // animation on :hover is gone by then (0°); a transition is still where
+    // it was. Frame-rate independent, so a slow CI runner can't fake it.
+    const atLeave = page.evaluate(
+      () =>
+        new Promise<number>((resolve) => {
+          const button = document.querySelector('[aria-label="Settings"]');
+          const glyph = button?.querySelector('.material-symbols-outlined');
+          if (!button || !glyph) throw new Error('no Settings glyph');
+          button.addEventListener(
+            'pointerleave',
+            () => {
+              const cs = getComputedStyle(glyph);
+              const rotate = cs.rotate === 'none' ? 0 : parseFloat(cs.rotate);
+              const m =
+                cs.transform === 'none' ? null : new DOMMatrix(cs.transform);
+              resolve(
+                rotate + (m ? (Math.atan2(m.b, m.a) * 180) / Math.PI : 0)
+              );
+            },
+            { once: true }
+          );
+        })
+    );
+    const turns = await turnDuring(page, 500, () => page.mouse.move(2, 540));
+
+    expect(await atLeave, 'no snap on leave').toBeGreaterThan(30);
+    expect(turns[turns.length - 1], 'back at rest').toBeCloseTo(0, 1);
+  });
+
+  test('with reduced motion it does not turn, and the hover fill still answers', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openHome(context, extensionId, 'popup', 16);
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+
+    // The glyph's centre, where the pre-KAN-344 spin started: pointing at
+    // the ring alone would pass against it.
+    const turns = await turnDuring(page, 700, () =>
+      control(page, 'Settings').hover()
+    );
+
+    expect(Math.max(...turns.map(Math.abs))).toBe(0);
+    expect(
+      await control(page, 'Settings').evaluate(
+        (el) => getComputedStyle(el).backgroundColor
+      ),
+      'the hover fill is the feedback'
+    ).not.toBe('rgba(0, 0, 0, 0)');
+  });
+
+  test('tabbing onto the gear does not turn it', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openHome(context, extensionId, 'popup', 16);
+    await control(page, 'Sync now').focus();
+
+    const turns = await turnDuring(page, 700, () => page.keyboard.press('Tab'));
+
+    await expect(control(page, 'Settings')).toBeFocused();
+    expect(Math.max(...turns.map(Math.abs))).toBe(0);
+  });
+
+  test('on a touch screen it does not turn', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openHome(context, extensionId, 'popup', 16);
+    const cdp = await context.newCDPSession(page);
+    await cdp.send('Emulation.setTouchEmulationEnabled', {
+      enabled: true,
+      maxTouchPoints: 1,
+    });
+    // The premise: the page now reports a touch pointer that can't hover.
+    expect(
+      await page.evaluate(
+        () => matchMedia('(hover: hover) and (pointer: fine)').matches
+      )
+    ).toBe(false);
+
+    // The glyph's centre, as in the reduced-motion test.
+    const turns = await turnDuring(page, 700, () =>
+      control(page, 'Settings').hover()
+    );
+
+    expect(Math.max(...turns.map(Math.abs))).toBe(0);
+  });
+});

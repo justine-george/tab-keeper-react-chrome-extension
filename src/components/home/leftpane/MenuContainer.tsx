@@ -332,8 +332,9 @@ export default function MenuContainer() {
           size={ICON.MEDIUM}
           boxSizedFor={ICON.DEFAULT}
           onClick={handleClickSettings}
-          animationFrom={`transform: rotate(0deg);`}
-          animationTo={`transform: rotate(120deg);`}
+          // KAN-344. Half a turn: the gear has six teeth, but only 180deg is
+          // the same pose (120deg differs by 8% of its ink, so it jumped).
+          hoverTurn="180deg"
         />
       </div>
     </div>

@@ -117,6 +117,22 @@ export const DURATION = {
   COLOR: '120ms',
   /** Anything that changes position or size. */
   MOVE: '200ms',
+  /**
+   * A decorative turn you are meant to watch settle, with an overshoot: the
+   * Settings gear's hover (KAN-344). Long enough for the overshoot to read;
+   * only for motion nobody waits on. Its way back uses MOVE.
+   */
+  FLOURISH: '520ms',
+} as const;
+
+/**
+ * Easing curves. The built-in CSS keywords are too weak for UI motion.
+ */
+export const EASE = {
+  /** A strong ease-out: fast start, long settle. */
+  OUT: 'cubic-bezier(0.23, 1, 0.32, 1)',
+  /** Ease-out with an overshoot past the target (easings.net easeOutBack). */
+  OUT_BACK: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
 } as const;
 
 /**

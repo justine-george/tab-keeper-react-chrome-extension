@@ -117,7 +117,7 @@ describe('components take their sizes from the shared scales (KAN-205)', () => {
     });
   }
 
-  test('every transition duration is one of the two named ones', () => {
+  test('every transition duration is one of the named ones', () => {
     const named = Object.values(DURATION) as string[];
     // Both spellings, because CSS accepts either and the codebase used both.
     const equivalent = named.flatMap((d) => [
@@ -135,7 +135,7 @@ describe('components take their sizes from the shared scales (KAN-205)', () => {
     }
     expect(
       offenders,
-      `these durations are not DURATION.COLOR or DURATION.MOVE:\n` +
+      `these durations are not one of DURATION's named values:\n` +
         offenders.join('\n')
     ).toEqual([]);
   });

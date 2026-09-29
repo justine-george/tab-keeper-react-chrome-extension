@@ -1,9 +1,9 @@
 import React, { MouseEventHandler } from 'react';
 
-import { css, keyframes } from '@emotion/react';
+import { css } from '@emotion/react';
 
 import { useThemeColors } from '../../hooks/useThemeColors';
-import { DURATION, ICON } from '../../styles/scale';
+import { DURATION, EASE, ICON } from '../../styles/scale';
 import type { BrandIconName, IconName } from './iconNames';
 
 /**
@@ -48,9 +48,15 @@ interface IconBaseProps {
    * comment on aria-disabled below.
    */
   disable?: boolean;
-  animationFrom?: string;
-  animationTo?: string;
-  animationDuration?: string;
+  /**
+   * The angle the glyph turns to while a fine pointer is over the button,
+   * overshooting it a little and settling; it turns back when the pointer
+   * leaves. A transition, so leaving mid-turn reverses from wherever it got
+   * to. Choose an angle at which the glyph looks identical to 0deg, or it
+   * visibly jumps at rest. Nothing moves for a keyboard focus, a touch
+   * screen, or a reduced-motion preference (KAN-344).
+   */
+  hoverTurn?: `${number}deg`;
   backgroundColor?: string;
   /**
    * The glyph's colour. Defaults to TEXT_COLOR, which is right on every
@@ -105,9 +111,7 @@ const Icon: React.FC<IconProps> = ({
   faviconUrl,
   onClick,
   disable,
-  animationFrom,
-  animationTo,
-  animationDuration,
+  hoverTurn,
   // Transparent by default, so an Icon paints nothing of its own unless a
   // caller asks for it (KAN-98). It used to be undefined, which emotion
   // emitted as `background-color: undefined` for the browser to discard --
@@ -143,23 +147,6 @@ const Icon: React.FC<IconProps> = ({
     e.currentTarget.click();
   }
 
-  // Define keyframe animation
-  const hoverAnimation =
-    animationFrom &&
-    animationTo &&
-    css`
-      &:hover {
-        animation: ${keyframes`
-      from {
-        ${animationFrom}
-      }
-      to {
-        ${animationTo}
-      }
-    `} ${animationDuration ? animationDuration : `0.25s`} linear 1;
-      }
-    `;
-
   const hoverColor =
     type === 'delete'
       ? COLORS.DELETE_ICON_HOVER_COLOR
@@ -171,7 +158,6 @@ const Icon: React.FC<IconProps> = ({
     height: ${size};
     object-fit: contain;
     color: ${color ?? COLORS.TEXT_COLOR};
-    ${hoverAnimation}
   `;
 
   // An icon affords a click when it has one to give and is not disabled. This
@@ -240,6 +226,24 @@ const Icon: React.FC<IconProps> = ({
        held press, and it filled from mount. */
     &[aria-haspopup][aria-expanded='true'] {
       background-color: ${COLORS.ICON_ACTIVE_COLOR};
+    }
+    ${
+      hoverTurn
+        ? /* KAN-344. On the whole button's :hover, not the glyph's, so the
+             ring around the glyph starts it too. Gated three ways: a pointer
+             that hovers (a tap would leave it stuck), no reduced-motion
+             preference, and :hover alone, so a keyboard focus never moves
+             it. In with an overshoot, back out plainly. */
+          `@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+            & .material-symbols-outlined, & svg {
+              transition: rotate ${DURATION.MOVE} ${EASE.OUT};
+            }
+            &:hover .material-symbols-outlined, &:hover svg {
+              rotate: ${hoverTurn};
+              transition: rotate ${DURATION.FLOURISH} ${EASE.OUT_BACK};
+            }
+          }`
+        : ''
     }`}
     ${style && style}
   `;
