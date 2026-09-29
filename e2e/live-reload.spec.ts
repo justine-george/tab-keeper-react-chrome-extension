@@ -85,9 +85,10 @@ const CLOUD = /firestore\.googleapis\.com|identitytoolkit\.googleapis\.com/;
 const READ = /firestore\.googleapis\.com\/.*documents:batchGet/;
 
 // The header's sync control shows the sync's state as its glyph: the icon
-// font's ligature is the element's text (MenuContainer).
+// font's ligature is the element's text (MenuContainer). Mid-sync it is dimmed
+// and named "Syncing…" (KAN-342), and these tests watch it through that.
 const syncControl = (page: Page) =>
-  page.getByRole('button', { name: 'Sync now', exact: true });
+  page.getByRole('button', { name: /^(Sync now|Syncing…)$/ });
 
 async function openPage(
   context: BrowserContext,
