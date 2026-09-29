@@ -157,8 +157,28 @@ export function toOpenWindows(
 // Activates a tab and brings its window to the front -- the Open now pane's
 // "Switch to tab" action. Two calls because Chrome has no single one:
 // tabs.update({active:true}) only raises the tab within its own window, so
-// switching from a DIFFERENT window still leaves that window unfocused.
+// switching from a DIFFERENT window still leaves that window unfocused. The
+// window is also brought back if it was minimized (KAN-341).
 export async function switchToOpenTab(tab: OpenTab): Promise<void> {
   await chrome.tabs.update(tab.id, { active: true });
-  await chrome.windows.update(tab.windowId, { focused: true });
+  await focusOpenWindow(tab.windowId);
+}
+
+// Brings a window to the front -- a window row's click in the Open now pane
+// (KAN-331), and the end of a tab switch (O6). Focus alone does not show a
+// minimized window: Chrome focuses it and leaves it minimized (measured,
+// headless Chromium 151; KAN-341). Sending `state: 'normal'` with the focus
+// brings it back, and a window that was maximized before it was minimized
+// comes back maximized. Any other window gets the focus alone: `normal` would
+// shrink a maximized or full-screen one. The state is read at click time,
+// because the pane's snapshot is not re-read when a window is minimized.
+// Rejects when the window has gone; the caller decides what that means.
+export async function focusOpenWindow(windowId: number): Promise<void> {
+  const { state } = await chrome.windows.get(windowId);
+  await chrome.windows.update(
+    windowId,
+    state === 'minimized'
+      ? { state: 'normal', focused: true }
+      : { focused: true }
+  );
 }
