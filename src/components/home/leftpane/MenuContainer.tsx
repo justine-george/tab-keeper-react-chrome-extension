@@ -234,14 +234,26 @@ export default function MenuContainer() {
     },
   ];
 
-  const containerStyle = css`
+  // KAN-340 A + R1. Three pairs by what they do: views (Open in a tab,
+  // Sort), history (Undo, Redo), account and app (Sync, Settings). 8px
+  // between pairs, none inside one, so hover fills within a pair still meet
+  // as they always have. Open in a tab is the cluster's leftmost icon and
+  // the cluster is right-aligned, so the five shared icons sit at the same x
+  // in the popup and the tab view, where Sort stands alone in the first pair.
+  // `gap` only spaces siblings that exist, so that lone pair leaves no
+  // leading gap.
+  const clusterStyle = css`
     display: flex;
-    justify-content: space-around;
+    gap: 8px;
+  `;
+  const pairStyle = css`
+    display: flex;
   `;
 
   return (
-    <div css={containerStyle}>
-      {/* KAN-136. Sits LEFT of the undo/redo cluster, and only when there is
+    <div css={clusterStyle}>
+      <div css={pairStyle}>
+        {/* KAN-136. Sits LEFT of the undo/redo cluster, and only when there is
           a list to sort. Rendered unconditionally: every item no-ops on an
           empty list (the reducer guards it), and a control that comes and goes
           is the same mistake as the strip it replaces.
@@ -251,7 +263,7 @@ export default function MenuContainer() {
           row), shifted the list when it appeared, and only existed once the
           user had already found the drag gesture. A header control is present
           before that, and costs no vertical space in a pane that scrolls. */}
-      {/* `sort`, not `swap_vert`. swap_vert is two opposing arrows and reads
+        {/* `sort`, not `swap_vert`. swap_vert is two opposing arrows and reads
           as "reverse the direction" -- an asc/desc toggle this menu does not
           have and will not gain, because each item is a one-shot rearrangement
           rather than a mode. `sort` is the conventional affordance for
@@ -259,60 +271,65 @@ export default function MenuContainer() {
           in Material Symbols Outlined, measured in the built popup at 26px
           against a name the font does not carry, which renders as literal
           text 572px wide rather than as tofu (KAN-5). */}
-      {/* KAN-279. Absent in the tab view: that page IS the destination this
+        {/* KAN-279. Absent in the tab view: that page IS the destination this
           button opens or focuses, so a copy of itself there has nothing to
           do. Sits LEFT of Sort -- Justine's mockup measured the row with it
           first -- and sends a fire-and-forget message rather than acting
           directly; see handleClickOpenInTab above for why. */}
-      {!isTabView() && (
-        <Icon
-          ariaLabel={t('Open in a tab')}
-          tooltipText={t('Open in a tab')}
-          type="open_in_full"
-          onClick={handleClickOpenInTab}
+        {!isTabView() && (
+          <Icon
+            ariaLabel={t('Open in a tab')}
+            tooltipText={t('Open in a tab')}
+            type="open_in_full"
+            onClick={handleClickOpenInTab}
+          />
+        )}
+        <OverflowMenu
+          ariaLabel={t('Sort sessions')}
+          triggerIcon="sort"
+          items={sortItems}
         />
-      )}
-      <OverflowMenu
-        ariaLabel={t('Sort sessions')}
-        triggerIcon="sort"
-        items={sortItems}
-      />
-      <Icon
-        ariaLabel={t('Undo')}
-        tooltipText={t('Undo')}
-        type="undo"
-        onClick={handleClickUndo}
-        style={isUndoable ? 'opacity: 1;' : 'opacity: 0.3;'}
-        disable={!isUndoable}
-      />
-      <Icon
-        ariaLabel={t('Redo')}
-        tooltipText={t('Redo')}
-        type="redo"
-        onClick={handleClickRedo}
-        style={isRedoable ? 'opacity: 1;' : 'opacity: 0.3;'}
-        disable={!isRedoable}
-      />
-      <Icon
-        ariaLabel={t('Sync now')}
-        tooltipText={t('Sync now')}
-        type={syncIconType}
-        onClick={handleClickSync}
-        disable={isDisabled}
-      />
-      <Icon
-        ariaLabel={t('Settings')}
-        tooltipText={t('Settings')}
-        type="settings"
-        // KAN-340 I1. The heaviest glyph in the row: at 24px its ink is
-        // 20x20, 2.6x Sort's. Drawn at SMALL it sits in line with Undo and
-        // Sync, in the same box, so nothing moves and the target stays whole.
-        size={ICON.SMALL}
-        boxSizedFor={ICON.DEFAULT}
-        onClick={handleClickSettings}
-        animationFrom={`transform: rotate(0deg);`}
-        animationTo={`transform: rotate(120deg);`}
-      />
+      </div>
+      <div css={pairStyle}>
+        <Icon
+          ariaLabel={t('Undo')}
+          tooltipText={t('Undo')}
+          type="undo"
+          onClick={handleClickUndo}
+          style={isUndoable ? 'opacity: 1;' : 'opacity: 0.3;'}
+          disable={!isUndoable}
+        />
+        <Icon
+          ariaLabel={t('Redo')}
+          tooltipText={t('Redo')}
+          type="redo"
+          onClick={handleClickRedo}
+          style={isRedoable ? 'opacity: 1;' : 'opacity: 0.3;'}
+          disable={!isRedoable}
+        />
+      </div>
+      <div css={pairStyle}>
+        <Icon
+          ariaLabel={t('Sync now')}
+          tooltipText={t('Sync now')}
+          type={syncIconType}
+          onClick={handleClickSync}
+          disable={isDisabled}
+        />
+        <Icon
+          ariaLabel={t('Settings')}
+          tooltipText={t('Settings')}
+          type="settings"
+          // KAN-340 I1. The heaviest glyph in the row: at 24px its ink is
+          // 20x20, 2.6x Sort's. Drawn at SMALL it sits in line with Undo and
+          // Sync, in the same box, so nothing moves and the target stays whole.
+          size={ICON.SMALL}
+          boxSizedFor={ICON.DEFAULT}
+          onClick={handleClickSettings}
+          animationFrom={`transform: rotate(0deg);`}
+          animationTo={`transform: rotate(120deg);`}
+        />
+      </div>
     </div>
   );
 }

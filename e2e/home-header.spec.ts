@@ -89,3 +89,76 @@ test.describe('every header control has the same box (KAN-340 I1)', () => {
     });
   }
 });
+
+/** The row the Search title and the icon cluster share. */
+const headerRow = (page: Page): Locator =>
+  control(page, 'Search').locator('..');
+
+/** The space between each control and the next, left to right. */
+async function gapsBetween(page: Page, names: string[]): Promise<number[]> {
+  const boxes = await Promise.all(names.map((n) => boxOf(control(page, n))));
+  return boxes.slice(1).map((b, i) => b.x - (boxes[i].x + boxes[i].width));
+}
+
+/** How far each control's right edge sits from the header row's right edge. */
+async function insetsFromRight(page: Page, names: string[]): Promise<number[]> {
+  const row = await boxOf(headerRow(page));
+  const boxes = await Promise.all(names.map((n) => boxOf(control(page, n))));
+  return boxes.map((b) => row.x + row.width - (b.x + b.width));
+}
+
+test.describe('the icons sit in three pairs, 8px apart (KAN-340 A + R1)', () => {
+  for (const rootPx of ROOTS) {
+    test(`popup at a ${rootPx}px root: views | history | account, flush right, inside the row`, async ({
+      context,
+      extensionId,
+    }) => {
+      const page = await openHome(context, extensionId, 'popup', rootPx);
+
+      // [Open in a tab, Sort] [Undo, Redo] [Sync, Settings]
+      expect(await gapsBetween(page, POPUP_ORDER)).toEqual([0, 8, 0, 8, 0]);
+
+      const row = await boxOf(headerRow(page));
+      const search = await boxOf(control(page, 'Search'));
+      const first = await boxOf(control(page, POPUP_ORDER[0]));
+      const [lastInset] = await insetsFromRight(page, ['Settings']);
+      expect(lastInset, 'the cluster is flush with the row').toBe(0);
+      // KAN-343: at 20px the title gives way; the controls must not.
+      expect(first.x, 'no control overlaps the title').toBeGreaterThanOrEqual(
+        search.x + search.width
+      );
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth - innerWidth
+        ),
+        'nothing scrolls the page sideways'
+      ).toBe(0);
+      if (rootPx === 16)
+        expect(row.height, 'back-target.spec pins 56').toBe(56);
+    });
+
+    test(`tab view at a ${rootPx}px root: Sort alone, then history, then account`, async ({
+      context,
+      extensionId,
+    }) => {
+      const page = await openHome(context, extensionId, 'tab', rootPx);
+
+      await expect(control(page, 'Open in a tab')).toHaveCount(0);
+      expect(await gapsBetween(page, SHARED)).toEqual([8, 0, 8, 0]);
+      const [lastInset] = await insetsFromRight(page, ['Settings']);
+      expect(lastInset, 'no stray gap after Settings').toBe(0);
+    });
+
+    test(`at a ${rootPx}px root the shared icons sit at the same place in the popup and the tab view`, async ({
+      context,
+      extensionId,
+    }) => {
+      const popup = await openHome(context, extensionId, 'popup', rootPx);
+      const tab = await openHome(context, extensionId, 'tab', rootPx);
+
+      expect(await insetsFromRight(popup, SHARED)).toEqual(
+        await insetsFromRight(tab, SHARED)
+      );
+    });
+  }
+});
