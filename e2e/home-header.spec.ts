@@ -186,12 +186,13 @@ test.describe('the icons sit in three pairs, 8px apart (KAN-340 A + R1)', () => 
 });
 
 // KAN-344. Hover motions, settled by Justine from side-by-side mocks: the
-// gear winds up half a turn (its six teeth only repeat exactly at 180°),
-// Open in a tab stretches, and Search's magnifier leans in. Each goes past
+// gear winds up half a turn (its six teeth only repeat exactly at 180°), and
+// Open in a tab stretches. Each goes past
 // its pose a little and settles, and eases back when the pointer leaves --
 // a transition, so leaving early reverses instead of snapping. Only for a
 // fine pointer that hovers, never from the keyboard, and not at all when
-// the system asks for reduced motion. Sort, Undo, Redo and Sync stay still.
+// the system asks for reduced motion. Search, Sort, Undo, Redo and Sync stay
+// still.
 
 type Pose = { angle: number; scale: number };
 
@@ -202,12 +203,6 @@ interface HoverMotionCase {
   pose: Pose;
   /** Where the pointer goes: somewhere on the button that is not the glyph. */
   pointAt: (page: Page) => Promise<void>;
-  /**
-   * Whether the button paints a hover fill. The icon buttons do; the Search
-   * title button never has (ClickableRow resets its background), so with
-   * reduced motion its only answer is the pointer cursor.
-   */
-  hasHoverFill: boolean;
 }
 
 const MOTIONS: HoverMotionCase[] = [
@@ -216,28 +211,20 @@ const MOTIONS: HoverMotionCase[] = [
     pose: { angle: 180, scale: 1 },
     pointAt: (page) =>
       control(page, 'Settings').hover({ position: { x: 2, y: 2 } }),
-    hasHoverFill: true,
   },
   {
     name: 'Open in a tab',
     pose: { angle: 0, scale: 1.14 },
     pointAt: (page) =>
       control(page, 'Open in a tab').hover({ position: { x: 2, y: 2 } }),
-    hasHoverFill: true,
-  },
-  {
-    // The magnifier moves when the pointer is anywhere on the title button,
-    // here its words.
-    name: 'Search',
-    pose: { angle: -14, scale: 1.06 },
-    pointAt: (page) =>
-      control(page, 'Search').getByText('Tab Keeper', { exact: true }).hover(),
-    hasHoverFill: false,
   },
 ];
 
-/** Buttons that have no motion: only the hover fill answers. */
-const STILL = ['Sort sessions', 'Sync now'];
+/**
+ * Buttons that have no motion. Search had the magnifier lean in; Justine
+ * removed it as tacky once she tried it in the popup.
+ */
+const STILL = ['Search', 'Sort sessions', 'Sync now'];
 
 const glyphOf = (page: Page, name: string): Locator =>
   control(page, name).locator('.material-symbols-outlined');
@@ -395,13 +382,12 @@ test.describe('hover motions (KAN-344)', () => {
       );
 
       expect(poses.every(atRest)).toBe(true);
-      if (motion.hasHoverFill)
-        expect(
-          await control(page, motion.name).evaluate(
-            (el) => getComputedStyle(el).backgroundColor
-          ),
-          'the hover fill is the feedback'
-        ).not.toBe('rgba(0, 0, 0, 0)');
+      expect(
+        await control(page, motion.name).evaluate(
+          (el) => getComputedStyle(el).backgroundColor
+        ),
+        'the hover fill is the feedback'
+      ).not.toBe('rgba(0, 0, 0, 0)');
     });
 
     test(`${motion.name}: reaching it from the keyboard moves nothing`, async ({
@@ -455,10 +441,7 @@ test.describe('hover motions (KAN-344)', () => {
   }
 
   for (const name of STILL) {
-    test(`${name} stays still on hover; only its fill answers`, async ({
-      context,
-      extensionId,
-    }) => {
+    test(`${name} stays still on hover`, async ({ context, extensionId }) => {
       const page = await openHome(context, extensionId, 'popup', 16);
 
       const poses = await posesDuring(glyphOf(page, name), 700, () =>

@@ -18,9 +18,10 @@ export interface HoverMotion {
 
 /**
  * The CSS for a hover motion, for the emotion block of the element that
- * owns the hover: it moves that element's glyph. One definition, because
- * the owner is an Icon for most buttons but the whole title button for
- * Search, and the gates must not drift apart between them.
+ * owns the hover: it moves that element's glyph. Icon is the only owner
+ * today; a button whose glyph sits inside a wider control would use this
+ * too, so the gates stay in one place. (Search's magnifier had one, and
+ * Justine removed it as tacky.)
  *
  * Transitions, not keyframes, so leaving early reverses from wherever the
  * glyph got to instead of snapping back. Gated three ways: a pointer that
