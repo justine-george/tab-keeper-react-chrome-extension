@@ -18,7 +18,7 @@ import { clearReopenFocus } from '../../redux/reopenFocus';
 
 // jsdom runs inside Node, so `process` exists at runtime; tsconfig omits
 // @types/node so app code cannot reach for it. The minimal shape the
-// double-press test needs, as permissions.test.ts declares it.
+// gone-window test needs, as permissions.test.ts declares it.
 declare const process: {
   on(event: 'unhandledRejection', listener: (reason: unknown) => void): void;
   off(event: 'unhandledRejection', listener: (reason: unknown) => void): void;
@@ -120,7 +120,6 @@ beforeEach(() => {
 
 afterEach(() => {
   clearReopenFocus();
-  vi.useRealTimers();
   vi.restoreAllMocks();
 });
 
@@ -137,16 +136,30 @@ const chevronOf = (windowId: number): HTMLElement =>
 
 describe('a window row goes to its window (KAN-331 O15)', () => {
   test('a click focuses that Chrome window; its front tab stays its front tab', async () => {
-    await renderOpenNow(threeWindows());
-    const before = (await chrome.tabs.query({ windowId: 2, active: true }))[0]
-      ?.id;
+    const seed = threeWindows();
+    // The seed gives no tab a front place; E is window 2's.
+    await renderOpenNow({
+      ...seed,
+      windows: (seed.windows ?? []).map((win) =>
+        win.id === 2
+          ? {
+              ...win,
+              tabs: (win.tabs ?? []).map((t) => ({
+                ...t,
+                active: t.id === 22,
+              })),
+            }
+          : win
+      ),
+    });
+    const frontTab = async () =>
+      (await chrome.tabs.query({ windowId: 2, active: true }))[0]?.id;
+    expect(await frontTab()).toBe(22);
     const button = goTo(2);
     expect(button).not.toBeNull();
     await userEvent.click(button ?? document.body);
     await waitFor(async () => expect(await focusedWindow()).toBe(2));
-    expect(
-      (await chrome.tabs.query({ windowId: 2, active: true }))[0]?.id
-    ).toBe(before);
+    expect(await frontTab()).toBe(22);
   });
 
   test.each(['{Enter}', ' '])(
@@ -179,6 +192,9 @@ describe('a window row goes to its window (KAN-331 O15)', () => {
     await userEvent.click(
       screen.getByRole('button', { name: 'Save window as a session: Window 2' })
     );
+    // focusOpenWindow reads the window before it updates it, so a late focus
+    // lands after the click returns; give it the time the gone-window test does.
+    await new Promise((resolve) => setTimeout(resolve, 50));
     expect(
       update.mock.calls.filter(([, info]) => info.focused === true)
     ).toEqual([]);
@@ -269,6 +285,8 @@ describe('a window row goes to its window (KAN-331 O15)', () => {
     screen.getByRole('button', { name: 'Switch to tab: C' }).focus();
     await userEvent.keyboard('{ArrowDown}');
     expect(document.activeElement).toHaveAccessibleName('Switch to tab: D');
+    await userEvent.keyboard('{ArrowUp}');
+    expect(document.activeElement).toHaveAccessibleName('Switch to tab: C');
     goTo(2)?.focus();
     await userEvent.keyboard('{ArrowDown}');
     expect(document.activeElement).toHaveAccessibleName(
