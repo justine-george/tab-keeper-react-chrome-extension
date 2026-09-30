@@ -88,6 +88,42 @@ describe('a list open across midnight (KAN-347)', () => {
     expect(shown('Edited yesterday, 11:00 PM')).toBe(3);
   });
 
+  // A traveller's tab view: the zone changes while the list is open. New York
+  // to Los Angeles on one afternoon keeps the calendar day, so only a check
+  // that knows about the zone redraws; and "today" must be LA's today, not
+  // New York's midnight read in LA (Sep 28, 9:00 PM there).
+  test('a time-zone change while open redraws in the new zone', async () => {
+    try {
+      vi.stubEnv('TZ', 'America/New_York');
+      // Sep 28, 1:00 PM in New York; 10:00 AM in Los Angeles.
+      const edited = Date.UTC(2026, 8, 28, 17, 0);
+      vi.setSystemTime(Date.UTC(2026, 8, 29, 19, 0));
+      await renderWithProviders(<HeroContainerRight />, {
+        seedStore: (store) => {
+          store.dispatch(
+            restoreContainer({
+              lastModified: 1,
+              selectedTabGroupId: 'one',
+              tabGroups: [{ ...session('one', true), contentModified: edited }],
+              deletedTabGroups: [],
+            })
+          );
+        },
+      });
+      // PREMISE: drawn in New York.
+      expect(shown('Edited yesterday, 1:00 PM')).toBe(1);
+
+      vi.stubEnv('TZ', 'America/Los_Angeles');
+      act(() => {
+        document.dispatchEvent(new Event('visibilitychange'));
+      });
+
+      expect(shown('Edited yesterday, 10:00 AM')).toBe(1);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   // Review Focus 5: one interval however many rows, none once they are gone.
   test('three dates share one interval, and unmounting stops it', async () => {
     const { unmount } = await renderBothPanes();

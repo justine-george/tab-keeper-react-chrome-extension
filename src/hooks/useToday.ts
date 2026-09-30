@@ -1,4 +1,4 @@
-import { useMemo, useSyncExternalStore } from 'react';
+import { useSyncExternalStore } from 'react';
 
 import { localDayNumber, localMidnight } from '../utils/functions/calendarDay';
 
@@ -37,15 +37,29 @@ function subscribe(listener: () => void): () => void {
   };
 }
 
-// A number, so React compares snapshots by value: the check runs every
-// minute, and only a new day re-renders.
-const todayNumber = (): number => localDayNumber(new Date());
+// The snapshot must be the same object until something changes, so midnight
+// is cached with the day and the zone it was built for. The check runs every
+// minute; only a new day or a new zone makes a new Date, and a re-render.
+//
+// The zone matters on its own: a traveller going from New York to Los
+// Angeles on one afternoon keeps the day number, but midnight is a different
+// instant there and every time shown moves.
+let cached: { day: number; offset: number; midnight: Date } | null = null;
+
+function todaySnapshot(): Date {
+  const now = new Date();
+  const day = localDayNumber(now);
+  const offset = now.getTimezoneOffset();
+  if (cached === null || cached.day !== day || cached.offset !== offset) {
+    cached = { day, offset, midnight: localMidnight(day) };
+  }
+  return cached.midnight;
+}
 
 /**
  * Local midnight of today. A new value, and a re-render, only when the day
- * changes.
+ * or the time zone changes.
  */
 export function useToday(): Date {
-  const day = useSyncExternalStore(subscribe, todayNumber);
-  return useMemo(() => localMidnight(day), [day]);
+  return useSyncExternalStore(subscribe, todaySnapshot);
 }

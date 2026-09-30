@@ -269,8 +269,14 @@ describe('today and yesterday (KAN-347)', () => {
     expect(norm(sessionWhen(local(2026, 8, 29, 16, 12), 'ja', TODAY))).toBe(
       '今日 16:12'
     );
+    expect(norm(sessionWhen(local(2026, 8, 29, 16, 12), 'zh', TODAY))).toBe(
+      '今天 16:12'
+    );
     expect(norm(sessionWhen(local(2026, 8, 29, 16, 12), 'zh-TW', TODAY))).toBe(
       '今天 下午4:12'
+    );
+    expect(norm(sessionWhen(local(2026, 8, 29, 16, 12), 'ko', TODAY))).toBe(
+      '오늘 오후 4:12'
     );
   });
 

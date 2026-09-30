@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'vitest';
+import { afterAll, beforeAll, describe, expect, test, vi } from 'vitest';
 
 import {
   calendarDaysBefore,
@@ -9,21 +9,28 @@ import {
 // KAN-347. "Today" and "yesterday" are calendar days in the device's time
 // zone, not 24-hour spans.
 //
-// The daylight-saving cases can only fail in a zone that has daylight saving:
-// CI runs in UTC, so run this file with TZ=America/Los_Angeles as well.
+// The daylight-saving cases can only fail in a zone that has daylight saving,
+// and CI runs in UTC, so this file runs in Los Angeles wherever it runs.
+beforeAll(() => {
+  vi.stubEnv('TZ', 'America/Los_Angeles');
+});
+afterAll(() => {
+  vi.unstubAllEnvs();
+});
 
-const today = new Date(2026, 8, 29, 17, 7);
+// Built per test, after the zone is set.
+const today = () => new Date(2026, 8, 29, 17, 7);
 
 describe('calendarDaysBefore', () => {
   test('same day 0, the day before 1, a later day negative', () => {
     expect(
-      calendarDaysBefore(new Date(2026, 8, 29, 0, 1).getTime(), today)
+      calendarDaysBefore(new Date(2026, 8, 29, 0, 1).getTime(), today())
     ).toBe(0);
     expect(
-      calendarDaysBefore(new Date(2026, 8, 28, 23, 59).getTime(), today)
+      calendarDaysBefore(new Date(2026, 8, 28, 23, 59).getTime(), today())
     ).toBe(1);
     expect(
-      calendarDaysBefore(new Date(2026, 8, 30, 0, 1).getTime(), today)
+      calendarDaysBefore(new Date(2026, 8, 30, 0, 1).getTime(), today())
     ).toBe(-1);
   });
 
@@ -66,7 +73,7 @@ describe('calendarDaysBefore', () => {
 
 describe('localMidnight', () => {
   test('inverts localDayNumber', () => {
-    const m = localMidnight(localDayNumber(today));
+    const m = localMidnight(localDayNumber(today()));
     expect([
       m.getFullYear(),
       m.getMonth(),
