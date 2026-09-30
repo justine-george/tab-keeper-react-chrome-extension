@@ -4,9 +4,13 @@ import { useDispatch, useSelector } from 'react-redux';
 import { css } from '@emotion/react';
 
 import { AppDispatch, RootState } from '../../redux/store';
-import { selectReopenOfferForKey } from '../../redux/slices/globalStateSlice';
+import {
+  selectReopenOfferForKey,
+  toastsRemoved,
+} from '../../redux/slices/globalStateSlice';
 import { holdToasts, releaseToasts } from '../../redux/toastTimers';
 import { reopenFromOffer } from '../../redux/reopenOffer';
+import { showSession } from '../../redux/showSession';
 import { useFontFamily } from '../../hooks/useFontFamily';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { useTranslation } from 'react-i18next';
@@ -127,6 +131,11 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
     min-width: 300px;
     max-width: min(30rem, calc(100vw - 40px));
   `;
+  const chipStyle = `
+    height: 34px;
+    padding: 0 14px;
+    flex-shrink: 0;
+  `;
   const leavingStyle = css`
     pointer-events: none;
     transition-duration: ${TOAST_LEAVE_MS}ms;
@@ -197,17 +206,22 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
         // {{detail}} value.
         const message = t(toast.text, toast.params);
         const offer = toast.reopenOffer;
-        return offer === null ? (
-          <div
-            key={toast.id}
-            ref={refFor(toast.id)}
-            data-toast
-            css={[toastStyle, leaving && leavingStyle]}
-            aria-hidden={leaving || undefined}
-          >
-            {message}
-          </div>
-        ) : (
+        const show = toast.show;
+        if (offer === null && show === null) {
+          return (
+            <div
+              key={toast.id}
+              ref={refFor(toast.id)}
+              data-toast
+              css={[toastStyle, leaving && leavingStyle]}
+              aria-hidden={leaving || undefined}
+            >
+              {message}
+            </div>
+          );
+        }
+        // An offer or a Show: the message, and one chip at the right end.
+        return (
           <div
             key={toast.id}
             ref={refFor(toast.id)}
@@ -216,24 +230,35 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
             aria-hidden={leaving || undefined}
           >
             <span css={messageStyle}>{message}</span>
-            <Button
-              variant="chip"
-              iconType="undo"
-              text={t('Reopen')}
-              // The key does nothing on the settings page (MainContainer
-              // stands down there), so the hint would name a dead key.
-              keyHint={
-                isSettingsPage || keyOfferId !== offer.id
-                  ? undefined
-                  : reopenKeyHint
-              }
-              onClick={() => void dispatch(reopenFromOffer(offer.id))}
-              style={`
-                height: 34px;
-                padding: 0 14px;
-                flex-shrink: 0;
-              `}
-            />
+            {offer !== null && (
+              <Button
+                variant="chip"
+                iconType="undo"
+                text={t('Reopen')}
+                // The key does nothing on the settings page (MainContainer
+                // stands down there), so the hint would name a dead key.
+                keyHint={
+                  isSettingsPage || keyOfferId !== offer.id
+                    ? undefined
+                    : reopenKeyHint
+                }
+                onClick={() => void dispatch(reopenFromOffer(offer.id))}
+                style={chipStyle}
+              />
+            )}
+            {show !== null && (
+              <Button
+                variant="chip"
+                text={t('Show')}
+                // Show, then close: a session gone by now shows nothing, and
+                // the toast closes all the same.
+                onClick={() => {
+                  dispatch(showSession(show.tabGroupId));
+                  dispatch(toastsRemoved([toast.id]));
+                }}
+                style={chipStyle}
+              />
+            )}
           </div>
         );
       })}

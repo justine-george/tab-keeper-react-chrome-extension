@@ -24,8 +24,7 @@ import { useTranslation } from 'react-i18next';
 import { RowDragArea, DraggableRow } from '../rightpane/rowDrag/RowDragArea';
 import { dropOnTop } from '../../../redux/dropOnTop';
 import { sessionDrop } from '../../../redux/dropSpecs';
-import { peekSavedSession } from '../../../redux/slices/globalStateSlice';
-import { selectIsSavedSessionFolded } from '../../../redux/savedSessionFold';
+import { showSession } from '../../../redux/showSession';
 import { isTabView } from '../../../utils/functions/viewMode';
 import { TYPE } from '../../../styles/scale';
 
@@ -53,10 +52,6 @@ export default function TabGroupEntryContainer() {
   const hasTabGroupsPermission = useSelector(
     (state: RootState) => state.globalState.hasTabGroupsPermission
   );
-
-  // KAN-280 O5. Whether the tab view has the saved session folded away right
-  // now; the selector MainContainer lays the grid out by.
-  const isSavedSessionFolded = useSelector(selectIsSavedSessionFolded);
 
   const selectedTabGroupId = tabContainerDataList.selectedTabGroupId;
 
@@ -261,20 +256,9 @@ export default function TabGroupEntryContainer() {
                 >
                   <TabGroupEntry
                     tabGroupData={tabGroupData}
-                    onTabGroupClick={() => {
-                      // KAN-280 O5. Folded, a click shows the session for
-                      // now; the selected row included, since it is the
-                      // natural one to click to see it. Only while folded: a
-                      // peek left set side by side would keep this page open
-                      // through a later fold from another page's settings.
-                      if (isTab && isSavedSessionFolded) {
-                        dispatch(peekSavedSession());
-                      }
-                      if (selectedTabGroupId === tabGroupData.tabGroupId) {
-                        return;
-                      }
-                      dispatch(selectTabContainer(tabGroupData.tabGroupId));
-                    }}
+                    onTabGroupClick={() =>
+                      dispatch(showSession(tabGroupData.tabGroupId))
+                    }
                     onOpenAllClick={() => {
                       const goToURLText: string = t('Go to URL');
                       dispatch(

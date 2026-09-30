@@ -848,6 +848,9 @@ interface ShowToastPayload {
   // KAN-349 Q1 C′. The toast announces a saved-session change the user just
   // made, so it takes ⌘Z from a Reopen offer showing above it, for good.
   announcesSavedChange?: boolean;
+  // KAN-350. A Show chip that puts this session on screen. Twins replace
+  // (T5) and the cap applies; T4 is for offers only.
+  show?: { tabGroupId: string };
 }
 
 let lastToastId = 0;
@@ -863,6 +866,7 @@ export const showToast = createAsyncThunk(
       duration = 5000,
       reopenOfferId,
       announcesSavedChange = false,
+      show,
     }: ShowToastPayload,
     thunkAPI
   ) => {
@@ -879,6 +883,7 @@ export const showToast = createAsyncThunk(
             reopenOfferId === undefined
               ? null
               : { id: reopenOfferId, keepsUndoKey: true },
+          show: show ?? null,
         },
         announcesSavedChange,
       })

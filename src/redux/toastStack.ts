@@ -11,12 +11,18 @@ export interface ToastOffer {
   keepsUndoKey: boolean;
 }
 
+// The session a toast's Show chip puts on screen (KAN-350).
+export interface ToastShow {
+  tabGroupId: string;
+}
+
 export interface ToastItem {
   id: number;
   // An i18n KEY, not a display string -- Toast renders t(text, params).
   text: string;
   params: Record<string, string | number> | undefined;
   reopenOffer: ToastOffer | null;
+  show: ToastShow | null;
 }
 
 function sameParams(a: ToastItem['params'], b: ToastItem['params']): boolean {

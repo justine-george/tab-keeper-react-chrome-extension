@@ -7,11 +7,16 @@ import type { ToastItem } from '../../redux/toastStack';
 // in place (T4), a plain toast replaces its twin (T5), a saved-session change
 // takes ⌘Z from the offer (Q1 C′), and past MAX_TOASTS the oldest goes (T2).
 
-const plain = (id: number, text: string, params?: ToastItem['params']) => ({
+const plain = (
+  id: number,
+  text: string,
+  params?: ToastItem['params']
+): ToastItem => ({
   id,
   text,
   params,
   reopenOffer: null,
+  show: null,
 });
 
 const offer = (id: number, offerId: number): ToastItem => ({
@@ -19,6 +24,7 @@ const offer = (id: number, offerId: number): ToastItem => ({
   text: 'Tab closed',
   params: undefined,
   reopenOffer: { id: offerId, keepsUndoKey: true },
+  show: null,
 });
 
 const ids = (list: readonly ToastItem[]) => list.map((t) => t.id);
@@ -93,5 +99,38 @@ describe('addToast (KAN-349)', () => {
     const snapshot = structuredClone(before);
     addToast(before, plain(4, 'C'), true);
     expect(before).toEqual(snapshot);
+  });
+});
+
+describe('a toast with a Show action (KAN-350)', () => {
+  const withShow = (
+    id: number,
+    text: string,
+    tabGroupId: string
+  ): ToastItem => ({
+    ...plain(id, text),
+    show: { tabGroupId },
+  });
+
+  test('T4 is for offers only: a Show toast does not replace the offer, and stays in the stack beside it', () => {
+    const list = addToast([offer(1, 10)], withShow(2, 'Moved', 's'), false);
+    expect(ids(list)).toEqual([1, 2]);
+    expect(list[1].show).toEqual({ tabGroupId: 's' });
+  });
+
+  test('T5: a Show toast with the same text and params replaces its twin, at the bottom', () => {
+    let list = addToast([], withShow(1, 'Moved', 'a'), false);
+    list = addToast(list, plain(2, 'Copied'), false);
+    list = addToast(list, withShow(3, 'Moved', 'b'), false);
+    expect(ids(list)).toEqual([2, 3]);
+    expect(list[1].show).toEqual({ tabGroupId: 'b' });
+  });
+
+  test('T2: the cap applies to Show toasts', () => {
+    let list: ToastItem[] = [];
+    for (const id of [1, 2, 3, 4]) {
+      list = addToast(list, withShow(id, `M${id}`, 's'), false);
+    }
+    expect(ids(list)).toEqual([2, 3, 4]);
   });
 });
