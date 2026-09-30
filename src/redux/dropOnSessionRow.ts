@@ -1,12 +1,9 @@
 import type { ThunkAction, UnknownAction } from '@reduxjs/toolkit';
 
-import { dropOnTop } from './dropOnTop';
+import { dropOnTopMoved } from './dropOnTop';
 import { intoNewWindow, windowDrop } from './dropSpecs';
 import { moveToSession } from './moveToSession';
-import type {
-  CarriedRef,
-  TabMasterContainer,
-} from './slices/tabContainerDataStateSlice';
+import type { CarriedRef } from './slices/tabContainerDataStateSlice';
 import type { RootState } from './store';
 
 // KAN-350 (S2 A). A carried item let go on a saved session's row: what the
@@ -60,22 +57,8 @@ export const dropOnSessionRow =
         }
         // Moved or not is read off the move action, as moveToSession reads
         // it: the reducer returns the same state for a window already first.
-        const drop = windowDrop(tabGroupId, carried.windowId, 0);
-        const beforeMove: { state: TabMasterContainer | null } = {
-          state: null,
-        };
-        dispatch(
-          dropOnTop({
-            ...drop,
-            move: (toIndex) => {
-              beforeMove.state = getState().tabContainerDataState;
-              return drop.move(toIndex);
-            },
-          })
-        );
-        return (
-          beforeMove.state !== null &&
-          getState().tabContainerDataState !== beforeMove.state
+        return dispatch(
+          dropOnTopMoved(windowDrop(tabGroupId, carried.windowId, 0))
         );
       }
     }
