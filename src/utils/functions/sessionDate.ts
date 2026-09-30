@@ -105,10 +105,11 @@ export function sessionWhen(
 
   const days = calendarDaysBefore(instant, today);
   // Today and yesterday are words (Intl knows them in every locale we ship).
-  // A time later than today comes from another device whose clock runs
-  // ahead; "tomorrow" would be false (and in hi, कल also means yesterday),
-  // so it reads as today.
-  if (days <= 1) {
+  // A time up to a day later than today comes from another device whose
+  // clock runs a little fast; "tomorrow" would be false (and in hi, कल also
+  // means yesterday), so it reads as today. Further ahead is a corrupt time
+  // or a clock badly wrong, and is dated like any other (KAN-348).
+  if (days >= -1 && days <= 1) {
     const word = relativeDay(locale, days <= 0 ? 0 : 1);
     const time = formatIn(locale, { hour: 'numeric', minute: '2-digit' }, at);
     // A comma reads as a list break in CJK; those join with a space.

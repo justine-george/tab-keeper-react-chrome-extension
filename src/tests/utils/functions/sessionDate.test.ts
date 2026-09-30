@@ -265,6 +265,31 @@ describe('today and yesterday (KAN-347)', () => {
     );
   });
 
+  // The clamp above is for a clock that runs a little fast: up to one
+  // calendar day ahead. Further ahead is a corrupt time or a clock that is
+  // badly wrong, and "today" would be a false statement about it, so it reads
+  // as a plain date.
+  test('two days or more ahead is a date, not today', () => {
+    // The edge: the day after tomorrow, just after midnight.
+    expect(norm(sessionWhen(local(2026, 9, 1, 0, 1), 'en', TODAY))).toBe(
+      'Oct 1, 12:01 AM'
+    );
+    expect(norm(sessionWhen(local(2026, 9, 5, 1, 0), 'en', TODAY))).toBe(
+      'Oct 5, 1:00 AM'
+    );
+    expect(norm(sessionWhen(local(2099, 0, 1, 15, 0), 'en', TODAY))).toBe(
+      'Jan 1, 2099'
+    );
+  });
+
+  // CONTROL: the edge the clamp keeps. Tomorrow a minute before midnight is
+  // one calendar day ahead, so it still reads today.
+  test('CONTROL: late tomorrow is still today', () => {
+    expect(norm(sessionWhen(local(2026, 8, 30, 23, 59), 'en', TODAY))).toBe(
+      'today, 11:59 PM'
+    );
+  });
+
   test('ja, zh and ko join the word and the time with a space', () => {
     expect(norm(sessionWhen(local(2026, 8, 29, 16, 12), 'ja', TODAY))).toBe(
       '今日 16:12'
