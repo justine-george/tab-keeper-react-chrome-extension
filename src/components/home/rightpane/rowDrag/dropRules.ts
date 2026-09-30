@@ -9,6 +9,7 @@ import type { ReactNode } from 'react';
 import type { LandingSide } from '../../../../utils/functions/dragPreview';
 import type { windowGroupData } from '../../../../redux/slices/tabContainerDataStateSlice';
 import type { chromeTabGroupData } from '../../../../utils/functions/tabGroups';
+import type { CarryOut } from '../../../../redux/carry';
 
 export const ACTIVATION_DISTANCE_PX = 5;
 
@@ -430,6 +431,21 @@ export interface RowDragAreaProps {
     target: string | undefined,
     windowId: string | undefined
   ) => BandGapChange[];
+  /**
+   * Hand a drag that leaves the pane SIDEWAYS to the carry (KAN-350).
+   *
+   * Once a started drag's pointer is left or right of the box the held row
+   * lives in (the nearest `overflow: auto` ancestor), the area asks this for
+   * what it is holding. Given an answer, it ends its own drag without
+   * committing -- but leaves the drag hold on, the drag kind published and no
+   * click suppression armed, because the carry takes all three over -- and
+   * starts the carry at the pointer. Null leaves the drag exactly as it was.
+   *
+   * Above or below the pane is never a hand-off: that overshoot is how a drag
+   * auto-scrolls (KAN-152). Only the saved detail's three lists pass this; the
+   * session list and Open now do not, so their drags cannot change.
+   */
+  carryOut?: (rowId: string) => CarryOut | null;
   // Dragging is off while the list on screen is a FILTERED view of the stored
   // one (KAN-131). toIndex counts rendered rows, and the reducers apply it to
   // the stored array, so a drag in a narrowed list lands somewhere the user

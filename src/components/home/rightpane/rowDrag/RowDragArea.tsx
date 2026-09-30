@@ -65,6 +65,7 @@ import {
 } from '../../../../utils/functions/dragPreview';
 import { DURATION } from '../../../../styles/scale';
 import { beginDragHold, endDragHold } from '../../../../redux/dragHold';
+import { currentCarry, startCarry } from '../../../../redux/carry';
 
 // How close to an edge the pointer must be for the list to start travelling,
 // and how fast it goes at its deepest. 48px is roughly a row and a half here,
@@ -277,6 +278,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
   landsBesideFixedRow,
   fixedRowsRemovedBy,
   gapChangesBy,
+  carryOut,
   disabled = false,
   children,
 }) => {
@@ -323,6 +325,10 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     // whether this list's rows sit in windows at all. Null for a row in no
     // window.
     heldWindow: HTMLElement | null;
+    // The box a sideways exit from hands the drag to the carry (KAN-350):
+    // paneOf the held row, read at activation. Null for a list with no
+    // carryOut, which never hands off.
+    carryPane: HTMLElement | null;
     // The last target resolveDrop named, so the list hears only about changes
     // rather than once per pointer move (KAN-164).
     dropTarget: string | undefined;
@@ -391,6 +397,12 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // would leak for the rest of the page (KAN-279 D12).
       if (live.current?.started) return;
 
+      // Nor while something is carried (KAN-350). The carry holds the drag
+      // hold and the drag kind this area would start again, and its finish
+      // would end them both with the carry still on. A second pointer is the
+      // only way here: the carry's own press is still down.
+      if (currentCarry() !== null) return;
+
       // A press in a text field starts a selection, not a drag (KAN-162). The
       // window rename field sits inside the window's handle, and selecting
       // its text used to fold every window and move the window.
@@ -439,6 +451,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         pane: clampDropToEnds ? paneOf(el) : null,
         heldEl: null,
         heldWindow: null,
+        carryPane: null,
         dropTarget: undefined,
         slots: [],
         slotOfRow: [],
@@ -1004,6 +1017,37 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       scrollFrame.current = requestAnimationFrame(autoScroll);
     };
 
+    // Ends this area's drag and starts a carry of what it held (KAN-350), or
+    // returns false and changes nothing when the list has nothing to hand.
+    //
+    // finish() for a REFUSED release, minus three things the carry takes over:
+    // the drag hold (a change another page made must still wait -- the carry
+    // is the same gesture), the published drag kind (a window carry keeps
+    // every window folded), and the click suppression (the CarryLayer
+    // swallows the release's click; this area may be gone by then). Nor is
+    // the scroll put back: the kind is still published, so a write now would
+    // lay out against the folded list, the very thing KAN-157 puts it back
+    // from.
+    const handOff = (
+      l: NonNullable<typeof live.current>,
+      x: number,
+      y: number
+    ): boolean => {
+      const out = carryOut?.(l.rowId) ?? null;
+      if (out === null) return false;
+      live.current = null;
+      setDrag(null);
+      if (scrollFrame.current) {
+        cancelAnimationFrame(scrollFrame.current);
+        scrollFrame.current = 0;
+      }
+      l.heldEl?.removeAttribute('data-drag-held');
+      if (l.dropTarget !== undefined)
+        onDropTargetChange?.(undefined, containerRef.current);
+      startCarry(out.carried, out.card, x, y);
+      return true;
+    };
+
     const onMoveEvent = (e: PointerEvent) => {
       const l = live.current;
       if (!l) return;
@@ -1040,6 +1084,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         l.heldEl = rows.current.get(l.rowId) ?? null;
         l.heldEl?.setAttribute('data-drag-held', '');
         l.heldWindow = windowOf(l.heldEl);
+        l.carryPane = carryOut ? paneOf(l.heldEl) : null;
 
         // RE-READ AFTER THE COLLAPSE, and this is load-bearing (KAN-154).
         // Folding the windows shut can make the list shorter than its viewport,
@@ -1195,6 +1240,19 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         if (held) l.startY = held.mid - l.startScrollTop;
         if (!scrollFrame.current) {
           scrollFrame.current = requestAnimationFrame(autoScroll);
+        }
+      }
+
+      // Out of the pane SIDEWAYS: the drag goes to the carry (KAN-350). Only
+      // left or right -- above or below is the auto-scroll overshoot
+      // (KAN-152), and a drag there is exactly what it always was.
+      if (l.carryPane !== null) {
+        const pane = l.carryPane.getBoundingClientRect();
+        if (
+          (e.clientX < pane.left || e.clientX > pane.right) &&
+          handOff(l, e.clientX, e.clientY)
+        ) {
+          return;
         }
       }
 
@@ -1450,6 +1508,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     restoreScrollIfNoDrop,
     landingRange,
     acceptsWindow,
+    carryOut,
     disabled,
   ]);
 

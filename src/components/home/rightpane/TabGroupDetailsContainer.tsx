@@ -24,6 +24,9 @@ import { TabDragArea } from './TabDragArea';
 import { GroupDragArea } from './GroupDragArea';
 import { dropOnTop } from '../../../redux/dropOnTop';
 import { windowDrop } from '../../../redux/dropSpecs';
+import { useCarried } from '../../../redux/carry';
+import { carriedView } from '../../../utils/functions/carriedView';
+import { windowCarryOut } from './carryOut';
 
 export default function TabGroupDetailsContainer() {
   const COLORS = useThemeColors();
@@ -54,6 +57,25 @@ export default function TabGroupDetailsContainer() {
     hasTabGroupsPermission
   )[0];
 
+  // KAN-350. While something is carried, the session as the carry leaves it:
+  // the carried item hidden from its source, so the list closes up behind it.
+  // With nothing carried, the selected session itself -- the same object, so
+  // the drag areas below see exactly what they always did. Reads only WHAT is
+  // carried, which holds still for the whole carry: the pointer moving does
+  // not re-render this.
+  const carried = useCarried();
+  const shownSession = useMemo(
+    () =>
+      carried === null || selectedTabGroup === undefined
+        ? selectedTabGroup
+        : carriedView(
+            tabContainerDataList.tabGroups,
+            selectedTabGroup.tabGroupId,
+            carried
+          ) ?? selectedTabGroup,
+    [carried, selectedTabGroup, tabContainerDataList.tabGroups]
+  );
+
   // The windows on screen, in render order. Index into this is what a drop
   // reports, which is why the guard below matters.
   //
@@ -69,8 +91,8 @@ export default function TabGroupDetailsContainer() {
   // the session object survived. A sync replaces it, and the flag went anyway
   // (KAN-159). The flag is now cleared on unmount alone.
   const windowIds = useMemo(
-    () => selectedTabGroup?.windows.map((w) => w.windowId) ?? [],
-    [selectedTabGroup]
+    () => shownSession?.windows.map((w) => w.windowId) ?? [],
+    [shownSession]
   );
 
   const movedTabGroupId = selectedTabGroup?.tabGroupId;
@@ -82,12 +104,22 @@ export default function TabGroupDetailsContainer() {
     [dispatch, movedTabGroupId]
   );
 
+  // KAN-350. Out of the pane sideways, a whole window is carried to another
+  // session.
+  const carryWindowOut = useCallback(
+    (windowId: string) =>
+      shownSession === undefined
+        ? null
+        : windowCarryOut(shownSession, windowId),
+    [shownSession]
+  );
+
   // Belt and braces: RightPane does not mount this component when the list is
   // empty, so this should be unreachable -- but it is what makes the component
   // safe on its own terms rather than safe because of its only caller (KAN-39).
   // Must stay below every hook: an early return above one would change the hook
   // count between renders and React would throw on the transition.
-  if (!selectedTabGroup) return null;
+  if (!selectedTabGroup || !shownSession) return null;
 
   const tabGroupId = selectedTabGroup.tabGroupId;
 
@@ -160,7 +192,7 @@ export default function TabGroupDetailsContainer() {
               directly -- there is no per-window items list any more, only
               the ONE items list a few lines below. Both resolve correctly
               with no context factory (spec 5.1). */}
-          <TabDragArea tabList={selectedTabGroup}>
+          <TabDragArea tabList={shownSession}>
             {/* KAN-132, one level up from the tab list. ONE items list for the
                 whole session -- each loose tab and each Chrome group as one
                 row -- rather than one per window.
@@ -170,7 +202,7 @@ export default function TabGroupDetailsContainer() {
                 scope="items" and tab rows name scope="tabs", so each reaches
                 its own list through the other; window rows declare no scope and
                 still join the nearest list, the windows area below. */}
-            <GroupDragArea itemList={selectedTabGroup}>
+            <GroupDragArea itemList={shownSession}>
               {/* KAN-129. handleSelector is what keeps this area and the tab list
               around it from both claiming one pointerdown: the
               draggable node below wraps a window's whole block, tabs
@@ -186,11 +218,12 @@ export default function TabGroupDetailsContainer() {
                 dragKind="window"
                 clampDropToEnds
                 restoreScrollIfNoDrop
+                carryOut={carryWindowOut}
                 // The mode, not the box's contents -- see KAN-140 on
                 // TabGroupEntryContainer for why this is not isFilteredView.
                 disabled={isSearchPanel}
               >
-                {selectedTabGroup.windows.map(
+                {shownSession.windows.map(
                   ({ windowId, title, tabs, chromeTabGroups }) => {
                     return (
                       // Keyed by windowId, not by index: WindowEntryContainer owns

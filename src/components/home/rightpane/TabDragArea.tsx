@@ -4,13 +4,14 @@
 // a window never provides one of its own. ONE component rather than the
 // per-window area each window used to build for itself, so the wiring behind
 // it can only be changed in one place.
-import React, { type ReactNode } from 'react';
+import React, { useCallback, type ReactNode } from 'react';
 import { useSelector } from 'react-redux';
 
 import type { RootState } from '../../../redux/store';
 import { RowDragArea } from './rowDrag/RowDragArea';
 import { useTabDrop } from './useTabDrop';
 import type { PaneWindows } from './rowDrag/dropRules';
+import { tabCarryOut } from './carryOut';
 
 export const TabDragArea: React.FC<{
   // Must keep its identity between renders while its windows are unchanged:
@@ -25,6 +26,10 @@ export const TabDragArea: React.FC<{
     (state: RootState) => state.globalState.isSearchPanel
   );
   const tabDrop = useTabDrop(tabList, hasTabGroupsPermission);
+  const carryOut = useCallback(
+    (rowId: string) => tabCarryOut(tabList, rowId),
+    [tabList]
+  );
 
   return (
     <RowDragArea
@@ -44,6 +49,9 @@ export const TabDragArea: React.FC<{
       // dragged in it -- in a window's `items` list a group is one row that
       // CONTAINS its title, so it is declared here only.
       fixedRowSelector="[data-fixed-row-id]"
+      // Out of the pane sideways, a tab is carried to another session
+      // (KAN-350).
+      carryOut={carryOut}
       // The mode, not the box's contents -- see KAN-140 on
       // TabGroupEntryContainer for why this is not isFilteredView.
       disabled={isSearchPanel}
