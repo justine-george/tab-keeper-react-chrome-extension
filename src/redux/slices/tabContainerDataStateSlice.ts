@@ -2357,8 +2357,10 @@ export const tabContainerDataStateSlice = createSlice({
           );
 
           if (landing.kind === 'new-window') {
-            // Its source window's bounds, and no title, like a captured
-            // window's default. First, where S2 A and S3 A put it.
+            // Its source window's bounds, and its first tab's title, as
+            // capture names a window. Tab titles are stored already cleaned
+            // of an unread count, so no second pass. First, where S2 A and
+            // S3 A put it.
             target.windows.unshift({
               windowId: taken.windows.has(landing.newWindowId)
                 ? remint(landing.newWindowId)
@@ -2368,7 +2370,7 @@ export const tabContainerDataStateSlice = createSlice({
               windowOffsetTop: from.windowOffsetTop,
               windowOffsetLeft: from.windowOffsetLeft,
               tabCount: tabs.length,
-              title: '',
+              title: tabs[0]?.title ?? '',
               tabs,
               ...(group === undefined ? {} : { chromeTabGroups: [group] }),
             });
