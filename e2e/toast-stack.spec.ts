@@ -198,21 +198,22 @@ test.describe('toasts stack (KAN-349)', () => {
     expect(boxes[0].width).toBeGreaterThanOrEqual(300);
     expect(boxes[0].width).toBeLessThanOrEqual(480);
 
-    // The region covers the stack, gaps included, so the pointer crossing a
-    // gap is still on it.
-    const area = await region(page).boundingBox();
-    if (area === null) throw new Error('the region has no box');
-    expect(area.y).toBeCloseTo(boxes[0].y, 0);
-    expect(area.y + area.height).toBeCloseTo(boxes[2].y + boxes[2].height, 0);
-    const gapPoint = {
-      x: boxes[1].x + 150,
-      y: boxes[1].y + boxes[1].height + GAP / 2,
-    };
-    const inGap = await page.evaluate(
-      ({ x, y }) => document.elementFromPoint(x, y)?.getAttribute('role'),
-      gapPoint
-    );
-    expect(inGap).toBe('status');
+    // A gap belongs to the toast below it, so the pointer crossing it stays
+    // on the stack.
+    const hit = (x: number, y: number) =>
+      page.evaluate(
+        ({ x, y }) => {
+          const el = document.elementFromPoint(x, y);
+          return {
+            inStack: el?.closest('[role="status"]') !== null,
+            text: el?.closest('[role="status"] > div')?.textContent ?? null,
+          };
+        },
+        { x, y }
+      );
+    expect(
+      await hit(boxes[1].x + 150, boxes[1].y + boxes[1].height + GAP / 2)
+    ).toEqual({ inStack: true, text: ALL_SAVED });
   });
 
   test('2. a fourth toast pushes the oldest out, and its Reopen offer with it', async ({
@@ -237,6 +238,14 @@ test.describe('toasts stack (KAN-349)', () => {
     await expect(toasts.nth(1)).toHaveText(ALL_SAVED);
     await expect(toasts.nth(2)).toHaveText(LINKS_COPIED);
     await expect(reopenButton(page)).toHaveCount(0);
+
+    // Dropped, not only hidden: Ctrl+Z no longer reopens the closed tab. It
+    // undoes the latest saved change instead (Save all).
+    const before = await storedSessionCount(page);
+    await page.keyboard.press('Control+z');
+    await expect.poll(() => storedSessionCount(page)).toBe(before - 1);
+    await page.waitForTimeout(500);
+    await expect(rowsIn(block)).toHaveCount(1);
   });
 
   test('3. each toast leaves on its own time, and hovering any holds them all', async ({
@@ -266,6 +275,81 @@ test.describe('toasts stack (KAN-349)', () => {
     // CONTROL: away, they go.
     await page.mouse.move(TAB_VIEWPORT.width - 10, 10);
     await expect(liveToasts(page)).toHaveCount(0, { timeout: 9000 });
+  });
+
+  test('3b. the pointer resting in a gap holds the stack; beside a narrow toast it does not', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    test.setTimeout(60_000);
+    const page = await openPage(context, extensionId);
+    // Chrome's Font size "Large" (a 20px root, as open-now-close 11b sets
+    // it): the offer grows with its line, the plain toasts stay 300px.
+    await page.evaluate(() => {
+      document.documentElement.style.fontSize = '20px';
+    });
+    // The longer offer: a whole window closed, "Window closed (3 tabs)".
+    const block = windowBlock(
+      page,
+      await openWindow(serviceWorker, ['Keep', 'Drop'])
+    );
+    const gone = windowBlock(
+      page,
+      await openWindow(serviceWorker, ['One', 'Two', 'Three'])
+    );
+    await expect(rowsIn(block)).toHaveCount(2);
+    await expect(rowsIn(gone)).toHaveCount(3);
+    await gone
+      .getByRole('button', { name: /^Close window: Window \d+$/ })
+      .click();
+    await expect(reopenButton(page)).toBeVisible();
+    await liveToasts(page).first().hover();
+    await clickInPlace(saveWindowIn(block));
+    await clickInPlace(saveAll(page));
+    await expect(liveToasts(page)).toHaveCount(3);
+    await settled(page);
+    const offer = await liveToasts(page).nth(0).boundingBox();
+    const saved = await liveToasts(page).nth(1).boundingBox();
+    if (offer === null || saved === null) throw new Error('no box');
+    // PREMISE: the offer is wider than the saved toast below it, so there is
+    // a strip beside the saved toast that only the offer's width reaches.
+    expect(offer.width - saved.width).toBeGreaterThan(20);
+    const besideSaved = {
+      x: saved.x + (saved.width + offer.width) / 2,
+      y: saved.y + saved.height / 2,
+    };
+    expect(
+      await page.evaluate(
+        ({ x, y }) =>
+          document.elementFromPoint(x, y)?.closest('[role="status"]') === null,
+        besideSaved
+      )
+    ).toBe(true);
+
+    // In the gap below "Window saved": past both saved toasts' 3s.
+    await page.mouse.move(saved.x + 150, saved.y + saved.height + GAP / 2);
+    await page.waitForTimeout(4000);
+    await expect(liveToasts(page)).toHaveCount(3);
+
+    // Beside it, where only the offer above is that wide: not the stack, so
+    // the saved toasts' time runs out.
+    await page.mouse.move(besideSaved.x, besideSaved.y);
+    await expect(liveToasts(page)).toHaveCount(1, { timeout: 4500 });
+  });
+
+  test('3c. the status region announces each toast alone (not atomic)', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPage(context, extensionId);
+    const cdp = await context.newCDPSession(page);
+    const { nodes } = await cdp.send('Accessibility.getFullAXTree');
+    const status = nodes.filter((n) => n.role?.value === 'status');
+    expect(status).toHaveLength(1);
+    const atomic = status[0].properties?.find((p) => p.name === 'atomic');
+    console.log(`[a11y] ${JSON.stringify(status[0].properties)}`);
+    expect(atomic?.value.value).toBe(false);
   });
 
   // Fires a new toast and reads the two toasts on every frame for 400ms:

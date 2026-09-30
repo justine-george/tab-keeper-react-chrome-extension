@@ -61,6 +61,15 @@ describe('the stack on screen (KAN-349)', () => {
     expect(liveTexts()).toEqual(['One', 'Two', 'Three']);
   });
 
+  // role="status" is aria-atomic by default: without this, every new toast
+  // would make a screen reader read the whole stack again, not only the new
+  // one (settled rule A). What a screen reader does with it is a real-browser
+  // claim; e2e/toast-stack.spec.ts reads Chrome's accessibility tree.
+  test('the region announces each new toast alone, not the whole stack', async () => {
+    await renderWithProviders(<Toast />);
+    expect(region().getAttribute('aria-atomic')).toBe('false');
+  });
+
   test('hovering the oldest toast holds all three (T3)', async () => {
     const rendered = await renderWithProviders(<Toast />);
     vi.useFakeTimers();
@@ -82,17 +91,19 @@ describe('the stack on screen (KAN-349)', () => {
     expect(toastTexts(rendered.store.getState())).toEqual([]);
   });
 
-  // The region is sized to cover the stack, so the 8px gap between two toasts
-  // is the region itself: a pointer crossing it has not left the stack.
-  test('the pointer in the gap between two toasts is still on the stack', async () => {
+  // Each toast's hit area reaches over the 8px gap above it (e2e test 1
+  // measures that), so the pointer leaving one toast for the gap lands on the
+  // next toast, still inside the stack.
+  test('the pointer crossing from one toast to the next is not leaving', async () => {
     const rendered = await renderWithProviders(<Toast />);
     vi.useFakeTimers();
     await show(rendered, 'One');
     await show(rendered, 'Two');
-    const [one] = liveToasts();
+    const [one, two] = liveToasts();
 
     fireEvent.mouseOver(one);
-    fireEvent.mouseOut(one, { relatedTarget: region() });
+    fireEvent.mouseOut(one, { relatedTarget: two });
+    fireEvent.mouseOver(two, { relatedTarget: one });
     act(() => vi.advanceTimersByTime(30_000));
 
     expect(toastTexts(rendered.store.getState())).toEqual(['One', 'Two']);

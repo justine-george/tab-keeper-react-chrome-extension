@@ -45,14 +45,12 @@ export function mergeShown(
 
 // What Toast draws, and a ref callback per toast. After each change the live
 // toasts are stacked from the bottom, newest lowest, by transform, so a CSS
-// transition carries every move; the region is sized to cover the stack,
-// gaps included, so the pointer crossing a gap stays on it.
+// transition carries every move.
 export function useToastStack(toasts: readonly ToastItem[]) {
   const [shown, setShown] = useState<ShownToast[]>(() =>
     toasts.map((toast) => ({ toast, leaving: false }))
   );
   const elements = useRef(new Map<number, HTMLElement>());
-  const regionRef = useRef<HTMLDivElement>(null);
   // Toasts drawn at their final place at least once, so a toast is known to
   // be entering the first time it is laid out.
   const placed = useRef(new Set<number>());
@@ -83,7 +81,6 @@ export function useToastStack(toasts: readonly ToastItem[]) {
 
   useLayoutEffect(() => {
     let below = 0;
-    let width = 0;
     for (let i = shown.length - 1; i >= 0; i -= 1) {
       const { toast, leaving } = shown[i];
       const el = elements.current.get(toast.id);
@@ -112,12 +109,6 @@ export function useToastStack(toasts: readonly ToastItem[]) {
       el.style.transform = `translateY(${y}px)`;
       el.style.opacity = '1';
       below += el.offsetHeight + TOAST_GAP_PX;
-      width = Math.max(width, el.offsetWidth);
-    }
-    const region = regionRef.current;
-    if (region !== null) {
-      region.style.height = `${Math.max(0, below - TOAST_GAP_PX)}px`;
-      region.style.width = `${width}px`;
     }
   }, [shown]);
 
@@ -126,5 +117,5 @@ export function useToastStack(toasts: readonly ToastItem[]) {
     else elements.current.set(id, el);
   };
 
-  return { shown, regionRef, refFor };
+  return { shown, refFor };
 }

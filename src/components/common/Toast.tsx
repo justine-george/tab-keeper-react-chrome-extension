@@ -14,6 +14,7 @@ import { CONTROL, RADIUS, TYPE } from '../../styles/scale';
 import Button from './Button';
 import {
   TOAST_FADE_REDUCED,
+  TOAST_GAP_PX,
   TOAST_LEAVE_MS,
   TOAST_MOVE,
   useToastStack,
@@ -30,7 +31,7 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
   const dispatch: AppDispatch = useDispatch();
 
   const toasts = useSelector((state: RootState) => state.globalState.toasts);
-  const { shown, regionRef, refFor } = useToastStack(toasts);
+  const { shown, refFor } = useToastStack(toasts);
   const isSettingsPage = useSelector(
     (state: RootState) => state.globalState.isSettingsPage
   );
@@ -40,8 +41,8 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
   // KAN-349 T3 (from KAN-280 O8a). The pointer over any toast, or focus in
   // one, holds them all: held while either is true, released only when both
   // have gone -- a pointer leaving a focused Reopen button must not restart
-  // the timers. The region is sized to cover the stack, gaps included, so the
-  // pointer crossing from one toast to the next never leaves it.
+  // the timers. Each toast's hit area reaches over the gap above it, so the
+  // pointer crossing from one toast to the next never leaves the stack.
   const hovered = useRef(false);
   const focused = useRef(false);
   const setHold = (next: { hovered?: boolean; focused?: boolean }) => {
@@ -66,8 +67,9 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
     if (hovered.current || focused.current) holdToasts();
   }, [toasts]);
 
-  // Fixed at the corner the toast has always used; its height and width are
-  // set by useToastStack to cover the stack.
+  // Fixed at the corner the toast has always used, with no size of its own:
+  // only the toasts take the pointer, so the page beside a narrow toast stays
+  // clickable (a 300px toast under a wider offer).
   const regionStyle = css`
     position: fixed;
     bottom: 20px;
@@ -79,6 +81,16 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
     position: absolute;
     bottom: 0;
     ${isSettingsPage ? `right: 0` : `left: 0`};
+    /* The gap above a toast is part of it for the pointer, so crossing from
+       one toast to the next stays on the stack and keeps the hold. */
+    [data-toast] + &::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 100%;
+      height: ${TOAST_GAP_PX}px;
+    }
     transition:
       transform ${TOAST_MOVE},
       opacity ${TOAST_MOVE};
@@ -159,7 +171,10 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
   return (
     <div
       role="status"
-      ref={regionRef}
+      // role="status" is atomic by default, so each new toast would make a
+      // screen reader read out the whole stack again. Each is its own
+      // message (KAN-349 A).
+      aria-atomic="false"
       css={regionStyle}
       onMouseEnter={() => setHold({ hovered: true })}
       onMouseLeave={() => setHold({ hovered: false })}
@@ -186,6 +201,7 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
           <div
             key={toast.id}
             ref={refFor(toast.id)}
+            data-toast
             css={[toastStyle, leaving && leavingStyle]}
             aria-hidden={leaving || undefined}
           >
@@ -195,6 +211,7 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
           <div
             key={toast.id}
             ref={refFor(toast.id)}
+            data-toast
             css={[toastStyle, offerStyle, leaving && leavingStyle]}
             aria-hidden={leaving || undefined}
           >

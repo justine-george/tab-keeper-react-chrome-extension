@@ -14,7 +14,8 @@ export { takeReopenOffer } from './reopenOfferStore';
 export const REOPEN_TOAST_MS = 8000;
 
 // Shows "Tab closed" / "Window closed (N tabs)" with Reopen for
-// REOPEN_TOAST_MS, replacing whatever toast (and offer) was showing.
+// REOPEN_TOAST_MS. It replaces the offer showing, in its place in the stack
+// (KAN-349 T4); other toasts stay.
 export const offerReopen = createAsyncThunk(
   'global/offerReopen',
   async (item: ClosedItem, thunkAPI) => {
