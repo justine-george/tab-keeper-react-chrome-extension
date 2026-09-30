@@ -1484,7 +1484,11 @@ test.describe('The Reopen key (KAN-311)', () => {
           .poll(async () =>
             reopen.evaluate((el: Element) => ({
               fill: getComputedStyle(el).backgroundColor,
-              moving: el.getAnimations({ subtree: true }).length,
+              // The whole stack, not only the chip: the toast rises and fades
+              // in around it (KAN-349), and the chip is painted through that.
+              moving: (el.closest('[role="status"]') ?? el).getAnimations({
+                subtree: true,
+              }).length,
             }))
           )
           .toEqual({ fill: rgb(fill), moving: 0 });
