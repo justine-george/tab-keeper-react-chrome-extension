@@ -4,7 +4,8 @@ import { useDispatch, useSelector } from 'react-redux';
 import { css } from '@emotion/react';
 
 import { AppDispatch, RootState } from '../../redux/store';
-import { holdToast, releaseToast } from '../../redux/slices/globalStateSlice';
+import { selectReopenOfferForKey } from '../../redux/slices/globalStateSlice';
+import { holdToasts, releaseToasts } from '../../redux/toastTimers';
 import { reopenFromOffer } from '../../redux/reopenOffer';
 import { useFontFamily } from '../../hooks/useFontFamily';
 import { useThemeColors } from '../../hooks/useThemeColors';
@@ -22,21 +23,15 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
   const { t } = useTranslation();
   const dispatch: AppDispatch = useDispatch();
 
-  const toastText = useSelector(
-    (state: RootState) => state.globalState.toastText
-  );
-  const toastParams = useSelector(
-    (state: RootState) => state.globalState.toastParams
-  );
-  const isToastOpen = useSelector(
-    (state: RootState) => state.globalState.isToastOpen
+  const newest = useSelector(
+    (state: RootState) => state.globalState.toasts.slice(-1)[0] ?? null
   );
   const isSettingsPage = useSelector(
     (state: RootState) => state.globalState.isSettingsPage
   );
-  const offerId = useSelector(
-    (state: RootState) => state.globalState.toastReopenOfferId
-  );
+  const offerId = newest?.reopenOffer?.id ?? null;
+  // KAN-349 Q1 C′. The hint names the key only while the key takes this offer.
+  const keyOfferId = useSelector(selectReopenOfferForKey);
 
   // KAN-280 O8a. The Reopen toast holds while the pointer is over it OR focus
   // is in it, so it is held while either is true and released only when both
@@ -49,20 +44,20 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
     hovered.current = next.hovered ?? hovered.current;
     focused.current = next.focused ?? focused.current;
     const isHeld = hovered.current || focused.current;
-    if (!wasHeld && isHeld) dispatch(holdToast());
-    if (wasHeld && !isHeld) dispatch(releaseToast());
+    if (!wasHeld && isHeld) holdToasts();
+    if (wasHeld && !isHeld) releaseToasts();
   };
   // The slice starts every toast unheld. A toast that closes, or turns plain,
   // takes the hold with it; a new offer arriving under the pointer or focus
   // (each close replaces the toast, rule 3) is held again.
   useEffect(() => {
-    if (!isToastOpen || offerId === null) {
+    if (offerId === null) {
       hovered.current = false;
       focused.current = false;
       return;
     }
-    if (hovered.current || focused.current) dispatch(holdToast());
-  }, [isToastOpen, offerId, dispatch]);
+    if (hovered.current || focused.current) holdToasts();
+  }, [offerId]);
 
   const toastStyle = css`
     position: fixed;
@@ -132,14 +127,14 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
   // t() with no matching key returns the key unchanged, which is what keeps a
   // raw platform error -- a JSON SyntaxError naming its offending token --
   // readable when it is passed through as a {{detail}} value.
-  const message = t(toastText, toastParams);
+  const message = newest === null ? '' : t(newest.text, newest.params);
 
   // Always mounted, empty while no toast shows (KAN-280 O8a): a screen reader
   // announces changes to a live region it already knows, and a region
   // inserted together with its text is often read out by none of them.
   return (
     <div role="status">
-      {isToastOpen &&
+      {newest !== null &&
         (offerId === null ? (
           <div css={toastStyle}>{message}</div>
         ) : (
@@ -165,7 +160,11 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
               text={t('Reopen')}
               // The key does nothing on the settings page (MainContainer
               // stands down there), so the hint would name a dead key.
-              keyHint={isSettingsPage ? undefined : reopenKeyHint}
+              keyHint={
+                isSettingsPage || keyOfferId !== offerId
+                  ? undefined
+                  : reopenKeyHint
+              }
               onClick={() => void dispatch(reopenFromOffer(offerId))}
               style={`
                 height: 34px;

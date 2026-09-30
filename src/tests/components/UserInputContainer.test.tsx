@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 
 import UserInputContainer from '../../components/home/leftpane/UserInputContainer';
 import { renderWithProviders } from '../setup/renderWithProviders';
+import { toastTexts, newestToast } from '../setup/toasts';
 import { SAVE_TAB_CONTAINER_ACTION } from '../../utils/constants/actionTypes';
 import { TOAST_MESSAGES } from '../../utils/constants/common';
 
@@ -166,7 +167,7 @@ describe('UserInputContainer save scope', () => {
     } else {
       await userEvent.click(screen.getByLabelText(label));
     }
-    return store.getState().globalState.toastText;
+    return newestToast(store.getState())?.text;
   }
 
   test('saving every window says so', async () => {
@@ -308,7 +309,7 @@ describe('the save row menu (KAN-208)', () => {
     // Not a save: no session, no save action, no toast.
     expect(store.getState().tabContainerDataState.tabGroups).toEqual([]);
     expect(seen).not.toContain(SAVE_TAB_CONTAINER_ACTION);
-    expect(store.getState().globalState.toastText).toBe('');
+    expect(toastTexts(store.getState())).toEqual([]);
   });
 
   // CONTROL for the test above: the other item DOES save, through the same

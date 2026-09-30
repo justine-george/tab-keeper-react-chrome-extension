@@ -1,6 +1,6 @@
 import { createAsyncThunk } from '@reduxjs/toolkit';
 
-import { closeToast, showToast } from './slices/globalStateSlice';
+import { closeOfferToast, showToast } from './slices/globalStateSlice';
 import { expectReopenedRow } from './reopenFocus';
 import { storeReopenOffer, takeReopenOffer } from './reopenOfferStore';
 import { noteTabKeeperAction } from './openNowMoveUndo';
@@ -49,7 +49,7 @@ export const reopenFromOffer = createAsyncThunk(
   async (offerId: number, thunkAPI) => {
     const item = takeReopenOffer(offerId);
     if (item === null) return;
-    thunkAPI.dispatch(closeToast());
+    thunkAPI.dispatch(closeOfferToast(offerId));
     const reopened = await reopenClosed(item);
     if (reopened === null) {
       await thunkAPI.dispatch(

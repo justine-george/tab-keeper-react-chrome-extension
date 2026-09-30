@@ -11,7 +11,8 @@ import {
 } from '../../../redux/slices/tabContainerDataStateSlice';
 import { AppDispatch, RootState } from '../../../redux/store';
 import {
-  closeToast,
+  closeAllToasts,
+  closePlainToasts,
   openSettingsPage,
   syncNowWhenSignedIn,
   openCloudConsentModal,
@@ -68,12 +69,12 @@ export default function MenuContainer() {
 
   function handleClickUndo() {
     dispatch(undo());
-    dispatch(closeToast());
+    dispatch(closePlainToasts());
   }
 
   function handleClickRedo() {
     dispatch(redo());
-    dispatch(closeToast());
+    dispatch(closePlainToasts());
   }
 
   // KAN-259. Manual sync is a sync: without consent it asks the cloud
@@ -96,7 +97,7 @@ export default function MenuContainer() {
 
   function handleClickSettings() {
     dispatch(openSettingsPage(SettingsCategory.DISPLAY));
-    dispatch(closeToast());
+    dispatch(closeAllToasts());
   }
 
   // KAN-279. This popup cannot open or focus the tab view itself: the click

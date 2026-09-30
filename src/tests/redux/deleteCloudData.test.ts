@@ -32,6 +32,7 @@ import {
   setUserId,
 } from '../../redux/slices/globalStateSlice';
 import { makeTestStore } from '../setup/makeStore';
+import { newestToast } from '../setup/toasts';
 import { TOAST_MESSAGES } from '../../utils/constants/common';
 
 // KAN-254. The Firestore document under the anonymous token was written on
@@ -59,7 +60,7 @@ describe('deleteCloudData', () => {
     expect(mocks.deleteFromFirestore).toHaveBeenCalledTimes(1);
     expect(store.getState().settingsDataState.isAutoSync).toBe(false);
     expect(store.getState().globalState.isDeleteCloudDataModalOpen).toBe(false);
-    expect(store.getState().globalState.toastText).toBe(
+    expect(newestToast(store.getState())?.text).toBe(
       TOAST_MESSAGES.CLOUD_DATA_DELETED
     );
     // The token stays: minting a fresh one would detach this device from the
@@ -78,7 +79,7 @@ describe('deleteCloudData', () => {
 
     expect(store.getState().settingsDataState.isAutoSync).toBe(true);
     expect(store.getState().globalState.isDeleteCloudDataModalOpen).toBe(false);
-    expect(store.getState().globalState.toastText).toBe(
+    expect(newestToast(store.getState())?.text).toBe(
       TOAST_MESSAGES.CLOUD_DATA_DELETE_FAILED
     );
   });
@@ -99,7 +100,7 @@ describe('deleteCloudData', () => {
 
     expect(mocks.deleteFromFirestore).not.toHaveBeenCalled();
     expect(store.getState().settingsDataState.isAutoSync).toBe(true);
-    expect(store.getState().globalState.toastText).toBe(
+    expect(newestToast(store.getState())?.text).toBe(
       TOAST_MESSAGES.CLOUD_DATA_DELETE_FAILED
     );
   });

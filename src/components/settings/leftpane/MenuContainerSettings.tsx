@@ -8,7 +8,7 @@ import { AppDispatch } from '../../../redux/store';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import {
   closeSettingsPage,
-  closeToast,
+  closeAllToasts,
 } from '../../../redux/slices/globalStateSlice';
 import { useTranslation } from 'react-i18next';
 import { TYPE } from '../../../styles/scale';
@@ -28,7 +28,7 @@ export default function MenuContainer() {
 
   const handleBackClick = () => {
     dispatch(closeSettingsPage());
-    dispatch(closeToast());
+    dispatch(closeAllToasts());
   };
 
   return (

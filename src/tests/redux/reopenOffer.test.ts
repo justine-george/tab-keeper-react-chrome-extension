@@ -16,6 +16,13 @@ vi.mock('../../utils/functions/external', () => ({
 }));
 
 import { makeTestStore } from '../setup/makeStore';
+import {
+  newestToast,
+  isToastShowing,
+  shownOfferId,
+  toastTexts,
+} from '../setup/toasts';
+import { holdToasts, releaseToasts } from '../../redux/toastTimers';
 import { setupChromeFake } from '../setup/chrome.fake';
 import type { ChromeFakeHandle } from '../setup/chrome.fake';
 import { toOpenWindows } from '../../utils/functions/openNow';
@@ -23,8 +30,9 @@ import type { OpenWindow } from '../../utils/functions/openNow';
 import { closeOpenTab, closeOpenWindow } from '../../utils/functions/reopen';
 import type { ClosedItem } from '../../utils/functions/reopen';
 import {
-  holdToast,
-  releaseToast,
+  closeAllToasts,
+  closePlainToasts,
+  selectReopenOfferForKey,
   showToast,
 } from '../../redux/slices/globalStateSlice';
 import {
@@ -88,7 +96,7 @@ async function closedTabs(): Promise<[ClosedItem, ClosedItem]> {
 }
 
 const openState = (store: ReturnType<typeof makeTestStore>['store']) =>
-  store.getState().globalState.isToastOpen;
+  isToastShowing(store.getState());
 
 describe('the Reopen offer (KAN-280 O8a)', () => {
   test('an offer is taken once', async () => {
@@ -96,7 +104,7 @@ describe('the Reopen offer (KAN-280 O8a)', () => {
     const { store } = makeTestStore();
 
     await store.dispatch(offerReopen(item));
-    const id = store.getState().globalState.toastReopenOfferId;
+    const id = shownOfferId(store.getState());
     if (id === null) throw new Error('no offer id');
 
     expect(takeReopenOffer(id)).toBe(item);
@@ -108,9 +116,9 @@ describe('the Reopen offer (KAN-280 O8a)', () => {
     const { store } = makeTestStore();
 
     await store.dispatch(offerReopen(a));
-    const idA = store.getState().globalState.toastReopenOfferId;
+    const idA = shownOfferId(store.getState());
     await store.dispatch(offerReopen(b));
-    const idB = store.getState().globalState.toastReopenOfferId;
+    const idB = shownOfferId(store.getState());
     if (idA === null || idB === null) throw new Error('no offer id');
 
     expect(idB).not.toBe(idA);
@@ -120,17 +128,98 @@ describe('the Reopen offer (KAN-280 O8a)', () => {
 
   // KAN-280 O8a: a plain toast (a sync merge, say) replacing the Reopen toast
   // takes the offer with it -- in Redux AND in the registry.
-  test('a plain toast drops the offer', async () => {
+  // KAN-349 Q1 C′. It used to: one toast slot, so any toast replaced the
+  // offer. With a stack the offer stays, and so does ⌘Z.
+  test('a sync toast after the offer leaves it, and ⌘Z with it', async () => {
     const [item] = await closedTabs();
     const { store } = makeTestStore();
 
     await store.dispatch(offerReopen(item));
-    const id = store.getState().globalState.toastReopenOfferId;
+    const id = shownOfferId(store.getState());
     if (id === null) throw new Error('no offer id');
     await store.dispatch(showToast({ toastText: TOAST_MESSAGES.SYNC_MERGED }));
 
-    expect(store.getState().globalState.toastReopenOfferId).toBeNull();
+    expect(shownOfferId(store.getState())).toBe(id);
+    expect(selectReopenOfferForKey(store.getState())).toBe(id);
+    expect(takeReopenOffer(id)).toBe(item);
+  });
+
+  // KAN-349 Q1 C′. ⌘Z goes to the saved change, but the Reopen button on the
+  // offer, still showing, still works.
+  test('a saved change takes ⌘Z, and the offer can still be taken', async () => {
+    const [item] = await closedTabs();
+    const { store } = makeTestStore();
+
+    await store.dispatch(offerReopen(item));
+    const id = shownOfferId(store.getState());
+    if (id === null) throw new Error('no offer id');
+    await store.dispatch(
+      showToast({
+        toastText: TOAST_MESSAGES.DELETE_TAB_SUCCESS,
+        announcesSavedChange: true,
+      })
+    );
+
+    expect(selectReopenOfferForKey(store.getState())).toBeNull();
+    expect(shownOfferId(store.getState())).toBe(id);
+    expect(takeReopenOffer(id)).toBe(item);
+  });
+
+  // KAN-349 T2. Pushed out by three newer toasts, the offer goes as a timed
+  // out one does (O8a): nothing left on screen can reopen it.
+  test('an offer pushed out by the cap is dropped', async () => {
+    const [item] = await closedTabs();
+    const { store } = makeTestStore();
+
+    await store.dispatch(offerReopen(item));
+    const id = shownOfferId(store.getState());
+    if (id === null) throw new Error('no offer id');
+    for (const toastText of ['One', 'Two', 'Three']) {
+      await store.dispatch(showToast({ toastText }));
+    }
+
+    expect(toastTexts(store.getState())).toEqual(['One', 'Two', 'Three']);
+    expect(shownOfferId(store.getState())).toBeNull();
     expect(takeReopenOffer(id)).toBeNull();
+  });
+
+  test('two newer toasts leave the offer', async () => {
+    const [item] = await closedTabs();
+    const { store } = makeTestStore();
+
+    await store.dispatch(offerReopen(item));
+    const id = shownOfferId(store.getState());
+    if (id === null) throw new Error('no offer id');
+    for (const toastText of ['One', 'Two']) {
+      await store.dispatch(showToast({ toastText }));
+    }
+
+    expect(takeReopenOffer(id)).toBe(item);
+  });
+
+  test('closing every toast (Settings) drops the offer', async () => {
+    const [item] = await closedTabs();
+    const { store } = makeTestStore();
+
+    await store.dispatch(offerReopen(item));
+    const id = shownOfferId(store.getState());
+    if (id === null) throw new Error('no offer id');
+    store.dispatch(closeAllToasts());
+
+    expect(takeReopenOffer(id)).toBeNull();
+  });
+
+  test('closing the plain toasts (undo) keeps the offer', async () => {
+    const [item] = await closedTabs();
+    const { store } = makeTestStore();
+
+    await store.dispatch(offerReopen(item));
+    const id = shownOfferId(store.getState());
+    if (id === null) throw new Error('no offer id');
+    await store.dispatch(showToast({ toastText: 'One' }));
+    store.dispatch(closePlainToasts());
+
+    expect(takeReopenOffer(id)).toBe(item);
   });
 
   test('the Reopen toast lasts 8 seconds; others keep theirs', async () => {
@@ -160,7 +249,7 @@ describe('the Reopen offer (KAN-280 O8a)', () => {
     vi.useFakeTimers();
 
     await store.dispatch(offerReopen(item));
-    const id = store.getState().globalState.toastReopenOfferId;
+    const id = shownOfferId(store.getState());
     if (id === null) throw new Error('no offer id');
     vi.advanceTimersByTime(REOPEN_TOAST_MS);
 
@@ -175,11 +264,11 @@ describe('the Reopen offer (KAN-280 O8a)', () => {
 
     await store.dispatch(offerReopen(item));
     vi.advanceTimersByTime(3000);
-    store.dispatch(holdToast());
+    holdToasts();
     vi.advanceTimersByTime(20_000);
     expect(openState(store)).toBe(true);
 
-    store.dispatch(releaseToast());
+    releaseToasts();
     vi.advanceTimersByTime(4999);
     expect(openState(store)).toBe(true);
     vi.advanceTimersByTime(1);
@@ -202,10 +291,10 @@ describe('the Reopen offer (KAN-280 O8a)', () => {
 
     await store.dispatch(offerReopen(item));
 
-    const { toastText, toastParams } = store.getState().globalState;
-    expect(toastText).toBe(WINDOW_CLOSED_FRAME);
+    const toast = newestToast(store.getState());
+    expect(toast?.text).toBe(WINDOW_CLOSED_FRAME);
     expect(WINDOW_CLOSED_FRAME).toBe('WindowClosed');
-    expect(toastParams).toEqual({ count: 5 });
+    expect(toast?.params).toEqual({ count: 5 });
   });
 
   test('a closed tab says "Tab closed"', async () => {
@@ -214,9 +303,9 @@ describe('the Reopen offer (KAN-280 O8a)', () => {
 
     await store.dispatch(offerReopen(item));
 
-    const { toastText, toastParams } = store.getState().globalState;
-    expect(toastText).toBe(TOAST_MESSAGES.TAB_CLOSED);
-    expect(toastParams).toBeUndefined();
+    const toast = newestToast(store.getState());
+    expect(toast?.text).toBe(TOAST_MESSAGES.TAB_CLOSED);
+    expect(toast?.params).toBeUndefined();
   });
 });
 
@@ -224,7 +313,7 @@ describe('the Reopen offer (KAN-280 O8a)', () => {
 // this one thunk, so the two cannot drift apart.
 describe('reopenFromOffer (KAN-311)', () => {
   const offerId = (store: ReturnType<typeof makeTestStore>['store']) => {
-    const id = store.getState().globalState.toastReopenOfferId;
+    const id = shownOfferId(store.getState());
     if (id === null) throw new Error('no offer id');
     return id;
   };
@@ -287,15 +376,21 @@ describe('reopenFromOffer (KAN-311)', () => {
     const { store } = makeTestStore();
     await store.dispatch(offerReopen(item));
     const id = offerId(store);
-    await store.dispatch(showToast({ toastText: TOAST_MESSAGES.SYNC_MERGED }));
+    // Dropped the one way a stack drops an offer from under other toasts:
+    // three newer ones push it out (KAN-349 T2).
+    for (const toastText of ['One', 'Two', TOAST_MESSAGES.SYNC_MERGED]) {
+      await store.dispatch(showToast({ toastText }));
+    }
 
     await store.dispatch(reopenFromOffer(id));
 
     expect(handle?.createdTabs).toEqual([]);
     expect(openState(store)).toBe(true);
-    expect(store.getState().globalState.toastText).toBe(
-      TOAST_MESSAGES.SYNC_MERGED
-    );
+    expect(toastTexts(store.getState())).toEqual([
+      'One',
+      'Two',
+      TOAST_MESSAGES.SYNC_MERGED,
+    ]);
     expect(pendingReopenFocus()).toBeNull();
   });
 
@@ -318,7 +413,7 @@ describe('reopenFromOffer (KAN-311)', () => {
 
     // PREMISE: Chrome was asked, and refused.
     expect(handle.createdTabs).toHaveLength(1);
-    expect(store.getState().globalState.toastText).toBe(
+    expect(newestToast(store.getState())?.text).toBe(
       TOAST_MESSAGES.REOPEN_FAILED
     );
     expect(openState(store)).toBe(true);
@@ -366,7 +461,7 @@ describe('reopenFromOffer with history (KAN-280 Part D)', () => {
     expect(item.restorableSessionId).toEqual(expect.any(String));
     const { store } = makeTestStore();
     await store.dispatch(offerReopen(item));
-    const id = store.getState().globalState.toastReopenOfferId;
+    const id = shownOfferId(store.getState());
     if (id === null) throw new Error('no offer id');
 
     await store.dispatch(reopenFromOffer(id));

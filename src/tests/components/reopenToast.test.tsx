@@ -23,6 +23,7 @@ import { closeOpenTab, closeOpenWindow } from '../../utils/functions/reopen';
 import { clearReopenFocus } from '../../redux/reopenFocus';
 import type { ClosedItem } from '../../utils/functions/reopen';
 import type { ChromeSeed } from '../setup/chrome.fake';
+import { isToastShowing } from '../setup/toasts';
 import { initTestI18n, testI18n } from '../setup/i18nForTests';
 import { renderWithProviders } from '../setup/renderWithProviders';
 
@@ -125,7 +126,7 @@ describe('the Reopen toast (KAN-280 O8a)', () => {
     await waitFor(async () => {
       expect(await urlsIn(2)).toEqual([url('a'), url('b')]);
     });
-    expect(store.getState().globalState.isToastOpen).toBe(false);
+    expect(isToastShowing(store.getState())).toBe(false);
     expect(screen.queryByText('Tab closed')).toBeNull();
     expect(screen.queryByRole('button', { name: 'Reopen' })).toBeNull();
   });
@@ -206,7 +207,7 @@ describe('the Reopen toast (KAN-280 O8a)', () => {
     await act(async () => {
       await store.dispatch(offerReopen(item));
     });
-    const isOpen = () => store.getState().globalState.isToastOpen;
+    const isOpen = () => isToastShowing(store.getState());
 
     // Hover at 1000ms, leave at 21000ms: 7000ms remain.
     act(() => vi.advanceTimersByTime(1000));
@@ -246,7 +247,7 @@ describe('the Reopen toast (KAN-280 O8a)', () => {
     await act(async () => {
       await store.dispatch(offerReopen(item));
     });
-    const isOpen = () => store.getState().globalState.isToastOpen;
+    const isOpen = () => isToastShowing(store.getState());
 
     fireEvent.mouseEnter(visibleToast());
     act(() => screen.getByRole('button', { name: 'Reopen' }).focus());
@@ -266,7 +267,7 @@ describe('the Reopen toast (KAN-280 O8a)', () => {
     await act(async () => {
       await store.dispatch(offerReopen(item));
     });
-    const isOpen = () => store.getState().globalState.isToastOpen;
+    const isOpen = () => isToastShowing(store.getState());
 
     fireEvent.mouseEnter(visibleToast());
     await act(async () => {
@@ -296,14 +297,14 @@ describe('the Reopen toast (KAN-280 O8a)', () => {
     await waitFor(async () => {
       expect(await urlsIn(2)).toEqual([url('a'), url('b')]);
     });
-    expect(store.getState().globalState.isToastOpen).toBe(false);
+    expect(isToastShowing(store.getState())).toBe(false);
 
     vi.useFakeTimers();
     await act(async () => {
       await store.dispatch(offerReopen(await closeTabB()));
     });
     act(() => vi.advanceTimersByTime(REOPEN_TOAST_MS));
-    expect(store.getState().globalState.isToastOpen).toBe(false);
+    expect(isToastShowing(store.getState())).toBe(false);
   });
 
   // A blur whose focus lands elsewhere inside the toast is not focus leaving
@@ -317,7 +318,7 @@ describe('the Reopen toast (KAN-280 O8a)', () => {
     await act(async () => {
       await store.dispatch(offerReopen(item));
     });
-    const isOpen = () => store.getState().globalState.isToastOpen;
+    const isOpen = () => isToastShowing(store.getState());
 
     const button = screen.getByRole('button', { name: 'Reopen' });
     act(() => button.focus());
@@ -342,7 +343,7 @@ describe('the Reopen toast (KAN-280 O8a)', () => {
 
     fireEvent.mouseEnter(visibleToast());
     act(() => vi.advanceTimersByTime(5000));
-    expect(store.getState().globalState.isToastOpen).toBe(false);
+    expect(isToastShowing(store.getState())).toBe(false);
   });
 
   // KAN-280 O8b. At 300px the count was cut off in 8 of 13 locales, so a
@@ -485,7 +486,55 @@ describe('the ⌘Z / Ctrl+Z key reopens while the toast shows (KAN-311)', () => 
     });
     expect(event?.defaultPrevented).toBe(true);
     expect(undoRedoIn(seen.slice(before))).toEqual([]);
-    expect(store.getState().globalState.isToastOpen).toBe(false);
+    expect(isToastShowing(store.getState())).toBe(false);
+  });
+
+  // KAN-349 Q1 C′. The stack keeps the offer on screen under a newer toast,
+  // so which of the two the key serves is decided by what the newer toast
+  // announced.
+  test('after a saved change is announced, Ctrl+Z undoes it, not the close', async () => {
+    const { store, seen } = await withOffer();
+    await act(async () => {
+      await store.dispatch(
+        showToast({
+          toastText: TOAST_MESSAGES.DELETE_TAB_SUCCESS,
+          announcesSavedChange: true,
+        })
+      );
+    });
+    const before = seen.length;
+
+    act(() => {
+      press(document.body, { key: 'z', ctrlKey: true });
+    });
+
+    expect(undoRedoIn(seen.slice(before))).toEqual([UNDO]);
+    expect(await urlsIn(2)).toEqual([url('a')]);
+    // The offer stays, with its button, for the pointer to take.
+    expect(
+      within(screen.getByRole('status')).getByRole('button', {
+        name: 'Reopen',
+      })
+    ).toBeTruthy();
+  });
+
+  test('after a sync toast, Ctrl+Z still takes the offer', async () => {
+    const { store, seen } = await withOffer();
+    await act(async () => {
+      await store.dispatch(
+        showToast({ toastText: TOAST_MESSAGES.SYNC_MERGED })
+      );
+    });
+    const before = seen.length;
+
+    act(() => {
+      press(document.body, { key: 'z', ctrlKey: true });
+    });
+
+    await waitFor(async () => {
+      expect(await urlsIn(2)).toEqual([url('a'), url('b')]);
+    });
+    expect(undoRedoIn(seen.slice(before))).toEqual([]);
   });
 
   test('⌘Z takes it too', async () => {
@@ -519,8 +568,7 @@ describe('the ⌘Z / Ctrl+Z key reopens while the toast shows (KAN-311)', () => 
     expect(fake.createdTabs).toEqual([]);
   });
 
-  // The slice leaves toastReopenOfferId set when a toast closes, so an offer
-  // that has timed out must not keep the key from undoing.
+  // An offer that has timed out must not keep the key from undoing.
   test('once the offer has timed out, the key undoes again', async () => {
     const {
       store,
@@ -533,9 +581,8 @@ describe('the ⌘Z / Ctrl+Z key reopens while the toast shows (KAN-311)', () => 
       await store.dispatch(offerReopen(item));
     });
     act(() => vi.advanceTimersByTime(REOPEN_TOAST_MS));
-    // PREMISE: the toast has gone, and the slice still names the offer.
-    expect(store.getState().globalState.isToastOpen).toBe(false);
-    expect(store.getState().globalState.toastReopenOfferId).not.toBeNull();
+    // PREMISE: the toast has gone.
+    expect(isToastShowing(store.getState())).toBe(false);
     const before = seen.length;
 
     act(() => {
@@ -555,7 +602,7 @@ describe('the ⌘Z / Ctrl+Z key reopens while the toast shows (KAN-311)', () => 
     });
 
     expect(undoRedoIn(seen.slice(before))).toEqual([REDO]);
-    expect(store.getState().globalState.isToastOpen).toBe(true);
+    expect(isToastShowing(store.getState())).toBe(true);
     expect(
       within(screen.getByRole('status')).getByRole('button', {
         name: 'Reopen',
@@ -576,13 +623,13 @@ describe('the ⌘Z / Ctrl+Z key reopens while the toast shows (KAN-311)', () => 
           showToast({ toastText: TOAST_MESSAGES.SYNC_MERGED })
         );
       });
-      expect(store.getState().globalState.isToastOpen).toBe(true);
+      expect(isToastShowing(store.getState())).toBe(true);
 
       act(() => {
         press(document.body, chord);
       });
 
-      expect(store.getState().globalState.isToastOpen).toBe(false);
+      expect(isToastShowing(store.getState())).toBe(false);
     }
   });
 
@@ -602,7 +649,7 @@ describe('the ⌘Z / Ctrl+Z key reopens while the toast shows (KAN-311)', () => 
     expect(event?.defaultPrevented).toBe(false);
     expect(undoRedoIn(seen.slice(before))).toEqual([]);
     expect(fake.createdTabs).toEqual([]);
-    expect(store.getState().globalState.isToastOpen).toBe(true);
+    expect(isToastShowing(store.getState())).toBe(true);
   });
 
   // Rule 4, by key: two presses before React re-renders -- a fast double
@@ -648,7 +695,7 @@ describe('the ⌘Z / Ctrl+Z key reopens while the toast shows (KAN-311)', () => 
       });
       // PREMISE: the toast has gone and re-rendered away, so the handler
       // itself no longer sees an offer.
-      expect(rendered.store.getState().globalState.isToastOpen).toBe(false);
+      expect(isToastShowing(rendered.store.getState())).toBe(false);
       expect(screen.queryByRole('button', { name: 'Reopen' })).toBeNull();
       return rendered;
     }

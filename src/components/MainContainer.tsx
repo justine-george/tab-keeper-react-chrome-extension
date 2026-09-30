@@ -24,7 +24,10 @@ import { redo, undo } from '../redux/slices/undoRedoSlice';
 import { selectIsSavedSessionFolded } from '../redux/savedSessionFold';
 import LeftPaneSettings from './settings/leftpane/LeftPaneSettings';
 import RightPaneSettings from './settings/rightpane/RightPaneSettings';
-import { closeToast } from '../redux/slices/globalStateSlice';
+import {
+  closePlainToasts,
+  selectReopenOfferForKey,
+} from '../redux/slices/globalStateSlice';
 import { reopenFromOffer } from '../redux/reopenOffer';
 import { takeOpenNowDrop } from '../redux/openNowMoveUndo';
 import { undoOpenNowDrop } from '../utils/functions/openNowMoves';
@@ -88,11 +91,10 @@ export default function MainContainer() {
     (state: RootState) => state.globalState.tabGroupsPromptCount
   );
 
-  // KAN-311 (O8c). The close the Reopen toast offers, while it shows. The
-  // slice keeps the id after the toast closes, so both are read.
-  const shownReopenOfferId = useSelector((state: RootState) =>
-    state.globalState.isToastOpen ? state.globalState.toastReopenOfferId : null
-  );
+  // KAN-311 (O8c). The close ⌘Z / Ctrl+Z reopens: the Reopen offer on
+  // screen, unless a saved-session change announced since has taken the key
+  // (KAN-349 Q1 C′).
+  const shownReopenOfferId = useSelector(selectReopenOfferForKey);
 
   // KAN-280 O4/O5. Folded, Open now takes the saved session's column.
   const folded = useSelector(selectIsSavedSessionFolded);
@@ -195,7 +197,7 @@ export default function MainContainer() {
       // Reopen offer: the offer is still there to take.
       if (key === 'y' || (key === 'z' && event.shiftKey)) {
         dispatch(redo());
-        if (shownReopenOfferId === null) dispatch(closeToast());
+        dispatch(closePlainToasts());
         event.preventDefault();
         return;
       }
@@ -229,7 +231,7 @@ export default function MainContainer() {
 
       if (key === 'z') {
         dispatch(undo());
-        dispatch(closeToast());
+        dispatch(closePlainToasts());
         event.preventDefault();
       }
     }

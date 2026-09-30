@@ -13,6 +13,7 @@ vi.mock('../../utils/functions/external', () => ({
 }));
 
 import { makeTestStore } from '../setup/makeStore';
+import { newestToast } from '../setup/toasts';
 import {
   moveSessionInternal,
   resetSessionOrder,
@@ -102,7 +103,7 @@ describe('a sort that rearranges the list announces itself', () => {
 
     expect(order(store)).toEqual(['Apple', 'Banana', 'Cherry']);
     expect(toasts(seen)).toHaveLength(1);
-    expect(store.getState().globalState.toastText).toBe(
+    expect(newestToast(store.getState())?.text).toBe(
       TOAST_MESSAGES.SESSION_ORDER_CHANGED
     );
   });

@@ -166,9 +166,9 @@ const undoAndToast = (store: Store) => {
   return {
     past: undoRedo.past.length,
     a: titleOf(store, 'a'),
-    mergedToast:
-      globalState.isToastOpen &&
-      globalState.toastText === TOAST_MESSAGES.SYNC_MERGED,
+    mergedToast: globalState.toasts.some(
+      (t) => t.text === TOAST_MESSAGES.SYNC_MERGED
+    ),
   };
 };
 

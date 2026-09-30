@@ -28,6 +28,7 @@ import {
   syncStateWithFirestore,
 } from '../../redux/slices/globalStateSlice';
 import { makeTestStore } from '../setup/makeStore';
+import { toastTexts, newestToast, isToastShowing } from '../setup/toasts';
 import { TOAST_MESSAGES } from '../../utils/constants/common';
 import type {
   TabMasterContainer,
@@ -143,7 +144,7 @@ describe('sync merges instead of prompting', () => {
   // popup open and users stop reading it.
   it('toasts when the merge brought something new to this device', async () => {
     const { store } = await runSync(divergent.local(), divergent.cloud());
-    expect(store.getState().globalState.toastText).toBe(
+    expect(newestToast(store.getState())?.text).toBe(
       TOAST_MESSAGES.SYNC_MERGED
     );
   });
@@ -156,10 +157,10 @@ describe('sync merges instead of prompting', () => {
       deletedTabGroups: [],
     });
     const { store } = await runSync(same(), same());
-    expect(store.getState().globalState.toastText).not.toBe(
+    expect(toastTexts(store.getState())).not.toContain(
       TOAST_MESSAGES.SYNC_MERGED
     );
-    expect(store.getState().globalState.isToastOpen).toBe(false);
+    expect(isToastShowing(store.getState())).toBe(false);
   });
 
   // Local-only changes must reach the cloud without telling the user anything:
@@ -180,7 +181,7 @@ describe('sync merges instead of prompting', () => {
       }
     );
     expect(mocks.saveToFirestore).toHaveBeenCalled();
-    expect(store.getState().globalState.toastText).not.toBe(
+    expect(toastTexts(store.getState())).not.toContain(
       TOAST_MESSAGES.SYNC_MERGED
     );
   });
