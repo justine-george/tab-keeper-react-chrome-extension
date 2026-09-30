@@ -219,6 +219,8 @@
   "Resize Open now": "Resize Open now",
   "Reopen": "Reopen",
   "Show": "Show",
+  "MovedToSession": "Moved to “{{title}}”",
+  "SessionEmptiedRemoved": "“{{title}}” was empty and was removed.",
   "Ctrl": "Ctrl",
   "Tab closed": "Tab closed",
   "Couldn't reopen.": "Couldn't reopen.",

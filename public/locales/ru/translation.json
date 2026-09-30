@@ -223,6 +223,8 @@
   "Resize Open now": "Изменить ширину панели «Открытые вкладки»",
   "Reopen": "Открыть снова",
   "Show": "Показать",
+  "MovedToSession": "Перемещено в «{{title}}»",
+  "SessionEmptiedRemoved": "Сессия «{{title}}» опустела и была удалена.",
   "Ctrl": "Ctrl",
   "Tab closed": "Вкладка закрыта",
   "Couldn't reopen.": "Не удалось открыть снова.",

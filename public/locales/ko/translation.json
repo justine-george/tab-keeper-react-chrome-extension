@@ -217,6 +217,8 @@
   "Resize Open now": "\"지금 열려 있는 탭\" 패널 너비 조절",
   "Reopen": "다시 열기",
   "Show": "보기",
+  "MovedToSession": "“{{title}}” 세션으로 이동했습니다",
+  "SessionEmptiedRemoved": "“{{title}}” 세션이 비어 있어서 삭제했습니다.",
   "Ctrl": "Ctrl",
   "Tab closed": "탭을 닫았습니다",
   "Couldn't reopen.": "다시 열지 못했습니다.",

@@ -217,6 +217,8 @@
   "Resize Open now": "調整「目前開啟的分頁」面板寬度",
   "Reopen": "重新開啟",
   "Show": "顯示",
+  "MovedToSession": "已移至「{{title}}」",
+  "SessionEmptiedRemoved": "工作階段「{{title}}」已沒有內容，已將其移除。",
   "Ctrl": "Ctrl",
   "Tab closed": "分頁已關閉",
   "Couldn't reopen.": "無法重新開啟。",

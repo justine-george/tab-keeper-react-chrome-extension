@@ -62,6 +62,8 @@ export const MOVE_CHROME_GROUP_ACTION =
 export const MOVE_CHROME_GROUP_ACROSS_WINDOWS_ACTION =
   'tabContainerDataState/moveChromeGroupAcrossWindowsInternal';
 export const MOVE_SESSION_ACTION = 'tabContainerDataState/moveSessionInternal';
+export const MOVE_TO_SESSION_ACTION =
+  'tabContainerDataState/moveToSessionInternal';
 export const SORT_SESSIONS_ACTION =
   'tabContainerDataState/sortSessionsInternal';
 export const CLEAR_SESSION_ORDER_ACTION =

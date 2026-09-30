@@ -4,6 +4,7 @@ import {
   current,
   PayloadAction,
 } from '@reduxjs/toolkit';
+import { v4 as uuidv4, v5 as uuidv5 } from 'uuid';
 
 // `import type`, and it is load-bearing rather than tidiness. A value import
 // here completes a cycle -- this slice -> store -> storeConfig -> this slice --
@@ -316,6 +317,66 @@ export interface moveChromeGroupAcrossWindowsParams {
   // see moveChromeGroupAcrossWindowsInternal for why that makes the last
   // valid slot `items.length`, not `length - 1`.
   toIndex: number;
+}
+
+// KAN-350. What a drag carries out of a saved session: a tab, a whole Chrome
+// group or a whole window, by id.
+export type CarriedRef =
+  | { kind: 'tab'; tabGroupId: string; windowId: string; tabId: string }
+  | { kind: 'group'; tabGroupId: string; windowId: string; groupId: string }
+  | { kind: 'window'; tabGroupId: string; windowId: string };
+
+// KAN-350. Where a carried item goes: an exact spot in another session, or a
+// new first window (a tab or group only). A tab's toIndex counts the
+// destination window's tabs, with the tab not in it; a group's counts that
+// window's items (partitionTabsIntoItems); a window's counts the session's
+// windows. newWindowId is minted by the caller (intoNewWindow in dropSpecs),
+// never here.
+export type SessionMove =
+  | {
+      carried: Extract<CarriedRef, { kind: 'tab' }>;
+      to:
+        | {
+            tabGroupId: string;
+            windowId: string;
+            toIndex: number;
+            toChromeGroupId?: string;
+          }
+        | { tabGroupId: string; newWindowId: string };
+    }
+  | {
+      carried: Extract<CarriedRef, { kind: 'group' }>;
+      to:
+        | { tabGroupId: string; windowId: string; toIndex: number }
+        | { tabGroupId: string; newWindowId: string };
+    }
+  | {
+      carried: Extract<CarriedRef, { kind: 'window' }>;
+      to: { tabGroupId: string; toIndex: number };
+    };
+
+// The three shapes of SessionMove, split by what is carried. TypeScript does
+// not narrow `move.to` on the nested `move.carried.kind`, so these guards do
+// it; each reads the discriminant and nothing else, so the narrowing is
+// exactly what the check proves.
+export type TabMove = Extract<SessionMove, { carried: { kind: 'tab' } }>;
+export type GroupMove = Extract<SessionMove, { carried: { kind: 'group' } }>;
+export type WindowMove = Extract<SessionMove, { carried: { kind: 'window' } }>;
+
+export function isTabMove(move: SessionMove): move is TabMove {
+  return move.carried.kind === 'tab';
+}
+
+export function isWindowMove(move: SessionMove): move is WindowMove {
+  return move.carried.kind === 'window';
+}
+
+export interface moveToSessionParams {
+  move: SessionMove;
+  // The UUID namespace a carried id that collides in the destination is
+  // re-minted in: uuidv5(oldId, remintNamespace). Minted by the action
+  // creator, so the reducer stays pure and a test can pin every new id.
+  remintNamespace: string;
 }
 
 export const initialState: TabMasterContainer = {
@@ -776,8 +837,11 @@ export const deleteTab = createAsyncThunk(
 // sessions anyway through sessionTimestamp's fallback for any session lacking
 // its own; keeping selection out of `touch` only ever confined that to legacy
 // data rather than preventing it.
-function touch(group: tabContainerData): void {
-  group.lastModified = Date.now();
+//
+// `at` is for the one reducer that stamps two sessions in a set order
+// (moveToSessionInternal); every other caller stamps now.
+function touch(group: tabContainerData, at: number = Date.now()): void {
+  group.lastModified = at;
 }
 
 // The session's CONTENTS changed (KAN-138) -- as opposed to merely its place in
@@ -826,10 +890,11 @@ function touch(group: tabContainerData): void {
 // the array behind.
 function touchContent(
   state: TabMasterContainer,
-  group: tabContainerData
+  group: tabContainerData,
+  at: number = Date.now()
 ): void {
-  touch(group);
-  group.contentModified = Date.now();
+  touch(group, at);
+  group.contentModified = at;
   resortSessions(state);
 }
 
@@ -1074,6 +1139,90 @@ function bury(state: TabMasterContainer, tabGroupId: string): void {
     graves.push({ tabGroupId, deletedAt: Date.now() });
   }
 }
+
+// The ids a session already uses, by kind. A carried id found here is
+// re-minted before it lands (Review Focus 4): two tabs sharing an id share a
+// row key, and two groups sharing one in a window draw as one band.
+interface SessionIds {
+  tabs: Set<string>;
+  groups: Set<string>;
+  windows: Set<string>;
+}
+
+function idsIn(session: tabContainerData): SessionIds {
+  const ids: SessionIds = {
+    tabs: new Set(),
+    groups: new Set(),
+    windows: new Set(),
+  };
+  for (const window of session.windows) {
+    ids.windows.add(window.windowId);
+    for (const tab of window.tabs) ids.tabs.add(tab.tabId);
+    for (const group of window.chromeTabGroups ?? []) {
+      ids.groups.add(group.groupId);
+    }
+  }
+  return ids;
+}
+
+// Re-mints, in place, every id of these tabs and this group that `taken`
+// already holds. A re-minted group id is rewritten on its tabs, which is
+// what keeps them its members.
+function remintTabsAndGroups(
+  tabs: tabData[],
+  groups: chromeTabGroupData[],
+  taken: SessionIds,
+  remint: (id: string) => string
+): void {
+  for (const tab of tabs) {
+    if (taken.tabs.has(tab.tabId)) tab.tabId = remint(tab.tabId);
+  }
+  for (const group of groups) {
+    if (!taken.groups.has(group.groupId)) continue;
+    const old = group.groupId;
+    group.groupId = remint(old);
+    for (const tab of tabs) {
+      if (tab.chromeGroupId === old) tab.chromeGroupId = group.groupId;
+    }
+  }
+}
+
+// Where a carried tab or group lands: a new first window, or a spot in a
+// window the destination already has. Resolved before anything changes, so
+// a destination that is gone moves nothing.
+type TabsLanding =
+  | { kind: 'new-window'; newWindowId: string }
+  | {
+      kind: 'in-window';
+      window: windowGroupData;
+      toIndex: number;
+      toChromeGroupId: string | undefined;
+    };
+
+function tabsLandingIn(
+  target: tabContainerData,
+  to: (TabMove | GroupMove)['to']
+): TabsLanding | null {
+  if ('newWindowId' in to) {
+    return { kind: 'new-window', newWindowId: to.newWindowId };
+  }
+  const window = target.windows.find((w) => w.windowId === to.windowId);
+  if (!window) return null;
+  const toChromeGroupId =
+    'toChromeGroupId' in to ? to.toChromeGroupId : undefined;
+  // A band the drop joins must still be there, or there is nothing to join
+  // (the same rule tabDrop's targetIds applies).
+  if (
+    toChromeGroupId !== undefined &&
+    !(window.chromeTabGroups ?? []).some((g) => g.groupId === toChromeGroupId)
+  ) {
+    return null;
+  }
+  return { kind: 'in-window', window, toIndex: to.toIndex, toChromeGroupId };
+}
+
+const clampIndex = (index: number, length: number): number =>
+  Math.min(Math.max(0, index), length);
 
 export const tabContainerDataStateSlice = createSlice({
   name: TAB_CONTAINER_SLICE_NAME,
@@ -2081,6 +2230,216 @@ export const tabContainerDataStateSlice = createSlice({
       saveToLocalStorage('tabContainerData', state);
     },
 
+    // KAN-350. Move a tab, a whole Chrome group or a whole window out of one
+    // saved session and into another, or into a new first window (S2 A,
+    // S3 A). The one reducer for a move between sessions, so ⌘Z takes back
+    // both sessions in one step: undo snapshots the whole container.
+    //
+    // Nothing changes, and nothing is stamped, for an item or a destination
+    // that is not there, or for a move to an exact spot inside the item's own
+    // session: that is tabDrop / groupDrop / windowDrop's, with their own
+    // no-op guards. A new window inside the own session is this reducer's.
+    //
+    // The order below is load-bearing:
+    //  1. everything is resolved before anything changes;
+    //  2. the item is lifted out of its source;
+    //  3. its ids are re-minted against the destination AS IT NOW IS, so a
+    //     move inside one session does not re-mint ids that only collided
+    //     with the item itself;
+    //  4. it lands;
+    //  5. an emptied source window goes, then an emptied source session is
+    //     buried (S4 B) -- after the landing, because inside one session the
+    //     new window is what keeps the session alive;
+    //  6. the source is stamped, then the target 1ms later, so the target
+    //     sorts above the source rather than leaving it to the ids' tiebreak.
+    moveToSessionInternal: {
+      reducer: (state, action: PayloadAction<moveToSessionParams>) => {
+        const { move, remintNamespace } = action.payload;
+        const sameSession = move.carried.tabGroupId === move.to.tabGroupId;
+        if (sameSession && !('newWindowId' in move.to)) return;
+
+        const source = state.tabGroups.find(
+          (g) => g.tabGroupId === move.carried.tabGroupId
+        );
+        const target = state.tabGroups.find(
+          (g) => g.tabGroupId === move.to.tabGroupId
+        );
+        if (!source || !target) return;
+        const from = source.windows.find(
+          (w) => w.windowId === move.carried.windowId
+        );
+        if (!from) return;
+
+        const remint = (id: string) => uuidv5(id, remintNamespace);
+
+        if (isWindowMove(move)) {
+          // Lifted whole: its title, bounds, tabs and groups travel as they are.
+          source.windows.splice(source.windows.indexOf(from), 1);
+          source.windowCount -= 1;
+          source.tabCount -= from.tabCount;
+
+          const taken = idsIn(target);
+          if (taken.windows.has(from.windowId)) {
+            from.windowId = remint(from.windowId);
+          }
+          remintTabsAndGroups(
+            from.tabs,
+            from.chromeTabGroups ?? [],
+            taken,
+            remint
+          );
+
+          target.windows.splice(
+            clampIndex(move.to.toIndex, target.windows.length),
+            0,
+            from
+          );
+          target.windowCount += 1;
+          target.tabCount += from.tabCount;
+        } else {
+          const landing = tabsLandingIn(target, move.to);
+          if (!landing) return;
+
+          // Lift. A tab leaves its group: it lands loose unless it joins a
+          // band, and a group it leaves empty loses its entry (the
+          // moveTabAcrossWindowsInternal rule). A group takes its entry.
+          let tabs: tabData[];
+          let group: chromeTabGroupData | undefined;
+          const carried = move.carried;
+          if (carried.kind === 'tab') {
+            const index = from.tabs.findIndex((t) => t.tabId === carried.tabId);
+            if (index === -1) return;
+            const [tab] = from.tabs.splice(index, 1);
+            const leftGroupId = tab.chromeGroupId;
+            delete tab.chromeGroupId;
+            if (
+              leftGroupId !== undefined &&
+              !from.tabs.some((t) => t.chromeGroupId === leftGroupId)
+            ) {
+              from.chromeTabGroups = (from.chromeTabGroups ?? []).filter(
+                (g) => g.groupId !== leftGroupId
+              );
+            }
+            tabs = [tab];
+            group = undefined;
+          } else {
+            // The SAME partition the screen draws (KAN-131).
+            const items = partitionTabsIntoItems(
+              from.tabs,
+              from.chromeTabGroups
+            );
+            const index = items.findIndex(
+              (item) =>
+                item.kind === 'group' && item.group.groupId === carried.groupId
+            );
+            // Unknown, or listed with no tabs: there is no row to move.
+            if (index === -1) return;
+            const [run] = items.splice(index, 1);
+            if (run.kind !== 'group') return;
+            from.tabs = items.flatMap((item) =>
+              item.kind === 'tab' ? [item.tab] : item.tabs
+            );
+            from.chromeTabGroups = (from.chromeTabGroups ?? []).filter(
+              (g) => g.groupId !== carried.groupId
+            );
+            tabs = run.tabs;
+            group = run.group;
+          }
+          from.tabCount -= tabs.length;
+          source.tabCount -= tabs.length;
+
+          const taken = idsIn(target);
+          remintTabsAndGroups(
+            tabs,
+            group === undefined ? [] : [group],
+            taken,
+            remint
+          );
+
+          if (landing.kind === 'new-window') {
+            // Its source window's bounds, and no title, like a captured
+            // window's default. First, where S2 A and S3 A put it.
+            target.windows.unshift({
+              windowId: taken.windows.has(landing.newWindowId)
+                ? remint(landing.newWindowId)
+                : landing.newWindowId,
+              windowHeight: from.windowHeight,
+              windowWidth: from.windowWidth,
+              windowOffsetTop: from.windowOffsetTop,
+              windowOffsetLeft: from.windowOffsetLeft,
+              tabCount: tabs.length,
+              title: '',
+              tabs,
+              ...(group === undefined ? {} : { chromeTabGroups: [group] }),
+            });
+            target.windowCount += 1;
+          } else if (group === undefined) {
+            const [tab] = tabs;
+            if (landing.toChromeGroupId !== undefined) {
+              tab.chromeGroupId = landing.toChromeGroupId;
+            }
+            landing.window.tabs.splice(
+              clampIndex(landing.toIndex, landing.window.tabs.length),
+              0,
+              tab
+            );
+            landing.window.tabCount += 1;
+          } else {
+            const items = partitionTabsIntoItems(
+              landing.window.tabs,
+              landing.window.chromeTabGroups
+            );
+            items.splice(clampIndex(landing.toIndex, items.length), 0, {
+              kind: 'group',
+              group,
+              tabs,
+            });
+            landing.window.tabs = items.flatMap((item) =>
+              item.kind === 'tab' ? [item.tab] : item.tabs
+            );
+            landing.window.chromeTabGroups = [
+              ...(landing.window.chromeTabGroups ?? []),
+              group,
+            ];
+            landing.window.tabCount += tabs.length;
+          }
+          target.tabCount += tabs.length;
+
+          // "An empty window is not a thing" -- the deleteTabInternal cascade.
+          if (from.tabs.length === 0) {
+            source.windows.splice(source.windows.indexOf(from), 1);
+            source.windowCount -= 1;
+          }
+        }
+
+        const now = Date.now();
+        const sourceEmptied = source.windows.length === 0;
+        if (sourceEmptied) {
+          // Tombstoned as every delete is, or the next merge brings it back.
+          bury(state, source.tabGroupId);
+          state.tabGroups.splice(state.tabGroups.indexOf(source), 1);
+          // Q4 A: the shown source is gone, so the target is shown instead
+          // of a blank detail.
+          if (state.selectedTabGroupId === source.tabGroupId) {
+            state.selectedTabGroupId = target.tabGroupId;
+            for (const g of state.tabGroups) {
+              g.isSelected = g.tabGroupId === target.tabGroupId;
+            }
+          }
+        } else if (!sameSession) {
+          touchContent(state, source, now);
+        }
+        const targetAt = sameSession ? now : now + 1;
+        touchContent(state, target, targetAt);
+        state.lastModified = targetAt;
+
+        saveToLocalStorage('tabContainerData', state);
+      },
+      prepare: (move: SessionMove, remintNamespace: string = uuidv4()) => ({
+        payload: { move, remintNamespace },
+      }),
+    },
+
     replaceState: (state, action: PayloadAction<typeof state>) => {
       // update localstorage
       saveToLocalStorage('tabContainerData', action.payload);
@@ -2454,6 +2813,7 @@ export const {
   moveChromeGroupInternal,
   moveChromeGroupAcrossWindowsInternal,
   moveSessionInternal,
+  moveToSessionInternal,
   sortSessionsInternal,
   clearSessionOrder,
   replaceState,

@@ -221,6 +221,8 @@
   "Resize Open now": "Redimensionner le panneau « Onglets ouverts »",
   "Reopen": "Rouvrir",
   "Show": "Afficher",
+  "MovedToSession": "Élément déplacé vers « {{title}} »",
+  "SessionEmptiedRemoved": "La session « {{title}} » était vide et a été supprimée.",
   "Ctrl": "Ctrl",
   "Tab closed": "Onglet fermé",
   "Couldn't reopen.": "Impossible de rouvrir.",

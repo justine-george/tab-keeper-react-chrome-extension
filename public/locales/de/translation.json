@@ -219,6 +219,8 @@
   "Resize Open now": "Breite des Bereichs \"Offene Tabs\" ändern",
   "Reopen": "Wieder öffnen",
   "Show": "Anzeigen",
+  "MovedToSession": "Nach „{{title}}“ verschoben",
+  "SessionEmptiedRemoved": "„{{title}}“ war leer und wurde entfernt.",
   "Ctrl": "Strg",
   "Tab closed": "Tab geschlossen",
   "Couldn't reopen.": "Konnte nicht wieder geöffnet werden.",

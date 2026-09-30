@@ -217,6 +217,8 @@
   "Resize Open now": "调整“当前打开的标签页”面板宽度",
   "Reopen": "重新打开",
   "Show": "显示",
+  "MovedToSession": "已移至“{{title}}”",
+  "SessionEmptiedRemoved": "会话“{{title}}”已为空，已将其移除。",
   "Ctrl": "Ctrl",
   "Tab closed": "标签页已关闭",
   "Couldn't reopen.": "无法重新打开。",

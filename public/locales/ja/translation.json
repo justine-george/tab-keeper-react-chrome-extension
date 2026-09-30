@@ -217,6 +217,8 @@
   "Resize Open now": "「現在開いているタブ」パネルの幅を変更",
   "Reopen": "再度開く",
   "Show": "表示",
+  "MovedToSession": "「{{title}}」に移動しました",
+  "SessionEmptiedRemoved": "セッション「{{title}}」は空になったため削除されました。",
   "Ctrl": "Ctrl",
   "Tab closed": "タブを閉じました",
   "Couldn't reopen.": "再度開けませんでした。",

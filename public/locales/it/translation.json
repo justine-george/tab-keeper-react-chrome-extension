@@ -221,6 +221,8 @@
   "Resize Open now": "Ridimensiona il pannello \"Schede aperte\"",
   "Reopen": "Riapri",
   "Show": "Mostra",
+  "MovedToSession": "Elemento spostato in «{{title}}»",
+  "SessionEmptiedRemoved": "La sessione «{{title}}» era vuota ed è stata rimossa.",
   "Ctrl": "Ctrl",
   "Tab closed": "Scheda chiusa",
   "Couldn't reopen.": "Impossibile riaprire.",

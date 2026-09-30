@@ -6,6 +6,8 @@
 //
 // Every targetIds returns exactly the id list its reducer splices toIndex
 // into (KAN-131: an index is only valid in the list that produced it).
+import { v4 as uuidv4 } from 'uuid';
+
 import type { DropOnTop } from './dropOnTop';
 import {
   moveChromeGroupAcrossWindowsInternal,
@@ -13,7 +15,11 @@ import {
   moveSessionInternal,
   moveTabAcrossWindowsInternal,
   moveTabInternal,
+  isTabMove,
+  isWindowMove,
+  moveToSessionInternal,
   moveWindowInternal,
+  type SessionMove,
   type TabMasterContainer,
 } from './slices/tabContainerDataStateSlice';
 import {
@@ -167,4 +173,89 @@ export function groupDrop({
             toIndex: i,
           }),
   };
+}
+
+// KAN-350. The destination of a tab or group dropped as a new first window
+// (S2 A, S3 A). The id is minted HERE, by the caller's side, so the reducer
+// stays pure and a test can pass its own.
+export function intoNewWindow(tabGroupId: string): {
+  tabGroupId: string;
+  newWindowId: string;
+} {
+  return { tabGroupId, newWindowId: uuidv4() };
+}
+
+// KAN-350. moveToSessionInternal applies toIndex to the destination window's
+// tabs (a tab, not yet in it), to its items (a group, not yet among them), or
+// to the destination session's windows (a window). A new window always goes
+// first, so its drop is aimed at index 0 of the session's windows and the
+// move ignores the re-aimed index. rowExists is the carried item in its
+// SOURCE, which is another session or, for a new window, maybe this one.
+export function sessionMoveDrop(move: SessionMove): DropOnTop {
+  const { carried, to } = move;
+
+  const targetIds = (s: TabMasterContainer): string[] | null => {
+    const target = sessionIn(s, to.tabGroupId);
+    if (!target) return null;
+    if (!('windowId' in to)) return target.windows.map((w) => w.windowId);
+    const w = target.windows.find((x) => x.windowId === to.windowId);
+    if (!w) return null;
+    if (carried.kind === 'group') {
+      return partitionTabsIntoItems(w.tabs, w.chromeTabGroups).map(itemIdOf);
+    }
+    const toChromeGroupId =
+      'toChromeGroupId' in to ? to.toChromeGroupId : undefined;
+    if (
+      toChromeGroupId !== undefined &&
+      !(w.chromeTabGroups ?? []).some((g) => g.groupId === toChromeGroupId)
+    ) {
+      return null;
+    }
+    return w.tabs.map((t) => t.tabId);
+  };
+
+  const rowId =
+    carried.kind === 'tab'
+      ? carried.tabId
+      : carried.kind === 'group'
+        ? groupItemIdOf(carried.groupId)
+        : carried.windowId;
+
+  const rowExists = (s: TabMasterContainer): boolean => {
+    const from = windowIn(s, carried.tabGroupId, carried.windowId);
+    if (!from) return false;
+    if (carried.kind === 'tab') {
+      return from.tabs.some((t) => t.tabId === carried.tabId);
+    }
+    if (carried.kind === 'group') {
+      return partitionTabsIntoItems(from.tabs, from.chromeTabGroups)
+        .map(itemIdOf)
+        .includes(rowId);
+    }
+    return true;
+  };
+
+  return {
+    rowId,
+    toIndex: 'toIndex' in to ? to.toIndex : 0,
+    targetIds,
+    rowExists,
+    move: (i) => moveToSessionInternal(withToIndex(move, i)),
+  };
+}
+
+// The same move, aimed at another index of the same list. A new window has
+// no index to aim: it always goes first.
+function withToIndex(move: SessionMove, toIndex: number): SessionMove {
+  if (isWindowMove(move)) {
+    return { carried: move.carried, to: { ...move.to, toIndex } };
+  }
+  if (isTabMove(move)) {
+    return 'newWindowId' in move.to
+      ? move
+      : { carried: move.carried, to: { ...move.to, toIndex } };
+  }
+  return 'newWindowId' in move.to
+    ? move
+    : { carried: move.carried, to: { ...move.to, toIndex } };
 }

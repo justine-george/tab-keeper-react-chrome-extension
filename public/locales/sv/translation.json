@@ -219,6 +219,8 @@
   "Resize Open now": "Ändra bredden på panelen ”Öppna flikar”",
   "Reopen": "Öppna igen",
   "Show": "Visa",
+  "MovedToSession": "Flyttat till ”{{title}}”",
+  "SessionEmptiedRemoved": "Sessionen ”{{title}}” var tom och har tagits bort.",
   "Ctrl": "Ctrl",
   "Tab closed": "Fliken stängdes",
   "Couldn't reopen.": "Det gick inte att öppna igen.",
