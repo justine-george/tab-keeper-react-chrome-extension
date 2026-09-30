@@ -225,6 +225,20 @@ export function CarryLayer() {
     }
   }, [tabGroups, carried, clicks]);
 
+  // The saved search panel opened mid-carry (only the keyboard can do that)
+  // ends the carry: the session list is no receiver while it is open, and a
+  // saved drag cannot start there (KAN-140). Cancelled as a removed item is,
+  // with the press still down.
+  const isSearchPanel = useSelector(
+    (state: RootState) => state.globalState.isSearchPanel
+  );
+  useEffect(() => {
+    if (carried !== null && isSearchPanel) {
+      clicks.armUntilRelease();
+      endCarry('cancelled');
+    }
+  }, [isSearchPanel, carried, clicks]);
+
   if (carry === null) return null;
 
   return createPortal(

@@ -67,12 +67,8 @@ import { DURATION } from '../../../../styles/scale';
 import { beginDragHold, endDragHold } from '../../../../redux/dragHold';
 import { currentCarry, startCarry } from '../../../../redux/carry';
 import { createClickSuppressor } from './clickSuppressor';
+import { edgeScrollStep } from './edgeScroll';
 
-// How close to an edge the pointer must be for the list to start travelling,
-// and how fast it goes at its deepest. 48px is roughly a row and a half here,
-// which is wide enough to hit without aiming and narrow enough that ordinary
-// dragging near the ends does not trigger it.
-const EDGE_ZONE_PX = 48;
 // How strongly the landing slot draws when it is clear of the held row.
 //
 // 1, not 0.3 (KAN-234). The 0.3 was doing two jobs: keeping the slot quieter
@@ -82,7 +78,6 @@ const EDGE_ZONE_PX = 48;
 // every page and no louder. The fade by distance below is what keeps the slot
 // from reading as an outline around the held row, and it is unchanged.
 const SLOT_OPACITY = 1;
-const MAX_SCROLL_PX_PER_FRAME = 14;
 
 // The nearest ancestor that actually scrolls.
 //
@@ -970,21 +965,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     const step = (l: NonNullable<typeof live.current>): number => {
       const box = l.scroller?.getBoundingClientRect();
       if (!l.scroller || !box) return 0;
-
-      // Capped to a third of the viewport, because a fixed 48px zone at each
-      // end OVERLAPS in a short list -- in a 90px pane the two zones cover 96px,
-      // so every position counts as an edge and the list scrolls no matter where
-      // the pointer is. Found by the control test, which is what a control is
-      // for. A third each leaves a third in the middle that never scrolls.
-      const zone = Math.min(EDGE_ZONE_PX, box.height / 3);
-
-      const intoTop = zone - (l.lastY - box.top);
-      const intoBottom = zone - (box.bottom - l.lastY);
-      const depth = Math.max(intoTop, intoBottom);
-      if (depth <= 0) return 0;
-
-      const speed = Math.min(depth / zone, 1) * MAX_SCROLL_PX_PER_FRAME;
-      return intoTop > intoBottom ? -speed : speed;
+      return edgeScrollStep(box, l.lastY);
     };
 
     const autoScroll = () => {

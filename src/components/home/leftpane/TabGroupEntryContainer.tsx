@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useDispatch, useSelector } from 'react-redux';
 
@@ -6,6 +6,7 @@ import { css } from '@emotion/react';
 
 import Divider from '../../common/Divider';
 import TabGroupEntry from './TabGroupEntry';
+import { SPRING_OPEN_MS } from './springOpen';
 import { NormalLabel } from '../../common/Label';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { AppDispatch, RootState } from '../../../redux/store';
@@ -22,9 +23,17 @@ import {
 } from '../../../redux/slices/tabContainerDataStateSlice';
 import { useTranslation } from 'react-i18next';
 import { RowDragArea, DraggableRow } from '../rightpane/rowDrag/RowDragArea';
+import { edgeScrollStep } from '../rightpane/rowDrag/edgeScroll';
 import { dropOnTop } from '../../../redux/dropOnTop';
 import { sessionDrop } from '../../../redux/dropSpecs';
 import { showSession } from '../../../redux/showSession';
+import { dropOnSessionRow } from '../../../redux/dropOnSessionRow';
+import {
+  currentCarry,
+  registerCarryReceiver,
+  type CarryReceiver,
+} from '../../../redux/carry';
+import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import { isTabView } from '../../../utils/functions/viewMode';
 import { TYPE } from '../../../styles/scale';
 
@@ -159,6 +168,144 @@ export default function TabGroupEntryContainer() {
     row?.scrollIntoView({ block: 'nearest' });
   }, [selectedIndex, selectedTabGroupId]);
 
+  // KAN-350. The list takes a carry: the row under the pointer is the target
+  // (D2 A); resting on it opens that session (S1 A); letting go on it moves
+  // the carried item into that session as a new first window (S2 A).
+  //
+  // The target is held twice: in a ref, which take() reads on the release in
+  // the same event that aimed it, and in state, which draws it.
+  const [carryTargetId, setCarryTargetId] = useState<string | null>(null);
+  const carryTargetRef = useRef<string | null>(null);
+
+  // Not a receiver at all while the saved search panel is open (KAN-140: a
+  // saved drag cannot start there, and a search opened mid-carry ends it --
+  // CarryLayer).
+  useEffect(() => {
+    if (isSearchPanel) return;
+
+    const aim = (id: string | null) => {
+      if (carryTargetRef.current === id) return;
+      carryTargetRef.current = id;
+      setCarryTargetId(id);
+    };
+
+    // Measured when a carry enters the scroller, and again on its next entry.
+    // The rows are kept in CONTENT space -- from the top of the scrolled
+    // content, not the viewport -- so the list can scroll under a resting
+    // pointer and the hit still names the row that is under it.
+    let entry: {
+      box: DOMRect;
+      rows: { id: string; top: number; bottom: number }[];
+    } | null = null;
+    let lastY = 0;
+    let frame = 0;
+
+    const measure = (el: HTMLElement) => {
+      const box = el.getBoundingClientRect();
+      const rows = [
+        ...el.querySelectorAll<HTMLElement>('[data-drag-row-id]'),
+      ].flatMap((row) => {
+        const id = row.dataset.dragRowId;
+        if (id === undefined) return [];
+        const r = row.getBoundingClientRect();
+        return [
+          {
+            id,
+            top: r.top - box.top + el.scrollTop,
+            bottom: r.bottom - box.top + el.scrollTop,
+          },
+        ];
+      });
+      return { box, rows };
+    };
+
+    const retarget = () => {
+      const el = listRef.current;
+      if (el === null || entry === null) return;
+      const y = lastY - entry.box.top + el.scrollTop;
+      aim(entry.rows.find((r) => y >= r.top && y < r.bottom)?.id ?? null);
+    };
+
+    // Near the scroller's top or bottom edge the list travels, as it does
+    // under an engine drag (KAN-152), and the target is re-read after every
+    // step. Stops when the pointer leaves the edge zone or the list cannot go
+    // further; the next move starts it again.
+    const tick = () => {
+      frame = 0;
+      const el = listRef.current;
+      if (el === null || entry === null) return;
+      const delta = edgeScrollStep(entry.box, lastY);
+      if (delta === 0) return;
+      const before = el.scrollTop;
+      const max = Math.max(0, el.scrollHeight - el.clientHeight);
+      el.scrollTop = Math.max(0, Math.min(max, before + delta));
+      if (el.scrollTop === before) return;
+      retarget();
+      frame = requestAnimationFrame(tick);
+    };
+
+    const receiver: CarryReceiver = {
+      hit(x, y) {
+        const el = listRef.current;
+        if (el === null) return false;
+        const b = el.getBoundingClientRect();
+        return x >= b.left && x < b.right && y >= b.top && y < b.bottom;
+      },
+      hover(_x, y) {
+        const el = listRef.current;
+        if (el === null) return;
+        entry ??= measure(el);
+        lastY = y;
+        retarget();
+        if (frame === 0 && edgeScrollStep(entry.box, y) !== 0) {
+          frame = requestAnimationFrame(tick);
+        }
+      },
+      leave() {
+        entry = null;
+        if (frame !== 0) cancelAnimationFrame(frame);
+        frame = 0;
+        aim(null);
+      },
+      // Commits synchronously and says whether anything moved; the layer
+      // ends the carry after this either way.
+      take() {
+        const id = carryTargetRef.current;
+        const carry = currentCarry();
+        if (id === null || carry === null) return false;
+        return dispatch(dropOnSessionRow(carry.carried, id));
+      },
+    };
+
+    const unregister = registerCarryReceiver(receiver);
+    return () => {
+      unregister();
+      receiver.leave();
+    };
+  }, [isSearchPanel, dispatch]);
+
+  // S1 A. Resting on a row opens its session after SPRING_OPEN_MS. Started
+  // by the same change that puts data-carry-target on the row -- this effect
+  // runs on the commit that drew it -- so the line and the timer begin
+  // together, and a new target restarts both. The session on screen already
+  // has no timer (Q3 A); after a spring-open the row the pointer rests on is
+  // that session, so its timer stops there.
+  const dwellId =
+    carryTargetId !== null && carryTargetId !== selectedTabGroupId
+      ? carryTargetId
+      : null;
+  useEffect(() => {
+    if (dwellId === null) return;
+    const timer = setTimeout(
+      () => dispatch(showSession(dwellId)),
+      SPRING_OPEN_MS
+    );
+    return () => clearTimeout(timer);
+  }, [dwellId, dispatch]);
+
+  // Reduced motion draws no line; the session still opens after the wait.
+  const reducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)');
+
   // The session list's frame, one declaration for both views, so the popup's
   // list and the tab view's list box cannot drift apart (KAN-280 O3a).
   const listFrameStyle = css`
@@ -279,6 +426,15 @@ export default function TabGroupEntryContainer() {
                     }}
                     onDeleteClick={() =>
                       dispatch(deleteTabContainer(tabGroupData.tabGroupId))
+                    }
+                    carryTarget={
+                      tabGroupData.tabGroupId === carryTargetId
+                        ? {
+                            dwellLine:
+                              tabGroupData.tabGroupId === dwellId &&
+                              !reducedMotion,
+                          }
+                        : undefined
                     }
                   />
                   {/* <Divider /> */}

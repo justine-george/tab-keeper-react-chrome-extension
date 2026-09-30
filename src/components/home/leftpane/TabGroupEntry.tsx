@@ -2,7 +2,7 @@ import React, { MouseEventHandler } from 'react';
 
 import { useSelector } from 'react-redux';
 
-import { css } from '@emotion/react';
+import { css, keyframes } from '@emotion/react';
 
 import ClickableRow from '../../common/ClickableRow';
 import Icon from '../../common/Icon';
@@ -22,7 +22,8 @@ import {
 } from '../../../utils/functions/sessionDate';
 import { isTabView } from '../../../utils/functions/viewMode';
 import { useTranslation } from 'react-i18next';
-import { DURATION, TYPE } from '../../../styles/scale';
+import { DURATION, RADIUS, TYPE } from '../../../styles/scale';
+import { SPRING_OPEN_MS } from './springOpen';
 
 /**
  * How far a row's action icon sits inside the row, per side, in CSS px.
@@ -38,6 +39,28 @@ import { DURATION, TYPE } from '../../../styles/scale';
  */
 const ACTION_ICON_INSET = 2;
 
+// The fill line grows from nothing to the row's width less its two insets.
+const dwellFill = keyframes`
+  from {
+    width: 0;
+  }
+  to {
+    width: calc(100% - 4px);
+  }
+`;
+
+/**
+ * This row as a carry's target (KAN-350): what the pointer carrying a tab,
+ * group or window is resting on. Absent when it is not the target.
+ * `dwellLine` draws the line that fills while the rest counts down to the
+ * spring-open; false for the session already on screen, which does not open
+ * again, and under reduced motion, which opens after the same wait with no
+ * line.
+ */
+export interface CarryTargetLook {
+  dwellLine: boolean;
+}
+
 interface TabGroupEntryProps {
   tabGroupData: tabContainerData;
   /**
@@ -50,6 +73,7 @@ interface TabGroupEntryProps {
   onOpenAllClick: MouseEventHandler;
   onFocusClick: MouseEventHandler;
   onDeleteClick: MouseEventHandler;
+  carryTarget?: CarryTargetLook;
 }
 
 const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
@@ -58,6 +82,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
   onOpenAllClick,
   onFocusClick,
   onDeleteClick,
+  carryTarget,
 }) => {
   const COLORS = useThemeColors();
   const FONT_FAMILY = useFontFamily();
@@ -309,6 +334,50 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
       ${pressedStyle}
     }
     background-color: ${isSelected && COLORS.SELECTION_COLOR};
+    /* KAN-350 D2 A. The row a carry rests on: the hover fill, a selected row
+       included (on Petal's selection fill the outline would be only 2.46:1),
+       and a 2px LABEL_L2 outline inside the edge.
+
+       ONE CONDITION, the data-carry-target attribute, draws all of it and the
+       fill line below, so the parts cannot disagree about which row is the
+       target. After the hover and press rules, so it wins over both.
+
+       The outline is on the outline property, which nothing else on this
+       element writes: the fill is the box-shadow (hover's channel, which the
+       target takes over here in full), the selection is background-color.
+       Inset by a negative offset, so the next row cannot paint over it.
+
+       The actions are hidden while the row is a target: there is nothing to
+       click mid-carry, and the mask behind them is painted for hover or
+       selection, which the target look is neither of. */
+    &[data-carry-target] {
+      ${fill(COLORS.HOVER_COLOR)}
+      outline-width: 2px;
+      outline-style: solid;
+      outline-color: ${COLORS.LABEL_L2_COLOR};
+      outline-offset: -2px;
+      [data-row-actions] {
+        background-color: transparent;
+      }
+      [data-row-actions] > * {
+        opacity: 0;
+      }
+    }
+  `;
+
+  // S1 A. Grows along the row's bottom for as long as the rest before the
+  // spring-open, from the moment the row becomes the target: it mounts with
+  // the attribute, so its animation starts when the list's timer does.
+  const dwellLineStyle = css`
+    position: absolute;
+    left: 2px;
+    bottom: 2px;
+    height: 3px;
+    /* Square, as the app's scale is everywhere (the mock drew 2px). */
+    border-radius: ${RADIUS.SQUARE};
+    background-color: ${COLORS.LABEL_L2_COLOR};
+    pointer-events: none;
+    animation: ${dwellFill} ${SPRING_OPEN_MS}ms linear forwards;
   `;
 
   // The row's primary action lives on the inner ClickableRow, not on this
@@ -323,7 +392,10 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
   // siblings. `leftStyle` is width: 100%, so the clickable area is unchanged;
   // the action block is absolutely positioned on top of it.
   return (
-    <div css={containerStyle}>
+    <div
+      css={containerStyle}
+      data-carry-target={carryTarget === undefined ? undefined : ''}
+    >
       <ClickableRow
         ariaLabel={title}
         onClick={onTabGroupClick}
@@ -417,6 +489,9 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
             style="padding: 14px 10px; width: 57px;"
           />
         </div>
+      )}
+      {carryTarget?.dwellLine && (
+        <div aria-hidden="true" data-carry-dwell-line="" css={dwellLineStyle} />
       )}
     </div>
   );

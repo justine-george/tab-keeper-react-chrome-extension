@@ -37,12 +37,15 @@ export interface MoveToSessionParams {
 // selection to the target, so that Moved toast has no Show. Both announce a
 // saved change the user just made, so both take ⌘Z from a Reopen offer
 // (KAN-349 Q1 C′).
+//
+// Returns whether the item moved, read off the move as above, so a caller
+// that has to say whether it committed (a carry receiver's take) can.
 export const moveToSession =
   ({
     move,
     announceMoved,
   }: MoveToSessionParams): ThunkAction<
-    void,
+    boolean,
     RootState,
     unknown,
     UnknownAction
@@ -54,7 +57,7 @@ export const moveToSession =
       )?.title;
     const sourceTitle = titleOf(move.carried.tabGroupId);
     const targetTitle = titleOf(move.to.tabGroupId);
-    if (sourceTitle === undefined || targetTitle === undefined) return;
+    if (sourceTitle === undefined || targetTitle === undefined) return false;
 
     const drop = sessionMoveDrop(move);
     const beforeMove: { state: TabMasterContainer | null } = { state: null };
@@ -69,7 +72,7 @@ export const moveToSession =
     );
 
     const after = getState().tabContainerDataState;
-    if (beforeMove.state === null || after === beforeMove.state) return;
+    if (beforeMove.state === null || after === beforeMove.state) return false;
 
     if (announceMoved) {
       dispatch(
@@ -99,4 +102,5 @@ export const moveToSession =
         })
       );
     }
+    return true;
   };
