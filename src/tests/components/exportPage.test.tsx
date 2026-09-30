@@ -715,4 +715,30 @@ describe('the exported date line (KAN-347)', () => {
       expect(frame().srcdoc).toContain(`Edited ${getPrettyDate(EDITED, 'en')}`)
     );
   });
+
+  // "Today" in a file is false from tomorrow on.
+  test('a session edited today is dated, not "today"', async () => {
+    const TODAY_EDIT = new Date(2026, 8, 29, 16, 12, 5).getTime();
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 8, 29, 17, 7, 0));
+    await renderWithProviders(
+      <ExportPage source={{ kind: 'saved', tabGroupId: 'session-kyoto' }} />,
+      {
+        seedStore: (store) => {
+          store.dispatch(
+            replaceState(
+              buildContainer([{ ...SESSION, contentModified: TODAY_EDIT }])
+            )
+          );
+        },
+      }
+    );
+
+    await waitFor(() =>
+      expect(frame().srcdoc).toContain(
+        `Edited ${getPrettyDate(TODAY_EDIT, 'en')}`
+      )
+    );
+    expect(frame().srcdoc).not.toMatch(/\btoday\b/i);
+  });
 });

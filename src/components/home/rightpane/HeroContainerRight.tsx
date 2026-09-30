@@ -12,6 +12,7 @@ import { NormalLabel } from '../../common/Label';
 import { useFontFamily } from '../../../hooks/useFontFamily';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { AppDispatch, RootState } from '../../../redux/store';
+import { useToday } from '../../../hooks/useToday';
 import {
   sessionDateLabel,
   sessionDateTitle,
@@ -91,6 +92,8 @@ export default function HeroContainerRight() {
   const sessionDateBasis = useSelector(
     (state: RootState) => state.settingsDataState.sessionDateBasis
   );
+  // Redraws the date when the local day changes (KAN-347).
+  const today = useToday();
 
   // the same list RightPane derives its mount guard from
   const selectedTabGroup = selectVisibleTabGroups(
@@ -412,7 +415,7 @@ export default function HeroContainerRight() {
             sessionDateBasis,
             i18n.language,
             t,
-            new Date()
+            today
           )}
           tooltipText={sessionDateTitle(
             selectedTabGroup,

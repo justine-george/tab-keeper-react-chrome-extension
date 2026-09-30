@@ -234,3 +234,57 @@ describe('sessionDateStamp (KAN-347)', () => {
     );
   });
 });
+
+describe('today and yesterday (KAN-347)', () => {
+  test('today and yesterday are words, with the time', () => {
+    expect(norm(sessionWhen(local(2026, 8, 29, 16, 12), 'en', TODAY))).toBe(
+      'today, 4:12 PM'
+    );
+    expect(norm(sessionWhen(local(2026, 8, 28, 6, 16), 'en', TODAY))).toBe(
+      'yesterday, 6:16 AM'
+    );
+  });
+
+  // The control: two days back is a date, so "yesterday" is not everything
+  // before today.
+  test('CONTROL: the day before yesterday is a date', () => {
+    expect(norm(sessionWhen(local(2026, 8, 27, 6, 16), 'en', TODAY))).toBe(
+      'Sep 27, 6:16 AM'
+    );
+  });
+
+  // Review Focus 1. Another device whose clock runs ahead can stamp a time
+  // after this device's now. Intl would call it "tomorrow"; in hi, कल is also
+  // "yesterday".
+  test('a time later than today reads as today, never tomorrow', () => {
+    expect(norm(sessionWhen(local(2026, 8, 30, 1, 0), 'en', TODAY))).toBe(
+      'today, 1:00 AM'
+    );
+    expect(sessionWhen(local(2026, 8, 30, 1, 0), 'hi', TODAY)).not.toContain(
+      'कल'
+    );
+  });
+
+  test('ja, zh and ko join the word and the time with a space', () => {
+    expect(norm(sessionWhen(local(2026, 8, 29, 16, 12), 'ja', TODAY))).toBe(
+      '今日 16:12'
+    );
+    expect(norm(sessionWhen(local(2026, 8, 29, 16, 12), 'zh-TW', TODAY))).toBe(
+      '今天 下午4:12'
+    );
+  });
+
+  test('the label keeps its template around the words (ja date first)', async () => {
+    const ja = await tFor('ja');
+    const group = build({ contentModified: local(2026, 8, 28, 6, 16) });
+    expect(norm(sessionDateLabel(group, 'edited', 'ja', ja, TODAY))).toBe(
+      '昨日 6:16に編集'
+    );
+  });
+
+  test('a malformed locale still gets the words, in en', () => {
+    expect(
+      norm(sessionWhen(local(2026, 8, 29, 16, 12), 'not a locale!!', TODAY))
+    ).toBe('today, 4:12 PM');
+  });
+});

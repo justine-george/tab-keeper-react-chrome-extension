@@ -1,5 +1,6 @@
 import type { TFunction } from 'i18next';
 
+import { calendarDaysBefore } from './calendarDay';
 import { FALLBACK_LOCALE, getPrettyDate } from './local';
 import { contentInstant, createdInstant } from './mergeTabData';
 import type { SessionDateBasis } from '../../redux/slices/settingsDataStateSlice';
@@ -85,9 +86,10 @@ function datedInstant(
 }
 
 /**
- * The date part of a session's label (KAN-347): the date and time without
- * seconds, and without the year while it is this year. A date from another
- * year keeps its year and drops the time.
+ * The date part of a session's label (KAN-347): "today" or "yesterday" and
+ * the time; otherwise the date and time without seconds, and without the
+ * year while it is this year. A date from another year keeps its year and
+ * drops the time.
  *
  * `today` is passed in, never read here, so the caller that redraws when the
  * day changes decides what "this year" is, and tests can pin it.
@@ -100,6 +102,19 @@ export function sessionWhen(
   const at = new Date(instant);
   // Intl throws a RangeError on an Invalid Date (as in getPrettyDate).
   if (Number.isNaN(at.getTime())) return '';
+
+  const days = calendarDaysBefore(instant, today);
+  // Today and yesterday are words (Intl knows them in every locale we ship).
+  // A time later than today comes from another device whose clock runs
+  // ahead; "tomorrow" would be false (and in hi, कल also means yesterday),
+  // so it reads as today.
+  if (days <= 1) {
+    const word = relativeDay(locale, days <= 0 ? 0 : 1);
+    const time = formatIn(locale, { hour: 'numeric', minute: '2-digit' }, at);
+    // A comma reads as a list break in CJK; those join with a space.
+    return `${word}${/^(ja|zh|ko)\b/i.test(locale) ? ' ' : ', '}${time}`;
+  }
+
   return formatIn(
     locale,
     at.getFullYear() === today.getFullYear()
@@ -120,5 +135,16 @@ function formatIn(
     return new Intl.DateTimeFormat(locale, options).format(at);
   } catch {
     return new Intl.DateTimeFormat(FALLBACK_LOCALE, options).format(at);
+  }
+}
+
+// "today" (0) or "yesterday" (1), from Intl rather than a translation key.
+function relativeDay(locale: string, daysAgo: 0 | 1): string {
+  const format = (l: string) =>
+    new Intl.RelativeTimeFormat(l, { numeric: 'auto' }).format(-daysAgo, 'day');
+  try {
+    return format(locale);
+  } catch {
+    return format(FALLBACK_LOCALE);
   }
 }

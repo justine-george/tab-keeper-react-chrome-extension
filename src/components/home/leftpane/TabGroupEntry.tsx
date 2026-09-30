@@ -15,6 +15,7 @@ import {
   isSearchActive,
 } from '../../../utils/functions/local';
 import { tabContainerData } from '../../../redux/slices/tabContainerDataStateSlice';
+import { useToday } from '../../../hooks/useToday';
 import {
   sessionDateLabel,
   sessionDateTitle,
@@ -70,6 +71,8 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
   const sessionDateBasis = useSelector(
     (state: RootState) => state.settingsDataState.sessionDateBasis
   );
+  // Redraws the date when the local day changes (KAN-347).
+  const today = useToday();
 
   // Needed as well as isSearchPanel: the row's counts are narrowed only while
   // the box has text in it, so the panel being open is not on its own enough
@@ -370,7 +373,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
             sessionDateBasis,
             i18n.language,
             t,
-            new Date()
+            today
           )}
         </div>
       </ClickableRow>
