@@ -275,8 +275,15 @@ describe('today and yesterday (KAN-347)', () => {
     expect(norm(sessionWhen(local(2026, 8, 29, 16, 12), 'zh-TW', TODAY))).toBe(
       '今天 下午4:12'
     );
+    // ko's time text is ICU's and differs by version ("오후 4:12" in ICU 78.3,
+    // "PM 4:12" in 78.2, which CI's Node 22 ships), so only the word and the
+    // joiner are ours to pin.
+    const koTime = new Intl.DateTimeFormat('ko', {
+      hour: 'numeric',
+      minute: '2-digit',
+    }).format(local(2026, 8, 29, 16, 12));
     expect(norm(sessionWhen(local(2026, 8, 29, 16, 12), 'ko', TODAY))).toBe(
-      '오늘 오후 4:12'
+      norm(`오늘 ${koTime}`)
     );
   });
 
