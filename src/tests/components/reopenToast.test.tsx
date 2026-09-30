@@ -86,9 +86,15 @@ async function urlsIn(windowId: number): Promise<string[]> {
     .map((tab) => tab.url ?? '');
 }
 
+// The newest toast a screen reader and a pointer can reach (KAN-349: the
+// region holds a stack, newest last, and a leaving toast is aria-hidden).
 function visibleToast(): HTMLElement {
-  const toast = screen.getByRole('status').firstElementChild;
-  if (!(toast instanceof HTMLElement)) throw new Error('no visible toast');
+  const live = Array.from(screen.getByRole('status').children).filter(
+    (el): el is HTMLElement =>
+      el instanceof HTMLElement && el.getAttribute('aria-hidden') !== 'true'
+  );
+  const toast = live[live.length - 1];
+  if (toast === undefined) throw new Error('no visible toast');
   return toast;
 }
 
@@ -127,8 +133,11 @@ describe('the Reopen toast (KAN-280 O8a)', () => {
       expect(await urlsIn(2)).toEqual([url('a'), url('b')]);
     });
     expect(isToastShowing(store.getState())).toBe(false);
-    expect(screen.queryByText('Tab closed')).toBeNull();
     expect(screen.queryByRole('button', { name: 'Reopen' })).toBeNull();
+    // It fades out, then is gone (KAN-349).
+    await waitFor(() => {
+      expect(screen.queryByText('Tab closed')).toBeNull();
+    });
   });
 
   // Rule 4. Both presses reach the handler: one act() holds React's
@@ -154,6 +163,7 @@ describe('the Reopen toast (KAN-280 O8a)', () => {
     expect(fake.createdTabs).toHaveLength(1);
   });
 
+  // KAN-349. Both show at once in the stack, so each is checked in itself.
   test('a plain toast has no Reopen button', async () => {
     const { store } = await renderWithProviders(<Toast />, {
       seed: twoTabSeed,
@@ -162,9 +172,12 @@ describe('the Reopen toast (KAN-280 O8a)', () => {
     await act(async () => {
       await store.dispatch(offerReopen(item));
     });
-    // CONTROL: the offer did show a button, so its absence below is the
+    const offerToast = visibleToast();
+    // CONTROL: the offer does show a button, so its absence below is the
     // plain toast's doing.
-    expect(screen.getByRole('button', { name: 'Reopen' })).toBeTruthy();
+    expect(
+      within(offerToast).getByRole('button', { name: 'Reopen' })
+    ).toBeTruthy();
 
     await act(async () => {
       await store.dispatch(
@@ -172,8 +185,9 @@ describe('the Reopen toast (KAN-280 O8a)', () => {
       );
     });
 
-    expect(screen.getByText(TOAST_MESSAGES.SYNC_MERGED)).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Reopen' })).toBeNull();
+    const plainToast = visibleToast();
+    expect(plainToast.textContent).toBe(TOAST_MESSAGES.SYNC_MERGED);
+    expect(within(plainToast).queryByRole('button')).toBeNull();
   });
 
   // Rule 10: nothing came back, and the toast says so.
@@ -332,7 +346,9 @@ describe('the Reopen toast (KAN-280 O8a)', () => {
     expect(isOpen()).toBe(false);
   });
 
-  test('a plain toast is not held by hovering', async () => {
+  // KAN-349 T3. It used not to be: only the offer held. Now any toast holds
+  // them all.
+  test('a plain toast is held by hovering too', async () => {
     const { store } = await renderWithProviders(<Toast />);
     vi.useFakeTimers();
     await act(async () => {
@@ -342,6 +358,11 @@ describe('the Reopen toast (KAN-280 O8a)', () => {
     });
 
     fireEvent.mouseEnter(visibleToast());
+    act(() => vi.advanceTimersByTime(30_000));
+    expect(isToastShowing(store.getState())).toBe(true);
+
+    // CONTROL: the pointer leaving lets it go.
+    fireEvent.mouseLeave(visibleToast());
     act(() => vi.advanceTimersByTime(5000));
     expect(isToastShowing(store.getState())).toBe(false);
   });
