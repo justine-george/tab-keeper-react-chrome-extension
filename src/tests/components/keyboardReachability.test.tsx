@@ -123,7 +123,8 @@ describe('enabled controls are reachable by keyboard', () => {
       store.dispatch(setSyncStatus('loading'));
     });
 
-    const sync = screen.getByRole('button', { name: 'Sync now' });
+    // Dimmed, so named for why (KAN-342).
+    const sync = screen.getByRole('button', { name: 'Syncing…' });
     expect(sync).toHaveAttribute('aria-disabled', 'true');
     expect(tabIndexOf(sync)).not.toBe(TAB_ORDER_EXCLUDED);
   });

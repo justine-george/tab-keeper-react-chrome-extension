@@ -39,7 +39,9 @@ describe('home header glyph sizes (KAN-340)', () => {
   test('every other header icon stays at ICON.DEFAULT', async () => {
     await renderWithProviders(<MenuContainer />);
 
-    for (const name of ['Sort sessions', 'Undo', 'Redo', 'Sync now']) {
+    // The default store is signed out, so the sync button is dimmed and
+    // named for why (KAN-342).
+    for (const name of ['Sort sessions', 'Undo', 'Redo', 'Sync unavailable']) {
       expect({ name, size: glyphSize(name) }).toEqual({
         name,
         size: px(ICON.DEFAULT),

@@ -14,13 +14,17 @@ import type { CloudConsent } from '../../../../redux/slices/settingsDataStateSli
  *  2. The cloud question declined, or not yet answered (KAN-259): off. Not
  *     "manual" -- the cloud button asks that user first rather than syncing,
  *     so "until you press the cloud button" would be a half-truth for them.
- *  3. Auto sync off with consent given: nothing IS sent, whatever the cloud
- *     is doing. Manual. Before the cloud check on purpose -- PR CI builds
- *     without a cloud (KAN-147), and this order is what lets the e2e see the
- *     toggle work there.
- *  4. No cloud in this build: unavailable. Never shown to a user; every
+ *  3. The last sync failed: say so, and where the retry is. Before manual
+ *     (KAN-346): Auto Sync off stops the automatic sync, not a Sync now
+ *     press, and a failed press read "Manual sync" under the header's
+ *     sync_problem glyph. Only with a cloud: without one every call throws
+ *     cloudUnavailable, which is not a failed sync.
+ *  4. Auto sync off with consent given: nothing is sent until the cloud
+ *     button is pressed. Manual. Before the cloud check on purpose -- PR CI
+ *     builds without a cloud (KAN-147), and this order is what lets the e2e
+ *     see the toggle work there.
+ *  5. No cloud in this build: unavailable. Never shown to a user; every
  *     release carries one. Without it the CI popup would claim "on".
- *  5. The last sync failed: say so, and where the retry is.
  *  6. A sync in flight: syncing (KAN-261). The write after Merge or Replace
  *     runs while the user is on this pane, and this card is what they are
  *     looking at; the header's cloud_sync glyph is one screen away. `idle`
@@ -75,6 +79,14 @@ export function describeSyncState({
       line: 'Your sessions stay on this device. Turn on Auto Sync, or press the cloud button on the home screen, to start syncing.',
     };
   }
+  if (isCloudConfigured && syncStatus === 'error') {
+    return {
+      kind: 'failed',
+      icon: 'sync_problem',
+      title: 'Last sync failed',
+      line: 'Your sessions are safe on this device. Press the cloud button on the home screen to try again.',
+    };
+  }
   if (!isAutoSync) {
     return {
       kind: 'manual',
@@ -89,14 +101,6 @@ export function describeSyncState({
       icon: 'cloud_off',
       title: 'Sync unavailable',
       line: 'Chrome’s sync storage isn’t available in this profile, so your sessions stay on this device.',
-    };
-  }
-  if (syncStatus === 'error') {
-    return {
-      kind: 'failed',
-      icon: 'sync_problem',
-      title: 'Last sync failed',
-      line: 'Your sessions are safe on this device. Press the cloud button on the home screen to try again.',
     };
   }
   if (syncStatus === 'loading') {

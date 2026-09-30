@@ -100,8 +100,17 @@ interface IconBaseProps {
  */
 type IconProps = IconBaseProps &
   (
-    | { onClick: MouseEventHandler; ariaLabel: string }
-    | { onClick?: never; ariaLabel?: never }
+    | {
+        onClick: MouseEventHandler;
+        ariaLabel: string;
+        /**
+         * A fact about the control, read after its name: the header's sync
+         * button is named for its action and described by the state it is in
+         * (KAN-342). Only a control can carry one, like ariaLabel.
+         */
+        ariaDescription?: string;
+      }
+    | { onClick?: never; ariaLabel?: never; ariaDescription?: never }
   );
 
 const Icon: React.FC<IconProps> = ({
@@ -117,6 +126,7 @@ const Icon: React.FC<IconProps> = ({
   backgroundColor = 'transparent',
   color,
   ariaLabel,
+  ariaDescription,
   tooltipText,
   text,
   size = ICON.DEFAULT,
@@ -235,6 +245,7 @@ const Icon: React.FC<IconProps> = ({
     <div
       title={tooltipText}
       aria-label={ariaLabel}
+      aria-description={ariaDescription}
       // Presentational icons are hidden outright rather than merely unnamed.
       // The glyph renders as ligature text ("arrow_back", "add_box"), which
       // would otherwise leak into the accessible name of whatever button

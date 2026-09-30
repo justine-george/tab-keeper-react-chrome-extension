@@ -104,7 +104,10 @@ describe('Icon keyboard activation reaches the same handler as a click', () => {
     seen.length = 0;
 
     await act(async () => {
-      fireEvent.keyDown(syncIcon(), { key: 'Enter' });
+      // Dimmed, so named for why (KAN-342).
+      fireEvent.keyDown(screen.getByRole('button', { name: 'Syncing…' }), {
+        key: 'Enter',
+      });
     });
 
     expect(seen).not.toContain(SYNC_PENDING);
@@ -120,16 +123,20 @@ describe('Icon keyboard activation reaches the same handler as a click', () => {
     await act(async () => {
       store.dispatch(setSyncStatus('loading'));
     });
+    // Dimmed, so named for why (KAN-342). Held across the rename: the element
+    // that is "Sync now" again must be this one, or focus would not survive.
+    const icon = screen.getByRole('button', { name: 'Syncing…' });
     await act(async () => {
-      fireEvent.keyDown(syncIcon(), { key: 'Enter' });
+      fireEvent.keyDown(icon, { key: 'Enter' });
     });
     await act(async () => {
       store.dispatch(setSyncStatus('idle'));
     });
     seen.length = 0;
+    expect(syncIcon()).toBe(icon);
 
     await act(async () => {
-      fireEvent.keyDown(syncIcon(), { key: 'Enter' });
+      fireEvent.keyDown(icon, { key: 'Enter' });
     });
 
     expect(seen).toContain(SYNC_PENDING);

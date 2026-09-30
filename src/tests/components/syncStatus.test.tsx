@@ -20,6 +20,7 @@ import {
   setCloudConfigured,
   setLoggedOut,
   setSignedIn,
+  setSyncStatus,
   syncStateWithFirestore,
 } from '../../redux/slices/globalStateSlice';
 import {
@@ -39,10 +40,11 @@ import { getPrettyDate } from '../../utils/functions/local';
 // same fact drawn from less information, one screen away.
 //
 // The card now derives from the same inputs, in an order that makes each
-// state true: no token -> unavailable; auto sync off -> manual (whatever the
-// cloud is doing, nothing is sent); no cloud in this build -> unavailable
-// (KAN-147: PR CI builds without one, and "on" there would be a lie); last
-// result error -> failed; else on.
+// state true: no token -> unavailable; last result error, with a cloud ->
+// failed (KAN-346: a Sync now press can fail with Auto Sync off); auto sync
+// off -> manual (nothing is sent until the cloud button is pressed); no cloud
+// in this build -> unavailable (KAN-147: PR CI builds without one, and "on"
+// there would be a lie); else on.
 
 const base = {
   isSignedIn: true,
@@ -96,6 +98,35 @@ describe('describeSyncState', () => {
     expect(describeSyncState({ ...base, syncStatus: 'error' }).kind).toBe(
       'failed'
     );
+  });
+
+  // KAN-346. Auto Sync off stops the AUTOMATIC sync, not a Sync now press. A
+  // failed press read "Manual sync", under the header's sync_problem glyph.
+  test('a failed manual sync is failed, not manual (KAN-346)', () => {
+    expect(
+      describeSyncState({ ...base, isAutoSync: false, syncStatus: 'error' })
+        .kind
+    ).toBe('failed');
+  });
+
+  // Without a cloud every call throws cloudUnavailable, which is not a failed
+  // sync: a cloudless build (PR CI) keeps saying what it said before.
+  test('without a cloud, an error is not a failed sync (KAN-346)', () => {
+    expect(
+      describeSyncState({
+        ...base,
+        isCloudConfigured: false,
+        isAutoSync: false,
+        syncStatus: 'error',
+      }).kind
+    ).toBe('manual');
+    expect(
+      describeSyncState({
+        ...base,
+        isCloudConfigured: false,
+        syncStatus: 'error',
+      }).kind
+    ).toBe('unavailable');
   });
 
   test('no token is unavailable, whatever else is true', () => {
@@ -219,6 +250,16 @@ describe('the sync status line follows the store (KAN-248)', () => {
     expect(store.getState().settingsDataState.isAutoSync).toBe(false);
     expect(card().textContent).toContain('Manual sync');
     expect(card().textContent).not.toContain('Cloud sync on');
+  });
+
+  test('a failed manual sync says it failed (KAN-346)', async () => {
+    const { store } = await renderSync();
+    act(() => {
+      store.dispatch(toggleAutoSync());
+      store.dispatch(setSyncStatus('error'));
+    });
+    expect(card().textContent).toContain('Last sync failed');
+    expect(card().textContent).not.toContain('Manual sync');
   });
 
   test('declined: "Sync is off", and the line does not promise the cloud button syncs', async () => {
