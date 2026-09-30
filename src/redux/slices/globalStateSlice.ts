@@ -11,7 +11,9 @@ import {
 import { AppDispatch, RootState } from '../store';
 import { resetHistory, setPresentStartup } from './undoRedoSlice';
 import { isDragHeld, whenDragReleases } from '../dragHold';
-import { dropReopenOffer } from '../reopenOfferStore';
+import { addToast } from '../toastStack';
+import type { ToastItem } from '../toastStack';
+import { startToastTimer } from '../toastTimers';
 import { selectCategory, SettingsCategory } from './settingsCategoryStateSlice';
 import {
   mergeSessionsFromBackupInternal,
@@ -89,25 +91,13 @@ export interface Global {
   isSearchPanel: boolean;
   searchInputText: string;
   syncStatus: 'idle' | 'loading' | 'success' | 'error';
-  isToastOpen: boolean;
-  // An i18n KEY, not a display string -- Toast renders t(toastText). Every
-  // fixed message in TOAST_MESSAGES is an English sentence used as its own
-  // key, which is why that reads as if it were already the text.
-  toastText: string;
-  // Interpolation values for the key above, when it takes any (KAN-86).
-  //
-  // This exists because a toast built by string concatenation can never be
-  // translated: the composed result matches no key, so t() hands it straight
-  // back and the user sees English whatever their language. Slices dispatch a
-  // key plus its values and Toast does the interpolation, which keeps the
-  // existing division of labour -- nothing outside the component tree calls
-  // t(), because nothing outside it has a `t` to call.
-  toastParams?: Record<string, string | number>;
-  // KAN-280 O8a. The id of the close the toast offers to Reopen, or null for
-  // a toast without Reopen. Only the id: the closed tab or window it names is
-  // live data and stays out of the store (reopenOfferStore.ts). Overwritten
-  // by every toast, like toastParams, so a plain toast clears it.
-  toastReopenOfferId: number | null;
+  // KAN-349. The toasts on screen, newest last (toastStack.ts). A toast's
+  // text is an i18n KEY, and its params the values for it (KAN-86): slices
+  // dispatch a key plus its values and Toast does the interpolation, because
+  // nothing outside the component tree has a `t` to call. A toast offering
+  // Reopen carries only the offer's id; the closed tab or window it names is
+  // live data and stays out of the store (reopenOfferStore.ts, KAN-280 O8a).
+  toasts: ToastItem[];
   isRateAndReviewModalOpen: boolean;
   // KAN-74. How many live tab groups the "turn on tab group support?" offer is
   // about, or null when the offer is not showing. One field rather than an
@@ -266,9 +256,7 @@ export const initialState: Global = {
   isSearchPanel: false,
   searchInputText: '',
   syncStatus: 'idle',
-  isToastOpen: false,
-  toastText: '',
-  toastReopenOfferId: null,
+  toasts: [],
   isRateAndReviewModalOpen: false,
   tabGroupsPromptCount: null,
   focusRequest: null,
@@ -855,34 +843,17 @@ interface ShowToastPayload {
   toastText: string;
   toastParams?: Record<string, string | number>;
   duration?: number;
-  // KAN-280 O8a. Set only by offerReopen; any toast without it drops the
-  // Reopen offer.
+  // KAN-280 O8a. Set only by offerReopen.
   reopenOfferId?: number;
+  // KAN-349 Q1 C′. The toast announces a saved-session change the user just
+  // made, so it takes ⌘Z from a Reopen offer showing above it, for good.
+  announcesSavedChange?: boolean;
 }
 
-let toastTimeout: null | ReturnType<typeof setTimeout> = null;
-// When the pending timeout started and what it was set for, so holdToast can
-// work out the time left (KAN-280 O8a).
-let toastStartedAt = 0;
-let toastDuration = 0;
-// The time left while the toast is held open, or null when it is not held.
-let heldTimeLeft: number | null = null;
+let lastToastId = 0;
 
-function startToastTimeout(
-  dispatch: (action: UnknownAction) => unknown,
-  duration: number
-): void {
-  toastStartedAt = Date.now();
-  toastDuration = duration;
-  toastTimeout = setTimeout(() => {
-    toastTimeout = null;
-    // A timed-out toast offers nothing, so the closed item it named is not
-    // kept in memory (KAN-280 O8a).
-    dropReopenOffer();
-    dispatch(closeToast());
-  }, duration);
-}
-
+// Timers and the Reopen registry are settled after every change to the list
+// by toastMiddleware, whichever action made it.
 export const showToast = createAsyncThunk(
   'global/showToast',
   async (
@@ -891,49 +862,41 @@ export const showToast = createAsyncThunk(
       toastParams,
       duration = 5000,
       reopenOfferId,
+      announcesSavedChange = false,
     }: ShowToastPayload,
     thunkAPI
   ) => {
-    if (toastText) {
-      // If there's an existing toast timeout, clear it
-      if (toastTimeout !== null) {
-        clearTimeout(toastTimeout);
-        toastTimeout = null;
-      }
-      heldTimeLeft = null;
-      // The registry and toastReopenOfferId must agree: a toast that takes
-      // the Reopen button away takes the offer too (KAN-280 O8a).
-      if (reopenOfferId === undefined) dropReopenOffer();
-
-      thunkAPI.dispatch(
-        setToastText({ text: toastText, params: toastParams, reopenOfferId })
-      );
-      thunkAPI.dispatch(openToast());
-
-      // Set the new timeout for the current toast
-      startToastTimeout(thunkAPI.dispatch, duration);
-    }
+    if (!toastText) return;
+    lastToastId += 1;
+    const id = lastToastId;
+    thunkAPI.dispatch(
+      toastAdded({
+        toast: {
+          id,
+          text: toastText,
+          params: toastParams,
+          reopenOffer:
+            reopenOfferId === undefined
+              ? null
+              : { id: reopenOfferId, keepsUndoKey: true },
+        },
+        announcesSavedChange,
+      })
+    );
+    startToastTimer(id, duration, () => thunkAPI.dispatch(toastsRemoved([id])));
   }
 );
 
-// KAN-280 O8a. The Reopen toast stops its timer while the pointer is over it
-// or focus is in it, and resumes with the time that was left. Synchronous, so
-// the hold is in place before the event that asked for it has finished.
-export const holdToast =
-  (): ThunkAction<void, RootState, unknown, UnknownAction> => () => {
-    if (toastTimeout === null) return;
-    clearTimeout(toastTimeout);
-    toastTimeout = null;
-    heldTimeLeft = Math.max(0, toastDuration - (Date.now() - toastStartedAt));
-  };
-
-export const releaseToast =
-  (): ThunkAction<void, RootState, unknown, UnknownAction> => (dispatch) => {
-    if (heldTimeLeft === null) return;
-    const timeLeft = heldTimeLeft;
-    heldTimeLeft = null;
-    startToastTimeout(dispatch, timeLeft);
-  };
+// KAN-349 Q1 C′. The Reopen offer ⌘Z / Ctrl+Z takes, or null: the offer on
+// screen, unless a saved-session change announced since has taken the key.
+export function selectReopenOfferForKey(state: RootState): number | null {
+  for (const toast of state.globalState.toasts) {
+    if (toast.reopenOffer !== null && toast.reopenOffer.keepsUndoKey) {
+      return toast.reopenOffer.id;
+    }
+  }
+  return null;
+}
 
 // Never below zero: a settle without a counted start would otherwise let the
 // next real sync through while another runs.
@@ -1018,28 +981,38 @@ export const globalStateSlice = createSlice({
       state.searchInputText = action.payload;
     },
 
-    openToast: (state) => {
-      state.isToastOpen = true;
-    },
-
-    closeToast: (state) => {
-      state.isToastOpen = false;
-    },
-
-    // params is overwritten on every toast, never merged: leaving a previous
-    // toast's values behind would let a key silently interpolate numbers from
-    // an unrelated message.
-    setToastText: (
+    toastAdded: (
       state,
-      action: PayloadAction<{
-        text: string;
-        params?: Record<string, string | number>;
-        reopenOfferId?: number;
-      }>
+      action: PayloadAction<{ toast: ToastItem; announcesSavedChange: boolean }>
     ) => {
-      state.toastText = action.payload.text;
-      state.toastParams = action.payload.params;
-      state.toastReopenOfferId = action.payload.reopenOfferId ?? null;
+      state.toasts = addToast(
+        state.toasts,
+        action.payload.toast,
+        action.payload.announcesSavedChange
+      );
+    },
+
+    toastsRemoved: (state, action: PayloadAction<number[]>) => {
+      const gone = new Set(action.payload);
+      state.toasts = state.toasts.filter((t) => !gone.has(t.id));
+    },
+
+    // An undo or redo dismisses the plain toasts, but not a Reopen offer: the
+    // offer is still there to take (KAN-311, O8c).
+    closePlainToasts: (state) => {
+      state.toasts = state.toasts.filter((t) => t.reopenOffer !== null);
+    },
+
+    // Opening or leaving Settings clears the stack.
+    closeAllToasts: (state) => {
+      state.toasts = [];
+    },
+
+    // The offer was taken (Reopen or ⌘Z), so its toast goes. Only that one.
+    closeOfferToast: (state, action: PayloadAction<number>) => {
+      state.toasts = state.toasts.filter(
+        (t) => t.reopenOffer?.id !== action.payload
+      );
     },
 
     closeSettingsPage: (state) => {
@@ -1282,9 +1255,11 @@ export const {
   openSearchPanel,
   closeSearchPanel,
   setSearchInputText,
-  openToast,
-  closeToast,
-  setToastText,
+  toastAdded,
+  toastsRemoved,
+  closePlainToasts,
+  closeAllToasts,
+  closeOfferToast,
   closeSettingsPage,
   setIsDirty,
   setIsDirtyWithoutSync,

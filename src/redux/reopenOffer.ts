@@ -1,6 +1,6 @@
 import { createAsyncThunk } from '@reduxjs/toolkit';
 
-import { closeToast, showToast } from './slices/globalStateSlice';
+import { closeOfferToast, showToast } from './slices/globalStateSlice';
 import { expectReopenedRow } from './reopenFocus';
 import { storeReopenOffer, takeReopenOffer } from './reopenOfferStore';
 import { noteTabKeeperAction } from './openNowMoveUndo';
@@ -14,7 +14,8 @@ export { takeReopenOffer } from './reopenOfferStore';
 export const REOPEN_TOAST_MS = 8000;
 
 // Shows "Tab closed" / "Window closed (N tabs)" with Reopen for
-// REOPEN_TOAST_MS, replacing whatever toast (and offer) was showing.
+// REOPEN_TOAST_MS. It replaces the offer showing, in its place in the stack
+// (KAN-349 T4); other toasts stay.
 export const offerReopen = createAsyncThunk(
   'global/offerReopen',
   async (item: ClosedItem, thunkAPI) => {
@@ -49,7 +50,7 @@ export const reopenFromOffer = createAsyncThunk(
   async (offerId: number, thunkAPI) => {
     const item = takeReopenOffer(offerId);
     if (item === null) return;
-    thunkAPI.dispatch(closeToast());
+    thunkAPI.dispatch(closeOfferToast(offerId));
     const reopened = await reopenClosed(item);
     if (reopened === null) {
       await thunkAPI.dispatch(

@@ -573,6 +573,7 @@ function announceIfReordered(
     showToast({
       toastText: TOAST_MESSAGES.SESSION_ORDER_CHANGED,
       duration: 3000,
+      announcesSavedChange: true,
     })
   );
 }
@@ -675,6 +676,7 @@ export const saveToTabContainer = createAsyncThunk(
       showToast({
         toastText: SAVED_TOAST[params.scope],
         duration: 3000,
+        announcesSavedChange: true,
       })
     );
   }
@@ -695,6 +697,7 @@ export const addCurrWindowToTabGroup = createAsyncThunk(
       showToast({
         toastText: TOAST_MESSAGES.ADD_CURR_WINDOW_TO_TABGROUP_SUCCESS,
         duration: 3000,
+        announcesSavedChange: true,
       })
     );
   }
@@ -710,6 +713,7 @@ export const addCurrTabToWindow = createAsyncThunk(
       showToast({
         toastText: TOAST_MESSAGES.ADD_CURR_TAB_TO_WINDOW_SUCCESS,
         duration: 3000,
+        announcesSavedChange: true,
       })
     );
   }
@@ -725,6 +729,7 @@ export const deleteTabContainer = createAsyncThunk(
       showToast({
         toastText: TOAST_MESSAGES.DELETE_TAB_CONTAINER_SUCCESS,
         duration: 3000,
+        announcesSavedChange: true,
       })
     );
   }
@@ -740,6 +745,7 @@ export const deleteWindow = createAsyncThunk(
       showToast({
         toastText: TOAST_MESSAGES.DELETE_WINDOW_SUCCESS,
         duration: 3000,
+        announcesSavedChange: true,
       })
     );
   }
@@ -755,6 +761,7 @@ export const deleteTab = createAsyncThunk(
       showToast({
         toastText: TOAST_MESSAGES.DELETE_TAB_SUCCESS,
         duration: 3000,
+        announcesSavedChange: true,
       })
     );
   }

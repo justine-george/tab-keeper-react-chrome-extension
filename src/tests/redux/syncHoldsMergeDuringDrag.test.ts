@@ -50,6 +50,7 @@ import {
 } from '../../redux/slices/tabContainerDataStateSlice';
 import { beginDragHold, endDragHold } from '../../redux/dragHold';
 import { makeTestStore } from '../setup/makeStore';
+import { newestToast, isToastShowing } from '../setup/toasts';
 import { buildContainer, buildSession } from '../fixtures/sessionFixture';
 import { TOAST_MESSAGES } from '../../utils/constants/common';
 import {
@@ -214,10 +215,10 @@ describe('the sync holds its merge while a drag is held (D12, KAN-279)', () => {
 
       endDragHold();
 
-      expect(store.getState().globalState.toastText).toBe(
+      expect(newestToast(store.getState())?.text).toBe(
         TOAST_MESSAGES.SYNC_MERGED
       );
-      expect(store.getState().globalState.isToastOpen).toBe(true);
+      expect(isToastShowing(store.getState())).toBe(true);
     });
 
     it('merges with what localStorage holds at apply time, not just the held merge', async () => {
@@ -321,7 +322,7 @@ describe('the sync holds its merge while a drag is held (D12, KAN-279)', () => {
 
     expect(mocks.loadFromFirestore).toHaveBeenCalledTimes(1);
     expect(store.getState().globalState.syncStatus).toBe('success');
-    expect(store.getState().globalState.toastText).toBe(
+    expect(newestToast(store.getState())?.text).toBe(
       TOAST_MESSAGES.SYNC_MERGED
     );
     expect(

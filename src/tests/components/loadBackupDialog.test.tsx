@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test, vi } from 'vitest';
+import { toastTexts, newestToast } from '../setup/toasts';
 import {
   act,
   fireEvent,
@@ -135,7 +136,7 @@ describe('the load-backup dialog (KAN-252, KAN-261)', () => {
     expect(document.activeElement).toBe(dialog);
     expect(titlesHere(r)).toEqual(HERE_TITLES);
     expect(r.store.getState().globalState.isDirty).toBe(false);
-    expect(r.store.getState().globalState.toastText).toBe('');
+    expect(toastTexts(r.store.getState())).toEqual([]);
   });
 
   test('Cancel closes the question and leaves everything as it was, with no toast', async () => {
@@ -150,7 +151,7 @@ describe('the load-backup dialog (KAN-252, KAN-261)', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(titlesHere(r)).toEqual(HERE_TITLES);
     expect(r.store.getState().globalState.isDirty).toBe(false);
-    expect(r.store.getState().globalState.toastText).toBe('');
+    expect(toastTexts(r.store.getState())).toEqual([]);
   });
 
   test('Escape is Cancel', async () => {
@@ -181,7 +182,7 @@ describe('the load-backup dialog (KAN-252, KAN-261)', () => {
     });
     expect(screen.queryByRole('dialog')).toBeNull();
     await waitFor(() => {
-      expect(r.store.getState().globalState.toastText).toBe(
+      expect(newestToast(r.store.getState())?.text).toBe(
         TOAST_MESSAGES.IMPORT_SUCCESS
       );
     });
@@ -201,7 +202,7 @@ describe('the load-backup dialog (KAN-252, KAN-261)', () => {
     });
     expect(screen.queryByRole('dialog')).toBeNull();
     await waitFor(() => {
-      expect(r.store.getState().globalState.toastText).toBe(
+      expect(newestToast(r.store.getState())?.text).toBe(
         TOAST_MESSAGES.IMPORT_SUCCESS
       );
     });
@@ -249,7 +250,7 @@ describe('the load-backup dialog (KAN-252, KAN-261)', () => {
     );
 
     await waitFor(() => {
-      expect(r.store.getState().globalState.toastText).toBe(
+      expect(newestToast(r.store.getState())?.text).toBe(
         TOAST_MESSAGES.IMPORT_SUCCESS
       );
     });

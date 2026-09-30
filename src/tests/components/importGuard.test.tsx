@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 
 import SettingsDetailsContainer from '../../components/settings/rightpane/SettingsDetailsContainer';
 import { renderWithProviders } from '../setup/renderWithProviders';
+import { newestToast } from '../setup/toasts';
 import {
   SettingsCategory,
   selectCategory,
@@ -138,9 +139,9 @@ describe('import size guard (KAN-27)', () => {
     // site -- which is where the code knows this was OUR error and not a
     // platform one.
     await waitFor(() => {
-      expect(store.getState().globalState.toastText).toBe(IMPORT_ERROR_FRAME);
+      expect(newestToast(store.getState())?.text).toBe(IMPORT_ERROR_FRAME);
     });
-    expect(store.getState().globalState.toastParams?.detail).toMatch(
+    expect(newestToast(store.getState())?.params?.detail).toMatch(
       /too large to sync/i
     );
 
@@ -165,7 +166,7 @@ describe('import size guard (KAN-27)', () => {
     await waitFor(() => {
       expect(store.getState().tabContainerDataState.tabGroups).toHaveLength(1);
     });
-    expect(store.getState().globalState.toastText).toMatch(/successfully/i);
+    expect(newestToast(store.getState())?.text).toMatch(/successfully/i);
   });
 });
 
@@ -210,7 +211,7 @@ describe('import sync failure (KAN-43)', () => {
     });
 
     await waitFor(() => {
-      expect(store.getState().globalState.toastText).toBe(
+      expect(newestToast(store.getState())?.text).toBe(
         TOAST_MESSAGES.IMPORT_SYNC_FAILED
       );
     });
@@ -254,7 +255,7 @@ describe('import respects Auto Sync (KAN-257)', () => {
       expect(store.getState().tabContainerDataState.tabGroups).toHaveLength(1);
     });
     await waitFor(() => {
-      expect(store.getState().globalState.toastText).toBe(
+      expect(newestToast(store.getState())?.text).toBe(
         TOAST_MESSAGES.IMPORT_SUCCESS
       );
     });
@@ -281,7 +282,7 @@ describe('import respects Auto Sync (KAN-257)', () => {
     await waitFor(() => {
       expect(saveToFirestore).toHaveBeenCalledTimes(1);
     });
-    expect(store.getState().globalState.toastText).toBe(
+    expect(newestToast(store.getState())?.text).toBe(
       TOAST_MESSAGES.IMPORT_SUCCESS
     );
   });

@@ -23,6 +23,7 @@ import { closeOpenTab, closeOpenWindow } from '../../utils/functions/reopen';
 import { clearReopenFocus } from '../../redux/reopenFocus';
 import type { ClosedItem } from '../../utils/functions/reopen';
 import type { ChromeSeed } from '../setup/chrome.fake';
+import { isToastShowing } from '../setup/toasts';
 import { initTestI18n, testI18n } from '../setup/i18nForTests';
 import { renderWithProviders } from '../setup/renderWithProviders';
 
@@ -85,9 +86,15 @@ async function urlsIn(windowId: number): Promise<string[]> {
     .map((tab) => tab.url ?? '');
 }
 
+// The newest toast a screen reader and a pointer can reach (KAN-349: the
+// region holds a stack, newest last, and a leaving toast is aria-hidden).
 function visibleToast(): HTMLElement {
-  const toast = screen.getByRole('status').firstElementChild;
-  if (!(toast instanceof HTMLElement)) throw new Error('no visible toast');
+  const live = Array.from(screen.getByRole('status').children).filter(
+    (el): el is HTMLElement =>
+      el instanceof HTMLElement && el.getAttribute('aria-hidden') !== 'true'
+  );
+  const toast = live[live.length - 1];
+  if (toast === undefined) throw new Error('no visible toast');
   return toast;
 }
 
@@ -125,9 +132,12 @@ describe('the Reopen toast (KAN-280 O8a)', () => {
     await waitFor(async () => {
       expect(await urlsIn(2)).toEqual([url('a'), url('b')]);
     });
-    expect(store.getState().globalState.isToastOpen).toBe(false);
-    expect(screen.queryByText('Tab closed')).toBeNull();
+    expect(isToastShowing(store.getState())).toBe(false);
     expect(screen.queryByRole('button', { name: 'Reopen' })).toBeNull();
+    // It fades out, then is gone (KAN-349).
+    await waitFor(() => {
+      expect(screen.queryByText('Tab closed')).toBeNull();
+    });
   });
 
   // Rule 4. Both presses reach the handler: one act() holds React's
@@ -153,6 +163,7 @@ describe('the Reopen toast (KAN-280 O8a)', () => {
     expect(fake.createdTabs).toHaveLength(1);
   });
 
+  // KAN-349. Both show at once in the stack, so each is checked in itself.
   test('a plain toast has no Reopen button', async () => {
     const { store } = await renderWithProviders(<Toast />, {
       seed: twoTabSeed,
@@ -161,9 +172,12 @@ describe('the Reopen toast (KAN-280 O8a)', () => {
     await act(async () => {
       await store.dispatch(offerReopen(item));
     });
-    // CONTROL: the offer did show a button, so its absence below is the
+    const offerToast = visibleToast();
+    // CONTROL: the offer does show a button, so its absence below is the
     // plain toast's doing.
-    expect(screen.getByRole('button', { name: 'Reopen' })).toBeTruthy();
+    expect(
+      within(offerToast).getByRole('button', { name: 'Reopen' })
+    ).toBeTruthy();
 
     await act(async () => {
       await store.dispatch(
@@ -171,8 +185,9 @@ describe('the Reopen toast (KAN-280 O8a)', () => {
       );
     });
 
-    expect(screen.getByText(TOAST_MESSAGES.SYNC_MERGED)).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Reopen' })).toBeNull();
+    const plainToast = visibleToast();
+    expect(plainToast.textContent).toBe(TOAST_MESSAGES.SYNC_MERGED);
+    expect(within(plainToast).queryByRole('button')).toBeNull();
   });
 
   // Rule 10: nothing came back, and the toast says so.
@@ -206,7 +221,7 @@ describe('the Reopen toast (KAN-280 O8a)', () => {
     await act(async () => {
       await store.dispatch(offerReopen(item));
     });
-    const isOpen = () => store.getState().globalState.isToastOpen;
+    const isOpen = () => isToastShowing(store.getState());
 
     // Hover at 1000ms, leave at 21000ms: 7000ms remain.
     act(() => vi.advanceTimersByTime(1000));
@@ -246,7 +261,7 @@ describe('the Reopen toast (KAN-280 O8a)', () => {
     await act(async () => {
       await store.dispatch(offerReopen(item));
     });
-    const isOpen = () => store.getState().globalState.isToastOpen;
+    const isOpen = () => isToastShowing(store.getState());
 
     fireEvent.mouseEnter(visibleToast());
     act(() => screen.getByRole('button', { name: 'Reopen' }).focus());
@@ -266,7 +281,7 @@ describe('the Reopen toast (KAN-280 O8a)', () => {
     await act(async () => {
       await store.dispatch(offerReopen(item));
     });
-    const isOpen = () => store.getState().globalState.isToastOpen;
+    const isOpen = () => isToastShowing(store.getState());
 
     fireEvent.mouseEnter(visibleToast());
     await act(async () => {
@@ -296,14 +311,14 @@ describe('the Reopen toast (KAN-280 O8a)', () => {
     await waitFor(async () => {
       expect(await urlsIn(2)).toEqual([url('a'), url('b')]);
     });
-    expect(store.getState().globalState.isToastOpen).toBe(false);
+    expect(isToastShowing(store.getState())).toBe(false);
 
     vi.useFakeTimers();
     await act(async () => {
       await store.dispatch(offerReopen(await closeTabB()));
     });
     act(() => vi.advanceTimersByTime(REOPEN_TOAST_MS));
-    expect(store.getState().globalState.isToastOpen).toBe(false);
+    expect(isToastShowing(store.getState())).toBe(false);
   });
 
   // A blur whose focus lands elsewhere inside the toast is not focus leaving
@@ -317,7 +332,7 @@ describe('the Reopen toast (KAN-280 O8a)', () => {
     await act(async () => {
       await store.dispatch(offerReopen(item));
     });
-    const isOpen = () => store.getState().globalState.isToastOpen;
+    const isOpen = () => isToastShowing(store.getState());
 
     const button = screen.getByRole('button', { name: 'Reopen' });
     act(() => button.focus());
@@ -331,7 +346,9 @@ describe('the Reopen toast (KAN-280 O8a)', () => {
     expect(isOpen()).toBe(false);
   });
 
-  test('a plain toast is not held by hovering', async () => {
+  // KAN-349 T3. It used not to be: only the offer held. Now any toast holds
+  // them all.
+  test('a plain toast is held by hovering too', async () => {
     const { store } = await renderWithProviders(<Toast />);
     vi.useFakeTimers();
     await act(async () => {
@@ -341,8 +358,13 @@ describe('the Reopen toast (KAN-280 O8a)', () => {
     });
 
     fireEvent.mouseEnter(visibleToast());
+    act(() => vi.advanceTimersByTime(30_000));
+    expect(isToastShowing(store.getState())).toBe(true);
+
+    // CONTROL: the pointer leaving lets it go.
+    fireEvent.mouseLeave(visibleToast());
     act(() => vi.advanceTimersByTime(5000));
-    expect(store.getState().globalState.isToastOpen).toBe(false);
+    expect(isToastShowing(store.getState())).toBe(false);
   });
 
   // KAN-280 O8b. At 300px the count was cut off in 8 of 13 locales, so a
@@ -485,7 +507,55 @@ describe('the ⌘Z / Ctrl+Z key reopens while the toast shows (KAN-311)', () => 
     });
     expect(event?.defaultPrevented).toBe(true);
     expect(undoRedoIn(seen.slice(before))).toEqual([]);
-    expect(store.getState().globalState.isToastOpen).toBe(false);
+    expect(isToastShowing(store.getState())).toBe(false);
+  });
+
+  // KAN-349 Q1 C′. The stack keeps the offer on screen under a newer toast,
+  // so which of the two the key serves is decided by what the newer toast
+  // announced.
+  test('after a saved change is announced, Ctrl+Z undoes it, not the close', async () => {
+    const { store, seen } = await withOffer();
+    await act(async () => {
+      await store.dispatch(
+        showToast({
+          toastText: TOAST_MESSAGES.DELETE_TAB_SUCCESS,
+          announcesSavedChange: true,
+        })
+      );
+    });
+    const before = seen.length;
+
+    act(() => {
+      press(document.body, { key: 'z', ctrlKey: true });
+    });
+
+    expect(undoRedoIn(seen.slice(before))).toEqual([UNDO]);
+    expect(await urlsIn(2)).toEqual([url('a')]);
+    // The offer stays, with its button, for the pointer to take.
+    expect(
+      within(screen.getByRole('status')).getByRole('button', {
+        name: 'Reopen',
+      })
+    ).toBeTruthy();
+  });
+
+  test('after a sync toast, Ctrl+Z still takes the offer', async () => {
+    const { store, seen } = await withOffer();
+    await act(async () => {
+      await store.dispatch(
+        showToast({ toastText: TOAST_MESSAGES.SYNC_MERGED })
+      );
+    });
+    const before = seen.length;
+
+    act(() => {
+      press(document.body, { key: 'z', ctrlKey: true });
+    });
+
+    await waitFor(async () => {
+      expect(await urlsIn(2)).toEqual([url('a'), url('b')]);
+    });
+    expect(undoRedoIn(seen.slice(before))).toEqual([]);
   });
 
   test('⌘Z takes it too', async () => {
@@ -519,8 +589,7 @@ describe('the ⌘Z / Ctrl+Z key reopens while the toast shows (KAN-311)', () => 
     expect(fake.createdTabs).toEqual([]);
   });
 
-  // The slice leaves toastReopenOfferId set when a toast closes, so an offer
-  // that has timed out must not keep the key from undoing.
+  // An offer that has timed out must not keep the key from undoing.
   test('once the offer has timed out, the key undoes again', async () => {
     const {
       store,
@@ -533,9 +602,8 @@ describe('the ⌘Z / Ctrl+Z key reopens while the toast shows (KAN-311)', () => 
       await store.dispatch(offerReopen(item));
     });
     act(() => vi.advanceTimersByTime(REOPEN_TOAST_MS));
-    // PREMISE: the toast has gone, and the slice still names the offer.
-    expect(store.getState().globalState.isToastOpen).toBe(false);
-    expect(store.getState().globalState.toastReopenOfferId).not.toBeNull();
+    // PREMISE: the toast has gone.
+    expect(isToastShowing(store.getState())).toBe(false);
     const before = seen.length;
 
     act(() => {
@@ -555,7 +623,7 @@ describe('the ⌘Z / Ctrl+Z key reopens while the toast shows (KAN-311)', () => 
     });
 
     expect(undoRedoIn(seen.slice(before))).toEqual([REDO]);
-    expect(store.getState().globalState.isToastOpen).toBe(true);
+    expect(isToastShowing(store.getState())).toBe(true);
     expect(
       within(screen.getByRole('status')).getByRole('button', {
         name: 'Reopen',
@@ -576,13 +644,13 @@ describe('the ⌘Z / Ctrl+Z key reopens while the toast shows (KAN-311)', () => 
           showToast({ toastText: TOAST_MESSAGES.SYNC_MERGED })
         );
       });
-      expect(store.getState().globalState.isToastOpen).toBe(true);
+      expect(isToastShowing(store.getState())).toBe(true);
 
       act(() => {
         press(document.body, chord);
       });
 
-      expect(store.getState().globalState.isToastOpen).toBe(false);
+      expect(isToastShowing(store.getState())).toBe(false);
     }
   });
 
@@ -602,7 +670,7 @@ describe('the ⌘Z / Ctrl+Z key reopens while the toast shows (KAN-311)', () => 
     expect(event?.defaultPrevented).toBe(false);
     expect(undoRedoIn(seen.slice(before))).toEqual([]);
     expect(fake.createdTabs).toEqual([]);
-    expect(store.getState().globalState.isToastOpen).toBe(true);
+    expect(isToastShowing(store.getState())).toBe(true);
   });
 
   // Rule 4, by key: two presses before React re-renders -- a fast double
@@ -648,7 +716,7 @@ describe('the ⌘Z / Ctrl+Z key reopens while the toast shows (KAN-311)', () => 
       });
       // PREMISE: the toast has gone and re-rendered away, so the handler
       // itself no longer sees an offer.
-      expect(rendered.store.getState().globalState.isToastOpen).toBe(false);
+      expect(isToastShowing(rendered.store.getState())).toBe(false);
       expect(screen.queryByRole('button', { name: 'Reopen' })).toBeNull();
       return rendered;
     }

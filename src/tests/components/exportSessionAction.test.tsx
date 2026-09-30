@@ -13,6 +13,7 @@ import {
 // shared seeder can be typed without restating the whole generic.
 type RenderStore = RenderWithProvidersResult['store'];
 import { hoverRulesFor } from '../setup/hoverRules';
+import { newestToast, isToastShowing } from '../setup/toasts';
 import { LIGHT_THEME } from '../../hooks/useThemeColors';
 import { buildContainer, buildSession } from '../fixtures/sessionFixture';
 import {
@@ -404,13 +405,11 @@ describe('the session header keeps two actions and a menu (KAN-193)', () => {
         screen.getByRole('menuitem', { name: 'Copy all links' })
       );
 
-      await waitFor(() =>
-        expect(store.getState().globalState.isToastOpen).toBe(true)
-      );
+      await waitFor(() => expect(isToastShowing(store.getState())).toBe(true));
       // The KEY, not the sentence: Toast renders t(toastText), and asserting
       // the English would pass with a key that resolves to nothing in the other
       // nine locales.
-      expect(store.getState().globalState.toastText).toBe('Links copied');
+      expect(newestToast(store.getState())?.text).toBe('Links copied');
     });
 
     // CONTROL: the id copied is the SELECTED session, not the first in the

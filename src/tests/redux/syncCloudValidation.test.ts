@@ -28,6 +28,7 @@ import {
 } from '../../redux/slices/globalStateSlice';
 import { replaceState } from '../../redux/slices/tabContainerDataStateSlice';
 import { makeTestStore } from '../setup/makeStore';
+import { toastTexts, newestToast } from '../setup/toasts';
 import { buildContainer, buildSession } from '../fixtures/sessionFixture';
 import { TOAST_MESSAGES } from '../../utils/constants/common';
 
@@ -114,7 +115,7 @@ describe('an unreadable cloud document stops the sync without writing', () => {
     const { store } = makeTestStore();
     store.dispatch(setUserId('u1'));
     await store.dispatch(syncStateWithFirestore());
-    expect(store.getState().globalState.toastText).toBe(
+    expect(newestToast(store.getState())?.text).toBe(
       TOAST_MESSAGES.UNREADABLE_CLOUD_DOCUMENT
     );
   });
@@ -157,7 +158,7 @@ describe('an unreadable cloud document stops the sync without writing', () => {
     const { store } = makeTestStore();
     store.dispatch(setUserId('u1'));
     await store.dispatch(syncStateWithFirestore());
-    expect(store.getState().globalState.toastText).not.toBe(
+    expect(toastTexts(store.getState())).not.toContain(
       TOAST_MESSAGES.UNREADABLE_CLOUD_DOCUMENT
     );
   });

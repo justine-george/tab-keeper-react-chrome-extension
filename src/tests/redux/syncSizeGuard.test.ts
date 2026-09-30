@@ -27,6 +27,7 @@ import {
 // replaceState lives on the data slice, not the global slice.
 import { replaceState } from '../../redux/slices/tabContainerDataStateSlice';
 import { makeTestStore } from '../setup/makeStore';
+import { toastTexts, newestToast } from '../setup/toasts';
 import {
   Language,
   setLanguage,
@@ -84,15 +85,15 @@ describe('the sync write refuses a document Firestore would reject', () => {
     store.dispatch(setIsDirtyWithoutSync());
     await store.dispatch(saveToFirestoreIfDirty());
 
-    const { toastText, toastParams } = store.getState().globalState;
-    expect(toastText).toBe(SYNC_SIZE_REFUSAL);
+    const toast = newestToast(store.getState());
+    expect(toast?.text).toBe(SYNC_SIZE_REFUSAL);
     // Both numbers must be present. A key dispatched without them still
     // translates, and still renders "(  MB of a   MB limit)".
-    expect(toastParams).toEqual({
+    expect(toast?.params).toEqual({
       used: expect.stringMatching(/^\d+\.\d$/),
       limit: '1.0',
     });
-    expect(Number(toastParams!.used)).toBeGreaterThan(1.0);
+    expect(Number(toast?.params?.used)).toBeGreaterThan(1.0);
   });
 
   // KAN-288. The numbers are formatted in the UI language, read from the
@@ -105,7 +106,7 @@ describe('the sync write refuses a document Firestore would reject', () => {
     store.dispatch(setIsDirtyWithoutSync());
     await store.dispatch(saveToFirestoreIfDirty());
 
-    expect(store.getState().globalState.toastParams).toEqual({
+    expect(newestToast(store.getState())?.params).toEqual({
       used: expect.stringMatching(/^\d+,\d$/),
       limit: '1,0',
     });
@@ -119,7 +120,7 @@ describe('the sync write refuses a document Firestore would reject', () => {
     store.dispatch(replaceState(buildContainer([buildSession()])));
     store.dispatch(setIsDirtyWithoutSync());
     await store.dispatch(saveToFirestoreIfDirty());
-    expect(store.getState().globalState.toastText).not.toBe(SYNC_SIZE_REFUSAL);
+    expect(toastTexts(store.getState())).not.toContain(SYNC_SIZE_REFUSAL);
   });
 
   // POSITIVE CONTROL. "not called" passes trivially against a broken store or
