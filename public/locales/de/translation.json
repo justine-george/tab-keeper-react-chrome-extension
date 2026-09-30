@@ -237,5 +237,7 @@
   "Clear search": "Suche löschen",
   "NoOpenTabMatches": "Kein offener Tab passt zu „{{text}}“",
   "TabCountShownOfTotal_one": "{{shown}} von {{count}} Tab",
-  "TabCountShownOfTotal_other": "{{shown}} von {{count}} Tabs"
+  "TabCountShownOfTotal_other": "{{shown}} von {{count}} Tabs",
+  "CarryCardNameAndCount_one": "{{name}} · {{count}} Tab",
+  "CarryCardNameAndCount_other": "{{name}} · {{count}} Tabs"
 }

@@ -241,5 +241,8 @@
   "NoOpenTabMatches": "Nenhuma aba aberta corresponde a \"{{text}}\"",
   "TabCountShownOfTotal_one": "{{shown}} de {{count}} Aba",
   "TabCountShownOfTotal_many": "{{shown}} de {{count}} Abas",
-  "TabCountShownOfTotal_other": "{{shown}} de {{count}} Abas"
+  "TabCountShownOfTotal_other": "{{shown}} de {{count}} Abas",
+  "CarryCardNameAndCount_one": "{{name}} · {{count}} Aba",
+  "CarryCardNameAndCount_many": "{{name}} · {{count}} Abas",
+  "CarryCardNameAndCount_other": "{{name}} · {{count}} Abas"
 }

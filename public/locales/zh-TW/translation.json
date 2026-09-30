@@ -233,5 +233,6 @@
   "Search open tabs": "搜尋開啟的分頁",
   "Clear search": "清除搜尋",
   "NoOpenTabMatches": "沒有符合「{{text}}」的開啟分頁",
-  "TabCountShownOfTotal_other": "{{count}} 個分頁中的 {{shown}} 個"
+  "TabCountShownOfTotal_other": "{{count}} 個分頁中的 {{shown}} 個",
+  "CarryCardNameAndCount_other": "{{name}} · {{count}} 個分頁"
 }

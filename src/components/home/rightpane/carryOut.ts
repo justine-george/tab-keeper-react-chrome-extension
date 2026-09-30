@@ -3,6 +3,7 @@
 // function per list, each taking the row id that list's engine knows.
 import type { CarryOut } from '../../../redux/carry';
 import type { PaneWindows } from './rowDrag/dropRules';
+import type { ShownSession } from '../../../utils/functions/carriedView';
 import {
   TAB_GROUP_COLOR_HEX,
   groupIdOfItemId,
@@ -63,19 +64,17 @@ export function groupCarryOut(
   return null;
 }
 
-// The windows list: its rows are window ids.
+// The windows list: its rows are window ids. Takes the whole windows, not a
+// PaneWindows, because the card names a window as its header does: by its
+// stored title (WindowEntryContainer).
 export function windowCarryOut(
-  pane: PaneWindows,
+  pane: ShownSession,
   windowId: string
 ): CarryOut | null {
-  const index = pane.windows.findIndex((w) => w.windowId === windowId);
-  if (index === -1) return null;
+  const w = pane.windows.find((x) => x.windowId === windowId);
+  if (w === undefined) return null;
   return {
     carried: { kind: 'window', tabGroupId: pane.tabGroupId, windowId },
-    card: {
-      kind: 'window',
-      windowNumber: index + 1,
-      tabCount: pane.windows[index].tabs.length,
-    },
+    card: { kind: 'window', title: w.title, tabCount: w.tabs.length },
   };
 }

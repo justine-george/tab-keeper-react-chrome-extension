@@ -27,8 +27,9 @@ export type CarryCard =
   | { kind: 'tab'; title: string; faviconUrl: string }
   // `title` is the group's own, and may be empty: an unnamed group.
   | { kind: 'group'; title: string; color: string; tabCount: number }
-  // 1-based: the window's place in its session, "Window N".
-  | { kind: 'window'; windowNumber: number; tabCount: number };
+  // `title` is the window's stored title, which is what its header shows,
+  // and may be empty: the header then shows nothing.
+  | { kind: 'window'; title: string; tabCount: number };
 
 // What a drag area hands over when its drag leaves the pane sideways.
 export interface CarryOut {
@@ -50,6 +51,10 @@ export interface Carry {
 }
 
 let carry: Carry | null = null;
+// What puts the source's view back if the carry is cancelled: the scroll a
+// window or group drag's fold clamped (KAN-157). Kept beside the carry rather
+// than in it, because it is not something any reader of the carry needs.
+let restoreOnCancel: (() => void) | null = null;
 const listeners = new Set<() => void>();
 
 function notify(): void {
@@ -57,14 +62,20 @@ function notify(): void {
 }
 
 // Starts carrying, driven by the layer. Replaces any carry already on: an
-// adopted drag that leaves its pane again hands back through here.
+// adopted drag that leaves its pane again hands back through here, with its
+// own restoreOnCancel or none.
+//
+// `restoreOnCancel` runs once, on the frame after a CANCELLED carry ends --
+// see endCarry -- and never after a committed one.
 export function startCarry(
   carried: CarriedRef,
   card: CarryCard,
   x: number,
-  y: number
+  y: number,
+  onCancel?: () => void
 ): void {
   carry = { carried, card, x, y, owner: 'layer' };
+  restoreOnCancel = onCancel ?? null;
   notify();
 }
 
@@ -93,6 +104,12 @@ export function moveCarry(x: number, y: number): void {
   notify();
 }
 
+// How a carry ended. 'committed': something took it and moved the item, so
+// the view is where the move left it. 'cancelled': nothing moved (Esc, a
+// release nothing took, pointercancel, the item gone), so the source's view
+// is put back as a refused drag puts it back.
+export type CarryOutcome = 'committed' | 'cancelled';
+
 // Ends the carry: unpublishes the drag kind, ends the drag hold (which applies
 // every change held meanwhile), then tells subscribers. Nothing moves here --
 // a receiver that commits does so before calling this.
@@ -100,15 +117,30 @@ export function moveCarry(x: number, y: number): void {
 // A no-op when nothing is carried, and that is load-bearing: the hold and the
 // kind are document-wide, and ending them for a carry that is not on would end
 // a drag some area is still running.
-export function endCarry(): void {
+//
+// A CANCELLED carry's restoreOnCancel runs on the next frame, not here. The
+// engine puts a refused drag's scroll back synchronously, straight after
+// unpublishing, because its row never left the list. A carried row did: the
+// source draws without it until React re-renders from the notify below, and
+// that render is not synchronous with this call (an external-store update
+// from a native listener is flushed in a microtask). Written now, the scroll
+// would be clamped to the list with the row still missing. By the next frame
+// the render has committed, and the frame has not been painted yet, so the
+// list never shows at the wrong scroll.
+export function endCarry(outcome: CarryOutcome): void {
   if (carry === null) return;
   carry = null;
+  const restore = restoreOnCancel;
+  restoreOnCancel = null;
   try {
     // The engine's order at a drop: unpublish, then apply held changes.
     setDragging(false);
     endDragHold();
   } finally {
     notify();
+    if (outcome === 'cancelled' && restore !== null) {
+      requestAnimationFrame(restore);
+    }
   }
 }
 

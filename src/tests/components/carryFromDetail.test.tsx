@@ -37,7 +37,7 @@ const box = (top: number, height: number, width = PANE_W): DOMRect =>
   DOMRect.fromRect({ x: 0, y: top, width, height });
 
 afterEach(() => {
-  endCarry();
+  endCarry('cancelled');
   endDragHold();
   document.documentElement.removeAttribute('data-dragging');
   vi.restoreAllMocks();
@@ -139,7 +139,7 @@ describe('each saved detail list hands a sideways exit to the carry', () => {
     );
   });
 
-  test('a window: carried by id, "Window N", and gone from the session', async () => {
+  test('a window: carried by id, named by its title, and gone from the session', async () => {
     await renderDetail();
     const handle = find('[data-drag-row-id="w2"]').querySelector(
       '[data-window-drag-handle]'
@@ -155,7 +155,8 @@ describe('each saved detail list hands a sideways exit to the carry', () => {
     });
     expect(currentCarry()?.card).toEqual({
       kind: 'window',
-      windowNumber: 2,
+      // The fixture's stored title for w2, which its header shows.
+      title: 'Window w2',
       tabCount: 1,
     });
     expect(rowIds()).not.toContain('w2');

@@ -241,5 +241,8 @@
   "NoOpenTabMatches": "Nessuna scheda aperta corrisponde a \"{{text}}\"",
   "TabCountShownOfTotal_one": "{{shown}} di {{count}} Tab",
   "TabCountShownOfTotal_many": "{{shown}} di {{count}} Tab",
-  "TabCountShownOfTotal_other": "{{shown}} di {{count}} Tab"
+  "TabCountShownOfTotal_other": "{{shown}} di {{count}} Tab",
+  "CarryCardNameAndCount_one": "{{name}} · {{count}} Tab",
+  "CarryCardNameAndCount_many": "{{name}} · {{count}} Tab",
+  "CarryCardNameAndCount_other": "{{name}} · {{count}} Tab"
 }

@@ -241,5 +241,8 @@
   "NoOpenTabMatches": "Ninguna pestaña abierta coincide con «{{text}}»",
   "TabCountShownOfTotal_one": "{{shown}} de {{count}} Pestaña",
   "TabCountShownOfTotal_many": "{{shown}} de {{count}} Pestañas",
-  "TabCountShownOfTotal_other": "{{shown}} de {{count}} Pestañas"
+  "TabCountShownOfTotal_other": "{{shown}} de {{count}} Pestañas",
+  "CarryCardNameAndCount_one": "{{name}} · {{count}} Pestaña",
+  "CarryCardNameAndCount_many": "{{name}} · {{count}} Pestañas",
+  "CarryCardNameAndCount_other": "{{name}} · {{count}} Pestañas"
 }

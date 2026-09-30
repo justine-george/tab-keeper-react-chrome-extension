@@ -40,7 +40,7 @@ const TAB: CarriedRef = {
 };
 
 afterEach(() => {
-  endCarry();
+  endCarry('cancelled');
   endDragHold();
   document.documentElement.removeAttribute('data-dragging');
 });
@@ -117,10 +117,19 @@ describe('the card follows the pointer (D1 A)', () => {
     expect(cardName()).toBe('Unnamed group · 1 Tab');
   });
 
-  test('a window: "Window N · N Tabs"', async () => {
+  // Named as its header names it (WindowEntryContainer): by its stored title.
+  test('a titled window: "Title · N Tabs", the title as it is', async () => {
     await renderLayer();
-    handOff({ kind: 'window', windowNumber: 2, tabCount: 3 });
-    expect(cardName()).toBe('Window 2 · 3 Tabs');
+    handOff({ kind: 'window', title: 'Kyoto <trip> & more', tabCount: 3 });
+    expect(cardName()).toBe('Kyoto <trip> & more · 3 Tabs');
+  });
+
+  // An empty title draws an empty header, so the card has no name to show:
+  // the count alone, with no separator left dangling in front of it.
+  test('an untitled window: the count alone', async () => {
+    await renderLayer();
+    handOff({ kind: 'window', title: '', tabCount: 1 });
+    expect(cardName()).toBe('1 Tab');
   });
 
   test('it moves with the pointer', async () => {
@@ -385,6 +394,38 @@ describe('the click Chrome synthesizes after the release', () => {
     // The press is still down; its release comes MUCH later (KAN-335: 800ms
     // measured), then its click. A 400ms window started at the Esc would be
     // long over.
+    const later = performance.now() + 800;
+    vi.spyOn(performance, 'now').mockReturnValue(later);
+    fireEvent.pointerUp(row, { clientX: 300, clientY: 40 });
+    fireEvent.click(row);
+
+    expect(clicked).not.toHaveBeenCalled();
+    vi.restoreAllMocks();
+  });
+
+  // The same rule as Esc: a carry ended by its item vanishing (⌘Z, here)
+  // ends with the press still down, and that press's click comes later.
+  test('after the carried item is removed, the click that follows the later release is swallowed', async () => {
+    const { clicked, store } = await renderWithRow();
+    const row = screen.getByRole('button', { name: 'Row under the pointer' });
+    act(() => {
+      store.dispatch(
+        addCurrTabToWindowInternal({
+          tabGroupId: 'S1',
+          windowId: 'w2',
+          tabData: tab('t9'),
+        })
+      );
+    });
+    handOff(
+      { kind: 'tab', title: 't9', faviconUrl: '' },
+      { kind: 'tab', tabGroupId: 'S1', windowId: 'w2', tabId: 't9' }
+    );
+
+    act(() => {
+      store.dispatch(undo());
+    });
+    expect(currentCarry()).toBeNull();
     const later = performance.now() + 800;
     vi.spyOn(performance, 'now').mockReturnValue(later);
     fireEvent.pointerUp(row, { clientX: 300, clientY: 40 });

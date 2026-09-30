@@ -49,7 +49,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  endCarry();
+  endCarry('cancelled');
   endDragHold();
   document.documentElement.removeAttribute('data-dragging');
   vi.restoreAllMocks();
@@ -181,7 +181,7 @@ describe('a sideways exit hands the drag to the carry', () => {
     fireEvent.pointerMove(document, { clientX: 300, clientY: 40 });
     expect(currentCarry()).not.toBeNull();
     fireEvent.pointerUp(document, { clientX: 300, clientY: 40 });
-    endCarry();
+    endCarry('cancelled');
 
     // With no CarryLayer mounted, nothing swallows this one.
     fireEvent.click(screen.getByText('Row B'));

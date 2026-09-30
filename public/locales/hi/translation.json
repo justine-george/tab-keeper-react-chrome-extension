@@ -237,5 +237,7 @@
   "Clear search": "खोज साफ़ करें",
   "NoOpenTabMatches": "\"{{text}}\" से मेल खाता कोई खुला टैब नहीं है",
   "TabCountShownOfTotal_one": "{{count}} में से {{shown}} टैब",
-  "TabCountShownOfTotal_other": "{{count}} में से {{shown}} टैब्स"
+  "TabCountShownOfTotal_other": "{{count}} में से {{shown}} टैब्स",
+  "CarryCardNameAndCount_one": "{{name}} · {{count}} टैब",
+  "CarryCardNameAndCount_other": "{{name}} · {{count}} टैब्स"
 }

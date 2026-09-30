@@ -66,6 +66,7 @@ import {
 import { DURATION } from '../../../../styles/scale';
 import { beginDragHold, endDragHold } from '../../../../redux/dragHold';
 import { currentCarry, startCarry } from '../../../../redux/carry';
+import { createClickSuppressor } from './clickSuppressor';
 
 // How close to an edge the pointer must be for the list to start travelling,
 // and how fast it goes at its deepest. 48px is roughly a row and a half here,
@@ -364,17 +365,10 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
   // avoid making worse.
   const scrollFrame = useRef(0);
 
-  // Chrome synthesizes a `click` after `mouseup`, aimed at whatever the pointer
-  // released over -- which is the held row, because it tracks the pointer. Left
-  // alone it runs the row's onClick: for a tab that opens the tab, and for a
-  // window it opens the whole window's worth of tabs.
-  //
-  // A timestamp rather than an add/remove-listener dance: the click arrives in
-  // the same input sequence as the pointerup that arms this, and a listener
-  // removed on a timer can race that sequence in either direction. Spending the
-  // window on the first swallowed click is what stops the NEXT ordinary click
-  // being eaten too.
-  const suppressClickUntil = useRef(0);
+  // The click Chrome synthesizes for a drag's own release, aimed at the held
+  // row because it tracks the pointer -- see clickSuppressor.ts for the rule,
+  // which the carry shares (KAN-350). One per area, for the area's life.
+  const [clicks] = useState(createClickSuppressor);
 
   const register = useCallback((rowId: string, el: HTMLElement | null) => {
     if (el) rows.current.set(rowId, el);
@@ -1024,10 +1018,12 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     // the drag hold (a change another page made must still wait -- the carry
     // is the same gesture), the published drag kind (a window carry keeps
     // every window folded), and the click suppression (the CarryLayer
-    // swallows the release's click; this area may be gone by then). Nor is
-    // the scroll put back: the kind is still published, so a write now would
-    // lay out against the folded list, the very thing KAN-157 puts it back
-    // from.
+    // swallows the release's click; this area may be gone by then).
+    //
+    // The scroll a list that restores it (KAN-157) had at the press is handed
+    // over too, to put back if the carry is CANCELLED. Not now: the kind is
+    // still published, so a write now would lay out against the folded list,
+    // the very thing KAN-157 puts it back from. See endCarry for when.
     const handOff = (
       l: NonNullable<typeof live.current>,
       x: number,
@@ -1044,7 +1040,25 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       l.heldEl?.removeAttribute('data-drag-held');
       if (l.dropTarget !== undefined)
         onDropTargetChange?.(undefined, containerRef.current);
-      startCarry(out.carried, out.card, x, y);
+      const scroller = restoreScrollIfNoDrop ? l.scroller : null;
+      const scrollTopAtPress = l.scrollTopAtPress;
+      const rowId = l.rowId;
+      startCarry(
+        out.carried,
+        out.card,
+        x,
+        y,
+        scroller === null
+          ? undefined
+          : () => {
+              // Only onto the list that handed the row off, drawing it again.
+              // A carry can outlive this area, or leave another session on
+              // screen in the same scroller (Q5 A), and neither is the view
+              // this scroll belongs to.
+              if (rows.current.has(rowId))
+                scroller.scrollTop = scrollTopAtPress;
+            }
+      );
       return true;
     };
 
@@ -1355,12 +1369,9 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // A cancel with the press still down is armed until that press's own
       // release, and onUp starts the 400ms from there (KAN-335): the click
       // follows the release, not the cancel, and the release can come any
-      // time later. Measured on the real artifact: 800ms after an Esc, a
-      // release back on the held row opened its tab. While it waits it eats
-      // no click (KAN-337, see onClickCapture).
-      suppressClickUntil.current = pressStillDown
-        ? Number.POSITIVE_INFINITY
-        : performance.now() + 400;
+      // time later.
+      if (pressStillDown) clicks.armUntilRelease();
+      else clicks.armForRelease();
 
       try {
         if (drop) {
@@ -1424,46 +1435,18 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     const onUp = () => {
       finish(true, false);
       // The release of a press whose drag was cancelled earlier (see finish).
-      if (suppressClickUntil.current === Number.POSITIVE_INFINITY)
-        suppressClickUntil.current = performance.now() + 400;
+      clicks.onPointerUp();
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') finish(false, true);
     };
     // After a pointercancel Chrome dispatches no click. A suppression still
-    // waiting for this press's release eats nothing while it waits (see
-    // onClickCapture), and the next press disarms it.
+    // waiting for this press's release eats nothing while it waits, and the
+    // next press disarms it.
     const onCancel = () => finish(false, false);
-    // Capture, on window: this has to run before React's root delegation gets
-    // the chance to dispatch the row's onClick.
-    const onClickCapture = (e: MouseEvent) => {
-      // Still waiting for a cancelled press's release (see finish): the
-      // press's own click only ever follows its pointerup, and onUp has
-      // turned this into the 400ms by then. A click now has no press behind
-      // it -- Enter or Space on a focused control -- and is the user's
-      // (KAN-337).
-      if (suppressClickUntil.current === Number.POSITIVE_INFINITY) return;
-      if (performance.now() >= suppressClickUntil.current) return;
-      suppressClickUntil.current = 0;
-      e.preventDefault();
-      e.stopPropagation();
-    };
-    // A new press disarms it (KAN-177). The suppression is for ONE click: the
-    // one Chrome synthesizes for the drag's own release, which follows that
-    // pointerup with no press in between (measured in click-after-drag.spec.ts).
-    //
-    // A drag that COMMITS gets no such click -- React moves the row inside the
-    // pointerup handler -- so, judged by the clock alone, the suppression stayed
-    // armed and ate the user's next click wherever it landed: very often Undo.
-    // Every click the user makes after a drag starts with a pointerdown of its
-    // own, and that is what tells the two apart; not the time, and not where
-    // the click lands.
-    //
-    // Capture, on window, for the same reason as onClickCapture: nothing a
-    // press reaches first can stop it from getting here.
-    const onPointerDownCapture = () => {
-      suppressClickUntil.current = 0;
-    };
+    // Capture, on window -- see clickSuppressor.ts.
+    const onClickCapture = (e: MouseEvent) => clicks.onClickCapture(e);
+    const onPointerDownCapture = () => clicks.onPointerDownCapture();
 
     window.addEventListener('pointermove', onMoveEvent);
     window.addEventListener('pointerup', onUp);
@@ -1509,6 +1492,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     landingRange,
     acceptsWindow,
     carryOut,
+    clicks,
     disabled,
   ]);
 

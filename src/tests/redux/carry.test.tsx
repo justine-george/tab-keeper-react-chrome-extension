@@ -34,7 +34,7 @@ const CARRIED: CarriedRef = {
 const CARD: CarryCard = { kind: 'tab', title: 't1', faviconUrl: '' };
 
 afterEach(() => {
-  endCarry();
+  endCarry('cancelled');
   endDragHold();
   document.documentElement.removeAttribute('data-dragging');
 });
@@ -109,7 +109,7 @@ describe('the carry channel', () => {
     // The premise: nothing has run yet.
     expect(order).toEqual([]);
 
-    endCarry();
+    endCarry('cancelled');
 
     expect(currentCarry()).toBeNull();
     expect(isDragHeld()).toBe(false);
@@ -129,7 +129,7 @@ describe('the carry channel', () => {
     const heard = vi.fn();
     const unsubscribe = subscribeCarry(heard);
 
-    endCarry();
+    endCarry('cancelled');
 
     expect(isDragHeld()).toBe(true);
     expect(held).not.toHaveBeenCalled();

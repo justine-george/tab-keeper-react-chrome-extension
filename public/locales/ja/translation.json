@@ -233,5 +233,6 @@
   "Search open tabs": "開いているタブを検索",
   "Clear search": "検索をクリア",
   "NoOpenTabMatches": "「{{text}}」に一致する開いているタブはありません",
-  "TabCountShownOfTotal_other": "{{count}} 個中 {{shown}} 個のタブ"
+  "TabCountShownOfTotal_other": "{{count}} 個中 {{shown}} 個のタブ",
+  "CarryCardNameAndCount_other": "{{name}} · {{count}} 個のタブ"
 }

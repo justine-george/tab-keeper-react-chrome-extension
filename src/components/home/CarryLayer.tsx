@@ -4,7 +4,7 @@
 // Mounted once, in MainContainer, outside every pane: a carry exists because
 // the area it started in may unmount mid-gesture, so what finishes it must not
 // be able to.
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
@@ -17,6 +17,7 @@ import { RADIUS, TYPE } from '../../styles/scale';
 import { NON_INTERACTIVE_ICON_STYLE } from '../../utils/constants/common';
 import { formatTabCount } from '../../utils/functions/local';
 import { isCarriedStillThere } from '../../utils/functions/carriedView';
+import { createClickSuppressor } from './rightpane/rowDrag/clickSuppressor';
 import type { RootState } from '../../redux/store';
 import {
   carryReceiverAt,
@@ -75,9 +76,10 @@ function CardBody({ card }: { card: CarryCard }) {
             style={{ backgroundColor: card.color }}
           />
           <span data-carry-card-name="" css={nameStyle}>
-            {(card.title || t('Unnamed group')) +
-              ' · ' +
-              formatTabCount(card.tabCount, t)}
+            {t('CarryCardNameAndCount', {
+              name: card.title || t('Unnamed group'),
+              count: card.tabCount,
+            })}
           </span>
         </>
       );
@@ -86,11 +88,15 @@ function CardBody({ card }: { card: CarryCard }) {
         <>
           <Icon type="tab" style={NON_INTERACTIVE_ICON_STYLE} />
           <span data-carry-card-name="" css={nameStyle}>
-            {t('Window') +
-              ' ' +
-              card.windowNumber +
-              ' · ' +
-              formatTabCount(card.tabCount, t)}
+            {/* Named as its header names it (WindowEntryContainer): by its
+                title, and by nothing when that is empty -- then the count
+                alone, rather than a count after a dangling separator. */}
+            {card.title === ''
+              ? formatTabCount(card.tabCount, t)
+              : t('CarryCardNameAndCount', {
+                  name: card.title,
+                  count: card.tabCount,
+                })}
           </span>
         </>
       );
@@ -109,29 +115,17 @@ export function CarryLayer() {
 
   // The click Chrome synthesizes after a release, aimed at whatever is under
   // the pointer -- a session row, Open now, the header. Swallowed by the
-  // engine's rule (RowDragArea, KAN-177/335/337): ONE click, the one that
-  // follows this press's release, disarmed by the next press. Infinity while
-  // a cancelled press has yet to be released.
-  const suppressClickUntil = useRef(0);
+  // engine's own rule (clickSuppressor.ts): ONE click, the one that follows
+  // this press's release, disarmed by the next press.
+  const [clicks] = useState(createClickSuppressor);
 
   // Bound for the life of the layer, not the carry: after Esc the carry is
   // over but its press is not, and the click that follows that press's
   // release still has to be eaten.
   useEffect(() => {
-    const onUp = () => {
-      if (suppressClickUntil.current === Number.POSITIVE_INFINITY)
-        suppressClickUntil.current = performance.now() + 400;
-    };
-    const onClickCapture = (e: MouseEvent) => {
-      if (suppressClickUntil.current === Number.POSITIVE_INFINITY) return;
-      if (performance.now() >= suppressClickUntil.current) return;
-      suppressClickUntil.current = 0;
-      e.preventDefault();
-      e.stopPropagation();
-    };
-    const onPointerDownCapture = () => {
-      suppressClickUntil.current = 0;
-    };
+    const onUp = () => clicks.onPointerUp();
+    const onClickCapture = (e: MouseEvent) => clicks.onClickCapture(e);
+    const onPointerDownCapture = () => clicks.onPointerDownCapture();
     window.addEventListener('pointerup', onUp);
     window.addEventListener('click', onClickCapture, true);
     window.addEventListener('pointerdown', onPointerDownCapture, true);
@@ -140,7 +134,7 @@ export function CarryLayer() {
       window.removeEventListener('click', onClickCapture, true);
       window.removeEventListener('pointerdown', onPointerDownCapture, true);
     };
-  }, []);
+  }, [clicks]);
 
   const carrying = carry !== null;
   const owner = carry?.owner;
@@ -173,34 +167,35 @@ export function CarryLayer() {
     };
     const onUp = (e: PointerEvent) => {
       if (currentCarry()?.owner !== 'layer') return;
-      suppressClickUntil.current = performance.now() + 400;
+      clicks.armForRelease();
       route(e.clientX, e.clientY);
       const taker = owning.current;
+      let taken = false;
       try {
-        taker?.take();
+        taken = taker?.take() ?? false;
       } finally {
         // Taken or not, the release ends the gesture: a receiver that
         // committed has done so, and one that refused, or none hit, is a
         // cancel. In a `finally` so a throwing receiver cannot leave the hold
         // on for the rest of the page.
         release();
-        endCarry();
+        endCarry(taken ? 'committed' : 'cancelled');
       }
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape' || currentCarry()?.owner !== 'layer') return;
       // The press is still down: its click follows a release still to come.
-      suppressClickUntil.current = Number.POSITIVE_INFINITY;
+      clicks.armUntilRelease();
       release();
-      endCarry();
+      endCarry('cancelled');
     };
     // Chrome dispatches no click after a pointercancel; armed anyway, as the
     // engine does, and the next press disarms it.
     const onCancel = () => {
       if (currentCarry()?.owner !== 'layer') return;
-      suppressClickUntil.current = performance.now() + 400;
+      clicks.armForRelease();
       release();
-      endCarry();
+      endCarry('cancelled');
     };
 
     window.addEventListener('pointermove', onMove);
@@ -216,17 +211,19 @@ export function CarryLayer() {
       // or an area adopted it -- no receiver owns the pointer any more.
       release();
     };
-  }, [carrying, owner]);
+  }, [carrying, owner, clicks]);
 
   // A change on THIS page that takes the carried item away -- ⌘Z, a delete --
   // ends the carry: there is nothing left to move. Other pages' changes wait
-  // for the release, held by the drag hold the carry keeps on.
+  // for the release, held by the drag hold the carry keeps on. The press is
+  // still down, so its click is eaten when it is released, as after Esc.
   const carried = carry?.carried ?? null;
   useEffect(() => {
     if (carried !== null && !isCarriedStillThere(tabGroups, carried)) {
-      endCarry();
+      clicks.armUntilRelease();
+      endCarry('cancelled');
     }
-  }, [tabGroups, carried]);
+  }, [tabGroups, carried, clicks]);
 
   if (carry === null) return null;
 
