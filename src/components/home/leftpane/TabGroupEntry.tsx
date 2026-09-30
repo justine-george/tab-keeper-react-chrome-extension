@@ -15,7 +15,10 @@ import {
   isSearchActive,
 } from '../../../utils/functions/local';
 import { tabContainerData } from '../../../redux/slices/tabContainerDataStateSlice';
-import { sessionDateLabel } from '../../../utils/functions/sessionDate';
+import {
+  sessionDateLabel,
+  sessionDateTitle,
+} from '../../../utils/functions/sessionDate';
 import { isTabView } from '../../../utils/functions/viewMode';
 import { useTranslation } from 'react-i18next';
 import { DURATION, TYPE } from '../../../styles/scale';
@@ -342,6 +345,11 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
           style="margin-top: 2px;"
         />
         <div
+          title={sessionDateTitle(
+            tabGroupData,
+            sessionDateBasis,
+            i18n.language
+          )}
           css={css`
             color: ${COLORS.LABEL_L2_COLOR};
             font-size: ${TYPE.META};
@@ -354,8 +362,16 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
               both date sorts -- and the WORD is what keeps that from being a
               silent switch between two different numbers.
               i18n.language, not a constant: the date is formatted in the
-              user's own locale (KAN-85). */}
-          {sessionDateLabel(tabGroupData, sessionDateBasis, i18n.language, t)}
+              user's own locale (KAN-85). The label is trimmed (no seconds,
+              no year this year) and the hover holds the full timestamp
+              (KAN-347). */}
+          {sessionDateLabel(
+            tabGroupData,
+            sessionDateBasis,
+            i18n.language,
+            t,
+            new Date()
+          )}
         </div>
       </ClickableRow>
       {!isSearchPanel && (

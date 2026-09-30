@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
@@ -7,7 +7,7 @@ import {
   renderWithProviders,
   RenderWithProvidersResult,
 } from '../setup/renderWithProviders';
-import { getPrettyDate } from '../../utils/functions/local';
+import { sessionWhen } from '../../utils/functions/sessionDate';
 import {
   openSearchPanel,
   setSearchInputText,
@@ -51,6 +51,20 @@ const buildSession = () => ({
 });
 
 describe('HeroContainerRight', () => {
+  // KAN-347: the header's date depends on what day it is, and these fixtures
+  // are dated 2027, after real "now". Pinned after them, they are this year.
+  const NOW = new Date(2027, 6, 1, 12, 0);
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(NOW);
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+  /** ICU may put U+202F before AM/PM; findByText collapses it to a space. */
+  const shown = (instant: number) =>
+    sessionWhen(instant, 'en', NOW).replace(/\s/g, ' ');
+
   // KAN-141. The header shows when the session last CHANGED, matching the left
   // pane row and the order the list is in. Both panes show the same session, so
   // showing it two different dates would be worse than either choice alone.
@@ -84,13 +98,10 @@ describe('HeroContainerRight', () => {
     // Labelled, not bare (KAN-141): the row shows which date it is, and a
     // test matching the bare number would pass against a header that had
     // dropped the word.
-    expect(
-      await screen.findByText(`Edited ${getPrettyDate(CHANGED)}`)
-    ).toBeTruthy();
-    expect(
-      screen.queryByText(`Edited ${getPrettyDate(session.createdAt)}`)
-    ).toBeNull();
-    expect(screen.queryByText(getPrettyDate('2026-08-31 09:00:00'))).toBeNull();
+    expect(await screen.findByText(`Edited ${shown(CHANGED)}`)).toBeTruthy();
+    expect(screen.queryByText(`Edited ${shown(session.createdAt)}`)).toBeNull();
+    // Any format of the stored wall clock's day, trimmed or not.
+    expect(screen.queryByText(/Aug 31/)).toBeNull();
   });
 
   // KAN-25, still true one level down. A session saved before contentModified
@@ -122,9 +133,10 @@ describe('HeroContainerRight', () => {
     // been edited, so the word falls back with the value rather than making a
     // false statement about it.
     expect(
-      await screen.findByText(`Created ${getPrettyDate(session.createdAt)}`)
+      await screen.findByText(`Created ${shown(session.createdAt)}`)
     ).toBeTruthy();
-    expect(screen.queryByText(getPrettyDate('2026-08-31 09:00:00'))).toBeNull();
+    // Any format of the stored wall clock's day, trimmed or not.
+    expect(screen.queryByText(/Aug 31/)).toBeNull();
   });
 
   test('renders the selected session title', async () => {

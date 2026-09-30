@@ -1,7 +1,12 @@
 import type { TFunction } from 'i18next';
 import { beforeAll, describe, expect, test } from 'vitest';
 
-import { sessionDateLabel } from '../../../utils/functions/sessionDate';
+import {
+  sessionDateLabel,
+  sessionDateStamp,
+  sessionDateTitle,
+  sessionWhen,
+} from '../../../utils/functions/sessionDate';
 import { getPrettyDate } from '../../../utils/functions/local';
 import { tFor } from '../../setup/localeT';
 import type { tabContainerData } from '../../../redux/slices/tabContainerDataStateSlice';
@@ -21,6 +26,18 @@ import type { tabContainerData } from '../../../redux/slices/tabContainerDataSta
 
 const CREATED = Date.UTC(2026, 2, 4, 12, 0, 0);
 const EDITED = Date.UTC(2026, 8, 9, 18, 30, 0);
+
+// KAN-347: the label's format depends on what day it is, so every test here
+// passes a pinned "today" rather than reading the clock. Both instants above
+// fall earlier in TODAY's year in every time zone.
+const TODAY = new Date(2026, 8, 29, 17, 7, 0);
+
+/** ICU may put U+202F before AM/PM; compare the text a reader sees. */
+const norm = (s: string) => s.replace(/\s/g, ' ');
+
+/** Local wall-clock instants, so the rendered text is the same in any time zone. */
+const local = (y: number, m: number, d: number, h = 0, min = 0, s = 0) =>
+  new Date(y, m, d, h, min, s).getTime();
 
 let t: TFunction;
 beforeAll(async () => {
@@ -47,16 +64,16 @@ describe('sessionDateLabel', () => {
   test('shows the edited date, labelled, on the edited basis', () => {
     const group = build({ contentModified: EDITED });
 
-    expect(sessionDateLabel(group, 'edited', 'en', t)).toBe(
-      `Edited ${getPrettyDate(EDITED, 'en')}`
+    expect(sessionDateLabel(group, 'edited', 'en', t, TODAY)).toBe(
+      `Edited ${sessionWhen(EDITED, 'en', TODAY)}`
     );
   });
 
   test('shows the created date, labelled, on the created basis', () => {
     const group = build({ contentModified: EDITED });
 
-    expect(sessionDateLabel(group, 'created', 'en', t)).toBe(
-      `Created ${getPrettyDate(CREATED, 'en')}`
+    expect(sessionDateLabel(group, 'created', 'en', t, TODAY)).toBe(
+      `Created ${sessionWhen(CREATED, 'en', TODAY)}`
     );
   });
 
@@ -67,13 +84,13 @@ describe('sessionDateLabel', () => {
   test('the word and the number always agree', () => {
     const group = build({ contentModified: EDITED });
 
-    const edited = sessionDateLabel(group, 'edited', 'en', t);
-    const created = sessionDateLabel(group, 'created', 'en', t);
+    const edited = sessionDateLabel(group, 'edited', 'en', t, TODAY);
+    const created = sessionDateLabel(group, 'created', 'en', t, TODAY);
 
-    expect(edited).toContain(getPrettyDate(EDITED, 'en'));
-    expect(edited).not.toContain(getPrettyDate(CREATED, 'en'));
-    expect(created).toContain(getPrettyDate(CREATED, 'en'));
-    expect(created).not.toContain(getPrettyDate(EDITED, 'en'));
+    expect(edited).toContain(sessionWhen(EDITED, 'en', TODAY));
+    expect(edited).not.toContain(sessionWhen(CREATED, 'en', TODAY));
+    expect(created).toContain(sessionWhen(CREATED, 'en', TODAY));
+    expect(created).not.toContain(sessionWhen(EDITED, 'en', TODAY));
   });
 
   // The one case the basis does not get to decide. A session with no
@@ -84,8 +101,8 @@ describe('sessionDateLabel', () => {
   test('a never-edited session says Created even on the edited basis', () => {
     const group = build();
 
-    expect(sessionDateLabel(group, 'edited', 'en', t)).toBe(
-      `Created ${getPrettyDate(CREATED, 'en')}`
+    expect(sessionDateLabel(group, 'edited', 'en', t, TODAY)).toBe(
+      `Created ${sessionWhen(CREATED, 'en', TODAY)}`
     );
   });
 
@@ -95,8 +112,8 @@ describe('sessionDateLabel', () => {
   test('the fallback uses the instant, not the stored wall clock', () => {
     const group = build();
 
-    expect(sessionDateLabel(group, 'edited', 'en', t)).not.toContain(
-      getPrettyDate('2020-01-01 00:00:00', 'en')
+    expect(sessionDateLabel(group, 'edited', 'en', t, TODAY)).not.toContain(
+      '2020'
     );
   });
 
@@ -105,9 +122,9 @@ describe('sessionDateLabel', () => {
   test('formats in the locale it is given', () => {
     const group = build({ contentModified: EDITED });
 
-    const de = sessionDateLabel(group, 'edited', 'de', t);
-    expect(de).toContain(getPrettyDate(EDITED, 'de'));
-    expect(de).not.toContain(getPrettyDate(EDITED, 'en'));
+    const de = sessionDateLabel(group, 'edited', 'de', t, TODAY);
+    expect(de).toContain(sessionWhen(EDITED, 'de', TODAY));
+    expect(de).not.toContain(sessionWhen(EDITED, 'en', TODAY));
   });
 
   // KAN-286. The word used to be glued in front of the date in code, so no
@@ -116,8 +133,8 @@ describe('sessionDateLabel', () => {
     const group = build({ contentModified: EDITED });
     const ja = await tFor('ja');
 
-    expect(sessionDateLabel(group, 'edited', 'ja', ja)).toBe(
-      `${getPrettyDate(EDITED, 'ja')}に編集`
+    expect(sessionDateLabel(group, 'edited', 'ja', ja, TODAY)).toBe(
+      `${sessionWhen(EDITED, 'ja', TODAY)}に編集`
     );
   });
 
@@ -125,8 +142,95 @@ describe('sessionDateLabel', () => {
     const group = build({ contentModified: EDITED });
     const zh = await tFor('zh');
 
-    expect(sessionDateLabel(group, 'edited', 'zh', zh)).toBe(
-      `编辑于 ${getPrettyDate(EDITED, 'zh')}`
+    expect(sessionDateLabel(group, 'edited', 'zh', zh, TODAY)).toBe(
+      `编辑于 ${sessionWhen(EDITED, 'zh', TODAY)}`
+    );
+  });
+});
+
+describe('sessionWhen (KAN-347)', () => {
+  test('earlier this year: date and time, no seconds, no year', () => {
+    expect(norm(sessionWhen(local(2026, 8, 24, 2, 51, 57), 'en', TODAY))).toBe(
+      'Sep 24, 2:51 AM'
+    );
+  });
+
+  test('another year: the date with its year, no time', () => {
+    expect(norm(sessionWhen(local(2025, 2, 14, 10, 30), 'en', TODAY))).toBe(
+      'Mar 14, 2025'
+    );
+  });
+
+  // "This year" is today's year, not the instant's: on Jan 1 last week's
+  // Dec 20 needs its year.
+  test('the year boundary follows today', () => {
+    const jan1 = new Date(2027, 0, 1, 9, 0);
+    expect(norm(sessionWhen(local(2026, 11, 20, 8, 0), 'en', jan1))).toBe(
+      'Dec 20, 2026'
+    );
+  });
+
+  test('formats in the locale it is given', () => {
+    expect(norm(sessionWhen(local(2026, 8, 24, 2, 51), 'de', TODAY))).toBe(
+      '24. Sept., 2:51'
+    );
+  });
+
+  // Review Focus 3: the locale comes from localStorage.
+  test('a malformed locale falls back to en rather than throwing', () => {
+    expect(
+      norm(sessionWhen(local(2026, 8, 24, 2, 51), 'not a locale!!', TODAY))
+    ).toBe('Sep 24, 2:51 AM');
+  });
+
+  // Review Focus 4: createdInstant returns 0 for a corrupt createdTime, and
+  // Intl throws a RangeError on an Invalid Date.
+  // Instant 0 is Jan 1, 1970 in UTC but Dec 31, 1969 west of it, so the year
+  // expected is the local one.
+  test('a corrupt time: 0 is a dated year, NaN is empty, neither throws', () => {
+    expect(sessionWhen(0, 'en', TODAY)).toContain(
+      String(new Date(0).getFullYear())
+    );
+    expect(sessionWhen(Number.NaN, 'en', TODAY)).toBe('');
+  });
+
+  test('the label carries the trimmed date', () => {
+    const group = build({ contentModified: local(2026, 8, 24, 2, 51, 57) });
+    expect(norm(sessionDateLabel(group, 'edited', 'en', t, TODAY))).toBe(
+      'Edited Sep 24, 2:51 AM'
+    );
+  });
+});
+
+describe('sessionDateTitle (KAN-347)', () => {
+  // The hover holds what the label trimmed away, for the same instant.
+  test('the full timestamp of the same instant the label shows', () => {
+    const group = build({ contentModified: EDITED });
+    expect(sessionDateTitle(group, 'edited', 'en')).toBe(
+      getPrettyDate(EDITED, 'en')
+    );
+    expect(sessionDateTitle(group, 'created', 'en')).toBe(
+      getPrettyDate(CREATED, 'en')
+    );
+    expect(sessionDateTitle(build(), 'edited', 'en')).toBe(
+      getPrettyDate(CREATED, 'en')
+    );
+  });
+});
+
+describe('sessionDateStamp (KAN-347)', () => {
+  // An exported file is read later, so its date line keeps the full
+  // timestamp; a trimmed or relative date there would go stale.
+  test('the word and the full timestamp, for a file', () => {
+    const group = build({ contentModified: EDITED });
+    expect(sessionDateStamp(group, 'edited', 'en', t)).toBe(
+      `Edited ${getPrettyDate(EDITED, 'en')}`
+    );
+    expect(sessionDateStamp(group, 'created', 'en', t)).toBe(
+      `Created ${getPrettyDate(CREATED, 'en')}`
+    );
+    expect(sessionDateStamp(build(), 'edited', 'en', t)).toBe(
+      `Created ${getPrettyDate(CREATED, 'en')}`
     );
   });
 });

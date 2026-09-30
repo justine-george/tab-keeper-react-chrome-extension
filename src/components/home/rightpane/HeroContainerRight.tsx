@@ -12,7 +12,10 @@ import { NormalLabel } from '../../common/Label';
 import { useFontFamily } from '../../../hooks/useFontFamily';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { AppDispatch, RootState } from '../../../redux/store';
-import { sessionDateLabel } from '../../../utils/functions/sessionDate';
+import {
+  sessionDateLabel,
+  sessionDateTitle,
+} from '../../../utils/functions/sessionDate';
 import {
   isTabKeeperPage,
   readCurrentWindowGroups,
@@ -402,12 +405,19 @@ export default function HeroContainerRight() {
           // Same helper as the left pane row, so the two panes cannot show
           // the same session two different dates (KAN-141).
           // i18n.language, not a constant: the date is formatted in the user's
-          // own locale (KAN-85).
+          // own locale (KAN-85). Trimmed, with the full timestamp on hover
+          // (KAN-347).
           value={sessionDateLabel(
             selectedTabGroup,
             sessionDateBasis,
             i18n.language,
-            t
+            t,
+            new Date()
+          )}
+          tooltipText={sessionDateTitle(
+            selectedTabGroup,
+            sessionDateBasis,
+            i18n.language
           )}
           size={TYPE.META}
           color={COLORS.LABEL_L2_COLOR}

@@ -819,7 +819,7 @@ const isValidTabData = (data: unknown): data is tabData => {
 // A literal rather than Language.EN: that enum lives in a redux slice, and
 // src/background.ts imports this module, so taking it would pull the slice
 // into the service worker bundle.
-const FALLBACK_LOCALE = 'en';
+export const FALLBACK_LOCALE = 'en';
 
 export const getPrettyDate = (
   dateOrTimeStamp: string | number,
