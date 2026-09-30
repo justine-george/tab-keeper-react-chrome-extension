@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 
 import ExportPage from '../../components/export/ExportPage';
 import { renderWithProviders } from '../setup/renderWithProviders';
+import { getPrettyDate } from '../../utils/functions/local';
 import { buildContainer, buildSession } from '../fixtures/sessionFixture';
 import { replaceState } from '../../redux/slices/tabContainerDataStateSlice';
 import { setTheme, Theme } from '../../redux/slices/settingsDataStateSlice';
@@ -680,5 +681,64 @@ describe('the toolbar says which controls are choices (KAN-190)', () => {
     const fill = (el: HTMLElement) => getComputedStyle(el).backgroundColor;
     expect(fill(print)).not.toBe(fill(copy));
     expect(fill(save)).toBe(fill(copy));
+  });
+});
+
+// KAN-347. The popup trims a session's date (no seconds, no year this year),
+// but a file is read later, so its date line keeps the full timestamp. The
+// clock is pinned so "this year" is certain: without the pin, the trim would
+// keep the year for a fixture from another year and look just like the stamp.
+describe('the exported date line (KAN-347)', () => {
+  const EDITED = new Date(2026, 8, 24, 2, 51, 57).getTime();
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  test('keeps the full timestamp, seconds and year', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 8, 29, 17, 7, 0));
+    await renderWithProviders(
+      <ExportPage source={{ kind: 'saved', tabGroupId: 'session-kyoto' }} />,
+      {
+        seedStore: (store) => {
+          store.dispatch(
+            replaceState(
+              buildContainer([{ ...SESSION, contentModified: EDITED }])
+            )
+          );
+        },
+      }
+    );
+
+    await waitFor(() =>
+      expect(frame().srcdoc).toContain(`Edited ${getPrettyDate(EDITED, 'en')}`)
+    );
+  });
+
+  // "Today" in a file is false from tomorrow on.
+  test('a session edited today is dated, not "today"', async () => {
+    const TODAY_EDIT = new Date(2026, 8, 29, 16, 12, 5).getTime();
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 8, 29, 17, 7, 0));
+    await renderWithProviders(
+      <ExportPage source={{ kind: 'saved', tabGroupId: 'session-kyoto' }} />,
+      {
+        seedStore: (store) => {
+          store.dispatch(
+            replaceState(
+              buildContainer([{ ...SESSION, contentModified: TODAY_EDIT }])
+            )
+          );
+        },
+      }
+    );
+
+    await waitFor(() =>
+      expect(frame().srcdoc).toContain(
+        `Edited ${getPrettyDate(TODAY_EDIT, 'en')}`
+      )
+    );
+    expect(frame().srcdoc).not.toMatch(/\btoday\b/i);
   });
 });

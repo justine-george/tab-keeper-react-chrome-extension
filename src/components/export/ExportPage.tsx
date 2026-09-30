@@ -32,7 +32,7 @@ import {
 } from '../../utils/functions/local';
 import { EXPORT_STORE_URL } from '../../utils/constants/common';
 import { formatGroupCounts, formatTabCount } from '../../utils/functions/local';
-import { sessionDateLabel } from '../../utils/functions/sessionDate';
+import { sessionDateStamp } from '../../utils/functions/sessionDate';
 import {
   EXPORT_PALETTE,
   exportFileName,
@@ -270,9 +270,11 @@ export default function ExportPage({ source }: { source: ExportSource }) {
       // A capture of what is open has no history to describe, so it carries
       // no date line at all -- rather than a "created" instant that means
       // only "a moment ago, in this tab".
+      // The full timestamp, not the popup's trimmed label: a file is read
+      // later, when "this year" may not be (KAN-347).
       dateLabel:
         source.kind === 'saved'
-          ? sessionDateLabel(session, sessionDateBasis, i18n.language, t)
+          ? sessionDateStamp(session, sessionDateBasis, i18n.language, t)
           : undefined,
       countsLabel: formatGroupCounts(
         edited.windowCount,
