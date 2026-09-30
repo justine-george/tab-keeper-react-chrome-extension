@@ -24,8 +24,14 @@ import { TabDragArea } from './TabDragArea';
 import { GroupDragArea } from './GroupDragArea';
 import { dropOnTop } from '../../../redux/dropOnTop';
 import { windowDrop } from '../../../redux/dropSpecs';
-import { useCarried } from '../../../redux/carry';
-import { carriedView } from '../../../utils/functions/carriedView';
+import { currentCarry, endCarry, useCarried } from '../../../redux/carry';
+import { dropCarriedWindow } from '../../../redux/dropCarried';
+import {
+  CARRY_NEW_WINDOW_ID,
+  carriedRowId,
+  carriedView,
+  landingView,
+} from '../../../utils/functions/carriedView';
 import { windowCarryOut } from './carryOut';
 
 export default function TabGroupDetailsContainer() {
@@ -58,23 +64,42 @@ export default function TabGroupDetailsContainer() {
   )[0];
 
   // KAN-350. While something is carried, the session as the carry leaves it:
-  // the carried item hidden from its source, so the list closes up behind it.
+  // the carried item hidden from its source, so the list closes up behind it
+  // -- and, where the session can take it at an exact spot, the item drawn
+  // first as a PHANTOM row (landingView): a tab or group inside the New
+  // window target, a window as the first window. The list of that kind
+  // adopts the phantom as its drag when the pointer comes in.
+  //
   // With nothing carried, the selected session itself -- the same object, so
   // the drag areas below see exactly what they always did. Reads only WHAT is
   // carried, which holds still for the whole carry: the pointer moving does
   // not re-render this.
   const carried = useCarried();
-  const shownSession = useMemo(
-    () =>
-      carried === null || selectedTabGroup === undefined
-        ? selectedTabGroup
-        : carriedView(
-            tabContainerDataList.tabGroups,
-            selectedTabGroup.tabGroupId,
-            carried
-          ) ?? selectedTabGroup,
-    [carried, selectedTabGroup, tabContainerDataList.tabGroups]
-  );
+  const { shownSession, phantomRowId } = useMemo(() => {
+    if (carried === null || selectedTabGroup === undefined) {
+      return { shownSession: selectedTabGroup, phantomRowId: undefined };
+    }
+    const landing = landingView(
+      tabContainerDataList.tabGroups,
+      selectedTabGroup.tabGroupId,
+      carried
+    );
+    if (landing !== null) {
+      return { shownSession: landing, phantomRowId: carriedRowId(carried) };
+    }
+    return {
+      shownSession:
+        carriedView(
+          tabContainerDataList.tabGroups,
+          selectedTabGroup.tabGroupId,
+          carried
+        ) ?? selectedTabGroup,
+      phantomRowId: undefined,
+    };
+  }, [carried, selectedTabGroup, tabContainerDataList.tabGroups]);
+  // Only the list that drags the carried kind adopts it.
+  const adoptRowIdFor = (kind: 'tab' | 'group' | 'window') =>
+    carried?.kind === kind ? phantomRowId : undefined;
 
   // The windows on screen, in render order. Index into this is what a drop
   // reports, which is why the guard below matters.
@@ -90,15 +115,35 @@ export default function TabGroupDetailsContainer() {
   // flag mid-drag, and this memo was the mitigation -- which only held while
   // the session object survived. A sync replaces it, and the flag went anyway
   // (KAN-159). The flag is now cleared on unmount alone.
+  //
+  // The New window target is not one of them (KAN-350): it is a window only
+  // to the tab and item lists, which may land in it, and no window drag may.
   const windowIds = useMemo(
-    () => shownSession?.windows.map((w) => w.windowId) ?? [],
+    () =>
+      shownSession?.windows
+        .map((w) => w.windowId)
+        .filter((id) => id !== CARRY_NEW_WINDOW_ID) ?? [],
     [shownSession]
   );
 
   const movedTabGroupId = selectedTabGroup?.tabGroupId;
+  // A CARRIED window (KAN-350) is the phantom this list adopted: it is let
+  // go between this session's windows, and the carry ends as committed only
+  // if it moved -- see dropCarriedWindow.
   const handleMoveWindow = useCallback(
     (windowId: string, toIndex: number) => {
       if (!movedTabGroupId) return;
+      const carriedNow = currentCarry()?.carried;
+      if (carriedNow?.kind === 'window') {
+        const moved = dispatch(
+          dropCarriedWindow(carriedNow, {
+            tabGroupId: movedTabGroupId,
+            toIndex,
+          })
+        );
+        endCarry(moved ? 'committed' : 'cancelled');
+        return;
+      }
       dispatch(dropOnTop(windowDrop(movedTabGroupId, windowId, toIndex)));
     },
     [dispatch, movedTabGroupId]
@@ -192,7 +237,7 @@ export default function TabGroupDetailsContainer() {
               directly -- there is no per-window items list any more, only
               the ONE items list a few lines below. Both resolve correctly
               with no context factory (spec 5.1). */}
-          <TabDragArea tabList={shownSession}>
+          <TabDragArea tabList={shownSession} adoptRowId={adoptRowIdFor('tab')}>
             {/* KAN-132, one level up from the tab list. ONE items list for the
                 whole session -- each loose tab and each Chrome group as one
                 row -- rather than one per window.
@@ -202,7 +247,10 @@ export default function TabGroupDetailsContainer() {
                 scope="items" and tab rows name scope="tabs", so each reaches
                 its own list through the other; window rows declare no scope and
                 still join the nearest list, the windows area below. */}
-            <GroupDragArea itemList={shownSession}>
+            <GroupDragArea
+              itemList={shownSession}
+              adoptRowId={adoptRowIdFor('group')}
+            >
               {/* KAN-129. handleSelector is what keeps this area and the tab list
               around it from both claiming one pointerdown: the
               draggable node below wraps a window's whole block, tabs
@@ -219,64 +267,73 @@ export default function TabGroupDetailsContainer() {
                 clampDropToEnds
                 restoreScrollIfNoDrop
                 carryOut={carryWindowOut}
+                adoptRowId={adoptRowIdFor('window')}
                 // The mode, not the box's contents -- see KAN-140 on
                 // TabGroupEntryContainer for why this is not isFilteredView.
                 disabled={isSearchPanel}
               >
                 {shownSession.windows.map(
                   ({ windowId, title, tabs, chromeTabGroups }) => {
-                    return (
-                      // Keyed by windowId, not by index: WindowEntryContainer owns
-                      // collapse and rename state, and an index key is identical to
-                      // the positional default React already uses, so it would
-                      // leave that state bleeding onto the wrong window after a
-                      // deletion.
-                      //
-                      // This key is also what resets collapse state when the user
-                      // switches sessions. Window ids are uuidv4 minted in exactly
-                      // two places (capture.ts and HeroContainerRight) and nothing
-                      // clones a session, so no id is shared between two tab
-                      // groups -- selecting a different one swaps the whole key
-                      // set and React remounts every row, which re-runs
-                      // useState(true). WindowEntryContainer used to do that reset
-                      // with an effect on tabGroupId; it was deleted as redundant
-                      // with this key (KAN-51). Weaken this key and that reset
-                      // goes with it -- renameDrafts.test.tsx covers it.
-                      //
-                      // DraggableRow is what carries that key now. It replaces the
-                      // plain wrapper div rather than nesting inside one: it renders
-                      // exactly one element per window, so the tree keeps its shape.
-                      <DraggableRow key={windowId} rowId={windowId}>
-                        <WindowEntryContainer
-                          title={title}
-                          tabs={tabs}
-                          chromeTabGroups={chromeTabGroups}
-                          tabGroupId={tabGroupId}
-                          windowId={windowId}
-                          onUpdateWindowGroupTitle={(newTitle) =>
-                            handleUpdateWindowGroupTitle(
+                    const entry = (
+                      <WindowEntryContainer
+                        title={title}
+                        tabs={tabs}
+                        chromeTabGroups={chromeTabGroups}
+                        tabGroupId={tabGroupId}
+                        windowId={windowId}
+                        onUpdateWindowGroupTitle={(newTitle) =>
+                          handleUpdateWindowGroupTitle(
+                            tabGroupId,
+                            windowId,
+                            newTitle
+                          )
+                        }
+                        onAddCurrTabToWindowClick={() =>
+                          handleAddCurrTabToWindowClick(tabGroupId, windowId)
+                        }
+                        onDeleteClick={() =>
+                          dispatch(deleteWindow({ tabGroupId, windowId }))
+                        }
+                        onWindowTitleClick={() => {
+                          const goToURLText: string = t('Go to URL');
+                          dispatch(
+                            openTabsInAWindow({
                               tabGroupId,
                               windowId,
-                              newTitle
-                            )
-                          }
-                          onAddCurrTabToWindowClick={() =>
-                            handleAddCurrTabToWindowClick(tabGroupId, windowId)
-                          }
-                          onDeleteClick={() =>
-                            dispatch(deleteWindow({ tabGroupId, windowId }))
-                          }
-                          onWindowTitleClick={() => {
-                            const goToURLText: string = t('Go to URL');
-                            dispatch(
-                              openTabsInAWindow({
-                                tabGroupId,
-                                windowId,
-                                goToURLText,
-                              })
-                            );
-                          }}
-                        />
+                              goToURLText,
+                            })
+                          );
+                        }}
+                      />
+                    );
+                    // Keyed by windowId, not by index: WindowEntryContainer owns
+                    // collapse and rename state, and an index key is identical to
+                    // the positional default React already uses, so it would
+                    // leave that state bleeding onto the wrong window after a
+                    // deletion.
+                    //
+                    // This key is also what resets collapse state when the user
+                    // switches sessions. Window ids are uuidv4 minted in exactly
+                    // two places (capture.ts and HeroContainerRight) and nothing
+                    // clones a session, so no id is shared between two tab
+                    // groups -- selecting a different one swaps the whole key
+                    // set and React remounts every row, which re-runs
+                    // useState(true). WindowEntryContainer used to do that reset
+                    // with an effect on tabGroupId; it was deleted as redundant
+                    // with this key (KAN-51). Weaken this key and that reset
+                    // goes with it -- renameDrafts.test.tsx covers it.
+                    //
+                    // DraggableRow is what carries that key now. It replaces the
+                    // plain wrapper div rather than nesting inside one: it renders
+                    // exactly one element per window, so the tree keeps its shape.
+                    //
+                    // KAN-350. The New window target is no row of this list:
+                    // nothing drags it, and it drags nothing.
+                    return windowId === CARRY_NEW_WINDOW_ID ? (
+                      <div key={windowId}>{entry}</div>
+                    ) : (
+                      <DraggableRow key={windowId} rowId={windowId}>
+                        {entry}
                       </DraggableRow>
                     );
                   }

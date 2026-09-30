@@ -244,5 +244,6 @@
   "TabCountShownOfTotal_other": "{{shown}} sur {{count}} Onglets",
   "CarryCardNameAndCount_one": "{{name}} · {{count}} Onglet",
   "CarryCardNameAndCount_many": "{{name}} · {{count}} Onglets",
-  "CarryCardNameAndCount_other": "{{name}} · {{count}} Onglets"
+  "CarryCardNameAndCount_other": "{{name}} · {{count}} Onglets",
+  "CarryNewWindowTarget": "Nouvelle fenêtre"
 }

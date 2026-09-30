@@ -38,7 +38,8 @@ export interface CarryOut {
 }
 
 // Who is driving the carry: the CarryLayer (the pointer is outside every area
-// that can take it), or an area that adopted it as its own drag (Task 5).
+// that can take it), or an area that adopted it as its own drag (RowDragArea's
+// adoptRowId).
 export type CarryOwner = 'layer' | 'area';
 
 export interface Carry {
@@ -61,9 +62,10 @@ function notify(): void {
   for (const listener of [...listeners]) listener();
 }
 
-// Starts carrying, driven by the layer. Replaces any carry already on: an
-// adopted drag that leaves its pane again hands back through here, with its
-// own restoreOnCancel or none.
+// Starts carrying, driven by the layer. Replaces any carry already on. An
+// adopted drag that leaves its pane again does NOT come through here: it
+// hands the same carry back with setCarryOwner('layer'), so the source's card
+// and restoreOnCancel stay as they are (KAN-350, RowDragArea's handOff).
 //
 // `restoreOnCancel` runs once, on the frame after a CANCELLED carry ends --
 // see endCarry -- and never after a committed one.

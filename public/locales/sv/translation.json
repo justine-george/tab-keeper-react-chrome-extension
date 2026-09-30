@@ -239,5 +239,6 @@
   "TabCountShownOfTotal_one": "{{shown}} av {{count}} Flik",
   "TabCountShownOfTotal_other": "{{shown}} av {{count}} Flikar",
   "CarryCardNameAndCount_one": "{{name}} · {{count}} Flik",
-  "CarryCardNameAndCount_other": "{{name}} · {{count}} Flikar"
+  "CarryCardNameAndCount_other": "{{name}} · {{count}} Flikar",
+  "CarryNewWindowTarget": "Nytt fönster"
 }

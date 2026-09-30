@@ -244,5 +244,6 @@
   "TabCountShownOfTotal_other": "{{shown}} di {{count}} Tab",
   "CarryCardNameAndCount_one": "{{name}} · {{count}} Tab",
   "CarryCardNameAndCount_many": "{{name}} · {{count}} Tab",
-  "CarryCardNameAndCount_other": "{{name}} · {{count}} Tab"
+  "CarryCardNameAndCount_other": "{{name}} · {{count}} Tab",
+  "CarryNewWindowTarget": "Nuova finestra"
 }

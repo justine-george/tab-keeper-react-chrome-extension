@@ -244,5 +244,6 @@
   "TabCountShownOfTotal_other": "{{shown}} de {{count}} Abas",
   "CarryCardNameAndCount_one": "{{name}} · {{count}} Aba",
   "CarryCardNameAndCount_many": "{{name}} · {{count}} Abas",
-  "CarryCardNameAndCount_other": "{{name}} · {{count}} Abas"
+  "CarryCardNameAndCount_other": "{{name}} · {{count}} Abas",
+  "CarryNewWindowTarget": "Nova janela"
 }

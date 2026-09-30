@@ -239,5 +239,6 @@
   "TabCountShownOfTotal_one": "{{count}} में से {{shown}} टैब",
   "TabCountShownOfTotal_other": "{{count}} में से {{shown}} टैब्स",
   "CarryCardNameAndCount_one": "{{name}} · {{count}} टैब",
-  "CarryCardNameAndCount_other": "{{name}} · {{count}} टैब्स"
+  "CarryCardNameAndCount_other": "{{name}} · {{count}} टैब्स",
+  "CarryNewWindowTarget": "नई विंडो"
 }

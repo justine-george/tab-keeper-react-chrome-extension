@@ -446,6 +446,38 @@ export interface RowDragAreaProps {
    * session list and Open now do not, so their drags cannot change.
    */
   carryOut?: (rowId: string) => CarryOut | null;
+  /**
+   * The row that stands in for a carried item this list can take (KAN-350):
+   * a PHANTOM the list draws while the carry is on, keyed by the carried
+   * item's own id. Only on the list whose kind matches what is carried.
+   *
+   * While a carry is on and the layer drives it, the pointer coming into
+   * this row's pane (the nearest `overflow: auto` box, on both axes) makes
+   * the area ADOPT the row: exactly what a press and activation do --
+   * measured in the drag's own layout, re-anchored on the pointer -- with no
+   * activation distance and no second drag hold, the carry's being kept. The
+   * carry is then the area's to drive until it ends.
+   *
+   * From there it is an ordinary drag with three differences: leaving the
+   * pane sideways hands the SAME carry back to the layer; a release the list
+   * commits must end the carry itself (endCarry('committed')); and one that
+   * commits nothing -- Esc, pointercancel, a refused release -- cancels the
+   * whole carry. The row is drawn with its content invisible and never hit,
+   * its footprint kept, whether or not it is held.
+   */
+  adoptRowId?: string;
+  /**
+   * Called while the drag is live whenever the window a release would land
+   * in changes -- undefined where it would be refused -- and once with
+   * undefined when the drag ends (KAN-350). Changes only, like
+   * `onDropTargetChange`, with the list's own container for the list to mark
+   * whatever it draws for that window. For the New window target, which is a
+   * window of its own.
+   */
+  onLandingWindowChange?: (
+    windowId: string | undefined,
+    list: HTMLElement | null
+  ) => void;
   // Dragging is off while the list on screen is a FILTERED view of the stored
   // one (KAN-131). toIndex counts rendered rows, and the reducers apply it to
   // the stored array, so a drag in a narrowed list lands somewhere the user

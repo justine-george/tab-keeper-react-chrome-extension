@@ -1,0 +1,1059 @@
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
+import { act, fireEvent } from '@testing-library/react';
+
+import TabGroupDetailsContainer from '../../components/home/rightpane/TabGroupDetailsContainer';
+import { CarryLayer } from '../../components/home/CarryLayer';
+import { setDragging } from '../../components/home/rightpane/rowDrag/dropRules';
+import {
+  currentCarry,
+  endCarry,
+  startCarry,
+  type CarryCard,
+} from '../../redux/carry';
+import * as dragHold from '../../redux/dragHold';
+import { beginDragHold, endDragHold, isDragHeld } from '../../redux/dragHold';
+import { dropOnTop } from '../../redux/dropOnTop';
+import { groupDrop, tabDrop, windowDrop } from '../../redux/dropSpecs';
+import {
+  deleteTab,
+  saveToTabContainerInternal,
+  selectTabContainer,
+  type CarriedRef,
+} from '../../redux/slices/tabContainerDataStateSlice';
+import {
+  openSearchPanel,
+  setHasTabGroupsPermission,
+  setIsNotDirty,
+} from '../../redux/slices/globalStateSlice';
+import { LIGHT_THEME } from '../../hooks/useThemeColors';
+import { CARRY_NEW_WINDOW_ID } from '../../utils/functions/carriedView';
+import { renderWithProviders } from '../setup/renderWithProviders';
+import {
+  T0,
+  s1,
+  s2,
+  s3,
+  session,
+  sessionIn,
+  tab,
+  tabIds,
+  win,
+  windowIds,
+  windowIn,
+} from '../fixtures/sessionMoveFixture';
+
+// KAN-350 Task 5. The session on screen takes a carried item at an EXACT
+// spot. While a tab, group or window is carried, the detail draws it as a
+// PHANTOM row at the top -- a tab or group inside the New window target (S3
+// A), a window as the first window -- and when the pointer comes into the
+// pane the matching drag area ADOPTS that row as an ordinary drag: every
+// landing, band, gap and auto-scroll rule is the engine's own, and a release
+// commits the move.
+//
+// S1: w1 [t1, g1a*g1, g1b*g1, t2, t4*g2], w2 [t3]. S2: d1 [u1, u2*h1,
+// u3*h1], d2 [u4].
+//
+// jsdom has no layout. Every box the engine reads is given one here, in the
+// pane's content space, less the pane's scrollTop -- as a real layout
+// reports it. Anything not listed measures as a zero box.
+
+const PANE_W = 400;
+const X = 100;
+
+type Table = Record<string, [top: number, height: number]>;
+let table: Table = {};
+let pane: HTMLElement | null = null;
+
+// Which entry of the table an element answers to.
+function keyOf(el: Element): string | undefined {
+  if (!(el instanceof HTMLElement)) return undefined;
+  const d = el.dataset;
+  if (d.dragRowId !== undefined) return `row:${d.dragRowId}`;
+  if (d.dropWindowId !== undefined) return `win:${d.dropWindowId}`;
+  if (d.fixedRowId !== undefined) return `fixed:${d.fixedRowId}`;
+  if (d.bandId !== undefined) return `band:${d.bandId}`;
+  return undefined;
+}
+
+function rectOf(el: Element): DOMRect {
+  if (el === pane) {
+    return DOMRect.fromRect({ x: 0, y: 0, width: PANE_W, height: paneH });
+  }
+  const key = keyOf(el);
+  const entry = key === undefined ? undefined : table[key];
+  if (entry === undefined) return DOMRect.fromRect({});
+  const [top, height] = entry;
+  // A block the preview moved reports its moved box, as a real rect does
+  // (see paneWideTabDrag's measureWindows).
+  const shift =
+    el instanceof HTMLElement
+      ? parseFloat(el.dataset.windowShift ?? '') || 0
+      : 0;
+  const scroll = pane?.scrollTop ?? 0;
+  return DOMRect.fromRect({
+    x: 0,
+    y: top - scroll + shift,
+    width: PANE_W,
+    height,
+  });
+}
+
+let paneH = 500;
+let frames: FrameRequestCallback[] = [];
+const runFrames = (n: number) => {
+  for (let i = 0; i < n; i++) {
+    const due = frames;
+    frames = [];
+    due.forEach((cb) => cb(0));
+  }
+};
+
+beforeEach(() => {
+  table = {};
+  pane = null;
+  paneH = 500;
+  frames = [];
+  vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+    frames.push(cb);
+    return frames.length;
+  });
+  vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {});
+  // Every store here is seeded and moved at one pinned time, so a move and
+  // today's builder from the same start stamp the same values.
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(T0);
+  vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(
+    function (this: Element) {
+      return rectOf(this);
+    }
+  );
+});
+
+afterEach(() => {
+  act(() => endCarry('cancelled'));
+  endDragHold();
+  document.documentElement.removeAttribute('data-dragging');
+  vi.useRealTimers();
+  vi.restoreAllMocks();
+});
+
+async function renderDetail(shown: string, contentH = 500) {
+  const result = await renderWithProviders(
+    <>
+      <TabGroupDetailsContainer />
+      <CarryLayer />
+    </>,
+    {
+      seedStore: (store) => {
+        store.dispatch(setHasTabGroupsPermission(true));
+        store.dispatch(saveToTabContainerInternal(s3()));
+        store.dispatch(saveToTabContainerInternal(s2()));
+        store.dispatch(saveToTabContainerInternal(s1()));
+        store.dispatch(selectTabContainer(shown));
+        store.dispatch(setIsNotDirty());
+      },
+    }
+  );
+  const el = result.container.firstElementChild;
+  if (!(el instanceof HTMLElement)) throw new Error('no detail pane');
+  el.style.overflowY = 'auto';
+  Object.defineProperty(el, 'clientHeight', {
+    get: () => paneH,
+    configurable: true,
+  });
+  Object.defineProperty(el, 'scrollHeight', {
+    value: contentH,
+    configurable: true,
+  });
+  pane = el;
+  return { ...result, pane: el };
+}
+
+const TAB_T1: CarriedRef = {
+  kind: 'tab',
+  tabGroupId: 'S1',
+  windowId: 'w1',
+  tabId: 't1',
+};
+const TAB_T2: CarriedRef = { ...TAB_T1, tabId: 't2' };
+const GROUP_G1: CarriedRef = {
+  kind: 'group',
+  tabGroupId: 'S1',
+  windowId: 'w1',
+  groupId: 'g1',
+};
+const WINDOW_W1: CarriedRef = {
+  kind: 'window',
+  tabGroupId: 'S1',
+  windowId: 'w1',
+};
+const WINDOW_W2: CarriedRef = { ...WINDOW_W1, windowId: 'w2' };
+
+const cardFor = (carried: CarriedRef): CarryCard =>
+  carried.kind === 'tab'
+    ? { kind: 'tab', title: carried.tabId, faviconUrl: '' }
+    : carried.kind === 'group'
+      ? { kind: 'group', title: 'G', color: '#000', tabCount: 2 }
+      : { kind: 'window', title: carried.windowId, tabCount: 1 };
+
+// As the engine leaves things at the hand-off: the kind published, the hold
+// on, the pointer out to the left of the pane, over the session list.
+function carry(carried: CarriedRef, onCancel?: () => void) {
+  setDragging(true, carried.kind);
+  beginDragHold();
+  act(() => startCarry(carried, cardFor(carried), -40, 100, onCancel));
+}
+
+const moveTo = (y: number, x = X) =>
+  act(() => {
+    fireEvent.pointerMove(document, { clientX: x, clientY: y });
+  });
+const release = (y: number, x = X) =>
+  act(() => {
+    fireEvent.pointerUp(document, { clientX: x, clientY: y });
+  });
+const esc = () =>
+  act(() => {
+    fireEvent.keyDown(window, { key: 'Escape' });
+  });
+
+function find(selector: string): HTMLElement {
+  const el = document.querySelector<HTMLElement>(selector);
+  if (el === null) throw new Error(`nothing matches ${selector}`);
+  return el;
+}
+const row = (id: string) => find(`[data-drag-row-id="${id}"]`);
+const held = () =>
+  document.querySelector<HTMLElement>('[data-drag-held]')?.dataset.dragRowId;
+const target = () =>
+  document.querySelector<HTMLElement>('[data-new-window-target]');
+// Whether anything between the element and the page hides it. Opacity does
+// not inherit in a computed style, so the element's own is not enough: a row
+// at opacity 0 hides its every child while each still computes 1.
+const seen = (el: Element) => {
+  for (let e: Element | null = el; e !== null; e = e.parentElement) {
+    const style = getComputedStyle(e);
+    if (style.opacity === '0' || style.visibility === 'hidden') return false;
+  }
+  return true;
+};
+const slotOf = (phantomId: string) => {
+  const slot = row(phantomId).querySelector('[data-drag-landing-slot]');
+  if (slot === null) throw new Error('no landing slot');
+  return slot;
+};
+const shiftOf = (el: HTMLElement) =>
+  Number(/translateY\((-?[\d.]+)px\)/.exec(el.style.transform)?.[1] ?? 0);
+
+// S2 on screen while a TAB is carried: the New window target first, holding
+// the phantom, then d1 and d2 as drawn.
+//
+//   carry:new-window 0..40  (phantom tab 4..36)
+//   d1 48..224: header 48..80, u1 80..112, band h1 112..208
+//               (title 112..144, u2 144..176, u3 176..208)
+//   d2 232..296: header 232..264, u4 264..296
+const S2_TAB_LAYOUT = (phantom: string): Table => ({
+  [`win:${CARRY_NEW_WINDOW_ID}`]: [0, 40],
+  [`row:tab:carried:${phantom}`]: [4, 32],
+  [`row:carried:${phantom}`]: [4, 32],
+  'win:d1': [48, 176],
+  'row:d1': [48, 176],
+  'row:tab:u1': [80, 32],
+  'row:u1': [80, 32],
+  'row:group:h1': [112, 96],
+  'band:h1': [112, 96],
+  'fixed:h1': [112, 32],
+  'row:u2': [144, 32],
+  'row:u3': [176, 32],
+  'fixed:h1:tail': [208, 0],
+  'win:d2': [232, 64],
+  'row:d2': [232, 64],
+  'row:tab:u4': [264, 32],
+  'row:u4': [264, 32],
+});
+
+// The same while a GROUP is carried: the phantom is the group's item row.
+const S2_GROUP_LAYOUT: Table = {
+  [`win:${CARRY_NEW_WINDOW_ID}`]: [0, 40],
+  'row:group:carried:g1': [4, 32],
+  'win:d1': [48, 176],
+  'row:tab:u1': [80, 32],
+  'row:group:h1': [112, 96],
+  'win:d2': [232, 64],
+  'row:tab:u4': [264, 32],
+};
+
+// S2 while a WINDOW is carried: every window folded to its header, the
+// phantom window first.
+const S2_WINDOW_LAYOUT = (phantom: string): Table => ({
+  [`row:carried:${phantom}`]: [0, 32],
+  [`win:carried:${phantom}`]: [0, 32],
+  'row:d1': [40, 32],
+  'win:d1': [40, 32],
+  'row:d2': [80, 32],
+  'win:d2': [80, 32],
+});
+
+describe('adoption: the pointer comes into the pane with a carry on', () => {
+  test('the phantom is adopted as a started drag, with no press and no second hold', async () => {
+    await renderDetail('S2');
+    carry(TAB_T1);
+    table = S2_TAB_LAYOUT('t1');
+    const begin = vi.spyOn(dragHold, 'beginDragHold');
+
+    // The premise: out of the pane, the layer drives.
+    expect(currentCarry()?.owner).toBe('layer');
+    expect(held()).toBeUndefined();
+
+    moveTo(100);
+
+    expect(held()).toBe('carried:t1');
+    expect(currentCarry()?.owner).toBe('area');
+    expect(document.documentElement.getAttribute('data-dragging')).toBe('tab');
+    expect(isDragHeld()).toBe(true);
+    expect(begin).not.toHaveBeenCalled();
+  });
+
+  test('CONTROL: above the pane, nothing is adopted', async () => {
+    await renderDetail('S2');
+    carry(TAB_T1);
+    table = S2_TAB_LAYOUT('t1');
+
+    moveTo(-20);
+
+    expect(held()).toBeUndefined();
+    expect(currentCarry()?.owner).toBe('layer');
+  });
+
+  test('the phantom is invisible, never hit, and keeps its footprint', async () => {
+    await renderDetail('S2');
+    carry(TAB_T1);
+    table = S2_TAB_LAYOUT('t1');
+
+    // Before the pointer comes in: drawn, invisible.
+    const phantom = row('carried:t1');
+    const content = phantom.lastElementChild;
+    if (!(content instanceof HTMLElement)) throw new Error('no content');
+    expect(seen(content)).toBe(false);
+    // CONTROL: the helper sees an ordinary row.
+    expect(seen(row('u1'))).toBe(true);
+    expect(getComputedStyle(phantom).pointerEvents).toBe('none');
+    // Its content is a stored row's controls: out of the keyboard's reach.
+    expect(phantom.inert).toBe(true);
+    // CONTROL: an ordinary row is none of that.
+    expect(row('u1').inert).not.toBe(true);
+    expect(getComputedStyle(row('u1')).pointerEvents).not.toBe('none');
+
+    // Held over d1's first row: the rows of d1 make room by the phantom's
+    // own 32px, and d2 moves down by the same.
+    moveTo(84);
+    expect(held()).toBe('carried:t1');
+    expect(seen(content)).toBe(false);
+    expect(phantom.style.boxShadow).toBe('');
+    expect(shiftOf(row('u1'))).toBe(32);
+    expect(shiftOf(find('[data-drop-window-id="d2"]'))).toBe(32);
+    // The landing slot is the visible target: not hidden with the row.
+    expect(seen(slotOf('carried:t1'))).toBe(true);
+  });
+
+  test('no carry: nothing is drawn for one, and every row is its ordinary self', async () => {
+    await renderDetail('S2');
+    expect(target()).toBeNull();
+    expect(document.querySelector('[data-carry-phantom]')).toBeNull();
+  });
+});
+
+describe('a carried tab lands at the exact spot', () => {
+  test('in another session, between rows', async () => {
+    const { store } = await renderDetail('S2');
+    const onCancel = vi.fn();
+    carry(TAB_T1, onCancel);
+    table = S2_TAB_LAYOUT('t1');
+
+    moveTo(100);
+    release(100);
+
+    const data = store.getState().tabContainerDataState;
+    expect(tabIds(windowIn(data, 'S2', 'd1'))).toEqual([
+      'u1',
+      't1',
+      'u2',
+      'u3',
+    ]);
+    expect(tabIds(windowIn(data, 'S1', 'w1'))).not.toContain('t1');
+    expect(currentCarry()).toBeNull();
+    expect(isDragHeld()).toBe(false);
+    expect(document.documentElement.hasAttribute('data-dragging')).toBe(false);
+    // Committed: the source's view is not put back, and no Moved toast.
+    runFrames(2);
+    expect(onCancel).not.toHaveBeenCalled();
+    expect(store.getState().globalState.toasts).toEqual([]);
+    expect(data.selectedTabGroupId).toBe('S2');
+  });
+
+  test('inside a band, it joins that group', async () => {
+    const { store } = await renderDetail('S2');
+    carry(TAB_T1);
+    table = S2_TAB_LAYOUT('t1');
+
+    moveTo(150);
+    // The band answers in its colour while the pointer is in it.
+    expect(find('[data-band-id="h1"]').hasAttribute('data-drop-target')).toBe(
+      true
+    );
+    release(150);
+
+    const d1 = windowIn(store.getState().tabContainerDataState, 'S2', 'd1');
+    expect(d1.tabs.map((t) => [t.tabId, t.chromeGroupId])).toEqual([
+      ['u1', undefined],
+      ['t1', 'h1'],
+      ['u2', 'h1'],
+      ['u3', 'h1'],
+    ]);
+  });
+
+  test('in its own session: exactly what tabDrop does from its own window', async () => {
+    const { store } = await renderDetail('S1');
+    carry(TAB_T2);
+    // S1 as drawn with t2 carried: the target, then w1 without t2, then w2.
+    table = {
+      [`win:${CARRY_NEW_WINDOW_ID}`]: [0, 40],
+      'row:tab:carried:t2': [4, 32],
+      'row:carried:t2': [4, 32],
+      'win:w1': [48, 228],
+      'win:w2': [284, 64],
+      'row:t3': [316, 32],
+      'row:tab:t3': [316, 32],
+    };
+
+    moveTo(320);
+    release(320);
+
+    // What today's builder gives from the same start, in a store of its own.
+    const control = await renderWithProviders(<></>, {
+      seedStore: (s) => {
+        s.dispatch(setHasTabGroupsPermission(true));
+        s.dispatch(saveToTabContainerInternal(s3()));
+        s.dispatch(saveToTabContainerInternal(s2()));
+        s.dispatch(saveToTabContainerInternal(s1()));
+        s.dispatch(selectTabContainer('S1'));
+        s.dispatch(setIsNotDirty());
+      },
+    });
+    control.store.dispatch(
+      dropOnTop(
+        tabDrop({
+          tabGroupId: 'S1',
+          tabId: 't2',
+          fromWindowId: 'w1',
+          toWindowId: 'w2',
+          toIndex: 0,
+        })
+      )
+    );
+    const got = store.getState().tabContainerDataState;
+    expect(got.tabGroups).toEqual(
+      control.store.getState().tabContainerDataState.tabGroups
+    );
+    // The premise: it did move.
+    expect(tabIds(windowIn(got, 'S1', 'w2'))).toEqual(['t2', 't3']);
+  });
+
+  test('on the New window target: it lights up, and the tab becomes a new first window', async () => {
+    const { store } = await renderDetail('S2');
+    carry(TAB_T1);
+    table = S2_TAB_LAYOUT('t1');
+
+    moveTo(100);
+    expect(target()?.hasAttribute('data-landing')).toBe(false);
+    expect(seen(slotOf('carried:t1'))).toBe(true);
+    // In the box's lower part, 18px off the phantom's middle: far enough
+    // that the slot would not fade itself out there.
+    moveTo(38);
+    expect(target()?.hasAttribute('data-landing')).toBe(true);
+    // The lit box says where it lands; a dashed slot in it would say it twice.
+    expect(seen(slotOf('carried:t1'))).toBe(false);
+    // Off it again, it goes dark: changes only, both ways.
+    moveTo(100);
+    expect(target()?.hasAttribute('data-landing')).toBe(false);
+    expect(seen(slotOf('carried:t1'))).toBe(true);
+    moveTo(20);
+    release(20);
+
+    const s = sessionIn(store.getState().tabContainerDataState, 'S2');
+    expect(s.windows.map((w) => tabIds(w))).toEqual([
+      ['t1'],
+      ['u1', 'u2', 'u3'],
+      ['u4'],
+    ]);
+    expect(currentCarry()).toBeNull();
+    expect(target()).toBeNull();
+  });
+});
+
+describe('a carried group lands at the exact spot', () => {
+  test('beside a band, never inside it, even with the pointer in the band', async () => {
+    const { store } = await renderDetail('S2');
+    carry(GROUP_G1);
+    table = S2_GROUP_LAYOUT;
+
+    moveTo(150);
+    release(150);
+
+    const d1 = windowIn(store.getState().tabContainerDataState, 'S2', 'd1');
+    expect(d1.tabs.map((t) => [t.tabId, t.chromeGroupId])).toEqual([
+      ['u1', undefined],
+      ['g1a', 'g1'],
+      ['g1b', 'g1'],
+      ['u2', 'h1'],
+      ['u3', 'h1'],
+    ]);
+  });
+
+  test('in another window of another session', async () => {
+    const { store } = await renderDetail('S2');
+    carry(GROUP_G1);
+    table = S2_GROUP_LAYOUT;
+
+    moveTo(290);
+    release(290);
+
+    expect(
+      tabIds(windowIn(store.getState().tabContainerDataState, 'S2', 'd2'))
+    ).toEqual(['u4', 'g1a', 'g1b']);
+  });
+
+  test('in its own session: exactly what groupDrop does from its own window', async () => {
+    const { store } = await renderDetail('S1');
+    carry(GROUP_G1);
+    table = {
+      [`win:${CARRY_NEW_WINDOW_ID}`]: [0, 40],
+      'row:group:carried:g1': [4, 32],
+      'win:w1': [48, 164],
+      'win:w2': [220, 64],
+      'row:tab:t3': [252, 32],
+    };
+
+    moveTo(254);
+    release(254);
+
+    const control = await renderWithProviders(<></>, {
+      seedStore: (s) => {
+        s.dispatch(setHasTabGroupsPermission(true));
+        s.dispatch(saveToTabContainerInternal(s3()));
+        s.dispatch(saveToTabContainerInternal(s2()));
+        s.dispatch(saveToTabContainerInternal(s1()));
+        s.dispatch(selectTabContainer('S1'));
+        s.dispatch(setIsNotDirty());
+      },
+    });
+    control.store.dispatch(
+      dropOnTop(
+        groupDrop({
+          tabGroupId: 'S1',
+          groupId: 'g1',
+          fromWindowId: 'w1',
+          toWindowId: 'w2',
+          toIndex: 0,
+        })
+      )
+    );
+    const got = store.getState().tabContainerDataState;
+    expect(got.tabGroups).toEqual(
+      control.store.getState().tabContainerDataState.tabGroups
+    );
+    expect(tabIds(windowIn(got, 'S1', 'w2'))).toEqual(['g1a', 'g1b', 't3']);
+  });
+
+  test('on the New window target: a new first window, with its entry', async () => {
+    const { store } = await renderDetail('S2');
+    carry(GROUP_G1);
+    table = S2_GROUP_LAYOUT;
+
+    moveTo(100);
+    moveTo(20);
+    expect(target()?.hasAttribute('data-landing')).toBe(true);
+    release(20);
+
+    const first = sessionIn(store.getState().tabContainerDataState, 'S2')
+      .windows[0];
+    expect(tabIds(first)).toEqual(['g1a', 'g1b']);
+    expect(first.chromeTabGroups?.map((g) => g.groupId)).toEqual(['g1']);
+  });
+});
+
+describe('a carried window lands between windows', () => {
+  test('in another session', async () => {
+    const { store } = await renderDetail('S2');
+    carry(WINDOW_W2);
+    table = S2_WINDOW_LAYOUT('w2');
+
+    moveTo(76);
+    expect(held()).toBe('carried:w2');
+    release(76);
+
+    expect(
+      windowIds(sessionIn(store.getState().tabContainerDataState, 'S2'))
+    ).toEqual(['d1', 'w2', 'd2']);
+    expect(currentCarry()).toBeNull();
+  });
+
+  test('in its own session: exactly what windowDrop does', async () => {
+    const { store } = await renderDetail('S1');
+    carry(WINDOW_W1);
+    table = {
+      'row:carried:w1': [0, 32],
+      'win:carried:w1': [0, 32],
+      'row:w2': [40, 32],
+      'win:w2': [40, 32],
+    };
+
+    moveTo(70);
+    release(70);
+
+    const control = await renderWithProviders(<></>, {
+      seedStore: (s) => {
+        s.dispatch(saveToTabContainerInternal(s3()));
+        s.dispatch(saveToTabContainerInternal(s2()));
+        s.dispatch(saveToTabContainerInternal(s1()));
+        s.dispatch(selectTabContainer('S1'));
+        s.dispatch(setIsNotDirty());
+      },
+    });
+    control.store.dispatch(dropOnTop(windowDrop('S1', 'w1', 1)));
+    const got = store.getState().tabContainerDataState;
+    expect(got.tabGroups).toEqual(
+      control.store.getState().tabContainerDataState.tabGroups
+    );
+    expect(windowIds(sessionIn(got, 'S1'))).toEqual(['w2', 'w1']);
+  });
+
+  test('no New window target is drawn for a window', async () => {
+    await renderDetail('S2');
+    carry(WINDOW_W2);
+    expect(target()).toBeNull();
+    expect(row('carried:w2')).not.toBeNull();
+  });
+});
+
+describe('an adopted drag that ends with no commit cancels the whole carry', () => {
+  test('Esc: nothing moves, the opened session stays on screen, the source view is put back', async () => {
+    const { store } = await renderDetail('S2');
+    const before = store.getState().tabContainerDataState;
+    const onCancel = vi.fn();
+    carry(TAB_T1, onCancel);
+    table = S2_TAB_LAYOUT('t1');
+
+    moveTo(100);
+    esc();
+
+    expect(currentCarry()).toBeNull();
+    expect(held()).toBeUndefined();
+    expect(isDragHeld()).toBe(false);
+    expect(store.getState().tabContainerDataState).toBe(before);
+    expect(store.getState().tabContainerDataState.selectedTabGroupId).toBe(
+      'S2'
+    );
+    expect(onCancel).not.toHaveBeenCalled();
+    runFrames(1);
+    expect(onCancel).toHaveBeenCalledTimes(1);
+    // A later release commits nothing.
+    release(100);
+    expect(store.getState().tabContainerDataState).toBe(before);
+  });
+
+  test('a release the engine refuses', async () => {
+    const { store } = await renderDetail('S2');
+    const before = store.getState().tabContainerDataState;
+    const onCancel = vi.fn();
+    carry(TAB_T1, onCancel);
+    table = S2_TAB_LAYOUT('t1');
+
+    moveTo(100);
+    // Inside the pane, far below every window.
+    moveTo(480);
+    release(480);
+
+    expect(currentCarry()).toBeNull();
+    expect(store.getState().tabContainerDataState).toBe(before);
+    runFrames(1);
+    expect(onCancel).toHaveBeenCalledTimes(1);
+  });
+
+  test('pointercancel', async () => {
+    const { store } = await renderDetail('S2');
+    const before = store.getState().tabContainerDataState;
+    carry(TAB_T1);
+    table = S2_TAB_LAYOUT('t1');
+
+    moveTo(100);
+    act(() => {
+      fireEvent.pointerCancel(document);
+    });
+
+    expect(currentCarry()).toBeNull();
+    expect(isDragHeld()).toBe(false);
+    expect(store.getState().tabContainerDataState).toBe(before);
+  });
+
+  test('a drop back where it came from moves nothing, and cancels', async () => {
+    const { store } = await renderDetail('S1');
+    const before = store.getState().tabContainerDataState;
+    const onCancel = vi.fn();
+    carry(WINDOW_W1, onCancel);
+    table = {
+      'row:carried:w1': [0, 32],
+      'win:carried:w1': [0, 32],
+      'row:w2': [40, 32],
+      'win:w2': [40, 32],
+    };
+
+    moveTo(20);
+    release(20);
+
+    expect(store.getState().tabContainerDataState.tabGroups).toEqual(
+      before.tabGroups
+    );
+    runFrames(1);
+    expect(onCancel).toHaveBeenCalledTimes(1);
+  });
+
+  test('the carried item taken away mid-drag (⌘Z, a delete) ends the adopted drag too', async () => {
+    const { store } = await renderDetail('S2');
+    carry(TAB_T1);
+    table = S2_TAB_LAYOUT('t1');
+    moveTo(100);
+    expect(held()).toBe('carried:t1');
+
+    act(() => {
+      store.dispatch(
+        deleteTab({ tabGroupId: 'S1', windowId: 'w1', tabId: 't1' })
+      );
+    });
+    const after = store.getState().tabContainerDataState;
+
+    expect(currentCarry()).toBeNull();
+    expect(held()).toBeUndefined();
+    // No drag goes on without its carry: a move previews nothing -- no row
+    // makes room, no window moves -- and a release commits nothing.
+    moveTo(84);
+    expect(shiftOf(row('u1'))).toBe(0);
+    expect(
+      document
+        .querySelector('[data-drop-window-id="d2"]')
+        ?.hasAttribute('data-window-shift')
+    ).toBe(false);
+    release(100);
+    expect(store.getState().tabContainerDataState).toBe(after);
+  });
+});
+
+describe('the rest of an adopted drag', () => {
+  test('the click that follows its release is swallowed, and only that one', async () => {
+    await renderDetail('S2');
+    carry(TAB_T1);
+    table = S2_TAB_LAYOUT('t1');
+    moveTo(100);
+    release(100);
+
+    // The row itself, not a control in it, so the click the suppressor lets
+    // through runs no app handler.
+    const clicked = vi.fn();
+    const u1 = row('u1');
+    u1.addEventListener('click', clicked);
+    fireEvent.click(u1);
+    expect(clicked).not.toHaveBeenCalled();
+    fireEvent.pointerDown(u1, { button: 0 });
+    fireEvent.click(u1);
+    expect(clicked).toHaveBeenCalledTimes(1);
+  });
+
+  test('the detail unmounting mid-drag ends the whole carry', async () => {
+    const { unmount } = await renderDetail('S2');
+    carry(TAB_T1);
+    table = S2_TAB_LAYOUT('t1');
+    moveTo(100);
+    expect(held()).toBe('carried:t1');
+
+    act(() => unmount());
+
+    expect(currentCarry()).toBeNull();
+    expect(isDragHeld()).toBe(false);
+    expect(document.documentElement.hasAttribute('data-dragging')).toBe(false);
+  });
+});
+
+describe('what an adoption leaves alone', () => {
+  // The CarryLayer ends a carry when the search opens, so in the app this is
+  // belt and braces: rendered here WITHOUT the layer, the list alone decides.
+  test('a list that has turned drag off (the search panel) adopts nothing', async () => {
+    const { store, container } = await renderWithProviders(
+      <TabGroupDetailsContainer />,
+      {
+        seedStore: (s) => {
+          s.dispatch(setHasTabGroupsPermission(true));
+          s.dispatch(saveToTabContainerInternal(s2()));
+          s.dispatch(saveToTabContainerInternal(s1()));
+          s.dispatch(selectTabContainer('S2'));
+          s.dispatch(setIsNotDirty());
+        },
+      }
+    );
+    const root = container.firstElementChild;
+    if (!(root instanceof HTMLElement)) throw new Error('no detail pane');
+    root.style.overflowY = 'auto';
+    pane = root;
+    carry(TAB_T1);
+    table = S2_TAB_LAYOUT('t1');
+    act(() => {
+      store.dispatch(openSearchPanel());
+    });
+    // The premise: the phantom is still drawn, so only the list's own rule
+    // stands between it and an adoption.
+    expect(row('carried:t1')).not.toBeNull();
+
+    moveTo(100);
+
+    expect(held()).toBeUndefined();
+    expect(currentCarry()?.owner).toBe('layer');
+  });
+
+  test('Esc after the opened session auto-scrolled leaves its scroll where the drag left it', async () => {
+    paneH = 150;
+    const { pane: p } = await renderDetail('S2', 400);
+    carry(WINDOW_W2);
+    table = S2_WINDOW_LAYOUT('w2');
+
+    moveTo(60);
+    expect(held()).toBe('carried:w2');
+    moveTo(146);
+    runFrames(10);
+    const scrolled = p.scrollTop;
+    // The premise: the drag scrolled the opened session.
+    expect(scrolled).toBeGreaterThan(0);
+    esc();
+
+    expect(currentCarry()).toBeNull();
+    expect(p.scrollTop).toBe(scrolled);
+  });
+});
+
+describe('out of the pane and back in', () => {
+  test('leaving sideways hands the same carry back to the layer', async () => {
+    await renderDetail('S2');
+    const onCancel = vi.fn();
+    carry(TAB_T1, onCancel);
+    table = S2_TAB_LAYOUT('t1');
+    const before = currentCarry();
+
+    moveTo(100);
+    moveTo(100, -30);
+
+    expect(held()).toBeUndefined();
+    expect(currentCarry()?.owner).toBe('layer');
+    expect(currentCarry()?.carried).toBe(before?.carried);
+    expect(currentCarry()?.card).toBe(before?.card);
+    expect(isDragHeld()).toBe(true);
+    expect(document.documentElement.getAttribute('data-dragging')).toBe('tab');
+  });
+
+  test('leaving from the lit New window target puts it out', async () => {
+    await renderDetail('S2');
+    carry(TAB_T1);
+    table = S2_TAB_LAYOUT('t1');
+
+    moveTo(38);
+    expect(target()?.hasAttribute('data-landing')).toBe(true);
+    moveTo(38, -30);
+
+    expect(currentCarry()?.owner).toBe('layer');
+    expect(target()?.hasAttribute('data-landing')).toBe(false);
+  });
+
+  test('adopt, leave, then cancel: the source’s view is still put back', async () => {
+    await renderDetail('S2');
+    const onCancel = vi.fn();
+    carry(TAB_T1, onCancel);
+    table = S2_TAB_LAYOUT('t1');
+
+    moveTo(100);
+    moveTo(100, -30);
+    // The layer's Esc now.
+    esc();
+    runFrames(1);
+
+    expect(currentCarry()).toBeNull();
+    expect(onCancel).toHaveBeenCalledTimes(1);
+  });
+
+  // The ruling: a hand-back keeps the carry it came from, so the SOURCE's
+  // KAN-157 scroll is still put back by a cancel after it. Played for real: a
+  // window pressed in a scrolled S1 and carried out, the fold's clamp, back
+  // in (adopted), out again, and Esc.
+  test('a real window carry: out, in, out, Esc -- the source’s scroll comes back', async () => {
+    paneH = 200;
+    const { pane: p } = await renderDetail('S1', 1000);
+    p.scrollTop = 300;
+    table = {
+      'row:w1': [300, 32],
+      'win:w1': [300, 32],
+      'row:w2': [340, 32],
+      'win:w2': [340, 32],
+    };
+    const handle = row('w2').querySelector('[data-window-drag-handle]');
+    if (!(handle instanceof HTMLElement)) throw new Error('no window handle');
+    fireEvent.pointerDown(handle, { clientX: 20, clientY: 50, button: 0 });
+    fireEvent.pointerMove(document, { clientX: 20, clientY: 70 });
+    moveTo(70, -40);
+    // The premise: carried out of S1, and the fold clamped the scroll.
+    expect(currentCarry()?.carried).toEqual(WINDOW_W2);
+    p.scrollTop = 0;
+
+    table = {
+      'row:carried:w2': [0, 32],
+      'win:carried:w2': [0, 32],
+      'row:w1': [40, 32],
+      'win:w1': [40, 32],
+    };
+    moveTo(60);
+    expect(held()).toBe('carried:w2');
+    moveTo(60, -30);
+    expect(currentCarry()?.owner).toBe('layer');
+    esc();
+    runFrames(1);
+
+    expect(currentCarry()).toBeNull();
+    expect(p.scrollTop).toBe(300);
+  });
+
+  test('back in, it is adopted again, measured afresh', async () => {
+    const { store } = await renderDetail('S2');
+    carry(TAB_T1);
+    table = S2_TAB_LAYOUT('t1');
+
+    moveTo(100);
+    moveTo(100, -30);
+    // While it was out, d1's rows moved: u1 now sits 100px lower.
+    table = {
+      ...S2_TAB_LAYOUT('t1'),
+      'win:d1': [48, 276],
+      'row:tab:u1': [180, 32],
+      'row:u1': [180, 32],
+      'row:group:h1': [212, 96],
+      'band:h1': [212, 96],
+      'row:u2': [244, 32],
+      'row:u3': [276, 32],
+      'win:d2': [332, 64],
+    };
+    moveTo(100);
+    expect(held()).toBe('carried:t1');
+    // Past u1's OLD midpoint (96) but above its new one (196): index 0 in
+    // the new layout, where the old one says 1.
+    release(150);
+
+    expect(
+      tabIds(windowIn(store.getState().tabContainerDataState, 'S2', 'd1'))
+    ).toEqual(['t1', 'u1', 'u2', 'u3']);
+  });
+});
+
+describe('a long opened session', () => {
+  test('auto-scrolls while adopted, and the drop lands below the fold', async () => {
+    paneH = 150;
+    const { store, pane: p } = await renderDetail('S2', 300);
+    carry(TAB_T1);
+    table = S2_TAB_LAYOUT('t1');
+
+    moveTo(100);
+    // Deep in the bottom edge zone.
+    moveTo(146);
+    runFrames(20);
+    expect(p.scrollTop).toBeGreaterThan(100);
+
+    // The scroll limit: d2's u4 is now on screen. Let go in its lower half.
+    const y = 290 - p.scrollTop;
+    moveTo(y);
+    release(y);
+
+    expect(
+      tabIds(windowIn(store.getState().tabContainerDataState, 'S2', 'd2'))
+    ).toEqual(['u4', 't1']);
+  });
+});
+
+describe('the New window target (S3 A)', () => {
+  test('drawn at the top while a tab is carried: dashed, its icon, “New window”', async () => {
+    await renderDetail('S2');
+    carry(TAB_T1);
+
+    const el = target();
+    if (el === null) throw new Error('no New window target');
+    expect(
+      el.closest('[data-drop-window-id]')?.getAttribute('data-drop-window-id')
+    ).toBe(CARRY_NEW_WINDOW_ID);
+    expect(el.textContent).toContain('New window');
+    expect(el.textContent).toContain('add_box');
+    const style = getComputedStyle(el);
+    expect(style.borderTopStyle).toBe('dashed');
+    expect(style.backgroundColor).not.toMatch(/rgb\(228, ?231, ?235\)/);
+    // First in the session.
+    const first = document.querySelector('[data-drop-window-id]');
+    expect(first?.getAttribute('data-drop-window-id')).toBe(
+      CARRY_NEW_WINDOW_ID
+    );
+  });
+
+  test('in the source session too (Q2 A)', async () => {
+    await renderDetail('S1');
+    carry(TAB_T2);
+    expect(target()).not.toBeNull();
+  });
+
+  test('while the landing is in it: the hover fill and a solid border', async () => {
+    await renderDetail('S2');
+    carry(TAB_T1);
+    table = S2_TAB_LAYOUT('t1');
+
+    moveTo(20);
+
+    const el = target();
+    if (el === null) throw new Error('no New window target');
+    const style = getComputedStyle(el);
+    expect(style.borderTopStyle).toBe('solid');
+    expect(LIGHT_THEME.HOVER_COLOR).toBe('#E4E7EB');
+    expect(style.backgroundColor).toMatch(/(#E4E7EB|rgb\(228, ?231, ?235\))/i);
+  });
+
+  test('a session that already draws one of the carried ids offers no exact spot', async () => {
+    const { store } = await renderWithProviders(
+      <>
+        <TabGroupDetailsContainer />
+        <CarryLayer />
+      </>,
+      {
+        seedStore: (s) => {
+          s.dispatch(setHasTabGroupsPermission(true));
+          s.dispatch(
+            saveToTabContainerInternal(
+              session('S9', 'Clash', T0, [win('z1', [tab('t1')])])
+            )
+          );
+          s.dispatch(saveToTabContainerInternal(s1()));
+          s.dispatch(selectTabContainer('S9'));
+          s.dispatch(setIsNotDirty());
+        },
+      }
+    );
+    // The premise: S9 is drawn, and it holds a tab with t1's id.
+    expect(document.querySelector('[data-drop-window-id="z1"]')).not.toBeNull();
+    carry(TAB_T1);
+
+    expect(target()).toBeNull();
+    expect(document.querySelector('[data-carry-phantom]')).toBeNull();
+    moveTo(20);
+    expect(currentCarry()?.owner).toBe('layer');
+    expect(store.getState().tabContainerDataState.selectedTabGroupId).toBe(
+      'S9'
+    );
+  });
+});
