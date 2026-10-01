@@ -1,10 +1,11 @@
-import { afterEach, describe, expect, test } from 'vitest';
+import { afterEach, describe, expect, test, vi } from 'vitest';
 import { act, fireEvent } from '@testing-library/react';
 
 import { CarryLayer } from '../../components/home/CarryLayer';
 import {
   currentCarry,
   endCarry,
+  registerCarryReceiver,
   startCarry,
   type CarryCard,
 } from '../../redux/carry';
@@ -14,7 +15,8 @@ import {
   moveDragCard,
   showDragCard,
 } from '../../redux/dragCard';
-import { endDragHold } from '../../redux/dragHold';
+import { beginDragHold, endDragHold, isDragHeld } from '../../redux/dragHold';
+import { setDragging } from '../../components/home/rightpane/rowDrag/dropRules';
 import { saveToTabContainerInternal } from '../../redux/slices/tabContainerDataStateSlice';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { s1 } from '../fixtures/sessionMoveFixture';
@@ -121,20 +123,41 @@ describe('the drag card', () => {
     expect(el?.hasAttribute('data-drag-card')).toBe(false);
     expect(dragCard()).toBeNull();
     expect(el?.style.transform).toBe('translate(128px, 64px)');
+    // takeRecords, not the callback: the callback runs after this test body.
+    removed.push(
+      ...observer.takeRecords().flatMap((r) => Array.from(r.removedNodes))
+    );
     observer.disconnect();
     expect(removed).not.toContain(el);
   });
 
-  test('CONTROL: a release or Esc does nothing to a drag card; only its owner hides it', async () => {
+  test('CONTROL: a release, Esc or cancel drives nothing for a drag card; only its owner hides it', async () => {
     await renderWithProviders(<CarryLayer />);
+    // What a carry's end would undo, and what a carry's routing would call.
+    setDragging(true, 'tab');
+    beginDragHold();
+    const receiver = {
+      hit: vi.fn(() => true),
+      hover: vi.fn(),
+      leave: vi.fn(),
+      take: vi.fn(() => true),
+    };
+    const unregister = registerCarryReceiver(receiver);
     act(() => showDragCard(OWNER, TAB_CARD, 100, 50));
+
     fireEvent.pointerMove(window, { clientX: 300, clientY: 300 });
     fireEvent.pointerUp(window, { clientX: 300, clientY: 300 });
     fireEvent.pointerCancel(window);
     fireEvent.keyDown(window, { key: 'Escape' });
+    unregister();
 
-    // The layer's listeners belong to a carry alone: nothing moved the card,
-    // and nothing hid it.
+    expect(receiver.hit).not.toHaveBeenCalled();
+    expect(receiver.hover).not.toHaveBeenCalled();
+    expect(receiver.take).not.toHaveBeenCalled();
+    // endCarry would have unpublished the kind and ended the hold.
+    expect(isDragHeld()).toBe(true);
+    expect(document.documentElement.hasAttribute('data-dragging')).toBe(true);
+    // Nothing moved the card, and nothing hid it.
     expect(dragCard()?.style.transform).toBe('translate(108px, 54px)');
 
     act(() => hideDragCard(OWNER));
