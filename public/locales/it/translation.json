@@ -220,6 +220,9 @@
   "Close Open now": "Chiudi il pannello \"Schede aperte\"",
   "Resize Open now": "Ridimensiona il pannello \"Schede aperte\"",
   "Reopen": "Riapri",
+  "Show": "Mostra",
+  "MovedToSession": "Elemento spostato in «{{title}}»",
+  "SessionEmptiedRemoved": "La sessione «{{title}}» era vuota ed è stata rimossa.",
   "Ctrl": "Ctrl",
   "Tab closed": "Scheda chiusa",
   "Couldn't reopen.": "Impossibile riaprire.",
@@ -238,5 +241,9 @@
   "NoOpenTabMatches": "Nessuna scheda aperta corrisponde a \"{{text}}\"",
   "TabCountShownOfTotal_one": "{{shown}} di {{count}} Tab",
   "TabCountShownOfTotal_many": "{{shown}} di {{count}} Tab",
-  "TabCountShownOfTotal_other": "{{shown}} di {{count}} Tab"
+  "TabCountShownOfTotal_other": "{{shown}} di {{count}} Tab",
+  "CarryCardNameAndCount_one": "{{name}} · {{count}} Tab",
+  "CarryCardNameAndCount_many": "{{name}} · {{count}} Tab",
+  "CarryCardNameAndCount_other": "{{name}} · {{count}} Tab",
+  "CarryNewWindowTarget": "Nuova finestra"
 }

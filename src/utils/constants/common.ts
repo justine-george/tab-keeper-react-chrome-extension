@@ -143,6 +143,17 @@ export const TOAST_MESSAGES = {
   TAB_CLOSED: 'Tab closed',
   // KAN-280 rule 10: Chrome refused every tab Reopen tried to bring back.
   REOPEN_FAILED: "Couldn't reopen.",
+  // KAN-350. After a drag moves a tab, group or window into another saved
+  // session, with that session's title as {{title}}; the Show chip beside it
+  // puts the session on screen. Opaque keys, like IMPORT_ERROR_FRAME: both
+  // interpolate, and every locale places the title and its quotation marks
+  // its own way. Unlike that frame they live here because they are toasts a
+  // thunk sends, and toastCoverage checks what lives here. Never send one
+  // without its {{title}}.
+  MOVED_TO_SESSION: 'MovedToSession',
+  // KAN-350 S4 B. The same move emptied its source session, which is then
+  // removed, with the source's title as {{title}}.
+  SESSION_EMPTIED_REMOVED: 'SessionEmptiedRemoved',
 };
 
 // The frame an import failure is reported in, with the reason as {{detail}}

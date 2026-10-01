@@ -1,0 +1,175 @@
+import { afterEach, describe, expect, test, vi } from 'vitest';
+
+import {
+  carryReceiverAt,
+  currentCarry,
+  endCarry,
+  moveCarry,
+  registerCarryReceiver,
+  setCarryOwner,
+  startCarry,
+  subscribeCarry,
+  type CarryCard,
+  type CarryReceiver,
+} from '../../redux/carry';
+import type { CarriedRef } from '../../redux/slices/tabContainerDataStateSlice';
+import {
+  beginDragHold,
+  endDragHold,
+  isDragHeld,
+  whenDragReleases,
+} from '../../redux/dragHold';
+import { setDragging } from '../../components/home/rightpane/rowDrag/dropRules';
+
+// KAN-350. The carry channel: module state that outlives every drag area. A
+// .tsx file only so it runs under jsdom -- endCarry unpublishes the drag kind
+// on the document element.
+
+const CARRIED: CarriedRef = {
+  kind: 'tab',
+  tabGroupId: 'S1',
+  windowId: 'w1',
+  tabId: 't1',
+};
+const CARD: CarryCard = { kind: 'tab', title: 't1', faviconUrl: '' };
+
+afterEach(() => {
+  endCarry('cancelled');
+  endDragHold();
+  document.documentElement.removeAttribute('data-dragging');
+});
+
+describe('the carry channel', () => {
+  test('startCarry carries, driven by the layer, and tells subscribers', () => {
+    const heard = vi.fn();
+    const unsubscribe = subscribeCarry(heard);
+
+    startCarry(CARRIED, CARD, 40, 50);
+
+    expect(currentCarry()).toEqual({
+      carried: CARRIED,
+      card: CARD,
+      x: 40,
+      y: 50,
+      owner: 'layer',
+    });
+    expect(heard).toHaveBeenCalledTimes(1);
+    unsubscribe();
+  });
+
+  test('moveCarry moves the pointer and keeps what is carried, identity and all', () => {
+    startCarry(CARRIED, CARD, 40, 50);
+    const heard = vi.fn();
+    const unsubscribe = subscribeCarry(heard);
+
+    moveCarry(60, 70);
+
+    expect(currentCarry()?.x).toBe(60);
+    expect(currentCarry()?.y).toBe(70);
+    expect(currentCarry()?.carried).toBe(CARRIED);
+    expect(heard).toHaveBeenCalledTimes(1);
+    unsubscribe();
+  });
+
+  test('with nothing carried, moveCarry and setCarryOwner start nothing', () => {
+    const heard = vi.fn();
+    const unsubscribe = subscribeCarry(heard);
+
+    moveCarry(60, 70);
+    setCarryOwner('area');
+
+    expect(currentCarry()).toBeNull();
+    expect(heard).not.toHaveBeenCalled();
+    unsubscribe();
+  });
+
+  test('setCarryOwner hands the carry to an area and back', () => {
+    startCarry(CARRIED, CARD, 40, 50);
+
+    setCarryOwner('area');
+    expect(currentCarry()?.owner).toBe('area');
+    setCarryOwner('layer');
+    expect(currentCarry()?.owner).toBe('layer');
+  });
+
+  test('endCarry unpublishes the drag kind, applies the held change, then tells subscribers', () => {
+    // As the engine leaves it at the hand-off: held, kind published.
+    setDragging(true, 'tab');
+    beginDragHold();
+    startCarry(CARRIED, CARD, 40, 50);
+    const order: string[] = [];
+    whenDragReleases(() => order.push('held change'));
+    const unsubscribe = subscribeCarry(() =>
+      order.push(
+        `told: carry ${currentCarry() === null ? 'off' : 'on'}, kind ${
+          document.documentElement.getAttribute('data-dragging') ?? 'none'
+        }`
+      )
+    );
+    // The premise: nothing has run yet.
+    expect(order).toEqual([]);
+
+    endCarry('cancelled');
+
+    expect(currentCarry()).toBeNull();
+    expect(isDragHeld()).toBe(false);
+    expect(document.documentElement.hasAttribute('data-dragging')).toBe(false);
+    expect(order).toEqual(['held change', 'told: carry off, kind none']);
+    unsubscribe();
+  });
+
+  // The worst path: endCarry is called by several parties (a release, Esc, a
+  // removed item), and the hold and kind are document-wide. With nothing
+  // carried it must not end a drag an area is running.
+  test('endCarry with nothing carried leaves an area’s drag alone', () => {
+    setDragging(true, 'window');
+    beginDragHold();
+    const held = vi.fn();
+    whenDragReleases(held);
+    const heard = vi.fn();
+    const unsubscribe = subscribeCarry(heard);
+
+    endCarry('cancelled');
+
+    expect(isDragHeld()).toBe(true);
+    expect(held).not.toHaveBeenCalled();
+    expect(document.documentElement.getAttribute('data-dragging')).toBe(
+      'window'
+    );
+    expect(heard).not.toHaveBeenCalled();
+    unsubscribe();
+  });
+});
+
+describe('carry receivers (Ruling 2)', () => {
+  const receiver = (hits: boolean): CarryReceiver => ({
+    hit: () => hits,
+    hover: () => {},
+    leave: () => {},
+    take: () => false,
+  });
+
+  test('the first receiver hit, in registration order, owns the point', () => {
+    const missed = receiver(false);
+    const first = receiver(true);
+    const second = receiver(true);
+    const offs = [missed, first, second].map(registerCarryReceiver);
+
+    expect(carryReceiverAt(0, 0)).toBe(first);
+
+    offs.forEach((off) => off());
+  });
+
+  test('none hit is none', () => {
+    const off = registerCarryReceiver(receiver(false));
+    expect(carryReceiverAt(0, 0)).toBeNull();
+    off();
+  });
+
+  test('an unregistered receiver is never asked again', () => {
+    const r = receiver(true);
+    const off = registerCarryReceiver(r);
+    off();
+    expect(carryReceiverAt(0, 0)).toBeNull();
+  });
+});

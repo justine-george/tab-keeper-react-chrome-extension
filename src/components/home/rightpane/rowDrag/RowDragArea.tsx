@@ -22,6 +22,7 @@
 // inset shadow for hover, and its own transform stays free. Never move a row
 // state onto this node's transform, or the reorder motion and that state will
 // fight over one channel.
+import { css } from '@emotion/react';
 import React, {
   useCallback,
   useContext,
@@ -65,12 +66,19 @@ import {
 } from '../../../../utils/functions/dragPreview';
 import { DURATION } from '../../../../styles/scale';
 import { beginDragHold, endDragHold } from '../../../../redux/dragHold';
+import {
+  carryEndedAs,
+  currentCarry,
+  endCarry,
+  measureCarryReceivers,
+  setCarryOwner,
+  startCarry,
+  subscribeCarry,
+  type CarryReceiver,
+} from '../../../../redux/carry';
+import { createClickSuppressor } from './clickSuppressor';
+import { edgeScrollStep } from './edgeScroll';
 
-// How close to an edge the pointer must be for the list to start travelling,
-// and how fast it goes at its deepest. 48px is roughly a row and a half here,
-// which is wide enough to hit without aiming and narrow enough that ordinary
-// dragging near the ends does not trigger it.
-const EDGE_ZONE_PX = 48;
 // How strongly the landing slot draws when it is clear of the held row.
 //
 // 1, not 0.3 (KAN-234). The 0.3 was doing two jobs: keeping the slot quieter
@@ -80,7 +88,11 @@ const EDGE_ZONE_PX = 48;
 // every page and no louder. The fade by distance below is what keeps the slot
 // from reading as an outline around the held row, and it is unchanged.
 const SLOT_OPACITY = 1;
-const MAX_SCROLL_PX_PER_FRAME = 14;
+
+// The landing slot's corners (4px on main), and the resting slot's that
+// stands in for it before a carried window is adopted (KAN-350 V3 A): ONE
+// value, so the slot that takes over on entry cannot change shape.
+const SLOT_RADIUS = '4px';
 
 // The nearest ancestor that actually scrolls.
 //
@@ -260,6 +272,137 @@ function summed(
   return out;
 }
 
+// Everything a live drag needs. One record per drag, made at the press or at
+// an adoption (KAN-350), and dropped when the drag ends: nothing in it
+// outlives the drag it describes.
+interface LiveDrag {
+  rowId: string;
+  startX: number;
+  startY: number;
+  started: boolean;
+  rects: Rect[];
+  fromIndex: number;
+  // The held row's border box, which is what the containment guard's slack is
+  // measured in, and its footprint, which is what the preview shifts by. Two
+  // names because they are two different quantities (KAN-163).
+  height: number;
+  footprint: number;
+  lastX: number;
+  lastY: number;
+  // Auto-scroll (KAN-152). The scrolling ancestor, and where it stood when
+  // the rects were measured -- every index comparison is done in the list's
+  // own content space so that scrolling cannot invalidate it.
+  scroller: HTMLElement | null;
+  startScrollTop: number;
+  // The scroll at pointer-down, before any collapse -- what a drag that
+  // commits nothing puts back (KAN-157). Not startScrollTop, which is
+  // deliberately re-read AFTER the collapse (KAN-154) and so describes the
+  // folded list, not the one the user was looking at.
+  scrollTopAtPress: number;
+  maxScroll: number;
+  // Where a release still counts as a drop on this list, when the list has
+  // opted in (KAN-155). Null otherwise, and then only the rows count.
+  pane: HTMLElement | null;
+  // The held row's element while a started drag holds it (KAN-160). Kept
+  // here so finish clears the element the marker was set on.
+  heldEl: HTMLElement | null;
+  // The saved-window block the held row sits in, read at drag start
+  // (KAN-132): where a release outside every window can still land, and
+  // whether this list's rows sit in windows at all. Null for a row in no
+  // window.
+  heldWindow: HTMLElement | null;
+  // The carry receiver -- the session list -- at a point, for a drag that
+  // hands off to the carry when the pointer reaches one (KAN-350, KAN-352).
+  // Set at activation, with every receiver's box read there, once, so a move
+  // costs no layout read (measureCarryReceivers): for a list with carryOut,
+  // and for an adopted drag, which hands its carry back. Null for every other
+  // list, which never asks a receiver anything.
+  receiverAt: ((x: number, y: number) => CarryReceiver | null) | null;
+  // The last target resolveDrop named, so the list hears only about changes
+  // rather than once per pointer move (KAN-164).
+  dropTarget: string | undefined;
+  // The list AS DRAWN -- every row plus every fixed row the list declared,
+  // in layout order (KAN-166). The preview runs here rather than over `rects`
+  // because a drop can move a row past a title row without changing its row
+  // index, and in a list of rows alone that has no expression.
+  //
+  // A second array rather than a wider `rects`, so the DROP path -- which is
+  // correct, and speaks row indices the reducers share -- is untouched.
+  slots: Slot[];
+  // Row index -> slot index, and fixed-row key -> slot index. Both are the
+  // same translation and neither is derivable from the other once a fixed row
+  // sits between two rows.
+  slotOfRow: number[];
+  slotOfFixed: Map<string, number>;
+  // Where each saved window this list spans ENDS, in content space, measured
+  // with the rows (KAN-132). A row landing past another window's last row --
+  // or in a collapsed one, which draws no rows -- is placed there.
+  windowBottoms: Map<string, number>;
+  // The saved windows this list spans, in render order (KAN-184). What the
+  // preview needs to know to move the ones BETWEEN the source and the
+  // destination, so the destination can make room.
+  windowOrder: string[];
+  // Where each window's list CONTENT starts, in content space (KAN-169): what
+  // stands in for the slot above a span that leads its window. Keyed like
+  // the slots, so a list with no windows has one entry under undefined.
+  listTops: Map<string | undefined, number>;
+  // An ADOPTED drag (KAN-350): started by the pointer coming into the pane
+  // while a carry was on, rather than by a press here. The carry, not this
+  // area, owns the drag hold and the published kind, and ends them: see
+  // endCarry.
+  adopted: boolean;
+  // The window the last preview landed in, so the list hears only about
+  // changes (onLandingWindowChange).
+  landingWindow: string | undefined;
+}
+
+// A drag as the press (or an adoption) starts it: not yet measured, which is
+// activation's work. The pane a release may clamp to, the scroller and its
+// limit are read here, before the held row carries any transform -- see
+// `begin` on why.
+function pressRecord(
+  rowId: string,
+  fromIndex: number,
+  x: number,
+  y: number,
+  el: HTMLElement | null,
+  clampDropToEnds: boolean,
+  adopted: boolean
+): LiveDrag {
+  const scroller = scrollableAncestor(el);
+  return {
+    rowId,
+    startX: x,
+    startY: y,
+    started: false,
+    rects: [],
+    fromIndex,
+    height: 0,
+    footprint: 0,
+    lastX: x,
+    lastY: y,
+    scroller,
+    startScrollTop: scroller?.scrollTop ?? 0,
+    scrollTopAtPress: scroller?.scrollTop ?? 0,
+    maxScroll: scroller
+      ? Math.max(0, scroller.scrollHeight - scroller.clientHeight)
+      : 0,
+    pane: clampDropToEnds ? paneOf(el) : null,
+    heldEl: null,
+    heldWindow: null,
+    receiverAt: null,
+    dropTarget: undefined,
+    slots: [],
+    slotOfRow: [],
+    slotOfFixed: new Map(),
+    windowOrder: [],
+    windowBottoms: new Map(),
+    listTops: new Map(),
+    adopted,
+    landingWindow: undefined,
+  };
+}
+
 export const RowDragArea: React.FC<RowDragAreaProps> = ({
   rowIds,
   scope,
@@ -277,6 +420,10 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
   landsBesideFixedRow,
   fixedRowsRemovedBy,
   gapChangesBy,
+  carryOut,
+  adoptRowId,
+  adoptedRowLandsAs,
+  onLandingWindowChange,
   disabled = false,
   children,
 }) => {
@@ -287,88 +434,17 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
 
   // Everything the live drag needs, kept in a ref so the window listeners are
   // installed once rather than re-bound on every pointermove.
-  const live = useRef<{
-    rowId: string;
-    startX: number;
-    startY: number;
-    started: boolean;
-    rects: Rect[];
-    fromIndex: number;
-    // The held row's border box, which is what the containment guard's slack is
-    // measured in, and its footprint, which is what the preview shifts by. Two
-    // names because they are two different quantities (KAN-163).
-    height: number;
-    footprint: number;
-    lastX: number;
-    lastY: number;
-    // Auto-scroll (KAN-152). The scrolling ancestor, and where it stood when
-    // the rects were measured -- every index comparison is done in the list's
-    // own content space so that scrolling cannot invalidate it.
-    scroller: HTMLElement | null;
-    startScrollTop: number;
-    // The scroll at pointer-down, before any collapse -- what a drag that
-    // commits nothing puts back (KAN-157). Not startScrollTop, which is
-    // deliberately re-read AFTER the collapse (KAN-154) and so describes the
-    // folded list, not the one the user was looking at.
-    scrollTopAtPress: number;
-    maxScroll: number;
-    // Where a release still counts as a drop on this list, when the list has
-    // opted in (KAN-155). Null otherwise, and then only the rows count.
-    pane: HTMLElement | null;
-    // The held row's element while a started drag holds it (KAN-160). Kept
-    // here so finish clears the element the marker was set on.
-    heldEl: HTMLElement | null;
-    // The saved-window block the held row sits in, read at drag start
-    // (KAN-132): where a release outside every window can still land, and
-    // whether this list's rows sit in windows at all. Null for a row in no
-    // window.
-    heldWindow: HTMLElement | null;
-    // The last target resolveDrop named, so the list hears only about changes
-    // rather than once per pointer move (KAN-164).
-    dropTarget: string | undefined;
-    // The list AS DRAWN -- every row plus every fixed row the list declared,
-    // in layout order (KAN-166). The preview runs here rather than over `rects`
-    // because a drop can move a row past a title row without changing its row
-    // index, and in a list of rows alone that has no expression.
-    //
-    // A second array rather than a wider `rects`, so the DROP path -- which is
-    // correct, and speaks row indices the reducers share -- is untouched.
-    slots: Slot[];
-    // Row index -> slot index, and fixed-row key -> slot index. Both are the
-    // same translation and neither is derivable from the other once a fixed row
-    // sits between two rows.
-    slotOfRow: number[];
-    slotOfFixed: Map<string, number>;
-    // Where each saved window this list spans ENDS, in content space, measured
-    // with the rows (KAN-132). A row landing past another window's last row --
-    // or in a collapsed one, which draws no rows -- is placed there.
-    windowBottoms: Map<string, number>;
-    // The saved windows this list spans, in render order (KAN-184). What the
-    // preview needs to know to move the ones BETWEEN the source and the
-    // destination, so the destination can make room.
-    windowOrder: string[];
-    // Where each window's list CONTENT starts, in content space (KAN-169): what
-    // stands in for the slot above a span that leads its window. Keyed like
-    // the slots, so a list with no windows has one entry under undefined.
-    listTops: Map<string | undefined, number>;
-  } | null>(null);
+  const live = useRef<LiveDrag | null>(null);
 
   // The auto-scroll frame, cancelled on drop. A ref rather than state: it is
   // never rendered, and re-rendering every frame is the thing this is trying to
   // avoid making worse.
   const scrollFrame = useRef(0);
 
-  // Chrome synthesizes a `click` after `mouseup`, aimed at whatever the pointer
-  // released over -- which is the held row, because it tracks the pointer. Left
-  // alone it runs the row's onClick: for a tab that opens the tab, and for a
-  // window it opens the whole window's worth of tabs.
-  //
-  // A timestamp rather than an add/remove-listener dance: the click arrives in
-  // the same input sequence as the pointerup that arms this, and a listener
-  // removed on a timer can race that sequence in either direction. Spending the
-  // window on the first swallowed click is what stops the NEXT ordinary click
-  // being eaten too.
-  const suppressClickUntil = useRef(0);
+  // The click Chrome synthesizes for a drag's own release, aimed at the held
+  // row because it tracks the pointer -- see clickSuppressor.ts for the rule,
+  // which the carry shares (KAN-350). One per area, for the area's life.
+  const [clicks] = useState(createClickSuppressor);
 
   const register = useCallback((rowId: string, el: HTMLElement | null) => {
     if (el) rows.current.set(rowId, el);
@@ -390,6 +466,12 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // so the started drag's endDragHold() would never run and the hold
       // would leak for the rest of the page (KAN-279 D12).
       if (live.current?.started) return;
+
+      // Nor while something is carried (KAN-350). The carry holds the drag
+      // hold and the drag kind this area would start again, and its finish
+      // would end them both with the carry still on. A second pointer is the
+      // only way here: the carry's own press is still down.
+      if (currentCarry() !== null) return;
 
       // A press in a text field starts a selection, not a drag (KAN-162). The
       // window rename field sits inside the window's handle, and selecting
@@ -416,37 +498,15 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // as it approached it. jsdom cannot show this at all -- scrollHeight there
       // is whatever a test stubs -- so it is pinned by a test that makes the
       // stub grow.
-      const el = rows.current.get(rowId) ?? null;
-      const scroller = scrollableAncestor(el);
-
-      live.current = {
+      live.current = pressRecord(
         rowId,
-        startX: clientX,
-        startY: clientY,
-        started: false,
-        rects: [],
-        fromIndex: rowIds.indexOf(rowId),
-        height: 0,
-        footprint: 0,
-        lastX: clientX,
-        lastY: clientY,
-        scroller,
-        startScrollTop: scroller?.scrollTop ?? 0,
-        scrollTopAtPress: scroller?.scrollTop ?? 0,
-        maxScroll: scroller
-          ? Math.max(0, scroller.scrollHeight - scroller.clientHeight)
-          : 0,
-        pane: clampDropToEnds ? paneOf(el) : null,
-        heldEl: null,
-        heldWindow: null,
-        dropTarget: undefined,
-        slots: [],
-        slotOfRow: [],
-        slotOfFixed: new Map(),
-        windowOrder: [],
-        windowBottoms: new Map(),
-        listTops: new Map(),
-      };
+        rowIds.indexOf(rowId),
+        clientX,
+        clientY,
+        rows.current.get(rowId) ?? null,
+        clampDropToEnds,
+        false
+      );
     },
     [rowIds, handleSelector, disabled, clampDropToEnds]
   );
@@ -731,6 +791,15 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // preview and promised a move that never came.
       const landing = landingOf(l, block);
 
+      // Which window a release here lands in, told to the list on change
+      // only (KAN-350: the New window target lights up while it is the
+      // landing). Here rather than in onMoveEvent, because auto-scroll moves
+      // the list under a still pointer and can change it too.
+      if (landing?.windowId !== l.landingWindow) {
+        l.landingWindow = landing?.windowId;
+        onLandingWindowChange?.(l.landingWindow, containerRef.current);
+      }
+
       // What a release HERE would land ON, asked once and spent twice (KAN-164,
       // KAN-166): the list is told when the answer changes, and the landing
       // placeholder is corrected by whatever that target implies.
@@ -963,21 +1032,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     const step = (l: NonNullable<typeof live.current>): number => {
       const box = l.scroller?.getBoundingClientRect();
       if (!l.scroller || !box) return 0;
-
-      // Capped to a third of the viewport, because a fixed 48px zone at each
-      // end OVERLAPS in a short list -- in a 90px pane the two zones cover 96px,
-      // so every position counts as an edge and the list scrolls no matter where
-      // the pointer is. Found by the control test, which is what a control is
-      // for. A third each leaves a third in the middle that never scrolls.
-      const zone = Math.min(EDGE_ZONE_PX, box.height / 3);
-
-      const intoTop = zone - (l.lastY - box.top);
-      const intoBottom = zone - (box.bottom - l.lastY);
-      const depth = Math.max(intoTop, intoBottom);
-      if (depth <= 0) return 0;
-
-      const speed = Math.min(depth / zone, 1) * MAX_SCROLL_PX_PER_FRAME;
-      return intoTop > intoBottom ? -speed : speed;
+      return edgeScrollStep(box, l.lastY);
     };
 
     const autoScroll = () => {
@@ -1004,8 +1059,307 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       scrollFrame.current = requestAnimationFrame(autoScroll);
     };
 
+    // Ends this area's drag without committing it and without touching the
+    // drag hold, the published kind or click suppression -- whoever takes the
+    // drag on from here (a carry, KAN-350) owns all three. finish() for a
+    // refused release, minus those three.
+    const letGo = (l: LiveDrag) => {
+      live.current = null;
+      setDrag(null);
+      if (scrollFrame.current) {
+        cancelAnimationFrame(scrollFrame.current);
+        scrollFrame.current = 0;
+      }
+      l.heldEl?.removeAttribute('data-drag-held');
+      if (l.dropTarget !== undefined)
+        onDropTargetChange?.(undefined, containerRef.current);
+      if (l.landingWindow !== undefined)
+        onLandingWindowChange?.(undefined, containerRef.current);
+    };
+
+    // Ends this area's drag and starts a carry of what it held (KAN-350), or
+    // returns false and changes nothing when the list has nothing to hand.
+    //
+    // letGo: the carry takes over the drag hold (a change another page made
+    // must still wait -- the carry is the same gesture), the published drag
+    // kind (a window carry keeps every window folded), and the click
+    // suppression (the CarryLayer swallows the release's click; this area may
+    // be gone by then).
+    //
+    // The scroll a list that restores it (KAN-157) had at the press is handed
+    // over too, to put back if the carry is CANCELLED. Not now: the kind is
+    // still published, so a write now would lay out against the folded list,
+    // the very thing KAN-157 puts it back from. See endCarry for when.
+    //
+    // An ADOPTED drag hands back the carry it came from, unchanged: its
+    // source's card and the source's scroll to put back stay as they are.
+    // Starting a carry afresh here would replace both with this pane's --
+    // and the phantom has nothing of its own to hand.
+    const handOff = (l: LiveDrag, x: number, y: number): boolean => {
+      if (l.adopted) {
+        letGo(l);
+        setCarryOwner('layer');
+        return true;
+      }
+      const out = carryOut?.(l.rowId) ?? null;
+      if (out === null) return false;
+      letGo(l);
+      const scroller = restoreScrollIfNoDrop ? l.scroller : null;
+      const scrollTopAtPress = l.scrollTopAtPress;
+      const rowId = l.rowId;
+      startCarry(
+        out.carried,
+        out.card,
+        x,
+        y,
+        scroller === null
+          ? undefined
+          : () => {
+              // Only onto the list that handed the row off, drawing it again.
+              // A carry can outlive this area, or leave another session on
+              // screen in the same scroller (Q5 A), and neither is the view
+              // this scroll belongs to.
+              if (rows.current.has(rowId))
+                scroller.scrollTop = scrollTopAtPress;
+            }
+      );
+      return true;
+    };
+
+    // The moment a drag actually starts: publish, hold, mark, measure, and
+    // re-anchor the grab. What a press does once it passes the activation
+    // distance, and what an adoption does at once (KAN-350) -- one function,
+    // so an adopted drag is measured by exactly the rules a pressed one is,
+    // in its own layout, afresh every time.
+    const activate = (l: LiveDrag) => {
+      // BEFORE the measurement, not after (KAN-153). A window drag collapses
+      // every tab list via CSS, which changes every row's height -- and this
+      // writes the attribute straight to the DOM, so the
+      // getBoundingClientRect calls below flush style and layout and read the
+      // COLLAPSED boxes. Measure first and every midpoint would describe a
+      // layout that no longer exists.
+      l.started = true;
+      setDragging(true, dragKind);
+      // KAN-279 D12. From here until the drag ends, a change this page did
+      // not make waits (dragHold): applying it would move the list under
+      // rects measured once, below.
+      //
+      // Not for an adopted drag (KAN-350): the carry it came from already
+      // holds, and ends the hold when it ends. The kind above is published
+      // again all the same -- it is the carry's own, so this writes nothing
+      // new -- because the rule is that the kind is on BEFORE anything is
+      // measured, and an adoption measures.
+      if (!l.adopted) beginDragHold();
+
+      // Which row is held, for rules that apply to it alone (KAN-160: a
+      // group drag compresses only the held group). Written straight to the
+      // DOM like the kind above, and before the measurement below, so the
+      // rects read the compressed layout. React never touches it, so a
+      // re-render cannot drop it (KAN-159).
+      l.heldEl = rows.current.get(l.rowId) ?? null;
+      l.heldEl?.setAttribute('data-drag-held', '');
+      l.heldWindow = windowOf(l.heldEl);
+      l.receiverAt =
+        carryOut !== undefined || l.adopted ? measureCarryReceivers() : null;
+
+      // RE-READ AFTER THE COLLAPSE, and this is load-bearing (KAN-154).
+      // Folding the windows shut can make the list shorter than its viewport,
+      // and the browser then clamps scrollTop to fit -- measured, 404 -> 0 on
+      // a five-window session scrolled to the bottom. The value captured at
+      // pointer-down describes a scroll position that no longer exists, and
+      // using it puts every midpoint AND the held row's offset out by exactly
+      // that much: the row lands 316px above the pane, off screen, and the
+      // drop index is computed against a list nobody is pointing at.
+      //
+      // Reading it here, after the attribute is set and the rects below have
+      // forced layout, is what keeps the measurement and the pointer in one
+      // consistent frame.
+      l.startScrollTop = l.scroller?.scrollTop ?? 0;
+
+      // Measured once, at the moment the drag actually starts: reading rects
+      // on every move would report positions already displaced by the shifts
+      // this drag is applying.
+      //
+      // Stored in content space, so auto-scrolling the list afterwards leaves
+      // them valid rather than silently wrong.
+      l.rects = rowIds.map((id, index) => {
+        const el = rows.current.get(id);
+        const r = el?.getBoundingClientRect();
+        return {
+          id,
+          index,
+          mid: r ? r.top + r.height / 2 + l.startScrollTop : 0,
+          height: r?.height ?? 0,
+          top: r ? r.top + l.startScrollTop : 0,
+          windowId: windowOf(el)?.dataset.dropWindowId,
+        };
+      });
+      // The list AS DRAWN (KAN-166): the rows, plus whatever fixed parts the
+      // list declared, ordered by where they actually sit. Ordered by
+      // measured top rather than by document order, because a fixed row is
+      // rendered inside the thing it labels and its position in the markup
+      // says nothing about its position on screen.
+      const fixed = fixedRowSelector
+        ? [
+            ...(containerRef.current?.querySelectorAll<HTMLElement>(
+              fixedRowSelector
+            ) ?? []),
+          ].flatMap((el) => {
+            const key = el.dataset.fixedRowId;
+            if (key === undefined) return [];
+            const box = el.getBoundingClientRect();
+            return [
+              {
+                key,
+                top: box.top + l.startScrollTop,
+                // A group's tail marker measures 0 here, by design: it holds a
+                // place in this list without occupying any (KAN-176).
+                height: box.height,
+                windowId: windowOf(el)?.dataset.dropWindowId,
+              },
+            ];
+          })
+        : [];
+
+      l.slots = [
+        ...l.rects.map((r) => ({
+          key: r.id,
+          top: r.top,
+          height: r.height,
+          windowId: r.windowId,
+        })),
+        ...fixed,
+      ].sort((a, b) => a.top - b.top);
+
+      l.slotOfRow = [];
+      l.slotOfFixed = new Map();
+      const rowAt = new Map(l.rects.map((r) => [r.id, r.index]));
+      l.slots.forEach((slot, index) => {
+        const row = rowAt.get(slot.key);
+        if (row !== undefined) l.slotOfRow[row] = index;
+        else l.slotOfFixed.set(slot.key, index);
+      });
+
+      // Where each window ends, for a list whose rows sit in windows
+      // (KAN-132). In the same frame as the rects, like everything above.
+      l.windowBottoms = new Map();
+      l.windowOrder = [];
+      if (l.heldWindow) {
+        for (const block of windowBlocksIn(containerRef.current)) {
+          const id = block.dataset.dropWindowId;
+          if (id === undefined) continue;
+          l.windowOrder.push(id);
+          l.windowBottoms.set(
+            id,
+            block.getBoundingClientRect().bottom + l.startScrollTop
+          );
+        }
+      }
+
+      // Where each window's rows START (KAN-169), for a removed span with no
+      // slot above it: the content top of the box that holds that window's
+      // rows, which is where the row below the span will sit once the span is
+      // gone. The box is the nearest marked row container above the row --
+      // or this area's own container, for a list drawn in one box -- read
+      // once per window, in the same frame as everything above.
+      l.listTops = new Map();
+      for (const r of l.rects) {
+        if (l.listTops.has(r.windowId)) continue;
+        let el = rows.current.get(r.id) ?? null;
+        while (
+          el?.parentElement &&
+          el.parentElement !== containerRef.current &&
+          !isRowContainer(el.parentElement)
+        ) {
+          el = el.parentElement;
+        }
+        const holder = el?.parentElement;
+        if (!holder) continue;
+        const style = getComputedStyle(holder);
+        l.listTops.set(
+          r.windowId,
+          holder.getBoundingClientRect().top +
+            (parseFloat(style.paddingTop) || 0) +
+            (parseFloat(style.borderTopWidth) || 0) +
+            l.startScrollTop
+        );
+      }
+
+      l.height = l.rects[l.fromIndex]?.height ?? 0;
+      // Measured in the same frame as the rects above, and from the element
+      // rather than from them -- see footprintOf on why the list order cannot
+      // answer this.
+      l.footprint = footprintOf(
+        rows.current.get(l.rowId) ?? null,
+        containerRef.current,
+        l.height
+      );
+
+      // Re-read now that the list may have collapsed: the limit captured at
+      // pointer-down described the expanded content, and auto-scrolling to
+      // THAT would run far past the end of a list a third the size.
+      if (l.scroller) {
+        l.maxScroll = Math.max(
+          0,
+          l.scroller.scrollHeight - l.scroller.clientHeight
+        );
+      }
+
+      // Re-anchor the grab. Collapsing moves every row, so the row being held
+      // is no longer under the pointer where it was picked up -- without this
+      // it jumps away by however much the rows above it shrank. Pinning the
+      // pointer to the row's CENTRE rather than preserving the original grab
+      // offset is deliberate: that offset was measured against a row that no
+      // longer exists at that height, and a centred row is what the drop
+      // arithmetic assumes anyway.
+      const held = l.rects[l.fromIndex];
+      if (held) l.startY = held.mid - l.startScrollTop;
+      if (!scrollFrame.current) {
+        scrollFrame.current = requestAnimationFrame(autoScroll);
+      }
+    };
+
+    // KAN-350. The pointer has come into this area's pane while a carry is
+    // on and the layer drives it: the phantom row standing for the carried
+    // item (adoptRowId) becomes this area's drag, as if pressed and dragged
+    // past the threshold -- measured now, in this pane's own layout, and
+    // re-anchored on the pointer. No threshold, no press, and no second drag
+    // hold: the carry's is kept. The carry is then this area's to drive
+    // (owner 'area') until it ends or hands back.
+    //
+    // Inside the pane's box on BOTH axes: a pointer above or below the pane
+    // is over neither this list nor the session list.
+    const adopt = (x: number, y: number): LiveDrag | null => {
+      if (adoptRowId === undefined || disabled) return null;
+      if (currentCarry()?.owner !== 'layer') return null;
+      const el = rows.current.get(adoptRowId) ?? null;
+      const box = paneOf(el)?.getBoundingClientRect();
+      if (
+        box === undefined ||
+        x < box.left ||
+        x > box.right ||
+        y < box.top ||
+        y > box.bottom
+      ) {
+        return null;
+      }
+      const l = pressRecord(
+        adoptRowId,
+        rowIds.indexOf(adoptRowId),
+        x,
+        y,
+        el,
+        clampDropToEnds,
+        true
+      );
+      live.current = l;
+      activate(l);
+      setCarryOwner('area');
+      return l;
+    };
+
     const onMoveEvent = (e: PointerEvent) => {
-      const l = live.current;
+      const l = live.current ?? adopt(e.clientX, e.clientY);
       if (!l) return;
       l.lastX = e.clientX;
       l.lastY = e.clientY;
@@ -1018,184 +1372,25 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         // Below the threshold this is still a click, and the row's own
         // onClick must be allowed to fire untouched.
         if (travelled < ACTIVATION_DISTANCE_PX) return;
+        activate(l);
+      }
 
-        // BEFORE the measurement, not after (KAN-153). A window drag collapses
-        // every tab list via CSS, which changes every row's height -- and this
-        // writes the attribute straight to the DOM, so the
-        // getBoundingClientRect calls below flush style and layout and read the
-        // COLLAPSED boxes. Measure first and every midpoint would describe a
-        // layout that no longer exists.
-        l.started = true;
-        setDragging(true, dragKind);
-        // KAN-279 D12. From here until the drag ends, a change this page did
-        // not make waits (dragHold): applying it would move the list under
-        // rects measured once, below.
-        beginDragHold();
-
-        // Which row is held, for rules that apply to it alone (KAN-160: a
-        // group drag compresses only the held group). Written straight to the
-        // DOM like the kind above, and before the measurement below, so the
-        // rects read the compressed layout. React never touches it, so a
-        // re-render cannot drop it (KAN-159).
-        l.heldEl = rows.current.get(l.rowId) ?? null;
-        l.heldEl?.setAttribute('data-drag-held', '');
-        l.heldWindow = windowOf(l.heldEl);
-
-        // RE-READ AFTER THE COLLAPSE, and this is load-bearing (KAN-154).
-        // Folding the windows shut can make the list shorter than its viewport,
-        // and the browser then clamps scrollTop to fit -- measured, 404 -> 0 on
-        // a five-window session scrolled to the bottom. The value captured at
-        // pointer-down describes a scroll position that no longer exists, and
-        // using it puts every midpoint AND the held row's offset out by exactly
-        // that much: the row lands 316px above the pane, off screen, and the
-        // drop index is computed against a list nobody is pointing at.
-        //
-        // Reading it here, after the attribute is set and the rects below have
-        // forced layout, is what keeps the measurement and the pointer in one
-        // consistent frame.
-        l.startScrollTop = l.scroller?.scrollTop ?? 0;
-
-        // Measured once, at the moment the drag actually starts: reading rects
-        // on every move would report positions already displaced by the shifts
-        // this drag is applying.
-        //
-        // Stored in content space, so auto-scrolling the list afterwards leaves
-        // them valid rather than silently wrong.
-        l.rects = rowIds.map((id, index) => {
-          const el = rows.current.get(id);
-          const r = el?.getBoundingClientRect();
-          return {
-            id,
-            index,
-            mid: r ? r.top + r.height / 2 + l.startScrollTop : 0,
-            height: r?.height ?? 0,
-            top: r ? r.top + l.startScrollTop : 0,
-            windowId: windowOf(el)?.dataset.dropWindowId,
-          };
-        });
-        // The list AS DRAWN (KAN-166): the rows, plus whatever fixed parts the
-        // list declared, ordered by where they actually sit. Ordered by
-        // measured top rather than by document order, because a fixed row is
-        // rendered inside the thing it labels and its position in the markup
-        // says nothing about its position on screen.
-        const fixed = fixedRowSelector
-          ? [
-              ...(containerRef.current?.querySelectorAll<HTMLElement>(
-                fixedRowSelector
-              ) ?? []),
-            ].flatMap((el) => {
-              const key = el.dataset.fixedRowId;
-              if (key === undefined) return [];
-              const box = el.getBoundingClientRect();
-              return [
-                {
-                  key,
-                  top: box.top + l.startScrollTop,
-                  // A group's tail marker measures 0 here, by design: it holds a
-                  // place in this list without occupying any (KAN-176).
-                  height: box.height,
-                  windowId: windowOf(el)?.dataset.dropWindowId,
-                },
-              ];
-            })
-          : [];
-
-        l.slots = [
-          ...l.rects.map((r) => ({
-            key: r.id,
-            top: r.top,
-            height: r.height,
-            windowId: r.windowId,
-          })),
-          ...fixed,
-        ].sort((a, b) => a.top - b.top);
-
-        l.slotOfRow = [];
-        l.slotOfFixed = new Map();
-        const rowAt = new Map(l.rects.map((r) => [r.id, r.index]));
-        l.slots.forEach((slot, index) => {
-          const row = rowAt.get(slot.key);
-          if (row !== undefined) l.slotOfRow[row] = index;
-          else l.slotOfFixed.set(slot.key, index);
-        });
-
-        // Where each window ends, for a list whose rows sit in windows
-        // (KAN-132). In the same frame as the rects, like everything above.
-        l.windowBottoms = new Map();
-        l.windowOrder = [];
-        if (l.heldWindow) {
-          for (const block of windowBlocksIn(containerRef.current)) {
-            const id = block.dataset.dropWindowId;
-            if (id === undefined) continue;
-            l.windowOrder.push(id);
-            l.windowBottoms.set(
-              id,
-              block.getBoundingClientRect().bottom + l.startScrollTop
-            );
-          }
-        }
-
-        // Where each window's rows START (KAN-169), for a removed span with no
-        // slot above it: the content top of the box that holds that window's
-        // rows, which is where the row below the span will sit once the span is
-        // gone. The box is the nearest marked row container above the row --
-        // or this area's own container, for a list drawn in one box -- read
-        // once per window, in the same frame as everything above.
-        l.listTops = new Map();
-        for (const r of l.rects) {
-          if (l.listTops.has(r.windowId)) continue;
-          let el = rows.current.get(r.id) ?? null;
-          while (
-            el?.parentElement &&
-            el.parentElement !== containerRef.current &&
-            !isRowContainer(el.parentElement)
-          ) {
-            el = el.parentElement;
-          }
-          const holder = el?.parentElement;
-          if (!holder) continue;
-          const style = getComputedStyle(holder);
-          l.listTops.set(
-            r.windowId,
-            holder.getBoundingClientRect().top +
-              (parseFloat(style.paddingTop) || 0) +
-              (parseFloat(style.borderTopWidth) || 0) +
-              l.startScrollTop
-          );
-        }
-
-        l.height = l.rects[l.fromIndex]?.height ?? 0;
-        // Measured in the same frame as the rects above, and from the element
-        // rather than from them -- see footprintOf on why the list order cannot
-        // answer this.
-        l.footprint = footprintOf(
-          rows.current.get(l.rowId) ?? null,
-          containerRef.current,
-          l.height
-        );
-
-        // Re-read now that the list may have collapsed: the limit captured at
-        // pointer-down described the expanded content, and auto-scrolling to
-        // THAT would run far past the end of a list a third the size.
-        if (l.scroller) {
-          l.maxScroll = Math.max(
-            0,
-            l.scroller.scrollHeight - l.scroller.clientHeight
-          );
-        }
-
-        // Re-anchor the grab. Collapsing moves every row, so the row being held
-        // is no longer under the pointer where it was picked up -- without this
-        // it jumps away by however much the rows above it shrank. Pinning the
-        // pointer to the row's CENTRE rather than preserving the original grab
-        // offset is deliberate: that offset was measured against a row that no
-        // longer exists at that height, and a centred row is what the drop
-        // arithmetic assumes anyway.
-        const held = l.rects[l.fromIndex];
-        if (held) l.startY = held.mid - l.startScrollTop;
-        if (!scrollFrame.current) {
-          scrollFrame.current = requestAnimationFrame(autoScroll);
-        }
+      // Onto a carry receiver -- the session list -- the drag goes to the
+      // carry (KAN-350). ONLY there (KAN-352): the list is the only place a
+      // carried item can go, and anywhere else -- beside the pane, past it,
+      // over Open now or the resize grip on the line between them (x 972-984
+      // against a pane ending at 969, measured), above or below it in the
+      // auto-scroll overshoot (KAN-152) -- the drag is exactly what it always
+      // was: its preview, its landing, its refusal, its auto-scroll.
+      //
+      // No box read per move: the receivers were measured when the drag
+      // started, and only for a list that can hand off at all.
+      if (
+        l.receiverAt !== null &&
+        l.receiverAt(e.clientX, e.clientY) !== null &&
+        handOff(l, e.clientX, e.clientY)
+      ) {
+        return;
       }
 
       // The target update() drew this preview for, at this SAME pointer
@@ -1280,12 +1475,17 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       if (!l) return;
       // Judged first, while the drag's layout still stands -- see judgeDrop.
       const drop = commit && l.started ? judgeDrop(l) : undefined;
-      setDragging(false);
+      // An adopted drag's kind is the carry's, and endCarry unpublishes it
+      // below, after the move -- the same order the session list's take()
+      // runs in (KAN-350).
+      if (!l.adopted) setDragging(false);
       l.heldEl?.removeAttribute('data-drag-held');
       // Whatever was marked stops being a target the moment the drag ends --
       // committed, refused or cancelled alike (KAN-164).
       if (l.dropTarget !== undefined)
         onDropTargetChange?.(undefined, containerRef.current);
+      if (l.landingWindow !== undefined)
+        onLandingWindowChange?.(undefined, containerRef.current);
       // Below the threshold this was a click, not a drag, and the row's own
       // handler must run untouched.
       if (!l.started) return;
@@ -1297,12 +1497,9 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // A cancel with the press still down is armed until that press's own
       // release, and onUp starts the 400ms from there (KAN-335): the click
       // follows the release, not the cancel, and the release can come any
-      // time later. Measured on the real artifact: 800ms after an Esc, a
-      // release back on the held row opened its tab. While it waits it eats
-      // no click (KAN-337, see onClickCapture).
-      suppressClickUntil.current = pressStillDown
-        ? Number.POSITIVE_INFINITY
-        : performance.now() + 400;
+      // time later.
+      if (pressStillDown) clicks.armUntilRelease();
+      else clicks.armForRelease();
 
       try {
         if (drop) {
@@ -1317,6 +1514,9 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
           // `undefined` 4th argument fails -- vitest's mock matcher checks
           // argument COUNT too. Do not collapse this to one call spread over
           // both branches.
+          // What an adopted drag carries, read before the list's onMove ends
+          // the carry (KAN-350).
+          const carried = l.adopted ? currentCarry()?.carried : undefined;
           if (drop.toWindowId === undefined) {
             onMove(l.rowId, drop.toIndex, drop.dropTargetId);
           } else {
@@ -1337,11 +1537,22 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
           //
           // Only on a COMMITTED drop, which is the only case with a new place to
           // show. A drag that commits nothing is the branch below.
-          const dropped = l.rowId;
-          requestAnimationFrame(() => {
-            rows.current.get(dropped)?.scrollIntoView({ block: 'nearest' });
-          });
-        } else if (restoreScrollIfNoDrop && l.scroller) {
+          //
+          // An ADOPTED drop (KAN-350) dragged a phantom, which the list's
+          // commit has already removed by the next frame: it follows the row
+          // the item landed as instead, and only if the list ended the carry
+          // as committed -- a move that changed nothing has no new place.
+          const dropped = !l.adopted
+            ? l.rowId
+            : carried !== undefined && carryEndedAs(carried) === 'committed'
+              ? adoptedRowLandsAs
+              : undefined;
+          if (dropped !== undefined) {
+            requestAnimationFrame(() => {
+              rows.current.get(dropped)?.scrollIntoView({ block: 'nearest' });
+            });
+          }
+        } else if (restoreScrollIfNoDrop && l.scroller && !l.adopted) {
           // Put the view back (KAN-157). For a window drag "nothing happened" is
           // not the same as "leave the scroll alone": the collapse already
           // clamped it, and unfolding does not give it back -- measured, five
@@ -1359,53 +1570,46 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         // no consumer call, and this is what applies the change. In a
         // `finally` so a throwing onMove cannot leave the hold on, and every
         // later merge queued behind a drop that has already ended.
-        endDragHold();
+        //
+        // An adopted drag ends its CARRY instead, which ends the hold and the
+        // kind (KAN-350). A list that committed the move has already ended it
+        // as committed, and this is then a no-op; anything else -- Esc,
+        // pointercancel, a release refused here or a move that changed
+        // nothing -- cancels the whole carry: nothing moves, and the source's
+        // view is put back.
+        if (l.adopted) endCarry('cancelled');
+        else endDragHold();
       }
     };
 
     const onUp = () => {
       finish(true, false);
       // The release of a press whose drag was cancelled earlier (see finish).
-      if (suppressClickUntil.current === Number.POSITIVE_INFINITY)
-        suppressClickUntil.current = performance.now() + 400;
+      clicks.onPointerUp();
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') finish(false, true);
     };
     // After a pointercancel Chrome dispatches no click. A suppression still
-    // waiting for this press's release eats nothing while it waits (see
-    // onClickCapture), and the next press disarms it.
+    // waiting for this press's release eats nothing while it waits, and the
+    // next press disarms it.
     const onCancel = () => finish(false, false);
-    // Capture, on window: this has to run before React's root delegation gets
-    // the chance to dispatch the row's onClick.
-    const onClickCapture = (e: MouseEvent) => {
-      // Still waiting for a cancelled press's release (see finish): the
-      // press's own click only ever follows its pointerup, and onUp has
-      // turned this into the 400ms by then. A click now has no press behind
-      // it -- Enter or Space on a focused control -- and is the user's
-      // (KAN-337).
-      if (suppressClickUntil.current === Number.POSITIVE_INFINITY) return;
-      if (performance.now() >= suppressClickUntil.current) return;
-      suppressClickUntil.current = 0;
-      e.preventDefault();
-      e.stopPropagation();
-    };
-    // A new press disarms it (KAN-177). The suppression is for ONE click: the
-    // one Chrome synthesizes for the drag's own release, which follows that
-    // pointerup with no press in between (measured in click-after-drag.spec.ts).
-    //
-    // A drag that COMMITS gets no such click -- React moves the row inside the
-    // pointerup handler -- so, judged by the clock alone, the suppression stayed
-    // armed and ate the user's next click wherever it landed: very often Undo.
-    // Every click the user makes after a drag starts with a pointerdown of its
-    // own, and that is what tells the two apart; not the time, and not where
-    // the click lands.
-    //
-    // Capture, on window, for the same reason as onClickCapture: nothing a
-    // press reaches first can stop it from getting here.
-    const onPointerDownCapture = () => {
-      suppressClickUntil.current = 0;
-    };
+    // Capture, on window -- see clickSuppressor.ts.
+    const onClickCapture = (e: MouseEvent) => clicks.onClickCapture(e);
+    const onPointerDownCapture = () => clicks.onPointerDownCapture();
+
+    // KAN-350. The carry an adopted drag belongs to ended some other way --
+    // the carried item was taken away (⌘Z, a delete), or the search panel
+    // opened. The drag goes with it, and commits nothing. The carry's end has
+    // already released the hold and the kind; the press is still down, so
+    // its click is eaten when it is released, as after Esc.
+    const unsubscribeCarry = subscribeCarry(() => {
+      const l = live.current;
+      if (l?.adopted && currentCarry()?.owner !== 'area') {
+        letGo(l);
+        clicks.armUntilRelease();
+      }
+    });
 
     window.addEventListener('pointermove', onMoveEvent);
     window.addEventListener('pointerup', onUp);
@@ -1426,6 +1630,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     if (disabled && live.current) finish(false, true);
 
     return () => {
+      unsubscribeCarry();
       window.removeEventListener('pointermove', onMoveEvent);
       window.removeEventListener('pointerup', onUp);
       window.removeEventListener('pointercancel', onCancel);
@@ -1450,6 +1655,12 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     restoreScrollIfNoDrop,
     landingRange,
     acceptsWindow,
+    carryOut,
+    adoptRowId,
+    adoptedRowLandsAs,
+    onLandingWindowChange,
+    clampDropToEnds,
+    clicks,
     disabled,
   ]);
 
@@ -1474,7 +1685,11 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         cancelAnimationFrame(scrollFrame.current);
         scrollFrame.current = 0;
       }
-      if (l?.started) {
+      if (l?.adopted) {
+        // The hold and the kind are the carry's: ending it ends both, and
+        // nothing moved (KAN-350).
+        endCarry('cancelled');
+      } else if (l?.started) {
         setDragging(false);
         // KAN-279 D12. finish() never runs on this path, so the hold it would
         // have ended is ended here -- or every later merge would wait for a
@@ -1492,8 +1707,8 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
   }, []);
 
   const ctx = useMemo<Ctx>(
-    () => ({ register, begin, drag }),
-    [register, begin, drag]
+    () => ({ register, begin, drag, adoptRowId }),
+    [register, begin, drag, adoptRowId]
   );
 
   const scopes = useMemo<DragScopes>(
@@ -1514,6 +1729,53 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
   );
 };
 
+// KAN-350. A phantom row's content is invisible and takes no pointer; its
+// box, and so its footprint, is untouched. Everything but the two slots: the
+// landing slot is the phantom's child, and it is what shows where a release
+// lands, exactly as in a reorder; the resting slot (PhantomRestingSlot) is
+// where one would start.
+const PHANTOM_STYLE = css`
+  pointer-events: none;
+  & > :not([data-drag-landing-slot]):not([data-phantom-resting-slot]) {
+    opacity: 0;
+  }
+`;
+
+// KAN-350 V3 A. Where a drop on a phantom row starts, shown at the phantom's
+// own place while it is NOT held: the pointer is outside the pane, and the
+// list draws the slot a drop would begin with. Its box is the phantom's, so
+// nothing moves when the pointer comes in and adopts it -- the landing slot
+// then takes over at the same place, at the same strength (see the phantom
+// rule on the landing slot's opacity).
+//
+// A list opts in by rendering this as a direct child of the phantom's
+// DraggableRow. The landing slot's look, its corners included (SLOT_RADIUS).
+export const PhantomRestingSlot: React.FC = () => (
+  <div
+    aria-hidden="true"
+    data-phantom-resting-slot=""
+    css={css`
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      pointer-events: none;
+      /* Longhands: a shorthand holding var() is not split until it is
+         computed, and the style and width are the slot's look. */
+      border-width: 1.5px;
+      border-style: dashed;
+      border-color: var(--drag-landing-slot, currentColor);
+      border-radius: ${SLOT_RADIUS};
+      opacity: ${SLOT_OPACITY};
+      /* Held, the row's own landing slot is drawn instead. */
+      [data-drag-held] > & {
+        display: none;
+      }
+    `}
+  />
+);
+
 // A row no longer needs to know WHERE it is (KAN-166). It used to take its own
 // index and re-derive its shift from the drag's index range; the area now works
 // the whole preview out once and reports each element's shift by id, so the
@@ -1532,6 +1794,12 @@ export const DraggableRow: React.FC<DraggableRowProps> = ({
   const drag = ctx?.drag ?? null;
 
   const held = drag?.rowId === rowId;
+  // The row a carried item is drawn as while it can land here (KAN-350):
+  // there, and measured, but never seen and never hit. The card at the
+  // pointer is what the user sees of it, and the landing slot where it
+  // will go -- so only the row's own content is hidden, not the slot, and
+  // it casts no lift shadow.
+  const phantom = ctx !== null && ctx.adoptRowId === rowId;
   // The held row tracks the pointer; every other row is told where to be by the
   // area, which works it out once for the whole list (KAN-166). This used to
   // re-derive it from an index range here, and a group's frame re-derived it a
@@ -1551,7 +1819,15 @@ export const DraggableRow: React.FC<DraggableRowProps> = ({
       // a draggable node from a test or the devtools -- the node is otherwise
       // an unmarked wrapper div.
       data-drag-row-id={rowId}
-      ref={(el) => ctx?.register(rowId, el)}
+      data-carry-phantom={phantom ? '' : undefined}
+      css={phantom ? PHANTOM_STYLE : undefined}
+      ref={(el) => {
+        ctx?.register(rowId, el);
+        // Nor reached by the keyboard or read out: its content is a stored
+        // row's controls, drawn only to be measured. `inert` is a property
+        // here because this React does not know the attribute.
+        if (el && el.inert !== phantom) el.inert = phantom;
+      }}
       onPointerDown={(e) => {
         // Left button only. Which PART of the row may start a drag is the
         // area's rule, not this component's, so the press is reported with its
@@ -1564,7 +1840,7 @@ export const DraggableRow: React.FC<DraggableRowProps> = ({
         // The held row must track the pointer exactly; only the rows moving
         // aside are animated.
         transition: held ? 'none' : `transform ${DURATION.MOVE} ease`,
-        boxShadow: held ? '0 2px 8px rgba(0,0,0,0.35)' : undefined,
+        boxShadow: held && !phantom ? '0 2px 8px rgba(0,0,0,0.35)' : undefined,
         zIndex: held ? 1 : undefined,
         position: 'relative',
         cursor: 'pointer',
@@ -1616,7 +1892,7 @@ export const DraggableRow: React.FC<DraggableRowProps> = ({
             }px)`,
             pointerEvents: 'none',
             border: '1.5px dashed var(--drag-landing-slot, currentColor)',
-            borderRadius: '4px',
+            borderRadius: SLOT_RADIUS,
             // As visible as it is DISTINGUISHABLE from the row being dragged.
             //
             // The held row tracks the pointer continuously while the slot jumps
@@ -1631,14 +1907,20 @@ export const DraggableRow: React.FC<DraggableRowProps> = ({
             // row's own footprint keeps it continuous and needs no number of
             // its own -- one row's worth of travel is exactly the distance at
             // which the two boxes stop overlapping.
-            opacity:
-              SLOT_OPACITY *
-              Math.min(
-                1,
-                drag.footprint > 0
-                  ? Math.abs(drag.landingDelta - translate) / drag.footprint
-                  : 1
-              ),
+            //
+            // Not for a phantom (KAN-350 V3 A): its row is invisible, so there
+            // is no outline to tell apart, and a slot fading out as the
+            // pointer comes in over the resting slot would undo "nothing
+            // moves on entry".
+            opacity: phantom
+              ? SLOT_OPACITY
+              : SLOT_OPACITY *
+                Math.min(
+                  1,
+                  drag.footprint > 0
+                    ? Math.abs(drag.landingDelta - translate) / drag.footprint
+                    : 1
+                ),
           }}
         />
       )}

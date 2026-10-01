@@ -218,6 +218,9 @@
   "Close Open now": "\"अभी खुले टैब\" पैनल बंद करें",
   "Resize Open now": "\"अभी खुले टैब\" पैनल की चौड़ाई बदलें",
   "Reopen": "फिर से खोलें",
+  "Show": "दिखाएं",
+  "MovedToSession": "“{{title}}” में ले जाया गया",
+  "SessionEmptiedRemoved": "सत्र “{{title}}” खाली था, इसलिए उसे हटा दिया गया।",
   "Ctrl": "Ctrl",
   "Tab closed": "टैब बंद किया गया",
   "Couldn't reopen.": "फिर से नहीं खोला जा सका।",
@@ -234,5 +237,8 @@
   "Clear search": "खोज साफ़ करें",
   "NoOpenTabMatches": "\"{{text}}\" से मेल खाता कोई खुला टैब नहीं है",
   "TabCountShownOfTotal_one": "{{count}} में से {{shown}} टैब",
-  "TabCountShownOfTotal_other": "{{count}} में से {{shown}} टैब्स"
+  "TabCountShownOfTotal_other": "{{count}} में से {{shown}} टैब्स",
+  "CarryCardNameAndCount_one": "{{name}} · {{count}} टैब",
+  "CarryCardNameAndCount_other": "{{name}} · {{count}} टैब्स",
+  "CarryNewWindowTarget": "नई विंडो"
 }

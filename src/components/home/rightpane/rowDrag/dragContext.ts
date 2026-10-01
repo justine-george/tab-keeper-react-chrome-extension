@@ -69,6 +69,10 @@ export interface Ctx {
     target: EventTarget | null
   ) => void;
   drag: DragState | null;
+  // The row standing in for a carried item, which the area adopts as its
+  // drag when the pointer comes in (KAN-350). Drawn invisible, keeping its
+  // footprint; undefined while this list offers no carried item a place.
+  adoptRowId: string | undefined;
 }
 
 // The lists a row can join. `nearest` is what every unscoped row joins, as

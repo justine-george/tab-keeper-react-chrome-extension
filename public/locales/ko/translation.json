@@ -216,6 +216,9 @@
   "Close Open now": "\"지금 열려 있는 탭\" 패널 닫기",
   "Resize Open now": "\"지금 열려 있는 탭\" 패널 너비 조절",
   "Reopen": "다시 열기",
+  "Show": "보기",
+  "MovedToSession": "“{{title}}” 세션으로 이동했습니다",
+  "SessionEmptiedRemoved": "“{{title}}” 세션이 비어 있어서 삭제했습니다.",
   "Ctrl": "Ctrl",
   "Tab closed": "탭을 닫았습니다",
   "Couldn't reopen.": "다시 열지 못했습니다.",
@@ -230,5 +233,7 @@
   "Search open tabs": "열린 탭 검색",
   "Clear search": "검색 지우기",
   "NoOpenTabMatches": "\"{{text}}\" 검색어와 일치하는 열린 탭이 없습니다",
-  "TabCountShownOfTotal_other": "탭 {{count}}개 중 {{shown}}개"
+  "TabCountShownOfTotal_other": "탭 {{count}}개 중 {{shown}}개",
+  "CarryCardNameAndCount_other": "{{name}} · 탭 {{count}}개",
+  "CarryNewWindowTarget": "새 창"
 }

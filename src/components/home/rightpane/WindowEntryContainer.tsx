@@ -48,6 +48,7 @@ import { markRowContainer } from './rowDrag/dropRules';
 import { useDragState } from './rowDrag/dragContext';
 import { GroupFrameFollower } from './rowDrag/GroupFrameFollower';
 import { ADJACENT_GROUP_GAP_PX, BAND_MARGIN_PX } from './bandSpacing';
+import { CARRY_NEW_WINDOW_ID } from '../../../utils/functions/carriedView';
 import { DURATION, RADIUS, TYPE } from '../../../styles/scale';
 
 /**
@@ -259,6 +260,67 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
 
   const childrenContainerStyle = css`
     padding-left: 70px;
+  `;
+
+  // KAN-350 (S3 A). The synthetic first window a carried tab or group can
+  // land in (CARRY_NEW_WINDOW_ID), drawn as the mock's New window target: a
+  // dashed box with an icon and its name, and the hover fill and a solid
+  // border while the landing is in it. To the drag engine it is still a
+  // window: its block is marked, and it holds the phantom row the carried
+  // item is drawn as -- invisible, keeping its footprint -- so the box is as
+  // tall as what would land there. The name sits over the phantom.
+  //
+  // While lit, the landing slot is hidden: the lit box is what says where
+  // the release lands, and a dashed slot in a dashed box says it twice. The
+  // slot is the phantom's child, so it is inside this box wherever it is
+  // drawn -- hence only while lit.
+  //
+  // V1 A: one row tall, whatever is carried. A carried GROUP's phantom is
+  // held folded to its header, as any group drag holds the held group
+  // (KAN-160) -- but always, not only once held, so the box does not shrink
+  // under the pointer as it comes in. The phantom is the only thing this box
+  // ever holds, and the engine measures it in this layout.
+  //
+  // Its band KEEPS its margins: the engine reads the band's own margin into
+  // the footprint every preview opens (footprintOf), so a band without one
+  // opened a gap 2px smaller than any group drag does (final review, finding
+  // 4: derive the box). The box that holds the phantom takes them back
+  // instead (newWindowTargetRowsStyle): margins that meet collapse, and a
+  // band's 2px against that box's -2px is 0, so the header is exactly a tab
+  // row's height inside the border.
+  const isNewWindowTarget = windowId === CARRY_NEW_WINDOW_ID;
+  const newWindowTargetStyle = css`
+    position: relative;
+    border-width: 1.5px;
+    border-style: dashed;
+    border-color: ${COLORS.LABEL_L2_COLOR};
+    border-radius: ${RADIUS.SQUARE};
+    & [data-group-tabs] {
+      display: none;
+    }
+    &[data-landing] {
+      background-color: ${COLORS.HOVER_COLOR};
+      border-style: solid;
+    }
+    &[data-landing] [data-drag-landing-slot] {
+      visibility: hidden;
+    }
+  `;
+  const newWindowTargetRowsStyle = items.some((item) => item.kind === 'group')
+    ? css`
+        margin: -${BAND_MARGIN_PX}px 0;
+      `
+    : undefined;
+  const newWindowTargetLabelStyle = css`
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 12px;
+    color: ${COLORS.LABEL_L1_COLOR};
+    font-size: ${TYPE.BODY};
+    pointer-events: none;
   `;
 
   const childrenStyle = css`
@@ -583,8 +645,14 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     // renders no tab-list wrapper at all), both have to answer "this window",
     // and this is the one element that is always there to say so.
     <div
-      css={containerStyle}
+      css={
+        isNewWindowTarget
+          ? [containerStyle, newWindowTargetStyle]
+          : containerStyle
+      }
       data-drop-window-id={windowId}
+      // KAN-350 (S3 A). Lit by markNewWindowTarget while the landing is in it.
+      data-new-window-target={isNewWindowTarget ? '' : undefined}
       // KAN-184. The room a drop into ANOTHER window needs, made here.
       //
       // A preview holds the layout still and moves everything by transform, so
@@ -612,154 +680,162 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
         transform: windowShift ? `translateY(${windowShift}px)` : undefined,
       }}
     >
-      {/* The grab handle for the WINDOW drag (KAN-129), read by the area
-          above this component through its handleSelector. It has to be the
-          header alone: the draggable node wraps this row AND the tab list
-          below it, so a handle covering the whole block would start a window
-          drag from every tab drag. Marked with an attribute rather than
-          plumbed down as a prop, matching data-band-id beside it -- and the
-          area checks the handle it finds is CONTAINED by the row, so this
-          cannot be satisfied by anything outside the window it belongs to. */}
-      <div
-        data-window-drag-handle
-        css={parentStyle}
-        onMouseEnter={() => setIsParentHovered(true)}
-        onMouseLeave={() => setIsParentHovered(false)}
-      >
-        <div css={parentLeftStyle}>
-          <Icon
-            tooltipText={isWindowOpen ? t('Collapse') : t('Expand')}
-            ariaLabel={isWindowOpen ? t('Collapse') : t('Expand')}
-            type={isWindowOpen ? 'expand_less' : 'expand_more'}
-            onClick={handleAccordionClick}
-          />
-          <Icon type="web_asset" style={NON_INTERACTIVE_ICON_STYLE} />
-          {/* Three shapes, because only one of them is a control (KAN-64).
-              This used to be a single role-less div carrying tabIndex={0} and
-              onClick -- focusable, exposed as `generic` where naming is
-              prohibited, and activating via `handleWindowClick(e as any)`.
-
-              Editing: an <input> may not live inside a <button>; clicking it
-              would activate the button and it could not hold focus.
-
-              Searching: handleWindowClick is a no-op while isSearchPanel, so
-              rendering a button here would be focusable and inert -- exactly
-              the KAN-62 defect this codebase just fixed. It renders as static
-              text instead.
-
-              Otherwise: a real button. */}
-          {isEditing && !isSearchPanel ? (
-            // padding-right: 0 overrides parentLinkStyle's 9px, which exists
-            // to keep the RESTING title clear of the action icons. While
-            // editing there is no title to keep clear, and the reserved gap
-            // left the field stopping 9px short of the row's edge.
-            <div css={css(parentLinkStyle + 'padding-right: 0;')}>
-              <input
-                value={newTitle}
-                onBlur={handleBlur}
-                onChange={handleChange}
-                onKeyDown={(e) => handleKeyPressOnEditDone(e)}
-                autoFocus
-                css={css`
-                  color: ${COLORS.TEXT_COLOR};
-                  background-color: ${COLORS.PRIMARY_COLOR};
-                  border: 1px solid ${COLORS.BORDER_COLOR};
-                  display: flex;
-                  align-items: center;
-                  font-family: ${FONT_FAMILY};
-                  font-size: ${TYPE.BODY};
-                  padding-left: 8px;
-                  height: 100%;
-                  width: 100%;
-                  min-width: 0;
-                  &:focus {
-                    outline: none;
-                  }
-                `}
-              />
-            </div>
-          ) : isSearchPanel ? (
-            <div css={css(parentLinkStyle)}>
-              <NormalLabel
-                value={title}
-                color={COLORS.TEXT_COLOR}
-                size={TYPE.BODY}
-                style="padding-left: 8px; height: 100%; max-width: 100%;"
-              />
-            </div>
-          ) : (
-            <ClickableRow
-              ariaLabel={title}
-              tooltipText={t('Open in new window')}
-              onClick={handleWindowClick}
-              style={parentLinkStyle}
-            >
-              <NormalLabel
-                value={title}
-                color={COLORS.TEXT_COLOR}
-                size={TYPE.BODY}
-                style="padding-left: 8px; cursor: pointer; height: 100%; max-width: 100%;"
-              />
-            </ClickableRow>
-          )}
+      {isNewWindowTarget ? (
+        // KAN-350 (S3 A). The target's name, over the phantom below it.
+        <div css={newWindowTargetLabelStyle}>
+          <Icon type="add_box" style={NON_INTERACTIVE_ICON_STYLE} />
+          <span>{t('CarryNewWindowTarget')}</span>
         </div>
-        <div data-row-actions css={parentRightStyle}>
-          {isEditing && !isSearchPanel ? (
-            // Same shape as the session tick: the wrapper carries the
-            // onMouseDown that Icon does not expose, preventDefault keeps focus
-            // in the input so onClick is the single commit path, and the
-            // wrapper itself is what stops the post-commit click retargeting
-            // onto the pencil that replaces this tick.
-            <span onMouseDown={(e) => e.preventDefault()}>
+      ) : (
+        /* The grab handle for the WINDOW drag (KAN-129), read by the area
+            above this component through its handleSelector. It has to be the
+            header alone: the draggable node wraps this row AND the tab list
+            below it, so a handle covering the whole block would start a window
+            drag from every tab drag. Marked with an attribute rather than
+            plumbed down as a prop, matching data-band-id beside it -- and the
+            area checks the handle it finds is CONTAINED by the row, so this
+            cannot be satisfied by anything outside the window it belongs to. */
+        <div
+          data-window-drag-handle
+          css={parentStyle}
+          onMouseEnter={() => setIsParentHovered(true)}
+          onMouseLeave={() => setIsParentHovered(false)}
+        >
+          <div css={parentLeftStyle}>
+            <Icon
+              tooltipText={isWindowOpen ? t('Collapse') : t('Expand')}
+              ariaLabel={isWindowOpen ? t('Collapse') : t('Expand')}
+              type={isWindowOpen ? 'expand_less' : 'expand_more'}
+              onClick={handleAccordionClick}
+            />
+            <Icon type="web_asset" style={NON_INTERACTIVE_ICON_STYLE} />
+            {/* Three shapes, because only one of them is a control (KAN-64).
+                This used to be a single role-less div carrying tabIndex={0} and
+                onClick -- focusable, exposed as `generic` where naming is
+                prohibited, and activating via `handleWindowClick(e as any)`.
+
+                Editing: an <input> may not live inside a <button>; clicking it
+                would activate the button and it could not hold focus.
+
+                Searching: handleWindowClick is a no-op while isSearchPanel, so
+                rendering a button here would be focusable and inert -- exactly
+                the KAN-62 defect this codebase just fixed. It renders as static
+                text instead.
+
+                Otherwise: a real button. */}
+            {isEditing && !isSearchPanel ? (
+              // padding-right: 0 overrides parentLinkStyle's 9px, which exists
+              // to keep the RESTING title clear of the action icons. While
+              // editing there is no title to keep clear, and the reserved gap
+              // left the field stopping 9px short of the row's edge.
+              <div css={css(parentLinkStyle + 'padding-right: 0;')}>
+                <input
+                  value={newTitle}
+                  onBlur={handleBlur}
+                  onChange={handleChange}
+                  onKeyDown={(e) => handleKeyPressOnEditDone(e)}
+                  autoFocus
+                  css={css`
+                    color: ${COLORS.TEXT_COLOR};
+                    background-color: ${COLORS.PRIMARY_COLOR};
+                    border: 1px solid ${COLORS.BORDER_COLOR};
+                    display: flex;
+                    align-items: center;
+                    font-family: ${FONT_FAMILY};
+                    font-size: ${TYPE.BODY};
+                    padding-left: 8px;
+                    height: 100%;
+                    width: 100%;
+                    min-width: 0;
+                    &:focus {
+                      outline: none;
+                    }
+                  `}
+                />
+              </div>
+            ) : isSearchPanel ? (
+              <div css={css(parentLinkStyle)}>
+                <NormalLabel
+                  value={title}
+                  color={COLORS.TEXT_COLOR}
+                  size={TYPE.BODY}
+                  style="padding-left: 8px; height: 100%; max-width: 100%;"
+                />
+              </div>
+            ) : (
+              <ClickableRow
+                ariaLabel={title}
+                tooltipText={t('Open in new window')}
+                onClick={handleWindowClick}
+                style={parentLinkStyle}
+              >
+                <NormalLabel
+                  value={title}
+                  color={COLORS.TEXT_COLOR}
+                  size={TYPE.BODY}
+                  style="padding-left: 8px; cursor: pointer; height: 100%; max-width: 100%;"
+                />
+              </ClickableRow>
+            )}
+          </div>
+          <div data-row-actions css={parentRightStyle}>
+            {isEditing && !isSearchPanel ? (
+              // Same shape as the session tick: the wrapper carries the
+              // onMouseDown that Icon does not expose, preventDefault keeps focus
+              // in the input so onClick is the single commit path, and the
+              // wrapper itself is what stops the post-commit click retargeting
+              // onto the pencil that replaces this tick.
+              <span onMouseDown={(e) => e.preventDefault()}>
+                <Icon
+                  tooltipText={t('Save changes')}
+                  ariaLabel={t('Save changes')}
+                  type="done"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleBlur();
+                  }}
+                />
+              </span>
+            ) : (
               <Icon
-                tooltipText={t('Save changes')}
-                ariaLabel={t('Save changes')}
-                type="done"
+                tooltipText={t('Rename window group')}
+                ariaLabel={t('Rename window group')}
+                type="edit"
                 onClick={(e) => {
                   e.stopPropagation();
-                  handleBlur();
+                  startEditing();
                 }}
               />
-            </span>
-          ) : (
-            <Icon
-              tooltipText={t('Rename window group')}
-              ariaLabel={t('Rename window group')}
-              type="edit"
-              onClick={(e) => {
-                e.stopPropagation();
-                startEditing();
-              }}
-            />
-          )}
+            )}
 
-          {/* KAN-279 D13. This page IS Tab Keeper's own tab in the tab view,
-              so "current tab" could only ever mean itself; hidden there. */}
-          {!isEditing && !isSearchPanel && !isTabView() && (
-            <Icon
-              tooltipText={t('Add current tab')}
-              ariaLabel={t('Add current tab')}
-              type="add"
-              onClick={(e) => {
-                e.stopPropagation();
-                onAddCurrTabToWindowClick(e);
-              }}
-            />
-          )}
-          {!isEditing && !isSearchPanel && (
-            <Icon
-              tooltipText={t('Delete window group')}
-              ariaLabel={t('Delete window group')}
-              type="delete"
-              onClick={(e) => {
-                e.stopPropagation();
-                onDeleteClick(e);
-              }}
-            />
-          )}
+            {/* KAN-279 D13. This page IS Tab Keeper's own tab in the tab view,
+                so "current tab" could only ever mean itself; hidden there. */}
+            {!isEditing && !isSearchPanel && !isTabView() && (
+              <Icon
+                tooltipText={t('Add current tab')}
+                ariaLabel={t('Add current tab')}
+                type="add"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onAddCurrTabToWindowClick(e);
+                }}
+              />
+            )}
+            {!isEditing && !isSearchPanel && (
+              <Icon
+                tooltipText={t('Delete window group')}
+                ariaLabel={t('Delete window group')}
+                type="delete"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDeleteClick(e);
+                }}
+              />
+            )}
+          </div>
         </div>
-      </div>
-      {isWindowOpen && (
+      )}
+      {(isWindowOpen || isNewWindowTarget) && (
         // data-window-tabs is the hook App.css uses to fold every window shut
         // while a WINDOW is being dragged (KAN-153). Visual only -- the stored
         // fold state is never touched, which is what makes "and it comes back
@@ -772,9 +848,17 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
         // thing; with one list for the whole session, that container is far
         // above and nothing else tells this box from the single-child wrappers
         // a footprint's climb exists to climb.
+        //
+        // The New window target holds the carried item's phantom here instead
+        // (KAN-350): its rows, not a window's, so nothing folds it and it
+        // takes no indent.
         <div
-          css={childrenContainerStyle}
-          data-window-tabs
+          css={
+            isNewWindowTarget
+              ? newWindowTargetRowsStyle
+              : childrenContainerStyle
+          }
+          data-window-tabs={isNewWindowTarget ? undefined : ''}
           ref={markRowContainer}
         >
           {/* KAN-160. The window's items -- loose tabs and whole groups.

@@ -9,6 +9,7 @@ import type { ReactNode } from 'react';
 import type { LandingSide } from '../../../../utils/functions/dragPreview';
 import type { windowGroupData } from '../../../../redux/slices/tabContainerDataStateSlice';
 import type { chromeTabGroupData } from '../../../../utils/functions/tabGroups';
+import type { CarryOut } from '../../../../redux/carry';
 
 export const ACTIVATION_DISTANCE_PX = 5;
 
@@ -430,6 +431,67 @@ export interface RowDragAreaProps {
     target: string | undefined,
     windowId: string | undefined
   ) => BandGapChange[];
+  /**
+   * Hand a drag that reaches a carry receiver -- the session list -- to the
+   * carry (KAN-350).
+   *
+   * Once a started drag's pointer is over a registered carry receiver
+   * (measureCarryReceivers, read when the drag starts), the area asks this
+   * for what it is holding. Given an answer, it ends its own drag without
+   * committing -- but leaves the drag hold on, the drag kind published and
+   * no click suppression armed, because the carry takes all three over --
+   * and starts the carry at the pointer.
+   * Null leaves the drag exactly as it was.
+   *
+   * Anywhere else is never a hand-off (KAN-352): beside or past the pane,
+   * over Open now or its resize grip, above or below the pane (the overshoot
+   * a drag auto-scrolls by, KAN-152), the drag is exactly what it always was.
+   * Only the saved detail's three lists pass this; the session list and Open
+   * now do not, so their drags cannot change, and never ask a receiver.
+   */
+  carryOut?: (rowId: string) => CarryOut | null;
+  /**
+   * The row that stands in for a carried item this list can take (KAN-350):
+   * a PHANTOM the list draws while the carry is on. Its id is NOT the carried
+   * item's own: it is `carried:` + that id (carriedRowId), so the phantom is
+   * never the same row as the item, which its source may still draw. Only on
+   * the list whose kind matches what is carried.
+   *
+   * While a carry is on and the layer drives it, the pointer coming into
+   * this row's pane (the nearest `overflow: auto` box, on both axes) makes
+   * the area ADOPT the row: exactly what a press and activation do --
+   * measured in the drag's own layout, re-anchored on the pointer -- with no
+   * activation distance and no second drag hold, the carry's being kept. The
+   * carry is then the area's to drive until it ends.
+   *
+   * From there it is an ordinary drag with three differences: reaching a
+   * carry receiver (the session list) hands the SAME carry back to the layer; a release the list
+   * commits must end the carry itself (endCarry('committed')); and one that
+   * commits nothing -- Esc, pointercancel, a refused release -- cancels the
+   * whole carry. The row is drawn with its content invisible and never hit,
+   * its footprint kept, whether or not it is held.
+   */
+  adoptRowId?: string;
+  /**
+   * The id of the row the adopted item lands as: the carried item's own row
+   * in this list (landedRowId), which exists only once the committed move
+   * has re-rendered the list. After a committed adopted drop the area follows
+   * THAT row into view on the next frame (KAN-155), because the phantom it
+   * dragged is gone by then. A drop that moved nothing follows nothing.
+   */
+  adoptedRowLandsAs?: string;
+  /**
+   * Called while the drag is live whenever the window a release would land
+   * in changes -- undefined where it would be refused -- and once with
+   * undefined when the drag ends (KAN-350). Changes only, like
+   * `onDropTargetChange`, with the list's own container for the list to mark
+   * whatever it draws for that window. For the New window target, which is a
+   * window of its own.
+   */
+  onLandingWindowChange?: (
+    windowId: string | undefined,
+    list: HTMLElement | null
+  ) => void;
   // Dragging is off while the list on screen is a FILTERED view of the stored
   // one (KAN-131). toIndex counts rendered rows, and the reducers apply it to
   // the stored array, so a drag in a narrowed list lands somewhere the user

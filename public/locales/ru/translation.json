@@ -222,6 +222,9 @@
   "Close Open now": "Закрыть панель «Открытые вкладки»",
   "Resize Open now": "Изменить ширину панели «Открытые вкладки»",
   "Reopen": "Открыть снова",
+  "Show": "Показать",
+  "MovedToSession": "Перемещено в «{{title}}»",
+  "SessionEmptiedRemoved": "Сессия «{{title}}» опустела и была удалена.",
   "Ctrl": "Ctrl",
   "Tab closed": "Вкладка закрыта",
   "Couldn't reopen.": "Не удалось открыть снова.",
@@ -242,5 +245,10 @@
   "TabCountShownOfTotal_one": "{{shown}} из {{count}} вкладки",
   "TabCountShownOfTotal_few": "{{shown}} из {{count}} вкладок",
   "TabCountShownOfTotal_many": "{{shown}} из {{count}} вкладок",
-  "TabCountShownOfTotal_other": "{{shown}} из {{count}} вкладки"
+  "TabCountShownOfTotal_other": "{{shown}} из {{count}} вкладки",
+  "CarryCardNameAndCount_one": "{{name}} · {{count}} вкладка",
+  "CarryCardNameAndCount_few": "{{name}} · {{count}} вкладки",
+  "CarryCardNameAndCount_many": "{{name}} · {{count}} вкладок",
+  "CarryCardNameAndCount_other": "{{name}} · {{count}} вкладки",
+  "CarryNewWindowTarget": "Новое окно"
 }

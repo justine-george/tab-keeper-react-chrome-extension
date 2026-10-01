@@ -218,6 +218,9 @@
   "Close Open now": "Close Open now",
   "Resize Open now": "Resize Open now",
   "Reopen": "Reopen",
+  "Show": "Show",
+  "MovedToSession": "Moved to “{{title}}”",
+  "SessionEmptiedRemoved": "“{{title}}” was empty and was removed.",
   "Ctrl": "Ctrl",
   "Tab closed": "Tab closed",
   "Couldn't reopen.": "Couldn't reopen.",
@@ -234,5 +237,8 @@
   "Clear search": "Clear search",
   "NoOpenTabMatches": "No open tab matches \"{{text}}\"",
   "TabCountShownOfTotal_one": "{{shown}} of {{count}} Tab",
-  "TabCountShownOfTotal_other": "{{shown}} of {{count}} Tabs"
+  "TabCountShownOfTotal_other": "{{shown}} of {{count}} Tabs",
+  "CarryCardNameAndCount_one": "{{name}} · {{count}} Tab",
+  "CarryCardNameAndCount_other": "{{name}} · {{count}} Tabs",
+  "CarryNewWindowTarget": "New window"
 }

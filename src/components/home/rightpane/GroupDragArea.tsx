@@ -5,20 +5,29 @@
 // a window never provides one of its own. ONE component rather than the
 // per-window area each window used to build for itself, so the wiring behind
 // it can only be changed in one place.
-import React, { type ReactNode } from 'react';
+import React, { useCallback, type ReactNode } from 'react';
 import { useSelector } from 'react-redux';
 
 import type { RootState } from '../../../redux/store';
 import { RowDragArea } from './rowDrag/RowDragArea';
 import { useGroupDrop } from './useGroupDrop';
 import type { PaneWindows } from './rowDrag/dropRules';
+import { markNewWindowTarget } from './newWindowTarget';
+import { groupCarryOut } from './carryOut';
 
 export const GroupDragArea: React.FC<{
   // Must keep its identity between renders while its windows are unchanged:
   // the area re-binds its listeners whenever what this derives changes.
   itemList: PaneWindows;
+  // The phantom row a carried group is drawn as, which this list adopts
+  // when the pointer comes in (KAN-350). Undefined unless one is carried
+  // and the session on screen can take it.
+  adoptRowId?: string;
+  // The row the adopted item lands as, followed into view after a committed
+  // drop (KAN-155): its own row here, once the move has re-rendered.
+  adoptedRowLandsAs?: string;
   children: ReactNode;
-}> = ({ itemList, children }) => {
+}> = ({ itemList, adoptRowId, adoptedRowLandsAs, children }) => {
   const hasTabGroupsPermission = useSelector(
     (state: RootState) => state.globalState.hasTabGroupsPermission
   );
@@ -26,6 +35,10 @@ export const GroupDragArea: React.FC<{
     (state: RootState) => state.globalState.isSearchPanel
   );
   const groupDrop = useGroupDrop(itemList, hasTabGroupsPermission);
+  const carryOut = useCallback(
+    (rowId: string) => groupCarryOut(itemList, rowId),
+    [itemList]
+  );
 
   return (
     <RowDragArea
@@ -53,6 +66,15 @@ export const GroupDragArea: React.FC<{
       // because compressing the held group can shrink the list and clamp the
       // scroll.
       restoreScrollIfNoDrop
+      // Onto the session list, a whole group is carried to another session
+      // (KAN-350, KAN-352).
+      carryOut={carryOut}
+      // Back in the pane, the carried item's phantom becomes this list's
+      // drag, and the New window target lights up while it would land there
+      // (KAN-350).
+      adoptRowId={adoptRowId}
+      adoptedRowLandsAs={adoptedRowLandsAs}
+      onLandingWindowChange={markNewWindowTarget}
       // The mode, not the box's contents -- see KAN-140 on
       // TabGroupEntryContainer for why this is not isFilteredView.
       disabled={isSearchPanel}

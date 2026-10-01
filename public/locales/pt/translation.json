@@ -220,6 +220,9 @@
   "Close Open now": "Fechar o painel \"Abas abertas\"",
   "Resize Open now": "Redimensionar o painel \"Abas abertas\"",
   "Reopen": "Reabrir",
+  "Show": "Mostrar",
+  "MovedToSession": "Item movido para “{{title}}”",
+  "SessionEmptiedRemoved": "A sessão “{{title}}” estava vazia e foi removida.",
   "Ctrl": "Ctrl",
   "Tab closed": "Aba fechada",
   "Couldn't reopen.": "Não foi possível reabrir.",
@@ -238,5 +241,9 @@
   "NoOpenTabMatches": "Nenhuma aba aberta corresponde a \"{{text}}\"",
   "TabCountShownOfTotal_one": "{{shown}} de {{count}} Aba",
   "TabCountShownOfTotal_many": "{{shown}} de {{count}} Abas",
-  "TabCountShownOfTotal_other": "{{shown}} de {{count}} Abas"
+  "TabCountShownOfTotal_other": "{{shown}} de {{count}} Abas",
+  "CarryCardNameAndCount_one": "{{name}} · {{count}} Aba",
+  "CarryCardNameAndCount_many": "{{name}} · {{count}} Abas",
+  "CarryCardNameAndCount_other": "{{name}} · {{count}} Abas",
+  "CarryNewWindowTarget": "Nova janela"
 }

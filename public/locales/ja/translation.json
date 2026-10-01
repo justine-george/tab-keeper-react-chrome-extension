@@ -216,6 +216,9 @@
   "Close Open now": "「現在開いているタブ」パネルを閉じる",
   "Resize Open now": "「現在開いているタブ」パネルの幅を変更",
   "Reopen": "再度開く",
+  "Show": "表示",
+  "MovedToSession": "「{{title}}」に移動しました",
+  "SessionEmptiedRemoved": "セッション「{{title}}」は空になったため削除されました。",
   "Ctrl": "Ctrl",
   "Tab closed": "タブを閉じました",
   "Couldn't reopen.": "再度開けませんでした。",
@@ -230,5 +233,7 @@
   "Search open tabs": "開いているタブを検索",
   "Clear search": "検索をクリア",
   "NoOpenTabMatches": "「{{text}}」に一致する開いているタブはありません",
-  "TabCountShownOfTotal_other": "{{count}} 個中 {{shown}} 個のタブ"
+  "TabCountShownOfTotal_other": "{{count}} 個中 {{shown}} 個のタブ",
+  "CarryCardNameAndCount_other": "{{name}} · {{count}} 個のタブ",
+  "CarryNewWindowTarget": "新しいウィンドウ"
 }

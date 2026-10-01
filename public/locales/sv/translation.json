@@ -218,6 +218,9 @@
   "Close Open now": "Stäng panelen ”Öppna flikar”",
   "Resize Open now": "Ändra bredden på panelen ”Öppna flikar”",
   "Reopen": "Öppna igen",
+  "Show": "Visa",
+  "MovedToSession": "Flyttat till ”{{title}}”",
+  "SessionEmptiedRemoved": "Sessionen ”{{title}}” var tom och har tagits bort.",
   "Ctrl": "Ctrl",
   "Tab closed": "Fliken stängdes",
   "Couldn't reopen.": "Det gick inte att öppna igen.",
@@ -234,5 +237,8 @@
   "Clear search": "Rensa sökning",
   "NoOpenTabMatches": "Ingen öppen flik matchar ”{{text}}”",
   "TabCountShownOfTotal_one": "{{shown}} av {{count}} Flik",
-  "TabCountShownOfTotal_other": "{{shown}} av {{count}} Flikar"
+  "TabCountShownOfTotal_other": "{{shown}} av {{count}} Flikar",
+  "CarryCardNameAndCount_one": "{{name}} · {{count}} Flik",
+  "CarryCardNameAndCount_other": "{{name}} · {{count}} Flikar",
+  "CarryNewWindowTarget": "Nytt fönster"
 }

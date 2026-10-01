@@ -49,3 +49,28 @@ export const dropOnTop =
     if (before === null || after === null || !drop.rowExists(now)) return;
     dispatch(drop.move(reaimIndex(before, after, drop.rowId, drop.toIndex)));
   };
+
+// A drop that says whether it moved anything (KAN-350): a carry that ends
+// with nothing moved is a cancel, and puts its source's view back. Read off
+// the move itself, as moveToSession reads it: the container just before the
+// move action is dispatched against the container after it. The reducer
+// returns the very same object for a move that changes nothing, and dropOnTop
+// may abandon the drop before any move is dispatched at all.
+export const dropOnTopMoved =
+  (drop: DropOnTop): ThunkAction<boolean, RootState, unknown, UnknownAction> =>
+  (dispatch, getState) => {
+    const beforeMove: { state: TabMasterContainer | null } = { state: null };
+    dispatch(
+      dropOnTop({
+        ...drop,
+        move: (toIndex) => {
+          beforeMove.state = getState().tabContainerDataState;
+          return drop.move(toIndex);
+        },
+      })
+    );
+    return (
+      beforeMove.state !== null &&
+      getState().tabContainerDataState !== beforeMove.state
+    );
+  };

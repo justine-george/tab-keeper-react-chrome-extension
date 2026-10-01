@@ -216,6 +216,9 @@
   "Close Open now": "關閉「目前開啟的分頁」面板",
   "Resize Open now": "調整「目前開啟的分頁」面板寬度",
   "Reopen": "重新開啟",
+  "Show": "顯示",
+  "MovedToSession": "已移至「{{title}}」",
+  "SessionEmptiedRemoved": "工作階段「{{title}}」已沒有內容，已將其移除。",
   "Ctrl": "Ctrl",
   "Tab closed": "分頁已關閉",
   "Couldn't reopen.": "無法重新開啟。",
@@ -230,5 +233,7 @@
   "Search open tabs": "搜尋開啟的分頁",
   "Clear search": "清除搜尋",
   "NoOpenTabMatches": "沒有符合「{{text}}」的開啟分頁",
-  "TabCountShownOfTotal_other": "{{count}} 個分頁中的 {{shown}} 個"
+  "TabCountShownOfTotal_other": "{{count}} 個分頁中的 {{shown}} 個",
+  "CarryCardNameAndCount_other": "{{name}} · {{count}} 個分頁",
+  "CarryNewWindowTarget": "新視窗"
 }

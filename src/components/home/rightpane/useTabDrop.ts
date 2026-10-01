@@ -18,6 +18,8 @@ import { useDispatch } from 'react-redux';
 import type { AppDispatch } from '../../../redux/store';
 import { dropOnTop } from '../../../redux/dropOnTop';
 import { tabDrop } from '../../../redux/dropSpecs';
+import { dropCarriedTab } from '../../../redux/dropCarried';
+import { currentCarry, endCarry } from '../../../redux/carry';
 import {
   TAB_GROUP_COLOR_HEX,
   sanitizeTabGroupColor,
@@ -675,6 +677,10 @@ export function useTabDrop(
   // Two reducers, not one widened one (spec 7): moveTabInternal's no-op guard
   // and its prune ordering both rest on the tab never leaving the array it was
   // spliced from. tabDrop picks between them on the two window ids.
+  //
+  // A CARRIED tab (KAN-350) is the phantom the area adopted: it is let go
+  // where the drop landed, from the window the carry took it out of, and
+  // the carry ends as committed only if the tab moved -- see dropCarriedTab.
   const onMove = useCallback(
     (
       tabId: string,
@@ -684,6 +690,19 @@ export function useTabDrop(
     ) => {
       const move = describeTabMove(tabId, toIndex, toChromeGroupId, toWindowId);
       if (move === undefined) return;
+      const carried = currentCarry()?.carried;
+      if (carried?.kind === 'tab') {
+        const moved = dispatch(
+          dropCarriedTab(carried, {
+            tabGroupId,
+            toWindowId: move.toWindowId,
+            toIndex: move.toIndex,
+            toChromeGroupId: move.toGroupId,
+          })
+        );
+        endCarry(moved ? 'committed' : 'cancelled');
+        return;
+      }
       dispatch(
         dropOnTop(
           tabDrop({

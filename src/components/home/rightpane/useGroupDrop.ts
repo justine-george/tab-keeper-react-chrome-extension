@@ -24,6 +24,8 @@ import { useDispatch } from 'react-redux';
 import type { AppDispatch } from '../../../redux/store';
 import { dropOnTop } from '../../../redux/dropOnTop';
 import { groupDrop } from '../../../redux/dropSpecs';
+import { dropCarriedGroup } from '../../../redux/dropCarried';
+import { currentCarry, endCarry } from '../../../redux/carry';
 import {
   partitionTabsIntoItems,
   itemIdOf,
@@ -146,6 +148,20 @@ export function useGroupDrop(
     ) => {
       const move = describeGroupMove(itemId, toIndex, toWindowId);
       if (move === undefined) return;
+      // A CARRIED group (KAN-350): let go where the drop landed, from the
+      // window the carry took it out of -- see dropCarriedGroup.
+      const carried = currentCarry()?.carried;
+      if (carried?.kind === 'group') {
+        const moved = dispatch(
+          dropCarriedGroup(carried, {
+            tabGroupId,
+            toWindowId: move.toWindowId,
+            toIndex: move.toIndex,
+          })
+        );
+        endCarry(moved ? 'committed' : 'cancelled');
+        return;
+      }
       dispatch(
         dropOnTop(
           groupDrop({

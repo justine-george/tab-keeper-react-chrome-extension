@@ -220,6 +220,9 @@
   "Close Open now": "Fermer le panneau « Onglets ouverts »",
   "Resize Open now": "Redimensionner le panneau « Onglets ouverts »",
   "Reopen": "Rouvrir",
+  "Show": "Afficher",
+  "MovedToSession": "Élément déplacé vers « {{title}} »",
+  "SessionEmptiedRemoved": "La session « {{title}} » était vide et a été supprimée.",
   "Ctrl": "Ctrl",
   "Tab closed": "Onglet fermé",
   "Couldn't reopen.": "Impossible de rouvrir.",
@@ -238,5 +241,9 @@
   "NoOpenTabMatches": "Aucun onglet ouvert ne correspond à « {{text}} »",
   "TabCountShownOfTotal_one": "{{shown}} sur {{count}} Onglet",
   "TabCountShownOfTotal_many": "{{shown}} sur {{count}} Onglets",
-  "TabCountShownOfTotal_other": "{{shown}} sur {{count}} Onglets"
+  "TabCountShownOfTotal_other": "{{shown}} sur {{count}} Onglets",
+  "CarryCardNameAndCount_one": "{{name}} · {{count}} Onglet",
+  "CarryCardNameAndCount_many": "{{name}} · {{count}} Onglets",
+  "CarryCardNameAndCount_other": "{{name}} · {{count}} Onglets",
+  "CarryNewWindowTarget": "Nouvelle fenêtre"
 }

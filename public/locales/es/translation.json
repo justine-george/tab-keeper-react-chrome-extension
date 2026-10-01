@@ -220,6 +220,9 @@
   "Close Open now": "Cerrar el panel \"Pestañas abiertas\"",
   "Resize Open now": "Cambiar el ancho del panel \"Pestañas abiertas\"",
   "Reopen": "Reabrir",
+  "Show": "Mostrar",
+  "MovedToSession": "Se movió a «{{title}}»",
+  "SessionEmptiedRemoved": "La sesión «{{title}}» estaba vacía y se eliminó.",
   "Ctrl": "Ctrl",
   "Tab closed": "Pestaña cerrada",
   "Couldn't reopen.": "No se pudo reabrir.",
@@ -238,5 +241,9 @@
   "NoOpenTabMatches": "Ninguna pestaña abierta coincide con «{{text}}»",
   "TabCountShownOfTotal_one": "{{shown}} de {{count}} Pestaña",
   "TabCountShownOfTotal_many": "{{shown}} de {{count}} Pestañas",
-  "TabCountShownOfTotal_other": "{{shown}} de {{count}} Pestañas"
+  "TabCountShownOfTotal_other": "{{shown}} de {{count}} Pestañas",
+  "CarryCardNameAndCount_one": "{{name}} · {{count}} Pestaña",
+  "CarryCardNameAndCount_many": "{{name}} · {{count}} Pestañas",
+  "CarryCardNameAndCount_other": "{{name}} · {{count}} Pestañas",
+  "CarryNewWindowTarget": "Nueva ventana"
 }

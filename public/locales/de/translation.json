@@ -218,6 +218,9 @@
   "Close Open now": "Bereich \"Offene Tabs\" schließen",
   "Resize Open now": "Breite des Bereichs \"Offene Tabs\" ändern",
   "Reopen": "Wieder öffnen",
+  "Show": "Anzeigen",
+  "MovedToSession": "Nach „{{title}}“ verschoben",
+  "SessionEmptiedRemoved": "„{{title}}“ war leer und wurde entfernt.",
   "Ctrl": "Strg",
   "Tab closed": "Tab geschlossen",
   "Couldn't reopen.": "Konnte nicht wieder geöffnet werden.",
@@ -234,5 +237,8 @@
   "Clear search": "Suche löschen",
   "NoOpenTabMatches": "Kein offener Tab passt zu „{{text}}“",
   "TabCountShownOfTotal_one": "{{shown}} von {{count}} Tab",
-  "TabCountShownOfTotal_other": "{{shown}} von {{count}} Tabs"
+  "TabCountShownOfTotal_other": "{{shown}} von {{count}} Tabs",
+  "CarryCardNameAndCount_one": "{{name}} · {{count}} Tab",
+  "CarryCardNameAndCount_other": "{{name}} · {{count}} Tabs",
+  "CarryNewWindowTarget": "Neues Fenster"
 }

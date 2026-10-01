@@ -7,6 +7,7 @@ import { css } from '@emotion/react';
 import { isTabView } from '../utils/functions/viewMode';
 import LeftPane from './home/leftpane/LeftPane';
 import { Toast } from './common/Toast';
+import { CarryLayer } from './home/CarryLayer';
 import RightPane from './home/rightpane/RightPane';
 import OpenNowColumn from './home/opennow/OpenNowColumn';
 import OpenNowResizeGrip from './home/opennow/OpenNowResizeGrip';
@@ -423,6 +424,9 @@ export default function MainContainer() {
       {/* Always mounted: its role="status" region has to exist before a
           toast's text arrives for a screen reader to hear it (KAN-280 O8a). */}
       <Toast />
+      {/* KAN-350. Outside every pane, so it outlives the area a carried
+          drag started in. Draws nothing unless something is carried. */}
+      <CarryLayer />
       {isRateAndReviewModalOpen && <RateAndReviewModal />}
       {tabGroupsPromptCount !== null && <TabGroupsPermissionModal />}
       {focusRequest && <FocusConfirmModal />}

@@ -7,7 +7,10 @@ import { Toast } from '../../components/common/Toast';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { initTestI18n, testI18n } from '../setup/i18nForTests';
 import { showToast } from '../../redux/slices/globalStateSlice';
-import { IMPORT_ERROR_FRAME } from '../../utils/constants/common';
+import {
+  IMPORT_ERROR_FRAME,
+  TOAST_MESSAGES,
+} from '../../utils/constants/common';
 import {
   IMPORT_INVALID_STRUCTURE,
   SYNC_SIZE_REFUSAL,
@@ -134,5 +137,50 @@ describe('error toasts are translated (KAN-86)', () => {
     expect(container.textContent).not.toContain('Error restoring tabs');
     // ...and the untranslatable part is intact, not swallowed.
     expect(container.textContent).toContain(raw);
+  });
+});
+
+// KAN-350. The two move toasts are opaque keys with the session title as
+// {{title}}, so only a non-English locale shows the key resolved and the
+// title placed inside that language's own quotation marks.
+describe('the move toasts are translated (KAN-350)', () => {
+  test('Moved to a session renders in German, title and quotes and all', async () => {
+    const { store, container } = await renderToastIn('de');
+
+    await act(async () => {
+      await store.dispatch(
+        showToast({
+          toastText: TOAST_MESSAGES.MOVED_TO_SESSION,
+          toastParams: { title: 'Reiseplanung' },
+          duration: 8_000,
+        })
+      );
+    });
+
+    expect(container.textContent).toBe('Nach „Reiseplanung“ verschoben');
+    expect(container.textContent).toBe(
+      interpolate(de.MovedToSession, { title: 'Reiseplanung' })
+    );
+  });
+
+  test('an emptied session renders in German, title and all', async () => {
+    const { store, container } = await renderToastIn('de');
+
+    await act(async () => {
+      await store.dispatch(
+        showToast({
+          toastText: TOAST_MESSAGES.SESSION_EMPTIED_REMOVED,
+          toastParams: { title: 'Reiseplanung' },
+        })
+      );
+    });
+
+    expect(container.textContent).toBe(
+      '„Reiseplanung“ war leer und wurde entfernt.'
+    );
+    // CONTROL: the English form is absent.
+    expect(container.textContent).not.toContain(
+      interpolate(en.SessionEmptiedRemoved, { title: 'Reiseplanung' })
+    );
   });
 });
