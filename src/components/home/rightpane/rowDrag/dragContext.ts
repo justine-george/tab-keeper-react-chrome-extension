@@ -70,6 +70,21 @@ export interface DragState {
    * list's row its carryOut has no card for. Those keep the sliding row.
    */
   heldShownAsCard: boolean;
+  /**
+   * How far below the held row's own place (its measured top) the outline
+   * over the room it leaves is drawn (KAN-354 C3 A), or null when none is.
+   *
+   * A row held over ANOTHER window leaves its source one row shorter, and
+   * that room shows at the source's BOTTOM: the rows below it close up, and
+   * the source keeps its box until the release (KAN-184). The outline is the
+   * held row's own box, bottom-aligned to the source's lowest slot as
+   * measured at drag start; 0 when the held row is its window's last.
+   *
+   * Null with no card (the row is still drawn), for an adopted carry (its
+   * source, the New window target, is gone after the drop), for a landing in
+   * the row's own window, and for a refused one.
+   */
+  sourceRoomDelta: number | null;
 }
 
 export interface Ctx {

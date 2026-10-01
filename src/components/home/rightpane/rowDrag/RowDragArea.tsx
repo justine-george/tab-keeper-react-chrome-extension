@@ -100,6 +100,11 @@ const SLOT_OPACITY = 1;
 // value, so the slot that takes over on entry cannot change shape.
 const SLOT_RADIUS = '4px';
 
+// How strongly the outline over the room a cross-window drag leaves draws
+// (KAN-354 C3 A): the mock's value, below the landing slot's. Its contrast
+// in every theme is measured in the browser, not assumed from this number.
+const SOURCE_ROOM_OPACITY = 0.45;
+
 // The nearest ancestor that actually scrolls.
 //
 // Resolved from the ROW rather than from the drag area, because the area is
@@ -955,6 +960,9 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // Which WINDOW BLOCKS move, so the destination has somewhere to put the
       // row (KAN-184). Empty for every landing inside one window.
       let windowShifts: Record<string, number> = {};
+      // Where the outline over the room the row leaves is drawn (KAN-354 C3
+      // A) -- see DragState.sourceRoomDelta. Null unless set below.
+      let sourceRoomDelta: number | null = null;
       if (
         landing !== undefined &&
         landing.windowId !== undefined &&
@@ -995,6 +1003,29 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
           landing.windowId,
           l.footprint
         );
+        // The room the row leaves is at the BOTTOM of its own window, not
+        // at its place: previewShiftsAcross closes the source up below the
+        // row, and the source keeps its box (KAN-184). One row of it is
+        // outlined, the held row's own box, bottom-aligned to the lowest
+        // slot the source drew at drag start. Where the room is taller (a
+        // group's only member leaving, KAN-169) the rest of it stays bare.
+        //
+        // Only for a drag shown by its OWN card (`l.card`), which an adopted
+        // drag never has -- its card is the carry's. A visible held row needs
+        // no help, and an adopted carry's source is the New window target,
+        // which the drop does not leave one row shorter: it removes it.
+        // Not `heldShownAsCard`, which is true for an adopted drag too.
+        const heldRect = l.rects[l.fromIndex];
+        if (l.card !== null && heldRect !== undefined) {
+          const sourceBottom = l.slots.reduce(
+            (bottom, s) =>
+              s.windowId === heldRect.windowId
+                ? Math.max(bottom, s.top + s.height)
+                : bottom,
+            heldRect.top + heldRect.height
+          );
+          sourceRoomDelta = sourceBottom - (heldRect.top + heldRect.height);
+        }
       } else {
         const to =
           fixedSlot === undefined || beside === undefined
@@ -1042,6 +1073,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         // A card is up for the held row: this drag's own, or the carry's an
         // adopted drag came from (KAN-354).
         heldShownAsCard: l.card !== null || l.adopted,
+        sourceRoomDelta,
       });
 
       return target;
@@ -2022,6 +2054,39 @@ export const DraggableRow: React.FC<DraggableRowProps> = ({
                     ? Math.abs(drag.landingDelta - translate) / drag.footprint
                     : 1
                 ),
+          }}
+        />
+      )}
+      {/* KAN-354 C3 A. The room this row leaves in its own window, while it
+          is held over another: one row, at the bottom of that window -- see
+          DragState.sourceRoomDelta.
+
+          Placed like the landing slot: a child of the held row, its own box,
+          counter-transformed out of the row's translate and on to the
+          room's distance from the row's place. NO WINDOW-SHIFT TERM, unlike
+          the slot's: the slot points into the LANDING's block, which may
+          have moved apart from the held row's, but the room is in the held
+          row's own block, and whatever that block has moved by (upward,
+          the source is pushed down a row, KAN-184) the row and the room
+          have moved by together. */}
+      {held && drag.sourceRoomDelta !== null && (
+        <div
+          aria-hidden="true"
+          data-drag-source-room=""
+          style={{
+            position: 'absolute',
+            // Longhands, like the landing slot's (KAN-183).
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            transform: `translateY(${drag.sourceRoomDelta - translate}px)`,
+            pointerEvents: 'none',
+            borderWidth: '1.5px',
+            borderStyle: 'dotted',
+            borderColor: 'var(--drag-landing-slot, currentColor)',
+            borderRadius: SLOT_RADIUS,
+            opacity: SOURCE_ROOM_OPACITY,
           }}
         />
       )}

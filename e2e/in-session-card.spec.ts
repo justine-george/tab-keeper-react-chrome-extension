@@ -15,6 +15,7 @@
 //   KAN-355  the adopted phantom casts no shadow
 //   C1       a saved list's drag is drawn by the card (tab, group, window)
 //   C2       the session list keeps its lifted row and shows no card
+//   C3       a drag into another window outlines the room it leaves there
 //
 // Driven as the popup (790x550), with the tabGroups grant (grantedTest) so a
 // group band exists at all.
@@ -400,6 +401,159 @@ test.describe('C2: the session list keeps its lifted row', () => {
     const content = await contentOpacities(held);
     expect(content.length).toBeGreaterThan(0);
     expect(content.every((o) => o === '1')).toBe(true);
+
+    await cancel(page);
+  });
+});
+
+test.describe('C3: the outline over the room a cross-window drag leaves', () => {
+  const OUTLINE = '[data-drag-source-room]';
+
+  // Where an element is drawn, transforms included.
+  const drawn = (loc: Locator) =>
+    loc.evaluate((el) => {
+      const r = el.getBoundingClientRect();
+      return { top: r.top, bottom: r.bottom, height: r.height };
+    });
+
+  // How far the preview moved a window's block (KAN-184), as it publishes.
+  const windowShift = (page: Page, windowId: string): Promise<number> =>
+    page
+      .locator(`[data-drop-window-id="${windowId}"]`)
+      .evaluate((el: HTMLElement) => Number(el.dataset.windowShift ?? 0));
+
+  // The outline's paint: dotted, at 0.45, not hidden with the held row's
+  // content, and the landing slot's colour and line width -- 1.5px, which
+  // Chrome snaps to whole device pixels (1px at this DPR) for both alike.
+  async function expectOutlineLook(page: Page): Promise<void> {
+    const look = await page.locator(OUTLINE).evaluate((el) => {
+      const s = getComputedStyle(el);
+      const slot = el.parentElement?.querySelector(
+        ':scope > [data-drag-landing-slot]'
+      );
+      const slotStyle = slot ? getComputedStyle(slot) : null;
+      return {
+        borderStyle: s.borderTopStyle,
+        opacity: s.opacity,
+        visibility: s.visibility,
+        sameWidthAsSlot: s.borderTopWidth === slotStyle?.borderTopWidth,
+        sameColourAsSlot: s.borderTopColor === slotStyle?.borderTopColor,
+      };
+    });
+    expect(look).toEqual({
+      borderStyle: 'dotted',
+      opacity: '0.45',
+      visibility: 'visible',
+      sameWidthAsSlot: true,
+      sameColourAsSlot: true,
+    });
+  }
+
+  test('downward: a tab from w1 into w2 leaves its room at the bottom of w1', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    // w1's last row, and the held row's own box, at rest.
+    const last = await boxOf(row(page, 'al1'));
+    const own = await boxOf(row(page, 'a0'));
+    await pickUp(page, row(page, 'a0'));
+    // PREMISE: nothing outlined while the landing is in the row's own window.
+    await expect(page.locator(OUTLINE)).toHaveCount(0);
+
+    // Into w2, between b0 and b1.
+    await aimAt(page, 'b1', 0.1);
+
+    // PREMISE: the landing is in w2 -- the slot is drawn there, and w1's
+    // last row has closed up under a0.
+    const slot = await drawn(page.locator('[data-drag-landing-slot]'));
+    const w2 = await drawn(page.locator('[data-drop-window-id="w2"]'));
+    expect(slot.top).toBeGreaterThan(w2.top);
+    const lastNow = await drawn(row(page, 'al1'));
+    expect(lastNow.bottom).toBeLessThan(last.y + last.height - 1);
+
+    await expect(page.locator(OUTLINE)).toHaveCount(1);
+    const outline = await drawn(page.locator(OUTLINE));
+    // One row -- the held row's own box -- ending where w1's rows ended.
+    expect(outline.height).toBeCloseTo(own.height, 0);
+    expect(outline.bottom).toBeCloseTo(last.y + last.height, 0);
+    // In the room itself: below the closed-up rows, inside w1's box.
+    expect(outline.top).toBeGreaterThanOrEqual(lastNow.bottom - 0.5);
+    const w1 = await drawn(page.locator('[data-drop-window-id="w1"]'));
+    expect(outline.bottom).toBeLessThanOrEqual(w1.bottom + 0.5);
+    await expectOutlineLook(page);
+
+    await cancel(page);
+    await expect(page.locator(OUTLINE)).toHaveCount(0);
+  });
+
+  // Upward, the source is below the destination, so the preview moves the
+  // SOURCE's block down a row (KAN-184), and the room with it.
+  test('upward: a tab from w2 into w1 leaves its room at the bottom of the moved w2', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    const last = await boxOf(row(page, 'b1'));
+    const own = await boxOf(row(page, 'b0'));
+    await pickUp(page, row(page, 'b0'));
+
+    // Into w1, between a0 and a1.
+    await aimAt(page, 'a1', 0.1);
+
+    // PREMISE: the landing is in w1, so w2's block has moved down.
+    const shift = await windowShift(page, 'w2');
+    expect(shift).toBeGreaterThan(0);
+
+    await expect(page.locator(OUTLINE)).toHaveCount(1);
+    const outline = await drawn(page.locator(OUTLINE));
+    expect(outline.height).toBeCloseTo(own.height, 0);
+    // At the MOVED block's bottom row, not the resting one.
+    expect(outline.bottom).toBeCloseTo(last.y + last.height + shift, 0);
+    const lastNow = await drawn(row(page, 'b1'));
+    expect(outline.top).toBeGreaterThanOrEqual(lastNow.bottom - 0.5);
+    const w2 = await drawn(page.locator('[data-drop-window-id="w2"]'));
+    expect(outline.bottom).toBeLessThanOrEqual(w2.bottom + 0.5);
+    await expectOutlineLook(page);
+
+    await cancel(page);
+  });
+
+  // Q3. A group gets the outline too: its compressed box (KAN-160). Alpha
+  // is w1's last item, so the room it leaves is its own place.
+  test('a group from w1 into w2: the group’s compressed box, at the bottom of w1', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    const band = await boxOf(row(page, 'group:alpha'));
+    await pickUp(page, groupHandle(page, 'alpha'));
+    const held = row(page, 'group:alpha');
+    // The compressed box, measured with the drag on.
+    const compressed = await held.evaluate((el: HTMLElement) => {
+      const shift = Number(
+        /translateY\((-?[\d.]+)px\)/.exec(el.style.transform)?.[1] ?? 0
+      );
+      const r = el.getBoundingClientRect();
+      return { top: r.top - shift, height: r.height };
+    });
+    // PREMISE: compressed, shorter than the band at rest.
+    expect(compressed.height).toBeLessThan(band.height - 1);
+
+    await aimAt(page, 'tab:b1', 0.1);
+
+    // PREMISE: the landing is in w2.
+    const slot = await drawn(page.locator('[data-drag-landing-slot]'));
+    const w2 = await drawn(page.locator('[data-drop-window-id="w2"]'));
+    expect(slot.top).toBeGreaterThan(w2.top);
+
+    await expect(page.locator(OUTLINE)).toHaveCount(1);
+    const outline = await drawn(page.locator(OUTLINE));
+    expect(outline.height).toBeCloseTo(compressed.height, 0);
+    expect(outline.top).toBeCloseTo(compressed.top, 0);
+    const w1 = await drawn(page.locator('[data-drop-window-id="w1"]'));
+    expect(outline.bottom).toBeLessThanOrEqual(w1.bottom + 0.5);
+    await expectOutlineLook(page);
 
     await cancel(page);
   });
