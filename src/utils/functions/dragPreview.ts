@@ -120,7 +120,10 @@ export function slotLandingBeside(
  * held FOLDED to its title row and passes groups drawn whole, and measured,
  * the slot was drawn on the passed group's top -- over its rows -- a row short
  * for each row the passed group is taller: 64px past a two-tab group, 32px
- * past a one-tab one.
+ * past a one-tab one. Open now's group list is the same list and was the same
+ * distance out. And the tab list has two heights too, at Chrome's "Large"
+ * font size: a 20px root makes a tab row 38px while a title row stays 32, so a
+ * tab joining a group at its head from above was drawn 6px low.
  */
 export function landingDeltaOf(
   slots: readonly PreviewSlot[],

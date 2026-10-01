@@ -339,3 +339,45 @@ describe('landingDeltaOf, a held row shorter than the rows it passes (KAN-360)',
     expect(landingDeltaOf(HELD_LAST_FOLDED, 4, 1)).toBe(190 - 470);
   });
 });
+
+// KAN-360 in the TAB list, at a 20px root (Chrome's "Large" font size): every
+// rem scales, so a tab row is 38px but a group's title row stays 32. Measured
+// in the real popup at 790x550 on 2026-10-01
+// (e2e/tab-landing-slot-large-font.spec.ts), at rest:
+//
+//   slot  key     top   height
+//      0  x0      174      38
+//      1  x1      212      38   <- the held row
+//      2  g       252      32   Gee's title row
+//      3  g0      284      38
+//      4  g1      322      38
+//      5  g:tail  360       0
+//      6  y0      362      38
+//
+// x1 joining Gee at its head came to rest at 246, its bottom on the title
+// row's bottom. The slot was drawn at 252, the title row's top: 6px low, the
+// difference between the two heights.
+const LARGE_ROOT: PreviewSlot[] = [
+  { key: 'x0', top: 174, height: 38 },
+  { key: 'x1', top: 212, height: 38 },
+  { key: 'g', top: 252, height: 32 },
+  { key: 'g0', top: 284, height: 38 },
+  { key: 'g1', top: 322, height: 38 },
+  { key: 'g:tail', top: 360, height: 0 },
+  { key: 'y0', top: 362, height: 38 },
+];
+
+describe('landingDeltaOf, a tab row taller than a title row (KAN-360)', () => {
+  test('joining a group at its head from above lands bottom to bottom', () => {
+    expect(
+      landingDeltaOf(LARGE_ROOT, 1, slotLandingBeside(1, 2, 'after'))
+    ).toBe(246 - 212);
+  });
+
+  // CONTROL: from below, "after the title row" is g0's own top.
+  test('CONTROL: joining it at its head from below lands on g0s top', () => {
+    expect(
+      landingDeltaOf(LARGE_ROOT, 6, slotLandingBeside(6, 2, 'after'))
+    ).toBe(284 - 362);
+  });
+});
