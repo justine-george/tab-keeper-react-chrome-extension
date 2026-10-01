@@ -199,10 +199,15 @@ const slotOf = (held: HTMLElement): HTMLElement => {
   if (!(slot instanceof HTMLElement)) throw new Error('no landing slot');
   return slot;
 };
-// The held row's own children, its landing slot excluded: what it draws of
+// The held row's own children, the slots it draws excluded (the landing slot,
+// and the outline of the room a cross-window drag leaves): what it draws of
 // itself.
 const contentOf = (held: HTMLElement): Element[] =>
-  [...held.children].filter((c) => !c.hasAttribute('data-drag-landing-slot'));
+  [...held.children].filter(
+    (c) =>
+      !c.hasAttribute('data-drag-landing-slot') &&
+      !c.hasAttribute('data-drag-source-room')
+  );
 // Whether anything between the element and the page hides it. Opacity does
 // not inherit in a computed style, so the element's own is not enough.
 const seen = (el: Element) => {
