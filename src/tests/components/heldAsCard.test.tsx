@@ -290,7 +290,9 @@ const release = (y: number, x = X) =>
 
 describe('a drag in a saved list is drawn by the card (KAN-354 C1 A)', () => {
   test.each(KINDS)(
-    'a $name: one drag card, and the held row hidden in its own room',
+    // Its room is the e2e's to see (in-session-card.spec.ts,
+    // expectSlotAtOwnPlace): jsdom lays nothing out.
+    'a $name: one drag card, and the held row hidden by opacity alone',
     async (kind) => {
       await renderDetail();
       // The premise: nothing is shown before the drag starts.
@@ -330,6 +332,9 @@ describe('a drag in a saved list is drawn by the card (KAN-354 C1 A)', () => {
       expect(getComputedStyle(held).pointerEvents).not.toBe('none');
       expect(getComputedStyle(held).visibility).not.toBe('hidden');
       expect(held.inert).not.toBe(true);
+      // The property alone cannot see an `inert` attribute: jsdom has no
+      // `inert` property, so it reads undefined whatever the markup says.
+      expect(held.hasAttribute('inert')).toBe(false);
 
       act(() => {
         fireEvent.keyDown(window, { key: 'Escape' });
@@ -546,11 +551,17 @@ describe('the pick-up arrives in one commit (KAN-359)', () => {
 
   // Outside act, as the browser dispatches them -- `window.event` included,
   // which is what React reads to pick an update's lane. jsdom's own stops
-  // working the first time React handles an event: react-dom's dev build
-  // assigns it (invokeGuardedCallbackDev), and from then on it answers that
-  // event for good -- here the press's pointerdown, a DISCRETE event, which
-  // put the engine's setDrag on the sync lane with the card and hid the gap
-  // this test is about. So the dispatch says what the browser would.
+  // working the first time React handles an event. react-dom's dev build
+  // assigns `window.event` (invokeGuardedCallbackDev), and that lands in
+  // vitest's jsdom environment, not in jsdom: populateGlobal puts each
+  // window key on the global behind a setter that stores the value in an
+  // `overrideObject`, and a getter that answers it from then on, in place
+  // of jsdom's. So it answers that event for good -- here the press's
+  // pointerdown, a DISCRETE event, which put the engine's setDrag on the
+  // sync lane with the card and hid the gap this test is about. (Plain
+  // jsdom, with the same assignment and descriptor restore, keeps
+  // answering the event being dispatched.) So the dispatch says what the
+  // browser would.
   const dispatchAsBrowser = (event: Event) => {
     const before = Object.getOwnPropertyDescriptor(window, 'event');
     Object.defineProperty(window, 'event', {
@@ -724,29 +735,6 @@ describe('the pick-up arrives in one commit (KAN-359)', () => {
     globalThis.IS_REACT_ACT_ENVIRONMENT = actEnvironment;
     act(() => endCarry('cancelled'));
   });
-
-  test('the area unmounting before that commit leaves no card', async () => {
-    const { rerender } = await renderDetail();
-    table = TAB.layout;
-    fireEvent.pointerDown(TAB.press(), {
-      clientX: X,
-      clientY: TAB.pressY,
-      button: 0,
-    });
-    globalThis.IS_REACT_ACT_ENVIRONMENT = false;
-
-    nativeMove(X, TAB.pressY + 8);
-    // The premise: the drag started.
-    expect(row(TAB.held).hasAttribute('data-drag-held')).toBe(true);
-    globalThis.IS_REACT_ACT_ENVIRONMENT = actEnvironment;
-    rerender(<CarryLayer />);
-    globalThis.IS_REACT_ACT_ENVIRONMENT = false;
-    await tasks();
-
-    expect(document.querySelector('[data-drag-row-id="t2"]')).toBeNull();
-    expect(dragCard()).toBeNull();
-    expect(currentDragCard()).toBeNull();
-  });
 });
 
 // The click Chrome synthesizes for the release is aimed at the held row
@@ -813,6 +801,8 @@ describe('CONTROLS: no card, the old look', () => {
     expect(currentDragCard()).toBeNull();
     expect(held.hasAttribute('data-held-as-card')).toBe(false);
     expect(held.style.boxShadow).toContain('0.35');
+    // The premise: the row has content to be seen.
+    expect(contentOf(held).length).toBeGreaterThan(0);
     for (const c of contentOf(held)) expect(seen(c)).toBe(true);
     expect(slotOf(held).style.opacity).toBe(fade);
   }

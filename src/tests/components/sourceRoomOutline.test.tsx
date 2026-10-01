@@ -299,7 +299,10 @@ describe('the outline over the room a row leaves (KAN-354 C3 A)', () => {
     expect(outline.style.borderRadius).toBe('4px');
     expect(outline.style.opacity).toBe('0.45');
     expect(outline.style.pointerEvents).toBe('none');
-    // Not hidden with the row's content.
+    // Seen. Not because HELD_AS_CARD_STYLE leaves it out: its own inline
+    // opacity outranks that rule's `opacity: 0` on the row's children, so
+    // this holds with or without the exclusion (verified: removing it
+    // fails nothing here or in the e2e).
     expect(seen(outline)).toBe(true);
 
     act(() => {
@@ -345,8 +348,6 @@ describe('the outline over the room a row leaves (KAN-354 C3 A)', () => {
     const movedBottom = layoutTopOf('win:w2') + 96 + translateOf(block('w2'));
     expect(movedBottom).toBe(328);
     expect(drawnTop(outline, layoutTopOf('row:b0'))).toBe(movedBottom - 32);
-    // Not the unmoved block's bottom row, 264..296.
-    expect(drawnTop(outline, layoutTopOf('row:b0'))).not.toBe(264);
     release(35);
   });
 
@@ -407,7 +408,7 @@ describe('no outline where no room is left in another window', () => {
   test('a refused release point, outside every window', async () => {
     const { store } = await renderDetail('SR');
     const before = store.getState().tabContainerDataState;
-    pickUpTab('a0');
+    const held = pickUpTab('a0');
     moveTo(267);
     // PREMISE: drawn while the landing is in w2.
     expect(outlines()).toHaveLength(1);
@@ -415,6 +416,9 @@ describe('no outline where no room is left in another window', () => {
     // Below every window and outside the pane.
     moveTo(600);
 
+    // PREMISE: still a drag, so the outline went because the landing was
+    // refused, not because the drag ended.
+    expect(held.hasAttribute('data-drag-held')).toBe(true);
     expect(outlines()).toHaveLength(0);
     release(600);
     // PREMISE: refused, not committed.
