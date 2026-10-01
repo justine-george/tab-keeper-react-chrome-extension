@@ -655,10 +655,10 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       const paneBottom = paneOf(l.heldEl)?.getBoundingClientRect().bottom;
       if (paneBottom === undefined || l.lastY > paneBottom) return null;
       // NOR WITH TOO LITTLE ROOM (KAN-366 ruling). In a list that fits, the
-      // lit box is no taller than the space free below the last window
-      // (publishNewWindowFree), so with almost none free it would be a
-      // sliver nobody can see, and a release would still make a window.
-      // Below half a row free -- the same half row the overshoot slack
+      // lit box is a full row but stands in the space free below the last
+      // window (publishNewWindowFree), so with almost none free it would
+      // be drawn past the pane's bottom, mostly out of sight, and a release
+      // would still make a window. Below half a row free -- the same half row the overshoot slack
       // forgives -- the space is no new window: refused, as on main. A list
       // given room always has its row.
       if (l.freeForNewWindow !== null && l.freeForNewWindow < l.height / 2) {
@@ -1409,9 +1409,9 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       l.heldEl = rows.current.get(l.rowId) ?? null;
       l.heldEl?.setAttribute('data-drag-held', '');
       l.heldWindow = windowOf(l.heldEl);
-      // KAN-366 Q4. In a list given no room, how tall its lit trailing block
-      // may be: no taller than the space free below its last window, so
-      // lighting it never makes the list scroll (publishNewWindowFree).
+      // KAN-366 Q4. In a list given no room, the space free below its last
+      // window, which the rule that under half a row is no new window reads
+      // (publishNewWindowFree).
       // After the held row is marked, so a held group is measured folded
       // (KAN-160). An adoption's carry published it for the session it
       // shows.

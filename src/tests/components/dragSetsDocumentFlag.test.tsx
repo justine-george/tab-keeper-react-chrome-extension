@@ -213,10 +213,10 @@ describe('decideNewWindowRoom: the room from the shown list’s own overflow', (
   });
 });
 
-// KAN-366 Q4, R-b. In a list that fits, the lit trailing block may be no
-// taller than the space free below the last window: from the block's top to
-// the bottom of the pane's content box, published on the document.
-describe('publishNewWindowFree: how tall the lit trailing block may be', () => {
+// KAN-366 Q4, R3. In a list that fits, the space free below the last window,
+// which the engine's under-half-a-row rule reads: from the block's top to the
+// bottom of the pane's content box, published on the document.
+describe('publishNewWindowFree: the space free below the last window', () => {
   const free = () =>
     document.documentElement.style.getPropertyValue('--new-window-free');
   afterEach(() => setDragNewWindow(false));

@@ -325,13 +325,12 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     /* Lit, it is a box of its own whatever room the list gave it: one row
        -- its blank row of room, or the phantom resting in it -- and its
        borders, in the header target's look. In a list that fits it stands
-       in the empty space below the last window, and no taller than that
-       space (publishNewWindowFree), so lighting it never makes the list
-       scroll: clipped to it where less than a row is free. */
+       in the empty space below the last window and is a full row even where
+       less than a row is free: the list scrolls a little while it is lit
+       (Justine's pick, 2026-10-01; the engine refuses the zone under half a
+       row free, publishNewWindowFree). */
     &[data-landing] {
       border-width: 1.5px;
-      max-height: var(--new-window-free, none);
-      overflow: clip;
       & [data-new-window-room] {
         display: block;
       }

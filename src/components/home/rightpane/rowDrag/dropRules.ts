@@ -911,22 +911,22 @@ export function decideNewWindowRoom(scroller: HTMLElement): void {
   publishNewWindowFree(scroller, scrolls);
 }
 
-// The custom property App.css's trailing block reads: how tall its lit box
-// may be. See publishNewWindowFree.
+// The custom property that carries the space free below the last window from
+// where it is measured to the engine's rule that too little is no new
+// window. See publishNewWindowFree.
 const NEW_WINDOW_FREE = '--new-window-free';
 
-// HOW TALL THE LIT TRAILING BLOCK MAY BE, in a list that fits (KAN-366 Q4).
-// Lit, the block draws its own box, a row and its borders (ruling 2) -- but
-// in a list that fits with less than that free below its last window, the
-// box would make the list scroll, and a scrollbar appearing mid-drag
-// narrows every row. So it may be no taller than the space actually free:
-// from its top to the bottom of the pane's content box, measured with the
-// room decision -- as a drag starts (RowDragArea's activate), and in
-// the commit that shows a session for a carry (decideNewWindowRoom) -- and
-// published on the document, where the block's lit style reads it.
+// THE SPACE FREE BELOW THE LAST WINDOW, in a list that fits (KAN-366 Q4).
+// The lit trailing block is a full row and its borders whatever is free
+// (Justine's R2 pick), so this no longer limits it; it is what the engine's
+// rule that under half a row free is no new window reads (newWindowFree).
+// Measured from the block's top to the bottom of the pane's content box,
+// with the room decision -- as a drag starts (RowDragArea's activate), and
+// in the commit that shows a session for a carry (decideNewWindowRoom) --
+// and published on the document.
 //
-// Nothing to cap in a list given room: its block is already a row and its
-// borders, and lighting it changes no height. Published for `pane`, the
+// Nothing to publish for a list given room: its block is already a row and
+// its borders, and the engine's rule does not apply. Published for `pane`, the
 // box the list scrolls in or would; a no-op with no trailing block in it.
 export function publishNewWindowFree(
   pane: HTMLElement | null,
@@ -952,9 +952,9 @@ export function publishNewWindowFree(
 }
 
 // The space free below the last window as published above, in px, or null
-// where none is: a list given room, or with no trailing block. One value
-// for the lit box's height and the engine's rule that too little room is no
-// new window (RowDragArea's landingBlock).
+// where none is: a list given room, or with no trailing block. Read by the
+// engine's rule that too little room is no new window (RowDragArea's
+// landingBlock).
 export function newWindowFree(): number | null {
   const value =
     document.documentElement.style.getPropertyValue(NEW_WINDOW_FREE);
