@@ -288,6 +288,10 @@ test.describe('dragging a group', () => {
     // KAN-135 for groups: the held title row is hovered for the whole drag.
     // Polled: this strip carries its own 0.1s opacity transition, so the
     // rule fades it out rather than cutting it -- read at once it is mid-fade.
+    //
+    // Since KAN-354 the whole held row is hidden (the card at the pointer
+    // draws it), so this strip is not seen either way. The rule it reads
+    // (App.css, every list's [data-row-actions]) is unchanged.
     await expect
       .poll(() =>
         page.evaluate(
