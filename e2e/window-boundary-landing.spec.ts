@@ -179,10 +179,13 @@ test.describe('the gap between two windows', () => {
     expect(Math.abs(landed.y - promised!)).toBeLessThanOrEqual(2);
   });
 
-  // CONTROL: the gap rule is for BETWEEN two windows. Below the last one is
-  // the release beside the pane that isInsideList exists to refuse (KAN-132),
-  // and making every empty pixel droppable would hand that defect back.
-  test('CONTROL: a release below the last window still changes nothing', async ({
+  // CONTROL: the gap rule is for BETWEEN two windows. Below the last one, in
+  // the pane, is a new last window (KAN-366 B) -- the gap rule never names
+  // the last window there. Below the PANE, where nothing of the list is
+  // drawn, the space ends (KAN-366's pane-bottom bound): a release there is
+  // refused, as isInsideList always refused it (KAN-132). This list scrolls,
+  // and 40px below w2 is below the pane.
+  test('CONTROL: a release below the pane, past the last window, still changes nothing', async ({
     context,
     extensionId,
   }) => {
@@ -190,8 +193,18 @@ test.describe('the gap between two windows', () => {
     const before = await order(page, 'w2');
     const { x } = await pickUp(page, 'be0');
     const w2 = await boxOf(page, '[data-drop-window-id="w2"]');
+    const y = w2.y + w2.height + 40;
+    const paneBottom = await page.evaluate(() => {
+      let el = document.querySelector('[data-drop-window-id="w2"]')
+        ?.parentElement;
+      while (el && !['auto', 'scroll'].includes(getComputedStyle(el).overflowY))
+        el = el.parentElement;
+      return el?.getBoundingClientRect().bottom ?? NaN;
+    });
+    // PREMISE: below the pane.
+    expect(y).toBeGreaterThan(paneBottom);
 
-    await page.mouse.move(x, w2.y + w2.height + 40, { steps: 8 });
+    await page.mouse.move(x, y, { steps: 8 });
     await page.waitForTimeout(220);
     await page.mouse.up();
 

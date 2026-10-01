@@ -54,6 +54,7 @@ const X = 100;
 type Table = Record<string, [top: number, height: number]>;
 let table: Table = {};
 let pane: HTMLElement | null = null;
+let paneInner = 500;
 
 function keyOf(el: Element): string | undefined {
   if (!(el instanceof HTMLElement)) return undefined;
@@ -142,6 +143,7 @@ beforeEach(() => {
   }).unregister;
   table = {};
   pane = null;
+  paneInner = 500;
   vi.spyOn(window, 'requestAnimationFrame').mockImplementation(() => 0);
   vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {});
   vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(
@@ -180,6 +182,13 @@ async function renderDetail(shown: string) {
   const el = result.container.firstElementChild;
   if (!(el instanceof HTMLElement)) throw new Error('no detail pane');
   el.style.overflowY = 'auto';
+  // Its inner height, as a real layout reports it: the pane's 500px box.
+  // What the space free below the last window is measured against
+  // (publishNewWindowFree, KAN-366).
+  Object.defineProperty(el, 'clientHeight', {
+    get: () => paneInner,
+    configurable: true,
+  });
   pane = el;
   return result;
 }

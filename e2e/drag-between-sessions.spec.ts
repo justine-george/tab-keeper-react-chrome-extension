@@ -4547,6 +4547,67 @@ async function expectOneUndoRestoresAll(
     .toEqual(ids.map((id) => plain(sessionOf(before, id))));
 }
 
+// The free space below the last window, from the trailing block's top to the
+// bottom of the pane's content box.
+const freeBelowLastWindow = async (page: Page) =>
+  (await paneInnerBottom(page)) - (await boxOf(trailingBlock(page))).y;
+
+// S8, a two-window session that fits the tab view's detail pane (side by
+// side) with the free space `free(row)` below its last window: fa holding f0
+// -- not the last window, so a drag of f0 has no overshoot slack below it --
+// and fb as many tabs as leave less than a row free; then the viewport's
+// height is set so the free space is what was asked for. The tab view, not
+// the popup: its pane follows the viewport, the popup's does not. Returns
+// the page, showing S8, and a tab row's height.
+async function openTightFit(
+  context: BrowserContext,
+  extensionId: string,
+  free: (row: number) => number,
+  others: tabContainerData[] = [S2()]
+): Promise<{ page: Page; row: number }> {
+  // The pane's inner height and a row's, from the usual session.
+  const probe = await openTabView(context, extensionId, false);
+  const sizes = await probe.evaluate(() => {
+    let el = document.querySelector(
+      '[data-pane="detail"] [data-drop-window-id]'
+    )?.parentElement;
+    while (el && !['auto', 'scroll'].includes(getComputedStyle(el).overflowY))
+      el = el.parentElement;
+    const row = document
+      .querySelector('[data-drag-row-id="a0"]')
+      ?.getBoundingClientRect().height;
+    return { pane: el?.clientHeight ?? 0, row: row ?? 0 };
+  });
+  await probe.close();
+  // Each window: its header, its tabs and its 8px margin, all rows.
+  const m = Math.floor((sizes.pane - 16) / sizes.row) - 3;
+  const fits = session('S8', 'Fits', [
+    win('fa', [tab('f0')]),
+    win(
+      'fb',
+      Array.from({ length: m }, (_, i) => tab(`g${i}`))
+    ),
+  ]);
+  const page = await openTabView(context, extensionId, false, [
+    S1(),
+    fits,
+    ...others,
+  ]);
+  await sessionRow(page, 'S8').click();
+  await expect(page.locator('[data-drag-row-id="fa"]')).toBeVisible();
+  const want = free(sizes.row);
+  const now = await freeBelowLastWindow(page);
+  await page.setViewportSize({
+    width: TAB_VIEW.width,
+    height: TAB_VIEW.height + Math.round(want - now),
+  });
+  await settled(page);
+  // PREMISE: the free space asked for, and the list fits.
+  expect(await freeBelowLastWindow(page)).toBeCloseTo(want, 0);
+  expect(await scrollRange(page)).toBeLessThanOrEqual(0);
+  return { page, row: sizes.row };
+}
+
 test.describe('below the last window makes a new last window (KAN-366)', () => {
   // An ordinary drag in S1, let go below w2 (the last window), past every
   // row's slack: lit, no slot, its own window closes up with its dotted
@@ -4859,14 +4920,15 @@ test.describe('below the last window makes a new last window (KAN-366)', () => {
     expect(await trailingLit(page)).toBe(false);
   });
 
-  // The same for a GROUP that is all of the session's last window: its
-  // only window here, so the new last window would stand where it stands,
-  // holding exactly its tabs and entry.
+  // The same for a GROUP that is all of the session's LAST window, after
+  // another: the new last window would stand where it stands, holding
+  // exactly its tabs and entry. Placed first, it would be a move.
   test('the sole group of the last window, let go below the list: lit, and no move', async ({
     context,
     extensionId,
   }) => {
     const grouped = session('S5', 'Grouped', [
+      win('g0', [tab('gt0')]),
       win(
         'g1',
         [tab('gx0', 'gg'), tab('gx1', 'gg')],
@@ -5007,32 +5069,13 @@ test.describe('below the last window makes a new last window (KAN-366)', () => {
     context,
     extensionId,
   }) => {
-    // The pane's height and a row's, from the usual session.
-    const probe = await openPopup(context, extensionId);
-    const sizes = await probe.evaluate(() => {
-      let el = document.querySelector(
-        '[data-pane="detail"] [data-drop-window-id]'
-      )?.parentElement;
-      while (el && !['auto', 'scroll'].includes(getComputedStyle(el).overflowY))
-        el = el.parentElement;
-      const row = document
-        .querySelector('[data-drag-row-id="a0"]')
-        ?.getBoundingClientRect().height;
-      return { pane: el?.clientHeight ?? 0, row: row ?? 0 };
-    });
-    await probe.close();
-    // Two windows, so the held row is not the last window's and has no
-    // overshoot slack below it: fa with one tab, fb with m, each with its
-    // header and 8px margin -- as many rows as leave less than a row free.
-    const m = Math.floor((sizes.pane - 16) / sizes.row) - 3;
-    const fits = session('S8', 'Fits', [
-      win('fa', [tab('f0')]),
-      win(
-        'fb',
-        Array.from({ length: m }, (_, i) => tab(`g${i}`))
-      ),
-    ]);
-    const page = await openPopup(context, extensionId, [fits, S2()], 'S8');
+    // Free: a row less 4px -- under a row, over the half row a new window
+    // needs (KAN-366 ruling).
+    const { page, row } = await openTightFit(
+      context,
+      extensionId,
+      (r) => r - 4
+    );
     const top = (await boxOf(trailingBlock(page))).y;
     const inner = await paneInnerBottom(page);
     const free = inner - top;
@@ -5040,11 +5083,11 @@ test.describe('below the last window makes a new last window (KAN-366)', () => {
     // PREMISE: it fits, with less than a row free.
     expect(await scrollRange(page)).toBeLessThanOrEqual(0);
     expect(free).toBeGreaterThan(0);
-    expect(free).toBeLessThan(sizes.row);
+    expect(free).toBeLessThan(row);
     // As low as the held row -- drawn at the pointer, its box carried by a
     // transform -- still ends inside the pane: then the only thing that
     // could reach past it is the lit box. PREMISE: below the last window.
-    const y = inner - sizes.row / 2 - 1;
+    const y = inner - row / 2 - 1;
     expect(y).toBeGreaterThan(fb.y + fb.height);
 
     await page.evaluate(() => {
@@ -5141,12 +5184,7 @@ test.describe('below the last window makes a new last window (KAN-366)', () => {
         const page = await openPopup(context, extensionId);
         const b1 = await boxOf(tabHandle(page, 'b1'));
         const held = await boxOf(tabHandle(page, s.held));
-        // The trailing block's top, read at rest. NaN where the list draws
-        // none.
-        const top =
-          (await trailingBlock(page).count()) === 0
-            ? NaN
-            : (await boxOf(trailingBlock(page))).y;
+        const w2 = await boxOf(page.locator('[data-drop-window-id="w2"]'));
         // The slack's edge: half the held row past w2's last row, b1.
         const edge = b1.y + b1.height + held.height / 2;
         const y = side === 'inside' ? edge - 6 : edge + 2;
@@ -5164,9 +5202,9 @@ test.describe('below the last window makes a new last window (KAN-366)', () => {
         expect(await windowIdsOf(page, 'S1')).toEqual(
           side === 'inside' ? ['w1', 'w2'] : ['w1', 'w2', 'new']
         );
-        // PREMISE: at or below the trailing block's top, where a release
-        // from any other window makes a new window.
-        expect(y).toBeGreaterThanOrEqual(top);
+        // PREMISE: below the last window, w2, where the new last window's
+        // space begins and a release from any other window makes one.
+        expect(y).toBeGreaterThan(w2.y + w2.height);
       });
     }
   }
