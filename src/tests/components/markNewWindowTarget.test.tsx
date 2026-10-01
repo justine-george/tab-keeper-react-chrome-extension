@@ -5,22 +5,15 @@ import {
   NEW_LAST_WINDOW,
   markNewWindowTarget,
 } from '../../components/home/rightpane/newWindowTarget';
-import { CARRY_NEW_WINDOW_ID } from '../../utils/functions/carriedView';
 
 // KAN-361. A drag area's onLandingWindowChange lights the one New window
-// target its landing names and unlights every other: the carry's synthetic
-// window (`data-new-window-target=""`), found inside the list, and the ones
-// that name a new window, found in the document by their value -- `first`
-// in the session header, `last` (KAN-366) at the list's end. Here `last` is
-// placed outside the list, so the test also shows it is not looked for
-// inside it alone.
+// target its landing names and unlights every other, each found in the
+// document by its value: `first` in the session header, outside the list,
+// and `last`, the list's trailing block (KAN-366).
 
 let list: HTMLElement;
 
 const lit = () => ({
-  inList: list
-    .querySelector('[data-new-window-target=""]')
-    ?.hasAttribute('data-landing'),
   first: document
     .querySelector('[data-new-window-target="first"]')
     ?.hasAttribute('data-landing'),
@@ -35,10 +28,9 @@ beforeEach(() => {
       <div data-new-window-target="first"></div>
     </div>
     <div id="list">
-      <div data-drop-window-id="${CARRY_NEW_WINDOW_ID}" data-new-window-target=""></div>
       <div data-drop-window-id="w1"></div>
+      <div data-drop-window-id="${NEW_LAST_WINDOW}" data-new-window-target="last"></div>
     </div>
-    <div data-new-window-target="last"></div>
   `;
   const el = document.getElementById('list');
   if (el === null) throw new Error('no list');
@@ -51,27 +43,30 @@ afterEach(() => {
 
 describe('markNewWindowTarget', () => {
   test.each([
-    [NEW_FIRST_WINDOW, { inList: false, first: true, last: false }],
-    [NEW_LAST_WINDOW, { inList: false, first: false, last: true }],
-    [CARRY_NEW_WINDOW_ID, { inList: true, first: false, last: false }],
+    [NEW_FIRST_WINDOW, { first: true, last: false }],
+    [NEW_LAST_WINDOW, { first: false, last: true }],
   ])('a landing in %s lights that target alone', (windowId, expected) => {
     markNewWindowTarget(windowId, list);
     expect(lit()).toEqual(expected);
   });
 
   test('moving from one target to another unlights the first', () => {
-    markNewWindowTarget(CARRY_NEW_WINDOW_ID, list);
+    markNewWindowTarget(NEW_LAST_WINDOW, list);
     markNewWindowTarget(NEW_FIRST_WINDOW, list);
-    expect(lit()).toEqual({ inList: false, first: true, last: false });
+    expect(lit()).toEqual({ first: true, last: false });
   });
 
   test.each([
     ['a stored window', 'w1'],
     ['no landing', undefined],
   ])('%s unlights every target', (_what, windowId) => {
-    markNewWindowTarget(NEW_FIRST_WINDOW, list);
-    markNewWindowTarget(CARRY_NEW_WINDOW_ID, list);
+    // Both lit, as no landing ever leaves them, so each is shown to go.
+    for (const el of document.querySelectorAll('[data-new-window-target]')) {
+      el.setAttribute('data-landing', '');
+    }
+    // PREMISE: both are found, and lit.
+    expect(lit()).toEqual({ first: true, last: true });
     markNewWindowTarget(windowId, list);
-    expect(lit()).toEqual({ inList: false, first: false, last: false });
+    expect(lit()).toEqual({ first: false, last: false });
   });
 });

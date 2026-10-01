@@ -11,7 +11,10 @@ import type { RootState } from '../../../redux/store';
 import { RowDragArea } from './rowDrag/RowDragArea';
 import { useTabDrop } from './useTabDrop';
 import type { PaneWindows } from './rowDrag/dropRules';
-import { markNewWindowTarget } from './newWindowTarget';
+import {
+  acceptsAllButTrailingBlock,
+  markNewWindowTarget,
+} from './newWindowTarget';
 import { tabCarryOut } from './carryOut';
 
 export const TabDragArea: React.FC<{
@@ -66,6 +69,9 @@ export const TabDragArea: React.FC<{
       adoptRowId={adoptRowId}
       adoptedRowLandsAs={adoptedRowLandsAs}
       onLandingWindowChange={markNewWindowTarget}
+      // The trailing block, where the phantom rests, is no landing yet
+      // (KAN-366).
+      acceptsWindow={acceptsAllButTrailingBlock}
       // From pick-up, the toolbar row's New window target stands in for the
       // session header's controls (KAN-361 N1 B).
       offersNewWindow

@@ -24,10 +24,7 @@ import {
 } from '../../../redux/carry';
 import { dropCarriedGroup, dropCarriedTab } from '../../../redux/dropCarried';
 import { landingView } from '../../../utils/functions/carriedView';
-import {
-  NEW_FIRST_WINDOW,
-  measureNewFirstWindowTarget,
-} from './newWindowTarget';
+import { NEW_FIRST_WINDOW, newWindowTargetHit } from './newWindowTarget';
 
 export function useNewFirstWindowReceiver(
   // The header's target element.
@@ -66,14 +63,10 @@ export function useNewFirstWindowReceiver(
       else target.current?.removeAttribute('data-landing');
     };
 
-    // The target as drawn now, by the rule the engine reads it by.
-    const measureHit = (): ((x: number, y: number) => boolean) => {
-      const el = target.current;
-      return (
-        (el === null ? null : measureNewFirstWindowTarget(el.ownerDocument)) ??
-        (() => false)
-      );
-    };
+    // The target as drawn now, by the rule the engine reads it by -- the
+    // element this receiver lights, not whichever the document finds first.
+    const measureHit = (): ((x: number, y: number) => boolean) =>
+      newWindowTargetHit(target.current) ?? (() => false);
 
     const receiver: CarryReceiver = {
       hit: (x, y) => measureHit()(x, y),

@@ -26,7 +26,10 @@ import {
   setIsNotDirty,
 } from '../../redux/slices/globalStateSlice';
 import { LIGHT_THEME } from '../../hooks/useThemeColors';
-import { CARRY_NEW_WINDOW_ID } from '../../utils/functions/carriedView';
+import {
+  NEW_LAST_WINDOW,
+  markNewWindowTarget,
+} from '../../components/home/rightpane/newWindowTarget';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { standInSessionList } from '../setup/standInSessionList';
 import {
@@ -45,8 +48,9 @@ import {
 
 // KAN-350 Task 5. The session on screen takes a carried item at an EXACT
 // spot. While a tab, group or window is carried, the detail draws it as a
-// PHANTOM row at the top -- a tab or group inside the New window target (S3
-// A), a window as the first window -- and when the pointer comes into the
+// PHANTOM row -- a tab or group in the trailing block after the last window
+// (KAN-361/366), a window as the first window -- and when the pointer comes
+// into the
 // pane the matching drag area ADOPTS that row as an ordinary drag: every
 // landing, band, gap and auto-scroll rule is the engine's own, and a release
 // commits the move.
@@ -73,6 +77,7 @@ function keyOf(el: Element): string | undefined {
   if (d.dropWindowId !== undefined) return `win:${d.dropWindowId}`;
   if (d.fixedRowId !== undefined) return `fixed:${d.fixedRowId}`;
   if (d.bandId !== undefined) return `band:${d.bandId}`;
+  if (d.newWindowTarget === 'first') return 'header:new-window';
   return undefined;
 }
 
@@ -236,15 +241,27 @@ function find(selector: string): HTMLElement {
 const row = (id: string) => find(`[data-drag-row-id="${id}"]`);
 const held = () =>
   document.querySelector<HTMLElement>('[data-drag-held]')?.dataset.dragRowId;
-const target = () =>
-  document.querySelector<HTMLElement>('[data-new-window-target]');
+// The trailing block after the last window, where a carried tab's or
+// group's phantom rests (KAN-361/366). Always drawn.
+const trailing = () => {
+  const el = document.querySelector<HTMLElement>(
+    '[data-new-window-target="last"]'
+  );
+  if (el === null) throw new Error('no trailing block');
+  return el;
+};
 // Whether anything between the element and the page hides it. Opacity does
 // not inherit in a computed style, so the element's own is not enough: a row
 // at opacity 0 hides its every child while each still computes 1.
 const seen = (el: Element) => {
   for (let e: Element | null = el; e !== null; e = e.parentElement) {
     const style = getComputedStyle(e);
-    if (style.opacity === '0' || style.visibility === 'hidden') return false;
+    if (
+      style.opacity === '0' ||
+      style.visibility === 'hidden' ||
+      style.display === 'none'
+    )
+      return false;
   }
   return true;
 };
@@ -256,42 +273,44 @@ const slotOf = (phantomId: string) => {
 const shiftOf = (el: HTMLElement) =>
   Number(/translateY\((-?[\d.]+)px\)/.exec(el.style.transform)?.[1] ?? 0);
 
-// S2 on screen while a TAB is carried: the New window target first, holding
-// the phantom, then d1 and d2 as drawn.
+// S2 on screen while a TAB is carried: d1 and d2 as drawn, then the
+// trailing block holding the phantom.
 //
-//   carry:new-window 0..40  (phantom tab 4..36)
-//   d1 48..224: header 48..80, u1 80..112, band h1 112..208
-//               (title 112..144, u2 144..176, u3 176..208)
-//   d2 232..296: header 232..264, u4 264..296
+//   d1 0..176: header 0..32, u1 32..64, band h1 64..160
+//              (title 64..96, u2 96..128, u3 128..160)
+//   d2 184..248: header 184..216, u4 216..248
+//   new-window:last 256..296  (phantom tab 260..292)
 const S2_TAB_LAYOUT = (phantom: string): Table => ({
-  [`win:${CARRY_NEW_WINDOW_ID}`]: [0, 40],
-  [`row:tab:carried:${phantom}`]: [4, 32],
-  [`row:carried:${phantom}`]: [4, 32],
-  'win:d1': [48, 176],
-  'row:d1': [48, 176],
-  'row:tab:u1': [80, 32],
-  'row:u1': [80, 32],
-  'row:group:h1': [112, 96],
-  'band:h1': [112, 96],
-  'fixed:h1': [112, 32],
-  'row:u2': [144, 32],
-  'row:u3': [176, 32],
-  'fixed:h1:tail': [208, 0],
-  'win:d2': [232, 64],
-  'row:d2': [232, 64],
-  'row:tab:u4': [264, 32],
-  'row:u4': [264, 32],
+  'win:d1': [0, 176],
+  'row:d1': [0, 176],
+  'row:tab:u1': [32, 32],
+  'row:u1': [32, 32],
+  'row:group:h1': [64, 96],
+  'band:h1': [64, 96],
+  'fixed:h1': [64, 32],
+  'row:u2': [96, 32],
+  'row:u3': [128, 32],
+  'fixed:h1:tail': [160, 0],
+  'win:d2': [184, 64],
+  'row:d2': [184, 64],
+  'row:tab:u4': [216, 32],
+  'row:u4': [216, 32],
+  [`win:${NEW_LAST_WINDOW}`]: [256, 40],
+  [`row:tab:carried:${phantom}`]: [260, 32],
+  [`row:carried:${phantom}`]: [260, 32],
 });
+// The phantom tab's own middle, in the trailing block.
+const PHANTOM_Y = 276;
 
 // The same while a GROUP is carried: the phantom is the group's item row.
 const S2_GROUP_LAYOUT: Table = {
-  [`win:${CARRY_NEW_WINDOW_ID}`]: [0, 40],
-  'row:group:carried:g1': [4, 32],
-  'win:d1': [48, 176],
-  'row:tab:u1': [80, 32],
-  'row:group:h1': [112, 96],
-  'win:d2': [232, 64],
-  'row:tab:u4': [264, 32],
+  'win:d1': [0, 176],
+  'row:tab:u1': [32, 32],
+  'row:group:h1': [64, 96],
+  'win:d2': [184, 64],
+  'row:tab:u4': [216, 32],
+  [`win:${NEW_LAST_WINDOW}`]: [256, 40],
+  'row:group:carried:g1': [260, 32],
 };
 
 // S2 while a WINDOW is carried: every window folded to its header, the
@@ -316,7 +335,7 @@ describe('adoption: the pointer comes into the pane with a carry on', () => {
     expect(currentCarry()?.owner).toBe('layer');
     expect(held()).toBeUndefined();
 
-    moveTo(100);
+    moveTo(52);
 
     expect(held()).toBe('carried:t1');
     expect(currentCarry()?.owner).toBe('area');
@@ -357,7 +376,7 @@ describe('adoption: the pointer comes into the pane with a carry on', () => {
 
     // Held over d1's first row: the rows of d1 make room by the phantom's
     // own 32px, and d2 moves down by the same.
-    moveTo(84);
+    moveTo(36);
     expect(held()).toBe('carried:t1');
     expect(seen(content)).toBe(false);
     expect(phantom.style.boxShadow).toBe('');
@@ -379,7 +398,7 @@ describe('adoption: the pointer comes into the pane with a carry on', () => {
     // The premise: not held yet, so not marked.
     expect(row('carried:t1').hasAttribute('data-held-as-card')).toBe(false);
 
-    moveTo(100);
+    moveTo(52);
 
     expect(held()).toBe('carried:t1');
     expect(row('carried:t1').hasAttribute('data-held-as-card')).toBe(true);
@@ -389,7 +408,8 @@ describe('adoption: the pointer comes into the pane with a carry on', () => {
 
   test('no carry: nothing is drawn for one, and every row is its ordinary self', async () => {
     await renderDetail('S2');
-    expect(target()).toBeNull();
+    // The trailing block is always drawn, and with no carry holds no row.
+    expect(trailing().querySelector('[data-drag-row-id]')).toBeNull();
     expect(document.querySelector('[data-carry-phantom]')).toBeNull();
   });
 });
@@ -401,8 +421,8 @@ describe('a carried tab lands at the exact spot', () => {
     carry(TAB_T1, onCancel);
     table = S2_TAB_LAYOUT('t1');
 
-    moveTo(100);
-    release(100);
+    moveTo(52);
+    release(52);
 
     const data = store.getState().tabContainerDataState;
     expect(tabIds(windowIn(data, 'S2', 'd1'))).toEqual([
@@ -427,12 +447,12 @@ describe('a carried tab lands at the exact spot', () => {
     carry(TAB_T1);
     table = S2_TAB_LAYOUT('t1');
 
-    moveTo(150);
+    moveTo(102);
     // The band answers in its colour while the pointer is in it.
     expect(find('[data-band-id="h1"]').hasAttribute('data-drop-target')).toBe(
       true
     );
-    release(150);
+    release(102);
 
     const d1 = windowIn(store.getState().tabContainerDataState, 'S2', 'd1');
     expect(d1.tabs.map((t) => [t.tabId, t.chromeGroupId])).toEqual([
@@ -446,19 +466,20 @@ describe('a carried tab lands at the exact spot', () => {
   test('in its own session: exactly what tabDrop does from its own window', async () => {
     const { store } = await renderDetail('S1');
     carry(TAB_T2);
-    // S1 as drawn with t2 carried: the target, then w1 without t2, then w2.
+    // S1 as drawn with t2 carried: w1 without t2, w2, then the trailing
+    // block holding the phantom.
     table = {
-      [`win:${CARRY_NEW_WINDOW_ID}`]: [0, 40],
-      'row:tab:carried:t2': [4, 32],
-      'row:carried:t2': [4, 32],
-      'win:w1': [48, 228],
-      'win:w2': [284, 64],
-      'row:t3': [316, 32],
-      'row:tab:t3': [316, 32],
+      'win:w1': [0, 228],
+      'win:w2': [236, 64],
+      'row:t3': [268, 32],
+      'row:tab:t3': [268, 32],
+      [`win:${NEW_LAST_WINDOW}`]: [308, 40],
+      'row:tab:carried:t2': [312, 32],
+      'row:carried:t2': [312, 32],
     };
 
-    moveTo(320);
-    release(320);
+    moveTo(272);
+    release(272);
 
     // What today's builder gives from the same start, in a store of its own.
     const control = await renderWithProviders(<></>, {
@@ -490,35 +511,40 @@ describe('a carried tab lands at the exact spot', () => {
     expect(tabIds(windowIn(got, 'S1', 'w2'))).toEqual(['t2', 't3']);
   });
 
-  test('on the New window target: it lights up, and the tab becomes a new first window', async () => {
+  // KAN-361/366, until a release below the last window makes a new last
+  // window (KAN-366 B): the trailing block the phantom rests in is no
+  // landing. Let go at the phantom's own place, nothing moves and the carry
+  // ends cancelled -- main's KAN-365 "nothing moves" -- with nothing lit and
+  // no slot drawn on the way.
+  test('at its own place in the trailing block: nothing lit, no slot, and a release there moves nothing and cancels', async () => {
     const { store } = await renderDetail('S2');
-    carry(TAB_T1);
+    const before = store.getState().tabContainerDataState;
+    const onCancel = vi.fn();
+    carry(TAB_T1, onCancel);
     table = S2_TAB_LAYOUT('t1');
 
-    moveTo(100);
-    expect(target()?.hasAttribute('data-landing')).toBe(false);
+    moveTo(52);
+    // PREMISE: adopted, and landing in d1 with its slot drawn.
+    expect(held()).toBe('carried:t1');
     expect(seen(slotOf('carried:t1'))).toBe(true);
-    // In the box's lower part, 18px off the phantom's middle: far enough
-    // that the slot would not fade itself out there.
-    moveTo(38);
-    expect(target()?.hasAttribute('data-landing')).toBe(true);
-    // The lit box says where it lands; a dashed slot in it would say it twice.
-    expect(seen(slotOf('carried:t1'))).toBe(false);
-    // Off it again, it goes dark: changes only, both ways.
-    moveTo(100);
-    expect(target()?.hasAttribute('data-landing')).toBe(false);
-    expect(seen(slotOf('carried:t1'))).toBe(true);
-    moveTo(20);
-    release(20);
+    // In the box's lower part, 18px off the phantom's middle.
+    moveTo(PHANTOM_Y + 18);
+    expect(held()).toBe('carried:t1');
+    expect(trailing().hasAttribute('data-landing')).toBe(false);
+    expect(
+      row('carried:t1').querySelector('[data-drag-landing-slot]')
+    ).toBeNull();
+    // Nothing makes room: d1's rows and d2 are back where they stand.
+    expect(shiftOf(row('u2'))).toBe(0);
+    expect(
+      find('[data-drop-window-id="d2"]').hasAttribute('data-window-shift')
+    ).toBe(false);
+    release(PHANTOM_Y + 18);
 
-    const s = sessionIn(store.getState().tabContainerDataState, 'S2');
-    expect(s.windows.map((w) => tabIds(w))).toEqual([
-      ['t1'],
-      ['u1', 'u2', 'u3'],
-      ['u4'],
-    ]);
     expect(currentCarry()).toBeNull();
-    expect(target()).toBeNull();
+    expect(store.getState().tabContainerDataState).toBe(before);
+    runFrames(1);
+    expect(onCancel).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -528,8 +554,8 @@ describe('a carried group lands at the exact spot', () => {
     carry(GROUP_G1);
     table = S2_GROUP_LAYOUT;
 
-    moveTo(150);
-    release(150);
+    moveTo(102);
+    release(102);
 
     const d1 = windowIn(store.getState().tabContainerDataState, 'S2', 'd1');
     expect(d1.tabs.map((t) => [t.tabId, t.chromeGroupId])).toEqual([
@@ -546,8 +572,8 @@ describe('a carried group lands at the exact spot', () => {
     carry(GROUP_G1);
     table = S2_GROUP_LAYOUT;
 
-    moveTo(290);
-    release(290);
+    moveTo(242);
+    release(242);
 
     expect(
       tabIds(windowIn(store.getState().tabContainerDataState, 'S2', 'd2'))
@@ -558,15 +584,15 @@ describe('a carried group lands at the exact spot', () => {
     const { store } = await renderDetail('S1');
     carry(GROUP_G1);
     table = {
-      [`win:${CARRY_NEW_WINDOW_ID}`]: [0, 40],
-      'row:group:carried:g1': [4, 32],
-      'win:w1': [48, 164],
-      'win:w2': [220, 64],
-      'row:tab:t3': [252, 32],
+      'win:w1': [0, 164],
+      'win:w2': [172, 64],
+      'row:tab:t3': [204, 32],
+      [`win:${NEW_LAST_WINDOW}`]: [244, 40],
+      'row:group:carried:g1': [248, 32],
     };
 
-    moveTo(254);
-    release(254);
+    moveTo(206);
+    release(206);
 
     const control = await renderWithProviders(<></>, {
       seedStore: (s) => {
@@ -596,20 +622,22 @@ describe('a carried group lands at the exact spot', () => {
     expect(tabIds(windowIn(got, 'S1', 'w2'))).toEqual(['g1a', 'g1b', 't3']);
   });
 
-  test('on the New window target: a new first window, with its entry', async () => {
+  // The same for a group (KAN-366, interim).
+  test('at its own place in the trailing block: a release moves nothing and cancels', async () => {
     const { store } = await renderDetail('S2');
+    const before = store.getState().tabContainerDataState;
     carry(GROUP_G1);
     table = S2_GROUP_LAYOUT;
 
-    moveTo(100);
-    moveTo(20);
-    expect(target()?.hasAttribute('data-landing')).toBe(true);
-    release(20);
+    moveTo(52);
+    moveTo(PHANTOM_Y);
+    // PREMISE: adopted, and at its own place.
+    expect(held()).toBe('group:carried:g1');
+    expect(trailing().hasAttribute('data-landing')).toBe(false);
+    release(PHANTOM_Y);
 
-    const first = sessionIn(store.getState().tabContainerDataState, 'S2')
-      .windows[0];
-    expect(tabIds(first)).toEqual(['g1a', 'g1b']);
-    expect(first.chromeTabGroups?.map((g) => g.groupId)).toEqual(['g1']);
+    expect(currentCarry()).toBeNull();
+    expect(store.getState().tabContainerDataState).toBe(before);
   });
 });
 
@@ -659,11 +687,13 @@ describe('a carried window lands between windows', () => {
     expect(windowIds(sessionIn(got, 'S1'))).toEqual(['w2', 'w1']);
   });
 
-  test('no New window target is drawn for a window', async () => {
+  // A window's phantom is a window row of its own, first: the trailing
+  // block holds nothing for it.
+  test('nothing rests in the trailing block for a window', async () => {
     await renderDetail('S2');
     carry(WINDOW_W2);
-    expect(target()).toBeNull();
-    expect(row('carried:w2')).not.toBeNull();
+    expect(trailing().querySelector('[data-drag-row-id]')).toBeNull();
+    expect(trailing().contains(row('carried:w2'))).toBe(false);
   });
 });
 
@@ -675,7 +705,7 @@ describe('an adopted drag that ends with no commit cancels the whole carry', () 
     carry(TAB_T1, onCancel);
     table = S2_TAB_LAYOUT('t1');
 
-    moveTo(100);
+    moveTo(52);
     esc();
 
     expect(currentCarry()).toBeNull();
@@ -689,7 +719,7 @@ describe('an adopted drag that ends with no commit cancels the whole carry', () 
     runFrames(1);
     expect(onCancel).toHaveBeenCalledTimes(1);
     // A later release commits nothing.
-    release(100);
+    release(52);
     expect(store.getState().tabContainerDataState).toBe(before);
   });
 
@@ -700,7 +730,7 @@ describe('an adopted drag that ends with no commit cancels the whole carry', () 
     carry(TAB_T1, onCancel);
     table = S2_TAB_LAYOUT('t1');
 
-    moveTo(100);
+    moveTo(52);
     // Inside the pane, far below every window.
     moveTo(480);
     release(480);
@@ -717,7 +747,7 @@ describe('an adopted drag that ends with no commit cancels the whole carry', () 
     carry(TAB_T1);
     table = S2_TAB_LAYOUT('t1');
 
-    moveTo(100);
+    moveTo(52);
     act(() => {
       fireEvent.pointerCancel(document);
     });
@@ -753,7 +783,7 @@ describe('an adopted drag that ends with no commit cancels the whole carry', () 
     const { store } = await renderDetail('S2');
     carry(TAB_T1);
     table = S2_TAB_LAYOUT('t1');
-    moveTo(100);
+    moveTo(52);
     expect(held()).toBe('carried:t1');
 
     act(() => {
@@ -767,14 +797,14 @@ describe('an adopted drag that ends with no commit cancels the whole carry', () 
     expect(held()).toBeUndefined();
     // No drag goes on without its carry: a move previews nothing -- no row
     // makes room, no window moves -- and a release commits nothing.
-    moveTo(84);
+    moveTo(36);
     expect(shiftOf(row('u1'))).toBe(0);
     expect(
       document
         .querySelector('[data-drop-window-id="d2"]')
         ?.hasAttribute('data-window-shift')
     ).toBe(false);
-    release(100);
+    release(52);
     expect(store.getState().tabContainerDataState).toBe(after);
   });
 });
@@ -784,8 +814,8 @@ describe('the rest of an adopted drag', () => {
     await renderDetail('S2');
     carry(TAB_T1);
     table = S2_TAB_LAYOUT('t1');
-    moveTo(100);
-    release(100);
+    moveTo(52);
+    release(52);
 
     // The row itself, not a control in it, so the click the suppressor lets
     // through runs no app handler.
@@ -803,7 +833,7 @@ describe('the rest of an adopted drag', () => {
     const { unmount } = await renderDetail('S2');
     carry(TAB_T1);
     table = S2_TAB_LAYOUT('t1');
-    moveTo(100);
+    moveTo(52);
     expect(held()).toBe('carried:t1');
 
     act(() => unmount());
@@ -843,7 +873,7 @@ describe('what an adoption leaves alone', () => {
     // stands between it and an adoption.
     expect(row('carried:t1')).not.toBeNull();
 
-    moveTo(100);
+    moveTo(52);
 
     expect(held()).toBeUndefined();
     expect(currentCarry()?.owner).toBe('layer');
@@ -877,8 +907,8 @@ describe('out of the pane and back in', () => {
     table = S2_TAB_LAYOUT('t1');
     const before = currentCarry();
 
-    moveTo(100);
-    moveTo(100, -30);
+    moveTo(52);
+    moveTo(52, -30);
 
     expect(held()).toBeUndefined();
     expect(currentCarry()?.owner).toBe('layer');
@@ -899,14 +929,14 @@ describe('out of the pane and back in', () => {
     carry(TAB_T1, onCancel);
     table = S2_TAB_LAYOUT('t1');
 
-    moveTo(100);
+    moveTo(52);
     expect(held()).toBe('carried:t1');
-    moveTo(100, PANE_W + 30);
+    moveTo(52, PANE_W + 30);
 
     expect(currentCarry()?.owner).toBe('area');
     expect(held()).toBe('carried:t1');
-    moveTo(100);
-    release(100);
+    moveTo(52);
+    release(52);
 
     expect(
       tabIds(windowIn(store.getState().tabContainerDataState, 'S2', 'd1'))
@@ -916,17 +946,24 @@ describe('out of the pane and back in', () => {
     expect(onCancel).not.toHaveBeenCalled();
   });
 
+  // The lit target is the session header's (KAN-361 N1 B), outside the
+  // pane: a header stood in above it, where the toolbar row is.
   test('leaving from the lit New window target for the list puts it out', async () => {
+    const header = document.createElement('div');
+    header.dataset.newWindowTarget = 'first';
+    document.body.append(header);
     await renderDetail('S2');
     carry(TAB_T1);
-    table = S2_TAB_LAYOUT('t1');
+    table = { ...S2_TAB_LAYOUT('t1'), 'header:new-window': [-40, 32] };
 
-    moveTo(38);
-    expect(target()?.hasAttribute('data-landing')).toBe(true);
-    moveTo(38, -30);
+    moveTo(52);
+    moveTo(-24);
+    expect(header.hasAttribute('data-landing')).toBe(true);
+    moveTo(52, -30);
 
     expect(currentCarry()?.owner).toBe('layer');
-    expect(target()?.hasAttribute('data-landing')).toBe(false);
+    expect(header.hasAttribute('data-landing')).toBe(false);
+    header.remove();
   });
 
   test('adopt, leave, then cancel: the source’s view is still put back', async () => {
@@ -935,8 +972,8 @@ describe('out of the pane and back in', () => {
     carry(TAB_T1, onCancel);
     table = S2_TAB_LAYOUT('t1');
 
-    moveTo(100);
-    moveTo(100, -30);
+    moveTo(52);
+    moveTo(52, -30);
     // The layer's Esc now.
     esc();
     runFrames(1);
@@ -990,25 +1027,30 @@ describe('out of the pane and back in', () => {
     carry(TAB_T1);
     table = S2_TAB_LAYOUT('t1');
 
-    moveTo(100);
-    moveTo(100, -30);
+    moveTo(52);
+    moveTo(52, -30);
     // While it was out, d1's rows moved: u1 now sits 100px lower.
     table = {
       ...S2_TAB_LAYOUT('t1'),
-      'win:d1': [48, 276],
-      'row:tab:u1': [180, 32],
-      'row:u1': [180, 32],
-      'row:group:h1': [212, 96],
-      'band:h1': [212, 96],
-      'row:u2': [244, 32],
-      'row:u3': [276, 32],
-      'win:d2': [332, 64],
+      'win:d1': [0, 276],
+      'row:tab:u1': [132, 32],
+      'row:u1': [132, 32],
+      'row:group:h1': [164, 96],
+      'band:h1': [164, 96],
+      'row:u2': [196, 32],
+      'row:u3': [228, 32],
+      'win:d2': [284, 64],
+      'row:tab:u4': [316, 32],
+      'row:u4': [316, 32],
+      [`win:${NEW_LAST_WINDOW}`]: [356, 40],
+      'row:tab:carried:t1': [360, 32],
+      'row:carried:t1': [360, 32],
     };
-    moveTo(100);
+    moveTo(52);
     expect(held()).toBe('carried:t1');
-    // Past u1's OLD midpoint (96) but above its new one (196): index 0 in
+    // Past u1's OLD midpoint (48) but above its new one (148): index 0 in
     // the new layout, where the old one says 1.
-    release(150);
+    release(102);
 
     expect(
       tabIds(windowIn(store.getState().tabContainerDataState, 'S2', 'd1'))
@@ -1055,8 +1097,8 @@ describe('after an adopted drop, the moved item is followed (KAN-155)', () => {
     carry(TAB_T1);
     table = S2_TAB_LAYOUT('t1');
 
-    moveTo(100);
-    release(100);
+    moveTo(52);
+    release(52);
     runFrames(1);
 
     expect(scrolled).toContain(row('t1'));
@@ -1067,8 +1109,8 @@ describe('after an adopted drop, the moved item is followed (KAN-155)', () => {
     carry(GROUP_G1);
     table = S2_GROUP_LAYOUT;
 
-    moveTo(150);
-    release(150);
+    moveTo(102);
+    release(102);
     runFrames(1);
 
     expect(scrolled).toContain(row('group:g1'));
@@ -1101,14 +1143,14 @@ describe('a long opened session', () => {
     carry(TAB_T1);
     table = S2_TAB_LAYOUT('t1');
 
-    moveTo(100);
+    moveTo(52);
     // Deep in the bottom edge zone.
     moveTo(146);
     runFrames(20);
     expect(p.scrollTop).toBeGreaterThan(100);
 
     // The scroll limit: d2's u4 is now on screen. Let go in its lower half.
-    const y = 290 - p.scrollTop;
+    const y = 242 - p.scrollTop;
     moveTo(y);
     release(y);
 
@@ -1118,47 +1160,54 @@ describe('a long opened session', () => {
   });
 });
 
-describe('the New window target (S3 A)', () => {
-  test('drawn at the top while a tab is carried: dashed, its icon, “New window”', async () => {
+// A colour with nothing in it, as a browser or jsdom names one.
+const NO_COLOUR = /^(transparent|rgba\(0, 0, 0, 0\))$/;
+
+// KAN-361/366. The trailing block a carried tab's or group's phantom rests
+// in: the last block of the session, blank -- no border colour, its name
+// hidden -- until a landing lights it with the header target's look (V2 A).
+describe('the trailing block (KAN-361/366)', () => {
+  test('drawn last while a tab is carried, holding the phantom, blank and hidden from assistive tech', async () => {
     await renderDetail('S2');
     carry(TAB_T1);
 
-    const el = target();
-    if (el === null) throw new Error('no New window target');
-    expect(
-      el.closest('[data-drop-window-id]')?.getAttribute('data-drop-window-id')
-    ).toBe(CARRY_NEW_WINDOW_ID);
-    expect(el.textContent).toContain('New window');
-    expect(el.textContent).toContain('add_box');
-    const style = getComputedStyle(el);
-    expect(style.borderTopStyle).toBe('dashed');
-    expect(style.backgroundColor).not.toMatch(/rgb\(228, ?231, ?235\)/);
-    // First in the session.
-    const first = document.querySelector('[data-drop-window-id]');
-    expect(first?.getAttribute('data-drop-window-id')).toBe(
-      CARRY_NEW_WINDOW_ID
-    );
+    const el = trailing();
+    expect(el.getAttribute('data-drop-window-id')).toBe(NEW_LAST_WINDOW);
+    expect(el.getAttribute('aria-hidden')).toBe('true');
+    expect(el.contains(row('carried:t1'))).toBe(true);
+    // Last in the session.
+    const blocks = document.querySelectorAll('[data-drop-window-id]');
+    expect(blocks[blocks.length - 1]).toBe(el);
+    // Blank: its name is there, unseen, and its border has no colour.
+    const name = el.querySelector('[data-new-window-label]');
+    if (name === null) throw new Error('no name');
+    expect(name.textContent).toContain('New window');
+    expect(seen(name)).toBe(false);
+    expect(getComputedStyle(el).borderTopColor).toMatch(NO_COLOUR);
   });
 
   test('in the source session too (Q2 A)', async () => {
     await renderDetail('S1');
     carry(TAB_T2);
-    expect(target()).not.toBeNull();
+    expect(trailing().contains(row('carried:t2'))).toBe(true);
   });
 
-  test('while the landing is in it: the hover fill and a solid border', async () => {
+  // No drag lights it until KAN-366 B: lit here as markNewWindowTarget would.
+  test('lit: the header target’s look -- the hover fill, a solid border, its name', async () => {
     await renderDetail('S2');
     carry(TAB_T1);
-    table = S2_TAB_LAYOUT('t1');
 
-    moveTo(20);
+    act(() => markNewWindowTarget(NEW_LAST_WINDOW, trailing()));
 
-    const el = target();
-    if (el === null) throw new Error('no New window target');
+    const el = trailing();
     const style = getComputedStyle(el);
     expect(style.borderTopStyle).toBe('solid');
+    expect(style.borderTopColor).not.toMatch(NO_COLOUR);
     expect(LIGHT_THEME.HOVER_COLOR).toBe('#E4E7EB');
     expect(style.backgroundColor).toMatch(/(#E4E7EB|rgb\(228, ?231, ?235\))/i);
+    const name = el.querySelector('[data-new-window-label]');
+    if (name === null) throw new Error('no name');
+    expect(seen(name)).toBe(true);
   });
 
   test('a session that already draws one of the carried ids offers no exact spot', async () => {
@@ -1185,7 +1234,7 @@ describe('the New window target (S3 A)', () => {
     expect(document.querySelector('[data-drop-window-id="z1"]')).not.toBeNull();
     carry(TAB_T1);
 
-    expect(target()).toBeNull();
+    expect(trailing().querySelector('[data-drag-row-id]')).toBeNull();
     expect(document.querySelector('[data-carry-phantom]')).toBeNull();
     moveTo(20);
     expect(currentCarry()?.owner).toBe('layer');
@@ -1195,15 +1244,15 @@ describe('the New window target (S3 A)', () => {
   });
 });
 
-// V1 A. The New window target is one row tall whatever is carried: a carried
+// V1 A. The trailing block is one row tall whatever is carried: a carried
 // GROUP's phantom is folded to its header, before the pointer comes in as
 // well as after, so nothing in the session jumps on entry. Its band keeps
 // its real margins -- the engine measures them into the footprint the
 // preview opens, which has to be the band it lands as (final review,
 // finding 4) -- and the box that holds it takes them back with a negative
-// margin of its own, so the target stays one row tall. jsdom has no layout,
+// margin of its own, so the block stays one row tall. jsdom has no layout,
 // so what is pinned is what the box's height is made of.
-describe('the New window target is one row tall (V1 A)', () => {
+describe('the trailing block is one row tall (V1 A)', () => {
   const folded = (groupRowId: string) => {
     const tabs = row(groupRowId).querySelector('[data-group-tabs]');
     const band = row(groupRowId).querySelector('[data-band-id]');
@@ -1226,8 +1275,8 @@ describe('the New window target is one row tall (V1 A)', () => {
   test('a carried group is folded to its header in it, before the pointer comes in and after', async () => {
     await renderDetail('S2');
     carry(GROUP_G1);
-    // The premise: the phantom group is in the target, with its tabs drawn.
-    expect(target()?.contains(row('group:carried:g1'))).toBe(true);
+    // The premise: the phantom group is in the block, with its tabs drawn.
+    expect(trailing().contains(row('group:carried:g1'))).toBe(true);
     expect(
       row('group:carried:g1').querySelectorAll('[data-group-tabs] *').length
     ).toBeGreaterThan(0);
@@ -1240,7 +1289,7 @@ describe('the New window target is one row tall (V1 A)', () => {
     expect(folded('group:carried:g1')).toEqual(oneRow);
 
     table = S2_GROUP_LAYOUT;
-    moveTo(20);
+    moveTo(PHANTOM_Y);
     expect(held()).toBe('group:carried:g1');
     expect(folded('group:carried:g1')).toEqual(oneRow);
   });
@@ -1252,7 +1301,7 @@ describe('the New window target is one row tall (V1 A)', () => {
     carry(TAB_T1);
     const holder = row('carried:t1').parentElement;
     if (holder === null) throw new Error('no holder');
-    expect(target()?.contains(holder)).toBe(true);
+    expect(trailing().contains(holder)).toBe(true);
     // jsdom reports an unset margin as '0', a browser as '0px'.
     expect(
       [
@@ -1328,8 +1377,8 @@ describe('a carried window shows where a drop starts (V3 A)', () => {
     );
   });
 
-  // CONTROL: a tab's phantom sits in the New window target, which says where
-  // the drop starts itself; it has no resting slot.
+  // CONTROL: a tab's phantom rests in the trailing block, not as a window
+  // row; it has no resting slot.
   test('CONTROL: no resting slot for a carried tab', async () => {
     await renderDetail('S2');
     carry(TAB_T1);

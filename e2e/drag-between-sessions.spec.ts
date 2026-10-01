@@ -3767,3 +3767,368 @@ test.describe('the toolbar target makes a new first window (KAN-361)', () => {
     expect(await windowIdsOf(page, 'S1')).toEqual(['w1', 'w2']);
   });
 });
+
+// ---- the trailing block: the phantom's home (KAN-361/366) -------------------
+
+// The list's trailing block, after its last window.
+const trailingBlock = (page: Page) =>
+  page.locator('[data-new-window-target="last"]');
+
+// One frame of the detail pane: every row's top (the held row and any
+// phantom left out, which a drag moves on purpose), whether a carry's card
+// is up, whether a carried phantom is held (adopted), the trailing block's
+// height, and how far the pane can scroll.
+interface PaneFrame {
+  rows: Record<string, number>;
+  card: boolean;
+  adopted: boolean;
+  held: boolean;
+  trailing: number;
+  range: number;
+}
+const isNumberRecord = (x: unknown): x is Record<string, number> =>
+  typeof x === 'object' &&
+  x !== null &&
+  !Array.isArray(x) &&
+  Object.values(x).every((v) => typeof v === 'number');
+const isPaneLog = (x: unknown): x is PaneFrame[] => {
+  if (!Array.isArray(x)) return false;
+  const items: readonly unknown[] = x;
+  return items.every(
+    (f) =>
+      typeof f === 'object' &&
+      f !== null &&
+      'rows' in f &&
+      isNumberRecord(f.rows) &&
+      'card' in f &&
+      typeof f.card === 'boolean' &&
+      'adopted' in f &&
+      typeof f.adopted === 'boolean' &&
+      'held' in f &&
+      typeof f.held === 'boolean' &&
+      'trailing' in f &&
+      typeof f.trailing === 'number' &&
+      'range' in f &&
+      typeof f.range === 'number'
+  );
+};
+
+// Logs a PaneFrame every animation frame from now until paneLog is read.
+// `leaveOut` names rows not to log: the one about to be picked up.
+async function logPane(page: Page, leaveOut: string[]): Promise<void> {
+  await page.evaluate((leaveOut) => {
+    const frames: unknown[] = [];
+    document.body.dataset.paneLog = 'on';
+    const scroller = () => {
+      let el = document.querySelector(
+        '[data-pane="detail"] [data-drop-window-id]'
+      )?.parentElement;
+      while (el && !['auto', 'scroll'].includes(getComputedStyle(el).overflowY))
+        el = el.parentElement;
+      return el ?? null;
+    };
+    const frame = () => {
+      const rows: Record<string, number> = {};
+      for (const el of document.querySelectorAll<HTMLElement>(
+        '[data-pane="detail"] [data-drag-row-id]'
+      )) {
+        const id = el.dataset.dragRowId ?? '';
+        if (
+          leaveOut.includes(id) ||
+          el.hasAttribute('data-carry-phantom') ||
+          el.hasAttribute('data-drag-held')
+        )
+          continue;
+        rows[id] = el.getBoundingClientRect().top;
+      }
+      const sc = scroller();
+      frames.push({
+        rows,
+        card: document.querySelector('[data-carry-card]') !== null,
+        adopted:
+          document.querySelector('[data-carry-phantom][data-drag-held]') !==
+          null,
+        held: document.querySelector('[data-drag-held]') !== null,
+        trailing:
+          document
+            .querySelector('[data-new-window-target="last"]')
+            ?.getBoundingClientRect().height ?? -1,
+        range: sc === null ? -1 : sc.scrollHeight - sc.clientHeight,
+      });
+      document.body.dataset.paneFrames = JSON.stringify(frames);
+      if (document.body.dataset.paneLog === 'on') requestAnimationFrame(frame);
+    };
+    requestAnimationFrame(frame);
+  }, leaveOut);
+  // Until the first frame is in.
+  await expect
+    .poll(() => page.evaluate(() => document.body.dataset.paneFrames ?? ''))
+    .not.toBe('');
+}
+
+async function paneLog(page: Page): Promise<PaneFrame[]> {
+  const raw = await page.evaluate(() => {
+    document.body.dataset.paneLog = 'off';
+    return document.body.dataset.paneFrames ?? '[]';
+  });
+  const frames: unknown = JSON.parse(raw);
+  if (!isPaneLog(frames)) throw new Error(`not a pane log: ${raw}`);
+  return frames;
+}
+
+// Straight onto a phantom's own place, and adopted there. Unlike
+// adoptPhantom, asserts nothing about where the phantom rests, and scrolls
+// nothing: a test that reads where it rested reads it itself.
+async function ontoOwnPhantom(page: Page, phantomId: string): Promise<void> {
+  const phantom = page.locator(`[data-drag-row-id="${phantomId}"]`);
+  const b = await boxOf(phantom);
+  await page.mouse.move(b.x + Math.min(60, b.width / 2), b.y + b.height / 2, {
+    steps: 8,
+  });
+  await expect(phantom).toHaveAttribute('data-drag-held', '');
+}
+
+// Every row of every frame where it is drawn, against where the first frame
+// drew it: the rows that moved, with the frame they moved in.
+const rowsThatMoved = (frames: PaneFrame[]): string[] => {
+  const first = frames[0]?.rows ?? {};
+  return frames.flatMap((f, i) =>
+    Object.entries(f.rows)
+      .filter(([id, top]) => id in first && Math.abs(top - first[id]) > 0.5)
+      .map(([id, top]) => `frame ${i}: ${id} ${first[id]} -> ${top}`)
+  );
+};
+
+test.describe('the phantom rests in a trailing block after the last window (KAN-361/366)', () => {
+  test('a carry from the session on screen, out to the list and back in to its phantom: no row of the session moves in any frame', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    // b1 is the session's last row, so the room it leaves moves nothing.
+    await logPane(page, ['b1', 'tab:b1']);
+    const at = await pickUp(page, tabHandle(page, 'b1'));
+    await carryOutLeft(page, at);
+    // Back in, onto the phantom: adopted at its own place.
+    await ontoOwnPhantom(page, 'carried:b1');
+    await settled(page);
+    const frames = await paneLog(page);
+
+    // PREMISE: logged at rest, with the layer driving the carry, and
+    // adopted; every row of the session drawn in the first frame.
+    expect(frames.length).toBeGreaterThan(20);
+    expect(frames[0]?.held).toBe(false);
+    expect(frames.some((f) => f.card && !f.adopted)).toBe(true);
+    expect(frames.some((f) => f.adopted)).toBe(true);
+    expect(Object.keys(frames[0]?.rows ?? {}).sort()).toEqual(
+      [
+        'w1',
+        'w2',
+        'a0',
+        'a1',
+        'a2',
+        'al0',
+        'al1',
+        'b0',
+        'tab:a0',
+        'tab:a1',
+        'tab:a2',
+        'group:alpha',
+        'tab:b0',
+      ].sort()
+    );
+    expect(rowsThatMoved(frames)).toEqual([]);
+    // The phantom rests in the trailing block, after w2.
+    const phantom = await boxOf(tabHandle(page, 'carried:b1'));
+    const w2 = await boxOf(page.locator('[data-drag-row-id="w2"]'));
+    expect(phantom.y).toBeGreaterThan(w2.y + w2.height);
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+  });
+
+  test('Q4: a 6×4 session scrolled to its end gains one row of scroll range when a tab is picked up, in the frame it is picked up, and no row moves', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(
+      context,
+      extensionId,
+      [sixByFour('S6', 'Six', 's'), S2()],
+      'S6'
+    );
+    const rowH = await heightOf(tabHandle(page, 's0-0'));
+    await setDetailScroll(page, 1e6);
+    await settled(page);
+    const pane = await detailPane(page);
+    const lastWindow = await boxOf(page.locator('[data-drag-row-id="sw5"]'));
+    // At rest the trailing block adds nothing: at its end, the list leaves
+    // what main leaves below its last window (9px, measured on main), less
+    // than a row.
+    expect(pane.bottom - (lastWindow.y + lastWindow.height)).toBeCloseTo(9, 0);
+    expect(rowH).toBeGreaterThan(9);
+    // A tab mid-pane, clear of both auto-scroll zones.
+    const mid = (pane.top + pane.bottom) / 2;
+    const pick = await page.evaluate((mid) => {
+      const el = [
+        ...document.querySelectorAll<HTMLElement>(
+          '[data-pane="detail"] [data-drag-row-id^="s"]'
+        ),
+      ].find((r) => {
+        const b = r.getBoundingClientRect();
+        return (
+          /^s\d-\d$/.test(r.dataset.dragRowId ?? '') &&
+          b.top <= mid &&
+          b.bottom > mid
+        );
+      });
+      return el?.dataset.dragRowId ?? null;
+    }, mid);
+    if (pick === null) throw new Error('no tab mid-pane');
+
+    await logPane(page, [pick, `tab:${pick}`]);
+    await pickUp(page, tabHandle(page, pick));
+    await settled(page);
+    const frames = await paneLog(page);
+    const atRest = frames[0];
+    const held = frames.filter((f) => f.held);
+    // PREMISE: logged at rest and held.
+    expect(atRest?.held).toBe(false);
+    expect(held.length).toBeGreaterThan(5);
+    // One row of room, 34px (a 32px row and the box's borders), from the
+    // first frame the row is held in.
+    const room = 34;
+    expect(held.map((f) => f.range - (atRest?.range ?? NaN))).toEqual(
+      held.map(() => room)
+    );
+    // It is the trailing block's: zero at rest, a row tall while held.
+    expect(atRest?.trailing).toBe(0);
+    expect(held.map((f) => f.trailing)).toEqual(held.map(() => room));
+    // The room is added below: no row moves, the last window's included.
+    expect(Object.keys(atRest?.rows ?? {}).length).toBeGreaterThan(20);
+    expect(rowsThatMoved(frames)).toEqual([]);
+
+    // And it can be reached: held at the bottom edge, the list scrolls into
+    // it, and the room shows below the last window.
+    await page.mouse.move(pane.left + 100, pane.bottom - 4, { steps: 4 });
+    await expect
+      .poll(async () => (await detailPane(page)).scrollTop)
+      .toBe(pane.scrollTop + room);
+    const below = await boxOf(trailingBlock(page));
+    const last = await boxOf(page.locator('[data-drag-row-id="sw5"]'));
+    expect(below.y).toBeGreaterThan(last.y + last.height);
+    expect(below.y + below.height).toBeLessThanOrEqual(pane.bottom);
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+  });
+
+  test('a window drag leaves the trailing block at zero height', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    // CONTROL: a tab drag gives it its row.
+    await pickUp(page, tabHandle(page, 'a1'));
+    await settled(page);
+    expect((await boxOf(trailingBlock(page))).height).toBeGreaterThan(20);
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+    await settled(page);
+    expect((await boxOf(trailingBlock(page))).height).toBe(0);
+
+    await logPane(page, ['w1']);
+    await pickUp(page, windowHandle(page, 'w1'));
+    await settled(page);
+    const frames = await paneLog(page);
+    // PREMISE: the window drag was logged, held.
+    expect(frames.filter((f) => f.held).length).toBeGreaterThan(5);
+    expect(frames.filter((f) => f.trailing !== 0)).toEqual([]);
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+  });
+
+  // Until a release below the last window makes a new last window (KAN-366
+  // B), the block the phantom rests in is no landing: let go at the
+  // phantom's own place, an adopted carry moves nothing and ends cancelled
+  // (KAN-365's "nothing moves").
+  for (const k of [
+    { kind: 'tab', handle: 'a1', phantom: 'carried:a1' },
+    { kind: 'group', handle: 'alpha', phantom: 'group:carried:alpha' },
+  ] as const) {
+    test(`a carried ${k.kind} let go at its phantom's own place in the opened session moves nothing, and the carry ends`, async ({
+      context,
+      extensionId,
+    }) => {
+      const page = await openPopup(context, extensionId);
+      const before = await stored(page);
+      const handle =
+        k.kind === 'tab'
+          ? tabHandle(page, k.handle)
+          : groupHandle(page, k.handle);
+      const at = await pickUp(page, handle);
+      await carryOutLeft(page, at);
+      await springOpen(page, 'S2');
+      await ontoOwnPhantom(page, k.phantom);
+      await settled(page);
+      // Read here, asserted after the release, so what the release did is
+      // the first thing checked: where it was let go, and what was shown.
+      const there = await page.evaluate((id) => {
+        const ph = document.querySelector(`[data-drag-row-id="${id}"]`);
+        const home = document.querySelector('[data-new-window-target="last"]');
+        return {
+          held: ph?.hasAttribute('data-drag-held') ?? false,
+          inTrailingBlock: home !== null && ph !== null && home.contains(ph),
+          lit: home?.hasAttribute('data-landing') ?? false,
+          slots: [...document.querySelectorAll('[data-drag-landing-slot]')]
+            .length,
+        };
+      }, k.phantom);
+      await page.mouse.up();
+
+      await expect(page.locator(CARD)).toHaveCount(0);
+      // NEGATIVE, so a fixed wait: a move is written on the release.
+      await page.waitForTimeout(200);
+      // Every session as it was, but which one is selected: the spring-open
+      // selected S2.
+      const after = await stored(page);
+      const unselected = (s: tabContainerData) => ({ ...s, isSelected: false });
+      for (const id of ['S1', 'S2', 'S3', 'S4']) {
+        expect(unselected(sessionOf(after, id))).toEqual(
+          unselected(sessionOf(before, id))
+        );
+      }
+      expect(await selected(page)).toBe('S2');
+      expect(await toasts(page)).toEqual([]);
+      // PREMISE: it was adopted, at its own place in the trailing block,
+      // unlit, with no slot drawn.
+      expect(there).toEqual({
+        held: true,
+        inTrailingBlock: true,
+        lit: false,
+        slots: 0,
+      });
+    });
+  }
+
+  // The trailing block is no window to the hit test: a release on it is
+  // below the last window, as before it existed. "Drag it to the end" keeps
+  // its slack (half the held row) past the last row, though that point is
+  // now inside the block (KAN-132).
+  test('b0 let go just past w2’s last row, inside the trailing block, still lands last in w2', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    const b1 = await boxOf(tabHandle(page, 'b1'));
+    const at = await pickUp(page, tabHandle(page, 'b0'));
+    const y = b1.y + b1.height + 12;
+    const block = await boxOf(trailingBlock(page));
+    // PREMISE: the point is in the trailing block, within half a row of b1.
+    expect(y).toBeGreaterThan(block.y);
+    expect(y).toBeLessThan(block.y + block.height);
+    await page.mouse.move(at.x, y, { steps: 6 });
+    await settled(page);
+    await page.mouse.up();
+
+    await expect.poll(() => layout(page, 'S1')).toEqual([W1_START, 'b1 b0']);
+  });
+});

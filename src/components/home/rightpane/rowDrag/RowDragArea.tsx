@@ -350,12 +350,13 @@ interface LiveDrag {
   // and for an adopted drag, which hands its carry back. Null for every other
   // list, which never asks a receiver anything.
   receiverAt: ((x: number, y: number) => CarryReceiver | null) | null;
-  // Whether a point is on the session header's New window target (KAN-361
-  // N1 B), from its box read once at activation, like the receivers': for a
-  // list that offers a new window, while the target is drawn. Null for every
-  // other list, which never lands there. A landing on it is a new first
-  // window (landingOf), and it is never a hand-off (onMoveEvent, Q3 i).
-  onNewFirstWindow: ((x: number, y: number) => boolean) | null;
+  // A hit test: is this point on the session header's New window target
+  // (KAN-361 N1 B)? Built from the target's box, read once at activation
+  // like the receivers': for a list that offers a new window, while the
+  // target is drawn. Null for every other list, which never lands there. A
+  // point on it lands as a new first window (landingOf), and is never a
+  // hand-off (onMoveEvent, Q3 i).
+  isOnNewFirstWindow: ((x: number, y: number) => boolean) | null;
   // The last target resolveDrop named, so the list hears only about changes
   // rather than once per pointer move (KAN-164).
   dropTarget: string | undefined;
@@ -446,7 +447,7 @@ function pressRecord(
     heldEl: null,
     heldWindow: null,
     receiverAt: null,
-    onNewFirstWindow: null,
+    isOnNewFirstWindow: null,
     dropTarget: undefined,
     slots: [],
     slotOfRow: [],
@@ -731,7 +732,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // before any of them, because the target is outside the list: no
       // window is under it, and the held row's own window would otherwise
       // answer for it.
-      if (l.onNewFirstWindow?.(l.lastX, l.lastY) === true) {
+      if (l.isOnNewFirstWindow?.(l.lastX, l.lastY) === true) {
         return { windowId: NEW_FIRST_WINDOW, index: 0, clamped: false };
       }
 
@@ -871,7 +872,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       const landing = landingOf(l, block);
 
       // Which window a release here lands in, told to the list on change
-      // only (KAN-350: the New window target lights up while it is the
+      // only (KAN-350: a New window target lights up while it is the
       // landing). Here rather than in onMoveEvent, because auto-scroll moves
       // the list under a still pointer and can change it too.
       if (landing?.windowId !== l.landingWindow) {
@@ -1075,8 +1076,9 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         //
         // Only for a drag shown by its OWN card (`l.card`), which an adopted
         // drag never has -- its card is the carry's. A visible held row needs
-        // no help, and an adopted carry's source is the New window target,
-        // which the drop does not leave one row shorter: it removes it.
+        // no help, and an adopted carry's source is the trailing block it
+        // rests in, which the drop does not leave one row shorter: it
+        // removes the phantom.
         // Not `heldShownAsCard`, which is true for an adopted drag too.
         const heldRect = l.rects[l.fromIndex];
         if (l.card !== null && heldRect !== undefined) {
@@ -1331,7 +1333,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // receivers above, and AFTER the marker that draws it: a target that
       // is not drawn is no landing, so read before the marker it would
       // never be one.
-      l.onNewFirstWindow = offersNewWindow
+      l.isOnNewFirstWindow = offersNewWindow
         ? measureNewFirstWindowTarget(document)
         : null;
 
@@ -1373,7 +1375,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // band, from any row drawn in it -- the held row too, which may be its
       // band's only member. A loose row's from any OTHER drawn row in no band:
       // the held row is the one row whose box can be neither (an adopted
-      // carry's phantom stands in the New window target). With no loose row
+      // carry's phantom rests in the trailing block). With no loose row
       // drawn, a band's own box, which sits where a loose row does. One box
       // for every window the list spans: they share one column and one
       // indent (70px, in the saved pane and in Open now alike). A layout
@@ -1615,7 +1617,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // pointer held above it and the landing is the new window.
       if (
         l.receiverAt !== null &&
-        l.onNewFirstWindow?.(e.clientX, e.clientY) !== true &&
+        l.isOnNewFirstWindow?.(e.clientX, e.clientY) !== true &&
         l.receiverAt(e.clientX, e.clientY) !== null &&
         handOff(l, e.clientX, e.clientY)
       ) {
@@ -1909,6 +1911,13 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     disabled,
   ]);
 
+  // The list's latest onLandingWindowChange, for the unmount below, which
+  // must not re-run -- and end a live drag -- whenever the callback changes.
+  const landingWindowChange = useRef(onLandingWindowChange);
+  useEffect(() => {
+    landingWindowChange.current = onLandingWindowChange;
+  }, [onLandingWindowChange]);
+
   // A drag interrupted by UNMOUNT must not leave the document stuck in a drag.
   //
   // Its own effect with no deps that change, so it runs on unmount and nothing
@@ -1923,13 +1932,23 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
   // And only when THIS area owns a started drag. The flag is document-wide,
   // so clearing it unconditionally let a tab list unmounting -- its window
   // deleted, say -- end a window drag somewhere else.
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    // The area's own container, read while it is mounted: by the time this
+    // cleanup runs, React has already detached the ref.
+    const container = containerRef.current;
+    return () => {
       const l = live.current;
       live.current = null;
       if (scrollFrame.current) {
         cancelAnimationFrame(scrollFrame.current);
         scrollFrame.current = 0;
+      }
+      // Nor does finish's unlighting: a New window target this drag lit is
+      // left lit. The header's is outside this list and outlives it (a sync
+      // taking the shown session away mid-drag), and would show lit for the
+      // next carry while the pointer is somewhere else.
+      if (l?.landingWindow !== undefined) {
+        landingWindowChange.current?.(undefined, container);
       }
       if (l?.adopted) {
         // The hold and the kind are the carry's: ending it ends both, and
@@ -1947,11 +1966,10 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // area, and would go on drawing the card with no drag behind it. A
       // no-op unless this area showed it.
       hideDragCard(cardOwner);
-    },
+    };
     // cardOwner never changes (it is state that is never set), so this still
     // runs on unmount and nothing else.
-    [cardOwner]
-  );
+  }, [cardOwner]);
 
   // The card goes up in the commit that hides the row it stands for
   // (KAN-359), so the two arrive in one frame: a store update made in a

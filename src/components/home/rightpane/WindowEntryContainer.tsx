@@ -48,10 +48,9 @@ import { markRowContainer } from './rowDrag/dropRules';
 import { useDragState } from './rowDrag/dragContext';
 import { GroupFrameFollower } from './rowDrag/GroupFrameFollower';
 import { ADJACENT_GROUP_GAP_PX, BAND_MARGIN_PX } from './bandSpacing';
-import { CARRY_NEW_WINDOW_ID } from '../../../utils/functions/carriedView';
-import { newWindowTargetBoxStyle } from './newWindowTarget';
+import { NEW_LAST_WINDOW, newWindowTargetBoxStyle } from './newWindowTarget';
 import { NewWindowTargetLabel } from './NewWindowTargetLabel';
-import { DURATION, RADIUS, TYPE } from '../../../styles/scale';
+import { CONTROL, DURATION, RADIUS, TYPE } from '../../../styles/scale';
 
 /**
  * The Chrome group title, and the editor that replaces it (KAN-205).
@@ -264,14 +263,22 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     padding-left: 70px;
   `;
 
-  // KAN-350 (S3 A). The synthetic first window a carried tab or group can
-  // land in (CARRY_NEW_WINDOW_ID), drawn as the mock's New window target: a
-  // dashed box with an icon and its name, and the hover fill and a solid
-  // border while the landing is in it -- the look the toolbar row's target
-  // shares (newWindowTargetBoxStyle). To the drag engine it is still a
-  // window: its block is marked, and it holds the phantom row the carried
-  // item is drawn as -- invisible, keeping its footprint -- so the box is as
-  // tall as what would land there. The name sits over the phantom.
+  // KAN-361/366. The trailing block (NEW_LAST_WINDOW): the one block after
+  // the last window, drawn by the pane whatever is dragged. To the drag
+  // engine it is a window: its block is marked, and it holds the phantom row
+  // a carried tab or group is drawn as -- invisible, keeping its footprint --
+  // so the list adopts it there, at the end, and nothing above it moves when
+  // a carry starts (KAN-361 N1 B: the New window target is in the header).
+  //
+  // Zero height at rest: no border, no rows. While a tab or group is dragged
+  // (App.css, keyed on data-drag-new-window) it takes its border and one
+  // row of room (Q4), so a full list scrolled to its end has a place below
+  // its last window. The room is the phantom's own when one rests here, and
+  // a blank row (data-new-window-room) when none does, so the block is the
+  // same height either way and a carry starting changes nothing.
+  //
+  // Drawn blank. Lit -- the header target's look (newWindowTargetBoxStyle,
+  // V2 A) and its name -- only while the landing is in it.
   //
   // While lit, the landing slot is hidden: the lit box is what says where
   // the release lands, and a dashed slot in a dashed box says it twice. The
@@ -288,20 +295,34 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   // the footprint every preview opens (footprintOf), so a band without one
   // opened a gap 2px smaller than any group drag does (final review, finding
   // 4: derive the box). The box that holds the phantom takes them back
-  // instead (newWindowTargetRowsStyle): margins that meet collapse, and a
-  // band's 2px against that box's -2px is 0, so the header is exactly a tab
-  // row's height inside the border.
-  const isNewWindowTarget = windowId === CARRY_NEW_WINDOW_ID;
-  const newWindowTargetStyle = css`
+  // instead (trailingRowsStyle): margins that meet collapse, and a band's
+  // 2px against that box's -2px is 0, so the header is exactly a tab row's
+  // height inside the border.
+  const isTrailingBlock = windowId === NEW_LAST_WINDOW;
+  const trailingBlockStyle = css`
     position: relative;
+    margin-bottom: 0;
+    border-width: 0;
+    &:not([data-landing]) {
+      border-color: transparent;
+      /* Not drawn at all: hidden, its content would still overflow the
+         block's zero height at rest and add to the pane's scroll range. */
+      & > [data-new-window-label] {
+        display: none;
+      }
+    }
     & [data-group-tabs] {
       display: none;
+    }
+    & [data-new-window-room] {
+      display: none;
+      height: ${CONTROL.ROW};
     }
     &[data-landing] [data-drag-landing-slot] {
       visibility: hidden;
     }
   `;
-  const newWindowTargetRowsStyle = items.some((item) => item.kind === 'group')
+  const trailingRowsStyle = items.some((item) => item.kind === 'group')
     ? css`
         margin: -${BAND_MARGIN_PX}px 0;
       `
@@ -630,17 +651,19 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     // and this is the one element that is always there to say so.
     <div
       css={
-        isNewWindowTarget
+        isTrailingBlock
           ? [
               containerStyle,
               newWindowTargetBoxStyle(COLORS),
-              newWindowTargetStyle,
+              trailingBlockStyle,
             ]
           : containerStyle
       }
       data-drop-window-id={windowId}
-      // KAN-350 (S3 A). Lit by markNewWindowTarget while the landing is in it.
-      data-new-window-target={isNewWindowTarget ? '' : undefined}
+      // KAN-361/366. Lit by markNewWindowTarget while the landing is in it.
+      data-new-window-target={isTrailingBlock ? 'last' : undefined}
+      // Only a pointer's drag ever shows it, and it holds no row of its own.
+      aria-hidden={isTrailingBlock ? 'true' : undefined}
       // KAN-184. The room a drop into ANOTHER window needs, made here.
       //
       // A preview holds the layout still and moves everything by transform, so
@@ -668,8 +691,8 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
         transform: windowShift ? `translateY(${windowShift}px)` : undefined,
       }}
     >
-      {isNewWindowTarget ? (
-        // KAN-350 (S3 A). The target's name, over the phantom below it.
+      {isTrailingBlock ? (
+        // The target's name, over the phantom below it, shown while lit.
         <NewWindowTargetLabel />
       ) : (
         /* The grab handle for the WINDOW drag (KAN-129), read by the area
@@ -820,7 +843,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
           </div>
         </div>
       )}
-      {(isWindowOpen || isNewWindowTarget) && (
+      {(isWindowOpen || isTrailingBlock) && (
         // data-window-tabs is the hook App.css uses to fold every window shut
         // while a WINDOW is being dragged (KAN-153). Visual only -- the stored
         // fold state is never touched, which is what makes "and it comes back
@@ -834,18 +857,18 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
         // above and nothing else tells this box from the single-child wrappers
         // a footprint's climb exists to climb.
         //
-        // The New window target holds the carried item's phantom here instead
+        // The trailing block holds the carried item's phantom here instead
         // (KAN-350): its rows, not a window's, so nothing folds it and it
-        // takes no indent.
+        // takes no indent -- or, with none resting in it, its blank row of
+        // room.
         <div
-          css={
-            isNewWindowTarget
-              ? newWindowTargetRowsStyle
-              : childrenContainerStyle
-          }
-          data-window-tabs={isNewWindowTarget ? undefined : ''}
+          css={isTrailingBlock ? trailingRowsStyle : childrenContainerStyle}
+          data-window-tabs={isTrailingBlock ? undefined : ''}
           ref={markRowContainer}
         >
+          {isTrailingBlock && items.length === 0 && (
+            <div data-new-window-room="" />
+          )}
           {/* KAN-160. The window's items -- loose tabs and whole groups.
                 Item rows name scope="items" and tab rows name scope="tabs",
                 so each joins its own pane-wide list past the other

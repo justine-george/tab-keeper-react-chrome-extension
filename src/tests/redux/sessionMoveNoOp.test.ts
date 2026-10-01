@@ -28,7 +28,7 @@ import { resetHistory } from '../../redux/slices/undoRedoSlice';
 import { endDragHold } from '../../redux/dragHold';
 import { moveToSession } from '../../redux/moveToSession';
 import { dropCarriedGroup, dropCarriedTab } from '../../redux/dropCarried';
-import { CARRY_NEW_WINDOW_ID } from '../../utils/functions/carriedView';
+import { NEW_FIRST_WINDOW } from '../../components/home/rightpane/newWindowTarget';
 import { makeTestStore } from '../setup/makeStore';
 import {
   T0,
@@ -233,14 +233,14 @@ describe('a new LAST window in its own session that would change nothing', () =>
 // Every route that makes a new window reaches the same reducer, so each one
 // declines, and says it moved nothing: the carry then ends as a cancel.
 describe('the routes to a new window decline it too', () => {
-  it('the New window target in the source (Q2 A), for a lone tab', () => {
+  it('the header’s New window target in the source (Q2 A), for a lone tab', () => {
     const store = ready(container([s9(), s3()], 'S9'));
     const before = data(store);
 
     const result = store.dispatch(
       dropCarriedTab(LONE, {
         tabGroupId: 'S9',
-        toWindowId: CARRY_NEW_WINDOW_ID,
+        toWindowId: NEW_FIRST_WINDOW,
         toIndex: 0,
       })
     );
@@ -251,14 +251,14 @@ describe('the routes to a new window decline it too', () => {
     expect(store.getState().undoRedo.past).toHaveLength(0);
   });
 
-  it('the New window target in the source (Q2 A), for a whole-window group', () => {
+  it('the header’s New window target in the source (Q2 A), for a whole-window group', () => {
     const store = ready(container([g9(), s3()], 'G9'));
     const before = data(store);
 
     const result = store.dispatch(
       dropCarriedGroup(WHOLE_GROUP, {
         tabGroupId: 'G9',
-        toWindowId: CARRY_NEW_WINDOW_ID,
+        toWindowId: NEW_FIRST_WINDOW,
         toIndex: 0,
       })
     );

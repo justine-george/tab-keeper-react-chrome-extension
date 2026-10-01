@@ -655,17 +655,27 @@ export function windowBlockAt(
   //
   // Read off the attribute the block publishes, for the same reason bandAt
   // reads the inline padding: this runs for every window on every pointer move.
-  const boxes = windowBlocksIn(container).map((el) => {
-    const r = el.getBoundingClientRect();
-    const shift = parseFloat(el.dataset.windowShift ?? '') || 0;
-    return {
-      el,
-      left: r.left,
-      right: r.right,
-      top: r.top - shift,
-      bottom: r.bottom - shift,
-    };
-  });
+  //
+  // NOT THE TRAILING BLOCK (data-new-window-target="last", KAN-361/366): the
+  // empty block after the last window, where a carried tab's or group's
+  // phantom rests, and a row tall while a tab or group is dragged (Q4). It is
+  // no window yet, so a point on it, or in the gap above it, is "below the
+  // last block" exactly as before it existed: the held row's own window's
+  // overshoot, or refused. Only an adopted phantom's own window is the
+  // trailing block, and its list refuses it (acceptsWindow).
+  const boxes = windowBlocksIn(container)
+    .filter((el) => el.dataset.newWindowTarget !== 'last')
+    .map((el) => {
+      const r = el.getBoundingClientRect();
+      const shift = parseFloat(el.dataset.windowShift ?? '') || 0;
+      return {
+        el,
+        left: r.left,
+        right: r.right,
+        top: r.top - shift,
+        bottom: r.bottom - shift,
+      };
+    });
 
   for (const b of boxes) {
     if (x >= b.left && x <= b.right && y >= b.top && y <= b.bottom) return b.el;

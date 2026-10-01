@@ -49,3 +49,40 @@ describe('windowBlockAt', () => {
     expect(windowBlockAt(root, 900, 160)).toBeNull();
   });
 });
+
+// KAN-361/366. The trailing block after the last window -- where a carried
+// tab's or group's phantom rests, a row tall during a tab or group drag -- is
+// no window yet: a point on it, or in the gap above it, is below the last
+// block, exactly as with no trailing block at all (KAN-132/185).
+describe('windowBlockAt and the trailing block', () => {
+  const root = pane([
+    ['wA', 0, 142],
+    ['wB', 180, 122],
+    ['new-window:last', 310, 34],
+  ]);
+  const trailing = root.lastElementChild;
+  if (!(trailing instanceof HTMLElement)) throw new Error('no trailing block');
+  trailing.dataset.newWindowTarget = 'last';
+  const at = (y: number) =>
+    windowBlockAt(root, 10, y)?.getAttribute('data-drop-window-id') ?? null;
+
+  test('a point on it names no window', () => {
+    expect(at(320)).toBeNull();
+  });
+  test('the gap above it is not split with it', () => {
+    // Nearer the trailing block than wB: still below the last window.
+    expect(at(308)).toBeNull();
+    expect(at(304)).toBeNull();
+  });
+  test('CONTROL: the same block unmarked is a window, and takes the gap', () => {
+    const plain = pane([
+      ['wA', 0, 142],
+      ['wB', 180, 122],
+      ['wC', 310, 34],
+    ]);
+    const atPlain = (y: number) =>
+      windowBlockAt(plain, 10, y)?.getAttribute('data-drop-window-id') ?? null;
+    expect(atPlain(320)).toBe('wC');
+    expect(atPlain(308)).toBe('wC');
+  });
+});

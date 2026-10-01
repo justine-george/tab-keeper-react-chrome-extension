@@ -15,7 +15,7 @@ import {
   setHasTabGroupsPermission,
   setIsNotDirty,
 } from '../../redux/slices/globalStateSlice';
-import { CARRY_NEW_WINDOW_ID } from '../../utils/functions/carriedView';
+import { NEW_LAST_WINDOW } from '../../components/home/rightpane/newWindowTarget';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { standInSessionList } from '../setup/standInSessionList';
 import {
@@ -39,7 +39,8 @@ import {
 // itself is drawn by the card at the pointer.
 //
 // Never for a landing in the row's own window, a refused one, or an adopted
-// carry (whose source is the New window target, gone after the drop).
+// carry (whose source is the trailing block it rests in, gone after the
+// drop).
 //
 // jsdom has no layout, and applies no transform. Every box the engine reads
 // is given one below, in the pane's content space; a window block the
@@ -427,28 +428,28 @@ describe('no outline where no room is left in another window', () => {
   });
 });
 
-// An adopted carry's source is the New window target (KAN-350 S3), which
-// does not exist after the drop: "this window is one row shorter" would be
-// false.
+// An adopted carry's source is the trailing block its phantom rests in
+// (KAN-361/366), which holds nothing after the drop: "this window is one row
+// shorter" would be false.
 describe('no outline for an adopted carry', () => {
-  // S2 while a TAB is carried: the New window target first, holding the
-  // phantom, then d1 and d2 as drawn (openedSessionTakesCarry.test.tsx's).
+  // S2 while a TAB is carried: d1 and d2 as drawn, then the trailing block
+  // holding the phantom (openedSessionTakesCarry.test.tsx's).
   const S2_TAB_LAYOUT: Table = {
-    [`win:${CARRY_NEW_WINDOW_ID}`]: [0, 40],
-    'row:tab:carried:t1': [4, 32],
-    'row:carried:t1': [4, 32],
-    'win:d1': [48, 176],
-    'row:tab:u1': [80, 32],
-    'row:u1': [80, 32],
-    'row:group:h1': [112, 96],
-    'band:h1': [112, 96],
-    'fixed:h1': [112, 32],
-    'row:u2': [144, 32],
-    'row:u3': [176, 32],
-    'fixed:h1:tail': [208, 0],
-    'win:d2': [232, 64],
-    'row:tab:u4': [264, 32],
-    'row:u4': [264, 32],
+    'win:d1': [0, 176],
+    'row:tab:u1': [32, 32],
+    'row:u1': [32, 32],
+    'row:group:h1': [64, 96],
+    'band:h1': [64, 96],
+    'fixed:h1': [64, 32],
+    'row:u2': [96, 32],
+    'row:u3': [128, 32],
+    'fixed:h1:tail': [160, 0],
+    'win:d2': [184, 64],
+    'row:tab:u4': [216, 32],
+    'row:u4': [216, 32],
+    [`win:${NEW_LAST_WINDOW}`]: [256, 40],
+    'row:tab:carried:t1': [260, 32],
+    'row:carried:t1': [260, 32],
   };
   const T1: CarriedRef = {
     kind: 'tab',
@@ -468,7 +469,7 @@ describe('no outline for an adopted carry', () => {
     table = S2_TAB_LAYOUT;
 
     // Into the pane over d1's first row: adopted, and landing in d1.
-    moveTo(84);
+    moveTo(36);
 
     // PREMISE: the adopted phantom is held, drawn by the carry's card, and
     // its landing is in another window than the one it sits in -- d1's rows
@@ -534,6 +535,23 @@ describe('on the header’s New window target (KAN-361, Q2 ii)', () => {
       ['x0', 'x1', 'a1'],
       ['b0', 'b1'],
     ]);
+    expect(header.hasAttribute('data-landing')).toBe(false);
+  });
+
+  // The header's target is outside the list and outlives it. A list that
+  // goes away mid-drag (a sync taking the shown session) must not leave it
+  // lit: the next carry would show it lit with the pointer elsewhere.
+  test('the list unmounting mid-drag unlights the target it lit', async () => {
+    const { unmount } = await renderDetail('SR');
+    pickUpTab('a0', WITH_HEADER);
+    moveTo(HEADER_Y);
+    // PREMISE: lit by this drag.
+    expect(header.hasAttribute('data-landing')).toBe(true);
+
+    act(() => unmount());
+
+    // PREMISE: the target outlived the list.
+    expect(header.isConnected).toBe(true);
     expect(header.hasAttribute('data-landing')).toBe(false);
   });
 

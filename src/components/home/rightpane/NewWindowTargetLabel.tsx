@@ -1,6 +1,6 @@
 // The New window target's name (KAN-350 S3 A), drawn in each place the target
-// is: the in-list window a carry lands in (WindowEntryContainer) and the
-// session header's toolbar row (KAN-361 N1 B, HeroContainerRight). Its box is
+// is: the session header's toolbar row (KAN-361 N1 B, HeroContainerRight) and
+// the list's trailing block, while lit (WindowEntryContainer). Its box is
 // newWindowTargetBoxStyle's.
 //
 // Over the whole of that box, which must be its nearest positioned ancestor.
@@ -18,6 +18,8 @@ export function NewWindowTargetLabel() {
   const { t } = useTranslation();
   return (
     <div
+      // What the trailing block hides while unlit.
+      data-new-window-label=""
       css={css`
         position: absolute;
         inset: 0;

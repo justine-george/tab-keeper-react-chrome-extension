@@ -31,7 +31,6 @@ import {
   dropCarriedTab,
   dropCarriedWindow,
 } from '../../redux/dropCarried';
-import { CARRY_NEW_WINDOW_ID } from '../../utils/functions/carriedView';
 import { NEW_FIRST_WINDOW } from '../../components/home/rightpane/newWindowTarget';
 import {
   T0,
@@ -44,8 +43,8 @@ import {
 
 // KAN-350 Task 5. A carried item let go at an exact spot in the session on
 // screen, or on its New window target. Three routes:
-//   - the synthetic window (CARRY_NEW_WINDOW_ID): moveToSession, as a new
-//     first window;
+//   - the session header's New window target (NEW_FIRST_WINDOW, KAN-361):
+//     moveToSession, as a new first window;
 //   - the session on screen is the item's own: today's tabDrop / groupDrop /
 //     windowDrop, from the item's ORIGINAL window, so their no-op guards and
 //     prune rules are unchanged (plan Decision);
@@ -199,25 +198,6 @@ describe('a carried tab', () => {
     expect(moved).toBe(false);
     expect(data(store)).toBe(before);
   });
-
-  it.each([
-    ['another session', 'S2'],
-    ['its own session', 'S1'],
-  ])('on the New window target in %s: a new first window', (_what, shown) => {
-    const store = ready(container(undefined, shown));
-    const moved = store.dispatch(
-      dropCarriedTab(T1, {
-        tabGroupId: shown,
-        toWindowId: CARRY_NEW_WINDOW_ID,
-        toIndex: 0,
-      })
-    );
-    expect(moved).toBe(true);
-    const first = sessionIn(data(store), shown).windows[0];
-    expect(tabIds(first)).toEqual(['t1']);
-    expect(first.windowId).not.toBe(CARRY_NEW_WINDOW_ID);
-    expect(toasts(store)).toEqual([]);
-  });
 });
 
 describe('a carried group', () => {
@@ -258,20 +238,6 @@ describe('a carried group', () => {
       't3',
     ]);
   });
-
-  it('on the New window target: a new first window with its entry', () => {
-    const store = ready();
-    store.dispatch(
-      dropCarriedGroup(G1, {
-        tabGroupId: 'S2',
-        toWindowId: CARRY_NEW_WINDOW_ID,
-        toIndex: 0,
-      })
-    );
-    const first = sessionIn(data(store), 'S2').windows[0];
-    expect(tabIds(first)).toEqual(['g1a', 'g1b']);
-    expect(first.chromeTabGroups?.map((g) => g.groupId)).toEqual(['g1']);
-  });
 });
 
 describe('a carried window', () => {
@@ -307,8 +273,8 @@ describe('a carried window', () => {
 });
 
 // KAN-361 (N1 B). The session header's New window target names its own
-// window, NEW_FIRST_WINDOW: the same route as the in-list target, a new
-// first window of the session on screen, one move, no toast.
+// window, NEW_FIRST_WINDOW: a new first window of the session on screen, one
+// move, no toast.
 describe('on the header’s New window target (KAN-361)', () => {
   it.each([
     ['another session', 'S2'],
