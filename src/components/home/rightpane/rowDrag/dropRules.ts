@@ -836,7 +836,23 @@ export function setDragging(on: boolean, kind: DragKind = 'tab'): void {
 // Its own flag rather than a kind: whether a drag offers a new window is the
 // LIST's to say (RowDragAreaProps.offersNewWindow), not the drag kind's. Open
 // now's lists drag tabs too, and must never show the target.
-export function setDragNewWindow(on: boolean): void {
-  if (on) document.documentElement.setAttribute('data-drag-new-window', '');
-  else document.documentElement.removeAttribute('data-drag-new-window');
+//
+// `withRoom` writes the value `room`: the list's trailing block also takes
+// its row of room below the last window (KAN-366 Q4, App.css). The engine
+// asks for it only for a list that already scrolls at rest, so no scroll
+// range can BEGIN at a pick-up -- the pane is overflow: auto, and a
+// scrollbar appearing then would narrow every row in the frame the drag
+// starts. A list that fits keeps its own empty space below its last window.
+//
+// Once on, the room stays until the marker is cleared: a carry starting from
+// that drag, or a drag adopting that carry, writes the marker again without
+// asking for it, and the block keeps the height the phantom now fills.
+export function setDragNewWindow(on: boolean, withRoom = false): void {
+  const root = document.documentElement;
+  if (!on) {
+    root.removeAttribute('data-drag-new-window');
+    return;
+  }
+  const hasRoom = root.getAttribute('data-drag-new-window') === 'room';
+  root.setAttribute('data-drag-new-window', withRoom || hasRoom ? 'room' : '');
 }

@@ -1307,7 +1307,15 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // reason an adoption publishes the kind again (below): on before
       // anything is measured, however the drag began. Its end clears nothing
       // (finish): the carry's is the write that lasts, and endCarry ends it.
-      if (offersNewWindow) setDragNewWindow(true);
+      //
+      // With the trailing block's row of room (KAN-366 Q4) only when the list
+      // already scrolled at the press: `maxScroll` is still the press's here,
+      // read before anything this drag changes. A list that fits would gain a
+      // scrollbar at the pick-up. Never for an adoption, whose carry decided
+      // when it started.
+      if (offersNewWindow) {
+        setDragNewWindow(true, !l.adopted && l.maxScroll > 0);
+      }
       // KAN-279 D12. From here until the drag ends, a change this page did
       // not make waits (dragHold): applying it would move the list under
       // rects measured once, below.

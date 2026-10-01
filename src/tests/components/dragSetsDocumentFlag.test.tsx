@@ -139,6 +139,39 @@ describe('a drag interrupted by unmount', () => {
 // KAN-135. The stylesheet hides the strips during a drag, so it needs a stable
 // hook to find them by -- the reveal itself is an emotion class keyed on React
 // state, which no stylesheet can select.
+// KAN-366 Q4. The marker's value `room` grows the list's trailing block by a
+// row (App.css). Only for a list that already scrolls when the row is
+// pressed: in one that fits, the room would make it scroll, and the
+// scrollbar that appeared would narrow every row at the pick-up.
+describe('the New window marker asks for room only in a list that scrolls', () => {
+  const marker = () =>
+    document.documentElement.getAttribute('data-drag-new-window');
+  const inScroller = (scrollHeight: number) => {
+    const { container } = render(
+      <div style={{ overflowY: 'auto' }}>
+        <Harness offersNewWindow />
+      </div>
+    );
+    const scroller = container.firstElementChild;
+    if (!(scroller instanceof HTMLElement)) throw new Error('no scroller');
+    Object.defineProperty(scroller, 'clientHeight', { value: 100 });
+    Object.defineProperty(scroller, 'scrollHeight', { value: scrollHeight });
+    layout();
+  };
+
+  test.each([
+    ['scrolls at the press: room', 500, 'room'],
+    ['fits, to the pixel: none', 100, ''],
+  ])('%s', (_what, scrollHeight, value) => {
+    inScroller(scrollHeight);
+    press('a', 15);
+    moveTo(50);
+    expect(marker()).toBe(value);
+    release(50);
+    expect(marker()).toBeNull();
+  });
+});
+
 describe('a tab row marks its action strip for the stylesheet', () => {
   const TABS: tabData[] = [
     { tabId: 't1', favicon: '', title: 'One', url: 'https://one.test' },

@@ -271,9 +271,9 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   // a carry starts (KAN-361 N1 B: the New window target is in the header).
   //
   // Zero height at rest: no border, no rows. While a tab or group is dragged
-  // (App.css, keyed on data-drag-new-window) it takes its border and one
-  // row of room (Q4), so a full list scrolled to its end has a place below
-  // its last window. The room is the phantom's own when one rests here, and
+  // in a list that already scrolls (App.css, keyed on data-drag-new-window
+  // `room`) it takes its border and one row of room (Q4), so a full list
+  // scrolled to its end has a place below its last window. The room is the phantom's own when one rests here, and
   // a blank row (data-new-window-room) when none does, so the block is the
   // same height either way and a carry starting changes nothing.
   //

@@ -113,22 +113,27 @@ body {
   visibility: visible;
 }
 
-/* KAN-361/366 (Q4). In the same drags, the list's trailing block -- the empty
-   block after its last window (TabGroupDetailsContainer), zero height at rest
-   -- takes its border and one row of room, so a full list scrolled to its end
-   has a place below its last window. Keyed on the same attribute, for the
-   same reason: on before the engine measures, so the drag is measured with
-   the room already there, and drawn in the frame the drag starts.
+/* KAN-361/366 (Q4). In the same drags, when the list already scrolls at rest,
+   its trailing block -- the empty block after its last window
+   (TabGroupDetailsContainer), zero height at rest -- takes its border and one
+   row of room, so a full list scrolled to its end has a place below its last
+   window. Keyed on the same attribute's value `room`, for the same reason: on
+   before the engine measures, so the drag is measured with the room already
+   there, and drawn in the frame the drag starts. Never for a list that fits:
+   the room would make it scroll, and the scrollbar that appears would narrow
+   every row at the pick-up (setDragNewWindow).
 
    The room is a blank row (data-new-window-room) when nothing rests in the
    block, and the carried item's phantom when one does: one row either way,
    so a carry starting moves nothing. Selectors one step more specific than
    the block's own emotion class, which is injected later and would
    otherwise win on order. Blank until lit (WindowEntryContainer). */
-[data-drag-new-window] [data-new-window-target='last'] {
+[data-drag-new-window='room'] [data-new-window-target='last'] {
   border-width: 1.5px;
 }
-[data-drag-new-window] [data-new-window-target='last'] [data-new-window-room] {
+[data-drag-new-window='room']
+  [data-new-window-target='last']
+  [data-new-window-room] {
   display: block;
 }
 

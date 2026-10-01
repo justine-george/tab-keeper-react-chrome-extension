@@ -1749,6 +1749,7 @@ const newWindowBox = (page: Page, which: 'first' | 'last') =>
       fill: style.backgroundColor,
       border: style.borderTopStyle,
       borderColour: style.borderTopColor,
+      borderWidth: parseFloat(style.borderTopWidth),
       named:
         name !== null &&
         name.checkVisibility({ checkVisibilityCSS: true, checkOpacity: true }),
@@ -1797,8 +1798,8 @@ test.describe('the target visuals (V1-V4)', () => {
 
   // V2 A, already built: the box lights up -- the hover fill and a solid
   // border -- and no landing slot is seen. The box a carry lights is the
-  // header's (KAN-361 N1 B); the trailing block the phantom rests in is
-  // drawn blank, no border colour and no name, and lit takes the same look.
+  // header's (KAN-361 N1 B); the trailing block's look, blank and lit, is
+  // read where it has its room (the Q4 test).
   test('V2: a landing in the target lights the box, with no dashed slot seen', async ({
     context,
     extensionId,
@@ -1811,11 +1812,6 @@ test.describe('the target visuals (V1-V4)', () => {
     const unlit = await newWindowBox(page, 'first');
     expect(unlit?.border).toBe('dashed');
     expect(rgbToHex(unlit?.fill ?? '')).not.toBe(LIGHT_THEME.HOVER_COLOR);
-    // The trailing block, holding the phantom, is blank.
-    const rest = await newWindowBox(page, 'last');
-    expect(rest?.borderColour).toBe('rgba(0, 0, 0, 0)');
-    expect(rest?.named).toBe(false);
-    expect(rgbToHex(rest?.fill ?? '')).not.toBe(LIGHT_THEME.HOVER_COLOR);
 
     await adoptPhantom(page, 'carried:a1');
     await ontoHeaderTarget(page, aim);
@@ -1830,19 +1826,6 @@ test.describe('the target visuals (V1-V4)', () => {
       ''
     );
     await expect(page.locator('[data-drag-landing-slot]')).toHaveCount(0);
-
-    // The trailing block, lit as a landing lights it: the same look.
-    await page.evaluate(
-      () =>
-        document
-          .querySelector('[data-new-window-target="last"]')
-          ?.setAttribute('data-landing', '')
-    );
-    const trailingLit = await newWindowBox(page, 'last');
-    expect(rgbToHex(trailingLit?.fill ?? '')).toBe(LIGHT_THEME.HOVER_COLOR);
-    expect(trailingLit?.border).toBe('solid');
-    expect(trailingLit?.borderColour).toBe(lit?.borderColour);
-    expect(trailingLit?.named).toBe(true);
     await page.keyboard.press('Escape');
     await page.mouse.up();
   });
@@ -1950,10 +1933,11 @@ test.describe('the target visuals (V1-V4)', () => {
   });
 
   // V4 A, already built: what a carry draws in the list appears at once --
-  // no transition, no animation. The trailing block takes its row of room
-  // at the pick-up (Q4) and holds it through the hand-off, where the phantom
-  // comes to rest in it: from rest to carried, one step and no slide.
-  test('V4: the trailing block takes its room at once, with no slide, and keeps it as the carry starts', async ({
+  // no transition, no animation. S1 fits its pane, so a pick-up gives the
+  // trailing block no room (Q4 is for a list that scrolls): it is a row tall
+  // from the frame the carry starts, when the phantom comes to rest in it --
+  // one step, no slide, never back.
+  test('V4: the trailing block takes the phantom at once as the carry starts, with no slide', async ({
     context,
     extensionId,
   }) => {
@@ -2001,6 +1985,8 @@ test.describe('the target visuals (V1-V4)', () => {
     expect(new Set(heights)).toEqual(new Set([0, room]));
     const step = heights.indexOf(room);
     expect(heights.slice(step).every((h) => h === room)).toBe(true);
+    // The step is the carry's: no room came at the pick-up.
+    expect(parsed[step]?.[1]).toBe(true);
     const now = await newWindowBox(page, 'last');
     expect(now?.transition).toBe('0s');
     expect(now?.animations).toBe(0);
@@ -3866,6 +3852,7 @@ const trailingBlock = (page: Page) =>
 // height, and how far the pane can scroll.
 interface PaneFrame {
   rows: Record<string, number>;
+  widths: Record<string, number>;
   card: boolean;
   adopted: boolean;
   held: boolean;
@@ -3886,6 +3873,8 @@ const isPaneLog = (x: unknown): x is PaneFrame[] => {
       f !== null &&
       'rows' in f &&
       isNumberRecord(f.rows) &&
+      'widths' in f &&
+      isNumberRecord(f.widths) &&
       'card' in f &&
       typeof f.card === 'boolean' &&
       'adopted' in f &&
@@ -3915,6 +3904,7 @@ async function logPane(page: Page, leaveOut: string[]): Promise<void> {
     };
     const frame = () => {
       const rows: Record<string, number> = {};
+      const widths: Record<string, number> = {};
       for (const el of document.querySelectorAll<HTMLElement>(
         '[data-pane="detail"] [data-drag-row-id]'
       )) {
@@ -3925,11 +3915,14 @@ async function logPane(page: Page, leaveOut: string[]): Promise<void> {
           el.hasAttribute('data-drag-held')
         )
           continue;
-        rows[id] = el.getBoundingClientRect().top;
+        const r = el.getBoundingClientRect();
+        rows[id] = r.top;
+        widths[id] = r.width;
       }
       const sc = scroller();
       frames.push({
         rows,
+        widths,
         card: document.querySelector('[data-carry-card]') !== null,
         adopted:
           document.querySelector('[data-carry-phantom][data-drag-held]') !==
@@ -3960,6 +3953,51 @@ async function paneLog(page: Page): Promise<PaneFrame[]> {
   const frames: unknown = JSON.parse(raw);
   if (!isPaneLog(frames)) throw new Error(`not a pane log: ${raw}`);
   return frames;
+}
+
+// Every row whose width differs from the first frame's, with the frame.
+const rowsThatNarrowed = (frames: PaneFrame[]): string[] => {
+  const first = frames[0]?.widths ?? {};
+  return frames.flatMap((f, i) =>
+    Object.entries(f.widths)
+      .filter(([id, w]) => id in first && Math.abs(w - first[id]) > 0.5)
+      .map(([id, w]) => `frame ${i}: ${id} ${first[id]} -> ${w}`)
+  );
+};
+
+// The frames in which the rows moved, against the frame before: each with
+// the one amount every row drawn in both moved by, or NaN where they moved
+// by different amounts.
+const settleSteps = (frames: PaneFrame[]): { frame: number; shift: number }[] =>
+  frames.flatMap((f, i) => {
+    const before = frames[i - 1];
+    if (before === undefined) return [];
+    const shifts = Object.entries(f.rows)
+      .filter(([id]) => id in before.rows)
+      .map(([id, top]) => top - before.rows[id]);
+    if (shifts.every((d) => Math.abs(d) <= 0.5)) return [];
+    const first = shifts[0] ?? NaN;
+    return [
+      {
+        frame: i,
+        shift: shifts.every((d) => Math.abs(d - first) <= 0.5) ? first : NaN,
+      },
+    ];
+  });
+
+// A held row brought to the pane's bottom edge until the list has scrolled
+// all the way into the trailing block's room (Q4): the room's 34px past the
+// scroll it had at rest, which `pane` was read at.
+async function intoTheRoom(
+  page: Page,
+  x: number,
+  pane: PaneBox
+): Promise<void> {
+  await page.mouse.move(x, pane.bottom - 4, { steps: 4 });
+  await expect
+    .poll(async () => (await detailPane(page)).scrollTop)
+    .toBe(pane.scrollTop + 34);
+  await settled(page);
 }
 
 // Straight onto a phantom's own place, and adopted there. Unlike
@@ -4103,6 +4141,26 @@ test.describe('the phantom rests in a trailing block after the last window (KAN-
     const last = await boxOf(page.locator('[data-drag-row-id="sw5"]'));
     expect(below.y).toBeGreaterThan(last.y + last.height);
     expect(below.y + below.height).toBeLessThanOrEqual(pane.bottom);
+
+    // Drawn blank: a border with no colour, and no name.
+    const blank = await newWindowBox(page, 'last');
+    expect(blank?.borderWidth).toBeGreaterThan(0);
+    expect(blank?.borderColour).toBe('rgba(0, 0, 0, 0)');
+    expect(blank?.named).toBe(false);
+    expect(rgbToHex(blank?.fill ?? '')).not.toBe(LIGHT_THEME.HOVER_COLOR);
+    // Lit, as a landing in it would light it: the header target's look.
+    const header = await newWindowBox(page, 'first');
+    await page.evaluate(
+      () =>
+        document
+          .querySelector('[data-new-window-target="last"]')
+          ?.setAttribute('data-landing', '')
+    );
+    const lit = await newWindowBox(page, 'last');
+    expect(rgbToHex(lit?.fill ?? '')).toBe(LIGHT_THEME.HOVER_COLOR);
+    expect(lit?.border).toBe('solid');
+    expect(lit?.borderColour).toBe(header?.borderColour);
+    expect(lit?.named).toBe(true);
     await page.keyboard.press('Escape');
     await page.mouse.up();
   });
@@ -4111,9 +4169,15 @@ test.describe('the phantom rests in a trailing block after the last window (KAN-
     context,
     extensionId,
   }) => {
-    const page = await openPopup(context, extensionId);
+    // A list that scrolls, where a tab drag does give the block its room.
+    const page = await openPopup(
+      context,
+      extensionId,
+      [sixByFour('S6', 'Six', 's'), S2()],
+      'S6'
+    );
     // CONTROL: a tab drag gives it its row.
-    await pickUp(page, tabHandle(page, 'a1'));
+    await pickUp(page, tabHandle(page, 's0-1'));
     await settled(page);
     expect((await boxOf(trailingBlock(page))).height).toBeGreaterThan(20);
     await page.keyboard.press('Escape');
@@ -4121,8 +4185,8 @@ test.describe('the phantom rests in a trailing block after the last window (KAN-
     await settled(page);
     expect((await boxOf(trailingBlock(page))).height).toBe(0);
 
-    await logPane(page, ['w1']);
-    await pickUp(page, windowHandle(page, 'w1'));
+    await logPane(page, ['sw0']);
+    await pickUp(page, windowHandle(page, 'sw0'));
     await settled(page);
     const frames = await paneLog(page);
     // PREMISE: the window drag was logged, held.
@@ -4198,23 +4262,194 @@ test.describe('the phantom rests in a trailing block after the last window (KAN-
   // The trailing block is no window to the hit test: a release on it is
   // below the last window, as before it existed. "Drag it to the end" keeps
   // its slack (half the held row) past the last row, though that point is
-  // now inside the block (KAN-132).
-  test('b0 let go just past w2’s last row, inside the trailing block, still lands last in w2', async ({
+  // now inside the block (KAN-132). In a list that scrolls, where the block
+  // has its room, scrolled into it.
+  test('a tab let go just past the last window’s last row, inside the trailing block, still lands last there', async ({
     context,
     extensionId,
   }) => {
-    const page = await openPopup(context, extensionId);
-    const b1 = await boxOf(tabHandle(page, 'b1'));
-    const at = await pickUp(page, tabHandle(page, 'b0'));
-    const y = b1.y + b1.height + 12;
+    const page = await openPopup(
+      context,
+      extensionId,
+      [sixByFour('S6', 'Six', 's'), S2()],
+      'S6'
+    );
+    await setDetailScroll(page, 1e6);
+    await settled(page);
+    const pane = await detailPane(page);
+    const at = await pickUp(page, tabHandle(page, 's5-1'));
+    await intoTheRoom(page, at.x, pane);
+    const last = await boxOf(tabHandle(page, 's5-3'));
+    const y = last.y + last.height + 12;
     const block = await boxOf(trailingBlock(page));
-    // PREMISE: the point is in the trailing block, within half a row of b1.
+    // PREMISE: the point is in the trailing block, within half a row of the
+    // last row.
     expect(y).toBeGreaterThan(block.y);
     expect(y).toBeLessThan(block.y + block.height);
     await page.mouse.move(at.x, y, { steps: 6 });
     await settled(page);
     await page.mouse.up();
 
-    await expect.poll(() => layout(page, 'S1')).toEqual([W1_START, 'b1 b0']);
+    await expect
+      .poll(async () => (await layout(page, 'S6'))[5])
+      .toBe('s5-0 s5-2 s5-3 s5-1');
   });
+
+  // KAN-366 Q4 never makes a list scroll: the room is for a list that
+  // already does. One that fits with less than the room to spare would
+  // otherwise begin to scroll at the pick-up, and the scrollbar that
+  // appears (headed Chrome draws a 10px one; headless hides it) would
+  // narrow every row in the frame the drag starts.
+  test('a list that fits with less than a row to spare gains no scroll range at the pick-up, and no row moves or narrows', async ({
+    context,
+    extensionId,
+  }) => {
+    // The pane's height and the rows', from the usual session.
+    const probe = await openPopup(context, extensionId);
+    const sizes = await probe.evaluate(() => {
+      let el = document.querySelector(
+        '[data-pane="detail"] [data-drop-window-id]'
+      )?.parentElement;
+      while (el && !['auto', 'scroll'].includes(getComputedStyle(el).overflowY))
+        el = el.parentElement;
+      const row = document
+        .querySelector('[data-drag-row-id="a0"]')
+        ?.getBoundingClientRect().height;
+      return { pane: el?.clientHeight ?? 0, row: row ?? 0 };
+    });
+    await probe.close();
+    // One window: its header, k tabs, and its 8px margin, all rows.
+    const k = Math.floor((sizes.pane - 8) / sizes.row) - 1;
+    const fits = session('S8', 'Fits', [
+      win(
+        'fw',
+        Array.from({ length: k }, (_, i) => tab(`f${i}`))
+      ),
+    ]);
+    const page = await openPopup(context, extensionId, [fits, S2()], 'S8');
+    const range = () =>
+      page.evaluate(() => {
+        let el = document.querySelector(
+          '[data-pane="detail"] [data-drop-window-id]'
+        )?.parentElement;
+        while (
+          el &&
+          !['auto', 'scroll'].includes(getComputedStyle(el).overflowY)
+        )
+          el = el.parentElement;
+        return el ? el.scrollHeight - el.clientHeight : NaN;
+      });
+    const spare = -(await range());
+    // PREMISE: it fits, with less than the room (34px) to spare.
+    expect(spare).toBeGreaterThanOrEqual(0);
+    expect(spare).toBeLessThan(34);
+
+    await logPane(page, ['f1', 'tab:f1']);
+    await pickUp(page, tabHandle(page, 'f1'));
+    await settled(page);
+    const frames = await paneLog(page);
+    const held = frames.filter((f) => f.held);
+    // PREMISE: logged at rest and held, the rows of the session in each.
+    expect(frames[0]?.held).toBe(false);
+    expect(held.length).toBeGreaterThan(5);
+    expect(Object.keys(frames[0]?.rows ?? {}).length).toBe(2 * k - 1);
+    // No frame scrolls: the scroll range never rises above 0.
+    expect(frames.filter((f) => f.range > 0)).toEqual([]);
+    // No row moves, and none narrows.
+    expect(rowsThatMoved(frames)).toEqual([]);
+    expect(rowsThatNarrowed(frames)).toEqual([]);
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+  });
+
+  // The end of a drag that scrolled into the room: the block goes back to
+  // zero, the browser clamps the scroll, and the list settles by up to the
+  // room -- the ordinary end-of-drag settle, like the window fold's
+  // (KAN-153) and KAN-157's scroll put back. Pinned: in ONE frame, bounded
+  // by the room, and the rows drawn in the stored order.
+  for (const ending of [
+    'Esc',
+    'a release at the end of the last window',
+  ] as const) {
+    test(`after the list scrolled into the room, ${ending}: the list settles in one frame, by at most the room, in the stored order`, async ({
+      context,
+      extensionId,
+    }) => {
+      const page = await openPopup(
+        context,
+        extensionId,
+        [sixByFour('S6', 'Six', 's'), S2()],
+        'S6'
+      );
+      await setDetailScroll(page, 1e6);
+      await settled(page);
+      const pane = await detailPane(page);
+      const at = await pickUp(page, tabHandle(page, 's5-1'));
+      await intoTheRoom(page, at.x, pane);
+      if (ending !== 'Esc') {
+        // Within the slack below the last row: lands last.
+        const last = await boxOf(tabHandle(page, 's5-3'));
+        await page.mouse.move(at.x, last.y + last.height + 6, { steps: 4 });
+        await settled(page);
+      }
+
+      // Every row outside the last window: the settle is all that moves
+      // them. The last window's rows also move for the drop itself.
+      const lastWindowRows = ['sw5', 's5-0', 's5-1', 's5-2', 's5-3'].flatMap(
+        (id) => [id, `tab:${id}`]
+      );
+      await logPane(page, lastWindowRows);
+      if (ending === 'Esc') await page.keyboard.press('Escape');
+      await page.mouse.up();
+      await settled(page);
+      const frames = await paneLog(page);
+      // PREMISE: logged held and after the end, the rows in every frame.
+      expect(frames[0]?.held).toBe(true);
+      expect(frames[frames.length - 1]?.held).toBe(false);
+      expect(Object.keys(frames[0]?.rows ?? {}).length).toBeGreaterThan(20);
+
+      const steps = settleSteps(frames);
+      const total = steps.reduce((sum, st) => sum + st.shift, 0);
+      test.info().annotations.push({
+        type: 'settle',
+        description: `${ending}: ${steps
+          .map((st) => `${st.shift}px@${st.frame}`)
+          .join(', ')} = ${total}px`,
+      });
+      console.log(`SETTLE ${ending}: ${JSON.stringify(steps)} = ${total}px`);
+      // Every row moves together, every step down, and the whole settle is
+      // at most the room.
+      expect(steps.length).toBeGreaterThan(0);
+      expect(steps.every((st) => st.shift > 0)).toBe(true);
+      expect(total).toBeLessThanOrEqual(34);
+      if (ending === 'Esc') {
+        // Measured: Esc eases the held row home under its own transition,
+        // and its transform's overflow shrinks with it, so the clamp follows
+        // it over a few consecutive frames rather than one.
+        expect(
+          steps.every((st, n) => n === 0 || st.frame === steps[n - 1].frame + 1)
+        ).toBe(true);
+        expect(steps.length).toBeLessThanOrEqual(10);
+      } else {
+        // A drop draws the moved row at once: the clamp is one frame.
+        expect(steps).toHaveLength(1);
+      }
+
+      const want =
+        ending === 'Esc' ? 's5-0 s5-1 s5-2 s5-3' : 's5-0 s5-2 s5-3 s5-1';
+      await expect.poll(async () => (await layout(page, 'S6'))[5]).toBe(want);
+      // Drawn in the stored order.
+      const drawn = await page.evaluate(() =>
+        [
+          ...document.querySelectorAll<HTMLElement>(
+            '[data-drop-window-id="sw5"] [data-drag-row-id]'
+          ),
+        ]
+          .map((r) => r.dataset.dragRowId ?? '')
+          .filter((id) => /^s5-\d$/.test(id))
+          .join(' ')
+      );
+      expect(drawn).toBe(want);
+    });
+  }
 });
