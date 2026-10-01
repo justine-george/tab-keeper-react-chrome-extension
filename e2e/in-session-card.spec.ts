@@ -1472,6 +1472,10 @@ test.describe('the click after a release lands on the hidden row', () => {
 // does not -- so the click Chrome sends for it is not aimed at the hidden
 // row, and this cannot speak for the suppressor (the describe above does).
 // What it pins is the refusal itself.
+//
+// Above the toolbar row too: from pick-up its New window target stands in
+// the 40px above the pane, and a release there makes a new first window
+// (KAN-361 N1 B).
 test.describe('a refused release', () => {
   test('changes nothing and opens nothing', async ({
     context,
@@ -1482,7 +1486,7 @@ test.describe('a refused release', () => {
     const before = context.pages().length;
     const at = await pickUp(page, row(page, 'a1'));
     const w1 = await boxOf(row(page, 'w1'));
-    await page.mouse.move(at.x, w1.y - 40, { steps: 8 });
+    await page.mouse.move(at.x, w1.y - 64, { steps: 8 });
     await settled(page);
     await recordRelease(page);
     await page.mouse.up();
