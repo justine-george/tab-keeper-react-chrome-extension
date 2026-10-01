@@ -1644,13 +1644,22 @@ test.describe('a long, scrolled session', () => {
   });
 });
 
-// ---- contrast, measured and reported ------------------------------------------
+// ---- contrast, held to floors --------------------------------------------------
 
-// The outline (0.45) and, for reference, the landing slot (1), each drawn
-// as its border colour composited at its opacity over what is painted behind
-// it -- the held row excluded, which is invisible -- against that backdrop.
-// REPORTED, not asserted: a theme where the outline cannot be seen goes back
-// to Justine with a mock (plan: Strength). The assertions are premises only.
+// The outline (0.45) and the landing slot (1), each drawn as its border colour
+// composited at its EFFECTIVE opacity (its own times every ancestor's) over
+// what is painted behind it -- the held row excluded, which is invisible --
+// against that backdrop.
+//
+// C5 A (Justine, 2026-10-01) kept the outline faint on purpose: it is
+// supplementary (the drop is the same whether it is seen; the dashed slot,
+// >= 3:1, says where the row goes), so its floor guards against fading
+// further, not WCAG 1.4.11's 3:1. Floors sit a hair under the measured values
+// (outline 1.81 Paper, 1.84 Parchment, 1.89 Petal, 1.97 Graphite, 1.97 Ink;
+// slot 3.62 to 4.89) so a theme change that fades either fails and rounding
+// noise does not.
+const OUTLINE_CONTRAST_FLOOR = 1.75;
+const SLOT_CONTRAST_FLOOR = 3;
 const THEMES: [string, string][] = [
   ['Light', 'Paper'],
   ['WarmLight', 'Parchment'],
@@ -1672,15 +1681,20 @@ for (const [theme, label] of THEMES) {
     const measure = (selector: string) =>
       page.evaluate((selector) => {
         const el = document.querySelector(selector);
-        if (el === null) return null;
+        if (el === null) throw new Error(`nothing matches ${selector}`);
+        const channels = (s: string) => {
+          if (!/^rgba?\(/.test(s)) throw new Error(`not an rgb colour: ${s}`);
+          const n = (s.match(/\d+(\.\d+)?/g) ?? []).map(Number);
+          return { rgb: n.slice(0, 3), alpha: n[3] ?? 1 };
+        };
         const cs = getComputedStyle(el);
-        const rgb = (s: string) =>
-          (s.match(/\d+(\.\d+)?/g) ?? []).slice(0, 3).map(Number);
-        const border = rgb(cs.borderTopColor);
-        const opacity = Number(cs.opacity);
+        const border = channels(cs.borderTopColor);
+        let opacity = 1;
+        for (let a: Element | null = el; a !== null; a = a.parentElement)
+          opacity *= Number(getComputedStyle(a).opacity);
         const held = document.querySelector('[data-drag-held]');
         const r = el.getBoundingClientRect();
-        let backdrop = 'rgba(0, 0, 0, 0)';
+        let backdrop: string | null = null;
         for (const e of document.elementsFromPoint(
           r.left + r.width / 2,
           r.top + r.height / 2
@@ -1692,7 +1706,13 @@ for (const [theme, label] of THEMES) {
             break;
           }
         }
-        const bg = rgb(backdrop);
+        if (backdrop === null)
+          throw new Error(`no backdrop behind ${selector}`);
+        const bg = channels(backdrop);
+        if (bg.alpha < 1)
+          throw new Error(
+            `backdrop behind ${selector} is translucent (${backdrop}); contrast would be a guess`
+          );
         const lum = (c: number[]) => {
           const [x, y, z] = c.map((v) => {
             const s = v / 255;
@@ -1700,11 +1720,12 @@ for (const [theme, label] of THEMES) {
           });
           return 0.2126 * x + 0.7152 * y + 0.0722 * z;
         };
-        const composited = border.map(
-          (v, i) => v * opacity + bg[i] * (1 - opacity)
+        const strength = opacity * border.alpha;
+        const composited = border.rgb.map(
+          (v, i) => v * strength + bg.rgb[i] * (1 - strength)
         );
         const L1 = lum(composited);
-        const L2 = lum(bg);
+        const L2 = lum(bg.rgb);
         return {
           border: cs.borderTopColor,
           opacity,
@@ -1718,22 +1739,19 @@ for (const [theme, label] of THEMES) {
 
     const outline = await measure('[data-drag-source-room]');
     const slot = await measure('[data-drag-landing-slot]');
-    console.log(
-      `CONTRAST ${label} (${theme}) outline=${JSON.stringify(
-        outline
-      )} slot=${JSON.stringify(slot)}`
-    );
     await test.info().attach(`contrast-${label}`, {
       body: JSON.stringify({ outline, slot }),
       contentType: 'application/json',
     });
-    // PREMISES only: both are drawn, the outline at its strength, in the
-    // theme's colour, over a backdrop that was found.
-    expect(outline?.opacity).toBe(0.45);
-    expect(slot?.opacity).toBe(1);
-    expect(outline?.border).not.toBe('rgb(0, 0, 0)');
-    expect(outline?.backdrop).not.toBe('rgba(0, 0, 0, 0)');
-    expect(slot?.backdrop).not.toBe('rgba(0, 0, 0, 0)');
+    // THE FLOORS, first, so a faded outline fails on its contrast and not on
+    // the premise below naming its opacity.
+    expect(outline.contrast).toBeGreaterThanOrEqual(OUTLINE_CONTRAST_FLOOR);
+    expect(slot.contrast).toBeGreaterThanOrEqual(SLOT_CONTRAST_FLOOR);
+    // PREMISES: both are drawn, at the strengths the product sets, in the
+    // theme's colour.
+    expect(outline.opacity).toBe(0.45);
+    expect(slot.opacity).toBe(1);
+    expect(outline.border).not.toBe('rgb(0, 0, 0)');
     await cancel(page);
   });
 }
