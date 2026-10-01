@@ -1869,7 +1869,8 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
 // box, and so its footprint, is untouched. Everything but the two slots: the
 // landing slot is the phantom's child, and it is what shows where a release
 // lands, exactly as in a reorder; the resting slot (PhantomRestingSlot) is
-// where one would start.
+// where one would start. Taking no hits, it leaves the rows under the pointer
+// to be hovered, so src/App.css takes the pointer off them too (KAN-363).
 const PHANTOM_STYLE = css`
   pointer-events: none;
   & > :not([data-drag-landing-slot]):not([data-phantom-resting-slot]) {

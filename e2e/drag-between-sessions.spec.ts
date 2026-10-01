@@ -1390,6 +1390,19 @@ test.describe('the looks (D1 A, D2 A, S1 A)', () => {
   });
 });
 
+// Five windows of six tabs: taller than the popup's pane, so it scrolls.
+const longSession = (id: string, title: string, prefix: string) =>
+  session(
+    id,
+    title,
+    Array.from({ length: 5 }, (_, w) =>
+      win(
+        `${prefix}w${w}`,
+        Array.from({ length: 6 }, (_, t) => tab(`${prefix}${w}-${t}`))
+      )
+    )
+  );
+
 test.describe('Review Focus 3: a long list, a long session', () => {
   test('a 30-session list: the list auto-scrolls under a carry, and a drop on a row below the fold moves there', async ({
     context,
@@ -1431,18 +1444,6 @@ test.describe('Review Focus 3: a long list, a long session', () => {
   });
 
   // Five windows of six tabs: far taller than the popup's pane.
-  const longSession = (id: string, title: string, prefix: string) =>
-    session(
-      id,
-      title,
-      Array.from({ length: 5 }, (_, w) =>
-        win(
-          `${prefix}w${w}`,
-          Array.from({ length: 6 }, (_, t) => tab(`${prefix}${w}-${t}`))
-        )
-      )
-    );
-
   test('a long session: a window carried out of it and cancelled comes back to the scroll it had (KAN-157)', async ({
     context,
     extensionId,
@@ -2151,4 +2152,304 @@ test.describe('a carried tab or group lands in a slot as wide as the row it beco
     await page.keyboard.press('Escape');
     await page.mouse.up();
   });
+});
+
+// ---- KAN-363 ------------------------------------------------------------------
+
+// The rows under the pointer that PAINT their hover fill: a `:hover` element
+// inside a row that is not the held one, whose background is the theme's
+// hover colour. Compared with the colour itself, not "any background": a band
+// lit as a drop target is another colour, and meant. Also any group's rename
+// control revealed, which the same hover rule shows (KAN-100).
+const paintedHover = (page: Page, hoverHex: string) =>
+  page.evaluate((hoverHex) => {
+    const probe = document.createElement('div');
+    probe.style.backgroundColor = hoverHex;
+    document.body.append(probe);
+    const want = getComputedStyle(probe).backgroundColor;
+    probe.remove();
+    const filled = [...document.querySelectorAll<HTMLElement>(':hover')]
+      .filter((e) => e.closest('[data-drag-held]') === null)
+      .filter((e) => getComputedStyle(e).backgroundColor === want)
+      .map(
+        (e) =>
+          e.closest<HTMLElement>('[data-drag-row-id]')?.dataset.dragRowId ?? ''
+      )
+      .filter((id) => id !== '');
+    const revealed = [
+      ...document.querySelectorAll<HTMLElement>('.group-rename-reveal'),
+    ]
+      .filter((e) => getComputedStyle(e).opacity === '1')
+      .map(
+        (e) =>
+          `reveal:${
+            e.closest<HTMLElement>('[data-drag-row-id]')?.dataset.dragRowId ??
+            '?'
+          }`
+      );
+    return [...filled, ...revealed];
+  }, hoverHex);
+
+// The row a click at the point would reach, unless it is the held one.
+const rowHitAt = (page: Page, x: number, y: number) =>
+  page.evaluate(
+    ([x, y]) =>
+      document
+        .elementFromPoint(x, y)
+        ?.closest<HTMLElement>('[data-drag-row-id]:not([data-drag-held])')
+        ?.dataset.dragRowId ?? null,
+    [x, y] as const
+  );
+
+// Steps the pointer down the detail pane, then says what it met: at every
+// step no row paints its hover fill (asserted first: that is the bug), and
+// no row is what the pointer would hit. Returns how many steps had a non-held
+// row's box under the pointer -- a sweep that missed every row could pass for
+// nothing.
+async function sweepRows(page: Page, x: number): Promise<number> {
+  const pane = await detailPane(page);
+  let overRows = 0;
+  const filled: string[] = [];
+  const hit: string[] = [];
+  for (let y = pane.top + 8; y < pane.bottom - 8; y += 16) {
+    await page.mouse.move(x, y, { steps: 2 });
+    await settled(page);
+    for (const row of await paintedHover(page, LIGHT_THEME.HOVER_COLOR))
+      filled.push(`${Math.round(y)}:${row}`);
+    const rowHit = await rowHitAt(page, x, y);
+    if (rowHit !== null) hit.push(`${Math.round(y)}:${rowHit}`);
+    const under = await page.evaluate(
+      ([x, y]) =>
+        [
+          ...document.querySelectorAll(
+            '[data-drag-row-id]:not([data-drag-held])'
+          ),
+        ].some((r) => {
+          const b = r.getBoundingClientRect();
+          return x >= b.left && x <= b.right && y >= b.top && y <= b.bottom;
+        }),
+      [x, y] as const
+    );
+    if (under) overRows++;
+  }
+  expect(filled, 'rows painting their hover fill').toEqual([]);
+  expect(hit, 'rows the pointer would hit').toEqual([]);
+  return overRows;
+}
+
+interface HoverFrame {
+  held: boolean;
+  filled: string[];
+}
+const isFrameLog = (x: unknown): x is HoverFrame[] =>
+  Array.isArray(x) &&
+  x.every(
+    (f: unknown) =>
+      typeof f === 'object' &&
+      f !== null &&
+      typeof Reflect.get(f, 'held') === 'boolean' &&
+      Array.isArray(Reflect.get(f, 'filled'))
+  );
+
+test.describe('no row under a held carry shows its hover (KAN-363)', () => {
+  // PREMISE for every negative below: with nothing dragged, the pointer on a
+  // window's header paints the colour they look for, at that header.
+  test('CONTROL: with no drag, a window header under the pointer paints its hover fill', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    const w2 = await boxOf(windowHandle(page, 'w2'));
+    await page.mouse.move(w2.x + 200, w2.y + w2.height / 2, { steps: 3 });
+    await expect
+      .poll(() => paintedHover(page, LIGHT_THEME.HOVER_COLOR))
+      .toEqual(['w2']);
+  });
+
+  const kinds = [
+    // How many sweep steps must cross a row: a window carry folds every
+    // window to its header (KAN-153), so Source then holds w1's header
+    // alone, and the preview moves it aside as the pointer passes -- one
+    // step. (Main painted it at two: :hover is worked out at the mouse
+    // event, before the preview moves the row.)
+    { kind: 'tab', phantom: 'carried:a0', overRows: 5 },
+    { kind: 'group', phantom: 'group:carried:alpha', overRows: 5 },
+    { kind: 'window', phantom: 'carried:w2', overRows: 1 },
+  ] as const;
+
+  for (const k of kinds) {
+    test(`a ${k.kind} carried out and back: no row under the pointer paints hover, and none takes the hit`, async ({
+      context,
+      extensionId,
+    }) => {
+      const page = await openPopup(context, extensionId);
+      const handle =
+        k.kind === 'tab'
+          ? tabHandle(page, 'a0')
+          : k.kind === 'group'
+            ? groupHandle(page, 'alpha')
+            : windowHandle(page, 'w2');
+      const at = await pickUp(page, handle);
+      await carryOutLeft(page, at);
+      await adoptPhantom(page, k.phantom);
+      expect(await sweepRows(page, at.x)).toBeGreaterThanOrEqual(k.overRows);
+      await page.keyboard.press('Escape');
+      await page.mouse.up();
+    });
+  }
+
+  test('a tab carried into a spring-opened session: no row there paints hover', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    const at = await pickUp(page, tabHandle(page, 'a0'));
+    await carryOutLeft(page, at);
+    await springOpen(page, 'S2');
+    await adoptPhantom(page, 'carried:a0');
+    expect(await sweepRows(page, at.x)).toBeGreaterThan(4);
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+  });
+
+  test("a tab carried into the folded tab view's peek: no row there paints hover", async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openTabView(context, extensionId, true);
+    const at = await pickUp(page, tabHandle(page, 'a0'));
+    await carryOutLeft(page, at);
+    await springOpen(page, 'S2');
+    await expect(page.locator('[data-drag-row-id="d1"]')).toBeVisible();
+    await adoptPhantom(page, 'carried:a0');
+    expect(await sweepRows(page, at.x)).toBeGreaterThan(4);
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+  });
+
+  // Frame by frame, from the list into the pane and over the rows main lit
+  // up (w1's header, a1, a2, the group's header, w2's header): not one frame
+  // paints a fill, the frame of the adoption included.
+  test('frame by frame, from outside the pane through the adoption and over the rows: no frame paints a fill', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    const at = await pickUp(page, tabHandle(page, 'a0'));
+    await carryOutLeft(page, at);
+    await page.evaluate((hoverHex) => {
+      const probe = document.createElement('div');
+      probe.style.backgroundColor = hoverHex;
+      document.body.append(probe);
+      const want = getComputedStyle(probe).backgroundColor;
+      probe.remove();
+      const log: { held: boolean; filled: string[] }[] = [];
+      Object.assign(window, { __frames: log, __logging: true });
+      const frame = () => {
+        log.push({
+          held:
+            document.querySelector('[data-carry-phantom][data-drag-held]') !==
+            null,
+          filled: [...document.querySelectorAll<HTMLElement>(':hover')]
+            .filter((e) => e.closest('[data-drag-held]') === null)
+            .filter((e) => getComputedStyle(e).backgroundColor === want)
+            .map(
+              (e) =>
+                e.closest<HTMLElement>('[data-drag-row-id]')?.dataset
+                  .dragRowId ?? ''
+            )
+            .filter((id) => id !== ''),
+        });
+        if (Reflect.get(window, '__logging') === true)
+          requestAnimationFrame(frame);
+      };
+      requestAnimationFrame(frame);
+    }, LIGHT_THEME.HOVER_COLOR);
+    // Straight in at w1's header height, then down over the rows.
+    const w1 = await boxOf(windowHandle(page, 'w1'));
+    await page.mouse.move(at.x, w1.y + w1.height / 2, { steps: 10 });
+    for (const rowId of ['tab:a1', 'tab:a2', 'group:alpha', 'w2']) {
+      const b = await boxOf(page.locator(`[data-drag-row-id="${rowId}"]`));
+      await page.mouse.move(at.x, b.y + Math.min(12, b.height / 2), {
+        steps: 6,
+      });
+    }
+    await settled(page);
+    const raw = await page.evaluate(() => {
+      Reflect.set(window, '__logging', false);
+      return JSON.stringify(Reflect.get(window, '__frames'));
+    });
+    const frames: unknown = JSON.parse(raw);
+    if (!isFrameLog(frames)) throw new Error(`not a frame log: ${raw}`);
+    // PREMISE: the log saw the pointer outside the pane AND the adoption.
+    expect(frames.filter((f) => !f.held).length).toBeGreaterThan(0);
+    expect(frames.filter((f) => f.held).length).toBeGreaterThan(10);
+    expect(frames.filter((f) => f.filled.length > 0)).toEqual([]);
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+  });
+
+  // The rule is on the rows, not the pane: the wheel still scrolls it.
+  test('the wheel over the rows scrolls the pane while a carry is held there', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(
+      context,
+      extensionId,
+      [longSession('S1', 'Long', 'x'), S2()],
+      'S1'
+    );
+    const at = await pickUp(page, tabHandle(page, 'x0-1'));
+    await carryOutLeft(page, at);
+    await adoptPhantom(page, 'carried:x0-1');
+    // Mid-pane, clear of both auto-scroll zones.
+    const pane = await detailPane(page);
+    await page.mouse.move(at.x, (pane.top + pane.bottom) / 2, { steps: 4 });
+    await settled(page);
+    const before = (await detailPane(page)).scrollTop;
+    // PREMISE: there is room to scroll down.
+    expect(before).toBe(0);
+    await page.mouse.wheel(0, 200);
+    await expect
+      .poll(async () => (await detailPane(page)).scrollTop)
+      .toBeGreaterThan(before);
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+  });
+
+  // The rule must not outlive the carry: however it ends, the rows hover
+  // again at once.
+  const endings = [
+    'a drop',
+    'Esc, then the release',
+    'a release over the header',
+  ] as const;
+  for (const ending of endings) {
+    test(`after ${ending}, a row under the pointer hovers again`, async ({
+      context,
+      extensionId,
+    }) => {
+      const page = await openPopup(context, extensionId);
+      const at = await pickUp(page, tabHandle(page, 'a0'));
+      await carryOutLeft(page, at);
+      await adoptPhantom(page, 'carried:a0');
+      if (ending === 'a drop') {
+        await aimAt(page, 'a2', 0.5);
+      } else if (ending === 'Esc, then the release') {
+        await page.keyboard.press('Escape');
+      } else {
+        const header = await boxOf(page.locator('[data-pane="detail"]'));
+        await page.mouse.move(at.x, header.y + 12, { steps: 6 });
+      }
+      await page.mouse.up();
+      await expect(page.locator(CARD)).toHaveCount(0);
+      await expect(page.locator('[data-carry-phantom]')).toHaveCount(0);
+      const w2 = await boxOf(windowHandle(page, 'w2'));
+      await page.mouse.move(w2.x + 200, w2.y + w2.height / 2, { steps: 3 });
+      await expect
+        .poll(() => paintedHover(page, LIGHT_THEME.HOVER_COLOR))
+        .toEqual(['w2']);
+    });
+  }
 });

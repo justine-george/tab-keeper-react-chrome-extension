@@ -145,3 +145,21 @@ body {
     inset 4px 0 0 var(--drop-target-color, transparent),
     0 2px 8px rgba(0, 0, 0, 0.35) !important;
 }
+
+/* KAN-363. While a pane holds a carry's phantom, its rows take no pointer.
+
+   An ordinary held row tracks the pointer and takes the hit, so nothing under
+   it is :hover. The phantom cannot: it is inert, which alone keeps it from
+   being hit in Chromium (measured), and it must stay inert -- its content is
+   a stored row's controls, drawn only to be measured. Without this, the row
+   under the pointer painted its hover fill (a window's header, a group's
+   header and its rename control) while a carried item was held over it.
+
+   Keyed on data-carry-phantom, which React renders while the carry is still
+   outside the pane, so the rule is on before the pointer can come in and no
+   first frame paints a fill (KAN-355). Rows only: the pane itself keeps the
+   wheel. No click reaches a row at the release either way -- measured on
+   main, Chrome sends none after a carried release. */
+[data-pane]:has([data-carry-phantom]) [data-drag-row-id] {
+  pointer-events: none;
+}
