@@ -1316,9 +1316,9 @@ interface ReleaseRecord {
   held: string | null;
   hitInHeld: boolean;
   hit: string;
-  // Every click the window sees afterwards, and whether its target is
-  // inside the row that was held.
-  clicks: { inHeld: boolean; target: string }[];
+  // Every click the window sees afterwards, whether its target is inside
+  // the row that was held, and whether it is inside any row at all.
+  clicks: { inHeld: boolean; inRow: boolean; target: string }[];
 }
 
 declare global {
@@ -1360,6 +1360,8 @@ async function recordRelease(page: Page): Promise<void> {
         const target = e.target instanceof Element ? e.target : null;
         record.clicks.push({
           inHeld: heldEl !== null && target !== null && heldEl.contains(target),
+          inRow:
+            target !== null && target.closest('[data-drag-row-id]') !== null,
           target: name(target),
         });
       },
@@ -1458,9 +1460,15 @@ test.describe('the click after a release lands on the hidden row', () => {
     await page.waitForTimeout(1000);
     expect(context.pages().length).toBe(before);
   });
+});
 
-  // Refused: above the pane, where no window is (KAN-158).
-  test('a refused drag: changes nothing, and opens nothing', async ({
+// Refused: above the pane, where no window is (KAN-158). The release lands
+// outside every row -- the held row stays in its list, and the pointer
+// does not -- so the click Chrome sends for it is not aimed at the hidden
+// row, and this cannot speak for the suppressor (the describe above does).
+// What it pins is the refusal itself.
+test.describe('a refused release', () => {
+  test('changes nothing and opens nothing', async ({
     context,
     extensionId,
   }) => {
@@ -1475,14 +1483,17 @@ test.describe('the click after a release lands on the hidden row', () => {
     await page.mouse.up();
 
     const r = await releaseRecord(page);
-    expect(r?.held).toBe('a1');
-    await page.waitForTimeout(1000);
-    expect(context.pages().length).toBe(before);
-    expect(await storedTabs(page)).toBe(start);
     await test.info().attach('refused-release', {
       body: JSON.stringify(r),
       contentType: 'application/json',
     });
+    // PREMISE: a1 was held at the release, and the release was outside it.
+    expect(r).toMatchObject({ held: 'a1', hitInHeld: false });
+    await page.waitForTimeout(1000);
+    // No click reached any row, hidden or not.
+    expect(r?.clicks.filter((c) => c.inRow)).toEqual([]);
+    expect(context.pages().length).toBe(before);
+    expect(await storedTabs(page)).toBe(start);
   });
 });
 
