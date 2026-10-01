@@ -3196,6 +3196,9 @@ test.describe('the New window target is in the toolbar row from pick-up (KAN-361
         expect(frames[0]?.targetBox).toBe(
           `${box.y} ${box.y + box.height} ${box.x} ${box.x + box.width}`
         );
+        // PREMISE: every frame recorded at least one row, so "no row moves"
+        // below compares real boxes and not a log of empty strings.
+        expect(frames.filter((f) => f.rows === '')).toEqual([]);
         // And no row moves. A held GROUP folds to its title row as it is
         // picked up (KAN-160), in the activation frame, on main as here: the
         // rows are compared from that frame on. A tab moves nothing at all.
