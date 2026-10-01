@@ -19,7 +19,10 @@ import {
   isDragHeld,
   whenDragReleases,
 } from '../../redux/dragHold';
-import { setDragging } from '../../components/home/rightpane/rowDrag/dropRules';
+import {
+  setDragging,
+  setDragNewWindow,
+} from '../../components/home/rightpane/rowDrag/dropRules';
 
 // KAN-350. The carry channel: module state that outlives every drag area. A
 // .tsx file only so it runs under jsdom -- endCarry unpublishes the drag kind
@@ -37,6 +40,7 @@ afterEach(() => {
   endCarry('cancelled');
   endDragHold();
   document.documentElement.removeAttribute('data-dragging');
+  document.documentElement.removeAttribute('data-drag-new-window');
 });
 
 describe('the carry channel', () => {
@@ -138,6 +142,77 @@ describe('the carry channel', () => {
     );
     expect(heard).not.toHaveBeenCalled();
     unsubscribe();
+  });
+});
+
+// KAN-361 (N1 B). The carry's own New window marker: on for a carried tab or
+// group from the carry's start to its end, never for a window, whatever the
+// drag that started the carry had published.
+describe('the New window marker', () => {
+  const marked = () =>
+    document.documentElement.hasAttribute('data-drag-new-window');
+  const GROUP: CarriedRef = {
+    kind: 'group',
+    tabGroupId: 'S1',
+    windowId: 'w1',
+    groupId: 'g1',
+  };
+  const GROUP_CARD: CarryCard = {
+    kind: 'group',
+    title: 'g1',
+    color: 'blue',
+    tabCount: 2,
+  };
+  const WINDOW: CarriedRef = {
+    kind: 'window',
+    tabGroupId: 'S1',
+    windowId: 'w1',
+  };
+  const WINDOW_CARD: CarryCard = { kind: 'window', title: 'w1', tabCount: 2 };
+
+  test.each([
+    ['tab', CARRIED, CARD],
+    ['group', GROUP, GROUP_CARD],
+  ] as const)(
+    'a carried %s publishes it from the start, and its end clears it',
+    (_kind, carried, card) => {
+      // PREMISE: nothing had published it.
+      expect(marked()).toBe(false);
+
+      startCarry(carried, card, 40, 50);
+      expect(marked()).toBe(true);
+      setCarryOwner('area');
+      setCarryOwner('layer');
+      expect(marked()).toBe(true);
+
+      endCarry('committed');
+      expect(marked()).toBe(false);
+    }
+  );
+
+  test('a carried window never publishes it', () => {
+    startCarry(WINDOW, WINDOW_CARD, 40, 50);
+    expect(marked()).toBe(false);
+  });
+
+  // The worst path: a window carry replacing a tab carry still on, the
+  // marker that carry published with it.
+  test('a window carry replacing a tab carry clears it', () => {
+    startCarry(CARRIED, CARD, 40, 50);
+    // PREMISE: the tab carry published it.
+    expect(marked()).toBe(true);
+
+    startCarry(WINDOW, WINDOW_CARD, 40, 50);
+    expect(marked()).toBe(false);
+  });
+
+  // As for the kind: with nothing carried, an area's drag keeps its marker.
+  test('endCarry with nothing carried leaves an area’s marker alone', () => {
+    setDragNewWindow(true);
+
+    endCarry('cancelled');
+
+    expect(marked()).toBe(true);
   });
 });
 

@@ -48,6 +48,8 @@ import {
 } from '../../../utils/functions/viewMode';
 import { useTranslation } from 'react-i18next';
 import { DURATION, ICON, TYPE } from '../../../styles/scale';
+import { newWindowTargetBoxStyle } from './newWindowTarget';
+import { NewWindowTargetLabel } from './NewWindowTargetLabel';
 
 export default function HeroContainerRight() {
   const COLORS = useThemeColors();
@@ -245,12 +247,34 @@ export default function HeroContainerRight() {
   `;
 
   const bottomStyle = css`
+    /* The New window target's box (KAN-361). */
+    position: relative;
     display: flex;
     flex-direction: row;
     justify-content: space-between;
     align-items: flex-end;
     width: 100%;
     ${isSearchPanel && 'visibility: hidden;'}
+  `;
+
+  // KAN-361 (N1 B). While a saved tab or group is dragged -- in this session,
+  // or carried from another -- the New window target stands in this row in
+  // place of its controls, from the frame the drag starts. Always drawn,
+  // hidden at rest; App.css swaps the two while the document carries
+  // data-drag-new-window, which the drag engine writes before it measures
+  // and a carry for its whole life (setDragNewWindow).
+  //
+  // OVER the row, not in its flow, so neither state changes the header's
+  // height and nothing below it moves. It covers the controls' strip: from
+  // the 8px the controls stand below (their strip's padding-top) to the
+  // row's bottom, inset 8px from the row's sides. aria-hidden, since only a
+  // pointer's drag ever shows it, and it never takes the pointer: the
+  // controls keep it at rest, and a drag's release is the engine's.
+  const newWindowTargetStyle = css`
+    position: absolute;
+    inset: 8px 8px 0;
+    visibility: hidden;
+    pointer-events: none;
   `;
 
   // Shared by both non-editing branches so the search-mode label and the
@@ -427,7 +451,7 @@ export default function HeroContainerRight() {
           style="padding-top: 2px; padding-left: 8px;"
         />
       </div>
-      <div css={bottomStyle}>
+      <div css={bottomStyle} data-session-toolbar>
         <div
           css={css`
             display: flex;
@@ -634,6 +658,13 @@ export default function HeroContainerRight() {
               padding: 5px 6px 3px 3px;
             `}
           />
+        </div>
+        <div
+          data-new-window-target="first"
+          aria-hidden="true"
+          css={[newWindowTargetBoxStyle(COLORS), newWindowTargetStyle]}
+        >
+          <NewWindowTargetLabel />
         </div>
       </div>
     </div>

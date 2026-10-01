@@ -2817,3 +2817,482 @@ test.describe('below the last row, a carried item draws no slot (KAN-365)', () =
     await page.mouse.up();
   });
 });
+
+// ---- the toolbar row's New window target (KAN-361 N1 B) --------------------
+
+// The session header's toolbar row as drawn in one frame: whether its New
+// window target is shown, whether its own controls are, and the boxes a swap
+// must not move.
+interface ToolbarFrame {
+  // A drag is published on the document (data-dragging).
+  dragging: boolean;
+  // The document's New window marker (data-drag-new-window).
+  marker: boolean;
+  // The toolbar row's New window target computes `visibility: visible`.
+  target: boolean;
+  // Every one of the toolbar row's own controls: 'shown', 'hidden', or
+  // 'mixed'.
+  controls: string;
+  // The header's box, the target's box, and every row's box in the detail
+  // pane but the held row's (and what it holds), as text.
+  header: string;
+  targetBox: string;
+  rows: string;
+}
+const isToolbarLog = (x: unknown): x is ToolbarFrame[] => {
+  if (!Array.isArray(x)) return false;
+  const items: readonly unknown[] = x;
+  return items.every(
+    (f) =>
+      typeof f === 'object' &&
+      f !== null &&
+      'dragging' in f &&
+      typeof f.dragging === 'boolean' &&
+      'marker' in f &&
+      typeof f.marker === 'boolean' &&
+      'target' in f &&
+      typeof f.target === 'boolean' &&
+      'controls' in f &&
+      typeof f.controls === 'string' &&
+      'header' in f &&
+      typeof f.header === 'string' &&
+      'targetBox' in f &&
+      typeof f.targetBox === 'string' &&
+      'rows' in f &&
+      typeof f.rows === 'string'
+  );
+};
+
+// What one frame shows in the toolbar row: its controls at rest, the target
+// swapped in for them, or a frame that shows both or neither.
+const toolbarShows = (f: ToolbarFrame): string =>
+  !f.target && f.controls === 'shown'
+    ? 'controls'
+    : f.target && f.controls === 'hidden'
+      ? 'target'
+      : `target ${f.target}, controls ${f.controls}`;
+
+// Logs the toolbar row every frame from now until toolbarLog. `held` is the
+// row a drag will hold, left out of the rows: it tracks the pointer.
+//
+// Each log is a numbered run, and a frame from any other run writes nothing
+// and stops: a stopped log's last frame is still queued when the next log
+// starts, and it must neither overwrite the new log nor run on beside it.
+async function logToolbar(page: Page, held: string | null): Promise<void> {
+  await page.evaluate((held) => {
+    const run = String(Number(document.body.dataset.toolbarRun ?? '0') + 1);
+    document.body.dataset.toolbarRun = run;
+    document.body.dataset.toolbarFrames = '[]';
+    const box = (el: Element | null | undefined) => {
+      const b = el?.getBoundingClientRect();
+      return b === undefined
+        ? 'none'
+        : `${b.top} ${b.bottom} ${b.left} ${b.right}`;
+    };
+    const log: unknown[] = [];
+    const frame = () => {
+      if (document.body.dataset.toolbarRun !== run) return;
+      const toolbar = document.querySelector('[data-session-toolbar]');
+      const target = document.querySelector('[data-new-window-target="first"]');
+      // Its controls: an Icon draws a role="button" div, a Button a <button>.
+      const controls = [
+        ...(toolbar?.querySelectorAll('button, [role="button"]') ?? []),
+      ].map((b) => getComputedStyle(b).visibility === 'visible');
+      log.push({
+        dragging: document.documentElement.hasAttribute('data-dragging'),
+        marker: document.documentElement.hasAttribute('data-drag-new-window'),
+        target:
+          target !== null && getComputedStyle(target).visibility === 'visible',
+        controls:
+          controls.length > 0 && controls.every((c) => c)
+            ? 'shown'
+            : controls.length > 0 && controls.every((c) => !c)
+              ? 'hidden'
+              : 'mixed',
+        header: box(toolbar?.parentElement),
+        targetBox: box(target),
+        rows: [
+          ...document.querySelectorAll<HTMLElement>(
+            '[data-pane="detail"] [data-drag-row-id]'
+          ),
+        ]
+          .filter(
+            (el) =>
+              held === null ||
+              el.closest(`[data-drag-row-id="${held}"]`) === null
+          )
+          .map((el) => `${el.dataset.dragRowId}: ${box(el)}`)
+          .join(', '),
+      });
+      document.body.dataset.toolbarFrames = JSON.stringify(log);
+      requestAnimationFrame(frame);
+    };
+    requestAnimationFrame(frame);
+  }, held);
+}
+
+async function toolbarLog(page: Page): Promise<ToolbarFrame[]> {
+  const raw = await page.evaluate(() => {
+    // Stops the log: its run is no longer the current one.
+    document.body.dataset.toolbarRun = String(
+      Number(document.body.dataset.toolbarRun ?? '0') + 1
+    );
+    return document.body.dataset.toolbarFrames ?? '[]';
+  });
+  const frames: unknown = JSON.parse(raw);
+  if (!isToolbarLog(frames)) throw new Error(`not a toolbar log: ${raw}`);
+  return frames;
+}
+
+// Until the log holds `n` frames, or `n` frames of a published drag.
+const loggedFrames = (page: Page, n: number, of = '"dragging":') =>
+  expect
+    .poll(() =>
+      page.evaluate(
+        (of) =>
+          (document.body.dataset.toolbarFrames ?? '').split(of).length - 1,
+        of
+      )
+    )
+    .toBeGreaterThanOrEqual(n);
+const loggedDragFrames = (page: Page, n: number) =>
+  loggedFrames(page, n, '"dragging":true');
+
+// The toolbar row as it is drawn now: one frame's log.
+async function toolbarNow(page: Page): Promise<ToolbarFrame> {
+  await logToolbar(page, null);
+  await loggedFrames(page, 1);
+  const frames = await toolbarLog(page);
+  const last = frames[frames.length - 1];
+  if (last === undefined) throw new Error('no frame logged');
+  return last;
+}
+
+// At rest: the controls drawn, the target hidden, no marker.
+const AT_REST = { marker: false, target: false, controls: 'shown' };
+// Swapped: the target drawn in the controls' place.
+const SWAPPED = { marker: true, target: true, controls: 'hidden' };
+
+// The CONTROL every negative below runs first, on its own page: a saved tab
+// drag there swaps the target in, so the reader can see it, and Esc puts the
+// controls back.
+async function tabDragShowsTarget(page: Page): Promise<void> {
+  await pickUp(page, tabHandle(page, 'a1'));
+  expect(await toolbarNow(page)).toMatchObject(SWAPPED);
+  await page.keyboard.press('Escape');
+  await page.mouse.up();
+  expect(await toolbarNow(page)).toMatchObject(AT_REST);
+}
+
+test.describe('the New window target is in the toolbar row from pick-up (KAN-361)', () => {
+  const views = [
+    {
+      name: 'the popup',
+      open: (context: BrowserContext, extensionId: string) =>
+        openPopup(context, extensionId),
+    },
+    {
+      name: 'the tab view',
+      open: (context: BrowserContext, extensionId: string) =>
+        openTabView(context, extensionId, false),
+    },
+  ];
+  const kinds = [
+    { kind: 'tab', held: 'a1', handle: tabHandle },
+    { kind: 'group', held: 'group:alpha', handle: groupHandle },
+  ] as const;
+  for (const view of views) {
+    for (const k of kinds) {
+      test(`a ${k.kind} drag in ${view.name}: from the first frame, the target stands in the toolbar row's box and nothing moves`, async ({
+        context,
+        extensionId,
+      }) => {
+        const page = await view.open(context, extensionId);
+        const rest = await toolbarNow(page);
+        expect(rest).toMatchObject(AT_REST);
+
+        // Where it stands: the controls' strip, inset 8px from the row's
+        // sides, and it takes no pointer and no screen reader's notice.
+        const target = page.locator('[data-new-window-target="first"]');
+        await expect(target).toHaveAttribute('aria-hidden', 'true');
+        expect(
+          await target.evaluate((el) => getComputedStyle(el).pointerEvents)
+        ).toBe('none');
+        const strip = await boxOf(
+          page.getByRole('button', { name: 'Open session' })
+        );
+        const row = await boxOf(page.locator('[data-session-toolbar]'));
+        const box = await boxOf(target);
+        expect(box.y).toBe(strip.y);
+        expect(box.y + box.height).toBe(strip.y + strip.height);
+        expect(box.x).toBe(row.x + 8);
+        expect(box.x + box.width).toBe(row.x + row.width - 8);
+        if (view.name === 'the popup') {
+          // The toolbar row measured on main: 82-114.
+          expect([box.y, box.y + box.height]).toEqual([82, 114]);
+        }
+
+        await logToolbar(page, k.held);
+        await pickUp(page, k.handle(page, k.kind === 'tab' ? 'a1' : 'alpha'));
+        await loggedDragFrames(page, 10);
+        const frames = await toolbarLog(page);
+        // PREMISE: the log spans the activation.
+        const first = frames.findIndex((f) => f.dragging);
+        expect(first).toBeGreaterThan(0);
+        expect(frames.slice(first).every((f) => f.dragging)).toBe(true);
+
+        // Every frame shows exactly one of the two: the controls until the
+        // drag is published, the target from that very frame on.
+        expect(frames.map(toolbarShows)).toEqual(
+          frames.map((f) => (f.dragging ? 'target' : 'controls'))
+        );
+        // Same box: the header and the target never move, in any frame.
+        expect(new Set(frames.map((f) => f.header)).size).toBe(1);
+        expect(new Set(frames.map((f) => f.targetBox)).size).toBe(1);
+        expect(frames[0]?.targetBox).toBe(
+          `${box.y} ${box.y + box.height} ${box.x} ${box.x + box.width}`
+        );
+        // And no row moves. A held GROUP folds to its title row as it is
+        // picked up (KAN-160), in the activation frame, on main as here: the
+        // rows are compared from that frame on. A tab moves nothing at all.
+        const rowsFrom = k.kind === 'tab' ? 0 : first;
+        expect(new Set(frames.slice(rowsFrom).map((f) => f.rows)).size).toBe(1);
+        await page.keyboard.press('Escape');
+        await page.mouse.up();
+      });
+    }
+  }
+
+  // NEGATIVES, each aimed where the target would fire, after its CONTROL.
+
+  test('a window drag never shows it', async ({ context, extensionId }) => {
+    const page = await openPopup(context, extensionId);
+    await tabDragShowsTarget(page);
+
+    await logToolbar(page, 'w1');
+    await pickUp(page, windowHandle(page, 'w1'));
+    await loggedDragFrames(page, 10);
+    const frames = await toolbarLog(page);
+    // PREMISE: the window drag was published, and logged.
+    expect(frames.filter((f) => f.dragging).length).toBeGreaterThanOrEqual(10);
+    expect(frames.filter((f) => toolbarShows(f) !== 'controls')).toEqual([]);
+    expect(frames.filter((f) => f.marker)).toEqual([]);
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+  });
+
+  test('an Open now tab drag never shows it', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openTabView(context, extensionId, false);
+    await tabDragShowsTarget(page);
+
+    const live = page.locator('[data-pane="open-now"] [data-open-tab-id]');
+    await expect(live.first()).toBeVisible();
+    await logToolbar(page, null);
+    await pickUp(page, live.first());
+    // PREMISE: an Open now row is held.
+    await expect(
+      page.locator('[data-pane="open-now"] [data-drag-held]')
+    ).toHaveCount(1);
+    await loggedDragFrames(page, 10);
+    const frames = await toolbarLog(page);
+    expect(frames.filter((f) => f.dragging).length).toBeGreaterThanOrEqual(10);
+    expect(frames.filter((f) => toolbarShows(f) !== 'controls')).toEqual([]);
+    expect(frames.filter((f) => f.marker)).toEqual([]);
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+  });
+
+  test('a press that never passes the activation distance never shows it', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    await tabDragShowsTarget(page);
+
+    const b = await boxOf(tabHandle(page, 'a1'));
+    const x = b.x + 60;
+    const y = b.y + b.height / 2;
+    await logToolbar(page, 'a1');
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    // 4px: short of the 5px a drag starts at.
+    await page.mouse.move(x, y + 4, { steps: 4 });
+    await loggedFrames(page, 20);
+    const frames = await toolbarLog(page);
+    // PREMISE: the press is down and no drag started.
+    expect(frames.filter((f) => f.dragging)).toEqual([]);
+    expect(frames.filter((f) => toolbarShows(f) !== 'controls')).toEqual([]);
+    expect(frames.filter((f) => f.marker)).toEqual([]);
+    // On past the distance, so the release is a drag's, cancelled -- not a
+    // click that opens the tab.
+    await page.mouse.move(x, y + 12, { steps: 2 });
+    expect(await toolbarNow(page)).toMatchObject(SWAPPED);
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+  });
+
+  // A carry keeps it for its whole life (the carry's own marker).
+  for (const k of kinds) {
+    test(`a carried ${k.kind} shows it from the carry's start, and in the session it spring-opens`, async ({
+      context,
+      extensionId,
+    }) => {
+      const page = await openPopup(context, extensionId);
+      await logToolbar(page, k.held);
+      const at = await pickUp(
+        page,
+        k.handle(page, k.kind === 'tab' ? 'a1' : 'alpha')
+      );
+      await carryOutLeft(page, at);
+      const frames = await toolbarLog(page);
+      // PREMISE: the log spans the pick-up and the hand-off.
+      const first = frames.findIndex((f) => f.dragging);
+      expect(first).toBeGreaterThan(0);
+      expect(frames.map(toolbarShows)).toEqual(
+        frames.map((f) => (f.dragging ? 'target' : 'controls'))
+      );
+      // On the session list, carried.
+      await expect(page.locator(CARD)).toHaveCount(1);
+      expect(await toolbarNow(page)).toMatchObject(SWAPPED);
+
+      await springOpen(page, 'S2');
+      // PREMISE: the header is Target's.
+      await expect(
+        page.locator('[data-session-toolbar]').locator('..')
+      ).toContainText('Target');
+      expect(await toolbarNow(page)).toMatchObject(SWAPPED);
+      await page.keyboard.press('Escape');
+      await page.mouse.up();
+    });
+  }
+
+  test('a carried window never shows it', async ({ context, extensionId }) => {
+    const page = await openPopup(context, extensionId);
+    await tabDragShowsTarget(page);
+
+    await logToolbar(page, 'w2');
+    const at = await pickUp(page, windowHandle(page, 'w2'));
+    await carryOutLeft(page, at);
+    await springOpen(page, 'S2');
+    await expect(
+      page.locator('[data-session-toolbar]').locator('..')
+    ).toContainText('Target');
+    const frames = await toolbarLog(page);
+    // PREMISE: the carry was logged, through the spring-open.
+    expect(frames.filter((f) => f.dragging).length).toBeGreaterThanOrEqual(10);
+    expect(frames.filter((f) => toolbarShows(f) !== 'controls')).toEqual([]);
+    expect(frames.filter((f) => f.marker)).toEqual([]);
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+  });
+
+  // Every way a drag ends puts the toolbar row back.
+  const ends: {
+    name: string;
+    run: (page: Page) => Promise<void>;
+    // What the release left in the store, to say it ended the way named.
+    after: { session: string; layout: string[] };
+  }[] = [
+    {
+      name: 'a tab drag committed',
+      run: async (page) => {
+        await pickUp(page, tabHandle(page, 'a1'));
+        await aimAt(page, 'a2', 0.75);
+        await page.mouse.up();
+      },
+      after: { session: 'S1', layout: ['a0 a2 a1 al0* al1*', 'b0 b1'] },
+    },
+    {
+      name: 'a tab drag cancelled with Esc',
+      run: async (page) => {
+        await pickUp(page, tabHandle(page, 'a1'));
+        await page.keyboard.press('Escape');
+        await page.mouse.up();
+      },
+      after: { session: 'S1', layout: [W1_START, 'b0 b1'] },
+    },
+    {
+      name: 'a tab drag refused (let go over the session title)',
+      run: async (page) => {
+        const at = await pickUp(page, tabHandle(page, 'a1'));
+        const title = await boxOf(
+          page.getByRole('button', { name: /^Rename session: / })
+        );
+        await page.mouse.move(at.x, title.y + title.height / 2, {
+          steps: 6,
+        });
+        await page.mouse.up();
+      },
+      after: { session: 'S1', layout: [W1_START, 'b0 b1'] },
+    },
+    {
+      name: 'a group drag committed',
+      run: async (page) => {
+        await pickUp(page, groupHandle(page, 'alpha'));
+        await aimAt(page, 'b0', 0.25);
+        await page.mouse.up();
+      },
+      after: { session: 'S1', layout: ['a0 a1 a2', 'al0* al1* b0 b1'] },
+    },
+    {
+      name: 'a carried tab dropped on a session row',
+      run: async (page) => {
+        const at = await pickUp(page, tabHandle(page, 'a1'));
+        await carryOutLeft(page, at);
+        await onto(page, 'S3');
+        await page.mouse.up();
+      },
+      after: { session: 'S3', layout: ['a1', 'f0'] },
+    },
+    {
+      name: 'a carried tab cancelled with Esc',
+      run: async (page) => {
+        const at = await pickUp(page, tabHandle(page, 'a1'));
+        await carryOutLeft(page, at);
+        await page.keyboard.press('Escape');
+        await page.mouse.up();
+      },
+      after: { session: 'S1', layout: [W1_START, 'b0 b1'] },
+    },
+    {
+      name: 'a carried tab adopted in Target and let go there',
+      run: async (page) => {
+        const at = await pickUp(page, tabHandle(page, 'a1'));
+        await carryOutLeft(page, at);
+        await springOpen(page, 'S2');
+        await adoptPhantom(page, 'carried:a1');
+        await page.mouse.up();
+      },
+      after: { session: 'S2', layout: ['a1', D1_START, 'e0 e1'] },
+    },
+    {
+      name: 'a carried tab adopted in Target and cancelled with Esc',
+      run: async (page) => {
+        const at = await pickUp(page, tabHandle(page, 'a1'));
+        await carryOutLeft(page, at);
+        await springOpen(page, 'S2');
+        await adoptPhantom(page, 'carried:a1');
+        await page.keyboard.press('Escape');
+        await page.mouse.up();
+      },
+      after: { session: 'S1', layout: [W1_START, 'b0 b1'] },
+    },
+  ];
+  for (const end of ends) {
+    test(`after ${end.name}, the marker is gone and the toolbar row is back`, async ({
+      context,
+      extensionId,
+    }) => {
+      const page = await openPopup(context, extensionId);
+      await end.run(page);
+      await expect
+        .poll(() => layout(page, end.after.session))
+        .toEqual(end.after.layout);
+      await expect(page.locator(CARD)).toHaveCount(0);
+      expect(await toolbarNow(page)).toMatchObject(AT_REST);
+    });
+  }
+});

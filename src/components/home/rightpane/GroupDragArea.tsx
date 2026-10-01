@@ -75,6 +75,9 @@ export const GroupDragArea: React.FC<{
       adoptRowId={adoptRowId}
       adoptedRowLandsAs={adoptedRowLandsAs}
       onLandingWindowChange={markNewWindowTarget}
+      // From pick-up, the toolbar row's New window target stands in for the
+      // session header's controls (KAN-361 N1 B).
+      offersNewWindow
       // The mode, not the box's contents -- see KAN-140 on
       // TabGroupEntryContainer for why this is not isFilteredView.
       disabled={isSearchPanel}

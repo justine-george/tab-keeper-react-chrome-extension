@@ -49,6 +49,8 @@ import { useDragState } from './rowDrag/dragContext';
 import { GroupFrameFollower } from './rowDrag/GroupFrameFollower';
 import { ADJACENT_GROUP_GAP_PX, BAND_MARGIN_PX } from './bandSpacing';
 import { CARRY_NEW_WINDOW_ID } from '../../../utils/functions/carriedView';
+import { newWindowTargetBoxStyle } from './newWindowTarget';
+import { NewWindowTargetLabel } from './NewWindowTargetLabel';
 import { DURATION, RADIUS, TYPE } from '../../../styles/scale';
 
 /**
@@ -265,7 +267,8 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   // KAN-350 (S3 A). The synthetic first window a carried tab or group can
   // land in (CARRY_NEW_WINDOW_ID), drawn as the mock's New window target: a
   // dashed box with an icon and its name, and the hover fill and a solid
-  // border while the landing is in it. To the drag engine it is still a
+  // border while the landing is in it -- the look the toolbar row's target
+  // shares (newWindowTargetBoxStyle). To the drag engine it is still a
   // window: its block is marked, and it holds the phantom row the carried
   // item is drawn as -- invisible, keeping its footprint -- so the box is as
   // tall as what would land there. The name sits over the phantom.
@@ -291,16 +294,8 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   const isNewWindowTarget = windowId === CARRY_NEW_WINDOW_ID;
   const newWindowTargetStyle = css`
     position: relative;
-    border-width: 1.5px;
-    border-style: dashed;
-    border-color: ${COLORS.LABEL_L2_COLOR};
-    border-radius: ${RADIUS.SQUARE};
     & [data-group-tabs] {
       display: none;
-    }
-    &[data-landing] {
-      background-color: ${COLORS.HOVER_COLOR};
-      border-style: solid;
     }
     &[data-landing] [data-drag-landing-slot] {
       visibility: hidden;
@@ -311,17 +306,6 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
         margin: -${BAND_MARGIN_PX}px 0;
       `
     : undefined;
-  const newWindowTargetLabelStyle = css`
-    position: absolute;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 0 12px;
-    color: ${COLORS.LABEL_L1_COLOR};
-    font-size: ${TYPE.BODY};
-    pointer-events: none;
-  `;
 
   const childrenStyle = css`
     position: relative;
@@ -647,7 +631,11 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     <div
       css={
         isNewWindowTarget
-          ? [containerStyle, newWindowTargetStyle]
+          ? [
+              containerStyle,
+              newWindowTargetBoxStyle(COLORS),
+              newWindowTargetStyle,
+            ]
           : containerStyle
       }
       data-drop-window-id={windowId}
@@ -682,10 +670,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     >
       {isNewWindowTarget ? (
         // KAN-350 (S3 A). The target's name, over the phantom below it.
-        <div css={newWindowTargetLabelStyle}>
-          <Icon type="add_box" style={NON_INTERACTIVE_ICON_STYLE} />
-          <span>{t('CarryNewWindowTarget')}</span>
-        </div>
+        <NewWindowTargetLabel />
       ) : (
         /* The grab handle for the WINDOW drag (KAN-129), read by the area
             above this component through its handleSelector. It has to be the

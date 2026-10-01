@@ -492,6 +492,21 @@ export interface RowDragAreaProps {
     windowId: string | undefined,
     list: HTMLElement | null
   ) => void;
+  /**
+   * A drag in this list offers a new window (KAN-361 N1 B): from the frame
+   * it starts, the session header's toolbar row shows the New window target
+   * in place of its controls.
+   *
+   * The area publishes it on the document (setDragNewWindow) as it publishes
+   * the drag kind: in `activate`, before anything is measured, and cleared on
+   * every end that unpublishes the kind. An adopted drag's end clears
+   * nothing: the carry it belongs to owns the flag, and ends it.
+   *
+   * OPT-IN, not keyed on the kind: only the saved detail's tab and item
+   * lists pass it. A window drag makes no new window, and Open now's lists
+   * drag tabs too and must never show the target.
+   */
+  offersNewWindow?: boolean;
   // Dragging is off while the list on screen is a FILTERED view of the stored
   // one (KAN-131). toIndex counts rendered rows, and the reducers apply it to
   // the stored array, so a drag in a narrowed list lands somewhere the user
@@ -800,4 +815,18 @@ export function setDragging(on: boolean, kind: DragKind = 'tab'): void {
   // selector matches whatever the value is.
   if (on) document.documentElement.setAttribute('data-dragging', kind);
   else document.documentElement.removeAttribute('data-dragging');
+}
+
+// Publish "this drag can make a new window" on the document (KAN-361 N1 B),
+// beside the kind above and for the same reason: App.css swaps the session
+// header's toolbar row for the New window target while it is on, and a
+// selector keyed on the document is in force the moment this writes it --
+// before the engine measures, and with no React render to wait for.
+//
+// Its own flag rather than a kind: whether a drag offers a new window is the
+// LIST's to say (RowDragAreaProps.offersNewWindow), not the drag kind's. Open
+// now's lists drag tabs too, and must never show the target.
+export function setDragNewWindow(on: boolean): void {
+  if (on) document.documentElement.setAttribute('data-drag-new-window', '');
+  else document.documentElement.removeAttribute('data-drag-new-window');
 }

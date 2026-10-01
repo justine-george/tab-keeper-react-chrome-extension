@@ -46,6 +46,7 @@ import {
   isRowContainer,
   markRowContainer,
   setDragging,
+  setDragNewWindow,
   windowBlockAt,
   windowBlocksIn,
   windowOf,
@@ -472,6 +473,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
   adoptRowId,
   adoptedRowLandsAs,
   onLandingWindowChange,
+  offersNewWindow = false,
   disabled = false,
   children,
 }) => {
@@ -1169,7 +1171,8 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     // Ends this area's drag without committing it and without touching the
     // drag hold, the published kind or click suppression -- whoever takes the
     // drag on from here (a carry, KAN-350) owns all three. finish() for a
-    // refused release, minus those three.
+    // refused release, minus those three. Nor the New window marker
+    // (KAN-361): a tab or group carry writes its own, and endCarry ends it.
     const letGo = (l: LiveDrag) => {
       live.current = null;
       setDrag(null);
@@ -1255,6 +1258,17 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // layout that no longer exists.
       l.started = true;
       setDragging(true, dragKind);
+      // KAN-361 (N1 B). The New window target swaps in for the session
+      // header's toolbar row, by CSS keyed on this -- so it is on before the
+      // rects below are read, like the kind, and drawn in the very frame the
+      // drag starts: no React render can lag it (KAN-355, KAN-359). Same
+      // box, so the swap moves nothing those rects describe.
+      //
+      // An adopted drag writes it too, though its carry already did, for the
+      // reason an adoption publishes the kind again (below): on before
+      // anything is measured, however the drag began. Its end clears nothing
+      // (finish): the carry's is the write that lasts, and endCarry ends it.
+      if (offersNewWindow) setDragNewWindow(true);
       // KAN-279 D12. From here until the drag ends, a change this page did
       // not make waits (dragHold): applying it would move the list under
       // rects measured once, below.
@@ -1648,8 +1662,11 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       const drop = commit && l.started ? judgeDrop(l) : undefined;
       // An adopted drag's kind is the carry's, and endCarry unpublishes it
       // below, after the move -- the same order the session list's take()
-      // runs in (KAN-350).
-      if (!l.adopted) setDragging(false);
+      // runs in (KAN-350). So is its New window marker (KAN-361).
+      if (!l.adopted) {
+        setDragging(false);
+        setDragNewWindow(false);
+      }
       l.heldEl?.removeAttribute('data-drag-held');
       // Whatever was marked stops being a target the moment the drag ends --
       // committed, refused or cancelled alike (KAN-164).
@@ -1835,6 +1852,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     adoptRowId,
     adoptedRowLandsAs,
     onLandingWindowChange,
+    offersNewWindow,
     clampDropToEnds,
     clicks,
     cardOwner,
@@ -1869,6 +1887,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         endCarry('cancelled');
       } else if (l?.started) {
         setDragging(false);
+        setDragNewWindow(false);
         // KAN-279 D12. finish() never runs on this path, so the hold it would
         // have ended is ended here -- or every later merge would wait for a
         // drop that can no longer happen.
