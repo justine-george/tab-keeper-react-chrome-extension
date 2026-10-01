@@ -179,15 +179,16 @@ test.describe('the gap between two windows', () => {
     expect(Math.abs(landed.y - promised!)).toBeLessThanOrEqual(2);
   });
 
-  // CONTROL: the gap rule is for BETWEEN two windows. Below the last one is
-  // the release beside the pane that isInsideList exists to refuse (KAN-132),
-  // and making every empty pixel droppable would hand that defect back.
-  test('CONTROL: a release below the last window still changes nothing', async ({
+  // CONTROL: the gap rule is for BETWEEN two windows. Below the last one it
+  // must not name the last window -- landing at w2's end from anywhere below
+  // it is the saturation isInsideList exists to refuse (KAN-132). Below the
+  // last window, past its rows' slack, is the list's trailing block: a new
+  // last window (KAN-366 B), never the end of w2.
+  test('CONTROL: a release below the last window does not land in it: it makes a new last window', async ({
     context,
     extensionId,
   }) => {
     const page = await open(context, extensionId);
-    const before = await order(page, 'w2');
     const { x } = await pickUp(page, 'be0');
     const w2 = await boxOf(page, '[data-drop-window-id="w2"]');
 
@@ -195,7 +196,15 @@ test.describe('the gap between two windows', () => {
     await page.waitForTimeout(220);
     await page.mouse.up();
 
-    await expect.poll(() => order(page, 'w2')).toBe(before);
+    // be0 has left w2, and is not at its end.
+    await expect.poll(() => order(page, 'w2')).toBe('d0 be1* be2* b1');
+    const windows = page.locator(
+      '[data-drop-window-id]:not([data-new-window-target])'
+    );
+    await expect(windows).toHaveCount(3);
+    await expect(
+      windows.last().locator('[data-drag-row-id="be0"]')
+    ).toBeAttached();
   });
 
   // CONTROL: horizontally outside the blocks, the gap is not a target either --
