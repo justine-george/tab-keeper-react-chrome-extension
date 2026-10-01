@@ -510,42 +510,6 @@ describe('a carried tab lands at the exact spot', () => {
     // The premise: it did move.
     expect(tabIds(windowIn(got, 'S1', 'w2'))).toEqual(['t2', 't3']);
   });
-
-  // KAN-361/366, until a release below the last window makes a new last
-  // window (KAN-366 B): the trailing block the phantom rests in is no
-  // landing. Let go at the phantom's own place, nothing moves and the carry
-  // ends cancelled -- main's KAN-365 "nothing moves" -- with nothing lit and
-  // no slot drawn on the way.
-  test('at its own place in the trailing block: nothing lit, no slot, and a release there moves nothing and cancels', async () => {
-    const { store } = await renderDetail('S2');
-    const before = store.getState().tabContainerDataState;
-    const onCancel = vi.fn();
-    carry(TAB_T1, onCancel);
-    table = S2_TAB_LAYOUT('t1');
-
-    moveTo(52);
-    // PREMISE: adopted, and landing in d1 with its slot drawn.
-    expect(held()).toBe('carried:t1');
-    expect(seen(slotOf('carried:t1'))).toBe(true);
-    // In the box's lower part, 18px off the phantom's middle.
-    moveTo(PHANTOM_Y + 18);
-    expect(held()).toBe('carried:t1');
-    expect(trailing().hasAttribute('data-landing')).toBe(false);
-    expect(
-      row('carried:t1').querySelector('[data-drag-landing-slot]')
-    ).toBeNull();
-    // Nothing makes room: d1's rows and d2 are back where they stand.
-    expect(shiftOf(row('u2'))).toBe(0);
-    expect(
-      find('[data-drop-window-id="d2"]').hasAttribute('data-window-shift')
-    ).toBe(false);
-    release(PHANTOM_Y + 18);
-
-    expect(currentCarry()).toBeNull();
-    expect(store.getState().tabContainerDataState).toBe(before);
-    runFrames(1);
-    expect(onCancel).toHaveBeenCalledTimes(1);
-  });
 });
 
 describe('a carried group lands at the exact spot', () => {
@@ -620,24 +584,6 @@ describe('a carried group lands at the exact spot', () => {
       control.store.getState().tabContainerDataState.tabGroups
     );
     expect(tabIds(windowIn(got, 'S1', 'w2'))).toEqual(['g1a', 'g1b', 't3']);
-  });
-
-  // The same for a group (KAN-366, interim).
-  test('at its own place in the trailing block: a release moves nothing and cancels', async () => {
-    const { store } = await renderDetail('S2');
-    const before = store.getState().tabContainerDataState;
-    carry(GROUP_G1);
-    table = S2_GROUP_LAYOUT;
-
-    moveTo(52);
-    moveTo(PHANTOM_Y);
-    // PREMISE: adopted, and at its own place.
-    expect(held()).toBe('group:carried:g1');
-    expect(trailing().hasAttribute('data-landing')).toBe(false);
-    release(PHANTOM_Y);
-
-    expect(currentCarry()).toBeNull();
-    expect(store.getState().tabContainerDataState).toBe(before);
   });
 });
 
@@ -731,9 +677,10 @@ describe('an adopted drag that ends with no commit cancels the whole carry', () 
     table = S2_TAB_LAYOUT('t1');
 
     moveTo(52);
-    // Inside the pane, far below every window.
-    moveTo(480);
-    release(480);
+    // Beside the pane, far below every window: in the pane, below the last
+    // window, is a new last window (KAN-366 B).
+    moveTo(480, PANE_W + 30);
+    release(480, PANE_W + 30);
 
     expect(currentCarry()).toBeNull();
     expect(store.getState().tabContainerDataState).toBe(before);

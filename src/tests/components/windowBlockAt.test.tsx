@@ -51,9 +51,9 @@ describe('windowBlockAt', () => {
 });
 
 // KAN-361/366. The trailing block after the last window -- where a carried
-// tab's or group's phantom rests, a row tall during a tab or group drag -- is
-// no window yet: a point on it, or in the gap above it, is below the last
-// block, exactly as with no trailing block at all (KAN-132/185).
+// tab's or group's phantom rests, a row tall during a tab or group drag. The
+// gap above it is below the last block, exactly as with no trailing block at
+// all (KAN-132/185): the gap rule is for between two windows.
 describe('windowBlockAt and the trailing block', () => {
   const root = pane([
     ['wA', 0, 142],
@@ -66,9 +66,6 @@ describe('windowBlockAt and the trailing block', () => {
   const at = (y: number) =>
     windowBlockAt(root, 10, y)?.getAttribute('data-drop-window-id') ?? null;
 
-  test('a point on it names no window', () => {
-    expect(at(320)).toBeNull();
-  });
   test('the gap above it is not split with it', () => {
     // Nearer the trailing block than wB: still below the last window.
     expect(at(308)).toBeNull();

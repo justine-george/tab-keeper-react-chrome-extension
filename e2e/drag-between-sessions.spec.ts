@@ -2691,16 +2691,21 @@ test.describe('the slot is the box of the row the tab becomes, across a band edg
   // A refused release goes back where it came from: the slot is drawn at the
   // held row's own place, with its own box. For a member that is a member's
   // box, not the loose one a refused pointer, over no band, would pick.
-  test('a member refused below the list keeps its own box, at its own place', async ({
+  //
+  // Refused beside the pane, below the list: below the last window inside
+  // the pane makes a new last window (KAN-366 B).
+  test('a member refused beside the pane keeps its own box, at its own place', async ({
     context,
     extensionId,
   }) => {
     const page = await openPopup(context, extensionId);
     const own = await rowBox(page, 'al0');
     const ownTop = (await boxOf(page.locator('[data-drag-row-id="al0"]'))).y;
-    const at = await pickUp(page, tabHandle(page, 'al0'));
+    await pickUp(page, tabHandle(page, 'al0'));
     const pane = await detailPane(page);
-    await page.mouse.move(at.x, pane.bottom - 30, { steps: 8 });
+    // PREMISE: beside the pane, still in the popup.
+    expect(pane.right + 4).toBeLessThan(POPUP.width);
+    await page.mouse.move(pane.right + 4, pane.bottom - 30, { steps: 8 });
     await settled(page);
     // PREMISE: refused -- the slot is back at the member's own place.
     const slotTop = (await boxOf(page.locator('[data-drag-landing-slot]'))).y;
@@ -2761,11 +2766,12 @@ test.describe('the slot is the box of the row the tab becomes, across a band edg
 
 // ---- KAN-365 ------------------------------------------------------------------
 
-// Below the last row, an adopted carry's release is refused and moves
-// nothing: the item goes back to its source, which is not a place in this
-// list. So nothing is drawn as a landing -- on main the slot sat at the
-// phantom's own place, inside the unlit New window target, 1px inside its
-// border, and the target's indent on the KAN-362 branch made it show.
+// Where an adopted carry's release is refused it moves nothing: the item
+// goes back to its source, which is not a place in this list. So nothing is
+// drawn as a landing -- on main the slot sat at the phantom's own place,
+// inside the unlit New window target, 1px inside its border, and the
+// target's indent on the KAN-362 branch made it show. Refused beside the
+// pane: below the last window inside it is a new last window (KAN-366 B).
 const slotsDrawn = (page: Page) =>
   page.evaluate(
     () =>
@@ -2803,7 +2809,7 @@ test.describe('below the last row, a carried item draws no slot (KAN-365)', () =
     { kind: 'group', handle: 'alpha', phantom: 'group:carried:alpha' },
   ] as const;
   for (const k of kinds) {
-    test(`a carried ${k.kind}: no slot, the target unlit, and a release moves nothing`, async ({
+    test(`a carried ${k.kind} refused beside the pane: no slot, the target unlit, and a release moves nothing`, async ({
       context,
       extensionId,
     }) => {
@@ -2822,7 +2828,10 @@ test.describe('below the last row, a carried item draws no slot (KAN-365)', () =
       const pane = await detailPane(page);
       // PREMISE: there is room below the last row inside the pane.
       expect(pane.bottom - (last.y + last.height)).toBeGreaterThan(60);
-      await page.mouse.move(at.x, pane.bottom - 30, { steps: 8 });
+      // Beside the pane, below the list: refused. Below the last window
+      // inside the pane is a new last window (KAN-366 B).
+      expect(pane.right + 4).toBeLessThan(POPUP.width);
+      await page.mouse.move(pane.right + 4, pane.bottom - 30, { steps: 8 });
       await settled(page);
       expect(await slotsDrawn(page)).toBe(0);
       await expect(
@@ -2902,15 +2911,16 @@ test.describe('below the last row, a carried item draws no slot (KAN-365)', () =
     await page.mouse.up();
   });
 
-  test('CONTROL: an ordinary drag below the last row keeps its slot at its own place', async ({
+  test('CONTROL: an ordinary drag refused beside the pane keeps its slot at its own place', async ({
     context,
     extensionId,
   }) => {
     const page = await openPopup(context, extensionId);
     const own = await boxOf(page.locator('[data-drag-row-id="a0"]'));
-    const at = await pickUp(page, tabHandle(page, 'a0'));
+    await pickUp(page, tabHandle(page, 'a0'));
     const pane = await detailPane(page);
-    await page.mouse.move(at.x, pane.bottom - 30, { steps: 8 });
+    expect(pane.right + 4).toBeLessThan(POPUP.width);
+    await page.mouse.move(pane.right + 4, pane.bottom - 30, { steps: 8 });
     await settled(page);
     expect(await slotsDrawn(page)).toBe(1);
     const slot = await boxOf(page.locator('[data-drag-landing-slot]'));
@@ -4120,6 +4130,11 @@ test.describe('the phantom rests in a trailing block after the last window (KAN-
     await expect
       .poll(async () => (await detailPane(page)).scrollTop)
       .toBe(pane.scrollTop + room);
+    // Read with the pointer off the block, mid-pane, where no auto-scroll
+    // moves the list: a release in the block lands there (KAN-366 B), and
+    // lights it.
+    await page.mouse.move(pane.left + 100, mid, { steps: 4 });
+    await settled(page);
     const below = await boxOf(trailingBlock(page));
     const last = await boxOf(page.locator('[data-drag-row-id="sw5"]'));
     expect(below.y).toBeGreaterThan(last.y + last.height);
@@ -4179,69 +4194,6 @@ test.describe('the phantom rests in a trailing block after the last window (KAN-
     await page.mouse.up();
   });
 
-  // Until a release below the last window makes a new last window (KAN-366
-  // B), the block the phantom rests in is no landing: let go at the
-  // phantom's own place, an adopted carry moves nothing and ends cancelled
-  // (KAN-365's "nothing moves").
-  for (const k of [
-    { kind: 'tab', handle: 'a1', phantom: 'carried:a1' },
-    { kind: 'group', handle: 'alpha', phantom: 'group:carried:alpha' },
-  ] as const) {
-    test(`a carried ${k.kind} let go at its phantom's own place in the opened session moves nothing, and the carry ends`, async ({
-      context,
-      extensionId,
-    }) => {
-      const page = await openPopup(context, extensionId);
-      const before = await stored(page);
-      const handle =
-        k.kind === 'tab'
-          ? tabHandle(page, k.handle)
-          : groupHandle(page, k.handle);
-      const at = await pickUp(page, handle);
-      await carryOutLeft(page, at);
-      await springOpen(page, 'S2');
-      await ontoOwnPhantom(page, k.phantom);
-      await settled(page);
-      // Read here, asserted after the release, so what the release did is
-      // the first thing checked: where it was let go, and what was shown.
-      const there = await page.evaluate((id) => {
-        const ph = document.querySelector(`[data-drag-row-id="${id}"]`);
-        const home = document.querySelector('[data-new-window-target="last"]');
-        return {
-          held: ph?.hasAttribute('data-drag-held') ?? false,
-          inTrailingBlock: home !== null && ph !== null && home.contains(ph),
-          lit: home?.hasAttribute('data-landing') ?? false,
-          slots: [...document.querySelectorAll('[data-drag-landing-slot]')]
-            .length,
-        };
-      }, k.phantom);
-      await page.mouse.up();
-
-      await expect(page.locator(CARD)).toHaveCount(0);
-      // NEGATIVE, so a fixed wait: a move is written on the release.
-      await page.waitForTimeout(200);
-      // Every session as it was, but which one is selected: the spring-open
-      // selected S2.
-      const after = await stored(page);
-      const unselected = (s: tabContainerData) => ({ ...s, isSelected: false });
-      for (const id of ['S1', 'S2', 'S3', 'S4']) {
-        expect(unselected(sessionOf(after, id))).toEqual(
-          unselected(sessionOf(before, id))
-        );
-      }
-      expect(await selected(page)).toBe('S2');
-      expect(await toasts(page)).toEqual([]);
-      // PREMISE: it was adopted, at its own place in the trailing block,
-      // unlit, with no slot drawn.
-      expect(there).toEqual({
-        held: true,
-        inTrailingBlock: true,
-        lit: false,
-        slots: 0,
-      });
-    });
-  }
-
   // The trailing block is no window to the hit test: a release on it is
   // below the last window, as before it existed. "Drag it to the end" keeps
   // its slack (half the held row) past the last row, though that point is
@@ -4262,8 +4214,11 @@ test.describe('the phantom rests in a trailing block after the last window (KAN-
     const pane = await detailPane(page);
     const at = await pickUp(page, tabHandle(page, 's5-1'));
     await intoTheRoom(page, at.x, pane);
-    const last = await boxOf(tabHandle(page, 's5-3'));
-    const y = last.y + last.height + 12;
+    // s5-3's own box, not where the preview draws it: with the pointer in
+    // the room, the drag can be landing in the trailing block (KAN-366 B),
+    // and s5-1's window closes up under it (Q2 ii).
+    const last = await ownBox(page, 's5-3');
+    const y = last.bottom + 12;
     const block = await boxOf(trailingBlock(page));
     // PREMISE: the point is in the trailing block, within half a row of the
     // last row.
@@ -4380,9 +4335,12 @@ test.describe('the phantom rests in a trailing block after the last window (KAN-
       const at = await pickUp(page, tabHandle(page, 's5-1'));
       await intoTheRoom(page, at.x, pane);
       if (ending !== 'Esc') {
-        // Within the slack below the last row: lands last.
-        const last = await boxOf(tabHandle(page, 's5-3'));
-        await page.mouse.move(at.x, last.y + last.height + 6, { steps: 4 });
+        // Within the slack below the last row: lands last. s5-3's own box,
+        // not where the preview draws it: with the pointer in the room the
+        // drag can be landing in the trailing block (KAN-366 B), and s5-1's
+        // window closes up under it (Q2 ii).
+        const last = await ownBox(page, 's5-3');
+        await page.mouse.move(at.x, last.bottom + 6, { steps: 4 });
         await settled(page);
       }
 
