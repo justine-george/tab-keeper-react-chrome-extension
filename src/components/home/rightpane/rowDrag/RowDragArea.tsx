@@ -361,9 +361,10 @@ interface LiveDrag {
   // point on it lands as a new first window (landingOf), and is never a
   // hand-off (onMoveEvent, Q3 i).
   isOnNewFirstWindow: ((x: number, y: number) => boolean) | null;
-  // KAN-366. In a list that fits, the space free below its last window, as
-  // published for the lit trailing block (newWindowFree) when the drag
-  // started; null in a list given room, or one with no trailing block.
+  // KAN-366. In a list that fits, the space free below its last window
+  // (newWindowFree) when the drag started, read by the under-half-a-row
+  // refusal in landingBlock; null in a list given room, or one with no
+  // trailing block.
   freeForNewWindow: number | null;
   // The last target resolveDrop named, so the list hears only about changes
   // rather than once per pointer move (KAN-164).
@@ -654,13 +655,11 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       if (block === null || !isTrailingBlock(block)) return block;
       const paneBottom = paneOf(l.heldEl)?.getBoundingClientRect().bottom;
       if (paneBottom === undefined || l.lastY > paneBottom) return null;
-      // NOR WITH TOO LITTLE ROOM (KAN-366 ruling). In a list that fits, the
-      // lit box is a full row but stands in the space free below the last
-      // window (publishNewWindowFree), so with almost none free it would
-      // be drawn past the pane's bottom, mostly out of sight, and a release
-      // would still make a window. Below half a row free -- the same half row the overshoot slack
-      // forgives -- the space is no new window: refused, as on main. A list
-      // given room always has its row.
+      // NOR WITH TOO LITTLE ROOM (KAN-366 R3, Justine's pick). In a list
+      // that fits, with less than half a row free below the last window
+      // (publishNewWindowFree) -- the same half row the overshoot slack
+      // forgives -- the space is no new window: refused, as on main, and
+      // nothing lights. A list given room always has its row.
       if (l.freeForNewWindow !== null && l.freeForNewWindow < l.height / 2) {
         return null;
       }
