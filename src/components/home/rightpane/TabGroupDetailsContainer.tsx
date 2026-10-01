@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 
 import { css } from '@emotion/react';
@@ -38,6 +38,7 @@ import {
   landingView,
 } from '../../../utils/functions/carriedView';
 import { windowCarryOut } from './carryOut';
+import { onRevealSavedWindow } from './revealSavedWindow';
 
 export default function TabGroupDetailsContainer() {
   const COLORS = useThemeColors();
@@ -169,6 +170,23 @@ export default function TabGroupDetailsContainer() {
     [shownSession]
   );
 
+  // KAN-350. A row drop into the session on screen asks for the window it
+  // landed as (revealSavedWindow): brought into view on the next frame, once
+  // the drop has been rendered, and only as far as needed (`block:
+  // 'nearest'`) -- the way the engine follows a row it dropped (KAN-155).
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  useEffect(
+    () =>
+      onRevealSavedWindow((windowId) => {
+        requestAnimationFrame(() => {
+          scrollerRef.current
+            ?.querySelector(`[data-drag-row-id="${CSS.escape(windowId)}"]`)
+            ?.scrollIntoView({ block: 'nearest' });
+        });
+      }),
+    []
+  );
+
   // Belt and braces: RightPane does not mount this component when the list is
   // empty, so this should be unreachable -- but it is what makes the component
   // safe on its own terms rather than safe because of its only caller (KAN-39).
@@ -230,7 +248,7 @@ export default function TabGroupDetailsContainer() {
   const filledContainerStyle = css``;
 
   return (
-    <div css={containerStyle}>
+    <div css={containerStyle} ref={scrollerRef}>
       {isEmptyObject(selectedTabGroup) ? (
         <div css={emptyContainerStyle}>
           {/* KAN-86, same bare literal as TabGroupEntryContainer. */}

@@ -10,6 +10,26 @@ import type {
 import { TOAST_MESSAGES } from '../utils/constants/common';
 import type { RootState } from './store';
 
+// "Moved to “{{title}}”" (S5 A), for every drop that announces a move into
+// `target`: 8s, growing to fit (D4 C), and a saved change the user made, so
+// it takes ⌘Z from a Reopen offer (KAN-349 Q1 C′). Show only while the
+// target is not the session on screen after the drop (the Show rule) --
+// `selectedAfter` is the selection once the move has been made.
+export const movedToSessionToast = (
+  target: { tabGroupId: string; title: string },
+  selectedAfter: string | null
+) =>
+  showToast({
+    toastText: TOAST_MESSAGES.MOVED_TO_SESSION,
+    toastParams: { title: target.title },
+    duration: 8000,
+    announcesSavedChange: true,
+    show:
+      selectedAfter === target.tabGroupId
+        ? undefined
+        : { tabGroupId: target.tabGroupId },
+  });
+
 export interface MoveToSessionParams {
   move: SessionMove;
   // Send "Moved to “{{title}}”". Only after a quick row drop (S5 A): a drop
@@ -76,16 +96,10 @@ export const moveToSession =
 
     if (announceMoved) {
       dispatch(
-        showToast({
-          toastText: TOAST_MESSAGES.MOVED_TO_SESSION,
-          toastParams: { title: targetTitle },
-          duration: 8000,
-          announcesSavedChange: true,
-          show:
-            after.selectedTabGroupId === move.to.tabGroupId
-              ? undefined
-              : { tabGroupId: move.to.tabGroupId },
-        })
+        movedToSessionToast(
+          { tabGroupId: move.to.tabGroupId, title: targetTitle },
+          after.selectedTabGroupId
+        )
       );
     }
 

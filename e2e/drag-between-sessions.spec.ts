@@ -1534,6 +1534,64 @@ test.describe('Review Focus 3: a long list, a long session', () => {
       .toBe(true);
     expect((await detailPane(page)).scrollTop).toBeGreaterThan(0);
   });
+
+  // A row drop on the session on screen makes its new first window at the
+  // TOP of the detail (Q3 A, no Moved toast). Carried out of the lower part
+  // of a long session, the tab must not just vanish: the new window is
+  // followed into view.
+  test('a long session scrolled down: a tab let go on its own row is followed into view as its new first window', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(
+      context,
+      extensionId,
+      [longSession('S1', 'Long', 'x'), S2()],
+      'S1'
+    );
+    const pane = await detailPane(page);
+    expect(await setDetailScroll(page, 400)).toBe(400);
+    // A tab in the middle of the pane, clear of both auto-scroll zones.
+    const tabId = await page.evaluate(
+      ({ top, bottom }) => {
+        for (const row of document.querySelectorAll<HTMLElement>(
+          '[data-pane="detail"] [data-drag-row-id^="x"]'
+        )) {
+          const id = row.dataset.dragRowId ?? '';
+          const b = row.getBoundingClientRect();
+          if (id.includes('-') && b.top > top + 80 && b.bottom < bottom - 80)
+            return id;
+        }
+        return undefined;
+      },
+      { top: pane.top, bottom: pane.bottom }
+    );
+    if (tabId === undefined) throw new Error('no tab mid-pane');
+    const at = await pickUp(page, tabHandle(page, tabId));
+    await carryOutLeft(page, at);
+    await onto(page, 'S1');
+    await page.mouse.up();
+
+    await expect
+      .poll(
+        async () =>
+          sessionOf(await stored(page), 'S1').windows[0]?.tabs.map(
+            (t) => t.tabId
+          )
+      )
+      .toEqual([tabId]);
+    // No Moved toast (Q3 A): the drop has to be seen where it lands.
+    expect(await toasts(page)).toEqual([]);
+    const landed = sessionOf(await stored(page), 'S1').windows[0]?.windowId;
+    const row = page.locator(`[data-drag-row-id="${landed}"]`);
+    await expect
+      .poll(async () => {
+        const b = await boxOf(row);
+        const p = await detailPane(page);
+        return b.y >= p.top - 1 && b.y + b.height <= p.bottom + 1;
+      })
+      .toBe(true);
+  });
 });
 
 test.describe('the tab view', () => {
