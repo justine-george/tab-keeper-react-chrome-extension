@@ -1088,6 +1088,103 @@ test.describe('a group travels whole', () => {
 // In the TAB list, which folds nothing -- a window drag folds every window
 // (KAN-153), so its mid-drag layout is not the layout the drop lands in, and
 // the comparison would be between two different lists.
+// 80px into a row, at its middle height.
+async function centreOf(page: Page, selector: string) {
+  const b = await page.locator(selector).boundingBox();
+  if (b === null) throw new Error(`no box for ${selector}`);
+  return { x: b.x + 80, y: b.y + b.height / 2 };
+}
+
+// Presses at `start` and sweeps down in 11px steps, reading at each the
+// landing slot's distance from the held row, its opacity, and whether the
+// held row draws itself (KAN-354 hides a saved list's).
+async function sweepSlot(page: Page, start: { x: number; y: number }) {
+  await page.mouse.move(start.x, start.y);
+  await page.mouse.down();
+  await page.mouse.move(start.x, start.y + 8, { steps: 3 });
+
+  const samples: { separation: number; opacity: number; drawnRow: boolean }[] =
+    [];
+  for (let step = 0; step < 12; step++) {
+    await page.mouse.move(start.x, start.y + 8 + step * 11, { steps: 2 });
+    await page.waitForTimeout(90);
+    const sample = await page.evaluate(() => {
+      const el = document.querySelector<HTMLElement>(
+        '[data-drag-landing-slot]'
+      );
+      const held = document.querySelector<HTMLElement>('[data-drag-held]');
+      if (!el || !held) return null;
+      return {
+        separation: Math.abs(
+          el.getBoundingClientRect().top - held.getBoundingClientRect().top
+        ),
+        opacity: Number(getComputedStyle(el).opacity),
+        drawnRow: !held.hasAttribute('data-held-as-card'),
+      };
+    });
+    if (sample) samples.push(sample);
+  }
+
+  await page.keyboard.press('Escape');
+  await page.mouse.up();
+  return samples;
+}
+
+// The same popup with seven more sessions, so the session list has rows to
+// sweep a drag across. Row ids x0..x6.
+async function openWithSessions(
+  context: BrowserContext,
+  extensionId: string
+): Promise<Page> {
+  const main = buildSession({
+    tabGroupId: 's1',
+    title: 'Group drag',
+    isSelected: true,
+    windowCount: WINDOWS.length,
+    tabCount: WINDOWS.reduce((n, w) => n + w.tabs.length, 0),
+    windows: WINDOWS,
+  });
+  const more = [0, 1, 2, 3, 4, 5, 6].map((i) =>
+    buildSession({
+      tabGroupId: `x${i}`,
+      title: `Session ${i}`,
+      isSelected: false,
+      windowCount: 1,
+      tabCount: 1,
+      windows: [
+        {
+          windowId: `xw${i}`,
+          windowHeight: 1080,
+          windowWidth: 1920,
+          windowOffsetTop: 0,
+          windowOffsetLeft: 0,
+          tabCount: 1,
+          title: `xw${i}`,
+          tabs: [
+            {
+              tabId: `xt${i}`,
+              favicon: '',
+              title: `Tab x${i}`,
+              url: `https://x${i}.test/`,
+            },
+          ],
+        },
+      ],
+    })
+  );
+  await seedSessions(context, {
+    ...buildContainer([main, ...more]),
+    selectedTabGroupId: 's1',
+  });
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 790, height: 550 });
+  await page.goto(`chrome-extension://${extensionId}/index.html`);
+  await expect(
+    page.locator('[data-pane="sessions"] [data-drag-row-id="x6"]')
+  ).toBeAttached();
+  return page;
+}
+
 test.describe('the slot a dragged row will land in', () => {
   test('is drawn where the row actually lands', async ({
     context,
@@ -1216,46 +1313,25 @@ test.describe('the slot a dragged row will land in', () => {
   // relative to the frozen midpoints, and aiming at a particular phase of that
   // cycle is guesswork -- two attempts at it landed on 4px and 2px when they
   // meant to be wide.
-  test('is drawn only as far as it is clear of the row being dragged', async ({
+  //
+  // KAN-354: only where the held row is drawn. This ran on the saved list's
+  // tab p0 until a saved list's held row was hidden and drawn by the card at
+  // the pointer (C1 A) -- with no row to tell it from, its slot stands at full
+  // strength, which the test after this one pins. The session list still
+  // lifts its row (C2 A), so the rule is held to there.
+  test('is drawn only as far as it is clear of the row being dragged (the session list)', async ({
     context,
     extensionId,
   }) => {
-    const page = await open(context, extensionId);
+    const page = await openWithSessions(context, extensionId);
+    const start = await centreOf(
+      page,
+      '[data-pane="sessions"] [data-drag-row-id="x1"]'
+    );
+    const samples = await sweepSlot(page, start);
 
-    const start = await page.evaluate(() => {
-      const h = document
-        .querySelector<HTMLElement>('[data-drag-row-id="p0"]')!
-        .getBoundingClientRect();
-      return { x: h.left + 80, y: h.top + h.height / 2 };
-    });
-
-    await page.mouse.move(start.x, start.y);
-    await page.mouse.down();
-    await page.mouse.move(start.x, start.y + 8, { steps: 3 });
-
-    const samples: { separation: number; opacity: number }[] = [];
-    for (let step = 0; step < 12; step++) {
-      await page.mouse.move(start.x, start.y + 8 + step * 11, { steps: 2 });
-      await page.waitForTimeout(90);
-      const sample = await page.evaluate(() => {
-        const el = document.querySelector<HTMLElement>(
-          '[data-drag-landing-slot]'
-        );
-        const held = document.querySelector<HTMLElement>('[data-drag-held]');
-        if (!el || !held) return null;
-        return {
-          separation: Math.abs(
-            el.getBoundingClientRect().top - held.getBoundingClientRect().top
-          ),
-          opacity: Number(getComputedStyle(el).opacity),
-        };
-      });
-      if (sample) samples.push(sample);
-    }
-
-    await page.keyboard.press('Escape');
-    await page.mouse.up();
-
+    // PREMISE: a lifted row, drawn -- the rule's whole subject.
+    expect(samples.every((s) => s.drawnRow)).toBe(true);
     // PREMISE: the sweep really did cover both ends -- sitting on the row and
     // well clear of it. Without this the monotonic check below is vacuous.
     const nearest = Math.min(...samples.map((s) => s.separation));
@@ -1283,6 +1359,27 @@ test.describe('the slot a dragged row will land in', () => {
         bySeparation[i - 1].opacity - 0.001
       );
     }
+  });
+
+  // KAN-354 C1 A, the reverse: in a saved list the held row is hidden and
+  // the card at the pointer draws it, so there is no row for the slot to be
+  // mistaken for. It stands at full strength at every distance -- at
+  // pick-up it is the row's own place, "it goes back here".
+  test('in a saved list, stands at full strength at every distance', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await open(context, extensionId);
+    const start = await centreOf(page, '[data-drag-row-id="p0"]');
+    const samples = await sweepSlot(page, start);
+
+    // PREMISE: the row is hidden, and the sweep covered both ends.
+    expect(samples.every((s) => !s.drawnRow)).toBe(true);
+    expect(samples.length).toBeGreaterThan(8);
+    expect(Math.min(...samples.map((s) => s.separation))).toBeLessThan(12);
+    expect(Math.max(...samples.map((s) => s.separation))).toBeGreaterThan(28);
+
+    expect(samples.map((s) => s.opacity)).toEqual(samples.map(() => 1));
   });
 
   test('lands correctly after a row whose footprint differs from its own', async ({
