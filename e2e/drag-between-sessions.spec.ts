@@ -2015,6 +2015,9 @@ const box = (page: Page, selector: string) =>
     return { left: b.left, right: b.right };
   }, selector);
 
+// Chromium's layout precision: 1/64 of a CSS pixel.
+const LAYOUT_UNIT = 1 / 64;
+
 async function expectSlotAsWideAs(
   page: Page,
   ref: { left: number; right: number }
@@ -2029,10 +2032,19 @@ async function expectSlotAsWideAs(
   expect(ref.left - (await detailPane(page)).left).toBeGreaterThan(60);
   const slot = await box(page, '[data-drag-landing-slot]');
   if (slot === null) throw new Error('no landing slot drawn');
-  // Raw boxes, unrounded, to within 0.005px: the rows sit on half pixels
-  // (435.5), and the target's border is 1px.
-  expect(slot.left, 'slot left').toBeCloseTo(ref.left, 2);
-  expect(slot.right, 'slot right').toBeCloseTo(ref.right, 2);
+  // Raw boxes, unrounded, to within one LayoutUnit (1/64px): Chromium snaps
+  // the subpixel offset of a box under a transform, and the rows are measured
+  // while the ones the drag moved ease back (KAN-364: a member at rest at
+  // 451.5 measured 451.484375). The rows sit on half pixels (435.5), and the
+  // New window target's border is 1px.
+  expect(
+    Math.abs(slot.left - ref.left),
+    `slot left ${slot.left} vs ${ref.left}`
+  ).toBeLessThanOrEqual(LAYOUT_UNIT);
+  expect(
+    Math.abs(slot.right - ref.right),
+    `slot right ${slot.right} vs ${ref.right}`
+  ).toBeLessThanOrEqual(LAYOUT_UNIT);
 }
 
 const rowBox = async (page: Page, rowId: string) => {
@@ -2485,6 +2497,85 @@ test.describe('no row under a held carry shows its hover (KAN-363)', () => {
       await expect
         .poll(() => paintedHover(page, LIGHT_THEME.HOVER_COLOR))
         .toEqual(['w2']);
+    });
+  }
+});
+
+// ---- KAN-364 ------------------------------------------------------------------
+
+// A tab that lands inside a group's band becomes a member, whose row starts
+// past the band's colour bar; one that lands outside every band is a loose
+// row. The slot has the box of the row the tab becomes, whatever box the
+// held row has: in an ordinary drag the held row is the tab's OLD row, and in
+// a carry it is the phantom.
+test.describe('the slot is the box of the row the tab becomes, across a band edge (KAN-364)', () => {
+  const cases = [
+    {
+      name: 'a loose tab into a band, at its head',
+      held: 'a0',
+      carried: false,
+      aim: 'al0',
+      frac: 0.25,
+      becomes: 'member',
+    },
+    {
+      name: 'a loose tab into a band, between members',
+      held: 'a0',
+      carried: false,
+      aim: 'al1',
+      frac: 0.4,
+      becomes: 'member',
+    },
+    {
+      name: 'a member out of its band, to a loose spot',
+      held: 'al0',
+      carried: false,
+      aim: 'a1',
+      frac: 0.4,
+      becomes: 'loose',
+    },
+    {
+      name: 'CONTROL: a member within its band',
+      held: 'al0',
+      carried: false,
+      aim: 'al1',
+      frac: 0.6,
+      becomes: 'member',
+    },
+    {
+      name: 'a carried member back into its band',
+      held: 'al0',
+      carried: true,
+      aim: 'al1',
+      frac: 0.4,
+      becomes: 'member',
+    },
+    {
+      name: 'a carried loose tab into a band',
+      held: 'a0',
+      carried: true,
+      aim: 'al1',
+      frac: 0.4,
+      becomes: 'member',
+    },
+  ] as const;
+  for (const c of cases) {
+    test(c.name, async ({ context, extensionId }) => {
+      const page = await openPopup(context, extensionId);
+      // Read at rest: a member's box and a loose row's.
+      const member = await rowBox(page, 'al1');
+      const loose = await rowBox(page, 'a2');
+      // PREMISE: the two boxes differ, so the slot can only match one.
+      expect(member.left - loose.left).toBeGreaterThan(8);
+      const at = await pickUp(page, tabHandle(page, c.held));
+      if (c.carried) {
+        await carryOutLeft(page, at);
+        await adoptPhantom(page, `carried:${c.held}`);
+      }
+      await aimAt(page, c.aim, c.frac);
+      await expectSlotAsWideAs(page, c.becomes === 'member' ? member : loose);
+      await page.keyboard.press('Escape');
+      await page.mouse.up();
     });
   }
 });

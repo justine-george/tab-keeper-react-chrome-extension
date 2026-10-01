@@ -161,7 +161,22 @@ interface Rect {
   // windows answers every drop question within ONE of them, and this is what
   // picks that window's rows out.
   windowId: string | undefined;
+  // The row's left and right edges, and the group band it sits in, if any
+  // (KAN-364): where a row of its kind sits across, which is what the
+  // landing slot takes. Read with the rest, once.
+  edges: Edges;
+  bandId: string | undefined;
 }
+
+// A box's left and right edges, in viewport space. Nothing a drag does moves
+// a row sideways, so they hold for the whole drag as measured.
+interface Edges {
+  left: number;
+  right: number;
+}
+
+// A landing slot as wide as the held row.
+const NO_INSET: DragState['landingInset'] = { left: 0, right: 0 };
 
 // A slot in the list as drawn, tagged like a row with the window it sits in.
 type Slot = WindowedSlot;
@@ -378,6 +393,11 @@ interface LiveDrag {
   // commit that hides the held row -- see the layout effect that shows it.
   // Once per drag; the card is only moved from then on.
   cardShown: boolean;
+  // The boxes a release can land as (KAN-364), from `rects`: each group
+  // band's member row by band id, and a loose row's. Null where the list
+  // drew none.
+  memberEdges: Map<string, Edges>;
+  looseEdges: Edges | null;
 }
 
 // A drag as the press (or an adoption) starts it: not yet measured, which is
@@ -426,6 +446,8 @@ function pressRecord(
     landingWindow: undefined,
     card: null,
     cardShown: false,
+    memberEdges: new Map(),
+    looseEdges: null,
   };
 }
 
@@ -1057,6 +1079,26 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         landingDelta += gapCarriedTo(to, beside?.side === 'after');
       }
 
+      // The box of the row a release here lands as (KAN-364): a member's
+      // inside the band `target` names -- the same answer the preview, the
+      // band's mark and the release use -- a loose row's anywhere else. The
+      // slot is drawn inside the held row, so it takes the difference.
+      const heldEdges = l.rects[l.fromIndex]?.edges;
+      const landingEdges =
+        (target === undefined ? l.looseEdges : l.memberEdges.get(target)) ??
+        null;
+      // A refused release goes back where it came from, so its slot is the
+      // held row's own box, whatever band the pointer is over.
+      const landingInset =
+        landing === undefined ||
+        heldEdges === undefined ||
+        landingEdges === null
+          ? NO_INSET
+          : {
+              left: landingEdges.left - heldEdges.left,
+              right: heldEdges.right - landingEdges.right,
+            };
+
       setDrag({
         rowId: l.rowId,
         // The scroll delta is part of the travel. The held row lives inside the
@@ -1081,6 +1123,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         // adopted drag came from (KAN-354).
         heldShownAsCard: l.card !== null || l.adopted,
         sourceRoomDelta,
+        landingInset,
       });
 
       return target;
@@ -1261,8 +1304,36 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
           height: r?.height ?? 0,
           top: r ? r.top + l.startScrollTop : 0,
           windowId: windowOf(el)?.dataset.dropWindowId,
+          edges: { left: r?.left ?? 0, right: r?.right ?? 0 },
+          bandId: el?.closest<HTMLElement>('[data-band-id]')?.dataset.bandId,
         };
       });
+      // What a release can land as, across (KAN-364). A member's box for each
+      // band, from any row drawn in it -- the held row too, which may be its
+      // band's only member. A loose row's from any OTHER drawn row in no band:
+      // the held row is the one row whose box can be neither (an adopted
+      // carry's phantom stands in the New window target). With no loose row
+      // drawn, a band's own box, which sits where a loose row does.
+      l.memberEdges = new Map();
+      for (const r of l.rects) {
+        if (
+          r.height > 0 &&
+          r.bandId !== undefined &&
+          !l.memberEdges.has(r.bandId)
+        )
+          l.memberEdges.set(r.bandId, r.edges);
+      }
+      const looseRow = l.rects.find(
+        (r) => r.height > 0 && r.bandId === undefined && r.index !== l.fromIndex
+      );
+      const anyBand = containerRef.current
+        ?.querySelector('[data-band-id]')
+        ?.getBoundingClientRect();
+      l.looseEdges =
+        looseRow?.edges ??
+        (anyBand === undefined
+          ? null
+          : { left: anyBand.left, right: anyBand.right });
       // The list AS DRAWN (KAN-166): the rows, plus whatever fixed parts the
       // list declared, ordered by where they actually sit. Ordered by
       // measured top rather than by document order, because a fixed row is
@@ -2050,8 +2121,10 @@ export const DraggableRow: React.FC<DraggableRowProps> = ({
             // Measured: `top: 0px; right: 0px; left: 0px` and no bottom at
             // all. Both branches must write the same property names.
             top: 0,
-            left: 0,
-            right: 0,
+            // Across: the box of the row it lands as (KAN-364), which is not
+            // the held row's once the landing crosses a band's edge.
+            left: drag.landingInset.left,
+            right: drag.landingInset.right,
             bottom: 0,
             // The landing is measured in the pre-drag layout, and the two ends
             // of that measurement now sit in blocks that may have moved apart
