@@ -37,8 +37,12 @@ const box = (top: number, height: number) =>
     toJSON: () => ({}),
   }) as DOMRect;
 
-const Harness = () => (
-  <RowDragArea rowIds={['a', 'b', 'c']} onMove={() => undefined}>
+const Harness = ({ offersNewWindow }: { offersNewWindow?: boolean }) => (
+  <RowDragArea
+    rowIds={['a', 'b', 'c']}
+    onMove={() => undefined}
+    offersNewWindow={offersNewWindow}
+  >
     {['a', 'b', 'c'].map((id) => (
       <DraggableRow key={id} rowId={id}>
         <div>Row {id}</div>
@@ -63,9 +67,14 @@ const release = (y: number) =>
   fireEvent.pointerUp(document, { clientX: 10, clientY: y });
 
 const isDragging = () => document.documentElement.hasAttribute('data-dragging');
+// KAN-361. The New window marker, published beside the kind by a list that
+// offers a new window.
+const offersNewWindow = () =>
+  document.documentElement.hasAttribute('data-drag-new-window');
 
 afterEach(() => {
   document.documentElement.removeAttribute('data-dragging');
+  document.documentElement.removeAttribute('data-drag-new-window');
 });
 
 describe('a drag publishes a flag on the document', () => {
@@ -108,17 +117,22 @@ describe('a drag publishes a flag on the document', () => {
 });
 
 describe('a drag interrupted by unmount', () => {
+  // KAN-159's path, for the New window marker too (KAN-361): a list that
+  // unmounts mid-drag -- its session removed by a sync or a delete elsewhere
+  // -- must not leave the toolbar row's controls hidden behind the target.
   test('does not leave the document flagged', () => {
-    const { unmount } = render(<Harness />);
+    const { unmount } = render(<Harness offersNewWindow />);
     layout();
 
     press('a', 15);
     moveTo(50);
     expect(isDragging()).toBe(true);
+    expect(offersNewWindow()).toBe(true);
 
     unmount();
 
     expect(isDragging()).toBe(false);
+    expect(offersNewWindow()).toBe(false);
   });
 });
 
