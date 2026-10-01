@@ -67,6 +67,7 @@ import {
 import { DURATION } from '../../../../styles/scale';
 import { beginDragHold, endDragHold } from '../../../../redux/dragHold';
 import {
+  carryEndedAs,
   currentCarry,
   endCarry,
   setCarryOwner,
@@ -412,6 +413,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
   gapChangesBy,
   carryOut,
   adoptRowId,
+  adoptedRowLandsAs,
   onLandingWindowChange,
   disabled = false,
   children,
@@ -1497,6 +1499,9 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
           // `undefined` 4th argument fails -- vitest's mock matcher checks
           // argument COUNT too. Do not collapse this to one call spread over
           // both branches.
+          // What an adopted drag carries, read before the list's onMove ends
+          // the carry (KAN-350).
+          const carried = l.adopted ? currentCarry()?.carried : undefined;
           if (drop.toWindowId === undefined) {
             onMove(l.rowId, drop.toIndex, drop.dropTargetId);
           } else {
@@ -1517,10 +1522,21 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
           //
           // Only on a COMMITTED drop, which is the only case with a new place to
           // show. A drag that commits nothing is the branch below.
-          const dropped = l.rowId;
-          requestAnimationFrame(() => {
-            rows.current.get(dropped)?.scrollIntoView({ block: 'nearest' });
-          });
+          //
+          // An ADOPTED drop (KAN-350) dragged a phantom, which the list's
+          // commit has already removed by the next frame: it follows the row
+          // the item landed as instead, and only if the list ended the carry
+          // as committed -- a move that changed nothing has no new place.
+          const dropped = !l.adopted
+            ? l.rowId
+            : carried !== undefined && carryEndedAs(carried) === 'committed'
+              ? adoptedRowLandsAs
+              : undefined;
+          if (dropped !== undefined) {
+            requestAnimationFrame(() => {
+              rows.current.get(dropped)?.scrollIntoView({ block: 'nearest' });
+            });
+          }
         } else if (restoreScrollIfNoDrop && l.scroller && !l.adopted) {
           // Put the view back (KAN-157). For a window drag "nothing happened" is
           // not the same as "leave the scroll alone": the collapse already
@@ -1626,6 +1642,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     acceptsWindow,
     carryOut,
     adoptRowId,
+    adoptedRowLandsAs,
     onLandingWindowChange,
     clampDropToEnds,
     clicks,

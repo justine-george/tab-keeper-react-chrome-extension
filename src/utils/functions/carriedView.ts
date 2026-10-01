@@ -125,6 +125,22 @@ export function carriedRowId(carried: CarriedRef): string {
   }
 }
 
+/**
+ * The id the carried item's OWN row goes by in the list that drags its kind
+ * -- the row the move puts it in, once it has landed. Not the phantom's
+ * (carriedRowId): the phantom is gone once the carry ends.
+ */
+export function landedRowId(carried: CarriedRef): string {
+  switch (carried.kind) {
+    case 'tab':
+      return carried.tabId;
+    case 'group':
+      return groupItemIdOf(carried.groupId);
+    case 'window':
+      return carried.windowId;
+  }
+}
+
 // A window's tabs and groups under their phantom ids. A tab keeps its group,
 // renamed with it.
 function asPhantom(

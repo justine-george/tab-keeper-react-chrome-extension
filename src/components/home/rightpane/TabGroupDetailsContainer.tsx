@@ -30,6 +30,7 @@ import {
   CARRY_NEW_WINDOW_ID,
   carriedRowId,
   carriedView,
+  landedRowId,
   landingView,
 } from '../../../utils/functions/carriedView';
 import { windowCarryOut } from './carryOut';
@@ -97,9 +98,14 @@ export default function TabGroupDetailsContainer() {
       phantomRowId: undefined,
     };
   }, [carried, selectedTabGroup, tabContainerDataList.tabGroups]);
-  // Only the list that drags the carried kind adopts it.
+  // Only the list that drags the carried kind adopts it, and follows the row
+  // the item lands as once a drop there commits (KAN-155).
   const adoptRowIdFor = (kind: 'tab' | 'group' | 'window') =>
     carried?.kind === kind ? phantomRowId : undefined;
+  const landsAsFor = (kind: 'tab' | 'group' | 'window') =>
+    carried?.kind === kind && phantomRowId !== undefined
+      ? landedRowId(carried)
+      : undefined;
 
   // The windows on screen, in render order. Index into this is what a drop
   // reports, which is why the guard below matters.
@@ -237,7 +243,11 @@ export default function TabGroupDetailsContainer() {
               directly -- there is no per-window items list any more, only
               the ONE items list a few lines below. Both resolve correctly
               with no context factory (spec 5.1). */}
-          <TabDragArea tabList={shownSession} adoptRowId={adoptRowIdFor('tab')}>
+          <TabDragArea
+            tabList={shownSession}
+            adoptRowId={adoptRowIdFor('tab')}
+            adoptedRowLandsAs={landsAsFor('tab')}
+          >
             {/* KAN-132, one level up from the tab list. ONE items list for the
                 whole session -- each loose tab and each Chrome group as one
                 row -- rather than one per window.
@@ -250,6 +260,7 @@ export default function TabGroupDetailsContainer() {
             <GroupDragArea
               itemList={shownSession}
               adoptRowId={adoptRowIdFor('group')}
+              adoptedRowLandsAs={landsAsFor('group')}
             >
               {/* KAN-129. handleSelector is what keeps this area and the tab list
               around it from both claiming one pointerdown: the
@@ -268,6 +279,7 @@ export default function TabGroupDetailsContainer() {
                 restoreScrollIfNoDrop
                 carryOut={carryWindowOut}
                 adoptRowId={adoptRowIdFor('window')}
+                adoptedRowLandsAs={landsAsFor('window')}
                 // The mode, not the box's contents -- see KAN-140 on
                 // TabGroupEntryContainer for why this is not isFilteredView.
                 disabled={isSearchPanel}

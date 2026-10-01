@@ -22,8 +22,11 @@ export const TabDragArea: React.FC<{
   // when the pointer comes in (KAN-350). Undefined unless one is carried
   // and the session on screen can take it.
   adoptRowId?: string;
+  // The row the adopted item lands as, followed into view after a committed
+  // drop (KAN-155): its own row here, once the move has re-rendered.
+  adoptedRowLandsAs?: string;
   children: ReactNode;
-}> = ({ tabList, adoptRowId, children }) => {
+}> = ({ tabList, adoptRowId, adoptedRowLandsAs, children }) => {
   const hasTabGroupsPermission = useSelector(
     (state: RootState) => state.globalState.hasTabGroupsPermission
   );
@@ -61,6 +64,7 @@ export const TabDragArea: React.FC<{
       // drag, and the New window target lights up while it would land there
       // (KAN-350).
       adoptRowId={adoptRowId}
+      adoptedRowLandsAs={adoptedRowLandsAs}
       onLandingWindowChange={markNewWindowTarget}
       // The mode, not the box's contents -- see KAN-140 on
       // TabGroupEntryContainer for why this is not isFilteredView.

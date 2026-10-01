@@ -957,6 +957,84 @@ describe('out of the pane and back in', () => {
   });
 });
 
+// KAN-155. Releasing ends the fold, and a row dropped low in the folded list
+// is then below the fold: the engine follows the row it dropped on the next
+// frame. An adopted drop is the phantom's, which is gone by then -- so it
+// follows the MOVED ITEM's own row, and only when the move committed.
+describe('after an adopted drop, the moved item is followed (KAN-155)', () => {
+  let scrolled: Element[] = [];
+  beforeEach(() => {
+    scrolled = [];
+    vi.spyOn(Element.prototype, 'scrollIntoView').mockImplementation(function (
+      this: Element
+    ) {
+      scrolled.push(this);
+    });
+  });
+
+  test('a window dropped low in a scrolled, folded session: its real row', async () => {
+    paneH = 200;
+    const { store, pane: p } = await renderDetail('S2', 1000);
+    p.scrollTop = 40;
+    carry(WINDOW_W2);
+    table = S2_WINDOW_LAYOUT('w2');
+
+    moveTo(60);
+    expect(held()).toBe('carried:w2');
+    // Content 130: past d2's middle, so it lands last.
+    release(90);
+    runFrames(1);
+
+    expect(
+      windowIds(sessionIn(store.getState().tabContainerDataState, 'S2'))
+    ).toEqual(['d1', 'd2', 'w2']);
+    expect(scrolled).toContain(row('w2'));
+  });
+
+  test('a tab dropped into another session: its real row', async () => {
+    await renderDetail('S2');
+    carry(TAB_T1);
+    table = S2_TAB_LAYOUT('t1');
+
+    moveTo(100);
+    release(100);
+    runFrames(1);
+
+    expect(scrolled).toContain(row('t1'));
+  });
+
+  test('a group dropped into another session: its real item row', async () => {
+    await renderDetail('S2');
+    carry(GROUP_G1);
+    table = S2_GROUP_LAYOUT;
+
+    moveTo(150);
+    release(150);
+    runFrames(1);
+
+    expect(scrolled).toContain(row('group:g1'));
+  });
+
+  test('a drop that moves nothing follows nothing', async () => {
+    await renderDetail('S1');
+    carry(WINDOW_W1);
+    table = {
+      'row:carried:w1': [0, 32],
+      'win:carried:w1': [0, 32],
+      'row:w2': [40, 32],
+      'win:w2': [40, 32],
+    };
+
+    moveTo(20);
+    release(20);
+    runFrames(1);
+
+    // The premise: it was a release the list judged, and the carry is over.
+    expect(currentCarry()).toBeNull();
+    expect(scrolled).toEqual([]);
+  });
+});
+
 describe('a long opened session', () => {
   test('auto-scrolls while adopted, and the drop lands below the fold', async () => {
     paneH = 150;

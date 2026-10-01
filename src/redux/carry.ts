@@ -131,6 +131,7 @@ export type CarryOutcome = 'committed' | 'cancelled';
 // list never shows at the wrong scroll.
 export function endCarry(outcome: CarryOutcome): void {
   if (carry === null) return;
+  outcomes.set(carry.carried, outcome);
   carry = null;
   const restore = restoreOnCancel;
   restoreOnCancel = null;
@@ -144,6 +145,18 @@ export function endCarry(outcome: CarryOutcome): void {
       requestAnimationFrame(restore);
     }
   }
+}
+
+// How each carry ended, by what it carried: the ref is one object for the
+// whole carry (moveCarry and setCarryOwner keep it). Weak, so a carry long
+// over is not kept.
+const outcomes = new WeakMap<CarriedRef, CarryOutcome>();
+
+// How the carry of `carried` ended: undefined while it is still on, or if it
+// never was. For a caller that let something else end it -- an adopted drag
+// whose list committed the move -- and has to know which way it went.
+export function carryEndedAs(carried: CarriedRef): CarryOutcome | undefined {
+  return outcomes.get(carried);
 }
 
 export function useCarry(): Carry | null {

@@ -448,8 +448,10 @@ export interface RowDragAreaProps {
   carryOut?: (rowId: string) => CarryOut | null;
   /**
    * The row that stands in for a carried item this list can take (KAN-350):
-   * a PHANTOM the list draws while the carry is on, keyed by the carried
-   * item's own id. Only on the list whose kind matches what is carried.
+   * a PHANTOM the list draws while the carry is on. Its id is NOT the carried
+   * item's own: it is `carried:` + that id (carriedRowId), so the phantom is
+   * never the same row as the item, which its source may still draw. Only on
+   * the list whose kind matches what is carried.
    *
    * While a carry is on and the layer drives it, the pointer coming into
    * this row's pane (the nearest `overflow: auto` box, on both axes) makes
@@ -466,6 +468,14 @@ export interface RowDragAreaProps {
    * its footprint kept, whether or not it is held.
    */
   adoptRowId?: string;
+  /**
+   * The id of the row the adopted item lands as: the carried item's own row
+   * in this list (landedRowId), which exists only once the committed move
+   * has re-rendered the list. After a committed adopted drop the area follows
+   * THAT row into view on the next frame (KAN-155), because the phantom it
+   * dragged is gone by then. A drop that moved nothing follows nothing.
+   */
+  adoptedRowLandsAs?: string;
   /**
    * Called while the drag is live whenever the window a release would land
    * in changes -- undefined where it would be refused -- and once with
