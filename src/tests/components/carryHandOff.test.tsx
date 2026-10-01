@@ -271,7 +271,10 @@ describe('any other exit is today’s drag', () => {
     fireEvent.pointerMove(document, { clientX: 10, clientY: PANE.bottom + 20 });
     runFrames(3);
 
-    expect(carryOut).not.toHaveBeenCalled();
+    // Since KAN-354 every drag on a list with carryOut asks it once, at
+    // activation, for the card it shows: "no hand-off" is "not asked a
+    // second time". currentCarry() null below is the direct proof.
+    expect(carryOut).toHaveBeenCalledTimes(1);
     expect(currentCarry()).toBeNull();
     expect(heldMarker()).not.toBeNull();
     expect(pane.scrollTop).toBeGreaterThan(0);
@@ -287,7 +290,7 @@ describe('any other exit is today’s drag', () => {
     fireEvent.pointerMove(document, { clientX: 10, clientY: PANE.top - 20 });
     runFrames(3);
 
-    expect(carryOut).not.toHaveBeenCalled();
+    expect(carryOut).toHaveBeenCalledTimes(1);
     expect(currentCarry()).toBeNull();
     expect(heldMarker()).not.toBeNull();
     expect(pane.scrollTop).toBeLessThan(30);
@@ -307,7 +310,7 @@ describe('any other exit is today’s drag', () => {
     // Past B's midpoint (45), beside the pane.
     fireEvent.pointerMove(document, { clientX: BESIDE, clientY: 50 });
 
-    expect(carryOut).not.toHaveBeenCalled();
+    expect(carryOut).toHaveBeenCalledTimes(1);
     expect(currentCarry()).toBeNull();
     expect(heldMarker()).not.toBeNull();
     expect(isDragHeld()).toBe(true);
