@@ -6,6 +6,11 @@ import {
   DraggableRow,
 } from '../../components/home/rightpane/rowDrag/RowDragArea';
 import WindowEntryContainer from '../../components/home/rightpane/WindowEntryContainer';
+import {
+  decideNewWindowRoom,
+  publishNewWindowFree,
+  setDragNewWindow,
+} from '../../components/home/rightpane/rowDrag/dropRules';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { setHasTabGroupsPermission } from '../../redux/slices/globalStateSlice';
 import type { tabData } from '../../redux/slices/tabContainerDataStateSlice';
@@ -37,8 +42,12 @@ const box = (top: number, height: number) =>
     toJSON: () => ({}),
   }) as DOMRect;
 
-const Harness = () => (
-  <RowDragArea rowIds={['a', 'b', 'c']} onMove={() => undefined}>
+const Harness = ({ offersNewWindow }: { offersNewWindow?: boolean }) => (
+  <RowDragArea
+    rowIds={['a', 'b', 'c']}
+    onMove={() => undefined}
+    offersNewWindow={offersNewWindow}
+  >
     {['a', 'b', 'c'].map((id) => (
       <DraggableRow key={id} rowId={id}>
         <div>Row {id}</div>
@@ -63,9 +72,14 @@ const release = (y: number) =>
   fireEvent.pointerUp(document, { clientX: 10, clientY: y });
 
 const isDragging = () => document.documentElement.hasAttribute('data-dragging');
+// KAN-361. The New window marker, published beside the kind by a list that
+// offers a new window.
+const offersNewWindow = () =>
+  document.documentElement.hasAttribute('data-drag-new-window');
 
 afterEach(() => {
   document.documentElement.removeAttribute('data-dragging');
+  document.documentElement.removeAttribute('data-drag-new-window');
 });
 
 describe('a drag publishes a flag on the document', () => {
@@ -108,23 +122,151 @@ describe('a drag publishes a flag on the document', () => {
 });
 
 describe('a drag interrupted by unmount', () => {
+  // KAN-159's path, for the New window marker too (KAN-361): a list that
+  // unmounts mid-drag -- its session removed by a sync or a delete elsewhere
+  // -- must not leave the toolbar row's controls hidden behind the target.
   test('does not leave the document flagged', () => {
-    const { unmount } = render(<Harness />);
+    const { unmount } = render(<Harness offersNewWindow />);
     layout();
 
     press('a', 15);
     moveTo(50);
     expect(isDragging()).toBe(true);
+    expect(offersNewWindow()).toBe(true);
 
     unmount();
 
     expect(isDragging()).toBe(false);
+    expect(offersNewWindow()).toBe(false);
   });
 });
 
 // KAN-135. The stylesheet hides the strips during a drag, so it needs a stable
 // hook to find them by -- the reveal itself is an emotion class keyed on React
 // state, which no stylesheet can select.
+// KAN-366 Q4. The marker's value `room` grows the list's trailing block by a
+// row (App.css). Only for a list that already scrolls when the row is
+// pressed: in one that fits, the room would make it scroll, and the
+// scrollbar that appeared would narrow every row at the pick-up.
+describe('the New window marker asks for room only in a list that scrolls', () => {
+  const marker = () =>
+    document.documentElement.getAttribute('data-drag-new-window');
+  const inScroller = (scrollHeight: number) => {
+    const { container } = render(
+      <div style={{ overflowY: 'auto' }}>
+        <Harness offersNewWindow />
+      </div>
+    );
+    const scroller = container.firstElementChild;
+    if (!(scroller instanceof HTMLElement)) throw new Error('no scroller');
+    Object.defineProperty(scroller, 'clientHeight', { value: 100 });
+    Object.defineProperty(scroller, 'scrollHeight', { value: scrollHeight });
+    layout();
+  };
+
+  test.each([
+    ['scrolls at the press: room', 500, 'room'],
+    ['fits, to the pixel: none', 100, ''],
+  ])('%s', (_what, scrollHeight, value) => {
+    inScroller(scrollHeight);
+    press('a', 15);
+    moveTo(50);
+    expect(marker()).toBe(value);
+    release(50);
+    expect(marker()).toBeNull();
+  });
+});
+
+// KAN-366 Q4, ruling 1. The list a carry shows decides the room again, from
+// its own overflow at rest -- the room taken off first, so a list that
+// scrolls only because of the room is a list that fits.
+describe('decideNewWindowRoom: the room from the shown list’s own overflow', () => {
+  const marker = () =>
+    document.documentElement.getAttribute('data-drag-new-window');
+  afterEach(() => setDragNewWindow(false));
+  // A scroller that overflows by `over` px whatever the marker says, plus
+  // the room's 34 while the marker asks for it.
+  const scroller = (over: number) => {
+    const el = document.createElement('div');
+    Object.defineProperty(el, 'clientHeight', { value: 100 });
+    Object.defineProperty(el, 'scrollHeight', {
+      get: () => 100 + over + (marker() === 'room' ? 34 : 0),
+    });
+    return el;
+  };
+
+  test('a list that scrolls at rest: room', () => {
+    setDragNewWindow(true);
+    decideNewWindowRoom(scroller(1));
+    expect(marker()).toBe('room');
+  });
+  test('a list that fits, though the room it was given makes it scroll: none', () => {
+    setDragNewWindow(true, true);
+    // PREMISE: with the room it scrolls.
+    expect(scroller(0).scrollHeight).toBeGreaterThan(100);
+    decideNewWindowRoom(scroller(0));
+    expect(marker()).toBe('');
+  });
+  test('with no marker, none is written', () => {
+    decideNewWindowRoom(scroller(500));
+    expect(marker()).toBeNull();
+  });
+});
+
+// KAN-366 Q4, R3. In a list that fits, the space free below the last window,
+// which the engine's under-half-a-row rule reads: from the block's top to the
+// bottom of the pane's content box, published on the document.
+describe('publishNewWindowFree: the space free below the last window', () => {
+  const free = () =>
+    document.documentElement.style.getPropertyValue('--new-window-free');
+  afterEach(() => setDragNewWindow(false));
+  // A pane at 100..400 (inner height 300, a 1px top border) holding a
+  // trailing block whose top is at `top`.
+  const paneWith = (top: number, over = 0) => {
+    const pane = document.createElement('div');
+    const block = document.createElement('div');
+    block.setAttribute('data-new-window-target', 'last');
+    pane.append(block);
+    Object.defineProperty(pane, 'clientTop', { value: 1 });
+    Object.defineProperty(pane, 'clientHeight', { value: 300 });
+    Object.defineProperty(pane, 'scrollHeight', { value: 300 + over });
+    pane.getBoundingClientRect = () =>
+      DOMRect.fromRect({ y: 100, height: 302 });
+    block.getBoundingClientRect = () => DOMRect.fromRect({ y: top });
+    return pane;
+  };
+
+  test('a list that fits: the space from the block to the pane’s inner bottom', () => {
+    setDragNewWindow(true);
+    publishNewWindowFree(paneWith(377), false);
+    // 100 + 1 + 300 - 377.
+    expect(free()).toBe('24px');
+  });
+  test('a list given room: none, so nothing is capped', () => {
+    setDragNewWindow(true);
+    publishNewWindowFree(paneWith(377), false);
+    // PREMISE: published.
+    expect(free()).toBe('24px');
+    publishNewWindowFree(paneWith(377), true);
+    expect(free()).toBe('');
+  });
+  test('decideNewWindowRoom publishes it for a shown list that fits, and none for one that scrolls', () => {
+    setDragNewWindow(true);
+    decideNewWindowRoom(paneWith(301));
+    expect(free()).toBe('100px');
+    decideNewWindowRoom(paneWith(301, 50));
+    expect(free()).toBe('');
+  });
+  test('the marker going off clears it', () => {
+    setDragNewWindow(true);
+    publishNewWindowFree(paneWith(377), false);
+    // PREMISE: published.
+    expect(free()).toBe('24px');
+    setDragNewWindow(false);
+    expect(free()).toBe('');
+  });
+});
+
 describe('a tab row marks its action strip for the stylesheet', () => {
   const TABS: tabData[] = [
     { tabId: 't1', favicon: '', title: 'One', url: 'https://one.test' },

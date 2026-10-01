@@ -5,6 +5,7 @@ import type {
   windowGroupData,
 } from '../../redux/slices/tabContainerDataStateSlice';
 import { groupItemIdOf, partitionTabsIntoRuns } from './tabGroups';
+import { NEW_LAST_WINDOW } from '../../components/home/rightpane/newWindowTarget';
 
 // A session as the detail draws it: its id and its windows, with nothing that
 // states a size. The counts are left out on purpose -- a view with an item
@@ -95,17 +96,12 @@ export function isCarriedStillThere(
   }
 }
 
-// The window a carried tab or group stands in while the detail offers a
-// landing for it: S3 A's New window target, drawn first. Not a uuid, so it
-// cannot be any stored window's id.
-export const CARRY_NEW_WINDOW_ID = 'carry:new-window';
-
 // What a phantom row's ids are made from: the carried item's own, prefixed,
 // so the phantom is never the same row as the item -- which its source still
 // has in the store, and which the source's list may still draw (Q2 A shows
 // the target in the source too). The engine keys rows by id, and two rows
-// under one key is one row to it. Distinct from CARRY_NEW_WINDOW_ID's prefix,
-// so no carried window's phantom can be the synthetic window.
+// under one key is one row to it. Distinct from NEW_LAST_WINDOW's prefix, so
+// no carried window's phantom can be the window a tab or group rests in.
 const PHANTOM_ID_PREFIX = 'carried:';
 const phantomIdOf = (id: string) => `${PHANTOM_ID_PREFIX}${id}`;
 
@@ -189,7 +185,7 @@ function phantomWindowOf(
     groups: NonNullable<windowGroupData['chromeTabGroups']>
   ): windowGroupData => ({
     ...from,
-    windowId: CARRY_NEW_WINDOW_ID,
+    windowId: NEW_LAST_WINDOW,
     title: '',
     tabCount: tabs.length,
     ...asPhantom(tabs, groups),
@@ -248,10 +244,10 @@ function carriedIdsIn(
 /**
  * The session `shownId` names, as the detail draws it while `carried` is
  * carried AND can land in it at an exact spot: carriedView's session, with
- * the carried item drawn first as a PHANTOM the drag engine adopts -- a tab
- * or group inside a synthetic first window (CARRY_NEW_WINDOW_ID, the New
- * window target), a window as the first window. Its rows go by phantom ids
- * (carriedRowId), never the item's own.
+ * the carried item drawn as a PHANTOM the drag engine adopts -- a tab or
+ * group inside a synthetic LAST window (NEW_LAST_WINDOW: the list's trailing
+ * block, KAN-361/366), a window as the first window. Its rows go by phantom
+ * ids (carriedRowId), never the item's own.
  *
  * Null when the session offers no exact spot: no session has that id, the
  * store no longer holds the carried item, or one of the item's ids is one
@@ -276,5 +272,12 @@ export function landingView(
   for (const id of carriedIdsIn(tabGroups, carried)) {
     if (held.has(id)) return null;
   }
-  return { tabGroupId: shown.tabGroupId, windows: [phantom, ...shown.windows] };
+  // A window's phantom is a window row, first. A tab's or group's rests in
+  // the trailing block, after every window, so drawing it moves no row of
+  // the session (KAN-361 N1 B: the New window target is in the header now).
+  const windows =
+    carried.kind === 'window'
+      ? [phantom, ...shown.windows]
+      : [...shown.windows, phantom];
+  return { tabGroupId: shown.tabGroupId, windows };
 }

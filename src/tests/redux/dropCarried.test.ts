@@ -31,20 +31,30 @@ import {
   dropCarriedTab,
   dropCarriedWindow,
 } from '../../redux/dropCarried';
-import { CARRY_NEW_WINDOW_ID } from '../../utils/functions/carriedView';
+import {
+  NEW_FIRST_WINDOW,
+  NEW_LAST_WINDOW,
+} from '../../components/home/rightpane/newWindowTarget';
 import {
   T0,
   container,
+  group,
+  s1,
+  s2,
+  s3,
+  session,
   sessionIn,
+  tab,
   tabIds,
+  win,
   windowIds,
   windowIn,
 } from '../fixtures/sessionMoveFixture';
 
 // KAN-350 Task 5. A carried item let go at an exact spot in the session on
 // screen, or on its New window target. Three routes:
-//   - the synthetic window (CARRY_NEW_WINDOW_ID): moveToSession, as a new
-//     first window;
+//   - the session header's New window target (NEW_FIRST_WINDOW, KAN-361):
+//     moveToSession, as a new first window;
 //   - the session on screen is the item's own: today's tabDrop / groupDrop /
 //     windowDrop, from the item's ORIGINAL window, so their no-op guards and
 //     prune rules are unchanged (plan Decision);
@@ -198,25 +208,6 @@ describe('a carried tab', () => {
     expect(moved).toBe(false);
     expect(data(store)).toBe(before);
   });
-
-  it.each([
-    ['another session', 'S2'],
-    ['its own session', 'S1'],
-  ])('on the New window target in %s: a new first window', (_what, shown) => {
-    const store = ready(container(undefined, shown));
-    const moved = store.dispatch(
-      dropCarriedTab(T1, {
-        tabGroupId: shown,
-        toWindowId: CARRY_NEW_WINDOW_ID,
-        toIndex: 0,
-      })
-    );
-    expect(moved).toBe(true);
-    const first = sessionIn(data(store), shown).windows[0];
-    expect(tabIds(first)).toEqual(['t1']);
-    expect(first.windowId).not.toBe(CARRY_NEW_WINDOW_ID);
-    expect(toasts(store)).toEqual([]);
-  });
 });
 
 describe('a carried group', () => {
@@ -257,20 +248,6 @@ describe('a carried group', () => {
       't3',
     ]);
   });
-
-  it('on the New window target: a new first window with its entry', () => {
-    const store = ready();
-    store.dispatch(
-      dropCarriedGroup(G1, {
-        tabGroupId: 'S2',
-        toWindowId: CARRY_NEW_WINDOW_ID,
-        toIndex: 0,
-      })
-    );
-    const first = sessionIn(data(store), 'S2').windows[0];
-    expect(tabIds(first)).toEqual(['g1a', 'g1b']);
-    expect(first.chromeTabGroups?.map((g) => g.groupId)).toEqual(['g1']);
-  });
 });
 
 describe('a carried window', () => {
@@ -299,6 +276,133 @@ describe('a carried window', () => {
     const before = data(store);
     const moved = store.dispatch(
       dropCarriedWindow(W1, { tabGroupId: 'S1', toIndex: 0 })
+    );
+    expect(moved).toBe(false);
+    expect(data(store)).toBe(before);
+  });
+});
+
+// KAN-361 (N1 B). The session header's New window target names its own
+// window, NEW_FIRST_WINDOW: a new first window of the session on screen, one
+// move, no toast.
+describe('on the header’s New window target (KAN-361)', () => {
+  it.each([
+    ['another session', 'S2'],
+    ['its own session', 'S1'],
+  ])('a carried tab, in %s: a new first window', (_what, shown) => {
+    const store = ready(container(undefined, shown));
+    const moved = store.dispatch(
+      dropCarriedTab(T1, {
+        tabGroupId: shown,
+        toWindowId: NEW_FIRST_WINDOW,
+        toIndex: 0,
+      })
+    );
+    expect(moved).toBe(true);
+    const first = sessionIn(data(store), shown).windows[0];
+    expect(tabIds(first)).toEqual(['t1']);
+    expect(first.windowId).not.toBe(NEW_FIRST_WINDOW);
+    expect(tabIds(windowIn(data(store), 'S1', 'w1'))).not.toContain('t1');
+    expect(toasts(store)).toEqual([]);
+  });
+
+  it('a carried group: a new first window with its entry', () => {
+    const store = ready();
+    const moved = store.dispatch(
+      dropCarriedGroup(G1, {
+        tabGroupId: 'S2',
+        toWindowId: NEW_FIRST_WINDOW,
+        toIndex: 0,
+      })
+    );
+    expect(moved).toBe(true);
+    const first = sessionIn(data(store), 'S2').windows[0];
+    expect(tabIds(first)).toEqual(['g1a', 'g1b']);
+    expect(first.chromeTabGroups?.map((g) => g.groupId)).toEqual(['g1']);
+    expect(first.windowId).not.toBe(NEW_FIRST_WINDOW);
+    expect(toasts(store)).toEqual([]);
+  });
+});
+
+// KAN-366 B. Below the last window, the list's trailing block names its own
+// window, NEW_LAST_WINDOW -- where an adopted phantom rests, so a release at
+// its own place lands here too: a new LAST window of the session on screen,
+// one move, no toast.
+describe('in the list’s trailing block (KAN-366 B)', () => {
+  it.each([
+    ['another session', 'S2', ['d1', 'd2']],
+    ['its own session', 'S1', ['w1', 'w2']],
+  ])('a carried tab, in %s: a new last window', (_what, shown, kept) => {
+    const store = ready(container(undefined, shown));
+    const moved = store.dispatch(
+      dropCarriedTab(T1, {
+        tabGroupId: shown,
+        toWindowId: NEW_LAST_WINDOW,
+        toIndex: 0,
+      })
+    );
+    expect(moved).toBe(true);
+    const windows = sessionIn(data(store), shown).windows;
+    // Every window it had, in its order, then the new one.
+    expect(windows.slice(0, -1).map((w) => w.windowId)).toEqual(kept);
+    const last = windows[windows.length - 1];
+    expect(tabIds(last)).toEqual(['t1']);
+    expect(last.windowId).not.toBe(NEW_LAST_WINDOW);
+    expect(tabIds(windowIn(data(store), 'S1', 'w1'))).not.toContain('t1');
+    expect(toasts(store)).toEqual([]);
+  });
+
+  it('a carried group: a new last window with its entry', () => {
+    const store = ready();
+    const moved = store.dispatch(
+      dropCarriedGroup(G1, {
+        tabGroupId: 'S2',
+        toWindowId: NEW_LAST_WINDOW,
+        toIndex: 0,
+      })
+    );
+    expect(moved).toBe(true);
+    const windows = sessionIn(data(store), 'S2').windows;
+    expect(windows.slice(0, -1).map((w) => w.windowId)).toEqual(['d1', 'd2']);
+    const last = windows[windows.length - 1];
+    expect(tabIds(last)).toEqual(['g1a', 'g1b']);
+    expect(last.chromeTabGroups?.map((g) => g.groupId)).toEqual(['g1']);
+    expect(toasts(store)).toEqual([]);
+  });
+
+  // The worst path: the sole tab of its session's LAST window, let go in its
+  // own session's trailing block. The new last window would stand exactly
+  // where that window stands, holding exactly it: no move (Task 1's guard).
+  it('the sole tab of its own last window: no move, and it says so', () => {
+    const store = ready(container(undefined, 'S1'));
+    const before = data(store);
+    // PREMISE: t3 is w2's only tab, and w2 is S1's last window.
+    expect(tabIds(windowIn(before, 'S1', 'w2'))).toEqual(['t3']);
+    expect(windowIds(sessionIn(before, 'S1')).slice(-1)).toEqual(['w2']);
+    const moved = store.dispatch(
+      dropCarriedTab(
+        { ...T1, windowId: 'w2', tabId: 't3' },
+        { tabGroupId: 'S1', toWindowId: NEW_LAST_WINDOW, toIndex: 0 }
+      )
+    );
+    expect(moved).toBe(false);
+    expect(data(store)).toBe(before);
+  });
+
+  // The same for a GROUP that is all its session's last window: the new
+  // last window would hold exactly that window's tabs and entry.
+  it('the sole group of its own last window: no move, and it says so', () => {
+    const grouped = session('S9', 'Grouped', T0, [
+      win('w9a', [tab('t9')]),
+      win('w9b', [tab('g9a', 'g9'), tab('g9b', 'g9')], [group('g9')]),
+    ]);
+    const store = ready(container([s3(), s2(), s1(), grouped], 'S9'));
+    const before = data(store);
+    const moved = store.dispatch(
+      dropCarriedGroup(
+        { kind: 'group', tabGroupId: 'S9', windowId: 'w9b', groupId: 'g9' },
+        { tabGroupId: 'S9', toWindowId: NEW_LAST_WINDOW, toIndex: 0 }
+      )
     );
     expect(moved).toBe(false);
     expect(data(store)).toBe(before);

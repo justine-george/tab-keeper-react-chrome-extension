@@ -87,6 +87,59 @@ body {
   display: none !important;
 }
 
+/* KAN-361 (N1 B). While a saved tab or group is dragged, ordinary or carried,
+   the New window target stands in the session header's toolbar row in place
+   of its controls. The target is always drawn over the row, hidden at rest
+   (HeroContainerRight), so the swap is two visibilities and the same box:
+   nothing in the header or the list moves.
+
+   CSS keyed on a document attribute, not React state, for the reasons the
+   window fold above is (KAN-153): the drag engine writes data-drag-new-window
+   in activate, BEFORE it measures, so the layout it measures is the one the
+   drag is drawn in, and the swap is in force in the frame the drag starts. A
+   render would lag it: an update made from a native pointermove is rendered
+   as a later task, after that frame is painted (KAN-355, KAN-359). Measured
+   with the attribute written from a layout effect instead: two frames of
+   every pick-up drew the drag with the controls still up. The carry writes
+   the same attribute for its whole life (carry.ts), so the target stays
+   through a hand-off and a spring-open.
+
+   Not keyed on data-dragging: a window drag makes no new window, and Open
+   now's lists drag tabs too (RowDragAreaProps.offersNewWindow). */
+[data-drag-new-window] [data-session-toolbar] > :not([data-new-window-target]) {
+  visibility: hidden;
+}
+[data-drag-new-window] [data-new-window-target='first'] {
+  visibility: visible;
+}
+
+/* KAN-361/366 (Q4). In the same drags, when the list already scrolls at rest,
+   its trailing block -- the empty block after its last window
+   (TabGroupDetailsContainer), zero height at rest -- takes its border and one
+   row of room, so a full list scrolled to its end has a place below its last
+   window. Keyed on the same attribute's value `room`, for the same reason: on
+   before the engine measures, so the drag is measured with the room already
+   there, and drawn in the frame the drag starts. Never for a list that fits:
+   the room would make it scroll, and the scrollbar that appears would narrow
+   every row at the pick-up (setDragNewWindow).
+
+   The room is a blank row (data-new-window-room) when nothing rests in the
+   block, and the carried item's phantom when one does: one row either way,
+   so a carry starting moves nothing. Selectors one step more specific than
+   the block's own emotion class, which is injected later and would
+   otherwise win on order. Blank until lit (WindowEntryContainer).
+
+   During a carry, the session it shows decides again, from its own overflow
+   at rest (decideNewWindowRoom): never the room the carry brought with it. */
+[data-drag-new-window='room'] [data-new-window-target='last'] {
+  border-width: 1.5px;
+}
+[data-drag-new-window='room']
+  [data-new-window-target='last']
+  [data-new-window-room] {
+  display: block;
+}
+
 ::-webkit-scrollbar {
   width: 10px;
 }

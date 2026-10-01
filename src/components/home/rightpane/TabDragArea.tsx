@@ -61,11 +61,15 @@ export const TabDragArea: React.FC<{
       // (KAN-350, KAN-352).
       carryOut={carryOut}
       // Back in the pane, the carried item's phantom becomes this list's
-      // drag, and the New window target lights up while it would land there
-      // (KAN-350).
+      // drag. A New window target -- the header's, or the trailing block
+      // below the last window -- lights up while a release would land in it
+      // (KAN-350, KAN-361, KAN-366 B).
       adoptRowId={adoptRowId}
       adoptedRowLandsAs={adoptedRowLandsAs}
       onLandingWindowChange={markNewWindowTarget}
+      // From pick-up, the toolbar row's New window target stands in for the
+      // session header's controls (KAN-361 N1 B).
+      offersNewWindow
       // The mode, not the box's contents -- see KAN-140 on
       // TabGroupEntryContainer for why this is not isFilteredView.
       disabled={isSearchPanel}

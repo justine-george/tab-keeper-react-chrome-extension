@@ -1,10 +1,13 @@
 // KAN-350. A carried item let go at an exact spot in the session on
 // screen, after the drag engine adopted it (RowDragArea's adoptRowId). One
-// thunk per kind, each taking the spot as the detail DRAWS it -- the
-// synthetic New window target included -- and routing it:
+// thunk per kind, each taking the spot as the detail DRAWS it, and routing
+// it:
 //
-//   - on the New window target (CARRY_NEW_WINDOW_ID): moveToSession, as a new
-//     first window (S3 A), whichever session is on screen (Q2 A);
+//   - on a New window target: moveToSession, as a new window of whichever
+//     session is on screen (Q2 A) -- first on the session header's
+//     (NEW_FIRST_WINDOW, KAN-361 N1 B, S3 A), last in the list's trailing
+//     block (NEW_LAST_WINDOW, KAN-366 B), which is where an adopted
+//     phantom rests, so a release at its own place makes a new last window;
 //   - in the item's OWN session: today's tabDrop / groupDrop / windowDrop,
 //     from the item's original window, so their no-op guards and prune rules
 //     are unchanged (plan Decision). The detail drew the session with the
@@ -22,7 +25,7 @@ import { groupDrop, intoNewWindow, tabDrop, windowDrop } from './dropSpecs';
 import { moveToSession } from './moveToSession';
 import type { CarriedRef } from './slices/tabContainerDataStateSlice';
 import type { RootState } from './store';
-import { CARRY_NEW_WINDOW_ID } from '../utils/functions/carriedView';
+import { newWindowPlacement } from '../components/home/rightpane/newWindowTarget';
 
 type Moved = ThunkAction<boolean, RootState, unknown, UnknownAction>;
 
@@ -42,10 +45,11 @@ export const dropCarriedTab =
   ): Moved =>
   (dispatch) => {
     const { tabGroupId, toWindowId, toIndex, toChromeGroupId } = spot;
-    if (toWindowId === CARRY_NEW_WINDOW_ID) {
+    const at = newWindowPlacement(toWindowId);
+    if (at !== undefined) {
       return dispatch(
         moveToSession({
-          move: { carried, to: intoNewWindow(tabGroupId) },
+          move: { carried, to: intoNewWindow(tabGroupId, at) },
           announceMoved: false,
         })
       );
@@ -80,10 +84,11 @@ export const dropCarriedGroup =
   (carried: Extract<CarriedRef, { kind: 'group' }>, spot: CarriedSpot): Moved =>
   (dispatch) => {
     const { tabGroupId, toWindowId, toIndex } = spot;
-    if (toWindowId === CARRY_NEW_WINDOW_ID) {
+    const at = newWindowPlacement(toWindowId);
+    if (at !== undefined) {
       return dispatch(
         moveToSession({
-          move: { carried, to: intoNewWindow(tabGroupId) },
+          move: { carried, to: intoNewWindow(tabGroupId, at) },
           announceMoved: false,
         })
       );

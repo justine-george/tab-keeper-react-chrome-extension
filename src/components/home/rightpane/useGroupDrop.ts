@@ -23,9 +23,11 @@ import { useDispatch } from 'react-redux';
 
 import type { AppDispatch } from '../../../redux/store';
 import { dropOnTop } from '../../../redux/dropOnTop';
-import { groupDrop } from '../../../redux/dropSpecs';
+import { groupDrop, intoNewWindow } from '../../../redux/dropSpecs';
 import { dropCarriedGroup } from '../../../redux/dropCarried';
+import { moveToSession } from '../../../redux/moveToSession';
 import { currentCarry, endCarry } from '../../../redux/carry';
+import { newWindowPlacement } from './newWindowTarget';
 import {
   partitionTabsIntoItems,
   itemIdOf,
@@ -160,6 +162,29 @@ export function useGroupDrop(
           })
         );
         endCarry(moved ? 'committed' : 'cancelled');
+        return;
+      }
+      // On a New window target: the group, its entry with it, becomes a new
+      // window of its own session -- first, from the header's (KAN-361 N1
+      // B), last, from the trailing block below the last window (KAN-366 B)
+      // -- one move and so one undo. No Moved toast: the move is on screen
+      // (S5 A).
+      const at = newWindowPlacement(move.toWindowId);
+      if (at !== undefined) {
+        dispatch(
+          moveToSession({
+            move: {
+              carried: {
+                kind: 'group',
+                tabGroupId,
+                windowId: move.fromWindowId,
+                groupId: move.groupId,
+              },
+              to: intoNewWindow(tabGroupId, at),
+            },
+            announceMoved: false,
+          })
+        );
         return;
       }
       dispatch(

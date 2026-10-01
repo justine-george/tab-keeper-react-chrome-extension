@@ -14,11 +14,19 @@
 // THE HOLD AND THE KIND ARE INHERITED, NOT TAKEN. The engine starts a carry
 // with its drag hold on and its drag kind published, and leaves both on
 // (RowDragArea's hand-off). startCarry touches neither; endCarry ends both.
+//
+// THE NEW WINDOW MARKER IS THE CARRY'S OWN (KAN-361 N1 B). A tab or group
+// can be carried into a new window, from the moment it is carried until the
+// carry ends, wherever it was picked up; a window cannot. So startCarry
+// writes the marker from what is carried, and endCarry ends it.
 import { useSyncExternalStore } from 'react';
 
 import type { CarriedRef } from './slices/tabContainerDataStateSlice';
 import { endDragHold } from './dragHold';
-import { setDragging } from '../components/home/rightpane/rowDrag/dropRules';
+import {
+  setDragging,
+  setDragNewWindow,
+} from '../components/home/rightpane/rowDrag/dropRules';
 
 // What the card that follows the pointer shows (D1 A), snapshotted when the
 // carry starts. One shape per kind, so a group always has its colour and a
@@ -79,6 +87,7 @@ export function startCarry(
 ): void {
   carry = { carried, card, x, y, owner: 'layer' };
   restoreOnCancel = onCancel ?? null;
+  setDragNewWindow(carried.kind !== 'window');
   notify();
 }
 
@@ -113,9 +122,10 @@ export function moveCarry(x: number, y: number): void {
 // is put back as a refused drag puts it back.
 export type CarryOutcome = 'committed' | 'cancelled';
 
-// Ends the carry: unpublishes the drag kind, ends the drag hold (which applies
-// every change held meanwhile), then tells subscribers. Nothing moves here --
-// a receiver that commits does so before calling this.
+// Ends the carry: unpublishes the drag kind and the New window marker, ends
+// the drag hold (which applies every change held meanwhile), then tells
+// subscribers. Nothing moves here -- a receiver that commits does so before
+// calling this.
 //
 // A no-op when nothing is carried, and that is load-bearing: the hold and the
 // kind are document-wide, and ending them for a carry that is not on would end
@@ -139,6 +149,7 @@ export function endCarry(outcome: CarryOutcome): void {
   try {
     // The engine's order at a drop: unpublish, then apply held changes.
     setDragging(false);
+    setDragNewWindow(false);
     endDragHold();
   } finally {
     notify();

@@ -21,7 +21,7 @@ import {
 // `layout` below stubs a rect for every ROW, but never for the window blocks
 // WindowEntryContainer renders around them (`[data-drop-window-id]`): those
 // keep jsdom's default zero-area rect, so no pointer position ever lands
-// inside one and blockUnderPointer (RowDragArea.tsx) always answers null. With
+// inside one and landingBlock (RowDragArea.tsx) always answers null. With
 // no block to land in, every release here falls back to the held row's OWN
 // window (dropRules.isInsideList), and a release deep inside window B's rows
 // is outside window A's own rows-plus-slack -- so it is refused, the same

@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+} from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 
 import { css } from '@emotion/react';
@@ -31,14 +37,22 @@ import { windowDrop } from '../../../redux/dropSpecs';
 import { currentCarry, endCarry, useCarried } from '../../../redux/carry';
 import { dropCarriedWindow } from '../../../redux/dropCarried';
 import {
-  CARRY_NEW_WINDOW_ID,
   carriedRowId,
   carriedView,
   landedRowId,
   landingView,
 } from '../../../utils/functions/carriedView';
 import { windowCarryOut } from './carryOut';
+import { decideNewWindowRoom } from './rowDrag/dropRules';
+import { NEW_LAST_WINDOW } from './newWindowTarget';
+import type { windowGroupData } from '../../../redux/slices/tabContainerDataStateSlice';
 import { onRevealSavedWindow } from './revealSavedWindow';
+
+// The trailing block with nothing resting in it: no title, no rows.
+const EMPTY_TRAILING_BLOCK: Pick<
+  windowGroupData,
+  'windowId' | 'title' | 'tabs' | 'chromeTabGroups'
+> = { windowId: NEW_LAST_WINDOW, title: '', tabs: [], chromeTabGroups: [] };
 
 export default function TabGroupDetailsContainer() {
   const COLORS = useThemeColors();
@@ -72,9 +86,9 @@ export default function TabGroupDetailsContainer() {
   // KAN-350. While something is carried, the session as the carry leaves it:
   // the carried item hidden from its source, so the list closes up behind it
   // -- and, where the session can take it at an exact spot, the item drawn
-  // first as a PHANTOM row (landingView): a tab or group inside the New
-  // window target, a window as the first window. The list of that kind
-  // adopts the phantom as its drag when the pointer comes in.
+  // as a PHANTOM row (landingView): a tab or group in the trailing block, a
+  // window as the first window. The list of that kind adopts the phantom as
+  // its drag when the pointer comes in.
   //
   // With nothing carried, the selected session itself -- the same object, so
   // the drag areas below see exactly what they always did. Reads only WHAT is
@@ -127,13 +141,13 @@ export default function TabGroupDetailsContainer() {
   // the session object survived. A sync replaces it, and the flag went anyway
   // (KAN-159). The flag is now cleared on unmount alone.
   //
-  // The New window target is not one of them (KAN-350): it is a window only
-  // to the tab and item lists, which may land in it, and no window drag may.
+  // The trailing block is not one of them (KAN-361/366): it is a window only
+  // to the tab and item lists, and no window drag may land in it.
   const windowIds = useMemo(
     () =>
       shownSession?.windows
         .map((w) => w.windowId)
-        .filter((id) => id !== CARRY_NEW_WINDOW_ID) ?? [],
+        .filter((id) => id !== NEW_LAST_WINDOW) ?? [],
     [shownSession]
   );
 
@@ -187,6 +201,19 @@ export default function TabGroupDetailsContainer() {
     []
   );
 
+  // KAN-366 Q4. While a tab or group is carried, the trailing block's room
+  // is the shown session's own to decide (decideNewWindowRoom): when the
+  // carry starts, and whenever it shows another session (a spring-open, or
+  // back to the source). A layout effect, so the decision is made in the
+  // commit that draws the session, before it is painted or the pointer can
+  // come in to be adopted.
+  const shownId = selectedTabGroup?.tabGroupId;
+  const isTabOrGroupCarried = carried !== null && carried.kind !== 'window';
+  useLayoutEffect(() => {
+    if (!isTabOrGroupCarried || scrollerRef.current === null) return;
+    decideNewWindowRoom(scrollerRef.current);
+  }, [isTabOrGroupCarried, shownId]);
+
   // Belt and braces: RightPane does not mount this component when the list is
   // empty, so this should be unreachable -- but it is what makes the component
   // safe on its own terms rather than safe because of its only caller (KAN-39).
@@ -227,6 +254,36 @@ export default function TabGroupDetailsContainer() {
   ) => {
     dispatch(updateWindowGroupTitle({ tabGroupId, windowId, editableTitle }));
   };
+
+  // One window's entry: every window's, and the trailing block's.
+  const entryOf = ({
+    windowId,
+    title,
+    tabs,
+    chromeTabGroups,
+  }: Pick<
+    windowGroupData,
+    'windowId' | 'title' | 'tabs' | 'chromeTabGroups'
+  >) => (
+    <WindowEntryContainer
+      title={title}
+      tabs={tabs}
+      chromeTabGroups={chromeTabGroups}
+      tabGroupId={tabGroupId}
+      windowId={windowId}
+      onUpdateWindowGroupTitle={(newTitle) =>
+        handleUpdateWindowGroupTitle(tabGroupId, windowId, newTitle)
+      }
+      onAddCurrTabToWindowClick={() =>
+        handleAddCurrTabToWindowClick(tabGroupId, windowId)
+      }
+      onDeleteClick={() => dispatch(deleteWindow({ tabGroupId, windowId }))}
+      onWindowTitleClick={() => {
+        const goToURLText: string = t('Go to URL');
+        dispatch(openTabsInAWindow({ tabGroupId, windowId, goToURLText }));
+      }}
+    />
+  );
 
   const containerStyle = css`
     display: flex;
@@ -306,40 +363,9 @@ export default function TabGroupDetailsContainer() {
                 // TabGroupEntryContainer for why this is not isFilteredView.
                 disabled={isSearchPanel}
               >
-                {shownSession.windows.map(
-                  ({ windowId, title, tabs, chromeTabGroups }) => {
-                    const entry = (
-                      <WindowEntryContainer
-                        title={title}
-                        tabs={tabs}
-                        chromeTabGroups={chromeTabGroups}
-                        tabGroupId={tabGroupId}
-                        windowId={windowId}
-                        onUpdateWindowGroupTitle={(newTitle) =>
-                          handleUpdateWindowGroupTitle(
-                            tabGroupId,
-                            windowId,
-                            newTitle
-                          )
-                        }
-                        onAddCurrTabToWindowClick={() =>
-                          handleAddCurrTabToWindowClick(tabGroupId, windowId)
-                        }
-                        onDeleteClick={() =>
-                          dispatch(deleteWindow({ tabGroupId, windowId }))
-                        }
-                        onWindowTitleClick={() => {
-                          const goToURLText: string = t('Go to URL');
-                          dispatch(
-                            openTabsInAWindow({
-                              tabGroupId,
-                              windowId,
-                              goToURLText,
-                            })
-                          );
-                        }}
-                      />
-                    );
+                {shownSession.windows
+                  .filter((w) => w.windowId !== NEW_LAST_WINDOW)
+                  .map((w) => (
                     // Keyed by windowId, not by index: WindowEntryContainer owns
                     // collapse and rename state, and an index key is identical to
                     // the positional default React already uses, so it would
@@ -366,23 +392,25 @@ export default function TabGroupDetailsContainer() {
                     // DraggableRow is what carries that key now. It replaces the
                     // plain wrapper div rather than nesting inside one: it renders
                     // exactly one element per window, so the tree keeps its shape.
-                    //
-                    // KAN-350. The New window target is no row of this list:
-                    // nothing drags it, and it drags nothing.
-                    //
-                    // A carried window's phantom shows where a drop starts
-                    // while the pointer is outside (V3 A).
-                    return windowId === CARRY_NEW_WINDOW_ID ? (
-                      <div key={windowId}>{entry}</div>
-                    ) : (
-                      <DraggableRow key={windowId} rowId={windowId}>
-                        {windowId === adoptRowIdFor('window') && (
-                          <PhantomRestingSlot />
-                        )}
-                        {entry}
-                      </DraggableRow>
-                    );
-                  }
+                    <DraggableRow key={w.windowId} rowId={w.windowId}>
+                      {/* A carried window's phantom shows where a drop
+                          starts while the pointer is outside (V3 A). */}
+                      {w.windowId === adoptRowIdFor('window') && (
+                        <PhantomRestingSlot />
+                      )}
+                      {entryOf(w)}
+                    </DraggableRow>
+                  ))}
+                {/* KAN-361/366. The trailing block, after the last window,
+                    always: empty and zero height at rest, a row tall while a
+                    tab or group is dragged (App.css, Q4), and where a carried
+                    tab's or group's phantom rests (landingView). Drawn here
+                    and nowhere else, so there is only ever one. No row of
+                    this list: nothing drags it, and no window lands in it. */}
+                {entryOf(
+                  shownSession.windows.find(
+                    (w) => w.windowId === NEW_LAST_WINDOW
+                  ) ?? EMPTY_TRAILING_BLOCK
                 )}
               </RowDragArea>
             </GroupDragArea>

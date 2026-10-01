@@ -28,7 +28,7 @@ import { resetHistory } from '../../redux/slices/undoRedoSlice';
 import { endDragHold } from '../../redux/dragHold';
 import { moveToSession } from '../../redux/moveToSession';
 import { dropCarriedGroup, dropCarriedTab } from '../../redux/dropCarried';
-import { CARRY_NEW_WINDOW_ID } from '../../utils/functions/carriedView';
+import { NEW_FIRST_WINDOW } from '../../components/home/rightpane/newWindowTarget';
 import { makeTestStore } from '../setup/makeStore';
 import {
   T0,
@@ -130,7 +130,7 @@ describe('a new window in its own session that would change nothing', () => {
     expect(
       moved(before, {
         carried: LONE,
-        to: { tabGroupId: 'S9', newWindowId: 'nw' },
+        to: { tabGroupId: 'S9', newWindowId: 'nw', at: 'first' },
       })
     ).toBe(before);
     expect(localStorage.getItem('tabContainerData')).toBeNull();
@@ -143,7 +143,7 @@ describe('a new window in its own session that would change nothing', () => {
     expect(
       moved(before, {
         carried: WHOLE_GROUP,
-        to: { tabGroupId: 'G9', newWindowId: 'nw' },
+        to: { tabGroupId: 'G9', newWindowId: 'nw', at: 'first' },
       })
     ).toBe(before);
     expect(localStorage.getItem('tabContainerData')).toBeNull();
@@ -154,7 +154,7 @@ describe('a new window in its own session that would change nothing', () => {
     s.windows.reverse();
     const next = moved(seeded(container([s, s3()])), {
       carried: LONE,
-      to: { tabGroupId: 'S9', newWindowId: 'nw' },
+      to: { tabGroupId: 'S9', newWindowId: 'nw', at: 'first' },
     });
 
     expect(windowIds(sessionIn(next, 'S9'))).toEqual(['nw', 'w2']);
@@ -168,7 +168,7 @@ describe('a new window in its own session that would change nothing', () => {
     ]);
     const next = moved(seeded(container([s, s3()])), {
       carried: LONE,
-      to: { tabGroupId: 'S9', newWindowId: 'nw' },
+      to: { tabGroupId: 'S9', newWindowId: 'nw', at: 'first' },
     });
 
     const first = sessionIn(next, 'S9').windows[0];
@@ -184,7 +184,7 @@ describe('a new window in its own session that would change nothing', () => {
     s.tabCount = 4;
     const next = moved(seeded(container([s, s3()])), {
       carried: WHOLE_GROUP,
-      to: { tabGroupId: 'G9', newWindowId: 'nw' },
+      to: { tabGroupId: 'G9', newWindowId: 'nw', at: 'first' },
     });
 
     expect(windowIds(sessionIn(next, 'G9'))).toEqual(['nw', 'gw', 'w2']);
@@ -192,17 +192,55 @@ describe('a new window in its own session that would change nothing', () => {
   });
 });
 
+// The same rule for a new LAST window: it is a no-op where the item's window
+// is already last, and a real move anywhere else (a first window made last).
+describe('a new LAST window in its own session that would change nothing', () => {
+  it('a lone tab already alone in the last window: the very same state, nothing saved', () => {
+    const s = s9();
+    s.windows.reverse();
+    const before = seeded(container([s, s3()]));
+    localStorage.clear();
+
+    expect(
+      moved(before, {
+        carried: LONE,
+        to: { tabGroupId: 'S9', newWindowId: 'nw', at: 'last' },
+      })
+    ).toBe(before);
+    expect(localStorage.getItem('tabContainerData')).toBeNull();
+  });
+
+  it('CONTROL: the same lone tab in the FIRST window is a move: it becomes last', () => {
+    const next = moved(seeded(container([s9(), s3()])), {
+      carried: LONE,
+      to: { tabGroupId: 'S9', newWindowId: 'nw', at: 'last' },
+    });
+
+    expect(windowIds(sessionIn(next, 'S9'))).toEqual(['w2', 'nw']);
+    expect(tabIds(sessionIn(next, 'S9').windows[1])).toEqual(['lone']);
+  });
+
+  it('CONTROL: a group that is its first window’s whole content is a move to last', () => {
+    const next = moved(seeded(container([g9(), s3()])), {
+      carried: WHOLE_GROUP,
+      to: { tabGroupId: 'G9', newWindowId: 'nw', at: 'last' },
+    });
+
+    expect(windowIds(sessionIn(next, 'G9'))).toEqual(['w2', 'nw']);
+  });
+});
+
 // Every route that makes a new window reaches the same reducer, so each one
 // declines, and says it moved nothing: the carry then ends as a cancel.
 describe('the routes to a new window decline it too', () => {
-  it('the New window target in the source (Q2 A), for a lone tab', () => {
+  it('the header’s New window target in the source (Q2 A), for a lone tab', () => {
     const store = ready(container([s9(), s3()], 'S9'));
     const before = data(store);
 
     const result = store.dispatch(
       dropCarriedTab(LONE, {
         tabGroupId: 'S9',
-        toWindowId: CARRY_NEW_WINDOW_ID,
+        toWindowId: NEW_FIRST_WINDOW,
         toIndex: 0,
       })
     );
@@ -213,14 +251,14 @@ describe('the routes to a new window decline it too', () => {
     expect(store.getState().undoRedo.past).toHaveLength(0);
   });
 
-  it('the New window target in the source (Q2 A), for a whole-window group', () => {
+  it('the header’s New window target in the source (Q2 A), for a whole-window group', () => {
     const store = ready(container([g9(), s3()], 'G9'));
     const before = data(store);
 
     const result = store.dispatch(
       dropCarriedGroup(WHOLE_GROUP, {
         tabGroupId: 'G9',
-        toWindowId: CARRY_NEW_WINDOW_ID,
+        toWindowId: NEW_FIRST_WINDOW,
         toIndex: 0,
       })
     );
@@ -274,7 +312,10 @@ describe('moveToSession says whether anything moved', () => {
     const before = data(store);
     const result = store.dispatch(
       moveToSession({
-        move: { carried: LONE, to: { tabGroupId: 'S9', newWindowId: 'nw' } },
+        move: {
+          carried: LONE,
+          to: { tabGroupId: 'S9', newWindowId: 'nw', at: 'first' },
+        },
         announceMoved: true,
       })
     );

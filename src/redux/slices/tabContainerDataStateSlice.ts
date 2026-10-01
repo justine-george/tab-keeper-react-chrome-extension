@@ -326,8 +326,11 @@ export type CarriedRef =
   | { kind: 'group'; tabGroupId: string; windowId: string; groupId: string }
   | { kind: 'window'; tabGroupId: string; windowId: string };
 
+// Where a new window goes in its session: before every window, or after.
+export type NewWindowPlace = 'first' | 'last';
+
 // KAN-350. Where a carried item goes: an exact spot in another session, or a
-// new first window (a tab or group only). A tab's toIndex counts the
+// new first or last window (a tab or group only). A tab's toIndex counts the
 // destination window's tabs, with the tab not in it; a group's counts that
 // window's items (partitionTabsIntoItems); a window's counts the session's
 // windows. newWindowId is minted by the caller (intoNewWindow in dropSpecs),
@@ -342,13 +345,13 @@ export type SessionMove =
             toIndex: number;
             toChromeGroupId?: string;
           }
-        | { tabGroupId: string; newWindowId: string };
+        | { tabGroupId: string; newWindowId: string; at: NewWindowPlace };
     }
   | {
       carried: Extract<CarriedRef, { kind: 'group' }>;
       to:
         | { tabGroupId: string; windowId: string; toIndex: number }
-        | { tabGroupId: string; newWindowId: string };
+        | { tabGroupId: string; newWindowId: string; at: NewWindowPlace };
     }
   | {
       carried: Extract<CarriedRef, { kind: 'window' }>;
@@ -1187,11 +1190,11 @@ function remintTabsAndGroups(
   }
 }
 
-// Where a carried tab or group lands: a new first window, or a spot in a
+// Where a carried tab or group lands: a new window, first or last, or a spot in a
 // window the destination already has. Resolved before anything changes, so
 // a destination that is gone moves nothing.
 type TabsLanding =
-  | { kind: 'new-window'; newWindowId: string }
+  | { kind: 'new-window'; newWindowId: string; at: NewWindowPlace }
   | {
       kind: 'in-window';
       window: windowGroupData;
@@ -1204,7 +1207,7 @@ function tabsLandingIn(
   to: (TabMove | GroupMove)['to']
 ): TabsLanding | null {
   if ('newWindowId' in to) {
-    return { kind: 'new-window', newWindowId: to.newWindowId };
+    return { kind: 'new-window', newWindowId: to.newWindowId, at: to.at };
   }
   const window = target.windows.find((w) => w.windowId === to.windowId);
   if (!window) return null;
@@ -2292,15 +2295,18 @@ export const tabContainerDataStateSlice = createSlice({
           (w) => w.windowId === move.carried.windowId
         );
         if (!from) return;
-        // A new window in the item's own session, out of the session's first
-        // window when that window holds the item and nothing else, would
+        // A new window in the item's own session, out of the window it would
+        // take the place of (the first for a new first window, the last for a
+        // new last one) when that window holds the item and nothing else, would
         // rebuild that same window: a fresh id, its first tab's title for its
         // own, the session stamped and sorted to the top. Nothing the user
         // sees changes, so nothing does (final review, finding 1).
         if (
           sameSession &&
           'newWindowId' in move.to &&
-          source.windows[0] === from &&
+          source.windows[
+            move.to.at === 'first' ? 0 : source.windows.length - 1
+          ] === from &&
           !isWindowMove(move) &&
           isAllOfWindow(from, move.carried)
         ) {
@@ -2396,9 +2402,9 @@ export const tabContainerDataStateSlice = createSlice({
           if (landing.kind === 'new-window') {
             // Its source window's bounds, and its first tab's title, as
             // capture names a window. Tab titles are stored already cleaned
-            // of an unread count, so no second pass. First, where S2 A and
-            // S3 A put it.
-            target.windows.unshift({
+            // of an unread count, so no second pass. First or last, as the
+            // drop target said (S2 A, S3 A; KAN-361, KAN-366).
+            const newWindow: windowGroupData = {
               windowId: taken.windows.has(landing.newWindowId)
                 ? remint(landing.newWindowId)
                 : landing.newWindowId,
@@ -2410,7 +2416,9 @@ export const tabContainerDataStateSlice = createSlice({
               title: tabs[0]?.title ?? '',
               tabs,
               ...(group === undefined ? {} : { chromeTabGroups: [group] }),
-            });
+            };
+            if (landing.at === 'first') target.windows.unshift(newWindow);
+            else target.windows.push(newWindow);
             target.windowCount += 1;
           } else if (group === undefined) {
             const [tab] = tabs;

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 import { useDispatch, useSelector } from 'react-redux';
 
@@ -48,6 +48,9 @@ import {
 } from '../../../utils/functions/viewMode';
 import { useTranslation } from 'react-i18next';
 import { DURATION, ICON, TYPE } from '../../../styles/scale';
+import { newWindowTargetBoxStyle } from './newWindowTarget';
+import { NewWindowTargetLabel } from './NewWindowTargetLabel';
+import { useNewFirstWindowReceiver } from './useNewFirstWindowReceiver';
 
 export default function HeroContainerRight() {
   const COLORS = useThemeColors();
@@ -102,6 +105,12 @@ export default function HeroContainerRight() {
     searchInputText,
     hasTabGroupsPermission
   )[0];
+
+  // KAN-361 (N1 B). The toolbar row's New window target takes a carry let go
+  // on it, into the session on screen. Above the early return, as every hook
+  // here must be.
+  const newWindowTargetRef = useRef<HTMLDivElement>(null);
+  useNewFirstWindowReceiver(newWindowTargetRef, selectedTabGroup?.tabGroupId);
 
   // Belt and braces: RightPane does not mount this component when the list is
   // empty, so this should be unreachable -- but it is what makes the component
@@ -245,12 +254,35 @@ export default function HeroContainerRight() {
   `;
 
   const bottomStyle = css`
+    /* The New window target's box (KAN-361). */
+    position: relative;
     display: flex;
     flex-direction: row;
     justify-content: space-between;
     align-items: flex-end;
     width: 100%;
     ${isSearchPanel && 'visibility: hidden;'}
+  `;
+
+  // KAN-361 (N1 B). While a saved tab or group is dragged -- in this session,
+  // or carried from another -- the New window target stands in this row in
+  // place of its controls, from the frame the drag starts. Always drawn,
+  // hidden at rest; App.css swaps the two while the document carries
+  // data-drag-new-window, which the drag engine writes before it measures
+  // and a carry for its whole life (setDragNewWindow).
+  //
+  // OVER the row, not in its flow, so neither state changes the header's
+  // height and nothing below it moves. It covers the controls' strip and 2px
+  // of the 8px padding above it: 34px, as the trailing box is (Justine's R5
+  // pick), from 6px below the row's top to the row's bottom, inset 8px from
+  // the row's sides. aria-hidden, since only a
+  // pointer's drag ever shows it, and it never takes the pointer: the
+  // controls keep it at rest, and a drag's release is the engine's.
+  const newWindowTargetStyle = css`
+    position: absolute;
+    inset: 6px 8px 0;
+    visibility: hidden;
+    pointer-events: none;
   `;
 
   // Shared by both non-editing branches so the search-mode label and the
@@ -427,7 +459,7 @@ export default function HeroContainerRight() {
           style="padding-top: 2px; padding-left: 8px;"
         />
       </div>
-      <div css={bottomStyle}>
+      <div css={bottomStyle} data-session-toolbar>
         <div
           css={css`
             display: flex;
@@ -634,6 +666,14 @@ export default function HeroContainerRight() {
               padding: 5px 6px 3px 3px;
             `}
           />
+        </div>
+        <div
+          ref={newWindowTargetRef}
+          data-new-window-target="first"
+          aria-hidden="true"
+          css={[newWindowTargetBoxStyle(COLORS), newWindowTargetStyle]}
+        >
+          <NewWindowTargetLabel />
         </div>
       </div>
     </div>

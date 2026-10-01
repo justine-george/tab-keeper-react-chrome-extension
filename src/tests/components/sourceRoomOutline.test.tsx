@@ -15,7 +15,7 @@ import {
   setHasTabGroupsPermission,
   setIsNotDirty,
 } from '../../redux/slices/globalStateSlice';
-import { CARRY_NEW_WINDOW_ID } from '../../utils/functions/carriedView';
+import { NEW_LAST_WINDOW } from '../../components/home/rightpane/newWindowTarget';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { standInSessionList } from '../setup/standInSessionList';
 import {
@@ -39,7 +39,8 @@ import {
 // itself is drawn by the card at the pointer.
 //
 // Never for a landing in the row's own window, a refused one, or an adopted
-// carry (whose source is the New window target, gone after the drop).
+// carry (whose source is the trailing block it rests in, gone after the
+// drop).
 //
 // jsdom has no layout, and applies no transform. Every box the engine reads
 // is given one below, in the pane's content space; a window block the
@@ -53,6 +54,7 @@ const X = 100;
 type Table = Record<string, [top: number, height: number]>;
 let table: Table = {};
 let pane: HTMLElement | null = null;
+let paneInner = 500;
 
 function keyOf(el: Element): string | undefined {
   if (!(el instanceof HTMLElement)) return undefined;
@@ -61,6 +63,7 @@ function keyOf(el: Element): string | undefined {
   if (d.dropWindowId !== undefined) return `win:${d.dropWindowId}`;
   if (d.fixedRowId !== undefined) return `fixed:${d.fixedRowId}`;
   if (d.bandId !== undefined) return `band:${d.bandId}`;
+  if (d.newWindowTarget === 'first') return 'header:new-window';
   return undefined;
 }
 
@@ -140,6 +143,7 @@ beforeEach(() => {
   }).unregister;
   table = {};
   pane = null;
+  paneInner = 500;
   vi.spyOn(window, 'requestAnimationFrame').mockImplementation(() => 0);
   vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {});
   vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(
@@ -178,6 +182,13 @@ async function renderDetail(shown: string) {
   const el = result.container.firstElementChild;
   if (!(el instanceof HTMLElement)) throw new Error('no detail pane');
   el.style.overflowY = 'auto';
+  // Its inner height, as a real layout reports it: the pane's 500px box.
+  // What the space free below the last window is measured against
+  // (publishNewWindowFree, KAN-366).
+  Object.defineProperty(el, 'clientHeight', {
+    get: () => paneInner,
+    configurable: true,
+  });
   pane = el;
   return result;
 }
@@ -244,8 +255,8 @@ const release = (y: number, x = X) =>
 
 // Presses the tab `id` at its middle and drags it 8px down: a started drag,
 // still over its own place.
-function pickUpTab(id: string): HTMLElement {
-  table = TAB_LAYOUT;
+function pickUpTab(id: string, layout: Table = TAB_LAYOUT): HTMLElement {
+  table = layout;
   const y = layoutTopOf(`row:${id}`) + 16;
   fireEvent.pointerDown(row(id), { clientX: X, clientY: y, button: 0 });
   moveTo(y + 8);
@@ -426,28 +437,28 @@ describe('no outline where no room is left in another window', () => {
   });
 });
 
-// An adopted carry's source is the New window target (KAN-350 S3), which
-// does not exist after the drop: "this window is one row shorter" would be
-// false.
+// An adopted carry's source is the trailing block its phantom rests in
+// (KAN-361/366), which holds nothing after the drop: "this window is one row
+// shorter" would be false.
 describe('no outline for an adopted carry', () => {
-  // S2 while a TAB is carried: the New window target first, holding the
-  // phantom, then d1 and d2 as drawn (openedSessionTakesCarry.test.tsx's).
+  // S2 while a TAB is carried: d1 and d2 as drawn, then the trailing block
+  // holding the phantom (openedSessionTakesCarry.test.tsx's).
   const S2_TAB_LAYOUT: Table = {
-    [`win:${CARRY_NEW_WINDOW_ID}`]: [0, 40],
-    'row:tab:carried:t1': [4, 32],
-    'row:carried:t1': [4, 32],
-    'win:d1': [48, 176],
-    'row:tab:u1': [80, 32],
-    'row:u1': [80, 32],
-    'row:group:h1': [112, 96],
-    'band:h1': [112, 96],
-    'fixed:h1': [112, 32],
-    'row:u2': [144, 32],
-    'row:u3': [176, 32],
-    'fixed:h1:tail': [208, 0],
-    'win:d2': [232, 64],
-    'row:tab:u4': [264, 32],
-    'row:u4': [264, 32],
+    'win:d1': [0, 176],
+    'row:tab:u1': [32, 32],
+    'row:u1': [32, 32],
+    'row:group:h1': [64, 96],
+    'band:h1': [64, 96],
+    'fixed:h1': [64, 32],
+    'row:u2': [96, 32],
+    'row:u3': [128, 32],
+    'fixed:h1:tail': [160, 0],
+    'win:d2': [184, 64],
+    'row:tab:u4': [216, 32],
+    'row:u4': [216, 32],
+    [`win:${NEW_LAST_WINDOW}`]: [256, 40],
+    'row:tab:carried:t1': [260, 32],
+    'row:carried:t1': [260, 32],
   };
   const T1: CarriedRef = {
     kind: 'tab',
@@ -467,7 +478,7 @@ describe('no outline for an adopted carry', () => {
     table = S2_TAB_LAYOUT;
 
     // Into the pane over d1's first row: adopted, and landing in d1.
-    moveTo(84);
+    moveTo(36);
 
     // PREMISE: the adopted phantom is held, drawn by the carry's card, and
     // its landing is in another window than the one it sits in -- d1's rows
@@ -478,5 +489,261 @@ describe('no outline for an adopted carry', () => {
     expect(translateOf(row('u1'))).toBe(32);
     expect(translateOf(block('d2'))).toBe(32);
     expect(outlines()).toHaveLength(0);
+  });
+});
+
+// KAN-361 (N1 B, Q2 ii). The session header's New window target is a
+// landing outside the list: a new first window. While it is the landing the
+// row's own window closes up behind it with its room outlined at its bottom,
+// exactly as for a drop into another window -- and nothing else moves, since
+// there is no destination in the list to make room in. No slot is drawn:
+// the lit target shows where the row goes.
+describe('on the header’s New window target (KAN-361, Q2 ii)', () => {
+  // Above the pane, as the toolbar row is: 0..400 across, -40..-8 down.
+  const HEADER_Y = -24;
+  let header: HTMLElement;
+  beforeEach(() => {
+    header = document.createElement('div');
+    header.dataset.newWindowTarget = 'first';
+    document.body.append(header);
+  });
+  afterEach(() => {
+    header.remove();
+    document.documentElement.removeAttribute('data-drag-new-window');
+  });
+  const WITH_HEADER: Table = {
+    ...TAB_LAYOUT,
+    'header:new-window': [-40, 32],
+  };
+
+  test('a tab held there: its window closes up, its room outlined at that window’s bottom; nothing else moves, no slot, the target lit', async () => {
+    const { store } = await renderDetail('SR');
+    const held = pickUpTab('a0', WITH_HEADER);
+
+    moveTo(HEADER_Y);
+
+    expect(header.hasAttribute('data-landing')).toBe(true);
+    expect(held.querySelector(':scope > [data-drag-landing-slot]')).toBe(null);
+    // w1 closes up under a0's place.
+    for (const id of ['x0', 'x1', 'a1']) {
+      expect(translateOf(row(id))).toBe(-32);
+    }
+    // Nothing else moves: not w2, not its rows.
+    expect(block('w2').dataset.windowShift ?? '0').toBe('0');
+    expect(translateOf(row('b0'))).toBe(0);
+    expect(translateOf(row('b1'))).toBe(0);
+    // The room, outlined at w1's bottom: 160..192, where a1 stood.
+    expect(outlines()).toHaveLength(1);
+    expect(drawnTop(outlineOf(held), layoutTopOf('row:a0'))).toBe(160);
+
+    release(HEADER_Y);
+    const data = store.getState().tabContainerDataState;
+    const sr = data.tabGroups.find((g) => g.tabGroupId === 'SR');
+    expect(sr?.windows.map(tabIds)).toEqual([
+      ['a0'],
+      ['x0', 'x1', 'a1'],
+      ['b0', 'b1'],
+    ]);
+    expect(header.hasAttribute('data-landing')).toBe(false);
+  });
+
+  // The header's target is outside the list and outlives it. A list that
+  // goes away mid-drag (a sync taking the shown session) must not leave it
+  // lit: the next carry would show it lit with the pointer elsewhere.
+  test('the list unmounting mid-drag unlights the target it lit', async () => {
+    const { unmount } = await renderDetail('SR');
+    pickUpTab('a0', WITH_HEADER);
+    moveTo(HEADER_Y);
+    // PREMISE: lit by this drag.
+    expect(header.hasAttribute('data-landing')).toBe(true);
+
+    act(() => unmount());
+
+    // PREMISE: the target outlived the list.
+    expect(header.isConnected).toBe(true);
+    expect(header.hasAttribute('data-landing')).toBe(false);
+  });
+
+  // A list scrolled down can leave a band of the held row's window above
+  // the pane, behind the header, where a viewport hit test still finds it.
+  // A new window holds no band: none is marked, and none is joined.
+  test('a band behind the header is not the target', async () => {
+    const { store } = await renderDetail('SR');
+    pickUpTab('a0', WITH_HEADER);
+    // ga, scrolled up behind the target.
+    table = { ...WITH_HEADER, 'band:ga': [-48, 96] };
+
+    moveTo(HEADER_Y);
+
+    expect(header.hasAttribute('data-landing')).toBe(true);
+    expect(document.querySelectorAll('[data-drop-target]')).toHaveLength(0);
+    release(HEADER_Y);
+    const first = store
+      .getState()
+      .tabContainerDataState.tabGroups.find((g) => g.tabGroupId === 'SR')
+      ?.windows[0];
+    expect(first?.tabs.map((t) => [t.tabId, t.chromeGroupId])).toEqual([
+      ['a0', undefined],
+    ]);
+  });
+});
+
+// KAN-366 B. Below the last window is the list's trailing block: a new LAST
+// window. While it is the landing the row's own window closes up behind it
+// with its room outlined at its bottom (Q2 ii), nothing else moves, no slot
+// is drawn, and the block is lit. A row of the last window keeps its
+// overshoot slack there: within half its height of that window's last row
+// it lands last in its own window, as before the block existed.
+describe('below the last window (KAN-366 B)', () => {
+  // The trailing block, zero height, 8px under w2 (296), as a list that
+  // fits draws it.
+  const WITH_TRAILING: Table = {
+    ...TAB_LAYOUT,
+    [`win:${NEW_LAST_WINDOW}`]: [304, 0],
+  };
+  const trailing = () => block(NEW_LAST_WINDOW);
+  const windowsOf = (
+    store: Awaited<ReturnType<typeof renderDetail>>['store']
+  ) =>
+    store
+      .getState()
+      .tabContainerDataState.tabGroups.find((g) => g.tabGroupId === 'SR')
+      ?.windows.map(tabIds);
+
+  test('a tab from w1 held there: lit, its window closes up with its room outlined, nothing else moves, no slot; let go, a new last window', async () => {
+    const { store } = await renderDetail('SR');
+    const held = pickUpTab('a0', WITH_TRAILING);
+
+    moveTo(400);
+
+    expect(trailing().hasAttribute('data-landing')).toBe(true);
+    expect(held.querySelector(':scope > [data-drag-landing-slot]')).toBe(null);
+    for (const id of ['x0', 'x1', 'a1']) {
+      expect(translateOf(row(id))).toBe(-32);
+    }
+    expect(block('w2').dataset.windowShift ?? '0').toBe('0');
+    expect(translateOf(row('b0'))).toBe(0);
+    expect(translateOf(row('b1'))).toBe(0);
+    expect(outlines()).toHaveLength(1);
+    expect(drawnTop(outlineOf(held), layoutTopOf('row:a0'))).toBe(160);
+
+    release(400);
+    expect(windowsOf(store)).toEqual([
+      ['x0', 'x1', 'a1'],
+      ['b0', 'b1'],
+      ['a0'],
+    ]);
+    expect(trailing().hasAttribute('data-landing')).toBe(false);
+  });
+
+  // Both sides of the slack's edge: w2's last row ends at 296, and the held
+  // row is 32 tall, so the slack ends at 312. Both points are at or below
+  // the trailing block's top (304).
+  test.each([
+    [
+      'in the gap above the block, inside its slack, at 300',
+      300,
+      false,
+      [['b1', 'b0']],
+    ],
+    ['inside its slack, at 306', 306, false, [['b1', 'b0']]],
+    ['just past its slack, at 314', 314, true, [['b1'], ['b0']]],
+  ])('b0, of the last window, %s', async (_where, y, lit, last) => {
+    const { store } = await renderDetail('SR');
+    pickUpTab('b0', WITH_TRAILING);
+
+    moveTo(y);
+
+    expect(trailing().hasAttribute('data-landing')).toBe(lit);
+    release(y);
+    expect(windowsOf(store)?.slice(1)).toEqual(last);
+  });
+
+  test('a1, of another window, at the same point inside w2’s slack: a new last window', async () => {
+    const { store } = await renderDetail('SR');
+    pickUpTab('a1', WITH_TRAILING);
+
+    moveTo(306);
+
+    expect(trailing().hasAttribute('data-landing')).toBe(true);
+    release(306);
+    expect(windowsOf(store)).toEqual([
+      ['a0', 'x0', 'x1'],
+      ['b0', 'b1'],
+      ['a1'],
+    ]);
+  });
+
+  // The gap between the last window and the block is the block's too: a
+  // row of another window lands there as a new last window, with no band in
+  // which it is refused and its slot snaps home (KAN-185's defect).
+  test('in the gap above the block, a1 is a new last window', async () => {
+    const { store } = await renderDetail('SR');
+    const held = pickUpTab('a1', WITH_TRAILING);
+
+    moveTo(300);
+
+    expect(trailing().hasAttribute('data-landing')).toBe(true);
+    expect(held.querySelector(':scope > [data-drag-landing-slot]')).toBe(null);
+    release(300);
+    expect(windowsOf(store)).toEqual([
+      ['a0', 'x0', 'x1'],
+      ['b0', 'b1'],
+      ['a1'],
+    ]);
+  });
+
+  // The space ends at the pane's bottom (500 here): below it, the release
+  // is refused, as it always was.
+  test('below the pane: refused', async () => {
+    const { store } = await renderDetail('SR');
+    const before = windowsOf(store);
+    pickUpTab('a1', WITH_TRAILING);
+    // CONTROL: just inside the pane's bottom, lit.
+    moveTo(496);
+    expect(trailing().hasAttribute('data-landing')).toBe(true);
+
+    moveTo(520);
+
+    expect(trailing().hasAttribute('data-landing')).toBe(false);
+    release(520);
+    expect(windowsOf(store)).toEqual(before);
+  });
+
+  // KAN-366 ruling: in a list that fits, the space below the last window
+  // is a new window only with at least half a row free below it -- the
+  // held row's half, as the overshoot slack. The block's top is 304, and a
+  // tab row is 32: the threshold is 16 free, the pane's inner bottom 320.
+  test.each([
+    ['15px free, just under half a row: refused, nothing lit', 304 + 15, false],
+    ['17px free, just over: lit, a new last window', 304 + 17, true],
+  ])('a1 below the last window with %s', async (_what, inner, offered) => {
+    paneInner = inner;
+    const { store } = await renderDetail('SR');
+    const before = windowsOf(store);
+    pickUpTab('a1', WITH_TRAILING);
+
+    moveTo(310);
+
+    expect(trailing().hasAttribute('data-landing')).toBe(offered);
+    release(310);
+    expect(windowsOf(store)).toEqual(
+      offered ? [['a0', 'x0', 'x1'], ['b0', 'b1'], ['a1']] : before
+    );
+  });
+
+  test('beside the pane, below the list: refused', async () => {
+    const { store } = await renderDetail('SR');
+    const before = windowsOf(store);
+    pickUpTab('a1', WITH_TRAILING);
+    // CONTROL: inside the pane at that height, lit.
+    moveTo(400);
+    expect(trailing().hasAttribute('data-landing')).toBe(true);
+
+    moveTo(400, PANE_W + 30);
+
+    expect(trailing().hasAttribute('data-landing')).toBe(false);
+    release(400, PANE_W + 30);
+    expect(windowsOf(store)).toEqual(before);
   });
 });

@@ -483,15 +483,30 @@ export interface RowDragAreaProps {
   /**
    * Called while the drag is live whenever the window a release would land
    * in changes -- undefined where it would be refused -- and once with
-   * undefined when the drag ends (KAN-350). Changes only, like
-   * `onDropTargetChange`, with the list's own container for the list to mark
-   * whatever it draws for that window. For the New window target, which is a
-   * window of its own.
+   * undefined when the drag ends, or the area unmounts mid-drag (KAN-350,
+   * KAN-361). Changes only, like `onDropTargetChange`, with the list's own
+   * container for the list to mark whatever it draws for that window. For a
+   * New window target, which is a window of its own.
    */
   onLandingWindowChange?: (
     windowId: string | undefined,
     list: HTMLElement | null
   ) => void;
+  /**
+   * A drag in this list offers a new window (KAN-361 N1 B): from the frame
+   * it starts, the session header's toolbar row shows the New window target
+   * in place of its controls.
+   *
+   * The area publishes it on the document (setDragNewWindow) as it publishes
+   * the drag kind: in `activate`, before anything is measured, and cleared on
+   * every end that unpublishes the kind. An adopted drag's end clears
+   * nothing: the carry it belongs to owns the flag, and ends it.
+   *
+   * OPT-IN, not keyed on the kind: only the saved detail's tab and item
+   * lists pass it. A window drag makes no new window, and Open now's lists
+   * drag tabs too and must never show the target.
+   */
+  offersNewWindow?: boolean;
   // Dragging is off while the list on screen is a FILTERED view of the stored
   // one (KAN-131). toIndex counts rendered rows, and the reducers apply it to
   // the stored array, so a drag in a narrowed list lands somewhere the user
@@ -640,7 +655,7 @@ export function windowBlockAt(
   //
   // Read off the attribute the block publishes, for the same reason bandAt
   // reads the inline padding: this runs for every window on every pointer move.
-  const boxes = windowBlocksIn(container).map((el) => {
+  const restingBox = (el: HTMLElement) => {
     const r = el.getBoundingClientRect();
     const shift = parseFloat(el.dataset.windowShift ?? '') || 0;
     return {
@@ -650,10 +665,41 @@ export function windowBlockAt(
       top: r.top - shift,
       bottom: r.bottom - shift,
     };
-  });
+  };
+  const blocks = windowBlocksIn(container);
+  // The trailing block (isTrailingBlock, KAN-361/366) is no window to the
+  // box and gap rules: it is the one exception between them.
+  const boxes = blocks.filter((el) => !isTrailingBlock(el)).map(restingBox);
 
   for (const b of boxes) {
     if (x >= b.left && x <= b.right && y >= b.top && y <= b.bottom) return b.el;
+  }
+
+  // THE ONE EXCEPTION BELOW THE LAST BLOCK (KAN-366 B): the trailing block.
+  // Where the list draws one, everything below the LAST WINDOW's bottom
+  // (its resting box, as the gap rule reads it), inside the trailing
+  // block's own left and right, is that block: a tab or group let go
+  // anywhere in the empty space below the last window makes a new last
+  // window there -- the whole space, not only the block's row.
+  //
+  // From the last window's bottom, not the block's own top: the 8px between
+  // them is no band of its own. Starting at the block's top left that gap
+  // refused for a row of any other window, and a slow drag down past the
+  // last window showed its landing snap home and out again -- KAN-185's
+  // defect, one gap further down. The last window's OWN rows keep their
+  // overshoot slack there, and past it (RowDragArea's landingBlock). And
+  // nothing beside it: a release beside the pane names no window, as ever
+  // (KAN-132). How far down the space goes is the engine's to bound, at the
+  // pane's bottom (landingBlock): this rule has no pane.
+  //
+  // Only BELOW the last window, so never a point the gap rule answers: that
+  // one is between two windows.
+  const trailing = blocks.find(isTrailingBlock);
+  if (trailing !== undefined) {
+    const b = restingBox(trailing);
+    const last = boxes[boxes.length - 1];
+    const below = last === undefined ? y >= b.top : y > last.bottom;
+    if (below && x >= b.left && x <= b.right) return trailing;
   }
 
   // THE GAP BETWEEN TWO WINDOWS BELONGS TO THE NEARER OF THEM (KAN-185).
@@ -667,7 +713,8 @@ export function windowBlockAt(
   //
   // Only BETWEEN two blocks. Above the first and below the last, naming a
   // window is exactly what must not happen -- that is the release beside the
-  // pane that isInsideList is there to refuse (KAN-132).
+  // pane that isInsideList is there to refuse (KAN-132). Below the last, the
+  // trailing block above takes it.
   for (let i = 0; i + 1 < boxes.length; i++) {
     const above = boxes[i];
     const below = boxes[i + 1];
@@ -681,6 +728,14 @@ export function windowBlockAt(
     }
   }
   return null;
+}
+
+// The list's trailing block (KAN-361/366): the empty window block it draws
+// after its last window, where a carried tab's or group's phantom rests and
+// a release below the last window makes a new last window. Marked by its
+// New window target value, `last`.
+export function isTrailingBlock(el: HTMLElement): boolean {
+  return el.dataset.newWindowTarget === 'last';
 }
 
 // Every saved-window block below `container`, in document order.
@@ -800,4 +855,108 @@ export function setDragging(on: boolean, kind: DragKind = 'tab'): void {
   // selector matches whatever the value is.
   if (on) document.documentElement.setAttribute('data-dragging', kind);
   else document.documentElement.removeAttribute('data-dragging');
+}
+
+// Publish "this drag can make a new window" on the document (KAN-361 N1 B),
+// beside the kind above and for the same reason: App.css swaps the session
+// header's toolbar row for the New window target while it is on, and a
+// selector keyed on the document is in force the moment this writes it --
+// before the engine measures, and with no React render to wait for.
+//
+// Its own flag rather than a kind: whether a drag offers a new window is the
+// LIST's to say (RowDragAreaProps.offersNewWindow), not the drag kind's. Open
+// now's lists drag tabs too, and must never show the target.
+//
+// `withRoom` writes the value `room`: the list's trailing block also takes
+// its row of room below the last window (KAN-366 Q4, App.css). The engine
+// asks for it only for a list that already scrolls at rest, so no scroll
+// range can BEGIN at a pick-up -- the pane is overflow: auto, and a
+// scrollbar appearing then would narrow every row in the frame the drag
+// starts. A list that fits keeps its own empty space below its last window.
+//
+// Once on, the room stays until the marker is cleared: a carry starting from
+// that drag, or a drag adopting that carry, writes the marker again without
+// asking for it, and the block keeps the height the phantom now fills. Only
+// the list a carry shows decides it again (decideNewWindowRoom).
+export function setDragNewWindow(on: boolean, withRoom = false): void {
+  const root = document.documentElement;
+  if (!on) {
+    root.removeAttribute('data-drag-new-window');
+    root.style.removeProperty(NEW_WINDOW_FREE);
+    return;
+  }
+  const hasRoom = root.getAttribute('data-drag-new-window') === 'room';
+  root.setAttribute('data-drag-new-window', withRoom || hasRoom ? 'room' : '');
+}
+
+// The room follows the list a carry SHOWS (KAN-366 Q4), not the one the
+// carry came from: each session the carry shows decides from its own
+// overflow at rest, as the engine decides at a press -- so a carry from a
+// list that scrolls gives a list that fits no room, which would make it
+// scroll, and a carry from one that fits gives a list that scrolls its row.
+//
+// "At rest" is the list as the carry draws it, without the room: the room
+// is taken off, the scroller read, and the room put on only if it already
+// scrolls. One synchronous layout, run by the list in the commit that shows
+// the session (TabGroupDetailsContainer), so it is decided before anything
+// is painted and before the pointer can come in -- the adoption measures
+// with it already there, and nothing moves on entry. A no-op with the
+// marker off: only a tab or group drag or carry has one.
+export function decideNewWindowRoom(scroller: HTMLElement): void {
+  const root = document.documentElement;
+  if (!root.hasAttribute('data-drag-new-window')) return;
+  root.setAttribute('data-drag-new-window', '');
+  const scrolls = scroller.scrollHeight > scroller.clientHeight;
+  root.setAttribute('data-drag-new-window', scrolls ? 'room' : '');
+  publishNewWindowFree(scroller, scrolls);
+}
+
+// The custom property that carries the space free below the last window from
+// where it is measured to the engine's rule that too little is no new
+// window. See publishNewWindowFree.
+const NEW_WINDOW_FREE = '--new-window-free';
+
+// THE SPACE FREE BELOW THE LAST WINDOW, in a list that fits (KAN-366 Q4).
+// The lit trailing block is a full row and its borders whatever is free
+// (Justine's R2 pick), so this no longer limits it; it is what the engine's
+// rule that under half a row free is no new window reads (newWindowFree).
+// Measured from the block's top to the bottom of the pane's content box,
+// with the room decision -- as a drag starts (RowDragArea's activate), and
+// in the commit that shows a session for a carry (decideNewWindowRoom) --
+// and published on the document.
+//
+// Nothing to publish for a list given room: its block is already a row and
+// its borders, and the engine's rule does not apply. Published for `pane`, the
+// box the list scrolls in or would; a no-op with no trailing block in it.
+export function publishNewWindowFree(
+  pane: HTMLElement | null,
+  withRoom: boolean
+): void {
+  const root = document.documentElement;
+  const trailing = pane?.querySelector<HTMLElement>(
+    '[data-new-window-target="last"]'
+  );
+  if (
+    withRoom ||
+    pane === null ||
+    trailing === undefined ||
+    trailing === null
+  ) {
+    root.style.removeProperty(NEW_WINDOW_FREE);
+    return;
+  }
+  const contentBottom =
+    pane.getBoundingClientRect().top + pane.clientTop + pane.clientHeight;
+  const free = contentBottom - trailing.getBoundingClientRect().top;
+  root.style.setProperty(NEW_WINDOW_FREE, `${Math.max(0, free)}px`);
+}
+
+// The space free below the last window as published above, in px, or null
+// where none is: a list given room, or with no trailing block. Read by the
+// engine's rule that too little room is no new window (RowDragArea's
+// landingBlock).
+export function newWindowFree(): number | null {
+  const value =
+    document.documentElement.style.getPropertyValue(NEW_WINDOW_FREE);
+  return value === '' ? null : parseFloat(value);
 }
