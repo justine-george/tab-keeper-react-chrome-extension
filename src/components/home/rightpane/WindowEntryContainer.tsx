@@ -66,18 +66,6 @@ import { DURATION, RADIUS, TYPE } from '../../../styles/scale';
  */
 const GROUP_TITLE_SIZE = '0.85rem';
 
-// How far a window's tabs and groups sit in from its edge. Shared with the
-// New window target's rows (KAN-362): the landing slot is a child of the held
-// row and takes its box, so a phantom laid out at any other indent draws its
-// slot at that width, not the width of the row it will become.
-const WINDOW_TABS_INDENT_PX = 70;
-
-// The New window target's dashed border, which its rows step back out of so
-// their box is a window's. 1px because that is what Chromium lays out: it was
-// written 1.5px and measured 1px at DPR 1, 1.25, 1.5, 2 and 3 (KAN-362), so a
-// 1.5px step back left the slot half a pixel wide of the row on both sides.
-const NEW_WINDOW_TARGET_BORDER_PX = 1;
-
 interface WindowEntryContainerProps {
   title: string;
   tabs: tabData[];
@@ -271,7 +259,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   `;
 
   const childrenContainerStyle = css`
-    padding-left: ${WINDOW_TABS_INDENT_PX}px;
+    padding-left: 70px;
   `;
 
   // KAN-350 (S3 A). The synthetic first window a carried tab or group can
@@ -300,17 +288,10 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   // instead (newWindowTargetRowsStyle): margins that meet collapse, and a
   // band's 2px against that box's -2px is 0, so the header is exactly a tab
   // row's height inside the border.
-  //
-  // Its rows sit where a window's do (KAN-362): stepped back out of the
-  // border, then indented as a window's tab list is. The landing slot is the
-  // phantom's child and takes its box, so this is what makes a carried tab's
-  // or group's slot exactly as wide as the row it lands as. Only padding on
-  // the left and margins at the sides, so the band's margins still collapse
-  // through the top and bottom.
   const isNewWindowTarget = windowId === CARRY_NEW_WINDOW_ID;
   const newWindowTargetStyle = css`
     position: relative;
-    border-width: ${NEW_WINDOW_TARGET_BORDER_PX}px;
+    border-width: 1.5px;
     border-style: dashed;
     border-color: ${COLORS.LABEL_L2_COLOR};
     border-radius: ${RADIUS.SQUARE};
@@ -325,16 +306,11 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
       visibility: hidden;
     }
   `;
-  const newWindowTargetRowsStyle = css`
-    margin-left: -${NEW_WINDOW_TARGET_BORDER_PX}px;
-    margin-right: -${NEW_WINDOW_TARGET_BORDER_PX}px;
-    padding-left: ${WINDOW_TABS_INDENT_PX}px;
-    ${items.some((item) => item.kind === 'group') &&
-    `
-      margin-top: -${BAND_MARGIN_PX}px;
-      margin-bottom: -${BAND_MARGIN_PX}px;
-    `}
-  `;
+  const newWindowTargetRowsStyle = items.some((item) => item.kind === 'group')
+    ? css`
+        margin: -${BAND_MARGIN_PX}px 0;
+      `
+    : undefined;
   const newWindowTargetLabelStyle = css`
     position: absolute;
     inset: 0;
@@ -874,8 +850,8 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
         // a footprint's climb exists to climb.
         //
         // The New window target holds the carried item's phantom here instead
-        // (KAN-350): its rows, not a window's, so nothing folds it. It takes
-        // a window's indent all the same (KAN-362, newWindowTargetRowsStyle).
+        // (KAN-350): its rows, not a window's, so nothing folds it and it
+        // takes no indent.
         <div
           css={
             isNewWindowTarget
