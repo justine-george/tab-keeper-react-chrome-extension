@@ -1585,9 +1585,13 @@ test.describe('Review Focus 3: a long list, a long session', () => {
     expect((await detailPane(page)).scrollTop).toBeLessThan(scrollTo);
     await carryOutLeft(page, at);
     expect(await currentCarriedKind(page)).toBe('group');
-    // PREMISE: carried, the scroll is still not the press's -- the group
-    // left the source, and the New window target came in at the top -- so
-    // it has to be put back, not merely left alone.
+    // PREMISE: carried, the scroll is still not the press's -- the group's
+    // rows left the source, which got shorter than the press's scroll, so
+    // the browser clamped it to the new end (measured: scrollTop 51 of a
+    // 467px list in a 416px pane, pressed at 186). The New window target
+    // moves nothing: it is in the header's toolbar row, and the carried
+    // phantom rests in the trailing block after the last window. So the
+    // scroll has to be put back, not merely left alone.
     expect((await detailPane(page)).scrollTop).not.toBe(scrollTo);
     await page.keyboard.press('Escape');
     await page.mouse.up();
