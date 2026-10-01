@@ -2846,8 +2846,8 @@ test.describe('below the last row, a carried item draws no slot (KAN-365)', () =
 
   // Frame by frame, from over the last window down past the list: no frame
   // draws a slot inside the block the phantom rests in -- the trailing block
-  // (KAN-361/366), where main's in-list target was -- the frame the landing
-  // is refused on included.
+  // (KAN-361/366), where main's in-list target was -- the frames it is the
+  // landing in included, lit (KAN-366 B).
   test('frame by frame on the way down, no frame draws a slot inside the target', async ({
     context,
     extensionId,
@@ -4194,11 +4194,11 @@ test.describe('the phantom rests in a trailing block after the last window (KAN-
     await page.mouse.up();
   });
 
-  // The trailing block is no window to the hit test: a release on it is
-  // below the last window, as before it existed. "Drag it to the end" keeps
-  // its slack (half the held row) past the last row, though that point is
-  // now inside the block (KAN-132). In a list that scrolls, where the block
-  // has its room, scrolled into it.
+  // "Drag it to the end" keeps its slack (half the held row) past the last
+  // window's last row, though that point is inside the trailing block, where
+  // a release from any other window makes a new last window (KAN-132,
+  // KAN-366 B). In a list that scrolls, where the block has its room,
+  // scrolled into it.
   test('a tab let go just past the last window’s last row, inside the trailing block, still lands last there', async ({
     context,
     extensionId,
@@ -4403,4 +4403,711 @@ test.describe('the phantom rests in a trailing block after the last window (KAN-
       expect(drawn).toBe(want);
     });
   }
+});
+
+// ---- below the last window makes a new last window (KAN-366 B) -------------
+
+// Whether the trailing block is lit: a release here would make a new last
+// window. False where the list draws no trailing block.
+const trailingLit = (page: Page) =>
+  page.evaluate(
+    () =>
+      document
+        .querySelector('[data-new-window-target="last"]')
+        ?.hasAttribute('data-landing') ?? false
+  );
+
+// "Below the list", as the plan measured it on main: midway between the
+// last window's bottom and the pane's bottom. Read at rest.
+async function belowTheList(page: Page, lastWindowId: string): Promise<number> {
+  const last = await boxOf(
+    page.locator(`[data-drop-window-id="${lastWindowId}"]`)
+  );
+  const pane = await detailPane(page);
+  return (last.y + last.height + pane.bottom) / 2;
+}
+
+// The detail pane's scroll range: how far it can scroll, 0 for a list that
+// fits.
+const scrollRange = (page: Page) =>
+  page.evaluate(() => {
+    let el = document.querySelector(
+      '[data-pane="detail"] [data-drop-window-id]'
+    )?.parentElement;
+    while (el && !['auto', 'scroll'].includes(getComputedStyle(el).overflowY))
+      el = el.parentElement;
+    if (!el) throw new Error('no detail pane');
+    return el.scrollHeight - el.clientHeight;
+  });
+
+// The document's New window marker: '' for a drag or carry that offers a
+// new window, 'room' when the trailing block also has its row of room (Q4),
+// null with neither.
+const newWindowMarker = (page: Page) =>
+  page.evaluate(() =>
+    document.documentElement.getAttribute('data-drag-new-window')
+  );
+
+// The trailing block as drawn now, beside the header target's border colour
+// and the last window's bottom: what expectLitBox judges. Read while the
+// drag is live; judged when the test is ready to. Null where the list draws
+// no trailing block.
+async function litBoxOf(page: Page, lastWindowId: string) {
+  if ((await trailingBlock(page).count()) === 0) return null;
+  const look = await newWindowBox(page, 'last');
+  const box = await boxOf(trailingBlock(page));
+  const last = await boxOf(
+    page.locator(`[data-drop-window-id="${lastWindowId}"]`)
+  );
+  return {
+    look,
+    headerBorderColour: (await newWindowBox(page, 'first'))?.borderColour,
+    top: box.y,
+    height: box.height,
+    lastBottom: last.y + last.height,
+  };
+}
+
+// Lit, the trailing block has the header target's look -- the hover fill,
+// a solid border of its colour, its name -- and a box of its own: one row
+// and its borders, whatever room the list gave it (V1 A, V2 A, ruling 2),
+// below the last window.
+function expectLitBox(
+  m: Awaited<ReturnType<typeof litBoxOf>>,
+  rowH: number
+): void {
+  expect(m).not.toBeNull();
+  if (m === null) return;
+  expect(m.look?.landing).toBe(true);
+  expect(rgbToHex(m.look?.fill ?? '')).toBe(LIGHT_THEME.HOVER_COLOR);
+  expect(m.look?.border).toBe('solid');
+  expect(m.look?.borderColour).toBe(m.headerBorderColour);
+  expect(m.look?.named).toBe(true);
+  const width = m.look?.borderWidth ?? NaN;
+  expect(width).toBeGreaterThan(0);
+  expect(m.height).toBeCloseTo(rowH + 2 * width, 0);
+  expect(m.top).toBeGreaterThan(m.lastBottom);
+}
+
+// One ⌘Z puts every session in `ids` back as `before` held it: every field
+// but the session's own timestamp, which the undo moves past the move's
+// (KAN-55), and whether it is selected, which a spring-open changed and no
+// undo puts back.
+async function expectOneUndoRestoresAll(
+  page: Page,
+  before: TabMasterContainer,
+  ids: string[]
+): Promise<void> {
+  const plain = (s: tabContainerData) => ({
+    ...s,
+    lastModified: undefined,
+    isSelected: undefined,
+  });
+  await page.keyboard.press('Control+z');
+  await expect
+    .poll(async () => {
+      const now = await stored(page);
+      return ids.map((id) => plain(sessionOf(now, id)));
+    })
+    .toEqual(ids.map((id) => plain(sessionOf(before, id))));
+}
+
+test.describe('below the last window makes a new last window (KAN-366)', () => {
+  // An ordinary drag in S1, let go below w2 (the last window), past every
+  // row's slack: lit, no slot, its own window closes up with its dotted
+  // room at that window's bottom (Q2 ii), and the release makes a new LAST
+  // window -- one move, one ⌘Z.
+  const ordinary = [
+    {
+      name: 'loose tab a1',
+      rowId: 'a1',
+      kind: 'tab',
+      closesUp: ['a2', 'al0', 'al1'],
+      still: ['a0', 'w2', 'b0', 'b1'],
+      sourceLast: 'al1',
+      after: ['a0 a2 al0* al1*', 'b0 b1', 'a1'],
+      newEntries: [],
+    },
+    {
+      name: 'group member al0',
+      rowId: 'al0',
+      kind: 'tab',
+      closesUp: ['al1'],
+      still: ['a0', 'a1', 'a2', 'w2', 'b0', 'b1'],
+      sourceLast: 'al1',
+      after: ['a0 a1 a2 al1*', 'b0 b1', 'al0'],
+      newEntries: [],
+    },
+    {
+      name: 'b1, the last window’s loose tab, past its slack',
+      rowId: 'b1',
+      kind: 'tab',
+      closesUp: [],
+      still: ['a0', 'a1', 'a2', 'al0', 'al1', 'w2', 'b0'],
+      sourceLast: 'b1',
+      after: [W1_START, 'b0', 'b1'],
+      newEntries: [],
+    },
+    {
+      name: 'group Alpha',
+      rowId: 'group:alpha',
+      kind: 'group',
+      closesUp: [],
+      still: ['a0', 'a1', 'a2', 'w2', 'b0', 'b1'],
+      sourceLast: 'group:alpha',
+      after: ['a0 a1 a2', 'b0 b1', 'al0* al1*'],
+      newEntries: ['alpha'],
+    },
+  ] as const;
+  for (const view of ['popup', 'tab view'] as const) {
+    for (const c of ordinary) {
+      test(`${view}: an ordinary drag of ${c.name}, held below the list: lit, no slot, its window closes up with its room at its bottom; let go, a new last window holds it, and one ⌘Z undoes it`, async ({
+        context,
+        extensionId,
+      }) => {
+        const page =
+          view === 'popup'
+            ? await openPopup(context, extensionId)
+            : await openTabView(context, extensionId, false);
+        const before = await stored(page);
+        const rowH = await heightOf(tabHandle(page, 'a0'));
+        const y = await belowTheList(page, 'w2');
+        const at = await pickUp(
+          page,
+          c.kind === 'tab'
+            ? tabHandle(page, c.rowId)
+            : groupHandle(page, 'alpha')
+        );
+        await settled(page);
+        // At its own place: the rows as the drag measured them.
+        const own = await ownBox(page, c.rowId);
+        const was: Record<string, { top: number; bottom: number }> = {};
+        for (const id of [...c.closesUp, ...c.still, c.sourceLast]) {
+          was[id] = id === c.rowId ? own : await drawnBox(page, id);
+        }
+        // PREMISE: below the held row's own slack -- half its height past
+        // the last row of its window -- so no overshoot can answer for it.
+        const lastOfOwn = was[c.sourceLast]?.bottom ?? NaN;
+        expect(y).toBeGreaterThan(lastOfOwn + (own.bottom - own.top) / 2);
+
+        await page.mouse.move(at.x, y, { steps: 8 });
+        await settled(page);
+        await expect(page.locator('[data-drag-landing-slot]')).toHaveCount(0);
+        expect(await trailingLit(page)).toBe(true);
+        expectLitBox(await litBoxOf(page, 'w2'), rowH);
+        // Its window closes up behind it: every row below it, by its room.
+        const room = (was[c.closesUp[0] ?? ''] ?? own).top - own.top;
+        for (const id of c.closesUp) {
+          const now = await drawnBox(page, id);
+          expect(now.top).toBeCloseTo((was[id]?.top ?? NaN) - room, 0);
+        }
+        // Nothing else moves.
+        for (const id of c.still) {
+          expect(await drawnBox(page, id)).toEqual(was[id]);
+        }
+        // The dotted room, the held row's own height, at its window's bottom.
+        const outline = page.locator('[data-drag-source-room]');
+        await expect(outline).toHaveCount(1);
+        const box = await outline.evaluate((el) => {
+          const r = el.getBoundingClientRect();
+          return { top: r.top, bottom: r.bottom };
+        });
+        expect(box.bottom).toBeCloseTo(lastOfOwn, 0);
+        expect(box.bottom - box.top).toBeCloseTo(own.bottom - own.top, 0);
+        await page.mouse.up();
+
+        await expect.poll(() => layout(page, 'S1')).toEqual([...c.after]);
+        expect(await windowIdsOf(page, 'S1')).toEqual(['w1', 'w2', 'new']);
+        expect(await groupEntries(page, 'S1', 2)).toEqual([...c.newEntries]);
+        const after = await stored(page);
+        for (const id of ['S2', 'S3', 'S4']) {
+          expect(sessionOf(after, id)).toEqual(sessionOf(before, id));
+        }
+        expect(await toasts(page)).toEqual([]);
+        expect(await trailingLit(page)).toBe(false);
+
+        await expectOneUndoRestores(page, sessionOf(before, 'S1'));
+      });
+    }
+  }
+
+  // A carried tab or group, let go below the last window of the session on
+  // screen: its own (Q2 A), or Target after a spring-open. Lit, no slot;
+  // let go, a new last window there holds it, and one ⌘Z undoes the move.
+  const carried = [
+    {
+      kind: 'tab',
+      phantom: 'carried:a1',
+      moved: 'a1',
+      sourceAfter: ['a0 a2 al0* al1*', 'b0 b1'],
+    },
+    {
+      kind: 'group',
+      phantom: 'group:carried:alpha',
+      moved: 'al0* al1*',
+      sourceAfter: ['a0 a1 a2', 'b0 b1'],
+    },
+  ] as const;
+  for (const k of carried) {
+    for (const into of ['its own session', 'Target'] as const) {
+      test(`a carried ${k.kind} let go below the last window of ${into}: lit, no slot; a new last window there holds it, and one ⌘Z undoes it`, async ({
+        context,
+        extensionId,
+      }) => {
+        const page = await openPopup(context, extensionId);
+        const before = await stored(page);
+        const rowH = await heightOf(tabHandle(page, 'a0'));
+        const at = await pickUp(
+          page,
+          k.kind === 'tab' ? tabHandle(page, 'a1') : groupHandle(page, 'alpha')
+        );
+        await carryOutLeft(page, at);
+        if (into === 'Target') await springOpen(page, 'S2');
+        const last = into === 'Target' ? 'd2' : 'w2';
+        const pane = await detailPane(page);
+        // Low in the pane, past the phantom's own slack -- half its height
+        // below it, where its own window (the trailing block) would answer
+        // anyway -- so it is the rule below the last window that answers.
+        const y = pane.bottom - 10;
+        const phantom = await boxOf(
+          page.locator(`[data-drag-row-id="${k.phantom}"]`)
+        );
+        expect(y).toBeGreaterThan(
+          phantom.y + phantom.height + phantom.height / 2
+        );
+        // Straight into the pane below the list: adopted there.
+        await page.mouse.move(pane.left + 100, y, { steps: 8 });
+        await expect(
+          page.locator(`[data-drag-row-id="${k.phantom}"]`)
+        ).toHaveAttribute('data-drag-held', '');
+        await settled(page);
+        // Read here and asserted after the release, so what the release did
+        // is the first thing checked.
+        const there = {
+          lit: await trailingLit(page),
+          slots: await page.locator('[data-drag-landing-slot]').count(),
+        };
+        const box = await litBoxOf(page, last);
+        await page.mouse.up();
+
+        const sourceAfter = [...k.sourceAfter];
+        if (into === 'Target') {
+          await expect
+            .poll(() => layout(page, 'S2'))
+            .toEqual([D1_START, 'e0 e1', k.moved]);
+          expect(await windowIdsOf(page, 'S2')).toEqual(['d1', 'd2', 'new']);
+          expect(await layout(page, 'S1')).toEqual(sourceAfter);
+        } else {
+          await expect
+            .poll(() => layout(page, 'S1'))
+            .toEqual([...sourceAfter, k.moved]);
+          expect(await windowIdsOf(page, 'S1')).toEqual(['w1', 'w2', 'new']);
+        }
+        expect(there).toEqual({ lit: true, slots: 0 });
+        expectLitBox(box, rowH);
+        // Every other session as it was, but which one is selected: the
+        // spring-open selected Target.
+        const after = await stored(page);
+        const others = into === 'Target' ? ['S3', 'S4'] : ['S2', 'S3', 'S4'];
+        for (const id of others) {
+          expect({ ...sessionOf(after, id), isSelected: undefined }).toEqual({
+            ...sessionOf(before, id),
+            isSelected: undefined,
+          });
+        }
+        expect(await toasts(page)).toEqual([]);
+        await expect(page.locator(CARD)).toHaveCount(0);
+
+        await expectOneUndoRestoresAll(
+          page,
+          before,
+          into === 'Target' ? ['S1', 'S2'] : ['S1']
+        );
+      });
+    }
+  }
+
+  // An adopted carry let go at its phantom's own place: the trailing block
+  // is the phantom's window, so that is a new last window too -- of Target,
+  // or of the item's own session, where it is a move to the end.
+  for (const k of carried) {
+    for (const into of ['its own session', 'Target'] as const) {
+      test(`a carried ${k.kind} let go at its phantom's own place in ${into}: lit, no slot, a new last window there`, async ({
+        context,
+        extensionId,
+      }) => {
+        const page = await openPopup(context, extensionId);
+        const before = await stored(page);
+        const at = await pickUp(
+          page,
+          k.kind === 'tab' ? tabHandle(page, 'a1') : groupHandle(page, 'alpha')
+        );
+        await carryOutLeft(page, at);
+        if (into === 'Target') await springOpen(page, 'S2');
+        await ontoOwnPhantom(page, k.phantom);
+        await settled(page);
+        // Read here, asserted after the release, so what the release did is
+        // the first thing checked: where it was let go, and what was shown.
+        const there = await page.evaluate((id) => {
+          const ph = document.querySelector(`[data-drag-row-id="${id}"]`);
+          const home = document.querySelector(
+            '[data-new-window-target="last"]'
+          );
+          return {
+            held: ph?.hasAttribute('data-drag-held') ?? false,
+            inTrailingBlock: home !== null && ph !== null && home.contains(ph),
+            lit: home?.hasAttribute('data-landing') ?? false,
+            slots: [...document.querySelectorAll('[data-drag-landing-slot]')]
+              .length,
+          };
+        }, k.phantom);
+        await page.mouse.up();
+
+        if (into === 'Target') {
+          await expect
+            .poll(() => layout(page, 'S2'))
+            .toEqual([D1_START, 'e0 e1', k.moved]);
+          expect(await windowIdsOf(page, 'S2')).toEqual(['d1', 'd2', 'new']);
+          expect(await layout(page, 'S1')).toEqual([...k.sourceAfter]);
+        } else {
+          await expect
+            .poll(() => layout(page, 'S1'))
+            .toEqual([...k.sourceAfter, k.moved]);
+          expect(await windowIdsOf(page, 'S1')).toEqual(['w1', 'w2', 'new']);
+        }
+        await expect(page.locator(CARD)).toHaveCount(0);
+        expect(await toasts(page)).toEqual([]);
+        expect(there).toEqual({
+          held: true,
+          inTrailingBlock: true,
+          lit: true,
+          slots: 0,
+        });
+        await expectOneUndoRestoresAll(
+          page,
+          before,
+          into === 'Target' ? ['S1', 'S2'] : ['S1']
+        );
+      });
+    }
+  }
+
+  // The worst path for the move: the sole tab of the session's last window.
+  // A new last window holding it would stand where that window stands,
+  // holding exactly what it holds: no move, and nothing is written.
+  test('the sole tab of the last window, let go below the list: lit, and no move', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(
+      context,
+      extensionId,
+      [S1(), S2(), S3(), S4()],
+      'S3'
+    );
+    const before = await stored(page);
+    const y = await belowTheList(page, 'f1');
+    const at = await pickUp(page, tabHandle(page, 'f0'));
+    await page.mouse.move(at.x, y, { steps: 8 });
+    await settled(page);
+    // PREMISE: it would land in the trailing block.
+    expect(await trailingLit(page)).toBe(true);
+    await page.mouse.up();
+    // NEGATIVE, so a fixed wait: a move is written on the release.
+    await page.waitForTimeout(200);
+    expect(sessionOf(await stored(page), 'S3')).toEqual(
+      sessionOf(before, 'S3')
+    );
+    expect(await toasts(page)).toEqual([]);
+    expect(await trailingLit(page)).toBe(false);
+  });
+
+  // The whole empty space counts, not only the lit box's row: let go near
+  // the pane's bottom, far below the box.
+  test('a release near the pane’s bottom is a new last window too', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    const pane = await detailPane(page);
+    const at = await pickUp(page, tabHandle(page, 'a1'));
+    const y = pane.bottom - 6;
+    await page.mouse.move(at.x, y, { steps: 8 });
+    await settled(page);
+    expect(await trailingLit(page)).toBe(true);
+    // PREMISE: far below the lit box.
+    const box = await boxOf(trailingBlock(page));
+    expect(y).toBeGreaterThan(box.y + box.height + 20);
+    await page.mouse.up();
+
+    await expect
+      .poll(() => layout(page, 'S1'))
+      .toEqual(['a0 a2 al0* al1*', 'b0 b1', 'a1']);
+    expect(await windowIdsOf(page, 'S1')).toEqual(['w1', 'w2', 'new']);
+  });
+
+  // Q4. A full list scrolled to its end: held at the bottom edge, the list
+  // scrolls into the trailing block's row of room, and let go there the
+  // tab is a new last window.
+  test('a 6×4 list scrolled to its end: the room row is reached, lit, and makes a new last window', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(
+      context,
+      extensionId,
+      [sixByFour('S6', 'Six', 's'), S2()],
+      'S6'
+    );
+    const before = await stored(page);
+    const rowH = await heightOf(tabHandle(page, 's0-0'));
+    await setDetailScroll(page, 1e6);
+    await settled(page);
+    const pane = await detailPane(page);
+    // A tab of a window that is not the last: no overshoot slack applies.
+    const at = await pickUp(page, tabHandle(page, 's4-1'));
+    await intoTheRoom(page, at.x, pane);
+    expect(await trailingLit(page)).toBe(true);
+    await expect(page.locator('[data-drag-landing-slot]')).toHaveCount(0);
+    expectLitBox(await litBoxOf(page, 'sw5'), rowH);
+    await page.mouse.up();
+
+    await expect.poll(async () => (await layout(page, 'S6')).length).toBe(7);
+    const s6 = await layout(page, 'S6');
+    expect(s6[4]).toBe('s4-0 s4-2 s4-3');
+    expect(s6[6]).toBe('s4-1');
+    await expectOneUndoRestores(page, sessionOf(before, 'S6'));
+  });
+
+  // NEGATIVES, aimed where the trailing block's rule would fire.
+
+  // "Drag it to the end" keeps priority (KAN-132's slack): a row of the LAST
+  // window let go within half its height past that window's last row lands
+  // last in its own window, though the point is inside the trailing block's
+  // space. Just past the slack it is a new window. Both sides measured from
+  // the slack, read at rest.
+  const slack = [
+    { held: 'b1', inside: [W1_START, 'b0 b1'], past: [W1_START, 'b0', 'b1'] },
+    { held: 'b0', inside: [W1_START, 'b1 b0'], past: [W1_START, 'b1', 'b0'] },
+  ] as const;
+  for (const s of slack) {
+    for (const side of ['inside', 'past'] as const) {
+      test(`${s.held}, the last window’s, let go ${
+        side === 'inside' ? '6px inside' : '2px past'
+      } its overshoot slack: ${
+        side === 'inside' ? 'lands last in w2' : 'a new last window'
+      }`, async ({ context, extensionId }) => {
+        const page = await openPopup(context, extensionId);
+        const b1 = await boxOf(tabHandle(page, 'b1'));
+        const held = await boxOf(tabHandle(page, s.held));
+        // The trailing block's top, read at rest. NaN where the list draws
+        // none.
+        const top =
+          (await trailingBlock(page).count()) === 0
+            ? NaN
+            : (await boxOf(trailingBlock(page))).y;
+        // The slack's edge: half the held row past w2's last row, b1.
+        const edge = b1.y + b1.height + held.height / 2;
+        const y = side === 'inside' ? edge - 6 : edge + 2;
+        const at = await pickUp(page, tabHandle(page, s.held));
+        await page.mouse.move(at.x, y, { steps: 8 });
+        await settled(page);
+        expect(await trailingLit(page)).toBe(side === 'past');
+        await expect(page.locator('[data-drag-landing-slot]')).toHaveCount(
+          side === 'past' ? 0 : 1
+        );
+        await page.mouse.up();
+
+        const want = side === 'inside' ? s.inside : s.past;
+        await expect.poll(() => layout(page, 'S1')).toEqual([...want]);
+        expect(await windowIdsOf(page, 'S1')).toEqual(
+          side === 'inside' ? ['w1', 'w2'] : ['w1', 'w2', 'new']
+        );
+        // PREMISE: at or below the trailing block's top, where a release
+        // from any other window makes a new window.
+        expect(y).toBeGreaterThanOrEqual(top);
+      });
+    }
+  }
+
+  // A row of ANOTHER window has no slack there: the same point inside b1's
+  // slack is a new window for a1.
+  test('a1, from w1, let go at the same point inside w2’s slack: a new last window', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    const b1 = await boxOf(tabHandle(page, 'b1'));
+    const y = b1.y + b1.height + b1.height / 2 - 6;
+    const at = await pickUp(page, tabHandle(page, 'a1'));
+    await page.mouse.move(at.x, y, { steps: 8 });
+    await settled(page);
+    expect(await trailingLit(page)).toBe(true);
+    await page.mouse.up();
+
+    await expect
+      .poll(() => layout(page, 'S1'))
+      .toEqual(['a0 a2 al0* al1*', 'b0 b1', 'a1']);
+  });
+
+  // KAN-185: the gap BETWEEN two windows goes to the nearer one. Only below
+  // the last window is the trailing block's.
+  test('b0 let go in the gap between w1 and w2, nearer w1, lands at w1’s end as it always has', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    const w1 = await boxOf(page.locator('[data-drop-window-id="w1"]'));
+    const w2 = await boxOf(page.locator('[data-drop-window-id="w2"]'));
+    const y = w1.y + w1.height + 2;
+    // PREMISE: in the gap, nearer w1.
+    expect(y).toBeLessThan(w2.y);
+    expect(y - (w1.y + w1.height)).toBeLessThan(w2.y - y);
+    const at = await pickUp(page, tabHandle(page, 'b0'));
+    await page.mouse.move(at.x, y, { steps: 8 });
+    await settled(page);
+    expect(await trailingLit(page)).toBe(false);
+    await page.mouse.up();
+
+    await expect
+      .poll(() => layout(page, 'S1'))
+      .toEqual([`${W1_START} b0`, 'b1']);
+    expect(await windowIdsOf(page, 'S1')).toEqual(['w1', 'w2']);
+  });
+
+  test('a release beside the pane, below the list, is refused', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    const y = await belowTheList(page, 'w2');
+    const pane = await detailPane(page);
+    const at = await pickUp(page, tabHandle(page, 'a1'));
+    // CONTROL: inside the pane at that height, lit.
+    await page.mouse.move(at.x, y, { steps: 8 });
+    await settled(page);
+    expect(await trailingLit(page)).toBe(true);
+
+    const x = pane.right + 4;
+    // PREMISE: beside the pane, and still in the popup.
+    expect(x).toBeLessThan(POPUP.width);
+    await page.mouse.move(x, y, { steps: 4 });
+    await settled(page);
+    expect(await trailingLit(page)).toBe(false);
+    // Refused: the slot is back at a1's own place.
+    await expect(page.locator('[data-drag-landing-slot]')).toHaveCount(1);
+    await page.mouse.up();
+    // NEGATIVE, so a fixed wait: a move is written on the release.
+    await page.waitForTimeout(200);
+    expect(await layout(page, 'S1')).toEqual([W1_START, 'b0 b1']);
+    expect(await windowIdsOf(page, 'S1')).toEqual(['w1', 'w2']);
+  });
+
+  test('a window let go below the list still lands last, and nothing is lit', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    const y = await belowTheList(page, 'w2');
+    // CONTROL: a tab held there lights the trailing block.
+    await pickUp(page, tabHandle(page, 'a1'));
+    await page.mouse.move(400, y, { steps: 8 });
+    expect(await trailingLit(page)).toBe(true);
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+    expect(await trailingLit(page)).toBe(false);
+
+    const at = await pickUp(page, windowHandle(page, 'w1'));
+    await page.mouse.move(at.x, y, { steps: 8 });
+    await settled(page);
+    expect(await trailingLit(page)).toBe(false);
+    await page.mouse.up();
+
+    await expect.poll(() => windowIdsOf(page, 'S1')).toEqual(['w2', 'w1']);
+  });
+});
+
+// The trailing block's row of room follows the session a carry SHOWS, not
+// the one it came from (KAN-366 Q4, ruling 1): each session decides from its
+// own overflow at rest, before the pointer can come in.
+test.describe('a carry’s room follows the session it shows (KAN-366 Q4)', () => {
+  test('from a list that scrolls into one that fits: no room there, and no scroll range', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(
+      context,
+      extensionId,
+      [sixByFour('S6', 'Six', 's'), S1(), S2()],
+      'S6'
+    );
+    await setDetailScroll(page, 1e6);
+    await settled(page);
+    // Mid-pane at the list's end, clear of both auto-scroll bands.
+    const at = await pickUp(page, tabHandle(page, 's4-1'));
+    // PREMISE: the drag's own list scrolls, so it took its room.
+    expect(await newWindowMarker(page)).toBe('room');
+    await carryOutLeft(page, at);
+    await springOpen(page, 'S1');
+    const phantom = tabHandle(page, 'carried:s4-1');
+    await expect(phantom).toBeAttached();
+    const rowH = await heightOf(tabHandle(page, 'a0'));
+
+    expect(await newWindowMarker(page)).toBe('');
+    // The trailing block is the phantom's row and no more: no border.
+    expect(await heightOf(trailingBlock(page))).toBe(rowH);
+    expect((await newWindowBox(page, 'last'))?.borderWidth).toBe(0);
+    expect(await scrollRange(page)).toBeLessThanOrEqual(0);
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+  });
+
+  test('from a list that fits into one that scrolls: the room there, decided before the pointer comes in, and nothing moves as it does', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId, [
+      S1(),
+      sixByFour('S6', 'Six', 's'),
+      S2(),
+    ]);
+    const at = await pickUp(page, tabHandle(page, 'a1'));
+    // PREMISE: the drag's own list fits, so it took no room.
+    expect(await newWindowMarker(page)).toBe('');
+    await carryOutLeft(page, at);
+    await springOpen(page, 'S6');
+    const phantom = tabHandle(page, 'carried:a1');
+    await expect(phantom).toBeAttached();
+    const rowH = await heightOf(tabHandle(page, 's0-0'));
+    expect(await newWindowMarker(page)).toBe('room');
+    // The phantom's row and the room's borders.
+    const roomH = await heightOf(trailingBlock(page));
+    const border = (await newWindowBox(page, 'last'))?.borderWidth ?? NaN;
+    expect(border).toBeGreaterThan(0);
+    expect(roomH).toBeCloseTo(rowH + 2 * border, 0);
+
+    // Into the list at the phantom's own height, straight across from the
+    // session list, with the pane at its end: nothing moves as the list
+    // adopts the carry.
+    await setDetailScroll(page, 1e6);
+    await settled(page);
+    const own = await boxOf(phantom);
+    const y = own.y + own.height / 2;
+    const list = await boxOf(page.locator('[data-pane="sessions"]'));
+    const pane = await detailPane(page);
+    await page.mouse.move(list.x + list.width - 30, y, { steps: 3 });
+    await logPane(page, []);
+    await page.mouse.move(pane.left + 60, y, { steps: 6 });
+    await expect(phantom).toHaveAttribute('data-drag-held', '');
+    await settled(page);
+    const frames = await paneLog(page);
+    // PREMISE: logged before and after the adoption.
+    expect(frames.some((f) => !f.adopted)).toBe(true);
+    expect(frames.some((f) => f.adopted)).toBe(true);
+    expect(Object.keys(frames[0]?.rows ?? {}).length).toBeGreaterThan(20);
+    expect(rowsThatMoved(frames)).toEqual([]);
+    expect(new Set(frames.map((f) => f.trailing))).toEqual(new Set([roomH]));
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+  });
 });

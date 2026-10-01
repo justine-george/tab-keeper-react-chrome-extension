@@ -3,7 +3,10 @@ import { act, fireEvent } from '@testing-library/react';
 
 import TabGroupDetailsContainer from '../../components/home/rightpane/TabGroupDetailsContainer';
 import { CarryLayer } from '../../components/home/CarryLayer';
-import { setDragging } from '../../components/home/rightpane/rowDrag/dropRules';
+import {
+  setDragNewWindow,
+  setDragging,
+} from '../../components/home/rightpane/rowDrag/dropRules';
 import {
   currentCarry,
   endCarry,
@@ -510,6 +513,46 @@ describe('a carried tab lands at the exact spot', () => {
     // The premise: it did move.
     expect(tabIds(windowIn(got, 'S1', 'w2'))).toEqual(['t2', 't3']);
   });
+
+  // KAN-366 B. The trailing block the phantom rests in is the new last
+  // window: let go at the phantom's own place, lit and with no slot drawn
+  // on the way, the tab is a new last window of the session on screen.
+  test('at its own place in the trailing block: lit, no slot, and a release there makes a new last window', async () => {
+    const { store } = await renderDetail('S2');
+    const onCancel = vi.fn();
+    carry(TAB_T1, onCancel);
+    table = S2_TAB_LAYOUT('t1');
+
+    moveTo(52);
+    // PREMISE: adopted, and landing in d1 with its slot drawn.
+    expect(held()).toBe('carried:t1');
+    expect(seen(slotOf('carried:t1'))).toBe(true);
+    // In the box's lower part, 18px off the phantom's middle.
+    moveTo(PHANTOM_Y + 18);
+    expect(held()).toBe('carried:t1');
+    expect(trailing().hasAttribute('data-landing')).toBe(true);
+    expect(
+      row('carried:t1').querySelector('[data-drag-landing-slot]')
+    ).toBeNull();
+    // Nothing makes room: d1's rows and d2 are back where they stand.
+    expect(shiftOf(row('u2'))).toBe(0);
+    expect(
+      find('[data-drop-window-id="d2"]').hasAttribute('data-window-shift')
+    ).toBe(false);
+    release(PHANTOM_Y + 18);
+
+    const s2 = sessionIn(store.getState().tabContainerDataState, 'S2');
+    expect(s2.windows.map(tabIds)).toEqual([
+      ['u1', 'u2', 'u3'],
+      ['u4'],
+      ['t1'],
+    ]);
+    expect(currentCarry()).toBeNull();
+    expect(trailing().hasAttribute('data-landing')).toBe(false);
+    runFrames(2);
+    expect(onCancel).not.toHaveBeenCalled();
+    expect(store.getState().globalState.toasts).toEqual([]);
+  });
 });
 
 describe('a carried group lands at the exact spot', () => {
@@ -584,6 +627,28 @@ describe('a carried group lands at the exact spot', () => {
       control.store.getState().tabContainerDataState.tabGroups
     );
     expect(tabIds(windowIn(got, 'S1', 'w2'))).toEqual(['g1a', 'g1b', 't3']);
+  });
+
+  // The same for a group (KAN-366 B).
+  test('at its own place in the trailing block: lit, and a release there makes a new last window', async () => {
+    const { store } = await renderDetail('S2');
+    carry(GROUP_G1);
+    table = S2_GROUP_LAYOUT;
+
+    moveTo(52);
+    moveTo(PHANTOM_Y);
+    // PREMISE: adopted, and at its own place.
+    expect(held()).toBe('group:carried:g1');
+    expect(trailing().hasAttribute('data-landing')).toBe(true);
+    release(PHANTOM_Y);
+
+    const s2 = sessionIn(store.getState().tabContainerDataState, 'S2');
+    expect(s2.windows.map(tabIds)).toEqual([
+      ['u1', 'u2', 'u3'],
+      ['u4'],
+      ['g1a', 'g1b'],
+    ]);
+    expect(currentCarry()).toBeNull();
   });
 });
 
@@ -1139,15 +1204,23 @@ describe('the trailing block (KAN-361/366)', () => {
     expect(trailing().contains(row('carried:t2'))).toBe(true);
   });
 
-  // No drag lights it until KAN-366 B: lit here as markNewWindowTarget would.
+  // Lit here as markNewWindowTarget lights it for a landing in it (KAN-366
+  // B), in a session given no room: lit, it draws its borders anyway.
   test('lit: the header target’s look -- the hover fill, a solid border, its name', async () => {
     await renderDetail('S2');
     carry(TAB_T1);
+
+    // PREMISE: no room was given, so unlit it has no border.
+    expect(document.documentElement.getAttribute('data-drag-new-window')).toBe(
+      ''
+    );
+    expect(getComputedStyle(trailing()).borderTopWidth).toBe('0px');
 
     act(() => markNewWindowTarget(NEW_LAST_WINDOW, trailing()));
 
     const el = trailing();
     const style = getComputedStyle(el);
+    expect(style.borderTopWidth).toBe('1.5px');
     expect(style.borderTopStyle).toBe('solid');
     expect(style.borderTopColor).not.toMatch(NO_COLOUR);
     expect(LIGHT_THEME.HOVER_COLOR).toBe('#E4E7EB');
@@ -1330,5 +1403,62 @@ describe('a carried window shows where a drop starts (V3 A)', () => {
     await renderDetail('S2');
     carry(TAB_T1);
     expect(document.querySelector('[data-phantom-resting-slot]')).toBeNull();
+  });
+});
+
+// KAN-366 Q4, ruling 1. The trailing block's room follows the session a
+// carry SHOWS: decided from that session's own overflow at rest, when the
+// carry starts and whenever it shows another session, before the pointer
+// comes in. Never the room the carry brought from where it started.
+describe('a carry’s room follows the session it shows', () => {
+  const marker = () =>
+    document.documentElement.getAttribute('data-drag-new-window');
+  // The scroller's content height, as the next layout will read it.
+  const contentOf = (p: HTMLElement, h: number) =>
+    Object.defineProperty(p, 'scrollHeight', {
+      value: h,
+      configurable: true,
+    });
+
+  test('from a list with room, shown in one that fits: no room', async () => {
+    await renderDetail('S2', 500);
+    // As a drag in a list that scrolls leaves it at the hand-off.
+    setDragNewWindow(true, true);
+    // PREMISE: the carry's own list took its room.
+    expect(marker()).toBe('room');
+
+    carry(TAB_T1);
+
+    expect(marker()).toBe('');
+  });
+
+  test('from a list without, shown in one that scrolls: the room', async () => {
+    await renderDetail('S2', 900);
+    setDragNewWindow(true);
+    // PREMISE: the carry's own list took none.
+    expect(marker()).toBe('');
+
+    carry(TAB_T1);
+
+    expect(marker()).toBe('room');
+  });
+
+  test('a spring-open to another session decides again, from that one', async () => {
+    const { store, pane: p } = await renderDetail('S2', 900);
+    carry(TAB_T1);
+    // PREMISE: S2 scrolls.
+    expect(marker()).toBe('room');
+
+    contentOf(p, 400);
+    act(() => {
+      store.dispatch(selectTabContainer('S3'));
+    });
+    expect(marker()).toBe('');
+
+    contentOf(p, 900);
+    act(() => {
+      store.dispatch(selectTabContainer('S2'));
+    });
+    expect(marker()).toBe('room');
   });
 });

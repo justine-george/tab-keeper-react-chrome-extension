@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+} from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 
 import { css } from '@emotion/react';
@@ -37,6 +43,7 @@ import {
   landingView,
 } from '../../../utils/functions/carriedView';
 import { windowCarryOut } from './carryOut';
+import { decideNewWindowRoom } from './rowDrag/dropRules';
 import { NEW_LAST_WINDOW } from './newWindowTarget';
 import type { windowGroupData } from '../../../redux/slices/tabContainerDataStateSlice';
 import { onRevealSavedWindow } from './revealSavedWindow';
@@ -193,6 +200,19 @@ export default function TabGroupDetailsContainer() {
       }),
     []
   );
+
+  // KAN-366 Q4. While a tab or group is carried, the trailing block's room
+  // is the shown session's own to decide (decideNewWindowRoom): when the
+  // carry starts, and whenever it shows another session (a spring-open, or
+  // back to the source). A layout effect, so the decision is made in the
+  // commit that draws the session, before it is painted or the pointer can
+  // come in to be adopted.
+  const shownId = selectedTabGroup?.tabGroupId;
+  const carriesNewWindow = carried !== null && carried.kind !== 'window';
+  useLayoutEffect(() => {
+    if (!carriesNewWindow || scrollerRef.current === null) return;
+    decideNewWindowRoom(scrollerRef.current);
+  }, [carriesNewWindow, shownId]);
 
   // Belt and braces: RightPane does not mount this component when the list is
   // empty, so this should be unreachable -- but it is what makes the component

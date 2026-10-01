@@ -21,7 +21,7 @@ import { intoNewWindow, tabDrop } from '../../../redux/dropSpecs';
 import { dropCarriedTab } from '../../../redux/dropCarried';
 import { moveToSession } from '../../../redux/moveToSession';
 import { currentCarry, endCarry } from '../../../redux/carry';
-import { NEW_FIRST_WINDOW } from './newWindowTarget';
+import { newWindowPlacement } from './newWindowTarget';
 import {
   TAB_GROUP_COLOR_HEX,
   sanitizeTabGroupColor,
@@ -705,10 +705,12 @@ export function useTabDrop(
         endCarry(moved ? 'committed' : 'cancelled');
         return;
       }
-      // On the header's New window target (KAN-361 N1 B): the tab becomes a
-      // new first window of its own session, one move and so one undo. No
-      // Moved toast: the move is on screen (S5 A).
-      if (move.toWindowId === NEW_FIRST_WINDOW) {
+      // On a New window target: the tab becomes a new window of its own
+      // session -- first, from the header's (KAN-361 N1 B), last, from the
+      // trailing block below the last window (KAN-366 B) -- one move and so
+      // one undo. No Moved toast: the move is on screen (S5 A).
+      const at = newWindowPlacement(move.toWindowId);
+      if (at !== undefined) {
         dispatch(
           moveToSession({
             move: {
@@ -718,7 +720,7 @@ export function useTabDrop(
                 windowId: move.fromWindowId,
                 tabId: move.tabId,
               },
-              to: intoNewWindow(tabGroupId, 'first'),
+              to: intoNewWindow(tabGroupId, at),
             },
             announceMoved: false,
           })

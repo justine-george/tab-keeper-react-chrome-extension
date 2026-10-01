@@ -9,24 +9,28 @@
 import { css, type SerializedStyles } from '@emotion/react';
 
 import type { ThemeColors } from '../../../hooks/useThemeColors';
+import type { NewWindowPlace } from '../../../redux/slices/tabContainerDataStateSlice';
 import { RADIUS } from '../../../styles/scale';
 
 // The window a landing names when it makes a new window: placed first, by
-// the session header's target (KAN-361), or last (KAN-366). Neither is a
-// uuid, so neither can be a stored window's id. The drop routes on them
-// (useTabDrop, useGroupDrop, dropCarried); the engine only names them.
+// the session header's target (KAN-361), or last, by the list's trailing
+// block (KAN-366 B). Neither is a uuid, so neither can be a stored window's
+// id. The drop routes on them (useTabDrop, useGroupDrop, dropCarried); the
+// engine only names them.
 export const NEW_FIRST_WINDOW = 'new-window:first';
 export const NEW_LAST_WINDOW = 'new-window:last';
 
-// A saved tab or group list's acceptsWindow: every window but the trailing
-// block. Until a release below the last window makes a new last window
-// (KAN-366 B), the block a carried phantom rests in takes nothing -- a
-// release there moves nothing, and an adopted carry let go at its phantom's
-// own place ends cancelled (KAN-365's "nothing moves").
-export const acceptsAllButTrailingBlock = (
-  _rowId: string,
-  windowId: string
-): boolean => windowId !== NEW_LAST_WINDOW;
+// Where the new window a landing in `windowId` makes is placed: first for
+// the header's target, last for the list's trailing block (KAN-366 B).
+// Undefined for every other window, which is no new window -- so it also
+// answers "does this landing make one?".
+export function newWindowPlacement(
+  windowId: string | undefined
+): NewWindowPlace | undefined {
+  if (windowId === NEW_FIRST_WINDOW) return 'first';
+  if (windowId === NEW_LAST_WINDOW) return 'last';
+  return undefined;
+}
 
 // The targets that name a new window, each by its `data-new-window-target`
 // value: `first` in the session header, `last` the list's trailing block

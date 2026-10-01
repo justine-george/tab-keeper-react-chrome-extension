@@ -44,6 +44,7 @@ import {
   isInEditableField,
   isInsideList,
   isRowContainer,
+  isTrailingBlock,
   markRowContainer,
   setDragging,
   setDragNewWindow,
@@ -89,6 +90,7 @@ import { edgeScrollStep } from './edgeScroll';
 import {
   NEW_FIRST_WINDOW,
   measureNewFirstWindowTarget,
+  newWindowPlacement,
 } from '../newWindowTarget';
 
 // How strongly the landing slot draws when it is clear of the held row.
@@ -590,7 +592,10 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     const contentY = (l: NonNullable<typeof live.current>, clientY: number) =>
       clientY + (l.scroller?.scrollTop ?? 0);
 
-    // The saved-window block the pointer is over, or null (KAN-132).
+    // The saved-window block a release at the pointer lands by (KAN-132): the
+    // block the pointer is over, or null -- and null too where the last
+    // window's own overshoot keeps priority over the trailing block (KAN-366
+    // B, below).
     //
     // Only for a list whose rows sit IN windows AND whose drops may cross from
     // one to another. The window list's container holds every block too, but its
@@ -617,10 +622,46 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     // its own top, and passes the one answer down -- see update() and
     // autoScroll() below, and judgeDrop further down, which computes its own
     // for a different reason (see judgeDrop's own comment).
-    const blockUnderPointer = (l: NonNullable<typeof live.current>) =>
-      l.heldWindow && dropsAcrossWindows
-        ? windowBlockAt(containerRef.current, l.lastX, l.lastY)
-        : null;
+    //
+    // "DRAG IT TO THE END" KEEPS PRIORITY over the trailing block (KAN-366
+    // B), and this is where, so landingOf, dropRoot and targetOf all read the
+    // one answer. A row of the LAST window let go within its overshoot slack
+    // -- half the held row below that window's last row, the same test
+    // landingOf applies outside every block -- names no block here, exactly
+    // as before the trailing block existed, and lands last in its own
+    // window. Past the slack it is the trailing block: a new last window. A
+    // row of any other window has no slack there: at or below the block's
+    // top is the new window.
+    const landingBlock = (l: NonNullable<typeof live.current>) => {
+      if (!l.heldWindow || !dropsAcrossWindows) return null;
+      const block = windowBlockAt(containerRef.current, l.lastX, l.lastY);
+      return block !== null &&
+        isTrailingBlock(block) &&
+        overshootsLastWindow(l, block)
+        ? null
+        : block;
+    };
+
+    // Is the held row's own window the last one before `trailing`, and the
+    // pointer within that window's overshoot slack? Read off the window
+    // order measured at activation, which runs in document order and ends
+    // with the trailing block.
+    const overshootsLastWindow = (
+      l: NonNullable<typeof live.current>,
+      trailing: HTMLElement
+    ): boolean => {
+      const own = l.heldWindow?.dataset.dropWindowId;
+      const at = l.windowOrder.indexOf(trailing.dataset.dropWindowId ?? '');
+      if (own === undefined || at < 1 || l.windowOrder[at - 1] !== own) {
+        return false;
+      }
+      return isInsideList(
+        rowsIn(l, own),
+        contentY(l, l.lastY),
+        l.height / 2,
+        l.slots.find((s) => s.windowId === own)?.top
+      );
+    };
 
     // One window's rows, in list order. Undefined picks out the rows in no
     // window, which in a list with no windows is all of them.
@@ -646,9 +687,9 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     // held row's own -- the one window still in play, see landingOf -- and for
     // a list with no windows, the list itself.
     //
-    // Takes `block` rather than calling blockUnderPointer itself: every caller
+    // Takes `block` rather than calling landingBlock itself: every caller
     // in this move's own flow already has one, computed once for that flow --
-    // see the perf note on blockUnderPointer above. Passing it in is what
+    // see the perf note on landingBlock above. Passing it in is what
     // keeps this a second READ of that answer, not a second forced layout.
     //
     // A block whose window refuses the row is searched as if the pointer were
@@ -721,7 +762,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     // Reads the pane's box, so like everything here it must run while the
     // drag's own layout stands -- see judgeDrop.
     //
-    // Takes `block` rather than calling blockUnderPointer itself -- see the
+    // Takes `block` rather than calling landingBlock itself -- see the
     // perf note there. The caller computed it once, for this same move.
     const landingOf = (
       l: NonNullable<typeof live.current>,
@@ -749,7 +790,10 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // and only near its own rows: the guard below. That is the forgiveness
       // "drag it to the end" has always had -- an overshoot past a window's
       // last row lands in the gap under its block, and still means "last".
-      // Anything further out names no window, and is refused.
+      // Anything further out names no window, and is refused -- but below
+      // the last window, where the trailing block takes it (windowBlockAt),
+      // and the last window's own overshoot keeps its slack
+      // (landingBlock).
       const windowId = (block ?? l.heldWindow)?.dataset.dropWindowId;
       const rows = rowsIn(l, windowId);
 
@@ -834,29 +878,31 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     // three cannot drift apart. A refused landing (undefined) still asks, as
     // it always has: nothing commits it, and the mark is the list's to show.
     //
-    // Nor a landing on the header's New window target (KAN-361): a new
-    // window holds no band to join, and the band nearest the pointer is in
-    // the list below it.
+    // Nor a landing that makes a new window, on the header's target
+    // (KAN-361) or in the trailing block (KAN-366 B): a new window holds no
+    // band to join, and the band nearest the pointer is in a window the row
+    // is not going to -- or, for an adopted group, its own phantom's.
     const targetOf = (
       l: NonNullable<typeof live.current>,
       block: HTMLElement | null,
       landing: Landing | undefined
     ): string | undefined =>
-      landing?.clamped === true || landing?.windowId === NEW_FIRST_WINDOW
+      landing?.clamped === true ||
+      newWindowPlacement(landing?.windowId) !== undefined
         ? undefined
         : resolveDrop?.(dropRoot(l, block), l.lastX, l.lastY)?.bandId;
 
     // Returns the target this preview was drawn for, so the drop-target
     // notifier in onMoveEvent marks exactly that band, at this SAME pointer
     // position, instead of re-running the hit test -- see the perf note on
-    // blockUnderPointer -- or deciding the target a second time (KAN-280).
+    // landingBlock -- or deciding the target a second time (KAN-280).
     const update = (
       l: NonNullable<typeof live.current>
     ): string | undefined => {
       // Computed ONCE for this whole move and threaded down, not re-read by
       // landingOf and dropRoot separately -- see the perf note on
-      // blockUnderPointer above.
-      const block = blockUnderPointer(l);
+      // landingBlock above.
+      const block = landingBlock(l);
 
       // Where the release would be refused, preview the row going back where
       // it came from: no row steps aside, and its own slot stays open.
@@ -1028,13 +1074,15 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         // range across both (KAN-132) -- see previewShiftsAcross for what the
         // single range drew.
         //
-        // A new first window on the header's target (KAN-361, Q2 ii) is
-        // another window too, and one with no block, no rows and no place
-        // in windowOrder: the source closes up behind the row with its room
-        // outlined, exactly as for a drop into another window, and nothing
-        // else moves -- there is no destination in the list to make room in
-        // (windowShiftsAcross makes none for a window the pane does not
-        // hold), and no slot is drawn (landingSlotShown).
+        // A new window is another window too (Q2 ii): a new first window on
+        // the header's target (KAN-361), with no block, no rows and no place
+        // in windowOrder, and a new last window in the trailing block
+        // (KAN-366 B), the last block of all, with no rows. The source closes
+        // up behind the row with its room outlined, exactly as for a drop
+        // into another window, and nothing else moves -- windowShiftsAcross
+        // makes room in no block, for a window the pane does not hold, and
+        // for the last block, which has none after it -- and no slot is
+        // drawn (landingSlotShown).
         const at = insertionSlotOf(l, landing, beside);
         // The span is in the SOURCE window, so only its shifts change: the
         // landing is measured in the destination's frame and the source keeps
@@ -1162,11 +1210,12 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         heldShownAsCard: l.card !== null || l.adopted,
         sourceRoomDelta,
         landingInset,
-        // Nor on the header's New window target (KAN-361): the lit target
-        // is what shows where the row goes, and the slot would be drawn in
-        // the list, where it is not going.
+        // Nor for a landing that makes a new window (KAN-361, KAN-366 B):
+        // the lit target is what shows where the row goes, and the slot
+        // would be drawn in the list -- or at an adopted phantom's own place
+        // in the trailing block -- where it is not going.
         landingSlotShown:
-          landing?.windowId !== NEW_FIRST_WINDOW &&
+          newWindowPlacement(landing?.windowId) === undefined &&
           !(l.adopted && landing === undefined),
       });
 
@@ -1641,7 +1690,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // The target update() drew this preview for, at this SAME pointer
       // position -- marked below rather than decided again, so the band that
       // lights up is the one the preview and the release use (KAN-280), and
-      // no second hit test runs (see the perf note on blockUnderPointer).
+      // no second hit test runs (see the perf note on landingBlock).
       const target = update(l);
 
       if (onDropTargetChange && resolveDrop) {
@@ -1688,7 +1737,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // is unpublished before finish() reaches here in some orderings. A
       // value computed on an earlier move could describe a layout that no
       // longer exists by the time this runs.
-      const block = blockUnderPointer(l);
+      const block = landingBlock(l);
       const landing = landingOf(l, block);
       if (landing === undefined) return undefined;
       return {

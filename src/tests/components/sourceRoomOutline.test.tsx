@@ -578,3 +578,113 @@ describe('on the header’s New window target (KAN-361, Q2 ii)', () => {
     ]);
   });
 });
+
+// KAN-366 B. Below the last window is the list's trailing block: a new LAST
+// window. While it is the landing the row's own window closes up behind it
+// with its room outlined at its bottom (Q2 ii), nothing else moves, no slot
+// is drawn, and the block is lit. A row of the last window keeps its
+// overshoot slack there: within half its height of that window's last row
+// it lands last in its own window, as before the block existed.
+describe('below the last window (KAN-366 B)', () => {
+  // The trailing block, zero height, 8px under w2 (296), as a list that
+  // fits draws it.
+  const WITH_TRAILING: Table = {
+    ...TAB_LAYOUT,
+    [`win:${NEW_LAST_WINDOW}`]: [304, 0],
+  };
+  const trailing = () => block(NEW_LAST_WINDOW);
+  const windowsOf = (
+    store: Awaited<ReturnType<typeof renderDetail>>['store']
+  ) =>
+    store
+      .getState()
+      .tabContainerDataState.tabGroups.find((g) => g.tabGroupId === 'SR')
+      ?.windows.map(tabIds);
+
+  test('a tab from w1 held there: lit, its window closes up with its room outlined, nothing else moves, no slot; let go, a new last window', async () => {
+    const { store } = await renderDetail('SR');
+    const held = pickUpTab('a0', WITH_TRAILING);
+
+    moveTo(400);
+
+    expect(trailing().hasAttribute('data-landing')).toBe(true);
+    expect(held.querySelector(':scope > [data-drag-landing-slot]')).toBe(null);
+    for (const id of ['x0', 'x1', 'a1']) {
+      expect(translateOf(row(id))).toBe(-32);
+    }
+    expect(block('w2').dataset.windowShift ?? '0').toBe('0');
+    expect(translateOf(row('b0'))).toBe(0);
+    expect(translateOf(row('b1'))).toBe(0);
+    expect(outlines()).toHaveLength(1);
+    expect(drawnTop(outlineOf(held), layoutTopOf('row:a0'))).toBe(160);
+
+    release(400);
+    expect(windowsOf(store)).toEqual([
+      ['x0', 'x1', 'a1'],
+      ['b0', 'b1'],
+      ['a0'],
+    ]);
+    expect(trailing().hasAttribute('data-landing')).toBe(false);
+  });
+
+  // Both sides of the slack's edge: w2's last row ends at 296, and the held
+  // row is 32 tall, so the slack ends at 312. Both points are at or below
+  // the trailing block's top (304).
+  test.each([
+    ['inside its slack, at 306', 306, false, [['b1', 'b0']]],
+    ['just past its slack, at 314', 314, true, [['b1'], ['b0']]],
+  ])('b0, of the last window, %s', async (_where, y, lit, last) => {
+    const { store } = await renderDetail('SR');
+    pickUpTab('b0', WITH_TRAILING);
+
+    moveTo(y);
+
+    expect(trailing().hasAttribute('data-landing')).toBe(lit);
+    release(y);
+    expect(windowsOf(store)?.slice(1)).toEqual(last);
+  });
+
+  test('a1, of another window, at the same point inside w2’s slack: a new last window', async () => {
+    const { store } = await renderDetail('SR');
+    pickUpTab('a1', WITH_TRAILING);
+
+    moveTo(306);
+
+    expect(trailing().hasAttribute('data-landing')).toBe(true);
+    release(306);
+    expect(windowsOf(store)).toEqual([
+      ['a0', 'x0', 'x1'],
+      ['b0', 'b1'],
+      ['a1'],
+    ]);
+  });
+
+  // The gap between the last window and the block is still below the last
+  // window: refused for a row of another window, as before the block.
+  test('in the gap above the block, a1 is refused', async () => {
+    const { store } = await renderDetail('SR');
+    const before = windowsOf(store);
+    pickUpTab('a1', WITH_TRAILING);
+
+    moveTo(300);
+
+    expect(trailing().hasAttribute('data-landing')).toBe(false);
+    release(300);
+    expect(windowsOf(store)).toEqual(before);
+  });
+
+  test('beside the pane, below the list: refused', async () => {
+    const { store } = await renderDetail('SR');
+    const before = windowsOf(store);
+    pickUpTab('a1', WITH_TRAILING);
+    // CONTROL: inside the pane at that height, lit.
+    moveTo(400);
+    expect(trailing().hasAttribute('data-landing')).toBe(true);
+
+    moveTo(400, PANE_W + 30);
+
+    expect(trailing().hasAttribute('data-landing')).toBe(false);
+    release(400, PANE_W + 30);
+    expect(windowsOf(store)).toEqual(before);
+  });
+});

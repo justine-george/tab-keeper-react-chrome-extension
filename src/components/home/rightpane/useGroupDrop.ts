@@ -27,7 +27,7 @@ import { groupDrop, intoNewWindow } from '../../../redux/dropSpecs';
 import { dropCarriedGroup } from '../../../redux/dropCarried';
 import { moveToSession } from '../../../redux/moveToSession';
 import { currentCarry, endCarry } from '../../../redux/carry';
-import { NEW_FIRST_WINDOW } from './newWindowTarget';
+import { newWindowPlacement } from './newWindowTarget';
 import {
   partitionTabsIntoItems,
   itemIdOf,
@@ -164,10 +164,13 @@ export function useGroupDrop(
         endCarry(moved ? 'committed' : 'cancelled');
         return;
       }
-      // On the header's New window target (KAN-361 N1 B): the group, its
-      // entry with it, becomes a new first window of its own session, one
-      // move and so one undo. No Moved toast: the move is on screen (S5 A).
-      if (move.toWindowId === NEW_FIRST_WINDOW) {
+      // On a New window target: the group, its entry with it, becomes a new
+      // window of its own session -- first, from the header's (KAN-361 N1
+      // B), last, from the trailing block below the last window (KAN-366 B)
+      // -- one move and so one undo. No Moved toast: the move is on screen
+      // (S5 A).
+      const at = newWindowPlacement(move.toWindowId);
+      if (at !== undefined) {
         dispatch(
           moveToSession({
             move: {
@@ -177,7 +180,7 @@ export function useGroupDrop(
                 windowId: move.fromWindowId,
                 groupId: move.groupId,
               },
-              to: intoNewWindow(tabGroupId, 'first'),
+              to: intoNewWindow(tabGroupId, at),
             },
             announceMoved: false,
           })

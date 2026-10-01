@@ -655,27 +655,21 @@ export function windowBlockAt(
   //
   // Read off the attribute the block publishes, for the same reason bandAt
   // reads the inline padding: this runs for every window on every pointer move.
-  //
-  // NOT THE TRAILING BLOCK (data-new-window-target="last", KAN-361/366): the
-  // empty block after the last window, where a carried tab's or group's
-  // phantom rests, and a row tall while a tab or group is dragged (Q4). It is
-  // no window yet, so a point on it, or in the gap above it, is "below the
-  // last block" exactly as before it existed: the held row's own window's
-  // overshoot, or refused. Only an adopted phantom's own window is the
-  // trailing block, and its list refuses it (acceptsWindow).
-  const boxes = windowBlocksIn(container)
-    .filter((el) => el.dataset.newWindowTarget !== 'last')
-    .map((el) => {
-      const r = el.getBoundingClientRect();
-      const shift = parseFloat(el.dataset.windowShift ?? '') || 0;
-      return {
-        el,
-        left: r.left,
-        right: r.right,
-        top: r.top - shift,
-        bottom: r.bottom - shift,
-      };
-    });
+  const restingBox = (el: HTMLElement) => {
+    const r = el.getBoundingClientRect();
+    const shift = parseFloat(el.dataset.windowShift ?? '') || 0;
+    return {
+      el,
+      left: r.left,
+      right: r.right,
+      top: r.top - shift,
+      bottom: r.bottom - shift,
+    };
+  };
+  const blocks = windowBlocksIn(container);
+  // The trailing block (isTrailingBlock, KAN-361/366) is no window to the
+  // two rules below: it is the one exception after them.
+  const boxes = blocks.filter((el) => !isTrailingBlock(el)).map(restingBox);
 
   for (const b of boxes) {
     if (x >= b.left && x <= b.right && y >= b.top && y <= b.bottom) return b.el;
@@ -705,7 +699,36 @@ export function windowBlockAt(
       return y - above.bottom <= below.top - y ? above.el : below.el;
     }
   }
+
+  // THE ONE EXCEPTION BELOW THE LAST BLOCK (KAN-366 B): the trailing block.
+  // Where the list draws one, everything at or below its top, inside its own
+  // left and right, is that block: a tab or group let go anywhere in the
+  // empty space below the last window makes a new last window there -- the
+  // whole space, not only the block's row, down past the pane's bottom too.
+  //
+  // Nothing above its top: the gap between the last window and the block is
+  // still below the last window (the gap rule above is for BETWEEN two
+  // windows, and the block is not one of them), so the last window's
+  // overshoot keeps that gap. And nothing beside it: a release beside the
+  // pane names no window, as ever (KAN-132).
+  //
+  // Which drags may land in it is the engine's to say, not this rule's: a
+  // row from the last window, let go within its overshoot slack, still
+  // lands last there (RowDragArea's landingBlock).
+  const trailing = blocks.find(isTrailingBlock);
+  if (trailing !== undefined) {
+    const b = restingBox(trailing);
+    if (y >= b.top && x >= b.left && x <= b.right) return trailing;
+  }
   return null;
+}
+
+// The list's trailing block (KAN-361/366): the empty window block it draws
+// after its last window, where a carried tab's or group's phantom rests and
+// a release below the last window makes a new last window. Marked by its
+// New window target value, `last`.
+export function isTrailingBlock(el: HTMLElement): boolean {
+  return el.dataset.newWindowTarget === 'last';
 }
 
 // Every saved-window block below `container`, in document order.
@@ -846,7 +869,8 @@ export function setDragging(on: boolean, kind: DragKind = 'tab'): void {
 //
 // Once on, the room stays until the marker is cleared: a carry starting from
 // that drag, or a drag adopting that carry, writes the marker again without
-// asking for it, and the block keeps the height the phantom now fills.
+// asking for it, and the block keeps the height the phantom now fills. Only
+// the list a carry shows decides it again (decideNewWindowRoom).
 export function setDragNewWindow(on: boolean, withRoom = false): void {
   const root = document.documentElement;
   if (!on) {
@@ -855,4 +879,25 @@ export function setDragNewWindow(on: boolean, withRoom = false): void {
   }
   const hasRoom = root.getAttribute('data-drag-new-window') === 'room';
   root.setAttribute('data-drag-new-window', withRoom || hasRoom ? 'room' : '');
+}
+
+// The room follows the list a carry SHOWS (KAN-366 Q4), not the one the
+// carry came from: each session the carry shows decides from its own
+// overflow at rest, as the engine decides at a press -- so a carry from a
+// list that scrolls gives a list that fits no room, which would make it
+// scroll, and a carry from one that fits gives a list that scrolls its row.
+//
+// "At rest" is the list as the carry draws it, without the room: the room
+// is taken off, the scroller read, and the room put on only if it already
+// scrolls. One synchronous layout, run by the list in the commit that shows
+// the session (TabGroupDetailsContainer), so it is decided before anything
+// is painted and before the pointer can come in -- the adoption measures
+// with it already there, and nothing moves on entry. A no-op with the
+// marker off: only a tab or group drag or carry has one.
+export function decideNewWindowRoom(scroller: HTMLElement): void {
+  const root = document.documentElement;
+  if (!root.hasAttribute('data-drag-new-window')) return;
+  root.setAttribute('data-drag-new-window', '');
+  const scrolls = scroller.scrollHeight > scroller.clientHeight;
+  root.setAttribute('data-drag-new-window', scrolls ? 'room' : '');
 }

@@ -127,7 +127,10 @@ body {
    block, and the carried item's phantom when one does: one row either way,
    so a carry starting moves nothing. Selectors one step more specific than
    the block's own emotion class, which is injected later and would
-   otherwise win on order. Blank until lit (WindowEntryContainer). */
+   otherwise win on order. Blank until lit (WindowEntryContainer).
+
+   During a carry, the session it shows decides again, from its own overflow
+   at rest (decideNewWindowRoom): never the room the carry brought with it. */
 [data-drag-new-window='room'] [data-new-window-target='last'] {
   border-width: 1.5px;
 }

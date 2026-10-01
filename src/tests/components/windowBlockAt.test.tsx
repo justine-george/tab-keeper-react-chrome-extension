@@ -66,6 +66,37 @@ describe('windowBlockAt and the trailing block', () => {
   const at = (y: number) =>
     windowBlockAt(root, 10, y)?.getAttribute('data-drop-window-id') ?? null;
 
+  // KAN-366 B: the one exception below the last block. At or below its
+  // top, inside its own left and right, a point is the trailing block --
+  // the whole empty space, past its own box too.
+  test('a point on it, or anywhere below its top, is the trailing block', () => {
+    expect(at(310)).toBe('new-window:last');
+    expect(at(320)).toBe('new-window:last');
+    expect(at(900)).toBe('new-window:last');
+  });
+  test('beside it, below the last window, names no window', () => {
+    expect(windowBlockAt(root, 201, 320)).toBeNull();
+    expect(windowBlockAt(root, -1, 320)).toBeNull();
+    // CONTROL: at its edges, it is.
+    expect(windowBlockAt(root, 200, 320)).toBe(trailing);
+    expect(windowBlockAt(root, 0, 320)).toBe(trailing);
+  });
+  // Moved by a preview (KAN-184), it answers from where it rests: growing a
+  // preview must not move what the pointer can hit.
+  test('shifted down by a preview, it still begins at its resting top', () => {
+    const shifted = pane([
+      ['wA', 0, 142],
+      ['new-window:last', 150 + 34, 34],
+    ]);
+    const block = shifted.lastElementChild;
+    if (!(block instanceof HTMLElement)) throw new Error('no block');
+    block.dataset.newWindowTarget = 'last';
+    block.dataset.windowShift = '34';
+    expect(windowBlockAt(shifted, 10, 160)?.dataset.dropWindowId).toBe(
+      'new-window:last'
+    );
+    expect(windowBlockAt(shifted, 10, 148)).toBeNull();
+  });
   test('the gap above it is not split with it', () => {
     // Nearer the trailing block than wB: still below the last window.
     expect(at(308)).toBeNull();

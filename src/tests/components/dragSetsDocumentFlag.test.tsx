@@ -6,6 +6,10 @@ import {
   DraggableRow,
 } from '../../components/home/rightpane/rowDrag/RowDragArea';
 import WindowEntryContainer from '../../components/home/rightpane/WindowEntryContainer';
+import {
+  decideNewWindowRoom,
+  setDragNewWindow,
+} from '../../components/home/rightpane/rowDrag/dropRules';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { setHasTabGroupsPermission } from '../../redux/slices/globalStateSlice';
 import type { tabData } from '../../redux/slices/tabContainerDataStateSlice';
@@ -168,6 +172,42 @@ describe('the New window marker asks for room only in a list that scrolls', () =
     moveTo(50);
     expect(marker()).toBe(value);
     release(50);
+    expect(marker()).toBeNull();
+  });
+});
+
+// KAN-366 Q4, ruling 1. The list a carry shows decides the room again, from
+// its own overflow at rest -- the room taken off first, so a list that
+// scrolls only because of the room is a list that fits.
+describe('decideNewWindowRoom: the room from the shown list’s own overflow', () => {
+  const marker = () =>
+    document.documentElement.getAttribute('data-drag-new-window');
+  afterEach(() => setDragNewWindow(false));
+  // A scroller that overflows by `over` px whatever the marker says, plus
+  // the room's 34 while the marker asks for it.
+  const scroller = (over: number) => {
+    const el = document.createElement('div');
+    Object.defineProperty(el, 'clientHeight', { value: 100 });
+    Object.defineProperty(el, 'scrollHeight', {
+      get: () => 100 + over + (marker() === 'room' ? 34 : 0),
+    });
+    return el;
+  };
+
+  test('a list that scrolls at rest: room', () => {
+    setDragNewWindow(true);
+    decideNewWindowRoom(scroller(1));
+    expect(marker()).toBe('room');
+  });
+  test('a list that fits, though the room it was given makes it scroll: none', () => {
+    setDragNewWindow(true, true);
+    // PREMISE: with the room it scrolls.
+    expect(scroller(0).scrollHeight).toBeGreaterThan(100);
+    decideNewWindowRoom(scroller(0));
+    expect(marker()).toBe('');
+  });
+  test('with no marker, none is written', () => {
+    decideNewWindowRoom(scroller(500));
     expect(marker()).toBeNull();
   });
 });
