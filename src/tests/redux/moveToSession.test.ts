@@ -292,6 +292,56 @@ describe('moveToSession: one step to undo, and synced', () => {
     );
   });
 
+  // S4 B for a new LAST window, own session and another: one ⌘Z puts both
+  // sessions back exactly, and ⌘⇧Z lands the window last again.
+  it.each([
+    ['another session', 'S2', ['d1', 'd2', 'NEW']],
+    ['its own session', 'S1', ['w1', 'w2', 'NEW']],
+  ])(
+    '⌘Z undoes a move into a new last window of %s in one step',
+    (_, into, order) => {
+      const { store } = ready();
+      const before = structuredClone(data(store));
+      const past = store.getState().undoRedo.past.length;
+
+      vi.setSystemTime(T0 + 1_000);
+      store.dispatch(
+        moveToSession({
+          move: {
+            carried: {
+              kind: 'group',
+              tabGroupId: 'S1',
+              windowId: 'w1',
+              groupId: 'g1',
+            },
+            to: { tabGroupId: into, newWindowId: 'NEW', at: 'last' },
+          },
+          announceMoved: true,
+        })
+      );
+      expect(store.getState().undoRedo.past.length).toBe(past + 1);
+      expect(
+        sessionIn(data(store), into).windows.map((w) => w.windowId)
+      ).toEqual(order);
+
+      vi.setSystemTime(T0 + 2_000);
+      store.dispatch(undo());
+      const withoutStamp = (g: tabContainerData) => ({
+        ...g,
+        lastModified: undefined,
+      });
+      expect(data(store).tabGroups.map(withoutStamp)).toEqual(
+        before.tabGroups.map(withoutStamp)
+      );
+
+      vi.setSystemTime(T0 + 3_000);
+      store.dispatch(redo());
+      expect(
+        sessionIn(data(store), into).windows.map((w) => w.windowId)
+      ).toEqual(order);
+    }
+  );
+
   it('a same-session move to an exact spot is not this thunk’s: nothing moves, nothing toasts', () => {
     const { store, seen } = ready();
     const before = data(store);
@@ -510,10 +560,31 @@ describe('sessionMoveDrop', () => {
         windowId: 'w1',
         groupId: 'g1',
       },
-      to: { tabGroupId: 'S2', newWindowId: 'nw' },
+      to: { tabGroupId: 'S2', newWindowId: 'nw', at: 'first' },
     });
     expect(drop.targetIds(state())).toEqual(['d1', 'd2']);
     expect(drop.toIndex).toBe(0);
+  });
+
+  it('into a new LAST window: the same list, aimed past its end; a first one is aimed at 0', () => {
+    const carried = {
+      kind: 'tab',
+      tabGroupId: 'S1',
+      windowId: 'w1',
+      tabId: 't1',
+    } as const;
+    const last = sessionMoveDrop({
+      carried,
+      to: { tabGroupId: 'S2', newWindowId: 'nw', at: 'last' },
+    });
+    expect(last.targetIds(state())).toEqual(['d1', 'd2']);
+    expect(last.toIndex).toBeGreaterThanOrEqual(2);
+    expect(
+      sessionMoveDrop({
+        carried,
+        to: { tabGroupId: 'S2', newWindowId: 'nw', at: 'first' },
+      }).toIndex
+    ).toBe(0);
   });
 
   it('a destination session that is gone has nowhere to land', () => {
@@ -528,7 +599,7 @@ describe('sessionMoveDrop', () => {
     expect(
       sessionMoveDrop({
         carried: { kind: 'tab', tabGroupId: 'S1', windowId: 'w1', tabId: 't1' },
-        to: { tabGroupId: 'S2', newWindowId: 'nw' },
+        to: { tabGroupId: 'S2', newWindowId: 'nw', at: 'first' },
       }).targetIds(gone)
     ).toBeNull();
   });
@@ -542,7 +613,7 @@ describe('sessionMoveDrop', () => {
 
     const intoNew: SessionMove = {
       carried: { kind: 'tab', tabGroupId: 'S1', windowId: 'w1', tabId: 't1' },
-      to: { tabGroupId: 'S2', newWindowId: 'nw' },
+      to: { tabGroupId: 'S2', newWindowId: 'nw', at: 'first' },
     };
     const fresh = sessionMoveDrop(intoNew).move(2);
     expect(moveToSessionInternal.match(fresh) && fresh.payload.move).toEqual(
@@ -552,9 +623,14 @@ describe('sessionMoveDrop', () => {
 });
 
 describe('intoNewWindow', () => {
+  it('carries where the window goes', () => {
+    expect(intoNewWindow('S2', 'first').at).toBe('first');
+    expect(intoNewWindow('S2', 'last').at).toBe('last');
+  });
+
   it('names the session and mints a new window id each time', () => {
-    const a = intoNewWindow('S2');
-    const b = intoNewWindow('S2');
+    const a = intoNewWindow('S2', 'first');
+    const b = intoNewWindow('S2', 'first');
     expect(a.tabGroupId).toBe('S2');
     expect(a.newWindowId).toMatch(
       /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/

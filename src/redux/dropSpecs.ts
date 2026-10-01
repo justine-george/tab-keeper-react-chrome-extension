@@ -19,6 +19,7 @@ import {
   isWindowMove,
   moveToSessionInternal,
   moveWindowInternal,
+  type NewWindowPlace,
   type SessionMove,
   type TabMasterContainer,
 } from './slices/tabContainerDataStateSlice';
@@ -178,18 +179,24 @@ export function groupDrop({
 // KAN-350. The destination of a tab or group dropped as a new first window
 // (S2 A, S3 A). The id is minted HERE, by the caller's side, so the reducer
 // stays pure and a test can pass its own.
-export function intoNewWindow(tabGroupId: string): {
+export function intoNewWindow(
+  tabGroupId: string,
+  at: NewWindowPlace
+): {
   tabGroupId: string;
   newWindowId: string;
+  at: NewWindowPlace;
 } {
-  return { tabGroupId, newWindowId: uuidv4() };
+  return { tabGroupId, newWindowId: uuidv4(), at };
 }
 
 // KAN-350. moveToSessionInternal applies toIndex to the destination window's
 // tabs (a tab, not yet in it), to its items (a group, not yet among them), or
-// to the destination session's windows (a window). A new window always goes
-// first, so its drop is aimed at index 0 of the session's windows and the
-// move ignores the re-aimed index. rowExists is the carried item in its
+// to the destination session's windows (a window). A new window has no index
+// of its own: 'first' is aimed at index 0 of the session's windows and 'last'
+// past the end of them, so a change that arrived while carried keeps the drop
+// at that edge (reaimIndex), and the move ignores the re-aimed index and
+// places the window by its `at`. rowExists is the carried item in its
 // SOURCE, which is another session or, for a new window, maybe this one.
 export function sessionMoveDrop(move: SessionMove): DropOnTop {
   const { carried, to } = move;
@@ -237,7 +244,12 @@ export function sessionMoveDrop(move: SessionMove): DropOnTop {
 
   return {
     rowId,
-    toIndex: 'toIndex' in to ? to.toIndex : 0,
+    toIndex:
+      'toIndex' in to
+        ? to.toIndex
+        : to.at === 'first'
+          ? 0
+          : Number.MAX_SAFE_INTEGER,
     targetIds,
     rowExists,
     move: (i) => moveToSessionInternal(withToIndex(move, i)),
@@ -245,7 +257,7 @@ export function sessionMoveDrop(move: SessionMove): DropOnTop {
 }
 
 // The same move, aimed at another index of the same list. A new window has
-// no index to aim: it always goes first.
+// no index to aim: its `at` says where it goes.
 function withToIndex(move: SessionMove, toIndex: number): SessionMove {
   if (isWindowMove(move)) {
     return { carried: move.carried, to: { ...move.to, toIndex } };

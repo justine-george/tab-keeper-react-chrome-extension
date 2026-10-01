@@ -156,7 +156,7 @@ describe('a tab moves into another session', () => {
   it('becomes a new first window with its source window bounds, named after its tab', () => {
     const next = moved(seeded(), {
       carried: { kind: 'tab', tabGroupId: 'S1', windowId: 'w1', tabId: 'g1a' },
-      to: { tabGroupId: 'S2', newWindowId: 'nw' },
+      to: { tabGroupId: 'S2', newWindowId: 'nw', at: 'first' },
     });
 
     const target = sessionIn(next, 'S2');
@@ -183,7 +183,7 @@ describe('a tab moves into another session', () => {
     source.windows[0].tabs[1] = { ...tab('g1a', 'g1'), title: '' };
     const next = moved(seeded(container([s3(), s2(), source])), {
       carried: { kind: 'tab', tabGroupId: 'S1', windowId: 'w1', tabId: 'g1a' },
-      to: { tabGroupId: 'S2', newWindowId: 'nw' },
+      to: { tabGroupId: 'S2', newWindowId: 'nw', at: 'first' },
     });
 
     expect(sessionIn(next, 'S2').windows[0].title).toBe('');
@@ -227,7 +227,7 @@ describe('a group moves into another session', () => {
         windowId: 'w1',
         groupId: 'g1',
       },
-      to: { tabGroupId: 'S2', newWindowId: 'nw' },
+      to: { tabGroupId: 'S2', newWindowId: 'nw', at: 'first' },
     });
 
     const target = sessionIn(next, 'S2');
@@ -246,6 +246,133 @@ describe('a group moves into another session', () => {
     });
     expect(target.windowCount).toBe(3);
     expect(target.tabCount).toBe(6);
+  });
+});
+
+// A new window can go after every window the session has. The same window
+// as a new first one -- its source window's bounds, its first tab's title --
+// only in the last place.
+describe('a new window placed last', () => {
+  const TAB_G1A: SessionMove['carried'] = {
+    kind: 'tab',
+    tabGroupId: 'S1',
+    windowId: 'w1',
+    tabId: 'g1a',
+  };
+  const GROUP_G1: SessionMove['carried'] = {
+    kind: 'group',
+    tabGroupId: 'S1',
+    windowId: 'w1',
+    groupId: 'g1',
+  };
+
+  it('a tab into another session: the last window, with the source bounds, named after the tab', () => {
+    const next = moved(seeded(), {
+      carried: TAB_G1A,
+      to: { tabGroupId: 'S2', newWindowId: 'nw', at: 'last' },
+    });
+
+    const target = sessionIn(next, 'S2');
+    expect(windowIds(target)).toEqual(['d1', 'd2', 'nw']);
+    expect(target.windows[2]).toEqual({
+      windowId: 'nw',
+      windowHeight: W1_BOUNDS.height,
+      windowWidth: W1_BOUNDS.width,
+      windowOffsetTop: W1_BOUNDS.top,
+      windowOffsetLeft: W1_BOUNDS.left,
+      tabCount: 1,
+      title: 'g1a',
+      tabs: [tab('g1a')],
+    });
+    expect(target.windowCount).toBe(3);
+    expect(target.tabCount).toBe(5);
+    expect(sessionIn(next, 'S1').tabCount).toBe(5);
+  });
+
+  it('a group into another session: the last window holds it with its entry', () => {
+    const next = moved(seeded(), {
+      carried: GROUP_G1,
+      to: { tabGroupId: 'S2', newWindowId: 'nw', at: 'last' },
+    });
+
+    const target = sessionIn(next, 'S2');
+    expect(windowIds(target)).toEqual(['d1', 'd2', 'nw']);
+    expect(target.windows[2]).toEqual({
+      windowId: 'nw',
+      windowHeight: W1_BOUNDS.height,
+      windowWidth: W1_BOUNDS.width,
+      windowOffsetTop: W1_BOUNDS.top,
+      windowOffsetLeft: W1_BOUNDS.left,
+      tabCount: 2,
+      title: 'g1a',
+      tabs: [tab('g1a', 'g1'), tab('g1b', 'g1')],
+      chromeTabGroups: [group('g1')],
+    });
+    expect(target.windowCount).toBe(3);
+    expect(target.tabCount).toBe(6);
+  });
+
+  it('a tab into its own session: after every window, the emptied source window gone', () => {
+    const next = moved(seeded(), {
+      carried: { kind: 'tab', tabGroupId: 'S1', windowId: 'w1', tabId: 't1' },
+      to: { tabGroupId: 'S1', newWindowId: 'nw', at: 'last' },
+    });
+    expect(windowIds(sessionIn(next, 'S1'))).toEqual(['w1', 'w2', 'nw']);
+    expect(tabIds(windowIn(next, 'S1', 'nw'))).toEqual(['t1']);
+    expect(sessionIn(next, 'S1').windowCount).toBe(3);
+
+    // w2 comes first and holds only t3: taking it empties w2, so nw is last
+    // of what is left.
+    const source = s1();
+    source.windows.reverse();
+    const emptied = moved(seeded(container([s3(), s2(), source])), {
+      carried: { kind: 'tab', tabGroupId: 'S1', windowId: 'w2', tabId: 't3' },
+      to: { tabGroupId: 'S1', newWindowId: 'nw', at: 'last' },
+    });
+    expect(windowIds(sessionIn(emptied, 'S1'))).toEqual(['w1', 'nw']);
+    expect(sessionIn(emptied, 'S1').windowCount).toBe(2);
+  });
+
+  it('a group into its own session: the last window keeps the group ids, the entry moves with it', () => {
+    const next = moved(seeded(), {
+      carried: GROUP_G1,
+      to: { tabGroupId: 'S1', newWindowId: 'nw', at: 'last' },
+    });
+
+    expect(windowIds(sessionIn(next, 'S1'))).toEqual(['w1', 'w2', 'nw']);
+    const nw = windowIn(next, 'S1', 'nw');
+    expect(nw.chromeTabGroups).toEqual([group('g1')]);
+    expect(nw.tabs).toEqual([tab('g1a', 'g1'), tab('g1b', 'g1')]);
+    expect(windowIn(next, 'S1', 'w1').chromeTabGroups).toEqual([group('g2')]);
+    expect(sessionIn(next, 'S1').windowCount).toBe(3);
+  });
+
+  it('a new window id the destination already holds gets a new one, still last', () => {
+    const target = s2();
+    target.windows[1] = win('nw', [tab('u4')]);
+    const next = moved(seeded(container([s3(), target, s1()])), {
+      carried: { kind: 'tab', tabGroupId: 'S1', windowId: 'w1', tabId: 't1' },
+      to: { tabGroupId: 'S2', newWindowId: 'nw', at: 'last' },
+    });
+
+    expect(windowIds(sessionIn(next, 'S2'))).toEqual([
+      'd1',
+      'nw',
+      '8fc7db64-5f27-52fb-af02-eac6f9869ae7',
+    ]);
+  });
+
+  it('a tab id the destination holds is re-minted, as for a first window', () => {
+    const target = s2();
+    target.windows[1] = win('d2', [tab('t1')]);
+    const next = moved(seeded(container([s3(), target, s1()])), {
+      carried: { kind: 'tab', tabGroupId: 'S1', windowId: 'w1', tabId: 't1' },
+      to: { tabGroupId: 'S2', newWindowId: 'nw', at: 'last' },
+    });
+
+    const [moving] = windowIn(next, 'S2', 'nw').tabs;
+    expect(moving.tabId).not.toBe('t1');
+    expect(tabIds(windowIn(next, 'S2', 'd2'))).toEqual(['t1']);
   });
 });
 
@@ -400,7 +527,7 @@ describe('a move inside one session', () => {
   it('into a new window is a move: the tab leaves its window for a new first one', () => {
     const next = moved(seeded(), {
       carried: { kind: 'tab', tabGroupId: 'S1', windowId: 'w2', tabId: 't3' },
-      to: { tabGroupId: 'S1', newWindowId: 'nw' },
+      to: { tabGroupId: 'S1', newWindowId: 'nw', at: 'first' },
     });
 
     const s = sessionIn(next, 'S1');
@@ -419,7 +546,7 @@ describe('a move inside one session', () => {
         windowId: 'w1',
         groupId: 'g1',
       },
-      to: { tabGroupId: 'S1', newWindowId: 'nw' },
+      to: { tabGroupId: 'S1', newWindowId: 'nw', at: 'first' },
     });
 
     const nw = windowIn(next, 'S1', 'nw');
@@ -519,7 +646,7 @@ describe('a move that is not this reducer’s to make changes nothing', () => {
           windowId: 'w1',
           groupId: 'g1',
         },
-        to: { tabGroupId: 'nope', newWindowId: 'nw' },
+        to: { tabGroupId: 'nope', newWindowId: 'nw', at: 'first' },
       },
     ],
     [
@@ -637,7 +764,7 @@ describe('ids that collide in the destination are re-minted', () => {
     target.windows[1] = win('nw', [tab('u4')]);
     const next = moved(seeded(container([s3(), target, s1()])), {
       carried: { kind: 'tab', tabGroupId: 'S1', windowId: 'w1', tabId: 't1' },
-      to: { tabGroupId: 'S2', newWindowId: 'nw' },
+      to: { tabGroupId: 'S2', newWindowId: 'nw', at: 'first' },
     });
 
     expect(windowIds(sessionIn(next, 'S2'))).toEqual([

@@ -45,7 +45,7 @@ export const dropCarriedTab =
     if (toWindowId === CARRY_NEW_WINDOW_ID) {
       return dispatch(
         moveToSession({
-          move: { carried, to: intoNewWindow(tabGroupId) },
+          move: { carried, to: intoNewWindow(tabGroupId, 'first') },
           announceMoved: false,
         })
       );
@@ -83,7 +83,7 @@ export const dropCarriedGroup =
     if (toWindowId === CARRY_NEW_WINDOW_ID) {
       return dispatch(
         moveToSession({
-          move: { carried, to: intoNewWindow(tabGroupId) },
+          move: { carried, to: intoNewWindow(tabGroupId, 'first') },
           announceMoved: false,
         })
       );

@@ -62,14 +62,14 @@ const rowDropMove =
       case 'tab':
         return dispatch(
           moveToSession({
-            move: { carried, to: intoNewWindow(tabGroupId) },
+            move: { carried, to: intoNewWindow(tabGroupId, 'first') },
             announceMoved,
           })
         );
       case 'group':
         return dispatch(
           moveToSession({
-            move: { carried, to: intoNewWindow(tabGroupId) },
+            move: { carried, to: intoNewWindow(tabGroupId, 'first') },
             announceMoved,
           })
         );
