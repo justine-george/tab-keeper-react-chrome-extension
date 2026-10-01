@@ -483,10 +483,10 @@ export interface RowDragAreaProps {
   /**
    * Called while the drag is live whenever the window a release would land
    * in changes -- undefined where it would be refused -- and once with
-   * undefined when the drag ends (KAN-350). Changes only, like
-   * `onDropTargetChange`, with the list's own container for the list to mark
-   * whatever it draws for that window. For the New window target, which is a
-   * window of its own.
+   * undefined when the drag ends, or the area unmounts mid-drag (KAN-350,
+   * KAN-361). Changes only, like `onDropTargetChange`, with the list's own
+   * container for the list to mark whatever it draws for that window. For a
+   * New window target, which is a window of its own.
    */
   onLandingWindowChange?: (
     windowId: string | undefined,

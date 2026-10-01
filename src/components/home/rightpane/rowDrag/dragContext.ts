@@ -81,7 +81,8 @@ export interface DragState {
    * measured at drag start; 0 when the held row is its window's last.
    *
    * Null with no card (the row is still drawn), for an adopted carry (its
-   * source, the New window target, is gone after the drop), for a landing in
+   * source, the trailing block it rests in, holds nothing after the drop),
+   * for a landing in
    * the row's own window, and for a refused one.
    */
   sourceRoomDelta: number | null;

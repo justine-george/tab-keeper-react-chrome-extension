@@ -64,8 +64,8 @@ export const TabDragArea: React.FC<{
       // (KAN-350, KAN-352).
       carryOut={carryOut}
       // Back in the pane, the carried item's phantom becomes this list's
-      // drag, and the New window target lights up while it would land there
-      // (KAN-350).
+      // drag, and the header's New window target lights up while it would
+      // land there (KAN-350, KAN-361).
       adoptRowId={adoptRowId}
       adoptedRowLandsAs={adoptedRowLandsAs}
       onLandingWindowChange={markNewWindowTarget}
