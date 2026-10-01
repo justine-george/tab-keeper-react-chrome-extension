@@ -15,6 +15,7 @@ import {
 } from '../../redux/slices/globalStateSlice';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { s1, s2 } from '../fixtures/sessionMoveFixture';
+import { standInSessionList } from '../setup/standInSessionList';
 
 // KAN-350 + KAN-157. A window or group drag folds the list, and the fold can
 // clamp the scroll ("five windows scrolled to 300 ended at 0"). A refused drag
@@ -29,7 +30,16 @@ import { s1, s2 } from '../fixtures/sessionMoveFixture';
 const PRESS_SCROLL = 300;
 
 let frames: FrameRequestCallback[] = [];
+// The session list, stood in left of the pane, where a saved drag hands off
+// (KAN-352). Below it (y >= 500) is nothing.
+let unregisterList = () => {};
 beforeEach(() => {
+  unregisterList = standInSessionList({
+    left: -400,
+    right: 0,
+    top: 0,
+    bottom: 500,
+  }).unregister;
   frames = [];
   vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
     frames.push(cb);
@@ -39,6 +49,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  unregisterList();
   endCarry('cancelled');
   endDragHold();
   document.documentElement.removeAttribute('data-dragging');
@@ -91,7 +102,8 @@ function handleOf(selector: string, handle: string): HTMLElement {
   return el;
 }
 
-// Pressed, activated, out to the left -- and then the fold clamps the scroll.
+// Pressed, activated, out to the left onto the list -- and then the fold
+// clamps the scroll.
 function carryOutLeft(pane: HTMLElement, from: HTMLElement) {
   fireEvent.pointerDown(from, { clientX: 20, clientY: 10, button: 0 });
   fireEvent.pointerMove(document, { clientX: 20, clientY: 30 });
@@ -102,7 +114,7 @@ function carryOutLeft(pane: HTMLElement, from: HTMLElement) {
 }
 
 describe('a cancelled carry puts the press’s scroll back (KAN-157)', () => {
-  test('a window carried sideways, then Esc', async () => {
+  test('a window carried out, then Esc', async () => {
     const { pane } = await renderScrolled();
     carryOutLeft(
       pane,
@@ -121,7 +133,7 @@ describe('a cancelled carry puts the press’s scroll back (KAN-157)', () => {
     expect(pane.scrollTop).toBe(PRESS_SCROLL);
   });
 
-  test('a group carried sideways, then a release over nothing', async () => {
+  test('a group carried out, then a release over nothing', async () => {
     const { pane } = await renderScrolled();
     carryOutLeft(
       pane,
@@ -129,8 +141,12 @@ describe('a cancelled carry puts the press’s scroll back (KAN-157)', () => {
     );
     expect(currentCarry()?.carried).toMatchObject({ kind: 'group' });
 
+    // Off the list, below it: over nothing.
     act(() => {
-      fireEvent.pointerUp(window, { clientX: -40, clientY: 30 });
+      fireEvent.pointerMove(window, { clientX: -40, clientY: 600 });
+    });
+    act(() => {
+      fireEvent.pointerUp(window, { clientX: -40, clientY: 600 });
     });
     runFrames();
 
@@ -139,11 +155,13 @@ describe('a cancelled carry puts the press’s scroll back (KAN-157)', () => {
 
   // CONTROL: the tab list never restores (it does not fold), so a tab carry
   // leaves the scroll alone, as a refused tab drag does.
-  test('CONTROL: a tab carried sideways, then Esc, leaves the scroll', async () => {
+  test('CONTROL: a tab carried out, then Esc, leaves the scroll', async () => {
     const { pane } = await renderScrolled();
     const tab = document.querySelector('[data-drag-row-id="t2"]');
     if (!(tab instanceof HTMLElement)) throw new Error('no tab row');
     carryOutLeft(pane, tab);
+    // The premise: carried, so the Esc below ends a carry, not a drag.
+    expect(currentCarry()?.carried).toMatchObject({ kind: 'tab' });
     pane.scrollTop = 120;
 
     act(() => {
@@ -162,6 +180,7 @@ describe('only a cancelled carry, and only onto its own view', () => {
       pane,
       handleOf('[data-drag-row-id="w2"]', '[data-window-drag-handle]')
     );
+    expect(currentCarry()?.carried).toMatchObject({ kind: 'window' });
 
     act(() => endCarry('committed'));
     runFrames();

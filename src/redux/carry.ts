@@ -2,8 +2,8 @@
 //
 // A drag belongs to the RowDragArea it started in, and an area's unmount ends
 // its drag. Resting on a session row swaps the detail pane, which unmounts the
-// source area mid-drag -- so a drag that leaves its pane sideways is handed
-// here, to something that outlives every area, and is CARRIED until the
+// source area mid-drag -- so a drag that reaches the session list (a carry
+// receiver, KAN-352) is handed here, to something that outlives every area, and is CARRIED until the
 // release.
 //
 // Module state, like dragHold.ts and for the same reasons: the drag engine is
@@ -31,7 +31,7 @@ export type CarryCard =
   // and may be empty: the header then shows nothing.
   | { kind: 'window'; title: string; tabCount: number };
 
-// What a drag area hands over when its drag leaves the pane sideways.
+// What a drag area hands over when its drag reaches a carry receiver.
 export interface CarryOut {
   carried: CarriedRef;
   card: CarryCard;

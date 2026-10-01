@@ -39,6 +39,8 @@ import { isValidTabMasterContainer } from '../src/utils/functions/local';
 
 const POPUP = { width: 790, height: 550 };
 const TAB_VIEW = { width: 1280, height: 800 };
+// Wide enough for Open now's resize grip (KAN-321: above 1316px).
+const TAB_VIEW_WIDE = { width: 1600, height: 900 };
 const THEMES = ['Light', 'WarmLight', 'BBPink', 'Darkenheimer', 'Blue'];
 
 // ---- fixtures ---------------------------------------------------------------
@@ -168,12 +170,13 @@ async function openTabView(
   context: BrowserContext,
   extensionId: string,
   folded: boolean,
-  sessions: tabContainerData[] = [S1(), S2(), S3(), S4()]
+  sessions: tabContainerData[] = [S1(), S2(), S3(), S4()],
+  viewport = TAB_VIEW
 ): Promise<Page> {
   await seed(context, sessions, 'S1');
   await seedSettings(context, { foldSavedSessionInTabView: folded });
   const page = await context.newPage();
-  await page.setViewportSize(TAB_VIEW);
+  await page.setViewportSize(viewport);
   await page.goto(`chrome-extension://${extensionId}/index.html?view=tab`);
   // Barrier: the session list's first row. Then the detail, which the tab
   // view draws once a row is clicked -- a peek when folded (O5).
@@ -387,12 +390,50 @@ const groupHandle = (page: Page, groupId: string) =>
 const windowHandle = (page: Page, windowId: string) =>
   page.locator(`[data-drag-row-id="${windowId}"] [data-window-drag-handle]`);
 
-// Out of the detail to the left, at the same height, until the card shows.
+// Out of the detail to the left, at the same height, onto the session list
+// -- the only place a saved drag is handed to the carry (KAN-352) -- until
+// the card shows.
 async function carryOutLeft(page: Page, from: Point): Promise<void> {
   const pane = await detailPane(page);
+  const list = await boxOf(page.locator('[data-pane="sessions"]'));
+  // PREMISE: the point is on the session list's pane.
+  expect(pane.left - 40).toBeGreaterThan(list.x);
+  expect(pane.left - 40).toBeLessThan(list.x + list.width);
   await page.mouse.move(pane.left - 40, from.y, { steps: 6 });
   await expect(page.locator(CARD)).toHaveCount(1);
 }
+
+// Records, from now on, whether a carry's card or a New window target was
+// ever drawn -- even for one frame -- so a test can say none ever was.
+async function watchForCarry(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    // Each flag is written once: the observer hears attribute writes, its
+    // own included, so a rewrite would call it again forever.
+    const flag = () => {
+      const b = document.body.dataset;
+      if (b.sawCard !== '1' && document.querySelector('[data-carry-card]'))
+        b.sawCard = '1';
+      if (
+        b.sawTarget !== '1' &&
+        document.querySelector('[data-new-window-target]')
+      )
+        b.sawTarget = '1';
+    };
+    document.body.dataset.sawCard = '0';
+    document.body.dataset.sawTarget = '0';
+    new MutationObserver(flag).observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+    });
+    flag();
+  });
+}
+const sawCarry = (page: Page) =>
+  page.evaluate(() => ({
+    card: document.body.dataset.sawCard,
+    target: document.body.dataset.sawTarget,
+  }));
 
 // Onto a session row's centre. Leaves the pointer resting there.
 async function onto(page: Page, sessionId: string): Promise<void> {
@@ -752,7 +793,7 @@ test.describe('the New window target (S3 A, Q2 A)', () => {
     expect(await groupEntries(page, 'S2', 0)).toEqual(['alpha']);
   });
 
-  test('Q2 A: back in the source after a sideways exit, it is there too, and a drop on it makes a new window in the same session', async ({
+  test('Q2 A: back in the source after reaching the list, it is there too, and a drop on it makes a new window in the same session', async ({
     context,
     extensionId,
   }) => {
@@ -833,7 +874,7 @@ test.describe('nothing moves (Q5 A)', () => {
   });
 });
 
-test.describe('only a sideways exit carries (hand-off)', () => {
+test.describe('only the session list carries (hand-off, KAN-352)', () => {
   test('CONTROL: out of the pane below or above, no carry: the drag stays a drag in the list', async ({
     context,
     extensionId,
@@ -859,7 +900,10 @@ test.describe('only a sideways exit carries (hand-off)', () => {
     expect(await layout(page, 'S1')).toEqual([W1_START, 'b0 b1']);
   });
 
-  test('out to the right in the popup is a carry too, and a release there moves nothing', async ({
+  // KAN-352. Right of the pane is no receiver: the drag stays the list's
+  // own, and lets go as any drag beside its pane does -- in the held row's
+  // own window, at the pointer's height.
+  test('out to the right in the popup is no carry: the drag stays a drag, and lands', async ({
     context,
     extensionId,
   }) => {
@@ -868,12 +912,94 @@ test.describe('only a sideways exit carries (hand-off)', () => {
     // PREMISE, measured: the pane stops short of the popup's right edge, so a
     // pointer can be right of it and still inside the page.
     expect(pane.right).toBeLessThan(POPUP.width - 1);
-    const at = await pickUp(page, tabHandle(page, 'a1'));
-    await page.mouse.move(POPUP.width - 1, at.y, { steps: 6 });
-    await expect(page.locator(CARD)).toHaveCount(1);
+    await watchForCarry(page);
+    await pickUp(page, tabHandle(page, 'a1'));
+    // At a2's lower half: past its midpoint, so the preview puts a1 after it.
+    const a2 = await boxOf(tabHandle(page, 'a2'));
+    await page.mouse.move(POPUP.width - 1, a2.y + a2.height * 0.75, {
+      steps: 6,
+    });
+    await page.waitForTimeout(200);
+    await expect(tabHandle(page, 'a1')).toHaveAttribute('data-drag-held', '');
     await page.mouse.up();
-    await expect(page.locator(CARD)).toHaveCount(0);
-    expect(await layout(page, 'S1')).toEqual([W1_START, 'b0 b1']);
+
+    await expect
+      .poll(() => layout(page, 'S1'))
+      .toEqual(['a0 a2 a1 al0* al1*', 'b0 b1']);
+    expect(await sawCarry(page)).toEqual({ card: '0', target: '0' });
+    expect(await toasts(page)).toEqual([]);
+  });
+
+  // KAN-352, the same rule for an adopted drag: out of the opened session to
+  // the right it stays adopted (the old rule handed it back there); only on
+  // the session list is it carried again, and then a row drop takes it.
+  test('an adopted drag is carried again only on the list, never beside the pane', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    const at = await pickUp(page, tabHandle(page, 'a1'));
+    await carryOutLeft(page, at);
+    await springOpen(page, 'S2');
+    await adoptPhantom(page, 'carried:a1');
+    const phantom = page.locator('[data-drag-row-id="carried:a1"]');
+
+    const c1 = await boxOf(tabHandle(page, 'c1'));
+    await page.mouse.move(POPUP.width - 1, c1.y + c1.height / 2, {
+      steps: 6,
+    });
+    await page.waitForTimeout(200);
+    // Still this list's drag: the phantom held, nothing on the list aimed.
+    await expect(phantom).toHaveAttribute('data-drag-held', '');
+    expect(await carryTargets(page)).toEqual([]);
+
+    await onto(page, 'S3');
+    await expect(phantom).not.toHaveAttribute('data-drag-held', '');
+    await page.mouse.up();
+
+    await expect.poll(() => layout(page, 'S3')).toEqual(['a1', 'f0']);
+    expect(await layout(page, 'S2')).toEqual([D1_START, 'e0 e1']);
+    expect(await layout(page, 'S1')).toEqual(['a0 a2 al0* al1*', 'b0 b1']);
+  });
+
+  // KAN-352, aimed where the old rule fired: Open now's resize grip sits just
+  // right of the detail pane. A saved drag drifting onto it, and let go
+  // there, is an ordinary move -- no card, no New window target, ever.
+  test('a drag let go on the Open now resize grip is an ordinary move, never a carry', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openTabView(
+      context,
+      extensionId,
+      false,
+      undefined,
+      TAB_VIEW_WIDE
+    );
+    const gripLoc = page.locator('[data-resize-grip]');
+    await expect(gripLoc).toHaveCount(1);
+    const grip = await boxOf(gripLoc);
+    const pane = await detailPane(page);
+    // PREMISE: the grip is right of the pane, outside its box -- a sideways
+    // exit, which the old rule handed off.
+    expect(grip.x).toBeGreaterThanOrEqual(pane.right);
+    await watchForCarry(page);
+
+    await pickUp(page, tabHandle(page, 'a1'));
+    const a2 = await boxOf(tabHandle(page, 'a2'));
+    const onGrip = { x: grip.x + grip.width / 2, y: a2.y + a2.height * 0.75 };
+    await page.mouse.move(onGrip.x, onGrip.y, { steps: 8 });
+    // PREMISE: the pointer is over the grip, with the row still held.
+    expect(await gripLoc.evaluate((el) => el.matches(':hover'))).toBe(true);
+    await page.waitForTimeout(200);
+    await expect(tabHandle(page, 'a1')).toHaveAttribute('data-drag-held', '');
+    expect(await page.locator(CARD).count()).toBe(0);
+    await page.mouse.up();
+
+    await expect
+      .poll(() => layout(page, 'S1'))
+      .toEqual(['a0 a2 a1 al0* al1*', 'b0 b1']);
+    expect(await sawCarry(page)).toEqual({ card: '0', target: '0' });
     expect(await toasts(page)).toEqual([]);
   });
 });
@@ -909,7 +1035,10 @@ test.describe('Review Focus 2: cancels, quick passes, the shown row', () => {
     await expect.poll(() => clicks(page)).toBe(1);
   });
 
-  test('a release over Open now cancels, with no stray click, and Chrome is untouched', async ({
+  // KAN-352: over Open now is no receiver, so the saved drag never becomes a
+  // carry there. Let go over a live row, it is refused as any saved drag
+  // there is: nothing moves, and the live row hears no click.
+  test('a release over Open now moves nothing, with no stray click, and Chrome is untouched', async ({
     context,
     extensionId,
     serviceWorker,
@@ -917,6 +1046,7 @@ test.describe('Review Focus 2: cancels, quick passes, the shown row', () => {
     const page = await openTabView(context, extensionId, false);
     const chromeBefore = await chromeNow(serviceWorker);
     await countClicks(page);
+    await watchForCarry(page);
     const openNow = page.locator('[data-pane="open-now"]');
     const liveRow = openNow.getByRole('button', { name: /^Switch to tab: / });
     await expect(liveRow.first()).toBeVisible();
@@ -924,7 +1054,7 @@ test.describe('Review Focus 2: cancels, quick passes, the shown row', () => {
 
     const at = await pickUp(page, tabHandle(page, 'a1'));
     await page.mouse.move(target.x + target.width / 2, at.y, { steps: 8 });
-    await expect(page.locator(CARD)).toHaveCount(1);
+    await expect(tabHandle(page, 'a1')).toHaveAttribute('data-drag-held', '');
     await page.mouse.move(
       target.x + target.width / 2,
       target.y + target.height / 2,
@@ -932,8 +1062,8 @@ test.describe('Review Focus 2: cancels, quick passes, the shown row', () => {
     );
     await page.mouse.up();
 
-    await expect(page.locator(CARD)).toHaveCount(0);
     await page.waitForTimeout(300);
+    expect(await sawCarry(page)).toEqual({ card: '0', target: '0' });
     expect(await clicks(page)).toBe(0);
     expect(await layout(page, 'S1')).toEqual([W1_START, 'b0 b1']);
     expect(await chromeNow(serviceWorker)).toBe(chromeBefore);

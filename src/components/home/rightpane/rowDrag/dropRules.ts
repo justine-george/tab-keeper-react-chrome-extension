@@ -432,18 +432,21 @@ export interface RowDragAreaProps {
     windowId: string | undefined
   ) => BandGapChange[];
   /**
-   * Hand a drag that leaves the pane SIDEWAYS to the carry (KAN-350).
+   * Hand a drag that reaches a carry receiver -- the session list -- to the
+   * carry (KAN-350).
    *
-   * Once a started drag's pointer is left or right of the box the held row
-   * lives in (the nearest `overflow: auto` ancestor), the area asks this for
-   * what it is holding. Given an answer, it ends its own drag without
-   * committing -- but leaves the drag hold on, the drag kind published and no
-   * click suppression armed, because the carry takes all three over -- and
-   * starts the carry at the pointer. Null leaves the drag exactly as it was.
+   * Once a started drag's pointer is over a registered carry receiver
+   * (carryReceiverAt), the area asks this for what it is holding. Given an
+   * answer, it ends its own drag without committing -- but leaves the drag
+   * hold on, the drag kind published and no click suppression armed, because
+   * the carry takes all three over -- and starts the carry at the pointer.
+   * Null leaves the drag exactly as it was.
    *
-   * Above or below the pane is never a hand-off: that overshoot is how a drag
-   * auto-scrolls (KAN-152). Only the saved detail's three lists pass this; the
-   * session list and Open now do not, so their drags cannot change.
+   * Anywhere else is never a hand-off (KAN-352): beside or past the pane,
+   * over Open now or its resize grip, above or below the pane (the overshoot
+   * a drag auto-scrolls by, KAN-152), the drag is exactly what it always was.
+   * Only the saved detail's three lists pass this; the session list and Open
+   * now do not, so their drags cannot change, and never ask a receiver.
    */
   carryOut?: (rowId: string) => CarryOut | null;
   /**
@@ -460,8 +463,8 @@ export interface RowDragAreaProps {
    * activation distance and no second drag hold, the carry's being kept. The
    * carry is then the area's to drive until it ends.
    *
-   * From there it is an ordinary drag with three differences: leaving the
-   * pane sideways hands the SAME carry back to the layer; a release the list
+   * From there it is an ordinary drag with three differences: reaching a
+   * carry receiver (the session list) hands the SAME carry back to the layer; a release the list
    * commits must end the carry itself (endCarry('committed')); and one that
    * commits nothing -- Esc, pointercancel, a refused release -- cancels the
    * whole carry. The row is drawn with its content invisible and never hit,

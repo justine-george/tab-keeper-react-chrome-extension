@@ -1,5 +1,5 @@
-// KAN-350. What each saved detail list hands over when its drag leaves the
-// pane sideways: the carried item by id, and the card's snapshot of it. One
+// KAN-350. What each saved detail list hands over when its drag reaches the
+// session list (KAN-352): the carried item by id, and the card's snapshot of it. One
 // function per list, each taking the row id that list's engine knows.
 import type { CarryOut } from '../../../redux/carry';
 import type { PaneWindows } from './rowDrag/dropRules';

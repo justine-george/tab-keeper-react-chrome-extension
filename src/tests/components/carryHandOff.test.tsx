@@ -16,11 +16,13 @@ import {
   isDragHeld,
   whenDragReleases,
 } from '../../redux/dragHold';
+import { standInSessionList } from '../setup/standInSessionList';
 
-// KAN-350. A saved drag that leaves its pane SIDEWAYS is handed to the carry,
-// which outlives the area (the area's unmount would otherwise end the drag).
-// Above or below the pane nothing changes: that overshoot is how a drag
-// auto-scrolls (KAN-152), and the control below is what proves it.
+// KAN-350. A saved drag that reaches a carry receiver -- the session list --
+// is handed to the carry, which outlives the area (the area's unmount would
+// otherwise end the drag). ONLY there (KAN-352): beside the pane, over the
+// Open now resize grip or Open now itself, nothing changes; above or below
+// the pane is how a drag auto-scrolls (KAN-152). The controls below prove it.
 //
 // jsdom has no layout and computes no emotion class, so the pane's overflow is
 // set inline and the pane and rows get boxes, as dragAutoScroll.test.tsx and
@@ -29,6 +31,11 @@ import {
 const ROW_H = 30;
 // The pane: x 0..200, y 0..90, showing three of four 30px rows.
 const PANE = { left: 0, right: 200, top: 0, bottom: 90 };
+// The session list, stood in to the LEFT of the pane, as in the app. Right
+// of the pane is no receiver: where Open now's resize grip is (KAN-352).
+const LIST = { left: -300, right: PANE.left, top: 0, bottom: 500 };
+const ON_LIST = PANE.left - 30;
+const BESIDE = PANE.right + 30;
 
 const box = (top: number, height: number): DOMRect =>
   DOMRect.fromRect({ x: 0, y: top, width: 200, height });
@@ -39,7 +46,12 @@ const OUT: CarryOut = {
 };
 
 let frames: FrameRequestCallback[] = [];
+let unregisterList = () => {};
+let listHit: ReturnType<typeof vi.spyOn> | null = null;
 beforeEach(() => {
+  const list = standInSessionList(LIST);
+  unregisterList = list.unregister;
+  listHit = vi.spyOn(list.receiver, 'hit');
   frames = [];
   vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
     frames.push(cb);
@@ -49,6 +61,8 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  unregisterList();
+  listHit = null;
   endCarry('cancelled');
   endDragHold();
   document.documentElement.removeAttribute('data-dragging');
@@ -66,10 +80,12 @@ const runFrames = (n: number) => {
 const Harness = ({
   onMove,
   carryOut,
+  adoptRowId,
   onRowClick = () => {},
 }: {
   onMove: (rowId: string, toIndex: number) => void;
   carryOut?: (rowId: string) => CarryOut | null;
+  adoptRowId?: string;
   onRowClick?: (rowId: string) => void;
 }) => (
   <div data-testid="pane" style={{ overflowY: 'auto' }}>
@@ -78,6 +94,7 @@ const Harness = ({
       onMove={onMove}
       dragKind="tab"
       carryOut={carryOut}
+      adoptRowId={adoptRowId}
     >
       {['a', 'b', 'c', 'd'].map((id) => (
         <DraggableRow key={id} rowId={id}>
@@ -126,11 +143,9 @@ const pickUpA = () => {
 const heldMarker = () => document.querySelector('[data-drag-held]');
 const kind = () => document.documentElement.getAttribute('data-dragging');
 
-describe('a sideways exit hands the drag to the carry', () => {
-  test.each([
-    ['right', PANE.right + 30],
-    ['left', PANE.left - 30],
-  ])('out to the %s', (_side, x) => {
+describe('reaching the session list hands the drag to the carry', () => {
+  test('onto the list, left of the pane', () => {
+    const x = ON_LIST;
     const onMove = vi.fn();
     const carryOut = vi.fn(() => OUT);
     render(<Harness onMove={onMove} carryOut={carryOut} />);
@@ -178,9 +193,9 @@ describe('a sideways exit hands the drag to the carry', () => {
     );
     layout();
     pickUpA();
-    fireEvent.pointerMove(document, { clientX: 300, clientY: 40 });
+    fireEvent.pointerMove(document, { clientX: ON_LIST, clientY: 40 });
     expect(currentCarry()).not.toBeNull();
-    fireEvent.pointerUp(document, { clientX: 300, clientY: 40 });
+    fireEvent.pointerUp(document, { clientX: ON_LIST, clientY: 40 });
     endCarry('cancelled');
 
     // With no CarryLayer mounted, nothing swallows this one.
@@ -195,7 +210,7 @@ describe('a sideways exit hands the drag to the carry', () => {
     layout();
     pickUpA();
 
-    fireEvent.pointerMove(document, { clientX: 300, clientY: 40 });
+    fireEvent.pointerMove(document, { clientX: ON_LIST, clientY: 40 });
     expect(currentCarry()).toBeNull();
     expect(heldMarker()).not.toBeNull();
 
@@ -203,6 +218,25 @@ describe('a sideways exit hands the drag to the carry', () => {
     fireEvent.pointerMove(document, { clientX: 10, clientY: 50 });
     fireEvent.pointerUp(document, { clientX: 10, clientY: 50 });
     expect(onMove).toHaveBeenCalledWith('a', 1, undefined);
+  });
+
+  // An adopted drag hands its carry back on the list whether or not its list
+  // could start a carry of its own: what it hands is the carry it came from.
+  test('an adopted drag hands its carry back on the list, with no carryOut', () => {
+    render(<Harness onMove={() => {}} adoptRowId="a" />);
+    layout();
+    startCarry(OUT.carried, OUT.card, ON_LIST, 40);
+
+    fireEvent.pointerMove(document, { clientX: 10, clientY: 40 });
+    // The premise: adopted.
+    expect(currentCarry()?.owner).toBe('area');
+    expect(heldMarker()).not.toBeNull();
+
+    fireEvent.pointerMove(document, { clientX: ON_LIST, clientY: 40 });
+
+    expect(currentCarry()?.owner).toBe('layer');
+    expect(currentCarry()?.carried).toBe(OUT.carried);
+    expect(heldMarker()).toBeNull();
   });
 
   test('a press while a carry is on starts no second drag', () => {
@@ -259,18 +293,48 @@ describe('any other exit is today’s drag', () => {
     expect(pane.scrollTop).toBeLessThan(30);
   });
 
-  // The session list and Open now pass no carryOut: a sideways exit there is
-  // what it always was.
-  test('an area with no carryOut keeps its drag on a sideways exit', () => {
+  // KAN-352, aimed where the old rule fired: right of the pane, where Open
+  // now's resize grip sits, is a sideways exit -- and no receiver. The drag
+  // stays the area's: no carry, its preview still drawn, and the release
+  // there lands where that preview showed.
+  test('beside the pane over no receiver: no hand-off, and the release still lands', () => {
+    const onMove = vi.fn();
+    const carryOut = vi.fn(() => OUT);
+    render(<Harness onMove={onMove} carryOut={carryOut} />);
+    layout();
+    pickUpA();
+
+    // Past B's midpoint (45), beside the pane.
+    fireEvent.pointerMove(document, { clientX: BESIDE, clientY: 50 });
+
+    expect(carryOut).not.toHaveBeenCalled();
+    expect(currentCarry()).toBeNull();
+    expect(heldMarker()).not.toBeNull();
+    expect(isDragHeld()).toBe(true);
+    // The preview is drawn: B has made room above it for A.
+    expect(nodeFor('Row B').style.transform).toBe(`translateY(-${ROW_H}px)`);
+
+    fireEvent.pointerUp(document, { clientX: BESIDE, clientY: 50 });
+    expect(onMove).toHaveBeenCalledWith('a', 1, undefined);
+    expect(isDragHeld()).toBe(false);
+  });
+
+  // The session list and Open now pass no carryOut: on a receiver their drag
+  // is what it always was -- and they never even ask it (one box read per
+  // move is the hand-off's cost, paid only by a list that can hand off).
+  test('an area with no carryOut keeps its drag on a receiver, and never asks it', () => {
     const onMove = vi.fn();
     render(<Harness onMove={onMove} />);
     layout();
     pickUpA();
 
-    fireEvent.pointerMove(document, { clientX: 300, clientY: 40 });
+    fireEvent.pointerMove(document, { clientX: ON_LIST, clientY: 40 });
+    fireEvent.pointerMove(document, { clientX: ON_LIST, clientY: 60 });
 
     expect(currentCarry()).toBeNull();
     expect(heldMarker()).not.toBeNull();
     expect(isDragHeld()).toBe(true);
+    expect(listHit).not.toBeNull();
+    expect(listHit).not.toHaveBeenCalled();
   });
 });

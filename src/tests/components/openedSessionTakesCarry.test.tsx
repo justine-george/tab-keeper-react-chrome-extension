@@ -28,6 +28,7 @@ import {
 import { LIGHT_THEME } from '../../hooks/useThemeColors';
 import { CARRY_NEW_WINDOW_ID } from '../../utils/functions/carriedView';
 import { renderWithProviders } from '../setup/renderWithProviders';
+import { standInSessionList } from '../setup/standInSessionList';
 import {
   T0,
   s1,
@@ -108,7 +109,16 @@ const runFrames = (n: number) => {
   }
 };
 
+// The session list, stood in left of the pane (x < 0), where the app draws
+// it: an adopted drag hands its carry back only there (KAN-352).
+let unregisterList = () => {};
 beforeEach(() => {
+  unregisterList = standInSessionList({
+    left: -400,
+    right: 0,
+    top: 0,
+    bottom: 1000,
+  }).unregister;
   table = {};
   pane = null;
   paneH = 500;
@@ -130,6 +140,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  unregisterList();
   act(() => endCarry('cancelled'));
   endDragHold();
   document.documentElement.removeAttribute('data-dragging');
@@ -839,7 +850,7 @@ describe('what an adoption leaves alone', () => {
 });
 
 describe('out of the pane and back in', () => {
-  test('leaving sideways hands the same carry back to the layer', async () => {
+  test('reaching the session list hands the same carry back to the layer', async () => {
     await renderDetail('S2');
     const onCancel = vi.fn();
     carry(TAB_T1, onCancel);
@@ -857,7 +868,35 @@ describe('out of the pane and back in', () => {
     expect(document.documentElement.getAttribute('data-dragging')).toBe('tab');
   });
 
-  test('leaving from the lit New window target puts it out', async () => {
+  // KAN-352, aimed where the old rule fired: out of the pane to the RIGHT,
+  // where Open now and its resize grip are, is no receiver. The adopted drag
+  // stays this area's -- its carry is not handed back, nothing is unlit or
+  // re-measured -- and back in, the release lands where its preview showed:
+  // open-now-resize.spec.ts test 8's path, played on an adopted drag.
+  test('beside the pane over no receiver: the drag stays adopted, and back in it lands', async () => {
+    const { store } = await renderDetail('S2');
+    const onCancel = vi.fn();
+    carry(TAB_T1, onCancel);
+    table = S2_TAB_LAYOUT('t1');
+
+    moveTo(100);
+    expect(held()).toBe('carried:t1');
+    moveTo(100, PANE_W + 30);
+
+    expect(currentCarry()?.owner).toBe('area');
+    expect(held()).toBe('carried:t1');
+    moveTo(100);
+    release(100);
+
+    expect(
+      tabIds(windowIn(store.getState().tabContainerDataState, 'S2', 'd1'))
+    ).toEqual(['u1', 't1', 'u2', 'u3']);
+    expect(currentCarry()).toBeNull();
+    runFrames(2);
+    expect(onCancel).not.toHaveBeenCalled();
+  });
+
+  test('leaving from the lit New window target for the list puts it out', async () => {
     await renderDetail('S2');
     carry(TAB_T1);
     table = S2_TAB_LAYOUT('t1');

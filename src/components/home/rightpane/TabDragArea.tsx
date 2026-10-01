@@ -57,8 +57,8 @@ export const TabDragArea: React.FC<{
       // dragged in it -- in a window's `items` list a group is one row that
       // CONTAINS its title, so it is declared here only.
       fixedRowSelector="[data-fixed-row-id]"
-      // Out of the pane sideways, a tab is carried to another session
-      // (KAN-350).
+      // Onto the session list, a tab is carried to another session
+      // (KAN-350, KAN-352).
       carryOut={carryOut}
       // Back in the pane, the carried item's phantom becomes this list's
       // drag, and the New window target lights up while it would land there

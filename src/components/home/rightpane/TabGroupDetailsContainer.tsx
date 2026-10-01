@@ -155,8 +155,8 @@ export default function TabGroupDetailsContainer() {
     [dispatch, movedTabGroupId]
   );
 
-  // KAN-350. Out of the pane sideways, a whole window is carried to another
-  // session.
+  // KAN-350. Onto the session list, a whole window is carried to another
+  // session (KAN-352).
   const carryWindowOut = useCallback(
     (windowId: string) =>
       shownSession === undefined

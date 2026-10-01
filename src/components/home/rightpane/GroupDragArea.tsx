@@ -66,8 +66,8 @@ export const GroupDragArea: React.FC<{
       // because compressing the held group can shrink the list and clamp the
       // scroll.
       restoreScrollIfNoDrop
-      // Out of the pane sideways, a whole group is carried to another session
-      // (KAN-350).
+      // Onto the session list, a whole group is carried to another session
+      // (KAN-350, KAN-352).
       carryOut={carryOut}
       // Back in the pane, the carried item's phantom becomes this list's
       // drag, and the New window target lights up while it would land there

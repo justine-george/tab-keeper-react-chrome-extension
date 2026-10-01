@@ -1,5 +1,5 @@
 import { createRef } from 'react';
-import { afterEach, describe, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { act, fireEvent, screen } from '@testing-library/react';
 
 import TabGroupDetailsContainer from '../../components/home/rightpane/TabGroupDetailsContainer';
@@ -20,10 +20,12 @@ import { TAB_GROUP_COLOR_HEX } from '../../utils/functions/tabGroups';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { s1, s2, s3 } from '../fixtures/sessionMoveFixture';
 import { snapshot, layOut, tabRow } from '../setup/openNowDragHarness';
+import { standInSessionList } from '../setup/standInSessionList';
 
 // KAN-350. The three saved detail lists -- tabs, groups, windows -- hand a
-// sideways exit to the carry, and the detail then draws the source without
-// the carried item. The session list and Open now do not.
+// drag that reaches the session list to the carry (KAN-352: only there), and
+// the detail then draws the source without the carried item. The session
+// list and Open now do not.
 //
 // S1 (shown): w1 [t1, g1a*g1, g1b*g1, t2, t4*g2], w2 [t3].
 //
@@ -36,7 +38,20 @@ const PANE_W = 400;
 const box = (top: number, height: number, width = PANE_W): DOMRect =>
   DOMRect.fromRect({ x: 0, y: top, width, height });
 
+// The session list, stood in left of the pane (x < 0), where the app draws
+// it. Below it (y >= 500) is nothing.
+let unregisterList = () => {};
+beforeEach(() => {
+  unregisterList = standInSessionList({
+    left: -400,
+    right: 0,
+    top: 0,
+    bottom: 500,
+  }).unregister;
+});
+
 afterEach(() => {
+  unregisterList();
   endCarry('cancelled');
   endDragHold();
   document.documentElement.removeAttribute('data-dragging');
@@ -74,7 +89,7 @@ function find(selector: string): HTMLElement {
 }
 
 // Pressed, carried past the activation distance, then out to the left of
-// the pane -- where the session list is.
+// the pane and onto the session list.
 function dragOutLeft(from: HTMLElement) {
   fireEvent.pointerDown(from, { clientX: 20, clientY: 10, button: 0 });
   fireEvent.pointerMove(document, { clientX: 20, clientY: 30 });
@@ -88,7 +103,7 @@ const rowIds = () =>
     (el) => el.dataset.dragRowId
   );
 
-describe('each saved detail list hands a sideways exit to the carry', () => {
+describe('each saved detail list hands a drag that reaches the session list to the carry', () => {
   test('a tab: carried by id, its card, and gone from the source', async () => {
     await renderDetail();
     // The premise.
@@ -186,8 +201,12 @@ describe('each saved detail list hands a sideways exit to the carry', () => {
     dragOutLeft(find('[data-drag-row-id="t2"]'));
     expect(rowIds()).not.toContain('t2');
 
+    // Off the list, below it: over nothing.
     act(() => {
-      fireEvent.pointerUp(document, { clientX: -40, clientY: 30 });
+      fireEvent.pointerMove(document, { clientX: -40, clientY: 600 });
+    });
+    act(() => {
+      fireEvent.pointerUp(document, { clientX: -40, clientY: 600 });
     });
 
     expect(currentCarry()).toBeNull();
@@ -198,8 +217,9 @@ describe('each saved detail list hands a sideways exit to the carry', () => {
   });
 });
 
-// The controls: the lists that must not hand off, dragged the same way.
-describe('the session list and Open now keep today’s drag on a sideways exit', () => {
+// The controls: the lists that must not hand off, dragged the same way --
+// onto the stood-in list, where a saved detail list would hand off.
+describe('the session list and Open now keep today’s drag on a carry receiver', () => {
   test('the session list', async () => {
     const { container } = await renderWithProviders(
       <TabGroupEntryContainer />,
@@ -219,11 +239,11 @@ describe('the session list and Open now keep today’s drag on a sideways exit',
 
     fireEvent.pointerDown(row, { clientX: 20, clientY: 10, button: 0 });
     fireEvent.pointerMove(document, { clientX: 20, clientY: 30 });
-    fireEvent.pointerMove(document, { clientX: 600, clientY: 30 });
+    fireEvent.pointerMove(document, { clientX: -40, clientY: 30 });
 
     expect(currentCarry()).toBeNull();
     expect(document.querySelector('[data-drag-held]')).not.toBeNull();
-    fireEvent.pointerUp(document, { clientX: 600, clientY: 30 });
+    fireEvent.pointerUp(document, { clientX: -40, clientY: 30 });
   });
 
   test('Open now', async () => {
