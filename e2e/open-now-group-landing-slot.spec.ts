@@ -237,3 +237,212 @@ test.describe('in Open now, a dragged group is shown landing where it lands', ()
     });
   }
 });
+
+// KAN-364. A tab's slot is the box of the row it becomes: a member's inside
+// a band, which starts past the colour bar, and a loose row's outside one.
+// The held row's own box says neither once the tab crosses a band's edge.
+const tabRowOf = (page: Page, staged: Staged, title: string) =>
+  page.evaluate(
+    ([scope, title]) => {
+      // The innermost row whose text is this tab's: its icon, title and close
+      // control (data: tabs have no favicon, so the globe).
+      const row = [
+        ...document.querySelectorAll<HTMLElement>(
+          `${scope} [data-drag-row-id]`
+        ),
+      ].find(
+        (r) =>
+          r.querySelector('[data-drag-row-id]') === null &&
+          (r.textContent ?? '').trim() === `globe${title}close`
+      );
+      if (row === undefined) return null;
+      const b = row.getBoundingClientRect();
+      return { left: b.left, right: b.right, top: b.top, height: b.height };
+    },
+    [inWindow(staged), title] as const
+  );
+
+test.describe("in Open now, a tab's slot is the box of the row it becomes (KAN-364)", () => {
+  const cases = [
+    {
+      name: 'a loose tab into a band',
+      held: 'a0',
+      aim: 'be1',
+      frac: 0.5,
+      becomes: 'member',
+    },
+    {
+      name: 'a member out of its band, to a loose spot',
+      held: 'be0',
+      aim: 'a0',
+      frac: 0.3,
+      becomes: 'loose',
+    },
+    {
+      name: 'CONTROL: a member within its band',
+      held: 'be0',
+      aim: 'be2',
+      frac: 0.6,
+      becomes: 'member',
+    },
+  ] as const;
+  for (const c of cases) {
+    test(c.name, async ({ context, extensionId, serviceWorker }) => {
+      const staged = await stage(serviceWorker);
+      const page = await context.newPage();
+      await page.setViewportSize({ width: 1280, height: 800 });
+      await page.goto(`chrome-extension://${extensionId}/index.html?view=tab`);
+      // goto resolves before React mounts (KAN-105).
+      await expect
+        .poll(() => bandOrder(page, staged))
+        .toEqual([staged.alpha, staged.beta, staged.gamma]);
+      await settled(page);
+      const member = await tabRowOf(page, staged, 'be2');
+      const loose = await tabRowOf(page, staged, 'a0');
+      const held = await tabRowOf(page, staged, c.held);
+      if (member === null || loose === null || held === null)
+        throw new Error('a staged tab is not drawn');
+      // PREMISE: the two boxes differ, so the slot can only match one.
+      expect(member.left - loose.left).toBeGreaterThan(8);
+      const x = held.left + 60;
+      const y = held.top + held.height / 2;
+      await page.mouse.move(x, y);
+      await page.mouse.down();
+      await page.mouse.move(x, y + 8, { steps: 2 });
+      await settled(page);
+      const aim = await tabRowOf(page, staged, c.aim);
+      if (aim === null) throw new Error(`${c.aim} is not drawn`);
+      await page.mouse.move(x, aim.top + aim.height * c.frac, { steps: 12 });
+      await settled(page);
+      const slot = await page.evaluate(() => {
+        const b = document
+          .querySelector('[data-drag-landing-slot]')
+          ?.getBoundingClientRect();
+        return b === undefined ? null : { left: b.left, right: b.right };
+      });
+      if (slot === null) throw new Error('no landing slot drawn');
+      const want = c.becomes === 'member' ? member : loose;
+      // To within two LayoutUnits (2/64px), as in drag-between-sessions,
+      // where the bound is derived. Nothing moves at this drag's activation.
+      expect(
+        Math.abs(slot.left - want.left),
+        `slot left ${slot.left} vs ${want.left}`
+      ).toBeLessThanOrEqual(2 / 64);
+      expect(
+        Math.abs(slot.right - want.right),
+        `slot right ${slot.right} vs ${want.right}`
+      ).toBeLessThanOrEqual(2 / 64);
+      await page.keyboard.press('Escape');
+      await page.mouse.up();
+    });
+  }
+});
+
+// A pinned tab held over another window's band keeps its own (loose) box
+// (KAN-364). A pinned tab is refused by every window but its own (K1), and
+// the band under the pointer is in the refused window, which the drop rule
+// never searches (dropRoot), so no band is named. A refused MEMBER keeping
+// its own box is pinned in drag-between-sessions.spec.ts.
+test("in Open now, a pinned tab held over another window's band keeps its own box", async ({
+  context,
+  extensionId,
+  serviceWorker,
+}) => {
+  const ids = await serviceWorker.evaluate(
+    async (urls: string[][]) => {
+      const [a, b] = await Promise.all(
+        urls.map((url) => chrome.windows.create({ focused: false, url }))
+      );
+      const aTabs = (a?.tabs ?? []).flatMap((t) =>
+        t.id === undefined ? [] : [t.id]
+      );
+      const bTabs = (b?.tabs ?? []).flatMap((t) =>
+        t.id === undefined ? [] : [t.id]
+      );
+      const [pinned] = aTabs;
+      const [, m0, m1] = bTabs;
+      if (
+        a?.id === undefined ||
+        b?.id === undefined ||
+        pinned === undefined ||
+        m0 === undefined ||
+        m1 === undefined
+      )
+        return null;
+      await chrome.tabs.update(pinned, { pinned: true });
+      const group = await chrome.tabs.group({
+        tabIds: [m0, m1],
+        createProperties: { windowId: b.id },
+      });
+      await chrome.tabGroups.update(group, { title: 'Members', color: 'blue' });
+      return { a: a.id, b: b.id, group };
+    },
+    [['pp0', 'pa1'].map(dataUrl), ['pb0', 'pm0', 'pm1'].map(dataUrl)]
+  );
+  if (ids === null) throw new Error('Chrome gave no window, tab or group');
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto(`chrome-extension://${extensionId}/index.html?view=tab`);
+  const bandSel = `[data-open-window-id="${ids.b}"] [data-band-id="${ids.group}"]`;
+  // goto resolves before React mounts (KAN-105).
+  await expect(page.locator(bandSel)).toBeVisible();
+  await settled(page);
+  // The pinned tab's row: the innermost row in window A holding its title.
+  const pinnedRow = () =>
+    page.evaluate((scope) => {
+      const row = [
+        ...document.querySelectorAll<HTMLElement>(
+          `${scope} [data-drag-row-id]`
+        ),
+      ].find(
+        (r) =>
+          r.querySelector('[data-drag-row-id]') === null &&
+          (r.textContent ?? '').includes('pp0')
+      );
+      if (row === undefined) return null;
+      const b = row.getBoundingClientRect();
+      return { left: b.left, right: b.right, top: b.top, height: b.height };
+    }, `[data-open-window-id="${ids.a}"]`);
+  const own = await pinnedRow();
+  if (own === null) throw new Error('the pinned tab is not drawn');
+  const member = await page
+    .locator(`${bandSel} [data-drag-row-id]`)
+    .last()
+    .boundingBox();
+  if (member === null) throw new Error('the band has no member drawn');
+  // PREMISE: a member's box differs from the pinned tab's, so a slot drawn
+  // as a member's could not pass for the pinned tab's own.
+  expect(member.x - own.left).toBeGreaterThan(8);
+  const x = own.left + 60;
+  const y = own.top + own.height / 2;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x, y + 8, { steps: 2 });
+  await settled(page);
+  await page.mouse.move(member.x + 60, member.y + member.height / 2, {
+    steps: 12,
+  });
+  await settled(page);
+  // PREMISE: the release is refused -- the slot is back at the pinned tab's
+  // own place, not among the members.
+  const slot = await page.evaluate(() => {
+    const b = document
+      .querySelector('[data-drag-landing-slot]')
+      ?.getBoundingClientRect();
+    return b === undefined
+      ? null
+      : { left: b.left, right: b.right, top: b.top };
+  });
+  if (slot === null) throw new Error('no landing slot drawn');
+  expect(Math.abs(slot.top - own.top)).toBeLessThanOrEqual(1);
+  expect(
+    Math.abs(slot.left - own.left),
+    `slot left ${slot.left} vs ${own.left}`
+  ).toBeLessThanOrEqual(2 / 64);
+  expect(
+    Math.abs(slot.right - own.right),
+    `slot right ${slot.right} vs ${own.right}`
+  ).toBeLessThanOrEqual(2 / 64);
+  await page.keyboard.press('Escape');
+  await page.mouse.up();
+});

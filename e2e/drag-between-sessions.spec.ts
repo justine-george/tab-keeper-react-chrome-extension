@@ -1390,6 +1390,19 @@ test.describe('the looks (D1 A, D2 A, S1 A)', () => {
   });
 });
 
+// Five windows of six tabs: taller than the popup's pane, so it scrolls.
+const longSession = (id: string, title: string, prefix: string) =>
+  session(
+    id,
+    title,
+    Array.from({ length: 5 }, (_, w) =>
+      win(
+        `${prefix}w${w}`,
+        Array.from({ length: 6 }, (_, t) => tab(`${prefix}${w}-${t}`))
+      )
+    )
+  );
+
 test.describe('Review Focus 3: a long list, a long session', () => {
   test('a 30-session list: the list auto-scrolls under a carry, and a drop on a row below the fold moves there', async ({
     context,
@@ -1429,19 +1442,6 @@ test.describe('Review Focus 3: a long list, a long session', () => {
       .poll(() => toasts(page))
       .toEqual([{ text: 'Moved to “List 29”', show: true }]);
   });
-
-  // Five windows of six tabs: far taller than the popup's pane.
-  const longSession = (id: string, title: string, prefix: string) =>
-    session(
-      id,
-      title,
-      Array.from({ length: 5 }, (_, w) =>
-        win(
-          `${prefix}w${w}`,
-          Array.from({ length: 6 }, (_, t) => tab(`${prefix}${w}-${t}`))
-        )
-      )
-    );
 
   test('a long session: a window carried out of it and cancelled comes back to the scroll it had (KAN-157)', async ({
     context,
@@ -1999,4 +1999,806 @@ test.describe('a carried group opens the gap any group drag opens', () => {
       await expect.poll(() => layout(page, 'S2')).toEqual(want);
     });
   }
+});
+
+// ---- KAN-362 ------------------------------------------------------------------
+
+// The landing slot is drawn inside the held row. An adopted carry's held row
+// is the phantom in the New window target, which takes no window's indent, so
+// the slot is only as wide as a landing row because it takes the box of the
+// row the item lands as (KAN-364), not the phantom's.
+const box = (page: Page, selector: string) =>
+  page.evaluate((selector) => {
+    const el = document.querySelector(selector);
+    if (el === null) return null;
+    const b = el.getBoundingClientRect();
+    return { left: b.left, right: b.right };
+  }, selector);
+
+// How far a measured slot edge may sit from the row it matches: two
+// LayoutUnits (1/64px each, Chromium's layout precision). The slot's edge is
+// the held row's box plus (landing box - held box), and the two boxes are
+// read at the adoption, while the rows the carry let go of ease back under a
+// transform -- whose subpixel offset Chromium snaps, by up to one LayoutUnit
+// each (measured: a member at rest at 451.5 read 451.484375). Nothing is
+// moving at an ordinary drag's activation, so there the error is 0.
+const SLOT_EDGE_TOLERANCE = 2 / 64;
+
+async function expectSlotAsWideAs(
+  page: Page,
+  ref: { left: number; right: number }
+): Promise<void> {
+  // PREMISE: the landing is out of the target, where the slot is drawn (a
+  // landing inside it lights the box and hides the slot, V2 A).
+  expect(
+    await page.locator('[data-new-window-target][data-landing]').count()
+  ).toBe(0);
+  // PREMISE: the reference row is indented, so a layout with no indent
+  // cannot match it.
+  expect(ref.left - (await detailPane(page)).left).toBeGreaterThan(60);
+  const slot = await box(page, '[data-drag-landing-slot]');
+  if (slot === null) throw new Error('no landing slot drawn');
+  // Raw boxes, unrounded: the rows sit on half pixels (435.5).
+  expect(
+    Math.abs(slot.left - ref.left),
+    `slot left ${slot.left} vs ${ref.left}`
+  ).toBeLessThanOrEqual(SLOT_EDGE_TOLERANCE);
+  expect(
+    Math.abs(slot.right - ref.right),
+    `slot right ${slot.right} vs ${ref.right}`
+  ).toBeLessThanOrEqual(SLOT_EDGE_TOLERANCE);
+}
+
+const rowBox = async (page: Page, rowId: string) => {
+  const b = await box(page, `[data-drag-row-id="${rowId}"]`);
+  if (b === null) throw new Error(`no row ${rowId}`);
+  return b;
+};
+
+test.describe('a carried tab or group lands in a slot as wide as the row it becomes (KAN-362)', () => {
+  const kinds = [
+    { kind: 'tab', rowId: 'a0', phantom: 'carried:a0', inS2: 'c1', aim: 'c1' },
+    {
+      kind: 'group',
+      rowId: 'group:alpha',
+      phantom: 'group:carried:alpha',
+      inS2: 'group:gamma',
+      // c2 at a quarter: just past gamma, so the landing is beside the band.
+      aim: 'c2',
+    },
+  ] as const;
+
+  for (const k of kinds) {
+    test(`a ${k.kind} brought back into its own session: the slot is the row's own box`, async ({
+      context,
+      extensionId,
+    }) => {
+      const page = await openPopup(context, extensionId);
+      // Read before the pick-up: the box the row has as an ordinary row.
+      const own = await rowBox(page, k.rowId);
+      const handle =
+        k.kind === 'tab' ? tabHandle(page, 'a0') : groupHandle(page, 'alpha');
+      const at = await pickUp(page, handle);
+      await carryOutLeft(page, at);
+      await adoptPhantom(page, k.phantom);
+      await aimAt(page, 'a2', 0.5);
+      await expectSlotAsWideAs(page, own);
+      await page.keyboard.press('Escape');
+      await page.mouse.up();
+    });
+
+    test(`a ${k.kind} carried into a spring-opened session: the slot is the box of a ${k.kind} there`, async ({
+      context,
+      extensionId,
+    }) => {
+      const page = await openPopup(context, extensionId);
+      const handle =
+        k.kind === 'tab' ? tabHandle(page, 'a0') : groupHandle(page, 'alpha');
+      const at = await pickUp(page, handle);
+      await carryOutLeft(page, at);
+      await springOpen(page, 'S2');
+      await adoptPhantom(page, k.phantom);
+      await aimAt(page, k.aim, 0.25);
+      await expectSlotAsWideAs(page, await rowBox(page, k.inS2));
+      await page.keyboard.press('Escape');
+      await page.mouse.up();
+    });
+  }
+
+  test("a tab carried into the folded tab view's peek: the slot is a tab row's box", async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openTabView(context, extensionId, true);
+    const at = await pickUp(page, tabHandle(page, 'a0'));
+    await carryOutLeft(page, at);
+    await springOpen(page, 'S2');
+    await expect(page.locator('[data-drag-row-id="d1"]')).toBeVisible();
+    await adoptPhantom(page, 'carried:a0');
+    await aimAt(page, 'c1', 0.25);
+    await expectSlotAsWideAs(page, await rowBox(page, 'c1'));
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+  });
+
+  // A Retina screen, where a half pixel is a whole device pixel.
+  test.describe('at DPR 2', () => {
+    test.use({ deviceScaleFactor: 2 });
+    test("a tab brought back, the slot is the row's own box", async ({
+      context,
+      extensionId,
+    }) => {
+      const page = await openPopup(context, extensionId);
+      // PREMISE: the scale reached the page.
+      expect(await page.evaluate(() => devicePixelRatio)).toBe(2);
+      const own = await rowBox(page, 'a0');
+      const at = await pickUp(page, tabHandle(page, 'a0'));
+      await carryOutLeft(page, at);
+      await adoptPhantom(page, 'carried:a0');
+      await aimAt(page, 'a2', 0.5);
+      await expectSlotAsWideAs(page, own);
+      await page.keyboard.press('Escape');
+      await page.mouse.up();
+    });
+  });
+
+  // Chrome's "Large" font size sets a 20px root: the rows are rem, the
+  // indent and the border px.
+  test("at a 20px root: a tab brought back, the slot is the row's own box", async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    await page.evaluate(() => {
+      document.documentElement.style.fontSize = '20px';
+    });
+    expect(
+      await page.evaluate(
+        () => getComputedStyle(document.documentElement).fontSize
+      )
+    ).toBe('20px');
+    await settled(page);
+    const own = await rowBox(page, 'a0');
+    const at = await pickUp(page, tabHandle(page, 'a0'));
+    await carryOutLeft(page, at);
+    await adoptPhantom(page, 'carried:a0');
+    await aimAt(page, 'a2', 0.5);
+    await expectSlotAsWideAs(page, own);
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+  });
+});
+
+// ---- KAN-363 ------------------------------------------------------------------
+
+// The rows under the pointer that PAINT their hover fill: a `:hover` element
+// inside a row that is not the held one, whose background is the theme's
+// hover colour. Compared with the colour itself, not "any background": a band
+// lit as a drop target is another colour, and meant. Also any group's rename
+// control revealed, which the same hover rule shows (KAN-100).
+const paintedHover = (page: Page, hoverHex: string) =>
+  page.evaluate((hoverHex) => {
+    const probe = document.createElement('div');
+    probe.style.backgroundColor = hoverHex;
+    document.body.append(probe);
+    const want = getComputedStyle(probe).backgroundColor;
+    probe.remove();
+    const filled = [...document.querySelectorAll<HTMLElement>(':hover')]
+      .filter((e) => e.closest('[data-drag-held]') === null)
+      .filter((e) => getComputedStyle(e).backgroundColor === want)
+      .map(
+        (e) =>
+          e.closest<HTMLElement>('[data-drag-row-id]')?.dataset.dragRowId ?? ''
+      )
+      .filter((id) => id !== '');
+    const revealed = [
+      ...document.querySelectorAll<HTMLElement>('.group-rename-reveal'),
+    ]
+      .filter((e) => getComputedStyle(e).opacity === '1')
+      .map(
+        (e) =>
+          `reveal:${
+            e.closest<HTMLElement>('[data-drag-row-id]')?.dataset.dragRowId ??
+            '?'
+          }`
+      );
+    return [...filled, ...revealed];
+  }, hoverHex);
+
+// The row a click at the point would reach, unless it is the held one.
+const rowHitAt = (page: Page, x: number, y: number) =>
+  page.evaluate(
+    ([x, y]) =>
+      document
+        .elementFromPoint(x, y)
+        ?.closest<HTMLElement>('[data-drag-row-id]:not([data-drag-held])')
+        ?.dataset.dragRowId ?? null,
+    [x, y] as const
+  );
+
+// Steps the pointer down the detail pane, then says what it met: at every
+// step no row paints its hover fill (asserted first: that is the bug), and
+// no row is what the pointer would hit. Returns how many steps had a non-held
+// row's box under the pointer -- a sweep that missed every row could pass for
+// nothing.
+async function sweepRows(page: Page, x: number): Promise<number> {
+  const pane = await detailPane(page);
+  let overRows = 0;
+  const filled: string[] = [];
+  const hit: string[] = [];
+  for (let y = pane.top + 8; y < pane.bottom - 8; y += 16) {
+    await page.mouse.move(x, y, { steps: 2 });
+    await settled(page);
+    for (const row of await paintedHover(page, LIGHT_THEME.HOVER_COLOR))
+      filled.push(`${Math.round(y)}:${row}`);
+    const rowHit = await rowHitAt(page, x, y);
+    if (rowHit !== null) hit.push(`${Math.round(y)}:${rowHit}`);
+    // Real rows only: not the held phantom, not the wrapper around it, and
+    // nothing inside the New window target.
+    const under = await page.evaluate(
+      ([x, y]) =>
+        [
+          ...document.querySelectorAll(
+            '[data-drag-row-id]:not([data-drag-held])'
+          ),
+        ]
+          .filter(
+            (r) =>
+              r.querySelector('[data-drag-held]') === null &&
+              r.closest('[data-new-window-target]') === null
+          )
+          .some((r) => {
+            const b = r.getBoundingClientRect();
+            return x >= b.left && x <= b.right && y >= b.top && y <= b.bottom;
+          }),
+      [x, y] as const
+    );
+    if (under) overRows++;
+  }
+  expect(filled, 'rows painting their hover fill').toEqual([]);
+  expect(hit, 'rows the pointer would hit').toEqual([]);
+  return overRows;
+}
+
+interface HoverFrame {
+  held: boolean;
+  filled: string[];
+}
+// Narrowed through `readonly unknown[]` at once, so nothing reads Array.isArray's
+// `any[]`.
+const isStringList = (x: unknown): x is string[] => {
+  if (!Array.isArray(x)) return false;
+  const items: readonly unknown[] = x;
+  return items.every((s) => typeof s === 'string');
+};
+const isHoverFrame = (f: unknown): f is HoverFrame =>
+  typeof f === 'object' &&
+  f !== null &&
+  'held' in f &&
+  typeof f.held === 'boolean' &&
+  'filled' in f &&
+  isStringList(f.filled);
+const isFrameLog = (x: unknown): x is HoverFrame[] => {
+  if (!Array.isArray(x)) return false;
+  const items: readonly unknown[] = x;
+  return items.every(isHoverFrame);
+};
+
+test.describe('no row under a held carry shows its hover (KAN-363)', () => {
+  // PREMISE for every negative below: with nothing dragged, the pointer on a
+  // window's header paints the colour they look for, at that header.
+  test('CONTROL: with no drag, a window header under the pointer paints its hover fill', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    const w2 = await boxOf(windowHandle(page, 'w2'));
+    await page.mouse.move(w2.x + 200, w2.y + w2.height / 2, { steps: 3 });
+    await expect
+      .poll(() => paintedHover(page, LIGHT_THEME.HOVER_COLOR))
+      .toEqual(['w2']);
+  });
+
+  const kinds = [
+    // How many sweep steps must cross a row: a window carry folds every
+    // window to its header (KAN-153), so Source then holds w1's header
+    // alone, and the preview moves it aside as the pointer passes -- one
+    // step. (Main painted it at two: :hover is worked out at the mouse
+    // event, before the preview moves the row.)
+    { kind: 'tab', phantom: 'carried:a0', overRows: 5 },
+    { kind: 'group', phantom: 'group:carried:alpha', overRows: 5 },
+    { kind: 'window', phantom: 'carried:w2', overRows: 1 },
+  ] as const;
+
+  for (const k of kinds) {
+    test(`a ${k.kind} carried out and back: no row under the pointer paints hover, and none takes the hit`, async ({
+      context,
+      extensionId,
+    }) => {
+      const page = await openPopup(context, extensionId);
+      const handle =
+        k.kind === 'tab'
+          ? tabHandle(page, 'a0')
+          : k.kind === 'group'
+            ? groupHandle(page, 'alpha')
+            : windowHandle(page, 'w2');
+      const at = await pickUp(page, handle);
+      await carryOutLeft(page, at);
+      await adoptPhantom(page, k.phantom);
+      expect(await sweepRows(page, at.x)).toBeGreaterThanOrEqual(k.overRows);
+      await page.keyboard.press('Escape');
+      await page.mouse.up();
+    });
+  }
+
+  test('a tab carried into a spring-opened session: no row there paints hover', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    const at = await pickUp(page, tabHandle(page, 'a0'));
+    await carryOutLeft(page, at);
+    await springOpen(page, 'S2');
+    await adoptPhantom(page, 'carried:a0');
+    expect(await sweepRows(page, at.x)).toBeGreaterThan(4);
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+  });
+
+  test("a tab carried into the folded tab view's peek: no row there paints hover", async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openTabView(context, extensionId, true);
+    const at = await pickUp(page, tabHandle(page, 'a0'));
+    await carryOutLeft(page, at);
+    await springOpen(page, 'S2');
+    await expect(page.locator('[data-drag-row-id="d1"]')).toBeVisible();
+    await adoptPhantom(page, 'carried:a0');
+    expect(await sweepRows(page, at.x)).toBeGreaterThan(4);
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+  });
+
+  // Frame by frame, from the list into the pane and over the rows main lit
+  // up (w1's header, a1, a2, the group's header, w2's header): not one frame
+  // paints a fill, the frame of the adoption included.
+  test('frame by frame, from outside the pane through the adoption and over the rows: no frame paints a fill', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    const at = await pickUp(page, tabHandle(page, 'a0'));
+    await carryOutLeft(page, at);
+    await page.evaluate((hoverHex) => {
+      const probe = document.createElement('div');
+      probe.style.backgroundColor = hoverHex;
+      document.body.append(probe);
+      const want = getComputedStyle(probe).backgroundColor;
+      probe.remove();
+      // The log and its off switch live on the body as text, so the test reads
+      // a string back, not an untyped window property.
+      const log: { held: boolean; filled: string[] }[] = [];
+      document.body.dataset.hoverLog = 'on';
+      const frame = () => {
+        log.push({
+          held:
+            document.querySelector('[data-carry-phantom][data-drag-held]') !==
+            null,
+          filled: [...document.querySelectorAll<HTMLElement>(':hover')]
+            .filter((e) => e.closest('[data-drag-held]') === null)
+            .filter((e) => getComputedStyle(e).backgroundColor === want)
+            .map(
+              (e) =>
+                e.closest<HTMLElement>('[data-drag-row-id]')?.dataset
+                  .dragRowId ?? ''
+            )
+            .filter((id) => id !== ''),
+        });
+        document.body.dataset.hoverFrames = JSON.stringify(log);
+        if (document.body.dataset.hoverLog === 'on')
+          requestAnimationFrame(frame);
+      };
+      requestAnimationFrame(frame);
+    }, LIGHT_THEME.HOVER_COLOR);
+    // Straight in at w1's header height, then down over the rows.
+    const w1 = await boxOf(windowHandle(page, 'w1'));
+    await page.mouse.move(at.x, w1.y + w1.height / 2, { steps: 10 });
+    for (const rowId of ['tab:a1', 'tab:a2', 'group:alpha', 'w2']) {
+      const b = await boxOf(page.locator(`[data-drag-row-id="${rowId}"]`));
+      await page.mouse.move(at.x, b.y + Math.min(12, b.height / 2), {
+        steps: 6,
+      });
+    }
+    await settled(page);
+    const raw = await page.evaluate(() => {
+      document.body.dataset.hoverLog = 'off';
+      return document.body.dataset.hoverFrames ?? '[]';
+    });
+    const frames: unknown = JSON.parse(raw);
+    if (!isFrameLog(frames)) throw new Error(`not a frame log: ${raw}`);
+    // PREMISE: the log saw the pointer outside the pane AND the adoption.
+    expect(frames.filter((f) => !f.held).length).toBeGreaterThan(0);
+    expect(frames.filter((f) => f.held).length).toBeGreaterThan(10);
+    expect(frames.filter((f) => f.filled.length > 0)).toEqual([]);
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+  });
+
+  // The rule is on the rows, not the pane: the wheel still scrolls it.
+  test('the wheel over the rows scrolls the pane while a carry is held there', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(
+      context,
+      extensionId,
+      [longSession('S1', 'Long', 'x'), S2()],
+      'S1'
+    );
+    const at = await pickUp(page, tabHandle(page, 'x0-1'));
+    await carryOutLeft(page, at);
+    await adoptPhantom(page, 'carried:x0-1');
+    // Mid-pane, clear of both auto-scroll zones.
+    const pane = await detailPane(page);
+    await page.mouse.move(at.x, (pane.top + pane.bottom) / 2, { steps: 4 });
+    await settled(page);
+    const before = (await detailPane(page)).scrollTop;
+    // PREMISE: it starts at the top, with room to scroll down.
+    expect(before).toBe(0);
+    expect(
+      await page.evaluate(() => {
+        let el = document.querySelector(
+          '[data-pane="detail"] [data-drop-window-id]'
+        )?.parentElement;
+        while (
+          el &&
+          !['auto', 'scroll'].includes(getComputedStyle(el).overflowY)
+        )
+          el = el.parentElement;
+        return el ? el.scrollHeight - el.clientHeight : 0;
+      })
+    ).toBeGreaterThan(200);
+    await page.mouse.wheel(0, 200);
+    await expect
+      .poll(async () => (await detailPane(page)).scrollTop)
+      .toBeGreaterThan(before);
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+  });
+
+  // The rule must not outlive the carry: however it ends, the rows hover
+  // again at once.
+  const endings = [
+    'a drop',
+    'Esc, then the release',
+    'a release over the header',
+  ] as const;
+  for (const ending of endings) {
+    test(`after ${ending}, a row under the pointer hovers again`, async ({
+      context,
+      extensionId,
+    }) => {
+      const page = await openPopup(context, extensionId);
+      const at = await pickUp(page, tabHandle(page, 'a0'));
+      await carryOutLeft(page, at);
+      await adoptPhantom(page, 'carried:a0');
+      if (ending === 'a drop') {
+        await aimAt(page, 'a2', 0.5);
+      } else if (ending === 'Esc, then the release') {
+        await page.keyboard.press('Escape');
+      } else {
+        const header = await boxOf(page.locator('[data-pane="detail"]'));
+        await page.mouse.move(at.x, header.y + 12, { steps: 6 });
+      }
+      await page.mouse.up();
+      await expect(page.locator(CARD)).toHaveCount(0);
+      await expect(page.locator('[data-carry-phantom]')).toHaveCount(0);
+      const w2 = await boxOf(windowHandle(page, 'w2'));
+      await page.mouse.move(w2.x + 200, w2.y + w2.height / 2, { steps: 3 });
+      await expect
+        .poll(() => paintedHover(page, LIGHT_THEME.HOVER_COLOR))
+        .toEqual(['w2']);
+    });
+  }
+});
+
+// ---- KAN-364 ------------------------------------------------------------------
+
+// A tab that lands inside a group's band becomes a member, whose row starts
+// past the band's colour bar; one that lands outside every band is a loose
+// row. The slot has the box of the row the tab becomes, whatever box the
+// held row has: in an ordinary drag the held row is the tab's OLD row, and in
+// a carry it is the phantom.
+test.describe('the slot is the box of the row the tab becomes, across a band edge (KAN-364)', () => {
+  const cases = [
+    {
+      name: 'a loose tab into a band, at its head',
+      held: 'a0',
+      carried: false,
+      aim: 'al0',
+      frac: 0.25,
+      becomes: 'member',
+    },
+    {
+      name: 'a loose tab into a band, between members',
+      held: 'a0',
+      carried: false,
+      aim: 'al1',
+      frac: 0.4,
+      becomes: 'member',
+    },
+    {
+      name: 'a member out of its band, to a loose spot',
+      held: 'al0',
+      carried: false,
+      aim: 'a1',
+      frac: 0.4,
+      becomes: 'loose',
+    },
+    {
+      name: 'CONTROL: a member within its band',
+      held: 'al0',
+      carried: false,
+      aim: 'al1',
+      frac: 0.6,
+      becomes: 'member',
+    },
+    {
+      name: 'a carried member back into its band',
+      held: 'al0',
+      carried: true,
+      aim: 'al1',
+      frac: 0.4,
+      becomes: 'member',
+    },
+    {
+      name: 'a carried loose tab into a band',
+      held: 'a0',
+      carried: true,
+      aim: 'al1',
+      frac: 0.4,
+      becomes: 'member',
+    },
+  ] as const;
+  for (const c of cases) {
+    test(c.name, async ({ context, extensionId }) => {
+      const page = await openPopup(context, extensionId);
+      // Read at rest: a member's box and a loose row's.
+      const member = await rowBox(page, 'al1');
+      const loose = await rowBox(page, 'a2');
+      // PREMISE: the two boxes differ, so the slot can only match one.
+      expect(member.left - loose.left).toBeGreaterThan(8);
+      const at = await pickUp(page, tabHandle(page, c.held));
+      if (c.carried) {
+        await carryOutLeft(page, at);
+        await adoptPhantom(page, `carried:${c.held}`);
+      }
+      await aimAt(page, c.aim, c.frac);
+      await expectSlotAsWideAs(page, c.becomes === 'member' ? member : loose);
+      await page.keyboard.press('Escape');
+      await page.mouse.up();
+    });
+  }
+
+  // A refused release goes back where it came from: the slot is drawn at the
+  // held row's own place, with its own box. For a member that is a member's
+  // box, not the loose one a refused pointer, over no band, would pick.
+  test('a member refused below the list keeps its own box, at its own place', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    const own = await rowBox(page, 'al0');
+    const ownTop = (await boxOf(page.locator('[data-drag-row-id="al0"]'))).y;
+    const at = await pickUp(page, tabHandle(page, 'al0'));
+    const pane = await detailPane(page);
+    await page.mouse.move(at.x, pane.bottom - 30, { steps: 8 });
+    await settled(page);
+    // PREMISE: refused -- the slot is back at the member's own place.
+    const slotTop = (await boxOf(page.locator('[data-drag-landing-slot]'))).y;
+    expect(Math.abs(slotTop - ownTop)).toBeLessThanOrEqual(1);
+    await expectSlotAsWideAs(page, own);
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+  });
+
+  // A session whose only window holds nothing but a group draws no loose row
+  // to measure. A loose landing there (at the window's head, before the band)
+  // takes the band's own box, which sits where a loose row would.
+  test("into a window that is all one group, a loose landing takes the band's box", async ({
+    context,
+    extensionId,
+  }) => {
+    const grouped = session('S5', 'Grouped', [
+      win(
+        'g1',
+        [tab('gx0', 'gg'), tab('gx1', 'gg')],
+        [{ groupId: 'gg', title: 'GG', color: 'red' }]
+      ),
+    ]);
+    const page = await openPopup(context, extensionId, [S1(), grouped]);
+    const at = await pickUp(page, tabHandle(page, 'a0'));
+    await carryOutLeft(page, at);
+    await springOpen(page, 'S5');
+    await adoptPhantom(page, 'carried:a0');
+    // PREMISE: no loose row is drawn besides the carried phantom.
+    expect(
+      await page.evaluate(
+        () =>
+          [
+            ...document.querySelectorAll<HTMLElement>(
+              '[data-pane="detail"] [data-drag-row-id]'
+            ),
+          ].filter(
+            (r) =>
+              r.querySelector('[data-drag-row-id]') === null &&
+              r.closest('[data-band-id]') === null &&
+              r.closest('[data-new-window-target]') === null &&
+              !(r.dataset.dragRowId ?? '').startsWith('g1')
+          ).length
+      )
+    ).toBe(0);
+    await aimAt(page, 'g1', 0.1);
+    // PREMISE: the band is not the landing's group (no band is lit).
+    expect(
+      await page.locator('[data-band-id="gg"][data-drop-target]').count()
+    ).toBe(0);
+    const band = await box(page, '[data-band-id="gg"]');
+    if (band === null) throw new Error('the band is not drawn');
+    await expectSlotAsWideAs(page, band);
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+  });
+});
+
+// ---- KAN-365 ------------------------------------------------------------------
+
+// Below the last row, an adopted carry's release is refused and moves
+// nothing: the item goes back to its source, which is not a place in this
+// list. So nothing is drawn as a landing -- on main the slot sat at the
+// phantom's own place, inside the unlit New window target, 1px inside its
+// border, and the target's indent on the KAN-362 branch made it show.
+const slotsDrawn = (page: Page) =>
+  page.evaluate(
+    () =>
+      [...document.querySelectorAll('[data-drag-landing-slot]')].filter(
+        (s) =>
+          getComputedStyle(s).visibility !== 'hidden' &&
+          s.getBoundingClientRect().width > 0
+      ).length
+  );
+
+interface SlotFrame {
+  slot: boolean;
+  inTarget: boolean;
+}
+const isSlotLog = (x: unknown): x is SlotFrame[] => {
+  if (!Array.isArray(x)) return false;
+  const items: readonly unknown[] = x;
+  return items.every(
+    (f) =>
+      typeof f === 'object' &&
+      f !== null &&
+      'slot' in f &&
+      typeof f.slot === 'boolean' &&
+      'inTarget' in f &&
+      typeof f.inTarget === 'boolean'
+  );
+};
+
+test.describe('below the last row, a carried item draws no slot (KAN-365)', () => {
+  const kinds = [
+    { kind: 'tab', handle: 'a0', phantom: 'carried:a0' },
+    { kind: 'group', handle: 'alpha', phantom: 'group:carried:alpha' },
+  ] as const;
+  for (const k of kinds) {
+    test(`a carried ${k.kind}: no slot, the target unlit, and a release moves nothing`, async ({
+      context,
+      extensionId,
+    }) => {
+      const page = await openPopup(context, extensionId);
+      const handle =
+        k.kind === 'tab'
+          ? tabHandle(page, k.handle)
+          : groupHandle(page, k.handle);
+      const at = await pickUp(page, handle);
+      await carryOutLeft(page, at);
+      await adoptPhantom(page, k.phantom);
+      // PREMISE: held over a row, the slot is drawn.
+      await aimAt(page, 'b0', 0.5);
+      expect(await slotsDrawn(page)).toBe(1);
+      const last = await boxOf(page.locator('[data-drag-row-id="w2"]'));
+      const pane = await detailPane(page);
+      // PREMISE: there is room below the last row inside the pane.
+      expect(pane.bottom - (last.y + last.height)).toBeGreaterThan(60);
+      await page.mouse.move(at.x, pane.bottom - 30, { steps: 8 });
+      await settled(page);
+      expect(await slotsDrawn(page)).toBe(0);
+      await expect(
+        page.locator('[data-new-window-target][data-landing]')
+      ).toHaveCount(0);
+      await page.mouse.up();
+      await expect(page.locator(CARD)).toHaveCount(0);
+      expect(await layout(page, 'S1')).toEqual([W1_START, 'b0 b1']);
+      expect(await windowIdsOf(page, 'S1')).toEqual(['w1', 'w2']);
+    });
+  }
+
+  // Frame by frame, from over the last window down past the list: no frame
+  // draws a slot inside the New window target, the frame the landing is
+  // refused on included.
+  test('frame by frame on the way down, no frame draws a slot inside the target', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    const at = await pickUp(page, tabHandle(page, 'a0'));
+    await carryOutLeft(page, at);
+    await adoptPhantom(page, 'carried:a0');
+    await aimAt(page, 'b0', 0.5);
+    await page.evaluate(() => {
+      const log: { slot: boolean; inTarget: boolean }[] = [];
+      document.body.dataset.slotLog = 'on';
+      const frame = () => {
+        const target = document
+          .querySelector('[data-new-window-target]')
+          ?.getBoundingClientRect();
+        const slots = [
+          ...document.querySelectorAll('[data-drag-landing-slot]'),
+        ].filter((el) => getComputedStyle(el).visibility !== 'hidden');
+        log.push({
+          slot: slots.length > 0,
+          inTarget: slots.some((el) => {
+            const b = el.getBoundingClientRect();
+            return (
+              target !== undefined &&
+              b.top >= target.top - 1 &&
+              b.bottom <= target.bottom + 1
+            );
+          }),
+        });
+        document.body.dataset.slotFrames = JSON.stringify(log);
+        if (document.body.dataset.slotLog === 'on')
+          requestAnimationFrame(frame);
+      };
+      requestAnimationFrame(frame);
+    });
+    const pane = await detailPane(page);
+    await page.mouse.move(at.x, pane.bottom - 30, { steps: 12 });
+    await settled(page);
+    const raw = await page.evaluate(() => {
+      document.body.dataset.slotLog = 'off';
+      return document.body.dataset.slotFrames ?? '[]';
+    });
+    const frames: unknown = JSON.parse(raw);
+    if (!isSlotLog(frames)) throw new Error(`not a slot log: ${raw}`);
+    // PREMISE: the log saw the slot drawn, over the rows.
+    expect(frames.some((f) => f.slot)).toBe(true);
+    expect(
+      frames.filter((f) => f.inTarget).length,
+      'frames with a slot inside the target'
+    ).toBe(0);
+    // And it ended with none at all.
+    expect(frames[frames.length - 1]?.slot).toBe(false);
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+  });
+
+  test('CONTROL: an ordinary drag below the last row keeps its slot at its own place', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    const own = await boxOf(page.locator('[data-drag-row-id="a0"]'));
+    const at = await pickUp(page, tabHandle(page, 'a0'));
+    const pane = await detailPane(page);
+    await page.mouse.move(at.x, pane.bottom - 30, { steps: 8 });
+    await settled(page);
+    expect(await slotsDrawn(page)).toBe(1);
+    const slot = await boxOf(page.locator('[data-drag-landing-slot]'));
+    expect(Math.abs(slot.y - own.y)).toBeLessThanOrEqual(1);
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+  });
 });

@@ -85,6 +85,23 @@ export interface DragState {
    * the row's own window, and for a refused one.
    */
   sourceRoomDelta: number | null;
+  /**
+   * Where the landing slot's left and right edges sit inside the held row's
+   * box (KAN-364): the box of the row the item lands as, which a tab
+   * crossing a group band's edge changes -- a member's row starts past the
+   * band's colour bar, a loose row's does not. Positive moves an edge in.
+   * Zero for every landing the held row's own box already describes.
+   */
+  landingInset: { left: number; right: number };
+  /**
+   * Whether the landing slot is drawn at all (KAN-365). Not for an adopted
+   * carry whose release would be refused: that release moves nothing, and
+   * the item goes back to its source, which is no place in this list -- the
+   * held row is only the carry's phantom, so its own place is not where
+   * anything lands. Every other drag draws it, a refused one at its own
+   * place.
+   */
+  landingSlotShown: boolean;
 }
 
 export interface Ctx {
