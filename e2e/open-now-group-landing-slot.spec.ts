@@ -340,8 +340,9 @@ test.describe("in Open now, a tab's slot is the box of the row it becomes (KAN-3
 
 // A refused release goes back where it came from, so its slot is the held
 // row's own box, even with the pointer over another window's band (KAN-364).
-// A pinned tab is refused by every window but its own (K1), and the band
-// under the pointer is still named.
+// A pinned tab is refused by every window but its own (K1). The band under
+// the pointer is in the refused window, which the drop rule never searches
+// (dropRoot), so it names no band, and the slot cannot take a member's box.
 test("in Open now, a pinned tab held over another window's band keeps its own box", async ({
   context,
   extensionId,

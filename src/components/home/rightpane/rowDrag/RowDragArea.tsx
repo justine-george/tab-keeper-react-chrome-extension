@@ -1087,12 +1087,8 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       const landingEdges =
         (target === undefined ? l.looseEdges : l.memberEdges.get(target)) ??
         null;
-      // A refused release goes back where it came from, so its slot is the
-      // held row's own box, whatever band the pointer is over.
       const landingInset =
-        landing === undefined ||
-        heldEdges === undefined ||
-        landingEdges === null
+        heldEdges === undefined || landingEdges === null
           ? NO_INSET
           : {
               left: landingEdges.left - heldEdges.left,
