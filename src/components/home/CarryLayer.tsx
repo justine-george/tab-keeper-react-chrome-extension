@@ -1,5 +1,7 @@
 // KAN-350. Drives a carry while the pointer is outside every area that can
-// take it, and draws the card that follows the pointer (D1 A).
+// take it, and draws the card that follows the pointer (D1 A). KAN-354: it
+// also draws a saved list's drag card (dragCard.ts) before any carry, in the
+// same element, which it only draws: the drag's own area moves it.
 //
 // Mounted once, in MainContainer, outside every pane: a carry exists because
 // the area it started in may unmount mid-gesture, so what finishes it must not

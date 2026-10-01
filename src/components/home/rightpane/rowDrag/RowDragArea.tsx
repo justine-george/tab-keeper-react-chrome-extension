@@ -370,8 +370,9 @@ interface LiveDrag {
   // own list (KAN-354), or null for a drag that shows none: its list has no
   // carryOut, the carryOut has no card for this row, or the drag is adopted
   // (the carry's card is already up). Set at activation, from the same
-  // carryOut a hand-off would use, so the card the user drags is the card
-  // the carry then keeps.
+  // carryOut a hand-off calls. The hand-off calls it again and starts the
+  // carry with THAT card, not this one: the same row, so the same card,
+  // drawn in the same element (CarryLayer draws `carry ?? dragCard`).
   card: CarryCard | null;
   // Whether `card` has been put up (KAN-359). Not at activation: in the
   // commit that hides the held row -- see the layout effect that shows it.
@@ -1820,18 +1821,17 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
   // pick-up looks as a drag with no card does: the row drawn in its place
   // (a tab's lifted by App.css), and nothing at the pointer.
   //
-  // Only for the drag that is still live (`live.current`), and the row this
-  // state holds, so a drag that ended, or was handed to the carry, before
-  // this commit never shows a card: Esc, a release, the area turning drag
-  // off, and a hand-off all clear `live.current` before they return. Once
-  // per drag (`cardShown`): every move re-renders with a new state, and from
-  // here the card is only moved. At the pointer as it is NOW, which may be
-  // some moves past the one that started the drag.
+  // Only for the drag that is still live (`live.current`), so a drag that
+  // ended, or was handed to the carry, before this commit never shows a
+  // card: Esc, a release, the area turning drag off, and a hand-off all
+  // clear `live.current` before they return. Once per drag (`cardShown`):
+  // every move re-renders with a new state, and from here the card is only
+  // moved. At the pointer as it is NOW, which may be some moves past the one
+  // that started the drag.
   useLayoutEffect(() => {
     const l = live.current;
     if (drag === null || !drag.heldShownAsCard) return;
     if (l === null || l.card === null || l.cardShown) return;
-    if (l.rowId !== drag.rowId) return;
     l.cardShown = true;
     showDragCard(cardOwner, l.card, l.lastX, l.lastY);
   }, [drag, cardOwner]);
@@ -1881,7 +1881,10 @@ const PHANTOM_STYLE = css`
 // invisible, its box -- and so its room, its translate, and every number the
 // engine reads from it -- untouched. Everything but the slots it draws: the
 // landing slot, which shows where a release lands, and the outline of the
-// room a cross-window drag leaves (`data-drag-source-room`).
+// room a cross-window drag leaves (`data-drag-source-room`). Both set their
+// opacity inline, which outranks this rule anyway: the exclusions say what is
+// meant, and nothing depends on them (measured: removing them fails no unit
+// test and no e2e).
 //
 // OPACITY ONLY. No `pointer-events`, no `inert` and no `visibility`, which
 // the phantom above uses: the click Chrome synthesizes for the release is

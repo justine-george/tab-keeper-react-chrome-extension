@@ -425,7 +425,8 @@ export default function MainContainer() {
           toast's text arrives for a screen reader to hear it (KAN-280 O8a). */}
       <Toast />
       {/* KAN-350. Outside every pane, so it outlives the area a carried
-          drag started in. Draws nothing unless something is carried. */}
+          drag started in. Draws nothing unless something is carried, or a
+          saved list's drag shows its card at the pointer (KAN-354). */}
       <CarryLayer />
       {isRateAndReviewModalOpen && <RateAndReviewModal />}
       {tabGroupsPromptCount !== null && <TabGroupsPermissionModal />}
