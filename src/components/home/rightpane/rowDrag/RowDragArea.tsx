@@ -27,6 +27,7 @@ import React, {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -74,8 +75,14 @@ import {
   setCarryOwner,
   startCarry,
   subscribeCarry,
+  type CarryCard,
   type CarryReceiver,
 } from '../../../../redux/carry';
+import {
+  hideDragCard,
+  moveDragCard,
+  showDragCard,
+} from '../../../../redux/dragCard';
 import { createClickSuppressor } from './clickSuppressor';
 import { edgeScrollStep } from './edgeScroll';
 
@@ -93,6 +100,11 @@ const SLOT_OPACITY = 1;
 // stands in for it before a carried window is adopted (KAN-350 V3 A): ONE
 // value, so the slot that takes over on entry cannot change shape.
 const SLOT_RADIUS = '4px';
+
+// How strongly the outline over the room a cross-window drag leaves draws
+// (KAN-354 C3 A): the mock's value, below the landing slot's. Its contrast
+// in every theme is measured in the browser, not assumed from this number.
+const SOURCE_ROOM_OPACITY = 0.45;
 
 // The nearest ancestor that actually scrolls.
 //
@@ -354,6 +366,18 @@ interface LiveDrag {
   // The window the last preview landed in, so the list hears only about
   // changes (onLandingWindowChange).
   landingWindow: string | undefined;
+  // The card this drag shows at the pointer while it is still a drag in its
+  // own list (KAN-354), or null for a drag that shows none: its list has no
+  // carryOut, the carryOut has no card for this row, or the drag is adopted
+  // (the carry's card is already up). Set at activation, from the same
+  // carryOut a hand-off calls. The hand-off calls it again and starts the
+  // carry with THAT card, not this one: the same row, so the same card,
+  // drawn in the same element (CarryLayer draws `carry ?? dragCard`).
+  card: CarryCard | null;
+  // Whether `card` has been put up (KAN-359). Not at activation: in the
+  // commit that hides the held row -- see the layout effect that shows it.
+  // Once per drag; the card is only moved from then on.
+  cardShown: boolean;
 }
 
 // A drag as the press (or an adoption) starts it: not yet measured, which is
@@ -400,6 +424,8 @@ function pressRecord(
     listTops: new Map(),
     adopted,
     landingWindow: undefined,
+    card: null,
+    cardShown: false,
   };
 }
 
@@ -445,6 +471,11 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
   // row because it tracks the pointer -- see clickSuppressor.ts for the rule,
   // which the carry shares (KAN-350). One per area, for the area's life.
   const [clicks] = useState(createClickSuppressor);
+
+  // Who this area is to dragCard.ts (KAN-354): only the area that showed the
+  // card can move or hide it, so another area ending a drag of its own --
+  // or unmounting -- cannot take this one's card down.
+  const [cardOwner] = useState(() => Symbol('drag card'));
 
   const register = useCallback((rowId: string, el: HTMLElement | null) => {
     if (el) rows.current.set(rowId, el);
@@ -936,6 +967,9 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // Which WINDOW BLOCKS move, so the destination has somewhere to put the
       // row (KAN-184). Empty for every landing inside one window.
       let windowShifts: Record<string, number> = {};
+      // Where the outline over the room the row leaves is drawn (KAN-354 C3
+      // A) -- see DragState.sourceRoomDelta. Null unless set below.
+      let sourceRoomDelta: number | null = null;
       if (
         landing !== undefined &&
         landing.windowId !== undefined &&
@@ -976,6 +1010,29 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
           landing.windowId,
           l.footprint
         );
+        // The room the row leaves is at the BOTTOM of its own window, not
+        // at its place: previewShiftsAcross closes the source up below the
+        // row, and the source keeps its box (KAN-184). One row of it is
+        // outlined, the held row's own box, bottom-aligned to the lowest
+        // slot the source drew at drag start. Where the room is taller (a
+        // group's only member leaving, KAN-169) the rest of it stays bare.
+        //
+        // Only for a drag shown by its OWN card (`l.card`), which an adopted
+        // drag never has -- its card is the carry's. A visible held row needs
+        // no help, and an adopted carry's source is the New window target,
+        // which the drop does not leave one row shorter: it removes it.
+        // Not `heldShownAsCard`, which is true for an adopted drag too.
+        const heldRect = l.rects[l.fromIndex];
+        if (l.card !== null && heldRect !== undefined) {
+          const sourceBottom = l.slots.reduce(
+            (bottom, s) =>
+              s.windowId === heldRect.windowId
+                ? Math.max(bottom, s.top + s.height)
+                : bottom,
+            heldRect.top + heldRect.height
+          );
+          sourceRoomDelta = sourceBottom - (heldRect.top + heldRect.height);
+        }
       } else {
         const to =
           fixedSlot === undefined || beside === undefined
@@ -1020,6 +1077,10 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
           windowShifts[l.heldWindow?.dataset.dropWindowId ?? ''] ?? 0,
         landingWindowShift: windowShifts[landing?.windowId ?? ''] ?? 0,
         removedFixedRows: span?.keys ?? [],
+        // A card is up for the held row: this drag's own, or the carry's an
+        // adopted drag came from (KAN-354).
+        heldShownAsCard: l.card !== null || l.adopted,
+        sourceRoomDelta,
       });
 
       return target;
@@ -1066,6 +1127,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     const letGo = (l: LiveDrag) => {
       live.current = null;
       setDrag(null);
+      hideDragCard(cardOwner);
       if (scrollFrame.current) {
         cancelAnimationFrame(scrollFrame.current);
         scrollFrame.current = 0;
@@ -1103,10 +1165,16 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       }
       const out = carryOut?.(l.rowId) ?? null;
       if (out === null) return false;
-      letGo(l);
       const scroller = restoreScrollIfNoDrop ? l.scroller : null;
       const scrollTopAtPress = l.scrollTopAtPress;
       const rowId = l.rowId;
+      // The carry starts BEFORE letGo hides this drag's card (KAN-354).
+      // CarryLayer draws `carry ?? dragCard` in one element, so with the
+      // carry already on when the drag card goes, there is no moment with
+      // neither -- whatever React batches -- and the element the user is
+      // dragging is the one the carry keeps: never removed, never redrawn.
+      // The other way round, any render that fell between the two would
+      // unmount it.
       startCarry(
         out.carried,
         out.card,
@@ -1123,6 +1191,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
                 scroller.scrollTop = scrollTopAtPress;
             }
       );
+      letGo(l);
       return true;
     };
 
@@ -1317,6 +1386,25 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       if (!scrollFrame.current) {
         scrollFrame.current = requestAnimationFrame(autoScroll);
       }
+
+      // The card at the pointer (KAN-354): the row is shown by it from here
+      // on, and drawn invisible in its own room (DraggableRow). Only when the
+      // list has a card for THIS row -- the rule is "this drag has a card",
+      // never "this list has carryOut": the groups list has none for a
+      // loose tab. The card is the one a hand-off would carry, so it does
+      // not change when the drag reaches the session list.
+      //
+      // Not for an adopted drag: the carry it came from already shows its
+      // card, the same element (CarryLayer), and a second would cover it.
+      //
+      // Decided here, and NOT shown here (KAN-359): `l.card` is what makes
+      // the next setDrag draw the row as hidden (heldShownAsCard), and the
+      // card goes up in the commit that does -- see the layout effect below
+      // the listeners.
+      if (!l.adopted) {
+        const out = carryOut?.(l.rowId) ?? null;
+        if (out !== null) l.card = out.card;
+      }
     };
 
     // KAN-350. The pointer has come into this area's pane while a carry is
@@ -1392,6 +1480,12 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       ) {
         return;
       }
+
+      // The card follows the pointer (KAN-354). After the hand-off, which
+      // has hidden it by then: from there the carry moves the same element.
+      // A no-op until the card is up (KAN-359): dragCard.ts moves only a
+      // card that is on, and only for the area that showed it.
+      if (l.card !== null) moveDragCard(cardOwner, e.clientX, e.clientY);
 
       // The target update() drew this preview for, at this SAME pointer
       // position -- marked below rather than decided again, so the band that
@@ -1579,6 +1673,11 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         // view is put back.
         if (l.adopted) endCarry('cancelled');
         else endDragHold();
+        // Every end takes the card down (KAN-354): committed, refused,
+        // cancelled, or a list turning drag off. Here, so a throwing onMove
+        // cannot leave a card at the pointer with no drag behind it. A no-op
+        // for a drag that showed none.
+        hideDragCard(cardOwner);
       }
     };
 
@@ -1661,18 +1760,20 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     onLandingWindowChange,
     clampDropToEnds,
     clicks,
+    cardOwner,
     disabled,
   ]);
 
   // A drag interrupted by UNMOUNT must not leave the document stuck in a drag.
   //
-  // Its own effect with no deps, so it runs on unmount and nothing else
-  // (KAN-159). This used to live in the listener effect's cleanup above, which
-  // React also runs whenever rowIds, onMove or the rest change identity -- and
-  // a store update that rebuilds the session data (a sync landing) changes them
-  // for every list at once. Measured in the popup: the flag vanished mid-drag
-  // with the row still held, the windows unfolded under the pointer, and the
-  // drag carried on against rects measured in the folded layout.
+  // Its own effect with no deps that change, so it runs on unmount and nothing
+  // else (KAN-159). This used to live in the listener effect's cleanup above,
+  // which React also runs whenever rowIds, onMove or the rest change identity
+  // -- and a store update that rebuilds the session data (a sync landing)
+  // changes them for every list at once. Measured in the popup: the flag
+  // vanished mid-drag with the row still held, the windows unfolded under the
+  // pointer, and the drag carried on against rects measured in the folded
+  // layout.
   //
   // And only when THIS area owns a started drag. The flag is document-wide,
   // so clearing it unconditionally let a tab list unmounting -- its window
@@ -1696,9 +1797,44 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         // drop that can no longer happen.
         endDragHold();
       }
+      // Nor does finish's card hiding (KAN-354): the layer outlives this
+      // area, and would go on drawing the card with no drag behind it. A
+      // no-op unless this area showed it.
+      hideDragCard(cardOwner);
     },
-    []
+    // cardOwner never changes (it is state that is never set), so this still
+    // runs on unmount and nothing else.
+    [cardOwner]
   );
+
+  // The card goes up in the commit that hides the row it stands for
+  // (KAN-359), so the two arrive in one frame: a store update made in a
+  // layout effect is rendered before the browser paints.
+  //
+  // It used to go up in activate(), on the pointermove itself, and two frames
+  // drew both the card and the row (measured: 12 of 12 pick-ups, tab, group
+  // and window). The two reach the screen on different lanes. CarryLayer
+  // reads the card through useSyncExternalStore, which renders on the sync
+  // lane, in a microtask, inside the same frame. The row is hidden by
+  // setDrag, which a native pointermove schedules on the continuous lane, as
+  // a later task -- after that frame has painted. Until this commit the
+  // pick-up looks as a drag with no card does: the row drawn in its place
+  // (a tab's lifted by App.css), and nothing at the pointer.
+  //
+  // Only for the drag that is still live (`live.current`), so a drag that
+  // ended, or was handed to the carry, before this commit never shows a
+  // card: Esc, a release, the area turning drag off, and a hand-off all
+  // clear `live.current` before they return. Once per drag (`cardShown`):
+  // every move re-renders with a new state, and from here the card is only
+  // moved. At the pointer as it is NOW, which may be some moves past the one
+  // that started the drag.
+  useLayoutEffect(() => {
+    const l = live.current;
+    if (drag === null || !drag.heldShownAsCard) return;
+    if (l === null || l.card === null || l.cardShown) return;
+    l.cardShown = true;
+    showDragCard(cardOwner, l.card, l.lastX, l.lastY);
+  }, [drag, cardOwner]);
 
   // Known to every footprint's climb as a box holding a list's rows -- see
   // footprintOf. The element is the same for the life of the area.
@@ -1737,6 +1873,26 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
 const PHANTOM_STYLE = css`
   pointer-events: none;
   & > :not([data-drag-landing-slot]):not([data-phantom-resting-slot]) {
+    opacity: 0;
+  }
+`;
+
+// KAN-354 C1 A. A held row shown by the card at the pointer: its content is
+// invisible, its box -- and so its room, its translate, and every number the
+// engine reads from it -- untouched. Everything but the slots it draws: the
+// landing slot, which shows where a release lands, and the outline of the
+// room a cross-window drag leaves (`data-drag-source-room`). Both set their
+// opacity inline, which outranks this rule anyway: the exclusions say what is
+// meant, and nothing depends on them (measured: removing them fails no unit
+// test and no e2e).
+//
+// OPACITY ONLY. No `pointer-events`, no `inert` and no `visibility`, which
+// the phantom above uses: the click Chrome synthesizes for the release is
+// aimed at the held row, because it tracks the pointer, and the click rules
+// depend on it landing there (KAN-177, clickSuppressor.ts). A held row that
+// took no hits would send that click to whatever row is underneath.
+const HELD_AS_CARD_STYLE = css`
+  & > :not([data-drag-landing-slot]):not([data-drag-source-room]) {
     opacity: 0;
   }
 `;
@@ -1800,6 +1956,10 @@ export const DraggableRow: React.FC<DraggableRowProps> = ({
   // will go -- so only the row's own content is hidden, not the slot, and
   // it casts no lift shadow.
   const phantom = ctx !== null && ctx.adoptRowId === rowId;
+  // Held, and shown by a card at the pointer instead of by itself (KAN-354):
+  // a saved list's drag, or an adopted phantom. Invisible in its own room,
+  // with no lift shadow; the session list and Open now never are.
+  const shownAsCard = held && drag.heldShownAsCard;
   // The held row tracks the pointer; every other row is told where to be by the
   // area, which works it out once for the whole list (KAN-166). This used to
   // re-derive it from an index range here, and a group's frame re-derived it a
@@ -1820,7 +1980,15 @@ export const DraggableRow: React.FC<DraggableRowProps> = ({
       // an unmarked wrapper div.
       data-drag-row-id={rowId}
       data-carry-phantom={phantom ? '' : undefined}
-      css={phantom ? PHANTOM_STYLE : undefined}
+      // What src/App.css keys on to leave such a row without the held tab's
+      // `!important` lift shadow and KAN-164 stripe (KAN-355), which drew
+      // the invisible phantom as an empty shadowed box.
+      data-held-as-card={shownAsCard ? '' : undefined}
+      // A held phantom keeps the phantom's rule, which hides the same
+      // content and also takes no hits: it was never the row under a press.
+      css={
+        phantom ? PHANTOM_STYLE : shownAsCard ? HELD_AS_CARD_STYLE : undefined
+      }
       ref={(el) => {
         ctx?.register(rowId, el);
         // Nor reached by the keyboard or read out: its content is a stored
@@ -1840,7 +2008,12 @@ export const DraggableRow: React.FC<DraggableRowProps> = ({
         // The held row must track the pointer exactly; only the rows moving
         // aside are animated.
         transition: held ? 'none' : `transform ${DURATION.MOVE} ease`,
-        boxShadow: held && !phantom ? '0 2px 8px rgba(0,0,0,0.35)' : undefined,
+        // The lift, for a row that is drawn lifted. One shown by a card has
+        // nothing to lift (KAN-354).
+        boxShadow:
+          held && !drag.heldShownAsCard
+            ? '0 2px 8px rgba(0,0,0,0.35)'
+            : undefined,
         zIndex: held ? 1 : undefined,
         position: 'relative',
         cursor: 'pointer',
@@ -1908,11 +2081,14 @@ export const DraggableRow: React.FC<DraggableRowProps> = ({
             // its own -- one row's worth of travel is exactly the distance at
             // which the two boxes stop overlapping.
             //
-            // Not for a phantom (KAN-350 V3 A): its row is invisible, so there
-            // is no outline to tell apart, and a slot fading out as the
+            // Not for a row shown by a card (KAN-354), a phantom included
+            // (KAN-350 V3 A): the row is invisible, so there is no outline to
+            // tell apart. At pick-up the slot IS the row's own place, at
+            // distance 0, so the fade would hide it exactly when it says "it
+            // goes back here"; and for a phantom, a slot fading out as the
             // pointer comes in over the resting slot would undo "nothing
             // moves on entry".
-            opacity: phantom
+            opacity: drag.heldShownAsCard
               ? SLOT_OPACITY
               : SLOT_OPACITY *
                 Math.min(
@@ -1921,6 +2097,39 @@ export const DraggableRow: React.FC<DraggableRowProps> = ({
                     ? Math.abs(drag.landingDelta - translate) / drag.footprint
                     : 1
                 ),
+          }}
+        />
+      )}
+      {/* KAN-354 C3 A. The room this row leaves in its own window, while it
+          is held over another: one row, at the bottom of that window -- see
+          DragState.sourceRoomDelta.
+
+          Placed like the landing slot: a child of the held row, its own box,
+          counter-transformed out of the row's translate and on to the
+          room's distance from the row's place. NO WINDOW-SHIFT TERM, unlike
+          the slot's: the slot points into the LANDING's block, which may
+          have moved apart from the held row's, but the room is in the held
+          row's own block, and whatever that block has moved by (upward,
+          the source is pushed down a row, KAN-184) the row and the room
+          have moved by together. */}
+      {held && drag.sourceRoomDelta !== null && (
+        <div
+          aria-hidden="true"
+          data-drag-source-room=""
+          style={{
+            position: 'absolute',
+            // Longhands, like the landing slot's (KAN-183).
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            transform: `translateY(${drag.sourceRoomDelta - translate}px)`,
+            pointerEvents: 'none',
+            borderWidth: '1.5px',
+            borderStyle: 'dotted',
+            borderColor: 'var(--drag-landing-slot, currentColor)',
+            borderRadius: SLOT_RADIUS,
+            opacity: SOURCE_ROOM_OPACITY,
           }}
         />
       )}

@@ -58,6 +58,33 @@ export interface DragState {
    * draws the removed rows to stop drawing them. Empty while nothing goes.
    */
   removedFixedRows: readonly string[];
+  /**
+   * The held row is shown by a card at the pointer instead of by itself
+   * (KAN-354): the drag published a drag card (its list's carryOut had one
+   * for the row), or it is an adopted carry, whose card is the carry's
+   * (KAN-350). The row is then drawn invisible in its own room, casts no lift
+   * shadow (KAN-355), and its landing slot does not fade by distance -- there
+   * is no visible row left to tell the slot apart from.
+   *
+   * False for every other drag: the session list's, Open now's, and a saved
+   * list's row its carryOut has no card for. Those keep the sliding row.
+   */
+  heldShownAsCard: boolean;
+  /**
+   * How far below the held row's own place (its measured top) the outline
+   * over the room it leaves is drawn (KAN-354 C3 A), or null when none is.
+   *
+   * A row held over ANOTHER window leaves its source one row shorter, and
+   * that room shows at the source's BOTTOM: the rows below it close up, and
+   * the source keeps its box until the release (KAN-184). The outline is the
+   * held row's own box, bottom-aligned to the source's lowest slot as
+   * measured at drag start; 0 when the held row is its window's last.
+   *
+   * Null with no card (the row is still drawn), for an adopted carry (its
+   * source, the New window target, is gone after the drop), for a landing in
+   * the row's own window, and for a refused one.
+   */
+  sourceRoomDelta: number | null;
 }
 
 export interface Ctx {

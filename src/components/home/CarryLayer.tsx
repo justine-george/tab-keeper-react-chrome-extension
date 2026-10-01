@@ -1,5 +1,7 @@
 // KAN-350. Drives a carry while the pointer is outside every area that can
-// take it, and draws the card that follows the pointer (D1 A).
+// take it, and draws the card that follows the pointer (D1 A). KAN-354: it
+// also draws a saved list's drag card (dragCard.ts) before any carry, in the
+// same element, which it only draws: the drag's own area moves it.
 //
 // Mounted once, in MainContainer, outside every pane: a carry exists because
 // the area it started in may unmount mid-gesture, so what finishes it must not
@@ -28,6 +30,7 @@ import {
   type CarryCard,
   type CarryReceiver,
 } from '../../redux/carry';
+import { useDragCard } from '../../redux/dragCard';
 
 // Where the card sits from the pointer: just below and to the right of the
 // arrow's tip, as the mock draws it.
@@ -105,6 +108,7 @@ function CardBody({ card }: { card: CarryCard }) {
 
 export function CarryLayer() {
   const carry = useCarry();
+  const dragCard = useDragCard();
   const COLORS = useThemeColors();
   const tabGroups = useSelector(
     (state: RootState) => state.tabContainerDataState.tabGroups
@@ -245,11 +249,17 @@ export function CarryLayer() {
     }
   }, [isSearchPanel, carried, clicks]);
 
-  if (carry === null) return null;
+  // A carry's card wins: at a hand-off the carry starts before the drag card
+  // is hidden, so one element is on screen throughout and React keeps it.
+  const shown = carry ?? dragCard;
+  if (shown === null) return null;
 
   return createPortal(
     <div
-      data-carry-card=""
+      // `data-carry-card` means "a carry is on"; an in-list drag's card wears
+      // `data-drag-card` instead.
+      data-carry-card={carry === null ? undefined : ''}
+      data-drag-card={carry === null ? '' : undefined}
       aria-hidden="true"
       css={css`
         position: fixed;
@@ -270,12 +280,12 @@ export function CarryLayer() {
         pointer-events: none;
       `}
       style={{
-        transform: `translate(${carry.x + CARD_OFFSET_X}px, ${
-          carry.y + CARD_OFFSET_Y
+        transform: `translate(${shown.x + CARD_OFFSET_X}px, ${
+          shown.y + CARD_OFFSET_Y
         }px)`,
       }}
     >
-      <CardBody card={carry.card} />
+      <CardBody card={shown.card} />
     </div>,
     document.body
   );
