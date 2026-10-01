@@ -1120,6 +1120,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         heldShownAsCard: l.card !== null || l.adopted,
         sourceRoomDelta,
         landingInset,
+        landingSlotShown: !(l.adopted && landing === undefined),
       });
 
       return target;
@@ -2103,7 +2104,7 @@ export const DraggableRow: React.FC<DraggableRowProps> = ({
           all five themes -- nothing above a row sets `color` -- and at 30%
           that was 1.17:1 on the dark pages. The fallback is currentColor
           still, for a host that has not published the variable. */}
-      {held && (
+      {held && drag.landingSlotShown && (
         <div
           aria-hidden="true"
           data-drag-landing-slot=""

@@ -2579,3 +2579,154 @@ test.describe('the slot is the box of the row the tab becomes, across a band edg
     });
   }
 });
+
+// ---- KAN-365 ------------------------------------------------------------------
+
+// Below the last row, an adopted carry's release is refused and moves
+// nothing: the item goes back to its source, which is not a place in this
+// list. So nothing is drawn as a landing -- on main the slot sat at the
+// phantom's own place, inside the unlit New window target, 1px inside its
+// border, and the target's indent on the KAN-362 branch made it show.
+const slotsDrawn = (page: Page) =>
+  page.evaluate(
+    () =>
+      [...document.querySelectorAll('[data-drag-landing-slot]')].filter(
+        (s) =>
+          getComputedStyle(s).visibility !== 'hidden' &&
+          s.getBoundingClientRect().width > 0
+      ).length
+  );
+
+interface SlotFrame {
+  slot: boolean;
+  inTarget: boolean;
+}
+const isSlotLog = (x: unknown): x is SlotFrame[] => {
+  if (!Array.isArray(x)) return false;
+  const items: readonly unknown[] = x;
+  return items.every(
+    (f) =>
+      typeof f === 'object' &&
+      f !== null &&
+      'slot' in f &&
+      typeof f.slot === 'boolean' &&
+      'inTarget' in f &&
+      typeof f.inTarget === 'boolean'
+  );
+};
+
+test.describe('below the last row, a carried item draws no slot (KAN-365)', () => {
+  const kinds = [
+    { kind: 'tab', handle: 'a0', phantom: 'carried:a0' },
+    { kind: 'group', handle: 'alpha', phantom: 'group:carried:alpha' },
+  ] as const;
+  for (const k of kinds) {
+    test(`a carried ${k.kind}: no slot, the target unlit, and a release moves nothing`, async ({
+      context,
+      extensionId,
+    }) => {
+      const page = await openPopup(context, extensionId);
+      const handle =
+        k.kind === 'tab'
+          ? tabHandle(page, k.handle)
+          : groupHandle(page, k.handle);
+      const at = await pickUp(page, handle);
+      await carryOutLeft(page, at);
+      await adoptPhantom(page, k.phantom);
+      // PREMISE: held over a row, the slot is drawn.
+      await aimAt(page, 'b0', 0.5);
+      expect(await slotsDrawn(page)).toBe(1);
+      const last = await boxOf(page.locator('[data-drag-row-id="w2"]'));
+      const pane = await detailPane(page);
+      // PREMISE: there is room below the last row inside the pane.
+      expect(pane.bottom - (last.y + last.height)).toBeGreaterThan(60);
+      await page.mouse.move(at.x, pane.bottom - 30, { steps: 8 });
+      await settled(page);
+      expect(await slotsDrawn(page)).toBe(0);
+      await expect(
+        page.locator('[data-new-window-target][data-landing]')
+      ).toHaveCount(0);
+      await page.mouse.up();
+      await expect(page.locator(CARD)).toHaveCount(0);
+      expect(await layout(page, 'S1')).toEqual([W1_START, 'b0 b1']);
+      expect(await windowIdsOf(page, 'S1')).toEqual(['w1', 'w2']);
+    });
+  }
+
+  // Frame by frame, from over the last window down past the list: no frame
+  // draws a slot inside the New window target, the frame the landing is
+  // refused on included.
+  test('frame by frame on the way down, no frame draws a slot inside the target', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    const at = await pickUp(page, tabHandle(page, 'a0'));
+    await carryOutLeft(page, at);
+    await adoptPhantom(page, 'carried:a0');
+    await aimAt(page, 'b0', 0.5);
+    await page.evaluate(() => {
+      const log: { slot: boolean; inTarget: boolean }[] = [];
+      document.body.dataset.slotLog = 'on';
+      const frame = () => {
+        const target = document
+          .querySelector('[data-new-window-target]')
+          ?.getBoundingClientRect();
+        const slots = [
+          ...document.querySelectorAll('[data-drag-landing-slot]'),
+        ].filter((el) => getComputedStyle(el).visibility !== 'hidden');
+        log.push({
+          slot: slots.length > 0,
+          inTarget: slots.some((el) => {
+            const b = el.getBoundingClientRect();
+            return (
+              target !== undefined &&
+              b.top >= target.top - 1 &&
+              b.bottom <= target.bottom + 1
+            );
+          }),
+        });
+        document.body.dataset.slotFrames = JSON.stringify(log);
+        if (document.body.dataset.slotLog === 'on')
+          requestAnimationFrame(frame);
+      };
+      requestAnimationFrame(frame);
+    });
+    const pane = await detailPane(page);
+    await page.mouse.move(at.x, pane.bottom - 30, { steps: 12 });
+    await settled(page);
+    const raw = await page.evaluate(() => {
+      document.body.dataset.slotLog = 'off';
+      return document.body.dataset.slotFrames ?? '[]';
+    });
+    const frames: unknown = JSON.parse(raw);
+    if (!isSlotLog(frames)) throw new Error(`not a slot log: ${raw}`);
+    // PREMISE: the log saw the slot drawn, over the rows.
+    expect(frames.some((f) => f.slot)).toBe(true);
+    expect(
+      frames.filter((f) => f.inTarget).length,
+      'frames with a slot inside the target'
+    ).toBe(0);
+    // And it ended with none at all.
+    expect(frames[frames.length - 1]?.slot).toBe(false);
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+  });
+
+  test('CONTROL: an ordinary drag below the last row keeps its slot at its own place', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    const own = await boxOf(page.locator('[data-drag-row-id="a0"]'));
+    const at = await pickUp(page, tabHandle(page, 'a0'));
+    const pane = await detailPane(page);
+    await page.mouse.move(at.x, pane.bottom - 30, { steps: 8 });
+    await settled(page);
+    expect(await slotsDrawn(page)).toBe(1);
+    const slot = await boxOf(page.locator('[data-drag-landing-slot]'));
+    expect(Math.abs(slot.y - own.y)).toBeLessThanOrEqual(1);
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+  });
+});
