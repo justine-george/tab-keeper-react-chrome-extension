@@ -404,12 +404,13 @@ async function carryOutLeft(page: Page, from: Point): Promise<void> {
   await expect(page.locator(CARD)).toHaveCount(1);
 }
 
-// Records, from now on, whether a carry's card or a New window target was
-// ever drawn -- even for one frame -- so a test can say none ever was.
+// Records, from now on, whether a carry's card or its phantom was ever drawn
+// -- even for one frame -- so a test can say neither ever was.
 //
-// The New window target read here and below is the LIST's: a window block
-// (`[data-drop-window-id][data-new-window-target]`). The toolbar row's target
-// (KAN-361) is always in the DOM, hidden at rest, and is no window block.
+// The phantom read here is a carried tab's or group's, resting in the list's
+// New window block (`[data-new-window-target] [data-carry-phantom]`), which
+// only a carry draws: the toolbar row's target (KAN-361) is shown for every
+// ordinary tab drag, so it is no sign of a carry.
 async function watchForCarry(page: Page): Promise<void> {
   await page.evaluate(() => {
     // Each flag is written once: the observer hears attribute writes, its
@@ -419,13 +420,13 @@ async function watchForCarry(page: Page): Promise<void> {
       if (b.sawCard !== '1' && document.querySelector('[data-carry-card]'))
         b.sawCard = '1';
       if (
-        b.sawTarget !== '1' &&
-        document.querySelector('[data-drop-window-id][data-new-window-target]')
+        b.sawPhantom !== '1' &&
+        document.querySelector('[data-new-window-target] [data-carry-phantom]')
       )
-        b.sawTarget = '1';
+        b.sawPhantom = '1';
     };
     document.body.dataset.sawCard = '0';
-    document.body.dataset.sawTarget = '0';
+    document.body.dataset.sawPhantom = '0';
     new MutationObserver(flag).observe(document.body, {
       childList: true,
       subtree: true,
@@ -447,7 +448,7 @@ const currentCarriedKind = (page: Page) =>
 const sawCarry = (page: Page) =>
   page.evaluate(() => ({
     card: document.body.dataset.sawCard,
-    target: document.body.dataset.sawTarget,
+    phantom: document.body.dataset.sawPhantom,
   }));
 
 // Onto a session row's centre. Leaves the pointer resting there.
@@ -787,22 +788,22 @@ test.describe('a spring-open, then an exact spot (S1 A, S5 A)', () => {
   }
 });
 
+// The target is the session header's (KAN-361 N1 B): shown for the carry,
+// in the opened session and in the source, and let go on, a new first window.
 test.describe('the New window target (S3 A, Q2 A)', () => {
   test('in the opened session it is there for a tab, and a drop on it makes a new first window', async ({
     context,
     extensionId,
   }) => {
     const page = await openPopup(context, extensionId);
+    const aim = await headerAim(page);
     const at = await pickUp(page, tabHandle(page, 'a1'));
     await carryOutLeft(page, at);
     await springOpen(page, 'S2');
-    await expect(
-      page.locator('[data-drop-window-id][data-new-window-target]')
-    ).toHaveCount(1);
+    await expect(headerTarget(page)).toBeVisible();
     await adoptPhantom(page, 'carried:a1');
-    await expect(
-      page.locator('[data-drop-window-id][data-new-window-target]')
-    ).toHaveAttribute('data-landing', '');
+    await ontoHeaderTarget(page, aim);
+    await expect(headerTarget(page)).toHaveAttribute('data-landing', '');
     await page.mouse.up();
 
     await expect
@@ -810,9 +811,8 @@ test.describe('the New window target (S3 A, Q2 A)', () => {
       .toEqual(['a1', D1_START, 'e0 e1']);
     expect(await windowIdsOf(page, 'S2')).toEqual(['new', 'd1', 'd2']);
     expect(await toasts(page)).toEqual([]);
-    await expect(
-      page.locator('[data-drop-window-id][data-new-window-target]')
-    ).toHaveCount(0);
+    // The carry over, the target is no longer shown.
+    await expect(headerTarget(page)).toBeHidden();
   });
 
   test('a group dropped on it makes a new first window holding the group', async ({
@@ -820,10 +820,13 @@ test.describe('the New window target (S3 A, Q2 A)', () => {
     extensionId,
   }) => {
     const page = await openPopup(context, extensionId);
+    const aim = await headerAim(page);
     const at = await pickUp(page, groupHandle(page, 'alpha'));
     await carryOutLeft(page, at);
     await springOpen(page, 'S2');
     await adoptPhantom(page, 'group:carried:alpha');
+    await ontoHeaderTarget(page, aim);
+    await expect(headerTarget(page)).toHaveAttribute('data-landing', '');
     await page.mouse.up();
 
     await expect
@@ -837,13 +840,15 @@ test.describe('the New window target (S3 A, Q2 A)', () => {
     extensionId,
   }) => {
     const page = await openPopup(context, extensionId);
+    const aim = await headerAim(page);
     const at = await pickUp(page, tabHandle(page, 'a1'));
     await carryOutLeft(page, at);
     // Shown in the source while carried (Q2 A), and the tab gone from w1.
-    await expect(
-      page.locator('[data-drop-window-id][data-new-window-target]')
-    ).toHaveCount(1);
+    await expect(headerTarget(page)).toBeVisible();
+    await expect(tabHandle(page, 'a1')).toHaveCount(0);
     await adoptPhantom(page, 'carried:a1');
+    await ontoHeaderTarget(page, aim);
+    await expect(headerTarget(page)).toHaveAttribute('data-landing', '');
     await page.mouse.up();
 
     await expect
@@ -866,8 +871,16 @@ test.describe('the New window target (S3 A, Q2 A)', () => {
     await expect(
       page.locator('[data-drag-row-id="carried:w2"]')
     ).toBeAttached();
+    // PREMISE: the toolbar row is drawn, and its controls are what show.
     await expect(
-      page.locator('[data-drop-window-id][data-new-window-target]')
+      page.getByRole('button', { name: 'Open session' })
+    ).toBeVisible();
+    await expect(headerTarget(page)).toBeAttached();
+    await expect(headerTarget(page)).toBeHidden();
+    // No row of a carry rests in a New window target: the window's phantom
+    // is a window row of its own.
+    await expect(
+      page.locator('[data-new-window-target] [data-drag-row-id]')
     ).toHaveCount(0);
     await page.keyboard.press('Escape');
     await page.mouse.up();
@@ -918,6 +931,23 @@ test.describe('nothing moves (Q5 A)', () => {
 });
 
 test.describe('only the session list carries (hand-off, KAN-352)', () => {
+  // PREMISE for every `sawCarry` negative below: a real carry is seen, its
+  // card and its phantom both.
+  test('CONTROL: a carry is seen by watchForCarry, its card and its phantom', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    await watchForCarry(page);
+    const at = await pickUp(page, tabHandle(page, 'a1'));
+    await carryOutLeft(page, at);
+    await expect
+      .poll(() => sawCarry(page))
+      .toEqual({ card: '1', phantom: '1' });
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+  });
+
   test('CONTROL: out of the pane below or above, no carry: the drag stays a drag in the list', async ({
     context,
     extensionId,
@@ -974,7 +1004,7 @@ test.describe('only the session list carries (hand-off, KAN-352)', () => {
     await expect
       .poll(() => layout(page, 'S1'))
       .toEqual(['a0 a2 a1 al0* al1*', 'b0 b1']);
-    expect(await sawCarry(page)).toEqual({ card: '0', target: '0' });
+    expect(await sawCarry(page)).toEqual({ card: '0', phantom: '0' });
     expect(await toasts(page)).toEqual([]);
   });
 
@@ -1051,7 +1081,7 @@ test.describe('only the session list carries (hand-off, KAN-352)', () => {
     await expect
       .poll(() => layout(page, 'S1'))
       .toEqual(['a0 a2 a1 al0* al1*', 'b0 b1']);
-    expect(await sawCarry(page)).toEqual({ card: '0', target: '0' });
+    expect(await sawCarry(page)).toEqual({ card: '0', phantom: '0' });
     expect(await toasts(page)).toEqual([]);
   });
 });
@@ -1120,7 +1150,7 @@ test.describe('Review Focus 2: cancels, quick passes, the shown row', () => {
     // NEGATIVE, so a fixed wait: no card, and no stray click, which would
     // follow the release at once.
     await page.waitForTimeout(300);
-    expect(await sawCarry(page)).toEqual({ card: '0', target: '0' });
+    expect(await sawCarry(page)).toEqual({ card: '0', phantom: '0' });
     expect(await clicks(page)).toBe(0);
     expect(await layout(page, 'S1')).toEqual([W1_START, 'b0 b1']);
     expect(await chromeNow(serviceWorker)).toBe(chromeBefore);
@@ -3286,12 +3316,14 @@ test.describe('the New window target is in the toolbar row from pick-up (KAN-361
       after: { session: 'S1', layout: [W1_START, 'b0 b1'] },
     },
     {
-      name: 'a carried tab adopted in Target and let go there',
+      name: 'a carried tab adopted in Target and let go on its New window target',
       run: async (page) => {
+        const aim = await headerAim(page);
         const at = await pickUp(page, tabHandle(page, 'a1'));
         await carryOutLeft(page, at);
         await springOpen(page, 'S2');
         await adoptPhantom(page, 'carried:a1');
+        await ontoHeaderTarget(page, aim);
         await page.mouse.up();
       },
       after: { session: 'S2', layout: ['a1', D1_START, 'e0 e1'] },
