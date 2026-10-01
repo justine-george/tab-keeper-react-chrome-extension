@@ -850,9 +850,11 @@ test.describe('a tab drag says which group it will join', () => {
     // measured before the fix, the band's outline read `3px none`.
     //
     // The group answers in ITS OWN colour rather than in a ring: the strip
-    // widens, the band fills with a wash of its colour, and the held tab takes
-    // the stripe. The WIDTH is the one that carries the meaning for anyone who
-    // cannot separate the wash from the page -- a shape change, not a hue.
+    // widens and the band fills with a wash of its colour. The held tab
+    // takes no stripe (KAN-354 C4 A): it is hidden, and the card at the
+    // pointer draws it, with no stripe either. The WIDTH is the one that
+    // carries the meaning for anyone who cannot separate the wash from the
+    // page -- a shape change, not a hue.
     const drawn = await page.evaluate(() => {
       const strip = (id: string) =>
         document
@@ -867,10 +869,11 @@ test.describe('a tab drag says which group it will join', () => {
         unmarkedStrip: Math.round(strip('gamma')),
         bandFill: getComputedStyle(band).backgroundColor,
         bandColourVar: band.style.getPropertyValue('--band-color'),
-        heldStripe: getComputedStyle(document.documentElement)
-          .getPropertyValue('--drop-target-color')
-          .trim(),
         heldShadow: getComputedStyle(held).boxShadow,
+        cardShadow: getComputedStyle(
+          document.querySelector('[data-drag-card]') ?? document.body
+        ).boxShadow,
+        card: document.querySelector('[data-drag-card]') !== null,
         // The strip grows into its own margin, so the rows beside it must not
         // move. The group's content edge is the thing that would give.
         contentLeft: Math.round(
@@ -886,9 +889,13 @@ test.describe('a tab drag says which group it will join', () => {
     // And it answers in the group's own colour, not a generic accent.
     expect(drawn.bandColourVar).not.toBe('');
     expect(drawn.bandFill).not.toBe('rgba(0, 0, 0, 0)');
-    // The held tab wears the colour of the group it would join.
-    expect(drawn.heldStripe).toBe(drawn.bandColourVar);
-    expect(drawn.heldShadow).toContain('inset');
+    // KAN-354 C4 A: the held tab wears no stripe and casts no shadow -- it
+    // is hidden, drawn by the card -- and the card wears no stripe either.
+    // The band above is what says which group it joins. (Before KAN-354
+    // the held tab took the band's colour as an inset stripe, KAN-164.)
+    expect(drawn.heldShadow).toBe('none');
+    expect(drawn.card).toBe(true);
+    expect(drawn.cardShadow).not.toContain('inset');
 
     // The footprint rule from GroupColorPicker: the strip grows into its own
     // margin, so widening it must not push the group's rows sideways.
