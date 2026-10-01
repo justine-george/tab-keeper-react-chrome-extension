@@ -4526,6 +4526,7 @@ const isLitLog = (
   height: number;
   cols: string;
   tops: string;
+  afterSettled: boolean;
 }[] => {
   if (!Array.isArray(x)) return false;
   const items: readonly unknown[] = x;
@@ -4544,7 +4545,9 @@ const isLitLog = (
       'cols' in f &&
       typeof f.cols === 'string' &&
       'tops' in f &&
-      typeof f.tops === 'string'
+      typeof f.tops === 'string' &&
+      'afterSettled' in f &&
+      typeof f.afterSettled === 'boolean'
   );
 };
 
@@ -4560,6 +4563,7 @@ const startLitLog = (page: Page) =>
       height: number;
       cols: string;
       tops: string;
+      afterSettled: boolean;
     }[] = [];
     document.body.dataset.litLog = 'on';
     const frame = () => {
@@ -4588,12 +4592,24 @@ const startLitLog = (page: Page) =>
         scrollTop: el?.scrollTop ?? NaN,
         cols: rows.map((r) => `${r.id}:${r.box.left}:${r.box.width}`).join(' '),
         tops: rows.map((r) => `${r.id}:${r.box.top}`).join(' '),
+        afterSettled: document.body.dataset.settledMark === '1',
       });
       document.body.dataset.litFrames = JSON.stringify(log);
       if (document.body.dataset.litLog === 'on') requestAnimationFrame(frame);
     };
     requestAnimationFrame(frame);
   });
+
+// Marks the frame log: every frame logged from now on is `afterSettled`. Call
+// it right after `settled(page)`, then it keeps logging for 10 more frames so
+// the check has frames to look at.
+async function markLitLogSettled(page: Page) {
+  await page.evaluate(async () => {
+    document.body.dataset.settledMark = '1';
+    for (let i = 0; i < 10; i++)
+      await new Promise((r) => requestAnimationFrame(r));
+  });
+}
 
 async function stopLitLog(page: Page) {
   const raw = await page.evaluate(() => {
@@ -4637,7 +4653,26 @@ function expectFullRowLog(
   // the box lights (its own motion, not the box's).
   expect(log.filter((f) => f.scrollTop !== 0)).toEqual([]);
   expect(new Set(lit.map((f) => f.cols)).size).toBe(1);
-  expect(new Set(lit.slice(-5).map((f) => f.tops)).size).toBe(1);
+  // Tops are compared only in lit frames after `settled()` returned. PREMISE:
+  // there are at least 8 of them. A failure names each distinct tops string
+  // and the log frame indexes it appeared in, so a CI log shows which row
+  // moved and by how much.
+  const after = log.flatMap((f, index) =>
+    f.lit && f.afterSettled ? [{ index, tops: f.tops }] : []
+  );
+  expect(after.length, 'lit frames after settled()').toBeGreaterThanOrEqual(8);
+  const framesByTops = new Map<string, number[]>();
+  for (const f of after)
+    framesByTops.set(f.tops, [...(framesByTops.get(f.tops) ?? []), f.index]);
+  const distinct = [...framesByTops].map(
+    ([tops, indexes]) => `  frames [${indexes.join(',')}]: ${tops}`
+  );
+  expect(
+    framesByTops.size,
+    `rows moved after settled() (${
+      framesByTops.size
+    } distinct tops):\n${distinct.join('\n')}`
+  ).toBe(1);
 }
 
 // One ⌘Z puts every session in `ids` back as `before` held it: every field
@@ -5213,6 +5248,7 @@ test.describe('below the last window makes a new last window (KAN-366)', () => {
     const at = await pickUp(page, tabHandle(page, 'f0'));
     await page.mouse.move(at.x, y, { steps: 8 });
     await settled(page);
+    await markLitLogSettled(page);
     const log = await stopLitLog(page);
     // A row and its borders: 1.5px draws as 1px at DPR 1, so 34 for a 32 row.
     expectFullRowLog(log, row + 2, free);
@@ -5352,6 +5388,7 @@ test.describe('below the last window makes a new last window (KAN-366)', () => {
       ''
     );
     await settled(page);
+    await markLitLogSettled(page);
     const log = await stopLitLog(page);
     // A row and its borders: 1.5px draws as 1px at DPR 1, so 34 for a 32 row.
     expectFullRowLog(log, row + 2, free);
