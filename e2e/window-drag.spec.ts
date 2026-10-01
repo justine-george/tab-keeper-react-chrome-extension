@@ -80,7 +80,10 @@ async function scrollPaneAndRecord(page: Page, scrollTop: number) {
       'pointerup',
       () => {
         const rows = windowRows();
-        const from = rows.findIndex((r) => r.style.boxShadow !== '');
+        // The held row by its marker. It used to be found by its inline lift
+        // shadow, which a saved list's held row no longer casts: the card at
+        // the pointer draws it (KAN-354).
+        const from = rows.findIndex((r) => r.hasAttribute('data-drag-held'));
         const shift = (r: HTMLElement) =>
           Number(
             /translateY\((-?[\d.]+)px\)/.exec(r.style.transform)?.[1] ?? 0
