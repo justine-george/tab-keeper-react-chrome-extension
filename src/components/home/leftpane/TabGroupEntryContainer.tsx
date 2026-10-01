@@ -244,13 +244,17 @@ export default function TabGroupEntryContainer() {
       frame = requestAnimationFrame(tick);
     };
 
+    // The scroller's box, read now, and whether a point is in it.
+    const measureHit = (): ((x: number, y: number) => boolean) => {
+      const el = listRef.current;
+      if (el === null) return () => false;
+      const b = el.getBoundingClientRect();
+      return (x, y) => x >= b.left && x < b.right && y >= b.top && y < b.bottom;
+    };
+
     const receiver: CarryReceiver = {
-      hit(x, y) {
-        const el = listRef.current;
-        if (el === null) return false;
-        const b = el.getBoundingClientRect();
-        return x >= b.left && x < b.right && y >= b.top && y < b.bottom;
-      },
+      hit: (x, y) => measureHit()(x, y),
+      measureHit,
       hover(_x, y) {
         const el = listRef.current;
         if (el === null) return;

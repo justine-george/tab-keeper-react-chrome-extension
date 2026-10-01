@@ -202,6 +202,12 @@ export function CarryLayer() {
     window.addEventListener('pointerup', onUp);
     window.addEventListener('pointercancel', onCancel);
     window.addEventListener('keydown', onKey);
+    // The move that gave the layer the carry -- a hand-off, or a hand-back
+    // -- was dispatched before these listeners existed: routed now, at the
+    // point the carry was given at, so the row under it is the target, and
+    // its dwell starts, with that move rather than the next one.
+    const now = currentCarry();
+    if (now?.owner === 'layer') route(now.x, now.y);
     return () => {
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);

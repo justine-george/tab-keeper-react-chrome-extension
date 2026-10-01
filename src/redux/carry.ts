@@ -174,6 +174,14 @@ export function useCarried(): CarriedRef | null {
 // Ruling 2. Something that can take a release while the layer drives the
 // carry (the session list, Task 4). The layer asks every receiver in
 // registration order; the first whose `hit` is true owns the pointer:
+//   hit   -- whether the point is over it, from its box as it is now: a
+//            layout read on every call. The layer asks it on every move,
+//            because a receiver can move under a resting pointer while the
+//            layer drives (a spring-open's peek re-lays the page out);
+//   measureHit -- optional: the box read ONCE, now, and a test answering
+//            from it. For a drag that asks on every move and through which
+//            nothing moves the receiver (measureCarryReceivers). A receiver
+//            without one is asked through `hit`;
 //   hover -- each move while it owns it;
 //   leave -- when it stops owning it: another receiver or none is hit, the
 //            carry ends, or an area adopts the carry;
@@ -182,6 +190,7 @@ export function useCarried(): CarriedRef | null {
 // has to (endCarry is a no-op if it did).
 export interface CarryReceiver {
   hit(x: number, y: number): boolean;
+  measureHit?(): (x: number, y: number) => boolean;
   hover(x: number, y: number): void;
   leave(): void;
   take(): boolean;
@@ -200,4 +209,24 @@ export function registerCarryReceiver(r: CarryReceiver): () => void {
 // The first receiver, in registration order, that the point hits.
 export function carryReceiverAt(x: number, y: number): CarryReceiver | null {
   return receivers.find((r) => r.hit(x, y)) ?? null;
+}
+
+// The receivers as they are NOW, for a caller that asks on every pointermove
+// of one drag (RowDragArea, from the moment its drag starts): each box is
+// read once, here, rather than once per move -- per-move layout reads are
+// what the drag engine is built to avoid. Valid only while nothing moves the
+// receivers, which nothing does in a drag the engine drives; the layer, which
+// can see them move, asks carryReceiverAt instead. A receiver that has since
+// unregistered is never named.
+export function measureCarryReceivers(): (
+  x: number,
+  y: number
+) => CarryReceiver | null {
+  const measured = receivers.map((r) => ({
+    r,
+    hit: r.measureHit?.() ?? ((x: number, y: number) => r.hit(x, y)),
+  }));
+  return (x, y) =>
+    measured.find(({ r, hit }) => receivers.includes(r) && hit(x, y))?.r ??
+    null;
 }

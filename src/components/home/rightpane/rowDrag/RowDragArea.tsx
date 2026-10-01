@@ -68,12 +68,13 @@ import { DURATION, RADIUS } from '../../../../styles/scale';
 import { beginDragHold, endDragHold } from '../../../../redux/dragHold';
 import {
   carryEndedAs,
-  carryReceiverAt,
   currentCarry,
   endCarry,
+  measureCarryReceivers,
   setCarryOwner,
   startCarry,
   subscribeCarry,
+  type CarryReceiver,
 } from '../../../../redux/carry';
 import { createClickSuppressor } from './clickSuppressor';
 import { edgeScrollStep } from './edgeScroll';
@@ -305,12 +306,13 @@ interface LiveDrag {
   // whether this list's rows sit in windows at all. Null for a row in no
   // window.
   heldWindow: HTMLElement | null;
-  // Whether this drag hands off to the carry when the pointer reaches a
-  // carry receiver -- the session list (KAN-350, KAN-352). Set at activation:
-  // true for a list with carryOut, and for an adopted drag, which hands its
-  // carry back. False for every other list, which never asks a receiver
-  // anything, so its drag costs no extra layout read per move.
-  handsOffToReceiver: boolean;
+  // The carry receiver -- the session list -- at a point, for a drag that
+  // hands off to the carry when the pointer reaches one (KAN-350, KAN-352).
+  // Set at activation, with every receiver's box read there, once, so a move
+  // costs no layout read (measureCarryReceivers): for a list with carryOut,
+  // and for an adopted drag, which hands its carry back. Null for every other
+  // list, which never asks a receiver anything.
+  receiverAt: ((x: number, y: number) => CarryReceiver | null) | null;
   // The last target resolveDrop named, so the list hears only about changes
   // rather than once per pointer move (KAN-164).
   dropTarget: string | undefined;
@@ -383,7 +385,7 @@ function pressRecord(
     pane: clampDropToEnds ? paneOf(el) : null,
     heldEl: null,
     heldWindow: null,
-    handsOffToReceiver: false,
+    receiverAt: null,
     dropTarget: undefined,
     slots: [],
     slotOfRow: [],
@@ -1152,7 +1154,8 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       l.heldEl = rows.current.get(l.rowId) ?? null;
       l.heldEl?.setAttribute('data-drag-held', '');
       l.heldWindow = windowOf(l.heldEl);
-      l.handsOffToReceiver = carryOut !== undefined || l.adopted;
+      l.receiverAt =
+        carryOut !== undefined || l.adopted ? measureCarryReceivers() : null;
 
       // RE-READ AFTER THE COLLAPSE, and this is load-bearing (KAN-154).
       // Folding the windows shut can make the list shorter than its viewport,
@@ -1375,11 +1378,11 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // auto-scroll overshoot (KAN-152) -- the drag is exactly what it always
       // was: its preview, its landing, its refusal, its auto-scroll.
       //
-      // One box read per move (the receiver's hit), and only for a list that
-      // can hand off at all.
+      // No box read per move: the receivers were measured when the drag
+      // started, and only for a list that can hand off at all.
       if (
-        l.handsOffToReceiver &&
-        carryReceiverAt(e.clientX, e.clientY) !== null &&
+        l.receiverAt !== null &&
+        l.receiverAt(e.clientX, e.clientY) !== null &&
         handOff(l, e.clientX, e.clientY)
       ) {
         return;

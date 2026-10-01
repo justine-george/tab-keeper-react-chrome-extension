@@ -436,10 +436,11 @@ export interface RowDragAreaProps {
    * carry (KAN-350).
    *
    * Once a started drag's pointer is over a registered carry receiver
-   * (carryReceiverAt), the area asks this for what it is holding. Given an
-   * answer, it ends its own drag without committing -- but leaves the drag
-   * hold on, the drag kind published and no click suppression armed, because
-   * the carry takes all three over -- and starts the carry at the pointer.
+   * (measureCarryReceivers, read when the drag starts), the area asks this
+   * for what it is holding. Given an answer, it ends its own drag without
+   * committing -- but leaves the drag hold on, the drag kind published and
+   * no click suppression armed, because the carry takes all three over --
+   * and starts the carry at the pointer.
    * Null leaves the drag exactly as it was.
    *
    * Anywhere else is never a hand-off (KAN-352): beside or past the pane,
