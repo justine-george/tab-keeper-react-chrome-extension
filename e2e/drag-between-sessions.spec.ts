@@ -406,6 +406,10 @@ async function carryOutLeft(page: Page, from: Point): Promise<void> {
 
 // Records, from now on, whether a carry's card or a New window target was
 // ever drawn -- even for one frame -- so a test can say none ever was.
+//
+// The New window target read here and below is the LIST's: a window block
+// (`[data-drop-window-id][data-new-window-target]`). The toolbar row's target
+// (KAN-361) is always in the DOM, hidden at rest, and is no window block.
 async function watchForCarry(page: Page): Promise<void> {
   await page.evaluate(() => {
     // Each flag is written once: the observer hears attribute writes, its
@@ -416,7 +420,7 @@ async function watchForCarry(page: Page): Promise<void> {
         b.sawCard = '1';
       if (
         b.sawTarget !== '1' &&
-        document.querySelector('[data-new-window-target]')
+        document.querySelector('[data-drop-window-id][data-new-window-target]')
       )
         b.sawTarget = '1';
     };
@@ -792,12 +796,13 @@ test.describe('the New window target (S3 A, Q2 A)', () => {
     const at = await pickUp(page, tabHandle(page, 'a1'));
     await carryOutLeft(page, at);
     await springOpen(page, 'S2');
-    await expect(page.locator('[data-new-window-target]')).toHaveCount(1);
+    await expect(
+      page.locator('[data-drop-window-id][data-new-window-target]')
+    ).toHaveCount(1);
     await adoptPhantom(page, 'carried:a1');
-    await expect(page.locator('[data-new-window-target]')).toHaveAttribute(
-      'data-landing',
-      ''
-    );
+    await expect(
+      page.locator('[data-drop-window-id][data-new-window-target]')
+    ).toHaveAttribute('data-landing', '');
     await page.mouse.up();
 
     await expect
@@ -805,7 +810,9 @@ test.describe('the New window target (S3 A, Q2 A)', () => {
       .toEqual(['a1', D1_START, 'e0 e1']);
     expect(await windowIdsOf(page, 'S2')).toEqual(['new', 'd1', 'd2']);
     expect(await toasts(page)).toEqual([]);
-    await expect(page.locator('[data-new-window-target]')).toHaveCount(0);
+    await expect(
+      page.locator('[data-drop-window-id][data-new-window-target]')
+    ).toHaveCount(0);
   });
 
   test('a group dropped on it makes a new first window holding the group', async ({
@@ -833,7 +840,9 @@ test.describe('the New window target (S3 A, Q2 A)', () => {
     const at = await pickUp(page, tabHandle(page, 'a1'));
     await carryOutLeft(page, at);
     // Shown in the source while carried (Q2 A), and the tab gone from w1.
-    await expect(page.locator('[data-new-window-target]')).toHaveCount(1);
+    await expect(
+      page.locator('[data-drop-window-id][data-new-window-target]')
+    ).toHaveCount(1);
     await adoptPhantom(page, 'carried:a1');
     await page.mouse.up();
 
@@ -857,7 +866,9 @@ test.describe('the New window target (S3 A, Q2 A)', () => {
     await expect(
       page.locator('[data-drag-row-id="carried:w2"]')
     ).toBeAttached();
-    await expect(page.locator('[data-new-window-target]')).toHaveCount(0);
+    await expect(
+      page.locator('[data-drop-window-id][data-new-window-target]')
+    ).toHaveCount(0);
     await page.keyboard.press('Escape');
     await page.mouse.up();
   });
@@ -1677,7 +1688,9 @@ test.describe('the tab view', () => {
 // The box a drop lands in: its height inside the borders, and its look.
 const newWindowTarget = (page: Page) =>
   page.evaluate(() => {
-    const el = document.querySelector<HTMLElement>('[data-new-window-target]');
+    const el = document.querySelector<HTMLElement>(
+      '[data-drop-window-id][data-new-window-target]'
+    );
     if (el === null) return null;
     const style = getComputedStyle(el);
     return {
@@ -1872,7 +1885,9 @@ test.describe('the target visuals (V1-V4)', () => {
     await page.evaluate(() => {
       const heights: number[] = [];
       const tick = () => {
-        const el = document.querySelector('[data-new-window-target]');
+        const el = document.querySelector(
+          '[data-drop-window-id][data-new-window-target]'
+        );
         if (el !== null) {
           heights.push(el.getBoundingClientRect().height);
           document.body.dataset.targetHeights = heights.join(' ');
@@ -2742,7 +2757,7 @@ test.describe('below the last row, a carried item draws no slot (KAN-365)', () =
       document.body.dataset.slotLog = 'on';
       const frame = () => {
         const target = document
-          .querySelector('[data-new-window-target]')
+          .querySelector('[data-drop-window-id][data-new-window-target]')
           ?.getBoundingClientRect();
         const slots = [
           ...document.querySelectorAll('[data-drag-landing-slot]'),
