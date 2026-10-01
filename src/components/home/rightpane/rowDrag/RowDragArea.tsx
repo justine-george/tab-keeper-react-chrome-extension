@@ -1087,8 +1087,14 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       const landingEdges =
         (target === undefined ? l.looseEdges : l.memberEdges.get(target)) ??
         null;
+      // A refused release goes back where it came from, so its slot is the
+      // held row's own box: no band is named under a refused pointer, and the
+      // loose box is wrong for a held member (measured: 435.5 for al0's
+      // 451.5, over its band's colour bar).
       const landingInset =
-        heldEdges === undefined || landingEdges === null
+        landing === undefined ||
+        heldEdges === undefined ||
+        landingEdges === null
           ? NO_INSET
           : {
               left: landingEdges.left - heldEdges.left,
@@ -1310,7 +1316,10 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // band's only member. A loose row's from any OTHER drawn row in no band:
       // the held row is the one row whose box can be neither (an adopted
       // carry's phantom stands in the New window target). With no loose row
-      // drawn, a band's own box, which sits where a loose row does.
+      // drawn, a band's own box, which sits where a loose row does. One box
+      // for every window the list spans: they share one column and one
+      // indent (70px, in the saved pane and in Open now alike). A layout
+      // that put windows side by side would need a box per window.
       l.memberEdges = new Map();
       for (const r of l.rects) {
         if (

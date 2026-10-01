@@ -2003,10 +2003,10 @@ test.describe('a carried group opens the gap any group drag opens', () => {
 
 // ---- KAN-362 ------------------------------------------------------------------
 
-// The landing slot is drawn inside the held row and takes its box. An adopted
-// carry's held row is the phantom in the New window target, so the slot is
-// only as wide as a landing row if the phantom is laid out as one: a window's
-// tab list is indented, and the target sits inside a border.
+// The landing slot is drawn inside the held row. An adopted carry's held row
+// is the phantom in the New window target, which takes no window's indent, so
+// the slot is only as wide as a landing row because it takes the box of the
+// row the item lands as (KAN-364), not the phantom's.
 const box = (page: Page, selector: string) =>
   page.evaluate((selector) => {
     const el = document.querySelector(selector);
@@ -2015,8 +2015,14 @@ const box = (page: Page, selector: string) =>
     return { left: b.left, right: b.right };
   }, selector);
 
-// Chromium's layout precision: 1/64 of a CSS pixel.
-const LAYOUT_UNIT = 1 / 64;
+// How far a measured slot edge may sit from the row it matches: two
+// LayoutUnits (1/64px each, Chromium's layout precision). The slot's edge is
+// the held row's box plus (landing box - held box), and the two boxes are
+// read at the adoption, while the rows the carry let go of ease back under a
+// transform -- whose subpixel offset Chromium snaps, by up to one LayoutUnit
+// each (measured: a member at rest at 451.5 read 451.484375). Nothing is
+// moving at an ordinary drag's activation, so there the error is 0.
+const SLOT_EDGE_TOLERANCE = 2 / 64;
 
 async function expectSlotAsWideAs(
   page: Page,
@@ -2032,19 +2038,15 @@ async function expectSlotAsWideAs(
   expect(ref.left - (await detailPane(page)).left).toBeGreaterThan(60);
   const slot = await box(page, '[data-drag-landing-slot]');
   if (slot === null) throw new Error('no landing slot drawn');
-  // Raw boxes, unrounded, to within one LayoutUnit (1/64px): Chromium snaps
-  // the subpixel offset of a box under a transform, and the rows are measured
-  // while the ones the drag moved ease back (KAN-364: a member at rest at
-  // 451.5 measured 451.484375). The rows sit on half pixels (435.5), and the
-  // New window target's border is 1px.
+  // Raw boxes, unrounded: the rows sit on half pixels (435.5).
   expect(
     Math.abs(slot.left - ref.left),
     `slot left ${slot.left} vs ${ref.left}`
-  ).toBeLessThanOrEqual(LAYOUT_UNIT);
+  ).toBeLessThanOrEqual(SLOT_EDGE_TOLERANCE);
   expect(
     Math.abs(slot.right - ref.right),
     `slot right ${slot.right} vs ${ref.right}`
-  ).toBeLessThanOrEqual(LAYOUT_UNIT);
+  ).toBeLessThanOrEqual(SLOT_EDGE_TOLERANCE);
 }
 
 const rowBox = async (page: Page, rowId: string) => {
@@ -2119,7 +2121,7 @@ test.describe('a carried tab or group lands in a slot as wide as the row it beco
     await page.mouse.up();
   });
 
-  // A Retina screen: the border's width was measured per DPR.
+  // A Retina screen, where a half pixel is a whole device pixel.
   test.describe('at DPR 2', () => {
     test.use({ deviceScaleFactor: 2 });
     test("a tab brought back, the slot is the row's own box", async ({
@@ -2578,6 +2580,76 @@ test.describe('the slot is the box of the row the tab becomes, across a band edg
       await page.mouse.up();
     });
   }
+
+  // A refused release goes back where it came from: the slot is drawn at the
+  // held row's own place, with its own box. For a member that is a member's
+  // box, not the loose one a refused pointer, over no band, would pick.
+  test('a member refused below the list keeps its own box, at its own place', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    const own = await rowBox(page, 'al0');
+    const ownTop = (await boxOf(page.locator('[data-drag-row-id="al0"]'))).y;
+    const at = await pickUp(page, tabHandle(page, 'al0'));
+    const pane = await detailPane(page);
+    await page.mouse.move(at.x, pane.bottom - 30, { steps: 8 });
+    await settled(page);
+    // PREMISE: refused -- the slot is back at the member's own place.
+    const slotTop = (await boxOf(page.locator('[data-drag-landing-slot]'))).y;
+    expect(Math.abs(slotTop - ownTop)).toBeLessThanOrEqual(1);
+    await expectSlotAsWideAs(page, own);
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+  });
+
+  // A session whose only window holds nothing but a group draws no loose row
+  // to measure. A loose landing there (at the window's head, before the band)
+  // takes the band's own box, which sits where a loose row would.
+  test("into a window that is all one group, a loose landing takes the band's box", async ({
+    context,
+    extensionId,
+  }) => {
+    const grouped = session('S5', 'Grouped', [
+      win(
+        'g1',
+        [tab('gx0', 'gg'), tab('gx1', 'gg')],
+        [{ groupId: 'gg', title: 'GG', color: 'red' }]
+      ),
+    ]);
+    const page = await openPopup(context, extensionId, [S1(), grouped]);
+    const at = await pickUp(page, tabHandle(page, 'a0'));
+    await carryOutLeft(page, at);
+    await springOpen(page, 'S5');
+    await adoptPhantom(page, 'carried:a0');
+    // PREMISE: no loose row is drawn besides the carried phantom.
+    expect(
+      await page.evaluate(
+        () =>
+          [
+            ...document.querySelectorAll<HTMLElement>(
+              '[data-pane="detail"] [data-drag-row-id]'
+            ),
+          ].filter(
+            (r) =>
+              r.querySelector('[data-drag-row-id]') === null &&
+              r.closest('[data-band-id]') === null &&
+              r.closest('[data-new-window-target]') === null &&
+              !(r.dataset.dragRowId ?? '').startsWith('g1')
+          ).length
+      )
+    ).toBe(0);
+    await aimAt(page, 'g1', 0.1);
+    // PREMISE: the band is not the landing's group (no band is lit).
+    expect(
+      await page.locator('[data-band-id="gg"][data-drop-target]').count()
+    ).toBe(0);
+    const band = await box(page, '[data-band-id="gg"]');
+    if (band === null) throw new Error('the band is not drawn');
+    await expectSlotAsWideAs(page, band);
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+  });
 });
 
 // ---- KAN-365 ------------------------------------------------------------------

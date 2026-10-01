@@ -97,8 +97,9 @@ export interface DragState {
    * Whether the landing slot is drawn at all (KAN-365). Not for an adopted
    * carry whose release would be refused: that release moves nothing, and
    * the item goes back to its source, which is no place in this list -- the
-   * held row's own place is the New window target, which the release does
-   * not land in. Every other drag draws it, a refused one at its own place.
+   * held row is only the carry's phantom, so its own place is not where
+   * anything lands. Every other drag draws it, a refused one at its own
+   * place.
    */
   landingSlotShown: boolean;
 }

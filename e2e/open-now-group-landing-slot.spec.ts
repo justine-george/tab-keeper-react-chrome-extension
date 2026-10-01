@@ -322,27 +322,27 @@ test.describe("in Open now, a tab's slot is the box of the row it becomes (KAN-3
       });
       if (slot === null) throw new Error('no landing slot drawn');
       const want = c.becomes === 'member' ? member : loose;
-      // To within one LayoutUnit (1/64px), as in drag-between-sessions: a
-      // box under a transform has its subpixel offset snapped.
+      // To within two LayoutUnits (2/64px), as in drag-between-sessions,
+      // where the bound is derived. Nothing moves at this drag's activation.
       expect(
         Math.abs(slot.left - want.left),
         `slot left ${slot.left} vs ${want.left}`
-      ).toBeLessThanOrEqual(1 / 64);
+      ).toBeLessThanOrEqual(2 / 64);
       expect(
         Math.abs(slot.right - want.right),
         `slot right ${slot.right} vs ${want.right}`
-      ).toBeLessThanOrEqual(1 / 64);
+      ).toBeLessThanOrEqual(2 / 64);
       await page.keyboard.press('Escape');
       await page.mouse.up();
     });
   }
 });
 
-// A refused release goes back where it came from, so its slot is the held
-// row's own box, even with the pointer over another window's band (KAN-364).
-// A pinned tab is refused by every window but its own (K1). The band under
-// the pointer is in the refused window, which the drop rule never searches
-// (dropRoot), so it names no band, and the slot cannot take a member's box.
+// A pinned tab held over another window's band keeps its own (loose) box
+// (KAN-364). A pinned tab is refused by every window but its own (K1), and
+// the band under the pointer is in the refused window, which the drop rule
+// never searches (dropRoot), so no band is named. A refused MEMBER keeping
+// its own box is pinned in drag-between-sessions.spec.ts.
 test("in Open now, a pinned tab held over another window's band keeps its own box", async ({
   context,
   extensionId,
@@ -438,11 +438,11 @@ test("in Open now, a pinned tab held over another window's band keeps its own bo
   expect(
     Math.abs(slot.left - own.left),
     `slot left ${slot.left} vs ${own.left}`
-  ).toBeLessThanOrEqual(1 / 64);
+  ).toBeLessThanOrEqual(2 / 64);
   expect(
     Math.abs(slot.right - own.right),
     `slot right ${slot.right} vs ${own.right}`
-  ).toBeLessThanOrEqual(1 / 64);
+  ).toBeLessThanOrEqual(2 / 64);
   await page.keyboard.press('Escape');
   await page.mouse.up();
 });
