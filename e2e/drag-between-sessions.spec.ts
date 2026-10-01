@@ -3155,8 +3155,10 @@ test.describe('the New window target is in the toolbar row from pick-up (KAN-361
         const rest = await toolbarNow(page);
         expect(rest).toMatchObject(AT_REST);
 
-        // Where it stands: the controls' strip, inset 8px from the row's
-        // sides, and it takes no pointer and no screen reader's notice.
+        // Where it stands: the controls' strip and the 2px of the row's
+        // padding above it (34px tall, as the trailing box is, Justine's R5
+        // pick 2026-10-01), inset 8px from the row's sides, and it takes no
+        // pointer and no screen reader's notice.
         const target = page.locator('[data-new-window-target="first"]');
         await expect(target).toHaveAttribute('aria-hidden', 'true');
         expect(
@@ -3167,13 +3169,15 @@ test.describe('the New window target is in the toolbar row from pick-up (KAN-361
         );
         const row = await boxOf(page.locator('[data-session-toolbar]'));
         const box = await boxOf(target);
-        expect(box.y).toBe(strip.y);
+        expect(box.y).toBe(strip.y - 2);
         expect(box.y + box.height).toBe(strip.y + strip.height);
+        expect(box.height).toBe(34);
         expect(box.x).toBe(row.x + 8);
         expect(box.x + box.width).toBe(row.x + row.width - 8);
         if (view.name === 'the popup') {
-          // The toolbar row measured on main: 82-114.
-          expect([box.y, box.y + box.height]).toEqual([82, 114]);
+          // The controls' strip measured on main is 82-114; the target
+          // reaches 2px above it.
+          expect([box.y, box.y + box.height]).toEqual([80, 114]);
         }
 
         await logToolbar(page, k.held);
@@ -4492,8 +4496,8 @@ const paneInnerBottom = (page: Page) =>
 // Lit, the trailing block has the header target's look -- the hover fill,
 // a solid border of its colour, its name -- and a box of its own: one row
 // and its borders, whatever room the list gave it (V1 A, V2 A, ruling 2),
-// below the last window. No taller than the space free below it, so it
-// never makes the list scroll (R-b).
+// below the last window. Always a full row, even where the list fits with
+// less than a row free (Justine's R2 pick, 2026-10-01).
 function expectLitBox(
   m: Awaited<ReturnType<typeof litBoxOf>>,
   rowH: number
@@ -4507,7 +4511,7 @@ function expectLitBox(
   expect(m.look?.named).toBe(true);
   const width = m.look?.borderWidth ?? NaN;
   expect(width).toBeGreaterThan(0);
-  expect(m.height).toBeCloseTo(Math.min(rowH + 2 * width, m.free), 0);
+  expect(m.height).toBeCloseTo(rowH + 2 * width, 0);
   expect(m.top).toBeGreaterThan(m.lastBottom);
 }
 
@@ -4515,7 +4519,14 @@ function expectLitBox(
 // block's height.
 const isLitLog = (
   x: unknown
-): x is { lit: boolean; range: number; height: number }[] => {
+): x is {
+  lit: boolean;
+  range: number;
+  scrollTop: number;
+  height: number;
+  cols: string;
+  tops: string;
+}[] => {
   if (!Array.isArray(x)) return false;
   const items: readonly unknown[] = x;
   return items.every(
@@ -4527,9 +4538,107 @@ const isLitLog = (
       'range' in f &&
       typeof f.range === 'number' &&
       'height' in f &&
-      typeof f.height === 'number'
+      typeof f.height === 'number' &&
+      'scrollTop' in f &&
+      typeof f.scrollTop === 'number' &&
+      'cols' in f &&
+      typeof f.cols === 'string' &&
+      'tops' in f &&
+      typeof f.tops === 'string'
   );
 };
+
+// Starts logging, every animation frame, the trailing block's lit state and
+// height, the detail pane's scroll range and position, and every row but the
+// held one and a carried phantom: its id, left, width and top. Stopped and read by stopLitLog.
+const startLitLog = (page: Page) =>
+  page.evaluate(() => {
+    const log: {
+      lit: boolean;
+      range: number;
+      scrollTop: number;
+      height: number;
+      cols: string;
+      tops: string;
+    }[] = [];
+    document.body.dataset.litLog = 'on';
+    const frame = () => {
+      let el = document.querySelector(
+        '[data-pane="detail"] [data-drop-window-id]'
+      )?.parentElement;
+      while (el && !['auto', 'scroll'].includes(getComputedStyle(el).overflowY))
+        el = el.parentElement;
+      const block = document.querySelector('[data-new-window-target="last"]');
+      const rows = [
+        ...document.querySelectorAll(
+          '[data-pane="detail"] [data-drag-row-id]:not([data-drag-held])'
+        ),
+      ]
+        .filter(
+          (r) => !r.getAttribute('data-drag-row-id')?.includes('carried:')
+        )
+        .map((r) => ({
+          id: r.getAttribute('data-drag-row-id'),
+          box: r.getBoundingClientRect(),
+        }));
+      log.push({
+        lit: block?.hasAttribute('data-landing') ?? false,
+        range: el ? el.scrollHeight - el.clientHeight : NaN,
+        height: block?.getBoundingClientRect().height ?? NaN,
+        scrollTop: el?.scrollTop ?? NaN,
+        cols: rows.map((r) => `${r.id}:${r.box.left}:${r.box.width}`).join(' '),
+        tops: rows.map((r) => `${r.id}:${r.box.top}`).join(' '),
+      });
+      document.body.dataset.litFrames = JSON.stringify(log);
+      if (document.body.dataset.litLog === 'on') requestAnimationFrame(frame);
+    };
+    requestAnimationFrame(frame);
+  });
+
+async function stopLitLog(page: Page) {
+  const raw = await page.evaluate(() => {
+    document.body.dataset.litLog = 'off';
+    return document.body.dataset.litFrames ?? '[]';
+  });
+  const parsed: unknown = JSON.parse(raw);
+  if (!isLitLog(parsed)) throw new Error(`not a lit log: ${raw}`);
+  return parsed;
+}
+
+// What a tight-fit frame log must show once the cap is gone (Justine's R2
+// pick): the box a full row (`rowBox`: the row and its borders) in every lit
+// frame; the scroll range 0 until it lights and no more than the row's
+// overflow of the space free at rest while lit; and no row moved by it --
+// the scroll range grows, the scroll position does not.
+function expectFullRowLog(
+  log: Awaited<ReturnType<typeof stopLitLog>>,
+  rowBox: number,
+  freeAtRest: number
+): void {
+  const lit = log.filter((f) => f.lit);
+  // PREMISE: logged, lit for several frames, and a row recorded in each.
+  expect(log.length).toBeGreaterThan(10);
+  expect(lit.length).toBeGreaterThan(3);
+  expect(lit.filter((f) => f.cols === '')).toEqual([]);
+  // The lit box is a full row in every lit frame, though the space is less.
+  expect(freeAtRest).toBeLessThan(rowBox);
+  for (const f of lit) expect(f.height).toBeCloseTo(rowBox, 0);
+  // Before it lights, no scroll range; lit, no more than the box's overflow.
+  const firstLit = log.findIndex((f) => f.lit);
+  expect(log.slice(0, firstLit).filter((f) => !(f.range <= 0))).toEqual([]);
+  for (const f of lit)
+    expect(f.range).toBeLessThanOrEqual(rowBox - freeAtRest + 1);
+  expect(lit.filter((f) => f.range > 0).length).toBeGreaterThan(0);
+  // Nothing is drawn elsewhere for it. The pane never scrolls, and in every
+  // lit frame each row has its first lit frame's left and width. The held
+  // row and the carried phantom are not rows of the list (excluded by the
+  // log). Tops are compared once they have settled: before that, the rows
+  // below the source window slide as it closes up, which has begun before
+  // the box lights (its own motion, not the box's).
+  expect(log.filter((f) => f.scrollTop !== 0)).toEqual([]);
+  expect(new Set(lit.map((f) => f.cols)).size).toBe(1);
+  expect(new Set(lit.slice(-5).map((f) => f.tops)).size).toBe(1);
+}
 
 // One ⌘Z puts every session in `ids` back as `before` held it: every field
 // but the session's own timestamp, which the undo moves past the move's
@@ -5071,10 +5180,11 @@ test.describe('below the last window makes a new last window (KAN-366)', () => {
     expect(await windowIdsOf(page, 'S1')).toEqual(['w1', 'w2']);
   });
 
-  // R-b. In a list that fits with less than a row free below its last
-  // window, the lit box is the free space and no taller: lighting it never
-  // makes the list scroll. Frame by frame, from the pick-up into the space.
-  test('a list that fits with less than a row free: lit, the box is the free space, and no frame scrolls', async ({
+  // R2 (Justine's alternative pick, 2026-10-01). In a list that fits with
+  // less than a row free below its last window, the lit box is still a full
+  // row: the list scrolls a little while it is lit, and no row moves. Frame
+  // by frame, from the pick-up into the space.
+  test('a list that fits with less than a row free: lit, the box is a full row, the list scrolls a little, and no row moves', async ({
     context,
     extensionId,
   }) => {
@@ -5099,46 +5209,13 @@ test.describe('below the last window makes a new last window (KAN-366)', () => {
     const y = inner - row / 2 - 1;
     expect(y).toBeGreaterThan(fb.y + fb.height);
 
-    await page.evaluate(() => {
-      const log: { lit: boolean; range: number; height: number }[] = [];
-      document.body.dataset.litLog = 'on';
-      const frame = () => {
-        let el = document.querySelector(
-          '[data-pane="detail"] [data-drop-window-id]'
-        )?.parentElement;
-        while (
-          el &&
-          !['auto', 'scroll'].includes(getComputedStyle(el).overflowY)
-        )
-          el = el.parentElement;
-        const block = document.querySelector('[data-new-window-target="last"]');
-        log.push({
-          lit: block?.hasAttribute('data-landing') ?? false,
-          range: el ? el.scrollHeight - el.clientHeight : NaN,
-          height: block?.getBoundingClientRect().height ?? NaN,
-        });
-        document.body.dataset.litFrames = JSON.stringify(log);
-        if (document.body.dataset.litLog === 'on') requestAnimationFrame(frame);
-      };
-      requestAnimationFrame(frame);
-    });
+    await startLitLog(page);
     const at = await pickUp(page, tabHandle(page, 'f0'));
     await page.mouse.move(at.x, y, { steps: 8 });
     await settled(page);
-    const raw = await page.evaluate(() => {
-      document.body.dataset.litLog = 'off';
-      return document.body.dataset.litFrames ?? '[]';
-    });
-    const parsed: unknown = JSON.parse(raw);
-    if (!isLitLog(parsed)) throw new Error(`not a lit log: ${raw}`);
-    const lit = parsed.filter((f) => f.lit);
-    // PREMISE: logged, and lit for several frames.
-    expect(parsed.length).toBeGreaterThan(10);
-    expect(lit.length).toBeGreaterThan(3);
-    // No frame scrolls.
-    expect(parsed.filter((f) => !(f.range <= 0))).toEqual([]);
-    // Lit, the box is the free space.
-    for (const f of lit) expect(f.height).toBeCloseTo(free, 0);
+    const log = await stopLitLog(page);
+    // A row and its borders: 1.5px draws as 1px at DPR 1, so 34 for a 32 row.
+    expectFullRowLog(log, row + 2, free);
     await page.keyboard.press('Escape');
     await page.mouse.up();
   });
@@ -5236,11 +5313,11 @@ test.describe('below the last window makes a new last window (KAN-366)', () => {
     );
   }
 
-  // R-b for an adopted carry: a fitting session whose free space below its
-  // last window is the phantom's row and a pixel, so lit, its borders would
-  // reach past the pane. Lit, the box is the free space, and no frame
-  // scrolls.
-  test('a carry adopted in a session that fits with a row and a pixel free: lit, the box is the free space, and no frame scrolls', async ({
+  // R2 for an adopted carry: a fitting session whose free space below its
+  // last window is the phantom's row and a pixel, so lit, its borders reach
+  // past the pane. Lit, the box is a full row, the list scrolls a little,
+  // and no row moves.
+  test('a carry adopted in a session that fits with a row and a pixel free: lit, the box is a full row, the list scrolls a little, and no row moves', async ({
     context,
     extensionId,
   }) => {
@@ -5262,29 +5339,7 @@ test.describe('below the last window makes a new last window (KAN-366)', () => {
     expect(await scrollRange(page)).toBeLessThanOrEqual(0);
     expect(free).toBeGreaterThan(row);
 
-    await page.evaluate(() => {
-      const log: { lit: boolean; range: number; height: number }[] = [];
-      document.body.dataset.litLog = 'on';
-      const frame = () => {
-        let el = document.querySelector(
-          '[data-pane="detail"] [data-drop-window-id]'
-        )?.parentElement;
-        while (
-          el &&
-          !['auto', 'scroll'].includes(getComputedStyle(el).overflowY)
-        )
-          el = el.parentElement;
-        const block = document.querySelector('[data-new-window-target="last"]');
-        log.push({
-          lit: block?.hasAttribute('data-landing') ?? false,
-          range: el ? el.scrollHeight - el.clientHeight : NaN,
-          height: block?.getBoundingClientRect().height ?? NaN,
-        });
-        document.body.dataset.litFrames = JSON.stringify(log);
-        if (document.body.dataset.litLog === 'on') requestAnimationFrame(frame);
-      };
-      requestAnimationFrame(frame);
-    });
+    await startLitLog(page);
     // In at the phantom's own height, straight across from the session list.
     const own = await boxOf(tabHandle(page, 'carried:a1'));
     const y = own.y + own.height / 2;
@@ -5297,18 +5352,9 @@ test.describe('below the last window makes a new last window (KAN-366)', () => {
       ''
     );
     await settled(page);
-    const raw = await page.evaluate(() => {
-      document.body.dataset.litLog = 'off';
-      return document.body.dataset.litFrames ?? '[]';
-    });
-    const parsed: unknown = JSON.parse(raw);
-    if (!isLitLog(parsed)) throw new Error(`not a lit log: ${raw}`);
-    const lit = parsed.filter((f) => f.lit);
-    // PREMISE: logged, and lit for several frames.
-    expect(parsed.length).toBeGreaterThan(10);
-    expect(lit.length).toBeGreaterThan(3);
-    expect(parsed.filter((f) => !(f.range <= 0))).toEqual([]);
-    for (const f of lit) expect(f.height).toBeCloseTo(free, 0);
+    const log = await stopLitLog(page);
+    // A row and its borders: 1.5px draws as 1px at DPR 1, so 34 for a 32 row.
+    expectFullRowLog(log, row + 2, free);
     await page.keyboard.press('Escape');
     await page.mouse.up();
   });
