@@ -367,6 +367,26 @@ describe('adoption: the pointer comes into the pane with a carry on', () => {
     expect(seen(slotOf('carried:t1'))).toBe(true);
   });
 
+  // KAN-354, KAN-355. The held phantom is drawn by the carry's card, so it is
+  // marked as such: the attribute App.css keys on to leave it without the
+  // held tab's lift shadow, which drew it on main as an empty shadowed box
+  // (pinned in the browser, e2e/in-session-card.spec.ts). The card is the
+  // carry's own: no drag card is shown beside it.
+  test('the adopted phantom is held as drawn by the card, and only the carry’s card shows', async () => {
+    await renderDetail('S2');
+    carry(TAB_T1);
+    table = S2_TAB_LAYOUT('t1');
+    // The premise: not held yet, so not marked.
+    expect(row('carried:t1').hasAttribute('data-held-as-card')).toBe(false);
+
+    moveTo(100);
+
+    expect(held()).toBe('carried:t1');
+    expect(row('carried:t1').hasAttribute('data-held-as-card')).toBe(true);
+    expect(document.querySelectorAll('[data-carry-card]')).toHaveLength(1);
+    expect(document.querySelector('[data-drag-card]')).toBeNull();
+  });
+
   test('no carry: nothing is drawn for one, and every row is its ordinary self', async () => {
     await renderDetail('S2');
     expect(target()).toBeNull();
