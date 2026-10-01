@@ -5142,6 +5142,7 @@ test.describe('below the last window makes a new last window (KAN-366)', () => {
   }) => {
     const page = await openPopup(context, extensionId);
     const pane = await detailPane(page);
+    const home = await boxOf(tabHandle(page, 'a1'));
     const at = await pickUp(page, tabHandle(page, 'a1'));
     // CONTROL: just inside the pane's bottom, lit.
     await page.mouse.move(at.x, pane.bottom - 4, { steps: 8 });
@@ -5156,11 +5157,151 @@ test.describe('below the last window makes a new last window (KAN-366)', () => {
     expect(await trailingLit(page)).toBe(false);
     // Refused: the slot is back at a1's own place.
     await expect(page.locator('[data-drag-landing-slot]')).toHaveCount(1);
+    const slot = await boxOf(page.locator('[data-drag-landing-slot]'));
+    expect(Math.abs(slot.y - home.y)).toBeLessThanOrEqual(1);
     await page.mouse.up();
     // NEGATIVE, so a fixed wait: a move is written on the release.
     await page.waitForTimeout(200);
     expect(await layout(page, 'S1')).toEqual([W1_START, 'b0 b1']);
     expect(await windowIdsOf(page, 'S1')).toEqual(['w1', 'w2']);
+  });
+
+  // KAN-366 ruling: in a list that fits, the space below the last window is
+  // a new window only with at least half a row free below it -- the held
+  // row's half, the overshoot slack's own measure. With less, the lit box
+  // would be a sliver nobody sees, so the release is refused as on main.
+  // Both sides set from the real free space: the threshold, derived from
+  // f0's height, less or plus 2px.
+  for (const side of ['under', 'over'] as const) {
+    test(
+      side === 'under'
+        ? 'a list that fits with half a row free less 2px: refused, nothing lit, nothing moves'
+        : 'a list that fits with half a row free plus 2px: lit, a new last window',
+      async ({ context, extensionId }) => {
+        const { page, row } = await openTightFit(context, extensionId, (r) =>
+          side === 'under' ? r / 2 - 2 : r / 2 + 2
+        );
+        const half = (await boxOf(tabHandle(page, 'f0'))).height / 2;
+        // PREMISE: the threshold is the held row's half, and the free space
+        // is 2px to its side.
+        expect(half).toBeCloseTo(row / 2, 0);
+        const free = await freeBelowLastWindow(page);
+        expect(free).toBeCloseTo(side === 'under' ? half - 2 : half + 2, 0);
+        const before = await stored(page);
+        const home = await boxOf(tabHandle(page, 'f0'));
+        const fb = await boxOf(page.locator('[data-drop-window-id="fb"]'));
+        // Below the last window, inside the pane.
+        const y = fb.y + fb.height + 4;
+        expect(y).toBeLessThan(await paneInnerBottom(page));
+        const at = await pickUp(page, tabHandle(page, 'f0'));
+        await page.mouse.move(at.x, y, { steps: 8 });
+        await settled(page);
+        expect(await trailingLit(page)).toBe(side === 'over');
+        await expect(page.locator('[data-drag-landing-slot]')).toHaveCount(
+          side === 'over' ? 0 : 1
+        );
+        if (side === 'under') {
+          // Refused: the slot is back at f0's own place.
+          const slot = await boxOf(page.locator('[data-drag-landing-slot]'));
+          expect(Math.abs(slot.y - home.y)).toBeLessThanOrEqual(1);
+        }
+        await page.mouse.up();
+
+        if (side === 'under') {
+          // NEGATIVE, so a fixed wait: a move is written on the release.
+          await page.waitForTimeout(200);
+          expect(sessionOf(await stored(page), 'S8')).toEqual(
+            sessionOf(before, 'S8')
+          );
+        } else {
+          await expect
+            .poll(async () => (await layout(page, 'S8')).slice(-1))
+            .toEqual(['f0']);
+          expect(
+            (await layout(page, 'S8')).filter((w) =>
+              w.split(' ').includes('f0')
+            )
+          ).toHaveLength(1);
+        }
+      }
+    );
+  }
+
+  // R-b for an adopted carry: a fitting session whose free space below its
+  // last window is the phantom's row and a pixel, so lit, its borders would
+  // reach past the pane. Lit, the box is the free space, and no frame
+  // scrolls.
+  test('a carry adopted in a session that fits with a row and a pixel free: lit, the box is the free space, and no frame scrolls', async ({
+    context,
+    extensionId,
+  }) => {
+    const { page, row } = await openTightFit(
+      context,
+      extensionId,
+      (r) => r + 1
+    );
+    const free = await freeBelowLastWindow(page);
+    // Back to S1, and carry a1 from there into S8.
+    await sessionRow(page, 'S1').click();
+    await expect(page.locator('[data-drag-row-id="w1"]')).toBeVisible();
+    const at = await pickUp(page, tabHandle(page, 'a1'));
+    await carryOutLeft(page, at);
+    await springOpen(page, 'S8');
+    await expect(tabHandle(page, 'carried:a1')).toBeAttached();
+    await settled(page);
+    // PREMISE: the phantom rests in the free space, and the list still fits.
+    expect(await scrollRange(page)).toBeLessThanOrEqual(0);
+    expect(free).toBeGreaterThan(row);
+
+    await page.evaluate(() => {
+      const log: { lit: boolean; range: number; height: number }[] = [];
+      document.body.dataset.litLog = 'on';
+      const frame = () => {
+        let el = document.querySelector(
+          '[data-pane="detail"] [data-drop-window-id]'
+        )?.parentElement;
+        while (
+          el &&
+          !['auto', 'scroll'].includes(getComputedStyle(el).overflowY)
+        )
+          el = el.parentElement;
+        const block = document.querySelector('[data-new-window-target="last"]');
+        log.push({
+          lit: block?.hasAttribute('data-landing') ?? false,
+          range: el ? el.scrollHeight - el.clientHeight : NaN,
+          height: block?.getBoundingClientRect().height ?? NaN,
+        });
+        document.body.dataset.litFrames = JSON.stringify(log);
+        if (document.body.dataset.litLog === 'on') requestAnimationFrame(frame);
+      };
+      requestAnimationFrame(frame);
+    });
+    // In at the phantom's own height, straight across from the session list.
+    const own = await boxOf(tabHandle(page, 'carried:a1'));
+    const y = own.y + own.height / 2;
+    const list = await boxOf(page.locator('[data-pane="sessions"]'));
+    const pane = await detailPane(page);
+    await page.mouse.move(list.x + list.width - 30, y, { steps: 3 });
+    await page.mouse.move(pane.left + 60, y, { steps: 6 });
+    await expect(tabHandle(page, 'carried:a1')).toHaveAttribute(
+      'data-drag-held',
+      ''
+    );
+    await settled(page);
+    const raw = await page.evaluate(() => {
+      document.body.dataset.litLog = 'off';
+      return document.body.dataset.litFrames ?? '[]';
+    });
+    const parsed: unknown = JSON.parse(raw);
+    if (!isLitLog(parsed)) throw new Error(`not a lit log: ${raw}`);
+    const lit = parsed.filter((f) => f.lit);
+    // PREMISE: logged, and lit for several frames.
+    expect(parsed.length).toBeGreaterThan(10);
+    expect(lit.length).toBeGreaterThan(3);
+    expect(parsed.filter((f) => !(f.range <= 0))).toEqual([]);
+    for (const f of lit) expect(f.height).toBeCloseTo(free, 0);
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
   });
 
   // NEGATIVES, aimed where the trailing block's rule would fire.

@@ -46,6 +46,7 @@ import {
   isRowContainer,
   isTrailingBlock,
   markRowContainer,
+  newWindowFree,
   publishNewWindowFree,
   setDragging,
   setDragNewWindow,
@@ -360,6 +361,10 @@ interface LiveDrag {
   // point on it lands as a new first window (landingOf), and is never a
   // hand-off (onMoveEvent, Q3 i).
   isOnNewFirstWindow: ((x: number, y: number) => boolean) | null;
+  // KAN-366. In a list that fits, the space free below its last window, as
+  // published for the lit trailing block (newWindowFree) when the drag
+  // started; null in a list given room, or one with no trailing block.
+  freeForNewWindow: number | null;
   // The last target resolveDrop named, so the list hears only about changes
   // rather than once per pointer move (KAN-164).
   dropTarget: string | undefined;
@@ -452,6 +457,7 @@ function pressRecord(
     heldWindow: null,
     receiverAt: null,
     isOnNewFirstWindow: null,
+    freeForNewWindow: null,
     dropTarget: undefined,
     slots: [],
     slotOfRow: [],
@@ -648,6 +654,16 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       if (block === null || !isTrailingBlock(block)) return block;
       const paneBottom = paneOf(l.heldEl)?.getBoundingClientRect().bottom;
       if (paneBottom === undefined || l.lastY > paneBottom) return null;
+      // NOR WITH TOO LITTLE ROOM (KAN-366 ruling). In a list that fits, the
+      // lit box is no taller than the space free below the last window
+      // (publishNewWindowFree), so with almost none free it would be a
+      // sliver nobody can see, and a release would still make a window.
+      // Below half a row free -- the same half row the overshoot slack
+      // forgives -- the space is no new window: refused, as on main. A list
+      // given room always has its row.
+      if (l.freeForNewWindow !== null && l.freeForNewWindow < l.height / 2) {
+        return null;
+      }
       return overshootsLastWindow(l) ? null : block;
     };
 
@@ -1402,6 +1418,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       if (offersNewWindow && !l.adopted) {
         publishNewWindowFree(paneOf(l.heldEl), l.maxScroll > 0);
       }
+      l.freeForNewWindow = offersNewWindow ? newWindowFree() : null;
       l.receiverAt =
         carryOut !== undefined || l.adopted ? measureCarryReceivers() : null;
       // KAN-361. The header's New window target, read once here like the

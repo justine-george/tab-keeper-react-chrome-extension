@@ -950,3 +950,13 @@ export function publishNewWindowFree(
   const free = contentBottom - trailing.getBoundingClientRect().top;
   root.style.setProperty(NEW_WINDOW_FREE, `${Math.max(0, free)}px`);
 }
+
+// The space free below the last window as published above, in px, or null
+// where none is: a list given room, or with no trailing block. One value
+// for the lit box's height and the engine's rule that too little room is no
+// new window (RowDragArea's landingBlock).
+export function newWindowFree(): number | null {
+  const value =
+    document.documentElement.style.getPropertyValue(NEW_WINDOW_FREE);
+  return value === '' ? null : parseFloat(value);
+}

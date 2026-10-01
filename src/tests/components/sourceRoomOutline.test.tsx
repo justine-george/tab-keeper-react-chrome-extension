@@ -710,6 +710,28 @@ describe('below the last window (KAN-366 B)', () => {
     expect(windowsOf(store)).toEqual(before);
   });
 
+  // KAN-366 ruling: in a list that fits, the space below the last window
+  // is a new window only with at least half a row free below it -- the
+  // held row's half, as the overshoot slack. The block's top is 304, and a
+  // tab row is 32: the threshold is 16 free, the pane's inner bottom 320.
+  test.each([
+    ['15px free, just under half a row: refused, nothing lit', 304 + 15, false],
+    ['17px free, just over: lit, a new last window', 304 + 17, true],
+  ])('a1 below the last window with %s', async (_what, inner, offered) => {
+    paneInner = inner;
+    const { store } = await renderDetail('SR');
+    const before = windowsOf(store);
+    pickUpTab('a1', WITH_TRAILING);
+
+    moveTo(310);
+
+    expect(trailing().hasAttribute('data-landing')).toBe(offered);
+    release(310);
+    expect(windowsOf(store)).toEqual(
+      offered ? [['a0', 'x0', 'x1'], ['b0', 'b1'], ['a1']] : before
+    );
+  });
+
   test('beside the pane, below the list: refused', async () => {
     const { store } = await renderDetail('SR');
     const before = windowsOf(store);
