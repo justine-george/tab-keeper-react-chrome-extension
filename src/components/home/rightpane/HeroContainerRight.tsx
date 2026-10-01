@@ -272,14 +272,15 @@ export default function HeroContainerRight() {
   // and a carry for its whole life (setDragNewWindow).
   //
   // OVER the row, not in its flow, so neither state changes the header's
-  // height and nothing below it moves. It covers the controls' strip: from
-  // the 8px the controls stand below (their strip's padding-top) to the
-  // row's bottom, inset 8px from the row's sides. aria-hidden, since only a
+  // height and nothing below it moves. It covers the controls' strip and 2px
+  // of the 8px padding above it: 34px, as the trailing box is (Justine's R5
+  // pick), from 6px below the row's top to the row's bottom, inset 8px from
+  // the row's sides. aria-hidden, since only a
   // pointer's drag ever shows it, and it never takes the pointer: the
   // controls keep it at rest, and a drag's release is the engine's.
   const newWindowTargetStyle = css`
     position: absolute;
-    inset: 8px 8px 0;
+    inset: 6px 8px 0;
     visibility: hidden;
     pointer-events: none;
   `;
