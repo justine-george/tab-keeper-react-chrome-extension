@@ -1221,6 +1221,29 @@ function tabsLandingIn(
   return { kind: 'in-window', window, toIndex: to.toIndex, toChromeGroupId };
 }
 
+// Whether a carried tab or group is ALL its window holds, so moving it into a
+// new window would make the same window again. A tab must be loose: a grouped
+// one leaves its group as it moves, which is a change.
+function isAllOfWindow(
+  w: windowGroupData,
+  carried: (TabMove | GroupMove)['carried']
+): boolean {
+  if (carried.kind === 'tab') {
+    const [only, ...rest] = w.tabs;
+    return (
+      rest.length === 0 &&
+      only?.tabId === carried.tabId &&
+      only.chromeGroupId === undefined
+    );
+  }
+  const [only, ...rest] = partitionTabsIntoItems(w.tabs, w.chromeTabGroups);
+  return (
+    rest.length === 0 &&
+    only?.kind === 'group' &&
+    only.group.groupId === carried.groupId
+  );
+}
+
 const clampIndex = (index: number, length: number): number =>
   Math.min(Math.max(0, index), length);
 
@@ -2269,6 +2292,20 @@ export const tabContainerDataStateSlice = createSlice({
           (w) => w.windowId === move.carried.windowId
         );
         if (!from) return;
+        // A new window in the item's own session, out of the session's first
+        // window when that window holds the item and nothing else, would
+        // rebuild that same window: a fresh id, its first tab's title for its
+        // own, the session stamped and sorted to the top. Nothing the user
+        // sees changes, so nothing does (final review, finding 1).
+        if (
+          sameSession &&
+          'newWindowId' in move.to &&
+          source.windows[0] === from &&
+          !isWindowMove(move) &&
+          isAllOfWindow(from, move.carried)
+        ) {
+          return;
+        }
 
         const remint = (id: string) => uuidv5(id, remintNamespace);
 
