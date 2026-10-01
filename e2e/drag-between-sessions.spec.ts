@@ -1443,7 +1443,6 @@ test.describe('Review Focus 3: a long list, a long session', () => {
       .toEqual([{ text: 'Moved to “List 29”', show: true }]);
   });
 
-  // Five windows of six tabs: far taller than the popup's pane.
   test('a long session: a window carried out of it and cancelled comes back to the scroll it had (KAN-157)', async ({
     context,
     extensionId,
@@ -2030,7 +2029,8 @@ async function expectSlotAsWideAs(
   expect(ref.left - (await detailPane(page)).left).toBeGreaterThan(60);
   const slot = await box(page, '[data-drag-landing-slot]');
   if (slot === null) throw new Error('no landing slot drawn');
-  // Raw boxes, unrounded, to within 0.005px: the target's border is 1.5px.
+  // Raw boxes, unrounded, to within 0.005px: the rows sit on half pixels
+  // (435.5), and the target's border is 1px.
   expect(slot.left, 'slot left').toBeCloseTo(ref.left, 2);
   expect(slot.right, 'slot right').toBeCloseTo(ref.right, 2);
 }
@@ -2043,12 +2043,14 @@ const rowBox = async (page: Page, rowId: string) => {
 
 test.describe('a carried tab or group lands in a slot as wide as the row it becomes (KAN-362)', () => {
   const kinds = [
-    { kind: 'tab', rowId: 'a0', phantom: 'carried:a0', inS2: 'c1' },
+    { kind: 'tab', rowId: 'a0', phantom: 'carried:a0', inS2: 'c1', aim: 'c1' },
     {
       kind: 'group',
       rowId: 'group:alpha',
       phantom: 'group:carried:alpha',
       inS2: 'group:gamma',
+      // c2 at a quarter: just past gamma, so the landing is beside the band.
+      aim: 'c2',
     },
   ] as const;
 
@@ -2082,8 +2084,7 @@ test.describe('a carried tab or group lands in a slot as wide as the row it beco
       await carryOutLeft(page, at);
       await springOpen(page, 'S2');
       await adoptPhantom(page, k.phantom);
-      await aimAt(page, 'c1', 0.25);
-      // Beside gamma, for a group: a band's box exactly.
+      await aimAt(page, k.aim, 0.25);
       await expectSlotAsWideAs(page, await rowBox(page, k.inS2));
       await page.keyboard.press('Escape');
       await page.mouse.up();
@@ -2218,16 +2219,24 @@ async function sweepRows(page: Page, x: number): Promise<number> {
       filled.push(`${Math.round(y)}:${row}`);
     const rowHit = await rowHitAt(page, x, y);
     if (rowHit !== null) hit.push(`${Math.round(y)}:${rowHit}`);
+    // Real rows only: not the held phantom, not the wrapper around it, and
+    // nothing inside the New window target.
     const under = await page.evaluate(
       ([x, y]) =>
         [
           ...document.querySelectorAll(
             '[data-drag-row-id]:not([data-drag-held])'
           ),
-        ].some((r) => {
-          const b = r.getBoundingClientRect();
-          return x >= b.left && x <= b.right && y >= b.top && y <= b.bottom;
-        }),
+        ]
+          .filter(
+            (r) =>
+              r.querySelector('[data-drag-held]') === null &&
+              r.closest('[data-new-window-target]') === null
+          )
+          .some((r) => {
+            const b = r.getBoundingClientRect();
+            return x >= b.left && x <= b.right && y >= b.top && y <= b.bottom;
+          }),
       [x, y] as const
     );
     if (under) overRows++;
@@ -2241,15 +2250,25 @@ interface HoverFrame {
   held: boolean;
   filled: string[];
 }
-const isFrameLog = (x: unknown): x is HoverFrame[] =>
-  Array.isArray(x) &&
-  x.every(
-    (f: unknown) =>
-      typeof f === 'object' &&
-      f !== null &&
-      typeof Reflect.get(f, 'held') === 'boolean' &&
-      Array.isArray(Reflect.get(f, 'filled'))
-  );
+// Narrowed through `readonly unknown[]` at once, so nothing reads Array.isArray's
+// `any[]`.
+const isStringList = (x: unknown): x is string[] => {
+  if (!Array.isArray(x)) return false;
+  const items: readonly unknown[] = x;
+  return items.every((s) => typeof s === 'string');
+};
+const isHoverFrame = (f: unknown): f is HoverFrame =>
+  typeof f === 'object' &&
+  f !== null &&
+  'held' in f &&
+  typeof f.held === 'boolean' &&
+  'filled' in f &&
+  isStringList(f.filled);
+const isFrameLog = (x: unknown): x is HoverFrame[] => {
+  if (!Array.isArray(x)) return false;
+  const items: readonly unknown[] = x;
+  return items.every(isHoverFrame);
+};
 
 test.describe('no row under a held carry shows its hover (KAN-363)', () => {
   // PREMISE for every negative below: with nothing dragged, the pointer on a
@@ -2343,8 +2362,10 @@ test.describe('no row under a held carry shows its hover (KAN-363)', () => {
       document.body.append(probe);
       const want = getComputedStyle(probe).backgroundColor;
       probe.remove();
+      // The log and its off switch live on the body as text, so the test reads
+      // a string back, not an untyped window property.
       const log: { held: boolean; filled: string[] }[] = [];
-      Object.assign(window, { __frames: log, __logging: true });
+      document.body.dataset.hoverLog = 'on';
       const frame = () => {
         log.push({
           held:
@@ -2360,7 +2381,8 @@ test.describe('no row under a held carry shows its hover (KAN-363)', () => {
             )
             .filter((id) => id !== ''),
         });
-        if (Reflect.get(window, '__logging') === true)
+        document.body.dataset.hoverFrames = JSON.stringify(log);
+        if (document.body.dataset.hoverLog === 'on')
           requestAnimationFrame(frame);
       };
       requestAnimationFrame(frame);
@@ -2376,8 +2398,8 @@ test.describe('no row under a held carry shows its hover (KAN-363)', () => {
     }
     await settled(page);
     const raw = await page.evaluate(() => {
-      Reflect.set(window, '__logging', false);
-      return JSON.stringify(Reflect.get(window, '__frames'));
+      document.body.dataset.hoverLog = 'off';
+      return document.body.dataset.hoverFrames ?? '[]';
     });
     const frames: unknown = JSON.parse(raw);
     if (!isFrameLog(frames)) throw new Error(`not a frame log: ${raw}`);
@@ -2408,8 +2430,21 @@ test.describe('no row under a held carry shows its hover (KAN-363)', () => {
     await page.mouse.move(at.x, (pane.top + pane.bottom) / 2, { steps: 4 });
     await settled(page);
     const before = (await detailPane(page)).scrollTop;
-    // PREMISE: there is room to scroll down.
+    // PREMISE: it starts at the top, with room to scroll down.
     expect(before).toBe(0);
+    expect(
+      await page.evaluate(() => {
+        let el = document.querySelector(
+          '[data-pane="detail"] [data-drop-window-id]'
+        )?.parentElement;
+        while (
+          el &&
+          !['auto', 'scroll'].includes(getComputedStyle(el).overflowY)
+        )
+          el = el.parentElement;
+        return el ? el.scrollHeight - el.clientHeight : 0;
+      })
+    ).toBeGreaterThan(200);
     await page.mouse.wheel(0, 200);
     await expect
       .poll(async () => (await detailPane(page)).scrollTop)
