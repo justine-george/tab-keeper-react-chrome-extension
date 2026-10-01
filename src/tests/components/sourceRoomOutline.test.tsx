@@ -631,6 +631,12 @@ describe('below the last window (KAN-366 B)', () => {
   // row is 32 tall, so the slack ends at 312. Both points are at or below
   // the trailing block's top (304).
   test.each([
+    [
+      'in the gap above the block, inside its slack, at 300',
+      300,
+      false,
+      [['b1', 'b0']],
+    ],
     ['inside its slack, at 306', 306, false, [['b1', 'b0']]],
     ['just past its slack, at 314', 314, true, [['b1'], ['b0']]],
   ])('b0, of the last window, %s', async (_where, y, lit, last) => {
@@ -657,6 +663,42 @@ describe('below the last window (KAN-366 B)', () => {
       ['b0', 'b1'],
       ['a1'],
     ]);
+  });
+
+  // The gap between the last window and the block is the block's too: a
+  // row of another window lands there as a new last window, with no band in
+  // which it is refused and its slot snaps home (KAN-185's defect).
+  test('in the gap above the block, a1 is a new last window', async () => {
+    const { store } = await renderDetail('SR');
+    const held = pickUpTab('a1', WITH_TRAILING);
+
+    moveTo(300);
+
+    expect(trailing().hasAttribute('data-landing')).toBe(true);
+    expect(held.querySelector(':scope > [data-drag-landing-slot]')).toBe(null);
+    release(300);
+    expect(windowsOf(store)).toEqual([
+      ['a0', 'x0', 'x1'],
+      ['b0', 'b1'],
+      ['a1'],
+    ]);
+  });
+
+  // The space ends at the pane's bottom (500 here): below it, the release
+  // is refused, as it always was.
+  test('below the pane: refused', async () => {
+    const { store } = await renderDetail('SR');
+    const before = windowsOf(store);
+    pickUpTab('a1', WITH_TRAILING);
+    // CONTROL: just inside the pane's bottom, lit.
+    moveTo(496);
+    expect(trailing().hasAttribute('data-landing')).toBe(true);
+
+    moveTo(520);
+
+    expect(trailing().hasAttribute('data-landing')).toBe(false);
+    release(520);
+    expect(windowsOf(store)).toEqual(before);
   });
 
   test('beside the pane, below the list: refused', async () => {

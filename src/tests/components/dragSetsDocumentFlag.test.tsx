@@ -8,6 +8,7 @@ import {
 import WindowEntryContainer from '../../components/home/rightpane/WindowEntryContainer';
 import {
   decideNewWindowRoom,
+  publishNewWindowFree,
   setDragNewWindow,
 } from '../../components/home/rightpane/rowDrag/dropRules';
 import { renderWithProviders } from '../setup/renderWithProviders';
@@ -209,6 +210,60 @@ describe('decideNewWindowRoom: the room from the shown list’s own overflow', (
   test('with no marker, none is written', () => {
     decideNewWindowRoom(scroller(500));
     expect(marker()).toBeNull();
+  });
+});
+
+// KAN-366 Q4, R-b. In a list that fits, the lit trailing block may be no
+// taller than the space free below the last window: from the block's top to
+// the bottom of the pane's content box, published on the document.
+describe('publishNewWindowFree: how tall the lit trailing block may be', () => {
+  const free = () =>
+    document.documentElement.style.getPropertyValue('--new-window-free');
+  afterEach(() => setDragNewWindow(false));
+  // A pane at 100..400 (inner height 300, a 1px top border) holding a
+  // trailing block whose top is at `top`.
+  const paneWith = (top: number, over = 0) => {
+    const pane = document.createElement('div');
+    const block = document.createElement('div');
+    block.setAttribute('data-new-window-target', 'last');
+    pane.append(block);
+    Object.defineProperty(pane, 'clientTop', { value: 1 });
+    Object.defineProperty(pane, 'clientHeight', { value: 300 });
+    Object.defineProperty(pane, 'scrollHeight', { value: 300 + over });
+    pane.getBoundingClientRect = () =>
+      DOMRect.fromRect({ y: 100, height: 302 });
+    block.getBoundingClientRect = () => DOMRect.fromRect({ y: top });
+    return pane;
+  };
+
+  test('a list that fits: the space from the block to the pane’s inner bottom', () => {
+    setDragNewWindow(true);
+    publishNewWindowFree(paneWith(377), false);
+    // 100 + 1 + 300 - 377.
+    expect(free()).toBe('24px');
+  });
+  test('a list given room: none, so nothing is capped', () => {
+    setDragNewWindow(true);
+    publishNewWindowFree(paneWith(377), false);
+    // PREMISE: published.
+    expect(free()).toBe('24px');
+    publishNewWindowFree(paneWith(377), true);
+    expect(free()).toBe('');
+  });
+  test('decideNewWindowRoom publishes it for a shown list that fits, and none for one that scrolls', () => {
+    setDragNewWindow(true);
+    decideNewWindowRoom(paneWith(301));
+    expect(free()).toBe('100px');
+    decideNewWindowRoom(paneWith(301, 50));
+    expect(free()).toBe('');
+  });
+  test('the marker going off clears it', () => {
+    setDragNewWindow(true);
+    publishNewWindowFree(paneWith(377), false);
+    // PREMISE: published.
+    expect(free()).toBe('24px');
+    setDragNewWindow(false);
+    expect(free()).toBe('');
   });
 });
 

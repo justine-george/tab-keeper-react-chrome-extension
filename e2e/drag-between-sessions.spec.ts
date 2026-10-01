@@ -4465,13 +4465,28 @@ async function litBoxOf(page: Page, lastWindowId: string) {
     top: box.y,
     height: box.height,
     lastBottom: last.y + last.height,
+    // From the block's top to the bottom of the pane's content box.
+    free: (await paneInnerBottom(page)) - box.y,
   };
 }
+
+// The bottom of the detail pane's content box, viewport space.
+const paneInnerBottom = (page: Page) =>
+  page.evaluate(() => {
+    let el = document.querySelector(
+      '[data-pane="detail"] [data-drop-window-id]'
+    )?.parentElement;
+    while (el && !['auto', 'scroll'].includes(getComputedStyle(el).overflowY))
+      el = el.parentElement;
+    if (!el) throw new Error('no detail pane');
+    return el.getBoundingClientRect().top + el.clientTop + el.clientHeight;
+  });
 
 // Lit, the trailing block has the header target's look -- the hover fill,
 // a solid border of its colour, its name -- and a box of its own: one row
 // and its borders, whatever room the list gave it (V1 A, V2 A, ruling 2),
-// below the last window.
+// below the last window. No taller than the space free below it, so it
+// never makes the list scroll (R-b).
 function expectLitBox(
   m: Awaited<ReturnType<typeof litBoxOf>>,
   rowH: number
@@ -4485,9 +4500,29 @@ function expectLitBox(
   expect(m.look?.named).toBe(true);
   const width = m.look?.borderWidth ?? NaN;
   expect(width).toBeGreaterThan(0);
-  expect(m.height).toBeCloseTo(rowH + 2 * width, 0);
+  expect(m.height).toBeCloseTo(Math.min(rowH + 2 * width, m.free), 0);
   expect(m.top).toBeGreaterThan(m.lastBottom);
 }
+
+// A frame log of the trailing block: lit, the pane's scroll range, and the
+// block's height.
+const isLitLog = (
+  x: unknown
+): x is { lit: boolean; range: number; height: number }[] => {
+  if (!Array.isArray(x)) return false;
+  const items: readonly unknown[] = x;
+  return items.every(
+    (f) =>
+      typeof f === 'object' &&
+      f !== null &&
+      'lit' in f &&
+      typeof f.lit === 'boolean' &&
+      'range' in f &&
+      typeof f.range === 'number' &&
+      'height' in f &&
+      typeof f.height === 'number'
+  );
+};
 
 // One ⌘Z puts every session in `ids` back as `before` held it: every field
 // but the session's own timestamp, which the undo moves past the move's
@@ -4624,6 +4659,7 @@ test.describe('below the last window makes a new last window (KAN-366)', () => {
           expect(sessionOf(after, id)).toEqual(sessionOf(before, id));
         }
         expect(await toasts(page)).toEqual([]);
+        await settled(page);
         expect(await trailingLit(page)).toBe(false);
 
         await expectOneUndoRestores(page, sessionOf(before, 'S1'));
@@ -4819,6 +4855,40 @@ test.describe('below the last window makes a new last window (KAN-366)', () => {
       sessionOf(before, 'S3')
     );
     expect(await toasts(page)).toEqual([]);
+    await settled(page);
+    expect(await trailingLit(page)).toBe(false);
+  });
+
+  // The same for a GROUP that is all of the session's last window: its
+  // only window here, so the new last window would stand where it stands,
+  // holding exactly its tabs and entry.
+  test('the sole group of the last window, let go below the list: lit, and no move', async ({
+    context,
+    extensionId,
+  }) => {
+    const grouped = session('S5', 'Grouped', [
+      win(
+        'g1',
+        [tab('gx0', 'gg'), tab('gx1', 'gg')],
+        [{ groupId: 'gg', title: 'GG', color: 'red' }]
+      ),
+    ]);
+    const page = await openPopup(context, extensionId, [S1(), grouped], 'S5');
+    const before = await stored(page);
+    const y = await belowTheList(page, 'g1');
+    const at = await pickUp(page, groupHandle(page, 'gg'));
+    await page.mouse.move(at.x, y, { steps: 8 });
+    await settled(page);
+    // PREMISE: it would land in the trailing block.
+    expect(await trailingLit(page)).toBe(true);
+    await page.mouse.up();
+    // NEGATIVE, so a fixed wait: a move is written on the release.
+    await page.waitForTimeout(200);
+    expect(sessionOf(await stored(page), 'S5')).toEqual(
+      sessionOf(before, 'S5')
+    );
+    expect(await toasts(page)).toEqual([]);
+    await settled(page);
     expect(await trailingLit(page)).toBe(false);
   });
 
@@ -4877,6 +4947,177 @@ test.describe('below the last window makes a new last window (KAN-366)', () => {
     expect(s6[4]).toBe('s4-0 s4-2 s4-3');
     expect(s6[6]).toBe('s4-1');
     await expectOneUndoRestores(page, sessionOf(before, 'S6'));
+  });
+
+  // The space begins at the last window's bottom, not the block's top: the
+  // 8px between them is no band where a row of another window is refused
+  // and its slot snaps home (KAN-185's defect, one gap further down).
+  test('a1, from w1, let go between the last window and the trailing block: lit, no slot, a new last window', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    const w2 = await boxOf(page.locator('[data-drop-window-id="w2"]'));
+    const top =
+      (await trailingBlock(page).count()) === 0
+        ? NaN
+        : (await boxOf(trailingBlock(page))).y;
+    const y = w2.y + w2.height + 4;
+    const at = await pickUp(page, tabHandle(page, 'a1'));
+    await page.mouse.move(at.x, y, { steps: 8 });
+    await settled(page);
+    expect(await trailingLit(page)).toBe(true);
+    // No slot at home, nor anywhere.
+    await expect(page.locator('[data-drag-landing-slot]')).toHaveCount(0);
+    await page.mouse.up();
+
+    await expect
+      .poll(() => layout(page, 'S1'))
+      .toEqual(['a0 a2 al0* al1*', 'b0 b1', 'a1']);
+    expect(await windowIdsOf(page, 'S1')).toEqual(['w1', 'w2', 'new']);
+    // PREMISE: between the last window's bottom and the trailing block's
+    // top.
+    expect(y).toBeLessThan(top);
+  });
+
+  // CONTROL for the one above: a row of the last window at that same point
+  // is within its overshoot slack, and lands last in its own window.
+  test('b0, of w2, let go at the same point: lands last in w2 through its slack', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    const w2 = await boxOf(page.locator('[data-drop-window-id="w2"]'));
+    const y = w2.y + w2.height + 4;
+    const at = await pickUp(page, tabHandle(page, 'b0'));
+    await page.mouse.move(at.x, y, { steps: 8 });
+    await settled(page);
+    expect(await trailingLit(page)).toBe(false);
+    await expect(page.locator('[data-drag-landing-slot]')).toHaveCount(1);
+    await page.mouse.up();
+
+    await expect.poll(() => layout(page, 'S1')).toEqual([W1_START, 'b1 b0']);
+    expect(await windowIdsOf(page, 'S1')).toEqual(['w1', 'w2']);
+  });
+
+  // R-b. In a list that fits with less than a row free below its last
+  // window, the lit box is the free space and no taller: lighting it never
+  // makes the list scroll. Frame by frame, from the pick-up into the space.
+  test('a list that fits with less than a row free: lit, the box is the free space, and no frame scrolls', async ({
+    context,
+    extensionId,
+  }) => {
+    // The pane's height and a row's, from the usual session.
+    const probe = await openPopup(context, extensionId);
+    const sizes = await probe.evaluate(() => {
+      let el = document.querySelector(
+        '[data-pane="detail"] [data-drop-window-id]'
+      )?.parentElement;
+      while (el && !['auto', 'scroll'].includes(getComputedStyle(el).overflowY))
+        el = el.parentElement;
+      const row = document
+        .querySelector('[data-drag-row-id="a0"]')
+        ?.getBoundingClientRect().height;
+      return { pane: el?.clientHeight ?? 0, row: row ?? 0 };
+    });
+    await probe.close();
+    // Two windows, so the held row is not the last window's and has no
+    // overshoot slack below it: fa with one tab, fb with m, each with its
+    // header and 8px margin -- as many rows as leave less than a row free.
+    const m = Math.floor((sizes.pane - 16) / sizes.row) - 3;
+    const fits = session('S8', 'Fits', [
+      win('fa', [tab('f0')]),
+      win(
+        'fb',
+        Array.from({ length: m }, (_, i) => tab(`g${i}`))
+      ),
+    ]);
+    const page = await openPopup(context, extensionId, [fits, S2()], 'S8');
+    const top = (await boxOf(trailingBlock(page))).y;
+    const inner = await paneInnerBottom(page);
+    const free = inner - top;
+    const fb = await boxOf(page.locator('[data-drop-window-id="fb"]'));
+    // PREMISE: it fits, with less than a row free.
+    expect(await scrollRange(page)).toBeLessThanOrEqual(0);
+    expect(free).toBeGreaterThan(0);
+    expect(free).toBeLessThan(sizes.row);
+    // As low as the held row -- drawn at the pointer, its box carried by a
+    // transform -- still ends inside the pane: then the only thing that
+    // could reach past it is the lit box. PREMISE: below the last window.
+    const y = inner - sizes.row / 2 - 1;
+    expect(y).toBeGreaterThan(fb.y + fb.height);
+
+    await page.evaluate(() => {
+      const log: { lit: boolean; range: number; height: number }[] = [];
+      document.body.dataset.litLog = 'on';
+      const frame = () => {
+        let el = document.querySelector(
+          '[data-pane="detail"] [data-drop-window-id]'
+        )?.parentElement;
+        while (
+          el &&
+          !['auto', 'scroll'].includes(getComputedStyle(el).overflowY)
+        )
+          el = el.parentElement;
+        const block = document.querySelector('[data-new-window-target="last"]');
+        log.push({
+          lit: block?.hasAttribute('data-landing') ?? false,
+          range: el ? el.scrollHeight - el.clientHeight : NaN,
+          height: block?.getBoundingClientRect().height ?? NaN,
+        });
+        document.body.dataset.litFrames = JSON.stringify(log);
+        if (document.body.dataset.litLog === 'on') requestAnimationFrame(frame);
+      };
+      requestAnimationFrame(frame);
+    });
+    const at = await pickUp(page, tabHandle(page, 'f0'));
+    await page.mouse.move(at.x, y, { steps: 8 });
+    await settled(page);
+    const raw = await page.evaluate(() => {
+      document.body.dataset.litLog = 'off';
+      return document.body.dataset.litFrames ?? '[]';
+    });
+    const parsed: unknown = JSON.parse(raw);
+    if (!isLitLog(parsed)) throw new Error(`not a lit log: ${raw}`);
+    const lit = parsed.filter((f) => f.lit);
+    // PREMISE: logged, and lit for several frames.
+    expect(parsed.length).toBeGreaterThan(10);
+    expect(lit.length).toBeGreaterThan(3);
+    // No frame scrolls.
+    expect(parsed.filter((f) => !(f.range <= 0))).toEqual([]);
+    // Lit, the box is the free space.
+    for (const f of lit) expect(f.height).toBeCloseTo(free, 0);
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+  });
+
+  // The space ends at the pane's bottom: below it, where nothing of the list
+  // is drawn, a release is refused as it always was.
+  test('a release below the pane, though below the last window, is refused', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    const pane = await detailPane(page);
+    const at = await pickUp(page, tabHandle(page, 'a1'));
+    // CONTROL: just inside the pane's bottom, lit.
+    await page.mouse.move(at.x, pane.bottom - 4, { steps: 8 });
+    await settled(page);
+    expect(await trailingLit(page)).toBe(true);
+
+    const y = pane.bottom + 4;
+    // PREMISE: below the pane, still in the popup.
+    expect(y).toBeLessThan(POPUP.height);
+    await page.mouse.move(at.x, y, { steps: 4 });
+    await settled(page);
+    expect(await trailingLit(page)).toBe(false);
+    // Refused: the slot is back at a1's own place.
+    await expect(page.locator('[data-drag-landing-slot]')).toHaveCount(1);
+    await page.mouse.up();
+    // NEGATIVE, so a fixed wait: a move is written on the release.
+    await page.waitForTimeout(200);
+    expect(await layout(page, 'S1')).toEqual([W1_START, 'b0 b1']);
+    expect(await windowIdsOf(page, 'S1')).toEqual(['w1', 'w2']);
   });
 
   // NEGATIVES, aimed where the trailing block's rule would fire.
@@ -5012,9 +5253,11 @@ test.describe('below the last window makes a new last window (KAN-366)', () => {
     // CONTROL: a tab held there lights the trailing block.
     await pickUp(page, tabHandle(page, 'a1'));
     await page.mouse.move(400, y, { steps: 8 });
+    await settled(page);
     expect(await trailingLit(page)).toBe(true);
     await page.keyboard.press('Escape');
     await page.mouse.up();
+    await settled(page);
     expect(await trailingLit(page)).toBe(false);
 
     const at = await pickUp(page, windowHandle(page, 'w1'));
@@ -5107,6 +5350,41 @@ test.describe('a carry’s room follows the session it shows (KAN-366 Q4)', () =
     expect(Object.keys(frames[0]?.rows ?? {}).length).toBeGreaterThan(20);
     expect(rowsThatMoved(frames)).toEqual([]);
     expect(new Set(frames.map((f) => f.trailing))).toEqual(new Set([roomH]));
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+  });
+
+  // Decided in the commit that draws the session: from the first frame the
+  // spring-opened session is painted in, no row of it moves and its
+  // trailing block keeps one height -- the room is there before the pointer
+  // can come in, not a frame later.
+  test('across the spring-open, from the first frame the session is drawn: no row moves and the trailing block keeps its height', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId, [
+      S1(),
+      sixByFour('S6', 'Six', 's'),
+      S2(),
+    ]);
+    const at = await pickUp(page, tabHandle(page, 'a1'));
+    await carryOutLeft(page, at);
+    await logPane(page, []);
+    await springOpen(page, 'S6');
+    await settled(page);
+    // Some frames of the opened session at rest.
+    await page.waitForTimeout(250);
+    const frames = await paneLog(page);
+    const first = frames.findIndex((f) => 's0-0' in f.rows);
+    const shown = frames.slice(first);
+    // PREMISE: logged before the spring-open, and for a while after it.
+    expect(first).toBeGreaterThan(0);
+    expect(shown.length).toBeGreaterThan(10);
+    expect(Object.keys(shown[0]?.rows ?? {}).length).toBeGreaterThan(20);
+    expect(rowsThatMoved(shown)).toEqual([]);
+    // One height, and it is the room's: S6 scrolls.
+    expect(new Set(shown.map((f) => f.trailing)).size).toBe(1);
+    expect(await newWindowMarker(page)).toBe('room');
     await page.keyboard.press('Escape');
     await page.mouse.up();
   });

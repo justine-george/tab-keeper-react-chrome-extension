@@ -208,11 +208,11 @@ export default function TabGroupDetailsContainer() {
   // commit that draws the session, before it is painted or the pointer can
   // come in to be adopted.
   const shownId = selectedTabGroup?.tabGroupId;
-  const carriesNewWindow = carried !== null && carried.kind !== 'window';
+  const isTabOrGroupCarried = carried !== null && carried.kind !== 'window';
   useLayoutEffect(() => {
-    if (!carriesNewWindow || scrollerRef.current === null) return;
+    if (!isTabOrGroupCarried || scrollerRef.current === null) return;
     decideNewWindowRoom(scrollerRef.current);
-  }, [carriesNewWindow, shownId]);
+  }, [isTabOrGroupCarried, shownId]);
 
   // Belt and braces: RightPane does not mount this component when the list is
   // empty, so this should be unreachable -- but it is what makes the component

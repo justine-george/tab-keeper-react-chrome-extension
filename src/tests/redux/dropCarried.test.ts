@@ -38,8 +38,15 @@ import {
 import {
   T0,
   container,
+  group,
+  s1,
+  s2,
+  s3,
+  session,
   sessionIn,
+  tab,
   tabIds,
+  win,
   windowIds,
   windowIn,
 } from '../fixtures/sessionMoveFixture';
@@ -376,6 +383,25 @@ describe('in the list’s trailing block (KAN-366 B)', () => {
       dropCarriedTab(
         { ...T1, windowId: 'w2', tabId: 't3' },
         { tabGroupId: 'S1', toWindowId: NEW_LAST_WINDOW, toIndex: 0 }
+      )
+    );
+    expect(moved).toBe(false);
+    expect(data(store)).toBe(before);
+  });
+
+  // The same for a GROUP that is all its session's last window: the new
+  // last window would hold exactly that window's tabs and entry.
+  it('the sole group of its own last window: no move, and it says so', () => {
+    const grouped = session('S9', 'Grouped', T0, [
+      win('w9a', [tab('t9')]),
+      win('w9b', [tab('g9a', 'g9'), tab('g9b', 'g9')], [group('g9')]),
+    ]);
+    const store = ready(container([s3(), s2(), s1(), grouped], 'S9'));
+    const before = data(store);
+    const moved = store.dispatch(
+      dropCarriedGroup(
+        { kind: 'group', tabGroupId: 'S9', windowId: 'w9b', groupId: 'g9' },
+        { tabGroupId: 'S9', toWindowId: NEW_LAST_WINDOW, toIndex: 0 }
       )
     );
     expect(moved).toBe(false);

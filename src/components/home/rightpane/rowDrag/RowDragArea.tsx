@@ -46,6 +46,7 @@ import {
   isRowContainer,
   isTrailingBlock,
   markRowContainer,
+  publishNewWindowFree,
   setDragging,
   setDragNewWindow,
   windowBlockAt,
@@ -381,7 +382,8 @@ interface LiveDrag {
   windowBottoms: Map<string, number>;
   // The saved windows this list spans, in render order (KAN-184). What the
   // preview needs to know to move the ones BETWEEN the source and the
-  // destination, so the destination can make room.
+  // destination, so the destination can make room. Never the trailing
+  // block (KAN-366), which no preview moves.
   windowOrder: string[];
   // Where each window's list CONTENT starts, in content space (KAN-169): what
   // stands in for the slot above a span that leads its window. Keyed like
@@ -630,29 +632,37 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     // landingOf applies outside every block -- names no block here, exactly
     // as before the trailing block existed, and lands last in its own
     // window. Past the slack it is the trailing block: a new last window. A
-    // row of any other window has no slack there: at or below the block's
-    // top is the new window.
+    // row of any other window has no slack there: anywhere below the last
+    // window is the new window.
+    //
+    // AND ONLY INSIDE THE PANE. The trailing block's space ends at the
+    // pane's bottom: below it -- the pointer captured outside the popup, or
+    // over whatever the tab view draws there -- is no place the user can
+    // see, and in a list not scrolled to its end the block is not on screen
+    // at all, so a release there would make a window that was never lit.
+    // Read live, and only when the pointer is in that space: a spring-open's
+    // peek can lay the page out again mid-drag.
     const landingBlock = (l: NonNullable<typeof live.current>) => {
       if (!l.heldWindow || !dropsAcrossWindows) return null;
       const block = windowBlockAt(containerRef.current, l.lastX, l.lastY);
-      return block !== null &&
-        isTrailingBlock(block) &&
-        overshootsLastWindow(l, block)
-        ? null
-        : block;
+      if (block === null || !isTrailingBlock(block)) return block;
+      const paneBottom = paneOf(l.heldEl)?.getBoundingClientRect().bottom;
+      if (paneBottom === undefined || l.lastY > paneBottom) return null;
+      return overshootsLastWindow(l) ? null : block;
     };
 
-    // Is the held row's own window the last one before `trailing`, and the
-    // pointer within that window's overshoot slack? Read off the window
-    // order measured at activation, which runs in document order and ends
-    // with the trailing block.
+    // Is the held row's own window the last one -- the one the trailing
+    // block follows -- and the pointer within that window's overshoot
+    // slack? Read off the window order measured at activation, in document
+    // order.
     const overshootsLastWindow = (
-      l: NonNullable<typeof live.current>,
-      trailing: HTMLElement
+      l: NonNullable<typeof live.current>
     ): boolean => {
       const own = l.heldWindow?.dataset.dropWindowId;
-      const at = l.windowOrder.indexOf(trailing.dataset.dropWindowId ?? '');
-      if (own === undefined || at < 1 || l.windowOrder[at - 1] !== own) {
+      if (
+        own === undefined ||
+        l.windowOrder[l.windowOrder.length - 1] !== own
+      ) {
         return false;
       }
       return isInsideList(
@@ -1075,13 +1085,12 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         // single range drew.
         //
         // A new window is another window too (Q2 ii): a new first window on
-        // the header's target (KAN-361), with no block, no rows and no place
-        // in windowOrder, and a new last window in the trailing block
-        // (KAN-366 B), the last block of all, with no rows. The source closes
-        // up behind the row with its room outlined, exactly as for a drop
-        // into another window, and nothing else moves -- windowShiftsAcross
-        // makes room in no block, for a window the pane does not hold, and
-        // for the last block, which has none after it -- and no slot is
+        // the header's target (KAN-361), with no block and no rows, and a
+        // new last window in the trailing block (KAN-366 B), with no rows.
+        // Neither is in windowOrder. The source closes up behind the row
+        // with its room outlined, exactly as for a drop into another
+        // window, and nothing else moves -- windowShiftsAcross makes room in
+        // no block for a window the order does not hold -- and no slot is
         // drawn (landingSlotShown).
         const at = insertionSlotOf(l, landing, beside);
         // The span is in the SOURCE window, so only its shifts change: the
@@ -1384,6 +1393,15 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       l.heldEl = rows.current.get(l.rowId) ?? null;
       l.heldEl?.setAttribute('data-drag-held', '');
       l.heldWindow = windowOf(l.heldEl);
+      // KAN-366 Q4. In a list given no room, how tall its lit trailing block
+      // may be: no taller than the space free below its last window, so
+      // lighting it never makes the list scroll (publishNewWindowFree).
+      // After the held row is marked, so a held group is measured folded
+      // (KAN-160). An adoption's carry published it for the session it
+      // shows.
+      if (offersNewWindow && !l.adopted) {
+        publishNewWindowFree(paneOf(l.heldEl), l.maxScroll > 0);
+      }
       l.receiverAt =
         carryOut !== undefined || l.adopted ? measureCarryReceivers() : null;
       // KAN-361. The header's New window target, read once here like the
@@ -1511,7 +1529,14 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         for (const block of windowBlocksIn(containerRef.current)) {
           const id = block.dataset.dropWindowId;
           if (id === undefined) continue;
-          l.windowOrder.push(id);
+          // The trailing block is no window to the order (KAN-366): no
+          // preview moves it to make room (windowShiftsAcross). It is blank
+          // unless lit, and lit it is the landing, with nothing after it.
+          // Moved down by a landing at the last window's end, it was lit
+          // (a DOM write) the frame before React drew it home: one frame
+          // drawn a row low, past the list's end -- 32px of scroll range in
+          // a list that fits, measured.
+          if (!isTrailingBlock(block)) l.windowOrder.push(id);
           l.windowBottoms.set(
             id,
             block.getBoundingClientRect().bottom + l.startScrollTop

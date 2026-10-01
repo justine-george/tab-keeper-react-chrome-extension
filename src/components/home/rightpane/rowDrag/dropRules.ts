@@ -668,11 +668,38 @@ export function windowBlockAt(
   };
   const blocks = windowBlocksIn(container);
   // The trailing block (isTrailingBlock, KAN-361/366) is no window to the
-  // two rules below: it is the one exception after them.
+  // box and gap rules: it is the one exception between them.
   const boxes = blocks.filter((el) => !isTrailingBlock(el)).map(restingBox);
 
   for (const b of boxes) {
     if (x >= b.left && x <= b.right && y >= b.top && y <= b.bottom) return b.el;
+  }
+
+  // THE ONE EXCEPTION BELOW THE LAST BLOCK (KAN-366 B): the trailing block.
+  // Where the list draws one, everything below the LAST WINDOW's bottom
+  // (its resting box, as the gap rule reads it), inside the trailing
+  // block's own left and right, is that block: a tab or group let go
+  // anywhere in the empty space below the last window makes a new last
+  // window there -- the whole space, not only the block's row.
+  //
+  // From the last window's bottom, not the block's own top: the 8px between
+  // them is no band of its own. Starting at the block's top left that gap
+  // refused for a row of any other window, and a slow drag down past the
+  // last window showed its landing snap home and out again -- KAN-185's
+  // defect, one gap further down. The last window's OWN rows keep their
+  // overshoot slack there, and past it (RowDragArea's landingBlock). And
+  // nothing beside it: a release beside the pane names no window, as ever
+  // (KAN-132). How far down the space goes is the engine's to bound, at the
+  // pane's bottom (landingBlock): this rule has no pane.
+  //
+  // Only BELOW the last window, so never a point the gap rule answers: that
+  // one is between two windows.
+  const trailing = blocks.find(isTrailingBlock);
+  if (trailing !== undefined) {
+    const b = restingBox(trailing);
+    const last = boxes[boxes.length - 1];
+    const below = last === undefined ? y >= b.top : y > last.bottom;
+    if (below && x >= b.left && x <= b.right) return trailing;
   }
 
   // THE GAP BETWEEN TWO WINDOWS BELONGS TO THE NEARER OF THEM (KAN-185).
@@ -686,7 +713,8 @@ export function windowBlockAt(
   //
   // Only BETWEEN two blocks. Above the first and below the last, naming a
   // window is exactly what must not happen -- that is the release beside the
-  // pane that isInsideList is there to refuse (KAN-132).
+  // pane that isInsideList is there to refuse (KAN-132). Below the last, the
+  // trailing block above takes it.
   for (let i = 0; i + 1 < boxes.length; i++) {
     const above = boxes[i];
     const below = boxes[i + 1];
@@ -698,27 +726,6 @@ export function windowBlockAt(
     ) {
       return y - above.bottom <= below.top - y ? above.el : below.el;
     }
-  }
-
-  // THE ONE EXCEPTION BELOW THE LAST BLOCK (KAN-366 B): the trailing block.
-  // Where the list draws one, everything at or below its top, inside its own
-  // left and right, is that block: a tab or group let go anywhere in the
-  // empty space below the last window makes a new last window there -- the
-  // whole space, not only the block's row, down past the pane's bottom too.
-  //
-  // Nothing above its top: the gap between the last window and the block is
-  // still below the last window (the gap rule above is for BETWEEN two
-  // windows, and the block is not one of them), so the last window's
-  // overshoot keeps that gap. And nothing beside it: a release beside the
-  // pane names no window, as ever (KAN-132).
-  //
-  // Which drags may land in it is the engine's to say, not this rule's: a
-  // row from the last window, let go within its overshoot slack, still
-  // lands last there (RowDragArea's landingBlock).
-  const trailing = blocks.find(isTrailingBlock);
-  if (trailing !== undefined) {
-    const b = restingBox(trailing);
-    if (y >= b.top && x >= b.left && x <= b.right) return trailing;
   }
   return null;
 }
@@ -875,6 +882,7 @@ export function setDragNewWindow(on: boolean, withRoom = false): void {
   const root = document.documentElement;
   if (!on) {
     root.removeAttribute('data-drag-new-window');
+    root.style.removeProperty(NEW_WINDOW_FREE);
     return;
   }
   const hasRoom = root.getAttribute('data-drag-new-window') === 'room';
@@ -900,4 +908,45 @@ export function decideNewWindowRoom(scroller: HTMLElement): void {
   root.setAttribute('data-drag-new-window', '');
   const scrolls = scroller.scrollHeight > scroller.clientHeight;
   root.setAttribute('data-drag-new-window', scrolls ? 'room' : '');
+  publishNewWindowFree(scroller, scrolls);
+}
+
+// The custom property App.css's trailing block reads: how tall its lit box
+// may be. See publishNewWindowFree.
+const NEW_WINDOW_FREE = '--new-window-free';
+
+// HOW TALL THE LIT TRAILING BLOCK MAY BE, in a list that fits (KAN-366 Q4).
+// Lit, the block draws its own box, a row and its borders (ruling 2) -- but
+// in a list that fits with less than that free below its last window, the
+// box would make the list scroll, and a scrollbar appearing mid-drag
+// narrows every row. So it may be no taller than the space actually free:
+// from its top to the bottom of the pane's content box, measured with the
+// room decision -- as a drag starts (RowDragArea's activate), and in
+// the commit that shows a session for a carry (decideNewWindowRoom) -- and
+// published on the document, where the block's lit style reads it.
+//
+// Nothing to cap in a list given room: its block is already a row and its
+// borders, and lighting it changes no height. Published for `pane`, the
+// box the list scrolls in or would; a no-op with no trailing block in it.
+export function publishNewWindowFree(
+  pane: HTMLElement | null,
+  withRoom: boolean
+): void {
+  const root = document.documentElement;
+  const trailing = pane?.querySelector<HTMLElement>(
+    '[data-new-window-target="last"]'
+  );
+  if (
+    withRoom ||
+    pane === null ||
+    trailing === undefined ||
+    trailing === null
+  ) {
+    root.style.removeProperty(NEW_WINDOW_FREE);
+    return;
+  }
+  const contentBottom =
+    pane.getBoundingClientRect().top + pane.clientTop + pane.clientHeight;
+  const free = contentBottom - trailing.getBoundingClientRect().top;
+  root.style.setProperty(NEW_WINDOW_FREE, `${Math.max(0, free)}px`);
 }
