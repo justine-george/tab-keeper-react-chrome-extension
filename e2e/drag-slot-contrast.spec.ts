@@ -49,11 +49,25 @@ const WINDOW = {
   tabs: ['t0', 't1', 't2', 't3', 't4', 't5'].map(tab),
 };
 
+// `others` more sessions (x0, x1, ...) give the session list rows to drag.
 async function open(
   context: BrowserContext,
   extensionId: string,
-  theme: string
+  theme: string,
+  others = 0
 ): Promise<Page> {
+  const more = Array.from({ length: others }, (_, i) =>
+    buildSession({
+      tabGroupId: `x${i}`,
+      title: `Session ${i}`,
+      isSelected: false,
+      windowCount: 1,
+      tabCount: 1,
+      windows: [
+        { ...WINDOW, windowId: `xw${i}`, tabCount: 1, tabs: [tab(`x${i}t`)] },
+      ],
+    })
+  );
   await seedSessions(context, {
     ...buildContainer([
       buildSession({
@@ -64,6 +78,7 @@ async function open(
         tabCount: WINDOW.tabs.length,
         windows: [WINDOW],
       }),
+      ...more,
     ]),
     selectedTabGroupId: 's1',
   });
@@ -165,7 +180,50 @@ for (const theme of THEMES) {
 // pinned at its ceiling would pass every contrast test above while reading
 // as an outline around the dragged row, which is the thing that rule exists
 // to prevent.
-test('the slot still fades when the held row is close to it', async ({
+//
+// KAN-354: only where the held row is drawn. This held the saved list's t1
+// until a saved list's held row was hidden and drawn by the card at the
+// pointer (C1 A); there the slot has no row to be mistaken for and stays at
+// full strength (pinned below). The session list still lifts its row
+// (C2 A), so the rule is held to there.
+test('the slot still fades when the held row is close to it (the session list)', async ({
+  context,
+  extensionId,
+}) => {
+  const page = await open(context, extensionId, 'Darkenheimer', 6);
+  const session = (id: string) =>
+    page.locator(`[data-pane="sessions"] [data-drag-row-id="${id}"]`);
+  const from = await session('x0').boundingBox();
+  const far = await session('x3').boundingBox();
+  const close = await session('x1').boundingBox();
+  if (from === null || far === null || close === null)
+    throw new Error('a session row has no box');
+  const x = from.x + 60;
+  await page.mouse.move(x, from.y + from.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(x, from.y + from.height / 2 + 8);
+  await page.mouse.move(x, far.y + far.height / 2, { steps: 10 });
+  await page.waitForTimeout(350);
+  // PREMISE: a session row is held, and drawn.
+  const held = page.locator('[data-drag-held]');
+  await expect(held).toHaveAttribute('data-drag-row-id', 'x0');
+  await expect(held).not.toHaveAttribute('data-held-as-card');
+  const farSlot = await slotContrast(page);
+
+  // Back up to less than half a row past x1's centre: close to the slot.
+  await page.mouse.move(x, close.y + close.height * 0.6, { steps: 6 });
+  await page.waitForTimeout(350);
+  const near = await slotContrast(page);
+
+  expect(near.opacity).toBeLessThan(farSlot.opacity);
+  expect(near.opacity).toBeGreaterThan(0);
+  await page.mouse.up();
+});
+
+// KAN-354 C1 A, the reverse: in a saved list the held row is hidden and the
+// card at the pointer draws it, so close to the held row the slot stays at
+// full strength.
+test('in a saved list, the slot keeps full strength close to the held row', async ({
   context,
   extensionId,
 }) => {
@@ -173,14 +231,20 @@ test('the slot still fades when the held row is close to it', async ({
   await hold(page, 't4');
   const far = await slotContrast(page);
 
-  const t2 = (await page.locator('[data-drag-row-id="t2"]').boundingBox())!;
+  const t2 = await page.locator('[data-drag-row-id="t2"]').boundingBox();
+  const from = await page.locator('[data-drag-row-id="t1"]').boundingBox();
+  if (t2 === null || from === null) throw new Error('a row has no box');
+  // PREMISE: the held row is hidden.
+  await expect(page.locator('[data-drag-held]')).toHaveAttribute(
+    'data-held-as-card',
+    ''
+  );
   // Back up to less than half a row past t2's centre: close to the slot.
-  const from = (await page.locator('[data-drag-row-id="t1"]').boundingBox())!;
   await page.mouse.move(from.x + 60, t2.y + t2.height * 0.6, { steps: 6 });
   await page.waitForTimeout(350);
   const near = await slotContrast(page);
 
-  expect(near.opacity).toBeLessThan(far.opacity);
-  expect(near.opacity).toBeGreaterThan(0);
+  expect(far.opacity).toBe(1);
+  expect(near.opacity).toBe(1);
   await page.mouse.up();
 });
