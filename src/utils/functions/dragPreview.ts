@@ -25,10 +25,12 @@ export interface PreviewSlot {
   key: string;
   // Measured before the drag began, in the list's content space.
   top: number;
-  // Also measured, and load-bearing for one reason: a group declares its tail
-  // as a ZERO-HEIGHT marker (KAN-176), and a zero-height slot is not a place a
-  // row can come to rest. Its top is the bottom of the row above it, so a
-  // landing resolved onto one is a row too low -- see landingDeltaOf (KAN-178).
+  // Also measured, and load-bearing for two reasons, both in landingDeltaOf.
+  // A group declares its tail as a ZERO-HEIGHT marker (KAN-176), and a
+  // zero-height slot is not a place a row can come to rest: its top is the
+  // bottom of the row above it, so a landing resolved onto one is a row too
+  // low (KAN-178). And a row landing BELOW its own place ends where the slot
+  // it lands after ends, which only a height can say (KAN-360).
   height: number;
 }
 
@@ -105,10 +107,20 @@ export function slotLandingBeside(
  * contiguous in layout -- the gap between two slots can hold margin belonging
  * to neither -- so a sum of footprints is not a distance.
  *
- * The held row lands on slot `to`'s top in both directions. Dragging up that is
- * immediate: it takes that slot's place. Dragging down it is the same answer by
- * a longer route, the slots between closing up by one footprint so that slot
- * rises by that much and the held row lands one footprint below it.
+ * Dragging UP the held row lands on slot `to`'s top: it takes that slot's
+ * place, and everything from there down steps aside.
+ *
+ * Dragging DOWN it lands with its BOTTOM on slot `to`'s bottom. The slots it
+ * passes close up over the room it left, so it comes to rest after the last of
+ * them, filling the same room at the other end -- exact where the gap below it
+ * at the start is the gap it lands below, as between two groups.
+ *
+ * This used to say "on slot `to`'s top" in this direction too, which is the
+ * same answer only while the two are the same height (KAN-360). A group is
+ * held FOLDED to its title row and passes groups drawn whole, and measured,
+ * the slot was drawn on the passed group's top -- over its rows -- a row short
+ * for each row the passed group is taller: 64px past a two-tab group, 32px
+ * past a one-tab one.
  */
 export function landingDeltaOf(
   slots: readonly PreviewSlot[],
@@ -138,6 +150,12 @@ export function landingDeltaOf(
 
   const target = slots[index];
   if (target === undefined) return 0;
+  // Bottom to bottom, coming from above (KAN-360). For two slots of one
+  // height this is the top-to-top distance it replaced, so a list whose rows
+  // are all one height never showed the difference.
+  if (from < index) {
+    return target.top + target.height - (start.top + start.height);
+  }
   return target.top - start.top;
 }
 

@@ -273,3 +273,69 @@ describe('landingDeltaOf', () => {
     expect(landingDeltaOf(LAYOUT, 2, 99)).toBe(0);
   });
 });
+
+// KAN-360. A GROUP dragged down past another group, in the saved list's
+// items list: loose tabs and whole groups are its rows, and the held group is
+// measured FOLDED to its title row while every other group is drawn whole.
+// Measured in the real popup at 790x550 on 2026-10-01
+// (e2e/group-landing-slot.spec.ts), one window: Extensions, then the groups
+// Watchlist (2 tabs), Ratings (2), Soundtrack (1), Snacks (1).
+//
+// Watchlist held, folded:
+//
+//   slot  key        top   height
+//      0  ext        156      32
+//      1  watch      190      32   <- the held group, its title row alone
+//      2  ratings    230      96
+//      3  sound      334      64
+//      4  snacks     406      64
+//
+// And where the release put Watchlist's title row, against the slot the
+// drag drew (on a0a91b1):
+//
+//   past Ratings              294    slot 230 -- on Ratings' own rows
+//   past Soundtrack           366    slot 334 -- on Spotify
+//   past Snacks, the end      438    slot 406 -- on Popcorn
+//
+// The slot was drawn on the passed group's TOP, which is where the held row
+// lands only when the two are the same height.
+const HELD_FOLDED: PreviewSlot[] = [
+  { key: 'ext', top: 156, height: 32 },
+  { key: 'watch', top: 190, height: 32 },
+  { key: 'ratings', top: 230, height: 96 },
+  { key: 'sound', top: 334, height: 64 },
+  { key: 'snacks', top: 406, height: 64 },
+];
+
+// Snacks held instead, folded to its title row -- every other group whole.
+// The release put Snacks' title row exactly on the top of the group it was
+// dropped in front of, every time: dragging up was never wrong.
+const HELD_LAST_FOLDED: PreviewSlot[] = [
+  { key: 'ext', top: 156, height: 32 },
+  { key: 'watch', top: 190, height: 96 },
+  { key: 'ratings', top: 294, height: 96 },
+  { key: 'sound', top: 398, height: 64 },
+  { key: 'snacks', top: 470, height: 32 },
+];
+
+describe('landingDeltaOf, a held row shorter than the rows it passes (KAN-360)', () => {
+  test('down past one group lands where that group ends, not on its top', () => {
+    expect(landingDeltaOf(HELD_FOLDED, 1, 2)).toBe(294 - 190);
+  });
+
+  test('down past two groups', () => {
+    expect(landingDeltaOf(HELD_FOLDED, 1, 3)).toBe(366 - 190);
+  });
+
+  test('down to the end of the window', () => {
+    expect(landingDeltaOf(HELD_FOLDED, 1, 4)).toBe(438 - 190);
+  });
+
+  test('CONTROL: up past one group lands on its top', () => {
+    expect(landingDeltaOf(HELD_LAST_FOLDED, 4, 3)).toBe(398 - 470);
+  });
+
+  test('CONTROL: up past every group lands on the first groups top', () => {
+    expect(landingDeltaOf(HELD_LAST_FOLDED, 4, 1)).toBe(190 - 470);
+  });
+});
