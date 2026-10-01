@@ -4898,20 +4898,22 @@ test.describe('below the last window makes a new last window (KAN-366)', () => {
 
   // The worst path for the move: the sole tab of the session's last window.
   // A new last window holding it would stand where that window stands,
-  // holding exactly what it holds: no move, and nothing is written.
+  // holding exactly what it holds: no move, and nothing is written. The
+  // session has a window before it, so the last window is not also the
+  // first: a drop routed as a new FIRST window would be a move, and this
+  // test would see it.
   test('the sole tab of the last window, let go below the list: lit, and no move', async ({
     context,
     extensionId,
   }) => {
-    const page = await openPopup(
-      context,
-      extensionId,
-      [S1(), S2(), S3(), S4()],
-      'S3'
-    );
+    const soleTab = session('S6', 'Sole tab', [
+      win('s0', [tab('st0'), tab('st1')]),
+      win('s1', [tab('st2')]),
+    ]);
+    const page = await openPopup(context, extensionId, [S1(), soleTab], 'S6');
     const before = await stored(page);
-    const y = await belowTheList(page, 'f1');
-    const at = await pickUp(page, tabHandle(page, 'f0'));
+    const y = await belowTheList(page, 's1');
+    const at = await pickUp(page, tabHandle(page, 'st2'));
     await page.mouse.move(at.x, y, { steps: 8 });
     await settled(page);
     // PREMISE: it would land in the trailing block.
@@ -4919,8 +4921,8 @@ test.describe('below the last window makes a new last window (KAN-366)', () => {
     await page.mouse.up();
     // NEGATIVE, so a fixed wait: a move is written on the release.
     await page.waitForTimeout(200);
-    expect(sessionOf(await stored(page), 'S3')).toEqual(
-      sessionOf(before, 'S3')
+    expect(sessionOf(await stored(page), 'S6')).toEqual(
+      sessionOf(before, 'S6')
     );
     expect(await toasts(page)).toEqual([]);
     await settled(page);
