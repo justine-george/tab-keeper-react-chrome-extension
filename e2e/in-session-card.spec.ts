@@ -1,0 +1,406 @@
+// KAN-354 and KAN-355 on the real artifact: a drag inside a saved session's
+// tab, group or window list is drawn by the card at the pointer, and the row
+// it holds hides but keeps its room.
+//
+// What jsdom cannot show, and so what this file is for: src/App.css. jsdom
+// never loads it, and its `!important` lift shadow on a held TAB is exactly
+// what KAN-355 is -- the adopted phantom, invisible since KAN-350, still cast
+// that shadow as an empty box at the pointer (measured on main:
+// `rgba(0,0,0,0.35) 0 2px 8px`, and over Gamma also
+// `rgb(129,201,149) 4px 0 0 inset`, the KAN-164 stripe).
+//
+// Organised by claim, so the cases still to come (the outline of KAN-354 C3,
+// the click after a release, the tab view) each add a describe of their own:
+//
+//   KAN-355  the adopted phantom casts no shadow
+//   C1       a saved list's drag is drawn by the card (tab, group, window)
+//   C2       the session list keeps its lifted row and shows no card
+//
+// Driven as the popup (790x550), with the tabGroups grant (grantedTest) so a
+// group band exists at all.
+
+import type { BrowserContext, Locator, Page } from '@playwright/test';
+
+import { grantedTest as test, expect } from './fixtures/grantedExtension';
+import { buildContainer, buildSession, seedSessions } from './fixtures/seed';
+import type {
+  TabMasterContainer,
+  tabContainerData,
+} from '../src/redux/slices/tabContainerDataStateSlice';
+import { isValidTabMasterContainer } from '../src/utils/functions/local';
+
+const POPUP = { width: 790, height: 550 };
+
+// ---- fixtures ---------------------------------------------------------------
+
+interface SeedTab {
+  tabId: string;
+  favicon: string;
+  title: string;
+  url: string;
+  chromeGroupId?: string;
+}
+
+const tab = (id: string, g?: string): SeedTab => ({
+  tabId: id,
+  favicon: '',
+  title: `Tab ${id}`,
+  url: `https://${id}.test/`,
+  ...(g ? { chromeGroupId: g } : {}),
+});
+
+const win = (
+  id: string,
+  tabs: SeedTab[],
+  groups: { groupId: string; title: string; color: string }[] = []
+) => ({
+  windowId: id,
+  windowHeight: 1080,
+  windowWidth: 1920,
+  windowOffsetTop: 0,
+  windowOffsetLeft: 0,
+  tabCount: tabs.length,
+  title: id,
+  tabs,
+  chromeTabGroups: groups,
+});
+
+type SeedWindow = ReturnType<typeof win>;
+
+const session = (
+  id: string,
+  title: string,
+  windows: SeedWindow[]
+): tabContainerData =>
+  buildSession({
+    tabGroupId: id,
+    title,
+    windowCount: windows.length,
+    tabCount: windows.reduce((n, w) => n + w.tabs.length, 0),
+    windows,
+  });
+
+// S1, the session on screen: w1 holds three loose tabs and the group alpha,
+// w2 two loose tabs. S2, the carry's target: d1 holds two loose tabs, the
+// group gamma, then one more loose tab; d2 two loose tabs. The same shapes
+// drag-between-sessions.spec.ts uses, small enough that no pane scrolls in
+// the popup.
+const S1 = () =>
+  session('S1', 'Source', [
+    win(
+      'w1',
+      [
+        tab('a0'),
+        tab('a1'),
+        tab('a2'),
+        tab('al0', 'alpha'),
+        tab('al1', 'alpha'),
+      ],
+      [{ groupId: 'alpha', title: 'Alpha', color: 'blue' }]
+    ),
+    win('w2', [tab('b0'), tab('b1')]),
+  ]);
+const S2 = () =>
+  session('S2', 'Target', [
+    win(
+      'd1',
+      [
+        tab('c0'),
+        tab('c1'),
+        tab('ga0', 'gamma'),
+        tab('ga1', 'gamma'),
+        tab('c2'),
+      ],
+      [{ groupId: 'gamma', title: 'Gamma', color: 'green' }]
+    ),
+    win('d2', [tab('e0'), tab('e1')]),
+  ]);
+const S3 = () => session('S3', 'Third', [win('f1', [tab('f0')])]);
+
+async function openPopup(
+  context: BrowserContext,
+  extensionId: string
+): Promise<Page> {
+  const sessions = [S1(), S2(), S3()];
+  await seedSessions(context, {
+    ...buildContainer(
+      sessions.map((s) => ({ ...s, isSelected: s.tabGroupId === 'S1' }))
+    ),
+    selectedTabGroupId: 'S1',
+  });
+  const page = await context.newPage();
+  await page.setViewportSize(POPUP);
+  await page.goto(`chrome-extension://${extensionId}/index.html`);
+  // goto resolves before React mounts (KAN-105). Every test crosses this
+  // barrier before its first raw evaluate: S1's first window drawn.
+  await expect(page.locator('[data-drag-row-id="w1"]')).toBeVisible();
+  return page;
+}
+
+// Which session is selected, as the app stores it.
+async function selected(page: Page): Promise<string | null> {
+  const raw = await page.evaluate(() =>
+    localStorage.getItem('tabContainerData')
+  );
+  const parsed: unknown = JSON.parse(raw ?? 'null');
+  if (!isValidTabMasterContainer(parsed)) {
+    throw new Error(`tabContainerData is not a container: ${raw}`);
+  }
+  const container: TabMasterContainer = parsed;
+  return container.selectedTabGroupId;
+}
+
+// ---- the page ---------------------------------------------------------------
+
+const DRAG_CARD = '[data-drag-card]';
+const CARRY_CARD = '[data-carry-card]';
+
+const row = (page: Page, rowId: string): Locator =>
+  page.locator(`[data-drag-row-id="${rowId}"]`);
+const sessionRow = (page: Page, id: string): Locator =>
+  page.locator(`[data-pane="sessions"] [data-drag-row-id="${id}"]`);
+const groupHandle = (page: Page, groupId: string): Locator =>
+  page.locator(
+    `[data-drag-row-id="group:${groupId}"] [data-group-drag-handle]`
+  );
+const windowHandle = (page: Page, windowId: string): Locator =>
+  page.locator(`[data-drag-row-id="${windowId}"] [data-window-drag-handle]`);
+
+async function boxOf(loc: Locator) {
+  const b = await loc.boundingBox();
+  if (b === null) throw new Error(`no box for ${loc.toString()}`);
+  return b;
+}
+
+// What a held row paints, read from the browser's own cascade: App.css
+// included, which is the point (see the header).
+const shadowOf = (held: Locator): Promise<string> =>
+  held.evaluate((el) => getComputedStyle(el).boxShadow);
+
+// The opacity of each of the held row's own children, slot excluded: what
+// hides the row's content while the row keeps its box.
+const contentOpacities = (held: Locator): Promise<string[]> =>
+  held.evaluate((el) =>
+    [...el.children]
+      .filter((c) => !c.hasAttribute('data-drag-landing-slot'))
+      .map((c) => getComputedStyle(c).opacity)
+  );
+
+// The held row's landing slot's computed opacity, or null with none drawn.
+const slotOpacity = (held: Locator): Promise<string | null> =>
+  held.evaluate((el) => {
+    const slot = el.querySelector(':scope > [data-drag-landing-slot]');
+    return slot === null ? null : getComputedStyle(slot).opacity;
+  });
+
+// ---- the gesture ------------------------------------------------------------
+
+interface Point {
+  x: number;
+  y: number;
+}
+
+// Presses `handle` and drags it 8px down: past the activation distance (5px),
+// and still over the row's own place, where the landing slot is the row's own.
+async function pickUp(page: Page, handle: Locator): Promise<Point> {
+  const b = await boxOf(handle);
+  const x = b.x + Math.min(60, b.width / 2);
+  const y = b.y + b.height / 2;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x, y + 8, { steps: 2 });
+  return { x, y: y + 8 };
+}
+
+// Out of the detail to the left, at the same height, onto the session list
+// -- the only place a saved drag is handed to the carry (KAN-352).
+async function carryOutLeft(page: Page, from: Point): Promise<void> {
+  const list = await boxOf(page.locator('[data-pane="sessions"]'));
+  await page.mouse.move(list.x + list.width / 2, from.y, { steps: 6 });
+  await expect(page.locator(CARRY_CARD)).toHaveCount(1);
+}
+
+// Rests on a session's row until it opens (KAN-350 S1 A).
+async function springOpen(page: Page, sessionId: string): Promise<void> {
+  const b = await boxOf(sessionRow(page, sessionId));
+  await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 5 });
+  await expect.poll(() => selected(page), { timeout: 3000 }).toBe(sessionId);
+}
+
+// Into the opened session, onto the phantom's own place, until the list
+// adopts it and nothing is shifted (drag-between-sessions.spec.ts's
+// adoptPhantom, which explains the loop).
+async function adoptPhantom(page: Page, phantomId: string): Promise<Locator> {
+  const phantom = row(page, phantomId);
+  await expect(phantom).toBeAttached();
+  const b = await boxOf(phantom);
+  const x = b.x + Math.min(60, b.width / 2);
+  await page.mouse.move(x, b.y + b.height / 2, { steps: 8 });
+  await expect(phantom).toHaveAttribute('data-drag-held', '');
+  const ownCentre = () =>
+    phantom.evaluate((el: HTMLElement) => {
+      const shift = Number(
+        /translateY\((-?[\d.]+)px\)/.exec(el.style.transform)?.[1] ?? 0
+      );
+      const r = el.getBoundingClientRect();
+      return { y: r.top - shift + r.height / 2, shift };
+    });
+  for (let i = 0; i < 3; i++) {
+    const own = await ownCentre();
+    if (Math.abs(own.shift) < 1) break;
+    await page.mouse.move(x, own.y, { steps: 4 });
+  }
+  await expect
+    .poll(async () => Math.abs((await ownCentre()).shift))
+    .toBeLessThan(1);
+  await settled(page);
+  return phantom;
+}
+
+// The pointer to `frac` of the way down `rowId`'s box, as it is now.
+async function aimAt(page: Page, rowId: string, frac: number): Promise<void> {
+  const b = await boxOf(row(page, rowId));
+  await page.mouse.move(
+    b.x + Math.min(60, b.width / 2),
+    b.y + b.height * frac,
+    { steps: 8 }
+  );
+  await settled(page);
+}
+
+// Until every row the preview moved has arrived: two frames, then each
+// running transition's own end, until none is left.
+async function settled(page: Page): Promise<void> {
+  await page.evaluate(async () => {
+    const frame = () =>
+      new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+    await frame();
+    await frame();
+    for (;;) {
+      const running = document
+        .getAnimations()
+        .filter((a) => a instanceof CSSTransition && a.playState === 'running');
+      if (running.length === 0) return;
+      await Promise.all(running.map((a) => a.finished.catch(() => undefined)));
+      await frame();
+    }
+  });
+}
+
+// Esc with the press still down, then its release: ends any drag here
+// without committing it.
+async function cancel(page: Page): Promise<void> {
+  await page.keyboard.press('Escape');
+  await page.mouse.up();
+}
+
+// ============================================================================
+
+test.describe('KAN-355: the adopted phantom casts no shadow', () => {
+  test('held at its own place and over a group band', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    const at = await pickUp(page, row(page, 'a1'));
+    await carryOutLeft(page, at);
+    await springOpen(page, 'S2');
+    const phantom = await adoptPhantom(page, 'carried:a1');
+
+    // At its own place. Soft, so the band below is still measured.
+    await expect.soft.poll(() => shadowOf(phantom)).toBe('none');
+
+    // Over Gamma's band: the band is marked, and the phantom wears no
+    // stripe (KAN-354 C4 A) and no shadow.
+    await aimAt(page, 'ga1', 0.25);
+    // PREMISE: the pointer is over the band, and the band is the target.
+    await expect(page.locator('[data-band-id="gamma"]')).toHaveAttribute(
+      'data-drop-target',
+      ''
+    );
+    await expect.poll(() => shadowOf(phantom)).toBe('none');
+    // What App.css keys the exclusion on.
+    await expect(phantom).toHaveAttribute('data-held-as-card', '');
+
+    await cancel(page);
+  });
+});
+
+test.describe('C1: a drag inside a saved list is drawn by the card', () => {
+  // Mid-drag, at pick-up: the card is up, the held row is marked as drawn by
+  // it, paints no shadow and none of its content, and its landing slot --
+  // its own place, at distance 0 -- stands at full strength.
+  async function expectDrawnByCard(page: Page, held: Locator, kind: string) {
+    await expect(page.locator(DRAG_CARD)).toHaveCount(1);
+    // A drag card, not a carry: nothing has reached the session list.
+    await expect(page.locator(CARRY_CARD)).toHaveCount(0);
+    await expect(held).toHaveAttribute('data-drag-held', '');
+    await expect(held).toHaveAttribute('data-held-as-card', '');
+    await expect(page.locator('[data-held-as-card]')).toHaveCount(1);
+    await expect.poll(() => shadowOf(held)).toBe('none');
+    const content = await contentOpacities(held);
+    // PREMISE: the row has content to hide.
+    expect(content.length).toBeGreaterThan(0);
+    expect(content.every((o) => o === '0')).toBe(true);
+    await expect.poll(() => slotOpacity(held)).toBe('1');
+    // The card says what is held.
+    await expect(
+      page.locator(`${DRAG_CARD} [data-carry-card-name]`)
+    ).toContainText(kind);
+  }
+
+  test('a tab', async ({ context, extensionId }) => {
+    const page = await openPopup(context, extensionId);
+    await pickUp(page, row(page, 'a1'));
+    await expectDrawnByCard(page, row(page, 'a1'), 'Tab a1');
+    await cancel(page);
+    await expect(page.locator(DRAG_CARD)).toHaveCount(0);
+  });
+
+  test('a group', async ({ context, extensionId }) => {
+    const page = await openPopup(context, extensionId);
+    await pickUp(page, groupHandle(page, 'alpha'));
+    await expectDrawnByCard(page, row(page, 'group:alpha'), 'Alpha');
+    await cancel(page);
+    await expect(page.locator(DRAG_CARD)).toHaveCount(0);
+  });
+
+  test('a window', async ({ context, extensionId }) => {
+    const page = await openPopup(context, extensionId);
+    // The FIRST window: folding the windows (KAN-153) moves every window
+    // below it up and away from the pointer, which would put the held row a
+    // row or more off its own place -- and its slot is then clear of it
+    // with or without the fade this test is about.
+    await pickUp(page, windowHandle(page, 'w1'));
+    await expectDrawnByCard(page, row(page, 'w1'), 'w1');
+    await cancel(page);
+    await expect(page.locator(DRAG_CARD)).toHaveCount(0);
+  });
+});
+
+test.describe('C2: the session list keeps its lifted row', () => {
+  // CONTROL, aimed where a saved list now shows a card: the same press and
+  // travel, on a session row. The row stays visible and lifted.
+  test('a session-list drag shows no card and keeps the lift shadow', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    const held = sessionRow(page, 'S2');
+    await pickUp(page, held);
+
+    await expect(held).toHaveAttribute('data-drag-held', '');
+    await expect(page.locator(DRAG_CARD)).toHaveCount(0);
+    await expect(page.locator(CARRY_CARD)).toHaveCount(0);
+    await expect(held).not.toHaveAttribute('data-held-as-card');
+    await expect
+      .poll(() => shadowOf(held))
+      .toContain('rgba(0, 0, 0, 0.35) 0px 2px 8px');
+    // Its content is drawn.
+    const content = await contentOpacities(held);
+    expect(content.length).toBeGreaterThan(0);
+    expect(content.every((o) => o === '1')).toBe(true);
+
+    await cancel(page);
+  });
+});
