@@ -86,6 +86,10 @@ import {
 } from '../../../../redux/dragCard';
 import { createClickSuppressor } from './clickSuppressor';
 import { edgeScrollStep } from './edgeScroll';
+import {
+  NEW_FIRST_WINDOW,
+  measureNewFirstWindowTarget,
+} from '../newWindowTarget';
 
 // How strongly the landing slot draws when it is clear of the held row.
 //
@@ -346,6 +350,12 @@ interface LiveDrag {
   // and for an adopted drag, which hands its carry back. Null for every other
   // list, which never asks a receiver anything.
   receiverAt: ((x: number, y: number) => CarryReceiver | null) | null;
+  // Whether a point is on the session header's New window target (KAN-361
+  // N1 B), from its box read once at activation, like the receivers': for a
+  // list that offers a new window, while the target is drawn. Null for every
+  // other list, which never lands there. A landing on it is a new first
+  // window (landingOf), and it is never a hand-off (onMoveEvent, Q3 i).
+  onNewFirstWindow: ((x: number, y: number) => boolean) | null;
   // The last target resolveDrop named, so the list hears only about changes
   // rather than once per pointer move (KAN-164).
   dropTarget: string | undefined;
@@ -436,6 +446,7 @@ function pressRecord(
     heldEl: null,
     heldWindow: null,
     receiverAt: null,
+    onNewFirstWindow: null,
     dropTarget: undefined,
     slots: [],
     slotOfRow: [],
@@ -715,6 +726,15 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       l: NonNullable<typeof live.current>,
       block: HTMLElement | null
     ): Landing | undefined => {
+      // On the session header's New window target (KAN-361 N1 B): a new
+      // first window, whatever window block, row or pane edge is near. Asked
+      // before any of them, because the target is outside the list: no
+      // window is under it, and the held row's own window would otherwise
+      // answer for it.
+      if (l.onNewFirstWindow?.(l.lastX, l.lastY) === true) {
+        return { windowId: NEW_FIRST_WINDOW, index: 0, clamped: false };
+      }
+
       // Content space, matching how the rects were measured. Using the raw
       // viewport y here would misjudge both the containment test and the
       // landing index by however far the list had auto-scrolled.
@@ -812,12 +832,16 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     // THE ONE ANSWER for the preview, the mark and the release alike, so the
     // three cannot drift apart. A refused landing (undefined) still asks, as
     // it always has: nothing commits it, and the mark is the list's to show.
+    //
+    // Nor a landing on the header's New window target (KAN-361): a new
+    // window holds no band to join, and the band nearest the pointer is in
+    // the list below it.
     const targetOf = (
       l: NonNullable<typeof live.current>,
       block: HTMLElement | null,
       landing: Landing | undefined
     ): string | undefined =>
-      landing?.clamped === true
+      landing?.clamped === true || landing?.windowId === NEW_FIRST_WINDOW
         ? undefined
         : resolveDrop?.(dropRoot(l, block), l.lastX, l.lastY)?.bandId;
 
@@ -1002,6 +1026,14 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         // Into ANOTHER window: each window previewed in its own frame, not one
         // range across both (KAN-132) -- see previewShiftsAcross for what the
         // single range drew.
+        //
+        // A new first window on the header's target (KAN-361, Q2 ii) is
+        // another window too, and one with no block, no rows and no place
+        // in windowOrder: the source closes up behind the row with its room
+        // outlined, exactly as for a drop into another window, and nothing
+        // else moves -- there is no destination in the list to make room in
+        // (windowShiftsAcross makes none for a window the pane does not
+        // hold), and no slot is drawn (landingSlotShown).
         const at = insertionSlotOf(l, landing, beside);
         // The span is in the SOURCE window, so only its shifts change: the
         // landing is measured in the destination's frame and the source keeps
@@ -1128,7 +1160,12 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         heldShownAsCard: l.card !== null || l.adopted,
         sourceRoomDelta,
         landingInset,
-        landingSlotShown: !(l.adopted && landing === undefined),
+        // Nor on the header's New window target (KAN-361): the lit target
+        // is what shows where the row goes, and the slot would be drawn in
+        // the list, where it is not going.
+        landingSlotShown:
+          landing?.windowId !== NEW_FIRST_WINDOW &&
+          !(l.adopted && landing === undefined),
       });
 
       return target;
@@ -1290,6 +1327,13 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       l.heldWindow = windowOf(l.heldEl);
       l.receiverAt =
         carryOut !== undefined || l.adopted ? measureCarryReceivers() : null;
+      // KAN-361. The header's New window target, read once here like the
+      // receivers above, and AFTER the marker that draws it: a target that
+      // is not drawn is no landing, so read before the marker it would
+      // never be one.
+      l.onNewFirstWindow = offersNewWindow
+        ? measureNewFirstWindowTarget(document)
+        : null;
 
       // RE-READ AFTER THE COLLAPSE, and this is load-bearing (KAN-154).
       // Folding the windows shut can make the list shorter than its viewport,
@@ -1564,8 +1608,14 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       //
       // No box read per move: the receivers were measured when the drag
       // started, and only for a list that can hand off at all.
+      //
+      // Never on this list's own New window target in the header (KAN-361,
+      // Q3 i), which is a receiver too, for a carry the layer drives: asked
+      // first, it keeps the drag here, so the list goes on scrolling under a
+      // pointer held above it and the landing is the new window.
       if (
         l.receiverAt !== null &&
+        l.onNewFirstWindow?.(e.clientX, e.clientY) !== true &&
         l.receiverAt(e.clientX, e.clientY) !== null &&
         handOff(l, e.clientX, e.clientY)
       ) {

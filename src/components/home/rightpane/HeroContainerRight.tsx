@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 import { useDispatch, useSelector } from 'react-redux';
 
@@ -50,6 +50,7 @@ import { useTranslation } from 'react-i18next';
 import { DURATION, ICON, TYPE } from '../../../styles/scale';
 import { newWindowTargetBoxStyle } from './newWindowTarget';
 import { NewWindowTargetLabel } from './NewWindowTargetLabel';
+import { useNewFirstWindowReceiver } from './useNewFirstWindowReceiver';
 
 export default function HeroContainerRight() {
   const COLORS = useThemeColors();
@@ -104,6 +105,12 @@ export default function HeroContainerRight() {
     searchInputText,
     hasTabGroupsPermission
   )[0];
+
+  // KAN-361 (N1 B). The toolbar row's New window target takes a carry let go
+  // on it, into the session on screen. Above the early return, as every hook
+  // here must be.
+  const newWindowTargetRef = useRef<HTMLDivElement>(null);
+  useNewFirstWindowReceiver(newWindowTargetRef, selectedTabGroup?.tabGroupId);
 
   // Belt and braces: RightPane does not mount this component when the list is
   // empty, so this should be unreachable -- but it is what makes the component
@@ -660,6 +667,7 @@ export default function HeroContainerRight() {
           />
         </div>
         <div
+          ref={newWindowTargetRef}
           data-new-window-target="first"
           aria-hidden="true"
           css={[newWindowTargetBoxStyle(COLORS), newWindowTargetStyle]}

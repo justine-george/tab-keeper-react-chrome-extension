@@ -32,6 +32,7 @@ import {
   dropCarriedWindow,
 } from '../../redux/dropCarried';
 import { CARRY_NEW_WINDOW_ID } from '../../utils/functions/carriedView';
+import { NEW_FIRST_WINDOW } from '../../components/home/rightpane/newWindowTarget';
 import {
   T0,
   container,
@@ -302,5 +303,47 @@ describe('a carried window', () => {
     );
     expect(moved).toBe(false);
     expect(data(store)).toBe(before);
+  });
+});
+
+// KAN-361 (N1 B). The session header's New window target names its own
+// window, NEW_FIRST_WINDOW: the same route as the in-list target, a new
+// first window of the session on screen, one move, no toast.
+describe('on the header’s New window target (KAN-361)', () => {
+  it.each([
+    ['another session', 'S2'],
+    ['its own session', 'S1'],
+  ])('a carried tab, in %s: a new first window', (_what, shown) => {
+    const store = ready(container(undefined, shown));
+    const moved = store.dispatch(
+      dropCarriedTab(T1, {
+        tabGroupId: shown,
+        toWindowId: NEW_FIRST_WINDOW,
+        toIndex: 0,
+      })
+    );
+    expect(moved).toBe(true);
+    const first = sessionIn(data(store), shown).windows[0];
+    expect(tabIds(first)).toEqual(['t1']);
+    expect(first.windowId).not.toBe(NEW_FIRST_WINDOW);
+    expect(tabIds(windowIn(data(store), 'S1', 'w1'))).not.toContain('t1');
+    expect(toasts(store)).toEqual([]);
+  });
+
+  it('a carried group: a new first window with its entry', () => {
+    const store = ready();
+    const moved = store.dispatch(
+      dropCarriedGroup(G1, {
+        tabGroupId: 'S2',
+        toWindowId: NEW_FIRST_WINDOW,
+        toIndex: 0,
+      })
+    );
+    expect(moved).toBe(true);
+    const first = sessionIn(data(store), 'S2').windows[0];
+    expect(tabIds(first)).toEqual(['g1a', 'g1b']);
+    expect(first.chromeTabGroups?.map((g) => g.groupId)).toEqual(['g1']);
+    expect(first.windowId).not.toBe(NEW_FIRST_WINDOW);
+    expect(toasts(store)).toEqual([]);
   });
 });

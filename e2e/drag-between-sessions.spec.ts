@@ -2838,6 +2838,13 @@ interface ToolbarFrame {
   header: string;
   targetBox: string;
   rows: string;
+  // The target is lit (data-landing): a release would land in it.
+  lit: boolean;
+  // A row in the detail is held by the drag engine (data-drag-held): the
+  // drag is the list's own, not handed to the carry.
+  held: boolean;
+  // The detail pane's scroll.
+  scrollTop: number;
 }
 const isToolbarLog = (x: unknown): x is ToolbarFrame[] => {
   if (!Array.isArray(x)) return false;
@@ -2859,7 +2866,13 @@ const isToolbarLog = (x: unknown): x is ToolbarFrame[] => {
       'targetBox' in f &&
       typeof f.targetBox === 'string' &&
       'rows' in f &&
-      typeof f.rows === 'string'
+      typeof f.rows === 'string' &&
+      'lit' in f &&
+      typeof f.lit === 'boolean' &&
+      'held' in f &&
+      typeof f.held === 'boolean' &&
+      'scrollTop' in f &&
+      typeof f.scrollTop === 'number'
   );
 };
 
@@ -2898,6 +2911,16 @@ async function logToolbar(page: Page, held: string | null): Promise<void> {
       const controls = [
         ...(toolbar?.querySelectorAll('button, [role="button"]') ?? []),
       ].map((b) => getComputedStyle(b).visibility === 'visible');
+      // The detail's scroller: the nearest overflow-auto box above its
+      // first window, as detailPane finds it.
+      let scroller = document.querySelector(
+        '[data-pane="detail"] [data-drop-window-id]'
+      )?.parentElement;
+      while (
+        scroller &&
+        !['auto', 'scroll'].includes(getComputedStyle(scroller).overflowY)
+      )
+        scroller = scroller.parentElement;
       log.push({
         dragging: document.documentElement.hasAttribute('data-dragging'),
         marker: document.documentElement.hasAttribute('data-drag-new-window'),
@@ -2923,6 +2946,11 @@ async function logToolbar(page: Page, held: string | null): Promise<void> {
           )
           .map((el) => `${el.dataset.dragRowId}: ${box(el)}`)
           .join(', '),
+        lit: target?.hasAttribute('data-landing') ?? false,
+        held:
+          document.querySelector('[data-pane="detail"] [data-drag-held]') !==
+          null,
+        scrollTop: scroller?.scrollTop ?? -1,
       });
       document.body.dataset.toolbarFrames = JSON.stringify(log);
       requestAnimationFrame(frame);
@@ -3295,4 +3323,415 @@ test.describe('the New window target is in the toolbar row from pick-up (KAN-361
       expect(await toolbarNow(page)).toMatchObject(AT_REST);
     });
   }
+});
+
+// ---- the toolbar row's New window target lands (KAN-361 N1 B) ---------------
+
+const headerTarget = (page: Page) =>
+  page.locator('[data-new-window-target="first"]');
+
+// Where the toolbar row's New window target stands (KAN-361): the controls'
+// strip it covers, read at rest from the "Open session" control there --
+// which main draws in the same place, so either build is aimed at the same
+// point. Read before a drag, which hides the controls.
+async function headerAim(page: Page): Promise<Point & { bottom: number }> {
+  const b = await boxOf(page.getByRole('button', { name: 'Open session' }));
+  return {
+    x: b.x + b.width / 2,
+    y: b.y + b.height / 2,
+    bottom: b.y + b.height,
+  };
+}
+
+const ontoHeaderTarget = (page: Page, aim: Point) =>
+  page.mouse.move(aim.x, aim.y, { steps: 8 });
+
+// A row's box as drawn now, transform included.
+const drawnBox = (page: Page, rowId: string) =>
+  page.locator(`[data-drag-row-id="${rowId}"]`).evaluate((el) => {
+    const r = el.getBoundingClientRect();
+    return { top: r.top, bottom: r.bottom };
+  });
+
+// The held row's own box: where it is drawn, less the translate that makes
+// it follow the pointer.
+const ownBox = (page: Page, rowId: string) =>
+  page.locator(`[data-drag-row-id="${rowId}"]`).evaluate((el) => {
+    if (!(el instanceof HTMLElement)) throw new Error('not an HTMLElement');
+    const shift = Number(
+      /translateY\((-?[\d.]+)px\)/.exec(el.style.transform)?.[1] ?? 0
+    );
+    const r = el.getBoundingClientRect();
+    return { top: r.top - shift, bottom: r.bottom - shift };
+  });
+
+// One ⌘Z puts `session` back exactly: every field as it was, but the
+// session's own timestamp, which the undo moves past the move's -- undoing
+// is an edit the sync must rank above the move (KAN-55).
+async function expectOneUndoRestores(
+  page: Page,
+  session: tabContainerData
+): Promise<void> {
+  const unstamped = (s: tabContainerData) => ({
+    ...s,
+    lastModified: undefined,
+  });
+  const movedAt = sessionOf(
+    await stored(page),
+    session.tabGroupId
+  ).lastModified;
+  if (movedAt === undefined) throw new Error('the move stamped nothing');
+  await page.keyboard.press('Control+z');
+  await expect
+    .poll(async () =>
+      unstamped(sessionOf(await stored(page), session.tabGroupId))
+    )
+    .toEqual(unstamped(session));
+  const backAt = sessionOf(await stored(page), session.tabGroupId).lastModified;
+  expect(backAt).toBeGreaterThan(movedAt);
+}
+
+// Six windows of four tabs: scrolled to its end, 9px is left below its last
+// window (measured on main), and the pane has a long way to scroll back up.
+const sixByFour = (id: string, title: string, prefix: string) =>
+  session(
+    id,
+    title,
+    Array.from({ length: 6 }, (_, w) =>
+      win(
+        `${prefix}w${w}`,
+        Array.from({ length: 4 }, (_, t) => tab(`${prefix}${w}-${t}`))
+      )
+    )
+  );
+
+test.describe('the toolbar target makes a new first window (KAN-361)', () => {
+  test('an ordinary tab a1 held on it: lit, no slot, w1 closes up with its room at its bottom, w2 still; let go, a new first window holds it, and one ⌘Z undoes it', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    const before = await stored(page);
+    const aim = await headerAim(page);
+    await pickUp(page, tabHandle(page, 'a1'));
+    await settled(page);
+    // At its own place: the rows as the drag measured them.
+    const own = await ownBox(page, 'a1');
+    const was = {
+      a0: await drawnBox(page, 'a0'),
+      a2: await drawnBox(page, 'a2'),
+      al0: await drawnBox(page, 'al0'),
+      al1: await drawnBox(page, 'al1'),
+      w2: await drawnBox(page, 'w2'),
+      b0: await drawnBox(page, 'b0'),
+      b1: await drawnBox(page, 'b1'),
+    };
+    // PREMISE: loose tabs sit flush, so a1's room is its own height.
+    const room = was.a2.top - own.top;
+    expect(room).toBeCloseTo(own.bottom - own.top, 0);
+
+    await ontoHeaderTarget(page, aim);
+    await settled(page);
+    await expect(page.locator('[data-drag-landing-slot]')).toHaveCount(0);
+    await expect(headerTarget(page)).toHaveAttribute('data-landing', '');
+    // w1 closes up behind a1: every row below it, a row up.
+    for (const id of ['a2', 'al0', 'al1'] as const) {
+      const now = await drawnBox(page, id);
+      expect(now.top).toBeCloseTo(was[id].top - room, 0);
+    }
+    // Nothing else moves: a0 above it, and the whole of w2.
+    for (const id of ['a0', 'w2', 'b0', 'b1'] as const) {
+      expect(await drawnBox(page, id)).toEqual(was[id]);
+    }
+    // The dotted room, one row of it, at w1's bottom.
+    const outline = page.locator('[data-drag-source-room]');
+    await expect(outline).toHaveCount(1);
+    const box = await outline.evaluate((el) => {
+      const r = el.getBoundingClientRect();
+      return { top: r.top, bottom: r.bottom };
+    });
+    expect(box.bottom).toBeCloseTo(was.al1.bottom, 0);
+    expect(box.bottom - box.top).toBeCloseTo(own.bottom - own.top, 0);
+    await page.mouse.up();
+
+    await expect
+      .poll(() => layout(page, 'S1'))
+      .toEqual(['a1', 'a0 a2 al0* al1*', 'b0 b1']);
+    expect(await windowIdsOf(page, 'S1')).toEqual(['new', 'w1', 'w2']);
+    const after = await stored(page);
+    for (const id of ['S2', 'S3', 'S4']) {
+      expect(sessionOf(after, id)).toEqual(sessionOf(before, id));
+    }
+    expect(await toasts(page)).toEqual([]);
+    await expect(headerTarget(page)).not.toHaveAttribute('data-landing', '');
+
+    await expectOneUndoRestores(page, sessionOf(before, 'S1'));
+  });
+
+  test('an ordinary group Alpha held on it: lit, no slot, its room at w1’s bottom, w2 still; let go, a new first window holds it with its entry, and one ⌘Z undoes it', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    const before = await stored(page);
+    const aim = await headerAim(page);
+    await pickUp(page, groupHandle(page, 'alpha'));
+    await settled(page);
+    // Folded to its title row as it is picked up (KAN-160): its own place
+    // in the drag's layout, which is w1's last row.
+    const own = await ownBox(page, 'group:alpha');
+    const was = {
+      a0: await drawnBox(page, 'a0'),
+      a1: await drawnBox(page, 'a1'),
+      a2: await drawnBox(page, 'a2'),
+      w2: await drawnBox(page, 'w2'),
+      b0: await drawnBox(page, 'b0'),
+      b1: await drawnBox(page, 'b1'),
+    };
+
+    await ontoHeaderTarget(page, aim);
+    await settled(page);
+    await expect(page.locator('[data-drag-landing-slot]')).toHaveCount(0);
+    await expect(headerTarget(page)).toHaveAttribute('data-landing', '');
+    // Alpha is w1's last item: nothing below it closes up, and nothing
+    // else moves.
+    for (const id of ['a0', 'a1', 'a2', 'w2', 'b0', 'b1'] as const) {
+      expect(await drawnBox(page, id)).toEqual(was[id]);
+    }
+    // Its room, outlined, is its own folded box: w1's bottom.
+    const outline = page.locator('[data-drag-source-room]');
+    await expect(outline).toHaveCount(1);
+    const box = await outline.evaluate((el) => {
+      const r = el.getBoundingClientRect();
+      return { top: r.top, bottom: r.bottom };
+    });
+    expect(box.top).toBeCloseTo(own.top, 0);
+    expect(box.bottom - box.top).toBeCloseTo(own.bottom - own.top, 0);
+    await page.mouse.up();
+
+    await expect
+      .poll(() => layout(page, 'S1'))
+      .toEqual(['al0* al1*', 'a0 a1 a2', 'b0 b1']);
+    expect(await windowIdsOf(page, 'S1')).toEqual(['new', 'w1', 'w2']);
+    expect(await groupEntries(page, 'S1', 0)).toEqual(['alpha']);
+    expect(await groupEntries(page, 'S1', 1)).toEqual([]);
+    const after = await stored(page);
+    for (const id of ['S2', 'S3', 'S4']) {
+      expect(sessionOf(after, id)).toEqual(sessionOf(before, id));
+    }
+    expect(await toasts(page)).toEqual([]);
+
+    await expectOneUndoRestores(page, sessionOf(before, 'S1'));
+  });
+
+  test('a carry from the session list straight onto it, never entering the list: Target gains a new first window holding a1', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    const aim = await headerAim(page);
+    const at = await pickUp(page, tabHandle(page, 'a1'));
+    await carryOutLeft(page, at);
+    await springOpen(page, 'S2');
+    const pane = await detailPane(page);
+    // PREMISE: the target is above the detail pane, so a path along its
+    // height never enters the list.
+    expect(aim.bottom).toBeLessThan(pane.top);
+    // Up the session list to the target's height, then across to it.
+    await page.mouse.move(pane.left - 40, aim.y, { steps: 6 });
+    await page.mouse.move(aim.x, aim.y, { steps: 6 });
+    // Read now and asserted after the release, so the release's outcome is
+    // the first thing checked. The receiver lights the target in the very
+    // pointermove that reaches it.
+    const there = await page.evaluate(() => ({
+      lit:
+        document.querySelector(
+          '[data-new-window-target="first"][data-landing]'
+        ) !== null,
+      // Never adopted: no row in the list is held.
+      held: document.querySelector('[data-drag-held]') !== null,
+    }));
+    await page.mouse.up();
+
+    await expect
+      .poll(() => layout(page, 'S2'))
+      .toEqual(['a1', D1_START, 'e0 e1']);
+    expect(await windowIdsOf(page, 'S2')).toEqual(['new', 'd1', 'd2']);
+    expect(await layout(page, 'S1')).toEqual(['a0 a2 al0* al1*', 'b0 b1']);
+    expect(await toasts(page)).toEqual([]);
+    expect(there).toEqual({ lit: true, held: false });
+    await expect(headerTarget(page)).not.toHaveAttribute('data-landing', '');
+  });
+
+  // Q3 i. The toolbar row sits above the list, where a held pointer scrolls
+  // it up at full speed (edgeScroll.ts): on the target the list keeps
+  // scrolling, the drag stays the list's, and the target is lit.
+  const scrolls = [
+    {
+      name: 'an ordinary tab',
+      sessions: () => [sixByFour('S1', 'Six', 'y'), S2()],
+      shown: 'S1',
+      start: async (page: Page) => {
+        await setDetailScroll(page, 100000);
+        const pane = await detailPane(page);
+        // A tab in the middle of the pane, clear of both auto-scroll zones.
+        const tabId = await page.evaluate(
+          ({ top, bottom }) => {
+            for (const row of document.querySelectorAll<HTMLElement>(
+              '[data-pane="detail"] [data-drag-row-id^="y"]'
+            )) {
+              const id = row.dataset.dragRowId ?? '';
+              const b = row.getBoundingClientRect();
+              if (
+                id.includes('-') &&
+                b.top > top + 80 &&
+                b.bottom < bottom - 80
+              )
+                return id;
+            }
+            return undefined;
+          },
+          { top: pane.top, bottom: pane.bottom }
+        );
+        if (tabId === undefined) throw new Error('no tab mid-pane');
+        await pickUp(page, tabHandle(page, tabId));
+        return tabId;
+      },
+    },
+    {
+      name: 'a carried tab the list adopted',
+      sessions: () => [S1(), sixByFour('S6', 'Six', 'y')],
+      shown: 'S6',
+      start: async (page: Page) => {
+        const at = await pickUp(page, tabHandle(page, 'a1'));
+        await carryOutLeft(page, at);
+        await springOpen(page, 'S6');
+        await setDetailScroll(page, 100000);
+        // Into the pane's middle: the list adopts the carry.
+        const pane = await detailPane(page);
+        await page.mouse.move(pane.left + 100, (pane.top + pane.bottom) / 2, {
+          steps: 6,
+        });
+        await expect(
+          page.locator('[data-drag-row-id="carried:a1"]')
+        ).toHaveAttribute('data-drag-held', '');
+        return 'a1';
+      },
+    },
+  ];
+  for (const sc of scrolls) {
+    test(`Q3 i: ${sc.name}, held on it with the list scrolled to its end: the list scrolls up frame by frame, and the target is lit`, async ({
+      context,
+      extensionId,
+    }) => {
+      // Each opens on Source, S1.
+      const page = await openPopup(context, extensionId, sc.sessions());
+      const aim = await headerAim(page);
+      const tabId = await sc.start(page);
+      // PREMISE: the list is scrolled far enough down to travel for the
+      // whole log at full speed (14px a frame).
+      const end = (await detailPane(page)).scrollTop;
+      expect(end).toBeGreaterThan(400);
+
+      await ontoHeaderTarget(page, aim);
+      await logToolbar(page, null);
+      await loggedFrames(page, 12);
+      const frames = (await toolbarLog(page)).map(
+        ({ dragging, held, lit, scrollTop }) => ({
+          dragging,
+          held,
+          lit,
+          scrollTop,
+        })
+      );
+      expect(frames.length).toBeGreaterThanOrEqual(12);
+      // Every frame: the list's own drag, the target lit.
+      expect(frames.filter((f) => !f.dragging || !f.held || !f.lit)).toEqual(
+        []
+      );
+      // And the list scrolling up in every one of them.
+      const tops = frames.map((f) => f.scrollTop);
+      expect(tops[0]).toBeGreaterThan(14 * frames.length);
+      for (let i = 1; i < tops.length; i++) {
+        expect(tops[i], tops.join(' ')).toBeLessThan(tops[i - 1] ?? 0);
+      }
+      await page.mouse.up();
+
+      // Let go there: a new first window of the session on screen.
+      await expect
+        .poll(
+          async () =>
+            sessionOf(await stored(page), sc.shown).windows[0]?.tabs.map(
+              (t) => t.tabId
+            )
+        )
+        .toEqual([tabId]);
+    });
+  }
+
+  // NEGATIVES, each after its CONTROL on the same page.
+
+  test('a window drag over the toolbar row moves nothing and lights nothing', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    const aim = await headerAim(page);
+    // CONTROL: a tab held there lands there: no slot in the list, and the
+    // target lit.
+    await pickUp(page, tabHandle(page, 'a1'));
+    await ontoHeaderTarget(page, aim);
+    await expect(page.locator('[data-drag-landing-slot]')).toHaveCount(0);
+    await expect(headerTarget(page)).toHaveAttribute('data-landing', '');
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+    await expect(headerTarget(page)).not.toHaveAttribute('data-landing', '');
+
+    await logToolbar(page, 'w1');
+    await pickUp(page, windowHandle(page, 'w1'));
+    await ontoHeaderTarget(page, aim);
+    await settled(page);
+    const frames = await toolbarLog(page);
+    // PREMISE: the window drag was logged, held, over the toolbar row.
+    expect(frames.filter((f) => f.dragging && f.held).length).toBeGreaterThan(
+      10
+    );
+    expect(frames.filter((f) => f.lit || f.marker)).toEqual([]);
+    await page.mouse.up();
+    // NEGATIVE, so a fixed wait: a move is written on the release.
+    await page.waitForTimeout(200);
+    expect(await layout(page, 'S1')).toEqual([W1_START, 'b0 b1']);
+    expect(await windowIdsOf(page, 'S1')).toEqual(['w1', 'w2']);
+  });
+
+  test('an ordinary tab let go just below it, in the list’s first row, lands there as it always has', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    const aim = await headerAim(page);
+    const at = await pickUp(page, tabHandle(page, 'a1'));
+    // CONTROL: held on the target, it lands there: no slot in the list, and
+    // the target lit.
+    await ontoHeaderTarget(page, aim);
+    await expect(page.locator('[data-drag-landing-slot]')).toHaveCount(0);
+    await expect(headerTarget(page)).toHaveAttribute('data-landing', '');
+
+    // Just below: the top of w1's own row, the list's first.
+    const w1 = await boxOf(page.locator('[data-drag-row-id="w1"]'));
+    const y = w1.y + 2;
+    // PREMISE: below the target, inside the pane.
+    expect(y).toBeGreaterThan(aim.bottom);
+    expect(y).toBeGreaterThan((await detailPane(page)).top);
+    await page.mouse.move(at.x, y, { steps: 4 });
+    await settled(page);
+    await expect(headerTarget(page)).not.toHaveAttribute('data-landing', '');
+    await expect(page.locator('[data-drag-landing-slot]')).toHaveCount(1);
+    await page.mouse.up();
+
+    await expect
+      .poll(() => layout(page, 'S1'))
+      .toEqual(['a1 a0 a2 al0* al1*', 'b0 b1']);
+    expect(await windowIdsOf(page, 'S1')).toEqual(['w1', 'w2']);
+  });
 });

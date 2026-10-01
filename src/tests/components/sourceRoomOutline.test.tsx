@@ -61,6 +61,7 @@ function keyOf(el: Element): string | undefined {
   if (d.dropWindowId !== undefined) return `win:${d.dropWindowId}`;
   if (d.fixedRowId !== undefined) return `fixed:${d.fixedRowId}`;
   if (d.bandId !== undefined) return `band:${d.bandId}`;
+  if (d.newWindowTarget === 'first') return 'header:new-window';
   return undefined;
 }
 
@@ -244,8 +245,8 @@ const release = (y: number, x = X) =>
 
 // Presses the tab `id` at its middle and drags it 8px down: a started drag,
 // still over its own place.
-function pickUpTab(id: string): HTMLElement {
-  table = TAB_LAYOUT;
+function pickUpTab(id: string, layout: Table = TAB_LAYOUT): HTMLElement {
+  table = layout;
   const y = layoutTopOf(`row:${id}`) + 16;
   fireEvent.pointerDown(row(id), { clientX: X, clientY: y, button: 0 });
   moveTo(y + 8);
@@ -478,5 +479,84 @@ describe('no outline for an adopted carry', () => {
     expect(translateOf(row('u1'))).toBe(32);
     expect(translateOf(block('d2'))).toBe(32);
     expect(outlines()).toHaveLength(0);
+  });
+});
+
+// KAN-361 (N1 B, Q2 ii). The session header's New window target is a
+// landing outside the list: a new first window. While it is the landing the
+// row's own window closes up behind it with its room outlined at its bottom,
+// exactly as for a drop into another window -- and nothing else moves, since
+// there is no destination in the list to make room in. No slot is drawn:
+// the lit target shows where the row goes.
+describe('on the header’s New window target (KAN-361, Q2 ii)', () => {
+  // Above the pane, as the toolbar row is: 0..400 across, -40..-8 down.
+  const HEADER_Y = -24;
+  let header: HTMLElement;
+  beforeEach(() => {
+    header = document.createElement('div');
+    header.dataset.newWindowTarget = 'first';
+    document.body.append(header);
+  });
+  afterEach(() => {
+    header.remove();
+    document.documentElement.removeAttribute('data-drag-new-window');
+  });
+  const WITH_HEADER: Table = {
+    ...TAB_LAYOUT,
+    'header:new-window': [-40, 32],
+  };
+
+  test('a tab held there: its window closes up, its room outlined at that window’s bottom; nothing else moves, no slot, the target lit', async () => {
+    const { store } = await renderDetail('SR');
+    const held = pickUpTab('a0', WITH_HEADER);
+
+    moveTo(HEADER_Y);
+
+    expect(header.hasAttribute('data-landing')).toBe(true);
+    expect(held.querySelector(':scope > [data-drag-landing-slot]')).toBe(null);
+    // w1 closes up under a0's place.
+    for (const id of ['x0', 'x1', 'a1']) {
+      expect(translateOf(row(id))).toBe(-32);
+    }
+    // Nothing else moves: not w2, not its rows.
+    expect(block('w2').dataset.windowShift ?? '0').toBe('0');
+    expect(translateOf(row('b0'))).toBe(0);
+    expect(translateOf(row('b1'))).toBe(0);
+    // The room, outlined at w1's bottom: 160..192, where a1 stood.
+    expect(outlines()).toHaveLength(1);
+    expect(drawnTop(outlineOf(held), layoutTopOf('row:a0'))).toBe(160);
+
+    release(HEADER_Y);
+    const data = store.getState().tabContainerDataState;
+    const sr = data.tabGroups.find((g) => g.tabGroupId === 'SR');
+    expect(sr?.windows.map(tabIds)).toEqual([
+      ['a0'],
+      ['x0', 'x1', 'a1'],
+      ['b0', 'b1'],
+    ]);
+    expect(header.hasAttribute('data-landing')).toBe(false);
+  });
+
+  // A list scrolled down can leave a band of the held row's window above
+  // the pane, behind the header, where a viewport hit test still finds it.
+  // A new window holds no band: none is marked, and none is joined.
+  test('a band behind the header is not the target', async () => {
+    const { store } = await renderDetail('SR');
+    pickUpTab('a0', WITH_HEADER);
+    // ga, scrolled up behind the target.
+    table = { ...WITH_HEADER, 'band:ga': [-48, 96] };
+
+    moveTo(HEADER_Y);
+
+    expect(header.hasAttribute('data-landing')).toBe(true);
+    expect(document.querySelectorAll('[data-drop-target]')).toHaveLength(0);
+    release(HEADER_Y);
+    const first = store
+      .getState()
+      .tabContainerDataState.tabGroups.find((g) => g.tabGroupId === 'SR')
+      ?.windows[0];
+    expect(first?.tabs.map((t) => [t.tabId, t.chromeGroupId])).toEqual([
+      ['a0', undefined],
+    ]);
   });
 });

@@ -3,7 +3,8 @@
 // thunk per kind, each taking the spot as the detail DRAWS it -- the
 // synthetic New window target included -- and routing it:
 //
-//   - on the New window target (CARRY_NEW_WINDOW_ID): moveToSession, as a new
+//   - on a New window target -- the in-list one (CARRY_NEW_WINDOW_ID) or the
+//     session header's (NEW_FIRST_WINDOW, KAN-361): moveToSession, as a new
 //     first window (S3 A), whichever session is on screen (Q2 A);
 //   - in the item's OWN session: today's tabDrop / groupDrop / windowDrop,
 //     from the item's original window, so their no-op guards and prune rules
@@ -23,6 +24,11 @@ import { moveToSession } from './moveToSession';
 import type { CarriedRef } from './slices/tabContainerDataStateSlice';
 import type { RootState } from './store';
 import { CARRY_NEW_WINDOW_ID } from '../utils/functions/carriedView';
+import { NEW_FIRST_WINDOW } from '../components/home/rightpane/newWindowTarget';
+
+// Either New window target, each a new first window (S3 A, KAN-361 N1 B).
+const isNewFirstWindow = (toWindowId: string) =>
+  toWindowId === CARRY_NEW_WINDOW_ID || toWindowId === NEW_FIRST_WINDOW;
 
 type Moved = ThunkAction<boolean, RootState, unknown, UnknownAction>;
 
@@ -42,7 +48,7 @@ export const dropCarriedTab =
   ): Moved =>
   (dispatch) => {
     const { tabGroupId, toWindowId, toIndex, toChromeGroupId } = spot;
-    if (toWindowId === CARRY_NEW_WINDOW_ID) {
+    if (isNewFirstWindow(toWindowId)) {
       return dispatch(
         moveToSession({
           move: { carried, to: intoNewWindow(tabGroupId, 'first') },
@@ -80,7 +86,7 @@ export const dropCarriedGroup =
   (carried: Extract<CarriedRef, { kind: 'group' }>, spot: CarriedSpot): Moved =>
   (dispatch) => {
     const { tabGroupId, toWindowId, toIndex } = spot;
-    if (toWindowId === CARRY_NEW_WINDOW_ID) {
+    if (isNewFirstWindow(toWindowId)) {
       return dispatch(
         moveToSession({
           move: { carried, to: intoNewWindow(tabGroupId, 'first') },
