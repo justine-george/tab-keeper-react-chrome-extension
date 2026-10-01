@@ -1,4 +1,4 @@
-import { createRef } from 'react';
+import { Profiler, createRef } from 'react';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { act, fireEvent, screen } from '@testing-library/react';
 
@@ -166,8 +166,8 @@ const ACTIVE_TAB = {
   ],
 };
 
-async function renderDetail(seed?: typeof ACTIVE_TAB) {
-  const result = await renderWithProviders(DETAIL, {
+async function renderDetail(seed?: typeof ACTIVE_TAB, ui = DETAIL) {
+  const result = await renderWithProviders(ui, {
     seed,
     seedStore: (store) => {
       store.dispatch(setHasTabGroupsPermission(true));
@@ -483,6 +483,264 @@ describe('the hand-off to the carry', () => {
     );
     observer.disconnect();
     expect(removed).not.toContain(el);
+  });
+});
+
+// KAN-359. The card and the hidden row arrive in ONE commit. In the popup the
+// card went up from activation, on the pointermove itself: CarryLayer reads it
+// through useSyncExternalStore, which renders on the sync lane, in a
+// microtask, inside the same frame. The row is hidden by the engine's
+// setDrag, which a native pointermove schedules on the continuous lane, as a
+// later task, after that frame has painted -- so two frames drew both the
+// card and the row it stands for (e2e/in-session-card.spec.ts, "the pick-up,
+// frame by frame").
+//
+// RTL's fireEvent runs inside act, which renders both lanes together and so
+// cannot show the gap. The events below are dispatched as the browser
+// dispatches them, outside act, so each update waits in its own lane exactly
+// as it does in the popup.
+declare global {
+  // React's own flag (react-dom reads it off the global object); RTL sets it.
+  var IS_REACT_ACT_ENVIRONMENT: boolean | undefined;
+}
+
+describe('the pick-up arrives in one commit (KAN-359)', () => {
+  let actEnvironment: boolean | undefined;
+  beforeEach(() => {
+    actEnvironment = globalThis.IS_REACT_ACT_ENVIRONMENT;
+  });
+  afterEach(() => {
+    globalThis.IS_REACT_ACT_ENVIRONMENT = actEnvironment;
+  });
+
+  // Every card dragCard.ts publishes, as the layer would read it, with
+  // whether the row it stands for was already hidden at that moment.
+  interface Published {
+    x: number;
+    y: number;
+    rowHidden: boolean;
+  }
+  function recordCards(held: HTMLElement): {
+    published: Published[];
+    stop: () => void;
+  } {
+    const published: Published[] = [];
+    const stop = subscribeDragCard(() => {
+      const card = currentDragCard();
+      if (card === null) return;
+      published.push({
+        x: card.x,
+        y: card.y,
+        rowHidden:
+          held.hasAttribute('data-held-as-card') &&
+          contentOf(held).every((c) => getComputedStyle(c).opacity === '0'),
+      });
+    });
+    return { published, stop };
+  }
+
+  // Outside act, as the browser dispatches them -- `window.event` included,
+  // which is what React reads to pick an update's lane. jsdom's own stops
+  // working the first time React handles an event: react-dom's dev build
+  // assigns it (invokeGuardedCallbackDev), and from then on it answers that
+  // event for good -- here the press's pointerdown, a DISCRETE event, which
+  // put the engine's setDrag on the sync lane with the card and hid the gap
+  // this test is about. So the dispatch says what the browser would.
+  const dispatchAsBrowser = (event: Event) => {
+    const before = Object.getOwnPropertyDescriptor(window, 'event');
+    Object.defineProperty(window, 'event', {
+      configurable: true,
+      get: () => event,
+    });
+    try {
+      window.dispatchEvent(event);
+    } finally {
+      if (before === undefined) Reflect.deleteProperty(window, 'event');
+      else Object.defineProperty(window, 'event', before);
+    }
+  };
+  const nativeMove = (x: number, y: number) =>
+    dispatchAsBrowser(
+      new PointerEvent('pointermove', { clientX: x, clientY: y })
+    );
+  const nativeEscape = () =>
+    dispatchAsBrowser(new KeyboardEvent('keydown', { key: 'Escape' }));
+  // What the sync lane needs: React flushes it in a microtask.
+  const microtasks = async () => {
+    for (let i = 0; i < 5; i += 1) await Promise.resolve();
+  };
+  // What every other lane needs: the Scheduler runs it as a later task.
+  const tasks = () => new Promise<void>((resolve) => setTimeout(resolve, 50));
+
+  test.each(KINDS)(
+    'a $name: the card is published once, after the row it stands for is hidden, and then only moved',
+    async (kind) => {
+      await renderDetail();
+      const held = row(kind.held);
+      const { published, stop } = recordCards(held);
+
+      pickUp(kind);
+      // Each move re-renders the area with a new drag state: none of those
+      // renders may put the card up again.
+      moveTo(kind.pressY + 20);
+      moveTo(kind.pressY + 30, X + 5);
+      stop();
+
+      expect(published).toEqual([
+        { x: X, y: kind.pressY + 8, rowHidden: true },
+        { x: X, y: kind.pressY + 20, rowHidden: true },
+        { x: X + 5, y: kind.pressY + 30, rowHidden: true },
+      ]);
+
+      act(() => {
+        fireEvent.keyDown(window, { key: 'Escape' });
+      });
+      release(kind.pressY + 30, X + 5);
+    }
+  );
+
+  test('in the browser’s order: no card until the commit that hides the row, then both, at the latest pointer', async () => {
+    // Whether the card was up in the commit that first hid the row. A
+    // Profiler's onRender runs in that commit's layout phase, after every
+    // layout effect inside it -- the area's included. A card shown from a
+    // passive effect would still be down there, and a frame could paint the
+    // hidden row with no card.
+    const cardUpWhenHidden: boolean[] = [];
+    const onCommit = () => {
+      const el = document.querySelector('[data-drag-row-id="t2"]');
+      if (
+        el?.hasAttribute('data-held-as-card') === true &&
+        cardUpWhenHidden.length === 0
+      )
+        cardUpWhenHidden.push(currentDragCard() !== null);
+    };
+    await renderDetail(
+      undefined,
+      <>
+        <Profiler id="detail" onRender={onCommit}>
+          <TabGroupDetailsContainer />
+        </Profiler>
+        <CarryLayer />
+      </>
+    );
+    table = TAB.layout;
+    const held = row(TAB.held);
+    fireEvent.pointerDown(TAB.press(), {
+      clientX: X,
+      clientY: TAB.pressY,
+      button: 0,
+    });
+    globalThis.IS_REACT_ACT_ENVIRONMENT = false;
+    const { published, stop } = recordCards(held);
+
+    nativeMove(X, TAB.pressY + 8);
+    await microtasks();
+
+    // The premise: the drag has started -- activate writes the marker
+    // straight to the DOM -- and React has not yet rendered its state.
+    expect(held.hasAttribute('data-drag-held')).toBe(true);
+    expect(held.hasAttribute('data-held-as-card')).toBe(false);
+    // The claim: nor is the card up. The pick-up looks as it does on main.
+    expect(dragCard()).toBeNull();
+    expect(currentDragCard()).toBeNull();
+
+    // A second move before the commit: the card goes up where the pointer
+    // IS, not where the drag started.
+    nativeMove(X, TAB.pressY + 20);
+    await tasks();
+    stop();
+
+    expect(held.hasAttribute('data-held-as-card')).toBe(true);
+    expect(dragCard()).not.toBeNull();
+    expect(cardUpWhenHidden).toEqual([true]);
+    expect(published).toEqual([{ x: X, y: TAB.pressY + 20, rowHidden: true }]);
+
+    nativeEscape();
+    await tasks();
+    expect(dragCard()).toBeNull();
+    globalThis.IS_REACT_ACT_ENVIRONMENT = actEnvironment;
+    release(TAB.pressY + 20);
+  });
+
+  test('Esc before that commit: no card is ever shown', async () => {
+    await renderDetail();
+    table = TAB.layout;
+    const held = row(TAB.held);
+    fireEvent.pointerDown(TAB.press(), {
+      clientX: X,
+      clientY: TAB.pressY,
+      button: 0,
+    });
+    globalThis.IS_REACT_ACT_ENVIRONMENT = false;
+    const { published, stop } = recordCards(held);
+
+    nativeMove(X, TAB.pressY + 8);
+    // The premise: the drag started.
+    expect(held.hasAttribute('data-drag-held')).toBe(true);
+    nativeEscape();
+    await tasks();
+    stop();
+
+    expect(published).toEqual([]);
+    expect(dragCard()).toBeNull();
+    expect(currentDragCard()).toBeNull();
+    expect(held.hasAttribute('data-drag-held')).toBe(false);
+    expect(held.hasAttribute('data-held-as-card')).toBe(false);
+    globalThis.IS_REACT_ACT_ENVIRONMENT = actEnvironment;
+    release(TAB.pressY + 8);
+  });
+
+  test('a hand-off before that commit: the carry’s card, and never a drag card', async () => {
+    await renderDetail();
+    table = TAB.layout;
+    const held = row(TAB.held);
+    fireEvent.pointerDown(TAB.press(), {
+      clientX: X,
+      clientY: TAB.pressY,
+      button: 0,
+    });
+    globalThis.IS_REACT_ACT_ENVIRONMENT = false;
+    const { published, stop } = recordCards(held);
+
+    nativeMove(X, TAB.pressY + 8);
+    // Onto the stood-in session list, before React has rendered the drag.
+    nativeMove(-40, TAB.pressY + 8);
+    await tasks();
+    stop();
+
+    // The premise: the drag was handed off.
+    expect(currentCarry()?.carried).toMatchObject({ tabId: 't2' });
+    expect(carryCard()).not.toBeNull();
+    // The claim: the drag card never went up, and is not up now.
+    expect(published).toEqual([]);
+    expect(dragCard()).toBeNull();
+    expect(currentDragCard()).toBeNull();
+    expect(held.hasAttribute('data-drag-held')).toBe(false);
+    globalThis.IS_REACT_ACT_ENVIRONMENT = actEnvironment;
+    act(() => endCarry('cancelled'));
+  });
+
+  test('the area unmounting before that commit leaves no card', async () => {
+    const { rerender } = await renderDetail();
+    table = TAB.layout;
+    fireEvent.pointerDown(TAB.press(), {
+      clientX: X,
+      clientY: TAB.pressY,
+      button: 0,
+    });
+    globalThis.IS_REACT_ACT_ENVIRONMENT = false;
+
+    nativeMove(X, TAB.pressY + 8);
+    // The premise: the drag started.
+    expect(row(TAB.held).hasAttribute('data-drag-held')).toBe(true);
+    globalThis.IS_REACT_ACT_ENVIRONMENT = actEnvironment;
+    rerender(<CarryLayer />);
+    globalThis.IS_REACT_ACT_ENVIRONMENT = false;
+    await tasks();
+
+    expect(document.querySelector('[data-drag-row-id="t2"]')).toBeNull();
+    expect(dragCard()).toBeNull();
+    expect(currentDragCard()).toBeNull();
   });
 });
 

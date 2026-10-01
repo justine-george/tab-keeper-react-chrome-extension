@@ -406,6 +406,145 @@ test.describe('C2: the session list keeps its lifted row', () => {
   });
 });
 
+// ---- the pick-up, frame by frame --------------------------------------------
+
+// One animation frame as it is about to be painted: the card, and the row
+// being picked up. Read in requestAnimationFrame, which runs after the
+// frame's input events and the microtasks they queued, and before its style
+// and paint -- so a frame's record is the DOM that frame draws.
+interface PickUpFrame {
+  t: number;
+  card: boolean;
+  held: boolean;
+  asCard: boolean;
+  // The most opaque of the row's own children (slots excluded): above 0,
+  // something of the row itself is drawn.
+  content: number;
+  shadow: string;
+}
+
+declare global {
+  interface Window {
+    __kan354Frames?: PickUpFrame[];
+    __kan354StopFrames?: boolean;
+  }
+}
+
+async function startFrameLog(page: Page, rowId: string): Promise<void> {
+  await page.evaluate((rowId) => {
+    const frames: PickUpFrame[] = [];
+    window.__kan354Frames = frames;
+    window.__kan354StopFrames = false;
+    const sample = (t: number) => {
+      const el = document.querySelector(`[data-drag-row-id="${rowId}"]`);
+      const content =
+        el === null
+          ? []
+          : [...el.children]
+              .filter(
+                (c) =>
+                  !c.hasAttribute('data-drag-landing-slot') &&
+                  !c.hasAttribute('data-drag-source-room')
+              )
+              .map((c) => Number(getComputedStyle(c).opacity));
+      frames.push({
+        t,
+        card: document.querySelector('[data-drag-card]') !== null,
+        held: el?.hasAttribute('data-drag-held') ?? false,
+        asCard: el?.hasAttribute('data-held-as-card') ?? false,
+        content: content.length === 0 ? -1 : Math.max(...content),
+        shadow: el === null ? '' : getComputedStyle(el).boxShadow,
+      });
+      if (!window.__kan354StopFrames) requestAnimationFrame(sample);
+    };
+    requestAnimationFrame(sample);
+  }, rowId);
+}
+
+async function stopFrameLog(page: Page): Promise<PickUpFrame[]> {
+  return page.evaluate(() => {
+    window.__kan354StopFrames = true;
+    return window.__kan354Frames ?? [];
+  });
+}
+
+// Every frame, compressed to the distinct pictures in order, for the report.
+const framePictures = (frames: PickUpFrame[]): string[] =>
+  frames
+    .map(
+      (f) =>
+        `card=${f.card ? 1 : 0} held=${f.held ? 1 : 0} asCard=${
+          f.asCard ? 1 : 0
+        } content=${f.content} shadow=${f.shadow === 'none' ? 'none' : 'lift'}`
+    )
+    .filter((p, i, all) => i === 0 || all[i - 1] !== p);
+
+test.describe('the pick-up, frame by frame', () => {
+  // KAN-359. The card used to go up at activation, drawn through
+  // useSyncExternalStore, which renders on React's sync lane, while the row
+  // is hidden through the engine's setDrag, which a pointermove schedules on
+  // the continuous lane -- and two frames painted both the card AND the row
+  // it stands for (12 of 12 pick-ups, every kind). The card now goes up in
+  // the commit that hides the row. Every frame from before the press through
+  // the activation is read.
+  const PICK_UPS: {
+    kind: string;
+    rowId: string;
+    handle: (page: Page) => Locator;
+  }[] = [
+    { kind: 'tab', rowId: 'a1', handle: (page) => row(page, 'a1') },
+    {
+      kind: 'group',
+      rowId: 'group:alpha',
+      handle: (page) => groupHandle(page, 'alpha'),
+    },
+    { kind: 'window', rowId: 'w1', handle: (page) => windowHandle(page, 'w1') },
+  ];
+  for (const { kind, rowId, handle } of PICK_UPS) {
+    test(`a ${kind}: no frame shows the card beside a visible held row`, async ({
+      context,
+      extensionId,
+    }) => {
+      const page = await openPopup(context, extensionId);
+      await startFrameLog(page, rowId);
+      await pickUp(page, handle(page));
+      // Some frames past the activation, with the pointer still.
+      await expect(page.locator(DRAG_CARD)).toHaveCount(1);
+      await page.evaluate(
+        () =>
+          new Promise<void>((resolve) => {
+            let n = 0;
+            const tick = () =>
+              ++n >= 10 ? resolve() : requestAnimationFrame(tick);
+            requestAnimationFrame(tick);
+          })
+      );
+      const frames = await stopFrameLog(page);
+      await cancel(page);
+      await test.info().attach(`${kind}-frames`, {
+        body: framePictures(frames).join('\n'),
+        contentType: 'text/plain',
+      });
+
+      // PREMISE: the log spans the pick-up -- a frame before it (no card,
+      // the row drawn) and frames after it (card, row hidden).
+      expect(frames.some((f) => !f.card && !f.held && f.content === 1)).toBe(
+        true
+      );
+      expect(frames.some((f) => f.card && f.asCard && f.content === 0)).toBe(
+        true
+      );
+      // THE CLAIM: no frame paints both.
+      const both = frames.filter((f) => f.card && f.content > 0);
+      expect(both, framePictures(frames).join('\n')).toEqual([]);
+      // Nor neither (KAN-359): the card goes up in the commit that hides the
+      // row, so no frame shows the hidden row with no card at the pointer.
+      const neither = frames.filter((f) => f.asCard && !f.card);
+      expect(neither, framePictures(frames).join('\n')).toEqual([]);
+    });
+  }
+});
+
 test.describe('C3: the outline over the room a cross-window drag leaves', () => {
   const OUTLINE = '[data-drag-source-room]';
 

@@ -27,6 +27,7 @@ import React, {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -372,6 +373,10 @@ interface LiveDrag {
   // carryOut a hand-off would use, so the card the user drags is the card
   // the carry then keeps.
   card: CarryCard | null;
+  // Whether `card` has been put up (KAN-359). Not at activation: in the
+  // commit that hides the held row -- see the layout effect that shows it.
+  // Once per drag; the card is only moved from then on.
+  cardShown: boolean;
 }
 
 // A drag as the press (or an adoption) starts it: not yet measured, which is
@@ -419,6 +424,7 @@ function pressRecord(
     adopted,
     landingWindow: undefined,
     card: null,
+    cardShown: false,
   };
 }
 
@@ -1389,12 +1395,14 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       //
       // Not for an adopted drag: the carry it came from already shows its
       // card, the same element (CarryLayer), and a second would cover it.
+      //
+      // Decided here, and NOT shown here (KAN-359): `l.card` is what makes
+      // the next setDrag draw the row as hidden (heldShownAsCard), and the
+      // card goes up in the commit that does -- see the layout effect below
+      // the listeners.
       if (!l.adopted) {
         const out = carryOut?.(l.rowId) ?? null;
-        if (out !== null) {
-          l.card = out.card;
-          showDragCard(cardOwner, out.card, l.lastX, l.lastY);
-        }
+        if (out !== null) l.card = out.card;
       }
     };
 
@@ -1474,6 +1482,8 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
 
       // The card follows the pointer (KAN-354). After the hand-off, which
       // has hidden it by then: from there the carry moves the same element.
+      // A no-op until the card is up (KAN-359): dragCard.ts moves only a
+      // card that is on, and only for the area that showed it.
       if (l.card !== null) moveDragCard(cardOwner, e.clientX, e.clientY);
 
       // The target update() drew this preview for, at this SAME pointer
@@ -1795,6 +1805,36 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     // runs on unmount and nothing else.
     [cardOwner]
   );
+
+  // The card goes up in the commit that hides the row it stands for
+  // (KAN-359), so the two arrive in one frame: a store update made in a
+  // layout effect is rendered before the browser paints.
+  //
+  // It used to go up in activate(), on the pointermove itself, and two frames
+  // drew both the card and the row (measured: 12 of 12 pick-ups, tab, group
+  // and window). The two reach the screen on different lanes. CarryLayer
+  // reads the card through useSyncExternalStore, which renders on the sync
+  // lane, in a microtask, inside the same frame. The row is hidden by
+  // setDrag, which a native pointermove schedules on the continuous lane, as
+  // a later task -- after that frame has painted. Until this commit the
+  // pick-up looks as a drag with no card does: the row drawn in its place
+  // (a tab's lifted by App.css), and nothing at the pointer.
+  //
+  // Only for the drag that is still live (`live.current`), and the row this
+  // state holds, so a drag that ended, or was handed to the carry, before
+  // this commit never shows a card: Esc, a release, the area turning drag
+  // off, and a hand-off all clear `live.current` before they return. Once
+  // per drag (`cardShown`): every move re-renders with a new state, and from
+  // here the card is only moved. At the pointer as it is NOW, which may be
+  // some moves past the one that started the drag.
+  useLayoutEffect(() => {
+    const l = live.current;
+    if (drag === null || !drag.heldShownAsCard) return;
+    if (l === null || l.card === null || l.cardShown) return;
+    if (l.rowId !== drag.rowId) return;
+    l.cardShown = true;
+    showDragCard(cardOwner, l.card, l.lastX, l.lastY);
+  }, [drag, cardOwner]);
 
   // Known to every footprint's climb as a box holding a list's rows -- see
   // footprintOf. The element is the same for the life of the area.
