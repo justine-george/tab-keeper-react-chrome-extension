@@ -355,7 +355,8 @@ async function expectNothingOfHeldDrawn(held: Locator): Promise<void> {
 
 // The held row's own place: its box with the pointer's translate taken out.
 const ownPlaceOf = (held: Locator) =>
-  held.evaluate((el: HTMLElement) => {
+  held.evaluate((el) => {
+    if (!(el instanceof HTMLElement)) throw new Error('not an HTMLElement');
     const shift = Number(
       /translateY\((-?[\d.]+)px\)/.exec(el.style.transform)?.[1] ?? 0
     );
@@ -415,7 +416,8 @@ async function adoptPhantom(page: Page, phantomId: string): Promise<Locator> {
   await page.mouse.move(x, b.y + b.height / 2, { steps: 8 });
   await expect(phantom).toHaveAttribute('data-drag-held', '');
   const ownCentre = () =>
-    phantom.evaluate((el: HTMLElement) => {
+    phantom.evaluate((el) => {
+      if (!(el instanceof HTMLElement)) throw new Error('not an HTMLElement');
       const shift = Number(
         /translateY\((-?[\d.]+)px\)/.exec(el.style.transform)?.[1] ?? 0
       );
@@ -930,12 +932,14 @@ test.describe('C3: the outline over the room a cross-window drag leaves', () => 
 
   // How far the preview moved a window's block (KAN-184), as it publishes.
   const windowShift = (page: Page, windowId: string): Promise<number> =>
-    page
-      .locator(`[data-drop-window-id="${windowId}"]`)
-      .evaluate((el: HTMLElement) => Number(el.dataset.windowShift ?? 0));
+    page.locator(`[data-drop-window-id="${windowId}"]`).evaluate((el) => {
+      if (!(el instanceof HTMLElement)) throw new Error('not an HTMLElement');
+      return Number(el.dataset.windowShift ?? 0);
+    });
 
-  // The outline's paint: dotted, at 0.45, not hidden with the held row's
-  // content, and the landing slot's colour and line width -- 1.5px, which
+  // The outline's paint: dotted, at 0.45 (its own inline opacity, which
+  // the held row's `opacity: 0` on its content could not outrank), visible,
+  // and the landing slot's colour and line width -- 1.5px, which
   // Chrome snaps to whole device pixels (1px at this DPR) for both alike.
   async function expectOutlineLook(page: Page): Promise<void> {
     const look = await page.locator(OUTLINE).evaluate((el) => {
@@ -1047,7 +1051,8 @@ test.describe('C3: the outline over the room a cross-window drag leaves', () => 
     await pickUp(page, groupHandle(page, 'alpha'));
     const held = row(page, 'group:alpha');
     // The compressed box, measured with the drag on.
-    const compressed = await held.evaluate((el: HTMLElement) => {
+    const compressed = await held.evaluate((el) => {
+      if (!(el instanceof HTMLElement)) throw new Error('not an HTMLElement');
       const shift = Number(
         /translateY\((-?[\d.]+)px\)/.exec(el.style.transform)?.[1] ?? 0
       );
@@ -1551,6 +1556,10 @@ test.describe('a long, scrolled session', () => {
     await expectCardAt(page, low);
     await expect(held).toHaveAttribute('data-held-as-card', '');
     await expectNothingOfHeldDrawn(held);
+    // PREMISE, not a claim: the slot is drawn. Measured, it sits about a row
+    // from the held row here (slot 481..513, row 513..545), where a lifted
+    // row's fading slot is near 1 already, so this barely tells the two
+    // looks apart; C1's pick-up, at distance 0, does.
     expect(await slotOpacity(held)).toBe('1');
     const slot = await drawn(held.locator(':scope > [data-drag-landing-slot]'));
     expect(slot.top).toBeGreaterThanOrEqual(pane.top - 0.5);

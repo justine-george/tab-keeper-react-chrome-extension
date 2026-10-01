@@ -12,8 +12,9 @@ import { grantedTest as test, expect } from './fixtures/grantedExtension';
 // nobody can tell. Held, the row floats over the other rows, and the reported
 // symptom was seeing a tab's favicon through the gap.
 //
-// Measured, resting and dragging alike: strip 435.5..438.5, the row's own fill
-// starting at 444.5.
+// Measured when this ran on a SAVED session's group (historical, before the
+// move to Open now below; not re-measured there), resting and dragging alike:
+// strip 435.5..438.5, the row's own fill starting at 444.5.
 //
 // Driven in OPEN NOW (KAN-354). This ran on a saved session's group until a
 // saved list's held row was hidden and drawn by the card at the pointer: the

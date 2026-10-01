@@ -1065,29 +1065,6 @@ test.describe('a group travels whole', () => {
   });
 });
 
-// The landing slot's arithmetic adds the TARGET row's own footprint, not the
-// held row's, and that term only shows itself when the two differ: a loose tab
-// takes 34px (32 plus the item margin), a tab inside a group takes 32 (members
-// sit flush). Dropping the term puts the slot 32px out.
-//
-// It cannot be measured in isolation, though, and that is a property of the
-// app rather than of the test. A target whose footprint differs is always a
-// grouped tab, and releasing there is exactly what makes the held tab JOIN
-// that group (dropRules.bandAt) -- so it lands at 32px as a member, not 34px
-// as a loose tab. Measured: the slot promises 444 and the tab lands at 446.
-//
-// So the slot is exact when the drop leaves membership alone, and within one
-// item margin when the drop also joins a group. The test below pins that
-// bound, which still fails by 32px if the target's footprint is dropped.
-// KAN-166. A dragged row shows the slot it will land in.
-//
-// The strongest thing to assert is that the placeholder does not lie: it
-// promises a position while the pointer is down, so record it mid-drag and
-// require the dropped row to actually land there.
-//
-// In the TAB list, which folds nothing -- a window drag folds every window
-// (KAN-153), so its mid-drag layout is not the layout the drop lands in, and
-// the comparison would be between two different lists.
 // 80px into a row, at its middle height.
 async function centreOf(page: Page, selector: string) {
   const b = await page.locator(selector).boundingBox();
@@ -1185,6 +1162,29 @@ async function openWithSessions(
   return page;
 }
 
+// The landing slot's arithmetic adds the TARGET row's own footprint, not the
+// held row's, and that term only shows itself when the two differ: a loose tab
+// takes 34px (32 plus the item margin), a tab inside a group takes 32 (members
+// sit flush). Dropping the term puts the slot 32px out.
+//
+// It cannot be measured in isolation, though, and that is a property of the
+// app rather than of the test. A target whose footprint differs is always a
+// grouped tab, and releasing there is exactly what makes the held tab JOIN
+// that group (dropRules.bandAt) -- so it lands at 32px as a member, not 34px
+// as a loose tab. Measured: the slot promises 444 and the tab lands at 446.
+//
+// So the slot is exact when the drop leaves membership alone, and within one
+// item margin when the drop also joins a group. The test below pins that
+// bound, which still fails by 32px if the target's footprint is dropped.
+// KAN-166. A dragged row shows the slot it will land in.
+//
+// The strongest thing to assert is that the placeholder does not lie: it
+// promises a position while the pointer is down, so record it mid-drag and
+// require the dropped row to actually land there.
+//
+// In the TAB list, which folds nothing -- a window drag folds every window
+// (KAN-153), so its mid-drag layout is not the layout the drop lands in, and
+// the comparison would be between two different lists.
 test.describe('the slot a dragged row will land in', () => {
   test('is drawn where the row actually lands', async ({
     context,
