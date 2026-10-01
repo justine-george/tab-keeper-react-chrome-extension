@@ -2000,3 +2000,155 @@ test.describe('a carried group opens the gap any group drag opens', () => {
     });
   }
 });
+
+// ---- KAN-362 ------------------------------------------------------------------
+
+// The landing slot is drawn inside the held row and takes its box. An adopted
+// carry's held row is the phantom in the New window target, so the slot is
+// only as wide as a landing row if the phantom is laid out as one: a window's
+// tab list is indented, and the target sits inside a border.
+const box = (page: Page, selector: string) =>
+  page.evaluate((selector) => {
+    const el = document.querySelector(selector);
+    if (el === null) return null;
+    const b = el.getBoundingClientRect();
+    return { left: b.left, right: b.right };
+  }, selector);
+
+async function expectSlotAsWideAs(
+  page: Page,
+  ref: { left: number; right: number }
+): Promise<void> {
+  // PREMISE: the landing is out of the target, where the slot is drawn (a
+  // landing inside it lights the box and hides the slot, V2 A).
+  expect(
+    await page.locator('[data-new-window-target][data-landing]').count()
+  ).toBe(0);
+  // PREMISE: the reference row is indented, so a layout with no indent
+  // cannot match it.
+  expect(ref.left - (await detailPane(page)).left).toBeGreaterThan(60);
+  const slot = await box(page, '[data-drag-landing-slot]');
+  if (slot === null) throw new Error('no landing slot drawn');
+  // Raw boxes, unrounded, to within 0.005px: the target's border is 1.5px.
+  expect(slot.left, 'slot left').toBeCloseTo(ref.left, 2);
+  expect(slot.right, 'slot right').toBeCloseTo(ref.right, 2);
+}
+
+const rowBox = async (page: Page, rowId: string) => {
+  const b = await box(page, `[data-drag-row-id="${rowId}"]`);
+  if (b === null) throw new Error(`no row ${rowId}`);
+  return b;
+};
+
+test.describe('a carried tab or group lands in a slot as wide as the row it becomes (KAN-362)', () => {
+  const kinds = [
+    { kind: 'tab', rowId: 'a0', phantom: 'carried:a0', inS2: 'c1' },
+    {
+      kind: 'group',
+      rowId: 'group:alpha',
+      phantom: 'group:carried:alpha',
+      inS2: 'group:gamma',
+    },
+  ] as const;
+
+  for (const k of kinds) {
+    test(`a ${k.kind} brought back into its own session: the slot is the row's own box`, async ({
+      context,
+      extensionId,
+    }) => {
+      const page = await openPopup(context, extensionId);
+      // Read before the pick-up: the box the row has as an ordinary row.
+      const own = await rowBox(page, k.rowId);
+      const handle =
+        k.kind === 'tab' ? tabHandle(page, 'a0') : groupHandle(page, 'alpha');
+      const at = await pickUp(page, handle);
+      await carryOutLeft(page, at);
+      await adoptPhantom(page, k.phantom);
+      await aimAt(page, 'a2', 0.5);
+      await expectSlotAsWideAs(page, own);
+      await page.keyboard.press('Escape');
+      await page.mouse.up();
+    });
+
+    test(`a ${k.kind} carried into a spring-opened session: the slot is the box of a ${k.kind} there`, async ({
+      context,
+      extensionId,
+    }) => {
+      const page = await openPopup(context, extensionId);
+      const handle =
+        k.kind === 'tab' ? tabHandle(page, 'a0') : groupHandle(page, 'alpha');
+      const at = await pickUp(page, handle);
+      await carryOutLeft(page, at);
+      await springOpen(page, 'S2');
+      await adoptPhantom(page, k.phantom);
+      await aimAt(page, 'c1', 0.25);
+      // Beside gamma, for a group: a band's box exactly.
+      await expectSlotAsWideAs(page, await rowBox(page, k.inS2));
+      await page.keyboard.press('Escape');
+      await page.mouse.up();
+    });
+  }
+
+  test("a tab carried into the folded tab view's peek: the slot is a tab row's box", async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openTabView(context, extensionId, true);
+    const at = await pickUp(page, tabHandle(page, 'a0'));
+    await carryOutLeft(page, at);
+    await springOpen(page, 'S2');
+    await expect(page.locator('[data-drag-row-id="d1"]')).toBeVisible();
+    await adoptPhantom(page, 'carried:a0');
+    await aimAt(page, 'c1', 0.25);
+    await expectSlotAsWideAs(page, await rowBox(page, 'c1'));
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+  });
+
+  // A Retina screen: the border's width was measured per DPR.
+  test.describe('at DPR 2', () => {
+    test.use({ deviceScaleFactor: 2 });
+    test("a tab brought back, the slot is the row's own box", async ({
+      context,
+      extensionId,
+    }) => {
+      const page = await openPopup(context, extensionId);
+      // PREMISE: the scale reached the page.
+      expect(await page.evaluate(() => devicePixelRatio)).toBe(2);
+      const own = await rowBox(page, 'a0');
+      const at = await pickUp(page, tabHandle(page, 'a0'));
+      await carryOutLeft(page, at);
+      await adoptPhantom(page, 'carried:a0');
+      await aimAt(page, 'a2', 0.5);
+      await expectSlotAsWideAs(page, own);
+      await page.keyboard.press('Escape');
+      await page.mouse.up();
+    });
+  });
+
+  // Chrome's "Large" font size sets a 20px root: the rows are rem, the
+  // indent and the border px.
+  test("at a 20px root: a tab brought back, the slot is the row's own box", async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    await page.evaluate(() => {
+      document.documentElement.style.fontSize = '20px';
+    });
+    expect(
+      await page.evaluate(
+        () => getComputedStyle(document.documentElement).fontSize
+      )
+    ).toBe('20px');
+    await settled(page);
+    const own = await rowBox(page, 'a0');
+    const at = await pickUp(page, tabHandle(page, 'a0'));
+    await carryOutLeft(page, at);
+    await adoptPhantom(page, 'carried:a0');
+    await aimAt(page, 'a2', 0.5);
+    await expectSlotAsWideAs(page, own);
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+  });
+});
