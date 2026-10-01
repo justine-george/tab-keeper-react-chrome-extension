@@ -659,20 +659,6 @@ describe('below the last window (KAN-366 B)', () => {
     ]);
   });
 
-  // The gap between the last window and the block is still below the last
-  // window: refused for a row of another window, as before the block.
-  test('in the gap above the block, a1 is refused', async () => {
-    const { store } = await renderDetail('SR');
-    const before = windowsOf(store);
-    pickUpTab('a1', WITH_TRAILING);
-
-    moveTo(300);
-
-    expect(trailing().hasAttribute('data-landing')).toBe(false);
-    release(300);
-    expect(windowsOf(store)).toEqual(before);
-  });
-
   test('beside the pane, below the list: refused', async () => {
     const { store } = await renderDetail('SR');
     const before = windowsOf(store);

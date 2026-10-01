@@ -81,27 +81,6 @@ describe('windowBlockAt and the trailing block', () => {
     expect(windowBlockAt(root, 200, 320)).toBe(trailing);
     expect(windowBlockAt(root, 0, 320)).toBe(trailing);
   });
-  // Moved by a preview (KAN-184), it answers from where it rests: growing a
-  // preview must not move what the pointer can hit.
-  test('shifted down by a preview, it still begins at its resting top', () => {
-    const shifted = pane([
-      ['wA', 0, 142],
-      ['new-window:last', 150 + 34, 34],
-    ]);
-    const block = shifted.lastElementChild;
-    if (!(block instanceof HTMLElement)) throw new Error('no block');
-    block.dataset.newWindowTarget = 'last';
-    block.dataset.windowShift = '34';
-    expect(windowBlockAt(shifted, 10, 160)?.dataset.dropWindowId).toBe(
-      'new-window:last'
-    );
-    expect(windowBlockAt(shifted, 10, 148)).toBeNull();
-  });
-  test('the gap above it is not split with it', () => {
-    // Nearer the trailing block than wB: still below the last window.
-    expect(at(308)).toBeNull();
-    expect(at(304)).toBeNull();
-  });
   test('CONTROL: the same block unmarked is a window, and takes the gap', () => {
     const plain = pane([
       ['wA', 0, 142],

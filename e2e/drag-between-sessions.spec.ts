@@ -2803,7 +2803,7 @@ const isSlotLog = (x: unknown): x is SlotFrame[] => {
   );
 };
 
-test.describe('below the last row, a carried item draws no slot (KAN-365)', () => {
+test.describe('refused, or lit below the list, a carried item draws no slot (KAN-365)', () => {
   const kinds = [
     { kind: 'tab', handle: 'a0', phantom: 'carried:a0' },
     { kind: 'group', handle: 'alpha', phantom: 'group:carried:alpha' },
