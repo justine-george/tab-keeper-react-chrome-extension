@@ -499,7 +499,120 @@ test.describe('KAN-355: the adopted phantom casts no shadow', () => {
 
     await cancel(page);
   });
+
+  // The polls above wait until `none`, so they cannot see a shadow that
+  // lasts a frame or two. And there is a gap to fear: `activate` writes
+  // `data-drag-held` straight to the DOM at the adoption, while
+  // `data-held-as-card` comes with the engine's next render. Every frame
+  // across the adoption is read, from before it until well after.
+  const SHADOWED_HELD = (frames: PickUpFrame[]) =>
+    frames.filter((f) => f.held && f.shadow !== 'none');
+  const frameReport = (frames: PickUpFrame[]) =>
+    [
+      `${frames.length} frames, ${
+        SHADOWED_HELD(frames).length
+      } held with a shadow`,
+      ...framePictures(frames),
+    ].join('\n');
+
+  test('no frame of an adoption, or of a re-adoption, casts it', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    const at = await pickUp(page, row(page, 'a1'));
+    await carryOutLeft(page, at);
+    await springOpen(page, 'S2');
+
+    await startFrameLog(page, 'carried:a1');
+    await adoptPhantom(page, 'carried:a1');
+    await frames(page, 10);
+    const first = await stopFrameLog(page);
+    await test.info().attach('adoption-frames', {
+      body: frameReport(first),
+      contentType: 'text/plain',
+    });
+
+    // Back out onto the session list, below its rows (no session to
+    // spring open), which lets the phantom go, and in again onto its own
+    // place: adopted afresh (KAN-350).
+    const list = await boxOf(page.locator('[data-pane="sessions"]'));
+    await page.mouse.move(list.x + list.width / 2, list.y + list.height - 10, {
+      steps: 6,
+    });
+    await expect(row(page, 'carried:a1')).not.toHaveAttribute(
+      'data-drag-held',
+      ''
+    );
+    await startFrameLog(page, 'carried:a1');
+    const b = await boxOf(row(page, 'carried:a1'));
+    await page.mouse.move(b.x + Math.min(60, b.width / 2), b.y + b.height / 2, {
+      steps: 8,
+    });
+    await expect(row(page, 'carried:a1')).toHaveAttribute('data-drag-held', '');
+    await frames(page, 10);
+    const again = await stopFrameLog(page);
+    await test.info().attach('re-adoption-frames', {
+      body: frameReport(again),
+      contentType: 'text/plain',
+    });
+    await cancel(page);
+
+    for (const log of [first, again]) {
+      // PREMISE: the log spans the adoption -- the phantom not held, then
+      // held.
+      expect(log.some((f) => !f.held)).toBe(true);
+      expect(log.some((f) => f.held && f.asCard)).toBe(true);
+      expect(SHADOWED_HELD(log), framePictures(log).join('\n')).toEqual([]);
+    }
+  });
+
+  test('no frame of an adoption whose first move is over a band casts it', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    const at = await pickUp(page, row(page, 'a1'));
+    await carryOutLeft(page, at);
+    await springOpen(page, 'S2');
+
+    // Straight from the session list onto Gamma's band, in one move: the
+    // adoption's first target is the band.
+    await startFrameLog(page, 'carried:a1');
+    const b = await boxOf(row(page, 'ga1'));
+    await page.mouse.move(b.x + Math.min(60, b.width / 2), b.y + b.height / 4);
+    await expect(row(page, 'carried:a1')).toHaveAttribute('data-drag-held', '');
+    await frames(page, 10);
+    const log = await stopFrameLog(page);
+    await test.info().attach('band-adoption-frames', {
+      body: frameReport(log),
+      contentType: 'text/plain',
+    });
+    // PREMISE: the band is the target, so the stripe's colour is published.
+    await expect(page.locator('[data-band-id="gamma"]')).toHaveAttribute(
+      'data-drop-target',
+      ''
+    );
+    await cancel(page);
+
+    expect(log.some((f) => !f.held)).toBe(true);
+    expect(log.some((f) => f.held && f.asCard)).toBe(true);
+    expect(SHADOWED_HELD(log), framePictures(log).join('\n')).toEqual([]);
+  });
 });
+
+// `n` animation frames.
+async function frames(page: Page, n: number): Promise<void> {
+  await page.evaluate(
+    (n) =>
+      new Promise<void>((resolve) => {
+        let i = 0;
+        const tick = () => (++i >= n ? resolve() : requestAnimationFrame(tick));
+        requestAnimationFrame(tick);
+      }),
+    n
+  );
+}
 
 test.describe('C1: a drag inside a saved list is drawn by the card', () => {
   // The card is up at the pointer, the held row is marked as drawn by it and

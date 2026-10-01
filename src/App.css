@@ -128,8 +128,16 @@ body {
    adopted phantom. That row is invisible, so this rule drew an empty box with
    a shadow -- and, over a group, a stripe -- where nothing else was drawn. The
    band lighting up says "joins this group" instead (KAN-354 C4 A). Open now's
-   held tab, still drawn, keeps both. */
-[data-dragging='tab'] [data-drag-held]:not([data-held-as-card]) {
+   held tab, still drawn, keeps both.
+
+   Nor for a carry's phantom (`data-carry-phantom`), held or not. At an
+   adoption `activate` writes `data-drag-held` straight to the DOM, while
+   `data-held-as-card` arrives with the engine's next render: measured, one
+   painted frame of the shadow (and the stripe, over a band) at every
+   adoption. React renders `data-carry-phantom` while the carry is still
+   outside the list, so it is on before the row is ever held. */
+[data-dragging='tab']
+  [data-drag-held]:not([data-held-as-card]):not([data-carry-phantom]) {
   /* !important because RowDragArea sets the lift shadow INLINE on the held
      row, and an inline declaration outranks any stylesheet rule without it.
      The lift is repeated here so adding the stripe does not drop it. */
