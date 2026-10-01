@@ -346,16 +346,22 @@ export default function TabGroupDetailsContainer() {
                     // leave that state bleeding onto the wrong window after a
                     // deletion.
                     //
-                    // This key is also what resets collapse state when the user
-                    // switches sessions. Window ids are uuidv4 minted in exactly
-                    // two places (capture.ts and HeroContainerRight) and nothing
-                    // clones a session, so no id is shared between two tab
-                    // groups -- selecting a different one swaps the whole key
-                    // set and React remounts every row, which re-runs
-                    // useState(true). WindowEntryContainer used to do that reset
-                    // with an effect on tabGroupId; it was deleted as redundant
-                    // with this key (KAN-51). Weaken this key and that reset
-                    // goes with it -- renameDrafts.test.tsx covers it.
+                    // This key is also what resets a window's own state -- its
+                    // rename draft -- when the user switches sessions. Window
+                    // ids are uuids minted when a window is saved (capture.ts,
+                    // openWindowsToSession.ts) or made by a move (intoNewWindow,
+                    // KAN-350). A move takes a window's id WITH it rather than
+                    // copying the window, and re-mints an id (uuidv5) only where
+                    // its destination already holds it. So no id the app mints
+                    // is in two sessions at once -- selecting a different one
+                    // swaps the whole key set and React remounts every row.
+                    // Legacy data or an import can still repeat an id across
+                    // sessions; such a row keeps its draft across the switch.
+                    // WindowEntryContainer used to do that reset with an effect
+                    // on tabGroupId; it was deleted as redundant with this key
+                    // (KAN-51). Weaken this key and that reset goes with it --
+                    // renameDrafts.test.tsx covers it. (The fold is no longer
+                    // the row's: it lives in globalState, by session, KAN-206.)
                     //
                     // DraggableRow is what carries that key now. It replaces the
                     // plain wrapper div rather than nesting inside one: it renders

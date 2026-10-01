@@ -2,12 +2,13 @@
 // the session on screen and into another saved session -- a MOVE, saved to
 // saved, that never touches Chrome.
 //
-// What jsdom could not show, and so what this file is for: real geometry (the
-// pane's box, a sideways exit, the session list's rows and its auto-scroll),
-// real timing (the 0.6s dwell, the frame the KAN-157 scroll comes back on, the
-// frame KAN-155 follows the dropped row on), and real paint (the target's
-// outline and fill line against the row's actual fill, the card over the
-// list, the toast at a 20px root).
+// What jsdom could not show, and so what this file is for: real geometry
+// (the pane's box, the hand-off where the pointer reaches the session list
+// (KAN-352), the list's rows and its auto-scroll), real timing (the 0.6s
+// dwell, the frame the KAN-157 scroll comes back on, the frame KAN-155
+// follows the dropped row on), and real paint (the target's outline and fill
+// line against the row's actual fill, the card over the list, the toast at a
+// 20px root).
 //
 // Driven as the popup (790x550) and as the tab view, side by side and folded
 // with a peek. Every move is read back from localStorage, where the app keeps
@@ -488,8 +489,8 @@ async function adoptPhantom(page: Page, phantomId: string): Promise<void> {
   await expect
     .poll(async () => Math.abs((await ownCentre()).shift))
     .toBeLessThan(1);
-  // The rows ease into place over 0.18s (KAN-165).
-  await page.waitForTimeout(300);
+  // The rows ease into place (KAN-165): until they have.
+  await settled(page);
 }
 
 // The pointer to `frac` of the way down `rowId`'s box, as it is now.
@@ -502,7 +503,7 @@ async function aimAt(page: Page, rowId: string, frac: number): Promise<void> {
       steps: 8,
     }
   );
-  await page.waitForTimeout(250);
+  await settled(page);
 }
 
 // Until every row the preview moved has arrived: two frames for the move
@@ -918,11 +919,14 @@ test.describe('only the session list carries (hand-off, KAN-352)', () => {
     expect(pane.top).toBeGreaterThan(2);
 
     await page.mouse.move(at.x, POPUP.height - 1, { steps: 6 });
+    // NEGATIVE, so a fixed wait: a hand-off draws the card on the render
+    // after the move, and 200ms is many frames past that.
     await page.waitForTimeout(200);
     await expect(page.locator(CARD)).toHaveCount(0);
     await expect(tabHandle(page, 'a1')).toHaveAttribute('data-drag-held', '');
 
     await page.mouse.move(at.x, 1, { steps: 10 });
+    // NEGATIVE, as above.
     await page.waitForTimeout(200);
     await expect(page.locator(CARD)).toHaveCount(0);
     await expect(tabHandle(page, 'a1')).toHaveAttribute('data-drag-held', '');
@@ -950,6 +954,8 @@ test.describe('only the session list carries (hand-off, KAN-352)', () => {
     await page.mouse.move(POPUP.width - 1, a2.y + a2.height * 0.75, {
       steps: 6,
     });
+    // NEGATIVE, so a fixed wait: a hand-off here would have drawn the card,
+    // and lifted a1, on the render after the move; 200ms is many frames on.
     await page.waitForTimeout(200);
     await expect(tabHandle(page, 'a1')).toHaveAttribute('data-drag-held', '');
     await page.mouse.up();
@@ -979,6 +985,8 @@ test.describe('only the session list carries (hand-off, KAN-352)', () => {
     await page.mouse.move(POPUP.width - 1, c1.y + c1.height / 2, {
       steps: 6,
     });
+    // NEGATIVE, so a fixed wait: a hand-back here would have unheld the
+    // phantom on the render after the move; 200ms is many frames on.
     await page.waitForTimeout(200);
     // Still this list's drag: the phantom held, nothing on the list aimed.
     await expect(phantom).toHaveAttribute('data-drag-held', '');
@@ -1022,6 +1030,8 @@ test.describe('only the session list carries (hand-off, KAN-352)', () => {
     await page.mouse.move(onGrip.x, onGrip.y, { steps: 8 });
     // PREMISE: the pointer is over the grip, with the row still held.
     expect(await gripLoc.evaluate((el) => el.matches(':hover'))).toBe(true);
+    // NEGATIVE, so a fixed wait: no carry may start here, and one would
+    // have shown on the render after the move; 200ms is many frames on.
     await page.waitForTimeout(200);
     await expect(tabHandle(page, 'a1')).toHaveAttribute('data-drag-held', '');
     expect(await page.locator(CARD).count()).toBe(0);
@@ -1053,6 +1063,9 @@ test.describe('Review Focus 2: cancels, quick passes, the shown row', () => {
     await page.mouse.up();
 
     await expect(page.locator(CARD)).toHaveCount(0);
+    // NEGATIVE, so a fixed wait: a stray click follows the release at once,
+    // and the suppressor's own window is 400ms from it -- 300ms covers the
+    // click without outliving what eats it.
     await page.waitForTimeout(300);
     expect(await clicks(page)).toBe(0);
     await expect(page.getByRole('menu')).toHaveCount(0);
@@ -1093,6 +1106,8 @@ test.describe('Review Focus 2: cancels, quick passes, the shown row', () => {
     );
     await page.mouse.up();
 
+    // NEGATIVE, so a fixed wait: no card, and no stray click, which would
+    // follow the release at once.
     await page.waitForTimeout(300);
     expect(await sawCarry(page)).toEqual({ card: '0', target: '0' });
     expect(await clicks(page)).toBe(0);
@@ -1117,6 +1132,8 @@ test.describe('Review Focus 2: cancels, quick passes, the shown row', () => {
     // Each row is the target for well under the dwell.
     for (const id of ['S2', 'S3', 'S4', 'S3', 'S2']) {
       await onto(page, id);
+      // The PATH, not a settle: resting this long, well under the 600ms
+      // dwell, is the quick pass being tested.
       await page.waitForTimeout(150);
     }
     // Off the list, over the header: no target, no timer left running.
@@ -1126,6 +1143,7 @@ test.describe('Review Focus 2: cancels, quick passes, the shown row', () => {
     await page.mouse.move(sort.x + sort.width / 2, sort.y + sort.height / 2, {
       steps: 4,
     });
+    // NEGATIVE, so a fixed wait: past the 600ms dwell, nothing opened.
     await page.waitForTimeout(900);
     expect(await selected(page)).toBe('S1');
     await page.keyboard.press('Escape');
@@ -1142,6 +1160,7 @@ test.describe('Review Focus 2: cancels, quick passes, the shown row', () => {
     await carryOutLeft(page, at);
     await onto(page, 'S1');
     await expect(page.locator('[data-carry-dwell-line]')).toHaveCount(0);
+    // NEGATIVE, so a fixed wait: past the 600ms dwell, nothing opened.
     await page.waitForTimeout(900);
     expect(await selected(page)).toBe('S1');
     expect(await carryTargets(page)).toEqual(['S1']);
@@ -1821,7 +1840,8 @@ test.describe('the target visuals (V1-V4)', () => {
     await page.mouse.move(list.x + list.width - 30, y, { steps: 3 });
     await page.mouse.move(pane.left + 60, y, { steps: 6 });
     await expect(phantom).toHaveAttribute('data-drag-held', '');
-    await page.waitForTimeout(300);
+    // Whatever the entry moved has arrived: none of it is still easing.
+    await settled(page);
 
     expect(await rows()).toEqual(rowsBefore);
     // The slot is where it was, the landing slot's now, as strong.
@@ -1863,13 +1883,16 @@ test.describe('the target visuals (V1-V4)', () => {
     });
     const at = await pickUp(page, tabHandle(page, 'a1'));
     await carryOutLeft(page, at);
-    await page.waitForTimeout(600);
-    const heights = (
-      await page.evaluate(() => document.body.dataset.targetHeights ?? '')
-    )
-      .split(' ')
-      .filter((h) => h !== '')
-      .map(Number);
+    // Until the sampler has its 30 frames.
+    const sampled = () =>
+      page.evaluate(() =>
+        (document.body.dataset.targetHeights ?? '')
+          .split(' ')
+          .filter((h) => h !== '')
+          .map(Number)
+      );
+    await expect.poll(async () => (await sampled()).length).toBe(30);
+    const heights = await sampled();
     // PREMISE: sampled from its first frame on, for a while.
     expect(heights.length).toBeGreaterThan(10);
     expect(new Set(heights).size).toBe(1);

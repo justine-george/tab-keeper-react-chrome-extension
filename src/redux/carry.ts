@@ -3,8 +3,8 @@
 // A drag belongs to the RowDragArea it started in, and an area's unmount ends
 // its drag. Resting on a session row swaps the detail pane, which unmounts the
 // source area mid-drag -- so a drag that reaches the session list (a carry
-// receiver, KAN-352) is handed here, to something that outlives every area, and is CARRIED until the
-// release.
+// receiver, KAN-352) is handed here, to something that outlives every area,
+// and is CARRIED until the release.
 //
 // Module state, like dragHold.ts and for the same reasons: the drag engine is
 // generic and renders in tests without a store, and "a pointer is carrying
@@ -63,9 +63,10 @@ function notify(): void {
 }
 
 // Starts carrying, driven by the layer. Replaces any carry already on. An
-// adopted drag that leaves its pane again does NOT come through here: it
-// hands the same carry back with setCarryOwner('layer'), so the source's card
-// and restoreOnCancel stay as they are (KAN-350, RowDragArea's handOff).
+// adopted drag that reaches the session list again does NOT come through
+// here: it hands the same carry back with setCarryOwner('layer'), so the
+// source's card and restoreOnCancel stay as they are (KAN-350, RowDragArea's
+// handOff).
 //
 // `restoreOnCancel` runs once, on the frame after a CANCELLED carry ends --
 // see endCarry -- and never after a committed one.
