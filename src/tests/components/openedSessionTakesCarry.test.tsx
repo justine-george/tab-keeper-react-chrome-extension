@@ -1174,3 +1174,114 @@ describe('the New window target (S3 A)', () => {
     );
   });
 });
+
+// V1 A. The New window target is one row tall whatever is carried: a carried
+// GROUP's phantom is folded to its header and keeps no band margin there,
+// before the pointer comes in as well as after, so nothing in the session
+// jumps on entry. jsdom has no layout, so what is pinned is the folding the
+// box's height is made of.
+describe('the New window target is one row tall (V1 A)', () => {
+  const folded = (groupRowId: string) => {
+    const tabs = row(groupRowId).querySelector('[data-group-tabs]');
+    const band = row(groupRowId).querySelector('[data-band-id]');
+    if (tabs === null || band === null) throw new Error('no group parts');
+    return {
+      tabs: getComputedStyle(tabs).display,
+      margin: [
+        getComputedStyle(band).marginTop,
+        getComputedStyle(band).marginBottom,
+      ],
+    };
+  };
+
+  test('a carried group is folded to its header in it, before the pointer comes in and after', async () => {
+    await renderDetail('S2');
+    carry(GROUP_G1);
+    // The premise: the phantom group is in the target, with its tabs drawn.
+    expect(target()?.contains(row('group:carried:g1'))).toBe(true);
+    expect(
+      row('group:carried:g1').querySelectorAll('[data-group-tabs] *').length
+    ).toBeGreaterThan(0);
+
+    expect(folded('group:carried:g1')).toEqual({
+      tabs: 'none',
+      margin: ['0px', '0px'],
+    });
+
+    table = S2_GROUP_LAYOUT;
+    moveTo(20);
+    expect(held()).toBe('group:carried:g1');
+    expect(folded('group:carried:g1')).toEqual({
+      tabs: 'none',
+      margin: ['0px', '0px'],
+    });
+  });
+
+  // CONTROL: a group in the session itself keeps its tabs and its margin.
+  test('CONTROL: a group outside the target is drawn whole', async () => {
+    await renderDetail('S2');
+    carry(GROUP_G1);
+    expect(folded('group:h1').tabs).not.toBe('none');
+    expect(folded('group:h1').margin).not.toEqual(['0px', '0px']);
+  });
+});
+
+// V3 A. A carried window's phantom shows a dashed slot at its own place --
+// the top of the session on screen, where a drop starts -- while the pointer
+// is outside the pane. On entry the landing slot takes over at the same
+// place and strength, so nothing changes.
+describe('a carried window shows where a drop starts (V3 A)', () => {
+  const resting = () =>
+    row('carried:w2').querySelector<HTMLElement>(
+      ':scope > [data-phantom-resting-slot]'
+    );
+
+  test('a dashed slot, square, at the phantom’s own place, while the pointer is outside', async () => {
+    await renderDetail('S2');
+    carry(WINDOW_W2);
+
+    const slot = resting();
+    if (slot === null) throw new Error('no resting slot');
+    expect(seen(slot)).toBe(true);
+    const style = getComputedStyle(slot);
+    expect(style.display).not.toBe('none');
+    expect(style.borderTopStyle).toBe('dashed');
+    expect(style.borderTopWidth).toBe('1.5px');
+    // Its colour (--drag-landing-slot) is a real browser's to resolve: the
+    // e2e reads it against the theme's.
+    expect(style.borderRadius).toBe('0px');
+    expect(style.position).toBe('absolute');
+    expect([style.top, style.right, style.bottom, style.left]).toEqual([
+      '0px',
+      '0px',
+      '0px',
+      '0px',
+    ]);
+    // The phantom's own content stays unseen.
+    expect(held()).toBeUndefined();
+  });
+
+  test('on entry at its own place, the landing slot takes over there at full strength', async () => {
+    await renderDetail('S2');
+    carry(WINDOW_W2);
+    table = S2_WINDOW_LAYOUT('w2');
+
+    moveTo(16);
+    expect(held()).toBe('carried:w2');
+
+    const slot = resting();
+    if (slot === null) throw new Error('no resting slot');
+    expect(getComputedStyle(slot).display).toBe('none');
+    const landing = slotOf('carried:w2');
+    expect(seen(landing)).toBe(true);
+    expect(landing instanceof HTMLElement && landing.style.opacity).toBe('1');
+  });
+
+  // CONTROL: a tab's phantom sits in the New window target, which says where
+  // the drop starts itself; it has no resting slot.
+  test('CONTROL: no resting slot for a carried tab', async () => {
+    await renderDetail('S2');
+    carry(TAB_T1);
+    expect(document.querySelector('[data-phantom-resting-slot]')).toBeNull();
+  });
+});

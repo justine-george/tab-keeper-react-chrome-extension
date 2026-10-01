@@ -19,7 +19,11 @@ import {
 } from '../../../redux/slices/tabContainerDataStateSlice';
 import { useTranslation } from 'react-i18next';
 import { isTabKeeperPage, toStoredTab } from '../../../utils/functions/capture';
-import { RowDragArea, DraggableRow } from './rowDrag/RowDragArea';
+import {
+  RowDragArea,
+  DraggableRow,
+  PhantomRestingSlot,
+} from './rowDrag/RowDragArea';
 import { TabDragArea } from './TabDragArea';
 import { GroupDragArea } from './GroupDragArea';
 import { dropOnTop } from '../../../redux/dropOnTop';
@@ -341,10 +345,16 @@ export default function TabGroupDetailsContainer() {
                     //
                     // KAN-350. The New window target is no row of this list:
                     // nothing drags it, and it drags nothing.
+                    //
+                    // A carried window's phantom shows where a drop starts
+                    // while the pointer is outside (V3 A).
                     return windowId === CARRY_NEW_WINDOW_ID ? (
                       <div key={windowId}>{entry}</div>
                     ) : (
                       <DraggableRow key={windowId} rowId={windowId}>
+                        {windowId === adoptRowIdFor('window') && (
+                          <PhantomRestingSlot />
+                        )}
                         {entry}
                       </DraggableRow>
                     );

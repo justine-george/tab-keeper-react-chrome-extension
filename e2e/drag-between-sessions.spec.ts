@@ -13,8 +13,7 @@
 // with a peek. Every move is read back from localStorage, where the app keeps
 // it. The New window target's height, the lit target's slot, what shows where
 // a carried window will land, and the target appearing in the source are
-// awaiting Justine's pick (V1-V4): this file asserts only that the target is
-// there and takes a drop, never how it looks.
+// Justine's picks V1-V4 (all A), pinned in "the target visuals" below.
 //
 // Pointer paths are aimed in the layout the drag measures: an adopted drag
 // measures every row once, at adoption, with the held phantom at its own
@@ -36,6 +35,7 @@ import type {
   tabContainerData,
 } from '../src/redux/slices/tabContainerDataStateSlice';
 import { isValidTabMasterContainer } from '../src/utils/functions/local';
+import { LIGHT_THEME } from '../src/hooks/useThemeColors';
 
 const POPUP = { width: 790, height: 550 };
 const TAB_VIEW = { width: 1280, height: 800 };
@@ -429,6 +429,16 @@ async function watchForCarry(page: Page): Promise<void> {
     flag();
   });
 }
+// What the card says is carried: a group's card has its colour dot.
+const currentCarriedKind = (page: Page) =>
+  page.evaluate(() => {
+    const card = document.querySelector('[data-carry-card]');
+    if (card === null) return null;
+    return card.querySelector('[data-carry-card-dot]') !== null
+      ? 'group'
+      : 'other';
+  });
+
 const sawCarry = (page: Page) =>
   page.evaluate(() => ({
     card: document.body.dataset.sawCard,
@@ -1438,6 +1448,60 @@ test.describe('Review Focus 3: a long list, a long session', () => {
     expect((await windowIdsOf(page, 'S1')).length).toBe(5);
   });
 
+  // The same for a GROUP: its tabs leave the source while carried, so a
+  // session scrolled to show a long group's header mid-pane gets shorter
+  // than its scroll, and the scroll clamps. A cancel puts it back.
+  test('a long session: a group carried out of it and cancelled comes back to the scroll it had (KAN-157)', async ({
+    context,
+    extensionId,
+  }) => {
+    const big = Array.from({ length: 12 }, (_, i) => tab(`bg${i}`, 'big'));
+    const longGroup = session('S1', 'Long group', [
+      win(
+        'gw0',
+        Array.from({ length: 8 }, (_, i) => tab(`gl${i}`))
+      ),
+      win(
+        'gw1',
+        [tab('gy0'), tab('gy1'), ...big, tab('gy2')],
+        [{ groupId: 'big', title: 'Big', color: 'red' }]
+      ),
+    ]);
+    const page = await openPopup(context, extensionId, [longGroup, S2()], 'S1');
+    const handle = groupHandle(page, 'big');
+    // The group's header in the middle of the pane, clear of both auto-scroll
+    // zones.
+    const pane = await detailPane(page);
+    const headerTop = (await boxOf(handle)).y;
+    const scrollTo = Math.round(
+      headerTop - pane.top + pane.scrollTop - (pane.bottom - pane.top) / 2
+    );
+    // PREMISE: the session scrolls that far.
+    expect(scrollTo).toBeGreaterThan(50);
+    expect(await setDetailScroll(page, scrollTo)).toBe(scrollTo);
+
+    const at = await pickUp(page, handle);
+    // PREMISE: folding the held group (KAN-160) clamped the scroll.
+    expect((await detailPane(page)).scrollTop).toBeLessThan(scrollTo);
+    await carryOutLeft(page, at);
+    expect(await currentCarriedKind(page)).toBe('group');
+    // PREMISE: carried, the scroll is still not the press's -- the group
+    // left the source, and the New window target came in at the top -- so
+    // it has to be put back, not merely left alone.
+    expect((await detailPane(page)).scrollTop).not.toBe(scrollTo);
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+    await expect(page.locator(CARD)).toHaveCount(0);
+    await expect
+      .poll(async () => (await detailPane(page)).scrollTop)
+      .toBe(scrollTo);
+    // Nothing moved.
+    expect(await layout(page, 'S1')).toEqual([
+      'gl0 gl1 gl2 gl3 gl4 gl5 gl6 gl7',
+      ['gy0 gy1', ...big.map((t) => `${t.tabId}*`), 'gy2'].join(' '),
+    ]);
+  });
+
   test('a long session: a window let go at the end of the opened one is followed into view (KAN-155)', async ({
     context,
     extensionId,
@@ -1507,5 +1571,230 @@ test.describe('the tab view', () => {
       .toEqual(['c0 a1 c1 ga0* ga1* c2', 'e0 e1']);
     // Still peeking: the detail is on screen.
     await expect(page.locator('[data-drag-row-id="d1"]')).toBeVisible();
+  });
+});
+
+// ---- V1-V4 (Justine, 2026-09-30 evening: all A) -----------------------------
+
+// The box a drop lands in: its height inside the borders, and its look.
+const newWindowTarget = (page: Page) =>
+  page.evaluate(() => {
+    const el = document.querySelector<HTMLElement>('[data-new-window-target]');
+    if (el === null) return null;
+    const style = getComputedStyle(el);
+    return {
+      inner: el.clientHeight,
+      fill: style.backgroundColor,
+      border: style.borderTopStyle,
+      landing: el.hasAttribute('data-landing'),
+      transition: style.transitionDuration,
+      animations: el.getAnimations().length,
+    };
+  });
+
+const heightOf = async (loc: Locator) => (await boxOf(loc)).height;
+
+test.describe('the target visuals (V1-V4)', () => {
+  // V1 A. One row tall whatever is carried, before the pointer comes in and
+  // after: a carried group's phantom is held folded to its header.
+  for (const kind of ['tab', 'group'] as const) {
+    test(`V1: the New window target is one tab row tall for a ${kind}, before and after entry`, async ({
+      context,
+      extensionId,
+    }) => {
+      const page = await openPopup(context, extensionId);
+      const rowH = await heightOf(tabHandle(page, 'a0'));
+      // PREMISE: a tab row is a row's height, not a zero box.
+      expect(rowH).toBeGreaterThan(20);
+      const handle =
+        kind === 'tab' ? tabHandle(page, 'a1') : groupHandle(page, 'alpha');
+      const at = await pickUp(page, handle);
+      await carryOutLeft(page, at);
+
+      // Over the list, carried: the target is in the source (Q2 A).
+      await expect(page.locator(CARD)).toHaveCount(1);
+      const before = await newWindowTarget(page);
+      expect(before?.inner).toBe(rowH);
+
+      await adoptPhantom(
+        page,
+        kind === 'tab' ? 'carried:a1' : 'group:carried:alpha'
+      );
+      const after = await newWindowTarget(page);
+      expect(after?.landing).toBe(true);
+      expect(after?.inner).toBe(rowH);
+      await page.keyboard.press('Escape');
+      await page.mouse.up();
+    });
+  }
+
+  // V2 A, already built: the box lights up -- the hover fill and a solid
+  // border -- and no landing slot is seen inside it.
+  test('V2: a landing in the target lights the box, with no dashed slot inside', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    const at = await pickUp(page, tabHandle(page, 'a1'));
+    await carryOutLeft(page, at);
+    // CONTROL: unlit, it is dashed and unfilled.
+    const unlit = await newWindowTarget(page);
+    expect(unlit?.border).toBe('dashed');
+    expect(rgbToHex(unlit?.fill ?? '')).not.toBe(LIGHT_THEME.HOVER_COLOR);
+
+    await adoptPhantom(page, 'carried:a1');
+    const lit = await newWindowTarget(page);
+    expect(lit?.landing).toBe(true);
+    expect(rgbToHex(lit?.fill ?? '')).toBe(LIGHT_THEME.HOVER_COLOR);
+    expect(lit?.border).toBe('solid');
+    // The landing slot exists -- the drag is live -- and is not seen.
+    const slots = await page
+      .locator('[data-new-window-target] [data-drag-landing-slot]')
+      .evaluateAll((els) =>
+        els.map((el) =>
+          el.checkVisibility({ checkVisibilityCSS: true, checkOpacity: true })
+        )
+      );
+    expect(slots).toEqual([false]);
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+  });
+
+  // V3 A. A carried window: a dashed slot at the top of the opened session
+  // while the pointer is over the list, the landing slot's look, as tall as
+  // the window row it stands for. On entry at the top, no window row moves.
+  test('V3: a carried window shows a dashed slot at the top, and nothing moves on entry', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    const at = await pickUp(page, windowHandle(page, 'w2'));
+    await carryOutLeft(page, at);
+    await springOpen(page, 'S2');
+    const phantom = page.locator('[data-drag-row-id="carried:w2"]');
+    await expect(phantom).toBeAttached();
+    // PREMISE: the pointer is over the list, and the phantom is not held.
+    expect(await carryTargets(page)).toEqual(['S2']);
+    await expect(phantom).not.toHaveAttribute('data-drag-held', '');
+
+    const slotNow = () =>
+      page.evaluate(() => {
+        const ph = document.querySelector('[data-drag-row-id="carried:w2"]');
+        const shown = [
+          ...(ph?.querySelectorAll<HTMLElement>(
+            ':scope > [data-phantom-resting-slot], :scope > [data-drag-landing-slot]'
+          ) ?? []),
+        ].filter((el) =>
+          el.checkVisibility({ checkVisibilityCSS: true, checkOpacity: true })
+        );
+        return shown.map((el) => {
+          const r = el.getBoundingClientRect();
+          const st = getComputedStyle(el);
+          return {
+            kind: el.hasAttribute('data-drag-landing-slot')
+              ? 'landing'
+              : 'resting',
+            top: r.top,
+            left: r.left,
+            width: r.width,
+            height: r.height,
+            border: `${st.borderTopWidth} ${st.borderTopStyle}`,
+            colour: st.borderTopColor,
+            opacity: st.opacity,
+          };
+        });
+      });
+    const slotColour = await page.evaluate(() =>
+      getComputedStyle(document.documentElement)
+        .getPropertyValue('--drag-landing-slot')
+        .trim()
+        .toUpperCase()
+    );
+    const resting = await slotNow();
+    expect(resting).toHaveLength(1);
+    // Dashed; its width is checked against the landing slot's below (both
+    // declare 1.5px, which Chrome draws at its device-pixel width).
+    expect(resting[0]).toMatchObject({ kind: 'resting', opacity: '1' });
+    expect(resting[0]?.border).toMatch(/ dashed$/);
+    expect(rgbToHex(resting[0]?.colour ?? '')).toBe(slotColour);
+    // At the top of the session, as tall as the window row it stands for.
+    const own = await boxOf(phantom);
+    expect(resting[0]?.top).toBeCloseTo(own.y, 0);
+    expect(resting[0]?.height).toBeCloseTo(own.height, 0);
+    expect(own.height).toBeCloseTo(await heightOf(windowHandle(page, 'd1')), 0);
+    const pane = await detailPane(page);
+    expect(own.y - pane.top).toBeLessThan(own.height);
+
+    // In at the phantom's own height: straight across from the list.
+    const rows = () =>
+      page.evaluate(() =>
+        ['d1', 'd2'].map((id) => {
+          const r = document
+            .querySelector(`[data-drag-row-id="${id}"]`)
+            ?.getBoundingClientRect();
+          return r === undefined ? null : Math.round(r.top * 10) / 10;
+        })
+      );
+    const rowsBefore = await rows();
+    const y = own.y + own.height / 2;
+    const list = await boxOf(page.locator('[data-pane="sessions"]'));
+    await page.mouse.move(list.x + list.width - 30, y, { steps: 3 });
+    await page.mouse.move(pane.left + 60, y, { steps: 6 });
+    await expect(phantom).toHaveAttribute('data-drag-held', '');
+    await page.waitForTimeout(300);
+
+    expect(await rows()).toEqual(rowsBefore);
+    // The slot is where it was, the landing slot's now, as strong.
+    const entered = await slotNow();
+    expect(entered).toHaveLength(1);
+    expect(entered[0]?.kind).toBe('landing');
+    expect(entered[0]?.opacity).toBe('1');
+    // The same look as the slot it took over from.
+    expect(entered[0]?.border).toBe(resting[0]?.border);
+    expect(entered[0]?.colour).toBe(resting[0]?.colour);
+    expect(entered[0]?.top).toBeCloseTo(resting[0]?.top ?? NaN, 0);
+    expect(entered[0]?.height).toBeCloseTo(resting[0]?.height ?? NaN, 0);
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+  });
+
+  // V4 A, already built: the target appears at once in the source as the
+  // carry starts -- no transition, no animation, its height the same from
+  // the first frame it is drawn.
+  test('V4: the target appears at once, with no slide', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    // Every frame's height of the target, from the first it is drawn in.
+    await page.evaluate(() => {
+      const heights: number[] = [];
+      const tick = () => {
+        const el = document.querySelector('[data-new-window-target]');
+        if (el !== null) {
+          heights.push(el.getBoundingClientRect().height);
+          document.body.dataset.targetHeights = heights.join(' ');
+        }
+        if (heights.length < 30) requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    });
+    const at = await pickUp(page, tabHandle(page, 'a1'));
+    await carryOutLeft(page, at);
+    await page.waitForTimeout(600);
+    const heights = (
+      await page.evaluate(() => document.body.dataset.targetHeights ?? '')
+    )
+      .split(' ')
+      .filter((h) => h !== '')
+      .map(Number);
+    // PREMISE: sampled from its first frame on, for a while.
+    expect(heights.length).toBeGreaterThan(10);
+    expect(new Set(heights).size).toBe(1);
+    const now = await newWindowTarget(page);
+    expect(now?.transition).toBe('0s');
+    expect(now?.animations).toBe(0);
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
   });
 });

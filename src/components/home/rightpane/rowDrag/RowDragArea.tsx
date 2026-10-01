@@ -64,7 +64,7 @@ import {
   type LandingSide,
   type WindowedSlot,
 } from '../../../../utils/functions/dragPreview';
-import { DURATION } from '../../../../styles/scale';
+import { DURATION, RADIUS } from '../../../../styles/scale';
 import { beginDragHold, endDragHold } from '../../../../redux/dragHold';
 import {
   carryEndedAs,
@@ -1722,15 +1722,51 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
 };
 
 // KAN-350. A phantom row's content is invisible and takes no pointer; its
-// box, and so its footprint, is untouched. Everything but the landing slot:
-// the slot is the phantom's child, and it is what shows where a release
-// lands, exactly as in a reorder.
+// box, and so its footprint, is untouched. Everything but the two slots: the
+// landing slot is the phantom's child, and it is what shows where a release
+// lands, exactly as in a reorder; the resting slot (PhantomRestingSlot) is
+// where one would start.
 const PHANTOM_STYLE = css`
   pointer-events: none;
-  & > :not([data-drag-landing-slot]) {
+  & > :not([data-drag-landing-slot]):not([data-phantom-resting-slot]) {
     opacity: 0;
   }
 `;
+
+// KAN-350 V3 A. Where a drop on a phantom row starts, shown at the phantom's
+// own place while it is NOT held: the pointer is outside the pane, and the
+// list draws the slot a drop would begin with. Its box is the phantom's, so
+// nothing moves when the pointer comes in and adopts it -- the landing slot
+// then takes over at the same place, at the same strength (see the phantom
+// rule on the landing slot's opacity).
+//
+// A list opts in by rendering this as a direct child of the phantom's
+// DraggableRow. The landing slot's look, with square corners.
+export const PhantomRestingSlot: React.FC = () => (
+  <div
+    aria-hidden="true"
+    data-phantom-resting-slot=""
+    css={css`
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      pointer-events: none;
+      /* Longhands: a shorthand holding var() is not split until it is
+         computed, and the style and width are the slot's look. */
+      border-width: 1.5px;
+      border-style: dashed;
+      border-color: var(--drag-landing-slot, currentColor);
+      border-radius: ${RADIUS.SQUARE};
+      opacity: ${SLOT_OPACITY};
+      /* Held, the row's own landing slot is drawn instead. */
+      [data-drag-held] > & {
+        display: none;
+      }
+    `}
+  />
+);
 
 // A row no longer needs to know WHERE it is (KAN-166). It used to take its own
 // index and re-derive its shift from the drag's index range; the area now works
@@ -1863,14 +1899,20 @@ export const DraggableRow: React.FC<DraggableRowProps> = ({
             // row's own footprint keeps it continuous and needs no number of
             // its own -- one row's worth of travel is exactly the distance at
             // which the two boxes stop overlapping.
-            opacity:
-              SLOT_OPACITY *
-              Math.min(
-                1,
-                drag.footprint > 0
-                  ? Math.abs(drag.landingDelta - translate) / drag.footprint
-                  : 1
-              ),
+            //
+            // Not for a phantom (KAN-350 V3 A): its row is invisible, so there
+            // is no outline to tell apart, and a slot fading out as the
+            // pointer comes in over the resting slot would undo "nothing
+            // moves on entry".
+            opacity: phantom
+              ? SLOT_OPACITY
+              : SLOT_OPACITY *
+                Math.min(
+                  1,
+                  drag.footprint > 0
+                    ? Math.abs(drag.landingDelta - translate) / drag.footprint
+                    : 1
+                ),
           }}
         />
       )}
