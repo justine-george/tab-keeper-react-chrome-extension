@@ -1176,20 +1176,29 @@ describe('the New window target (S3 A)', () => {
 });
 
 // V1 A. The New window target is one row tall whatever is carried: a carried
-// GROUP's phantom is folded to its header and keeps no band margin there,
-// before the pointer comes in as well as after, so nothing in the session
-// jumps on entry. jsdom has no layout, so what is pinned is the folding the
-// box's height is made of.
+// GROUP's phantom is folded to its header, before the pointer comes in as
+// well as after, so nothing in the session jumps on entry. Its band keeps
+// its real margins -- the engine measures them into the footprint the
+// preview opens, which has to be the band it lands as (final review,
+// finding 4) -- and the box that holds it takes them back with a negative
+// margin of its own, so the target stays one row tall. jsdom has no layout,
+// so what is pinned is what the box's height is made of.
 describe('the New window target is one row tall (V1 A)', () => {
   const folded = (groupRowId: string) => {
     const tabs = row(groupRowId).querySelector('[data-group-tabs]');
     const band = row(groupRowId).querySelector('[data-band-id]');
-    if (tabs === null || band === null) throw new Error('no group parts');
+    const holder = row(groupRowId).parentElement;
+    if (tabs === null || band === null || holder === null)
+      throw new Error('no group parts');
     return {
       tabs: getComputedStyle(tabs).display,
       margin: [
         getComputedStyle(band).marginTop,
         getComputedStyle(band).marginBottom,
+      ],
+      held: [
+        getComputedStyle(holder).marginTop,
+        getComputedStyle(holder).marginBottom,
       ],
     };
   };
@@ -1203,18 +1212,34 @@ describe('the New window target is one row tall (V1 A)', () => {
       row('group:carried:g1').querySelectorAll('[data-group-tabs] *').length
     ).toBeGreaterThan(0);
 
-    expect(folded('group:carried:g1')).toEqual({
+    const oneRow = {
       tabs: 'none',
-      margin: ['0px', '0px'],
-    });
+      margin: ['2px', '2px'],
+      held: ['-2px', '-2px'],
+    };
+    expect(folded('group:carried:g1')).toEqual(oneRow);
 
     table = S2_GROUP_LAYOUT;
     moveTo(20);
     expect(held()).toBe('group:carried:g1');
-    expect(folded('group:carried:g1')).toEqual({
-      tabs: 'none',
-      margin: ['0px', '0px'],
-    });
+    expect(folded('group:carried:g1')).toEqual(oneRow);
+  });
+
+  // CONTROL: a carried TAB has no margin to take back, so the box that
+  // holds it takes none.
+  test('CONTROL: a carried tab’s holder keeps no negative margin', async () => {
+    await renderDetail('S2');
+    carry(TAB_T1);
+    const holder = row('carried:t1').parentElement;
+    if (holder === null) throw new Error('no holder');
+    expect(target()?.contains(holder)).toBe(true);
+    // jsdom reports an unset margin as '0', a browser as '0px'.
+    expect(
+      [
+        getComputedStyle(holder).marginTop,
+        getComputedStyle(holder).marginBottom,
+      ].map(parseFloat)
+    ).toEqual([0, 0]);
   });
 
   // CONTROL: a group in the session itself keeps its tabs and its margin.
@@ -1236,7 +1261,7 @@ describe('a carried window shows where a drop starts (V3 A)', () => {
       ':scope > [data-phantom-resting-slot]'
     );
 
-  test('a dashed slot, square, at the phantom’s own place, while the pointer is outside', async () => {
+  test('a dashed slot, with the landing slot’s corners, at the phantom’s own place, while the pointer is outside', async () => {
     await renderDetail('S2');
     carry(WINDOW_W2);
 
@@ -1249,7 +1274,9 @@ describe('a carried window shows where a drop starts (V3 A)', () => {
     expect(style.borderTopWidth).toBe('1.5px');
     // Its colour (--drag-landing-slot) is a real browser's to resolve: the
     // e2e reads it against the theme's.
-    expect(style.borderRadius).toBe('0px');
+    // The landing slot's corners, so nothing changes on entry (V3 A; the
+    // engine's slot has 4px corners on main).
+    expect(style.borderRadius).toBe('4px');
     expect(style.position).toBe('absolute');
     expect([style.top, style.right, style.bottom, style.left]).toEqual([
       '0px',
@@ -1275,6 +1302,10 @@ describe('a carried window shows where a drop starts (V3 A)', () => {
     const landing = slotOf('carried:w2');
     expect(seen(landing)).toBe(true);
     expect(landing instanceof HTMLElement && landing.style.opacity).toBe('1');
+    // The same corners as the resting slot it took over from.
+    expect(landing instanceof HTMLElement && landing.style.borderRadius).toBe(
+      getComputedStyle(slot).borderRadius
+    );
   });
 
   // CONTROL: a tab's phantom sits in the New window target, which says where

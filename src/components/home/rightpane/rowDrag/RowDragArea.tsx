@@ -64,7 +64,7 @@ import {
   type LandingSide,
   type WindowedSlot,
 } from '../../../../utils/functions/dragPreview';
-import { DURATION, RADIUS } from '../../../../styles/scale';
+import { DURATION } from '../../../../styles/scale';
 import { beginDragHold, endDragHold } from '../../../../redux/dragHold';
 import {
   carryEndedAs,
@@ -88,6 +88,11 @@ import { edgeScrollStep } from './edgeScroll';
 // every page and no louder. The fade by distance below is what keeps the slot
 // from reading as an outline around the held row, and it is unchanged.
 const SLOT_OPACITY = 1;
+
+// The landing slot's corners (4px on main), and the resting slot's that
+// stands in for it before a carried window is adopted (KAN-350 V3 A): ONE
+// value, so the slot that takes over on entry cannot change shape.
+const SLOT_RADIUS = '4px';
 
 // The nearest ancestor that actually scrolls.
 //
@@ -1744,7 +1749,7 @@ const PHANTOM_STYLE = css`
 // rule on the landing slot's opacity).
 //
 // A list opts in by rendering this as a direct child of the phantom's
-// DraggableRow. The landing slot's look, with square corners.
+// DraggableRow. The landing slot's look, its corners included (SLOT_RADIUS).
 export const PhantomRestingSlot: React.FC = () => (
   <div
     aria-hidden="true"
@@ -1761,7 +1766,7 @@ export const PhantomRestingSlot: React.FC = () => (
       border-width: 1.5px;
       border-style: dashed;
       border-color: var(--drag-landing-slot, currentColor);
-      border-radius: ${RADIUS.SQUARE};
+      border-radius: ${SLOT_RADIUS};
       opacity: ${SLOT_OPACITY};
       /* Held, the row's own landing slot is drawn instead. */
       [data-drag-held] > & {
@@ -1887,7 +1892,7 @@ export const DraggableRow: React.FC<DraggableRowProps> = ({
             }px)`,
             pointerEvents: 'none',
             border: '1.5px dashed var(--drag-landing-slot, currentColor)',
-            borderRadius: '4px',
+            borderRadius: SLOT_RADIUS,
             // As visible as it is DISTINGUISHABLE from the row being dragged.
             //
             // The held row tracks the pointer continuously while the slot jumps

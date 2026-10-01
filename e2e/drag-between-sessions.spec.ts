@@ -505,6 +505,27 @@ async function aimAt(page: Page, rowId: string, frac: number): Promise<void> {
   await page.waitForTimeout(250);
 }
 
+// Until every row the preview moved has arrived: two frames for the move
+// to render and its transitions to start, then each running transition's
+// own end, until none is left. The state a measurement waits for, not a
+// guess at how long it takes.
+async function settled(page: Page): Promise<void> {
+  await page.evaluate(async () => {
+    const frame = () =>
+      new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+    await frame();
+    await frame();
+    for (;;) {
+      const running = document
+        .getAnimations()
+        .filter((a) => a instanceof CSSTransition && a.playState === 'running');
+      if (running.length === 0) return;
+      await Promise.all(running.map((a) => a.finished.catch(() => undefined)));
+      await frame();
+    }
+  });
+}
+
 // ============================================================================
 
 test.describe('a quick drop on a session row (S2 A)', () => {
@@ -1758,6 +1779,7 @@ test.describe('the target visuals (V1-V4)', () => {
             height: r.height,
             border: `${st.borderTopWidth} ${st.borderTopStyle}`,
             colour: st.borderTopColor,
+            radius: st.borderTopLeftRadius,
             opacity: st.opacity,
           };
         });
@@ -1810,6 +1832,8 @@ test.describe('the target visuals (V1-V4)', () => {
     // The same look as the slot it took over from.
     expect(entered[0]?.border).toBe(resting[0]?.border);
     expect(entered[0]?.colour).toBe(resting[0]?.colour);
+    // The same corners: one constant draws both (final review, finding 3).
+    expect(entered[0]?.radius).toBe(resting[0]?.radius);
     expect(entered[0]?.top).toBeCloseTo(resting[0]?.top ?? NaN, 0);
     expect(entered[0]?.height).toBeCloseTo(resting[0]?.height ?? NaN, 0);
     await page.keyboard.press('Escape');
@@ -1855,4 +1879,101 @@ test.describe('the target visuals (V1-V4)', () => {
     await page.keyboard.press('Escape');
     await page.mouse.up();
   });
+});
+
+// ---- the carried group's preview is the engine's (derive the box) ----------
+
+// A carried group let go at an exact spot opens the gap the engine opens for
+// ANY group dragged to that spot: the band's real footprint, its margin
+// included, measured from the band as drawn (footprintOf). The New window
+// target used to zero the band's margin to stay one row tall (V1 A), which
+// opened a gap 2px short of every other group drag's.
+//
+// Measured locally, between the rows either side of the spot: first the
+// engine's own drag of a same-size group there, on a page of its own, then
+// the carried group, which must open the same gap, and land there.
+test.describe('a carried group opens the gap any group drag opens', () => {
+  // The distance from `above`'s bottom to `below`'s top, as drawn.
+  const gapBetween = (page: Page, above: string, below: string) =>
+    page.evaluate(
+      ([a, b]) => {
+        const box = (id: string) => {
+          const el = document.querySelector(
+            `[data-pane="detail"] [data-drag-row-id="${id}"]`
+          );
+          if (el === null) throw new Error(`no row ${id}`);
+          return el.getBoundingClientRect();
+        };
+        return box(b).top - box(a).bottom;
+      },
+      [above, below]
+    );
+
+  // S2 with a second two-tab group, delta, after c2: the same size as the
+  // carried alpha, for the engine's own drag to the same spot.
+  const S2_TWO_BANDS = () =>
+    session('S2', 'Target', [
+      win(
+        'd1',
+        [
+          tab('c0'),
+          tab('c1'),
+          tab('ga0', 'gamma'),
+          tab('ga1', 'gamma'),
+          tab('c2'),
+          tab('de0', 'delta'),
+          tab('de1', 'delta'),
+        ],
+        [
+          { groupId: 'gamma', title: 'Gamma', color: 'green' },
+          { groupId: 'delta', title: 'Delta', color: 'red' },
+        ]
+      ),
+      win('d2', [tab('e0'), tab('e1')]),
+    ]);
+  const START = ['c0 c1 ga0* ga1* c2 de0* de1*', 'e0 e1'];
+
+  const spots: [string, string, string, string[]][] = [
+    [
+      'beside a loose tab',
+      'tab:c0',
+      'tab:c1',
+      ['c0 al0* al1* c1 ga0* ga1* c2 de0* de1*', 'e0 e1'],
+    ],
+    [
+      'beside another band',
+      'group:gamma',
+      'tab:c2',
+      ['c0 c1 ga0* ga1* al0* al1* c2 de0* de1*', 'e0 e1'],
+    ],
+  ];
+  for (const [name, above, below, want] of spots) {
+    test(`${name}`, async ({ context, extensionId }) => {
+      const sessions = () => [S1(), S2_TWO_BANDS(), S3()];
+      // The engine's own group drag to the spot, then cancelled.
+      const control = await openPopup(context, extensionId, sessions(), 'S2');
+      await pickUp(control, groupHandle(control, 'delta'));
+      await aimAt(control, below, 0.25);
+      await settled(control);
+      const engine = await gapBetween(control, above, below);
+      // PREMISE: a gap opened there at all.
+      expect(engine).toBeGreaterThan(20);
+      await control.keyboard.press('Escape');
+      await control.mouse.up();
+      expect(await layout(control, 'S2')).toEqual(START);
+      await control.close();
+
+      const page = await openPopup(context, extensionId, sessions(), 'S1');
+      const at = await pickUp(page, groupHandle(page, 'alpha'));
+      await carryOutLeft(page, at);
+      await springOpen(page, 'S2');
+      await adoptPhantom(page, 'group:carried:alpha');
+      await aimAt(page, below, 0.25);
+      await settled(page);
+      expect(await gapBetween(page, above, below)).toBeCloseTo(engine, 0);
+      await page.mouse.up();
+
+      await expect.poll(() => layout(page, 'S2')).toEqual(want);
+    });
+  }
 });

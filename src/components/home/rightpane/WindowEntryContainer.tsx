@@ -278,9 +278,16 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   // V1 A: one row tall, whatever is carried. A carried GROUP's phantom is
   // held folded to its header, as any group drag holds the held group
   // (KAN-160) -- but always, not only once held, so the box does not shrink
-  // under the pointer as it comes in -- and its band keeps no margin here,
-  // so the header is exactly a tab row's height. The phantom is the only
-  // thing this box ever holds, and the engine measures it in this layout.
+  // under the pointer as it comes in. The phantom is the only thing this box
+  // ever holds, and the engine measures it in this layout.
+  //
+  // Its band KEEPS its margins: the engine reads the band's own margin into
+  // the footprint every preview opens (footprintOf), so a band without one
+  // opened a gap 2px smaller than any group drag does (final review, finding
+  // 4: derive the box). The box that holds the phantom takes them back
+  // instead (newWindowTargetRowsStyle): margins that meet collapse, and a
+  // band's 2px against that box's -2px is 0, so the header is exactly a tab
+  // row's height inside the border.
   const isNewWindowTarget = windowId === CARRY_NEW_WINDOW_ID;
   const newWindowTargetStyle = css`
     position: relative;
@@ -291,9 +298,6 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     & [data-group-tabs] {
       display: none;
     }
-    & [data-band-id] {
-      margin: 0;
-    }
     &[data-landing] {
       background-color: ${COLORS.HOVER_COLOR};
       border-style: solid;
@@ -302,6 +306,11 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
       visibility: hidden;
     }
   `;
+  const newWindowTargetRowsStyle = items.some((item) => item.kind === 'group')
+    ? css`
+        margin: -${BAND_MARGIN_PX}px 0;
+      `
+    : undefined;
   const newWindowTargetLabelStyle = css`
     position: absolute;
     inset: 0;
@@ -844,7 +853,11 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
         // (KAN-350): its rows, not a window's, so nothing folds it and it
         // takes no indent.
         <div
-          css={isNewWindowTarget ? undefined : childrenContainerStyle}
+          css={
+            isNewWindowTarget
+              ? newWindowTargetRowsStyle
+              : childrenContainerStyle
+          }
           data-window-tabs={isNewWindowTarget ? undefined : ''}
           ref={markRowContainer}
         >
