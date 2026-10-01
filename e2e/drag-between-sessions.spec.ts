@@ -471,9 +471,28 @@ async function springOpen(page: Page, sessionId: string): Promise<void> {
 // The own place is read AFTER the adoption, untransformed: adopting a group
 // compresses it (KAN-160), which moves its own centre up from where the
 // phantom was drawn before.
+//
+// A tab's or group's phantom rests in the list's trailing block, after the
+// last window (KAN-361/366), so in a session longer than the pane it is
+// below the fold. For one, the pane is scrolled to its end first, as the
+// wheel would -- the layer drives the carry until the adoption, so nothing
+// is measured yet. A no-op for a pane with nothing to scroll; for one that
+// scrolls, the end is where the bottom edge's auto-scroll has nothing left
+// to do.
 async function adoptPhantom(page: Page, phantomId: string): Promise<void> {
   const phantom = page.locator(`[data-drag-row-id="${phantomId}"]`);
   await expect(phantom).toBeAttached();
+  // PREMISE: where the phantom rests. A window's is a window row of its
+  // own, in no window block; a tab's or group's, in the trailing block.
+  const home = await phantom.evaluate((el) => ({
+    isWindow: el.querySelector('[data-drop-window-id]') !== null,
+    block:
+      el
+        .closest('[data-drop-window-id]')
+        ?.getAttribute('data-new-window-target') ?? null,
+  }));
+  expect(home.block).toBe(home.isWindow ? null : 'last');
+  if (!home.isWindow) await setDetailScroll(page, 1e6);
   const b = await boxOf(phantom);
   const x = b.x + Math.min(60, b.width / 2);
   await page.mouse.move(x, b.y + b.height / 2, { steps: 8 });
@@ -1715,31 +1734,39 @@ test.describe('the tab view', () => {
 
 // ---- V1-V4 (Justine, 2026-09-30 evening: all A) -----------------------------
 
-// The box a drop lands in: its height inside the borders, and its look.
-const newWindowTarget = (page: Page) =>
-  page.evaluate(() => {
+// A New window box's height inside its borders, and its look: the header's
+// target (`first`) or the list's trailing block (`last`, KAN-361/366).
+const newWindowBox = (page: Page, which: 'first' | 'last') =>
+  page.evaluate((which) => {
     const el = document.querySelector<HTMLElement>(
-      '[data-drop-window-id][data-new-window-target]'
+      `[data-new-window-target="${which}"]`
     );
     if (el === null) return null;
     const style = getComputedStyle(el);
+    const name = el.querySelector('[data-new-window-label]');
     return {
       inner: el.clientHeight,
       fill: style.backgroundColor,
       border: style.borderTopStyle,
+      borderColour: style.borderTopColor,
+      named:
+        name !== null &&
+        name.checkVisibility({ checkVisibilityCSS: true, checkOpacity: true }),
       landing: el.hasAttribute('data-landing'),
       transition: style.transitionDuration,
       animations: el.getAnimations().length,
     };
-  });
+  }, which);
 
 const heightOf = async (loc: Locator) => (await boxOf(loc)).height;
 
 test.describe('the target visuals (V1-V4)', () => {
   // V1 A. One row tall whatever is carried, before the pointer comes in and
-  // after: a carried group's phantom is held folded to its header.
+  // after: a carried group's phantom is held folded to its header. The box
+  // is the trailing block the phantom rests in (KAN-361/366); the header's
+  // target is the toolbar row's height (its own describe).
   for (const kind of ['tab', 'group'] as const) {
-    test(`V1: the New window target is one tab row tall for a ${kind}, before and after entry`, async ({
+    test(`V1: the trailing block is one tab row tall for a ${kind}, before and after entry`, async ({
       context,
       extensionId,
     }) => {
@@ -1752,17 +1779,16 @@ test.describe('the target visuals (V1-V4)', () => {
       const at = await pickUp(page, handle);
       await carryOutLeft(page, at);
 
-      // Over the list, carried: the target is in the source (Q2 A).
+      // Over the list, carried: the phantom rests in the source (Q2 A).
       await expect(page.locator(CARD)).toHaveCount(1);
-      const before = await newWindowTarget(page);
+      const before = await newWindowBox(page, 'last');
       expect(before?.inner).toBe(rowH);
 
       await adoptPhantom(
         page,
         kind === 'tab' ? 'carried:a1' : 'group:carried:alpha'
       );
-      const after = await newWindowTarget(page);
-      expect(after?.landing).toBe(true);
+      const after = await newWindowBox(page, 'last');
       expect(after?.inner).toBe(rowH);
       await page.keyboard.press('Escape');
       await page.mouse.up();
@@ -1770,33 +1796,53 @@ test.describe('the target visuals (V1-V4)', () => {
   }
 
   // V2 A, already built: the box lights up -- the hover fill and a solid
-  // border -- and no landing slot is seen inside it.
-  test('V2: a landing in the target lights the box, with no dashed slot inside', async ({
+  // border -- and no landing slot is seen. The box a carry lights is the
+  // header's (KAN-361 N1 B); the trailing block the phantom rests in is
+  // drawn blank, no border colour and no name, and lit takes the same look.
+  test('V2: a landing in the target lights the box, with no dashed slot seen', async ({
     context,
     extensionId,
   }) => {
     const page = await openPopup(context, extensionId);
+    const aim = await headerAim(page);
     const at = await pickUp(page, tabHandle(page, 'a1'));
     await carryOutLeft(page, at);
     // CONTROL: unlit, it is dashed and unfilled.
-    const unlit = await newWindowTarget(page);
+    const unlit = await newWindowBox(page, 'first');
     expect(unlit?.border).toBe('dashed');
     expect(rgbToHex(unlit?.fill ?? '')).not.toBe(LIGHT_THEME.HOVER_COLOR);
+    // The trailing block, holding the phantom, is blank.
+    const rest = await newWindowBox(page, 'last');
+    expect(rest?.borderColour).toBe('rgba(0, 0, 0, 0)');
+    expect(rest?.named).toBe(false);
+    expect(rgbToHex(rest?.fill ?? '')).not.toBe(LIGHT_THEME.HOVER_COLOR);
 
     await adoptPhantom(page, 'carried:a1');
-    const lit = await newWindowTarget(page);
+    await ontoHeaderTarget(page, aim);
+    const lit = await newWindowBox(page, 'first');
     expect(lit?.landing).toBe(true);
     expect(rgbToHex(lit?.fill ?? '')).toBe(LIGHT_THEME.HOVER_COLOR);
     expect(lit?.border).toBe('solid');
-    // The landing slot exists -- the drag is live -- and is not seen.
-    const slots = await page
-      .locator('[data-new-window-target] [data-drag-landing-slot]')
-      .evaluateAll((els) =>
-        els.map((el) =>
-          el.checkVisibility({ checkVisibilityCSS: true, checkOpacity: true })
-        )
-      );
-    expect(slots).toEqual([false]);
+    // The drag is live, and no landing slot is drawn: the lit box is what
+    // says where the row goes (a landing on the header names no slot).
+    await expect(tabHandle(page, 'carried:a1')).toHaveAttribute(
+      'data-drag-held',
+      ''
+    );
+    await expect(page.locator('[data-drag-landing-slot]')).toHaveCount(0);
+
+    // The trailing block, lit as a landing lights it: the same look.
+    await page.evaluate(
+      () =>
+        document
+          .querySelector('[data-new-window-target="last"]')
+          ?.setAttribute('data-landing', '')
+    );
+    const trailingLit = await newWindowBox(page, 'last');
+    expect(rgbToHex(trailingLit?.fill ?? '')).toBe(LIGHT_THEME.HOVER_COLOR);
+    expect(trailingLit?.border).toBe('solid');
+    expect(trailingLit?.borderColour).toBe(lit?.borderColour);
+    expect(trailingLit?.named).toBe(true);
     await page.keyboard.press('Escape');
     await page.mouse.up();
   });
@@ -1903,51 +1949,80 @@ test.describe('the target visuals (V1-V4)', () => {
     await page.mouse.up();
   });
 
-  // V4 A, already built: the target appears at once in the source as the
-  // carry starts -- no transition, no animation, its height the same from
-  // the first frame it is drawn.
-  test('V4: the target appears at once, with no slide', async ({
+  // V4 A, already built: what a carry draws in the list appears at once --
+  // no transition, no animation. The trailing block takes its row of room
+  // at the pick-up (Q4) and holds it through the hand-off, where the phantom
+  // comes to rest in it: from rest to carried, one step and no slide.
+  test('V4: the trailing block takes its room at once, with no slide, and keeps it as the carry starts', async ({
     context,
     extensionId,
   }) => {
     const page = await openPopup(context, extensionId);
-    // Every frame's height of the target, from the first it is drawn in.
+    // Every frame's height of the block, and whether a carry is on, from
+    // before the pick-up.
     await page.evaluate(() => {
-      const heights: number[] = [];
+      const frames: [number, boolean][] = [];
       const tick = () => {
-        const el = document.querySelector(
-          '[data-drop-window-id][data-new-window-target]'
-        );
+        const el = document.querySelector('[data-new-window-target="last"]');
         if (el !== null) {
-          heights.push(el.getBoundingClientRect().height);
-          document.body.dataset.targetHeights = heights.join(' ');
+          frames.push([
+            el.getBoundingClientRect().height,
+            document.querySelector('[data-carry-card]') !== null,
+          ]);
+          document.body.dataset.trailingFrames = JSON.stringify(frames);
         }
-        if (heights.length < 30) requestAnimationFrame(tick);
+        if (document.body.dataset.trailingLog !== 'off')
+          requestAnimationFrame(tick);
       };
       requestAnimationFrame(tick);
     });
+    await expect
+      .poll(() =>
+        page.evaluate(() => document.body.dataset.trailingFrames ?? '')
+      )
+      .not.toBe('');
     const at = await pickUp(page, tabHandle(page, 'a1'));
     await carryOutLeft(page, at);
-    // Until the sampler has its 30 frames.
-    const sampled = () =>
-      page.evaluate(() =>
-        (document.body.dataset.targetHeights ?? '')
-          .split(' ')
-          .filter((h) => h !== '')
-          .map(Number)
-      );
-    await expect.poll(async () => (await sampled()).length).toBe(30);
-    const heights = await sampled();
-    // PREMISE: sampled from its first frame on, for a while.
-    expect(heights.length).toBeGreaterThan(10);
-    expect(new Set(heights).size).toBe(1);
-    const now = await newWindowTarget(page);
+    await settled(page);
+    const raw = await page.evaluate(() => {
+      document.body.dataset.trailingLog = 'off';
+      return document.body.dataset.trailingFrames ?? '[]';
+    });
+    const parsed: unknown = JSON.parse(raw);
+    if (!isHeightLog(parsed)) throw new Error(`not a height log: ${raw}`);
+    const heights = parsed.map(([h]) => h);
+    const room = heights[heights.length - 1] ?? 0;
+    // PREMISE: sampled at rest, and through the hand-off.
+    expect(heights[0]).toBe(0);
+    expect(parsed.some(([, carried]) => carried)).toBe(true);
+    expect(room).toBeGreaterThan(20);
+    // Two heights only, and one step between them: never in between, and
+    // never back.
+    expect(new Set(heights)).toEqual(new Set([0, room]));
+    const step = heights.indexOf(room);
+    expect(heights.slice(step).every((h) => h === room)).toBe(true);
+    const now = await newWindowBox(page, 'last');
     expect(now?.transition).toBe('0s');
     expect(now?.animations).toBe(0);
     await page.keyboard.press('Escape');
     await page.mouse.up();
   });
 });
+
+// A frame log of [height, carried] pairs.
+const isHeightLog = (x: unknown): x is [number, boolean][] => {
+  if (!Array.isArray(x)) return false;
+  const items: readonly unknown[] = x;
+  return items.every((f) => {
+    if (!Array.isArray(f)) return false;
+    const pair: readonly unknown[] = f;
+    return (
+      pair.length === 2 &&
+      typeof pair[0] === 'number' &&
+      typeof pair[1] === 'boolean'
+    );
+  });
+};
 
 // ---- the carried group's preview is the engine's (derive the box) ----------
 
@@ -2015,11 +2090,22 @@ test.describe('a carried group opens the gap any group drag opens', () => {
       ['c0 c1 ga0* ga1* al0* al1* c2 de0* de1*', 'e0 e1'],
     ],
   ];
+  // In the tab view, side by side, where S2 fits its pane: the carried
+  // group's phantom rests after S2's last window (KAN-361/366), and adopting
+  // it there in the popup, whose pane scrolls for S2, left the spots in the
+  // top auto-scroll band.
   for (const [name, above, below, want] of spots) {
     test(`${name}`, async ({ context, extensionId }) => {
       const sessions = () => [S1(), S2_TWO_BANDS(), S3()];
       // The engine's own group drag to the spot, then cancelled.
-      const control = await openPopup(context, extensionId, sessions(), 'S2');
+      const control = await openTabView(
+        context,
+        extensionId,
+        false,
+        sessions()
+      );
+      await sessionRow(control, 'S2').click();
+      await expect(control.locator('[data-drag-row-id="d1"]')).toBeVisible();
       await pickUp(control, groupHandle(control, 'delta'));
       await aimAt(control, below, 0.25);
       await settled(control);
@@ -2031,11 +2117,13 @@ test.describe('a carried group opens the gap any group drag opens', () => {
       expect(await layout(control, 'S2')).toEqual(START);
       await control.close();
 
-      const page = await openPopup(context, extensionId, sessions(), 'S1');
+      const page = await openTabView(context, extensionId, false, sessions());
       const at = await pickUp(page, groupHandle(page, 'alpha'));
       await carryOutLeft(page, at);
       await springOpen(page, 'S2');
       await adoptPhantom(page, 'group:carried:alpha');
+      // PREMISE: the session fits its pane, so nothing scrolled.
+      expect((await detailPane(page)).scrollTop).toBe(0);
       await aimAt(page, below, 0.25);
       await settled(page);
       expect(await gapBetween(page, above, below)).toBeCloseTo(engine, 0);
@@ -2049,7 +2137,7 @@ test.describe('a carried group opens the gap any group drag opens', () => {
 // ---- KAN-362 ------------------------------------------------------------------
 
 // The landing slot is drawn inside the held row. An adopted carry's held row
-// is the phantom in the New window target, which takes no window's indent, so
+// is the phantom in the trailing block, which takes no window's indent, so
 // the slot is only as wide as a landing row because it takes the box of the
 // row the item lands as (KAN-364), not the phantom's.
 const box = (page: Page, selector: string) =>
@@ -2279,7 +2367,7 @@ async function sweepRows(page: Page, x: number): Promise<number> {
     const rowHit = await rowHitAt(page, x, y);
     if (rowHit !== null) hit.push(`${Math.round(y)}:${rowHit}`);
     // Real rows only: not the held phantom, not the wrapper around it, and
-    // nothing inside the New window target.
+    // nothing inside the trailing block it rests in.
     const under = await page.evaluate(
       ([x, y]) =>
         [
@@ -2489,25 +2577,13 @@ test.describe('no row under a held carry shows its hover (KAN-363)', () => {
     await page.mouse.move(at.x, (pane.top + pane.bottom) / 2, { steps: 4 });
     await settled(page);
     const before = (await detailPane(page)).scrollTop;
-    // PREMISE: it starts at the top, with room to scroll down.
-    expect(before).toBe(0);
-    expect(
-      await page.evaluate(() => {
-        let el = document.querySelector(
-          '[data-pane="detail"] [data-drop-window-id]'
-        )?.parentElement;
-        while (
-          el &&
-          !['auto', 'scroll'].includes(getComputedStyle(el).overflowY)
-        )
-          el = el.parentElement;
-        return el ? el.scrollHeight - el.clientHeight : 0;
-      })
-    ).toBeGreaterThan(200);
-    await page.mouse.wheel(0, 200);
+    // PREMISE: scrolled down to where the phantom rests, at the session's
+    // end (KAN-361/366), with room to scroll back up.
+    expect(before).toBeGreaterThan(200);
+    await page.mouse.wheel(0, -200);
     await expect
       .poll(async () => (await detailPane(page)).scrollTop)
-      .toBeGreaterThan(before);
+      .toBeLessThan(before);
     await page.keyboard.press('Escape');
     await page.mouse.up();
   });
@@ -2717,6 +2793,7 @@ const slotsDrawn = (page: Page) =>
 interface SlotFrame {
   slot: boolean;
   inTarget: boolean;
+  homeFound: boolean;
 }
 const isSlotLog = (x: unknown): x is SlotFrame[] => {
   if (!Array.isArray(x)) return false;
@@ -2728,7 +2805,9 @@ const isSlotLog = (x: unknown): x is SlotFrame[] => {
       'slot' in f &&
       typeof f.slot === 'boolean' &&
       'inTarget' in f &&
-      typeof f.inTarget === 'boolean'
+      typeof f.inTarget === 'boolean' &&
+      'homeFound' in f &&
+      typeof f.homeFound === 'boolean'
   );
 };
 
@@ -2771,8 +2850,9 @@ test.describe('below the last row, a carried item draws no slot (KAN-365)', () =
   }
 
   // Frame by frame, from over the last window down past the list: no frame
-  // draws a slot inside the New window target, the frame the landing is
-  // refused on included.
+  // draws a slot inside the block the phantom rests in -- the trailing block
+  // (KAN-361/366), where main's in-list target was -- the frame the landing
+  // is refused on included.
   test('frame by frame on the way down, no frame draws a slot inside the target', async ({
     context,
     extensionId,
@@ -2783,17 +2863,21 @@ test.describe('below the last row, a carried item draws no slot (KAN-365)', () =
     await adoptPhantom(page, 'carried:a0');
     await aimAt(page, 'b0', 0.5);
     await page.evaluate(() => {
-      const log: { slot: boolean; inTarget: boolean }[] = [];
+      const log: { slot: boolean; inTarget: boolean; homeFound: boolean }[] =
+        [];
       document.body.dataset.slotLog = 'on';
       const frame = () => {
-        const target = document
-          .querySelector('[data-drop-window-id][data-new-window-target]')
-          ?.getBoundingClientRect();
+        const home = document.querySelector('[data-new-window-target="last"]');
+        const target =
+          home?.querySelector('[data-carry-phantom]') === null
+            ? undefined
+            : home?.getBoundingClientRect();
         const slots = [
           ...document.querySelectorAll('[data-drag-landing-slot]'),
         ].filter((el) => getComputedStyle(el).visibility !== 'hidden');
         log.push({
           slot: slots.length > 0,
+          homeFound: target !== undefined,
           inTarget: slots.some((el) => {
             const b = el.getBoundingClientRect();
             return (
@@ -2818,8 +2902,10 @@ test.describe('below the last row, a carried item draws no slot (KAN-365)', () =
     });
     const frames: unknown = JSON.parse(raw);
     if (!isSlotLog(frames)) throw new Error(`not a slot log: ${raw}`);
-    // PREMISE: the log saw the slot drawn, over the rows.
+    // PREMISE: the log saw the slot drawn, over the rows, and the block the
+    // phantom rests in, holding it, in every frame.
     expect(frames.some((f) => f.slot)).toBe(true);
+    expect(frames.every((f) => f.homeFound)).toBe(true);
     expect(
       frames.filter((f) => f.inTarget).length,
       'frames with a slot inside the target'
