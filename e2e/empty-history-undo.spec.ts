@@ -11,6 +11,9 @@ import {
   seedCloudConsentIfSettingsAbsent,
 } from './fixtures/seed';
 
+// Syncs with the dev cloud (KAN-383).
+test.use({ cloud: true });
+
 // KAN-292, in a real browser against the real cloud. Ctrl+Z is not gated on
 // "is there anything to undo"; with an empty history the middleware still
 // applied the stale undo snapshot and started a sync. After a later sync had

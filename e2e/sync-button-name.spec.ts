@@ -15,16 +15,10 @@ import { seedSessions, seedSettings } from './fixtures/seed';
 // need a real sign-in, which Firebase's signUp rate limit refuses; the
 // component tests drive those through the store (syncButtonName.test.tsx).
 
-const CLOUD =
-  /firestore\.googleapis\.com|identitytoolkit\.googleapis\.com|securetoken\.googleapis\.com/;
-
 async function openHome(
   context: BrowserContext,
   extensionId: string
 ): Promise<Page> {
-  // Nothing here needs the cloud, and a stray sign-in would spend the
-  // rate-limited signUp quota.
-  await context.route(CLOUD, (route) => route.abort());
   await seedSessions(context);
   const page = await context.newPage();
   await page.setViewportSize({ width: 790, height: 550 });

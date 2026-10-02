@@ -3,6 +3,9 @@ import type { BrowserContext, Page, Route } from '@playwright/test';
 import { test, expect } from './fixtures/extension';
 import { buildContainer, buildSession } from './fixtures/seed';
 
+// Syncs with the dev cloud (KAN-383).
+test.use({ cloud: true });
+
 // KAN-291, in a real browser against the real cloud. The sync's write used to
 // put the copy it read BEFORE the Firestore write back into localStorage
 // AFTER it, over any edit made meanwhile; the follow-up sync then merged that
