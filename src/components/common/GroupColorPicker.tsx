@@ -52,15 +52,6 @@ interface GroupColorPickerProps {
   /** Names the trigger. Must contain the group's visible title (WCAG 2.5.3). */
   ariaLabel: string;
   onSelect: (color: TabGroupColor) => void;
-  /**
-   * Paints the band and nothing else: no name, no focus, no picker.
-   *
-   * The search panel withholds every mutating group action (KAN-62), and a
-   * control that cannot act must not be focusable. Rendering the plain band
-   * from here rather than at the call site keeps the 3px/6px arithmetic in one
-   * place -- a second copy is exactly how the two drift apart.
-   */
-  decorative?: boolean;
 }
 
 /**
@@ -79,7 +70,6 @@ const GroupColorPicker: React.FC<GroupColorPickerProps> = ({
   color,
   ariaLabel,
   onSelect,
-  decorative = false,
 }) => {
   const COLORS = useThemeColors();
   const { t } = useTranslation();
@@ -157,9 +147,6 @@ const GroupColorPicker: React.FC<GroupColorPickerProps> = ({
     axis: 'horizontal',
   });
 
-  if (decorative)
-    return <div aria-hidden="true" data-group-color-strip css={bandStyle} />;
-
   return (
     <div
       ref={wrapperRef}
@@ -229,8 +216,6 @@ const GroupColorPicker: React.FC<GroupColorPickerProps> = ({
 
                Invisible and out of flow, so it moves nothing; a pointer on it
                resolves to this element, which is what makes it a target.
-               Only on the interactive strip: the decorative one (search
-               results) is aria-hidden and has nothing to be a target for.
 
                A ::after, NOT a ::before. tab-group-join-preview.spec reads
                the strip's ::before as its paint layer and falls back when

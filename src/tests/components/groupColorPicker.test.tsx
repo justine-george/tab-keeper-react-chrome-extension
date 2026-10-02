@@ -1,8 +1,7 @@
 import { describe, expect, test } from 'vitest';
-import { cleanup, screen, within } from '@testing-library/react';
+import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
-import GroupColorPicker from '../../components/common/GroupColorPicker';
 import WindowEntryContainer from '../../components/home/rightpane/WindowEntryContainer';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import {
@@ -339,15 +338,11 @@ describe('widening the band', () => {
     expect(style.marginRight).toBe('9px');
   });
 
-  // KAN-231. The click target is a ::after on the INTERACTIVE strip only. The
-  // decorative strip (search results) is aria-hidden and has nothing to be a
-  // target for, so it must not carry one. jsdom applies no pseudo-element
-  // rules, so this reads the inserted rule text, keyed by each strip's own
-  // class list.
-  test('the hit area rule is on the interactive strip and not the decorative one', async () => {
+  // KAN-231. jsdom applies no pseudo-element rules, so this reads the inserted
+  // rule text, keyed by the strip's own class list.
+  test('the hit area is a ::after on the strip, with no ::before', async () => {
     // Rules whose selector names one of this element's own classes and the
-    // given pseudo-element. Emotion emits one class per css`` block, so the
-    // interactive strip and the decorative strip do not share classes.
+    // given pseudo-element. Emotion emits one class per css`` block.
     const pseudoRulesFor = (el: Element, pseudo: '::after' | '::before') => {
       const classes = [...el.classList].map((c) => `.${c}`);
       const found: string[] = [];
@@ -375,22 +370,5 @@ describe('widening the band', () => {
     // No ::before: tab-group-join-preview.spec reads the strip's ::before as
     // its paint layer and must keep finding none.
     expect(pseudoRulesFor(interactive, '::before')).toBe('');
-
-    // The decorative strip carries neither. It is aria-hidden and inert; a
-    // 24px hit area on it would be a target for nothing.
-    cleanup();
-    // Nothing renders the decorative strip now; mount it directly.
-    await renderWithProviders(
-      <GroupColorPicker
-        decorative
-        color="blue"
-        ariaLabel={BAND}
-        onSelect={() => undefined}
-      />
-    );
-    const decorative = document.querySelector('[data-group-color-strip]');
-    if (decorative === null) throw new Error('no decorative strip');
-    expect(decorative.getAttribute('aria-hidden')).toBe('true');
-    expect(pseudoRulesFor(decorative, '::after')).toBe('');
   });
 });
