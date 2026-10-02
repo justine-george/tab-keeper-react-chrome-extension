@@ -390,6 +390,36 @@ test.describe('saves in the tab view leave out its own tab (KAN-279 D6)', () => 
 
     await tab.screenshot({ path: testInfo.outputPath('tab-view.png') });
   });
+
+  test('the name field starts empty with its placeholder, and an empty save is named after the other tab', async ({
+    context,
+    extensionId,
+  }) => {
+    await seedSessions(context);
+    await context.route('https://named.test/**', (route) =>
+      route.fulfill({
+        contentType: 'text/html',
+        body: '<title>Named by tab</title><p>named</p>',
+      })
+    );
+    const other = await context.newPage();
+    await other.goto('https://named.test/');
+    const tab = await openPage(context, extensionId, VIEW_TAB, TAB_VIEWPORT);
+
+    const field = tab.locator('input#name');
+    await expect(field).toHaveAttribute('placeholder', 'Name the new session');
+    // The title is read asynchronously; once it is, the field must still be empty.
+    await tab.waitForTimeout(500);
+    await expect(field).toHaveValue('');
+
+    await saveRowMenu(tab).click();
+    await tab
+      .getByRole('menuitem', { name: 'Save current window as a session' })
+      .click();
+
+    await expect(row(tab, 'Named by tab')).toBeVisible();
+    await expect(field).toHaveValue('');
+  });
 });
 
 // ---- (4) the popup page and the tab view together (D8, D9, D12) ----
