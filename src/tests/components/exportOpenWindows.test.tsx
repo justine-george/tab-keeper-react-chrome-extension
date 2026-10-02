@@ -7,19 +7,10 @@ import { buildContainer, buildSession } from '../fixtures/sessionFixture';
 import { buildChromeTab } from '../fixtures/chromeTab';
 import { replaceState } from '../../redux/slices/tabContainerDataStateSlice';
 
-// KAN-208 / KAN-300. Exporting what is open right now, without saving it
-// first.
-//
-// The page captures the open windows for itself -- chrome.windows.getAll works
-// from an extension page -- and holds the capture in React state. It is never
-// dispatched: replaceState writes localStorage, so a dispatched capture would
-// become an unsaved session in the list, which is the clutter this export
-// exists to avoid. Nothing in the data state changes, so there is no undo
-// entry and nothing for the sync middleware to push.
-//
-// The page is one of the open tabs, and is left out along with every OTHER
-// Tab Keeper page open anywhere in the capture (KAN-300, isTabKeeperPage in
-// capture.ts) -- by address, not by which tab id happens to be "the page".
+// The capture stays in React state, never dispatched: replaceState writes
+// localStorage, so it would become an unsaved session, an undo entry and a sync
+// push.
+// Tab Keeper pages are left out by address, not by tab id (KAN-300).
 
 const OWN_URL = 'chrome-extension://faketestid/export.html?source=open-windows';
 const A = 'https://kagi.com/';
@@ -68,10 +59,7 @@ describe('exporting the open windows (KAN-208)', () => {
     expect(screen.getByText('2 Windows · 2 Tabs')).toBeTruthy();
   });
 
-  // KAN-300. A second, genuinely different Tab Keeper page (the tab view,
-  // say, open beside this export tab) used to survive KAN-208's by-id
-  // exclusion -- a DIFFERENT address, so a match-by-id rule let it through.
-  // The address-based rule catches it too.
+  // KAN-300: a by-id rule would let this through.
   test('a second, genuinely different Tab Keeper page is excluded too', async () => {
     const TAB_VIEW = 'chrome-extension://faketestid/index.html?view=tab';
     await renderLive({
@@ -116,7 +104,6 @@ describe('exporting the open windows (KAN-208)', () => {
     expect(frame().srcdoc).not.toContain('Created');
   });
 
-  // CONTROL for the test above: the saved path still writes the date.
   test('CONTROL: a saved session still carries its date line', async () => {
     await renderWithProviders(
       <ExportPage source={{ kind: 'saved', tabGroupId: 's' }} />,
@@ -139,8 +126,7 @@ describe('exporting the open windows (KAN-208)', () => {
     expect(screen.getByRole('button', { name: 'Edit' })).toBeTruthy();
   });
 
-  // The point of the ticket. Three things that a dispatched capture would
-  // change, asserted separately so the failure names which one moved.
+  // Asserted separately so a failure names which one moved.
   test('saves nothing: storage untouched, no data action, no undo entry', async () => {
     const { store, seen } = await renderLive();
     await waitFor(() => expect(frame().srcdoc).toContain('Kagi Search'));
@@ -153,9 +139,8 @@ describe('exporting the open windows (KAN-208)', () => {
     expect(store.getState().undoRedo.past).toEqual([]);
   });
 
-  // CONTROL: the recorder can see a data-state dispatch. The saved path loads
-  // storage through replaceState -- the very action a dispatched capture would
-  // take -- so a recorder that saw nothing above proves something.
+  // CONTROL: the recorder sees replaceState, the action a dispatched capture
+  // would take.
   test('CONTROL: the saved path does dispatch into the data state', async () => {
     localStorage.setItem(
       'tabContainerData',
@@ -172,16 +157,10 @@ describe('exporting the open windows (KAN-208)', () => {
     expect(seen).toContain('tabContainerDataState/replaceState');
   });
 
-  // The edge: the page is the only tab open. "Session not found" is the page's
-  // existing empty state -- but it must appear AFTER the capture, not while it
-  // is still running, or every load flashes it.
-  //
-  // The first two assertions run before the capture has settled: the effect
-  // starts inside render()'s act, awaits windows.getCurrent (captureOpenWindows'
-  // own first hop), and this test's own continuation is queued behind that
-  // first hop but ahead of the capture's remaining ones. If that ordering
-  // ever changes this fails LOUDLY on the `data-capturing` line, not
-  // silently.
+  // "Session not found" must wait for the capture, or every load flashes it.
+  // The first two assertions run mid-capture: this continuation is queued after
+  // the capture's first hop (windows.getCurrent) and before the rest. If that
+  // ordering changes, this fails loudly on the `data-capturing` line.
   test('with nothing open but itself, says not found -- after capturing', async () => {
     await renderLive({
       windows: [

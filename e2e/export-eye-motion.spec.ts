@@ -9,17 +9,9 @@ import {
   seedSettings,
 } from './fixtures/seed';
 
-// KAN-222. The eye at the end of each Edit-mode row on the export page,
-// measured before the change:
-//
-// - pressing looked exactly like hovering (the KAN-220 rule order);
-// - a hidden row dimmed its eye with it, to 1.95:1 light and 2.40:1 dark,
-//   below the 3:1 a control needs -- the control that brings the row back;
-// - hiding snapped: 45% and the struck-through glyph in one frame.
-//
-// Picked by Justine from a mock: the eye stays whole on a hidden row, dips to
-// 95% while held, fills one step past hover, crossfades its glyph with a 2px
-// blur, and the row's content fades to 45% over 150ms.
+// KAN-222. The Edit-mode eye stays whole on a hidden row (it is the control
+// that brings the row back, so it needs 3:1), dips to 95% while held, fills
+// past hover, and crossfades its glyph with a 2px blur; the row fades to 45%.
 
 const SESSION = buildSession({
   tabGroupId: 'session-kyoto',
@@ -118,8 +110,7 @@ async function held(page: Page, button: Locator) {
 }
 
 for (const theme of ['Light', 'Darkenheimer']) {
-  // The eye's glyph against the file ground, at the opacity it is DRAWN at --
-  // its own times every ancestor's -- read from what the browser computes.
+  // Contrast at the DRAWN opacity: its own times every ancestor's.
   test(`${theme}: on a hidden row the eye still reads at 3:1`, async ({
     context,
     extensionId,
@@ -202,7 +193,6 @@ test('hiding fades the row and crossfades the glyph', async ({
   );
   expect(titleFading).toContain('opacity');
   expect(faceFading).toEqual(expect.arrayContaining(['opacity', 'filter']));
-  // And it lands where it should.
   await expect
     .poll(() => title.evaluate((el) => getComputedStyle(el).opacity))
     .toBe('0.45');

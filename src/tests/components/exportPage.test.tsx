@@ -9,15 +9,9 @@ import { buildContainer, buildSession } from '../fixtures/sessionFixture';
 import { replaceState } from '../../redux/slices/tabContainerDataStateSlice';
 import { setTheme, Theme } from '../../redux/slices/settingsDataStateSlice';
 
-// KAN-190. The page that opens when a session is exported. It shows the file
-// before it is saved -- that is its whole reason to exist, and the reason the
-// download is a second click rather than the first.
-//
-// What is asserted here is the WIRING: that the page renders the generator's
-// output, that the layout switch reaches it, and that saving writes the same
-// string under the expected name. sessionExportHtml.test.ts holds the
-// contents of that string; e2e/session-export.spec.ts proves a real browser
-// writes a real file.
+// KAN-190. Wiring only: the page previews the generator's output and saves that
+// same string. File contents: sessionExportHtml.test.ts; real file:
+// e2e/session-export.spec.ts.
 
 const SESSION = buildSession({
   tabGroupId: 'session-kyoto',
@@ -62,7 +56,7 @@ const renderPage = (tabGroupId = 'session-kyoto') =>
 const frame = (): HTMLIFrameElement => {
   const found = document.querySelector('iframe');
   if (!found) throw new Error('the page renders no preview frame');
-  return found as HTMLIFrameElement;
+  return found;
 };
 
 afterEach(() => {
@@ -70,8 +64,8 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-// jsdom has no ClipboardItem. The page builds one per copy, so the fake keeps
-// what it was given, and the test reads both versions back out of it.
+// jsdom has no ClipboardItem; the fake keeps what it was given so both versions
+// can be read back.
 class FakeClipboardItem {
   constructor(readonly items: Record<string, Blob>) {}
 }
@@ -95,13 +89,8 @@ describe('the export preview page (KAN-190)', () => {
     expect(frame().srcdoc).toContain('Kyoto bus map');
   });
 
-  // KAN-212 made compact the opening layout. The comfortable file spends a lot
-  // of page on air, and the common reason to export is to send a list rather
-  // than to print a document -- so the denser one is the better first answer,
-  // and the other is one press away.
-  //
-  // Safe to change as a DEFAULT because export shipped after the v1.8.0 tag:
-  // nobody has an exportLayout stored, so nobody's saved choice is overridden.
+  // KAN-212. Compact by default: exports are mostly lists to send, not
+  // documents to print.
   test('opens on the compact layout, with comfortable offered', async () => {
     await renderPage();
 
@@ -118,15 +107,10 @@ describe('the export preview page (KAN-190)', () => {
     ).toBe('false');
   });
 
-  // KAN-212. The colour pair is the one control on this toolbar whose choice
-  // has a symbol everyone already knows, and the row wraps in Russian at the
-  // popup width -- measured, the pair costs 168.9px there against 125.5 in
-  // English, while a glyph costs the same in every language.
-  //
-  // The LAYOUT pair deliberately keeps its words. density_large against
-  // density_small is two sets of horizontal lines differing by a few pixels of
-  // spacing, and neither says which one is roomier; matching the pairs by
-  // making the readable one worse is consistency for its own sake.
+  // Measured: the worded colour pair costs 168.9px in Russian vs 125.5px in
+  // English and wraps the row; a glyph costs the same in every language. The
+  // density glyphs don't say which is roomier, so the layout pair keeps its
+  // words.
   describe('the colour pair is glyphs, the layout pair is words (KAN-212)', () => {
     const glyphOf = (name: string) =>
       screen
@@ -140,9 +124,7 @@ describe('the export preview page (KAN-190)', () => {
       expect(glyphOf('Dark')).toBe('dark_mode');
     });
 
-    // The name has to survive losing the visible word -- it is what a screen
-    // reader announces and what voice control is spoken to, and the glyph
-    // itself is aria-hidden so it cannot stand in.
+    // The glyph is aria-hidden, so the name must come from the label.
     test('each still carries its name and its tooltip', async () => {
       await renderPage();
 
@@ -153,8 +135,7 @@ describe('the export preview page (KAN-190)', () => {
       }
     });
 
-    // CONTROL: the layout pair is untouched, so this cannot pass by every
-    // segment on the row having become a glyph.
+    // CONTROL: the glyph test cannot pass by every segment becoming a glyph.
     test('Comfortable and Compact keep their words and carry no glyph', async () => {
       await renderPage();
 
@@ -165,10 +146,7 @@ describe('the export preview page (KAN-190)', () => {
     });
   });
 
-  // Switches AWAY from the opening layout, whichever that is. It used to press
-  // Compact, which KAN-212 made the default -- so the press became a no-op, the
-  // file did not re-render, and the test failed for the right reason. Pressing
-  // the other one keeps it a test of the switch rather than of the default.
+  // Presses the non-default layout, so the press is never a no-op.
   test('switching layout re-renders the file and moves the marker', async () => {
     const user = userEvent.setup();
     await renderPage();
@@ -188,26 +166,33 @@ describe('the export preview page (KAN-190)', () => {
         .getByRole('button', { name: 'Compact' })
         .getAttribute('aria-pressed')
     ).toBe('false');
-    // Still the same session, in the other layout.
     expect(frame().srcdoc).toContain('https://inari.jp/en/');
   });
 
   test('saving writes the previewed file under the session name', async () => {
     const user = userEvent.setup();
+    const blobs: Blob[] = [];
+    vi.spyOn(URL, 'createObjectURL').mockImplementation((blob) => {
+      if (blob instanceof Blob) blobs.push(blob);
+      return 'blob:saved';
+    });
     const clicks = vi.spyOn(HTMLAnchorElement.prototype, 'click');
     await renderPage();
 
+    // Off the default, so a save that rebuilt the file would differ.
+    await user.click(screen.getByRole('button', { name: 'Comfortable' }));
     await user.click(screen.getByRole('button', { name: 'Save as HTML' }));
 
-    expect(clicks).toHaveBeenCalled();
-    const anchor = clicks.mock.instances[0] as HTMLAnchorElement;
+    expect(blobs).toHaveLength(1);
+    expect(await blobs[0].text()).toBe(frame().srcdoc);
+    const anchor = clicks.mock.instances[0];
+    if (!(anchor instanceof HTMLAnchorElement)) throw new Error('no link');
     expect(anchor.download).toMatch(
       /^Weekend in Kyoto - \d{4}-\d{2}-\d{2}\.html$/
     );
   });
 
-  // KAN-195. The clipboard carries a rich list for editors that read HTML and
-  // a plain layout for everything else; the app pasted into picks one.
+  // KAN-195. Rich HTML for editors that read it, plain text for the rest.
   test('copying puts a rich list and a plain one on the clipboard', async () => {
     const user = userEvent.setup();
     vi.stubGlobal('ClipboardItem', FakeClipboardItem);
@@ -231,8 +216,6 @@ describe('the export preview page (KAN-190)', () => {
     expect(await screen.findByText('Links copied')).toBeTruthy();
   });
 
-  // Where the rich write is refused -- or ClipboardItem does not exist -- the
-  // links still get copied, as plain text, and the page still says so.
   test('when the rich copy is refused, the plain list is copied instead', async () => {
     const user = userEvent.setup();
     vi.stubGlobal('ClipboardItem', FakeClipboardItem);
@@ -271,11 +254,7 @@ describe('the export preview page (KAN-190)', () => {
     expect(writeText.mock.calls[0][0]).toContain('- Kyoto bus map');
   });
 
-  // This page is its own document, so it boots its own store -- and nothing
-  // fills that store for it. The popup's App does the loading for the popup;
-  // without the same step here the page opens on "Session not found" for a
-  // session that plainly exists, which is exactly what the first real-browser
-  // run showed.
+  // Its own document with its own store; the popup's App does not load it.
   test('loads the sessions from storage, because nothing else fills its store', async () => {
     localStorage.setItem(
       'tabContainerData',
@@ -300,18 +279,14 @@ describe('the export preview page (KAN-190)', () => {
     expect(screen.getByText('Session not found')).toBeTruthy();
   });
 
-  // The tab is a URL the user can pin or reload, so it has to say which
-  // session it holds. "Tab Keeper" on five pinned export tabs says nothing.
+  // A pinnable URL must say which session it holds.
   test('names the tab after the session', async () => {
     await renderPage();
 
     expect(document.title).toBe('Weekend in Kyoto');
   });
 
-  // The worst path: the page is a URL, so it can be opened with an id that no
-  // longer exists -- a bookmarked export tab, or a session deleted in the
-  // popup after the tab was opened. It must say so, not crash or offer to save
-  // an empty file.
+  // Worst path: a bookmarked or stale URL whose session no longer exists.
   test('an id that matches no session says so, and offers nothing to save', async () => {
     await renderPage('session-that-was-deleted');
 
@@ -332,10 +307,8 @@ describe('the export preview page (KAN-190)', () => {
   });
 });
 
-// Found on a real export: the file followed the reader's SYSTEM setting, so
-// exporting from the Light theme on a Mac in dark mode produced a dark file
-// inside a light toolbar. The file takes its polarity from the Tab Keeper
-// theme instead.
+// The file's polarity comes from the Tab Keeper theme, not the reader's system
+// setting.
 describe('the exported file matches the theme it was exported under', () => {
   const renderUnder = (theme: Theme) =>
     renderWithProviders(
@@ -354,8 +327,7 @@ describe('the exported file matches the theme it was exported under', () => {
     await waitFor(() => expect(frame().srcdoc).toContain('--bg:#171717'));
   });
 
-  // CONTROL: without this, a page that hardcoded dark would pass the test
-  // above while being just as wrong as the bug it replaced.
+  // CONTROL: a page that hardcoded dark would pass the test above.
   test('a light theme writes a light file', async () => {
     await renderUnder(Theme.LIGHT);
 
@@ -363,9 +335,8 @@ describe('the exported file matches the theme it was exported under', () => {
   });
 });
 
-// The theme can change while this tab is open -- the popup is a separate
-// document, and the two share storage. The preview has to follow, or the file
-// saved after that switch is not the file on screen.
+// The popup can change the theme while this tab is open; the saved file must
+// match the screen.
 describe('the preview follows a theme change while the page is open', () => {
   test('switching to a dark theme re-renders the file dark', async () => {
     const { store } = await renderWithProviders(
@@ -387,10 +358,7 @@ describe('the preview follows a theme change while the page is open', () => {
   });
 });
 
-// KAN-190. The theme decides the file's polarity by default, but the person
-// exporting knows things the theme does not -- a dark document to print, a
-// light one to send to a colleague. So the preview offers both, and the
-// choice sticks.
+// KAN-190. The theme sets the default; the page can override it.
 describe('choosing the file light or dark on the preview page', () => {
   const renderUnder = (theme: Theme) =>
     renderWithProviders(
@@ -428,10 +396,7 @@ describe('choosing the file light or dark on the preview page', () => {
     ).toBe('true');
   });
 
-  // KAN-198. This was "the choice is kept, and outranks a later theme change":
-  // the choice was saved, so one Light pressed once overrode a dark theme on
-  // every later export. Now the choice belongs to this page while it is open,
-  // and is never written anywhere.
+  // KAN-198. The choice lives only as long as the page; it is never saved.
   test('a choice made on the page holds while it is open, even if the theme changes', async () => {
     const user = userEvent.setup();
     const { store } = await renderUnder(Theme.LIGHT);
@@ -445,10 +410,8 @@ describe('choosing the file light or dark on the preview page', () => {
   });
 });
 
-// KAN-198. The page opens light or dark from the extension theme, and the
-// header follows the same polarity as the file -- it is one page, not the
-// extension's chrome around a document. Whatever Light or Dark does here stays
-// on this page: the extension theme and saved settings are never touched.
+// KAN-198. Header and file share one polarity; Light/Dark never touch the
+// extension theme or settings.
 describe('the whole page is light or dark, and the switch changes only the page (KAN-198)', () => {
   const renderUnder = (theme: Theme) =>
     renderWithProviders(
@@ -479,8 +442,6 @@ describe('the whole page is light or dark, and the switch changes only the page 
     await waitFor(() => expect(frame().srcdoc).toContain('--bg:#171717'));
   });
 
-  // A tinted light theme is still a light page: the header is light, not the
-  // theme's pink.
   test('a light theme, even a tinted one, opens with a light header over a light file', async () => {
     await renderUnder(Theme.BB_PINK);
 
@@ -496,11 +457,9 @@ describe('the whole page is light or dark, and the switch changes only the page 
     await user.click(screen.getByRole('button', { name: 'Dark' }));
 
     expect(headerFill()).toBe(DARK_HEADER);
-    // An outline button styles nothing itself: its fill and text come from
-    // the shared Button, which reads the colour hook. So this is what proves
-    // the page's colours reach its children through ThemeColorsOverride.
-    // (The primary's fill does NOT: the page passes it as a style, so it would
-    // pass with the override ignored -- the first version of this test did.)
+    // An outline button's colours come only via ThemeColorsOverride, so it
+    // proves the override reaches children. The primary's fill is a passed
+    // style and would not.
     const copy = getComputedStyle(
       screen.getByRole('button', { name: 'Copy all links' })
     );
@@ -508,11 +467,7 @@ describe('the whole page is light or dark, and the switch changes only the page 
     expect(copy.color).toBe('rgb(208, 208, 208)');
   });
 
-  // The subject is whichever control carries the fill, not Save by name --
-  // KAN-207 moved that to the PDF output and this followed it. What is pinned
-  // is unchanged: the fill answers to the PAGE's light/dark, not the
-  // extension's theme, so a dark page fills its primary with the dark palette's
-  // text colour even though the extension is on a light theme.
+  // The primary's fill follows the PAGE's light/dark, not the extension theme.
   test("the primary's fill follows the page's polarity too", async () => {
     const user = userEvent.setup();
     await renderUnder(Theme.LIGHT);
@@ -538,13 +493,12 @@ describe('the whole page is light or dark, and the switch changes only the page 
     expect(store.getState().settingsDataState).toEqual(settingsBefore);
     expect(store.getState().settingsDataState.theme).toBe(Theme.DARKENHEIMER);
     expect(localStorage.getItem('settingsData')).toBe(storedBefore);
-    // CONTROL: the presses did something -- the page itself is light now.
+    // CONTROL: the presses did something.
     expect(headerFill()).toBe(LIGHT_HEADER);
   });
 });
 
-// The file prints as itself: the PDF a reader gets should be the page they
-// were shown. e2e/session-export.spec.ts proves that against a real PDF.
+// The real PDF is checked in e2e/session-export.spec.ts.
 describe('printing the previewed file', () => {
   test('the preview can be printed, which is how it becomes a PDF', async () => {
     const user = userEvent.setup();
@@ -560,25 +514,18 @@ describe('printing the previewed file', () => {
     expect(printed).toHaveBeenCalled();
   });
 
-  // Reaching into the frame at all needs same-origin: with sandbox="", the
-  // page cannot call print() on it -- measured, it throws SecurityError.
-  // Scripts stay blocked, so nothing in the file can run.
+  // Measured: under sandbox="", print() on the frame throws SecurityError.
   test('the preview frame is reachable, and still cannot run scripts', async () => {
     await renderPage();
 
     const sandbox = frame().getAttribute('sandbox');
-    // allow-modals is what makes print() work at all: without it Chrome logs
-    // "Ignored call to 'print()'" and does nothing, which is exactly what
-    // shipped in the first build of this page.
+    // Measured: without allow-modals, Chrome ignores print().
     expect(sandbox).toBe('allow-same-origin allow-modals');
     expect(sandbox).not.toContain('allow-scripts');
   });
 });
 
-// The Save button is filled with TEXT_COLOR, and Icon paints its glyph
-// TEXT_COLOR -- so the download icon was drawn in the button's own background
-// and disappeared. Asserted against the neighbouring button's icon rather
-// than a literal, so it survives a palette change.
+// KAN-190. Icon paints TEXT_COLOR by default, invisible on a TEXT_COLOR fill.
 describe('the icon on the filled button (KAN-190)', () => {
   const glyphOf = (name: string) => {
     const button = screen.getByRole('button', { name });
@@ -587,29 +534,35 @@ describe('the icon on the filled button (KAN-190)', () => {
     return getComputedStyle(glyph).color;
   };
 
-  test('the save icon is not painted in the fill it sits on', async () => {
+  test('the print icon is not painted in the fill it sits on', async () => {
     await renderPage();
 
-    const save = screen.getByRole('button', { name: 'Save as HTML' });
-    expect(glyphOf('Save as HTML')).not.toBe(
-      getComputedStyle(save).backgroundColor
+    const print = screen.getByRole('button', { name: 'PDF / Print' });
+    expect(glyphOf('PDF / Print')).not.toBe(
+      getComputedStyle(print).backgroundColor
     );
+  });
+
+  test('no outline action is painted in the fill it sits on either', async () => {
+    await renderPage();
+
+    for (const name of ['Save as HTML', 'Copy all links']) {
+      const button = screen.getByRole('button', { name });
+      expect(glyphOf(name), name).not.toBe(
+        getComputedStyle(button).backgroundColor
+      );
+    }
   });
 
   test('CONTROL: an outline button keeps the ordinary icon colour', async () => {
     await renderPage();
 
-    expect(glyphOf('PDF / Print')).not.toBe(glyphOf('Save as HTML'));
+    expect(glyphOf('Save as HTML')).toBe(glyphOf('Copy all links'));
   });
 });
 
-// KAN-190. The toolbar was seven buttons of equal weight in the order they
-// were added: two choices, three actions, nothing saying which was which --
-// and at 800px it wrapped onto a second line.
-//
-// Option A, chosen from mocks: the choices become JOINED, LABELLED pairs (a
-// segmented control means "pick one of these"), the actions sit apart from
-// them, and Save is the one filled control, because it is why the page opened.
+// KAN-190. Choices are labelled segmented pairs, actions sit apart, and PDF /
+// Print is the one filled control.
 describe('the toolbar says which controls are choices (KAN-190)', () => {
   test('layout and colour are each a named group of exactly their own buttons', async () => {
     await renderPage();
@@ -643,14 +596,9 @@ describe('the toolbar says which controls are choices (KAN-190)', () => {
     }
   });
 
-  // Print and Save both output the page the Layout and Colour choices just
-  // rendered; Copy writes plain "title (link)" text that ignores both. So the
-  // two outputs sit together and Copy goes first rather than splitting them.
-  //
-  // KAN-207 put the PDF output last. The rule Copy answers to is unchanged --
-  // it must not sit BETWEEN the two outputs, and it still does not -- so only
-  // the outputs swapped with each other. The primary now closes the row, which
-  // is where the editing toolbar already puts Done.
+  // Copy ignores Layout and Colour, so it must not split the two outputs that
+  // use them. KAN-207: the primary closes the row, like Done in the editing
+  // toolbar.
   test('the actions run Copy, then Save, then Print', async () => {
     await renderPage();
 
@@ -662,15 +610,9 @@ describe('the toolbar says which controls are choices (KAN-190)', () => {
     expect(actions).toEqual(names);
   });
 
-  // The PDF output carries a fill no other control has. Asserted against its
-  // NEIGHBOURS rather than a literal colour, so it survives a palette change
-  // and still fails if everything goes flat again.
-  //
-  // DIRECTIONAL, and the version this replaces was not: it asserted only that
-  // Save and Print differ, which stays true no matter which of them is filled.
-  // It would have passed unchanged through KAN-207 moving the fill from one to
-  // the other -- the exact change it sat next to. Naming the unfilled controls
-  // is what makes it able to say the fill is on the wrong one.
+  // Against neighbours, not a literal colour, so it survives a palette change.
+  // Directional: Save matching Copy is what fails if the fill moves to the
+  // wrong control.
   test('the PDF output is the one filled control', async () => {
     await renderPage();
 
@@ -684,10 +626,9 @@ describe('the toolbar says which controls are choices (KAN-190)', () => {
   });
 });
 
-// KAN-347. The popup trims a session's date (no seconds, no year this year),
-// but a file is read later, so its date line keeps the full timestamp. The
-// clock is pinned so "this year" is certain: without the pin, the trim would
-// keep the year for a fixture from another year and look just like the stamp.
+// KAN-347. A file is read later, so it keeps the full timestamp the popup
+// trims. The clock is pinned so the fixture is "this year", where the trim
+// would drop the year.
 describe('the exported date line (KAN-347)', () => {
   const EDITED = new Date(2026, 8, 24, 2, 51, 57).getTime();
 

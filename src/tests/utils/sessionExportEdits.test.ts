@@ -18,14 +18,8 @@ import type {
   windowGroupData,
 } from '../../redux/slices/tabContainerDataStateSlice';
 
-// KAN-194. The export page gets an Edit mode: rename any title, hide any row,
-// for THIS export only. The edits never reach the store -- the popup already
-// renames sessions, windows and groups with undo and sync, and tab titles have
-// no rename at all -- so they are applied here, to a copy, before the file,
-// the PDF and the clipboard text are built from it.
-//
-// One function feeding the existing generators is the point: the three
-// outputs cannot disagree about what was hidden.
+// Edits apply to a copy, never the store, and one function feeds every
+// generator so the outputs cannot disagree about what was hidden.
 
 const tab = (tabId: string, overrides: Partial<tabData> = {}): tabData => ({
   tabId,
@@ -51,8 +45,8 @@ const win = (
   ...overrides,
 });
 
-// Two windows; the first holds a Chrome group of two tabs between two loose
-// tabs, which is the shape every rule below has to survive.
+// The first window's Chrome group sits between loose tabs, the shape every rule
+// must survive.
 const W1 = win(
   'w1',
   [
@@ -131,10 +125,8 @@ describe('applying export edits (KAN-194)', () => {
     expect(result.windows[1].tabs[1].title).toBe('Tab f');
   });
 
-  // A session and a window always have a name in the popup (KAN-84 refuses a
-  // blank rename), so a cleared field keeps the name rather than printing an
-  // empty heading. A tab and a Chrome group may be blank: a titleless tab is
-  // named by its URL, and an unnamed group is a real Chrome state.
+  // The popup never lets a session or window be blank (KAN-84); a titleless tab
+  // is named by its URL, and an unnamed group is a real Chrome state.
   test('a cleared session or window title keeps its name; a cleared tab or group title is blank', () => {
     const result = applyExportEdits(
       SESSION,
@@ -152,7 +144,6 @@ describe('applying export edits (KAN-194)', () => {
     expect(result.windows[0].title).toBe('Planning');
     expect(result.windows[0].chromeTabGroups?.[0].title).toBe('');
     expect(result.windows[0].tabs[3].title).toBe('');
-    // The generators' own fallback then names the tab by its URL.
     expect(
       sessionToLinkList(result, {
         window: OPTIONS.strings.window,
@@ -197,6 +188,8 @@ describe('applying export edits (KAN-194)', () => {
       })
     );
 
+    // The HTML alone can't fail: the renderer never draws a group without tabs.
+    expect(result.windows[0].chromeTabGroups ?? []).toEqual([]);
     expect(sessionToHtml(result, OPTIONS)).not.toContain('Flights');
   });
 
@@ -224,8 +217,7 @@ describe('applying export edits (KAN-194)', () => {
     expect(result.windowCount).toBe(1);
   });
 
-  // Ids are uuids at capture, but an import or a merge can repeat one. A key
-  // scoped to its window keeps an edit in the window it was made in.
+  // An import or a merge can repeat a uuid across windows.
   test('the same tab id in two windows is two rows', () => {
     const twin = buildSession({
       windows: [win('w1', [tab('x')]), win('w2', [tab('x')])],
@@ -243,8 +235,7 @@ describe('applying export edits (KAN-194)', () => {
     expect(result.windows[0].tabs[0].title).toBe('Kept');
   });
 
-  // The session can change while the page is open -- a sync, an edit in the
-  // popup -- so an edit can name a row that no longer exists.
+  // A sync or popup edit can remove a row while the page is open.
   test('edits naming rows that do not exist are ignored', () => {
     const stale = edits({
       titles: { [exportRowKey.tab(W1, 'gone')]: 'Old' },
@@ -310,9 +301,8 @@ describe('the tally shown while editing (KAN-194)', () => {
     ).toBe(0);
   });
 
-  // The generator already draws no band for a group with no tabs, so the HTML
-  // cannot show whether the group was dropped. The tally can: a renamed group
-  // the file never draws must not count as a rename.
+  // The file never draws a group with no tabs, so its rename is not in the
+  // file.
   test('a renamed group whose tabs are all hidden is not counted as renamed', () => {
     expect(
       countExportEdits(
@@ -328,8 +318,7 @@ describe('the tally shown while editing (KAN-194)', () => {
     ).toEqual({ renamed: 0, hiddenTabs: 2 });
   });
 
-  // The tally describes the FILE: a renamed row that is also hidden carries
-  // no rename into it.
+  // The tally describes the file, which carries no rename for a hidden row.
   test('a renamed row that is also hidden is counted as hidden, not renamed', () => {
     expect(
       countExportEdits(

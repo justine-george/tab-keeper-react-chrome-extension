@@ -7,18 +7,9 @@ import { renderWithProviders } from '../setup/renderWithProviders';
 import { buildContainer, buildSession } from '../fixtures/sessionFixture';
 import { replaceState } from '../../redux/slices/tabContainerDataStateSlice';
 
-// KAN-222. The eye at the end of each Edit-mode row. Two defects, measured:
-//
-// - a hidden row was dimmed with `opacity: 0.45` on its container, EYE
-//   INCLUDED, so the one control that brings the row back fell to 1.95:1 on
-//   the light file and 2.40:1 on the dark one (it is 5.80 / 6.86 at full);
-// - and because a window's container holds its tabs, opacity compounded: a
-//   hidden tab in a hidden window drew at 0.45 x 0.45.
-//
-// The dimming now sits on the row's own content -- its fields, its label, its
-// site, a group's band -- never on a container. What jsdom can hold is the
-// opacity each element ends up at; the motion and the rendered contrast are in
-// e2e/export-eye-motion.spec.ts.
+// Dimming sits on a row's own content, never its container: a dimmed container
+// takes the eye to 1.95:1 (light) / 2.40:1 (dark) and compounds in nested rows.
+// Motion and rendered contrast are in e2e/export-eye-motion.spec.ts.
 
 const SESSION = buildSession({
   tabGroupId: 'session-kyoto',
@@ -122,7 +113,6 @@ describe('hiding dims the row, never its eye (KAN-222)', () => {
     expect(drawnAt(eye('Nishiki Market'))).toBe(1);
   });
 
-  // The compounding: before, this tab drew at 0.2025.
   test('a hidden tab inside a hidden window is dimmed once, not twice', async () => {
     const user = await openEditor();
 

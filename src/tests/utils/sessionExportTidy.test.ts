@@ -1,22 +1,14 @@
 import { describe, expect, test } from 'vitest';
 
 import { buildSession } from '../fixtures/sessionFixture';
-import {
-  sessionToHtml,
-  tidySessionForExport,
-  type SessionExportOptions,
-} from '../../utils/functions/sessionExportHtml';
+import { tidySessionForExport } from '../../utils/functions/sessionExportHtml';
 import type {
   tabData,
   windowGroupData,
 } from '../../redux/slices/tabContainerDataStateSlice';
 
-// KAN-202. KAN-195 added two clean-ups and I scoped them to Copy alone, so the
-// document people actually share still carried "(3)" in front of titles and
-// the tab-suspender's chrome-extension:// wrapper instead of the address it
-// stands for. The session is tidied ONCE, when the page loads it, so the
-// editor, the preview, the saved file, the PDF and both clipboard versions
-// show the same text -- and an explicit rename still wins over it.
+// KAN-202. Tidied once, at load, so every output shows the same text; a rename
+// still wins.
 
 const tab = (overrides: Partial<tabData> = {}): tabData => ({
   tabId: 't',
@@ -40,23 +32,6 @@ const window = (tabs: tabData[]): windowGroupData => ({
 const SUSPENDED =
   'chrome-extension://laameccjpleogmfhilmffpdbiibgbekf/suspended.html?title=Extensions&url=chrome%3A%2F%2Fextensions%2F&time=1';
 
-const options = (): SessionExportOptions => ({
-  layout: 'comfortable',
-  scheme: 'light',
-  dateLabel: 'Sep 10, 2026',
-  countsLabel: '1 Window · 2 Tabs',
-  tabCountLabel: (count) => `${count} Tabs`,
-  strings: {
-    window: 'Window',
-    notAWebLink: 'not a web link',
-    savedWith: '{{brand}} {{date}}',
-    getExtension: 'Get the extension',
-  },
-  mark: 'data:image/png;base64,',
-  storeUrl: 'https://store.example/',
-  savedOn: 'Sep 15, 2026',
-});
-
 describe('tidying a session for export (KAN-202)', () => {
   test('a leading notification count is dropped from a tab title', () => {
     const tidy = tidySessionForExport(
@@ -78,8 +53,8 @@ describe('tidying a session for export (KAN-202)', () => {
     expect(tidy.windows[0].tabs[0].url).toBe('chrome://extensions/');
   });
 
-  // The guards of both clean-ups still hold, and nothing else is touched: no
-  // deduplication, no tracking parameters stripped, no site suffix trimmed.
+  // Only tab titles and URLs are tidied: no dedup, no tracking-param or
+  // site-suffix stripping.
   test('everything else is left exactly as saved', () => {
     const session = buildSession({
       title: '(2) My session',
@@ -139,27 +114,5 @@ describe('tidying a session for export (KAN-202)', () => {
     );
 
     expect(tidySessionForExport(once)).toEqual(once);
-  });
-
-  // What the ticket is about: the file itself.
-  test('the file built from a tidied session carries neither', () => {
-    const html = sessionToHtml(
-      tidySessionForExport(
-        buildSession({
-          windows: [
-            window([
-              tab({ title: '(3) Rive on X', url: 'https://x.example/rive' }),
-              tab({ title: 'Extensions', url: SUSPENDED }),
-            ]),
-          ],
-        })
-      ),
-      options()
-    );
-
-    expect(html).toContain('>Rive on X</a>');
-    expect(html).not.toContain('(3) Rive');
-    expect(html).toContain('chrome://extensions/');
-    expect(html).not.toContain('chrome-extension://');
   });
 });

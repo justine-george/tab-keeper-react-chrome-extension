@@ -9,8 +9,6 @@ import {
   RenderWithProvidersResult,
 } from '../setup/renderWithProviders';
 
-// The store renderWithProviders hands back, named once so the parity test's
-// shared seeder can be typed without restating the whole generic.
 type RenderStore = RenderWithProvidersResult['store'];
 import { hoverRulesFor } from '../setup/hoverRules';
 import { newestToast, isToastShowing } from '../setup/toasts';
@@ -22,29 +20,15 @@ import {
 } from '../../redux/slices/tabContainerDataStateSlice';
 import { undo } from '../../redux/slices/undoRedoSlice';
 
-// KAN-193. The session header had four icons: Open, Switch, Export, Delete.
-// The export icon was a download arrow, chosen when a click was going to
-// download directly -- and then the flow changed to open a preview tab, so
-// the icon promised something that no longer happened. Delete sat beside the
-// two everyday actions, one mis-click away.
-//
-// Now: Open, Switch, and a More actions menu holding Export and Delete. A
-// menu item carries words, so it cannot be misread the way a bare glyph was.
-//
-// The export item opens a tab and then does NOTHING, which is not a style
-// choice. A tab taking focus destroys the popup, so work sequenced after
-// `chrome.tabs.create` races a context Chrome has already torn down -- the
-// KAN-122 class of bug, invisible here and to the e2e harness, which drives
-// the popup as a tab that does not die.
+// KAN-193. Export does nothing after `chrome.tabs.create`: a focused tab
+// destroys the popup (KAN-122), which neither jsdom nor the e2e harness shows.
 
 const SESSION = buildSession({
   tabGroupId: 'session-kyoto',
   title: 'Weekend in Kyoto',
 });
 
-// jsdom has no ClipboardItem. The menu builds one per copy, so the fake keeps
-// what it was given and the tests read both versions back out of it. Same shape
-// as exportPage.test.tsx, which copies through the same helper.
+// jsdom has no ClipboardItem; the fake keeps what it was given for read-back.
 class FakeClipboardItem {
   constructor(readonly items: Record<string, Blob>) {}
 }
@@ -54,9 +38,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-// Export's chrome.tabs.create() rejects a windowId no window carries, as
-// Chrome does, so a window has to be seeded even though nothing here reads
-// it back.
+// tabs.create() rejects an unknown windowId, as Chrome does: seed a window.
 const renderHeader = () =>
   renderWithProviders(<HeroContainerRight />, {
     seed: { windows: [{ id: 1 }] },
@@ -75,26 +57,26 @@ describe('the session header keeps two actions and a menu (KAN-193)', () => {
   test('the header offers Open, Switch and More actions, and no loose export or delete icon', async () => {
     await renderHeader();
 
-    expect(screen.getByRole('button', { name: 'More actions' })).toBeTruthy();
-    // The two actions that moved are gone from the header itself -- a copy
-    // left behind would make the menu decoration.
+    for (const name of [
+      'Open session, keeping current windows',
+      'Close current windows and open this session',
+      'More actions',
+    ]) {
+      expect(screen.queryByRole('button', { name }), name).not.toBeNull();
+    }
     expect(screen.queryByRole('button', { name: 'Export…' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Delete session' })).toBeNull();
   });
 
-  // KAN-209 put Copy first. The order is cheap, heavier, destructive: Copy is
-  // the only one of the three that FINISHES here -- Export opens a tab and
-  // Delete changes the session -- so it reads as the lightest, and Delete stays
-  // last where a destructive item belongs.
+  // KAN-209. Cheap, heavier, destructive: Copy finishes here, Export opens a
+  // tab, Delete goes last.
   test('the menu holds Copy, then Export, then Delete', async () => {
     const user = userEvent.setup();
     await renderHeader();
 
     const menu = await openMenu(user);
 
-    // By accessible name, not textContent: each item's decorative glyph is a
-    // ligature ("ios_share"), so the raw text is not what anyone hears.
-    // Found by name, then compared to the menu's own order.
+    // By accessible name: textContent includes each glyph's ligature text.
     const items = within(menu).getAllByRole('menuitem');
     expect(items).toHaveLength(3);
     expect(items).toEqual([
@@ -104,9 +86,7 @@ describe('the session header keeps two actions and a menu (KAN-193)', () => {
     ]);
   });
 
-  // KAN-226. "Export…" with ios_share, picked from mocks. The ellipsis says a
-  // further step follows -- the click opens a preview, it saves nothing -- and
-  // ios_share read as "send this out" where file_export read as a page.
+  // KAN-226. The ellipsis says a step follows: the click opens a preview.
   test('Export is named with an ellipsis and drawn with ios_share', async () => {
     const user = userEvent.setup();
     await renderHeader();
@@ -131,9 +111,7 @@ describe('the session header keeps two actions and a menu (KAN-193)', () => {
     expect(chrome.createdTabs[0].url).toContain('session=session-kyoto');
   });
 
-  // CONTROL: the id in the URL is the SELECTED session, not the first one in
-  // the list. With one session seeded, "the first" and "the selected" are the
-  // same string and a hardcoded index would pass.
+  // CONTROL: with one session seeded, a hardcoded index would pass.
   test('Export is for the selected session, not the first one', async () => {
     const user = userEvent.setup();
     const { chrome } = await renderWithProviders(<HeroContainerRight />, {
@@ -158,10 +136,7 @@ describe('the session header keeps two actions and a menu (KAN-193)', () => {
     expect(chrome.createdTabs[0].url).not.toContain('session-first');
   });
 
-  // KAN-209. The one output that needs no preview: Copy ignores the layout and
-  // colour choices entirely, so opening a tab to reach it was a detour. These
-  // assert the CLIPBOARD, not that a function ran -- a spy on handleCopy would
-  // pass against a handler that wrote nothing.
+  // Asserts the clipboard: a spy passes against a handler that wrote nothing.
   describe('Copy all links, straight from the menu (KAN-209)', () => {
     const fakeClipboard = () => {
       const write = vi.fn().mockResolvedValue(undefined);
@@ -195,9 +170,7 @@ describe('the session header keeps two actions and a menu (KAN-193)', () => {
       expect(plain).toContain('https://example.com/');
     });
 
-    // The same fallback the export page has. Without it a refused rich write
-    // copies NOTHING, silently -- the clipboard is the one place a caught
-    // exception leaves no trace for the user to notice.
+    // Without it a refused rich write copies nothing, silently.
     test('falls back to plain text when the rich write is refused', async () => {
       const user = userEvent.setup();
       vi.stubGlobal('ClipboardItem', FakeClipboardItem);
@@ -218,17 +191,8 @@ describe('the session header keeps two actions and a menu (KAN-193)', () => {
       expect(writeText.mock.calls[0][0]).toContain('https://example.com/');
     });
 
-    // KAN-210. The menu shipped copying the session RAW, while the export
-    // page's button copied it tidied -- so the same command gave two different
-    // answers, and the shortcut gave the worse one.
-    //
-    // KAN-202's clean-ups are not a preview concern. A notification count in a
-    // title and a suspender's wrapper address are wrong in anything anyone
-    // shares, whichever button produced it.
-    //
-    // Asserted on BOTH halves of the clipboard, because they are built by
-    // different functions -- sessionToLinkHtml and sessionToLinkList -- and
-    // tidying one is not tidying the other.
+    // KAN-210. Both halves: sessionToLinkHtml and sessionToLinkList tidy
+    // separately.
     test('copies the session tidied, exactly as the export page does', async () => {
       const user = userEvent.setup();
       const { write } = fakeClipboard();
@@ -253,7 +217,6 @@ describe('the session header keeps two actions and a menu (KAN-193)', () => {
                         {
                           tabId: 't-1',
                           favicon: '',
-                          // An unread-count badge the site put in its own title.
                           title: '(3) Nozomi timetable',
                           url: 'https://jr.example/nozomi',
                         },
@@ -261,8 +224,6 @@ describe('the session header keeps two actions and a menu (KAN-193)', () => {
                           tabId: 't-2',
                           favicon: '',
                           title: 'Extensions',
-                          // A tab a suspender put to sleep: the real address is
-                          // inside the wrapper.
                           url: 'chrome-extension://laameccjpleogmfhilmffpdbiibgbekf/suspended.html?title=Extensions&url=chrome%3A%2F%2Fextensions%2F&time=1',
                         },
                       ],
@@ -305,18 +266,8 @@ describe('the session header keeps two actions and a menu (KAN-193)', () => {
       }
     });
 
-    // THE CONTRACT, stated directly rather than inferred (KAN-210).
-    //
-    // The two tests above say the menu's copy is tidied, and exportPage's own
-    // tests say the page's copy is. That the two therefore MATCH is an
-    // inference across two files -- and it is exactly the inference that was
-    // false when this shipped: both were "correct" by their own tests while
-    // giving different answers.
-    //
-    // So this copies the same session both ways and compares the bytes. It
-    // needs no edits: with none applied the export page's `edited` is just its
-    // tidied session, which is what the menu sends, and any future divergence
-    // in either path fails here by name.
+    // Each path passing its own tests does not prove they match, so compare
+    // bytes. With no edits, the page's `edited` is just its tidied session.
     test('the menu and the export page copy the same bytes', async () => {
       const user = userEvent.setup();
       const session = buildSession({
@@ -393,8 +344,7 @@ describe('the session header keeps two actions and a menu (KAN-193)', () => {
       expect(menuCopy.plain).toContain('chrome://extensions/');
     });
 
-    // Copying is silent otherwise: the clipboard gives no feedback of its own,
-    // and unlike the export page there is no room here for an inline note.
+    // The clipboard gives no feedback; the popup has no room for a note.
     test('says so, so the click is not silent', async () => {
       const user = userEvent.setup();
       fakeClipboard();
@@ -406,14 +356,12 @@ describe('the session header keeps two actions and a menu (KAN-193)', () => {
       );
 
       await waitFor(() => expect(isToastShowing(store.getState())).toBe(true));
-      // The KEY, not the sentence: Toast renders t(toastText), and asserting
-      // the English would pass with a key that resolves to nothing in the other
-      // nine locales.
+      // The key, not the sentence: Toast renders t(toastText), and English
+      // would pass with a key that resolves to nothing in other locales.
       expect(newestToast(store.getState())?.text).toBe('Links copied');
     });
 
-    // CONTROL: the id copied is the SELECTED session, not the first in the
-    // list -- the same trap the Export test above guards.
+    // CONTROL: the selected session, not the first.
     test('copies the selected session, not the first one', async () => {
       const user = userEvent.setup();
       const { write } = fakeClipboard();
@@ -480,9 +428,8 @@ describe('the session header keeps two actions and a menu (KAN-193)', () => {
     ).not.toContain('session-kyoto');
   });
 
-  // Moving Delete behind a menu is safe only because deleting is recoverable:
-  // DELETE_TAB_CONTAINER_ACTION is one of the middleware's captured actions.
-  // If that ever stopped being true, this is what would say so.
+  // Delete behind a menu is safe only because it is undoable: the undo
+  // middleware captures DELETE_TAB_CONTAINER_ACTION.
   test('a session deleted from the menu comes back with Undo', async () => {
     const user = userEvent.setup();
     const { store } = await renderHeader();
@@ -502,23 +449,14 @@ describe('the session header keeps two actions and a menu (KAN-193)', () => {
     expect(ids()).toContain('session-kyoto');
   });
 
-  // Delete is the one destructive item, and it has to look like it. In this
-  // menu that is a delete-coloured FILL on hover, the same as every other
-  // danger item (overflowMenu.test.tsx holds the menu to that). What this
-  // holds is the header's choice: Delete is marked danger, Export is not.
-  //
-  // The first version compared the glyphs' colour at rest -- both are the
-  // text colour, because danger styling was never a resting colour. It failed
-  // for the wrong reason, which is why it is asserted on the hover rule now.
+  // Danger is a hover fill, not a resting colour. overflowMenu.test.tsx covers
+  // the fill; this covers which item is marked.
   test('Delete is marked as the dangerous item, and Export is not', async () => {
     const user = userEvent.setup();
     await renderHeader();
 
     await openMenu(user);
-    // Derived from the token, not pinned: KAN-204 changed this value in four
-    // of the five themes, and the literal that used to sit here went stale
-    // without failing until the theme moved under it. jsdom normalises the hex
-    // emotion was given to rgb(), so both forms are accepted.
+    // Derived from the token, not pinned. jsdom normalises hex to rgb().
     const fill = LIGHT_THEME.DELETE_ICON_HOVER_COLOR;
     const [r, g, b] = [1, 3, 5].map((i) => parseInt(fill.slice(i, i + 2), 16));
     const DELETE_FILL = new RegExp(

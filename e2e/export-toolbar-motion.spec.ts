@@ -9,20 +9,7 @@ import {
   seedSettings,
 } from './fixtures/seed';
 
-// KAN-221 (and KAN-220). The export toolbar's actions, reviewed against Emil
-// Kowalski's animation guidance and picked by Justine:
-//
-// - every action dips to 97% while held, over 160ms;
-// - the filled primaries (PDF / Print, Done) hold their hover fill while
-//   pressed -- a deeper fill drops the label below 4.5:1 on the dark page --
-//   so the dip is their press cue (KAN-220: press and hover used to be
-//   identical and nothing else moved);
-// - hover fills only for a fine pointer;
-// - Copy all links says "Copied" in the button, not in a toast;
-// - Edit and Done fade their row in, but not on arrival;
-// - reduced motion keeps none of the movement.
-//
-// Scoped to the export page: the popup's Buttons must not change.
+// KAN-221. Export toolbar motion only; the popup's Buttons must not change.
 
 const SESSION = buildSession({
   tabGroupId: 'session-kyoto',
@@ -57,7 +44,6 @@ async function openExport(
 const styleOf = (button: Locator) =>
   button.evaluate((el) => {
     const s = getComputedStyle(el);
-    // The matrix's first term is the x scale; `none` is 1.
     const scale = s.transform === 'none' ? 1 : new DOMMatrix(s.transform).a;
     return { scale, fill: s.backgroundColor };
   });
@@ -75,17 +61,14 @@ async function settledStyle(page: Page, button: Locator) {
   throw new Error('the button never settled');
 }
 
-/**
- * Holds the mouse on a button and reads it, then releases OFF the button so
- * the press never becomes a click.
- */
+/** Reads hover, then a hold; releases off the button so it never clicks. */
 async function held(page: Page, button: Locator) {
   const box = (await button.boundingBox())!;
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   const hover = await settledStyle(page, button);
   await page.mouse.down();
-  // A barrier on the press itself: "two equal reads" alone passed on a press
-  // that had not registered yet (scale 1, then 1), once in 11 runs.
+  // Settling alone read a press not yet registered (scale 1, then 1), once in
+  // 11 runs.
   await expect
     .poll(() => button.evaluate((el) => el.matches(':active')))
     .toBe(true);
@@ -121,8 +104,8 @@ for (const theme of ['Light', 'Darkenheimer']) {
     expect(press.scale, 'Done held').toBeCloseTo(0.97, 3);
   });
 
-  // KAN-220. The primary's fill does not deepen on press -- that is decided,
-  // not missed -- so the test pins both halves: same fill, and a dip.
+  // KAN-220. A deeper press fill drops the label below 4.5:1 on the dark page,
+  // so the primary keeps its hover fill and the dip is its press cue.
   test(`${theme}: PDF / Print holds its hover fill and dips when pressed`, async ({
     context,
     extensionId,
@@ -133,8 +116,7 @@ for (const theme of ['Light', 'Darkenheimer']) {
 
     const { hover, press } = await held(page, print);
 
-    // CONTROL: hover really is a different fill, so "press equals hover" is
-    // not the trivial result of nothing changing at all.
+    // CONTROL: hover changes the fill, so "press equals hover" is not trivial.
     expect(hover.fill).not.toBe(rest.fill);
     expect(press.fill).toBe(hover.fill);
     expect(press.scale).toBeCloseTo(0.97, 3);
@@ -183,7 +165,7 @@ test('on a touch screen, hovering fills nothing', async ({
     enabled: true,
     maxTouchPoints: 1,
   });
-  // CONTROL: the emulation really changed what the page's media queries see.
+  // CONTROL: the emulation reached the media queries.
   expect(
     await page.evaluate(
       () => matchMedia('(hover: hover) and (pointer: fine)').matches
@@ -221,7 +203,6 @@ test('Copied sits beside its tick, and the button keeps its width', async ({
     const button = el.getBoundingClientRect();
     const face = group.getBoundingClientRect();
     return {
-      // Centred as a unit: equal room either side of the icon-and-word group.
       offCentre: Math.abs(
         face.left - button.left - (button.right - face.right)
       ),

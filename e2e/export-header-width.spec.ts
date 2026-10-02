@@ -8,19 +8,9 @@ import {
   seedSettings,
 } from './fixtures/seed';
 
-// KAN-235. On a wide screen the export page's header content stays near the
-// document instead of running to the monitor's edges.
-//
-// The document sits in a centred 720px column. The header -- title block and
-// toolbar -- ran edge to edge, so at 2000px wide Edit sat at x=16 and PDF /
-// Print at x=1984 while the thing they act on sat in the middle. The header's
-// CONTENT now lives in a centred 1100px band; its full-bleed background and
-// 16px gutter are unchanged, and below 1100px so is everything else.
-//
-// 1100 is the one-line floor: the toolbar wraps its right-hand group onto its
-// own line when it cannot fit, and the widest locale's one-line width is
-// Russian at 1061px. So the second theme measured here is ru, not de: it is
-// the one that would wrap under a tighter band.
+// KAN-235. The header's content sits in a centred band near the 720px document.
+// 1100px is the one-line floor: ru, the widest locale, needs 1061px, so it is
+// the locale measured here.
 
 const HEADER_CONTENT_MAX_PX = 1100;
 const WIDE = { width: 2000, height: 420 };
@@ -63,11 +53,9 @@ const geometry = (page: Page) =>
       const b = el.getBoundingClientRect();
       return { left: b.left, right: b.right, width: b.width };
     };
-    // Lines from the ROW'S HEIGHT, not from the buttons' tops: the sliding
-    // pairs' buttons are 28px inside 34px neighbours and sit 3px lower when
-    // centred, so a set of rounded tops reads 2 on a single row. Measured.
-    // One row is the tallest control (34px); a wrapped row is at least two
-    // of those plus the 10px gap.
+    // Lines from the row's height, not button tops: the pairs' 28px buttons sit
+    // 3px lower than 34px neighbours, so tops read 2 lines on one row
+    // (measured).
     const tallest = Math.max(
       ...Array.from(row.querySelectorAll('button')).map(
         (b) => b.getBoundingClientRect().height
@@ -94,7 +82,7 @@ for (const lang of ['en', 'ru']) {
     const page = await openExport(context, extensionId, WIDE, lang);
     const g = await geometry(page);
 
-    // The band itself is full bleed: only its CONTENT is constrained.
+    // Only the content is constrained; the band is full bleed.
     expect(g.header.left).toBe(0);
     expect(g.header.right).toBe(WIDE.width);
 
@@ -105,18 +93,15 @@ for (const lang of ['en', 'ru']) {
       expectedLeft + HEADER_CONTENT_MAX_PX,
       0
     );
-    // The title block shares the band, so the two read as one header.
     expect(g.title.left).toBeCloseTo(g.toolbar.left, 0);
     expect(g.title.right).toBeCloseTo(g.toolbar.right, 0);
 
-    // What the number was chosen for.
     expect(g.toolbarLines).toBe(1);
   });
 }
 
-// CONTROL: at the popup's width the constraint is inert -- the content edges
-// are the header's own padding edges, exactly as before this change. Without
-// this, a band that also squeezed narrow screens would pass everything above.
+// CONTROL: a band that also squeezed narrow screens would pass everything
+// above.
 test('at 790px the layout is what it was: content runs gutter to gutter', async ({
   context,
   extensionId,

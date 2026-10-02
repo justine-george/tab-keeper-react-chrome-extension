@@ -2,12 +2,8 @@ import { describe, expect, test } from 'vitest';
 
 import { initialState } from '../../redux/slices/settingsDataStateSlice';
 
-// KAN-283 review. The export page's layout pair is Compact | Comfortable, and
-// Compact is the default. Three translations named the OTHER option the
-// default one -- de "Standard" and ja 標準 came in with KAN-190 (KAN-287), and
-// ko 기본 ("default") was drafted from ja's -- so a reader was told the layout
-// they were not on was the usual one. Listed words, as productName.test lists its
-// transliterations: a scan can only find what it knows to look for.
+// KAN-283. Comfortable is not the default, so no locale may call it so.
+// A listed-word scan finds only what it knows to look for.
 const DEFAULT_WORDS = [
   'default',
   '標準', // ja, zh-TW
