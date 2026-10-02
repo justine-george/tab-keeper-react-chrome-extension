@@ -8,6 +8,7 @@ import type {
   tabData,
   windowGroupData,
 } from '../../redux/slices/tabContainerDataStateSlice';
+import { searchTermOf } from './openNowSearch';
 
 // check validity of the timestamp
 export function isValidDate(param: any) {
@@ -132,23 +133,23 @@ export function classifyStoredToken(value: unknown): TokenAction {
 // still carries chromeTabGroups on a device that never granted it. Matching a
 // title that renders nowhere would narrow a window to a subset of its tabs
 // with nothing on screen saying why. KAN-104.
+//
+// `searchTerm` comes from searchTermOf: trimmed and lower-cased.
 export const filterTabGroups = (
-  searchText: string,
+  searchTerm: string,
   tabGroups: tabContainerData[],
   searchGroupTitles: boolean
 ): tabContainerData[] => {
-  const loweredSearchText = searchText.toLowerCase();
-
   return tabGroups.reduce((acc: tabContainerData[], tabGroup) => {
     // add all windows if tabGroup title matches
-    if (tabGroup.title.toLowerCase().includes(loweredSearchText)) {
+    if (tabGroup.title.toLowerCase().includes(searchTerm)) {
       acc.push(tabGroup);
     } else {
       // add only matched windows if tabGroup title doesn't match
       const matchedWindows = tabGroup.windows.reduce(
         (windowAcc: windowGroupData[], window) => {
           // add all tabs if window title matches
-          if (window.title.toLowerCase().includes(loweredSearchText)) {
+          if (window.title.toLowerCase().includes(searchTerm)) {
             windowAcc.push(window);
           } else {
             // The groups whose own title matched. Membership is the join from
@@ -158,7 +159,7 @@ export const filterTabGroups = (
             const matchedGroupIds = new Set(
               (searchGroupTitles ? window.chromeTabGroups ?? [] : [])
                 .filter((group) =>
-                  group.title.toLowerCase().includes(loweredSearchText)
+                  group.title.toLowerCase().includes(searchTerm)
                 )
                 .map((group) => group.groupId)
             );
@@ -166,9 +167,8 @@ export const filterTabGroups = (
             // add only matched tabs if window title doesn't match
             const matchedTabs = window.tabs.filter(
               (tab) =>
-                tab.title.toLowerCase().includes(loweredSearchText) ||
-                (tab.url &&
-                  tab.url.toLowerCase().includes(loweredSearchText)) ||
+                tab.title.toLowerCase().includes(searchTerm) ||
+                (tab.url && tab.url.toLowerCase().includes(searchTerm)) ||
                 (tab.chromeGroupId !== undefined &&
                   matchedGroupIds.has(tab.chromeGroupId))
             );
@@ -206,8 +206,7 @@ export const filterTabGroups = (
   }, []);
 };
 
-// The sessions the right pane shows: the selected one, narrowed by the search
-// box while the search panel is open.
+// The sessions the right pane shows: the selected one, narrowed by the search.
 //
 // This lives in one place because three components depend on it agreeing with
 // itself. RightPane derives its mount guard from the length of this list, and
@@ -224,35 +223,20 @@ export const filterTabGroups = (
 // update and re-render all three components on every unrelated action.
 export const selectVisibleTabGroups = (
   tabGroups: tabContainerData[],
-  isSearchPanel: boolean,
   searchInputText: string,
   hasTabGroupsPermission: boolean
 ): tabContainerData[] => {
   const selectedTabGroups = tabGroups.filter((tabGroup) => tabGroup.isSelected);
+  const searchTerm = searchTermOf(searchInputText);
 
-  return isSearchActive(isSearchPanel, searchInputText)
-    ? filterTabGroups(
-        searchInputText,
-        selectedTabGroups,
-        hasTabGroupsPermission
-      )
-    : selectedTabGroups;
+  return searchTerm === null
+    ? selectedTabGroups
+    : filterTabGroups(searchTerm, selectedTabGroups, hasTabGroupsPermission);
 };
 
-// Is the list on screen a filtered one? Both halves matter. An open search
-// panel with an empty box filters nothing -- filterTabGroups never runs -- so
-// the sessions shown are whole and their counts are their real size.
-//
-// This is a named predicate rather than an inline `&&` because four places now
-// have to agree on the answer: this file (twice), the left pane container, and
-// the count label. The count label is why it earns a name: it says a different
-// thing about the same numbers depending on this, so a copy of the rule that
-// drifted would not crash or fail to render -- it would just print something
-// untrue. KAN-60.
-export const isSearchActive = (
-  isSearchPanel: boolean,
-  searchInputText: string
-): boolean => isSearchPanel && searchInputText !== '';
+// Is the list on screen a filtered one? Named because the panes and the count label must agree (KAN-60).
+export const isSearchActive = (searchInputText: string): boolean =>
+  searchTermOf(searchInputText) !== null;
 
 // The one-line summary under a session's title, in both panes.
 //

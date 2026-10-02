@@ -78,8 +78,7 @@ export default function TabGroupDetailsContainer() {
   // the same list RightPane derives its mount guard from
   const selectedTabGroup = selectVisibleTabGroups(
     tabContainerDataList.tabGroups,
-    isSearchPanel,
-    searchInputText,
+    isSearchPanel ? searchInputText : '',
     hasTabGroupsPermission
   )[0];
 

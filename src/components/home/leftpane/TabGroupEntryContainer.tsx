@@ -37,6 +37,7 @@ import {
 import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import { isTabView } from '../../../utils/functions/viewMode';
 import { TYPE } from '../../../styles/scale';
+import { searchTermOf } from '../../../utils/functions/openNowSearch';
 
 export default function TabGroupEntryContainer() {
   const COLORS = useThemeColors();
@@ -77,10 +78,11 @@ export default function TabGroupEntryContainer() {
   );
 
   // filter the tab group list
+  const searchTerm = isSearchPanel ? searchTermOf(searchInputText) : null;
   let filteredTabGroups: tabContainerData[] = tabContainerDataList.tabGroups;
-  if (isSearchActive(isSearchPanel, searchInputText)) {
+  if (searchTerm !== null) {
     filteredTabGroups = filterTabGroups(
-      searchInputText,
+      searchTerm,
       filteredTabGroups,
       hasTabGroupsPermission
     );
@@ -113,7 +115,7 @@ export default function TabGroupEntryContainer() {
   // of a query no longer walks the user back to the top of the results on
   // every keystroke.
   useEffect(() => {
-    if (!isSearchActive(isSearchPanel, searchInputText)) return;
+    if (!(isSearchPanel && isSearchActive(searchInputText))) return;
     if (filteredTabGroups.length === 0) return;
     if (filteredTabGroups.some((g) => g.tabGroupId === selectedTabGroupId)) {
       return;

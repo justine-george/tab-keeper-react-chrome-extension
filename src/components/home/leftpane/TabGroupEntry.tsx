@@ -421,7 +421,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
           value={formatGroupCounts(
             windowCount,
             tabCount,
-            isSearchActive(isSearchPanel, searchInputText),
+            isSearchPanel && isSearchActive(searchInputText),
             t
           )}
           color={COLORS.LABEL_L1_COLOR}

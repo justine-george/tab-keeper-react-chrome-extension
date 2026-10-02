@@ -101,8 +101,7 @@ export default function HeroContainerRight() {
   // the same list RightPane derives its mount guard from
   const selectedTabGroup = selectVisibleTabGroups(
     tabContainerDataList.tabGroups,
-    isSearchPanel,
-    searchInputText,
+    isSearchPanel ? searchInputText : '',
     hasTabGroupsPermission
   )[0];
 
@@ -429,7 +428,7 @@ export default function HeroContainerRight() {
           value={formatGroupCounts(
             windowCount,
             tabCount,
-            isSearchActive(isSearchPanel, searchInputText),
+            isSearchPanel && isSearchActive(searchInputText),
             t
           )}
           size={TYPE.META}

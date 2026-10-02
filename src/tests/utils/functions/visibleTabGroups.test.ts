@@ -1,6 +1,9 @@
 import { describe, expect, test } from 'vitest';
 
-import { selectVisibleTabGroups } from '../../../utils/functions/local';
+import {
+  isSearchActive,
+  selectVisibleTabGroups,
+} from '../../../utils/functions/local';
 import { tabContainerData } from '../../../redux/slices/tabContainerDataStateSlice';
 
 const session = (
@@ -104,5 +107,27 @@ describe('selectVisibleTabGroups', () => {
     selectVisibleTabGroups(groups, true, 'kagi', true);
 
     expect(groups.map((group) => group.title)).toEqual(['Research', 'Errands']);
+  });
+});
+
+// R2: the search is the trimmed text, as in Open now.
+describe('the search ignores surrounding spaces', () => {
+  test('spaces alone are no search', () => {
+    expect(isSearchActive('  ')).toBe(false);
+  });
+
+  test("'Kyoto ' matches what 'kyoto' matches", () => {
+    const groups = [session('Trip', true, 'Kyoto')];
+
+    expect(selectVisibleTabGroups(groups, 'Kyoto ', true)).toEqual(
+      selectVisibleTabGroups(groups, 'kyoto', true)
+    );
+    expect(selectVisibleTabGroups(groups, 'kyoto', true)).toHaveLength(1);
+  });
+
+  test('spaces alone return the selected session whole', () => {
+    const groups = [session('Trip', true, 'Kyoto')];
+
+    expect(selectVisibleTabGroups(groups, '   ', true)).toEqual(groups);
   });
 });

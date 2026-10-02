@@ -30,8 +30,7 @@ function RightPane() {
   // with what they find
   const visibleTabGroups = selectVisibleTabGroups(
     tabContainerDataList.tabGroups,
-    isSearchPanel,
-    searchInputText,
+    isSearchPanel ? searchInputText : '',
     hasTabGroupsPermission
   );
 
