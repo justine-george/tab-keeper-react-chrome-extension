@@ -244,5 +244,6 @@
   "CarryCardNameAndCount_one": "{{name}} · {{count}} Onglet",
   "CarryCardNameAndCount_many": "{{name}} · {{count}} Onglets",
   "CarryCardNameAndCount_other": "{{name}} · {{count}} Onglets",
-  "CarryNewWindowTarget": "Nouvelle fenêtre"
+  "CarryNewWindowTarget": "Nouvelle fenêtre",
+  "Search looks in session names, window names, tab titles and links.": "La recherche porte sur les noms de session, les noms de fenêtre, les titres d’onglet et les liens."
 }

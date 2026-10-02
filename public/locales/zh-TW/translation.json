@@ -234,5 +234,6 @@
   "NoSavedTabMatches": "沒有符合「{{text}}」的已儲存分頁",
   "TabCountShownOfTotal_other": "{{count}} 個分頁中的 {{shown}} 個",
   "CarryCardNameAndCount_other": "{{name}} · {{count}} 個分頁",
-  "CarryNewWindowTarget": "新視窗"
+  "CarryNewWindowTarget": "新視窗",
+  "Search looks in session names, window names, tab titles and links.": "搜尋範圍包括工作階段名稱、視窗名稱、分頁標題和連結。"
 }

@@ -13,6 +13,8 @@ import {
 } from './savedListInset';
 import { NormalLabel } from '../../common/Label';
 import SearchRow from '../../common/SearchRow';
+import NoMatchState from '../../common/NoMatchState';
+import { useNoMatchPlace } from '../../../hooks/useNoMatchPlace';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { AppDispatch, RootState } from '../../../redux/store';
 import { filterTabGroups } from '../../../utils/functions/local';
@@ -63,6 +65,7 @@ export default function TabGroupEntryContainer() {
   );
 
   const { text: searchText, term: searchTerm, isSearching } = useSavedSearch();
+  const { query: noMatchQuery, place: noMatchPlace } = useNoMatchPlace();
 
   const hasTabGroupsPermission = useSelector(
     (state: RootState) => state.globalState.hasTabGroupsPermission
@@ -345,16 +348,15 @@ export default function TabGroupEntryContainer() {
       />
       <div css={scrollerStyle} ref={listRef}>
         {filteredTabGroups.length === 0 ? (
-          <div css={emptyContainerStyle}>
-            {isSearching ? (
-              <NormalLabel
-                value={t('NoSavedTabMatches', { text: searchText.trim() })}
-                color={COLORS.LABEL_L2_COLOR}
-              />
-            ) : (
+          // No match: the block is the detail pane's, or this list's when
+          // there is no detail pane; otherwise the list shows nothing.
+          noMatchPlace === 'list' ? (
+            <NoMatchState query={noMatchQuery} inset={24} />
+          ) : isSearching ? null : (
+            <div css={emptyContainerStyle}>
               <NormalLabel value={t('Empty')} />
-            )}
-          </div>
+            </div>
+          )
         ) : (
           <div css={filledContainerStyle}>
             {/* KAN-130. No handleSelector -- a session row contains no nested

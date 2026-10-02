@@ -244,5 +244,6 @@
   "CarryCardNameAndCount_one": "{{name}} · {{count}} Pestaña",
   "CarryCardNameAndCount_many": "{{name}} · {{count}} Pestañas",
   "CarryCardNameAndCount_other": "{{name}} · {{count}} Pestañas",
-  "CarryNewWindowTarget": "Nueva ventana"
+  "CarryNewWindowTarget": "Nueva ventana",
+  "Search looks in session names, window names, tab titles and links.": "La búsqueda incluye nombres de sesiones, nombres de ventanas, títulos de pestañas y enlaces."
 }

@@ -239,5 +239,6 @@
   "TabCountShownOfTotal_other": "{{count}} में से {{shown}} टैब्स",
   "CarryCardNameAndCount_one": "{{name}} · {{count}} टैब",
   "CarryCardNameAndCount_other": "{{name}} · {{count}} टैब्स",
-  "CarryNewWindowTarget": "नई विंडो"
+  "CarryNewWindowTarget": "नई विंडो",
+  "Search looks in session names, window names, tab titles and links.": "खोज सेशन के नाम, विंडो के नाम, टैब के शीर्षक और लिंक में होती है।"
 }

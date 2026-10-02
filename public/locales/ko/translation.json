@@ -234,5 +234,6 @@
   "NoSavedTabMatches": "\"{{text}}\" 검색어와 일치하는 저장된 탭이 없습니다",
   "TabCountShownOfTotal_other": "탭 {{count}}개 중 {{shown}}개",
   "CarryCardNameAndCount_other": "{{name}} · 탭 {{count}}개",
-  "CarryNewWindowTarget": "새 창"
+  "CarryNewWindowTarget": "새 창",
+  "Search looks in session names, window names, tab titles and links.": "세션 이름, 창 이름, 탭 제목, 링크에서 검색합니다."
 }

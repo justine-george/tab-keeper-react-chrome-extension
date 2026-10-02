@@ -1,0 +1,62 @@
+import { css } from '@emotion/react';
+import { useTranslation } from 'react-i18next';
+
+import NoMatchArt from './NoMatchArt';
+import { NormalLabel } from './Label';
+import { useThemeColors } from '../../hooks/useThemeColors';
+import { useFontFamily } from '../../hooks/useFontFamily';
+import { TYPE } from '../../styles/scale';
+
+interface NoMatchStateProps {
+  // The trimmed query.
+  query: string;
+  // Side padding in px: 48 in the detail pane, 24 in the list.
+  inset: 48 | 24;
+}
+
+// The saved search's empty state, centred both ways in whatever holds it.
+export default function NoMatchState({ query, inset }: NoMatchStateProps) {
+  const COLORS = useThemeColors();
+  const FONT_FAMILY = useFontFamily();
+  const { t } = useTranslation();
+
+  const blockStyle = css`
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    min-height: 0;
+    padding: 0 ${inset}px;
+    gap: 12px;
+    text-align: center;
+    color: ${COLORS.LABEL_L3_COLOR};
+  `;
+
+  const hintStyle = css`
+    margin: 0;
+    max-width: 26em;
+    font-family: ${FONT_FAMILY};
+    font-size: ${TYPE.META};
+    line-height: 1.45;
+    color: ${COLORS.LABEL_L3_COLOR};
+    text-wrap: balance;
+  `;
+
+  return (
+    <div css={blockStyle}>
+      <NoMatchArt />
+      <NormalLabel
+        value={t('NoSavedTabMatches', { text: query })}
+        size={TYPE.BODY}
+        color={COLORS.LABEL_L2_COLOR}
+        style="max-width: 100%;"
+      />
+      <p css={hintStyle}>
+        {t(
+          'Search looks in session names, window names, tab titles and links.'
+        )}
+      </p>
+    </div>
+  );
+}

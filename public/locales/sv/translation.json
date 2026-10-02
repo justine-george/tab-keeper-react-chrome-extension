@@ -239,5 +239,6 @@
   "TabCountShownOfTotal_other": "{{shown}} av {{count}} Flikar",
   "CarryCardNameAndCount_one": "{{name}} · {{count}} Flik",
   "CarryCardNameAndCount_other": "{{name}} · {{count}} Flikar",
-  "CarryNewWindowTarget": "Nytt fönster"
+  "CarryNewWindowTarget": "Nytt fönster",
+  "Search looks in session names, window names, tab titles and links.": "Sökningen omfattar sessionsnamn, fönsternamn, fliktitlar och länkar."
 }

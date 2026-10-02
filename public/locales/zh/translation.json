@@ -234,5 +234,6 @@
   "NoSavedTabMatches": "没有与“{{text}}”匹配的已保存的标签页",
   "TabCountShownOfTotal_other": "{{count}} 个标签页中的 {{shown}} 个",
   "CarryCardNameAndCount_other": "{{name}} · {{count}} 个标签页",
-  "CarryNewWindowTarget": "新窗口"
+  "CarryNewWindowTarget": "新窗口",
+  "Search looks in session names, window names, tab titles and links.": "搜索范围包括会话名称、窗口名称、标签页标题和链接。"
 }

@@ -239,5 +239,6 @@
   "TabCountShownOfTotal_other": "{{shown}} von {{count}} Tabs",
   "CarryCardNameAndCount_one": "{{name}} · {{count}} Tab",
   "CarryCardNameAndCount_other": "{{name}} · {{count}} Tabs",
-  "CarryNewWindowTarget": "Neues Fenster"
+  "CarryNewWindowTarget": "Neues Fenster",
+  "Search looks in session names, window names, tab titles and links.": "Die Suche umfasst Sitzungsnamen, Fensternamen, Tab-Titel und Links."
 }
