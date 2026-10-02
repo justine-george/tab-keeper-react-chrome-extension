@@ -62,7 +62,10 @@ describe('the session is tidied where the page loads it (KAN-202)', () => {
   test('the file carries the tidy title and the real address', async () => {
     await renderPage();
 
-    await waitFor(() => expect(preview()).toContain('Rive on X'));
+    // The whole link text, so a leftover prefix or space fails.
+    await waitFor(() =>
+      expect(preview()).toContain('>Rive on X: &quot;GPU Canvas&quot;</a>')
+    );
     expect(preview()).not.toContain('(3) Rive');
     expect(preview()).toContain('chrome://extensions/');
     expect(preview()).not.toContain('chrome-extension://');
