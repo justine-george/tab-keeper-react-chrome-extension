@@ -776,6 +776,173 @@ test('the preview frame carries the file ground, not white', async ({
   );
 });
 
+// KAN-358. The name of a tab that cannot be a link (chrome://, file://) is
+// text people read, so it must reach 4.5:1 on whatever ground it is drawn
+// over: the page, or a group's band. It read at 3.00:1 in a light group and
+// 4.13:1 in a dark one. The unit test holds the palette; this reads what
+// Chrome paints, in the file and in the editor that edits it.
+const NON_WEB = buildSession({
+  tabGroupId: 'session-non-web',
+  title: 'Launch prep',
+  isSelected: true,
+  windowCount: 1,
+  tabCount: 4,
+  windows: [
+    {
+      windowId: 'w-1',
+      windowHeight: 1080,
+      windowWidth: 1920,
+      windowOffsetTop: 0,
+      windowOffsetLeft: 0,
+      tabCount: 4,
+      title: '',
+      tabs: [
+        {
+          tabId: 't-1',
+          favicon: '',
+          title: 'Store listing draft',
+          url: 'https://docs.google.com/document/d/1abc',
+          chromeGroupId: 'g-1',
+        },
+        {
+          tabId: 't-2',
+          favicon: '',
+          title: 'Extensions',
+          url: 'chrome://extensions/',
+          chromeGroupId: 'g-1',
+        },
+        {
+          tabId: 't-3',
+          favicon: '',
+          title: 'Launch checklist.pdf',
+          url: 'file:///Users/me/launch-checklist.pdf',
+        },
+        {
+          tabId: 't-4',
+          favicon: '',
+          title: 'Release notes',
+          url: 'https://example.com/notes',
+        },
+      ],
+      chromeTabGroups: [{ groupId: 'g-1', title: 'Store', color: 'blue' }],
+    },
+  ],
+});
+const NON_WEB_NAMES = ['Extensions', 'Launch checklist.pdf'];
+
+interface NameContrast {
+  name: string;
+  inGroup: boolean;
+  ratio: number;
+}
+
+/**
+ * Each element's text colour against the ground drawn behind it: the first
+ * opaque background among its ancestors -- or, in the editor, a group's band,
+ * which is an absolutely placed SIBLING layer (`data-group-band`), not an
+ * ancestor. Without the band a name in a group would be measured against the
+ * page, the lighter-contrast ground it does not sit on.
+ * Self-contained: Playwright serialises it into the page.
+ */
+function nameContrasts(elements: Element[]): NameContrast[] {
+  const channels = (css: string) =>
+    (css.match(/[\d.]+/g) ?? []).map((part) => Number(part));
+  const luminance = ([r, g, b]: number[]) => {
+    const [lr, lg, lb] = [r, g, b].map((v) => {
+      const c = v / 255;
+      return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+    });
+    return 0.2126 * lr + 0.7152 * lg + 0.0722 * lb;
+  };
+  const opaque = (el: Element) => {
+    const fill = channels(getComputedStyle(el).backgroundColor);
+    return fill.length === 3 || (fill.length === 4 && fill[3] === 1)
+      ? fill
+      : null;
+  };
+  const groundOf = (start: Element) => {
+    for (let el: Element | null = start; el; el = el.parentElement) {
+      const band = el.querySelector(':scope > [data-group-band]');
+      const fill = (band && opaque(band)) ?? opaque(el);
+      if (fill) {
+        return { fill, inGroup: band !== null || el.matches('.group') };
+      }
+    }
+    // No opaque ground found: no channels, so the ratio is NaN and the floor
+    // fails, rather than measuring against an assumed white.
+    return { fill: [], inGroup: false };
+  };
+  return elements.map((el) => {
+    const ground = groundOf(el);
+    const [a, b] = [
+      luminance(channels(getComputedStyle(el).color)),
+      luminance(ground.fill),
+    ].sort((x, y) => y - x);
+    return {
+      name: el instanceof HTMLInputElement ? el.value : el.textContent ?? '',
+      inGroup: ground.inGroup,
+      ratio: Math.round(((a + 0.05) / (b + 0.05)) * 1000) / 1000,
+    };
+  });
+}
+
+for (const theme of ['Light', 'Darkenheimer'] as const) {
+  test(`${theme}: a non-web tab's name reads at 4.5:1, in the file and in the editor`, async ({
+    context,
+    extensionId,
+  }) => {
+    await seedSettings(context, {
+      isNeverAskAgainToRate: true,
+      isNeverAskAgainForTabGroups: true,
+      theme,
+    });
+    await seedSessions(context, {
+      ...buildContainer([NON_WEB]),
+      selectedTabGroupId: 'session-non-web',
+    });
+    const popup = await context.newPage();
+    await popup.goto(`chrome-extension://${extensionId}/index.html`);
+    await expect(sessionHeaderMenu(popup)).toBeVisible();
+    const [exportPage] = await Promise.all([
+      context.waitForEvent('page'),
+      chooseExport(popup),
+    ]);
+    await exportPage.waitForLoadState();
+
+    const preview = exportPage.frameLocator('iframe');
+    await expect(preview.getByText('Launch checklist.pdf')).toBeVisible();
+    const inFile = await preview.locator('.plain').evaluateAll(nameContrasts);
+
+    // CONTROL: both grounds are measured -- one name in the group's band,
+    // one on the page.
+    expect(inFile.map((row) => [row.name, row.inGroup])).toEqual([
+      ['Extensions', true],
+      ['Launch checklist.pdf', false],
+    ]);
+    for (const row of inFile) {
+      expect.soft(row.ratio, `file: ${row.name}`).toBeGreaterThanOrEqual(4.5);
+    }
+
+    await exportPage.getByRole('button', { name: 'Edit' }).click();
+    const fields = exportPage.locator(
+      NON_WEB_NAMES.map(
+        (name) => `input[aria-label="Rename tab: ${name}"]`
+      ).join(', ')
+    );
+    await expect(fields).toHaveCount(2);
+    const inEditor = await fields.evaluateAll(nameContrasts);
+    // CONTROL, as in the file: the band is found, so the group's name is
+    // measured against it.
+    expect(inEditor.map((row) => [row.name, row.inGroup])).toEqual([
+      ['Extensions', true],
+      ['Launch checklist.pdf', false],
+    ]);
+    for (const row of inEditor) {
+      expect.soft(row.ratio, `editor: ${row.name}`).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+}
+
 test('the file can be switched light or dark, and printed', async ({
   context,
   extensionId,

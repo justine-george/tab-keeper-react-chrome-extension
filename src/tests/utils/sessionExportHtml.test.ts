@@ -573,6 +573,32 @@ describe('the dark file palette is neutral (KAN-197)', () => {
   });
 });
 
+// KAN-358. Every colour the file sets words in is text someone reads, so each
+// is held to the WCAG AA text floor, 4.5:1, on both grounds a row can sit on:
+// the page, and a group's band. That includes `plain`, the name of a tab that
+// cannot be a link (chrome://, file://): light printed it at 3.22:1, and 3.00:1
+// in a group; dark at 4.13:1 in a group. The "not a web link" chip, not a
+// faint colour, is what marks such a row.
+describe('every colour the file writes words in reads at 4.5:1 (KAN-358)', () => {
+  const WORDS = ['text', 'muted', 'link', 'visited', 'plain'] as const;
+  const GROUNDS = ['bg', 'groupBg'] as const;
+  const cases = (['light', 'dark'] as const).flatMap((scheme) =>
+    WORDS.flatMap((fg) =>
+      GROUNDS.map((ground) => [scheme, fg, ground] as const)
+    )
+  );
+
+  test.each(cases)('%s: %s on %s', (scheme, fg, ground) => {
+    const palette = EXPORT_PALETTE[scheme];
+    const ratio = contrast(palette[fg], palette[ground]);
+
+    expect(
+      ratio,
+      `${palette[fg]} on ${palette[ground]}: ${ratio.toFixed(3)}:1`
+    ).toBeGreaterThanOrEqual(4.5);
+  });
+});
+
 // KAN-208. A capture of the open windows has no history to describe, so its
 // file carries no "Created ..." line. The counts then stand alone -- a leading
 // " - " would say a date was meant to be there.
