@@ -7,13 +7,8 @@ import type { BrowserContext, Page } from '@playwright/test';
 import { test, expect } from './fixtures/extension';
 import { buildContainer, buildSession, seedSessions } from './fixtures/seed';
 
-// KAN-194. The export page's Edit mode, in a real browser. The component tests
-// hold the wiring; only a browser can say what they cannot:
-//
-// - that a file saved after editing, written to disk, carries the edits;
-// - that the editor fits its page, a long title wrapping instead of clipping;
-// - that Chrome really asks before closing with edits pending -- and, as the
-//   control, does not ask without them.
+// KAN-194. What only a browser can show: the saved file carries the edits, the
+// editor fits its page, and Chrome asks before closing only with edits pending.
 
 const LONG_TITLE =
   'Pull requests · justine-george/tab-keeper-react-chrome-extension';
@@ -115,7 +110,6 @@ test('an edited export saves the renamed, trimmed file to disk', async ({
   await expect(page.getByText('2 renamed · 1 hidden')).toBeVisible();
   await page.getByRole('button', { name: 'Done' }).click();
 
-  // The page's own header follows the edits too.
   await expect(page.getByText('2 Windows · 3 Tabs')).toBeVisible();
 
   const [download] = await Promise.all([
@@ -177,14 +171,13 @@ test('the editor fits its page: a long title wraps, and no row runs off the side
       eyes: eyes.length,
     };
   });
-  // Every row has one: two windows, one group, four tabs.
+  // One per row: two windows, one group, four tabs.
   expect(overflow.eyes).toBe(7);
   expect(overflow.eyesOffScreen).toBe(0);
   expect(overflow.pageScrollsSideways).toBe(false);
 });
 
-// CONTROL for the wrap: the same field with a short title is one line, so the
-// test above measures wrapping and not a field that is always tall.
+// CONTROL: the test above measures wrapping, not a field that is always tall.
 test('CONTROL: a short title stays on one line', async ({
   context,
   extensionId,
@@ -233,8 +226,7 @@ test('a hidden row stays in the editor, faded, until it is shown again', async (
     .getByRole('button', { name: 'Hide: justine-george/RealTalk' })
     .click();
   await expect(field).toBeVisible();
-  // Polled: since KAN-222 the row fades over 150ms rather than in the frame of
-  // the click, so a single read here sees the start of the fade.
+  // Polled: the row fades over 150ms (KAN-222).
   await expect.poll(opacity).toBeLessThan(0.6);
 
   await page
@@ -243,10 +235,8 @@ test('a hidden row stays in the editor, faded, until it is shown again', async (
   await expect.poll(opacity).toBe(1);
 });
 
-// Chrome draws its own leave dialog, and only when a beforeunload listener
-// cancels the event. Measured before building: Playwright's scripted close
-// shows that dialog whenever a listener cancels, so the discriminating control
-// is the page WITHOUT edits, which must register no such listener.
+// Playwright's scripted close shows the leave dialog whenever a beforeunload
+// listener cancels (measured), so the control is the page without edits.
 for (const edited of [true, false]) {
   test(`closing the page ${
     edited ? 'with an edit asks first' : 'without edits does not ask'
@@ -273,8 +263,8 @@ for (const edited of [true, false]) {
   });
 }
 
-// The editor draws the file's rows, so it takes the file's colours: a dark
-// export is edited on the dark file's ground, not the toolbar's.
+// The editor draws the file's rows, so it takes the file's ground, not the
+// toolbar's.
 test('editing a dark export happens on the dark file ground', async ({
   context,
   extensionId,
@@ -296,19 +286,16 @@ test('editing a dark export happens on the dark file ground', async ({
   expect(ground).toBe('rgb(23, 23, 23)');
 });
 
-// Found on review: at rest the toolbar is too long for the title's row and
-// wraps under it, while the short editing toolbar fits beside the title -- so
-// pressing Edit made every control jump up a row. The toolbar now always has a
-// row of its own, and the primary control sits at its right end in both modes:
-// the PDF output at rest (KAN-207; Save as HTML before it), Done while editing.
+// The toolbar keeps a row of its own, or the shorter editing toolbar would fit
+// beside the title and every control would jump up a row on Edit.
 const toolbarGeometry = (page: Page, title: string) =>
   page.evaluate((title) => {
     const byLabel = (label: string) =>
       document.querySelector(`button[aria-label="${label}"]`);
     const primary = byLabel('PDF / Print') ?? byLabel('Done');
     if (!primary) throw new Error('no primary control on the toolbar');
-    // The header's title, not the editor's field: a textarea's text is its
-    // value, never its textContent.
+    // A textarea's text is its value, never its textContent, so this finds the
+    // header's title.
     const heading = [...document.querySelectorAll('span')].find(
       (el) => el.textContent === title
     );
@@ -316,14 +303,10 @@ const toolbarGeometry = (page: Page, title: string) =>
     const label = [...document.querySelectorAll('span')].find(
       (el) => el.textContent === 'Preview' || el.textContent === 'Editing'
     );
-    // The header is the nearest box holding both the title and the toolbar.
     let header: Element = primary;
     while (!header.contains(heading)) header = header.parentElement!;
-    // The toolbar ROW is the box the controls are laid out in. It used to be
-    // read as the header's content box (right edge minus padding), which
-    // coincided until KAN-235 put the header's content in a centred 1100px
-    // band: at 1600px the row now ends at 1350, the header's content at 1584,
-    // and "the right end of the toolbar" means the row's.
+    // The row, not the header's content box: KAN-235's 1100px band ends the
+    // row at 1350 against the header's 1584 at 1600px.
     const row = header.querySelector('[data-toolbar-row]');
     if (!row) throw new Error('no toolbar row in the header');
     const box = row.getBoundingClientRect();
@@ -335,9 +318,8 @@ const toolbarGeometry = (page: Page, title: string) =>
       titleTop: heading.getBoundingClientRect().top,
       labelBottom: label ? label.getBoundingClientRect().bottom : null,
       primaryRight: primary.getBoundingClientRect().right,
-      // Where the toolbar's first line starts. Not the primary control's top:
-      // at 800px the resting row wraps and Save sits on a second line, while
-      // the shorter editing row keeps Done on the first. The row did not move.
+      // Not the primary control's top: at 800px the resting row wraps it to a
+      // second line.
       firstLineTop: Math.min(
         ...[...header.querySelectorAll('button, [role="status"]')].map(
           (el) => el.getBoundingClientRect().top
@@ -349,8 +331,8 @@ const toolbarGeometry = (page: Page, title: string) =>
     };
   }, title);
 
-// 1200px is where review found the jump with this title: the resting toolbar
-// wraps under it, and the shorter editing toolbar fits beside it.
+// At 1200px this title wraps the resting toolbar under it but not the editing
+// one.
 for (const width of [1600, 1200, 800]) {
   test(`at ${width}px the toolbar keeps its own row and does not move when editing starts`, async ({
     context,
@@ -369,8 +351,7 @@ for (const width of [1600, 1200, 800]) {
       Math.abs(editing.firstLineTop - resting.firstLineTop),
       `the toolbar row moved from ${resting.firstLineTop}px to ${editing.firstLineTop}px`
     ).toBeLessThanOrEqual(1);
-    // The mode label sits above the title in both modes, and swapping
-    // Preview for a pencil and Editing must not change its height.
+    // Swapping Preview for Editing must not move the title.
     expect(resting.labelBottom, 'Preview above the title').not.toBeNull();
     expect(resting.labelBottom!).toBeLessThanOrEqual(resting.titleTop + 1);
     expect(editing.labelBottom, 'Editing above the title').not.toBeNull();
@@ -399,20 +380,16 @@ for (const width of [1600, 1200, 800]) {
       Math.abs(editing.contentRight - editing.primaryRight),
       `Done ends at ${editing.primaryRight}px, the row at ${editing.contentRight}px`
     ).toBeLessThanOrEqual(1);
-    // CONTROL: the row still starts at the left edge, so "at the right end"
-    // is not a toolbar that simply moved right.
+    // CONTROL: the row still starts at the left edge, so it did not simply move
+    // right.
     expect(
       Math.abs(resting.firstLeft - resting.contentLeft)
     ).toBeLessThanOrEqual(1);
   });
 }
 
-// Found on review: pressing Edit still moved the page up 2px. The joined
-// Layout and Colour pairs were content-box with a 1px border around 34px
-// buttons, so they stood 36px against every other control's 34px; the
-// resting toolbar row was 36px, the editing row 34px, and everything below
-// the header rose when editing started (measured: header 127px to 125px,
-// content 135px to 133px, at 1600px and at 1000px).
+// The pairs once stood 36px against the other controls' 34px, so pressing Edit
+// moved the page up 2px.
 const headerAndRow = (page: Page) =>
   page.evaluate((title) => {
     const heading = [...document.querySelectorAll('span')].find(
@@ -426,8 +403,7 @@ const headerAndRow = (page: Page) =>
     let header: Element = primary;
     while (!header.contains(heading)) header = header.parentElement!;
     const row = header.lastElementChild!;
-    // The row's own controls: each button and each joined pair, but not the
-    // buttons inside a pair, and not the tally, which is text.
+    // Each button and each pair, but not the buttons inside a pair.
     const controls = [...row.querySelectorAll('button, [role="group"]')].filter(
       (el) =>
         el.getAttribute('role') === 'group' || !el.closest('[role="group"]')
@@ -442,10 +418,9 @@ const headerAndRow = (page: Page) =>
     };
   }, LONG_TITLE);
 
-// Read once, and a slow machine can catch the header a pixel short before the
-// layout has settled: a full run measured 124px at rest against 125px editing,
-// while the page itself is 125px in both. Same defect as KAN-196 in another
-// spec -- the fix is to poll until two reads agree, not to widen the tolerance.
+// A single read on a slow machine caught the header 1px short (124 vs 125px)
+// before layout settled, as KAN-196 did elsewhere: poll until two reads agree
+// rather than widen the tolerance.
 async function settledHeaderAndRow(page: Page) {
   let previous = await headerAndRow(page);
   for (let attempt = 0; attempt < 10; attempt += 1) {

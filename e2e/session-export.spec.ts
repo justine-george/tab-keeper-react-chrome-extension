@@ -14,14 +14,8 @@ import {
   seedSettings,
 } from './fixtures/seed';
 
-// KAN-190. The whole path, in a real browser: the icon in the popup opens the
-// preview page, the page previews the file, and Save writes that same file to
-// disk. The unit tests hold the STRING the generator returns; only this can
-// say that a browser produced a file containing it.
-//
-// The last test opens the saved file from `file://` -- how it will actually be
-// read -- and watches for network traffic. A favicon or a webfont that crept
-// back in would show up there and nowhere else.
+// KAN-190. Popup menu to preview to saved file, in a real browser: the unit
+// tests hold the generated string, only this proves a browser wrote it.
 
 const KYOTO = buildSession({
   tabGroupId: 'session-kyoto',
@@ -79,11 +73,7 @@ const WEB_URLS = [
 
 const EXPORT_ITEM = 'Export…';
 
-/**
- * Export lives in the session header's More actions menu (KAN-193), so every
- * export starts by opening that menu. Returns once the item is clicked, so it
- * can sit inside the Promise.all that waits for the new tab.
- */
+/** Resolves on the click, so it fits a Promise.all awaiting the new tab. */
 async function chooseExport(popup: Page) {
   await sessionHeaderMenu(popup).click();
   await popup.getByRole('menuitem', { name: EXPORT_ITEM }).click();
@@ -127,7 +117,7 @@ test.describe('exporting a session as a web page', () => {
       preview.getByRole('link', { name: 'Nozomi timetable' })
     ).toBeVisible();
     await expect(preview.getByText('Flights')).toBeVisible();
-    // The chrome:// tab is there, and is not a link.
+    // Settings is the chrome:// tab: shown, but not a link.
     await expect(preview.getByText('Settings', { exact: true })).toBeVisible();
     await expect(preview.getByRole('link', { name: 'Settings' })).toHaveCount(
       0
@@ -169,10 +159,7 @@ test.describe('exporting a session as a web page', () => {
     await exportPage.waitForLoadState();
 
     const preview = exportPage.frameLocator('iframe');
-    // KAN-212 made compact the opening layout, so the switch runs the other
-    // way now: the page starts showing the site and is pressed to show the
-    // whole URL. Written in the direction of travel rather than pinned to a
-    // layout, so it stays a test of the SWITCH if the default ever moves again.
+    // KAN-212. Compact (site only) opens by default; Comfortable shows the URL.
     await expect(preview.getByText('inari.jp', { exact: true })).toBeVisible();
     await expect(
       preview.getByRole('link', { name: 'Fushimi Inari' })
@@ -180,15 +167,12 @@ test.describe('exporting a session as a web page', () => {
 
     await exportPage.getByRole('button', { name: 'Comfortable' }).click();
 
-    // Comfortable shows the whole URL under each link.
     await expect(preview.getByText('https://inari.jp/en/')).toBeVisible();
     await expect(
       exportPage.getByRole('button', { name: 'Comfortable' })
     ).toHaveAttribute('aria-pressed', 'true');
 
-    // Reopening gets the layout that was chosen, because it was persisted.
-    // Comfortable is now the NON-default, so this proves a stored choice is
-    // read back rather than the default being reapplied.
+    // Comfortable is the non-default, so this reads back a stored choice.
     const [second] = await Promise.all([
       context.waitForEvent('page'),
       chooseExport(popup),
@@ -225,7 +209,6 @@ test.describe('exporting a session as a web page', () => {
     await reader.goto(`file://${file}`);
     await reader.waitForLoadState('networkidle');
 
-    // Every tab is there, and the three web ones are links.
     await expect(
       reader.getByRole('link', { name: 'Fushimi Inari' })
     ).toBeVisible();
@@ -243,10 +226,8 @@ test.describe('exporting a session as a web page', () => {
   });
 });
 
-// "Save as PDF" is the browser's print dialog pointed at the same document,
-// so the PDF must be the file: same links, same structure, nothing lost.
-// Chrome writes anchors as /URI annotations, which is what makes a printed
-// link still clickable -- and what this reads back out of the real PDF.
+// Chrome writes anchors as PDF /URI annotations, so a printed link stays
+// clickable; this reads them back out of the real PDF.
 test('the printed PDF keeps every link the file has, and no others', async ({
   context,
   extensionId,
@@ -271,23 +252,19 @@ test('the printed PDF keeps every link the file has, and no others', async ({
   await reader.pdf({ path: pdfPath });
   const pdf = readFileSync(pdfPath, 'latin1');
 
-  // CONTROL: the PDF carries link annotations at all, so the assertions below
-  // are about WHICH links rather than about a PDF with none.
+  // CONTROL: the PDF has link annotations at all.
   expect(pdf).toContain('/URI');
 
   for (const url of WEB_URLS) {
     expect(pdf, `${url} should still be clickable in the PDF`).toContain(url);
   }
-  // The store link travels too -- it is how a shared file is attributed.
+  // The store link is how a shared file is attributed.
   expect(pdf).toContain('ref=export');
-  // And the tab that is not a web link did not become one on paper either.
   expect(pdf).not.toContain('chrome://settings/downloads');
 });
 
-// KAN-198. The export page is light or dark as a whole -- header and file --
-// opening on the extension theme's polarity. Its Light/Dark switch changes only
-// the page: before this, pressing Light once was saved as a setting and
-// overrode a dark theme on every later export.
+// KAN-198. The page is light or dark as a whole, opening on the theme's
+// polarity; its Light/Dark switch never writes a setting.
 const LIGHT_HEADER = 'rgb(233, 236, 240)';
 const DARK_HEADER = 'rgb(51, 51, 51)';
 
@@ -301,11 +278,7 @@ const headerFill = (page: Page) =>
     return getComputedStyle(el).backgroundColor;
   });
 
-/**
- * Leaves the named option pressed. KAN-218 made pressing an ALREADY pressed
- * option flip its pair, so a bare click on the default -- Compact, or Light
- * under a light theme -- would silently select the other one.
- */
+/** Leaves it pressed: clicking a pressed option flips its pair (KAN-218). */
 async function choose(page: Page, name: string) {
   const option = page.getByRole('button', { name, exact: true });
   if ((await option.getAttribute('aria-pressed')) !== 'true') {
@@ -334,8 +307,7 @@ async function openExportUnder(
   return exportPage;
 }
 
-// The bug as users have it: a Light choice saved by the previous build. It
-// must no longer have any effect.
+// A Light choice saved by an older build must have no effect.
 test('a dark theme opens the whole page dark, even with an old saved Light choice', async ({
   context,
   extensionId,
@@ -356,8 +328,8 @@ test('pressing Light or Dark changes the page and never the saved settings', asy
   context,
   extensionId,
 }) => {
-  // A direct write, not seedSettings: its init script re-runs in the preview
-  // frame and erased the very write this looks for (KAN-357 F7).
+  // Not seedSettings: its init script re-runs in the preview frame and erases
+  // the write this compares (KAN-357 F7).
   const popup = await openPopup(context, extensionId);
   await popup.evaluate(() =>
     localStorage.setItem(
@@ -400,7 +372,6 @@ test('pressing Light or Dark changes the page and never the saved settings', asy
     .toMatchObject({ exportLayout: 'comfortable' });
 });
 
-// A tinted light theme is still a light page.
 test('a tinted light theme opens a light page, not a pink one', async ({
   context,
   extensionId,
@@ -416,10 +387,8 @@ test('a tinted light theme opens a light page, not a pink one', async ({
   );
 });
 
-// KAN-218. Each pair is a track with a knob under the pressed option; the
-// KAN-199 line is gone. The knob is a layer clipped with `clip-path`, so where
-// it is drawn is the layer's box cut down by its inset -- read here from what
-// the browser computes, not from what the component asked for.
+// KAN-218. The knob is clipped with clip-path, so read its drawn box from
+// computed styles, not the props.
 type Box = { left: number; right: number; top: number; bottom: number };
 
 /** A pair by its accessible name, or a locator for one (names are translated). */
@@ -465,14 +434,14 @@ const knobGeometry = (page: Page, group: string | Locator) =>
     return {
       layer,
       inset: { top, right, bottom, left },
-      // What is painted: the layer, cut by its inset, never outside the layer.
+      // A negative inset cannot paint outside the layer.
       drawn: {
         left: layer.left + Math.max(left, 0),
         right: layer.right - Math.max(right, 0),
         top: layer.top + Math.max(top, 0),
         bottom: layer.bottom - Math.max(bottom, 0),
       },
-      // Inside the dark frame.
+      // Inside the track's border.
       inner: {
         left: outer.left + border,
         right: outer.right - border,
@@ -480,8 +449,7 @@ const knobGeometry = (page: Page, group: string | Locator) =>
         bottom: outer.bottom - border,
       },
       pressed: box(pressedButton.getBoundingClientRect()),
-      // The knob's copy of each label must sit exactly over the button's own,
-      // or a word crossing the knob's edge is drawn twice, offset.
+      // Off by any amount, a word crossing the knob's edge is drawn twice.
       cellDrift: Math.max(
         ...buttons.map((b, i) => {
           const cell = knob.children[i]?.getBoundingClientRect();
@@ -497,7 +465,7 @@ const knobGeometry = (page: Page, group: string | Locator) =>
       pressedName: pressedButton.getAttribute('aria-label'),
       shadows: buttons.map((b) => getComputedStyle(b).boxShadow),
       track: trackStyle.backgroundColor,
-      // Both options on one line: a pair split across two is two orphans.
+      // A pair split across two lines is two orphans.
       lines: new Set(
         buttons.map((b) => Math.round(b.getBoundingClientRect().top))
       ).size,
@@ -536,8 +504,7 @@ for (const mode of ['light', 'dark'] as const) {
     const exportPage = await openExportUnder(context, extensionId, {
       theme: mode === 'dark' ? 'Darkenheimer' : 'Light',
     });
-    // Justine: the track wears the same fill as the buttons beside it, so a
-    // pair reads as one more control on the row rather than a hole in it.
+    // The track wears the buttons' fill: a control on the row, not a hole.
     const buttonFill = await exportPage
       .getByRole('button', { name: 'Edit' })
       .evaluate((el) => getComputedStyle(el).backgroundColor);
@@ -566,10 +533,7 @@ for (const mode of ['light', 'dark'] as const) {
   });
 }
 
-// Every shipped language. The knob is measured from the rendered buttons, so a
-// longer word must still be covered exactly, its copy on the knob must still
-// lie over the button's own, and neither pair may split across two lines --
-// before and after a flip, since the two options differ in width.
+// Every shipped language, before and after a flip: options differ in width.
 const LANGUAGES = ['en', 'de', 'es', 'fr', 'hi', 'it', 'ja', 'pt', 'ru', 'zh'];
 
 for (const language of LANGUAGES) {
@@ -587,8 +551,7 @@ for (const language of LANGUAGES) {
       selectedTabGroupId: 'session-kyoto',
     });
     const exportPage = await context.newPage();
-    // The narrowest width the toolbar is checked at elsewhere without wrapping
-    // a pair; a translation that only fits wider would show here.
+    // The German toolbar test's width: a label that only fits wider shows.
     await exportPage.setViewportSize({ width: 800, height: 600 });
     await exportPage.goto(
       `chrome-extension://${extensionId}/export.html?session=session-kyoto`
@@ -623,11 +586,8 @@ for (const language of LANGUAGES) {
   });
 }
 
-// The track dips to 97% while pressed, and the knob is measured at the moment
-// the press lands -- so the measurement is taken on a scaled box. A quick click
-// is over before the dip takes hold; holding the mouse button is not. (Holding
-// Space does not dip it: Chrome gives :active to the track for a pointer press
-// only.)
+// The track dips to 97% while held, so the knob is measured on a scaled box.
+// Only a held pointer shows it: Chrome gives the track no :active for Space.
 test('a long press still leaves the knob exactly over the option', async ({
   context,
   extensionId,
@@ -641,7 +601,7 @@ test('a long press still leaves the knob exactly over the option', async ({
 
   await exportPage.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await exportPage.mouse.down();
-  // CONTROL: the dip really is in effect when the button comes up.
+  // CONTROL: the dip is in effect when the button comes up.
   await expect
     .poll(() =>
       exportPage
@@ -662,9 +622,8 @@ test('a long press still leaves the knob exactly over the option', async ({
   }
 });
 
-// The spring overshoots, and Justine's rule is that the overshoot never
-// crosses the frame. Sampled across the whole transition by pausing it, so the
-// frame at the peak is read rather than hoped for.
+// The spring overshoots but must never cross the frame. Pausing and seeking
+// the transition reads the peak rather than hoping to catch it.
 test('the knob springs past its rest and still never leaves the frame', async ({
   context,
   extensionId,
@@ -701,15 +660,13 @@ test('the knob springs past its rest and still never leaves the frame', async ({
       `at ${t}ms: ${JSON.stringify(knob)}`
     ).toBe(true);
   }
-  // CONTROL: the sampling saw a real overshoot, so "never left" is not the
-  // trivial result of a motion that never reached the wall.
+  // CONTROL: the sampling saw a real overshoot, so "never left" is not trivial.
   expect(overshot, 'the spring pushes the clip past the wall').toBe(true);
   expect(rest.pressedName).toBe('Compact');
 });
 
-// KAN-201 stops every transition for the frame the palette changes. Pressing
-// Dark changes the palette, so without its own exemption the Colour knob would
-// jump rather than slide.
+// KAN-201 stops every transition for the frame the palette changes; the
+// Colour knob needs its own exemption to slide.
 test('pressing Dark slides the knob while the colours switch at once', async ({
   context,
   extensionId,
@@ -730,7 +687,7 @@ test('pressing Dark slides the knob while the colours switch at once', async ({
         .getAnimations()
         .map((a) => (a as CSSTransition).transitionProperty)
     );
-  // Read in the same frame: KAN-201's guarantee still holds for the controls.
+  // Same frame: the controls still repaint at once.
   expect(
     await copy.evaluate((el) => getComputedStyle(el).backgroundColor)
   ).toBe('rgb(42, 42, 42)');
@@ -758,11 +715,8 @@ test('with reduced motion the knob moves without sliding', async ({
   expect(Math.abs(now.drawn.left - now.pressed.left)).toBeLessThanOrEqual(0.5);
 });
 
-// KAN-201. Pressing Light or Dark left every control in a half-changed state
-// for 200ms -- the old palette's fill under the new palette's text -- because
-// Button and Icon fade their background and nothing suppressed it here. This
-// reads a control the instant the click returns: with a fade in flight the fill
-// is still the old colour, or somewhere between the two.
+// KAN-201. Button and Icon fade their background, so a palette switch must
+// suppress it: read the instant the click returns, a fade shows the old fill.
 test('pressing Dark repaints the controls at once, with no half-changed state', async ({
   context,
   extensionId,
@@ -778,7 +732,7 @@ test('pressing Dark repaints the controls at once, with no half-changed state', 
 
   await exportPage.getByRole('button', { name: 'Dark' }).click();
 
-  // No wait: this is the frame the user saw washed out.
+  // No wait: this frame is the one under test.
   expect(await fill(), 'the dark page fill, immediately').toBe(
     'rgb(42, 42, 42)'
   );
@@ -799,11 +753,8 @@ test('the preview frame carries the file ground, not white', async ({
   );
 });
 
-// KAN-358. The name of a tab that cannot be a link (chrome://, file://) is
-// text people read, so it must reach 4.5:1 on whatever ground it is drawn
-// over: the page, or a group's band. It read at 3.00:1 in a light group and
-// 4.13:1 in a dark one. The unit test holds the palette; this reads what
-// Chrome paints, in the file and in the editor that edits it.
+// KAN-358. A non-link tab name (chrome://, file://) is body text: 4.5:1 on its
+// actual ground, the page or a group's band, as Chrome paints it.
 const NON_WEB = buildSession({
   tabGroupId: 'session-non-web',
   title: 'Launch prep',
@@ -860,12 +811,9 @@ interface NameContrast {
 }
 
 /**
- * Each element's text colour against the ground drawn behind it: the first
- * opaque background among its ancestors -- or, in the editor, a group's band,
- * which is an absolutely placed SIBLING layer (`data-group-band`), not an
- * ancestor. Without the band a name in a group would be measured against the
- * page, the higher-contrast ground it does not sit on.
- * Self-contained: Playwright serialises it into the page.
+ * Text colour against the first opaque ground behind it. In the editor a
+ * group's band is a SIBLING layer (`data-group-band`), not an ancestor, so it
+ * is checked first. Self-contained: Playwright serialises it into the page.
  */
 function nameContrasts(elements: Element[]): NameContrast[] {
   const channels = (css: string) =>
@@ -891,8 +839,7 @@ function nameContrasts(elements: Element[]): NameContrast[] {
         return { fill, inGroup: band !== null || el.matches('.group') };
       }
     }
-    // No opaque ground found: no channels, so the ratio is NaN and the floor
-    // fails, rather than measuring against an assumed white.
+    // No ground: the ratio is NaN and fails, rather than assuming white.
     return { fill: [], inGroup: false };
   };
   return elements.map((el) => {
@@ -936,8 +883,7 @@ for (const theme of ['Light', 'Darkenheimer'] as const) {
     await expect(preview.getByText('Launch checklist.pdf')).toBeVisible();
     const inFile = await preview.locator('.plain').evaluateAll(nameContrasts);
 
-    // CONTROL: both grounds are measured -- one name in the group's band,
-    // one on the page.
+    // CONTROL: both grounds are measured, the group's band and the page.
     expect(inFile.map((row) => [row.name, row.inGroup])).toEqual([
       ['Extensions', true],
       ['Launch checklist.pdf', false],
@@ -956,8 +902,7 @@ for (const theme of ['Light', 'Darkenheimer'] as const) {
     );
     await expect(fields).toHaveCount(2);
     const inEditor = await fields.evaluateAll(nameContrasts);
-    // CONTROL, as in the file: the band is found, so the group's name is
-    // measured against it.
+    // CONTROL, as in the file.
     expect(inEditor.map((row) => [row.name, row.inGroup])).toEqual([
       ['Extensions', true],
       ['Launch checklist.pdf', false],
@@ -993,9 +938,8 @@ test('the file can be switched light or dark, and printed', async ({
     exportPage.getByRole('button', { name: 'Dark' })
   ).toHaveAttribute('aria-pressed', 'true');
 
-  // Printing is the browser's own dialog, opened on the previewed document. A
-  // sandboxed frame without allow-modals ignores print() and says so only in
-  // the console, so the console is what this reads.
+  // A sandboxed frame without allow-modals ignores print() and says so only
+  // in the console. A print stub inside the frame passed against such a build.
   const ignored: string[] = [];
   exportPage.on('console', (message) => {
     if (message.text().includes("Ignored call to 'print()'")) {
@@ -1003,8 +947,7 @@ test('the file can be switched light or dark, and printed', async ({
     }
   });
 
-  // CONTROL: a frame without allow-modals is heard, so silence below means
-  // something.
+  // CONTROL: a frame without allow-modals is heard, so silence means something.
   await exportPage.evaluate(async () => {
     const probe = document.createElement('iframe');
     probe.setAttribute('sandbox', 'allow-same-origin');
@@ -1030,11 +973,8 @@ test('the file can be switched light or dark, and printed', async ({
   ).toHaveLength(1);
 });
 
-// The toolbar wrapped onto a second line before it was grouped, and nothing
-// failed -- wrapping is silent. Wrapping itself is fine at a narrow width;
-// what is not fine is a JOINED PAIR splitting across two lines, which turns a
-// segmented control into two orphaned buttons, or a row cut off rather than
-// wrapped.
+// Wrapping is fine when narrow; a joined pair split across lines, or a row
+// cut off rather than wrapped, is not.
 for (const width of [1200, 800, 480]) {
   test(`at ${width}px the joined pairs stay whole and nothing is clipped`, async ({
     context,
@@ -1076,10 +1016,8 @@ for (const width of [1200, 800, 480]) {
   });
 }
 
-// German is where a toolbar of English labels falls over: "Alle Links
-// kopieren" and "Als HTML speichern" are half again as long. The popup is in
-// German too, so this cannot reuse openPopup, which waits for the English
-// name -- the first version did, and failed there rather than on the toolbar.
+// German labels run half again as long. Not openPopup: it waits for the
+// English menu name.
 test('the toolbar survives German at the popup width', async ({
   context,
   extensionId,
@@ -1096,8 +1034,7 @@ test('the toolbar survives German at the popup width', async ({
 
   const popup = await context.newPage();
   await popup.goto(`chrome-extension://${extensionId}/index.html`);
-  // Scoped to the right pane: the save row's menu carries the same name
-  // since KAN-208.
+  // Scoped to the right pane: the save row's menu has the same name.
   const moreActions = sessionHeaderMenu(popup, 'Weitere Aktionen');
   await expect(moreActions).toBeVisible();
   await moreActions.click();
@@ -1135,9 +1072,7 @@ test('the toolbar survives German at the popup width', async ({
   expect(shape.clipped, 'German must wrap rather than be cut off').toBe(false);
 });
 
-// Icon carries 4px of its own padding and Button adds 8px to its right, so
-// the gap LEFT of the icon was wider than the gap right of the label. Measured
-// in the real browser, because this is geometry.
+// Icon and Button each pad around the glyph, so the two sides can drift apart.
 test('an icon button is evenly padded on both sides', async ({
   context,
   extensionId,
@@ -1148,11 +1083,7 @@ test('an icon button is evenly padded on both sides', async ({
     chooseExport(popup),
   ]);
   await exportPage.waitForLoadState();
-  // The barrier its neighbours in this file already carry. waitForLoadState
-  // resolves before React has mounted, and page.evaluate does NOT auto-wait --
-  // so `find(...)` returned undefined and the measurement threw on an empty
-  // toolbar. Latent since this test was written; KAN-212 changed the toolbar's
-  // first paint enough to surface it, and it still passes 3/3 alone.
+  // waitForLoadState resolves before React mounts, and evaluate does not wait.
   await exportPage.getByRole('button', { name: 'Edit' }).waitFor();
 
   const gaps = await exportPage.evaluate(() => {
@@ -1164,8 +1095,7 @@ test('an icon button is evenly padded on both sides', async ({
       const glyph = button
         .querySelector('.material-symbols-outlined')!
         .getBoundingClientRect();
-      // The LABEL is the button's last direct child; the glyph is a span
-      // nested inside the icon, and a plain span selector finds that first.
+      // The label is the last direct span; `span` alone finds the glyph.
       const label = [...button.children]
         .filter((child) => child.tagName === 'SPAN')
         .pop()!
@@ -1189,8 +1119,7 @@ test('an icon button is evenly padded on both sides', async ({
   }
 });
 
-// A confirmation must not move what it confirms: the first one pushed the
-// preview down and back up two seconds later.
+// A confirmation must not move what it confirms.
 test('the Links copied status does not move the page', async ({
   context,
   extensionId,
@@ -1217,10 +1146,8 @@ test('the Links copied status does not move the page', async ({
   expect(during.height, 'nor shrink to make room for it').toBe(before.height);
 });
 
-// In the compact layout the site sits at the right end of each row, and the
-// group block had padding on its left only -- so inside a group the text
-// touched the block's edge. Measured in the rendered file, because this is
-// about painted boxes, not about a rule existing.
+// Compact puts the site at each row's right end, so a group block needs right
+// padding too.
 test('compact rows keep a gap from the edge of a group block', async ({
   context,
   extensionId,
@@ -1259,16 +1186,8 @@ test('compact rows keep a gap from the edge of a group block', async ({
   }
 });
 
-// KAN-192. The PDF did not look like the HTML. The print rules added in
-// KAN-190 deliberately changed paper from screen -- underlined links, a
-// replacement palette, groups without their tint, no body padding -- and the
-// unit tests asserted those rules, so they locked the difference in.
-//
-// The requirement is that the PDF IS the file. Printing is the file under
-// print media, so the strongest statement available in a browser is: the same
-// saved file, rendered under print media, is pixel-identical to it on screen.
-// Checked for both layouts and both colour schemes, because each carries its
-// own rules.
+// KAN-192. The PDF IS the file: under print media the saved file must be
+// pixel-identical to screen, for each layout and scheme (each has own rules).
 for (const layout of ['Comfortable', 'Compact'] as const) {
   for (const scheme of ['Light', 'Dark'] as const) {
     test(`${layout}, ${scheme}: the file prints exactly as it looks`, async ({
@@ -1303,17 +1222,14 @@ for (const layout of ['Comfortable', 'Compact'] as const) {
       await reader.emulateMedia({ media: 'print' });
       const inPrint = await reader.screenshot({ fullPage: true });
 
-      // CONTROL: the two renders are of a real page, not two blank frames that
-      // would be "identical" for free.
+      // CONTROL: a real page, not two blank frames identical for free.
       expect(onScreen.length).toBeGreaterThan(5000);
       expect(
         inPrint.equals(onScreen),
         'print media must not change a single pixel of the file'
       ).toBe(true);
 
-      // What a screenshot cannot show, read from the browser instead:
-      // backgrounds must print even with "Background graphics" off, and the
-      // page must leave Chrome no margin to draw its header and footer into.
+      // What a screenshot cannot show: print settings the browser applies.
       const print = await reader.evaluate(() => {
         const pageRules = [...document.styleSheets]
           .flatMap((sheet) => [...sheet.cssRules])
@@ -1321,8 +1237,7 @@ for (const layout of ['Comfortable', 'Compact'] as const) {
         return {
           pageMargin: pageRules.map((rule) => rule.style.margin),
           colourAdjust: getComputedStyle(document.body).printColorAdjust,
-          // By name: TypeScript's CSSStyleDeclaration does not list this
-          // property, and a cast would claim a type the DOM lib does not have.
+          // By name: the DOM lib's CSSStyleDeclaration lacks it; no cast.
           breaks: getComputedStyle(
             document.querySelector('main')!
           ).getPropertyValue('box-decoration-break'),
@@ -1343,10 +1258,8 @@ for (const layout of ['Comfortable', 'Compact'] as const) {
   }
 }
 
-// KAN-193. OverflowMenu's own docs warn that inside a stacking context the
-// menu paints BEHIND later positioned siblings -- invisible to jsdom, which
-// computes no paint order. The session menu drops down over the tab list, so
-// this asks the browser what is actually under the pointer at each item.
+// KAN-193. In a stacking context the menu can paint behind later positioned
+// siblings; jsdom has no paint order, so ask the browser what is on top.
 test('the session menu paints above the tab rows it opens over', async ({
   context,
   extensionId,
@@ -1355,9 +1268,7 @@ test('the session menu paints above the tab rows it opens over', async ({
   await sessionHeaderMenu(popup).click();
 
   const items = popup.getByRole('menuitem');
-  // Copy, Export, Delete (KAN-209 added the first). A precondition rather than
-  // the point of this test: it fixes what "every item" below is quantifying
-  // over, so an empty or half-open menu cannot pass the loop vacuously.
+  // Copy, Export, Delete: an empty or half-open menu cannot pass vacuously.
   await expect(items).toHaveCount(3);
 
   const hits = await items.evaluateAll((elements) =>
@@ -1374,8 +1285,7 @@ test('the session menu paints above the tab rows it opens over', async ({
     })
   );
 
-  // CONTROL: the menu really does overlap the tab list, so "on top" is not
-  // true merely because nothing else is there.
+  // CONTROL: the menu overlaps the tab list, so "on top" is not trivial.
   const overlaps = await popup.evaluate(() => {
     const menu = document
       .querySelector('[role="menu"]')!
@@ -1397,12 +1307,8 @@ test('the session menu paints above the tab rows it opens over', async ({
   }
 });
 
-// KAN-193. The menu is anchored to its trigger's RIGHT edge, which suits a
-// trigger at the end of a row (the tab group title) and not this one, near the
-// start. Measured at the popup's size: the menu opened leftward across the
-// pane divider, over the session list, and "Export as PDF / web page" wrapped
-// onto two lines -- in German too. A menu that crosses into the neighbouring
-// pane reads as detached from what opened it.
+// KAN-193. A menu crossing into the neighbouring pane reads as detached from
+// its trigger; this trigger sits near the row's start.
 for (const lang of ['en', 'de'] as const) {
   test(`the session menu stays in its pane with each label on one line (${lang})`, async ({
     context,
@@ -1430,8 +1336,7 @@ for (const lang of ['en', 'de'] as const) {
     await expect(popup.getByRole('menu')).toBeVisible();
 
     const shape = await trigger.evaluate((triggerEl) => {
-      // The pane is the nearest ancestor of the trigger that also holds the
-      // header's "Add current window" control on the far side.
+      // The pane has no marker: climb past the header's buttons to pane width.
       let pane: Element | null = triggerEl;
       while (
         pane &&
@@ -1462,7 +1367,7 @@ for (const lang of ['en', 'de'] as const) {
       };
     });
 
-    // CONTROL: this measured a pane, not the whole popup, so "inside" can fail.
+    // CONTROL: a pane, not the whole popup, so "inside" can fail.
     expect(shape.paneRight - shape.paneLeft).toBeLessThan(600);
 
     expect(

@@ -2,20 +2,9 @@ import { test, expect } from './fixtures/extension';
 import { sessionHeaderMenu } from './fixtures/menus';
 import { buildContainer, buildSession, seedSessions } from './fixtures/seed';
 
-// KAN-209. Copy all links, straight from the session's menu in the popup.
-//
-// The component tests drive a FAKE clipboard -- jsdom has no ClipboardItem, so
-// they stub one and read back what they were handed. That proves the strings
-// are built correctly and proves nothing at all about whether the popup may
-// write to the clipboard: the manifest asks for `tabs, storage, favicon` and
-// no `clipboardWrite`, and a refused write is caught and falls back silently by
-// design.
-//
-// So this copies from the real popup and PASTES, with the keyboard, into the
-// two kinds of target people use -- the same shape as export-copy-links.spec.ts,
-// which covers the export page's button. What is new here is the source: the
-// popup, which is a different document with different permissions from the
-// export tab.
+// KAN-209. The component tests use a fake clipboard; only a real paste proves
+// the popup may write (no `clipboardWrite` permission, and a refused write
+// falls back silently). export-copy-links.spec.ts covers the export page.
 
 const PASTE = process.platform === 'darwin' ? 'Meta+V' : 'Control+V';
 
@@ -65,19 +54,14 @@ test('copying from the session menu reaches the real clipboard, rich and plain',
   await popup.setViewportSize({ width: 790, height: 550 });
   await popup.goto(`chrome-extension://${extensionId}/index.html`);
 
-  // Scoped to the right pane: since KAN-208 the save row's menu carries
-  // the same name, so a locator on the name alone matches two controls
-  // and strict mode refuses it.
   const trigger = sessionHeaderMenu(popup);
   await expect(trigger).toBeVisible();
   await trigger.click();
   await popup.getByRole('menuitem', { name: 'Copy all links' }).click();
 
-  // The toast is the only thing the popup says about a clipboard write, so it
-  // is also the barrier: it appears after the write resolves.
+  // Barrier: the toast appears after the write resolves.
   await expect(popup.getByText('Links copied')).toBeVisible();
 
-  // The paste targets live on an ordinary page, as another site's would.
   const target = await context.newPage();
   await target.goto(
     'data:text/html,<div id="rich" contenteditable="true"></div><textarea id="plain" rows="20" cols="80"></textarea>'
@@ -96,8 +80,7 @@ test('copying from the session menu reaches the real clipboard, rich and plain',
     };
   });
 
-  // Real anchors, not text that looks like a URL. This is the whole point of
-  // the rich half, and the half a plain-text-only fallback would lose.
+  // Real anchors: what a plain-text-only fallback would lose.
   expect(rich.links).toEqual([
     { href: 'https://inari.example/en/', text: 'Fushimi Inari' },
     { href: 'https://bus.example/kyoto', text: 'Kyoto bus map' },
@@ -108,8 +91,6 @@ test('copying from the session menu reaches the real clipboard, rich and plain',
   await target.keyboard.press(PASTE);
   const plain = await target.locator('#plain').inputValue();
 
-  // The plain layout carries the address on its own line under the title, so a
-  // target that takes no HTML still gets something usable.
   expect(plain).toContain('- Fushimi Inari\n  https://inari.example/en/');
   expect(plain).toContain('Weekend in Kyoto');
 });

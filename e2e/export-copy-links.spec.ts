@@ -7,14 +7,9 @@ import type { BrowserContext } from '@playwright/test';
 import { test, expect } from './fixtures/extension';
 import { buildContainer, buildSession, seedSessions } from './fixtures/seed';
 
-// KAN-195. Copy all links puts two versions on the clipboard, and the app it
-// is pasted into picks one. The unit tests hold the strings; only a browser
-// can say what a PASTE of them becomes. So this copies from the export page
-// and pastes, with the keyboard, into the two kinds of target people use:
-//
-// - an editable rich area, which is what Gmail, Google Docs and Notion are
-//   inside Chrome: it must receive real links, bold windows, a nested group;
-// - a textarea, which takes plain text only: it must receive the plain layout.
+// KAN-195. The clipboard carries HTML and plain text and the target picks one;
+// only a real paste shows which. A contenteditable stands in for Gmail, Docs
+// and Notion; a textarea takes plain text only.
 
 const SESSION = buildSession({
   tabGroupId: 'session-copy',
@@ -90,9 +85,7 @@ async function copyFromExportPage(
   return target;
 }
 
-// KAN-202. The clean-ups used to run on the clipboard only, so the file people
-// share still carried the count and the suspender's wrapper. This saves the
-// file and reads it off disk.
+// KAN-202. The clean-ups must reach the saved file, not just the clipboard.
 test('the saved file carries neither a notification count nor a suspended wrapper', async ({
   context,
   extensionId,
@@ -154,8 +147,7 @@ test('pasted into a rich editor, the copy arrives as a document of real links', 
   ]);
   expect(pasted.bold).toEqual(['Window 1 · Trip planning', 'Flights']);
   expect(pasted.nestedLists).toBe(1);
-  // The suspended tab arrives unwrapped, as text; the javascript: tab arrives
-  // as text and never as a link.
+  // Neither the suspended nor the javascript: tab may arrive as a link.
   expect(pasted.text).toContain('Extensions (chrome://extensions/)');
   expect(pasted.text).toContain('Trap (javascript:alert(1))');
   expect(pasted.text).not.toContain('chrome-extension://');
