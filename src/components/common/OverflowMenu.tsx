@@ -340,7 +340,7 @@ const OverflowMenu: React.FC<OverflowMenuProps> = ({
                      two items faded one glyph down while the other faded up,
                      and at rest the glyph read as washed out next to every
                      other icon in the app. On BB Pink it was worse than quiet
-                     -- LABEL_L2_COLOR is #D81B60 there, so the glyphs rendered
+                     -- LABEL_L2_COLOR was #D81B60 there, so the glyphs rendered
                      magenta beside a near-black label.
 
                      Not merely un-animated: a colour that changes on hover
