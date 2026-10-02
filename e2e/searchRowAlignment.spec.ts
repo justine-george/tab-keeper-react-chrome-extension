@@ -40,17 +40,20 @@ test('the save row and the session header end on the same line', async ({
   await expect(page.locator('input#name')).toBeVisible();
 
   const edges = await page.evaluate(() => {
-    const input = document.querySelector('input#name')!;
-    const add = document.querySelector('[aria-label^="Add current window"]')!;
+    const input = document.querySelector('input#name');
+    if (input === null) throw new Error('no name box');
+    const add = document.querySelector('[aria-label^="Add current window"]');
+    if (add === null) throw new Error('no Add current window button');
     // The card is the first ancestor of the add button that draws a border;
     // width alone finds the action strip, which is full width too.
-    let card: HTMLElement | null = add.parentElement as HTMLElement;
+    let card = add.parentElement;
     while (card && getComputedStyle(card).borderTopWidth === '0px') {
       card = card.parentElement;
     }
+    if (card === null) throw new Error('no bordered header card');
     return {
       saveRow: input.getBoundingClientRect().bottom,
-      headerCard: card!.getBoundingClientRect().bottom,
+      headerCard: card.getBoundingClientRect().bottom,
     };
   });
 
@@ -254,7 +257,7 @@ test.describe("the saved search row's columns (KAN-385 S3)", () => {
 });
 
 // N1. While the saved search holds text the row is the name field alone, at
-// the row's full width, and Enter in it saves nothing.
+// the row's full width, and Enter in it saves nothing until the search clears.
 test('while searching, the name field spans the save row and Enter saves nothing', async ({
   context,
   extensionId,
@@ -295,4 +298,10 @@ test('while searching, the name field spans the save row and Enter saves nothing
       `button[aria-label="${TITLES[0]}"], button[aria-label="${TITLES[1]}"]`
     )
   ).toHaveCount(TITLES.length);
+
+  // CONTROL: with the search cleared, the same Enter saves.
+  await page.locator('input#name').press('Enter');
+  await expect(
+    page.locator('button[aria-label="Searching name"]')
+  ).toBeVisible();
 });

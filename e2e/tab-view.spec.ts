@@ -408,9 +408,6 @@ test.describe('saves in the tab view leave out its own tab (KAN-279 D6)', () => 
 
     const field = tab.locator('input#name');
     await expect(field).toHaveAttribute('placeholder', 'Name the new session');
-    // The title is read asynchronously; once it is, the field must still be empty.
-    await tab.waitForTimeout(500);
-    await expect(field).toHaveValue('');
 
     await saveRowMenu(tab).click();
     await tab

@@ -3,10 +3,10 @@ import type { Locator, Page } from '@playwright/test';
 import { test, expect } from './fixtures/extension';
 import { seedSessions } from './fixtures/seed';
 
-// KAN-240. The settings page's header "Back" control was a <button> reset to padding: 0, so its hit area was exactly its
-// content: 81x32 inside a 56px row with nothing beside it. A click a few
-// pixels off the label did nothing, and with no hover fill there was nothing
-// to say where the target ended.
+// KAN-240. The settings page's header "Back" control was a <button> reset to
+// padding: 0, so its hit area was exactly its content: 81x32 inside a 56px
+// row with nothing beside it. A click a few pixels off the label did nothing,
+// and with no hover fill there was nothing to say where the target ended.
 //
 // The target now spans the row's full height and reaches 8px left (into the
 // pane's padding, as KAN-231 did for the group strip) and 16px right past the
@@ -41,6 +41,12 @@ const label = (control: Locator): Locator =>
 // The Icon is the button's first child: a 32px box around the ligature.
 const glyphOf = (control: Locator): Locator => control.locator('xpath=./*[1]');
 
+async function boxOf(locator: Locator) {
+  const box = await locator.boundingBox();
+  if (box === null) throw new Error(`no box for ${locator.toString()}`);
+  return box;
+}
+
 test.describe('the Back control on the settings page', () => {
   test('is as tall as its row and reaches past its glyph and label', async ({
     context,
@@ -48,9 +54,9 @@ test.describe('the Back control on the settings page', () => {
   }) => {
     const page = await openSettings(context, extensionId);
     const control = back(page);
-    const box = (await control.boundingBox())!;
-    const row = (await rowOf(control).boundingBox())!;
-    const text = (await label(control).boundingBox())!;
+    const box = await boxOf(control);
+    const row = await boxOf(rowOf(control));
+    const text = await boxOf(label(control));
 
     expect(box.height).toBe(row.height);
     expect(box.y).toBe(row.y);
@@ -64,7 +70,7 @@ test.describe('the Back control on the settings page', () => {
     extensionId,
   }) => {
     const page = await openSettings(context, extensionId);
-    const text = (await label(back(page)).boundingBox())!;
+    const text = await boxOf(label(back(page)));
 
     // 10px past the label's right edge and 6px below its baseline box:
     // outside the old 81x32 target on both axes.
@@ -79,9 +85,9 @@ test.describe('the Back control on the settings page', () => {
   }) => {
     const page = await openSettings(context, extensionId);
     const control = back(page);
-    const row = (await rowOf(control).boundingBox())!;
-    const glyph = (await glyphOf(control).boundingBox())!;
-    const text = (await label(control).boundingBox())!;
+    const row = await boxOf(rowOf(control));
+    const glyph = await boxOf(glyphOf(control));
+    const text = await boxOf(label(control));
 
     // The glyph sits flush with the row's content edge, the label 8px
     // after the 32px glyph, both vertically centred in the 56px row:
