@@ -335,7 +335,7 @@ describe('the saved search row heads the session list (S2)', () => {
       '[data-pane="sessions"]'
     );
     if (sessions === null) throw new Error('no sessions pane');
-    const caption = within(sessions).getByRole('textbox', {
+    const searchField = within(sessions).getByRole('textbox', {
       name: 'Search saved tabs',
     });
     expect(within(sessions).queryByText('Saved sessions')).toBeNull();
@@ -343,7 +343,7 @@ describe('the saved search row heads the session list (S2)', () => {
     const firstRow = sessions.querySelector('[data-drag-row-id]');
     if (firstRow === null) throw new Error('no session row');
     expect(
-      caption.compareDocumentPosition(firstRow) &
+      searchField.compareDocumentPosition(firstRow) &
         Node.DOCUMENT_POSITION_FOLLOWING
     ).toBeTruthy();
   });
@@ -396,7 +396,7 @@ describe('the saved search row stays put while the list scrolls (O3a)', () => {
     throw new Error('no scroll container above the session rows');
   }
 
-  const caption = () =>
+  const searchRow = () =>
     document.querySelector<HTMLElement>('[data-saved-search]');
 
   test('in the tab view the row sits directly above the scroller, outside it', async () => {
@@ -405,13 +405,13 @@ describe('the saved search row stays put while the list scrolls (O3a)', () => {
     await mounted();
 
     const scroller = listScroller();
-    const label = caption();
-    if (label === null) throw new Error('no search row');
+    const row = searchRow();
+    if (row === null) throw new Error('no search row');
     expect(
-      within(label).getByRole('textbox', { name: 'Search saved tabs' })
+      within(row).getByRole('textbox', { name: 'Search saved tabs' })
     ).toBeInTheDocument();
-    expect(scroller.contains(label)).toBe(false);
-    expect(label.nextElementSibling).toBe(scroller);
+    expect(scroller.contains(row)).toBe(false);
+    expect(row.nextElementSibling).toBe(scroller);
     // What the scroller holds starts with the rows.
     const firstRow = document.querySelector('[data-drag-row-id]');
     expect(scroller.firstElementChild?.contains(firstRow)).toBe(true);
@@ -422,9 +422,9 @@ describe('the saved search row stays put while the list scrolls (O3a)', () => {
     await renderHome();
     await mounted();
 
-    const label = caption();
-    if (label === null) throw new Error('no search row');
-    expect(getComputedStyle(label).position).not.toBe('sticky');
+    const row = searchRow();
+    if (row === null) throw new Error('no search row');
+    expect(getComputedStyle(row).position).not.toBe('sticky');
   });
 
   // The popup's list takes the same shape (S2).
@@ -432,11 +432,11 @@ describe('the saved search row stays put while the list scrolls (O3a)', () => {
     await renderHome();
     await mounted();
 
-    const label = caption();
-    if (label === null) throw new Error('no search row');
+    const row = searchRow();
+    if (row === null) throw new Error('no search row');
     const scroller = listScroller();
-    expect(scroller.contains(label)).toBe(false);
-    expect(label.nextElementSibling).toBe(scroller);
+    expect(scroller.contains(row)).toBe(false);
+    expect(row.nextElementSibling).toBe(scroller);
     const firstRow = document.querySelector('[data-drag-row-id]');
     expect(scroller.firstElementChild?.contains(firstRow)).toBe(true);
   });
