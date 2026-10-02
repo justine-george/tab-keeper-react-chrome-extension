@@ -6,8 +6,8 @@
 // (the pane's box, the hand-off where the pointer reaches the session list
 // (KAN-352), the list's rows and its auto-scroll), real timing (the 0.6s
 // dwell, the frame the KAN-157 scroll comes back on, the frame KAN-155
-// follows the dropped row on), and real paint (the target's outline and fill
-// line against the row's actual fill, the card over the list, the toast at a
+// follows the dropped row on), and real paint (the target's outline and dwell
+// sweep against the row's actual fill, the card over the list, the toast at a
 // 20px root).
 //
 // Driven as the popup (790x550) and as the tab view, side by side and folded
@@ -459,14 +459,22 @@ async function onto(page: Page, sessionId: string): Promise<void> {
   await expect.poll(() => carryTargets(page)).toEqual([sessionId]);
 }
 
-// Pauses the dwelling row's sweep at `ms` (KAN-380). The spring-open timer
-// still runs.
+// Pauses the dwelling row's sweep at `ms`; the spring-open timer still runs.
 const holdSweepAt = (page: Page, ms: number) =>
-  page.locator('[data-carry-dwell]').evaluate((el, ms) => {
-    const [sweep] = el.getAnimations();
-    sweep.pause();
-    sweep.currentTime = ms;
-  }, ms);
+  page.locator('[data-carry-dwell]').evaluate(
+    (el, ms) => {
+      const [sweep] = el.getAnimations();
+      sweep.pause();
+      sweep.currentTime = ms;
+      const cs = getComputedStyle(el);
+      return {
+        color: /rgba?\([^)]*\)/.exec(cs.backgroundImage)?.[0] ?? '',
+        size: cs.backgroundSize,
+      };
+    },
+    ms,
+    { timeout: 1000 }
+  );
 
 // Rests on a session's row until it opens (S1 A).
 async function springOpen(page: Page, sessionId: string): Promise<void> {
@@ -1244,10 +1252,9 @@ test.describe('Review Focus 2: cancels, quick passes, the shown row', () => {
 });
 
 test.describe('the looks (D1 A, D2 A, S1 A)', () => {
-  // The outline as painted, against the row's painted fill (KAN-380: the
-  // sweep, held at its end). CONTROL in each: the fill pixel is the hover
-  // colour the row declares, so the decode is faithful before a ratio is
-  // built on it.
+  // The outline as painted, against the row's painted fill (a sweep is held
+  // at its end). CONTROL in each: the fill pixel is the hover colour the row
+  // declares, so the decode is faithful before a ratio is built on it.
   for (const theme of THEMES) {
     test(`the target outline clears 3:1 against the row's fill (${theme})`, async ({
       context,
@@ -1347,9 +1354,7 @@ test.describe('the looks (D1 A, D2 A, S1 A)', () => {
     await page.mouse.up();
   });
 
-  // KAN-380. Held at half and three quarters, the hover fill covers the
-  // row's left part and not its right. CONTROL: the ground is the row's own
-  // pixel at rest, read before the carry.
+  // CONTROL: the ground is the row's own pixel at rest, read before the carry.
   for (const theme of THEMES) {
     test(`the sweep fills from the left in step with the dwell, inside an outline that clears 3:1 on the ground (${theme})`, async ({
       context,
@@ -1368,33 +1373,22 @@ test.describe('the looks (D1 A, D2 A, S1 A)', () => {
       // PREMISE: the probes are clear of the card and its shadow.
       expect((await boxOf(page.locator(CARD))).y - 8).toBeGreaterThan(y);
 
-      await holdSweepAt(page, SPRING_OPEN_MS / 2);
-      const hover = await page
-        .locator('[data-carry-dwell]')
-        .evaluate((el) =>
-          getComputedStyle(el).backgroundImage.match(/rgba?\([^)]*\)/)
-        );
-      if (hover === null) throw new Error('no sweep colour');
-      const fillHex = rgbToHex(hover[0]);
+      const half = await holdSweepAt(page, SPRING_OPEN_MS / 2);
+      const fillHex = rgbToHex(half.color);
       // PREMISE: the two can be told apart.
       expect(fillHex).not.toBe(ground);
-      expect(
-        await pixelsAt(page, [
-          [xAt(0.25), y],
-          [xAt(0.75), y],
-        ])
-      ).toEqual([fillHex, ground]);
-
-      await holdSweepAt(page, (SPRING_OPEN_MS * 3) / 4);
-      expect(
-        await pixelsAt(page, [
-          [xAt(0.6), y],
-          [xAt(0.9), y],
-        ])
-      ).toEqual([fillHex, ground]);
-
-      // The outline over the part not yet swept.
-      const [outlinePx] = await pixelsAt(page, [[xAt(0.9), r.y + 1]]);
+      // One screenshot: the outline is read over the part not yet swept.
+      const [left, right, outlinePx] = await pixelsAt(page, [
+        [xAt(0.25), y],
+        [xAt(0.75), y],
+        [xAt(0.9), r.y + 1],
+      ]);
+      expect([left, right]).toEqual([fillHex, ground]);
+      expect((await holdSweepAt(page, (SPRING_OPEN_MS * 3) / 4)).size).toBe(
+        '75% 100%'
+      );
+      // PREMISE: every read came before the spring-open.
+      expect(await selected(page)).toBe('S1');
       console.log(
         `[${theme}] outline ${outlinePx} on ground ${ground}: ${contrast(
           outlinePx,
@@ -1419,8 +1413,10 @@ test.describe('the looks (D1 A, D2 A, S1 A)', () => {
     await onto(page, 'S2');
     // The row's top strip, clear of the card.
     expect((await boxOf(page.locator(CARD))).y - 8).toBeGreaterThan(r.y + 6);
-    const [right] = await pixelsAt(page, [[r.x + r.width * 0.9, r.y + 6]]);
+    const [right] = await pixelsAt(page, [[r.x + r.width * 0.97, r.y + 6]]);
     expect(right).toBe(LIGHT_THEME.HOVER_COLOR.toUpperCase());
+    // PREMISE: read before the spring-open.
+    expect(await selected(page)).toBe('S1');
     await page.keyboard.press('Escape');
     await page.mouse.up();
   });

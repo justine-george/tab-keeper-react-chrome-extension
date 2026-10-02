@@ -364,9 +364,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
         opacity: 0;
       }
     }
-    /* KAN-380. While the rest counts down, the hover fill sweeps in instead
-       of landing; the shadow fill is cleared because it paints over it. Set
-       on the commit that starts the list's timer, so both run together. */
+    /* The sweep is the dwell's fill; the shadow would paint over it. */
     &[data-carry-dwell] {
       ${fill('transparent')}
       background-image: linear-gradient(
