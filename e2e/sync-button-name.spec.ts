@@ -84,13 +84,12 @@ test.describe('the header sync button says what is true (KAN-342)', () => {
     const sync = button(page, 'Sync unavailable');
     await expect(sync).toHaveAttribute('aria-disabled', 'true');
     await expect(sync).toHaveAttribute('title', 'Sync unavailable');
-    await expect(sync).not.toHaveAttribute('aria-description');
-    // With no aria-description, Chrome takes the tooltip as the description,
-    // so it repeats the name, as it does for every header icon (KAN-345).
+    // Empty, so Chrome does not read the tooltip as a second name (KAN-345).
+    await expect(sync).toHaveAttribute('aria-description', '');
     expect(await chromeAx(page, 'Sync unavailable')).toEqual([
       {
         name: 'Sync unavailable',
-        description: 'Sync unavailable',
+        description: '',
         disabled: true,
       },
     ]);
