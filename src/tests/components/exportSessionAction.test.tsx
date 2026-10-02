@@ -75,7 +75,13 @@ describe('the session header keeps two actions and a menu (KAN-193)', () => {
   test('the header offers Open, Switch and More actions, and no loose export or delete icon', async () => {
     await renderHeader();
 
-    expect(screen.getByRole('button', { name: 'More actions' })).toBeTruthy();
+    for (const name of [
+      'Open session, keeping current windows',
+      'Close current windows and open this session',
+      'More actions',
+    ]) {
+      expect(screen.queryByRole('button', { name }), name).not.toBeNull();
+    }
     // The two actions that moved are gone from the header itself -- a copy
     // left behind would make the menu decoration.
     expect(screen.queryByRole('button', { name: 'Export…' })).toBeNull();
