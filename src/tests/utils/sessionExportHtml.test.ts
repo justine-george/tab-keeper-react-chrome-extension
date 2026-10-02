@@ -571,19 +571,31 @@ describe('the dark file palette is neutral (KAN-197)', () => {
       `${fg} on ${bg}: ${was.toFixed(3)} before, ${now.toFixed(3)} now`
     ).toBeGreaterThanOrEqual(was);
   });
+});
 
-  // CONTROL, and the scope: only the dark palette was asked for.
-  test('the light palette is unchanged', () => {
-    expect(EXPORT_PALETTE.light).toEqual({
-      bg: '#ffffff',
-      text: '#1d2025',
-      muted: '#5f6670',
-      rule: '#e3e6ea',
-      link: '#1a56c4',
-      visited: '#6b3fb0',
-      plain: '#8a9099',
-      groupBg: '#f5f7fa',
-    });
+// KAN-358. Every colour the file sets words in is text someone reads, so each
+// is held to the WCAG AA text floor, 4.5:1, on both grounds a row can sit on:
+// the page, and a group's band. That includes `plain`, the name of a tab that
+// cannot be a link (chrome://, file://): light printed it at 3.22:1, and 3.00:1
+// in a group; dark at 4.13:1 in a group. The "not a web link" chip, not a
+// faint colour, is what marks such a row.
+describe('every colour the file writes words in reads at 4.5:1 (KAN-358)', () => {
+  const WORDS = ['text', 'muted', 'link', 'visited', 'plain'] as const;
+  const GROUNDS = ['bg', 'groupBg'] as const;
+  const cases = (['light', 'dark'] as const).flatMap((scheme) =>
+    WORDS.flatMap((fg) =>
+      GROUNDS.map((ground) => [scheme, fg, ground] as const)
+    )
+  );
+
+  test.each(cases)('%s: %s on %s', (scheme, fg, ground) => {
+    const palette = EXPORT_PALETTE[scheme];
+    const ratio = contrast(palette[fg], palette[ground]);
+
+    expect(
+      ratio,
+      `${palette[fg]} on ${palette[ground]}: ${ratio.toFixed(3)}:1`
+    ).toBeGreaterThanOrEqual(4.5);
   });
 });
 
