@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 
-import { isSearchShortcut } from '../components/home/opennow/searchShortcut';
+import { isSearchShortcut } from '../components/common/searchShortcut';
 
 /**
  * Calls `onShortcut` on the search shortcut (KAN-330 O14b) while it is not

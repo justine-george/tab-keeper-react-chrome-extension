@@ -1,5 +1,5 @@
-import { isDragHeld } from '../../../redux/dragHold';
-import { isInEditableField } from '../rightpane/rowDrag/dropRules';
+import { isDragHeld } from '../../redux/dragHold';
+import { isInEditableField } from '../home/rightpane/rowDrag/dropRules';
 
 // The key that focuses the field. A key on the keyboard, the same in every
 // locale, so it is not a t() string.

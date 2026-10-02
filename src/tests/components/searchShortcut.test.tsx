@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from 'vitest';
 
-import { isSearchShortcut } from '../../components/home/opennow/searchShortcut';
+import { isSearchShortcut } from '../../components/common/searchShortcut';
 import { beginDragHold, endDragHold } from '../../redux/dragHold';
 
 afterEach(() => {

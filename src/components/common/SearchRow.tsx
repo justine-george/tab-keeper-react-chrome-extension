@@ -9,7 +9,7 @@ import { useFontFamily } from '../../hooks/useFontFamily';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { NON_INTERACTIVE_ICON_STYLE } from '../../utils/constants/common';
 import { ICON, TYPE } from '../../styles/scale';
-import { SEARCH_SHORTCUT_KEY } from '../home/opennow/searchShortcut';
+import { SEARCH_SHORTCUT_KEY } from './searchShortcut';
 
 // The header's action row height (8px + CONTROL.ROW), with 4px of space
 // under the divider before the first row.
