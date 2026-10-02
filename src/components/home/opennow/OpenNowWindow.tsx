@@ -9,6 +9,7 @@ import { NormalLabel } from '../../common/Label';
 import { Tag } from '../../common/Tag';
 import { GROUP_STRIP_TRANSITION } from '../../common/groupColorStrip';
 import { useFontFamily } from '../../../hooks/useFontFamily';
+import { useSavedSearch } from '../../../hooks/useSavedSearch';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { NON_INTERACTIVE_ICON_STYLE } from '../../../utils/constants/common';
 import { resolveFaviconUrl } from '../../../utils/functions/local';
@@ -157,6 +158,7 @@ export default function OpenNowWindow({
   // not rendered at all (out of the tab order too). Clearing the search
   // brings both back.
   const offersWindowActions = matchedTabIds === null;
+  const { isSearching: isSavedSearching } = useSavedSearch();
   // KAN-331 O15. The row takes you to its window: not "This window" (W2 A,
   // you are in it), and not while a search is held (S2). Only a row that
   // does this shades on hover (T2): "This window"'s strip still appears, on
@@ -542,12 +544,14 @@ export default function OpenNowWindow({
         </div>
         {offersWindowActions && (
           <div data-row-actions css={parentRightStyle}>
-            <Icon
-              tooltipText={t('Save window as a session')}
-              ariaLabel={t('Save window as a session') + ': ' + title}
-              type="add_box"
-              onClick={onSaveWindow}
-            />
+            {!isSavedSearching && (
+              <Icon
+                tooltipText={t('Save window as a session')}
+                ariaLabel={t('Save window as a session') + ': ' + title}
+                type="add_box"
+                onClick={onSaveWindow}
+              />
+            )}
             {onCloseWindow && (
               <Icon
                 tooltipText={t('Close window')}

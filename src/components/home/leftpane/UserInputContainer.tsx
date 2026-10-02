@@ -7,6 +7,7 @@ import { css } from '@emotion/react';
 import Button from '../../common/Button';
 import OverflowMenu from '../../common/OverflowMenu';
 import TextBox from '../../common/TextBox';
+import { useSavedSearch } from '../../../hooks/useSavedSearch';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { AppDispatch } from '../../../redux/store';
 import {
@@ -27,6 +28,7 @@ export default function UserInputContainer() {
   const { t } = useTranslation();
   const COLORS = useThemeColors();
   const dispatch: AppDispatch = useDispatch();
+  const { isSearching } = useSavedSearch();
 
   const [newTitle, setNewTitle] = useState<string>('');
   const [currentTabName, setCurrentTabName] = useState<string>('');
@@ -247,8 +249,12 @@ export default function UserInputContainer() {
         placeholder={t('Save all open windows as a session')}
         autoComplete="off"
         onChange={updateUserInput}
-        onKeyEnter={() => createTabGroup('all-windows')}
-        style={`margin-right: 8px; height: ${ROW_HEIGHT};`}
+        onKeyEnter={
+          isSearching ? undefined : () => createTabGroup('all-windows')
+        }
+        style={`${
+          isSearching ? '' : 'margin-right: 8px; '
+        }height: ${ROW_HEIGHT};`}
       />
       {/* One wide save and a menu (KAN-208).
 
@@ -281,73 +287,77 @@ export default function UserInputContainer() {
           the row is 339px and the German pair alone needed 318px of it. A menu
           item, though, carries words for free -- which is the whole reason the
           secondary save reads better there than it did as a glyph. */}
-      <div css={saveGroupStyle}>
-        <Button
-          tooltipText={t('Save every open window as a session')}
-          ariaLabel={t('Save every open window as a session')}
-          iconType="library_add"
-          onClick={() => createTabGroup('all-windows')}
-          style="width: 58px; height: 100%; padding: 0; flex-shrink: 0; border: none;"
-        />
-        <OverflowMenu
-          // The same name the session header's and the group row's menus
-          // carry. Three controls in the popup now answer to it, which is
-          // fine for a user -- each is read in its own context -- but it does
-          // mean an e2e locator written on the name alone is ambiguous, and
-          // Playwright's strict mode refuses it. The specs scope to this row
-          // by the name box beside it.
-          ariaLabel={t('More actions')}
-          // The trigger sits at the END of the row, so the menu opens
-          // leftward, staying inside this pane -- the opposite call from the
-          // session header (KAN-193), whose trigger is near the start.
-          //
-          // The group is flex-shrink: 0, so every pixel here comes straight
-          // out of the name box beside it, and `more_vert` inks only 4px of
-          // its 24px box -- the rest is air worth giving back. Measured at
-          // 790x550, the name box went 231 -> 239 -> 243 as this went
-          // 40 -> 32 -> 28.
-          //
-          // 24px is the FLOOR, and this sits one step above it: below 24 two
-          // things break at once -- the 24px glyph box overflows its own
-          // control, and the target drops under WCAG 2.2 SC 2.5.8's 24x24
-          // minimum. The spacing exception does not rescue it, because the
-          // save button is 1px away, so a 24px circle centred here overlaps
-          // its neighbour. 28 keeps 12px of air around the dots, so the
-          // hover and pressed fills still read as a button rather than as a
-          // box drawn tight around the glyph.
-          //
-          // `padding: 0` is what lets the box be narrower than 32 at all:
-          // Icon otherwise adds 4px all round. Height is separate -- 2px is
-          // the group's own top and bottom borders, which border-box puts
-          // inside ROW_HEIGHT, and the Button beside it reaches the same 56px
-          // through `height: 100%`, which an Icon inside the menu's
-          // relatively-positioned wrapper cannot see.
-          triggerStyle={`width: 28px; height: calc(${ROW_HEIGHT} - 2px); padding: 0;
+      {!isSearching && (
+        <div css={saveGroupStyle}>
+          <Button
+            tooltipText={t('Save every open window as a session')}
+            ariaLabel={t('Save every open window as a session')}
+            iconType="library_add"
+            onClick={() => createTabGroup('all-windows')}
+            style="width: 58px; height: 100%; padding: 0; flex-shrink: 0; border: none;"
+          />
+          <OverflowMenu
+            // The same name the session header's and the group row's menus
+            // carry. Three controls in the popup now answer to it, which is
+            // fine for a user -- each is read in its own context -- but it does
+            // mean an e2e locator written on the name alone is ambiguous, and
+            // Playwright's strict mode refuses it. The specs scope to this row
+            // by the name box beside it.
+            ariaLabel={t('More actions')}
+            // The trigger sits at the END of the row, so the menu opens
+            // leftward, staying inside this pane -- the opposite call from the
+            // session header (KAN-193), whose trigger is near the start.
+            //
+            // The group is flex-shrink: 0, so every pixel here comes straight
+            // out of the name box beside it, and `more_vert` inks only 4px of
+            // its 24px box -- the rest is air worth giving back. Measured at
+            // 790x550, the name box went 231 -> 239 -> 243 as this went
+            // 40 -> 32 -> 28.
+            //
+            // 24px is the FLOOR, and this sits one step above it: below 24 two
+            // things break at once -- the 24px glyph box overflows its own
+            // control, and the target drops under WCAG 2.2 SC 2.5.8's 24x24
+            // minimum. The spacing exception does not rescue it, because the
+            // save button is 1px away, so a 24px circle centred here overlaps
+            // its neighbour. 28 keeps 12px of air around the dots, so the
+            // hover and pressed fills still read as a button rather than as a
+            // box drawn tight around the glyph.
+            //
+            // `padding: 0` is what lets the box be narrower than 32 at all:
+            // Icon otherwise adds 4px all round. Height is separate -- 2px is
+            // the group's own top and bottom borders, which border-box puts
+            // inside ROW_HEIGHT, and the Button beside it reaches the same 56px
+            // through `height: 100%`, which an Icon inside the menu's
+            // relatively-positioned wrapper cannot see.
+            triggerStyle={`width: 28px; height: calc(${ROW_HEIGHT} - 2px); padding: 0;
                          border-left: 1px solid ${COLORS.BORDER_COLOR};`}
-          items={[
-            {
-              key: 'save-current-window',
-              label: t('Save current window as a session'),
-              icon: 'add_box',
-              onSelect: () => createTabGroup('current-window'),
-            },
-            {
-              key: 'export-open-windows',
-              label: t('Export open windows'),
-              icon: 'ios_share',
-              onSelect: () => {
-                // Opening a tab takes focus, which destroys the popup.
-                // Nothing may be sequenced after this call -- the page
-                // captures the windows for itself when it loads, which is
-                // also why no snapshot is handed over here.
-                chrome.tabs.create({
-                  url: chrome.runtime.getURL('export.html?source=open-windows'),
-                });
+            items={[
+              {
+                key: 'save-current-window',
+                label: t('Save current window as a session'),
+                icon: 'add_box',
+                onSelect: () => createTabGroup('current-window'),
               },
-            },
-          ]}
-        />
-      </div>
+              {
+                key: 'export-open-windows',
+                label: t('Export open windows'),
+                icon: 'ios_share',
+                onSelect: () => {
+                  // Opening a tab takes focus, which destroys the popup.
+                  // Nothing may be sequenced after this call -- the page
+                  // captures the windows for itself when it loads, which is
+                  // also why no snapshot is handed over here.
+                  chrome.tabs.create({
+                    url: chrome.runtime.getURL(
+                      'export.html?source=open-windows'
+                    ),
+                  });
+                },
+              },
+            ]}
+          />
+        </div>
+      )}
     </div>
   );
 }

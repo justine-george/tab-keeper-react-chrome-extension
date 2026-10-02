@@ -252,3 +252,47 @@ test.describe("the saved search row's columns (KAN-385 S3)", () => {
     }
   }
 });
+
+// N1. While the saved search holds text the row is the name field alone, at
+// the row's full width, and Enter in it saves nothing.
+test('while searching, the name field spans the save row and Enter saves nothing', async ({
+  context,
+  extensionId,
+}) => {
+  const page = await openSaved(context, extensionId, 'popup', 16);
+  const sessions = page.locator(`button[aria-label="${TITLES[0]}"]`);
+  await expect(sessions).toHaveCount(1);
+
+  const box = async () =>
+    page.evaluate(() => {
+      const input = document.querySelector('input#name');
+      const row = input?.parentElement;
+      if (!input || !row) throw new Error('no name field or save row');
+      const a = input.getBoundingClientRect();
+      const b = row.getBoundingClientRect();
+      return { left: a.left - b.left, right: b.right - a.right };
+    });
+
+  // PREMISE: with no search the buttons take the row's right side.
+  expect((await box()).right).toBeGreaterThan(80);
+
+  await page.locator('[data-saved-search] input').fill('alpha');
+  await page.locator('input#name').fill('Searching name');
+  await page.locator('input#name').press('Enter');
+
+  const spans = await box();
+  expect(Math.abs(spans.left)).toBeLessThanOrEqual(1 / 64);
+  expect(Math.abs(spans.right)).toBeLessThanOrEqual(1 / 64);
+
+  // A save would show once the filter lifts.
+  await page.locator('[data-saved-search] input').fill('');
+  await expect(page.locator('input#name')).toHaveValue('Searching name');
+  await expect(page.locator('button[aria-label="Searching name"]')).toHaveCount(
+    0
+  );
+  await expect(
+    page.locator(
+      `button[aria-label="${TITLES[0]}"], button[aria-label="${TITLES[1]}"]`
+    )
+  ).toHaveCount(TITLES.length);
+});
