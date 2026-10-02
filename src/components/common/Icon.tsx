@@ -245,7 +245,11 @@ const Icon: React.FC<IconProps> = ({
     <div
       title={tooltipText}
       aria-label={ariaLabel}
-      aria-description={ariaDescription}
+      // Else Chrome reads a title equal to the name again as the description (KAN-345).
+      aria-description={
+        ariaDescription ??
+        (onClick && tooltipText === ariaLabel ? '' : undefined)
+      }
       // Presentational icons are hidden outright rather than merely unnamed.
       // The glyph renders as ligature text ("arrow_back", "add_box"), which
       // would otherwise leak into the accessible name of whatever button

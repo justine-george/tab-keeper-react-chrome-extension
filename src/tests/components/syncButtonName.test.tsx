@@ -50,7 +50,7 @@ interface Case {
   state: string;
   seed: (store: Store) => void;
   name: string;
-  description: string | null;
+  description: string;
   tooltip: string;
   dimmed: boolean;
 }
@@ -61,7 +61,7 @@ const CASES: Case[] = [
     // The default store: signed out, no cloud, Auto Sync on, no answer yet.
     seed: () => {},
     name: 'Sync unavailable',
-    description: null,
+    description: '',
     tooltip: 'Sync unavailable',
     dimmed: true,
   },
@@ -121,7 +121,7 @@ const CASES: Case[] = [
       s.dispatch(setSyncStatus('loading'));
     },
     name: 'Syncing…',
-    description: null,
+    description: '',
     tooltip: 'Syncing…',
     dimmed: true,
   },
@@ -190,7 +190,7 @@ const CASES: Case[] = [
       s.dispatch(setSyncStatus('loading'));
     },
     name: 'Syncing…',
-    description: null,
+    description: '',
     tooltip: 'Syncing…',
     dimmed: true,
   },
@@ -233,9 +233,10 @@ function renderedStateWords(): string | null {
     .find((b) => SYNC_GLYPHS.includes(b.textContent ?? ''));
   if (button === undefined) throw new Error('no sync button in the header');
   const description = button.getAttribute('aria-description');
-  return description === null
-    ? button.getAttribute('aria-label')
-    : description.split('\n')[0];
+  // Empty on a dimmed button: its name is the state (KAN-345).
+  return description
+    ? description.split('\n')[0]
+    : button.getAttribute('aria-label');
 }
 
 /** The Sync & Backup card's title key for the store's current facts. */
