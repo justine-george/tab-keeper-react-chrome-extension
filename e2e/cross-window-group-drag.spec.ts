@@ -392,7 +392,8 @@ test.describe('a group released over another window', () => {
   }) => {
     const page = await open(context, extensionId);
     await page
-      .locator('[data-drop-window-id="w2"] [aria-label="Collapse"]')
+      .locator('[data-drop-window-id="w2"]')
+      .getByRole('button', { name: /^Collapse(: |$)/ })
       .click();
     await expect(
       page.locator('[data-drop-window-id="w2"] [data-window-tabs]')
@@ -630,7 +631,8 @@ test.describe('what a group drag into another window previews', () => {
   }) => {
     const page = await open(context, extensionId);
     await page
-      .locator('[data-drop-window-id="w2"] [aria-label="Collapse"]')
+      .locator('[data-drop-window-id="w2"]')
+      .getByRole('button', { name: /^Collapse(: |$)/ })
       .click();
     await expect(
       page.locator('[data-drop-window-id="w2"] [data-window-tabs]')
