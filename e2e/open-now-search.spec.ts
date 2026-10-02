@@ -565,6 +565,53 @@ test.describe('Open now search (KAN-330)', () => {
     await expect(field(page)).toHaveValue('');
   });
 
+  test('the magnifier is 20px, centred in its column, and the text has not moved', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    await openTab(serviceWorker, 'Kyoto maps');
+    const page = await openPage(context, extensionId, VIEW_TAB, {
+      width: 1600,
+      height: 800,
+    });
+    await expect(liveRow(page, 'Kyoto maps')).toBeVisible();
+    const m = await page.evaluate((root: string) => {
+      const row = document.querySelector(`${root} [data-open-now-search]`);
+      const column = row?.firstElementChild;
+      const glyph = column?.querySelector('.material-symbols-outlined');
+      const input = row?.querySelector('input');
+      if (!column || !glyph || !input) return null;
+      const c = column.getBoundingClientRect();
+      const g = glyph.getBoundingClientRect();
+      return {
+        column: { left: c.left, top: c.top, width: c.width, height: c.height },
+        glyph: { left: g.left, top: g.top, width: g.width, height: g.height },
+        textLeft:
+          input.getBoundingClientRect().left +
+          parseFloat(getComputedStyle(input).paddingLeft),
+        rem: parseFloat(getComputedStyle(document.documentElement).fontSize),
+      };
+    }, OPEN_NOW);
+    if (m === null) throw new Error('the search row did not draw');
+    const LAYOUT_UNIT = 1 / 64;
+    expect(m.glyph.width).toBeCloseTo(1.25 * m.rem, 1);
+    expect(m.glyph.height).toBeCloseTo(1.25 * m.rem, 1);
+    expect(m.column.width).toBeCloseTo(2 * m.rem, 1);
+    expect(
+      Math.abs(
+        m.glyph.left + m.glyph.width / 2 - (m.column.left + m.column.width / 2)
+      )
+    ).toBeLessThanOrEqual(LAYOUT_UNIT);
+    expect(
+      Math.abs(
+        m.glyph.top + m.glyph.height / 2 - (m.column.top + m.column.height / 2)
+      )
+    ).toBeLessThanOrEqual(LAYOUT_UNIT);
+    // 438 is the text's left as measured on main (fd9c212) at 1600x800.
+    expect(m.textLeft).toBe(438);
+  });
+
   test('the row keeps its height with a long search', async ({
     context,
     extensionId,
