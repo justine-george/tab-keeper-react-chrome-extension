@@ -2,6 +2,7 @@ import { afterEach, describe, expect, test, vi } from 'vitest';
 import { act, fireEvent, screen, within } from '@testing-library/react';
 
 import MainContainer from '../../components/MainContainer';
+import HeroContainerLeft from '../../components/home/leftpane/HeroContainerLeft';
 import TabGroupEntryContainer from '../../components/home/leftpane/TabGroupEntryContainer';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import type { RenderWithProvidersResult } from '../setup/renderWithProviders';
@@ -223,5 +224,16 @@ describe('Settings and back (KAN-386, Q2)', () => {
 
     expect(listedIds()).toEqual(['r', 'h']);
     expect(field()).toHaveValue('');
+  });
+});
+
+// No mode: the header holds no Search button and no Back row.
+describe('the home header', () => {
+  test('"Tab Keeper" is plain text, with no Search or Back control', async () => {
+    await renderWithProviders(<HeroContainerLeft />);
+
+    expect(screen.getByText('Tab Keeper').closest('button')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Search' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Go back' })).toBeNull();
   });
 });
