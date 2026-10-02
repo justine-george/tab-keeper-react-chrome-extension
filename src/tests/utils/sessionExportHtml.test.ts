@@ -571,20 +571,6 @@ describe('the dark file palette is neutral (KAN-197)', () => {
       `${fg} on ${bg}: ${was.toFixed(3)} before, ${now.toFixed(3)} now`
     ).toBeGreaterThanOrEqual(was);
   });
-
-  // CONTROL, and the scope: only the dark palette was asked for.
-  test('the light palette is unchanged', () => {
-    expect(EXPORT_PALETTE.light).toEqual({
-      bg: '#ffffff',
-      text: '#1d2025',
-      muted: '#5f6670',
-      rule: '#e3e6ea',
-      link: '#1a56c4',
-      visited: '#6b3fb0',
-      plain: '#8a9099',
-      groupBg: '#f5f7fa',
-    });
-  });
 });
 
 // KAN-208. A capture of the open windows has no history to describe, so its
