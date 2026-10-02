@@ -269,10 +269,13 @@ describe('the two layouts (KAN-190)', () => {
       ],
     });
 
+  // The href holds the whole URL in every layout, so read the shown line.
   test('comfortable shows each tab with its whole URL underneath', () => {
     const html = sessionToHtml(session(), options({ layout: 'comfortable' }));
 
-    expect(html).toContain('https://example.com/a/very/deep/path?with=query');
+    expect(html).toContain(
+      '<div class="url">https://example.com/a/very/deep/path?with=query</div>'
+    );
   });
 
   // Compact trades the path for density: the site is enough to tell two links
