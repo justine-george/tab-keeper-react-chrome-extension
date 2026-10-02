@@ -30,10 +30,11 @@ const seedTwo = (store: RenderWithProvidersResult['store']) => {
   store.dispatch(setHasTabGroupsPermission(false));
   vi.useFakeTimers();
   try {
-    for (const [id, title, at] of [
+    const saves: [string, string, number][] = [
       ['h', 'Holiday', T0 - 3600_000],
       ['r', 'Research', T0],
-    ] as const) {
+    ];
+    for (const [id, title, at] of saves) {
       vi.setSystemTime(at);
       store.dispatch(
         saveToTabContainerInternal(
