@@ -1347,6 +1347,84 @@ test.describe('the looks (D1 A, D2 A, S1 A)', () => {
     await page.mouse.up();
   });
 
+  // KAN-380. Held at half and three quarters, the hover fill covers the
+  // row's left part and not its right. CONTROL: the ground is the row's own
+  // pixel at rest, read before the carry.
+  for (const theme of THEMES) {
+    test(`the sweep fills from the left in step with the dwell, inside an outline that clears 3:1 on the ground (${theme})`, async ({
+      context,
+      extensionId,
+    }) => {
+      await seedSettings(context, { theme });
+      const page = await openPopup(context, extensionId);
+      const r = await boxOf(sessionRow(page, 'S2'));
+      // The row's top strip: the card hangs over its lower half.
+      const y = r.y + 6;
+      const xAt = (f: number) => r.x + r.width * f;
+      const [ground] = await pixelsAt(page, [[xAt(0.75), y]]);
+      const at = await pickUp(page, tabHandle(page, 'a1'));
+      await carryOutLeft(page, at);
+      await onto(page, 'S2');
+      // PREMISE: the probes are clear of the card and its shadow.
+      expect((await boxOf(page.locator(CARD))).y - 8).toBeGreaterThan(y);
+
+      await holdSweepAt(page, SPRING_OPEN_MS / 2);
+      const hover = await page
+        .locator('[data-carry-dwell]')
+        .evaluate((el) =>
+          getComputedStyle(el).backgroundImage.match(/rgba?\([^)]*\)/)
+        );
+      if (hover === null) throw new Error('no sweep colour');
+      const fillHex = rgbToHex(hover[0]);
+      // PREMISE: the two can be told apart.
+      expect(fillHex).not.toBe(ground);
+      expect(
+        await pixelsAt(page, [
+          [xAt(0.25), y],
+          [xAt(0.75), y],
+        ])
+      ).toEqual([fillHex, ground]);
+
+      await holdSweepAt(page, (SPRING_OPEN_MS * 3) / 4);
+      expect(
+        await pixelsAt(page, [
+          [xAt(0.6), y],
+          [xAt(0.9), y],
+        ])
+      ).toEqual([fillHex, ground]);
+
+      // The outline over the part not yet swept.
+      const [outlinePx] = await pixelsAt(page, [[xAt(0.9), r.y + 1]]);
+      console.log(
+        `[${theme}] outline ${outlinePx} on ground ${ground}: ${contrast(
+          outlinePx,
+          ground
+        ).toFixed(2)}`
+      );
+      expect(contrast(outlinePx, ground)).toBeGreaterThanOrEqual(3);
+      await page.keyboard.press('Escape');
+      await page.mouse.up();
+    });
+  }
+
+  test('reduced motion: the row lights in full at once', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    const r = await boxOf(sessionRow(page, 'S2'));
+    const at = await pickUp(page, tabHandle(page, 'a1'));
+    await carryOutLeft(page, at);
+    await onto(page, 'S2');
+    // The row's top strip, clear of the card.
+    expect((await boxOf(page.locator(CARD))).y - 8).toBeGreaterThan(r.y + 6);
+    const [right] = await pixelsAt(page, [[r.x + r.width * 0.9, r.y + 6]]);
+    expect(right).toBe(LIGHT_THEME.HOVER_COLOR.toUpperCase());
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+  });
+
   test('reduced motion: no sweep, and the session still opens after the wait', async ({
     context,
     extensionId,
