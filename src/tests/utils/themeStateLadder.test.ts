@@ -152,3 +152,16 @@ describe('the row state ladder keeps hover nearer the page than selection', () =
     }
   );
 });
+
+// KAN-376. On a selected row the hovered action sits on SELECTION_COLOR, so it
+// needs the same clear step from it that hover needs from the page.
+describe('a hovered icon on a selected row', () => {
+  test.each(Object.entries(THEMES))(
+    '%s: is a clear step from the selection',
+    (_name, theme) => {
+      expect(
+        contrast(theme.ICON_HOVER_COLOR, theme.SELECTION_COLOR)
+      ).toBeGreaterThanOrEqual(1.1);
+    }
+  );
+});
