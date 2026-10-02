@@ -82,8 +82,8 @@ export interface DragState {
    *
    * Null with no card (the row is still drawn), for an adopted carry (its
    * source, the trailing block it rests in, holds nothing after the drop),
-   * for a landing in
-   * the row's own window, and for a refused one.
+   * for a landing in the row's own window, for a refused one, and for one
+   * that makes a new window (KAN-378 C).
    */
   sourceRoomDelta: number | null;
   /**

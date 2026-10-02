@@ -494,10 +494,9 @@ describe('no outline for an adopted carry', () => {
 
 // KAN-361 (N1 B, Q2 ii). The session header's New window target is a
 // landing outside the list: a new first window. While it is the landing the
-// row's own window closes up behind it with its room outlined at its bottom,
-// exactly as for a drop into another window -- and nothing else moves, since
-// there is no destination in the list to make room in. No slot is drawn:
-// the lit target shows where the row goes.
+// row's own window closes up behind it with no outline (KAN-378 C) -- and
+// nothing else moves, since there is no destination in the list to make
+// room in. No slot is drawn: the lit target shows where the row goes.
 describe('on the header’s New window target (KAN-361, Q2 ii)', () => {
   // Above the pane, as the toolbar row is: 0..400 across, -40..-8 down.
   const HEADER_Y = -24;
@@ -516,7 +515,6 @@ describe('on the header’s New window target (KAN-361, Q2 ii)', () => {
     'header:new-window': [-40, 32],
   };
 
-  // KAN-378 C: no outline while the target is lit.
   test('a tab held there: its window closes up with no outline; nothing else moves, no slot, the target lit', async () => {
     const { store } = await renderDetail('SR');
     const held = pickUpTab('a0', WITH_HEADER);
@@ -589,10 +587,10 @@ describe('on the header’s New window target (KAN-361, Q2 ii)', () => {
 
 // KAN-366 B. Below the last window is the list's trailing block: a new LAST
 // window. While it is the landing the row's own window closes up behind it
-// with its room outlined at its bottom (Q2 ii), nothing else moves, no slot
-// is drawn, and the block is lit. A row of the last window keeps its
-// overshoot slack there: within half its height of that window's last row
-// it lands last in its own window, as before the block existed.
+// with no outline (KAN-378 C), nothing else moves, no slot is drawn, and
+// the block is lit. A row of the last window keeps its overshoot slack
+// there: within half its height of that window's last row it lands last in
+// its own window, as before the block existed.
 describe('below the last window (KAN-366 B)', () => {
   // The trailing block, zero height, 8px under w2 (296), as a list that
   // fits draws it.
@@ -609,7 +607,6 @@ describe('below the last window (KAN-366 B)', () => {
       .tabContainerDataState.tabGroups.find((g) => g.tabGroupId === 'SR')
       ?.windows.map(tabIds);
 
-  // KAN-378 C: no outline while the target is lit.
   test('a tab from w1 held there: lit, its window closes up with no outline, nothing else moves, no slot; let go, a new last window', async () => {
     const { store } = await renderDetail('SR');
     const held = pickUpTab('a0', WITH_TRAILING);
