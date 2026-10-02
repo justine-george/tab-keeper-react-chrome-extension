@@ -256,17 +256,19 @@ describe('committing a rename', () => {
 });
 
 describe('while searching', () => {
-  // The same rule the window title follows: a control that cannot act must
-  // not be focusable and inert (KAN-62). Renaming is disabled while searching.
-  test('offers no rename control', async () => {
+  // Renaming is not a whole-item action, so it stays while searching; the
+  // title stays a label because opening the group is hidden.
+  test('keeps the rename control, and the title is not a button', async () => {
     await renderWindow([{ groupId: 'g1', title: 'Research', color: 'blue' }], {
       isSearching: true,
     });
 
     expect(
-      screen.queryByRole('button', { name: /Rename group/ })
+      screen.getByRole('button', { name: 'Rename group' })
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /Open group/ })
     ).not.toBeInTheDocument();
-    // The group itself still renders -- only the affordance is withheld.
     expect(
       within(screen.getByRole('group', { name: 'Research' })).getByText(
         'Research'

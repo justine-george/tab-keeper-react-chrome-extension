@@ -2,6 +2,7 @@ import { describe, expect, test } from 'vitest';
 import { cleanup, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
+import GroupColorPicker from '../../components/common/GroupColorPicker';
 import WindowEntryContainer from '../../components/home/rightpane/WindowEntryContainer';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import {
@@ -280,17 +281,14 @@ describe('the group colour band', () => {
     expect(screen.queryByRole('menu')).not.toBeInTheDocument();
   });
 
-  // KAN-62: a control that cannot act must not be focusable. The search panel
-  // withholds every other mutating group action, so the band goes back to
-  // being the decoration it was.
-  test('searching leaves the band inert', async () => {
+  // Colour is not a whole-item action, so searching leaves the band a control.
+  test('searching keeps the band a control', async () => {
     await renderGroup({ isSearching: true });
 
-    expect(
-      screen.queryByRole('button', { name: BAND })
-    ).not.toBeInTheDocument();
-    const group = screen.getByRole('group', { name: 'Research' });
-    expect(group.querySelector('[aria-hidden="true"]')).not.toBeNull();
+    expect(screen.getByRole('button', { name: BAND })).toHaveAttribute(
+      'aria-haspopup',
+      'menu'
+    );
   });
 });
 
@@ -381,10 +379,17 @@ describe('widening the band', () => {
     // The decorative strip carries neither. It is aria-hidden and inert; a
     // 24px hit area on it would be a target for nothing.
     cleanup();
-    await renderGroup({ isSearching: true });
-    const decorative = screen
-      .getByRole('group', { name: 'Research' })
-      .querySelector('[data-group-color-strip]')!;
+    // Nothing renders the decorative strip now; mount it directly.
+    await renderWithProviders(
+      <GroupColorPicker
+        decorative
+        color="blue"
+        ariaLabel={BAND}
+        onSelect={() => undefined}
+      />
+    );
+    const decorative = document.querySelector('[data-group-color-strip]');
+    if (decorative === null) throw new Error('no decorative strip');
     expect(decorative.getAttribute('aria-hidden')).toBe('true');
     expect(pseudoRulesFor(decorative, '::after')).toBe('');
   });

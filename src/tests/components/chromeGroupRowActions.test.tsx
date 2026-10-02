@@ -168,12 +168,12 @@ describe('the group row action set', () => {
   });
 
   // A control that cannot act must not be focusable and inert (KAN-62).
-  test('searching withholds every group action', async () => {
+  test('searching keeps Rename group and withholds the rest', async () => {
     await renderRow({ isSearching: true });
 
     expect(
-      screen.queryByRole('button', { name: 'Rename group' })
-    ).not.toBeInTheDocument();
+      screen.getByRole('button', { name: 'Rename group' })
+    ).toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: 'Add current tab to group' })
     ).not.toBeInTheDocument();
