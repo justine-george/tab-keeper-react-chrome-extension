@@ -18,6 +18,9 @@ import {
   seedCloudConsentIfSettingsAbsent,
 } from './fixtures/seed';
 
+// Syncs with the dev cloud (KAN-383).
+test.use({ cloud: true });
+
 // KAN-279 D12, in a real browser against the real cloud. While a row is held,
 // a sync that brings in another device's change does not apply it: the list
 // would move under the pointer, and the drag engine measured its rects once.

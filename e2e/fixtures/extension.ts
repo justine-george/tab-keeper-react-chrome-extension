@@ -9,6 +9,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { blockCloud } from './cloud';
 import { seedCloudConsentIfSettingsAbsent } from './seed';
 
 // The built, pruned artifact -- what `npm run build:e2e` produces and what
@@ -28,6 +29,7 @@ export const test = base.extend<{
   showScrollbars: boolean;
   audibleTabs: boolean;
   freshProfile: boolean;
+  cloud: boolean;
 }>({
   // Playwright launches headless Chromium with --hide-scrollbars, so every
   // scrollbar measures 0px and paints nothing (KAN-188). Off by default on
@@ -55,7 +57,14 @@ export const test = base.extend<{
   // on every page: a seed of "no answer" would erase the answer on reopen.
   freshProfile: [false, { option: true }],
 
-  context: async ({ showScrollbars, audibleTabs, freshProfile }, use) => {
+  // Off by default (KAN-383): the dev cloud is blocked. Opt in with
+  // `test.use({ cloud: true })`.
+  cloud: [false, { option: true }],
+
+  context: async (
+    { showScrollbars, audibleTabs, freshProfile, cloud },
+    use
+  ) => {
     // A throwaway profile per test: extension state (localStorage,
     // chrome.storage) persists in the profile, so sharing one would let tests
     // leak into each other.
@@ -82,6 +91,7 @@ export const test = base.extend<{
     if (!freshProfile) {
       await seedCloudConsentIfSettingsAbsent(context);
     }
+    if (!cloud) await blockCloud(context);
 
     await use(context);
 

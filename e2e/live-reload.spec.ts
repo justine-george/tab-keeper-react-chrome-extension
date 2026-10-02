@@ -4,6 +4,9 @@ import { test, expect } from './fixtures/extension';
 import { localeStrings } from './fixtures/locales';
 import { buildContainer, buildSession } from './fixtures/seed';
 
+// Syncs with the dev cloud (KAN-383).
+test.use({ cloud: true });
+
 // KAN-279 D9, in a real browser. Two open pages of the extension (the popup
 // and the pop-out tab, here two tabs of index.html) share one localStorage.
 // When one writes, the browser fires `storage` in the other, and the other

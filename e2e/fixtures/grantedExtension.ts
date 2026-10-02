@@ -15,6 +15,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { blockCloud } from './cloud';
 import { seedCloudConsentIfSettingsAbsent } from './seed';
 
 // tabGroups is OPTIONAL in the shipped manifest, and an optional permission
@@ -72,6 +73,8 @@ export const grantedTest = base.extend<{
     // KAN-259. Same as extension.ts: no granted spec is about the cloud
     // question, so the profile always starts as a user who said yes.
     await seedCloudConsentIfSettingsAbsent(context);
+    // No granted spec needs the dev cloud (KAN-383).
+    await blockCloud(context);
     await use(context);
     await context.close();
     rmSync(userDataDir, { recursive: true, force: true });
