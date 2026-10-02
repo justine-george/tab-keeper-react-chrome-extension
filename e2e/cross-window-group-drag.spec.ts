@@ -417,7 +417,8 @@ test.describe('a group released over another window', () => {
     // click is the one that gets swallowed and the window stays shut.
     await page.waitForTimeout(450);
     await page
-      .locator('[data-drop-window-id="w2"] [aria-label="Expand"]')
+      .locator('[data-drop-window-id="w2"]')
+      .getByRole('button', { name: /^Expand(: |$)/ })
       .click();
     await expect(
       page.locator(
