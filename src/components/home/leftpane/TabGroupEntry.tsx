@@ -74,6 +74,8 @@ interface TabGroupEntryProps {
   onFocusClick: MouseEventHandler;
   onDeleteClick: MouseEventHandler;
   carryTarget?: CarryTargetLook;
+  // The session a carried item came from (KAN-382); never also the target.
+  carryOrigin?: boolean;
 }
 
 const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
@@ -83,6 +85,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
   onFocusClick,
   onDeleteClick,
   carryTarget,
+  carryOrigin,
 }) => {
   const COLORS = useThemeColors();
   const FONT_FAMILY = useFontFamily();
@@ -375,6 +378,13 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
       background-size: 0 100%;
       animation: ${dwellSweep} ${SPRING_OPEN_MS}ms linear forwards;
     }
+    /* The dragged item's own place, in the landing slot's dashed look. */
+    &[data-carry-origin] {
+      outline-width: 1.5px;
+      outline-style: dashed;
+      outline-color: ${COLORS.LABEL_L2_COLOR};
+      outline-offset: -2px;
+    }
   `;
 
   // The row's primary action lives on the inner ClickableRow, not on this
@@ -393,6 +403,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
       css={containerStyle}
       data-carry-target={carryTarget === undefined ? undefined : ''}
       data-carry-dwell={carryTarget?.dwellSweep ? '' : undefined}
+      data-carry-origin={carryOrigin ? '' : undefined}
     >
       <ClickableRow
         ariaLabel={title}

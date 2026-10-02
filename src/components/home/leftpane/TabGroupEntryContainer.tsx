@@ -31,6 +31,7 @@ import { dropOnSessionRow } from '../../../redux/dropOnSessionRow';
 import {
   currentCarry,
   registerCarryReceiver,
+  useCarried,
   type CarryReceiver,
 } from '../../../redux/carry';
 import { useMediaQuery } from '../../../hooks/useMediaQuery';
@@ -307,6 +308,8 @@ export default function TabGroupEntryContainer() {
     return () => clearTimeout(timer);
   }, [dwellId, dispatch]);
 
+  const originId = useCarried()?.tabGroupId ?? null;
+
   // Reduced motion draws no sweep; the session still opens after the wait.
   const reducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)');
 
@@ -439,6 +442,10 @@ export default function TabGroupEntryContainer() {
                               !reducedMotion,
                           }
                         : undefined
+                    }
+                    carryOrigin={
+                      tabGroupData.tabGroupId === originId &&
+                      tabGroupData.tabGroupId !== carryTargetId
                     }
                   />
                   {/* <Divider /> */}

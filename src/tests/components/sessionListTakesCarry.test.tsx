@@ -346,6 +346,64 @@ describe('reduced motion', () => {
   });
 });
 
+const origins = () =>
+  [...document.querySelectorAll<HTMLElement>('[data-carry-origin]')].map(
+    (o) => o.closest<HTMLElement>('[data-drag-row-id]')?.dataset.dragRowId
+  );
+
+describe('the origin mark (KAN-382 A)', () => {
+  test('the carried item’s session wears a dashed LABEL_L2 outline, and no other row does', async () => {
+    await renderList();
+    expect(origins()).toEqual([]);
+    handOff();
+
+    expect(origins()).toEqual(['S1']);
+    const style = getComputedStyle(entryOf('S1'));
+    expect(style.outlineStyle).toBe('dashed');
+    expect(style.outlineWidth).toBe('1.5px');
+    expect(style.outlineColor).toMatch(asWritten(LIGHT_THEME.LABEL_L2_COLOR));
+    expect(style.outlineOffset).toBe('-2px');
+  });
+
+  test('it stays after another session springs open', async () => {
+    const { store } = await renderList();
+    handOff();
+    moveTo(rowY(2));
+    wait(SPRING_OPEN_MS);
+    expect(store.getState().tabContainerDataState.selectedTabGroupId).toBe(
+      'S3'
+    );
+
+    expect(origins()).toEqual(['S1']);
+  });
+
+  test('resting on the origin, the target’s solid outline wins', async () => {
+    await renderList();
+    handOff();
+    moveTo(rowY(0));
+
+    expect(targetId()).toEqual(['S1']);
+    expect(origins()).toEqual([]);
+    expect(getComputedStyle(entryOf('S1')).outlineStyle).toBe('solid');
+    moveTo(rowY(1));
+    expect(origins()).toEqual(['S1']);
+  });
+
+  test('it is gone after Esc and after a release', async () => {
+    await renderList();
+    handOff();
+    expect(origins()).toEqual(['S1']);
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(origins()).toEqual([]);
+
+    handOff();
+    moveTo(rowY(1));
+    expect(origins()).toEqual(['S1']);
+    releaseAt(rowY(1));
+    expect(origins()).toEqual([]);
+  });
+});
+
 describe('the target look (D2 A)', () => {
   test('the attribute sits on exactly one row, the one under the pointer', async () => {
     await renderList();
