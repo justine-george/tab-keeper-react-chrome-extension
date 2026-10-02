@@ -37,6 +37,7 @@ import type {
 } from '../src/redux/slices/tabContainerDataStateSlice';
 import { isValidTabMasterContainer } from '../src/utils/functions/local';
 import { LIGHT_THEME } from '../src/hooks/useThemeColors';
+import { SPRING_OPEN_MS } from '../src/components/home/leftpane/springOpen';
 
 const POPUP = { width: 790, height: 550 };
 const TAB_VIEW = { width: 1280, height: 800 };
@@ -457,6 +458,15 @@ async function onto(page: Page, sessionId: string): Promise<void> {
   await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 5 });
   await expect.poll(() => carryTargets(page)).toEqual([sessionId]);
 }
+
+// Pauses the dwelling row's sweep at `ms` (KAN-380). The spring-open timer
+// still runs.
+const holdSweepAt = (page: Page, ms: number) =>
+  page.locator('[data-carry-dwell]').evaluate((el, ms) => {
+    const [sweep] = el.getAnimations();
+    sweep.pause();
+    sweep.currentTime = ms;
+  }, ms);
 
 // Rests on a session's row until it opens (S1 A).
 async function springOpen(page: Page, sessionId: string): Promise<void> {
@@ -1211,7 +1221,7 @@ test.describe('Review Focus 2: cancels, quick passes, the shown row', () => {
     expect(await layout(page, 'S1')).toEqual([W1_START, 'b0 b1']);
   });
 
-  test('the shown row: an outline but no line and no opening, and a drop there is a row drop with no Moved toast (Q3 A)', async ({
+  test('the shown row: an outline but no sweep and no opening, and a drop there is a row drop with no Moved toast (Q3 A)', async ({
     context,
     extensionId,
   }) => {
@@ -1219,7 +1229,7 @@ test.describe('Review Focus 2: cancels, quick passes, the shown row', () => {
     const at = await pickUp(page, tabHandle(page, 'a1'));
     await carryOutLeft(page, at);
     await onto(page, 'S1');
-    await expect(page.locator('[data-carry-dwell-line]')).toHaveCount(0);
+    await expect(page.locator('[data-carry-dwell]')).toHaveCount(0);
     // NEGATIVE, so a fixed wait: past the 600ms dwell, nothing opened.
     await page.waitForTimeout(900);
     expect(await selected(page)).toBe('S1');
@@ -1234,11 +1244,12 @@ test.describe('Review Focus 2: cancels, quick passes, the shown row', () => {
 });
 
 test.describe('the looks (D1 A, D2 A, S1 A)', () => {
-  // The outline and the line as painted, against the row's painted fill.
-  // CONTROL in each: the fill pixel is the hover colour the row's box-shadow
-  // declares, so the decode is faithful before a ratio is built on it.
+  // The outline as painted, against the row's painted fill (KAN-380: the
+  // sweep, held at its end). CONTROL in each: the fill pixel is the hover
+  // colour the row declares, so the decode is faithful before a ratio is
+  // built on it.
   for (const theme of THEMES) {
-    test(`the target outline and the fill line clear 3:1 against the row's fill (${theme})`, async ({
+    test(`the target outline clears 3:1 against the row's fill (${theme})`, async ({
       context,
       extensionId,
     }) => {
@@ -1252,8 +1263,7 @@ test.describe('the looks (D1 A, D2 A, S1 A)', () => {
       const at = await pickUp(page, tabHandle(page, 'a1'));
       await carryOutLeft(page, at);
       await onto(page, 'S2');
-      const line = page.locator('[data-carry-dwell-line]');
-      await expect(line).toHaveCount(1);
+      await holdSweepAt(page, SPRING_OPEN_MS);
       const measure = (rowId: string) =>
         page.evaluate((rowId) => {
           const row = document
@@ -1264,67 +1274,62 @@ test.describe('the looks (D1 A, D2 A, S1 A)', () => {
           if (!row) throw new Error(`${rowId} is not the target`);
           const cs = getComputedStyle(row);
           const b = row.getBoundingClientRect();
-          const l = row.querySelector<HTMLElement>('[data-carry-dwell-line]');
-          const lb = l?.getBoundingClientRect();
+          // A dwelling row's fill is the sweep; a shown row's, the shadow.
+          const fill = row.hasAttribute('data-carry-dwell')
+            ? cs.backgroundImage
+            : cs.boxShadow;
           return {
             outline: cs.outlineColor,
             outlineWidth: cs.outlineWidth,
             fillDeclared:
-              /rgba?\([^)]*\)|#[0-9a-f]{3,8}/i.exec(cs.boxShadow)?.[0] ?? '',
-            line: l ? getComputedStyle(l).backgroundColor : null,
-            lineAt: lb ? [lb.left + 2, lb.top + lb.height / 2] : null,
+              /rgba?\([^)]*\)|#[0-9a-f]{3,8}/i.exec(fill)?.[0] ?? '',
+            dwelling: row.hasAttribute('data-carry-dwell'),
             outlineAt: [b.left + b.width / 2, b.top + 1],
             fillAt: [b.left + b.width / 2, b.top + 5],
           };
         }, rowId);
 
       const m = await measure('S2');
-      if (m.lineAt === null || m.line === null) throw new Error('no line');
-      const [outlinePx, fillPx, linePx] = await pixelsAt(page, [
+      expect(m.dwelling).toBe(true);
+      const [outlinePx, fillPx] = await pixelsAt(page, [
         [m.outlineAt[0], m.outlineAt[1]],
         [m.fillAt[0], m.fillAt[1]],
-        [m.lineAt[0], m.lineAt[1]],
       ]);
       // CONTROLS: what is painted is what is declared.
       expect(fillPx).toBe(rgbToHex(m.fillDeclared));
       expect(outlinePx).toBe(rgbToHex(m.outline));
-      expect(linePx).toBe(rgbToHex(m.line));
       expect(m.outlineWidth).toBe('2px');
       const outlineRatio = contrast(outlinePx, fillPx);
-      const lineRatio = contrast(linePx, fillPx);
 
       // The selected row as the target: the hover fill, not the selection
-      // fill (D2 A), and no line (it is the session on screen).
+      // fill (D2 A), and no sweep (it is the session on screen).
       await onto(page, 'S1');
       const s = await measure('S1');
       const [selOutlinePx, selFillPx] = await pixelsAt(page, [
         [s.outlineAt[0], s.outlineAt[1]],
         [s.fillAt[0], s.fillAt[1]],
       ]);
-      expect(s.line).toBe(null);
+      expect(s.dwelling).toBe(false);
       // PREMISE: the selection fill is not the hover fill, so the next line
       // can tell them apart.
       expect(restingSelected).not.toBe(fillPx);
       expect(selFillPx).toBe(fillPx);
       const selectedRatio = contrast(selOutlinePx, selFillPx);
       console.log(
-        `[${theme}] outline ${outlinePx} line ${linePx} on ${fillPx}: ${outlineRatio.toFixed(
-          2
-        )} / ${lineRatio.toFixed(
+        `[${theme}] outline ${outlinePx} on ${fillPx}: ${outlineRatio.toFixed(
           2
         )}; selected ${selOutlinePx} on ${selFillPx}: ${selectedRatio.toFixed(
           2
         )}`
       );
       expect(outlineRatio).toBeGreaterThanOrEqual(3);
-      expect(lineRatio).toBeGreaterThanOrEqual(3);
       expect(selectedRatio).toBeGreaterThanOrEqual(3);
       await page.keyboard.press('Escape');
       await page.mouse.up();
     });
   }
 
-  test('the fill line runs exactly as long as the dwell', async ({
+  test('the sweep runs exactly as long as the dwell', async ({
     context,
     extensionId,
   }) => {
@@ -1333,16 +1338,16 @@ test.describe('the looks (D1 A, D2 A, S1 A)', () => {
     await carryOutLeft(page, at);
     await onto(page, 'S2');
     const duration = await page
-      .locator('[data-carry-dwell-line]')
+      .locator('[data-carry-dwell]')
       .evaluate((el) =>
         el.getAnimations().map((a) => a.effect?.getTiming().duration)
       );
-    expect(duration).toEqual([600]);
+    expect(duration).toEqual([SPRING_OPEN_MS]);
     await page.keyboard.press('Escape');
     await page.mouse.up();
   });
 
-  test('reduced motion: no line, and the session still opens after the wait', async ({
+  test('reduced motion: no sweep, and the session still opens after the wait', async ({
     context,
     extensionId,
   }) => {
@@ -1352,7 +1357,7 @@ test.describe('the looks (D1 A, D2 A, S1 A)', () => {
     await carryOutLeft(page, at);
     await onto(page, 'S2');
     const started = Date.now();
-    await expect(page.locator('[data-carry-dwell-line]')).toHaveCount(0);
+    await expect(page.locator('[data-carry-dwell]')).toHaveCount(0);
     await expect.poll(() => selected(page), { timeout: 3000 }).toBe('S2');
     // Not at once: it waited for the dwell.
     expect(Date.now() - started).toBeGreaterThanOrEqual(400);
