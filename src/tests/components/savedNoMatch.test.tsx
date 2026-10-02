@@ -95,6 +95,14 @@ describe('the popup', () => {
     expect(messageCount()).toBe(1);
   });
 
+  test('the hint is 0.8rem (12.8px at a 16px root)', async () => {
+    await render('popup');
+    await type('zzz');
+
+    const hint = screen.getByText(HINT);
+    expect(getComputedStyle(hint).fontSize).toBe('12.8px');
+  });
+
   test('a match, or spaces alone, shows no block', async () => {
     await render('popup');
     await type('research');

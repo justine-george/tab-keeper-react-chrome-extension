@@ -37,7 +37,7 @@ export default function NoMatchState({ query, inset }: NoMatchStateProps) {
     margin: 0;
     max-width: 26em;
     font-family: ${FONT_FAMILY};
-    font-size: ${TYPE.META};
+    font-size: ${TYPE.SECONDARY};
     line-height: 1.45;
     color: ${COLORS.LABEL_L3_COLOR};
     text-wrap: balance;

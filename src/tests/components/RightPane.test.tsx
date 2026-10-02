@@ -83,7 +83,7 @@ describe('RightPane', () => {
   // search matching nothing must keep the children unmounted. If the guard ever
   // stopped applying the filter its children would mount against an empty list.
   test('draws the no-match state, not the session, when the search filters it away', async () => {
-    await renderWithProviders(<RightPane />, {
+    const { container } = await renderWithProviders(<RightPane />, {
       seedStore: (store) => {
         store.dispatch(saveToTabContainerInternal(buildSession()));
         store.dispatch(selectTabContainer('group-1'));
@@ -95,6 +95,8 @@ describe('RightPane', () => {
       await screen.findByText('No saved tab matches "nothing matches this"')
     ).toBeTruthy();
     expect(screen.queryByText('Research')).toBeNull();
+    expect(container.children).toHaveLength(1);
+    expect(container.firstElementChild).toHaveAttribute('data-no-match');
   });
 
   test('renders the session again when the search matches it', async () => {

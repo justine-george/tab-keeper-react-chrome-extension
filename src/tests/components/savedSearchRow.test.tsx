@@ -199,6 +199,7 @@ describe('a search that matches nothing (R3, R4)', () => {
 
     type('  zzz ');
 
+    expect(listedIds()).toEqual([]);
     const message = screen.getByText('No saved tab matches "zzz"');
     expect(message.closest('[data-pane="detail"]')).not.toBeNull();
     expect(screen.queryByText('Empty')).not.toBeInTheDocument();
