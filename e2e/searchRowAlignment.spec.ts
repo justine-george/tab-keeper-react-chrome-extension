@@ -1,6 +1,9 @@
+import type { BrowserContext, Page } from '@playwright/test';
+
 import { test, expect } from './fixtures/extension';
 import { buildContainer, buildSession, seedSessions } from './fixtures/seed';
 import { localeStrings } from './fixtures/locales';
+import { waitForFontsLoaded } from './fixtures/fonts';
 
 // KAN-205. The save row's bottom edge meets the session header card's. This
 // was the search row's job while the search was a mode in the same place; the
@@ -90,4 +93,157 @@ test('the save group is exactly as tall as the name box', async ({
   expect(edges.groupBorder).toBe('1px');
   expect(edges.group.top).toBeCloseTo(edges.box.top, 0);
   expect(edges.group.bottom).toBeCloseTo(edges.box.bottom, 0);
+});
+
+// KAN-385 S3. The magnifier's ink sits on the text edge the session rows
+// pad to, and the search text starts where every session title starts. At a
+// 16px and a 20px root (Chrome's "Large"), in both views.
+const POPUP = { width: 790, height: 550 };
+const TAB = { width: 1280, height: 800 };
+const TITLES = ['Alpha session', 'Beta session'];
+
+async function openSaved(
+  context: BrowserContext,
+  extensionId: string,
+  view: 'popup' | 'tab',
+  rootPx: 16 | 20
+): Promise<Page> {
+  await seedSessions(
+    context,
+    buildContainer(
+      TITLES.map((title, i) => buildSession({ tabGroupId: `s${i}`, title }))
+    )
+  );
+  const page = await context.newPage();
+  await page.setViewportSize(view === 'popup' ? POPUP : TAB);
+  await page.goto(
+    `chrome-extension://${extensionId}/index.html${
+      view === 'tab' ? '?view=tab' : ''
+    }`
+  );
+  await page.locator('[data-saved-search] input').waitFor();
+  await waitForFontsLoaded(page);
+  await page.evaluate((px) => {
+    document.documentElement.style.fontSize = `${px}px`;
+  }, rootPx);
+  await page.mouse.move(2, (view === 'popup' ? POPUP : TAB).height - 2);
+  return page;
+}
+
+// The frame's inner left edge (inside its border), the input's text left and
+// each session title's left, from the viewport.
+async function columns(page: Page) {
+  return page.evaluate((titles: string[]) => {
+    const row = document.querySelector('[data-saved-search]')!;
+    const frame = row.parentElement!;
+    const input = row.querySelector('input')!;
+    const frameRect = frame.getBoundingClientRect();
+    return {
+      frameInnerLeft: frameRect.left + frame.clientLeft,
+      rowTop: row.getBoundingClientRect().top,
+      rowHeight: row.getBoundingClientRect().height,
+      inputTextLeft:
+        input.getBoundingClientRect().left +
+        parseFloat(getComputedStyle(input).paddingLeft),
+      titleLefts: titles.map((title) => {
+        const label = [
+          ...document.querySelectorAll(`button[aria-label="${title}"] *`),
+        ].find((el) => el.children.length === 0 && el.textContent === title);
+        return label!.getBoundingClientRect().left;
+      }),
+    };
+  }, TITLES);
+}
+
+// First column, from `left`, holding a pixel that differs from the clip's
+// top-left (the row's ground) by more than 16 on any channel.
+async function firstInkX(page: Page, left: number, top: number, h: number) {
+  const x0 = Math.floor(left);
+  const png = (
+    await page.screenshot({ clip: { x: x0, y: top, width: 48, height: h } })
+  ).toString('base64');
+  const col = await page.evaluate(async (data: string) => {
+    const img = new Image();
+    img.src = `data:image/png;base64,${data}`;
+    await img.decode();
+    const canvas = document.createElement('canvas');
+    canvas.width = img.width;
+    canvas.height = img.height;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    if (!ctx) throw new Error('no 2d context');
+    ctx.drawImage(img, 0, 0);
+    const px = ctx.getImageData(0, 0, img.width, img.height).data;
+    const ground = [px[0], px[1], px[2]];
+    for (let x = 0; x < img.width; x++) {
+      // Above the row's bottom divider, which spans every column.
+      for (let y = 0; y < img.height - 4; y++) {
+        const i = (y * img.width + x) * 4;
+        if ([0, 1, 2].some((c) => Math.abs(px[i + c] - ground[c]) > 16)) {
+          return x;
+        }
+      }
+    }
+    return null;
+  }, png);
+  if (col === null) throw new Error('no ink in the clip');
+  return x0 + col;
+}
+
+test.describe("the saved search row's columns (KAN-385 S3)", () => {
+  for (const view of ['popup', 'tab'] as const) {
+    for (const rootPx of [16, 20] as const) {
+      test(`${view} at a ${rootPx}px root: the search text starts where every session title starts`, async ({
+        context,
+        extensionId,
+      }) => {
+        const page = await openSaved(context, extensionId, view, rootPx);
+        const c = await columns(page);
+
+        expect(c.titleLefts).toHaveLength(TITLES.length);
+        // Boxes, so LayoutUnit (1/64px).
+        for (const titleLeft of c.titleLefts) {
+          expect(Math.abs(c.inputTextLeft - titleLeft)).toBeLessThanOrEqual(
+            1 / 64
+          );
+        }
+        // Past the magnifier's ink (3/24..21/24 of ICON.SMALL) and 10px.
+        expect(c.inputTextLeft - c.frameInnerLeft).toBeCloseTo(
+          8 + rootPx * 1.25 * (18 / 24) + 10,
+          1
+        );
+        if (view === 'popup' && rootPx === 16) {
+          expect(c.inputTextLeft).toBeCloseTo(43, 1);
+        }
+      });
+
+      test(`${view} at a ${rootPx}px root: the magnifier's ink sits on the 8px text edge`, async ({
+        context,
+        extensionId,
+      }) => {
+        const page = await openSaved(context, extensionId, view, rootPx);
+        const c = await columns(page);
+        const ink = await firstInkX(
+          page,
+          c.frameInnerLeft,
+          c.rowTop,
+          c.rowHeight
+        );
+        // Ink lands on device pixels: 1px.
+        expect(Math.abs(ink - (c.frameInnerLeft + 8))).toBeLessThanOrEqual(1);
+
+        // Control: the scan follows the glyph, so it can see a wrong inset.
+        await page.evaluate(() => {
+          const glass = document.querySelector('[data-saved-search] span')!;
+          (glass as HTMLElement).style.marginLeft = 'calc(8px + 4px)';
+        });
+        const moved = await firstInkX(
+          page,
+          c.frameInnerLeft,
+          c.rowTop,
+          c.rowHeight
+        );
+        expect(moved).toBeGreaterThan(ink + 2);
+      });
+    }
+  }
 });

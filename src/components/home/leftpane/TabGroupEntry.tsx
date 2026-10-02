@@ -22,6 +22,7 @@ import { isTabView } from '../../../utils/functions/viewMode';
 import { useTranslation } from 'react-i18next';
 import { DURATION, TYPE } from '../../../styles/scale';
 import { SPRING_OPEN_MS } from './springOpen';
+import { SAVED_TEXT_INSET } from './savedListInset';
 
 /**
  * How far a row's action icon sits inside the row, per side, in CSS px.
@@ -106,7 +107,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
     display: flex;
     flex-direction: column;
     justify-content: center;
-    padding: 8px;
+    padding: 8px 8px 8px ${SAVED_TEXT_INSET};
     align-items: flex-start;
     width: 100%;
     min-width: 0;

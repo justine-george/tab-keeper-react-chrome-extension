@@ -7,6 +7,10 @@ import { css } from '@emotion/react';
 import Divider from '../../common/Divider';
 import TabGroupEntry from './TabGroupEntry';
 import { SPRING_OPEN_MS } from './springOpen';
+import {
+  SAVED_SEARCH_GLASS_INSET,
+  SAVED_SEARCH_TEXT_PADDING,
+} from './savedListInset';
 import { NormalLabel } from '../../common/Label';
 import SearchRow from '../../common/SearchRow';
 import { useThemeColors } from '../../../hooks/useThemeColors';
@@ -339,9 +343,9 @@ export default function TabGroupEntryContainer() {
         onTextChange={(text) => dispatch(setSearchInputText(text))}
         inputRef={searchInputRef}
         label={t('Search saved tabs')}
-        glassInset="8px"
+        glassInset={SAVED_SEARCH_GLASS_INSET}
         glassBox="tight"
-        textInset="8px"
+        textInset={SAVED_SEARCH_TEXT_PADDING}
         rowAttribute="data-saved-search"
       />
       <div css={scrollerStyle} ref={listRef}>
