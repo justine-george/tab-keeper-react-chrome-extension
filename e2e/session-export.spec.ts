@@ -993,14 +993,9 @@ test('the file can be switched light or dark, and printed', async ({
     exportPage.getByRole('button', { name: 'Dark' })
   ).toHaveAttribute('aria-pressed', 'true');
 
-  // Printing is what "Save as PDF" is: the browser's own dialog, opened on the
-  // previewed document.
-  //
-  // The first version of this test replaced window.print INSIDE the frame and
-  // asserted the replacement ran. That passed against a build where printing
-  // was impossible: a sandboxed frame without allow-modals ignores print()
-  // outright, and Chrome says so in the console rather than throwing. So the
-  // console is what this reads.
+  // Printing is the browser's own dialog, opened on the previewed document. A
+  // sandboxed frame without allow-modals ignores print() and says so only in
+  // the console, so the console is what this reads.
   const ignored: string[] = [];
   exportPage.on('console', (message) => {
     if (message.text().includes("Ignored call to 'print()'")) {
@@ -1008,12 +1003,31 @@ test('the file can be switched light or dark, and printed', async ({
     }
   });
 
+  // CONTROL: a frame without allow-modals is heard, so silence below means
+  // something.
+  await exportPage.evaluate(async () => {
+    const probe = document.createElement('iframe');
+    probe.setAttribute('sandbox', 'allow-same-origin');
+    probe.srcdoc = 'probe';
+    const loaded = new Promise((resolve) => (probe.onload = resolve));
+    document.body.append(probe);
+    await loaded;
+    probe.dataset.printProbe = '';
+    probe.contentWindow?.print();
+  });
+  await expect.poll(() => ignored.length).toBe(1);
+  // Removed only now: removing it at once drops the console line.
+  await exportPage
+    .locator('[data-print-probe]')
+    .evaluate((probe) => probe.remove());
+
   await exportPage.getByRole('button', { name: 'PDF / Print' }).click();
   await exportPage.waitForTimeout(500);
 
-  expect(ignored, 'the frame must be allowed to open the print dialog').toEqual(
-    []
-  );
+  expect(
+    ignored,
+    'the frame must be allowed to open the print dialog'
+  ).toHaveLength(1);
 });
 
 // The toolbar wrapped onto a second line before it was grouped, and nothing
