@@ -104,3 +104,81 @@ test.describe('a session is always selected (KAN-390)', () => {
     );
   });
 });
+
+// Folded, the selected row is kept in state but not drawn: no saved session is
+// shown. Unfolding draws it; a peek lights the row that is then shown.
+test.describe('the tab view folded does not draw the selection (KAN-390)', () => {
+  const openTabView = async (
+    context: BrowserContext,
+    extensionId: string
+  ): Promise<Page> => {
+    await seedSessions(context, {
+      ...buildContainer(THREE),
+      selectedTabGroupId: 's-first',
+    });
+    const page = await context.newPage();
+    await page.setViewportSize({ width: 1400, height: 800 });
+    await page.goto(`chrome-extension://${extensionId}/index.html?view=tab`);
+    await expect(
+      page.getByRole('button', { name: 'Show the saved session', exact: true })
+    ).toBeVisible();
+    return page;
+  };
+  const bg = (page: Page, title: string) =>
+    row(page, title).evaluate((el) => getComputedStyle(el).backgroundColor);
+
+  test('folded the selected row looks like an unselected one; unfolding draws it; folding again removes it', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openTabView(context, extensionId);
+    await page.mouse.move(0, 0);
+
+    await expect(row(page, 'First session')).toHaveCSS(
+      'background-color',
+      HIGHLIGHT
+    );
+    expect(await bg(page, 'First session')).toBe(
+      await bg(page, 'Second session')
+    );
+
+    await page
+      .getByRole('button', { name: 'Show the saved session', exact: true })
+      .click();
+    await page.mouse.move(0, 0);
+    await expect(row(page, 'First session')).not.toHaveCSS(
+      'background-color',
+      HIGHLIGHT
+    );
+    await expect(row(page, 'Second session')).toHaveCSS(
+      'background-color',
+      HIGHLIGHT
+    );
+
+    await page
+      .getByRole('button', { name: 'Fold the saved session away', exact: true })
+      .click();
+    await page.mouse.move(0, 0);
+    await expect(row(page, 'First session')).toHaveCSS(
+      'background-color',
+      HIGHLIGHT
+    );
+  });
+
+  test('a peek lights the peeked row', async ({ context, extensionId }) => {
+    const page = await openTabView(context, extensionId);
+
+    await row(page, 'Second session').click({ position: { x: 20, y: 20 } });
+    await page.mouse.move(0, 0);
+
+    await expect(page.getByText('Second window')).toBeVisible();
+    await expect(row(page, 'Second session')).not.toHaveCSS(
+      'background-color',
+      HIGHLIGHT
+    );
+    await expect(row(page, 'First session')).toHaveCSS(
+      'background-color',
+      HIGHLIGHT
+    );
+  });
+});

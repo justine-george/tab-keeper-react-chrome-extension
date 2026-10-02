@@ -18,6 +18,7 @@ import {
   sessionDateLabel,
   sessionDateTitle,
 } from '../../../utils/functions/sessionDate';
+import { selectIsSavedSessionFolded } from '../../../redux/savedSessionFold';
 import { isTabView } from '../../../utils/functions/viewMode';
 import { useTranslation } from 'react-i18next';
 import { DURATION, TYPE } from '../../../styles/scale';
@@ -99,7 +100,12 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
   // Redraws the date when the local day changes (KAN-347).
   const today = useToday();
 
-  const { title, windowCount, tabCount, isSelected } = tabGroupData;
+  const { title, windowCount, tabCount } = tabGroupData;
+
+  // Folded, no saved session is shown, so the selection is kept but not drawn;
+  // the same answer that decides whether the detail column renders.
+  const folded = useSelector(selectIsSavedSessionFolded);
+  const isSelected = tabGroupData.isSelected && !(isTabView() && folded);
 
   // A plain string, not css``, because it is handed to ClickableRow's `style`
   // prop, which composes it into the button's own reset.
