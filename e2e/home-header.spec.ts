@@ -459,3 +459,132 @@ test.describe('hover motions (KAN-344)', () => {
     });
   }
 });
+
+const mark = (page: Page): Locator =>
+  page.locator('svg:has([data-mark-part="shutter"])');
+
+test.describe('the mark before the title', () => {
+  for (const rootPx of ROOTS) {
+    test(`at a ${rootPx}px root: ICON.SMALL square, centred in a 32px box, level with the icons`, async ({
+      context,
+      extensionId,
+    }) => {
+      const page = await openHome(context, extensionId, 'popup', rootPx);
+
+      const box = await boxOf(mark(page));
+      const side = parseFloat(ICON.SMALL) * rootPx;
+      expect(box.width).toBe(side);
+      expect(box.height).toBe(side);
+
+      const frame = await boxOf(mark(page).locator('xpath=..'));
+      expect({ w: frame.width, h: frame.height }).toEqual({ w: 32, h: 32 });
+      expect(box.x + box.width / 2).toBeCloseTo(frame.x + 16, 1);
+      expect(box.y + box.height / 2).toBeCloseTo(frame.y + 16, 1);
+
+      const gear = await boxOf(control(page, 'Settings'));
+      expect(box.y + box.height / 2).toBeCloseTo(gear.y + gear.height / 2, 1);
+    });
+  }
+
+  test('the mark is not announced, and the title is the header name', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openHome(context, extensionId, 'popup', 16);
+
+    await expect(mark(page)).toHaveAttribute('aria-hidden', 'true');
+    await expect(title(page)).toBeVisible();
+  });
+
+  // The baked fills must look as the source floppy does under
+  // `filter: saturate(0.6)`; both are drawn at 3x on the app's own ground.
+  test('the baked colours match the source under saturate(0.6), within 2/255', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openHome(context, extensionId, 'popup', 16);
+    const ground = await mark(page).evaluate((el) => {
+      for (let n: Element | null = el; n; n = n.parentElement) {
+        const c = getComputedStyle(n).backgroundColor;
+        if (c !== 'rgba(0, 0, 0, 0)') return c;
+      }
+      return 'rgb(255, 255, 255)';
+    });
+    const shot = async (target: Page, box: Box): Promise<string> => {
+      const cdp = await context.newCDPSession(target);
+      const { data } = await cdp.send('Page.captureScreenshot', {
+        clip: { ...box, scale: 3 },
+      });
+      return data;
+    };
+    const shipped = await shot(page, await boxOf(mark(page)));
+
+    const scratch = await context.newPage();
+    await scratch.setViewportSize({ width: 100, height: 100 });
+    await scratch.setContent(
+      `<body style="margin:0;background:${ground}"><span id="m" style="display:block;width:20px;height:20px;filter:saturate(0.6)">${SOURCE_MARK}</span></body>`
+    );
+    const source = await shot(scratch, await boxOf(scratch.locator('#m')));
+
+    const delta = await scratch.evaluate(
+      async ([a, b]) => {
+        const decode = async (b64: string) => {
+          const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+          const bmp = await createImageBitmap(new Blob([bytes]));
+          const cv = new OffscreenCanvas(bmp.width, bmp.height);
+          const cx = cv.getContext('2d');
+          if (cx === null) throw new Error('no 2d context');
+          cx.drawImage(bmp, 0, 0);
+          return cx.getImageData(0, 0, bmp.width, bmp.height);
+        };
+        const [x, y] = await Promise.all([decode(a), decode(b)]);
+        if (x.width !== y.width || x.height !== y.height)
+          return {
+            size: [x.width, x.height, y.width, y.height],
+            flat: 0,
+            flatMax: -1,
+            allMax: -1,
+          };
+        // Edge pixels differ by a few levels in coverage whatever is drawn
+        // (an unfiltered copy does too), so colour is judged where the
+        // source is flat: every neighbour within 2 of the pixel itself.
+        const px = (img: ImageData, X: number, Y: number, c: number) =>
+          img.data[(Y * img.width + X) * 4 + c];
+        let flat = 0;
+        let flatMax = 0;
+        let allMax = 0;
+        for (let Y = 1; Y < y.height - 1; Y++) {
+          for (let X = 1; X < y.width - 1; X++) {
+            let isFlat = true;
+            let d = 0;
+            for (let c = 0; c < 3; c++) {
+              d = Math.max(d, Math.abs(px(x, X, Y, c) - px(y, X, Y, c)));
+              for (const [dx, dy] of [
+                [1, 0],
+                [-1, 0],
+                [0, 1],
+                [0, -1],
+              ])
+                if (Math.abs(px(y, X + dx, Y + dy, c) - px(y, X, Y, c)) > 2)
+                  isFlat = false;
+            }
+            allMax = Math.max(allMax, d);
+            if (isFlat) {
+              flat++;
+              flatMax = Math.max(flatMax, d);
+            }
+          }
+        }
+        return { size: [x.width, x.height], flat, flatMax, allMax };
+      },
+      [shipped, source]
+    );
+
+    expect(delta.size, 'both at 3x').toEqual([60, 60]);
+    expect(delta.flat, 'most of the mark is flat colour').toBeGreaterThan(1500);
+    expect(delta.flatMax, JSON.stringify(delta)).toBeLessThanOrEqual(2);
+  });
+});
+
+/** The floppy as drawn before its colours were baked. */
+const SOURCE_MARK = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="20" height="20"><rect width="128" height="128" fill="#87c68e" fill-opacity="0.6"/><path id="b" d="M15.2 12.6h12.4v3l5 1.3V13h66.6l14.5 14.5v84.3H15.2z"/><use href="#b" x="1.7" y="3.6" fill="#1f313e"/><use href="#b" fill="#3a576d"/><rect x="32.8" y="12.9" width="58.4" height="36.6" rx="1.5" fill="#1f2640"/><rect x="32.8" y="12.9" width="58.4" height="34.7" rx="1.5" fill="#f9e9db"/><rect x="32.9" y="64.8" width="62.5" height="47" rx="2" fill="#f9e9db"/><g fill="#1b2a33"><rect x="71.3" y="18.4" width="15.3" height="26.6" rx="1"/><path d="M42.9 73.8h42.8v7.3H42.9zM20 100.9h5.1v4H20zm81.8-4.6h8.5v10.2h-8.5z"/></g><path fill="#f28c3d" d="M42.9 87.1h42.8v7.5H42.9zm0 12h42.8v7.3H42.9z"/></svg>`;

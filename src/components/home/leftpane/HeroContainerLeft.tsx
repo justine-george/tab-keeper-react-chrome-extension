@@ -2,6 +2,7 @@ import { css } from '@emotion/react';
 
 import MenuContainer from './MenuContainer';
 import { NormalLabel } from '../../common/Label';
+import TabKeeperMark from '../../common/TabKeeperMark';
 import { useFontFamily } from '../../../hooks/useFontFamily';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useTranslation } from 'react-i18next';
@@ -34,8 +35,22 @@ export default function HeroContainer() {
       <div
         css={css`
           min-width: 0;
+          display: flex;
+          align-items: center;
         `}
       >
+        <div
+          css={css`
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex: none;
+          `}
+        >
+          <TabKeeperMark />
+        </div>
         <NormalLabel
           value={t('Tab Keeper')}
           size={TYPE.SECTION}
