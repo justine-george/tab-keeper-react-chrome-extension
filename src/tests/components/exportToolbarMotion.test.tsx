@@ -7,10 +7,8 @@ import { renderWithProviders } from '../setup/renderWithProviders';
 import { buildContainer, buildSession } from '../fixtures/sessionFixture';
 import { replaceState } from '../../redux/slices/tabContainerDataStateSlice';
 
-// KAN-221. The export toolbar's actions, reviewed against Emil Kowalski's
-// animation guidance and picked from mocks by Justine. What jsdom can hold is
-// the STATE each one is in; the motion itself -- the press dip, the fades,
-// hover on touch -- is measured in e2e/export-toolbar-motion.spec.ts.
+// jsdom holds each action's state; the motion is measured in
+// e2e/export-toolbar-motion.spec.ts.
 
 const SESSION = buildSession({
   tabGroupId: 'session-kyoto',
@@ -54,7 +52,7 @@ describe('Copy all links confirms in the button itself (KAN-221)', () => {
       expect(copy.getAttribute('data-second-face-shown')).toBe('true')
     );
     expect(within(copy).getByText('Copied')).toBeTruthy();
-    // The name does not change with the picture: it is still the same action.
+    // Same action, so the name stays.
     expect(copy.getAttribute('aria-label')).toBe('Copy all links');
     await waitFor(
       () => expect(copy.getAttribute('data-second-face-shown')).toBe('false'),
@@ -62,8 +60,7 @@ describe('Copy all links confirms in the button itself (KAN-221)', () => {
     );
   });
 
-  // A screen reader cannot see the swap, so the words are still announced --
-  // from a status region, no longer from a floating toast.
+  // A screen reader cannot see the swap, so a status region announces it.
   test('the confirmation is announced, and no toast floats over the page', async () => {
     const user = userEvent.setup();
     stubClipboard();
@@ -95,8 +92,8 @@ describe('Reset looks unavailable while there is nothing to reset (KAN-221)', ()
     expect(reset().getAttribute('aria-disabled')).toBeNull();
   });
 
-  // aria-disabled, not disabled: it stays in the tab order and is announced as
-  // unavailable, where a disabled button silently vanishes from Tab.
+  // aria-disabled, not disabled: a disabled button silently leaves the tab
+  // order.
   test('it stays focusable', async () => {
     const user = userEvent.setup();
     await renderPage();

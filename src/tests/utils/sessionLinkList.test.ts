@@ -14,15 +14,8 @@ import type {
   windowGroupData,
 } from '../../redux/slices/tabContainerDataStateSlice';
 
-// KAN-190 made "Copy all links" readable: the session, a block per window, a
-// "Title (URL)" line per tab. On a real 47-tab session it was not (KAN-195):
-// a tweet-length title and its URL fused into one paragraph, Chrome groups
-// vanished, suspended tabs copied as chrome-extension:// wrappers, and titles
-// carried notification counts like "(3)".
-//
-// Picked from a mock built on that session: the clipboard carries a RICH list
-// for editors that read HTML and a PLAIN layout for everything else, and both
-// get two clean-ups.
+// The clipboard carries a rich list for editors that read HTML and a plain
+// layout for everything else; both unwrap suspended tabs and drop "(3)" counts.
 
 const tab = (overrides: Partial<tabData> = {}): tabData => ({
   tabId: 't',
@@ -55,8 +48,8 @@ const strings: LinkListStrings = {
   locale: 'en',
 };
 
-// A loose tab, a Chrome group of two, and a second window: the shape every
-// layout rule below has to hold.
+// A loose tab, a Chrome group of two, and a second window: the shape every rule
+// must hold.
 const KYOTO = buildSession({
   title: 'Weekend in Kyoto',
   windows: [
@@ -94,8 +87,7 @@ const KYOTO = buildSession({
 });
 
 describe('the plain text on the clipboard (KAN-195)', () => {
-  // A tab starts with a dash on its own line and its URL sits indented under
-  // it, so a title of any length wraps without swallowing the link.
+  // The URL on its own line lets a long title wrap without swallowing the link.
   test('each tab is a dash and its title, with its URL on the next line; groups and windows are blocks', () => {
     expect(sessionToLinkList(KYOTO, strings)).toBe(
       [
@@ -119,8 +111,7 @@ describe('the plain text on the clipboard (KAN-195)', () => {
     );
   });
 
-  // Only the LABEL is cased, and by the locale: a window title is the user's
-  // own words and keeps its case.
+  // A window title is the user's own words and keeps its case.
   test('the window label is upper-cased for the locale, the window title is not', () => {
     const text = sessionToLinkList(
       buildSession({ windows: [window('Reise nach Kyoto', [tab()])] }),
@@ -157,8 +148,7 @@ describe('the plain text on the clipboard (KAN-195)', () => {
     expect(text).not.toMatch(/\n\n\n/);
   });
 
-  // An unnamed group is a real Chrome state; its heading is its size alone,
-  // not an empty name followed by brackets.
+  // An unnamed group is a real Chrome state.
   test('an unnamed group is headed by its tab count', () => {
     const text = sessionToLinkList(
       buildSession({
@@ -174,8 +164,7 @@ describe('the plain text on the clipboard (KAN-195)', () => {
     expect(text).toContain('\n  1 Tab\n    - Example Domain');
   });
 
-  // Carried over from KAN-190: the file's rule, a tab with no title is named
-  // by its URL, and that URL is not then printed a second time.
+  // Same rule as the exported file (KAN-190).
   test('a tab with no title is named by its URL, once', () => {
     const text = sessionToLinkList(
       buildSession({
@@ -192,7 +181,6 @@ describe('the plain text on the clipboard (KAN-195)', () => {
     expect(text.split('https://nameless.example/page')).toHaveLength(2);
   });
 
-  // Carried over from KAN-190: this is text, so a chrome:// tab is kept.
   test('a chrome:// tab is kept, because text is not a link', () => {
     const text = sessionToLinkList(
       buildSession({
@@ -227,9 +215,8 @@ describe('the rich list on the clipboard (KAN-195)', () => {
     );
   });
 
-  // Pasted into someone else's email, a link is something they will click. A
-  // saved javascript: or chrome:// address must never become one; it stays
-  // readable text, as the exported file already treats it.
+  // A pasted link is something the recipient will click; the exported file
+  // treats these the same way.
   test('only web addresses become links; anything else stays text', () => {
     const html = sessionToLinkHtml(
       buildSession({
@@ -303,8 +290,7 @@ describe('unwrapping a suspended tab (KAN-195)', () => {
     ).toBe('chrome://settings/?search=zoom');
   });
 
-  // The Marvellous Suspender form: uri= comes last in the hash, unencoded, so
-  // an & inside the address belongs to the address.
+  // The Marvellous Suspender form: an & after uri= belongs to the address.
   test('the hash form carries it, unencoded, in a trailing uri=', () => {
     expect(
       suspendedTabAddress(
@@ -350,8 +336,8 @@ describe('dropping a notification count (KAN-195)', () => {
   });
 });
 
-// KAN-202. The clean-ups moved to one step, run where the page loads the
-// session, so these feed the builders what the page feeds them.
+// KAN-202: the page tidies the session once on load, so these feed the builders
+// the same.
 describe('both clipboard versions get the clean-ups (KAN-195)', () => {
   const SUSPENDED = buildSession({
     windows: [

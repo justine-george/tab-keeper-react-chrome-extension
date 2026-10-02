@@ -7,12 +7,8 @@ import type {
   windowGroupData,
 } from '../../redux/slices/tabContainerDataStateSlice';
 
-// KAN-202. KAN-195 added two clean-ups and I scoped them to Copy alone, so the
-// document people actually share still carried "(3)" in front of titles and
-// the tab-suspender's chrome-extension:// wrapper instead of the address it
-// stands for. The session is tidied ONCE, when the page loads it, so the
-// editor, the preview, the saved file, the PDF and both clipboard versions
-// show the same text -- and an explicit rename still wins over it.
+// KAN-202. Tidied once, at load, so every output shows the same text; a rename
+// still wins.
 
 const tab = (overrides: Partial<tabData> = {}): tabData => ({
   tabId: 't',
@@ -57,8 +53,8 @@ describe('tidying a session for export (KAN-202)', () => {
     expect(tidy.windows[0].tabs[0].url).toBe('chrome://extensions/');
   });
 
-  // The guards of both clean-ups still hold, and nothing else is touched: no
-  // deduplication, no tracking parameters stripped, no site suffix trimmed.
+  // Only tab titles and URLs are tidied: no dedup, no tracking-param or
+  // site-suffix stripping.
   test('everything else is left exactly as saved', () => {
     const session = buildSession({
       title: '(2) My session',

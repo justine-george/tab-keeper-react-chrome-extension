@@ -7,18 +7,8 @@ import { renderWithProviders } from '../setup/renderWithProviders';
 import { buildContainer, buildSession } from '../fixtures/sessionFixture';
 import { replaceState } from '../../redux/slices/tabContainerDataStateSlice';
 
-// KAN-194. The export page gets an Edit mode, picked from live mocks:
-//
-// - Rows: every title is a field where it sits, with an eye at the row end. A
-//   hidden row stays in place, faded, and the same control brings it back.
-// - Toolbar: while editing, the look choices and all three outputs step aside
-//   for a tally, Reset and Done. Nothing leaves the page from the editing
-//   form, only from the file preview.
-// - After closing: nothing is stored. Closing with edits pending asks first.
-//
-// sessionExportEdits.test.ts holds WHAT an edit does to the document. This
-// holds the wiring: that the page applies the edits to every output, and
-// never to the saved session.
+// The wiring: edits reach every output and never the saved session.
+// What an edit does to the document is in sessionExportEdits.test.ts.
 
 const SESSION = buildSession({
   tabGroupId: 'session-kyoto',
@@ -101,8 +91,7 @@ const rename = async (user: User, fieldName: string, value: string) => {
   if (value) await user.type(field, value);
 };
 
-// Chrome asks before closing only when a beforeunload listener cancels the
-// event, so "does the page ask?" is "was the event cancelled?".
+// Chrome asks before closing only when beforeunload is cancelled.
 const closingAsks = (): boolean => {
   const event = new Event('beforeunload', { cancelable: true });
   window.dispatchEvent(event);
@@ -114,8 +103,8 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-// jsdom has no ClipboardItem. The page builds one per copy, so the fake keeps
-// what it was given, and the test reads both versions back out of it.
+// jsdom has no ClipboardItem; the fake keeps both versions for the test to
+// read.
 class FakeClipboardItem {
   constructor(readonly items: Record<string, Blob>) {}
 }
@@ -144,8 +133,7 @@ describe('Edit mode on the export page (KAN-194)', () => {
     expect(
       screen.getByRole('textbox', { name: 'Rename tab: Fushimi Inari' })
     ).toBeTruthy();
-    // Nothing leaves the page from the editing form: no preview to print, and
-    // none of the outputs or look choices.
+    // Nothing leaves the page from the editing form.
     expect(document.querySelector('iframe')).toBeNull();
     for (const name of [
       'Copy all links',
@@ -169,7 +157,6 @@ describe('Edit mode on the export page (KAN-194)', () => {
 
     expect(preview()).toContain('Inari shrine');
     expect(preview()).not.toContain('Fushimi Inari');
-    // The link still goes where it went.
     expect(preview()).toContain('https://inari.jp/en/');
   });
 
@@ -326,8 +313,8 @@ describe('Edit mode on the export page (KAN-194)', () => {
     }
   });
 
-  // The edits are for this export. The popup owns renaming, with undo and
-  // sync; a second writer in another tab would have neither.
+  // The popup owns renaming, with undo and sync; a second writer would have
+  // neither.
   test('the saved session is never changed', async () => {
     const user = userEvent.setup();
     const { store } = await renderPage();
@@ -357,7 +344,7 @@ describe('closing the page with edits pending (KAN-194)', () => {
     await user.click(screen.getByRole('button', { name: 'Hide: Food' }));
 
     expect(closingAsks()).toBe(true);
-    // Still true once the file is showing again: Done does not keep anything.
+    // Done keeps nothing, so closing still asks.
     await user.click(screen.getByRole('button', { name: 'Done' }));
     expect(closingAsks()).toBe(true);
   });
@@ -373,8 +360,6 @@ describe('closing the page with edits pending (KAN-194)', () => {
     expect(closingAsks()).toBe(false);
   });
 
-  // Once the edited file is on disk, "changes you made may not be saved" is
-  // false. A further edit makes it true again.
   test('after saving the edited file, closing does not ask until the next edit', async () => {
     const user = userEvent.setup();
     vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:edited');
@@ -393,21 +378,15 @@ describe('closing the page with edits pending (KAN-194)', () => {
   });
 });
 
-// Picked from mocks (option A): the page names its mode in one place, a small
-// label above the session title -- "Preview" at rest, "Editing" while editing.
-// The header only repeated the title the file shows below it, so nothing said
-// the page was the file rather than the app; and "Editing" moved out of the
-// toolbar, which now holds only the tally, Reset and Done.
 describe('the page names its mode above the title (KAN-194)', () => {
-  // The smallest box holding both: for a label beside the title it is the
-  // title block; for a label out in the toolbar it is the whole header.
+  // The smallest box holding both; it reaches the toolbar only if the label
+  // does.
   const sharedBox = (a: Element, b: Element): Element => {
     let box: Element = a;
     while (!box.contains(b)) box = box.parentElement!;
     return box;
   };
-  // The header's title. While editing the title also sits in the editor's
-  // field, whose text node matches too, so the span is picked by tag.
+  // While editing, the editor's field matches the title text too.
   const headerTitle = () =>
     screen
       .getAllByText('Weekend in Kyoto')

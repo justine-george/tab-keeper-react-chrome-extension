@@ -11,15 +11,8 @@ import { setTheme, Theme } from '../../redux/slices/settingsDataStateSlice';
 import { DARKENHEIMER_THEME, LIGHT_THEME } from '../../hooks/useThemeColors';
 import { contrast } from '../setup/contrast';
 
-// KAN-218. The export toolbar's two pairs -- Layout and Colour -- were
-// segments marked by a line along the bottom of the pressed one (KAN-199).
-// Justine asked for the line to go and for something more playful. Each pair
-// is now a track with a knob that slides under the pressed option.
-//
-// What KAN-199 was protecting still holds: the fill alone said which segment
-// was pressed at 1.47:1 light and 1.28:1 dark, below the 3:1 a state cue
-// needs. The knob replaces the line as that cue, so its contrast is pinned
-// below exactly as the line's was.
+// The knob is the pressed-state cue (the fill alone is 1.47:1 light, 1.28:1
+// dark, under the 3:1 a state cue needs), so its contrast is pinned below.
 
 const SESSION = buildSession({
   tabGroupId: 'session-kyoto',
@@ -66,8 +59,7 @@ describe('each pair is a sliding knob (KAN-218)', () => {
     }
   });
 
-  // The knob repeats the labels, so it must not repeat them to a screen
-  // reader: each pair still announces exactly two buttons.
+  // The knob repeats the labels, so a screen reader must not hear it.
   test('each pair has one knob, hidden from assistive tech', async () => {
     await renderUnder(Theme.LIGHT);
 
@@ -99,8 +91,8 @@ describe('each pair is a sliding knob (KAN-218)', () => {
     expect(knobOf('Colour').getAttribute('data-sliding-knob')).toBe('dark');
   });
 
-  // Justine: the pair is a toggle, so a click anywhere on it -- the knob
-  // included -- flips it. Clicking the pressed option is the click on the knob.
+  // A pointer click anywhere flips the pair; the knob sits on the pressed
+  // option.
   test('pressing the pressed option flips the pair', async () => {
     const user = userEvent.setup();
     await renderUnder(Theme.LIGHT);
@@ -118,14 +110,9 @@ describe('each pair is a sliding knob (KAN-218)', () => {
     await waitFor(() => expect(frame()).not.toBe(compactFile));
   });
 
-  // KAN-225. The pointer flip above is a toggle; to a screen reader the pair
-  // is two toggle buttons. Focusing "Compact, toggle button, pressed" and
-  // pressing Space must not select Comfortable -- that is an action on one
-  // control changing another, announced as nothing at all. So keyboard
-  // activation of the PRESSED option does nothing, the ordinary segmented
-  // control contract, while the pointer keeps its flip. The browser tells
-  // the two apart: a keyboard or assistive click carries `detail === 0`, a
-  // pointer click its click count.
+  // KAN-225. To a screen reader these are two toggle buttons, so Space on the
+  // pressed one must not change the other. Keyboard clicks carry `detail ===
+  // 0`.
   test('keyboard activation of the pressed option leaves it pressed', async () => {
     const user = userEvent.setup();
     await renderUnder(Theme.LIGHT);
@@ -140,9 +127,8 @@ describe('each pair is a sliding knob (KAN-218)', () => {
     expect(knobOf('Layout').getAttribute('data-sliding-knob')).toBe('compact');
   });
 
-  // CONTROL: the keyboard still SELECTS. Only the no-op on an already-pressed
-  // option is new; a keyboard that could not change the pair at all would
-  // pass the test above.
+  // CONTROL: a keyboard that could not change the pair at all would pass the
+  // test above.
   test('CONTROL: keyboard activation of the other option selects it', async () => {
     const user = userEvent.setup();
     await renderUnder(Theme.LIGHT);
@@ -160,15 +146,13 @@ describe('each pair is a sliding knob (KAN-218)', () => {
     expect(knobOf('Colour').getAttribute('data-sliding-knob')).toBe('dark');
   });
 
-  // The knob's copy of a glyph is filled; the button's own is outlined. The
-  // font carries the FILL axis for this (fetch_fonts.mjs); the browser test
-  // measures the ink.
+  // The font carries the FILL axis (fetch_fonts.mjs); the browser test measures
+  // the ink.
   test('the knob draws glyphs filled, the buttons draw them outlined', async () => {
     await renderUnder(Theme.LIGHT);
 
-    // Icon puts a caller's style on its outer box, two levels above the glyph,
-    // and the axis inherits from there; jsdom does not compute inheritance, so
-    // this walks up to the root it was given.
+    // The axis is set two levels up and inherited, which jsdom does not
+    // compute.
     const fillOf = (glyph: Element, root: Element) => {
       for (
         let el: Element | null = glyph;
@@ -197,8 +181,8 @@ describe('each pair is a sliding knob (KAN-218)', () => {
   });
 });
 
-// The numbers the knob exists for, from the same function the component paints
-// with. The rendered colours are measured again in session-export.spec.
+// From the function the component paints with; session-export.spec measures the
+// render.
 describe('the knob reads on both page palettes (KAN-218)', () => {
   test.each([
     ['light', LIGHT_THEME],
@@ -215,12 +199,10 @@ describe('the knob reads on both page palettes (KAN-218)', () => {
       typeof v === 'number' ? Number(v.toFixed(2)) : v
     );
 
-    // The state cue itself: 3:1, as KAN-199's line had to clear.
+    // Text 4.5:1; state cue and glyphs (graphics) 3:1.
     expect(ratios.knobOnTrack, report).toBeGreaterThanOrEqual(3);
-    // Words are text, so 4.5:1 wherever they sit.
     expect(ratios.labelOnKnob, report).toBeGreaterThanOrEqual(4.5);
     expect(ratios.wordOnTrack, report).toBeGreaterThanOrEqual(4.5);
-    // Glyphs are graphics: 3:1.
     expect(ratios.glyphOnTrack, report).toBeGreaterThanOrEqual(3);
   });
 });

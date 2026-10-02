@@ -7,10 +7,8 @@ import { renderWithProviders } from '../setup/renderWithProviders';
 import { buildContainer, buildSession } from '../fixtures/sessionFixture';
 import { replaceState } from '../../redux/slices/tabContainerDataStateSlice';
 
-// KAN-202. The clean-ups ran on the clipboard only, so the document people
-// share still said "(3) Rive on X" and carried the suspender extension's
-// wrapper instead of the address it stands for. They now run once, where the
-// page loads the session, so the editor and every output agree.
+// KAN-202. Tidied once, where the page loads the session, so the editor and
+// every output agree.
 
 const SUSPENDED =
   'chrome-extension://laameccjpleogmfhilmffpdbiibgbekf/suspended.html?title=Extensions&url=chrome%3A%2F%2Fextensions%2F&time=1';
