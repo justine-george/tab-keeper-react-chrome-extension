@@ -841,7 +841,7 @@ interface NameContrast {
  * opaque background among its ancestors -- or, in the editor, a group's band,
  * which is an absolutely placed SIBLING layer (`data-group-band`), not an
  * ancestor. Without the band a name in a group would be measured against the
- * page, the lighter-contrast ground it does not sit on.
+ * page, the higher-contrast ground it does not sit on.
  * Self-contained: Playwright serialises it into the page.
  */
 function nameContrasts(elements: Element[]): NameContrast[] {
@@ -881,7 +881,7 @@ function nameContrasts(elements: Element[]): NameContrast[] {
     return {
       name: el instanceof HTMLInputElement ? el.value : el.textContent ?? '',
       inGroup: ground.inGroup,
-      ratio: Math.round(((a + 0.05) / (b + 0.05)) * 1000) / 1000,
+      ratio: (a + 0.05) / (b + 0.05),
     };
   });
 }
@@ -920,7 +920,9 @@ for (const theme of ['Light', 'Darkenheimer'] as const) {
       ['Launch checklist.pdf', false],
     ]);
     for (const row of inFile) {
-      expect.soft(row.ratio, `file: ${row.name}`).toBeGreaterThanOrEqual(4.5);
+      expect
+        .soft(row.ratio, `file: ${row.name}, ${row.ratio.toFixed(3)}:1`)
+        .toBeGreaterThanOrEqual(4.5);
     }
 
     await exportPage.getByRole('button', { name: 'Edit' }).click();
@@ -938,7 +940,9 @@ for (const theme of ['Light', 'Darkenheimer'] as const) {
       ['Launch checklist.pdf', false],
     ]);
     for (const row of inEditor) {
-      expect.soft(row.ratio, `editor: ${row.name}`).toBeGreaterThanOrEqual(4.5);
+      expect
+        .soft(row.ratio, `editor: ${row.name}, ${row.ratio.toFixed(3)}:1`)
+        .toBeGreaterThanOrEqual(4.5);
     }
   });
 }
