@@ -5636,3 +5636,48 @@ test.describe('a carry’s room follows the session it shows (KAN-366 Q4)', () =
     await page.mouse.up();
   });
 });
+
+// KAN-378 C. While a New window target is lit, the room the row leaves is
+// not outlined: next to the lit box it read as the landing.
+test.describe('no room outline while a New window target is lit (KAN-378)', () => {
+  const SOLO = () =>
+    session('S1', 'Source', [
+      win(
+        'w1',
+        [tab('a0'), tab('a1'), tab('s0', 'solo'), tab('a2')],
+        [{ groupId: 'solo', title: 'Solo', color: 'red' }]
+      ),
+      win('w2', [tab('b0'), tab('b1')]),
+    ]);
+  const outline = (page: Page) => page.locator('[data-drag-source-room]');
+
+  test('a group’s only tab held below the list: lit, no outline', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId, [SOLO(), S2()]);
+    const y = await belowTheList(page, 'w2');
+    const at = await pickUp(page, tabHandle(page, 's0'));
+    await page.mouse.move(at.x, y, { steps: 10 });
+    await settled(page);
+    // PREMISE: lit.
+    expect(await trailingLit(page)).toBe(true);
+    await expect(outline(page)).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+  });
+
+  test('CONTROL: held over another window, the outline is drawn', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId, [SOLO(), S2()]);
+    const b0 = await boxOf(tabHandle(page, 'b0'));
+    const at = await pickUp(page, tabHandle(page, 's0'));
+    await page.mouse.move(at.x, b0.y + 4, { steps: 10 });
+    await settled(page);
+    await expect(outline(page)).toHaveCount(1);
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+  });
+});
