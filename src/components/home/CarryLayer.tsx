@@ -236,9 +236,7 @@ export function CarryLayer() {
     }
   }, [tabGroups, carried, clicks]);
 
-  // A search started mid-carry (only the keyboard can do that) ends the carry:
-  // nothing saved takes a carry while searching (KAN-385). Cancelled as a
-  // removed item is, with the press still down.
+  // A search started mid-carry cancels it: nothing saved takes a carry then.
   const { isSearching } = useSavedSearch();
   useEffect(() => {
     if (carried !== null && isSearching) {

@@ -43,8 +43,7 @@ export default function UserInputContainer() {
     // stops it from running at all once this effect unmounts.
     let cancelled = false;
 
-    // The name an empty save uses is cleaned like any derived title: a
-    // "(3) Gmail" badge is stale the moment it is saved.
+    // A "(3) Gmail" badge is stale the moment it is saved.
     function cleanSuggestion(title: string | undefined): string {
       return title ? dropNotificationCount(title) : t('New Tab Group');
     }

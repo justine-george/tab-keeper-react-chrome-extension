@@ -6,8 +6,8 @@ import { isInEditableField } from '../home/rightpane/rowDrag/dropRules';
 export const SEARCH_SHORTCUT_KEY = '/';
 
 /**
- * Whether a keydown is the `/` that focuses Open now's search (KAN-330
- * O14b). Not in a text field (it types a slash there), not with a modifier,
+ * Whether a keydown is the `/` that focuses a pane's search (KAN-330
+ * O14b, K1). Not in a text field (it types a slash there), not with a modifier,
  * not on a repeat, not while a modal <dialog> is open (the page behind it is
  * inert), and not while a row is held: a search starting mid-drag would
  * change the list under the pointer (D12).

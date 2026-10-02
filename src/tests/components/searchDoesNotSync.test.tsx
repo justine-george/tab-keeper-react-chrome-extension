@@ -12,7 +12,7 @@ import { IS_DIRTY_ACTION } from '../../utils/constants/actionTypes';
 // KAN-35, the search half. Typing never marks the store dirty by itself --
 // `setSearchInputText` is not a capturable action. It reached the network
 // indirectly: TabGroupEntryContainer selects the first filtered result on every
-// keystroke (the effect keyed on [searchInputText]), and selection used to mark
+// keystroke (the effect keyed on the search term), and selection used to mark
 // the store dirty.
 //
 // This is the user-visible statement of the ticket, and it is deliberately an

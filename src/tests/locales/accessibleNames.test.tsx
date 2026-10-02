@@ -70,7 +70,7 @@ const HARDCODED_ARIA_ATTR = /aria-label="([^"]*)"/g;
 // the same defect as a hardcoded ariaLabel and was invisible here only because
 // this prop was not scanned.
 //
-// `value={t('Empty')}`, `value={title}` and TextBox's `value={searchInput}`
+// `value={t('Empty')}`, `value={title}` and TextBox's `value={value}`
 // do not match: the pattern requires a quoted literal, and every `value` that
 // carries live data is an expression.
 const HARDCODED_VALUE = /\bvalue="([^"]*)"/g;

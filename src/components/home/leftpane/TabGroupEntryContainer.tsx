@@ -99,17 +99,7 @@ export default function TabGroupEntryContainer() {
 
   const filteredIds = filteredTabGroups.map((g) => g.tabGroupId).join('\u0000');
 
-  // Select the first match as the query narrows -- but only while a search is
-  // actually running.
-  //
-  // KAN-90. Clearing the search leaves the user on the match they found: with
-  // no search, this returns before touching the selection. Restoring the
-  // pre-search selection instead would need somewhere to remember it.
-  //
-  // The second guard keeps the selection when it still matches, so typing more
-  // of a query no longer walks the user back to the top of the results on
-  // every keystroke.
-  // Re-runs when the selected session drops out of the list under an unchanged term.
+  // While searching, keep a match selected; clearing leaves that match selected.
   useEffect(() => {
     if (!isSearching) return;
     if (filteredTabGroups.length === 0) return;
@@ -309,9 +299,7 @@ export default function TabGroupEntryContainer() {
   // Reduced motion draws no sweep; the session still opens after the wait.
   const reducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)');
 
-  // The list box: the search row, then the scroller. min-height: 0 lets it
-  // shrink in LeftPane's column (a scroll container's automatic minimum is 0;
-  // this box is not one).
+  // Search row, then scroller; min-height: 0 lets it shrink in its column.
   const listBoxStyle = css`
     display: flex;
     flex-direction: column;
@@ -322,8 +310,7 @@ export default function TabGroupEntryContainer() {
     user-select: none;
   `;
 
-  // The search row sits outside this, not sticky in it: the drag engine
-  // measures the scroller as all rows and auto-scrolls from its edges (O3a).
+  // The search row sits outside: the drag engine measures this as all rows.
   const scrollerStyle = css`
     display: flex;
     flex-direction: column;

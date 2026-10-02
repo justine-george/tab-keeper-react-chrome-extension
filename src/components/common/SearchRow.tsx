@@ -11,8 +11,7 @@ import { NON_INTERACTIVE_ICON_STYLE } from '../../utils/constants/common';
 import { ICON, TYPE } from '../../styles/scale';
 import { SEARCH_SHORTCUT_KEY } from './searchShortcut';
 
-// The header's action row height (8px + CONTROL.ROW), with 4px of space
-// under the divider before the first row.
+// The header's action row height (8px + CONTROL.ROW), then a 4px gap.
 const ROW_HEIGHT = '40px';
 const ROW_GAP = '4px';
 // An Icon's box. rem-based, so it follows Chrome's font size as rows do.
@@ -98,7 +97,7 @@ export default function SearchRow({
     margin-left: ${glassInset};
   `;
 
-  // TextBox's colours, no box: the list box is the frame. user-select: the pane's list sets none, and an input must stay selectable.
+  // TextBox's colours, no box; selectable in a user-select: none list.
   const inputStyle = css`
     flex: 1;
     min-width: 0;

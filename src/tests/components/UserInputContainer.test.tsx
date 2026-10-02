@@ -395,8 +395,8 @@ describe('a saved session always gets a name (KAN-84)', () => {
     }
   );
 
-  // THE CONTROL. Every case above lands on the active tab's title, so a save path that ignored the input entirely would pass
-  // them all. This proves a typed name is actually honoured.
+  // THE CONTROL. Every case above lands on the active tab's title, so a save
+  // path that ignored the input would pass them all.
   test('CONTROL: a typed name is used', async () => {
     const { store } = await typeNameAndSave('Research');
     expect(savedTitle(store)).toBe('Research');

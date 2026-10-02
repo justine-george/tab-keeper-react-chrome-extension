@@ -584,9 +584,8 @@ export default function OpenNowPane({
               fixedRowSelector="[data-fixed-row-id]"
               landingRange={drop.tabs.landingRange}
               acceptsWindow={drop.tabs.acceptsWindow}
-              // KAN-330 O14c: no row can be picked up while a search is held.
-              // The same rule as the saved pane's search (KAN-140), keyed on
-              // the term because Open now's field has no separate mode.
+              // KAN-330 O14c: no row can be picked up while a search is held,
+              // the same rule as the saved pane's search.
               disabled={searchTerm !== null}
             >
               <RowDragArea

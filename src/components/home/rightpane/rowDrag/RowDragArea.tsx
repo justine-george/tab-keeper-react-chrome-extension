@@ -1947,8 +1947,8 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     const onPointerDownCapture = () => clicks.onPointerDownCapture();
 
     // KAN-350. The carry an adopted drag belongs to ended some other way --
-    // the carried item was taken away (⌘Z, a delete), or the search panel
-    // opened. The drag goes with it, and commits nothing. The carry's end has
+    // the carried item was taken away (⌘Z, a delete), or a saved search
+    // started. The drag goes with it, and commits nothing. The carry's end has
     // already released the hold and the kind; the press is still down, so
     // its click is eaten when it is released, as after Esc.
     const unsubscribeCarry = subscribeCarry(() => {

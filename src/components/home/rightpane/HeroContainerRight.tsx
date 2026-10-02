@@ -448,7 +448,7 @@ export default function HeroContainerRight() {
               so opening one by hand between two presses cannot leave the
               control offering the opposite of what the pane needs. A boolean
               alternating on each press disagrees in exactly that case, which is
-              what collapseAllWindows.test.tsx pins.  */}
+              what collapseAllWindows.test.tsx pins. */}
           <Icon
             tooltipText={
               anyWindowOpen

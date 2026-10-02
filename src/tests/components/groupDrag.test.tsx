@@ -208,7 +208,7 @@ describe('which press starts which drag', () => {
 
   test('while searching a press on the title row starts nothing', async () => {
     const { container } = await render({ search: true });
-    // PREMISE: an open panel with an empty box still draws the rows (KAN-140).
+    // PREMISE: a search matching every row still draws the rows.
     // Without this, a missing row reads as "no drag" for the wrong reason.
     expect(
       container.querySelector(

@@ -219,9 +219,8 @@ export default function TabGroupDetailsContainer() {
 
   // KAN-131, one level up from the tab list. A live search narrows windows[]
   // as well as a window's tabs, so a drop index counted over the rendered
-  // windows would be applied to a longer stored array. KAN-140 widened the
-  // guard from "a query is narrowing something" to "the search panel is open"
-  // -- see TabGroupEntryContainer for why.
+  // windows would be applied to a longer stored array, so no window drags
+  // while searching.
 
   async function handleAddCurrTabToWindowClick(
     tabGroupId: string,
