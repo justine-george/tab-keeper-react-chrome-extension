@@ -128,12 +128,6 @@ export default function HeroContainerRight() {
     setIsEditing(true);
   };
 
-  const handleTabGroupTitleClick = () => {
-    if (!isSearching) {
-      startEditing();
-    }
-  };
-
   const handleBlur = () => {
     setIsEditing(false);
     if (selectedTabGroup.title !== editableTitle) {
@@ -254,7 +248,6 @@ export default function HeroContainerRight() {
     justify-content: space-between;
     align-items: flex-end;
     width: 100%;
-    ${isSearching && 'visibility: hidden;'}
   `;
 
   // KAN-361 (N1 B). While a saved tab or group is dragged -- in this session,
@@ -307,7 +300,7 @@ export default function HeroContainerRight() {
             width: 100%;
           `}
         >
-          {isEditing && !isSearching ? (
+          {isEditing ? (
             <input
               value={editableTitle}
               onBlur={handleBlur}
@@ -331,16 +324,6 @@ export default function HeroContainerRight() {
                 }
               `}
             />
-          ) : isSearching ? (
-            // Read-only while searching: the action block and the whole bottom
-            // row are `visibility: hidden` here, so exposing the title as a
-            // button would advertise the one action still on offer in a pane
-            // where nothing else can be done.
-            //
-            // This branch, not handleTabGroupTitleClick's own `!isSearching`
-            // check, is what makes that true now -- the handler is never wired
-            // here at all, so that check no longer has a reachable call site.
-            titleLabel
           ) : (
             // KAN-77. Click-to-rename used to be an onClick on the NormalLabel,
             // which renders a bare `<div onClick>` -- no role, no tab stop. The
@@ -350,7 +333,7 @@ export default function HeroContainerRight() {
             // Same `action + ': ' + target` shape as WindowEntryContainer:269.
             <ClickableRow
               ariaLabel={t('Rename session') + ': ' + title}
-              onClick={handleTabGroupTitleClick}
+              onClick={startEditing}
               // min-width: 0 is load-bearing. A <button> has `overflow:
               // visible`, so its `min-width: auto` does NOT collapse to zero
               // the way the bare label's did, and without this the title stops
@@ -372,7 +355,6 @@ export default function HeroContainerRight() {
               &:focus-within {
                 opacity: 1;
               }
-              ${isSearching && 'visibility: hidden;'}
             `}
           >
             {/* Editing swaps the pencil for a tick rather than leaving the
@@ -380,42 +362,41 @@ export default function HeroContainerRight() {
                 clicking away both already committed, but neither is an
                 affordance a pointer user can see -- "click somewhere else to
                 save" is not something an interface can ask of anyone. */}
-            {!isSearching &&
-              (isEditing ? (
-                // The wrapper exists to carry onMouseDown, which Icon does not
-                // expose. preventDefault keeps focus in the input so the tick
-                // does not blur it, which makes onClick below the SINGLE commit
-                // path rather than one of two racing ones (blur, then click).
-                //
-                // Measured: the wrapper alone is what stops the editor
-                // reopening -- without any wrapper, the tick unmounts on commit
-                // and the click retargets onto the pencil that replaced it. The
-                // preventDefault is pinned separately, by asserting the
-                // mousedown is defaultPrevented.
-                <span onMouseDown={(e) => e.preventDefault()}>
-                  <Icon
-                    tooltipText={t('Save changes')}
-                    ariaLabel={t('Save changes')}
-                    type="done"
-                    backgroundColor={COLORS.SECONDARY_COLOR}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleBlur();
-                    }}
-                  />
-                </span>
-              ) : (
+            {isEditing ? (
+              // The wrapper exists to carry onMouseDown, which Icon does not
+              // expose. preventDefault keeps focus in the input so the tick
+              // does not blur it, which makes onClick below the SINGLE commit
+              // path rather than one of two racing ones (blur, then click).
+              //
+              // Measured: the wrapper alone is what stops the editor
+              // reopening -- without any wrapper, the tick unmounts on commit
+              // and the click retargets onto the pencil that replaced it. The
+              // preventDefault is pinned separately, by asserting the
+              // mousedown is defaultPrevented.
+              <span onMouseDown={(e) => e.preventDefault()}>
                 <Icon
-                  tooltipText={t('Rename session')}
-                  ariaLabel={t('Rename session')}
-                  type="edit"
+                  tooltipText={t('Save changes')}
+                  ariaLabel={t('Save changes')}
+                  type="done"
                   backgroundColor={COLORS.SECONDARY_COLOR}
                   onClick={(e) => {
                     e.stopPropagation();
-                    startEditing();
+                    handleBlur();
                   }}
                 />
-              ))}
+              </span>
+            ) : (
+              <Icon
+                tooltipText={t('Rename session')}
+                ariaLabel={t('Rename session')}
+                type="edit"
+                backgroundColor={COLORS.SECONDARY_COLOR}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  startEditing();
+                }}
+              />
+            )}
           </div>
         </div>
         <NormalLabel
@@ -467,11 +448,7 @@ export default function HeroContainerRight() {
               so opening one by hand between two presses cannot leave the
               control offering the opposite of what the pane needs. A boolean
               alternating on each press disagrees in exactly that case, which is
-              what collapseAllWindows.test.tsx pins.
-
-              No isSearching guard: bottomStyle hides this whole row while
-              searching, and a second guard would be a second answer to one
-              question. */}
+              what collapseAllWindows.test.tsx pins.  */}
           <Icon
             tooltipText={
               anyWindowOpen
@@ -498,18 +475,20 @@ export default function HeroContainerRight() {
               )
             }
           />
-          <Icon
-            tooltipText={t('Open session')}
-            ariaLabel={t('Open session')}
-            type="reopen_window"
-            onClick={() => {
-              const goToURLText: string = t('Go to URL');
-              dispatch(openAllTabContainer({ tabGroupId, goToURLText }));
-            }}
-          />
+          {!isSearching && (
+            <Icon
+              tooltipText={t('Open session')}
+              ariaLabel={t('Open session')}
+              type="reopen_window"
+              onClick={() => {
+                const goToURLText: string = t('Go to URL');
+                dispatch(openAllTabContainer({ tabGroupId, goToURLText }));
+              }}
+            />
+          )}
           {/* KAN-279 D7. Switching closes the windows hosting Tab Keeper
               itself when this page IS the tab view, so hidden there. */}
-          {!isTabView() && (
+          {!isSearching && !isTabView() && (
             <Icon
               tooltipText={t('Switch to session')}
               ariaLabel={t('Switch to session')}
@@ -531,128 +510,132 @@ export default function HeroContainerRight() {
               a preview; and Delete stops sitting one mis-click from the two
               everyday actions. Deleting stays one menu away from recoverable:
               it is a captured action, so Undo restores it. */}
-          <OverflowMenu
-            ariaLabel={t('More actions')}
-            // The trigger sits near the START of the row, so the menu opens
-            // rightward, inside this pane. End-aligned, it crossed the pane
-            // divider and covered the session list.
-            align="start"
-            items={[
-              {
-                // KAN-209. The one output that needs no preview: Copy ignores
-                // the layout and colour choices the export page exists to
-                // offer, so reaching it through a new tab was a detour.
-                //
-                // FIRST, because it is the only item here that finishes where
-                // it started -- Export opens a tab, Delete changes the session
-                // -- so the menu reads cheap, heavier, destructive.
-                //
-                // TIDIED, exactly as the export page's Copy is (KAN-210).
-                // KAN-202's clean-ups -- dropping a site's notification count
-                // from a title, and unwrapping a suspended tab's real address
-                // -- are not a preview concern: they are wrong in anything
-                // anyone shares, whichever button produced it. This shipped
-                // passing the raw session, so the shortcut gave the worse of
-                // two answers for the same command.
-                //
-                // No edits applied: there is no preview here to respect, which
-                // is the only difference left between the two call sites.
-                key: 'copy',
-                label: t('Copy all links'),
-                icon: 'link',
-                onSelect: async () => {
-                  await copySessionLinks(
-                    tidySessionForExport(selectedTabGroup),
-                    t,
-                    i18n.language
-                  );
-                  // The clipboard says nothing of its own, and unlike the
-                  // export page there is no room here for an inline note.
-                  dispatch(
-                    showToast({
-                      toastText: TOAST_MESSAGES.COPY_LINKS_SUCCESS,
-                      duration: 3000,
-                    })
-                  );
+          {!isSearching && (
+            <OverflowMenu
+              ariaLabel={t('More actions')}
+              // The trigger sits near the START of the row, so the menu opens
+              // rightward, inside this pane. End-aligned, it crossed the pane
+              // divider and covered the session list.
+              align="start"
+              items={[
+                {
+                  // KAN-209. The one output that needs no preview: Copy ignores
+                  // the layout and colour choices the export page exists to
+                  // offer, so reaching it through a new tab was a detour.
+                  //
+                  // FIRST, because it is the only item here that finishes where
+                  // it started -- Export opens a tab, Delete changes the session
+                  // -- so the menu reads cheap, heavier, destructive.
+                  //
+                  // TIDIED, exactly as the export page's Copy is (KAN-210).
+                  // KAN-202's clean-ups -- dropping a site's notification count
+                  // from a title, and unwrapping a suspended tab's real address
+                  // -- are not a preview concern: they are wrong in anything
+                  // anyone shares, whichever button produced it. This shipped
+                  // passing the raw session, so the shortcut gave the worse of
+                  // two answers for the same command.
+                  //
+                  // No edits applied: there is no preview here to respect, which
+                  // is the only difference left between the two call sites.
+                  key: 'copy',
+                  label: t('Copy all links'),
+                  icon: 'link',
+                  onSelect: async () => {
+                    await copySessionLinks(
+                      tidySessionForExport(selectedTabGroup),
+                      t,
+                      i18n.language
+                    );
+                    // The clipboard says nothing of its own, and unlike the
+                    // export page there is no room here for an inline note.
+                    dispatch(
+                      showToast({
+                        toastText: TOAST_MESSAGES.COPY_LINKS_SUCCESS,
+                        duration: 3000,
+                      })
+                    );
+                  },
                 },
-              },
-              {
-                key: 'export',
-                label: t('Export session'),
-                icon: 'ios_share',
-                onSelect: () => {
-                  // Opening a tab takes focus, which destroys the popup.
-                  // Nothing may be sequenced after this call -- the whole
-                  // address is built first, so there is nothing left to do
-                  // when the context dies.
-                  chrome.tabs.create({
-                    url: chrome.runtime.getURL(
-                      `export.html?session=${encodeURIComponent(tabGroupId)}`
-                    ),
-                  });
+                {
+                  key: 'export',
+                  label: t('Export session'),
+                  icon: 'ios_share',
+                  onSelect: () => {
+                    // Opening a tab takes focus, which destroys the popup.
+                    // Nothing may be sequenced after this call -- the whole
+                    // address is built first, so there is nothing left to do
+                    // when the context dies.
+                    chrome.tabs.create({
+                      url: chrome.runtime.getURL(
+                        `export.html?session=${encodeURIComponent(tabGroupId)}`
+                      ),
+                    });
+                  },
                 },
-              },
-              {
-                key: 'delete',
-                label: t('Delete session'),
-                icon: 'delete',
-                danger: true,
-                onSelect: () => dispatch(deleteTabContainer(tabGroupId)),
-              },
-            ]}
-          />
+                {
+                  key: 'delete',
+                  label: t('Delete session'),
+                  icon: 'delete',
+                  danger: true,
+                  onSelect: () => dispatch(deleteTabContainer(tabGroupId)),
+                },
+              ]}
+            />
+          )}
         </div>
         <div
           css={css`
             display: flex;
           `}
         >
-          <Button
-            text={t('Add window')}
-            iconSize={ICON.SMALL}
-            tooltipText={t('Add current window')}
-            ariaLabel={t('Add window')}
-            // Not a bare plus. The left pane carries two plus-bearing controls
-            // -- `add_box` and `library_add` -- and both CREATE a session; this
-            // one appends to the session already on screen. Both of theirs are
-            // a plus inside a container, which is what makes them read as a
-            // pair; `playlist_add` has none, and says "add this to the list you
-            // are looking at", which is what a session is.
-            //
-            // Measured 79.7% / 81.1% distinct from those two (KAN-5's ink
-            // comparison), against the 54.1% they already measure from each
-            // other. A bare `add` scored 76.6% and was still the confusable one:
-            // the collision was in the meaning, which an ink metric cannot see.
-            iconType="playlist_add"
-            onClick={handleAddCurrWindowClick}
-            iconStyle={`
+          {!isSearching && (
+            <Button
+              text={t('Add window')}
+              iconSize={ICON.SMALL}
+              tooltipText={t('Add current window')}
+              ariaLabel={t('Add window')}
+              // Not a bare plus. The left pane carries two plus-bearing controls
+              // -- `add_box` and `library_add` -- and both CREATE a session; this
+              // one appends to the session already on screen. Both of theirs are
+              // a plus inside a container, which is what makes them read as a
+              // pair; `playlist_add` has none, and says "add this to the list you
+              // are looking at", which is what a session is.
+              //
+              // Measured 79.7% / 81.1% distinct from those two (KAN-5's ink
+              // comparison), against the 54.1% they already measure from each
+              // other. A bare `add` scored 76.6% and was still the confusable one:
+              // the collision was in the meaning, which an ink metric cannot see.
+              iconType="playlist_add"
+              onClick={handleAddCurrWindowClick}
+              iconStyle={`
               padding: 4px 4px 2px 4px;
             `}
-            // KAN-214. A tinted chip: no border, and a resting fill of its own,
-            // flush in the card's bottom-right corner so the fill runs to the
-            // card's border there. The chip variant carries the whole ladder --
-            // CHIP_COLOR at rest, the icon tokens for hover and press.
-            //
-            // History, because each step was a defect the next one fixed
-            // (KAN-213). It was a borderless HOVER_COLOR fill, 1.047:1 against
-            // this card and so invisible. Then an outlined box with no fill --
-            // `quiet`'s PRIMARY_COLOR had read as a raised bevel here, because
-            // this sits on a SECONDARY_COLOR card, not the page's ground. Now a
-            // chip at 1.20:1, not the 1.35:1 first picked: at 1.35 there was no
-            // room left above it for a visible hover and a readable press.
-            //
-            // Padding is the outlined version's plus the 1px top and left border
-            // it no longer draws, so the glyph, the label and the width all stay
-            // where they were: add-window-button.spec.ts pins 156.4 / 210 /
-            // 185.2 in en/de/ru. Height is pinned at 32px so the header -- and
-            // the 1 + 56 + 58 = 115 cross-pane line -- does not move.
-            variant="chip"
-            style={`
+              // KAN-214. A tinted chip: no border, and a resting fill of its own,
+              // flush in the card's bottom-right corner so the fill runs to the
+              // card's border there. The chip variant carries the whole ladder --
+              // CHIP_COLOR at rest, the icon tokens for hover and press.
+              //
+              // History, because each step was a defect the next one fixed
+              // (KAN-213). It was a borderless HOVER_COLOR fill, 1.047:1 against
+              // this card and so invisible. Then an outlined box with no fill --
+              // `quiet`'s PRIMARY_COLOR had read as a raised bevel here, because
+              // this sits on a SECONDARY_COLOR card, not the page's ground. Now a
+              // chip at 1.20:1, not the 1.35:1 first picked: at 1.35 there was no
+              // room left above it for a visible hover and a readable press.
+              //
+              // Padding is the outlined version's plus the 1px top and left border
+              // it no longer draws, so the glyph, the label and the width all stay
+              // where they were: add-window-button.spec.ts pins 156.4 / 210 /
+              // 185.2 in en/de/ru. Height is pinned at 32px so the header -- and
+              // the 1 + 56 + 58 = 115 cross-pane line -- does not move.
+              variant="chip"
+              style={`
               height: 32px;
               font-size: ${TYPE.SECONDARY};
               padding: 5px 6px 3px 3px;
             `}
-          />
+            />
+          )}
         </div>
         <div
           ref={newWindowTargetRef}

@@ -244,10 +244,6 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
         opacity: 1;
       }
     }
-    /* Left below the focus-within rule on purpose: during search these
-       controls do not apply, and visibility:hidden removes them from the tab
-       order as well as from view, so there is nothing inside to focus. */
-    ${isSearching && 'visibility: hidden;'}
   `;
 
   const childrenContainerStyle = css`
@@ -738,13 +734,11 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                 Editing: an <input> may not live inside a <button>; clicking it
                 would activate the button and it could not hold focus.
 
-                Searching: handleWindowClick is a no-op while isSearching, so
-                rendering a button here would be focusable and inert -- exactly
-                the KAN-62 defect this codebase just fixed. It renders as static
-                text instead.
+                Searching: opening the window is hidden, so a button here would be
+                focusable and inert (KAN-62). Static text instead.
 
                 Otherwise: a real button. */}
-            {isEditing && !isSearching ? (
+            {isEditing ? (
               // padding-right: 0 overrides parentLinkStyle's 9px, which exists
               // to keep the RESTING title clear of the action icons. While
               // editing there is no title to keep clear, and the reserved gap
@@ -800,7 +794,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
             )}
           </div>
           <div data-row-actions css={parentRightStyle}>
-            {isEditing && !isSearching ? (
+            {isEditing ? (
               // Same shape as the session tick: the wrapper carries the
               // onMouseDown that Icon does not expose, preventDefault keeps focus
               // in the input so onClick is the single commit path, and the
@@ -1019,7 +1013,6 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                     strip so it spans the whole group, as Chrome's does. */}
                   <GroupColorPicker
                     color={item.group.color}
-                    decorative={isSearching}
                     ariaLabel={
                       t('Change group color') +
                       ': ' +
@@ -1107,7 +1100,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                         }
                       `}
                     >
-                      {editingGroupId === item.group.groupId && !isSearching ? (
+                      {editingGroupId === item.group.groupId ? (
                         <input
                           value={groupDraft}
                           aria-label={renameGroupLabel(item.group)}
@@ -1185,97 +1178,96 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                           {groupTitleLabel(item.group)}
                         </ClickableRow>
                       )}
-                      {editingGroupId === item.group.groupId &&
-                        !isSearching && (
-                          // Same shape as the other two ticks: the wrapper stops
-                          // the post-commit click retargeting onto the pencil, and
-                          // preventDefault keeps focus in the input so onClick is
-                          // the single commit path.
-                          <span
-                            data-row-actions
-                            className="group-rename-reveal"
-                            css={css`
-                              position: absolute;
-                              top: 50%;
-                              right: 0;
-                              transform: translateY(-50%);
-                              opacity: 1;
-                              display: flex;
-                              align-items: center;
-                              z-index: 1;
-                            `}
-                            onMouseDown={(e) => e.preventDefault()}
-                          >
-                            <Icon
-                              tooltipText={t('Save changes')}
-                              ariaLabel={t('Save changes')}
-                              type="done"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                commitGroupRename(item.group);
-                              }}
-                            />
-                          </span>
-                        )}
-                      {editingGroupId !== item.group.groupId &&
-                        !isSearching && (
-                          // data-row-actions: hidden while any drag is in flight
-                          // (KAN-135). The held group's title row stays hovered
-                          // for the whole drag.
-                          <div
-                            data-row-actions
-                            className="group-rename-reveal"
-                            css={css`
-                              position: absolute;
-                              top: 50%;
-                              right: 0;
-                              transform: translateY(-50%);
-                              opacity: 0;
-                              transition: opacity ${DURATION.COLOR} ease-out;
-                              display: flex;
-                              align-items: center;
-                              /* Load-bearing, and only visible in a real browser.
+                      {editingGroupId === item.group.groupId && (
+                        // Same shape as the other two ticks: the wrapper stops
+                        // the post-commit click retargeting onto the pencil, and
+                        // preventDefault keeps focus in the input so onClick is
+                        // the single commit path.
+                        <span
+                          data-row-actions
+                          className="group-rename-reveal"
+                          css={css`
+                            position: absolute;
+                            top: 50%;
+                            right: 0;
+                            transform: translateY(-50%);
+                            opacity: 1;
+                            display: flex;
+                            align-items: center;
+                            z-index: 1;
+                          `}
+                          onMouseDown={(e) => e.preventDefault()}
+                        >
+                          <Icon
+                            tooltipText={t('Save changes')}
+                            ariaLabel={t('Save changes')}
+                            type="done"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              commitGroupRename(item.group);
+                            }}
+                          />
+                        </span>
+                      )}
+                      {editingGroupId !== item.group.groupId && (
+                        // data-row-actions: hidden while any drag is in flight
+                        // (KAN-135). The held group's title row stays hovered
+                        // for the whole drag.
+                        <div
+                          data-row-actions
+                          className="group-rename-reveal"
+                          css={css`
+                            position: absolute;
+                            top: 50%;
+                            right: 0;
+                            transform: translateY(-50%);
+                            opacity: 0;
+                            transition: opacity ${DURATION.COLOR} ease-out;
+                            display: flex;
+                            align-items: center;
+                            /* Load-bearing, and only visible in a real browser.
                              translateY above makes this element a STACKING
                              CONTEXT, which traps the overflow menu's own
                              z-index inside it -- the menu then painted behind
                              the tab rows below, which are later siblings with
                              position: relative. Lifting the context itself is
                              what puts the menu over them. */
-                              /* The row owning an open menu outranks its
+                            /* The row owning an open menu outranks its
                              siblings; see openMenuGroupId above. */
-                              z-index: ${openMenuGroupId === item.group.groupId
-                                ? 3
-                                : 1};
-                            `}
-                          >
-                            <Icon
-                              tooltipText={t('Rename group')}
-                              ariaLabel={t('Rename group')}
-                              type="edit"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                startEditingGroup(item.group);
-                              }}
-                            />
-                            {/* KAN-279 D13. Same reasoning as the window
+                            z-index: ${openMenuGroupId === item.group.groupId
+                              ? 3
+                              : 1};
+                          `}
+                        >
+                          <Icon
+                            tooltipText={t('Rename group')}
+                            ariaLabel={t('Rename group')}
+                            type="edit"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              startEditingGroup(item.group);
+                            }}
+                          />
+                          {/* KAN-279 D13. Same reasoning as the window
                                 row's Add current tab: meaningless in the tab
                                 view, so hidden there too. */}
-                            {!isTabView() && (
-                              <Icon
-                                tooltipText={t('Add current tab to group')}
-                                ariaLabel={t('Add current tab to group')}
-                                type="add"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  addCurrentTabToGroup(item.group);
-                                }}
-                              />
-                            )}
-                            {/* Ungroup and delete live behind the overflow rather
+                          {!isSearching && !isTabView() && (
+                            <Icon
+                              tooltipText={t('Add current tab to group')}
+                              ariaLabel={t('Add current tab to group')}
+                              type="add"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                addCurrentTabToGroup(item.group);
+                              }}
+                            />
+                          )}
+                          {/* Ungroup and delete live behind the overflow rather
                             than as two more icons: four 32px icons overlap a
                             long title from 125% zoom, and "Ungroup" is not a
                             concept named anywhere else in this UI, so it needs
                             a word rather than a glyph. */}
+                          {!isSearching && (
                             <OverflowMenu
                               ariaLabel={t('More actions')}
                               // Guarded on identity rather than assigning blindly:
@@ -1321,8 +1313,9 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                                 },
                               ]}
                             />
-                          </div>
-                        )}
+                          )}
+                        </div>
+                      )}
                     </div>
                     <div data-group-tabs>
                       {item.tabs.map((tabItem) => (
