@@ -431,7 +431,6 @@ describe('the empty-save name recomputes on visibility, but only in the tab view
     );
     await act(async () => {});
     const nameBox = screen.getByRole('textbox');
-    await userEvent.clear(nameBox);
     await userEvent.type(nameBox, 'My own title');
 
     chromeHandle.simulateBrowserTabChange(12, { lastAccessed: 999 });
@@ -454,7 +453,6 @@ describe('the empty-save name recomputes on visibility, but only in the tab view
     );
     await act(async () => {});
     const nameBox = screen.getByRole('textbox');
-    await userEvent.clear(nameBox);
     await userEvent.type(nameBox, 'Mail');
 
     chromeHandle.simulateBrowserTabChange(12, { lastAccessed: 999 });
@@ -536,6 +534,7 @@ describe('the empty-save name tracks the current tab (KAN-299)', () => {
       { seed: tabViewSeed }
     );
     await act(async () => {});
+    const nameBox = screen.getByRole('textbox');
 
     // Mail (12) overtakes Docs (11) as the most recently used OTHER tab,
     // while the box sits empty.
@@ -545,6 +544,9 @@ describe('the empty-save name tracks the current tab (KAN-299)', () => {
     // Flushes the visibility handler's own awaits so its refresh of
     // currentTabName has had the chance to land before Save is clicked.
     await act(async () => {});
+    // The suggestion follows the tab without ever landing in the field.
+    expect(nameBox).toHaveValue('');
+
     await clickSaveCurrentWindow();
 
     const { tabGroups } = store.getState().tabContainerDataState;
@@ -562,7 +564,6 @@ describe('the empty-save name tracks the current tab (KAN-299)', () => {
     );
     await act(async () => {});
     const nameBox = screen.getByRole('textbox');
-    await userEvent.clear(nameBox);
     await userEvent.type(nameBox, 'My own title');
 
     chromeHandle.simulateBrowserTabChange(12, { lastAccessed: 999 });

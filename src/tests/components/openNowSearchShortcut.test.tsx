@@ -118,13 +118,11 @@ describe('/ focuses the search (O14b)', () => {
     installMatchMedia(false);
     await renderHome(false);
     const nameBox = screen.getByPlaceholderText<HTMLInputElement>(
-      'Save all open windows as a session'
+      'Name the new session'
     );
     const user = userEvent.setup();
     await user.type(nameBox, 'a/b');
-    // The box fills in a suggested name on focus, so the slash is checked by
-    // where it landed, not by the whole value.
-    expect(nameBox.value).toMatch(/a\/b$/);
+    expect(nameBox.value).toBe('a/b');
     expect(document.activeElement).toBe(nameBox);
   });
 

@@ -58,6 +58,33 @@ describe('UserInputContainer', () => {
     );
   });
 
+  // N2. The tab title is the name an empty save falls back to; it is not put
+  // in the field, which shows its placeholder instead.
+  test('the name field starts empty and shows the placeholder', async () => {
+    await renderWithProviders(<UserInputContainer />, { seed });
+    await act(async () => {});
+
+    const field = screen.getByPlaceholderText('Name the new session');
+    expect(field).toHaveValue('');
+    expect(screen.getByRole('textbox')).toBe(field);
+  });
+
+  test('a save with the field empty names the session after the active tab', async () => {
+    const { store } = await renderWithProviders(<UserInputContainer />, {
+      seed,
+    });
+    await act(async () => {});
+
+    await userEvent.click(
+      screen.getByLabelText('Save all open windows as a session')
+    );
+
+    expect(store.getState().tabContainerDataState.tabGroups[0].title).toBe(
+      'Kagi Search'
+    );
+    expect(screen.getByRole('textbox')).toHaveValue('');
+  });
+
   test('saving dispatches a session built from the open windows', async () => {
     const { store, seen } = await renderWithProviders(<UserInputContainer />, {
       seed,

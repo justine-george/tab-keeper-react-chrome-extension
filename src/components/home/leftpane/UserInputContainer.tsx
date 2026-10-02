@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { useDispatch } from 'react-redux';
 
@@ -33,16 +33,6 @@ export default function UserInputContainer() {
   const [newTitle, setNewTitle] = useState<string>('');
   const [currentTabName, setCurrentTabName] = useState<string>('');
 
-  // KAN-299. Mirrors of `newTitle` and the last suggestion this component
-  // applied, kept for the visibility handler below -- it is defined inside a
-  // mount-once effect (deliberately: see that effect's own comment), so a
-  // plain closure over `newTitle`/`currentTabName` would forever see their
-  // FIRST-render values. Both refs are written in lockstep with the state
-  // they mirror (updateUserInput for the box, applySuggestion for the
-  // suggestion), so there is nothing for the two sources to drift apart on.
-  const boxValueRef = useRef<string>('');
-  const lastSuggestionRef = useRef<string>('');
-
   useEffect(() => {
     // Guards loadSuggestion below against setting state after this
     // component has unmounted -- its query crosses an await, and a popup
@@ -53,14 +43,8 @@ export default function UserInputContainer() {
     // stops it from running at all once this effect unmounts.
     let cancelled = false;
 
-    // KAN-211/KAN-279 D15. The name box is a SUGGESTION, so it is cleaned like
-    // any other derived title -- offering "(3) Gmail" as a session name
-    // proposes storing a badge that is stale the moment it is saved. What the
-    // user then types is theirs and is never touched. Translated, so this
-    // agrees with createTabGroup's last-resort fallback below (KAN-84):
-    // leaving one of the two as a bare literal would show a German user "New
-    // Tab Group" prefilled while storing the translated name, or the reverse,
-    // depending on which path ran.
+    // The name an empty save uses is cleaned like any derived title: a
+    // "(3) Gmail" badge is stale the moment it is saved.
     function cleanSuggestion(title: string | undefined): string {
       return title ? dropNotificationCount(title) : t('New Tab Group');
     }
@@ -97,10 +81,7 @@ export default function UserInputContainer() {
     async function loadSuggestion() {
       const suggested = cleanSuggestion(await fetchSuggestedTitle());
       if (cancelled) return;
-      boxValueRef.current = suggested;
-      lastSuggestionRef.current = suggested;
       setCurrentTabName(suggested);
-      setNewTitle(suggested);
     }
 
     loadSuggestion();
@@ -120,39 +101,8 @@ export default function UserInputContainer() {
       if (document.visibilityState !== 'visible') return;
       const suggested = cleanSuggestion(await fetchSuggestedTitle());
 
-      // KAN-299. `currentTabName` is createTabGroup's FALLBACK, read only
-      // once the box itself is empty -- so it has to keep tracking the
-      // current tab whether or not the box below gets overwritten.
-      // Unconditional: without this, clearing the box (a deliberate choice
-      // the guard below respects) left a save reading a suggestion this
-      // effect gave hours earlier, from whatever tab happened to be most
-      // recently used back at MOUNT.
+      // The name an empty save uses must follow the current tab.
       setCurrentTabName(suggested);
-
-      // The box, unlike the fallback above, is guarded: only replaced when
-      // nothing has touched it since the last suggestion this effect
-      // applied TO THE BOX. `boxValueRef` tracks the box's live value
-      // (updated on every keystroke by updateUserInput) and
-      // `lastSuggestionRef` the last suggestion this effect actually wrote
-      // into it -- the two agree only when nothing has touched the box
-      // since, which is the one case it is safe to replace.
-      //
-      // Both refs must move together, inside this branch, or not at all.
-      // Writing `lastSuggestionRef` UNCONDITIONALLY -- even when this guard
-      // declines to touch the box -- lets it drift ahead of `boxValueRef`.
-      // Repro: the user types "Mail"; Mail becomes most recent and the page
-      // goes visible (the guard correctly declines, but `lastSuggestionRef`
-      // still moves to "Mail", coincidentally matching what the user typed);
-      // Docs becomes most recent and the page goes visible again -- the two
-      // refs now spuriously agree ("Mail" === "Mail"), so the guard
-      // WRONGLY treats the box as untouched and overwrites the user's text
-      // with "Docs". A separate "dirty" boolean could drift from the box the
-      // same way; these two refs ARE the fact, but only if they move as one.
-      if (boxValueRef.current === lastSuggestionRef.current) {
-        boxValueRef.current = suggested;
-        lastSuggestionRef.current = suggested;
-        setNewTitle(suggested);
-      }
     }
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -171,7 +121,6 @@ export default function UserInputContainer() {
   }, []);
 
   function updateUserInput(e: React.ChangeEvent<HTMLInputElement>) {
-    boxValueRef.current = e.target.value;
     setNewTitle(e.target.value);
   }
 
@@ -246,7 +195,7 @@ export default function UserInputContainer() {
         id="name"
         name="name"
         value={newTitle}
-        placeholder={t('Save all open windows as a session')}
+        placeholder={t('Name the new session')}
         autoComplete="off"
         onChange={updateUserInput}
         onKeyEnter={
@@ -276,12 +225,6 @@ export default function UserInputContainer() {
           used to live here measured 75% distinct, and the pair before that
           52% -- which is what "twins" looks like as a number. Re-measure
           before putting any second glyph back in this box.
-
-          The tooltip has its own key rather than borrowing the placeholder's,
-          even though both describe the same operation: the placeholder is
-          squeezed into a 231px field and several locales shortened it to fit
-          -- German drops "alle" and French drops "toutes", the very word that
-          has to survive here.
 
           Labels instead of a glyph would beat icons outright and do not fit:
           the row is 339px and the German pair alone needed 318px of it. A menu
