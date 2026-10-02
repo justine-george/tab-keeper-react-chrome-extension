@@ -1401,6 +1401,45 @@ test.describe('the looks (D1 A, D2 A, S1 A)', () => {
     });
   }
 
+  // KAN-382. CONTROL: S4, never the origin or the target, is ground all along.
+  for (const theme of ['Light', 'Darkenheimer']) {
+    test(`the origin row keeps a dashed outline after another session opens (${theme})`, async ({
+      context,
+      extensionId,
+    }) => {
+      await seedSettings(context, { theme });
+      const page = await openPopup(context, extensionId);
+      const at = await pickUp(page, tabHandle(page, 'a1'));
+      await carryOutLeft(page, at);
+      await springOpen(page, 'S3');
+      // Off the rows, so no hover touches S1 or S4.
+      await page.mouse.move(at.x - 40, (await boxOf(sessionRow(page, 'S3'))).y);
+      const edge = async (id: string) => {
+        const r = await boxOf(sessionRow(page, id));
+        const xs = Array.from({ length: 60 }, (_, i) => r.x + 8 + i * 2);
+        return pixelsAt(page, [
+          ...xs.map((x): [number, number] => [x, r.y + 1]),
+          [r.x + r.width / 2, r.y + 8],
+        ]);
+      };
+      const s1 = await edge('S1');
+      const s4 = await edge('S4');
+      const ground = s1[s1.length - 1];
+      // PREMISE: S1 is no longer shown, so its ground is S4's.
+      expect(s4[s4.length - 1]).toBe(ground);
+      expect(s4.slice(0, -1).every((px) => px === ground)).toBe(true);
+      const dashes = s1.slice(0, -1).filter((px) => contrast(px, ground) >= 3);
+      const gaps = s1.slice(0, -1).filter((px) => px === ground);
+      console.log(
+        `[${theme}] origin edge: ${dashes.length} dash px, ${gaps.length} gap px of 60`
+      );
+      expect(dashes.length).toBeGreaterThan(10);
+      expect(gaps.length).toBeGreaterThan(10);
+      await page.keyboard.press('Escape');
+      await page.mouse.up();
+    });
+  }
+
   test('reduced motion: the row lights in full at once', async ({
     context,
     extensionId,
