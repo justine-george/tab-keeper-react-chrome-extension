@@ -324,7 +324,7 @@ test.describe('Open now search (KAN-330)', () => {
     }
   });
 
-  test('/ from the page focuses the field; / in the name box types a slash', async ({
+  test('/ from the Open now column focuses its field; / in the name box types a slash', async ({
     context,
     extensionId,
   }) => {
@@ -333,8 +333,11 @@ test.describe('Open now search (KAN-330)', () => {
       height: 800,
     });
     await expect(field(page)).toBeVisible();
-    // An empty spot of the sessions pane: nothing there takes focus.
-    await page.locator('body').click({ position: { x: 5, y: 700 } });
+    // An empty spot of the Open now column: nothing there takes focus, but
+    // the key goes to the pane that holds it.
+    const column = page.locator(OPEN_NOW);
+    await column.evaluate((el) => el.setAttribute('tabindex', '-1'));
+    await column.focus();
     await expect(field(page)).not.toBeFocused();
     await page.keyboard.press('/');
     await expect(field(page)).toBeFocused();
@@ -559,6 +562,8 @@ test.describe('Open now search (KAN-330)', () => {
     await expect(drawer).toHaveCount(0);
     await expect(field(page)).toHaveCount(0);
 
+    // Focus in Open now's column, which the rail button is part of.
+    await railButton(page).focus();
     await page.keyboard.press('/');
     await expect(drawer).toBeVisible();
     await expect(field(page)).toBeFocused();
