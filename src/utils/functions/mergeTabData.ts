@@ -16,6 +16,7 @@ import type {
   tabContainerData,
   deletedTabGroup,
 } from '../../redux/slices/tabContainerDataStateSlice';
+import { withASelection } from './withOwnSelection';
 
 export interface MergeResult {
   merged: TabMasterContainer;
@@ -238,24 +239,19 @@ export function mergeTabContainers(
   );
 
   // Selection is per-device view state; pushing the other device's selection
-  // across is pure churn. Keep this device's, unless its session lost.
-  const selectedTabGroupId =
-    local.selectedTabGroupId &&
-    survivors.some((g) => g.tabGroupId === local.selectedTabGroupId)
-      ? local.selectedTabGroupId
-      : null;
-
-  const merged: TabMasterContainer = {
-    // max, not `now` - otherwise every popup open would look newer to the
-    // other device forever.
-    lastModified: Math.max(local.lastModified, cloud.lastModified),
-    selectedTabGroupId,
-    tabGroups: survivors.map((g) => ({
-      ...g,
-      isSelected: g.tabGroupId === selectedTabGroupId,
-    })),
-    deletedTabGroups,
-  };
+  // across is pure churn. Keep this device's, unless its session lost: then
+  // the first session.
+  const merged = withASelection(
+    {
+      // max, not `now` - otherwise every popup open would look newer to the
+      // other device forever.
+      lastModified: Math.max(local.lastModified, cloud.lastModified),
+      selectedTabGroupId: null,
+      tabGroups: survivors,
+      deletedTabGroups,
+    },
+    local.selectedTabGroupId
+  );
 
   const mergedSig = signature(events);
   // KAN-293. Local is compared after the same pruning the merged side got.

@@ -39,7 +39,10 @@ import {
   TranslatableError,
 } from '../../utils/functions/local';
 import { mergeTabContainers } from '../../utils/functions/mergeTabData';
-import { withOwnSelection } from '../../utils/functions/withOwnSelection';
+import {
+  withASelection,
+  withOwnSelection,
+} from '../../utils/functions/withOwnSelection';
 import { sameContainerData } from '../../utils/functions/sameContainerData';
 import { TOAST_MESSAGES } from '../../utils/constants/common';
 import { TAB_CONTAINER_SLICE_NAME } from '../../utils/constants/actionTypes';
@@ -353,7 +356,7 @@ export const loadSessionsIntoPage =
   (dispatch, getState) => {
     const { globalState, tabContainerDataState } = getState();
     const next = globalState.holdsPlaceholderSessions
-      ? loaded
+      ? withASelection(loaded)
       : withOwnSelection(loaded, tabContainerDataState.selectedTabGroupId);
     dispatch(replaceState(next));
     return next;

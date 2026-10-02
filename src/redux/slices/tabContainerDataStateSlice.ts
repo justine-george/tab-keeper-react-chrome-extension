@@ -43,6 +43,7 @@ import {
   DEFAULT_WINDOW_WIDTH,
   TOAST_MESSAGES,
 } from '../../utils/constants/common';
+import { withASelection } from '../../utils/functions/withOwnSelection';
 import { TAB_CONTAINER_SLICE_NAME } from '../../utils/constants/actionTypes';
 import { recordValueMoment } from './settingsDataStateSlice';
 import {
@@ -1247,6 +1248,22 @@ function isAllOfWindow(
   );
 }
 
+// Removes the session at `index` and tombstones it. If it was the selected one,
+// the session that takes its place is selected: the one now at that index, or
+// the new last. Chosen before the splice shifts the list. Selection is view
+// state, so nothing is stamped here.
+function removeSession(state: TabMasterContainer, index: number): void {
+  const removed = state.tabGroups[index];
+  bury(state, removed.tabGroupId);
+  state.tabGroups.splice(index, 1);
+  if (state.selectedTabGroupId !== removed.tabGroupId) return;
+  const next = state.tabGroups[Math.min(index, state.tabGroups.length - 1)];
+  state.selectedTabGroupId = next?.tabGroupId ?? null;
+  for (const g of state.tabGroups) {
+    g.isSelected = g.tabGroupId === state.selectedTabGroupId;
+  }
+}
+
 const clampIndex = (index: number, length: number): number =>
   Math.min(Math.max(0, index), length);
 
@@ -1616,11 +1633,7 @@ export const tabContainerDataStateSlice = createSlice({
         container.windows.splice(windowIndex, 1);
       }
       if (container.windowCount === 0) {
-        if (state.selectedTabGroupId === container.tabGroupId) {
-          state.selectedTabGroupId = null;
-        }
-        bury(state, container.tabGroupId);
-        state.tabGroups.splice(containerIndex, 1);
+        removeSession(state, containerIndex);
       } else {
         touchContent(state, container);
       }
@@ -1637,13 +1650,9 @@ export const tabContainerDataStateSlice = createSlice({
         (tabGroup) => tabGroup.tabGroupId === toBeDeletedTabGroupId
       );
       if (tabGroupIndex !== -1) {
-        bury(state, toBeDeletedTabGroupId);
-        state.tabGroups.splice(tabGroupIndex, 1);
+        removeSession(state, tabGroupIndex);
       }
       state.lastModified = Date.now();
-      if (state.selectedTabGroupId === toBeDeletedTabGroupId) {
-        state.selectedTabGroupId = null;
-      }
 
       // update localstorage
       saveToLocalStorage('tabContainerData', state);
@@ -1673,17 +1682,8 @@ export const tabContainerDataStateSlice = createSlice({
         }
         // if this was the last window in the tabGroup, delete this tabGroup
         if (state.tabGroups[tabGroupIndex].windowCount === 0) {
-          // update selected tab group id
-          if (
-            state.selectedTabGroupId ===
-            state.tabGroups[tabGroupIndex].tabGroupId
-          ) {
-            state.selectedTabGroupId = null;
-          }
-          // Emptying a group removes it just as surely as deleting it, so it
-          // needs the same tombstone or the other device re-adds it.
-          bury(state, state.tabGroups[tabGroupIndex].tabGroupId);
-          state.tabGroups.splice(tabGroupIndex, 1);
+          // Emptying a group removes it just as surely as deleting it.
+          removeSession(state, tabGroupIndex);
         } else {
           touchContent(state, state.tabGroups[tabGroupIndex]);
         }
@@ -1733,18 +1733,8 @@ export const tabContainerDataStateSlice = createSlice({
         }
         // if this was the last window in the tabGroup, delete this tabGroup
         if (state.tabGroups[tabGroupIndex].windowCount === 0) {
-          // update selected tab group id
-          if (
-            state.selectedTabGroupId ===
-            state.tabGroups[tabGroupIndex].tabGroupId
-          ) {
-            state.selectedTabGroupId = null;
-          }
-
-          // Same cascade as deleteWindowInternal: the group is gone, so it
-          // needs a tombstone rather than just a new timestamp.
-          bury(state, state.tabGroups[tabGroupIndex].tabGroupId);
-          state.tabGroups.splice(tabGroupIndex, 1);
+          // Same cascade as deleteWindowInternal.
+          removeSession(state, tabGroupIndex);
         } else {
           touchContent(state, state.tabGroups[tabGroupIndex]);
         }
@@ -2487,17 +2477,17 @@ export const tabContainerDataStateSlice = createSlice({
       }),
     },
 
-    replaceState: (state, action: PayloadAction<typeof state>) => {
-      // update localstorage
-      saveToLocalStorage('tabContainerData', action.payload);
-      return action.payload;
+    replaceState: (_state, action: PayloadAction<TabMasterContainer>) => {
+      const next = withASelection(action.payload);
+      saveToLocalStorage('tabContainerData', next);
+      return next;
     },
 
     // KAN-279 D9. Another page wrote this; localStorage already holds it.
     // Unlike replaceState it never writes back -- a write here would fire a
     // storage event in the other page and the two would echo forever.
     hydrateFromOtherPage: (_state, action: PayloadAction<TabMasterContainer>) =>
-      action.payload,
+      withASelection(action.payload),
 
     // Replace the container with a backup file the user is explicitly
     // asserting ("Load sessions from a backup" → Replace sessions). Kept
@@ -2836,7 +2826,7 @@ function reconcileAssertedContainer(
     deletedTabGroups: carryTombstonesForward(state, payload, liveAt),
   };
 
-  return restored;
+  return withASelection(restored);
 }
 
 export const {

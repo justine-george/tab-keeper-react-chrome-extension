@@ -56,7 +56,11 @@ export default function HeroContainerRight() {
   const COLORS = useThemeColors();
   const FONT_FAMILY = useFontFamily();
   const { t, i18n } = useTranslation();
-  const [isEditing, setIsEditing] = useState(false);
+  // The session being renamed, not a flag: when it is replaced on screen the
+  // draft must not carry over to the session that takes its place.
+  const [editingTabGroupId, setEditingTabGroupId] = useState<string | null>(
+    null
+  );
   const [editableTitle, setEditableTitle] = useState('');
   const [isContainerHovered, setIsContainerHovered] = useState<boolean>(false);
   const dispatch: AppDispatch = useDispatch();
@@ -98,6 +102,9 @@ export default function HeroContainerRight() {
     searchText,
     hasTabGroupsPermission
   )[0];
+  const isEditing =
+    editingTabGroupId !== null &&
+    editingTabGroupId === selectedTabGroup?.tabGroupId;
 
   // KAN-361 (N1 B). The toolbar row's New window target takes a carry let go
   // on it, into the session on screen. Above the early return, as every hook
@@ -125,11 +132,11 @@ export default function HeroContainerRight() {
   // tick arriving mid-rename threw away what had been typed. KAN-51.
   const startEditing = () => {
     setEditableTitle(selectedTabGroup.title);
-    setIsEditing(true);
+    setEditingTabGroupId(selectedTabGroup.tabGroupId);
   };
 
   const handleBlur = () => {
-    setIsEditing(false);
+    setEditingTabGroupId(null);
     if (selectedTabGroup.title !== editableTitle) {
       dispatch(updateTabGroupTitle({ tabGroupId, editableTitle }));
     }
