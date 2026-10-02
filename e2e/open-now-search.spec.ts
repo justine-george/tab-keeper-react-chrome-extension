@@ -341,7 +341,7 @@ test.describe('Open now search (KAN-330)', () => {
     // The key moved focus; it was not typed.
     await expect(field(page)).toHaveValue('');
 
-    const nameBox = page.getByPlaceholder('Save all open windows as a session');
+    const nameBox = page.locator('input#name');
     await nameBox.click();
     await page.keyboard.type('a/b');
     await expect(nameBox).toHaveValue(/a\/b$/);
