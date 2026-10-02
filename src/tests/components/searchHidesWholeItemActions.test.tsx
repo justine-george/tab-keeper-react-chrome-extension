@@ -144,6 +144,22 @@ describe('H1: what hides while searching', () => {
     }
   );
 
+  // A window's title opens it in a new window, so it is shown as text.
+  test('a window title is not a button', async () => {
+    await render(QUERY);
+    await screen.findByRole('button', { name: 'Collapse all windows' });
+
+    expect(byName('Morning reading')).toEqual([]);
+    expect(screen.getAllByText('Morning reading').length).toBeGreaterThan(0);
+  });
+
+  test('CONTROL: a window title is a button when not searching', async () => {
+    await render('');
+    await screen.findByRole('button', { name: 'Collapse all windows' });
+
+    expect(byName('Morning reading')).toHaveLength(1);
+  });
+
   test('a spaces-only query hides nothing', async () => {
     await render('   ');
     await screen.findByRole('button', { name: 'Collapse all windows' });
