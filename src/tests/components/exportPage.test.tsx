@@ -194,13 +194,22 @@ describe('the export preview page (KAN-190)', () => {
 
   test('saving writes the previewed file under the session name', async () => {
     const user = userEvent.setup();
+    const blobs: Blob[] = [];
+    vi.spyOn(URL, 'createObjectURL').mockImplementation((blob) => {
+      if (blob instanceof Blob) blobs.push(blob);
+      return 'blob:saved';
+    });
     const clicks = vi.spyOn(HTMLAnchorElement.prototype, 'click');
     await renderPage();
 
+    // Off the default, so a save that rebuilt the file would differ.
+    await user.click(screen.getByRole('button', { name: 'Comfortable' }));
     await user.click(screen.getByRole('button', { name: 'Save as HTML' }));
 
-    expect(clicks).toHaveBeenCalled();
-    const anchor = clicks.mock.instances[0] as HTMLAnchorElement;
+    expect(blobs).toHaveLength(1);
+    expect(await blobs[0].text()).toBe(frame().srcdoc);
+    const anchor = clicks.mock.instances[0];
+    if (!(anchor instanceof HTMLAnchorElement)) throw new Error('no link');
     expect(anchor.download).toMatch(
       /^Weekend in Kyoto - \d{4}-\d{2}-\d{2}\.html$/
     );
