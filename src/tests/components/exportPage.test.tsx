@@ -62,7 +62,7 @@ const renderPage = (tabGroupId = 'session-kyoto') =>
 const frame = (): HTMLIFrameElement => {
   const found = document.querySelector('iframe');
   if (!found) throw new Error('the page renders no preview frame');
-  return found as HTMLIFrameElement;
+  return found;
 };
 
 afterEach(() => {
@@ -584,10 +584,8 @@ describe('printing the previewed file', () => {
   });
 });
 
-// The Save button is filled with TEXT_COLOR, and Icon paints its glyph
-// TEXT_COLOR -- so the download icon was drawn in the button's own background
-// and disappeared. Asserted against the neighbouring button's icon rather
-// than a literal, so it survives a palette change.
+// KAN-190, moved to PDF / Print by KAN-207: Icon paints TEXT_COLOR by default,
+// which on a TEXT_COLOR fill is an invisible glyph.
 describe('the icon on the filled button (KAN-190)', () => {
   const glyphOf = (name: string) => {
     const button = screen.getByRole('button', { name });
@@ -596,19 +594,30 @@ describe('the icon on the filled button (KAN-190)', () => {
     return getComputedStyle(glyph).color;
   };
 
-  test('the save icon is not painted in the fill it sits on', async () => {
+  test('the print icon is not painted in the fill it sits on', async () => {
     await renderPage();
 
-    const save = screen.getByRole('button', { name: 'Save as HTML' });
-    expect(glyphOf('Save as HTML')).not.toBe(
-      getComputedStyle(save).backgroundColor
+    const print = screen.getByRole('button', { name: 'PDF / Print' });
+    expect(glyphOf('PDF / Print')).not.toBe(
+      getComputedStyle(print).backgroundColor
     );
+  });
+
+  test('no outline action is painted in the fill it sits on either', async () => {
+    await renderPage();
+
+    for (const name of ['Save as HTML', 'Copy all links']) {
+      const button = screen.getByRole('button', { name });
+      expect(glyphOf(name), name).not.toBe(
+        getComputedStyle(button).backgroundColor
+      );
+    }
   });
 
   test('CONTROL: an outline button keeps the ordinary icon colour', async () => {
     await renderPage();
 
-    expect(glyphOf('PDF / Print')).not.toBe(glyphOf('Save as HTML'));
+    expect(glyphOf('Save as HTML')).toBe(glyphOf('Copy all links'));
   });
 });
 
