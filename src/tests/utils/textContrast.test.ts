@@ -42,7 +42,9 @@ describe('text reads at 4.5:1 on the page', () => {
   test.each(L2_OK)('%s: LABEL_L2 on the page', (_name, theme) => {
     expect(onPage(theme, 'LABEL_L2_COLOR')).toBeGreaterThanOrEqual(TEXT_FLOOR);
   });
+});
 
+describe('LABEL_L2 below 4.5:1 until KAN-375', () => {
   // Fails today on purpose; once it passes, remove the theme from L2_BELOW.
   test.fails.each(L2_KNOWN)(
     '%s: LABEL_L2 on the page, known below',

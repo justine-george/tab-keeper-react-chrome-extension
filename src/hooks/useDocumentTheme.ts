@@ -66,8 +66,8 @@ export function useDocumentTheme(): void {
     //
     //    LABEL_L2, by the KAN-95 rule: the quietest token that clears 3:1
     //    against every theme's page at full strength (4.31 on Ink, the
-    //    tightest). TEXT_COLOR would need to be dimmed to
-    //    ~0.6 to sit as quietly, and a dimmed line is what just failed.
+    //    tightest). TEXT_COLOR would need to be dimmed to ~0.6 to sit as
+    //    quietly, and a dimmed line is what just failed.
     root.style.setProperty('--drag-landing-slot', COLORS.LABEL_L2_COLOR);
 
     // Two frames, not one: the first only guarantees the new styles are

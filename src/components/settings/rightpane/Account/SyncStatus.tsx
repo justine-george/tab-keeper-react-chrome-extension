@@ -26,7 +26,7 @@ import { TYPE } from '../../../../styles/scale';
  *
  * The sentence is LABEL_L1, not the LABEL_L3 the old cards used: L3 is the
  * 2px-marker token, 2.56:1 on Paper against the 4.5:1 body text needs, and
- * L2 clears 4.5 on only three of the five themes (syncStatus.test.tsx has the
+ * L2 clears 4.5 on only three of the five themes (textContrast.test.ts has the
  * numbers). A wrapping paragraph rather than a NormalLabel, which is nowrap +
  * ellipsis and would cut a sentence off at the pane's edge.
  */
