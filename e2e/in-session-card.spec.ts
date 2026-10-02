@@ -1662,8 +1662,8 @@ test.describe('a long, scrolled session', () => {
 // supplementary (the drop is the same whether it is seen; the dashed slot,
 // >= 3:1, says where the row goes), so its floor guards against fading
 // further, not WCAG 1.4.11's 3:1. Floors sit a hair under the measured values
-// (outline 1.81 Paper, 1.84 Parchment, 1.89 Petal, 1.97 Graphite, 1.97 Ink;
-// slot 3.62 to 4.89) so a theme change that fades either fails and rounding
+// (outline 1.81 Paper, 1.84 Parchment, 1.81 Petal, 1.97 Graphite, 1.97 Ink;
+// slot 4.31 to 4.89) so a theme change that fades either fails and rounding
 // noise does not.
 const OUTLINE_CONTRAST_FLOOR = 1.75;
 const SLOT_CONTRAST_FLOOR = 3;

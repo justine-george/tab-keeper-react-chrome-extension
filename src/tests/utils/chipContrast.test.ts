@@ -36,7 +36,7 @@ const THEMES = {
 const VISIBLE_FLOOR = 1.2;
 
 // The weakest hover -> press step the icon tokens already take in any theme
-// (BB Pink, 1.163:1). Every icon in the app presses by this much, so a chip
+// (Paper, 1.166:1). Every icon in the app presses by this much, so a chip
 // that hovers by less would be the quietest state change on screen.
 const ICON_STEP = 1.16;
 

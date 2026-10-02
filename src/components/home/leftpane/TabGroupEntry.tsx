@@ -335,7 +335,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
     }
     background-color: ${isSelected && COLORS.SELECTION_COLOR};
     /* KAN-350 D2 A. The row a carry rests on: the hover fill, a selected row
-       included (on Petal's selection fill the outline would be only 2.46:1),
+       included (on Petal's old selection fill the outline was only 2.46:1),
        and a 2px LABEL_L2 outline inside the edge.
 
        ONE CONDITION, the data-carry-target attribute, draws all of it and the

@@ -23,7 +23,7 @@ import { DURATION, TYPE } from '../../../styles/scale';
  * thickened to 2px in the PAGE's LABEL_L3. Growing a border is safe because
  * App.css sets `* { box-sizing: border-box }` globally, so the tile keeps its
  * size and the row never reflows; e2e/theme-swatch-marker.spec pins that.
- * LABEL_L3 rather than BORDER_COLOR because BORDER measures 1.38-1.73:1
+ * LABEL_L3 rather than BORDER_COLOR because BORDER measures 1.38-1.75:1
  * against the page on four of the five themes and would be invisible;
  * LABEL_L3 is the one existing token in a sane band (2.56-4.03:1). TEXT_COLOR
  * was tried and rejected as focus-ring weight on a passive marker.
