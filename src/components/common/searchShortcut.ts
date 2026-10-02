@@ -24,3 +24,10 @@ export function isSearchShortcut(event: KeyboardEvent): boolean {
     !isDragHeld()
   );
 }
+
+export type SearchPane = 'saved' | 'openNow';
+
+/** Open now's when focus is inside its column (pane, rail or drawer), else the saved list's. */
+export function searchPaneFor(active: Element | null): SearchPane {
+  return active?.closest('[data-pane="open-now"]') ? 'openNow' : 'saved';
+}

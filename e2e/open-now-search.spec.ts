@@ -352,6 +352,33 @@ test.describe('Open now search (KAN-330)', () => {
     await expect(field(page)).toHaveValue('');
   });
 
+  test('/ from the page focuses the saved field, selects its text, and Open now is untouched', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPage(context, extensionId, VIEW_TAB, {
+      width: 1600,
+      height: 800,
+    });
+    const saved = page.getByRole('textbox', {
+      name: 'Search saved tabs',
+      exact: true,
+    });
+    await saved.fill('kyoto');
+    await page.locator('body').click({ position: { x: 5, y: 700 } });
+    await expect(saved).not.toBeFocused();
+    await page.keyboard.press('/');
+    await expect(saved).toBeFocused();
+    await expect(saved).toHaveValue('kyoto');
+    expect(
+      await saved.evaluate((el: HTMLInputElement) => [
+        el.selectionStart,
+        el.selectionEnd,
+      ])
+    ).toEqual([0, 5]);
+    await expect(field(page)).not.toBeFocused();
+  });
+
   test('Enter in the field switches Chrome to the first tab drawn, and does nothing with the field empty', async ({
     context,
     extensionId,

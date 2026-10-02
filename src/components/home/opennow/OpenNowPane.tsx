@@ -418,7 +418,7 @@ export default function OpenNowPane({
     input.focus();
     input.select();
   };
-  useSearchShortcut(focusSearchField);
+  useSearchShortcut('openNow', focusSearchField);
 
   // KAN-330 K1. ↓/↑ on a drawn tab's Switch button move to the next or
   // previous one; ↑ on the first goes back to the field. Other targets (a

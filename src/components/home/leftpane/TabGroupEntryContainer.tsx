@@ -39,6 +39,7 @@ import {
   type CarryReceiver,
 } from '../../../redux/carry';
 import { useMediaQuery } from '../../../hooks/useMediaQuery';
+import { useSearchShortcut } from '../../../hooks/useSearchShortcut';
 
 export default function TabGroupEntryContainer() {
   const COLORS = useThemeColors();
@@ -49,6 +50,13 @@ export default function TabGroupEntryContainer() {
   // rather than searching the whole document.
   const listRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const focusSearchField = () => {
+    const input = searchInputRef.current;
+    if (input === null) return;
+    input.focus();
+    input.select();
+  };
+  useSearchShortcut('saved', focusSearchField);
 
   const tabContainerDataList = useSelector(
     (state: RootState) => state.tabContainerDataState
