@@ -56,8 +56,7 @@ export default function HeroContainerRight() {
   const COLORS = useThemeColors();
   const FONT_FAMILY = useFontFamily();
   const { t, i18n } = useTranslation();
-  // The session being renamed, not a flag: when it is replaced on screen the
-  // draft must not carry over to the session that takes its place.
+  // The session being renamed, so a draft never carries over to another session.
   const [editingTabGroupId, setEditingTabGroupId] = useState<string | null>(
     null
   );

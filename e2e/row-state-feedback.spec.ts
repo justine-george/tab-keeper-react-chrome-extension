@@ -269,14 +269,14 @@ test.describe('a row reveals its actions and fills as one state', () => {
     const page = await openWith(context, extensionId);
     // Neither is the selected row (the first, on open), which fills by its
     // own rule.
-    const first = rowFor(page, 'Second session');
-    const second = rowFor(page, 'Third session');
+    const hoverRow = rowFor(page, 'Second session');
+    const tabRow = rowFor(page, 'Third session');
 
     // What a genuinely hovered row looks like. Playwright's hover is a real
     // mouse move, so this is the actual :hover rendering, not a synthesized
     // event -- which is why this spec can compare against it at all.
-    await first.hover();
-    const hoveredFill = await settledFillOf(first);
+    await hoverRow.hover();
+    const hoveredFill = await settledFillOf(hoverRow);
 
     // CONTROL for the comparison: hovering really does change the fill. If
     // this were transparent the main assertion could pass against a row that
@@ -289,24 +289,24 @@ test.describe('a row reveals its actions and fills as one state', () => {
     // Park the pointer off every row, so nothing below is hover-driven.
     await page.mouse.move(0, 0);
     expect(
-      await fillOf(second),
+      await fillOf(tabRow),
       'CONTROL: an untouched row starts unfilled'
     ).toMatch(TRANSPARENT);
 
-    // Reveal the second row's actions with a REAL Tab press, not .focus().
+    // Reveal the tab row's actions with a REAL Tab press, not .focus().
     // KAN-94: engagement now keys off :focus-visible, and Chrome decides that
     // from the preceding interaction -- a programmatic .focus() after a mouse
     // move does not set it. So .focus() would test a state no keyboard user
     // can be in, and would go green against code that never engages on Tab.
-    const open = actionsIn(second).getByRole('button', { name: 'Open' });
+    const open = actionsIn(tabRow).getByRole('button', { name: 'Open' });
     await tabUntilFocused(page, open);
 
     // The reveal happened -- without this the fill assertion could go green
     // simply because nothing was showing.
-    await expect.poll(() => revealOf(second)).toBe('1');
+    await expect.poll(() => revealOf(tabRow)).toBe('1');
 
     await expect
-      .poll(() => fillOf(second), {
+      .poll(() => fillOf(tabRow), {
         message:
           'a row showing its actions must fill the same as a hovered row',
       })

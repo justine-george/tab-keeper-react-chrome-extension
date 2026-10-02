@@ -1248,10 +1248,7 @@ function isAllOfWindow(
   );
 }
 
-// Removes the session at `index` and tombstones it. If it was the selected one,
-// the session that takes its place is selected: the one now at that index, or
-// the new last. Chosen before the splice shifts the list. Selection is view
-// state, so nothing is stamped here.
+// Buries the session at `index`; if selected, the one now at that index (or the new last) is.
 function removeSession(state: TabMasterContainer, index: number): void {
   const removed = state.tabGroups[index];
   bury(state, removed.tabGroupId);

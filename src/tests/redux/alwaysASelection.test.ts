@@ -198,7 +198,7 @@ describe('a container taken in with no usable selection selects the first sessio
       expectFirst(stateOf(store));
     });
 
-    test('mergeTabContainers, whichever side the dangling id came from', () => {
+    test('mergeTabContainers, with the local id dangling', () => {
       const merged = mergeTabContainers(
         incoming(),
         container(['b'], 'b'),
@@ -206,6 +206,16 @@ describe('a container taken in with no usable selection selects the first sessio
       ).merged;
       expect(merged.selectedTabGroupId).toBe(merged.tabGroups[0].tabGroupId);
       expect(flagged(merged)).toEqual([merged.tabGroups[0].tabGroupId]);
+    });
+
+    test('mergeTabContainers, with the cloud id dangling: the local one is kept', () => {
+      const merged = mergeTabContainers(
+        container(['a', 'b'], 'b'),
+        container(['a', 'b'], id),
+        AT
+      ).merged;
+      expect(merged.selectedTabGroupId).toBe('b');
+      expect(flagged(merged)).toEqual(['b']);
     });
 
     test('withOwnSelection, with the page own id dangling', () => {
@@ -284,7 +294,7 @@ describe('the fix-up is view state: no sync, no undo step, no timestamp', () => 
     ]);
   });
 
-  test('mergeTabContainers leaves lastModified and the sessions timestamps as the merge set them', () => {
+  test('mergeTabContainers leaves lastModified as the merge set it (the later of the two)', () => {
     const local = container(['a', 'b'], null);
     const cloud = container(['a', 'b'], null);
     const { merged } = mergeTabContainers(local, cloud, AT);

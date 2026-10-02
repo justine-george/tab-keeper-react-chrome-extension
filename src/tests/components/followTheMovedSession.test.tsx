@@ -276,4 +276,24 @@ describe('NOT following when nothing moved under the selection', () => {
       { rowId: 'b', options: { block: 'nearest' } },
     ]);
   });
+
+  // The one way the selection is null while the pane is mounted: nothing left.
+  test('deleting the only session scrolls nothing and does not throw', async () => {
+    const { container, store } = await render('a');
+    act(() => {
+      store.dispatch(deleteTabContainerInternal('a'));
+      store.dispatch(deleteTabContainerInternal('b'));
+    });
+    scrollCalls.length = 0;
+
+    act(() => {
+      store.dispatch(deleteTabContainerInternal('c'));
+    });
+
+    expect(
+      store.getState().tabContainerDataState.selectedTabGroupId
+    ).toBeNull();
+    expect(renderedOrder(container)).toEqual([]);
+    expect(scrollCalls).toEqual([]);
+  });
 });

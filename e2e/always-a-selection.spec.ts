@@ -54,7 +54,7 @@ async function openUnselected(
 // highlight is its background (selection-feedback.spec.ts).
 const row = (page: Page, title: string) =>
   page.getByRole('button', { name: title, exact: true }).locator('..');
-const HIGHLIGHT = 'rgba(0, 0, 0, 0)';
+const NO_FILL = 'rgba(0, 0, 0, 0)';
 
 test.describe('a session is always selected (KAN-390)', () => {
   test('opening with no stored selection selects the first session and shows it', async ({
@@ -66,15 +66,15 @@ test.describe('a session is always selected (KAN-390)', () => {
     await expect(page.getByText('First window')).toBeVisible();
     await expect(row(page, 'First session')).not.toHaveCSS(
       'background-color',
-      HIGHLIGHT
+      NO_FILL
     );
     await expect(row(page, 'Second session')).toHaveCSS(
       'background-color',
-      HIGHLIGHT
+      NO_FILL
     );
     await expect(row(page, 'Third session')).toHaveCSS(
       'background-color',
-      HIGHLIGHT
+      NO_FILL
     );
     await expect(page.getByText('Second window')).toHaveCount(0);
   });
@@ -96,11 +96,11 @@ test.describe('a session is always selected (KAN-390)', () => {
     await expect(page.getByText('Third window')).toBeVisible();
     await expect(row(page, 'Third session')).not.toHaveCSS(
       'background-color',
-      HIGHLIGHT
+      NO_FILL
     );
     await expect(row(page, 'First session')).toHaveCSS(
       'background-color',
-      HIGHLIGHT
+      NO_FILL
     );
   });
 });
@@ -136,7 +136,7 @@ test.describe('the tab view folded does not draw the selection (KAN-390)', () =>
 
     await expect(row(page, 'First session')).toHaveCSS(
       'background-color',
-      HIGHLIGHT
+      NO_FILL
     );
     expect(await bg(page, 'First session')).toBe(
       await bg(page, 'Second session')
@@ -148,11 +148,11 @@ test.describe('the tab view folded does not draw the selection (KAN-390)', () =>
     await page.mouse.move(0, 0);
     await expect(row(page, 'First session')).not.toHaveCSS(
       'background-color',
-      HIGHLIGHT
+      NO_FILL
     );
     await expect(row(page, 'Second session')).toHaveCSS(
       'background-color',
-      HIGHLIGHT
+      NO_FILL
     );
 
     await page
@@ -161,7 +161,7 @@ test.describe('the tab view folded does not draw the selection (KAN-390)', () =>
     await page.mouse.move(0, 0);
     await expect(row(page, 'First session')).toHaveCSS(
       'background-color',
-      HIGHLIGHT
+      NO_FILL
     );
   });
 
@@ -174,11 +174,11 @@ test.describe('the tab view folded does not draw the selection (KAN-390)', () =>
     await expect(page.getByText('Second window')).toBeVisible();
     await expect(row(page, 'Second session')).not.toHaveCSS(
       'background-color',
-      HIGHLIGHT
+      NO_FILL
     );
     await expect(row(page, 'First session')).toHaveCSS(
       'background-color',
-      HIGHLIGHT
+      NO_FILL
     );
   });
 });

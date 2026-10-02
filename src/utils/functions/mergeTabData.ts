@@ -238,9 +238,7 @@ export function mergeTabContainers(
       sessionRank(b) - sessionRank(a) || compareAsc(a.tabGroupId, b.tabGroupId)
   );
 
-  // Selection is per-device view state; pushing the other device's selection
-  // across is pure churn. Keep this device's, unless its session lost: then
-  // the first session.
+  // Selection is per-device view state: keep this device's, else the first session.
   const merged = withASelection(
     {
       // max, not `now` - otherwise every popup open would look newer to the

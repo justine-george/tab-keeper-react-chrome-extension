@@ -1,10 +1,6 @@
 import type { TabMasterContainer } from '../../redux/slices/tabContainerDataStateSlice';
 
-// Where selection is decided for a container taken in whole. While the list
-// has a session, one is selected: `preferredId` if it names a session here,
-// else the first, which is the top row (the stored array is the display
-// order). Every `isSelected` flag is recomputed to agree. Returns `container`
-// itself when it already agrees, so a no-op keeps its identity.
+// Keeps `preferredId` if it names a session, else the first (the top row); isSelected follows.
 export const withASelection = (
   container: TabMasterContainer,
   preferredId: string | null = container.selectedTabGroupId
@@ -30,11 +26,7 @@ export const withASelection = (
   };
 };
 
-// Selection is per-page view state (KAN-279 D9). `incoming` is a container
-// this page is about to take in -- another page's write, or a sync's result --
-// and whatever selection it carries is someone else's. This page's own stays
-// if its session survived; otherwise the first session. Never the incoming
-// one.
+// Selection is per page: keep this page's own over `incoming`'s, else the first session.
 export const withOwnSelection = (
   incoming: TabMasterContainer,
   ownSelectedId: string | null

@@ -126,13 +126,13 @@ const signedInStore = () => {
   return made;
 };
 
-// A page that opened, loaded alpha+bravo with alpha selected, and synced:
+// A page that opened, loaded alpha+bravo+charlie with alpha selected, and synced:
 // that first sync is this page's first load. The cloud echoes it, so the
 // load changes nothing but the store.
 const openPage = async () => {
   const made = signedInStore();
   const stored = selecting(
-    buildContainer([session('alpha'), session('bravo')]),
+    buildContainer([session('alpha'), session('bravo'), session('charlie')]),
     'alpha'
   );
   localStorage.setItem('tabContainerData', JSON.stringify(stored));
@@ -201,16 +201,16 @@ describe("a sync keeps this page's own selection (KAN-294)", () => {
     expect(shown(store)).toEqual(keeps('alpha'));
   });
 
-  it('site 1: alpha deleted by the cloud falls back to the first session (bravo)', async () => {
+  it('site 1: alpha deleted by the cloud falls back to the first session (bravo), not the incoming charlie', async () => {
     const { store } = await openPage();
     cloudDeletesAlpha();
-    otherPageSelects('bravo');
+    otherPageSelects('charlie');
 
     await store.dispatch(syncStateWithFirestore());
 
     expect(
       store.getState().tabContainerDataState.tabGroups.map((g) => g.tabGroupId)
-    ).toEqual(['bravo']);
+    ).toEqual(['bravo', 'charlie']);
     expect(shown(store)).toEqual(keeps('bravo'));
   });
 
@@ -228,11 +228,11 @@ describe("a sync keeps this page's own selection (KAN-294)", () => {
     expect(shown(store).flagged).toEqual(['alpha']);
   });
 
-  it('site 2: alpha missing from the cloud falls back to the first session (bravo)', async () => {
+  it('site 2: alpha missing from the cloud falls back to the first session (bravo), not the incoming charlie', async () => {
     const { store } = await openPage();
     mocks.cloud.doc = selecting(
-      { ...readStored(), tabGroups: [session('bravo')] },
-      'bravo'
+      { ...readStored(), tabGroups: [session('bravo'), session('charlie')] },
+      'charlie'
     );
     localStorage.removeItem('tabContainerData');
 
@@ -253,13 +253,19 @@ describe("a sync keeps this page's own selection (KAN-294)", () => {
     expect(shown(store).flagged).toEqual(['alpha']);
   });
 
-  it('site 3: alpha deleted by the other page falls back to the first session (bravo)', async () => {
+  it('site 3: alpha deleted by the other page falls back to the first session (bravo), not the incoming charlie', async () => {
     const { store } = await openPage();
     mocks.cloud.doc = undefined;
     localStorage.setItem(
       'tabContainerData',
       JSON.stringify(
-        selecting({ ...readStored(), tabGroups: [session('bravo')] }, 'bravo')
+        selecting(
+          {
+            ...readStored(),
+            tabGroups: [session('bravo'), session('charlie')],
+          },
+          'charlie'
+        )
       )
     );
 
@@ -267,7 +273,7 @@ describe("a sync keeps this page's own selection (KAN-294)", () => {
 
     expect(
       store.getState().tabContainerDataState.tabGroups.map((g) => g.tabGroupId)
-    ).toEqual(['bravo']);
+    ).toEqual(['bravo', 'charlie']);
     expect(shown(store).selected).toBe('bravo');
     expect(shown(store).flagged).toEqual(['bravo']);
   });
@@ -287,10 +293,10 @@ describe("a sync keeps this page's own selection (KAN-294)", () => {
     expect(shown(store)).toEqual(keeps('alpha'));
   });
 
-  it('site 4: alpha deleted by the cloud falls back to the first session (bravo)', async () => {
+  it('site 4: alpha deleted by the cloud falls back to the first session (bravo), not the incoming charlie', async () => {
     const { store } = await openPage();
     cloudDeletesAlpha();
-    otherPageSelects('bravo');
+    otherPageSelects('charlie');
     beginDragHold();
     await store.dispatch(syncStateWithFirestore());
 
@@ -298,7 +304,7 @@ describe("a sync keeps this page's own selection (KAN-294)", () => {
 
     expect(
       store.getState().tabContainerDataState.tabGroups.map((g) => g.tabGroupId)
-    ).toEqual(['bravo']);
+    ).toEqual(['bravo', 'charlie']);
     expect(shown(store)).toEqual(keeps('bravo'));
   });
 });
@@ -336,7 +342,7 @@ describe('no ping-pong (KAN-294)', () => {
     // Page 2 opened on the same data and selected bravo.
     const page2 = signedInStore();
     const stored = selecting(
-      buildContainer([session('alpha'), session('bravo')]),
+      buildContainer([session('alpha'), session('bravo'), session('charlie')]),
       'bravo'
     );
     localStorage.setItem('tabContainerData', JSON.stringify(stored));

@@ -102,10 +102,9 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
 
   const { title, windowCount, tabCount } = tabGroupData;
 
-  // Folded, no saved session is shown, so the selection is kept but not drawn;
-  // the same answer that decides whether the detail column renders.
+  // Folded, no session is shown: the selection is kept, not drawn.
   const folded = useSelector(selectIsSavedSessionFolded);
-  const isSelected = tabGroupData.isSelected && !(isTabView() && folded);
+  const drawsSelection = tabGroupData.isSelected && !(isTabView() && folded);
 
   // A plain string, not css``, because it is handed to ClickableRow's `style`
   // prop, which composes it into the button's own reset.
@@ -205,10 +204,10 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
   // hover and keyboard branches cannot drift apart -- which is the whole point
   // of KAN-92 and the reason they are not written out twice.
   const engagedStyle = `
-    ${isSelected ? '' : fill(COLORS.HOVER_COLOR)}
+    ${drawsSelection ? '' : fill(COLORS.HOVER_COLOR)}
     [data-row-actions] {
       background-color: ${
-        isSelected ? COLORS.SELECTION_COLOR : COLORS.HOVER_COLOR
+        drawsSelection ? COLORS.SELECTION_COLOR : COLORS.HOVER_COLOR
       };
     }
     [data-row-actions] > * {
@@ -332,7 +331,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
     &:active {
       ${pressedStyle}
     }
-    background-color: ${isSelected && COLORS.SELECTION_COLOR};
+    background-color: ${drawsSelection && COLORS.SELECTION_COLOR};
     /* The item's own place, in the slot's dashed look; before the target, which wins. */
     &[data-carry-origin] {
       outline-width: 1.5px;
