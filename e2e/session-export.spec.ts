@@ -356,9 +356,26 @@ test('pressing Light or Dark changes the page and never the saved settings', asy
   context,
   extensionId,
 }) => {
-  const exportPage = await openExportUnder(context, extensionId, {
-    theme: 'Darkenheimer',
-  });
+  // A direct write, not seedSettings: its init script re-runs in the preview
+  // frame and erased the very write this looks for (KAN-357 F7).
+  const popup = await openPopup(context, extensionId);
+  await popup.evaluate(() =>
+    localStorage.setItem(
+      'settingsData',
+      JSON.stringify({
+        cloudConsent: 'granted',
+        theme: 'Darkenheimer',
+        isNeverAskAgainToRate: true,
+        isNeverAskAgainForTabGroups: true,
+      })
+    )
+  );
+  await popup.reload();
+  const [exportPage] = await Promise.all([
+    context.waitForEvent('page'),
+    chooseExport(popup),
+  ]);
+  await expect(exportPage.getByRole('button', { name: 'Edit' })).toBeVisible();
   const body = exportPage.frameLocator('iframe').locator('body');
   const saved = () =>
     exportPage.evaluate(() => localStorage.getItem('settingsData'));
@@ -374,7 +391,13 @@ test('pressing Light or Dark changes the page and never the saved settings', asy
   await exportPage.getByRole('button', { name: 'Light' }).click();
   expect(await saved()).toBe(before);
   // CONTROL: settings were there to compare, and still say Darkenheimer.
-  expect(JSON.parse(before!).theme).toBe('Darkenheimer');
+  expect(JSON.parse(before ?? 'null')).toMatchObject({ theme: 'Darkenheimer' });
+  // CONTROL: a write the page does make is readable here, so the read above
+  // could fail. Comfortable is persisted.
+  await exportPage.getByRole('button', { name: 'Comfortable' }).click();
+  await expect
+    .poll(async () => JSON.parse((await saved()) ?? 'null'))
+    .toMatchObject({ exportLayout: 'comfortable' });
 });
 
 // A tinted light theme is still a light page.
