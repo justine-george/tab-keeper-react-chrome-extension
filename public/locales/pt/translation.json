@@ -1,7 +1,6 @@
 {
   "On": "Ligado",
   "Off": "Desligado",
-  "Search": "Pesquisar",
   "Tab Keeper": "Tab Keeper",
   "Open in a tab": "Abrir em uma aba",
   "Undo": "Desfazer",
@@ -65,7 +64,6 @@
   "TabCount_other": "{{count}} Abas",
   "Matches": "Correspondências:",
   "Go back": "Voltar",
-  "Search among sessions": "Pesquisar entre sessões",
   "All open windows saved as a session.": "Todas as janelas abertas salvas como sessão.",
   "Current window saved as a session.": "Janela atual salva como sessão.",
   "Current tab added to this window.": "Aba atual adicionada a esta janela.",
@@ -214,7 +212,6 @@
   "Switch to tab": "Mudar para a aba",
   "Go to window": "Ir para a janela",
   "No other tabs are open": "Nenhuma outra aba aberta",
-  "Saved sessions": "Sessões salvas",
   "Fold the saved session away": "Ocultar a sessão salva",
   "Show the saved session": "Mostrar a sessão salva",
   "Close Open now": "Fechar o painel \"Abas abertas\"",

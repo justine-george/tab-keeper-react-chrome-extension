@@ -1,7 +1,6 @@
 {
   "On": "On",
   "Off": "Off",
-  "Search": "Search",
   "Tab Keeper": "Tab Keeper",
   "Open in a tab": "Open in a tab",
   "Undo": "Undo",
@@ -63,7 +62,6 @@
   "TabCount_other": "{{count}} Tabs",
   "Matches": "Matches:",
   "Go back": "Go back",
-  "Search among sessions": "Search among sessions",
   "All open windows saved as a session.": "All open windows saved as a session.",
   "Current window saved as a session.": "Current window saved as a session.",
   "Current tab added to this window.": "Current tab added to this window.",
@@ -212,7 +210,6 @@
   "Switch to tab": "Switch to tab",
   "Go to window": "Go to window",
   "No other tabs are open": "No other tabs are open",
-  "Saved sessions": "Saved sessions",
   "Fold the saved session away": "Fold the saved session away",
   "Show the saved session": "Show the saved session",
   "Close Open now": "Close Open now",

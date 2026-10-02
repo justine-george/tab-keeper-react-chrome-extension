@@ -1,7 +1,6 @@
 {
   "On": "Encendido",
   "Off": "Apagado",
-  "Search": "Buscar",
   "Tab Keeper": "Tab Keeper",
   "Open in a tab": "Abrir en una pestaña",
   "Undo": "Deshacer",
@@ -65,7 +64,6 @@
   "TabCount_other": "{{count}} Pestañas",
   "Matches": "Coincidencias:",
   "Go back": "Regresar",
-  "Search among sessions": "Buscar entre sesiones",
   "All open windows saved as a session.": "Todas las ventanas abiertas guardadas como sesión.",
   "Current window saved as a session.": "Ventana actual guardada como sesión.",
   "Current tab added to this window.": "Pestaña actual añadida a esta ventana.",
@@ -214,7 +212,6 @@
   "Switch to tab": "Cambiar a la pestaña",
   "Go to window": "Ir a la ventana",
   "No other tabs are open": "No hay otras pestañas abiertas",
-  "Saved sessions": "Sesiones guardadas",
   "Fold the saved session away": "Ocultar la sesión guardada",
   "Show the saved session": "Mostrar la sesión guardada",
   "Close Open now": "Cerrar el panel \"Pestañas abiertas\"",

@@ -1,7 +1,6 @@
 {
   "On": "Вкл",
   "Off": "Выкл",
-  "Search": "Поиск",
   "Tab Keeper": "Tab Keeper",
   "Open in a tab": "Открыть во вкладке",
   "Undo": "Отменить",
@@ -67,7 +66,6 @@
   "TabCount_other": "{{count}} вкладки",
   "Matches": "Совпадения:",
   "Go back": "Назад",
-  "Search among sessions": "Поиск среди сессий",
   "All open windows saved as a session.": "Все открытые окна сохранены как сессия.",
   "Current window saved as a session.": "Текущее окно сохранено как сессия.",
   "Current tab added to this window.": "Текущая вкладка добавлена в это окно.",
@@ -216,7 +214,6 @@
   "Switch to tab": "Перейти на вкладку",
   "Go to window": "Перейти к окну",
   "No other tabs are open": "Других открытых вкладок нет",
-  "Saved sessions": "Сохранённые сессии",
   "Fold the saved session away": "Скрыть сохранённую сессию",
   "Show the saved session": "Показать сохранённую сессию",
   "Close Open now": "Закрыть панель «Открытые вкладки»",

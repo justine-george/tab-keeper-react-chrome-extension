@@ -1,7 +1,6 @@
 {
   "On": "켬",
   "Off": "끔",
-  "Search": "검색",
   "Tab Keeper": "Tab Keeper",
   "Open in a tab": "탭에서 열기",
   "Undo": "실행취소",
@@ -61,7 +60,6 @@
   "TabCount_other": "탭 {{count}}개",
   "Matches": "일치:",
   "Go back": "뒤로 가기",
-  "Search among sessions": "세션에서 검색",
   "All open windows saved as a session.": "열려 있는 모든 창을 세션으로 저장했습니다.",
   "Current window saved as a session.": "현재 창을 세션으로 저장했습니다.",
   "Current tab added to this window.": "현재 탭을 이 창에 추가했습니다.",
@@ -210,7 +208,6 @@
   "Switch to tab": "탭으로 전환",
   "Go to window": "창으로 이동",
   "No other tabs are open": "열려 있는 다른 탭이 없습니다",
-  "Saved sessions": "저장된 세션",
   "Fold the saved session away": "저장된 세션 접기",
   "Show the saved session": "저장된 세션 보기",
   "Close Open now": "\"지금 열려 있는 탭\" 패널 닫기",

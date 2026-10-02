@@ -1,7 +1,6 @@
 {
   "On": "चालू",
   "Off": "बंद",
-  "Search": "खोज",
   "Tab Keeper": "Tab Keeper",
   "Open in a tab": "टैब में खोलें",
   "Undo": "पूर्ववत",
@@ -63,7 +62,6 @@
   "TabCount_other": "{{count}} टैब्स",
   "Matches": "मिलान:",
   "Go back": "वापस जाएं",
-  "Search among sessions": "सत्रों में खोजें",
   "All open windows saved as a session.": "सभी खुली विंडो सत्र के रूप में सहेजी गईं।",
   "Current window saved as a session.": "वर्तमान विंडो सत्र के रूप में सहेजी गई।",
   "Current tab added to this window.": "वर्तमान टैब इस विंडो में जोड़ा गया।",
@@ -212,7 +210,6 @@
   "Switch to tab": "टैब पर जाएं",
   "Go to window": "विंडो पर जाएं",
   "No other tabs are open": "कोई अन्य टैब खुला नहीं है",
-  "Saved sessions": "सहेजे गए सेशन",
   "Fold the saved session away": "सहेजा गया सेशन छिपाएं",
   "Show the saved session": "सहेजा गया सेशन दिखाएं",
   "Close Open now": "\"अभी खुले टैब\" पैनल बंद करें",

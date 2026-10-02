@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
-import { useDispatch, useSelector } from 'react-redux';
+import { useDispatch } from 'react-redux';
 
 import { css } from '@emotion/react';
 
@@ -8,8 +8,7 @@ import Button from '../../common/Button';
 import OverflowMenu from '../../common/OverflowMenu';
 import TextBox from '../../common/TextBox';
 import { useThemeColors } from '../../../hooks/useThemeColors';
-import { AppDispatch, RootState } from '../../../redux/store';
-import { setSearchInputText } from '../../../redux/slices/globalStateSlice';
+import { AppDispatch } from '../../../redux/store';
 import {
   captureOpenWindows,
   isTabKeeperPage,
@@ -31,7 +30,6 @@ export default function UserInputContainer() {
 
   const [newTitle, setNewTitle] = useState<string>('');
   const [currentTabName, setCurrentTabName] = useState<string>('');
-  const [searchInput, setSearchInput] = useState<string>('');
 
   // KAN-299. Mirrors of `newTitle` and the last suggestion this component
   // applied, kept for the visibility handler below -- it is defined inside a
@@ -42,10 +40,6 @@ export default function UserInputContainer() {
   // suggestion), so there is nothing for the two sources to drift apart on.
   const boxValueRef = useRef<string>('');
   const lastSuggestionRef = useRef<string>('');
-
-  const isSearchPanel = useSelector(
-    (state: RootState) => state.globalState.isSearchPanel
-  );
 
   useEffect(() => {
     // Guards loadSuggestion below against setting state after this
@@ -179,15 +173,6 @@ export default function UserInputContainer() {
     setNewTitle(e.target.value);
   }
 
-  function handleSearchInputChange(e: React.ChangeEvent<HTMLInputElement>) {
-    setSearchInput(e.target.value);
-    dispatch(setSearchInputText(e.target.value));
-  }
-
-  function filterResults() {
-    // dispatch(setSearchInputText(searchInput));
-  }
-
   // The scope is the button's word, not a stored preference (KAN-5). Focus
   // mode saves through this same captureOpenWindows before closing every
   // window, so nothing it does not pass itself may reach that path.
@@ -253,31 +238,7 @@ export default function UserInputContainer() {
     border: 1px solid ${COLORS.BORDER_COLOR};
   `;
 
-  return isSearchPanel ? (
-    <div css={containerStyle}>
-      <TextBox
-        id="searchInput"
-        name="searchInput"
-        value={searchInput}
-        placeholder={t('Search among sessions')}
-        autoComplete="off"
-        onChange={handleSearchInputChange}
-        onKeyEnter={filterResults}
-        style={`margin-right: 8px; height: ${ROW_HEIGHT};`}
-      />
-      {/* <Button text="Search" onClick={createTabGroup} /> */}
-      <Button
-        tooltipText={t('Search')}
-        iconType="search"
-        ariaLabel={t('Search')}
-        onClick={filterResults}
-        // ROW_HEIGHT like the box beside it (KAN-216). Padding alone left it
-        // 48px, 5px short at each edge of the row. 58px wide already, so it is
-        // square -- the size of the save panel's save-all segment in this spot.
-        style={`padding: 12px; flex-shrink: 0; height: ${ROW_HEIGHT};`}
-      />
-    </div>
-  ) : (
+  return (
     <div css={containerStyle}>
       <TextBox
         id="name"

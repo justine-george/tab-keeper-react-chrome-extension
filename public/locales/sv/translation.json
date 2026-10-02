@@ -1,7 +1,6 @@
 {
   "On": "På",
   "Off": "Av",
-  "Search": "Sök",
   "Tab Keeper": "Tab Keeper",
   "Open in a tab": "Öppna i en flik",
   "Undo": "Ångra",
@@ -63,7 +62,6 @@
   "TabCount_other": "{{count}} Flikar",
   "Matches": "Träffar:",
   "Go back": "Gå tillbaka",
-  "Search among sessions": "Sök bland sessioner",
   "All open windows saved as a session.": "Alla öppna fönster har sparats som en session.",
   "Current window saved as a session.": "Aktuellt fönster har sparats som en session.",
   "Current tab added to this window.": "Aktuell flik har lagts till i det här fönstret.",
@@ -212,7 +210,6 @@
   "Switch to tab": "Växla till flik",
   "Go to window": "Gå till fönstret",
   "No other tabs are open": "Inga andra flikar är öppna",
-  "Saved sessions": "Sparade sessioner",
   "Fold the saved session away": "Dölj den sparade sessionen",
   "Show the saved session": "Visa den sparade sessionen",
   "Close Open now": "Stäng panelen ”Öppna flikar”",

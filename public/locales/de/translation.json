@@ -1,7 +1,6 @@
 {
   "On": "Ein",
   "Off": "Aus",
-  "Search": "Suchen",
   "Tab Keeper": "Tab Keeper",
   "Open in a tab": "In einem Tab öffnen",
   "Undo": "Rückgängig",
@@ -63,7 +62,6 @@
   "TabCount_other": "{{count}} Tabs",
   "Matches": "Treffer:",
   "Go back": "Zurück",
-  "Search among sessions": "Unter Sitzungen suchen",
   "All open windows saved as a session.": "Alle offenen Fenster als Sitzung gespeichert.",
   "Current window saved as a session.": "Aktuelles Fenster als Sitzung gespeichert.",
   "Current tab added to this window.": "Aktueller Tab zu diesem Fenster hinzugefügt.",
@@ -212,7 +210,6 @@
   "Switch to tab": "Zum Tab wechseln",
   "Go to window": "Zum Fenster wechseln",
   "No other tabs are open": "Keine anderen Tabs geöffnet",
-  "Saved sessions": "Gespeicherte Sitzungen",
   "Fold the saved session away": "Gespeicherte Sitzung ausblenden",
   "Show the saved session": "Gespeicherte Sitzung anzeigen",
   "Close Open now": "Bereich \"Offene Tabs\" schließen",
