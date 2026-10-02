@@ -236,6 +236,8 @@
   "Search open tabs": "Sök öppna flikar",
   "Clear search": "Rensa sökning",
   "NoOpenTabMatches": "Ingen öppen flik matchar ”{{text}}”",
+  "Search saved tabs": "Sök sparade flikar",
+  "NoSavedTabMatches": "Ingen sparad flik matchar ”{{text}}”",
   "TabCountShownOfTotal_one": "{{shown}} av {{count}} Flik",
   "TabCountShownOfTotal_other": "{{shown}} av {{count}} Flikar",
   "CarryCardNameAndCount_one": "{{name}} · {{count}} Flik",

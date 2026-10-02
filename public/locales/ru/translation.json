@@ -242,6 +242,8 @@
   "Search open tabs": "Поиск открытых вкладок",
   "Clear search": "Очистить поиск",
   "NoOpenTabMatches": "Нет открытых вкладок, совпадающих с «{{text}}»",
+  "Search saved tabs": "Поиск сохранённых вкладок",
+  "NoSavedTabMatches": "Нет сохранённых вкладок, совпадающих с «{{text}}»",
   "TabCountShownOfTotal_one": "{{shown}} из {{count}} вкладки",
   "TabCountShownOfTotal_few": "{{shown}} из {{count}} вкладок",
   "TabCountShownOfTotal_many": "{{shown}} из {{count}} вкладок",

@@ -236,6 +236,8 @@
   "Search open tabs": "खुले टैब खोजें",
   "Clear search": "खोज साफ़ करें",
   "NoOpenTabMatches": "\"{{text}}\" से मेल खाता कोई खुला टैब नहीं है",
+  "Search saved tabs": "सहेजे गए टैब खोजें",
+  "NoSavedTabMatches": "\"{{text}}\" से मेल खाता कोई सहेजा गया टैब नहीं है",
   "TabCountShownOfTotal_one": "{{count}} में से {{shown}} टैब",
   "TabCountShownOfTotal_other": "{{count}} में से {{shown}} टैब्स",
   "CarryCardNameAndCount_one": "{{name}} · {{count}} टैब",

@@ -236,6 +236,8 @@
   "Search open tabs": "Search open tabs",
   "Clear search": "Clear search",
   "NoOpenTabMatches": "No open tab matches \"{{text}}\"",
+  "Search saved tabs": "Search saved tabs",
+  "NoSavedTabMatches": "No saved tab matches \"{{text}}\"",
   "TabCountShownOfTotal_one": "{{shown}} of {{count}} Tab",
   "TabCountShownOfTotal_other": "{{shown}} of {{count}} Tabs",
   "CarryCardNameAndCount_one": "{{name}} · {{count}} Tab",

@@ -239,6 +239,8 @@
   "Search open tabs": "Pesquisar abas abertas",
   "Clear search": "Limpar pesquisa",
   "NoOpenTabMatches": "Nenhuma aba aberta corresponde a \"{{text}}\"",
+  "Search saved tabs": "Pesquisar abas salvas",
+  "NoSavedTabMatches": "Nenhuma aba salva corresponde a \"{{text}}\"",
   "TabCountShownOfTotal_one": "{{shown}} de {{count}} Aba",
   "TabCountShownOfTotal_many": "{{shown}} de {{count}} Abas",
   "TabCountShownOfTotal_other": "{{shown}} de {{count}} Abas",

@@ -7,6 +7,7 @@ import { css } from '@emotion/react';
 import { RootState } from '../../../redux/store';
 import HeroContainerRight from './HeroContainerRight';
 import { selectVisibleTabGroups } from '../../../utils/functions/local';
+import { useSavedSearch } from '../../../hooks/useSavedSearch';
 import TabGroupDetailsContainer from './TabGroupDetailsContainer';
 
 function RightPane() {
@@ -14,13 +15,7 @@ function RightPane() {
     (state: RootState) => state.tabContainerDataState
   );
 
-  const isSearchPanel = useSelector(
-    (state: RootState) => state.globalState.isSearchPanel
-  );
-
-  const searchInputText = useSelector(
-    (state: RootState) => state.globalState.searchInputText
-  );
+  const { text: searchText } = useSavedSearch();
 
   const hasTabGroupsPermission = useSelector(
     (state: RootState) => state.globalState.hasTabGroupsPermission
@@ -30,7 +25,7 @@ function RightPane() {
   // with what they find
   const visibleTabGroups = selectVisibleTabGroups(
     tabContainerDataList.tabGroups,
-    isSearchPanel ? searchInputText : '',
+    searchText,
     hasTabGroupsPermission
   );
 

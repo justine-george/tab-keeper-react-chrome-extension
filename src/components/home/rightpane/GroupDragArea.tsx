@@ -10,6 +10,7 @@ import { useSelector } from 'react-redux';
 
 import type { RootState } from '../../../redux/store';
 import { RowDragArea } from './rowDrag/RowDragArea';
+import { useSavedSearch } from '../../../hooks/useSavedSearch';
 import { useGroupDrop } from './useGroupDrop';
 import type { PaneWindows } from './rowDrag/dropRules';
 import { markNewWindowTarget } from './newWindowTarget';
@@ -31,9 +32,7 @@ export const GroupDragArea: React.FC<{
   const hasTabGroupsPermission = useSelector(
     (state: RootState) => state.globalState.hasTabGroupsPermission
   );
-  const isSearchPanel = useSelector(
-    (state: RootState) => state.globalState.isSearchPanel
-  );
+  const { isSearching } = useSavedSearch();
   const groupDrop = useGroupDrop(itemList, hasTabGroupsPermission);
   const carryOut = useCallback(
     (rowId: string) => groupCarryOut(itemList, rowId),
@@ -79,9 +78,8 @@ export const GroupDragArea: React.FC<{
       // From pick-up, the toolbar row's New window target stands in for the
       // session header's controls (KAN-361 N1 B).
       offersNewWindow
-      // The mode, not the box's contents -- see KAN-140 on
-      // TabGroupEntryContainer for why this is not isFilteredView.
-      disabled={isSearchPanel}
+      // Off while searching (KAN-385).
+      disabled={isSearching}
     >
       {children}
     </RowDragArea>

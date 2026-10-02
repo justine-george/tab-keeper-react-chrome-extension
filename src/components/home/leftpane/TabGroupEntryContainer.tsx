@@ -8,12 +8,12 @@ import Divider from '../../common/Divider';
 import TabGroupEntry from './TabGroupEntry';
 import { SPRING_OPEN_MS } from './springOpen';
 import { NormalLabel } from '../../common/Label';
+import SearchRow from '../../common/SearchRow';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { AppDispatch, RootState } from '../../../redux/store';
-import {
-  filterTabGroups,
-  isSearchActive,
-} from '../../../utils/functions/local';
+import { filterTabGroups } from '../../../utils/functions/local';
+import { setSearchInputText } from '../../../redux/slices/globalStateSlice';
+import { useSavedSearch } from '../../../hooks/useSavedSearch';
 import {
   deleteTabContainer,
   openAllTabContainer,
@@ -35,9 +35,6 @@ import {
   type CarryReceiver,
 } from '../../../redux/carry';
 import { useMediaQuery } from '../../../hooks/useMediaQuery';
-import { isTabView } from '../../../utils/functions/viewMode';
-import { TYPE } from '../../../styles/scale';
-import { searchTermOf } from '../../../utils/functions/openNowSearch';
 
 export default function TabGroupEntryContainer() {
   const COLORS = useThemeColors();
@@ -47,18 +44,13 @@ export default function TabGroupEntryContainer() {
   // The scrolling element, so KAN-143's effect scopes its lookup to this list
   // rather than searching the whole document.
   const listRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const tabContainerDataList = useSelector(
     (state: RootState) => state.tabContainerDataState
   );
 
-  const isSearchPanel = useSelector(
-    (state: RootState) => state.globalState.isSearchPanel
-  );
-
-  const searchInputText = useSelector(
-    (state: RootState) => state.globalState.searchInputText
-  );
+  const { text: searchText, term: searchTerm, isSearching } = useSavedSearch();
 
   const hasTabGroupsPermission = useSelector(
     (state: RootState) => state.globalState.hasTabGroupsPermission
@@ -78,7 +70,6 @@ export default function TabGroupEntryContainer() {
   );
 
   // filter the tab group list
-  const searchTerm = isSearchPanel ? searchTermOf(searchInputText) : null;
   let filteredTabGroups: tabContainerData[] = tabContainerDataList.tabGroups;
   if (searchTerm !== null) {
     filteredTabGroups = filterTabGroups(
@@ -97,31 +88,21 @@ export default function TabGroupEntryContainer() {
   // Select the first match as the query narrows -- but only while a search is
   // actually running.
   //
-  // KAN-90. This used to key on `searchInputText` alone, which made the two
-  // ways out of search disagree. Clearing the box changes the text, so the
-  // effect re-ran; by then `isSearchActive` was false, so `filteredTabGroups`
-  // was the WHOLE list and [0] was simply the newest session. Pressing "Back"
-  // leaves the text alone, so the effect never fired and the match survived.
-  // From one starting point that gave BETA one way and ALPHA the other, and
-  // BETA was neither the session selected before the search nor the one
-  // searched for.
-  //
-  // "Back" was already the shipped answer to what leaving a search should do,
-  // so clearing is made to agree with it rather than inventing a third
-  // behaviour. Restoring the pre-search selection instead would need somewhere
-  // to remember it -- new state for a case the app already has an answer to.
+  // KAN-90. Clearing the search leaves the user on the match they found: with
+  // no search, this returns before touching the selection. Restoring the
+  // pre-search selection instead would need somewhere to remember it.
   //
   // The second guard keeps the selection when it still matches, so typing more
   // of a query no longer walks the user back to the top of the results on
   // every keystroke.
   useEffect(() => {
-    if (!(isSearchPanel && isSearchActive(searchInputText))) return;
+    if (!isSearching) return;
     if (filteredTabGroups.length === 0) return;
     if (filteredTabGroups.some((g) => g.tabGroupId === selectedTabGroupId)) {
       return;
     }
     dispatch(selectTabContainer(filteredTabGroups[0].tabGroupId));
-  }, [searchInputText, isSearchPanel]);
+  }, [searchTerm]);
 
   // KAN-143. Follow the selected session when the list rearranges under it.
   //
@@ -180,11 +161,9 @@ export default function TabGroupEntryContainer() {
   const [carryTargetId, setCarryTargetId] = useState<string | null>(null);
   const carryTargetRef = useRef<string | null>(null);
 
-  // Not a receiver at all while the saved search panel is open (KAN-140: a
-  // saved drag cannot start there, and a search opened mid-carry ends it --
-  // CarryLayer).
+  // Not a receiver while searching (KAN-385); a search started mid-carry ends it (CarryLayer).
   useEffect(() => {
-    if (isSearchPanel) return;
+    if (isSearching) return;
 
     const aim = (id: string | null) => {
       if (carryTargetRef.current === id) return;
@@ -289,7 +268,7 @@ export default function TabGroupEntryContainer() {
       unregister();
       receiver.leave();
     };
-  }, [isSearchPanel, dispatch]);
+  }, [isSearching, dispatch]);
 
   // S1 A. Resting on a row opens its session after SPRING_OPEN_MS. Started
   // by the same change that puts data-carry-target on the row -- this effect
@@ -315,37 +294,22 @@ export default function TabGroupEntryContainer() {
   // Reduced motion draws no sweep; the session still opens after the wait.
   const reducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)');
 
-  // The session list's frame, one declaration for both views, so the popup's
-  // list and the tab view's list box cannot drift apart (KAN-280 O3a).
-  const listFrameStyle = css`
+  // The list box: the search row, then the scroller. min-height: 0 lets it
+  // shrink in LeftPane's column (a scroll container's automatic minimum is 0;
+  // this box is not one).
+  const listBoxStyle = css`
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
     border: 1px solid ${COLORS.BORDER_COLOR};
     margin: 8px 0;
     user-select: none;
   `;
 
-  // The popup's list: the frame and the scroller in one element.
-  const popupListStyle = css`
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    ${listFrameStyle}
-    overflow: auto;
-  `;
-
-  // KAN-280 O3a. In the tab view the list box is two parts: the caption, then
-  // the scroller. The box keeps the frame and height the popup's list has,
-  // so the scroller gives up the caption's height and the box does not grow.
-  // min-height: 0 lets it shrink in LeftPane's column as the lone scroller
-  // did (a scroll container's automatic minimum is 0; this box is not one).
-  const tabListBoxStyle = css`
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    min-height: 0;
-    ${listFrameStyle}
-  `;
-
-  const tabScrollerStyle = css`
+  // The search row sits outside this, not sticky in it: the drag engine
+  // measures the scroller as all rows and auto-scrolls from its edges (O3a).
+  const scrollerStyle = css`
     display: flex;
     flex-direction: column;
     flex: 1 1 0;
@@ -365,127 +329,99 @@ export default function TabGroupEntryContainer() {
     flex-direction: column;
   `;
 
-  const isTab = isTabView();
-
-  const scroller = (
-    <div css={isTab ? tabScrollerStyle : popupListStyle} ref={listRef}>
-      {filteredTabGroups.length === 0 ? (
-        <div css={emptyContainerStyle}>
-          {/* KAN-86. Was the bare literal "Empty", which rendered in English
-              in all nine non-English locales while every string around it
-              was translated. */}
-          <NormalLabel value={t('Empty')} />
-        </div>
-      ) : (
-        <div css={filledContainerStyle}>
-          {/* KAN-130. No handleSelector -- a session row contains no nested
-              drag area, so the whole row is the handle. No resolveDrop -- a
-              session belongs to nothing. */}
-          {/* Guarded on the MODE, not on whether the box currently holds
-              text (KAN-140). `isFilteredView` would leave dragging live while
-              the panel is open and empty, then silently kill it on the first
-              keystroke -- the same gesture on the same rows, decided by a
-              transient value, with rows rendering `cursor: pointer` either way
-              so nothing tells the user which state they are in.
-
-              KAN-131 argued the other way and was right about safety: an empty
-              box filters nothing, so the rendered list IS the stored one and
-              the index cannot cross between two arrays. It was wrong about
-              what the guard is for. Search is a mode entered to FIND
-              something, and a value guard also makes the safety property
-              depend on the ordering of a keystroke against a pointer gesture,
-              which a mode guard removes entirely. */}
-          <RowDragArea
-            rowIds={sessionIds}
-            onMove={handleMoveSession}
-            dragKind="session"
-            clampDropToEnds
-            disabled={isSearchPanel}
-          >
-            {filteredTabGroups.map((tabGroupData, index) => {
-              return (
-                // tabGroupId, not index: this list is filtered by search and
-                // reordered by save, so positions are not stable identities.
-                <DraggableRow
-                  key={tabGroupData.tabGroupId}
-                  rowId={tabGroupData.tabGroupId}
-                >
-                  <TabGroupEntry
-                    tabGroupData={tabGroupData}
-                    onTabGroupClick={() =>
-                      dispatch(showSession(tabGroupData.tabGroupId))
-                    }
-                    onOpenAllClick={() => {
-                      const goToURLText: string = t('Go to URL');
-                      dispatch(
-                        openAllTabContainer({
-                          tabGroupId: tabGroupData.tabGroupId,
-                          goToURLText,
-                        })
-                      );
-                    }}
-                    onFocusClick={() => {
-                      dispatch(
-                        requestFocusTabContainer({
-                          tabGroupId: tabGroupData.tabGroupId,
-                          goToURLText: t('Go to URL'),
-                          saveTitle: t('FocusAutoSaveTitle'),
-                        })
-                      );
-                    }}
-                    onDeleteClick={() =>
-                      dispatch(deleteTabContainer(tabGroupData.tabGroupId))
-                    }
-                    carryTarget={
-                      tabGroupData.tabGroupId === carryTargetId
-                        ? {
-                            dwellSweep:
-                              tabGroupData.tabGroupId === dwellId &&
-                              !reducedMotion,
-                          }
-                        : undefined
-                    }
-                    carryOrigin={
-                      tabGroupData.tabGroupId === originId &&
-                      tabGroupData.tabGroupId !== carryTargetId
-                    }
-                  />
-                  {/* <Divider /> */}
-                  {index != filteredTabGroups.length - 1 && <Divider />}
-                </DraggableRow>
-              );
-            })}
-          </RowDragArea>
-        </div>
-      )}
-    </div>
-  );
-
-  // The popup has no Open now, so it has no caption either: its list is the
-  // scroller alone, as it always was.
-  if (!isTab) return scroller;
-
-  // KAN-280 O3/O3a. Beside Open now, the list says which sessions these are.
-  // Pinned by sitting OUTSIDE the scroller, not by position: sticky inside
-  // it: the drag engine measures the scroller as all rows and auto-scrolls
-  // from its edges, and a caption laid over the top rows would put hidden
-  // rows under the pointer.
   return (
-    <div css={tabListBoxStyle}>
-      <div
-        data-caption="saved-sessions"
-        css={css`
-          flex-shrink: 0;
-        `}
-      >
-        <NormalLabel
-          value={t('Saved sessions')}
-          size={TYPE.META}
-          color={COLORS.LABEL_L2_COLOR}
-          style="padding: 8px 8px 4px 8px;"
-        />
+    <div css={listBoxStyle}>
+      <SearchRow
+        text={searchText}
+        onTextChange={(text) => dispatch(setSearchInputText(text))}
+        inputRef={searchInputRef}
+        label={t('Search saved tabs')}
+        glassInset="8px"
+        glassBox="tight"
+        textInset="8px"
+        rowAttribute="data-saved-search"
+      />
+      <div css={scrollerStyle} ref={listRef}>
+        {filteredTabGroups.length === 0 ? (
+          <div css={emptyContainerStyle}>
+            {isSearching ? (
+              <NormalLabel
+                value={t('NoSavedTabMatches', { text: searchText.trim() })}
+                color={COLORS.LABEL_L2_COLOR}
+              />
+            ) : (
+              <NormalLabel value={t('Empty')} />
+            )}
+          </div>
+        ) : (
+          <div css={filledContainerStyle}>
+            {/* KAN-130. No handleSelector -- a session row contains no nested
+                drag area, so the whole row is the handle. No resolveDrop -- a
+                session belongs to nothing. Off while searching (KAN-385). */}
+            <RowDragArea
+              rowIds={sessionIds}
+              onMove={handleMoveSession}
+              dragKind="session"
+              clampDropToEnds
+              disabled={isSearching}
+            >
+              {filteredTabGroups.map((tabGroupData, index) => {
+                return (
+                  // tabGroupId, not index: this list is filtered by search and
+                  // reordered by save, so positions are not stable identities.
+                  <DraggableRow
+                    key={tabGroupData.tabGroupId}
+                    rowId={tabGroupData.tabGroupId}
+                  >
+                    <TabGroupEntry
+                      tabGroupData={tabGroupData}
+                      onTabGroupClick={() =>
+                        dispatch(showSession(tabGroupData.tabGroupId))
+                      }
+                      onOpenAllClick={() => {
+                        const goToURLText: string = t('Go to URL');
+                        dispatch(
+                          openAllTabContainer({
+                            tabGroupId: tabGroupData.tabGroupId,
+                            goToURLText,
+                          })
+                        );
+                      }}
+                      onFocusClick={() => {
+                        dispatch(
+                          requestFocusTabContainer({
+                            tabGroupId: tabGroupData.tabGroupId,
+                            goToURLText: t('Go to URL'),
+                            saveTitle: t('FocusAutoSaveTitle'),
+                          })
+                        );
+                      }}
+                      onDeleteClick={() =>
+                        dispatch(deleteTabContainer(tabGroupData.tabGroupId))
+                      }
+                      carryTarget={
+                        tabGroupData.tabGroupId === carryTargetId
+                          ? {
+                              dwellSweep:
+                                tabGroupData.tabGroupId === dwellId &&
+                                !reducedMotion,
+                            }
+                          : undefined
+                      }
+                      carryOrigin={
+                        tabGroupData.tabGroupId === originId &&
+                        tabGroupData.tabGroupId !== carryTargetId
+                      }
+                    />
+                    {/* <Divider /> */}
+                    {index != filteredTabGroups.length - 1 && <Divider />}
+                  </DraggableRow>
+                );
+              })}
+            </RowDragArea>
+          </div>
+        )}
       </div>
-      {scroller}
     </div>
   );
 }

@@ -7,8 +7,8 @@
 // and registered only while it can take what is carried: a tab or group,
 // into a session that offers it a landing (landingView -- the same test that
 // draws the phantom the list adopts). For a window, for no carry, for an
-// ordinary drag, and while the search panel is open (KAN-140), it is not
-// there at all, so nothing is ever handed to it that it would refuse.
+// ordinary drag, and while searching (KAN-385), it is not there at all, so
+// nothing is ever handed to it that it would refuse.
 //
 // An engine drag that comes up from the list over it is never handed here:
 // the engine asks its own copy of the target first (RowDragArea, Q3 i).
@@ -24,6 +24,7 @@ import {
 } from '../../../redux/carry';
 import { dropCarriedGroup, dropCarriedTab } from '../../../redux/dropCarried';
 import { landingView } from '../../../utils/functions/carriedView';
+import { useSavedSearch } from '../../../hooks/useSavedSearch';
 import { NEW_FIRST_WINDOW, newWindowTargetHit } from './newWindowTarget';
 
 export function useNewFirstWindowReceiver(
@@ -36,19 +37,17 @@ export function useNewFirstWindowReceiver(
   const tabGroups = useSelector(
     (state: RootState) => state.tabContainerDataState.tabGroups
   );
-  const isSearchPanel = useSelector(
-    (state: RootState) => state.globalState.isSearchPanel
-  );
+  const { isSearching } = useSavedSearch();
   const carried = useCarried();
 
   const takes = useMemo(
     () =>
-      !isSearchPanel &&
+      !isSearching &&
       carried !== null &&
       carried.kind !== 'window' &&
       tabGroupId !== undefined &&
       landingView(tabGroups, tabGroupId, carried) !== null,
-    [isSearchPanel, carried, tabGroupId, tabGroups]
+    [isSearching, carried, tabGroupId, tabGroups]
   );
 
   useEffect(() => {

@@ -11,6 +11,7 @@ import GroupColorPicker from '../../common/GroupColorPicker';
 import { NormalLabel } from '../../common/Label';
 import { useFontFamily } from '../../../hooks/useFontFamily';
 import { useThemeColors } from '../../../hooks/useThemeColors';
+import { useSavedSearch } from '../../../hooks/useSavedSearch';
 import { AppDispatch, RootState } from '../../../redux/store';
 import {
   resolveTabUrl,
@@ -146,24 +147,14 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   const [openMenuGroupId, setOpenMenuGroupId] = useState<string | null>(null);
   const [hoveredTabId, setHoveredTabId] = useState<string | null>(null);
 
-  const isSearchPanel = useSelector(
-    (state: RootState) => state.globalState.isSearchPanel
-  );
-
   // KAN-131. `tabs` here is whatever the pane handed down, and under a live
   // search that is a SUBSET of the stored window -- filterTabGroups narrows a
   // window's tabs, not just which windows are shown. A drag reports an index
   // into the rows on screen and moveTabInternal applies it to the stored
   // array, so in a narrowed list the tab lands somewhere the user never
   // pointed at, silently, and the session is dirtied for a cloud write.
-  //
-  // isSearchPanel, not isSearchActive (KAN-140). This comment used to argue
-  // the opposite -- an open panel with an empty box filters nothing, so the
-  // two lists agree and dragging is safe -- which is true and is not the
-  // point. Guarding on the box's contents means the same gesture on the same
-  // rows works or does nothing depending on a transient value, with no visible
-  // tell, and makes the safety property depend on a keystroke racing a pointer
-  // gesture. The mode is the stable thing to ask about.
+  // The gate is searching (KAN-385).
+  const { isSearching } = useSavedSearch();
 
   // Gates rendering on the LIVE permission, not on whether the data is
   // present. A session synced from a device that had the permission still
@@ -256,7 +247,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     /* Left below the focus-within rule on purpose: during search these
        controls do not apply, and visibility:hidden removes them from the tab
        order as well as from view, so there is nothing inside to focus. */
-    ${isSearchPanel && 'visibility: hidden;'}
+    ${isSearching && 'visibility: hidden;'}
   `;
 
   const childrenContainerStyle = css`
@@ -403,7 +394,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     flex-grow: 1;
     min-width: 0;
     padding-right: 9px;
-    ${!isSearchPanel ? 'cursor: pointer;' : ''}
+    ${!isSearching ? 'cursor: pointer;' : ''}
   `;
 
   const windowChildLinkStyle = css`
@@ -516,7 +507,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     }
   };
 
-  // No stopPropagation and no isSearchPanel/isEditing guard any more: this is
+  // No stopPropagation and no isSearching/isEditing guard any more: this is
   // only wired up on the branch where it is a real action, so it can no longer
   // be reached in a state where it does nothing, and the container it sits in
   // has no click handler of its own to bubble into.
@@ -747,13 +738,13 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                 Editing: an <input> may not live inside a <button>; clicking it
                 would activate the button and it could not hold focus.
 
-                Searching: handleWindowClick is a no-op while isSearchPanel, so
+                Searching: handleWindowClick is a no-op while isSearching, so
                 rendering a button here would be focusable and inert -- exactly
                 the KAN-62 defect this codebase just fixed. It renders as static
                 text instead.
 
                 Otherwise: a real button. */}
-            {isEditing && !isSearchPanel ? (
+            {isEditing && !isSearching ? (
               // padding-right: 0 overrides parentLinkStyle's 9px, which exists
               // to keep the RESTING title clear of the action icons. While
               // editing there is no title to keep clear, and the reserved gap
@@ -783,7 +774,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                   `}
                 />
               </div>
-            ) : isSearchPanel ? (
+            ) : isSearching ? (
               <div css={css(parentLinkStyle)}>
                 <NormalLabel
                   value={title}
@@ -809,7 +800,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
             )}
           </div>
           <div data-row-actions css={parentRightStyle}>
-            {isEditing && !isSearchPanel ? (
+            {isEditing && !isSearching ? (
               // Same shape as the session tick: the wrapper carries the
               // onMouseDown that Icon does not expose, preventDefault keeps focus
               // in the input so onClick is the single commit path, and the
@@ -840,7 +831,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
 
             {/* KAN-279 D13. This page IS Tab Keeper's own tab in the tab view,
                 so "current tab" could only ever mean itself; hidden there. */}
-            {!isEditing && !isSearchPanel && !isTabView() && (
+            {!isEditing && !isSearching && !isTabView() && (
               <Icon
                 tooltipText={t('Add current tab')}
                 ariaLabel={t('Add current tab')}
@@ -851,7 +842,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                 }}
               />
             )}
-            {!isEditing && !isSearchPanel && (
+            {!isEditing && !isSearching && (
               <Icon
                 tooltipText={t('Delete window group')}
                 ariaLabel={t('Delete window group')}
@@ -1028,7 +1019,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                     strip so it spans the whole group, as Chrome's does. */}
                   <GroupColorPicker
                     color={item.group.color}
-                    decorative={isSearchPanel}
+                    decorative={isSearching}
                     ariaLabel={
                       t('Change group color') +
                       ': ' +
@@ -1116,8 +1107,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                         }
                       `}
                     >
-                      {editingGroupId === item.group.groupId &&
-                      !isSearchPanel ? (
+                      {editingGroupId === item.group.groupId && !isSearching ? (
                         <input
                           value={groupDraft}
                           aria-label={renameGroupLabel(item.group)}
@@ -1166,7 +1156,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                             }
                           `}
                         />
-                      ) : isSearchPanel ? (
+                      ) : isSearching ? (
                         // A control that cannot act must not be focusable and
                         // inert (KAN-62), so searching gets static text.
                         groupTitleLabel(item.group)
@@ -1196,7 +1186,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                         </ClickableRow>
                       )}
                       {editingGroupId === item.group.groupId &&
-                        !isSearchPanel && (
+                        !isSearching && (
                           // Same shape as the other two ticks: the wrapper stops
                           // the post-commit click retargeting onto the pencil, and
                           // preventDefault keeps focus in the input so onClick is
@@ -1228,7 +1218,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                           </span>
                         )}
                       {editingGroupId !== item.group.groupId &&
-                        !isSearchPanel && (
+                        !isSearching && (
                           // data-row-actions: hidden while any drag is in flight
                           // (KAN-135). The held group's title row stays hovered
                           // for the whole drag.

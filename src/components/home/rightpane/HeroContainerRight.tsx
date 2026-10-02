@@ -24,9 +24,9 @@ import {
 } from '../../../utils/functions/capture';
 import {
   formatGroupCounts,
-  isSearchActive,
   selectVisibleTabGroups,
 } from '../../../utils/functions/local';
+import { useSavedSearch } from '../../../hooks/useSavedSearch';
 import {
   addCurrWindowToTabGroup,
   deleteTabContainer,
@@ -65,13 +65,7 @@ export default function HeroContainerRight() {
     (state: RootState) => state.tabContainerDataState
   );
 
-  const isSearchPanel = useSelector(
-    (state: RootState) => state.globalState.isSearchPanel
-  );
-
-  const searchInputText = useSelector(
-    (state: RootState) => state.globalState.searchInputText
-  );
+  const { text: searchText, isSearching } = useSavedSearch();
 
   const hasTabGroupsPermission = useSelector(
     (state: RootState) => state.globalState.hasTabGroupsPermission
@@ -101,7 +95,7 @@ export default function HeroContainerRight() {
   // the same list RightPane derives its mount guard from
   const selectedTabGroup = selectVisibleTabGroups(
     tabContainerDataList.tabGroups,
-    isSearchPanel ? searchInputText : '',
+    searchText,
     hasTabGroupsPermission
   )[0];
 
@@ -135,7 +129,7 @@ export default function HeroContainerRight() {
   };
 
   const handleTabGroupTitleClick = () => {
-    if (!isSearchPanel) {
+    if (!isSearching) {
       startEditing();
     }
   };
@@ -260,7 +254,7 @@ export default function HeroContainerRight() {
     justify-content: space-between;
     align-items: flex-end;
     width: 100%;
-    ${isSearchPanel && 'visibility: hidden;'}
+    ${isSearching && 'visibility: hidden;'}
   `;
 
   // KAN-361 (N1 B). While a saved tab or group is dragged -- in this session,
@@ -313,7 +307,7 @@ export default function HeroContainerRight() {
             width: 100%;
           `}
         >
-          {isEditing && !isSearchPanel ? (
+          {isEditing && !isSearching ? (
             <input
               value={editableTitle}
               onBlur={handleBlur}
@@ -337,13 +331,13 @@ export default function HeroContainerRight() {
                 }
               `}
             />
-          ) : isSearchPanel ? (
+          ) : isSearching ? (
             // Read-only while searching: the action block and the whole bottom
             // row are `visibility: hidden` here, so exposing the title as a
             // button would advertise the one action still on offer in a pane
             // where nothing else can be done.
             //
-            // This branch, not handleTabGroupTitleClick's own `!isSearchPanel`
+            // This branch, not handleTabGroupTitleClick's own `!isSearching`
             // check, is what makes that true now -- the handler is never wired
             // here at all, so that check no longer has a reachable call site.
             titleLabel
@@ -378,7 +372,7 @@ export default function HeroContainerRight() {
               &:focus-within {
                 opacity: 1;
               }
-              ${isSearchPanel && 'visibility: hidden;'}
+              ${isSearching && 'visibility: hidden;'}
             `}
           >
             {/* Editing swaps the pencil for a tick rather than leaving the
@@ -386,7 +380,7 @@ export default function HeroContainerRight() {
                 clicking away both already committed, but neither is an
                 affordance a pointer user can see -- "click somewhere else to
                 save" is not something an interface can ask of anyone. */}
-            {!isSearchPanel &&
+            {!isSearching &&
               (isEditing ? (
                 // The wrapper exists to carry onMouseDown, which Icon does not
                 // expose. preventDefault keeps focus in the input so the tick
@@ -425,12 +419,7 @@ export default function HeroContainerRight() {
           </div>
         </div>
         <NormalLabel
-          value={formatGroupCounts(
-            windowCount,
-            tabCount,
-            isSearchPanel && isSearchActive(searchInputText),
-            t
-          )}
+          value={formatGroupCounts(windowCount, tabCount, isSearching, t)}
           size={TYPE.META}
           color={COLORS.LABEL_L1_COLOR}
           style={`padding-top: 2px; padding-left: 8px;`}
@@ -480,7 +469,7 @@ export default function HeroContainerRight() {
               alternating on each press disagrees in exactly that case, which is
               what collapseAllWindows.test.tsx pins.
 
-              No isSearchPanel guard: bottomStyle hides this whole row while
+              No isSearching guard: bottomStyle hides this whole row while
               searching, and a second guard would be a second answer to one
               question. */}
           <Icon

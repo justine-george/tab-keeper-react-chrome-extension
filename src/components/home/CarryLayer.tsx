@@ -15,6 +15,7 @@ import { css } from '@emotion/react';
 
 import Icon from '../common/Icon';
 import { useThemeColors } from '../../hooks/useThemeColors';
+import { useSavedSearch } from '../../hooks/useSavedSearch';
 import { RADIUS, TYPE } from '../../styles/scale';
 import { NON_INTERACTIVE_ICON_STYLE } from '../../utils/constants/common';
 import { formatTabCount } from '../../utils/functions/local';
@@ -235,19 +236,16 @@ export function CarryLayer() {
     }
   }, [tabGroups, carried, clicks]);
 
-  // The saved search panel opened mid-carry (only the keyboard can do that)
-  // ends the carry: the session list is no receiver while it is open, and a
-  // saved drag cannot start there (KAN-140). Cancelled as a removed item is,
-  // with the press still down.
-  const isSearchPanel = useSelector(
-    (state: RootState) => state.globalState.isSearchPanel
-  );
+  // A search started mid-carry (only the keyboard can do that) ends the carry:
+  // nothing saved takes a carry while searching (KAN-385). Cancelled as a
+  // removed item is, with the press still down.
+  const { isSearching } = useSavedSearch();
   useEffect(() => {
-    if (carried !== null && isSearchPanel) {
+    if (carried !== null && isSearching) {
       clicks.armUntilRelease();
       endCarry('cancelled');
     }
-  }, [isSearchPanel, carried, clicks]);
+  }, [isSearching, carried, clicks]);
 
   // A carry's card wins: at a hand-off the carry starts before the drag card
   // is hidden, so one element is on screen throughout and React keeps it.

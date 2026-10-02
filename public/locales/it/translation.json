@@ -239,6 +239,8 @@
   "Search open tabs": "Cerca schede aperte",
   "Clear search": "Cancella ricerca",
   "NoOpenTabMatches": "Nessuna scheda aperta corrisponde a \"{{text}}\"",
+  "Search saved tabs": "Cerca schede salvate",
+  "NoSavedTabMatches": "Nessuna scheda salvata corrisponde a \"{{text}}\"",
   "TabCountShownOfTotal_one": "{{shown}} di {{count}} Tab",
   "TabCountShownOfTotal_many": "{{shown}} di {{count}} Tab",
   "TabCountShownOfTotal_other": "{{shown}} di {{count}} Tab",

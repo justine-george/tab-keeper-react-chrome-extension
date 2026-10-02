@@ -239,6 +239,8 @@
   "Search open tabs": "Buscar pestañas abiertas",
   "Clear search": "Borrar búsqueda",
   "NoOpenTabMatches": "Ninguna pestaña abierta coincide con «{{text}}»",
+  "Search saved tabs": "Buscar pestañas guardadas",
+  "NoSavedTabMatches": "Ninguna pestaña guardada coincide con «{{text}}»",
   "TabCountShownOfTotal_one": "{{shown}} de {{count}} Pestaña",
   "TabCountShownOfTotal_many": "{{shown}} de {{count}} Pestañas",
   "TabCountShownOfTotal_other": "{{shown}} de {{count}} Pestañas",

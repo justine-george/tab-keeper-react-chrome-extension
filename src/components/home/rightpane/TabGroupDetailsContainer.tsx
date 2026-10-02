@@ -12,6 +12,7 @@ import { css } from '@emotion/react';
 import { NormalLabel } from '../../common/Label';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import WindowEntryContainer from './WindowEntryContainer';
+import { useSavedSearch } from '../../../hooks/useSavedSearch';
 import { AppDispatch, RootState } from '../../../redux/store';
 import {
   isEmptyObject,
@@ -63,13 +64,7 @@ export default function TabGroupDetailsContainer() {
     (state: RootState) => state.tabContainerDataState
   );
 
-  const isSearchPanel = useSelector(
-    (state: RootState) => state.globalState.isSearchPanel
-  );
-
-  const searchInputText = useSelector(
-    (state: RootState) => state.globalState.searchInputText
-  );
+  const { text: searchText, isSearching } = useSavedSearch();
 
   const hasTabGroupsPermission = useSelector(
     (state: RootState) => state.globalState.hasTabGroupsPermission
@@ -78,7 +73,7 @@ export default function TabGroupDetailsContainer() {
   // the same list RightPane derives its mount guard from
   const selectedTabGroup = selectVisibleTabGroups(
     tabContainerDataList.tabGroups,
-    isSearchPanel ? searchInputText : '',
+    searchText,
     hasTabGroupsPermission
   )[0];
 
@@ -358,9 +353,8 @@ export default function TabGroupDetailsContainer() {
                 carryOut={carryWindowOut}
                 adoptRowId={adoptRowIdFor('window')}
                 adoptedRowLandsAs={landsAsFor('window')}
-                // The mode, not the box's contents -- see KAN-140 on
-                // TabGroupEntryContainer for why this is not isFilteredView.
-                disabled={isSearchPanel}
+                // Off while searching (KAN-385).
+                disabled={isSearching}
               >
                 {shownSession.windows
                   .filter((w) => w.windowId !== NEW_LAST_WINDOW)

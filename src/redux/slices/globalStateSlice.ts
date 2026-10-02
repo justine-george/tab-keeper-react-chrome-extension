@@ -1227,6 +1227,8 @@ export const globalStateSlice = createSlice({
       })
       .addCase(openSettingsPage.fulfilled, (state) => {
         state.isSettingsPage = true;
+        // Back from Settings shows every session (Q2).
+        state.searchInputText = '';
       })
       .addCase(showToast.fulfilled, () => {})
       // KAN-294. Any action of the sessions slice means the store no longer
