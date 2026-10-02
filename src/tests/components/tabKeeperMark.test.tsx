@@ -1,10 +1,9 @@
 import { describe, expect, test } from 'vitest';
-import { render } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 
 import TabKeeperMark from '../../components/common/TabKeeperMark';
 import HeroContainerLeft from '../../components/home/leftpane/HeroContainerLeft';
 import { renderWithProviders } from '../setup/renderWithProviders';
-import { screen } from '@testing-library/react';
 
 const BAKED = [
   '#99bf9d',

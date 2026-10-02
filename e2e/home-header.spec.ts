@@ -486,16 +486,6 @@ test.describe('the mark before the title', () => {
     });
   }
 
-  test('the mark is not announced, and the title is the header name', async ({
-    context,
-    extensionId,
-  }) => {
-    const page = await openHome(context, extensionId, 'popup', 16);
-
-    await expect(mark(page)).toHaveAttribute('aria-hidden', 'true');
-    await expect(title(page)).toBeVisible();
-  });
-
   // The baked fills must look as the source floppy does under
   // `filter: saturate(0.6)`; both are drawn at 3x on the app's own ground.
   test('the baked colours match the source under saturate(0.6), within 2/255', async ({

@@ -22,9 +22,7 @@ const seed = {
   windows: [
     {
       id: 7,
-      tabs: [
-        { id: 1, title: 'Kagi Search', url: 'https://kagi.com/' },
-      ] as chrome.tabs.Tab[],
+      tabs: [{ id: 1, title: 'Kagi Search', url: 'https://kagi.com/' }],
     },
   ],
 };
@@ -110,7 +108,6 @@ describe('Open now saves while the saved search holds text', () => {
       { id: 2, tabs: [{ id: 21, title: 'D', url: 'https://d.test/' }] },
     ],
   };
-  const SAVE_EVERY = 'Save all open windows as a session';
   const render = async () => {
     const result = await renderWithProviders(<OpenNowColumn folded={true} />, {
       seed: openNowSeed,
@@ -121,19 +118,19 @@ describe('Open now saves while the saved search holds text', () => {
 
   test('no Save all and no Save window; both back when the search clears', async () => {
     const { store } = await render();
-    expect(screen.getByLabelText(SAVE_EVERY)).toBeInTheDocument();
+    expect(screen.getByLabelText(SAVE_ALL)).toBeInTheDocument();
     expect(
       screen.getAllByLabelText(/^Save window as a session: /).length
     ).toBeGreaterThan(0);
 
     search(store, 'kagi');
-    expect(screen.queryByLabelText(SAVE_EVERY)).toBeNull();
+    expect(screen.queryByLabelText(SAVE_ALL)).toBeNull();
     expect(screen.queryAllByLabelText(/^Save window as a session: /)).toEqual(
       []
     );
 
     search(store, '');
-    expect(screen.getByLabelText(SAVE_EVERY)).toBeInTheDocument();
+    expect(screen.getByLabelText(SAVE_ALL)).toBeInTheDocument();
   });
 
   test("Open now's own search alone still leaves Save all (O14e hides only Save window)", async () => {
@@ -141,7 +138,7 @@ describe('Open now saves while the saved search holds text', () => {
     fireEvent.change(screen.getByRole('textbox', { name: /Search open/i }), {
       target: { value: 'D' },
     });
-    expect(screen.getByLabelText(SAVE_EVERY)).toBeInTheDocument();
+    expect(screen.getByLabelText(SAVE_ALL)).toBeInTheDocument();
     expect(screen.queryAllByLabelText(/^Save window as a session: /)).toEqual(
       []
     );
