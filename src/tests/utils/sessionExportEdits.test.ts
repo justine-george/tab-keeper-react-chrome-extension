@@ -197,6 +197,8 @@ describe('applying export edits (KAN-194)', () => {
       })
     );
 
+    // The HTML alone can't fail: the renderer never draws a group without tabs.
+    expect(result.windows[0].chromeTabGroups ?? []).toEqual([]);
     expect(sessionToHtml(result, OPTIONS)).not.toContain('Flights');
   });
 
