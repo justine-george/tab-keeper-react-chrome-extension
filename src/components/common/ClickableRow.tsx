@@ -1,6 +1,7 @@
 import React from 'react';
 
 import { css } from '@emotion/react';
+import { silenceRepeatedTitle } from './silenceRepeatedTitle';
 
 interface ClickableRowProps {
   /**
@@ -74,6 +75,7 @@ const ClickableRow: React.FC<ClickableRowProps> = ({
       type="button"
       title={tooltipText}
       aria-label={ariaLabel}
+      aria-description={silenceRepeatedTitle(tooltipText, ariaLabel)}
       aria-current={ariaCurrent ? 'true' : undefined}
       aria-describedby={ariaDescribedBy}
       css={rowStyle}

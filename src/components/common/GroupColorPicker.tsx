@@ -12,6 +12,7 @@ import {
   sanitizeTabGroupColor,
   type TabGroupColor,
 } from '../../utils/functions/tabGroups';
+import { silenceRepeatedTitle } from './silenceRepeatedTitle';
 
 /**
  * Chrome's own picker order, taken from the browser rather than from our
@@ -183,6 +184,7 @@ const GroupColorPicker: React.FC<GroupColorPickerProps> = ({
           aria-haspopup="menu"
           aria-expanded={isOpen}
           title={ariaLabel}
+          aria-description={silenceRepeatedTitle(ariaLabel, ariaLabel)}
           onClick={(e) => {
             e.stopPropagation();
             setOpen(!isOpen);
@@ -283,6 +285,10 @@ const GroupColorPicker: React.FC<GroupColorPickerProps> = ({
               aria-checked={swatch === current}
               aria-label={t(COLOR_LABEL_KEY[swatch])}
               title={t(COLOR_LABEL_KEY[swatch])}
+              aria-description={silenceRepeatedTitle(
+                t(COLOR_LABEL_KEY[swatch]),
+                t(COLOR_LABEL_KEY[swatch])
+              )}
               ref={registerItem(index)}
               onClick={(e) => {
                 e.stopPropagation();

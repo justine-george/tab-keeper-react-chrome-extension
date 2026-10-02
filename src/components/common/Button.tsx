@@ -7,6 +7,7 @@ import type { IconName } from './iconNames';
 import { useFontFamily } from '../../hooks/useFontFamily';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { CONTROL, DURATION, RADIUS, TYPE } from '../../styles/scale';
+import { silenceRepeatedTitle } from './silenceRepeatedTitle';
 
 interface ButtonProps {
   text?: string;
@@ -282,6 +283,7 @@ const Button: React.FC<ButtonProps> = ({
     <button
       title={tooltipText}
       aria-label={ariaLabel}
+      aria-description={silenceRepeatedTitle(tooltipText, ariaLabel)}
       aria-pressed={ariaPressed}
       aria-disabled={ariaDisabled || undefined}
       aria-keyshortcuts={keyHint?.ariaKeyShortcuts}
