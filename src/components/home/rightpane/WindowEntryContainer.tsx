@@ -729,7 +729,12 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
           <div css={parentLeftStyle}>
             <Icon
               tooltipText={isWindowOpen ? t('Collapse') : t('Expand')}
-              ariaLabel={isWindowOpen ? t('Collapse') : t('Expand')}
+              // Names its window, as Open now's does (KAN-303); untitled keeps the verb.
+              ariaLabel={
+                (isWindowOpen ? t('Collapse') : t('Expand')) +
+                (title ? ': ' + title : '')
+              }
+              ariaExpanded={isWindowOpen}
               type={isWindowOpen ? 'expand_less' : 'expand_more'}
               onClick={handleAccordionClick}
             />
