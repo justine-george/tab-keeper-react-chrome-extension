@@ -296,7 +296,7 @@ describe('the sync status line follows the store (KAN-248)', () => {
     );
 
     // The token was LABEL_L3 -- the 2px-marker token, 2.56:1 on Paper. This
-    // is why L1 and not L2: L2 clears 4.5 on two of the five themes only.
+    // is why L1 and not L2: L2 clears 4.5 on three of the five themes only.
     for (const theme of [
       LIGHT_THEME,
       WARM_LIGHT_THEME,

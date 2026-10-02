@@ -254,9 +254,9 @@ const Button: React.FC<ButtonProps> = ({
 
   // At rest LABEL_L1: the quietest label token that clears 4.5:1 against
   // CHIP_COLOR in every theme (KAN-311, following KAN-199's rule); L2 falls
-  // to 2.62:1 in Petal. On the hover and press fills L1 falls to 4.07:1 and
+  // to 3.12:1 in Graphite. On the hover and press fills L1 falls to 4.07:1 and
   // 3.47:1 (Ink), so there the hint takes TEXT (buttonStyle above), which
-  // clears 4.87:1 on the press fill at worst. It changes colour with the
+  // clears 4.86:1 on the press fill at worst (Petal). It changes colour with the
   // fill's own transition. Measured on the chip's three fills, its one
   // caller's: on another variant it has to be measured again.
   const keyHintStyle = css`
