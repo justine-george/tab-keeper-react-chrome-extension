@@ -259,7 +259,7 @@ test.describe('accessible controls', () => {
 // A user selects a session by clicking its title, which is what this does.
 async function selectSession(page: Page): Promise<void> {
   await page
-    .getByRole('button', { name: 'Research' })
+    .getByRole('button', { name: 'Research', exact: true })
     .click({ position: { x: 20, y: 20 } });
 }
 
@@ -360,7 +360,9 @@ test.describe('controls are reachable by keyboard', () => {
   }) => {
     const page = await openPopup(context, extensionId);
 
-    await expect(page.getByRole('button', { name: 'Research' })).toHaveCount(1);
+    await expect(
+      page.getByRole('button', { name: 'Research', exact: true })
+    ).toHaveCount(1);
   });
 
   test('the settings category row is a button with an accessible name (KAN-64)', async ({
@@ -398,9 +400,27 @@ test.describe('controls are reachable by keyboard', () => {
       context,
       extensionId,
     }) => {
-      const page = await openPopup(context, extensionId);
+      // Another session is first, so it is the one selected on open and
+      // Research is not shown until the key is pressed on its row.
+      await seedSessions(
+        context,
+        buildContainer([
+          buildSession({
+            tabGroupId: 'session-other',
+            title: 'Other',
+            windows: [{ ...RESEARCH.windows[0], title: 'Other window' }],
+          }),
+          RESEARCH,
+        ])
+      );
+      const page = await context.newPage();
+      await page.goto(`chrome-extension://${extensionId}/index.html`);
+      await expect(page.getByText('Other window')).toBeVisible();
+      await expect(
+        page.getByRole('button', { name: 'Morning reading' })
+      ).toHaveCount(0);
 
-      await page.getByRole('button', { name: 'Research' }).focus();
+      await page.getByRole('button', { name: 'Research', exact: true }).focus();
       await page.keyboard.press(key);
 
       await expect(

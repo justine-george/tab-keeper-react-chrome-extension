@@ -32,6 +32,10 @@ import { buildContainer, buildSession, seedSessions } from './fixtures/seed';
 // that the gap is stated in CSS and its minimum is comfortably above zero, so
 // it can never read as "touching the border" on one row and not another.
 
+// The detail pane shows the selected session's window and tab rows, which
+// carry the same hook; this spec measures the session rows.
+const SESSION_ACTIONS = '[data-pane="sessions"] [data-row-actions]';
+
 /** Per side, in CSS px. Mirrors `ACTION_ICON_INSET` in TabGroupEntry.tsx. */
 const INSET_PER_SIDE = 2;
 const TOTAL_INSET = INSET_PER_SIDE * 2;
@@ -70,7 +74,7 @@ async function openWith(
   //
   // Waiting on the COUNT rather than the first node, because that is what the
   // tests below actually assume: three seeded sessions, all rendered.
-  await expect(page.locator('[data-row-actions]')).toHaveCount(3);
+  await expect(page.locator(SESSION_ACTIONS)).toHaveCount(3);
 
   return page;
 }
@@ -88,14 +92,16 @@ type RowMetric = { rowH: number; iconH: number; leftover: number };
  * everywhere.
  */
 async function rowMetrics(page: Page): Promise<RowMetric[]> {
-  return page.evaluate(() =>
-    Array.from(document.querySelectorAll('[data-row-actions]')).map((block) => {
-      const row = block.parentElement as HTMLElement;
-      const icon = block.children[0] as HTMLElement;
-      const rowH = row.getBoundingClientRect().height;
-      const iconH = icon.getBoundingClientRect().height;
-      return { rowH, iconH, leftover: Number((rowH - iconH).toFixed(4)) };
-    })
+  return page.evaluate(
+    (selector) =>
+      Array.from(document.querySelectorAll(selector)).map((block) => {
+        const row = block.parentElement as HTMLElement;
+        const icon = block.children[0] as HTMLElement;
+        const rowH = row.getBoundingClientRect().height;
+        const iconH = icon.getBoundingClientRect().height;
+        return { rowH, iconH, leftover: Number((rowH - iconH).toFixed(4)) };
+      }),
+    SESSION_ACTIONS
   );
 }
 
@@ -142,12 +148,12 @@ test.describe('a row action icon is inset by a stated amount', () => {
     const page = await openWith(context, extensionId);
     const before = await rowMetrics(page);
 
-    await page.evaluate(() => {
-      document.querySelectorAll('[data-row-actions]').forEach((block) => {
+    await page.evaluate((selector) => {
+      document.querySelectorAll(selector).forEach((block) => {
         const left = block.parentElement!.querySelector('button[aria-label]');
         (left as HTMLElement).style.paddingBottom = '24px';
       });
-    });
+    }, SESSION_ACTIONS);
 
     const after = await rowMetrics(page);
 
@@ -204,8 +210,8 @@ test.describe('the action block takes its box from the row', () => {
   }) => {
     const page = await openWith(context, extensionId);
 
-    const samples = await page.evaluate(() => {
-      const row = document.querySelectorAll('[data-row-actions]')[0]
+    const samples = await page.evaluate((selector) => {
+      const row = document.querySelectorAll(selector)[0]
         .parentElement as HTMLElement;
       const block = row.querySelector('[data-row-actions]') as HTMLElement;
       const left = row.querySelector('button[aria-label]') as HTMLElement;
@@ -235,7 +241,7 @@ test.describe('the action block takes its box from the row', () => {
       }
       left.style.paddingBottom = '';
       return out;
-    });
+    }, SESSION_ACTIONS);
 
     // CONTROL: the sweep really did change the row's height. Without this,
     // seventeen identical measurements would satisfy the assertion below.

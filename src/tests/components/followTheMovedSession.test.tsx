@@ -260,10 +260,9 @@ describe('NOT following when nothing moved under the selection', () => {
     ]);
   });
 
-  // The worst path: there is no row to scroll to. Deleting the selected session
-  // nulls selectedTabGroupId, so the effect re-runs with a selection that
-  // matches nothing in the DOM.
-  test('deleting the selected session scrolls nothing and does not throw', async () => {
+  // Deleting the selected session hands the selection to the session that
+  // takes its place, so the effect re-runs on a row that is in the DOM.
+  test('deleting the selected session scrolls the session that takes its place', async () => {
     const { container, store } = await render('a');
     scrollCalls.length = 0;
 
@@ -271,10 +270,10 @@ describe('NOT following when nothing moved under the selection', () => {
       store.dispatch(deleteTabContainerInternal('a'));
     });
 
-    expect(
-      store.getState().tabContainerDataState.selectedTabGroupId
-    ).toBeNull();
+    expect(store.getState().tabContainerDataState.selectedTabGroupId).toBe('b');
     expect(renderedOrder(container)).toEqual(['c', 'b']);
-    expect(scrollCalls).toEqual([]);
+    expect(scrollCalls).toEqual([
+      { rowId: 'b', options: { block: 'nearest' } },
+    ]);
   });
 });

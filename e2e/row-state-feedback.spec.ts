@@ -41,6 +41,7 @@ async function openWith(
     buildContainer([
       buildSession({ tabGroupId: 'first', title: 'First session' }),
       buildSession({ tabGroupId: 'second', title: 'Second session' }),
+      buildSession({ tabGroupId: 'third', title: 'Third session' }),
     ])
   );
   const page = await context.newPage();
@@ -266,8 +267,10 @@ test.describe('a row reveals its actions and fills as one state', () => {
     extensionId,
   }) => {
     const page = await openWith(context, extensionId);
-    const first = rowFor(page, 'First session');
-    const second = rowFor(page, 'Second session');
+    // Neither is the selected row (the first, on open), which fills by its
+    // own rule.
+    const first = rowFor(page, 'Second session');
+    const second = rowFor(page, 'Third session');
 
     // What a genuinely hovered row looks like. Playwright's hover is a real
     // mouse move, so this is the actual :hover rendering, not a synthesized

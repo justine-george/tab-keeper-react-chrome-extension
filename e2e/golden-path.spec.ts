@@ -118,14 +118,16 @@ test.describe('golden path', () => {
   }) => {
     const { page } = await openPopup(context, extensionId);
 
-    // Nothing is selected on boot, so the window title only exists once a
-    // session has been picked -- which is what makes this assert the click
-    // rather than the seed.
-    await expect(page.getByText('Morning reading')).toHaveCount(0);
-
-    await page.getByText('Research').first().click();
-
+    // The first session is selected on open, so Holiday's window title only
+    // exists once Holiday has been picked -- which is what makes this assert
+    // the click rather than the seed.
     await expect(page.getByText('Morning reading')).toBeVisible();
+    await expect(page.getByText('Flights')).toHaveCount(0);
+
+    await page.getByText('Holiday').first().click();
+
+    await expect(page.getByText('Flights')).toBeVisible();
+    await expect(page.getByText('Morning reading')).toHaveCount(0);
   });
 
   test('4. the open-in-window control is present and enabled', async ({

@@ -18,7 +18,7 @@ import {
   replaceState,
   selectTabContainer,
 } from '../../redux/slices/tabContainerDataStateSlice';
-import { undo } from '../../redux/slices/undoRedoSlice';
+import { setPresentStartup, undo } from '../../redux/slices/undoRedoSlice';
 
 // KAN-193. Export does nothing after `chrome.tabs.create`: a focused tab
 // destroys the popup (KAN-122), which neither jsdom nor the e2e harness shows.
@@ -44,7 +44,13 @@ const renderHeader = () =>
     seed: { windows: [{ id: 1 }] },
     seedStore: (store) => {
       store.dispatch(replaceState(buildContainer([SESSION])));
-      store.dispatch(selectTabContainer('session-kyoto'));
+      // The startup seeding of history. Selecting no longer does it: the
+      // session is already selected.
+      store.dispatch(
+        setPresentStartup({
+          tabContainerDataState: store.getState().tabContainerDataState,
+        })
+      );
     },
   });
 
