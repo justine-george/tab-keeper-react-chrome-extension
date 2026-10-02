@@ -290,7 +290,7 @@ export default function TabGroupEntryContainer() {
 
   // S1 A. Resting on a row opens its session after SPRING_OPEN_MS. Started
   // by the same change that puts data-carry-target on the row -- this effect
-  // runs on the commit that drew it -- so the line and the timer begin
+  // runs on the commit that drew it -- so the sweep and the timer begin
   // together, and a new target restarts both. The session on screen already
   // has no timer (Q3 A); after a spring-open the row the pointer rests on is
   // that session, so its timer stops there.
@@ -307,7 +307,7 @@ export default function TabGroupEntryContainer() {
     return () => clearTimeout(timer);
   }, [dwellId, dispatch]);
 
-  // Reduced motion draws no line; the session still opens after the wait.
+  // Reduced motion draws no sweep; the session still opens after the wait.
   const reducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)');
 
   // The session list's frame, one declaration for both views, so the popup's
@@ -434,7 +434,7 @@ export default function TabGroupEntryContainer() {
                     carryTarget={
                       tabGroupData.tabGroupId === carryTargetId
                         ? {
-                            dwellLine:
+                            dwellSweep:
                               tabGroupData.tabGroupId === dwellId &&
                               !reducedMotion,
                           }

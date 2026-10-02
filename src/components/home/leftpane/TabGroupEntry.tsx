@@ -22,7 +22,7 @@ import {
 } from '../../../utils/functions/sessionDate';
 import { isTabView } from '../../../utils/functions/viewMode';
 import { useTranslation } from 'react-i18next';
-import { DURATION, RADIUS, TYPE } from '../../../styles/scale';
+import { DURATION, TYPE } from '../../../styles/scale';
 import { SPRING_OPEN_MS } from './springOpen';
 
 /**
@@ -39,26 +39,26 @@ import { SPRING_OPEN_MS } from './springOpen';
  */
 const ACTION_ICON_INSET = 2;
 
-// The fill line grows from nothing to the row's width less its two insets.
-const dwellFill = keyframes`
+// The dwell fill grows across the row from the left (KAN-380).
+const dwellSweep = keyframes`
   from {
-    width: 0;
+    background-size: 0 100%;
   }
   to {
-    width: calc(100% - 4px);
+    background-size: 100% 100%;
   }
 `;
 
 /**
  * This row as a carry's target (KAN-350): what the pointer carrying a tab,
  * group or window is resting on. Absent when it is not the target.
- * `dwellLine` draws the line that fills while the rest counts down to the
+ * `dwellSweep` sweeps the fill in while the rest counts down to the
  * spring-open; false for the session already on screen, which does not open
- * again, and under reduced motion, which opens after the same wait with no
- * line.
+ * again, and under reduced motion, which lights in full and opens after the
+ * same wait.
  */
 export interface CarryTargetLook {
-  dwellLine: boolean;
+  dwellSweep: boolean;
 }
 
 interface TabGroupEntryProps {
@@ -338,9 +338,10 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
        included (the outline is 4.02:1 on Petal's hover fill, 3.06 on its
        selection), and a 2px LABEL_L2 outline inside the edge.
 
-       ONE CONDITION, the data-carry-target attribute, draws all of it and the
-       fill line below, so the parts cannot disagree about which row is the
-       target. After the hover and press rules, so it wins over both.
+       ONE CONDITION, the data-carry-target attribute, draws all of it, so the
+       parts cannot disagree about which row is the target; the dwell sweep
+       below only changes how the fill arrives. After the hover and press
+       rules, so it wins over both.
 
        The outline is on the outline property, which nothing else on this
        element writes: the fill is the box-shadow (hover's channel, which the
@@ -363,21 +364,19 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
         opacity: 0;
       }
     }
-  `;
-
-  // S1 A. Grows along the row's bottom for as long as the rest before the
-  // spring-open, from the moment the row becomes the target: it mounts with
-  // the attribute, so its animation starts when the list's timer does.
-  const dwellLineStyle = css`
-    position: absolute;
-    left: 2px;
-    bottom: 2px;
-    height: 3px;
-    /* Square, as the app's scale is everywhere (the mock drew 2px). */
-    border-radius: ${RADIUS.SQUARE};
-    background-color: ${COLORS.LABEL_L2_COLOR};
-    pointer-events: none;
-    animation: ${dwellFill} ${SPRING_OPEN_MS}ms linear forwards;
+    /* KAN-380. While the rest counts down, the hover fill sweeps in instead
+       of landing; the shadow fill is cleared because it paints over it. Set
+       on the commit that starts the list's timer, so both run together. */
+    &[data-carry-dwell] {
+      ${fill('transparent')}
+      background-image: linear-gradient(
+        ${COLORS.HOVER_COLOR},
+        ${COLORS.HOVER_COLOR}
+      );
+      background-repeat: no-repeat;
+      background-size: 0 100%;
+      animation: ${dwellSweep} ${SPRING_OPEN_MS}ms linear forwards;
+    }
   `;
 
   // The row's primary action lives on the inner ClickableRow, not on this
@@ -395,6 +394,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
     <div
       css={containerStyle}
       data-carry-target={carryTarget === undefined ? undefined : ''}
+      data-carry-dwell={carryTarget?.dwellSweep ? '' : undefined}
     >
       <ClickableRow
         ariaLabel={title}
@@ -489,9 +489,6 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
             style="padding: 14px 10px; width: 57px;"
           />
         </div>
-      )}
-      {carryTarget?.dwellLine && (
-        <div aria-hidden="true" data-carry-dwell-line="" css={dwellLineStyle} />
       )}
     </div>
   );

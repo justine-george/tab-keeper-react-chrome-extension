@@ -4,6 +4,7 @@ import { act, fireEvent } from '@testing-library/react';
 import TabGroupEntryContainer from '../../components/home/leftpane/TabGroupEntryContainer';
 import TabGroupDetailsContainer from '../../components/home/rightpane/TabGroupDetailsContainer';
 import { CarryLayer } from '../../components/home/CarryLayer';
+import { SPRING_OPEN_MS } from '../../components/home/leftpane/springOpen';
 import { edgeScrollStep } from '../../components/home/rightpane/rowDrag/edgeScroll';
 import { setDragging } from '../../components/home/rightpane/rowDrag/dropRules';
 import {
@@ -181,8 +182,8 @@ const targetId = () => {
     (t) => t.closest<HTMLElement>('[data-drag-row-id]')?.dataset.dragRowId
   );
 };
-const lines = () => [
-  ...document.querySelectorAll<HTMLElement>('[data-carry-dwell-line]'),
+const sweeps = () => [
+  ...document.querySelectorAll<HTMLElement>('[data-carry-dwell]'),
 ];
 
 // As the engine leaves things at the hand-off: held, kind published, carried,
@@ -275,20 +276,18 @@ describe('dwell and spring-open (S1 A)', () => {
     );
   });
 
-  test('the line is drawn on the target row, from the same change as the attribute', async () => {
+  test('the sweep is on the target row, from the same change as the attribute', async () => {
     await renderList();
     handOff();
     moveTo(rowY(2));
 
-    expect(lines()).toHaveLength(1);
-    expect(entryOf('S3').contains(lines()[0])).toBe(true);
+    expect(sweeps()).toEqual([entryOf('S3')]);
 
     moveTo(rowY(3));
-    expect(lines()).toHaveLength(1);
-    expect(entryOf('S4').contains(lines()[0])).toBe(true);
+    expect(sweeps()).toEqual([entryOf('S4')]);
   });
 
-  test('after the spring-open the row is the session shown: its line goes and no timer runs', async () => {
+  test('after the spring-open the row is the session shown: its sweep goes and no timer runs', async () => {
     const { store } = await renderList();
     handOff();
     moveTo(rowY(2));
@@ -297,19 +296,19 @@ describe('dwell and spring-open (S1 A)', () => {
       'S3'
     );
 
-    // Still the target (the outline stays), but no line and no timer.
+    // Still the target (the outline stays), but no sweep and no timer.
     expect(targetId()).toEqual(['S3']);
-    expect(lines()).toEqual([]);
+    expect(sweeps()).toEqual([]);
     expect(vi.getTimerCount()).toBe(0);
   });
 
-  test('the shown session’s row gets the outline, but no line and no timer', async () => {
+  test('the shown session’s row gets the outline, but no sweep and no timer', async () => {
     const { store } = await renderList();
     handOff();
     moveTo(rowY(0));
 
     expect(targetId()).toEqual(['S1']);
-    expect(lines()).toEqual([]);
+    expect(sweeps()).toEqual([]);
     expect(vi.getTimerCount()).toBe(0);
     wait(2000);
     expect(store.getState().tabContainerDataState.selectedTabGroupId).toBe(
@@ -319,7 +318,7 @@ describe('dwell and spring-open (S1 A)', () => {
 });
 
 describe('reduced motion', () => {
-  test('no line element or animation, and it still opens at 600ms', async () => {
+  test('no sweep: the row lights in full at once, and still opens at 600ms', async () => {
     vi.spyOn(window, 'matchMedia').mockImplementation(
       (query: string) =>
         new FakeMediaQueryList(
@@ -332,7 +331,10 @@ describe('reduced motion', () => {
     moveTo(rowY(2));
 
     expect(targetId()).toEqual(['S3']);
-    expect(lines()).toEqual([]);
+    expect(sweeps()).toEqual([]);
+    expect(getComputedStyle(entryOf('S3')).boxShadow).toMatch(
+      asWritten(LIGHT_THEME.HOVER_COLOR)
+    );
     wait(599);
     expect(store.getState().tabContainerDataState.selectedTabGroupId).toBe(
       'S1'
@@ -366,7 +368,7 @@ describe('the target look (D2 A)', () => {
 
     expect(currentCarry()).toBeNull();
     expect(targets()).toEqual([]);
-    expect(lines()).toEqual([]);
+    expect(sweeps()).toEqual([]);
     expect(vi.getTimerCount()).toBe(0);
   });
 
@@ -378,7 +380,7 @@ describe('the target look (D2 A)', () => {
 
     expect(currentCarry()).toBeNull();
     expect(targets()).toEqual([]);
-    expect(lines()).toEqual([]);
+    expect(sweeps()).toEqual([]);
   });
 
   test('it is gone when the pointer leaves the list', async () => {
@@ -415,16 +417,26 @@ describe('the target look (D2 A)', () => {
     expect(style.outlineOffset).toBe('-2px');
   });
 
-  test('an unselected target row shows the same hover fill and outline', async () => {
+  test('an unselected target row sweeps the hover fill in over the dwell, inside the same outline', async () => {
     await renderList();
     handOff();
     moveTo(rowY(2));
 
     const style = getComputedStyle(entryOf('S3'));
-    expect(style.boxShadow).toMatch(asWritten(LIGHT_THEME.HOVER_COLOR));
+    // The sweep is the only fill: the shadow fill would cover it.
+    expect(style.boxShadow).not.toMatch(asWritten(LIGHT_THEME.HOVER_COLOR));
+    expect(style.backgroundImage).toMatch(asWritten(LIGHT_THEME.HOVER_COLOR));
+    expect(style.backgroundRepeat).toBe('no-repeat');
+    // jsdom keeps the shorthand as written; e2e reads the painted sweep.
+    expect(style.animation).toMatch(
+      new RegExp(` ${SPRING_OPEN_MS}ms linear forwards$`)
+    );
     expect(style.outlineStyle).toBe('solid');
     // And the row next to it wears none of it.
     expect(getComputedStyle(entryOf('S2')).outlineStyle).not.toBe('solid');
+    expect(getComputedStyle(entryOf('S2')).backgroundImage).not.toMatch(
+      asWritten(LIGHT_THEME.HOVER_COLOR)
+    );
   });
 });
 
