@@ -1,4 +1,4 @@
-import type { BrowserContext, Locator, Page } from '@playwright/test';
+import type { BrowserContext, JSHandle, Locator, Page } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
 import { seedSessions } from './fixtures/seed';
@@ -293,36 +293,46 @@ async function posesDuring(
  * The pose in the `pointerleave` handler's own task, before any frame: a
  * keyframe animation on :hover is already gone then (rest); a transition is
  * still where it was. Frame-rate independent, so a slow CI runner can't
- * fake it.
+ * fake it. Resolves once the listener is armed, and returns the reader.
  */
-function poseAtLeave(page: Page, name: string): Promise<Pose> {
-  return page.evaluate(
-    (label) =>
-      new Promise<Pose>((resolve, reject) => {
-        const button = document.querySelector(`[aria-label="${label}"]`);
-        const glyph = button?.querySelector('.material-symbols-outlined');
-        if (!button || !glyph) {
-          reject(new Error(`no glyph in "${label}"`));
-          return;
-        }
-        button.addEventListener(
-          'pointerleave',
-          () => {
-            const cs = getComputedStyle(glyph);
-            const rotate = cs.rotate === 'none' ? 0 : parseFloat(cs.rotate);
-            const scale = cs.scale === 'none' ? 1 : parseFloat(cs.scale);
-            const m =
-              cs.transform === 'none' ? null : new DOMMatrix(cs.transform);
-            resolve({
-              angle: rotate + (m ? (Math.atan2(m.b, m.a) * 180) / Math.PI : 0),
-              scale: scale * (m ? Math.hypot(m.a, m.b) : 1),
-            });
-          },
-          { once: true }
-        );
-      }),
+async function armPoseAtLeave(
+  page: Page,
+  name: string
+): Promise<() => Promise<Pose>> {
+  const seen: JSHandle<{ pose: Pose | null }> = await page.evaluateHandle(
+    (label) => {
+      const button = document.querySelector(`[aria-label="${label}"]`);
+      const glyph = button?.querySelector('.material-symbols-outlined');
+      if (!button || !glyph) throw new Error(`no glyph in "${label}"`);
+      const out: { pose: Pose | null } = { pose: null };
+      button.addEventListener(
+        'pointerleave',
+        () => {
+          const cs = getComputedStyle(glyph);
+          const rotate = cs.rotate === 'none' ? 0 : parseFloat(cs.rotate);
+          const scale = cs.scale === 'none' ? 1 : parseFloat(cs.scale);
+          const m =
+            cs.transform === 'none' ? null : new DOMMatrix(cs.transform);
+          out.pose = {
+            angle: rotate + (m ? (Math.atan2(m.b, m.a) * 180) / Math.PI : 0),
+            scale: scale * (m ? Math.hypot(m.a, m.b) : 1),
+          };
+        },
+        { once: true }
+      );
+      return out;
+    },
     name
   );
+  return async () => {
+    // KAN-391: a promise awaiting the leave hung for good when it lost the race.
+    await expect
+      .poll(() => seen.evaluate((s) => s.pose), 'the pointer left the button')
+      .not.toBeNull();
+    const pose = await seen.evaluate((s) => s.pose);
+    if (pose === null) throw new Error(`no pointerleave on "${name}"`);
+    return pose;
+  };
 }
 
 test.describe('hover motions (KAN-344)', () => {
@@ -358,13 +368,13 @@ test.describe('hover motions (KAN-344)', () => {
       await motion.pointAt(page);
       await page.waitForTimeout(90);
 
-      const atLeave = poseAtLeave(page, motion.name);
+      const poseAtLeave = await armPoseAtLeave(page, motion.name);
       const poses = await posesDuring(glyphOf(page, motion.name), 500, () =>
         page.mouse.move(2, 540)
       );
 
       expect(
-        progress(await atLeave, motion.pose),
+        progress(await poseAtLeave(), motion.pose),
         'no snap on leave'
       ).toBeGreaterThan(0.15);
       expect(atRest(poses[poses.length - 1]), 'back at rest').toBe(true);
