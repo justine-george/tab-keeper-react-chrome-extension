@@ -3531,7 +3531,7 @@ const sixByFour = (id: string, title: string, prefix: string) =>
   );
 
 test.describe('the toolbar target makes a new first window (KAN-361)', () => {
-  test('an ordinary tab a1 held on it: lit, no slot, w1 closes up with its room at its bottom, w2 still; let go, a new first window holds it, and one ⌘Z undoes it', async ({
+  test('an ordinary tab a1 held on it: lit, no slot, w1 closes up with no outline (KAN-378), w2 still; let go, a new first window holds it, and one ⌘Z undoes it', async ({
     context,
     extensionId,
   }) => {
@@ -3568,15 +3568,8 @@ test.describe('the toolbar target makes a new first window (KAN-361)', () => {
     for (const id of ['a0', 'w2', 'b0', 'b1'] as const) {
       expect(await drawnBox(page, id)).toEqual(was[id]);
     }
-    // The dotted room, one row of it, at w1's bottom.
-    const outline = page.locator('[data-drag-source-room]');
-    await expect(outline).toHaveCount(1);
-    const box = await outline.evaluate((el) => {
-      const r = el.getBoundingClientRect();
-      return { top: r.top, bottom: r.bottom };
-    });
-    expect(box.bottom).toBeCloseTo(was.al1.bottom, 0);
-    expect(box.bottom - box.top).toBeCloseTo(own.bottom - own.top, 0);
+    // No outline while the target is lit (KAN-378 C).
+    await expect(page.locator('[data-drag-source-room]')).toHaveCount(0);
     await page.mouse.up();
 
     await expect
@@ -3593,7 +3586,7 @@ test.describe('the toolbar target makes a new first window (KAN-361)', () => {
     await expectOneUndoRestores(page, sessionOf(before, 'S1'));
   });
 
-  test('an ordinary group Alpha held on it: lit, no slot, its room at w1’s bottom, w2 still; let go, a new first window holds it with its entry, and one ⌘Z undoes it', async ({
+  test('an ordinary group Alpha held on it: lit, no slot, no outline (KAN-378), w2 still; let go, a new first window holds it with its entry, and one ⌘Z undoes it', async ({
     context,
     extensionId,
   }) => {
@@ -3602,9 +3595,6 @@ test.describe('the toolbar target makes a new first window (KAN-361)', () => {
     const aim = await headerAim(page);
     await pickUp(page, groupHandle(page, 'alpha'));
     await settled(page);
-    // Folded to its title row as it is picked up (KAN-160): its own place
-    // in the drag's layout, which is w1's last row.
-    const own = await ownBox(page, 'group:alpha');
     const was = {
       a0: await drawnBox(page, 'a0'),
       a1: await drawnBox(page, 'a1'),
@@ -3623,15 +3613,8 @@ test.describe('the toolbar target makes a new first window (KAN-361)', () => {
     for (const id of ['a0', 'a1', 'a2', 'w2', 'b0', 'b1'] as const) {
       expect(await drawnBox(page, id)).toEqual(was[id]);
     }
-    // Its room, outlined, is its own folded box: w1's bottom.
-    const outline = page.locator('[data-drag-source-room]');
-    await expect(outline).toHaveCount(1);
-    const box = await outline.evaluate((el) => {
-      const r = el.getBoundingClientRect();
-      return { top: r.top, bottom: r.bottom };
-    });
-    expect(box.top).toBeCloseTo(own.top, 0);
-    expect(box.bottom - box.top).toBeCloseTo(own.bottom - own.top, 0);
+    // No outline while the target is lit (KAN-378 C).
+    await expect(page.locator('[data-drag-source-room]')).toHaveCount(0);
     await page.mouse.up();
 
     await expect
@@ -4761,9 +4744,9 @@ async function openTightFit(
 
 test.describe('below the last window makes a new last window (KAN-366)', () => {
   // An ordinary drag in S1, let go below w2 (the last window), past every
-  // row's slack: lit, no slot, its own window closes up with its dotted
-  // room at that window's bottom (Q2 ii), and the release makes a new LAST
-  // window -- one move, one ⌘Z.
+  // row's slack: lit, no slot, its own window closes up with no outline
+  // (KAN-378 C), and the release makes a new LAST window -- one move, one
+  // ⌘Z.
   const ordinary = [
     {
       name: 'loose tab a1',
@@ -4808,7 +4791,7 @@ test.describe('below the last window makes a new last window (KAN-366)', () => {
   ] as const;
   for (const view of ['popup', 'tab view'] as const) {
     for (const c of ordinary) {
-      test(`${view}: an ordinary drag of ${c.name}, held below the list: lit, no slot, its window closes up with its room at its bottom; let go, a new last window holds it, and one ⌘Z undoes it`, async ({
+      test(`${view}: an ordinary drag of ${c.name}, held below the list: lit, no slot, its window closes up with no outline; let go, a new last window holds it, and one ⌘Z undoes it`, async ({
         context,
         extensionId,
       }) => {
@@ -4852,15 +4835,8 @@ test.describe('below the last window makes a new last window (KAN-366)', () => {
         for (const id of c.still) {
           expect(await drawnBox(page, id)).toEqual(was[id]);
         }
-        // The dotted room, the held row's own height, at its window's bottom.
-        const outline = page.locator('[data-drag-source-room]');
-        await expect(outline).toHaveCount(1);
-        const box = await outline.evaluate((el) => {
-          const r = el.getBoundingClientRect();
-          return { top: r.top, bottom: r.bottom };
-        });
-        expect(box.bottom).toBeCloseTo(lastOfOwn, 0);
-        expect(box.bottom - box.top).toBeCloseTo(own.bottom - own.top, 0);
+        // No outline while the target is lit (KAN-378 C).
+        await expect(page.locator('[data-drag-source-room]')).toHaveCount(0);
         await page.mouse.up();
 
         await expect.poll(() => layout(page, 'S1')).toEqual([...c.after]);
