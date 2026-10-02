@@ -5,8 +5,8 @@ import userEvent from '@testing-library/user-event';
 import WindowEntryContainer from '../../components/home/rightpane/WindowEntryContainer';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import {
+  setSearchInputText,
   setHasTabGroupsPermission,
-  openSearchPanel,
 } from '../../redux/slices/globalStateSlice';
 import { saveToTabContainerInternal } from '../../redux/slices/tabContainerDataStateSlice';
 import type { chromeTabGroupData } from '../../redux/slices/tabContainerDataStateSlice';
@@ -43,7 +43,7 @@ const GROUPED_TABS = [
 
 async function renderWindow(
   chromeTabGroups: chromeTabGroupData[],
-  { isSearchPanel = false }: { isSearchPanel?: boolean } = {}
+  { isSearching = false }: { isSearching?: boolean } = {}
 ) {
   return renderWithProviders(
     <WindowEntryContainer
@@ -60,7 +60,7 @@ async function renderWindow(
     {
       seedStore: (store) => {
         store.dispatch(setHasTabGroupsPermission(true));
-        if (isSearchPanel) store.dispatch(openSearchPanel());
+        if (isSearching) store.dispatch(setSearchInputText('research'));
         // The component dispatches the rename itself, so the store must hold
         // a session whose ids match the props for the write to land.
         store.dispatch(
@@ -255,12 +255,12 @@ describe('committing a rename', () => {
   });
 });
 
-describe('the search panel', () => {
+describe('while searching', () => {
   // The same rule the window title follows: a control that cannot act must
   // not be focusable and inert (KAN-62). Renaming is disabled while searching.
   test('offers no rename control', async () => {
     await renderWindow([{ groupId: 'g1', title: 'Research', color: 'blue' }], {
-      isSearchPanel: true,
+      isSearching: true,
     });
 
     expect(

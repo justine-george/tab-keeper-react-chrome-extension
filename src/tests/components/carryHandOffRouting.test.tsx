@@ -84,7 +84,9 @@ async function render(order: tabContainerData[], selected: string) {
       .getState()
       .tabContainerDataState.tabGroups.map((g) => g.tabGroupId)
   ).toEqual(order.map((s) => s.tabGroupId));
-  const [scroller, pane] = [...result.container.children];
+  // The list box holds the search row, then the scroller.
+  const [listBox, pane] = [...result.container.children];
+  const scroller = listBox?.lastElementChild;
   if (!(scroller instanceof HTMLElement) || !(pane instanceof HTMLElement)) {
     throw new Error('no list or pane');
   }

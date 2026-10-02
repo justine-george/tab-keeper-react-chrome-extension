@@ -5,7 +5,6 @@ import TabGroupDetailsContainer from '../../components/home/rightpane/TabGroupDe
 import { renderWithProviders } from '../setup/renderWithProviders';
 import type { RenderWithProvidersResult } from '../setup/renderWithProviders';
 import {
-  openSearchPanel,
   setSearchInputText,
   setHasTabGroupsPermission,
   setIsNotDirty,
@@ -79,7 +78,6 @@ const render = (searchText?: string) =>
       store.dispatch(saveToTabContainerInternal(buildSession()));
       store.dispatch(selectTabContainer('group-1'));
       if (searchText !== undefined) {
-        store.dispatch(openSearchPanel());
         store.dispatch(setSearchInputText(searchText));
       }
       // Saving dirtied the session on the way in; without this reset a dirty
@@ -296,15 +294,14 @@ describe('a window drag inside a filtered list', () => {
     expect(store.getState().globalState.isDirty).toBe(false);
   });
 
-  // KAN-140. The guard asks about the MODE, so an empty box blocks the drag
-  // too -- all three windows are on screen and unfiltered, and it still does
-  // not commit. Before KAN-140 this reordered.
+  // The gate is searching (KAN-385), so a query that hides nothing blocks the
+  // drag too: the session's own title matches, all three windows show.
   //
   // Added because mutation testing found this level unguarded by any test:
   // replacing the window area's `disabled` with a literal `false` broke
   // nothing in the suite, so KAN-131's guard here was never actually pinned.
-  test('an open panel with an empty box does not allow dragging either', async () => {
-    const { container, store } = await render('');
+  test('a search that hides nothing does not allow dragging either', async () => {
+    const { container, store } = await render('Research');
     const windows = layout(container);
     // The premise: nothing is filtered, so this is the same drag the
     // unfiltered tests above commit.
@@ -319,7 +316,7 @@ describe('a window drag inside a filtered list', () => {
   // THE CONTROL for the two above. Without it, a window area that never
   // dragged at all -- a broken handleSelector, a harness whose pointer events
   // miss the handle -- would satisfy both while proving nothing.
-  test('CONTROL: the same drag with no search panel does reorder', async () => {
+  test('CONTROL: the same drag with no search does reorder', async () => {
     const { container, store } = await render();
     layout(container);
 

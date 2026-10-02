@@ -5,7 +5,7 @@ import userEvent from '@testing-library/user-event';
 import TabGroupDetailsContainer from '../../components/home/rightpane/TabGroupDetailsContainer';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import {
-  openSearchPanel,
+  setSearchInputText,
   setHasTabGroupsPermission,
   setIsNotDirty,
 } from '../../redux/slices/globalStateSlice';
@@ -77,7 +77,8 @@ const render = ({ permission = true, search = false } = {}) =>
         })
       );
       store.dispatch(selectTabContainer('tg'));
-      if (search) store.dispatch(openSearchPanel());
+      // Every window is titled 'Window': searching, with every row kept.
+      if (search) store.dispatch(setSearchInputText('window'));
       store.dispatch(setIsNotDirty());
     },
   });
@@ -205,7 +206,7 @@ describe('which press starts which drag', () => {
     expect(container.querySelector('[data-group-drag-handle]')).toBeNull();
   });
 
-  test('in search mode a press on the title row starts nothing', async () => {
+  test('while searching a press on the title row starts nothing', async () => {
     const { container } = await render({ search: true });
     // PREMISE: an open panel with an empty box still draws the rows (KAN-140).
     // Without this, a missing row reads as "no drag" for the wrong reason.

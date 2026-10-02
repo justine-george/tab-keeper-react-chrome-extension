@@ -8,10 +8,7 @@ import {
   RenderWithProvidersResult,
 } from '../setup/renderWithProviders';
 import { sessionWhen } from '../../utils/functions/sessionDate';
-import {
-  openSearchPanel,
-  setSearchInputText,
-} from '../../redux/slices/globalStateSlice';
+import { setSearchInputText } from '../../redux/slices/globalStateSlice';
 import {
   saveToTabContainerInternal,
   selectTabContainer,
@@ -167,7 +164,6 @@ describe('HeroContainerRight', () => {
       seedStore: (store) => {
         store.dispatch(saveToTabContainerInternal(buildSession()));
         store.dispatch(selectTabContainer('group-1'));
-        store.dispatch(openSearchPanel());
         store.dispatch(setSearchInputText('nothing matches this'));
       },
     });
@@ -261,9 +257,8 @@ describe('HeroContainerRight', () => {
     // both non-buttons, so this assertion is green against the pre-fix
     // component too. It is only meaningful because the test above proves the
     // same query DOES find a button in the non-search render.
-    test('the title is not a control while the search panel is open', async () => {
+    test('the title is not a control while searching', async () => {
       await renderSelected((store) => {
-        store.dispatch(openSearchPanel());
         store.dispatch(setSearchInputText('Research'));
       });
 
@@ -278,12 +273,11 @@ describe('HeroContainerRight', () => {
     // invisible to a role query, because a `<div onClick>` is not a button.
     //
     // Note what protects this. handleTabGroupTitleClick still guards on
-    // `!isSearchPanel`, but that guard is now unreachable -- the search branch
+    // `!isSearching`, but that guard is now unreachable -- the search branch
     // never wires the handler at all -- and deleting it fails nothing. The
     // render branch is the real protection; this test is what pins it.
     test('clicking the title does not start a rename while searching', async () => {
       await renderSelected((store) => {
-        store.dispatch(openSearchPanel());
         store.dispatch(setSearchInputText('Research'));
       });
 

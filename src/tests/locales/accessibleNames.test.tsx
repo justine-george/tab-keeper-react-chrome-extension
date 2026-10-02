@@ -27,9 +27,8 @@ const allSources = import.meta.glob('/src/components/**/*.tsx', {
 // English strings were unreachable. KAN-69 deleted those components, so every
 // remaining component is live and none is skipped.
 
-// Commented-out JSX still matches the literal patterns below --
-// UserInputContainer keeps a `{/* <Button text="Search" ... /> */}` line -- and
-// a commented string is not shipped to anyone.
+// Commented-out JSX still matches the literal patterns below, and a commented
+// string is not shipped to anyone.
 const stripComments = (src: string) =>
   src.replace(/\{\/\*[\s\S]*?\*\/\}/g, '').replace(/^\s*\/\/.*$/gm, '');
 

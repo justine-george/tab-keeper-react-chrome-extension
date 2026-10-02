@@ -5,7 +5,6 @@ import RightPane from '../../components/home/rightpane/RightPane';
 import TabGroupEntryContainer from '../../components/home/leftpane/TabGroupEntryContainer';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import {
-  openSearchPanel,
   setHasTabGroupsPermission,
   setSearchInputText,
 } from '../../redux/slices/globalStateSlice';
@@ -65,7 +64,6 @@ const searchFor =
     store.dispatch(setHasTabGroupsPermission(hasPermission));
     store.dispatch(saveToTabContainerInternal(session()));
     store.dispatch(selectTabContainer('group-1'));
-    store.dispatch(openSearchPanel());
     store.dispatch(setSearchInputText(query));
   };
 

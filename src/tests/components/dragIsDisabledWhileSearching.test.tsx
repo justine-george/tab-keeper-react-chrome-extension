@@ -5,8 +5,6 @@ import TabGroupDetailsContainer from '../../components/home/rightpane/TabGroupDe
 import { renderWithProviders } from '../setup/renderWithProviders';
 import type { RenderWithProvidersResult } from '../setup/renderWithProviders';
 import {
-  openSearchPanel,
-  closeSearchPanel,
   setSearchInputText,
   setHasTabGroupsPermission,
   setIsNotDirty,
@@ -91,7 +89,6 @@ const render = (searchText?: string) =>
       store.dispatch(saveToTabContainerInternal(buildSession()));
       store.dispatch(selectTabContainer('group-1'));
       if (searchText !== undefined) {
-        store.dispatch(openSearchPanel());
         store.dispatch(setSearchInputText(searchText));
       }
       // Saving the session dirtied it on the way in. Without this reset the
@@ -170,44 +167,22 @@ describe('a tab drag inside a filtered list', () => {
     expect(store.getState().globalState.isDirty).toBe(false);
   });
 
-  // KAN-140, and this assertion is the exact inverse of what it used to be.
-  //
-  // The old version allowed the drag, reasoning that an empty box filters
-  // nothing, so the rendered list IS the stored one and nothing can go wrong.
-  // That reasoning is still true -- KAN-131's index-crossing defect genuinely
-  // cannot occur here -- and it is not what decides this.
-  //
-  // What decides it is that the box's contents are a terrible thing to hang an
-  // affordance on. The same gesture on the same rows worked or did nothing
-  // depending on whether a character had been typed, with rows rendering
-  // `cursor: pointer` in both states (KAN-134), so nothing told the user which
-  // one they were in. It also made the safety property depend on a keystroke
-  // racing a pointer gesture; asking about the mode removes the timing
-  // dimension rather than betting there is no race today.
-  //
-  // Note this file's OTHER tests still pass a query, so they continue to cover
-  // KAN-131's actual subject -- a narrowed list -- which this change does not
-  // touch. And the CONTROL above still reorders, so the harness is not simply
-  // failing to deliver pointer events.
-  test('an open search panel with an empty box does not allow dragging', async () => {
-    const { container, store } = await render('');
+  // Spaces alone are no search (R2): nothing is filtered and the drag is on.
+  test('spaces alone leave dragging on', async () => {
+    const { container, store } = await render('   ');
     const rows = layoutTabRows(container);
-    // The premise: nothing is filtered, so all four rows are on screen and the
-    // drag below is the one that used to commit.
     expect(rows).toHaveLength(4);
 
     dragToTop(rows[3], 3 * ROW_H + 15);
 
-    expect(storedTabIds(store)).toEqual(['t1', 't2', 't3', 't4']);
+    expect(storedTabIds(store)).toEqual(['t4', 't1', 't2', 't3']);
   });
 
-  // The mode, not the query, all the way down: clearing the box mid-search
-  // must not hand the gesture back.
-  test('clearing the box does not re-enable dragging', async () => {
+  // The gate is the text (KAN-385): clearing it ends the search and hands the
+  // drag back. Without this, disabling dragging for good would pass the rest.
+  test('CONTROL: clearing the box allows dragging again', async () => {
     const { container, store } = await render('match');
-    // act, because a bare dispatch after render does not flush: the rows would
-    // still be the two matching ones and this would assert against a list the
-    // component has not caught up with.
+    // act, because a bare dispatch after render does not flush.
     act(() => {
       store.dispatch(setSearchInputText(''));
     });
@@ -215,21 +190,6 @@ describe('a tab drag inside a filtered list', () => {
     const rows = layoutTabRows(container);
     expect(rows).toHaveLength(4);
 
-    dragToTop(rows[3], 3 * ROW_H + 15);
-
-    expect(storedTabIds(store)).toEqual(['t1', 't2', 't3', 't4']);
-  });
-
-  // And leaving search restores it, so the guard is a mode rather than a
-  // one-way door. Without this, disabling dragging permanently would pass
-  // every other test in this file.
-  test('CONTROL: closing the search panel allows dragging again', async () => {
-    const { container, store } = await render('');
-    act(() => {
-      store.dispatch(closeSearchPanel());
-    });
-
-    const rows = layoutTabRows(container);
     dragToTop(rows[3], 3 * ROW_H + 15);
 
     expect(storedTabIds(store)).toEqual(['t4', 't1', 't2', 't3']);

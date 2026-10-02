@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { act } from '@testing-library/react';
+import { act, fireEvent, screen } from '@testing-library/react';
 
 import TabGroupEntryContainer from '../../components/home/leftpane/TabGroupEntryContainer';
 import { renderWithProviders } from '../setup/renderWithProviders';
@@ -7,10 +7,6 @@ import {
   saveToTabContainerInternal,
   selectTabContainer,
 } from '../../redux/slices/tabContainerDataStateSlice';
-import {
-  openSearchPanel,
-  setSearchInputText,
-} from '../../redux/slices/globalStateSlice';
 import { IS_DIRTY_ACTION } from '../../utils/constants/actionTypes';
 
 // KAN-35, the search half. Typing never marks the store dirty by itself --
@@ -66,7 +62,6 @@ const renderSeeded = () =>
     seedStore: (s) => {
       s.dispatch(saveToTabContainerInternal(buildGroup(1, 'Alpha')));
       s.dispatch(saveToTabContainerInternal(buildGroup(2, 'Bravo')));
-      s.dispatch(openSearchPanel());
     },
   });
 
@@ -76,7 +71,10 @@ describe('searching does not schedule a Firestore sync (KAN-35)', () => {
     seen.length = 0;
 
     await act(async () => {
-      store.dispatch(setSearchInputText('Alpha'));
+      fireEvent.change(
+        screen.getByRole('textbox', { name: 'Search saved tabs' }),
+        { target: { value: 'Alpha' } }
+      );
     });
 
     // The control for this file: the search must actually have moved the

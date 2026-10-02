@@ -5,7 +5,6 @@ import userEvent from '@testing-library/user-event';
 import TabGroupDetailsContainer from '../../components/home/rightpane/TabGroupDetailsContainer';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import {
-  openSearchPanel,
   setSearchInputText,
   setHasTabGroupsPermission,
 } from '../../redux/slices/globalStateSlice';
@@ -110,7 +109,6 @@ describe('TabGroupDetailsContainer', () => {
         seedStore: (store) => {
           store.dispatch(saveToTabContainerInternal(buildSession()));
           store.dispatch(selectTabContainer('group-1'));
-          store.dispatch(openSearchPanel());
           store.dispatch(setSearchInputText('nothing matches this'));
         },
       }

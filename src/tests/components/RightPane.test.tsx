@@ -3,10 +3,7 @@ import { screen } from '@testing-library/react';
 
 import RightPane from '../../components/home/rightpane/RightPane';
 import { renderWithProviders } from '../setup/renderWithProviders';
-import {
-  openSearchPanel,
-  setSearchInputText,
-} from '../../redux/slices/globalStateSlice';
+import { setSearchInputText } from '../../redux/slices/globalStateSlice';
 import {
   saveToTabContainerInternal,
   selectTabContainer,
@@ -90,7 +87,6 @@ describe('RightPane', () => {
       seedStore: (store) => {
         store.dispatch(saveToTabContainerInternal(buildSession()));
         store.dispatch(selectTabContainer('group-1'));
-        store.dispatch(openSearchPanel());
         store.dispatch(setSearchInputText('nothing matches this'));
       },
     });
@@ -103,7 +99,6 @@ describe('RightPane', () => {
       seedStore: (store) => {
         store.dispatch(saveToTabContainerInternal(buildSession()));
         store.dispatch(selectTabContainer('group-1'));
-        store.dispatch(openSearchPanel());
         store.dispatch(setSearchInputText('kagi'));
       },
     });

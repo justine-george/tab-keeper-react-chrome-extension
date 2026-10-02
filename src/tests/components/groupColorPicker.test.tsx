@@ -5,8 +5,8 @@ import userEvent from '@testing-library/user-event';
 import WindowEntryContainer from '../../components/home/rightpane/WindowEntryContainer';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import {
+  setSearchInputText,
   setHasTabGroupsPermission,
-  openSearchPanel,
 } from '../../redux/slices/globalStateSlice';
 import { saveToTabContainerInternal } from '../../redux/slices/tabContainerDataStateSlice';
 import { LIGHT_THEME } from '../../hooks/useThemeColors';
@@ -41,7 +41,7 @@ const BAND = 'Change group color: Research';
 async function renderGroup({
   color = 'blue',
   title = 'Research',
-  isSearchPanel = false,
+  isSearching = false,
 } = {}) {
   const groups: chromeTabGroupData[] = [{ groupId: 'grp', title, color }];
   return renderWithProviders(
@@ -59,7 +59,7 @@ async function renderGroup({
     {
       seedStore: (store) => {
         store.dispatch(setHasTabGroupsPermission(true));
-        if (isSearchPanel) store.dispatch(openSearchPanel());
+        if (isSearching) store.dispatch(setSearchInputText('research'));
         store.dispatch(
           saveToTabContainerInternal({
             tabGroupId: 'tg',
@@ -283,8 +283,8 @@ describe('the group colour band', () => {
   // KAN-62: a control that cannot act must not be focusable. The search panel
   // withholds every other mutating group action, so the band goes back to
   // being the decoration it was.
-  test('the search panel leaves the band inert', async () => {
-    await renderGroup({ isSearchPanel: true });
+  test('searching leaves the band inert', async () => {
+    await renderGroup({ isSearching: true });
 
     expect(
       screen.queryByRole('button', { name: BAND })
@@ -381,7 +381,7 @@ describe('widening the band', () => {
     // The decorative strip carries neither. It is aria-hidden and inert; a
     // 24px hit area on it would be a target for nothing.
     cleanup();
-    await renderGroup({ isSearchPanel: true });
+    await renderGroup({ isSearching: true });
     const decorative = screen
       .getByRole('group', { name: 'Research' })
       .querySelector('[data-group-color-strip]')!;

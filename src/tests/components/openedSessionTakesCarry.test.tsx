@@ -24,7 +24,7 @@ import {
   type CarriedRef,
 } from '../../redux/slices/tabContainerDataStateSlice';
 import {
-  openSearchPanel,
+  setSearchInputText,
   setHasTabGroupsPermission,
   setIsNotDirty,
 } from '../../redux/slices/globalStateSlice';
@@ -857,9 +857,9 @@ describe('the rest of an adopted drag', () => {
 });
 
 describe('what an adoption leaves alone', () => {
-  // The CarryLayer ends a carry when the search opens, so in the app this is
+  // The CarryLayer ends a carry when a search starts, so in the app this is
   // belt and braces: rendered here WITHOUT the layer, the list alone decides.
-  test('a list that has turned drag off (the search panel) adopts nothing', async () => {
+  test('a list that has turned drag off (searching) adopts nothing', async () => {
     const { store, container } = await renderWithProviders(
       <TabGroupDetailsContainer />,
       {
@@ -878,8 +878,9 @@ describe('what an adoption leaves alone', () => {
     pane = root;
     carry(TAB_T1);
     table = S2_TAB_LAYOUT('t1');
+    // Every window is titled 'Window <id>': searching, with every row kept.
     act(() => {
-      store.dispatch(openSearchPanel());
+      store.dispatch(setSearchInputText('window'));
     });
     // The premise: the phantom is still drawn, so only the list's own rule
     // stands between it and an adoption.

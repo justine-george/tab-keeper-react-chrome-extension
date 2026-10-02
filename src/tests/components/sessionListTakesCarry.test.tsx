@@ -21,7 +21,7 @@ import {
   type CarriedRef,
 } from '../../redux/slices/tabContainerDataStateSlice';
 import {
-  openSearchPanel,
+  setSearchInputText,
   setIsNotDirty,
 } from '../../redux/slices/globalStateSlice';
 import { LIGHT_THEME } from '../../hooks/useThemeColors';
@@ -122,7 +122,8 @@ async function renderList() {
   // Timers are faked after the render: i18n's init must settle first.
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
   vi.setSystemTime(T0);
-  const scroller = result.container.firstElementChild;
+  // The list box holds the search row, then the scroller.
+  const scroller = result.container.firstElementChild?.lastElementChild;
   if (!(scroller instanceof HTMLElement)) throw new Error('no list');
   layOut(scroller);
   return { ...result, scroller };
@@ -692,20 +693,21 @@ describe('auto-scroll', () => {
   });
 });
 
-describe('the saved search panel', () => {
-  test('while it is open the list is no receiver', async () => {
+// Every window is titled 'Window <id>', so 'window' searches and keeps every row.
+describe('the saved search', () => {
+  test('while searching the list is no receiver', async () => {
     const { store } = await renderList();
-    // CONTROL: closed, the list is what a point on a row hits.
+    // CONTROL: not searching, the list is what a point on a row hits.
     expect(carryReceiverAt(X, rowY(1))).not.toBeNull();
 
     act(() => {
-      store.dispatch(openSearchPanel());
+      store.dispatch(setSearchInputText('window'));
     });
 
     expect(carryReceiverAt(X, rowY(1))).toBeNull();
   });
 
-  test('opened mid-carry, it ends the carry and the target look', async () => {
+  test('started mid-carry, it ends the carry and the target look', async () => {
     const { store } = await renderList();
     const before = store.getState().tabContainerDataState;
     handOff();
@@ -713,7 +715,7 @@ describe('the saved search panel', () => {
     expect(targets()).toHaveLength(1);
 
     act(() => {
-      store.dispatch(openSearchPanel());
+      store.dispatch(setSearchInputText('window'));
     });
 
     expect(currentCarry()).toBeNull();
@@ -747,7 +749,8 @@ describe('from a real drag out of the detail', () => {
     );
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
     vi.setSystemTime(T0);
-    const [scroller, pane] = [...result.container.children];
+    const [listBox, pane] = [...result.container.children];
+    const scroller = listBox?.lastElementChild;
     if (!(scroller instanceof HTMLElement) || !(pane instanceof HTMLElement)) {
       throw new Error('no list or pane');
     }

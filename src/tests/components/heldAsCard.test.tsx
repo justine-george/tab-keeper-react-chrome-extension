@@ -18,7 +18,7 @@ import {
   selectTabContainer,
 } from '../../redux/slices/tabContainerDataStateSlice';
 import {
-  openSearchPanel,
+  setSearchInputText,
   setHasTabGroupsPermission,
   setIsNotDirty,
 } from '../../redux/slices/globalStateSlice';
@@ -432,8 +432,9 @@ describe('every end takes the drag card down', () => {
     pickUp(TAB);
     expect(dragCard()).not.toBeNull();
 
+    // Every window is titled 'Window <id>': searching, with every row kept.
     act(() => {
-      store.dispatch(openSearchPanel());
+      store.dispatch(setSearchInputText('window'));
     });
 
     // The premise: the area is still there, and dropped the drag itself.
