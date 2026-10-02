@@ -134,9 +134,12 @@ async function openSaved(
 // each session title's left, from the viewport.
 async function columns(page: Page) {
   return page.evaluate((titles: string[]) => {
-    const row = document.querySelector('[data-saved-search]')!;
-    const frame = row.parentElement!;
-    const input = row.querySelector('input')!;
+    const row = document.querySelector('[data-saved-search]');
+    if (row === null) throw new Error('no saved search row');
+    const frame = row.parentElement;
+    if (frame === null) throw new Error('the search row has no list frame');
+    const input = row.querySelector('input');
+    if (input === null) throw new Error('the search row has no input');
     const frameRect = frame.getBoundingClientRect();
     return {
       frameInnerLeft: frameRect.left + frame.clientLeft,
@@ -149,7 +152,8 @@ async function columns(page: Page) {
         const label = [
           ...document.querySelectorAll(`button[aria-label="${title}"] *`),
         ].find((el) => el.children.length === 0 && el.textContent === title);
-        return label!.getBoundingClientRect().left;
+        if (label === undefined) throw new Error(`no title label "${title}"`);
+        return label.getBoundingClientRect().left;
       }),
     };
   }, TITLES);
@@ -209,7 +213,7 @@ test.describe("the saved search row's columns (KAN-385 S3)", () => {
         // Past the magnifier's ink (3/24..21/24 of ICON.SMALL) and 10px.
         expect(c.inputTextLeft - c.frameInnerLeft).toBeCloseTo(
           8 + rootPx * 1.25 * (18 / 24) + 10,
-          1
+          3
         );
         if (view === 'popup' && rootPx === 16) {
           expect(c.inputTextLeft).toBeCloseTo(43, 1);
@@ -233,8 +237,9 @@ test.describe("the saved search row's columns (KAN-385 S3)", () => {
 
         // Control: the scan follows the glyph, so it can see a wrong inset.
         await page.evaluate(() => {
-          const glass = document.querySelector('[data-saved-search] span')!;
-          (glass as HTMLElement).style.marginLeft = 'calc(8px + 4px)';
+          const glass = document.querySelector('[data-saved-search] span');
+          if (!(glass instanceof HTMLElement)) throw new Error('no glass span');
+          glass.style.marginLeft = 'calc(8px + 4px)';
         });
         const moved = await firstInkX(
           page,
