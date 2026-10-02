@@ -1102,11 +1102,10 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         // A new window is another window too (Q2 ii): a new first window on
         // the header's target (KAN-361), with no block and no rows, and a
         // new last window in the trailing block (KAN-366 B), with no rows.
-        // Neither is in windowOrder. The source closes up behind the row
-        // with its room outlined, exactly as for a drop into another
-        // window, and nothing else moves -- windowShiftsAcross makes room in
-        // no block for a window the order does not hold -- and no slot is
-        // drawn (landingSlotShown).
+        // Neither is in windowOrder. The source closes up behind the row,
+        // with no outline (KAN-378 C, below), and nothing else moves --
+        // windowShiftsAcross makes room in no block for a window the order
+        // does not hold -- and no slot is drawn (landingSlotShown).
         const at = insertionSlotOf(l, landing, beside);
         // The span is in the SOURCE window, so only its shifts change: the
         // landing is measured in the destination's frame and the source keeps
@@ -1152,8 +1151,14 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         // rests in, which the drop does not leave one row shorter: it
         // removes the phantom.
         // Not `heldShownAsCard`, which is true for an adopted drag too.
+        // KAN-378 C: not while a New window target is lit, where it read
+        // as the landing.
         const heldRect = l.rects[l.fromIndex];
-        if (l.card !== null && heldRect !== undefined) {
+        if (
+          newWindowPlacement(landing.windowId) === undefined &&
+          l.card !== null &&
+          heldRect !== undefined
+        ) {
           const sourceBottom = l.slots.reduce(
             (bottom, s) =>
               s.windowId === heldRect.windowId
