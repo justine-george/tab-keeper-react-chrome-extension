@@ -436,15 +436,6 @@ describe('the file prints as itself (KAN-190)', () => {
       ],
     });
 
-  test.each([['light'], ['dark']] as const)(
-    'a %s file carries print rules',
-    (scheme) => {
-      const html = sessionToHtml(oneTab(), options({ scheme }));
-
-      expect(html).toContain('@media print');
-    }
-  );
-
   test('a row is never split across two pages', () => {
     const html = sessionToHtml(oneTab(), options());
 
@@ -464,6 +455,7 @@ describe('the file prints as itself (KAN-190)', () => {
       const html = sessionToHtml(oneTab(), options({ scheme }));
       const print = html.match(/@media print\{[\s\S]*?\}\}/)?.[0] ?? '';
 
+      // Also the proof that the file carries print rules at all.
       expect(print).not.toBe('');
       for (const appearance of [
         'text-decoration',
