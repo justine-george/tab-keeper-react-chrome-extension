@@ -466,36 +466,8 @@ export default function HeroContainerRight() {
             padding-top: 8px;
           `}
         >
-          <Icon
-            tooltipText={t('Open session')}
-            ariaLabel={t('Open session')}
-            type="reopen_window"
-            onClick={() => {
-              const goToURLText: string = t('Go to URL');
-              dispatch(openAllTabContainer({ tabGroupId, goToURLText }));
-            }}
-          />
-          {/* KAN-279 D7. Switching closes the windows hosting Tab Keeper
-              itself when this page IS the tab view, so hidden there. */}
-          {!isTabView() && (
-            <Icon
-              tooltipText={t('Switch to session')}
-              ariaLabel={t('Switch to session')}
-              type="filter_center_focus"
-              onClick={() => {
-                dispatch(
-                  requestFocusTabContainer({
-                    tabGroupId,
-                    goToURLText: t('Go to URL'),
-                    saveTitle: t('FocusAutoSaveTitle'),
-                  })
-                );
-              }}
-            />
-          )}
           {/* KAN-206. Folds every window in this session, or unfolds them all.
-              Third in the strip so the overflow stays last, which is the only
-              position that reads as "everything after me is secondary".
+              First, as in Open now (KAN-377); the overflow stays last.
 
               unfold_less/unfold_more rather than a doubled expand_less: every
               window row already wears that chevron, and a header control built
@@ -538,6 +510,33 @@ export default function HeroContainerRight() {
               )
             }
           />
+          <Icon
+            tooltipText={t('Open session')}
+            ariaLabel={t('Open session')}
+            type="reopen_window"
+            onClick={() => {
+              const goToURLText: string = t('Go to URL');
+              dispatch(openAllTabContainer({ tabGroupId, goToURLText }));
+            }}
+          />
+          {/* KAN-279 D7. Switching closes the windows hosting Tab Keeper
+              itself when this page IS the tab view, so hidden there. */}
+          {!isTabView() && (
+            <Icon
+              tooltipText={t('Switch to session')}
+              ariaLabel={t('Switch to session')}
+              type="filter_center_focus"
+              onClick={() => {
+                dispatch(
+                  requestFocusTabContainer({
+                    tabGroupId,
+                    goToURLText: t('Go to URL'),
+                    saveTitle: t('FocusAutoSaveTitle'),
+                  })
+                );
+              }}
+            />
+          )}
           {/* KAN-193. Export and Delete live behind one trigger rather than as
               two more icons. A menu item carries words, so export cannot be
               misread the way its download glyph was once the flow began with
