@@ -2,13 +2,14 @@ import { useSelector } from 'react-redux';
 
 import type { RootState } from '../redux/store';
 import { searchTermOf } from '../utils/functions/openNowSearch';
+import { isSearchActive } from '../utils/functions/local';
 
 export interface SavedSearch {
   // Exactly what the field shows.
   text: string;
   // searchTermOf(text): trimmed and lower-cased, null when there is none.
   term: string | null;
-  // term !== null. Every saved-side gate (hide, drag, carry) reads this.
+  // isSearchActive(text). Every saved-side gate (hide, drag, carry) reads this.
   isSearching: boolean;
 }
 
@@ -17,6 +18,9 @@ export function useSavedSearch(): SavedSearch {
   const text = useSelector(
     (state: RootState) => state.globalState.searchInputText
   );
-  const term = searchTermOf(text);
-  return { text, term, isSearching: term !== null };
+  return {
+    text,
+    term: searchTermOf(text),
+    isSearching: isSearchActive(text),
+  };
 }

@@ -234,7 +234,7 @@ export const selectVisibleTabGroups = (
     : filterTabGroups(searchTerm, selectedTabGroups, hasTabGroupsPermission);
 };
 
-// Is the list on screen a filtered one? Named because the panes and the count label must agree (KAN-60).
+// Whether the saved search is on: the one rule every saved-side gate reads, through useSavedSearch.
 export const isSearchActive = (searchInputText: string): boolean =>
   searchTermOf(searchInputText) !== null;
 
