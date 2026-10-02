@@ -1435,7 +1435,8 @@ test.describe('the looks (D1 A, D2 A, S1 A)', () => {
     await carryOutLeft(page, at);
     await onto(page, 'S2');
     const started = Date.now();
-    await expect(page.locator('[data-carry-dwell]')).toHaveCount(0);
+    // Once, not retried: the spring-open clears it anyway (KAN-381).
+    expect(await page.locator('[data-carry-dwell]').count()).toBe(0);
     await expect.poll(() => selected(page), { timeout: 3000 }).toBe('S2');
     // Not at once: it waited for the dwell.
     expect(Date.now() - started).toBeGreaterThanOrEqual(400);
