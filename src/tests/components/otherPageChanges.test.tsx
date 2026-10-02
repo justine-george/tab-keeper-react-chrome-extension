@@ -291,6 +291,27 @@ describe('the rename editor when its session goes (KAN-279 D9)', () => {
     ).toEqual([]);
   });
 
+  test('the session comes back (an import): its old draft does not reopen', async () => {
+    const user = userEvent.setup();
+    await renderApp(
+      withSelected([session('Doomed'), session('Kept')], 'Doomed')
+    );
+    await user.click(
+      screen.getByRole('button', { name: 'Rename session: Doomed' })
+    );
+    otherPageWrites('tabContainerData', buildContainer([session('Kept')]));
+    await waitFor(() => expect(screen.queryByText('Doomed')).toBeNull());
+
+    otherPageWrites(
+      'tabContainerData',
+      buildContainer([session('Doomed'), session('Kept')])
+    );
+    await user.click(await screen.findByRole('button', { name: /^Doomed$/ }));
+
+    await screen.findByRole('button', { name: 'Rename session: Doomed' });
+    expect(screen.queryByDisplayValue('Doomed')).toBeNull();
+  });
+
   // Spec: "a rename's unsaved text lives in component state and survives."
   test('the other page changed a different session: the unsaved draft survives', async () => {
     const user = userEvent.setup();

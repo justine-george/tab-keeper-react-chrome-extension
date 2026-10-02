@@ -105,6 +105,14 @@ export default function HeroContainerRight() {
     editingTabGroupId !== null &&
     editingTabGroupId === selectedTabGroup?.tabGroupId;
 
+  // A draft ends when its session leaves the list, so it cannot reopen if the id returns.
+  const editedSessionIsListed = tabContainerDataList.tabGroups.some(
+    (g) => g.tabGroupId === editingTabGroupId
+  );
+  if (editingTabGroupId !== null && !editedSessionIsListed) {
+    setEditingTabGroupId(null);
+  }
+
   // KAN-361 (N1 B). The toolbar row's New window target takes a carry let go
   // on it, into the session on screen. Above the early return, as every hook
   // here must be.
