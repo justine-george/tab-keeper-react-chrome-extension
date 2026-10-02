@@ -108,12 +108,15 @@ describe('searching a Chrome group title, without the permission', () => {
     expect(screen.queryByText('Alpha')).toBeNull();
   });
 
-  test('the right pane renders nothing at all', async () => {
-    const { container } = await renderWithProviders(<RightPane />, {
+  test('the right pane draws only the no-match state', async () => {
+    await renderWithProviders(<RightPane />, {
       seedStore: searchFor('Quarterly', false),
     });
 
-    expect(container.innerHTML).toBe('');
+    expect(
+      await screen.findByText('No saved tab matches "Quarterly"')
+    ).toBeTruthy();
+    expect(screen.queryByText('Alpha')).toBeNull();
   });
 });
 

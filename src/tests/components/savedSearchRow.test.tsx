@@ -192,14 +192,15 @@ describe('clearing the row (S5)', () => {
   });
 });
 
-describe('a search that matches nothing (R3)', () => {
-  test('says so with the trimmed text, in place of Empty', async () => {
-    await renderList();
+describe('a search that matches nothing (R3, R4)', () => {
+  test('says so with the trimmed text, in the detail pane in place of Empty', async () => {
+    await renderWithProviders(<MainContainer />, { seedStore: seedTwo });
+    await screen.findByRole('textbox', { name: NAME });
 
     type('  zzz ');
 
-    expect(listedIds()).toEqual([]);
-    expect(screen.getByText('No saved tab matches "zzz"')).toBeInTheDocument();
+    const message = screen.getByText('No saved tab matches "zzz"');
+    expect(message.closest('[data-pane="detail"]')).not.toBeNull();
     expect(screen.queryByText('Empty')).not.toBeInTheDocument();
   });
 });

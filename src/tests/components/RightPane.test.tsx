@@ -82,8 +82,8 @@ describe('RightPane', () => {
   // The pane's guard checks the selected list AFTER the search filter, so a
   // search matching nothing must keep the children unmounted. If the guard ever
   // stopped applying the filter its children would mount against an empty list.
-  test('renders nothing when the search filters the selected session away', async () => {
-    const { container } = await renderWithProviders(<RightPane />, {
+  test('draws the no-match state, not the session, when the search filters it away', async () => {
+    await renderWithProviders(<RightPane />, {
       seedStore: (store) => {
         store.dispatch(saveToTabContainerInternal(buildSession()));
         store.dispatch(selectTabContainer('group-1'));
@@ -91,7 +91,10 @@ describe('RightPane', () => {
       },
     });
 
-    expect(container.innerHTML).toBe('');
+    expect(
+      await screen.findByText('No saved tab matches "nothing matches this"')
+    ).toBeTruthy();
+    expect(screen.queryByText('Research')).toBeNull();
   });
 
   test('renders the session again when the search matches it', async () => {
