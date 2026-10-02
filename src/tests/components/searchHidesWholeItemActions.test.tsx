@@ -317,29 +317,70 @@ describe('Review Focus 1 and 3', () => {
     expect(errors).not.toHaveBeenCalled();
   });
 
-  // MEASURED: the selection stays on the dropped session ('a'), because the
-  // effect that picks the next match re-runs on the term, not on the list.
-  test.fails(
-    'renaming the selected session out of the match selects the next match (measured: selection stays on the dropped row)',
-    async () => {
-      const { store } = await renameAlphaOutOfTheMatch();
+  test('renaming the selected session out of the match selects the next match', async () => {
+    const { store } = await renameAlphaOutOfTheMatch();
 
-      expect(store.getState().tabContainerDataState.selectedTabGroupId).toBe(
-        'b'
-      );
-    }
-  );
+    expect(store.getState().tabContainerDataState.selectedTabGroupId).toBe('b');
+    expect(
+      await screen.findByRole('button', {
+        name: 'Rename session: Research beta',
+      })
+    ).toBeInTheDocument();
+  });
 
-  // MEASURED: focus lands on body, as it does for a rename with no search:
-  // the input that held it unmounts and nothing takes it over.
+  // KAN-389: no focus return after any session rename, search or not.
   test.fails(
-    'renaming the selected session out of the match leaves focus off body (measured: it lands on body)',
+    'renaming the selected session out of the match leaves focus off body (KAN-389: it lands on body)',
     async () => {
       await renameAlphaOutOfTheMatch();
 
       expect(document.activeElement).not.toBe(document.body);
     }
   );
+
+  const twoSessionsByTab = (store: RenderWithProvidersResult['store']) => {
+    store.dispatch(setHasTabGroupsPermission(false));
+    const withTab = (id: string, tabTitle: string, at: number) =>
+      buildSession({
+        tabGroupId: id,
+        title: `Session ${id}`,
+        createdAt: at,
+        windows: [
+          {
+            windowId: `w-${id}`,
+            windowHeight: 100,
+            windowWidth: 100,
+            windowOffsetTop: 0,
+            windowOffsetLeft: 0,
+            tabCount: 1,
+            title: 'Window',
+            tabs: [
+              {
+                tabId: `t-${id}`,
+                favicon: '',
+                title: tabTitle,
+                url: 'https://a.test/',
+              },
+            ],
+          },
+        ],
+      });
+    store.dispatch(saveToTabContainerInternal(withTab('b', 'needle b', 1)));
+    store.dispatch(saveToTabContainerInternal(withTab('a', 'needle a', 2)));
+    store.dispatch(selectTabContainer('a'));
+    store.dispatch(setSearchInputText(QUERY));
+  };
+
+  test("deleting the selected session's last matching tab selects the next match", async () => {
+    const user = userEvent.setup();
+    const { store } = await renderWithProviders(<MainContainer />, {
+      seedStore: twoSessionsByTab,
+    });
+
+    await user.click(await screen.findByRole('button', { name: 'Delete tab' }));
+
+    expect(store.getState().tabContainerDataState.selectedTabGroupId).toBe('b');
+  });
 
   test('deleting the last matching tab drops the session and shows the no-match line', async () => {
     const user = userEvent.setup();

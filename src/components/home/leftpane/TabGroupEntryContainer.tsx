@@ -85,6 +85,8 @@ export default function TabGroupEntryContainer() {
     [filteredTabGroups]
   );
 
+  const filteredIds = filteredTabGroups.map((g) => g.tabGroupId).join('\u0000');
+
   // Select the first match as the query narrows -- but only while a search is
   // actually running.
   //
@@ -95,6 +97,7 @@ export default function TabGroupEntryContainer() {
   // The second guard keeps the selection when it still matches, so typing more
   // of a query no longer walks the user back to the top of the results on
   // every keystroke.
+  // Re-runs when the selected session drops out of the list under an unchanged term.
   useEffect(() => {
     if (!isSearching) return;
     if (filteredTabGroups.length === 0) return;
@@ -102,7 +105,7 @@ export default function TabGroupEntryContainer() {
       return;
     }
     dispatch(selectTabContainer(filteredTabGroups[0].tabGroupId));
-  }, [searchTerm]);
+  }, [searchTerm, selectedTabGroupId, filteredIds]);
 
   // KAN-143. Follow the selected session when the list rearranges under it.
   //
