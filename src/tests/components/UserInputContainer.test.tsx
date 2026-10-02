@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { screen, within } from '@testing-library/react';
+import { act, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import UserInputContainer from '../../components/home/leftpane/UserInputContainer';
@@ -23,15 +23,11 @@ const seed = {
 };
 
 describe('UserInputContainer', () => {
-  // KAN-211. The prefill is a SUGGESTION derived from the active tab, so it is
-  // cleaned like any other derived title: offering "(3) Gmail" proposes storing
-  // a badge that is stale the moment it is saved, and the box is the one place
-  // the user can see it before it becomes a session name.
-  //
-  // What the user types is never touched -- the tests below type their own
-  // names and get them back verbatim, which is the other half of the boundary.
-  test('the pre-filled name drops the active tab unread badge', async () => {
-    await renderWithProviders(<UserInputContainer />, {
+  // KAN-211. The name an empty save uses is derived from the active tab, so it
+  // is cleaned like any other derived title: "(3) Gmail" would store a badge
+  // that is stale the moment it is saved. What the user types is never touched.
+  test('an empty save drops the active tab unread badge from the name', async () => {
+    const { store } = await renderWithProviders(<UserInputContainer />, {
       seed: {
         tabs: [
           {
@@ -51,15 +47,15 @@ describe('UserInputContainer', () => {
         ],
       },
     });
+    await act(async () => {});
 
-    expect(await screen.findByDisplayValue('Kagi Search')).toBeTruthy();
-    expect(screen.queryByDisplayValue('(9+) Kagi Search')).toBeNull();
-  });
+    await userEvent.click(
+      screen.getByLabelText('Save all open windows as a session')
+    );
 
-  test('pre-fills the session name from the active tab', async () => {
-    await renderWithProviders(<UserInputContainer />, { seed });
-
-    expect(await screen.findByDisplayValue('Kagi Search')).toBeTruthy();
+    expect(store.getState().tabContainerDataState.tabGroups[0].title).toBe(
+      'Kagi Search'
+    );
   });
 
   test('saving dispatches a session built from the open windows', async () => {
@@ -67,7 +63,7 @@ describe('UserInputContainer', () => {
       seed,
     });
 
-    await screen.findByDisplayValue('Kagi Search');
+    await act(async () => {});
     await userEvent.click(
       screen.getByLabelText('Save all open windows as a session')
     );
@@ -113,7 +109,7 @@ describe('UserInputContainer save scope', () => {
       seed: twoWindows,
     });
 
-    await screen.findByDisplayValue('Kagi Search');
+    await act(async () => {});
     await userEvent.click(
       screen.getByLabelText('Save all open windows as a session')
     );
@@ -135,7 +131,7 @@ describe('UserInputContainer save scope', () => {
       seed: twoWindows,
     });
 
-    await screen.findByDisplayValue('Kagi Search');
+    await act(async () => {});
     const menu = await openSaveMenu();
     await userEvent.click(
       within(menu).getByRole('menuitem', {
@@ -158,7 +154,7 @@ describe('UserInputContainer save scope', () => {
     const { store } = await renderWithProviders(<UserInputContainer />, {
       seed: twoWindows,
     });
-    await screen.findByDisplayValue('Kagi Search');
+    await act(async () => {});
     if (label === 'Save current window as a session') {
       const menu = await openSaveMenu();
       await userEvent.click(
@@ -202,7 +198,7 @@ describe('UserInputContainer save scope', () => {
 
   test('the all-windows tooltip says it saves all windows', async () => {
     await renderWithProviders(<UserInputContainer />, { seed: twoWindows });
-    await screen.findByDisplayValue('Kagi Search');
+    await act(async () => {});
 
     expect(
       tooltip('Save all open windows as a session').toLowerCase()
@@ -216,7 +212,8 @@ describe('UserInputContainer save scope', () => {
       seed: twoWindows,
     });
 
-    const nameBox = await screen.findByDisplayValue('Kagi Search');
+    await act(async () => {});
+    const nameBox = screen.getByRole('textbox');
     await userEvent.type(nameBox, '{Enter}');
 
     const { tabGroups } = store.getState().tabContainerDataState;
@@ -259,7 +256,7 @@ describe('the save row menu (KAN-208)', () => {
 
   test('the row keeps the save-all button, and the current-window save is in the menu rather than beside it', async () => {
     await renderWithProviders(<UserInputContainer />, { seed: twoWindows });
-    await screen.findByDisplayValue('Kagi Search');
+    await act(async () => {});
 
     expect(
       screen.getByRole('button', { name: 'Save all open windows as a session' })
@@ -276,7 +273,7 @@ describe('the save row menu (KAN-208)', () => {
 
   test('the menu holds exactly two items, save first', async () => {
     await renderWithProviders(<UserInputContainer />, { seed: twoWindows });
-    await screen.findByDisplayValue('Kagi Search');
+    await act(async () => {});
 
     const menu = await openSaveMenu();
     const items = within(menu).getAllByRole('menuitem');
@@ -295,7 +292,7 @@ describe('the save row menu (KAN-208)', () => {
       <UserInputContainer />,
       { seed: twoWindows }
     );
-    await screen.findByDisplayValue('Kagi Search');
+    await act(async () => {});
 
     const menu = await openSaveMenu();
     await userEvent.click(
@@ -320,7 +317,7 @@ describe('the save row menu (KAN-208)', () => {
       <UserInputContainer />,
       { seed: twoWindows }
     );
-    await screen.findByDisplayValue('Kagi Search');
+    await act(async () => {});
 
     const menu = await openSaveMenu();
     await userEvent.click(
@@ -353,7 +350,8 @@ describe('a saved session always gets a name (KAN-84)', () => {
     const rendered = await renderWithProviders(<UserInputContainer />, {
       seed,
     });
-    const box = await screen.findByDisplayValue('Kagi Search');
+    await act(async () => {});
+    const box = screen.getByRole('textbox');
     await userEvent.clear(box);
     if (value) await userEvent.type(box, value);
     await userEvent.click(
@@ -370,8 +368,7 @@ describe('a saved session always gets a name (KAN-84)', () => {
     }
   );
 
-  // THE CONTROL. Every case above lands on the same string the box was
-  // pre-filled with, so a save path that ignored the input entirely would pass
+  // THE CONTROL. Every case above lands on the active tab's title, so a save path that ignored the input entirely would pass
   // them all. This proves a typed name is actually honoured.
   test('CONTROL: a typed name is used', async () => {
     const { store } = await typeNameAndSave('Research');

@@ -45,7 +45,7 @@ describe('the save row while the saved search holds text', () => {
     const { store, seen } = await renderWithProviders(<UserInputContainer />, {
       seed,
     });
-    await screen.findByDisplayValue('Kagi Search');
+    await act(async () => {});
 
     search(store, 'kagi');
 
@@ -63,7 +63,7 @@ describe('the save row while the saved search holds text', () => {
     const { store, seen } = await renderWithProviders(<UserInputContainer />, {
       seed,
     });
-    await screen.findByDisplayValue('Kagi Search');
+    await act(async () => {});
 
     search(store, '   ');
 
@@ -78,7 +78,7 @@ describe('the save row while the saved search holds text', () => {
     const { store, seen } = await renderWithProviders(<UserInputContainer />, {
       seed,
     });
-    await screen.findByDisplayValue('Kagi Search');
+    await act(async () => {});
     const field = screen.getByRole('textbox');
     await userEvent.clear(field);
     await userEvent.type(field, 'My name');

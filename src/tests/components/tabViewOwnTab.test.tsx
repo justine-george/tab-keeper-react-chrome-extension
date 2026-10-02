@@ -6,6 +6,7 @@ import HeroContainerRight from '../../components/home/rightpane/HeroContainerRig
 import UserInputContainer from '../../components/home/leftpane/UserInputContainer';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import type { ChromeSeed } from '../setup/chrome.fake';
+import type { RenderWithProvidersResult } from '../setup/renderWithProviders';
 import { buildContainer, buildSession } from '../fixtures/sessionFixture';
 import { buildChromeTab as tab } from '../fixtures/chromeTab';
 import {
@@ -158,6 +159,11 @@ const clickSaveCurrentWindow = async () => {
   );
 };
 
+type Store = RenderWithProvidersResult['store'];
+
+const firstSavedTitle = (store: Store) =>
+  store.getState().tabContainerDataState.tabGroups[0]?.title;
+
 const clickSaveAllWindows = () =>
   userEvent.click(screen.getByLabelText('Save all open windows as a session'));
 
@@ -183,7 +189,7 @@ describe('saving in the tab view leaves out Tab Keeper itself (D6)', () => {
     const { store } = await renderWithProviders(<UserInputContainer />, {
       seed: tabViewSeed,
     });
-    await screen.findByDisplayValue('Docs');
+    await act(async () => {});
 
     await clickSaveCurrentWindow();
 
@@ -200,7 +206,7 @@ describe('saving in the tab view leaves out Tab Keeper itself (D6)', () => {
     const { store } = await renderWithProviders(<UserInputContainer />, {
       seed: tabViewSeed,
     });
-    await screen.findByDisplayValue('Docs');
+    await act(async () => {});
 
     await clickSaveAllWindows();
 
@@ -218,7 +224,7 @@ describe('saving in the tab view leaves out Tab Keeper itself (D6)', () => {
     const { store, seen } = await renderWithProviders(<UserInputContainer />, {
       seed: onlyOwnTabSeed,
     });
-    await screen.findByDisplayValue('New Tab Group');
+    await act(async () => {});
 
     await clickSaveCurrentWindow();
 
@@ -246,11 +252,9 @@ describe('saving in the tab view leaves out Tab Keeper itself (D6)', () => {
     const { store } = await renderWithProviders(<UserInputContainer />, {
       seed: controlSeed,
     });
-    // Barrier: waits for the mount-time suggestion, which is 'Docs' rather
-    // than 'Tab Keeper' for this seed (its active tab IS a Tab Keeper page
-    // -- see the describe below on the name box's own fallback). Unrelated
-    // to what this test actually checks (save exclusion).
-    await screen.findByDisplayValue('Docs');
+    // Barrier: lets the mount-time suggestion land first. Unrelated to what
+    // this test checks (save exclusion).
+    await act(async () => {});
 
     await clickSaveCurrentWindow();
 
@@ -262,12 +266,17 @@ describe('saving in the tab view leaves out Tab Keeper itself (D6)', () => {
   });
 });
 
-describe('the name box in the tab view (D15)', () => {
-  test('suggests the most recently used OTHER tab', async () => {
+describe('an empty save in the tab view names the session (D15)', () => {
+  test('after the most recently used OTHER tab', async () => {
     goToTabView();
-    await renderWithProviders(<UserInputContainer />, { seed: tabViewSeed });
+    const { store } = await renderWithProviders(<UserInputContainer />, {
+      seed: tabViewSeed,
+    });
+    await act(async () => {});
 
-    expect(await screen.findByDisplayValue('Docs')).toBeTruthy();
+    await clickSaveCurrentWindow();
+
+    expect(firstSavedTitle(store)).toBe('Docs');
   });
 
   // A hint cleaned by dropNotificationCount: the own tab is most recently
@@ -275,21 +284,19 @@ describe('the name box in the tab view (D15)', () => {
   // that has to be stripped, exactly as it is for the popup's active tab.
   test('is cleaned by dropNotificationCount', async () => {
     goToTabView();
-    await renderWithProviders(<UserInputContainer />, {
+    const { store } = await renderWithProviders(<UserInputContainer />, {
       seed: cleanedHintSeed,
     });
+    await act(async () => {});
 
-    // One text input, one value: proving it IS 'Mail' already proves it is
-    // NOT '(3) Mail' and NOT 'Tab Keeper' -- a single input cannot hold two
-    // values at once, so separate queryByDisplayValue checks for those two
-    // strings are redundant with this line and were dropped.
-    // Whatever would make either of those checks fail -- skipped cleaning,
-    // or picking the own tab -- makes this line fail first instead.
-    expect(await screen.findByDisplayValue('Mail')).toBeTruthy();
+    await clickSaveCurrentWindow();
+
+    // One title: 'Mail' rules out both '(3) Mail' and 'Tab Keeper'.
+    expect(firstSavedTitle(store)).toBe('Mail');
   });
 
-  // CONTROL. In the popup, with an ORDINARY active tab, the box still
-  // suggests that tab's title exactly as it always has -- proves the
+  // CONTROL. In the popup, with an ORDINARY active tab, an empty save is
+  // still named after that tab exactly as it always has been -- proves the
   // tab-view branch above, and its extension to a Tab Keeper active tab in
   // the popup (below), are both ADDITIONAL behaviour, not a replacement
   // that also changed the ordinary popup case. A SECOND, more recently used,
@@ -297,8 +304,8 @@ describe('the name box in the tab view (D15)', () => {
   // dropped so the popup always fell back to the most-recently-used OTHER
   // tab, that tab (not the active one) would win, and this test would show
   // its title instead.
-  test('CONTROL: in the popup, an ordinary active tab keeps its own title as the suggestion', async () => {
-    await renderWithProviders(<UserInputContainer />, {
+  test('CONTROL: in the popup, an ordinary active tab names an empty save', async () => {
+    const { store } = await renderWithProviders(<UserInputContainer />, {
       seed: {
         windows: [
           {
@@ -322,21 +329,24 @@ describe('the name box in the tab view (D15)', () => {
         ],
       },
     });
+    await act(async () => {});
 
-    expect(await screen.findByDisplayValue('Docs')).toBeTruthy();
+    await clickSaveCurrentWindow();
+
+    expect(firstSavedTitle(store)).toBe('Docs');
   });
 });
 
 // KAN-299. The name box's D15 fallback applies in the popup too: Switch can
-// restore a window whose ACTIVE tab is the pinned tab view, and the box
-// must not offer "Tab Keeper" as a session name -- the same
+// restore a window whose ACTIVE tab is the pinned tab view, and an empty save
+// must not name the session "Tab Keeper" -- the same
 // most-recently-used-OTHER-tab rule the tab view already uses.
-describe('the popup name box falls back off a Tab Keeper active tab', () => {
+describe('the popup empty-save name falls back off a Tab Keeper active tab', () => {
   // Docs is listed FIRST among the non-Tab-Keeper tabs, but Mail is the more
   // recently used one -- so "first non-excluded tab in list order" and
   // "most recently used" disagree, and only the correct rule picks Mail.
-  test('the active tab is the tab view: suggests the most recently used OTHER tab', async () => {
-    await renderWithProviders(<UserInputContainer />, {
+  test('the active tab is the tab view: names it after the most recently used OTHER tab', async () => {
+    const { store } = await renderWithProviders(<UserInputContainer />, {
       seed: {
         windows: [
           {
@@ -351,7 +361,11 @@ describe('the popup name box falls back off a Tab Keeper active tab', () => {
       },
     });
 
-    expect(await screen.findByDisplayValue('Mail')).toBeTruthy();
+    await act(async () => {});
+
+    await clickSaveCurrentWindow();
+
+    expect(firstSavedTitle(store)).toBe('Mail');
   });
 
   // The worst path: the active tab is a Tab Keeper page AND nothing else is
@@ -360,8 +374,10 @@ describe('the popup name box falls back off a Tab Keeper active tab', () => {
   // "no suggestion" fallback (`cleanSuggestion`, translated 'New Tab
   // Group') has to apply here too, exactly as it already does for the
   // tab-view's own equivalent worst path (`onlyOwnTabSeed`, tested above).
-  test('the active tab is the tab view and nothing else is open: falls back to the translated placeholder', async () => {
-    await renderWithProviders(<UserInputContainer />, {
+  test('the active tab is the tab view and nothing else is open: falls back to the translated name', async () => {
+    // A second window gives Save all something to store, so the name is
+    // observable; the current window (1) is the one the suggestion reads.
+    const { store } = await renderWithProviders(<UserInputContainer />, {
       seed: {
         windows: [
           {
@@ -370,22 +386,26 @@ describe('the popup name box falls back off a Tab Keeper active tab', () => {
               tab({ id: 10, url: OWN_URL, title: 'Tab Keeper', active: true }),
             ],
           },
+          { id: 2, tabs: [tab({ id: 30, windowId: 2, url: OTHER_URL })] },
         ],
       },
     });
+    await act(async () => {});
 
-    expect(await screen.findByDisplayValue('New Tab Group')).toBeTruthy();
+    await clickSaveAllWindows();
+
+    expect(firstSavedTitle(store)).toBe('New Tab Group');
   });
 });
 
-describe('the name box recomputes on visibility, but only in the tab view (KAN-299)', () => {
-  test('a tab that becomes more recently used while hidden shows up once the tab is visible again', async () => {
+describe('the empty-save name recomputes on visibility, but only in the tab view (KAN-299)', () => {
+  test('a tab that becomes more recently used while hidden names the save once the tab is visible again', async () => {
     goToTabView();
-    const { chrome: chromeHandle } = await renderWithProviders(
+    const { store, chrome: chromeHandle } = await renderWithProviders(
       <UserInputContainer />,
       { seed: tabViewSeed }
     );
-    await screen.findByDisplayValue('Docs');
+    await act(async () => {});
 
     // The window changes while this page is in the background: Mail (12)
     // overtakes Docs (11) as the most recently used OTHER tab.
@@ -393,7 +413,11 @@ describe('the name box recomputes on visibility, but only in the tab view (KAN-2
     setVisibility('hidden');
     setVisibility('visible');
 
-    expect(await screen.findByDisplayValue('Mail')).toBeTruthy();
+    await act(async () => {});
+
+    await clickSaveCurrentWindow();
+
+    expect(firstSavedTitle(store)).toBe('Mail');
   });
 
   // CONTROL: proves the recompute above never clobbers what the user typed.
@@ -405,7 +429,8 @@ describe('the name box recomputes on visibility, but only in the tab view (KAN-2
       <UserInputContainer />,
       { seed: tabViewSeed }
     );
-    const nameBox = await screen.findByDisplayValue('Docs');
+    await act(async () => {});
+    const nameBox = screen.getByRole('textbox');
     await userEvent.clear(nameBox);
     await userEvent.type(nameBox, 'My own title');
 
@@ -419,59 +444,46 @@ describe('the name box recomputes on visibility, but only in the tab view (KAN-2
     expect(screen.getByDisplayValue('My own title')).toBeTruthy();
   });
 
-  // Typed text must survive not just ONE declined recompute (the CONTROL
-  // above) but a SECOND one straight after -- `lastSuggestionRef` moving
-  // even when the guard declines to touch the box would let it drift ahead
-  // of `boxValueRef` and make a LATER recompute wrongly believe the box was
-  // untouched. This sequence is what surfaces that: the user's own text
-  // ("Mail") happens to equal the suggestion the FIRST declined recompute
-  // computed, which is exactly the coincidence that drift needs.
-  test('typed text survives a second recompute straight after one the guard correctly declined', async () => {
+  // Typed text survives more than one recompute, even when the user's text
+  // equals a suggestion the first recompute computed.
+  test('typed text survives two recomputes in a row', async () => {
     goToTabView();
-    const { chrome: chromeHandle } = await renderWithProviders(
+    const { store, chrome: chromeHandle } = await renderWithProviders(
       <UserInputContainer />,
       { seed: tabViewSeed }
     );
-    const nameBox = await screen.findByDisplayValue('Docs');
+    await act(async () => {});
+    const nameBox = screen.getByRole('textbox');
     await userEvent.clear(nameBox);
     await userEvent.type(nameBox, 'Mail');
 
-    // Mail (12) becomes most recent -- the guard must decline (the box
-    // holds "Mail", the user's own text, not the "Docs" suggestion it
-    // started from). Bugged code still moved `lastSuggestionRef` to "Mail"
-    // here even though it left the box alone.
     chromeHandle.simulateBrowserTabChange(12, { lastAccessed: 999 });
     setVisibility('hidden');
     setVisibility('visible');
     await act(async () => {});
 
-    // Docs (11) becomes most recent again -- a second recompute must ALSO
-    // decline, since nothing has touched the box from the user's own
-    // perspective since they typed "Mail". Bugged code found
-    // `boxValueRef` ("Mail") spuriously equal to the now-drifted
-    // `lastSuggestionRef` ("Mail") and overwrote the box with "Docs".
     chromeHandle.simulateBrowserTabChange(11, { lastAccessed: 1999 });
     setVisibility('hidden');
     setVisibility('visible');
     await act(async () => {});
 
-    expect(screen.getByDisplayValue('Mail')).toBeTruthy();
+    expect(nameBox).toHaveValue('Mail');
+    await clickSaveCurrentWindow();
+    expect(firstSavedTitle(store)).toBe('Mail');
   });
 
   // CONTROL. Outside the tab view no listener is attached at all -- the same
   // change to the active tab's own title, and the same visibility flip,
   // leave the popup's suggestion alone.
   test('CONTROL: in the popup, a visibility flip changes nothing', async () => {
-    const { chrome: chromeHandle } = await renderWithProviders(
+    const { store, chrome: chromeHandle } = await renderWithProviders(
       <UserInputContainer />,
       { seed: controlSeed }
     );
-    // Barrier: this is 'Docs', not 'Tab Keeper' -- controlSeed's active tab
-    // (10) is itself a Tab Keeper page, so the popup's own fallback picks
-    // the most recently used OTHER tab even at mount. See the describe on
-    // that fallback above; this test is about the LISTENER, not the
-    // fallback.
-    await screen.findByDisplayValue('Docs');
+    // Barrier: controlSeed's active tab (10) is itself a Tab Keeper page, so
+    // the popup's own fallback picks 'Docs' even at mount. This test is about
+    // the LISTENER, not the fallback.
+    await act(async () => {});
 
     // Changes the EXCLUDED tab's title -- it must not matter either way,
     // since tab 10 is never a candidate regardless of what it is called.
@@ -480,11 +492,9 @@ describe('the name box recomputes on visibility, but only in the tab view (KAN-2
     setVisibility('visible');
     await act(async () => {});
 
-    // One text input, one value: proving it IS 'Docs' already proves it is
-    // NOT 'Changed' -- a single input cannot hold two values at once, so a
-    // separate queryByDisplayValue('Changed') check is redundant with this
-    // line and was dropped (same reasoning as the D15 cleaning test above).
-    expect(screen.getByDisplayValue('Docs')).toBeTruthy();
+    await clickSaveCurrentWindow();
+
+    expect(firstSavedTitle(store)).toBe('Docs');
   });
 });
 
@@ -495,7 +505,7 @@ describe('the tab-view visibility listener is removed on unmount (KAN-299)', () 
       <UserInputContainer />,
       { seed: tabViewSeed }
     );
-    await screen.findByDisplayValue('Docs');
+    await act(async () => {});
 
     unmount();
     const queriesBeforeFlip = chromeHandle.tabsQueryCalls.length;
@@ -518,16 +528,15 @@ describe('the tab-view visibility listener is removed on unmount (KAN-299)', () 
   // root). removeEventListener, proven above, is what actually stops it.
 });
 
-describe('the name-box fallback tracks the current tab even once the box is cleared (KAN-299)', () => {
-  test('clear the box, flip visibility after the tabs change, then save: named after the CURRENT most recent other tab', async () => {
+describe('the empty-save name tracks the current tab (KAN-299)', () => {
+  test('flip visibility after the tabs change, then save with the box empty: named after the CURRENT most recent other tab', async () => {
     goToTabView();
     const { store, chrome: chromeHandle } = await renderWithProviders(
       <UserInputContainer />,
       { seed: tabViewSeed }
     );
-    const nameBox = await screen.findByDisplayValue('Docs');
+    await act(async () => {});
 
-    await userEvent.clear(nameBox);
     // Mail (12) overtakes Docs (11) as the most recently used OTHER tab,
     // while the box sits empty.
     chromeHandle.simulateBrowserTabChange(12, { lastAccessed: 999 });
@@ -536,15 +545,6 @@ describe('the name-box fallback tracks the current tab even once the box is clea
     // Flushes the visibility handler's own awaits so its refresh of
     // currentTabName has had the chance to land before Save is clicked.
     await act(async () => {});
-    // PREMISE: the box is still exactly empty -- the guard did its job;
-    // this is not a test of the guard, which the CONTROL below and
-    // KAN-299's suite already cover. Asserted as the box's actual value,
-    // not `queryByDisplayValue('Docs')).toBeNull()`: that line is true of
-    // ANY value other than 'Docs' -- including whatever the box would hold
-    // if the guard were removed and it got overwritten with a suggestion --
-    // so it cannot fail if the guard breaks. `toHaveValue('')` can.
-    expect(nameBox).toHaveValue('');
-
     await clickSaveCurrentWindow();
 
     const { tabGroups } = store.getState().tabContainerDataState;
@@ -560,7 +560,8 @@ describe('the name-box fallback tracks the current tab even once the box is clea
       <UserInputContainer />,
       { seed: tabViewSeed }
     );
-    const nameBox = await screen.findByDisplayValue('Docs');
+    await act(async () => {});
+    const nameBox = screen.getByRole('textbox');
     await userEvent.clear(nameBox);
     await userEvent.type(nameBox, 'My own title');
 
