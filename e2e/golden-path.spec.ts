@@ -156,6 +156,27 @@ test.describe('golden path', () => {
     await expect(page.getByText('Research')).toHaveCount(0);
   });
 
+  // KAN-386: back from Settings, the field was empty and the list still
+  // filtered. Opening Settings now clears the query (Q2).
+  test('5b. back from Settings the search is empty and every session shows', async ({
+    context,
+    extensionId,
+  }) => {
+    const { page } = await openPopup(context, extensionId);
+    const field = page.getByRole('textbox', { name: 'Search saved tabs' });
+
+    await field.fill('Holiday');
+    await expect(page.getByText('Research')).toHaveCount(0);
+
+    await page.getByRole('button', { name: 'Settings' }).click();
+    await expect(page.getByText('Themes')).toBeVisible();
+    await page.getByRole('button', { name: 'Go back' }).click();
+
+    await expect(field).toHaveValue('');
+    await expect(page.getByText('Research').first()).toBeVisible();
+    await expect(page.getByText('Holiday').first()).toBeVisible();
+  });
+
   test('6. the settings panel opens and closes', async ({
     context,
     extensionId,
