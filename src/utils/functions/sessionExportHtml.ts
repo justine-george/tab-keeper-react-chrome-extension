@@ -353,7 +353,7 @@ export interface LinkListStrings {
  * another extension's own page that happens to take a url, comes back as it
  * went in.
  */
-export function unwrapSuspendedUrl(url: string): string {
+export function suspendedTabAddress(url: string): string {
   let parsed: URL;
   try {
     parsed = new URL(url);
@@ -420,7 +420,7 @@ export function tidySessionForExport(
       ...window,
       tabs: window.tabs.map((tab) => {
         const title = dropNotificationCount(tab.title);
-        const url = unwrapSuspendedUrl(tab.url);
+        const url = suspendedTabAddress(tab.url);
         return title === tab.title && url === tab.url
           ? tab
           : { ...tab, title, url };

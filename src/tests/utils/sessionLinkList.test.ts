@@ -6,7 +6,7 @@ import {
   sessionToLinkHtml,
   sessionToLinkList,
   tidySessionForExport,
-  unwrapSuspendedUrl,
+  suspendedTabAddress,
   type LinkListStrings,
 } from '../../utils/functions/sessionExportHtml';
 import type {
@@ -292,12 +292,12 @@ describe('the rich list on the clipboard (KAN-195)', () => {
 describe('unwrapping a suspended tab (KAN-195)', () => {
   test('the query form carries the real address in url=', () => {
     expect(
-      unwrapSuspendedUrl(
+      suspendedTabAddress(
         'chrome-extension://laameccjpleogmfhilmffpdbiibgbekf/suspended.html?title=Extensions&url=chrome%3A%2F%2Fextensions%2F&time=1789103928026'
       )
     ).toBe('chrome://extensions/');
     expect(
-      unwrapSuspendedUrl(
+      suspendedTabAddress(
         'chrome-extension://laameccjpleogmfhilmffpdbiibgbekf/suspended.html?title=Settings&url=chrome%3A%2F%2Fsettings%2F%3Fsearch%3Dzoom&time=1788746910025'
       )
     ).toBe('chrome://settings/?search=zoom');
@@ -307,7 +307,7 @@ describe('unwrapping a suspended tab (KAN-195)', () => {
   // an & inside the address belongs to the address.
   test('the hash form carries it, unencoded, in a trailing uri=', () => {
     expect(
-      unwrapSuspendedUrl(
+      suspendedTabAddress(
         'chrome-extension://noogafoofpebimajpfpamcfhoaifemoa/suspended.html#ttl=Example&pos=0&uri=https://example.com/a?b=1&c=2'
       )
     ).toBe('https://example.com/a?b=1&c=2');
@@ -324,7 +324,7 @@ describe('unwrapping a suspended tab (KAN-195)', () => {
       'chrome-extension://abcdefghijklmnop/suspended.html?url=not%20a%20url',
       'not a url at all',
     ];
-    for (const url of untouched) expect(unwrapSuspendedUrl(url)).toBe(url);
+    for (const url of untouched) expect(suspendedTabAddress(url)).toBe(url);
   });
 });
 
