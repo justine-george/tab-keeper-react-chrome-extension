@@ -6,7 +6,7 @@ import TabKeeperMark from '../../common/TabKeeperMark';
 import { useFontFamily } from '../../../hooks/useFontFamily';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useTranslation } from 'react-i18next';
-import { TYPE } from '../../../styles/scale';
+import { ICON, TYPE } from '../../../styles/scale';
 
 export default function HeroContainer() {
   const COLORS = useThemeColors();
@@ -41,8 +41,8 @@ export default function HeroContainer() {
       >
         <div
           css={css`
-            width: 32px;
-            height: 32px;
+            width: calc(${ICON.DEFAULT} + 8px);
+            height: calc(${ICON.DEFAULT} + 8px);
             display: flex;
             align-items: center;
             justify-content: center;

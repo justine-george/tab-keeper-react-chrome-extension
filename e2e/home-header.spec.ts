@@ -465,7 +465,7 @@ const mark = (page: Page): Locator =>
 
 test.describe('the mark before the title', () => {
   for (const rootPx of ROOTS) {
-    test(`at a ${rootPx}px root: ICON.SMALL square, centred in a 32px box, level with the icons`, async ({
+    test(`at a ${rootPx}px root: ICON.SMALL square, centred in the icons' box, level with them`, async ({
       context,
       extensionId,
     }) => {
@@ -477,9 +477,13 @@ test.describe('the mark before the title', () => {
       expect(box.height).toBe(side);
 
       const frame = await boxOf(mark(page).locator('xpath=..'));
-      expect({ w: frame.width, h: frame.height }).toEqual({ w: 32, h: 32 });
-      expect(box.x + box.width / 2).toBeCloseTo(frame.x + 16, 1);
-      expect(box.y + box.height / 2).toBeCloseTo(frame.y + 16, 1);
+      const frameSide = iconBox(rootPx);
+      expect({ w: frame.width, h: frame.height }).toEqual({
+        w: frameSide,
+        h: frameSide,
+      });
+      expect(box.x + box.width / 2).toBeCloseTo(frame.x + frameSide / 2, 1);
+      expect(box.y + box.height / 2).toBeCloseTo(frame.y + frameSide / 2, 1);
 
       const gear = await boxOf(control(page, 'Settings'));
       expect(box.y + box.height / 2).toBeCloseTo(gear.y + gear.height / 2, 1);
