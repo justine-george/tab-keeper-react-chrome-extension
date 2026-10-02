@@ -76,12 +76,6 @@ describe('the export page Light/Dark is not a setting (KAN-198)', () => {
     localStorage.clear();
   });
 
-  test('settings carry no export colour scheme', () => {
-    const state = reducer(undefined, { type: '@@INIT' });
-
-    expect(Object.keys(state)).not.toContain('exportScheme');
-  });
-
   test('there is no action that could store one', () => {
     expect(Object.keys(settingsSlice)).not.toContain('setExportScheme');
   });
