@@ -105,7 +105,7 @@ async function openPopup(
 }
 
 test.describe('exporting a session as a web page', () => {
-  test('the icon opens a preview of the file, and Save writes it', async ({
+  test('Export… in the session menu opens a preview of the file, and Save writes it', async ({
     context,
     extensionId,
   }) => {
@@ -1189,10 +1189,9 @@ test('an icon button is evenly padded on both sides', async ({
   }
 });
 
-// The "Links copied" toast was a block in the flow, so showing it pushed the
-// whole preview down and pulled it back up two seconds later. A confirmation
-// must not move what it confirms.
-test('the copied toast does not move the page', async ({
+// A confirmation must not move what it confirms: the first one pushed the
+// preview down and back up two seconds later.
+test('the Links copied status does not move the page', async ({
   context,
   extensionId,
 }) => {
@@ -1211,10 +1210,11 @@ test('the copied toast does not move the page', async ({
   await expect(exportPage.getByText('Links copied')).toBeVisible();
 
   const during = await frame.boundingBox();
-  expect(during!.y, 'the preview must not move when the toast appears').toBe(
-    before!.y
+  if (!before || !during) throw new Error('the preview has no box');
+  expect(during.y, 'the preview must not move when the status appears').toBe(
+    before.y
   );
-  expect(during!.height, 'nor shrink to make room for it').toBe(before!.height);
+  expect(during.height, 'nor shrink to make room for it').toBe(before.height);
 });
 
 // In the compact layout the site sits at the right end of each row, and the

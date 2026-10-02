@@ -381,7 +381,7 @@ for (const width of [1600, 1200, 800]) {
     ).toBeLessThanOrEqual(1);
   });
 
-  test(`at ${width}px Save, then Done, sit at the right end of the toolbar`, async ({
+  test(`at ${width}px PDF / Print, then Done, sit at the right end of the toolbar`, async ({
     context,
     extensionId,
   }) => {
@@ -393,7 +393,7 @@ for (const width of [1600, 1200, 800]) {
 
     expect(
       Math.abs(resting.contentRight - resting.primaryRight),
-      `Save ends at ${resting.primaryRight}px, the row at ${resting.contentRight}px`
+      `PDF / Print ends at ${resting.primaryRight}px, the row at ${resting.contentRight}px`
     ).toBeLessThanOrEqual(1);
     expect(
       Math.abs(editing.contentRight - editing.primaryRight),
