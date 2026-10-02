@@ -210,7 +210,7 @@ for (const lang of ['en', 'de', 'ru'] as const) {
 const CHIP: Record<string, { card: string; chip: string }> = {
   Light: { card: '#E9ECF0', chip: '#D5D8DC' },
   WarmLight: { card: '#EDE8D0', chip: '#D9D4BC' },
-  BBPink: { card: '#F9BFD2', chip: '#E7ADC0' },
+  BBPink: { card: '#FADEE7', chip: '#E4C9D2' },
   Darkenheimer: { card: '#333333', chip: '#404040' },
   Blue: { card: '#333340', chip: '#3F3F4C' },
 };
