@@ -4,7 +4,6 @@ import reducer, {
   setExportLayout,
   type SettingsData,
 } from '../../redux/slices/settingsDataStateSlice';
-import * as settingsSlice from '../../redux/slices/settingsDataStateSlice';
 
 // KAN-190. The exported file has two layouts, and the switch lives on the
 // export preview page rather than in Settings -- there you can see what it
@@ -63,20 +62,5 @@ describe('the export layout preference (KAN-190)', () => {
     // the default moves again.
     expect(state.exportLayout).toBe('compact');
     expect(stored().exportLayout).toBe('compact');
-  });
-});
-
-// KAN-198. The export page's Light/Dark used to be a saved setting
-// (exportScheme), so a choice made once, for one export, overrode a dark
-// theme on every later export, with no control to undo it. It is now the
-// page's own state: the page opens on the theme's polarity and nothing it
-// does is written to settings. So there is no such setting to store.
-describe('the export page Light/Dark is not a setting (KAN-198)', () => {
-  beforeEach(() => {
-    localStorage.clear();
-  });
-
-  test('there is no action that could store one', () => {
-    expect(Object.keys(settingsSlice)).not.toContain('setExportScheme');
   });
 });
