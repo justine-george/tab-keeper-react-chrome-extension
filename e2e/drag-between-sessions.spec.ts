@@ -6,8 +6,8 @@
 // (the pane's box, the hand-off where the pointer reaches the session list
 // (KAN-352), the list's rows and its auto-scroll), real timing (the 0.6s
 // dwell, the frame the KAN-157 scroll comes back on, the frame KAN-155
-// follows the dropped row on), and real paint (the target's outline and fill
-// line against the row's actual fill, the card over the list, the toast at a
+// follows the dropped row on), and real paint (the target's outline and dwell
+// sweep against the row's actual fill, the card over the list, the toast at a
 // 20px root).
 //
 // Driven as the popup (790x550) and as the tab view, side by side and folded
@@ -37,6 +37,7 @@ import type {
 } from '../src/redux/slices/tabContainerDataStateSlice';
 import { isValidTabMasterContainer } from '../src/utils/functions/local';
 import { LIGHT_THEME } from '../src/hooks/useThemeColors';
+import { SPRING_OPEN_MS } from '../src/components/home/leftpane/springOpen';
 
 const POPUP = { width: 790, height: 550 };
 const TAB_VIEW = { width: 1280, height: 800 };
@@ -457,6 +458,23 @@ async function onto(page: Page, sessionId: string): Promise<void> {
   await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 5 });
   await expect.poll(() => carryTargets(page)).toEqual([sessionId]);
 }
+
+// Pauses the dwelling row's sweep at `ms`; the spring-open timer still runs.
+const holdSweepAt = (page: Page, ms: number) =>
+  page.locator('[data-carry-dwell]').evaluate(
+    (el, ms) => {
+      const [sweep] = el.getAnimations();
+      sweep.pause();
+      sweep.currentTime = ms;
+      const cs = getComputedStyle(el);
+      return {
+        color: /rgba?\([^)]*\)/.exec(cs.backgroundImage)?.[0] ?? '',
+        size: cs.backgroundSize,
+      };
+    },
+    ms,
+    { timeout: 1000 }
+  );
 
 // Rests on a session's row until it opens (S1 A).
 async function springOpen(page: Page, sessionId: string): Promise<void> {
@@ -1211,7 +1229,7 @@ test.describe('Review Focus 2: cancels, quick passes, the shown row', () => {
     expect(await layout(page, 'S1')).toEqual([W1_START, 'b0 b1']);
   });
 
-  test('the shown row: an outline but no line and no opening, and a drop there is a row drop with no Moved toast (Q3 A)', async ({
+  test('the shown row: an outline but no sweep and no opening, and a drop there is a row drop with no Moved toast (Q3 A)', async ({
     context,
     extensionId,
   }) => {
@@ -1219,7 +1237,7 @@ test.describe('Review Focus 2: cancels, quick passes, the shown row', () => {
     const at = await pickUp(page, tabHandle(page, 'a1'));
     await carryOutLeft(page, at);
     await onto(page, 'S1');
-    await expect(page.locator('[data-carry-dwell-line]')).toHaveCount(0);
+    await expect(page.locator('[data-carry-dwell]')).toHaveCount(0);
     // NEGATIVE, so a fixed wait: past the 600ms dwell, nothing opened.
     await page.waitForTimeout(900);
     expect(await selected(page)).toBe('S1');
@@ -1234,11 +1252,11 @@ test.describe('Review Focus 2: cancels, quick passes, the shown row', () => {
 });
 
 test.describe('the looks (D1 A, D2 A, S1 A)', () => {
-  // The outline and the line as painted, against the row's painted fill.
-  // CONTROL in each: the fill pixel is the hover colour the row's box-shadow
+  // The outline as painted, against the row's painted fill (a sweep is held
+  // at its end). CONTROL in each: the fill pixel is the hover colour the row
   // declares, so the decode is faithful before a ratio is built on it.
   for (const theme of THEMES) {
-    test(`the target outline and the fill line clear 3:1 against the row's fill (${theme})`, async ({
+    test(`the target outline clears 3:1 against the row's fill (${theme})`, async ({
       context,
       extensionId,
     }) => {
@@ -1252,8 +1270,7 @@ test.describe('the looks (D1 A, D2 A, S1 A)', () => {
       const at = await pickUp(page, tabHandle(page, 'a1'));
       await carryOutLeft(page, at);
       await onto(page, 'S2');
-      const line = page.locator('[data-carry-dwell-line]');
-      await expect(line).toHaveCount(1);
+      await holdSweepAt(page, SPRING_OPEN_MS);
       const measure = (rowId: string) =>
         page.evaluate((rowId) => {
           const row = document
@@ -1264,67 +1281,62 @@ test.describe('the looks (D1 A, D2 A, S1 A)', () => {
           if (!row) throw new Error(`${rowId} is not the target`);
           const cs = getComputedStyle(row);
           const b = row.getBoundingClientRect();
-          const l = row.querySelector<HTMLElement>('[data-carry-dwell-line]');
-          const lb = l?.getBoundingClientRect();
+          // A dwelling row's fill is the sweep; a shown row's, the shadow.
+          const fill = row.hasAttribute('data-carry-dwell')
+            ? cs.backgroundImage
+            : cs.boxShadow;
           return {
             outline: cs.outlineColor,
             outlineWidth: cs.outlineWidth,
             fillDeclared:
-              /rgba?\([^)]*\)|#[0-9a-f]{3,8}/i.exec(cs.boxShadow)?.[0] ?? '',
-            line: l ? getComputedStyle(l).backgroundColor : null,
-            lineAt: lb ? [lb.left + 2, lb.top + lb.height / 2] : null,
+              /rgba?\([^)]*\)|#[0-9a-f]{3,8}/i.exec(fill)?.[0] ?? '',
+            dwelling: row.hasAttribute('data-carry-dwell'),
             outlineAt: [b.left + b.width / 2, b.top + 1],
             fillAt: [b.left + b.width / 2, b.top + 5],
           };
         }, rowId);
 
       const m = await measure('S2');
-      if (m.lineAt === null || m.line === null) throw new Error('no line');
-      const [outlinePx, fillPx, linePx] = await pixelsAt(page, [
+      expect(m.dwelling).toBe(true);
+      const [outlinePx, fillPx] = await pixelsAt(page, [
         [m.outlineAt[0], m.outlineAt[1]],
         [m.fillAt[0], m.fillAt[1]],
-        [m.lineAt[0], m.lineAt[1]],
       ]);
       // CONTROLS: what is painted is what is declared.
       expect(fillPx).toBe(rgbToHex(m.fillDeclared));
       expect(outlinePx).toBe(rgbToHex(m.outline));
-      expect(linePx).toBe(rgbToHex(m.line));
       expect(m.outlineWidth).toBe('2px');
       const outlineRatio = contrast(outlinePx, fillPx);
-      const lineRatio = contrast(linePx, fillPx);
 
       // The selected row as the target: the hover fill, not the selection
-      // fill (D2 A), and no line (it is the session on screen).
+      // fill (D2 A), and no sweep (it is the session on screen).
       await onto(page, 'S1');
       const s = await measure('S1');
       const [selOutlinePx, selFillPx] = await pixelsAt(page, [
         [s.outlineAt[0], s.outlineAt[1]],
         [s.fillAt[0], s.fillAt[1]],
       ]);
-      expect(s.line).toBe(null);
+      expect(s.dwelling).toBe(false);
       // PREMISE: the selection fill is not the hover fill, so the next line
       // can tell them apart.
       expect(restingSelected).not.toBe(fillPx);
       expect(selFillPx).toBe(fillPx);
       const selectedRatio = contrast(selOutlinePx, selFillPx);
       console.log(
-        `[${theme}] outline ${outlinePx} line ${linePx} on ${fillPx}: ${outlineRatio.toFixed(
-          2
-        )} / ${lineRatio.toFixed(
+        `[${theme}] outline ${outlinePx} on ${fillPx}: ${outlineRatio.toFixed(
           2
         )}; selected ${selOutlinePx} on ${selFillPx}: ${selectedRatio.toFixed(
           2
         )}`
       );
       expect(outlineRatio).toBeGreaterThanOrEqual(3);
-      expect(lineRatio).toBeGreaterThanOrEqual(3);
       expect(selectedRatio).toBeGreaterThanOrEqual(3);
       await page.keyboard.press('Escape');
       await page.mouse.up();
     });
   }
 
-  test('the fill line runs exactly as long as the dwell', async ({
+  test('the sweep runs exactly as long as the dwell', async ({
     context,
     extensionId,
   }) => {
@@ -1333,16 +1345,122 @@ test.describe('the looks (D1 A, D2 A, S1 A)', () => {
     await carryOutLeft(page, at);
     await onto(page, 'S2');
     const duration = await page
-      .locator('[data-carry-dwell-line]')
+      .locator('[data-carry-dwell]')
       .evaluate((el) =>
         el.getAnimations().map((a) => a.effect?.getTiming().duration)
       );
-    expect(duration).toEqual([600]);
+    expect(duration).toEqual([SPRING_OPEN_MS]);
     await page.keyboard.press('Escape');
     await page.mouse.up();
   });
 
-  test('reduced motion: no line, and the session still opens after the wait', async ({
+  // CONTROL: the ground is the row's own pixel at rest, read before the carry.
+  for (const theme of THEMES) {
+    test(`the sweep fills from the left in step with the dwell, inside an outline that clears 3:1 on the ground (${theme})`, async ({
+      context,
+      extensionId,
+    }) => {
+      await seedSettings(context, { theme });
+      const page = await openPopup(context, extensionId);
+      const r = await boxOf(sessionRow(page, 'S2'));
+      // The row's top strip: the card hangs over its lower half.
+      const y = r.y + 6;
+      const xAt = (f: number) => r.x + r.width * f;
+      const [ground] = await pixelsAt(page, [[xAt(0.75), y]]);
+      const at = await pickUp(page, tabHandle(page, 'a1'));
+      await carryOutLeft(page, at);
+      await onto(page, 'S2');
+      // PREMISE: the probes are clear of the card and its shadow.
+      expect((await boxOf(page.locator(CARD))).y - 8).toBeGreaterThan(y);
+
+      const half = await holdSweepAt(page, SPRING_OPEN_MS / 2);
+      const fillHex = rgbToHex(half.color);
+      // PREMISE: the two can be told apart.
+      expect(fillHex).not.toBe(ground);
+      // One screenshot: the outline is read over the part not yet swept.
+      const [left, right, outlinePx] = await pixelsAt(page, [
+        [xAt(0.25), y],
+        [xAt(0.75), y],
+        [xAt(0.9), r.y + 1],
+      ]);
+      expect([left, right]).toEqual([fillHex, ground]);
+      expect((await holdSweepAt(page, (SPRING_OPEN_MS * 3) / 4)).size).toBe(
+        '75% 100%'
+      );
+      // PREMISE: every read came before the spring-open.
+      expect(await selected(page)).toBe('S1');
+      console.log(
+        `[${theme}] outline ${outlinePx} on ground ${ground}: ${contrast(
+          outlinePx,
+          ground
+        ).toFixed(2)}`
+      );
+      expect(contrast(outlinePx, ground)).toBeGreaterThanOrEqual(3);
+      await page.keyboard.press('Escape');
+      await page.mouse.up();
+    });
+  }
+
+  // KAN-382. CONTROL: S4, never the origin or the target, is ground all along.
+  for (const theme of ['Light', 'Darkenheimer']) {
+    test(`the origin row keeps a dashed outline after another session opens (${theme})`, async ({
+      context,
+      extensionId,
+    }) => {
+      await seedSettings(context, { theme });
+      const page = await openPopup(context, extensionId);
+      const at = await pickUp(page, tabHandle(page, 'a1'));
+      await carryOutLeft(page, at);
+      await springOpen(page, 'S3');
+      // Off the rows, so no hover touches S1 or S4.
+      await page.mouse.move(at.x - 40, (await boxOf(sessionRow(page, 'S3'))).y);
+      const edge = async (id: string) => {
+        const r = await boxOf(sessionRow(page, id));
+        const xs = Array.from({ length: 60 }, (_, i) => r.x + 8 + i * 2);
+        return pixelsAt(page, [
+          ...xs.map((x): [number, number] => [x, r.y + 1]),
+          [r.x + r.width / 2, r.y + 8],
+        ]);
+      };
+      const s1 = await edge('S1');
+      const s4 = await edge('S4');
+      const ground = s1[s1.length - 1];
+      // PREMISE: S1 is no longer shown, so its ground is S4's.
+      expect(s4[s4.length - 1]).toBe(ground);
+      expect(s4.slice(0, -1).every((px) => px === ground)).toBe(true);
+      const dashes = s1.slice(0, -1).filter((px) => contrast(px, ground) >= 3);
+      const gaps = s1.slice(0, -1).filter((px) => px === ground);
+      console.log(
+        `[${theme}] origin edge: ${dashes.length} dash px, ${gaps.length} gap px of 60`
+      );
+      expect(dashes.length).toBeGreaterThan(10);
+      expect(gaps.length).toBeGreaterThan(10);
+      await page.keyboard.press('Escape');
+      await page.mouse.up();
+    });
+  }
+
+  test('reduced motion: the row lights in full at once', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    const r = await boxOf(sessionRow(page, 'S2'));
+    const at = await pickUp(page, tabHandle(page, 'a1'));
+    await carryOutLeft(page, at);
+    await onto(page, 'S2');
+    // The row's top strip, clear of the card.
+    expect((await boxOf(page.locator(CARD))).y - 8).toBeGreaterThan(r.y + 6);
+    const [right] = await pixelsAt(page, [[r.x + r.width * 0.97, r.y + 6]]);
+    expect(right).toBe(LIGHT_THEME.HOVER_COLOR.toUpperCase());
+    // PREMISE: read before the spring-open.
+    expect(await selected(page)).toBe('S1');
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+  });
+
+  test('reduced motion: no sweep, and the session still opens after the wait', async ({
     context,
     extensionId,
   }) => {
@@ -1352,7 +1470,8 @@ test.describe('the looks (D1 A, D2 A, S1 A)', () => {
     await carryOutLeft(page, at);
     await onto(page, 'S2');
     const started = Date.now();
-    await expect(page.locator('[data-carry-dwell-line]')).toHaveCount(0);
+    // Once, not retried: the spring-open clears it anyway (KAN-381).
+    expect(await page.locator('[data-carry-dwell]').count()).toBe(0);
     await expect.poll(() => selected(page), { timeout: 3000 }).toBe('S2');
     // Not at once: it waited for the dwell.
     expect(Date.now() - started).toBeGreaterThanOrEqual(400);
