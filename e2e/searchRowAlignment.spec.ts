@@ -1,7 +1,10 @@
 import { test, expect } from './fixtures/extension';
 import { buildContainer, buildSession, seedSessions } from './fixtures/seed';
+import { localeStrings } from './fixtures/locales';
 
-// KAN-205. The search row's bottom edge meets the session header card's.
+// KAN-205. The save row's bottom edge meets the session header card's. This
+// was the search row's job while the search was a mode in the same place; the
+// save row has the same ROW_HEIGHT (KAN-385).
 //
 // The two panes are sized independently -- the left stacks a 64px toolbar above
 // a control row, the right card is content-sized and starts 8px lower -- so the
@@ -13,7 +16,7 @@ import { buildContainer, buildSession, seedSessions } from './fixtures/seed';
 // An e2e test rather than a component one: neither pane knows about the other,
 // so only the assembled popup can say whether their edges meet.
 
-test('the search row and the session header end on the same line', async ({
+test('the save row and the session header end on the same line', async ({
   context,
   extensionId,
 }) => {
@@ -31,10 +34,10 @@ test('the search row and the session header end on the same line', async ({
   const page = await context.newPage();
   await page.setViewportSize({ width: 790, height: 550 });
   await page.goto(`chrome-extension://${extensionId}/index.html`);
-  await expect(page.getByRole('textbox').first()).toBeVisible();
+  await expect(page.locator('input#name')).toBeVisible();
 
   const edges = await page.evaluate(() => {
-    const input = document.querySelector('input')!;
+    const input = document.querySelector('input#name')!;
     const add = document.querySelector('[aria-label^="Add current window"]')!;
     // The card is the first ancestor of the add button that draws a border;
     // width alone finds the action strip, which is full width too.
@@ -43,51 +46,48 @@ test('the search row and the session header end on the same line', async ({
       card = card.parentElement;
     }
     return {
-      searchRow: input.getBoundingClientRect().bottom,
+      saveRow: input.getBoundingClientRect().bottom,
       headerCard: card!.getBoundingClientRect().bottom,
     };
   });
 
   // A pixel of slack, no more: 2px is what it looked like before, and that read
   // as a mistake rather than as a choice.
-  expect(Math.abs(edges.searchRow - edges.headerCard)).toBeLessThanOrEqual(1);
+  expect(Math.abs(edges.saveRow - edges.headerCard)).toBeLessThanOrEqual(1);
 });
 
-// KAN-216. The search button spans the same height as the search box.
-//
-// The box takes ROW_HEIGHT for the alignment above; the button was sized only
-// by its padding around a 24px icon, so it stayed 48px and floated 5px short
-// at each edge of a 58px row. The test above reads the input alone, so it
-// passed the whole time the two were visibly different heights.
-test('the search button is exactly as tall as the search box', async ({
+// KAN-216, on the one row left beside the name box: the search panel's box and
+// button are gone (KAN-385), and the save group must span the box's height as
+// the search button had to.
+test('the save group is exactly as tall as the name box', async ({
   context,
   extensionId,
 }) => {
   const page = await context.newPage();
   await page.setViewportSize({ width: 790, height: 550 });
   await page.goto(`chrome-extension://${extensionId}/index.html`);
-  // The header's search icon opens the panel; its own submit button is the
-  // second control with the same name.
-  await page.getByRole('button', { name: 'Search' }).first().click();
-  const input = page.locator('#searchInput');
-  await expect(input).toBeVisible();
+  await expect(page.locator('input#name')).toBeVisible();
 
-  const edges = await page.evaluate(() => {
-    const box = document.querySelector('#searchInput')!;
-    // The submit button is the input's row sibling, found by position rather
-    // than by name so the header icon cannot be picked up instead.
-    const button = box.parentElement!.querySelector('button')!;
+  // The key is not the en string (the button reads "Save all open windows...").
+  const saveAll = localeStrings('en')['Save every open window as a session'];
+  const edges = await page.evaluate((label: string) => {
+    const box = document.querySelector('input#name');
+    // The group is the save button's bordered parent.
+    const group = document.querySelector(`button[aria-label="${label}"]`)
+      ?.parentElement;
+    if (!box || !group) return null;
     const a = box.getBoundingClientRect();
-    const b = button.getBoundingClientRect();
+    const b = group.getBoundingClientRect();
     return {
-      label: button.getAttribute('aria-label'),
+      groupBorder: getComputedStyle(group).borderTopWidth,
       box: { top: a.top, bottom: a.bottom },
-      button: { top: b.top, bottom: b.bottom },
+      group: { top: b.top, bottom: b.bottom },
     };
-  });
+  }, saveAll);
+  if (edges === null) throw new Error('no name box or save group');
 
-  // PREMISE: the right control, or a match proves nothing.
-  expect(edges.label).toBe('Search');
-  expect(edges.button.top).toBeCloseTo(edges.box.top, 0);
-  expect(edges.button.bottom).toBeCloseTo(edges.box.bottom, 0);
+  // PREMISE: the right element, or a match proves nothing.
+  expect(edges.groupBorder).toBe('1px');
+  expect(edges.group.top).toBeCloseTo(edges.box.top, 0);
+  expect(edges.group.bottom).toBeCloseTo(edges.box.bottom, 0);
 });

@@ -148,8 +148,9 @@ test.describe('golden path', () => {
   }) => {
     const { page } = await openPopup(context, extensionId);
 
-    await page.locator('[aria-label="Search"]').click();
-    await page.locator('input#searchInput').fill('Holiday');
+    await page
+      .getByRole('textbox', { name: 'Search saved tabs' })
+      .fill('Holiday');
 
     await expect(page.getByText('Holiday').first()).toBeVisible();
     await expect(page.getByText('Research')).toHaveCount(0);
@@ -163,8 +164,7 @@ test.describe('golden path', () => {
 
     await page.locator('[aria-label="Settings"]').click();
 
-    // Asserted on a settings-only heading, because the back control is not
-    // unique to this panel -- the search pane has one too.
+    // Asserted on a settings-only heading.
     await expect(page.getByText('Themes')).toBeVisible();
 
     // Addressed by role and accessible name rather than by visible text. That

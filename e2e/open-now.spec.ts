@@ -25,8 +25,8 @@ import { TYPE } from '../src/styles/scale';
 // (`index.html?view=tab`). What jsdom cannot show: the grid's real widths at
 // each breakpoint (O1, O2, O4), Chrome's own tab events reaching the pane
 // (live rows), a click switching the real tab (O6), the fold surviving a
-// reload (O5), live rows measuring like saved ones, and the pinned caption
-// under a real scroll and drag (O3a).
+// reload (O5), live rows measuring like saved ones, and the pinned search row
+// under a real scroll and drag (O3a, S2).
 
 const TAB_VIEWPORT = { width: 1280, height: 800 };
 const WIDE_VIEWPORT = { width: 1920, height: 1080 };
@@ -38,7 +38,8 @@ const VIEW_TAB = 'index.html?view=tab';
 const OPEN_NOW = '[data-pane="open-now"]';
 const SESSIONS = '[data-pane="sessions"]';
 const DETAIL = '[data-pane="detail"]';
-const CAPTION = '[data-caption="saved-sessions"]';
+// The saved list's first row (KAN-385 S2), where the caption was.
+const SAVED_SEARCH = '[data-saved-search]';
 
 async function openPage(
   context: BrowserContext,
@@ -881,7 +882,7 @@ test.describe('Open now in the tab view (KAN-280)', () => {
     });
   }
 
-  test('8. the popup is unchanged: no Open now, no caption', async ({
+  test('8. the popup has no Open now; both views open the list with the search row', async ({
     context,
     extensionId,
   }) => {
@@ -893,18 +894,20 @@ test.describe('Open now in the tab view (KAN-280)', () => {
       POPUP_VIEWPORT
     );
     const tab = await openPage(context, extensionId, VIEW_TAB, TAB_VIEWPORT);
-    // CONTROL: the same locators find both in the tab view, so their absence
+    // CONTROL: the same locator finds Open now in the tab view, so its absence
     // in the popup is the popup's, not a selector that never matches.
     await expect(tab.locator(OPEN_NOW)).toHaveCount(1);
-    await expect(tab.locator(CAPTION)).toHaveText('Saved sessions');
-
     await expect(popup.locator(OPEN_NOW)).toHaveCount(0);
-    await expect(popup.locator(CAPTION)).toHaveCount(0);
+
+    // S2: the search row replaces the caption, in both views.
+    await expect(tab.locator(SAVED_SEARCH)).toHaveCount(1);
+    await expect(popup.locator(SAVED_SEARCH)).toHaveCount(1);
+    await expect(tab.getByText('Saved sessions')).toHaveCount(0);
     await expect(popup.getByText('Saved sessions')).toHaveCount(0);
   });
 });
 
-// ---- 9. the caption stays pinned, and a session drag works under it ----
+// ---- 9. the search row stays pinned, and a session drag works under it ----
 
 const MANY = Array.from({ length: 20 }, (_, i) =>
   buildSession({
@@ -958,7 +961,8 @@ const above = (titles: string[], title: string): string | null => {
   return i > 0 ? titles[i - 1] : null;
 };
 
-test.describe('the Saved sessions caption (KAN-280 O3a)', () => {
+// O3a's rule, kept by S2 for the search row that replaced the caption.
+test.describe('the saved search row (KAN-280 O3a, KAN-385 S2)', () => {
   test('9. stays put while the list scrolls, and a session dragged under it lands where aimed', async ({
     context,
     extensionId,
@@ -966,33 +970,31 @@ test.describe('the Saved sessions caption (KAN-280 O3a)', () => {
     await seedSessions(context, buildContainer(MANY));
     const page = await openPage(context, extensionId, VIEW_TAB, TAB_VIEWPORT);
     await expect(page.locator(SESSION_ROWS)).toHaveCount(MANY.length);
-    const captionBefore = await need(page, CAPTION);
+    const rowBefore = await need(page, SAVED_SEARCH);
 
-    // The scroller is the caption's sibling, inside the same bordered box.
+    // The scroller is the row's sibling, inside the same bordered box.
     const scrolled = await page.evaluate((sel: string) => {
       const scroller = document.querySelector(sel)?.nextElementSibling;
       if (!(scroller instanceof HTMLElement)) return null;
       scroller.scrollTop = scroller.scrollHeight;
       return { scrollTop: scroller.scrollTop };
-    }, CAPTION);
-    if (scrolled === null) throw new Error('no scroller after the caption');
-    // PREMISE: the list overflowed, so there was a scroll for the caption to
-    // ride along with.
+    }, SAVED_SEARCH);
+    if (scrolled === null) throw new Error('no scroller after the search row');
+    // PREMISE: the list overflowed, so there was a scroll for the row to ride
+    // along with.
     expect(scrolled.scrollTop).toBeGreaterThan(0);
 
-    const captionAfter = await need(page, CAPTION);
-    expect(Math.abs(captionAfter.top - captionBefore.top)).toBeLessThanOrEqual(
-      0.5
-    );
+    const rowAfter = await need(page, SAVED_SEARCH);
+    expect(Math.abs(rowAfter.top - rowBefore.top)).toBeLessThanOrEqual(0.5);
     // Visible: nothing is painted over it, and it is inside the viewport.
-    const captionHit = await page.evaluate((sel: string) => {
-      const caption = document.querySelector(sel);
-      if (caption === null) return false;
-      const r = caption.getBoundingClientRect();
+    const rowHit = await page.evaluate((sel: string) => {
+      const row = document.querySelector(sel);
+      if (row === null) return false;
+      const r = row.getBoundingClientRect();
       const el = document.elementFromPoint(r.left + 12, (r.top + r.bottom) / 2);
-      return el !== null && caption.contains(el);
-    }, CAPTION);
-    expect(captionHit, 'the caption is covered or off screen').toBe(true);
+      return el !== null && row.contains(el);
+    }, SAVED_SEARCH);
+    expect(rowHit, 'the search row is covered or off screen').toBe(true);
     await page.screenshot({ path: testInfo.outputPath('scrolled.png') });
 
     // The first row whose centre is clear of the top edge zone, and the aim
@@ -1002,8 +1004,8 @@ test.describe('the Saved sessions caption (KAN-280 O3a)', () => {
       if (el === null || el === undefined) return null;
       const r = el.getBoundingClientRect();
       return { top: r.top, bottom: r.bottom };
-    }, CAPTION);
-    if (scroller === null) throw new Error('no scroller after the caption');
+    }, SAVED_SEARCH);
+    if (scroller === null) throw new Error('no scroller after the search row');
     const rows = await page.locator(SESSION_ROWS).evaluateAll((els) =>
       els.map((el) => {
         const r = el.getBoundingClientRect();
@@ -1057,14 +1059,14 @@ test.describe('the Saved sessions caption (KAN-280 O3a)', () => {
         message: 'the row is not painted below the row it was aimed at',
       })
       .toBe(targetTitle);
-    // The caption never moved, and the list did not scroll under the drag.
+    // The search row never moved, and the list did not scroll under the drag.
     expect(
-      Math.abs((await need(page, CAPTION)).top - captionBefore.top)
+      Math.abs((await need(page, SAVED_SEARCH)).top - rowBefore.top)
     ).toBeLessThanOrEqual(0.5);
     const scrollTopAfter = await page.evaluate(
       (sel: string) =>
         document.querySelector(sel)?.nextElementSibling?.scrollTop ?? -1,
-      CAPTION
+      SAVED_SEARCH
     );
     expect(scrollTopAfter).toBe(scrollTopBefore);
     await page.screenshot({ path: testInfo.outputPath('after-drop.png') });
@@ -1184,7 +1186,7 @@ test.describe('Open now heading and empty-list layout (KAN-280)', () => {
     expect(Math.abs(sessionsList.top - detailList.top)).toBeLessThanOrEqual(1);
   });
 
-  test('"Empty" stays centred in an empty session list under the caption', async ({
+  test('"Empty" stays centred in an empty session list under the search row', async ({
     context,
     extensionId,
   }, testInfo) => {
@@ -1192,7 +1194,7 @@ test.describe('Open now heading and empty-list layout (KAN-280)', () => {
     const page = await openPage(context, extensionId, VIEW_TAB, TAB_VIEWPORT);
     const empty = page.locator(SESSIONS).getByText('Empty', { exact: true });
     await expect(empty).toBeVisible();
-    await expect(page.locator(CAPTION)).toBeVisible();
+    await expect(page.locator(SAVED_SEARCH)).toBeVisible();
     const facts = await page.evaluate((sel: string) => {
       const scroller = document.querySelector(sel)?.nextElementSibling;
       const box = scroller?.parentElement;
@@ -1208,15 +1210,15 @@ test.describe('Open now heading and empty-list layout (KAN-280)', () => {
         label: centre(label.getBoundingClientRect()),
         scroller: centre(scroller.getBoundingClientRect()),
         scrollerTop: scroller.getBoundingClientRect().top,
-        captionBottom:
+        rowBottom:
           document.querySelector(sel)?.getBoundingClientRect().bottom ?? 0,
       };
-    }, CAPTION);
+    }, SAVED_SEARCH);
     console.log(`[empty] ${JSON.stringify(facts)}`);
     await page.screenshot({ path: testInfo.outputPath('empty.png') });
     if (facts === null) throw new Error('no scroller or Empty label');
-    // The scroller starts under the caption, and Empty is centred in it.
-    expect(facts.scrollerTop).toBeGreaterThanOrEqual(facts.captionBottom - 0.5);
+    // The scroller starts under the search row, and Empty is centred in it.
+    expect(facts.scrollerTop).toBeGreaterThanOrEqual(facts.rowBottom - 0.5);
     expect(Math.abs(facts.label.x - facts.scroller.x)).toBeLessThanOrEqual(1);
     expect(Math.abs(facts.label.y - facts.scroller.y)).toBeLessThanOrEqual(1);
   });

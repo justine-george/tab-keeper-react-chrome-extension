@@ -93,26 +93,29 @@ test.describe('accessible controls', () => {
     await expect(page.getByRole('button', { name: 'Go back' })).toHaveCount(1);
   });
 
-  test('the search back control is a button with an accessible name (KAN-56)', async ({
-    context,
-    extensionId,
-  }) => {
-    const page = await openPopup(context, extensionId);
-    await page.getByRole('button', { name: 'Search', exact: true }).click();
-    await expect(page.locator('input#searchInput')).toBeVisible();
-
-    await expect(page.getByRole('button', { name: 'Go back' })).toHaveCount(1);
-  });
-
-  test('the search control is a button with an accessible name (KAN-56)', async ({
+  // KAN-385: the saved search is a field in the list, not a header button.
+  test('the saved search field has an accessible name (KAN-56)', async ({
     context,
     extensionId,
   }) => {
     const page = await openPopup(context, extensionId);
 
     await expect(
-      page.getByRole('button', { name: 'Search', exact: true })
+      page.getByRole('textbox', { name: 'Search saved tabs', exact: true })
     ).toHaveCount(1);
+  });
+
+  test('the home header has no Search or Back button (KAN-385)', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    await expect(page.getByRole('button', { name: 'Settings' })).toHaveCount(1);
+
+    await expect(
+      page.getByRole('button', { name: 'Search', exact: true })
+    ).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Go back' })).toHaveCount(0);
   });
 
   // The other half of the Icon change: a presentational icon is hidden from
@@ -139,15 +142,18 @@ test.describe('accessible controls', () => {
   // "Blocked aria-hidden on an element because its descendant retained
   // focus". A real mouse press, because locator.focus() would prove nothing
   // about where a press puts focus. Read at mousedown, before the release:
-  // Search's click opens the search view and moves focus to Go back, so what
-  // focus does after the click says nothing about where the press put it.
+  // Back's click leaves Settings, so what focus does after the click says
+  // nothing about where the press put it. Settings' Back, since the header's
+  // Icon buttons draw no aria-hidden glyph to press.
   test('a press on a button’s icon focuses the button, not the icon (KAN-318)', async ({
     context,
     extensionId,
   }) => {
     const page = await openPopup(context, extensionId);
-    const search = page.getByRole('button', { name: 'Search', exact: true });
-    const glyph = search.locator('[aria-hidden="true"]').first();
+    await page.getByRole('button', { name: 'Settings' }).click();
+    await expect(page.getByText('Themes')).toBeVisible();
+    const back = page.getByRole('button', { name: 'Go back' });
+    const glyph = back.locator('[aria-hidden="true"]').first();
     await expect(glyph).toBeVisible();
 
     const box = await glyph.boundingBox();
@@ -156,7 +162,7 @@ test.describe('accessible controls', () => {
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
     await page.mouse.down();
 
-    await expect(search).toBeFocused();
+    await expect(back).toBeFocused();
     const focusedIsHidden = await page.evaluate(
       () => document.activeElement?.closest('[aria-hidden="true"]') !== null
     );
@@ -219,7 +225,7 @@ test.describe('accessible controls', () => {
   // KAN-62. The settings back affordance carries tabIndex={0} and an onClick
   // but no key handler, so it takes focus and then does nothing -- WCAG 2.1.1,
   // Level A. Enter and Space are asserted separately because a handler that
-  // covers only Enter (as the search pane's does) still fails a user who
+  // covers only Enter (as TextBox's onKeyEnter does) still fails a user who
   // reaches for Space, which is what a real button honours.
   for (const key of ['Enter', 'Space'] as const) {
     test(`the settings back control is operable with ${key} (KAN-62)`, async ({

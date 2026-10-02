@@ -94,9 +94,20 @@ test.describe('every header control has the same box (KAN-340)', () => {
   }
 });
 
-/** The row the Search title and the icon cluster share. */
+/** The header's title text. */
+const title = (page: Page): Locator =>
+  page.getByText('Tab Keeper', { exact: true });
+
+/**
+ * The row the title and the icon cluster share: the innermost div holding
+ * both (document order puts ancestors first).
+ */
 const headerRow = (page: Page): Locator =>
-  control(page, 'Search').locator('..');
+  page
+    .locator('div')
+    .filter({ has: title(page) })
+    .filter({ has: control(page, 'Settings') })
+    .last();
 
 /** The space between each control and the next, left to right. */
 async function gapsBetween(page: Page, names: string[]): Promise<number[]> {
@@ -137,13 +148,13 @@ test.describe('the icons sit in three pairs, 8px apart (KAN-340 A + R1)', () => 
       expect(await leadingGap(page, POPUP_ORDER[0]), 'no leading gap').toBe(0);
 
       const row = await boxOf(headerRow(page));
-      const search = await boxOf(control(page, 'Search'));
+      const titleBox = await boxOf(title(page));
       const first = await boxOf(control(page, POPUP_ORDER[0]));
       const [lastInset] = await insetsFromRight(page, ['Settings']);
       expect(lastInset, 'the cluster is flush with the row').toBe(0);
       // KAN-343: at 20px the title gives way; the controls must not.
       expect(first.x, 'no control overlaps the title').toBeGreaterThanOrEqual(
-        search.x + search.width
+        titleBox.x + titleBox.width
       );
       expect(
         await page.evaluate(
@@ -191,8 +202,7 @@ test.describe('the icons sit in three pairs, 8px apart (KAN-340 A + R1)', () => 
 // its pose a little and settles, and eases back when the pointer leaves --
 // a transition, so leaving early reverses instead of snapping. Only for a
 // fine pointer that hovers, never from the keyboard, and not at all when
-// the system asks for reduced motion. Search, Sort, Undo, Redo and Sync stay
-// still.
+// the system asks for reduced motion. Sort, Undo, Redo and Sync stay still.
 
 type Pose = { angle: number; scale: number };
 
@@ -220,11 +230,8 @@ const MOTIONS: HoverMotionCase[] = [
   },
 ];
 
-/**
- * Buttons that have no motion. Search had the magnifier lean in; Justine
- * removed it as tacky once she tried it in the popup.
- */
-const STILL = ['Search', 'Sort sessions', 'Sync now'];
+/** Buttons that have no motion. */
+const STILL = ['Sort sessions', 'Sync now'];
 
 const glyphOf = (page: Page, name: string): Locator =>
   control(page, name).locator('.material-symbols-outlined');
