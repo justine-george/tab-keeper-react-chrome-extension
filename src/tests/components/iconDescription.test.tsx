@@ -1,10 +1,14 @@
+import { createRef } from 'react';
 import { describe, expect, test } from 'vitest';
-import { screen } from '@testing-library/react';
+import { fireEvent, screen } from '@testing-library/react';
 
 import Button from '../../components/common/Button';
 import ClickableRow from '../../components/common/ClickableRow';
+import GroupColorPicker from '../../components/common/GroupColorPicker';
 import Icon from '../../components/common/Icon';
+import SlidingPair from '../../components/common/SlidingPair';
 import { silenceRepeatedTitle } from '../../components/common/silenceRepeatedTitle';
+import OpenNowRail from '../../components/home/opennow/OpenNowRail';
 import { renderWithProviders } from '../setup/renderWithProviders';
 
 // KAN-345. Chrome reads a title it did not use for the name as the
@@ -97,6 +101,64 @@ describe('the other controls with a tooltip follow the same rule', () => {
       />
     );
     expect(screen.getByRole('button', { name: 'Settings' })).toHaveAttribute(
+      'aria-description',
+      ''
+    );
+  });
+
+  test('a colour band and its swatches: an empty description', async () => {
+    await renderWithProviders(
+      <GroupColorPicker color="blue" ariaLabel="Colour: Work" onSelect={noop} />
+    );
+    const band = screen.getByRole('button', { name: 'Colour: Work' });
+    expect(band).toHaveAttribute('aria-description', '');
+    fireEvent.click(band);
+    expect(screen.getByRole('menuitemradio', { name: 'Blue' })).toHaveAttribute(
+      'aria-description',
+      ''
+    );
+  });
+
+  test('an icon side of a sliding pair: an empty description', async () => {
+    await renderWithProviders(
+      <SlidingPair
+        label="Pair"
+        options={[
+          { value: 'a', label: 'Undo', icon: 'undo' },
+          { value: 'b', label: 'Redo' },
+        ]}
+        value="a"
+        onChange={noop}
+        metrics={{
+          height: '32px',
+          radius: '0px',
+          knobRadius: '0px',
+          slide: '0ms',
+          press: '0ms',
+        }}
+      />
+    );
+    expect(screen.getByRole('button', { name: 'Undo' })).toHaveAttribute(
+      'aria-description',
+      ''
+    );
+    expect(screen.getByRole('button', { name: 'Redo' })).not.toHaveAttribute(
+      'aria-description'
+    );
+  });
+
+  test('the Open now rail button: an empty description', async () => {
+    await renderWithProviders(
+      <OpenNowRail
+        windows={null}
+        foldAction={{ icon: 'undo', label: 'Fold', onClick: noop }}
+        buttonRef={createRef()}
+        searchText=""
+        onSearchTextChange={noop}
+        searchInputRef={createRef()}
+      />
+    );
+    expect(screen.getByRole('button', { name: 'Open now' })).toHaveAttribute(
       'aria-description',
       ''
     );
