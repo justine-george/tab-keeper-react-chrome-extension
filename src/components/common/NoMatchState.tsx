@@ -44,7 +44,7 @@ export default function NoMatchState({ query, inset }: NoMatchStateProps) {
   `;
 
   return (
-    <div css={blockStyle}>
+    <div css={blockStyle} data-no-match>
       <NoMatchArt />
       <NormalLabel
         value={t('NoSavedTabMatches', { text: query })}
