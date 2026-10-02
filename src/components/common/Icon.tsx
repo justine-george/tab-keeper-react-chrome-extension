@@ -7,6 +7,7 @@ import { DURATION, ICON } from '../../styles/scale';
 import { hoverMotionCss } from './hoverMotion';
 import type { HoverMotion } from './hoverMotion';
 import type { BrandIconName, IconName } from './iconNames';
+import { silenceRepeatedTitle } from './silenceRepeatedTitle';
 
 /**
  * Logos, which Material Symbols does not carry and never will -- Google
@@ -245,7 +246,10 @@ const Icon: React.FC<IconProps> = ({
     <div
       title={tooltipText}
       aria-label={ariaLabel}
-      aria-description={ariaDescription}
+      aria-description={
+        ariaDescription ??
+        (onClick ? silenceRepeatedTitle(tooltipText, ariaLabel) : undefined)
+      }
       // Presentational icons are hidden outright rather than merely unnamed.
       // The glyph renders as ligature text ("arrow_back", "add_box"), which
       // would otherwise leak into the accessible name of whatever button

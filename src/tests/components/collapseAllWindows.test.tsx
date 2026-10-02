@@ -77,8 +77,8 @@ const pane = (
 // rather than from the store -- an open window's accordion offers to Collapse
 // it. Reading the rendered control is what makes these tests indifferent to
 // where the state ends up living.
-const openCount = () => screen.queryAllByLabelText('Collapse').length;
-const shutCount = () => screen.queryAllByLabelText('Expand').length;
+const openCount = () => screen.queryAllByLabelText(/^Collapse(: |$)/).length;
+const shutCount = () => screen.queryAllByLabelText(/^Expand(: |$)/).length;
 
 describe('collapse every window in a session (KAN-206)', () => {
   describe('the control folds and unfolds the whole session', () => {
@@ -175,7 +175,7 @@ describe('collapse every window in a session (KAN-206)', () => {
       expect(openCount()).toBe(0);
 
       // One window back open, by its own chevron.
-      await userEvent.click(screen.queryAllByLabelText('Expand')[0]);
+      await userEvent.click(screen.queryAllByLabelText(/^Expand(: |$)/)[0]);
       expect(openCount()).toBe(1);
       expect(shutCount()).toBe(2);
 
@@ -366,7 +366,7 @@ describe('collapse every window in a session (KAN-206)', () => {
       const dataBefore = store.getState().tabContainerDataState;
       const undoDepthBefore = store.getState().undoRedo.past.length;
 
-      await userEvent.click(screen.queryAllByLabelText('Collapse')[0]);
+      await userEvent.click(screen.queryAllByLabelText(/^Collapse(: |$)/)[0]);
       expect(screen.queryByText('Alpha Page')).toBeNull();
 
       expect(store.getState().tabContainerDataState).toBe(dataBefore);

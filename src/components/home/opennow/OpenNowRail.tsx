@@ -10,6 +10,7 @@ import { formatTabCount } from '../../../utils/functions/local';
 import type { OpenWindow } from '../../../utils/functions/openNow';
 import OpenNowPane from './OpenNowPane';
 import type { OpenNowHeaderAction } from './OpenNowPane';
+import { silenceRepeatedTitle } from '../../common/silenceRepeatedTitle';
 
 interface OpenNowRailProps {
   windows: OpenWindow[] | null;
@@ -137,6 +138,7 @@ export default function OpenNowRail({
         css={buttonStyle}
         aria-label={railLabel}
         title={railLabel}
+        aria-description={silenceRepeatedTitle(railLabel, railLabel)}
         aria-expanded={isOpen}
         // Only while the drawer exists: an IDREF to nothing names no element.
         aria-controls={isOpen ? drawerId : undefined}

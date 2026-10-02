@@ -7,6 +7,7 @@ import { useThemeColors } from '../../hooks/useThemeColors';
 import { useFontFamily } from '../../hooks/useFontFamily';
 import { ICON, TYPE } from '../../styles/scale';
 import { slidingPairColors } from './slidingPairColors';
+import { silenceRepeatedTitle } from './silenceRepeatedTitle';
 
 /** One side of a SlidingPair. */
 export interface SlidingOption<T extends string> {
@@ -242,6 +243,11 @@ export default function SlidingPair<T extends string>({
           aria-label={option.label}
           aria-pressed={option.value === value}
           title={option.icon ? option.label : undefined}
+          aria-description={
+            option.icon
+              ? silenceRepeatedTitle(option.label, option.label)
+              : undefined
+          }
           css={buttonStyle(option)}
           onClick={(e) => {
             if (option.value !== value) {

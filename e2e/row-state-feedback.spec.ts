@@ -544,7 +544,10 @@ test.describe('a row reveals its actions and fills as one state', () => {
     const page = await openWith(context, extensionId);
 
     await rowFor(page, 'First session').click({ position: { x: 20, y: 20 } });
-    const windowRow = page.getByRole('button', { name: 'Morning reading' });
+    const windowRow = page.getByRole('button', {
+      name: 'Morning reading',
+      exact: true,
+    });
     await expect(windowRow).toBeVisible();
     await page.mouse.move(0, 0);
 
