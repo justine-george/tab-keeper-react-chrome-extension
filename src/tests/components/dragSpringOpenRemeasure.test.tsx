@@ -17,6 +17,7 @@ import {
   foldBackSpringOpened,
   springOpenWindow,
 } from '../../redux/springOpenWindows';
+import { newWindowFree } from '../../components/home/rightpane/rowDrag/dropRules';
 
 // KAN-379. A drag that opens a window mid-drag previews as a CONTROL drag
 // started with it open. Boxes are laid out from the DOM, in content space:
@@ -25,9 +26,11 @@ import {
 //   w2  250..354   b0 270, gb 292 (title), b1 312, b2 332, gb:tail 352
 //       250..270   folded: its title row alone, so it grows by 84
 //   w3  374..434 | 290..350   c0, c1
+//   the trailing block 454..458 | 370..374 ends the content, 458 | 374 tall
 
 const START = 10;
 const HEADER = 20;
+const TRAILING = 4;
 const ROW = 20;
 const GAP = 20;
 const BAND_MARGIN = 2;
@@ -53,7 +56,7 @@ function layOut(pane: HTMLElement): {
   let y = START;
   for (const block of pane.querySelectorAll('[data-drop-window-id]')) {
     const top = y;
-    y += HEADER;
+    y += block.matches('[data-new-window-target="last"]') ? TRAILING : HEADER;
     const holder = block.querySelector('[data-window-tabs]');
     if (holder) {
       put(holder, y, 0);
@@ -88,7 +91,9 @@ function layOut(pane: HTMLElement): {
     put(block, top, y - top);
     y += GAP;
   }
-  return { boxes, height: y - GAP + START };
+  const height = y - GAP;
+  for (const child of pane.children) put(child, 0, height);
+  return { boxes, height };
 }
 
 // Every translateY from the element up to the pane, as a real box includes.
@@ -112,12 +117,22 @@ interface Pane {
   scrollTop: number;
   // The width a scrollbar takes once the content overflows; 0 for none.
   scrollbar: number;
+  // Scroll range a transform adds while any row carries one (invariant #2).
+  transformOverflow?: number;
 }
 
 // A pane that clamps scroll on READ too (#3); logs reads of w2's rows.
-function stubLayout(pane: HTMLElement, { view, scrollTop, scrollbar }: Pane) {
+function stubLayout(
+  pane: HTMLElement,
+  { view, scrollTop, scrollbar, transformOverflow = 0 }: Pane
+) {
   const w2Reads: { id: string; transform: string }[] = [];
-  const contentHeight = () => layOut(pane).height;
+  const transformed = () =>
+    [...pane.querySelectorAll<HTMLElement>('[data-drag-row-id]')].some(
+      (el) => el.style.transform !== ''
+    );
+  const contentHeight = () =>
+    layOut(pane).height + (transformed() ? transformOverflow : 0);
   const max = () => Math.max(0, contentHeight() - view);
   let top = 0;
   pane.style.overflowY = 'auto';
@@ -272,16 +287,19 @@ function preview(pane: HTMLElement) {
     marked: [...pane.querySelectorAll<HTMLElement>('[data-drop-target]')].map(
       (el) => el.dataset.bandId
     ),
+    lit: [...pane.querySelectorAll<HTMLElement>('[data-landing]')].map(
+      (el) => el.dataset.dropWindowId
+    ),
+    free: newWindowFree(),
   };
 }
 
-const tabsOf = (store: RenderWithProvidersResult['store'], i: number) =>
+const windowsOf = (store: RenderWithProvidersResult['store']) =>
   store
     .getState()
-    .tabContainerDataState.tabGroups[0].windows[i].tabs.map(
-      (t) => t.tabId + (t.chromeGroupId ? '*' : '')
-    )
-    .join(' ');
+    .tabContainerDataState.tabGroups[0].windows.map((w) =>
+      w.tabs.map((t) => t.tabId + (t.chromeGroupId ? '*' : '')).join(' ')
+    );
 
 interface Run {
   held: string;
@@ -300,6 +318,7 @@ async function drag(w2Folded: boolean, run: Run) {
   fireEvent.pointerDown(held, { clientX: X, clientY: start, button: 0 });
   moveTo(start + 6);
   moveTo(y(260));
+  const freeBeforeOpen = newWindowFree();
   if (w2Folded) act(() => springOpenWindow('w2'));
 
   const previews = run.aims.map((aim) => {
@@ -313,19 +332,39 @@ async function drag(w2Folded: boolean, run: Run) {
   // The release lands where the last move put the pointer.
   moveTo(y(run.release));
   fireEvent.pointerUp(document, { clientX: X, clientY: y(run.release) });
-  const after = [0, 1, 2].map((i) => tabsOf(store, i));
+  const after = windowsOf(store);
   act(() => foldBackSpringOpened());
   unmount();
   restore();
-  return { previews, after };
+  return { previews, after, freeBeforeOpen };
+}
+
+const START_WINDOWS = [A.join(' '), 'b0 b1* b2*', 'c0 c1'];
+
+let frames: FrameRequestCallback[] = [];
+// Runs auto-scroll frames until the list stops moving.
+function scrollToRest(pane: HTMLElement) {
+  for (let i = 0; i < 200; i++) {
+    const before = pane.scrollTop;
+    act(() => {
+      const due = frames;
+      frames = [];
+      due.forEach((cb) => cb(0));
+    });
+    if (pane.scrollTop === before && i > 0) return;
+  }
 }
 
 const UNSCROLLED: Pane = { view: 600, scrollTop: 0, scrollbar: 0 };
 const SCROLLED: Pane = { view: 150, scrollTop: 200, scrollbar: 0 };
 
 beforeEach(() => {
-  // No auto-scroll frame ever runs: nothing moves the list but the test.
-  vi.spyOn(window, 'requestAnimationFrame').mockImplementation(() => 1);
+  // Frames run only when a test runs them: nothing else moves the list.
+  frames = [];
+  vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+    frames.push(cb);
+    return frames.length;
+  });
   vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {});
 });
 
@@ -416,6 +455,74 @@ describe('a window opened mid-drag is measured as if it had been open (KAN-379)'
     for (const id of ['b0', 'b1', 'b2']) {
       expect(rowEl(pane, id).style.transform).toBe('');
     }
+    fireEvent.keyDown(window, { key: 'Escape' });
+  });
+  // Fits open or folded in 460; open, 6px stays free below the last window.
+  test('the space free below the last window is read again, so a new window there is refused as when started open', async () => {
+    const run: Run = {
+      held: 'a9',
+      aims: [260, 445],
+      release: 445,
+      pane: { view: 460, scrollTop: 0, scrollbar: 0 },
+    };
+    const control = await drag(false, run);
+    const opened = await drag(true, run);
+
+    // PREMISE: folded, 90px was free; started open, 6 is under half a row.
+    expect(opened.freeBeforeOpen).toBe(90);
+    expect(control.previews[1].free).toBe(6);
+    expect(control.after).toEqual(START_WINDOWS);
+    expect(opened.previews).toEqual(control.previews);
+    expect(opened.after).toEqual(control.after);
+  });
+
+  // Folded 374 fits in 400; open, 458 does not. A row's transform adds 1000
+  // of scroll range, so only a derived limit stops at 58.
+  test('a list the open makes scroll auto-scrolls to its derived end', async () => {
+    const { pane } = await render(true);
+    stubLayout(pane, {
+      view: 400,
+      scrollTop: 0,
+      scrollbar: 0,
+      transformOverflow: 1000,
+    });
+    const held = rowEl(pane, 'a9');
+    const start = midOf(held);
+    fireEvent.pointerDown(held, { clientX: X, clientY: start, button: 0 });
+    moveTo(start + 6);
+    moveTo(260);
+    // With nothing to scroll the loop stops.
+    scrollToRest(pane);
+    expect(frames).toEqual([]);
+
+    act(() => springOpenWindow('w2'));
+    moveTo(395);
+    // PREMISE: a live read would give the transform's range.
+    expect(pane.scrollHeight).toBe(458 + 1000);
+    scrollToRest(pane);
+
+    expect(pane.scrollTop).toBe(458 - 400);
+    fireEvent.keyDown(window, { key: 'Escape' });
+  });
+
+  test('a list that scrolled from the start auto-scrolls to its end plus the growth', async () => {
+    const { pane } = await render(true);
+    stubLayout(pane, {
+      view: 150,
+      scrollTop: 200,
+      scrollbar: 0,
+      transformOverflow: 1000,
+    });
+    const held = rowEl(pane, 'a9');
+    const start = midOf(held);
+    fireEvent.pointerDown(held, { clientX: X, clientY: start, button: 0 });
+    moveTo(start + 6);
+    moveTo(60);
+    act(() => springOpenWindow('w2'));
+    moveTo(145);
+    scrollToRest(pane);
+
+    expect(pane.scrollTop).toBe(374 - 150 + 84);
     fireEvent.keyDown(window, { key: 'Escape' });
   });
 });

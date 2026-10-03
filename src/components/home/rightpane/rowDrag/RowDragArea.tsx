@@ -169,6 +169,25 @@ function bandOf(el: Element | null | undefined): string | undefined {
   return el?.closest<HTMLElement>('[data-band-id]')?.dataset.bandId;
 }
 
+// A pane whose content fits, and that content's height (KAN-379). Read from
+// its children: a pane that fits reports its own height as scrollHeight.
+interface Fitting {
+  pane: HTMLElement;
+  contentHeight: number;
+}
+
+function fittingOf(pane: HTMLElement | null): Fitting | null {
+  if (pane === null) return null;
+  const top = pane.getBoundingClientRect().top + pane.clientTop;
+  let bottom = top;
+  for (const child of pane.children) {
+    const margin = parseFloat(getComputedStyle(child).marginBottom) || 0;
+    bottom = Math.max(bottom, child.getBoundingClientRect().bottom + margin);
+  }
+  const padding = parseFloat(getComputedStyle(pane).paddingBottom) || 0;
+  return { pane, contentHeight: bottom - top + padding + pane.scrollTop };
+}
+
 // A landing slot as wide as the held row.
 const NO_INSET: DragState['landingInset'] = { left: 0, right: 0 };
 
@@ -318,6 +337,8 @@ interface LiveDrag {
   // folded list, not the one the user was looking at.
   scrollTopAtPress: number;
   maxScroll: number;
+  // A list with no scroller when measured: an open can make it scroll (KAN-379).
+  fitting: Fitting | null;
   // Where a release still counts as a drop on this list, when the list has
   // opted in (KAN-155). Null otherwise, and then only the rows count.
   pane: HTMLElement | null;
@@ -441,6 +462,7 @@ function pressRecord(
     maxScroll: scroller
       ? Math.max(0, scroller.scrollHeight - scroller.clientHeight)
       : 0,
+    fitting: null,
     pane: clampDropToEnds ? paneOf(el) : null,
     heldEl: null,
     heldWindow: null,
@@ -1603,6 +1625,8 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
           l.scroller.scrollHeight - l.scroller.clientHeight
         );
       }
+      // Read now, before any row carries a transform (invariant #2).
+      l.fitting = l.scroller ? null : fittingOf(paneOf(l.heldEl));
 
       // Re-anchor the grab. Collapsing moves every row, so the row being held
       // is no longer under the pointer where it was picked up -- without this
@@ -1642,6 +1666,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       const l = live.current;
       if (!l?.started) return;
       let changed = false;
+      let grown = 0;
       for (const windowId of opened) {
         if (!l.foldedWindows.has(windowId)) continue;
         const block = windowBlocksIn(containerRef.current).find(
@@ -1687,6 +1712,8 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
             )
           : [];
 
+        const growth = blockBox.height - (bottom - top);
+        grown += growth;
         const heldMid = l.rects[l.fromIndex]?.mid;
         ({
           rects: l.rects,
@@ -1697,7 +1724,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
           maxScroll: l.maxScroll,
         } = afterUnfold(l, {
           windowId,
-          growth: blockBox.height - (bottom - top),
+          growth,
           rows: opens,
           fixed,
         }));
@@ -1714,6 +1741,19 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         changed = true;
       }
       if (!changed) return;
+
+      // A list that fit may scroll now: its limit is derived, never read live.
+      if (l.scroller === null && l.fitting !== null) {
+        l.fitting.contentHeight += grown;
+        const overflow = l.fitting.contentHeight - l.fitting.pane.clientHeight;
+        l.maxScroll = Math.max(0, overflow);
+        if (overflow > 0) {
+          l.scroller = l.fitting.pane;
+          if (!scrollFrame.current) {
+            scrollFrame.current = requestAnimationFrame(autoScroll);
+          }
+        }
+      }
 
       // A scrollbar the open adds narrows every row; nothing else moves x.
       l.rects = l.rects.map((r) => {
