@@ -6668,3 +6668,272 @@ test.describe('a collapsed window opens under a resting tab or group (KAN-379)',
     expect(await isUnlit(page, 'w2')).toEqual(UNLIT);
   });
 });
+
+// ---- the window it lands in stays open (KAN-379 Q2, Q3) ---------------------
+
+// A window block's box less the translate the preview has given it.
+const ownBlockBox = (page: Page, windowId: string) =>
+  page.locator(blockOf(windowId)).evaluate((el) => {
+    if (!(el instanceof HTMLElement)) throw new Error('not an HTMLElement');
+    const shift = Number(
+      /translateY\((-?[\d.]+)px\)/.exec(el.style.transform)?.[1] ?? 0
+    );
+    const r = el.getBoundingClientRect();
+    return { top: r.top - shift, bottom: r.bottom - shift };
+  });
+
+test.describe('the window it lands in stays open (KAN-379 Q2, Q3)', () => {
+  // The 6×4 session with sw2, sw3 and sw4 folded, scrolled to `top`: the
+  // folded list still scrolls, and `held` and every folded title sit clear
+  // of both auto-scroll bands.
+  async function openSix(
+    page: Page,
+    top: number,
+    held: string
+  ): Promise<PaneBox> {
+    for (const w of ['sw2', 'sw3', 'sw4']) await collapseWindow(page, w);
+    expect(await setDetailScroll(page, top)).toBe(top);
+    const pane = await detailPane(page);
+    expect(await scrollRange(page)).toBeGreaterThanOrEqual(top);
+    for (const loc of [
+      tabHandle(page, held),
+      ...['sw2', 'sw3', 'sw4'].map((w) => page.locator(titleOf(w))),
+    ]) {
+      const b = await boxOf(loc);
+      expect(b.y + b.height / 2).toBeGreaterThan(pane.top + 48);
+      expect(b.y + b.height / 2).toBeLessThan(pane.bottom - 48);
+    }
+    return pane;
+  }
+
+  const SIX_START = [
+    's0-0 s0-1 s0-2 s0-3',
+    's1-0 s1-1 s1-2 s1-3',
+    's2-0 s2-1 s2-2 s2-3',
+    's3-0 s3-1 s3-2 s3-3',
+    's4-0 s4-1 s4-2 s4-3',
+    's5-0 s5-1 s5-2 s5-3',
+  ];
+
+  // s1-1 rests on sw3 until it opens, then on sw2 until it opens, and is let
+  // go between s2-0 and s2-1, with every frame across the release logged.
+  async function intoOpenedSw2(page: Page): Promise<PaneFrame[]> {
+    const pane = await openSix(page, 160, 's1-1');
+    const at = await pickUp(page, tabHandle(page, 's1-1'));
+    await ontoTitle(page, 'sw3', at.x);
+    await expect(tabHandle(page, 's3-0')).toBeVisible();
+    await ontoTitle(page, 'sw2', at.x);
+    await expect(tabHandle(page, 's2-0')).toBeVisible();
+    await settled(page);
+    await aimAtOwn(page, at.x, 's2-1', 0.25);
+    expect((await detailPane(page)).scrollTop).toBe(pane.scrollTop);
+    await logPane(page, ['s1-1']);
+    await page.mouse.up();
+    await expect
+      .poll(() => layout(page, 'S6'))
+      .toEqual([
+        's0-0 s0-1 s0-2 s0-3',
+        's1-0 s1-2 s1-3',
+        's2-0 s1-1 s2-1 s2-2 s2-3',
+        ...SIX_START.slice(3),
+      ]);
+    await settled(page);
+    return paneLog(page);
+  }
+
+  test('s1-1 let go in sw2, which it opened, with sw3 opened on the way: sw2 stays open in every frame, sw3 folds back, and the rest are as they were', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(
+      context,
+      extensionId,
+      [sixByFour('S6', 'Six', 's'), S2()],
+      'S6'
+    );
+    const frames = await intoOpenedSw2(page);
+    // PREMISE: logged held and released.
+    expect(frames.findIndex((f) => !f.held)).toBeGreaterThan(0);
+    expect(frames.slice(-1)[0]?.held).toBe(false);
+    expect(
+      frames.flatMap((f, i) => ('s2-0' in f.rows ? [] : [`frame ${i}`]))
+    ).toEqual([]);
+    expect(await isFolded(page, 'sw2')).toBe(false);
+    expect(await isFolded(page, 'sw3')).toBe(true);
+    // CONTROLS: never rested on, still folded; open before the drag, still open.
+    expect(await isFolded(page, 'sw4')).toBe(true);
+    for (const w of ['sw0', 'sw1', 'sw5'])
+      expect(await isFolded(page, w)).toBe(false);
+
+    // The stored fold no longer holds sw2: one press of its chevron folds it.
+    await collapseWindow(page, 'sw2');
+  });
+
+  test('D9: ⌘Z after that drop puts s1-1 back and leaves sw2 open', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(
+      context,
+      extensionId,
+      [sixByFour('S6', 'Six', 's'), S2()],
+      'S6'
+    );
+    const before = await stored(page);
+    await intoOpenedSw2(page);
+    await expectOneUndoRestores(page, sessionOf(before, 'S6'));
+    expect(await isFolded(page, 'sw2')).toBe(false);
+    expect(await isFolded(page, 'sw3')).toBe(true);
+  });
+
+  test('CONTROL: s1-3 let go in sw4 through its half-gap, never resting on its title, with sw2 opened on the way: sw4 stays folded', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(
+      context,
+      extensionId,
+      [sixByFour('S6', 'Six', 's'), S2()],
+      'S6'
+    );
+    const pane = await openSix(page, 208, 's1-3');
+    await watchDwell(page);
+    const at = await pickUp(page, tabHandle(page, 's1-3'));
+    await ontoTitle(page, 'sw2', at.x);
+    await expect(tabHandle(page, 's2-0')).toBeVisible();
+    await settled(page);
+    const sw3 = await ownBlockBox(page, 'sw3');
+    const sw4 = await ownBlockBox(page, 'sw4');
+    const y = sw4.top - 1.5;
+    // PREMISE: in the gap, nearer sw4, clear of the bottom band.
+    expect(y).toBeGreaterThan((sw3.bottom + sw4.top) / 2);
+    expect(y).toBeLessThan(pane.bottom - 48);
+    await page.mouse.move(at.x, y, { steps: 8 });
+    await settled(page);
+    expect((await detailPane(page)).scrollTop).toBe(pane.scrollTop);
+    await page.mouse.up();
+    await expect
+      .poll(() => layout(page, 'S6'))
+      .toEqual([
+        's0-0 s0-1 s0-2 s0-3',
+        's1-0 s1-1 s1-2',
+        ...SIX_START.slice(2, 4),
+        's1-3 s4-0 s4-1 s4-2 s4-3',
+        SIX_START[5],
+      ]);
+    // PREMISE: sw4 never dwelt.
+    expect(
+      (await dwellLog(page)).filter((r) => r.id === 'sw4' && r.attr === 'dwell')
+    ).toEqual([]);
+    expect(await isFolded(page, 'sw4')).toBe(true);
+    expect(await isFolded(page, 'sw2')).toBe(true);
+  });
+
+  // a1 or Alpha, w2 folded: out to the list and back, w2 opens under it;
+  // out and back again, w2 is still open (D6).
+  async function carriedBackOpensW2(
+    page: Page,
+    handle: Locator,
+    phantomId: string,
+    rowOf: (tabId: string) => string
+  ): Promise<Point> {
+    await collapseWindow(page, 'w2');
+    const at = await pickUp(page, handle);
+    await carryOutLeft(page, at);
+    await adoptPhantom(page, phantomId);
+    await ontoTitle(page, 'w2', at.x);
+    await expect(tabHandle(page, rowOf('b0'))).toBeVisible();
+    await carryOutLeft(page, at);
+    expect(await isFolded(page, 'w2')).toBe(false);
+    // The phantom eases home from where it was held.
+    await settled(page);
+    await adoptPhantom(page, phantomId);
+    expect(await isFolded(page, 'w2')).toBe(false);
+    return at;
+  }
+  const tabRow = (id: string) => id;
+  const groupRow = (id: string) => `tab:${id}`;
+
+  test('carried back to its own session, a1 let go in the w2 it opened: w2 stays open in every frame', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    const at = await carriedBackOpensW2(
+      page,
+      tabHandle(page, 'a1'),
+      'carried:a1',
+      tabRow
+    );
+    await aimAtOwn(page, at.x, 'b1', 0.25);
+    await logPane(page, ['carried:a1', 'a1']);
+    await page.mouse.up();
+    await expect
+      .poll(() => layout(page, 'S1'))
+      .toEqual(['a0 a2 al0* al1*', 'b0 a1 b1']);
+    await settled(page);
+    const frames = await paneLog(page);
+    expect(frames.findIndex((f) => !f.held)).toBeGreaterThan(0);
+    expect(
+      frames.flatMap((f, i) => ('b0' in f.rows ? [] : [`frame ${i}`]))
+    ).toEqual([]);
+    expect(await isFolded(page, 'w2')).toBe(false);
+    await collapseWindow(page, 'w2');
+  });
+
+  test('carried back to its own session, w2 opened: Esc folds it back, and nothing moved', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    await carriedBackOpensW2(page, tabHandle(page, 'a1'), 'carried:a1', tabRow);
+    await page.keyboard.press('Escape');
+    await expect(tabHandle(page, 'b0')).toHaveCount(0);
+    expect(await isFolded(page, 'w2')).toBe(true);
+    await page.mouse.up();
+    await page.waitForTimeout(200);
+    expect(await layout(page, 'S1')).toEqual([W1_START, 'b0 b1']);
+  });
+
+  test("carried back to its own session, w2 opened: let go on S3's row, w2 folds back", async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    const at = await carriedBackOpensW2(
+      page,
+      tabHandle(page, 'a1'),
+      'carried:a1',
+      tabRow
+    );
+    await carryOutLeft(page, at);
+    await onto(page, 'S3');
+    await page.mouse.up();
+    await expect.poll(() => layout(page, 'S3')).toEqual(['a1', 'f0']);
+    expect(await layout(page, 'S1')).toEqual(['a0 a2 al0* al1*', 'b0 b1']);
+    // PREMISE: S1 is still the session on screen.
+    expect(await selected(page)).toBe('S1');
+    await expect(tabHandle(page, 'b0')).toHaveCount(0);
+    expect(await isFolded(page, 'w2')).toBe(true);
+  });
+
+  test('carried back to its own session, group Alpha let go in the w2 it opened: w2 stays open', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    const at = await carriedBackOpensW2(
+      page,
+      groupHandle(page, 'alpha'),
+      'group:carried:alpha',
+      groupRow
+    );
+    await aimAtOwn(page, at.x, 'tab:b1', 0.25);
+    await page.mouse.up();
+    await expect
+      .poll(() => layout(page, 'S1'))
+      .toEqual(['a0 a1 a2', 'b0 al0* al1* b1']);
+    expect(await isFolded(page, 'w2')).toBe(false);
+    await collapseWindow(page, 'w2');
+  });
+});

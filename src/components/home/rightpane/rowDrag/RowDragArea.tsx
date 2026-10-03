@@ -100,6 +100,7 @@ import {
 } from '../../../../redux/dragCard';
 import {
   foldBackSpringOpened,
+  isSpringOpen,
   springOpenWindow,
   useSpringOpenWindows,
 } from '../../../../redux/springOpenWindows';
@@ -1985,6 +1986,11 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       if (!l) return;
       // Judged first, while the drag's layout still stands -- see judgeDrop.
       const drop = commit && l.started ? judgeDrop(l) : undefined;
+      // KAN-379 Q3 A. Read before anything folds back: an adopted drag's onMove ends the carry.
+      const keep =
+        drop?.toWindowId !== undefined && isSpringOpen(drop.toWindowId)
+          ? drop.toWindowId
+          : undefined;
       // An adopted drag's kind is the carry's, and endCarry unpublishes it
       // below, after the move -- the same order the session list's take()
       // runs in (KAN-350). So is its New window marker (KAN-361).
@@ -2038,6 +2044,8 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
           } else {
             onMove(l.rowId, drop.toIndex, drop.dropTargetId, drop.toWindowId);
           }
+          // In this task, so the fold-back and the keep render in one commit.
+          if (keep !== undefined) keepWindowOpen?.(keep);
 
           // Follow the row you just dropped (KAN-155).
           //
