@@ -952,8 +952,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         ? undefined
         : resolveDrop?.(dropRoot(l, block), l.lastX, l.lastY)?.bandId;
 
-    // KAN-379 D3. The collapsed window a release here lands in, while the
-    // pointer is on its block (the title row), not the gap it answers for.
+    // KAN-379 D3. The collapsed window landed in, with the pointer on its title row.
     const dwellTarget = (
       l: NonNullable<typeof live.current>,
       block: HTMLElement | null,
@@ -968,8 +967,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         ? block
         : null;
 
-    // KAN-379 D1. The window opens when its title's sweep ends, so a paused
-    // sweep holds the open and the row is full exactly when it opens.
+    // KAN-379 D1. The window opens when its title's sweep ends; a paused one holds it.
     const dwellOn = (l: LiveDrag, block: HTMLElement | null) => {
       if (l.dwell === block) return;
       endDwell(l);
@@ -985,7 +983,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         );
       sweep?.finished.then(
         () => {
-          // A sweep can finish in the frame after a leave, before style drops it.
+          // A sweep can finish in the frame after the drag ends, before style drops it.
           if (live.current !== l || l.dwell !== block) return;
           endDwell(l);
           springOpenWindow(windowId);

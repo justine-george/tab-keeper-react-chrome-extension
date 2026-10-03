@@ -37,7 +37,13 @@ import type {
   tabContainerData,
 } from '../src/redux/slices/tabContainerDataStateSlice';
 import { isValidTabMasterContainer } from '../src/utils/functions/local';
-import { LIGHT_THEME } from '../src/hooks/useThemeColors';
+import {
+  BB_PINK_THEME,
+  BLUE_THEME,
+  DARKENHEIMER_THEME,
+  LIGHT_THEME,
+  WARM_LIGHT_THEME,
+} from '../src/hooks/useThemeColors';
 import { SPRING_OPEN_MS } from '../src/components/common/springOpen';
 
 const POPUP = { width: 790, height: 550 };
@@ -6086,6 +6092,13 @@ test.describe('a collapsed window opens under a resting tab or group (KAN-379)',
   }
 
   // CONTROL: the ground is the title row's own pixel at rest.
+  const HOVER_BY_THEME = new Map([
+    ['Light', LIGHT_THEME.HOVER_COLOR],
+    ['WarmLight', WARM_LIGHT_THEME.HOVER_COLOR],
+    ['BBPink', BB_PINK_THEME.HOVER_COLOR],
+    ['Darkenheimer', DARKENHEIMER_THEME.HOVER_COLOR],
+    ['Blue', BLUE_THEME.HOVER_COLOR],
+  ]);
   for (const theme of THEMES) {
     test(`held at half, the title row is swept from the left (${theme})`, async ({
       context,
@@ -6106,14 +6119,17 @@ test.describe('a collapsed window opens under a resting tab or group (KAN-379)',
       expect(
         (await boxOf(page.locator('[data-drag-card]'))).y - 2
       ).toBeGreaterThan(y);
-      const fillHex = rgbToHex(half.color);
+      const hover = HOVER_BY_THEME.get(theme)?.toUpperCase();
+      if (hover === undefined) throw new Error(`no hover token for ${theme}`);
+      // The fill is the theme's hover token, as declared and as painted.
+      expect(rgbToHex(half.color)).toBe(hover);
       // PREMISE: the two can be told apart.
-      expect(fillHex).not.toBe(ground);
+      expect(hover).not.toBe(ground);
       const [left, right] = await pixelsAt(page, [
         [xAt(0.25), y],
         [xAt(0.75), y],
       ]);
-      expect([left, right]).toEqual([fillHex, ground]);
+      expect([left, right]).toEqual([hover, ground]);
       expect(half.size).toBe('50% 100%');
       // PREMISE: read before the open.
       expect(await isFolded(page, 'w2')).toBe(true);
@@ -6191,15 +6207,6 @@ test.describe('a collapsed window opens under a resting tab or group (KAN-379)',
       typeof b === 'number' &&
       Math.abs(a - b) <= SLOT_EDGE_TOLERANCE;
     const atRest = frames.slice(open - 3);
-    console.log(
-      `[KAN-379 ${w.opens}] frame ${open}: slot ${before.slot} -> ${
-        first.slot
-      } (settled ${last.slot}); title ${before.titles[w.opens]} -> ${
-        first.titles[w.opens]
-      }; ${w.next} ${before.titles[w.next]} -> ${first.titles[w.next]}; H ${
-        (first.heights[w.opens] ?? NaN) - (before.heights[w.opens] ?? NaN)
-      }`
-    );
     // The slot, in the first frame the rows are drawn, where it rests.
     expect(
       near(first.slot, last.slot),
