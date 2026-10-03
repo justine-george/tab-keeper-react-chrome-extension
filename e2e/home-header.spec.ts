@@ -826,6 +826,36 @@ test.describe('the words give way to the mark (KAN-343 B)', () => {
     expect(await unrestFor(page, 500)).toEqual({ mutations: 0, errors: [] });
   });
 
+  test('the words alone widening hides them, and narrowing shows them', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openHome(context, extensionId, 'popup', 16);
+    const room = await titleRoom(page);
+    const natural = await naturalWidth(title(page));
+    const letters = 'Tab Keeper'.length;
+    // Not on the row: letter-spacing turns off the icons' ligatures.
+    const spacing = Math.ceil((room.width - natural) / letters) + 1;
+    const space = (px: number) =>
+      title(page)
+        .locator('xpath=..')
+        .evaluate((el, v) => {
+          el.style.letterSpacing = `${v}px`;
+        }, px);
+
+    await space(spacing);
+    expect(await naturalWidth(title(page)), 'the premise').toBeGreaterThan(
+      room.width
+    );
+    await expect.poll(() => roomInk(page), 'wider words').toBe(0);
+    expect(await titleRoom(page), 'the room did not change').toEqual(room);
+    expect(await unrestFor(page, 500)).toEqual({ mutations: 0, errors: [] });
+
+    await space(0);
+    await expect.poll(() => roomInk(page), 'words again').toBeGreaterThan(0);
+    expect(await unrestFor(page, 500)).toEqual({ mutations: 0, errors: [] });
+  });
+
   // "Tab Keeper" is the same in every locale and drawn in the same face, so a
   // locale changes nothing here; this pins that the rule holds in one anyway.
   for (const rootPx of ROOTS) {
