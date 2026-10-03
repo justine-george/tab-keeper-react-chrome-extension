@@ -152,7 +152,11 @@ test.describe('the icons sit in three pairs, 8px apart (KAN-340 A + R1)', () => 
       const first = await boxOf(control(page, POPUP_ORDER[0]));
       const [lastInset] = await insetsFromRight(page, ['Settings']);
       expect(lastInset, 'the cluster is flush with the row').toBe(0);
-      // KAN-343: at 20px the title gives way; the controls must not.
+      // KAN-343 B: at 20px the words hide, so the mark is what the controls must clear.
+      const frame = await boxOf(mark(page).locator('xpath=..'));
+      expect(first.x, 'no control overlaps the mark').toBeGreaterThanOrEqual(
+        frame.x + frame.width
+      );
       expect(first.x, 'no control overlaps the title').toBeGreaterThanOrEqual(
         titleBox.x + titleBox.width
       );
