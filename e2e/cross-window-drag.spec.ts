@@ -14,6 +14,7 @@ import type { BrowserContext, Page } from '@playwright/test';
 
 import { grantedTest as test, expect } from './fixtures/grantedExtension';
 import { buildContainer, buildSession, seedSessions } from './fixtures/seed';
+import { holdSweepAt } from './fixtures/dwell';
 
 const tab = (id: string, g?: string) => ({
   tabId: id,
@@ -523,6 +524,16 @@ test.describe('what a drag into another window previews', () => {
     const w2 = await blockBox(page, 'w2');
 
     await holdAt(page, 'a0', w2.y + w2.height / 2);
+    // Resting on its title opens it (KAN-379): the sweep is held at 0, so
+    // these reads see it folded.
+    await holdSweepAt(
+      page,
+      '[data-drop-window-id="w2"] > [data-window-drag-handle]',
+      0
+    );
+    await expect(
+      page.locator('[data-drop-window-id="w2"][data-spring-dwell]')
+    ).toHaveCount(1);
 
     await expect
       .poll(async () => Object.keys(await shiftsIn(page, 'w1')).length)
