@@ -31,6 +31,7 @@ import {
   seedSettings,
 } from './fixtures/seed';
 import { contrast, pixelsAt, rgbToHex } from './fixtures/pixels';
+import { holdSweepAt } from './fixtures/dwell';
 import type {
   TabMasterContainer,
   tabContainerData,
@@ -458,23 +459,6 @@ async function onto(page: Page, sessionId: string): Promise<void> {
   await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 5 });
   await expect.poll(() => carryTargets(page)).toEqual([sessionId]);
 }
-
-// Pauses the dwelling row's sweep at `ms`; the spring-open timer still runs.
-const holdSweepAt = (page: Page, ms: number) =>
-  page.locator('[data-carry-dwell]').evaluate(
-    (el, ms) => {
-      const [sweep] = el.getAnimations();
-      sweep.pause();
-      sweep.currentTime = ms;
-      const cs = getComputedStyle(el);
-      return {
-        color: /rgba?\([^)]*\)/.exec(cs.backgroundImage)?.[0] ?? '',
-        size: cs.backgroundSize,
-      };
-    },
-    ms,
-    { timeout: 1000 }
-  );
 
 // Rests on a session's row until it opens (S1 A).
 async function springOpen(page: Page, sessionId: string): Promise<void> {
@@ -1270,7 +1254,7 @@ test.describe('the looks (D1 A, D2 A, S1 A)', () => {
       const at = await pickUp(page, tabHandle(page, 'a1'));
       await carryOutLeft(page, at);
       await onto(page, 'S2');
-      await holdSweepAt(page, SPRING_OPEN_MS);
+      await holdSweepAt(page, '[data-carry-dwell]', SPRING_OPEN_MS);
       const measure = (rowId: string) =>
         page.evaluate((rowId) => {
           const row = document
@@ -1373,7 +1357,11 @@ test.describe('the looks (D1 A, D2 A, S1 A)', () => {
       // PREMISE: the probes are clear of the card and its shadow.
       expect((await boxOf(page.locator(CARD))).y - 8).toBeGreaterThan(y);
 
-      const half = await holdSweepAt(page, SPRING_OPEN_MS / 2);
+      const half = await holdSweepAt(
+        page,
+        '[data-carry-dwell]',
+        SPRING_OPEN_MS / 2
+      );
       const fillHex = rgbToHex(half.color);
       // PREMISE: the two can be told apart.
       expect(fillHex).not.toBe(ground);
@@ -1384,9 +1372,15 @@ test.describe('the looks (D1 A, D2 A, S1 A)', () => {
         [xAt(0.9), r.y + 1],
       ]);
       expect([left, right]).toEqual([fillHex, ground]);
-      expect((await holdSweepAt(page, (SPRING_OPEN_MS * 3) / 4)).size).toBe(
-        '75% 100%'
-      );
+      expect(
+        (
+          await holdSweepAt(
+            page,
+            '[data-carry-dwell]',
+            (SPRING_OPEN_MS * 3) / 4
+          )
+        ).size
+      ).toBe('75% 100%');
       // PREMISE: every read came before the spring-open.
       expect(await selected(page)).toBe('S1');
       console.log(
