@@ -6671,6 +6671,81 @@ test.describe('a collapsed window opens under a resting tab or group (KAN-379)',
 
 // ---- the window it lands in stays open (KAN-379 Q2, Q3) ---------------------
 
+// Each frame's scrollTop and whether `windowId` is drawn folded, read once
+// the frame has painted; `end` is the last frame begun before the drag ended.
+interface PaintedFrame {
+  frame: number;
+  scrollTop: number;
+  folded: boolean;
+}
+const isPaintedLog = (x: unknown): x is PaintedFrame[] => {
+  if (!Array.isArray(x)) return false;
+  const items: readonly unknown[] = x;
+  return items.every(
+    (f) =>
+      typeof f === 'object' &&
+      f !== null &&
+      'frame' in f &&
+      typeof f.frame === 'number' &&
+      'scrollTop' in f &&
+      typeof f.scrollTop === 'number' &&
+      'folded' in f &&
+      typeof f.folded === 'boolean'
+  );
+};
+async function logPainted(page: Page, windowId: string): Promise<void> {
+  await page.evaluate((windowId) => {
+    const log: unknown[] = [];
+    let frame = 0;
+    document.body.dataset.paintedLog = '[]';
+    // The frame counter as the drag ends: the next frame is the first after it.
+    const end = () => {
+      document.body.dataset.paintedEnd ??= String(frame);
+    };
+    window.addEventListener('keydown', end);
+    window.addEventListener('pointerup', end);
+    const scroller = () => {
+      let el = document.querySelector(
+        '[data-pane="detail"] [data-drop-window-id]'
+      )?.parentElement;
+      while (el && !['auto', 'scroll'].includes(getComputedStyle(el).overflowY))
+        el = el.parentElement;
+      return el ?? null;
+    };
+    const channel = new MessageChannel();
+    // A message posted in a frame's rAF is handled after that frame paints.
+    channel.port1.onmessage = (e: MessageEvent<number>) => {
+      log.push({
+        frame: e.data,
+        scrollTop: scroller()?.scrollTop ?? -1,
+        folded:
+          document.querySelector(
+            `[data-drop-window-id="${windowId}"] [data-window-tabs]`
+          ) === null,
+      });
+      document.body.dataset.paintedLog = JSON.stringify(log);
+      document.body.dataset.paintedCount = String(log.length);
+    };
+    const tick = () => {
+      channel.port2.postMessage(++frame);
+      if (log.length < 600) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }, windowId);
+}
+async function paintedLog(
+  page: Page
+): Promise<{ end: number; frames: PaintedFrame[] }> {
+  const raw = await page.evaluate(() => ({
+    end: document.body.dataset.paintedEnd ?? '',
+    log: document.body.dataset.paintedLog ?? '[]',
+  }));
+  const frames: unknown = JSON.parse(raw.log);
+  if (raw.end === '' || !isPaintedLog(frames))
+    throw new Error(`not a painted log: ${JSON.stringify(raw)}`);
+  return { end: Number(raw.end), frames };
+}
+
 // A window block's box less the translate the preview has given it.
 const ownBlockBox = (page: Page, windowId: string) =>
   page.locator(blockOf(windowId)).evaluate((el) => {
@@ -6935,5 +7010,94 @@ test.describe('the window it lands in stays open (KAN-379 Q2, Q3)', () => {
       .toEqual(['a0 a1 a2', 'b0 al0* al1* b1']);
     expect(await isFolded(page, 'w2')).toBe(false);
     await collapseWindow(page, 'w2');
+  });
+
+  // kw1 folded above a long session scrolled to 300, wholly above the view
+  // there even open; the group g mid-pane below it.
+  const KEPT = () =>
+    session('K', 'Kept', [
+      win('kw0', [tab('k0-0')]),
+      win(
+        'kw1',
+        Array.from({ length: 4 }, (_, i) => tab(`k1-${i}`))
+      ),
+      win(
+        'kw2',
+        Array.from({ length: 6 }, (_, i) => tab(`k2-${i}`))
+      ),
+      win(
+        'kw3',
+        [
+          tab('k3-0'),
+          tab('k3-1'),
+          tab('k3-2', 'g'),
+          tab('k3-3', 'g'),
+          tab('k3-4', 'g'),
+          tab('k3-5'),
+        ],
+        [{ groupId: 'g', title: 'G', color: 'red' }]
+      ),
+      win(
+        'kw4',
+        Array.from({ length: 6 }, (_, i) => tab(`k4-${i}`))
+      ),
+    ]);
+
+  test('KAN-157: a group drag cancelled after an open comes back to 300 in the first frame after the release, the window folded', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId, [KEPT(), S2()], 'K');
+    await collapseWindow(page, 'kw1');
+    expect(await setDetailScroll(page, 300)).toBe(300);
+    const pane = await detailPane(page);
+    const g = await boxOf(groupHandle(page, 'g'));
+    // PREMISE: g mid-pane; kw1 above the view.
+    expect(g.y + g.height / 2).toBeGreaterThan(pane.top + 48);
+    expect(g.y + g.height / 2).toBeLessThan(pane.bottom - 48);
+    expect((await boxOf(page.locator(blockOf('kw1')))).y).toBeLessThan(
+      pane.top
+    );
+    // kw1's title where it rests, in content space: the preview shifts it.
+    const title = await boxOf(page.locator(titleOf('kw1')));
+    const titleMid = title.y + title.height / 2 - pane.top + pane.scrollTop;
+    // PREMISE: at the list's top, the title is clear of the top band.
+    expect(titleMid).toBeGreaterThan(48 + 8);
+    const at = await pickUp(page, groupHandle(page, 'g'));
+    // PREMISE: the folded list still scrolls past 300.
+    expect(await scrollRange(page)).toBeGreaterThan(300);
+    // Up the top band to the list's top, then onto kw1's title.
+    await page.mouse.move(at.x, pane.top + 10, { steps: 6 });
+    await expect.poll(async () => (await detailPane(page)).scrollTop).toBe(0);
+    await page.mouse.move(at.x, pane.top + titleMid, { steps: 8 });
+    await expect(tabHandle(page, 'tab:k1-0')).toBeVisible();
+    expect((await detailPane(page)).scrollTop).toBe(0);
+    // PREMISE: open, kw1 ends above where 300 begins.
+    const kw1 = await boxOf(page.locator(blockOf('kw1')));
+    expect(kw1.y + kw1.height - pane.top).toBeLessThan(300);
+    expect(await isFolded(page, 'kw1')).toBe(false);
+    // Down the pane, clear of its bottom band: the row where 300 begins then
+    // carries no preview shift, so the browser's scroll anchoring can act.
+    await page.mouse.move(at.x, pane.bottom - 70, { steps: 8 });
+    await settled(page);
+    expect((await detailPane(page)).scrollTop).toBe(0);
+    await logPainted(page, 'kw1');
+    await expect
+      .poll(() =>
+        page.evaluate(() => Number(document.body.dataset.paintedCount ?? 0))
+      )
+      .toBeGreaterThan(3);
+    await page.keyboard.press('Escape');
+    await expect
+      .poll(async () => (await paintedLog(page)).frames.length)
+      .toBeGreaterThan(30);
+    await page.mouse.up();
+    const { end, frames } = await paintedLog(page);
+    const first = frames.find((f) => f.frame > end);
+    expect(first).toEqual({ frame: end + 1, scrollTop: 300, folded: true });
+    expect(frames.filter((f) => f.frame > end && f.scrollTop !== 300)).toEqual(
+      []
+    );
+    expect(await layout(page, 'K')).toEqual(layoutOf(KEPT()));
   });
 });

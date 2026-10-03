@@ -225,15 +225,15 @@ describe('the overlay as a store (KAN-379)', () => {
     expect(result.current.size).toBe(0);
   });
 
-  test('foldBackSpringOpened on an empty overlay does not notify', () => {
+  test('foldBackSpringOpened on an empty overlay does not notify, and says nothing folded back', () => {
     const listener = vi.fn();
     const unsubscribe = subscribeSpringOpenWindows(listener);
-    foldBackSpringOpened();
+    expect(foldBackSpringOpened()).toBe(false);
     expect(listener).not.toHaveBeenCalled();
 
     springOpenWindow('win-1');
     expect(listener).toHaveBeenCalledTimes(1);
-    foldBackSpringOpened();
+    expect(foldBackSpringOpened()).toBe(true);
     expect(listener).toHaveBeenCalledTimes(2);
     unsubscribe();
   });

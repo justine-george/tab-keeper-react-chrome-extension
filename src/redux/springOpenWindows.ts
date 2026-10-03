@@ -19,11 +19,12 @@ export function isSpringOpen(windowId: string): boolean {
   return opened.has(windowId);
 }
 
-// A no-op when nothing is held, so it does not notify.
-export function foldBackSpringOpened(): void {
-  if (opened.size === 0) return;
+// Whether any window folded back. A no-op when nothing is held, so it does not notify.
+export function foldBackSpringOpened(): boolean {
+  if (opened.size === 0) return false;
   opened = new Set();
   notify();
+  return true;
 }
 
 export function subscribeSpringOpenWindows(fn: () => void): () => void {

@@ -1991,6 +1991,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         drop?.toWindowId !== undefined && isSpringOpen(drop.toWindowId)
           ? drop.toWindowId
           : undefined;
+      let foldedBack = false;
       // An adopted drag's kind is the carry's, and endCarry unpublishes it
       // below, after the move -- the same order the session list's take()
       // runs in (KAN-350). So is its New window marker (KAN-361).
@@ -1998,7 +1999,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         setDragging(false);
         setDragNewWindow(false);
         // KAN-379 Q2 A. The windows this drag opened fold back.
-        foldBackSpringOpened();
+        foldedBack = foldBackSpringOpened();
       }
       l.heldEl?.removeAttribute('data-drag-held');
       endDwell(l);
@@ -2085,7 +2086,16 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
           // Synchronous, and after setDragging(false) above: the kind is
           // unpublished, so this write lays out against the UNFOLDED list and
           // its full scroll range, which is the only one 300 fits in.
-          l.scroller.scrollTop = l.scrollTopAtPress;
+          //
+          // KAN-379 D11. Next frame when windows folded back: their fold has not rendered yet.
+          const { scroller, scrollTopAtPress } = l;
+          if (foldedBack) {
+            requestAnimationFrame(() => {
+              scroller.scrollTop = scrollTopAtPress;
+            });
+          } else {
+            scroller.scrollTop = scrollTopAtPress;
+          }
         }
       } finally {
         // KAN-279 D12. Last, after onMove: a committed drop's consumer applies
