@@ -5,6 +5,7 @@ import TabGroupEntryContainer from '../../components/home/leftpane/TabGroupEntry
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { setSearchInputText } from '../../redux/slices/globalStateSlice';
 import {
+  deleteTabContainerInternal,
   saveToTabContainerInternal,
   selectTabContainer,
 } from '../../redux/slices/tabContainerDataStateSlice';
@@ -127,5 +128,36 @@ describe('clearing the search does not move the user (KAN-90)', () => {
     });
 
     expect(selected(store)).toBe('y');
+  });
+});
+
+// KAN-390 x KAN-90. The session taking a deleted one's place may be hidden by the search.
+describe('deleting the selected match while searching (KAN-390)', () => {
+  test('selects the first match, not the hidden session in its place', async () => {
+    // Ids sort as the unshifts order them: saves in one ms tie on rank and fall back to id.
+    const { store } = await renderWithProviders(<TabGroupEntryContainer />, {
+      seedStore: (s: Store) => {
+        s.dispatch(saveToTabContainerInternal(session('d', 'DELTA-match')));
+        s.dispatch(saveToTabContainerInternal(session('c', 'CHARLIE')));
+        s.dispatch(saveToTabContainerInternal(session('b', 'BRAVO-match')));
+        s.dispatch(saveToTabContainerInternal(session('a', 'ALPHA-match')));
+      },
+    });
+    const order = () =>
+      store.getState().tabContainerDataState.tabGroups.map((g) => g.tabGroupId);
+    expect(order()).toEqual(['a', 'b', 'c', 'd']);
+
+    search(store, 'match');
+    act(() => {
+      store.dispatch(selectTabContainer('b'));
+    });
+    expect(selected(store)).toBe('b');
+
+    // removeSession picks CHARLIE, now at BRAVO's index; the search hides it.
+    act(() => {
+      store.dispatch(deleteTabContainerInternal('b'));
+    });
+
+    expect(selected(store)).toBe('a');
   });
 });
