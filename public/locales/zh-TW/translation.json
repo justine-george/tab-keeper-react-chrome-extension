@@ -1,14 +1,13 @@
 {
   "On": "開",
   "Off": "關",
-  "Search": "搜尋",
   "Tab Keeper": "Tab Keeper",
   "Open in a tab": "在分頁中開啟",
   "Undo": "復原",
   "Redo": "取消復原",
   "Sync now": "立即同步",
   "Settings": "設定",
-  "Save all open windows as a session": "將所有開啟的視窗儲存為工作階段",
+  "Name the new session": "新工作階段的名稱",
   "Save every open window as a session": "將所有開啟的視窗儲存為工作階段",
   "Save current window as a session": "將目前視窗儲存為工作階段",
   "Export open windows": "匯出開啟的視窗…",
@@ -61,7 +60,6 @@
   "TabCount_other": "{{count}} 個分頁",
   "Matches": "符合：",
   "Go back": "返回",
-  "Search among sessions": "搜尋工作階段",
   "All open windows saved as a session.": "已將所有開啟的視窗儲存為工作階段。",
   "Current window saved as a session.": "已將目前視窗儲存為工作階段。",
   "Current tab added to this window.": "已將目前分頁新增至這個視窗。",
@@ -210,7 +208,6 @@
   "Switch to tab": "切換至分頁",
   "Go to window": "前往視窗",
   "No other tabs are open": "沒有其他開啟的分頁",
-  "Saved sessions": "已儲存的工作階段",
   "Fold the saved session away": "收合已儲存的工作階段",
   "Show the saved session": "顯示已儲存的工作階段",
   "Close Open now": "關閉「目前開啟的分頁」面板",
@@ -233,7 +230,10 @@
   "Search open tabs": "搜尋開啟的分頁",
   "Clear search": "清除搜尋",
   "NoOpenTabMatches": "沒有符合「{{text}}」的開啟分頁",
+  "Search saved tabs": "搜尋已儲存的分頁",
+  "NoSavedTabMatches": "沒有符合「{{text}}」的已儲存分頁",
   "TabCountShownOfTotal_other": "{{count}} 個分頁中的 {{shown}} 個",
   "CarryCardNameAndCount_other": "{{name}} · {{count}} 個分頁",
-  "CarryNewWindowTarget": "新視窗"
+  "CarryNewWindowTarget": "新視窗",
+  "Search looks in session names, window names, tab titles and links.": "搜尋範圍包括工作階段名稱、視窗名稱、分頁標題和連結。"
 }

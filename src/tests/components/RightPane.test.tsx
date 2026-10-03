@@ -3,10 +3,7 @@ import { screen } from '@testing-library/react';
 
 import RightPane from '../../components/home/rightpane/RightPane';
 import { renderWithProviders } from '../setup/renderWithProviders';
-import {
-  openSearchPanel,
-  setSearchInputText,
-} from '../../redux/slices/globalStateSlice';
+import { setSearchInputText } from '../../redux/slices/globalStateSlice';
 import {
   saveToTabContainerInternal,
   selectTabContainer,
@@ -85,17 +82,21 @@ describe('RightPane', () => {
   // The pane's guard checks the selected list AFTER the search filter, so a
   // search matching nothing must keep the children unmounted. If the guard ever
   // stopped applying the filter its children would mount against an empty list.
-  test('renders nothing when the search filters the selected session away', async () => {
+  test('draws the no-match state, not the session, when the search filters it away', async () => {
     const { container } = await renderWithProviders(<RightPane />, {
       seedStore: (store) => {
         store.dispatch(saveToTabContainerInternal(buildSession()));
         store.dispatch(selectTabContainer('group-1'));
-        store.dispatch(openSearchPanel());
         store.dispatch(setSearchInputText('nothing matches this'));
       },
     });
 
-    expect(container.innerHTML).toBe('');
+    expect(
+      await screen.findByText('No saved tab matches "nothing matches this"')
+    ).toBeTruthy();
+    expect(screen.queryByText('Research')).toBeNull();
+    expect(container.children).toHaveLength(1);
+    expect(container.firstElementChild).toHaveAttribute('data-no-match');
   });
 
   test('renders the session again when the search matches it', async () => {
@@ -103,7 +104,6 @@ describe('RightPane', () => {
       seedStore: (store) => {
         store.dispatch(saveToTabContainerInternal(buildSession()));
         store.dispatch(selectTabContainer('group-1'));
-        store.dispatch(openSearchPanel());
         store.dispatch(setSearchInputText('kagi'));
       },
     });

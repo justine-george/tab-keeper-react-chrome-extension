@@ -12,6 +12,7 @@ import { css } from '@emotion/react';
 import { NormalLabel } from '../../common/Label';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import WindowEntryContainer from './WindowEntryContainer';
+import { useSavedSearch } from '../../../hooks/useSavedSearch';
 import { AppDispatch, RootState } from '../../../redux/store';
 import {
   isEmptyObject,
@@ -63,13 +64,7 @@ export default function TabGroupDetailsContainer() {
     (state: RootState) => state.tabContainerDataState
   );
 
-  const isSearchPanel = useSelector(
-    (state: RootState) => state.globalState.isSearchPanel
-  );
-
-  const searchInputText = useSelector(
-    (state: RootState) => state.globalState.searchInputText
-  );
+  const { text: searchText, isSearching } = useSavedSearch();
 
   const hasTabGroupsPermission = useSelector(
     (state: RootState) => state.globalState.hasTabGroupsPermission
@@ -78,8 +73,7 @@ export default function TabGroupDetailsContainer() {
   // the same list RightPane derives its mount guard from
   const selectedTabGroup = selectVisibleTabGroups(
     tabContainerDataList.tabGroups,
-    isSearchPanel,
-    searchInputText,
+    searchText,
     hasTabGroupsPermission
   )[0];
 
@@ -225,9 +219,8 @@ export default function TabGroupDetailsContainer() {
 
   // KAN-131, one level up from the tab list. A live search narrows windows[]
   // as well as a window's tabs, so a drop index counted over the rendered
-  // windows would be applied to a longer stored array. KAN-140 widened the
-  // guard from "a query is narrowing something" to "the search panel is open"
-  // -- see TabGroupEntryContainer for why.
+  // windows would be applied to a longer stored array, so no window drags
+  // while searching.
 
   async function handleAddCurrTabToWindowClick(
     tabGroupId: string,
@@ -359,9 +352,8 @@ export default function TabGroupDetailsContainer() {
                 carryOut={carryWindowOut}
                 adoptRowId={adoptRowIdFor('window')}
                 adoptedRowLandsAs={landsAsFor('window')}
-                // The mode, not the box's contents -- see KAN-140 on
-                // TabGroupEntryContainer for why this is not isFilteredView.
-                disabled={isSearchPanel}
+                // Off while searching (KAN-385).
+                disabled={isSearching}
               >
                 {shownSession.windows
                   .filter((w) => w.windowId !== NEW_LAST_WINDOW)

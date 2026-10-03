@@ -8,10 +8,7 @@ import {
   RenderWithProvidersResult,
 } from '../setup/renderWithProviders';
 import { sessionWhen } from '../../utils/functions/sessionDate';
-import {
-  openSearchPanel,
-  setSearchInputText,
-} from '../../redux/slices/globalStateSlice';
+import { setSearchInputText } from '../../redux/slices/globalStateSlice';
 import {
   saveToTabContainerInternal,
   selectTabContainer,
@@ -167,7 +164,6 @@ describe('HeroContainerRight', () => {
       seedStore: (store) => {
         store.dispatch(saveToTabContainerInternal(buildSession()));
         store.dispatch(selectTabContainer('group-1'));
-        store.dispatch(openSearchPanel());
         store.dispatch(setSearchInputText('nothing matches this'));
       },
     });
@@ -252,44 +248,18 @@ describe('HeroContainerRight', () => {
       expect(screen.getByDisplayValue('Research')).toBeTruthy();
     });
 
-    // In search mode the pane is read-only: the whole action block and the
-    // bottom row are `visibility: hidden`, and handleTabGroupTitleClick already
-    // declined to open the editor. A button that does nothing is worse than no
-    // button, so the title must not be exposed as one here.
-    //
-    // A role query alone cannot see this -- `<div onClick>` and `<div>` are
-    // both non-buttons, so this assertion is green against the pre-fix
-    // component too. It is only meaningful because the test above proves the
-    // same query DOES find a button in the non-search render.
-    test('the title is not a control while the search panel is open', async () => {
+    // Renaming is not a whole-item action, so the title stays a rename control
+    // while searching.
+    test('the title still renames while searching', async () => {
       await renderSelected((store) => {
-        store.dispatch(openSearchPanel());
         store.dispatch(setSearchInputText('Research'));
       });
 
-      expect(await screen.findByText('Research')).toBeTruthy();
-      expect(
-        screen.queryByRole('button', { name: /Rename session/ })
-      ).toBeNull();
-    });
+      await userEvent.click(
+        await screen.findByRole('button', { name: 'Rename session: Research' })
+      );
 
-    // The behavioural half of the test above, and the one that would survive
-    // someone re-attaching an onClick to the search-mode label: that change is
-    // invisible to a role query, because a `<div onClick>` is not a button.
-    //
-    // Note what protects this. handleTabGroupTitleClick still guards on
-    // `!isSearchPanel`, but that guard is now unreachable -- the search branch
-    // never wires the handler at all -- and deleting it fails nothing. The
-    // render branch is the real protection; this test is what pins it.
-    test('clicking the title does not start a rename while searching', async () => {
-      await renderSelected((store) => {
-        store.dispatch(openSearchPanel());
-        store.dispatch(setSearchInputText('Research'));
-      });
-
-      await userEvent.click(await screen.findByText('Research'));
-
-      expect(screen.queryByDisplayValue('Research')).toBeNull();
+      expect(screen.getByDisplayValue('Research')).toBeTruthy();
     });
   });
 });

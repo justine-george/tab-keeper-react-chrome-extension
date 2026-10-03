@@ -324,7 +324,7 @@ test.describe('Open now search (KAN-330)', () => {
     }
   });
 
-  test('/ from the page focuses the field; / in the name box types a slash', async ({
+  test('/ from the Open now column focuses its field; / in the name box types a slash', async ({
     context,
     extensionId,
   }) => {
@@ -333,20 +333,50 @@ test.describe('Open now search (KAN-330)', () => {
       height: 800,
     });
     await expect(field(page)).toBeVisible();
-    // An empty spot of the sessions pane: nothing there takes focus.
-    await page.locator('body').click({ position: { x: 5, y: 700 } });
+    // An empty spot of the Open now column: nothing there takes focus, but
+    // the key goes to the pane that holds it.
+    const column = page.locator(OPEN_NOW);
+    await column.evaluate((el) => el.setAttribute('tabindex', '-1'));
+    await column.focus();
     await expect(field(page)).not.toBeFocused();
     await page.keyboard.press('/');
     await expect(field(page)).toBeFocused();
     // The key moved focus; it was not typed.
     await expect(field(page)).toHaveValue('');
 
-    const nameBox = page.getByPlaceholder('Save all open windows as a session');
+    const nameBox = page.locator('input#name');
     await nameBox.click();
     await page.keyboard.type('a/b');
     await expect(nameBox).toHaveValue(/a\/b$/);
     await expect(field(page)).not.toBeFocused();
     await expect(field(page)).toHaveValue('');
+  });
+
+  test('/ from the page focuses the saved field, selects its text, and Open now is untouched', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPage(context, extensionId, VIEW_TAB, {
+      width: 1600,
+      height: 800,
+    });
+    const saved = page.getByRole('textbox', {
+      name: 'Search saved tabs',
+      exact: true,
+    });
+    await saved.fill('kyoto');
+    await page.locator('body').click({ position: { x: 5, y: 700 } });
+    await expect(saved).not.toBeFocused();
+    await page.keyboard.press('/');
+    await expect(saved).toBeFocused();
+    await expect(saved).toHaveValue('kyoto');
+    expect(
+      await saved.evaluate((el: HTMLInputElement) => [
+        el.selectionStart,
+        el.selectionEnd,
+      ])
+    ).toEqual([0, 5]);
+    await expect(field(page)).not.toBeFocused();
   });
 
   test('Enter in the field switches Chrome to the first tab drawn, and does nothing with the field empty', async ({
@@ -559,10 +589,59 @@ test.describe('Open now search (KAN-330)', () => {
     await expect(drawer).toHaveCount(0);
     await expect(field(page)).toHaveCount(0);
 
+    // Focus in Open now's column, which the rail button is part of.
+    await railButton(page).focus();
     await page.keyboard.press('/');
     await expect(drawer).toBeVisible();
     await expect(field(page)).toBeFocused();
     await expect(field(page)).toHaveValue('');
+  });
+
+  test('the magnifier is 20px, centred in its column, and the text has not moved', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    await openTab(serviceWorker, 'Kyoto maps');
+    const page = await openPage(context, extensionId, VIEW_TAB, {
+      width: 1600,
+      height: 800,
+    });
+    await expect(liveRow(page, 'Kyoto maps')).toBeVisible();
+    const m = await page.evaluate((root: string) => {
+      const row = document.querySelector(`${root} [data-open-now-search]`);
+      const column = row?.firstElementChild;
+      const glyph = column?.querySelector('.material-symbols-outlined');
+      const input = row?.querySelector('input');
+      if (!column || !glyph || !input) return null;
+      const c = column.getBoundingClientRect();
+      const g = glyph.getBoundingClientRect();
+      return {
+        column: { left: c.left, top: c.top, width: c.width, height: c.height },
+        glyph: { left: g.left, top: g.top, width: g.width, height: g.height },
+        textLeft:
+          input.getBoundingClientRect().left +
+          parseFloat(getComputedStyle(input).paddingLeft),
+        rem: parseFloat(getComputedStyle(document.documentElement).fontSize),
+      };
+    }, OPEN_NOW);
+    if (m === null) throw new Error('the search row did not draw');
+    const LAYOUT_UNIT = 1 / 64;
+    expect(m.glyph.width).toBeCloseTo(1.25 * m.rem, 1);
+    expect(m.glyph.height).toBeCloseTo(1.25 * m.rem, 1);
+    expect(m.column.width).toBeCloseTo(2 * m.rem, 1);
+    expect(
+      Math.abs(
+        m.glyph.left + m.glyph.width / 2 - (m.column.left + m.column.width / 2)
+      )
+    ).toBeLessThanOrEqual(LAYOUT_UNIT);
+    expect(
+      Math.abs(
+        m.glyph.top + m.glyph.height / 2 - (m.column.top + m.column.height / 2)
+      )
+    ).toBeLessThanOrEqual(LAYOUT_UNIT);
+    // 438 is the text's left as measured on main (fd9c212) at 1600x800.
+    expect(m.textLeft).toBe(438);
   });
 
   test('the row keeps its height with a long search', async ({

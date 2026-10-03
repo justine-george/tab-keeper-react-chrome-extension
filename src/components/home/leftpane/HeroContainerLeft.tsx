@@ -1,40 +1,17 @@
-import { useDispatch, useSelector } from 'react-redux';
-
 import { css } from '@emotion/react';
 
-import Icon from '../../common/Icon';
-import ClickableRow from '../../common/ClickableRow';
-import { HEADER_BACK_TARGET } from '../../common/headerBackTarget';
 import MenuContainer from './MenuContainer';
 import { NormalLabel } from '../../common/Label';
+import TabKeeperMark from '../../common/TabKeeperMark';
 import { useFontFamily } from '../../../hooks/useFontFamily';
 import { useThemeColors } from '../../../hooks/useThemeColors';
-import { AppDispatch, RootState } from '../../../redux/store';
-import {
-  closeSearchPanel,
-  openSearchPanel,
-} from '../../../redux/slices/globalStateSlice';
 import { useTranslation } from 'react-i18next';
-import { TYPE } from '../../../styles/scale';
+import { ICON, TYPE } from '../../../styles/scale';
 
 export default function HeroContainer() {
   const COLORS = useThemeColors();
   const FONT_FAMILY = useFontFamily();
   const { t } = useTranslation();
-
-  const isSearchPanel = useSelector(
-    (state: RootState) => state.globalState.isSearchPanel
-  );
-
-  const dispatch: AppDispatch = useDispatch();
-
-  const handleClickSearch = () => {
-    dispatch(openSearchPanel());
-  };
-
-  const handleBackClick = () => {
-    dispatch(closeSearchPanel());
-  };
 
   const containerStyle = css`
     display: flex;
@@ -52,39 +29,34 @@ export default function HeroContainer() {
     user-select: none;
   `;
 
-  return isSearchPanel ? (
+  return (
     <div css={containerStyle}>
-      <ClickableRow
-        ariaLabel={t('Go back')}
-        tooltipText={t('Go back')}
-        onClick={handleBackClick}
-        style={`display: flex; ${HEADER_BACK_TARGET}`}
+      {/* min-width: 0 lets the title give way to the icons (KAN-343). */}
+      <div
+        css={css`
+          min-width: 0;
+          display: flex;
+          align-items: center;
+        `}
       >
-        <Icon type="arrow_back" />
-        <NormalLabel
-          value={t('Back')}
-          size={TYPE.SECTION}
-          color={COLORS.TEXT_COLOR}
-          style="padding-left: 8px; cursor: pointer;"
-        />
-      </ClickableRow>
-    </div>
-  ) : (
-    <div css={containerStyle}>
-      <ClickableRow
-        ariaLabel={t('Search')}
-        tooltipText={t('Search')}
-        onClick={handleClickSearch}
-        style="display: flex; align-items: center; min-width: 0;"
-      >
-        <Icon type="search" />
+        <div
+          css={css`
+            width: calc(${ICON.DEFAULT} + 8px);
+            height: calc(${ICON.DEFAULT} + 8px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex: none;
+          `}
+        >
+          <TabKeeperMark />
+        </div>
         <NormalLabel
           value={t('Tab Keeper')}
           size={TYPE.SECTION}
           color={COLORS.TEXT_COLOR}
-          style="cursor: pointer;"
         />
-      </ClickableRow>
+      </div>
       <div
         css={css`
           flex-shrink: 0;

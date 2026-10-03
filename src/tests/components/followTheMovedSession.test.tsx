@@ -4,7 +4,6 @@ import { act } from '@testing-library/react';
 import TabGroupEntryContainer from '../../components/home/leftpane/TabGroupEntryContainer';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import {
-  openSearchPanel,
   setHasTabGroupsPermission,
   setSearchInputText,
 } from '../../redux/slices/globalStateSlice';
@@ -249,7 +248,6 @@ describe('NOT following when nothing moved under the selection', () => {
     scrollCalls.length = 0;
 
     act(() => {
-      store.dispatch(openSearchPanel());
       store.dispatch(setSearchInputText('CHARLIE'));
     });
 

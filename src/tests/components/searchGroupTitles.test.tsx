@@ -5,7 +5,6 @@ import RightPane from '../../components/home/rightpane/RightPane';
 import TabGroupEntryContainer from '../../components/home/leftpane/TabGroupEntryContainer';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import {
-  openSearchPanel,
   setHasTabGroupsPermission,
   setSearchInputText,
 } from '../../redux/slices/globalStateSlice';
@@ -65,7 +64,6 @@ const searchFor =
     store.dispatch(setHasTabGroupsPermission(hasPermission));
     store.dispatch(saveToTabContainerInternal(session()));
     store.dispatch(selectTabContainer('group-1'));
-    store.dispatch(openSearchPanel());
     store.dispatch(setSearchInputText(query));
   };
 
@@ -110,12 +108,15 @@ describe('searching a Chrome group title, without the permission', () => {
     expect(screen.queryByText('Alpha')).toBeNull();
   });
 
-  test('the right pane renders nothing at all', async () => {
-    const { container } = await renderWithProviders(<RightPane />, {
+  test('the right pane draws only the no-match state', async () => {
+    await renderWithProviders(<RightPane />, {
       seedStore: searchFor('Quarterly', false),
     });
 
-    expect(container.innerHTML).toBe('');
+    expect(
+      await screen.findByText('No saved tab matches "Quarterly"')
+    ).toBeTruthy();
+    expect(screen.queryByText('Alpha')).toBeNull();
   });
 });
 

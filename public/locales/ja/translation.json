@@ -1,14 +1,13 @@
 {
   "On": "オン",
   "Off": "オフ",
-  "Search": "検索",
   "Tab Keeper": "Tab Keeper",
   "Open in a tab": "タブで開く",
   "Undo": "元に戻す",
   "Redo": "やり直し",
   "Sync now": "今すぐ同期",
   "Settings": "設定",
-  "Save all open windows as a session": "開いているすべてのウィンドウをセッションとして保存",
+  "Name the new session": "新しいセッションの名前",
   "Save every open window as a session": "開いているすべてのウィンドウをセッションとして保存",
   "Save current window as a session": "現在のウィンドウをセッションとして保存",
   "Export open windows": "開いているウィンドウをエクスポート…",
@@ -61,7 +60,6 @@
   "TabCount_other": "{{count}} 個のタブ",
   "Matches": "一致：",
   "Go back": "戻る",
-  "Search among sessions": "セッションの中で検索",
   "All open windows saved as a session.": "開いているすべてのウィンドウをセッションとして保存しました。",
   "Current window saved as a session.": "現在のウィンドウをセッションとして保存しました。",
   "Current tab added to this window.": "現在のタブをこのウィンドウに追加しました。",
@@ -210,7 +208,6 @@
   "Switch to tab": "タブに切り替え",
   "Go to window": "ウィンドウに移動",
   "No other tabs are open": "他に開いているタブはありません",
-  "Saved sessions": "保存済みのセッション",
   "Fold the saved session away": "保存済みのセッションを折りたたむ",
   "Show the saved session": "保存済みのセッションを表示",
   "Close Open now": "「現在開いているタブ」パネルを閉じる",
@@ -233,7 +230,10 @@
   "Search open tabs": "開いているタブを検索",
   "Clear search": "検索をクリア",
   "NoOpenTabMatches": "「{{text}}」に一致する開いているタブはありません",
+  "Search saved tabs": "保存済みのタブを検索",
+  "NoSavedTabMatches": "「{{text}}」に一致する保存済みのタブはありません",
   "TabCountShownOfTotal_other": "{{count}} 個中 {{shown}} 個のタブ",
   "CarryCardNameAndCount_other": "{{name}} · {{count}} 個のタブ",
-  "CarryNewWindowTarget": "新しいウィンドウ"
+  "CarryNewWindowTarget": "新しいウィンドウ",
+  "Search looks in session names, window names, tab titles and links.": "セッション名、ウィンドウ名、タブのタイトル、リンクを検索します。"
 }

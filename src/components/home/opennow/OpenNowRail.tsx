@@ -52,6 +52,7 @@ export default function OpenNowRail({
   // drawer (O2).
   const openedByShortcut = useRef(false);
   useSearchShortcut(
+    'openNow',
     isOpen
       ? null
       : () => {

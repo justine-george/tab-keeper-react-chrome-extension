@@ -3,10 +3,7 @@ import { screen } from '@testing-library/react';
 
 import TabGroupEntryContainer from '../../components/home/leftpane/TabGroupEntryContainer';
 import { renderWithProviders } from '../setup/renderWithProviders';
-import {
-  openSearchPanel,
-  setSearchInputText,
-} from '../../redux/slices/globalStateSlice';
+import { setSearchInputText } from '../../redux/slices/globalStateSlice';
 import { saveToTabContainerInternal } from '../../redux/slices/tabContainerDataStateSlice';
 
 const session = (title: string, tabTitle: string) => ({
@@ -48,8 +45,6 @@ describe('search filtering', () => {
     store.dispatch(
       saveToTabContainerInternal(session('Errands', 'Grocery list'))
     );
-    store.dispatch(openSearchPanel());
-
     expect(await screen.findByText('Research')).toBeTruthy();
     expect(screen.getByText('Errands')).toBeTruthy();
 
@@ -65,7 +60,6 @@ describe('search filtering', () => {
     store.dispatch(
       saveToTabContainerInternal(session('Research', 'Kagi Search'))
     );
-    store.dispatch(openSearchPanel());
     store.dispatch(setSearchInputText('KAGI'));
 
     expect(await screen.findByText('Research')).toBeTruthy();

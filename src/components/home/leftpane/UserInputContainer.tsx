@@ -1,15 +1,15 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 
-import { useDispatch, useSelector } from 'react-redux';
+import { useDispatch } from 'react-redux';
 
 import { css } from '@emotion/react';
 
 import Button from '../../common/Button';
 import OverflowMenu from '../../common/OverflowMenu';
 import TextBox from '../../common/TextBox';
+import { useSavedSearch } from '../../../hooks/useSavedSearch';
 import { useThemeColors } from '../../../hooks/useThemeColors';
-import { AppDispatch, RootState } from '../../../redux/store';
-import { setSearchInputText } from '../../../redux/slices/globalStateSlice';
+import { AppDispatch } from '../../../redux/store';
 import {
   captureOpenWindows,
   isTabKeeperPage,
@@ -28,24 +28,10 @@ export default function UserInputContainer() {
   const { t } = useTranslation();
   const COLORS = useThemeColors();
   const dispatch: AppDispatch = useDispatch();
+  const { isSearching } = useSavedSearch();
 
   const [newTitle, setNewTitle] = useState<string>('');
   const [currentTabName, setCurrentTabName] = useState<string>('');
-  const [searchInput, setSearchInput] = useState<string>('');
-
-  // KAN-299. Mirrors of `newTitle` and the last suggestion this component
-  // applied, kept for the visibility handler below -- it is defined inside a
-  // mount-once effect (deliberately: see that effect's own comment), so a
-  // plain closure over `newTitle`/`currentTabName` would forever see their
-  // FIRST-render values. Both refs are written in lockstep with the state
-  // they mirror (updateUserInput for the box, applySuggestion for the
-  // suggestion), so there is nothing for the two sources to drift apart on.
-  const boxValueRef = useRef<string>('');
-  const lastSuggestionRef = useRef<string>('');
-
-  const isSearchPanel = useSelector(
-    (state: RootState) => state.globalState.isSearchPanel
-  );
 
   useEffect(() => {
     // Guards loadSuggestion below against setting state after this
@@ -57,14 +43,7 @@ export default function UserInputContainer() {
     // stops it from running at all once this effect unmounts.
     let cancelled = false;
 
-    // KAN-211/KAN-279 D15. The name box is a SUGGESTION, so it is cleaned like
-    // any other derived title -- offering "(3) Gmail" as a session name
-    // proposes storing a badge that is stale the moment it is saved. What the
-    // user then types is theirs and is never touched. Translated, so this
-    // agrees with createTabGroup's last-resort fallback below (KAN-84):
-    // leaving one of the two as a bare literal would show a German user "New
-    // Tab Group" prefilled while storing the translated name, or the reverse,
-    // depending on which path ran.
+    // A "(3) Gmail" badge is stale the moment it is saved.
     function cleanSuggestion(title: string | undefined): string {
       return title ? dropNotificationCount(title) : t('New Tab Group');
     }
@@ -101,10 +80,7 @@ export default function UserInputContainer() {
     async function loadSuggestion() {
       const suggested = cleanSuggestion(await fetchSuggestedTitle());
       if (cancelled) return;
-      boxValueRef.current = suggested;
-      lastSuggestionRef.current = suggested;
       setCurrentTabName(suggested);
-      setNewTitle(suggested);
     }
 
     loadSuggestion();
@@ -124,39 +100,8 @@ export default function UserInputContainer() {
       if (document.visibilityState !== 'visible') return;
       const suggested = cleanSuggestion(await fetchSuggestedTitle());
 
-      // KAN-299. `currentTabName` is createTabGroup's FALLBACK, read only
-      // once the box itself is empty -- so it has to keep tracking the
-      // current tab whether or not the box below gets overwritten.
-      // Unconditional: without this, clearing the box (a deliberate choice
-      // the guard below respects) left a save reading a suggestion this
-      // effect gave hours earlier, from whatever tab happened to be most
-      // recently used back at MOUNT.
+      // The name an empty save uses must follow the current tab.
       setCurrentTabName(suggested);
-
-      // The box, unlike the fallback above, is guarded: only replaced when
-      // nothing has touched it since the last suggestion this effect
-      // applied TO THE BOX. `boxValueRef` tracks the box's live value
-      // (updated on every keystroke by updateUserInput) and
-      // `lastSuggestionRef` the last suggestion this effect actually wrote
-      // into it -- the two agree only when nothing has touched the box
-      // since, which is the one case it is safe to replace.
-      //
-      // Both refs must move together, inside this branch, or not at all.
-      // Writing `lastSuggestionRef` UNCONDITIONALLY -- even when this guard
-      // declines to touch the box -- lets it drift ahead of `boxValueRef`.
-      // Repro: the user types "Mail"; Mail becomes most recent and the page
-      // goes visible (the guard correctly declines, but `lastSuggestionRef`
-      // still moves to "Mail", coincidentally matching what the user typed);
-      // Docs becomes most recent and the page goes visible again -- the two
-      // refs now spuriously agree ("Mail" === "Mail"), so the guard
-      // WRONGLY treats the box as untouched and overwrites the user's text
-      // with "Docs". A separate "dirty" boolean could drift from the box the
-      // same way; these two refs ARE the fact, but only if they move as one.
-      if (boxValueRef.current === lastSuggestionRef.current) {
-        boxValueRef.current = suggested;
-        lastSuggestionRef.current = suggested;
-        setNewTitle(suggested);
-      }
     }
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -175,17 +120,7 @@ export default function UserInputContainer() {
   }, []);
 
   function updateUserInput(e: React.ChangeEvent<HTMLInputElement>) {
-    boxValueRef.current = e.target.value;
     setNewTitle(e.target.value);
-  }
-
-  function handleSearchInputChange(e: React.ChangeEvent<HTMLInputElement>) {
-    setSearchInput(e.target.value);
-    dispatch(setSearchInputText(e.target.value));
-  }
-
-  function filterResults() {
-    // dispatch(setSearchInputText(searchInput));
   }
 
   // The scope is the button's word, not a stored preference (KAN-5). Focus
@@ -253,41 +188,21 @@ export default function UserInputContainer() {
     border: 1px solid ${COLORS.BORDER_COLOR};
   `;
 
-  return isSearchPanel ? (
-    <div css={containerStyle}>
-      <TextBox
-        id="searchInput"
-        name="searchInput"
-        value={searchInput}
-        placeholder={t('Search among sessions')}
-        autoComplete="off"
-        onChange={handleSearchInputChange}
-        onKeyEnter={filterResults}
-        style={`margin-right: 8px; height: ${ROW_HEIGHT};`}
-      />
-      {/* <Button text="Search" onClick={createTabGroup} /> */}
-      <Button
-        tooltipText={t('Search')}
-        iconType="search"
-        ariaLabel={t('Search')}
-        onClick={filterResults}
-        // ROW_HEIGHT like the box beside it (KAN-216). Padding alone left it
-        // 48px, 5px short at each edge of the row. 58px wide already, so it is
-        // square -- the size of the save panel's save-all segment in this spot.
-        style={`padding: 12px; flex-shrink: 0; height: ${ROW_HEIGHT};`}
-      />
-    </div>
-  ) : (
+  return (
     <div css={containerStyle}>
       <TextBox
         id="name"
         name="name"
         value={newTitle}
-        placeholder={t('Save all open windows as a session')}
+        placeholder={t('Name the new session')}
         autoComplete="off"
         onChange={updateUserInput}
-        onKeyEnter={() => createTabGroup('all-windows')}
-        style={`margin-right: 8px; height: ${ROW_HEIGHT};`}
+        onKeyEnter={
+          isSearching ? undefined : () => createTabGroup('all-windows')
+        }
+        style={`${
+          isSearching ? '' : 'margin-right: 8px; '
+        }height: ${ROW_HEIGHT};`}
       />
       {/* One wide save and a menu (KAN-208).
 
@@ -310,83 +225,81 @@ export default function UserInputContainer() {
           52% -- which is what "twins" looks like as a number. Re-measure
           before putting any second glyph back in this box.
 
-          The tooltip has its own key rather than borrowing the placeholder's,
-          even though both describe the same operation: the placeholder is
-          squeezed into a 231px field and several locales shortened it to fit
-          -- German drops "alle" and French drops "toutes", the very word that
-          has to survive here.
-
           Labels instead of a glyph would beat icons outright and do not fit:
           the row is 339px and the German pair alone needed 318px of it. A menu
           item, though, carries words for free -- which is the whole reason the
           secondary save reads better there than it did as a glyph. */}
-      <div css={saveGroupStyle}>
-        <Button
-          tooltipText={t('Save every open window as a session')}
-          ariaLabel={t('Save every open window as a session')}
-          iconType="library_add"
-          onClick={() => createTabGroup('all-windows')}
-          style="width: 58px; height: 100%; padding: 0; flex-shrink: 0; border: none;"
-        />
-        <OverflowMenu
-          // The same name the session header's and the group row's menus
-          // carry. Three controls in the popup now answer to it, which is
-          // fine for a user -- each is read in its own context -- but it does
-          // mean an e2e locator written on the name alone is ambiguous, and
-          // Playwright's strict mode refuses it. The specs scope to this row
-          // by the name box beside it.
-          ariaLabel={t('More actions')}
-          // The trigger sits at the END of the row, so the menu opens
-          // leftward, staying inside this pane -- the opposite call from the
-          // session header (KAN-193), whose trigger is near the start.
-          //
-          // The group is flex-shrink: 0, so every pixel here comes straight
-          // out of the name box beside it, and `more_vert` inks only 4px of
-          // its 24px box -- the rest is air worth giving back. Measured at
-          // 790x550, the name box went 231 -> 239 -> 243 as this went
-          // 40 -> 32 -> 28.
-          //
-          // 24px is the FLOOR, and this sits one step above it: below 24 two
-          // things break at once -- the 24px glyph box overflows its own
-          // control, and the target drops under WCAG 2.2 SC 2.5.8's 24x24
-          // minimum. The spacing exception does not rescue it, because the
-          // save button is 1px away, so a 24px circle centred here overlaps
-          // its neighbour. 28 keeps 12px of air around the dots, so the
-          // hover and pressed fills still read as a button rather than as a
-          // box drawn tight around the glyph.
-          //
-          // `padding: 0` is what lets the box be narrower than 32 at all:
-          // Icon otherwise adds 4px all round. Height is separate -- 2px is
-          // the group's own top and bottom borders, which border-box puts
-          // inside ROW_HEIGHT, and the Button beside it reaches the same 56px
-          // through `height: 100%`, which an Icon inside the menu's
-          // relatively-positioned wrapper cannot see.
-          triggerStyle={`width: 28px; height: calc(${ROW_HEIGHT} - 2px); padding: 0;
+      {!isSearching && (
+        <div css={saveGroupStyle}>
+          <Button
+            tooltipText={t('Save every open window as a session')}
+            ariaLabel={t('Save every open window as a session')}
+            iconType="library_add"
+            onClick={() => createTabGroup('all-windows')}
+            style="width: 58px; height: 100%; padding: 0; flex-shrink: 0; border: none;"
+          />
+          <OverflowMenu
+            // The same name the session header's and the group row's menus
+            // carry. Three controls in the popup now answer to it, which is
+            // fine for a user -- each is read in its own context -- but it does
+            // mean an e2e locator written on the name alone is ambiguous, and
+            // Playwright's strict mode refuses it. The specs scope to this row
+            // by the name box beside it.
+            ariaLabel={t('More actions')}
+            // The trigger sits at the END of the row, so the menu opens
+            // leftward, staying inside this pane -- the opposite call from the
+            // session header (KAN-193), whose trigger is near the start.
+            //
+            // The group is flex-shrink: 0, so every pixel here comes straight
+            // out of the name box beside it, and `more_vert` inks only 4px of
+            // its 24px box -- the rest is air worth giving back. Measured at
+            // 790x550, the name box went 231 -> 239 -> 243 as this went
+            // 40 -> 32 -> 28.
+            //
+            // 24px is the FLOOR, and this sits one step above it: below 24 two
+            // things break at once -- the 24px glyph box overflows its own
+            // control, and the target drops under WCAG 2.2 SC 2.5.8's 24x24
+            // minimum. The spacing exception does not rescue it, because the
+            // save button is 1px away, so a 24px circle centred here overlaps
+            // its neighbour. 28 keeps 12px of air around the dots, so the
+            // hover and pressed fills still read as a button rather than as a
+            // box drawn tight around the glyph.
+            //
+            // `padding: 0` is what lets the box be narrower than 32 at all:
+            // Icon otherwise adds 4px all round. Height is separate -- 2px is
+            // the group's own top and bottom borders, which border-box puts
+            // inside ROW_HEIGHT, and the Button beside it reaches the same 56px
+            // through `height: 100%`, which an Icon inside the menu's
+            // relatively-positioned wrapper cannot see.
+            triggerStyle={`width: 28px; height: calc(${ROW_HEIGHT} - 2px); padding: 0;
                          border-left: 1px solid ${COLORS.BORDER_COLOR};`}
-          items={[
-            {
-              key: 'save-current-window',
-              label: t('Save current window as a session'),
-              icon: 'add_box',
-              onSelect: () => createTabGroup('current-window'),
-            },
-            {
-              key: 'export-open-windows',
-              label: t('Export open windows'),
-              icon: 'ios_share',
-              onSelect: () => {
-                // Opening a tab takes focus, which destroys the popup.
-                // Nothing may be sequenced after this call -- the page
-                // captures the windows for itself when it loads, which is
-                // also why no snapshot is handed over here.
-                chrome.tabs.create({
-                  url: chrome.runtime.getURL('export.html?source=open-windows'),
-                });
+            items={[
+              {
+                key: 'save-current-window',
+                label: t('Save current window as a session'),
+                icon: 'add_box',
+                onSelect: () => createTabGroup('current-window'),
               },
-            },
-          ]}
-        />
-      </div>
+              {
+                key: 'export-open-windows',
+                label: t('Export open windows'),
+                icon: 'ios_share',
+                onSelect: () => {
+                  // Opening a tab takes focus, which destroys the popup.
+                  // Nothing may be sequenced after this call -- the page
+                  // captures the windows for itself when it loads, which is
+                  // also why no snapshot is handed over here.
+                  chrome.tabs.create({
+                    url: chrome.runtime.getURL(
+                      'export.html?source=open-windows'
+                    ),
+                  });
+                },
+              },
+            ]}
+          />
+        </div>
+      )}
     </div>
   );
 }

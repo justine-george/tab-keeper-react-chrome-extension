@@ -324,7 +324,8 @@ describe('the peek (O5)', () => {
   });
 });
 
-describe('the Saved sessions caption (O3)', () => {
+// KAN-385 S2: the search row replaces the caption at the top of the list.
+describe('the saved search row heads the session list (S2)', () => {
   test('is at the top of the session list in the tab view', async () => {
     goToTabView();
     await renderHome();
@@ -334,17 +335,20 @@ describe('the Saved sessions caption (O3)', () => {
       '[data-pane="sessions"]'
     );
     if (sessions === null) throw new Error('no sessions pane');
-    const caption = within(sessions).getByText('Saved sessions');
+    const searchField = within(sessions).getByRole('textbox', {
+      name: 'Search saved tabs',
+    });
+    expect(within(sessions).queryByText('Saved sessions')).toBeNull();
     // At the top of the list box: before its first row.
     const firstRow = sessions.querySelector('[data-drag-row-id]');
     if (firstRow === null) throw new Error('no session row');
     expect(
-      caption.compareDocumentPosition(firstRow) &
+      searchField.compareDocumentPosition(firstRow) &
         Node.DOCUMENT_POSITION_FOLLOWING
     ).toBeTruthy();
   });
 
-  // CONTROL. The popup is unchanged: no caption, and no Open now.
+  // CONTROL. The popup has no caption, and no Open now.
   test('CONTROL: the popup has no caption and no Open now', async () => {
     await renderHome();
     await mounted();
@@ -368,12 +372,12 @@ describe('the Saved sessions caption (O3)', () => {
   });
 });
 
-// KAN-280 O3a. The caption is pinned by structure: it sits above the element
-// that scrolls the session list, inside the list box's border, so that
-// scroller holds session rows and nothing else. The drag engine measures the
-// scroller as all rows and auto-scrolls from its edges; a sticky caption
-// laid over the top rows would put hidden rows under the pointer.
-describe('the Saved sessions caption stays put while the list scrolls (O3a)', () => {
+// O3a, kept by S2 for the search row: it sits above the element that scrolls
+// the session list, inside the list box's border, so that scroller holds
+// session rows and nothing else. The drag engine measures the scroller as all
+// rows and auto-scrolls from its edges; a sticky row laid over the top rows
+// would put hidden rows under the pointer.
+describe('the saved search row stays put while the list scrolls (O3a)', () => {
   // The element the drag engine takes for the list's scroller: the nearest
   // ancestor of a row that scrolls (RowDragArea's paneOf). jsdom does not
   // expand the `overflow` shorthand into overflowY (measured: overflow 'auto',
@@ -392,43 +396,47 @@ describe('the Saved sessions caption stays put while the list scrolls (O3a)', ()
     throw new Error('no scroll container above the session rows');
   }
 
-  const caption = () =>
-    document.querySelector<HTMLElement>('[data-caption="saved-sessions"]');
+  const searchRow = () =>
+    document.querySelector<HTMLElement>('[data-saved-search]');
 
-  test('in the tab view the caption sits directly above the scroller, outside it', async () => {
+  test('in the tab view the row sits directly above the scroller, outside it', async () => {
     goToTabView();
     await renderHome();
     await mounted();
 
     const scroller = listScroller();
-    const label = caption();
-    if (label === null) throw new Error('no caption');
-    expect(label).toHaveTextContent('Saved sessions');
-    expect(scroller.contains(label)).toBe(false);
-    expect(label.nextElementSibling).toBe(scroller);
+    const row = searchRow();
+    if (row === null) throw new Error('no search row');
+    expect(
+      within(row).getByRole('textbox', { name: 'Search saved tabs' })
+    ).toBeInTheDocument();
+    expect(scroller.contains(row)).toBe(false);
+    expect(row.nextElementSibling).toBe(scroller);
     // What the scroller holds starts with the rows.
     const firstRow = document.querySelector('[data-drag-row-id]');
     expect(scroller.firstElementChild?.contains(firstRow)).toBe(true);
   });
 
-  test('the caption is not sticky', async () => {
+  test('the row is not sticky', async () => {
     goToTabView();
     await renderHome();
     await mounted();
 
-    const label = caption();
-    if (label === null) throw new Error('no caption');
-    expect(getComputedStyle(label).position).not.toBe('sticky');
+    const row = searchRow();
+    if (row === null) throw new Error('no search row');
+    expect(getComputedStyle(row).position).not.toBe('sticky');
   });
 
-  // CONTROL. The popup's list is built as before: no caption, and the
-  // scroller's first child holds the first session row.
-  test('CONTROL: the popup has no caption, and its scroller starts with the rows', async () => {
+  // The popup's list takes the same shape (S2).
+  test('in the popup too the row sits directly above the scroller, which starts with the rows', async () => {
     await renderHome();
     await mounted();
 
-    expect(caption()).toBeNull();
+    const row = searchRow();
+    if (row === null) throw new Error('no search row');
     const scroller = listScroller();
+    expect(scroller.contains(row)).toBe(false);
+    expect(row.nextElementSibling).toBe(scroller);
     const firstRow = document.querySelector('[data-drag-row-id]');
     expect(scroller.firstElementChild?.contains(firstRow)).toBe(true);
   });

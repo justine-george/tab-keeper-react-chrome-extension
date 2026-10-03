@@ -10,10 +10,8 @@ import { NormalLabel } from '../../common/Label';
 import { RootState } from '../../../redux/store';
 import { useFontFamily } from '../../../hooks/useFontFamily';
 import { useThemeColors } from '../../../hooks/useThemeColors';
-import {
-  formatGroupCounts,
-  isSearchActive,
-} from '../../../utils/functions/local';
+import { formatGroupCounts } from '../../../utils/functions/local';
+import { useSavedSearch } from '../../../hooks/useSavedSearch';
 import { tabContainerData } from '../../../redux/slices/tabContainerDataStateSlice';
 import { useToday } from '../../../hooks/useToday';
 import {
@@ -24,6 +22,7 @@ import { isTabView } from '../../../utils/functions/viewMode';
 import { useTranslation } from 'react-i18next';
 import { DURATION, TYPE } from '../../../styles/scale';
 import { SPRING_OPEN_MS } from './springOpen';
+import { SAVED_TEXT_INSET } from './savedListInset';
 
 /**
  * How far a row's action icon sits inside the row, per side, in CSS px.
@@ -91,9 +90,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
   const FONT_FAMILY = useFontFamily();
   const { t, i18n } = useTranslation();
 
-  const isSearchPanel = useSelector(
-    (state: RootState) => state.globalState.isSearchPanel
-  );
+  const { isSearching } = useSavedSearch();
 
   // Which date the rows show. Device-local, set by the sort menu (KAN-141).
   const sessionDateBasis = useSelector(
@@ -101,13 +98,6 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
   );
   // Redraws the date when the local day changes (KAN-347).
   const today = useToday();
-
-  // Needed as well as isSearchPanel: the row's counts are narrowed only while
-  // the box has text in it, so the panel being open is not on its own enough
-  // to call them matches.
-  const searchInputText = useSelector(
-    (state: RootState) => state.globalState.searchInputText
-  );
 
   const { title, windowCount, tabCount, isSelected } = tabGroupData;
 
@@ -117,7 +107,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
     display: flex;
     flex-direction: column;
     justify-content: center;
-    padding: 8px;
+    padding: 8px 8px 8px ${SAVED_TEXT_INSET};
     align-items: flex-start;
     width: 100%;
     min-width: 0;
@@ -418,12 +408,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
           tooltipText={title}
         />
         <NormalLabel
-          value={formatGroupCounts(
-            windowCount,
-            tabCount,
-            isSearchActive(isSearchPanel, searchInputText),
-            t
-          )}
+          value={formatGroupCounts(windowCount, tabCount, isSearching, t)}
           color={COLORS.LABEL_L1_COLOR}
           size={TYPE.META}
           style="margin-top: 2px;"
@@ -458,7 +443,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
           )}
         </div>
       </ClickableRow>
-      {!isSearchPanel && (
+      {!isSearching && (
         <div data-row-actions css={rightStyle}>
           <Icon
             tooltipText={t('Open session')}

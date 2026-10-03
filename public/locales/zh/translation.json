@@ -1,14 +1,13 @@
 {
   "On": "开",
   "Off": "关",
-  "Search": "搜索",
   "Tab Keeper": "Tab Keeper",
   "Open in a tab": "在标签页中打开",
   "Undo": "撤销",
   "Redo": "重做",
   "Sync now": "立即同步",
   "Settings": "设置",
-  "Save all open windows as a session": "保存所有打开的窗口为一个会话",
+  "Name the new session": "新会话的名称",
   "Save every open window as a session": "将所有打开的窗口保存为会话",
   "Save current window as a session": "将当前窗口保存为会话",
   "Export open windows": "导出打开的窗口…",
@@ -61,7 +60,6 @@
   "TabCount_other": "{{count}} 个标签页",
   "Matches": "匹配：",
   "Go back": "返回",
-  "Search among sessions": "在会话中搜索",
   "All open windows saved as a session.": "已将所有打开的窗口保存为会话。",
   "Current window saved as a session.": "已将当前窗口保存为会话。",
   "Current tab added to this window.": "已将当前标签页添加到此窗口。",
@@ -210,7 +208,6 @@
   "Switch to tab": "切换到标签页",
   "Go to window": "转到窗口",
   "No other tabs are open": "没有其他打开的标签页",
-  "Saved sessions": "已保存的会话",
   "Fold the saved session away": "收起已保存的会话",
   "Show the saved session": "显示已保存的会话",
   "Close Open now": "关闭“当前打开的标签页”面板",
@@ -233,7 +230,10 @@
   "Search open tabs": "搜索打开的标签页",
   "Clear search": "清除搜索",
   "NoOpenTabMatches": "没有与“{{text}}”匹配的打开的标签页",
+  "Search saved tabs": "搜索已保存的标签页",
+  "NoSavedTabMatches": "没有与“{{text}}”匹配的已保存的标签页",
   "TabCountShownOfTotal_other": "{{count}} 个标签页中的 {{shown}} 个",
   "CarryCardNameAndCount_other": "{{name}} · {{count}} 个标签页",
-  "CarryNewWindowTarget": "新窗口"
+  "CarryNewWindowTarget": "新窗口",
+  "Search looks in session names, window names, tab titles and links.": "搜索范围包括会话名称、窗口名称、标签页标题和链接。"
 }

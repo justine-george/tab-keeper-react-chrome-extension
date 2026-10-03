@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { act } from '@testing-library/react';
+import { act, fireEvent, screen } from '@testing-library/react';
 
 import TabGroupEntryContainer from '../../components/home/leftpane/TabGroupEntryContainer';
 import { renderWithProviders } from '../setup/renderWithProviders';
@@ -7,10 +7,6 @@ import {
   saveToTabContainerInternal,
   updateTabGroupTitle,
 } from '../../redux/slices/tabContainerDataStateSlice';
-import {
-  openSearchPanel,
-  setSearchInputText,
-} from '../../redux/slices/globalStateSlice';
 import { undo } from '../../redux/slices/undoRedoSlice';
 
 // KAN-57, the search route. TabGroupEntryContainer selects the first filtered
@@ -59,17 +55,15 @@ const renderSeeded = () =>
     seedStore: (s) => {
       s.dispatch(saveToTabContainerInternal(buildGroup(1, 'Alpha')));
       s.dispatch(saveToTabContainerInternal(buildGroup(2, 'Bravo')));
-      s.dispatch(openSearchPanel());
     },
   });
 
-const type = async (
-  store: Awaited<ReturnType<typeof renderSeeded>>['store'],
-  text: string
-) => {
+// One change per character, into the saved search row.
+const type = async (text: string) => {
+  const field = screen.getByRole('textbox', { name: 'Search saved tabs' });
   for (let i = 1; i <= text.length; i++) {
     await act(async () => {
-      store.dispatch(setSearchInputText(text.slice(0, i)));
+      fireEvent.change(field, { target: { value: text.slice(0, i) } });
     });
   }
 };
@@ -79,7 +73,7 @@ describe('searching does not flood undo history (KAN-57)', () => {
     const { store } = await renderSeeded();
     const before = store.getState().undoRedo.past.length;
 
-    await type(store, 'Alph');
+    await type('Alph');
 
     // The control: the search must actually have moved the selection, or the
     // effect never fired and this passes for the wrong reason.
@@ -102,7 +96,7 @@ describe('searching does not flood undo history (KAN-57)', () => {
     });
     expect(store.getState().undoRedo.future.length).toBeGreaterThan(0);
 
-    await type(store, 'Alph');
+    await type('Alph');
 
     expect(store.getState().undoRedo.future.length).toBeGreaterThan(0);
   });

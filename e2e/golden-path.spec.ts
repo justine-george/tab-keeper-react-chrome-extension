@@ -148,11 +148,33 @@ test.describe('golden path', () => {
   }) => {
     const { page } = await openPopup(context, extensionId);
 
-    await page.locator('[aria-label="Search"]').click();
-    await page.locator('input#searchInput').fill('Holiday');
+    await page
+      .getByRole('textbox', { name: 'Search saved tabs' })
+      .fill('Holiday');
 
     await expect(page.getByText('Holiday').first()).toBeVisible();
     await expect(page.getByText('Research')).toHaveCount(0);
+  });
+
+  // KAN-386: back from Settings, the field was empty and the list still
+  // filtered. Opening Settings now clears the query (Q2).
+  test('5b. back from Settings the search is empty and every session shows', async ({
+    context,
+    extensionId,
+  }) => {
+    const { page } = await openPopup(context, extensionId);
+    const field = page.getByRole('textbox', { name: 'Search saved tabs' });
+
+    await field.fill('Holiday');
+    await expect(page.getByText('Research')).toHaveCount(0);
+
+    await page.getByRole('button', { name: 'Settings' }).click();
+    await expect(page.getByText('Themes')).toBeVisible();
+    await page.getByRole('button', { name: 'Go back' }).click();
+
+    await expect(field).toHaveValue('');
+    await expect(page.getByText('Research').first()).toBeVisible();
+    await expect(page.getByText('Holiday').first()).toBeVisible();
   });
 
   test('6. the settings panel opens and closes', async ({
@@ -163,8 +185,7 @@ test.describe('golden path', () => {
 
     await page.locator('[aria-label="Settings"]').click();
 
-    // Asserted on a settings-only heading, because the back control is not
-    // unique to this panel -- the search pane has one too.
+    // Asserted on a settings-only heading.
     await expect(page.getByText('Themes')).toBeVisible();
 
     // Addressed by role and accessible name rather than by visible text. That

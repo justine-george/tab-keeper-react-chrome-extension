@@ -5,7 +5,6 @@ import TabGroupEntryContainer from '../../components/home/leftpane/TabGroupEntry
 import { renderWithProviders } from '../setup/renderWithProviders';
 import type { RenderWithProvidersResult } from '../setup/renderWithProviders';
 import {
-  openSearchPanel,
   setSearchInputText,
   setHasTabGroupsPermission,
   setIsNotDirty,
@@ -86,7 +85,6 @@ const render = (searchText?: string) =>
         vi.useRealTimers();
       }
       if (searchText !== undefined) {
-        store.dispatch(openSearchPanel());
         store.dispatch(setSearchInputText(searchText));
       }
       store.dispatch(setIsNotDirty());
@@ -181,17 +179,17 @@ describe('a session drag inside a filtered list', () => {
   });
 });
 
-// KAN-140. The session list is the third drag area, and the guard here asks
-// about the MODE rather than about whether the search box holds text.
+// The session list is the third drag area; the gate is searching (KAN-385).
 //
 // Added because mutation testing found this level unguarded: replacing the
 // session area's `disabled` with a literal `false` broke nothing in the suite,
 // so KAN-131's guard here had never been pinned by a test.
-describe('dragging sessions while the search panel is open', () => {
-  test('does nothing, even with an empty box', async () => {
-    const { container, store } = await render('');
-    // The premise: an empty query filters nothing, so all three sessions are
-    // on screen and this is exactly the drag the unfiltered tests commit.
+describe('dragging sessions while searching', () => {
+  test('does nothing, even when the search hides nothing', async () => {
+    // Every tab's address is https://a.co.
+    const { container, store } = await render('a.co');
+    // The premise: all three sessions are on screen, and this is exactly the
+    // drag the unfiltered tests commit.
     layout(container, ['c', 'b', 'a']);
 
     drag(nodeFor(container, 'a'), 100, 5);
@@ -217,7 +215,7 @@ describe('dragging sessions while the search panel is open', () => {
 
   // THE CONTROL. Without it a session area that never dragged at all would
   // satisfy both tests above while proving nothing.
-  test('CONTROL: the same drag with no search panel does reorder', async () => {
+  test('CONTROL: the same drag with no search does reorder', async () => {
     const { container, store } = await render();
     layout(container, ['c', 'b', 'a']);
 

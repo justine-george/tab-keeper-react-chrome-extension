@@ -4,11 +4,7 @@ import { screen } from '@testing-library/react';
 import TabGroupEntryContainer from '../../components/home/leftpane/TabGroupEntryContainer';
 import HeroContainerRight from '../../components/home/rightpane/HeroContainerRight';
 import { renderWithProviders } from '../setup/renderWithProviders';
-import {
-  closeSearchPanel,
-  openSearchPanel,
-  setSearchInputText,
-} from '../../redux/slices/globalStateSlice';
+import { setSearchInputText } from '../../redux/slices/globalStateSlice';
 import { saveToTabContainerInternal } from '../../redux/slices/tabContainerDataStateSlice';
 
 // KAN-60. `Delta` is the session from the ticket, rebuilt at the same size: 7
@@ -67,14 +63,13 @@ describe('left pane count label', () => {
     expect(await screen.findByText('7 Windows · 13 Tabs')).toBeTruthy();
   });
 
-  // The case a fix keyed on `isSearchPanel` alone gets wrong. The panel is
-  // open, so a naive guard would call these matches -- but filterTabGroups has
-  // not run, and 7/13 is the session's real size.
-  test('still describes the session when the search box is empty', async () => {
+  // Spaces alone are no search (R2): filterTabGroups has not run, and 7/13
+  // is the session's real size.
+  test('still describes the session when the box holds only spaces', async () => {
     const { store } = await renderWithProviders(<TabGroupEntryContainer />);
 
     store.dispatch(saveToTabContainerInternal(delta()));
-    store.dispatch(openSearchPanel());
+    store.dispatch(setSearchInputText('   '));
 
     expect(await screen.findByText('7 Windows · 13 Tabs')).toBeTruthy();
     expect(screen.queryByText('Matches: 7 Windows · 13 Tabs')).toBeNull();
@@ -84,7 +79,6 @@ describe('left pane count label', () => {
     const { store } = await renderWithProviders(<TabGroupEntryContainer />);
 
     store.dispatch(saveToTabContainerInternal(delta()));
-    store.dispatch(openSearchPanel());
     store.dispatch(setSearchInputText('Example Domain'));
 
     expect(await screen.findByText('Matches: 1 Window · 1 Tab')).toBeTruthy();
@@ -97,13 +91,11 @@ describe('left pane count label', () => {
     const { store } = await renderWithProviders(<TabGroupEntryContainer />);
 
     store.dispatch(saveToTabContainerInternal(delta()));
-    store.dispatch(openSearchPanel());
     store.dispatch(setSearchInputText('Example Domain'));
 
     expect(await screen.findByText('Matches: 1 Window · 1 Tab')).toBeTruthy();
 
     store.dispatch(setSearchInputText(''));
-    store.dispatch(closeSearchPanel());
 
     expect(await screen.findByText('7 Windows · 13 Tabs')).toBeTruthy();
     expect(screen.queryByText(/^Matches:/)).toBeNull();
@@ -125,7 +117,6 @@ describe('right pane count label', () => {
     await renderWithProviders(<HeroContainerRight />, {
       seedStore: (store) => {
         store.dispatch(saveToTabContainerInternal(delta()));
-        store.dispatch(openSearchPanel());
         store.dispatch(setSearchInputText('Example Domain'));
       },
     });

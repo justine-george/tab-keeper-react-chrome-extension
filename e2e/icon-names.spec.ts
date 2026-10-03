@@ -36,12 +36,12 @@ async function openHome(
   return page;
 }
 
-test('header icons are named once, not described by their own name (KAN-345)', async ({
+test('header and search icons are named once, not described by their own name (KAN-345)', async ({
   context,
   extensionId,
 }) => {
   const page = await openHome(context, extensionId);
-  for (const name of ['Undo', 'Settings', 'Sort sessions', 'Search']) {
+  const expectNamedOnce = async (name: string) => {
     // PREMISE: the tooltip is the name, which is what made Chrome repeat it.
     await expect(
       page.getByRole('button', { name, exact: true })
@@ -51,10 +51,18 @@ test('header icons are named once, not described by their own name (KAN-345)', a
       name,
       description: '',
     });
+  };
+  for (const name of ['Undo', 'Settings', 'Sort sessions']) {
+    await expectNamedOnce(name);
   }
   // CONTROL: a tooltip that adds something is still read as the description.
   const [open] = await chromeAx(page, 'Open');
   expect(open.description).toBe('Open session, keeping current windows');
+  // The saved search is a row, not a header button (KAN-385): its icon is Clear search.
+  await page
+    .getByRole('textbox', { name: 'Search saved tabs', exact: true })
+    .fill('a');
+  await expectNamedOnce('Clear search');
 });
 
 test("a saved window's chevron names its window and says whether it is open (KAN-303)", async ({

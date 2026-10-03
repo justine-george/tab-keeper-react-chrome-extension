@@ -158,3 +158,40 @@ test('folding every window shortens the pane, and the control offers to undo it'
   await expect(page.getByText('Alpha Page')).toBeVisible();
   expect(await blocksExtent()).toBe(openHeight);
 });
+
+// A search takes controls out of the header and the window rows without moving
+// anything: the rows are not hidden, they are not rendered, and the header still
+// reads the same height. Layout, so only a browser can say.
+test('searching leaves the session header and each window row the same height', async ({
+  context,
+  extensionId,
+}) => {
+  await seedSessions(context, {
+    ...buildContainer([twoWindows]),
+    selectedTabGroupId: 's0',
+  });
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 790, height: 550 });
+  await page.goto(`chrome-extension://${extensionId}/index.html`);
+  await expect(
+    page.getByRole('button', { name: 'Collapse all windows' })
+  ).toBeVisible();
+
+  const heights = async () => ({
+    toolbar: (await page.locator('[data-session-toolbar]').boundingBox())
+      ?.height,
+    windows: await page
+      .locator('[data-window-drag-handle]')
+      .evaluateAll((els) => els.map((el) => el.getBoundingClientRect().height)),
+  });
+
+  const resting = await heights();
+  expect(resting.windows).toHaveLength(2);
+
+  await page.getByRole('textbox', { name: 'Search saved tabs' }).fill('page');
+  await expect(
+    page.getByRole('button', { name: 'Add current window' })
+  ).toHaveCount(0);
+
+  expect(await heights()).toEqual(resting);
+});

@@ -3,29 +3,17 @@ import { act } from '@testing-library/react';
 
 import TabGroupEntryContainer from '../../components/home/leftpane/TabGroupEntryContainer';
 import { renderWithProviders } from '../setup/renderWithProviders';
-import {
-  closeSearchPanel,
-  openSearchPanel,
-  setSearchInputText,
-} from '../../redux/slices/globalStateSlice';
+import { setSearchInputText } from '../../redux/slices/globalStateSlice';
 import {
   saveToTabContainerInternal,
   selectTabContainer,
 } from '../../redux/slices/tabContainerDataStateSlice';
 import type { tabContainerData } from '../../redux/slices/tabContainerDataStateSlice';
 
-// KAN-90. There are two ways to leave the search panel and they used to leave
-// you on two different sessions.
-//
-// Measured live, from one starting point -- COUNTS selected, searching ALPHA:
-// clearing the box landed on BETA, pressing Back landed on ALPHA. BETA is
-// neither the session that was selected before the search nor the one searched
-// for; it is simply the newest in the list.
-//
-// The cause was one dependency array. Clearing changes `searchInputText`, so
-// the effect re-ran -- but `isSearchActive` was false by then, so the
-// "filtered" list was the whole list and [0] was the newest session. Back
-// leaves the text alone, so the effect never fired.
+// KAN-90. Clearing the search used to land on BETA, the newest session: the
+// effect re-ran on the cleared text and selected [0] of the whole list. It
+// must leave you on the match you found. Clearing is the only way out now
+// that the search is a row (KAN-385).
 
 const session = (id: string, title: string): tabContainerData => ({
   tabGroupId: id,
@@ -80,11 +68,10 @@ const selected = (store: Store) =>
 
 const search = (store: Store, text: string) =>
   act(() => {
-    store.dispatch(openSearchPanel());
     store.dispatch(setSearchInputText(text));
   });
 
-describe('leaving the search does not move the user (KAN-90)', () => {
+describe('clearing the search does not move the user (KAN-90)', () => {
   test('CONTROL: searching still selects the first match', async () => {
     const { store } = await renderWithSessions();
     act(() => {
@@ -110,45 +97,6 @@ describe('leaving the search does not move the user (KAN-90)', () => {
 
     // Was 'b' (BETA, the newest session) before the fix.
     expect(selected(store)).toBe('a');
-  });
-
-  test('pressing Back leaves you on the match too, as it always did', async () => {
-    const { store } = await renderWithSessions();
-    act(() => {
-      store.dispatch(selectTabContainer('c'));
-    });
-    search(store, 'ALPHA');
-
-    act(() => {
-      store.dispatch(closeSearchPanel());
-    });
-
-    expect(selected(store)).toBe('a');
-  });
-
-  // The point of the ticket: the two exits must agree. Asserted as an equality
-  // between the two paths rather than against a literal, so it keeps holding
-  // if the agreed behaviour is ever changed to something else.
-  test('both exits agree', async () => {
-    const viaClear = await renderWithSessions();
-    act(() => {
-      viaClear.store.dispatch(selectTabContainer('c'));
-    });
-    search(viaClear.store, 'ALPHA');
-    act(() => {
-      viaClear.store.dispatch(setSearchInputText(''));
-    });
-
-    const viaBack = await renderWithSessions();
-    act(() => {
-      viaBack.store.dispatch(selectTabContainer('c'));
-    });
-    search(viaBack.store, 'ALPHA');
-    act(() => {
-      viaBack.store.dispatch(closeSearchPanel());
-    });
-
-    expect(selected(viaClear.store)).toBe(selected(viaBack.store));
   });
 
   // Narrowing a query should not walk the user back to the top of the results.

@@ -7,20 +7,18 @@ import { css } from '@emotion/react';
 import { RootState } from '../../../redux/store';
 import HeroContainerRight from './HeroContainerRight';
 import { selectVisibleTabGroups } from '../../../utils/functions/local';
+import { useSavedSearch } from '../../../hooks/useSavedSearch';
 import TabGroupDetailsContainer from './TabGroupDetailsContainer';
+import NoMatchState from '../../common/NoMatchState';
+import { useNoMatchPlace } from '../../../hooks/useNoMatchPlace';
 
 function RightPane() {
   const tabContainerDataList = useSelector(
     (state: RootState) => state.tabContainerDataState
   );
 
-  const isSearchPanel = useSelector(
-    (state: RootState) => state.globalState.isSearchPanel
-  );
-
-  const searchInputText = useSelector(
-    (state: RootState) => state.globalState.searchInputText
-  );
+  const { text: searchText } = useSavedSearch();
+  const { query, place } = useNoMatchPlace();
 
   const hasTabGroupsPermission = useSelector(
     (state: RootState) => state.globalState.hasTabGroupsPermission
@@ -30,8 +28,7 @@ function RightPane() {
   // with what they find
   const visibleTabGroups = selectVisibleTabGroups(
     tabContainerDataList.tabGroups,
-    isSearchPanel,
-    searchInputText,
+    searchText,
     hasTabGroupsPermission
   );
 
@@ -44,6 +41,8 @@ function RightPane() {
     padding: 8px 8px;
     height: 100%;
   `;
+
+  if (place === 'detail') return <NoMatchState query={query} inset={48} />;
 
   return (
     <>

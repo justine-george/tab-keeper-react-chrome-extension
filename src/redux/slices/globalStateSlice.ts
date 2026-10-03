@@ -88,7 +88,6 @@ export interface Global {
   userId: string | null;
   isDirty: boolean;
   isSettingsPage: boolean;
-  isSearchPanel: boolean;
   searchInputText: string;
   syncStatus: 'idle' | 'loading' | 'success' | 'error';
   // KAN-349. The toasts on screen, newest last (toastStack.ts). A toast's
@@ -253,7 +252,6 @@ export const initialState: Global = {
   userId: null,
   isDirty: false,
   isSettingsPage: false,
-  isSearchPanel: false,
   searchInputText: '',
   syncStatus: 'idle',
   toasts: [],
@@ -974,14 +972,6 @@ export const globalStateSlice = createSlice({
       state.isCloudConsentModalOpen = false;
     },
 
-    openSearchPanel: (state) => {
-      state.isSearchPanel = true;
-    },
-
-    closeSearchPanel: (state) => {
-      state.isSearchPanel = false;
-    },
-
     setSearchInputText: (state, action: PayloadAction<string>) => {
       state.searchInputText = action.payload;
     },
@@ -1227,6 +1217,8 @@ export const globalStateSlice = createSlice({
       })
       .addCase(openSettingsPage.fulfilled, (state) => {
         state.isSettingsPage = true;
+        // Back from Settings shows every session (Q2).
+        state.searchInputText = '';
       })
       .addCase(showToast.fulfilled, () => {})
       // KAN-294. Any action of the sessions slice means the store no longer
@@ -1257,8 +1249,6 @@ export const {
   cancelReplaceSessions,
   openCloudConsentModal,
   closeCloudConsentModal,
-  openSearchPanel,
-  closeSearchPanel,
   setSearchInputText,
   toastAdded,
   toastsRemoved,

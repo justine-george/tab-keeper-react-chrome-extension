@@ -27,9 +27,8 @@ const allSources = import.meta.glob('/src/components/**/*.tsx', {
 // English strings were unreachable. KAN-69 deleted those components, so every
 // remaining component is live and none is skipped.
 
-// Commented-out JSX still matches the literal patterns below --
-// UserInputContainer keeps a `{/* <Button text="Search" ... /> */}` line -- and
-// a commented string is not shipped to anyone.
+// Commented-out JSX still matches the literal patterns below, and a commented
+// string is not shipped to anyone.
 const stripComments = (src: string) =>
   src.replace(/\{\/\*[\s\S]*?\*\/\}/g, '').replace(/^\s*\/\/.*$/gm, '');
 
@@ -71,7 +70,7 @@ const HARDCODED_ARIA_ATTR = /aria-label="([^"]*)"/g;
 // the same defect as a hardcoded ariaLabel and was invisible here only because
 // this prop was not scanned.
 //
-// `value={t('Empty')}`, `value={title}` and TextBox's `value={searchInput}`
+// `value={t('Empty')}`, `value={title}` and TextBox's `value={value}`
 // do not match: the pattern requires a quoted literal, and every `value` that
 // carries live data is an expression.
 const HARDCODED_VALUE = /\bvalue="([^"]*)"/g;

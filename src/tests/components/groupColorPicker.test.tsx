@@ -1,12 +1,12 @@
 import { describe, expect, test } from 'vitest';
-import { cleanup, screen, within } from '@testing-library/react';
+import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import WindowEntryContainer from '../../components/home/rightpane/WindowEntryContainer';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import {
+  setSearchInputText,
   setHasTabGroupsPermission,
-  openSearchPanel,
 } from '../../redux/slices/globalStateSlice';
 import { saveToTabContainerInternal } from '../../redux/slices/tabContainerDataStateSlice';
 import { LIGHT_THEME } from '../../hooks/useThemeColors';
@@ -41,7 +41,7 @@ const BAND = 'Change group color: Research';
 async function renderGroup({
   color = 'blue',
   title = 'Research',
-  isSearchPanel = false,
+  isSearching = false,
 } = {}) {
   const groups: chromeTabGroupData[] = [{ groupId: 'grp', title, color }];
   return renderWithProviders(
@@ -59,7 +59,7 @@ async function renderGroup({
     {
       seedStore: (store) => {
         store.dispatch(setHasTabGroupsPermission(true));
-        if (isSearchPanel) store.dispatch(openSearchPanel());
+        if (isSearching) store.dispatch(setSearchInputText('research'));
         store.dispatch(
           saveToTabContainerInternal({
             tabGroupId: 'tg',
@@ -280,17 +280,14 @@ describe('the group colour band', () => {
     expect(screen.queryByRole('menu')).not.toBeInTheDocument();
   });
 
-  // KAN-62: a control that cannot act must not be focusable. The search panel
-  // withholds every other mutating group action, so the band goes back to
-  // being the decoration it was.
-  test('the search panel leaves the band inert', async () => {
-    await renderGroup({ isSearchPanel: true });
+  // Colour is not a whole-item action, so searching leaves the band a control.
+  test('searching keeps the band a control', async () => {
+    await renderGroup({ isSearching: true });
 
-    expect(
-      screen.queryByRole('button', { name: BAND })
-    ).not.toBeInTheDocument();
-    const group = screen.getByRole('group', { name: 'Research' });
-    expect(group.querySelector('[aria-hidden="true"]')).not.toBeNull();
+    expect(screen.getByRole('button', { name: BAND })).toHaveAttribute(
+      'aria-haspopup',
+      'menu'
+    );
   });
 });
 
@@ -341,15 +338,11 @@ describe('widening the band', () => {
     expect(style.marginRight).toBe('9px');
   });
 
-  // KAN-231. The click target is a ::after on the INTERACTIVE strip only. The
-  // decorative strip (search results) is aria-hidden and has nothing to be a
-  // target for, so it must not carry one. jsdom applies no pseudo-element
-  // rules, so this reads the inserted rule text, keyed by each strip's own
-  // class list.
-  test('the hit area rule is on the interactive strip and not the decorative one', async () => {
+  // KAN-231. jsdom applies no pseudo-element rules, so this reads the inserted
+  // rule text, keyed by the strip's own class list.
+  test('the hit area is a ::after on the strip, with no ::before', async () => {
     // Rules whose selector names one of this element's own classes and the
-    // given pseudo-element. Emotion emits one class per css`` block, so the
-    // interactive strip and the decorative strip do not share classes.
+    // given pseudo-element. Emotion emits one class per css`` block.
     const pseudoRulesFor = (el: Element, pseudo: '::after' | '::before') => {
       const classes = [...el.classList].map((c) => `.${c}`);
       const found: string[] = [];
@@ -377,15 +370,5 @@ describe('widening the band', () => {
     // No ::before: tab-group-join-preview.spec reads the strip's ::before as
     // its paint layer and must keep finding none.
     expect(pseudoRulesFor(interactive, '::before')).toBe('');
-
-    // The decorative strip carries neither. It is aria-hidden and inert; a
-    // 24px hit area on it would be a target for nothing.
-    cleanup();
-    await renderGroup({ isSearchPanel: true });
-    const decorative = screen
-      .getByRole('group', { name: 'Research' })
-      .querySelector('[data-group-color-strip]')!;
-    expect(decorative.getAttribute('aria-hidden')).toBe('true');
-    expect(pseudoRulesFor(decorative, '::after')).toBe('');
   });
 });

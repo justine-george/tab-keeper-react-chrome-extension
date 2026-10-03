@@ -1,6 +1,9 @@
 import { describe, expect, test } from 'vitest';
 
-import { selectVisibleTabGroups } from '../../../utils/functions/local';
+import {
+  isSearchActive,
+  selectVisibleTabGroups,
+} from '../../../utils/functions/local';
 import { tabContainerData } from '../../../redux/slices/tabContainerDataStateSlice';
 
 const session = (
@@ -49,7 +52,6 @@ describe('selectVisibleTabGroups', () => {
   test('keeps only the selected sessions', () => {
     const visible = selectVisibleTabGroups(
       [session('Research', true), session('Errands', false)],
-      false,
       '',
       true
     );
@@ -60,19 +62,7 @@ describe('selectVisibleTabGroups', () => {
   test('narrows the selected session by the search text', () => {
     const visible = selectVisibleTabGroups(
       [session('Research', true, 'Kagi Search')],
-      true,
       'kagi',
-      true
-    );
-
-    expect(visible.map((group) => group.title)).toEqual(['Research']);
-  });
-
-  test('ignores the search text while the search panel is closed', () => {
-    const visible = selectVisibleTabGroups(
-      [session('Research', true, 'Kagi Search')],
-      false,
-      'nothing matches this',
       true
     );
 
@@ -84,7 +74,6 @@ describe('selectVisibleTabGroups', () => {
   test('returns an empty list when the search matches no selected session', () => {
     const visible = selectVisibleTabGroups(
       [session('Research', true, 'Kagi Search')],
-      true,
       'nothing matches this',
       true
     );
@@ -94,15 +83,37 @@ describe('selectVisibleTabGroups', () => {
 
   test('returns an empty list when nothing is selected at all', () => {
     expect(
-      selectVisibleTabGroups([session('Research', false)], false, '', true)
+      selectVisibleTabGroups([session('Research', false)], '', true)
     ).toEqual([]);
   });
 
   test('does not mutate the list it is given', () => {
     const groups = [session('Research', true), session('Errands', false)];
 
-    selectVisibleTabGroups(groups, true, 'kagi', true);
+    selectVisibleTabGroups(groups, 'kagi', true);
 
     expect(groups.map((group) => group.title)).toEqual(['Research', 'Errands']);
+  });
+});
+
+// R2: the search is the trimmed text, as in Open now.
+describe('the search ignores surrounding spaces', () => {
+  test('spaces alone are no search', () => {
+    expect(isSearchActive('  ')).toBe(false);
+  });
+
+  test("'Kyoto ' matches what 'kyoto' matches", () => {
+    const groups = [session('Trip', true, 'Kyoto')];
+
+    expect(selectVisibleTabGroups(groups, 'Kyoto ', true)).toEqual(
+      selectVisibleTabGroups(groups, 'kyoto', true)
+    );
+    expect(selectVisibleTabGroups(groups, 'kyoto', true)).toHaveLength(1);
+  });
+
+  test('spaces alone return the selected session whole', () => {
+    const groups = [session('Trip', true, 'Kyoto')];
+
+    expect(selectVisibleTabGroups(groups, '   ', true)).toEqual(groups);
   });
 });

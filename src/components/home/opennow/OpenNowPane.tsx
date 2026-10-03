@@ -17,6 +17,7 @@ import { NormalLabel } from '../../common/Label';
 import type { IconName } from '../../common/iconNames';
 import { useSearchShortcut } from '../../../hooks/useSearchShortcut';
 import { useFontFamily } from '../../../hooks/useFontFamily';
+import { useSavedSearch } from '../../../hooks/useSavedSearch';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { formatOpenNowCounts } from '../../../utils/functions/local';
 import type { OpenTab, OpenWindow } from '../../../utils/functions/openNow';
@@ -153,6 +154,8 @@ export default function OpenNowPane({
   const tabCount = listed.reduce((sum, w) => sum + w.tabs.length, 0);
 
   const searchTerm = searchTermOf(searchText);
+  // A save lands in the saved list, so it waits for that list's search.
+  const { isSearching: isSavedSearching } = useSavedSearch();
   // KAN-330 O14a. Computed once per render; null when no search is held.
   const matches =
     searchTerm === null ? null : matchOpenWindows(listed, searchTerm);
@@ -415,7 +418,7 @@ export default function OpenNowPane({
     input.focus();
     input.select();
   };
-  useSearchShortcut(focusSearchField);
+  useSearchShortcut('openNow', focusSearchField);
 
   // KAN-330 K1. ↓/↑ on a drawn tab's Switch button move to the next or
   // previous one; ↑ on the first goes back to the field. Other targets (a
@@ -517,7 +520,7 @@ export default function OpenNowPane({
             />
           )}
           {/* With nothing listed there is nothing to save. */}
-          {listed.length > 0 && (
+          {listed.length > 0 && !isSavedSearching && (
             <Icon
               tooltipText={t('Save every open window as a session')}
               ariaLabel={t('Save every open window as a session')}
@@ -581,9 +584,8 @@ export default function OpenNowPane({
               fixedRowSelector="[data-fixed-row-id]"
               landingRange={drop.tabs.landingRange}
               acceptsWindow={drop.tabs.acceptsWindow}
-              // KAN-330 O14c: no row can be picked up while a search is held.
-              // The same rule as the saved pane's search (KAN-140), keyed on
-              // the term because Open now's field has no separate mode.
+              // KAN-330 O14c: no row can be picked up while a search is held,
+              // the same rule as the saved pane's search.
               disabled={searchTerm !== null}
             >
               <RowDragArea

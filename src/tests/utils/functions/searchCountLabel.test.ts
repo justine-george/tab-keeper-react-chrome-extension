@@ -18,26 +18,15 @@ beforeAll(async () => {
 });
 
 describe('isSearchActive', () => {
-  test('is true only when the panel is open AND something has been typed', () => {
-    expect(isSearchActive(true, 'kagi')).toBe(true);
+  test('is true when something has been typed', () => {
+    expect(isSearchActive('kagi')).toBe(true);
   });
 
-  // The case that makes this a predicate rather than a boolean read.
   // filterTabGroups never runs on an empty box, so the counts on screen are
   // the session's real size -- labelling them as matches would be a new lie in
   // the opposite direction to the one KAN-60 fixes.
-  test('is false when the panel is open but the box is empty', () => {
-    expect(isSearchActive(true, '')).toBe(false);
-  });
-
-  test('is false when nothing is typed and the panel is closed', () => {
-    expect(isSearchActive(false, '')).toBe(false);
-  });
-
-  // Stale text outliving a closed panel: the list is not filtered, so the
-  // counts are real.
-  test('is false when the panel is closed even if text lingers', () => {
-    expect(isSearchActive(false, 'kagi')).toBe(false);
+  test('is false when the box is empty', () => {
+    expect(isSearchActive('')).toBe(false);
   });
 });
 

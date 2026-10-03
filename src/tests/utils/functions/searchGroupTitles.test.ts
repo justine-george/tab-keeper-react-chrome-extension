@@ -82,24 +82,24 @@ const titlesOf = (groups: tabContainerData[]): string[] =>
 
 describe('filterTabGroups matching a Chrome group title', () => {
   test('finds a session whose only match is a group title', () => {
-    expect(filterTabGroups('Quarterly', [grouped()], true)).toHaveLength(1);
+    expect(filterTabGroups('quarterly', [grouped()], true)).toHaveLength(1);
   });
 
   test('admits the group members and nothing else in the window', () => {
-    const matched = filterTabGroups('Quarterly', [grouped()], true);
+    const matched = filterTabGroups('quarterly', [grouped()], true);
 
     expect(titlesOf(matched)).toEqual(['Gamma', 'Epsilon']);
   });
 
   test('narrows the counts to what matched', () => {
-    const [matched] = filterTabGroups('Quarterly', [grouped()], true);
+    const [matched] = filterTabGroups('quarterly', [grouped()], true);
 
     expect(matched.windowCount).toBe(1);
     expect(matched.tabCount).toBe(2);
   });
 
   test('keeps the group definitions so the band still renders', () => {
-    const [matched] = filterTabGroups('Quarterly', [grouped()], true);
+    const [matched] = filterTabGroups('quarterly', [grouped()], true);
 
     expect(matched.windows[0].chromeTabGroups).toEqual([
       { groupId: 'g-1', title: 'Quarterly', color: 'blue' },
@@ -107,11 +107,14 @@ describe('filterTabGroups matching a Chrome group title', () => {
     ]);
   });
 
+  // The term arrives lower-cased (searchTermOf), so case is checked from the field's text.
   test('is case insensitive, like every other level', () => {
-    expect(titlesOf(filterTabGroups('quarterly', [grouped()], true))).toEqual([
-      'Gamma',
-      'Epsilon',
-    ]);
+    const typed = selectVisibleTabGroups(
+      [{ ...grouped(), isSelected: true }],
+      'QUARTERLY',
+      true
+    );
+    expect(titlesOf(typed)).toEqual(['Gamma', 'Epsilon']);
   });
 
   test('matches on a substring, like every other level', () => {
@@ -122,7 +125,7 @@ describe('filterTabGroups matching a Chrome group title', () => {
   });
 
   test('admits each group separately', () => {
-    expect(titlesOf(filterTabGroups('Personal', [grouped()], true))).toEqual([
+    expect(titlesOf(filterTabGroups('personal', [grouped()], true))).toEqual([
       'Zeta',
     ]);
   });
@@ -137,7 +140,7 @@ describe('filterTabGroups matching a Chrome group title', () => {
     };
 
     // In stored order: the ungrouped match sits between the two group members.
-    expect(titlesOf(filterTabGroups('Quarterly', [session], true))).toEqual([
+    expect(titlesOf(filterTabGroups('quarterly', [session], true))).toEqual([
       'Gamma',
       'Quarterly review doc',
       'Epsilon',
@@ -151,13 +154,13 @@ describe('filterTabGroups without the tabGroups permission', () => {
   // everywhere in the UI. Matching one would narrow a window to a subset of
   // its tabs with nothing on screen saying why.
   test('does not match a group title', () => {
-    expect(filterTabGroups('Quarterly', [grouped()], false)).toEqual([]);
+    expect(filterTabGroups('quarterly', [grouped()], false)).toEqual([]);
   });
 
   test('still matches the levels that are visible', () => {
-    expect(filterTabGroups('Alpha', [grouped()], false)).toHaveLength(1);
-    expect(filterTabGroups('Beta window', [grouped()], false)).toHaveLength(1);
-    expect(titlesOf(filterTabGroups('Gamma', [grouped()], false))).toEqual([
+    expect(filterTabGroups('alpha', [grouped()], false)).toHaveLength(1);
+    expect(filterTabGroups('beta window', [grouped()], false)).toHaveLength(1);
+    expect(titlesOf(filterTabGroups('gamma', [grouped()], false))).toEqual([
       'Gamma',
     ]);
   });
@@ -168,7 +171,7 @@ describe('filterTabGroups group matching, off the happy path', () => {
     // 'g-vanished' has no definition, so nothing can match its title. The tab
     // is reachable only by its own title.
     expect(filterTabGroups('vanished', [grouped()], true)).toEqual([]);
-    expect(titlesOf(filterTabGroups('Orphaned', [grouped()], true))).toEqual([
+    expect(titlesOf(filterTabGroups('orphaned', [grouped()], true))).toEqual([
       'Orphaned',
     ]);
   });
@@ -183,15 +186,15 @@ describe('filterTabGroups group matching, off the happy path', () => {
       { groupId: 'g-2', title: '', color: 'green' },
     ];
 
-    expect(filterTabGroups('Quarterly', [session], true)).toEqual([]);
+    expect(filterTabGroups('quarterly', [session], true)).toEqual([]);
   });
 
   test('a window with no groups at all is unaffected', () => {
     const session = grouped();
     delete session.windows[0].chromeTabGroups;
 
-    expect(filterTabGroups('Quarterly', [session], true)).toEqual([]);
-    expect(titlesOf(filterTabGroups('Delta', [session], true))).toEqual([
+    expect(filterTabGroups('quarterly', [session], true)).toEqual([]);
+    expect(titlesOf(filterTabGroups('delta', [session], true))).toEqual([
       'Delta',
     ]);
   });
@@ -200,7 +203,7 @@ describe('filterTabGroups group matching, off the happy path', () => {
     const session = grouped();
     session.windows[0].chromeTabGroups = [];
 
-    expect(filterTabGroups('Quarterly', [session], true)).toEqual([]);
+    expect(filterTabGroups('quarterly', [session], true)).toEqual([]);
   });
 
   test('a group whose members have all gone contributes no window', () => {
@@ -211,13 +214,13 @@ describe('filterTabGroups group matching, off the happy path', () => {
       { groupId: 'g-orphan', title: 'Quarterly', color: 'blue' },
     ];
 
-    expect(filterTabGroups('Quarterly', [session], true)).toEqual([]);
+    expect(filterTabGroups('quarterly', [session], true)).toEqual([]);
   });
 
   test('a session title match still wins outright over group narrowing', () => {
     // 'Alpha' is the session title, so the whole session is admitted whole --
     // group matching must not narrow a level that already matched above it.
-    const matched = filterTabGroups('Alpha', [grouped()], true);
+    const matched = filterTabGroups('alpha', [grouped()], true);
 
     expect(titlesOf(matched)).toEqual([
       'Gamma',
@@ -229,7 +232,7 @@ describe('filterTabGroups group matching, off the happy path', () => {
   });
 
   test('a window title match still wins outright over group narrowing', () => {
-    const matched = filterTabGroups('Beta window', [grouped()], true);
+    const matched = filterTabGroups('beta window', [grouped()], true);
 
     expect(titlesOf(matched)).toEqual([
       'Gamma',
@@ -245,28 +248,19 @@ describe('selectVisibleTabGroups carries the permission through', () => {
   const selected = () => ({ ...grouped(), isSelected: true });
 
   test('matches a group title when the permission is granted', () => {
-    const visible = selectVisibleTabGroups(
-      [selected()],
-      true,
-      'Quarterly',
-      true
-    );
+    const visible = selectVisibleTabGroups([selected()], 'Quarterly', true);
 
     expect(titlesOf(visible)).toEqual(['Gamma', 'Epsilon']);
   });
 
   test('does not when it is not', () => {
-    expect(
-      selectVisibleTabGroups([selected()], true, 'Quarterly', false)
-    ).toEqual([]);
+    expect(selectVisibleTabGroups([selected()], 'Quarterly', false)).toEqual(
+      []
+    );
   });
 
   test('the permission changes nothing while no search is running', () => {
-    expect(selectVisibleTabGroups([selected()], false, '', false)).toHaveLength(
-      1
-    );
-    expect(selectVisibleTabGroups([selected()], false, '', true)).toHaveLength(
-      1
-    );
+    expect(selectVisibleTabGroups([selected()], '', false)).toHaveLength(1);
+    expect(selectVisibleTabGroups([selected()], '', true)).toHaveLength(1);
   });
 });

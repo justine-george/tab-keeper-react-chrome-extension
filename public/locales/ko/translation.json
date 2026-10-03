@@ -1,14 +1,13 @@
 {
   "On": "켬",
   "Off": "끔",
-  "Search": "검색",
   "Tab Keeper": "Tab Keeper",
   "Open in a tab": "탭에서 열기",
   "Undo": "실행취소",
   "Redo": "다시 실행",
   "Sync now": "지금 동기화",
   "Settings": "설정",
-  "Save all open windows as a session": "열려 있는 모든 창을 세션으로 저장",
+  "Name the new session": "새 세션 이름",
   "Save every open window as a session": "열려 있는 모든 창을 세션으로 저장",
   "Save current window as a session": "현재 창을 세션으로 저장",
   "Export open windows": "열려 있는 창 내보내기…",
@@ -61,7 +60,6 @@
   "TabCount_other": "탭 {{count}}개",
   "Matches": "일치:",
   "Go back": "뒤로 가기",
-  "Search among sessions": "세션에서 검색",
   "All open windows saved as a session.": "열려 있는 모든 창을 세션으로 저장했습니다.",
   "Current window saved as a session.": "현재 창을 세션으로 저장했습니다.",
   "Current tab added to this window.": "현재 탭을 이 창에 추가했습니다.",
@@ -210,7 +208,6 @@
   "Switch to tab": "탭으로 전환",
   "Go to window": "창으로 이동",
   "No other tabs are open": "열려 있는 다른 탭이 없습니다",
-  "Saved sessions": "저장된 세션",
   "Fold the saved session away": "저장된 세션 접기",
   "Show the saved session": "저장된 세션 보기",
   "Close Open now": "\"지금 열려 있는 탭\" 패널 닫기",
@@ -233,7 +230,10 @@
   "Search open tabs": "열린 탭 검색",
   "Clear search": "검색 지우기",
   "NoOpenTabMatches": "\"{{text}}\" 검색어와 일치하는 열린 탭이 없습니다",
+  "Search saved tabs": "저장된 탭 검색",
+  "NoSavedTabMatches": "\"{{text}}\" 검색어와 일치하는 저장된 탭이 없습니다",
   "TabCountShownOfTotal_other": "탭 {{count}}개 중 {{shown}}개",
   "CarryCardNameAndCount_other": "{{name}} · 탭 {{count}}개",
-  "CarryNewWindowTarget": "새 창"
+  "CarryNewWindowTarget": "새 창",
+  "Search looks in session names, window names, tab titles and links.": "세션 이름, 창 이름, 탭 제목, 링크에서 검색합니다."
 }

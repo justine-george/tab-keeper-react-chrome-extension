@@ -7,8 +7,8 @@ import WindowEntryContainer from '../../components/home/rightpane/WindowEntryCon
 import { renderWithProviders } from '../setup/renderWithProviders';
 import type { ChromeSeed } from '../setup/chrome.fake';
 import {
+  setSearchInputText,
   setHasTabGroupsPermission,
-  openSearchPanel,
 } from '../../redux/slices/globalStateSlice';
 import { saveToTabContainerInternal } from '../../redux/slices/tabContainerDataStateSlice';
 import type { chromeTabGroupData } from '../../redux/slices/tabContainerDataStateSlice';
@@ -49,9 +49,9 @@ const DEFAULT_SEED: ChromeSeed = {
 };
 
 async function renderRow({
-  isSearchPanel = false,
+  isSearching = false,
   seed = DEFAULT_SEED,
-}: { isSearchPanel?: boolean; seed?: ChromeSeed } = {}) {
+}: { isSearching?: boolean; seed?: ChromeSeed } = {}) {
   return renderWithProviders(
     <WindowEntryContainer
       title="Window 1"
@@ -68,7 +68,7 @@ async function renderRow({
       seed,
       seedStore: (store) => {
         store.dispatch(setHasTabGroupsPermission(true));
-        if (isSearchPanel) store.dispatch(openSearchPanel());
+        if (isSearching) store.dispatch(setSearchInputText('research'));
         store.dispatch(
           saveToTabContainerInternal({
             tabGroupId: 'tg',
@@ -168,12 +168,12 @@ describe('the group row action set', () => {
   });
 
   // A control that cannot act must not be focusable and inert (KAN-62).
-  test('the search panel withholds every group action', async () => {
-    await renderRow({ isSearchPanel: true });
+  test('searching keeps Rename group and withholds the rest', async () => {
+    await renderRow({ isSearching: true });
 
     expect(
-      screen.queryByRole('button', { name: 'Rename group' })
-    ).not.toBeInTheDocument();
+      screen.getByRole('button', { name: 'Rename group' })
+    ).toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: 'Add current tab to group' })
     ).not.toBeInTheDocument();

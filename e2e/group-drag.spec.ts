@@ -1238,7 +1238,9 @@ test.describe('the slot a dragged row will land in', () => {
         top: r ? Math.round(r.top * 100) / 100 : null,
         height: r ? Math.round(r.height) : null,
         heldHeight: Math.round(held.getBoundingClientRect().height),
-        // It must sit in empty space, not on top of another row.
+        // It must sit in empty space, not on top of another row: two drawn
+        // boxes overlap only when their x AND y ranges do (the session list
+        // sits beside the detail, at the same heights).
         // Leaf rows only. A loose tab is a `tabs` row nested inside an
         // `items` row, and during a TAB drag only the inner one translates --
         // the outer wrapper is an invisible layout box that stays put, so it
@@ -1251,7 +1253,11 @@ test.describe('the slot a dragged row will land in', () => {
           .filter((row) => {
             const b = row.getBoundingClientRect();
             return (
-              r !== undefined && b.bottom > r.top + 1 && b.top < r.bottom - 1
+              r !== undefined &&
+              b.bottom > r.top + 1 &&
+              b.top < r.bottom - 1 &&
+              b.right > r.left + 1 &&
+              b.left < r.right - 1
             );
           })
           .map((row) => row.dataset.dragRowId),
