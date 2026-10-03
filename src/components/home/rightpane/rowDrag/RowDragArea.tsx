@@ -67,8 +67,14 @@ import {
   slotLandingBeside,
   windowShiftsAcross,
   type LandingSide,
-  type WindowedSlot,
 } from '../../../../utils/functions/dragPreview';
+import {
+  drawnList,
+  landingBoxes,
+  type Edges,
+  type Rect,
+  type Slot,
+} from './unfold';
 import { DURATION } from '../../../../styles/scale';
 import { beginDragHold, endDragHold } from '../../../../redux/dragHold';
 import {
@@ -153,42 +159,13 @@ function paneOf(from: HTMLElement | null): HTMLElement | null {
   return null;
 }
 
-interface Rect {
-  id: string;
-  index: number;
-  mid: number;
-  height: number;
-  // Top edge, in the same content space as `mid`. The landing slot is placed
-  // from it (KAN-166): its position is a DISTANCE between measured tops, and
-  // summing footprints would not do -- the `tabs` scope is not contiguous in
-  // layout, so the gap between two consecutive rows can hold a group's band
-  // header belonging to neither.
-  top: number;
-  // Which saved window the row sits in, read once at drag start (KAN-132), or
-  // undefined for a row in none -- a window's own row, a row that is not
-  // rendered, or a list with no windows at all. A list whose rows span several
-  // windows answers every drop question within ONE of them, and this is what
-  // picks that window's rows out.
-  windowId: string | undefined;
-  // The row's left and right edges, and the group band it sits in, if any
-  // (KAN-364): where a row of its kind sits across, which is what the
-  // landing slot takes. Read with the rest, once.
-  edges: Edges;
-  bandId: string | undefined;
-}
-
-// A box's left and right edges, in viewport space. Nothing a drag does moves
-// a row sideways, so they hold for the whole drag as measured.
-interface Edges {
-  left: number;
-  right: number;
+// The group band a row sits in, if any (KAN-364).
+function bandOf(el: Element | null | undefined): string | undefined {
+  return el?.closest<HTMLElement>('[data-band-id]')?.dataset.bandId;
 }
 
 // A landing slot as wide as the held row.
 const NO_INSET: DragState['landingInset'] = { left: 0, right: 0 };
-
-// A slot in the list as drawn, tagged like a row with the window it sits in.
-type Slot = WindowedSlot;
 
 // Where a release lands: in which window, and at which index AMONG THAT
 // WINDOW'S ROWS with the held one lifted out -- the index the list applies to
@@ -382,6 +359,8 @@ interface LiveDrag {
   // sits between two rows.
   slotOfRow: number[];
   slotOfFixed: Map<string, number>;
+  // The fixed rows in `slots`, kept apart so an open can rebuild it (KAN-379).
+  fixed: Slot[];
   // Where each saved window this list spans ENDS, in content space, measured
   // with the rows (KAN-132). A row landing past another window's last row --
   // or in a collapsed one, which draws no rows -- is placed there.
@@ -463,6 +442,7 @@ function pressRecord(
     slots: [],
     slotOfRow: [],
     slotOfFixed: new Map(),
+    fixed: [],
     windowOrder: [],
     windowBottoms: new Map(),
     listTops: new Map(),
@@ -1361,6 +1341,14 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       return true;
     };
 
+    // A band's own box, where a loose row sits when none is drawn (KAN-364).
+    const anyBandEdges = (): Edges | null => {
+      const box = containerRef.current
+        ?.querySelector('[data-band-id]')
+        ?.getBoundingClientRect();
+      return box === undefined ? null : { left: box.left, right: box.right };
+    };
+
     // The moment a drag actually starts: publish, hold, mark, measure, and
     // re-anchor the grab. What a press does once it passes the activation
     // distance, and what an adoption does at once (KAN-350) -- one function,
@@ -1464,44 +1452,16 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
           top: r ? r.top + l.startScrollTop : 0,
           windowId: windowOf(el)?.dataset.dropWindowId,
           edges: { left: r?.left ?? 0, right: r?.right ?? 0 },
-          bandId: el?.closest<HTMLElement>('[data-band-id]')?.dataset.bandId,
+          bandId: bandOf(el),
         };
       });
-      // What a release can land as, across (KAN-364). A member's box for each
-      // band, from any row drawn in it -- the held row too, which may be its
-      // band's only member. A loose row's from any OTHER drawn row in no band:
-      // the held row is the one row whose box can be neither (an adopted
-      // carry's phantom rests in the trailing block). With no loose row
-      // drawn, a band's own box, which sits where a loose row does. One box
-      // for every window the list spans: they share one column and one
-      // indent (70px, in the saved pane and in Open now alike). A layout
-      // that put windows side by side would need a box per window.
-      l.memberEdges = new Map();
-      for (const r of l.rects) {
-        if (
-          r.height > 0 &&
-          r.bandId !== undefined &&
-          !l.memberEdges.has(r.bandId)
-        )
-          l.memberEdges.set(r.bandId, r.edges);
-      }
-      const looseRow = l.rects.find(
-        (r) => r.height > 0 && r.bandId === undefined && r.index !== l.fromIndex
-      );
-      const anyBand = containerRef.current
-        ?.querySelector('[data-band-id]')
-        ?.getBoundingClientRect();
-      l.looseEdges =
-        looseRow?.edges ??
-        (anyBand === undefined
-          ? null
-          : { left: anyBand.left, right: anyBand.right });
-      // The list AS DRAWN (KAN-166): the rows, plus whatever fixed parts the
-      // list declared, ordered by where they actually sit. Ordered by
-      // measured top rather than by document order, because a fixed row is
-      // rendered inside the thing it labels and its position in the markup
-      // says nothing about its position on screen.
-      const fixed = fixedRowSelector
+      ({ memberEdges: l.memberEdges, looseEdges: l.looseEdges } = landingBoxes(
+        l.rects,
+        l.fromIndex,
+        anyBandEdges()
+      ));
+      // The list AS DRAWN (KAN-166) -- see drawnList.
+      l.fixed = fixedRowSelector
         ? [
             ...(containerRef.current?.querySelectorAll<HTMLElement>(
               fixedRowSelector
@@ -1522,25 +1482,11 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
             ];
           })
         : [];
-
-      l.slots = [
-        ...l.rects.map((r) => ({
-          key: r.id,
-          top: r.top,
-          height: r.height,
-          windowId: r.windowId,
-        })),
-        ...fixed,
-      ].sort((a, b) => a.top - b.top);
-
-      l.slotOfRow = [];
-      l.slotOfFixed = new Map();
-      const rowAt = new Map(l.rects.map((r) => [r.id, r.index]));
-      l.slots.forEach((slot, index) => {
-        const row = rowAt.get(slot.key);
-        if (row !== undefined) l.slotOfRow[row] = index;
-        else l.slotOfFixed.set(slot.key, index);
-      });
+      ({
+        slots: l.slots,
+        slotOfRow: l.slotOfRow,
+        slotOfFixed: l.slotOfFixed,
+      } = drawnList(l.rects, l.fixed));
 
       // Where each window ends, for a list whose rows sit in windows
       // (KAN-132). In the same frame as the rects, like everything above.
