@@ -3974,9 +3974,11 @@ const trailingBlock = (page: Page) =>
 // is up, whether a carried phantom is held (adopted), the trailing block's
 // height, and how far the pane can scroll. KAN-379: also each window's
 // title row top and block height, and the tops of the landing slot, the
-// source room and the held row (null where not drawn).
+// source room and the held row (null where not drawn), and each band's
+// title row top.
 interface PaneFrame {
   rows: Record<string, number>;
+  bands: Record<string, number>;
   card: boolean;
   adopted: boolean;
   held: boolean;
@@ -4003,6 +4005,8 @@ const isPaneLog = (x: unknown): x is PaneFrame[] => {
       f !== null &&
       'rows' in f &&
       isNumberRecord(f.rows) &&
+      'bands' in f &&
+      isNumberRecord(f.bands) &&
       'card' in f &&
       typeof f.card === 'boolean' &&
       'adopted' in f &&
@@ -4054,6 +4058,11 @@ async function logPane(page: Page, leaveOut: string[]): Promise<void> {
           continue;
         rows[id] = el.getBoundingClientRect().top;
       }
+      const bands: Record<string, number> = {};
+      for (const el of document.querySelectorAll<HTMLElement>(
+        '[data-pane="detail"] [data-group-drag-handle][data-fixed-row-id]'
+      ))
+        bands[el.dataset.fixedRowId ?? ''] = el.getBoundingClientRect().top;
       const sc = scroller();
       const titles: Record<string, number> = {};
       const heights: Record<string, number> = {};
@@ -4069,6 +4078,7 @@ async function logPane(page: Page, leaveOut: string[]): Promise<void> {
         document.querySelector(selector)?.getBoundingClientRect().top ?? null;
       frames.push({
         rows,
+        bands,
         card: document.querySelector('[data-carry-card]') !== null,
         adopted:
           document.querySelector('[data-carry-phantom][data-drag-held]') !==
@@ -6168,8 +6178,9 @@ test.describe('a collapsed window opens under a resting tab or group (KAN-379)',
     page: Page,
     w: {
       opens: string;
-      // The id of a row in the window that opens.
+      // The id of a row in the window that opens, and its group bands.
       opensRow: string;
+      opensBands: string[];
       next: string;
       held: string;
       leaveOut: string[];
@@ -6226,6 +6237,22 @@ test.describe('a collapsed window opens under a resting tab or group (KAN-379)',
         (d) => Math.abs(d - (roomOffsets[0] ?? NaN)) > SLOT_EDGE_TOLERANCE
       )
     ).toEqual([]);
+    // The opened window's own rows and band frames, in the first frame they
+    // are drawn, where they rest.
+    type Tops = (f: PaneFrame) => Record<string, number>;
+    const drawnAtOpen = (of: Tops) =>
+      Object.keys(of(first)).filter((id) => !(id in of(before)));
+    const misplaced = (of: Tops) =>
+      drawnAtOpen(of).flatMap((id) =>
+        near(of(first)[id], of(last)[id])
+          ? []
+          : [{ id, first: of(first)[id], last: of(last)[id] }]
+      );
+    expect(drawnAtOpen((f) => f.rows)).toContain(w.opensRow);
+    expect(drawnAtOpen((f) => f.bands)).toEqual(w.opensBands);
+    expect([...misplaced((f) => f.rows), ...misplaced((f) => f.bands)]).toEqual(
+      []
+    );
     // D12: the title row it rests on does not move at the open.
     expect(
       atRest.filter((f) => !near(f.titles[w.opens], last.titles[w.opens]))
@@ -6250,6 +6277,7 @@ test.describe('a collapsed window opens under a resting tab or group (KAN-379)',
     await openAbove(page, {
       opens: 'w1',
       opensRow: 'a0',
+      opensBands: ['alpha'],
       next: 'w2',
       held: 'b1',
       leaveOut: ['b1', 'tab:b1'],
@@ -6274,6 +6302,7 @@ test.describe('a collapsed window opens under a resting tab or group (KAN-379)',
     await openAbove(page, {
       opens: 'sw2',
       opensRow: 's2-0',
+      opensBands: [],
       next: 'sw3',
       held: 's3-1',
       leaveOut: ['s3-1', 'tab:s3-1'],

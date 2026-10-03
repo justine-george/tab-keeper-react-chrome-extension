@@ -18,6 +18,7 @@ import {
   springOpenWindow,
 } from '../../redux/springOpenWindows';
 import { newWindowFree } from '../../components/home/rightpane/rowDrag/dropRules';
+import { DURATION } from '../../styles/scale';
 
 // KAN-379. A drag that opens a window mid-drag previews as a CONTROL drag
 // started with it open. Boxes are laid out from the DOM, in content space:
@@ -457,6 +458,45 @@ describe('a window opened mid-drag is measured as if it had been open (KAN-379)'
     }
     fireEvent.keyDown(window, { key: 'Escape' });
   });
+  // Eased in from 0, they would slide out from under the preview they never had.
+  test('the opened rows and band title are drawn at their shift at once, and ease again from the next move', async () => {
+    const { pane } = await render(true);
+    stubLayout(pane, UNSCROLLED);
+    const held = rowEl(pane, 'c0');
+    const start = midOf(held);
+    fireEvent.pointerDown(held, { clientX: X, clientY: start, button: 0 });
+    moveTo(start + 6);
+    moveTo(260);
+    act(() => springOpenWindow('w2'));
+
+    const eased = `transform ${DURATION.MOVE} ease`;
+    const opened = ['b0', 'b1', 'b2'].map((id) => rowEl(pane, id));
+    const band = pane.querySelector<HTMLElement>('[data-fixed-row-id="gb"]');
+    if (band === null) throw new Error('no band title');
+    const drawn = () =>
+      [...opened, band].map((el) => [el.style.transform, el.style.transition]);
+    // PREMISE: the open shifts them.
+    expect(drawn().filter(([transform]) => transform === '')).toEqual([]);
+    const shifted = drawn().map(([transform]) => transform);
+    expect(drawn().map(([, transition]) => transition)).toEqual([
+      'none',
+      'none',
+      'none',
+      'none',
+    ]);
+    // CONTROL: a row measured at the press keeps its easing.
+    expect(rowEl(pane, 'c1').style.transition).toBe(eased);
+
+    moveTo(261);
+    expect(drawn()).toEqual([
+      [shifted[0], eased],
+      [shifted[1], eased],
+      [shifted[2], eased],
+      [shifted[3], ''],
+    ]);
+    fireEvent.keyDown(window, { key: 'Escape' });
+  });
+
   // Fits open or folded in 460; open, 6px stays free below the last window.
   test('the space free below the last window is read again, so a new window there is refused as when started open', async () => {
     const run: Run = {

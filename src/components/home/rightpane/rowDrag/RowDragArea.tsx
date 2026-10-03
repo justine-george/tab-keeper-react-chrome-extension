@@ -402,6 +402,8 @@ interface LiveDrag {
   windowTops: Map<string, number>;
   // Windows drawn folded when measured, until an open re-measures them.
   foldedWindows: Set<string>;
+  // Keys an open measured since the last published preview (KAN-379).
+  newlyMeasured: Set<string>;
   // The saved windows this list spans, in render order (KAN-184). What the
   // preview needs to know to move the ones BETWEEN the source and the
   // destination, so the destination can make room. Never the trailing
@@ -493,6 +495,7 @@ function pressRecord(
     windowBottoms: new Map(),
     windowTops: new Map(),
     foldedWindows: new Set(),
+    newlyMeasured: new Set(),
     listTops: new Map(),
     adopted,
     landingWindow: undefined,
@@ -1325,7 +1328,9 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         landingSlotShown:
           newWindowPlacement(landing?.windowId) === undefined &&
           !(l.adopted && landing === undefined),
+        newlyMeasured: l.newlyMeasured,
       });
+      l.newlyMeasured = new Set();
 
       return target;
     };
@@ -1774,6 +1779,11 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
             )
           : [];
 
+        for (const key of [
+          ...opens.map((o) => o.id),
+          ...fixed.map((f) => f.key),
+        ])
+          l.newlyMeasured.add(key);
         const growth = blockBox.height - (bottom - top);
         grown += growth;
         const heldMid = l.rects[l.fromIndex]?.mid;
@@ -2474,7 +2484,10 @@ export const DraggableRow: React.FC<DraggableRowProps> = ({
         transform: translate ? `translateY(${translate}px)` : undefined,
         // The held row must track the pointer exactly; only the rows moving
         // aside are animated.
-        transition: held ? 'none' : `transform ${DURATION.MOVE} ease`,
+        transition:
+          held || drag?.newlyMeasured.has(rowId)
+            ? 'none'
+            : `transform ${DURATION.MOVE} ease`,
         // The lift, for a row that is drawn lifted. One shown by a card has
         // nothing to lift (KAN-354).
         boxShadow:
