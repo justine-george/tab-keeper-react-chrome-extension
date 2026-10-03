@@ -1,9 +1,4 @@
-// KAN-379. The saved windows THIS drag gesture opened, drawn open while the
-// stored fold (globalState.collapsedWindows) stays untouched.
-//
-// Module state, like dragCard.ts: the drag engine is generic and renders
-// without a store, and "opened for the length of a drag" is not data. Holds
-// saved window ids only, never NEW_LAST_WINDOW.
+// KAN-379. Windows this drag opened, drawn open while the stored fold is left alone.
 import { useSyncExternalStore } from 'react';
 
 let opened: ReadonlySet<string> = new Set();
@@ -31,7 +26,7 @@ export function foldBackSpringOpened(): void {
   notify();
 }
 
-function subscribe(fn: () => void): () => void {
+export function subscribeSpringOpenWindows(fn: () => void): () => void {
   listeners.add(fn);
   return () => {
     listeners.delete(fn);
@@ -41,9 +36,11 @@ function subscribe(fn: () => void): () => void {
 const snapshot = (): ReadonlySet<string> => opened;
 
 export function useSpringOpenWindows(): ReadonlySet<string> {
-  return useSyncExternalStore(subscribe, snapshot);
+  return useSyncExternalStore(subscribeSpringOpenWindows, snapshot);
 }
 
 export function useIsSpringOpen(windowId: string): boolean {
-  return useSyncExternalStore(subscribe, () => opened.has(windowId));
+  return useSyncExternalStore(subscribeSpringOpenWindows, () =>
+    opened.has(windowId)
+  );
 }

@@ -1,5 +1,5 @@
-import { afterEach, describe, expect, test } from 'vitest';
-import { act, screen } from '@testing-library/react';
+import { afterEach, describe, expect, test, vi } from 'vitest';
+import { act, renderHook, screen } from '@testing-library/react';
 
 import TabGroupDetailsContainer from '../../components/home/rightpane/TabGroupDetailsContainer';
 import { renderWithProviders } from '../setup/renderWithProviders';
@@ -15,6 +15,8 @@ import {
 import {
   foldBackSpringOpened,
   springOpenWindow,
+  subscribeSpringOpenWindows,
+  useSpringOpenWindows,
 } from '../../redux/springOpenWindows';
 import { makeTestStore } from '../setup/makeStore';
 
@@ -198,5 +200,41 @@ describe('expandWindow (KAN-379)', () => {
     expect(store.getState().tabContainerDataState).toBe(dataBefore);
     expect(store.getState().globalState.isDirty).toBe(false);
     expect(store.getState().undoRedo.past.length).toBe(undoDepthBefore);
+  });
+});
+
+describe('the overlay as a store (KAN-379)', () => {
+  test('useSpringOpenWindows is a new set after each change, the same set between them', () => {
+    const { result } = renderHook(() => useSpringOpenWindows());
+    const empty = result.current;
+
+    act(() => springOpenWindow('win-1'));
+    const one = result.current;
+    expect(one).not.toBe(empty);
+    expect([...one]).toEqual(['win-1']);
+
+    act(() => springOpenWindow('win-1'));
+    expect(result.current).toBe(one);
+
+    act(() => springOpenWindow('win-2'));
+    expect(result.current).not.toBe(one);
+
+    const two = result.current;
+    act(() => foldBackSpringOpened());
+    expect(result.current).not.toBe(two);
+    expect(result.current.size).toBe(0);
+  });
+
+  test('foldBackSpringOpened on an empty overlay does not notify', () => {
+    const listener = vi.fn();
+    const unsubscribe = subscribeSpringOpenWindows(listener);
+    foldBackSpringOpened();
+    expect(listener).not.toHaveBeenCalled();
+
+    springOpenWindow('win-1');
+    expect(listener).toHaveBeenCalledTimes(1);
+    foldBackSpringOpened();
+    expect(listener).toHaveBeenCalledTimes(2);
+    unsubscribe();
   });
 });
