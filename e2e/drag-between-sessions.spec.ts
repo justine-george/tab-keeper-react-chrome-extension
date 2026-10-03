@@ -6411,9 +6411,8 @@ test.describe('a collapsed window opens under a resting tab or group (KAN-379)',
     await watchDwell(page);
     const at = await pickUp(page, tabHandle(page, 'a1'));
     await ontoTitle(page, 'w2', at.x);
-    await expect
-      .poll(async () => (await sweepsOn(page, 'w2'))[0]?.currentTime ?? 0)
-      .toBeGreaterThanOrEqual(300);
+    // Held, so w2 cannot open first; leaving drops the held sweep.
+    await holdSweepAt(page, titleOf('w2'), 300);
     await aimAt(page, 'a2', 0.5);
     expect(await sweepsOn(page, 'w2')).toEqual([]);
     await ontoTitle(page, 'w2', at.x);
