@@ -1,8 +1,9 @@
 import type { BrowserContext, JSHandle, Locator, Page } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
-import { seedSessions } from './fixtures/seed';
+import { seedSessions, seedSettings } from './fixtures/seed';
 import { waitForFontsLoaded } from './fixtures/fonts';
+import { localeStrings } from './fixtures/locales';
 import { ICON } from '../src/styles/scale';
 
 // KAN-340. The home header's icon row: even glyphs in equal boxes (I1), in
@@ -30,9 +31,11 @@ async function openHome(
   context: BrowserContext,
   extensionId: string,
   view: 'popup' | 'tab',
-  rootPx: 16 | 20
+  rootPx: 16 | 20,
+  lang = 'en'
 ): Promise<Page> {
   await seedSessions(context);
+  if (lang !== 'en') await seedSettings(context, { language: lang });
   const page = await context.newPage();
   const viewport = view === 'popup' ? POPUP_VIEWPORT : TAB_VIEWPORT;
   await page.setViewportSize(viewport);
@@ -42,7 +45,9 @@ async function openHome(
     }`
   );
   // Barrier: goto resolves before React mounts.
-  await page.getByRole('button', { name: 'Sort sessions' }).waitFor();
+  await page
+    .getByRole('button', { name: localeStrings(lang)['Sort sessions'] })
+    .waitFor();
   await waitForFontsLoaded(page);
   await page.evaluate((px) => {
     document.documentElement.style.fontSize = `${px}px`;
@@ -152,7 +157,11 @@ test.describe('the icons sit in three pairs, 8px apart (KAN-340 A + R1)', () => 
       const first = await boxOf(control(page, POPUP_ORDER[0]));
       const [lastInset] = await insetsFromRight(page, ['Settings']);
       expect(lastInset, 'the cluster is flush with the row').toBe(0);
-      // KAN-343: at 20px the title gives way; the controls must not.
+      // KAN-343 B: at 20px the words hide, so the mark is what the controls must clear.
+      const frame = await boxOf(mark(page).locator('xpath=..'));
+      expect(first.x, 'no control overlaps the mark').toBeGreaterThanOrEqual(
+        frame.x + frame.width
+      );
       expect(first.x, 'no control overlaps the title').toBeGreaterThanOrEqual(
         titleBox.x + titleBox.width
       );
@@ -588,6 +597,279 @@ test.describe('the mark before the title', () => {
     expect(delta.flat, 'most of the mark is flat colour').toBeGreaterThan(1500);
     expect(delta.flatMax, JSON.stringify(delta)).toBeLessThanOrEqual(2);
   });
+});
+
+// KAN-343 B. Judged by pixels, so any way of hiding the words counts.
+
+/** The header row in any language: the innermost box with the mark and a control. */
+const markRow = (page: Page): Locator =>
+  page
+    .locator('div')
+    .filter({ has: mark(page) })
+    .filter({ has: page.getByRole('button') })
+    .last();
+
+const markFrame = (page: Page): Locator => mark(page).locator('xpath=..');
+
+/** Between the mark's frame and the icon cluster: the room the words get. */
+async function titleRoom(page: Page): Promise<Box> {
+  const row = await boxOf(markRow(page));
+  const frame = await boxOf(markFrame(page));
+  const cluster = await boxOf(markRow(page).locator(':scope > :last-child'));
+  const left = frame.x + frame.width;
+  return { x: left, y: row.y, width: cluster.x - left, height: row.height };
+}
+
+/** The words' width laid out on one line, whatever box holds them. */
+const naturalWidth = (words: Locator): Promise<number> =>
+  words.evaluate((el) => {
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    return range.getBoundingClientRect().width;
+  });
+
+/** Pixels in `box` that differ from its commonest colour: 0 is an empty room. */
+async function inkIn(page: Page, box: Box): Promise<number> {
+  const png = (await page.screenshot({ clip: box })).toString('base64');
+  return page.evaluate(async (b64) => {
+    const img = new Image();
+    img.src = `data:image/png;base64,${b64}`;
+    await img.decode();
+    const canvas = document.createElement('canvas');
+    canvas.width = img.width;
+    canvas.height = img.height;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    if (!ctx) throw new Error('no 2d context');
+    ctx.drawImage(img, 0, 0);
+    const { data } = ctx.getImageData(0, 0, img.width, img.height);
+    const counts = new Map<number, number>();
+    for (let i = 0; i < data.length; i += 4) {
+      const key = (data[i] << 16) | (data[i + 1] << 8) | data[i + 2];
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+    const [ground] = [...counts.entries()].sort((a, b) => b[1] - a[1])[0];
+    const g = [(ground >> 16) & 255, (ground >> 8) & 255, ground & 255];
+    let ink = 0;
+    for (let i = 0; i < data.length; i += 4)
+      if (g.some((v, c) => Math.abs(data[i + c] - v) > 8)) ink++;
+    return ink;
+  }, png);
+}
+
+const roomInk = async (page: Page) => inkIn(page, await titleRoom(page));
+
+/** Non-ignored text nodes of this name in Chrome's own accessibility tree. */
+async function axTextCount(page: Page, name: string): Promise<number> {
+  const cdp = await page.context().newCDPSession(page);
+  const { root } = await cdp.send('DOM.getDocument', { depth: 0 });
+  const { nodes } = await cdp.send('Accessibility.queryAXTree', {
+    nodeId: root.nodeId,
+    accessibleName: name,
+    role: 'StaticText',
+  });
+  await cdp.detach();
+  return nodes.filter((n) => !n.ignored).length;
+}
+
+/** Changes under the header row, and window errors, while nothing is asked of it. */
+const unrestFor = (page: Page, ms: number) =>
+  markRow(page).evaluate(
+    (row, forMs) =>
+      new Promise<{ mutations: number; errors: string[] }>((resolve) => {
+        let mutations = 0;
+        const errors: string[] = [];
+        const onError = (e: ErrorEvent) => errors.push(e.message);
+        const observer = new MutationObserver((records) => {
+          mutations += records.length;
+        });
+        observer.observe(row, {
+          subtree: true,
+          attributes: true,
+          childList: true,
+          characterData: true,
+        });
+        addEventListener('error', onError);
+        setTimeout(() => {
+          observer.disconnect();
+          removeEventListener('error', onError);
+          resolve({ mutations, errors });
+        }, forMs);
+      }),
+    ms
+  );
+
+const setRoot = (page: Page, px: number) =>
+  page.evaluate((v) => {
+    document.documentElement.style.fontSize = `${v}px`;
+  }, px);
+
+/** Whether the words fit, per view and root, as measured on main. */
+const FITS = { popup: { 16: true, 20: false }, tab: { 16: true, 20: false } };
+
+test.describe('the words give way to the mark (KAN-343 B)', () => {
+  for (const view of ['popup', 'tab'] as const) {
+    for (const rootPx of ROOTS) {
+      test(`${view} at a ${rootPx}px root: the words show in full or not at all; the mark and icons keep their boxes`, async ({
+        context,
+        extensionId,
+      }) => {
+        const page = await openHome(context, extensionId, view, rootPx);
+        const words = title(page);
+        const room = await titleRoom(page);
+        const fits = (await naturalWidth(words)) <= room.width;
+        expect(fits, 'the premise').toBe(FITS[view][rootPx]);
+
+        if (fits) {
+          const box = await boxOf(words);
+          expect(await roomInk(page), 'the words are drawn').toBeGreaterThan(0);
+          expect(box.x).toBeGreaterThanOrEqual(room.x);
+          expect(box.x + box.width).toBeLessThanOrEqual(room.x + room.width);
+        } else {
+          expect(await roomInk(page), 'nothing is drawn but the mark').toBe(0);
+        }
+
+        const row = await boxOf(markRow(page));
+        const frame = await boxOf(markFrame(page));
+        const side = iconBox(rootPx);
+        expect(frame).toEqual({
+          x: row.x,
+          y: frame.y,
+          width: side,
+          height: side,
+        });
+        const names = view === 'popup' ? POPUP_ORDER : SHARED;
+        const first = await boxOf(control(page, names[0]));
+        // Its boxes and the two 8px gaps between its three groups (KAN-340 A).
+        const cluster = names.length * side + 16;
+        expect(first.x, 'the icons keep their place').toBeCloseTo(
+          row.x + row.width - cluster,
+          3
+        );
+        expect(
+          await markRow(page).evaluate((el) => el.scrollWidth - el.clientWidth),
+          'the row does not overflow sideways'
+        ).toBe(0);
+        expect(
+          await page.evaluate(
+            () => document.documentElement.scrollWidth - innerWidth
+          ),
+          'nothing scrolls the page sideways'
+        ).toBe(0);
+      });
+    }
+  }
+
+  test('hidden from sight, the words still name the header for assistive tech', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openHome(context, extensionId, 'popup', 20);
+
+    expect(await roomInk(page), 'the premise: hidden').toBe(0);
+    await expect(title(page)).toBeAttached();
+    expect(await axTextCount(page, 'Tab Keeper')).toBe(1);
+  });
+
+  test('a root size change flips the words live, and each state holds still', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openHome(context, extensionId, 'popup', 16);
+    expect(await roomInk(page), 'shown at 16px').toBeGreaterThan(0);
+
+    for (const [px, shown] of [
+      [20, false],
+      [16, true],
+      [20, false],
+    ] as const) {
+      await setRoot(page, px);
+      await expect
+        .poll(async () => (await roomInk(page)) > 0, `${px}px`)
+        .toBe(shown);
+      expect(await unrestFor(page, 500), `${px}px settles`).toEqual({
+        mutations: 0,
+        errors: [],
+      });
+    }
+  });
+
+  test('the room alone narrowing hides the words, and widening shows them', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openHome(context, extensionId, 'popup', 16);
+    const room = await titleRoom(page);
+    const natural = await naturalWidth(title(page));
+    // The premise: the words fit, by less than this squeeze.
+    const squeeze = Math.ceil(room.width - natural) + 2;
+    expect(squeeze).toBeLessThan(room.width);
+
+    const pad = (px: number) =>
+      markRow(page).evaluate((el, v) => {
+        el.style.paddingRight = `${v}px`;
+      }, px);
+    await pad(squeeze);
+    await expect.poll(() => roomInk(page), 'squeezed').toBe(0);
+    expect(await naturalWidth(title(page)), 'the words did not change').toBe(
+      natural
+    );
+    expect(await unrestFor(page, 500)).toEqual({ mutations: 0, errors: [] });
+
+    await pad(0);
+    await expect.poll(() => roomInk(page), 'room again').toBeGreaterThan(0);
+    expect(await unrestFor(page, 500)).toEqual({ mutations: 0, errors: [] });
+  });
+
+  test('the words alone widening hides them, and narrowing shows them', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openHome(context, extensionId, 'popup', 16);
+    const room = await titleRoom(page);
+    const natural = await naturalWidth(title(page));
+    const letters = 'Tab Keeper'.length;
+    // Not on the row: letter-spacing turns off the icons' ligatures.
+    const spacing = Math.ceil((room.width - natural) / letters) + 1;
+    const space = (px: number) =>
+      title(page)
+        .locator('xpath=..')
+        .evaluate((el, v) => {
+          el.style.letterSpacing = `${v}px`;
+        }, px);
+
+    await space(spacing);
+    expect(await naturalWidth(title(page)), 'the premise').toBeGreaterThan(
+      room.width
+    );
+    await expect.poll(() => roomInk(page), 'wider words').toBe(0);
+    expect(await titleRoom(page), 'the room did not change').toEqual(room);
+    expect(await unrestFor(page, 500)).toEqual({ mutations: 0, errors: [] });
+
+    await space(0);
+    await expect.poll(() => roomInk(page), 'words again').toBeGreaterThan(0);
+    expect(await unrestFor(page, 500)).toEqual({ mutations: 0, errors: [] });
+  });
+
+  // "Tab Keeper" is not translated; this pins the rule outside English anyway.
+  for (const rootPx of ROOTS) {
+    test(`in German at a ${rootPx}px root the same rule holds`, async ({
+      context,
+      extensionId,
+    }) => {
+      const page = await openHome(context, extensionId, 'popup', rootPx, 'de');
+      const words = page.getByText(localeStrings('de')['Tab Keeper'], {
+        exact: true,
+      });
+      const room = await titleRoom(page);
+      const fits = (await naturalWidth(words)) <= room.width;
+      expect(fits, 'the premise').toBe(FITS.popup[rootPx]);
+
+      expect((await roomInk(page)) > 0).toBe(fits);
+      expect(await axTextCount(page, localeStrings('de')['Tab Keeper'])).toBe(
+        1
+      );
+    });
+  }
 });
 
 /** The floppy as drawn before its colours were baked. */
