@@ -43,8 +43,7 @@ export function buildSession(
   };
 }
 
-// Nothing is selected by default: selecting a session is step 3 of the golden
-// path, so seeding it pre-selected would skip the thing under test.
+// No stored selection by default; a load selects the first session.
 export function buildContainer(
   sessions: tabContainerData[] = [buildSession()]
 ): TabMasterContainer {

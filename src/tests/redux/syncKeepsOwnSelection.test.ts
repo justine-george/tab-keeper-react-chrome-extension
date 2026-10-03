@@ -126,13 +126,13 @@ const signedInStore = () => {
   return made;
 };
 
-// A page that opened, loaded alpha+bravo with alpha selected, and synced:
+// A page that opened, loaded alpha+bravo+charlie with alpha selected, and synced:
 // that first sync is this page's first load. The cloud echoes it, so the
 // load changes nothing but the store.
 const openPage = async () => {
   const made = signedInStore();
   const stored = selecting(
-    buildContainer([session('alpha'), session('bravo')]),
+    buildContainer([session('alpha'), session('bravo'), session('charlie')]),
     'alpha'
   );
   localStorage.setItem('tabContainerData', JSON.stringify(stored));
@@ -201,17 +201,17 @@ describe("a sync keeps this page's own selection (KAN-294)", () => {
     expect(shown(store)).toEqual(keeps('alpha'));
   });
 
-  it("site 1: alpha deleted by the cloud falls back to null, not the other page's bravo", async () => {
+  it('site 1: alpha deleted by the cloud falls back to the first session (bravo), not the incoming charlie', async () => {
     const { store } = await openPage();
     cloudDeletesAlpha();
-    otherPageSelects('bravo');
+    otherPageSelects('charlie');
 
     await store.dispatch(syncStateWithFirestore());
 
     expect(
       store.getState().tabContainerDataState.tabGroups.map((g) => g.tabGroupId)
-    ).toEqual(['bravo']);
-    expect(shown(store)).toEqual(keeps(null));
+    ).toEqual(['bravo', 'charlie']);
+    expect(shown(store)).toEqual(keeps('bravo'));
   });
 
   it("site 2, cloud only: the cloud's selection does not replace this page's", async () => {
@@ -228,18 +228,18 @@ describe("a sync keeps this page's own selection (KAN-294)", () => {
     expect(shown(store).flagged).toEqual(['alpha']);
   });
 
-  it('site 2: alpha missing from the cloud falls back to null, not bravo', async () => {
+  it('site 2: alpha missing from the cloud falls back to the first session (bravo), not the incoming charlie', async () => {
     const { store } = await openPage();
     mocks.cloud.doc = selecting(
-      { ...readStored(), tabGroups: [session('bravo')] },
-      'bravo'
+      { ...readStored(), tabGroups: [session('bravo'), session('charlie')] },
+      'charlie'
     );
     localStorage.removeItem('tabContainerData');
 
     await store.dispatch(syncStateWithFirestore());
 
-    expect(shown(store).selected).toBe(null);
-    expect(shown(store).flagged).toEqual([]);
+    expect(shown(store).selected).toBe('bravo');
+    expect(shown(store).flagged).toEqual(['bravo']);
   });
 
   it("site 3, local only: the other page's selection does not replace this page's", async () => {
@@ -253,13 +253,19 @@ describe("a sync keeps this page's own selection (KAN-294)", () => {
     expect(shown(store).flagged).toEqual(['alpha']);
   });
 
-  it('site 3: alpha deleted by the other page falls back to null, not bravo', async () => {
+  it('site 3: alpha deleted by the other page falls back to the first session (bravo), not the incoming charlie', async () => {
     const { store } = await openPage();
     mocks.cloud.doc = undefined;
     localStorage.setItem(
       'tabContainerData',
       JSON.stringify(
-        selecting({ ...readStored(), tabGroups: [session('bravo')] }, 'bravo')
+        selecting(
+          {
+            ...readStored(),
+            tabGroups: [session('bravo'), session('charlie')],
+          },
+          'charlie'
+        )
       )
     );
 
@@ -267,9 +273,9 @@ describe("a sync keeps this page's own selection (KAN-294)", () => {
 
     expect(
       store.getState().tabContainerDataState.tabGroups.map((g) => g.tabGroupId)
-    ).toEqual(['bravo']);
-    expect(shown(store).selected).toBe(null);
-    expect(shown(store).flagged).toEqual([]);
+    ).toEqual(['bravo', 'charlie']);
+    expect(shown(store).selected).toBe('bravo');
+    expect(shown(store).flagged).toEqual(['bravo']);
   });
 
   it('site 4, a held merge: applied at the drop, it keeps it, and so does undo', async () => {
@@ -287,10 +293,10 @@ describe("a sync keeps this page's own selection (KAN-294)", () => {
     expect(shown(store)).toEqual(keeps('alpha'));
   });
 
-  it('site 4: alpha deleted by the cloud falls back to null, not bravo', async () => {
+  it('site 4: alpha deleted by the cloud falls back to the first session (bravo), not the incoming charlie', async () => {
     const { store } = await openPage();
     cloudDeletesAlpha();
-    otherPageSelects('bravo');
+    otherPageSelects('charlie');
     beginDragHold();
     await store.dispatch(syncStateWithFirestore());
 
@@ -298,8 +304,8 @@ describe("a sync keeps this page's own selection (KAN-294)", () => {
 
     expect(
       store.getState().tabContainerDataState.tabGroups.map((g) => g.tabGroupId)
-    ).toEqual(['bravo']);
-    expect(shown(store)).toEqual(keeps(null));
+    ).toEqual(['bravo', 'charlie']);
+    expect(shown(store)).toEqual(keeps('bravo'));
   });
 });
 
@@ -336,7 +342,7 @@ describe('no ping-pong (KAN-294)', () => {
     // Page 2 opened on the same data and selected bravo.
     const page2 = signedInStore();
     const stored = selecting(
-      buildContainer([session('alpha'), session('bravo')]),
+      buildContainer([session('alpha'), session('bravo'), session('charlie')]),
       'bravo'
     );
     localStorage.setItem('tabContainerData', JSON.stringify(stored));
@@ -379,7 +385,7 @@ describe('a page that opened on nothing (KAN-294, fix round 1)', () => {
     expect(readStored().selectedTabGroupId).toBe(id);
   };
 
-  it("(a) sessions taken in from another page: a later sync keeps this page's null, not bravo", async () => {
+  it("(a) sessions taken in from another page: a later sync keeps this page's first session, not bravo", async () => {
     const { store } = signedInStore();
     // Another page saved two sessions; the storage event reaches this page.
     localStorage.setItem(
@@ -389,12 +395,12 @@ describe('a page that opened on nothing (KAN-294, fix round 1)', () => {
       )
     );
     store.dispatch(hydrateSessionsFromStorage());
-    // CONTROL: the hydrate did take them in, with this page's own (null)
-    // selection -- the D9 rule, unchanged.
+    // CONTROL: the hydrate did take them in, with this page's own selection
+    // (none, so the first session) -- the D9 rule.
     expect(
       store.getState().tabContainerDataState.tabGroups.map((g) => g.tabGroupId)
     ).toEqual(['alpha', 'bravo']);
-    expect(shown(store).selected).toBe(null);
+    expect(shown(store).selected).toBe('alpha');
 
     otherPageOpensAndSelects('bravo');
     // Same data, so the storage event takes nothing in.
@@ -404,11 +410,11 @@ describe('a page that opened on nothing (KAN-294, fix round 1)', () => {
 
     // The load did run: local only, and it wrote the cloud.
     expect(mocks.saveToFirestore).toHaveBeenCalled();
-    expect(shown(store).selected).toBe(null);
-    expect(shown(store).flagged).toEqual([]);
+    expect(shown(store).selected).toBe('alpha');
+    expect(shown(store).flagged).toEqual(['alpha']);
   });
 
-  it("(b) the sync found no sessions anywhere: a later sync keeps this page's null, not bravo", async () => {
+  it("(b) the sync found no sessions anywhere: a later sync keeps this page's first session, not bravo", async () => {
     const { store } = signedInStore();
     await store.dispatch(syncStateWithFirestore());
     await vi.runAllTimersAsync();
@@ -430,8 +436,8 @@ describe('a page that opened on nothing (KAN-294, fix round 1)', () => {
     expect(
       store.getState().tabContainerDataState.tabGroups.map((g) => g.tabGroupId)
     ).toEqual(['alpha', 'bravo']);
-    expect(shown(store).selected).toBe(null);
-    expect(shown(store).flagged).toEqual([]);
+    expect(shown(store).selected).toBe('alpha');
+    expect(shown(store).flagged).toEqual(['alpha']);
   });
 
   it("(c) the page's own first edit: a later sync keeps alpha, not bravo", async () => {

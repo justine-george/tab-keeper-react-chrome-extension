@@ -32,6 +32,11 @@ for (const [language, expected] of [
     const page = await context.newPage();
     await page.goto(`chrome-extension://${extensionId}/index.html`);
 
-    await expect(page.getByText(expected, { exact: true })).toBeVisible();
+    // In the row itself: the selected session's count is in the pane too.
+    await expect(
+      page
+        .getByRole('button', { name: 'Research', exact: true })
+        .getByText(expected, { exact: true })
+    ).toBeVisible();
   });
 }

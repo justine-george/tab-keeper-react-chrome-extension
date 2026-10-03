@@ -1,26 +1,34 @@
 import type { TabMasterContainer } from '../../redux/slices/tabContainerDataStateSlice';
 
-// Selection is per-page view state (KAN-279 D9). `incoming` is a container
-// this page is about to take in -- another page's write, or a sync's result --
-// and whatever selection it carries is someone else's. This page's own stays
-// if its session survived; otherwise null, the fallback deleting the selected
-// session uses (deleteTabContainerInternal). Never the incoming one. Every
-// `isSelected` flag is recomputed to agree.
-export const withOwnSelection = (
-  incoming: TabMasterContainer,
-  ownSelectedId: string | null
+// Keeps `preferredId` if it names a session, else the first (the top row); isSelected follows.
+export const withASelection = (
+  container: TabMasterContainer,
+  preferredId: string | null = container.selectedTabGroupId
 ): TabMasterContainer => {
-  const selectedTabGroupId = incoming.tabGroups.some(
-    (g) => g.tabGroupId === ownSelectedId
+  const selectedTabGroupId = container.tabGroups.some(
+    (g) => g.tabGroupId === preferredId
   )
-    ? ownSelectedId
-    : null;
+    ? preferredId
+    : container.tabGroups[0]?.tabGroupId ?? null;
+  const agrees =
+    container.selectedTabGroupId === selectedTabGroupId &&
+    container.tabGroups.every(
+      (g) => g.isSelected === (g.tabGroupId === selectedTabGroupId)
+    );
+  if (agrees) return container;
   return {
-    ...incoming,
+    ...container,
     selectedTabGroupId,
-    tabGroups: incoming.tabGroups.map((g) => ({
+    tabGroups: container.tabGroups.map((g) => ({
       ...g,
       isSelected: g.tabGroupId === selectedTabGroupId,
     })),
   };
 };
+
+// Selection is per page: keep this page's own over `incoming`'s, else the first session.
+export const withOwnSelection = (
+  incoming: TabMasterContainer,
+  ownSelectedId: string | null
+): TabMasterContainer =>
+  withASelection({ ...incoming, selectedTabGroupId: null }, ownSelectedId);

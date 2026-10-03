@@ -18,6 +18,7 @@ import {
   sessionDateLabel,
   sessionDateTitle,
 } from '../../../utils/functions/sessionDate';
+import { selectIsSavedSessionFolded } from '../../../redux/savedSessionFold';
 import { isTabView } from '../../../utils/functions/viewMode';
 import { useTranslation } from 'react-i18next';
 import { DURATION, TYPE } from '../../../styles/scale';
@@ -99,7 +100,11 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
   // Redraws the date when the local day changes (KAN-347).
   const today = useToday();
 
-  const { title, windowCount, tabCount, isSelected } = tabGroupData;
+  const { title, windowCount, tabCount } = tabGroupData;
+
+  // Folded, no session is shown: the selection is kept, not drawn.
+  const folded = useSelector(selectIsSavedSessionFolded);
+  const drawsSelection = tabGroupData.isSelected && !(isTabView() && folded);
 
   // A plain string, not css``, because it is handed to ClickableRow's `style`
   // prop, which composes it into the button's own reset.
@@ -199,10 +204,10 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
   // hover and keyboard branches cannot drift apart -- which is the whole point
   // of KAN-92 and the reason they are not written out twice.
   const engagedStyle = `
-    ${isSelected ? '' : fill(COLORS.HOVER_COLOR)}
+    ${drawsSelection ? '' : fill(COLORS.HOVER_COLOR)}
     [data-row-actions] {
       background-color: ${
-        isSelected ? COLORS.SELECTION_COLOR : COLORS.HOVER_COLOR
+        drawsSelection ? COLORS.SELECTION_COLOR : COLORS.HOVER_COLOR
       };
     }
     [data-row-actions] > * {
@@ -326,7 +331,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
     &:active {
       ${pressedStyle}
     }
-    background-color: ${isSelected && COLORS.SELECTION_COLOR};
+    background-color: ${drawsSelection && COLORS.SELECTION_COLOR};
     /* The item's own place, in the slot's dashed look; before the target, which wins. */
     &[data-carry-origin] {
       outline-width: 1.5px;

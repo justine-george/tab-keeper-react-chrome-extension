@@ -142,7 +142,7 @@ export default function TabGroupEntryContainer() {
   // above, where anchoring has already done the right thing, 'nearest' has
   // nothing left to do.
   //
-  // -1 when nothing is selected, which deleting the selected session produces.
+  // -1 when nothing is selected, which only an empty list produces.
   // It is a trigger and nothing else -- the lookup below goes by id, so this is
   // read only as a dependency.
   const selectedIndex =

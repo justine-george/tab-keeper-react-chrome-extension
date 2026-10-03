@@ -325,7 +325,9 @@ describe('Edit mode on the export page (KAN-194)', () => {
     await user.click(screen.getByRole('button', { name: 'Hide: Food' }));
     await user.click(screen.getByRole('button', { name: 'Done' }));
 
-    expect(store.getState().tabContainerDataState.tabGroups).toEqual([SESSION]);
+    expect(store.getState().tabContainerDataState.tabGroups).toEqual([
+      { ...SESSION, isSelected: true },
+    ]);
   });
 });
 

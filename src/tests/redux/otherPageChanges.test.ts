@@ -317,8 +317,8 @@ describe('applyOtherPageSessions (KAN-279 D9)', () => {
   });
 
   // (5) The other page deleted the session this page had selected: the same
-  // fallback a delete here uses (deleteTabContainerInternal: null).
-  it('(5) selected session deleted elsewhere: selectedTabGroupId null, nothing isSelected', () => {
+  // first session is selected, as when the list loads with a dangling id.
+  it('(5) selected session deleted elsewhere: the first session is selected', () => {
     const { store } = storeWithHistory(
       buildContainer([session('a', T0 - 10 * MIN), session('b', T0 - 20 * MIN)])
     );
@@ -337,32 +337,37 @@ describe('applyOtherPageSessions (KAN-279 D9)', () => {
 
     const after = store.getState().tabContainerDataState;
     expect(ids(store)).toEqual(['b']);
-    expect(after.selectedTabGroupId).toBe(null);
-    expect(selectedIds(after)).toEqual([]);
+    expect(after.selectedTabGroupId).toBe('b');
+    expect(selectedIds(after)).toEqual(['b']);
   });
 
   // (5b) The other page's selection is never adopted, even when this page's
-  // session is gone and the other page has one selected.
+  // session is gone and the other page has one selected: the first survivor
+  // is selected, not the other page's pick.
   it("(5b) selected session deleted elsewhere: the other page's selection is not adopted", () => {
     const { store } = storeWithHistory(
-      buildContainer([session('a', T0 - 10 * MIN), session('b', T0 - 20 * MIN)])
+      buildContainer([
+        session('a', T0 - 10 * MIN),
+        session('b', T0 - 20 * MIN),
+        session('c', T0 - 30 * MIN),
+      ])
     );
     const mine = store.getState().tabContainerDataState;
     otherPageWrites('tabContainerData', {
       ...mine,
       lastModified: T0 + MIN,
-      selectedTabGroupId: 'b',
+      selectedTabGroupId: 'c',
       tabGroups: mine.tabGroups
         .filter((g) => g.tabGroupId !== 'a')
-        .map((g) => ({ ...g, isSelected: true })),
+        .map((g) => ({ ...g, isSelected: g.tabGroupId === 'c' })),
       deletedTabGroups: [{ tabGroupId: 'a', deletedAt: T0 + MIN }],
     });
 
     store.dispatch(applyOtherPageSessions());
 
     const after = store.getState().tabContainerDataState;
-    expect(after.selectedTabGroupId).toBe(null);
-    expect(selectedIds(after)).toEqual([]);
+    expect(after.selectedTabGroupId).toBe('b');
+    expect(selectedIds(after)).toEqual(['b']);
   });
 
   // (6) A held row: the change waits for the release, then lands.

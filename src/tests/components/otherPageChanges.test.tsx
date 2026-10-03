@@ -287,8 +287,29 @@ describe('the rename editor when its session goes (KAN-279 D9)', () => {
     await waitFor(() => expect(screen.queryByText('Doomed')).toBeNull());
     expect(screen.queryByDisplayValue('Doomed')).toBeNull();
     expect(
-      screen.queryByRole('button', { name: /^Rename session/ })
-    ).toBeNull();
+      screen.queryAllByRole('button', { name: 'Rename session: Doomed' })
+    ).toEqual([]);
+  });
+
+  test('the session comes back (an import): its old draft does not reopen', async () => {
+    const user = userEvent.setup();
+    await renderApp(
+      withSelected([session('Doomed'), session('Kept')], 'Doomed')
+    );
+    await user.click(
+      screen.getByRole('button', { name: 'Rename session: Doomed' })
+    );
+    otherPageWrites('tabContainerData', buildContainer([session('Kept')]));
+    await waitFor(() => expect(screen.queryByText('Doomed')).toBeNull());
+
+    otherPageWrites(
+      'tabContainerData',
+      buildContainer([session('Doomed'), session('Kept')])
+    );
+    await user.click(await screen.findByRole('button', { name: /^Doomed$/ }));
+
+    await screen.findByRole('button', { name: 'Rename session: Doomed' });
+    expect(screen.queryByDisplayValue('Doomed')).toBeNull();
   });
 
   // Spec: "a rename's unsaved text lives in component state and survives."
@@ -373,7 +394,8 @@ describe('consent across pages (KAN-279 D9)', () => {
           s.dispatch(setFirebaseAuthed());
         },
       });
-      await screen.findByText('mine');
+      // Named in the list and in the pane it is selected into.
+      await screen.findAllByText('mine');
       await act(async () => {});
       // Declined: signed in and authed, but nothing synced at startup.
       expect(seen).not.toContain(SYNC_STARTED);
@@ -445,7 +467,8 @@ describe('consent across pages (KAN-279 D9)', () => {
           // Not setFirebaseAuthed: auth has not landed.
         },
       });
-      await screen.findByText('mine');
+      // Named in the list and in the pane it is selected into.
+      await screen.findAllByText('mine');
       await act(async () => {});
       expect(mocks.ensureCloudSession).not.toHaveBeenCalled();
       seen.length = 0;
