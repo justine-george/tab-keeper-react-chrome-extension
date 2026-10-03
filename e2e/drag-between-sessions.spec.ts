@@ -7100,4 +7100,77 @@ test.describe('the window it lands in stays open (KAN-379 Q2, Q3)', () => {
     );
     expect(await layout(page, 'K')).toEqual(layoutOf(KEPT()));
   });
+
+  test.describe('every other end folds back, and nothing moved', () => {
+    // a1 rests on folded w2 until it opens.
+    async function openedW2(page: Page): Promise<void> {
+      await collapseWindow(page, 'w2');
+      const at = await pickUp(page, tabHandle(page, 'a1'));
+      await ontoTitle(page, 'w2', at.x);
+      await expect(tabHandle(page, 'b0')).toBeVisible();
+    }
+    async function nothingMoved(page: Page): Promise<void> {
+      await page.waitForTimeout(200);
+      expect(await layout(page, 'S1')).toEqual([W1_START, 'b0 b1']);
+    }
+
+    test('pointercancel', async ({ context, extensionId }) => {
+      const page = await openPopup(context, extensionId);
+      await openedW2(page);
+      await page.evaluate(() =>
+        window.dispatchEvent(new PointerEvent('pointercancel'))
+      );
+      await expect(page.locator('[data-drag-held]')).toHaveCount(0);
+      await expect(tabHandle(page, 'b0')).toHaveCount(0);
+      expect(await isFolded(page, 'w2')).toBe(true);
+      await page.mouse.up();
+      await nothingMoved(page);
+    });
+
+    test('a saved search starting mid-drag', async ({
+      context,
+      extensionId,
+    }) => {
+      const page = await openPopup(context, extensionId);
+      await openedW2(page);
+      const field = page.getByRole('textbox', {
+        name: 'Search saved tabs',
+        exact: true,
+      });
+      await field.focus();
+      await page.keyboard.type('Tab b');
+      await expect(page.locator('[data-drag-held]')).toHaveCount(0);
+      // PREMISE: w2 is among the results, and drawn.
+      await expect(page.locator(blockOf('w2'))).toBeVisible();
+      await expect(tabHandle(page, 'b0')).toHaveCount(0);
+      expect(await isFolded(page, 'w2')).toBe(true);
+      await page.mouse.up();
+      await field.fill('');
+      await expect(tabHandle(page, 'a0')).toBeVisible();
+      expect(await isFolded(page, 'w2')).toBe(true);
+      await nothingMoved(page);
+    });
+
+    // A search nothing matches swaps the detail for its no-match state from
+    // the first key, which unmounts the list mid-drag.
+    test('the list unmounting', async ({ context, extensionId }) => {
+      const page = await openPopup(context, extensionId);
+      await openedW2(page);
+      const field = page.getByRole('textbox', {
+        name: 'Search saved tabs',
+        exact: true,
+      });
+      await field.focus();
+      await page.keyboard.type('zzz');
+      // PREMISE: the list is gone.
+      await expect(page.getByText('No saved tab matches "zzz"')).toBeVisible();
+      await expect(page.locator('[data-drop-window-id]')).toHaveCount(0);
+      await expect(page.locator('html[data-dragging]')).toHaveCount(0);
+      await page.mouse.up();
+      await field.fill('');
+      await expect(tabHandle(page, 'a0')).toBeVisible();
+      expect(await isFolded(page, 'w2')).toBe(true);
+      await nothingMoved(page);
+    });
+  });
 });
