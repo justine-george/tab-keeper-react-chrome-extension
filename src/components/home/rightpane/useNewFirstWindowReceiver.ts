@@ -38,6 +38,9 @@ export function useNewFirstWindowReceiver(
     (state: RootState) => state.tabContainerDataState.tabGroups
   );
   const { isSearching } = useSavedSearch();
+  const hasTabGroupsPermission = useSelector(
+    (state: RootState) => state.globalState.hasTabGroupsPermission
+  );
   const carried = useCarried();
 
   const takes = useMemo(
@@ -46,8 +49,9 @@ export function useNewFirstWindowReceiver(
       carried !== null &&
       carried.kind !== 'window' &&
       tabGroupId !== undefined &&
-      landingView(tabGroups, tabGroupId, carried) !== null,
-    [isSearching, carried, tabGroupId, tabGroups]
+      landingView(tabGroups, tabGroupId, carried, hasTabGroupsPermission) !==
+        null,
+    [isSearching, carried, tabGroupId, tabGroups, hasTabGroupsPermission]
   );
 
   useEffect(() => {

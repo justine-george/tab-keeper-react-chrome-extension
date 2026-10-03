@@ -241,13 +241,60 @@ function carriedIdsIn(
   }
 }
 
+// KAN-371 A. A group's only tab, in its own session: its phantom stays at its
+// own place, still in its group, so the band stays drawn to land back in.
+// Null for any other carry, or with no bands shown.
+function soleTabAtHome(
+  tabGroups: readonly tabContainerData[],
+  shownId: string | undefined,
+  carried: CarriedRef,
+  bandsShown: boolean
+): ShownSession | null {
+  if (!bandsShown) return null;
+  if (carried.kind !== 'tab' || carried.tabGroupId !== shownId) return null;
+  const shown = tabGroups.find((g) => g.tabGroupId === shownId);
+  const from = shown?.windows.find((w) => w.windowId === carried.windowId);
+  const tab = from?.tabs.find((t) => t.tabId === carried.tabId);
+  const groupId = tab?.chromeGroupId;
+  if (shown === undefined || from === undefined || groupId === undefined) {
+    return null;
+  }
+  const isOnly = !from.tabs.some(
+    (t) => t.tabId !== carried.tabId && t.chromeGroupId === groupId
+  );
+  const copies = shown.windows
+    .flatMap((w) => w.tabs)
+    .filter((t) => t.tabId === carried.tabId).length;
+  if (
+    !isOnly ||
+    copies !== 1 ||
+    !from.chromeTabGroups?.some((g) => g.groupId === groupId)
+  ) {
+    return null;
+  }
+  const windows = shown.windows.map((w) =>
+    w !== from
+      ? w
+      : {
+          ...w,
+          tabs: w.tabs.map((t) =>
+            t.tabId === carried.tabId
+              ? { ...t, tabId: phantomIdOf(t.tabId) }
+              : t
+          ),
+        }
+  );
+  return { tabGroupId: shown.tabGroupId, windows };
+}
+
 /**
  * The session `shownId` names, as the detail draws it while `carried` is
  * carried AND can land in it at an exact spot: carriedView's session, with
  * the carried item drawn as a PHANTOM the drag engine adopts -- a tab or
  * group inside a synthetic LAST window (NEW_LAST_WINDOW: the list's trailing
- * block, KAN-361/366), a window as the first window. Its rows go by phantom
- * ids (carriedRowId), never the item's own.
+ * block, KAN-361/366), except a group's only tab in its own session, which
+ * stays at its own place (KAN-371); a window as the first window. Its rows
+ * go by phantom ids (carriedRowId), never the item's own.
  *
  * Null when the session offers no exact spot: no session has that id, the
  * store no longer holds the carried item, or one of the item's ids is one
@@ -261,8 +308,12 @@ function carriedIdsIn(
 export function landingView(
   tabGroups: readonly tabContainerData[],
   shownId: string | undefined,
-  carried: CarriedRef
+  carried: CarriedRef,
+  // Whether the detail draws group bands (the tabGroups grant).
+  bandsShown: boolean
 ): ShownSession | null {
+  const home = soleTabAtHome(tabGroups, shownId, carried, bandsShown);
+  if (home !== null) return home;
   const shown = carriedView(tabGroups, shownId, carried);
   if (shown === null) return null;
   const phantom = phantomWindowOf(tabGroups, carried);

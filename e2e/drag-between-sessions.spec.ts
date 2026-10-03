@@ -5800,3 +5800,57 @@ test.describe('no room outline while a New window target is lit (KAN-378)', () =
     await page.mouse.up();
   });
 });
+
+// KAN-371 A. A group's only tab, carried out and back into its own session.
+test.describe("a group's only tab carried out and back (KAN-371)", () => {
+  const SOLO = () =>
+    session('S1', 'Source', [
+      win(
+        'w1',
+        [tab('a0'), tab('a1'), tab('s0', 'solo'), tab('a2'), tab('a3')],
+        [{ groupId: 'solo', title: 'Solo', color: 'red' }]
+      ),
+      win('w2', [tab('b0')]),
+    ]);
+  const band = (page: Page) => page.locator('[data-drag-row-id="group:solo"]');
+
+  async function carryOut(page: Page): Promise<Point> {
+    const at = await pickUp(page, tabHandle(page, 's0'));
+    await carryOutLeft(page, at);
+    return at;
+  }
+
+  async function releaseAt(page: Page, x: number, y: number): Promise<void> {
+    await page.mouse.move(x, y, { steps: 8 });
+    await settled(page);
+    await page.mouse.up();
+    await settled(page);
+  }
+
+  test('released in its band: the group is kept', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId, [SOLO(), S2()]);
+    const own = await boxOf(tabHandle(page, 's0'));
+    const at = await carryOut(page);
+    // The band waits while the tab is away.
+    await expect(band(page)).toHaveCount(1);
+    await releaseAt(page, at.x, own.y + own.height / 2);
+    expect(await layout(page, 'S1')).toEqual(['a0 a1 s0* a2 a3', 'b0']);
+    expect(await groupEntries(page, 'S1', 0)).toEqual(['solo']);
+  });
+
+  test('CONTROL: released between a2 and a3, it lands loose and the group goes', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId, [SOLO(), S2()]);
+    const at = await carryOut(page);
+    // Measured as the carry draws the list: untransformed until adopted.
+    const a2 = await boxOf(tabHandle(page, 'a2'));
+    await releaseAt(page, at.x, a2.y + a2.height - 4);
+    expect(await layout(page, 'S1')).toEqual(['a0 a1 a2 s0 a3', 'b0']);
+    expect(await groupEntries(page, 'S1', 0)).toEqual([]);
+  });
+});

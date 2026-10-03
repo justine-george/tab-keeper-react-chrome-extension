@@ -80,9 +80,10 @@ export default function TabGroupDetailsContainer() {
   // KAN-350. While something is carried, the session as the carry leaves it:
   // the carried item hidden from its source, so the list closes up behind it
   // -- and, where the session can take it at an exact spot, the item drawn
-  // as a PHANTOM row (landingView): a tab or group in the trailing block, a
-  // window as the first window. The list of that kind adopts the phantom as
-  // its drag when the pointer comes in.
+  // as a PHANTOM row (landingView): a tab or group in the trailing block (a
+  // group's only tab at its own place, KAN-371), a window as the first
+  // window. The list of that kind adopts the phantom as its drag when the
+  // pointer comes in.
   //
   // With nothing carried, the selected session itself -- the same object, so
   // the drag areas below see exactly what they always did. Reads only WHAT is
@@ -96,7 +97,8 @@ export default function TabGroupDetailsContainer() {
     const landing = landingView(
       tabContainerDataList.tabGroups,
       selectedTabGroup.tabGroupId,
-      carried
+      carried,
+      hasTabGroupsPermission
     );
     if (landing !== null) {
       return { shownSession: landing, phantomRowId: carriedRowId(carried) };
@@ -110,7 +112,12 @@ export default function TabGroupDetailsContainer() {
         ) ?? selectedTabGroup,
       phantomRowId: undefined,
     };
-  }, [carried, selectedTabGroup, tabContainerDataList.tabGroups]);
+  }, [
+    carried,
+    selectedTabGroup,
+    tabContainerDataList.tabGroups,
+    hasTabGroupsPermission,
+  ]);
   // Only the list that drags the carried kind adopts it, and follows the row
   // the item lands as once a drop there commits (KAN-155).
   const adoptRowIdFor = (kind: 'tab' | 'group' | 'window') =>

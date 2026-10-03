@@ -7,7 +7,8 @@
 //     session is on screen (Q2 A) -- first on the session header's
 //     (NEW_FIRST_WINDOW, KAN-361 N1 B, S3 A), last in the list's trailing
 //     block (NEW_LAST_WINDOW, KAN-366 B), which is where an adopted
-//     phantom rests, so a release at its own place makes a new last window;
+//     phantom rests (a group's only tab excepted, KAN-371), so a release at
+//     its own place makes a new last window;
 //   - in the item's OWN session: today's tabDrop / groupDrop / windowDrop,
 //     from the item's original window, so their no-op guards and prune rules
 //     are unchanged (plan Decision). The detail drew the session with the
