@@ -345,7 +345,7 @@ interface LiveDrag {
   scrollTopAtPress: number;
   maxScroll: number;
   // A list with no scroller when measured: an open can make it scroll (KAN-379).
-  fitting: Fitting | null;
+  fittedAtStart: Fitting | null;
   // Where a release still counts as a drop on this list, when the list has
   // opted in (KAN-155). Null otherwise, and then only the rows count.
   pane: HTMLElement | null;
@@ -479,7 +479,7 @@ function pressRecord(
     maxScroll: scroller
       ? Math.max(0, scroller.scrollHeight - scroller.clientHeight)
       : 0,
-    fitting: null,
+    fittedAtStart: null,
     pane: clampDropToEnds ? paneOf(el) : null,
     heldEl: null,
     heldWindow: null,
@@ -1693,7 +1693,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         );
       }
       // Read now, before any row carries a transform (invariant #2).
-      l.fitting = l.scroller ? null : fittingOf(paneOf(l.heldEl));
+      l.fittedAtStart = l.scroller ? null : fittingOf(paneOf(l.heldEl));
 
       // Re-anchor the grab. Collapsing moves every row, so the row being held
       // is no longer under the pointer where it was picked up -- without this
@@ -1815,12 +1815,13 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       if (!changed) return;
 
       // A list that fit may scroll now: its limit is derived, never read live.
-      if (l.scroller === null && l.fitting !== null) {
-        l.fitting.contentHeight += grown;
-        const overflow = l.fitting.contentHeight - l.fitting.pane.clientHeight;
+      if (l.scroller === null && l.fittedAtStart !== null) {
+        l.fittedAtStart.contentHeight += grown;
+        const overflow =
+          l.fittedAtStart.contentHeight - l.fittedAtStart.pane.clientHeight;
         l.maxScroll = Math.max(0, overflow);
         if (overflow > 0) {
-          l.scroller = l.fitting.pane;
+          l.scroller = l.fittedAtStart.pane;
           if (!scrollFrame.current) {
             scrollFrame.current = requestAnimationFrame(autoScroll);
           }
@@ -2093,9 +2094,10 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
           // clamped it, and unfolding does not give it back -- measured, five
           // windows scrolled to 300 ended at 0 with the held window off screen.
           //
-          // Synchronous, and after setDragging(false) above: the kind is
-          // unpublished, so this write lays out against the UNFOLDED list and
-          // its full scroll range, which is the only one 300 fits in.
+          // Synchronous unless windows folded back (below), and after
+          // setDragging(false) above: the kind is unpublished, so this write
+          // lays out against the UNFOLDED list and its full scroll range,
+          // which is the only one 300 fits in.
           //
           // KAN-379 D11. Next frame when windows folded back: their fold has not rendered yet.
           const { scroller, scrollTopAtPress } = l;

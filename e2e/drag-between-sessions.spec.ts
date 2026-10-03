@@ -3597,10 +3597,10 @@ const drawnBox = (page: Page, rowId: string) =>
     return { top: r.top, bottom: r.bottom };
   });
 
-// The held row's own box: where it is drawn, less the translate that makes
-// it follow the pointer.
-const ownBox = (page: Page, rowId: string) =>
-  page.locator(`[data-drag-row-id="${rowId}"]`).evaluate((el) => {
+const dragRow = (id: string) => `[data-drag-row-id="${id}"]`;
+// An element's own box: where it is drawn, less the translate a drag gives it.
+const ownBox = (page: Page, selector: string) =>
+  page.locator(selector).evaluate((el) => {
     if (!(el instanceof HTMLElement)) throw new Error('not an HTMLElement');
     const shift = Number(
       /translateY\((-?[\d.]+)px\)/.exec(el.style.transform)?.[1] ?? 0
@@ -3660,7 +3660,7 @@ test.describe('the toolbar target makes a new first window (KAN-361)', () => {
     await pickUp(page, tabHandle(page, 'a1'));
     await settled(page);
     // At its own place: the rows as the drag measured them.
-    const own = await ownBox(page, 'a1');
+    const own = await ownBox(page, dragRow('a1'));
     const was = {
       a0: await drawnBox(page, 'a0'),
       a2: await drawnBox(page, 'a2'),
@@ -4375,7 +4375,7 @@ test.describe('the phantom rests in a trailing block after the last window (KAN-
     // s5-3's own box, not where the preview draws it: with the pointer in
     // the room, the drag can be landing in the trailing block (KAN-366 B),
     // and s5-1's window closes up under it (Q2 ii).
-    const last = await ownBox(page, 's5-3');
+    const last = await ownBox(page, dragRow('s5-3'));
     const y = last.bottom + 12;
     const block = await boxOf(trailingBlock(page));
     // PREMISE: the point is in the trailing block, within half a row of the
@@ -4497,7 +4497,7 @@ test.describe('the phantom rests in a trailing block after the last window (KAN-
         // not where the preview draws it: with the pointer in the room the
         // drag can be landing in the trailing block (KAN-366 B), and s5-1's
         // window closes up under it (Q2 ii).
-        const last = await ownBox(page, 's5-3');
+        const last = await ownBox(page, dragRow('s5-3'));
         await page.mouse.move(at.x, last.bottom + 6, { steps: 4 });
         await settled(page);
       }
@@ -4974,7 +4974,7 @@ test.describe('below the last window makes a new last window (KAN-366)', () => {
         );
         await settled(page);
         // At its own place: the rows as the drag measured them.
-        const own = await ownBox(page, c.rowId);
+        const own = await ownBox(page, dragRow(c.rowId));
         const was: Record<string, { top: number; bottom: number }> = {};
         for (const id of [...c.closesUp, ...c.still, c.sourceLast]) {
           was[id] = id === c.rowId ? own : await drawnBox(page, id);
@@ -6027,7 +6027,7 @@ async function aimAtOwn(
   rowId: string,
   frac: number
 ): Promise<{ top: number; bottom: number }> {
-  const own = await ownBox(page, rowId);
+  const own = await ownBox(page, dragRow(rowId));
   await page.mouse.move(x, own.top + (own.bottom - own.top) * frac, {
     steps: 8,
   });
@@ -6101,7 +6101,6 @@ test.describe('a collapsed window opens under a resting tab or group (KAN-379)',
     });
   }
 
-  // CONTROL: the ground is the title row's own pixel at rest.
   const HOVER_BY_THEME = new Map([
     ['Light', LIGHT_THEME.HOVER_COLOR],
     ['WarmLight', WARM_LIGHT_THEME.HOVER_COLOR],
@@ -6121,6 +6120,7 @@ test.describe('a collapsed window opens under a resting tab or group (KAN-379)',
       // The row's top strip, clear of its glyphs.
       const y = t.y + 3;
       const xAt = (f: number) => t.x + t.width * f;
+      // CONTROL: the ground is the title row's own pixel at rest.
       const [ground] = await pixelsAt(page, [[xAt(0.75), y]]);
       const at = await pickUp(page, tabHandle(page, 'a1'));
       await ontoTitle(page, 'w2', at.x);
@@ -6319,10 +6319,13 @@ test.describe('a collapsed window opens under a resting tab or group (KAN-379)',
     await watchDwell(page);
     const at = await pickUp(page, tabHandle(page, 'a1'));
     const t = await ontoTitle(page, 'w2', at.x);
+    // Held at its start, so the read cannot race the open.
+    await holdSweepAt(page, titleOf('w2'), 0);
     const [right] = await pixelsAt(page, [[t.x + t.width * 0.97, t.y + 3]]);
     // PREMISE: read before the open.
     expect(await isFolded(page, 'w2')).toBe(true);
     expect(right).toBe(LIGHT_THEME.HOVER_COLOR.toUpperCase());
+    await playSweep(page, 'w2');
     await expect(tabHandle(page, 'b0')).toBeVisible();
     const { started, opened } = dwellToOpen(await dwellLog(page), 'w2');
     if (started === undefined || opened === undefined)
@@ -6575,6 +6578,7 @@ test.describe('a collapsed window opens under a resting tab or group (KAN-379)',
       );
     }
 
+    // Quiet without the opt-in too: a window row sits in no window block, so lands in none.
     test('a window drag over collapsed w2', async ({
       context,
       extensionId,
@@ -6592,6 +6596,7 @@ test.describe('a collapsed window opens under a resting tab or group (KAN-379)',
       await page.mouse.up();
     });
 
+    // Quiet without the opt-in too: an Open now window is never marked data-window-collapsed.
     test('an Open now tab drag over a collapsed Open now window', async ({
       context,
       extensionId,
@@ -6632,7 +6637,8 @@ test.describe('a collapsed window opens under a resting tab or group (KAN-379)',
       await page.mouse.up();
     });
 
-    test('a press that never passes the activation distance', async ({
+    // On the title itself: no tab row sits within the activation distance of it.
+    test('a press on the title that never passes the activation distance', async ({
       context,
       extensionId,
     }) => {
@@ -6640,17 +6646,13 @@ test.describe('a collapsed window opens under a resting tab or group (KAN-379)',
       await collapseWindow(page, 'w2');
       await watchDwell(page);
       const t = await boxOf(page.locator(titleOf('w2')));
-      const al1 = await boxOf(tabHandle(page, 'al1'));
-      const x = al1.x + 60;
-      // PREMISE: w2's title is within the activation distance of al1.
-      expect(t.y + 1 - (al1.y + al1.height - 1)).toBeLessThan(5 + 8 + 2);
-      await page.mouse.move(x, al1.y + al1.height - 1);
+      const x = t.x + t.width / 2;
+      await page.mouse.move(x, t.y + t.height / 2 - 2);
       await page.mouse.down();
-      await page.mouse.move(x, al1.y + al1.height + 3, { steps: 2 });
-      await expect(tabHandle(page, 'al1')).not.toHaveAttribute(
-        'data-drag-held',
-        ''
-      );
+      await page.mouse.move(x, t.y + t.height / 2 + 2, { steps: 2 });
+      await expect(
+        page.locator('[data-pane="detail"] [data-drag-held]')
+      ).toHaveCount(0);
       await neverDwelt(page);
       await page.mouse.up();
     });
@@ -6774,17 +6776,6 @@ async function paintedLog(
   return { end: Number(raw.end), frames };
 }
 
-// A window block's box less the translate the preview has given it.
-const ownBlockBox = (page: Page, windowId: string) =>
-  page.locator(blockOf(windowId)).evaluate((el) => {
-    if (!(el instanceof HTMLElement)) throw new Error('not an HTMLElement');
-    const shift = Number(
-      /translateY\((-?[\d.]+)px\)/.exec(el.style.transform)?.[1] ?? 0
-    );
-    const r = el.getBoundingClientRect();
-    return { top: r.top - shift, bottom: r.bottom - shift };
-  });
-
 test.describe('the window it lands in stays open (KAN-379 Q2, Q3)', () => {
   // The 6×4 session with sw2, sw3 and sw4 folded, scrolled to `top`: the
   // folded list still scrolls, and `held` and every folded title sit clear
@@ -6905,8 +6896,8 @@ test.describe('the window it lands in stays open (KAN-379 Q2, Q3)', () => {
     await ontoTitle(page, 'sw2', at.x);
     await expect(tabHandle(page, 's2-0')).toBeVisible();
     await settled(page);
-    const sw3 = await ownBlockBox(page, 'sw3');
-    const sw4 = await ownBlockBox(page, 'sw4');
+    const sw3 = await ownBox(page, blockOf('sw3'));
+    const sw4 = await ownBox(page, blockOf('sw4'));
     const y = sw4.top - 1.5;
     // PREMISE: in the gap, nearer sw4, clear of the bottom band.
     expect(y).toBeGreaterThan((sw3.bottom + sw4.top) / 2);

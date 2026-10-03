@@ -1,7 +1,7 @@
 import { css, keyframes } from '@emotion/react';
 
-// How long a carry rests on a target before it opens (KAN-350 S1 A); the sweep
-// below runs for exactly this long, so the fill is full when the open fires.
+// How long a drag rests on a target before it opens: a session row's timer
+// (KAN-350 S1 A), and a window title's sweep, which opens it as it ends.
 export const SPRING_OPEN_MS = 600;
 
 // The dwell fill grows across the row from the left (KAN-380); its `.name`

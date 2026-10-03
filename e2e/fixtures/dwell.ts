@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 
-// Pauses the dwelling row's sweep at `ms`; the spring-open timer still runs.
+// Pauses the dwelling row's sweep at `ms`: a session row's timer still runs; a window title's open waits.
 export const holdSweepAt = (page: Page, selector: string, ms: number) =>
   page.locator(selector).evaluate(
     (el, ms) => {
