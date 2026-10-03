@@ -507,6 +507,13 @@ export interface RowDragAreaProps {
    * drag tabs too and must never show the target.
    */
   offersNewWindow?: boolean;
+  /**
+   * KAN-379. Present, a tab or group resting on a collapsed window's title
+   * row for SPRING_OPEN_MS opens it for the rest of the gesture; the windows
+   * it opened fold back when the gesture ends. Called to keep one open in the
+   * stored fold. The windows list and Open now pass none.
+   */
+  keepWindowOpen?: (windowId: string) => void;
   // Dragging is off while the list on screen is a FILTERED view of the stored
   // one (KAN-131). toIndex counts rendered rows, and the reducers apply it to
   // the stored array, so a drag in a narrowed list lands somewhere the user
@@ -628,6 +635,36 @@ export function windowOf(el: Element | null | undefined): HTMLElement | null {
   return el?.closest<HTMLElement>(WINDOW_MARKER) ?? null;
 }
 
+// THE BLOCK'S RESTING BOX, not where the preview has moved it (KAN-184).
+//
+// While a row is held over another window, the blocks after it are translated
+// to open the room the drop needs, so their live rects are not where the drag
+// measured them. Hit-testing those would let the preview decide what the
+// pointer can reach -- and a window that slides under the pointer while it is
+// being pointed at is the LATCH that KAN-171 had to fix for a band's padding.
+// Growing a preview shows the result; it is not a moved target.
+//
+// Read off the attribute the block publishes, for the same reason bandAt
+// reads the inline padding: this runs for every window on every pointer move.
+function restingBox(el: HTMLElement) {
+  const r = el.getBoundingClientRect();
+  const shift = parseFloat(el.dataset.windowShift ?? '') || 0;
+  return {
+    el,
+    left: r.left,
+    right: r.right,
+    top: r.top - shift,
+    bottom: r.bottom - shift,
+  };
+}
+
+// KAN-379 D3. Is the point on the block itself, not the gap the block answers
+// for? Its resting box, so a window shift never moves what can dwell.
+export function isOnBlock(block: HTMLElement, x: number, y: number): boolean {
+  const b = restingBox(block);
+  return x >= b.left && x <= b.right && y >= b.top && y <= b.bottom;
+}
+
 // WHICH WINDOW a drop landed in (KAN-132), answered with the block itself so
 // the engine can search it for bands. The same idiom as bandAt, and for the
 // same reason: resolved from rects rather than from the engine's collision
@@ -644,28 +681,6 @@ export function windowBlockAt(
   x: number,
   y: number
 ): HTMLElement | null {
-  // THE BLOCKS' RESTING BOXES, not where the preview has moved them (KAN-184).
-  //
-  // While a row is held over another window, the blocks after it are translated
-  // to open the room the drop needs, so their live rects are not where the drag
-  // measured them. Hit-testing those would let the preview decide what the
-  // pointer can reach -- and a window that slides under the pointer while it is
-  // being pointed at is the LATCH that KAN-171 had to fix for a band's padding.
-  // Growing a preview shows the result; it is not a moved target.
-  //
-  // Read off the attribute the block publishes, for the same reason bandAt
-  // reads the inline padding: this runs for every window on every pointer move.
-  const restingBox = (el: HTMLElement) => {
-    const r = el.getBoundingClientRect();
-    const shift = parseFloat(el.dataset.windowShift ?? '') || 0;
-    return {
-      el,
-      left: r.left,
-      right: r.right,
-      top: r.top - shift,
-      bottom: r.bottom - shift,
-    };
-  };
   const blocks = windowBlocksIn(container);
   // The trailing block (isTrailingBlock, KAN-361/366) is no window to the
   // box and gap rules: it is the one exception between them.
@@ -736,6 +751,11 @@ export function windowBlockAt(
 // New window target value, `last`.
 export function isTrailingBlock(el: HTMLElement): boolean {
   return el.dataset.newWindowTarget === 'last';
+}
+
+// KAN-379. A window block drawn folded, as WindowEntryContainer marks it.
+export function isWindowCollapsed(block: HTMLElement): boolean {
+  return block.hasAttribute('data-window-collapsed');
 }
 
 // Every saved-window block below `container`, in document order.
@@ -885,8 +905,17 @@ export function setDragNewWindow(on: boolean, withRoom = false): void {
     root.style.removeProperty(NEW_WINDOW_FREE);
     return;
   }
-  const hasRoom = root.getAttribute('data-drag-new-window') === 'room';
-  root.setAttribute('data-drag-new-window', withRoom || hasRoom ? 'room' : '');
+  root.setAttribute(
+    'data-drag-new-window',
+    withRoom || hasNewWindowRoom() ? 'room' : ''
+  );
+}
+
+// Whether the trailing block has its row of room now (KAN-366 Q4).
+export function hasNewWindowRoom(): boolean {
+  return (
+    document.documentElement.getAttribute('data-drag-new-window') === 'room'
+  );
 }
 
 // The room follows the list a carry SHOWS (KAN-366 Q4), not the one the

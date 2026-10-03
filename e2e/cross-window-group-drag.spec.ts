@@ -17,6 +17,7 @@ import type { BrowserContext, Page } from '@playwright/test';
 
 import { grantedTest as test, expect } from './fixtures/grantedExtension';
 import { buildContainer, buildSession, seedSessions } from './fixtures/seed';
+import { holdSweepAt } from './fixtures/dwell';
 import {
   startGeometryEvidence,
   withGeometryEvidence,
@@ -402,6 +403,12 @@ test.describe('a group released over another window', () => {
     const x = await grabGroup(page, 'alpha');
     const w2 = await blockBox(page, 'w2');
     await page.mouse.move(x, w2.y + w2.height / 2, { steps: 8 });
+    // Held at 0, so w2 cannot open before the release (KAN-379).
+    await holdSweepAt(
+      page,
+      '[data-drop-window-id="w2"] > [data-window-drag-handle]',
+      0
+    );
     await page.mouse.up();
 
     await expect
@@ -642,6 +649,16 @@ test.describe('what a group drag into another window previews', () => {
     const x = await grabGroup(page, 'alpha');
     const block = await blockBox(page, 'w2');
     await page.mouse.move(x, block.y + block.height / 2, { steps: 8 });
+    // Resting on its title opens it (KAN-379): the sweep is held at 0, so
+    // these reads see it folded.
+    await holdSweepAt(
+      page,
+      '[data-drop-window-id="w2"] > [data-window-drag-handle]',
+      0
+    );
+    await expect(
+      page.locator('[data-drop-window-id="w2"][data-spring-dwell]')
+    ).toHaveCount(1);
 
     await expect
       .poll(() => shiftsIn(page, 'w1'))

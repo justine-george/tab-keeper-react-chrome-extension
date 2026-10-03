@@ -49,6 +49,8 @@ import { markRowContainer } from './rowDrag/dropRules';
 import { useDragState } from './rowDrag/dragContext';
 import { GroupFrameFollower } from './rowDrag/GroupFrameFollower';
 import { ADJACENT_GROUP_GAP_PX, BAND_MARGIN_PX } from './bandSpacing';
+import { useIsSpringOpen } from '../../../redux/springOpenWindows';
+import { springSweepStyle } from '../../common/springOpen';
 import { NEW_LAST_WINDOW, newWindowTargetBoxStyle } from './newWindowTarget';
 import { NewWindowTargetLabel } from './NewWindowTargetLabel';
 import { CONTROL, DURATION, RADIUS, TYPE } from '../../../styles/scale';
@@ -125,13 +127,16 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   // The selector returns a boolean deliberately. collapsedWindowIdsOf answers
   // with a fresh [] for a session that owns no set, and returning that array
   // straight from useSelector would be a new reference on every render.
-  const isWindowOpen = useSelector(
+  const isOpenInStore = useSelector(
     (state: RootState) =>
       !collapsedWindowIdsOf(
         state.globalState.collapsedWindows,
         tabGroupId
       ).includes(windowId)
   );
+  // KAN-379. A window a drag opened is drawn open, with the stored fold intact.
+  const isSpringOpened = useIsSpringOpen(windowId);
+  const isWindowOpen = isOpenInStore || isSpringOpened;
   const [newTitle, setNewTitle] = useState(title);
   const [isEditing, setIsEditing] = useState(false);
   const [isParentHovered, setIsParentHovered] = useState(false);
@@ -201,6 +206,15 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
        vertical edge between them -- measured here at 17 frames of 52. */
     &:hover {
       background-color: ${COLORS.HOVER_COLOR};
+    }
+    /* KAN-379. A drag resting here: the sweep, whose end opens the window. */
+    [data-spring-dwell] > & {
+      ${springSweepStyle(COLORS.HOVER_COLOR)}
+      @media (prefers-reduced-motion: reduce) {
+        /* Lit at once; the animation stays, because it times the open (D7). */
+        background-color: ${COLORS.HOVER_COLOR};
+        background-image: none;
+      }
     }
   `;
 
@@ -664,6 +678,8 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
           : containerStyle
       }
       data-drop-window-id={windowId}
+      // KAN-379. What the engine reads to know a block is drawn folded.
+      data-window-collapsed={!isTrailingBlock && !isWindowOpen ? '' : undefined}
       // KAN-361/366. Lit by markNewWindowTarget while the landing is in it.
       data-new-window-target={isTrailingBlock ? 'last' : undefined}
       // Only a pointer's drag ever shows it, and it holds no row of its own.

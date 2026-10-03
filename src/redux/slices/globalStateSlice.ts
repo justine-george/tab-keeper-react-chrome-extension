@@ -1126,6 +1126,18 @@ export const globalStateSlice = createSlice({
       state.collapsedWindows = { tabGroupId, windowIds: next };
     },
 
+    // KAN-379. Keeps a window open that a drop landed in. Removes, never
+    // toggles, so it is idempotent; no markDirty, same as the fold above.
+    expandWindow: (
+      state,
+      action: PayloadAction<{ tabGroupId: string; windowId: string }>
+    ) => {
+      const { tabGroupId, windowId } = action.payload;
+      if (state.collapsedWindows?.tabGroupId !== tabGroupId) return;
+      state.collapsedWindows.windowIds =
+        state.collapsedWindows.windowIds.filter((id) => id !== windowId);
+    },
+
     // The header control (KAN-206). The caller decides WHICH windows are
     // folded, because it is the one holding the session's window list; this
     // only records the answer. Passing [] is how "expand all" is said.
@@ -1276,6 +1288,7 @@ export const {
   setHasTabGroupsPermission,
   setHasSessionsPermission,
   toggleWindowCollapse,
+  expandWindow,
   setAllWindowsCollapsed,
   peekSavedSession,
   endSavedSessionPeek,

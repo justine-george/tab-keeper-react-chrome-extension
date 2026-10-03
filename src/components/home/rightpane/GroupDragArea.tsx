@@ -10,6 +10,7 @@ import { useSelector } from 'react-redux';
 
 import type { RootState } from '../../../redux/store';
 import { RowDragArea } from './rowDrag/RowDragArea';
+import { useKeepWindowOpen } from './useKeepWindowOpen';
 import { useSavedSearch } from '../../../hooks/useSavedSearch';
 import { useGroupDrop } from './useGroupDrop';
 import type { PaneWindows } from './rowDrag/dropRules';
@@ -34,6 +35,7 @@ export const GroupDragArea: React.FC<{
   );
   const { isSearching } = useSavedSearch();
   const groupDrop = useGroupDrop(itemList, hasTabGroupsPermission);
+  const keepWindowOpen = useKeepWindowOpen(itemList.tabGroupId);
   const carryOut = useCallback(
     (rowId: string) => groupCarryOut(itemList, rowId),
     [itemList]
@@ -78,6 +80,8 @@ export const GroupDragArea: React.FC<{
       // From pick-up, the toolbar row's New window target stands in for the
       // session header's controls (KAN-361 N1 B).
       offersNewWindow
+      // Resting on a collapsed window's title opens it (KAN-379).
+      keepWindowOpen={keepWindowOpen}
       // Off while searching (KAN-385).
       disabled={isSearching}
     >
