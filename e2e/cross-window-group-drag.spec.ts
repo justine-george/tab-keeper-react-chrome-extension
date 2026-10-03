@@ -403,6 +403,12 @@ test.describe('a group released over another window', () => {
     const x = await grabGroup(page, 'alpha');
     const w2 = await blockBox(page, 'w2');
     await page.mouse.move(x, w2.y + w2.height / 2, { steps: 8 });
+    // Held at 0, so w2 cannot open before the release (KAN-379).
+    await holdSweepAt(
+      page,
+      '[data-drop-window-id="w2"] > [data-window-drag-handle]',
+      0
+    );
     await page.mouse.up();
 
     await expect
