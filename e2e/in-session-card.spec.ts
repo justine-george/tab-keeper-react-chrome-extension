@@ -1535,6 +1535,47 @@ const scrollPaneTo = (page: Page, top: number) =>
     return p.scrollTop;
   }, top);
 
+// The slot as painted in the first frame past `past`: a plain read can land between a commit and its frame (KAN-387).
+const slotOnceScrolledPast = (held: Locator, past: number) =>
+  held.evaluate(
+    (el, past) =>
+      new Promise<{
+        scrollTop: number;
+        slot: { top: number; bottom: number; opacity: string } | null;
+      }>((resolve) => {
+        let p = el.parentElement;
+        while (
+          p !== null &&
+          !['auto', 'scroll'].includes(getComputedStyle(p).overflowY)
+        )
+          p = p.parentElement;
+        if (p === null) throw new Error('the held row has no scrolling pane');
+        const scroller = p;
+        const giveUp = performance.now() + 4000;
+        const frame = () => {
+          if (scroller.scrollTop <= past && performance.now() < giveUp) {
+            requestAnimationFrame(frame);
+            return;
+          }
+          const slot = el.querySelector(':scope > [data-drag-landing-slot]');
+          const r = slot?.getBoundingClientRect();
+          resolve({
+            scrollTop: scroller.scrollTop,
+            slot:
+              slot === null || r === undefined
+                ? null
+                : {
+                    top: r.top,
+                    bottom: r.bottom,
+                    opacity: getComputedStyle(slot).opacity,
+                  },
+          });
+        };
+        requestAnimationFrame(frame);
+      }),
+    past
+  );
+
 test.describe('a long, scrolled session', () => {
   // Auto-scroll (KAN-152) moves the list under a hidden row: the card stays
   // at the pointer -- it is position: fixed -- and the slot, at full
@@ -1552,10 +1593,9 @@ test.describe('a long, scrolled session', () => {
     const pane = await paneOf(page);
     const low = { x: at.x, y: pane.bottom - 12 };
     await page.mouse.move(low.x, low.y, { steps: 8 });
+    const seen = await slotOnceScrolledPast(held, pane.scrollTop + 120);
     // PREMISE: the list is scrolling under the held row.
-    await expect
-      .poll(async () => (await paneOf(page)).scrollTop, { timeout: 4000 })
-      .toBeGreaterThan(pane.scrollTop + 120);
+    expect(seen.scrollTop).toBeGreaterThan(pane.scrollTop + 120);
 
     await expectCardAt(page, low);
     await expect(held).toHaveAttribute('data-held-as-card', '');
@@ -1564,8 +1604,9 @@ test.describe('a long, scrolled session', () => {
     // from the held row here (slot 481..513, row 513..545), where a lifted
     // row's fading slot is near 1 already, so this barely tells the two
     // looks apart; C1's pick-up, at distance 0, does.
-    expect(await slotOpacity(held)).toBe('1');
-    const slot = await drawn(held.locator(':scope > [data-drag-landing-slot]'));
+    const slot = seen.slot;
+    if (slot === null) throw new Error('no landing slot drawn');
+    expect(slot.opacity).toBe('1');
     expect(slot.top).toBeGreaterThanOrEqual(pane.top - 0.5);
     expect(slot.bottom).toBeLessThanOrEqual(pane.bottom + 0.5);
     await cancel(page);
