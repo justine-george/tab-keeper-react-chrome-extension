@@ -8,7 +8,6 @@ import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useTranslation } from 'react-i18next';
 import { ICON, TYPE } from '../../../styles/scale';
 
-// Out of sight, still read by assistive tech (KAN-343 B).
 const visuallyHiddenStyle = css`
   position: absolute;
   width: 1px;

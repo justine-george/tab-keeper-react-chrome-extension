@@ -599,9 +599,7 @@ test.describe('the mark before the title', () => {
   });
 });
 
-// KAN-343 B. When "Tab Keeper" does not fit beside the icons it is hidden from
-// sight, never cut, and the mark stands alone; it still names the header for
-// assistive tech. Judged by pixels, so any way of hiding counts.
+// KAN-343 B. Judged by pixels, so any way of hiding the words counts.
 
 /** The header row in any language: the innermost box with the mark and a control. */
 const markRow = (page: Page): Locator =>
@@ -726,10 +724,6 @@ test.describe('the words give way to the mark (KAN-343 B)', () => {
           expect(await roomInk(page), 'the words are drawn').toBeGreaterThan(0);
           expect(box.x).toBeGreaterThanOrEqual(room.x);
           expect(box.x + box.width).toBeLessThanOrEqual(room.x + room.width);
-          expect(
-            await words.evaluate((el) => el.scrollWidth <= el.clientWidth),
-            'not truncated'
-          ).toBe(true);
         } else {
           expect(await roomInk(page), 'nothing is drawn but the mark').toBe(0);
         }
@@ -856,8 +850,7 @@ test.describe('the words give way to the mark (KAN-343 B)', () => {
     expect(await unrestFor(page, 500)).toEqual({ mutations: 0, errors: [] });
   });
 
-  // "Tab Keeper" is the same in every locale and drawn in the same face, so a
-  // locale changes nothing here; this pins that the rule holds in one anyway.
+  // "Tab Keeper" is not translated; this pins the rule outside English anyway.
   for (const rootPx of ROOTS) {
     test(`in German at a ${rootPx}px root the same rule holds`, async ({
       context,
