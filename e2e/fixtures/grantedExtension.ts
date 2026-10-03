@@ -35,6 +35,7 @@ export const grantedTest = base.extend<{
   serviceWorker: Worker;
   extensionId: string;
   keepWindowBounds: boolean;
+  showScrollbars: boolean;
 }>({
   // Off by default. Two things in the harness move a window away from the
   // bounds windows.create gave it, measured 2026-09-24 (KAN-280): headless
@@ -45,10 +46,14 @@ export const grantedTest = base.extend<{
   // can be maximized. Opt in with `grantedTest.use({ keepWindowBounds: true })`.
   keepWindowBounds: [false, { option: true }],
 
+  // As in extension.ts (KAN-188): headless hides every scrollbar unless a
+  // spec opts in with `grantedTest.use({ showScrollbars: true })`.
+  showScrollbars: [false, { option: true }],
+
   // `headless` is Playwright's own option, true unless the run passes
   // --headed: a spec that needs a real window manager can then be run headed
   // on purpose (open-now-close.spec.ts test 2).
-  context: async ({ keepWindowBounds, headless }, use) => {
+  context: async ({ keepWindowBounds, showScrollbars, headless }, use) => {
     const copy = mkdtempSync(join(tmpdir(), 'tabkeeper-granted-'));
     cpSync(DIST, copy, { recursive: true });
     const manifestPath = join(copy, 'manifest.json');
@@ -64,6 +69,7 @@ export const grantedTest = base.extend<{
       headless,
       channel: 'chromium',
       ...(keepWindowBounds ? { viewport: null } : {}),
+      ...(showScrollbars ? { ignoreDefaultArgs: ['--hide-scrollbars'] } : {}),
       args: [
         `--disable-extensions-except=${copy}`,
         `--load-extension=${copy}`,

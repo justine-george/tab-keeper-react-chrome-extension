@@ -44,6 +44,7 @@ import {
   hasNewWindowRoom,
   isInEditableField,
   isInsideList,
+  isOnBlock,
   isRowContainer,
   isTrailingBlock,
   isWindowCollapsed,
@@ -97,7 +98,12 @@ import {
   moveDragCard,
   showDragCard,
 } from '../../../../redux/dragCard';
-import { useSpringOpenWindows } from '../../../../redux/springOpenWindows';
+import {
+  foldBackSpringOpened,
+  springOpenWindow,
+  useSpringOpenWindows,
+} from '../../../../redux/springOpenWindows';
+import { SPRING_SWEEP } from '../../../common/springOpen';
 import { createClickSuppressor } from './clickSuppressor';
 import { edgeScrollStep } from './edgeScroll';
 import {
@@ -429,6 +435,14 @@ interface LiveDrag {
   // drew none.
   memberEdges: Map<string, Edges>;
   looseEdges: Edges | null;
+  // The collapsed window block this drag rests on (KAN-379), or null.
+  dwell: HTMLElement | null;
+}
+
+// Ends a dwell; removing the attribute cancels its sweep (KAN-379).
+function endDwell(l: LiveDrag): void {
+  l.dwell?.removeAttribute('data-spring-dwell');
+  l.dwell = null;
 }
 
 // A drag as the press (or an adoption) starts it: not yet measured, which is
@@ -485,6 +499,7 @@ function pressRecord(
     cardShown: false,
     memberEdges: new Map(),
     looseEdges: null,
+    dwell: null,
   };
 }
 
@@ -510,6 +525,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
   adoptedRowLandsAs,
   onLandingWindowChange,
   offersNewWindow = false,
+  keepWindowOpen,
   disabled = false,
   children,
 }) => {
@@ -936,6 +952,49 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         ? undefined
         : resolveDrop?.(dropRoot(l, block), l.lastX, l.lastY)?.bandId;
 
+    // KAN-379 D3. The collapsed window a release here lands in, while the
+    // pointer is on its block (the title row), not the gap it answers for.
+    const dwellTarget = (
+      l: NonNullable<typeof live.current>,
+      block: HTMLElement | null,
+      landing: Landing | undefined
+    ): HTMLElement | null =>
+      keepWindowOpen !== undefined &&
+      block !== null &&
+      landing !== undefined &&
+      landing.windowId === block.dataset.dropWindowId &&
+      isWindowCollapsed(block) &&
+      isOnBlock(block, l.lastX, l.lastY)
+        ? block
+        : null;
+
+    // KAN-379 D1. The window opens when its title's sweep ends, so a paused
+    // sweep holds the open and the row is full exactly when it opens.
+    const dwellOn = (l: LiveDrag, block: HTMLElement | null) => {
+      if (l.dwell === block) return;
+      endDwell(l);
+      const windowId = block?.dataset.dropWindowId;
+      if (block === null || windowId === undefined) return;
+      l.dwell = block;
+      block.setAttribute('data-spring-dwell', '');
+      const sweep = block
+        .getAnimations({ subtree: true })
+        .find(
+          (a) =>
+            a instanceof CSSAnimation && a.animationName === SPRING_SWEEP.name
+        );
+      sweep?.finished.then(
+        () => {
+          // A sweep can finish in the frame after a leave, before style drops it.
+          if (live.current !== l || l.dwell !== block) return;
+          endDwell(l);
+          springOpenWindow(windowId);
+        },
+        // Cancelled: the pointer left, or the drag ended.
+        () => undefined
+      );
+    };
+
     // Returns the target this preview was drawn for, so the drop-target
     // notifier in onMoveEvent marks exactly that band, at this SAME pointer
     // position, instead of re-running the hit test -- see the perf note on
@@ -969,6 +1028,8 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         l.landingWindow = landing?.windowId;
         onLandingWindowChange?.(l.landingWindow, containerRef.current);
       }
+
+      dwellOn(l, dwellTarget(l, block, landing));
 
       // What a release HERE would land ON, asked once and spent twice (KAN-164,
       // KAN-166): the list is told when the answer changes, and the landing
@@ -1342,6 +1403,8 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         scrollFrame.current = 0;
       }
       l.heldEl?.removeAttribute('data-drag-held');
+      // The windows it opened stay open: the carry is the same gesture (D6).
+      endDwell(l);
       if (l.dropTarget !== undefined)
         onDropTargetChange?.(undefined, containerRef.current);
       if (l.landingWindow !== undefined)
@@ -1930,8 +1993,11 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       if (!l.adopted) {
         setDragging(false);
         setDragNewWindow(false);
+        // KAN-379 Q2 A. The windows this drag opened fold back.
+        foldBackSpringOpened();
       }
       l.heldEl?.removeAttribute('data-drag-held');
+      endDwell(l);
       // Whatever was marked stops being a target the moment the drag ends --
       // committed, refused or cancelled alike (KAN-164).
       if (l.dropTarget !== undefined)
@@ -2117,6 +2183,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     adoptedRowLandsAs,
     onLandingWindowChange,
     offersNewWindow,
+    keepWindowOpen,
     clampDropToEnds,
     clicks,
     cardOwner,
@@ -2162,6 +2229,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       if (l?.landingWindow !== undefined) {
         landingWindowChange.current?.(undefined, container);
       }
+      if (l) endDwell(l);
       if (l?.adopted) {
         // The hold and the kind are the carry's: ending it ends both, and
         // nothing moved (KAN-350).
@@ -2169,6 +2237,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       } else if (l?.started) {
         setDragging(false);
         setDragNewWindow(false);
+        foldBackSpringOpened();
         // KAN-279 D12. finish() never runs on this path, so the hold it would
         // have ended is ended here -- or every later merge would wait for a
         // drop that can no longer happen.

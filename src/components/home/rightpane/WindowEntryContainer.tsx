@@ -50,6 +50,7 @@ import { useDragState } from './rowDrag/dragContext';
 import { GroupFrameFollower } from './rowDrag/GroupFrameFollower';
 import { ADJACENT_GROUP_GAP_PX, BAND_MARGIN_PX } from './bandSpacing';
 import { useIsSpringOpen } from '../../../redux/springOpenWindows';
+import { springSweepStyle } from '../../common/springOpen';
 import { NEW_LAST_WINDOW, newWindowTargetBoxStyle } from './newWindowTarget';
 import { NewWindowTargetLabel } from './NewWindowTargetLabel';
 import { CONTROL, DURATION, RADIUS, TYPE } from '../../../styles/scale';
@@ -205,6 +206,15 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
        vertical edge between them -- measured here at 17 frames of 52. */
     &:hover {
       background-color: ${COLORS.HOVER_COLOR};
+    }
+    /* KAN-379. A drag resting here: the sweep, whose end opens the window. */
+    [data-spring-dwell] > & {
+      ${springSweepStyle(COLORS.HOVER_COLOR)}
+      @media (prefers-reduced-motion: reduce) {
+        /* Lit at once; the animation stays, because it times the open (D7). */
+        background-color: ${COLORS.HOVER_COLOR};
+        background-image: none;
+      }
     }
   `;
 

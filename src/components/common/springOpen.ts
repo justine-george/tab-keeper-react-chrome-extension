@@ -4,8 +4,9 @@ import { css, keyframes } from '@emotion/react';
 // below runs for exactly this long, so the fill is full when the open fires.
 export const SPRING_OPEN_MS = 600;
 
-// The dwell fill grows across the row from the left (KAN-380).
-const SPRING_SWEEP = keyframes`
+// The dwell fill grows across the row from the left (KAN-380); its `.name`
+// is how the engine finds a window title's sweep (KAN-379).
+export const SPRING_SWEEP = keyframes`
   from {
     background-size: 0 100%;
   }

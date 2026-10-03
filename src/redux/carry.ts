@@ -23,6 +23,7 @@ import { useSyncExternalStore } from 'react';
 
 import type { CarriedRef } from './slices/tabContainerDataStateSlice';
 import { endDragHold } from './dragHold';
+import { foldBackSpringOpened } from './springOpenWindows';
 import {
   setDragging,
   setDragNewWindow,
@@ -150,6 +151,8 @@ export function endCarry(outcome: CarryOutcome): void {
     // The engine's order at a drop: unpublish, then apply held changes.
     setDragging(false);
     setDragNewWindow(false);
+    // KAN-379 Q2 A. The windows the gesture opened fold back at its end.
+    foldBackSpringOpened();
     endDragHold();
   } finally {
     notify();

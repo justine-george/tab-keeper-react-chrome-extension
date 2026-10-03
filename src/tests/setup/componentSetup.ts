@@ -47,6 +47,15 @@ vi.mock('../../utils/functions/external', () => ({
 // `block: 'nearest'` scrolled the minimum, or whether it no-ops for an
 // already-visible row, because none of those exist here. Those are real-browser
 // claims and are checked there instead.
+// KAN-379. jsdom has no Web Animations, so a drag resting on a collapsed
+// window finds no sweep and never opens it. Tests open one directly
+// (springOpenWindow); the dwell's timing is checked in a real browser.
+if (!Element.prototype.getAnimations) {
+  Element.prototype.getAnimations = function getAnimations() {
+    return [];
+  };
+}
+
 if (!Element.prototype.scrollIntoView) {
   Element.prototype.scrollIntoView = function scrollIntoView() {};
 }
