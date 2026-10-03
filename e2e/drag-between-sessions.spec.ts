@@ -37,7 +37,7 @@ import type {
 } from '../src/redux/slices/tabContainerDataStateSlice';
 import { isValidTabMasterContainer } from '../src/utils/functions/local';
 import { LIGHT_THEME } from '../src/hooks/useThemeColors';
-import { SPRING_OPEN_MS } from '../src/components/home/leftpane/springOpen';
+import { SPRING_OPEN_MS } from '../src/components/common/springOpen';
 
 const POPUP = { width: 790, height: 550 };
 const TAB_VIEW = { width: 1280, height: 800 };

@@ -4,7 +4,7 @@ import { act, fireEvent } from '@testing-library/react';
 import TabGroupEntryContainer from '../../components/home/leftpane/TabGroupEntryContainer';
 import TabGroupDetailsContainer from '../../components/home/rightpane/TabGroupDetailsContainer';
 import { CarryLayer } from '../../components/home/CarryLayer';
-import { SPRING_OPEN_MS } from '../../components/home/leftpane/springOpen';
+import { SPRING_OPEN_MS } from '../../components/common/springOpen';
 import { edgeScrollStep } from '../../components/home/rightpane/rowDrag/edgeScroll';
 import { setDragging } from '../../components/home/rightpane/rowDrag/dropRules';
 import {

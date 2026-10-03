@@ -6,7 +6,7 @@ import { css } from '@emotion/react';
 
 import Divider from '../../common/Divider';
 import TabGroupEntry from './TabGroupEntry';
-import { SPRING_OPEN_MS } from './springOpen';
+import { SPRING_OPEN_MS } from '../../common/springOpen';
 import {
   SAVED_SEARCH_GLASS_INSET,
   SAVED_SEARCH_TEXT_PADDING,
