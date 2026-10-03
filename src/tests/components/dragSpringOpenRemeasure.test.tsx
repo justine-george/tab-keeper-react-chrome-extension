@@ -1,0 +1,421 @@
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
+import { act, fireEvent } from '@testing-library/react';
+
+import TabGroupDetailsContainer from '../../components/home/rightpane/TabGroupDetailsContainer';
+import { renderWithProviders } from '../setup/renderWithProviders';
+import type { RenderWithProvidersResult } from '../setup/renderWithProviders';
+import {
+  saveToTabContainerInternal,
+  selectTabContainer,
+} from '../../redux/slices/tabContainerDataStateSlice';
+import {
+  setAllWindowsCollapsed,
+  setHasTabGroupsPermission,
+  setIsNotDirty,
+} from '../../redux/slices/globalStateSlice';
+import {
+  foldBackSpringOpened,
+  springOpenWindow,
+} from '../../redux/springOpenWindows';
+
+// KAN-379. A drag that opens a window mid-drag previews as a CONTROL drag
+// started with it open. Boxes are laid out from the DOM, in content space:
+//
+//   w1   10..230   a0..a9 at 30, 50 .. 210
+//   w2  250..354   b0 270, gb 292 (title), b1 312, b2 332, gb:tail 352
+//       250..270   folded: its title row alone, so it grows by 84
+//   w3  374..434 | 290..350   c0, c1
+
+const START = 10;
+const HEADER = 20;
+const ROW = 20;
+const GAP = 20;
+const BAND_MARGIN = 2;
+const INDENT = 16;
+const WIDTH = 200;
+const X = 100;
+
+interface ContentBox {
+  top: number;
+  height: number;
+  left: number;
+}
+
+// Every box the engine reads, laid out from what the DOM draws right now.
+function layOut(pane: HTMLElement): {
+  boxes: Map<Element, ContentBox>;
+  height: number;
+} {
+  const boxes = new Map<Element, ContentBox>();
+  const put = (el: Element | null, top: number, height: number, left = 0) => {
+    if (el) boxes.set(el, { top, height, left });
+  };
+  let y = START;
+  for (const block of pane.querySelectorAll('[data-drop-window-id]')) {
+    const top = y;
+    y += HEADER;
+    const holder = block.querySelector('[data-window-tabs]');
+    if (holder) {
+      put(holder, y, 0);
+      const items = [...holder.querySelectorAll('[data-drag-row-id]')].filter(
+        (el) =>
+          !holder.contains(
+            el.parentElement?.closest('[data-drag-row-id]') ?? null
+          )
+      );
+      for (const item of items) {
+        const band = item.querySelector('[data-band-id]');
+        if (band === null) {
+          put(item, y, ROW);
+          put(item.querySelector('[data-drag-row-id]'), y, ROW);
+          y += ROW;
+          continue;
+        }
+        y += BAND_MARGIN;
+        const bandTop = y;
+        put(band.querySelector('[data-group-drag-handle]'), y, ROW);
+        y += ROW;
+        for (const member of band.querySelectorAll('[data-drag-row-id]')) {
+          put(member, y, ROW, INDENT);
+          y += ROW;
+        }
+        put(band.querySelector('[data-fixed-row-id$=":tail"]'), y, 0);
+        put(band, bandTop, y - bandTop);
+        put(item, bandTop, y - bandTop);
+        y += BAND_MARGIN;
+      }
+    }
+    put(block, top, y - top);
+    y += GAP;
+  }
+  return { boxes, height: y - GAP + START };
+}
+
+// Every translateY from the element up to the pane, as a real box includes.
+function translated(el: Element, pane: HTMLElement): number {
+  let sum = 0;
+  for (
+    let node: Element | null = el;
+    node && node !== pane;
+    node = node.parentElement
+  ) {
+    if (node instanceof HTMLElement) {
+      const m = /translateY\((-?[\d.]+)px\)/.exec(node.style.transform);
+      if (m) sum += Number(m[1]);
+    }
+  }
+  return sum;
+}
+
+interface Pane {
+  view: number;
+  scrollTop: number;
+  // The width a scrollbar takes once the content overflows; 0 for none.
+  scrollbar: number;
+}
+
+// A pane that clamps scroll on READ too (#3); logs reads of w2's rows.
+function stubLayout(pane: HTMLElement, { view, scrollTop, scrollbar }: Pane) {
+  const w2Reads: { id: string; transform: string }[] = [];
+  const contentHeight = () => layOut(pane).height;
+  const max = () => Math.max(0, contentHeight() - view);
+  let top = 0;
+  pane.style.overflowY = 'auto';
+  Object.defineProperty(pane, 'clientHeight', {
+    value: view,
+    configurable: true,
+  });
+  Object.defineProperty(pane, 'scrollHeight', {
+    get: contentHeight,
+    configurable: true,
+  });
+  Object.defineProperty(pane, 'scrollTop', {
+    get: () => (top = Math.min(top, max())),
+    set: (v: number) => (top = Math.max(0, Math.min(v, max()))),
+    configurable: true,
+  });
+  const spy = vi.spyOn(Element.prototype, 'getBoundingClientRect');
+  spy.mockImplementation(function (this: Element) {
+    if (this === pane) {
+      return DOMRect.fromRect({ x: 0, y: 0, width: WIDTH, height: view });
+    }
+    const { boxes, height } = layOut(pane);
+    const box = boxes.get(this);
+    if (box === undefined) return DOMRect.fromRect({});
+    if (
+      this instanceof HTMLElement &&
+      this.closest('[data-drop-window-id="w2"]') !== null &&
+      this.dataset.dragRowId !== undefined
+    ) {
+      w2Reads.push({
+        id: this.dataset.dragRowId,
+        transform: this.style.transform,
+      });
+    }
+    const right = WIDTH - (height > view ? scrollbar : 0);
+    return DOMRect.fromRect({
+      x: box.left,
+      y: box.top - pane.scrollTop + translated(this, pane),
+      width: right - box.left,
+      height: box.height,
+    });
+  });
+  pane.scrollTop = scrollTop;
+  return { w2Reads, restore: () => spy.mockRestore() };
+}
+
+const tab = (id: string, g?: string) => ({
+  tabId: id,
+  favicon: '',
+  title: `Tab ${id}`,
+  url: `https://${id}.test`,
+  ...(g ? { chromeGroupId: g } : {}),
+});
+
+const win = (
+  windowId: string,
+  tabs: ReturnType<typeof tab>[],
+  chromeTabGroups: { groupId: string; title: string; color: string }[] = []
+) => ({
+  windowId,
+  windowHeight: 1080,
+  windowWidth: 1920,
+  windowOffsetTop: 0,
+  windowOffsetLeft: 0,
+  tabCount: tabs.length,
+  title: windowId,
+  tabs,
+  chromeTabGroups,
+});
+
+const A = Array.from({ length: 10 }, (_, i) => `a${i}`);
+
+async function render(w2Folded: boolean) {
+  const result = await renderWithProviders(<TabGroupDetailsContainer />, {
+    seedStore: (store) => {
+      store.dispatch(setHasTabGroupsPermission(true));
+      store.dispatch(
+        saveToTabContainerInternal({
+          tabGroupId: 'tg',
+          title: 'Session',
+          createdTime: '2026-10-02 09:00:00',
+          windowCount: 3,
+          tabCount: 15,
+          isAutoSave: false,
+          isSelected: true,
+          windows: [
+            win(
+              'w1',
+              A.map((id) => tab(id))
+            ),
+            win(
+              'w2',
+              [tab('b0'), tab('b1', 'gb'), tab('b2', 'gb')],
+              [{ groupId: 'gb', title: 'GB', color: 'red' }]
+            ),
+            win('w3', [tab('c0'), tab('c1')]),
+          ],
+        })
+      );
+      store.dispatch(selectTabContainer('tg'));
+      if (w2Folded) {
+        store.dispatch(
+          setAllWindowsCollapsed({ tabGroupId: 'tg', windowIds: ['w2'] })
+        );
+      }
+      store.dispatch(setIsNotDirty());
+    },
+  });
+  const pane = result.container.firstElementChild;
+  if (!(pane instanceof HTMLElement)) throw new Error('no pane');
+  return { ...result, pane };
+}
+
+const rowEl = (pane: HTMLElement, id: string) => {
+  const el = pane.querySelector<HTMLElement>(`[data-drag-row-id="${id}"]`);
+  if (el === null) throw new Error(`no row ${id}`);
+  return el;
+};
+
+const midOf = (el: HTMLElement) => {
+  const box = el.getBoundingClientRect();
+  return box.top + box.height / 2;
+};
+
+const moveTo = (y: number) =>
+  fireEvent.pointerMove(document, { clientX: X, clientY: y });
+
+// Everything the preview draws, as the DOM shows it.
+function preview(pane: HTMLElement) {
+  const style = (el: HTMLElement | null) =>
+    el === null
+      ? null
+      : {
+          transform: el.style.transform,
+          left: el.style.left,
+          right: el.style.right,
+        };
+  return {
+    rows: Object.fromEntries(
+      [...pane.querySelectorAll<HTMLElement>('[data-drag-row-id]')].map(
+        (el) => [el.dataset.dragRowId, el.style.transform]
+      )
+    ),
+    titles: [...pane.querySelectorAll<HTMLElement>('[data-group-drag-handle]')]
+      .map((el) => el.style.transform)
+      .join('|'),
+    windowShifts: [
+      ...pane.querySelectorAll<HTMLElement>('[data-drop-window-id]'),
+    ].map((el) => `${el.dataset.dropWindowId}:${el.dataset.windowShift ?? 0}`),
+    slot: style(pane.querySelector('[data-drag-landing-slot]')),
+    sourceRoom: style(pane.querySelector('[data-drag-source-room]')),
+    marked: [...pane.querySelectorAll<HTMLElement>('[data-drop-target]')].map(
+      (el) => el.dataset.bandId
+    ),
+  };
+}
+
+const tabsOf = (store: RenderWithProvidersResult['store'], i: number) =>
+  store
+    .getState()
+    .tabContainerDataState.tabGroups[0].windows[i].tabs.map(
+      (t) => t.tabId + (t.chromeGroupId ? '*' : '')
+    )
+    .join(' ');
+
+interface Run {
+  held: string;
+  aims: number[];
+  release: number;
+  pane: Pane;
+}
+
+// Holds `held`, rests on w2's title (opening it if folded), aims, releases.
+async function drag(w2Folded: boolean, run: Run) {
+  const { store, pane, unmount } = await render(w2Folded);
+  const { restore } = stubLayout(pane, run.pane);
+  const y = (content: number) => content - run.pane.scrollTop;
+  const held = rowEl(pane, run.held);
+  const start = midOf(held);
+  fireEvent.pointerDown(held, { clientX: X, clientY: start, button: 0 });
+  moveTo(start + 6);
+  moveTo(y(260));
+  if (w2Folded) act(() => springOpenWindow('w2'));
+
+  const previews = run.aims.map((aim) => {
+    moveTo(y(aim));
+    return {
+      aim,
+      heldOffPointer: midOf(rowEl(pane, run.held)) - y(aim),
+      ...preview(pane),
+    };
+  });
+  // The release lands where the last move put the pointer.
+  moveTo(y(run.release));
+  fireEvent.pointerUp(document, { clientX: X, clientY: y(run.release) });
+  const after = [0, 1, 2].map((i) => tabsOf(store, i));
+  act(() => foldBackSpringOpened());
+  unmount();
+  restore();
+  return { previews, after };
+}
+
+const UNSCROLLED: Pane = { view: 600, scrollTop: 0, scrollbar: 0 };
+const SCROLLED: Pane = { view: 150, scrollTop: 200, scrollbar: 0 };
+
+beforeEach(() => {
+  // No auto-scroll frame ever runs: nothing moves the list but the test.
+  vi.spyOn(window, 'requestAnimationFrame').mockImplementation(() => 1);
+  vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {});
+});
+
+afterEach(() => {
+  act(() => foldBackSpringOpened());
+  document.documentElement.removeAttribute('data-dragging');
+  document.documentElement.removeAttribute('data-drag-new-window');
+  vi.restoreAllMocks();
+});
+
+describe('a window opened mid-drag is measured as if it had been open (KAN-379)', () => {
+  // a9: loose after b0 (285), gb's head (300), after b1 (325), gb's end (345).
+  describe.each([
+    ['from the top', UNSCROLLED],
+    ['from scrollTop 200', SCROLLED],
+  ])('%s', (_, pane) => {
+    test('a tab held above the window previews and lands as in a drag started with it open', async () => {
+      const run: Run = {
+        held: 'a9',
+        aims: [260, 285, 300, 325, 345],
+        release: 325,
+        pane,
+      };
+      const control = await drag(false, run);
+      const opened = await drag(true, run);
+
+      // PREMISE: the control lands in w2, after b1, in gb.
+      expect(control.after[1]).toBe('b0 b1* a9* b2*');
+      expect(opened.previews).toEqual(control.previews);
+      expect(opened.after).toEqual(control.after);
+    });
+
+    test('a tab held below the window stays under the pointer, and previews as in a drag started with it open', async () => {
+      const run: Run = {
+        held: 'c0',
+        aims: [260, 285, 325],
+        release: 285,
+        pane,
+      };
+      const control = await drag(false, run);
+      const opened = await drag(true, run);
+
+      expect(control.after[1]).toBe('b0 c0 b1* b2*');
+      for (const p of opened.previews) expect(p.heldOffPointer).toBe(0);
+      expect(opened.previews).toEqual(control.previews);
+      expect(opened.after).toEqual(control.after);
+    });
+  });
+
+  // The open adds a 10px scrollbar; the slot keeps the member box (16, 0).
+  test('a list the open makes scroll narrows its rows, and the slot keeps the member box', async () => {
+    const run: Run = {
+      held: 'a9',
+      aims: [325],
+      release: 325,
+      pane: { view: 450, scrollTop: 0, scrollbar: 10 },
+    };
+    const control = await drag(false, run);
+    const opened = await drag(true, run);
+
+    expect(control.previews[0].slot).toEqual({
+      transform: expect.any(String),
+      left: '16px',
+      right: '0px',
+    });
+    expect(opened.previews[0].slot).toEqual(control.previews[0].slot);
+  });
+
+  // The preview moves w1's rows; w2's, drawn by the open, were in no range.
+  test('an unmeasured row never gets a shift, so the opened rows are measured unmoved', async () => {
+    const { pane } = await render(true);
+    const { w2Reads } = stubLayout(pane, UNSCROLLED);
+    const held = rowEl(pane, 'a9');
+    const start = midOf(held);
+    fireEvent.pointerDown(held, { clientX: X, clientY: start, button: 0 });
+    moveTo(start + 6);
+    moveTo(35);
+    // PREMISE: the preview is moving rows.
+    expect(rowEl(pane, 'a0').style.transform).toBe('translateY(20px)');
+
+    act(() => springOpenWindow('w2'));
+
+    // PREMISE: the opened rows were measured.
+    expect(new Set(w2Reads.map((r) => r.id))).toEqual(
+      new Set(['b0', 'b1', 'b2'])
+    );
+    expect(w2Reads.filter((r) => r.transform !== '')).toEqual([]);
+    for (const id of ['b0', 'b1', 'b2']) {
+      expect(rowEl(pane, id).style.transform).toBe('');
+    }
+    fireEvent.keyDown(window, { key: 'Escape' });
+  });
+});

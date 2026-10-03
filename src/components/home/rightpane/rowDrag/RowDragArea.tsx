@@ -41,10 +41,12 @@ import {
 } from './dragContext';
 import {
   ACTIVATION_DISTANCE_PX,
+  hasNewWindowRoom,
   isInEditableField,
   isInsideList,
   isRowContainer,
   isTrailingBlock,
+  isWindowCollapsed,
   markRowContainer,
   newWindowFree,
   publishNewWindowFree,
@@ -69,11 +71,13 @@ import {
   type LandingSide,
 } from '../../../../utils/functions/dragPreview';
 import {
+  afterUnfold,
   drawnList,
   landingBoxes,
   type Edges,
   type Rect,
   type Slot,
+  type UnfoldedRow,
 } from './unfold';
 import { DURATION } from '../../../../styles/scale';
 import { beginDragHold, endDragHold } from '../../../../redux/dragHold';
@@ -93,6 +97,7 @@ import {
   moveDragCard,
   showDragCard,
 } from '../../../../redux/dragCard';
+import { useSpringOpenWindows } from '../../../../redux/springOpenWindows';
 import { createClickSuppressor } from './clickSuppressor';
 import { edgeScrollStep } from './edgeScroll';
 import {
@@ -365,6 +370,10 @@ interface LiveDrag {
   // with the rows (KAN-132). A row landing past another window's last row --
   // or in a collapsed one, which draws no rows -- is placed there.
   windowBottoms: Map<string, number>;
+  // Where each starts: what a window opened mid-drag is read against (KAN-379).
+  windowTops: Map<string, number>;
+  // Windows drawn folded when measured, until an open re-measures them.
+  foldedWindows: Set<string>;
   // The saved windows this list spans, in render order (KAN-184). What the
   // preview needs to know to move the ones BETWEEN the source and the
   // destination, so the destination can make room. Never the trailing
@@ -445,6 +454,8 @@ function pressRecord(
     fixed: [],
     windowOrder: [],
     windowBottoms: new Map(),
+    windowTops: new Map(),
+    foldedWindows: new Set(),
     listTops: new Map(),
     adopted,
     landingWindow: undefined,
@@ -503,6 +514,12 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
   // card can move or hide it, so another area ending a drag of its own --
   // or unmounting -- cannot take this one's card down.
   const [cardOwner] = useState(() => Symbol('drag card'));
+
+  // KAN-379. The listener effect's re-measure, for the layout effect below.
+  const remeasure = useRef<((opened: ReadonlySet<string>) => void) | null>(
+    null
+  );
+  const springOpened = useSpringOpenWindows();
 
   const register = useCallback((rowId: string, el: HTMLElement | null) => {
     if (el) rows.current.set(rowId, el);
@@ -1231,6 +1248,30 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       return target;
     };
 
+    // The preview at the pointer, and the band it marks.
+    const previewAndMark = (l: NonNullable<typeof live.current>) => {
+      // The target update() drew this preview for, at this SAME pointer
+      // position -- marked below rather than decided again, so the band that
+      // lights up is the one the preview and the release use (KAN-280), and
+      // no second hit test runs (see the perf note on landingBlock).
+      const target = update(l);
+
+      if (onDropTargetChange && resolveDrop) {
+        // Compared and forwarded as `.bandId`, not the object resolveDrop
+        // returned: a fresh object compares unequal on every pointermove even
+        // when nothing the caller cares about changed, which would fire
+        // onDropTargetChange every move instead of only on a real change
+        // (KAN-164's whole point). onDropTargetChange's contract is
+        // unchanged by KAN-132 -- it still names a band, not a window.
+        if (target !== l.dropTarget) {
+          l.dropTarget = target;
+          // The whole list, not the window the target is in: the mark being
+          // replaced may sit in the window the pointer has just left (KAN-132).
+          onDropTargetChange(target, containerRef.current);
+        }
+      }
+    };
+
     // Drag the list along when the pointer is held near its edge, so a target
     // that is off screen can be reached at all (KAN-152). Speed ramps with how
     // deep into the edge zone the pointer is, which makes a small correction
@@ -1488,9 +1529,12 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         slotOfFixed: l.slotOfFixed,
       } = drawnList(l.rects, l.fixed));
 
-      // Where each window ends, for a list whose rows sit in windows
-      // (KAN-132). In the same frame as the rects, like everything above.
+      // Where each window starts and ends, for a list whose rows sit in
+      // windows (KAN-132). In the same frame as the rects, like everything
+      // above.
       l.windowBottoms = new Map();
+      l.windowTops = new Map();
+      l.foldedWindows = new Set();
       l.windowOrder = [];
       if (l.heldWindow) {
         for (const block of windowBlocksIn(containerRef.current)) {
@@ -1504,10 +1548,10 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
           // drawn a row low, past the list's end -- 32px of scroll range in
           // a list that fits, measured.
           if (!isTrailingBlock(block)) l.windowOrder.push(id);
-          l.windowBottoms.set(
-            id,
-            block.getBoundingClientRect().bottom + l.startScrollTop
-          );
+          if (isWindowCollapsed(block)) l.foldedWindows.add(id);
+          const box = block.getBoundingClientRect();
+          l.windowTops.set(id, box.top + l.startScrollTop);
+          l.windowBottoms.set(id, box.bottom + l.startScrollTop);
         }
       }
 
@@ -1592,6 +1636,104 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         if (out !== null) l.card = out.card;
       }
     };
+
+    // KAN-379. Patched, not re-measured: a row the preview moved reads displaced.
+    const remeasureOpened = (opened: ReadonlySet<string>) => {
+      const l = live.current;
+      if (!l?.started) return;
+      let changed = false;
+      for (const windowId of opened) {
+        if (!l.foldedWindows.has(windowId)) continue;
+        const block = windowBlocksIn(containerRef.current).find(
+          (b) => b.dataset.dropWindowId === windowId
+        );
+        const top = l.windowTops.get(windowId);
+        const bottom = l.windowBottoms.get(windowId);
+        if (
+          block === undefined ||
+          isWindowCollapsed(block) ||
+          top === undefined ||
+          bottom === undefined
+        ) {
+          continue;
+        }
+        l.foldedWindows.delete(windowId);
+
+        // Against the block, so its window shift and the scroll both cancel.
+        const blockBox = block.getBoundingClientRect();
+        const contentTop = (box: DOMRect) => top + box.top - blockBox.top;
+        const opens: UnfoldedRow[] = l.rects.flatMap((r) => {
+          const el = rows.current.get(r.id);
+          if (el === undefined || windowOf(el) !== block) return [];
+          const box = el.getBoundingClientRect();
+          return [
+            {
+              id: r.id,
+              top: contentTop(box),
+              height: box.height,
+              edges: { left: box.left, right: box.right },
+              bandId: bandOf(el),
+            },
+          ];
+        });
+        const fixed = fixedRowSelector
+          ? [...block.querySelectorAll<HTMLElement>(fixedRowSelector)].flatMap(
+              (el) => {
+                const key = el.dataset.fixedRowId;
+                if (key === undefined) return [];
+                const box = el.getBoundingClientRect();
+                return [{ key, top: contentTop(box), height: box.height }];
+              }
+            )
+          : [];
+
+        const heldMid = l.rects[l.fromIndex]?.mid;
+        ({
+          rects: l.rects,
+          fixed: l.fixed,
+          windowTops: l.windowTops,
+          windowBottoms: l.windowBottoms,
+          listTops: l.listTops,
+          maxScroll: l.maxScroll,
+        } = afterUnfold(l, {
+          windowId,
+          growth: blockBox.height - (bottom - top),
+          rows: opens,
+          fixed,
+        }));
+        ({
+          slots: l.slots,
+          slotOfRow: l.slotOfRow,
+          slotOfFixed: l.slotOfFixed,
+        } = drawnList(l.rects, l.fixed));
+        // Below the window the held row moved too; it stays under the pointer.
+        const movedMid = l.rects[l.fromIndex]?.mid;
+        if (heldMid !== undefined && movedMid !== undefined) {
+          l.startY += movedMid - heldMid;
+        }
+        changed = true;
+      }
+      if (!changed) return;
+
+      // A scrollbar the open adds narrows every row; nothing else moves x.
+      l.rects = l.rects.map((r) => {
+        const box =
+          r.height > 0 ? rows.current.get(r.id)?.getBoundingClientRect() : null;
+        return box ? { ...r, edges: { left: box.left, right: box.right } } : r;
+      });
+      ({ memberEdges: l.memberEdges, looseEdges: l.looseEdges } = landingBoxes(
+        l.rects,
+        l.fromIndex,
+        anyBandEdges()
+      ));
+      // The space below the last window changed; the room does not (D8).
+      if (offersNewWindow) {
+        publishNewWindowFree(paneOf(l.heldEl), hasNewWindowRoom());
+        l.freeForNewWindow = newWindowFree();
+      }
+      previewAndMark(l);
+    };
+    remeasure.current = remeasureOpened;
 
     // KAN-350. The pointer has come into this area's pane while a carry is
     // on and the layer drives it: the phantom row standing for the carried
@@ -1679,26 +1821,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // card that is on, and only for the area that showed it.
       if (l.card !== null) moveDragCard(cardOwner, e.clientX, e.clientY);
 
-      // The target update() drew this preview for, at this SAME pointer
-      // position -- marked below rather than decided again, so the band that
-      // lights up is the one the preview and the release use (KAN-280), and
-      // no second hit test runs (see the perf note on landingBlock).
-      const target = update(l);
-
-      if (onDropTargetChange && resolveDrop) {
-        // Compared and forwarded as `.bandId`, not the object resolveDrop
-        // returned: a fresh object compares unequal on every pointermove even
-        // when nothing the caller cares about changed, which would fire
-        // onDropTargetChange every move instead of only on a real change
-        // (KAN-164's whole point). onDropTargetChange's contract is
-        // unchanged by KAN-132 -- it still names a band, not a window.
-        if (target !== l.dropTarget) {
-          l.dropTarget = target;
-          // The whole list, not the window the target is in: the mark being
-          // replaced may sit in the window the pointer has just left (KAN-132).
-          onDropTargetChange(target, containerRef.current);
-        }
-      }
+      previewAndMark(l);
     };
 
     // Where a release lands, or undefined for a release this list refuses.
@@ -2048,6 +2171,11 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     l.cardShown = true;
     showDragCard(cardOwner, l.card, l.lastX, l.lastY);
   }, [drag, cardOwner]);
+
+  // KAN-379. In the commit that draws the opened window, before it paints.
+  useLayoutEffect(() => {
+    remeasure.current?.(springOpened);
+  }, [springOpened]);
 
   // Known to every footprint's climb as a box holding a list's rows -- see
   // footprintOf. The element is the same for the life of the area.

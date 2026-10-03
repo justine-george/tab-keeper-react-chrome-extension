@@ -738,6 +738,11 @@ export function isTrailingBlock(el: HTMLElement): boolean {
   return el.dataset.newWindowTarget === 'last';
 }
 
+// KAN-379. A window block drawn folded, as WindowEntryContainer marks it.
+export function isWindowCollapsed(block: HTMLElement): boolean {
+  return block.hasAttribute('data-window-collapsed');
+}
+
 // Every saved-window block below `container`, in document order.
 export function windowBlocksIn(container: HTMLElement | null): HTMLElement[] {
   return container
@@ -885,8 +890,17 @@ export function setDragNewWindow(on: boolean, withRoom = false): void {
     root.style.removeProperty(NEW_WINDOW_FREE);
     return;
   }
-  const hasRoom = root.getAttribute('data-drag-new-window') === 'room';
-  root.setAttribute('data-drag-new-window', withRoom || hasRoom ? 'room' : '');
+  root.setAttribute(
+    'data-drag-new-window',
+    withRoom || hasNewWindowRoom() ? 'room' : ''
+  );
+}
+
+// Whether the trailing block has its row of room now (KAN-366 Q4).
+export function hasNewWindowRoom(): boolean {
+  return (
+    document.documentElement.getAttribute('data-drag-new-window') === 'room'
+  );
 }
 
 // The room follows the list a carry SHOWS (KAN-366 Q4), not the one the
