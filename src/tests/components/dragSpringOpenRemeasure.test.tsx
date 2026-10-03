@@ -435,29 +435,42 @@ describe('a window opened mid-drag is measured as if it had been open (KAN-379)'
   });
 
   // The preview moves w1's rows; w2's, drawn by the open, were in no range.
-  test('an unmeasured row never gets a shift, so the opened rows are measured unmoved', async () => {
-    const { pane } = await render(true);
-    const { w2Reads } = stubLayout(pane, UNSCROLLED);
-    const held = rowEl(pane, 'a9');
-    const start = midOf(held);
-    fireEvent.pointerDown(held, { clientX: X, clientY: start, button: 0 });
-    moveTo(start + 6);
-    moveTo(35);
-    // PREMISE: the preview is moving rows.
-    expect(rowEl(pane, 'a0').style.transform).toBe('translateY(20px)');
+  // Scrolled, a missing box taken into content space would sit among w1's.
+  test.each([
+    ['from the top', UNSCROLLED, 35, 'a0'],
+    [
+      'from scrollTop 150',
+      { view: 200, scrollTop: 150, scrollbar: 0 },
+      155,
+      'a6',
+    ],
+  ])(
+    'an unmeasured row never gets a shift, so the opened rows are measured unmoved (%s)',
+    async (_, at, aim, moved) => {
+      const { pane } = await render(true);
+      const { w2Reads } = stubLayout(pane, at);
+      const held = rowEl(pane, 'a9');
+      const start = midOf(held);
+      fireEvent.pointerDown(held, { clientX: X, clientY: start, button: 0 });
+      moveTo(start + 6);
+      moveTo(aim - at.scrollTop);
+      // PREMISE: the preview is moving rows, from the held row up to `moved`.
+      expect(pane.scrollTop).toBe(at.scrollTop);
+      expect(rowEl(pane, moved).style.transform).toBe('translateY(20px)');
 
-    act(() => springOpenWindow('w2'));
+      act(() => springOpenWindow('w2'));
 
-    // PREMISE: the opened rows were measured.
-    expect(new Set(w2Reads.map((r) => r.id))).toEqual(
-      new Set(['b0', 'b1', 'b2'])
-    );
-    expect(w2Reads.filter((r) => r.transform !== '')).toEqual([]);
-    for (const id of ['b0', 'b1', 'b2']) {
-      expect(rowEl(pane, id).style.transform).toBe('');
+      // PREMISE: the opened rows were measured.
+      expect(new Set(w2Reads.map((r) => r.id))).toEqual(
+        new Set(['b0', 'b1', 'b2'])
+      );
+      expect(w2Reads.filter((r) => r.transform !== '')).toEqual([]);
+      for (const id of ['b0', 'b1', 'b2']) {
+        expect(rowEl(pane, id).style.transform).toBe('');
+      }
+      fireEvent.keyDown(window, { key: 'Escape' });
     }
-    fireEvent.keyDown(window, { key: 'Escape' });
-  });
+  );
   // Eased in from 0, they would slide out from under the preview they never had.
   test('the opened rows and band title are drawn at their shift at once, and ease again from the next move', async () => {
     const { pane } = await render(true);
