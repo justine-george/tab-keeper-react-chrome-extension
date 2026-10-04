@@ -87,6 +87,13 @@ describe('Make Tab Keeper yours', () => {
     }
   });
 
+  test('the theme step says the choice can be changed in Settings', async () => {
+    await render();
+    expect(
+      within(dialog()).getByText('You can change this any time in Settings.')
+    ).toBeInTheDocument();
+  });
+
   test('a theme pick applies at once and stays on the step', async () => {
     const { store } = await render();
     press('Graphite');

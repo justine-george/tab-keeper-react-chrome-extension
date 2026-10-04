@@ -312,17 +312,22 @@ export const SetupModal: React.FC = () => {
     theme: {
       heading: t('Pick a theme'),
       body: (
-        <div css={swatchRowStyle}>
-          {themeChoices(t).map(([id, palette, name]) => (
-            <ThemeSwatch
-              key={id}
-              palette={palette}
-              name={name}
-              isActive={theme === id}
-              onSelect={() => dispatch(setTheme(id))}
-            />
-          ))}
-        </div>
+        <>
+          <div css={swatchRowStyle}>
+            {themeChoices(t).map(([id, palette, name]) => (
+              <ThemeSwatch
+                key={id}
+                palette={palette}
+                name={name}
+                isActive={theme === id}
+                onSelect={() => dispatch(setTheme(id))}
+              />
+            ))}
+          </div>
+          <p css={fineStyle}>
+            {t('You can change this any time in Settings.')}
+          </p>
+        </>
       ),
     },
     language: {
