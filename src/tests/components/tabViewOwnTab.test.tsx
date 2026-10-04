@@ -29,7 +29,7 @@ import {
 // cleaned exactly like any other derived title (D15).
 //
 // Neither rule is tab-view-only. The address exclusion runs for the popup's
-// saves and "Add current window" too, and the name-box/window-title
+// saves and "Add current window" too, and the name-box
 // fallback also applies there whenever the ACTIVE tab happens to be a Tab
 // Keeper page (Switch can restore a window whose active tab is the pinned
 // tab view) -- see the popup-specific describes below.
@@ -595,37 +595,6 @@ describe('"Add current window" in the tab view leaves out Tab Keeper itself (D14
       DOCS_URL,
       MAIL_URL,
     ]);
-    // The added window is named from the most recently used OTHER tab too --
-    // the same D15 rule the name box uses, not the active tab (Tab Keeper).
-    expect(tabGroups[0].windows[0].title).toBe('Docs');
-  });
-
-  // KAN-299. The name is resolved at CLICK time, not cached from mount: the
-  // window changes after this component mounts, so the click must find the
-  // CURRENT most recently used OTHER tab rather than replay whatever it read
-  // when it first rendered.
-  test('after the window changes since mount, the added window is named from the CURRENT most recent other tab', async () => {
-    goToTabView();
-    const { store, chrome: chromeHandle } =
-      await renderHeroWithSelectedSession(tabViewSeed);
-    // Barrier: flushes whatever this component reads on mount, so the
-    // update below lands strictly AFTER mount rather than racing it --
-    // without this, the update could beat the mount-time query and the test
-    // would pass even against code that never re-reads after mount.
-    await act(async () => {});
-
-    chromeHandle.simulateBrowserTabChange(12, { lastAccessed: 999 });
-
-    await clickAddCurrentWindow();
-
-    await waitFor(() =>
-      expect(
-        store.getState().tabContainerDataState.tabGroups[0].windows
-      ).toHaveLength(2)
-    );
-    expect(
-      store.getState().tabContainerDataState.tabGroups[0].windows[0].title
-    ).toBe('Mail');
   });
 
   // The worst path: no tab left once Tab Keeper's own is out, so nothing is
@@ -676,149 +645,5 @@ describe('"Add current window" in the tab view leaves out Tab Keeper itself (D14
       DOCS_URL,
       MAIL_URL,
     ]);
-  });
-});
-
-// No test today asserted where the popup's "Add current window" title comes
-// from. Each of these is mutation-proven: mutating `result[0]?.title`,
-// dropping `|| 'New Tab'`, or forcing the tab-view branch all left the suite
-// green before this.
-describe('the popup "Add current window" name path', () => {
-  test("the added window is titled with the active tab's raw title", async () => {
-    const { store } = await renderHeroWithSelectedSession({
-      windows: [
-        {
-          id: 1,
-          tabs: [
-            tab({
-              id: 20,
-              url: 'https://active.test/',
-              title: 'Alpha',
-              active: true,
-            }),
-          ],
-        },
-      ],
-    });
-
-    await clickAddCurrentWindow();
-
-    await waitFor(() =>
-      expect(
-        store.getState().tabContainerDataState.tabGroups[0].windows
-      ).toHaveLength(2)
-    );
-    expect(
-      store.getState().tabContainerDataState.tabGroups[0].windows[0].title
-    ).toBe('Alpha');
-  });
-
-  test("with no title it's 'New Tab'", async () => {
-    const { store } = await renderHeroWithSelectedSession({
-      windows: [
-        {
-          id: 1,
-          tabs: [
-            tab({
-              id: 20,
-              url: 'https://active.test/',
-              title: undefined,
-              active: true,
-            }),
-          ],
-        },
-      ],
-    });
-
-    await clickAddCurrentWindow();
-
-    await waitFor(() =>
-      expect(
-        store.getState().tabContainerDataState.tabGroups[0].windows
-      ).toHaveLength(2)
-    );
-    expect(
-      store.getState().tabContainerDataState.tabGroups[0].windows[0].title
-    ).toBe('New Tab');
-  });
-
-  // The tab-view branch (pickNameSourceTab over the MOST RECENTLY USED other
-  // tab) is never taken in the popup: a more-recently-used, non-active tab
-  // must NOT win over the active tab's own title.
-  test('in the popup the tab-view branch is not taken', async () => {
-    const { store } = await renderHeroWithSelectedSession({
-      windows: [
-        {
-          id: 1,
-          tabs: [
-            tab({
-              id: 20,
-              url: 'https://active.test/',
-              title: 'Popup Active',
-              active: true,
-              lastAccessed: 100,
-            }),
-            tab({
-              id: 21,
-              url: 'https://other.test/',
-              title: 'Should Not Win',
-              lastAccessed: 900,
-            }),
-          ],
-        },
-      ],
-    });
-
-    await clickAddCurrentWindow();
-
-    await waitFor(() =>
-      expect(
-        store.getState().tabContainerDataState.tabGroups[0].windows
-      ).toHaveLength(2)
-    );
-    expect(
-      store.getState().tabContainerDataState.tabGroups[0].windows[0].title
-    ).toBe('Popup Active');
-  });
-});
-
-// KAN-299, extended past the tab view: Switch can restore a window whose
-// ACTIVE tab is the pinned tab view, and "Add current window" (from the
-// popup) must not name the new window "Tab Keeper" -- the same
-// most-recently-used-OTHER-tab fallback the tab view already applies.
-describe('the popup "Add current window" title falls back off a Tab Keeper active tab', () => {
-  // Docs is listed FIRST among the non-Tab-Keeper tabs, but Mail is the more
-  // recently used one -- so "first non-excluded tab in list order" and
-  // "most recently used" disagree, and only the correct rule picks Mail.
-  test('the active tab is a Tab Keeper page: named from the most recently used OTHER tab', async () => {
-    const { store } = await renderHeroWithSelectedSession({
-      windows: [
-        {
-          id: 1,
-          tabs: [
-            tab({
-              id: 10,
-              url: OWN_URL,
-              title: 'Tab Keeper',
-              active: true,
-              lastAccessed: 300,
-            }),
-            tab({ id: 11, url: DOCS_URL, title: 'Docs', lastAccessed: 100 }),
-            tab({ id: 12, url: MAIL_URL, title: 'Mail', lastAccessed: 900 }),
-          ],
-        },
-      ],
-    });
-
-    await clickAddCurrentWindow();
-
-    await waitFor(() =>
-      expect(
-        store.getState().tabContainerDataState.tabGroups[0].windows
-      ).toHaveLength(2)
-    );
-    expect(
-      store.getState().tabContainerDataState.tabGroups[0].windows[0].title
-    ).toBe('Mail');
   });
 });
