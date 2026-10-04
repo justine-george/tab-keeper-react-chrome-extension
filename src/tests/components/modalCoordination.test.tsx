@@ -362,6 +362,26 @@ describe('setup in the order (KAN-7 §5)', () => {
     expect(store.getState().globalState.isSetupOpen).toBe(false);
   });
 
+  // The welcome itself shown in the full view: its close is what chains to setup.
+  test('the welcome answered in the full view on a pinned machine: setup opens next', async () => {
+    history.replaceState(null, '', '?view=tab');
+    const { store } = await renderWithProviders(<App />, {
+      seed: { action: { isOnToolbar: true } },
+    });
+    await waitFor(() =>
+      expect(store.getState().globalState.isCloudConsentModalOpen).toBe(true)
+    );
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Keep on this device' })
+    );
+
+    await waitFor(() =>
+      expect(store.getState().globalState.isSetupOpen).toBe(true)
+    );
+    expect(store.getState().globalState.isPinGuideOpen).toBe(false);
+  });
+
   test('never in the popup', async () => {
     const { store } = await renderWithProviders(<App />, {
       seed: { action: { isOnToolbar: true } },
