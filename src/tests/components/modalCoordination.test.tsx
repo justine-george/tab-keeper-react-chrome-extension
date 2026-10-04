@@ -257,6 +257,7 @@ describe('Try the full view in the order (KAN-7 §3)', () => {
       seedStore: seedSettings({
         cloudConsent: '',
         extensionInstalledTime: Date.now() - 30 * DAY,
+        lastSyncedTime: Date.now() - DAY,
         isAutoSync: true,
       }),
     });

@@ -124,9 +124,26 @@ describe('who is asked, and which screen (KAN-259)', () => {
     ).toBeTruthy();
   });
 
+  // KAN-410. The worst path: "currently synced" was untrue, and its Esc granted.
+  test('an install date with no sessions and no past sync is welcomed, not told it is synced', async () => {
+    const seed = seedSettings({
+      extensionInstalledTime: Date.now() - 30 * DAY,
+      cloudConsent: '',
+      isAutoSync: true,
+    });
+    const { store } = await renderWithProviders(<App />, { seedStore: seed });
+    expect(
+      await screen.findByRole('dialog', { name: 'Welcome to Tab Keeper' })
+    ).toBeTruthy();
+    expect(store.getState().settingsDataState.cloudConsent).toBe('declined');
+    expect(store.getState().settingsDataState.isAutoSync).toBe(false);
+    expect(mocks.ensureCloudSession).not.toHaveBeenCalled();
+  });
+
   test('an existing user who already turned Auto Sync off is not asked; they answered', async () => {
     const seed = seedSettings({
       extensionInstalledTime: Date.now() - 30 * DAY,
+      lastSyncedTime: Date.now() - DAY,
       isAutoSync: false,
     });
     const { store } = await renderWithProviders(<App />, { seedStore: seed });
@@ -416,6 +433,7 @@ describe('Turn off sync means no sync, before and after (KAN-259)', () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     const seed = seedSettings({
       extensionInstalledTime: Date.now() - 30 * DAY,
+      lastSyncedTime: Date.now() - DAY,
       isAutoSync: true,
     });
     const { store, seen } = await renderWithProviders(<App />, {

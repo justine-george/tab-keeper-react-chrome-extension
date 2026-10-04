@@ -49,10 +49,9 @@ export function firstOpenDialogs(
 ): DialogEntry[] {
   const { dispatch, storedAtOpen } = open;
 
-  // KAN-259. Asked once, before the others. An existing user (an install date
-  // from an earlier open, or sessions on disk) who already turned Auto Sync
-  // off is recorded as declined without asking: they answered, in the only
-  // way there used to be.
+  // KAN-259. Asked once, before the others. An existing user (sessions on
+  // disk, or a past sync) who already turned Auto Sync off is recorded as
+  // declined without asking: they answered, in the only way there used to be.
   const cloudConsent: DialogEntry = {
     id: 'cloudConsent',
     decide: () => {
@@ -62,9 +61,9 @@ export function firstOpenDialogs(
       ) {
         return null;
       }
+      // KAN-410. Not the install date: a 1.9.x welcome closed unanswered stamped one with nothing synced.
       const isExisting =
-        isValidDate(storedAtOpen.extensionInstalledTime ?? '') ||
-        open.storedSessions > 0;
+        open.storedSessions > 0 || isValidDate(storedAtOpen.lastSyncedTime);
       if (isExisting && storedAtOpen.isAutoSync === false) {
         dispatch(declineCloudConsent());
         return null;

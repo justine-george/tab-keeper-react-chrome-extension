@@ -1,5 +1,6 @@
 import type { BrowserContext, Page } from '@playwright/test';
 
+import { countCloudRequests, hasCloudConfig } from './fixtures/cloud';
 import { test, expect } from './fixtures/extension';
 import { buildContainer, seedSessions, seedSettings } from './fixtures/seed';
 import { storedSettings } from './fixtures/onboarding';
@@ -187,6 +188,53 @@ test.describe('the cloud question (KAN-259)', () => {
         .getByRole('group', { name: 'Auto Sync' })
         .getByRole('button', { name: 'On' })
     ).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  // KAN-410. A 1.9.x welcome closed unanswered: an install date, no answer, Auto Sync at its old default.
+  test('an install date alone is welcomed and recorded local-only, and nothing reaches the cloud', async ({
+    context,
+    extensionId,
+  }) => {
+    const cloudHits = await countCloudRequests(context);
+    await seedSettings(context, {
+      extensionInstalledTime: Date.now() - 30 * DAY,
+      cloudConsent: '',
+    });
+    const page = await openPopup(context, extensionId);
+    const welcome = page.getByRole('dialog', {
+      name: 'Welcome to Tab Keeper',
+      exact: true,
+    });
+    await expect(welcome).toBeVisible();
+    await expect(
+      page.getByRole('dialog', { name: 'Your sessions are currently synced' })
+    ).toHaveCount(0);
+    await expect
+      .poll(async () => {
+        const s = await storedSettings(page);
+        return [s.cloudConsent, s.isAutoSync, s.setupState];
+      })
+      .toEqual(['declined', false, 'pending']);
+
+    // The key that granted on the old "currently synced" screen.
+    await page.keyboard.press('Escape');
+    await expect(
+      page.getByRole('dialog', { name: 'Try the full view', exact: true })
+    ).toBeVisible();
+    expect(cloudHits).toEqual([]);
+  });
+
+  // The CONTROL for the test above: the counter sees a consented boot reach for the cloud.
+  test('a consented boot with Auto Sync on is seen reaching for the cloud', async ({
+    context,
+    extensionId,
+  }) => {
+    test.skip(!hasCloudConfig(), 'this build has no cloud config (CI)');
+    const cloudHits = await countCloudRequests(context);
+    await seedSessions(context, buildContainer());
+    await seedSettings(context, { isAutoSync: true });
+    await openPopup(context, extensionId);
+    await expect.poll(() => cloudHits.length).toBeGreaterThan(0);
   });
 
   test('an existing user who already turned Auto Sync off is not asked', async ({
