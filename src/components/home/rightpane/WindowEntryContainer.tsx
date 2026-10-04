@@ -57,6 +57,7 @@ import RowOpenButton from './RowOpenButton';
 import { CONTROL, DURATION, RADIUS, TYPE } from '../../../styles/scale';
 import { placeholderStyle } from '../../../styles/placeholder';
 import { windowLabel } from '../../../utils/functions/windowLabel';
+import { renameKeyDown } from '../../../utils/functions/renameKeyDown';
 
 /**
  * The Chrome group title, and the editor that replaces it (KAN-205).
@@ -599,26 +600,6 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
 
   function handleAccordionClick() {
     dispatch(toggleWindowCollapse({ tabGroupId, windowId }));
-  }
-
-  // Enter commits and Esc cancels, in the window and the group fields alike.
-  function renameKeyDown(
-    e: React.KeyboardEvent<HTMLInputElement>,
-    commit: () => void,
-    cancel: () => void
-  ) {
-    // An IME's Enter and Esc confirm or cancel its word, not the rename.
-    if (e.nativeEvent.isComposing) {
-      e.stopPropagation();
-      return;
-    }
-    if (e.key === 'Enter') {
-      commit();
-    } else if (e.key === 'Escape') {
-      e.preventDefault();
-      e.stopPropagation();
-      cancel();
-    }
   }
 
   const cancelWindowRename = () => {
