@@ -42,10 +42,7 @@ import {
 import { copySessionLinks } from '../../../utils/functions/copySessionLinks';
 import { tidySessionForExport } from '../../../utils/functions/sessionExportHtml';
 import { TOAST_MESSAGES } from '../../../utils/constants/common';
-import {
-  isTabView,
-  pickNameSourceTab,
-} from '../../../utils/functions/viewMode';
+import { isTabView } from '../../../utils/functions/viewMode';
 import { useTranslation } from 'react-i18next';
 import { DURATION, ICON, TYPE } from '../../../styles/scale';
 import { newWindowTargetBoxStyle } from './newWindowTarget';
@@ -182,47 +179,9 @@ export default function HeroContainerRight() {
     // If that empties the window, there is nothing to add.
     if (tabs.length === 0) return;
 
-    // KAN-299, extended past the tab view. Resolved HERE, at click time --
-    // not cached from a mount-once effect. This component can
-    // stay mounted for as long as the tab view stays open, so a name read
-    // once at mount can go stale; the tab it was drawn from may no longer be
-    // the most recently used by the time this button is actually pressed.
-    //
-    // In the tab view the active tab IS Tab Keeper, so the D15 fallback --
-    // the most recently used tab in the window that isn't one -- always
-    // applies. In the popup it only kicks in when the active tab HAPPENS to
-    // be a Tab Keeper page (Switch can restore a window whose active tab is
-    // the pinned tab view); otherwise the popup keeps today's rule, the
-    // active tab's own raw title. dropNotificationCount is not applied
-    // here: toWindowGroupData already cleans whatever title it is handed,
-    // for every branch, so cleaning twice would be redundant rather than
-    // wrong.
-    async function resolveCurrentTabName(): Promise<string | undefined> {
-      if (isTabView()) {
-        const tabsOfWindow = await new Promise<chrome.tabs.Tab[]>((resolve) =>
-          chrome.tabs.query({ currentWindow: true }, (result) =>
-            resolve(result)
-          )
-        );
-        return pickNameSourceTab(tabsOfWindow, isTabKeeperPage)?.title;
-      }
-      const [activeTab] = await new Promise<chrome.tabs.Tab[]>((resolve) =>
-        chrome.tabs.query({ active: true, currentWindow: true }, (result) =>
-          resolve(result)
-        )
-      );
-      if (!activeTab || !isTabKeeperPage(activeTab)) return activeTab?.title;
-      const tabsOfWindow = await new Promise<chrome.tabs.Tab[]>((resolve) =>
-        chrome.tabs.query({ currentWindow: true }, (result) => resolve(result))
-      );
-      return pickNameSourceTab(tabsOfWindow, isTabKeeperPage)?.title;
-    }
-    const currentTabName = await resolveCurrentTabName();
-
     const read = await readCurrentWindowGroups(windowData.id);
     const window = toWindowGroupData(
       { ...windowData, tabs },
-      currentTabName || 'New Tab',
       read?.groups,
       read?.idByChromeId ?? new Map()
     );

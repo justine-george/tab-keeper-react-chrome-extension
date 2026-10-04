@@ -647,3 +647,39 @@ describe('"Add current window" in the tab view leaves out Tab Keeper itself (D14
     ]);
   });
 });
+
+// KAN-394 L4. "Add current window" saves the window unnamed, in the popup and
+// in the tab view; the list draws it as "Window N".
+describe('"Add current window" saves the window unnamed (KAN-394 L4)', () => {
+  const popupSeed = {
+    windows: [
+      {
+        id: 1,
+        tabs: [
+          tab({ id: 20, url: DOCS_URL, title: 'Alpha', active: true }),
+          tab({ id: 21, url: MAIL_URL, title: 'Beta' }),
+        ],
+      },
+    ],
+  };
+
+  test.each([
+    ['the popup', popupSeed, 'Alpha'],
+    ['the tab view', tabViewSeed, 'Docs'],
+  ] as const)('in %s', async (view, seed, firstTab) => {
+    if (view === 'the tab view') goToTabView();
+    const { store } = await renderHeroWithSelectedSession(seed);
+
+    await clickAddCurrentWindow();
+
+    await waitFor(() =>
+      expect(
+        store.getState().tabContainerDataState.tabGroups[0].windows
+      ).toHaveLength(2)
+    );
+    const [added] = store.getState().tabContainerDataState.tabGroups[0].windows;
+    // PREMISE: the tab it could have been named by.
+    expect(added.tabs[0].title).toBe(firstTab);
+    expect(added.title).toBe('');
+  });
+});
