@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { screen, within } from '@testing-library/react';
+import { act, fireEvent, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import WindowEntryContainer from '../../components/home/rightpane/WindowEntryContainer';
@@ -443,5 +443,87 @@ describe('the group title size', () => {
     });
 
     expect(getComputedStyle(input).fontSize).toBe(labelSize);
+  });
+});
+
+// KAN-394 D13 and the placeholder: the group field behaves as the window's does.
+describe('the group field: Esc, IME and its placeholder', () => {
+  const openField = async (title: string) => {
+    const user = userEvent.setup();
+    const rendered = await renderWindow([{ groupId: 'g1', title, color: 'blue' }]);
+    await user.click(screen.getByText(title || 'Unnamed group'));
+    return { user, ...rendered };
+  };
+
+  test('Esc cancels: nothing is stored, and the title is back', async () => {
+    const { user, store } = await openField('Research');
+    const input = screen.getByRole('textbox', { name: 'Rename group: Research' });
+    await user.clear(input);
+    await user.type(input, 'Elsewhere{Escape}');
+
+    expect(screen.queryByRole('textbox')).toBeNull();
+    expect(
+      screen.getByRole('button', { name: 'Rename group: Research' })
+    ).toBeInTheDocument();
+    expect(storedGroupTitle(store)).toBe('Research');
+  });
+
+  // A blur in the same batch as the Esc still sees the open editor; the ref stops it.
+  test('a blur that lands before the cancel renders commits nothing', async () => {
+    const { user, store } = await openField('Research');
+    const input = screen.getByRole('textbox', { name: 'Rename group: Research' });
+    await user.type(input, ' notes');
+
+    act(() => {
+      fireEvent.keyDown(input, { key: 'Escape' });
+      fireEvent.blur(input);
+    });
+
+    expect(screen.queryByRole('textbox')).toBeNull();
+    expect(storedGroupTitle(store)).toBe('Research');
+  });
+
+  test('an Esc that ends an IME composition leaves the editor open', async () => {
+    const { store } = await openField('Research');
+
+    fireEvent.keyDown(screen.getByRole('textbox'), {
+      key: 'Escape',
+      isComposing: true,
+    });
+
+    expect(screen.getByRole('textbox')).toBeInTheDocument();
+    expect(storedGroupTitle(store)).toBe('Research');
+  });
+
+  test('an Enter that ends an IME composition commits nothing', async () => {
+    const { user, store } = await openField('Research');
+    await user.type(screen.getByRole('textbox'), ' notes');
+
+    fireEvent.keyDown(screen.getByRole('textbox'), {
+      key: 'Enter',
+      isComposing: true,
+    });
+
+    expect(screen.getByRole('textbox')).toHaveValue('Research notes');
+    expect(storedGroupTitle(store)).toBe('Research');
+  });
+
+  test('a cleared named group\'s field prompts "Name this group", not its name', async () => {
+    const { user } = await openField('Research');
+    const input = screen.getByRole('textbox', { name: 'Rename group: Research' });
+    await user.clear(input);
+
+    expect(input).toHaveValue('');
+    expect(input).toHaveAttribute('placeholder', 'Name this group');
+  });
+
+  test('an unnamed group\'s field is empty, prompting "Name this group"', async () => {
+    await openField('');
+    const input = screen.getByRole('textbox', {
+      name: 'Rename group: Unnamed group',
+    });
+
+    expect(input).toHaveValue('');
+    expect(input).toHaveAttribute('placeholder', 'Name this group');
   });
 });

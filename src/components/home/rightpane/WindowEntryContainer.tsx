@@ -150,6 +150,8 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   // put every one of them into edit mode at once.
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
   const [groupDraft, setGroupDraft] = useState('');
+  // The group field's Esc, read by its blur as renameCancelled is (D13).
+  const groupRenameCancelled = useRef(false);
   // Which group's overflow menu is open, so its action strip can outrank its
   // siblings. Every strip is a stacking context of its own (transform), so
   // equal z-indexes leave DOM order deciding -- and a LOWER group's strip then
@@ -417,6 +419,14 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     cursor: text;
   `;
 
+  // Both rename fields. Chromium's default grey is under 4.5:1 on every theme.
+  const placeholderStyle = css`
+    &::placeholder {
+      color: ${COLORS.PLACEHOLDER_COLOR};
+      opacity: 1;
+    }
+  `;
+
   const windowChildLinkStyle = css`
     text-decoration: none;
     color: inherit;
@@ -507,6 +517,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   // editing starts rather than kept in step by an effect, so a rename
   // arriving from another device cannot overwrite what is being typed.
   const startEditingGroup = (group: chromeTabGroupData) => {
+    groupRenameCancelled.current = false;
     setGroupDraft(group.title);
     setEditingGroupId(group.groupId);
   };
@@ -516,6 +527,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   // owns that rule; this only declines to dispatch when nothing changed, so
   // opening and closing the editor is not a Firestore write.
   const commitGroupRename = (group: chromeTabGroupData) => {
+    if (groupRenameCancelled.current) return;
     setEditingGroupId(null);
     if (group.title !== groupDraft) {
       dispatch(
@@ -540,17 +552,14 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     });
   };
 
-  // Mirrors handleTabClick, for a whole group. Every other row in this pane
-  // opens something on click -- the window title opens its window, a tab title
-  // opens that tab -- and the group row was the only one that renamed instead,
-  // which also left renaming with two entry points and opening with none.
+  // The group's Open (KAN-394): its tabs beside the active one, re-grouped.
   //
   // The index advances per tab. Creating them all at currentTabIndex + 1 would
   // reverse the group, because each insert pushes the previous one right.
   //
   // Tabs open ungrouped: re-forming the Chrome group needs the tabGroups
   // permission at click time and is deliberately left to its own ticket.
-  const handleGroupClick = (run: GroupRun) => {
+  const openGroup = (run: GroupRun) => {
     chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
       const current = tabs[0];
       if (!current) return;
@@ -602,21 +611,35 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     dispatch(toggleWindowCollapse({ tabGroupId, windowId }));
   }
 
-  function handleKeyPressOnEditDone(e: React.KeyboardEvent<HTMLInputElement>) {
+  // Enter commits and Esc cancels, in the window and the group fields alike.
+  function renameKeyDown(
+    e: React.KeyboardEvent<HTMLInputElement>,
+    commit: () => void,
+    cancel: () => void
+  ) {
     // An IME's Enter and Esc confirm or cancel its word, not the rename.
     if (e.nativeEvent.isComposing) {
       e.stopPropagation();
       return;
     }
     if (e.key === 'Enter') {
-      handleBlur();
+      commit();
     } else if (e.key === 'Escape') {
       e.preventDefault();
       e.stopPropagation();
-      renameCancelled.current = true;
-      setIsEditing(false);
+      cancel();
     }
   }
+
+  const cancelWindowRename = () => {
+    renameCancelled.current = true;
+    setIsEditing(false);
+  };
+
+  const cancelGroupRename = () => {
+    groupRenameCancelled.current = true;
+    setEditingGroupId(null);
+  };
 
   // Hover is tracked by tabId, not by position (KAN-127). A position-keyed
   // flag points at whichever tab has since moved into that slot, so anything
@@ -772,7 +795,9 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                   placeholder={t('Name this window')}
                   onBlur={handleBlur}
                   onChange={handleChange}
-                  onKeyDown={(e) => handleKeyPressOnEditDone(e)}
+                  onKeyDown={(e) =>
+                    renameKeyDown(e, handleBlur, cancelWindowRename)
+                  }
                   autoFocus
                   css={css`
                     color: ${COLORS.TEXT_COLOR};
@@ -789,11 +814,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                     &:focus {
                       outline: none;
                     }
-                    /* Chromium's default grey is under 4.5:1 on every theme. */
-                    &::placeholder {
-                      color: ${COLORS.PLACEHOLDER_COLOR};
-                      opacity: 1;
-                    }
+                    ${placeholderStyle}
                   `}
                 />
               </div>
@@ -1112,9 +1133,14 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                         &:focus-within {
                           background-color: ${COLORS.HOVER_COLOR};
                         }
-                        &:hover .group-rename-reveal,
-                        &:focus-within .group-rename-reveal {
-                          opacity: 1;
+                        /* The window row's mask (D10): it lands in one frame
+                         with the fill; only the controls ease (KAN-100). */
+                        &:hover .group-actions,
+                        &:focus-within .group-actions {
+                          background-color: ${COLORS.HOVER_COLOR};
+                          & > * {
+                            opacity: 1;
+                          }
                         }
                       `}
                     >
@@ -1124,10 +1150,14 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                           aria-label={renameGroupLabel(item.group)}
                           onBlur={() => commitGroupRename(item.group)}
                           onChange={(e) => setGroupDraft(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter')
-                              commitGroupRename(item.group);
-                          }}
+                          placeholder={t('Name this group')}
+                          onKeyDown={(e) =>
+                            renameKeyDown(
+                              e,
+                              () => commitGroupRename(item.group),
+                              cancelGroupRename
+                            )
+                          }
                           autoFocus
                           css={css`
                             color: ${COLORS.TEXT_COLOR};
@@ -1165,45 +1195,36 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                             &:focus {
                               outline: none;
                             }
+                            ${placeholderStyle}
                           `}
                         />
-                      ) : isSearching ? (
-                        // A control that cannot act must not be focusable and
-                        // inert (KAN-62), so searching gets static text.
-                        groupTitleLabel(item.group)
                       ) : (
                         // WCAG 2.5.3, same shape as KAN-77: the accessible name
                         // CONTAINS the visible one, so "click Research" works.
-                        // padding-right reserves the action block's width so a
-                        // long title ellipsizes instead of rendering UNDER the
-                        // icons. The block is absolutely positioned -- kept that
-                        // way deliberately, so the title does not reflow and
-                        // jump when the icons appear on hover -- which means
-                        // layout gives it no room unless it is reserved here.
-                        // Measured at 100/125/150% zoom before and after.
+                        // Searching or not, as the window title (R7). No room is
+                        // reserved for the strip: it masks the title's end (D10).
                         <ClickableRow
-                          ariaLabel={openGroupLabel(item.group)}
-                          tooltipText={t('Open group')}
-                          onClick={() => handleGroupClick(item)}
+                          ariaLabel={renameGroupLabel(item.group)}
+                          onClick={() => startEditingGroup(item.group)}
                           // align-self, because the strip centres its children
                           // -- without it the clickable is only as tall as its
                           // text and the row has 8px of dead zone above and
                           // below, while the hover fill paints the full 32px.
                           // The tab rows get this from their parent's
                           // align-items: stretch; this strip has to ask.
-                          style="display: flex; align-items: center; align-self: stretch; min-width: 0; width: 100%; padding-right: 100px; box-sizing: border-box;"
+                          style={
+                            'display: flex; align-items: center; align-self: stretch; min-width: 0; box-sizing: border-box;' +
+                            titleButtonStyle
+                          }
                         >
                           {groupTitleLabel(item.group)}
                         </ClickableRow>
                       )}
                       {editingGroupId === item.group.groupId && (
-                        // Same shape as the other two ticks: the wrapper stops
-                        // the post-commit click retargeting onto the pencil, and
-                        // preventDefault keeps focus in the input so onClick is
-                        // the single commit path.
+                        // Same shape as the other two ticks: preventDefault keeps
+                        // focus in the input so onClick is the single commit path.
                         <span
                           data-row-actions
-                          className="group-rename-reveal"
                           css={css`
                             position: absolute;
                             top: 50%;
@@ -1233,14 +1254,16 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                         // for the whole drag.
                         <div
                           data-row-actions
-                          className="group-rename-reveal"
+                          className="group-actions"
                           css={css`
                             position: absolute;
                             top: 50%;
                             right: 0;
                             transform: translateY(-50%);
-                            opacity: 0;
-                            transition: opacity ${DURATION.COLOR} ease-out;
+                            & > * {
+                              opacity: 0;
+                              transition: opacity ${DURATION.COLOR} ease-out;
+                            }
                             display: flex;
                             align-items: center;
                             /* Load-bearing, and only visible in a real browser.
@@ -1257,15 +1280,15 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                               : 1};
                           `}
                         >
-                          <Icon
-                            tooltipText={t('Rename group')}
-                            ariaLabel={t('Rename group')}
-                            type="edit"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              startEditingGroup(item.group);
-                            }}
-                          />
+                          {/* Hidden while searching, as every whole-item
+                              action is (R7). */}
+                          {!isSearching && (
+                            <RowOpenButton
+                              ariaLabel={openGroupLabel(item.group)}
+                              tooltipText={t('Open group')}
+                              onClick={() => openGroup(item)}
+                            />
+                          )}
                           {/* KAN-279 D13. Same reasoning as the window
                                 row's Add current tab: meaningless in the tab
                                 view, so hidden there too. */}

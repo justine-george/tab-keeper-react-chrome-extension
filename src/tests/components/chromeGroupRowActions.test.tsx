@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { LIGHT_THEME } from '../../hooks/useThemeColors';
-import { act, screen } from '@testing-library/react';
+import { act, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import WindowEntryContainer from '../../components/home/rightpane/WindowEntryContainer';
@@ -690,5 +690,90 @@ describe('the group row is clickable across its whole height', () => {
     const row = screen.getByRole('button', { name: 'Open group: Research' });
 
     expect(getComputedStyle(row).alignItems).toBe('center');
+  });
+});
+
+// KAN-394 P2: a group band follows the window row. Its title renames; Open,
+// first in the strip, opens the group.
+describe('the group title renames, and Open opens', () => {
+  const stripOf = (groupName: string) => {
+    const strip = screen
+      .getByRole('group', { name: groupName })
+      .querySelector('[data-group-drag-handle] > [data-row-actions]');
+    if (!(strip instanceof HTMLElement)) throw new Error('no action strip');
+    return strip;
+  };
+
+  test('a title click edits, and creates no tab', async () => {
+    const user = userEvent.setup();
+    const { chrome } = await renderRow();
+
+    await user.click(screen.getByText('Research'));
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(chrome.createdTabs).toEqual([]);
+    expect(
+      screen.getByRole('textbox', { name: 'Rename group: Research' })
+    ).toHaveValue('Research');
+  });
+
+  test('the strip is Open, then Add current tab to group, then ⋮', async () => {
+    await renderRow();
+
+    expect(
+      within(stripOf('Research'))
+        .getAllByRole('button')
+        .map((b) => b.getAttribute('aria-label'))
+    ).toEqual([
+      'Open group: Research',
+      'Add current tab to group',
+      'More actions',
+    ]);
+  });
+
+  test('Open creates a tab per member, then re-forms the group', async () => {
+    const user = userEvent.setup();
+    const { chrome } = await renderRow();
+
+    await user.click(
+      within(stripOf('Research')).getByRole('button', {
+        name: 'Open group: Research',
+      })
+    );
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(chrome.createdTabs.map((t) => t.url)).toEqual([
+      'https://b.co',
+      'https://c.co',
+    ]);
+    expect(chrome.groupedTabs).toHaveLength(1);
+    const grouped = await Promise.all(
+      chrome.groupedTabs[0].tabIds.map((id) => globalThis.chrome.tabs.get(id))
+    );
+    expect(grouped.map((t) => t.url)).toEqual(['https://b.co', 'https://c.co']);
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+  });
+
+  test('while searching: no Open, and the title still renames', async () => {
+    const user = userEvent.setup();
+    const { container } = await renderRow({ isSearching: true });
+    // By attribute, not role: a role query skips aria-hidden nodes.
+    expect(container.querySelectorAll('[aria-label^="Open group"]')).toHaveLength(
+      0
+    );
+
+    await user.click(screen.getByText('Research'));
+
+    expect(
+      screen.getByRole('textbox', { name: 'Rename group: Research' })
+    ).toBeInTheDocument();
+  });
+
+  test('CONTROL: not searching, the same query finds Open', async () => {
+    const { container } = await renderRow();
+
+    expect(container.querySelectorAll('[aria-label^="Open group"]')).toHaveLength(
+      1
+    );
   });
 });
