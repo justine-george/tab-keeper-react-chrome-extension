@@ -23,10 +23,13 @@ export async function seedSessions(
 
 /**
  * KAN-7. Onboarding a seeded profile has already answered, so no spec boots
- * into the pin guide by accident (headless reports "not pinned"). A spec about
+ * into the pin guide or the full-view callout by accident (headless reports "not pinned"). A spec about
  * it passes its own value, which wins.
  */
-export const ONBOARDING_ANSWERED = { isPinGuideDismissed: true };
+export const ONBOARDING_ANSWERED = {
+  isPinGuideDismissed: true,
+  isFullViewCalloutSeen: true,
+};
 
 /**
  * Seeds `settingsData`, which is what gates the rate-and-review prompt.

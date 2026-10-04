@@ -6,7 +6,8 @@ export type DialogId =
   | 'pinGuide'
   | 'setup'
   | 'rate'
-  | 'tabGroups';
+  | 'tabGroups'
+  | 'fullViewCallout';
 
 export interface DialogEntry {
   id: DialogId;

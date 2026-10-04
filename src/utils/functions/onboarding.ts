@@ -17,6 +17,14 @@ export function hasUsedFullView(s: FullViewUse): boolean {
   );
 }
 
+// §6. Once, to a session holder who has never used the full view here.
+export function shouldShowFullViewCallout(
+  s: Pick<SettingsData, 'isFullViewCalloutSeen'> & FullViewUse,
+  storedSessions: number
+): boolean {
+  return storedSessions > 0 && !s.isFullViewCalloutSeen && !hasUsedFullView(s);
+}
+
 // §3. A new install, until either answer or until the full view has been used.
 export function shouldOfferFullView(
   s: Pick<SettingsData, 'setupState' | 'isFullViewOfferAnswered'> & FullViewUse

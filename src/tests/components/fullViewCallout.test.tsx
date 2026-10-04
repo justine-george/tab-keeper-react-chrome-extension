@@ -1,0 +1,121 @@
+import { afterEach, describe, expect, test } from 'vitest';
+import {
+  act,
+  fireEvent,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
+
+import MenuContainer from '../../components/home/leftpane/MenuContainer';
+import { renderWithProviders } from '../setup/renderWithProviders';
+import { openFullViewCallout } from '../../redux/slices/globalStateSlice';
+import { OPEN_IN_TAB_MESSAGE } from '../../utils/functions/popOut';
+
+// KAN-7 §6. Under ⤢ in the popup, once; Try it, ✕, Esc or ⤢ mark it seen.
+
+const TEXT = 'See your sessions and open tabs side by side.';
+const render = (open = true) =>
+  renderWithProviders(<MenuContainer />, {
+    seed: { windows: [{ id: 7 }] },
+    seedStore: (store) => {
+      if (open) store.dispatch(openFullViewCallout());
+    },
+  });
+const callout = () => screen.queryByRole('dialog', { name: TEXT });
+const openCallout = () => screen.getByRole('dialog', { name: TEXT });
+
+afterEach(() => localStorage.clear());
+
+describe('the full-view callout', () => {
+  test('appearing leaves the focus where it was', async () => {
+    const { store } = await render(false);
+    const sort = screen.getByRole('button', { name: 'Sort sessions' });
+    sort.focus();
+    act(() => {
+      store.dispatch(openFullViewCallout());
+    });
+    expect(openCallout()).toBeInTheDocument();
+    expect(document.activeElement).toBe(sort);
+  });
+
+  test('Try it opens the full view, marks it seen, and closes', async () => {
+    const { store, chrome } = await render();
+    fireEvent.click(
+      within(openCallout()).getByRole('button', { name: 'Try it' })
+    );
+    await waitFor(() =>
+      expect(chrome.sentMessages).toEqual([
+        { type: OPEN_IN_TAB_MESSAGE, windowId: 7 },
+      ])
+    );
+    expect(store.getState().settingsDataState.isFullViewCalloutSeen).toBe(true);
+    expect(callout()).toBeNull();
+  });
+
+  test('✕ marks it seen and closes, and opens nothing', async () => {
+    const { store, chrome } = await render();
+    fireEvent.click(
+      within(openCallout()).getByRole('button', { name: 'Close' })
+    );
+    expect(store.getState().settingsDataState.isFullViewCalloutSeen).toBe(true);
+    expect(callout()).toBeNull();
+    expect(chrome.sentMessages).toEqual([]);
+  });
+
+  test('Esc means ✕', async () => {
+    const { store } = await render();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(store.getState().settingsDataState.isFullViewCalloutSeen).toBe(true);
+    expect(callout()).toBeNull();
+  });
+
+  test('the Esc it consumes is defaultPrevented, or Chrome closes the popup (KAN-403)', async () => {
+    await render();
+    const event = new KeyboardEvent('keydown', {
+      key: 'Escape',
+      bubbles: true,
+      cancelable: true,
+    });
+    act(() => {
+      document.dispatchEvent(event);
+    });
+    expect(callout()).toBeNull();
+    expect(event.defaultPrevented).toBe(true);
+  });
+
+  test('an Escape a field already handled leaves it open', async () => {
+    await render();
+    const event = new KeyboardEvent('keydown', {
+      key: 'Escape',
+      bubbles: true,
+      cancelable: true,
+    });
+    event.preventDefault();
+    act(() => {
+      document.dispatchEvent(event);
+    });
+    expect(callout()).toBeInTheDocument();
+  });
+
+  test('an Escape with nothing open is left to Chrome', async () => {
+    await render(false);
+    const event = new KeyboardEvent('keydown', {
+      key: 'Escape',
+      bubbles: true,
+      cancelable: true,
+    });
+    act(() => {
+      document.dispatchEvent(event);
+    });
+    expect(event.defaultPrevented).toBe(false);
+  });
+
+  test('pressing ⤢ itself marks it seen', async () => {
+    const { store, chrome } = await render();
+    fireEvent.click(screen.getByRole('button', { name: 'Open full view' }));
+    await waitFor(() => expect(chrome.sentMessages).toHaveLength(1));
+    expect(store.getState().settingsDataState.isFullViewCalloutSeen).toBe(true);
+    expect(callout()).toBeNull();
+  });
+});

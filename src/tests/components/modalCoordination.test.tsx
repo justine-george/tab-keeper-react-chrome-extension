@@ -19,6 +19,7 @@ vi.mock('../../config/firebase', () => ({
 import App from '../../App';
 import { leavePinGuide } from '../../redux/firstOpenFollowUps';
 import { renderWithProviders } from '../setup/renderWithProviders';
+import { buildContainer, buildSession } from '../fixtures/sessionFixture';
 import type { ChromeSeed } from '../setup/chrome.fake';
 import {
   initialState as settingsInitial,
@@ -27,7 +28,10 @@ import {
 } from '../../redux/slices/settingsDataStateSlice';
 
 beforeEach(() => localStorage.clear());
-afterEach(() => localStorage.clear());
+afterEach(() => {
+  localStorage.clear();
+  delete document.documentElement.dataset.firstOpen;
+});
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -395,5 +399,45 @@ describe('setup in the order (KAN-7 §5)', () => {
       expect(store.getState().globalState.isRateAndReviewModalOpen).toBe(true)
     );
     expect(store.getState().globalState.isSetupOpen).toBe(false);
+  });
+});
+
+describe('the full-view callout in the order (KAN-7 §6)', () => {
+  const holder =
+    (settings: Partial<SettingsData>) =>
+    (store: { dispatch: (action: unknown) => void }) => {
+      seedSettings({ cloudConsent: 'granted', ...settings })(store);
+      localStorage.setItem(
+        'tabContainerData',
+        JSON.stringify(buildContainer([buildSession()]))
+      );
+    };
+
+  test('a session holder who never opened the full view gets it, and the queue says so', async () => {
+    const { store } = await renderWithProviders(<App />, {
+      seedStore: holder({}),
+    });
+    await waitFor(() =>
+      expect(store.getState().globalState.isFullViewCalloutOpen).toBe(true)
+    );
+    await waitFor(() =>
+      expect(document.documentElement.dataset.firstOpen).toBe('fullViewCallout')
+    );
+  });
+
+  test('never on an open that showed a dialog', async () => {
+    const { store } = await renderWithProviders(<App />, {
+      seedStore: holder({
+        extensionInstalledTime: Date.now() - 2 * DAY,
+        lastValueMomentTime: Date.now() - 60 * 60 * 1000,
+      }),
+    });
+    await waitFor(() =>
+      expect(store.getState().globalState.isRateAndReviewModalOpen).toBe(true)
+    );
+    expect(store.getState().globalState.isFullViewCalloutOpen).toBe(false);
+    await waitFor(() =>
+      expect(document.documentElement.dataset.firstOpen).toBe('rate')
+    );
   });
 });

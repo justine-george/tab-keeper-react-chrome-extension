@@ -2,6 +2,9 @@ import { useDispatch, useSelector } from 'react-redux';
 
 import { css } from '@emotion/react';
 
+import FullViewCallout from './FullViewCallout';
+import { useThemeColors } from '../../../hooks/useThemeColors';
+
 import Icon from '../../common/Icon';
 import OverflowMenu from '../../common/OverflowMenu';
 import type { OverflowMenuItem } from '../../common/OverflowMenu';
@@ -15,6 +18,7 @@ import {
   closePlainToasts,
   openSettingsPage,
   syncNowWhenSignedIn,
+  closeFullViewCallout,
   openCloudConsentModal,
 } from '../../../redux/slices/globalStateSlice';
 import {
@@ -24,7 +28,10 @@ import {
   undo,
 } from '../../../redux/slices/undoRedoSlice';
 import { SettingsCategory } from '../../../redux/slices/settingsCategoryStateSlice';
-import { setSessionDateBasis } from '../../../redux/slices/settingsDataStateSlice';
+import {
+  markFullViewCalloutSeen,
+  setSessionDateBasis,
+} from '../../../redux/slices/settingsDataStateSlice';
 import { useTranslation } from 'react-i18next';
 import { DURATION, ICON } from '../../../styles/scale';
 import type { IconName } from '../../common/iconNames';
@@ -55,6 +62,11 @@ export default function MenuContainer() {
   );
   const lastSyncedTime = useSelector(
     (state: RootState) => state.settingsDataState.lastSyncedTime
+  );
+
+  const COLORS = useThemeColors();
+  const isFullViewCalloutOpen = useSelector(
+    (state: RootState) => state.globalState.isFullViewCalloutOpen
   );
 
   // i18n.language feeds the reducer's title collation; see sortItems below.
@@ -97,6 +109,12 @@ export default function MenuContainer() {
     dispatch(closeAllToasts());
   }
 
+  // KAN-7 §6. ⤢, Try it, ✕ and Esc each mark the callout seen.
+  const seeFullViewCallout = () => {
+    dispatch(markFullViewCalloutSeen());
+    dispatch(closeFullViewCallout());
+  };
+
   // KAN-279. This popup cannot open or focus the tab view itself: the click
   // that would do it is the same click that backgrounds this popup, and a
   // Chrome popup is torn down the instant it loses focus -- before a
@@ -106,6 +124,7 @@ export default function MenuContainer() {
   // the popup doing it.
   // requestTabView (popOut.ts) sends that request.
   function handleClickOpenInTab() {
+    seeFullViewCallout();
     void requestTabView();
   }
 
@@ -325,19 +344,34 @@ export default function MenuContainer() {
           first -- and sends a fire-and-forget message rather than acting
           directly; see handleClickOpenInTab above for why. */}
         {!isTabView() && (
-          <Icon
-            ariaLabel={t('Open full view')}
-            tooltipText={t('Open full view')}
-            type="open_in_full"
-            // KAN-340. Thin, but its arrows reach the corners: at DEFAULT its
-            // ink spans 18.5px square, the largest in the row, and it read big.
-            // MEDIUM (17px) matches the gear, in the same box.
-            size={ICON.MEDIUM}
-            boxSizedFor={ICON.DEFAULT}
-            // KAN-344. It stretches: "the same thing, bigger".
-            hoverMotion={{ scale: 1.14, duration: DURATION.MOVE }}
-            onClick={handleClickOpenInTab}
-          />
+          <span
+            css={css`
+              position: relative;
+              display: inline-flex;
+              ${isFullViewCalloutOpen &&
+              `outline: 1.5px dashed ${COLORS.LABEL_L2_COLOR}; outline-offset: 2px;`}
+            `}
+          >
+            <Icon
+              ariaLabel={t('Open full view')}
+              tooltipText={t('Open full view')}
+              type="open_in_full"
+              // KAN-340. Thin, but its arrows reach the corners: at DEFAULT its
+              // ink spans 18.5px square, the largest in the row, and it read big.
+              // MEDIUM (17px) matches the gear, in the same box.
+              size={ICON.MEDIUM}
+              boxSizedFor={ICON.DEFAULT}
+              // KAN-344. It stretches: "the same thing, bigger".
+              hoverMotion={{ scale: 1.14, duration: DURATION.MOVE }}
+              onClick={handleClickOpenInTab}
+            />
+            {isFullViewCalloutOpen && (
+              <FullViewCallout
+                onTry={handleClickOpenInTab}
+                onDismiss={seeFullViewCallout}
+              />
+            )}
+          </span>
         )}
         <OverflowMenu
           ariaLabel={t('Sort sessions')}

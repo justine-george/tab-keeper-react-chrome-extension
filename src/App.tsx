@@ -172,7 +172,10 @@ function App() {
     if (!isValidDate(storedAtOpen.extensionInstalledTime ?? '')) {
       dispatch(setExtensionInstalledTime());
     }
-    void openFirstDialog(dialogs);
+    // The e2e barrier for "the queue opened nothing", which no dialog can show.
+    void openFirstDialog(dialogs).then((opened) => {
+      document.documentElement.dataset.firstOpen = opened ?? 'none';
+    });
 
     void hasTabGroupsPermission().then((granted) =>
       dispatch(setHasTabGroupsPermission(granted))

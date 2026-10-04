@@ -10,6 +10,7 @@ import { waitForFontsLoaded } from './fixtures/fonts';
 import {
   buildContainer,
   buildSession,
+  ONBOARDING_ANSWERED,
   seedSessions,
   seedSettings,
 } from './fixtures/seed';
@@ -331,16 +332,19 @@ test('pressing Light or Dark changes the page and never the saved settings', asy
   // Not seedSettings: its init script re-runs in the preview frame and erases
   // the write this compares (KAN-357 F7).
   const popup = await openPopup(context, extensionId);
-  await popup.evaluate(() =>
-    localStorage.setItem(
-      'settingsData',
-      JSON.stringify({
-        cloudConsent: 'granted',
-        theme: 'Darkenheimer',
-        isNeverAskAgainToRate: true,
-        isNeverAskAgainForTabGroups: true,
-      })
-    )
+  await popup.evaluate(
+    (answered) =>
+      localStorage.setItem(
+        'settingsData',
+        JSON.stringify({
+          cloudConsent: 'granted',
+          ...answered,
+          theme: 'Darkenheimer',
+          isNeverAskAgainToRate: true,
+          isNeverAskAgainForTabGroups: true,
+        })
+      ),
+    ONBOARDING_ANSWERED
   );
   await popup.reload();
   const [exportPage] = await Promise.all([

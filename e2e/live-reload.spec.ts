@@ -2,7 +2,11 @@ import type { BrowserContext, Page, Route } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
 import { localeStrings } from './fixtures/locales';
-import { buildContainer, buildSession } from './fixtures/seed';
+import {
+  buildContainer,
+  buildSession,
+  ONBOARDING_ANSWERED,
+} from './fixtures/seed';
 
 // Syncs with the dev cloud (KAN-383).
 test.use({ cloud: true });
@@ -61,7 +65,7 @@ async function seedOnce(
     },
     {
       sessions: JSON.stringify(buildContainer([A, B, C])),
-      settings: JSON.stringify(settings),
+      settings: JSON.stringify({ ...ONBOARDING_ANSWERED, ...settings }),
     }
   );
 }

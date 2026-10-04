@@ -4,6 +4,7 @@ import type { DialogEntry } from '../utils/functions/dialogQueue';
 import type { RootState } from './store';
 import {
   openCloudConsentModal,
+  openFullViewCallout,
   openFullViewOffer,
   openPinGuide,
   openRateAndReviewModal,
@@ -17,6 +18,7 @@ import {
 import { isValidDate } from '../utils/functions/local';
 import {
   shouldOfferFullView,
+  shouldShowFullViewCallout,
   shouldShowPinGuide,
   shouldShowSetup,
 } from '../utils/functions/onboarding';
@@ -119,8 +121,20 @@ export function firstOpenDialogs(
     },
   };
 
+  // KAN-7 §6. Last, so it never shares an open with a dialog; sessions counted on disk.
+  const fullViewCallout: DialogEntry = {
+    id: 'fullViewCallout',
+    decide: () =>
+      shouldShowFullViewCallout(
+        open.getState().settingsDataState,
+        open.storedSessions
+      )
+        ? () => dispatch(openFullViewCallout())
+        : null,
+  };
+
   const lists: Record<Surface, DialogEntry[]> = {
-    popup: [cloudConsent, fullViewOffer, rate, tabGroups],
+    popup: [cloudConsent, fullViewOffer, rate, tabGroups, fullViewCallout],
     full: [cloudConsent, pinGuide, setup, rate, tabGroups],
   };
   return lists[surface];

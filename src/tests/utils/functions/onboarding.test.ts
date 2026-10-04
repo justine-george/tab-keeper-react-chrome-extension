@@ -3,6 +3,7 @@ import { describe, expect, test } from 'vitest';
 import {
   hasUsedFullView,
   shouldOfferFullView,
+  shouldShowFullViewCallout,
   shouldShowPinGuide,
   shouldShowSetup,
 } from '../../../utils/functions/onboarding';
@@ -77,5 +78,30 @@ describe('shouldShowSetup', () => {
     ['done', false],
   ] as const)('%s → %s', (setupState, expected) => {
     expect(shouldShowSetup({ setupState })).toBe(expected);
+  });
+});
+
+describe('shouldShowFullViewCallout', () => {
+  const HOLDER = {
+    isFullViewCalloutSeen: false,
+    hasOpenedFullView: false,
+    openNowWidth: null,
+    foldSavedSessionInTabView: true,
+  };
+
+  test('a session holder who never used the full view here', () => {
+    expect(shouldShowFullViewCallout(HOLDER, 1)).toBe(true);
+  });
+
+  test.each([
+    ['no sessions', {}, 0],
+    ['seen', { isFullViewCalloutSeen: true }, 1],
+    ['opened since KAN-7', { hasOpenedFullView: true }, 1],
+    ['Open now dragged before KAN-7', { openNowWidth: 480 }, 1],
+    ['unfolded before KAN-7', { foldSavedSessionInTabView: false }, 1],
+  ])('not with %s', (_name, change, sessions) => {
+    expect(shouldShowFullViewCallout({ ...HOLDER, ...change }, sessions)).toBe(
+      false
+    );
   });
 });

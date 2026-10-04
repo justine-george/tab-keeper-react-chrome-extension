@@ -126,6 +126,8 @@ export interface Global {
   cloudConsentThen: CloudConsentThen | null;
   // KAN-7 §3. "Try the full view". Session-only, like every dialog flag here.
   isFullViewOfferOpen: boolean;
+  // KAN-7 §6. The callout under ⤢, popup only.
+  isFullViewCalloutOpen: boolean;
   // KAN-7 §4. The pin guide, full view only.
   isPinGuideOpen: boolean;
   // KAN-7 §5. The setup, full view only.
@@ -274,6 +276,7 @@ export const initialState: Global = {
   cloudConsentVariant: 'welcome',
   cloudConsentThen: null,
   isFullViewOfferOpen: false,
+  isFullViewCalloutOpen: false,
   isPinGuideOpen: false,
   isSetupOpen: false,
   hasTabGroupsPermission: false,
@@ -1012,6 +1015,14 @@ export const globalStateSlice = createSlice({
       state.isFullViewOfferOpen = false;
     },
 
+    openFullViewCallout: (state) => {
+      state.isFullViewCalloutOpen = true;
+    },
+
+    closeFullViewCallout: (state) => {
+      state.isFullViewCalloutOpen = false;
+    },
+
     setSearchInputText: (state, action: PayloadAction<string>) => {
       state.searchInputText = action.payload;
     },
@@ -1307,6 +1318,8 @@ export const {
   openSetup,
   closeSetup,
   closeFullViewOffer,
+  openFullViewCallout,
+  closeFullViewCallout,
   setSearchInputText,
   toastAdded,
   toastsRemoved,

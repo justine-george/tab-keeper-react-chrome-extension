@@ -32,6 +32,7 @@ describe('the first-open lists', () => {
       'fullViewOffer',
       'rate',
       'tabGroups',
+      'fullViewCallout',
     ]);
   });
 
