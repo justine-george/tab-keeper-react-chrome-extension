@@ -1,7 +1,14 @@
 import type { BrowserContext, Locator, Page } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
+import { grantedTest } from './fixtures/grantedExtension';
 import { saveRowMenu } from './fixtures/menus';
+import {
+  bandHandle,
+  groupedWindow,
+  openSaved,
+  session,
+} from './fixtures/savedWindows';
 import { buildContainer, buildSession, seedSessions } from './fixtures/seed';
 
 // KAN-76. Every assertion here reads the cursor from the element that is
@@ -315,4 +322,53 @@ test.describe('a saved window title shows a text caret (KAN-394)', () => {
 
     expect(await cursorAtCentreOf(page, open)).toBe('pointer');
   });
+});
+
+// KAN-394 Task 9. A group band's title renames on click, as a window's does,
+// so it shows a text caret, named or not; Open beside it shows a pointer.
+grantedTest.describe('a group band title shows a text caret (KAN-394)', () => {
+  const GROUPED = session('S1', 'Grouped', [
+    groupedWindow('gw', 'Grouped', [
+      { groupId: 'gr', title: 'Research', color: 'blue' },
+      { groupId: 'gu', title: '', color: 'red' },
+    ]),
+  ]);
+  const titleText = (page: Page, groupId: string, label: string) =>
+    bandHandle(page, groupId)
+      .locator('button', { hasText: label })
+      .getByText(label, { exact: true });
+
+  for (const [groupId, label] of [
+    ['gr', 'Research'],
+    ['gu', 'Unnamed group'],
+  ]) {
+    grantedTest(
+      `"${label}" shows a text caret`,
+      async ({ context, extensionId }) => {
+        const page = await openSaved(context, extensionId, 'popup', {
+          sessions: [GROUPED],
+        });
+        const text = titleText(page, groupId, label);
+        await text.hover();
+
+        expect(await cursorAtCentreOf(page, text)).toBe('text');
+      }
+    );
+  }
+
+  grantedTest(
+    'CONTROL: the Open button beside it shows a pointer',
+    async ({ context, extensionId }) => {
+      const page = await openSaved(context, extensionId, 'popup', {
+        sessions: [GROUPED],
+      });
+      await bandHandle(page, 'gr').hover();
+      const open = bandHandle(page, 'gr').getByRole('button', {
+        name: 'Open group: Research',
+        exact: true,
+      });
+
+      expect(await cursorAtCentreOf(page, open)).toBe('pointer');
+    }
+  );
 });

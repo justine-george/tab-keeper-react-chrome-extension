@@ -4,14 +4,17 @@
 import type { BrowserContext, Page, Worker } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
+import { grantedTest } from './fixtures/grantedExtension';
 import { contrast, pixelsAt, rgbToHex } from './fixtures/pixels';
 import {
   AUTO_SCROLL_BAND,
   NAMED,
   THEMES,
   VIEWS,
+  bandHandle,
   boxOf,
   detailPane,
+  groupedWindow,
   header,
   openSaved,
   savedWindow,
@@ -710,3 +713,322 @@ test('popup, scrolled: a sideways drag on a title renames nothing', async ({
   await expect(editor(page, 'w6')).toBeVisible();
   expect(await gestureSeen(page)).toEqual({ dragging: false, editor: true });
 });
+
+// ---- group bands follow windows (Task 9) ---------------------------------------
+
+const RESEARCH = { groupId: 'gr', title: 'Research', color: 'blue' as const };
+const UNNAMED = { groupId: 'gu', title: '', color: 'red' as const };
+
+// One window: a named group of two tabs, then an unnamed one of two.
+const G1 = (groups = [RESEARCH, UNNAMED]) =>
+  session('S1', 'Grouped', [
+    groupedWindow('gw', 'Grouped', groups, 2, { width: 800, height: 600 }),
+  ]);
+
+// Found by its text, so on main's build it is the same button (which opened).
+const groupTitle = (page: Page, groupId: string, label: string) =>
+  bandHandle(page, groupId).locator('button', { hasText: label });
+
+// Open in the strip: on main the TITLE carried this name, so the strip is the scope.
+const groupOpen = (page: Page, groupId: string, label: string) =>
+  bandHandle(page, groupId)
+    .locator('[data-row-actions]')
+    .getByRole('button', { name: `Open group: ${label}`, exact: true });
+
+const groupEditor = (page: Page, groupId: string) =>
+  bandHandle(page, groupId).getByRole('textbox');
+
+const storedGroupTitle = async (page: Page, groupId: string) =>
+  (await stored(page)).tabGroups
+    .flatMap((g) => g.windows)
+    .flatMap((w) => w.chromeTabGroups ?? [])
+    .find((g) => g.groupId === groupId)?.title;
+
+// Chrome's tab count every 100ms for `ms`, polled in the service worker.
+const tabCountsOver = (worker: Worker, ms: number) =>
+  worker.evaluate(async (ms) => {
+    const seen: number[] = [];
+    const end = Date.now() + ms;
+    while (Date.now() < end) {
+      seen.push((await chrome.tabs.query({})).length);
+      await new Promise((done) => setTimeout(done, 100));
+    }
+    return seen;
+  }, ms);
+
+// Every Chrome group's title, colour and member URLs, in tab order.
+const chromeGroups = (worker: Worker) =>
+  worker.evaluate(async () => {
+    const tabs = await chrome.tabs.query({});
+    return (await chrome.tabGroups.query({})).map((g) => ({
+      title: g.title ?? '',
+      color: g.color,
+      urls: tabs
+        .filter((t) => t.groupId === g.id)
+        .sort((a, b) => a.index - b.index)
+        .map((t) => t.pendingUrl || t.url || ''),
+    }));
+  });
+
+const openGrouped = (
+  context: BrowserContext,
+  extensionId: string,
+  view: View,
+  settings: Record<string, unknown> = {},
+  groups = [RESEARCH, UNNAMED]
+): Promise<Page> =>
+  openSaved(context, extensionId, view, { sessions: [G1(groups)], settings });
+
+for (const view of VIEWS) {
+  grantedTest.describe(`${view}: a group band`, () => {
+    grantedTest(
+      'a title click renames, and opens no tab',
+      async ({ context, extensionId, serviceWorker }) => {
+        const page = await openGrouped(context, extensionId, view);
+        const before = await serviceWorker.evaluate(
+          async () => (await chrome.tabs.query({})).length
+        );
+
+        const sampling = tabCountsOver(serviceWorker, 1000);
+        await groupTitle(page, 'gr', 'Research').click();
+        expect(new Set(await sampling)).toEqual(new Set([before]));
+        await expect(groupEditor(page, 'gr')).toBeVisible();
+        await expect(groupEditor(page, 'gr')).toHaveValue('Research');
+
+        // CONTROL: the same poll sees Open's two tabs appear.
+        await page.keyboard.press('Escape');
+        await bandHandle(page, 'gr').hover();
+        const controlSampling = tabCountsOver(serviceWorker, 1000);
+        await groupOpen(page, 'gr', 'Research').click();
+        expect(await controlSampling).toContain(before + 2);
+      }
+    );
+
+    grantedTest(
+      "Open opens the group's tabs, grouped as saved",
+      async ({ context, extensionId, serviceWorker }) => {
+        const page = await openGrouped(context, extensionId, view);
+        // PREMISE: no group is open yet.
+        expect(await chromeGroups(serviceWorker)).toEqual([]);
+
+        await bandHandle(page, 'gr').hover();
+        await groupOpen(page, 'gr', 'Research').click();
+
+        await expect
+          .poll(async () =>
+            (await chromeGroups(serviceWorker)).map((g) => ({
+              ...g,
+              urls: g.urls.map(resolveTabUrl),
+            }))
+          )
+          .toEqual([
+            {
+              title: 'Research',
+              color: 'blue',
+              urls: ['https://gr-0.test/', 'https://gr-1.test/'],
+            },
+          ]);
+        await expect(groupEditor(page, 'gr')).toHaveCount(0);
+      }
+    );
+
+    grantedTest(
+      'Esc cancels a group rename: the title is back and nothing is stored',
+      async ({ context, extensionId }) => {
+        const page = await openGrouped(context, extensionId, view);
+        const before = await stored(page);
+
+        await groupTitle(page, 'gr', 'Research').click();
+        await groupEditor(page, 'gr').fill('Not this');
+        const sampling = storedValuesOver(page, 1000);
+        await groupEditor(page, 'gr').press('Escape');
+
+        await expect(groupEditor(page, 'gr')).toHaveCount(0);
+        await expect(groupTitle(page, 'gr', 'Research')).toBeVisible();
+        expect(await sampling).toEqual([JSON.stringify(before)]);
+
+        // CONTROL: the same sampler sees Enter commit.
+        await groupTitle(page, 'gr', 'Research').click();
+        await groupEditor(page, 'gr').fill('This one');
+        const control = storedValuesOver(page, 1000);
+        await groupEditor(page, 'gr').press('Enter');
+        expect((await control).length).toBeGreaterThan(1);
+        expect(await storedGroupTitle(page, 'gr')).toBe('This one');
+      }
+    );
+
+    grantedTest(
+      'while searching: no Open in the band, and the title still renames',
+      async ({ context, extensionId }) => {
+        const page = await openGrouped(context, extensionId, view);
+        // By attribute, not role: a role query skips aria-hidden nodes.
+        const opens = page.locator(
+          '[data-pane="detail"] [data-band-id] [aria-label^="Open group"]'
+        );
+        // CONTROL: the same query finds both bands' Open before the search.
+        await expect(opens).toHaveCount(2);
+        await page.locator('[data-saved-search] input').fill('Page gr');
+        await expect(bandHandle(page, 'gu')).toHaveCount(0);
+        await bandHandle(page, 'gr').hover();
+        await expect(opens).toHaveCount(0);
+
+        await groupTitle(page, 'gr', 'Research').click();
+        await groupEditor(page, 'gr').fill('Found');
+        await groupEditor(page, 'gr').press('Enter');
+        await expect.poll(() => storedGroupTitle(page, 'gr')).toBe('Found');
+      }
+    );
+  });
+}
+
+// The cleared group field prompts "Name this group", legible in every theme.
+for (const [theme, colours] of THEMES) {
+  grantedTest(
+    `popup, ${theme}: a cleared group field prompts "Name this group" in PLACEHOLDER_COLOR, at least 4.5:1 on its ground`,
+    async ({ context, extensionId }) => {
+      const page = await openGrouped(context, extensionId, 'popup', { theme });
+      await groupTitle(page, 'gr', 'Research').click();
+      await groupEditor(page, 'gr').fill('');
+      await expect(groupEditor(page, 'gr')).toHaveAttribute(
+        'placeholder',
+        'Name this group'
+      );
+
+      // The first opaque background from the field outwards: what is painted behind it.
+      const measured = await groupEditor(page, 'gr').evaluate((el) => {
+        let ground = '';
+        for (let n: Element | null = el; n; n = n.parentElement) {
+          const bg = getComputedStyle(n).backgroundColor;
+          if (!/rgba\(.*, 0\)$|transparent/.test(bg)) {
+            ground = bg;
+            break;
+          }
+        }
+        return {
+          placeholder: getComputedStyle(el, '::placeholder').color,
+          opacity: getComputedStyle(el, '::placeholder').opacity,
+          ground,
+        };
+      });
+      const placeholder = rgbToHex(measured.placeholder);
+      const ground = rgbToHex(measured.ground);
+      const ratio = contrast(placeholder, ground);
+      console.log(
+        `[${theme}] group placeholder ${placeholder} on ground ${ground}: ${ratio.toFixed(
+          2
+        )}:1`
+      );
+      expect(measured.opacity).toBe('1');
+      expect(placeholder).toBe(colours.PLACEHOLDER_COLOR);
+      expect(ratio).toBeGreaterThanOrEqual(4.5);
+    }
+  );
+}
+
+// R9 (D16): a group with no name is muted a tier further, and italic.
+for (const [theme, colours] of THEMES) {
+  grantedTest(
+    `popup, ${theme}: an unnamed group's label is LABEL_L3 italic, a named one LABEL_L2`,
+    async ({ context, extensionId }) => {
+      const page = await openGrouped(context, extensionId, 'popup', { theme });
+      const look = (groupId: string, text: string) =>
+        groupTitle(page, groupId, text)
+          .getByText(text, { exact: true })
+          .evaluate((el) => {
+            const s = getComputedStyle(el);
+            return { color: s.color, fontStyle: s.fontStyle };
+          });
+
+      const unnamed = await look('gu', 'Unnamed group');
+      const named = await look('gr', 'Research');
+      expect(rgbToHex(unnamed.color)).toBe(colours.LABEL_L3_COLOR);
+      expect(unnamed.fontStyle).toBe('italic');
+      expect(rgbToHex(named.color)).toBe(colours.LABEL_L2_COLOR);
+      expect(named.fontStyle).toBe('normal');
+    }
+  );
+}
+
+// D10: no room is reserved for the strip. At rest a long title runs to the
+// row's edge; revealed, the strip masks it with the row's fill.
+const LONG_TITLES: [string, string][] = [
+  [
+    'de',
+    'Gemeinsame Recherche zur Quartalsplanung und Leseliste für das Teamtreffen im Herbst',
+  ],
+  [
+    'ru',
+    'Общие исследования для квартального планирования и список чтения для встречи команды осенью',
+  ],
+];
+
+for (const [language, longTitle] of LONG_TITLES) {
+  grantedTest(
+    `popup, ${language}: a long group title runs to the row's edge at rest, and the revealed strip masks it`,
+    async ({ context, extensionId }) => {
+      const page = await openGrouped(
+        context,
+        extensionId,
+        'popup',
+        { language, theme: 'Light' },
+        [{ ...RESEARCH, title: longTitle }]
+      );
+      const handle = bandHandle(page, 'gr');
+      const title = groupTitle(page, 'gr', longTitle);
+      const text = title.getByText(longTitle, { exact: true });
+      const strip = handle.locator(':scope > [data-row-actions]');
+
+      // PREMISE: the title is longer than the row.
+      expect(await text.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(
+        true
+      );
+      const row = await boxOf(handle);
+      expect((await boxOf(title)).x + (await boxOf(title)).width).toBeCloseTo(
+        row.x + row.width,
+        0
+      );
+
+      // The strip's box, with the title drawn and with it hidden.
+      const stripShot = async (titleShown: boolean) => {
+        await text.evaluate(
+          (el, shown) => (el.style.visibility = shown ? '' : 'hidden'),
+          titleShown
+        );
+        return page.screenshot({ clip: await boxOf(strip) });
+      };
+
+      // At rest the strip is clear: the title shows through it.
+      await expect(strip.locator(':scope > *').first()).toHaveCSS(
+        'opacity',
+        '0'
+      );
+      expect((await stripShot(true)).equals(await stripShot(false))).toBe(
+        false
+      );
+
+      // Revealed: the pointer on the title's start, clear of the strip.
+      const t = await boxOf(title);
+      await page.mouse.move(t.x + 20, t.y + t.height / 2);
+      await expect
+        .poll(() =>
+          strip.evaluate((el) =>
+            [...el.children].map((c) => getComputedStyle(c).opacity)
+          )
+        )
+        .toEqual(['1', '1', '1']);
+
+      // The strip's left edge, inside Open's border and padding, is the fill.
+      const s = await boxOf(strip);
+      const points: [number, number][] = [];
+      for (let x = s.x + 2; x <= s.x + 8; x += 2)
+        for (let y = s.y + 2; y <= s.y + s.height - 3; y += 1)
+          points.push([x, y]);
+      const painted = new Set(await pixelsAt(page, points));
+      console.log(`[${language}] strip edge painted ${[...painted].join(' ')}`);
+      expect([...painted]).toEqual([LIGHT_THEME.HOVER_COLOR]);
+
+      // No glyph of the title shows anywhere through the strip.
+      expect((await stripShot(true)).equals(await stripShot(false))).toBe(true);
+    }
+  );
+}

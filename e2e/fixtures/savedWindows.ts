@@ -9,6 +9,7 @@ import {
 } from './seed';
 import type {
   TabMasterContainer,
+  chromeTabGroupData,
   tabContainerData,
   windowGroupData,
 } from '../../src/redux/slices/tabContainerDataStateSlice';
@@ -61,6 +62,37 @@ export const savedWindow = (
     url: `https://${id}-${i}.test/`,
   })),
 });
+
+// A window of one Chrome group per entry, `perGroup` tabs each: `${groupId}-t<i>`,
+// titled `Page ${groupId}.<i>`, at https://<groupId>-<i>.test/. Needs grantedTest.
+export const groupedWindow = (
+  id: string,
+  title: string,
+  groups: chromeTabGroupData[],
+  perGroup = 2,
+  bounds = { width: 1920, height: 1080 }
+): windowGroupData => {
+  const tabs = groups.flatMap((g) =>
+    Array.from({ length: perGroup }, (_, i) => ({
+      tabId: `${g.groupId}-t${i}`,
+      favicon: '',
+      title: `Page ${g.groupId}.${i}`,
+      url: `https://${g.groupId}-${i}.test/`,
+      chromeGroupId: g.groupId,
+    }))
+  );
+  return {
+    windowId: id,
+    windowHeight: bounds.height,
+    windowWidth: bounds.width,
+    windowOffsetTop: 0,
+    windowOffsetLeft: 0,
+    tabCount: tabs.length,
+    title,
+    tabs,
+    chromeTabGroups: groups,
+  };
+};
 
 export const session = (
   id: string,
@@ -125,6 +157,12 @@ export async function openSaved(
 export const header = (page: Page, windowId: string): Locator =>
   page.locator(
     `[data-pane="detail"] [data-drag-row-id="${windowId}"] [data-window-drag-handle]`
+  );
+
+// A group band's title row: its title, its strip, and its editor.
+export const bandHandle = (page: Page, groupId: string): Locator =>
+  page.locator(
+    `[data-pane="detail"] [data-band-id="${groupId}"] [data-group-drag-handle]`
   );
 
 export async function stored(page: Page): Promise<TabMasterContainer> {
