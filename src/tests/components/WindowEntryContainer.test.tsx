@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from 'vitest';
-import { screen, within, fireEvent } from '@testing-library/react';
+import { act, screen, within, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import WindowEntryContainer from '../../components/home/rightpane/WindowEntryContainer';
@@ -566,6 +566,26 @@ describe('the title renames, Open opens', () => {
     expect(
       screen.getByRole('button', { name: 'Rename window: Research' })
     ).toBeInTheDocument();
+    expect(onUpdateWindowGroupTitle).not.toHaveBeenCalled();
+  });
+
+  // A blur in the same batch as the Esc still sees the open editor; the ref stops it.
+  test('a blur that lands before the cancel renders commits nothing', async () => {
+    const user = userEvent.setup();
+    const { rendered, onUpdateWindowGroupTitle } = renderRow('Research');
+    await rendered;
+    await user.click(
+      screen.getByRole('button', { name: 'Rename window: Research' })
+    );
+    await user.type(screen.getByRole('textbox'), ' notes');
+    const input = screen.getByRole('textbox');
+
+    act(() => {
+      fireEvent.keyDown(input, { key: 'Escape' });
+      fireEvent.blur(input);
+    });
+
+    expect(screen.queryByRole('textbox')).toBeNull();
     expect(onUpdateWindowGroupTitle).not.toHaveBeenCalled();
   });
 
