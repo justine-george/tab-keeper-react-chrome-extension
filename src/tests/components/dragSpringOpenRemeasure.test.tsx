@@ -359,6 +359,9 @@ function scrollToRest(pane: HTMLElement) {
 const UNSCROLLED: Pane = { view: 600, scrollTop: 0, scrollbar: 0 };
 const SCROLLED: Pane = { view: 150, scrollTop: 200, scrollbar: 0 };
 
+// CPU-bound (~0.8s locally, two full renders and drags); CI's shared runner took 5.55s, past the 5s hang guard (KAN-397).
+vi.setConfig({ testTimeout: 20_000 });
+
 beforeEach(() => {
   // Frames run only when a test runs them: nothing else moves the list.
   frames = [];
