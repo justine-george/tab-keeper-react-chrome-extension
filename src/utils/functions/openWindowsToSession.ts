@@ -11,7 +11,7 @@ import type {
 } from '../../redux/slices/tabContainerDataStateSlice';
 
 // One listed window in storage shape, as toWindowGroupData writes a captured
-// one: fresh ids, the first tab's title, and chromeTabGroups only when there
+// one: fresh ids, unnamed (KAN-394 L4), and chromeTabGroups only when there
 // is a group, so a window without one matches a capture's shape.
 function toSavedWindow(openWindow: OpenWindow): windowGroupData {
   // Chrome's group ids last only as long as this browser session, so each
@@ -49,7 +49,7 @@ function toSavedWindow(openWindow: OpenWindow): windowGroupData {
     windowOffsetTop: bounds?.top ?? 0,
     windowOffsetLeft: bounds?.left ?? 0,
     tabCount: tabs.length,
-    title: dropNotificationCount(openWindow.tabs[0]?.title ?? ''),
+    title: '',
     tabs,
     ...(groups.length > 0 ? { chromeTabGroups: groups } : {}),
   };

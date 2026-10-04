@@ -161,6 +161,22 @@ describe('openWindowsToSession (KAN-280 O13)', () => {
     expect(session.windows[0].tabs[0].title).toBe('Inbox');
   });
 
+  // KAN-394 L4: saved unnamed, for the list to draw as "Window N".
+  test('saves each window unnamed', () => {
+    const session = openWindowsToSession(
+      [
+        openWindow(1, [openTab(11, 'A'), openTab(12, 'B')]),
+        openWindow(2, [openTab(21, 'C')]),
+      ],
+      'Two',
+      NOW
+    );
+
+    // PREMISE: each window's first tab has a title it could have been named by.
+    expect(session.windows.map((w) => w.tabs[0].title)).toEqual(['A', 'C']);
+    expect(session.windows.map((w) => w.title)).toEqual(['', '']);
+  });
+
   test('takes createdTime and createdAt from the one `now`', () => {
     const session = openWindowsToSession(
       [openWindow(1, [openTab(11, 'A')])],
