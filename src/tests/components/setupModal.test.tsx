@@ -231,7 +231,8 @@ describe('Make Tab Keeper yours', () => {
     const { store } = await render();
     press('Graphite');
     press('Next');
-    press('Skip setup');
+    // The text link; the ✕ shares its name.
+    fireEvent.click(within(dialog()).getByText('Skip setup'));
     expect(store.getState().settingsDataState.setupState).toBe('done');
     expect(store.getState().settingsDataState.theme).toBe('Darkenheimer');
     expect(screen.queryByRole('dialog')).toBeNull();
@@ -261,10 +262,17 @@ describe('Make Tab Keeper yours', () => {
     expect(store.getState().settingsDataState.setupState).toBe('pending');
   });
 
-  test('the ✕ is Skip setup: ends it for good, keeping what was picked (D4)', async () => {
+  test('the ✕ is Skip setup: named so, ends it for good, keeping what was picked (D4)', async () => {
     const { store } = await render();
+    const named = within(dialog()).getAllByRole('button', {
+      name: 'Skip setup',
+    });
+    // The text link and the ✕, told apart by the ✕'s glyph.
+    expect(named).toHaveLength(2);
+    const cross = named.filter((el) => el.textContent === 'close');
+    expect(cross).toHaveLength(1);
     press('Graphite');
-    press('Close');
+    fireEvent.click(cross[0]);
     expect(store.getState().settingsDataState.setupState).toBe('done');
     expect(store.getState().settingsDataState.theme).toBe('Darkenheimer');
     expect(screen.queryByRole('dialog')).toBeNull();

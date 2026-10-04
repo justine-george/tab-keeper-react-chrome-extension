@@ -254,14 +254,24 @@ test('Esc closes setup and leaves it pending (D3)', async ({
   expect((await storedSettings(page)).setupState).toBe('pending');
 });
 
-test('the ✕ ends setup for good, as Skip setup does (D4)', async ({
+test('the ✕ is named Skip setup and ends setup for good, as the link does (D4)', async ({
   context,
   extensionId,
 }) => {
   await stubToolbarPin(context, { pinned: true });
   await seedSettings(context, { setupState: 'pending' });
   const page = await openFullView(context, extensionId);
-  await press(page, 'Close');
+  const named = setup(page).getByRole('button', {
+    name: 'Skip setup',
+    exact: true,
+  });
+  // The text link and the ✕; the ✕ is the one drawn with the close glyph.
+  await expect(named).toHaveCount(2);
+  const cross = named.filter({
+    has: page.locator('.material-symbols-outlined', { hasText: /^close$/ }),
+  });
+  await expect(cross).toHaveCount(1);
+  await cross.click();
   await expect(setup(page)).toHaveCount(0);
   expect((await storedSettings(page)).setupState).toBe('done');
 });

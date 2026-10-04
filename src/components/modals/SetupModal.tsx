@@ -396,10 +396,11 @@ export const SetupModal: React.FC = () => {
           <TabKeeperMark size={ICON.DEFAULT} />
           {t('Make Tab Keeper yours')}
         </h2>
+        {/* Named for what it does: it ends setup for good, as the link does. */}
         <Icon
           type="close"
-          ariaLabel={t('Close')}
-          tooltipText={t('Close')}
+          ariaLabel={t('Skip setup')}
+          tooltipText={t('Skip setup')}
           onClick={finish}
         />
       </div>
