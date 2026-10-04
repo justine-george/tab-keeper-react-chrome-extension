@@ -72,6 +72,10 @@ export default function ExportEditor({
     padding: 1px 2px;
     width: 100%;
     min-width: 0;
+    &::placeholder {
+      color: ${palette.muted};
+      opacity: 1;
+    }
     &:focus {
       outline: none;
       border-bottom: 2px solid ${palette.link};

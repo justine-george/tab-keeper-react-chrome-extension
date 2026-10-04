@@ -5,7 +5,14 @@ import { join } from 'node:path';
 import type { BrowserContext, Page } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
-import { buildContainer, buildSession, seedSessions } from './fixtures/seed';
+import { placeholderPaint } from './fixtures/pixels';
+import {
+  buildContainer,
+  buildSession,
+  seedSessions,
+  seedSettings,
+} from './fixtures/seed';
+import { EXPORT_PALETTE } from '../src/utils/functions/sessionExportHtml';
 
 // KAN-194. What only a browser can show: the saved file carries the edits, the
 // editor fits its page, and Chrome asks before closing only with edits pending.
@@ -285,6 +292,70 @@ test('editing a dark export happens on the dark file ground', async ({
 
   expect(ground).toBe('rgb(23, 23, 23)');
 });
+
+// KAN-402. An unnamed window's "Window N" placeholder is the file's muted
+// colour, legible on the file's ground in both schemes.
+const UNNAMED = buildSession({
+  tabGroupId: 'session-unnamed',
+  title: 'Unnamed',
+  isSelected: true,
+  windowCount: 1,
+  tabCount: 1,
+  windows: [
+    {
+      windowId: 'w-u',
+      windowHeight: 1080,
+      windowWidth: 1920,
+      windowOffsetTop: 0,
+      windowOffsetLeft: 0,
+      tabCount: 1,
+      title: '',
+      tabs: [
+        { tabId: 't-u', favicon: '', title: 'Page', url: 'https://u.test/' },
+      ],
+    },
+  ],
+});
+
+// The page opens on the extension theme's polarity (KAN-198).
+for (const [scheme, theme] of [
+  ['light', 'Light'],
+  ['dark', 'Darkenheimer'],
+] as const) {
+  test(`${scheme} export, editing: an unnamed window's placeholder is the file's muted colour, 4.5:1 on its ground`, async ({
+    context,
+    extensionId,
+  }) => {
+    await seedSessions(context, {
+      ...buildContainer([UNNAMED]),
+      selectedTabGroupId: 'session-unnamed',
+    });
+    await seedSettings(context, { theme });
+    const page = await context.newPage();
+    await page.setViewportSize({ width: 1000, height: 900 });
+    await page.goto(
+      `chrome-extension://${extensionId}/export.html?session=session-unnamed`
+    );
+    // goto resolves before the page mounts (KAN-105).
+    await expect(page.getByRole('button', { name: 'Edit' })).toBeVisible();
+    await page.getByRole('button', { name: 'Edit' }).click();
+    const field = page.getByRole('textbox', {
+      name: 'Rename window: Window 1',
+    });
+    await expect(field).toHaveAttribute('placeholder', 'Window 1');
+
+    const { placeholder, opacity, ground, ratio } =
+      await placeholderPaint(field);
+    console.log(
+      `[${scheme}] placeholder ${placeholder} on ground ${ground}: ${ratio.toFixed(
+        2
+      )}:1`
+    );
+    expect(opacity).toBe('1');
+    expect(placeholder.toLowerCase()).toBe(EXPORT_PALETTE[scheme].muted);
+    expect(ratio).toBeGreaterThanOrEqual(4.5);
+  });
+}
 
 // The toolbar keeps a row of its own, or the shorter editing toolbar would fit
 // beside the title and every control would jump up a row on Edit.
