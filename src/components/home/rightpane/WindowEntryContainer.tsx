@@ -556,9 +556,6 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   //
   // The index advances per tab. Creating them all at currentTabIndex + 1 would
   // reverse the group, because each insert pushes the previous one right.
-  //
-  // Tabs open ungrouped: re-forming the Chrome group needs the tabGroups
-  // permission at click time and is deliberately left to its own ticket.
   const openGroup = (run: GroupRun) => {
     chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
       const current = tabs[0];
