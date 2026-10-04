@@ -22,8 +22,8 @@ import {
 } from '../../redux/slices/settingsDataStateSlice';
 import { CHROME_SHORTCUTS_URL } from '../../hooks/usePopupShortcut';
 
-// KAN-7 §5. Four steps; each pick applies at once; Done or Skip setup ends it
-// for good; Esc puts it off (D3). Mounted behind its flag, as in MainContainer.
+// KAN-7 §5. Four steps; each pick applies at once; Done, Skip setup, ✕ and Esc
+// end it for good. Mounted behind its flag, as in MainContainer.
 
 function Gate() {
   const isOpen = useSelector((s: RootState) => s.globalState.isSetupOpen);
@@ -251,7 +251,7 @@ describe('Make Tab Keeper yours', () => {
     expect(store.getState().globalState.isSetupOpen).toBe(true);
   });
 
-  test('Esc puts it off: closed, still pending, and the Esc is consumed (D3, KAN-403)', async () => {
+  test('Esc ends it for good: closed, done, and the Esc is consumed (KAN-403)', async () => {
     const { store } = await render();
     const notPrevented = fireEvent(
       dialog(),
@@ -259,7 +259,7 @@ describe('Make Tab Keeper yours', () => {
     );
     expect(notPrevented).toBe(false);
     expect(screen.queryByRole('dialog')).toBeNull();
-    expect(store.getState().settingsDataState.setupState).toBe('pending');
+    expect(store.getState().settingsDataState.setupState).toBe('done');
   });
 
   test('the ✕ is Skip setup: named so, ends it for good, keeping what was picked (D4)', async () => {

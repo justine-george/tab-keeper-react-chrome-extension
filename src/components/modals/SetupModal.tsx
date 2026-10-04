@@ -36,8 +36,8 @@ const TITLE_ID = 'setup-title';
 const STEPS = ['theme', 'language', 'defaultView', 'shortcut'] as const;
 type Step = (typeof STEPS)[number];
 
-// KAN-7 §5. A new install, in the full view. Each pick applies at once; Done
-// or Skip setup ends it for good; Esc puts it off until the next full view (D3).
+// KAN-7 §5. A new install, in the full view. Each pick applies at once; Done,
+// Skip setup, ✕ and Esc end it for good. Only a closed tab leaves it pending.
 export const SetupModal: React.FC = () => {
   const COLORS = useThemeColors();
   const FONT_FAMILY = useFontFamily();
@@ -80,7 +80,6 @@ export const SetupModal: React.FC = () => {
     dispatch(finishSetup());
     dispatch(closeSetup());
   };
-  const putOff = () => dispatch(closeSetup());
   const pickLanguage = (next: Language) => dispatch(chooseLanguage(next, i18n));
   const openShortcuts = () => {
     void chrome.tabs.create({ url: CHROME_SHORTCUTS_URL });
@@ -386,9 +385,10 @@ export const SetupModal: React.FC = () => {
       tabIndex={-1}
       css={dialogStyle}
       aria-labelledby={TITLE_ID}
+      // Justine 2026-10-04: a prompt the user dismissed must not come back.
       onCancel={(e) => {
         e.preventDefault();
-        putOff();
+        finish();
       }}
     >
       <div css={titleRowStyle}>

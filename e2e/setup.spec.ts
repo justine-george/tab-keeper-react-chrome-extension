@@ -241,7 +241,7 @@ test('an existing user never sees setup', async ({ context, extensionId }) => {
   await expect(setup(page)).toHaveCount(0);
 });
 
-test('Esc closes setup and leaves it pending (D3)', async ({
+test('Esc ends setup for good, as the ✕ does', async ({
   context,
   extensionId,
 }) => {
@@ -251,7 +251,7 @@ test('Esc closes setup and leaves it pending (D3)', async ({
   await expect(stepHeading(page)).toHaveText('Pick a theme');
   await page.keyboard.press('Escape');
   await expect(setup(page)).toHaveCount(0);
-  expect((await storedSettings(page)).setupState).toBe('pending');
+  expect((await storedSettings(page)).setupState).toBe('done');
 });
 
 test('the ✕ is named Skip setup and ends setup for good, as the link does (D4)', async ({
