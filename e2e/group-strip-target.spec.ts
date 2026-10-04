@@ -220,18 +220,34 @@ test.describe('the group colour strip is a legal target (KAN-231)', () => {
     expect(open_.paint).toBe(11);
     expect(open_.contentLeft).toBe(rest.contentLeft);
 
-    // Escape closes the menu and hands focus back to the strip, so it stays
-    // widened -- through :focus-visible now, not aria-expanded. That is the
-    // right answer for a keyboard user, who needs to see where focus went.
+    // KAN-405 2A: Esc on a click-opened picker hands focus back with no
+    // focus-visible state, so the strip rests.
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('menu')).toHaveCount(0);
+    await expect(page.locator(STRIP)).toBeFocused();
+    await page.waitForTimeout(300);
+    expect((await geometry(page)).paint).toBe(7);
+  });
+
+  test('opened from the keyboard, Esc leaves it widened, and it rests once focus goes', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await open(context, extensionId);
+    await page.locator(STRIP).click();
+    await page.keyboard.press('Escape');
+    // Off the strip, so :hover plays no part below.
+    await page.mouse.move(0, 0);
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('menu')).toBeVisible();
+
     await page.keyboard.press('Escape');
     await expect(page.getByRole('menu')).toHaveCount(0);
     await expect(page.locator(STRIP)).toBeFocused();
     await page.waitForTimeout(300);
     expect((await geometry(page)).paint).toBe(11);
 
-    // CONTROL: with the menu closed AND focus gone AND the pointer off it,
-    // the strip rests. Without this, a strip stuck at 11 forever would pass
-    // everything above.
+    // CONTROL: with focus gone and the pointer off it, the strip rests.
     await page.evaluate(() => (document.activeElement as HTMLElement).blur());
     await page.waitForTimeout(300);
     expect((await geometry(page)).paint).toBe(7);

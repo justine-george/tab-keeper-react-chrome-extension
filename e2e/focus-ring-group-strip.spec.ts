@@ -64,11 +64,15 @@ async function open(
 }
 
 const ringOf = (page: Page) =>
-  page.locator(STRIP).evaluate((el) => ({
-    focused: el === document.activeElement,
-    visible: el.matches(':focus-visible'),
-    outline: getComputedStyle(el).outlineStyle,
-  }));
+  page.locator(STRIP).evaluate((el) => {
+    const s = getComputedStyle(el);
+    return {
+      focused: el === document.activeElement,
+      visible: el.matches(':focus-visible'),
+      outline: s.outlineStyle,
+      ring: `${s.outlineWidth} ${s.outlineColor} ${s.outlineOffset}`,
+    };
+  });
 
 test('click the strip, then Esc: focus on the strip, no ring; the next keys bring it back', async ({
   context,
@@ -80,14 +84,26 @@ test('click the strip, then Esc: focus on the strip, no ring; the next keys brin
 
   await page.keyboard.press('Escape');
   await expect(page.getByRole('menu')).toHaveCount(0);
-  expect(await ringOf(page)).toEqual({
+  expect(await ringOf(page)).toMatchObject({
     focused: true,
     visible: false,
     outline: 'none',
   });
 
-  // CONTROL: the probe sees a keyboard focus ring when there is one.
+  // CONTROL, and round 2 B: a keyboard focus paints 2px of TEXT_COLOR, 2px out.
   await page.keyboard.press('Shift+Tab');
   await page.keyboard.press('Tab');
-  expect(await ringOf(page)).toMatchObject({ focused: true, visible: true });
+  expect(await ringOf(page)).toEqual({
+    focused: true,
+    visible: true,
+    outline: 'solid',
+    ring: '2px rgb(59, 61, 64) 2px',
+  });
+  const b = await page.locator(STRIP).boundingBox();
+  if (b === null) throw new Error('no strip box');
+  // For the eye: the ring sits outside the strip's own box.
+  await page.screenshot({
+    path: test.info().outputPath('strip-ring.png'),
+    clip: { x: b.x - 12, y: b.y - 12, width: 200, height: b.height + 24 },
+  });
 });
