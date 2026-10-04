@@ -27,10 +27,9 @@ import type {
 
 // Renaming a Chrome tab group inside a saved window.
 //
-// The rule here deliberately DIFFERS from updateTabGroupTitle and
-// updateWindowGroupTitle, which refuse a blank title outright (KAN-84). A
-// session and a window must always carry a name, because a nameless row is
-// identifiable only by its counts and date. A Chrome group has no such
+// The rule here deliberately DIFFERS from updateTabGroupTitle, which refuses
+// a blank title outright (KAN-84). A session must always carry a name, because
+// a nameless row is identifiable only by its counts and date. A Chrome group has no such
 // problem: Chrome itself allows an unnamed group, this pane already renders
 // one as the bare colour band, and the pane shows a placeholder in its place.
 // Refusing a blank here would make "named" a one-way door and let the

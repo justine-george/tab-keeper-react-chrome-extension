@@ -228,6 +228,17 @@ describe('every content mutation stamps its session', () => {
     expect(byId(after, 'a').lastModified).toBe(9_999_999);
   });
 
+  it('blanking a window group name stamps the session', () => {
+    const { after } = stamped(
+      updateWindowGroupTitle({
+        tabGroupId: 'a',
+        windowId: 'w-a',
+        editableTitle: '   ',
+      })
+    );
+    expect(byId(after, 'a').lastModified).toBe(9_999_999);
+  });
+
   it('deleting a tab stamps the session when the group survives', () => {
     // two tabs, so removing one leaves the group standing
     let s = reducer(base(), saveToTabContainerInternal(group('a')));

@@ -1402,25 +1402,20 @@ export const tabContainerDataStateSlice = createSlice({
       state,
       action: PayloadAction<updateWindowGroupTitleParams>
     ) => {
-      const { tabGroupId, windowId, editableTitle: newTitle } = action.payload;
+      const { tabGroupId, windowId, editableTitle } = action.payload;
 
-      // KAN-84, same rule and same reasoning as updateTabGroupTitle above.
-      // TabGroupDetailsContainer is this reducer's only dispatcher.
-      if (isBlankTitle(newTitle)) return;
+      // Blank means unnamed (KAN-394); the merge never dispatches this reducer.
+      const newTitle = normalizeTitle(editableTitle);
 
-      const tabGroupIndex = state.tabGroups.findIndex(
-        (tabGroup) => tabGroup.tabGroupId === tabGroupId
-      );
-      if (tabGroupIndex !== -1) {
-        const windowIndex = state.tabGroups[tabGroupIndex].windows.findIndex(
-          (window) => window.windowId === windowId
-        );
-        if (windowIndex !== -1) {
-          state.tabGroups[tabGroupIndex].windows[windowIndex].title =
-            normalizeTitle(newTitle);
-          touchContent(state, state.tabGroups[tabGroupIndex]);
-        }
-      }
+      const tabGroup = state.tabGroups.find((g) => g.tabGroupId === tabGroupId);
+      const win = tabGroup?.windows.find((w) => w.windowId === windowId);
+      if (tabGroup === undefined || win === undefined) return;
+
+      // After normalizeTitle, so ' Name ' over 'Name' writes nothing.
+      if (win.title === newTitle) return;
+
+      win.title = newTitle;
+      touchContent(state, tabGroup);
       state.lastModified = Date.now();
       // update localstorage
       saveToLocalStorage('tabContainerData', state);
@@ -1433,9 +1428,9 @@ export const tabContainerDataStateSlice = createSlice({
     ) => {
       const { tabGroupId, windowId, groupId, editableTitle } = action.payload;
 
-      // NOT isBlankTitle. The two renames above refuse a blank outright
-      // (KAN-84) because a session or window with no name leaves a row
-      // identifiable only by its counts and date. A Chrome group is different:
+      // NOT isBlankTitle. The session rename above refuses a blank outright
+      // (KAN-84) because a session with no name leaves a row identifiable only
+      // by its counts and date. A window may be blank (KAN-394); a Chrome group is different:
       // Chrome allows an unnamed group, and this pane renders one as its
       // colour band plus a placeholder. Refusing a blank here would make
       // naming a one-way door and let the extension hold a state that cannot
