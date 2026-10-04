@@ -4,6 +4,7 @@ import { useDispatch, useSelector } from 'react-redux';
 
 import { css } from '@emotion/react';
 
+import { renameKeyDown } from '../../../utils/functions/renameKeyDown';
 import Icon from '../../common/Icon';
 import OverflowMenu from '../../common/OverflowMenu';
 import Button from '../../common/Button';
@@ -114,6 +115,8 @@ export default function HeroContainerRight() {
   // on it, into the session on screen. Above the early return, as every hook
   // here must be.
   const newWindowTargetRef = useRef<HTMLDivElement>(null);
+  // Set by Esc so the blur that follows in the same batch commits nothing.
+  const renameCancelled = useRef(false);
   useNewFirstWindowReceiver(newWindowTargetRef, selectedTabGroup?.tabGroupId);
 
   // Belt and braces: RightPane does not mount this component when the list is
@@ -135,11 +138,13 @@ export default function HeroContainerRight() {
   // with no user action, and the merge lands replaceState(merged), so a sync
   // tick arriving mid-rename threw away what had been typed. KAN-51.
   const startEditing = () => {
+    renameCancelled.current = false;
     setEditableTitle(selectedTabGroup.title);
     setEditingTabGroupId(selectedTabGroup.tabGroupId);
   };
 
   const handleBlur = () => {
+    if (renameCancelled.current) return;
     setEditingTabGroupId(null);
     if (selectedTabGroup.title !== editableTitle) {
       dispatch(updateTabGroupTitle({ tabGroupId, editableTitle }));
@@ -189,11 +194,10 @@ export default function HeroContainerRight() {
     dispatch(addCurrWindowToTabGroup({ tabGroupId, window }));
   };
 
-  function handleKeyPressOnEditTitle(e: React.KeyboardEvent<HTMLDivElement>) {
-    if (e.key === 'Enter') {
-      handleBlur();
-    }
-  }
+  const cancelRename = () => {
+    renameCancelled.current = true;
+    setEditingTabGroupId(null);
+  };
 
   const containerStyle = css`
     display: flex;
@@ -278,7 +282,7 @@ export default function HeroContainerRight() {
               value={editableTitle}
               onBlur={handleBlur}
               onChange={handleChange}
-              onKeyDown={(e) => handleKeyPressOnEditTitle(e)}
+              onKeyDown={(e) => renameKeyDown(e, handleBlur, cancelRename)}
               autoFocus
               css={css`
                 color: ${COLORS.TEXT_COLOR};

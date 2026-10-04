@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { screen } from '@testing-library/react';
+import { act, fireEvent, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import HeroContainerRight from '../../components/home/rightpane/HeroContainerRight';
@@ -340,5 +340,87 @@ describe('finishing a session rename', () => {
     expect(
       screen.getByRole('button', { name: 'Rename session' })
     ).toBeInTheDocument();
+  });
+
+  // KAN-408. Chrome closes the popup on any Esc nothing prevented.
+  describe('Esc and IME in the title field (KAN-408)', () => {
+    const openEditor = async () => {
+      const user = userEvent.setup();
+      const rendered = await renderHero();
+      await user.click(
+        await screen.findByRole('button', { name: 'Rename session: Research' })
+      );
+      return { user, ...rendered };
+    };
+
+    test('Esc cancels: nothing is stored and the old title is back', async () => {
+      const { user, store } = await openEditor();
+      await user.clear(screen.getByRole('textbox'));
+      await user.type(screen.getByRole('textbox'), 'Elsewhere{Escape}');
+
+      expect(titleOf(store)).toBe('Research');
+      expect(screen.queryByRole('textbox')).toBeNull();
+      expect(
+        screen.getByRole('button', { name: 'Rename session: Research' })
+      ).toBeInTheDocument();
+    });
+
+    test('the Esc is defaultPrevented', async () => {
+      await openEditor();
+
+      const notPrevented = fireEvent.keyDown(screen.getByRole('textbox'), {
+        key: 'Escape',
+      });
+
+      expect(notPrevented).toBe(false);
+    });
+
+    // A blur in the same batch as the Esc still sees the open editor; the ref stops it.
+    test('a blur in the same batch as the Esc commits nothing', async () => {
+      const { user, store } = await openEditor();
+      await user.type(screen.getByRole('textbox'), ' notes');
+      const input = screen.getByRole('textbox');
+
+      act(() => {
+        fireEvent.keyDown(input, { key: 'Escape' });
+        fireEvent.blur(input);
+      });
+
+      expect(screen.queryByRole('textbox')).toBeNull();
+      expect(titleOf(store)).toBe('Research');
+    });
+
+    test('an Esc that ends an IME composition leaves the editor open', async () => {
+      const { store } = await openEditor();
+
+      fireEvent.keyDown(screen.getByRole('textbox'), {
+        key: 'Escape',
+        isComposing: true,
+      });
+
+      expect(screen.getByRole('textbox')).toBeInTheDocument();
+      expect(titleOf(store)).toBe('Research');
+    });
+
+    test('an Enter that ends an IME composition commits nothing', async () => {
+      const { user, store } = await openEditor();
+      await user.type(screen.getByRole('textbox'), ' notes');
+
+      fireEvent.keyDown(screen.getByRole('textbox'), {
+        key: 'Enter',
+        isComposing: true,
+      });
+
+      expect(screen.getByRole('textbox')).toBeInTheDocument();
+      expect(titleOf(store)).toBe('Research');
+    });
+
+    test('CONTROL: Enter still commits', async () => {
+      const { user, store } = await openEditor();
+      await user.clear(screen.getByRole('textbox'));
+      await user.type(screen.getByRole('textbox'), 'Reading{Enter}');
+
+      expect(titleOf(store)).toBe('Reading');
+    });
   });
 });
