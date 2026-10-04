@@ -4,6 +4,7 @@ export type DialogId =
   | 'cloudConsent'
   | 'fullViewOffer'
   | 'pinGuide'
+  | 'setup'
   | 'rate'
   | 'tabGroups';
 

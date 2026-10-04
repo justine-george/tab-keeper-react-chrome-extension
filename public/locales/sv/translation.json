@@ -264,5 +264,17 @@
   "Tab Keeper stays on your toolbar": "Tab Keeper stannar i verktygsfältet",
   "Waiting for you to pin…": "Väntar på att du fäster…",
   "Pinned. Closing…": "Fäst. Stänger…",
-  "Skip": "Hoppa över"
+  "Skip": "Hoppa över",
+  "Make Tab Keeper yours": "Gör Tab Keeper till din",
+  "Skip setup": "Hoppa över inställningen",
+  "Next": "Nästa",
+  "Pick a theme": "Välj ett tema",
+  "Which language do you prefer?": "Vilket språk föredrar du?",
+  "When you click Tab Keeper, open…": "När du klickar på Tab Keeper, öppna…",
+  "You can change this any time in Settings.": "Du kan ändra det när som helst i Inställningar.",
+  "Open Tab Keeper from the keyboard": "Öppna Tab Keeper med tangentbordet",
+  "Works in any window.": "Fungerar i alla fönster.",
+  "Change shortcut": "Ändra kortkommando",
+  "No shortcut is set.": "Inget kortkommando är inställt.",
+  "Set a shortcut": "Ange ett kortkommando"
 }

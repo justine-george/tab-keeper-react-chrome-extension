@@ -33,3 +33,8 @@ export function shouldShowPinGuide(
 ): boolean {
   return !s.isPinGuideDismissed && pin === 'unpinned';
 }
+
+// §5. A new install between the welcome and Done or Skip setup.
+export function shouldShowSetup(s: Pick<SettingsData, 'setupState'>): boolean {
+  return s.setupState === 'pending';
+}

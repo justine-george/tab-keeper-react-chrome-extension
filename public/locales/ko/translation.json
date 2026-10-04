@@ -259,5 +259,17 @@
   "Tab Keeper stays on your toolbar": "Tab Keeper가 도구 모음에 남습니다",
   "Waiting for you to pin…": "고정하기를 기다리는 중…",
   "Pinned. Closing…": "고정되었습니다. 닫는 중…",
-  "Skip": "건너뛰기"
+  "Skip": "건너뛰기",
+  "Make Tab Keeper yours": "나만의 Tab Keeper 만들기",
+  "Skip setup": "설정 건너뛰기",
+  "Next": "다음",
+  "Pick a theme": "테마 선택",
+  "Which language do you prefer?": "어떤 언어를 사용하시겠습니까?",
+  "When you click Tab Keeper, open…": "Tab Keeper를 클릭하면 열기…",
+  "You can change this any time in Settings.": "설정에서 언제든지 바꿀 수 있습니다.",
+  "Open Tab Keeper from the keyboard": "키보드로 Tab Keeper 열기",
+  "Works in any window.": "어느 창에서나 작동합니다.",
+  "Change shortcut": "단축키 변경",
+  "No shortcut is set.": "설정된 단축키가 없습니다.",
+  "Set a shortcut": "단축키 설정"
 }

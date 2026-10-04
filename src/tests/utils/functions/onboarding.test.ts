@@ -4,6 +4,7 @@ import {
   hasUsedFullView,
   shouldOfferFullView,
   shouldShowPinGuide,
+  shouldShowSetup,
 } from '../../../utils/functions/onboarding';
 
 // KAN-7 §§3, 6. Pure predicates over settingsData.
@@ -66,5 +67,15 @@ describe('shouldShowPinGuide', () => {
     ['dismissed here', true, 'unpinned'],
   ] as const)('not when %s', (_name, isPinGuideDismissed, pin) => {
     expect(shouldShowPinGuide({ isPinGuideDismissed }, pin)).toBe(false);
+  });
+});
+
+describe('shouldShowSetup', () => {
+  test.each([
+    ['pending', true],
+    ['none', false],
+    ['done', false],
+  ] as const)('%s → %s', (setupState, expected) => {
+    expect(shouldShowSetup({ setupState })).toBe(expected);
   });
 });

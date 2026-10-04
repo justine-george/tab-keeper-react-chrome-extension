@@ -269,5 +269,17 @@
   "Tab Keeper stays on your toolbar": "Tab Keeper reste dans votre barre d'outils",
   "Waiting for you to pin…": "En attente de l'épinglage…",
   "Pinned. Closing…": "Épinglé. Fermeture…",
-  "Skip": "Passer"
+  "Skip": "Passer",
+  "Make Tab Keeper yours": "Personnalisez Tab Keeper",
+  "Skip setup": "Passer la configuration",
+  "Next": "Suivant",
+  "Pick a theme": "Choisissez un thème",
+  "Which language do you prefer?": "Quelle langue préférez-vous ?",
+  "When you click Tab Keeper, open…": "Quand vous cliquez sur Tab Keeper, ouvrir…",
+  "You can change this any time in Settings.": "Vous pouvez modifier ce choix à tout moment dans les Paramètres.",
+  "Open Tab Keeper from the keyboard": "Ouvrir Tab Keeper au clavier",
+  "Works in any window.": "Fonctionne dans toutes les fenêtres.",
+  "Change shortcut": "Modifier le raccourci",
+  "No shortcut is set.": "Aucun raccourci n’est défini.",
+  "Set a shortcut": "Définir un raccourci"
 }

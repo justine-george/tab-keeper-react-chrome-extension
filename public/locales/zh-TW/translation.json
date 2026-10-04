@@ -259,5 +259,17 @@
   "Tab Keeper stays on your toolbar": "Tab Keeper 會一直顯示在工具列上",
   "Waiting for you to pin…": "等待你釘選…",
   "Pinned. Closing…": "已釘選，正在關閉…",
-  "Skip": "略過"
+  "Skip": "略過",
+  "Make Tab Keeper yours": "打造你的 Tab Keeper",
+  "Skip setup": "略過設定",
+  "Next": "下一步",
+  "Pick a theme": "選擇主題",
+  "Which language do you prefer?": "你想使用哪種語言？",
+  "When you click Tab Keeper, open…": "按一下 Tab Keeper 時開啟…",
+  "You can change this any time in Settings.": "你隨時可以在設定中變更。",
+  "Open Tab Keeper from the keyboard": "用鍵盤開啟 Tab Keeper",
+  "Works in any window.": "在任何視窗中都能使用。",
+  "Change shortcut": "變更快速鍵",
+  "No shortcut is set.": "尚未設定快速鍵。",
+  "Set a shortcut": "設定快速鍵"
 }

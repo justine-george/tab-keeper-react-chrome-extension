@@ -128,6 +128,8 @@ export interface Global {
   isFullViewOfferOpen: boolean;
   // KAN-7 §4. The pin guide, full view only.
   isPinGuideOpen: boolean;
+  // KAN-7 §5. The setup, full view only.
+  isSetupOpen: boolean;
   // "the tabGroups permission is granted right now". Mirrors
   // chrome.permissions.contains(), re-read on every popup mount and updated by
   // the permission change listeners -- never persisted, because the user can
@@ -273,6 +275,7 @@ export const initialState: Global = {
   cloudConsentThen: null,
   isFullViewOfferOpen: false,
   isPinGuideOpen: false,
+  isSetupOpen: false,
   hasTabGroupsPermission: false,
   hasSessionsPermission: false,
   collapsedWindows: null,
@@ -993,6 +996,14 @@ export const globalStateSlice = createSlice({
       state.isPinGuideOpen = false;
     },
 
+    openSetup: (state) => {
+      state.isSetupOpen = true;
+    },
+
+    closeSetup: (state) => {
+      state.isSetupOpen = false;
+    },
+
     openFullViewOffer: (state) => {
       state.isFullViewOfferOpen = true;
     },
@@ -1293,6 +1304,8 @@ export const {
   openFullViewOffer,
   openPinGuide,
   closePinGuide,
+  openSetup,
+  closeSetup,
   closeFullViewOffer,
   setSearchInputText,
   toastAdded,

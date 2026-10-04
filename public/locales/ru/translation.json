@@ -274,5 +274,17 @@
   "Tab Keeper stays on your toolbar": "Tab Keeper остаётся на панели инструментов",
   "Waiting for you to pin…": "Ждём, пока вы закрепите…",
   "Pinned. Closing…": "Закреплено. Закрываем…",
-  "Skip": "Пропустить"
+  "Skip": "Пропустить",
+  "Make Tab Keeper yours": "Настройте Tab Keeper под себя",
+  "Skip setup": "Пропустить настройку",
+  "Next": "Далее",
+  "Pick a theme": "Выберите тему",
+  "Which language do you prefer?": "Какой язык вам удобнее?",
+  "When you click Tab Keeper, open…": "При нажатии на Tab Keeper открывать…",
+  "You can change this any time in Settings.": "Это можно изменить в любой момент в настройках.",
+  "Open Tab Keeper from the keyboard": "Открывайте Tab Keeper с клавиатуры",
+  "Works in any window.": "Работает в любом окне.",
+  "Change shortcut": "Изменить сочетание",
+  "No shortcut is set.": "Сочетание клавиш не задано.",
+  "Set a shortcut": "Задать сочетание"
 }

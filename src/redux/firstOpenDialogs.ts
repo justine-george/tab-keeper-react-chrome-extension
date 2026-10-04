@@ -7,6 +7,7 @@ import {
   openFullViewOffer,
   openPinGuide,
   openRateAndReviewModal,
+  openSetup,
   openTabGroupsPrompt,
 } from './slices/globalStateSlice';
 import {
@@ -17,6 +18,7 @@ import { isValidDate } from '../utils/functions/local';
 import {
   shouldOfferFullView,
   shouldShowPinGuide,
+  shouldShowSetup,
 } from '../utils/functions/onboarding';
 import { shouldAskForReview } from '../utils/functions/reviewAsk';
 import { readToolbarPin } from '../utils/functions/toolbarPin';
@@ -90,6 +92,15 @@ export function firstOpenDialogs(
         : null,
   };
 
+  // KAN-7 §5. Reached here when the guide does not apply; else the guide's close opens it.
+  const setup: DialogEntry = {
+    id: 'setup',
+    decide: () =>
+      shouldShowSetup(open.getState().settingsDataState)
+        ? () => dispatch(openSetup())
+        : null,
+  };
+
   // KAN-149. A value moment, not the install age, opens it.
   const rate: DialogEntry = {
     id: 'rate',
@@ -110,7 +121,7 @@ export function firstOpenDialogs(
 
   const lists: Record<Surface, DialogEntry[]> = {
     popup: [cloudConsent, fullViewOffer, rate, tabGroups],
-    full: [cloudConsent, pinGuide, rate, tabGroups],
+    full: [cloudConsent, pinGuide, setup, rate, tabGroups],
   };
   return lists[surface];
 }

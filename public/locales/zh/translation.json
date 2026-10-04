@@ -259,5 +259,17 @@
   "Tab Keeper stays on your toolbar": "Tab Keeper 会一直显示在工具栏上",
   "Waiting for you to pin…": "等待您固定…",
   "Pinned. Closing…": "已固定，正在关闭…",
-  "Skip": "跳过"
+  "Skip": "跳过",
+  "Make Tab Keeper yours": "打造您的 Tab Keeper",
+  "Skip setup": "跳过设置",
+  "Next": "下一步",
+  "Pick a theme": "选择主题",
+  "Which language do you prefer?": "您想使用哪种语言？",
+  "When you click Tab Keeper, open…": "点击 Tab Keeper 时打开…",
+  "You can change this any time in Settings.": "您可以随时在设置中更改。",
+  "Open Tab Keeper from the keyboard": "用键盘打开 Tab Keeper",
+  "Works in any window.": "在任何窗口中都可使用。",
+  "Change shortcut": "更改快捷键",
+  "No shortcut is set.": "尚未设置快捷键。",
+  "Set a shortcut": "设置快捷键"
 }

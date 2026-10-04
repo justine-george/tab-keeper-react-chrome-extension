@@ -259,5 +259,17 @@
   "Tab Keeper stays on your toolbar": "Tab Keeper がツールバーに表示されます",
   "Waiting for you to pin…": "固定されるのを待っています…",
   "Pinned. Closing…": "固定しました。閉じています…",
-  "Skip": "スキップ"
+  "Skip": "スキップ",
+  "Make Tab Keeper yours": "Tab Keeper を自分好みに",
+  "Skip setup": "設定をスキップ",
+  "Next": "次へ",
+  "Pick a theme": "テーマを選択",
+  "Which language do you prefer?": "どの言語を使いますか？",
+  "When you click Tab Keeper, open…": "Tab Keeper をクリックしたときに開くもの…",
+  "You can change this any time in Settings.": "設定でいつでも変更できます。",
+  "Open Tab Keeper from the keyboard": "キーボードで Tab Keeper を開く",
+  "Works in any window.": "どのウィンドウでも使えます。",
+  "Change shortcut": "ショートカットを変更",
+  "No shortcut is set.": "ショートカットは設定されていません。",
+  "Set a shortcut": "ショートカットを設定"
 }

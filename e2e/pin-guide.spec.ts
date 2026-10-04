@@ -124,7 +124,7 @@ test('never in the popup', async ({ context, extensionId }) => {
   await expect(guide(page)).toHaveCount(0);
 });
 
-test('an existing user who never pinned sees it, and nothing follows it', async ({
+test('an existing user who never pinned sees it; with setup not started, nothing follows it', async ({
   context,
   extensionId,
 }) => {
@@ -133,8 +133,29 @@ test('an existing user who never pinned sees it, and nothing follows it', async 
   await seedSettings(context, { isPinGuideDismissed: false });
   const page = await openFullView(context, extensionId);
   await guide(page).getByRole('button', { name: 'Skip', exact: true }).click();
+  // The dismissal is stored in the same dispatch that would open setup.
+  await expect
+    .poll(async () => (await storedSettings(page)).isPinGuideDismissed)
+    .toBe(true);
   await expect(guide(page)).toHaveCount(0);
   await expect(page.locator('dialog[open]')).toHaveCount(0);
+});
+
+test('with setup pending, Skip opens it: the control for the test above', async ({
+  context,
+  extensionId,
+}) => {
+  await stubToolbarPin(context, { pinned: false });
+  await seedSettings(context, {
+    isPinGuideDismissed: false,
+    setupState: 'pending',
+  });
+  const page = await openFullView(context, extensionId);
+  await guide(page).getByRole('button', { name: 'Skip', exact: true }).click();
+  await expect(
+    page.getByRole('dialog', { name: 'Make Tab Keeper yours', exact: true })
+  ).toBeVisible();
+  await expect(guide(page)).toHaveCount(0);
 });
 
 test.describe('dismissals stick on this machine', () => {

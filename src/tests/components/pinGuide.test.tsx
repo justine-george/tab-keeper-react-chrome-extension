@@ -9,7 +9,12 @@ import type { RootState } from '../../redux/store';
 import {
   closePinGuide,
   openPinGuide,
+  openSetup,
 } from '../../redux/slices/globalStateSlice';
+import {
+  initialState as settingsInitial,
+  settingsDataStateSlice,
+} from '../../redux/slices/settingsDataStateSlice';
 
 // KAN-7 §4. Mounted behind the same flag MainContainer uses, so a close
 // unmounts it as it does in the app.
@@ -105,6 +110,28 @@ describe('the pin guide', () => {
     act(() => vi.advanceTimersByTime(2000));
 
     expect(seen.filter((type) => type === closePinGuide.type)).toHaveLength(1);
+  });
+
+  test('Skip after the pin, before the guide closes itself, opens setup once', async () => {
+    vi.useFakeTimers();
+    const { seen, chrome } = await renderWithProviders(<Gate />, {
+      seed: { action: { isOnToolbar: false } },
+      seedStore: (store) => {
+        store.dispatch(
+          settingsDataStateSlice.actions.replaceState({
+            ...settingsInitial,
+            setupState: 'pending',
+          })
+        );
+        store.dispatch(openPinGuide());
+      },
+    });
+
+    act(() => chrome.setToolbarPin(true));
+    fireEvent.click(within(openGuide()).getByRole('button', { name: 'Skip' }));
+    act(() => vi.advanceTimersByTime(2000));
+
+    expect(seen.filter((type) => type === openSetup.type)).toHaveLength(1);
   });
 
   // C5: step 2 draws the name Chrome's puzzle menu shows, on one line.

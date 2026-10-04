@@ -5,24 +5,29 @@ import {
   closePinGuide,
   openFullViewOffer,
   openPinGuide,
+  openSetup,
 } from './slices/globalStateSlice';
 import { beginSetup } from './slices/settingsDataStateSlice';
 import {
   shouldOfferFullView,
   shouldShowPinGuide,
+  shouldShowSetup,
 } from '../utils/functions/onboarding';
 import { readToolbarPin } from '../utils/functions/toolbarPin';
 import { isTabView } from '../utils/functions/viewMode';
 
 type Thunk<R> = ThunkAction<R, RootState, unknown, UnknownAction>;
 
-// KAN-7 §8. The full view's first-open chain: the pin guide when it applies.
+// KAN-7 §8. The full view's first-open chain: the pin guide when it applies,
+// else setup when pending.
 export const followInFullView =
   (): Thunk<Promise<void>> => async (dispatch, getState) => {
     const pin = await readToolbarPin();
     if (shouldShowPinGuide(getState().settingsDataState, pin)) {
       dispatch(openPinGuide());
+      return;
     }
+    if (shouldShowSetup(getState().settingsDataState)) dispatch(openSetup());
   };
 
 // KAN-7 §8. The welcome (a new install) closed, by any answer: setup is now
@@ -39,7 +44,8 @@ export const followWelcome =
     }
   };
 
-// KAN-7 §4. The guide closing, by a pin, Skip, ✕ or Esc.
-export const leavePinGuide = (): Thunk<void> => (dispatch) => {
+// KAN-7 §4. The guide closing, by a pin, Skip, ✕ or Esc; setup follows when pending.
+export const leavePinGuide = (): Thunk<void> => (dispatch, getState) => {
   dispatch(closePinGuide());
+  if (shouldShowSetup(getState().settingsDataState)) dispatch(openSetup());
 };

@@ -39,6 +39,7 @@ describe('the first-open lists', () => {
     expect(listFor('full')).toEqual([
       'cloudConsent',
       'pinGuide',
+      'setup',
       'rate',
       'tabGroups',
     ]);

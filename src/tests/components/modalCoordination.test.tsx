@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 // Firebase is the only reason App cannot just be mounted: observeAuthState
@@ -17,6 +17,7 @@ vi.mock('../../config/firebase', () => ({
 }));
 
 import App from '../../App';
+import { leavePinGuide } from '../../redux/firstOpenFollowUps';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import type { ChromeSeed } from '../setup/chrome.fake';
 import {
@@ -201,7 +202,7 @@ describe('Try the full view in the order (KAN-7 §3)', () => {
         seedStore: seedSettings({ ...RATE_DUE, setupState: 'pending' }),
       });
       await waitFor(() =>
-        expect(store.getState().globalState.isRateAndReviewModalOpen).toBe(true)
+        expect(store.getState().globalState.isSetupOpen).toBe(true)
       );
       expect(store.getState().globalState.isFullViewOfferOpen).toBe(false);
       expect(store.getState().settingsDataState.hasOpenedFullView).toBe(true);
@@ -300,5 +301,79 @@ describe('the pin guide in the order (KAN-7 §4)', () => {
     );
     expect(store.getState().globalState.isFullViewOfferOpen).toBe(false);
     expect(store.getState().settingsDataState.setupState).toBe('pending');
+  });
+});
+
+describe('setup in the order (KAN-7 §5)', () => {
+  afterEach(() => history.replaceState(null, '', '?'));
+
+  const full = (
+    action: ChromeSeed['action'],
+    settings: Partial<SettingsData>
+  ) => {
+    history.replaceState(null, '', '?view=tab');
+    return renderWithProviders(<App />, {
+      seed: { action },
+      seedStore: seedSettings({ ...RATE_DUE, ...settings }),
+    });
+  };
+
+  test('pending on a pinned machine: setup opens, ahead of the rate prompt', async () => {
+    const { store } = await full(
+      { isOnToolbar: true },
+      { setupState: 'pending' }
+    );
+    await waitFor(() =>
+      expect(store.getState().globalState.isSetupOpen).toBe(true)
+    );
+    expect(store.getState().globalState.isRateAndReviewModalOpen).toBe(false);
+  });
+
+  test('unpinned: the guide first, and setup when it closes', async () => {
+    const { store } = await full(
+      { isOnToolbar: false },
+      { setupState: 'pending' }
+    );
+    await waitFor(() =>
+      expect(store.getState().globalState.isPinGuideOpen).toBe(true)
+    );
+    expect(store.getState().globalState.isSetupOpen).toBe(false);
+
+    act(() => {
+      store.dispatch(leavePinGuide());
+    });
+    expect(store.getState().globalState.isSetupOpen).toBe(true);
+  });
+
+  // §"Error and edge cases": no getUserSettings means no guide, and setup still shows.
+  test('pending with no getUserSettings: no guide, and setup opens', async () => {
+    const { store } = await full({}, { setupState: 'pending' });
+    await waitFor(() =>
+      expect(store.getState().globalState.isSetupOpen).toBe(true)
+    );
+    expect(store.getState().globalState.isPinGuideOpen).toBe(false);
+  });
+
+  test('an existing user (setup never started) never gets it', async () => {
+    const { store } = await full({ isOnToolbar: true }, {});
+    await waitFor(() =>
+      expect(store.getState().globalState.isRateAndReviewModalOpen).toBe(true)
+    );
+    expect(store.getState().globalState.isSetupOpen).toBe(false);
+  });
+
+  test('never in the popup', async () => {
+    const { store } = await renderWithProviders(<App />, {
+      seed: { action: { isOnToolbar: true } },
+      seedStore: seedSettings({
+        ...RATE_DUE,
+        setupState: 'pending',
+        isFullViewOfferAnswered: true,
+      }),
+    });
+    await waitFor(() =>
+      expect(store.getState().globalState.isRateAndReviewModalOpen).toBe(true)
+    );
+    expect(store.getState().globalState.isSetupOpen).toBe(false);
   });
 });
