@@ -372,3 +372,69 @@ grantedTest.describe('a group band title shows a text caret (KAN-394)', () => {
     }
   );
 });
+
+// KAN-394 Task 10. The session header's title renames on click, as the window
+// and group titles do, so it shows a text caret; its pencil shows a pointer.
+test.describe('the session header title shows a text caret (KAN-394)', () => {
+  const SESSION = buildSession({
+    tabGroupId: 'session-header',
+    title: 'Header session',
+    windowCount: 1,
+    tabCount: 1,
+    windows: [
+      {
+        windowId: 'hw',
+        windowHeight: 600,
+        windowWidth: 800,
+        windowOffsetTop: 0,
+        windowOffsetLeft: 0,
+        tabCount: 1,
+        title: 'Only window',
+        tabs: [
+          {
+            tabId: 'hw-t0',
+            favicon: '',
+            title: 'Page',
+            url: 'https://hw.test/',
+          },
+        ],
+      },
+    ],
+  });
+  const openHeader = async (context: BrowserContext, extensionId: string) => {
+    await seedSessions(context, buildContainer([SESSION]));
+    const page = await context.newPage();
+    await page.goto(`chrome-extension://${extensionId}/index.html`);
+    const rename = page.getByRole('button', {
+      name: 'Rename session: Header session',
+      exact: true,
+    });
+    await expect(rename).toBeVisible();
+    return { page, rename };
+  };
+
+  test('the title text shows a text caret', async ({
+    context,
+    extensionId,
+  }) => {
+    const { page, rename } = await openHeader(context, extensionId);
+    const text = rename.getByText('Header session', { exact: true });
+    await text.hover();
+
+    expect(await cursorAtCentreOf(page, text)).toBe('text');
+  });
+
+  test('CONTROL: the pencil beside it shows a pointer', async ({
+    context,
+    extensionId,
+  }) => {
+    const { page, rename } = await openHeader(context, extensionId);
+    await rename.hover();
+    const pencil = page.getByRole('button', {
+      name: 'Rename session',
+      exact: true,
+    });
+
+    expect(await cursorAtCentreOf(page, glyphOf(pencil))).toBe('pointer');
+  });
+});
