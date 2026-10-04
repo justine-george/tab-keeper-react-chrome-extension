@@ -40,7 +40,7 @@ import { makeTestStore } from '../setup/makeStore';
 import { buildContainer, buildSession } from '../fixtures/sessionFixture';
 import { SAMPLE_ID_PREFIX } from '../../utils/functions/sampleSession';
 
-// KAN-7 fix round 1, from KAN-149: a session arriving by sync is a value
+// KAN-7, from KAN-149: a session arriving by sync is a value
 // moment, but the sample arriving from another device is not "a session".
 
 const T0 = Date.UTC(2026, 9, 4, 12, 0, 0);

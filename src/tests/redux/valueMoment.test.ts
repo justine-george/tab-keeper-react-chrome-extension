@@ -279,7 +279,7 @@ describe('the recorded moment', () => {
   });
 });
 
-// KAN-7 fix round 1. The sample is the user's first look at the product, not
+// KAN-7. The sample is the user's first look at the product, not
 // something they saved or that proved a restore worked: it must not spend the
 // rate prompt (KAN-149) when the Start here card's own step 3 restores it.
 describe('the sample session is no value moment', () => {

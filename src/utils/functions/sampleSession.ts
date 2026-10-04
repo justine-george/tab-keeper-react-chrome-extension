@@ -59,7 +59,7 @@ function sampleWindow(
   };
 }
 
-// The id marks a sample, so no field is added to stored data (KAN-7 fix round 1).
+// The id marks a sample, so stored data gains no field.
 export const SAMPLE_ID_PREFIX = 'sample:';
 
 // A sample is no value moment (KAN-149): the rate prompt must not fire on it.
