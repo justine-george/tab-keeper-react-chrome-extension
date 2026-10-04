@@ -2,6 +2,7 @@ import { css } from '@emotion/react';
 import { useTranslation } from 'react-i18next';
 
 import Button from '../common/Button';
+import { windowLabel } from '../../utils/functions/windowLabel';
 import type {
   tabContainerData,
   tabData,
@@ -89,12 +90,14 @@ export default function ExportEditor({
     key: string,
     original: string,
     label: string,
-    extra?: ReturnType<typeof css>
+    extra?: ReturnType<typeof css>,
+    placeholder?: string
   ) => (
     <input
       type="text"
-      aria-label={`${label}: ${original}`}
+      aria-label={`${label}: ${original || placeholder || ''}`}
       value={edits.titles[key] ?? original}
+      placeholder={placeholder}
       onChange={(event) => onRename(key, event.target.value)}
       onKeyDown={(event) => {
         if (event.key === 'Enter') event.currentTarget.blur();
@@ -286,6 +289,7 @@ export default function ExportEditor({
 
         {session.windows.map((window, index) => {
           const windowKey = exportRowKey.window(window);
+          const windowName = windowLabel(window.title, index + 1, t('Window'));
           return (
             <section
               key={`${window.windowId}-${index}`}
@@ -310,8 +314,14 @@ export default function ExportEditor({
                 >
                   {t('Window')} {index + 1} ·
                 </span>
-                {field(windowKey, window.title, t('Rename window group'))}
-                {eye(windowKey, window.title)}
+                {field(
+                  windowKey,
+                  windowName.named ? window.title : '',
+                  t('Rename window group'),
+                  undefined,
+                  windowName.named ? undefined : windowName.text
+                )}
+                {eye(windowKey, windowName.text)}
               </div>
               <ul
                 css={css`

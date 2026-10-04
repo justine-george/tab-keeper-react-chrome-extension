@@ -559,3 +559,28 @@ describe('the meta line (KAN-208)', () => {
     expect(html).not.toContain('"meta"> ·');
   });
 });
+
+// KAN-394. An unnamed window's heading is the label alone, with no separator.
+describe('a window with no name (KAN-394)', () => {
+  const twoWindows = () =>
+    buildSession({
+      windows: ['', 'Trip planning'].map((title, i) => ({
+        windowId: `w-${i}`,
+        windowHeight: 1080,
+        windowWidth: 1920,
+        windowOffsetTop: 0,
+        windowOffsetLeft: 0,
+        tabCount: 1,
+        title,
+        tabs: [tab()],
+      })),
+    });
+
+  test('the heading is "Window 1" with no separator, a named one keeps its title', () => {
+    const html = sessionToHtml(twoWindows(), options());
+
+    expect(html).toContain('<h2>Window 1 <span>(');
+    expect(html).toContain('<h2>Window 2 · Trip planning <span>(');
+    expect(html).not.toContain('Window 1 ·');
+  });
+});
