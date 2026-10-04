@@ -5,7 +5,12 @@ import type { BrowserContext, Page, Worker } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
 import { grantedTest } from './fixtures/grantedExtension';
-import { contrast, pixelsAt, rgbToHex } from './fixtures/pixels';
+import {
+  contrast,
+  pixelsAt,
+  placeholderPaint,
+  rgbToHex,
+} from './fixtures/pixels';
 import {
   AUTO_SCROLL_BAND,
   NAMED,
@@ -470,31 +475,15 @@ for (const [theme, colours] of THEMES) {
     await startRename(page, 'w1', NAMED);
     await editor(page, 'w1').fill('');
 
-    // The first opaque background from the field outwards: what is painted behind it.
-    const measured = await editor(page, 'w1').evaluate((el) => {
-      let ground = '';
-      for (let n: Element | null = el; n; n = n.parentElement) {
-        const bg = getComputedStyle(n).backgroundColor;
-        if (!/rgba\(.*, 0\)$|transparent/.test(bg)) {
-          ground = bg;
-          break;
-        }
-      }
-      return {
-        placeholder: getComputedStyle(el, '::placeholder').color,
-        opacity: getComputedStyle(el, '::placeholder').opacity,
-        ground,
-      };
-    });
-    const placeholder = rgbToHex(measured.placeholder);
-    const ground = rgbToHex(measured.ground);
-    const ratio = contrast(placeholder, ground);
+    const { placeholder, opacity, ground, ratio } = await placeholderPaint(
+      editor(page, 'w1')
+    );
     console.log(
       `[${theme}] placeholder ${placeholder} on ground ${ground}: ${ratio.toFixed(
         2
       )}:1`
     );
-    expect(measured.opacity).toBe('1');
+    expect(opacity).toBe('1');
     expect(placeholder).toBe(colours.PLACEHOLDER_COLOR);
     expect(ratio).toBeGreaterThanOrEqual(4.5);
   });
@@ -894,31 +883,15 @@ for (const [theme, colours] of THEMES) {
         'Name this group'
       );
 
-      // The first opaque background from the field outwards: what is painted behind it.
-      const measured = await groupEditor(page, 'gr').evaluate((el) => {
-        let ground = '';
-        for (let n: Element | null = el; n; n = n.parentElement) {
-          const bg = getComputedStyle(n).backgroundColor;
-          if (!/rgba\(.*, 0\)$|transparent/.test(bg)) {
-            ground = bg;
-            break;
-          }
-        }
-        return {
-          placeholder: getComputedStyle(el, '::placeholder').color,
-          opacity: getComputedStyle(el, '::placeholder').opacity,
-          ground,
-        };
-      });
-      const placeholder = rgbToHex(measured.placeholder);
-      const ground = rgbToHex(measured.ground);
-      const ratio = contrast(placeholder, ground);
+      const { placeholder, opacity, ground, ratio } = await placeholderPaint(
+        groupEditor(page, 'gr')
+      );
       console.log(
         `[${theme}] group placeholder ${placeholder} on ground ${ground}: ${ratio.toFixed(
           2
         )}:1`
       );
-      expect(measured.opacity).toBe('1');
+      expect(opacity).toBe('1');
       expect(placeholder).toBe(colours.PLACEHOLDER_COLOR);
       expect(ratio).toBeGreaterThanOrEqual(4.5);
     }

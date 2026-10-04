@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 
 // Painted-colour helpers for specs that must assert on what the popup DRAWS,
 // not on a token or a computed style (KAN-188). A token can arrive and still
@@ -75,4 +75,36 @@ export async function pixelsAt(
     },
     { png, points }
   );
+}
+
+/**
+ * A field's `::placeholder` colour and opacity, and the first opaque background
+ * from the field outwards (what is painted behind it), colours as `#RRGGBB`.
+ */
+export async function placeholderPaint(field: Locator): Promise<{
+  placeholder: string;
+  opacity: string;
+  ground: string;
+  ratio: number;
+}> {
+  const measured = await field.evaluate((el) => {
+    let ground = '';
+    for (let n: Element | null = el; n; n = n.parentElement) {
+      const bg = getComputedStyle(n).backgroundColor;
+      if (!/rgba\(.*, 0\)$|transparent/.test(bg)) {
+        ground = bg;
+        break;
+      }
+    }
+    const style = getComputedStyle(el, '::placeholder');
+    return { placeholder: style.color, opacity: style.opacity, ground };
+  });
+  const placeholder = rgbToHex(measured.placeholder);
+  const ground = rgbToHex(measured.ground);
+  return {
+    placeholder,
+    opacity: measured.opacity,
+    ground,
+    ratio: contrast(placeholder, ground),
+  };
 }
