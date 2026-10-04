@@ -7,6 +7,7 @@ import {
   bandHandle,
   groupedWindow,
   openSaved,
+  savedWindow,
   session,
 } from './fixtures/savedWindows';
 import { buildContainer, buildSession, seedSessions } from './fixtures/seed';
@@ -248,28 +249,15 @@ test.describe('clickable controls show a pointer over their icon (KAN-76)', () =
 // KAN-394 R2. A window title renames on click, so it shows a text caret, named
 // or not; Open beside it is a button and shows a pointer.
 test.describe('a saved window title shows a text caret (KAN-394)', () => {
-  const tab = (id: string) => ({
-    tabId: id,
-    favicon: '',
-    title: `Page ${id}`,
-    url: `https://${id}.test/`,
-  });
-  const savedWindow = (id: string, title: string) => ({
-    windowId: id,
-    windowHeight: 600,
-    windowWidth: 800,
-    windowOffsetTop: 0,
-    windowOffsetLeft: 0,
-    tabCount: 1,
-    title,
-    tabs: [tab(`${id}-t0`)],
-  });
   const WINDOWS = buildSession({
     tabGroupId: 'session-windows',
     title: 'Windows',
     windowCount: 2,
     tabCount: 2,
-    windows: [savedWindow('w1', 'Reading list'), savedWindow('w2', '')],
+    windows: [
+      savedWindow('w1', 'Reading list', 1, { width: 800, height: 600 }),
+      savedWindow('w2', '', 1, { width: 800, height: 600 }),
+    ],
   });
 
   const header = (page: Page, id: string) =>
