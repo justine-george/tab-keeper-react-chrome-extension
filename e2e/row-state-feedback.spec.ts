@@ -548,13 +548,13 @@ test.describe('a row reveals its actions and fills as one state', () => {
 
     await rowFor(page, 'First session').click({ position: { x: 20, y: 20 } });
     const windowRow = page.getByRole('button', {
-      name: 'Morning reading',
+      name: 'Rename window: Morning reading',
       exact: true,
     });
     await expect(windowRow).toBeVisible();
     await page.mouse.move(0, 0);
 
-    await startSeamSampler(page, 'Rename window group', 'window');
+    await startSeamSampler(page, 'Delete window group', 'window');
 
     await windowRow.hover({ position: { x: 20, y: 20 } });
     await page.waitForTimeout(500);
