@@ -612,9 +612,14 @@ test('popup: focused by keyboard, the Open button sits on HOVER_COLOR', async ({
   await expect(button).toBeFocused();
   await expect(button).toHaveCSS('opacity', '1');
   const b = await boxOf(button);
-  const [ground] = await pixelsAt(page, [[b.x + 3, b.y + 3]]);
-  console.log(`[Light, focus] ground painted ${ground}`);
+  // 1px in: the KAN-405 ring is drawn 2–4px in.
+  const [ground, ring] = await pixelsAt(page, [
+    [b.x + 1, b.y + b.height / 2],
+    [b.x + 3, b.y + b.height / 2],
+  ]);
+  console.log(`[Light, focus] ground painted ${ground}, ring ${ring}`);
   expect(ground).toBe(LIGHT_THEME.HOVER_COLOR);
+  expect(ring).toBe(LIGHT_THEME.TEXT_COLOR);
 });
 
 // ---- from a scrolled list --------------------------------------------------

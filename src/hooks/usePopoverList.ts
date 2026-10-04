@@ -27,6 +27,26 @@ export function usePopoverList({
   const wrapperRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<(HTMLElement | null)[]>([]);
+  // Opened by a pointer click and not walked with the keys since: Esc then
+  // returns focus without the ring (KAN-405 2A). A key on the trigger, or a
+  // key-activated click (detail 0), means the keyboard.
+  const pointerOpened = useRef(false);
+  useEffect(() => {
+    const el = triggerRef.current;
+    if (el === null) return;
+    const onClick = (e: MouseEvent) => {
+      pointerOpened.current = e.detail > 0;
+    };
+    const onKeyDown = () => {
+      pointerOpened.current = false;
+    };
+    el.addEventListener('click', onClick, true);
+    el.addEventListener('keydown', onKeyDown, true);
+    return () => {
+      el.removeEventListener('click', onClick, true);
+      el.removeEventListener('keydown', onKeyDown, true);
+    };
+  }, []);
 
   // Every open/close goes through here, so onOpenChange cannot fall out of
   // step with the state it reports.
@@ -40,16 +60,18 @@ export function usePopoverList({
     [onOpenChange]
   );
 
+  const focusTrigger = (options?: FocusOptions) => {
+    const trigger =
+      triggerRef.current?.querySelector<HTMLElement>('[role="button"]');
+    (trigger ?? triggerRef.current)?.focus(options);
+  };
+
   // Focus goes back where it came from, or a keyboard user is dropped at
   // <body> and loses their place.
   const close = useCallback(
     (returnFocus: boolean) => {
       setOpen(false);
-      if (returnFocus) {
-        const trigger =
-          triggerRef.current?.querySelector<HTMLElement>('[role="button"]');
-        (trigger ?? triggerRef.current)?.focus();
-      }
+      if (returnFocus) focusTrigger();
     },
     [setOpen]
   );
@@ -86,16 +108,19 @@ export function usePopoverList({
       e.stopPropagation();
       // An unprevented Esc closes the extension popup too.
       e.preventDefault();
-      close(true);
+      setOpen(false);
+      focusTrigger(pointerOpened.current ? { focusVisible: false } : undefined);
       return;
     }
     if (e.key === nextKey) {
       e.preventDefault();
+      pointerOpened.current = false;
       focusItem(indexOfFocused() + 1);
       return;
     }
     if (e.key === prevKey) {
       e.preventDefault();
+      pointerOpened.current = false;
       focusItem(indexOfFocused() - 1);
     }
   };

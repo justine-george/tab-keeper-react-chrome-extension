@@ -2,6 +2,7 @@ import { css } from '@emotion/react';
 
 import type { ThemeColors } from '../../hooks/useThemeColors';
 import { DURATION } from '../../styles/scale';
+import { focusRingCss } from '../common/focusRing';
 
 /**
  * The buttons a confirm dialog offers (KAN-259), shared by the three dialogs
@@ -23,10 +24,7 @@ export function dialogButtonStyles(COLORS: ThemeColors) {
     font-size: inherit;
     cursor: pointer;
     transition: background-color ${DURATION.COLOR};
-    &:focus-visible {
-      outline: 2px solid ${COLORS.TEXT_COLOR};
-      outline-offset: -4px;
-    }
+    ${focusRingCss(COLORS)}
   `;
 
   return {

@@ -206,6 +206,11 @@ const GroupColorPicker: React.FC<GroupColorPickerProps> = ({
               width: 11px;
               margin-right: 5px;
             }
+            /* KAN-405 round 2 B: too narrow for the ring inside, so 2px outside. */
+            &:focus-visible {
+              outline: 2px solid ${COLORS.TEXT_COLOR};
+              outline-offset: 2px;
+            }
 
             /* KAN-231. The click target, 24px wide: 8px left of the paint,
                the 7px paint, and the 9px margin. Left, into the window's
