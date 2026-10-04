@@ -25,6 +25,7 @@ async function renderWindow(
   props: {
     tabs: tabData[];
     chromeTabGroups?: chromeTabGroupData[];
+    onOpenWindow?: () => void;
   },
   { hasTabGroupsPermission = true }: { hasTabGroupsPermission?: boolean } = {}
 ) {
@@ -244,19 +245,16 @@ describe('WindowEntryContainer gates tab groups on the live permission', () => {
   });
 });
 
-// The window rename's tick predates the session and group ones. It works in
-// real Chrome -- verified by driving the built artifact -- but jsdom retargets
-// the post-blur click differently, so without preventDefault on mousedown the
-// commit closes the editor and the click then lands on the Open button that
-// took the tick's place. Pinned here so all three ticks behave identically and
-// none of them depends on that environment difference.
+// The tick commits, and its click reaches nothing that replaced it (window-rows.spec covers Chrome).
 describe('finishing a window rename', () => {
   test('the tick commits and leaves the editor closed', async () => {
     const user = userEvent.setup();
+    const onOpenWindow = vi.fn();
     const { store } = await renderWindow({
       tabs: [
         { tabId: 't1', favicon: '', title: 'Inbox', url: 'https://a.test' },
       ],
+      onOpenWindow,
     });
 
     await user.click(
@@ -268,6 +266,7 @@ describe('finishing a window rename', () => {
     expect(
       screen.getByRole('button', { name: 'Rename window: Window 1' })
     ).toBeInTheDocument();
+    expect(onOpenWindow).not.toHaveBeenCalled();
     expect(store).toBeDefined();
   });
 });

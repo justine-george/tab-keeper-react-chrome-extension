@@ -391,6 +391,33 @@ for (const view of VIEWS) {
       expect((await storedWindow(page, 'w1')).title).toBe('This one');
     });
 
+    // The click after the tick's commit must not land on what replaced it.
+    test('the tick commits once, and its click opens and deletes nothing', async ({
+      context,
+      extensionId,
+      serviceWorker,
+    }) => {
+      const page = await open(context, extensionId, view);
+      const before = (await chromeWindowIds(serviceWorker)).length;
+
+      await startRename(page, 'w1', NAMED);
+      await editor(page, 'w1').fill('Ticked');
+      const tick = header(page, 'w1').getByRole('button', {
+        name: 'Save changes',
+        exact: true,
+      });
+      const b = await boxOf(tick);
+      const sampling = windowCountsOver(serviceWorker, 1000);
+      await page.mouse.click(b.x + b.width / 2, b.y + b.height / 2);
+
+      expect(new Set(await sampling)).toEqual(new Set([before]));
+      await expect
+        .poll(async () => (await storedWindow(page, 'w1')).title)
+        .toBe('Ticked');
+      await expect(editor(page, 'w1')).toHaveCount(0);
+      expect(await storedWindowIds(page)).toEqual(['w1', 'w2', 'w3']);
+    });
+
     test('while searching: no Open, and the title still renames', async ({
       context,
       extensionId,
