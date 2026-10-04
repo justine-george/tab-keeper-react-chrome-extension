@@ -153,15 +153,16 @@ test.describe('the cloud question (KAN-259)', () => {
     });
   });
 
-  test('an existing user sees the synced wording, and Escape keeps sync on', async ({
+  test('an existing user sees the synced wording, and Escape declines, uploading nothing (KAN-410)', async ({
     context,
     extensionId,
   }) => {
+    test.skip(!hasCloudConfig(), 'this build has no cloud config (CI)');
+    const cloudHits = await countCloudRequests(context);
     await seedSessions(context, buildContainer());
     await seedSettings(context, {
       cloudConsent: '',
       extensionInstalledTime: Date.now() - 30 * DAY,
-      isAutoSync: true,
     });
     const page = await openPopup(context, extensionId);
     const dialog = page.getByRole('dialog', {
@@ -186,8 +187,10 @@ test.describe('the cloud question (KAN-259)', () => {
     await expect(
       page
         .getByRole('group', { name: 'Auto Sync' })
-        .getByRole('button', { name: 'On' })
+        .getByRole('button', { name: 'Off', exact: true })
     ).toHaveAttribute('aria-pressed', 'true');
+    expect((await storedSettings(page)).cloudConsent).toBe('declined');
+    expect(cloudHits).toEqual([]);
   });
 
   // KAN-410. A 1.9.x welcome closed unanswered: an install date, no answer, Auto Sync at its old default.
@@ -195,6 +198,7 @@ test.describe('the cloud question (KAN-259)', () => {
     context,
     extensionId,
   }) => {
+    test.skip(!hasCloudConfig(), 'this build has no cloud config (CI)');
     const cloudHits = await countCloudRequests(context);
     await seedSettings(context, {
       extensionInstalledTime: Date.now() - 30 * DAY,

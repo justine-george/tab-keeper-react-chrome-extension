@@ -172,7 +172,7 @@ describe('the answers (KAN-259)', () => {
         s.dispatch(openCloudConsentModal({ variant: 'existing' })),
     });
 
-  test('existing: Turn off sync declines; Keep sync on grants; Escape keeps', async () => {
+  test('existing: Turn off sync declines; Keep sync on grants; Escape declines', async () => {
     const user = userEvent.setup();
     const a = await renderExisting();
     const dialog = screen.getByRole('dialog', {
@@ -195,13 +195,12 @@ describe('the answers (KAN-259)', () => {
     b.unmount();
 
     const c = await renderExisting();
-    fireEvent(
-      c.container.querySelector('dialog')!,
-      new Event('cancel', { bubbles: false, cancelable: true })
-    );
-    // "Do nothing" must not change a setting they had.
-    expect(c.store.getState().settingsDataState.cloudConsent).toBe('granted');
-    expect(c.store.getState().settingsDataState.isAutoSync).toBe(true);
+    const cancel = new Event('cancel', { bubbles: false, cancelable: true });
+    fireEvent(c.container.querySelector('dialog')!, cancel);
+    expect(cancel.defaultPrevented).toBe(true);
+    // Justine 2026-10-04: no upload without an explicit click (KAN-410).
+    expect(c.store.getState().settingsDataState.cloudConsent).toBe('declined');
+    expect(c.store.getState().settingsDataState.isAutoSync).toBe(false);
   });
 
   test('turning Auto Sync on later, after declining, asks again rather than uploading', async () => {

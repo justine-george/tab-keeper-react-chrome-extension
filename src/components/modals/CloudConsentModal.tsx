@@ -38,8 +38,8 @@ const BODY_ID = 'cloud-consent-body';
  * reaches for sync without having said yes.
  *
  * The questions give two complete answers and no "OK" hiding a default.
- * Escape is the answer that changes nothing: keep sync on for an existing
- * user -- "do nothing" must not change a setting they had.
+ * Escape never grants: for an existing user it is Turn off sync (KAN-410), as
+ * "currently synced" may be untrue and only a click may upload.
  * Same <dialog> contract as FocusConfirmModal.
  */
 export const CloudConsentModal: React.FC = () => {
@@ -105,10 +105,10 @@ export const CloudConsentModal: React.FC = () => {
   const dismiss = () => {
     dispatch(closeCloudConsentModal());
   };
-  // Escape: the answer that changes nothing for this user. The welcome has
-  // nothing left to answer, so Escape is Get started.
+  // Escape never uploads: existing declines (KAN-410), enable changes nothing,
+  // and the welcome has nothing left to answer, so it is Get started.
   const handleCancel =
-    variant === 'welcome' ? close : variant === 'existing' ? grant : dismiss;
+    variant === 'welcome' ? close : variant === 'existing' ? decline : dismiss;
 
   const buttons = dialogButtonStyles(COLORS);
 
