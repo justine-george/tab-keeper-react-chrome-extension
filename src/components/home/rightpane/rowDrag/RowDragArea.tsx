@@ -2501,7 +2501,8 @@ export const DraggableRow: React.FC<DraggableRowProps> = ({
             : undefined,
         zIndex: held ? 1 : undefined,
         position: 'relative',
-        cursor: 'pointer',
+        // A press on the wrapper only starts a drag; clickable children set their own.
+        cursor: 'default',
       }}
     >
       {/* KAN-166. The slot this row will land in.

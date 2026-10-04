@@ -4,8 +4,11 @@ import { test, expect } from './fixtures/extension';
 import { grantedTest } from './fixtures/grantedExtension';
 import { saveRowMenu } from './fixtures/menus';
 import {
+  VIEWS,
   bandHandle,
+  boxOf,
   groupedWindow,
+  header,
   openSaved,
   savedWindow,
   session,
@@ -426,3 +429,149 @@ test.describe('the session header title shows a text caret (KAN-394)', () => {
     expect(await cursorAtCentreOf(page, glyphOf(pencil))).toBe('pointer');
   });
 });
+
+// KAN-407. A press on a drag-only area starts a drag and nothing else, so it
+// shows the arrow; everything clickable beside it keeps its own cursor.
+
+/** The viewport point midway between a control's right edge and the next control (or the row's right edge). */
+async function emptyBesideTitle(
+  row: Locator,
+  title: Locator
+): Promise<{ x: number; y: number }> {
+  const t = await boxOf(title);
+  const r = await boxOf(row);
+  const rights = [];
+  for (const b of await row.locator('button').all()) {
+    const bb = await b.boundingBox();
+    if (bb !== null && bb.x > t.x + t.width + 1) rights.push(bb.x);
+  }
+  const edge = Math.min(r.x + r.width, ...rights);
+  const left = t.x + t.width;
+  if (edge - left < 8) throw new Error('no empty gap beside the title');
+  return { x: left + (edge - left) / 2, y: t.y + t.height / 2 };
+}
+
+for (const view of VIEWS) {
+  test.describe(`drag-only window areas show the arrow, ${view} (KAN-407)`, () => {
+    const S1 = session('S1', 'Windows', [
+      savedWindow('w1', 'Short', 2, { width: 800, height: 600 }),
+    ]);
+    const windowRow = (page: Page) =>
+      page.locator('[data-pane="detail"] [data-drag-row-id="w1"]');
+
+    test('the body left of the rows shows the arrow', async ({
+      context,
+      extensionId,
+    }) => {
+      const page = await openSaved(context, extensionId, view, {
+        sessions: [S1],
+      });
+      const body = await boxOf(windowRow(page).locator('[data-window-tabs]'));
+
+      expect(await cursorAt(page, body.x + 20, body.y + body.height / 2)).toBe(
+        'default'
+      );
+    });
+
+    test('the title row beside a short title shows the arrow', async ({
+      context,
+      extensionId,
+    }) => {
+      const page = await openSaved(context, extensionId, view, {
+        sessions: [S1],
+      });
+      const head = header(page, 'w1');
+      const gap = await emptyBesideTitle(
+        head,
+        head.locator('button', { hasText: 'Short' })
+      );
+
+      expect(await cursorAt(page, gap.x, gap.y)).toBe('default');
+    });
+
+    test('CONTROLS: tab row, title text, Open', async ({
+      context,
+      extensionId,
+    }) => {
+      const page = await openSaved(context, extensionId, view, {
+        sessions: [S1],
+      });
+      const tab = page.locator('[data-drag-row-id="w1-t0"]');
+      expect(await cursorAtCentreOf(page, tab)).toBe('pointer');
+
+      const text = header(page, 'w1')
+        .locator('button', { hasText: 'Short' })
+        .getByText('Short', { exact: true });
+      await text.hover();
+      expect(await cursorAtCentreOf(page, text)).toBe('text');
+
+      await header(page, 'w1').hover();
+      const open = header(page, 'w1').getByRole('button', {
+        name: 'Open in new window: Short',
+        exact: true,
+      });
+      expect(await cursorAtCentreOf(page, open)).toBe('pointer');
+    });
+
+    test('a press and move from the title row beside the title still starts a window drag', async ({
+      context,
+      extensionId,
+    }) => {
+      const page = await openSaved(context, extensionId, view, {
+        sessions: [S1],
+      });
+      const head = header(page, 'w1');
+      const gap = await emptyBesideTitle(
+        head,
+        head.locator('button', { hasText: 'Short' })
+      );
+      await page.mouse.move(gap.x, gap.y);
+      await page.mouse.down();
+      await page.mouse.move(gap.x, gap.y + 30, { steps: 6 });
+      await expect(page.locator('html[data-dragging="window"]')).toHaveCount(1);
+      await page.mouse.up();
+    });
+  });
+}
+
+grantedTest.describe(
+  'drag-only group band area shows the arrow (KAN-407)',
+  () => {
+    const GROUPED = session('S1', 'Grouped', [
+      groupedWindow('gw', 'Grouped', [
+        { groupId: 'gr', title: 'Hi', color: 'blue' },
+      ]),
+    ]);
+
+    for (const view of VIEWS) {
+      grantedTest(
+        `beside a short group title, ${view}; controls keep theirs`,
+        async ({ context, extensionId }) => {
+          const page = await openSaved(context, extensionId, view, {
+            sessions: [GROUPED],
+          });
+          const band = bandHandle(page, 'gr');
+          const title = band.locator('button', { hasText: 'Hi' });
+          const gap = await emptyBesideTitle(band, title);
+          expect(await cursorAt(page, gap.x, gap.y)).toBe('default');
+
+          const text = title.getByText('Hi', { exact: true });
+          await text.hover();
+          expect(await cursorAtCentreOf(page, text)).toBe('text');
+
+          await band.hover();
+          const open = band.getByRole('button', {
+            name: 'Open group: Hi',
+            exact: true,
+          });
+          expect(await cursorAtCentreOf(page, open)).toBe('pointer');
+
+          const strip = page
+            .locator('[data-pane="detail"] [data-group-color-strip]')
+            .first();
+          expect(await cursorAtCentreOf(page, strip)).toBe('pointer');
+        }
+      );
+    }
+  }
+);
