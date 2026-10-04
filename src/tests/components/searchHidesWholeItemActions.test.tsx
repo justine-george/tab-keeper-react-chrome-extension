@@ -220,7 +220,7 @@ describe('H2: what stays while searching', () => {
     const { store } = await render(QUERY);
 
     await user.click(
-      await screen.findByRole('button', { name: 'Rename group' })
+      await screen.findByRole('button', { name: 'Rename group: Reading' })
     );
     const input = screen.getByRole('textbox', { name: /Rename group/ });
     await user.clear(input);
@@ -274,7 +274,7 @@ describe('H2: what stays while searching', () => {
     for (const name of [
       'Rename session',
       'Rename window: Morning reading',
-      'Rename group',
+      'Rename group: Reading',
       'Collapse all windows',
       'Delete tab',
       'Change group color: Reading',
