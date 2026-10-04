@@ -14,6 +14,7 @@ import {
 import {
   addCurrTabToWindowInternal,
   saveToTabContainerInternal,
+  selectTabContainer,
   type CarriedRef,
 } from '../../redux/slices/tabContainerDataStateSlice';
 import { undo } from '../../redux/slices/undoRedoSlice';
@@ -50,6 +51,8 @@ async function renderLayer() {
     seedStore: (store) => {
       store.dispatch(saveToTabContainerInternal(s1()));
       store.dispatch(saveToTabContainerInternal(s2()));
+      // A carry starts from the session on screen.
+      store.dispatch(selectTabContainer('S1'));
     },
   });
 }
