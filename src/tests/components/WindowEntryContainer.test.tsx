@@ -247,7 +247,7 @@ describe('WindowEntryContainer gates tab groups on the live permission', () => {
 // The window rename's tick predates the session and group ones. It works in
 // real Chrome -- verified by driving the built artifact -- but jsdom retargets
 // the post-blur click differently, so without preventDefault on mousedown the
-// commit closes the editor and the click then reopens it via the pencil that
+// commit closes the editor and the click then lands on the Open button that
 // took the tick's place. Pinned here so all three ticks behave identically and
 // none of them depends on that environment difference.
 describe('finishing a window rename', () => {
@@ -260,13 +260,13 @@ describe('finishing a window rename', () => {
     });
 
     await user.click(
-      screen.getByRole('button', { name: 'Rename window group' })
+      screen.getByRole('button', { name: 'Rename window: Window 1' })
     );
     await user.click(screen.getByRole('button', { name: 'Save changes' }));
 
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
     expect(
-      screen.getByRole('button', { name: 'Rename window group' })
+      screen.getByRole('button', { name: 'Rename window: Window 1' })
     ).toBeInTheDocument();
     expect(store).toBeDefined();
   });
@@ -294,7 +294,7 @@ describe('the window title editor', () => {
       ],
     });
     await user.click(
-      screen.getByRole('button', { name: 'Rename window group' })
+      screen.getByRole('button', { name: 'Rename window: Window 1' })
     );
     return screen.getByRole('textbox');
   };
@@ -365,7 +365,9 @@ describe('the window title editor', () => {
       ],
     });
 
-    const title = screen.getByRole('button', { name: 'Window 1' });
+    const title = screen.getByRole('button', {
+      name: 'Rename window: Window 1',
+    });
 
     expect(getComputedStyle(title).paddingRight).toBe('9px');
   });
@@ -407,7 +409,9 @@ describe('the window label', () => {
   test('an unnamed window reads "Window 2" in LABEL_L2', async () => {
     await renderLabelled('');
 
-    const title = screen.getByRole('button', { name: 'Window 2' });
+    const title = screen.getByRole('button', {
+      name: 'Rename window: Window 2',
+    });
     expect(getComputedStyle(within(title).getByText('Window 2')).color).toMatch(
       asWritten(LIGHT_THEME.LABEL_L2_COLOR)
     );
@@ -417,24 +421,29 @@ describe('the window label', () => {
     await renderLabelled('   ');
 
     expect(
-      screen.getByRole('button', { name: 'Window 2' })
+      screen.getByRole('button', { name: 'Rename window: Window 2' })
     ).toBeInTheDocument();
   });
 
   test('a named window reads its title in TEXT_COLOR', async () => {
     await renderLabelled('Research');
 
-    const title = screen.getByRole('button', { name: 'Research' });
+    const title = screen.getByRole('button', {
+      name: 'Rename window: Research',
+    });
     expect(getComputedStyle(within(title).getByText('Research')).color).toMatch(
       asWritten(LIGHT_THEME.TEXT_COLOR)
     );
     expect(screen.queryByText('Window 2')).toBeNull();
   });
 
-  test('while searching, the static label is muted the same way', async () => {
+  // R7: searching, the title is still the rename button.
+  test('while searching, the label is muted the same way', async () => {
     await renderLabelled('', { searching: true });
 
-    expect(screen.queryByRole('button', { name: 'Window 2' })).toBeNull();
+    expect(
+      screen.getByRole('button', { name: 'Rename window: Window 2' })
+    ).toBeInTheDocument();
     expect(getComputedStyle(screen.getByText('Window 2')).color).toMatch(
       asWritten(LIGHT_THEME.LABEL_L2_COLOR)
     );
