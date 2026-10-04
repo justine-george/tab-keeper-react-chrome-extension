@@ -101,7 +101,7 @@ describe('selecting text in a window rename field (KAN-162)', () => {
     layout(container);
     fireEvent.click(
       within(rowOf(container, 'w2')).getByRole('button', {
-        name: 'Rename window group',
+        name: /^Rename window: /,
       })
     );
     const input = within(rowOf(container, 'w2')).getByRole('textbox');
