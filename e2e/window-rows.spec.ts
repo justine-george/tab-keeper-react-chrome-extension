@@ -424,16 +424,25 @@ for (const view of VIEWS) {
     }) => {
       const page = await open(context, extensionId, view);
       await header(page, 'w1').hover();
-      const t = await boxOf(title(page, 'w1', NAMED));
+      // From the label's own text, so a title stretched over the gap is caught.
+      const t = await boxOf(
+        title(page, 'w1', NAMED).getByText(NAMED, { exact: true })
+      );
       const strip = await boxOf(
         header(page, 'w1').locator('[data-row-actions]')
       );
       const h = await boxOf(header(page, 'w1'));
-      // PREMISE: room between the title and the strip.
+      // PREMISE: room between the title's text and the strip.
       expect(strip.x - (t.x + t.width)).toBeGreaterThan(40);
       const x = (t.x + t.width + strip.x) / 2;
       const y = h.y + h.height / 2;
-      // PREMISE: the point is on the header, in neither control.
+
+      const before = (await chromeWindowIds(serviceWorker)).length;
+      const sampling = windowCountsOver(serviceWorker, 1000);
+      await page.mouse.click(x, y);
+      expect(new Set(await sampling)).toEqual(new Set([before]));
+      await expect(editor(page, 'w1')).toHaveCount(0);
+      // PREMISE, on the same layout: the point is on the header, in no control.
       expect(
         await page.evaluate(
           ([x, y]) => {
@@ -447,12 +456,6 @@ for (const view of VIEWS) {
           [x, y]
         )
       ).toBe('header');
-
-      const before = (await chromeWindowIds(serviceWorker)).length;
-      const sampling = windowCountsOver(serviceWorker, 1000);
-      await page.mouse.click(x, y);
-      expect(new Set(await sampling)).toEqual(new Set([before]));
-      await expect(editor(page, 'w1')).toHaveCount(0);
 
       // CONTROL: a click on the title opens the editor.
       await page.mouse.click(t.x + t.width / 2, y);
