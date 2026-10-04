@@ -1473,15 +1473,16 @@ describe('window labels while a window is carried', () => {
       windows: base.windows.map((w) => ({ ...w, title: '' })),
     };
   };
-  // The real windows' labels; the phantom draws its own title.
+  // The real windows' labels, from their titles; the phantom draws its own.
   const labels = () =>
     ['d1', 'd2'].map(
       (id) =>
         document
           .querySelector(
-            `[data-drop-window-id="${id}"] button[title="Open in new window"]`
+            `[data-drop-window-id="${id}"] button[aria-label^="Rename window: "]`
           )
           ?.getAttribute('aria-label')
+          ?.replace('Rename window: ', '')
     );
 
   test('the phantom window is left out of the numbering', async () => {
