@@ -116,7 +116,7 @@ interface OverflowMenuProps {
  * such a strip the menu paints behind any later sibling that is positioned --
  * the tab rows, in the first consumer. The strip itself must therefore carry a
  * z-index. A component cannot fix an ancestor's stacking context from the
- * inside, so this is the caller's job; see the note on group-rename-reveal in
+ * inside, so this is the caller's job; see the note on group-actions in
  * WindowEntryContainer. jsdom computes no paint order, so only a real browser
  * shows this.
  */

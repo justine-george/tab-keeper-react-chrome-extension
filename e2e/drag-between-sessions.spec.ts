@@ -2414,8 +2414,8 @@ test.describe('a carried tab or group lands in a slot as wide as the row it beco
 // The rows under the pointer that PAINT their hover fill: a `:hover` element
 // inside a row that is not the held one, whose background is the theme's
 // hover colour. Compared with the colour itself, not "any background": a band
-// lit as a drop target is another colour, and meant. Also any group's rename
-// control revealed, which the same hover rule shows (KAN-100).
+// lit as a drop target is another colour, and meant. Also any group's action
+// strip revealed (KAN-100).
 const paintedHover = (page: Page, hoverHex: string) =>
   page.evaluate((hoverHex) => {
     const probe = document.createElement('div');
@@ -2432,9 +2432,13 @@ const paintedHover = (page: Page, hoverHex: string) =>
       )
       .filter((id) => id !== '');
     const revealed = [
-      ...document.querySelectorAll<HTMLElement>('.group-rename-reveal'),
+      ...document.querySelectorAll<HTMLElement>('.group-actions'),
     ]
-      .filter((e) => getComputedStyle(e).opacity === '1')
+      .filter(
+        (e) =>
+          getComputedStyle(e).opacity === '1' &&
+          [...e.children].some((c) => getComputedStyle(c).opacity === '1')
+      )
       .map(
         (e) =>
           `reveal:${

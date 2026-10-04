@@ -223,11 +223,11 @@ describe('which press starts which drag', () => {
 });
 
 describe('the controls inside the handle keep their clicks', () => {
-  test('a click on the pencil renames', async () => {
+  test('a click on the title renames', async () => {
     const { container } = await render();
     await userEvent.click(
       within(row(container, 'group:alpha')).getByRole('button', {
-        name: 'Rename group',
+        name: 'Rename group: Alpha',
       })
     );
     expect(
@@ -244,7 +244,7 @@ describe('the controls inside the handle keep their clicks', () => {
     expect(more.getAttribute('aria-expanded')).toBe('true');
   });
 
-  test('a click on the title opens the group', async () => {
+  test('a click on Open opens the group', async () => {
     const { chrome } = await render();
     await userEvent.click(
       screen.getByRole('button', { name: 'Open group: Alpha' })
@@ -258,8 +258,8 @@ describe('the controls inside the handle keep their clicks', () => {
   });
 
   // The click Chrome synthesizes after a drag lands on the title, and must
-  // not open the group. Paired with the test above as its control.
-  test('the click after a drag does not open the group', async () => {
+  // not rename or open the group. "A click on the title renames" is its control.
+  test('the click after a drag does not rename or open the group', async () => {
     const { container, chrome } = await render();
     layoutItems(container);
     // Alpha held: a0 [0,32) alpha [32,64) a1 [64,96) beta [96,192). Past
@@ -268,8 +268,11 @@ describe('the controls inside the handle keep their clicks', () => {
     moveTo(90);
     moveTo(160);
     release(160);
-    fireEvent.click(screen.getByRole('button', { name: 'Open group: Alpha' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Rename group: Alpha' })
+    );
     await new Promise((r) => setTimeout(r, 0));
+    expect(screen.queryByRole('textbox')).toBeNull();
     expect(chrome.createdTabs).toEqual([]);
   });
 
@@ -277,11 +280,11 @@ describe('the controls inside the handle keep their clicks', () => {
   // attribute the App.css rule keys on; the rendered opacity is an E2E check.
   test('the group action strip is marked as row actions', async () => {
     const { container } = await render();
-    const pencil = within(row(container, 'group:alpha')).getByRole('button', {
-      name: 'Rename group',
+    const open = within(row(container, 'group:alpha')).getByRole('button', {
+      name: 'Open group: Alpha',
     });
-    expect(pencil.closest('[data-row-actions]')).not.toBeNull();
-    expect(pencil.closest('[data-group-drag-handle]')).not.toBeNull();
+    expect(open.closest('[data-row-actions]')).not.toBeNull();
+    expect(open.closest('[data-group-drag-handle]')).not.toBeNull();
   });
 });
 

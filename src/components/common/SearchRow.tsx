@@ -9,6 +9,7 @@ import { useFontFamily } from '../../hooks/useFontFamily';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { NON_INTERACTIVE_ICON_STYLE } from '../../utils/constants/common';
 import { ICON, TYPE } from '../../styles/scale';
+import { placeholderStyle } from '../../styles/placeholder';
 import { SEARCH_SHORTCUT_KEY } from './searchShortcut';
 
 // The header's action row height (8px + CONTROL.ROW), then a 4px gap.
@@ -111,9 +112,7 @@ export default function SearchRow({
     color: ${COLORS.LABEL_L1_COLOR};
     text-overflow: ellipsis;
     user-select: text;
-    &::placeholder {
-      color: ${COLORS.LABEL_L3_COLOR};
-    }
+    ${placeholderStyle(COLORS.PLACEHOLDER_COLOR)}
   `;
 
   // The row's right-edge slot, where a tab row's × sits.

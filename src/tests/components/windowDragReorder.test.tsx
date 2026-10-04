@@ -233,27 +233,27 @@ describe('the two nested lists do not fight over one gesture', () => {
   });
 });
 
-// A window's title click opens every tab in it in a new window. Chrome
-// synthesizes a click after mouseup aimed at whatever the pointer released
-// over, and the held row tracks the pointer -- so without suppression a drag
-// that committed nothing would open a whole window's worth of tabs. Strictly
-// worse than the tab case this was first found in.
-describe('a window drag does not also open the window', () => {
+// A window's title click renames it (KAN-394), and Chrome aims the click after
+// mouseup at whatever the pointer released over: a drag that committed nothing
+// must not open the editor. Neither may open the window.
+describe('a window drag does not also rename the window', () => {
   const restoreMessages = (chrome: RenderWithProvidersResult['chrome']) =>
     chrome.sentMessages.filter(
       (m) => (m as { type?: string }).type === RESTORE_SESSION_MESSAGE
     );
 
-  test('CONTROL: a plain click on the title still opens the window', async () => {
+  test('CONTROL: a plain click on the title opens the editor', async () => {
     const { container, chrome } = await render();
     layout(container);
-    const title = handleIn(nodeFor(container, 'w2')).querySelector('button')!;
+    const row = nodeFor(container, 'w2');
+    const title = handleIn(row).querySelector('button')!;
 
     fireEvent.pointerDown(title, { clientX: 10, clientY: 50, button: 0 });
     fireEvent.pointerUp(document, { clientX: 10, clientY: 50 });
     fireEvent.click(title, { clientX: 10, clientY: 50 });
 
-    expect(restoreMessages(chrome)).toHaveLength(1);
+    expect(handleIn(row).querySelector('input')).not.toBeNull();
+    expect(restoreMessages(chrome)).toHaveLength(0);
   });
 
   test('the click after a drag that moved nothing is swallowed', async () => {
@@ -271,6 +271,7 @@ describe('a window drag does not also open the window', () => {
     fireEvent.click(title, { clientX: 10, clientY: 60 });
 
     expect(windowIds(store)).toEqual(['w1', 'w2', 'w3']);
+    expect(handleIn(row).querySelector('input')).toBeNull();
     expect(restoreMessages(chrome)).toHaveLength(0);
   });
 });

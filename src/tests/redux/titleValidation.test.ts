@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // Inlined rather than imported: a vi.hoisted block runs before the module
 // graph is evaluated, and common.ts reads window.screen at module load.
@@ -26,6 +26,17 @@ import type {
   TabMasterContainer,
 } from '../../redux/slices/tabContainerDataStateSlice';
 import { isBlankTitle, normalizeTitle } from '../../utils/functions/local';
+import { makeTestStore } from '../setup/makeStore';
+import { grantCloudConsent } from '../../redux/slices/settingsDataStateSlice';
+import {
+  setFirebaseAuthed,
+  setSignedIn,
+} from '../../redux/slices/globalStateSlice';
+import { undo } from '../../redux/slices/undoRedoSlice';
+import { IS_DIRTY_ACTION } from '../../utils/constants/actionTypes';
+import { DEBOUNCE_TIME_WINDOW } from '../../utils/constants/common';
+
+const SYNC_PENDING_ACTION = 'global/syncStateWithFirestore/pending';
 
 // KAN-84. Nothing validated a title, so a session could be renamed to "" or
 // "   " and end up with no name in either pane and no accessible name on its
@@ -194,26 +205,78 @@ describe('a session title cannot be blanked (KAN-84)', () => {
   });
 });
 
-describe('a window group title cannot be blanked (KAN-84)', () => {
+describe('a blank window rename leaves the window unnamed (KAN-394)', () => {
   beforeEach(() => localStorage.clear());
 
   const windowTitle = (s: TabMasterContainer) => byId(s, 'a').windows[0].title;
+  const renameWindow = (
+    s: TabMasterContainer,
+    editableTitle: string,
+    tabGroupId = 'a',
+    windowId = 'w-a'
+  ) =>
+    reducer(s, updateWindowGroupTitle({ tabGroupId, windowId, editableTitle }));
+
+  it.each([[''], ['   ']])('stores %j as an empty title', (blank) => {
+    const before = reducer(base(), saveToTabContainerInternal(group('a')));
+    expect(windowTitle(renameWindow(before, blank))).toBe('');
+  });
 
   it.each([[''], ['   ']])(
-    'refuses %j and keeps the existing name',
+    '%j stamps the session and its content key',
     (blank) => {
       const before = reducer(base(), saveToTabContainerInternal(group('a')));
-      const after = reducer(
-        before,
-        updateWindowGroupTitle({
-          tabGroupId: 'a',
-          windowId: 'w-a',
-          editableTitle: blank,
-        })
-      );
-      expect(windowTitle(after)).toBe('original window');
+      vi.spyOn(Date, 'now').mockReturnValue(9_999_999);
+      const after = renameWindow(before, blank);
+      vi.restoreAllMocks();
+
+      expect(after.lastModified).toBe(9_999_999);
+      expect(byId(after, 'a').lastModified).toBe(9_999_999);
+      expect(byId(after, 'a').contentModified).toBe(9_999_999);
     }
   );
+
+  it('an unchanged title returns the same state and stamps nothing', () => {
+    const named = renameWindow(
+      reducer(base(), saveToTabContainerInternal(group('a'))),
+      'Name'
+    );
+    vi.spyOn(Date, 'now').mockReturnValue(8_888_888);
+    expect(renameWindow(named, 'Name')).toBe(named);
+    expect(renameWindow(named, ' Name ')).toBe(named);
+    vi.restoreAllMocks();
+  });
+
+  it('an unnamed window renamed blank again is unchanged too', () => {
+    const unnamed = renameWindow(
+      reducer(base(), saveToTabContainerInternal(group('a'))),
+      ''
+    );
+    expect(renameWindow(unnamed, '  ')).toBe(unnamed);
+  });
+
+  it.each([
+    ['window', 'a', 'no-such-window'],
+    ['session', 'no-such-session', 'w-a'],
+  ])('an unknown %s id changes nothing', (_kind, tabGroupId, windowId) => {
+    const before = reducer(base(), saveToTabContainerInternal(group('a')));
+    vi.spyOn(Date, 'now').mockReturnValue(9_999_999);
+    const after = renameWindow(before, 'Name', tabGroupId, windowId);
+    vi.restoreAllMocks();
+
+    expect(after).toBe(before);
+    expect(after.lastModified).not.toBe(9_999_999);
+  });
+
+  // CONTROL: the session rename keeps its KAN-84 refusal; only windows changed.
+  it('CONTROL: a blank session title is still refused', () => {
+    const before = reducer(base(), saveToTabContainerInternal(group('a')));
+    const after = reducer(
+      before,
+      updateTabGroupTitle({ tabGroupId: 'a', editableTitle: '   ' })
+    );
+    expect(byId(after, 'a').title).toBe('a');
+  });
 
   it('CONTROL: a real window rename still lands, trimmed', () => {
     const before = reducer(base(), saveToTabContainerInternal(group('a')));
@@ -226,5 +289,74 @@ describe('a window group title cannot be blanked (KAN-84)', () => {
       })
     );
     expect(windowTitle(after)).toBe('Morning reading');
+  });
+});
+
+describe('a blank window rename through the store (KAN-394)', () => {
+  beforeEach(() => localStorage.clear());
+
+  const seeded = () => {
+    const made = makeTestStore();
+    made.store.dispatch(saveToTabContainerInternal(group('a')));
+    made.seen.length = 0;
+    return made;
+  };
+  const blankRename = updateWindowGroupTitle({
+    tabGroupId: 'a',
+    windowId: 'w-a',
+    editableTitle: '   ',
+  });
+  const storedWindowTitle = (
+    store: ReturnType<typeof makeTestStore>['store']
+  ) => store.getState().tabContainerDataState.tabGroups[0].windows[0].title;
+
+  it('is one undo step and marks the store dirty', () => {
+    const { store, seen } = seeded();
+    const pastBefore = store.getState().undoRedo.past.length;
+
+    store.dispatch(blankRename);
+
+    expect(storedWindowTitle(store)).toBe('');
+    expect(store.getState().undoRedo.past.length).toBe(pastBefore + 1);
+    expect(seen).toContain(IS_DIRTY_ACTION);
+
+    store.dispatch(undo());
+    expect(storedWindowTitle(store)).toBe('original window');
+  });
+
+  describe('signed in', () => {
+    beforeEach(() => vi.useFakeTimers());
+    afterEach(() => vi.useRealTimers());
+
+    const signedIn = () => {
+      const made = seeded();
+      made.store.dispatch(setSignedIn());
+      made.store.dispatch(grantCloudConsent());
+      made.store.dispatch(setFirebaseAuthed());
+      made.seen.length = 0;
+      return made;
+    };
+
+    it('schedules the sync', () => {
+      const { store, seen } = signedIn();
+      store.dispatch(blankRename);
+      vi.advanceTimersByTime(DEBOUNCE_TIME_WINDOW + 1);
+      expect(seen).toContain(SYNC_PENDING_ACTION);
+    });
+
+    // CONTROL: the same store sees no sync when the rename changes nothing.
+    // A pin only: the same-reference test is what kills the no-op-guard mutant.
+    it('CONTROL: an unchanged title schedules no sync', () => {
+      const { store, seen } = signedIn();
+      store.dispatch(
+        updateWindowGroupTitle({
+          tabGroupId: 'a',
+          windowId: 'w-a',
+          editableTitle: ' original window ',
+        })
+      );
+      vi.advanceTimersByTime(DEBOUNCE_TIME_WINDOW + 1);
+      expect(seen).not.toContain(SYNC_PENDING_ACTION);
+    });
   });
 });

@@ -77,8 +77,10 @@ interface ButtonProps {
  * `danger`  destructive. Its fill is the same red the delete affordances use.
  * `chip`    a borderless tinted fill, for a control sitting on a card rather
  *           than on the page's ground (KAN-214).
+ * `outline` transparent at rest with a hairline edge, for a control laid over
+ *           a row (KAN-394).
  */
-export type ButtonVariant = 'quiet' | 'primary' | 'danger' | 'chip';
+export type ButtonVariant = 'quiet' | 'primary' | 'danger' | 'chip' | 'outline';
 
 const Button: React.FC<ButtonProps> = ({
   text,
@@ -134,6 +136,12 @@ const Button: React.FC<ButtonProps> = ({
       hover: COLORS.ICON_HOVER_COLOR,
       press: COLORS.ICON_ACTIVE_COLOR,
       border: 'none',
+    },
+    outline: {
+      rest: 'transparent',
+      hover: COLORS.ICON_HOVER_COLOR,
+      press: COLORS.ICON_ACTIVE_COLOR,
+      border: `1px solid ${COLORS.DIVIDER_COLOR}`,
     },
   }[variant];
 

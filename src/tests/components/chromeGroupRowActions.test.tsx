@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { LIGHT_THEME } from '../../hooks/useThemeColors';
-import { act, screen } from '@testing-library/react';
+import { act, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import WindowEntryContainer from '../../components/home/rightpane/WindowEntryContainer';
@@ -60,7 +60,7 @@ async function renderRow({
       windowId="w"
       tabs={TABS}
       chromeTabGroups={GROUPS}
-      onWindowTitleClick={() => undefined}
+      onOpenWindow={() => undefined}
       onUpdateWindowGroupTitle={() => undefined}
       onAddCurrTabToWindowClick={() => undefined}
       onDeleteClick={() => undefined}
@@ -108,7 +108,7 @@ describe('the group row action set', () => {
     await renderRow();
 
     expect(
-      screen.getByRole('button', { name: 'Rename group' })
+      screen.getByRole('button', { name: 'Rename group: Research' })
     ).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: 'Add current tab to group' })
@@ -173,7 +173,7 @@ describe('the group row action set', () => {
     await renderRow({ isSearching: true });
 
     expect(
-      screen.getByRole('button', { name: 'Rename group' })
+      screen.getByRole('button', { name: 'Rename group: Research' })
     ).toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: 'Add current tab to group' })
@@ -192,7 +192,7 @@ describe('the group row action set', () => {
   test('the action strip lifts its own stacking context', async () => {
     await renderRow();
 
-    const strip = document.querySelector('.group-rename-reveal');
+    const strip = document.querySelector('.group-actions');
     expect(strip).not.toBeNull();
     expect(getComputedStyle(strip as Element).zIndex).not.toBe('auto');
   });
@@ -274,7 +274,7 @@ async function renderTwoGroups() {
       windowId="w"
       tabs={tabs}
       chromeTabGroups={groups}
-      onWindowTitleClick={() => undefined}
+      onOpenWindow={() => undefined}
       onUpdateWindowGroupTitle={() => undefined}
       onAddCurrTabToWindowClick={() => undefined}
       onDeleteClick={() => undefined}
@@ -313,7 +313,7 @@ async function renderTwoGroups() {
 
 const stripFor = (groupName: string) => {
   const group = screen.getByRole('group', { name: groupName });
-  return group.querySelector('.group-rename-reveal') as HTMLElement;
+  return group.querySelector('.group-actions') as HTMLElement;
 };
 
 describe('two group rows in one window', () => {
@@ -383,7 +383,7 @@ describe('two group rows in one window', () => {
 describe('the group row fills like the rows around it', () => {
   const stripRules = (groupName: string) => {
     const group = screen.getByRole('group', { name: groupName });
-    const strip = group.querySelector('.group-rename-reveal')
+    const strip = group.querySelector('.group-actions')
       ?.parentElement as HTMLElement;
     const classes = [...strip.classList].map((c) => `.${c}`);
     const out: string[] = [];
@@ -418,7 +418,7 @@ describe('the group row fills like the rows around it', () => {
 
     const hoverBlock = rules
       .split('}')
-      .find((b) => b.includes(':hover') && !b.includes('.group-rename-reveal'));
+      .find((b) => b.includes(':hover') && !b.includes('.group-actions'));
 
     expect(hoverBlock).toBeDefined();
     expect(hoverBlock).toMatch(HOVER);
@@ -431,8 +431,7 @@ describe('the group row fills like the rows around it', () => {
     const focusBlock = rules
       .split('}')
       .find(
-        (b) =>
-          b.includes(':focus-within') && !b.includes('.group-rename-reveal')
+        (b) => b.includes(':focus-within') && !b.includes('.group-actions')
       );
 
     expect(focusBlock).toBeDefined();
@@ -462,19 +461,15 @@ describe('the group row stands as tall as the rows around it', () => {
 
     const strip = screen
       .getByRole('group', { name: 'Research' })
-      .querySelector('.group-rename-reveal')?.parentElement as HTMLElement;
+      .querySelector('.group-actions')?.parentElement as HTMLElement;
 
     expect(getComputedStyle(strip).minHeight).toBe('32px');
   });
 });
 
-// Clicking a group row started a RENAME, which no other row in the pane does:
-// the window title opens its window, a tab title opens that tab beside the
-// active one. So renaming had two entry points (row and pencil) while opening
-// the group had none.
-//
-// The row now opens the group's tabs; the pencil is the single way to rename.
-describe('clicking a group row opens its tabs', () => {
+// The group's Open opens its tabs (KAN-121); since KAN-394 it is a button in
+// the strip, and the title renames.
+describe("Open opens the group's tabs", () => {
   const openRow = async () => {
     const user = userEvent.setup();
     const rendered = await renderRow();
@@ -490,9 +485,6 @@ describe('clicking a group row opens its tabs', () => {
     expect(
       screen.getByRole('button', { name: 'Open group: Research' })
     ).toBeInTheDocument();
-    expect(
-      screen.queryByRole('button', { name: 'Rename group: Research' })
-    ).not.toBeInTheDocument();
   });
 
   test('opens every tab in the group and nothing else', async () => {
@@ -520,11 +512,13 @@ describe('clicking a group row opens its tabs', () => {
   });
 
   // THE CONTROL. Renaming must still be reachable -- just from one place.
-  test('CONTROL: the pencil still opens the editor', async () => {
+  test('CONTROL: the title still opens the editor', async () => {
     const user = userEvent.setup();
     await renderRow();
 
-    await user.click(screen.getByRole('button', { name: 'Rename group' }));
+    await user.click(
+      screen.getByRole('button', { name: 'Rename group: Research' })
+    );
 
     expect(screen.getByRole('textbox')).toBeInTheDocument();
   });
@@ -571,7 +565,7 @@ describe('without the tabGroups permission', () => {
         windowId="w"
         tabs={TABS}
         chromeTabGroups={GROUPS}
-        onWindowTitleClick={() => undefined}
+        onOpenWindow={() => undefined}
         onUpdateWindowGroupTitle={() => undefined}
         onAddCurrTabToWindowClick={() => undefined}
         onDeleteClick={() => undefined}
@@ -677,7 +671,7 @@ describe('the group row is clickable across its whole height', () => {
   test('the clickable stretches to the row rather than to its text', async () => {
     await renderRow();
 
-    const row = screen.getByRole('button', { name: 'Open group: Research' });
+    const row = screen.getByRole('button', { name: 'Rename group: Research' });
 
     expect(getComputedStyle(row).alignSelf).toBe('stretch');
   });
@@ -687,8 +681,93 @@ describe('the group row is clickable across its whole height', () => {
   test('CONTROL: the row still centres its label', async () => {
     await renderRow();
 
-    const row = screen.getByRole('button', { name: 'Open group: Research' });
+    const row = screen.getByRole('button', { name: 'Rename group: Research' });
 
     expect(getComputedStyle(row).alignItems).toBe('center');
+  });
+});
+
+// KAN-394 P2: a group band follows the window row. Its title renames; Open,
+// first in the strip, opens the group.
+describe('the group title renames, and Open opens', () => {
+  const stripOf = (groupName: string) => {
+    const strip = screen
+      .getByRole('group', { name: groupName })
+      .querySelector('[data-group-drag-handle] > [data-row-actions]');
+    if (!(strip instanceof HTMLElement)) throw new Error('no action strip');
+    return strip;
+  };
+
+  test('a title click edits, and creates no tab', async () => {
+    const user = userEvent.setup();
+    const { chrome } = await renderRow();
+
+    await user.click(screen.getByText('Research'));
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(chrome.createdTabs).toEqual([]);
+    expect(
+      screen.getByRole('textbox', { name: 'Rename group: Research' })
+    ).toHaveValue('Research');
+  });
+
+  test('the strip is Open, then Add current tab to group, then ⋮', async () => {
+    await renderRow();
+
+    expect(
+      within(stripOf('Research'))
+        .getAllByRole('button')
+        .map((b) => b.getAttribute('aria-label'))
+    ).toEqual([
+      'Open group: Research',
+      'Add current tab to group',
+      'More actions',
+    ]);
+  });
+
+  test('Open creates a tab per member, then re-forms the group', async () => {
+    const user = userEvent.setup();
+    const { chrome } = await renderRow();
+
+    await user.click(
+      within(stripOf('Research')).getByRole('button', {
+        name: 'Open group: Research',
+      })
+    );
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(chrome.createdTabs.map((t) => t.url)).toEqual([
+      'https://b.co',
+      'https://c.co',
+    ]);
+    expect(chrome.groupedTabs).toHaveLength(1);
+    const grouped = await Promise.all(
+      chrome.groupedTabs[0].tabIds.map((id) => globalThis.chrome.tabs.get(id))
+    );
+    expect(grouped.map((t) => t.url)).toEqual(['https://b.co', 'https://c.co']);
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+  });
+
+  test('while searching: no Open, and the title still renames', async () => {
+    const user = userEvent.setup();
+    const { container } = await renderRow({ isSearching: true });
+    // By attribute, not role: a role query skips aria-hidden nodes.
+    expect(
+      container.querySelectorAll('[aria-label^="Open group"]')
+    ).toHaveLength(0);
+
+    await user.click(screen.getByText('Research'));
+
+    expect(
+      screen.getByRole('textbox', { name: 'Rename group: Research' })
+    ).toBeInTheDocument();
+  });
+
+  test('CONTROL: not searching, the same query finds Open', async () => {
+    const { container } = await renderRow();
+
+    expect(
+      container.querySelectorAll('[aria-label^="Open group"]')
+    ).toHaveLength(1);
   });
 });

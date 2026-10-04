@@ -1464,9 +1464,7 @@ describe('a carry’s room follows the session it shows', () => {
   });
 });
 
-// KAN-394 D1. The carried window's phantom is drawn first in the session on
-// screen, but it is not one of that session's windows: the real ones keep
-// their numbers for the whole carry.
+// KAN-394 D1. The phantom is not one of the session's windows, so it takes no number.
 describe('window labels while a window is carried', () => {
   const unnamedS2 = () => {
     const base = s2();
@@ -1475,15 +1473,16 @@ describe('window labels while a window is carried', () => {
       windows: base.windows.map((w) => ({ ...w, title: '' })),
     };
   };
-  // The real windows' labels; the phantom draws its own title.
+  // The real windows' labels, from their titles; the phantom draws its own.
   const labels = () =>
     ['d1', 'd2'].map(
       (id) =>
         document
           .querySelector(
-            `[data-drop-window-id="${id}"] button[title="Open in new window"]`
+            `[data-drop-window-id="${id}"] button[aria-label^="Rename window: "]`
           )
           ?.getAttribute('aria-label')
+          ?.replace('Rename window: ', '')
     );
 
   test('the phantom window is left out of the numbering', async () => {

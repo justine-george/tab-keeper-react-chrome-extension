@@ -1,5 +1,5 @@
-import { describe, expect, test } from 'vitest';
-import { screen, within, fireEvent } from '@testing-library/react';
+import { describe, expect, test, vi } from 'vitest';
+import { act, screen, within, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import WindowEntryContainer from '../../components/home/rightpane/WindowEntryContainer';
@@ -25,6 +25,7 @@ async function renderWindow(
   props: {
     tabs: tabData[];
     chromeTabGroups?: chromeTabGroupData[];
+    onOpenWindow?: () => void;
   },
   { hasTabGroupsPermission = true }: { hasTabGroupsPermission?: boolean } = {}
 ) {
@@ -34,7 +35,7 @@ async function renderWindow(
       title="Window 1"
       tabGroupId="tg1"
       windowId="w1"
-      onWindowTitleClick={() => undefined}
+      onOpenWindow={() => undefined}
       onUpdateWindowGroupTitle={() => undefined}
       onAddCurrTabToWindowClick={() => undefined}
       onDeleteClick={() => undefined}
@@ -244,30 +245,28 @@ describe('WindowEntryContainer gates tab groups on the live permission', () => {
   });
 });
 
-// The window rename's tick predates the session and group ones. It works in
-// real Chrome -- verified by driving the built artifact -- but jsdom retargets
-// the post-blur click differently, so without preventDefault on mousedown the
-// commit closes the editor and the click then reopens it via the pencil that
-// took the tick's place. Pinned here so all three ticks behave identically and
-// none of them depends on that environment difference.
+// The tick commits, and its click reaches nothing that replaced it (window-rows.spec covers Chrome).
 describe('finishing a window rename', () => {
   test('the tick commits and leaves the editor closed', async () => {
     const user = userEvent.setup();
+    const onOpenWindow = vi.fn();
     const { store } = await renderWindow({
       tabs: [
         { tabId: 't1', favicon: '', title: 'Inbox', url: 'https://a.test' },
       ],
+      onOpenWindow,
     });
 
     await user.click(
-      screen.getByRole('button', { name: 'Rename window group' })
+      screen.getByRole('button', { name: 'Rename window: Window 1' })
     );
     await user.click(screen.getByRole('button', { name: 'Save changes' }));
 
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
     expect(
-      screen.getByRole('button', { name: 'Rename window group' })
+      screen.getByRole('button', { name: 'Rename window: Window 1' })
     ).toBeInTheDocument();
+    expect(onOpenWindow).not.toHaveBeenCalled();
     expect(store).toBeDefined();
   });
 });
@@ -294,7 +293,7 @@ describe('the window title editor', () => {
       ],
     });
     await user.click(
-      screen.getByRole('button', { name: 'Rename window group' })
+      screen.getByRole('button', { name: 'Rename window: Window 1' })
     );
     return screen.getByRole('textbox');
   };
@@ -365,7 +364,9 @@ describe('the window title editor', () => {
       ],
     });
 
-    const title = screen.getByRole('button', { name: 'Window 1' });
+    const title = screen.getByRole('button', {
+      name: 'Rename window: Window 1',
+    });
 
     expect(getComputedStyle(title).paddingRight).toBe('9px');
   });
@@ -392,7 +393,7 @@ describe('the window label', () => {
         tabs={[
           { tabId: 't1', favicon: '', title: 'Inbox', url: 'https://a.test' },
         ]}
-        onWindowTitleClick={() => undefined}
+        onOpenWindow={() => undefined}
         onUpdateWindowGroupTitle={() => undefined}
         onAddCurrTabToWindowClick={() => undefined}
         onDeleteClick={() => undefined}
@@ -407,7 +408,9 @@ describe('the window label', () => {
   test('an unnamed window reads "Window 2" in LABEL_L2', async () => {
     await renderLabelled('');
 
-    const title = screen.getByRole('button', { name: 'Window 2' });
+    const title = screen.getByRole('button', {
+      name: 'Rename window: Window 2',
+    });
     expect(getComputedStyle(within(title).getByText('Window 2')).color).toMatch(
       asWritten(LIGHT_THEME.LABEL_L2_COLOR)
     );
@@ -417,24 +420,29 @@ describe('the window label', () => {
     await renderLabelled('   ');
 
     expect(
-      screen.getByRole('button', { name: 'Window 2' })
+      screen.getByRole('button', { name: 'Rename window: Window 2' })
     ).toBeInTheDocument();
   });
 
   test('a named window reads its title in TEXT_COLOR', async () => {
     await renderLabelled('Research');
 
-    const title = screen.getByRole('button', { name: 'Research' });
+    const title = screen.getByRole('button', {
+      name: 'Rename window: Research',
+    });
     expect(getComputedStyle(within(title).getByText('Research')).color).toMatch(
       asWritten(LIGHT_THEME.TEXT_COLOR)
     );
     expect(screen.queryByText('Window 2')).toBeNull();
   });
 
-  test('while searching, the static label is muted the same way', async () => {
+  // R7: searching, the title is still the rename button.
+  test('while searching, the label is muted the same way', async () => {
     await renderLabelled('', { searching: true });
 
-    expect(screen.queryByRole('button', { name: 'Window 2' })).toBeNull();
+    expect(
+      screen.getByRole('button', { name: 'Rename window: Window 2' })
+    ).toBeInTheDocument();
     expect(getComputedStyle(screen.getByText('Window 2')).color).toMatch(
       asWritten(LIGHT_THEME.LABEL_L2_COLOR)
     );
@@ -446,5 +454,234 @@ describe('the window label', () => {
     expect(
       screen.getByRole('button', { name: 'Collapse: Window 2', expanded: true })
     ).toBeInTheDocument();
+  });
+});
+
+// KAN-394 P2. The title renames the window; the Open button opens it.
+describe('the title renames, Open opens', () => {
+  const renderRow = (
+    title: string,
+    { searching = false }: { searching?: boolean } = {}
+  ) => {
+    const onOpenWindow = vi.fn();
+    const onUpdateWindowGroupTitle = vi.fn();
+    const rendered = renderWithProviders(
+      <WindowEntryContainer
+        number={2}
+        title={title}
+        tabGroupId="tg1"
+        windowId="w2"
+        tabs={[
+          { tabId: 't1', favicon: '', title: 'Inbox', url: 'https://a.test' },
+        ]}
+        onOpenWindow={onOpenWindow}
+        onUpdateWindowGroupTitle={onUpdateWindowGroupTitle}
+        onAddCurrTabToWindowClick={() => undefined}
+        onDeleteClick={() => undefined}
+      />,
+      {
+        seedStore: (store) => {
+          if (searching) store.dispatch(setSearchInputText('inbox'));
+        },
+      }
+    );
+    return { rendered, onOpenWindow, onUpdateWindowGroupTitle };
+  };
+
+  test('a title click opens the editor and never opens the window', async () => {
+    const user = userEvent.setup();
+    const { rendered, onOpenWindow } = renderRow('Research');
+    await rendered;
+
+    await user.click(
+      screen.getByRole('button', { name: 'Rename window: Research' })
+    );
+
+    expect(screen.getByRole('textbox')).toHaveValue('Research');
+    expect(onOpenWindow).not.toHaveBeenCalled();
+  });
+
+  test('Open opens the window, once, and is named by the label (2.5.3)', async () => {
+    const user = userEvent.setup();
+    const { rendered, onOpenWindow } = renderRow('');
+    await rendered;
+
+    const open = screen.getByRole('button', {
+      name: 'Open in new window: Window 2',
+    });
+    expect(open).toHaveTextContent('Open');
+    expect(open).toHaveAttribute('title', 'Open in new window');
+    await user.click(open);
+
+    expect(onOpenWindow).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('textbox')).toBeNull();
+  });
+
+  test('no control is named "Rename window group"', async () => {
+    await renderRow('Research').rendered;
+
+    expect(screen.queryAllByLabelText(/Rename window group/)).toEqual([]);
+    // CONTROL: the query finds the rename name it replaced.
+    expect(screen.queryAllByLabelText(/Rename window/)).toHaveLength(1);
+  });
+
+  test('while searching the title still renames, and there is no Open', async () => {
+    const user = userEvent.setup();
+    const { rendered, onOpenWindow } = renderRow('Research', {
+      searching: true,
+    });
+    await rendered;
+
+    expect(
+      screen.queryAllByRole('button', { name: /Open in new window/ })
+    ).toEqual([]);
+    await user.click(
+      screen.getByRole('button', { name: 'Rename window: Research' })
+    );
+    expect(screen.getByRole('textbox')).toHaveValue('Research');
+    expect(onOpenWindow).not.toHaveBeenCalled();
+  });
+
+  test('CONTROL: not searching, Open is there', async () => {
+    await renderRow('Research').rendered;
+
+    expect(
+      screen.getAllByRole('button', { name: /Open in new window/ })
+    ).toHaveLength(1);
+  });
+
+  test('Esc cancels: nothing is committed, and the title is back', async () => {
+    const user = userEvent.setup();
+    const { rendered, onUpdateWindowGroupTitle } = renderRow('Research');
+    await rendered;
+
+    await user.click(
+      screen.getByRole('button', { name: 'Rename window: Research' })
+    );
+    await user.clear(screen.getByRole('textbox'));
+    await user.type(screen.getByRole('textbox'), 'Elsewhere{Escape}');
+
+    expect(screen.queryByRole('textbox')).toBeNull();
+    expect(
+      screen.getByRole('button', { name: 'Rename window: Research' })
+    ).toBeInTheDocument();
+    expect(onUpdateWindowGroupTitle).not.toHaveBeenCalled();
+  });
+
+  // A blur in the same batch as the Esc still sees the open editor; the ref stops it.
+  test('a blur that lands before the cancel renders commits nothing', async () => {
+    const user = userEvent.setup();
+    const { rendered, onUpdateWindowGroupTitle } = renderRow('Research');
+    await rendered;
+    await user.click(
+      screen.getByRole('button', { name: 'Rename window: Research' })
+    );
+    await user.type(screen.getByRole('textbox'), ' notes');
+    const input = screen.getByRole('textbox');
+
+    act(() => {
+      fireEvent.keyDown(input, { key: 'Escape' });
+      fireEvent.blur(input);
+    });
+
+    expect(screen.queryByRole('textbox')).toBeNull();
+    expect(onUpdateWindowGroupTitle).not.toHaveBeenCalled();
+  });
+
+  test('an Esc that ends an IME composition leaves the editor open', async () => {
+    const user = userEvent.setup();
+    const { rendered, onUpdateWindowGroupTitle } = renderRow('Research');
+    await rendered;
+    await user.click(
+      screen.getByRole('button', { name: 'Rename window: Research' })
+    );
+
+    fireEvent.keyDown(screen.getByRole('textbox'), {
+      key: 'Escape',
+      isComposing: true,
+    });
+
+    expect(screen.getByRole('textbox')).toBeInTheDocument();
+    expect(onUpdateWindowGroupTitle).not.toHaveBeenCalled();
+  });
+
+  test('an Enter that ends an IME composition commits nothing', async () => {
+    const user = userEvent.setup();
+    const { rendered, onUpdateWindowGroupTitle } = renderRow('Research');
+    await rendered;
+    await user.click(
+      screen.getByRole('button', { name: 'Rename window: Research' })
+    );
+    await user.type(screen.getByRole('textbox'), ' notes');
+
+    fireEvent.keyDown(screen.getByRole('textbox'), {
+      key: 'Enter',
+      isComposing: true,
+    });
+
+    expect(screen.getByRole('textbox')).toHaveValue('Research notes');
+    expect(onUpdateWindowGroupTitle).not.toHaveBeenCalled();
+  });
+
+  test('Enter on an empty field over a named window commits ""', async () => {
+    const user = userEvent.setup();
+    const { rendered, onUpdateWindowGroupTitle } = renderRow('Research');
+    await rendered;
+
+    await user.click(
+      screen.getByRole('button', { name: 'Rename window: Research' })
+    );
+    await user.clear(screen.getByRole('textbox'));
+    await user.keyboard('{Enter}');
+
+    expect(onUpdateWindowGroupTitle).toHaveBeenCalledExactlyOnceWith('');
+  });
+
+  test('an unnamed window opens an empty field with "Name this window" as its placeholder', async () => {
+    const user = userEvent.setup();
+    await renderRow('').rendered;
+
+    await user.click(
+      screen.getByRole('button', { name: 'Rename window: Window 2' })
+    );
+
+    expect(screen.getByRole('textbox')).toHaveValue('');
+    expect(screen.getByRole('textbox')).toHaveAttribute(
+      'placeholder',
+      'Name this window'
+    );
+  });
+
+  test('a window stored as whitespace opens an empty field, not the spaces (D2, R5)', async () => {
+    const user = userEvent.setup();
+    await renderRow('   ').rendered;
+
+    await user.click(
+      screen.getByRole('button', { name: 'Rename window: Window 2' })
+    );
+
+    expect(screen.getByRole('textbox')).toHaveValue('');
+    expect(screen.getByRole('textbox')).toHaveAttribute(
+      'placeholder',
+      'Name this window'
+    );
+  });
+
+  test('a cleared named window shows "Name this window", never its name', async () => {
+    const user = userEvent.setup();
+    await renderRow('Research').rendered;
+
+    await user.click(
+      screen.getByRole('button', { name: 'Rename window: Research' })
+    );
+
+    expect(screen.getByRole('textbox')).toHaveValue('Research');
+    await user.clear(screen.getByRole('textbox'));
+
+    expect(screen.getByRole('textbox')).toHaveValue('');
+    expect(screen.getByRole('textbox')).toHaveAttribute(
+      'placeholder',
+      'Name this window'
+    );
   });
 });

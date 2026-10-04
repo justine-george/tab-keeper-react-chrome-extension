@@ -5,6 +5,7 @@ import { css } from '@emotion/react';
 import { useFontFamily } from '../../hooks/useFontFamily';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { CONTROL, TYPE } from '../../styles/scale';
+import { placeholderStyle } from '../../styles/placeholder';
 
 interface TextBoxProps {
   id: string;
@@ -50,9 +51,7 @@ const TextBox: React.FC<TextBoxProps> = ({
     font-family: ${FONT_FAMILY};
     font-size: ${TYPE.BODY};
     color: ${COLORS.LABEL_L1_COLOR};
-    &::placeholder {
-      color: ${COLORS.LABEL_L3_COLOR};
-    }
+    ${placeholderStyle(COLORS.PLACEHOLDER_COLOR)}
     &:focus {
       outline: none;
     }

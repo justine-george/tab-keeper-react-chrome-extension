@@ -1,7 +1,15 @@
 import type { BrowserContext, Locator, Page } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
+import { grantedTest } from './fixtures/grantedExtension';
 import { saveRowMenu } from './fixtures/menus';
+import {
+  bandHandle,
+  groupedWindow,
+  openSaved,
+  savedWindow,
+  session,
+} from './fixtures/savedWindows';
 import { buildContainer, buildSession, seedSessions } from './fixtures/seed';
 
 // KAN-76. Every assertion here reads the cursor from the element that is
@@ -235,5 +243,186 @@ test.describe('clickable controls show a pointer over their icon (KAN-76)', () =
     await expect(decorative).toHaveText(/^cloud_(done|off)$/);
 
     expect(await cursorAtCentreOf(page, decorative)).not.toBe('pointer');
+  });
+});
+
+// KAN-394 R2. A window title renames on click, so it shows a text caret, named
+// or not; Open beside it is a button and shows a pointer.
+test.describe('a saved window title shows a text caret (KAN-394)', () => {
+  const WINDOWS = buildSession({
+    tabGroupId: 'session-windows',
+    title: 'Windows',
+    windowCount: 2,
+    tabCount: 2,
+    windows: [
+      savedWindow('w1', 'Reading list', 1, { width: 800, height: 600 }),
+      savedWindow('w2', '', 1, { width: 800, height: 600 }),
+    ],
+  });
+
+  const header = (page: Page, id: string) =>
+    page.locator(
+      `[data-pane="detail"] [data-drag-row-id="${id}"] [data-window-drag-handle]`
+    );
+  // The title's text, inside the header button that shows it.
+  const titleText = (page: Page, id: string, label: string) =>
+    header(page, id)
+      .locator('button', { hasText: label })
+      .getByText(label, { exact: true });
+
+  const openWindows = async (context: BrowserContext, extensionId: string) => {
+    await seedSessions(context, buildContainer([WINDOWS]));
+    const page = await context.newPage();
+    await page.goto(`chrome-extension://${extensionId}/index.html`);
+    await expect(header(page, 'w1')).toBeVisible();
+    return page;
+  };
+
+  test('a named title shows a text caret', async ({ context, extensionId }) => {
+    const page = await openWindows(context, extensionId);
+    const text = titleText(page, 'w1', 'Reading list');
+    await text.hover();
+
+    expect(await cursorAtCentreOf(page, text)).toBe('text');
+  });
+
+  test('an unnamed title ("Window 2") shows a text caret', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openWindows(context, extensionId);
+    const text = titleText(page, 'w2', 'Window 2');
+    await text.hover();
+
+    expect(await cursorAtCentreOf(page, text)).toBe('text');
+  });
+
+  test('CONTROL: the Open button beside it shows a pointer', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openWindows(context, extensionId);
+    await header(page, 'w1').hover();
+    const open = header(page, 'w1').getByRole('button', {
+      name: 'Open in new window: Reading list',
+      exact: true,
+    });
+
+    expect(await cursorAtCentreOf(page, open)).toBe('pointer');
+  });
+});
+
+// KAN-394 Task 9. A group band's title renames on click, as a window's does,
+// so it shows a text caret, named or not; Open beside it shows a pointer.
+grantedTest.describe('a group band title shows a text caret (KAN-394)', () => {
+  const GROUPED = session('S1', 'Grouped', [
+    groupedWindow('gw', 'Grouped', [
+      { groupId: 'gr', title: 'Research', color: 'blue' },
+      { groupId: 'gu', title: '', color: 'red' },
+    ]),
+  ]);
+  const titleText = (page: Page, groupId: string, label: string) =>
+    bandHandle(page, groupId)
+      .locator('button', { hasText: label })
+      .getByText(label, { exact: true });
+
+  for (const [groupId, label] of [
+    ['gr', 'Research'],
+    ['gu', 'Unnamed group'],
+  ]) {
+    grantedTest(
+      `"${label}" shows a text caret`,
+      async ({ context, extensionId }) => {
+        const page = await openSaved(context, extensionId, 'popup', {
+          sessions: [GROUPED],
+        });
+        const text = titleText(page, groupId, label);
+        await text.hover();
+
+        expect(await cursorAtCentreOf(page, text)).toBe('text');
+      }
+    );
+  }
+
+  grantedTest(
+    'CONTROL: the Open button beside it shows a pointer',
+    async ({ context, extensionId }) => {
+      const page = await openSaved(context, extensionId, 'popup', {
+        sessions: [GROUPED],
+      });
+      await bandHandle(page, 'gr').hover();
+      const open = bandHandle(page, 'gr').getByRole('button', {
+        name: 'Open group: Research',
+        exact: true,
+      });
+
+      expect(await cursorAtCentreOf(page, open)).toBe('pointer');
+    }
+  );
+});
+
+// KAN-394 Task 10. The session header's title renames on click, as the window
+// and group titles do, so it shows a text caret; its pencil shows a pointer.
+test.describe('the session header title shows a text caret (KAN-394)', () => {
+  const SESSION = buildSession({
+    tabGroupId: 'session-header',
+    title: 'Header session',
+    windowCount: 1,
+    tabCount: 1,
+    windows: [
+      {
+        windowId: 'hw',
+        windowHeight: 600,
+        windowWidth: 800,
+        windowOffsetTop: 0,
+        windowOffsetLeft: 0,
+        tabCount: 1,
+        title: 'Only window',
+        tabs: [
+          {
+            tabId: 'hw-t0',
+            favicon: '',
+            title: 'Page',
+            url: 'https://hw.test/',
+          },
+        ],
+      },
+    ],
+  });
+  const openHeader = async (context: BrowserContext, extensionId: string) => {
+    await seedSessions(context, buildContainer([SESSION]));
+    const page = await context.newPage();
+    await page.goto(`chrome-extension://${extensionId}/index.html`);
+    const rename = page.getByRole('button', {
+      name: 'Rename session: Header session',
+      exact: true,
+    });
+    await expect(rename).toBeVisible();
+    return { page, rename };
+  };
+
+  test('the title text shows a text caret', async ({
+    context,
+    extensionId,
+  }) => {
+    const { page, rename } = await openHeader(context, extensionId);
+    const text = rename.getByText('Header session', { exact: true });
+    await text.hover();
+
+    expect(await cursorAtCentreOf(page, text)).toBe('text');
+  });
+
+  test('CONTROL: the pencil beside it shows a pointer', async ({
+    context,
+    extensionId,
+  }) => {
+    const { page, rename } = await openHeader(context, extensionId);
+    await rename.hover();
+    const pencil = page.getByRole('button', {
+      name: 'Rename session',
+      exact: true,
+    });
+
+    expect(await cursorAtCentreOf(page, glyphOf(pencil))).toBe('pointer');
   });
 });

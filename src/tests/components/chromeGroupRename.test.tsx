@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { screen, within } from '@testing-library/react';
+import { act, fireEvent, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import WindowEntryContainer from '../../components/home/rightpane/WindowEntryContainer';
@@ -53,7 +53,7 @@ async function renderWindow(
       windowId="w1"
       tabs={GROUPED_TABS}
       chromeTabGroups={chromeTabGroups}
-      onWindowTitleClick={() => undefined}
+      onOpenWindow={() => undefined}
       onUpdateWindowGroupTitle={() => undefined}
       onAddCurrTabToWindowClick={() => undefined}
       onDeleteClick={() => undefined}
@@ -136,16 +136,15 @@ describe('the rename control', () => {
   // WCAG 2.5.3, the same shape KAN-77 established for the session rename: the
   // accessible name has to CONTAIN the visible one, or a voice-control user
   // saying "click Research" has nothing to hit.
-  // The ROW opens the group now (KAN-121); the pencil is the only way to
-  // rename. Both are still named so that a voice-control user can say either.
-  test('the row is named for opening, the pencil for renaming', async () => {
+  // The title renames and Open opens (KAN-394); both name the group.
+  test('the title is named for renaming, Open for opening', async () => {
     await renderWindow([{ groupId: 'g1', title: 'Research', color: 'blue' }]);
 
     expect(
       screen.getByRole('button', { name: 'Open group: Research' })
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('button', { name: 'Rename group' })
+      screen.getByRole('button', { name: 'Rename group: Research' })
     ).toBeInTheDocument();
   });
 
@@ -156,7 +155,7 @@ describe('the rename control', () => {
       screen.getByRole('button', { name: 'Open group: Unnamed group' })
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('button', { name: 'Rename group' })
+      screen.getByRole('button', { name: 'Rename group: Unnamed group' })
     ).toBeInTheDocument();
   });
 
@@ -168,14 +167,15 @@ describe('the rename control', () => {
     ).toBeInTheDocument();
   });
 
-  // KAN-68: the hover reveal must have a keyboard equivalent, so the icon is
-  // a real tab stop rather than something only a pointer can reach.
-  test('the edit icon is reachable by keyboard', async () => {
+  // KAN-68: renaming is reachable by keyboard; the title is a real tab stop.
+  test('the rename control is reachable by keyboard', async () => {
     await renderWindow([{ groupId: 'g1', title: 'Research', color: 'blue' }]);
 
-    const icon = screen.getByRole('button', { name: 'Rename group' });
-    icon.focus();
-    expect(icon).toHaveFocus();
+    const title = screen.getByRole('button', {
+      name: 'Rename group: Research',
+    });
+    title.focus();
+    expect(title).toHaveFocus();
   });
 });
 
@@ -186,7 +186,9 @@ describe('committing a rename', () => {
       { groupId: 'g1', title: 'Research', color: 'blue' },
     ]);
 
-    await user.click(screen.getByRole('button', { name: 'Rename group' }));
+    await user.click(
+      screen.getByRole('button', { name: 'Rename group: Research' })
+    );
     const input = screen.getByRole('textbox', {
       name: 'Rename group: Research',
     });
@@ -202,7 +204,9 @@ describe('committing a rename', () => {
       { groupId: 'g1', title: '', color: 'orange' },
     ]);
 
-    await user.click(screen.getByRole('button', { name: 'Rename group' }));
+    await user.click(
+      screen.getByRole('button', { name: 'Rename group: Unnamed group' })
+    );
     await user.type(
       screen.getByRole('textbox', { name: 'Rename group: Unnamed group' }),
       'Research{Enter}'
@@ -217,7 +221,9 @@ describe('committing a rename', () => {
       { groupId: 'g1', title: 'Research', color: 'blue' },
     ]);
 
-    await user.click(screen.getByRole('button', { name: 'Rename group' }));
+    await user.click(
+      screen.getByRole('button', { name: 'Rename group: Research' })
+    );
     const input = screen.getByRole('textbox', {
       name: 'Rename group: Research',
     });
@@ -233,7 +239,9 @@ describe('committing a rename', () => {
       { groupId: 'g1', title: 'Research', color: 'blue' },
     ]);
 
-    await user.click(screen.getByRole('button', { name: 'Rename group' }));
+    await user.click(
+      screen.getByRole('button', { name: 'Rename group: Research' })
+    );
     const input = screen.getByRole('textbox', {
       name: 'Rename group: Research',
     });
@@ -248,7 +256,9 @@ describe('committing a rename', () => {
     const user = userEvent.setup();
     await renderWindow([{ groupId: 'g1', title: 'Research', color: 'blue' }]);
 
-    await user.click(screen.getByRole('button', { name: 'Rename group' }));
+    await user.click(
+      screen.getByRole('button', { name: 'Rename group: Research' })
+    );
 
     expect(
       screen.getByRole('textbox', { name: 'Rename group: Research' })
@@ -257,15 +267,15 @@ describe('committing a rename', () => {
 });
 
 describe('while searching', () => {
-  // Renaming is not a whole-item action, so it stays while searching; the
-  // title stays a label because opening the group is hidden.
-  test('keeps the rename control, and the title is not a button', async () => {
+  // Renaming is not a whole-item action, so the title stays the rename
+  // control while searching (R7); opening the group is hidden.
+  test('keeps the rename control, and offers no Open', async () => {
     await renderWindow([{ groupId: 'g1', title: 'Research', color: 'blue' }], {
       isSearching: true,
     });
 
     expect(
-      screen.getByRole('button', { name: 'Rename group' })
+      screen.getByRole('button', { name: 'Rename group: Research' })
     ).toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: /Open group/ })
@@ -286,7 +296,9 @@ describe('finishing a group rename', () => {
     const user = userEvent.setup();
     await renderWindow([{ groupId: 'g1', title: 'Research', color: 'blue' }]);
 
-    await user.click(screen.getByRole('button', { name: 'Rename group' }));
+    await user.click(
+      screen.getByRole('button', { name: 'Rename group: Research' })
+    );
 
     expect(
       screen.getByRole('button', { name: 'Save changes' })
@@ -308,7 +320,9 @@ describe('finishing a group rename', () => {
       { groupId: 'g1', title: 'Research', color: 'blue' },
     ]);
 
-    await user.click(screen.getByRole('button', { name: 'Rename group' }));
+    await user.click(
+      screen.getByRole('button', { name: 'Rename group: Research' })
+    );
     const input = screen.getByRole('textbox', {
       name: 'Rename group: Research',
     });
@@ -325,12 +339,14 @@ describe('finishing a group rename', () => {
     const user = userEvent.setup();
     await renderWindow([{ groupId: 'g1', title: 'Research', color: 'blue' }]);
 
-    await user.click(screen.getByRole('button', { name: 'Rename group' }));
+    await user.click(
+      screen.getByRole('button', { name: 'Rename group: Research' })
+    );
     await user.click(screen.getByRole('button', { name: 'Save changes' }));
 
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
     expect(
-      screen.getByRole('button', { name: 'Rename group' })
+      screen.getByRole('button', { name: 'Rename group: Research' })
     ).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: 'More actions' })
@@ -338,13 +354,9 @@ describe('finishing a group rename', () => {
   });
 });
 
-// Pins preventDefault specifically. The wrapper alone is what stops the editor
-// reopening -- measured by removing each in turn -- so the behavioural tests
-// above pass with or without preventDefault. Its job is different: keeping
-// focus in the input means onClick is the single commit path instead of racing
-// a blur. Asserted at the mechanism, because that is the only place it shows.
+// Pins preventDefault: focus stays in the input, so onClick is the one commit path, not a race with blur.
 describe('the confirm tick does not blur the field it commits', () => {
-  test.each([['group', 'Rename group']])(
+  test.each([['group', 'Rename group: Research']])(
     '%s tick prevents the default mousedown',
     async (_label, opener) => {
       const user = userEvent.setup();
@@ -376,7 +388,9 @@ describe('the group rename editor fills its row', () => {
   const openEditor = async () => {
     const user = userEvent.setup();
     await renderWindow([{ groupId: 'g1', title: 'Research', color: 'blue' }]);
-    await user.click(screen.getByRole('button', { name: 'Rename group' }));
+    await user.click(
+      screen.getByRole('button', { name: 'Rename group: Research' })
+    );
     return screen.getByRole('textbox', { name: 'Rename group: Research' });
   };
 
@@ -437,11 +451,103 @@ describe('the group title size', () => {
     await renderWindow([{ groupId: 'g1', title: 'Research', color: 'blue' }]);
 
     const labelSize = getComputedStyle(screen.getByText('Research')).fontSize;
-    await user.click(screen.getByRole('button', { name: 'Rename group' }));
+    await user.click(
+      screen.getByRole('button', { name: 'Rename group: Research' })
+    );
     const input = screen.getByRole('textbox', {
       name: 'Rename group: Research',
     });
 
     expect(getComputedStyle(input).fontSize).toBe(labelSize);
+  });
+});
+
+// KAN-394 D13 and the placeholder: the group field behaves as the window's does.
+describe('the group field: Esc, IME and its placeholder', () => {
+  const openField = async (title: string) => {
+    const user = userEvent.setup();
+    const rendered = await renderWindow([
+      { groupId: 'g1', title, color: 'blue' },
+    ]);
+    await user.click(screen.getByText(title || 'Unnamed group'));
+    return { user, ...rendered };
+  };
+
+  test('Esc cancels: nothing is stored, and the title is back', async () => {
+    const { user, store } = await openField('Research');
+    const input = screen.getByRole('textbox', {
+      name: 'Rename group: Research',
+    });
+    await user.clear(input);
+    await user.type(input, 'Elsewhere{Escape}');
+
+    expect(screen.queryByRole('textbox')).toBeNull();
+    expect(
+      screen.getByRole('button', { name: 'Rename group: Research' })
+    ).toBeInTheDocument();
+    expect(storedGroupTitle(store)).toBe('Research');
+  });
+
+  // A blur in the same batch as the Esc still sees the open editor; the ref stops it.
+  test('a blur that lands before the cancel renders commits nothing', async () => {
+    const { user, store } = await openField('Research');
+    const input = screen.getByRole('textbox', {
+      name: 'Rename group: Research',
+    });
+    await user.type(input, ' notes');
+
+    act(() => {
+      fireEvent.keyDown(input, { key: 'Escape' });
+      fireEvent.blur(input);
+    });
+
+    expect(screen.queryByRole('textbox')).toBeNull();
+    expect(storedGroupTitle(store)).toBe('Research');
+  });
+
+  test('an Esc that ends an IME composition leaves the editor open', async () => {
+    const { store } = await openField('Research');
+
+    fireEvent.keyDown(screen.getByRole('textbox'), {
+      key: 'Escape',
+      isComposing: true,
+    });
+
+    expect(screen.getByRole('textbox')).toBeInTheDocument();
+    expect(storedGroupTitle(store)).toBe('Research');
+  });
+
+  test('an Enter that ends an IME composition commits nothing', async () => {
+    const { user, store } = await openField('Research');
+    await user.type(screen.getByRole('textbox'), ' notes');
+
+    fireEvent.keyDown(screen.getByRole('textbox'), {
+      key: 'Enter',
+      isComposing: true,
+    });
+
+    expect(screen.getByRole('textbox')).toHaveValue('Research notes');
+    expect(storedGroupTitle(store)).toBe('Research');
+  });
+
+  test('a cleared named group\'s field prompts "Name this group", not its name', async () => {
+    const { user } = await openField('Research');
+    const input = screen.getByRole('textbox', {
+      name: 'Rename group: Research',
+    });
+    await user.clear(input);
+
+    expect(input).toHaveValue('');
+    expect(input).toHaveAttribute('placeholder', 'Name this group');
+  });
+
+  test('an unnamed group\'s field is empty, prompting "Name this group"', async () => {
+    await openField('');
+    const input = screen.getByRole('textbox', {
+      name: 'Rename group: Unnamed group',
+    });
+
+    expect(input).toHaveValue('');
+    expect(input).toHaveAttribute('placeholder', 'Name this group');
   });
 });

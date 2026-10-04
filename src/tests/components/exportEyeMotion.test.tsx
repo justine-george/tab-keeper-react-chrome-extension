@@ -107,7 +107,7 @@ describe('hiding dims the row, never its eye (KAN-222)', () => {
 
     await user.click(eye('Food'));
 
-    expect(drawnAt(field('Rename window group: Food'))).toBe(0.45);
+    expect(drawnAt(field('Rename window: Food'))).toBe(0.45);
     expect(drawnAt(field('Rename tab: Nishiki Market'))).toBe(0.45);
     expect(drawnAt(eye('Food'))).toBe(1);
     expect(drawnAt(eye('Nishiki Market'))).toBe(1);

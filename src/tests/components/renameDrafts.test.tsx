@@ -190,7 +190,9 @@ describe('rename drafts survive the prop moving underneath them (KAN-51)', () =>
       });
 
       await userEvent.click(
-        await screen.findByLabelText('Rename window group')
+        await screen.findByRole('button', {
+          name: 'Rename window: Morning reading',
+        })
       );
 
       expect(screen.getByRole<HTMLInputElement>('textbox').value).toBe(
@@ -221,7 +223,9 @@ describe('rename drafts survive the prop moving underneath them (KAN-51)', () =>
       );
 
       await userEvent.click(
-        await screen.findByLabelText('Rename window group')
+        await screen.findByRole('button', {
+          name: 'Rename window: Morning reading',
+        })
       );
       const input = screen.getByRole<HTMLInputElement>('textbox');
 

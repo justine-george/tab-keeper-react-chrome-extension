@@ -125,8 +125,7 @@ describe('applying export edits (KAN-194)', () => {
     expect(result.windows[1].tabs[1].title).toBe('Tab f');
   });
 
-  // The popup never lets a session or window be blank (KAN-84); a titleless tab
-  // is named by its URL, and an unnamed group is a real Chrome state.
+  // Export edits never blank a session or window (KAN-84), though the popup lets a window go blank; a tab or group can be.
   test('a cleared session or window title keeps its name; a cleared tab or group title is blank', () => {
     const result = applyExportEdits(
       SESSION,

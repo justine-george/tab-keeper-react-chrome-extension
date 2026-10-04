@@ -281,7 +281,7 @@ describe('a tab row marks its action strip for the stylesheet', () => {
         tabGroupId="tg1"
         windowId="w1"
         tabs={TABS}
-        onWindowTitleClick={() => undefined}
+        onOpenWindow={() => undefined}
         onUpdateWindowGroupTitle={() => undefined}
         onAddCurrTabToWindowClick={() => undefined}
         onDeleteClick={() => undefined}
@@ -302,7 +302,7 @@ describe('a tab row marks its action strip for the stylesheet', () => {
         tabGroupId="tg1"
         windowId="w1"
         tabs={TABS}
-        onWindowTitleClick={() => undefined}
+        onOpenWindow={() => undefined}
         onUpdateWindowGroupTitle={() => undefined}
         onAddCurrTabToWindowClick={() => undefined}
         onDeleteClick={() => undefined}

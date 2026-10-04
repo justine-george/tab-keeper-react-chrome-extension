@@ -144,20 +144,20 @@ describe('H1: what hides while searching', () => {
     }
   );
 
-  // A window's title opens it in a new window, so it is shown as text.
-  test('a window title is not a button', async () => {
+  // R7: Open hides; the title stays the rename button.
+  test("a window's Open is absent, and its title still renames", async () => {
     await render(QUERY);
     await screen.findByRole('button', { name: 'Collapse all windows' });
 
-    expect(byName('Morning reading')).toEqual([]);
-    expect(screen.getAllByText('Morning reading').length).toBeGreaterThan(0);
+    expect(byName('Open in new window: Morning reading')).toEqual([]);
+    expect(byName('Rename window: Morning reading')).toHaveLength(1);
   });
 
-  test('CONTROL: a window title is a button when not searching', async () => {
+  test("CONTROL: a window's Open is present when not searching", async () => {
     await render('');
     await screen.findByRole('button', { name: 'Collapse all windows' });
 
-    expect(byName('Morning reading')).toHaveLength(1);
+    expect(byName('Open in new window: Morning reading')).toHaveLength(1);
   });
 
   test('a spaces-only query hides nothing', async () => {
@@ -204,7 +204,9 @@ describe('H2: what stays while searching', () => {
     const { store } = await render(QUERY);
 
     await user.click(
-      (await screen.findAllByRole('button', { name: 'Rename window group' }))[0]
+      await screen.findByRole('button', {
+        name: 'Rename window: Morning reading',
+      })
     );
     const input = screen.getByDisplayValue('Morning reading');
     await user.clear(input);
@@ -218,7 +220,7 @@ describe('H2: what stays while searching', () => {
     const { store } = await render(QUERY);
 
     await user.click(
-      await screen.findByRole('button', { name: 'Rename group' })
+      await screen.findByRole('button', { name: 'Rename group: Reading' })
     );
     const input = screen.getByRole('textbox', { name: /Rename group/ });
     await user.clear(input);
@@ -271,8 +273,8 @@ describe('H2: what stays while searching', () => {
 
     for (const name of [
       'Rename session',
-      'Rename window group',
-      'Rename group',
+      'Rename window: Morning reading',
+      'Rename group: Reading',
       'Collapse all windows',
       'Delete tab',
       'Change group color: Reading',

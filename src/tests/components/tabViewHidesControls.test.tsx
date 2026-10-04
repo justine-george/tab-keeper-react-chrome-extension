@@ -89,7 +89,7 @@ async function renderWindow(props: {
       title="Window 1"
       tabGroupId="tg1"
       windowId="w1"
-      onWindowTitleClick={noop}
+      onOpenWindow={noop}
       onUpdateWindowGroupTitle={noop}
       onAddCurrTabToWindowClick={noop}
       onDeleteClick={noop}

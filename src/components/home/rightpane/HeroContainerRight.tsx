@@ -311,7 +311,7 @@ export default function HeroContainerRight() {
               // visible`, so its `min-width: auto` does NOT collapse to zero
               // the way the bare label's did, and without this the title stops
               // truncating and runs under the action block.
-              style="display: flex; align-items: center; min-width: 0;"
+              style="display: flex; align-items: center; min-width: 0; cursor: text;"
             >
               {titleLabel}
             </ClickableRow>

@@ -215,7 +215,7 @@ describe('Edit mode on the export page (KAN-194)', () => {
     await renderPage();
     await user.click(screen.getByRole('button', { name: 'Edit' }));
 
-    await rename(user, 'Rename window group: Food', 'Where to eat');
+    await rename(user, 'Rename window: Food', 'Where to eat');
     await user.click(
       screen.getByRole('button', { name: 'Hide: Fushimi Inari' })
     );
@@ -451,7 +451,7 @@ describe('a window with no name in the editor (KAN-394)', () => {
     await user.click(screen.getByRole('button', { name: 'Edit' }));
 
     const field = screen.getByRole('textbox', {
-      name: 'Rename window group: Window 2',
+      name: 'Rename window: Window 2',
     });
     expect(field).toHaveProperty('value', '');
     expect(field).toHaveAttribute('placeholder', 'Window 2');
@@ -466,7 +466,7 @@ describe('a window with no name in the editor (KAN-394)', () => {
     await user.click(screen.getByRole('button', { name: 'Edit' }));
 
     const field = screen.getByRole('textbox', {
-      name: 'Rename window group: Trip planning',
+      name: 'Rename window: Trip planning',
     });
     expect(field).toHaveProperty('value', 'Trip planning');
     expect(field).not.toHaveAttribute('placeholder');

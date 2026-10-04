@@ -320,7 +320,7 @@ describe('renaming a Chrome tab group round-trips to the screen', () => {
     });
 
     await user.click(
-      await screen.findByRole('button', { name: 'Rename group' })
+      await screen.findByRole('button', { name: 'Rename group: Unnamed group' })
     );
     await user.type(
       screen.getByRole('textbox', { name: 'Rename group: Unnamed group' }),
@@ -338,7 +338,7 @@ describe('renaming a Chrome tab group round-trips to the screen', () => {
     });
 
     await user.click(
-      await screen.findByRole('button', { name: 'Rename group' })
+      await screen.findByRole('button', { name: 'Rename group: Research' })
     );
     const input = screen.getByRole('textbox', {
       name: 'Rename group: Research',
@@ -395,10 +395,14 @@ describe('unnamed windows are numbered', () => {
     await renderThree();
 
     expect(
-      await screen.findByRole('button', { name: 'Window 1' })
+      await screen.findByRole('button', { name: 'Rename window: Window 1' })
     ).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Window 2' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Window 3' })).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: 'Rename window: Window 2' })
+    ).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: 'Rename window: Window 3' })
+    ).toBeTruthy();
   });
 
   test('a search that hides window 1 leaves window 2 as "Window 2"', async () => {

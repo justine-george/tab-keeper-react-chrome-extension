@@ -385,7 +385,10 @@ test.describe('controls are reachable by keyboard', () => {
     await selectSession(page);
 
     await expect(
-      page.getByRole('button', { name: 'Morning reading', exact: true })
+      page.getByRole('button', {
+        name: 'Rename window: Morning reading',
+        exact: true,
+      })
     ).toHaveCount(1);
     await expect(
       page.getByRole('button', { name: 'Open in new tab: Example Domain' })
@@ -424,7 +427,10 @@ test.describe('controls are reachable by keyboard', () => {
       await page.keyboard.press(key);
 
       await expect(
-        page.getByRole('button', { name: 'Morning reading', exact: true })
+        page.getByRole('button', {
+          name: 'Rename window: Morning reading',
+          exact: true,
+        })
       ).toBeVisible();
     });
   }
@@ -455,7 +461,10 @@ test.describe('controls are reachable by keyboard', () => {
     const page = await openPopup(context, extensionId);
     await selectSession(page);
     await expect(
-      page.getByRole('button', { name: 'Morning reading', exact: true })
+      page.getByRole('button', {
+        name: 'Rename window: Morning reading',
+        exact: true,
+      })
     ).toBeVisible();
 
     const names = await tabOrderNames(page);
@@ -584,7 +593,10 @@ test.describe('controls are reachable by keyboard', () => {
     const page = await openPopup(context, extensionId);
     await selectSession(page);
     await expect(
-      page.getByRole('button', { name: 'Morning reading', exact: true })
+      page.getByRole('button', {
+        name: 'Rename window: Morning reading',
+        exact: true,
+      })
     ).toBeVisible();
 
     await expect(
@@ -602,7 +614,10 @@ test.describe('controls are reachable by keyboard', () => {
     const page = await openPopup(context, extensionId);
     await selectSession(page);
     await expect(
-      page.getByRole('button', { name: 'Morning reading', exact: true })
+      page.getByRole('button', {
+        name: 'Rename window: Morning reading',
+        exact: true,
+      })
     ).toBeVisible();
 
     const names = await tabOrderNames(page);
@@ -628,7 +643,10 @@ test.describe('controls are reachable by keyboard', () => {
       const page = await openPopup(context, extensionId);
       await selectSession(page);
       await expect(
-        page.getByRole('button', { name: 'Morning reading', exact: true })
+        page.getByRole('button', {
+          name: 'Rename window: Morning reading',
+          exact: true,
+        })
       ).toBeVisible();
 
       await page
