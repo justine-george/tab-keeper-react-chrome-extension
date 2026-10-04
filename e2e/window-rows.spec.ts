@@ -457,6 +457,46 @@ test('popup: an unnamed window\'s field is empty, with "Name this window" as its
   );
 });
 
+// The cleared field's prompt is legible on the ground behind it, in every theme.
+for (const [theme, colours] of THEMES) {
+  test(`popup, ${theme}: the rename field's placeholder is PLACEHOLDER_COLOR, at least 4.5:1 on its ground`, async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await open(context, extensionId, 'popup', { theme });
+    await startRename(page, 'w1', NAMED);
+    await editor(page, 'w1').fill('');
+
+    // The first opaque background from the field outwards: what is painted behind it.
+    const measured = await editor(page, 'w1').evaluate((el) => {
+      let ground = '';
+      for (let n: Element | null = el; n; n = n.parentElement) {
+        const bg = getComputedStyle(n).backgroundColor;
+        if (!/rgba\(.*, 0\)$|transparent/.test(bg)) {
+          ground = bg;
+          break;
+        }
+      }
+      return {
+        placeholder: getComputedStyle(el, '::placeholder').color,
+        opacity: getComputedStyle(el, '::placeholder').opacity,
+        ground,
+      };
+    });
+    const placeholder = rgbToHex(measured.placeholder);
+    const ground = rgbToHex(measured.ground);
+    const ratio = contrast(placeholder, ground);
+    console.log(
+      `[${theme}] placeholder ${placeholder} on ground ${ground}: ${ratio.toFixed(
+        2
+      )}:1`
+    );
+    expect(measured.opacity).toBe('1');
+    expect(placeholder).toBe(colours.PLACEHOLDER_COLOR);
+    expect(ratio).toBeGreaterThanOrEqual(4.5);
+  });
+}
+
 // ---- the Open button's look (Task 7's checks, on the built artifact) ---------
 
 for (const [theme, colours] of THEMES) {

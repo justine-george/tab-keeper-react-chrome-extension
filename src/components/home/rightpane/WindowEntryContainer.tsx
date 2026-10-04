@@ -789,6 +789,11 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                     &:focus {
                       outline: none;
                     }
+                    /* Chromium's default grey is under 4.5:1 on every theme. */
+                    &::placeholder {
+                      color: ${COLORS.PLACEHOLDER_COLOR};
+                      opacity: 1;
+                    }
                   `}
                 />
               </div>
