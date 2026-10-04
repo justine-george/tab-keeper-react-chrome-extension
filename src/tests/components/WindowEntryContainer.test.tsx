@@ -4,7 +4,11 @@ import userEvent from '@testing-library/user-event';
 
 import WindowEntryContainer from '../../components/home/rightpane/WindowEntryContainer';
 import { renderWithProviders } from '../setup/renderWithProviders';
-import { setHasTabGroupsPermission } from '../../redux/slices/globalStateSlice';
+import {
+  setHasTabGroupsPermission,
+  setSearchInputText,
+} from '../../redux/slices/globalStateSlice';
+import { LIGHT_THEME } from '../../hooks/useThemeColors';
 import { TAB_GROUP_COLOR_HEX } from '../../utils/functions/tabGroups';
 import type {
   chromeTabGroupData,
@@ -26,6 +30,7 @@ async function renderWindow(
 ) {
   return renderWithProviders(
     <WindowEntryContainer
+      number={1}
       title="Window 1"
       tabGroupId="tg1"
       windowId="w1"
@@ -363,5 +368,83 @@ describe('the window title editor', () => {
     const title = screen.getByRole('button', { name: 'Window 1' });
 
     expect(getComputedStyle(title).paddingRight).toBe('9px');
+  });
+});
+
+// KAN-394. An unnamed window is drawn as "Window N", muted; a name is drawn as text.
+describe('the window label', () => {
+  // A colour as emotion wrote it, or as jsdom normalises it.
+  const asWritten = (hex: string) => {
+    const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+    return new RegExp(`(${hex}|rgb\\(${r}, ?${g}, ?${b}\\))`, 'i');
+  };
+
+  const renderLabelled = (
+    title: string,
+    { searching = false }: { searching?: boolean } = {}
+  ) =>
+    renderWithProviders(
+      <WindowEntryContainer
+        number={2}
+        title={title}
+        tabGroupId="tg1"
+        windowId="w2"
+        tabs={[
+          { tabId: 't1', favicon: '', title: 'Inbox', url: 'https://a.test' },
+        ]}
+        onWindowTitleClick={() => undefined}
+        onUpdateWindowGroupTitle={() => undefined}
+        onAddCurrTabToWindowClick={() => undefined}
+        onDeleteClick={() => undefined}
+      />,
+      {
+        seedStore: (store) => {
+          if (searching) store.dispatch(setSearchInputText('inbox'));
+        },
+      }
+    );
+
+  test('an unnamed window reads "Window 2" in LABEL_L2', async () => {
+    await renderLabelled('');
+
+    const title = screen.getByRole('button', { name: 'Window 2' });
+    expect(getComputedStyle(within(title).getByText('Window 2')).color).toMatch(
+      asWritten(LIGHT_THEME.LABEL_L2_COLOR)
+    );
+  });
+
+  test('a whitespace-only title is unnamed too', async () => {
+    await renderLabelled('   ');
+
+    expect(
+      screen.getByRole('button', { name: 'Window 2' })
+    ).toBeInTheDocument();
+  });
+
+  test('a named window reads its title in TEXT_COLOR', async () => {
+    await renderLabelled('Research');
+
+    const title = screen.getByRole('button', { name: 'Research' });
+    expect(getComputedStyle(within(title).getByText('Research')).color).toMatch(
+      asWritten(LIGHT_THEME.TEXT_COLOR)
+    );
+    expect(screen.queryByText('Window 2')).toBeNull();
+  });
+
+  test('while searching, the static label is muted the same way', async () => {
+    await renderLabelled('', { searching: true });
+
+    expect(screen.queryByRole('button', { name: 'Window 2' })).toBeNull();
+    expect(getComputedStyle(screen.getByText('Window 2')).color).toMatch(
+      asWritten(LIGHT_THEME.LABEL_L2_COLOR)
+    );
+  });
+
+  test('the chevron names an unnamed window by its label', async () => {
+    await renderLabelled('');
+
+    expect(
+      screen.getByRole('button', { name: 'Collapse: Window 2', expanded: true })
+    ).toBeInTheDocument();
   });
 });

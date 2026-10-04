@@ -213,7 +213,7 @@ const cardFor = (carried: CarriedRef): CarryCard =>
     ? { kind: 'tab', title: carried.tabId, faviconUrl: '' }
     : carried.kind === 'group'
       ? { kind: 'group', title: 'G', color: '#000', tabCount: 2 }
-      : { kind: 'window', title: carried.windowId, tabCount: 1 };
+      : { kind: 'window', title: carried.windowId, number: 1, tabCount: 1 };
 
 // As the engine leaves things at the hand-off: the kind published, the hold
 // on, the pointer out to the left of the pane, over the session list.

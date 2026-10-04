@@ -543,7 +543,7 @@ describe('a release on a row moves the item in (S2 A)', () => {
     const { store } = await renderList();
     handOff(
       { kind: 'window', tabGroupId: 'S1', windowId: 'w2' },
-      { kind: 'window', title: 'Window w2', tabCount: 1 }
+      { kind: 'window', title: 'Window w2', number: 2, tabCount: 1 }
     );
     moveTo(rowY(1));
     releaseAt(rowY(1));
@@ -557,7 +557,7 @@ describe('a release on a row moves the item in (S2 A)', () => {
     const { store } = await renderList();
     handOff(
       { kind: 'window', tabGroupId: 'S1', windowId: 'w2' },
-      { kind: 'window', title: 'Window w2', tabCount: 1 }
+      { kind: 'window', title: 'Window w2', number: 2, tabCount: 1 }
     );
     moveTo(rowY(0));
     releaseAt(rowY(0));
@@ -575,7 +575,7 @@ describe('a release on a row moves the item in (S2 A)', () => {
     const before = store.getState().tabContainerDataState;
     handOff(
       { kind: 'window', tabGroupId: 'S1', windowId: 'w1' },
-      { kind: 'window', title: 'Window w1', tabCount: 5 },
+      { kind: 'window', title: 'Window w1', number: 1, tabCount: 5 },
       onCancel
     );
     moveTo(rowY(0));

@@ -36,9 +36,9 @@ export type CarryCard =
   | { kind: 'tab'; title: string; faviconUrl: string }
   // `title` is the group's own, and may be empty: an unnamed group.
   | { kind: 'group'; title: string; color: string; tabCount: number }
-  // `title` is the window's stored title, which is what its header shows,
-  // and may be empty: the header then shows nothing.
-  | { kind: 'window'; title: string; tabCount: number };
+  // `title` is the window's stored title, and may be empty: then `number`
+  // names it, as its header does (windowLabel).
+  | { kind: 'window'; title: string; number: number; tabCount: number };
 
 // What a drag area hands over when its drag reaches a carry receiver.
 export interface CarryOut {

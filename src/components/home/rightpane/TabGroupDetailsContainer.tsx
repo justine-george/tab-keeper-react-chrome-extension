@@ -48,6 +48,7 @@ import { decideNewWindowRoom } from './rowDrag/dropRules';
 import { NEW_LAST_WINDOW } from './newWindowTarget';
 import type { windowGroupData } from '../../../redux/slices/tabContainerDataStateSlice';
 import { onRevealSavedWindow } from './revealSavedWindow';
+import { windowNumbers } from '../../../utils/functions/windowLabel';
 
 // The trailing block with nothing resting in it: no title, no rows.
 const EMPTY_TRAILING_BLOCK: Pick<
@@ -255,6 +256,16 @@ export default function TabGroupDetailsContainer() {
     dispatch(updateWindowGroupTitle({ tabGroupId, windowId, editableTitle }));
   };
 
+  // As drawn (D1), but a search must not renumber: it counts the stored session.
+  const numberedFrom = isSearching
+    ? tabContainerDataList.tabGroups.find((g) => g.tabGroupId === tabGroupId) ??
+      shownSession
+    : shownSession;
+  const leaveOut = new Set([NEW_LAST_WINDOW]);
+  const windowPhantomId = adoptRowIdFor('window');
+  if (windowPhantomId !== undefined) leaveOut.add(windowPhantomId);
+  const numbers = windowNumbers(numberedFrom.windows, leaveOut);
+
   // One window's entry: every window's, and the trailing block's.
   const entryOf = ({
     windowId,
@@ -267,6 +278,8 @@ export default function TabGroupDetailsContainer() {
   >) => (
     <WindowEntryContainer
       title={title}
+      // Every drawn window is in `numbers`; the trailing block draws no title.
+      number={numbers.get(windowId) ?? 0}
       tabs={tabs}
       chromeTabGroups={chromeTabGroups}
       tabGroupId={tabGroupId}

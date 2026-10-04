@@ -18,7 +18,7 @@ import { useThemeColors } from '../../hooks/useThemeColors';
 import { useSavedSearch } from '../../hooks/useSavedSearch';
 import { RADIUS, TYPE } from '../../styles/scale';
 import { NON_INTERACTIVE_ICON_STYLE } from '../../utils/constants/common';
-import { formatTabCount } from '../../utils/functions/local';
+import { windowLabel } from '../../utils/functions/windowLabel';
 import { isCarriedStillThere } from '../../utils/functions/carriedView';
 import { createClickSuppressor } from './rightpane/rowDrag/clickSuppressor';
 import type { RootState } from '../../redux/store';
@@ -92,15 +92,11 @@ function CardBody({ card }: { card: CarryCard }) {
         <>
           <Icon type="tab" style={NON_INTERACTIVE_ICON_STYLE} />
           <span data-carry-card-name="" css={nameStyle}>
-            {/* Named as its header names it (WindowEntryContainer): by its
-                title, and by nothing when that is empty -- then the count
-                alone, rather than a count after a dangling separator. */}
-            {card.title === ''
-              ? formatTabCount(card.tabCount, t)
-              : t('CarryCardNameAndCount', {
-                  name: card.title,
-                  count: card.tabCount,
-                })}
+            {/* Named as its header names it (WindowEntryContainer). */}
+            {t('CarryCardNameAndCount', {
+              name: windowLabel(card.title, card.number, t('Window')).text,
+              count: card.tabCount,
+            })}
           </span>
         </>
       );

@@ -349,3 +349,65 @@ describe('renaming a Chrome tab group round-trips to the screen', () => {
     expect(screen.getByText('Unnamed group')).toBeInTheDocument();
   });
 });
+
+// KAN-394 D1. Unnamed windows are numbered by their place in the session, and
+// a search, which narrows the windows drawn, does not renumber them.
+describe('unnamed windows are numbered', () => {
+  const unnamedWindow = (n: number, tabTitle: string) => ({
+    windowId: `win-${n}`,
+    windowHeight: 1080,
+    windowWidth: 1920,
+    windowOffsetTop: 0,
+    windowOffsetLeft: 0,
+    tabCount: 1,
+    title: '',
+    tabs: [
+      {
+        tabId: `w${n}-t0`,
+        favicon: '',
+        title: tabTitle,
+        url: `https://example.com/w${n}`,
+      },
+    ],
+  });
+
+  const renderThree = (search?: string) =>
+    renderWithProviders(<TabGroupDetailsContainer />, {
+      seedStore: (store) => {
+        store.dispatch(
+          saveToTabContainerInternal({
+            ...buildSession(),
+            windowCount: 3,
+            tabCount: 3,
+            windows: [
+              unnamedWindow(1, 'Alpha Page'),
+              unnamedWindow(2, 'Bravo Page'),
+              unnamedWindow(3, 'Charlie Page'),
+            ],
+          })
+        );
+        store.dispatch(selectTabContainer('group-1'));
+        if (search !== undefined) store.dispatch(setSearchInputText(search));
+      },
+    });
+
+  test('by position, from 1', async () => {
+    await renderThree();
+
+    expect(
+      await screen.findByRole('button', { name: 'Window 1' })
+    ).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Window 2' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Window 3' })).toBeTruthy();
+  });
+
+  test('a search that hides window 1 leaves window 2 as "Window 2"', async () => {
+    await renderThree('bravo');
+
+    expect(await screen.findByText('Bravo Page')).toBeTruthy();
+    // CONTROL: window 1 really is filtered out.
+    expect(screen.queryByText('Alpha Page')).toBeNull();
+    expect(screen.getByText('Window 2')).toBeTruthy();
+    expect(screen.queryByText('Window 1')).toBeNull();
+  });
+});

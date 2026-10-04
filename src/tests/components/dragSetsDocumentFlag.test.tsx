@@ -276,6 +276,7 @@ describe('a tab row marks its action strip for the stylesheet', () => {
   test('every tab row carries data-row-actions', async () => {
     const { container } = await renderWithProviders(
       <WindowEntryContainer
+        number={1}
         title="Window 1"
         tabGroupId="tg1"
         windowId="w1"
@@ -296,6 +297,7 @@ describe('a tab row marks its action strip for the stylesheet', () => {
   test('the marked strip is the one holding the delete control', async () => {
     const { container } = await renderWithProviders(
       <WindowEntryContainer
+        number={1}
         title="Window 1"
         tabGroupId="tg1"
         windowId="w1"

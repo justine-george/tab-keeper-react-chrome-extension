@@ -117,10 +117,15 @@ describe('the card follows the pointer (D1 A)', () => {
     expect(cardName()).toBe('Unnamed group · 1 Tab');
   });
 
-  // Named as its header names it (WindowEntryContainer): by its stored title.
+  // Named as its header names it (WindowEntryContainer): by its title.
   test('a titled window: "Title · N Tabs", the title as it is', async () => {
     await renderLayer();
-    handOff({ kind: 'window', title: 'Kyoto <trip> & more', tabCount: 3 });
+    handOff({
+      kind: 'window',
+      title: 'Kyoto <trip> & more',
+      number: 1,
+      tabCount: 3,
+    });
     expect(cardName()).toBe('Kyoto <trip> & more · 3 Tabs');
   });
 
@@ -128,7 +133,7 @@ describe('the card follows the pointer (D1 A)', () => {
   // the count alone, with no separator left dangling in front of it.
   test('an untitled window: the count alone', async () => {
     await renderLayer();
-    handOff({ kind: 'window', title: '', tabCount: 1 });
+    handOff({ kind: 'window', title: '', number: 2, tabCount: 1 });
     expect(cardName()).toBe('1 Tab');
   });
 
