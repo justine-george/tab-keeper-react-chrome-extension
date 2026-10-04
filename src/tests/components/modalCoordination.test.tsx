@@ -16,6 +16,22 @@ vi.mock('../../config/firebase', () => ({
   isCloudConfigured: false,
 }));
 
+// One test makes the rate check throw before it returns; the rest run the real one.
+const reviewAsk = vi.hoisted(() => ({ throws: false }));
+vi.mock('../../utils/functions/reviewAsk', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('../../utils/functions/reviewAsk')>();
+  return {
+    ...actual,
+    shouldAskForReview: (
+      ...args: Parameters<typeof actual.shouldAskForReview>
+    ) => {
+      if (reviewAsk.throws) throw new Error('rate check broke');
+      return actual.shouldAskForReview(...args);
+    },
+  };
+});
+
 import App from '../../App';
 import { leavePinGuide } from '../../redux/firstOpenFollowUps';
 import { renderWithProviders } from '../setup/renderWithProviders';
@@ -29,6 +45,7 @@ import {
 
 beforeEach(() => localStorage.clear());
 afterEach(() => {
+  reviewAsk.throws = false;
   localStorage.clear();
   delete document.documentElement.dataset.firstOpen;
 });
@@ -98,6 +115,28 @@ describe('modal coordination on popup open', () => {
     );
 
     expect(store.getState().globalState.isRateAndReviewModalOpen).toBe(false);
+  });
+
+  test('a check that throws before it returns stands down; the next opens, and the queue says so', async () => {
+    reviewAsk.throws = true;
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    // The rate prompt is due, so only the throw keeps it from winning.
+    localStorage.setItem('settingsData', JSON.stringify(RATE_DUE));
+    const { store } = await renderWithProviders(<App />, {
+      seed: twoGroupsUngranted,
+    });
+    await waitFor(() =>
+      expect(store.getState().globalState.tabGroupsPromptCount).toBe(2)
+    );
+    await waitFor(() =>
+      expect(document.documentElement.dataset.firstOpen).toBe('tabGroups')
+    );
+    expect(store.getState().globalState.isRateAndReviewModalOpen).toBe(false);
+    expect(warn).toHaveBeenCalledWith(
+      'Could not decide the rate dialog:',
+      expect.any(Error)
+    );
+    warn.mockRestore();
   });
 
   // A brand-new user gets the cloud question (KAN-259), and BOTH of the

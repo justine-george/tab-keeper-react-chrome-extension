@@ -60,6 +60,23 @@ describe('openFirstDialog', () => {
     expect(warn).toHaveBeenCalledTimes(1);
   });
 
+  test('a check that throws before it returns counts as no, and the queue still settles', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const log: string[] = [];
+    const opened = openFirstDialog([
+      {
+        id: 'cloudConsent',
+        decide: () => {
+          throw new Error('cloudConsent broke');
+        },
+      },
+      { id: 'rate', decide: () => () => void log.push('open rate') },
+    ]);
+    await expect(opened).resolves.toBe('rate');
+    expect(log).toEqual(['open rate']);
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
   test('a synchronous decide is taken as it is', async () => {
     const log: string[] = [];
     const opened = await openFirstDialog([
