@@ -453,8 +453,11 @@ describe('a window with no name in the editor (KAN-394)', () => {
     const field = screen.getByRole('textbox', {
       name: 'Rename window group: Window 2',
     });
-    expect((field as HTMLInputElement).value).toBe('');
-    expect((field as HTMLInputElement).placeholder).toBe('Window 2');
+    expect(field).toHaveProperty('value', '');
+    expect(field).toHaveAttribute('placeholder', 'Window 2');
+    expect(
+      screen.getByRole('button', { name: 'Hide: Window 2' })
+    ).toBeInTheDocument();
   });
 
   test('a named window keeps its title and no placeholder', async () => {
@@ -465,7 +468,10 @@ describe('a window with no name in the editor (KAN-394)', () => {
     const field = screen.getByRole('textbox', {
       name: 'Rename window group: Trip planning',
     });
-    expect((field as HTMLInputElement).value).toBe('Trip planning');
-    expect((field as HTMLInputElement).placeholder).toBe('');
+    expect(field).toHaveProperty('value', 'Trip planning');
+    expect(field).not.toHaveAttribute('placeholder');
+    expect(
+      screen.getByRole('button', { name: 'Hide: Trip planning' })
+    ).toBeInTheDocument();
   });
 });
