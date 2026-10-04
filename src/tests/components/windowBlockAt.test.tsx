@@ -1,5 +1,8 @@
 import { describe, expect, test } from 'vitest';
-import { windowBlockAt } from '../../components/home/rightpane/rowDrag/dropRules';
+import {
+  isOnBlock,
+  windowBlockAt,
+} from '../../components/home/rightpane/rowDrag/dropRules';
 
 const box = (top: number, height: number) =>
   ({
@@ -121,5 +124,37 @@ describe('windowBlockAt and the trailing block', () => {
       windowBlockAt(plain, 10, y)?.getAttribute('data-drop-window-id') ?? null;
     expect(atPlain(320)).toBe('wC');
     expect(atPlain(308)).toBe('wC');
+  });
+});
+
+// KAN-379 D3. Only the block itself dwells, never the gap it answers for, and
+// it is read where the block rests, as windowBlockAt reads it.
+describe('isOnBlock', () => {
+  const root = pane([
+    ['wA', 0, 142],
+    ['wB', 180, 32],
+  ]);
+  const wB = root.lastElementChild;
+  if (!(wB instanceof HTMLElement)) throw new Error('no block');
+
+  test('on the block, edges included', () => {
+    expect(isOnBlock(wB, 10, 180)).toBe(true);
+    expect(isOnBlock(wB, 10, 212)).toBe(true);
+    expect(isOnBlock(wB, 200, 196)).toBe(true);
+  });
+  test('the half-gap above it is not on it, though it lands there', () => {
+    expect(windowBlockAt(root, 10, 175)).toBe(wB);
+    expect(isOnBlock(wB, 10, 175)).toBe(false);
+  });
+  test('beside it is not on it', () => {
+    expect(isOnBlock(wB, 201, 196)).toBe(false);
+  });
+  test('shifted by a preview, it is still where it rests', () => {
+    const shifted = pane([['wB', 180 + 34, 32]]);
+    const block = shifted.firstElementChild;
+    if (!(block instanceof HTMLElement)) throw new Error('no block');
+    block.dataset.windowShift = '34';
+    expect(isOnBlock(block, 10, 190)).toBe(true);
+    expect(isOnBlock(block, 10, 240)).toBe(false);
   });
 });

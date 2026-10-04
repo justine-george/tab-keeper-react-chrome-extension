@@ -51,6 +51,15 @@ if (!Element.prototype.scrollIntoView) {
   Element.prototype.scrollIntoView = function scrollIntoView() {};
 }
 
+// KAN-379. jsdom has no Web Animations, so a drag resting on a collapsed
+// window finds no sweep and never opens it. Tests open one directly
+// (springOpenWindow); the dwell's timing is checked in a real browser.
+if (!Element.prototype.getAnimations) {
+  Element.prototype.getAnimations = function getAnimations() {
+    return [];
+  };
+}
+
 if (typeof HTMLDialogElement !== 'undefined') {
   if (!HTMLDialogElement.prototype.showModal) {
     HTMLDialogElement.prototype.showModal = function showModal(

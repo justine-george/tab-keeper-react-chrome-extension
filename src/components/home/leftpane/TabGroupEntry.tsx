@@ -2,7 +2,7 @@ import React, { MouseEventHandler } from 'react';
 
 import { useSelector } from 'react-redux';
 
-import { css, keyframes } from '@emotion/react';
+import { css } from '@emotion/react';
 
 import ClickableRow from '../../common/ClickableRow';
 import Icon from '../../common/Icon';
@@ -22,7 +22,7 @@ import { selectIsSavedSessionFolded } from '../../../redux/savedSessionFold';
 import { isTabView } from '../../../utils/functions/viewMode';
 import { useTranslation } from 'react-i18next';
 import { DURATION, TYPE } from '../../../styles/scale';
-import { SPRING_OPEN_MS } from './springOpen';
+import { springSweepStyle } from '../../common/springOpen';
 import { SAVED_TEXT_INSET } from './savedListInset';
 
 /**
@@ -38,16 +38,6 @@ import { SAVED_TEXT_INSET } from './savedListInset';
  * the row changing height.
  */
 const ACTION_ICON_INSET = 2;
-
-// The dwell fill grows across the row from the left (KAN-380).
-const dwellSweep = keyframes`
-  from {
-    background-size: 0 100%;
-  }
-  to {
-    background-size: 100% 100%;
-  }
-`;
 
 /**
  * This row as a carry's target (KAN-350): what the pointer carrying a tab,
@@ -372,13 +362,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
     /* The sweep is the dwell's fill; the shadow would paint over it. */
     &[data-carry-dwell] {
       ${fill('transparent')}
-      background-image: linear-gradient(
-        ${COLORS.HOVER_COLOR},
-        ${COLORS.HOVER_COLOR}
-      );
-      background-repeat: no-repeat;
-      background-size: 0 100%;
-      animation: ${dwellSweep} ${SPRING_OPEN_MS}ms linear forwards;
+      ${springSweepStyle(COLORS.HOVER_COLOR)}
     }
   `;
 

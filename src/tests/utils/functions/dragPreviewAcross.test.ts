@@ -3,9 +3,14 @@ import { describe, expect, test } from 'vitest';
 import {
   landingDeltaAcross,
   landsPastWindowEnd,
+  previewShifts,
   previewShiftsAcross,
   type WindowedSlot,
 } from '../../../utils/functions/dragPreview';
+import {
+  drawnList,
+  type Rect,
+} from '../../../components/home/rightpane/rowDrag/unfold';
 
 // KAN-132. A tab dragged into ANOTHER window is previewed in each window's own
 // frame: the source closes up below the row that left, the destination opens
@@ -149,5 +154,62 @@ describe('landsPastWindowEnd', () => {
   // A row in no window at all -- a collapsed window's row -- is nobody's slot.
   test('a slot in no window is past the end of any window', () => {
     expect(landsPastWindowEnd(SLOTS, 'wA', at('c0'))).toBe(true);
+  });
+});
+
+// KAN-379. A window opened mid-drag has its rows measured then, so they must
+// carry no shift of their own until they are. Rows of a window folded when
+// measured sit at 0 in no window, between drawn rows in list order -- the
+// drawn list sorts them first, and no range between drawn slots reaches them.
+describe('a row not drawn when measured', () => {
+  const rect = (
+    id: string,
+    index: number,
+    top: number,
+    windowId?: string
+  ): Rect => ({
+    id,
+    index,
+    top,
+    mid: windowId === undefined ? 0 : top + FP / 2,
+    height: windowId === undefined ? 0 : FP,
+    windowId,
+    edges: { left: 0, right: 0 },
+    bandId: undefined,
+  });
+  const { slots } = drawnList(
+    [
+      rect('a0', 0, 40, 'wA'),
+      rect('a1', 1, 72, 'wA'),
+      rect('c0', 2, 0),
+      rect('c1', 3, 0),
+      rect('b0', 4, 140, 'wB'),
+      rect('b1', 5, 172, 'wB'),
+    ],
+    [{ key: 'G', top: 104, height: FP, windowId: 'wA' }]
+  );
+  const drawn = slots.flatMap((s, i) => (s.windowId === undefined ? [] : [i]));
+  const reached = (shifts: Record<string, number>) =>
+    Object.keys(shifts).filter((key) => key === 'c0' || key === 'c1');
+
+  test('sorts first, so no preview within a window reaches it', () => {
+    expect(slots.slice(0, 2).map((s) => s.key)).toEqual(['c0', 'c1']);
+    for (const from of drawn) {
+      for (const to of drawn) {
+        expect(reached(previewShifts(slots, from, to, FP))).toEqual([]);
+      }
+    }
+  });
+
+  test('nor any preview across windows', () => {
+    for (const from of drawn) {
+      for (const windowId of ['wA', 'wB']) {
+        for (let at = 0; at <= slots.length; at++) {
+          expect(
+            reached(previewShiftsAcross(slots, from, windowId, at, FP))
+          ).toEqual([]);
+        }
+      }
+    }
   });
 });

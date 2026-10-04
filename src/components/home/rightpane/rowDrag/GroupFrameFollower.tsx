@@ -46,6 +46,8 @@ export const GroupFrameFollower: React.FC<{
   // closed up in `shifts`; what remains is to stop drawing a band the drop
   // takes away -- and not to grow it, which a title-row shift alone would.
   const removed = drag?.removedFixedRows.includes(groupId) ?? false;
+  // Opened mid-drag (KAN-379): the title row appears at its shift.
+  const appears = drag?.newlyMeasured.has(groupId) ?? false;
   const anchor = useRef<HTMLSpanElement | null>(null);
 
   useLayoutEffect(() => {
@@ -67,7 +69,10 @@ export const GroupFrameFollower: React.FC<{
       const handle = band.querySelector<HTMLElement>(
         '[data-group-drag-handle]'
       );
-      if (handle) handle.style.transform = '';
+      if (handle) {
+        handle.style.transform = '';
+        handle.style.transition = '';
+      }
       return;
     }
     // The frame's EXTENT, published for the paint layers to read (KAN-171).
@@ -142,8 +147,11 @@ export const GroupFrameFollower: React.FC<{
     // The strip does NOT: it has to change length, not position, and a
     // transform cannot say that.
     const handle = band.querySelector<HTMLElement>('[data-group-drag-handle]');
-    if (handle) handle.style.transform = top ? `translateY(${top}px)` : '';
-  }, [top, bottom, removed]);
+    if (handle) {
+      handle.style.transition = appears ? 'none' : '';
+      handle.style.transform = top ? `translateY(${top}px)` : '';
+    }
+  }, [top, bottom, removed, appears]);
 
   return <span ref={anchor} hidden />;
 };

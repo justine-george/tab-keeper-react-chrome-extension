@@ -103,6 +103,8 @@ export interface DragState {
    * place.
    */
   landingSlotShown: boolean;
+  // Keys first measured for this state (KAN-379): drawn at their shift at once.
+  newlyMeasured: ReadonlySet<string>;
 }
 
 export interface Ctx {
