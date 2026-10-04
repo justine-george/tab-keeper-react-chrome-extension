@@ -858,7 +858,8 @@ export function isInsideList(
 // A FLAG, not a style. This used to set `document.body.style.cursor` directly,
 // and that was set-and-inert (KAN-134): `cursor` inherits, but an explicit
 // declaration on a descendant beats an inherited value whatever its importance,
-// and every row in this pane declares `cursor: pointer`. Measured in the popup,
+// and every row in this pane declares its own cursor (`default` on the
+// wrapper, `pointer` on what is clickable). Measured in the popup,
 // the body read `grabbing` while the element under the pointer computed
 // `pointer` for the entire gesture -- and the test asserting the body's own
 // style passed throughout.
