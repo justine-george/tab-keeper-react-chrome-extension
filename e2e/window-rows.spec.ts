@@ -806,6 +806,54 @@ for (const view of VIEWS) {
     );
 
     grantedTest(
+      "a click on the band's empty middle does nothing (R4)",
+      async ({ context, extensionId, serviceWorker }) => {
+        const page = await openGrouped(context, extensionId, view);
+        await bandHandle(page, 'gr').hover();
+        // From the label's own text, so a title stretched over the gap is caught.
+        const t = await boxOf(
+          groupTitle(page, 'gr', 'Research').getByText('Research', {
+            exact: true,
+          })
+        );
+        const strip = await boxOf(
+          bandHandle(page, 'gr').locator('[data-row-actions]')
+        );
+        const h = await boxOf(bandHandle(page, 'gr'));
+        // PREMISE: room between the title's text and the strip.
+        expect(strip.x - (t.x + t.width)).toBeGreaterThan(40);
+        const x = (t.x + t.width + strip.x) / 2;
+        const y = h.y + h.height / 2;
+        // PREMISE, on the same layout: the point is on the band, in no control.
+        expect(
+          await page.evaluate(
+            ([x, y]) => {
+              const el = document.elementFromPoint(x, y);
+              return el?.closest('button, [role="button"], [data-row-actions]')
+                ? 'control'
+                : el?.closest('[data-group-drag-handle]')
+                  ? 'band'
+                  : 'elsewhere';
+            },
+            [x, y]
+          )
+        ).toBe('band');
+
+        const before = await serviceWorker.evaluate(
+          async () => (await chrome.tabs.query({})).length
+        );
+        const sampling = chromeCountsOver(serviceWorker, 'tabs', 1000);
+        await page.mouse.click(x, y);
+        expect(new Set(await sampling)).toEqual(new Set([before]));
+        await expect(groupEditor(page, 'gr')).toHaveCount(0);
+
+        // CONTROL: a click on the title opens the editor.
+        await page.mouse.click(t.x + t.width / 2, y);
+        await expect(groupEditor(page, 'gr')).toBeVisible();
+      }
+    );
+
+    grantedTest(
       "Open opens the group's tabs, grouped as saved",
       async ({ context, extensionId, serviceWorker }) => {
         const page = await openGrouped(context, extensionId, view);
