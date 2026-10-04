@@ -1404,7 +1404,7 @@ test('the editor shows an unnamed window as an empty field with its label as pla
   await page.getByRole('button', { name: 'Edit' }).click();
 
   const field = page.getByRole('textbox', {
-    name: 'Rename window group: Window 1',
+    name: 'Rename window: Window 1',
     exact: true,
   });
   await expect(field).toHaveValue('');
