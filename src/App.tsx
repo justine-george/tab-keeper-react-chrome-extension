@@ -193,7 +193,9 @@ function App() {
   async function offerTabGroupsPermission(
     isRateAndReviewModalShowing: boolean
   ) {
-    const openGroups = await shouldOfferTabGroups(isRateAndReviewModalShowing);
+    // One modal at a time: the rate request wins this open.
+    if (isRateAndReviewModalShowing) return;
+    const openGroups = await shouldOfferTabGroups();
     if (openGroups !== null) dispatch(openTabGroupsPrompt(openGroups));
   }
 
