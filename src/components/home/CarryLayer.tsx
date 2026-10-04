@@ -185,6 +185,8 @@ export function CarryLayer() {
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape' || currentCarry()?.owner !== 'layer') return;
+      // Consumed here, so Chrome must not also close the popup.
+      e.preventDefault();
       // The press is still down: its click follows a release still to come.
       clicks.armUntilRelease();
       release();

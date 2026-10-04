@@ -108,7 +108,10 @@ export default function OpenNowResizeGrip({
     const onUp = () => end(true);
     const onCancel = () => end(false);
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') end(false);
+      if (event.key !== 'Escape') return;
+      // Consumed here, so Chrome must not also close the popup.
+      event.preventDefault();
+      end(false);
     };
 
     window.addEventListener('pointermove', onMove);

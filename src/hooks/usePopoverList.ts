@@ -84,6 +84,8 @@ export function usePopoverList({
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Escape') {
       e.stopPropagation();
+      // An unprevented Esc closes the extension popup too.
+      e.preventDefault();
       close(true);
       return;
     }

@@ -352,6 +352,32 @@ describe('when a drag should not happen at all', () => {
     expect(onMove).not.toHaveBeenCalled();
   });
 
+  test('the Esc that abandons a drag is prevented, so the popup stays open (KAN-403)', () => {
+    press('Row A', 15);
+    moveTo(85);
+    const event = new KeyboardEvent('keydown', {
+      key: 'Escape',
+      bubbles: true,
+      cancelable: true,
+    });
+
+    window.dispatchEvent(event);
+
+    expect(event.defaultPrevented).toBe(true);
+  });
+
+  test('an Esc with no drag is left alone, so the popup closes (KAN-403)', () => {
+    const event = new KeyboardEvent('keydown', {
+      key: 'Escape',
+      bubbles: true,
+      cancelable: true,
+    });
+
+    window.dispatchEvent(event);
+
+    expect(event.defaultPrevented).toBe(false);
+  });
+
   test('a right-button press does not begin a drag', () => {
     fireEvent.pointerDown(nodeFor('Row A'), {
       clientX: 10,

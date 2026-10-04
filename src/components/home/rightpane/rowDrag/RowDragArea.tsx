@@ -2139,7 +2139,10 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       clicks.onPointerUp();
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') finish(false, true);
+      if (e.key !== 'Escape') return;
+      // Only a live drag consumes it; an unprevented Esc closes the popup.
+      if (live.current) e.preventDefault();
+      finish(false, true);
     };
     // After a pointercancel Chrome dispatches no click. A suppression still
     // waiting for this press's release eats nothing while it waits, and the
