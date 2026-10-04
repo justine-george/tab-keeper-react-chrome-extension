@@ -247,5 +247,8 @@
   "CarryCardNameAndCount_other": "{{name}} · {{count}} Onglets",
   "CarryNewWindowTarget": "Nouvelle fenêtre",
   "Search looks in session names, window names, tab titles and links.": "La recherche porte sur les noms de session, les noms de fenêtre, les titres d’onglet et les liens.",
-  "Open full view": "Ouvrir la vue complète"
+  "Open full view": "Ouvrir la vue complète",
+  "Default view": "Vue par défaut",
+  "Compact view": "Vue compacte",
+  "Full view": "Vue complète"
 }

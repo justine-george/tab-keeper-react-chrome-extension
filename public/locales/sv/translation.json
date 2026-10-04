@@ -242,5 +242,8 @@
   "CarryCardNameAndCount_other": "{{name}} · {{count}} Flikar",
   "CarryNewWindowTarget": "Nytt fönster",
   "Search looks in session names, window names, tab titles and links.": "Sökningen omfattar sessionsnamn, fönsternamn, fliktitlar och länkar.",
-  "Open full view": "Öppna helvy"
+  "Open full view": "Öppna helvy",
+  "Default view": "Standardvy",
+  "Compact view": "Kompakt vy",
+  "Full view": "Helvy"
 }

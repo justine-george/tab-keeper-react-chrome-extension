@@ -237,5 +237,8 @@
   "CarryCardNameAndCount_other": "{{name}} · {{count}} 个标签页",
   "CarryNewWindowTarget": "新窗口",
   "Search looks in session names, window names, tab titles and links.": "搜索范围包括会话名称、窗口名称、标签页标题和链接。",
-  "Open full view": "打开完整视图"
+  "Open full view": "打开完整视图",
+  "Default view": "默认视图",
+  "Compact view": "紧凑视图",
+  "Full view": "完整视图"
 }

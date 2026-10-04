@@ -242,5 +242,8 @@
   "CarryCardNameAndCount_other": "{{name}} · {{count}} टैब्स",
   "CarryNewWindowTarget": "नई विंडो",
   "Search looks in session names, window names, tab titles and links.": "खोज सेशन के नाम, विंडो के नाम, टैब के शीर्षक और लिंक में होती है।",
-  "Open full view": "पूरा व्यू खोलें"
+  "Open full view": "पूरा व्यू खोलें",
+  "Default view": "डिफ़ॉल्ट व्यू",
+  "Compact view": "संक्षिप्त व्यू",
+  "Full view": "पूरा व्यू"
 }

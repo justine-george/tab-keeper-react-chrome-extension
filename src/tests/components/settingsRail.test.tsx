@@ -87,11 +87,11 @@ describe('sections within a pane sit 32px apart, as About blocks do', () => {
     expect(margins).toEqual(['20px', '32px', '32px', '32px']);
   });
 
-  test('Sessions: first at 20px, the tab-history and shortcut rows at 32px', async () => {
+  test('Sessions: first at 20px, every later row at 32px', async () => {
     const { container } = await renderOn(SettingsCategory.SESSIONS);
     const margins = [
       ...container.querySelectorAll<HTMLElement>('[data-settings-section]'),
     ].map((el) => getComputedStyle(el).marginTop);
-    expect(margins).toEqual(['20px', '32px', '32px']);
+    expect(margins).toEqual(['20px', '32px', '32px', '32px']);
   });
 });

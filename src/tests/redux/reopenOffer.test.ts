@@ -447,6 +447,7 @@ describe('reopenFromOffer with history (KAN-280 Part D)', () => {
   test('names the tab the worker restored for focus', async () => {
     handle = setupChromeFake({
       grantedPermissions: ['sessions'],
+      action: {},
       windows: [
         { id: 1, focused: true, tabs: [{ url: url('home'), active: true }] },
         { id: 2, tabs: [{ url: url('a'), active: true }, { url: url('b') }] },

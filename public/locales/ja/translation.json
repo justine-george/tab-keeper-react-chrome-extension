@@ -237,5 +237,8 @@
   "CarryCardNameAndCount_other": "{{name}} · {{count}} 個のタブ",
   "CarryNewWindowTarget": "新しいウィンドウ",
   "Search looks in session names, window names, tab titles and links.": "セッション名、ウィンドウ名、タブのタイトル、リンクを検索します。",
-  "Open full view": "フルビューで開く"
+  "Open full view": "フルビューで開く",
+  "Default view": "既定のビュー",
+  "Compact view": "コンパクトビュー",
+  "Full view": "フルビュー"
 }

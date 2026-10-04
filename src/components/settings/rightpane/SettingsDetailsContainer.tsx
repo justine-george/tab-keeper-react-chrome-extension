@@ -65,6 +65,7 @@ import {
 import { shortcutKeys } from '../../../utils/functions/shortcutKeys';
 import { KEYS_SLOT, ShortcutSentence } from '../../common/ShortcutSentence';
 import { useFontFamily } from '../../../hooks/useFontFamily';
+import { chooseDefaultView } from '../../../redux/defaultViewChoice';
 
 // The theme picker's swatches live in ThemeSwatch (KAN-237), which also carries
 // the KAN-88/KAN-95 marker rule and its reasoning.
@@ -703,6 +704,47 @@ const SettingsDetailsContainer: React.FC = () => {
               'Reopening a closed tab or window from Open now also brings back its Back and Forward pages, except for grouped tabs in a reopened window. It uses Chrome’s list of recently closed tabs.'
             )}
           </p>
+        </div>
+
+        {/* KAN-7 §7. What the toolbar icon, its shortcut and the puzzle menu open. */}
+        <div
+          data-settings-section
+          css={css`
+            padding-left: clamp(16px, 8%, 72px);
+            padding-right: clamp(16px, 8%, 72px);
+            width: 100%;
+            margin-top: 32px;
+          `}
+        >
+          <div
+            css={css`
+              display: flex;
+              align-items: flex-start;
+              width: 100%;
+            `}
+          >
+            <NormalLabel
+              value={t('Default view')}
+              size={TYPE.BODY}
+              color={COLORS.LABEL_L1_COLOR}
+            />
+          </div>
+          <div
+            css={css`
+              margin-top: 8px;
+            `}
+          >
+            <SlidingPair
+              label={t('Default view')}
+              options={[
+                { value: 'compact', label: t('Compact view') },
+                { value: 'full', label: t('Full view') },
+              ]}
+              value={settingsData.defaultView}
+              onChange={(next) => void dispatch(chooseDefaultView(next))}
+              metrics={SETTINGS_PAIR_METRICS}
+            />
+          </div>
         </div>
 
         {/* Keyboard shortcut. KAN-256: a sentence that says what the key

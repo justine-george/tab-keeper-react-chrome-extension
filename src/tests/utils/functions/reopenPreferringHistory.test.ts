@@ -1051,6 +1051,7 @@ async function startWorker(): Promise<void> {
 describe('the service worker answers the request (KAN-280 Part D)', () => {
   const seed: ChromeSeed = {
     grantedPermissions: GRANTED,
+    action: {},
     windows: [
       tabViewWindow,
       { id: 2, tabs: [{ url: url('a'), active: true }, { url: url('b') }] },
@@ -1152,6 +1153,7 @@ describe('the service worker answers the request (KAN-280 Part D)', () => {
 describe('reopenClosed, the page side (KAN-280 Part D)', () => {
   const seed = (granted: ChromeSeed['grantedPermissions']): ChromeSeed => ({
     grantedPermissions: granted,
+    action: {},
     windows: [
       tabViewWindow,
       { id: 2, tabs: [{ url: url('a'), active: true }, { url: url('b') }] },

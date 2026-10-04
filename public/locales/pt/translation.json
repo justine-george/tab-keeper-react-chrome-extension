@@ -247,5 +247,8 @@
   "CarryCardNameAndCount_other": "{{name}} · {{count}} Abas",
   "CarryNewWindowTarget": "Nova janela",
   "Search looks in session names, window names, tab titles and links.": "A pesquisa inclui nomes de sessões, nomes de janelas, títulos de abas e links.",
-  "Open full view": "Abrir visualização completa"
+  "Open full view": "Abrir visualização completa",
+  "Default view": "Visualização padrão",
+  "Compact view": "Visualização compacta",
+  "Full view": "Visualização completa"
 }

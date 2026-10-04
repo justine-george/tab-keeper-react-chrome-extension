@@ -1,5 +1,12 @@
 import { placeholderTarget } from './utils/functions/local';
 import {
+  DEFAULT_VIEW_KEY,
+  openFullViewFromToolbar,
+  reapplyDefaultView,
+  type ActionApi,
+  type DefaultViewStore,
+} from './utils/functions/defaultView';
+import {
   isOpenInTabRequest,
   openOrFocusTabView,
   TabApi,
@@ -80,6 +87,28 @@ const chromeTabApi: TabApi = {
   focusWindow: (windowId) => chrome.windows.update(windowId, { focused: true }),
   create: (props) => chrome.tabs.create(props),
 };
+
+// KAN-7 §7. Default view, applied again at every start: Task 1 measured whether Chrome keeps setPopup itself.
+const chromeActionApi: ActionApi = {
+  setPopup: (details) => chrome.action.setPopup(details),
+};
+const defaultViewStore: DefaultViewStore = {
+  read: () =>
+    chrome.storage.local
+      .get(DEFAULT_VIEW_KEY)
+      .then((items) => items[DEFAULT_VIEW_KEY]),
+};
+const reapplyDefaultViewNow = () =>
+  void reapplyDefaultView(defaultViewStore, chromeActionApi);
+chrome.runtime.onStartup.addListener(reapplyDefaultViewNow);
+chrome.runtime.onInstalled.addListener(reapplyDefaultViewNow);
+
+// Fires only while the popup is '' (Default view = Full); the shortcut and the puzzle menu follow.
+const onToolbarClick = (tab: chrome.tabs.Tab) =>
+  openFullViewFromToolbar(chromeTabApi, tab);
+chrome.action.onClicked.addListener((tab) => void onToolbarClick(tab));
+// The e2e harness cannot click the toolbar; it calls this instead.
+Object.assign(globalThis, { tabKeeperToolbarClick: onToolbarClick });
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   // Open now's Reopen with history (KAN-280 Part D). Here, not in the page:

@@ -102,6 +102,10 @@ export type ChromeSeed = {
   // button hints ⌘Z on a Mac, Ctrl+Z elsewhere). Absent means 'linux', the
   // non-Mac form, so a test that seeds nothing never sees the Mac one.
   platformOs?: chrome.runtime.PlatformInfo['os'];
+  // KAN-7. chrome.action, present only when seeded: outside an extension
+  // page (and in every older test) it is absent. setPopupRejects makes
+  // setPopup reject, Default view's failure path.
+  action?: { setPopupRejects?: boolean };
 };
 
 export type ChromeFakeHandle = {
@@ -200,6 +204,10 @@ export type ChromeFakeHandle = {
   // cannot see groups then, but the user's groups still exist. A copy;
   // undefined for an id no group carries.
   groupState(groupId: number): chrome.tabGroups.TabGroup | undefined;
+  // Every chrome.action.setPopup popup, in call order (KAN-7).
+  popupsSet: string[];
+  // chrome.storage.local as it is now (KAN-7's defaultView mirror).
+  localArea(): Record<string, unknown>;
   restore(): void;
 };
 
@@ -268,6 +276,8 @@ function registry<F extends (...args: never[]) => void>(): Registry<F> {
 
 export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
   const storage = new Map<string, unknown>(Object.entries(seed.storage ?? {}));
+  const localArea = new Map<string, unknown>();
+  let popup = 'index.html';
   let nextId = 1000;
 
   // Chrome (MV3) never rejects a callback-style call -- a failure is
@@ -1218,6 +1228,8 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
 
   const handle: ChromeFakeHandle = {
     sentMessages: [],
+    popupsSet: [],
+    localArea: () => Object.fromEntries(localArea),
     createdTabs: [],
     removedWindowIds: [],
     removedTabIds: [],
@@ -1533,6 +1545,30 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
     onMoved: tabGroupsOnMoved,
   };
 
+  // KAN-7. onStartup/onInstalled/onClicked: the worker registers them at load;
+  // nothing in the fake fires them.
+  const unfiredEvent = {
+    addListener: () => undefined,
+    removeListener: () => undefined,
+    hasListener: () => false,
+  };
+  // getPopup answers as Chrome does: a full URL, or '' for none.
+  const actionApi = {
+    onClicked: unfiredEvent,
+    setPopup: (details: chrome.action.PopupDetails): Promise<void> => {
+      handle.popupsSet.push(details.popup);
+      if (seed.action?.setPopupRejects) {
+        return Promise.reject(new Error('setPopup refused'));
+      }
+      popup = details.popup;
+      return Promise.resolve();
+    },
+    getPopup: (): Promise<string> =>
+      Promise.resolve(
+        popup === '' ? '' : `chrome-extension://faketestid/${popup}`
+      ),
+  };
+
   const chromeFake = {
     storage: {
       sync: {
@@ -1555,6 +1591,30 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
         clear: (cb?: () => void) => {
           storage.clear();
           return settle(undefined as void, cb);
+        },
+      },
+      // KAN-7. Its own area, like Chrome's: sync's keys never show here.
+      local: {
+        get: (keys?: string | string[] | null) => {
+          const wanted =
+            keys == null
+              ? [...localArea.keys()]
+              : Array.isArray(keys)
+                ? keys
+                : [keys];
+          return Promise.resolve(
+            Object.fromEntries(
+              wanted
+                .filter((key) => localArea.has(key))
+                .map((key) => [key, localArea.get(key)])
+            )
+          );
+        },
+        set: (items: Record<string, unknown>) => {
+          for (const [key, value] of Object.entries(items)) {
+            localArea.set(key, value);
+          }
+          return Promise.resolve();
         },
       },
     },
@@ -2222,6 +2282,8 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
           if (!keptOpen) sendResponse(undefined);
         });
       },
+      onStartup: unfiredEvent,
+      onInstalled: unfiredEvent,
       onMessage: {
         addListener: (listener: MessageListener) =>
           void messageListeners.add(listener),
@@ -2249,6 +2311,8 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
     // nothing in it, and code that reaches for it without checking first
     // must fail the same way it would in a real browser.
     ...(seed.tabGroupsApiAbsent ? {} : { tabGroups: tabGroupsApi }),
+
+    ...(seed.action ? { action: actionApi } : {}),
 
     // Task 1, Q4: undefined until `sessions` is first granted -- the member
     // is missing, like tabGroups above. A grant later in the test adds it to

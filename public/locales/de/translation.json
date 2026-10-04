@@ -242,5 +242,8 @@
   "CarryCardNameAndCount_other": "{{name}} · {{count}} Tabs",
   "CarryNewWindowTarget": "Neues Fenster",
   "Search looks in session names, window names, tab titles and links.": "Die Suche umfasst Sitzungsnamen, Fensternamen, Tab-Titel und Links.",
-  "Open full view": "Vollansicht öffnen"
+  "Open full view": "Vollansicht öffnen",
+  "Default view": "Standardansicht",
+  "Compact view": "Kompaktansicht",
+  "Full view": "Vollansicht"
 }
