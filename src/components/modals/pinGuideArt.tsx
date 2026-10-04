@@ -9,7 +9,9 @@ import { useThemeColors } from '../../hooks/useThemeColors';
 import { ICON, RADIUS, TYPE } from '../../styles/scale';
 
 // KAN-7 §4. Chrome's toolbar in three pictures, after the round-5 mock. The
-// captions carry the words; these are aria-hidden by their caller.
+// captions carry the words; these are aria-hidden by their caller. Steps 1
+// and 3 keep Chrome's order: field, pinned extensions, puzzle, divider,
+// profile, ⋮ (KAN-411).
 
 function Badge({ label }: { label: string }) {
   const COLORS = useThemeColors();
@@ -37,16 +39,20 @@ function Badge({ label }: { label: string }) {
 
 function Ringed({
   badge,
+  part,
   solid = false,
   children,
 }: {
   badge: string;
+  part: string;
   solid?: boolean;
   children: ReactNode;
 }) {
   const COLORS = useThemeColors();
   return (
     <span
+      data-toolbar-part={part}
+      data-ringed
       css={css`
         position: relative;
         display: inline-flex;
@@ -77,6 +83,7 @@ function ToolbarStrip({ children }: { children: ReactNode }) {
       `}
     >
       <span
+        data-toolbar-part="field"
         css={css`
           flex: 1;
           height: 22px;
@@ -85,6 +92,26 @@ function ToolbarStrip({ children }: { children: ReactNode }) {
         `}
       />
       {children}
+      <span
+        data-toolbar-part="divider"
+        css={css`
+          flex: none;
+          width: 1px;
+          height: 18px;
+          background-color: ${COLORS.LABEL_L2_COLOR};
+        `}
+      />
+      <span
+        data-toolbar-part="profile"
+        css={css`
+          flex: none;
+          box-sizing: border-box;
+          width: 18px;
+          height: 18px;
+          border: 2px solid ${COLORS.TEXT_COLOR};
+          border-radius: ${RADIUS.CIRCLE};
+        `}
+      />
       <Icon type="more_vert" size={ICON.SMALL} />
     </div>
   );
@@ -93,7 +120,7 @@ function ToolbarStrip({ children }: { children: ReactNode }) {
 export function PuzzleStepArt() {
   return (
     <ToolbarStrip>
-      <Ringed badge="1">
+      <Ringed badge="1" part="puzzle">
         <PuzzleGlyph size={ICON.SMALL} />
       </Ringed>
     </ToolbarStrip>
@@ -161,7 +188,7 @@ export function PinStepArt() {
           >
             {toolbarAppName()}
           </span>
-          <Ringed badge="2">
+          <Ringed badge="2" part="pin">
             <Icon type="keep" size={ICON.SMALL} />
           </Ringed>
         </div>
@@ -173,10 +200,17 @@ export function PinStepArt() {
 export function PinnedStepArt() {
   return (
     <ToolbarStrip>
-      <Ringed badge="3" solid>
+      <Ringed badge="3" part="tab-keeper" solid>
         <TabKeeperMark />
       </Ringed>
-      <PuzzleGlyph size={ICON.SMALL} />
+      <span
+        data-toolbar-part="puzzle"
+        css={css`
+          display: inline-flex;
+        `}
+      >
+        <PuzzleGlyph size={ICON.SMALL} />
+      </span>
     </ToolbarStrip>
   );
 }

@@ -1,5 +1,7 @@
 import { css, keyframes } from '@emotion/react';
 
+import { POINT_UP_DOODLE } from './pointUpDoodle';
+
 // KAN-7. Glyphs the icon subset lacks, inline; each takes the colour it sits in.
 
 const box = (size: string) => css`
@@ -24,10 +26,12 @@ export function PuzzleGlyph({ size }: { size: string }) {
   );
 }
 
+// Round ends: a square cap pokes the shaft's corner out past an arrow's head (KAN-411).
 const stroked = {
   fill: 'none',
   stroke: 'currentColor',
-  strokeLinecap: 'square' as const,
+  strokeLinecap: 'round' as const,
+  strokeLinejoin: 'round' as const,
 };
 
 export function NextStepGlyph({ size }: { size: string }) {
@@ -61,17 +65,33 @@ export function PointUpGlyph() {
   );
 }
 
-export function TowardToolbarGlyph({ size }: { size: string }) {
+// KAN-411. Hand-drawn, straight up, with a loose head; POINT_UP_DOODLE has its tip.
+export function PointUpDoodleGlyph({
+  width,
+  height,
+}: {
+  width: string;
+  height: string;
+}) {
   return (
     <svg
-      viewBox="0 0 24 24"
+      viewBox={`0 0 ${POINT_UP_DOODLE.viewWidth} ${POINT_UP_DOODLE.viewHeight}`}
       {...stroked}
-      strokeWidth="2.2"
+      strokeWidth="2.6"
       aria-hidden="true"
       focusable="false"
-      css={box(size)}
+      css={css`
+        display: block;
+        flex-shrink: 0;
+        width: ${width};
+        height: ${height};
+      `}
     >
-      <path d="M5 19L18 6M8 6h10v10" />
+      <path d="M30 92 C 22 70, 40 48, 31 12" />
+      <path
+        data-arrow-head
+        d="M19 25 C 24 20, 28 15, 31 11 C 33 17, 37 22, 43 26"
+      />
     </svg>
   );
 }

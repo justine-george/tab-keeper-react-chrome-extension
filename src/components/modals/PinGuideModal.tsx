@@ -7,10 +7,11 @@ import Icon from '../common/Icon';
 import TabKeeperMark from '../common/TabKeeperMark';
 import {
   NextStepGlyph,
+  PointUpDoodleGlyph,
   PointUpGlyph,
   SpinnerGlyph,
-  TowardToolbarGlyph,
 } from '../common/glyphs';
+import { doodleTipFromLeft } from '../common/pointUpDoodle';
 import { PinStepArt, PinnedStepArt, PuzzleStepArt } from './pinGuideArt';
 import { useFontFamily } from '../../hooks/useFontFamily';
 import { useThemeColors } from '../../hooks/useThemeColors';
@@ -24,6 +25,13 @@ import { dialogButtonStyles } from './dialogButtons';
 const TITLE_ID = 'pin-guide-title';
 // §4: the spec's value (the mock fixed none): long enough to read "Pinned".
 const CLOSE_AFTER_PIN_MS = 1500;
+// 107px: the puzzle piece's centre from the window's right edge in Justine's Chrome, left of profile and ⋮.
+const PUZZLE_FROM_RIGHT = 107;
+const ARROW_WIDTH = 50;
+const ARROW_HEIGHT = 84;
+const ARROW_RIGHT =
+  PUZZLE_FROM_RIGHT -
+  (ARROW_WIDTH - doodleTipFromLeft(ARROW_WIDTH, ARROW_HEIGHT));
 
 interface PinStep {
   art: ReactNode;
@@ -71,17 +79,17 @@ export const PinGuideModal: React.FC = () => {
     {
       art: <PuzzleStepArt />,
       caption: t('Click the puzzle piece'),
-      pointerInset: 42,
+      pointerInset: 94,
     },
     {
       art: <PinStepArt />,
       caption: t('Click the pin next to Tab Keeper'),
-      pointerInset: 47,
+      pointerInset: 28,
     },
     {
       art: <PinnedStepArt />,
       caption: t('Tab Keeper stays on your toolbar'),
-      pointerInset: 76,
+      pointerInset: 124,
     },
   ];
 
@@ -113,10 +121,11 @@ export const PinGuideModal: React.FC = () => {
       background: rgba(0, 0, 0, 0.8);
     }
   `;
-  const towardToolbarStyle = css`
+  // In the gap above the guide (top 96px), so it never covers it.
+  const arrowStyle = css`
     position: fixed;
     top: 6px;
-    right: 22px;
+    right: ${ARROW_RIGHT}px;
     color: ${COLORS.PRIMARY_COLOR};
     pointer-events: none;
   `;
@@ -203,8 +212,11 @@ export const PinGuideModal: React.FC = () => {
         dismiss();
       }}
     >
-      <span aria-hidden="true" css={towardToolbarStyle}>
-        <TowardToolbarGlyph size="84px" />
+      <span data-pin-arrow aria-hidden="true" css={arrowStyle}>
+        <PointUpDoodleGlyph
+          width={`${ARROW_WIDTH}px`}
+          height={`${ARROW_HEIGHT}px`}
+        />
       </span>
       <div css={titleRowStyle}>
         <h2 id={TITLE_ID} css={titleStyle}>
@@ -227,7 +239,11 @@ export const PinGuideModal: React.FC = () => {
               </span>
             )}
             <div aria-hidden="true">{step.art}</div>
-            <div aria-hidden="true" css={pointerStyle(step.pointerInset)}>
+            <div
+              data-pin-step-pointer
+              aria-hidden="true"
+              css={pointerStyle(step.pointerInset)}
+            >
               <PointUpGlyph />
             </div>
             <p data-pin-step-caption css={captionStyle}>

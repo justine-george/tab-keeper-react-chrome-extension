@@ -203,6 +203,133 @@ test.describe('dismissals stick on this machine', () => {
   });
 });
 
+// KAN-411. Chrome's puzzle piece sits ~107px in from the window's right edge,
+// left of the profile icon and ⋮; the arrow points up at it.
+test('the arrow points straight up at the puzzle piece, clear of the guide', async ({
+  context,
+  extensionId,
+}) => {
+  await stubToolbarPin(context, { pinned: false });
+  await seedSettings(context, { isPinGuideDismissed: false });
+  const page = await openFullView(context, extensionId);
+  await expect(guide(page)).toBeVisible();
+  expect(page.viewportSize()).toEqual({ width: 1280, height: 800 });
+  const measured = await page.evaluate(() => {
+    const arrow = document.querySelector('[data-pin-arrow] svg');
+    const head = document.querySelector('[data-pin-arrow] [data-arrow-head]');
+    const dialog = document.querySelector('dialog[open]');
+    if (arrow === null || head === null || dialog === null) {
+      throw new Error('no arrow or guide');
+    }
+    const box = arrow.getBoundingClientRect();
+    const tip = head.getBoundingClientRect();
+    const guideBox = dialog.getBoundingClientRect();
+    return {
+      // The head rises symmetrically to the tip, so its box centre is the tip's x.
+      tipFromRight: window.innerWidth - (tip.left + tip.width / 2),
+      tipTop: tip.top,
+      box: {
+        left: box.left,
+        right: box.right,
+        top: box.top,
+        bottom: box.bottom,
+      },
+      guide: {
+        left: guideBox.left,
+        right: guideBox.right,
+        top: guideBox.top,
+        bottom: guideBox.bottom,
+      },
+    };
+  });
+  console.log(`[pin arrow] ${JSON.stringify(measured)}`);
+  // ±4px: the tip is a stroke 2.6 viewBox units wide, and Chrome's own layout varies.
+  expect(Math.abs(measured.tipFromRight - 107)).toBeLessThanOrEqual(4);
+  // Straight up: the tip is the arrow's top, not a corner.
+  expect(measured.tipTop - measured.box.top).toBeLessThan(12);
+  const { box, guide: g } = measured;
+  const overlaps =
+    box.left < g.right &&
+    box.right > g.left &&
+    box.top < g.bottom &&
+    box.bottom > g.top;
+  expect(overlaps).toBe(false);
+});
+
+// KAN-411. Chrome's real order: field, puzzle, divider, profile, ⋮; a pinned
+// extension sits left of the puzzle.
+test('steps 1 and 3 draw the toolbar in Chrome’s order', async ({
+  context,
+  extensionId,
+}) => {
+  await stubToolbarPin(context, { pinned: false });
+  await seedSettings(context, { isPinGuideDismissed: false });
+  const page = await openFullView(context, extensionId);
+  await expect(guide(page)).toBeVisible();
+  const order = (step: number) =>
+    page.evaluate((index) => {
+      const li = document.querySelectorAll('dialog[open] ol > li')[index];
+      const parts = [
+        ...li.querySelectorAll(
+          '[data-toolbar-part], .material-symbols-outlined'
+        ),
+      ].filter(
+        (el) =>
+          el.hasAttribute('data-toolbar-part') || el.textContent === 'more_vert'
+      );
+      return parts
+        .map((el) => ({
+          name: el.getAttribute('data-toolbar-part') ?? 'menu',
+          left: el.getBoundingClientRect().left,
+          width: el.getBoundingClientRect().width,
+        }))
+        .filter((part) => part.width > 0)
+        .sort((a, b) => a.left - b.left)
+        .map((part) => part.name);
+    }, step);
+  expect(await order(0)).toEqual([
+    'field',
+    'puzzle',
+    'divider',
+    'profile',
+    'menu',
+  ]);
+  expect(await order(2)).toEqual([
+    'field',
+    'tab-keeper',
+    'puzzle',
+    'divider',
+    'profile',
+    'menu',
+  ]);
+});
+
+// Each step's small arrow points up at the item its badge rings.
+test('each step’s pointer sits under its ringed item', async ({
+  context,
+  extensionId,
+}) => {
+  await stubToolbarPin(context, { pinned: false });
+  await seedSettings(context, { isPinGuideDismissed: false });
+  const page = await openFullView(context, extensionId);
+  await expect(guide(page)).toBeVisible();
+  const offsets = await page.evaluate(() =>
+    [...document.querySelectorAll('dialog[open] ol > li')].map((li) => {
+      const ring = li.querySelector('[data-ringed]');
+      const arrow = li.querySelector('[data-pin-step-pointer] svg');
+      if (ring === null || arrow === null)
+        throw new Error('no ring or pointer');
+      const centre = (el: Element) => {
+        const box = el.getBoundingClientRect();
+        return box.left + box.width / 2;
+      };
+      return centre(arrow) - centre(ring);
+    })
+  );
+  console.log(`[step pointers] ${JSON.stringify(offsets)}`);
+  for (const offset of offsets) expect(Math.abs(offset)).toBeLessThanOrEqual(2);
+});
+
 test('step 2 draws no ⋮; steps 1 and 3 keep theirs', async ({
   context,
   extensionId,
