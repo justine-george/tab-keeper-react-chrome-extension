@@ -23,8 +23,12 @@ export function windowNumbers(
   const numbers = new Map<string, number>();
   let counted = 0;
   for (const { windowId } of windows) {
-    if (!leaveOut.has(windowId)) counted += 1;
-    numbers.set(windowId, counted + (leaveOut.has(windowId) ? 1 : 0));
+    if (leaveOut.has(windowId)) {
+      numbers.set(windowId, counted + 1);
+      continue;
+    }
+    counted += 1;
+    numbers.set(windowId, counted);
   }
   return numbers;
 }

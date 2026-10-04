@@ -60,6 +60,12 @@ describe('windowNumbers', () => {
     expect(n.get('b')).toBe(2);
   });
 
+  test('a trailing left-out id takes the number after the last counted one', () => {
+    const n = windowNumbers(ids('a', 'b', 'tail'), new Set(['tail']));
+    expect(n.get('b')).toBe(2);
+    expect(n.get('tail')).toBe(3);
+  });
+
   test('an empty list gives an empty map', () => {
     expect(windowNumbers([], new Set(['x'])).size).toBe(0);
   });
