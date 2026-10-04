@@ -145,6 +145,31 @@ test('the toolbar click opens one full view, and a second click focuses it', asy
   expect(await fullViewTabs(serviceWorker)).toBe(1);
 });
 
+test('two toolbar clicks at once open one full view', async ({
+  context,
+  extensionId,
+  serviceWorker,
+}) => {
+  const page = await openSessionsSettings(context, extensionId);
+  await side(page, 'Full view').click();
+  await expect.poll(() => popupOf(serviceWorker)).toBe('');
+  const windowId = await page.evaluate(
+    async () => (await chrome.windows.getCurrent()).id
+  );
+  if (windowId === undefined) throw new Error('no window id');
+  // CONTROL: none open yet.
+  expect(await fullViewTabs(serviceWorker)).toBe(0);
+
+  await Promise.all([
+    clickToolbar(serviceWorker, windowId),
+    clickToolbar(serviceWorker, windowId),
+  ]);
+  await expect.poll(() => fullViewTabs(serviceWorker)).toBe(1);
+  // A late duplicate would arrive after the first: give it the chance.
+  await page.waitForTimeout(500);
+  expect(await fullViewTabs(serviceWorker)).toBe(1);
+});
+
 for (const [theme, palette] of THEMES) {
   test(`${theme}: the Default view row reads at 4.5:1`, async ({
     context,

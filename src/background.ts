@@ -100,12 +100,20 @@ const defaultViewStore: DefaultViewStore = {
 };
 const reapplyDefaultViewNow = () =>
   void reapplyDefaultView(defaultViewStore, chromeActionApi);
+// Also at load: disabling then enabling resets the popup and fires neither event.
+reapplyDefaultViewNow();
 chrome.runtime.onStartup.addListener(reapplyDefaultViewNow);
 chrome.runtime.onInstalled.addListener(reapplyDefaultViewNow);
 
 // Fires only while the popup is '' (Default view = Full); the shortcut and the puzzle menu follow.
-const onToolbarClick = (tab: chrome.tabs.Tab) =>
-  openFullViewFromToolbar(chromeTabApi, tab);
+// One open at a time: a double click would otherwise query before either create.
+let openingFullView: Promise<void> | undefined;
+const onToolbarClick = (tab: chrome.tabs.Tab): Promise<void> =>
+  (openingFullView ??= openFullViewFromToolbar(chromeTabApi, tab).finally(
+    () => {
+      openingFullView = undefined;
+    }
+  ));
 chrome.action.onClicked.addListener((tab) => void onToolbarClick(tab));
 // The e2e harness cannot click the toolbar; it calls this instead.
 Object.assign(globalThis, { tabKeeperToolbarClick: onToolbarClick });
