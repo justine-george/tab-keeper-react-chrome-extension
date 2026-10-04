@@ -247,10 +247,10 @@ for (const view of VIEWS) {
       await expect
         .poll(() => labels(page))
         .toEqual(['w1=Window 1', 'w2=Window 2', 'w3=Window 3', `w4=${NAMED}`]);
-      // The title button carries the label as its name.
+      // The title button carries the label in its name.
       await expect(
         header(page, 'w2').getByRole('button', {
-          name: 'Window 2',
+          name: 'Rename window: Window 2',
           exact: true,
         })
       ).toBeVisible();
