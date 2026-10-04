@@ -62,6 +62,23 @@ describe('the themed ring (1A)', () => {
     );
   });
 
+  // Round 2 B: outside the bar, which is too narrow for a ring inside it.
+  test.each(THEMES)('the group colour bar, in %s', async (theme, colors) => {
+    await renderWithProviders(
+      <GroupColorPicker
+        color="yellow"
+        ariaLabel="Colour"
+        onSelect={() => {}}
+      />,
+      { seedStore: (store) => store.dispatch(setTheme(theme)) }
+    );
+    expect(ringRules(screen.getByRole('button', { name: 'Colour' }))).toMatch(
+      new RegExp(
+        `outline: 2px solid ${colors.TEXT_COLOR.toLowerCase()};\\s*outline-offset: 2px`
+      )
+    );
+  });
+
   test('CONTROL: a decorative Icon, never focused, has no ring', async () => {
     const { container } = await renderWithProviders(<Icon type="tab" />);
     const el = container.firstElementChild;
