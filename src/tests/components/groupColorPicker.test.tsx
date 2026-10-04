@@ -276,7 +276,9 @@ describe('the group colour band', () => {
     await renderGroup();
 
     await user.click(screen.getByRole('button', { name: BAND }));
-    await user.click(screen.getByRole('button', { name: 'Window 1' }));
+    await user.click(
+      screen.getByRole('button', { name: 'Rename window: Window 1' })
+    );
 
     expect(screen.queryByRole('menu')).not.toBeInTheDocument();
   });
