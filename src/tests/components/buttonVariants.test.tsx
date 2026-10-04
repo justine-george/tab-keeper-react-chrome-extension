@@ -85,3 +85,18 @@ describe('Button variants (KAN-205)', () => {
     expect(seen.size).toBe(3);
   });
 });
+
+describe('Button outline variant (KAN-394)', () => {
+  test('rests transparent with a divider edge, hovers and presses on the icon fills', async () => {
+    await renderWithProviders(
+      <Button text="Act" variant="outline" onClick={() => undefined} />
+    );
+    const el = screen.getByRole('button', { name: 'Act' });
+    expect(getComputedStyle(el).backgroundColor).toBe('rgba(0, 0, 0, 0)');
+    expect(getComputedStyle(el).border).toContain(
+      rgb(LIGHT_THEME.DIVIDER_COLOR).text
+    );
+    expect(hoverRulesFor(el)).toMatch(fill(LIGHT_THEME.ICON_HOVER_COLOR));
+    expect(activeRulesFor(el)).toMatch(fill(LIGHT_THEME.ICON_ACTIVE_COLOR));
+  });
+});
