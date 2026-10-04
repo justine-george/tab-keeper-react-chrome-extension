@@ -92,17 +92,28 @@ const chromeWindowIds = (worker: Worker) =>
     )
   );
 
-// Chrome's window count every 100ms for `ms`, polled in the service worker.
-const windowCountsOver = (worker: Worker, ms: number) =>
-  worker.evaluate(async (ms) => {
-    const seen: number[] = [];
-    const end = Date.now() + ms;
-    while (Date.now() < end) {
-      seen.push((await chrome.windows.getAll()).length);
-      await new Promise((done) => setTimeout(done, 100));
-    }
-    return seen;
-  }, ms);
+// Chrome's window or tab count every 100ms for `ms`, polled in the service worker.
+const chromeCountsOver = (
+  worker: Worker,
+  counter: 'windows' | 'tabs',
+  ms: number
+) =>
+  worker.evaluate(
+    async ({ counter, ms }) => {
+      const seen: number[] = [];
+      const end = Date.now() + ms;
+      while (Date.now() < end) {
+        seen.push(
+          counter === 'windows'
+            ? (await chrome.windows.getAll()).length
+            : (await chrome.tabs.query({})).length
+        );
+        await new Promise((done) => setTimeout(done, 100));
+      }
+      return seen;
+    },
+    { counter, ms }
+  );
 
 // The distinct stored containers seen every 50ms for `ms`, polled in the page.
 const storedValuesOver = (page: Page, ms: number) =>
@@ -179,7 +190,7 @@ for (const view of VIEWS) {
       const page = await open(context, extensionId, view);
       const before = (await chromeWindowIds(serviceWorker)).length;
 
-      const sampling = windowCountsOver(serviceWorker, 1000);
+      const sampling = chromeCountsOver(serviceWorker, 'windows', 1000);
       await title(page, 'w1', NAMED).click();
       expect(new Set(await sampling)).toEqual(new Set([before]));
       await expect(editor(page, 'w1')).toBeVisible();
@@ -188,7 +199,7 @@ for (const view of VIEWS) {
       // CONTROL: the same poll sees Open's window appear.
       await page.keyboard.press('Escape');
       await header(page, 'w1').hover();
-      const controlSampling = windowCountsOver(serviceWorker, 1000);
+      const controlSampling = chromeCountsOver(serviceWorker, 'windows', 1000);
       await openButton(page, 'w1', NAMED).click();
       expect(await controlSampling).toContain(before + 1);
     });
@@ -308,7 +319,7 @@ for (const view of VIEWS) {
         exact: true,
       });
       const b = await boxOf(tick);
-      const sampling = windowCountsOver(serviceWorker, 1000);
+      const sampling = chromeCountsOver(serviceWorker, 'windows', 1000);
       await page.mouse.click(b.x + b.width / 2, b.y + b.height / 2);
 
       expect(new Set(await sampling)).toEqual(new Set([before]));
@@ -370,7 +381,7 @@ for (const view of VIEWS) {
       const y = h.y + h.height / 2;
 
       const before = (await chromeWindowIds(serviceWorker)).length;
-      const sampling = windowCountsOver(serviceWorker, 1000);
+      const sampling = chromeCountsOver(serviceWorker, 'windows', 1000);
       await page.mouse.click(x, y);
       expect(new Set(await sampling)).toEqual(new Set([before]));
       await expect(editor(page, 'w1')).toHaveCount(0);
@@ -746,18 +757,6 @@ const menuCountsOver = (page: Page, ms: number) =>
     return seen;
   }, ms);
 
-// Chrome's tab count every 100ms for `ms`, polled in the service worker.
-const tabCountsOver = (worker: Worker, ms: number) =>
-  worker.evaluate(async (ms) => {
-    const seen: number[] = [];
-    const end = Date.now() + ms;
-    while (Date.now() < end) {
-      seen.push((await chrome.tabs.query({})).length);
-      await new Promise((done) => setTimeout(done, 100));
-    }
-    return seen;
-  }, ms);
-
 // Every Chrome group's title, colour and member URLs, in tab order.
 const chromeGroups = (worker: Worker) =>
   worker.evaluate(async () => {
@@ -791,7 +790,7 @@ for (const view of VIEWS) {
           async () => (await chrome.tabs.query({})).length
         );
 
-        const sampling = tabCountsOver(serviceWorker, 1000);
+        const sampling = chromeCountsOver(serviceWorker, 'tabs', 1000);
         await groupTitle(page, 'gr', 'Research').click();
         expect(new Set(await sampling)).toEqual(new Set([before]));
         await expect(groupEditor(page, 'gr')).toBeVisible();
@@ -800,7 +799,7 @@ for (const view of VIEWS) {
         // CONTROL: the same poll sees Open's two tabs appear.
         await page.keyboard.press('Escape');
         await bandHandle(page, 'gr').hover();
-        const controlSampling = tabCountsOver(serviceWorker, 1000);
+        const controlSampling = chromeCountsOver(serviceWorker, 'tabs', 1000);
         await groupOpen(page, 'gr', 'Research').click();
         expect(await controlSampling).toContain(before + 2);
       }
@@ -875,7 +874,7 @@ for (const view of VIEWS) {
           exact: true,
         });
         const b = await boxOf(tick);
-        const tabs = tabCountsOver(serviceWorker, 1000);
+        const tabs = chromeCountsOver(serviceWorker, 'tabs', 1000);
         const menus = menuCountsOver(page, 1000);
         await page.mouse.click(b.x + b.width / 2, b.y + b.height / 2);
 
