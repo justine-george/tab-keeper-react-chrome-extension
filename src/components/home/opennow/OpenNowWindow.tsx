@@ -33,6 +33,7 @@ import { useDragState } from '../rightpane/rowDrag/dragContext';
 import { markRowContainer } from '../rightpane/rowDrag/dropRules';
 import { GroupFrameFollower } from '../rightpane/rowDrag/GroupFrameFollower';
 import { DURATION, ICON, RADIUS, TYPE } from '../../../styles/scale';
+import { windowLabel as windowLabelText } from '../../../utils/functions/windowLabel';
 import { OPEN_ITEMS_SCOPE, OPEN_TABS_SCOPE } from './useOpenNowDrop';
 
 // WindowEntryContainer's GROUP_TITLE_SIZE, the one documented off-scale size
@@ -316,7 +317,7 @@ export default function OpenNowWindow({
     padding-right: 9px;
   `;
 
-  const title = t('Window') + ' ' + (index + 1);
+  const title = windowLabelText('', index + 1, t('Window')).text;
 
   const windowLabel = (
     <>
