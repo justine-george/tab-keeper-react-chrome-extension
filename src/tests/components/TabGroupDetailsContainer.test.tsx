@@ -320,7 +320,7 @@ describe('renaming a Chrome tab group round-trips to the screen', () => {
     });
 
     await user.click(
-      await screen.findByRole('button', { name: 'Rename group' })
+      await screen.findByRole('button', { name: 'Rename group: Unnamed group' })
     );
     await user.type(
       screen.getByRole('textbox', { name: 'Rename group: Unnamed group' }),
@@ -338,7 +338,7 @@ describe('renaming a Chrome tab group round-trips to the screen', () => {
     });
 
     await user.click(
-      await screen.findByRole('button', { name: 'Rename group' })
+      await screen.findByRole('button', { name: 'Rename group: Research' })
     );
     const input = screen.getByRole('textbox', {
       name: 'Rename group: Research',
