@@ -5,6 +5,7 @@ import { hydrateFromOtherPage } from './slices/tabContainerDataStateSlice';
 import {
   asOpenNowWidth,
   asShippedLanguage,
+  guardOnboarding,
   hydrateSettingsFromOtherPage,
   type Language,
   type SettingsData,
@@ -102,6 +103,8 @@ export const applyOtherPageSettings =
         'openNowWidth' in incoming
           ? asOpenNowWidth(incoming.openNowWidth)
           : current.openNowWidth,
+      // KAN-7. Same rule for the onboarding answers.
+      ...guardOnboarding(loaded, current),
     };
     if (sameIgnoringKeyOrder(next, current)) return { languageChanged: null };
 
