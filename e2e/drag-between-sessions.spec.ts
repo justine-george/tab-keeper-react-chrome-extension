@@ -580,10 +580,8 @@ test.describe('a quick drop on a session row (S2 A)', () => {
       .toEqual(['a1', D1_START, 'e0 e1']);
     expect(await windowIdsOf(page, 'S2')).toEqual(['new', 'd1', 'd2']);
     expect(await layout(page, 'S1')).toEqual(['a0 a2 al0* al1*', 'b0 b1']);
-    // A new window is named after its first tab, as a captured one is.
-    expect(sessionOf(await stored(page), 'S2').windows[0]?.title).toBe(
-      'Tab a1'
-    );
+    // A new window is unnamed, as a captured one is (KAN-394 L4).
+    expect(sessionOf(await stored(page), 'S2').windows[0]?.title).toBe('');
     // Quick: the drop came before the dwell, so the source stays on screen.
     expect(await selected(page)).toBe('S1');
     await expect

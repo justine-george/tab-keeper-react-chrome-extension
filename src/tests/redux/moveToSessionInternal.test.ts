@@ -153,7 +153,7 @@ describe('a tab moves into another session', () => {
     expect(tabIds(windowIn(next, 'S2', 'd2'))).toEqual(['u4', 't3']);
   });
 
-  it('becomes a new first window with its source window bounds, named after its tab', () => {
+  it('becomes a new first window with its source window bounds, unnamed', () => {
     const next = moved(seeded(), {
       carried: { kind: 'tab', tabGroupId: 'S1', windowId: 'w1', tabId: 'g1a' },
       to: { tabGroupId: 'S2', newWindowId: 'nw', at: 'first' },
@@ -168,25 +168,13 @@ describe('a tab moves into another session', () => {
       windowOffsetTop: W1_BOUNDS.top,
       windowOffsetLeft: W1_BOUNDS.left,
       tabCount: 1,
-      // A captured window is titled with its first tab's title.
-      title: 'g1a',
+      title: '',
       // Out of its group: a new window has no band to join.
       tabs: [tab('g1a')],
     });
     expect(target.windowCount).toBe(3);
     expect(target.tabCount).toBe(5);
     expect(sessionIn(next, 'S1').tabCount).toBe(5);
-  });
-
-  it('a first tab with no title leaves the new window untitled', () => {
-    const source = s1();
-    source.windows[0].tabs[1] = { ...tab('g1a', 'g1'), title: '' };
-    const next = moved(seeded(container([s3(), s2(), source])), {
-      carried: { kind: 'tab', tabGroupId: 'S1', windowId: 'w1', tabId: 'g1a' },
-      to: { tabGroupId: 'S2', newWindowId: 'nw', at: 'first' },
-    });
-
-    expect(sessionIn(next, 'S2').windows[0].title).toBe('');
   });
 });
 
@@ -239,8 +227,7 @@ describe('a group moves into another session', () => {
       windowOffsetTop: W1_BOUNDS.top,
       windowOffsetLeft: W1_BOUNDS.left,
       tabCount: 2,
-      // The group's first tab names it, as capture names a window.
-      title: 'g1a',
+      title: '',
       tabs: [tab('g1a', 'g1'), tab('g1b', 'g1')],
       chromeTabGroups: [group('g1')],
     });
@@ -250,8 +237,8 @@ describe('a group moves into another session', () => {
 });
 
 // A new window can go after every window the session has. The same window
-// as a new first one -- its source window's bounds, its first tab's title --
-// only in the last place.
+// as a new first one -- its source window's bounds, unnamed -- only in the
+// last place.
 describe('a new window placed last', () => {
   const TAB_G1A: SessionMove['carried'] = {
     kind: 'tab',
@@ -266,7 +253,7 @@ describe('a new window placed last', () => {
     groupId: 'g1',
   };
 
-  it('a tab into another session: the last window, with the source bounds, named after the tab', () => {
+  it('a tab into another session: the last window, with the source bounds, unnamed', () => {
     const next = moved(seeded(), {
       carried: TAB_G1A,
       to: { tabGroupId: 'S2', newWindowId: 'nw', at: 'last' },
@@ -281,7 +268,7 @@ describe('a new window placed last', () => {
       windowOffsetTop: W1_BOUNDS.top,
       windowOffsetLeft: W1_BOUNDS.left,
       tabCount: 1,
-      title: 'g1a',
+      title: '',
       tabs: [tab('g1a')],
     });
     expect(target.windowCount).toBe(3);
@@ -304,7 +291,7 @@ describe('a new window placed last', () => {
       windowOffsetTop: W1_BOUNDS.top,
       windowOffsetLeft: W1_BOUNDS.left,
       tabCount: 2,
-      title: 'g1a',
+      title: '',
       tabs: [tab('g1a', 'g1'), tab('g1b', 'g1')],
       chromeTabGroups: [group('g1')],
     });
