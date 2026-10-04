@@ -5,6 +5,7 @@
 import type { BrowserContext, Locator, Page } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
+import { grantedTest } from './fixtures/grantedExtension';
 import {
   buildContainer,
   buildSession,
@@ -15,6 +16,7 @@ import { contrast, rgbToHex } from './fixtures/pixels';
 import type {
   TabMasterContainer,
   tabContainerData,
+  windowGroupData,
 } from '../src/redux/slices/tabContainerDataStateSlice';
 import { isValidTabMasterContainer } from '../src/utils/functions/local';
 import {
@@ -60,7 +62,7 @@ const win = (id: string, title: string, tabs = 1) => ({
 const session = (
   id: string,
   title: string,
-  windows: ReturnType<typeof win>[]
+  windows: windowGroupData[]
 ): tabContainerData =>
   buildSession({
     tabGroupId: id,
@@ -219,9 +221,9 @@ const setDetailScroll = (page: Page, top: number) =>
     return el.scrollTop;
   }, top);
 
-// Presses a window's header and drags it past the activation distance.
-async function pickUp(page: Page, windowId: string) {
-  const b = await boxOf(header(page, windowId));
+// Presses a row's handle and drags it past the activation distance.
+async function pickUpRow(page: Page, handle: Locator) {
+  const b = await boxOf(handle);
   const x = b.x + Math.min(60, b.width / 2);
   const y = b.y + b.height / 2;
   await page.mouse.move(x, y);
@@ -229,6 +231,9 @@ async function pickUp(page: Page, windowId: string) {
   await page.mouse.move(x, y + 8, { steps: 2 });
   return { x, y: y + 8 };
 }
+
+const pickUp = (page: Page, windowId: string) =>
+  pickUpRow(page, header(page, windowId));
 
 const AUTO_SCROLL_BAND = 48;
 
@@ -462,3 +467,220 @@ for (const [theme, colours] of THEMES) {
     );
   });
 }
+
+// ---- KAN-394 L4: every new window is saved unnamed --------------------------
+
+// A legacy session: k1 is named after its first tab, as every window was
+// before L4; k2 has a name of its own. Neither is ever rewritten (L5).
+const LEGACY = 'Page k1.0';
+const groupedK1 = (): windowGroupData => {
+  const w = win('k1', LEGACY, 3);
+  return {
+    ...w,
+    chromeTabGroups: [{ groupId: 'gk', title: 'Kept', color: 'blue' }],
+    tabs: w.tabs.map((t, i) => (i < 2 ? { ...t, chromeGroupId: 'gk' } : t)),
+  };
+};
+const LEGACY_S1 = () =>
+  session('S1', 'Legacy', [groupedK1(), win('k2', NAMED)]);
+
+const sessionIn = async (page: Page, id: string) => {
+  const found = (await stored(page)).tabGroups.find((g) => g.tabGroupId === id);
+  if (found === undefined) throw new Error(`no session ${id}`);
+  return found;
+};
+
+// CONTROL (L5): the legacy titles are still stored.
+async function expectLegacyKept(page: Page) {
+  const s1 = await sessionIn(page, 'S1');
+  expect(
+    s1.windows.flatMap((w) => (w.windowId.startsWith('k') ? [w.title] : []))
+  ).toEqual([LEGACY, NAMED]);
+}
+
+// The new windows' stored titles, with each one's first tab beside it.
+const titledBy = (windows: windowGroupData[]) =>
+  windows.map((w) => ({ title: w.title, firstTab: w.tabs[0]?.title }));
+
+test.describe('every new window is saved unnamed (L4)', () => {
+  for (const [name, save] of [
+    [
+      'Save all',
+      (page: Page) =>
+        page
+          .getByRole('button', { name: 'Save all open windows as a session' })
+          .click(),
+    ],
+    [
+      'Save current window',
+      async (page: Page) => {
+        await page
+          .locator('input#name')
+          .locator('xpath=..')
+          .getByRole('button', { name: 'More actions' })
+          .click();
+        await page
+          .getByRole('menuitem', { name: 'Save current window as a session' })
+          .click();
+      },
+    ],
+  ] as const) {
+    test(`popup: ${name}`, async ({ context, extensionId }) => {
+      const page = await open(context, extensionId, 'popup', [
+        LEGACY_S1(),
+        S2(),
+      ]);
+      await page.locator('input#name').fill('Saved now');
+      await save(page);
+
+      await expect
+        .poll(async () => (await stored(page)).tabGroups[0]?.title)
+        .toBe('Saved now');
+      const saved = (await stored(page)).tabGroups[0];
+      // PREMISE: each window has a titled first tab it could be named by.
+      expect(saved.windows.length).toBeGreaterThan(0);
+      for (const w of titledBy(saved.windows)) expect(w.firstTab).toBeTruthy();
+      expect(titledBy(saved.windows).map((w) => w.title)).toEqual(
+        saved.windows.map(() => '')
+      );
+      await expect
+        .poll(() => labels(page))
+        .toEqual(saved.windows.map((w, i) => `${w.windowId}=Window ${i + 1}`));
+      await expectLegacyKept(page);
+    });
+  }
+
+  test('popup: Add current window', async ({ context, extensionId }) => {
+    const page = await open(context, extensionId, 'popup', [LEGACY_S1(), S2()]);
+    await page.getByRole('button', { name: 'Add current window' }).click();
+
+    await expect
+      .poll(async () => (await sessionIn(page, 'S1')).windows.length)
+      .toBe(3);
+    const [added] = (await sessionIn(page, 'S1')).windows;
+    // PREMISE: a titled tab it could have been named by.
+    expect(added.tabs[0]?.title).toBeTruthy();
+    expect(added.title).toBe('');
+    await expect
+      .poll(() => labels(page))
+      .toEqual([`${added.windowId}=Window 1`, `k1=${LEGACY}`, `k2=${NAMED}`]);
+    await expectLegacyKept(page);
+  });
+
+  test('popup: a tab dropped on the header New window target', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await open(context, extensionId, 'popup', [LEGACY_S1(), S2()]);
+    // Read at rest: the drag hides the controls the target stands over.
+    const aim = await boxOf(page.getByRole('button', { name: 'Open session' }));
+    await pickUpRow(page, page.locator('[data-drag-row-id="k1-t2"]'));
+    await page.mouse.move(aim.x + aim.width / 2, aim.y + aim.height / 2, {
+      steps: 8,
+    });
+    await expect(
+      page.locator('[data-new-window-target="first"]')
+    ).toHaveAttribute('data-landing', '');
+    await page.mouse.up();
+
+    await expect
+      .poll(async () => (await sessionIn(page, 'S1')).windows.length)
+      .toBe(3);
+    const [made] = (await sessionIn(page, 'S1')).windows;
+    expect(titledBy([made])).toEqual([{ title: '', firstTab: 'Page k1.2' }]);
+    await expect
+      .poll(() => labels(page))
+      .toEqual([`${made.windowId}=Window 1`, `k1=${LEGACY}`, `k2=${NAMED}`]);
+    await expectLegacyKept(page);
+  });
+
+  test('tab view: Open now saves a window as a session', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    const page = await open(context, extensionId, 'tab view', [
+      LEGACY_S1(),
+      S2(),
+    ]);
+    const windowId = await serviceWorker.evaluate(async () => {
+      const made = await chrome.windows.create({
+        focused: false,
+        url: 'data:text/html,<title>Named page</title>',
+      });
+      return made?.id ?? null;
+    });
+    if (windowId === null) throw new Error('Chrome gave no window id');
+    const block = page.locator(
+      `[data-pane="open-now"] [data-open-window-id="${windowId}"]`
+    );
+    await expect(
+      block.getByRole('button', { name: 'Switch to tab: Named page' })
+    ).toBeVisible();
+    await block
+      .getByRole('button', { name: /^Save window as a session: / })
+      .click();
+
+    await expect
+      .poll(async () => (await stored(page)).tabGroups.length)
+      .toBe(3);
+    const saved = (await stored(page)).tabGroups[0];
+    expect(titledBy(saved.windows)).toEqual([
+      { title: '', firstTab: 'Named page' },
+    ]);
+    await expect
+      .poll(() => labels(page))
+      .toEqual([`${saved.windows[0].windowId}=Window 1`]);
+    await expectLegacyKept(page);
+  });
+});
+
+// Group bands need the tabGroups permission, granted only in this fixture.
+grantedTest(
+  'popup: a group carried onto another session row is a new first window there, unnamed',
+  async ({ context, extensionId }) => {
+    const page = await open(context, extensionId, 'popup', [LEGACY_S1(), S2()]);
+    const from = await pickUpRow(
+      page,
+      page.locator('[data-drag-row-id="group:gk"] [data-group-drag-handle]')
+    );
+    // Out of the detail onto the session list, where the drag is carried.
+    const pane = await detailPane(page);
+    await page.mouse.move(pane.left - 40, from.y, { steps: 6 });
+    await expect(page.locator('[data-carry-card]')).toHaveCount(1);
+    const row = await boxOf(
+      page.locator('[data-pane="sessions"] [data-drag-row-id="S2"]')
+    );
+    await page.mouse.move(row.x + row.width / 2, row.y + row.height / 2, {
+      steps: 5,
+    });
+    await expect
+      .poll(() =>
+        page.evaluate(() =>
+          [...document.querySelectorAll('[data-carry-target]')].map(
+            (el) =>
+              el.closest<HTMLElement>('[data-drag-row-id]')?.dataset.dragRowId
+          )
+        )
+      )
+      .toEqual(['S2']);
+    await page.mouse.up();
+
+    await expect
+      .poll(async () => (await sessionIn(page, 'S2')).windows.length)
+      .toBe(2);
+    const [made] = (await sessionIn(page, 'S2')).windows;
+    expect(titledBy([made])).toEqual([{ title: '', firstTab: LEGACY }]);
+    // L5: k1 keeps its title, though the tab it was named after has left.
+    await expectLegacyKept(page);
+
+    // Show, on the Moved toast, puts S2 on screen.
+    await page
+      .getByRole('status')
+      .getByRole('button', { name: 'Show', exact: true })
+      .click();
+    await expect
+      .poll(() => labels(page))
+      .toEqual([`${made.windowId}=Window 1`, 'd1=Elsewhere']);
+  }
+);
