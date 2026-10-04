@@ -2285,9 +2285,9 @@ export const tabContainerDataStateSlice = createSlice({
         // A new window in the item's own session, out of the window it would
         // take the place of (the first for a new first window, the last for a
         // new last one) when that window holds the item and nothing else, would
-        // rebuild that same window: a fresh id, its first tab's title for its
-        // own, the session stamped and sorted to the top. Nothing the user
-        // sees changes, so nothing does (final review, finding 1).
+        // rebuild that same window: a fresh id, its own title lost, the
+        // session stamped and sorted to the top. Nothing the user asked for
+        // changes, so nothing does (final review, finding 1).
         if (
           sameSession &&
           'newWindowId' in move.to &&
@@ -2387,10 +2387,9 @@ export const tabContainerDataStateSlice = createSlice({
           );
 
           if (landing.kind === 'new-window') {
-            // Its source window's bounds, and its first tab's title, as
-            // capture names a window. Tab titles are stored already cleaned
-            // of an unread count, so no second pass. First or last, as the
-            // drop target said (S2 A, S3 A; KAN-361, KAN-366).
+            // Its source window's bounds, unnamed as a captured window is
+            // (KAN-394 L4). First or last, as the drop target said (S2 A,
+            // S3 A; KAN-361, KAN-366).
             const newWindow: windowGroupData = {
               windowId: taken.windows.has(landing.newWindowId)
                 ? remint(landing.newWindowId)
@@ -2400,7 +2399,7 @@ export const tabContainerDataStateSlice = createSlice({
               windowOffsetTop: from.windowOffsetTop,
               windowOffsetLeft: from.windowOffsetLeft,
               tabCount: tabs.length,
-              title: tabs[0]?.title ?? '',
+              title: '',
               tabs,
               ...(group === undefined ? {} : { chromeTabGroups: [group] }),
             };

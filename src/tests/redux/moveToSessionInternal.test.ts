@@ -376,6 +376,39 @@ describe('a new window placed last', () => {
   });
 });
 
+// KAN-394 L4. A new window is saved unnamed wherever it is made, and the
+// window it came out of keeps its own title (L5).
+describe('a new window is saved unnamed', () => {
+  type TabOrGroup = Exclude<SessionMove['carried'], { kind: 'window' }>;
+  const carried: TabOrGroup[] = [
+    { kind: 'tab', tabGroupId: 'S1', windowId: 'w1', tabId: 'g1a' },
+    { kind: 'group', tabGroupId: 'S1', windowId: 'w1', groupId: 'g1' },
+  ];
+  const intoNew = (
+    c: TabOrGroup,
+    tabGroupId: string,
+    at: 'first' | 'last'
+  ): SessionMove => {
+    const to = { tabGroupId, newWindowId: 'nw', at };
+    return c.kind === 'tab' ? { carried: c, to } : { carried: c, to };
+  };
+  const cases = carried.flatMap((c) =>
+    (['S1', 'S2'] as const).flatMap((into) =>
+      (['first', 'last'] as const).map((at) => ({ c, into, at }))
+    )
+  );
+
+  it.each(cases)('a $c.kind into $into, $at', ({ c, into, at }) => {
+    const next = moved(seeded(), intoNew(c, into, at));
+
+    const nw = windowIn(next, into, 'nw');
+    // PREMISE: the tab that would have named it.
+    expect(nw.tabs[0].title).toBe('g1a');
+    expect(nw.title).toBe('');
+    expect(windowIn(next, 'S1', 'w1').title).toBe('Window w1');
+  });
+});
+
 describe('a window moves into another session', () => {
   it('lands at the window index, whole, and the counts move with it', () => {
     const before = seeded();
