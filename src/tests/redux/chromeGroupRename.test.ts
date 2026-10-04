@@ -25,19 +25,8 @@ import type {
   TabMasterContainer,
 } from '../../redux/slices/tabContainerDataStateSlice';
 
-// Renaming a Chrome tab group inside a saved window.
-//
-// The rule here deliberately DIFFERS from updateTabGroupTitle, which refuses
-// a blank title outright (KAN-84). A session must always carry a name, because
-// a nameless row is identifiable only by its counts and date. A Chrome group has no such
-// problem: Chrome itself allows an unnamed group, this pane already renders
-// one as the bare colour band, and the pane shows a placeholder in its place.
-// Refusing a blank here would make "named" a one-way door and let the
-// extension hold a state Chrome cannot express back.
-//
-// Asserted on the REDUCER because that is the choke point: it is the only
-// place a group title is written by user action, and no sync, merge or import
-// path reaches it.
+// Renaming a Chrome tab group. Unlike a session (KAN-84), a blank clears the
+// name: Chrome allows unnamed groups. Asserted on the reducer, the one choke point.
 
 function group(id: string, groupTitle: string): tabContainerData {
   return {

@@ -1428,16 +1428,8 @@ export const tabContainerDataStateSlice = createSlice({
     ) => {
       const { tabGroupId, windowId, groupId, editableTitle } = action.payload;
 
-      // NOT isBlankTitle. The session rename above refuses a blank outright
-      // (KAN-84) because a session with no name leaves a row identifiable only
-      // by its counts and date. A window may be blank (KAN-394); a Chrome group is different:
-      // Chrome allows an unnamed group, and this pane renders one as its
-      // colour band plus a placeholder. Refusing a blank here would make
-      // naming a one-way door and let the extension hold a state that cannot
-      // round-trip back to Chrome.
-      //
-      // normalizeTitle trims, so a whitespace-only title clears the name
-      // rather than storing invisible characters.
+      // Not isBlankTitle: Chrome allows an unnamed group, so blanking must work.
+      // normalizeTitle trims, so whitespace clears the name.
       const newTitle = normalizeTitle(editableTitle);
 
       const tabGroupIndex = state.tabGroups.findIndex(

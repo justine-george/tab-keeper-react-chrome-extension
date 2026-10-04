@@ -209,15 +209,13 @@ describe('a blank window rename leaves the window unnamed (KAN-394)', () => {
   beforeEach(() => localStorage.clear());
 
   const windowTitle = (s: TabMasterContainer) => byId(s, 'a').windows[0].title;
-  const renameWindow = (s: TabMasterContainer, editableTitle: string) =>
-    reducer(
-      s,
-      updateWindowGroupTitle({
-        tabGroupId: 'a',
-        windowId: 'w-a',
-        editableTitle,
-      })
-    );
+  const renameWindow = (
+    s: TabMasterContainer,
+    editableTitle: string,
+    tabGroupId = 'a',
+    windowId = 'w-a'
+  ) =>
+    reducer(s, updateWindowGroupTitle({ tabGroupId, windowId, editableTitle }));
 
   it.each([[''], ['   ']])('stores %j as an empty title', (blank) => {
     const before = reducer(base(), saveToTabContainerInternal(group('a')));
@@ -255,6 +253,19 @@ describe('a blank window rename leaves the window unnamed (KAN-394)', () => {
       ''
     );
     expect(renameWindow(unnamed, '  ')).toBe(unnamed);
+  });
+
+  it.each([
+    ['window', 'a', 'no-such-window'],
+    ['session', 'no-such-session', 'w-a'],
+  ])('an unknown %s id changes nothing', (_kind, tabGroupId, windowId) => {
+    const before = reducer(base(), saveToTabContainerInternal(group('a')));
+    vi.spyOn(Date, 'now').mockReturnValue(9_999_999);
+    const after = renameWindow(before, 'Name', tabGroupId, windowId);
+    vi.restoreAllMocks();
+
+    expect(after).toBe(before);
+    expect(after.lastModified).not.toBe(9_999_999);
   });
 
   // CONTROL: the session rename keeps its KAN-84 refusal; only windows changed.
@@ -334,6 +345,7 @@ describe('a blank window rename through the store (KAN-394)', () => {
     });
 
     // CONTROL: the same store sees no sync when the rename changes nothing.
+    // A pin only: the same-reference test is what kills the no-op-guard mutant.
     it('CONTROL: an unchanged title schedules no sync', () => {
       const { store, seen } = signedIn();
       store.dispatch(
