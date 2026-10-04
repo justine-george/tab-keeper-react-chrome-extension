@@ -203,6 +203,54 @@ test.describe('dismissals stick on this machine', () => {
   });
 });
 
+test('step 2 draws no ⋮; steps 1 and 3 keep theirs', async ({
+  context,
+  extensionId,
+}) => {
+  await stubToolbarPin(context, { pinned: false });
+  await seedSettings(context, { isPinGuideDismissed: false });
+  const page = await openFullView(context, extensionId);
+  await expect(guide(page)).toBeVisible();
+  const steps = guide(page).locator('ol > li');
+  const kebabs = (n: number) =>
+    steps
+      .nth(n)
+      .locator('.material-symbols-outlined')
+      .filter({ hasText: /^more_vert$/ });
+  await expect(kebabs(0)).toHaveCount(1);
+  await expect(kebabs(1)).toHaveCount(0);
+  await expect(kebabs(2)).toHaveCount(1);
+});
+
+test('step 2 name shows Tab Keeper whole before the cut', async ({
+  context,
+  extensionId,
+}) => {
+  await stubToolbarPin(context, { pinned: false });
+  await seedSettings(context, { isPinGuideDismissed: false });
+  const page = await openFullView(context, extensionId);
+  await expect(guide(page)).toBeVisible();
+  const { box, word, ellipsis } = await page.evaluate(() => {
+    const el = document.querySelector('[data-pin-app-name]') as HTMLElement;
+    const text = el.firstChild as Text;
+    const range = document.createRange();
+    range.setStart(text, 0);
+    range.setEnd(text, 'Tab Keeper'.length);
+    const probe = document.createElement('span');
+    probe.style.whiteSpace = 'nowrap';
+    probe.textContent = '…';
+    el.appendChild(probe);
+    const ellipsisWidth = probe.getBoundingClientRect().width;
+    probe.remove();
+    return {
+      box: el.clientWidth,
+      word: range.getBoundingClientRect().width,
+      ellipsis: ellipsisWidth,
+    };
+  });
+  expect(box).toBeGreaterThanOrEqual(word + ellipsis);
+});
+
 for (const [theme, palette] of THEMES) {
   test(`${theme}: the guide reads at 4.5:1, waiting and pinned`, async ({
     context,

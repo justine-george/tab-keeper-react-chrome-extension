@@ -62,6 +62,17 @@ describe('the pin guide', () => {
     );
   });
 
+  test("only steps 1 and 3 draw Chrome's ⋮", async () => {
+    await render();
+    const kebabs = [...openGuide().querySelectorAll('ol > li')].map(
+      (li) =>
+        [...li.querySelectorAll('.material-symbols-outlined')].filter(
+          (i) => i.textContent === 'more_vert'
+        ).length
+    );
+    expect(kebabs).toEqual([1, 0, 1]);
+  });
+
   test.each(['Skip', 'Close'])(
     '%s dismisses it for good on this machine',
     async (name) => {

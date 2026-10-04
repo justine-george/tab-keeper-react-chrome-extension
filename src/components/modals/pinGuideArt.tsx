@@ -146,7 +146,6 @@ export function PinStepArt() {
             `}
           />
           <Icon type="keep" size={ICON.SMALL} />
-          <Icon type="more_vert" size={ICON.SMALL} />
         </div>
         <div css={row}>
           <TabKeeperMark />
@@ -165,7 +164,6 @@ export function PinStepArt() {
           <Ringed badge="2">
             <Icon type="keep" size={ICON.SMALL} />
           </Ringed>
-          <Icon type="more_vert" size={ICON.SMALL} />
         </div>
       </div>
     </div>
