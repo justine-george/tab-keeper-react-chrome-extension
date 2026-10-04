@@ -3,6 +3,7 @@ import { describe, expect, test } from 'vitest';
 import {
   hasUsedFullView,
   shouldOfferFullView,
+  shouldShowPinGuide,
 } from '../../../utils/functions/onboarding';
 
 // KAN-7 §§3, 6. Pure predicates over settingsData.
@@ -49,5 +50,21 @@ describe('shouldOfferFullView', () => {
     ],
   ])('not for %s', (_name, change) => {
     expect(shouldOfferFullView({ ...PENDING, ...change })).toBe(false);
+  });
+});
+
+describe('shouldShowPinGuide', () => {
+  test('unpinned, not dismissed', () => {
+    expect(shouldShowPinGuide({ isPinGuideDismissed: false }, 'unpinned')).toBe(
+      true
+    );
+  });
+
+  test.each([
+    ['pinned', false, 'pinned'],
+    ['unknown (API missing or throwing)', false, 'unknown'],
+    ['dismissed here', true, 'unpinned'],
+  ] as const)('not when %s', (_name, isPinGuideDismissed, pin) => {
+    expect(shouldShowPinGuide({ isPinGuideDismissed }, pin)).toBe(false);
   });
 });

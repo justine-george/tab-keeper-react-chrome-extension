@@ -257,5 +257,12 @@
   "Things to do": "Att göra",
   "Try the full view": "Prova helvyn",
   "See every open window and tab beside your saved sessions, with room to sort, move and tidy them.": "Se alla öppna fönster och flikar bredvid dina sparade sessioner, med plats att sortera, flytta och städa.",
-  "Close": "Stäng"
+  "Close": "Stäng",
+  "Pin Tab Keeper to your toolbar": "Fäst Tab Keeper i verktygsfältet",
+  "Click the puzzle piece": "Klicka på pusselbiten",
+  "Click the pin next to Tab Keeper": "Klicka på nålen bredvid Tab Keeper",
+  "Tab Keeper stays on your toolbar": "Tab Keeper stannar i verktygsfältet",
+  "Waiting for you to pin…": "Väntar på att du fäster…",
+  "Pinned. Closing…": "Fäst. Stänger…",
+  "Skip": "Hoppa över"
 }

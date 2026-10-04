@@ -36,7 +36,12 @@ describe('the first-open lists', () => {
   });
 
   test('full view', () => {
-    expect(listFor('full')).toEqual(['cloudConsent', 'rate', 'tabGroups']);
+    expect(listFor('full')).toEqual([
+      'cloudConsent',
+      'pinGuide',
+      'rate',
+      'tabGroups',
+    ]);
   });
 });
 

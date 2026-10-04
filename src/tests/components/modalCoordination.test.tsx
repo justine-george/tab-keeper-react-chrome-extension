@@ -18,6 +18,7 @@ vi.mock('../../config/firebase', () => ({
 
 import App from '../../App';
 import { renderWithProviders } from '../setup/renderWithProviders';
+import type { ChromeSeed } from '../setup/chrome.fake';
 import {
   initialState as settingsInitial,
   settingsDataStateSlice,
@@ -225,5 +226,79 @@ describe('Try the full view in the order (KAN-7 §3)', () => {
 
     expect(store.getState().globalState.isFullViewOfferOpen).toBe(false);
     expect(store.getState().settingsDataState.setupState).toBe('none');
+  });
+});
+
+describe('the pin guide in the order (KAN-7 §4)', () => {
+  const asFullView = async (
+    action: ChromeSeed['action'],
+    settings: Partial<SettingsData>
+  ) => {
+    history.replaceState(null, '', '?view=tab');
+    return renderWithProviders(<App />, {
+      seed: { action },
+      seedStore: seedSettings({ ...RATE_DUE, ...settings }),
+    });
+  };
+  afterEach(() => history.replaceState(null, '', '?'));
+
+  test('the full view of an unpinned machine shows it, ahead of the rate prompt', async () => {
+    const { store } = await asFullView({ isOnToolbar: false }, {});
+    await waitFor(() =>
+      expect(store.getState().globalState.isPinGuideOpen).toBe(true)
+    );
+    expect(store.getState().globalState.isRateAndReviewModalOpen).toBe(false);
+  });
+
+  test.each([
+    ['pinned', { isOnToolbar: true }, {}],
+    ['no getUserSettings', {}, {}],
+    // Review Focus 2: a throwing check counts as no; the next entry still opens.
+    [
+      'getUserSettings throws',
+      { isOnToolbar: false, getUserSettingsThrows: true },
+      {},
+    ],
+    ['dismissed here', { isOnToolbar: false }, { isPinGuideDismissed: true }],
+  ] as const)(
+    '%s: no guide, and the rate prompt gets the open',
+    async (_name, action, settings) => {
+      const { store } = await asFullView(action, settings);
+      await waitFor(() =>
+        expect(store.getState().globalState.isRateAndReviewModalOpen).toBe(true)
+      );
+      expect(store.getState().globalState.isPinGuideOpen).toBe(false);
+    }
+  );
+
+  test('never in the popup', async () => {
+    history.replaceState(null, '', '?');
+    const { store } = await renderWithProviders(<App />, {
+      seed: { action: { isOnToolbar: false } },
+      seedStore: seedSettings(RATE_DUE),
+    });
+    await waitFor(() =>
+      expect(store.getState().globalState.isRateAndReviewModalOpen).toBe(true)
+    );
+    expect(store.getState().globalState.isPinGuideOpen).toBe(false);
+  });
+
+  test('a welcome answered in the full view goes to the guide, not the offer', async () => {
+    history.replaceState(null, '', '?view=tab');
+    const { store } = await renderWithProviders(<App />, {
+      seed: { action: { isOnToolbar: false } },
+    });
+    await waitFor(() =>
+      expect(store.getState().globalState.isCloudConsentModalOpen).toBe(true)
+    );
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Keep on this device' })
+    );
+
+    await waitFor(() =>
+      expect(store.getState().globalState.isPinGuideOpen).toBe(true)
+    );
+    expect(store.getState().globalState.isFullViewOfferOpen).toBe(false);
+    expect(store.getState().settingsDataState.setupState).toBe('pending');
   });
 });

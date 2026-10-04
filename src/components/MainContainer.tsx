@@ -38,6 +38,7 @@ import { DeleteCloudDataModal } from './modals/DeleteCloudDataModal';
 import { LoadBackupModal } from './modals/LoadBackupModal';
 import { CloudConsentModal } from './modals/CloudConsentModal';
 import { FullViewOfferModal } from './modals/FullViewOfferModal';
+import { PinGuideModal } from './modals/PinGuideModal';
 import { TabGroupsPermissionModal } from './modals/TabGroupsPermissionModal';
 
 // KAN-52. The undo/redo shortcuts are registered on `window`, so they also see
@@ -91,6 +92,10 @@ export default function MainContainer() {
 
   const isFullViewOfferOpen = useSelector(
     (state: RootState) => state.globalState.isFullViewOfferOpen
+  );
+
+  const isPinGuideOpen = useSelector(
+    (state: RootState) => state.globalState.isPinGuideOpen
   );
 
   const tabGroupsPromptCount = useSelector(
@@ -440,6 +445,7 @@ export default function MainContainer() {
       {pendingImport !== null && <LoadBackupModal />}
       {isCloudConsentModalOpen && <CloudConsentModal />}
       {isFullViewOfferOpen && <FullViewOfferModal />}
+      {isPinGuideOpen && <PinGuideModal />}
     </div>
   );
 }

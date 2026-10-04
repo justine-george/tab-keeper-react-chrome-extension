@@ -257,5 +257,12 @@
   "Things to do": "Unternehmungen",
   "Try the full view": "Probieren Sie die Vollansicht aus",
   "See every open window and tab beside your saved sessions, with room to sort, move and tidy them.": "Sehen Sie alle offenen Fenster und Tabs neben Ihren gespeicherten Sitzungen, mit Platz zum Sortieren, Verschieben und Aufräumen.",
-  "Close": "Schließen"
+  "Close": "Schließen",
+  "Pin Tab Keeper to your toolbar": "Tab Keeper an die Symbolleiste anheften",
+  "Click the puzzle piece": "Klicken Sie auf das Puzzleteil",
+  "Click the pin next to Tab Keeper": "Klicken Sie auf die Stecknadel neben Tab Keeper",
+  "Tab Keeper stays on your toolbar": "Tab Keeper bleibt in Ihrer Symbolleiste",
+  "Waiting for you to pin…": "Warten auf das Anheften…",
+  "Pinned. Closing…": "Angeheftet. Wird geschlossen…",
+  "Skip": "Überspringen"
 }

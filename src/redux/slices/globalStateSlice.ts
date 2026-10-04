@@ -126,6 +126,8 @@ export interface Global {
   cloudConsentThen: CloudConsentThen | null;
   // KAN-7 §3. "Try the full view". Session-only, like every dialog flag here.
   isFullViewOfferOpen: boolean;
+  // KAN-7 §4. The pin guide, full view only.
+  isPinGuideOpen: boolean;
   // "the tabGroups permission is granted right now". Mirrors
   // chrome.permissions.contains(), re-read on every popup mount and updated by
   // the permission change listeners -- never persisted, because the user can
@@ -270,6 +272,7 @@ export const initialState: Global = {
   cloudConsentVariant: 'welcome',
   cloudConsentThen: null,
   isFullViewOfferOpen: false,
+  isPinGuideOpen: false,
   hasTabGroupsPermission: false,
   hasSessionsPermission: false,
   collapsedWindows: null,
@@ -982,6 +985,14 @@ export const globalStateSlice = createSlice({
       state.isCloudConsentModalOpen = false;
     },
 
+    openPinGuide: (state) => {
+      state.isPinGuideOpen = true;
+    },
+
+    closePinGuide: (state) => {
+      state.isPinGuideOpen = false;
+    },
+
     openFullViewOffer: (state) => {
       state.isFullViewOfferOpen = true;
     },
@@ -1280,6 +1291,8 @@ export const {
   openCloudConsentModal,
   closeCloudConsentModal,
   openFullViewOffer,
+  openPinGuide,
+  closePinGuide,
   closeFullViewOffer,
   setSearchInputText,
   toastAdded,

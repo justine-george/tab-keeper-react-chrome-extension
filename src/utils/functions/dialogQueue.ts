@@ -1,6 +1,11 @@
 // KAN-7 §8. The first-open dialogs: one ordered list per surface, at most one opened.
 
-export type DialogId = 'cloudConsent' | 'fullViewOffer' | 'rate' | 'tabGroups';
+export type DialogId =
+  | 'cloudConsent'
+  | 'fullViewOffer'
+  | 'pinGuide'
+  | 'rate'
+  | 'tabGroups';
 
 export interface DialogEntry {
   id: DialogId;

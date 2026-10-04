@@ -257,5 +257,12 @@
   "Things to do": "Things to do",
   "Try the full view": "Try the full view",
   "See every open window and tab beside your saved sessions, with room to sort, move and tidy them.": "See every open window and tab beside your saved sessions, with room to sort, move and tidy them.",
-  "Close": "Close"
+  "Close": "Close",
+  "Pin Tab Keeper to your toolbar": "Pin Tab Keeper to your toolbar",
+  "Click the puzzle piece": "Click the puzzle piece",
+  "Click the pin next to Tab Keeper": "Click the pin next to Tab Keeper",
+  "Tab Keeper stays on your toolbar": "Tab Keeper stays on your toolbar",
+  "Waiting for you to pin…": "Waiting for you to pin…",
+  "Pinned. Closing…": "Pinned. Closing…",
+  "Skip": "Skip"
 }

@@ -262,5 +262,12 @@
   "Things to do": "Qué hacer",
   "Try the full view": "Prueba la vista completa",
   "See every open window and tab beside your saved sessions, with room to sort, move and tidy them.": "Ve todas tus ventanas y pestañas abiertas junto a tus sesiones guardadas, con espacio para ordenarlas, moverlas y organizarlas.",
-  "Close": "Cerrar"
+  "Close": "Cerrar",
+  "Pin Tab Keeper to your toolbar": "Fija Tab Keeper en tu barra de herramientas",
+  "Click the puzzle piece": "Haz clic en la pieza de puzle",
+  "Click the pin next to Tab Keeper": "Haz clic en la chincheta junto a Tab Keeper",
+  "Tab Keeper stays on your toolbar": "Tab Keeper se queda en tu barra de herramientas",
+  "Waiting for you to pin…": "Esperando a que lo fijes…",
+  "Pinned. Closing…": "Fijado. Cerrando…",
+  "Skip": "Omitir"
 }

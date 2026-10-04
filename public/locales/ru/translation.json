@@ -267,5 +267,12 @@
   "Things to do": "Чем заняться",
   "Try the full view": "Попробуйте полный вид",
   "See every open window and tab beside your saved sessions, with room to sort, move and tidy them.": "Все открытые окна и вкладки рядом с сохранёнными сессиями, и места хватает, чтобы сортировать, перемещать и наводить порядок.",
-  "Close": "Закрыть"
+  "Close": "Закрыть",
+  "Pin Tab Keeper to your toolbar": "Закрепите Tab Keeper на панели инструментов",
+  "Click the puzzle piece": "Нажмите на значок пазла",
+  "Click the pin next to Tab Keeper": "Нажмите на булавку рядом с Tab Keeper",
+  "Tab Keeper stays on your toolbar": "Tab Keeper остаётся на панели инструментов",
+  "Waiting for you to pin…": "Ждём, пока вы закрепите…",
+  "Pinned. Closing…": "Закреплено. Закрываем…",
+  "Skip": "Пропустить"
 }

@@ -252,5 +252,12 @@
   "Things to do": "やりたいこと",
   "Try the full view": "フルビューを試す",
   "See every open window and tab beside your saved sessions, with room to sort, move and tidy them.": "開いているすべてのウィンドウとタブを保存したセッションの横に表示し、並べ替えや移動、整理をゆったり行えます。",
-  "Close": "閉じる"
+  "Close": "閉じる",
+  "Pin Tab Keeper to your toolbar": "Tab Keeper をツールバーに固定",
+  "Click the puzzle piece": "パズルのピースをクリック",
+  "Click the pin next to Tab Keeper": "Tab Keeper の横のピンをクリック",
+  "Tab Keeper stays on your toolbar": "Tab Keeper がツールバーに表示されます",
+  "Waiting for you to pin…": "固定されるのを待っています…",
+  "Pinned. Closing…": "固定しました。閉じています…",
+  "Skip": "スキップ"
 }

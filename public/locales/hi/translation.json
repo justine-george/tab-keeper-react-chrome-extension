@@ -257,5 +257,12 @@
   "Things to do": "करने लायक चीज़ें",
   "Try the full view": "पूरा व्यू आज़माएँ",
   "See every open window and tab beside your saved sessions, with room to sort, move and tidy them.": "अपने सहेजे गए सेशन के साथ हर खुली विंडो और टैब देखें, और उन्हें छाँटने, खिसकाने और व्यवस्थित करने की जगह पाएँ।",
-  "Close": "बंद करें"
+  "Close": "बंद करें",
+  "Pin Tab Keeper to your toolbar": "Tab Keeper को अपने टूलबार पर पिन करें",
+  "Click the puzzle piece": "पज़ल पीस पर क्लिक करें",
+  "Click the pin next to Tab Keeper": "Tab Keeper के पास वाले पिन पर क्लिक करें",
+  "Tab Keeper stays on your toolbar": "Tab Keeper आपके टूलबार पर बना रहता है",
+  "Waiting for you to pin…": "आपके पिन करने की प्रतीक्षा है…",
+  "Pinned. Closing…": "पिन हो गया। बंद हो रहा है…",
+  "Skip": "छोड़ें"
 }

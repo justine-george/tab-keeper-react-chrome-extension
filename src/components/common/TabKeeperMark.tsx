@@ -3,16 +3,20 @@ import { css } from '@emotion/react';
 
 import { ICON } from '../../styles/scale';
 
-const markStyle = css`
-  display: block;
-  width: ${ICON.SMALL};
-  height: ${ICON.SMALL};
-`;
-
-// Inline, not an <img>, so the shutter can be animated.
-export default function TabKeeperMark() {
+// Inline, not an <img>, so the shutter can be animated. KAN-7 draws it larger in the pin guide.
+export default function TabKeeperMark({
+  size = ICON.SMALL,
+}: {
+  size?: string;
+}) {
   // Two marks on a page must not share one id.
   const bodyId = useId();
+  const markStyle = css`
+    display: block;
+    flex-shrink: 0;
+    width: ${size};
+    height: ${size};
+  `;
 
   return (
     <svg

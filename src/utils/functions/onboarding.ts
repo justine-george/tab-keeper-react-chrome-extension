@@ -1,4 +1,5 @@
 import type { SettingsData } from '../../redux/slices/settingsDataStateSlice';
+import type { ToolbarPin } from './toolbarPin';
 
 // KAN-7. When each first-open surface applies, from settingsData alone.
 
@@ -23,4 +24,12 @@ export function shouldOfferFullView(
   return (
     s.setupState !== 'none' && !s.isFullViewOfferAnswered && !hasUsedFullView(s)
   );
+}
+
+// §4. Unpinned on this machine and not dismissed here; 'unknown' never shows it.
+export function shouldShowPinGuide(
+  s: Pick<SettingsData, 'isPinGuideDismissed'>,
+  pin: ToolbarPin
+): boolean {
+  return !s.isPinGuideDismissed && pin === 'unpinned';
 }

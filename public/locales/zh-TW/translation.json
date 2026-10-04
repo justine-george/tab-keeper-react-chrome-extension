@@ -252,5 +252,12 @@
   "Things to do": "遊玩去處",
   "Try the full view": "試試完整檢視",
   "See every open window and tab beside your saved sessions, with room to sort, move and tidy them.": "在已儲存的工作階段旁查看所有開啟的視窗和分頁，有足夠空間排序、移動和整理。",
-  "Close": "關閉"
+  "Close": "關閉",
+  "Pin Tab Keeper to your toolbar": "將 Tab Keeper 釘選到工具列",
+  "Click the puzzle piece": "按一下拼圖圖示",
+  "Click the pin next to Tab Keeper": "按一下 Tab Keeper 旁的圖釘",
+  "Tab Keeper stays on your toolbar": "Tab Keeper 會一直顯示在工具列上",
+  "Waiting for you to pin…": "等待你釘選…",
+  "Pinned. Closing…": "已釘選，正在關閉…",
+  "Skip": "略過"
 }

@@ -252,5 +252,12 @@
   "Things to do": "할 일",
   "Try the full view": "전체 보기 사용해 보기",
   "See every open window and tab beside your saved sessions, with room to sort, move and tidy them.": "열려 있는 모든 창과 탭을 저장된 세션 옆에서 보고, 넉넉한 공간에서 정렬하고 옮기고 정리하세요.",
-  "Close": "닫기"
+  "Close": "닫기",
+  "Pin Tab Keeper to your toolbar": "Tab Keeper를 도구 모음에 고정하세요",
+  "Click the puzzle piece": "퍼즐 조각을 클릭하세요",
+  "Click the pin next to Tab Keeper": "Tab Keeper 옆의 핀을 클릭하세요",
+  "Tab Keeper stays on your toolbar": "Tab Keeper가 도구 모음에 남습니다",
+  "Waiting for you to pin…": "고정하기를 기다리는 중…",
+  "Pinned. Closing…": "고정되었습니다. 닫는 중…",
+  "Skip": "건너뛰기"
 }

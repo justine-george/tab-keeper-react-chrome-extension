@@ -5,6 +5,7 @@ import type { RootState } from './store';
 import {
   openCloudConsentModal,
   openFullViewOffer,
+  openPinGuide,
   openRateAndReviewModal,
   openTabGroupsPrompt,
 } from './slices/globalStateSlice';
@@ -13,8 +14,12 @@ import {
   type SettingsData,
 } from './slices/settingsDataStateSlice';
 import { isValidDate } from '../utils/functions/local';
-import { shouldOfferFullView } from '../utils/functions/onboarding';
+import {
+  shouldOfferFullView,
+  shouldShowPinGuide,
+} from '../utils/functions/onboarding';
 import { shouldAskForReview } from '../utils/functions/reviewAsk';
+import { readToolbarPin } from '../utils/functions/toolbarPin';
 import { shouldOfferTabGroups } from '../utils/functions/tabGroupsOffer';
 
 export type Surface = 'popup' | 'full';
@@ -73,6 +78,18 @@ export function firstOpenDialogs(
         : null,
   };
 
+  // KAN-7 §4. Asks Chrome, so it is the one async entry before the rate prompt.
+  const pinGuide: DialogEntry = {
+    id: 'pinGuide',
+    decide: async () =>
+      shouldShowPinGuide(
+        open.getState().settingsDataState,
+        await readToolbarPin()
+      )
+        ? () => dispatch(openPinGuide())
+        : null,
+  };
+
   // KAN-149. A value moment, not the install age, opens it.
   const rate: DialogEntry = {
     id: 'rate',
@@ -93,7 +110,7 @@ export function firstOpenDialogs(
 
   const lists: Record<Surface, DialogEntry[]> = {
     popup: [cloudConsent, fullViewOffer, rate, tabGroups],
-    full: [cloudConsent, rate, tabGroups],
+    full: [cloudConsent, pinGuide, rate, tabGroups],
   };
   return lists[surface];
 }

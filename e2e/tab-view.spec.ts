@@ -6,6 +6,7 @@ import { saveRowMenu } from './fixtures/menus';
 import {
   buildContainer,
   buildSession,
+  ONBOARDING_ANSWERED,
   seedSessions,
   seedSettings,
 } from './fixtures/seed';
@@ -467,7 +468,11 @@ async function seedOnce(context: BrowserContext): Promise<void> {
     },
     {
       sessions: JSON.stringify(buildContainer([A, B, C, D])),
-      settings: JSON.stringify({ cloudConsent: 'granted', isAutoSync: false }),
+      settings: JSON.stringify({
+        cloudConsent: 'granted',
+        ...ONBOARDING_ANSWERED,
+        isAutoSync: false,
+      }),
     }
   );
 }

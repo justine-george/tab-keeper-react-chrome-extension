@@ -75,7 +75,7 @@ export const CloudConsentModal: React.FC = () => {
   // KAN-7 §8. Only the welcome (a new install) chains to what follows it.
   const close = () => {
     dispatch(closeCloudConsentModal());
-    if (variant === 'welcome') dispatch(followWelcome());
+    if (variant === 'welcome') void dispatch(followWelcome());
   };
   const decline = () => {
     dispatch(declineCloudConsent());
