@@ -1,85 +1,42 @@
 // KAN-394 P2 on the real artifact: a click on a saved window's title renames
 // it, and the Open button in its strip opens it. Popup and tab view.
 
-import type { BrowserContext, Locator, Page, Worker } from '@playwright/test';
+import type { BrowserContext, Page, Worker } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
-import {
-  buildContainer,
-  buildSession,
-  seedSessions,
-  seedSettings,
-} from './fixtures/seed';
 import { contrast, pixelsAt, rgbToHex } from './fixtures/pixels';
+import {
+  AUTO_SCROLL_BAND,
+  NAMED,
+  THEMES,
+  VIEWS,
+  boxOf,
+  detailPane,
+  header,
+  openSaved,
+  savedWindow,
+  session,
+  stored,
+  storedWindowIds,
+  type View,
+} from './fixtures/savedWindows';
 import type {
-  TabMasterContainer,
   tabContainerData,
   windowGroupData,
 } from '../src/redux/slices/tabContainerDataStateSlice';
-import {
-  isValidTabMasterContainer,
-  resolveTabUrl,
-} from '../src/utils/functions/local';
-import {
-  BB_PINK_THEME,
-  BLUE_THEME,
-  DARKENHEIMER_THEME,
-  LIGHT_THEME,
-  WARM_LIGHT_THEME,
-  type ThemeColors,
-} from '../src/hooks/useThemeColors';
+import { resolveTabUrl } from '../src/utils/functions/local';
+import { LIGHT_THEME } from '../src/hooks/useThemeColors';
 import { TYPE } from '../src/styles/scale';
 
-const POPUP = { width: 790, height: 550 };
-const TAB_VIEW = { width: 1280, height: 800 };
-const VIEWS = ['popup', 'tab view'] as const;
-type View = (typeof VIEWS)[number];
-
-const THEMES: [string, ThemeColors][] = [
-  ['Light', LIGHT_THEME],
-  ['WarmLight', WARM_LIGHT_THEME],
-  ['BBPink', BB_PINK_THEME],
-  ['Darkenheimer', DARKENHEIMER_THEME],
-  ['Blue', BLUE_THEME],
-];
-
-const NAMED = 'Reading list';
-const AUTO_SCROLL_BAND = 48;
-
-const win = (id: string, title: string, tabs = 2): windowGroupData => ({
-  windowId: id,
-  windowHeight: 600,
-  windowWidth: 800,
-  windowOffsetTop: 0,
-  windowOffsetLeft: 0,
-  tabCount: tabs,
-  title,
-  tabs: Array.from({ length: tabs }, (_, i) => ({
-    tabId: `${id}-t${i}`,
-    favicon: '',
-    title: `Page ${id}.${i}`,
-    url: `https://${id}-${i}.test/`,
-  })),
-});
-
-const session = (
-  id: string,
-  title: string,
-  windows: windowGroupData[]
-): tabContainerData =>
-  buildSession({
-    tabGroupId: id,
-    title,
-    windowCount: windows.length,
-    tabCount: windows.reduce((n, w) => n + w.tabs.length, 0),
-    windows,
-  });
+// Bounds a headless screen can hold, so Open's window is made at them.
+const win = (id: string, title: string, tabs = 2): windowGroupData =>
+  savedWindow(id, title, tabs, { width: 800, height: 600 });
 
 // A named w1 on top, an unnamed w2 and w3.
 const S1 = () =>
   session('S1', 'Source', [win('w1', NAMED), win('w2', ''), win('w3', '')]);
 
-async function open(
+const open = (
   context: BrowserContext,
   extensionId: string,
   view: View,
@@ -87,41 +44,11 @@ async function open(
     sessions = [S1()],
     theme,
   }: { sessions?: tabContainerData[]; theme?: string } = {}
-): Promise<Page> {
-  await seedSessions(context, {
-    ...buildContainer(
-      sessions.map((s) => ({ ...s, isSelected: s.tabGroupId === 'S1' }))
-    ),
-    selectedTabGroupId: 'S1',
+): Promise<Page> =>
+  openSaved(context, extensionId, view, {
+    sessions,
+    settings: theme ? { theme } : {},
   });
-  // One seed: a second seedSettings would replace the first.
-  await seedSettings(context, {
-    ...(theme ? { theme } : {}),
-    ...(view === 'tab view' ? { foldSavedSessionInTabView: false } : {}),
-  });
-  const page = await context.newPage();
-  await page.setViewportSize(view === 'popup' ? POPUP : TAB_VIEW);
-  await page.goto(
-    `chrome-extension://${extensionId}/index.html${
-      view === 'tab view' ? '?view=tab' : ''
-    }`
-  );
-  if (view === 'tab view') {
-    await page
-      .locator('[data-pane="sessions"] [data-drag-row-id="S1"]')
-      .click();
-  }
-  // goto resolves before React mounts (KAN-105).
-  const first = sessions[0]?.windows[0]?.windowId;
-  await expect(page.locator(`[data-drag-row-id="${first}"]`)).toBeVisible();
-  await page.mouse.move(0, 0);
-  return page;
-}
-
-const header = (page: Page, windowId: string): Locator =>
-  page.locator(
-    `[data-pane="detail"] [data-drag-row-id="${windowId}"] [data-window-drag-handle]`
-  );
 
 // The title is the header's button that shows the label: found by its text, not
 // its name, so on main's build it is the same button (which opened the window).
@@ -141,17 +68,6 @@ const editor = (page: Page, windowId: string) =>
 const startRename = (page: Page, windowId: string, label: string) =>
   title(page, windowId, label).click();
 
-async function stored(page: Page): Promise<TabMasterContainer> {
-  const raw = await page.evaluate(() =>
-    localStorage.getItem('tabContainerData')
-  );
-  const parsed: unknown = JSON.parse(raw ?? 'null');
-  if (!isValidTabMasterContainer(parsed)) {
-    throw new Error(`tabContainerData is not a container: ${raw}`);
-  }
-  return parsed;
-}
-
 const storedWindow = async (page: Page, windowId: string) => {
   const found = (await stored(page)).tabGroups
     .flatMap((g) => g.windows)
@@ -159,11 +75,6 @@ const storedWindow = async (page: Page, windowId: string) => {
   if (found === undefined) throw new Error(`no stored window ${windowId}`);
   return found;
 };
-
-const storedWindowIds = async (page: Page) =>
-  (await stored(page)).tabGroups
-    .find((g) => g.tabGroupId === 'S1')
-    ?.windows.map((w) => w.windowId) ?? [];
 
 const chromeWindowIds = (worker: Worker) =>
   worker.evaluate(async () =>
@@ -205,25 +116,6 @@ const newWindowUrls = (worker: Worker, before: number[]) =>
       .filter((w) => w.id !== undefined && !before.includes(w.id))
       .map((w) => (w.tabs ?? []).map((t) => t.pendingUrl || t.url || ''));
   }, before);
-
-// The saved detail's scrolling box: the window rows' nearest overflow ancestor.
-const detailPane = (page: Page) =>
-  page.evaluate(() => {
-    let el = document.querySelector(
-      '[data-pane="detail"] [data-drop-window-id]'
-    )?.parentElement;
-    while (el && !['auto', 'scroll'].includes(getComputedStyle(el).overflowY))
-      el = el.parentElement;
-    if (!el) throw new Error('no detail pane');
-    const r = el.getBoundingClientRect();
-    return { top: r.top, bottom: r.bottom, scrollTop: el.scrollTop };
-  });
-
-async function boxOf(loc: Locator) {
-  const b = await loc.boundingBox();
-  if (b === null) throw new Error(`no box for ${loc.toString()}`);
-  return b;
-}
 
 const savedUrls = (w: windowGroupData) => w.tabs.map((t) => t.url);
 
@@ -415,7 +307,7 @@ for (const view of VIEWS) {
         .poll(async () => (await storedWindow(page, 'w1')).title)
         .toBe('Ticked');
       await expect(editor(page, 'w1')).toHaveCount(0);
-      expect(await storedWindowIds(page)).toEqual(['w1', 'w2', 'w3']);
+      expect(await storedWindowIds(page, 'S1')).toEqual(['w1', 'w2', 'w3']);
     });
 
     test('while searching: no Open, and the title still renames', async ({
@@ -516,7 +408,7 @@ for (const view of VIEWS) {
       extensionId,
     }) => {
       const page = await open(context, extensionId, view);
-      const order = await storedWindowIds(page);
+      const order = await storedWindowIds(page, 'S1');
       const t = await boxOf(title(page, 'w1', NAMED));
       const x = t.x + Math.min(30, t.width / 2);
       const y = t.y + t.height / 2;
@@ -533,7 +425,7 @@ for (const view of VIEWS) {
         dragging: true,
         editor: false,
       });
-      expect(await storedWindowIds(page)).toEqual(order);
+      expect(await storedWindowIds(page, 'S1')).toEqual(order);
 
       // CONTROL: the same observer sees a plain click open the editor.
       await watchGesture(page);
@@ -698,13 +590,13 @@ test('popup, scrolled: a title click renames and moves nothing', async ({
   // Clear of both auto-scroll bands (KAN-200).
   expect(t.y).toBeGreaterThan(pane.top + AUTO_SCROLL_BAND);
   expect(t.y + t.height).toBeLessThan(pane.bottom - AUTO_SCROLL_BAND);
-  const order = await storedWindowIds(page);
+  const order = await storedWindowIds(page, 'S1');
 
   await title(page, 'w6', 'Window 6').click();
   await expect(editor(page, 'w6')).toBeVisible();
   await expect(editor(page, 'w6')).toHaveAttribute('placeholder', 'Window 6');
   expect((await detailPane(page)).scrollTop).toBe(pane.scrollTop);
-  expect(await storedWindowIds(page)).toEqual(order);
+  expect(await storedWindowIds(page, 'S1')).toEqual(order);
 });
 
 test('popup, scrolled: a sideways drag on a title renames nothing', async ({

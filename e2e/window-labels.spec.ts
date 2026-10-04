@@ -6,119 +6,44 @@ import type { BrowserContext, Locator, Page } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
 import { grantedTest } from './fixtures/grantedExtension';
-import {
-  buildContainer,
-  buildSession,
-  seedSessions,
-  seedSettings,
-} from './fixtures/seed';
+import { seedSettings } from './fixtures/seed';
 import { contrast, rgbToHex } from './fixtures/pixels';
+import {
+  AUTO_SCROLL_BAND,
+  NAMED,
+  THEMES,
+  VIEWS,
+  boxOf,
+  detailPane,
+  header,
+  openSaved,
+  savedWindow,
+  session,
+  stored,
+  storedWindowIds,
+  type View,
+} from './fixtures/savedWindows';
 import type {
-  TabMasterContainer,
   tabContainerData,
   windowGroupData,
 } from '../src/redux/slices/tabContainerDataStateSlice';
-import { isValidTabMasterContainer } from '../src/utils/functions/local';
-import {
-  BB_PINK_THEME,
-  BLUE_THEME,
-  DARKENHEIMER_THEME,
-  LIGHT_THEME,
-  WARM_LIGHT_THEME,
-  type ThemeColors,
-} from '../src/hooks/useThemeColors';
-
-const POPUP = { width: 790, height: 550 };
-const TAB_VIEW = { width: 1280, height: 800 };
-const VIEWS = ['popup', 'tab view'] as const;
-type View = (typeof VIEWS)[number];
-
-const THEMES: [string, ThemeColors][] = [
-  ['Light', LIGHT_THEME],
-  ['WarmLight', WARM_LIGHT_THEME],
-  ['BBPink', BB_PINK_THEME],
-  ['Darkenheimer', DARKENHEIMER_THEME],
-  ['Blue', BLUE_THEME],
-];
-
-const NAMED = 'Reading list';
-
-const win = (id: string, title: string, tabs = 1) => ({
-  windowId: id,
-  windowHeight: 1080,
-  windowWidth: 1920,
-  windowOffsetTop: 0,
-  windowOffsetLeft: 0,
-  tabCount: tabs,
-  title,
-  tabs: Array.from({ length: tabs }, (_, i) => ({
-    tabId: `${id}-t${i}`,
-    favicon: '',
-    title: `Page ${id}.${i}`,
-    url: `https://${id}-${i}.test/`,
-  })),
-});
-
-const session = (
-  id: string,
-  title: string,
-  windows: windowGroupData[]
-): tabContainerData =>
-  buildSession({
-    tabGroupId: id,
-    title,
-    windowCount: windows.length,
-    tabCount: windows.reduce((n, w) => n + w.tabs.length, 0),
-    windows,
-  });
 
 // Unnamed w1, w2, w3 and a named w4; S2 is somewhere for a carry to go.
 const S1 = () =>
   session('S1', 'Source', [
-    win('w1', ''),
-    win('w2', ''),
-    win('w3', ''),
-    win('w4', NAMED),
+    savedWindow('w1', ''),
+    savedWindow('w2', ''),
+    savedWindow('w3', ''),
+    savedWindow('w4', NAMED),
   ]);
-const S2 = () => session('S2', 'Target', [win('d1', 'Elsewhere')]);
+const S2 = () => session('S2', 'Target', [savedWindow('d1', 'Elsewhere')]);
 
-async function open(
+const open = (
   context: BrowserContext,
   extensionId: string,
   view: View,
   sessions: tabContainerData[] = [S1(), S2()]
-): Promise<Page> {
-  await seedSessions(context, {
-    ...buildContainer(
-      sessions.map((s) => ({ ...s, isSelected: s.tabGroupId === 'S1' }))
-    ),
-    selectedTabGroupId: 'S1',
-  });
-  if (view === 'tab view') {
-    await seedSettings(context, { foldSavedSessionInTabView: false });
-  }
-  const page = await context.newPage();
-  await page.setViewportSize(view === 'popup' ? POPUP : TAB_VIEW);
-  await page.goto(
-    `chrome-extension://${extensionId}/index.html${
-      view === 'tab view' ? '?view=tab' : ''
-    }`
-  );
-  // goto resolves before React mounts (KAN-105): every test crosses this.
-  const first = sessions[0]?.windows[0]?.windowId;
-  if (view === 'tab view') {
-    await page
-      .locator('[data-pane="sessions"] [data-drag-row-id="S1"]')
-      .click();
-  }
-  await expect(page.locator(`[data-drag-row-id="${first}"]`)).toBeVisible();
-  return page;
-}
-
-const header = (page: Page, windowId: string): Locator =>
-  page.locator(
-    `[data-pane="detail"] [data-drag-row-id="${windowId}"] [data-window-drag-handle]`
-  );
+): Promise<Page> => openSaved(context, extensionId, view, { sessions });
 
 // The windows drawn, in order, as `id=label`: the label from the chevron's
 // name ("Collapse: <label>"), and marked "(not drawn)" unless the header also
@@ -167,48 +92,6 @@ const labelColourOf = (page: Page, windowId: string, text: string) =>
     { id: windowId, text }
   );
 
-async function stored(page: Page): Promise<TabMasterContainer> {
-  const raw = await page.evaluate(() =>
-    localStorage.getItem('tabContainerData')
-  );
-  const parsed: unknown = JSON.parse(raw ?? 'null');
-  if (!isValidTabMasterContainer(parsed)) {
-    throw new Error(`tabContainerData is not a container: ${raw}`);
-  }
-  return parsed;
-}
-
-const storedWindowIds = async (page: Page, id: string) =>
-  (await stored(page)).tabGroups
-    .find((g) => g.tabGroupId === id)
-    ?.windows.map((w) => w.windowId) ?? [];
-
-async function boxOf(loc: Locator) {
-  const b = await loc.boundingBox();
-  if (b === null) throw new Error(`no box for ${loc.toString()}`);
-  return b;
-}
-
-// The saved detail's scrolling box: the window rows' nearest overflow ancestor.
-const detailPane = (page: Page) =>
-  page.evaluate(() => {
-    let el = document.querySelector(
-      '[data-pane="detail"] [data-drop-window-id]'
-    )?.parentElement;
-    while (el && !['auto', 'scroll'].includes(getComputedStyle(el).overflowY))
-      el = el.parentElement;
-    if (!el) throw new Error('no detail pane');
-    const b = el.getBoundingClientRect();
-    return {
-      left: b.left,
-      top: b.top,
-      bottom: b.bottom,
-      scrollTop: el.scrollTop,
-      scrollHeight: el.scrollHeight,
-      clientHeight: el.clientHeight,
-    };
-  });
-
 const setDetailScroll = (page: Page, top: number) =>
   page.evaluate((top) => {
     let el = document.querySelector(
@@ -234,8 +117,6 @@ async function pickUpRow(page: Page, handle: Locator) {
 
 const pickUp = (page: Page, windowId: string) =>
   pickUpRow(page, header(page, windowId));
-
-const AUTO_SCROLL_BAND = 48;
 
 for (const view of VIEWS) {
   test.describe(`${view}`, () => {
@@ -374,7 +255,7 @@ test('popup, scrolled: after a window drag the labels follow the stored order', 
     session(
       'S1',
       'Long',
-      ids.map((id) => win(id, '', 3))
+      ids.map((id) => savedWindow(id, '', 3))
     ),
     S2(),
   ]);
@@ -474,7 +355,7 @@ for (const [theme, colours] of THEMES) {
 // before L4; k2 has a name of its own. Neither is ever rewritten (L5).
 const LEGACY = 'Page k1.0';
 const groupedK1 = (): windowGroupData => {
-  const w = win('k1', LEGACY, 3);
+  const w = savedWindow('k1', LEGACY, 3);
   return {
     ...w,
     chromeTabGroups: [{ groupId: 'gk', title: 'Kept', color: 'blue' }],
@@ -482,15 +363,15 @@ const groupedK1 = (): windowGroupData => {
   };
 };
 const LEGACY_S1 = () =>
-  session('S1', 'Legacy', [groupedK1(), win('k2', NAMED)]);
+  session('S1', 'Legacy', [groupedK1(), savedWindow('k2', NAMED)]);
 
 // The same session with named windows above k1, so its rows sit below the fold.
 const FILLERS = Array.from({ length: 8 }, (_, i) => `f${i + 1}`);
 const SCROLLED_LEGACY_S1 = () =>
   session('S1', 'Legacy', [
-    ...FILLERS.map((id, i) => win(id, `Filler ${i + 1}`, 3)),
+    ...FILLERS.map((id, i) => savedWindow(id, `Filler ${i + 1}`, 3)),
     groupedK1(),
-    win('k2', NAMED),
+    savedWindow('k2', NAMED),
   ]);
 const fillerLabels = (scrolled: boolean) =>
   scrolled ? FILLERS.map((id, i) => `${id}=Filler ${i + 1}`) : [];
