@@ -286,8 +286,7 @@ test.describe('dragging a group', () => {
     expect(mid.others).not.toContain('none');
     expect(mid.otherWindow).not.toBe('none');
     // KAN-135 for groups: the held title row is hovered for the whole drag.
-    // Polled: this strip carries its own 0.1s opacity transition, so the
-    // rule fades it out rather than cutting it -- read at once it is mid-fade.
+    // Polled: it read mid-fade while the strip itself eased; now its children do.
     //
     // Since KAN-354 the whole held row is hidden (the card at the pointer
     // draws it), so this strip is not seen either way. The rule it reads
@@ -301,7 +300,7 @@ test.describe('dragging a group', () => {
                 // The strip INSIDE the title row: a bare [data-row-actions] under the
                 // group also matches its members' delete strips, which the
                 // rule already hides -- that passed with the group strip unmarked.
-                '[data-drag-row-id="group:gamma"] [data-group-drag-handle] .group-rename-reveal'
+                '[data-drag-row-id="group:gamma"] [data-group-drag-handle] .group-actions'
               )!
             ).opacity
         )
@@ -584,7 +583,9 @@ test.describe('dragging a group', () => {
     const page = await open(context, extensionId);
     await scrollToGroupAndRecord(page, 'beta');
     await page
-      .locator('[data-drag-row-id="group:beta"] [aria-label="Rename group"]')
+      .locator(
+        '[data-drag-row-id="group:beta"] [aria-label="Rename group: Beta"]'
+      )
       .click();
     const input = page.locator('[data-drag-row-id="group:beta"] input');
     await expect(input).toBeFocused();
