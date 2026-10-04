@@ -108,7 +108,7 @@ describe('the group row action set', () => {
     await renderRow();
 
     expect(
-      screen.getByRole('button', { name: 'Rename group' })
+      screen.getByRole('button', { name: 'Rename group: Research' })
     ).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: 'Add current tab to group' })
@@ -173,7 +173,7 @@ describe('the group row action set', () => {
     await renderRow({ isSearching: true });
 
     expect(
-      screen.getByRole('button', { name: 'Rename group' })
+      screen.getByRole('button', { name: 'Rename group: Research' })
     ).toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: 'Add current tab to group' })
@@ -192,7 +192,7 @@ describe('the group row action set', () => {
   test('the action strip lifts its own stacking context', async () => {
     await renderRow();
 
-    const strip = document.querySelector('.group-rename-reveal');
+    const strip = document.querySelector('.group-actions');
     expect(strip).not.toBeNull();
     expect(getComputedStyle(strip as Element).zIndex).not.toBe('auto');
   });
@@ -313,7 +313,7 @@ async function renderTwoGroups() {
 
 const stripFor = (groupName: string) => {
   const group = screen.getByRole('group', { name: groupName });
-  return group.querySelector('.group-rename-reveal') as HTMLElement;
+  return group.querySelector('.group-actions') as HTMLElement;
 };
 
 describe('two group rows in one window', () => {
@@ -383,7 +383,7 @@ describe('two group rows in one window', () => {
 describe('the group row fills like the rows around it', () => {
   const stripRules = (groupName: string) => {
     const group = screen.getByRole('group', { name: groupName });
-    const strip = group.querySelector('.group-rename-reveal')
+    const strip = group.querySelector('.group-actions')
       ?.parentElement as HTMLElement;
     const classes = [...strip.classList].map((c) => `.${c}`);
     const out: string[] = [];
@@ -418,7 +418,7 @@ describe('the group row fills like the rows around it', () => {
 
     const hoverBlock = rules
       .split('}')
-      .find((b) => b.includes(':hover') && !b.includes('.group-rename-reveal'));
+      .find((b) => b.includes(':hover') && !b.includes('.group-actions'));
 
     expect(hoverBlock).toBeDefined();
     expect(hoverBlock).toMatch(HOVER);
@@ -431,8 +431,7 @@ describe('the group row fills like the rows around it', () => {
     const focusBlock = rules
       .split('}')
       .find(
-        (b) =>
-          b.includes(':focus-within') && !b.includes('.group-rename-reveal')
+        (b) => b.includes(':focus-within') && !b.includes('.group-actions')
       );
 
     expect(focusBlock).toBeDefined();
@@ -462,19 +461,15 @@ describe('the group row stands as tall as the rows around it', () => {
 
     const strip = screen
       .getByRole('group', { name: 'Research' })
-      .querySelector('.group-rename-reveal')?.parentElement as HTMLElement;
+      .querySelector('.group-actions')?.parentElement as HTMLElement;
 
     expect(getComputedStyle(strip).minHeight).toBe('32px');
   });
 });
 
-// Clicking a group row started a RENAME, which no other row in the pane does:
-// the window title opens its window, a tab title opens that tab beside the
-// active one. So renaming had two entry points (row and pencil) while opening
-// the group had none.
-//
-// The row now opens the group's tabs; the pencil is the single way to rename.
-describe('clicking a group row opens its tabs', () => {
+// The group's Open opens its tabs (KAN-121); since KAN-394 it is a button in
+// the strip, and the title renames.
+describe("Open opens the group's tabs", () => {
   const openRow = async () => {
     const user = userEvent.setup();
     const rendered = await renderRow();
@@ -490,9 +485,6 @@ describe('clicking a group row opens its tabs', () => {
     expect(
       screen.getByRole('button', { name: 'Open group: Research' })
     ).toBeInTheDocument();
-    expect(
-      screen.queryByRole('button', { name: 'Rename group: Research' })
-    ).not.toBeInTheDocument();
   });
 
   test('opens every tab in the group and nothing else', async () => {
@@ -520,11 +512,13 @@ describe('clicking a group row opens its tabs', () => {
   });
 
   // THE CONTROL. Renaming must still be reachable -- just from one place.
-  test('CONTROL: the pencil still opens the editor', async () => {
+  test('CONTROL: the title still opens the editor', async () => {
     const user = userEvent.setup();
     await renderRow();
 
-    await user.click(screen.getByRole('button', { name: 'Rename group' }));
+    await user.click(
+      screen.getByRole('button', { name: 'Rename group: Research' })
+    );
 
     expect(screen.getByRole('textbox')).toBeInTheDocument();
   });
@@ -677,7 +671,7 @@ describe('the group row is clickable across its whole height', () => {
   test('the clickable stretches to the row rather than to its text', async () => {
     await renderRow();
 
-    const row = screen.getByRole('button', { name: 'Open group: Research' });
+    const row = screen.getByRole('button', { name: 'Rename group: Research' });
 
     expect(getComputedStyle(row).alignSelf).toBe('stretch');
   });
@@ -687,7 +681,7 @@ describe('the group row is clickable across its whole height', () => {
   test('CONTROL: the row still centres its label', async () => {
     await renderRow();
 
-    const row = screen.getByRole('button', { name: 'Open group: Research' });
+    const row = screen.getByRole('button', { name: 'Rename group: Research' });
 
     expect(getComputedStyle(row).alignItems).toBe('center');
   });
@@ -758,9 +752,9 @@ describe('the group title renames, and Open opens', () => {
     const user = userEvent.setup();
     const { container } = await renderRow({ isSearching: true });
     // By attribute, not role: a role query skips aria-hidden nodes.
-    expect(container.querySelectorAll('[aria-label^="Open group"]')).toHaveLength(
-      0
-    );
+    expect(
+      container.querySelectorAll('[aria-label^="Open group"]')
+    ).toHaveLength(0);
 
     await user.click(screen.getByText('Research'));
 
@@ -772,8 +766,8 @@ describe('the group title renames, and Open opens', () => {
   test('CONTROL: not searching, the same query finds Open', async () => {
     const { container } = await renderRow();
 
-    expect(container.querySelectorAll('[aria-label^="Open group"]')).toHaveLength(
-      1
-    );
+    expect(
+      container.querySelectorAll('[aria-label^="Open group"]')
+    ).toHaveLength(1);
   });
 });
