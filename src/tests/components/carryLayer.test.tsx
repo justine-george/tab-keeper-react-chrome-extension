@@ -129,12 +129,11 @@ describe('the card follows the pointer (D1 A)', () => {
     expect(cardName()).toBe('Kyoto <trip> & more · 3 Tabs');
   });
 
-  // An empty title draws an empty header, so the card has no name to show:
-  // the count alone, with no separator left dangling in front of it.
-  test('an untitled window: the count alone', async () => {
+  // KAN-394 D3: an untitled window is named "Window N", as its header is.
+  test('an untitled window: "Window N · N Tabs"', async () => {
     await renderLayer();
     handOff({ kind: 'window', title: '', number: 2, tabCount: 1 });
-    expect(cardName()).toBe('1 Tab');
+    expect(cardName()).toBe('Window 2 · 1 Tab');
   });
 
   test('it moves with the pointer', async () => {
