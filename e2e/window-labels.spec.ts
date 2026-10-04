@@ -629,7 +629,7 @@ test.describe('every new window is saved unnamed (L4)', () => {
         page.locator('[data-new-window-target="first"]')
       ).toHaveAttribute('data-landing', '');
       // The header is above the pane, so the aim sits in the top auto-scroll
-      // band and the list scrolls under it (also on main): scrollTop is not held.
+      // band and the list scrolls under it (KAN-396): scrollTop is not held.
       await page.mouse.up();
 
       await expect
