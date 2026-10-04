@@ -1,4 +1,4 @@
-// KAN-279 (Part D). The popup's "Open in a tab" button sends
+// KAN-279 (Part D). The popup's "Open full view" button sends
 // OpenInTabRequest; the worker is what actually finds or creates the tab
 // view, for the same reason restoreSession in background.ts has to: the
 // popup would be destroyed the moment a different tab took focus, before it

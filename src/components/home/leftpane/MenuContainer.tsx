@@ -299,10 +299,10 @@ export default function MenuContainer() {
     },
   ];
 
-  // KAN-340 A + R1. Three pairs by what they do: views (Open in a tab,
+  // KAN-340 A + R1. Three pairs by what they do: views (Open full view,
   // Sort), history (Undo, Redo), account and app (Sync, Settings). 8px
   // between pairs, none inside one, so hover fills within a pair still meet
-  // as they always have. Open in a tab is the cluster's leftmost icon and
+  // as they always have. Open full view is the cluster's leftmost icon and
   // the cluster is right-aligned, so the five shared icons sit at the same x
   // in the popup and the tab view, where Sort stands alone in the first pair.
   // `gap` only spaces siblings that exist, so that lone pair leaves no
@@ -343,8 +343,8 @@ export default function MenuContainer() {
           directly; see handleClickOpenInTab above for why. */}
         {!isTabView() && (
           <Icon
-            ariaLabel={t('Open in a tab')}
-            tooltipText={t('Open in a tab')}
+            ariaLabel={t('Open full view')}
+            tooltipText={t('Open full view')}
             type="open_in_full"
             // KAN-340. Thin, but its arrows reach the corners: at DEFAULT its
             // ink spans 18.5px square, the largest in the row, and it read big.

@@ -2,7 +2,6 @@
   "On": "켬",
   "Off": "끔",
   "Tab Keeper": "Tab Keeper",
-  "Open in a tab": "탭에서 열기",
   "Undo": "실행취소",
   "Redo": "다시 실행",
   "Sync now": "지금 동기화",
@@ -237,5 +236,6 @@
   "TabCountShownOfTotal_other": "탭 {{count}}개 중 {{shown}}개",
   "CarryCardNameAndCount_other": "{{name}} · 탭 {{count}}개",
   "CarryNewWindowTarget": "새 창",
-  "Search looks in session names, window names, tab titles and links.": "세션 이름, 창 이름, 탭 제목, 링크에서 검색합니다."
+  "Search looks in session names, window names, tab titles and links.": "세션 이름, 창 이름, 탭 제목, 링크에서 검색합니다.",
+  "Open full view": "전체 보기 열기"
 }

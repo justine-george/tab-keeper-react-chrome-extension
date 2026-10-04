@@ -92,7 +92,7 @@ test.describe('the tab view sets document.title (KAN-301)', () => {
   });
 });
 
-test.describe('Open in a tab (KAN-279 D4, D5)', () => {
+test.describe('Open full view (KAN-279 D4, D5)', () => {
   test('the first click opens one tab view, first unpinned in the window; a second click from a fresh popup focuses it', async ({
     context,
     extensionId,
@@ -120,7 +120,7 @@ test.describe('Open in a tab (KAN-279 D4, D5)', () => {
     expect(pinned).toEqual({ index: 0, pinned: true });
 
     await popup
-      .getByRole('button', { name: 'Open in a tab', exact: true })
+      .getByRole('button', { name: 'Open full view', exact: true })
       .click();
     // The worker creates the tab. Found by URL among the context's pages
     // rather than by the next 'page' event, which the pinned tab above can
@@ -185,7 +185,7 @@ test.describe('Open in a tab (KAN-279 D4, D5)', () => {
       .toEqual([false]);
 
     await again
-      .getByRole('button', { name: 'Open in a tab', exact: true })
+      .getByRole('button', { name: 'Open full view', exact: true })
       .click();
 
     // Wait for the second click to have DONE something: the window's active
@@ -258,7 +258,7 @@ const HIDDEN_IN_TAB = [
   'Switch',
   'Add current tab',
   'Add current tab to group',
-  'Open in a tab',
+  'Open full view',
 ];
 const KEPT_IN_TAB = 'Open session, keeping current windows';
 

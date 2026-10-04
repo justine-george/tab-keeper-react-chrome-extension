@@ -2,7 +2,6 @@
   "On": "चालू",
   "Off": "बंद",
   "Tab Keeper": "Tab Keeper",
-  "Open in a tab": "टैब में खोलें",
   "Undo": "पूर्ववत",
   "Redo": "फिर से करना",
   "Sync now": "अभी सिंक करें",
@@ -242,5 +241,6 @@
   "CarryCardNameAndCount_one": "{{name}} · {{count}} टैब",
   "CarryCardNameAndCount_other": "{{name}} · {{count}} टैब्स",
   "CarryNewWindowTarget": "नई विंडो",
-  "Search looks in session names, window names, tab titles and links.": "खोज सेशन के नाम, विंडो के नाम, टैब के शीर्षक और लिंक में होती है।"
+  "Search looks in session names, window names, tab titles and links.": "खोज सेशन के नाम, विंडो के नाम, टैब के शीर्षक और लिंक में होती है।",
+  "Open full view": "पूरा व्यू खोलें"
 }

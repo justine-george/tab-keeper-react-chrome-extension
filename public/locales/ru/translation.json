@@ -2,7 +2,6 @@
   "On": "Вкл",
   "Off": "Выкл",
   "Tab Keeper": "Tab Keeper",
-  "Open in a tab": "Открыть во вкладке",
   "Undo": "Отменить",
   "Redo": "Повторить",
   "Sync now": "Синхронизировать сейчас",
@@ -252,5 +251,6 @@
   "CarryCardNameAndCount_many": "{{name}} · {{count}} вкладок",
   "CarryCardNameAndCount_other": "{{name}} · {{count}} вкладки",
   "CarryNewWindowTarget": "Новое окно",
-  "Search looks in session names, window names, tab titles and links.": "Поиск идёт по названиям сессий и окон, заголовкам вкладок и ссылкам."
+  "Search looks in session names, window names, tab titles and links.": "Поиск идёт по названиям сессий и окон, заголовкам вкладок и ссылкам.",
+  "Open full view": "Открыть полный вид"
 }

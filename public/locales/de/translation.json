@@ -2,7 +2,6 @@
   "On": "Ein",
   "Off": "Aus",
   "Tab Keeper": "Tab Keeper",
-  "Open in a tab": "In einem Tab öffnen",
   "Undo": "Rückgängig",
   "Redo": "Wiederholen",
   "Sync now": "Jetzt synchronisieren",
@@ -242,5 +241,6 @@
   "CarryCardNameAndCount_one": "{{name}} · {{count}} Tab",
   "CarryCardNameAndCount_other": "{{name}} · {{count}} Tabs",
   "CarryNewWindowTarget": "Neues Fenster",
-  "Search looks in session names, window names, tab titles and links.": "Die Suche umfasst Sitzungsnamen, Fensternamen, Tab-Titel und Links."
+  "Search looks in session names, window names, tab titles and links.": "Die Suche umfasst Sitzungsnamen, Fensternamen, Tab-Titel und Links.",
+  "Open full view": "Vollansicht öffnen"
 }

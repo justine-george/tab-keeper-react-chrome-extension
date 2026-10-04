@@ -2,7 +2,6 @@
   "On": "Encendido",
   "Off": "Apagado",
   "Tab Keeper": "Tab Keeper",
-  "Open in a tab": "Abrir en una pestaña",
   "Undo": "Deshacer",
   "Redo": "Rehacer",
   "Sync now": "Sincronizar ahora",
@@ -247,5 +246,6 @@
   "CarryCardNameAndCount_many": "{{name}} · {{count}} Pestañas",
   "CarryCardNameAndCount_other": "{{name}} · {{count}} Pestañas",
   "CarryNewWindowTarget": "Nueva ventana",
-  "Search looks in session names, window names, tab titles and links.": "La búsqueda incluye nombres de sesiones, nombres de ventanas, títulos de pestañas y enlaces."
+  "Search looks in session names, window names, tab titles and links.": "La búsqueda incluye nombres de sesiones, nombres de ventanas, títulos de pestañas y enlaces.",
+  "Open full view": "Abrir vista completa"
 }

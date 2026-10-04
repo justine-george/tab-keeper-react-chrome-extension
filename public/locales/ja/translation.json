@@ -2,7 +2,6 @@
   "On": "オン",
   "Off": "オフ",
   "Tab Keeper": "Tab Keeper",
-  "Open in a tab": "タブで開く",
   "Undo": "元に戻す",
   "Redo": "やり直し",
   "Sync now": "今すぐ同期",
@@ -237,5 +236,6 @@
   "TabCountShownOfTotal_other": "{{count}} 個中 {{shown}} 個のタブ",
   "CarryCardNameAndCount_other": "{{name}} · {{count}} 個のタブ",
   "CarryNewWindowTarget": "新しいウィンドウ",
-  "Search looks in session names, window names, tab titles and links.": "セッション名、ウィンドウ名、タブのタイトル、リンクを検索します。"
+  "Search looks in session names, window names, tab titles and links.": "セッション名、ウィンドウ名、タブのタイトル、リンクを検索します。",
+  "Open full view": "フルビューで開く"
 }

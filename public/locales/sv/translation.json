@@ -2,7 +2,6 @@
   "On": "På",
   "Off": "Av",
   "Tab Keeper": "Tab Keeper",
-  "Open in a tab": "Öppna i en flik",
   "Undo": "Ångra",
   "Redo": "Gör om",
   "Sync now": "Synka nu",
@@ -242,5 +241,6 @@
   "CarryCardNameAndCount_one": "{{name}} · {{count}} Flik",
   "CarryCardNameAndCount_other": "{{name}} · {{count}} Flikar",
   "CarryNewWindowTarget": "Nytt fönster",
-  "Search looks in session names, window names, tab titles and links.": "Sökningen omfattar sessionsnamn, fönsternamn, fliktitlar och länkar."
+  "Search looks in session names, window names, tab titles and links.": "Sökningen omfattar sessionsnamn, fönsternamn, fliktitlar och länkar.",
+  "Open full view": "Öppna helvy"
 }
