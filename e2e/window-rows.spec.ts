@@ -315,14 +315,18 @@ for (const view of VIEWS) {
       extensionId,
     }) => {
       const page = await open(context, extensionId, view);
+      // By attribute, not role: a role query skips aria-hidden nodes.
+      const opens = page.locator(
+        '[data-pane="detail"] [aria-label^="Open in new window"]'
+      );
+      // CONTROL: the same query finds each window's Open before the search.
+      await expect(opens).toHaveCount(3);
       await page.locator('[data-saved-search] input').fill('Page w1');
       await expect(header(page, 'w2')).toHaveCount(0);
       await expect(header(page, 'w1')).toBeVisible();
 
       await header(page, 'w1').hover();
-      await expect(
-        header(page, 'w1').getByRole('button', { name: /^Open in new window/ })
-      ).toHaveCount(0);
+      await expect(opens).toHaveCount(0);
       // CONTROL: the strip is there, with Collapse beside the title.
       await expect(
         header(page, 'w1').getByRole('button', { name: `Collapse: ${NAMED}` })
