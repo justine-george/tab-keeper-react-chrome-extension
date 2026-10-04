@@ -5,6 +5,7 @@ import { css } from '@emotion/react';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { DURATION, ICON } from '../../styles/scale';
 import { hoverMotionCss } from './hoverMotion';
+import { focusRingCss } from './focusRing';
 import type { HoverMotion } from './hoverMotion';
 import type { BrandIconName, IconName } from './iconNames';
 import { silenceRepeatedTitle } from './silenceRepeatedTitle';
@@ -206,6 +207,7 @@ const Icon: React.FC<IconProps> = ({
     user-select: none;
     transition: background-color ${DURATION.MOVE};
     background-color: ${backgroundColor};
+    ${onClick ? focusRingCss(COLORS) : ''}
     ${isActionable &&
     `&:hover {
       background-color: ${hoverColor};

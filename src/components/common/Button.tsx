@@ -8,6 +8,7 @@ import { useFontFamily } from '../../hooks/useFontFamily';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { CONTROL, DURATION, RADIUS, TYPE } from '../../styles/scale';
 import { silenceRepeatedTitle } from './silenceRepeatedTitle';
+import { focusRingCss } from './focusRing';
 
 interface ButtonProps {
   text?: string;
@@ -186,6 +187,7 @@ const Button: React.FC<ButtonProps> = ({
         color: ${COLORS.TEXT_COLOR};
       }
     }
+    ${focusRingCss(COLORS)}
     ${style && style}
     ${unavailableStyle}
   `;

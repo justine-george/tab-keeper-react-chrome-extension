@@ -27,6 +27,19 @@ export function usePopoverList({
   const wrapperRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<(HTMLElement | null)[]>([]);
+  // Opened by a pointer click and not walked with the keys since: Esc then
+  // returns focus without the ring (KAN-405 2A). A key-activated click has
+  // detail 0.
+  const pointerOpened = useRef(false);
+  useEffect(() => {
+    const el = triggerRef.current;
+    if (el === null) return;
+    const onClick = (e: MouseEvent) => {
+      pointerOpened.current = e.detail > 0;
+    };
+    el.addEventListener('click', onClick, true);
+    return () => el.removeEventListener('click', onClick, true);
+  }, []);
 
   // Every open/close goes through here, so onOpenChange cannot fall out of
   // step with the state it reports.
@@ -48,7 +61,9 @@ export function usePopoverList({
       if (returnFocus) {
         const trigger =
           triggerRef.current?.querySelector<HTMLElement>('[role="button"]');
-        (trigger ?? triggerRef.current)?.focus();
+        (trigger ?? triggerRef.current)?.focus(
+          pointerOpened.current ? { focusVisible: false } : undefined
+        );
       }
     },
     [setOpen]
@@ -91,11 +106,13 @@ export function usePopoverList({
     }
     if (e.key === nextKey) {
       e.preventDefault();
+      pointerOpened.current = false;
       focusItem(indexOfFocused() + 1);
       return;
     }
     if (e.key === prevKey) {
       e.preventDefault();
+      pointerOpened.current = false;
       focusItem(indexOfFocused() - 1);
     }
   };
