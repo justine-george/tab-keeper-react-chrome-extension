@@ -121,6 +121,7 @@ test('an existing user’s cloud question is not followed by the offer', async (
     .click();
   await expect(existing).toHaveCount(0);
   await expect(offer(page)).toHaveCount(0);
+  expect((await storedSettings(page)).setupState).toBe('none');
 });
 
 for (const [theme, palette] of THEMES) {
