@@ -516,9 +516,8 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     setEditingGroupId(group.groupId);
   };
 
-  // Unlike the session and window renames, a blank is a legitimate result: it
-  // clears the name and the group falls back to its placeholder. The reducer
-  // owns that rule; this only declines to dispatch when nothing changed, so
+  // A blank is a legitimate result, as for a window: the group falls back to its placeholder.
+  // The reducer owns that; this only skips the dispatch when nothing changed, so
   // opening and closing the editor is not a Firestore write.
   const commitGroupRename = (group: chromeTabGroupData) => {
     if (groupRenameCancelled.current) return;
