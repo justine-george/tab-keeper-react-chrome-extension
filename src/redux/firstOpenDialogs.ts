@@ -1,8 +1,10 @@
 import type { Dispatch, UnknownAction } from '@reduxjs/toolkit';
 
 import type { DialogEntry } from '../utils/functions/dialogQueue';
+import type { RootState } from './store';
 import {
   openCloudConsentModal,
+  openFullViewOffer,
   openRateAndReviewModal,
   openTabGroupsPrompt,
 } from './slices/globalStateSlice';
@@ -11,6 +13,7 @@ import {
   type SettingsData,
 } from './slices/settingsDataStateSlice';
 import { isValidDate } from '../utils/functions/local';
+import { shouldOfferFullView } from '../utils/functions/onboarding';
 import { shouldAskForReview } from '../utils/functions/reviewAsk';
 import { shouldOfferTabGroups } from '../utils/functions/tabGroupsOffer';
 
@@ -22,6 +25,7 @@ export interface FirstOpen {
   storedAtOpen: Partial<SettingsData>;
   // Saved sessions on disk at this open; the store has not loaded them yet.
   storedSessions: number;
+  getState: () => RootState;
 }
 
 /**
@@ -60,6 +64,15 @@ export function firstOpenDialogs(
     },
   };
 
+  // KAN-7 §3. A popup closed before the answer asks again on the next open.
+  const fullViewOffer: DialogEntry = {
+    id: 'fullViewOffer',
+    decide: () =>
+      shouldOfferFullView(open.getState().settingsDataState)
+        ? () => dispatch(openFullViewOffer())
+        : null,
+  };
+
   // KAN-149. A value moment, not the install age, opens it.
   const rate: DialogEntry = {
     id: 'rate',
@@ -79,7 +92,7 @@ export function firstOpenDialogs(
   };
 
   const lists: Record<Surface, DialogEntry[]> = {
-    popup: [cloudConsent, rate, tabGroups],
+    popup: [cloudConsent, fullViewOffer, rate, tabGroups],
     full: [cloudConsent, rate, tabGroups],
   };
   return lists[surface];

@@ -124,6 +124,8 @@ export interface Global {
   isCloudConsentModalOpen: boolean;
   cloudConsentVariant: CloudConsentVariant;
   cloudConsentThen: CloudConsentThen | null;
+  // KAN-7 §3. "Try the full view". Session-only, like every dialog flag here.
+  isFullViewOfferOpen: boolean;
   // "the tabGroups permission is granted right now". Mirrors
   // chrome.permissions.contains(), re-read on every popup mount and updated by
   // the permission change listeners -- never persisted, because the user can
@@ -267,6 +269,7 @@ export const initialState: Global = {
   isCloudConsentModalOpen: false,
   cloudConsentVariant: 'welcome',
   cloudConsentThen: null,
+  isFullViewOfferOpen: false,
   hasTabGroupsPermission: false,
   hasSessionsPermission: false,
   collapsedWindows: null,
@@ -979,6 +982,14 @@ export const globalStateSlice = createSlice({
       state.isCloudConsentModalOpen = false;
     },
 
+    openFullViewOffer: (state) => {
+      state.isFullViewOfferOpen = true;
+    },
+
+    closeFullViewOffer: (state) => {
+      state.isFullViewOfferOpen = false;
+    },
+
     setSearchInputText: (state, action: PayloadAction<string>) => {
       state.searchInputText = action.payload;
     },
@@ -1268,6 +1279,8 @@ export const {
   cancelReplaceSessions,
   openCloudConsentModal,
   closeCloudConsentModal,
+  openFullViewOffer,
+  closeFullViewOffer,
   setSearchInputText,
   toastAdded,
   toastsRemoved,

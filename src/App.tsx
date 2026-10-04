@@ -44,6 +44,7 @@ import {
 import './App.css';
 import {
   setExtensionInstalledTime,
+  markFullViewOpened,
   SettingsData,
   cloudSyncAllowed,
 } from './redux/slices/settingsDataStateSlice';
@@ -163,7 +164,10 @@ function App() {
       dispatch,
       storedAtOpen,
       storedSessions: storedSessionCount(),
+      getState: reduxStore.getState,
     });
+    // KAN-7 §6. The full view mounting is what "opened the full view" means.
+    if (isTabView()) dispatch(markFullViewOpened());
     // KAN-149. Stamped on every open that lacks one; the rate prompt needs it.
     if (!isValidDate(storedAtOpen.extensionInstalledTime ?? '')) {
       dispatch(setExtensionInstalledTime());

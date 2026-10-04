@@ -19,6 +19,7 @@ const listFor = (surface: 'popup' | 'full') => {
     dispatch: store.dispatch,
     storedAtOpen: {},
     storedSessions: 0,
+    getState: store.getState,
   }).map((e) => e.id);
 };
 
@@ -26,7 +27,12 @@ afterEach(() => localStorage.clear());
 
 describe('the first-open lists', () => {
   test('popup', () => {
-    expect(listFor('popup')).toEqual(['cloudConsent', 'rate', 'tabGroups']);
+    expect(listFor('popup')).toEqual([
+      'cloudConsent',
+      'fullViewOffer',
+      'rate',
+      'tabGroups',
+    ]);
   });
 
   test('full view', () => {
@@ -45,6 +51,7 @@ describe('the cloud question entry (KAN-259, moved from App)', () => {
         isAutoSync: false,
       },
       storedSessions: 0,
+      getState: store.getState,
     });
     expect(await cloudConsent.decide()).toBeNull();
     expect(store.getState().settingsDataState.cloudConsent).toBe('declined');
@@ -56,6 +63,7 @@ describe('the cloud question entry (KAN-259, moved from App)', () => {
       dispatch: store.dispatch,
       storedAtOpen: {},
       storedSessions: 2,
+      getState: store.getState,
     });
     const open = await cloudConsent.decide();
     open?.();

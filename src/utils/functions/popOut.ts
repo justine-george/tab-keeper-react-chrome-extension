@@ -35,6 +35,19 @@ export function isOpenInTabRequest(
   return typeof message.windowId === 'number' || message.windowId === undefined;
 }
 
+// The page's half (KAN-279): ask the worker, which outlives this popup. A
+// window it cannot name still sends, as undefined: "use the last-focused one".
+export async function requestTabView(): Promise<void> {
+  let windowId: number | undefined;
+  try {
+    windowId = (await chrome.windows.getCurrent()).id;
+  } catch {
+    windowId = undefined;
+  }
+  const request: OpenInTabRequest = { type: OPEN_IN_TAB_MESSAGE, windowId };
+  chrome.runtime.sendMessage(request);
+}
+
 // The chrome.* surface openOrFocusTabView needs, narrowed to the promise
 // forms and named to say what each call is for -- not a 1:1 wrapper of
 // chrome.tabs/chrome.windows. background.ts supplies the real

@@ -34,10 +34,7 @@ import {
 } from '../../settings/rightpane/Account/describeSyncState';
 import { isTabView } from '../../../utils/functions/viewMode';
 import { getPrettyDate } from '../../../utils/functions/local';
-import {
-  OPEN_IN_TAB_MESSAGE,
-  OpenInTabRequest,
-} from '../../../utils/functions/popOut';
+import { requestTabView } from '../../../utils/functions/popOut';
 
 export default function MenuContainer() {
   const syncStatus = useSelector(
@@ -107,23 +104,9 @@ export default function MenuContainer() {
   // the click only hands off a request; openOrFocusTabView (popOut.ts), run
   // from the worker, is what actually finds or creates the tab and outlives
   // the popup doing it.
-  //
-  // windows.getCurrent() is asked here, in the popup, rather than trusting
-  // the worker to infer it: the worker has no "current" window of its own to
-  // ask about. A request that cannot report one -- getCurrent() rejects, or
-  // throws reading its result -- still has to reach the worker rather than
-  // drop the click, so it goes out with windowId: undefined instead, which
-  // openOrFocusTabView already treats as "use the last-focused window".
-  async function handleClickOpenInTab() {
-    let windowId: number | undefined;
-    try {
-      const current = await chrome.windows.getCurrent();
-      windowId = current.id;
-    } catch {
-      windowId = undefined;
-    }
-    const request: OpenInTabRequest = { type: OPEN_IN_TAB_MESSAGE, windowId };
-    chrome.runtime.sendMessage(request);
+  // requestTabView (popOut.ts) sends that request.
+  function handleClickOpenInTab() {
+    void requestTabView();
   }
 
   // The control shows the `sync` glyph only when syncing is possible AND

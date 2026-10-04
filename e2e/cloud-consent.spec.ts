@@ -68,6 +68,11 @@ test.describe('the cloud question (KAN-259)', () => {
 
       await dialog.getByRole('button', { name: 'Keep on this device' }).click();
       await expect(dialog).toHaveCount(0);
+      // KAN-7 §3. The welcome is followed by the full-view offer.
+      await page
+        .getByRole('dialog', { name: 'Try the full view', exact: true })
+        .getByRole('button', { name: 'Not now', exact: true })
+        .click();
 
       await page.locator('[aria-label="Settings"]').click();
       await page.locator('button[aria-label="Sync & Backup"]').click();
@@ -94,6 +99,11 @@ test.describe('the cloud question (KAN-259)', () => {
       await first
         .getByRole('dialog', { name: 'Welcome to Tab Keeper' })
         .getByRole('button', { name: 'Keep on this device' })
+        .click();
+      // KAN-7 §3. The welcome is followed by the full-view offer.
+      await first
+        .getByRole('dialog', { name: 'Try the full view', exact: true })
+        .getByRole('button', { name: 'Not now', exact: true })
         .click();
 
       const again = await openPopup(context, extensionId);

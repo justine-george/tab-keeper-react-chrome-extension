@@ -249,5 +249,8 @@
   "A saved session shows its windows and tabs here.": "保存したセッションのウィンドウとタブがここに表示されます。",
   "Sample: Weekend trip": "サンプル: 週末旅行",
   "Getting there": "行き方",
-  "Things to do": "やりたいこと"
+  "Things to do": "やりたいこと",
+  "Try the full view": "フルビューを試す",
+  "See every open window and tab beside your saved sessions, with room to sort, move and tidy them.": "開いているすべてのウィンドウとタブを保存したセッションの横に表示し、並べ替えや移動、整理をゆったり行えます。",
+  "Close": "閉じる"
 }

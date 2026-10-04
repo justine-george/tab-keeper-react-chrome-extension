@@ -17,6 +17,7 @@ import {
   grantCloudConsent,
   setAutoSync,
 } from '../../redux/slices/settingsDataStateSlice';
+import { followWelcome } from '../../redux/firstOpenFollowUps';
 import { PRIVACY_POLICY_LINK } from '../../utils/constants/common';
 import { DIALOG, ICON, TYPE } from '../../styles/scale';
 import { dialogButtonStyles } from './dialogButtons';
@@ -71,9 +72,14 @@ export const CloudConsentModal: React.FC = () => {
 
   if (!isOpen) return null;
 
+  // KAN-7 §8. Only the welcome (a new install) chains to what follows it.
+  const close = () => {
+    dispatch(closeCloudConsentModal());
+    if (variant === 'welcome') dispatch(followWelcome());
+  };
   const decline = () => {
     dispatch(declineCloudConsent());
-    dispatch(closeCloudConsentModal());
+    close();
   };
   // A yes. What it does beyond recording consent depends on what the user
   // was doing: the welcome and the Auto Sync toggle turn Auto Sync on; the
@@ -82,7 +88,7 @@ export const CloudConsentModal: React.FC = () => {
   // turned auto sync on" -- it must not).
   const grant = () => {
     dispatch(grantCloudConsent());
-    dispatch(closeCloudConsentModal());
+    close();
     if (variant === 'welcome' || then === 'autoSync') {
       dispatch(setAutoSync(true));
     } else if (then === 'syncNow') {
