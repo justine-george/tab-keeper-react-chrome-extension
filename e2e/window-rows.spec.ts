@@ -982,11 +982,10 @@ for (const [language, longTitle] of LONG_TITLES) {
       expect(await text.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(
         true
       );
+      // The text itself, clipped where it ellipsizes, reaches the row's edge.
       const row = await boxOf(handle);
-      expect((await boxOf(title)).x + (await boxOf(title)).width).toBeCloseTo(
-        row.x + row.width,
-        0
-      );
+      const clipped = await boxOf(text);
+      expect(clipped.x + clipped.width).toBeCloseTo(row.x + row.width, 0);
 
       // The strip's box, with the title drawn and with it hidden.
       const stripShot = async (titleShown: boolean) => {
