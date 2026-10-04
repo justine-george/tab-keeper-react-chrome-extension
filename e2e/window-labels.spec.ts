@@ -484,6 +484,43 @@ const groupedK1 = (): windowGroupData => {
 const LEGACY_S1 = () =>
   session('S1', 'Legacy', [groupedK1(), win('k2', NAMED)]);
 
+// The same session with named windows above k1, so its rows sit below the fold.
+const FILLERS = Array.from({ length: 8 }, (_, i) => `f${i + 1}`);
+const SCROLLED_LEGACY_S1 = () =>
+  session('S1', 'Legacy', [
+    ...FILLERS.map((id, i) => win(id, `Filler ${i + 1}`, 3)),
+    groupedK1(),
+    win('k2', NAMED),
+  ]);
+const fillerLabels = (scrolled: boolean) =>
+  scrolled ? FILLERS.map((id, i) => `${id}=Filler ${i + 1}`) : [];
+
+// Scrolls `grab` to the middle of the saved detail, after checking it is clear
+// of both auto-scroll bands (KAN-200).
+async function scrollToMiddle(page: Page, grab: Locator) {
+  await grab.evaluate((el) => el.scrollIntoView({ block: 'center' }));
+  const pane = await detailPane(page);
+  expect(pane.scrollTop).toBeGreaterThan(0);
+  const b = await boxOf(grab);
+  expect(b.y).toBeGreaterThan(pane.top + AUTO_SCROLL_BAND);
+  expect(b.y + b.height).toBeLessThan(pane.bottom - AUTO_SCROLL_BAND);
+}
+
+// The list did not move between the aim and the read (KAN-200). The pick-up
+// folds the windows, so the reference is read at the aim, not before it.
+async function expectScrollHeld(page: Page) {
+  const at = (await detailPane(page)).scrollTop;
+  // PREMISE: the list is still scrolled at the aim.
+  expect(at).toBeGreaterThan(0);
+  await page.evaluate(
+    () =>
+      new Promise((done) =>
+        requestAnimationFrame(() => requestAnimationFrame(done))
+      )
+  );
+  expect((await detailPane(page)).scrollTop).toBe(at);
+}
+
 const sessionIn = async (page: Page, id: string) => {
   const found = (await stored(page)).tabGroups.find((g) => g.tabGroupId === id);
   if (found === undefined) throw new Error(`no session ${id}`);
@@ -567,32 +604,50 @@ test.describe('every new window is saved unnamed (L4)', () => {
     await expectLegacyKept(page);
   });
 
-  test('popup: a tab dropped on the header New window target', async ({
-    context,
-    extensionId,
-  }) => {
-    const page = await open(context, extensionId, 'popup', [LEGACY_S1(), S2()]);
-    // Read at rest: the drag hides the controls the target stands over.
-    const aim = await boxOf(page.getByRole('button', { name: 'Open session' }));
-    await pickUpRow(page, page.locator('[data-drag-row-id="k1-t2"]'));
-    await page.mouse.move(aim.x + aim.width / 2, aim.y + aim.height / 2, {
-      steps: 8,
-    });
-    await expect(
-      page.locator('[data-new-window-target="first"]')
-    ).toHaveAttribute('data-landing', '');
-    await page.mouse.up();
+  for (const scrolled of [false, true]) {
+    test(`popup${
+      scrolled ? ', scrolled' : ''
+    }: a tab dropped on the header New window target`, async ({
+      context,
+      extensionId,
+    }) => {
+      const page = await open(context, extensionId, 'popup', [
+        scrolled ? SCROLLED_LEGACY_S1() : LEGACY_S1(),
+        S2(),
+      ]);
+      // Read at rest: the drag hides the controls the target stands over.
+      const aim = await boxOf(
+        page.getByRole('button', { name: 'Open session' })
+      );
+      const tab = page.locator('[data-drag-row-id="k1-t2"]');
+      if (scrolled) await scrollToMiddle(page, tab);
+      await pickUpRow(page, tab);
+      await page.mouse.move(aim.x + aim.width / 2, aim.y + aim.height / 2, {
+        steps: 8,
+      });
+      await expect(
+        page.locator('[data-new-window-target="first"]')
+      ).toHaveAttribute('data-landing', '');
+      // The header is above the pane, so the aim sits in the top auto-scroll
+      // band and the list scrolls under it (also on main): scrollTop is not held.
+      await page.mouse.up();
 
-    await expect
-      .poll(async () => (await sessionIn(page, 'S1')).windows.length)
-      .toBe(3);
-    const [made] = (await sessionIn(page, 'S1')).windows;
-    expect(titledBy([made])).toEqual([{ title: '', firstTab: 'Page k1.2' }]);
-    await expect
-      .poll(() => labels(page))
-      .toEqual([`${made.windowId}=Window 1`, `k1=${LEGACY}`, `k2=${NAMED}`]);
-    await expectLegacyKept(page);
-  });
+      await expect
+        .poll(async () => (await sessionIn(page, 'S1')).windows.length)
+        .toBe(scrolled ? 11 : 3);
+      const [made] = (await sessionIn(page, 'S1')).windows;
+      expect(titledBy([made])).toEqual([{ title: '', firstTab: 'Page k1.2' }]);
+      await expect
+        .poll(() => labels(page))
+        .toEqual([
+          `${made.windowId}=Window 1`,
+          ...fillerLabels(scrolled),
+          `k1=${LEGACY}`,
+          `k2=${NAMED}`,
+        ]);
+      await expectLegacyKept(page);
+    });
+  }
 
   test('tab view: Open now saves a window as a session', async ({
     context,
@@ -636,51 +691,60 @@ test.describe('every new window is saved unnamed (L4)', () => {
 });
 
 // Group bands need the tabGroups permission, granted only in this fixture.
-grantedTest(
-  'popup: a group carried onto another session row is a new first window there, unnamed',
-  async ({ context, extensionId }) => {
-    const page = await open(context, extensionId, 'popup', [LEGACY_S1(), S2()]);
-    const from = await pickUpRow(
-      page,
-      page.locator('[data-drag-row-id="group:gk"] [data-group-drag-handle]')
-    );
-    // Out of the detail onto the session list, where the drag is carried.
-    const pane = await detailPane(page);
-    await page.mouse.move(pane.left - 40, from.y, { steps: 6 });
-    await expect(page.locator('[data-carry-card]')).toHaveCount(1);
-    const row = await boxOf(
-      page.locator('[data-pane="sessions"] [data-drag-row-id="S2"]')
-    );
-    await page.mouse.move(row.x + row.width / 2, row.y + row.height / 2, {
-      steps: 5,
-    });
-    await expect
-      .poll(() =>
-        page.evaluate(() =>
-          [...document.querySelectorAll('[data-carry-target]')].map(
-            (el) =>
-              el.closest<HTMLElement>('[data-drag-row-id]')?.dataset.dragRowId
+for (const scrolled of [false, true]) {
+  grantedTest(
+    `popup${
+      scrolled ? ', scrolled' : ''
+    }: a group carried onto another session row is a new first window there, unnamed`,
+    async ({ context, extensionId }) => {
+      const page = await open(context, extensionId, 'popup', [
+        scrolled ? SCROLLED_LEGACY_S1() : LEGACY_S1(),
+        S2(),
+      ]);
+      const handle = page.locator(
+        '[data-drag-row-id="group:gk"] [data-group-drag-handle]'
+      );
+      if (scrolled) await scrollToMiddle(page, handle);
+      const from = await pickUpRow(page, handle);
+      // Out of the detail onto the session list, where the drag is carried.
+      const pane = await detailPane(page);
+      await page.mouse.move(pane.left - 40, from.y, { steps: 6 });
+      await expect(page.locator('[data-carry-card]')).toHaveCount(1);
+      const row = await boxOf(
+        page.locator('[data-pane="sessions"] [data-drag-row-id="S2"]')
+      );
+      await page.mouse.move(row.x + row.width / 2, row.y + row.height / 2, {
+        steps: 5,
+      });
+      await expect
+        .poll(() =>
+          page.evaluate(() =>
+            [...document.querySelectorAll('[data-carry-target]')].map(
+              (el) =>
+                el.closest<HTMLElement>('[data-drag-row-id]')?.dataset.dragRowId
+            )
           )
         )
-      )
-      .toEqual(['S2']);
-    await page.mouse.up();
+        .toEqual(['S2']);
+      if (scrolled) await expectScrollHeld(page);
+      await page.mouse.up();
 
-    await expect
-      .poll(async () => (await sessionIn(page, 'S2')).windows.length)
-      .toBe(2);
-    const [made] = (await sessionIn(page, 'S2')).windows;
-    expect(titledBy([made])).toEqual([{ title: '', firstTab: LEGACY }]);
-    // L5: k1 keeps its title, though the tab it was named after has left.
-    await expectLegacyKept(page);
+      await expect
+        .poll(async () => (await sessionIn(page, 'S2')).windows.length)
+        .toBe(2);
+      const [made] = (await sessionIn(page, 'S2')).windows;
+      expect(titledBy([made])).toEqual([{ title: '', firstTab: LEGACY }]);
+      // L5: k1 keeps its title, though the tab it was named after has left.
+      await expectLegacyKept(page);
 
-    // Show, on the Moved toast, puts S2 on screen.
-    await page
-      .getByRole('status')
-      .getByRole('button', { name: 'Show', exact: true })
-      .click();
-    await expect
-      .poll(() => labels(page))
-      .toEqual([`${made.windowId}=Window 1`, 'd1=Elsewhere']);
-  }
-);
+      // Show, on the Moved toast, puts S2 on screen.
+      await page
+        .getByRole('status')
+        .getByRole('button', { name: 'Show', exact: true })
+        .click();
+      await expect
+        .poll(() => labels(page))
+        .toEqual([`${made.windowId}=Window 1`, 'd1=Elsewhere']);
+    }
+  );
+}
