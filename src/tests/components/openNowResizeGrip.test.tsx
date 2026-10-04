@@ -540,6 +540,30 @@ describe('the pointer drag (O1a, Review Focus 4)', () => {
     expect(grip()).not.toHaveAttribute('data-active');
   });
 
+  test('the Esc that ends a resize is prevented; one with no resize is not (KAN-403)', async () => {
+    await renderHome();
+    await mounted();
+    const escape = () =>
+      new KeyboardEvent('keydown', {
+        key: 'Escape',
+        bubbles: true,
+        cancelable: true,
+      });
+    const idle = escape();
+    window.dispatchEvent(idle);
+    expect(idle.defaultPrevented).toBe(false);
+
+    press(1000);
+    moveTo(900);
+    const live = escape();
+    act(() => {
+      window.dispatchEvent(live);
+    });
+
+    expect(isResizing()).toBe(false);
+    expect(live.defaultPrevented).toBe(true);
+  });
+
   test('Escape mid-drag puts the width back and saves nothing', async () => {
     const { seen } = await renderHome();
     await mounted();

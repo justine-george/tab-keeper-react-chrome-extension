@@ -153,6 +153,39 @@ describe('the card follows the pointer (D1 A)', () => {
 
 const TAB_CARD: CarryCard = { kind: 'tab', title: 't1', faviconUrl: '' };
 
+describe('Esc and the popup (KAN-403)', () => {
+  const escape = () =>
+    new KeyboardEvent('keydown', {
+      key: 'Escape',
+      bubbles: true,
+      cancelable: true,
+    });
+
+  test('the Esc that cancels a carry is prevented, so the popup stays open', async () => {
+    await renderLayer();
+    handOff(TAB_CARD);
+    const event = escape();
+
+    act(() => {
+      window.dispatchEvent(event);
+    });
+
+    expect(currentCarry()).toBeNull();
+    expect(event.defaultPrevented).toBe(true);
+  });
+
+  test('an Esc with no carry is left alone, so the popup closes', async () => {
+    await renderLayer();
+    const event = escape();
+
+    act(() => {
+      window.dispatchEvent(event);
+    });
+
+    expect(event.defaultPrevented).toBe(false);
+  });
+});
+
 describe('Esc, a release over nothing and pointercancel end the carry, and nothing moves', () => {
   test.each([
     ['Esc', () => fireEvent.keyDown(window, { key: 'Escape' })],

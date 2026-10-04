@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from 'vitest';
-import { screen, within } from '@testing-library/react';
+import { act, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import {
@@ -174,6 +174,40 @@ describe('OverflowMenu dismissal', () => {
 
     expect(screen.queryByRole('menu')).not.toBeInTheDocument();
     expect(trigger()).toHaveFocus();
+  });
+
+  // Chrome closes the popup on an Esc the page leaves unprevented (KAN-403).
+  const escape = () =>
+    new KeyboardEvent('keydown', {
+      key: 'Escape',
+      bubbles: true,
+      cancelable: true,
+    });
+
+  test('the Escape that closes it is prevented, so the popup stays open', async () => {
+    const user = userEvent.setup();
+    await renderMenu();
+    await user.click(trigger());
+    const event = escape();
+
+    act(() => {
+      document.activeElement?.dispatchEvent(event);
+    });
+
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    expect(event.defaultPrevented).toBe(true);
+  });
+
+  test('an Escape with the menu closed is left alone, so the popup closes', async () => {
+    await renderMenu();
+    trigger().focus();
+    const event = escape();
+
+    act(() => {
+      trigger().dispatchEvent(event);
+    });
+
+    expect(event.defaultPrevented).toBe(false);
   });
 
   test('a click outside closes it', async () => {

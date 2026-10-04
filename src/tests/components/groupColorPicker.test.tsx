@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { screen, within } from '@testing-library/react';
+import { act, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import WindowEntryContainer from '../../components/home/rightpane/WindowEntryContainer';
@@ -252,6 +252,33 @@ describe('the group colour band', () => {
 
     expect(screen.queryByRole('menu')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: BAND })).toHaveFocus();
+  });
+
+  test('the Escape that closes the picker is prevented; one with it closed is not (KAN-403)', async () => {
+    const user = userEvent.setup();
+    await renderGroup();
+    const closed = new KeyboardEvent('keydown', {
+      key: 'Escape',
+      bubbles: true,
+      cancelable: true,
+    });
+    act(() => {
+      screen.getByRole('button', { name: BAND }).dispatchEvent(closed);
+    });
+    expect(closed.defaultPrevented).toBe(false);
+
+    await user.click(screen.getByRole('button', { name: BAND }));
+    const open = new KeyboardEvent('keydown', {
+      key: 'Escape',
+      bubbles: true,
+      cancelable: true,
+    });
+    act(() => {
+      document.activeElement?.dispatchEvent(open);
+    });
+
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    expect(open.defaultPrevented).toBe(true);
   });
 
   // Horizontal, because the swatches are laid out in a row. ArrowDown on a row
