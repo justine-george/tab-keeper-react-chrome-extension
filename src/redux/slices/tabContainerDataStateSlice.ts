@@ -44,6 +44,7 @@ import {
   TOAST_MESSAGES,
 } from '../../utils/constants/common';
 import { withASelection } from '../../utils/functions/withOwnSelection';
+import { isSampleSession } from '../../utils/functions/sampleSession';
 import { TAB_CONTAINER_SLICE_NAME } from '../../utils/constants/actionTypes';
 import { recordValueMoment } from './settingsDataStateSlice';
 import {
@@ -445,7 +446,9 @@ export const openTabsInAWindow = createAsyncThunk(
     // closes this popup. Recording the INTENT rather than the confirmed
     // restore is therefore not a shortcut -- there is no later moment, and the
     // worker has no localStorage to write to.
-    thunkAPI.dispatch(recordValueMoment());
+    if (!isSampleSession(params.tabGroupId)) {
+      thunkAPI.dispatch(recordValueMoment());
+    }
     chrome.runtime.sendMessage(request);
   }
 );
@@ -476,8 +479,10 @@ export const openAllTabContainer = createAsyncThunk(
       closeOtherWindows: false,
     };
     // KAN-149. Recorded here for the reason spelled out in openTabsInAWindow:
-    // this is the last instant the popup exists.
-    thunkAPI.dispatch(recordValueMoment());
+    // this is the last instant the popup exists. Not for the sample (KAN-7).
+    if (!isSampleSession(params.tabGroupId)) {
+      thunkAPI.dispatch(recordValueMoment());
+    }
     chrome.runtime.sendMessage(request);
   }
 );
@@ -598,8 +603,10 @@ export const focusTabContainer = createAsyncThunk(
     };
 
     // KAN-149. Recorded here for the reason spelled out in openTabsInAWindow:
-    // this is the last instant the popup exists.
-    thunkAPI.dispatch(recordValueMoment());
+    // this is the last instant the popup exists. Not for the sample (KAN-7).
+    if (!isSampleSession(params.tabGroupId)) {
+      thunkAPI.dispatch(recordValueMoment());
+    }
     chrome.runtime.sendMessage(request);
   }
 );
@@ -690,8 +697,10 @@ export const resetSessionOrder = createAsyncThunk(
  */
 export function isSubstantialSave(
   tabCount: number,
-  existing: readonly tabContainerData[]
+  allExisting: readonly tabContainerData[]
 ): boolean {
+  // KAN-7: a sample is no history, so a list of only samples is an empty one.
+  const existing = allExisting.filter((g) => !isSampleSession(g.tabGroupId));
   if (existing.length === 0) return false;
 
   const counts = existing.map((group) => group.tabCount).sort((a, b) => a - b);

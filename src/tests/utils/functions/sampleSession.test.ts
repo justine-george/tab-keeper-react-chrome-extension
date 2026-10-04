@@ -1,6 +1,9 @@
 import { describe, expect, test } from 'vitest';
 
-import { buildSampleSession } from '../../../utils/functions/sampleSession';
+import {
+  buildSampleSession,
+  isSampleSession,
+} from '../../../utils/functions/sampleSession';
 import {
   getStringDate,
   isValidTabMasterContainer,
@@ -24,7 +27,7 @@ describe('buildSampleSession', () => {
   test('two windows, three tabs then two, stamped with one now', () => {
     const sample = buildSampleSession(NAMES, NOW, counter());
     expect(sample).toEqual({
-      tabGroupId: 'id-8',
+      tabGroupId: 'sample:id-8',
       title: 'Sample: Weekend trip',
       createdTime: getStringDate(NOW),
       createdAt: NOW.getTime(),
@@ -98,5 +101,20 @@ describe('buildSampleSession', () => {
         tabGroups: [sample],
       })
     ).toBe(true);
+  });
+});
+
+// KAN-7 fix round 1: the id is what marks a sample, so no stored field is added.
+describe('isSampleSession', () => {
+  test('is true for the id a built sample carries', () => {
+    expect(
+      isSampleSession(buildSampleSession(NAMES, NOW, counter()).tabGroupId)
+    ).toBe(true);
+  });
+
+  test('is false for an ordinary session id, including one containing the word', () => {
+    expect(isSampleSession('6f1c2a9e-0b7d-4c1e-9a53-2f8d4b1e7a60')).toBe(false);
+    expect(isSampleSession('my-sample:session')).toBe(false);
+    expect(isSampleSession('')).toBe(false);
   });
 });

@@ -59,6 +59,14 @@ function sampleWindow(
   };
 }
 
+// The id marks a sample, so no field is added to stored data (KAN-7 fix round 1).
+export const SAMPLE_ID_PREFIX = 'sample:';
+
+// A sample is no value moment (KAN-149): the rate prompt must not fire on it.
+export function isSampleSession(tabGroupId: string): boolean {
+  return tabGroupId.startsWith(SAMPLE_ID_PREFIX);
+}
+
 // One `now` for both dates: createdTime is a merge contract (getStringDate).
 export function buildSampleSession(
   names: SampleNames,
@@ -70,7 +78,7 @@ export function buildSampleSession(
     sampleWindow(names.thingsToDo, THINGS_TO_DO, newId),
   ];
   return {
-    tabGroupId: newId(),
+    tabGroupId: `${SAMPLE_ID_PREFIX}${newId()}`,
     title: names.title,
     createdTime: getStringDate(now),
     createdAt: now.getTime(),

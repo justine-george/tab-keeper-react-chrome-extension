@@ -44,6 +44,7 @@ import {
   withOwnSelection,
 } from '../../utils/functions/withOwnSelection';
 import { sameContainerData } from '../../utils/functions/sameContainerData';
+import { isSampleSession } from '../../utils/functions/sampleSession';
 import { TOAST_MESSAGES } from '../../utils/constants/common';
 import { TAB_CONTAINER_SLICE_NAME } from '../../utils/constants/actionTypes';
 import {
@@ -535,7 +536,9 @@ export const syncStateWithFirestore = createAsyncThunk<
           tabDataFromLocalStorage.tabGroups.map((group) => group.tabGroupId)
         );
         const arrived = merged.tabGroups.some(
-          (group) => !localIds.has(group.tabGroupId)
+          (group) =>
+            !localIds.has(group.tabGroupId) &&
+            !isSampleSession(group.tabGroupId)
         );
         if (arrived) thunkAPI.dispatch(recordValueMoment());
       }
@@ -646,7 +649,8 @@ export const applyHeldCloudMerge =
         : []
     );
     const arrived = combined.tabGroups.some(
-      (group) => !localIds.has(group.tabGroupId)
+      (group) =>
+        !localIds.has(group.tabGroupId) && !isSampleSession(group.tabGroupId)
     );
     if (arrived) dispatch(recordValueMoment());
 
