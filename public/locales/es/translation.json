@@ -250,5 +250,14 @@
   "Open full view": "Abrir vista completa",
   "Default view": "Vista predeterminada",
   "Compact view": "Vista compacta",
-  "Full view": "Vista completa"
+  "Full view": "Vista completa",
+  "Start here": "Empieza aquí",
+  "Type a name, then press {{icon}} to save every open window.": "Escribe un nombre y pulsa {{icon}} para guardar todas las ventanas abiertas.",
+  "Pick a saved session to see its tabs.": "Elige una sesión guardada para ver sus pestañas.",
+  "Press Open to bring them all back, any time.": "Pulsa Abrir para recuperarlas todas cuando quieras.",
+  "Add a sample session": "Añadir una sesión de ejemplo",
+  "A saved session shows its windows and tabs here.": "Aquí, una sesión guardada muestra sus ventanas y pestañas.",
+  "Sample: Weekend trip": "Ejemplo: Escapada de fin de semana",
+  "Getting there": "Cómo llegar",
+  "Things to do": "Qué hacer"
 }

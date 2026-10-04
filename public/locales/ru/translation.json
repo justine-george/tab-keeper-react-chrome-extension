@@ -255,5 +255,14 @@
   "Open full view": "Открыть полный вид",
   "Default view": "Вид по умолчанию",
   "Compact view": "Компактный вид",
-  "Full view": "Полный вид"
+  "Full view": "Полный вид",
+  "Start here": "Начните отсюда",
+  "Type a name, then press {{icon}} to save every open window.": "Введите название и нажмите {{icon}}, чтобы сохранить все открытые окна.",
+  "Pick a saved session to see its tabs.": "Выберите сохранённую сессию, чтобы увидеть её вкладки.",
+  "Press Open to bring them all back, any time.": "Нажмите «Открыть», чтобы в любой момент вернуть их все.",
+  "Add a sample session": "Добавить пример сессии",
+  "A saved session shows its windows and tabs here.": "Здесь сохранённая сессия показывает свои окна и вкладки.",
+  "Sample: Weekend trip": "Пример: Поездка на выходные",
+  "Getting there": "Как добраться",
+  "Things to do": "Чем заняться"
 }

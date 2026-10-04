@@ -240,5 +240,14 @@
   "Open full view": "전체 보기 열기",
   "Default view": "기본 보기",
   "Compact view": "컴팩트 보기",
-  "Full view": "전체 보기"
+  "Full view": "전체 보기",
+  "Start here": "여기서 시작하세요",
+  "Type a name, then press {{icon}} to save every open window.": "이름을 입력한 다음 {{icon}} 버튼을 눌러 열려 있는 모든 창을 저장하세요.",
+  "Pick a saved session to see its tabs.": "저장된 세션을 선택하면 탭을 볼 수 있습니다.",
+  "Press Open to bring them all back, any time.": "언제든 열기를 눌러 모두 다시 열 수 있습니다.",
+  "Add a sample session": "샘플 세션 추가",
+  "A saved session shows its windows and tabs here.": "저장된 세션의 창과 탭이 여기에 표시됩니다.",
+  "Sample: Weekend trip": "샘플: 주말 여행",
+  "Getting there": "가는 길",
+  "Things to do": "할 일"
 }

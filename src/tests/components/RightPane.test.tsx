@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'vitest';
+import { afterEach, describe, expect, test } from 'vitest';
 import { screen } from '@testing-library/react';
 
 import RightPane from '../../components/home/rightpane/RightPane';
@@ -42,6 +42,9 @@ const buildSession = () => ({
 // element [0] of a list they derive themselves. These tests pin the agreement
 // between that decision and those reads: whenever the pane renders, the children
 // must find a session, and whenever it renders nothing, neither child mounted.
+// A save writes localStorage, which would read as an existing user's sessions.
+afterEach(() => localStorage.clear());
+
 describe('RightPane', () => {
   test('renders both children when a session is selected', async () => {
     await renderWithProviders(<RightPane />, {
@@ -58,10 +61,12 @@ describe('RightPane', () => {
     expect(screen.getByText('Morning reading')).toBeTruthy();
   });
 
-  test('renders nothing when the store is empty', async () => {
+  // KAN-7 §2: zero sessions draws the Start here line, and neither child.
+  test('draws only the Start here line when the store is empty', async () => {
     const { container } = await renderWithProviders(<RightPane />);
 
-    expect(container.innerHTML).toBe('');
+    expect(container.querySelector('[data-start-here-hint]')).not.toBeNull();
+    expect(screen.queryByText('Research')).not.toBeInTheDocument();
   });
 
   // The state the empty store cannot express: sessions exist, but none of them

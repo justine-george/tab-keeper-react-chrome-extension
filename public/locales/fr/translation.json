@@ -250,5 +250,14 @@
   "Open full view": "Ouvrir la vue complète",
   "Default view": "Vue par défaut",
   "Compact view": "Vue compacte",
-  "Full view": "Vue complète"
+  "Full view": "Vue complète",
+  "Start here": "Commencez ici",
+  "Type a name, then press {{icon}} to save every open window.": "Saisissez un nom, puis appuyez sur {{icon}} pour enregistrer toutes les fenêtres ouvertes.",
+  "Pick a saved session to see its tabs.": "Choisissez une session enregistrée pour voir ses onglets.",
+  "Press Open to bring them all back, any time.": "Appuyez sur Ouvrir pour tout retrouver, à tout moment.",
+  "Add a sample session": "Ajouter une session d'exemple",
+  "A saved session shows its windows and tabs here.": "Une session enregistrée affiche ici ses fenêtres et ses onglets.",
+  "Sample: Weekend trip": "Exemple : escapade d'un week-end",
+  "Getting there": "Le trajet",
+  "Things to do": "À faire"
 }

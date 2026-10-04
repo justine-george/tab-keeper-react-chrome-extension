@@ -240,5 +240,14 @@
   "Open full view": "フルビューで開く",
   "Default view": "既定のビュー",
   "Compact view": "コンパクトビュー",
-  "Full view": "フルビュー"
+  "Full view": "フルビュー",
+  "Start here": "ここから始めましょう",
+  "Type a name, then press {{icon}} to save every open window.": "名前を入力して {{icon}} を押すと、開いているウィンドウをすべて保存できます。",
+  "Pick a saved session to see its tabs.": "保存したセッションを選ぶと、そのタブが表示されます。",
+  "Press Open to bring them all back, any time.": "「開く」を押せば、いつでもすべて元に戻せます。",
+  "Add a sample session": "サンプルのセッションを追加",
+  "A saved session shows its windows and tabs here.": "保存したセッションのウィンドウとタブがここに表示されます。",
+  "Sample: Weekend trip": "サンプル: 週末旅行",
+  "Getting there": "行き方",
+  "Things to do": "やりたいこと"
 }

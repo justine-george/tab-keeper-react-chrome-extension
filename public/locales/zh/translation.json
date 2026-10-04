@@ -240,5 +240,14 @@
   "Open full view": "打开完整视图",
   "Default view": "默认视图",
   "Compact view": "紧凑视图",
-  "Full view": "完整视图"
+  "Full view": "完整视图",
+  "Start here": "从这里开始",
+  "Type a name, then press {{icon}} to save every open window.": "输入名称，然后按 {{icon}} 保存所有打开的窗口。",
+  "Pick a saved session to see its tabs.": "选择一个已保存的会话，查看其中的标签页。",
+  "Press Open to bring them all back, any time.": "随时按“打开”即可全部恢复。",
+  "Add a sample session": "添加示例会话",
+  "A saved session shows its windows and tabs here.": "已保存会话的窗口和标签页会显示在这里。",
+  "Sample: Weekend trip": "示例：周末旅行",
+  "Getting there": "交通安排",
+  "Things to do": "游玩去处"
 }

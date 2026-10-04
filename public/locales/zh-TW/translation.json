@@ -240,5 +240,14 @@
   "Open full view": "開啟完整檢視",
   "Default view": "預設檢視",
   "Compact view": "精簡檢視",
-  "Full view": "完整檢視"
+  "Full view": "完整檢視",
+  "Start here": "從這裡開始",
+  "Type a name, then press {{icon}} to save every open window.": "輸入名稱，然後按 {{icon}} 儲存所有開啟的視窗。",
+  "Pick a saved session to see its tabs.": "選擇已儲存的工作階段，即可查看其中的分頁。",
+  "Press Open to bring them all back, any time.": "隨時按「開啟」就能全部還原。",
+  "Add a sample session": "新增範例工作階段",
+  "A saved session shows its windows and tabs here.": "已儲存工作階段的視窗和分頁會顯示在這裡。",
+  "Sample: Weekend trip": "範例：週末旅行",
+  "Getting there": "交通安排",
+  "Things to do": "遊玩去處"
 }

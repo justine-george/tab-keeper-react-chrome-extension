@@ -245,5 +245,14 @@
   "Open full view": "Öppna helvy",
   "Default view": "Standardvy",
   "Compact view": "Kompakt vy",
-  "Full view": "Helvy"
+  "Full view": "Helvy",
+  "Start here": "Börja här",
+  "Type a name, then press {{icon}} to save every open window.": "Skriv ett namn och tryck sedan på {{icon}} för att spara alla öppna fönster.",
+  "Pick a saved session to see its tabs.": "Välj en sparad session för att se dess flikar.",
+  "Press Open to bring them all back, any time.": "Tryck på Öppna för att få tillbaka alla, när du vill.",
+  "Add a sample session": "Lägg till en exempelsession",
+  "A saved session shows its windows and tabs here.": "En sparad session visar sina fönster och flikar här.",
+  "Sample: Weekend trip": "Exempel: Helgresa",
+  "Getting there": "Ta sig dit",
+  "Things to do": "Att göra"
 }

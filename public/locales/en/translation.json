@@ -245,5 +245,14 @@
   "Open full view": "Open full view",
   "Default view": "Default view",
   "Compact view": "Compact view",
-  "Full view": "Full view"
+  "Full view": "Full view",
+  "Start here": "Start here",
+  "Type a name, then press {{icon}} to save every open window.": "Type a name, then press {{icon}} to save every open window.",
+  "Pick a saved session to see its tabs.": "Pick a saved session to see its tabs.",
+  "Press Open to bring them all back, any time.": "Press Open to bring them all back, any time.",
+  "Add a sample session": "Add a sample session",
+  "A saved session shows its windows and tabs here.": "A saved session shows its windows and tabs here.",
+  "Sample: Weekend trip": "Sample: Weekend trip",
+  "Getting there": "Getting there",
+  "Things to do": "Things to do"
 }

@@ -6,12 +6,12 @@ import { css } from '@emotion/react';
 
 import Divider from '../../common/Divider';
 import TabGroupEntry from './TabGroupEntry';
+import StartHereCard from './StartHereCard';
 import { SPRING_OPEN_MS } from '../../common/springOpen';
 import {
   SAVED_SEARCH_GLASS_INSET,
   SAVED_SEARCH_TEXT_PADDING,
 } from './savedListInset';
-import { NormalLabel } from '../../common/Label';
 import SearchRow from '../../common/SearchRow';
 import NoMatchState from '../../common/NoMatchState';
 import { useNoMatchPlace } from '../../../hooks/useNoMatchPlace';
@@ -20,6 +20,7 @@ import { AppDispatch, RootState } from '../../../redux/store';
 import { filterTabGroups } from '../../../utils/functions/local';
 import { setSearchInputText } from '../../../redux/slices/globalStateSlice';
 import { useSavedSearch } from '../../../hooks/useSavedSearch';
+import { useShowsStartHere } from '../../../hooks/useShowsStartHere';
 import {
   deleteTabContainer,
   openAllTabContainer,
@@ -68,6 +69,7 @@ export default function TabGroupEntryContainer() {
 
   const { text: searchText, term: searchTerm, isSearching } = useSavedSearch();
   const { query: noMatchQuery, place: noMatchPlace } = useNoMatchPlace();
+  const showsStartHere = useShowsStartHere();
 
   const hasTabGroupsPermission = useSelector(
     (state: RootState) => state.globalState.hasTabGroupsPermission
@@ -345,13 +347,6 @@ export default function TabGroupEntryContainer() {
     overflow: auto;
   `;
 
-  const emptyContainerStyle = css`
-    display: flex;
-    height: 100%;
-    justify-content: center;
-    align-items: center;
-  `;
-
   const filledContainerStyle = css`
     display: flex;
     flex-direction: column;
@@ -372,14 +367,12 @@ export default function TabGroupEntryContainer() {
       <div css={scrollerStyle} ref={listRef}>
         {filteredTabGroups.length === 0 ? (
           // No match: the block is the detail pane's, or this list's when
-          // there is no detail pane; otherwise the list shows nothing.
+          // there is no detail pane. KAN-7 §2: an empty list starts here.
           noMatchPlace === 'list' ? (
             <NoMatchState query={noMatchQuery} inset={24} />
-          ) : isSearching ? null : (
-            <div css={emptyContainerStyle}>
-              <NormalLabel value={t('Empty')} />
-            </div>
-          )
+          ) : showsStartHere ? (
+            <StartHereCard />
+          ) : null
         ) : (
           <div css={filledContainerStyle}>
             {/* KAN-130. No handleSelector -- a session row contains no nested
