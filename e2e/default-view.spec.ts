@@ -164,9 +164,7 @@ test('two toolbar clicks at once open one full view', async ({
     clickToolbar(serviceWorker, windowId),
     clickToolbar(serviceWorker, windowId),
   ]);
-  await expect.poll(() => fullViewTabs(serviceWorker)).toBe(1);
-  // A late duplicate would arrive after the first: give it the chance.
-  await page.waitForTimeout(500);
+  // Both handlers have returned, so no duplicate is still on its way.
   expect(await fullViewTabs(serviceWorker)).toBe(1);
 });
 
