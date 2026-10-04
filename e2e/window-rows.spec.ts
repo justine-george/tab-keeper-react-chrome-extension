@@ -7,6 +7,7 @@ import { test, expect } from './fixtures/extension';
 import { grantedTest } from './fixtures/grantedExtension';
 import {
   contrast,
+  differingPixels,
   pixelsAt,
   placeholderPaint,
   rgbToHex,
@@ -969,14 +970,21 @@ for (const [language, longTitle] of LONG_TITLES) {
         return page.screenshot({ clip: await boxOf(strip) });
       };
 
-      // At rest the strip is clear: the title shows through it.
+      // At rest the strip is clear: the title shows through it. Its glyph pixels
+      // are where the shot changes with the title hidden.
       await expect(strip.locator(':scope > *').first()).toHaveCSS(
         'opacity',
         '0'
       );
-      expect((await stripShot(true)).equals(await stripShot(false))).toBe(
-        false
-      );
+      const s = await boxOf(strip);
+      const glyphs = (
+        await differingPixels(
+          page,
+          await stripShot(true),
+          await stripShot(false)
+        )
+      ).map(([x, y]): [number, number] => [s.x + x, s.y + y]);
+      expect(glyphs.length).toBeGreaterThan(0);
 
       // Revealed: the pointer on the title's start, clear of the strip.
       const t = await boxOf(title);
@@ -989,15 +997,21 @@ for (const [language, longTitle] of LONG_TITLES) {
         )
         .toEqual(['1', '1', '1']);
 
-      // The strip's left edge, inside Open's border and padding, is the fill.
-      const s = await boxOf(strip);
-      const points: [number, number][] = [];
-      for (let x = s.x + 2; x <= s.x + 8; x += 2)
-        for (let y = s.y + 2; y <= s.y + s.height - 3; y += 1)
-          points.push([x, y]);
-      const painted = new Set(await pixelsAt(page, points));
-      console.log(`[${language}] strip edge painted ${[...painted].join(' ')}`);
-      expect([...painted]).toEqual([LIGHT_THEME.HOVER_COLOR]);
+      // Of those pixels, the ones no button draws on (title hidden) are the fill.
+      await stripShot(false);
+      const bare = (await pixelsAt(page, glyphs)).flatMap((colour, i) =>
+        colour === LIGHT_THEME.HOVER_COLOR ? [glyphs[i]] : []
+      );
+      console.log(
+        `[${language}] ${glyphs.length} glyph pixels, ${bare.length} bare`
+      );
+      expect(bare.length).toBeGreaterThan(0);
+
+      // With the title shown again, none of them shows a glyph.
+      await stripShot(true);
+      expect([...new Set(await pixelsAt(page, bare))]).toEqual([
+        LIGHT_THEME.HOVER_COLOR,
+      ]);
 
       // No glyph of the title shows anywhere through the strip.
       expect((await stripShot(true)).equals(await stripShot(false))).toBe(true);
