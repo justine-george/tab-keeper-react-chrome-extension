@@ -28,14 +28,9 @@ const twoGroupsUngranted = {
   tabs: [{ groupId: 11 }, { groupId: 12 }, { groupId: -1 }],
 };
 
-// KAN-74. Both modals are position:fixed at z-index 999 and both are opened
-// from App's mount effect, so if they ever opened together they would stack
-// with no defined winner. They cannot, and this is why: askUserToRateAndReview
-// runs synchronously and hands its answer to the tab-groups check as a value.
-//
-// That handoff is the thing under test. The decision itself is covered in
-// tabGroupsOffer.test.ts; what could still break is App passing the wrong
-// argument -- a hardcoded `false` would satisfy every other test in the suite.
+// KAN-74. Both modals are position:fixed at z-index 999, so they must never
+// open together; openFirstDialog opens only the first yes in its ordered list.
+// The decisions are covered elsewhere; this pins the order App's list gives.
 describe('modal coordination on popup open', () => {
   test('the rate request wins, and the tab-groups offer stands down', async () => {
     // A session restored an hour ago, never rated, never asked -> the rate
@@ -106,5 +101,19 @@ describe('modal coordination on popup open', () => {
 
     expect(store.getState().globalState.tabGroupsPromptCount).toBeNull();
     expect(store.getState().globalState.isRateAndReviewModalOpen).toBe(false);
+  });
+
+  // KAN-7 §8. The cloud question reads the disk as it was before this open
+  // wrote to it; the same open still stamps the install date.
+  test('a first open is welcomed as new, though the open stamps an install date', async () => {
+    const { store } = await renderWithProviders(<App />);
+
+    await waitFor(() =>
+      expect(store.getState().globalState.isCloudConsentModalOpen).toBe(true)
+    );
+    expect(store.getState().globalState.cloudConsentVariant).toBe('welcome');
+    expect(
+      typeof store.getState().settingsDataState.extensionInstalledTime
+    ).toBe('number');
   });
 });

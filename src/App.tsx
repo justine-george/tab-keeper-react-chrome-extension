@@ -16,12 +16,12 @@ import { useOtherPageChanges } from './hooks/useOtherPageChanges';
 import { useTabCloudReads } from './hooks/useTabCloudReads';
 import { useDocumentTitle } from './hooks/useDocumentTitle';
 import { isTabView } from './utils/functions/viewMode';
+import { firstOpenDialogs } from './redux/firstOpenDialogs';
+import { openFirstDialog } from './utils/functions/dialogQueue';
+import { storedSessionCount } from './utils/functions/storedSessions';
 import {
-  openRateAndReviewModal,
-  openTabGroupsPrompt,
   removeUserId,
   setCloudConfigured,
-  openCloudConsentModal,
   setHasTabGroupsPermission,
   setHasSessionsPermission,
   setLoggedOut,
@@ -40,14 +40,12 @@ import {
   hasSessionsPermission,
   observeSessionsPermission,
 } from './utils/functions/permissions';
-import { shouldOfferTabGroups } from './utils/functions/tabGroupsOffer';
 
 import './App.css';
 import {
   setExtensionInstalledTime,
   SettingsData,
   cloudSyncAllowed,
-  declineCloudConsent,
 } from './redux/slices/settingsDataStateSlice';
 import {
   asPartialSettings,
@@ -57,7 +55,6 @@ import {
   isValidTabMasterContainer,
   loadFromLocalStorage,
 } from './utils/functions/local';
-import { shouldAskForReview } from './utils/functions/reviewAsk';
 
 function App() {
   // KAN-279 D9. Another open page's write to the saved sessions or settings
@@ -155,102 +152,23 @@ function App() {
     });
   }
 
-  // ask user to rate and review the extension
-  //
-  // Returns whether it opened the modal. KAN-74 needs that answer to keep two
-  // modals off the screen at once, and it cannot read it back out of Redux:
-  // this function is synchronous while the tab-groups check below is async, so
-  // by the time that one resolves it would be reading a store it has no
-  // guarantee of having seen settle. Handing the decision over as a value
-  // makes the coordination explicit instead of an accident of dispatch order.
-  function askUserToRateAndReview(): boolean {
-    const settings = asPartialSettings<SettingsData>(
-      loadFromLocalStorage('settingsData')
-    );
-
-    // KAN-149. The install date is still recorded, because a fresh install has
-    // nothing else to stamp and other things may want it -- but it is no longer
-    // what opens the prompt. See shouldAskForReview: a value moment is.
-    if (!isValidDate(settings.extensionInstalledTime ?? '')) {
-      dispatch(setExtensionInstalledTime());
-    }
-
-    if (!shouldAskForReview(settings, Date.now())) {
-      return false;
-    }
-
-    dispatch(openRateAndReviewModal());
-    return true;
-  }
-
-  // KAN-74. Offer the optional "tabGroups" permission to a user who has tab
-  // groups open right now. shouldOfferTabGroups owns every condition; this
-  // only turns its answer into a dispatch.
-  //
-  // "Never from autosave" is satisfied by construction rather than by a check:
-  // autosave runs in the service worker, and App only mounts when the user
-  // opens the popup.
-  async function offerTabGroupsPermission(
-    isRateAndReviewModalShowing: boolean
-  ) {
-    // One modal at a time: the rate request wins this open.
-    if (isRateAndReviewModalShowing) return;
-    const openGroups = await shouldOfferTabGroups();
-    if (openGroups !== null) dispatch(openTabGroupsPrompt(openGroups));
-  }
-
-  // KAN-259. The cloud question, once, before the other first-open modals.
-  //
-  // Returns whether it opened, so the rate prompt and the tab-groups offer can
-  // stand down this open -- the KAN-74 handoff, extended by one. Who is asked
-  // and how is decided from what is on disk BEFORE this open touches it:
-  //
-  //  * consent already given or declined: nothing;
-  //  * an existing user (an install date from a previous open, or saved
-  //    sessions) who already turned Auto Sync off: recorded as declined
-  //    without asking -- they answered, in the only way there used to be;
-  //  * an existing user with Auto Sync on: the 'existing' wording;
-  //  * everyone else: the welcome.
-  function askForCloudConsent(): boolean {
-    const settings = asPartialSettings<SettingsData>(
-      loadFromLocalStorage('settingsData')
-    );
-    if (
-      settings.cloudConsent === 'granted' ||
-      settings.cloudConsent === 'declined'
-    ) {
-      return false;
-    }
-    const stored = loadFromLocalStorage('tabContainerData');
-    const hasSessions =
-      isValidTabMasterContainer(stored) && stored.tabGroups.length > 0;
-    const isExisting =
-      isValidDate(settings.extensionInstalledTime ?? '') || hasSessions;
-    if (isExisting && settings.isAutoSync === false) {
-      dispatch(declineCloudConsent());
-      return false;
-    }
-    dispatch(
-      openCloudConsentModal({ variant: isExisting ? 'existing' : 'welcome' })
-    );
-    return true;
-  }
-
   useEffect(() => {
     getUserTokenFromChromeStorageSync();
     dispatch(setCloudConfigured(isCloudConfigured));
-    if (!askForCloudConsent()) {
-      void offerTabGroupsPermission(askUserToRateAndReview());
-    } else {
-      // The install date is still stamped on a first open that asked the
-      // cloud question; the rate prompt needs it later.
-      const settings = asPartialSettings<SettingsData>(
-        loadFromLocalStorage('settingsData')
-      );
-      if (!isValidDate(settings.extensionInstalledTime ?? '')) {
-        dispatch(setExtensionInstalledTime());
-      }
+    // KAN-7 §8. Decided from the disk as it was before this open wrote to it.
+    const storedAtOpen = asPartialSettings<SettingsData>(
+      loadFromLocalStorage('settingsData')
+    );
+    const dialogs = firstOpenDialogs(isTabView() ? 'full' : 'popup', {
+      dispatch,
+      storedAtOpen,
+      storedSessions: storedSessionCount(),
+    });
+    // KAN-149. Stamped on every open that lacks one; the rate prompt needs it.
+    if (!isValidDate(storedAtOpen.extensionInstalledTime ?? '')) {
+      dispatch(setExtensionInstalledTime());
     }
+    void openFirstDialog(dialogs);
 
     void hasTabGroupsPermission().then((granted) =>
       dispatch(setHasTabGroupsPermission(granted))
