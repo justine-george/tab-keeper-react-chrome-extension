@@ -377,6 +377,7 @@ describe('a new window is saved unnamed', () => {
     at: 'first' | 'last'
   ): SessionMove => {
     const to = { tabGroupId, newWindowId: 'nw', at };
+    // The branches look alike: the check narrows `c`, so each picks its SessionMove member.
     return c.kind === 'tab' ? { carried: c, to } : { carried: c, to };
   };
   const cases = carried.flatMap((c) =>
