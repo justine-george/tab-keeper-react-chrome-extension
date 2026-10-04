@@ -713,12 +713,10 @@ describe('a carried window lands between windows', () => {
 describe('an adopted drag that ends with no commit cancels the whole carry', () => {
   // The sessions as saved, the selection aside: a cancel reselects the source.
   const sessions = (store: { getState: () => RootState }) =>
-    store
-      .getState()
-      .tabContainerDataState.tabGroups.map((g) => ({
-        ...g,
-        isSelected: false,
-      }));
+    store.getState().tabContainerDataState.tabGroups.map((g) => ({
+      ...g,
+      isSelected: false,
+    }));
   const selectedId = (store: { getState: () => RootState }) =>
     store.getState().tabContainerDataState.selectedTabGroupId;
 
