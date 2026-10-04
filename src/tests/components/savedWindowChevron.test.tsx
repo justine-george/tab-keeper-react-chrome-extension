@@ -84,10 +84,14 @@ test("a saved window's chevron names its window and its state", async () => {
   ).toBeInTheDocument();
 });
 
-test('an untitled window keeps the bare verb, not "Collapse: "', async () => {
+// KAN-394 D3: an untitled window is named by its label, not the bare verb.
+test('an untitled window is named by its label', async () => {
   await renderSession(['', 'Evening reading']);
 
   expect(
-    await screen.findByRole('button', { name: 'Collapse', expanded: true })
+    await screen.findByRole('button', {
+      name: 'Collapse: Window 1',
+      expanded: true,
+    })
   ).toBeInTheDocument();
 });

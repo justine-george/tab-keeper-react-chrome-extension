@@ -47,6 +47,7 @@ async function renderWindow(
 ) {
   return renderWithProviders(
     <WindowEntryContainer
+      number={1}
       title="Window 1"
       tabGroupId="tg1"
       windowId="w1"

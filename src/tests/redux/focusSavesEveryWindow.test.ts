@@ -132,6 +132,25 @@ describe('focus mode saves every window it is about to close (KAN-5)', () => {
     ]);
   });
 
+  // KAN-394 L4: focus mode's save names no window either.
+  it('saves each window unnamed', async () => {
+    handle = seedThreeOpenWindows();
+
+    const { store } = makeTestStore();
+    store.dispatch(restoreContainer(TARGET));
+    await store.dispatch(focusTabContainer(PARAMS));
+
+    const [saved] = store.getState().tabContainerDataState.tabGroups;
+    // PREMISE: the save under test, each window with a titled first tab.
+    expect(saved.title).toBe(PARAMS.saveTitle);
+    expect(saved.windows.map((w) => w.tabs[0].title).sort()).toEqual([
+      'A',
+      'B',
+      'C',
+    ]);
+    expect(saved.windows.map((w) => w.title)).toEqual(['', '', '']);
+  });
+
   // The other half of the contract: what was saved has to cover what the
   // worker is told to close. background.ts closes every normal window, so the
   // count it will act on is the count that must have been captured.

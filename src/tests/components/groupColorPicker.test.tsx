@@ -46,6 +46,7 @@ async function renderGroup({
   const groups: chromeTabGroupData[] = [{ groupId: 'grp', title, color }];
   return renderWithProviders(
     <WindowEntryContainer
+      number={1}
       title="Window 1"
       tabGroupId="tg"
       windowId="w"

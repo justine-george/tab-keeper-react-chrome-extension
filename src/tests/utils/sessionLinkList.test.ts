@@ -379,3 +379,32 @@ describe('both clipboard versions get the clean-ups (KAN-195)', () => {
     expect(html).not.toContain('chrome-extension://');
   });
 });
+
+// KAN-394. An unnamed window's heading is the label alone, in both copies.
+describe('a window with no name (KAN-394)', () => {
+  const session = buildSession({
+    windows: [window('', [tab()]), window('Food', [tab()])],
+  });
+
+  test('the plain text reads "WINDOW 1" with no separator or trailing space', () => {
+    const lines = sessionToLinkList(session, strings).split('\n');
+
+    expect(lines).toContain('WINDOW 1 (1 Tab)');
+    expect(lines).toContain('WINDOW 2 · Food (1 Tab)');
+  });
+
+  test('the rich copy reads "Window 1" with no separator', () => {
+    const html = sessionToLinkHtml(session, strings);
+
+    expect(html).toContain('<p><b>Window 1</b> (1 Tab)</p>');
+    expect(html).toContain('<p><b>Window 2 · Food</b> (1 Tab)</p>');
+  });
+
+  test('a whitespace-only title is unnamed too', () => {
+    const blank = buildSession({ windows: [window('  ', [tab()])] });
+
+    expect(sessionToLinkHtml(blank, strings)).toContain(
+      '<p><b>Window 1</b> (1 Tab)</p>'
+    );
+  });
+});

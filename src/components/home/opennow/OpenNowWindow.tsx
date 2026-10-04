@@ -33,6 +33,7 @@ import { useDragState } from '../rightpane/rowDrag/dragContext';
 import { markRowContainer } from '../rightpane/rowDrag/dropRules';
 import { GroupFrameFollower } from '../rightpane/rowDrag/GroupFrameFollower';
 import { DURATION, ICON, RADIUS, TYPE } from '../../../styles/scale';
+import { windowLabel } from '../../../utils/functions/windowLabel';
 import { OPEN_ITEMS_SCOPE, OPEN_TABS_SCOPE } from './useOpenNowDrop';
 
 // WindowEntryContainer's GROUP_TITLE_SIZE, the one documented off-scale size
@@ -299,7 +300,7 @@ export default function OpenNowWindow({
   // The window glyph and the title, as one box: a button when the row goes
   // to its window, a plain box otherwise. The same layout either way, so a
   // row's title does not move when it stops being a button (S2).
-  const windowLabelStyle = `
+  const windowHeaderStyle = `
     display: flex;
     align-items: center;
     flex-grow: 1;
@@ -316,9 +317,9 @@ export default function OpenNowWindow({
     padding-right: 9px;
   `;
 
-  const title = t('Window') + ' ' + (index + 1);
+  const title = windowLabel('', index + 1, t('Window')).text;
 
-  const windowLabel = (
+  const windowHeader = (
     <>
       <Icon type="web_asset" style={NON_INTERACTIVE_ICON_STYLE} />
       <div css={windowTitleStyle}>
@@ -534,12 +535,12 @@ export default function OpenNowWindow({
               onClick={() =>
                 void focusOpenWindow(openWindow.id).catch(() => undefined)
               }
-              style={windowLabelStyle}
+              style={windowHeaderStyle}
             >
-              {windowLabel}
+              {windowHeader}
             </ClickableRow>
           ) : (
-            <div css={css(windowLabelStyle)}>{windowLabel}</div>
+            <div css={css(windowHeaderStyle)}>{windowHeader}</div>
           )}
         </div>
         {offersWindowActions && (

@@ -208,13 +208,9 @@ export function toStoredTab(
 // header already records why two captures that drift are a problem, and a
 // dropped group is exactly that failure in miniature.
 //
-// `title` is cleaned on the way in (KAN-211). Every caller derives it from a
-// live tab's title -- the first tab of the window here, the active tab in
-// HeroContainerRight -- so it carries the same badge the tabs did, and a window
-// row reading "(3) Gmail" is the same staleness in a heading.
+// Saved unnamed: the list draws it as "Window N" (KAN-394 L4).
 export function toWindowGroupData(
   window: chrome.windows.Window,
-  title: string,
   groups: chromeTabGroupData[] | undefined,
   idByChromeId: Map<number, string>
 ): windowGroupData {
@@ -236,7 +232,7 @@ export function toWindowGroupData(
     windowOffsetTop: window.top ?? 0,
     windowOffsetLeft: window.left ?? 0,
     tabCount: tabsData.length,
-    title: dropNotificationCount(title),
+    title: '',
     tabs: tabsData,
     ...(groups && groups.length > 0 ? { chromeTabGroups: groups } : {}),
   };
@@ -316,7 +312,6 @@ export async function captureOpenWindows(
     const read = await readCurrentWindowGroups(window.id, granted);
     const windowGroup = toWindowGroupData(
       { ...window, tabs },
-      tabs[0].title || '',
       read?.groups,
       read?.idByChromeId ?? new Map()
     );

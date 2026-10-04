@@ -70,8 +70,7 @@ function walk(
 ): { session: tabContainerData; renamed: number } {
   let renamed = 0;
 
-  // A session or window always has a name (KAN-84 refuses a blank rename in
-  // the popup), so clearing its field keeps the name. A tab or a Chrome group
+  // A session or a named window keeps its name when its field is cleared. A tab or a Chrome group
   // may be blank: the generators name a titleless tab by its URL, and an
   // unnamed group is a real Chrome state.
   const titleFor = (

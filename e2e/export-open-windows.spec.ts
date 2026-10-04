@@ -161,11 +161,9 @@ test.describe('export open windows (KAN-208)', () => {
     expect(exportPage.url()).toContain('export.html?source=open-windows');
 
     const preview = exportPage.frameLocator('iframe');
-    // `.first()`: a window's heading is its first tab's title.
+    // Once each: a window's heading is no longer its first tab's title (L4).
     for (const title of ['Alpha-one', 'Beta-one', 'Beta-two']) {
-      await expect(
-        preview.getByText(title, { exact: true }).first()
-      ).toBeVisible();
+      await expect(preview.getByText(title, { exact: true })).toBeVisible();
     }
 
     // chrome-extension:// is not a web link, so a leaked page shows as text.

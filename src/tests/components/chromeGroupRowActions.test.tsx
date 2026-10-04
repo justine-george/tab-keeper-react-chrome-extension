@@ -54,6 +54,7 @@ async function renderRow({
 }: { isSearching?: boolean; seed?: ChromeSeed } = {}) {
   return renderWithProviders(
     <WindowEntryContainer
+      number={1}
       title="Window 1"
       tabGroupId="tg"
       windowId="w"
@@ -267,6 +268,7 @@ async function renderTwoGroups() {
   ];
   return renderWithProviders(
     <WindowEntryContainer
+      number={1}
       title="Window 1"
       tabGroupId="tg"
       windowId="w"
@@ -563,6 +565,7 @@ describe('without the tabGroups permission', () => {
   test('no group row is rendered, so the click cannot be reached', async () => {
     await renderWithProviders(
       <WindowEntryContainer
+        number={1}
         title="Window 1"
         tabGroupId="tg"
         windowId="w"

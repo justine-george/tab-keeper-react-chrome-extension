@@ -191,7 +191,12 @@ const GROUP_CARD: CarryCard = {
   color: '#00f',
   tabCount: 2,
 };
-const WINDOW_CARD: CarryCard = { kind: 'window', title: 'w', tabCount: 1 };
+const WINDOW_CARD: CarryCard = {
+  kind: 'window',
+  title: 'w',
+  number: 1,
+  tabCount: 1,
+};
 
 const toastsOf = (
   store: Awaited<ReturnType<typeof render>>['store']

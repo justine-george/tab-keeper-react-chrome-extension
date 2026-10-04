@@ -172,6 +172,8 @@ describe('each saved detail list hands a drag that reaches the session list to t
       kind: 'window',
       // The fixture's stored title for w2, which its header shows.
       title: 'Window w2',
+      // KAN-394: its place in the session, for when it is unnamed.
+      number: 2,
       tabCount: 1,
     });
     expect(rowIds()).not.toContain('w2');

@@ -46,8 +46,8 @@ import {
 
 // KAN-350 final review, finding 1. A new window made in the item's OWN
 // session, from a window that holds nothing but that item and is already the
-// session's first window, would rebuild that same window: a new id, its
-// first tab's title in place of its own, the session stamped and sorted to
+// session's first window, would rebuild that same window: a new id, no
+// title in place of its own, the session stamped and sorted to
 // the top. The drop changes nothing the user can see, so it must change
 // nothing at all -- and say so, so the carry ends as a cancel.
 //
@@ -62,7 +62,7 @@ const s9 = (): tabContainerData => {
     win('only', [tab('lone')]),
     win('w2', [tab('x1'), tab('x2')]),
   ]);
-  // A title of its own, which a rebuilt window would lose to its tab's.
+  // A title of its own, which a rebuilt window would lose.
   s.windows[0].title = 'Kept';
   return s;
 };

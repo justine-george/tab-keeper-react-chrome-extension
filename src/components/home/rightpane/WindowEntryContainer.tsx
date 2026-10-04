@@ -54,6 +54,7 @@ import { springSweepStyle } from '../../common/springOpen';
 import { NEW_LAST_WINDOW, newWindowTargetBoxStyle } from './newWindowTarget';
 import { NewWindowTargetLabel } from './NewWindowTargetLabel';
 import { CONTROL, DURATION, RADIUS, TYPE } from '../../../styles/scale';
+import { windowLabel } from '../../../utils/functions/windowLabel';
 
 /**
  * The Chrome group title, and the editor that replaces it (KAN-205).
@@ -72,6 +73,8 @@ const GROUP_TITLE_SIZE = '0.85rem';
 
 interface WindowEntryContainerProps {
   title: string;
+  // Its place in the session, as TabGroupDetailsContainer numbers it (D1).
+  number: number;
   tabs: tabData[];
   chromeTabGroups?: chromeTabGroupData[];
   tabGroupId: string;
@@ -89,6 +92,7 @@ interface WindowEntryContainerProps {
 
 const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   title,
+  number,
   tabs,
   chromeTabGroups,
   tabGroupId,
@@ -111,6 +115,9 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   const COLORS = useThemeColors();
   const FONT_FAMILY = useFontFamily();
   const { t } = useTranslation();
+  const label = windowLabel(title, number, t('Window'));
+  // A label the user did not choose is muted.
+  const labelColor = label.named ? COLORS.TEXT_COLOR : COLORS.LABEL_L2_COLOR;
 
   const dispatch: AppDispatch = useDispatch();
 
@@ -732,10 +739,9 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
           <div css={parentLeftStyle}>
             <Icon
               tooltipText={isWindowOpen ? t('Collapse') : t('Expand')}
-              // Names its window, as Open now's does (KAN-303); untitled keeps the verb.
+              // Names its window, as Open now's does (KAN-303).
               ariaLabel={
-                (isWindowOpen ? t('Collapse') : t('Expand')) +
-                (title ? ': ' + title : '')
+                (isWindowOpen ? t('Collapse') : t('Expand')) + ': ' + label.text
               }
               ariaExpanded={isWindowOpen}
               type={isWindowOpen ? 'expand_less' : 'expand_more'}
@@ -787,22 +793,22 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
             ) : isSearching ? (
               <div css={css(parentLinkStyle)}>
                 <NormalLabel
-                  value={title}
-                  color={COLORS.TEXT_COLOR}
+                  value={label.text}
+                  color={labelColor}
                   size={TYPE.BODY}
                   style="padding-left: 8px; height: 100%; max-width: 100%;"
                 />
               </div>
             ) : (
               <ClickableRow
-                ariaLabel={title}
+                ariaLabel={label.text}
                 tooltipText={t('Open in new window')}
                 onClick={handleWindowClick}
                 style={parentLinkStyle}
               >
                 <NormalLabel
-                  value={title}
-                  color={COLORS.TEXT_COLOR}
+                  value={label.text}
+                  color={labelColor}
                   size={TYPE.BODY}
                   style="padding-left: 8px; cursor: pointer; height: 100%; max-width: 100%;"
                 />

@@ -27,6 +27,7 @@ const TABS: tabData[] = [
 const render = (tabs: tabData[]) =>
   renderWithProviders(
     <WindowEntryContainer
+      number={1}
       title="Window 1"
       tabGroupId="tg1"
       windowId="w1"
@@ -93,6 +94,7 @@ describe('a tab row keeps its hover state when the list reorders', () => {
     const reordered = [TABS[1], TABS[0], TABS[2]];
     rerender(
       <WindowEntryContainer
+        number={1}
         title="Window 1"
         tabGroupId="tg1"
         windowId="w1"

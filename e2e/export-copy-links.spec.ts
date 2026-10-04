@@ -4,6 +4,7 @@ import { join } from 'node:path';
 
 import type { BrowserContext } from '@playwright/test';
 
+import type { tabContainerData } from '../src/redux/slices/tabContainerDataStateSlice';
 import { test, expect } from './fixtures/extension';
 import { buildContainer, buildSession, seedSessions } from './fixtures/seed';
 
@@ -63,10 +64,11 @@ const PASTE = process.platform === 'darwin' ? 'Meta+V' : 'Control+V';
 
 async function copyFromExportPage(
   context: BrowserContext,
-  extensionId: string
+  extensionId: string,
+  session: tabContainerData = SESSION
 ) {
   await seedSessions(context, {
-    ...buildContainer([SESSION]),
+    ...buildContainer([session]),
     selectedTabGroupId: 'session-copy',
   });
   await context.grantPermissions(['clipboard-read', 'clipboard-write']);
@@ -181,4 +183,47 @@ test('pasted into a plain text box, the copy arrives in the plain layout', async
       '  javascript:alert(1)',
     ].join('\n')
   );
+});
+
+// KAN-394. A window with no stored name is "Window 1", never "Window 1 · ".
+const UNNAMED = buildSession({
+  ...SESSION,
+  windows: [{ ...SESSION.windows[0], title: '' }],
+});
+
+test('an unnamed window reads "Window 1" in the saved file and in both copies', async ({
+  context,
+  extensionId,
+}) => {
+  const target = await copyFromExportPage(context, extensionId, UNNAMED);
+
+  await target.locator('#rich').click();
+  await target.keyboard.press(PASTE);
+  const bold = await target.evaluate(() =>
+    [...document.querySelectorAll('#rich b')].map((b) => b.textContent)
+  );
+  expect(bold).toEqual(['Window 1', 'Flights']);
+
+  await target.locator('#plain').click();
+  await target.keyboard.press(PASTE);
+  const plain = await target.locator('#plain').inputValue();
+  expect(plain.split('\n')).toContain('WINDOW 1 (4 Tabs)');
+  expect(plain).not.toContain('·  ');
+  expect(plain).not.toMatch(/WINDOW 1 ·/);
+
+  const page = context.pages().find((p) => p.url().includes('export.html'));
+  if (!page) throw new Error('the export page is gone');
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'Save as HTML' }).click(),
+  ]);
+  const path = join(
+    mkdtempSync(join(tmpdir(), 'export-unnamed-')),
+    download.suggestedFilename()
+  );
+  await download.saveAs(path);
+  const file = readFileSync(path, 'utf8');
+
+  expect(file).toMatch(/<h2>Window 1 <span>\(4 Tabs\)<\/span><\/h2>/);
+  expect(file).not.toContain('Window 1 ·');
 });

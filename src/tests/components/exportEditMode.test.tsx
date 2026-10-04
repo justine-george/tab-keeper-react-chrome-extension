@@ -428,3 +428,50 @@ describe('the page names its mode above the title (KAN-194)', () => {
     ).toBe(false);
   });
 });
+
+describe('a window with no name in the editor (KAN-394)', () => {
+  const UNNAMED = buildSession({
+    ...SESSION,
+    windows: [SESSION.windows[0], { ...SESSION.windows[1], title: '' }],
+  });
+
+  const renderUnnamed = () =>
+    renderWithProviders(
+      <ExportPage source={{ kind: 'saved', tabGroupId: 'session-kyoto' }} />,
+      {
+        seedStore: (store) => {
+          store.dispatch(replaceState(buildContainer([UNNAMED])));
+        },
+      }
+    );
+
+  test('its field is empty, shows the label as a placeholder, and is named by it', async () => {
+    const user = userEvent.setup();
+    await renderUnnamed();
+    await user.click(screen.getByRole('button', { name: 'Edit' }));
+
+    const field = screen.getByRole('textbox', {
+      name: 'Rename window group: Window 2',
+    });
+    expect(field).toHaveProperty('value', '');
+    expect(field).toHaveAttribute('placeholder', 'Window 2');
+    expect(
+      screen.getByRole('button', { name: 'Hide: Window 2' })
+    ).toBeInTheDocument();
+  });
+
+  test('a named window keeps its title and no placeholder', async () => {
+    const user = userEvent.setup();
+    await renderUnnamed();
+    await user.click(screen.getByRole('button', { name: 'Edit' }));
+
+    const field = screen.getByRole('textbox', {
+      name: 'Rename window group: Trip planning',
+    });
+    expect(field).toHaveProperty('value', 'Trip planning');
+    expect(field).not.toHaveAttribute('placeholder');
+    expect(
+      screen.getByRole('button', { name: 'Hide: Trip planning' })
+    ).toBeInTheDocument();
+  });
+});

@@ -78,7 +78,6 @@ describe('openWindowsToSession (KAN-280 O13)', () => {
       windowWidth: 800,
       windowHeight: 600,
       tabCount: 2,
-      title: 'A',
     });
     // No bounds reported: 0, as capture writes a missing size.
     expect(second).toMatchObject({
@@ -87,7 +86,6 @@ describe('openWindowsToSession (KAN-280 O13)', () => {
       windowWidth: 0,
       windowHeight: 0,
       tabCount: 1,
-      title: 'C',
     });
 
     expect(first.tabs.map((t) => t.title)).toEqual(['A', 'B']);
@@ -153,15 +151,30 @@ describe('openWindowsToSession (KAN-280 O13)', () => {
     expect('chromeTabGroups' in session.windows[0]).toBe(false);
   });
 
-  test("cleans an unread count from the window's title and its tabs'", () => {
+  test("cleans an unread count from its tabs' titles", () => {
     const session = openWindowsToSession(
       [openWindow(1, [openTab(11, '(3) Inbox'), openTab(12, 'Docs')])],
       'Mail',
       NOW
     );
 
-    expect(session.windows[0].title).toBe('Inbox');
     expect(session.windows[0].tabs[0].title).toBe('Inbox');
+  });
+
+  // KAN-394 L4: saved unnamed, for the list to draw as "Window N".
+  test('saves each window unnamed', () => {
+    const session = openWindowsToSession(
+      [
+        openWindow(1, [openTab(11, 'A'), openTab(12, 'B')]),
+        openWindow(2, [openTab(21, 'C')]),
+      ],
+      'Two',
+      NOW
+    );
+
+    // PREMISE: each window's first tab has a title it could have been named by.
+    expect(session.windows.map((w) => w.tabs[0].title)).toEqual(['A', 'C']);
+    expect(session.windows.map((w) => w.title)).toEqual(['', '']);
   });
 
   test('takes createdTime and createdAt from the one `now`', () => {
@@ -189,6 +202,5 @@ describe('openWindowsToSession (KAN-280 O13)', () => {
     );
 
     expect(session.windows[0].tabs[0].title).toBe('https://untitled.test/');
-    expect(session.windows[0].title).toBe('https://untitled.test/');
   });
 });

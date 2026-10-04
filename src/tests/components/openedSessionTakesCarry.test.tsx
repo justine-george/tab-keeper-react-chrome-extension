@@ -213,7 +213,7 @@ const cardFor = (carried: CarriedRef): CarryCard =>
     ? { kind: 'tab', title: carried.tabId, faviconUrl: '' }
     : carried.kind === 'group'
       ? { kind: 'group', title: 'G', color: '#000', tabCount: 2 }
-      : { kind: 'window', title: carried.windowId, tabCount: 1 };
+      : { kind: 'window', title: carried.windowId, number: 1, tabCount: 1 };
 
 // As the engine leaves things at the hand-off: the kind published, the hold
 // on, the pointer out to the left of the pane, over the session list.
@@ -1461,5 +1461,56 @@ describe('a carry’s room follows the session it shows', () => {
       store.dispatch(selectTabContainer('S2'));
     });
     expect(marker()).toBe('room');
+  });
+});
+
+// KAN-394 D1. The carried window's phantom is drawn first in the session on
+// screen, but it is not one of that session's windows: the real ones keep
+// their numbers for the whole carry.
+describe('window labels while a window is carried', () => {
+  const unnamedS2 = () => {
+    const base = s2();
+    return {
+      ...base,
+      windows: base.windows.map((w) => ({ ...w, title: '' })),
+    };
+  };
+  // The real windows' labels; the phantom draws its own title.
+  const labels = () =>
+    ['d1', 'd2'].map(
+      (id) =>
+        document
+          .querySelector(
+            `[data-drop-window-id="${id}"] button[title="Open in new window"]`
+          )
+          ?.getAttribute('aria-label')
+    );
+
+  test('the phantom window is left out of the numbering', async () => {
+    await renderWithProviders(
+      <>
+        <TabGroupDetailsContainer />
+        <CarryLayer />
+      </>,
+      {
+        seedStore: (store) => {
+          store.dispatch(setHasTabGroupsPermission(true));
+          store.dispatch(saveToTabContainerInternal(unnamedS2()));
+          store.dispatch(saveToTabContainerInternal(s1()));
+          store.dispatch(selectTabContainer('S2'));
+          store.dispatch(setIsNotDirty());
+        },
+      }
+    );
+    // PREMISE: before the carry, the two unnamed windows read 1 and 2.
+    expect(labels()).toEqual(['Window 1', 'Window 2']);
+
+    carry(WINDOW_W1);
+
+    // PREMISE: the phantom is drawn among them.
+    expect(document.querySelector('[data-drag-row-id="carried:w1"]')).not.toBe(
+      null
+    );
+    expect(labels()).toEqual(['Window 1', 'Window 2']);
   });
 });

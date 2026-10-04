@@ -65,3 +65,34 @@ describe('LABEL_L2 below 4.5:1 until KAN-375', () => {
     }
   );
 });
+
+// KAN-394 D7. An unnamed window's label sits on the header's hover fill.
+const onHover = (theme: ThemeColors) =>
+  contrast(theme.LABEL_L2_COLOR, theme.HOVER_COLOR);
+const HOVER_BELOW = ['LIGHT', 'BB_PINK', 'DARKENHEIMER', 'BLUE'];
+// Where the four sit today (4.00-4.03): they may not fall further.
+const HOVER_KNOWN_FLOOR = 4.0;
+
+describe('LABEL_L2 on the hover fill', () => {
+  test.each(ALL.filter(([name]) => !HOVER_BELOW.includes(name)))(
+    '%s: reads at 4.5:1',
+    (_name, theme) => {
+      expect(onHover(theme)).toBeGreaterThanOrEqual(TEXT_FLOOR);
+    }
+  );
+
+  // Fails on purpose (KAN-395); once it passes, drop the theme from HOVER_BELOW.
+  test.fails.each(ALL.filter(([name]) => HOVER_BELOW.includes(name)))(
+    '%s: known below until KAN-395',
+    (_name, theme) => {
+      expect(onHover(theme)).toBeGreaterThanOrEqual(TEXT_FLOOR);
+    }
+  );
+
+  test.each(ALL.filter(([name]) => HOVER_BELOW.includes(name)))(
+    '%s: no lower than today',
+    (_name, theme) => {
+      expect(onHover(theme)).toBeGreaterThanOrEqual(HOVER_KNOWN_FLOOR);
+    }
+  );
+});

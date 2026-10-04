@@ -542,21 +542,12 @@ describe('a captured tab keeps the page name, not the badge (KAN-211)', () => {
     ]);
   });
 
-  // The window is NAMED after its first tab, so leaving that raw would carry
-  // the badge into the row heading even with every tab title cleaned.
-  test('drops it from the window name the first tab supplies', async () => {
-    const captured = await capture('(3) Nozomi timetable', 'Kyoto bus map');
-
-    expect(captured!.windows[0].title).toBe('Nozomi timetable');
-  });
-
   // CONTROL, and the reason the pattern is only one to three digits: a year in
   // brackets is part of the name, not a count.
   test('keeps a leading year, which is part of the name', async () => {
     const captured = await capture('(2024) Annual report');
 
     expect(captured!.windows[0].tabs[0].title).toBe('(2024) Annual report');
-    expect(captured!.windows[0].title).toBe('(2024) Annual report');
   });
 
   // CONTROL: the session's own name is the caller's, and capture must not edit
@@ -650,26 +641,6 @@ describe('captureOpenWindows leaves out every Tab Keeper page (KAN-300)', () => 
     );
 
     expect(captured.windows[0].tabs.map((t) => t.url)).toEqual([A]);
-  });
-
-  test('the window title follows the first tab that is kept', async () => {
-    handle = setupChromeFake({
-      windows: [
-        {
-          id: 1,
-          tabs: [
-            buildChromeTab({ id: 10, url: TAB_VIEW, title: 'Tab Keeper' }),
-            buildChromeTab({ id: 11, url: A, title: 'A' }),
-          ],
-        },
-      ],
-    });
-
-    const captured = requireCaptured(
-      await captureOpenWindows('probe', 'all-windows')
-    );
-
-    expect(captured.windows[0].title).toBe('A');
   });
 
   test('a window holding only Tab Keeper pages is dropped, not kept empty', async () => {
@@ -882,5 +853,51 @@ describe('captureOpenWindows leaves out every Tab Keeper page (KAN-300)', () => 
     );
 
     expect(captured.windows[0].tabs.map((t) => t.url)).toEqual([A]);
+  });
+});
+
+// KAN-394 L4. A captured window is saved unnamed, whichever save captures it;
+// the list draws it as "Window N".
+describe('a captured window is saved unnamed (KAN-394 L4)', () => {
+  let handle: ReturnType<typeof setupChromeFake> | undefined;
+
+  afterEach(() => {
+    handle?.restore();
+    handle = undefined;
+  });
+
+  test.each([
+    ['all-windows', ['Alpha', 'Gamma']],
+    ['current-window', ['Alpha']],
+  ] as const)('%s', async (scope, firstTabTitles) => {
+    handle = setupChromeFake({
+      windows: [
+        {
+          id: 1,
+          tabs: [
+            buildChromeTab({ id: 1, url: A, title: '(3) Alpha' }),
+            buildChromeTab({ id: 2, url: B, title: 'Beta' }),
+          ],
+        },
+        {
+          id: 2,
+          tabs: [
+            buildChromeTab({ id: 3, url: C, title: 'Gamma', windowId: 2 }),
+          ],
+        },
+      ],
+    });
+
+    const captured = requireCaptured(
+      await captureOpenWindows('a session', scope)
+    );
+
+    // PREMISE: each window's first tab has a title it could have been named by.
+    expect(captured.windows.map((w) => w.tabs[0].title)).toEqual(
+      firstTabTitles
+    );
+    expect(captured.windows.map((w) => w.title)).toEqual(
+      firstTabTitles.map(() => '')
+    );
   });
 });

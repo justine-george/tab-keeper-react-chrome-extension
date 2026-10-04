@@ -168,7 +168,12 @@ describe('the New window marker', () => {
     tabGroupId: 'S1',
     windowId: 'w1',
   };
-  const WINDOW_CARD: CarryCard = { kind: 'window', title: 'w1', tabCount: 2 };
+  const WINDOW_CARD: CarryCard = {
+    kind: 'window',
+    title: 'w1',
+    number: 1,
+    tabCount: 2,
+  };
 
   test.each([
     ['tab', CARRIED, CARD],

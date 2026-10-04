@@ -10,6 +10,8 @@ import {
   sanitizeTabGroupColor,
 } from '../../../utils/functions/tabGroups';
 import { resolveFaviconUrl } from '../../../utils/functions/local';
+import { windowNumbers } from '../../../utils/functions/windowLabel';
+import { NEW_LAST_WINDOW } from './newWindowTarget';
 
 // The `tabs` list: its rows are tab ids.
 export function tabCarryOut(pane: PaneWindows, tabId: string): CarryOut | null {
@@ -66,15 +68,18 @@ export function groupCarryOut(
 
 // The windows list: its rows are window ids. Takes the whole windows, not a
 // PaneWindows, because the card names a window as its header does: by its
-// stored title (WindowEntryContainer).
+// title, or its number when unnamed (WindowEntryContainer).
 export function windowCarryOut(
   pane: ShownSession,
   windowId: string
 ): CarryOut | null {
   const w = pane.windows.find((x) => x.windowId === windowId);
-  if (w === undefined) return null;
+  const number = windowNumbers(pane.windows, new Set([NEW_LAST_WINDOW])).get(
+    windowId
+  );
+  if (w === undefined || number === undefined) return null;
   return {
     carried: { kind: 'window', tabGroupId: pane.tabGroupId, windowId },
-    card: { kind: 'window', title: w.title, tabCount: w.tabs.length },
+    card: { kind: 'window', title: w.title, number, tabCount: w.tabs.length },
   };
 }

@@ -8,6 +8,7 @@ import {
   sanitizeTabGroupColor,
   TAB_GROUP_COLOR_HEX,
 } from './tabGroups';
+import { windowLabel } from './windowLabel';
 
 export type ExportLayout = 'comfortable' | 'compact';
 
@@ -127,6 +128,12 @@ function escapeHtml(value: string): string {
   );
 }
 
+/** "Window N · title", or just "Window N" when the window has no name. */
+function windowHeading(word: string, number: number, title: string): string {
+  const { text, named } = windowLabel(title, number, word);
+  return named ? `${word} ${number} · ${text}` : text;
+}
+
 /** A tab's visible label: its title, or its URL when it has none. */
 function labelOf(tab: tabData): string {
   return tab.title.trim() ? tab.title : tab.url;
@@ -200,8 +207,9 @@ function windowHtml(
     .join('');
 
   const heading =
-    `${escapeHtml(options.strings.window)} ${index + 1} · ` +
-    `${escapeHtml(window.title)} ` +
+    `${escapeHtml(
+      windowHeading(options.strings.window, index + 1, window.title)
+    )} ` +
     `<span>(${escapeHtml(options.tabCountLabel(window.tabs.length))})</span>`;
 
   return `<section><h2>${heading}</h2><ul>${body}</ul></section>`;
@@ -466,7 +474,7 @@ export function sessionToLinkList(
   session.windows.forEach((window, index) => {
     lines.push(
       '',
-      `${label} ${index + 1} · ${window.title} ` +
+      `${windowHeading(label, index + 1, window.title)} ` +
         `(${strings.tabCountLabel(window.tabs.length)})`
     );
     partitionTabsIntoRuns(window.tabs, window.chromeTabGroups).forEach(
@@ -528,8 +536,9 @@ export function sessionToLinkHtml(
         })
         .join('');
       return (
-        `<p><b>${escapeHtml(strings.window)} ${index + 1} · ` +
-        `${escapeHtml(window.title)}</b> ` +
+        `<p><b>${escapeHtml(
+          windowHeading(strings.window, index + 1, window.title)
+        )}</b> ` +
         `(${escapeHtml(strings.tabCountLabel(window.tabs.length))})</p>` +
         `<ul>${body}</ul>`
       );
