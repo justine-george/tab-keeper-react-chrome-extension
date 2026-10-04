@@ -1424,10 +1424,10 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     // suppression (the CarryLayer swallows the release's click; this area may
     // be gone by then).
     //
-    // The scroll a list that restores it (KAN-157) had at the press is handed
-    // over too, to put back if the carry is CANCELLED. Not now: the kind is
-    // still published, so a write now would lay out against the folded list,
-    // the very thing KAN-157 puts it back from. See endCarry for when.
+    // The scroll this list had at the press is handed over too, to put back
+    // if the carry is CANCELLED (KAN-157; every list since KAN-406). Not now:
+    // the kind is still published, so a write now would lay out against the
+    // folded list, the very thing KAN-157 puts it back from. See endCarry.
     //
     // An ADOPTED drag hands back the carry it came from, unchanged: its
     // source's card and the source's scroll to put back stay as they are.
@@ -1441,7 +1441,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       }
       const out = carryOut?.(l.rowId) ?? null;
       if (out === null) return false;
-      const scroller = restoreScrollIfNoDrop ? l.scroller : null;
+      const scroller = l.scroller;
       const scrollTopAtPress = l.scrollTopAtPress;
       const rowId = l.rowId;
       // The carry starts BEFORE letGo hides this drag's card (KAN-354).
@@ -1459,10 +1459,8 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         scroller === null
           ? undefined
           : () => {
-              // Only onto the list that handed the row off, drawing it again.
-              // A carry can outlive this area, or leave another session on
-              // screen in the same scroller (Q5 A), and neither is the view
-              // this scroll belongs to.
+              // Only onto the list that handed the row off, drawing it again:
+              // a cancel shows the source again (KAN-406), unless it is gone.
               if (rows.current.has(rowId))
                 scroller.scrollTop = scrollTopAtPress;
             }

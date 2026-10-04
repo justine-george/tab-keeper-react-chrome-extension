@@ -323,6 +323,35 @@ const setDetailScroll = (page: Page, top: number) =>
     return el.scrollTop;
   }, top);
 
+// The session list's scrolling box.
+const listBox = (page: Page): Promise<PaneBox> =>
+  page.evaluate(() => {
+    let el = document.querySelector('[data-pane="sessions"] [data-drag-row-id]')
+      ?.parentElement;
+    while (el && !['auto', 'scroll'].includes(getComputedStyle(el).overflowY))
+      el = el.parentElement;
+    if (!el) throw new Error('no session list');
+    const b = el.getBoundingClientRect();
+    return {
+      left: b.left,
+      right: b.right,
+      top: b.top,
+      bottom: b.bottom,
+      scrollTop: el.scrollTop,
+    };
+  });
+
+const setListScroll = (page: Page, top: number) =>
+  page.evaluate((top) => {
+    let el = document.querySelector('[data-pane="sessions"] [data-drag-row-id]')
+      ?.parentElement;
+    while (el && !['auto', 'scroll'].includes(getComputedStyle(el).overflowY))
+      el = el.parentElement;
+    if (!el) throw new Error('no session list');
+    el.scrollTop = top;
+    return el.scrollTop;
+  }, top);
+
 // The session rows the carry targets (D2 A), by session id.
 const carryTargets = (page: Page): Promise<string[]> =>
   page.evaluate(() =>
@@ -912,8 +941,10 @@ test.describe('the New window target (S3 A, Q2 A)', () => {
   });
 });
 
-test.describe('nothing moves (Q5 A)', () => {
-  test('Esc after a spring-open leaves the opened session on screen, and moves nothing', async ({
+// KAN-406 (reverses KAN-350 Q5 A): a cancel shows the source again, at the
+// scroll it had at pick-up, and moves nothing.
+test.describe('a cancel returns to the source (KAN-406)', () => {
+  test('Esc after a spring-open shows the source again, and moves nothing', async ({
     context,
     extensionId,
   }) => {
@@ -925,14 +956,14 @@ test.describe('nothing moves (Q5 A)', () => {
     await expect(page.locator(CARD)).toHaveCount(0);
     await page.mouse.up();
 
-    expect(await selected(page)).toBe('S2');
-    await expect(page.locator('[data-drag-row-id="d1"]')).toBeVisible();
+    await expect.poll(() => selected(page)).toBe('S1');
+    await expect(tabHandle(page, 'a1')).toBeVisible();
     expect(await layout(page, 'S1')).toEqual([W1_START, 'b0 b1']);
     expect(await layout(page, 'S2')).toEqual([D1_START, 'e0 e1']);
     expect(await toasts(page)).toEqual([]);
   });
 
-  test('a release over nothing after a spring-open leaves the opened session on screen, and moves nothing', async ({
+  test('a release over nothing after a spring-open shows the source again, and moves nothing', async ({
     context,
     extensionId,
   }) => {
@@ -949,9 +980,103 @@ test.describe('nothing moves (Q5 A)', () => {
     await page.mouse.up();
 
     await expect(page.locator(CARD)).toHaveCount(0);
-    expect(await selected(page)).toBe('S2');
+    await expect.poll(() => selected(page)).toBe('S1');
+    await expect(tabHandle(page, 'a1')).toBeVisible();
     expect(await layout(page, 'S1')).toEqual([W1_START, 'b0 b1']);
     expect(await layout(page, 'S2')).toEqual([D1_START, 'e0 e1']);
+  });
+
+  test('Esc on the drag the opened session adopted shows the source again', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    const at = await pickUp(page, tabHandle(page, 'a1'));
+    await carryOutLeft(page, at);
+    await springOpen(page, 'S2');
+    await adoptPhantom(page, 'carried:a1');
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+
+    await expect(page.locator(CARD)).toHaveCount(0);
+    await expect.poll(() => selected(page)).toBe('S1');
+    expect(await layout(page, 'S1')).toEqual([W1_START, 'b0 b1']);
+    expect(await layout(page, 'S2')).toEqual([D1_START, 'e0 e1']);
+  });
+
+  test('a long session: a tab carried out, a spring-open, then Esc: the source at the scroll it had', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(
+      context,
+      extensionId,
+      [longSession('S1', 'Long', 'x'), S2()],
+      'S1'
+    );
+    expect(await setDetailScroll(page, 300)).toBe(300);
+    const pane = await detailPane(page);
+    // A tab in the middle of the pane, clear of both auto-scroll zones.
+    const tabId = await page.evaluate(
+      ({ top, bottom }) => {
+        for (const r of document.querySelectorAll<HTMLElement>(
+          '[data-pane="detail"] [data-drag-row-id^="x"]'
+        )) {
+          const b = r.getBoundingClientRect();
+          if (
+            r.dataset.dragRowId?.includes('-') &&
+            b.top > top + 80 &&
+            b.bottom < bottom - 80
+          )
+            return r.dataset.dragRowId;
+        }
+        return undefined;
+      },
+      { top: pane.top, bottom: pane.bottom }
+    );
+    if (tabId === undefined) throw new Error('no tab mid-pane');
+
+    const at = await pickUp(page, tabHandle(page, tabId));
+    await carryOutLeft(page, at);
+    await springOpen(page, 'S2');
+    // PREMISE: S2 is short, so the pane no longer holds the 300.
+    expect((await detailPane(page)).scrollTop).toBe(0);
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+
+    await expect.poll(() => selected(page)).toBe('S1');
+    await expect.poll(async () => (await detailPane(page)).scrollTop).toBe(300);
+    expect((await windowIdsOf(page, 'S1')).length).toBe(5);
+  });
+
+  test('a scrolled list, auto-scrolled under the carry, a spring-open, then Esc: the list at the scroll it had', async ({
+    context,
+    extensionId,
+  }) => {
+    const many = Array.from({ length: 30 }, (_, i) =>
+      session(`L${i}`, `List ${i}`, [win(`lw${i}`, [tab(`l${i}`)])])
+    );
+    const page = await openPopup(context, extensionId, [S1(), ...many]);
+    // Scrolled a little: S1's row partly above the fold.
+    expect(await setListScroll(page, 40)).toBe(40);
+    const at = await pickUp(page, tabHandle(page, 'a1'));
+    await carryOutLeft(page, at);
+    const list = await listBox(page);
+    await page.mouse.move(list.left + 100, list.bottom - 10, { steps: 6 });
+    await expect
+      .poll(() => carryTargets(page), { timeout: 10000 })
+      .toEqual(['L29']);
+    // PREMISE: the carry scrolled the list, and opened the session there.
+    expect((await listBox(page)).scrollTop).toBeGreaterThan(300);
+    await expect.poll(() => selected(page), { timeout: 3000 }).toBe('L29');
+
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+
+    await expect.poll(() => selected(page)).toBe('S1');
+    await expect.poll(async () => (await listBox(page)).scrollTop).toBe(40);
+    expect(await layout(page, 'S1')).toEqual([W1_START, 'b0 b1']);
+    expect(await layout(page, 'L29')).toEqual(['l29']);
   });
 });
 

@@ -345,6 +345,7 @@ describe('finding 2: on its own row with another session on screen, every kind i
     expect(store.getState().globalState.toasts).toEqual([]);
   });
 
+  // KAN-406: a cancel, so the source is shown again.
   test('CONTROL: a window already first on its own row moves nothing, and is not announced', async () => {
     const { store, scroller } = await render([s1(), s2(), s3()], 'S1');
     handOff({ kind: 'window', tabGroupId: 'S1', windowId: 'w1' }, WINDOW_CARD);
@@ -353,9 +354,14 @@ describe('finding 2: on its own row with another session on screen, every kind i
     layOutRows(scroller);
     moveTo(rowY(0));
     const before = store.getState().tabContainerDataState;
+    expect(before.selectedTabGroupId).toBe('S2');
     releaseAt(rowY(0));
 
-    expect(store.getState().tabContainerDataState).toBe(before);
+    const after = store.getState().tabContainerDataState;
+    expect(after.tabGroups.map((g) => g.windows)).toEqual(
+      before.tabGroups.map((g) => g.windows)
+    );
+    expect(after.selectedTabGroupId).toBe('S1');
     expect(store.getState().globalState.toasts).toEqual([]);
   });
 });

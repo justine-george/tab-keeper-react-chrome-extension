@@ -8,7 +8,7 @@
 // be able to.
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useSelector } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
 
 import { css } from '@emotion/react';
@@ -21,12 +21,15 @@ import { NON_INTERACTIVE_ICON_STYLE } from '../../utils/constants/common';
 import { windowLabel } from '../../utils/functions/windowLabel';
 import { isCarriedStillThere } from '../../utils/functions/carriedView';
 import { createClickSuppressor } from './rightpane/rowDrag/clickSuppressor';
-import type { RootState } from '../../redux/store';
+import type { AppDispatch, RootState } from '../../redux/store';
+import { showSession } from '../../redux/showSession';
 import {
+  carryEndedAs,
   carryReceiverAt,
   currentCarry,
   endCarry,
   moveCarry,
+  subscribeCarry,
   useCarry,
   type CarryCard,
   type CarryReceiver,
@@ -221,6 +224,22 @@ export function CarryLayer() {
       release();
     };
   }, [carrying, owner, clicks]);
+
+  // KAN-406. A cancelled carry shows its source session again, undoing any
+  // spring-open. In the notify, before the frame its scroll is put back on.
+  const dispatch: AppDispatch = useDispatch();
+  useEffect(() => {
+    let last = currentCarry()?.carried ?? null;
+    return subscribeCarry(() => {
+      const now = currentCarry()?.carried ?? null;
+      if (now === last) return;
+      const ended = last;
+      last = now;
+      if (ended !== null && carryEndedAs(ended) === 'cancelled') {
+        dispatch(showSession(ended.tabGroupId));
+      }
+    });
+  }, [dispatch]);
 
   // A change on THIS page that takes the carried item away -- ⌘Z, a delete --
   // ends the carry: there is nothing left to move. Other pages' changes wait

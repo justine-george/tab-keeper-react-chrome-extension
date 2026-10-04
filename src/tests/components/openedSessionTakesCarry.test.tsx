@@ -29,6 +29,7 @@ import {
   setIsNotDirty,
 } from '../../redux/slices/globalStateSlice';
 import { LIGHT_THEME } from '../../hooks/useThemeColors';
+import type { RootState } from '../../redux/store';
 import {
   NEW_LAST_WINDOW,
   markNewWindowTarget,
@@ -708,10 +709,20 @@ describe('a carried window lands between windows', () => {
   });
 });
 
+// KAN-406: and shows the source again.
 describe('an adopted drag that ends with no commit cancels the whole carry', () => {
-  test('Esc: nothing moves, the opened session stays on screen, the source view is put back', async () => {
+  // The sessions as saved, the selection aside: a cancel reselects the source.
+  const sessions = (store: { getState: () => RootState }) =>
+    store.getState().tabContainerDataState.tabGroups.map((g) => ({
+      ...g,
+      isSelected: false,
+    }));
+  const selectedId = (store: { getState: () => RootState }) =>
+    store.getState().tabContainerDataState.selectedTabGroupId;
+
+  test('Esc: nothing moves, the source is shown again, its view put back', async () => {
     const { store } = await renderDetail('S2');
-    const before = store.getState().tabContainerDataState;
+    const before = sessions(store);
     const onCancel = vi.fn();
     carry(TAB_T1, onCancel);
     table = S2_TAB_LAYOUT('t1');
@@ -722,21 +733,19 @@ describe('an adopted drag that ends with no commit cancels the whole carry', () 
     expect(currentCarry()).toBeNull();
     expect(held()).toBeUndefined();
     expect(isDragHeld()).toBe(false);
-    expect(store.getState().tabContainerDataState).toBe(before);
-    expect(store.getState().tabContainerDataState.selectedTabGroupId).toBe(
-      'S2'
-    );
+    expect(sessions(store)).toEqual(before);
+    expect(selectedId(store)).toBe('S1');
     expect(onCancel).not.toHaveBeenCalled();
     runFrames(1);
     expect(onCancel).toHaveBeenCalledTimes(1);
     // A later release commits nothing.
     release(52);
-    expect(store.getState().tabContainerDataState).toBe(before);
+    expect(sessions(store)).toEqual(before);
   });
 
   test('a release the engine refuses', async () => {
     const { store } = await renderDetail('S2');
-    const before = store.getState().tabContainerDataState;
+    const before = sessions(store);
     const onCancel = vi.fn();
     carry(TAB_T1, onCancel);
     table = S2_TAB_LAYOUT('t1');
@@ -748,14 +757,15 @@ describe('an adopted drag that ends with no commit cancels the whole carry', () 
     release(480, PANE_W + 30);
 
     expect(currentCarry()).toBeNull();
-    expect(store.getState().tabContainerDataState).toBe(before);
+    expect(sessions(store)).toEqual(before);
+    expect(selectedId(store)).toBe('S1');
     runFrames(1);
     expect(onCancel).toHaveBeenCalledTimes(1);
   });
 
   test('pointercancel', async () => {
     const { store } = await renderDetail('S2');
-    const before = store.getState().tabContainerDataState;
+    const before = sessions(store);
     carry(TAB_T1);
     table = S2_TAB_LAYOUT('t1');
 
@@ -766,7 +776,8 @@ describe('an adopted drag that ends with no commit cancels the whole carry', () 
 
     expect(currentCarry()).toBeNull();
     expect(isDragHeld()).toBe(false);
-    expect(store.getState().tabContainerDataState).toBe(before);
+    expect(sessions(store)).toEqual(before);
+    expect(selectedId(store)).toBe('S1');
   });
 
   test('a drop back where it came from moves nothing, and cancels', async () => {
@@ -807,15 +818,16 @@ describe('an adopted drag that ends with no commit cancels the whole carry', () 
 
     expect(currentCarry()).toBeNull();
     expect(held()).toBeUndefined();
+    expect(after.selectedTabGroupId).toBe('S1');
     // No drag goes on without its carry: a move previews nothing -- no row
     // makes room, no window moves -- and a release commits nothing.
     moveTo(36);
-    expect(shiftOf(row('u1'))).toBe(0);
-    expect(
-      document
-        .querySelector('[data-drop-window-id="d2"]')
-        ?.hasAttribute('data-window-shift')
-    ).toBe(false);
+    const shifts = [
+      ...document.querySelectorAll<HTMLElement>('[data-drag-row-id]'),
+    ].map(shiftOf);
+    expect(shifts.length).toBeGreaterThan(0);
+    expect(shifts.filter((y) => y !== 0)).toEqual([]);
+    expect(document.querySelector('[data-window-shift]')).toBeNull();
     release(52);
     expect(store.getState().tabContainerDataState).toBe(after);
   });

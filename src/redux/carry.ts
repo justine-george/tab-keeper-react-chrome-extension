@@ -61,9 +61,9 @@ export interface Carry {
 }
 
 let carry: Carry | null = null;
-// What puts the source's view back if the carry is cancelled: the scroll a
-// window or group drag's fold clamped (KAN-157). Kept beside the carry rather
-// than in it, because it is not something any reader of the carry needs.
+// What puts the source's pane back at the press's scroll if the carry is
+// cancelled (KAN-157, KAN-406). Kept beside the carry rather than in it,
+// because it is not something any reader of the carry needs.
 let restoreOnCancel: (() => void) | null = null;
 const listeners = new Set<() => void>();
 

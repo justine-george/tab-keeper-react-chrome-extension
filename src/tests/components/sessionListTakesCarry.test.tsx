@@ -25,6 +25,7 @@ import {
   setIsNotDirty,
 } from '../../redux/slices/globalStateSlice';
 import { LIGHT_THEME } from '../../hooks/useThemeColors';
+import type { RootState } from '../../redux/store';
 import { TOAST_MESSAGES } from '../../utils/constants/common';
 import { FakeMediaQueryList } from '../setup/mediaQueryFake';
 import { renderWithProviders } from '../setup/renderWithProviders';
@@ -725,6 +726,79 @@ describe('the saved search', () => {
     expect(store.getState().tabContainerDataState.tabGroups).toBe(
       before.tabGroups
     );
+  });
+});
+
+// KAN-406. A cancel puts back what the carry changed: the session shown,
+// and the list's scroll.
+describe('a cancel returns to where the carry started', () => {
+  const selectedId = (store: { getState: () => RootState }) =>
+    store.getState().tabContainerDataState.selectedTabGroupId;
+  const esc = () =>
+    act(() => {
+      fireEvent.keyDown(window, { key: 'Escape' });
+    });
+
+  test('a spring-open, then Esc: the source is shown again', async () => {
+    const { store } = await renderList();
+    handOff();
+    moveTo(rowY(2));
+    wait(600);
+    expect(selectedId(store)).toBe('S3');
+
+    esc();
+
+    expect(currentCarry()).toBeNull();
+    expect(selectedId(store)).toBe('S1');
+  });
+
+  test('a spring-open, then a release over nothing: the source is shown again', async () => {
+    const { store } = await renderList();
+    handOff();
+    moveTo(rowY(1));
+    wait(600);
+    expect(selectedId(store)).toBe('S2');
+
+    moveTo(200, 600);
+    releaseAt(200, 600);
+
+    expect(currentCarry()).toBeNull();
+    expect(selectedId(store)).toBe('S1');
+  });
+
+  test('the list comes back to the scroll it had when the carry started', async () => {
+    const { scroller } = await renderList();
+    scroller.scrollTop = 20;
+    handOff();
+    moveTo(LIST_TOP + LIST_H - 10);
+    act(() => runFrames(20));
+    // The premise: auto-scroll moved it to the end.
+    expect(scroller.scrollTop).toBe(60);
+
+    esc();
+    runFrames(1);
+
+    expect(scroller.scrollTop).toBe(20);
+  });
+
+  test('a committed row drop leaves the session shown and the scroll where they are', async () => {
+    const { store, scroller } = await renderList();
+    handOff();
+    moveTo(rowY(1));
+    wait(600);
+    const y = LIST_TOP + LIST_H - 10;
+    moveTo(y);
+    act(() => runFrames(20));
+    expect(scroller.scrollTop).toBe(60);
+
+    releaseAt(y);
+    runFrames(2);
+
+    expect(
+      tabIds(sessionIn(store.getState().tabContainerDataState, 'S6').windows[0])
+    ).toEqual(['t2']);
+    expect(selectedId(store)).toBe('S2');
+    expect(scroller.scrollTop).toBe(60);
   });
 });
 
