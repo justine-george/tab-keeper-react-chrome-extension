@@ -35,8 +35,10 @@ import { sessionDrop } from '../../../redux/dropSpecs';
 import { showSession } from '../../../redux/showSession';
 import { dropOnSessionRow } from '../../../redux/dropOnSessionRow';
 import {
+  carryEndedAs,
   currentCarry,
   registerCarryReceiver,
+  subscribeCarry,
   useCarried,
   type CarryReceiver,
 } from '../../../redux/carry';
@@ -277,6 +279,27 @@ export default function TabGroupEntryContainer() {
       receiver.leave();
     };
   }, [isSearching, dispatch]);
+
+  // KAN-406. A cancelled carry puts the list back at its scroll when the
+  // carry started, on the frame after, past KAN-143's follow above.
+  useEffect(() => {
+    let last = currentCarry()?.carried ?? null;
+    let scrollAtStart = listRef.current?.scrollTop ?? 0;
+    return subscribeCarry(() => {
+      const now = currentCarry()?.carried ?? null;
+      if (now === last) return;
+      const ended = last;
+      last = now;
+      if (now !== null) {
+        scrollAtStart = listRef.current?.scrollTop ?? 0;
+      } else if (ended !== null && carryEndedAs(ended) === 'cancelled') {
+        const top = scrollAtStart;
+        requestAnimationFrame(() => {
+          if (listRef.current !== null) listRef.current.scrollTop = top;
+        });
+      }
+    });
+  }, []);
 
   // S1 A. Resting on a row opens its session after SPRING_OPEN_MS. Started
   // by the same change that puts data-carry-target on the row -- this effect

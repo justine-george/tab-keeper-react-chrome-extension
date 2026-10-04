@@ -6,6 +6,7 @@ import { CarryLayer } from '../../components/home/CarryLayer';
 import { currentCarry, endCarry } from '../../redux/carry';
 import { endDragHold } from '../../redux/dragHold';
 import {
+  deleteTabContainerInternal,
   saveToTabContainerInternal,
   selectTabContainer,
 } from '../../redux/slices/tabContainerDataStateSlice';
@@ -153,9 +154,8 @@ describe('a cancelled carry puts the press’s scroll back (KAN-157)', () => {
     expect(pane.scrollTop).toBe(PRESS_SCROLL);
   });
 
-  // CONTROL: the tab list never restores (it does not fold), so a tab carry
-  // leaves the scroll alone, as a refused tab drag does.
-  test('CONTROL: a tab carried out, then Esc, leaves the scroll', async () => {
+  // KAN-406: a tab carry is put back too, though its list never folds.
+  test('a tab carried out, then Esc', async () => {
     const { pane } = await renderScrolled();
     const tab = document.querySelector('[data-drag-row-id="t2"]');
     if (!(tab instanceof HTMLElement)) throw new Error('no tab row');
@@ -169,7 +169,7 @@ describe('a cancelled carry puts the press’s scroll back (KAN-157)', () => {
     });
     runFrames();
 
-    expect(pane.scrollTop).toBe(120);
+    expect(pane.scrollTop).toBe(PRESS_SCROLL);
   });
 });
 
@@ -188,9 +188,7 @@ describe('only a cancelled carry, and only onto its own view', () => {
     expect(pane.scrollTop).toBe(0);
   });
 
-  // Q5 A: a cancel after a spring-open leaves the OTHER session on screen, in
-  // the same scroller. The source's scroll is not that view's.
-  test('another session on screen by then: its scroll is left alone', async () => {
+  test('a committed carry after a spring-open leaves the opened session on screen', async () => {
     const { pane, store } = await renderScrolled();
     carryOutLeft(
       pane,
@@ -199,8 +197,31 @@ describe('only a cancelled carry, and only onto its own view', () => {
     act(() => {
       store.dispatch(selectTabContainer('S2'));
     });
+
+    act(() => endCarry('committed'));
+    runFrames();
+
+    expect(store.getState().tabContainerDataState.selectedTabGroupId).toBe(
+      'S2'
+    );
+    expect(pane.scrollTop).toBe(0);
+  });
+});
+
+// KAN-406: a cancel after a spring-open shows the source again, at the
+// press's scroll.
+describe('a cancel after a spring-open returns to the source', () => {
+  test.each([
+    ['window', '[data-drag-row-id="w2"]', '[data-window-drag-handle]'],
+    ['tab', '[data-drag-row-id="w1"]', '[data-drag-row-id="t2"]'],
+  ])('a %s, then Esc', async (kind, row, handle) => {
+    const { pane, store } = await renderScrolled();
+    carryOutLeft(pane, handleOf(row, handle));
+    act(() => {
+      store.dispatch(selectTabContainer('S2'));
+    });
     // The premise: still carrying, and S2 is what the pane draws.
-    expect(currentCarry()).not.toBeNull();
+    expect(currentCarry()?.carried).toMatchObject({ kind });
     expect(document.querySelector('[data-drag-row-id="d1"]')).not.toBeNull();
 
     act(() => {
@@ -208,6 +229,32 @@ describe('only a cancelled carry, and only onto its own view', () => {
     });
     runFrames();
 
+    expect(store.getState().tabContainerDataState.selectedTabGroupId).toBe(
+      'S1'
+    );
+    expect(document.querySelector('[data-drag-row-id="w2"]')).not.toBeNull();
+    expect(pane.scrollTop).toBe(PRESS_SCROLL);
+  });
+
+  test('the source gone meanwhile: the opened session stays, and nothing throws', async () => {
+    const { pane, store } = await renderScrolled();
+    carryOutLeft(
+      pane,
+      handleOf('[data-drag-row-id="w2"]', '[data-window-drag-handle]')
+    );
+    act(() => {
+      store.dispatch(selectTabContainer('S2'));
+    });
+    // Deleting S1 takes the carried window with it: the carry is cancelled.
+    act(() => {
+      store.dispatch(deleteTabContainerInternal('S1'));
+    });
+    runFrames();
+
+    expect(currentCarry()).toBeNull();
+    expect(store.getState().tabContainerDataState.selectedTabGroupId).toBe(
+      'S2'
+    );
     expect(pane.scrollTop).toBe(0);
   });
 });
