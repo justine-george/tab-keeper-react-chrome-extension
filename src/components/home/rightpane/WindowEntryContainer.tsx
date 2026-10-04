@@ -55,6 +55,7 @@ import { NEW_LAST_WINDOW, newWindowTargetBoxStyle } from './newWindowTarget';
 import { NewWindowTargetLabel } from './NewWindowTargetLabel';
 import RowOpenButton from './RowOpenButton';
 import { CONTROL, DURATION, RADIUS, TYPE } from '../../../styles/scale';
+import { placeholderStyle } from '../../../styles/placeholder';
 import { windowLabel } from '../../../utils/functions/windowLabel';
 
 /**
@@ -419,13 +420,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     cursor: text;
   `;
 
-  // Both rename fields. Chromium's default grey is under 4.5:1 on every theme.
-  const placeholderStyle = css`
-    &::placeholder {
-      color: ${COLORS.PLACEHOLDER_COLOR};
-      opacity: 1;
-    }
-  `;
+  const renameFieldPlaceholder = placeholderStyle(COLORS.PLACEHOLDER_COLOR);
 
   const windowChildLinkStyle = css`
     text-decoration: none;
@@ -811,7 +806,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                     &:focus {
                       outline: none;
                     }
-                    ${placeholderStyle}
+                    ${renameFieldPlaceholder}
                   `}
                 />
               </div>
@@ -1192,7 +1187,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                             &:focus {
                               outline: none;
                             }
-                            ${placeholderStyle}
+                            ${renameFieldPlaceholder}
                           `}
                         />
                       ) : (
