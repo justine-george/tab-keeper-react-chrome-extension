@@ -1381,3 +1381,32 @@ for (const lang of ['en', 'de'] as const) {
     ).toBe(1);
   });
 }
+
+// KAN-394. The editor's field for an unnamed window is empty, labelled by the
+// window's label.
+test('the editor shows an unnamed window as an empty field with its label as placeholder', async ({
+  context,
+  extensionId,
+}) => {
+  await seedSessions(context, {
+    ...buildContainer([
+      buildSession({
+        ...KYOTO,
+        windows: [{ ...KYOTO.windows[0], title: '' }],
+      }),
+    ]),
+    selectedTabGroupId: 'session-kyoto',
+  });
+  const page = await context.newPage();
+  await page.goto(
+    `chrome-extension://${extensionId}/export.html?session=session-kyoto`
+  );
+  await page.getByRole('button', { name: 'Edit' }).click();
+
+  const field = page.getByRole('textbox', {
+    name: 'Rename window group: Window 1',
+    exact: true,
+  });
+  await expect(field).toHaveValue('');
+  await expect(field).toHaveAttribute('placeholder', 'Window 1');
+});
