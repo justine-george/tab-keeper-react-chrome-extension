@@ -446,7 +446,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   // here. KAN-51.
   const startEditing = () => {
     renameCancelled.current = false;
-    setNewTitle(title);
+    setNewTitle(label.named ? title : '');
     setIsEditing(true);
   };
 

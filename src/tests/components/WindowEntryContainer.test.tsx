@@ -652,6 +652,21 @@ describe('the title renames, Open opens', () => {
     );
   });
 
+  test('a window stored as whitespace opens an empty field, not the spaces (D2, R5)', async () => {
+    const user = userEvent.setup();
+    await renderRow('   ').rendered;
+
+    await user.click(
+      screen.getByRole('button', { name: 'Rename window: Window 2' })
+    );
+
+    expect(screen.getByRole('textbox')).toHaveValue('');
+    expect(screen.getByRole('textbox')).toHaveAttribute(
+      'placeholder',
+      'Name this window'
+    );
+  });
+
   test('a cleared named window shows "Name this window", never its name', async () => {
     const user = userEvent.setup();
     await renderRow('Research').rendered;
