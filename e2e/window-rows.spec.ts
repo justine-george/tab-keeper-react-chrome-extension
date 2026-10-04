@@ -624,13 +624,18 @@ test('popup, scrolled: a sideways drag on a title renames nothing', async ({
   await watchGesture(page);
   await page.mouse.move(x, y);
   await page.mouse.down();
-  await page.mouse.move(x + 40, y, { steps: 8 });
+  await page.mouse.move(x + 10, y, { steps: 2 });
+  await expect(page.locator('html[data-dragging]')).toHaveCount(1);
+  // The pick-up folds every window (KAN-153), so the list's place is read after it.
+  const atPickUp = (await detailPane(page)).scrollTop;
+  expect(atPickUp).toBeGreaterThan(0);
+  await page.mouse.move(x + 40, y, { steps: 6 });
   await page.mouse.move(x, y, { steps: 8 });
   // The aim is clear of both auto-scroll bands, and the list held still (KAN-200).
   expect(y).toBeGreaterThan(pane.top + AUTO_SCROLL_BAND);
   expect(y).toBeLessThan(pane.bottom - AUTO_SCROLL_BAND);
   const atAim = (await detailPane(page)).scrollTop;
-  expect(atAim).toBeGreaterThan(0);
+  expect(atAim).toBe(atPickUp);
   await page.evaluate(
     () =>
       new Promise((done) =>
