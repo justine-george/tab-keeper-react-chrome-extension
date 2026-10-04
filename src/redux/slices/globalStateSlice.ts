@@ -119,8 +119,7 @@ export interface Global {
   // the "Replace your saved sessions?" dialog is open exactly while this is
   // set. Session-only, like the other dialog flags.
   pendingImport: PendingImport | null;
-  // KAN-259. The cloud question, and which wording: 'welcome' for a fresh
-  // install, 'existing' for a user whose sessions are already synced.
+  // KAN-259. The cloud dialog: 'welcome' greets a new install and asks nothing; 'existing' and 'enable' ask.
   isCloudConsentModalOpen: boolean;
   cloudConsentVariant: CloudConsentVariant;
   cloudConsentThen: CloudConsentThen | null;

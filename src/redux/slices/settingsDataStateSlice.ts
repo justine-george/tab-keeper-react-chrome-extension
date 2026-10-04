@@ -68,10 +68,7 @@ export interface SettingsData {
   exportLayout: ExportLayout;
   language: Language;
   isAutoSync: boolean;
-  // KAN-259. Whether the user has answered the cloud question. '' means not
-  // yet: the welcome opens on the next popup open, and no sync runs and no
-  // Firebase sign-in happens until it is answered. The effective permission
-  // to sync is `isAutoSync && cloudConsent === 'granted'`; see cloudSyncAllowed.
+  // KAN-410. '' never syncs and the welcome records 'declined', so only a yes uploads (see cloudSyncAllowed).
   cloudConsent: CloudConsent;
   extensionInstalledTime: number | '';
   isSkippedUserReviewOnce: boolean;
@@ -141,10 +138,7 @@ export interface SettingsData {
    * tabContainerData and nothing else. Screens differ between devices.
    */
   openNowWidth: number | null;
-  /**
-   * KAN-7. Onboarding, per machine like everything here. 'pending' from the
-   * welcome's close (a new install) until Done or Skip setup.
-   */
+  // KAN-7. 'pending' as the welcome opens, so a popup closed on it still gets setup.
   setupState: SetupState;
   // KAN-7 §3. Either button of "Try the full view".
   isFullViewOfferAnswered: boolean;
@@ -327,11 +321,7 @@ export const settingsDataStateSlice = createSlice({
       saveToLocalStorage('settingsData', state);
     },
 
-    // KAN-259. The two answers. Declining turns Auto Sync off. Granting
-    // records the yes and leaves the flag to the caller: the welcome and the
-    // toggle turn it on, the cloud button does NOT -- a user who asked for
-    // one sync did not ask for a setting. Turning the flag on with consent
-    // declined re-asks (Settings) rather than uploading.
+    // KAN-259. Only the existing and enable dialogs grant; each caller sets Auto Sync, as one sync asked is not a setting.
     grantCloudConsent: (state) => {
       state.cloudConsent = 'granted';
       saveToLocalStorage('settingsData', state);
