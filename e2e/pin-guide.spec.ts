@@ -230,25 +230,29 @@ test('step 2 name shows Tab Keeper whole before the cut', async ({
   await seedSettings(context, { isPinGuideDismissed: false });
   const page = await openFullView(context, extensionId);
   await expect(guide(page)).toBeVisible();
-  const { box, word, ellipsis } = await page.evaluate(() => {
-    const el = document.querySelector('[data-pin-app-name]') as HTMLElement;
-    const text = el.firstChild as Text;
+  // Fractional edges: an integer clientWidth rounds away a sub-pixel overrun.
+  const fit = await page.evaluate(() => {
+    const el = document.querySelector('[data-pin-app-name]');
+    const text = el?.firstChild;
+    if (!(el instanceof HTMLElement) || !(text instanceof Text)) {
+      throw new Error('no app name text');
+    }
     const range = document.createRange();
     range.setStart(text, 0);
     range.setEnd(text, 'Tab Keeper'.length);
     const probe = document.createElement('span');
-    probe.style.whiteSpace = 'nowrap';
     probe.textContent = '…';
     el.appendChild(probe);
-    const ellipsisWidth = probe.getBoundingClientRect().width;
+    const ellipsis = probe.getBoundingClientRect().width;
     probe.remove();
     return {
-      box: el.clientWidth,
-      word: range.getBoundingClientRect().width,
-      ellipsis: ellipsisWidth,
+      wordEnd: range.getBoundingClientRect().right,
+      ellipsis,
+      boxEnd: el.getBoundingClientRect().right,
     };
   });
-  expect(box).toBeGreaterThanOrEqual(word + ellipsis);
+  console.log(`[name fit] ${JSON.stringify(fit)}`);
+  expect(fit.wordEnd + fit.ellipsis).toBeLessThanOrEqual(fit.boxEnd);
 });
 
 for (const [theme, palette] of THEMES) {
