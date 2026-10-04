@@ -143,7 +143,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   const isWindowOpen = isOpenInStore || isSpringOpened;
   const [newTitle, setNewTitle] = useState(title);
   const [isEditing, setIsEditing] = useState(false);
-  // Set by Esc, so the blur that follows cannot commit what was cancelled (D13).
+  // Set by Esc, so a blur dispatched before the editor unmounts cannot commit (D13).
   const renameCancelled = useRef(false);
   const [isParentHovered, setIsParentHovered] = useState(false);
   // Which Chrome group is being renamed, by its capture-time uuid -- not a
