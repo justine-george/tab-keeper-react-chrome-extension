@@ -7,15 +7,10 @@ import { css } from '@emotion/react';
 import Button from '../../common/Button';
 import Icon from '../../common/Icon';
 import ThemeSwatch from './ThemeSwatch';
+import { LANGUAGE_OPTIONS } from './languageOptions';
+import { themeChoices } from './themeChoices';
 import { NormalLabel } from '../../common/Label';
-import {
-  BB_PINK_THEME,
-  WARM_LIGHT_THEME,
-  BLUE_THEME,
-  LIGHT_THEME,
-  DARKENHEIMER_THEME,
-  useThemeColors,
-} from '../../../hooks/useThemeColors';
+import { useThemeColors } from '../../../hooks/useThemeColors';
 import { AppDispatch, RootState } from '../../../redux/store';
 import {
   loadSessionsFromBackup,
@@ -24,8 +19,6 @@ import {
   openCloudConsentModal,
 } from '../../../redux/slices/globalStateSlice';
 import {
-  Language,
-  Theme,
   setLanguage,
   setTheme,
   setUserRatedAndReviewed,
@@ -69,28 +62,6 @@ import { chooseDefaultView } from '../../../redux/defaultViewChoice';
 
 // The theme picker's swatches live in ThemeSwatch (KAN-237), which also carries
 // the KAN-88/KAN-95 marker rule and its reasoning.
-
-// KAN-244. Each language named in its own language, never through t(): the
-// language picker is the one screen that must be readable by someone who
-// cannot read the current UI language, which is why they are on it. Sorted
-// by the names' own collation (ICU: Latin scripts, then Cyrillic, Devanagari,
-// Hangul, Han), which languagePicker.test.tsx pins. The two Chinese options
-// name their script: with both present, a bare 中文 would not say which.
-const LANGUAGE_OPTIONS: ReadonlyArray<[Language, string]> = [
-  [Language.DE, 'Deutsch'],
-  [Language.EN, 'English'],
-  [Language.ES, 'Español'],
-  [Language.FR, 'Français'],
-  [Language.IT, 'Italiano'],
-  [Language.PT, 'Português'],
-  [Language.SV, 'Svenska'],
-  [Language.RU, 'Русский'],
-  [Language.HI, 'हिन्दी'],
-  [Language.KO, '한국어'],
-  [Language.JA, '日本語'],
-  [Language.ZH, '简体中文'],
-  [Language.ZH_TW, '繁體中文'],
-];
 
 // KAN-248. The Auto Sync pair on the popup's own scale: the row unit, square
 // corners, the two named durations. The export toolbar draws the same
@@ -341,19 +312,7 @@ const SettingsDetailsContainer: React.FC = () => {
               margin-top: 8px;
             `}
           >
-            {/* t() is called on a quoted literal in each row, not on the
-                mapped variable: keyCoverage.test finds keys by scanning the
-                source for quoted t() arguments, and a computed key is
-                invisible to it. */}
-            {(
-              [
-                [Theme.LIGHT, LIGHT_THEME, t('Paper')],
-                [Theme.WARM_LIGHT, WARM_LIGHT_THEME, t('Parchment')],
-                [Theme.BB_PINK, BB_PINK_THEME, t('Petal')],
-                [Theme.DARKENHEIMER, DARKENHEIMER_THEME, t('Graphite')],
-                [Theme.BLUE, BLUE_THEME, t('Ink')],
-              ] as const
-            ).map(([theme, palette, name]) => (
+            {themeChoices(t).map(([theme, palette, name]) => (
               <ThemeSwatch
                 key={theme}
                 palette={palette}
