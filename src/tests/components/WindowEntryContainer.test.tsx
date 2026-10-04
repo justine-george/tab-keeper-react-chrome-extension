@@ -637,7 +637,7 @@ describe('the title renames, Open opens', () => {
     expect(onUpdateWindowGroupTitle).toHaveBeenCalledExactlyOnceWith('');
   });
 
-  test('an unnamed window opens an empty field with "Window 2" as its placeholder', async () => {
+  test('an unnamed window opens an empty field with "Name this window" as its placeholder', async () => {
     const user = userEvent.setup();
     await renderRow('').rendered;
 
@@ -648,11 +648,11 @@ describe('the title renames, Open opens', () => {
     expect(screen.getByRole('textbox')).toHaveValue('');
     expect(screen.getByRole('textbox')).toHaveAttribute(
       'placeholder',
-      'Window 2'
+      'Name this window'
     );
   });
 
-  test('a named window opens with its name and the label as placeholder', async () => {
+  test('a cleared named window shows "Name this window", never its name', async () => {
     const user = userEvent.setup();
     await renderRow('Research').rendered;
 
@@ -661,9 +661,12 @@ describe('the title renames, Open opens', () => {
     );
 
     expect(screen.getByRole('textbox')).toHaveValue('Research');
+    await user.clear(screen.getByRole('textbox'));
+
+    expect(screen.getByRole('textbox')).toHaveValue('');
     expect(screen.getByRole('textbox')).toHaveAttribute(
       'placeholder',
-      'Research'
+      'Name this window'
     );
   });
 });

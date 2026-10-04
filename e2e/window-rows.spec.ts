@@ -443,15 +443,18 @@ for (const view of VIEWS) {
   });
 }
 
-// The unnamed window renames from an empty field, its label as the placeholder.
-test('popup: an unnamed window\'s field is empty, with "Window 2" as its placeholder', async ({
+// The unnamed window renames from an empty field, prompting "Name this window".
+test('popup: an unnamed window\'s field is empty, with "Name this window" as its placeholder', async ({
   context,
   extensionId,
 }) => {
   const page = await open(context, extensionId, 'popup');
   await startRename(page, 'w2', 'Window 2');
   await expect(editor(page, 'w2')).toHaveValue('');
-  await expect(editor(page, 'w2')).toHaveAttribute('placeholder', 'Window 2');
+  await expect(editor(page, 'w2')).toHaveAttribute(
+    'placeholder',
+    'Name this window'
+  );
 });
 
 // ---- the Open button's look (Task 7's checks, on the built artifact) ---------
@@ -598,7 +601,10 @@ test('popup, scrolled: a title click renames and moves nothing', async ({
 
   await title(page, 'w6', 'Window 6').click();
   await expect(editor(page, 'w6')).toBeVisible();
-  await expect(editor(page, 'w6')).toHaveAttribute('placeholder', 'Window 6');
+  await expect(editor(page, 'w6')).toHaveAttribute(
+    'placeholder',
+    'Name this window'
+  );
   expect((await detailPane(page)).scrollTop).toBe(pane.scrollTop);
   expect(await storedWindowIds(page, 'S1')).toEqual(order);
 });

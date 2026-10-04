@@ -769,7 +769,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
               >
                 <input
                   value={newTitle}
-                  placeholder={label.text}
+                  placeholder={t('Name this window')}
                   onBlur={handleBlur}
                   onChange={handleChange}
                   onKeyDown={(e) => handleKeyPressOnEditDone(e)}
