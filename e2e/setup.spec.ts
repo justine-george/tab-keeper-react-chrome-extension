@@ -160,6 +160,58 @@ test('a language pick re-renders the dialog in place, in that language', async (
   ).toHaveAttribute('aria-pressed', 'true');
 });
 
+const rectsOf = (locator: Locator) =>
+  locator.evaluateAll((els) =>
+    els.map((el) => {
+      const { x, y, width, height } = el.getBoundingClientRect();
+      return { x, y, width, height };
+    })
+  );
+
+test('a pick resizes nothing: every language cell is one height, and a pick in another row moves none', async ({
+  context,
+  extensionId,
+}) => {
+  await stubToolbarPin(context, { pinned: true });
+  await seedSettings(context, { setupState: 'pending' });
+  const page = await openFullView(context, extensionId);
+  await press(page, 'Next');
+  const cells = setupAnyLanguage(page).locator('button[lang]');
+  await expect(cells).toHaveCount(13);
+
+  const before = await rectsOf(cells);
+  expect(new Set(before.map((r) => r.height)).size).toBe(1);
+
+  await setup(page)
+    .getByRole('button', { name: 'Italiano', exact: true })
+    .click();
+  await expect(
+    setupAnyLanguage(page).locator('button[lang="it"]')
+  ).toHaveAttribute('aria-pressed', 'true');
+  expect(await rectsOf(cells)).toEqual(before);
+});
+
+test('a pick resizes nothing: the pressed card strip is as tall as the other', async ({
+  context,
+  extensionId,
+}) => {
+  await stubToolbarPin(context, { pinned: true });
+  await seedSettings(context, { setupState: 'pending' });
+  const page = await openFullView(context, extensionId);
+  await press(page, 'Next');
+  await press(page, 'Next');
+  const strips = setup(page).locator('[data-view-label]');
+  const heights = async () => (await rectsOf(strips)).map((r) => r.height);
+
+  const before = await heights();
+  expect(new Set(before).size).toBe(1);
+  await press(page, 'Full view');
+  await expect(
+    setup(page).getByRole('button', { name: 'Full view', exact: true })
+  ).toHaveAttribute('aria-pressed', 'true');
+  expect(await heights()).toEqual(before);
+});
+
 test('step 3 removes the popup as Settings does', async ({
   context,
   extensionId,

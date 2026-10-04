@@ -157,6 +157,9 @@ export const SetupModal: React.FC = () => {
     gap: 8px;
     width: 100%;
     min-width: 0;
+    /* Fixed, so the check's padded box never resizes the pressed row. */
+    height: 3rem;
+    padding-block: 0;
   `;
   // §5: the SlidingPair knob's look, plus a ✓.
   const pressedCellStyle = css`
@@ -198,7 +201,9 @@ export const SetupModal: React.FC = () => {
     display: flex;
     align-items: center;
     gap: 6px;
-    padding: 8px 12px;
+    padding: 0 12px;
+    /* Fixed, so the check's padded box never resizes the pressed strip. */
+    height: 2.1875rem;
   `;
   // D2: the language cell's pressed look, on the label strip.
   const viewLabelPressedStyle = css`
