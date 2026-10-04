@@ -237,3 +237,82 @@ test.describe('clickable controls show a pointer over their icon (KAN-76)', () =
     expect(await cursorAtCentreOf(page, decorative)).not.toBe('pointer');
   });
 });
+
+// KAN-394 R2. A window title renames on click, so it shows a text caret, named
+// or not; Open beside it is a button and shows a pointer.
+test.describe('a saved window title shows a text caret (KAN-394)', () => {
+  const tab = (id: string) => ({
+    tabId: id,
+    favicon: '',
+    title: `Page ${id}`,
+    url: `https://${id}.test/`,
+  });
+  const savedWindow = (id: string, title: string) => ({
+    windowId: id,
+    windowHeight: 600,
+    windowWidth: 800,
+    windowOffsetTop: 0,
+    windowOffsetLeft: 0,
+    tabCount: 1,
+    title,
+    tabs: [tab(`${id}-t0`)],
+  });
+  const WINDOWS = buildSession({
+    tabGroupId: 'session-windows',
+    title: 'Windows',
+    windowCount: 2,
+    tabCount: 2,
+    windows: [savedWindow('w1', 'Reading list'), savedWindow('w2', '')],
+  });
+
+  const header = (page: Page, id: string) =>
+    page.locator(
+      `[data-pane="detail"] [data-drag-row-id="${id}"] [data-window-drag-handle]`
+    );
+  // The title's text, inside the header button that shows it.
+  const titleText = (page: Page, id: string, label: string) =>
+    header(page, id)
+      .locator('button', { hasText: label })
+      .getByText(label, { exact: true });
+
+  const openWindows = async (context: BrowserContext, extensionId: string) => {
+    await seedSessions(context, buildContainer([WINDOWS]));
+    const page = await context.newPage();
+    await page.goto(`chrome-extension://${extensionId}/index.html`);
+    await expect(header(page, 'w1')).toBeVisible();
+    return page;
+  };
+
+  test('a named title shows a text caret', async ({ context, extensionId }) => {
+    const page = await openWindows(context, extensionId);
+    const text = titleText(page, 'w1', 'Reading list');
+    await text.hover();
+
+    expect(await cursorAtCentreOf(page, text)).toBe('text');
+  });
+
+  test('an unnamed title ("Window 2") shows a text caret', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openWindows(context, extensionId);
+    const text = titleText(page, 'w2', 'Window 2');
+    await text.hover();
+
+    expect(await cursorAtCentreOf(page, text)).toBe('text');
+  });
+
+  test('CONTROL: the Open button beside it shows a pointer', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openWindows(context, extensionId);
+    await header(page, 'w1').hover();
+    const open = header(page, 'w1').getByRole('button', {
+      name: 'Open in new window: Reading list',
+      exact: true,
+    });
+
+    expect(await cursorAtCentreOf(page, open)).toBe('pointer');
+  });
+});

@@ -32,7 +32,7 @@ const render = (tabs: tabData[]) =>
       tabGroupId="tg1"
       windowId="w1"
       tabs={tabs}
-      onWindowTitleClick={() => undefined}
+      onOpenWindow={() => undefined}
       onUpdateWindowGroupTitle={() => undefined}
       onAddCurrTabToWindowClick={() => undefined}
       onDeleteClick={() => undefined}
@@ -99,7 +99,7 @@ describe('a tab row keeps its hover state when the list reorders', () => {
         tabGroupId="tg1"
         windowId="w1"
         tabs={reordered}
-        onWindowTitleClick={() => undefined}
+        onOpenWindow={() => undefined}
         onUpdateWindowGroupTitle={() => undefined}
         onAddCurrTabToWindowClick={() => undefined}
         onDeleteClick={() => undefined}

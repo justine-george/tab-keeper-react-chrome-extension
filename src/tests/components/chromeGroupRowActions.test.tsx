@@ -60,7 +60,7 @@ async function renderRow({
       windowId="w"
       tabs={TABS}
       chromeTabGroups={GROUPS}
-      onWindowTitleClick={() => undefined}
+      onOpenWindow={() => undefined}
       onUpdateWindowGroupTitle={() => undefined}
       onAddCurrTabToWindowClick={() => undefined}
       onDeleteClick={() => undefined}
@@ -274,7 +274,7 @@ async function renderTwoGroups() {
       windowId="w"
       tabs={tabs}
       chromeTabGroups={groups}
-      onWindowTitleClick={() => undefined}
+      onOpenWindow={() => undefined}
       onUpdateWindowGroupTitle={() => undefined}
       onAddCurrTabToWindowClick={() => undefined}
       onDeleteClick={() => undefined}
@@ -571,7 +571,7 @@ describe('without the tabGroups permission', () => {
         windowId="w"
         tabs={TABS}
         chromeTabGroups={GROUPS}
-        onWindowTitleClick={() => undefined}
+        onOpenWindow={() => undefined}
         onUpdateWindowGroupTitle={() => undefined}
         onAddCurrTabToWindowClick={() => undefined}
         onDeleteClick={() => undefined}

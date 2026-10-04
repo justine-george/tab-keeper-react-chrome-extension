@@ -45,7 +45,7 @@ const render = () =>
         tabGroupId="tg1"
         windowId="w1"
         tabs={TABS}
-        onWindowTitleClick={() => undefined}
+        onOpenWindow={() => undefined}
         onUpdateWindowGroupTitle={() => undefined}
         onAddCurrTabToWindowClick={() => undefined}
         onDeleteClick={() => undefined}

@@ -538,7 +538,7 @@ async function renderSavedWindow() {
         { groupId: 'R', title: 'Research', color: 'blue' },
         { groupId: 'L', title: 'Later', color: 'red' },
       ]}
-      onWindowTitleClick={() => undefined}
+      onOpenWindow={() => undefined}
       onUpdateWindowGroupTitle={() => undefined}
       onAddCurrTabToWindowClick={() => undefined}
       onDeleteClick={() => undefined}

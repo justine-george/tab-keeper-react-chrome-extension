@@ -1,4 +1,4 @@
-import React, { MouseEventHandler, useMemo, useState } from 'react';
+import React, { MouseEventHandler, useMemo, useRef, useState } from 'react';
 
 import { useDispatch, useSelector } from 'react-redux';
 
@@ -53,6 +53,7 @@ import { useIsSpringOpen } from '../../../redux/springOpenWindows';
 import { springSweepStyle } from '../../common/springOpen';
 import { NEW_LAST_WINDOW, newWindowTargetBoxStyle } from './newWindowTarget';
 import { NewWindowTargetLabel } from './NewWindowTargetLabel';
+import RowOpenButton from './RowOpenButton';
 import { CONTROL, DURATION, RADIUS, TYPE } from '../../../styles/scale';
 import { windowLabel } from '../../../utils/functions/windowLabel';
 
@@ -79,12 +80,7 @@ interface WindowEntryContainerProps {
   chromeTabGroups?: chromeTabGroupData[];
   tabGroupId: string;
   windowId: string;
-  /**
-   * Takes no event -- its only caller passes a zero-argument arrow. It was
-   * typed MouseEventHandler, which is what let the keyboard path activate it
-   * through `handleWindowClick(e as any)` with a KeyboardEvent.
-   */
-  onWindowTitleClick: () => void;
+  onOpenWindow: () => void;
   onUpdateWindowGroupTitle: (newTitle: string) => void;
   onAddCurrTabToWindowClick: MouseEventHandler;
   onDeleteClick: MouseEventHandler;
@@ -97,7 +93,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   chromeTabGroups,
   tabGroupId,
   windowId,
-  onWindowTitleClick,
+  onOpenWindow,
   onUpdateWindowGroupTitle,
   onAddCurrTabToWindowClick,
   onDeleteClick,
@@ -146,6 +142,8 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   const isWindowOpen = isOpenInStore || isSpringOpened;
   const [newTitle, setNewTitle] = useState(title);
   const [isEditing, setIsEditing] = useState(false);
+  // Set by Esc, so the blur that follows cannot commit what was cancelled (D13).
+  const renameCancelled = useRef(false);
   const [isParentHovered, setIsParentHovered] = useState(false);
   // Which Chrome group is being renamed, by its capture-time uuid -- not a
   // boolean, because one window can hold several groups and a boolean would
@@ -398,20 +396,25 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   `;
 
   // A plain string, not css``, because ClickableRow's `style` prop takes a
-  // string. The two non-button branches below therefore have to wrap it as
+  // string. The editing branch below therefore has to wrap it as
   // css(parentLinkStyle): Emotion's `css` PROP rejects a bare string outright
   // ("Strings are not allowed as css prop values"), even though the `css`
-  // FUNCTION accepts one. One declaration still serves all three branches.
+  // FUNCTION accepts one. One declaration still serves both branches.
   const parentLinkStyle = `
     text-decoration: none;
     color: inherit;
     display: flex;
     align-items: center;
     height: 100%;
-    flex-grow: 1;
     min-width: 0;
     padding-right: 9px;
-    ${!isSearching ? 'cursor: pointer;' : ''}
+  `;
+
+  // Shrunk to its text, so the rest of the row is only a drag handle (R4, D9).
+  const titleButtonStyle = `
+    flex: 0 1 auto;
+    max-width: 100%;
+    cursor: text;
   `;
 
   const windowChildLinkStyle = css`
@@ -438,11 +441,13 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   // replaceState(merged) with no user action -- overwrote what was being typed
   // here. KAN-51.
   const startEditing = () => {
+    renameCancelled.current = false;
     setNewTitle(title);
     setIsEditing(true);
   };
 
   const handleBlur = () => {
+    if (renameCancelled.current) return;
     setIsEditing(false);
     if (title !== newTitle) {
       onUpdateWindowGroupTitle(newTitle);
@@ -524,14 +529,6 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     }
   };
 
-  // No stopPropagation and no isSearching/isEditing guard any more: this is
-  // only wired up on the branch where it is a real action, so it can no longer
-  // be reached in a state where it does nothing, and the container it sits in
-  // has no click handler of its own to bubble into.
-  const handleWindowClick = () => {
-    onWindowTitleClick();
-  };
-
   const handleTabClick = (url: string) => {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       const currentTabIndex = tabs[0].index;
@@ -606,8 +603,18 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   }
 
   function handleKeyPressOnEditDone(e: React.KeyboardEvent<HTMLInputElement>) {
+    // An IME's Enter and Esc confirm or cancel its word, not the rename.
+    if (e.nativeEvent.isComposing) {
+      e.stopPropagation();
+      return;
+    }
     if (e.key === 'Enter') {
       handleBlur();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      renameCancelled.current = true;
+      setIsEditing(false);
     }
   }
 
@@ -748,26 +755,21 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
               onClick={handleAccordionClick}
             />
             <Icon type="web_asset" style={NON_INTERACTIVE_ICON_STYLE} />
-            {/* Three shapes, because only one of them is a control (KAN-64).
-                This used to be a single role-less div carrying tabIndex={0} and
-                onClick -- focusable, exposed as `generic` where naming is
-                prohibited, and activating via `handleWindowClick(e as any)`.
-
-                Editing: an <input> may not live inside a <button>; clicking it
-                would activate the button and it could not hold focus.
-
-                Searching: opening the window is hidden, so a button here would be
-                focusable and inert (KAN-62). Static text instead.
-
-                Otherwise: a real button. */}
+            {/* Two shapes, because an <input> may not live inside a <button>:
+                clicking it would activate the button and it could not hold
+                focus. Otherwise the title is the rename button, searching or
+                not (R1, R7). */}
             {isEditing ? (
               // padding-right: 0 overrides parentLinkStyle's 9px, which exists
               // to keep the RESTING title clear of the action icons. While
               // editing there is no title to keep clear, and the reserved gap
               // left the field stopping 9px short of the row's edge.
-              <div css={css(parentLinkStyle + 'padding-right: 0;')}>
+              <div
+                css={css(parentLinkStyle + 'flex-grow: 1; padding-right: 0;')}
+              >
                 <input
                   value={newTitle}
+                  placeholder={label.text}
                   onBlur={handleBlur}
                   onChange={handleChange}
                   onKeyDown={(e) => handleKeyPressOnEditDone(e)}
@@ -790,27 +792,17 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                   `}
                 />
               </div>
-            ) : isSearching ? (
-              <div css={css(parentLinkStyle)}>
-                <NormalLabel
-                  value={label.text}
-                  color={labelColor}
-                  size={TYPE.BODY}
-                  style="padding-left: 8px; height: 100%; max-width: 100%;"
-                />
-              </div>
             ) : (
               <ClickableRow
-                ariaLabel={label.text}
-                tooltipText={t('Open in new window')}
-                onClick={handleWindowClick}
-                style={parentLinkStyle}
+                ariaLabel={t('Rename window') + ': ' + label.text}
+                onClick={startEditing}
+                style={parentLinkStyle + titleButtonStyle}
               >
                 <NormalLabel
                   value={label.text}
                   color={labelColor}
                   size={TYPE.BODY}
-                  style="padding-left: 8px; cursor: pointer; height: 100%; max-width: 100%;"
+                  style="padding-left: 8px; height: 100%; max-width: 100%;"
                 />
               </ClickableRow>
             )}
@@ -821,7 +813,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
               // onMouseDown that Icon does not expose, preventDefault keeps focus
               // in the input so onClick is the single commit path, and the
               // wrapper itself is what stops the post-commit click retargeting
-              // onto the pencil that replaces this tick.
+              // onto the Open button that replaces this tick.
               <span onMouseDown={(e) => e.preventDefault()}>
                 <Icon
                   tooltipText={t('Save changes')}
@@ -834,15 +826,14 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                 />
               </span>
             ) : (
-              <Icon
-                tooltipText={t('Rename window group')}
-                ariaLabel={t('Rename window group')}
-                type="edit"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  startEditing();
-                }}
-              />
+              // Hidden while searching, as every whole-item action is (R7).
+              !isSearching && (
+                <RowOpenButton
+                  ariaLabel={t('Open in new window') + ': ' + label.text}
+                  tooltipText={t('Open in new window')}
+                  onClick={onOpenWindow}
+                />
+              )
             )}
 
             {/* KAN-279 D13. This page IS Tab Keeper's own tab in the tab view,

@@ -52,7 +52,7 @@ async function renderGroup({
       windowId="w"
       tabs={TABS}
       chromeTabGroups={groups}
-      onWindowTitleClick={() => undefined}
+      onOpenWindow={() => undefined}
       onUpdateWindowGroupTitle={() => undefined}
       onAddCurrTabToWindowClick={() => undefined}
       onDeleteClick={() => undefined}

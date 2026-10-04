@@ -317,7 +317,7 @@ export default function ExportEditor({
                 {field(
                   windowKey,
                   windowName.named ? window.title : '',
-                  t('Rename window group'),
+                  t('Rename window'),
                   undefined,
                   windowName.named ? undefined : windowName.text
                 )}

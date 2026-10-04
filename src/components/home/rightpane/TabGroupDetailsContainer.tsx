@@ -291,7 +291,7 @@ export default function TabGroupDetailsContainer() {
         handleAddCurrTabToWindowClick(tabGroupId, windowId)
       }
       onDeleteClick={() => dispatch(deleteWindow({ tabGroupId, windowId }))}
-      onWindowTitleClick={() => {
+      onOpenWindow={() => {
         const goToURLText: string = t('Go to URL');
         dispatch(openTabsInAWindow({ tabGroupId, windowId, goToURLText }));
       }}
