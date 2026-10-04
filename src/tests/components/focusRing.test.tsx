@@ -3,6 +3,7 @@ import { act, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import Button from '../../components/common/Button';
+import GroupColorPicker from '../../components/common/GroupColorPicker';
 import Icon from '../../components/common/Icon';
 import OverflowMenu from '../../components/common/OverflowMenu';
 import {
@@ -135,5 +136,49 @@ describe('Esc returns focus to the trigger (2A)', () => {
     await user.keyboard('{Escape}');
     await user.click(trigger());
     expect(await focusOnEsc(user)).toEqual({ focusVisible: false });
+  });
+
+  // The colour strip opens on Enter itself, with no click (review finding).
+  describe('the group colour picker', () => {
+    const strip = () => screen.getByRole('button', { name: 'Colour' });
+    const renderPicker = () =>
+      renderWithProviders(
+        <GroupColorPicker color="blue" ariaLabel="Colour" onSelect={() => {}} />
+      );
+
+    test('click-opened, closed outside, then opened with Enter: the ring stays', async () => {
+      const user = userEvent.setup();
+      await renderPicker();
+      await user.click(strip());
+      await user.click(document.body);
+      expect(screen.queryByRole('menu')).toBeNull();
+      act(() => strip().focus());
+      await user.keyboard('{Enter}');
+      expect(screen.getByRole('menu')).toBeInTheDocument();
+      const focus = vi.spyOn(strip(), 'focus');
+      await user.keyboard('{Escape}');
+      expect(focus).toHaveBeenCalledTimes(1);
+      expect(focus.mock.calls[0][0]).toBeUndefined();
+    });
+
+    test('click-opened, a swatch picked with Enter: focus returns with the ring', async () => {
+      const user = userEvent.setup();
+      await renderPicker();
+      await user.click(strip());
+      const focus = vi.spyOn(strip(), 'focus');
+      await user.keyboard('{Enter}');
+      expect(screen.queryByRole('menu')).toBeNull();
+      expect(focus).toHaveBeenCalledTimes(1);
+      expect(focus.mock.calls[0][0]).toBeUndefined();
+    });
+
+    test('click-opened, then Esc: no ring', async () => {
+      const user = userEvent.setup();
+      await renderPicker();
+      await user.click(strip());
+      const focus = vi.spyOn(strip(), 'focus');
+      await user.keyboard('{Escape}');
+      expect(focus.mock.calls[0][0]).toEqual({ focusVisible: false });
+    });
   });
 });
