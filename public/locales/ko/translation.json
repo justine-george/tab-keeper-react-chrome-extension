@@ -179,12 +179,6 @@
   "No shortcut is set to open Tab Keeper.": "Tab Keeper를 여는 단축키가 설정되어 있지 않습니다.",
   "Change or remove shortcut": "단축키 변경 또는 삭제",
   "Welcome to Tab Keeper": "Tab Keeper에 오신 것을 환영합니다",
-  "WelcomeSave": "열려 있는 창과 탭을 세션으로 저장하고 나중에 다시 열 수 있습니다.",
-  "WelcomeStays": "동기화를 선택하지 않으면 세션은 이 기기에만 보관됩니다.",
-  "WelcomeSync": "동기화를 켜면 세션 사본(탭 주소와 제목)이 익명 ID로 클라우드에 보관되어 다른 Chrome 기기에서도 열 수 있습니다. 계정도, 이메일도 필요 없습니다.",
-  "Change either later in Settings → Sync & Backup.": "두 가지 모두 나중에 설정 → 동기화 및 백업에서 변경할 수 있습니다.",
-  "Keep on this device": "이 기기에만 보관",
-  "Sync across devices": "여러 기기에서 동기화",
   "Your sessions are currently synced": "세션이 현재 동기화되어 있습니다",
   "ExistingSyncBody": "Tab Keeper는 저장한 세션을 동기화하여 다른 Chrome 기기에서도 열 수 있게 합니다. 동기화된 세션에는 탭 주소와 제목이 포함되며, 이름이나 이메일이 아닌 임의의 ID로 저장됩니다.",
   "Would you like to keep sync on for this device?": "이 기기에서 동기화를 계속 사용할까요?",
@@ -273,5 +267,7 @@
   "No shortcut is set.": "설정된 단축키가 없습니다.",
   "Set a shortcut": "단축키 설정",
   "See your sessions and open tabs side by side.": "세션과 열린 탭을 나란히 보세요.",
-  "Try it": "사용해 보기"
+  "Try it": "사용해 보기",
+  "Manage your open windows and tabs, and save them to bring back any time.": "열려 있는 창과 탭을 관리하고, 저장해 두었다가 언제든 다시 열 수 있습니다.",
+  "Get started": "시작하기"
 }

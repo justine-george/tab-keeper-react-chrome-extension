@@ -12,6 +12,7 @@ import {
   openTabGroupsPrompt,
 } from './slices/globalStateSlice';
 import {
+  beginSetup,
   declineCloudConsent,
   type SettingsData,
 } from './slices/settingsDataStateSlice';
@@ -68,8 +69,15 @@ export function firstOpenDialogs(
         dispatch(declineCloudConsent());
         return null;
       }
-      const variant = isExisting ? 'existing' : 'welcome';
-      return () => dispatch(openCloudConsentModal({ variant }));
+      if (isExisting) {
+        return () => dispatch(openCloudConsentModal({ variant: 'existing' }));
+      }
+      // KAN-410. Recorded as it opens: a popup closed unanswered stays local-only and mid-onboarding.
+      return () => {
+        dispatch(declineCloudConsent());
+        dispatch(beginSetup());
+        dispatch(openCloudConsentModal({ variant: 'welcome' }));
+      };
     },
   };
 

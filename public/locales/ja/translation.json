@@ -179,12 +179,6 @@
   "No shortcut is set to open Tab Keeper.": "Tab Keeper を開くショートカットは設定されていません。",
   "Change or remove shortcut": "ショートカットを変更または削除",
   "Welcome to Tab Keeper": "Tab Keeper へようこそ",
-  "WelcomeSave": "開いているウィンドウとタブをセッションとして保存し、あとで開き直せます。",
-  "WelcomeStays": "同期を選ばない限り、セッションはこのデバイスにとどまります。",
-  "WelcomeSync": "同期はセッションのコピー（タブのアドレスとタイトル）を匿名 ID のもとでクラウドに保存し、他の Chrome デバイスでも開けるようにします。アカウントもメールも不要です。",
-  "Change either later in Settings → Sync & Backup.": "どちらも後から 設定 → 同期とバックアップ で変更できます。",
-  "Keep on this device": "このデバイスに保持",
-  "Sync across devices": "デバイス間で同期",
   "Your sessions are currently synced": "セッションは現在同期されています",
   "ExistingSyncBody": "Tab Keeper は保存したセッションを同期し、他の Chrome デバイスでも開けるようにします。同期されるセッションにはタブのアドレスとタイトルが含まれます。ランダムな ID のもとで保存され、名前やメールアドレスとは結びつきません。",
   "Would you like to keep sync on for this device?": "このデバイスで同期をオンのままにしますか？",
@@ -273,5 +267,7 @@
   "No shortcut is set.": "ショートカットは設定されていません。",
   "Set a shortcut": "ショートカットを設定",
   "See your sessions and open tabs side by side.": "セッションと開いているタブを並べて表示できます。",
-  "Try it": "試す"
+  "Try it": "試す",
+  "Manage your open windows and tabs, and save them to bring back any time.": "開いているウィンドウとタブを管理し、保存していつでも開き直せます。",
+  "Get started": "はじめる"
 }

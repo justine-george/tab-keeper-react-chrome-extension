@@ -183,12 +183,6 @@
   "No shortcut is set to open Tab Keeper.": "Aucun raccourci n’est défini pour ouvrir Tab Keeper.",
   "Change or remove shortcut": "Modifier ou supprimer le raccourci",
   "Welcome to Tab Keeper": "Bienvenue dans Tab Keeper",
-  "WelcomeSave": "Enregistrez vos fenêtres et onglets ouverts comme une session, puis rouvrez-les plus tard.",
-  "WelcomeStays": "Les sessions restent sur cet appareil, sauf si vous choisissez de les synchroniser.",
-  "WelcomeSync": "La synchronisation conserve une copie de vos sessions — adresses et titres des onglets — dans le cloud sous un identifiant anonyme, pour que vos autres appareils Chrome puissent les ouvrir. Sans compte, sans e-mail.",
-  "Change either later in Settings → Sync & Backup.": "Vous pourrez modifier les deux plus tard dans Paramètres → Sync & Sauvegarde.",
-  "Keep on this device": "Garder sur cet appareil",
-  "Sync across devices": "Synchroniser entre appareils",
   "Your sessions are currently synced": "Vos sessions sont actuellement synchronisées",
   "ExistingSyncBody": "Tab Keeper synchronise vos sessions enregistrées pour que vous puissiez les ouvrir sur vos autres appareils Chrome. Les sessions synchronisées contiennent les adresses et les titres des onglets. Elles sont stockées sous un identifiant aléatoire — pas votre nom ni votre e-mail.",
   "Would you like to keep sync on for this device?": "Voulez-vous garder la synchronisation activée sur cet appareil ?",
@@ -283,5 +277,7 @@
   "No shortcut is set.": "Aucun raccourci n’est défini.",
   "Set a shortcut": "Définir un raccourci",
   "See your sessions and open tabs side by side.": "Voyez vos sessions et vos onglets ouverts côte à côte.",
-  "Try it": "Essayer"
+  "Try it": "Essayer",
+  "Manage your open windows and tabs, and save them to bring back any time.": "Gérez vos fenêtres et onglets ouverts, et enregistrez-les pour les rouvrir à tout moment.",
+  "Get started": "Commencer"
 }

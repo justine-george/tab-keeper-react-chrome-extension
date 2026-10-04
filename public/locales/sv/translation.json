@@ -181,12 +181,6 @@
   "No shortcut is set to open Tab Keeper.": "Inget kortkommando är inställt för att öppna Tab Keeper.",
   "Change or remove shortcut": "Ändra eller ta bort kortkommando",
   "Welcome to Tab Keeper": "Välkommen till Tab Keeper",
-  "WelcomeSave": "Spara dina öppna fönster och flikar som en session och öppna dem igen senare.",
-  "WelcomeStays": "Sessionerna stannar på den här enheten om du inte väljer att synka dem.",
-  "WelcomeSync": "Synk sparar en kopia av dina sessioner – flikarnas adresser och titlar – i molnet under ett anonymt ID, så att dina andra Chrome-enheter kan öppna dem. Inget konto, ingen e-post.",
-  "Change either later in Settings → Sync & Backup.": "Du kan ändra båda senare i Inställningar → Synk & säkerhetskopia.",
-  "Keep on this device": "Behåll på den här enheten",
-  "Sync across devices": "Synka mellan enheter",
   "Your sessions are currently synced": "Dina sessioner är synkade",
   "ExistingSyncBody": "Tab Keeper synkar dina sparade sessioner så att du kan öppna dem på dina andra Chrome-enheter. Synkade sessioner innehåller flikarnas adresser och titlar. De lagras under ett slumpmässigt ID – inte ditt namn eller din e-post.",
   "Would you like to keep sync on for this device?": "Vill du fortsätta synka på den här enheten?",
@@ -278,5 +272,7 @@
   "No shortcut is set.": "Inget kortkommando är inställt.",
   "Set a shortcut": "Ange ett kortkommando",
   "See your sessions and open tabs side by side.": "Se dina sessioner och öppna flikar sida vid sida.",
-  "Try it": "Prova"
+  "Try it": "Prova",
+  "Manage your open windows and tabs, and save them to bring back any time.": "Hantera dina öppna fönster och flikar, och spara dem så att du kan ta fram dem igen när du vill.",
+  "Get started": "Kom igång"
 }

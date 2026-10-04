@@ -7,7 +7,6 @@ import {
   openPinGuide,
   openSetup,
 } from './slices/globalStateSlice';
-import { beginSetup } from './slices/settingsDataStateSlice';
 import {
   shouldOfferFullView,
   shouldShowPinGuide,
@@ -30,11 +29,10 @@ export const followInFullView =
     if (shouldShowSetup(getState().settingsDataState)) dispatch(openSetup());
   };
 
-// KAN-7 §8. The welcome (a new install) closed, by any answer: setup is now
-// pending. The popup offers the full view; the full view runs its own chain.
+// KAN-7 §8. The welcome (a new install) closed; its opening set setup pending.
+// The popup offers the full view; the full view runs its own chain.
 export const followWelcome =
   (): Thunk<Promise<void>> => async (dispatch, getState) => {
-    dispatch(beginSetup());
     if (isTabView()) {
       await dispatch(followInFullView());
       return;

@@ -192,7 +192,7 @@ test.describe('dismissals stick on this machine', () => {
     const popup = await openPopup(context, extensionId);
     await popup
       .getByRole('dialog', { name: 'Welcome to Tab Keeper', exact: true })
-      .getByRole('button', { name: 'Keep on this device', exact: true })
+      .getByRole('button', { name: 'Get started', exact: true })
       .click();
     await popup
       .getByRole('dialog', { name: 'Try the full view', exact: true })

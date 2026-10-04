@@ -183,12 +183,6 @@
   "No shortcut is set to open Tab Keeper.": "No hay ningún atajo asignado para abrir Tab Keeper.",
   "Change or remove shortcut": "Cambiar o quitar el atajo",
   "Welcome to Tab Keeper": "Bienvenido a Tab Keeper",
-  "WelcomeSave": "Guarda tus ventanas y pestañas abiertas como una sesión y vuelve a abrirlas más tarde.",
-  "WelcomeStays": "Las sesiones se quedan en este dispositivo a menos que elijas sincronizarlas.",
-  "WelcomeSync": "La sincronización guarda una copia de tus sesiones (direcciones y títulos de las pestañas) en la nube con un ID anónimo, para que tus otros dispositivos con Chrome puedan abrirlas. Sin cuenta, sin correo.",
-  "Change either later in Settings → Sync & Backup.": "Puedes cambiar ambas cosas después en Configuración → Sincro y copia.",
-  "Keep on this device": "Mantener en este dispositivo",
-  "Sync across devices": "Sincronizar entre dispositivos",
   "Your sessions are currently synced": "Tus sesiones están sincronizadas",
   "ExistingSyncBody": "Tab Keeper sincroniza tus sesiones guardadas para que puedas abrirlas en tus otros dispositivos con Chrome. Las sesiones sincronizadas incluyen direcciones y títulos de pestañas. Se guardan con un ID aleatorio, no con tu nombre ni tu correo.",
   "Would you like to keep sync on for this device?": "¿Quieres mantener la sincronización activada en este dispositivo?",
@@ -283,5 +277,7 @@
   "No shortcut is set.": "No hay ningún atajo asignado.",
   "Set a shortcut": "Asignar un atajo",
   "See your sessions and open tabs side by side.": "Ve tus sesiones y pestañas abiertas una al lado de la otra.",
-  "Try it": "Pruébala"
+  "Try it": "Pruébala",
+  "Manage your open windows and tabs, and save them to bring back any time.": "Gestiona tus ventanas y pestañas abiertas, y guárdalas para recuperarlas cuando quieras.",
+  "Get started": "Empezar"
 }

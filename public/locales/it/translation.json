@@ -183,12 +183,6 @@
   "No shortcut is set to open Tab Keeper.": "Nessuna scorciatoia impostata per aprire Tab Keeper.",
   "Change or remove shortcut": "Cambia o rimuovi la scorciatoia",
   "Welcome to Tab Keeper": "Benvenuto in Tab Keeper",
-  "WelcomeSave": "Salva le finestre e le schede aperte come sessione e riaprile più tardi.",
-  "WelcomeStays": "Le sessioni restano su questo dispositivo, a meno che tu non scelga di sincronizzarle.",
-  "WelcomeSync": "La sincronizzazione conserva una copia delle tue sessioni — indirizzi e titoli delle schede — nel cloud con un ID anonimo, così i tuoi altri dispositivi Chrome possono aprirle. Nessun account, nessuna e-mail.",
-  "Change either later in Settings → Sync & Backup.": "Puoi cambiare entrambe in seguito in Impostazioni → Sync e Backup.",
-  "Keep on this device": "Tieni su questo dispositivo",
-  "Sync across devices": "Sincronizza tra i dispositivi",
   "Your sessions are currently synced": "Le tue sessioni sono attualmente sincronizzate",
   "ExistingSyncBody": "Tab Keeper sincronizza le sessioni salvate così puoi aprirle sui tuoi altri dispositivi Chrome. Le sessioni sincronizzate includono indirizzi e titoli delle schede. Sono archiviate con un ID casuale, non con il tuo nome o la tua e-mail.",
   "Would you like to keep sync on for this device?": "Vuoi mantenere attiva la sincronizzazione su questo dispositivo?",
@@ -283,5 +277,7 @@
   "No shortcut is set.": "Nessuna scorciatoia impostata.",
   "Set a shortcut": "Imposta una scorciatoia",
   "See your sessions and open tabs side by side.": "Vedi le sessioni e le schede aperte una accanto all'altra.",
-  "Try it": "Provala"
+  "Try it": "Provala",
+  "Manage your open windows and tabs, and save them to bring back any time.": "Gestisci le finestre e le schede aperte e salvale per riaprirle quando vuoi.",
+  "Get started": "Inizia"
 }

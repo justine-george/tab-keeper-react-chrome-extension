@@ -181,12 +181,6 @@
   "No shortcut is set to open Tab Keeper.": "Kein Tastenkürzel zum Öffnen von Tab Keeper festgelegt.",
   "Change or remove shortcut": "Kürzel ändern oder entfernen",
   "Welcome to Tab Keeper": "Willkommen bei Tab Keeper",
-  "WelcomeSave": "Speichern Sie Ihre offenen Fenster und Tabs als Sitzung und öffnen Sie sie später wieder.",
-  "WelcomeStays": "Sitzungen bleiben auf diesem Gerät, es sei denn, Sie entscheiden sich für die Synchronisierung.",
-  "WelcomeSync": "Die Synchronisierung legt eine Kopie Ihrer Sitzungen – Tab-Adressen und -Titel – unter einer anonymen ID in der Cloud ab, damit Ihre anderen Chrome-Geräte sie öffnen können. Kein Konto, keine E-Mail.",
-  "Change either later in Settings → Sync & Backup.": "Beides lässt sich später unter Einstellungen → Sync & Sicherung ändern.",
-  "Keep on this device": "Auf diesem Gerät behalten",
-  "Sync across devices": "Zwischen Geräten synchronisieren",
   "Your sessions are currently synced": "Ihre Sitzungen werden derzeit synchronisiert",
   "ExistingSyncBody": "Tab Keeper synchronisiert Ihre gespeicherten Sitzungen, damit Sie sie auf Ihren anderen Chrome-Geräten öffnen können. Synchronisierte Sitzungen enthalten Tab-Adressen und -Titel. Sie werden unter einer zufälligen ID gespeichert – nicht unter Ihrem Namen oder Ihrer E-Mail.",
   "Would you like to keep sync on for this device?": "Möchten Sie die Synchronisierung auf diesem Gerät eingeschaltet lassen?",
@@ -278,5 +272,7 @@
   "No shortcut is set.": "Kein Tastenkürzel festgelegt.",
   "Set a shortcut": "Tastenkürzel festlegen",
   "See your sessions and open tabs side by side.": "Sehen Sie Ihre Sitzungen und offenen Tabs nebeneinander.",
-  "Try it": "Ausprobieren"
+  "Try it": "Ausprobieren",
+  "Manage your open windows and tabs, and save them to bring back any time.": "Verwalten Sie Ihre offenen Fenster und Tabs und speichern Sie sie, um sie jederzeit zurückzuholen.",
+  "Get started": "Loslegen"
 }

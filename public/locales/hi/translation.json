@@ -181,12 +181,6 @@
   "No shortcut is set to open Tab Keeper.": "Tab Keeper खोलने के लिए कोई शॉर्टकट सेट नहीं है।",
   "Change or remove shortcut": "शॉर्टकट बदलें या हटाएँ",
   "Welcome to Tab Keeper": "Tab Keeper में आपका स्वागत है",
-  "WelcomeSave": "अपनी खुली विंडो और टैब को सेशन के रूप में सहेजें और बाद में फिर से खोलें।",
-  "WelcomeStays": "जब तक आप सिंक न चुनें, सेशन इसी डिवाइस पर रहते हैं।",
-  "WelcomeSync": "सिंक आपके सेशन की एक प्रति (टैब के पते और शीर्षक) एक गुमनाम ID के साथ क्लाउड में रखता है, ताकि आपके दूसरे Chrome डिवाइस उन्हें खोल सकें। न खाता, न ईमेल।",
-  "Change either later in Settings → Sync & Backup.": "दोनों को बाद में सेटिंग्स → सिंक और बैकअप में बदला जा सकता है।",
-  "Keep on this device": "इसी डिवाइस पर रखें",
-  "Sync across devices": "डिवाइसों के बीच सिंक करें",
   "Your sessions are currently synced": "आपके सेशन अभी सिंक हो रहे हैं",
   "ExistingSyncBody": "Tab Keeper आपके सहेजे गए सेशन सिंक करता है ताकि आप उन्हें अपने दूसरे Chrome डिवाइसों पर खोल सकें। सिंक किए गए सेशन में टैब के पते और शीर्षक शामिल हैं। वे एक रैंडम ID के साथ सहेजे जाते हैं — आपके नाम या ईमेल के साथ नहीं।",
   "Would you like to keep sync on for this device?": "क्या आप इस डिवाइस पर सिंक चालू रखना चाहेंगे?",
@@ -278,5 +272,7 @@
   "No shortcut is set.": "कोई शॉर्टकट सेट नहीं है।",
   "Set a shortcut": "शॉर्टकट सेट करें",
   "See your sessions and open tabs side by side.": "अपने सेशन और खुले टैब साथ-साथ देखें।",
-  "Try it": "आज़माएँ"
+  "Try it": "आज़माएँ",
+  "Manage your open windows and tabs, and save them to bring back any time.": "अपनी खुली विंडो और टैब प्रबंधित करें, और उन्हें सहेजें ताकि कभी भी वापस ला सकें।",
+  "Get started": "शुरू करें"
 }

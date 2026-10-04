@@ -2,13 +2,15 @@ import type { BrowserContext, Page } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
 import { buildContainer, seedSessions, seedSettings } from './fixtures/seed';
+import { storedSettings } from './fixtures/onboarding';
 
-// KAN-259. Nothing leaves the device until the user answers a one-screen
-// welcome; an existing user gets the same screen once, phrased for someone
-// whose sessions are already synced. What a real browser adds to the jsdom
-// tests: the dialog is modal (top layer, open), the initial focus lands on
-// the answer that changes nothing, the answer persists across a reopen, and
-// the rest of the popup is usable behind it once answered.
+// KAN-259. Nothing leaves the device until the user says yes. A new install
+// is welcomed without a question and recorded local-only (KAN-410); sync is
+// asked for later, by the plain question. An existing user is asked once,
+// phrased for someone whose sessions are already synced. What a real browser
+// adds to the jsdom tests: the dialog is modal (top layer, open), it opens
+// unlit, the record persists across a reopen, and the rest of the popup is
+// usable behind it once closed.
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -27,7 +29,7 @@ test.describe('the cloud question (KAN-259)', () => {
   test.describe('on a fresh install', () => {
     test.use({ freshProfile: true });
 
-    test('a fresh profile is welcomed, and Keep on this device turns Auto Sync off', async ({
+    test('a fresh profile is welcomed without a question, and Auto Sync is off', async ({
       context,
       extensionId,
     }) => {
@@ -61,12 +63,12 @@ test.describe('the cloud question (KAN-259)', () => {
       await page.keyboard.press('Enter');
       await expect(dialog).toBeVisible();
       await page.keyboard.press('Tab');
-      await expect(page.locator(':focus')).toHaveAccessibleName(
-        'Read the privacy policy'
-      );
+      await expect(page.locator(':focus')).toHaveAccessibleName('Get started');
       expect((await lit()).litInside).toBe(1);
 
-      await dialog.getByRole('button', { name: 'Keep on this device' }).click();
+      await dialog
+        .getByRole('button', { name: 'Get started', exact: true })
+        .click();
       await expect(dialog).toHaveCount(0);
       // KAN-7 §3. The welcome is followed by the full-view offer.
       await page
@@ -91,14 +93,14 @@ test.describe('the cloud question (KAN-259)', () => {
       );
     });
 
-    test('the answer persists: a reopen is not asked again', async ({
+    test('the welcome is once: a reopen is not welcomed or asked again', async ({
       context,
       extensionId,
     }) => {
       const first = await openPopup(context, extensionId);
       await first
         .getByRole('dialog', { name: 'Welcome to Tab Keeper' })
-        .getByRole('button', { name: 'Keep on this device' })
+        .getByRole('button', { name: 'Get started', exact: true })
         .click();
       // KAN-7 §3. The welcome is followed by the full-view offer.
       await first
@@ -109,6 +111,44 @@ test.describe('the cloud question (KAN-259)', () => {
       const again = await openPopup(context, extensionId);
       await expect(again.locator('[aria-label="Settings"]')).toBeVisible();
       await expect(again.getByRole('dialog')).toHaveCount(0);
+    });
+
+    // KAN-410. The welcome recorded "declined"; turning Auto Sync on must
+    // still ask the full question before anything is uploaded.
+    test('after the welcome, turning Auto Sync on asks the plain question first', async ({
+      context,
+      extensionId,
+    }) => {
+      const page = await openPopup(context, extensionId);
+      await page
+        .getByRole('dialog', { name: 'Welcome to Tab Keeper' })
+        .getByRole('button', { name: 'Get started', exact: true })
+        .click();
+      await page
+        .getByRole('dialog', { name: 'Try the full view', exact: true })
+        .getByRole('button', { name: 'Not now', exact: true })
+        .click();
+      await page.locator('[aria-label="Settings"]').click();
+      await page.locator('button[aria-label="Sync & Backup"]').click();
+      await page
+        .getByRole('group', { name: 'Auto Sync' })
+        .getByRole('button', { name: 'On', exact: true })
+        .click();
+
+      const ask = page.getByRole('dialog', {
+        name: 'Sync your sessions across devices?',
+        exact: true,
+      });
+      await expect(ask).toBeVisible();
+      expect(await ask.textContent()).toContain('Read the privacy policy');
+      await ask.getByRole('button', { name: 'Not now', exact: true }).click();
+      await expect(ask).toHaveCount(0);
+      await expect(
+        page
+          .getByRole('group', { name: 'Auto Sync' })
+          .getByRole('button', { name: 'Off', exact: true })
+      ).toHaveAttribute('aria-pressed', 'true');
+      expect((await storedSettings(page)).cloudConsent).toBe('declined');
     });
   });
 
@@ -178,7 +218,7 @@ test.describe('dialog buttons answer a press', () => {
     const page = await openPopup(context, extensionId);
     const button = page
       .getByRole('dialog', { name: 'Welcome to Tab Keeper' })
-      .getByRole('button', { name: 'Keep on this device' });
+      .getByRole('button', { name: 'Get started', exact: true });
     const fill = () =>
       button.evaluate((el) => getComputedStyle(el).backgroundColor);
     const rest = await fill();

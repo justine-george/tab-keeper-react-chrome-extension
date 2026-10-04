@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { css } from '@emotion/react';
 
 import Icon from '../common/Icon';
+import TabKeeperMark from '../common/TabKeeperMark';
 import { useFontFamily } from '../../hooks/useFontFamily';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { AppDispatch, RootState } from '../../redux/store';
@@ -26,17 +27,19 @@ const TITLE_ID = 'cloud-consent-title';
 const BODY_ID = 'cloud-consent-body';
 
 /**
- * The cloud question (KAN-259), asked once before anything is uploaded.
+ * The cloud question (KAN-259), asked before anything is uploaded.
  *
- * Two wordings for one choice. 'welcome' is a fresh install: what Tab Keeper
- * does, that sessions stay on the device unless synced, what sync stores.
- * 'existing' is a user whose sessions are already synced: the current state
- * first, then what is stored, then the question, then what turning it off
- * does and does not do -- a preference, not a confession.
+ * 'welcome' is a fresh install and asks nothing (KAN-410): one line on what
+ * Tab Keeper does, and Get started. Its opening already recorded the device
+ * as local-only; sync comes later, through 'enable'. 'existing' is a user
+ * whose sessions are already synced: the current state first, then what is
+ * stored, then the question, then what turning it off does and does not do --
+ * a preference, not a confession. 'enable' is the question asked when someone
+ * reaches for sync without having said yes.
  *
- * Both give two complete answers and no "OK" hiding a default. Escape is the
- * answer that changes nothing: keep on this device for a new user, keep sync
- * on for an existing one -- "do nothing" must not change a setting they had.
+ * The questions give two complete answers and no "OK" hiding a default.
+ * Escape is the answer that changes nothing: keep sync on for an existing
+ * user -- "do nothing" must not change a setting they had.
  * Same <dialog> contract as FocusConfirmModal.
  */
 export const CloudConsentModal: React.FC = () => {
@@ -82,14 +85,14 @@ export const CloudConsentModal: React.FC = () => {
     close();
   };
   // A yes. What it does beyond recording consent depends on what the user
-  // was doing: the welcome and the Auto Sync toggle turn Auto Sync on; the
-  // existing user keeps what they had; the cloud button gets its ONE sync,
-  // with Auto Sync left as it was (Justine's case: "I pressed sync, it
-  // turned auto sync on" -- it must not).
+  // was doing: the Auto Sync toggle turns Auto Sync on; the existing user
+  // keeps what they had; the cloud button gets its ONE sync, with Auto Sync
+  // left as it was (Justine's case: "I pressed sync, it turned auto sync on"
+  // -- it must not).
   const grant = () => {
     dispatch(grantCloudConsent());
     close();
-    if (variant === 'welcome' || then === 'autoSync') {
+    if (then === 'autoSync') {
       dispatch(setAutoSync(true));
     } else if (then === 'syncNow') {
       // KAN-266/289. Waits for sign-in, and a failed sign-in shows as a
@@ -102,9 +105,10 @@ export const CloudConsentModal: React.FC = () => {
   const dismiss = () => {
     dispatch(closeCloudConsentModal());
   };
-  // Escape: the answer that changes nothing for this user.
+  // Escape: the answer that changes nothing for this user. The welcome has
+  // nothing left to answer, so Escape is Get started.
   const handleCancel =
-    variant === 'welcome' ? decline : variant === 'existing' ? grant : dismiss;
+    variant === 'welcome' ? close : variant === 'existing' ? grant : dismiss;
 
   const buttons = dialogButtonStyles(COLORS);
 
@@ -149,10 +153,10 @@ export const CloudConsentModal: React.FC = () => {
     line-height: 1.5;
     color: ${COLORS.LABEL_L1_COLOR};
   `;
-  const listStyle = css`
-    margin: 0 0 12px 0;
-    padding-left: 20px;
-    line-height: 1.6;
+  // The welcome's one line sits where the others' fine print does, above the buttons.
+  const welcomeStyle = css`
+    margin: 0 0 20px 0;
+    line-height: 1.5;
     color: ${COLORS.LABEL_L1_COLOR};
   `;
   const questionStyle = css`
@@ -204,23 +208,17 @@ export const CloudConsentModal: React.FC = () => {
       {variant === 'welcome' ? (
         <>
           <h2 id={TITLE_ID} css={titleStyle}>
-            <Icon type="tab_keeper" size={ICON.DEFAULT} disable={true} />
+            <TabKeeperMark size={ICON.DEFAULT} />
             {t('Welcome to Tab Keeper')}
           </h2>
-          <ul id={BODY_ID} css={listStyle}>
-            <li>{t('WelcomeSave')}</li>
-            <li>{t('WelcomeStays')}</li>
-            <li>{t('WelcomeSync')}</li>
-          </ul>
-          <p css={fineStyle}>
-            {t('Change either later in Settings → Sync & Backup.')} {policyLink}
+          <p id={BODY_ID} css={welcomeStyle}>
+            {t(
+              'Manage your open windows and tabs, and save them to bring back any time.'
+            )}
           </p>
           <div css={actionsStyle}>
-            <button type="button" css={buttons.quiet} onClick={decline}>
-              {t('Keep on this device')}
-            </button>
-            <button type="button" css={buttons.primary} onClick={grant}>
-              {t('Sync across devices')}
+            <button type="button" css={buttons.primary} onClick={close}>
+              {t('Get started')}
             </button>
           </div>
         </>

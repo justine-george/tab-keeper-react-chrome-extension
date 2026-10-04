@@ -23,12 +23,15 @@ const welcome = (page: Page) =>
 async function welcomeThenOffer(
   context: BrowserContext,
   extensionId: string,
-  answer = 'Keep on this device'
+  leave: 'Get started' | 'Escape' = 'Get started'
 ): Promise<Page> {
   const page = await openPopup(context, extensionId);
-  await welcome(page)
-    .getByRole('button', { name: answer, exact: true })
-    .click();
+  await expect(welcome(page)).toBeVisible();
+  if (leave === 'Escape') await page.keyboard.press('Escape');
+  else
+    await welcome(page)
+      .getByRole('button', { name: leave, exact: true })
+      .click();
   await expect(offer(page)).toBeVisible();
   return page;
 }
@@ -36,7 +39,7 @@ async function welcomeThenOffer(
 test.describe('on a new install', () => {
   test.use({ freshProfile: true });
 
-  test('Keep on this device is followed by the offer, which opens unlit', async ({
+  test('Get started is followed by the offer, which opens unlit', async ({
     context,
     extensionId,
   }) => {
@@ -49,11 +52,37 @@ test.describe('on a new install', () => {
     expect((await storedSettings(page)).setupState).toBe('pending');
   });
 
-  test('Sync across devices is followed by the offer too', async ({
+  test('Esc on the welcome is followed by the offer too', async ({
     context,
     extensionId,
   }) => {
-    await welcomeThenOffer(context, extensionId, 'Sync across devices');
+    await welcomeThenOffer(context, extensionId, 'Escape');
+  });
+
+  // KAN-410. Closing the popup on the welcome used to leave the cloud question
+  // unanswered, so the next open took this new install for an existing user.
+  test('a popup closed on the welcome opens next as a new install: local-only, offered the full view', async ({
+    context,
+    extensionId,
+  }) => {
+    const first = await openPopup(context, extensionId);
+    await expect(welcome(first)).toBeVisible();
+    await first.close();
+
+    const again = await openPopup(context, extensionId);
+    await expect(offer(again)).toBeVisible();
+    await expect(
+      again.getByRole('dialog', {
+        name: 'Your sessions are currently synced',
+        exact: true,
+      })
+    ).toHaveCount(0);
+    await expect(welcome(again)).toHaveCount(0);
+    expect(await storedSettings(again)).toMatchObject({
+      cloudConsent: 'declined',
+      isAutoSync: false,
+      setupState: 'pending',
+    });
   });
 
   test('Open full view opens it, and the offer never comes back', async ({
@@ -125,15 +154,16 @@ test('an existing user’s cloud question is not followed by the offer', async (
 });
 
 for (const [theme, palette] of THEMES) {
-  test(`${theme}: the offer reads at 4.5:1`, async ({
+  test(`${theme}: the welcome and the offer read at 4.5:1`, async ({
     context,
     extensionId,
   }) => {
     await seedSettings(context, { cloudConsent: '', theme });
     const page = await openPopup(context, extensionId);
     expect(await pageGround(page)).toBe(palette.PRIMARY_COLOR);
+    await expectReadable(welcome(page), `${theme} Welcome`);
     await welcome(page)
-      .getByRole('button', { name: 'Keep on this device', exact: true })
+      .getByRole('button', { name: 'Get started', exact: true })
       .click();
     await expectReadable(offer(page), `${theme} Try the full view`);
   });

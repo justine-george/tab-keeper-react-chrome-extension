@@ -179,12 +179,6 @@
   "No shortcut is set to open Tab Keeper.": "尚未設定開啟 Tab Keeper 的快速鍵。",
   "Change or remove shortcut": "變更或移除快速鍵",
   "Welcome to Tab Keeper": "歡迎使用 Tab Keeper",
-  "WelcomeSave": "將開啟的視窗和分頁儲存為工作階段，之後隨時重新開啟。",
-  "WelcomeStays": "除非你選擇同步，否則工作階段只會保留在這部裝置上。",
-  "WelcomeSync": "同步功能會以匿名 ID 在雲端保存一份工作階段副本（分頁的網址和標題），讓你的其他 Chrome 裝置也能開啟。不需要帳戶，也不需要電子郵件。",
-  "Change either later in Settings → Sync & Backup.": "這兩項都可以稍後在「設定 → 同步與備份」中變更。",
-  "Keep on this device": "只保留在這部裝置上",
-  "Sync across devices": "在各裝置間同步",
   "Your sessions are currently synced": "你的工作階段目前處於同步狀態",
   "ExistingSyncBody": "Tab Keeper 會同步你儲存的工作階段，讓你在其他 Chrome 裝置上也能開啟。同步的工作階段包含分頁的網址和標題，並以隨機 ID 儲存，不會使用你的姓名或電子郵件。",
   "Would you like to keep sync on for this device?": "要讓這部裝置繼續保持同步嗎？",
@@ -273,5 +267,7 @@
   "No shortcut is set.": "尚未設定快速鍵。",
   "Set a shortcut": "設定快速鍵",
   "See your sessions and open tabs side by side.": "並排查看工作階段和開啟的分頁。",
-  "Try it": "試試看"
+  "Try it": "試試看",
+  "Manage your open windows and tabs, and save them to bring back any time.": "管理開啟的視窗和分頁，並儲存下來，隨時重新開啟。",
+  "Get started": "開始使用"
 }

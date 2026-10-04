@@ -192,15 +192,13 @@ const RATE_DUE = {
 };
 
 describe('Try the full view in the order (KAN-7 §3)', () => {
-  test('the welcome closing offers the full view, and marks setup pending', async () => {
+  test('the welcome closing offers the full view, setup already pending', async () => {
     const { store } = await renderWithProviders(<App />);
     await waitFor(() =>
       expect(store.getState().globalState.isCloudConsentModalOpen).toBe(true)
     );
 
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Keep on this device' })
-    );
+    await userEvent.click(screen.getByRole('button', { name: 'Get started' }));
 
     expect(store.getState().globalState.isFullViewOfferOpen).toBe(true);
     expect(store.getState().settingsDataState.setupState).toBe('pending');
@@ -335,9 +333,7 @@ describe('the pin guide in the order (KAN-7 §4)', () => {
     await waitFor(() =>
       expect(store.getState().globalState.isCloudConsentModalOpen).toBe(true)
     );
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Keep on this device' })
-    );
+    await userEvent.click(screen.getByRole('button', { name: 'Get started' }));
 
     await waitFor(() =>
       expect(store.getState().globalState.isPinGuideOpen).toBe(true)
@@ -415,9 +411,7 @@ describe('setup in the order (KAN-7 §5)', () => {
       expect(store.getState().globalState.isCloudConsentModalOpen).toBe(true)
     );
 
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Keep on this device' })
-    );
+    await userEvent.click(screen.getByRole('button', { name: 'Get started' }));
 
     await waitFor(() =>
       expect(store.getState().globalState.isSetupOpen).toBe(true)

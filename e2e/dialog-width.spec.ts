@@ -71,11 +71,8 @@ test.describe('confirm dialogs stay capped at the popup width (KAN-301)', () => 
   test.use({ freshProfile: true });
 
   // Three separate tests, each its own fresh profile (the `context` fixture
-  // mints a new one per test): opening a second page in the SAME profile
-  // after the first has mounted stamps extensionInstalledTime, which flips
-  // the dialog to the 'existing' wording (askForCloudConsent, App.tsx) --
-  // measured hitting this while drafting the spec as one page's mount
-  // changing what the NEXT page in the same profile sees.
+  // mints a new one per test): the welcome records its answer as it opens
+  // (KAN-410), so a second page in the SAME profile is not welcomed again.
   test('is 616±1px and centred in the popup (CONTROL)', async ({
     context,
     extensionId,
