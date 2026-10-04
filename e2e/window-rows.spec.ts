@@ -734,6 +734,18 @@ const storedGroupTitle = async (page: Page, groupId: string) =>
     .flatMap((w) => w.chromeTabGroups ?? [])
     .find((g) => g.groupId === groupId)?.title;
 
+// Open overflow menus every 50ms for `ms`, polled in the page.
+const menuCountsOver = (page: Page, ms: number) =>
+  page.evaluate(async (ms) => {
+    const seen: number[] = [];
+    const end = Date.now() + ms;
+    while (Date.now() < end) {
+      seen.push(document.querySelectorAll('[role="menu"]').length);
+      await new Promise((done) => setTimeout(done, 50));
+    }
+    return seen;
+  }, ms);
+
 // Chrome's tab count every 100ms for `ms`, polled in the service worker.
 const tabCountsOver = (worker: Worker, ms: number) =>
   worker.evaluate(async (ms) => {
@@ -844,6 +856,48 @@ for (const view of VIEWS) {
         await groupEditor(page, 'gr').press('Enter');
         expect((await control).length).toBeGreaterThan(1);
         expect(await storedGroupTitle(page, 'gr')).toBe('This one');
+      }
+    );
+
+    // The tick sits where the strip's ⋮ sits once the strip returns.
+    grantedTest(
+      'the tick commits, and its click opens, deletes and menus nothing',
+      async ({ context, extensionId, serviceWorker }) => {
+        const page = await openGrouped(context, extensionId, view);
+        const before = await serviceWorker.evaluate(
+          async () => (await chrome.tabs.query({})).length
+        );
+
+        await groupTitle(page, 'gr', 'Research').click();
+        await groupEditor(page, 'gr').fill('Ticked');
+        const tick = bandHandle(page, 'gr').getByRole('button', {
+          name: 'Save changes',
+          exact: true,
+        });
+        const b = await boxOf(tick);
+        const tabs = tabCountsOver(serviceWorker, 1000);
+        const menus = menuCountsOver(page, 1000);
+        await page.mouse.click(b.x + b.width / 2, b.y + b.height / 2);
+
+        expect(new Set(await tabs)).toEqual(new Set([before]));
+        expect(new Set(await menus)).toEqual(new Set([0]));
+        await expect.poll(() => storedGroupTitle(page, 'gr')).toBe('Ticked');
+        await expect(groupEditor(page, 'gr')).toHaveCount(0);
+        expect(await chromeGroups(serviceWorker)).toEqual([]);
+        expect(
+          (await stored(page)).tabGroups
+            .flatMap((g) => g.windows)
+            .flatMap((w) => w.chromeTabGroups ?? [])
+            .map((g) => g.groupId)
+        ).toEqual(['gr', 'gu']);
+
+        // CONTROL: the same sampler sees the strip's ⋮ open a menu.
+        await bandHandle(page, 'gr').hover();
+        const control = menuCountsOver(page, 1000);
+        await bandHandle(page, 'gr')
+          .getByRole('button', { name: 'More actions' })
+          .click();
+        expect(await control).toContain(1);
       }
     );
 
