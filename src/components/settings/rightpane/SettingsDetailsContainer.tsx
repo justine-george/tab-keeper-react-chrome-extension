@@ -12,6 +12,7 @@ import { themeChoices } from './themeChoices';
 import { NormalLabel } from '../../common/Label';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { AppDispatch, RootState } from '../../../redux/store';
+import { chooseLanguage } from '../../../redux/languageChoice';
 import {
   loadSessionsFromBackup,
   showToast,
@@ -19,7 +20,6 @@ import {
   openCloudConsentModal,
 } from '../../../redux/slices/globalStateSlice';
 import {
-  setLanguage,
   setTheme,
   setUserRatedAndReviewed,
   toggleAutoSync,
@@ -828,8 +828,7 @@ const SettingsDetailsContainer: React.FC = () => {
                   text={endonym}
                   ariaPressed={isActive}
                   onClick={() => {
-                    i18n.changeLanguage(language);
-                    dispatch(setLanguage(language));
+                    dispatch(chooseLanguage(language, i18n));
                   }}
                   // The current one wears the KAN-95 marker as the theme
                   // swatch's tile does: the frame thickened to 2px in
