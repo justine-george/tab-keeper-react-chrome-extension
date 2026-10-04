@@ -14,13 +14,16 @@ import {
   answerFullViewOffer,
   asSetupState,
   beginSetup,
+  clearSampleTour,
   dismissPinGuide,
   finishSetup,
   guardOnboarding,
   markFullViewCalloutSeen,
   markFullViewOpened,
   ONBOARDING_DEFAULTS,
+  recordSampleTour,
   setDefaultView,
+  setSampleTourStep,
   settingsDataStateSlice,
   type SettingsData,
 } from '../../redux/slices/settingsDataStateSlice';
@@ -45,6 +48,7 @@ const GARBAGE = {
   hasOpenedFullView: 'true',
   isFullViewCalloutSeen: {},
   defaultView: 'tab',
+  sampleTour: { sampleId: 'abc', step: 9, view: 'tab' },
 };
 
 const ALL_SET = {
@@ -54,6 +58,7 @@ const ALL_SET = {
   hasOpenedFullView: true,
   isFullViewCalloutSeen: true,
   defaultView: 'full',
+  sampleTour: { sampleId: 'sample:a', step: 3, view: 'full' },
 } as const;
 
 const ONBOARDING_KEYS: string[] = Object.keys(ONBOARDING_DEFAULTS);
@@ -243,5 +248,69 @@ describe('applyOtherPageSettings carries the onboarding fields (KAN-279 D9)', ()
     store.dispatch(applyOtherPageSettings());
 
     expect(store.getState().settingsDataState).toMatchObject(ALL_SET);
+  });
+});
+
+describe('the sample tour record (KAN-413)', () => {
+  const TOUR = { sampleId: 'sample:a', step: 1, view: 'popup' } as const;
+  const reduce = (actions: UnknownAction[]) =>
+    actions.reduce(
+      (state, action) => settingsDataStateSlice.reducer(state, action),
+      settingsDataStateSlice.getInitialState()
+    );
+
+  it('recordSampleTour records and saves it, replacing any other', () => {
+    const state = reduce([
+      recordSampleTour({ ...TOUR, sampleId: 'sample:old' }),
+      recordSampleTour(TOUR),
+    ]);
+    expect(state.sampleTour).toEqual(TOUR);
+    expect(saved()).toMatchObject({ sampleTour: TOUR });
+  });
+
+  it('setSampleTourStep moves the recorded tour on and saves it', () => {
+    expect(
+      reduce([recordSampleTour(TOUR), setSampleTourStep(2)]).sampleTour
+    ).toEqual({ ...TOUR, step: 2 });
+    expect(saved()).toMatchObject({ sampleTour: { step: 2 } });
+  });
+
+  // Next and the step's own action can land together: they move it once.
+  it('a step that is not ahead changes nothing', () => {
+    expect(
+      reduce([
+        recordSampleTour(TOUR),
+        setSampleTourStep(3),
+        setSampleTourStep(3),
+        setSampleTourStep(2),
+      ]).sampleTour?.step
+    ).toBe(3);
+  });
+
+  it('with no tour recorded, a step records nothing', () => {
+    expect(reduce([setSampleTourStep(2)]).sampleTour).toBeNull();
+  });
+
+  it('clearSampleTour clears and saves', () => {
+    expect(
+      reduce([recordSampleTour(TOUR), clearSampleTour()]).sampleTour
+    ).toBeNull();
+    expect(saved()).toMatchObject({ sampleTour: null });
+  });
+
+  it('a write from an older page keeps this page’s tour', () => {
+    const { store } = makeTestStore();
+    store.dispatch(recordSampleTour(TOUR));
+    const older = Object.fromEntries(
+      Object.entries(store.getState().settingsDataState).filter(
+        ([key]) => key !== 'sampleTour'
+      )
+    );
+    localStorage.setItem(
+      'settingsData',
+      JSON.stringify({ ...older, lastSyncedTime: Date.now() })
+    );
+    store.dispatch(applyOtherPageSettings());
+    expect(store.getState().settingsDataState.sampleTour).toEqual(TOUR);
   });
 });
