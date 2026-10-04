@@ -152,6 +152,27 @@ test.describe('the full-view callout (KAN-7 §6)', () => {
     expect(await calloutSeen(page)).toEqual([]);
   });
 
+  test('an Esc that closes a modal dialog leaves the callout open and unseen', async ({
+    context,
+    extensionId,
+  }) => {
+    await sessionHolder(context, { cloudConsent: 'declined' });
+    const page = await openPopup(context, extensionId);
+    await expect(callout(page)).toBeVisible();
+
+    await page.getByRole('button', { name: 'Sync now', exact: true }).click();
+    const consent = page.getByRole('dialog', {
+      name: 'Sync your sessions across devices?',
+      exact: true,
+    });
+    await expect(consent).toBeVisible();
+
+    await page.keyboard.press('Escape');
+    await expect(consent).toHaveCount(0);
+    await expect(callout(page)).toBeVisible();
+    expect((await storedSettings(page)).isFullViewCalloutSeen).toBe(false);
+  });
+
   test('CONTROL: the same observer sees it on a quiet open', async ({
     context,
     extensionId,

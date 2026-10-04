@@ -2,6 +2,7 @@ import { useEffect, useId } from 'react';
 import { useTranslation } from 'react-i18next';
 import { css } from '@emotion/react';
 
+import { isDragHeld } from '../../../redux/dragHold';
 import Icon from '../../common/Icon';
 import { dialogButtonStyles } from '../../modals/dialogButtons';
 import { useThemeColors } from '../../../hooks/useThemeColors';
@@ -28,10 +29,13 @@ export default function FullViewCallout({
   const buttons = dialogButtonStyles(COLORS);
 
   // D7. Esc closes it, unless a field already used the key; a consumed Esc is
-  // prevented, or Chrome closes the popup (KAN-403).
+  // prevented, or Chrome closes the popup (KAN-403). This hears Esc before a
+  // modal dialog's cancel or a drag's own listener, so it stands aside for both.
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Escape' || event.defaultPrevented) return;
+      if (isDragHeld() || document.querySelector('dialog:modal') !== null)
+        return;
       event.preventDefault();
       onDismiss();
     };

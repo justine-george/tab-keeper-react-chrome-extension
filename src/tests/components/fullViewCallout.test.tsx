@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from 'vitest';
+import { afterEach, describe, expect, test, vi } from 'vitest';
 import {
   act,
   fireEvent,
@@ -10,6 +10,7 @@ import {
 import MenuContainer from '../../components/home/leftpane/MenuContainer';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { openFullViewCallout } from '../../redux/slices/globalStateSlice';
+import { beginDragHold, endDragHold } from '../../redux/dragHold';
 import { OPEN_IN_TAB_MESSAGE } from '../../utils/functions/popOut';
 
 // KAN-7 §6. Under ⤢ in the popup, once; Try it, ✕, Esc or ⤢ mark it seen.
@@ -25,7 +26,10 @@ const render = (open = true) =>
 const callout = () => screen.queryByRole('dialog', { name: TEXT });
 const openCallout = () => screen.getByRole('dialog', { name: TEXT });
 
-afterEach(() => localStorage.clear());
+afterEach(() => {
+  endDragHold();
+  localStorage.clear();
+});
 
 describe('the full-view callout', () => {
   test('appearing leaves the focus where it was', async () => {
@@ -108,6 +112,45 @@ describe('the full-view callout', () => {
     act(() => {
       document.dispatchEvent(event);
     });
+    expect(event.defaultPrevented).toBe(false);
+  });
+
+  test('an Esc that cancels a live drag leaves it open and untouched', async () => {
+    await render();
+    beginDragHold();
+    const event = new KeyboardEvent('keydown', {
+      key: 'Escape',
+      bubbles: true,
+      cancelable: true,
+    });
+    act(() => {
+      document.dispatchEvent(event);
+    });
+    expect(callout()).toBeInTheDocument();
+    expect(event.defaultPrevented).toBe(false);
+  });
+
+  test('an Esc a modal dialog is about to cancel leaves it open and untouched', async () => {
+    await render();
+    const modal = document.createElement('dialog');
+    document.body.append(modal);
+    // jsdom has no showModal; it is what makes the dialog match :modal.
+    const matches = vi
+      .spyOn(document, 'querySelector')
+      .mockImplementation((selector: string) =>
+        selector === 'dialog:modal' ? modal : null
+      );
+    const event = new KeyboardEvent('keydown', {
+      key: 'Escape',
+      bubbles: true,
+      cancelable: true,
+    });
+    act(() => {
+      document.dispatchEvent(event);
+    });
+    matches.mockRestore();
+    modal.remove();
+    expect(callout()).toBeInTheDocument();
     expect(event.defaultPrevented).toBe(false);
   });
 
