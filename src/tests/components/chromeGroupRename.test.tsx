@@ -354,11 +354,7 @@ describe('finishing a group rename', () => {
   });
 });
 
-// Pins preventDefault specifically. The wrapper alone is what stops the editor
-// reopening -- measured by removing each in turn -- so the behavioural tests
-// above pass with or without preventDefault. Its job is different: keeping
-// focus in the input means onClick is the single commit path instead of racing
-// a blur. Asserted at the mechanism, because that is the only place it shows.
+// Pins preventDefault: focus stays in the input, so onClick is the one commit path, not a race with blur.
 describe('the confirm tick does not blur the field it commits', () => {
   test.each([['group', 'Rename group: Research']])(
     '%s tick prevents the default mousedown',

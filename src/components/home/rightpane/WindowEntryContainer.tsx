@@ -254,8 +254,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
          pointer is. Focus is in the INPUT while editing, which is outside this
          block, so neither isParentHovered nor :focus-within below ever fires
          and the tick was invisible unless the pointer happened to be over the
-         row. The group editor avoids this by keying its reveal off the strip
-         that CONTAINS its input. */
+         row. */
       opacity: ${isParentHovered || isEditing ? 1 : 0};
       transition: opacity ${DURATION.COLOR} ease-out;
     }
@@ -1125,8 +1124,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                         &:focus-within {
                           background-color: ${COLORS.HOVER_COLOR};
                         }
-                        /* The window row's mask (D10): it lands in one frame
-                         with the fill; only the controls ease (KAN-100). */
+                        /* The mask lands with the fill; only the controls ease (D10, KAN-100). */
                         &:hover .group-actions,
                         &:focus-within .group-actions {
                           background-color: ${COLORS.HOVER_COLOR};
@@ -1193,8 +1191,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                       ) : (
                         // WCAG 2.5.3, same shape as KAN-77: the accessible name
                         // CONTAINS the visible one, so "click Research" works.
-                        // Searching or not, as the window title (R7). No room is
-                        // reserved for the strip: it masks the title's end (D10).
+                        // Renames searching or not (R7); the strip masks the title's end, no room reserved (D10).
                         <ClickableRow
                           ariaLabel={renameGroupLabel(item.group)}
                           onClick={() => startEditingGroup(item.group)}
@@ -1213,8 +1210,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                         </ClickableRow>
                       )}
                       {editingGroupId === item.group.groupId && (
-                        // Same shape as the other two ticks: preventDefault keeps
-                        // focus in the input so onClick is the single commit path.
+                        // preventDefault keeps focus in the input, so onClick is the one commit path.
                         <span
                           data-row-actions
                           css={css`
@@ -1272,8 +1268,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                               : 1};
                           `}
                         >
-                          {/* Hidden while searching, as every whole-item
-                              action is (R7). */}
+                          {/* Hidden while searching, like every whole-item action (R7). */}
                           {!isSearching && (
                             <RowOpenButton
                               ariaLabel={openGroupLabel(item.group)}

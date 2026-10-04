@@ -63,8 +63,7 @@ export const savedWindow = (
   })),
 });
 
-// A window of one Chrome group per entry, `perGroup` tabs each: `${groupId}-t<i>`,
-// titled `Page ${groupId}.<i>`, at https://<groupId>-<i>.test/. Needs grantedTest.
+// One Chrome group per entry, `perGroup` tabs `${groupId}-t<i>` titled `Page ${groupId}.<i>` at https://<groupId>-<i>.test/ (needs grantedTest).
 export const groupedWindow = (
   id: string,
   title: string,

@@ -2415,8 +2415,7 @@ test.describe('a carried tab or group lands in a slot as wide as the row it beco
 // inside a row that is not the held one, whose background is the theme's
 // hover colour. Compared with the colour itself, not "any background": a band
 // lit as a drop target is another colour, and meant. Also any group's action
-// strip revealed (the strip shown, and its controls), which the same hover
-// rule shows (KAN-100).
+// strip revealed (KAN-100).
 const paintedHover = (page: Page, hoverHex: string) =>
   page.evaluate((hoverHex) => {
     const probe = document.createElement('div');
