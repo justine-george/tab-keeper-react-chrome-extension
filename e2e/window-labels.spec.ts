@@ -202,6 +202,8 @@ const detailPane = (page: Page) =>
       top: b.top,
       bottom: b.bottom,
       scrollTop: el.scrollTop,
+      scrollHeight: el.scrollHeight,
+      clientHeight: el.clientHeight,
     };
   });
 
@@ -260,9 +262,10 @@ for (const view of VIEWS) {
       const pane = await detailPane(page);
       const aimY = w1.y + w1.height / 4;
       await page.mouse.move(from.x, aimY, { steps: 12 });
-      // The aim is in the top band, but this pane has nothing to scroll.
-      expect(aimY - pane.top).toBeLessThan(AUTO_SCROLL_BAND);
-      expect((await detailPane(page)).scrollTop).toBe(pane.scrollTop);
+      // The aim may be in the top band, so the premise is a pane that cannot scroll.
+      const atAim = await detailPane(page);
+      expect(atAim.scrollHeight).toBeLessThanOrEqual(atAim.clientHeight);
+      expect(atAim.scrollTop).toBe(pane.scrollTop);
       await page.mouse.up();
 
       await expect

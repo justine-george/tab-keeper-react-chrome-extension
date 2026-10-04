@@ -73,7 +73,7 @@ const GROUP_TITLE_SIZE = '0.85rem';
 
 interface WindowEntryContainerProps {
   title: string;
-  // Its position among the windows drawn (D1), for an unnamed window's label.
+  // Its place in the session, as TabGroupDetailsContainer numbers it (D1).
   number: number;
   tabs: tabData[];
   chromeTabGroups?: chromeTabGroupData[];
