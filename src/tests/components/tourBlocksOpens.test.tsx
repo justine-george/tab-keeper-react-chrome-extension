@@ -136,7 +136,7 @@ describe('opens on the tour’s sample', () => {
     expect(r.chrome.createdTabs.map((t) => t.url)).toEqual(['https://a.co']);
   });
 
-  test('the saved list row’s Open and Switch take the reason as their name, are dimmed and open nothing; after the tour they open', async () => {
+  test('the saved list row’s Open and Switch keep their names, say why as the description, are dimmed and open nothing; after the tour they open', async () => {
     const onOpenAllClick = vi.fn();
     const onFocusClick = vi.fn();
     const r = await renderWithProviders(
@@ -149,10 +149,13 @@ describe('opens on the tour’s sample', () => {
       />,
       { seedStore: tourHere }
     );
-    const blocked = screen.getAllByRole('button', { name: OPEN_BLOCKED });
-    expect(blocked).toHaveLength(2);
+    const blocked = ['Open', 'Switch'].map((name) =>
+      screen.getByRole('button', { name })
+    );
+    expect(screen.queryAllByRole('button', { name: OPEN_BLOCKED })).toEqual([]);
     for (const button of blocked) {
       expect(button).toHaveAttribute('aria-disabled', 'true');
+      expect(button).toHaveAccessibleDescription(OPEN_BLOCKED);
       expect(button).toHaveAttribute('title', OPEN_BLOCKED);
       // A filter, not opacity: the row's own reveal sets these icons' opacity.
       expect(classRulesFor(button)).toMatch(/filter:\s*opacity\(0\.3\)/);
@@ -162,10 +165,10 @@ describe('opens on the tour’s sample', () => {
     expect(onFocusClick).not.toHaveBeenCalled();
 
     endTour(r);
-    expect(screen.queryAllByRole('button', { name: OPEN_BLOCKED })).toEqual([]);
     for (const name of ['Open', 'Switch']) {
       const button = screen.getByRole('button', { name });
       expect(button).not.toHaveAttribute('aria-disabled');
+      expect(button).not.toHaveAttribute('title', OPEN_BLOCKED);
       expect(classRulesFor(button)).not.toMatch(/filter:\s*opacity/);
       fireEvent.click(button);
     }

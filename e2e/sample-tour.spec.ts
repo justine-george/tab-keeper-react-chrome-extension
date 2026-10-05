@@ -289,16 +289,16 @@ for (const view of TOUR_VIEWS) {
       await expect(open).toHaveCSS('opacity', '0.3');
       // The saved list row's Open, and Switch where drawn; by key, as the popup's mark sits over the list.
       const sessions = page.locator('[data-pane="sessions"]');
-      const rowOpens = sessions.getByRole('button', {
-        name: OPEN_BLOCKED,
-        exact: true,
-      });
+      const rowOpens = sessions
+        .getByRole('button', { name: 'Open', exact: true })
+        .or(sessions.getByRole('button', { name: 'Switch', exact: true }));
       await expect(rowOpens).toHaveCount(view.view === 'popup' ? 2 : 1);
       await watchFocusConfirm(page);
       const rowBefore = await tabCount(serviceWorker);
       const rowDuring = tabCountsOver(serviceWorker, 1000);
       for (const button of await rowOpens.all()) {
         await expect(button).toHaveAttribute('aria-disabled', 'true');
+        await expect(button).toHaveAttribute('title', OPEN_BLOCKED);
         await expect(button).toHaveCSS('filter', 'opacity(0.3)');
         await button.focus();
         await button.press('Enter');
@@ -330,12 +330,12 @@ for (const view of TOUR_VIEWS) {
       await tab.click();
       expect(Math.max(...(await after))).toBe(before + 1);
 
-      await expect(rowOpens).toHaveCount(0);
       const rowOpen = sessions.getByRole('button', {
         name: 'Open',
         exact: true,
       });
       await expect(rowOpen).toHaveCSS('filter', 'none');
+      await expect(rowOpen).not.toHaveAttribute('title', OPEN_BLOCKED);
       const openedFrom = await tabCount(serviceWorker);
       const opened = tabCountsOver(serviceWorker, 1500);
       await rowOpen.focus();

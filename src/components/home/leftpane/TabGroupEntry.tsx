@@ -447,7 +447,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
           <Icon
             tooltipText={openBlockedBecause ?? t('Open session')}
             text={t('Open')}
-            ariaLabel={openBlockedBecause ?? t('Open')}
+            ariaLabel={t('Open')}
             type="reopen_window"
             disable={isOpenBlocked}
             onClick={(e) => {
@@ -462,7 +462,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
             <Icon
               tooltipText={openBlockedBecause ?? t('Switch to session')}
               text={t('Switch')}
-              ariaLabel={openBlockedBecause ?? t('Switch')}
+              ariaLabel={t('Switch')}
               type="filter_center_focus"
               disable={isOpenBlocked}
               onClick={(e) => {
