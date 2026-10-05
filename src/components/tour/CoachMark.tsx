@@ -31,7 +31,12 @@ interface CoachMarkProps {
   boxOf?: AnchorBox;
   spotlight?: Spotlight;
   width: number;
-  place: (anchor: Box, mark: Size, viewport: Size) => CoachPlacement;
+  place: (
+    anchor: Box,
+    mark: Size,
+    viewport: Size,
+    bright: Box
+  ) => CoachPlacement;
   onNext: () => void;
   onEnd: () => void;
 }

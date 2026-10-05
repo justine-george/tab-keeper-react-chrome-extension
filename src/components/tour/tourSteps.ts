@@ -32,12 +32,12 @@ export const TOUR_SPOTLIGHT: Partial<Record<TourStep, Spotlight>> = {
   4: { anchors: TOUR_ANCHORS[1], boxOf: rowsBox },
 };
 
-// Full view, as mocked: beside steps 1 and 5, below steps 2 to 4; the first that fits.
+// Full view: beside steps 1 and 5, below steps 2 to 4; step 4 falls back to the list side, never over its lit windows.
 export const TOUR_SIDES: Record<TourStep, readonly CoachSide[]> = {
   1: ['right', 'left', 'below'],
   2: ['below', 'right', 'left'],
   3: ['below', 'right', 'left'],
-  4: ['below', 'right', 'left'],
+  4: ['below', 'left', 'right'],
   5: ['right', 'left', 'below'],
 };
 

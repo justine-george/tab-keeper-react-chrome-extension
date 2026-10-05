@@ -2,7 +2,7 @@ import type { BrowserContext, Locator, Page } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
 import { buildContainer, buildSession, seedSessions } from './fixtures/seed';
-import { openPage, pageGround } from './fixtures/onboarding';
+import { FULL_VIEW_PATH, openPage, pageGround } from './fixtures/onboarding';
 import { pixelsAt, rgbToHex } from './fixtures/pixels';
 import { boxOf } from './fixtures/savedWindows';
 import {
@@ -494,5 +494,65 @@ for (const view of TOUR_VIEWS) {
         true
       );
     });
+  });
+}
+
+// KAN-427. Full view, step 4: the card never covers the lit windows, below them or else beside.
+const STEP_4_SIZES = [
+  { name: '1280x800, 16px root', height: 800, root: 16, side: 'below' },
+  { name: '1280x560, 20px root', height: 560, root: 20, side: 'left' },
+] as const;
+for (const size of STEP_4_SIZES) {
+  test(`full view step 4, ${size.name}: the card is clear of the dim’s hole, on the ${size.side}`, async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPage(context, extensionId, FULL_VIEW_PATH, {
+      width: 1280,
+      height: size.height,
+    });
+    await page.evaluate((px) => {
+      document.documentElement.style.fontSize = `${px}px`;
+    }, size.root);
+    await expect
+      .poll(() =>
+        page.evaluate(() => getComputedStyle(document.documentElement).fontSize)
+      )
+      .toBe(`${size.root}px`);
+    await page
+      .getByRole('button', { name: 'Try it with an example', exact: true })
+      .click();
+    await expect(coachAt(page, 1)).toBeVisible();
+    for (const step of [2, 3, 4]) await nextTo(page, step);
+    const cardRect = () =>
+      coachAt(page, 4).evaluate((el) => {
+        const r = el.getBoundingClientRect();
+        return {
+          left: r.left,
+          top: r.top,
+          right: r.right,
+          bottom: r.bottom,
+          side: el.getAttribute('data-coach-side'),
+        };
+      });
+    // Settled: the hole is the windows' rows and the card has taken its side.
+    await expect
+      .poll(async () =>
+        sameRect(await brightBox(page), (await measured(page)).rows)
+      )
+      .toBe(true);
+    await expect.poll(async () => (await cardRect()).side).toBe(size.side);
+    const hole = await brightBox(page);
+    const card = await cardRect();
+    if (hole === null) throw new Error('no hole');
+    // CONTROL: the hole is a real box, so a card on it would intersect.
+    expect(hole.right - hole.left).toBeGreaterThan(0);
+    expect(hole.bottom - hole.top).toBeGreaterThan(0);
+    const intersects =
+      card.left < hole.right &&
+      card.right > hole.left &&
+      card.top < hole.bottom &&
+      card.bottom > hole.top;
+    expect(intersects).toBe(false);
   });
 }

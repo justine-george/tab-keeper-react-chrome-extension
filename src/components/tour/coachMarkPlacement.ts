@@ -48,18 +48,19 @@ const aimX = (anchor: Box): number =>
   anchor.left + Math.min(anchor.width / 2, COACH.BELOW_AIM);
 const aimY = (anchor: Box): number => anchor.top + anchor.height / 2;
 
-function unclamped(side: CoachSide, anchor: Box, mark: Size) {
+// The mark clears `bright`; its notch still aims at `anchor`.
+function unclamped(side: CoachSide, anchor: Box, mark: Size, bright: Box) {
   if (side === 'below') {
     return {
       left: aimX(anchor) - COACH.NOTCH_INSET,
-      top: anchor.top + anchor.height + COACH.GAP_BELOW,
+      top: bright.top + bright.height + COACH.GAP_BELOW,
     };
   }
   const left =
     side === 'right'
-      ? anchor.left + anchor.width + COACH.GAP_SIDE
-      : anchor.left - COACH.GAP_SIDE - mark.width;
-  return { left, top: aimY(anchor) - mark.height / 2 };
+      ? bright.left + bright.width + COACH.GAP_SIDE
+      : bright.left - COACH.GAP_SIDE - mark.width;
+  return { left, top: aimY(bright) - mark.height / 2 };
 }
 
 function settle(
@@ -99,17 +100,24 @@ export function placeBeside(
   anchor: Box,
   mark: Size,
   viewport: Size,
-  sides: readonly CoachSide[]
+  sides: readonly CoachSide[],
+  bright: Box = anchor
 ): CoachPlacement {
   const fits = (side: CoachSide): boolean => {
-    const raw = unclamped(side, anchor, mark);
+    const raw = unclamped(side, anchor, mark, bright);
     return side === 'below'
       ? raw.top + mark.height <= viewport.height - COACH.GUTTER
       : raw.left >= COACH.GUTTER &&
           raw.left + mark.width <= viewport.width - COACH.GUTTER;
   };
   const side = sides.find(fits) ?? sides[0] ?? 'below';
-  return settle(side, unclamped(side, anchor, mark), anchor, mark, viewport);
+  return settle(
+    side,
+    unclamped(side, anchor, mark, bright),
+    anchor,
+    mark,
+    viewport
+  );
 }
 
 // Popup: always in the left pane, 40px in, the notch pointing right at the anchor.

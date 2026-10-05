@@ -21,6 +21,7 @@ const POPUP_MARK = { width: 290, height: 140 };
 const FULL_MARK = { width: 300, height: 150 };
 const STEP_1 = ['right', 'left', 'below'] as const;
 const STEP_2 = ['below', 'right', 'left'] as const;
+const STEP_4 = ['below', 'left', 'right'] as const;
 
 const overlaps = (anchor: Box, mark: Size, p: CoachPlacement) =>
   p.left < anchor.left + anchor.width &&
@@ -166,6 +167,31 @@ describe('placeBeside', () => {
         placeBeside(anchor, FULL_MARK, FULL_VIEW, sides)
       )
     ).toBe(false);
+  });
+});
+
+describe('placeBeside with a bright box larger than the anchor', () => {
+  const tab = { left: 432, top: 152, width: 398, height: 40 };
+  const lit = { left: 432, top: 152, width: 398, height: 210 };
+  const tall = { width: 1280, height: 450 };
+
+  test('below is measured from the bright box’s bottom, the notch still aims at the anchor', () => {
+    const p = placeBeside(tab, FULL_MARK, FULL_VIEW, STEP_4, lit);
+    expect(p).toEqual({ side: 'below', left: 454, top: 376, notch: 24 });
+    expect(overlaps(lit, FULL_MARK, p)).toBe(false);
+  });
+
+  test('too low for below, it goes left of the bright box, the notch clamped to the mark', () => {
+    const p = placeBeside(tab, FULL_MARK, tall, STEP_4, lit);
+    expect(p).toEqual({ side: 'left', left: 104, top: 182, notch: 14 });
+    expect(overlaps(lit, FULL_MARK, p)).toBe(false);
+  });
+
+  test('no room on the left either, it goes right of the bright box', () => {
+    const edge = { ...lit, left: 60 };
+    const p = placeBeside({ ...tab, left: 60 }, FULL_MARK, tall, STEP_4, edge);
+    expect(p).toEqual({ side: 'right', left: 486, top: 182, notch: 14 });
+    expect(overlaps(edge, FULL_MARK, p)).toBe(false);
   });
 });
 

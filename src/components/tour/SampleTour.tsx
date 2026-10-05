@@ -105,8 +105,8 @@ export default function SampleTour() {
   const isFull = isTabView();
   const sides = TOUR_SIDES[tour.step];
   const place = isFull
-    ? (anchor: Box, mark: Size, viewport: Size) =>
-        placeBeside(anchor, mark, viewport, sides)
+    ? (anchor: Box, mark: Size, viewport: Size, bright: Box) =>
+        placeBeside(anchor, mark, viewport, sides, bright)
     : placeInPopupPane;
 
   return (

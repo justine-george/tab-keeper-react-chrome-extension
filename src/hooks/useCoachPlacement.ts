@@ -19,7 +19,12 @@ import {
   type Spotlight,
 } from '../components/tour/anchorBox';
 
-type Place = (anchor: Box, mark: Size, viewport: Size) => CoachPlacement;
+type Place = (
+  anchor: Box,
+  mark: Size,
+  viewport: Size,
+  bright: Box
+) => CoachPlacement;
 
 // The first anchor drawn with a box; one folded away or not rendered is skipped.
 function firstAnchor(
@@ -71,15 +76,17 @@ export function useCoachPlacement(
       if (found !== null && mark !== null) {
         const box = found.box;
         const lit = spotlightRef.current;
-        const bright =
+        const spot =
           lit === undefined ? null : firstAnchor(lit.anchors, lit.boxOf);
+        const bright = spot?.box ?? box;
         next = {
           anchor: box,
-          bright: bright?.box ?? box,
+          bright,
           placement: placeRef.current(
             box,
             { width: mark.offsetWidth, height: mark.offsetHeight },
-            { width: window.innerWidth, height: window.innerHeight }
+            { width: window.innerWidth, height: window.innerHeight },
+            bright
           ),
         };
       }
