@@ -580,6 +580,22 @@ describe('the run’s save step (§8, R6)', () => {
     expect(field()).toHaveValue('');
   });
 
+  test('an edited name is saved, it is the run’s session, and the field is empty after (KAN-439)', async () => {
+    const r = await render();
+    await startAtSave(r);
+    await waitFor(() => expect(field()).toHaveValue('Inbox – Gmail'));
+    await userEvent.clear(field());
+    await userEvent.type(field(), 'Lisbon');
+    await userEvent.click(saveButton());
+    const [saved] = r.store.getState().tabContainerDataState.tabGroups;
+    expect(saved.title).toBe('Lisbon');
+    expect(r.store.getState().settingsDataState.firstRun).toMatchObject({
+      step: 2,
+      sessionId: saved.tabGroupId,
+    });
+    expect(field()).toHaveValue('');
+  });
+
   test('Back to the save step after the run’s save: the field stays empty (R6)', async () => {
     const r = await render();
     await startAtSave(r);
