@@ -37,12 +37,14 @@ export const followWithSetup =
     await dispatch(offerPinGuide());
   };
 
-// §3. Done, Skip setup, ✕ or Esc ends setup for good; the pin guide follows.
-export const leaveSetup = (): Thunk<Promise<void>> => async (dispatch) => {
-  dispatch(finishSetup());
-  dispatch(closeSetup());
-  await dispatch(offerPinGuide());
-};
+// §3. Done, Skip setup, ✕ or Esc ends setup for good; the pin guide follows unless Help opened it.
+export const leaveSetup =
+  (): Thunk<Promise<void>> => async (dispatch, getState) => {
+    const leadsToPinGuide = getState().globalState.doesSetupLeadToPinGuide;
+    dispatch(finishSetup());
+    dispatch(closeSetup());
+    if (leadsToPinGuide) await dispatch(offerPinGuide());
+  };
 
 // KAN-7 §8. The welcome (a new install) closed; its opening set setup pending.
 // The popup offers the full view; the full view goes to setup.

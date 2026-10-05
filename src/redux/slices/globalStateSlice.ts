@@ -134,6 +134,8 @@ export interface Global {
   isPinGuideOpen: boolean;
   // KAN-7 §5. The setup, full view only.
   isSetupOpen: boolean;
+  // Whether closing setup goes on to the pin guide: not when Help opened it.
+  doesSetupLeadToPinGuide: boolean;
   // "the tabGroups permission is granted right now". Mirrors
   // chrome.permissions.contains(), re-read on every popup mount and updated by
   // the permission change listeners -- never persisted, because the user can
@@ -290,6 +292,7 @@ export const initialState: Global = {
   isFullViewCalloutOpen: false,
   isPinGuideOpen: false,
   isSetupOpen: false,
+  doesSetupLeadToPinGuide: true,
   hasTabGroupsPermission: false,
   hasSessionsPermission: false,
   collapsedWindows: null,
@@ -1014,8 +1017,12 @@ export const globalStateSlice = createSlice({
       state.isPinGuideOpen = false;
     },
 
-    openSetup: (state) => {
+    openSetup: (
+      state,
+      action: PayloadAction<{ leadsToPinGuide: boolean } | undefined>
+    ) => {
       state.isSetupOpen = true;
+      state.doesSetupLeadToPinGuide = action.payload?.leadsToPinGuide ?? true;
     },
 
     closeSetup: (state) => {

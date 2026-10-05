@@ -42,10 +42,12 @@ import {
 } from '../../redux/slices/tabContainerDataStateSlice';
 import {
   openFullViewCallout,
+  openSetup,
   openSettingsPage,
   setSearchInputText,
 } from '../../redux/slices/globalStateSlice';
 import { leaveSetup } from '../../redux/firstOpenFollowUps';
+import { showInFullView } from '../../redux/fullViewShow';
 import { undo } from '../../redux/slices/undoRedoSlice';
 import { SettingsCategory } from '../../redux/slices/settingsCategoryStateSlice';
 import { newRun } from '../../utils/functions/firstRun';
@@ -730,5 +732,25 @@ describe('after the full-view run (§3)', () => {
     await store.dispatch(finishRunHere());
     expect(openedOf(store)).toEqual([false, false]);
     expect(store.getState().settingsDataState.setupState).toBe('pending');
+  });
+
+  test('setup opened by Help closes without the pin guide (§2)', async () => {
+    setupChromeFake({ windows: [OPEN_PAGE], action: { isOnToolbar: false } });
+    const { store } = makeTestStore();
+    store.dispatch(finishSetup());
+    store.dispatch(showInFullView('setup'));
+    expect(store.getState().globalState.isSetupOpen).toBe(true);
+    await store.dispatch(leaveSetup());
+    expect(openedOf(store)).toEqual([false, false]);
+    expect(store.getState().settingsDataState.setupState).toBe('done');
+  });
+
+  test('control: the same machine, setup opened by the queue, goes on to the pin guide', async () => {
+    setupChromeFake({ windows: [OPEN_PAGE], action: { isOnToolbar: false } });
+    const { store } = makeTestStore();
+    store.dispatch(beginSetup());
+    store.dispatch(openSetup());
+    await store.dispatch(leaveSetup());
+    expect(openedOf(store)).toEqual([false, true]);
   });
 });

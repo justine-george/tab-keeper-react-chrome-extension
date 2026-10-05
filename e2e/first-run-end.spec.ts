@@ -3,7 +3,12 @@ import type { Page } from '@playwright/test';
 import { test, expect } from './fixtures/extension';
 import { seedSettings } from './fixtures/seed';
 import { stubToolbarPin } from './fixtures/toolbarPin';
-import { storedSettings, twoFrames } from './fixtures/onboarding';
+import {
+  FULL,
+  openPage,
+  storedSettings,
+  twoFrames,
+} from './fixtures/onboarding';
 import {
   FULL_RUN,
   cardButton,
@@ -127,3 +132,37 @@ test('Skip tutorial: nothing opens after it (R8)', async ({
   await expect(page.locator('dialog:modal')).toHaveCount(0);
   expect((await storedSettings(page)).setupState).toBe('none');
 });
+
+// §2: Help's Run setup again behaves as today, so no guide follows it.
+for (const how of ['Skip setup', 'Done'] as const) {
+  test(`Help, Run setup again, ${how}: no pin guide while unpinned and undismissed`, async ({
+    context,
+    extensionId,
+  }) => {
+    await stubToolbarPin(context, { pinned: true });
+    const page = await openPage(context, extensionId, FULL_RUN.path, FULL);
+    await page.getByRole('button', { name: 'Settings', exact: true }).click();
+    await page.getByRole('button', { name: 'Help', exact: true }).click();
+    await page.evaluate(() => Reflect.get(window, '__tabKeeperSetPin')(false));
+    const seen = await watchDialogs(page);
+    await page
+      .locator('[data-help]')
+      .getByRole('button', { name: 'Run setup again', exact: true })
+      .click();
+    await expect(dialogNamed(page, SETUP)).toBeVisible();
+    if (how === 'Skip setup') await skipSetup(page).click();
+    else {
+      for (let n = 0; n < 3; n++)
+        await dialogNamed(page, SETUP)
+          .getByRole('button', { name: 'Next', exact: true })
+          .click();
+      await dialogNamed(page, SETUP)
+        .getByRole('button', { name: 'Done', exact: true })
+        .click();
+    }
+    await expect(page.locator('dialog:modal')).toHaveCount(0);
+    expect((await storedSettings(page)).setupState).toBe('done');
+    // The control is the run's end above: the same observer sees [SETUP, GUIDE] there.
+    expect(await seen()).toEqual([SETUP]);
+  });
+}
