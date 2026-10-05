@@ -282,5 +282,11 @@
   "Try it with an example": "Provalo con un esempio",
   "Step {{n}} of {{total}}": "Passo {{n}} di {{total}}",
   "Skip tutorial": "Salta il tutorial",
-  "Finish": "Termina"
+  "Finish": "Termina",
+  "A session keeps windows and tabs together. This one has 2 windows and 5 tabs. Fold a window with its arrow.": "Una sessione tiene insieme finestre e schede. Questa ha 2 finestre e 5 schede. Comprimi una finestra con la sua freccia.",
+  "Open brings every window and tab back, just as they were. Use it any time. For now, press Next.": "Apri riporta ogni finestra e scheda esattamente com'erano. Usalo quando vuoi. Per ora, premi Avanti.",
+  "Click the title to rename the session. Try something like \"Lisbon in May\".": "Fai clic sul titolo per rinominare la sessione. Prova qualcosa come \"Lisbona a maggio\".",
+  "Drag a tab to reorder it, or drop it into the other window.": "Trascina una scheda per riordinarla oppure rilasciala nell'altra finestra.",
+  "That's the tour. Delete the example from this menu, or press Finish and it's removed for you.": "Il tour è finito. Elimina l'esempio da questo menu, oppure premi Termina e verrà rimosso per te.",
+  "Open works after the tour": "Apri funziona dopo il tour"
 }

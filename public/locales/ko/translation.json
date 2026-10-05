@@ -272,5 +272,11 @@
   "Try it with an example": "예시로 사용해 보기",
   "Step {{n}} of {{total}}": "{{total}}단계 중 {{n}}단계",
   "Skip tutorial": "튜토리얼 건너뛰기",
-  "Finish": "마치기"
+  "Finish": "마치기",
+  "A session keeps windows and tabs together. This one has 2 windows and 5 tabs. Fold a window with its arrow.": "세션은 창과 탭을 함께 보관합니다. 이 세션에는 창 2개와 탭 5개가 있습니다. 화살표로 창을 접어 보세요.",
+  "Open brings every window and tab back, just as they were. Use it any time. For now, press Next.": "열기를 누르면 모든 창과 탭이 그대로 돌아옵니다. 언제든 사용할 수 있습니다. 지금은 다음을 누르세요.",
+  "Click the title to rename the session. Try something like \"Lisbon in May\".": "제목을 클릭하면 세션 이름을 바꿀 수 있습니다. \"5월의 리스본\"처럼 입력해 보세요.",
+  "Drag a tab to reorder it, or drop it into the other window.": "탭을 끌어서 순서를 바꾸거나 다른 창에 놓아 보세요.",
+  "That's the tour. Delete the example from this menu, or press Finish and it's removed for you.": "투어가 끝났습니다. 이 메뉴에서 예시를 삭제하거나 마치기를 누르면 자동으로 삭제됩니다.",
+  "Open works after the tour": "열기는 투어가 끝난 후에 사용할 수 있습니다"
 }

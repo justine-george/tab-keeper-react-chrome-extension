@@ -282,5 +282,11 @@
   "Try it with an example": "Essayer avec un exemple",
   "Step {{n}} of {{total}}": "Étape {{n}} sur {{total}}",
   "Skip tutorial": "Passer le tutoriel",
-  "Finish": "Terminer"
+  "Finish": "Terminer",
+  "A session keeps windows and tabs together. This one has 2 windows and 5 tabs. Fold a window with its arrow.": "Une session regroupe des fenêtres et des onglets. Celle-ci contient 2 fenêtres et 5 onglets. Repliez une fenêtre avec sa flèche.",
+  "Open brings every window and tab back, just as they were. Use it any time. For now, press Next.": "Ouvrir rétablit chaque fenêtre et chaque onglet tels qu'ils étaient. Utilisez-le à tout moment. Pour l'instant, appuyez sur Suivant.",
+  "Click the title to rename the session. Try something like \"Lisbon in May\".": "Cliquez sur le titre pour renommer la session. Essayez par exemple « Lisbonne en mai ».",
+  "Drag a tab to reorder it, or drop it into the other window.": "Faites glisser un onglet pour le déplacer, ou déposez-le dans l'autre fenêtre.",
+  "That's the tour. Delete the example from this menu, or press Finish and it's removed for you.": "C'est la fin de la visite. Supprimez l'exemple depuis ce menu, ou appuyez sur Terminer et il sera retiré pour vous.",
+  "Open works after the tour": "Ouvrir fonctionnera après la visite"
 }

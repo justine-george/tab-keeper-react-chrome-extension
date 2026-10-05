@@ -272,5 +272,11 @@
   "Try it with an example": "用範例試試看",
   "Step {{n}} of {{total}}": "第 {{n}} 步，共 {{total}} 步",
   "Skip tutorial": "略過教學",
-  "Finish": "結束"
+  "Finish": "結束",
+  "A session keeps windows and tabs together. This one has 2 windows and 5 tabs. Fold a window with its arrow.": "工作階段會把視窗和分頁放在一起。這個工作階段有 2 個視窗和 5 個分頁。用視窗的箭頭即可收合。",
+  "Open brings every window and tab back, just as they were. Use it any time. For now, press Next.": "「開啟」會把每個視窗和分頁原樣恢復。隨時都能使用。現在請按「下一步」。",
+  "Click the title to rename the session. Try something like \"Lisbon in May\".": "按一下標題即可重新命名工作階段。試試「五月的里斯本」這類名稱。",
+  "Drag a tab to reorder it, or drop it into the other window.": "拖曳分頁即可調整順序，也可以把它放到另一個視窗。",
+  "That's the tour. Delete the example from this menu, or press Finish and it's removed for you.": "導覽到此結束。可以從這個選單刪除範例，或按「結束」，它會自動移除。",
+  "Open works after the tour": "導覽結束後即可使用「開啟」"
 }

@@ -23,6 +23,10 @@ interface ClickableRowProps {
    * live tab's sound, in the Open now pane (KAN-280 O10b).
    */
   ariaDescribedBy?: string;
+  // KAN-413. Names this row for the sample tour's coach mark.
+  tourAnchor?: string;
+  // KAN-413. Announced as unavailable and a click does nothing; it stays in the tab order and draggable.
+  disable?: boolean;
   style?: string;
   children: React.ReactNode;
 }
@@ -46,6 +50,8 @@ const ClickableRow: React.FC<ClickableRowProps> = ({
   tooltipText,
   ariaCurrent,
   ariaDescribedBy,
+  tourAnchor,
+  disable,
   style,
   children,
 }) => {
@@ -68,6 +74,7 @@ const ClickableRow: React.FC<ClickableRowProps> = ({
     align-items: stretch;
     cursor: pointer;
     ${style && style}
+    ${disable ? 'cursor: default;' : ''}
   `;
 
   return (
@@ -78,8 +85,10 @@ const ClickableRow: React.FC<ClickableRowProps> = ({
       aria-description={silenceRepeatedTitle(tooltipText, ariaLabel)}
       aria-current={ariaCurrent ? 'true' : undefined}
       aria-describedby={ariaDescribedBy}
+      aria-disabled={disable ? true : undefined}
+      data-tour-anchor={tourAnchor}
       css={rowStyle}
-      onClick={onClick}
+      onClick={disable ? undefined : onClick}
     >
       {children}
     </button>

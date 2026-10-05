@@ -13,6 +13,7 @@ import { setPresentStartup } from './redux/slices/undoRedoSlice';
 import { useThemeColors } from './hooks/useThemeColors';
 import { useDocumentTheme } from './hooks/useDocumentTheme';
 import { useOtherPageChanges } from './hooks/useOtherPageChanges';
+import { useInterruptedTourCleanup } from './hooks/useInterruptedTourCleanup';
 import { useTabCloudReads } from './hooks/useTabCloudReads';
 import { useDocumentTitle } from './hooks/useDocumentTitle';
 import { isTabView } from './utils/functions/viewMode';
@@ -61,6 +62,7 @@ function App() {
   // KAN-279 D9. Another open page's write to the saved sessions or settings
   // reaches this one. Once, at the root, so there is one listener per page.
   useOtherPageChanges();
+  useInterruptedTourCleanup();
 
   // KAN-279 D11. The tab view's own periodic/on-focus cloud read; a no-op in
   // the popup (isTabView() gates the whole effect inside the hook).

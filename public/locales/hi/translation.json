@@ -277,5 +277,11 @@
   "Try it with an example": "एक उदाहरण के साथ आज़माएँ",
   "Step {{n}} of {{total}}": "चरण {{n}} / {{total}}",
   "Skip tutorial": "ट्यूटोरियल छोड़ें",
-  "Finish": "समाप्त करें"
+  "Finish": "समाप्त करें",
+  "A session keeps windows and tabs together. This one has 2 windows and 5 tabs. Fold a window with its arrow.": "एक सेशन विंडो और टैब को साथ रखता है। इसमें 2 विंडो और 5 टैब हैं। किसी विंडो को उसके तीर से समेटें।",
+  "Open brings every window and tab back, just as they were. Use it any time. For now, press Next.": "खोलें हर विंडो और टैब को ठीक वैसे ही वापस लाता है जैसे वे थे। इसे कभी भी इस्तेमाल करें। अभी के लिए, आगे दबाएँ।",
+  "Click the title to rename the session. Try something like \"Lisbon in May\".": "सेशन का नाम बदलने के लिए शीर्षक पर क्लिक करें। जैसे \"मई में लिस्बन\" आज़माएँ।",
+  "Drag a tab to reorder it, or drop it into the other window.": "किसी टैब का क्रम बदलने के लिए उसे खींचें, या उसे दूसरी विंडो में छोड़ें।",
+  "That's the tour. Delete the example from this menu, or press Finish and it's removed for you.": "टूर यहीं खत्म होता है। इस मेनू से उदाहरण हटाएँ, या समाप्त करें दबाएँ और वह आपके लिए हटा दिया जाएगा।",
+  "Open works after the tour": "खोलें टूर के बाद काम करेगा"
 }

@@ -29,7 +29,8 @@ const sources = import.meta.glob('/src/**/*.{ts,tsx}', {
 // regex can recover the key from the source text. That call is therefore
 // invisible to this scan and must be covered by other means (e.g. a render
 // test). This test is a floor on coverage, not a complete census.
-const KEY_PATTERN = /\bt\(\s*['"`]([^'"`]+)['"`]/g;
+// A key ends at its own quote, so a key may hold the other two (KAN-413's step texts do).
+const KEY_PATTERN = /\bt\(\s*(['"`])((?:(?!\1).)+)\1/g;
 
 // i18next plural keys (KAN-286): t('TabCount', { count }) resolves to
 // TabCount_one, TabCount_few, ... per the locale's Intl.PluralRules. So a
@@ -52,7 +53,7 @@ describe('translation key coverage', () => {
 
     for (const [file, source] of Object.entries(sources)) {
       if (file.includes('/src/tests/')) continue;
-      for (const [, key] of source.matchAll(KEY_PATTERN)) {
+      for (const [, , key] of source.matchAll(KEY_PATTERN)) {
         if (!bases(en).has(key)) missing.push(`${key}  (${file})`);
       }
     }

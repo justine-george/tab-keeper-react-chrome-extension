@@ -14,6 +14,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
  */
 export type PopoverAxis = 'vertical' | 'horizontal';
 
+// KAN-413. A press on the tour's coach mark is inside: its Finish must not close the menu it points at.
+const PRESS_INSIDE = '[data-coach-mark]';
+
 export function usePopoverList({
   count,
   axis,
@@ -31,6 +34,8 @@ export function usePopoverList({
   // returns focus without the ring (KAN-405 2A). A key on the trigger, or a
   // key-activated click (detail 0), means the keyboard.
   const pointerOpened = useRef(false);
+  // KAN-413. An open asked for from outside leaves the focus where it was, once.
+  const focusOnOpen = useRef(true);
   useEffect(() => {
     const el = triggerRef.current;
     if (el === null) return;
@@ -76,16 +81,28 @@ export function usePopoverList({
     [setOpen]
   );
 
+  const openWithoutFocus = useCallback(() => {
+    if (isOpen) return;
+    focusOnOpen.current = false;
+    setOpen(true);
+  }, [isOpen, setOpen]);
+
   // Opening moves focus into the list, which is what makes it operable
   // without a pointer at all.
   useEffect(() => {
-    if (isOpen) itemRefs.current[0]?.focus();
+    if (isOpen && focusOnOpen.current) itemRefs.current[0]?.focus();
+    focusOnOpen.current = true;
   }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
     const onPointerDown = (e: MouseEvent) => {
-      if (!wrapperRef.current?.contains(e.target as Node)) close(false);
+      const target = e.target instanceof Element ? e.target : null;
+      const isInside =
+        target !== null &&
+        (wrapperRef.current?.contains(target) === true ||
+          target.closest(PRESS_INSIDE) !== null);
+      if (!isInside) close(false);
     };
     document.addEventListener('mousedown', onPointerDown);
     return () => document.removeEventListener('mousedown', onPointerDown);
@@ -133,6 +150,7 @@ export function usePopoverList({
     isOpen,
     setOpen,
     close,
+    openWithoutFocus,
     wrapperRef,
     triggerRef,
     registerItem,

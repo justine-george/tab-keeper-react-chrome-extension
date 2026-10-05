@@ -28,9 +28,13 @@ import {
   selectVisibleTabGroups,
 } from '../../../utils/functions/local';
 import { useSavedSearch } from '../../../hooks/useSavedSearch';
+import { useIsOpenBlockedByTour } from '../../../hooks/useIsOpenBlockedByTour';
+import {
+  deleteSessionFromMenu,
+  selectTourHere,
+} from '../../../redux/sampleTour';
 import {
   addCurrWindowToTabGroup,
-  deleteTabContainer,
   openAllTabContainer,
   requestFocusTabContainer,
   updateTabGroupTitle,
@@ -119,6 +123,18 @@ export default function HeroContainerRight() {
   const renameCancelled = useRef(false);
   useNewFirstWindowReceiver(newWindowTargetRef, selectedTabGroup?.tabGroupId);
 
+  // KAN-413. The tour opens this menu at its last step on its own sample, and closes it when it ends.
+  const isTourMenuStep = useSelector((state: RootState) => {
+    const tour = selectTourHere(state);
+    return (
+      tour !== null &&
+      tour.step === 5 &&
+      tour.sampleId === state.tabContainerDataState.selectedTabGroupId
+    );
+  });
+  // KAN-413. Open and Switch on the tour's own sample wait for it, dimmed as Undo is.
+  const isOpenBlocked = useIsOpenBlockedByTour(selectedTabGroup?.tabGroupId);
+
   // Belt and braces: RightPane does not mount this component when the list is
   // empty, so this should be unreachable -- but it is what makes the component
   // safe on its own terms rather than safe because of its only caller (KAN-16).
@@ -156,6 +172,9 @@ export default function HeroContainerRight() {
   };
 
   const { tabGroupId, title, windowCount, tabCount } = selectedTabGroup;
+  const openBlockedBecause = isOpenBlocked
+    ? t('Open works after the tour')
+    : null;
 
   // KAN-206. What the collapse control offers, asked of the windows themselves
   // rather than of a remembered press. `collapsedWindowIdsOf` is the one place
@@ -284,6 +303,7 @@ export default function HeroContainerRight() {
               onChange={handleChange}
               onKeyDown={(e) => renameKeyDown(e, handleBlur, cancelRename)}
               autoFocus
+              data-tour-anchor="title"
               css={css`
                 color: ${COLORS.TEXT_COLOR};
                 background-color: ${COLORS.PRIMARY_COLOR};
@@ -311,6 +331,7 @@ export default function HeroContainerRight() {
             <ClickableRow
               ariaLabel={t('Rename session') + ': ' + title}
               onClick={startEditing}
+              tourAnchor="title"
               // min-width: 0 is load-bearing. A <button> has `overflow:
               // visible`, so its `min-width: auto` does NOT collapse to zero
               // the way the bare label's did, and without this the title stops
@@ -453,23 +474,34 @@ export default function HeroContainerRight() {
             }
           />
           {!isSearching && (
-            <Icon
-              tooltipText={t('Open session')}
-              ariaLabel={t('Open session')}
-              type="reopen_window"
-              onClick={() => {
-                const goToURLText: string = t('Go to URL');
-                dispatch(openAllTabContainer({ tabGroupId, goToURLText }));
-              }}
-            />
+            <span
+              data-tour-anchor="open"
+              css={css`
+                display: flex;
+              `}
+            >
+              <Icon
+                tooltipText={openBlockedBecause ?? t('Open session')}
+                ariaLabel={openBlockedBecause ?? t('Open session')}
+                type="reopen_window"
+                disable={isOpenBlocked}
+                style={isOpenBlocked ? 'opacity: 0.3;' : undefined}
+                onClick={() => {
+                  const goToURLText: string = t('Go to URL');
+                  dispatch(openAllTabContainer({ tabGroupId, goToURLText }));
+                }}
+              />
+            </span>
           )}
           {/* KAN-279 D7. Switching closes the windows hosting Tab Keeper
               itself when this page IS the tab view, so hidden there. */}
           {!isSearching && !isTabView() && (
             <Icon
-              tooltipText={t('Switch to session')}
-              ariaLabel={t('Switch to session')}
+              tooltipText={openBlockedBecause ?? t('Switch to session')}
+              ariaLabel={openBlockedBecause ?? t('Switch to session')}
               type="filter_center_focus"
+              disable={isOpenBlocked}
+              style={isOpenBlocked ? 'opacity: 0.3;' : undefined}
               onClick={() => {
                 dispatch(
                   requestFocusTabContainer({
@@ -488,76 +520,86 @@ export default function HeroContainerRight() {
               everyday actions. Deleting stays one menu away from recoverable:
               it is a captured action, so Undo restores it. */}
           {!isSearching && (
-            <OverflowMenu
-              ariaLabel={t('More actions')}
-              // The trigger sits near the START of the row, so the menu opens
-              // rightward, inside this pane. End-aligned, it crossed the pane
-              // divider and covered the session list.
-              align="start"
-              items={[
-                {
-                  // KAN-209. The one output that needs no preview: Copy ignores
-                  // the layout and colour choices the export page exists to
-                  // offer, so reaching it through a new tab was a detour.
-                  //
-                  // FIRST, because it is the only item here that finishes where
-                  // it started -- Export opens a tab, Delete changes the session
-                  // -- so the menu reads cheap, heavier, destructive.
-                  //
-                  // TIDIED, exactly as the export page's Copy is (KAN-210).
-                  // KAN-202's clean-ups -- dropping a site's notification count
-                  // from a title, and unwrapping a suspended tab's real address
-                  // -- are not a preview concern: they are wrong in anything
-                  // anyone shares, whichever button produced it. This shipped
-                  // passing the raw session, so the shortcut gave the worse of
-                  // two answers for the same command.
-                  //
-                  // No edits applied: there is no preview here to respect, which
-                  // is the only difference left between the two call sites.
-                  key: 'copy',
-                  label: t('Copy all links'),
-                  icon: 'link',
-                  onSelect: async () => {
-                    await copySessionLinks(
-                      tidySessionForExport(selectedTabGroup),
-                      t,
-                      i18n.language
-                    );
-                    // The clipboard says nothing of its own, and unlike the
-                    // export page there is no room here for an inline note.
-                    dispatch(
-                      showToast({
-                        toastText: TOAST_MESSAGES.COPY_LINKS_SUCCESS,
-                        duration: 3000,
-                      })
-                    );
+            <div
+              data-tour-anchor="session-menu"
+              css={css`
+                display: flex;
+              `}
+            >
+              <OverflowMenu
+                ariaLabel={t('More actions')}
+                openWhen={isTourMenuStep}
+                // The trigger sits near the START of the row, so the menu opens
+                // rightward, inside this pane. End-aligned, it crossed the pane
+                // divider and covered the session list.
+                align="start"
+                items={[
+                  {
+                    // KAN-209. The one output that needs no preview: Copy ignores
+                    // the layout and colour choices the export page exists to
+                    // offer, so reaching it through a new tab was a detour.
+                    //
+                    // FIRST, because it is the only item here that finishes where
+                    // it started -- Export opens a tab, Delete changes the session
+                    // -- so the menu reads cheap, heavier, destructive.
+                    //
+                    // TIDIED, exactly as the export page's Copy is (KAN-210).
+                    // KAN-202's clean-ups -- dropping a site's notification count
+                    // from a title, and unwrapping a suspended tab's real address
+                    // -- are not a preview concern: they are wrong in anything
+                    // anyone shares, whichever button produced it. This shipped
+                    // passing the raw session, so the shortcut gave the worse of
+                    // two answers for the same command.
+                    //
+                    // No edits applied: there is no preview here to respect, which
+                    // is the only difference left between the two call sites.
+                    key: 'copy',
+                    label: t('Copy all links'),
+                    icon: 'link',
+                    onSelect: async () => {
+                      await copySessionLinks(
+                        tidySessionForExport(selectedTabGroup),
+                        t,
+                        i18n.language
+                      );
+                      // The clipboard says nothing of its own, and unlike the
+                      // export page there is no room here for an inline note.
+                      dispatch(
+                        showToast({
+                          toastText: TOAST_MESSAGES.COPY_LINKS_SUCCESS,
+                          duration: 3000,
+                        })
+                      );
+                    },
                   },
-                },
-                {
-                  key: 'export',
-                  label: t('Export session'),
-                  icon: 'ios_share',
-                  onSelect: () => {
-                    // Opening a tab takes focus, which destroys the popup.
-                    // Nothing may be sequenced after this call -- the whole
-                    // address is built first, so there is nothing left to do
-                    // when the context dies.
-                    chrome.tabs.create({
-                      url: chrome.runtime.getURL(
-                        `export.html?session=${encodeURIComponent(tabGroupId)}`
-                      ),
-                    });
+                  {
+                    key: 'export',
+                    label: t('Export session'),
+                    icon: 'ios_share',
+                    onSelect: () => {
+                      // Opening a tab takes focus, which destroys the popup.
+                      // Nothing may be sequenced after this call -- the whole
+                      // address is built first, so there is nothing left to do
+                      // when the context dies.
+                      chrome.tabs.create({
+                        url: chrome.runtime.getURL(
+                          `export.html?session=${encodeURIComponent(
+                            tabGroupId
+                          )}`
+                        ),
+                      });
+                    },
                   },
-                },
-                {
-                  key: 'delete',
-                  label: t('Delete session'),
-                  icon: 'delete',
-                  danger: true,
-                  onSelect: () => dispatch(deleteTabContainer(tabGroupId)),
-                },
-              ]}
-            />
+                  {
+                    key: 'delete',
+                    label: t('Delete session'),
+                    icon: 'delete',
+                    danger: true,
+                    onSelect: () => dispatch(deleteSessionFromMenu(tabGroupId)),
+                  },
+                ]}
+              />
+            </div>
           )}
         </div>
         <div

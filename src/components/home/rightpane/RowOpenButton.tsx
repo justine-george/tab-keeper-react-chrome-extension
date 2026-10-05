@@ -9,6 +9,8 @@ interface RowOpenButtonProps {
   ariaLabel: string;
   tooltipText: string;
   onClick: () => void;
+  // KAN-413. Dimmed as Undo is, announced as unavailable, and a click does nothing.
+  disable?: boolean;
 }
 
 // The label steps up to TEXT on hover and press: LABEL_L1 is under 4.5:1 there.
@@ -16,6 +18,7 @@ const RowOpenButton: React.FC<RowOpenButtonProps> = ({
   ariaLabel,
   tooltipText,
   onClick,
+  disable,
 }) => {
   const { t } = useTranslation();
   const COLORS = useThemeColors();
@@ -28,6 +31,7 @@ const RowOpenButton: React.FC<RowOpenButtonProps> = ({
       ariaLabel={ariaLabel}
       tooltipText={tooltipText}
       onClick={onClick}
+      ariaDisabled={disable}
       style={`
         height: ${CONTROL.ROW};
         padding: 0 10px;
@@ -38,6 +42,7 @@ const RowOpenButton: React.FC<RowOpenButtonProps> = ({
         &:active {
           color: ${COLORS.TEXT_COLOR};
         }
+        ${disable ? 'opacity: 0.3;' : ''}
       `}
     />
   );

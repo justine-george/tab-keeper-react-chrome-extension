@@ -8,6 +8,7 @@ import { isTabView } from '../utils/functions/viewMode';
 import LeftPane from './home/leftpane/LeftPane';
 import { Toast } from './common/Toast';
 import { CarryLayer } from './home/CarryLayer';
+import SampleTour from './tour/SampleTour';
 import RightPane from './home/rightpane/RightPane';
 import OpenNowColumn from './home/opennow/OpenNowColumn';
 import OpenNowResizeGrip from './home/opennow/OpenNowResizeGrip';
@@ -442,6 +443,8 @@ export default function MainContainer() {
           drag started in. Draws nothing unless something is carried, or a
           saved list's drag shows its card at the pointer (KAN-354). */}
       <CarryLayer />
+      {/* KAN-413. Only in the home view; it draws nothing unless this page runs the tour. */}
+      {!isSettingsPage && <SampleTour />}
       {isRateAndReviewModalOpen && <RateAndReviewModal />}
       {tabGroupsPromptCount !== null && <TabGroupsPermissionModal />}
       {focusRequest && <FocusConfirmModal />}

@@ -12,6 +12,7 @@ import { NormalLabel } from '../../common/Label';
 import { useFontFamily } from '../../../hooks/useFontFamily';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useSavedSearch } from '../../../hooks/useSavedSearch';
+import { useIsOpenBlockedByTour } from '../../../hooks/useIsOpenBlockedByTour';
 import { AppDispatch, RootState } from '../../../redux/store';
 import {
   resolveTabUrl,
@@ -142,6 +143,11 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   // KAN-379. A window a drag opened is drawn open, with the stored fold intact.
   const isSpringOpened = useIsSpringOpen(windowId);
   const isWindowOpen = isOpenInStore || isSpringOpened;
+  // KAN-413. Opens on the tour's own sample wait for it; drag, rename and fold do not.
+  const isOpenBlocked = useIsOpenBlockedByTour(tabGroupId);
+  const openBlockedBecause = isOpenBlocked
+    ? t('Open works after the tour')
+    : null;
   const [newTitle, setNewTitle] = useState(title);
   const [isEditing, setIsEditing] = useState(false);
   // Set by Esc, so a blur dispatched before the editor unmounts cannot commit (D13).
@@ -633,6 +639,8 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
             into the name. */}
         <ClickableRow
           ariaLabel={t('Open in new tab') + ': ' + title}
+          tooltipText={openBlockedBecause ?? undefined}
+          disable={isOpenBlocked}
           onClick={() => handleTabClick(url)}
           style={childLeftStyle}
         >
@@ -827,7 +835,8 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
               !isSearching && (
                 <RowOpenButton
                   ariaLabel={t('Open in new window') + ': ' + label.text}
-                  tooltipText={t('Open in new window')}
+                  tooltipText={openBlockedBecause ?? t('Open in new window')}
+                  disable={isOpenBlocked}
                   onClick={onOpenWindow}
                 />
               )
@@ -1252,7 +1261,10 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                           {!isSearching && (
                             <RowOpenButton
                               ariaLabel={openGroupLabel(item.group)}
-                              tooltipText={t('Open group')}
+                              tooltipText={
+                                openBlockedBecause ?? t('Open group')
+                              }
+                              disable={isOpenBlocked}
                               onClick={() => openGroup(item)}
                             />
                           )}
