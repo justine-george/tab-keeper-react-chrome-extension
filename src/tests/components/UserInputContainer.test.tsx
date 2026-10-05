@@ -620,6 +620,15 @@ describe('the run’s save step (§8, R6)', () => {
     const r = await render();
     await startAtSave(r);
     await waitFor(() => expect(field()).toHaveValue('Inbox – Gmail'));
+    const real = capture.captureOpenWindows;
+    const resolved: string[] = [];
+    vi.spyOn(capture, 'captureOpenWindows').mockImplementation(
+      async (...args) => {
+        const container = await real(...args);
+        if (container) resolved.push(container.tabGroupId);
+        return container;
+      }
+    );
     await Promise.all([
       userEvent.click(saveButton()),
       userEvent.click(saveButton()),
@@ -627,11 +636,9 @@ describe('the run’s save step (§8, R6)', () => {
     await waitFor(() =>
       expect(r.store.getState().tabContainerDataState.tabGroups).toHaveLength(2)
     );
-    const ids = r.store
-      .getState()
-      .tabContainerDataState.tabGroups.map((g) => g.tabGroupId);
-    expect(ids).toContain(
-      r.store.getState().settingsDataState.firstRun?.sessionId
+    expect(resolved).toHaveLength(2);
+    expect(r.store.getState().settingsDataState.firstRun?.sessionId).toBe(
+      resolved[0]
     );
   });
 
