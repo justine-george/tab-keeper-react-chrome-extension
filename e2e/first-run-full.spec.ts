@@ -143,6 +143,8 @@ test('Next onto the save step glides the card there and never lifts the dim (KAN
   });
   const page = await openRunFromHelp(context, extensionId, FULL_RUN);
   await nextTo(page, 2);
+  // The step-2 glide is measured on the next frame; let it land before the log is cleared.
+  await twoFrames(page);
   const motion = () =>
     page.evaluate(() => {
       const log: unknown = Reflect.get(globalThis, '__cardMotion');
