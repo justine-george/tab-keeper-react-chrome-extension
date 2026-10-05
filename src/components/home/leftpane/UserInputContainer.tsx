@@ -150,6 +150,8 @@ export default function UserInputContainer() {
     if (!containerData) return;
 
     dispatch(saveToTabContainer({ container: containerData, scope }));
+    // Only a stored session consumes the name; a failed capture keeps it.
+    setNewTitle('');
   }
 
   const containerStyle = css`

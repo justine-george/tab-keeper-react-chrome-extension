@@ -407,3 +407,85 @@ describe('a saved session always gets a name (KAN-84)', () => {
     expect(savedTitle(store)).toBe('Research');
   });
 });
+
+// KAN-439. Any save that stores a session empties the name field; a save that
+// stores nothing leaves the typed name for the next try.
+describe('the name field after a save (KAN-439)', () => {
+  const typeName = async (value: string, withSeed: object = seed) => {
+    const rendered = await renderWithProviders(<UserInputContainer />, {
+      seed: withSeed,
+    });
+    await act(async () => {});
+    const box = screen.getByRole('textbox');
+    if (value) await userEvent.type(box, value);
+    return { ...rendered, box };
+  };
+
+  const saveByButton = () =>
+    userEvent.click(
+      screen.getByLabelText('Save all open windows as a session')
+    );
+  const saveByEnter = async () => {
+    await userEvent.click(screen.getByRole('textbox'));
+    await userEvent.keyboard('{Enter}');
+  };
+
+  test.each([
+    ['the button', saveByButton],
+    ['Enter', saveByEnter],
+  ])('a typed save through %s empties the field', async (_how, save) => {
+    const { store, box } = await typeName('Research');
+    await save();
+
+    expect(store.getState().tabContainerDataState.tabGroups[0].title).toBe(
+      'Research'
+    );
+    expect(box).toHaveValue('');
+  });
+
+  test('the current-window menu save empties the field too', async () => {
+    const { store, box } = await typeName('Research');
+    await userEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    await userEvent.click(
+      within(screen.getByRole('menu')).getByRole('menuitem', {
+        name: 'Save current window as a session',
+      })
+    );
+
+    expect(store.getState().tabContainerDataState.tabGroups).toHaveLength(1);
+    expect(box).toHaveValue('');
+  });
+
+  test.each([
+    ['the button', saveByButton],
+    ['Enter', saveByEnter],
+  ])(
+    'an untouched empty save through %s leaves it empty',
+    async (_how, save) => {
+      const { store, box } = await typeName('');
+      await save();
+
+      expect(store.getState().tabContainerDataState.tabGroups[0].title).toBe(
+        'Kagi Search'
+      );
+      expect(box).toHaveValue('');
+    }
+  );
+
+  test.each([
+    ['the button', saveByButton],
+    ['Enter', saveByEnter],
+  ])(
+    'a save that captures nothing keeps the typed name (%s)',
+    async (_how, save) => {
+      const { store, box } = await typeName('Research', {
+        tabs: [],
+        windows: [],
+      });
+      await save();
+
+      expect(store.getState().tabContainerDataState.tabGroups).toEqual([]);
+      expect(box).toHaveValue('Research');
+    }
+  );
+});

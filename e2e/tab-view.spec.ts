@@ -377,6 +377,8 @@ test.describe('saves in the tab view leave out its own tab (KAN-279 D6)', () => 
     await expect(
       tab.getByRole('button', { name: 'Saved from the tab view', exact: true })
     ).toBeVisible();
+    // KAN-439: the saved name leaves the field.
+    await expect(tab.locator('input#name')).toHaveValue('');
 
     const urls = (await storedUrls(tab))['Saved from the tab view'] ?? [];
     console.log(`[D6] saved URLs: ${JSON.stringify(urls)}`);
