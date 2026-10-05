@@ -1,8 +1,11 @@
-import { useLayoutEffect, useRef, useState } from 'react';
+import type { MouseEvent } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { css } from '@emotion/react';
 
 import MenuContainer from './MenuContainer';
 import TabKeeperMark from '../../common/TabKeeperMark';
+import { playMarkClick } from '../../common/tabKeeperMarkMotion';
+import type { Motion } from '../../modals/getStartedMotion';
 import { useFontFamily } from '../../../hooks/useFontFamily';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useTranslation } from 'react-i18next';
@@ -39,6 +42,25 @@ export default function HeroContainer() {
   const room = useRef<HTMLDivElement>(null);
   const ruler = useRef<HTMLSpanElement>(null);
   const [wordsFit, setWordsFit] = useState(true);
+  const playing = useRef<Motion | null>(null);
+
+  useEffect(() => () => playing.current?.cancel(), []);
+
+  // Pointer only: the mark stays decorative, so there is no key handler.
+  const playMark = (event: MouseEvent<HTMLDivElement>) => {
+    if (playing.current !== null) return;
+    const mark = event.currentTarget.querySelector('svg');
+    if (mark === null) return;
+    const motion = playMarkClick(
+      mark,
+      mark.querySelector('[data-mark-part="shutter"]')
+    );
+    if (motion === null) return;
+    playing.current = motion;
+    void motion.finished.then(() => {
+      playing.current = null;
+    });
+  };
 
   // Neither measure moves when the words hide: the ruler never hides, and the room's width comes from flex, not its content.
   useLayoutEffect(() => {
@@ -93,6 +115,7 @@ export default function HeroContainer() {
         `}
       >
         <div
+          onClick={playMark}
           css={css`
             width: calc(${ICON.DEFAULT} + 8px);
             height: calc(${ICON.DEFAULT} + 8px);
