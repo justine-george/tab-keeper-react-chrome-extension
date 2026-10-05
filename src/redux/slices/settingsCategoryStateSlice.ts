@@ -6,6 +6,7 @@ export enum SettingsCategory {
   SESSIONS = 'Sessions',
   LANGUAGE = 'Language',
   ABOUT = 'About',
+  HELP = 'Help',
 }
 
 export interface SettingsCategoryContainer {
@@ -36,6 +37,11 @@ export const initialState: SettingsCategoryContainer[] = [
   },
   {
     name: SettingsCategory.ABOUT,
+    isSelected: false,
+  },
+  // Help comes last.
+  {
+    name: SettingsCategory.HELP,
     isSelected: false,
   },
 ];

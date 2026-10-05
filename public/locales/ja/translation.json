@@ -278,5 +278,14 @@
   "Click the title to rename the session. Try something like \"Lisbon in May\".": "タイトルをクリックするとセッション名を変更できます。「5 月のリスボン」のように入力してみましょう。",
   "Drag a tab to reorder it, or drop it into the other window.": "タブをドラッグして並べ替えたり、もう一方のウィンドウにドロップしたりできます。",
   "That's the tour. Delete the example from this menu, or press Finish and it's removed for you.": "ツアーはこれで終わりです。このメニューからサンプルを削除するか、「終了」を押すと自動で削除されます。",
-  "Open works after the tour": "「開く」はツアーの後で使えます"
+  "Open works after the tour": "「開く」はツアーの後で使えます",
+  "Help": "ヘルプ",
+  "Choose your theme, language, default view and shortcut again.": "テーマ、言語、既定のビュー、ショートカットをもう一度選びます。",
+  "Run setup again": "設定をもう一度行う",
+  "Pin to your toolbar": "ツールバーに固定",
+  "Show Tab Keeper next to the address bar, one click away.": "Tab Keeper をアドレスバーの横に表示して、ワンクリックで開けるようにします。",
+  "Show me how": "方法を見る",
+  "Learn the basics": "基本を学ぶ",
+  "A short tour on an example session, removed when you’re done.": "サンプルのセッションで短いツアーを行います。終わると削除されます。",
+  "Show me around": "案内を見る"
 }

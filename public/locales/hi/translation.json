@@ -283,5 +283,14 @@
   "Click the title to rename the session. Try something like \"Lisbon in May\".": "सेशन का नाम बदलने के लिए शीर्षक पर क्लिक करें। जैसे \"मई में लिस्बन\" आज़माएँ।",
   "Drag a tab to reorder it, or drop it into the other window.": "किसी टैब का क्रम बदलने के लिए उसे खींचें, या उसे दूसरी विंडो में छोड़ें।",
   "That's the tour. Delete the example from this menu, or press Finish and it's removed for you.": "टूर यहीं खत्म होता है। इस मेनू से उदाहरण हटाएँ, या समाप्त करें दबाएँ और वह आपके लिए हटा दिया जाएगा।",
-  "Open works after the tour": "खोलें टूर के बाद काम करेगा"
+  "Open works after the tour": "खोलें टूर के बाद काम करेगा",
+  "Help": "सहायता",
+  "Choose your theme, language, default view and shortcut again.": "अपनी थीम, भाषा, डिफ़ॉल्ट व्यू और शॉर्टकट फिर से चुनें।",
+  "Run setup again": "सेटअप फिर से चलाएँ",
+  "Pin to your toolbar": "अपने टूलबार पर पिन करें",
+  "Show Tab Keeper next to the address bar, one click away.": "Tab Keeper को एड्रेस बार के पास दिखाएँ, बस एक क्लिक की दूरी पर।",
+  "Show me how": "कैसे करें, दिखाएँ",
+  "Learn the basics": "बुनियादी बातें सीखें",
+  "A short tour on an example session, removed when you’re done.": "एक उदाहरण सेशन पर छोटा टूर, जो आपके पूरा करने पर हटा दिया जाता है।",
+  "Show me around": "टूर शुरू करें"
 }

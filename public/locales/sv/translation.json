@@ -283,5 +283,14 @@
   "Click the title to rename the session. Try something like \"Lisbon in May\".": "Klicka på titeln för att byta namn på sessionen. Prova något som \"Lissabon i maj\".",
   "Drag a tab to reorder it, or drop it into the other window.": "Dra en flik för att ändra ordningen, eller släpp den i det andra fönstret.",
   "That's the tour. Delete the example from this menu, or press Finish and it's removed for you.": "Det var rundturen. Ta bort exemplet från den här menyn, eller tryck på Avsluta så tas det bort åt dig.",
-  "Open works after the tour": "Öppna fungerar efter rundturen"
+  "Open works after the tour": "Öppna fungerar efter rundturen",
+  "Help": "Hjälp",
+  "Choose your theme, language, default view and shortcut again.": "Välj tema, språk, standardvy och kortkommando igen.",
+  "Run setup again": "Gör inställningen igen",
+  "Pin to your toolbar": "Fäst i verktygsfältet",
+  "Show Tab Keeper next to the address bar, one click away.": "Visa Tab Keeper bredvid adressfältet, ett klick bort.",
+  "Show me how": "Visa mig hur",
+  "Learn the basics": "Lär dig grunderna",
+  "A short tour on an example session, removed when you’re done.": "En kort rundtur med en exempelsession som tas bort när du är klar.",
+  "Show me around": "Visa mig runt"
 }

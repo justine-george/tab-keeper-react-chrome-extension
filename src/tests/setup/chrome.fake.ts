@@ -112,6 +112,8 @@ export type ChromeSeed = {
     setPopupRejects?: boolean;
     isOnToolbar?: boolean;
     getUserSettingsThrows?: boolean;
+    // getUserSettings never settles: Chrome has not answered yet.
+    getUserSettingsPending?: boolean;
     hasUserSettingsEvent?: boolean;
   };
   // KAN-7. chrome.i18n, present only when seeded: name -> message. A name it
@@ -1599,7 +1601,9 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
           getUserSettings: (): Promise<chrome.action.UserSettings> =>
             seed.action?.getUserSettingsThrows
               ? Promise.reject(new Error('getUserSettings failed'))
-              : Promise.resolve({ isOnToolbar }),
+              : seed.action?.getUserSettingsPending
+                ? new Promise(() => undefined)
+                : Promise.resolve({ isOnToolbar }),
         }),
     ...(hasUserSettingsEvent
       ? {

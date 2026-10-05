@@ -288,5 +288,14 @@
   "Click the title to rename the session. Try something like \"Lisbon in May\".": "Haz clic en el título para cambiar el nombre de la sesión. Prueba algo como \"Lisboa en mayo\".",
   "Drag a tab to reorder it, or drop it into the other window.": "Arrastra una pestaña para cambiarla de orden o suéltala en la otra ventana.",
   "That's the tour. Delete the example from this menu, or press Finish and it's removed for you.": "Eso es todo. Elimina el ejemplo desde este menú o pulsa Terminar y se quitará por ti.",
-  "Open works after the tour": "Abrir funciona al terminar el tutorial"
+  "Open works after the tour": "Abrir funciona al terminar el tutorial",
+  "Help": "Ayuda",
+  "Choose your theme, language, default view and shortcut again.": "Vuelve a elegir tu tema, idioma, vista predeterminada y atajo.",
+  "Run setup again": "Repetir la configuración",
+  "Pin to your toolbar": "Fíjalo en tu barra de herramientas",
+  "Show Tab Keeper next to the address bar, one click away.": "Muestra Tab Keeper junto a la barra de direcciones, a un clic.",
+  "Show me how": "Muéstrame cómo",
+  "Learn the basics": "Aprende lo básico",
+  "A short tour on an example session, removed when you’re done.": "Un recorrido breve con una sesión de ejemplo, que se elimina al terminar.",
+  "Show me around": "Empezar el recorrido"
 }

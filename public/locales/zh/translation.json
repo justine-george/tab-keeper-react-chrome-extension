@@ -278,5 +278,14 @@
   "Click the title to rename the session. Try something like \"Lisbon in May\".": "点击标题即可重命名会话。试试“五月的里斯本”之类的名字。",
   "Drag a tab to reorder it, or drop it into the other window.": "拖动标签页可以调整顺序，也可以把它放到另一个窗口。",
   "That's the tour. Delete the example from this menu, or press Finish and it's removed for you.": "导览到此结束。可以从这个菜单删除示例，也可以按“结束”，它会被自动移除。",
-  "Open works after the tour": "导览结束后即可使用“打开”"
+  "Open works after the tour": "导览结束后即可使用“打开”",
+  "Help": "帮助",
+  "Choose your theme, language, default view and shortcut again.": "重新选择主题、语言、默认视图和快捷键。",
+  "Run setup again": "重新设置",
+  "Pin to your toolbar": "固定到工具栏",
+  "Show Tab Keeper next to the address bar, one click away.": "在地址栏旁显示 Tab Keeper，一键即可打开。",
+  "Show me how": "告诉我怎么做",
+  "Learn the basics": "了解基础操作",
+  "A short tour on an example session, removed when you’re done.": "用示例会话快速导览，完成后自动移除。",
+  "Show me around": "带我看看"
 }

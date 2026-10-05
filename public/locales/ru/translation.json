@@ -293,5 +293,14 @@
   "Click the title to rename the session. Try something like \"Lisbon in May\".": "Нажмите на название, чтобы переименовать сессию. Попробуйте, например, «Лиссабон в мае».",
   "Drag a tab to reorder it, or drop it into the other window.": "Перетащите вкладку, чтобы изменить порядок, или переместите её в другое окно.",
   "That's the tour. Delete the example from this menu, or press Finish and it's removed for you.": "Это всё. Удалите пример через это меню или нажмите «Завершить», и он будет удалён автоматически.",
-  "Open works after the tour": "«Открыть» заработает после обучения"
+  "Open works after the tour": "«Открыть» заработает после обучения",
+  "Help": "Справка",
+  "Choose your theme, language, default view and shortcut again.": "Выберите тему, язык, вид по умолчанию и сочетание клавиш заново.",
+  "Run setup again": "Пройти настройку снова",
+  "Pin to your toolbar": "Закрепите на панели инструментов",
+  "Show Tab Keeper next to the address bar, one click away.": "Разместите Tab Keeper рядом с адресной строкой, чтобы он был в одном клике.",
+  "Show me how": "Показать, как",
+  "Learn the basics": "Основы работы",
+  "A short tour on an example session, removed when you’re done.": "Короткое знакомство на примере сессии; пример удаляется, когда вы закончите.",
+  "Show me around": "Начать знакомство"
 }

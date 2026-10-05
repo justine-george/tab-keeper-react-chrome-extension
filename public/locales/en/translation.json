@@ -283,5 +283,14 @@
   "Click the title to rename the session. Try something like \"Lisbon in May\".": "Click the title to rename the session. Try something like \"Lisbon in May\".",
   "Drag a tab to reorder it, or drop it into the other window.": "Drag a tab to reorder it, or drop it into the other window.",
   "That's the tour. Delete the example from this menu, or press Finish and it's removed for you.": "That's the tour. Delete the example from this menu, or press Finish and it's removed for you.",
-  "Open works after the tour": "Open works after the tour"
+  "Open works after the tour": "Open works after the tour",
+  "Help": "Help",
+  "Choose your theme, language, default view and shortcut again.": "Choose your theme, language, default view and shortcut again.",
+  "Run setup again": "Run setup again",
+  "Pin to your toolbar": "Pin to your toolbar",
+  "Show Tab Keeper next to the address bar, one click away.": "Show Tab Keeper next to the address bar, one click away.",
+  "Show me how": "Show me how",
+  "Learn the basics": "Learn the basics",
+  "A short tour on an example session, removed when you’re done.": "A short tour on an example session, removed when you’re done.",
+  "Show me around": "Show me around"
 }

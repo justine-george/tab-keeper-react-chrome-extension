@@ -278,5 +278,14 @@
   "Click the title to rename the session. Try something like \"Lisbon in May\".": "按一下標題即可重新命名工作階段。試試「五月的里斯本」這類名稱。",
   "Drag a tab to reorder it, or drop it into the other window.": "拖曳分頁即可調整順序，也可以把它放到另一個視窗。",
   "That's the tour. Delete the example from this menu, or press Finish and it's removed for you.": "導覽到此結束。可以從這個選單刪除範例，或按「結束」，它會自動移除。",
-  "Open works after the tour": "導覽結束後即可使用「開啟」"
+  "Open works after the tour": "導覽結束後即可使用「開啟」",
+  "Help": "說明",
+  "Choose your theme, language, default view and shortcut again.": "重新選擇主題、語言、預設檢視和快速鍵。",
+  "Run setup again": "重新設定",
+  "Pin to your toolbar": "釘選到工具列",
+  "Show Tab Keeper next to the address bar, one click away.": "在網址列旁顯示 Tab Keeper，一鍵就能開啟。",
+  "Show me how": "告訴我怎麼做",
+  "Learn the basics": "了解基本操作",
+  "A short tour on an example session, removed when you’re done.": "用範例工作階段快速導覽，完成後自動移除。",
+  "Show me around": "帶我看看"
 }

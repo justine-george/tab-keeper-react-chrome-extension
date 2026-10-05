@@ -6,6 +6,7 @@ import { css } from '@emotion/react';
 
 import Button from '../../common/Button';
 import Icon from '../../common/Icon';
+import HelpSettings from './HelpSettings';
 import ThemeSwatch from './ThemeSwatch';
 import { LANGUAGE_OPTIONS } from './languageOptions';
 import { themeChoices } from './themeChoices';
@@ -1029,6 +1030,8 @@ const SettingsDetailsContainer: React.FC = () => {
         </div>
       </div>
     );
+  } else if (selectedSettingsCategory.name === SettingsCategory.HELP) {
+    settingsOptionsDiv = <HelpSettings />;
   }
 
   // Keyed on the category so React remounts the panel instead of reconciling
