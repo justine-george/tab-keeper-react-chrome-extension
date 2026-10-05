@@ -150,6 +150,35 @@ test('a second full view leaves the run to the first (R1)', async ({
   expect(await runDrawn(second)).toContain('card');
 });
 
+// §12, controller ruling: setup and the guide come after the run, which only the lock holder shows.
+for (const elsewhere of [true, false]) {
+  test(
+    elsewhere
+      ? 'a second full view while the first runs the run draws no setup and no pin guide'
+      : 'CONTROL: with no run running elsewhere, the same second full view draws setup',
+    async ({ context, extensionId }) => {
+      await stubToolbarPin(context, { pinned: false });
+      await seedRawSettingsIfAbsent(context, {
+        ...ANSWERED,
+        isPinGuideDismissed: false,
+        isWhatsNew2Seen: true,
+        setupState: 'pending',
+        firstRun: elsewhere
+          ? running('full', 4, 'kept')
+          : { ...running('full', 8, 'kept'), ended: 'finished' },
+      });
+      await seedSessionsIfAbsent(context, KEPT);
+      await watchRunDrawn(context);
+      const first = await openFullView(context, extensionId);
+      await queueDone(first);
+      const second = await openPage(context, extensionId, FULL_VIEW_PATH, FULL);
+      await runCheck(second, elsewhere ? 'elsewhere' : 'ended');
+      await queueDone(second);
+      expect(await runDrawn(second)).toEqual(elsewhere ? [] : ['setup']);
+    }
+  );
+}
+
 test('a full view reloaded at Hello shows Hello again', async ({
   context,
   extensionId,

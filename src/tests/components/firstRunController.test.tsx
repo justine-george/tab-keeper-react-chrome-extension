@@ -387,7 +387,7 @@ describe('a resume while sessions on disk are still loading', () => {
     }).find((e) => e.id === 'firstRun');
     const open = await entry?.decide();
     await act(async () => {
-      open?.();
+      if (typeof open === 'function') open();
       await Promise.resolve();
     });
     expect(r.store.getState().globalState.isRunHere).toBe(true);

@@ -1,4 +1,4 @@
-import type { DialogEntry } from '../utils/functions/dialogQueue';
+import { STAND_DOWN, type DialogEntry } from '../utils/functions/dialogQueue';
 import type { AppDispatch, RootState } from './store';
 import {
   openCloudConsentModal,
@@ -93,6 +93,8 @@ export function firstOpenDialogs(
         () => tourLockState(RUN_LOCK)
       );
       document.documentElement.dataset.runCheck = decision.check;
+      // §12: another page of this view shows the run; setup and the guide come after it there.
+      if (decision.check === 'elsewhere') return STAND_DOWN;
       return runOpener(decision, dispatch);
     },
   };

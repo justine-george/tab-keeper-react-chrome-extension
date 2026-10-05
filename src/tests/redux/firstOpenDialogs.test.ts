@@ -78,7 +78,7 @@ describe('the cloud question entry (KAN-259, moved from App)', () => {
       getState: store.getState,
     });
     const open = await cloudConsent.decide();
-    open?.();
+    if (typeof open === 'function') open();
     expect(store.getState().globalState.cloudConsentVariant).toBe('existing');
   });
 
@@ -91,7 +91,7 @@ describe('the cloud question entry (KAN-259, moved from App)', () => {
       getState: store.getState,
     });
     const open = await cloudConsent.decide();
-    open?.();
+    if (typeof open === 'function') open();
     expect(store.getState().globalState.cloudConsentVariant).toBe('existing');
     expect(store.getState().settingsDataState.cloudConsent).toBe('');
   });
@@ -110,7 +110,7 @@ describe('the cloud question entry (KAN-259, moved from App)', () => {
       getState: store.getState,
     });
     const open = await cloudConsent.decide();
-    open?.();
+    if (typeof open === 'function') open();
     expect(store.getState().globalState.cloudConsentVariant).toBe('welcome');
     expect(store.getState().settingsDataState.cloudConsent).toBe('declined');
     expect(store.getState().settingsDataState.isAutoSync).toBe(false);

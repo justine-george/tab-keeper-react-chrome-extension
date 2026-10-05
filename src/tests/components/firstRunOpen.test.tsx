@@ -9,6 +9,7 @@ import { buildContainer, buildSession } from '../fixtures/sessionFixture';
 import { asFirstRun, newRun } from '../../utils/functions/firstRun';
 import { RUN_LOCK, holdTourLock } from '../../utils/functions/tourLock';
 import {
+  beginSetup,
   recordFirstRun,
   type SettingsData,
 } from '../../redux/slices/settingsDataStateSlice';
@@ -40,6 +41,7 @@ async function openWith(
   // In the app the store and storedAtOpen come from the same disk.
   const record = asFirstRun(storedAtOpen.firstRun);
   if (record !== null) store.dispatch(recordFirstRun(record));
+  if (storedAtOpen.setupState === 'pending') store.dispatch(beginSetup());
   if (sessions !== undefined) store.dispatch(replaceState(sessions));
   const entries = firstOpenDialogs(surface, {
     dispatch: store.dispatch,
@@ -78,6 +80,34 @@ describe('the firstRun entry', () => {
     });
     expect(check).toBe('elsewhere');
     expect(store.getState().globalState.isRunHere).toBe(false);
+  });
+
+  // §12: only the lock holder shows the run, and setup and the guide come after it.
+  test('held by another full view: the queue stands down, so neither setup nor the guide opens here', async () => {
+    await holdTourLock(RUN_LOCK);
+    const { store, opened, check } = await openWith('full', {
+      cloudConsent: 'granted',
+      isWhatsNew2Seen: true,
+      setupState: 'pending',
+      firstRun: newRun('full', 4),
+    });
+    expect([check, opened]).toEqual(['elsewhere', null]);
+    expect(store.getState().globalState.isSetupOpen).toBe(false);
+    expect(store.getState().globalState.isPinGuideOpen).toBe(false);
+  });
+
+  // R1 only leaves the run alone: a browser with no lock answer must still get setup.
+  test('CONTROL: no lock answer: the queue goes on, and setup opens', async () => {
+    locks.uninstall();
+    locks = installFakeLocks({ queryRejects: true });
+    const { store, opened, check } = await openWith('full', {
+      cloudConsent: 'granted',
+      isWhatsNew2Seen: true,
+      setupState: 'pending',
+      firstRun: newRun('full', 4),
+    });
+    expect([check, opened]).toEqual(['unknown', 'setup']);
+    expect(store.getState().globalState.isSetupOpen).toBe(true);
   });
 
   test('Q7: the welcome reshows once, counted; the third open ends it unanswered', async () => {
