@@ -310,5 +310,6 @@
   "Saved. Press {{icon}} any time to save your windows again.": "Gespeichert. Drücken Sie {{icon}} jederzeit, um Ihre Fenster erneut zu speichern.",
   "This is an example. Press {{icon}} any time to save your own windows.": "Das ist ein Beispiel. Drücken Sie {{icon}} jederzeit, um Ihre eigenen Fenster zu speichern.",
   "Save your open windows, close them, and bring them all back later.": "Speichern Sie Ihre offenen Fenster, schließen Sie sie und holen Sie später alle zurück.",
-  "Get started opens Tab Keeper in its own tab.": "„Loslegen“ öffnet Tab Keeper in einem eigenen Tab."
+  "Get started opens Tab Keeper in its own tab.": "„Loslegen“ öffnet Tab Keeper in einem eigenen Tab.",
+  "Search looks in tab titles and links.": "Die Suche umfasst Tab-Titel und Links."
 }

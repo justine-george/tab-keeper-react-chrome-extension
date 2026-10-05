@@ -14,6 +14,24 @@ import { startRun, stepRunBack } from '../../redux/firstRun';
 import { setRunSaveCard } from '../../redux/slices/globalStateSlice';
 import { newRun } from '../../utils/functions/firstRun';
 
+// A test holds a capture in flight by setting `captureGate`.
+const captureGate = vi.hoisted(() => ({
+  current: null as Promise<void> | null,
+}));
+vi.mock('../../utils/functions/capture', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('../../utils/functions/capture')>();
+  return {
+    ...actual,
+    captureOpenWindows: async (
+      ...args: Parameters<typeof actual.captureOpenWindows>
+    ) => {
+      await captureGate.current;
+      return actual.captureOpenWindows(...args);
+    },
+  };
+});
+
 const seed = {
   tabs: [
     { id: 1, title: 'Kagi Search', url: 'https://kagi.com/', active: true },
@@ -658,5 +676,105 @@ describe('the run’s save step (§8, R6)', () => {
   test('CONTROL: with no run the field starts empty', async () => {
     await render();
     expect(field()).toHaveValue('');
+  });
+});
+
+// KAN-439. A stored save empties the name it used; a failed or raced one keeps the text.
+describe('the name field after a save (KAN-439)', () => {
+  const typeName = async (value: string, withSeed: object = seed) => {
+    const rendered = await renderWithProviders(<UserInputContainer />, {
+      seed: withSeed,
+    });
+    await act(async () => {});
+    const box = screen.getByRole('textbox');
+    if (value) await userEvent.type(box, value);
+    return { ...rendered, box };
+  };
+
+  const saveByButton = () =>
+    userEvent.click(
+      screen.getByLabelText('Save all open windows as a session')
+    );
+  const saveByEnter = async () => {
+    await userEvent.click(screen.getByRole('textbox'));
+    await userEvent.keyboard('{Enter}');
+  };
+
+  test.each([
+    ['the button', saveByButton],
+    ['Enter', saveByEnter],
+  ])('a typed save through %s empties the field', async (_how, save) => {
+    const { store, box } = await typeName('Research');
+    await save();
+
+    expect(store.getState().tabContainerDataState.tabGroups[0].title).toBe(
+      'Research'
+    );
+    expect(box).toHaveValue('');
+  });
+
+  test('the current-window menu save empties the field too', async () => {
+    const { store, box } = await typeName('Research');
+    await userEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    await userEvent.click(
+      within(screen.getByRole('menu')).getByRole('menuitem', {
+        name: 'Save current window as a session',
+      })
+    );
+
+    expect(store.getState().tabContainerDataState.tabGroups).toHaveLength(1);
+    expect(box).toHaveValue('');
+  });
+
+  test.each([
+    ['the button', saveByButton],
+    ['Enter', saveByEnter],
+  ])(
+    'an untouched empty save through %s leaves it empty',
+    async (_how, save) => {
+      const { store, box } = await typeName('');
+      await save();
+
+      expect(store.getState().tabContainerDataState.tabGroups[0].title).toBe(
+        'Kagi Search'
+      );
+      expect(box).toHaveValue('');
+    }
+  );
+
+  test.each([
+    ['the button', saveByButton],
+    ['Enter', saveByEnter],
+  ])(
+    'a save that captures nothing keeps the typed name (%s)',
+    async (_how, save) => {
+      const { store, box } = await typeName('Research', {
+        tabs: [],
+        windows: [],
+      });
+      await save();
+
+      expect(store.getState().tabContainerDataState.tabGroups).toEqual([]);
+      expect(box).toHaveValue('Research');
+    }
+  );
+
+  test('text typed while the capture is in flight survives the save', async () => {
+    let release = () => {};
+    captureGate.current = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    try {
+      const { store, box } = await typeName('Research');
+      await saveByButton();
+      await userEvent.type(box, 'Next');
+      release();
+      await act(async () => {});
+
+      expect(store.getState().tabContainerDataState.tabGroups).toHaveLength(1);
+      expect(box).toHaveValue('ResearchNext');
+    } finally {
+      captureGate.current = null;
+    }
   });
 });

@@ -315,5 +315,6 @@
   "Saved. Press {{icon}} any time to save your windows again.": "Guardado. Pulsa {{icon}} cuando quieras para volver a guardar tus ventanas.",
   "This is an example. Press {{icon}} any time to save your own windows.": "Esto es un ejemplo. Pulsa {{icon}} cuando quieras para guardar tus propias ventanas.",
   "Save your open windows, close them, and bring them all back later.": "Guarda tus ventanas abiertas, ciérralas y recupéralas todas más tarde.",
-  "Get started opens Tab Keeper in its own tab.": "Empezar abre Tab Keeper en su propia pestaña."
+  "Get started opens Tab Keeper in its own tab.": "Empezar abre Tab Keeper en su propia pestaña.",
+  "Search looks in tab titles and links.": "La búsqueda incluye títulos de pestañas y enlaces."
 }

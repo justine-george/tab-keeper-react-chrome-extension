@@ -320,5 +320,6 @@
   "Saved. Press {{icon}} any time to save your windows again.": "Сохранено. Нажмите {{icon}} в любой момент, чтобы снова сохранить свои окна.",
   "This is an example. Press {{icon}} any time to save your own windows.": "Это пример. Нажмите {{icon}} в любой момент, чтобы сохранить свои окна.",
   "Save your open windows, close them, and bring them all back later.": "Сохраняйте открытые окна, закрывайте их и потом возвращайте все разом.",
-  "Get started opens Tab Keeper in its own tab.": "«Начать» откроет Tab Keeper в отдельной вкладке."
+  "Get started opens Tab Keeper in its own tab.": "«Начать» откроет Tab Keeper в отдельной вкладке.",
+  "Search looks in tab titles and links.": "Поиск идёт по заголовкам вкладок и ссылкам."
 }

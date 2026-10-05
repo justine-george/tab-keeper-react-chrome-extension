@@ -315,5 +315,6 @@
   "Saved. Press {{icon}} any time to save your windows again.": "Enregistré. Appuyez sur {{icon}} à tout moment pour enregistrer de nouveau vos fenêtres.",
   "This is an example. Press {{icon}} any time to save your own windows.": "Ceci est un exemple. Appuyez sur {{icon}} à tout moment pour enregistrer vos propres fenêtres.",
   "Save your open windows, close them, and bring them all back later.": "Enregistrez vos fenêtres ouvertes, fermez-les et retrouvez-les toutes plus tard.",
-  "Get started opens Tab Keeper in its own tab.": "Commencer ouvre Tab Keeper dans son propre onglet."
+  "Get started opens Tab Keeper in its own tab.": "Commencer ouvre Tab Keeper dans son propre onglet.",
+  "Search looks in tab titles and links.": "La recherche porte sur les titres d’onglet et les liens."
 }

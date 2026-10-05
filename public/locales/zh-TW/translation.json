@@ -305,5 +305,6 @@
   "Saved. Press {{icon}} any time to save your windows again.": "已儲存。隨時按 {{icon}} 就能再次儲存你的視窗。",
   "This is an example. Press {{icon}} any time to save your own windows.": "這是一個範例。隨時按 {{icon}} 就能儲存你自己的視窗。",
   "Save your open windows, close them, and bring them all back later.": "儲存你開啟的視窗，關閉它們，之後再全部找回來。",
-  "Get started opens Tab Keeper in its own tab.": "「開始使用」會在獨立的分頁中開啟 Tab Keeper。"
+  "Get started opens Tab Keeper in its own tab.": "「開始使用」會在獨立的分頁中開啟 Tab Keeper。",
+  "Search looks in tab titles and links.": "搜尋範圍包括分頁標題和連結。"
 }

@@ -14,6 +14,7 @@ import { useDispatch, useSelector } from 'react-redux';
 
 import Icon from '../../common/Icon';
 import { NormalLabel } from '../../common/Label';
+import NoMatchState from '../../common/NoMatchState';
 import type { IconName } from '../../common/iconNames';
 import { useSearchShortcut } from '../../../hooks/useSearchShortcut';
 import { useFontFamily } from '../../../hooks/useFontFamily';
@@ -561,12 +562,7 @@ export default function OpenNowPane({
               />
             </div>
           ) : windows !== null && matches !== null && matches.size === 0 ? (
-            <div css={emptyStyle}>
-              <NormalLabel
-                value={t('NoOpenTabMatches', { text: searchText.trim() })}
-                color={COLORS.LABEL_L2_COLOR}
-              />
-            </div>
+            <NoMatchState query={searchText.trim()} inset={24} scope="open" />
           ) : (
             // The saved pane's two lists over every window (TabDragArea,
             // GroupDragArea), under Open now's own scopes: a tab at a time,

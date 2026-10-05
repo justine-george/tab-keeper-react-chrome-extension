@@ -305,5 +305,6 @@
   "Saved. Press {{icon}} any time to save your windows again.": "保存しました。{{icon}} を押すと、いつでもウィンドウをもう一度保存できます。",
   "This is an example. Press {{icon}} any time to save your own windows.": "これはサンプルです。{{icon}} を押すと、いつでもご自身のウィンドウを保存できます。",
   "Save your open windows, close them, and bring them all back later.": "開いているウィンドウを保存して閉じ、あとでまとめて元に戻せます。",
-  "Get started opens Tab Keeper in its own tab.": "「はじめる」を押すと、Tab Keeper が専用のタブで開きます。"
+  "Get started opens Tab Keeper in its own tab.": "「はじめる」を押すと、Tab Keeper が専用のタブで開きます。",
+  "Search looks in tab titles and links.": "タブのタイトルとリンクを検索します。"
 }

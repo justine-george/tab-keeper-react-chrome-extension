@@ -310,5 +310,6 @@
   "Saved. Press {{icon}} any time to save your windows again.": "Sparat. Tryck på {{icon}} när du vill för att spara dina fönster igen.",
   "This is an example. Press {{icon}} any time to save your own windows.": "Det här är ett exempel. Tryck på {{icon}} när du vill för att spara dina egna fönster.",
   "Save your open windows, close them, and bring them all back later.": "Spara dina öppna fönster, stäng dem och ta tillbaka alla senare.",
-  "Get started opens Tab Keeper in its own tab.": "Kom igång öppnar Tab Keeper i en egen flik."
+  "Get started opens Tab Keeper in its own tab.": "Kom igång öppnar Tab Keeper i en egen flik.",
+  "Search looks in tab titles and links.": "Sökningen omfattar fliktitlar och länkar."
 }

@@ -310,5 +310,6 @@
   "Saved. Press {{icon}} any time to save your windows again.": "Saved. Press {{icon}} any time to save your windows again.",
   "This is an example. Press {{icon}} any time to save your own windows.": "This is an example. Press {{icon}} any time to save your own windows.",
   "Save your open windows, close them, and bring them all back later.": "Save your open windows, close them, and bring them all back later.",
-  "Get started opens Tab Keeper in its own tab.": "Get started opens Tab Keeper in its own tab."
+  "Get started opens Tab Keeper in its own tab.": "Get started opens Tab Keeper in its own tab.",
+  "Search looks in tab titles and links.": "Search looks in tab titles and links."
 }

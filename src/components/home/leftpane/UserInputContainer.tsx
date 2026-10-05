@@ -136,6 +136,7 @@ export default function UserInputContainer() {
   // mode saves through this same captureOpenWindows before closing every
   // window, so nothing it does not pass itself may reach that path.
   async function createTabGroup(scope: CaptureScope) {
+    const typed = newTitle;
     // KAN-84. This was `newTitle || currentTabName`, which already intended a
     // fallback but only caught the empty string -- a whitespace-only name is
     // truthy, so it passed straight through and produced a session with no
@@ -159,6 +160,8 @@ export default function UserInputContainer() {
     if (!containerData) return;
 
     await dispatch(saveToTabContainer({ container: containerData, scope }));
+    // Only a stored session consumes the name, and never text typed since.
+    setNewTitle((now) => (now === typed ? '' : now));
     // The run's save step takes its first save; any later one is ordinary (R6).
     dispatch(takeRunSave(containerData.tabGroupId));
   }
