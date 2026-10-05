@@ -1,13 +1,14 @@
 import type { ThunkAction, UnknownAction } from '@reduxjs/toolkit';
 import { v4 as uuidv4 } from 'uuid';
 
-import type { RootState } from './store';
+import type { AppDispatch, RootState } from './store';
 import { followWithSetup } from './firstOpenFollowUps';
 import { showSession } from './showSession';
 import { selectIsSavedSessionFolded } from './savedSessionFold';
 import {
   closeFullViewCallout,
   closeSettingsPage,
+  openCloudConsentModal,
   runShownHere,
   runStoppedHere,
   setRunSaveCard,
@@ -16,6 +17,7 @@ import {
 } from './slices/globalStateSlice';
 import {
   beginSetup,
+  countWelcomeShow,
   endFirstRun,
   markFullViewCalloutSeen,
   recordFirstRun,
@@ -39,6 +41,7 @@ import {
   previousRunStep,
   runStepKind,
   type FirstRun,
+  type RunAtOpen,
   type RunEnding,
   type RunStep,
   type RunView,
@@ -183,6 +186,46 @@ export const startRun =
     dispatch(recordFirstRun(run));
     dispatch(runShownHere());
   };
+
+// Q7: the popup's welcome is the run's step 0, held by this page while it shows.
+export const showWelcome =
+  (run: FirstRun | null): Thunk<Promise<void>> =>
+  async (dispatch) => {
+    if (run === null) await dispatch(resumeRunHere());
+    else await dispatch(startRun(run));
+    dispatch(openCloudConsentModal({ variant: 'welcome' }));
+  };
+
+// What an open's decision opens; null when it opens nothing.
+export function runOpener(
+  decision: RunAtOpen,
+  dispatch: AppDispatch
+): (() => void) | null {
+  switch (decision.action) {
+    case 'nothing':
+      return null;
+    case 'endUnanswered':
+      dispatch(endFirstRun('unanswered'));
+      return null;
+    case 'resume':
+      return () => void dispatch(resumeRunHere());
+    case 'reshowWelcome':
+      return () => {
+        dispatch(countWelcomeShow());
+        void dispatch(showWelcome(null));
+      };
+    case 'start':
+      return () => {
+        // Q8: setup begins; the consent answer they gave is never touched.
+        if (decision.beginsSetup) dispatch(beginSetup());
+        void dispatch(
+          decision.run.view === 'popup'
+            ? showWelcome(decision.run)
+            : startRun(decision.run)
+        );
+      };
+  }
+}
 
 export const goToRunStep =
   (step: RunStep): Thunk<void> =>

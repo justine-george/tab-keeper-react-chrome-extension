@@ -7,6 +7,7 @@ import {
   POPUP,
   openPage,
   storedSettings,
+  twoFrames,
 } from './onboarding';
 import { localeStrings } from './locales';
 import { isValidTabMasterContainer } from '../../src/utils/functions/local';
@@ -102,6 +103,21 @@ export async function nextTo(page: Page, step: number): Promise<void> {
   await expect(cardAt(page, step)).toBeVisible();
 }
 
+// From the full-view run's first card to its last, with an example as its session.
+export async function walkFullRunToLastStep(page: Page): Promise<void> {
+  for (let step = 2; step <= 3; step++) await nextTo(page, step);
+  await cardButton(page, 'Use an example').click();
+  for (let step = 5; step <= 8; step++) await nextTo(page, step);
+}
+
+// A full-view run from Hello to Not now at its end, which goes on to setup.
+export async function finishFullRunFromHello(page: Page): Promise<void> {
+  await hello(page).getByRole('button', { name: 'Start', exact: true }).click();
+  await expect(cardAt(page, 1)).toBeVisible();
+  await walkFullRunToLastStep(page);
+  await cardButton(page, 'Not now').click();
+}
+
 // openRunFromHelp in another language: every name is read from the locale on screen.
 export async function openRunFromHelpIn(
   context: BrowserContext,
@@ -176,4 +192,34 @@ export async function seedRawSettingsIfAbsent(
       // Storage blocked; the specs' own assertions say so more clearly.
     }
   }, JSON.stringify(settings));
+}
+
+// What the observer names: the run's card, its Hello, and the pin guide it must win over.
+const RUN_PARTS = {
+  card: '[data-coach-mark]:not([aria-hidden])',
+  hello: 'dialog[data-run-hello]',
+  pinGuide: 'dialog[open]:has([data-pin-why])',
+};
+
+// Installed before any page loads, so a part drawn for one frame at mount is still seen.
+export async function watchRunDrawn(context: BrowserContext): Promise<void> {
+  await context.addInitScript((parts: Record<string, string>) => {
+    if (window.top !== window) return;
+    const drawn = new Set<string>();
+    Object.defineProperty(window, '__runDrawn', { value: drawn });
+    new MutationObserver(() => {
+      for (const [name, selector] of Object.entries(parts)) {
+        if (document.querySelector(selector) !== null) drawn.add(name);
+      }
+    }).observe(document, { subtree: true, childList: true, attributes: true });
+  }, RUN_PARTS);
+}
+
+// Read after the caller's barrier and two frames.
+export async function runDrawn(page: Page): Promise<string[]> {
+  await twoFrames(page);
+  return page.evaluate(() => {
+    const drawn: unknown = Reflect.get(window, '__runDrawn');
+    return drawn instanceof Set ? [...drawn].map(String).sort() : [];
+  });
 }

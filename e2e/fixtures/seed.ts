@@ -2,6 +2,7 @@ import type { BrowserContext } from '@playwright/test';
 
 import type { TabMasterContainer } from '../../src/redux/slices/tabContainerDataStateSlice';
 import { buildContainer } from '../../src/tests/fixtures/sessionFixture';
+import { RUN_FINISHED } from '../../src/tests/fixtures/firstRunFixture';
 
 // Re-exported so specs have one import point for fixture data, while src/
 // stays the single source of truth -- the factory is schema-checked against
@@ -10,6 +11,7 @@ export {
   buildSession,
   buildContainer,
 } from '../../src/tests/fixtures/sessionFixture';
+export { RUN_FINISHED } from '../../src/tests/fixtures/firstRunFixture';
 
 // Sessions live in localStorage under `tabContainerData`; only the device id
 // lives in chrome.storage.sync. For a signed-out run this is the whole seeding
@@ -23,12 +25,14 @@ export async function seedSessions(
 
 /**
  * KAN-7. Onboarding a seeded profile has already answered, so no spec boots
- * into the pin guide or the full-view callout by accident (headless reports "not pinned"). A spec about
+ * into the pin guide, the full-view callout or a run by accident (headless reports "not pinned"). A spec about
  * it passes its own value, which wins.
  */
 export const ONBOARDING_ANSWERED = {
   isPinGuideDismissed: true,
   isFullViewCalloutSeen: true,
+  isWhatsNew2Seen: true,
+  firstRun: RUN_FINISHED,
 };
 
 /**

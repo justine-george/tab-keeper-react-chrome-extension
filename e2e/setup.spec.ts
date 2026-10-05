@@ -16,6 +16,7 @@ import { setPin, stubToolbarPin } from './fixtures/toolbarPin';
 import { expectReadable } from './fixtures/textContrast';
 import { rgbToHex } from './fixtures/pixels';
 import { localeStrings } from './fixtures/locales';
+import { finishFullRunFromHello } from './fixtures/run';
 import { DARKENHEIMER_THEME } from '../src/hooks/useThemeColors';
 
 // KAN-7 §5 on the real build, and the whole first-open path end to end.
@@ -62,13 +63,14 @@ async function welcomeThen(
 test.describe('on a new install', () => {
   test.use({ freshProfile: true });
 
-  test('end to end: welcome, full view, setup, done, pin', async ({
+  test('end to end: welcome, full view, the run, setup, done, pin', async ({
     context,
     extensionId,
   }) => {
     await stubToolbarPin(context, { pinned: false });
     await welcomeThen(context, extensionId, 'Open full view');
     const full = await waitForFullView(context);
+    await finishFullRunFromHello(full);
 
     await expect(stepHeading(full)).toHaveText('Pick a theme');
     await expect(guide(full)).toHaveCount(0);
@@ -109,13 +111,14 @@ test.describe('on a new install', () => {
     });
   });
 
-  test('Not now, then the first full-view open: setup, then the guide', async ({
+  test('Not now, then the first full-view open: the run, setup, then the guide', async ({
     context,
     extensionId,
   }) => {
     await stubToolbarPin(context, { pinned: false });
     await welcomeThen(context, extensionId, 'Not now');
     const full = await openFullView(context, extensionId);
+    await finishFullRunFromHello(full);
     await expect(stepHeading(full)).toHaveText('Pick a theme');
     await expect(guide(full)).toHaveCount(0);
     await setup(full).getByText('Skip setup', { exact: true }).click();
@@ -129,6 +132,7 @@ test.describe('on a new install', () => {
     await stubToolbarPin(context, { pinned: true });
     await welcomeThen(context, extensionId, 'Not now');
     const first = await openFullView(context, extensionId);
+    await finishFullRunFromHello(first);
     await press(first, 'Next');
     await press(first, 'Next');
     await expect(stepHeading(first)).toHaveText(

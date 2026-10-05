@@ -1,7 +1,5 @@
-import type { Dispatch, UnknownAction } from '@reduxjs/toolkit';
-
 import type { DialogEntry } from '../utils/functions/dialogQueue';
-import type { RootState } from './store';
+import type { AppDispatch, RootState } from './store';
 import {
   openCloudConsentModal,
   openFullViewCallout,
@@ -24,6 +22,9 @@ import {
   shouldShowSetup,
 } from '../utils/functions/onboarding';
 import { showWhenQuiet } from './quietCards';
+import { runOpener } from './firstRun';
+import { runAtOpen } from '../utils/functions/firstRun';
+import { RUN_LOCK, tourLockState } from '../utils/functions/tourLock';
 import { shouldAskForReview } from '../utils/functions/reviewAsk';
 import { readToolbarPin } from '../utils/functions/toolbarPin';
 import { shouldOfferTabGroups } from '../utils/functions/tabGroupsOffer';
@@ -31,7 +32,7 @@ import { shouldOfferTabGroups } from '../utils/functions/tabGroupsOffer';
 export type Surface = 'popup' | 'full';
 
 export interface FirstOpen {
-  dispatch: Dispatch<UnknownAction>;
+  dispatch: AppDispatch;
   // settingsData as stored before this open wrote anything.
   storedAtOpen: Partial<SettingsData>;
   // Saved sessions on disk at this open; the store has not loaded them yet.
@@ -78,6 +79,21 @@ export function firstOpenDialogs(
         dispatch(beginSetup());
         dispatch(openCloudConsentModal({ variant: 'welcome' }));
       };
+    },
+  };
+
+  // §11: resume this view's run, reshow or end the welcome, or start a run (R13, upgraders, Q8).
+  const firstRun: DialogEntry = {
+    id: 'firstRun',
+    decide: async () => {
+      const decision = await runAtOpen(
+        surface,
+        storedAtOpen,
+        open.storedSessions,
+        () => tourLockState(RUN_LOCK)
+      );
+      document.documentElement.dataset.runCheck = decision.check;
+      return runOpener(decision, dispatch);
     },
   };
 
@@ -150,8 +166,15 @@ export function firstOpenDialogs(
   };
 
   const lists: Record<Surface, DialogEntry[]> = {
-    popup: [cloudConsent, fullViewOffer, rate, tabGroups, fullViewCallout],
-    full: [cloudConsent, setup, pinGuide, rate, tabGroups],
+    popup: [
+      cloudConsent,
+      firstRun,
+      fullViewOffer,
+      rate,
+      tabGroups,
+      fullViewCallout,
+    ],
+    full: [cloudConsent, firstRun, setup, pinGuide, rate, tabGroups],
   };
   return lists[surface];
 }

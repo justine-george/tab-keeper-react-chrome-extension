@@ -17,6 +17,7 @@ import {
 } from './fixtures/onboarding';
 import { setPin, stubToolbarPin } from './fixtures/toolbarPin';
 import { expectReadable } from './fixtures/textContrast';
+import { finishFullRunFromHello } from './fixtures/run';
 
 // KAN-7 §4 on the real build. The rate prompt, due in most of these seeds, is
 // the barrier for a negative: it is decided after the guide, so its dialog
@@ -188,7 +189,7 @@ test.describe('dismissals stick on this machine', () => {
     });
   }
 
-  test('a new install reaches it from Try the full view, after setup', async ({
+  test('a new install reaches it from Try the full view, after the run and setup', async ({
     context,
     extensionId,
   }) => {
@@ -203,6 +204,7 @@ test.describe('dismissals stick on this machine', () => {
       .getByRole('button', { name: 'Open full view', exact: true })
       .click();
     const full = await waitForFullView(context);
+    await finishFullRunFromHello(full);
     await expect(guide(full)).toHaveCount(0);
     await full
       .getByRole('dialog', { name: 'Make Tab Keeper yours', exact: true })

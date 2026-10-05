@@ -1,7 +1,7 @@
-import type { Page } from '@playwright/test';
+import type { BrowserContext, Page } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
-import { seedSettings } from './fixtures/seed';
+import { RUN_FINISHED, seedSettings } from './fixtures/seed';
 import { stubToolbarPin } from './fixtures/toolbarPin';
 import {
   FULL,
@@ -11,10 +11,11 @@ import {
 } from './fixtures/onboarding';
 import {
   FULL_RUN,
+  cardAt,
   cardButton,
-  nextTo,
-  openRunFromHelp,
+  runCheck,
   storedRun,
+  walkFullRunToLastStep,
 } from './fixtures/run';
 
 // §3's ending on the real build: setup, then the pin guide while unpinned.
@@ -60,24 +61,21 @@ async function watchDialogs(page: Page): Promise<() => Promise<string[]>> {
   };
 }
 
-async function toLastStep(page: Page) {
-  for (let step = 2; step <= 3; step++) await nextTo(page, step);
-  await cardButton(page, 'Use an example').click();
-  for (let step = 5; step <= 8; step++) await nextTo(page, step);
-}
-
-// Mounted pinned so no first-open dialog gets in the run's way; the machine is unpinned by the end.
-async function runToLastStep(
-  page: Page,
-  isPinnedAtEnd: boolean
-): Promise<() => Promise<string[]>> {
-  const seen = await watchDialogs(page);
-  await toLastStep(page);
-  await page.evaluate(
-    (pinned) => Reflect.get(window, '__tabKeeperSetPin')(pinned),
-    isPinnedAtEnd
-  );
-  return seen;
+// A full-view run at its first card, which this open resumes ahead of the queue's setup and pin guide.
+async function openRunningFullView(
+  context: BrowserContext,
+  extensionId: string,
+  pinned: boolean
+): Promise<Page> {
+  await stubToolbarPin(context, { pinned });
+  await seedSettings(context, {
+    isPinGuideDismissed: false,
+    firstRun: { ...RUN_FINISHED, step: 1, ended: null },
+  });
+  const page = await openPage(context, extensionId, FULL_RUN.path, FULL);
+  await runCheck(page, 'resumed');
+  await expect(cardAt(page, 1)).toBeVisible();
+  return page;
 }
 
 test.beforeEach(async ({ context }) => {
@@ -88,9 +86,9 @@ test('Not now at step 8: setup, then on Skip setup the pin guide', async ({
   context,
   extensionId,
 }) => {
-  await stubToolbarPin(context, { pinned: true });
-  const page = await openRunFromHelp(context, extensionId, FULL_RUN);
-  const seen = await runToLastStep(page, false);
+  const page = await openRunningFullView(context, extensionId, false);
+  const seen = await watchDialogs(page);
+  await walkFullRunToLastStep(page);
   await cardButton(page, 'Not now').click();
   await expect(dialogNamed(page, SETUP)).toBeVisible();
   await expect(dialogNamed(page, GUIDE)).toHaveCount(0);
@@ -105,9 +103,9 @@ test('pinned: setup, and nothing after it', async ({
   context,
   extensionId,
 }) => {
-  await stubToolbarPin(context, { pinned: true });
-  const page = await openRunFromHelp(context, extensionId, FULL_RUN);
-  const seen = await runToLastStep(page, true);
+  const page = await openRunningFullView(context, extensionId, true);
+  const seen = await watchDialogs(page);
+  await walkFullRunToLastStep(page);
   await cardButton(page, 'Pin this tab').click();
   await expect(dialogNamed(page, SETUP)).toBeVisible();
   await skipSetup(page).click();
@@ -121,11 +119,9 @@ test('Skip tutorial: nothing opens after it (R8)', async ({
   context,
   extensionId,
 }) => {
-  await stubToolbarPin(context, { pinned: true });
-  const page = await openRunFromHelp(context, extensionId, FULL_RUN);
-  const seen = await watchDialogs(page);
   // Unpinned, so a wrongly chained pin guide would draw.
-  await page.evaluate(() => Reflect.get(window, '__tabKeeperSetPin')(false));
+  const page = await openRunningFullView(context, extensionId, false);
+  const seen = await watchDialogs(page);
   await cardButton(page, 'Skip tutorial').click();
   await expect.poll(() => storedRun(page)).toMatchObject({ ended: 'skipped' });
   expect(await seen()).toEqual([]);

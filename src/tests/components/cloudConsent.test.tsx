@@ -35,6 +35,7 @@ import App from '../../App';
 import { CloudConsentModal } from '../../components/modals/CloudConsentModal';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { buildContainer, buildSession } from '../fixtures/sessionFixture';
+import { RUN_FINISHED_SETTINGS } from '../fixtures/firstRunFixture';
 import {
   openCloudConsentModal,
   setIsDirty,
@@ -157,6 +158,7 @@ describe('who is asked, and which screen (KAN-259)', () => {
     const seed = seedSettings({
       extensionInstalledTime: Date.now() - 30 * DAY,
       cloudConsent: 'granted',
+      ...RUN_FINISHED_SETTINGS,
     });
     const { store } = await renderWithProviders(<App />, { seedStore: seed });
     await waitFor(() => expect(mocks.ensureCloudSession).toHaveBeenCalled());
@@ -355,6 +357,7 @@ describe('it is never a surprise (KAN-259)', () => {
       extensionInstalledTime: Date.now() - 30 * DAY,
       cloudConsent: 'declined',
       isAutoSync: false,
+      ...RUN_FINISHED_SETTINGS,
     });
     const { store } = await renderWithProviders(<App />, {
       seedStore: (s) => {
@@ -385,6 +388,7 @@ describe('it is never a surprise (KAN-259)', () => {
       extensionInstalledTime: Date.now() - 30 * DAY,
       cloudConsent: 'declined',
       isAutoSync: false,
+      ...RUN_FINISHED_SETTINGS,
     });
     const { store } = await renderWithProviders(<App />, {
       seedStore: (s) => {

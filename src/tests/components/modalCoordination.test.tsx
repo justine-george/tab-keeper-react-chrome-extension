@@ -36,6 +36,7 @@ vi.mock('../../utils/functions/reviewAsk', async (importOriginal) => {
 });
 
 import App from '../../App';
+import { RUN_FINISHED_SETTINGS } from '../fixtures/firstRunFixture';
 import { leaveSetup } from '../../redux/firstOpenFollowUps';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { buildContainer, buildSession } from '../fixtures/sessionFixture';
@@ -81,6 +82,7 @@ describe('modal coordination on popup open', () => {
         // KAN-259: a user who has answered the cloud question, or it would
         // take the screen first and both of these would stand down.
         cloudConsent: 'granted',
+        ...RUN_FINISHED_SETTINGS,
       })
     );
 
@@ -107,6 +109,7 @@ describe('modal coordination on popup open', () => {
         lastValueMomentTime: Date.now() - 60 * 60 * 1000,
         isNeverAskAgainToRate: true,
         cloudConsent: 'granted',
+        ...RUN_FINISHED_SETTINGS,
       })
     );
 
@@ -191,6 +194,7 @@ const seedSettings =
 
 const RATE_DUE = {
   cloudConsent: 'granted' as const,
+  ...RUN_FINISHED_SETTINGS,
   extensionInstalledTime: Date.now() - 2 * DAY,
   lastValueMomentTime: Date.now() - 60 * 60 * 1000,
 };
