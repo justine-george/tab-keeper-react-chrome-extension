@@ -14,10 +14,13 @@ import { useThemeColors } from './hooks/useThemeColors';
 import { useDocumentTheme } from './hooks/useDocumentTheme';
 import { useOtherPageChanges } from './hooks/useOtherPageChanges';
 import { useInterruptedTourCleanup } from './hooks/useInterruptedTourCleanup';
+import { useFullViewShowRequests } from './hooks/useFullViewShowRequests';
 import { useTabCloudReads } from './hooks/useTabCloudReads';
 import { useDocumentTitle } from './hooks/useDocumentTitle';
 import { isTabView } from './utils/functions/viewMode';
 import { firstOpenDialogs } from './redux/firstOpenDialogs';
+import { takeShowFromAddress } from './utils/functions/fullViewShow';
+import { fullViewShowEntry } from './redux/fullViewShow';
 import { openFirstDialog } from './utils/functions/dialogQueue';
 import { storedSessionCount } from './utils/functions/storedSessions';
 import {
@@ -63,6 +66,7 @@ function App() {
   // reaches this one. Once, at the root, so there is one listener per page.
   useOtherPageChanges();
   useInterruptedTourCleanup();
+  useFullViewShowRequests();
 
   // KAN-279 D11. The tab view's own periodic/on-focus cloud read; a no-op in
   // the popup (isTabView() gates the whole effect inside the hook).
@@ -175,8 +179,12 @@ function App() {
       dispatch(setExtensionInstalledTime());
     }
     // The e2e barrier for "the queue opened nothing", which no dialog can show.
+    // A full view opened for a dialog decides only that one.
+    const requested = isTabView() ? takeShowFromAddress() : null;
+    const entries =
+      requested === null ? dialogs : [fullViewShowEntry(requested, dispatch)];
     void openFirstDialog(
-      dialogs,
+      entries,
       () => reduxStore.getState().globalState.hasTourRunHere
     ).then((opened) => {
       document.documentElement.dataset.firstOpen = opened ?? 'none';

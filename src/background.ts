@@ -86,6 +86,7 @@ const chromeTabApi: TabApi = {
   update: (tabId, props) => chrome.tabs.update(tabId, props),
   focusWindow: (windowId) => chrome.windows.update(windowId, { focused: true }),
   create: (props) => chrome.tabs.create(props),
+  announce: (message) => chrome.runtime.sendMessage(message),
 };
 
 // KAN-7 §7. Default view, applied again at every start: Task 1 measured whether Chrome keeps setPopup itself.

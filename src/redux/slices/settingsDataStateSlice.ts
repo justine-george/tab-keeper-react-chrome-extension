@@ -477,6 +477,12 @@ export const settingsDataStateSlice = createSlice({
       saveToLocalStorage('settingsData', state);
     },
 
+    // Run setup again: pending from any state, where beginSetup only starts it.
+    restartSetup: (state) => {
+      state.setupState = 'pending';
+      saveToLocalStorage('settingsData', state);
+    },
+
     answerFullViewOffer: (state) => {
       state.isFullViewOfferAnswered = true;
       saveToLocalStorage('settingsData', state);
@@ -567,6 +573,7 @@ export const {
   setOpenNowWidth,
   beginSetup,
   finishSetup,
+  restartSetup,
   answerFullViewOffer,
   dismissPinGuide,
   markFullViewOpened,
