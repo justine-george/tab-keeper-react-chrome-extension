@@ -168,6 +168,26 @@ test.describe('a declined user and Firebase (KAN-419)', () => {
     await stageSyncedUser(context, extensionId);
     await answerTheDialog(await open(context, extensionId), 'Turn off sync');
     const hits = await countCloudRequests(context);
+    // A re-sign-up completes as a different user, so the uid and signUp lines can fail.
+    let uid = 'e2e-anon';
+    await context.route(CLOUD, (route) => {
+      const url = route.request().url();
+      const signUp = url.includes('accounts:signUp');
+      if (!signUp && !url.includes('accounts:lookup')) return route.fallback();
+      hits.push(url);
+      if (signUp) uid = 'e2e-anon-new';
+      return route.fulfill({
+        headers: CORS,
+        json: signUp
+          ? {
+              idToken: fakeIdToken(),
+              refreshToken: 'e2e-refresh-new',
+              expiresIn: '3600',
+              localId: uid,
+            }
+          : { users: [{ localId: uid }] },
+      });
+    });
 
     const page = await open(context, extensionId);
     await page.getByRole('button', { name: 'Sync now', exact: true }).click();
