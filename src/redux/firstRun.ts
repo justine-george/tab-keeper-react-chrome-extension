@@ -2,6 +2,7 @@ import type { ThunkAction, UnknownAction } from '@reduxjs/toolkit';
 import { v4 as uuidv4 } from 'uuid';
 
 import type { RootState } from './store';
+import { followWithSetup } from './firstOpenFollowUps';
 import { showSession } from './showSession';
 import { selectIsSavedSessionFolded } from './savedSessionFold';
 import {
@@ -14,6 +15,7 @@ import {
   setSearchInputText,
 } from './slices/globalStateSlice';
 import {
+  beginSetup,
   endFirstRun,
   markFullViewCalloutSeen,
   recordFirstRun,
@@ -319,10 +321,15 @@ export const endRun =
     dispatch(stopRunHere());
   };
 
-// The run's last step done: by its non-pin button, its Esc, or after a pin.
-export const finishRunHere = (): Thunk<Promise<void>> => async (dispatch) => {
-  dispatch(endRun('finished'));
-};
+// The last step done; a full-view run goes on to setup (begun for an upgrader), then the pin guide.
+export const finishRunHere =
+  (): Thunk<Promise<void>> => async (dispatch, getState) => {
+    const run = selectRunHere(getState());
+    dispatch(endRun('finished'));
+    if (run === null || run.view !== 'full') return;
+    dispatch(beginSetup());
+    await dispatch(followWithSetup());
+  };
 
 // Pins Tab Keeper's own tab, only when pressed; already pinned or a refusal pins nothing, and the run ends either way.
 export const pinThisTab = (): Thunk<Promise<void>> => async (dispatch) => {

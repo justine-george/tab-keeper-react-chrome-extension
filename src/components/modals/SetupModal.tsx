@@ -19,9 +19,8 @@ import {
   usePopupShortcut,
 } from '../../hooks/usePopupShortcut';
 import type { AppDispatch, RootState } from '../../redux/store';
-import { closeSetup } from '../../redux/slices/globalStateSlice';
+import { leaveSetup } from '../../redux/firstOpenFollowUps';
 import {
-  finishSetup,
   setTheme,
   type Language,
 } from '../../redux/slices/settingsDataStateSlice';
@@ -78,10 +77,7 @@ export const SetupModal: React.FC = () => {
     hasMoved.current = true;
     setStepIndex(index);
   };
-  const finish = () => {
-    dispatch(finishSetup());
-    dispatch(closeSetup());
-  };
+  const finish = () => void dispatch(leaveSetup());
   const pickLanguage = (next: Language) => dispatch(chooseLanguage(next, i18n));
 
   const buttons = dialogButtonStyles(COLORS);

@@ -17,7 +17,7 @@ import { useFontFamily } from '../../hooks/useFontFamily';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import type { AppDispatch } from '../../redux/store';
 import { dismissPinGuide } from '../../redux/slices/settingsDataStateSlice';
-import { leavePinGuide } from '../../redux/firstOpenFollowUps';
+import { closePinGuide } from '../../redux/slices/globalStateSlice';
 import { watchToolbarPin } from '../../utils/functions/toolbarPin';
 import { ICON, TYPE } from '../../styles/scale';
 import { dialogButtonStyles } from './dialogButtons';
@@ -65,7 +65,7 @@ export const PinGuideModal: React.FC = () => {
   useEffect(() => {
     if (!isPinned) return;
     const timer = setTimeout(
-      () => dispatch(leavePinGuide()),
+      () => dispatch(closePinGuide()),
       CLOSE_AFTER_PIN_MS
     );
     return () => clearTimeout(timer);
@@ -73,7 +73,7 @@ export const PinGuideModal: React.FC = () => {
 
   const dismiss = () => {
     dispatch(dismissPinGuide());
-    dispatch(leavePinGuide());
+    dispatch(closePinGuide());
   };
 
   const steps: PinStep[] = [

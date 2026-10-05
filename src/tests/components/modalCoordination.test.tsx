@@ -36,7 +36,7 @@ vi.mock('../../utils/functions/reviewAsk', async (importOriginal) => {
 });
 
 import App from '../../App';
-import { leavePinGuide } from '../../redux/firstOpenFollowUps';
+import { leaveSetup } from '../../redux/firstOpenFollowUps';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { buildContainer, buildSession } from '../fixtures/sessionFixture';
 import type { ChromeSeed } from '../setup/chrome.fake';
@@ -330,7 +330,7 @@ describe('the pin guide in the order (KAN-7 §4)', () => {
     expect(store.getState().globalState.isPinGuideOpen).toBe(false);
   });
 
-  test('a welcome answered in the full view goes to the guide, not the offer', async () => {
+  test('a welcome answered in the full view goes to setup, not the offer', async () => {
     history.replaceState(null, '', '?view=tab');
     const { store } = await renderWithProviders(<App />, {
       seed: { action: { isOnToolbar: false } },
@@ -341,7 +341,7 @@ describe('the pin guide in the order (KAN-7 §4)', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Get started' }));
 
     await waitFor(() =>
-      expect(store.getState().globalState.isPinGuideOpen).toBe(true)
+      expect(store.getState().globalState.isSetupOpen).toBe(true)
     );
     expect(store.getState().globalState.isFullViewOfferOpen).toBe(false);
     expect(store.getState().settingsDataState.setupState).toBe('pending');
@@ -373,20 +373,20 @@ describe('setup in the order (KAN-7 §5)', () => {
     expect(store.getState().globalState.isRateAndReviewModalOpen).toBe(false);
   });
 
-  test('unpinned: the guide first, and setup when it closes', async () => {
+  test('pending and unpinned: setup first, and the guide when setup closes', async () => {
     const { store } = await full(
       { isOnToolbar: false },
       { setupState: 'pending' }
     );
     await waitFor(() =>
-      expect(store.getState().globalState.isPinGuideOpen).toBe(true)
+      expect(store.getState().globalState.isSetupOpen).toBe(true)
     );
-    expect(store.getState().globalState.isSetupOpen).toBe(false);
+    expect(store.getState().globalState.isPinGuideOpen).toBe(false);
 
-    act(() => {
-      store.dispatch(leavePinGuide());
+    await act(async () => {
+      await store.dispatch(leaveSetup());
     });
-    expect(store.getState().globalState.isSetupOpen).toBe(true);
+    expect(store.getState().globalState.isPinGuideOpen).toBe(true);
   });
 
   // §"Error and edge cases": no getUserSettings means no guide, and setup still shows.

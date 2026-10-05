@@ -90,7 +90,7 @@ export function firstOpenDialogs(
         : null,
   };
 
-  // KAN-7 §4. Asks Chrome, so it is the one async entry before the rate prompt.
+  // §3. For an open with no run and no setup pending; asks Chrome, so it is async.
   const pinGuide: DialogEntry = {
     id: 'pinGuide',
     decide: async () =>
@@ -102,7 +102,7 @@ export function firstOpenDialogs(
         : null,
   };
 
-  // KAN-7 §5. Reached here when the guide does not apply; else the guide's close opens it.
+  // §3. For an open with no run: setup when pending; its close offers the pin guide.
   const setup: DialogEntry = {
     id: 'setup',
     decide: () =>
@@ -151,7 +151,7 @@ export function firstOpenDialogs(
 
   const lists: Record<Surface, DialogEntry[]> = {
     popup: [cloudConsent, fullViewOffer, rate, tabGroups, fullViewCallout],
-    full: [cloudConsent, pinGuide, setup, rate, tabGroups],
+    full: [cloudConsent, setup, pinGuide, rate, tabGroups],
   };
   return lists[surface];
 }

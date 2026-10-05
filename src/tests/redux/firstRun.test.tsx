@@ -3,6 +3,8 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 import { rootReducer } from '../../redux/storeConfig';
 import {
+  beginSetup,
+  finishSetup,
   recordFirstRun,
   setFirstRunSession,
   setFirstRunStep,
@@ -43,6 +45,7 @@ import {
   openSettingsPage,
   setSearchInputText,
 } from '../../redux/slices/globalStateSlice';
+import { leaveSetup } from '../../redux/firstOpenFollowUps';
 import { undo } from '../../redux/slices/undoRedoSlice';
 import { SettingsCategory } from '../../redux/slices/settingsCategoryStateSlice';
 import { newRun } from '../../utils/functions/firstRun';
@@ -662,5 +665,70 @@ describe('moving onto the save step (KAN-436)', () => {
     store.dispatch(takeRunSave('own'));
     void store.dispatch(stepRunBack());
     expect(runOf(store)?.step).toBe(1);
+  });
+});
+
+describe('after the full-view run (§3)', () => {
+  beforeEach(() => history.replaceState(null, '', '?view=tab'));
+  afterEach(() => history.replaceState(null, '', '?'));
+
+  const openedOf = (store: Store) => [
+    store.getState().globalState.isSetupOpen,
+    store.getState().globalState.isPinGuideOpen,
+  ];
+
+  test('a new install finishes: setup opens; the pin guide waits for setup to close', async () => {
+    setupChromeFake({ windows: [OPEN_PAGE], action: { isOnToolbar: false } });
+    const { store } = makeTestStore();
+    store.dispatch(beginSetup());
+    await store.dispatch(startRun({ ...newRun('full', 8), sessionId: null }));
+    await store.dispatch(finishRunHere());
+    expect(openedOf(store)).toEqual([true, false]);
+    await store.dispatch(leaveSetup());
+    expect(openedOf(store)).toEqual([false, true]);
+  });
+
+  test('an upgrader finishes: setup goes from none to pending and opens (delta 8)', async () => {
+    const { store } = makeTestStore();
+    await store.dispatch(startRun(newRun('full', 8)));
+    await store.dispatch(finishRunHere());
+    expect(store.getState().settingsDataState.setupState).toBe('pending');
+    expect(store.getState().globalState.isSetupOpen).toBe(true);
+  });
+
+  test('setup done before, unpinned: the pin guide opens at once', async () => {
+    setupChromeFake({ windows: [OPEN_PAGE], action: { isOnToolbar: false } });
+    const { store } = makeTestStore();
+    store.dispatch(finishSetup());
+    await store.dispatch(startRun(newRun('full', 8)));
+    await store.dispatch(finishRunHere());
+    expect(openedOf(store)).toEqual([false, true]);
+  });
+
+  test('setup done before, pinned: nothing follows', async () => {
+    setupChromeFake({ windows: [OPEN_PAGE], action: { isOnToolbar: true } });
+    const { store } = makeTestStore();
+    store.dispatch(finishSetup());
+    await store.dispatch(startRun(newRun('full', 8)));
+    await store.dispatch(finishRunHere());
+    expect(openedOf(store)).toEqual([false, false]);
+  });
+
+  test('Skip tutorial opens nothing after it (R8)', async () => {
+    const { store } = makeTestStore();
+    store.dispatch(beginSetup());
+    await store.dispatch(startRun(newRun('full', 3)));
+    store.dispatch(endRun('skipped'));
+    expect(openedOf(store)).toEqual([false, false]);
+  });
+
+  test('the popup run opens neither (§4)', async () => {
+    history.replaceState(null, '', '?');
+    const { store } = makeTestStore();
+    store.dispatch(beginSetup());
+    await store.dispatch(startRun(newRun('popup', 7)));
+    await store.dispatch(finishRunHere());
+    expect(openedOf(store)).toEqual([false, false]);
+    expect(store.getState().settingsDataState.setupState).toBe('pending');
   });
 });

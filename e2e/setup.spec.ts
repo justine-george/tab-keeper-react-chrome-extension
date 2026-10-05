@@ -62,7 +62,7 @@ async function welcomeThen(
 test.describe('on a new install', () => {
   test.use({ freshProfile: true });
 
-  test('end to end: welcome, full view, pin, setup, done', async ({
+  test('end to end: welcome, full view, setup, done, pin', async ({
     context,
     extensionId,
   }) => {
@@ -70,11 +70,8 @@ test.describe('on a new install', () => {
     await welcomeThen(context, extensionId, 'Open full view');
     const full = await waitForFullView(context);
 
-    await expect(guide(full)).toBeVisible();
-    await setPin(full, true);
-    await expect(guide(full)).toHaveCount(0, { timeout: 5000 });
-
     await expect(stepHeading(full)).toHaveText('Pick a theme');
+    await expect(guide(full)).toHaveCount(0);
     await press(full, 'Graphite');
     await expect
       .poll(() => pageGround(full))
@@ -98,7 +95,11 @@ test.describe('on a new install', () => {
     ).toBeVisible();
     await press(full, 'Done');
 
-    await expect(full.locator('dialog[open]')).toHaveCount(0);
+    await expect(guide(full)).toBeVisible();
+    await setPin(full, true);
+    await expect(full.locator('dialog[open]')).toHaveCount(0, {
+      timeout: 5000,
+    });
     expect(await storedSettings(full)).toMatchObject({
       setupState: 'done',
       theme: 'Darkenheimer',
@@ -108,17 +109,17 @@ test.describe('on a new install', () => {
     });
   });
 
-  test('Not now, then the first full-view open: the guide, then setup', async ({
+  test('Not now, then the first full-view open: setup, then the guide', async ({
     context,
     extensionId,
   }) => {
     await stubToolbarPin(context, { pinned: false });
     await welcomeThen(context, extensionId, 'Not now');
     const full = await openFullView(context, extensionId);
-    await guide(full)
-      .getByRole('button', { name: 'Skip', exact: true })
-      .click();
     await expect(stepHeading(full)).toHaveText('Pick a theme');
+    await expect(guide(full)).toHaveCount(0);
+    await setup(full).getByText('Skip setup', { exact: true }).click();
+    await expect(guide(full)).toBeVisible();
   });
 
   test('closing the tab mid-setup resumes at step 1 next time', async ({

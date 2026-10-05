@@ -135,7 +135,7 @@ describe('the pin guide', () => {
     expect(seen.filter((type) => type === closePinGuide.type)).toHaveLength(1);
   });
 
-  test('Skip after the pin, before the guide closes itself, opens setup once', async () => {
+  test('Skip after the pin, before the guide closes itself, closes it once and opens nothing after it', async () => {
     vi.useFakeTimers();
     const { seen, chrome } = await renderWithProviders(<Gate />, {
       seed: { action: { isOnToolbar: false } },
@@ -154,7 +154,8 @@ describe('the pin guide', () => {
     fireEvent.click(within(openGuide()).getByRole('button', { name: 'Skip' }));
     act(() => vi.advanceTimersByTime(2000));
 
-    expect(seen.filter((type) => type === openSetup.type)).toHaveLength(1);
+    expect(seen.filter((type) => type === openSetup.type)).toHaveLength(0);
+    expect(seen.filter((type) => type === closePinGuide.type)).toHaveLength(1);
   });
 
   // C5: step 2 draws the name Chrome's puzzle menu shows, on one line.
