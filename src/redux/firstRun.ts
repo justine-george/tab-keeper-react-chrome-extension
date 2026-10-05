@@ -209,13 +209,14 @@ const decideSaveCard =
       dispatch(setRunSaveCard('sessions'));
       return;
     }
-    const card = (await hasTabsToSave()) ? 'save' : 'nothingToSave';
+    // A failed query falls back to the card whose way on needs no chrome call.
+    const hasTabs = await hasTabsToSave().catch(() => false);
     const now = getState();
     if (
       selectRunHere(now)?.step === run.step &&
       now.globalState.runSaveCard === null
     ) {
-      dispatch(setRunSaveCard(card));
+      dispatch(setRunSaveCard(hasTabs ? 'save' : 'nothingToSave'));
     }
   };
 

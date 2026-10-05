@@ -47,6 +47,7 @@ import { undo } from '../../redux/slices/undoRedoSlice';
 import { SettingsCategory } from '../../redux/slices/settingsCategoryStateSlice';
 import { newRun } from '../../utils/functions/firstRun';
 import { RUN_LOCK } from '../../utils/functions/tourLock';
+import * as capture from '../../utils/functions/capture';
 import { isSampleSession } from '../../utils/functions/sampleSession';
 import { DELETE_TAB_CONTAINER_ACTION } from '../../utils/constants/actionTypes';
 
@@ -642,6 +643,16 @@ describe('moving onto the save step (KAN-436)', () => {
     await store.dispatch(leaveRunHere());
     await next;
     expect(runOf(store)?.step).toBe(2);
+  });
+
+  test('a rejected tab query lands Next on the nothing-to-save card (KAN-438)', async () => {
+    const { store } = await atStepTwo();
+    vi.spyOn(capture, 'hasTabsToSave').mockRejectedValue(
+      new Error('no windows')
+    );
+    await store.dispatch(advanceRun());
+    expect(runOf(store)?.step).toBe(3);
+    expect(store.getState().globalState.runSaveCard).toBe('nothingToSave');
   });
 
   test('Back onto a save card already decided moves at once', async () => {
