@@ -310,5 +310,6 @@
   "Pin this tab": "Pin this tab",
   "Switch saves the windows you have open, closes them, and opens this session in their place.": "Switch saves the windows you have open, closes them, and opens this session in their place.",
   "Want to see and search everything you have open? It's all in the full view. Press ⤢ to open it now, or any time later.": "Want to see and search everything you have open? It's all in the full view. Press ⤢ to open it now, or any time later.",
-  "Saved. Press {{icon}} any time to save your windows again.": "Saved. Press {{icon}} any time to save your windows again."
+  "Saved. Press {{icon}} any time to save your windows again.": "Saved. Press {{icon}} any time to save your windows again.",
+  "This is an example. Press {{icon}} any time to save your own windows.": "This is an example. Press {{icon}} any time to save your own windows."
 }

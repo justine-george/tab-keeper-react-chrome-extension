@@ -310,5 +310,6 @@
   "Pin this tab": "Fäst den här fliken",
   "Switch saves the windows you have open, closes them, and opens this session in their place.": "Byt sparar fönstren du har öppna, stänger dem och öppnar den här sessionen i stället.",
   "Want to see and search everything you have open? It's all in the full view. Press ⤢ to open it now, or any time later.": "Vill du se och söka bland allt du har öppet? Allt finns i helvyn. Tryck på ⤢ för att öppna den nu, eller när du vill.",
-  "Saved. Press {{icon}} any time to save your windows again.": "Sparat. Tryck på {{icon}} när du vill för att spara dina fönster igen."
+  "Saved. Press {{icon}} any time to save your windows again.": "Sparat. Tryck på {{icon}} när du vill för att spara dina fönster igen.",
+  "This is an example. Press {{icon}} any time to save your own windows.": "Det här är ett exempel. Tryck på {{icon}} när du vill för att spara dina egna fönster."
 }

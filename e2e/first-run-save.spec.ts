@@ -165,6 +165,27 @@ test('full view: Back to step 3 after the run’s save says it saved; Next goes 
   expect(await storedTitles(page)).toEqual(['Inbox – Gmail']);
 });
 
+test('Use an example, then Back: the card says it is an example, and Next adds nothing', async ({
+  context,
+  extensionId,
+}) => {
+  const page = await popupRunBesideGmail(context, extensionId);
+  await cardButton(page, 'Use an example').click();
+  await expect(cardAt(page, 2)).toBeVisible();
+  await cardButton(page, 'Back').click();
+  await expect(cardAt(page, 1)).toBeVisible();
+  await expect(card(page)).toContainText('This is an example. Press');
+  await expect(card(page)).not.toContainText('Saved.');
+  await expect(
+    card(page).getByRole('img', { name: 'Save all open windows as a session' })
+  ).toBeVisible();
+  await expect(card(page).locator('p')).toHaveCount(1);
+  await expect(cardButton(page, 'Use an example')).toHaveCount(0);
+  await cardButton(page, 'Next').click();
+  await expect(cardAt(page, 2)).toBeVisible();
+  expect(await storedTitles(page)).toEqual(['Sample: Weekend trip']);
+});
+
 test('Q3: only Tab Keeper open, the card says so, the field holds New Tab Group, and Use an example is the only way on', async ({
   context,
   extensionId,

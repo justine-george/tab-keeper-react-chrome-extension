@@ -310,5 +310,6 @@
   "Pin this tab": "Diesen Tab anheften",
   "Switch saves the windows you have open, closes them, and opens this session in their place.": "Wechseln speichert Ihre offenen Fenster, schließt sie und öffnet an ihrer Stelle diese Sitzung.",
   "Want to see and search everything you have open? It's all in the full view. Press ⤢ to open it now, or any time later.": "Möchten Sie alles, was Sie geöffnet haben, sehen und durchsuchen? Das geht in der Vollansicht. Drücken Sie ⤢, um sie jetzt zu öffnen, oder jederzeit später.",
-  "Saved. Press {{icon}} any time to save your windows again.": "Gespeichert. Drücken Sie {{icon}} jederzeit, um Ihre Fenster erneut zu speichern."
+  "Saved. Press {{icon}} any time to save your windows again.": "Gespeichert. Drücken Sie {{icon}} jederzeit, um Ihre Fenster erneut zu speichern.",
+  "This is an example. Press {{icon}} any time to save your own windows.": "Das ist ein Beispiel. Drücken Sie {{icon}} jederzeit, um Ihre eigenen Fenster zu speichern."
 }

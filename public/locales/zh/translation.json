@@ -305,5 +305,6 @@
   "Pin this tab": "固定此标签页",
   "Switch saves the windows you have open, closes them, and opens this session in their place.": "“切换”会保存您打开的窗口，将它们关闭，再打开这个会话代替它们。",
   "Want to see and search everything you have open? It's all in the full view. Press ⤢ to open it now, or any time later.": "想查看和搜索您打开的一切？都在完整视图里。按 ⤢ 立即打开，以后也随时可以打开。",
-  "Saved. Press {{icon}} any time to save your windows again.": "已保存。随时按 {{icon}} 即可再次保存您的窗口。"
+  "Saved. Press {{icon}} any time to save your windows again.": "已保存。随时按 {{icon}} 即可再次保存您的窗口。",
+  "This is an example. Press {{icon}} any time to save your own windows.": "这是一个示例。随时按 {{icon}} 即可保存您自己的窗口。"
 }

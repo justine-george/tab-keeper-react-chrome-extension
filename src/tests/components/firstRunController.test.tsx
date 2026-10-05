@@ -387,6 +387,28 @@ describe('Back to the save step after the run’s save (R6, A5, M4)', () => {
     expect(r.store.getState().tabContainerDataState.tabGroups).toHaveLength(1);
   });
 
+  test('Use an example, then Back: the card says it is an example, with the glyph; Next adds nothing', async () => {
+    const r = await renderAt(newRun('popup', 1), []);
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Use an example' })
+    );
+    await waitFor(() => expect(runOf(r)?.step).toBe(2));
+    fireEvent.click(await screen.findByRole('button', { name: 'Back' }));
+    await waitFor(() => expect(runOf(r)?.step).toBe(1));
+    expect(mark()).toHaveTextContent('This is an example. Press');
+    expect(mark()).toHaveTextContent('any time to save your own windows.');
+    expect(mark()).not.toHaveTextContent('Saved.');
+    expect(await screen.findByRole('img', { name: GLYPH })).toBeInTheDocument();
+    expect(mark()?.querySelectorAll('p')).toHaveLength(1);
+    expect(labels()).toEqual(['Skip tutorial', 'Next']);
+    const before = r.store.getState().tabContainerDataState.tabGroups.length;
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    await waitFor(() => expect(runOf(r)?.step).toBe(2));
+    expect(r.store.getState().tabContainerDataState.tabGroups).toHaveLength(
+      before
+    );
+  });
+
   test('a popup run resumed with its session already set shows the same card (A5)', async () => {
     await renderAt({ ...newRun('popup', 1), sessionId: 'own' });
     expect(await screen.findByRole('button', { name: 'Next' })).toBeVisible();

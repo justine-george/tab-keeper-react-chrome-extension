@@ -33,6 +33,7 @@ import { setRunSaveEcho } from '../../redux/slices/globalStateSlice';
 import { prefersReducedMotion } from '../modals/getStartedMotion';
 import { playSaveEcho } from './saveEcho';
 import { showSession } from '../../redux/showSession';
+import { isSampleSession } from '../../utils/functions/sampleSession';
 import { useSampleNames } from '../../hooks/useSampleNames';
 import { useSessionListSettled } from '../../hooks/useSessionListSettled';
 import {
@@ -158,15 +159,17 @@ export default function FirstRun() {
         }
         // Once the run has its session, the card says so and the way on is Next (R6).
         if (run.sessionId !== null) {
+          // The example is no save of the user's, so it must not say "Saved."
+          const sentence = isSampleSession(run.sessionId)
+            ? t(
+                'This is an example. Press {{icon}} any time to save your own windows.',
+                { icon: GLYPH_SLOT }
+              )
+            : t('Saved. Press {{icon}} any time to save your windows again.', {
+                icon: GLYPH_SLOT,
+              });
           return {
-            text: (
-              <SaveGlyphSentence
-                sentence={t(
-                  'Saved. Press {{icon}} any time to save your windows again.',
-                  { icon: GLYPH_SLOT }
-                )}
-              />
-            ),
+            text: <SaveGlyphSentence sentence={sentence} />,
             primary: next,
           };
         }

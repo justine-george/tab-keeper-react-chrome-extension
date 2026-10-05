@@ -315,5 +315,6 @@
   "Pin this tab": "Fixar esta aba",
   "Switch saves the windows you have open, closes them, and opens this session in their place.": "Mudar salva as janelas que você tem abertas, fecha-as e abre esta sessão no lugar delas.",
   "Want to see and search everything you have open? It's all in the full view. Press ⤢ to open it now, or any time later.": "Quer ver e pesquisar tudo o que tem aberto? Está tudo na visualização completa. Pressione ⤢ para abri-la agora, ou quando quiser.",
-  "Saved. Press {{icon}} any time to save your windows again.": "Salvo. Pressione {{icon}} quando quiser para salvar suas janelas novamente."
+  "Saved. Press {{icon}} any time to save your windows again.": "Salvo. Pressione {{icon}} quando quiser para salvar suas janelas novamente.",
+  "This is an example. Press {{icon}} any time to save your own windows.": "Este é um exemplo. Pressione {{icon}} quando quiser para salvar suas próprias janelas."
 }

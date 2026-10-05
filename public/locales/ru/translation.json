@@ -320,5 +320,6 @@
   "Pin this tab": "Закрепить эту вкладку",
   "Switch saves the windows you have open, closes them, and opens this session in their place.": "«Перейти» сохраняет открытые окна, закрывает их и открывает вместо них эту сессию.",
   "Want to see and search everything you have open? It's all in the full view. Press ⤢ to open it now, or any time later.": "Хотите видеть и искать всё, что у вас открыто? Всё это есть в полном виде. Нажмите ⤢, чтобы открыть его сейчас или в любой момент позже.",
-  "Saved. Press {{icon}} any time to save your windows again.": "Сохранено. Нажмите {{icon}} в любой момент, чтобы снова сохранить свои окна."
+  "Saved. Press {{icon}} any time to save your windows again.": "Сохранено. Нажмите {{icon}} в любой момент, чтобы снова сохранить свои окна.",
+  "This is an example. Press {{icon}} any time to save your own windows.": "Это пример. Нажмите {{icon}} в любой момент, чтобы сохранить свои окна."
 }
