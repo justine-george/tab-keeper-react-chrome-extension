@@ -314,5 +314,6 @@
   "Undo any time: right-click the tab → Unpin.": "Annulable à tout moment : clic droit sur l’onglet → Retirer l’épingle.",
   "Pin this tab": "Épingler cet onglet",
   "Switch saves the windows you have open, closes them, and opens this session in their place.": "Basculer enregistre vos fenêtres ouvertes, les ferme et ouvre cette session à leur place.",
-  "Want to see and search everything you have open? It's all in the full view. Press ⤢ to open it now, or any time later.": "Vous voulez voir et rechercher tout ce que vous avez ouvert ? Tout est dans la vue complète. Appuyez sur ⤢ pour l’ouvrir maintenant, ou plus tard."
+  "Want to see and search everything you have open? It's all in the full view. Press ⤢ to open it now, or any time later.": "Vous voulez voir et rechercher tout ce que vous avez ouvert ? Tout est dans la vue complète. Appuyez sur ⤢ pour l’ouvrir maintenant, ou plus tard.",
+  "Saved. Press {{icon}} any time to save your windows again.": "Enregistré. Appuyez sur {{icon}} à tout moment pour enregistrer de nouveau vos fenêtres."
 }

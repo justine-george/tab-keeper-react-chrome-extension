@@ -304,5 +304,6 @@
   "Undo any time: right-click the tab → Unpin.": "언제든 되돌릴 수 있습니다. 탭을 오른쪽 클릭 → 고정 해제.",
   "Pin this tab": "이 탭 고정",
   "Switch saves the windows you have open, closes them, and opens this session in their place.": "전환을 누르면 열려 있는 창을 저장하고 닫은 뒤, 그 자리에 이 세션을 엽니다.",
-  "Want to see and search everything you have open? It's all in the full view. Press ⤢ to open it now, or any time later.": "열려 있는 모든 것을 보고 검색하고 싶나요? 모두 전체 보기에 있습니다. 지금 열려면 ⤢를 누르세요. 나중에 언제든 열 수도 있습니다."
+  "Want to see and search everything you have open? It's all in the full view. Press ⤢ to open it now, or any time later.": "열려 있는 모든 것을 보고 검색하고 싶나요? 모두 전체 보기에 있습니다. 지금 열려면 ⤢를 누르세요. 나중에 언제든 열 수도 있습니다.",
+  "Saved. Press {{icon}} any time to save your windows again.": "저장했습니다. 창을 다시 저장하려면 언제든 {{icon}} 버튼을 누르세요."
 }

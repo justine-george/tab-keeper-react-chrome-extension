@@ -314,5 +314,6 @@
   "Undo any time: right-click the tab → Unpin.": "Puedes deshacerlo cuando quieras: clic derecho en la pestaña → Dejar de fijar.",
   "Pin this tab": "Fijar esta pestaña",
   "Switch saves the windows you have open, closes them, and opens this session in their place.": "Cambiar guarda las ventanas que tienes abiertas, las cierra y abre esta sesión en su lugar.",
-  "Want to see and search everything you have open? It's all in the full view. Press ⤢ to open it now, or any time later.": "¿Quieres ver y buscar todo lo que tienes abierto? Está todo en la vista completa. Pulsa ⤢ para abrirla ahora o cuando quieras."
+  "Want to see and search everything you have open? It's all in the full view. Press ⤢ to open it now, or any time later.": "¿Quieres ver y buscar todo lo que tienes abierto? Está todo en la vista completa. Pulsa ⤢ para abrirla ahora o cuando quieras.",
+  "Saved. Press {{icon}} any time to save your windows again.": "Guardado. Pulsa {{icon}} cuando quieras para volver a guardar tus ventanas."
 }

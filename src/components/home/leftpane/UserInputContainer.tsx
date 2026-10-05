@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 
 import { css } from '@emotion/react';
 
@@ -18,6 +18,7 @@ import {
   type CaptureScope,
 } from '../../../utils/functions/capture';
 import { dropNotificationCount } from '../../../utils/functions/sessionExportHtml';
+import { selectRunAwaitsSave, takeRunSave } from '../../../redux/firstRun';
 import { saveToTabContainer } from '../../../redux/slices/tabContainerDataStateSlice';
 import { normalizeTitle } from '../../../utils/functions/local';
 import {
@@ -34,6 +35,17 @@ export default function UserInputContainer() {
 
   const [newTitle, setNewTitle] = useState<string>('');
   const [currentTabName, setCurrentTabName] = useState<string>('');
+  const awaitsRunSave = useSelector(selectRunAwaitsSave);
+  // Once touched, the field is the user's for the rest of the page's run.
+  const [isPrefillDropped, setPrefillDropped] = useState(false);
+  // §8: an untouched field shows the name an empty save would use right now.
+  const prefill =
+    awaitsRunSave &&
+    !isPrefillDropped &&
+    newTitle === '' &&
+    currentTabName !== ''
+      ? normalizeTitle(currentTabName) || t('New Tab Group')
+      : null;
 
   useEffect(() => {
     // Guards loadSuggestion below against setting state after this
@@ -117,6 +129,7 @@ export default function UserInputContainer() {
 
   function updateUserInput(e: React.ChangeEvent<HTMLInputElement>) {
     setNewTitle(e.target.value);
+    if (awaitsRunSave) setPrefillDropped(true);
   }
 
   // The scope is the button's word, not a stored preference (KAN-5). Focus
@@ -134,7 +147,7 @@ export default function UserInputContainer() {
     // resort is translated, because it is a name the user will see and can
     // rename.
     const title =
-      normalizeTitle(newTitle) ||
+      normalizeTitle(prefill ?? newTitle) ||
       normalizeTitle(currentTabName) ||
       t('New Tab Group');
 
@@ -145,7 +158,9 @@ export default function UserInputContainer() {
     const containerData = await captureOpenWindows(title, scope);
     if (!containerData) return;
 
-    dispatch(saveToTabContainer({ container: containerData, scope }));
+    await dispatch(saveToTabContainer({ container: containerData, scope }));
+    // The run's save step takes its first save; any later one is ordinary (R6).
+    dispatch(takeRunSave(containerData.tabGroupId));
   }
 
   const containerStyle = css`
@@ -189,7 +204,7 @@ export default function UserInputContainer() {
       <TextBox
         id="name"
         name="name"
-        value={newTitle}
+        value={prefill ?? newTitle}
         placeholder={t('Name the new session')}
         autoComplete="off"
         onChange={updateUserInput}

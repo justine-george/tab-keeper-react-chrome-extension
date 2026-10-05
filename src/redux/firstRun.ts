@@ -251,6 +251,18 @@ export const advanceRun = (): Thunk<Promise<void>> =>
 export const stepRunBack = (): Thunk<Promise<void>> =>
   moveRun((run) => previousRunStep(run.view, run.step));
 
+// §8, Q3: before the run's save, the save step's field shows the name an empty save would use.
+export const selectRunAwaitsSave = (state: RootState): boolean => {
+  const run = selectRunHere(state);
+  const card = state.globalState.runSaveCard;
+  return (
+    run !== null &&
+    run.sessionId === null &&
+    runStepKind(run.view, run.step) === 'save' &&
+    (card === 'save' || card === 'nothingToSave')
+  );
+};
+
 // The run's own save, once: a second save is an ordinary one (R6).
 export const takeRunSave =
   (tabGroupId: string): Thunk<void> =>

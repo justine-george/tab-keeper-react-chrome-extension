@@ -141,3 +141,40 @@ test('the user’s own session keeps an undimmed Open through and after the run'
   await expect.poll(() => storedTitles(page)).toEqual(['Kept']);
   expect(await openLook(page, 'kept')).toEqual(['none', null]);
 });
+
+test('the user’s own save is the run’s session: its Open is dimmed during the run and undimmed after Done', async ({
+  context,
+  extensionId,
+}) => {
+  const gmail = 'https://mail.google.com/mail/u/0/';
+  await context.route(gmail, (route) =>
+    route.fulfill({
+      contentType: 'text/html; charset=utf-8',
+      body: '<title>Inbox – Gmail</title>',
+    })
+  );
+  await (await context.newPage()).goto(gmail);
+  const page = await openRunFromHelp(context, extensionId, POPUP_RUN);
+  await page
+    .locator('[data-tour-anchor="save"]')
+    .getByRole('button', {
+      name: 'Save all open windows as a session',
+      exact: true,
+    })
+    .click();
+  await expect(cardAt(page, 2)).toBeVisible();
+  await expect.poll(() => storedTitles(page)).toEqual(['Inbox – Gmail']);
+  const run = await storedRun(page);
+  const own =
+    typeof run === 'object' && run !== null
+      ? Reflect.get(run, 'sessionId')
+      : null;
+  if (typeof own !== 'string') throw new Error('the run has no session');
+  // CONTROL: the run's session's Open is dimmed and blocked while the run points at it.
+  expect(await openLook(page, own)).toEqual(['opacity(0.3)', 'true']);
+  for (let step = 3; step <= 7; step++) await nextTo(page, step);
+  await cardButton(page, 'Done').click();
+  await expect(card(page)).toHaveCount(0);
+  await expect.poll(() => openLook(page, own)).toEqual(['none', null]);
+  expect(await storedTitles(page)).toEqual(['Inbox – Gmail']);
+});

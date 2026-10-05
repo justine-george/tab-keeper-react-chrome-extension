@@ -1,4 +1,4 @@
-import type { BrowserContext, Page } from '@playwright/test';
+import type { Page } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
 import { buildContainer, buildSession, seedSettings } from './fixtures/seed';
@@ -28,13 +28,12 @@ import {
 
 // §3 on the real build, from Help: Hello, then 8 cards, each in its mocked place.
 
-// Every page this context opens from now on.
-function countOpenedPages(context: BrowserContext): () => number {
-  let opened = 0;
-  context.on('page', () => {
-    opened += 1;
-  });
-  return () => opened;
+// How many tabs the browser has gained since now, read from the browser itself, not from the harness's announcement.
+async function watchNewTabs(page: Page): Promise<() => Promise<number>> {
+  const count = () =>
+    page.evaluate(() => chrome.tabs.query({}).then((t) => t.length));
+  const before = await count();
+  return async () => (await count()) - before;
 }
 
 const ring = (page: Page) =>
@@ -93,11 +92,11 @@ test('Hello, the eight cards in their places, Back and Next, and Not now', async
   );
   await expect(open).toBeVisible();
   // CONTROL: the 'with saved sessions' Open test, where this counter sees the page.
-  const opened = countOpenedPages(context);
+  const opened = await watchNewTabs(page);
   await page.mouse.click(...(await centreOf(open)));
   await nextTo(page, 6);
   await twoFrames(page);
-  expect(opened()).toBe(0);
+  expect(await opened()).toBe(0);
   const del = page.locator(
     '[data-pane="sessions"] [data-tour-anchor="row-delete"]'
   );
@@ -113,7 +112,7 @@ test('Hello, the eight cards in their places, Back and Next, and Not now', async
   await expect.poll(() => cardSide(page)).toBe('free');
   await expect(page.locator('[data-coach-ring]')).toHaveCount(0);
   await expect(cardButton(page, 'Skip tutorial')).toHaveCount(0);
-  expect(opened()).toBe(0);
+  expect(await opened()).toBe(0);
   await cardButton(page, 'Not now').click();
   await expect(card(page)).toHaveCount(0);
   await expect
@@ -359,12 +358,13 @@ test.describe('with saved sessions', () => {
   }) => {
     const page = await openPage(context, extensionId, FULL_VIEW_PATH, FULL);
     const row = page.locator('[data-pane="sessions"] [data-drag-row-id="old"]');
-    const opened = countOpenedPages(context);
+    const opened = await watchNewTabs(page);
     await row.hover();
     await page.mouse.click(
       ...(await centreOf(row.locator('[data-tour-anchor="row-open"]')))
     );
-    await expect.poll(opened).toBeGreaterThan(0);
+    await twoFrames(page);
+    expect(await opened()).toBeGreaterThan(0);
     await page.bringToFront();
     const del = row.locator('[data-tour-anchor="row-delete"]');
     await del.focus();

@@ -314,5 +314,6 @@
   "Undo any time: right-click the tab → Unpin.": "Puoi annullare quando vuoi: clic destro sulla scheda → Sblocca.",
   "Pin this tab": "Fissa questa scheda",
   "Switch saves the windows you have open, closes them, and opens this session in their place.": "Passa salva le finestre aperte, le chiude e apre questa sessione al loro posto.",
-  "Want to see and search everything you have open? It's all in the full view. Press ⤢ to open it now, or any time later.": "Vuoi vedere e cercare tutto ciò che hai aperto? È tutto nella vista completa. Premi ⤢ per aprirla ora, o quando vuoi."
+  "Want to see and search everything you have open? It's all in the full view. Press ⤢ to open it now, or any time later.": "Vuoi vedere e cercare tutto ciò che hai aperto? È tutto nella vista completa. Premi ⤢ per aprirla ora, o quando vuoi.",
+  "Saved. Press {{icon}} any time to save your windows again.": "Salvato. Premi {{icon}} quando vuoi per salvare di nuovo le tue finestre."
 }

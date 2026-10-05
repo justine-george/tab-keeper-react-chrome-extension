@@ -1,5 +1,5 @@
-import { afterEach, describe, expect, test } from 'vitest';
-import { act, screen, within } from '@testing-library/react';
+import { afterEach, describe, expect, test, vi } from 'vitest';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import UserInputContainer from '../../components/home/leftpane/UserInputContainer';
@@ -8,6 +8,11 @@ import { toastTexts, newestToast } from '../setup/toasts';
 import { SAVE_TAB_CONTAINER_ACTION } from '../../utils/constants/actionTypes';
 import { TOAST_MESSAGES } from '../../utils/constants/common';
 import { buildChromeTab } from '../fixtures/chromeTab';
+import { installFakeLocks, type FakeLocks } from '../setup/fakeLocks';
+import * as capture from '../../utils/functions/capture';
+import { startRun, stepRunBack } from '../../redux/firstRun';
+import { setRunSaveCard } from '../../redux/slices/globalStateSlice';
+import { newRun } from '../../utils/functions/firstRun';
 
 const seed = {
   tabs: [
@@ -497,5 +502,154 @@ describe('an empty save’s name skips the store and the New Tab page (§8)', ()
     expect(
       await emptySaveName([{ ...GMAIL, active: true, lastAccessed: 3 }])
     ).toBe('Inbox – Gmail');
+  });
+});
+
+describe('the run’s save step (§8, R6)', () => {
+  const GMAIL = {
+    id: 1,
+    windowId: 7,
+    url: 'https://mail.google.com/mail/u/0/',
+    title: '(2) Inbox – Gmail',
+    active: true,
+    lastAccessed: 2,
+  };
+  const SEED = {
+    tabs: [GMAIL],
+    windows: [{ id: 7, type: 'normal' as const, tabs: [GMAIL] }],
+  };
+  const field = () => screen.getByRole('textbox');
+  const saveButton = () =>
+    screen.getByLabelText('Save all open windows as a session');
+
+  let locks: FakeLocks | undefined;
+  afterEach(() => {
+    locks?.uninstall();
+    locks = undefined;
+    localStorage.clear();
+    vi.restoreAllMocks();
+  });
+
+  async function render() {
+    locks = installFakeLocks();
+    const r = await renderWithProviders(<UserInputContainer />, { seed: SEED });
+    await act(async () => {});
+    return r;
+  }
+  const startAtSave = (r: Awaited<ReturnType<typeof render>>) =>
+    act(async () => {
+      await r.store.dispatch(startRun(newRun('popup', 1)));
+      r.store.dispatch(setRunSaveCard('save'));
+    });
+
+  test('the field holds the name an empty save would use, as a real value', async () => {
+    const r = await render();
+    await startAtSave(r);
+    await waitFor(() => expect(field()).toHaveValue('Inbox – Gmail'));
+  });
+
+  test('the untouched name is saved, it is the run’s session, and the field is empty after', async () => {
+    const r = await render();
+    await startAtSave(r);
+    await waitFor(() => expect(field()).toHaveValue('Inbox – Gmail'));
+    await userEvent.click(saveButton());
+    const [saved] = r.store.getState().tabContainerDataState.tabGroups;
+    expect(saved.title).toBe('Inbox – Gmail');
+    expect(r.store.getState().settingsDataState.firstRun).toMatchObject({
+      step: 2,
+      sessionId: saved.tabGroupId,
+    });
+    expect(field()).toHaveValue('');
+  });
+
+  test('Back to the save step after the run’s save: the field stays empty (R6)', async () => {
+    const r = await render();
+    await startAtSave(r);
+    await waitFor(() => expect(field()).toHaveValue('Inbox – Gmail'));
+    await userEvent.click(saveButton());
+    await act(async () => {
+      await r.store.dispatch(stepRunBack());
+    });
+    expect(r.store.getState().settingsDataState.firstRun).toMatchObject({
+      step: 1,
+    });
+    expect(field()).toHaveValue('');
+  });
+
+  test('typing replaces it; clearing leaves the field empty, not refilled', async () => {
+    const r = await render();
+    await startAtSave(r);
+    await waitFor(() => expect(field()).toHaveValue('Inbox – Gmail'));
+    await userEvent.clear(field());
+    expect(field()).toHaveValue('');
+    await userEvent.type(field(), 'Lisbon');
+    expect(field()).toHaveValue('Lisbon');
+  });
+
+  test('typed before the save step: nothing is written, the typed text stays (§8)', async () => {
+    const r = await render();
+    await userEvent.type(field(), 'Lisbon');
+    await startAtSave(r);
+    expect(field()).toHaveValue('Lisbon');
+    await userEvent.click(saveButton());
+    const [saved] = r.store.getState().tabContainerDataState.tabGroups;
+    expect(saved.title).toBe('Lisbon');
+  });
+
+  test('a second save is ordinary: the run keeps its first session (Review Focus 4)', async () => {
+    const r = await render();
+    await startAtSave(r);
+    await waitFor(() => expect(field()).toHaveValue('Inbox – Gmail'));
+    await userEvent.click(saveButton());
+    await waitFor(() =>
+      expect(r.store.getState().tabContainerDataState.tabGroups).toHaveLength(1)
+    );
+    const [first] = r.store.getState().tabContainerDataState.tabGroups;
+    await userEvent.click(saveButton());
+    await waitFor(() =>
+      expect(r.store.getState().tabContainerDataState.tabGroups).toHaveLength(2)
+    );
+    const [second] = r.store.getState().tabContainerDataState.tabGroups;
+    expect(r.store.getState().settingsDataState.firstRun?.sessionId).toBe(
+      first.tabGroupId
+    );
+    expect(second.tabGroupId).not.toBe(first.tabGroupId);
+  });
+
+  test('two presses at once: the run keeps the first session, both save (Review Focus 4)', async () => {
+    const r = await render();
+    await startAtSave(r);
+    await waitFor(() => expect(field()).toHaveValue('Inbox – Gmail'));
+    await Promise.all([
+      userEvent.click(saveButton()),
+      userEvent.click(saveButton()),
+    ]);
+    await waitFor(() =>
+      expect(r.store.getState().tabContainerDataState.tabGroups).toHaveLength(2)
+    );
+    const ids = r.store
+      .getState()
+      .tabContainerDataState.tabGroups.map((g) => g.tabGroupId);
+    expect(ids).toContain(
+      r.store.getState().settingsDataState.firstRun?.sessionId
+    );
+  });
+
+  test('a save that captures nothing saves nothing, and the step stays (§13)', async () => {
+    const r = await render();
+    await startAtSave(r);
+    await waitFor(() => expect(field()).toHaveValue('Inbox – Gmail'));
+    vi.spyOn(capture, 'captureOpenWindows').mockResolvedValue(null);
+    await userEvent.click(saveButton());
+    expect(r.store.getState().tabContainerDataState.tabGroups).toEqual([]);
+    expect(r.store.getState().settingsDataState.firstRun).toMatchObject({
+      step: 1,
+      sessionId: null,
+    });
+  });
+
+  test('CONTROL: with no run the field starts empty', async () => {
+    await render();
+    expect(field()).toHaveValue('');
   });
 });

@@ -309,5 +309,6 @@
   "Undo any time: right-click the tab → Unpin.": "कभी भी वापस लें: टैब पर राइट-क्लिक करें → अनपिन करें।",
   "Pin this tab": "यह टैब पिन करें",
   "Switch saves the windows you have open, closes them, and opens this session in their place.": "\"बदलें\" आपकी खुली विंडो सहेजता है, उन्हें बंद करता है, और उनकी जगह यह सेशन खोलता है।",
-  "Want to see and search everything you have open? It's all in the full view. Press ⤢ to open it now, or any time later.": "अपनी हर खुली चीज़ देखना और खोजना चाहते हैं? सब कुछ पूरे व्यू में है। अभी खोलने के लिए ⤢ दबाएँ, या बाद में कभी भी।"
+  "Want to see and search everything you have open? It's all in the full view. Press ⤢ to open it now, or any time later.": "अपनी हर खुली चीज़ देखना और खोजना चाहते हैं? सब कुछ पूरे व्यू में है। अभी खोलने के लिए ⤢ दबाएँ, या बाद में कभी भी।",
+  "Saved. Press {{icon}} any time to save your windows again.": "सहेज लिया गया। अपनी विंडो को फिर से सहेजने के लिए कभी भी {{icon}} दबाएँ।"
 }

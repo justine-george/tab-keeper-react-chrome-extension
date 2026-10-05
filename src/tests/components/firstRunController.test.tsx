@@ -6,9 +6,11 @@ import {
   renderWithProviders,
   type RenderWithProvidersResult,
 } from '../setup/renderWithProviders';
+import { FakeMediaQueryList } from '../setup/mediaQueryFake';
 import { installFakeLocks, type FakeLocks } from '../setup/fakeLocks';
 import { buildContainer, buildSession } from '../fixtures/sessionFixture';
-import { startRun } from '../../redux/firstRun';
+import { startRun, takeRunSave } from '../../redux/firstRun';
+import { setRunSaveEcho } from '../../redux/slices/globalStateSlice';
 import { replaceState } from '../../redux/slices/tabContainerDataStateSlice';
 import { newRun, type FirstRun as Run } from '../../utils/functions/firstRun';
 
@@ -350,5 +352,125 @@ describe('the controller', () => {
         (b) => b.textContent
       )
     ).toEqual(['Skip tutorial', 'Use an example']);
+  });
+});
+
+describe('Back to the save step after the run’s save (R6, A5, M4)', () => {
+  const GLYPH = 'Save all open windows as a session';
+  const TEXT = 'Saved. Press';
+  const AGAIN = ' any time to save your windows again.';
+  const labels = () =>
+    [...document.querySelectorAll('[data-coach-mark] button')].map(
+      (b) => b.textContent
+    );
+
+  test('the card says it saved, with the glyph; no fine line; Next is the way on', async () => {
+    const r = await renderAt(newRun('popup', 1), [
+      buildSession({ tabGroupId: 'own', title: 'Own' }),
+    ]);
+    await screen.findByRole('button', { name: 'Use an example' });
+    act(() => {
+      r.store.dispatch(takeRunSave('own'));
+    });
+    await waitFor(() => expect(runOf(r)?.step).toBe(2));
+    fireEvent.click(await screen.findByRole('button', { name: 'Back' }));
+    await waitFor(() => expect(runOf(r)?.step).toBe(1));
+    expect(mark()).toHaveTextContent(TEXT);
+    expect(mark()).toHaveTextContent(AGAIN.trim());
+    expect(await screen.findByRole('img', { name: GLYPH })).toBeInTheDocument();
+    expect(mark()).not.toHaveTextContent('Saving keeps them safe');
+    expect(mark()?.querySelectorAll('p')).toHaveLength(1);
+    expect(labels()).toEqual(['Skip tutorial', 'Next']);
+    expect(screen.queryByRole('button', { name: 'Use an example' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    await waitFor(() => expect(runOf(r)?.step).toBe(2));
+    expect(r.store.getState().tabContainerDataState.tabGroups).toHaveLength(1);
+  });
+
+  test('a popup run resumed with its session already set shows the same card (A5)', async () => {
+    await renderAt({ ...newRun('popup', 1), sessionId: 'own' });
+    expect(await screen.findByRole('button', { name: 'Next' })).toBeVisible();
+    expect(mark()).toHaveTextContent(TEXT);
+    expect(screen.queryByRole('button', { name: 'Use an example' })).toBeNull();
+  });
+});
+
+describe('the first save’s echo (§10)', () => {
+  test('the new session’s tab dots settle by 3px, 40ms apart; then the flag clears', async () => {
+    const played: { keyframes: Keyframe[]; delay: number }[] = [];
+    Object.defineProperty(Element.prototype, 'animate', {
+      configurable: true,
+      value(
+        this: Element,
+        keyframes: Keyframe[],
+        options: KeyframeAnimationOptions
+      ) {
+        if (this.matches('[data-tour-anchor="tab-dot"]')) {
+          played.push({ keyframes, delay: Number(options.delay ?? 0) });
+        }
+        return { cancel: () => undefined, finished: Promise.resolve() };
+      },
+    });
+    const dots = [0, 1, 2].map(() => {
+      const dot = document.createElement('span');
+      dot.setAttribute('data-tour-anchor', 'tab-dot');
+      return dot;
+    });
+    const detail = document.createElement('div');
+    detail.setAttribute('data-pane', 'detail');
+    detail.append(...dots);
+    document.body.append(detail);
+    try {
+      const r = await renderAt(newRun('popup', 1));
+      act(() => {
+        r.store.dispatch(setRunSaveEcho('own'));
+      });
+      await waitFor(() => expect(played).toHaveLength(3));
+      expect(played.map((p) => p.delay)).toEqual([0, 40, 80]);
+      expect(played[0].keyframes[0]).toEqual({ transform: 'translateY(-3px)' });
+      await waitFor(() =>
+        expect(r.store.getState().globalState.runSaveEcho).toBeNull()
+      );
+    } finally {
+      detail.remove();
+      Reflect.deleteProperty(Element.prototype, 'animate');
+    }
+  });
+
+  test('reduced motion: nothing moves, and the flag still clears', async () => {
+    const animate = vi.fn();
+    Object.defineProperty(Element.prototype, 'animate', {
+      configurable: true,
+      value(this: Element) {
+        if (this.matches('[data-tour-anchor="tab-dot"]')) animate();
+        return { cancel: () => undefined, finished: Promise.resolve() };
+      },
+    });
+    vi.spyOn(window, 'matchMedia').mockImplementation(
+      (query: string) =>
+        new FakeMediaQueryList(
+          query,
+          query === '(prefers-reduced-motion: reduce)'
+        )
+    );
+    const dot = document.createElement('span');
+    dot.setAttribute('data-tour-anchor', 'tab-dot');
+    const detail = document.createElement('div');
+    detail.setAttribute('data-pane', 'detail');
+    detail.append(dot);
+    document.body.append(detail);
+    try {
+      const r = await renderAt(newRun('popup', 1));
+      act(() => {
+        r.store.dispatch(setRunSaveEcho('own'));
+      });
+      await waitFor(() =>
+        expect(r.store.getState().globalState.runSaveEcho).toBeNull()
+      );
+      expect(animate).not.toHaveBeenCalled();
+    } finally {
+      detail.remove();
+      Reflect.deleteProperty(Element.prototype, 'animate');
+    }
   });
 });

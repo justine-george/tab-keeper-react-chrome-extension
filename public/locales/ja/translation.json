@@ -304,5 +304,6 @@
   "Undo any time: right-click the tab → Unpin.": "いつでも元に戻せます：タブを右クリック →「固定を解除」。",
   "Pin this tab": "このタブを固定",
   "Switch saves the windows you have open, closes them, and opens this session in their place.": "「切り替え」を押すと、開いているウィンドウを保存して閉じ、代わりにこのセッションを開きます。",
-  "Want to see and search everything you have open? It's all in the full view. Press ⤢ to open it now, or any time later.": "開いているものをすべて見て検索したいときは、フルビューを使いましょう。⤢ を押すと今すぐ開けます。あとからでもいつでも開けます。"
+  "Want to see and search everything you have open? It's all in the full view. Press ⤢ to open it now, or any time later.": "開いているものをすべて見て検索したいときは、フルビューを使いましょう。⤢ を押すと今すぐ開けます。あとからでもいつでも開けます。",
+  "Saved. Press {{icon}} any time to save your windows again.": "保存しました。{{icon}} を押すと、いつでもウィンドウをもう一度保存できます。"
 }

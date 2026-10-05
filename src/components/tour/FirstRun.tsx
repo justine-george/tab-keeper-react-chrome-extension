@@ -29,6 +29,9 @@ import {
   stepRunBack,
   takeExampleForRun,
 } from '../../redux/firstRun';
+import { setRunSaveEcho } from '../../redux/slices/globalStateSlice';
+import { prefersReducedMotion } from '../modals/getStartedMotion';
+import { playSaveEcho } from './saveEcho';
 import { showSession } from '../../redux/showSession';
 import { useSampleNames } from '../../hooks/useSampleNames';
 import { useSessionListSettled } from '../../hooks/useSessionListSettled';
@@ -63,6 +66,7 @@ export default function FirstRun() {
   const sessions = useSelector(
     (s: RootState) => s.tabContainerDataState.tabGroups
   );
+  const echo = useSelector((s: RootState) => s.globalState.runSaveEcho);
   const shownSession = useRef<string | null>(null);
 
   // R2, and a record ended or replaced from another page.
@@ -87,6 +91,23 @@ export default function FirstRun() {
     dispatch(showSession(sessionId));
   }, [wantsSession, sessionId, dispatch]);
 
+  // The run's first save: the new session's dots echo once, after it is drawn.
+  useEffect(() => {
+    if (echo === null) return;
+    const frame = requestAnimationFrame(() => {
+      const dots = [
+        ...document.querySelectorAll(
+          '[data-pane="detail"] [data-tour-anchor="tab-dot"]'
+        ),
+      ];
+      if (!prefersReducedMotion() && dots.every((d) => 'animate' in d)) {
+        playSaveEcho(dots);
+      }
+      dispatch(setRunSaveEcho(null));
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [echo, dispatch]);
+
   const start = useCallback(() => dispatch(goToRunStep(1)), [dispatch]);
   const goNext = useCallback(() => void dispatch(advanceRun()), [dispatch]);
   const goBack = useCallback(() => void dispatch(stepRunBack()), [dispatch]);
@@ -107,7 +128,6 @@ export default function FirstRun() {
   if (plan === null || (kind === 'save' && saveCard === null)) return null;
 
   const next: CoachAction = { label: t('Next'), onPress: goNext };
-  // With the run's session set, the example adds nothing and moves on (R6).
   const useExample: CoachAction = {
     label: t('Use an example'),
     onPress: example,
@@ -133,6 +153,20 @@ export default function FirstRun() {
         if (saveCard === 'sessions') {
           return {
             text: t('Your saved sessions are all here, just as you left them.'),
+            primary: next,
+          };
+        }
+        // Once the run has its session, the card says so and the way on is Next (R6).
+        if (run.sessionId !== null) {
+          return {
+            text: (
+              <SaveGlyphSentence
+                sentence={t(
+                  'Saved. Press {{icon}} any time to save your windows again.',
+                  { icon: GLYPH_SLOT }
+                )}
+              />
+            ),
             primary: next,
           };
         }
