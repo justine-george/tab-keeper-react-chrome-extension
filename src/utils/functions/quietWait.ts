@@ -1,4 +1,4 @@
-// Any of these before the delay ends means the user is busy.
+// Any of these before the delay ends means the user is busy; a scroll the app starts at open would count too.
 export const QUIET_BREAKERS = [
   'keydown',
   'pointerdown',

@@ -133,6 +133,8 @@ test('full view: a wheel first, and the rate prompt never draws; a reload left q
   await expect(
     page.getByRole('dialog', { name: 'Enjoying Tab Keeper?', exact: true })
   ).toBeVisible();
+  // CONTROL: the same observer, after the reload, matches the real dialog.
+  expect(Number.isNaN((await cardTimes(page)).drawn)).toBe(false);
 });
 
 test('reduced motion: the card appears with no fade', async ({
