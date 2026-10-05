@@ -181,6 +181,11 @@ test.describe('the full-view callout (KAN-7 §6)', () => {
     await sessionHolder(context);
     const page = await openPopup(context, extensionId);
     await queueDone(page, 'fullViewCallout');
+    // The decision comes first; the callout follows once the open stays quiet.
+    await expect(page.locator('html')).toHaveAttribute(
+      'data-first-open-card',
+      'shown'
+    );
     expect(await calloutSeen(page)).toEqual(['callout']);
   });
 

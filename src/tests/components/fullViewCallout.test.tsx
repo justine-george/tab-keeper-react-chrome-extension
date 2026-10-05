@@ -10,6 +10,7 @@ import {
 import MenuContainer from '../../components/home/leftpane/MenuContainer';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { openFullViewCallout } from '../../redux/slices/globalStateSlice';
+import { showWhenQuiet } from '../../redux/quietCards';
 import { beginDragHold, endDragHold } from '../../redux/dragHold';
 import { OPEN_IN_TAB_MESSAGE } from '../../utils/functions/popOut';
 
@@ -28,6 +29,7 @@ const openCallout = () => screen.getByRole('dialog', { name: TEXT });
 
 afterEach(() => {
   endDragHold();
+  delete document.documentElement.dataset.firstOpenCard;
   localStorage.clear();
 });
 
@@ -159,6 +161,26 @@ describe('the full-view callout', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Open full view' }));
     await waitFor(() => expect(chrome.sentMessages).toHaveLength(1));
     expect(store.getState().settingsDataState.isFullViewCalloutSeen).toBe(true);
+    expect(callout()).toBeNull();
+  });
+
+  // CONTROL: 'pressing ⤢ itself marks it seen', with the callout on screen.
+  test('⤢ pressed during the wait leaves the callout unseen', async () => {
+    const { store } = await render(false);
+    void showWhenQuiet(
+      () => store.dispatch(openFullViewCallout()),
+      store.getState
+    );
+    fireEvent.pointerDown(
+      screen.getByRole('button', { name: 'Open full view' })
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Open full view' }));
+    await waitFor(() =>
+      expect(document.documentElement.dataset.firstOpenCard).toBe('skipped')
+    );
+    expect(store.getState().settingsDataState.isFullViewCalloutSeen).toBe(
+      false
+    );
     expect(callout()).toBeNull();
   });
 });

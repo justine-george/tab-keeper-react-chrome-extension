@@ -2,6 +2,7 @@ import { useEffect, useId } from 'react';
 import { useTranslation } from 'react-i18next';
 import { css } from '@emotion/react';
 
+import { cardFadeIn } from '../../common/cardFade';
 import { isUnclaimedEscape } from '../../common/unclaimedEscape';
 import Icon from '../../common/Icon';
 import { dialogButtonStyles } from '../../modals/dialogButtons';
@@ -94,7 +95,7 @@ export default function FullViewCallout({
       aria-modal="false"
       aria-labelledby={textId}
       data-full-view-callout
-      css={calloutStyle}
+      css={[calloutStyle, cardFadeIn]}
     >
       <span aria-hidden="true" css={notch(8, COLORS.BORDER_COLOR, -9, 0)} />
       <span aria-hidden="true" css={notch(7, COLORS.PRIMARY_COLOR, -7, 1)} />

@@ -2,6 +2,9 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
+// These tests pin which dialog an open picks, not when.
+vi.mock('../../utils/constants/cardDelay', () => ({ CARD_DELAY_MS: 0 }));
+
 // Firebase is the only reason App cannot just be mounted: observeAuthState
 // opens a real onAuthStateChanged subscription against a live auth object.
 // Nothing in this file is about auth, so it is stubbed to a no-op. App then
@@ -48,6 +51,7 @@ afterEach(() => {
   reviewAsk.throws = false;
   localStorage.clear();
   delete document.documentElement.dataset.firstOpen;
+  delete document.documentElement.dataset.firstOpenCard;
 });
 
 const DAY = 24 * 60 * 60 * 1000;

@@ -23,6 +23,7 @@ import {
   shouldShowPinGuide,
   shouldShowSetup,
 } from '../utils/functions/onboarding';
+import { showWhenQuiet } from './quietCards';
 import { shouldAskForReview } from '../utils/functions/reviewAsk';
 import { readToolbarPin } from '../utils/functions/toolbarPin';
 import { shouldOfferTabGroups } from '../utils/functions/tabGroupsOffer';
@@ -115,7 +116,11 @@ export function firstOpenDialogs(
     id: 'rate',
     decide: () =>
       shouldAskForReview(storedAtOpen, Date.now())
-        ? () => dispatch(openRateAndReviewModal())
+        ? () =>
+            void showWhenQuiet(
+              () => dispatch(openRateAndReviewModal()),
+              open.getState
+            )
         : null,
   };
 
@@ -136,7 +141,11 @@ export function firstOpenDialogs(
         open.getState().settingsDataState,
         open.storedSessions
       )
-        ? () => dispatch(openFullViewCallout())
+        ? () =>
+            void showWhenQuiet(
+              () => dispatch(openFullViewCallout()),
+              open.getState
+            )
         : null,
   };
 

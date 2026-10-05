@@ -109,9 +109,9 @@ export default function MenuContainer() {
     dispatch(closeAllToasts());
   }
 
-  // KAN-7 §6. ⤢, Try it, ✕ and Esc each mark the callout seen.
+  // Seen only once it has been on screen; ⤢ during the wait is just ⤢.
   const seeFullViewCallout = () => {
-    dispatch(markFullViewCalloutSeen());
+    if (isFullViewCalloutOpen) dispatch(markFullViewCalloutSeen());
     dispatch(closeFullViewCallout());
   };
 
