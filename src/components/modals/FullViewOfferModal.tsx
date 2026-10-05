@@ -1,17 +1,22 @@
 import { useEffect, useRef } from 'react';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
 import { css } from '@emotion/react';
 
 import Icon from '../common/Icon';
 import { useFontFamily } from '../../hooks/useFontFamily';
 import { useThemeColors } from '../../hooks/useThemeColors';
-import type { AppDispatch } from '../../redux/store';
+import type { AppDispatch, RootState } from '../../redux/store';
 import { closeFullViewOffer } from '../../redux/slices/globalStateSlice';
 import { answerFullViewOffer } from '../../redux/slices/settingsDataStateSlice';
 import { requestTabView } from '../../utils/functions/popOut';
 import { ICON, TYPE } from '../../styles/scale';
 import { dialogButtonStyles } from './dialogButtons';
+import {
+  canAnimate,
+  playOfferEntrance,
+  prefersReducedMotion,
+} from './getStartedMotion';
 
 const TITLE_ID = 'full-view-offer-title';
 const BODY_ID = 'full-view-offer-body';
@@ -24,14 +29,22 @@ export const FullViewOfferModal: React.FC = () => {
   const dispatch: AppDispatch = useDispatch();
   const dialogRef = useRef<HTMLDialogElement>(null);
 
+  const enters = useSelector(
+    (s: RootState) => s.globalState.fullViewOfferEnters
+  );
+
   // Opens unlit (KAN-243): the dialog holds the focus, not its first control.
   useEffect(() => {
     const dialog = dialogRef.current;
     if (dialog && !dialog.open) {
       dialog.showModal();
       dialog.focus();
+      // Only after Get started's moment; reduced motion shows it at once.
+      if (enters && !prefersReducedMotion() && canAnimate(dialog)) {
+        playOfferEntrance(dialog);
+      }
     }
-  }, []);
+  }, [enters]);
 
   const notNow = () => {
     dispatch(answerFullViewOffer());

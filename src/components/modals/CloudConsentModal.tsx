@@ -22,6 +22,12 @@ import { followWelcome } from '../../redux/firstOpenFollowUps';
 import { PRIVACY_POLICY_LINK } from '../../utils/constants/common';
 import { DIALOG, ICON, TYPE } from '../../styles/scale';
 import { dialogButtonStyles } from './dialogButtons';
+import {
+  canAnimate,
+  playGetStarted,
+  prefersReducedMotion,
+  type Motion,
+} from './getStartedMotion';
 
 const TITLE_ID = 'cloud-consent-title';
 const BODY_ID = 'cloud-consent-body';
@@ -48,6 +54,8 @@ export const CloudConsentModal: React.FC = () => {
   const { t } = useTranslation();
   const dispatch: AppDispatch = useDispatch();
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const getStartedRef = useRef<HTMLButtonElement>(null);
+  const motion = useRef<Motion | null>(null);
   // Opens UNLIT, as the rate prompt does (KAN-243): the dialog itself takes
   // the focus (tabIndex -1), so Escape still works and the first Tab lands on
   // the first control, but no button wears a ring on open. A lit button on a
@@ -76,9 +84,9 @@ export const CloudConsentModal: React.FC = () => {
   if (!isOpen) return null;
 
   // KAN-7 §8. Only the welcome (a new install) chains to what follows it.
-  const close = () => {
+  const close = (offerEnters = false) => {
     dispatch(closeCloudConsentModal());
-    if (variant === 'welcome') void dispatch(followWelcome());
+    if (variant === 'welcome') void dispatch(followWelcome({ offerEnters }));
   };
   const decline = () => {
     dispatch(declineCloudConsent());
@@ -105,10 +113,43 @@ export const CloudConsentModal: React.FC = () => {
   const dismiss = () => {
     dispatch(closeCloudConsentModal());
   };
+  // The moment plays once; a press while it plays does nothing.
+  const getStarted = () => {
+    if (motion.current !== null) return;
+    const dialog = dialogRef.current;
+    const button = getStartedRef.current;
+    if (
+      dialog === null ||
+      button === null ||
+      prefersReducedMotion() ||
+      !canAnimate(dialog)
+    ) {
+      close();
+      return;
+    }
+    motion.current = playGetStarted({
+      button,
+      shutter: dialog.querySelector('[data-mark-part="shutter"]'),
+      dialog,
+    });
+    void motion.current.finished.then((completed) => {
+      motion.current = null;
+      if (completed) close(true);
+    });
+  };
+  // Esc skips the moment: the welcome goes at once.
+  const leaveWelcome = () => {
+    motion.current?.cancel();
+    close();
+  };
   // Escape never uploads: existing declines (KAN-410), enable changes nothing,
-  // and the welcome has nothing left to answer, so it is Get started.
+  // and the welcome has nothing left to answer, so Escape is Get started without the moment.
   const handleCancel =
-    variant === 'welcome' ? close : variant === 'existing' ? decline : dismiss;
+    variant === 'welcome'
+      ? leaveWelcome
+      : variant === 'existing'
+        ? decline
+        : dismiss;
 
   const buttons = dialogButtonStyles(COLORS);
 
@@ -217,7 +258,12 @@ export const CloudConsentModal: React.FC = () => {
             )}
           </p>
           <div css={actionsStyle}>
-            <button type="button" css={buttons.primary} onClick={close}>
+            <button
+              ref={getStartedRef}
+              type="button"
+              css={buttons.primary}
+              onClick={getStarted}
+            >
               {t('Get started')}
             </button>
           </div>

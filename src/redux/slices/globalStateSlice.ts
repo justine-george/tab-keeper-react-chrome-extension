@@ -125,6 +125,8 @@ export interface Global {
   cloudConsentThen: CloudConsentThen | null;
   // KAN-7 §3. "Try the full view". Session-only, like every dialog flag here.
   isFullViewOfferOpen: boolean;
+  // The offer animates in only after Get started's moment.
+  fullViewOfferEnters: boolean;
   // KAN-7 §6. The callout under ⤢, popup only.
   isFullViewCalloutOpen: boolean;
   // KAN-7 §4. The pin guide, full view only.
@@ -279,6 +281,7 @@ export const initialState: Global = {
   cloudConsentVariant: 'welcome',
   cloudConsentThen: null,
   isFullViewOfferOpen: false,
+  fullViewOfferEnters: false,
   isFullViewCalloutOpen: false,
   isPinGuideOpen: false,
   isSetupOpen: false,
@@ -1012,12 +1015,17 @@ export const globalStateSlice = createSlice({
       state.isSetupOpen = false;
     },
 
-    openFullViewOffer: (state) => {
+    openFullViewOffer: (
+      state,
+      action: PayloadAction<{ enters: boolean } | undefined>
+    ) => {
       state.isFullViewOfferOpen = true;
+      state.fullViewOfferEnters = action.payload?.enters ?? false;
     },
 
     closeFullViewOffer: (state) => {
       state.isFullViewOfferOpen = false;
+      state.fullViewOfferEnters = false;
     },
 
     openFullViewCallout: (state) => {

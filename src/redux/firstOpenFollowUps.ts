@@ -32,13 +32,16 @@ export const followInFullView =
 // KAN-7 §8. The welcome (a new install) closed; its opening set setup pending.
 // The popup offers the full view; the full view runs its own chain.
 export const followWelcome =
-  (): Thunk<Promise<void>> => async (dispatch, getState) => {
+  (
+    { offerEnters }: { offerEnters: boolean } = { offerEnters: false }
+  ): Thunk<Promise<void>> =>
+  async (dispatch, getState) => {
     if (isTabView()) {
       await dispatch(followInFullView());
       return;
     }
     if (shouldOfferFullView(getState().settingsDataState)) {
-      dispatch(openFullViewOffer());
+      dispatch(openFullViewOffer({ enters: offerEnters }));
     }
   };
 
