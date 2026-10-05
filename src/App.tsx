@@ -173,7 +173,10 @@ function App() {
       dispatch(setExtensionInstalledTime());
     }
     // The e2e barrier for "the queue opened nothing", which no dialog can show.
-    void openFirstDialog(dialogs).then((opened) => {
+    void openFirstDialog(
+      dialogs,
+      () => reduxStore.getState().globalState.hasTourRunHere
+    ).then((opened) => {
       document.documentElement.dataset.firstOpen = opened ?? 'none';
     });
 

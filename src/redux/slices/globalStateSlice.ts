@@ -179,6 +179,10 @@ export interface Global {
   // beside Open now until the fold button is next pressed. Session-only, so
   // a new page opens as the stored setting says.
   isPeekingSavedSession: boolean;
+  // KAN-413. The sample this page runs the tour for; page-local, so a reload runs none.
+  tourSampleIdHere: string | null;
+  // KAN-413. Once a tour ran here, this open's first-open dialogs stand down.
+  hasTourRunHere: boolean;
 }
 
 // The windows folded shut in one session. `windowIds` may hold ids that the
@@ -284,6 +288,8 @@ export const initialState: Global = {
   syncsInFlight: 0,
   isSyncQueued: false,
   isPeekingSavedSession: false,
+  tourSampleIdHere: null,
+  hasTourRunHere: false,
 };
 
 // save data to Firestore if dirty, saves latest to localStorage at the end
@@ -1202,6 +1208,15 @@ export const globalStateSlice = createSlice({
     endSavedSessionPeek: (state) => {
       state.isPeekingSavedSession = false;
     },
+
+    tourStartedHere: (state, action: PayloadAction<string>) => {
+      state.tourSampleIdHere = action.payload;
+      state.hasTourRunHere = true;
+    },
+
+    tourStoppedHere: (state) => {
+      state.tourSampleIdHere = null;
+    },
   },
 
   extraReducers: (builder) => {
@@ -1347,6 +1362,8 @@ export const {
   setAllWindowsCollapsed,
   peekSavedSession,
   endSavedSessionPeek,
+  tourStartedHere,
+  tourStoppedHere,
 } = globalStateSlice.actions;
 
 export default globalStateSlice.reducer;

@@ -98,3 +98,34 @@ describe('openFirstDialog', () => {
     expect(log).toEqual(['decide cloudConsent', 'decide rate']);
   });
 });
+
+describe('standing down for a tour (KAN-413)', () => {
+  test('a tour started while an entry decides: nothing opens, and the list stops', async () => {
+    const log: string[] = [];
+    let tour = false;
+    const opened = await openFirstDialog(
+      [
+        {
+          id: 'tabGroups',
+          decide: async () => {
+            log.push('decide tabGroups');
+            tour = true;
+            return () => void log.push('open tabGroups');
+          },
+        },
+        entry('fullViewCallout', 'yes', log),
+      ],
+      () => tour
+    );
+    expect(opened).toBeNull();
+    expect(log).toEqual(['decide tabGroups']);
+  });
+
+  test('a tour already running: nothing is decided', async () => {
+    const log: string[] = [];
+    expect(
+      await openFirstDialog([entry('rate', 'yes', log)], () => true)
+    ).toBeNull();
+    expect(log).toEqual([]);
+  });
+});

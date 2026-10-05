@@ -1270,6 +1270,17 @@ function removeSession(state: TabMasterContainer, index: number): void {
   }
 }
 
+// One delete for both reducers; the middleware gives them different histories.
+function deleteSessionById(
+  state: TabMasterContainer,
+  tabGroupId: string
+): void {
+  const index = state.tabGroups.findIndex((g) => g.tabGroupId === tabGroupId);
+  if (index !== -1) removeSession(state, index);
+  state.lastModified = Date.now();
+  saveToLocalStorage('tabContainerData', state);
+}
+
 const clampIndex = (index: number, length: number): number =>
   Math.min(Math.max(0, index), length);
 
@@ -1637,18 +1648,15 @@ export const tabContainerDataStateSlice = createSlice({
 
     // delete tab group by tabGroupId
     deleteTabContainerInternal: (state, action: PayloadAction<string>) => {
-      const toBeDeletedTabGroupId = action.payload;
-      // find the index and delete when id is a match with toBeDeletedId
-      const tabGroupIndex = state.tabGroups.findIndex(
-        (tabGroup) => tabGroup.tabGroupId === toBeDeletedTabGroupId
-      );
-      if (tabGroupIndex !== -1) {
-        removeSession(state, tabGroupIndex);
-      }
-      state.lastModified = Date.now();
+      deleteSessionById(state, action.payload);
+    },
 
-      // update localstorage
-      saveToLocalStorage('tabContainerData', state);
+    // Synced like any delete, but never an undo step.
+    deleteTabContainerWithoutHistory: (
+      state,
+      action: PayloadAction<string>
+    ) => {
+      deleteSessionById(state, action.payload);
     },
 
     // delete window by (tabGroupId, windowId)
@@ -2834,6 +2842,7 @@ export const {
   updateChromeTabGroupColor,
   deleteChromeTabGroupInternal,
   deleteTabContainerInternal,
+  deleteTabContainerWithoutHistory,
   deleteWindowInternal,
   deleteTabInternal,
   moveTabInternal,
