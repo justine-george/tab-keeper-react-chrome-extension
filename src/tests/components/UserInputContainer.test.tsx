@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'vitest';
+import { describe, expect, test, vi } from 'vitest';
 import { act, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
@@ -7,6 +7,24 @@ import { renderWithProviders } from '../setup/renderWithProviders';
 import { toastTexts, newestToast } from '../setup/toasts';
 import { SAVE_TAB_CONTAINER_ACTION } from '../../utils/constants/actionTypes';
 import { TOAST_MESSAGES } from '../../utils/constants/common';
+
+// A test holds a capture in flight by setting `captureGate`.
+const captureGate = vi.hoisted(() => ({
+  current: null as Promise<void> | null,
+}));
+vi.mock('../../utils/functions/capture', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('../../utils/functions/capture')>();
+  return {
+    ...actual,
+    captureOpenWindows: async (
+      ...args: Parameters<typeof actual.captureOpenWindows>
+    ) => {
+      await captureGate.current;
+      return actual.captureOpenWindows(...args);
+    },
+  };
+});
 
 const seed = {
   tabs: [
@@ -408,8 +426,7 @@ describe('a saved session always gets a name (KAN-84)', () => {
   });
 });
 
-// KAN-439. Any save that stores a session empties the name field; a save that
-// stores nothing leaves the typed name for the next try.
+// KAN-439. A stored save empties the name it used; a failed or raced one keeps the text.
 describe('the name field after a save (KAN-439)', () => {
   const typeName = async (value: string, withSeed: object = seed) => {
     const rendered = await renderWithProviders(<UserInputContainer />, {
@@ -488,4 +505,23 @@ describe('the name field after a save (KAN-439)', () => {
       expect(box).toHaveValue('Research');
     }
   );
+
+  test('text typed while the capture is in flight survives the save', async () => {
+    let release = () => {};
+    captureGate.current = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    try {
+      const { store, box } = await typeName('Research');
+      await saveByButton();
+      await userEvent.type(box, 'Next');
+      release();
+      await act(async () => {});
+
+      expect(store.getState().tabContainerDataState.tabGroups).toHaveLength(1);
+      expect(box).toHaveValue('ResearchNext');
+    } finally {
+      captureGate.current = null;
+    }
+  });
 });
