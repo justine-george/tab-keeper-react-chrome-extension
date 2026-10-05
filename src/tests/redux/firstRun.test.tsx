@@ -2,7 +2,10 @@ import { combineReducers, configureStore } from '@reduxjs/toolkit';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 
 import { rootReducer } from '../../redux/storeConfig';
-import { setFirstRunSession } from '../../redux/slices/settingsDataStateSlice';
+import {
+  recordFirstRun,
+  setFirstRunSession,
+} from '../../redux/slices/settingsDataStateSlice';
 
 import { makeTestStore } from '../setup/makeStore';
 import { installFakeLocks, type FakeLocks } from '../setup/fakeLocks';
@@ -12,9 +15,13 @@ import {
   advanceRun,
   beginSaveStep,
   endRun,
+  goToRunStep,
+  leaveRunHere,
   reconcileRunHere,
+  resumeRunHere,
   selectIsRunCardShown,
   selectRunHere,
+  selectRunSession,
   startRun,
   stepRunBack,
   takeExampleForRun,
@@ -136,15 +143,47 @@ describe('startRun', () => {
     const first = withSessions(OWN);
     await first.dispatch(startRun(newRun('popup', 1)));
     first.dispatch(takeExampleForRun(NAMES));
+    const firstRecord = runOf(first);
     const second = withSessions(OWN);
     await second.dispatch(startRun(newRun('popup', 1)));
     await expect.poll(() => first.getState().globalState.isRunHere).toBe(false);
     expect(selectRunHere(second.getState())).not.toBeNull();
     expect(ids(first)).toHaveLength(2);
+    expect(runOf(first)).toEqual(firstRecord);
+  });
+});
+
+describe('leaving and resuming', () => {
+  test('leaveRunHere lets the lock go and stops showing the run, leaving the record exactly as it was', async () => {
+    const { store } = makeTestStore();
+    await store.dispatch(startRun(newRun('popup', 3)));
+    const record = runOf(store);
+    await store.dispatch(leaveRunHere());
+    expect(runOf(store)).toEqual(record);
+    expect(store.getState().globalState.isRunHere).toBe(false);
+    expect(locks.held.has(RUN_LOCK)).toBe(false);
+  });
+
+  test('resumeRunHere shows a stored running record here, writing nothing', async () => {
+    const { store } = makeTestStore();
+    store.dispatch(recordFirstRun(newRun('popup', 3)));
+    expect(selectRunHere(store.getState())).toBeNull();
+    await store.dispatch(resumeRunHere());
+    expect(selectRunHere(store.getState())).toEqual(newRun('popup', 3));
+    expect(locks.held.has(RUN_LOCK)).toBe(true);
   });
 });
 
 describe('moving', () => {
+  test('goToRunStep moves to a given step', async () => {
+    const { store } = makeTestStore();
+    await store.dispatch(startRun(newRun('popup', 1)));
+    store.dispatch(goToRunStep(5));
+    expect(runOf(store)?.step).toBe(5);
+    store.dispatch(goToRunStep(2));
+    expect(runOf(store)?.step).toBe(2);
+  });
+
   test('Next and Back move one step, Back not before step 2, Next not past the last', async () => {
     const { store } = makeTestStore();
     await store.dispatch(startRun(newRun('popup', 1)));
@@ -213,6 +252,39 @@ describe('the save step’s card (R10, Q3)', () => {
     store.dispatch(stepRunBack());
     await store.dispatch(beginSaveStep());
     expect(store.getState().globalState.runSaveCard).toBe('save');
+  });
+});
+
+describe('a resumed run at the save step with its session already taken', () => {
+  const resumed = async (view: 'popup' | 'full') => {
+    if (view === 'full') history.replaceState(null, '', '?view=tab');
+    const store = withSessions(OWN, OLDER);
+    const saveStep = view === 'full' ? 3 : 1;
+    store.dispatch(
+      recordFirstRun({ ...newRun(view, saveStep), sessionId: 'own' })
+    );
+    await store.dispatch(resumeRunHere());
+    await store.dispatch(beginSaveStep());
+    return store;
+  };
+
+  test('the popup gets the save card and the full view your sessions, with the session kept', async () => {
+    const popup = await resumed('popup');
+    expect(popup.getState().globalState.runSaveCard).toBe('save');
+    expect(runOf(popup)?.sessionId).toBe('own');
+    const full = await resumed('full');
+    expect(full.getState().globalState.runSaveCard).toBe('sessions');
+    expect(runOf(full)?.sessionId).toBe('own');
+  });
+});
+
+describe('selectRunSession', () => {
+  test('is the run’s own session, and nothing before the run has one', async () => {
+    const store = withSessions(OWN, OLDER);
+    await store.dispatch(startRun(newRun('popup', 1)));
+    expect(selectRunSession(store.getState())).toBeUndefined();
+    store.dispatch(takeRunSave('older'));
+    expect(selectRunSession(store.getState())?.tabGroupId).toBe('older');
   });
 });
 
@@ -372,7 +444,7 @@ describe('no ending deletes what the user made (safety)', () => {
   };
 
   test.each(['finished', 'skipped', 'sessionGone', 'unanswered'] as const)(
-    'a popup run on the user’s own save, ended %s (Esc ends as skipped), keeps it',
+    'a popup run on the user’s own save, ended %s keeps it',
     async (ending) => {
       const { store, seen } = await popupRunOn(OWN, OLDER);
       store.dispatch(endRun(ending));
