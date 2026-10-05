@@ -342,6 +342,8 @@ describe('the Open now pane (KAN-280)', () => {
     );
 
     expect(screen.getByText('No other tabs are open')).toBeInTheDocument();
+    // Not a search result, so not the no-match block.
+    expect(document.querySelector('[data-no-match]')).toBeNull();
     expect(screen.getByText('Open now')).toBeInTheDocument();
     expect(screen.queryByText(/·/)).toBeNull();
   });

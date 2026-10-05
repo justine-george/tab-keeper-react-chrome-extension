@@ -296,5 +296,6 @@
   "A session keeps windows and tabs together. This one has 2 windows and 5 tabs. Fold a window with its arrow. Try it, or press Next.": "En session håller ihop fönster och flikar. Den här har 2 fönster och 5 flikar. Fäll ihop ett fönster med dess pil. Prova, eller tryck på Nästa.",
   "Click the title to rename the session. Try it, or press Next.": "Klicka på titeln för att byta namn på sessionen. Prova, eller tryck på Nästa.",
   "Drag a tab to reorder it, or into the other window. Try it, or press Next.": "Dra en flik för att ändra ordningen, eller till det andra fönstret. Prova, eller tryck på Nästa.",
-  "Save your windows or bring back a session in one click, from any tab.": "Spara dina fönster eller ta tillbaka en session med ett klick, från vilken flik som helst."
+  "Save your windows or bring back a session in one click, from any tab.": "Spara dina fönster eller ta tillbaka en session med ett klick, från vilken flik som helst.",
+  "Search looks in tab titles and links.": "Sökningen omfattar fliktitlar och länkar."
 }

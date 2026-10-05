@@ -369,7 +369,7 @@ export default function TabGroupEntryContainer() {
           // No match: the block is the detail pane's, or this list's when
           // there is no detail pane. KAN-7 §2: an empty list starts here.
           noMatchPlace === 'list' ? (
-            <NoMatchState query={noMatchQuery} inset={24} />
+            <NoMatchState query={noMatchQuery} inset={24} scope="saved" />
           ) : showsStartHere ? (
             <StartHereCard />
           ) : null

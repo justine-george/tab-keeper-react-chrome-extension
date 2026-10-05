@@ -291,5 +291,6 @@
   "A session keeps windows and tabs together. This one has 2 windows and 5 tabs. Fold a window with its arrow. Try it, or press Next.": "会话把窗口和标签页放在一起。这个会话有 2 个窗口和 5 个标签页。用窗口的箭头可以折叠它。试一试，或点击“下一步”。",
   "Click the title to rename the session. Try it, or press Next.": "点击标题即可重命名会话。试一试，或点击“下一步”。",
   "Drag a tab to reorder it, or into the other window. Try it, or press Next.": "拖动标签页可以调整顺序，也可以放到另一个窗口。试一试，或点击“下一步”。",
-  "Save your windows or bring back a session in one click, from any tab.": "从任意标签页，一键保存窗口或恢复会话。"
+  "Save your windows or bring back a session in one click, from any tab.": "从任意标签页，一键保存窗口或恢复会话。",
+  "Search looks in tab titles and links.": "搜索范围包括标签页标题和链接。"
 }
