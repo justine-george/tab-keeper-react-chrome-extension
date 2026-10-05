@@ -69,6 +69,9 @@ export function dialogButtonStyles(COLORS: ThemeColors) {
     // The run's way forward: TEXT_COLOR ground, PRIMARY_COLOR letters; rungs are a mix, never opacity.
     filled: css`
       ${base}
+      transition:
+        background-color ${DURATION.COLOR},
+        border-color ${DURATION.COLOR};
       border-color: ${COLORS.TEXT_COLOR};
       background-color: ${COLORS.TEXT_COLOR};
       color: ${COLORS.PRIMARY_COLOR};

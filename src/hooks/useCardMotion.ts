@@ -25,6 +25,11 @@ export function useCardMotion(
   const shownStep = useRef(step);
   const wasPlaced = useRef(false);
 
+  const cancelRunning = () => {
+    running.current.forEach((animation) => animation.cancel());
+    running.current = [];
+  };
+
   // A new step: where the card and ring are now, before the next frame moves them.
   useLayoutEffect(() => {
     if (shownStep.current === step) return;
@@ -45,13 +50,14 @@ export function useCardMotion(
     const from = glideFrom.current;
     glideFrom.current = null;
     if (prefersReducedMotion() || !canAnimate(mark)) return;
-    running.current.forEach((animation) => animation.cancel());
-    running.current = [];
+    // A re-placement with nothing new to play leaves what is running alone.
     if (appears) {
+      cancelRunning();
       running.current = [playAppear(mark, originFacing(frame.placement.side))];
       return;
     }
     if (from === null) return;
+    cancelRunning();
     const ring = ringRef.current;
     running.current = [
       playGlide(mark, from.mark),

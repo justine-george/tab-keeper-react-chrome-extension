@@ -86,9 +86,7 @@ test('CONTROL: the rungs are Button own tokens on Paper', () => {
   expect(LIGHT_THEME.ICON_ACTIVE_COLOR).not.toBe(LIGHT_THEME.ICON_HOVER_COLOR);
 });
 
-// KAN-7. The run's way forward: TEXT_COLOR ground, PRIMARY_COLOR letters. Its
-// rungs mix TEXT_COLOR over PRIMARY_COLOR (not opacity, which would fade the
-// ring and the border too), and its ring sits outside, in TEXT_COLOR.
+// KAN-7. The run's way forward: rungs mix TEXT_COLOR over PRIMARY_COLOR, never opacity.
 describe('the filled button', () => {
   const COLORS = LIGHT_THEME;
   const renderFilled = async () => {
@@ -133,6 +131,13 @@ describe('the filled button', () => {
       ['border-color', rgb(press)],
       ['background-color', rgb(press)],
     ]);
+  });
+
+  test('border and ground ease together, so no ring of another colour shows', async () => {
+    const rules = classRulesFor(await renderFilled());
+    const transition = /transition:\s*([^;}]+)/.exec(rules)?.[1] ?? '';
+    expect(transition).toMatch(/background-color/);
+    expect(transition).toMatch(/border-color/);
   });
 
   test('hover and press never fade the element or recolour the letters', async () => {

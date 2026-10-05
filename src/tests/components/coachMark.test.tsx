@@ -43,14 +43,19 @@ afterEach(() => {
 });
 
 const line = () => screen.getByRole('progressbar');
-const animations: { el: Element; keyframes: Keyframe[] }[] = [];
+const animations: {
+  el: Element;
+  keyframes: Keyframe[];
+  cancel: ReturnType<typeof vi.fn>;
+}[] = [];
 beforeEach(() => {
   animations.length = 0;
   Object.defineProperty(Element.prototype, 'animate', {
     configurable: true,
     value(this: Element, keyframes: Keyframe[]) {
-      animations.push({ el: this, keyframes });
-      return { cancel: () => undefined, finished: Promise.resolve() };
+      const cancel = vi.fn();
+      animations.push({ el: this, keyframes, cancel });
+      return { cancel, finished: Promise.resolve() };
     },
   });
 });
@@ -552,6 +557,39 @@ describe('motion (§10)', () => {
     expect(glide?.keyframes[0].transform).toBe('translate(0px, -200px)');
     const ringGlide = animations.find((a) => a.el === ring());
     expect(ringGlide?.keyframes[0].transform).toBe('translate(0px, -200px)');
+  });
+
+  test('a re-placement mid-glide leaves the running glide alone', async () => {
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(
+      function (this: HTMLElement) {
+        const left = parseFloat(this.style.left) || 0;
+        const top = parseFloat(this.style.top) || 0;
+        return { ...RECT, left, top, x: left, y: top };
+      }
+    );
+    const { rerenderAt } = await render({ step: 2 });
+    await placed();
+    animations.length = 0;
+    anchor.getBoundingClientRect = () => ({ ...RECT, top: 300, y: 300 });
+    rerenderAt({ step: 3 });
+    await waitFor(() => expect(animations.length).toBeGreaterThan(0));
+    const started = [...animations];
+    anchor.getBoundingClientRect = () => ({ ...RECT, top: 500, y: 500 });
+    await waitFor(() => expect(ring()?.style.top).toBe('496px'));
+    expect(started.map((a) => a.cancel.mock.calls.length)).toEqual(
+      started.map(() => 0)
+    );
+    expect(animations).toEqual(started);
+  });
+
+  test('a re-placement during the first appearance leaves it running', async () => {
+    await render({ step: 2 });
+    await placed();
+    const appear = animations.find((a) => a.el === mark());
+    anchor.getBoundingClientRect = () => ({ ...RECT, top: 300, y: 300 });
+    await waitFor(() => expect(ring()?.style.top).toBe('296px'));
+    expect(appear?.cancel).not.toHaveBeenCalled();
+    expect(animations).toHaveLength(1);
   });
 
   test('reduced motion: nothing animates', async () => {
