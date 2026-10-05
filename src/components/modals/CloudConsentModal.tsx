@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { css } from '@emotion/react';
 
 import Icon from '../common/Icon';
+import TabKeeperMark from '../common/TabKeeperMark';
 import { useFontFamily } from '../../hooks/useFontFamily';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { AppDispatch, RootState } from '../../redux/store';
@@ -17,25 +18,34 @@ import {
   grantCloudConsent,
   setAutoSync,
 } from '../../redux/slices/settingsDataStateSlice';
+import { followWelcome } from '../../redux/firstOpenFollowUps';
 import { PRIVACY_POLICY_LINK } from '../../utils/constants/common';
 import { DIALOG, ICON, TYPE } from '../../styles/scale';
 import { dialogButtonStyles } from './dialogButtons';
+import {
+  canAnimate,
+  playGetStarted,
+  prefersReducedMotion,
+  type Motion,
+} from './getStartedMotion';
 
 const TITLE_ID = 'cloud-consent-title';
 const BODY_ID = 'cloud-consent-body';
 
 /**
- * The cloud question (KAN-259), asked once before anything is uploaded.
+ * The cloud question (KAN-259), asked before anything is uploaded.
  *
- * Two wordings for one choice. 'welcome' is a fresh install: what Tab Keeper
- * does, that sessions stay on the device unless synced, what sync stores.
- * 'existing' is a user whose sessions are already synced: the current state
- * first, then what is stored, then the question, then what turning it off
- * does and does not do -- a preference, not a confession.
+ * 'welcome' is a fresh install and asks nothing (KAN-410): one line on what
+ * Tab Keeper does, and Get started. Its opening already recorded the device
+ * as local-only; sync comes later, through 'enable'. 'existing' is a user
+ * whose sessions are already synced: the current state first, then what is
+ * stored, then the question, then what turning it off does and does not do --
+ * a preference, not a confession. 'enable' is the question asked when someone
+ * reaches for sync without having said yes.
  *
- * Both give two complete answers and no "OK" hiding a default. Escape is the
- * answer that changes nothing: keep on this device for a new user, keep sync
- * on for an existing one -- "do nothing" must not change a setting they had.
+ * The questions give two complete answers and no "OK" hiding a default.
+ * Escape never grants: for an existing user it is Turn off sync (KAN-410), as
+ * "currently synced" may be untrue and only a click may upload.
  * Same <dialog> contract as FocusConfirmModal.
  */
 export const CloudConsentModal: React.FC = () => {
@@ -44,6 +54,8 @@ export const CloudConsentModal: React.FC = () => {
   const { t } = useTranslation();
   const dispatch: AppDispatch = useDispatch();
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const getStartedRef = useRef<HTMLButtonElement>(null);
+  const motion = useRef<Motion | null>(null);
   // Opens UNLIT, as the rate prompt does (KAN-243): the dialog itself takes
   // the focus (tabIndex -1), so Escape still works and the first Tab lands on
   // the first control, but no button wears a ring on open. A lit button on a
@@ -71,19 +83,24 @@ export const CloudConsentModal: React.FC = () => {
 
   if (!isOpen) return null;
 
+  // KAN-7 §8. Only the welcome (a new install) chains to what follows it.
+  const close = (offerEnters = false) => {
+    dispatch(closeCloudConsentModal());
+    if (variant === 'welcome') void dispatch(followWelcome({ offerEnters }));
+  };
   const decline = () => {
     dispatch(declineCloudConsent());
-    dispatch(closeCloudConsentModal());
+    close();
   };
   // A yes. What it does beyond recording consent depends on what the user
-  // was doing: the welcome and the Auto Sync toggle turn Auto Sync on; the
-  // existing user keeps what they had; the cloud button gets its ONE sync,
-  // with Auto Sync left as it was (Justine's case: "I pressed sync, it
-  // turned auto sync on" -- it must not).
+  // was doing: the Auto Sync toggle turns Auto Sync on; the existing user
+  // keeps what they had; the cloud button gets its ONE sync, with Auto Sync
+  // left as it was (Justine's case: "I pressed sync, it turned auto sync on"
+  // -- it must not).
   const grant = () => {
     dispatch(grantCloudConsent());
-    dispatch(closeCloudConsentModal());
-    if (variant === 'welcome' || then === 'autoSync') {
+    close();
+    if (then === 'autoSync') {
       dispatch(setAutoSync(true));
     } else if (then === 'syncNow') {
       // KAN-266/289. Waits for sign-in, and a failed sign-in shows as a
@@ -96,9 +113,43 @@ export const CloudConsentModal: React.FC = () => {
   const dismiss = () => {
     dispatch(closeCloudConsentModal());
   };
-  // Escape: the answer that changes nothing for this user.
+  // The moment plays once; a press while it plays does nothing.
+  const getStarted = () => {
+    if (motion.current !== null) return;
+    const dialog = dialogRef.current;
+    const button = getStartedRef.current;
+    if (
+      dialog === null ||
+      button === null ||
+      prefersReducedMotion() ||
+      !canAnimate(dialog)
+    ) {
+      close();
+      return;
+    }
+    motion.current = playGetStarted({
+      button,
+      shutter: dialog.querySelector('[data-mark-part="shutter"]'),
+      dialog,
+    });
+    void motion.current.finished.then((completed) => {
+      motion.current = null;
+      if (completed) close(true);
+    });
+  };
+  // Esc skips the moment: the welcome goes at once.
+  const leaveWelcome = () => {
+    motion.current?.cancel();
+    close();
+  };
+  // Escape never uploads: existing declines (KAN-410), enable changes nothing,
+  // and the welcome has nothing left to answer, so Escape is Get started without the moment.
   const handleCancel =
-    variant === 'welcome' ? decline : variant === 'existing' ? grant : dismiss;
+    variant === 'welcome'
+      ? leaveWelcome
+      : variant === 'existing'
+        ? decline
+        : dismiss;
 
   const buttons = dialogButtonStyles(COLORS);
 
@@ -143,10 +194,10 @@ export const CloudConsentModal: React.FC = () => {
     line-height: 1.5;
     color: ${COLORS.LABEL_L1_COLOR};
   `;
-  const listStyle = css`
-    margin: 0 0 12px 0;
-    padding-left: 20px;
-    line-height: 1.6;
+  // The welcome's one line sits where the others' fine print does, above the buttons.
+  const welcomeStyle = css`
+    margin: 0 0 20px 0;
+    line-height: 1.5;
     color: ${COLORS.LABEL_L1_COLOR};
   `;
   const questionStyle = css`
@@ -198,23 +249,22 @@ export const CloudConsentModal: React.FC = () => {
       {variant === 'welcome' ? (
         <>
           <h2 id={TITLE_ID} css={titleStyle}>
-            <Icon type="tab_keeper" size={ICON.DEFAULT} disable={true} />
+            <TabKeeperMark size={ICON.DEFAULT} />
             {t('Welcome to Tab Keeper')}
           </h2>
-          <ul id={BODY_ID} css={listStyle}>
-            <li>{t('WelcomeSave')}</li>
-            <li>{t('WelcomeStays')}</li>
-            <li>{t('WelcomeSync')}</li>
-          </ul>
-          <p css={fineStyle}>
-            {t('Change either later in Settings → Sync & Backup.')} {policyLink}
+          <p id={BODY_ID} css={welcomeStyle}>
+            {t(
+              'Manage your open windows and tabs, and save them to bring back any time.'
+            )}
           </p>
           <div css={actionsStyle}>
-            <button type="button" css={buttons.quiet} onClick={decline}>
-              {t('Keep on this device')}
-            </button>
-            <button type="button" css={buttons.primary} onClick={grant}>
-              {t('Sync across devices')}
+            <button
+              ref={getStartedRef}
+              type="button"
+              css={buttons.primary}
+              onClick={getStarted}
+            >
+              {t('Get started')}
             </button>
           </div>
         </>

@@ -83,11 +83,12 @@ const seedSettings =
   };
 
 // A user who has answered every first-open question, so no modal takes the
-// screen: installed a month ago, cloud question answered.
+// screen: installed a month ago, cloud question answered, callout seen.
 const ANSWERED: Partial<SettingsData> = {
   extensionInstalledTime: Date.now() - 30 * DAY,
   cloudConsent: 'declined',
   isAutoSync: false,
+  isFullViewCalloutSeen: true,
 };
 
 // What the other page does: write the key (its store's saveToLocalStorage),

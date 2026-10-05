@@ -44,6 +44,7 @@ import {
   withOwnSelection,
 } from '../../utils/functions/withOwnSelection';
 import { sameContainerData } from '../../utils/functions/sameContainerData';
+import { isSampleSession } from '../../utils/functions/sampleSession';
 import { TOAST_MESSAGES } from '../../utils/constants/common';
 import { TAB_CONTAINER_SLICE_NAME } from '../../utils/constants/actionTypes';
 import {
@@ -118,11 +119,20 @@ export interface Global {
   // the "Replace your saved sessions?" dialog is open exactly while this is
   // set. Session-only, like the other dialog flags.
   pendingImport: PendingImport | null;
-  // KAN-259. The cloud question, and which wording: 'welcome' for a fresh
-  // install, 'existing' for a user whose sessions are already synced.
+  // KAN-259. The cloud dialog: 'welcome' greets a new install and asks nothing; 'existing' and 'enable' ask.
   isCloudConsentModalOpen: boolean;
   cloudConsentVariant: CloudConsentVariant;
   cloudConsentThen: CloudConsentThen | null;
+  // KAN-7 §3. "Try the full view". Session-only, like every dialog flag here.
+  isFullViewOfferOpen: boolean;
+  // The offer animates in only after Get started's moment.
+  fullViewOfferEnters: boolean;
+  // KAN-7 §6. The callout under ⤢, popup only.
+  isFullViewCalloutOpen: boolean;
+  // KAN-7 §4. The pin guide, full view only.
+  isPinGuideOpen: boolean;
+  // KAN-7 §5. The setup, full view only.
+  isSetupOpen: boolean;
   // "the tabGroups permission is granted right now". Mirrors
   // chrome.permissions.contains(), re-read on every popup mount and updated by
   // the permission change listeners -- never persisted, because the user can
@@ -171,6 +181,10 @@ export interface Global {
   // beside Open now until the fold button is next pressed. Session-only, so
   // a new page opens as the stored setting says.
   isPeekingSavedSession: boolean;
+  // KAN-413. The sample this page runs the tour for; page-local, so a reload runs none.
+  tourSampleIdHere: string | null;
+  // KAN-413. Once a tour ran here, this open's first-open dialogs stand down.
+  hasTourRunHere: boolean;
 }
 
 // The windows folded shut in one session. `windowIds` may hold ids that the
@@ -266,12 +280,19 @@ export const initialState: Global = {
   isCloudConsentModalOpen: false,
   cloudConsentVariant: 'welcome',
   cloudConsentThen: null,
+  isFullViewOfferOpen: false,
+  fullViewOfferEnters: false,
+  isFullViewCalloutOpen: false,
+  isPinGuideOpen: false,
+  isSetupOpen: false,
   hasTabGroupsPermission: false,
   hasSessionsPermission: false,
   collapsedWindows: null,
   syncsInFlight: 0,
   isSyncQueued: false,
   isPeekingSavedSession: false,
+  tourSampleIdHere: null,
+  hasTourRunHere: false,
 };
 
 // save data to Firestore if dirty, saves latest to localStorage at the end
@@ -535,7 +556,9 @@ export const syncStateWithFirestore = createAsyncThunk<
           tabDataFromLocalStorage.tabGroups.map((group) => group.tabGroupId)
         );
         const arrived = merged.tabGroups.some(
-          (group) => !localIds.has(group.tabGroupId)
+          (group) =>
+            !localIds.has(group.tabGroupId) &&
+            !isSampleSession(group.tabGroupId)
         );
         if (arrived) thunkAPI.dispatch(recordValueMoment());
       }
@@ -646,7 +669,8 @@ export const applyHeldCloudMerge =
         : []
     );
     const arrived = combined.tabGroups.some(
-      (group) => !localIds.has(group.tabGroupId)
+      (group) =>
+        !localIds.has(group.tabGroupId) && !isSampleSession(group.tabGroupId)
     );
     if (arrived) dispatch(recordValueMoment());
 
@@ -975,6 +999,43 @@ export const globalStateSlice = createSlice({
       state.isCloudConsentModalOpen = false;
     },
 
+    openPinGuide: (state) => {
+      state.isPinGuideOpen = true;
+    },
+
+    closePinGuide: (state) => {
+      state.isPinGuideOpen = false;
+    },
+
+    openSetup: (state) => {
+      state.isSetupOpen = true;
+    },
+
+    closeSetup: (state) => {
+      state.isSetupOpen = false;
+    },
+
+    openFullViewOffer: (
+      state,
+      action: PayloadAction<{ enters: boolean } | undefined>
+    ) => {
+      state.isFullViewOfferOpen = true;
+      state.fullViewOfferEnters = action.payload?.enters ?? false;
+    },
+
+    closeFullViewOffer: (state) => {
+      state.isFullViewOfferOpen = false;
+      state.fullViewOfferEnters = false;
+    },
+
+    openFullViewCallout: (state) => {
+      state.isFullViewCalloutOpen = true;
+    },
+
+    closeFullViewCallout: (state) => {
+      state.isFullViewCalloutOpen = false;
+    },
+
     setSearchInputText: (state, action: PayloadAction<string>) => {
       state.searchInputText = action.payload;
     },
@@ -1155,6 +1216,15 @@ export const globalStateSlice = createSlice({
     endSavedSessionPeek: (state) => {
       state.isPeekingSavedSession = false;
     },
+
+    tourStartedHere: (state, action: PayloadAction<string>) => {
+      state.tourSampleIdHere = action.payload;
+      state.hasTourRunHere = true;
+    },
+
+    tourStoppedHere: (state) => {
+      state.tourSampleIdHere = null;
+    },
   },
 
   extraReducers: (builder) => {
@@ -1264,6 +1334,14 @@ export const {
   cancelReplaceSessions,
   openCloudConsentModal,
   closeCloudConsentModal,
+  openFullViewOffer,
+  openPinGuide,
+  closePinGuide,
+  openSetup,
+  closeSetup,
+  closeFullViewOffer,
+  openFullViewCallout,
+  closeFullViewCallout,
   setSearchInputText,
   toastAdded,
   toastsRemoved,
@@ -1292,6 +1370,8 @@ export const {
   setAllWindowsCollapsed,
   peekSavedSession,
   endSavedSessionPeek,
+  tourStartedHere,
+  tourStoppedHere,
 } = globalStateSlice.actions;
 
 export default globalStateSlice.reducer;

@@ -3,6 +3,8 @@ import type { BrowserContext, Page } from '@playwright/test';
 import { test, expect } from './fixtures/extension';
 import { localeStrings } from './fixtures/locales';
 import { buildContainer, seedSessions, seedSettings } from './fixtures/seed';
+import { rgbToHex } from './fixtures/pixels';
+import { LIGHT_THEME } from '../src/hooks/useThemeColors';
 
 // KAN-244. A language picker is the one screen that must be usable by someone
 // who cannot read the current UI language -- that is why they are on it. It
@@ -11,7 +13,7 @@ import { buildContainer, seedSessions, seedSettings } from './fixtures/seed';
 // said which language was current.
 //
 // The jsdom test pins the contract (each language names itself, the current
-// one is aria-pressed and wears the 2px frame, the order). What only a real
+// one is aria-pressed and filled, the order). What only a real
 // browser can say is that the marker moves nothing when it thickens, and that
 // the Devanagari and Cyrillic names on a Latin-locale page get real glyphs
 // rather than tofu -- Libre Franklin has neither script, so they must fall
@@ -119,7 +121,7 @@ test.describe('the language picker names each language in its own language (KAN-
     }
   });
 
-  test('the marker thickens the frame without moving the option', async ({
+  test('the marker fills the option without moving it', async ({
     context,
     extensionId,
   }) => {
@@ -145,11 +147,21 @@ test.describe('the language picker names each language in its own language (KAN-
     expect(after, 'the option must not resize as it activates').toEqual(before);
     expect(await option(page, 'English').boundingBox()).toEqual(neighbour);
 
-    // And it is a frame, not a fill: 2px on the pressed one, 1px on the rest.
-    const widthOf = (name: string) =>
-      option(page, name).evaluate((el) => getComputedStyle(el).borderTopWidth);
-    expect(await widthOf('Deutsch')).toBe('2px');
-    expect(await widthOf('English')).toBe('1px');
+    // And it is a fill (setup's, KAN-420): TEXT on the pressed one, PRIMARY on
+    // the rest, the frame 1px on both.
+    const styleOf = (name: string) =>
+      option(page, name).evaluate((el) => {
+        const style = getComputedStyle(el);
+        return { fill: style.backgroundColor, frame: style.borderTopWidth };
+      });
+    // The fill eases in, so it is polled rather than read once.
+    await expect
+      .poll(async () => rgbToHex((await styleOf('Deutsch')).fill))
+      .toBe(LIGHT_THEME.TEXT_COLOR);
+    const pressed = await styleOf('Deutsch');
+    const rest = await styleOf('English');
+    expect(rgbToHex(rest.fill)).toBe(LIGHT_THEME.PRIMARY_COLOR);
+    expect([pressed.frame, rest.frame]).toEqual(['1px', '1px']);
   });
 
   // KAN-283. The jsdom tests inline `en`, so only the built extension can say

@@ -1186,41 +1186,32 @@ test.describe('Open now heading and empty-list layout (KAN-280)', () => {
     expect(Math.abs(sessionsList.top - detailList.top)).toBeLessThanOrEqual(1);
   });
 
-  test('"Empty" stays centred in an empty session list under the search row', async ({
+  test('the Start here card sits under the search row in an empty session list', async ({
     context,
     extensionId,
   }, testInfo) => {
     await seedSessions(context, buildContainer([]));
     const page = await openPage(context, extensionId, VIEW_TAB, TAB_VIEWPORT);
-    const empty = page.locator(SESSIONS).getByText('Empty', { exact: true });
-    await expect(empty).toBeVisible();
+    const card = page.locator(SESSIONS).locator('[data-start-here]');
+    await expect(card).toBeVisible();
     await expect(page.locator(SAVED_SEARCH)).toBeVisible();
     const facts = await page.evaluate((sel: string) => {
       const scroller = document.querySelector(sel)?.nextElementSibling;
-      const box = scroller?.parentElement;
-      const label = Array.from(scroller?.querySelectorAll('*') ?? []).find(
-        (el) => el.textContent === 'Empty' && el.children.length === 0
-      );
-      if (!scroller || !box || !label) return null;
-      const centre = (r: DOMRect) => ({
-        x: (r.left + r.right) / 2,
-        y: (r.top + r.bottom) / 2,
-      });
+      const cardEl = scroller?.querySelector('[data-start-here]');
+      if (!scroller || !cardEl) return null;
       return {
-        label: centre(label.getBoundingClientRect()),
-        scroller: centre(scroller.getBoundingClientRect()),
+        cardTop: cardEl.getBoundingClientRect().top,
         scrollerTop: scroller.getBoundingClientRect().top,
         rowBottom:
           document.querySelector(sel)?.getBoundingClientRect().bottom ?? 0,
       };
     }, SAVED_SEARCH);
-    console.log(`[empty] ${JSON.stringify(facts)}`);
-    await page.screenshot({ path: testInfo.outputPath('empty.png') });
-    if (facts === null) throw new Error('no scroller or Empty label');
-    // The scroller starts under the search row, and Empty is centred in it.
+    console.log(`[start-here] ${JSON.stringify(facts)}`);
+    await page.screenshot({ path: testInfo.outputPath('start-here.png') });
+    if (facts === null) throw new Error('no scroller or card');
+    // The scroller starts under the search row, and the card inside it.
     expect(facts.scrollerTop).toBeGreaterThanOrEqual(facts.rowBottom - 0.5);
-    expect(Math.abs(facts.label.x - facts.scroller.x)).toBeLessThanOrEqual(1);
-    expect(Math.abs(facts.label.y - facts.scroller.y)).toBeLessThanOrEqual(1);
+    expect(facts.cardTop).toBeGreaterThanOrEqual(facts.scrollerTop);
   });
 });
 

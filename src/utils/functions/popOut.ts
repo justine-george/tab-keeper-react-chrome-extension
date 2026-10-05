@@ -1,4 +1,4 @@
-// KAN-279 (Part D). The popup's "Open in a tab" button sends
+// KAN-279 (Part D). The popup's "Open full view" button sends
 // OpenInTabRequest; the worker is what actually finds or creates the tab
 // view, for the same reason restoreSession in background.ts has to: the
 // popup would be destroyed the moment a different tab took focus, before it
@@ -14,6 +14,12 @@
 
 export const OPEN_IN_TAB_MESSAGE = 'openInTab';
 
+// A dialog the full view is asked to show as it opens or is focused.
+export type FullViewShow = 'setup' | 'pinGuide';
+
+export const isFullViewShow = (value: unknown): value is FullViewShow =>
+  value === 'setup' || value === 'pinGuide';
+
 export interface OpenInTabRequest {
   type: typeof OPEN_IN_TAB_MESSAGE;
   // The window the popup was sent from. Used only when no tab view exists
@@ -22,6 +28,8 @@ export interface OpenInTabRequest {
   // not a missing field -- create() below treats it as "let Chrome use the
   // last-focused window" rather than defaulting it to anything.
   windowId: number | undefined;
+  // The dialog to show there; absent for a plain open.
+  show?: FullViewShow;
 }
 
 export function isOpenInTabRequest(
@@ -31,8 +39,56 @@ export function isOpenInTabRequest(
   if (!('type' in message) || message.type !== OPEN_IN_TAB_MESSAGE) {
     return false;
   }
+  if (
+    'show' in message &&
+    message.show !== undefined &&
+    !isFullViewShow(message.show)
+  ) {
+    return false;
+  }
   if (!('windowId' in message)) return true;
   return typeof message.windowId === 'number' || message.windowId === undefined;
+}
+
+// The worker's word to a full view it focused: show this dialog.
+export const SHOW_IN_FULL_VIEW_MESSAGE = 'showInFullView';
+
+export interface ShowInFullViewMessage {
+  type: typeof SHOW_IN_FULL_VIEW_MESSAGE;
+  // The tab the worker focused; every other full view ignores the message.
+  tabId: number;
+  show: FullViewShow;
+}
+
+export function isShowInFullViewMessage(
+  message: unknown
+): message is ShowInFullViewMessage {
+  if (typeof message !== 'object' || message === null) return false;
+  return (
+    'type' in message &&
+    message.type === SHOW_IN_FULL_VIEW_MESSAGE &&
+    'tabId' in message &&
+    typeof message.tabId === 'number' &&
+    'show' in message &&
+    isFullViewShow(message.show)
+  );
+}
+
+// The page's half (KAN-279): ask the worker, which outlives this popup. A
+// window it cannot name still sends, as undefined: "use the last-focused one".
+export async function requestTabView(show?: FullViewShow): Promise<void> {
+  let windowId: number | undefined;
+  try {
+    windowId = (await chrome.windows.getCurrent()).id;
+  } catch {
+    windowId = undefined;
+  }
+  const request: OpenInTabRequest = {
+    type: OPEN_IN_TAB_MESSAGE,
+    windowId,
+    ...(show === undefined ? {} : { show }),
+  };
+  chrome.runtime.sendMessage(request);
 }
 
 // The chrome.* surface openOrFocusTabView needs, narrowed to the promise
@@ -50,6 +106,8 @@ export interface TabApi {
     windowId?: number;
     active: boolean;
   }): Promise<unknown>;
+  // Tells the extension's pages; only the full view it names acts.
+  announce(message: ShowInFullViewMessage): Promise<unknown>;
 }
 
 // Finds the extension's own tab-view tab and focuses it, or opens a new one.
@@ -79,11 +137,18 @@ export async function openOrFocusTabView(
     if (existing) {
       await api.update(existing.id, { active: true });
       await api.focusWindow(existing.windowId);
+      if (request.show !== undefined) {
+        await api.announce({
+          type: SHOW_IN_FULL_VIEW_MESSAGE,
+          tabId: existing.id,
+          show: request.show,
+        });
+      }
       return;
     }
 
     await api.create({
-      url,
+      url: request.show === undefined ? url : `${url}&show=${request.show}`,
       index: 0,
       ...(request.windowId === undefined ? {} : { windowId: request.windowId }),
       active: true,

@@ -61,11 +61,14 @@ if (!Element.prototype.getAnimations) {
 }
 
 if (typeof HTMLDialogElement !== 'undefined') {
+  // KAN-426. jsdom never matches :modal, so the stubs record which dialogs it would match.
+  const modalDialogs = new WeakSet<HTMLDialogElement>();
   if (!HTMLDialogElement.prototype.showModal) {
     HTMLDialogElement.prototype.showModal = function showModal(
       this: HTMLDialogElement
     ) {
       this.open = true;
+      modalDialogs.add(this);
     };
   }
   if (!HTMLDialogElement.prototype.close) {
@@ -73,8 +76,34 @@ if (typeof HTMLDialogElement !== 'undefined') {
       this: HTMLDialogElement
     ) {
       this.open = false;
+      modalDialogs.delete(this);
     };
   }
+  const matches = Element.prototype.matches;
+  Object.defineProperty(Element.prototype, 'matches', {
+    configurable: true,
+    writable: true,
+    value(this: Element, selectors: string) {
+      if (selectors !== ':modal') return matches.call(this, selectors);
+      return (
+        this instanceof HTMLDialogElement && this.open && modalDialogs.has(this)
+      );
+    },
+  });
+  const querySelector = Document.prototype.querySelector;
+  Object.defineProperty(Document.prototype, 'querySelector', {
+    configurable: true,
+    writable: true,
+    value(this: Document, selectors: string) {
+      if (selectors !== 'dialog:modal')
+        return querySelector.call(this, selectors);
+      return (
+        [...this.querySelectorAll('dialog')].find(
+          (dialog) => dialog.open && modalDialogs.has(dialog)
+        ) ?? null
+      );
+    },
+  });
 }
 
 // KAN-280 O2. jsdom declares window.matchMedia but leaves it undefined

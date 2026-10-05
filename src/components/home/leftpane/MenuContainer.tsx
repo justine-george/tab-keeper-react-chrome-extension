@@ -2,6 +2,9 @@ import { useDispatch, useSelector } from 'react-redux';
 
 import { css } from '@emotion/react';
 
+import FullViewCallout from './FullViewCallout';
+import { useThemeColors } from '../../../hooks/useThemeColors';
+
 import Icon from '../../common/Icon';
 import OverflowMenu from '../../common/OverflowMenu';
 import type { OverflowMenuItem } from '../../common/OverflowMenu';
@@ -15,6 +18,7 @@ import {
   closePlainToasts,
   openSettingsPage,
   syncNowWhenSignedIn,
+  closeFullViewCallout,
   openCloudConsentModal,
 } from '../../../redux/slices/globalStateSlice';
 import {
@@ -24,7 +28,10 @@ import {
   undo,
 } from '../../../redux/slices/undoRedoSlice';
 import { SettingsCategory } from '../../../redux/slices/settingsCategoryStateSlice';
-import { setSessionDateBasis } from '../../../redux/slices/settingsDataStateSlice';
+import {
+  markFullViewCalloutSeen,
+  setSessionDateBasis,
+} from '../../../redux/slices/settingsDataStateSlice';
 import { useTranslation } from 'react-i18next';
 import { DURATION, ICON } from '../../../styles/scale';
 import type { IconName } from '../../common/iconNames';
@@ -34,10 +41,7 @@ import {
 } from '../../settings/rightpane/Account/describeSyncState';
 import { isTabView } from '../../../utils/functions/viewMode';
 import { getPrettyDate } from '../../../utils/functions/local';
-import {
-  OPEN_IN_TAB_MESSAGE,
-  OpenInTabRequest,
-} from '../../../utils/functions/popOut';
+import { requestTabView } from '../../../utils/functions/popOut';
 
 export default function MenuContainer() {
   const syncStatus = useSelector(
@@ -58,6 +62,11 @@ export default function MenuContainer() {
   );
   const lastSyncedTime = useSelector(
     (state: RootState) => state.settingsDataState.lastSyncedTime
+  );
+
+  const COLORS = useThemeColors();
+  const isFullViewCalloutOpen = useSelector(
+    (state: RootState) => state.globalState.isFullViewCalloutOpen
   );
 
   // i18n.language feeds the reducer's title collation; see sortItems below.
@@ -100,6 +109,12 @@ export default function MenuContainer() {
     dispatch(closeAllToasts());
   }
 
+  // Seen only once it has been on screen; ⤢ during the wait is just ⤢.
+  const seeFullViewCallout = () => {
+    if (isFullViewCalloutOpen) dispatch(markFullViewCalloutSeen());
+    dispatch(closeFullViewCallout());
+  };
+
   // KAN-279. This popup cannot open or focus the tab view itself: the click
   // that would do it is the same click that backgrounds this popup, and a
   // Chrome popup is torn down the instant it loses focus -- before a
@@ -107,23 +122,10 @@ export default function MenuContainer() {
   // the click only hands off a request; openOrFocusTabView (popOut.ts), run
   // from the worker, is what actually finds or creates the tab and outlives
   // the popup doing it.
-  //
-  // windows.getCurrent() is asked here, in the popup, rather than trusting
-  // the worker to infer it: the worker has no "current" window of its own to
-  // ask about. A request that cannot report one -- getCurrent() rejects, or
-  // throws reading its result -- still has to reach the worker rather than
-  // drop the click, so it goes out with windowId: undefined instead, which
-  // openOrFocusTabView already treats as "use the last-focused window".
-  async function handleClickOpenInTab() {
-    let windowId: number | undefined;
-    try {
-      const current = await chrome.windows.getCurrent();
-      windowId = current.id;
-    } catch {
-      windowId = undefined;
-    }
-    const request: OpenInTabRequest = { type: OPEN_IN_TAB_MESSAGE, windowId };
-    chrome.runtime.sendMessage(request);
+  // requestTabView (popOut.ts) sends that request.
+  function handleClickOpenInTab() {
+    seeFullViewCallout();
+    void requestTabView();
   }
 
   // The control shows the `sync` glyph only when syncing is possible AND
@@ -299,10 +301,10 @@ export default function MenuContainer() {
     },
   ];
 
-  // KAN-340 A + R1. Three pairs by what they do: views (Open in a tab,
+  // KAN-340 A + R1. Three pairs by what they do: views (Open full view,
   // Sort), history (Undo, Redo), account and app (Sync, Settings). 8px
   // between pairs, none inside one, so hover fills within a pair still meet
-  // as they always have. Open in a tab is the cluster's leftmost icon and
+  // as they always have. Open full view is the cluster's leftmost icon and
   // the cluster is right-aligned, so the five shared icons sit at the same x
   // in the popup and the tab view, where Sort stands alone in the first pair.
   // `gap` only spaces siblings that exist, so that lone pair leaves no
@@ -342,19 +344,34 @@ export default function MenuContainer() {
           first -- and sends a fire-and-forget message rather than acting
           directly; see handleClickOpenInTab above for why. */}
         {!isTabView() && (
-          <Icon
-            ariaLabel={t('Open in a tab')}
-            tooltipText={t('Open in a tab')}
-            type="open_in_full"
-            // KAN-340. Thin, but its arrows reach the corners: at DEFAULT its
-            // ink spans 18.5px square, the largest in the row, and it read big.
-            // MEDIUM (17px) matches the gear, in the same box.
-            size={ICON.MEDIUM}
-            boxSizedFor={ICON.DEFAULT}
-            // KAN-344. It stretches: "the same thing, bigger".
-            hoverMotion={{ scale: 1.14, duration: DURATION.MOVE }}
-            onClick={handleClickOpenInTab}
-          />
+          <span
+            css={css`
+              position: relative;
+              display: inline-flex;
+              ${isFullViewCalloutOpen &&
+              `outline: 1.5px dashed ${COLORS.LABEL_L2_COLOR}; outline-offset: 2px;`}
+            `}
+          >
+            <Icon
+              ariaLabel={t('Open full view')}
+              tooltipText={t('Open full view')}
+              type="open_in_full"
+              // KAN-340. Thin, but its arrows reach the corners: at DEFAULT its
+              // ink spans 18.5px square, the largest in the row, and it read big.
+              // MEDIUM (17px) matches the gear, in the same box.
+              size={ICON.MEDIUM}
+              boxSizedFor={ICON.DEFAULT}
+              // KAN-344. It stretches: "the same thing, bigger".
+              hoverMotion={{ scale: 1.14, duration: DURATION.MOVE }}
+              onClick={handleClickOpenInTab}
+            />
+            {isFullViewCalloutOpen && (
+              <FullViewCallout
+                onTry={handleClickOpenInTab}
+                onDismiss={seeFullViewCallout}
+              />
+            )}
+          </span>
         )}
         <OverflowMenu
           ariaLabel={t('Sort sessions')}

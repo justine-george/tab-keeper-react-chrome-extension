@@ -74,3 +74,21 @@ describe('RowOpenButton', () => {
     );
   });
 });
+
+// KAN-413. Dimmed as Undo is, and a click does nothing.
+test('disabled: announced, at 30% opacity, and a click calls nothing', async () => {
+  const onClick = vi.fn();
+  await renderWithProviders(
+    <RowOpenButton
+      ariaLabel={NAME}
+      tooltipText={TIP}
+      onClick={onClick}
+      disable
+    />
+  );
+  const button = screen.getByRole('button', { name: NAME });
+  expect(button).toHaveAttribute('aria-disabled', 'true');
+  expect(classRulesFor(button)).toMatch(/opacity:\s*0\.3/);
+  fireEvent.click(button);
+  expect(onClick).not.toHaveBeenCalled();
+});

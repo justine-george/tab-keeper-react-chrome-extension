@@ -1282,6 +1282,17 @@ test.describe('measured: what sendMessage says (KAN-280 Part D)', () => {
     extensionId,
     serviceWorker,
   }) => {
+    // The worker → the extension's pages, none open: no receiving end. Measured
+    // first, since every full view listens for runtime messages.
+    const noReceiver = await serviceWorker.evaluate(async () => {
+      try {
+        await chrome.runtime.sendMessage({ type: 'nobody listens' });
+        return 'resolved';
+      } catch (error) {
+        return error instanceof Error ? error.message : String(error);
+      }
+    });
+
     const page = await openPage(context, extensionId, VIEW_TAB, TAB_VIEWPORT);
 
     // Page → the worker, whose listener exists but answers nothing for a
@@ -1298,17 +1309,6 @@ test.describe('measured: what sendMessage says (KAN-280 Part D)', () => {
         return `rejected ${
           error instanceof Error ? error.message : String(error)
         }`;
-      }
-    });
-
-    // The worker → the extension's pages, none of which listen: no
-    // receiving end.
-    const noReceiver = await serviceWorker.evaluate(async () => {
-      try {
-        await chrome.runtime.sendMessage({ type: 'nobody listens' });
-        return 'resolved';
-      } catch (error) {
-        return error instanceof Error ? error.message : String(error);
       }
     });
 

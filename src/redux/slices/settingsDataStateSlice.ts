@@ -1,10 +1,19 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 
 import {
+  asDefaultView,
+  type DefaultView,
+} from '../../utils/functions/defaultView';
+import {
   asPartialSettings,
   loadFromLocalStorage,
   saveToLocalStorage,
 } from '../../utils/functions/local';
+import {
+  asSampleTour,
+  type SampleTour,
+  type TourStep,
+} from '../../utils/functions/sampleTour';
 // `import type`, so nothing is emitted: the generator imports this slice's
 // tabContainerData type in the other direction, and a value edge either way
 // would complete a cycle. Same reason as the RootState note in the container
@@ -30,6 +39,9 @@ export enum Theme {
 }
 
 export type CloudConsent = 'granted' | 'declined' | '';
+
+// KAN-7. Where this machine is in the new-install setup.
+export type SetupState = 'none' | 'pending' | 'done';
 
 export enum Language {
   DE = 'de',
@@ -61,10 +73,7 @@ export interface SettingsData {
   exportLayout: ExportLayout;
   language: Language;
   isAutoSync: boolean;
-  // KAN-259. Whether the user has answered the cloud question. '' means not
-  // yet: the welcome opens on the next popup open, and no sync runs and no
-  // Firebase sign-in happens until it is answered. The effective permission
-  // to sync is `isAutoSync && cloudConsent === 'granted'`; see cloudSyncAllowed.
+  // KAN-410. '' never syncs and the welcome records 'declined', so only a yes uploads (see cloudSyncAllowed).
   cloudConsent: CloudConsent;
   extensionInstalledTime: number | '';
   isSkippedUserReviewOnce: boolean;
@@ -134,6 +143,20 @@ export interface SettingsData {
    * tabContainerData and nothing else. Screens differ between devices.
    */
   openNowWidth: number | null;
+  // KAN-7. 'pending' as the welcome opens, so a popup closed on it still gets setup.
+  setupState: SetupState;
+  // KAN-7 §3. Either button of "Try the full view".
+  isFullViewOfferAnswered: boolean;
+  // KAN-7 §4. Skip or ✕ on the pin guide; a pin does not set it.
+  isPinGuideDismissed: boolean;
+  // KAN-7 §6. Set when the full view mounts.
+  hasOpenedFullView: boolean;
+  // KAN-7 §6. Try it, ✕, Esc or ⤢ on the full-view callout.
+  isFullViewCalloutSeen: boolean;
+  // KAN-7 §7. Mirrored to chrome.storage.local for the service worker.
+  defaultView: DefaultView;
+  // KAN-413. The sample tour running on this machine, if any; one per machine.
+  sampleTour: SampleTour | null;
 }
 
 /**
@@ -149,6 +172,63 @@ export function asOpenNowWidth(value: unknown): number | null {
     : null;
 }
 
+export type OnboardingSettings = Pick<
+  SettingsData,
+  | 'setupState'
+  | 'isFullViewOfferAnswered'
+  | 'isPinGuideDismissed'
+  | 'hasOpenedFullView'
+  | 'isFullViewCalloutSeen'
+  | 'defaultView'
+  | 'sampleTour'
+>;
+
+export const ONBOARDING_DEFAULTS: OnboardingSettings = {
+  setupState: 'none',
+  isFullViewOfferAnswered: false,
+  isPinGuideDismissed: false,
+  hasOpenedFullView: false,
+  isFullViewCalloutSeen: false,
+  defaultView: 'compact',
+  sampleTour: null,
+};
+
+export function asSetupState(value: unknown): SetupState {
+  return value === 'pending' || value === 'done' ? value : 'none';
+}
+
+const asFlag = (value: unknown): boolean => value === true;
+
+/**
+ * KAN-7. The onboarding fields of a stored settings object, each guarded: a
+ * value of the wrong shape reads as the default, an absent one keeps
+ * `fallback`'s (an older page wrote it, or nothing has been saved yet).
+ */
+export function guardOnboarding(
+  stored: unknown,
+  fallback: OnboardingSettings
+): OnboardingSettings {
+  const read = <K extends keyof OnboardingSettings>(
+    key: K,
+    guard: (value: unknown) => OnboardingSettings[K]
+  ): OnboardingSettings[K] =>
+    typeof stored === 'object' &&
+    stored !== null &&
+    !Array.isArray(stored) &&
+    key in stored
+      ? guard(Reflect.get(stored, key))
+      : fallback[key];
+  return {
+    setupState: read('setupState', asSetupState),
+    isFullViewOfferAnswered: read('isFullViewOfferAnswered', asFlag),
+    isPinGuideDismissed: read('isPinGuideDismissed', asFlag),
+    hasOpenedFullView: read('hasOpenedFullView', asFlag),
+    isFullViewCalloutSeen: read('isFullViewCalloutSeen', asFlag),
+    defaultView: read('defaultView', asDefaultView),
+    sampleTour: read('sampleTour', asSampleTour),
+  };
+}
+
 /**
  * `edited` is the default because it is what the list is ordered by when
  * nothing has been pinned.
@@ -160,7 +240,7 @@ const settingsDataLocal = asPartialSettings<SettingsData>(
   loadFromLocalStorage('settingsData')
 );
 
-const SHIPPED_LANGUAGES = Object.values(Language);
+export const SHIPPED_LANGUAGES = Object.values(Language);
 
 /**
  * The language the popup opens in (KAN-282): the one saved here, else the
@@ -214,6 +294,7 @@ const defaultSettings: SettingsData = {
   // gets: initialState lays the stored object over these defaults.
   foldSavedSessionInTabView: true,
   openNowWidth: null,
+  ...ONBOARDING_DEFAULTS,
 };
 
 export const initialState: SettingsData = {
@@ -228,6 +309,8 @@ export const initialState: SettingsData = {
   // is unvalidated (asPartialSettings checks only "is an object"), so a
   // hand-edited or corrupted value must not survive into the grid.
   openNowWidth: asOpenNowWidth(settingsDataLocal.openNowWidth),
+  // KAN-7. Guarded like openNowWidth: settingsDataLocal is unvalidated.
+  ...guardOnboarding(settingsDataLocal, ONBOARDING_DEFAULTS),
 };
 
 export const settingsDataStateSlice = createSlice({
@@ -248,11 +331,7 @@ export const settingsDataStateSlice = createSlice({
       saveToLocalStorage('settingsData', state);
     },
 
-    // KAN-259. The two answers. Declining turns Auto Sync off. Granting
-    // records the yes and leaves the flag to the caller: the welcome and the
-    // toggle turn it on, the cloud button does NOT -- a user who asked for
-    // one sync did not ask for a setting. Turning the flag on with consent
-    // declined re-asks (Settings) rather than uploading.
+    // KAN-259. Only the existing and enable dialogs grant; each caller sets Auto Sync, as one sync asked is not a setting.
     grantCloudConsent: (state) => {
       state.cloudConsent = 'granted';
       saveToLocalStorage('settingsData', state);
@@ -386,6 +465,73 @@ export const settingsDataStateSlice = createSlice({
       saveToLocalStorage('settingsData', state);
     },
 
+    // KAN-7. Only from 'none': a finished setup never restarts.
+    beginSetup: (state) => {
+      if (state.setupState !== 'none') return;
+      state.setupState = 'pending';
+      saveToLocalStorage('settingsData', state);
+    },
+
+    finishSetup: (state) => {
+      state.setupState = 'done';
+      saveToLocalStorage('settingsData', state);
+    },
+
+    // Run setup again: pending from any state, where beginSetup only starts it.
+    restartSetup: (state) => {
+      state.setupState = 'pending';
+      saveToLocalStorage('settingsData', state);
+    },
+
+    answerFullViewOffer: (state) => {
+      state.isFullViewOfferAnswered = true;
+      saveToLocalStorage('settingsData', state);
+    },
+
+    dismissPinGuide: (state) => {
+      state.isPinGuideDismissed = true;
+      saveToLocalStorage('settingsData', state);
+    },
+
+    // Every full-view open dispatches this; only the first writes.
+    markFullViewOpened: (state) => {
+      if (state.hasOpenedFullView) return;
+      state.hasOpenedFullView = true;
+      saveToLocalStorage('settingsData', state);
+    },
+
+    // ⤢ dispatches this on every press; only the first writes.
+    markFullViewCalloutSeen: (state) => {
+      if (state.isFullViewCalloutSeen) return;
+      state.isFullViewCalloutSeen = true;
+      saveToLocalStorage('settingsData', state);
+    },
+
+    setDefaultView: (state, action: PayloadAction<DefaultView>) => {
+      state.defaultView = action.payload;
+      saveToLocalStorage('settingsData', state);
+    },
+
+    // KAN-413. One tour per machine: a new one replaces any other.
+    recordSampleTour: (state, action: PayloadAction<SampleTour>) => {
+      state.sampleTour = action.payload;
+      saveToLocalStorage('settingsData', state);
+    },
+
+    // Forward only, so Next and the step's own action together move it once.
+    setSampleTourStep: (state, action: PayloadAction<TourStep>) => {
+      if (state.sampleTour === null) return;
+      if (action.payload <= state.sampleTour.step) return;
+      state.sampleTour.step = action.payload;
+      saveToLocalStorage('settingsData', state);
+    },
+
+    clearSampleTour: (state) => {
+      if (state.sampleTour === null) return;
+      state.sampleTour = null;
+      saveToLocalStorage('settingsData', state);
+    },
+
     replaceState: (state, action: PayloadAction<typeof state>) => {
       // Save updated state to localStorage
       saveToLocalStorage('settingsData', state);
@@ -425,6 +571,17 @@ export const {
   setExportLayout,
   setFoldSavedSessionInTabView,
   setOpenNowWidth,
+  beginSetup,
+  finishSetup,
+  restartSetup,
+  answerFullViewOffer,
+  dismissPinGuide,
+  markFullViewOpened,
+  markFullViewCalloutSeen,
+  setDefaultView,
+  recordSampleTour,
+  setSampleTourStep,
+  clearSampleTour,
   hydrateSettingsFromOtherPage,
 } = settingsDataStateSlice.actions;
 

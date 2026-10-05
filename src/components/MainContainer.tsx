@@ -8,6 +8,7 @@ import { isTabView } from '../utils/functions/viewMode';
 import LeftPane from './home/leftpane/LeftPane';
 import { Toast } from './common/Toast';
 import { CarryLayer } from './home/CarryLayer';
+import SampleTour from './tour/SampleTour';
 import RightPane from './home/rightpane/RightPane';
 import OpenNowColumn from './home/opennow/OpenNowColumn';
 import OpenNowResizeGrip from './home/opennow/OpenNowResizeGrip';
@@ -19,6 +20,7 @@ import {
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { useThemeColors } from '../hooks/useThemeColors';
 import { useViewportWidth } from '../hooks/useViewportWidth';
+import { useDialogEscape } from '../hooks/useDialogEscape';
 import { APP_HEIGHT } from '../utils/constants/common';
 import { AppDispatch, RootState } from '../redux/store';
 import { redo, undo } from '../redux/slices/undoRedoSlice';
@@ -37,6 +39,9 @@ import { FocusConfirmModal } from './modals/FocusConfirmModal';
 import { DeleteCloudDataModal } from './modals/DeleteCloudDataModal';
 import { LoadBackupModal } from './modals/LoadBackupModal';
 import { CloudConsentModal } from './modals/CloudConsentModal';
+import { FullViewOfferModal } from './modals/FullViewOfferModal';
+import { PinGuideModal } from './modals/PinGuideModal';
+import { SetupModal } from './modals/SetupModal';
 import { TabGroupsPermissionModal } from './modals/TabGroupsPermissionModal';
 
 // KAN-52. The undo/redo shortcuts are registered on `window`, so they also see
@@ -66,6 +71,7 @@ function isNativelyUndoableTarget(target: EventTarget | null): boolean {
 export default function MainContainer() {
   const COLORS = useThemeColors();
   const dispatch: AppDispatch = useDispatch();
+  useDialogEscape();
 
   const isSettingsPage = useSelector(
     (state: RootState) => state.globalState.isSettingsPage
@@ -86,6 +92,17 @@ export default function MainContainer() {
   );
   const isCloudConsentModalOpen = useSelector(
     (state: RootState) => state.globalState.isCloudConsentModalOpen
+  );
+
+  const isFullViewOfferOpen = useSelector(
+    (state: RootState) => state.globalState.isFullViewOfferOpen
+  );
+
+  const isPinGuideOpen = useSelector(
+    (state: RootState) => state.globalState.isPinGuideOpen
+  );
+  const isSetupOpen = useSelector(
+    (state: RootState) => state.globalState.isSetupOpen
   );
 
   const tabGroupsPromptCount = useSelector(
@@ -428,12 +445,17 @@ export default function MainContainer() {
           drag started in. Draws nothing unless something is carried, or a
           saved list's drag shows its card at the pointer (KAN-354). */}
       <CarryLayer />
+      {/* KAN-413. Only in the home view; it draws nothing unless this page runs the tour. */}
+      {!isSettingsPage && <SampleTour />}
       {isRateAndReviewModalOpen && <RateAndReviewModal />}
       {tabGroupsPromptCount !== null && <TabGroupsPermissionModal />}
       {focusRequest && <FocusConfirmModal />}
       {isDeleteCloudDataModalOpen && <DeleteCloudDataModal />}
       {pendingImport !== null && <LoadBackupModal />}
       {isCloudConsentModalOpen && <CloudConsentModal />}
+      {isFullViewOfferOpen && <FullViewOfferModal />}
+      {isPinGuideOpen && <PinGuideModal />}
+      {isSetupOpen && <SetupModal />}
     </div>
   );
 }

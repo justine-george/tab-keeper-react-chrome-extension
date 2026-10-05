@@ -81,6 +81,7 @@ describe('the tab-history row sits under Save Tab Groups', () => {
     expect(sectionLabels(container)).toEqual([
       'Save Tab Groups',
       LABEL,
+      'Default view',
       'Keyboard shortcut',
     ]);
   });

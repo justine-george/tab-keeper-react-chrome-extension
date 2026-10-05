@@ -19,6 +19,7 @@ import {
   saveToTabContainer,
   isSubstantialSave,
 } from '../../redux/slices/tabContainerDataStateSlice';
+import { SAMPLE_ID_PREFIX } from '../../utils/functions/sampleSession';
 
 // KAN-149. What counts as the extension having visibly paid off.
 //
@@ -275,5 +276,94 @@ describe('the recorded moment', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+// KAN-7. The sample is the user's first look at the product, not
+// something they saved or that proved a restore worked: it must not spend the
+// rate prompt (KAN-149) when the Start here card's own step 3 restores it.
+describe('the sample session is no value moment', () => {
+  const SAMPLE = `${SAMPLE_ID_PREFIX}abc`;
+  const seed = (store: ReturnType<typeof makeTestStore>['store']) =>
+    store.dispatch({
+      type: 'tabContainerDataState/saveToTabContainerInternal',
+      payload: session(SAMPLE, 3),
+    });
+
+  test('opening every window of the sample records nothing', async () => {
+    const { store } = makeTestStore();
+    seed(store);
+    await store.dispatch(
+      openAllTabContainer({ tabGroupId: SAMPLE, goToURLText: 'Go to URL' })
+    );
+    expect(momentOf(store)).toBe('');
+  });
+
+  test('opening one window of the sample records nothing', async () => {
+    const { store } = makeTestStore();
+    seed(store);
+    await store.dispatch(
+      openTabsInAWindow({
+        tabGroupId: SAMPLE,
+        windowId: `${SAMPLE}-w`,
+        goToURLText: 'Go to URL',
+      })
+    );
+    expect(momentOf(store)).toBe('');
+  });
+
+  test('a first real save beside only the sample records nothing', async () => {
+    const { store } = makeTestStore();
+    seed(store);
+    localStorage.clear();
+    await store.dispatch(
+      saveToTabContainer({
+        container: session('real', 8),
+        scope: 'all-windows',
+      })
+    );
+    expect(momentOf(store)).toBe('');
+  });
+
+  test('CONTROL: the same save beside an ordinary one-tab session records one', async () => {
+    const { store } = makeTestStore();
+    store.dispatch({
+      type: 'tabContainerDataState/saveToTabContainerInternal',
+      payload: session('ordinary', 1),
+    });
+    localStorage.clear();
+    await store.dispatch(
+      saveToTabContainer({
+        container: session('real', 8),
+        scope: 'all-windows',
+      })
+    );
+    expect(typeof momentOf(store)).toBe('number');
+  });
+
+  test('the sample is left out of the median, not just the empty case', async () => {
+    const { store } = makeTestStore();
+    seed(store); // 3 tabs
+    store.dispatch({
+      type: 'tabContainerDataState/saveToTabContainerInternal',
+      payload: session('ordinary', 5),
+    });
+    localStorage.clear();
+    // Median of [5] is 5 with the sample dropped (4 with it): 5 is not above it.
+    await store.dispatch(
+      saveToTabContainer({
+        container: session('real', 5),
+        scope: 'all-windows',
+      })
+    );
+    expect(momentOf(store)).toBe('');
+  });
+});
+
+describe('isSubstantialSave and the sample', () => {
+  test('a list holding only samples counts as empty', () => {
+    expect(isSubstantialSave(9, [session(`${SAMPLE_ID_PREFIX}x`, 1)])).toBe(
+      false
+    );
   });
 });

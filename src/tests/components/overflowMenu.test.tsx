@@ -1,5 +1,11 @@
 import { describe, expect, test, vi } from 'vitest';
-import { act, screen, within } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import {
@@ -487,5 +493,74 @@ describe('OverflowMenu triggerStyle', () => {
     await renderMenu();
 
     expect(getComputedStyle(trigger()).width).not.toBe('40px');
+  });
+});
+
+describe('OverflowMenu opened from outside (KAN-413)', () => {
+  test('turning true opens it without moving focus; turning false closes it', async () => {
+    const elsewhere = document.createElement('button');
+    document.body.append(elsewhere);
+    elsewhere.focus();
+    const { rerender } = await renderMenu({ openWhen: false });
+    expect(screen.queryByRole('menu')).toBeNull();
+
+    rerender(<OverflowMenu ariaLabel="More actions" items={ITEMS} openWhen />);
+    expect(await screen.findByRole('menu')).toBeInTheDocument();
+    expect(document.activeElement).toBe(elsewhere);
+
+    rerender(
+      <OverflowMenu ariaLabel="More actions" items={ITEMS} openWhen={false} />
+    );
+    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+    elsewhere.remove();
+  });
+
+  test('a later click on the trigger still moves focus into the menu', async () => {
+    const user = userEvent.setup();
+    const { rerender } = await renderMenu({ openWhen: false });
+    rerender(<OverflowMenu ariaLabel="More actions" items={ITEMS} openWhen />);
+    await screen.findByRole('menu');
+    await user.click(document.body);
+    await user.click(trigger());
+    expect(document.activeElement).toBe(
+      screen.getByRole('menuitem', { name: 'Ungroup' })
+    );
+  });
+
+  // A search, Settings or the fold remounts the menu while the tour is at step 5.
+  test('mounted with it true, it opens, still without moving focus', async () => {
+    const elsewhere = document.createElement('button');
+    document.body.append(elsewhere);
+    elsewhere.focus();
+    await renderMenu({ openWhen: true });
+    expect(await screen.findByRole('menu')).toBeInTheDocument();
+    expect(document.activeElement).toBe(elsewhere);
+    elsewhere.remove();
+  });
+
+  // Finish must not close the menu its mark points at. CONTROL: a press anywhere else still closes it.
+  test('a press on the coach mark leaves the menu open', async () => {
+    const user = userEvent.setup();
+    await renderMenu();
+    await user.click(trigger());
+    const coach = document.createElement('div');
+    coach.setAttribute('data-coach-mark', '');
+    const finish = document.createElement('button');
+    coach.append(finish);
+    document.body.append(coach);
+    fireEvent.mouseDown(finish);
+    expect(screen.getByRole('menu')).toBeInTheDocument();
+    fireEvent.mouseDown(document.body);
+    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+    coach.remove();
+  });
+
+  test('every item carries its key, for a DOM hook', async () => {
+    const user = userEvent.setup();
+    await renderMenu();
+    await user.click(trigger());
+    expect(
+      document.querySelector('[data-menu-item="delete"]')
+    ).toHaveTextContent('Delete group');
   });
 });

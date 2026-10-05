@@ -27,7 +27,8 @@ const DIALOGS = [
     render: () =>
       renderWithProviders(<CloudConsentModal />, {
         seedStore: (s) =>
-          s.dispatch(openCloudConsentModal({ variant: 'welcome' })),
+          // The welcome has one button (KAN-410); the question has both kinds.
+          s.dispatch(openCloudConsentModal({ variant: 'enable' })),
       }),
   },
   {

@@ -13,15 +13,19 @@ import { setPresentStartup } from './redux/slices/undoRedoSlice';
 import { useThemeColors } from './hooks/useThemeColors';
 import { useDocumentTheme } from './hooks/useDocumentTheme';
 import { useOtherPageChanges } from './hooks/useOtherPageChanges';
+import { useInterruptedTourCleanup } from './hooks/useInterruptedTourCleanup';
+import { useFullViewShowRequests } from './hooks/useFullViewShowRequests';
 import { useTabCloudReads } from './hooks/useTabCloudReads';
 import { useDocumentTitle } from './hooks/useDocumentTitle';
 import { isTabView } from './utils/functions/viewMode';
+import { firstOpenDialogs } from './redux/firstOpenDialogs';
+import { takeShowFromAddress } from './utils/functions/fullViewShow';
+import { fullViewShowEntry } from './redux/fullViewShow';
+import { openFirstDialog } from './utils/functions/dialogQueue';
+import { storedSessionCount } from './utils/functions/storedSessions';
 import {
-  openRateAndReviewModal,
-  openTabGroupsPrompt,
   removeUserId,
   setCloudConfigured,
-  openCloudConsentModal,
   setHasTabGroupsPermission,
   setHasSessionsPermission,
   setLoggedOut,
@@ -40,14 +44,13 @@ import {
   hasSessionsPermission,
   observeSessionsPermission,
 } from './utils/functions/permissions';
-import { shouldOfferTabGroups } from './utils/functions/tabGroupsOffer';
 
 import './App.css';
 import {
   setExtensionInstalledTime,
+  markFullViewOpened,
   SettingsData,
   cloudSyncAllowed,
-  declineCloudConsent,
 } from './redux/slices/settingsDataStateSlice';
 import {
   asPartialSettings,
@@ -57,12 +60,13 @@ import {
   isValidTabMasterContainer,
   loadFromLocalStorage,
 } from './utils/functions/local';
-import { shouldAskForReview } from './utils/functions/reviewAsk';
 
 function App() {
   // KAN-279 D9. Another open page's write to the saved sessions or settings
   // reaches this one. Once, at the root, so there is one listener per page.
   useOtherPageChanges();
+  useInterruptedTourCleanup();
+  useFullViewShowRequests();
 
   // KAN-279 D11. The tab view's own periodic/on-focus cloud read; a no-op in
   // the popup (isTabView() gates the whole effect inside the hook).
@@ -155,100 +159,36 @@ function App() {
     });
   }
 
-  // ask user to rate and review the extension
-  //
-  // Returns whether it opened the modal. KAN-74 needs that answer to keep two
-  // modals off the screen at once, and it cannot read it back out of Redux:
-  // this function is synchronous while the tab-groups check below is async, so
-  // by the time that one resolves it would be reading a store it has no
-  // guarantee of having seen settle. Handing the decision over as a value
-  // makes the coordination explicit instead of an accident of dispatch order.
-  function askUserToRateAndReview(): boolean {
-    const settings = asPartialSettings<SettingsData>(
-      loadFromLocalStorage('settingsData')
-    );
-
-    // KAN-149. The install date is still recorded, because a fresh install has
-    // nothing else to stamp and other things may want it -- but it is no longer
-    // what opens the prompt. See shouldAskForReview: a value moment is.
-    if (!isValidDate(settings.extensionInstalledTime ?? '')) {
-      dispatch(setExtensionInstalledTime());
-    }
-
-    if (!shouldAskForReview(settings, Date.now())) {
-      return false;
-    }
-
-    dispatch(openRateAndReviewModal());
-    return true;
-  }
-
-  // KAN-74. Offer the optional "tabGroups" permission to a user who has tab
-  // groups open right now. shouldOfferTabGroups owns every condition; this
-  // only turns its answer into a dispatch.
-  //
-  // "Never from autosave" is satisfied by construction rather than by a check:
-  // autosave runs in the service worker, and App only mounts when the user
-  // opens the popup.
-  async function offerTabGroupsPermission(
-    isRateAndReviewModalShowing: boolean
-  ) {
-    const openGroups = await shouldOfferTabGroups(isRateAndReviewModalShowing);
-    if (openGroups !== null) dispatch(openTabGroupsPrompt(openGroups));
-  }
-
-  // KAN-259. The cloud question, once, before the other first-open modals.
-  //
-  // Returns whether it opened, so the rate prompt and the tab-groups offer can
-  // stand down this open -- the KAN-74 handoff, extended by one. Who is asked
-  // and how is decided from what is on disk BEFORE this open touches it:
-  //
-  //  * consent already given or declined: nothing;
-  //  * an existing user (an install date from a previous open, or saved
-  //    sessions) who already turned Auto Sync off: recorded as declined
-  //    without asking -- they answered, in the only way there used to be;
-  //  * an existing user with Auto Sync on: the 'existing' wording;
-  //  * everyone else: the welcome.
-  function askForCloudConsent(): boolean {
-    const settings = asPartialSettings<SettingsData>(
-      loadFromLocalStorage('settingsData')
-    );
-    if (
-      settings.cloudConsent === 'granted' ||
-      settings.cloudConsent === 'declined'
-    ) {
-      return false;
-    }
-    const stored = loadFromLocalStorage('tabContainerData');
-    const hasSessions =
-      isValidTabMasterContainer(stored) && stored.tabGroups.length > 0;
-    const isExisting =
-      isValidDate(settings.extensionInstalledTime ?? '') || hasSessions;
-    if (isExisting && settings.isAutoSync === false) {
-      dispatch(declineCloudConsent());
-      return false;
-    }
-    dispatch(
-      openCloudConsentModal({ variant: isExisting ? 'existing' : 'welcome' })
-    );
-    return true;
-  }
-
   useEffect(() => {
     getUserTokenFromChromeStorageSync();
     dispatch(setCloudConfigured(isCloudConfigured));
-    if (!askForCloudConsent()) {
-      void offerTabGroupsPermission(askUserToRateAndReview());
-    } else {
-      // The install date is still stamped on a first open that asked the
-      // cloud question; the rate prompt needs it later.
-      const settings = asPartialSettings<SettingsData>(
-        loadFromLocalStorage('settingsData')
-      );
-      if (!isValidDate(settings.extensionInstalledTime ?? '')) {
-        dispatch(setExtensionInstalledTime());
-      }
+    // KAN-7 §8. Decided from the disk as it was before this open wrote to it.
+    const storedAtOpen = asPartialSettings<SettingsData>(
+      loadFromLocalStorage('settingsData')
+    );
+    const dialogs = firstOpenDialogs(isTabView() ? 'full' : 'popup', {
+      dispatch,
+      storedAtOpen,
+      storedSessions: storedSessionCount(),
+      getState: reduxStore.getState,
+    });
+    // KAN-7 §6. The full view mounting is what "opened the full view" means.
+    if (isTabView()) dispatch(markFullViewOpened());
+    // KAN-149. Stamped on every open that lacks one; the rate prompt needs it.
+    if (!isValidDate(storedAtOpen.extensionInstalledTime ?? '')) {
+      dispatch(setExtensionInstalledTime());
     }
+    // The e2e barrier for "the queue opened nothing", which no dialog can show.
+    // A full view opened for a dialog decides only that one.
+    const requested = isTabView() ? takeShowFromAddress() : null;
+    const entries =
+      requested === null ? dialogs : [fullViewShowEntry(requested, dispatch)];
+    void openFirstDialog(
+      entries,
+      () => reduxStore.getState().globalState.hasTourRunHere
+    ).then((opened) => {
+      document.documentElement.dataset.firstOpen = opened ?? 'none';
+    });
 
     void hasTabGroupsPermission().then((granted) =>
       dispatch(setHasTabGroupsPermission(granted))

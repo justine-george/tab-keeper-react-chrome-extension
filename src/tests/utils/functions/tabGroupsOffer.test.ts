@@ -29,13 +29,13 @@ describe('shouldOfferTabGroups', () => {
   test('offers, with the group count, when everything lines up', async () => {
     handle = setupChromeFake(twoGroupsUngranted);
 
-    expect(await shouldOfferTabGroups(false)).toBe(2);
+    expect(await shouldOfferTabGroups()).toBe(2);
   });
 
   test('stays quiet when no tab groups are open', async () => {
     handle = setupChromeFake({ tabs: [{ groupId: -1 }] });
 
-    expect(await shouldOfferTabGroups(false)).toBeNull();
+    expect(await shouldOfferTabGroups()).toBeNull();
   });
 
   // Nothing to offer: they already have it.
@@ -45,20 +45,14 @@ describe('shouldOfferTabGroups', () => {
       grantedPermissions: ['tabGroups'],
     });
 
-    expect(await shouldOfferTabGroups(false)).toBeNull();
+    expect(await shouldOfferTabGroups()).toBeNull();
   });
 
   test('stays quiet once the user has opted out for good', async () => {
     handle = setupChromeFake(twoGroupsUngranted);
     seedSettings({ isNeverAskAgainForTabGroups: true });
 
-    expect(await shouldOfferTabGroups(false)).toBeNull();
-  });
-
-  test('stays quiet while the rate-and-review modal is showing', async () => {
-    handle = setupChromeFake(twoGroupsUngranted);
-
-    expect(await shouldOfferTabGroups(true)).toBeNull();
+    expect(await shouldOfferTabGroups()).toBeNull();
   });
 
   // "Not now" means later, and later means the very next open. A single
@@ -67,7 +61,7 @@ describe('shouldOfferTabGroups', () => {
     handle = setupChromeFake(twoGroupsUngranted);
     seedSettings({ isTabGroupsPromptAnsweredOnce: true });
 
-    expect(await shouldOfferTabGroups(false)).toBe(2);
+    expect(await shouldOfferTabGroups()).toBe(2);
   });
 
   // A revoked permission is the most explicit "no" a user can give, and it
@@ -85,7 +79,7 @@ describe('shouldOfferTabGroups', () => {
       await chrome.permissions.contains({ permissions: ['tabGroups'] })
     ).toBe(false);
 
-    expect(await shouldOfferTabGroups(false)).toBeNull();
+    expect(await shouldOfferTabGroups()).toBeNull();
   });
 
   // The control for the test above: the same revocation, without the opt-out,
@@ -97,17 +91,17 @@ describe('shouldOfferTabGroups', () => {
       grantedPermissions: ['tabGroups'],
     });
 
-    expect(await shouldOfferTabGroups(false)).toBeNull();
+    expect(await shouldOfferTabGroups()).toBeNull();
 
     await chrome.permissions.remove({ permissions: ['tabGroups'] });
 
-    expect(await shouldOfferTabGroups(false)).toBe(2);
+    expect(await shouldOfferTabGroups()).toBe(2);
   });
 
   test('unreadable settings in localStorage do not suppress the offer', async () => {
     handle = setupChromeFake(twoGroupsUngranted);
     localStorage.setItem('settingsData', 'not json');
 
-    expect(await shouldOfferTabGroups(false)).toBe(2);
+    expect(await shouldOfferTabGroups()).toBe(2);
   });
 });

@@ -21,7 +21,7 @@ describe('the open-in-a-tab button', () => {
     await render();
 
     const buttons = screen.getAllByRole('button').map((el) => el.ariaLabel);
-    const popOutIndex = buttons.indexOf('Open in a tab');
+    const popOutIndex = buttons.indexOf('Open full view');
     const sortIndex = buttons.indexOf('Sort sessions');
 
     expect(popOutIndex).toBeGreaterThanOrEqual(0);
@@ -41,14 +41,14 @@ describe('the open-in-a-tab button', () => {
     await render();
 
     expect(
-      screen.getByRole('button', { name: 'Open in a tab' })
+      screen.getByRole('button', { name: 'Open full view' })
     ).toHaveTextContent('open_in_full');
   });
 
   test('clicking it sends one openInTab message carrying the current window id', async () => {
     const { chrome } = await render();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Open in a tab' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open full view' }));
 
     await waitFor(() => expect(chrome.sentMessages).toHaveLength(1));
     expect(chrome.sentMessages).toEqual([
@@ -67,7 +67,7 @@ describe('the open-in-a-tab button', () => {
       seed: {},
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Open in a tab' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open full view' }));
 
     await waitFor(() => expect(chrome.sentMessages).toHaveLength(1));
     expect(chrome.sentMessages).toEqual([
@@ -87,7 +87,7 @@ describe('the open-in-a-tab button', () => {
       .mockRejectedValue(new Error('no window'));
 
     try {
-      fireEvent.click(screen.getByRole('button', { name: 'Open in a tab' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Open full view' }));
 
       await waitFor(() => expect(chrome.sentMessages).toHaveLength(1));
       expect(chrome.sentMessages).toEqual([
@@ -104,7 +104,7 @@ describe('the open-in-a-tab button', () => {
       await render();
 
       expect(
-        screen.queryByRole('button', { name: 'Open in a tab' })
+        screen.queryByRole('button', { name: 'Open full view' })
       ).not.toBeInTheDocument();
     } finally {
       history.replaceState(null, '', '?');

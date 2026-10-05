@@ -8,9 +8,11 @@ import { RootState } from '../../../redux/store';
 import HeroContainerRight from './HeroContainerRight';
 import { selectVisibleTabGroups } from '../../../utils/functions/local';
 import { useSavedSearch } from '../../../hooks/useSavedSearch';
+import StartHereHint from './StartHereHint';
 import TabGroupDetailsContainer from './TabGroupDetailsContainer';
 import NoMatchState from '../../common/NoMatchState';
 import { useNoMatchPlace } from '../../../hooks/useNoMatchPlace';
+import { useShowsStartHere } from '../../../hooks/useShowsStartHere';
 
 function RightPane() {
   const tabContainerDataList = useSelector(
@@ -19,6 +21,7 @@ function RightPane() {
 
   const { text: searchText } = useSavedSearch();
   const { query, place } = useNoMatchPlace();
+  const showsStartHere = useShowsStartHere();
 
   const hasTabGroupsPermission = useSelector(
     (state: RootState) => state.globalState.hasTabGroupsPermission
@@ -43,6 +46,8 @@ function RightPane() {
   `;
 
   if (place === 'detail') return <NoMatchState query={query} inset={48} />;
+  // KAN-7 §2. Zero sessions: say where they will show, instead of nothing.
+  if (showsStartHere) return <StartHereHint />;
 
   return (
     <>

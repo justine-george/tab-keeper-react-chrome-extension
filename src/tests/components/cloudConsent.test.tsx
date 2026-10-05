@@ -124,9 +124,26 @@ describe('who is asked, and which screen (KAN-259)', () => {
     ).toBeTruthy();
   });
 
+  // KAN-410. The worst path: "currently synced" was untrue, and its Esc granted.
+  test('an install date with no sessions and no past sync is welcomed, not told it is synced', async () => {
+    const seed = seedSettings({
+      extensionInstalledTime: Date.now() - 30 * DAY,
+      cloudConsent: '',
+      isAutoSync: true,
+    });
+    const { store } = await renderWithProviders(<App />, { seedStore: seed });
+    expect(
+      await screen.findByRole('dialog', { name: 'Welcome to Tab Keeper' })
+    ).toBeTruthy();
+    expect(store.getState().settingsDataState.cloudConsent).toBe('declined');
+    expect(store.getState().settingsDataState.isAutoSync).toBe(false);
+    expect(mocks.ensureCloudSession).not.toHaveBeenCalled();
+  });
+
   test('an existing user who already turned Auto Sync off is not asked; they answered', async () => {
     const seed = seedSettings({
       extensionInstalledTime: Date.now() - 30 * DAY,
+      lastSyncedTime: Date.now() - DAY,
       isAutoSync: false,
     });
     const { store } = await renderWithProviders(<App />, { seedStore: seed });
@@ -149,55 +166,13 @@ describe('who is asked, and which screen (KAN-259)', () => {
 });
 
 describe('the answers (KAN-259)', () => {
-  const renderWelcome = () =>
-    renderWithProviders(<CloudConsentModal />, {
-      seedStore: (s) =>
-        s.dispatch(openCloudConsentModal({ variant: 'welcome' })),
-    });
   const renderExisting = () =>
     renderWithProviders(<CloudConsentModal />, {
       seedStore: (s) =>
         s.dispatch(openCloudConsentModal({ variant: 'existing' })),
     });
 
-  test('welcome: Keep on this device declines and turns Auto Sync off', async () => {
-    const user = userEvent.setup();
-    const { store } = await renderWelcome();
-    const dialog = screen.getByRole('dialog', {
-      name: 'Welcome to Tab Keeper',
-    });
-    // Opens unlit (KAN-243): the dialog holds the focus, no button is
-    // pre-chosen. Escape is still the answer that changes nothing.
-    expect(document.activeElement).toBe(dialog);
-    await user.click(
-      within(dialog).getByRole('button', { name: 'Keep on this device' })
-    );
-    expect(store.getState().settingsDataState.cloudConsent).toBe('declined');
-    expect(store.getState().settingsDataState.isAutoSync).toBe(false);
-    expect(store.getState().globalState.isCloudConsentModalOpen).toBe(false);
-  });
-
-  test('welcome: Sync across devices grants and turns Auto Sync on', async () => {
-    const user = userEvent.setup();
-    const { store } = await renderWelcome();
-    await user.click(
-      screen.getByRole('button', { name: 'Sync across devices' })
-    );
-    expect(store.getState().settingsDataState.cloudConsent).toBe('granted');
-    expect(store.getState().settingsDataState.isAutoSync).toBe(true);
-  });
-
-  test('welcome: Escape means keep on this device', async () => {
-    const { container, store } = await renderWelcome();
-    fireEvent(
-      container.querySelector('dialog')!,
-      new Event('cancel', { bubbles: false, cancelable: true })
-    );
-    expect(store.getState().settingsDataState.cloudConsent).toBe('declined');
-    expect(store.getState().settingsDataState.isAutoSync).toBe(false);
-  });
-
-  test('existing: Turn off sync declines; Keep sync on grants; Escape keeps', async () => {
+  test('existing: Turn off sync declines; Keep sync on grants; Escape declines', async () => {
     const user = userEvent.setup();
     const a = await renderExisting();
     const dialog = screen.getByRole('dialog', {
@@ -220,28 +195,12 @@ describe('the answers (KAN-259)', () => {
     b.unmount();
 
     const c = await renderExisting();
-    fireEvent(
-      c.container.querySelector('dialog')!,
-      new Event('cancel', { bubbles: false, cancelable: true })
-    );
-    // "Do nothing" must not change a setting they had.
-    expect(c.store.getState().settingsDataState.cloudConsent).toBe('granted');
-    expect(c.store.getState().settingsDataState.isAutoSync).toBe(true);
-  });
-
-  test('granting from the welcome is what starts Firebase', async () => {
-    const user = userEvent.setup();
-    const { store } = await renderWithProviders(<App />);
-    await waitFor(() =>
-      expect(store.getState().globalState.isCloudConsentModalOpen).toBe(true)
-    );
-    expect(mocks.ensureCloudSession).not.toHaveBeenCalled();
-    await user.click(
-      screen.getByRole('button', { name: 'Sync across devices' })
-    );
-    await waitFor(() =>
-      expect(mocks.ensureCloudSession).toHaveBeenCalledTimes(1)
-    );
+    const cancel = new Event('cancel', { bubbles: false, cancelable: true });
+    fireEvent(c.container.querySelector('dialog')!, cancel);
+    expect(cancel.defaultPrevented).toBe(true);
+    // Justine 2026-10-04: no upload without an explicit click (KAN-410).
+    expect(c.store.getState().settingsDataState.cloudConsent).toBe('declined');
+    expect(c.store.getState().settingsDataState.isAutoSync).toBe(false);
   });
 
   test('turning Auto Sync on later, after declining, asks again rather than uploading', async () => {
@@ -259,6 +218,113 @@ describe('the answers (KAN-259)', () => {
     // effective permission is consent AND the flag, and consent is still no.
     expect(store.getState().settingsDataState.isAutoSync).toBe(true);
     expect(mocks.ensureCloudSession).not.toHaveBeenCalled();
+  });
+});
+
+// KAN-410. The welcome asks nothing: it says what Tab Keeper does and moves on.
+// Opening it records the device as local-only and starts onboarding, so a
+// popup closed unanswered loses nothing and is never taken for an existing user.
+describe('the welcome (KAN-410)', () => {
+  const freshWelcome = async (
+    seedStore?: (s: { dispatch: (a: unknown) => void }) => void
+  ) => {
+    const rendered = await renderWithProviders(<App />, { seedStore });
+    const dialog = await screen.findByRole('dialog', {
+      name: 'Welcome to Tab Keeper',
+    });
+    return { ...rendered, dialog };
+  };
+
+  test('the brand mark, one line and Get started; no sync wording', async () => {
+    const { dialog } = await freshWelcome();
+    const title = within(dialog).getByRole('heading', { level: 2 });
+    expect(title).toHaveTextContent(/^Welcome to Tab Keeper$/);
+    // The coloured header mark, not a Material glyph.
+    expect(title.querySelector('svg')?.getAttribute('viewBox')).toBe(
+      '0 0 128 128'
+    );
+    expect(title.querySelector('.material-symbols-outlined')).toBeNull();
+    expect(dialog).toHaveAccessibleDescription(
+      'Manage your open windows and tabs, and save them to bring back any time.'
+    );
+    expect(
+      within(dialog)
+        .getAllByRole('button')
+        .map((b) => b.textContent)
+    ).toEqual(['Get started']);
+    expect(within(dialog).queryByRole('link')).toBeNull();
+    expect(dialog.textContent).not.toMatch(/sync|privacy|device|cloud/i);
+    // Opens unlit (KAN-243).
+    expect(document.activeElement).toBe(dialog);
+  });
+
+  test('opening it records local-only and onboarding started, on disk too, and touches no Firebase', async () => {
+    const { store } = await freshWelcome();
+    expect(store.getState().settingsDataState).toMatchObject({
+      cloudConsent: 'declined',
+      isAutoSync: false,
+      setupState: 'pending',
+    });
+    // What the next open reads.
+    expect(
+      JSON.parse(localStorage.getItem('settingsData') ?? '{}')
+    ).toMatchObject({
+      cloudConsent: 'declined',
+      isAutoSync: false,
+      setupState: 'pending',
+    });
+    expect(mocks.ensureCloudSession).not.toHaveBeenCalled();
+  });
+
+  test('Get started closes it and offers the full view', async () => {
+    const user = userEvent.setup();
+    const { store, dialog } = await freshWelcome();
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Get started' })
+    );
+    expect(
+      screen.queryByRole('dialog', { name: 'Welcome to Tab Keeper' })
+    ).toBeNull();
+    expect(store.getState().globalState.isFullViewOfferOpen).toBe(true);
+  });
+
+  test('Esc closes it the same way, and is consumed (KAN-403)', async () => {
+    const { store, dialog } = await freshWelcome();
+    const notPrevented = fireEvent(
+      dialog,
+      new Event('cancel', { bubbles: false, cancelable: true })
+    );
+    expect(notPrevented).toBe(false);
+    expect(store.getState().globalState.isCloudConsentModalOpen).toBe(false);
+    expect(store.getState().settingsDataState.cloudConsent).toBe('declined');
+    await waitFor(() =>
+      expect(store.getState().globalState.isFullViewOfferOpen).toBe(true)
+    );
+  });
+
+  test('after it, the sync button asks the full question first, and only its Sync starts Firebase', async () => {
+    const user = userEvent.setup();
+    const { store, dialog } = await freshWelcome((s) => {
+      s.dispatch(setSignedIn());
+      s.dispatch(setUserId('uuid-1'));
+    });
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Get started' })
+    );
+    await user.click(
+      within(
+        screen.getByRole('dialog', { name: 'Try the full view' })
+      ).getByRole('button', { name: 'Not now' })
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Sync now' }));
+    const ask = screen.getByRole('dialog', {
+      name: 'Sync your sessions across devices?',
+    });
+    expect(mocks.ensureCloudSession).not.toHaveBeenCalled();
+    await user.click(within(ask).getByRole('button', { name: 'Sync' }));
+    expect(store.getState().settingsDataState.cloudConsent).toBe('granted');
+    await waitFor(() => expect(mocks.ensureCloudSession).toHaveBeenCalled());
   });
 });
 
@@ -366,6 +432,7 @@ describe('Turn off sync means no sync, before and after (KAN-259)', () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     const seed = seedSettings({
       extensionInstalledTime: Date.now() - 30 * DAY,
+      lastSyncedTime: Date.now() - DAY,
       isAutoSync: true,
     });
     const { store, seen } = await renderWithProviders(<App />, {

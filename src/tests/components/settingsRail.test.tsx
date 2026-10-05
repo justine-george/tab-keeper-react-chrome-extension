@@ -24,16 +24,17 @@ const renderOn = (category: SettingsCategory) =>
   });
 
 describe('the settings rail names what each pane holds (KAN-253)', () => {
-  test('the five categories, in order, and none of the old names', () => {
-    // Two pairs, then About: how it looks (Display, Language), then what it
-    // does with your data (Sync & Backup, then Sessions -- the consequential
-    // one first). Display stays the landing pane.
+  test('the six categories, in order, and none of the old names', () => {
+    // Two pairs, then About and Help: how it looks (Display, Language), then
+    // what it does with your data (Sync & Backup, then Sessions -- the
+    // consequential one first). Display stays the landing pane.
     expect(initialState.map((c) => c.name)).toEqual([
       'Display',
       'Language',
       'Sync & Backup',
       'Sessions',
       'About',
+      'Help',
     ]);
     // The enum value is the i18n key (the rail renders t(name)), so each must
     // be a key -- keyCoverage cannot see t(variable).
@@ -87,11 +88,11 @@ describe('sections within a pane sit 32px apart, as About blocks do', () => {
     expect(margins).toEqual(['20px', '32px', '32px', '32px']);
   });
 
-  test('Sessions: first at 20px, the tab-history and shortcut rows at 32px', async () => {
+  test('Sessions: first at 20px, every later row at 32px', async () => {
     const { container } = await renderOn(SettingsCategory.SESSIONS);
     const margins = [
       ...container.querySelectorAll<HTMLElement>('[data-settings-section]'),
     ].map((el) => getComputedStyle(el).marginTop);
-    expect(margins).toEqual(['20px', '32px', '32px']);
+    expect(margins).toEqual(['20px', '32px', '32px', '32px']);
   });
 });

@@ -48,6 +48,20 @@ export function dialogButtonStyles(COLORS: ThemeColors) {
         background-color: ${COLORS.ICON_ACTIVE_COLOR};
       }
     `,
+    // KAN-7. A dismissal that reads as text: no frame, the same rungs.
+    link: css`
+      ${base}
+      border-color: transparent;
+      background-color: transparent;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+      &:hover {
+        background-color: ${COLORS.ICON_HOVER_COLOR};
+      }
+      &:active {
+        background-color: ${COLORS.ICON_ACTIVE_COLOR};
+      }
+    `,
     danger: css`
       ${base}
       background-color: ${COLORS.DELETE_ICON_HOVER_COLOR};

@@ -20,8 +20,8 @@ const TAB_VIEWPORT = { width: 1280, height: 800 };
 
 /** In both views, in this order. */
 const SHARED = ['Sort sessions', 'Undo', 'Redo', 'Sync now', 'Settings'];
-/** The popup adds "Open in a tab" first; the tab view is its destination. */
-const POPUP_ORDER = ['Open in a tab', ...SHARED];
+/** The popup adds "Open full view" first; the tab view is its destination. */
+const POPUP_ORDER = ['Open full view', ...SHARED];
 
 const ROOTS = [16, 20] as const;
 
@@ -70,7 +70,7 @@ async function boxOf(locator: Locator): Promise<Box> {
 const iconBox = (rootPx: number) => parseFloat(ICON.DEFAULT) * rootPx + 8;
 
 /** The two glyphs drawn at ICON.MEDIUM inside a DEFAULT box. */
-const MEDIUM_GLYPHS = ['Settings', 'Open in a tab'];
+const MEDIUM_GLYPHS = ['Settings', 'Open full view'];
 
 test.describe('every header control has the same box (KAN-340)', () => {
   for (const rootPx of ROOTS) {
@@ -148,7 +148,7 @@ test.describe('the icons sit in three pairs, 8px apart (KAN-340 A + R1)', () => 
     }) => {
       const page = await openHome(context, extensionId, 'popup', rootPx);
 
-      // [Open in a tab, Sort] [Undo, Redo] [Sync, Settings]
+      // [Open full view, Sort] [Undo, Redo] [Sync, Settings]
       expect(await gapsBetween(page, POPUP_ORDER)).toEqual([0, 8, 0, 8, 0]);
       expect(await leadingGap(page, POPUP_ORDER[0]), 'no leading gap').toBe(0);
 
@@ -181,11 +181,11 @@ test.describe('the icons sit in three pairs, 8px apart (KAN-340 A + R1)', () => 
     }) => {
       const page = await openHome(context, extensionId, 'tab', rootPx);
 
-      await expect(control(page, 'Open in a tab')).toHaveCount(0);
+      await expect(control(page, 'Open full view')).toHaveCount(0);
       expect(await gapsBetween(page, SHARED)).toEqual([8, 0, 8, 0]);
       expect(
         await leadingGap(page, SHARED[0]),
-        'no leading gap where Open in a tab would be'
+        'no leading gap where Open full view would be'
       ).toBe(0);
       const [lastInset] = await insetsFromRight(page, ['Settings']);
       expect(lastInset, 'no stray gap after Settings').toBe(0);
@@ -207,7 +207,7 @@ test.describe('the icons sit in three pairs, 8px apart (KAN-340 A + R1)', () => 
 
 // KAN-344. Hover motions, settled by Justine from side-by-side mocks: the
 // gear winds up half a turn (its six teeth only repeat exactly at 180°), and
-// Open in a tab stretches. Each goes past
+// Open full view stretches. Each goes past
 // its pose a little and settles, and eases back when the pointer leaves --
 // a transition, so leaving early reverses instead of snapping. Only for a
 // fine pointer that hovers, never from the keyboard, and not at all when
@@ -232,10 +232,10 @@ const MOTIONS: HoverMotionCase[] = [
       control(page, 'Settings').hover({ position: { x: 2, y: 2 } }),
   },
   {
-    name: 'Open in a tab',
+    name: 'Open full view',
     pose: { angle: 0, scale: 1.14 },
     pointAt: (page) =>
-      control(page, 'Open in a tab').hover({ position: { x: 2, y: 2 } }),
+      control(page, 'Open full view').hover({ position: { x: 2, y: 2 } }),
   },
 ];
 

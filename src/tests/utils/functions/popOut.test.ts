@@ -2,9 +2,12 @@ import { afterEach, describe, expect, test, vi } from 'vitest';
 
 import {
   isOpenInTabRequest,
+  isShowInFullViewMessage,
   OPEN_IN_TAB_MESSAGE,
   openOrFocusTabView,
   OpenInTabRequest,
+  SHOW_IN_FULL_VIEW_MESSAGE,
+  type ShowInFullViewMessage,
   TabApi,
 } from '../../../utils/functions/popOut';
 
@@ -38,6 +41,7 @@ type Calls = {
     windowId?: number;
     active: boolean;
   }[];
+  announces: ShowInFullViewMessage[];
 };
 
 // Hand-made TabApi fake: records every call it receives rather than
@@ -47,6 +51,7 @@ function makeTabApi(
   options: {
     matches?: chrome.tabs.Tab[];
     rejectQuery?: boolean;
+    rejectAnnounce?: boolean;
   } = {}
 ): { api: TabApi; calls: Calls } {
   const calls: Calls = {
@@ -54,6 +59,7 @@ function makeTabApi(
     updates: [],
     focusWindows: [],
     creates: [],
+    announces: [],
   };
 
   const api: TabApi = {
@@ -73,6 +79,11 @@ function makeTabApi(
     },
     create: async (props) => {
       calls.creates.push(props);
+      return undefined;
+    },
+    announce: async (message) => {
+      calls.announces.push(message);
+      if (options.rejectAnnounce) throw new Error('no page listening');
       return undefined;
     },
   };
@@ -211,4 +222,104 @@ describe('openOrFocusTabView', () => {
 
 afterEach(() => {
   vi.restoreAllMocks();
+});
+
+describe('a request to show a dialog in the full view (KAN-7)', () => {
+  test('isOpenInTabRequest takes a known show and refuses an unknown one', () => {
+    for (const show of ['setup', 'pinGuide']) {
+      expect(
+        isOpenInTabRequest({ type: OPEN_IN_TAB_MESSAGE, windowId: 1, show })
+      ).toBe(true);
+    }
+    expect(
+      isOpenInTabRequest({
+        type: OPEN_IN_TAB_MESSAGE,
+        windowId: 1,
+        show: 'theme',
+      })
+    ).toBe(false);
+  });
+
+  test('isShowInFullViewMessage needs its type, a numeric tab id and a known show', () => {
+    expect(
+      isShowInFullViewMessage({
+        type: SHOW_IN_FULL_VIEW_MESSAGE,
+        tabId: 7,
+        show: 'setup',
+      })
+    ).toBe(true);
+    expect(
+      isShowInFullViewMessage({
+        type: SHOW_IN_FULL_VIEW_MESSAGE,
+        show: 'setup',
+      })
+    ).toBe(false);
+    expect(
+      isShowInFullViewMessage({
+        type: SHOW_IN_FULL_VIEW_MESSAGE,
+        tabId: '7',
+        show: 'setup',
+      })
+    ).toBe(false);
+    expect(
+      isShowInFullViewMessage({
+        type: SHOW_IN_FULL_VIEW_MESSAGE,
+        tabId: 7,
+        show: 'theme',
+      })
+    ).toBe(false);
+    expect(
+      isShowInFullViewMessage({
+        type: OPEN_IN_TAB_MESSAGE,
+        tabId: 7,
+        show: 'setup',
+      })
+    ).toBe(false);
+    expect(isShowInFullViewMessage(null)).toBe(false);
+  });
+
+  test('no full view open: a new one is created with the request on its address', async () => {
+    const { api, calls } = makeTabApi();
+    await openOrFocusTabView(api, { ...request(5), show: 'setup' });
+    expect(calls.creates).toEqual([
+      {
+        url: 'chrome-extension://x/index.html?view=tab&show=setup',
+        index: 0,
+        windowId: 5,
+        active: true,
+      },
+    ]);
+    expect(calls.announces).toEqual([]);
+  });
+
+  test('a full view open: it is focused, then told by tab id what to show', async () => {
+    const { api, calls } = makeTabApi({
+      matches: [fakeTab({ id: 7, windowId: 3 })],
+    });
+    await openOrFocusTabView(api, { ...request(5), show: 'pinGuide' });
+    expect(calls.focusWindows).toEqual([3]);
+    expect(calls.announces).toEqual([
+      { type: SHOW_IN_FULL_VIEW_MESSAGE, tabId: 7, show: 'pinGuide' },
+    ]);
+    expect(calls.creates).toEqual([]);
+  });
+
+  test('a plain open asks nothing to be shown', async () => {
+    const { api, calls } = makeTabApi({
+      matches: [fakeTab({ id: 7, windowId: 3 })],
+    });
+    await openOrFocusTabView(api, request(5));
+    expect(calls.announces).toEqual([]);
+  });
+
+  test('no page listening is logged, never thrown', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const { api } = makeTabApi({
+      matches: [fakeTab({ id: 7 })],
+      rejectAnnounce: true,
+    });
+    await expect(
+      openOrFocusTabView(api, { ...request(5), show: 'setup' })
+    ).resolves.toBeUndefined();
+  });
 });

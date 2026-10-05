@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import SettingsDetailsContainer from '../../components/settings/rightpane/SettingsDetailsContainer';
@@ -66,5 +66,32 @@ describe('the Sessions pane shows the popup shortcut (KAN-256)', () => {
     expect(chrome.createdTabs).toEqual([
       { url: 'chrome://extensions/shortcuts' },
     ]);
+  });
+
+  test('Change opens the shortcuts page beside the tab view, as its child (KAN-423)', async () => {
+    const user = userEvent.setup();
+    const { chrome } = await renderWithProviders(<SettingsDetailsContainer />, {
+      seed: {
+        commands: [{ name: '_execute_action', shortcut: 'Alt+Shift+K' }],
+        windows: [{ id: 1, tabs: [{ id: 10 }, { id: 11 }] }],
+        currentTabId: 10,
+      },
+      seedStore: (store) => {
+        store.dispatch(selectCategory(SettingsCategory.SESSIONS));
+      },
+    });
+    await user.click(
+      screen.getByRole('button', { name: 'Change or remove shortcut' })
+    );
+    await waitFor(() =>
+      expect(chrome.createdTabs).toEqual([
+        {
+          url: 'chrome://extensions/shortcuts',
+          index: 1,
+          openerTabId: 10,
+          windowId: 1,
+        },
+      ])
+    );
   });
 });

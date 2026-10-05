@@ -20,13 +20,7 @@ import { SettingsData } from '../../redux/slices/settingsDataStateSlice';
 // what bounds it. Note that nothing here consults a stored "granted" flag:
 // hasTabGroupsPermission() is the only source of truth, so a user who granted
 // and later revoked cannot be re-armed by a stale boolean.
-export async function shouldOfferTabGroups(
-  isRateAndReviewModalShowing: boolean
-): Promise<number | null> {
-  // One modal at a time. The rate request loses nothing by winning here: it is
-  // interval-gated and rare, while this offer returns on the very next open.
-  if (isRateAndReviewModalShowing) return null;
-
+export async function shouldOfferTabGroups(): Promise<number | null> {
   const { isNeverAskAgainForTabGroups = false } =
     asPartialSettings<SettingsData>(loadFromLocalStorage('settingsData'));
   if (isNeverAskAgainForTabGroups) return null;

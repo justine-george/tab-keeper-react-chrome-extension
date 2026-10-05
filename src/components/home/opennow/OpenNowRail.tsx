@@ -115,7 +115,7 @@ export default function OpenNowRail({
     }
   `;
 
-  // z-index 900: over the panes, and under the toast (1000), which must stay
+  // z-index 900: over the panes, and under the toast (1050), which must stay
   // readable while the drawer is open. The modals are <dialog>s in the top
   // layer, above any z-index, so they need no room here.
   const drawerStyle = css`

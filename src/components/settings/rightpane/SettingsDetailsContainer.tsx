@@ -1,4 +1,4 @@
-import { Fragment, useId } from 'react';
+import { Fragment, useId, useState } from 'react';
 
 import { useDispatch, useSelector } from 'react-redux';
 
@@ -6,17 +6,16 @@ import { css } from '@emotion/react';
 
 import Button from '../../common/Button';
 import Icon from '../../common/Icon';
+import HelpSettings from './HelpSettings';
 import ThemeSwatch from './ThemeSwatch';
+import { chromeLanguageOrder } from './languageOptions';
+import { pressedCellStyle } from '../../common/pressedCellStyle';
+import { slidingPairColors } from '../../common/slidingPairColors';
+import { themeChoices } from './themeChoices';
 import { NormalLabel } from '../../common/Label';
-import {
-  BB_PINK_THEME,
-  WARM_LIGHT_THEME,
-  BLUE_THEME,
-  LIGHT_THEME,
-  DARKENHEIMER_THEME,
-  useThemeColors,
-} from '../../../hooks/useThemeColors';
+import { useThemeColors } from '../../../hooks/useThemeColors';
 import { AppDispatch, RootState } from '../../../redux/store';
+import { chooseLanguage } from '../../../redux/languageChoice';
 import {
   loadSessionsFromBackup,
   showToast,
@@ -24,9 +23,6 @@ import {
   openCloudConsentModal,
 } from '../../../redux/slices/globalStateSlice';
 import {
-  Language,
-  Theme,
-  setLanguage,
   setTheme,
   setUserRatedAndReviewed,
   toggleAutoSync,
@@ -57,39 +53,18 @@ import { SettingsCategory } from '../../../redux/slices/settingsCategoryStateSli
 import SyncStatus from './Account/SyncStatus';
 import SlidingPair, { type SlidingPairMetrics } from '../../common/SlidingPair';
 import { useTranslation } from 'react-i18next';
-import { CONTROL, DURATION, RADIUS, TYPE } from '../../../styles/scale';
+import { CONTROL, DURATION, ICON, RADIUS, TYPE } from '../../../styles/scale';
 import {
-  CHROME_SHORTCUTS_URL,
+  openShortcutsBeside,
   usePopupShortcut,
 } from '../../../hooks/usePopupShortcut';
 import { shortcutKeys } from '../../../utils/functions/shortcutKeys';
 import { KEYS_SLOT, ShortcutSentence } from '../../common/ShortcutSentence';
 import { useFontFamily } from '../../../hooks/useFontFamily';
+import { chooseDefaultView } from '../../../redux/defaultViewChoice';
 
 // The theme picker's swatches live in ThemeSwatch (KAN-237), which also carries
 // the KAN-88/KAN-95 marker rule and its reasoning.
-
-// KAN-244. Each language named in its own language, never through t(): the
-// language picker is the one screen that must be readable by someone who
-// cannot read the current UI language, which is why they are on it. Sorted
-// by the names' own collation (ICU: Latin scripts, then Cyrillic, Devanagari,
-// Hangul, Han), which languagePicker.test.tsx pins. The two Chinese options
-// name their script: with both present, a bare 中文 would not say which.
-const LANGUAGE_OPTIONS: ReadonlyArray<[Language, string]> = [
-  [Language.DE, 'Deutsch'],
-  [Language.EN, 'English'],
-  [Language.ES, 'Español'],
-  [Language.FR, 'Français'],
-  [Language.IT, 'Italiano'],
-  [Language.PT, 'Português'],
-  [Language.SV, 'Svenska'],
-  [Language.RU, 'Русский'],
-  [Language.HI, 'हिन्दी'],
-  [Language.KO, '한국어'],
-  [Language.JA, '日本語'],
-  [Language.ZH, '简体中文'],
-  [Language.ZH_TW, '繁體中文'],
-];
 
 // KAN-248. The Auto Sync pair on the popup's own scale: the row unit, square
 // corners, the two named durations. The export toolbar draws the same
@@ -118,6 +93,10 @@ const SettingsDetailsContainer: React.FC = () => {
   const { t } = useTranslation();
 
   const dispatch: AppDispatch = useDispatch();
+
+  // Chrome's language doesn't change while the page is open.
+  const [languageCells] = useState(chromeLanguageOrder);
+  const pressed = slidingPairColors(COLORS);
 
   const settingsCategoryList = useSelector(
     (state: RootState) => state.settingsCategoryState
@@ -340,19 +319,7 @@ const SettingsDetailsContainer: React.FC = () => {
               margin-top: 8px;
             `}
           >
-            {/* t() is called on a quoted literal in each row, not on the
-                mapped variable: keyCoverage.test finds keys by scanning the
-                source for quoted t() arguments, and a computed key is
-                invisible to it. */}
-            {(
-              [
-                [Theme.LIGHT, LIGHT_THEME, t('Paper')],
-                [Theme.WARM_LIGHT, WARM_LIGHT_THEME, t('Parchment')],
-                [Theme.BB_PINK, BB_PINK_THEME, t('Petal')],
-                [Theme.DARKENHEIMER, DARKENHEIMER_THEME, t('Graphite')],
-                [Theme.BLUE, BLUE_THEME, t('Ink')],
-              ] as const
-            ).map(([theme, palette, name]) => (
+            {themeChoices(t).map(([theme, palette, name]) => (
               <ThemeSwatch
                 key={theme}
                 palette={palette}
@@ -705,6 +672,47 @@ const SettingsDetailsContainer: React.FC = () => {
           </p>
         </div>
 
+        {/* KAN-7 §7. What the toolbar icon, its shortcut and the puzzle menu open. */}
+        <div
+          data-settings-section
+          css={css`
+            padding-left: clamp(16px, 8%, 72px);
+            padding-right: clamp(16px, 8%, 72px);
+            width: 100%;
+            margin-top: 32px;
+          `}
+        >
+          <div
+            css={css`
+              display: flex;
+              align-items: flex-start;
+              width: 100%;
+            `}
+          >
+            <NormalLabel
+              value={t('Default view')}
+              size={TYPE.BODY}
+              color={COLORS.LABEL_L1_COLOR}
+            />
+          </div>
+          <div
+            css={css`
+              margin-top: 8px;
+            `}
+          >
+            <SlidingPair
+              label={t('Default view')}
+              options={[
+                { value: 'compact', label: t('Compact view') },
+                { value: 'full', label: t('Full view') },
+              ]}
+              value={settingsData.defaultView}
+              onChange={(next) => void dispatch(chooseDefaultView(next))}
+              metrics={SETTINGS_PAIR_METRICS}
+            />
+          </div>
+        </div>
+
         {/* Keyboard shortcut. KAN-256: a sentence that says what the key
             does, with the binding Chrome actually assigned -- read from
             chrome.commands, never the manifest's suggestion, which Chrome
@@ -763,7 +771,7 @@ const SettingsDetailsContainer: React.FC = () => {
               text={t('Change or remove shortcut')}
               iconType="keyboard"
               onClick={() => {
-                chrome.tabs.create({ url: CHROME_SHORTCUTS_URL });
+                void openShortcutsBeside();
               }}
             />
           </div>
@@ -819,27 +827,22 @@ const SettingsDetailsContainer: React.FC = () => {
               margin-top: 8px;
             `}
           >
-            {LANGUAGE_OPTIONS.map(([language, endonym]) => {
+            {languageCells.map(([language, endonym]) => {
               const isActive = settingsData.language === language;
               return (
                 <Button
                   key={language}
                   text={endonym}
                   ariaPressed={isActive}
+                  iconType={isActive ? 'check' : undefined}
+                  iconSize={ICON.SMALL}
+                  iconColor={pressed.labelOnKnob}
                   onClick={() => {
-                    i18n.changeLanguage(language);
-                    dispatch(setLanguage(language));
+                    dispatch(chooseLanguage(language, i18n));
                   }}
-                  // The current one wears the KAN-95 marker as the theme
-                  // swatch's tile does: the frame thickened to 2px in
-                  // LABEL_L3. Not weight -- the popup keeps one, and bold is
-                  // invisible in the CJK names anyway. box-sizing is
-                  // border-box and the height fixed, so the frame moves
-                  // nothing.
+                  // Border-box and a fixed height, so the check moves nothing.
                   style={`width: 100%; min-width: 0; justify-content: center; ${
-                    isActive
-                      ? `border-color: ${COLORS.LABEL_L3_COLOR}; border-width: 2px;`
-                      : ''
+                    isActive ? pressedCellStyle(COLORS) : ''
                   }`}
                 />
               );
@@ -1029,10 +1032,12 @@ const SettingsDetailsContainer: React.FC = () => {
         </div>
       </div>
     );
+  } else if (selectedSettingsCategory.name === SettingsCategory.HELP) {
+    settingsOptionsDiv = <HelpSettings />;
   }
 
   // Keyed on the category so React remounts the panel instead of reconciling
-  // one against the next (KAN-44). The five branches above all render into this
+  // one against the next (KAN-44). Every branch above renders into this
   // one position, so without a key React matched them element by element and
   // handed the Display panel's first theme swatch <button> to Sync & Backup's
   // Auto Sync button. A swatch is hardcoded to LIGHT_THEME.PRIMARY_COLOR, and

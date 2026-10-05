@@ -325,7 +325,7 @@ export default function TabGroupDetailsContainer() {
           <NormalLabel value={t('Empty')} />
         </div>
       ) : (
-        <div css={filledContainerStyle}>
+        <div css={filledContainerStyle} data-tour-anchor="windows">
           {/* KAN-132. ONE tab list for the whole session, rather than one per
               window, so that a tab drag can name a row in another window.
 

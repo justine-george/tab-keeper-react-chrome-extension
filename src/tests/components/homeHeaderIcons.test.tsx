@@ -23,10 +23,10 @@ function glyphSize(name: string): string {
 }
 
 describe('home header glyph sizes (KAN-340)', () => {
-  test('Settings and Open in a tab draw at ICON.MEDIUM', async () => {
+  test('Settings and Open full view draw at ICON.MEDIUM', async () => {
     await renderWithProviders(<MenuContainer />);
 
-    for (const name of ['Settings', 'Open in a tab']) {
+    for (const name of ['Settings', 'Open full view']) {
       expect({ name, size: glyphSize(name) }).toEqual({
         name,
         size: px(ICON.MEDIUM),

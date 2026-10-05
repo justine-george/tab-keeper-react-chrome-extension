@@ -22,6 +22,16 @@ export async function seedSessions(
 }
 
 /**
+ * KAN-7. Onboarding a seeded profile has already answered, so no spec boots
+ * into the pin guide or the full-view callout by accident (headless reports "not pinned"). A spec about
+ * it passes its own value, which wins.
+ */
+export const ONBOARDING_ANSWERED = {
+  isPinGuideDismissed: true,
+  isFullViewCalloutSeen: true,
+};
+
+/**
  * Seeds `settingsData`, which is what gates the rate-and-review prompt.
  *
  * Note `extensionInstalledTime` must be a NUMBER of milliseconds, not a date
@@ -41,8 +51,32 @@ export async function seedSettings(
   // cloudConsent -- to '' for the question itself -- wins.
   await seedLocalStorage(context, 'settingsData', {
     cloudConsent: 'granted',
+    ...ONBOARDING_ANSWERED,
     ...settings,
   });
+}
+
+// KAN-7. Writes settingsData only while none is stored, so a page's own save survives the next page.
+export async function seedSettingsIfAbsent(
+  context: BrowserContext,
+  settings: Record<string, unknown>
+): Promise<void> {
+  await context.addInitScript(
+    (value: string) => {
+      try {
+        if (window.localStorage.getItem('settingsData') === null) {
+          window.localStorage.setItem('settingsData', value);
+        }
+      } catch {
+        // Storage blocked; the specs' own assertions say so more clearly.
+      }
+    },
+    JSON.stringify({
+      cloudConsent: 'granted',
+      ...ONBOARDING_ANSWERED,
+      ...settings,
+    })
+  );
 }
 
 /**
@@ -60,18 +94,7 @@ export async function seedSettings(
 export async function seedCloudConsentIfSettingsAbsent(
   context: BrowserContext
 ): Promise<void> {
-  await context.addInitScript(() => {
-    try {
-      if (window.localStorage.getItem('settingsData') === null) {
-        window.localStorage.setItem(
-          'settingsData',
-          JSON.stringify({ cloudConsent: 'granted' })
-        );
-      }
-    } catch {
-      // Storage blocked; the specs' own assertions say so more clearly.
-    }
-  });
+  await seedSettingsIfAbsent(context, {});
 }
 
 // addInitScript, not page.evaluate: the popup reads localStorage during its

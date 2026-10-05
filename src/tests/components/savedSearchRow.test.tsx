@@ -74,6 +74,8 @@ const listedIds = () => sessionRows().map((row) => row.dataset.dragRowId);
 const goToTabView = () => history.replaceState(null, '', '?view=tab');
 
 afterEach(() => {
+  // A save writes localStorage, which reads as an existing user's sessions.
+  localStorage.clear();
   history.replaceState(null, '', '/');
   document.documentElement.removeAttribute('data-dragging');
 });
@@ -105,7 +107,9 @@ describe('the saved search row (S1, S2)', () => {
     await renderWithProviders(<TabGroupEntryContainer />);
 
     expect(field()).toBeInTheDocument();
-    expect(screen.getByText('Empty')).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'Start here' })
+    ).toBeInTheDocument();
   });
 });
 
@@ -202,7 +206,9 @@ describe('a search that matches nothing (R3, R4)', () => {
     expect(listedIds()).toEqual([]);
     const message = screen.getByText('No saved tab matches "zzz"');
     expect(message.closest('[data-pane="detail"]')).not.toBeNull();
-    expect(screen.queryByText('Empty')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { name: 'Start here' })
+    ).not.toBeInTheDocument();
   });
 });
 

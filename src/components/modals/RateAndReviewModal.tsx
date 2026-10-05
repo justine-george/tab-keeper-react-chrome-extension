@@ -18,6 +18,7 @@ import {
 } from '../../redux/slices/settingsDataStateSlice';
 import { APP_CHROME_WEBSTORE_LINK } from '../../utils/constants/common';
 import Button from '../common/Button';
+import { cardFadeIn } from '../common/cardFade';
 import { RADIUS, TYPE } from '../../styles/scale';
 import {
   asPartialSettings,
@@ -153,43 +154,46 @@ export const RateAndReviewModal: React.FC<RateAndReviewModalProps> = ({
       // would close itself in the DOM while the store still believed it open,
       // and it could never be reopened.
       onCancel={handleRemindLater}
-      css={css`
-        /* The UA gives <dialog> its own box; reset it back to the card's
+      css={[
+        cardFadeIn,
+        css`
+          /* The UA gives <dialog> its own box; reset it back to the card's
            geometry. Same reset as FocusConfirmModal. */
-        position: fixed;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        margin: 0;
-        max-width: none;
-        max-height: none;
-        background-color: ${COLORS.PRIMARY_COLOR};
-        color: ${COLORS.LABEL_L1_COLOR};
-        border: 1px solid ${COLORS.BORDER_COLOR};
-        width: 500px;
-        padding: 20px;
-        align-items: flex-start;
-        border-radius: ${RADIUS.SQUARE};
-        flex-direction: column;
-        padding-bottom: 25px;
-        gap: 20px;
+          position: fixed;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          margin: 0;
+          max-width: none;
+          max-height: none;
+          background-color: ${COLORS.PRIMARY_COLOR};
+          color: ${COLORS.LABEL_L1_COLOR};
+          border: 1px solid ${COLORS.BORDER_COLOR};
+          width: 500px;
+          padding: 20px;
+          align-items: flex-start;
+          border-radius: ${RADIUS.SQUARE};
+          flex-direction: column;
+          padding-bottom: 25px;
+          gap: 20px;
 
-        /* Scoped to [open] so the dialog stays hidden until showModal() runs,
+          /* Scoped to [open] so the dialog stays hidden until showModal() runs,
            rather than flashing as a non-modal box for a frame. */
-        &[open] {
-          display: flex;
-        }
+          &[open] {
+            display: flex;
+          }
 
-        &::backdrop {
-          background: rgba(0, 0, 0, 0.8);
-        }
+          &::backdrop {
+            background: rgba(0, 0, 0, 0.8);
+          }
 
-        /* The container carries initial focus (KAN-243) and is never reached
+          /* The container carries initial focus (KAN-243) and is never reached
            by Tab, so a ring on it would mark nothing anyone can act on. */
-        outline: none;
+          outline: none;
 
-        ${style}
-      `}
+          ${style}
+        `,
+      ]}
     >
       <h2
         id={TITLE_ID}
