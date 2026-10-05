@@ -188,24 +188,13 @@ export const goToRunStep =
     if (selectRunHere(getState()) !== null) dispatch(setFirstRunStep(step));
   };
 
-export const advanceRun = (): Thunk<void> => (dispatch, getState) => {
-  const run = selectRunHere(getState());
-  const next = run === null ? null : nextRunStep(run.view, run.step);
-  if (next !== null) dispatch(setFirstRunStep(next));
-};
-
-export const stepRunBack = (): Thunk<void> => (dispatch, getState) => {
-  const run = selectRunHere(getState());
-  const back = run === null ? null : previousRunStep(run.view, run.step);
-  if (back !== null) dispatch(setFirstRunStep(back));
-};
-
-// R10, Q3, A5. Decided once per page, when the save step first starts here.
-export const beginSaveStep =
-  (): Thunk<Promise<void>> => async (dispatch, getState) => {
+// R10, Q3, A5. Decided once per page, for the save step at `step`, before or once it shows.
+const decideSaveCard =
+  (step: RunStep): Thunk<Promise<void>> =>
+  async (dispatch, getState) => {
     const state = getState();
     const run = selectRunHere(state);
-    if (run === null || runStepKind(run.view, run.step) !== 'save') return;
+    if (run === null || runStepKind(run.view, step) !== 'save') return;
     if (state.globalState.runSaveCard !== null || isLoading(state)) return;
     if (run.sessionId !== null) {
       dispatch(setRunSaveCard(run.view === 'full' ? 'sessions' : 'save'));
@@ -230,6 +219,37 @@ export const beginSaveStep =
     }
   };
 
+// The resumed or reloaded save step, decided once it shows.
+export const beginSaveStep =
+  (): Thunk<Promise<void>> => async (dispatch, getState) => {
+    const run = selectRunHere(getState());
+    if (run !== null) await dispatch(decideSaveCard(run.step));
+  };
+
+// KAN-436. Onto an undecided save step, the card is decided first, so the card glides there and is never drawn anew.
+const moveRun =
+  (to: (run: FirstRun) => RunStep | null): Thunk<Promise<void>> =>
+  async (dispatch, getState) => {
+    const run = selectRunHere(getState());
+    const target = run === null ? null : to(run);
+    if (run === null || target === null) return;
+    if (
+      runStepKind(run.view, target) === 'save' &&
+      getState().globalState.runSaveCard === null
+    ) {
+      await dispatch(decideSaveCard(target));
+      // A second press, a Back or a lost lock in the meantime has moved on.
+      if (selectRunHere(getState())?.step !== run.step) return;
+    }
+    dispatch(setFirstRunStep(target));
+  };
+
+export const advanceRun = (): Thunk<Promise<void>> =>
+  moveRun((run) => nextRunStep(run.view, run.step));
+
+export const stepRunBack = (): Thunk<Promise<void>> =>
+  moveRun((run) => previousRunStep(run.view, run.step));
+
 // The run's own save, once: a second save is an ordinary one (R6).
 export const takeRunSave =
   (tabGroupId: string): Thunk<void> =>
@@ -240,7 +260,7 @@ export const takeRunSave =
     dispatch(setFirstRunSession(tabGroupId));
     dispatch(showSession(tabGroupId));
     dispatch(setRunSaveEcho(tabGroupId));
-    dispatch(advanceRun());
+    void dispatch(advanceRun());
   };
 
 // Q2, Q3. The sample becomes the run's session; R9 removes it at the end.
@@ -251,7 +271,7 @@ export const takeExampleForRun =
     const run = selectRunHere(state);
     if (run === null || runStepKind(run.view, run.step) !== 'save') return;
     if (run.sessionId !== null) {
-      dispatch(advanceRun());
+      void dispatch(advanceRun());
       return;
     }
     // Sessions still to load: a save now would write over them on disk.
@@ -260,7 +280,7 @@ export const takeExampleForRun =
     dispatch(saveToTabContainerInternal(sample));
     dispatch(setFirstRunSession(sample.tabGroupId));
     dispatch(showSession(sample.tabGroupId));
-    dispatch(advanceRun());
+    void dispatch(advanceRun());
   };
 
 // R9: only a sample is removed, as an ordinary, undoable, synced delete with no toast.

@@ -41,7 +41,8 @@ beforeEach(() => {
   anchors.innerHTML =
     '<div data-pane="sessions"><div data-tour-anchor="save"></div>' +
     '<div data-tour-anchor="sessions"></div></div>' +
-    '<span data-tour-anchor="expand"></span>';
+    '<span data-tour-anchor="expand"></span>' +
+    '<div data-pane="open-now"><div data-open-now-search></div></div>';
   for (const element of anchors.querySelectorAll('*')) {
     element.getBoundingClientRect = () => RECT;
   }
@@ -286,5 +287,68 @@ describe('the controller', () => {
         (b) => b.textContent
       )
     ).toEqual(['Back', 'Not now', 'Pin this tab']);
+  });
+
+  test('Next onto the save step keeps the card mounted: it moves, it is not drawn anew (KAN-436)', async () => {
+    history.replaceState(null, '', '?view=tab');
+    const r = await renderAt(newRun('full', 2), []);
+    await screen.findByRole('button', { name: 'Next' });
+    const before = mark();
+    let removed = false;
+    const observer = new MutationObserver(() => {
+      if (before !== null && !before.isConnected) removed = true;
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    await screen.findByRole('button', { name: 'Use an example' });
+    observer.disconnect();
+    expect(runOf(r)?.step).toBe(3);
+    expect(mark()).toBe(before);
+    expect(removed).toBe(false);
+  });
+
+  test('only Tab Keeper open: the Q3 card, its glyph, no fine line, and Use an example as the only way on', async () => {
+    const r = await renderWithProviders(<FirstRun />, {
+      seed: {
+        windows: [
+          {
+            id: 1,
+            type: 'normal' as const,
+            tabs: [
+              {
+                id: 12,
+                url: 'chrome-extension://faketestid/index.html?view=tab',
+                title: 'Tab Keeper',
+              },
+            ],
+          },
+        ],
+      },
+      seedStore: (store) => store.dispatch(replaceState(buildContainer([]))),
+    });
+    await act(async () => {
+      await r.store.dispatch(startRun(newRun('popup', 1)));
+    });
+    await waitFor(() =>
+      expect(r.store.getState().globalState.runSaveCard).toBe('nothingToSave')
+    );
+    expect(
+      await screen.findByRole('img', {
+        name: 'Save all open windows as a session',
+      })
+    ).toBeInTheDocument();
+    const [text, ...others] = mark()?.querySelectorAll('p') ?? [];
+    expect(others).toHaveLength(0);
+    expect(text).toHaveTextContent(
+      'This is where you save your open windows as a session: press'
+    );
+    expect(text).toHaveTextContent(
+      ". Only Tab Keeper is open right now, so let's try it with an example."
+    );
+    expect(
+      [...document.querySelectorAll('[data-coach-mark] button')].map(
+        (b) => b.textContent
+      )
+    ).toEqual(['Skip tutorial', 'Use an example']);
   });
 });

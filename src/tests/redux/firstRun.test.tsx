@@ -5,6 +5,7 @@ import { rootReducer } from '../../redux/storeConfig';
 import {
   recordFirstRun,
   setFirstRunSession,
+  setFirstRunStep,
 } from '../../redux/slices/settingsDataStateSlice';
 
 import { makeTestStore } from '../setup/makeStore';
@@ -91,6 +92,7 @@ afterEach(() => {
   locks.uninstall();
   localStorage.clear();
   history.replaceState(null, '', '?');
+  vi.restoreAllMocks();
 });
 
 const runOf = (store: Store) => store.getState().settingsDataState.firstRun;
@@ -308,7 +310,7 @@ describe('the run’s save and the example', () => {
     const store = withSessions(OWN, OLDER);
     await store.dispatch(startRun(newRun('popup', 1)));
     store.dispatch(takeRunSave('own'));
-    store.dispatch(stepRunBack());
+    await store.dispatch(stepRunBack());
     store.dispatch(takeRunSave('older'));
     expect(runOf(store)).toMatchObject({ step: 1, sessionId: 'own' });
   });
@@ -329,7 +331,7 @@ describe('the run’s save and the example', () => {
     const store = withSessions(OWN);
     await store.dispatch(startRun(newRun('popup', 1)));
     store.dispatch(takeRunSave('own'));
-    store.dispatch(stepRunBack());
+    await store.dispatch(stepRunBack());
     store.dispatch(takeExampleForRun(NAMES));
     expect(ids(store)).toEqual(['own']);
     expect(runOf(store)?.step).toBe(2);
@@ -457,6 +459,8 @@ describe('no ending deletes what the user made (safety)', () => {
   );
 
   test('⌘Z of the user’s own save: the run ends quietly and removes nothing itself', async () => {
+    // One instant for both saves: the list orders by edit time, and a tick between them reorders it.
+    vi.spyOn(Date, 'now').mockReturnValue(5_000_000);
     const { store, seen } = makeTestStore();
     store.dispatch(saveToTabContainerInternal(OLDER));
     await store.dispatch(startRun(newRun('popup', 1)));
@@ -584,5 +588,66 @@ describe('the last steps', () => {
     store.dispatch(goToRunStep(8));
     await store.dispatch(pinThisTab());
     expect(ids(store)).toEqual([]);
+  });
+});
+
+describe('moving onto the save step (KAN-436)', () => {
+  const atStepTwo = async () => {
+    history.replaceState(null, '', '?view=tab');
+    const harness = makeTestStore();
+    harness.store.dispatch(replaceState(buildContainer([])));
+    await harness.store.dispatch(startRun(newRun('full', 2)));
+    return harness;
+  };
+  const stepWrites = (seen: string[]) =>
+    seen.filter((type) => type === setFirstRunStep.type).length;
+
+  test('Next decides the save card before the step changes', async () => {
+    const { store } = await atStepTwo();
+    let cardAtStep: string | null | undefined;
+    store.subscribe(() => {
+      if (cardAtStep === undefined && runOf(store)?.step === 3) {
+        cardAtStep = store.getState().globalState.runSaveCard;
+      }
+    });
+    await store.dispatch(advanceRun());
+    expect(runOf(store)?.step).toBe(3);
+    expect(cardAtStep).toBe('save');
+  });
+
+  test('a double Next during the decision advances once', async () => {
+    const { store, seen } = await atStepTwo();
+    const before = stepWrites(seen);
+    await Promise.all([
+      store.dispatch(advanceRun()),
+      store.dispatch(advanceRun()),
+    ]);
+    expect(runOf(store)?.step).toBe(3);
+    expect(stepWrites(seen) - before).toBe(1);
+  });
+
+  test('a Back during the decision wins', async () => {
+    const { store } = await atStepTwo();
+    const next = store.dispatch(advanceRun());
+    await store.dispatch(stepRunBack());
+    await next;
+    expect(runOf(store)?.step).toBe(1);
+  });
+
+  test('a lock lost during the decision writes no step', async () => {
+    const { store } = await atStepTwo();
+    const next = store.dispatch(advanceRun());
+    await store.dispatch(leaveRunHere());
+    await next;
+    expect(runOf(store)?.step).toBe(2);
+  });
+
+  test('Back onto a save card already decided moves at once', async () => {
+    const store = withSessions(OWN);
+    await store.dispatch(startRun(newRun('popup', 1)));
+    await store.dispatch(beginSaveStep());
+    store.dispatch(takeRunSave('own'));
+    void store.dispatch(stepRunBack());
+    expect(runOf(store)?.step).toBe(1);
   });
 });

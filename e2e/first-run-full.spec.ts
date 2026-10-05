@@ -1,9 +1,14 @@
-import type { Page } from '@playwright/test';
+import type { BrowserContext, Page } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
 import { buildContainer, buildSession, seedSettings } from './fixtures/seed';
 import { escapesPrevented, watchEscapes } from './fixtures/escapeProbe';
-import { FULL, FULL_VIEW_PATH, openPage } from './fixtures/onboarding';
+import {
+  FULL,
+  FULL_VIEW_PATH,
+  openPage,
+  twoFrames,
+} from './fixtures/onboarding';
 import {
   FULL_RUN,
   card,
@@ -22,6 +27,15 @@ import {
 } from './fixtures/run';
 
 // §3 on the real build, from Help: Hello, then 8 cards, each in its mocked place.
+
+// Every page this context opens from now on.
+function countOpenedPages(context: BrowserContext): () => number {
+  let opened = 0;
+  context.on('page', () => {
+    opened += 1;
+  });
+  return () => opened;
+}
 
 const ring = (page: Page) =>
   page.locator('[data-coach-ring]').evaluate((el) => {
@@ -78,15 +92,20 @@ test('Hello, the eight cards in their places, Back and Next, and Not now', async
     '[data-pane="sessions"] [data-tour-anchor="row-open"]'
   );
   await expect(open).toBeVisible();
-  const pages = context.pages().length;
+  // CONTROL: the 'with saved sessions' Open test, where this counter sees the page.
+  const opened = countOpenedPages(context);
   await page.mouse.click(...(await centreOf(open)));
   await nextTo(page, 6);
+  await twoFrames(page);
+  expect(opened()).toBe(0);
   const del = page.locator(
     '[data-pane="sessions"] [data-tour-anchor="row-delete"]'
   );
   expect(await hitAt(page, ...(await centreOf(del)))).toBe('still');
   await del.focus();
   await del.press('Enter');
+  // CONTROL: the 'with saved sessions' Delete test, where the same press deletes.
+  await twoFrames(page);
   expect(await storedTitles(page)).toEqual(['Sample: Weekend trip']);
   await nextTo(page, 7);
   await expect.poll(() => cardSide(page)).toBe('left');
@@ -94,13 +113,65 @@ test('Hello, the eight cards in their places, Back and Next, and Not now', async
   await expect.poll(() => cardSide(page)).toBe('free');
   await expect(page.locator('[data-coach-ring]')).toHaveCount(0);
   await expect(cardButton(page, 'Skip tutorial')).toHaveCount(0);
-  expect(context.pages().length).toBe(pages);
+  expect(opened()).toBe(0);
   await cardButton(page, 'Not now').click();
   await expect(card(page)).toHaveCount(0);
   await expect
     .poll(() => storedRun(page))
     .toMatchObject({ view: 'full', ended: 'finished' });
   await expect.poll(() => storedTitles(page)).toEqual([]);
+});
+
+test('Next onto the save step glides the card there and never lifts the dim (KAN-436)', async ({
+  context,
+  extensionId,
+}) => {
+  // Every card and ring animation, from before the page loads.
+  await context.addInitScript(() => {
+    if (window.top !== window) return;
+    const log: string[] = [];
+    Object.defineProperty(globalThis, '__cardMotion', { value: log });
+    const animate = Element.prototype.animate;
+    Element.prototype.animate = function (this: Element, frames, options) {
+      if (this.hasAttribute('data-coach-mark')) {
+        const first = Array.isArray(frames) ? frames[0] : undefined;
+        log.push(
+          first !== undefined && 'opacity' in first ? 'appear' : 'glide'
+        );
+      }
+      return animate.call(this, frames, options);
+    };
+  });
+  const page = await openRunFromHelp(context, extensionId, FULL_RUN);
+  await nextTo(page, 2);
+  const motion = () =>
+    page.evaluate(() => {
+      const log: unknown = Reflect.get(globalThis, '__cardMotion');
+      return Array.isArray(log) ? log.splice(0).map(String) : [];
+    });
+  await motion();
+  await page.evaluate(() => {
+    const seen = { lifted: false };
+    Object.defineProperty(globalThis, '__dimLifted', { value: seen });
+    new MutationObserver(() => {
+      if (document.querySelector('[data-coach-dim]') === null) {
+        seen.lifted = true;
+      }
+    }).observe(document.body, { childList: true, subtree: true });
+  });
+  const lifted = () =>
+    page.evaluate(() =>
+      Boolean(Reflect.get(Reflect.get(globalThis, '__dimLifted'), 'lifted'))
+    );
+  await cardButton(page, 'Next').click();
+  await expect(cardButton(page, 'Use an example')).toBeVisible();
+  await twoFrames(page);
+  expect(await lifted()).toBe(false);
+  expect(await motion()).toEqual(['glide']);
+  // CONTROL: the same observer sees the dim lifted when the run ends.
+  await cardButton(page, 'Skip tutorial').click();
+  await expect(card(page)).toHaveCount(0);
+  expect(await lifted()).toBe(true);
 });
 
 test('Pin this tab pins this tab and ends the run', async ({
@@ -280,6 +351,26 @@ test.describe('with saved sessions', () => {
         })
         .toEqual([own.x, own.y].map(Math.round));
     }
+  });
+
+  test('CONTROL: outside the run, a row’s Open opens a page and its Delete deletes', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPage(context, extensionId, FULL_VIEW_PATH, FULL);
+    const row = page.locator('[data-pane="sessions"] [data-drag-row-id="old"]');
+    const opened = countOpenedPages(context);
+    await row.hover();
+    await page.mouse.click(
+      ...(await centreOf(row.locator('[data-tour-anchor="row-open"]')))
+    );
+    await expect.poll(opened).toBeGreaterThan(0);
+    await page.bringToFront();
+    const del = row.locator('[data-tour-anchor="row-delete"]');
+    await del.focus();
+    await del.press('Enter');
+    await twoFrames(page);
+    expect(await storedTitles(page)).toEqual(['Latest']);
   });
 
   test('R3: a saved search hides the card, ring and dim; clearing it brings them back', async ({

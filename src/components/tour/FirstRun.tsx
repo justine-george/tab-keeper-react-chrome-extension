@@ -88,8 +88,8 @@ export default function FirstRun() {
   }, [wantsSession, sessionId, dispatch]);
 
   const start = useCallback(() => dispatch(goToRunStep(1)), [dispatch]);
-  const goNext = useCallback(() => dispatch(advanceRun()), [dispatch]);
-  const goBack = useCallback(() => dispatch(stepRunBack()), [dispatch]);
+  const goNext = useCallback(() => void dispatch(advanceRun()), [dispatch]);
+  const goBack = useCallback(() => void dispatch(stepRunBack()), [dispatch]);
   const skip = useCallback(() => dispatch(endRun('skipped')), [dispatch]);
   const finish = useCallback(() => void dispatch(finishRunHere()), [dispatch]);
   const pin = useCallback(() => void dispatch(pinThisTab()), [dispatch]);
