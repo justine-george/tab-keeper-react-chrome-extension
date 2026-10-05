@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test, vi } from 'vitest';
 
 import {
   holdTourLock,
-  tourLockName,
+  RUN_LOCK,
   tourLockState,
 } from '../../../utils/functions/tourLock';
 import { installFakeLocks, type FakeLocks } from '../../setup/fakeLocks';
@@ -19,51 +19,63 @@ afterEach(() => {
 describe('with Web Locks', () => {
   test('a held lock reads as held, under its own name only', async () => {
     locks = installFakeLocks();
-    await holdTourLock('sample:a');
-    expect(locks.held).toEqual(new Set([tourLockName('sample:a')]));
-    expect(await tourLockState('sample:a')).toBe('held');
-    expect(await tourLockState('sample:b')).toBe('free');
+    await holdTourLock(RUN_LOCK);
+    expect(locks.held).toEqual(new Set([RUN_LOCK]));
+    expect(await tourLockState(RUN_LOCK)).toBe('held');
+    expect(await tourLockState('another')).toBe('free');
   });
 
-  test('letting go frees it', async () => {
+  test('letting go frees it, and is no loss', async () => {
     locks = installFakeLocks();
-    const release = await holdTourLock('sample:a');
+    const onLost = vi.fn();
+    const release = await holdTourLock(RUN_LOCK, onLost);
     release();
     await vi.waitFor(async () =>
-      expect(await tourLockState('sample:a')).toBe('free')
+      expect(await tourLockState(RUN_LOCK)).toBe('free')
     );
+    expect(onLost).not.toHaveBeenCalled();
+  });
+
+  test('a second page takes it, and the first hears it lost it', async () => {
+    locks = installFakeLocks();
+    const firstLost = vi.fn();
+    const secondLost = vi.fn();
+    await holdTourLock(RUN_LOCK, firstLost);
+    await holdTourLock(RUN_LOCK, secondLost);
+    await vi.waitFor(() => expect(firstLost).toHaveBeenCalledTimes(1));
+    expect(secondLost).not.toHaveBeenCalled();
+    expect(await tourLockState(RUN_LOCK)).toBe('held');
   });
 
   test('a page that went away holds nothing', async () => {
     locks = installFakeLocks();
-    await holdTourLock('sample:a');
+    await holdTourLock(RUN_LOCK);
     locks.dropAll();
-    expect(await tourLockState('sample:a')).toBe('free');
+    expect(await tourLockState(RUN_LOCK)).toBe('free');
   });
 
-  test('a refused request still lets the tour start, holding nothing', async () => {
+  test('a refused request still lets the run show, holding nothing', async () => {
     locks = installFakeLocks({ requestRejects: true });
     vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    const release = await holdTourLock('sample:a');
+    const onLost = vi.fn();
+    const release = await holdTourLock(RUN_LOCK, onLost);
     release();
-    expect(await tourLockState('sample:a')).toBe('free');
+    expect(await tourLockState(RUN_LOCK)).toBe('free');
+    expect(onLost).not.toHaveBeenCalled();
   });
 
   test('a query that fails reads as unknown', async () => {
     locks = installFakeLocks({ queryRejects: true });
     vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    expect(await tourLockState('sample:a')).toBe('unknown');
+    expect(await tourLockState(RUN_LOCK)).toBe('unknown');
   });
 });
 
 describe('without Web Locks', () => {
-  test('CONTROL: this jsdom has none', () => {
-    expect('locks' in navigator).toBe(false);
-  });
-
-  test('the start goes on, and no page can be asked about', async () => {
-    const release = await holdTourLock('sample:a');
+  test('holding is a no-op and the state is unknown', async () => {
+    const release = await holdTourLock(RUN_LOCK);
     release();
-    expect(await tourLockState('sample:a')).toBe('unknown');
+    expect('locks' in navigator).toBe(false);
+    expect(await tourLockState(RUN_LOCK)).toBe('unknown');
   });
 });

@@ -16,7 +16,7 @@ import {
   initialState as settingsInitial,
   settingsDataStateSlice,
 } from '../../redux/slices/settingsDataStateSlice';
-import { holdTourLock } from '../../utils/functions/tourLock';
+import { holdTourLock, tourLockName } from '../../utils/functions/tourLock';
 import { buildSampleSession } from '../../utils/functions/sampleSession';
 
 // KAN-413. An interrupted tour, checked on a real open.
@@ -86,7 +86,7 @@ describe('the open-time check', () => {
   });
 
   test('a tour whose lock another page holds is left alone', async () => {
-    await holdTourLock('sample:left');
+    await holdTourLock(tourLockName('sample:left'));
     const { store } = await renderWithProviders(<App />, { seedStore: seeded });
     await waitFor(() =>
       expect(document.documentElement.dataset.tourCheck).toBe('elsewhere')

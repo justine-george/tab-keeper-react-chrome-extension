@@ -5,6 +5,13 @@ import {
   type DefaultView,
 } from '../../utils/functions/defaultView';
 import {
+  asFirstRun,
+  asRunStep,
+  type FirstRun,
+  type RunEnding,
+  type RunStep,
+} from '../../utils/functions/firstRun';
+import {
   asPartialSettings,
   loadFromLocalStorage,
   saveToLocalStorage,
@@ -157,6 +164,10 @@ export interface SettingsData {
   defaultView: DefaultView;
   // KAN-413. The sample tour running on this machine, if any; one per machine.
   sampleTour: SampleTour | null;
+  // The guided first run on this machine, running or ended; one per machine.
+  firstRun: FirstRun | null;
+  // Set when an upgrader's What's new Hello first shows; no later open starts one.
+  isWhatsNew2Seen: boolean;
 }
 
 /**
@@ -181,6 +192,8 @@ export type OnboardingSettings = Pick<
   | 'isFullViewCalloutSeen'
   | 'defaultView'
   | 'sampleTour'
+  | 'firstRun'
+  | 'isWhatsNew2Seen'
 >;
 
 export const ONBOARDING_DEFAULTS: OnboardingSettings = {
@@ -191,6 +204,8 @@ export const ONBOARDING_DEFAULTS: OnboardingSettings = {
   isFullViewCalloutSeen: false,
   defaultView: 'compact',
   sampleTour: null,
+  firstRun: null,
+  isWhatsNew2Seen: false,
 };
 
 export function asSetupState(value: unknown): SetupState {
@@ -226,6 +241,8 @@ export function guardOnboarding(
     isFullViewCalloutSeen: read('isFullViewCalloutSeen', asFlag),
     defaultView: read('defaultView', asDefaultView),
     sampleTour: read('sampleTour', asSampleTour),
+    firstRun: read('firstRun', asFirstRun),
+    isWhatsNew2Seen: read('isWhatsNew2Seen', asFlag),
   };
 }
 
@@ -532,6 +549,51 @@ export const settingsDataStateSlice = createSlice({
       saveToLocalStorage('settingsData', state);
     },
 
+    // Every start writes a new record, replacing any other.
+    recordFirstRun: (state, action: PayloadAction<FirstRun>) => {
+      state.firstRun = action.payload;
+      saveToLocalStorage('settingsData', state);
+    },
+
+    // Both ways: Next, Back and actions move it; only a start writes step 0.
+    setFirstRunStep: (state, action: PayloadAction<RunStep>) => {
+      const run = state.firstRun;
+      if (run === null || run.ended !== null || action.payload === 0) return;
+      const step = asRunStep(run.view, action.payload);
+      if (step === null || step === run.step) return;
+      run.step = step;
+      run.welcomeShows = null;
+      saveToLocalStorage('settingsData', state);
+    },
+
+    setFirstRunSession: (state, action: PayloadAction<string>) => {
+      const run = state.firstRun;
+      if (run === null || run.ended !== null) return;
+      run.sessionId = action.payload;
+      saveToLocalStorage('settingsData', state);
+    },
+
+    // Q7. The welcome's second opening.
+    countWelcomeShow: (state) => {
+      const run = state.firstRun;
+      if (run === null || run.ended !== null || run.welcomeShows !== 1) return;
+      run.welcomeShows = 2;
+      saveToLocalStorage('settingsData', state);
+    },
+
+    endFirstRun: (state, action: PayloadAction<RunEnding>) => {
+      const run = state.firstRun;
+      if (run === null || run.ended !== null) return;
+      run.ended = action.payload;
+      saveToLocalStorage('settingsData', state);
+    },
+
+    markWhatsNew2Seen: (state) => {
+      if (state.isWhatsNew2Seen) return;
+      state.isWhatsNew2Seen = true;
+      saveToLocalStorage('settingsData', state);
+    },
+
     replaceState: (state, action: PayloadAction<typeof state>) => {
       // Save updated state to localStorage
       saveToLocalStorage('settingsData', state);
@@ -582,6 +644,12 @@ export const {
   recordSampleTour,
   setSampleTourStep,
   clearSampleTour,
+  recordFirstRun,
+  setFirstRunStep,
+  setFirstRunSession,
+  countWelcomeShow,
+  endFirstRun,
+  markWhatsNew2Seen,
   hydrateSettingsFromOtherPage,
 } = settingsDataStateSlice.actions;
 

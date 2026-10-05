@@ -15,19 +15,26 @@ import {
   asSetupState,
   beginSetup,
   clearSampleTour,
+  countWelcomeShow,
+  endFirstRun,
   dismissPinGuide,
   finishSetup,
   guardOnboarding,
   markFullViewCalloutSeen,
   markFullViewOpened,
+  markWhatsNew2Seen,
   ONBOARDING_DEFAULTS,
+  recordFirstRun,
   recordSampleTour,
+  setFirstRunSession,
+  setFirstRunStep,
   setDefaultView,
   setSampleTourStep,
   settingsDataStateSlice,
   type SettingsData,
 } from '../../redux/slices/settingsDataStateSlice';
 import { asDefaultView } from '../../utils/functions/defaultView';
+import { newRun } from '../../utils/functions/firstRun';
 import { makeTestStore } from '../setup/makeStore';
 
 // KAN-7. Six per-machine answers in settingsData, each guarded on both read
@@ -49,6 +56,8 @@ const GARBAGE = {
   isFullViewCalloutSeen: {},
   defaultView: 'tab',
   sampleTour: { sampleId: 'abc', step: 9, view: 'tab' },
+  firstRun: { view: 'tab', step: 1 },
+  isWhatsNew2Seen: 'yes',
 };
 
 const ALL_SET = {
@@ -59,6 +68,15 @@ const ALL_SET = {
   isFullViewCalloutSeen: true,
   defaultView: 'full',
   sampleTour: { sampleId: 'sample:a', step: 3, view: 'full' },
+  firstRun: {
+    view: 'full',
+    step: 3,
+    sessionId: 'abc',
+    hello: 'whatsNew',
+    welcomeShows: null,
+    ended: null,
+  },
+  isWhatsNew2Seen: true,
 } as const;
 
 const ONBOARDING_KEYS: string[] = Object.keys(ONBOARDING_DEFAULTS);
@@ -312,5 +330,100 @@ describe('the sample tour record (KAN-413)', () => {
     );
     store.dispatch(applyOtherPageSettings());
     expect(store.getState().settingsDataState.sampleTour).toEqual(TOUR);
+  });
+});
+describe('the run record', () => {
+  const reduce = (actions: UnknownAction[]) =>
+    actions.reduce(
+      (state, action) => settingsDataStateSlice.reducer(state, action),
+      settingsDataStateSlice.getInitialState()
+    );
+  const FULL = newRun('full', 0);
+
+  it('recordFirstRun replaces any record and saves it', () => {
+    const state = reduce([
+      recordFirstRun(newRun('popup', 3)),
+      recordFirstRun(FULL),
+    ]);
+    expect(state.firstRun).toEqual(FULL);
+    expect(saved()).toMatchObject({ firstRun: FULL });
+  });
+
+  it('setFirstRunStep moves both ways, within the view, never back to step 0', () => {
+    expect(
+      reduce([recordFirstRun(FULL), setFirstRunStep(5), setFirstRunStep(4)])
+        .firstRun?.step
+    ).toBe(4);
+    expect(
+      reduce([recordFirstRun(newRun('popup', 1)), setFirstRunStep(8)]).firstRun
+        ?.step
+    ).toBe(1);
+    expect(
+      reduce([recordFirstRun(FULL), setFirstRunStep(2), setFirstRunStep(0)])
+        .firstRun?.step
+    ).toBe(2);
+    expect(saved()).toMatchObject({ firstRun: { step: 2 } });
+  });
+
+  it('leaving the popup welcome drops its show count', () => {
+    expect(
+      reduce([recordFirstRun(newRun('popup', 0)), setFirstRunStep(1)]).firstRun
+    ).toMatchObject({ step: 1, welcomeShows: null });
+  });
+
+  it('countWelcomeShow counts the second show, and only on the welcome', () => {
+    expect(
+      reduce([recordFirstRun(newRun('popup', 0)), countWelcomeShow()]).firstRun
+        ?.welcomeShows
+    ).toBe(2);
+    expect(
+      reduce([recordFirstRun(newRun('popup', 2)), countWelcomeShow()]).firstRun
+        ?.welcomeShows
+    ).toBeNull();
+  });
+
+  it('an ended record takes no step, session or second ending', () => {
+    const state = reduce([
+      recordFirstRun(FULL),
+      endFirstRun('skipped'),
+      setFirstRunStep(3),
+      setFirstRunSession('abc'),
+      endFirstRun('finished'),
+    ]);
+    expect(state.firstRun).toEqual({ ...FULL, ended: 'skipped' });
+  });
+
+  it('with no record, the run reducers change nothing and write nothing', () => {
+    const setItem = vi.spyOn(localStorage, 'setItem');
+    setItem.mockClear();
+    const state = reduce([
+      setFirstRunStep(2),
+      setFirstRunSession('abc'),
+      countWelcomeShow(),
+      endFirstRun('finished'),
+    ]);
+    expect(state.firstRun).toBeNull();
+    expect(setItem).not.toHaveBeenCalled();
+  });
+
+  it('markWhatsNew2Seen sets and saves, once', () => {
+    expect(reduce([markWhatsNew2Seen()]).isWhatsNew2Seen).toBe(true);
+    expect(saved()).toMatchObject({ isWhatsNew2Seen: true });
+  });
+
+  it('a write from an older page keeps this page’s record', () => {
+    const { store } = makeTestStore();
+    store.dispatch(recordFirstRun(FULL));
+    const older = Object.fromEntries(
+      Object.entries(store.getState().settingsDataState).filter(
+        ([key]) => key !== 'firstRun'
+      )
+    );
+    localStorage.setItem(
+      'settingsData',
+      JSON.stringify({ ...older, lastSyncedTime: Date.now() })
+    );
+    store.dispatch(applyOtherPageSettings());
+    expect(store.getState().settingsDataState.firstRun).toEqual(FULL);
   });
 });

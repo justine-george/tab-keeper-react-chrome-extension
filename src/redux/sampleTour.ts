@@ -30,7 +30,11 @@ import {
   type SampleNames,
 } from '../utils/functions/sampleSession';
 import { nextTourStep, type SampleTour } from '../utils/functions/sampleTour';
-import { holdTourLock, tourLockState } from '../utils/functions/tourLock';
+import {
+  holdTourLock,
+  tourLockName,
+  tourLockState,
+} from '../utils/functions/tourLock';
 import {
   isSearchActive,
   selectVisibleTabGroups,
@@ -138,7 +142,7 @@ export const startSampleTour =
       dispatch(closeFullViewCallout());
       const sample = buildSampleSession(names, new Date(), () => uuidv4());
       // Held before anything is written: no page ever sees a record no page holds.
-      releaseLock = await holdTourLock(sample.tabGroupId);
+      releaseLock = await holdTourLock(tourLockName(sample.tabGroupId));
       dispatch(saveToTabContainerInternal(sample));
       dispatch(showSession(sample.tabGroupId));
       dispatch(
@@ -198,7 +202,7 @@ export const endTourIfInterrupted =
     }
     // Before the first load the sample cannot be told from an empty list.
     if (getState().globalState.holdsPlaceholderSessions) return 'unloaded';
-    const lock = await tourLockState(tour.sampleId);
+    const lock = await tourLockState(tourLockName(tour.sampleId));
     if (lock === 'held') return 'elsewhere';
     if (lock === 'unknown') return 'unknown';
     if (getState().settingsDataState.sampleTour?.sampleId !== tour.sampleId) {

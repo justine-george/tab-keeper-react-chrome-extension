@@ -1,9 +1,9 @@
 import type { LockApi } from '../../utils/functions/tourLock';
 
-// One Set stands for the origin's lock manager, shared by every "page" a test builds.
+// One manager for every "page" a test builds; a steal rejects the holder's request, as Chrome does.
 export interface FakeLocks {
   held: Set<string>;
-  // A page going away: the browser drops its locks.
+  // A page going away: the browser drops its locks and tells no one.
   dropAll(): void;
   uninstall(): void;
 }
@@ -12,13 +12,29 @@ export function installFakeLocks(
   options: { requestRejects?: boolean; queryRejects?: boolean } = {}
 ): FakeLocks {
   const held = new Set<string>();
+  const holders = new Map<string, (error: Error) => void>();
   const api: LockApi = {
-    request: (name, callback) => {
+    request: (name, { steal }, callback) => {
       if (options.requestRejects) {
         return Promise.reject(new Error('lock refused'));
       }
-      held.add(name);
-      return callback().finally(() => held.delete(name));
+      const holder = holders.get(name);
+      if (holder !== undefined) {
+        if (!steal) {
+          return Promise.reject(new Error('fake locks model steal only'));
+        }
+        holder(new DOMException('stolen', 'AbortError'));
+      }
+      return new Promise((resolve, reject) => {
+        holders.set(name, reject);
+        held.add(name);
+        void callback().then(() => {
+          if (holders.get(name) !== reject) return;
+          holders.delete(name);
+          held.delete(name);
+          resolve(undefined);
+        });
+      });
     },
     query: () =>
       options.queryRejects
@@ -28,7 +44,10 @@ export function installFakeLocks(
   Object.defineProperty(navigator, 'locks', { value: api, configurable: true });
   return {
     held,
-    dropAll: () => held.clear(),
+    dropAll: () => {
+      held.clear();
+      holders.clear();
+    },
     uninstall: () => {
       Reflect.deleteProperty(navigator, 'locks');
     },
