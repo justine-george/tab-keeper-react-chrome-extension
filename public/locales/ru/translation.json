@@ -287,10 +287,7 @@
   "Step {{n}} of {{total}}": "Шаг {{n}} из {{total}}",
   "Skip tutorial": "Пропустить обучение",
   "Finish": "Завершить",
-  "A session keeps windows and tabs together. This one has 2 windows and 5 tabs. Fold a window with its arrow.": "Сессия хранит окна и вкладки вместе. В этой 2 окна и 5 вкладок. Сверните окно стрелкой.",
   "Open brings every window and tab back, just as they were. Use it any time. For now, press Next.": "«Открыть» возвращает все окна и вкладки такими, какими они были. Пользуйтесь этим в любое время. А сейчас нажмите «Далее».",
-  "Click the title to rename the session. Try something like \"Lisbon in May\".": "Нажмите на название, чтобы переименовать сессию. Попробуйте, например, «Лиссабон в мае».",
-  "Drag a tab to reorder it, or drop it into the other window.": "Перетащите вкладку, чтобы изменить порядок, или переместите её в другое окно.",
   "That's the tour. Delete the example from this menu, or press Finish and it's removed for you.": "Это всё. Удалите пример через это меню или нажмите «Завершить», и он будет удалён автоматически.",
   "Open works after the tour": "«Открыть» заработает после обучения",
   "Help": "Справка",
@@ -305,5 +302,8 @@
   "See your saved sessions and open tabs side by side.": "Сохранённые сессии и открытые вкладки рядом.",
   "Opens under the toolbar icon": "Открывается под значком на панели инструментов",
   "Opens in its own tab": "Открывается в отдельной вкладке",
-  "Opens next to this tab. Close it to come back.": "Откроется рядом с этой вкладкой. Закройте её, чтобы вернуться."
+  "Opens next to this tab. Close it to come back.": "Откроется рядом с этой вкладкой. Закройте её, чтобы вернуться.",
+  "A session keeps windows and tabs together. This one has 2 windows and 5 tabs. Fold a window with its arrow. Try it, or press Next.": "Сессия хранит окна и вкладки вместе. В этой 2 окна и 5 вкладок. Сверните окно стрелкой. Попробуйте или нажмите «Далее».",
+  "Click the title to rename the session. Try it, or press Next.": "Нажмите на название, чтобы переименовать сессию. Попробуйте или нажмите «Далее».",
+  "Drag a tab to reorder it, or into the other window. Try it, or press Next.": "Перетащите вкладку, чтобы изменить порядок, или в другое окно. Попробуйте или нажмите «Далее»."
 }

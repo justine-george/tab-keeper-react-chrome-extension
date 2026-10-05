@@ -282,10 +282,7 @@
   "Step {{n}} of {{total}}": "Passo {{n}} de {{total}}",
   "Skip tutorial": "Pular tutorial",
   "Finish": "Concluir",
-  "A session keeps windows and tabs together. This one has 2 windows and 5 tabs. Fold a window with its arrow.": "Uma sessão mantém janelas e abas juntas. Esta tem 2 janelas e 5 abas. Recolha uma janela com a seta dela.",
   "Open brings every window and tab back, just as they were. Use it any time. For now, press Next.": "Abrir traz de volta cada janela e aba, do jeito que estavam. Use quando quiser. Por enquanto, pressione Avançar.",
-  "Click the title to rename the session. Try something like \"Lisbon in May\".": "Clique no título para renomear a sessão. Experimente algo como \"Lisboa em maio\".",
-  "Drag a tab to reorder it, or drop it into the other window.": "Arraste uma aba para reordená-la ou solte-a na outra janela.",
   "That's the tour. Delete the example from this menu, or press Finish and it's removed for you.": "Esse foi o tour. Exclua o exemplo neste menu ou pressione Concluir e ele será removido para você.",
   "Open works after the tour": "Abrir funciona depois do tour",
   "Help": "Ajuda",
@@ -300,5 +297,8 @@
   "See your saved sessions and open tabs side by side.": "Veja suas sessões salvas e abas abertas lado a lado.",
   "Opens under the toolbar icon": "Abre sob o ícone da barra de ferramentas",
   "Opens in its own tab": "Abre em uma aba própria",
-  "Opens next to this tab. Close it to come back.": "Abre ao lado desta aba. Feche-a para voltar."
+  "Opens next to this tab. Close it to come back.": "Abre ao lado desta aba. Feche-a para voltar.",
+  "A session keeps windows and tabs together. This one has 2 windows and 5 tabs. Fold a window with its arrow. Try it, or press Next.": "Uma sessão mantém janelas e abas juntas. Esta tem 2 janelas e 5 abas. Recolha uma janela com a seta dela. Experimente ou clique em Avançar.",
+  "Click the title to rename the session. Try it, or press Next.": "Clique no título para renomear a sessão. Experimente ou clique em Avançar.",
+  "Drag a tab to reorder it, or into the other window. Try it, or press Next.": "Arraste uma aba para reordená-la ou para a outra janela. Experimente ou clique em Avançar."
 }

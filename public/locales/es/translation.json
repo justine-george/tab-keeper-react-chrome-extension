@@ -282,10 +282,7 @@
   "Step {{n}} of {{total}}": "Paso {{n}} de {{total}}",
   "Skip tutorial": "Saltar el tutorial",
   "Finish": "Terminar",
-  "A session keeps windows and tabs together. This one has 2 windows and 5 tabs. Fold a window with its arrow.": "Una sesión mantiene juntas ventanas y pestañas. Esta tiene 2 ventanas y 5 pestañas. Pliega una ventana con su flecha.",
   "Open brings every window and tab back, just as they were. Use it any time. For now, press Next.": "Abrir recupera cada ventana y pestaña tal como estaban. Úsalo cuando quieras. Por ahora, pulsa Siguiente.",
-  "Click the title to rename the session. Try something like \"Lisbon in May\".": "Haz clic en el título para cambiar el nombre de la sesión. Prueba algo como \"Lisboa en mayo\".",
-  "Drag a tab to reorder it, or drop it into the other window.": "Arrastra una pestaña para cambiarla de orden o suéltala en la otra ventana.",
   "That's the tour. Delete the example from this menu, or press Finish and it's removed for you.": "Eso es todo. Elimina el ejemplo desde este menú o pulsa Terminar y se quitará por ti.",
   "Open works after the tour": "Abrir funciona al terminar el tutorial",
   "Help": "Ayuda",
@@ -300,5 +297,8 @@
   "See your saved sessions and open tabs side by side.": "Ve tus sesiones guardadas y pestañas abiertas una al lado de la otra.",
   "Opens under the toolbar icon": "Se abre bajo el icono de la barra de herramientas",
   "Opens in its own tab": "Se abre en su propia pestaña",
-  "Opens next to this tab. Close it to come back.": "Se abre junto a esta pestaña. Ciérrala para volver."
+  "Opens next to this tab. Close it to come back.": "Se abre junto a esta pestaña. Ciérrala para volver.",
+  "A session keeps windows and tabs together. This one has 2 windows and 5 tabs. Fold a window with its arrow. Try it, or press Next.": "Una sesión mantiene juntas ventanas y pestañas. Esta tiene 2 ventanas y 5 pestañas. Pliega una ventana con su flecha. Pruébalo o pulsa Siguiente.",
+  "Click the title to rename the session. Try it, or press Next.": "Haz clic en el título para cambiar el nombre de la sesión. Pruébalo o pulsa Siguiente.",
+  "Drag a tab to reorder it, or into the other window. Try it, or press Next.": "Arrastra una pestaña para cambiarla de orden o a la otra ventana. Pruébalo o pulsa Siguiente."
 }

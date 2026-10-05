@@ -33,7 +33,10 @@ const NAMES = {
   thingsToDo: 'Things to do',
 };
 const STEP_1 =
-  'A session keeps windows and tabs together. This one has 2 windows and 5 tabs. Fold a window with its arrow.';
+  'A session keeps windows and tabs together. This one has 2 windows and 5 tabs. Fold a window with its arrow. Try it, or press Next.';
+const STEP_3 = 'Click the title to rename the session. Try it, or press Next.';
+const STEP_4 =
+  'Drag a tab to reorder it, or into the other window. Try it, or press Next.';
 // jsdom lays nothing out: every element gets this box, so every anchor is "on screen".
 const RECT: DOMRect = {
   x: 400,
@@ -133,6 +136,9 @@ describe('the tour, step by step', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
     await atStep(3);
+    expect(screen.getByRole('dialog', { name: STEP_3 })).not.toHaveTextContent(
+      'Lisbon'
+    );
 
     act(() => {
       r.store.dispatch(
@@ -143,6 +149,7 @@ describe('the tour, step by step', () => {
       );
     });
     await atStep(4);
+    expect(screen.getByRole('dialog', { name: STEP_4 })).toBeInTheDocument();
 
     const sort = screen.getByRole('button', { name: 'Sort sessions' });
     sort.focus();

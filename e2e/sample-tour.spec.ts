@@ -594,3 +594,82 @@ test.describe('contrast', () => {
     }
   }
 });
+
+// KAN-424: the longer step texts must fit the mark in the widest locales at a 24px root.
+test.describe('long locale, 24px root', () => {
+  test.use({ freshProfile: true });
+
+  const NEXT = { en: 'Next', de: 'Weiter', ru: 'Далее' } as const;
+  for (const view of TOUR_VIEWS) {
+    for (const language of ['en', 'de', 'ru'] as const) {
+      test(`${view.name}, ${language}: steps 1, 3 and 4 fit inside the mark and the window`, async ({
+        context,
+        extensionId,
+      }) => {
+        await seedSettingsIfAbsent(context, { language });
+        // openPage waits on an English label, so the page is opened here.
+        const page = await context.newPage();
+        await page.setViewportSize(view.viewport);
+        await page.goto(`chrome-extension://${extensionId}/${view.path}`);
+        const example = page
+          .locator('button', { hasText: /example|Beispiel|пример/i })
+          .first();
+        await example.waitFor();
+        await page.evaluate(() => {
+          document.documentElement.style.fontSize = '24px';
+        });
+        await expect
+          .poll(() =>
+            page.evaluate(
+              () => getComputedStyle(document.documentElement).fontSize
+            )
+          )
+          .toBe('24px');
+        await twoFrames(page);
+        await example.click();
+        await expect(coachAt(page, 1)).toBeVisible();
+        // CONTROL: the mark's own button reads in the language seeded.
+        await expect(coachButton(page, NEXT[language])).toBeVisible();
+
+        const fit = () =>
+          page.evaluate(() => {
+            const mark = document.querySelector(
+              '[data-coach-mark]:not([aria-hidden])'
+            );
+            if (!mark) return null;
+            const m = mark.getBoundingClientRect();
+            const text = document
+              .getElementById(mark.getAttribute('aria-labelledby') ?? '')
+              ?.getBoundingClientRect();
+            const foot = mark.querySelector('button')?.getBoundingClientRect();
+            if (!text || !foot) return null;
+            return {
+              clipped: mark.scrollHeight - mark.clientHeight,
+              inWindow:
+                m.top >= 0 &&
+                m.left >= 0 &&
+                m.bottom <= innerHeight &&
+                m.right <= innerWidth,
+              textInsideAndAboveButtons:
+                text.bottom <= m.bottom && text.bottom <= foot.top + 0.5,
+            };
+          });
+        const seen: number[] = [];
+        for (const step of [1, 2, 3, 4]) {
+          if (step > 1) {
+            await coachButton(page, NEXT[language]).click();
+            await expect(coachAt(page, step)).toBeVisible();
+          }
+          if (step === 2) continue;
+          await expect.poll(fit).toMatchObject({
+            clipped: 0,
+            inWindow: true,
+            textInsideAndAboveButtons: true,
+          });
+          seen.push(step);
+        }
+        expect(seen).toEqual([1, 3, 4]);
+      });
+    }
+  }
+});

@@ -282,10 +282,7 @@
   "Step {{n}} of {{total}}": "Passo {{n}} di {{total}}",
   "Skip tutorial": "Salta il tutorial",
   "Finish": "Termina",
-  "A session keeps windows and tabs together. This one has 2 windows and 5 tabs. Fold a window with its arrow.": "Una sessione tiene insieme finestre e schede. Questa ha 2 finestre e 5 schede. Comprimi una finestra con la sua freccia.",
   "Open brings every window and tab back, just as they were. Use it any time. For now, press Next.": "Apri riporta ogni finestra e scheda esattamente com'erano. Usalo quando vuoi. Per ora, premi Avanti.",
-  "Click the title to rename the session. Try something like \"Lisbon in May\".": "Fai clic sul titolo per rinominare la sessione. Prova qualcosa come \"Lisbona a maggio\".",
-  "Drag a tab to reorder it, or drop it into the other window.": "Trascina una scheda per riordinarla oppure rilasciala nell'altra finestra.",
   "That's the tour. Delete the example from this menu, or press Finish and it's removed for you.": "Il tour è finito. Elimina l'esempio da questo menu, oppure premi Termina e verrà rimosso per te.",
   "Open works after the tour": "Apri funziona dopo il tour",
   "Help": "Aiuto",
@@ -300,5 +297,8 @@
   "See your saved sessions and open tabs side by side.": "Vedi le sessioni salvate e le schede aperte una accanto all'altra.",
   "Opens under the toolbar icon": "Si apre sotto l'icona della barra degli strumenti",
   "Opens in its own tab": "Si apre in una scheda tutta sua",
-  "Opens next to this tab. Close it to come back.": "Si apre accanto a questa scheda. Chiudila per tornare qui."
+  "Opens next to this tab. Close it to come back.": "Si apre accanto a questa scheda. Chiudila per tornare qui.",
+  "A session keeps windows and tabs together. This one has 2 windows and 5 tabs. Fold a window with its arrow. Try it, or press Next.": "Una sessione tiene insieme finestre e schede. Questa ha 2 finestre e 5 schede. Comprimi una finestra con la sua freccia. Provalo oppure premi Avanti.",
+  "Click the title to rename the session. Try it, or press Next.": "Fai clic sul titolo per rinominare la sessione. Provalo oppure premi Avanti.",
+  "Drag a tab to reorder it, or into the other window. Try it, or press Next.": "Trascina una scheda per riordinarla oppure nell'altra finestra. Provalo oppure premi Avanti."
 }

@@ -272,10 +272,7 @@
   "Step {{n}} of {{total}}": "第 {{n}} 步，共 {{total}} 步",
   "Skip tutorial": "跳过教程",
   "Finish": "结束",
-  "A session keeps windows and tabs together. This one has 2 windows and 5 tabs. Fold a window with its arrow.": "会话把窗口和标签页放在一起。这个会话有 2 个窗口和 5 个标签页。用窗口的箭头可以折叠它。",
   "Open brings every window and tab back, just as they were. Use it any time. For now, press Next.": "“打开”会把每个窗口和标签页原样恢复。随时都可以用。现在请按“下一步”。",
-  "Click the title to rename the session. Try something like \"Lisbon in May\".": "点击标题即可重命名会话。试试“五月的里斯本”之类的名字。",
-  "Drag a tab to reorder it, or drop it into the other window.": "拖动标签页可以调整顺序，也可以把它放到另一个窗口。",
   "That's the tour. Delete the example from this menu, or press Finish and it's removed for you.": "导览到此结束。可以从这个菜单删除示例，也可以按“结束”，它会被自动移除。",
   "Open works after the tour": "导览结束后即可使用“打开”",
   "Help": "帮助",
@@ -290,5 +287,8 @@
   "See your saved sessions and open tabs side by side.": "并排查看已保存的会话和打开的标签页。",
   "Opens under the toolbar icon": "在工具栏图标下方打开",
   "Opens in its own tab": "在单独的标签页中打开",
-  "Opens next to this tab. Close it to come back.": "在此标签页旁边打开。关闭后即可返回。"
+  "Opens next to this tab. Close it to come back.": "在此标签页旁边打开。关闭后即可返回。",
+  "A session keeps windows and tabs together. This one has 2 windows and 5 tabs. Fold a window with its arrow. Try it, or press Next.": "会话把窗口和标签页放在一起。这个会话有 2 个窗口和 5 个标签页。用窗口的箭头可以折叠它。试一试，或点击“下一步”。",
+  "Click the title to rename the session. Try it, or press Next.": "点击标题即可重命名会话。试一试，或点击“下一步”。",
+  "Drag a tab to reorder it, or into the other window. Try it, or press Next.": "拖动标签页可以调整顺序，也可以放到另一个窗口。试一试，或点击“下一步”。"
 }

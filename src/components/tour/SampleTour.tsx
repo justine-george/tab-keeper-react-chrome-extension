@@ -89,15 +89,15 @@ export default function SampleTour() {
 
   const texts: Record<TourStep, string> = {
     1: t(
-      'A session keeps windows and tabs together. This one has 2 windows and 5 tabs. Fold a window with its arrow.'
+      'A session keeps windows and tabs together. This one has 2 windows and 5 tabs. Fold a window with its arrow. Try it, or press Next.'
     ),
     2: t(
       'Open brings every window and tab back, just as they were. Use it any time. For now, press Next.'
     ),
-    3: t(
-      'Click the title to rename the session. Try something like "Lisbon in May".'
+    3: t('Click the title to rename the session. Try it, or press Next.'),
+    4: t(
+      'Drag a tab to reorder it, or into the other window. Try it, or press Next.'
     ),
-    4: t('Drag a tab to reorder it, or drop it into the other window.'),
     5: t(
       "That's the tour. Delete the example from this menu, or press Finish and it's removed for you."
     ),

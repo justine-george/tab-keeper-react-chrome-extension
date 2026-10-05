@@ -272,10 +272,7 @@
   "Step {{n}} of {{total}}": "ステップ {{n}}/{{total}}",
   "Skip tutorial": "チュートリアルをスキップ",
   "Finish": "終了",
-  "A session keeps windows and tabs together. This one has 2 windows and 5 tabs. Fold a window with its arrow.": "セッションはウィンドウとタブをひとまとめにします。このセッションには 2 つのウィンドウと 5 つのタブがあります。矢印でウィンドウを折りたためます。",
   "Open brings every window and tab back, just as they were. Use it any time. For now, press Next.": "「開く」を押すと、すべてのウィンドウとタブが元どおりに戻ります。いつでも使えます。今は「次へ」を押してください。",
-  "Click the title to rename the session. Try something like \"Lisbon in May\".": "タイトルをクリックするとセッション名を変更できます。「5 月のリスボン」のように入力してみましょう。",
-  "Drag a tab to reorder it, or drop it into the other window.": "タブをドラッグして並べ替えたり、もう一方のウィンドウにドロップしたりできます。",
   "That's the tour. Delete the example from this menu, or press Finish and it's removed for you.": "ツアーはこれで終わりです。このメニューからサンプルを削除するか、「終了」を押すと自動で削除されます。",
   "Open works after the tour": "「開く」はツアーの後で使えます",
   "Help": "ヘルプ",
@@ -290,5 +287,8 @@
   "See your saved sessions and open tabs side by side.": "保存したセッションと開いているタブを並べて表示できます。",
   "Opens under the toolbar icon": "ツールバーのアイコンの下に開きます",
   "Opens in its own tab": "専用のタブで開きます",
-  "Opens next to this tab. Close it to come back.": "このタブの隣で開きます。閉じると戻ります。"
+  "Opens next to this tab. Close it to come back.": "このタブの隣で開きます。閉じると戻ります。",
+  "A session keeps windows and tabs together. This one has 2 windows and 5 tabs. Fold a window with its arrow. Try it, or press Next.": "セッションはウィンドウとタブをひとまとめにします。このセッションには 2 つのウィンドウと 5 つのタブがあります。矢印でウィンドウを折りたためます。試すか、「次へ」を押してください。",
+  "Click the title to rename the session. Try it, or press Next.": "タイトルをクリックするとセッション名を変更できます。試すか、「次へ」を押してください。",
+  "Drag a tab to reorder it, or into the other window. Try it, or press Next.": "タブをドラッグして並べ替えたり、もう一方のウィンドウに移したりできます。試すか、「次へ」を押してください。"
 }

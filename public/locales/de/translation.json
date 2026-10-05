@@ -277,10 +277,7 @@
   "Step {{n}} of {{total}}": "Schritt {{n}} von {{total}}",
   "Skip tutorial": "Einführung überspringen",
   "Finish": "Abschließen",
-  "A session keeps windows and tabs together. This one has 2 windows and 5 tabs. Fold a window with its arrow.": "Eine Sitzung hält Fenster und Tabs zusammen. Diese hat 2 Fenster und 5 Tabs. Klappen Sie ein Fenster mit seinem Pfeil zu.",
   "Open brings every window and tab back, just as they were. Use it any time. For now, press Next.": "Öffnen holt jedes Fenster und jeden Tab zurück, genau wie sie waren. Das geht jederzeit. Drücken Sie jetzt auf Weiter.",
-  "Click the title to rename the session. Try something like \"Lisbon in May\".": "Klicken Sie auf den Titel, um die Sitzung umzubenennen. Versuchen Sie etwa „Lissabon im Mai“.",
-  "Drag a tab to reorder it, or drop it into the other window.": "Ziehen Sie einen Tab, um ihn zu verschieben, oder legen Sie ihn im anderen Fenster ab.",
   "That's the tour. Delete the example from this menu, or press Finish and it's removed for you.": "Das war die Einführung. Löschen Sie das Beispiel über dieses Menü, oder drücken Sie auf Abschließen, dann wird es für Sie entfernt.",
   "Open works after the tour": "Öffnen funktioniert nach der Einführung",
   "Help": "Hilfe",
@@ -295,5 +292,8 @@
   "See your saved sessions and open tabs side by side.": "Sehen Sie Ihre gespeicherten Sitzungen und offenen Tabs nebeneinander.",
   "Opens under the toolbar icon": "Öffnet sich unter dem Symbol in der Symbolleiste",
   "Opens in its own tab": "Öffnet sich in einem eigenen Tab",
-  "Opens next to this tab. Close it to come back.": "Öffnet sich neben diesem Tab. Schließen Sie ihn, um zurückzukehren."
+  "Opens next to this tab. Close it to come back.": "Öffnet sich neben diesem Tab. Schließen Sie ihn, um zurückzukehren.",
+  "A session keeps windows and tabs together. This one has 2 windows and 5 tabs. Fold a window with its arrow. Try it, or press Next.": "Eine Sitzung hält Fenster und Tabs zusammen. Diese hat 2 Fenster und 5 Tabs. Klappen Sie ein Fenster mit seinem Pfeil zu. Probieren Sie es aus oder drücken Sie Weiter.",
+  "Click the title to rename the session. Try it, or press Next.": "Klicken Sie auf den Titel, um die Sitzung umzubenennen. Probieren Sie es aus oder drücken Sie Weiter.",
+  "Drag a tab to reorder it, or into the other window. Try it, or press Next.": "Ziehen Sie einen Tab, um ihn zu verschieben, oder in das andere Fenster. Probieren Sie es aus oder drücken Sie Weiter."
 }
