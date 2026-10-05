@@ -270,7 +270,6 @@
   "Change shortcut": "Tastenkürzel ändern",
   "No shortcut is set.": "Kein Tastenkürzel festgelegt.",
   "Set a shortcut": "Tastenkürzel festlegen",
-  "See your sessions and open tabs side by side.": "Sehen Sie Ihre Sitzungen und offenen Tabs nebeneinander.",
   "Try it": "Ausprobieren",
   "Manage your open windows and tabs, and save them to bring back any time.": "Verwalten Sie Ihre offenen Fenster und Tabs und speichern Sie sie, um sie jederzeit zurückzuholen.",
   "Get started": "Loslegen",
@@ -292,5 +291,6 @@
   "Show me how": "Anleitung anzeigen",
   "Learn the basics": "Die Grundlagen kennenlernen",
   "A short tour on an example session, removed when you’re done.": "Eine kurze Einführung mit einer Beispielsitzung, die danach wieder entfernt wird.",
-  "Show me around": "Einführung starten"
+  "Show me around": "Einführung starten",
+  "See your saved sessions and open tabs side by side.": "Sehen Sie Ihre gespeicherten Sitzungen und offenen Tabs nebeneinander."
 }

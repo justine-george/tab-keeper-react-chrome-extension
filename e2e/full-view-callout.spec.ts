@@ -77,7 +77,7 @@ test.describe('the full-view callout (KAN-7 §6)', () => {
       }, rootPx);
       await expect(
         page.getByRole('dialog', {
-          name: 'See your sessions and open tabs side by side.',
+          name: 'See your saved sessions and open tabs side by side.',
           exact: true,
         })
       ).toBeVisible();

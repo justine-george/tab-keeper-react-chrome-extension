@@ -265,7 +265,6 @@
   "Change shortcut": "更改快捷键",
   "No shortcut is set.": "尚未设置快捷键。",
   "Set a shortcut": "设置快捷键",
-  "See your sessions and open tabs side by side.": "并排查看会话和打开的标签页。",
   "Try it": "试试看",
   "Manage your open windows and tabs, and save them to bring back any time.": "管理打开的窗口和标签页，并保存下来，随时重新打开。",
   "Get started": "开始使用",
@@ -287,5 +286,6 @@
   "Show me how": "告诉我怎么做",
   "Learn the basics": "了解基础操作",
   "A short tour on an example session, removed when you’re done.": "用示例会话快速导览，完成后自动移除。",
-  "Show me around": "带我看看"
+  "Show me around": "带我看看",
+  "See your saved sessions and open tabs side by side.": "并排查看已保存的会话和打开的标签页。"
 }

@@ -15,7 +15,7 @@ import { OPEN_IN_TAB_MESSAGE } from '../../utils/functions/popOut';
 
 // KAN-7 §6. Under ⤢ in the popup, once; Try it, ✕, Esc or ⤢ mark it seen.
 
-const TEXT = 'See your sessions and open tabs side by side.';
+const TEXT = 'See your saved sessions and open tabs side by side.';
 const render = (open = true) =>
   renderWithProviders(<MenuContainer />, {
     seed: { windows: [{ id: 7 }] },

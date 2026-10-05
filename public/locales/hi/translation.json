@@ -270,7 +270,6 @@
   "Change shortcut": "शॉर्टकट बदलें",
   "No shortcut is set.": "कोई शॉर्टकट सेट नहीं है।",
   "Set a shortcut": "शॉर्टकट सेट करें",
-  "See your sessions and open tabs side by side.": "अपने सेशन और खुले टैब साथ-साथ देखें।",
   "Try it": "आज़माएँ",
   "Manage your open windows and tabs, and save them to bring back any time.": "अपनी खुली विंडो और टैब प्रबंधित करें, और उन्हें सहेजें ताकि कभी भी वापस ला सकें।",
   "Get started": "शुरू करें",
@@ -292,5 +291,6 @@
   "Show me how": "कैसे करें, दिखाएँ",
   "Learn the basics": "बुनियादी बातें सीखें",
   "A short tour on an example session, removed when you’re done.": "एक उदाहरण सेशन पर छोटा टूर, जो आपके पूरा करने पर हटा दिया जाता है।",
-  "Show me around": "टूर शुरू करें"
+  "Show me around": "टूर शुरू करें",
+  "See your saved sessions and open tabs side by side.": "अपने सहेजे गए सेशन और खुले टैब साथ-साथ देखें।"
 }

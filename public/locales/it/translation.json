@@ -275,7 +275,6 @@
   "Change shortcut": "Cambia scorciatoia",
   "No shortcut is set.": "Nessuna scorciatoia impostata.",
   "Set a shortcut": "Imposta una scorciatoia",
-  "See your sessions and open tabs side by side.": "Vedi le sessioni e le schede aperte una accanto all'altra.",
   "Try it": "Provala",
   "Manage your open windows and tabs, and save them to bring back any time.": "Gestisci le finestre e le schede aperte e salvale per riaprirle quando vuoi.",
   "Get started": "Inizia",
@@ -297,5 +296,6 @@
   "Show me how": "Mostrami come",
   "Learn the basics": "Impara le basi",
   "A short tour on an example session, removed when you’re done.": "Un breve tour su una sessione di esempio, rimossa quando hai finito.",
-  "Show me around": "Fammi vedere"
+  "Show me around": "Fammi vedere",
+  "See your saved sessions and open tabs side by side.": "Vedi le sessioni salvate e le schede aperte una accanto all'altra."
 }

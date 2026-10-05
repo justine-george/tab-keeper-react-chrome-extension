@@ -100,7 +100,7 @@ export default function FullViewCallout({
       <span aria-hidden="true" css={notch(7, COLORS.PRIMARY_COLOR, -7, 1)} />
       <div css={rowStyle}>
         <p id={textId} css={textStyle}>
-          {t('See your sessions and open tabs side by side.')}
+          {t('See your saved sessions and open tabs side by side.')}
         </p>
         <Icon
           type="close"

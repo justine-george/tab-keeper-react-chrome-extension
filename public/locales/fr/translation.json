@@ -275,7 +275,6 @@
   "Change shortcut": "Modifier le raccourci",
   "No shortcut is set.": "Aucun raccourci n’est défini.",
   "Set a shortcut": "Définir un raccourci",
-  "See your sessions and open tabs side by side.": "Voyez vos sessions et vos onglets ouverts côte à côte.",
   "Try it": "Essayer",
   "Manage your open windows and tabs, and save them to bring back any time.": "Gérez vos fenêtres et onglets ouverts, et enregistrez-les pour les rouvrir à tout moment.",
   "Get started": "Commencer",
@@ -297,5 +296,6 @@
   "Show me how": "Montrez-moi comment",
   "Learn the basics": "Découvrir les bases",
   "A short tour on an example session, removed when you’re done.": "Une courte visite avec une session d'exemple, supprimée une fois terminée.",
-  "Show me around": "Faites-moi visiter"
+  "Show me around": "Faites-moi visiter",
+  "See your saved sessions and open tabs side by side.": "Voyez vos sessions enregistrées et vos onglets ouverts côte à côte."
 }

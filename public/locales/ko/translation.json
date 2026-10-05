@@ -265,7 +265,6 @@
   "Change shortcut": "단축키 변경",
   "No shortcut is set.": "설정된 단축키가 없습니다.",
   "Set a shortcut": "단축키 설정",
-  "See your sessions and open tabs side by side.": "세션과 열린 탭을 나란히 보세요.",
   "Try it": "사용해 보기",
   "Manage your open windows and tabs, and save them to bring back any time.": "열려 있는 창과 탭을 관리하고, 저장해 두었다가 언제든 다시 열 수 있습니다.",
   "Get started": "시작하기",
@@ -287,5 +286,6 @@
   "Show me how": "방법 보기",
   "Learn the basics": "기본 사용법 알아보기",
   "A short tour on an example session, removed when you’re done.": "예시 세션으로 짧게 둘러봅니다. 끝나면 삭제됩니다.",
-  "Show me around": "둘러보기"
+  "Show me around": "둘러보기",
+  "See your saved sessions and open tabs side by side.": "저장된 세션과 열린 탭을 나란히 보세요."
 }

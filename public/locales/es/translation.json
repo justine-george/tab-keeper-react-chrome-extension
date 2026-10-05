@@ -275,7 +275,6 @@
   "Change shortcut": "Cambiar atajo",
   "No shortcut is set.": "No hay ningún atajo asignado.",
   "Set a shortcut": "Asignar un atajo",
-  "See your sessions and open tabs side by side.": "Ve tus sesiones y pestañas abiertas una al lado de la otra.",
   "Try it": "Pruébala",
   "Manage your open windows and tabs, and save them to bring back any time.": "Gestiona tus ventanas y pestañas abiertas, y guárdalas para recuperarlas cuando quieras.",
   "Get started": "Empezar",
@@ -297,5 +296,6 @@
   "Show me how": "Muéstrame cómo",
   "Learn the basics": "Aprende lo básico",
   "A short tour on an example session, removed when you’re done.": "Un recorrido breve con una sesión de ejemplo, que se elimina al terminar.",
-  "Show me around": "Empezar el recorrido"
+  "Show me around": "Empezar el recorrido",
+  "See your saved sessions and open tabs side by side.": "Ve tus sesiones guardadas y pestañas abiertas una al lado de la otra."
 }

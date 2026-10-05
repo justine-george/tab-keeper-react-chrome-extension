@@ -265,7 +265,6 @@
   "Change shortcut": "變更快速鍵",
   "No shortcut is set.": "尚未設定快速鍵。",
   "Set a shortcut": "設定快速鍵",
-  "See your sessions and open tabs side by side.": "並排查看工作階段和開啟的分頁。",
   "Try it": "試試看",
   "Manage your open windows and tabs, and save them to bring back any time.": "管理開啟的視窗和分頁，並儲存下來，隨時重新開啟。",
   "Get started": "開始使用",
@@ -287,5 +286,6 @@
   "Show me how": "告訴我怎麼做",
   "Learn the basics": "了解基本操作",
   "A short tour on an example session, removed when you’re done.": "用範例工作階段快速導覽，完成後自動移除。",
-  "Show me around": "帶我看看"
+  "Show me around": "帶我看看",
+  "See your saved sessions and open tabs side by side.": "並排查看已儲存的工作階段和開啟的分頁。"
 }

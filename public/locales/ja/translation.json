@@ -265,7 +265,6 @@
   "Change shortcut": "ショートカットを変更",
   "No shortcut is set.": "ショートカットは設定されていません。",
   "Set a shortcut": "ショートカットを設定",
-  "See your sessions and open tabs side by side.": "セッションと開いているタブを並べて表示できます。",
   "Try it": "試す",
   "Manage your open windows and tabs, and save them to bring back any time.": "開いているウィンドウとタブを管理し、保存していつでも開き直せます。",
   "Get started": "はじめる",
@@ -287,5 +286,6 @@
   "Show me how": "方法を見る",
   "Learn the basics": "基本を学ぶ",
   "A short tour on an example session, removed when you’re done.": "サンプルのセッションで短いツアーを行います。終わると削除されます。",
-  "Show me around": "案内を見る"
+  "Show me around": "案内を見る",
+  "See your saved sessions and open tabs side by side.": "保存したセッションと開いているタブを並べて表示できます。"
 }
