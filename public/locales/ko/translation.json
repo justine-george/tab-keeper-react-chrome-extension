@@ -287,5 +287,7 @@
   "Learn the basics": "기본 사용법 알아보기",
   "A short tour on an example session, removed when you’re done.": "예시 세션으로 짧게 둘러봅니다. 끝나면 삭제됩니다.",
   "Show me around": "둘러보기",
-  "See your saved sessions and open tabs side by side.": "저장된 세션과 열린 탭을 나란히 보세요."
+  "See your saved sessions and open tabs side by side.": "저장된 세션과 열린 탭을 나란히 보세요.",
+  "Opens under the toolbar icon": "툴바 아이콘 아래에 열립니다",
+  "Opens in its own tab": "별도의 탭에서 열립니다"
 }

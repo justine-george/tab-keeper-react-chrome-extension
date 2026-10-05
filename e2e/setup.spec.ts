@@ -3,6 +3,8 @@ import type { BrowserContext, Locator, Page, Worker } from '@playwright/test';
 import { test, expect } from './fixtures/extension';
 import { buildContainer, seedSessions, seedSettings } from './fixtures/seed';
 import {
+  FULL,
+  FULL_VIEW_PATH,
   THEMES,
   openFullView,
   openPopup,
@@ -13,6 +15,7 @@ import {
 import { setPin, stubToolbarPin } from './fixtures/toolbarPin';
 import { expectReadable } from './fixtures/textContrast';
 import { rgbToHex } from './fixtures/pixels';
+import { localeStrings } from './fixtures/locales';
 import { DARKENHEIMER_THEME } from '../src/hooks/useThemeColors';
 
 // KAN-7 §5 on the real build, and the whole first-open path end to end.
@@ -212,6 +215,63 @@ test('a pick resizes nothing: the pressed card strip is as tall as the other', a
   expect(await heights()).toEqual(before);
 });
 
+// en is the CONTROL: a harness that clips en is broken, not de or ru.
+for (const lang of ['en', 'de', 'ru']) {
+  test(`${lang} at a 24px root: both view captions sit inside their equal-height cards`, async ({
+    context,
+    extensionId,
+  }) => {
+    const strings = localeStrings(lang);
+    await stubToolbarPin(context, { pinned: true });
+    await seedSettings(context, { language: lang, setupState: 'pending' });
+    // Not openFullView: its barrier is an English aria-label.
+    const page = await context.newPage();
+    await page.setViewportSize(FULL);
+    await page.goto(`chrome-extension://${extensionId}/${FULL_VIEW_PATH}`);
+    await setupAnyLanguage(page).waitFor();
+    await page.evaluate(() => {
+      document.documentElement.style.fontSize = '24px';
+    });
+    const next = setupAnyLanguage(page).getByRole('button', {
+      name: strings.Next,
+      exact: true,
+    });
+    await next.click();
+    await next.click();
+    const cards = setupAnyLanguage(page).locator('button[aria-pressed]');
+    await expect(cards).toHaveCount(2);
+    const captions = setupAnyLanguage(page).locator('[data-view-caption]');
+    await expect(captions).toHaveText([
+      strings['Opens under the toolbar icon'],
+      strings['Opens in its own tab'],
+    ]);
+    const fit = await cards.evaluateAll((els) =>
+      els.map((card) => {
+        const box = card.getBoundingClientRect();
+        const strip = card.querySelector('[data-view-label]');
+        const caption = card.querySelector('[data-view-caption]');
+        if (strip === null || caption === null) throw new Error('no strip');
+        const text = caption.getBoundingClientRect();
+        const bar = strip.getBoundingClientRect();
+        return {
+          height: box.height,
+          stripHeight: bar.height,
+          captionInsideStrip: text.top >= bar.top && text.bottom <= bar.bottom,
+          captionInsideCard: text.left >= box.left && text.right <= box.right,
+          stripClips: strip.scrollHeight > strip.clientHeight,
+        };
+      })
+    );
+    expect(fit[0].height).toBe(fit[1].height);
+    expect(fit[0].stripHeight).toBe(fit[1].stripHeight);
+    for (const one of fit) {
+      expect(one.captionInsideStrip).toBe(true);
+      expect(one.captionInsideCard).toBe(true);
+      expect(one.stripClips).toBe(false);
+    }
+  });
+}
+
 test('step 3 removes the popup as Settings does', async ({
   context,
   extensionId,
@@ -327,6 +387,19 @@ for (const [theme, palette] of THEMES) {
         const strip = await colours(card.locator('[data-view-label]'));
         expect(rgbToHex(strip.fill)).toBe(palette.TEXT_COLOR);
         expect(rgbToHex(strip.text)).toBe(palette.PRIMARY_COLOR);
+        // The picked caption reads on the fill as the name does; the other keeps LABEL_L1.
+        const caption = (pressedCard: boolean) =>
+          colours(
+            setup(page)
+              .locator(`button[aria-pressed="${pressedCard}"]`)
+              .locator('[data-view-caption]')
+          );
+        expect(rgbToHex((await caption(true)).text)).toBe(
+          palette.PRIMARY_COLOR
+        );
+        expect(rgbToHex((await caption(false)).text)).toBe(
+          palette.LABEL_L1_COLOR
+        );
         expect(rgbToHex((await colours(card)).border)).toBe(palette.TEXT_COLOR);
         expect(
           await card.evaluate((el) => getComputedStyle(el).borderTopWidth)

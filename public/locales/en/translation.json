@@ -292,5 +292,7 @@
   "Learn the basics": "Learn the basics",
   "A short tour on an example session, removed when you’re done.": "A short tour on an example session, removed when you’re done.",
   "Show me around": "Show me around",
-  "See your saved sessions and open tabs side by side.": "See your saved sessions and open tabs side by side."
+  "See your saved sessions and open tabs side by side.": "See your saved sessions and open tabs side by side.",
+  "Opens under the toolbar icon": "Opens under the toolbar icon",
+  "Opens in its own tab": "Opens in its own tab"
 }

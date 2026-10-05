@@ -292,5 +292,7 @@
   "Learn the basics": "बुनियादी बातें सीखें",
   "A short tour on an example session, removed when you’re done.": "एक उदाहरण सेशन पर छोटा टूर, जो आपके पूरा करने पर हटा दिया जाता है।",
   "Show me around": "टूर शुरू करें",
-  "See your saved sessions and open tabs side by side.": "अपने सहेजे गए सेशन और खुले टैब साथ-साथ देखें।"
+  "See your saved sessions and open tabs side by side.": "अपने सहेजे गए सेशन और खुले टैब साथ-साथ देखें।",
+  "Opens under the toolbar icon": "टूलबार आइकन के नीचे खुलता है",
+  "Opens in its own tab": "अपने अलग टैब में खुलता है"
 }

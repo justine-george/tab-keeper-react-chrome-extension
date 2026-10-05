@@ -292,5 +292,7 @@
   "Learn the basics": "Lär dig grunderna",
   "A short tour on an example session, removed when you’re done.": "En kort rundtur med en exempelsession som tas bort när du är klar.",
   "Show me around": "Visa mig runt",
-  "See your saved sessions and open tabs side by side.": "Se dina sparade sessioner och öppna flikar sida vid sida."
+  "See your saved sessions and open tabs side by side.": "Se dina sparade sessioner och öppna flikar sida vid sida.",
+  "Opens under the toolbar icon": "Öppnas under verktygsfältets ikon",
+  "Opens in its own tab": "Öppnas i en egen flik"
 }

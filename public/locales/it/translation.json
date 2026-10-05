@@ -297,5 +297,7 @@
   "Learn the basics": "Impara le basi",
   "A short tour on an example session, removed when you’re done.": "Un breve tour su una sessione di esempio, rimossa quando hai finito.",
   "Show me around": "Fammi vedere",
-  "See your saved sessions and open tabs side by side.": "Vedi le sessioni salvate e le schede aperte una accanto all'altra."
+  "See your saved sessions and open tabs side by side.": "Vedi le sessioni salvate e le schede aperte una accanto all'altra.",
+  "Opens under the toolbar icon": "Si apre sotto l'icona della barra degli strumenti",
+  "Opens in its own tab": "Si apre in una scheda tutta sua"
 }

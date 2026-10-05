@@ -368,4 +368,41 @@ describe('Make Tab Keeper yours', () => {
       strip('Full view')?.querySelector('.material-symbols-outlined')
     ).toBeNull();
   });
+
+  test('each default-view card says where it opens, under its name', async () => {
+    await render();
+    press('Next');
+    press('Next');
+    const card = (name: string) =>
+      within(dialog()).getByRole('button', { name });
+    expect(card('Compact view')).toHaveAccessibleDescription(
+      'Opens under the toolbar icon'
+    );
+    expect(card('Full view')).toHaveAccessibleDescription(
+      'Opens in its own tab'
+    );
+    const lines = card('Full view').querySelector('[data-view-label]');
+    expect(lines?.textContent).toBe('Full viewOpens in its own tab');
+  });
+
+  test('the picked card caption wears the strip label colour; the other keeps LABEL_L1', async () => {
+    await render();
+    press('Next');
+    press('Next');
+    const caption = (name: string) => {
+      const el = within(dialog())
+        .getByRole('button', { name })
+        .querySelector('[data-view-caption]');
+      if (!(el instanceof HTMLElement)) throw new Error(`no caption ${name}`);
+      return getComputedStyle(el).color;
+    };
+    const asWritten = (hex: string) => {
+      const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+      return new RegExp(`(${hex}|rgb\\(${r}, ?${g}, ?${b}\\))`, 'i');
+    };
+    expect(caption('Compact view')).toMatch(
+      asWritten(LIGHT_THEME.PRIMARY_COLOR)
+    );
+    expect(caption('Full view')).toMatch(asWritten(LIGHT_THEME.LABEL_L1_COLOR));
+  });
 });

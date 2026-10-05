@@ -287,5 +287,7 @@
   "Learn the basics": "了解基础操作",
   "A short tour on an example session, removed when you’re done.": "用示例会话快速导览，完成后自动移除。",
   "Show me around": "带我看看",
-  "See your saved sessions and open tabs side by side.": "并排查看已保存的会话和打开的标签页。"
+  "See your saved sessions and open tabs side by side.": "并排查看已保存的会话和打开的标签页。",
+  "Opens under the toolbar icon": "在工具栏图标下方打开",
+  "Opens in its own tab": "在单独的标签页中打开"
 }

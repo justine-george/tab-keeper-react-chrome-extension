@@ -194,13 +194,27 @@ export const SetupModal: React.FC = () => {
     display: flex;
     align-items: center;
     gap: 6px;
-    padding: 0 12px;
-    /* Fixed, so the check's padded box never resizes the pressed strip. */
-    height: 2.1875rem;
+    flex: 1;
+    padding: 6px 12px;
+    /* Holds two lines, so the check's padded box never resizes the pressed strip. */
+    min-height: 3rem;
+  `;
+  const viewLabelTextStyle = css`
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  `;
+  const viewCaptionStyle = css`
+    font-size: ${TYPE.SECONDARY};
+    line-height: 1.35;
+    color: ${COLORS.LABEL_L1_COLOR};
   `;
   // D2: the language cell's pressed look, on the label strip.
   const viewLabelPressedStyle = css`
     background-color: ${pressed.knob};
+    color: ${pressed.labelOnKnob};
+  `;
+  const viewCaptionPressedStyle = css`
     color: ${pressed.labelOnKnob};
   `;
   const dotsStyle = css`
@@ -242,13 +256,22 @@ export const SetupModal: React.FC = () => {
     gap: 8px;
   `;
 
-  const viewCard = (view: DefaultView, label: string, art: ReactNode) => {
+  const viewCard = (
+    view: DefaultView,
+    label: string,
+    caption: string,
+    art: ReactNode
+  ) => {
     const isActive = defaultView === view;
+    const labelId = `setup-view-${view}-label`;
+    const captionId = `setup-view-${view}-caption`;
     return (
       <button
         key={view}
         type="button"
         aria-pressed={isActive}
+        aria-labelledby={labelId}
+        aria-describedby={captionId}
         css={[viewCardStyle, isActive && viewCardPressedStyle]}
         onClick={() => void dispatch(chooseDefaultView(view))}
       >
@@ -262,7 +285,16 @@ export const SetupModal: React.FC = () => {
           {isActive && (
             <Icon type="check" size={ICON.SMALL} color={pressed.labelOnKnob} />
           )}
-          {label}
+          <span css={viewLabelTextStyle}>
+            <span id={labelId}>{label}</span>
+            <span
+              id={captionId}
+              data-view-caption
+              css={[viewCaptionStyle, isActive && viewCaptionPressedStyle]}
+            >
+              {caption}
+            </span>
+          </span>
         </span>
       </button>
     );
@@ -357,8 +389,18 @@ export const SetupModal: React.FC = () => {
       body: (
         <>
           <div css={cardsStyle}>
-            {viewCard('compact', t('Compact view'), <CompactViewArt />)}
-            {viewCard('full', t('Full view'), <FullViewArt />)}
+            {viewCard(
+              'compact',
+              t('Compact view'),
+              t('Opens under the toolbar icon'),
+              <CompactViewArt />
+            )}
+            {viewCard(
+              'full',
+              t('Full view'),
+              t('Opens in its own tab'),
+              <FullViewArt />
+            )}
           </div>
           <p css={fineStyle}>
             {t('You can change this any time in Settings.')}

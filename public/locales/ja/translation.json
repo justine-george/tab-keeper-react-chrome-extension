@@ -287,5 +287,7 @@
   "Learn the basics": "基本を学ぶ",
   "A short tour on an example session, removed when you’re done.": "サンプルのセッションで短いツアーを行います。終わると削除されます。",
   "Show me around": "案内を見る",
-  "See your saved sessions and open tabs side by side.": "保存したセッションと開いているタブを並べて表示できます。"
+  "See your saved sessions and open tabs side by side.": "保存したセッションと開いているタブを並べて表示できます。",
+  "Opens under the toolbar icon": "ツールバーのアイコンの下に開きます",
+  "Opens in its own tab": "専用のタブで開きます"
 }

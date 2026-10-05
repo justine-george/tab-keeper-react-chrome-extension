@@ -292,5 +292,7 @@
   "Learn the basics": "Die Grundlagen kennenlernen",
   "A short tour on an example session, removed when you’re done.": "Eine kurze Einführung mit einer Beispielsitzung, die danach wieder entfernt wird.",
   "Show me around": "Einführung starten",
-  "See your saved sessions and open tabs side by side.": "Sehen Sie Ihre gespeicherten Sitzungen und offenen Tabs nebeneinander."
+  "See your saved sessions and open tabs side by side.": "Sehen Sie Ihre gespeicherten Sitzungen und offenen Tabs nebeneinander.",
+  "Opens under the toolbar icon": "Öffnet sich unter dem Symbol in der Symbolleiste",
+  "Opens in its own tab": "Öffnet sich in einem eigenen Tab"
 }
