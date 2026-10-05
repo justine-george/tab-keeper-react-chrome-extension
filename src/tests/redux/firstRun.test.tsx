@@ -1,0 +1,432 @@
+import { combineReducers, configureStore } from '@reduxjs/toolkit';
+import { afterEach, beforeEach, describe, expect, test } from 'vitest';
+
+import { rootReducer } from '../../redux/storeConfig';
+import { setFirstRunSession } from '../../redux/slices/settingsDataStateSlice';
+
+import { makeTestStore } from '../setup/makeStore';
+import { installFakeLocks, type FakeLocks } from '../setup/fakeLocks';
+import { setupChromeFake } from '../setup/chrome.fake';
+import { buildContainer, buildSession } from '../fixtures/sessionFixture';
+import {
+  advanceRun,
+  beginSaveStep,
+  endRun,
+  reconcileRunHere,
+  selectIsRunCardShown,
+  selectRunHere,
+  startRun,
+  stepRunBack,
+  takeExampleForRun,
+  takeRunSave,
+} from '../../redux/firstRun';
+import {
+  deleteTabContainerInternal,
+  replaceState,
+  saveToTabContainerInternal,
+  selectTabContainer,
+  updateTabGroupTitle,
+} from '../../redux/slices/tabContainerDataStateSlice';
+import {
+  openFullViewCallout,
+  openSettingsPage,
+  setSearchInputText,
+} from '../../redux/slices/globalStateSlice';
+import { undo } from '../../redux/slices/undoRedoSlice';
+import { SettingsCategory } from '../../redux/slices/settingsCategoryStateSlice';
+import { newRun } from '../../utils/functions/firstRun';
+import { RUN_LOCK } from '../../utils/functions/tourLock';
+import { isSampleSession } from '../../utils/functions/sampleSession';
+import { DELETE_TAB_CONTAINER_ACTION } from '../../utils/constants/actionTypes';
+
+// Two stores sharing localStorage and one fake lock manager stand for two open pages.
+
+type Store = ReturnType<typeof makeTestStore>['store'];
+
+const NAMES = {
+  title: 'Sample: Weekend trip',
+  gettingThere: 'Getting there',
+  thingsToDo: 'Things to do',
+};
+const OWN = buildSession({ tabGroupId: 'own', title: 'Own', createdAt: 2000 });
+const OLDER = buildSession({
+  tabGroupId: 'older',
+  title: 'Older',
+  createdAt: 1000,
+});
+const OPEN_PAGE = {
+  id: 1,
+  type: 'normal' as const,
+  tabs: [{ id: 11, url: 'https://example.com/', title: 'Example' }],
+};
+const TK_ONLY = {
+  id: 1,
+  type: 'normal' as const,
+  tabs: [
+    {
+      id: 12,
+      url: 'chrome-extension://faketestid/index.html?view=tab',
+      title: 'Tab Keeper',
+    },
+  ],
+};
+
+let locks: FakeLocks;
+beforeEach(() => {
+  localStorage.clear();
+  locks = installFakeLocks();
+  setupChromeFake({ windows: [OPEN_PAGE] });
+});
+afterEach(() => {
+  locks.uninstall();
+  localStorage.clear();
+  history.replaceState(null, '', '?');
+});
+
+const runOf = (store: Store) => store.getState().settingsDataState.firstRun;
+const ids = (store: Store) =>
+  store.getState().tabContainerDataState.tabGroups.map((g) => g.tabGroupId);
+
+function withSessions(...sessions: ReturnType<typeof buildSession>[]): Store {
+  const { store } = makeTestStore();
+  store.dispatch(replaceState(buildContainer(sessions)));
+  return store;
+}
+
+describe('startRun', () => {
+  test('the lock is held before the record is written', async () => {
+    const { store } = makeTestStore();
+    let heldAtRecord: boolean | null = null;
+    store.subscribe(() => {
+      if (heldAtRecord === null && runOf(store) !== null) {
+        heldAtRecord = locks.held.has(RUN_LOCK);
+      }
+    });
+    await store.dispatch(startRun(newRun('popup', 1)));
+    expect(heldAtRecord).toBe(true);
+    expect(selectRunHere(store.getState())).toEqual(newRun('popup', 1));
+    expect(store.getState().globalState.hasRunShownHere).toBe(true);
+  });
+
+  test('it returns home: Settings closed, the search cleared, the callout closed', async () => {
+    const { store } = makeTestStore();
+    await store.dispatch(openSettingsPage(SettingsCategory.DISPLAY));
+    store.dispatch(setSearchInputText('lisbon'));
+    store.dispatch(openFullViewCallout());
+    await store.dispatch(startRun(newRun('popup', 1)));
+    const g = store.getState().globalState;
+    expect([
+      g.isSettingsPage,
+      g.searchInputText,
+      g.isFullViewCalloutOpen,
+    ]).toEqual([false, '', false]);
+  });
+
+  test('a start replaces a running record and deletes nothing, its sample included (A4)', async () => {
+    const store = withSessions(OWN);
+    await store.dispatch(startRun(newRun('popup', 1)));
+    store.dispatch(takeExampleForRun(NAMES));
+    const sampleId = ids(store).find(isSampleSession);
+    await store.dispatch(startRun(newRun('popup', 1)));
+    expect(runOf(store)).toEqual(newRun('popup', 1));
+    expect(ids(store)).toEqual([sampleId, 'own']);
+  });
+
+  test('a second page’s start takes the run: the first stops showing it, and nothing is deleted', async () => {
+    const first = withSessions(OWN);
+    await first.dispatch(startRun(newRun('popup', 1)));
+    first.dispatch(takeExampleForRun(NAMES));
+    const second = withSessions(OWN);
+    await second.dispatch(startRun(newRun('popup', 1)));
+    await expect.poll(() => first.getState().globalState.isRunHere).toBe(false);
+    expect(selectRunHere(second.getState())).not.toBeNull();
+    expect(ids(first)).toHaveLength(2);
+  });
+});
+
+describe('moving', () => {
+  test('Next and Back move one step, Back not before step 2, Next not past the last', async () => {
+    const { store } = makeTestStore();
+    await store.dispatch(startRun(newRun('popup', 1)));
+    store.dispatch(stepRunBack());
+    expect(runOf(store)?.step).toBe(1);
+    for (let i = 0; i < 9; i += 1) store.dispatch(advanceRun());
+    expect(runOf(store)?.step).toBe(7);
+    store.dispatch(stepRunBack());
+    expect(runOf(store)?.step).toBe(6);
+  });
+
+  test('a page that does not show the run moves nothing', () => {
+    const { store } = makeTestStore();
+    store.dispatch(advanceRun());
+    expect(runOf(store)).toBeNull();
+  });
+});
+
+describe('the save step’s card (R10, Q3)', () => {
+  test('full view with saved sessions: your sessions, on the latest one', async () => {
+    history.replaceState(null, '', '?view=tab');
+    const store = withSessions(OLDER, OWN);
+    await store.dispatch(startRun({ ...newRun('full', 3) }));
+    await store.dispatch(beginSaveStep());
+    expect(store.getState().globalState.runSaveCard).toBe('sessions');
+    expect(runOf(store)?.sessionId).toBe('own');
+  });
+
+  test('the popup with saved sessions: the save card, no session picked', async () => {
+    const store = withSessions(OWN);
+    await store.dispatch(startRun(newRun('popup', 1)));
+    await store.dispatch(beginSaveStep());
+    expect(store.getState().globalState.runSaveCard).toBe('save');
+    expect(runOf(store)?.sessionId).toBeNull();
+  });
+
+  test('only Tab Keeper open: nothing to save', async () => {
+    setupChromeFake({ windows: [TK_ONLY] });
+    const { store } = makeTestStore();
+    await store.dispatch(startRun(newRun('popup', 1)));
+    await store.dispatch(beginSaveStep());
+    expect(store.getState().globalState.runSaveCard).toBe('nothingToSave');
+  });
+
+  test('sessions on disk not loaded yet: no card is decided; after the load it is (CONTROL)', async () => {
+    history.replaceState(null, '', '?view=tab');
+    localStorage.setItem(
+      'tabContainerData',
+      JSON.stringify(buildContainer([OWN]))
+    );
+    const { store } = makeTestStore();
+    await store.dispatch(startRun(newRun('full', 3)));
+    await store.dispatch(beginSaveStep());
+    expect(store.getState().globalState.runSaveCard).toBeNull();
+    expect(runOf(store)?.sessionId).toBeNull();
+    store.dispatch(replaceState(buildContainer([OWN])));
+    await store.dispatch(beginSaveStep());
+    expect(store.getState().globalState.runSaveCard).toBe('sessions');
+  });
+
+  test('a card once decided stays for the page’s run (A5)', async () => {
+    const store = withSessions(OWN);
+    await store.dispatch(startRun(newRun('popup', 1)));
+    await store.dispatch(beginSaveStep());
+    store.dispatch(takeRunSave('own'));
+    store.dispatch(stepRunBack());
+    await store.dispatch(beginSaveStep());
+    expect(store.getState().globalState.runSaveCard).toBe('save');
+  });
+});
+
+describe('the run’s save and the example', () => {
+  test('the first save becomes the run’s session, is selected, echoes, and moves on', async () => {
+    const store = withSessions(OWN, OLDER);
+    await store.dispatch(startRun(newRun('popup', 1)));
+    store.dispatch(selectTabContainer('older'));
+    store.dispatch(takeRunSave('own'));
+    expect(runOf(store)).toMatchObject({ step: 2, sessionId: 'own' });
+    expect(store.getState().tabContainerDataState.selectedTabGroupId).toBe(
+      'own'
+    );
+    expect(store.getState().globalState.runSaveEcho).toBe('own');
+  });
+
+  test('a second save is ordinary: the run keeps its first session (R6)', async () => {
+    const store = withSessions(OWN, OLDER);
+    await store.dispatch(startRun(newRun('popup', 1)));
+    store.dispatch(takeRunSave('own'));
+    store.dispatch(stepRunBack());
+    store.dispatch(takeRunSave('older'));
+    expect(runOf(store)).toMatchObject({ step: 1, sessionId: 'own' });
+  });
+
+  test('Use an example adds the sample, makes it the run’s session, and moves on', async () => {
+    const { store } = makeTestStore();
+    await store.dispatch(startRun(newRun('popup', 1)));
+    store.dispatch(takeExampleForRun(NAMES));
+    const [sampleId] = ids(store);
+    expect(isSampleSession(sampleId)).toBe(true);
+    expect(runOf(store)).toMatchObject({ step: 2, sessionId: sampleId });
+    expect(store.getState().tabContainerDataState.selectedTabGroupId).toBe(
+      sampleId
+    );
+  });
+
+  test('with the run’s session set, Use an example adds nothing and moves on (R6)', async () => {
+    const store = withSessions(OWN);
+    await store.dispatch(startRun(newRun('popup', 1)));
+    store.dispatch(takeRunSave('own'));
+    store.dispatch(stepRunBack());
+    store.dispatch(takeExampleForRun(NAMES));
+    expect(ids(store)).toEqual(['own']);
+    expect(runOf(store)?.step).toBe(2);
+  });
+
+  test('sessions still to load: no example is written over them', async () => {
+    localStorage.setItem(
+      'tabContainerData',
+      JSON.stringify(buildContainer([OWN]))
+    );
+    const { store } = makeTestStore();
+    await store.dispatch(startRun(newRun('popup', 1)));
+    store.dispatch(takeExampleForRun(NAMES));
+    expect(
+      JSON.parse(localStorage.getItem('tabContainerData') ?? '{}').tabGroups
+    ).toHaveLength(1);
+    expect(runOf(store)?.step).toBe(1);
+  });
+});
+
+describe('endings', () => {
+  test.each(['finished', 'skipped'] as const)(
+    '%s on a sample: an ordinary undoable delete, the lock let go',
+    async (ending) => {
+      const { store, seen } = makeTestStore();
+      await store.dispatch(startRun(newRun('popup', 1)));
+      store.dispatch(takeExampleForRun(NAMES));
+      store.dispatch(endRun(ending));
+      expect(ids(store)).toEqual([]);
+      expect(seen).toContain(DELETE_TAB_CONTAINER_ACTION);
+      expect(runOf(store)?.ended).toBe(ending);
+      await expect.poll(() => locks.held.has(RUN_LOCK)).toBe(false);
+      store.dispatch(undo());
+      expect(ids(store)).toHaveLength(1);
+    }
+  );
+
+  test.each(['finished', 'skipped', 'sessionGone'] as const)(
+    '%s never deletes the user’s own session',
+    async (ending) => {
+      history.replaceState(null, '', '?view=tab');
+      const store = withSessions(OWN, OLDER);
+      await store.dispatch(startRun(newRun('full', 3)));
+      await store.dispatch(beginSaveStep());
+      store.dispatch(endRun(ending));
+      expect(ids(store)).toEqual(['own', 'older']);
+    }
+  );
+
+  test('a popup run’s end marks the callout seen; a full-view run’s does not (Q6)', async () => {
+    const popup = makeTestStore().store;
+    await popup.dispatch(startRun(newRun('popup', 1)));
+    popup.dispatch(endRun('skipped'));
+    expect(popup.getState().settingsDataState.isFullViewCalloutSeen).toBe(true);
+    localStorage.clear();
+    history.replaceState(null, '', '?view=tab');
+    const full = makeTestStore().store;
+    await full.dispatch(startRun(newRun('full', 0)));
+    full.dispatch(endRun('skipped'));
+    expect(full.getState().settingsDataState.isFullViewCalloutSeen).toBe(false);
+  });
+});
+
+describe('reconcile (R2)', () => {
+  test('the run’s session deleted elsewhere: ended quietly, not shown here', async () => {
+    const store = withSessions(OWN);
+    await store.dispatch(startRun(newRun('popup', 1)));
+    store.dispatch(takeRunSave('own'));
+    store.dispatch(deleteTabContainerInternal('own'));
+    store.dispatch(reconcileRunHere());
+    expect(runOf(store)?.ended).toBe('sessionGone');
+    expect(store.getState().globalState.isRunHere).toBe(false);
+  });
+
+  test('the run’s session renamed elsewhere: the run carries on', async () => {
+    const store = withSessions(OWN);
+    await store.dispatch(startRun(newRun('popup', 1)));
+    store.dispatch(takeRunSave('own'));
+    store.dispatch(
+      updateTabGroupTitle({ tabGroupId: 'own', editableTitle: 'Renamed' })
+    );
+    store.dispatch(reconcileRunHere());
+    expect(selectRunHere(store.getState())).toMatchObject({
+      step: 2,
+      sessionId: 'own',
+    });
+  });
+});
+
+describe('when the card shows (R3)', () => {
+  test('the session steps need the run’s session on screen; the others only home', async () => {
+    const store = withSessions(OWN, OLDER);
+    await store.dispatch(startRun(newRun('popup', 1)));
+    expect(selectIsRunCardShown(store.getState())).toBe(true);
+    store.dispatch(takeRunSave('own'));
+    expect(selectIsRunCardShown(store.getState())).toBe(true);
+    store.dispatch(selectTabContainer('older'));
+    expect(selectIsRunCardShown(store.getState())).toBe(false);
+    store.dispatch(selectTabContainer('own'));
+    store.dispatch(setSearchInputText('own'));
+    expect(selectIsRunCardShown(store.getState())).toBe(false);
+    store.dispatch(setSearchInputText(''));
+    await store.dispatch(openSettingsPage(SettingsCategory.DISPLAY));
+    expect(selectIsRunCardShown(store.getState())).toBe(false);
+  });
+});
+
+describe('no ending deletes what the user made (safety)', () => {
+  const popupRunOn = async (...sessions: ReturnType<typeof buildSession>[]) => {
+    const harness = makeTestStore();
+    harness.store.dispatch(replaceState(buildContainer(sessions)));
+    await harness.store.dispatch(startRun(newRun('popup', 1)));
+    harness.store.dispatch(takeRunSave('own'));
+    return harness;
+  };
+
+  test.each(['finished', 'skipped', 'sessionGone', 'unanswered'] as const)(
+    'a popup run on the user’s own save, ended %s (Esc ends as skipped), keeps it',
+    async (ending) => {
+      const { store, seen } = await popupRunOn(OWN, OLDER);
+      store.dispatch(endRun(ending));
+      expect(ids(store)).toEqual(['own', 'older']);
+      expect(seen).not.toContain(DELETE_TAB_CONTAINER_ACTION);
+    }
+  );
+
+  test('⌘Z of the user’s own save: the run ends quietly and removes nothing itself', async () => {
+    const { store, seen } = makeTestStore();
+    store.dispatch(saveToTabContainerInternal(OLDER));
+    await store.dispatch(startRun(newRun('popup', 1)));
+    store.dispatch(saveToTabContainerInternal(OWN));
+    store.dispatch(takeRunSave('own'));
+    expect(ids(store)).toEqual(['older', 'own']);
+    store.dispatch(undo());
+    expect(ids(store)).toEqual(['older']);
+    store.dispatch(reconcileRunHere());
+    expect(runOf(store)?.ended).toBe('sessionGone');
+    expect(ids(store)).toEqual(['older']);
+    expect(seen).not.toContain(DELETE_TAB_CONTAINER_ACTION);
+  });
+
+  test('a replaced run: starting over leaves the user’s own session', async () => {
+    const { store, seen } = await popupRunOn(OWN, OLDER);
+    await store.dispatch(startRun(newRun('popup', 1)));
+    expect(runOf(store)).toEqual(newRun('popup', 1));
+    expect(ids(store)).toEqual(['own', 'older']);
+    expect(seen).not.toContain(DELETE_TAB_CONTAINER_ACTION);
+  });
+
+  test('a sample still held among placeholder sessions is not deleted (R9 guard)', async () => {
+    const sample = buildSession({
+      tabGroupId: 'sample:x',
+      title: 'Sample',
+      createdAt: 3000,
+    });
+    const base = combineReducers(rootReducer)(undefined, { type: '@@init' });
+    const store = configureStore({
+      reducer: combineReducers(rootReducer),
+      middleware: (g) => g({ serializableCheck: false }),
+      preloadedState: {
+        ...base,
+        tabContainerDataState: {
+          ...base.tabContainerDataState,
+          tabGroups: [sample],
+        },
+      },
+    });
+    expect(store.getState().globalState.holdsPlaceholderSessions).toBe(true);
+    await store.dispatch(startRun(newRun('popup', 1)));
+    store.dispatch(setFirstRunSession('sample:x'));
+    store.dispatch(endRun('skipped'));
+    expect(ids(store)).toEqual(['sample:x']);
+    expect(runOf(store)?.ended).toBe('skipped');
+  });
+});

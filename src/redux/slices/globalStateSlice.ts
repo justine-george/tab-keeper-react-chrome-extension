@@ -15,6 +15,7 @@ import { addToast } from '../toastStack';
 import type { ToastItem } from '../toastStack';
 import { startToastTimer } from '../toastTimers';
 import { selectCategory, SettingsCategory } from './settingsCategoryStateSlice';
+import type { RunSaveCard } from '../../utils/functions/firstRun';
 import {
   mergeSessionsFromBackupInternal,
   replaceState,
@@ -185,6 +186,14 @@ export interface Global {
   tourSampleIdHere: string | null;
   // KAN-413. Once a tour ran here, this open's first-open dialogs stand down.
   hasTourRunHere: boolean;
+  // The run shows in this page, which holds its lock; a reload shows it only by resuming.
+  isRunHere: boolean;
+  // Once the run showed here, this open's first-open dialogs and quiet cards stand down.
+  hasRunShownHere: boolean;
+  // The save step's card in this page, decided when the step first starts here.
+  runSaveCard: RunSaveCard | null;
+  // The session whose tabs echo the run's first save, until the echo plays.
+  runSaveEcho: string | null;
 }
 
 // The windows folded shut in one session. `windowIds` may hold ids that the
@@ -293,6 +302,10 @@ export const initialState: Global = {
   isPeekingSavedSession: false,
   tourSampleIdHere: null,
   hasTourRunHere: false,
+  isRunHere: false,
+  hasRunShownHere: false,
+  runSaveCard: null,
+  runSaveEcho: null,
 };
 
 // save data to Firestore if dirty, saves latest to localStorage at the end
@@ -1225,6 +1238,25 @@ export const globalStateSlice = createSlice({
     tourStoppedHere: (state) => {
       state.tourSampleIdHere = null;
     },
+
+    runShownHere: (state) => {
+      state.isRunHere = true;
+      state.hasRunShownHere = true;
+    },
+
+    runStoppedHere: (state) => {
+      state.isRunHere = false;
+      state.runSaveCard = null;
+      state.runSaveEcho = null;
+    },
+
+    setRunSaveCard: (state, action: PayloadAction<RunSaveCard | null>) => {
+      state.runSaveCard = action.payload;
+    },
+
+    setRunSaveEcho: (state, action: PayloadAction<string | null>) => {
+      state.runSaveEcho = action.payload;
+    },
   },
 
   extraReducers: (builder) => {
@@ -1372,6 +1404,10 @@ export const {
   endSavedSessionPeek,
   tourStartedHere,
   tourStoppedHere,
+  runShownHere,
+  runStoppedHere,
+  setRunSaveCard,
+  setRunSaveEcho,
 } = globalStateSlice.actions;
 
 export default globalStateSlice.reducer;
