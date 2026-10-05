@@ -673,3 +673,79 @@ test.describe('long locale, 24px root', () => {
     }
   }
 });
+
+// KAN-425: the footer stays inside the mark's content box at every root size, and wraps only when it must.
+test.describe('footer fit by locale and root size', () => {
+  test.use({ freshProfile: true });
+
+  const NEXT = { en: 'Next', de: 'Weiter', ru: 'Далее' } as const;
+  for (const view of TOUR_VIEWS) {
+    for (const language of ['en', 'de', 'ru'] as const) {
+      for (const root of [16, 20, 24]) {
+        test(`${view.name}, ${language}, ${root}px: footer and buttons end inside the content box`, async ({
+          context,
+          extensionId,
+        }) => {
+          await seedSettingsIfAbsent(context, { language });
+          const page = await context.newPage();
+          await page.setViewportSize(view.viewport);
+          await page.goto(`chrome-extension://${extensionId}/${view.path}`);
+          const example = page
+            .locator('button', { hasText: /example|Beispiel|пример/i })
+            .first();
+          await example.waitFor();
+          await page.evaluate((px) => {
+            document.documentElement.style.fontSize = `${px}px`;
+          }, root);
+          await expect
+            .poll(() =>
+              page.evaluate(
+                () => getComputedStyle(document.documentElement).fontSize
+              )
+            )
+            .toBe(`${root}px`);
+          await twoFrames(page);
+          await example.click();
+          await expect(coachAt(page, 1)).toBeVisible();
+          // CONTROL: the mark's own button reads in the language seeded.
+          await expect(coachButton(page, NEXT[language])).toBeVisible();
+
+          const footer = () =>
+            page.evaluate(() => {
+              const mark = document.querySelector(
+                '[data-coach-mark]:not([aria-hidden])'
+              );
+              const buttons = mark?.querySelectorAll('button');
+              const foot = buttons?.[0]?.parentElement;
+              if (!mark || !buttons || !foot || buttons.length !== 2) {
+                return null;
+              }
+              const cs = getComputedStyle(mark);
+              const content =
+                mark.getBoundingClientRect().right -
+                parseFloat(cs.borderRightWidth) -
+                parseFloat(cs.paddingRight);
+              const [skip, next] = [...buttons].map((b) =>
+                b.getBoundingClientRect()
+              );
+              return {
+                footerInside: foot.getBoundingClientRect().right <= content,
+                skipInside: skip.right <= content,
+                nextInside: next.right <= content,
+                sameLine: Math.abs(skip.top - next.top) < 1,
+              };
+            });
+          await expect.poll(footer).toMatchObject({
+            footerInside: true,
+            skipInside: true,
+            nextInside: true,
+          });
+          // The wrap happens only when the row cannot fit: English always fits.
+          if (language === 'en') {
+            expect((await footer())?.sameLine).toBe(true);
+          }
+        });
+      }
+    }
+  }
+});
