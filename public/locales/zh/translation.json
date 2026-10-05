@@ -289,5 +289,6 @@
   "Show me around": "带我看看",
   "See your saved sessions and open tabs side by side.": "并排查看已保存的会话和打开的标签页。",
   "Opens under the toolbar icon": "在工具栏图标下方打开",
-  "Opens in its own tab": "在单独的标签页中打开"
+  "Opens in its own tab": "在单独的标签页中打开",
+  "Opens next to this tab. Close it to come back.": "在此标签页旁边打开。关闭后即可返回。"
 }

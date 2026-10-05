@@ -15,7 +15,7 @@ import { CompactViewArt, FullViewArt } from './defaultViewArt';
 import { useFontFamily } from '../../hooks/useFontFamily';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import {
-  CHROME_SHORTCUTS_URL,
+  openShortcutsBeside,
   usePopupShortcut,
 } from '../../hooks/usePopupShortcut';
 import type { AppDispatch, RootState } from '../../redux/store';
@@ -28,6 +28,7 @@ import {
 import { chooseDefaultView } from '../../redux/defaultViewChoice';
 import { chooseLanguage } from '../../redux/languageChoice';
 import type { DefaultView } from '../../utils/functions/defaultView';
+import { isTabView } from '../../utils/functions/viewMode';
 import { shortcutKeys } from '../../utils/functions/shortcutKeys';
 import { ICON, TYPE } from '../../styles/scale';
 import { focusRingCss } from '../common/focusRing';
@@ -82,9 +83,6 @@ export const SetupModal: React.FC = () => {
     dispatch(closeSetup());
   };
   const pickLanguage = (next: Language) => dispatch(chooseLanguage(next, i18n));
-  const openShortcuts = () => {
-    void chrome.tabs.create({ url: CHROME_SHORTCUTS_URL });
-  };
 
   const buttons = dialogButtonStyles(COLORS);
   const pressed = slidingPairColors(COLORS);
@@ -241,8 +239,18 @@ export const SetupModal: React.FC = () => {
     line-height: 1.6;
     color: ${COLORS.LABEL_L1_COLOR};
   `;
-  const shortcutButtonStyle = css`
+  const shortcutRowStyle = css`
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 12px;
     margin-top: 14px;
+  `;
+  const shortcutHintStyle = css`
+    margin: 0;
+    font-size: ${TYPE.SECONDARY};
+    line-height: 1.35;
+    color: ${COLORS.LABEL_L1_COLOR};
   `;
   const footerStyle = css`
     display: flex;
@@ -300,17 +308,29 @@ export const SetupModal: React.FC = () => {
     );
   };
 
+  // The shortcuts page opens beside this tab only in the full view; the popup has nothing to come back to.
+  const shortcutAction = (label: string) => (
+    <div css={shortcutRowStyle}>
+      <button
+        type="button"
+        css={buttons.quiet}
+        onClick={() => void openShortcutsBeside()}
+      >
+        {label}
+      </button>
+      {isTabView() && (
+        <p data-shortcut-hint css={shortcutHintStyle}>
+          {t('Opens next to this tab. Close it to come back.')}
+        </p>
+      )}
+    </div>
+  );
+
   const shortcutBody: ReactNode =
     popupShortcut === undefined ? null : popupShortcut === '' ? (
       <>
         <p css={sentenceStyle}>{t('No shortcut is set.')}</p>
-        <button
-          type="button"
-          css={[buttons.quiet, shortcutButtonStyle]}
-          onClick={openShortcuts}
-        >
-          {t('Set a shortcut')}
-        </button>
+        {shortcutAction(t('Set a shortcut'))}
       </>
     ) : (
       <>
@@ -323,13 +343,7 @@ export const SetupModal: React.FC = () => {
           />
         </p>
         <p css={fineStyle}>{t('Works in any window.')}</p>
-        <button
-          type="button"
-          css={[buttons.quiet, shortcutButtonStyle]}
-          onClick={openShortcuts}
-        >
-          {t('Change shortcut')}
-        </button>
+        {shortcutAction(t('Change shortcut'))}
       </>
     );
 

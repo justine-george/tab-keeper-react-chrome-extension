@@ -299,5 +299,6 @@
   "Show me around": "Faites-moi visiter",
   "See your saved sessions and open tabs side by side.": "Voyez vos sessions enregistrées et vos onglets ouverts côte à côte.",
   "Opens under the toolbar icon": "S'ouvre sous l'icône de la barre d'outils",
-  "Opens in its own tab": "S'ouvre dans son propre onglet"
+  "Opens in its own tab": "S'ouvre dans son propre onglet",
+  "Opens next to this tab. Close it to come back.": "S'ouvre à côté de cet onglet. Fermez-le pour revenir."
 }

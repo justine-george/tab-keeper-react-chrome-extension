@@ -55,7 +55,7 @@ import SlidingPair, { type SlidingPairMetrics } from '../../common/SlidingPair';
 import { useTranslation } from 'react-i18next';
 import { CONTROL, DURATION, ICON, RADIUS, TYPE } from '../../../styles/scale';
 import {
-  CHROME_SHORTCUTS_URL,
+  openShortcutsBeside,
   usePopupShortcut,
 } from '../../../hooks/usePopupShortcut';
 import { shortcutKeys } from '../../../utils/functions/shortcutKeys';
@@ -771,7 +771,7 @@ const SettingsDetailsContainer: React.FC = () => {
               text={t('Change or remove shortcut')}
               iconType="keyboard"
               onClick={() => {
-                chrome.tabs.create({ url: CHROME_SHORTCUTS_URL });
+                void openShortcutsBeside();
               }}
             />
           </div>

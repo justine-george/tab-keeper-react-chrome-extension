@@ -289,5 +289,6 @@
   "Show me around": "帶我看看",
   "See your saved sessions and open tabs side by side.": "並排查看已儲存的工作階段和開啟的分頁。",
   "Opens under the toolbar icon": "在工具列圖示下方開啟",
-  "Opens in its own tab": "在獨立的分頁中開啟"
+  "Opens in its own tab": "在獨立的分頁中開啟",
+  "Opens next to this tab. Close it to come back.": "在此分頁旁開啟。關閉後即可返回。"
 }

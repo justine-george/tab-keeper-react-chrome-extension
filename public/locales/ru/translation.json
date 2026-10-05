@@ -304,5 +304,6 @@
   "Show me around": "Начать знакомство",
   "See your saved sessions and open tabs side by side.": "Сохранённые сессии и открытые вкладки рядом.",
   "Opens under the toolbar icon": "Открывается под значком на панели инструментов",
-  "Opens in its own tab": "Открывается в отдельной вкладке"
+  "Opens in its own tab": "Открывается в отдельной вкладке",
+  "Opens next to this tab. Close it to come back.": "Откроется рядом с этой вкладкой. Закройте её, чтобы вернуться."
 }

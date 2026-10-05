@@ -251,9 +251,12 @@ describe('Make Tab Keeper yours', () => {
     expect(within(dialog()).queryByRole('button', { name: 'Next' })).toBeNull();
 
     press('Change shortcut');
-    expect(chrome.createdTabs.map((tab) => tab.url)).toEqual([
-      CHROME_SHORTCUTS_URL,
-    ]);
+    // The tab opens after the current tab has been asked for.
+    await waitFor(() =>
+      expect(chrome.createdTabs.map((tab) => tab.url)).toEqual([
+        CHROME_SHORTCUTS_URL,
+      ])
+    );
   });
 
   test('no shortcut bound: says so, and offers to set one', async () => {
@@ -404,5 +407,57 @@ describe('Make Tab Keeper yours', () => {
       asWritten(LIGHT_THEME.PRIMARY_COLOR)
     );
     expect(caption('Full view')).toMatch(asWritten(LIGHT_THEME.LABEL_L1_COLOR));
+  });
+
+  describe('the shortcut step beside the tab (KAN-423)', () => {
+    const HINT = 'Opens next to this tab. Close it to come back.';
+    const inTab: ChromeSeed = {
+      ...BOUND,
+      windows: [{ id: 1, tabs: [{ id: 10 }, { id: 11 }] }],
+      currentTabId: 10,
+    };
+    const toShortcutStep = () => {
+      press('Next');
+      press('Next');
+      press('Next');
+    };
+    afterEach(() => history.replaceState(null, '', '/'));
+
+    test('in the full view the hint sits beside Change shortcut, and the page opens beside the tab', async () => {
+      history.replaceState(null, '', '/?view=tab');
+      const { chrome } = await render(inTab);
+      toShortcutStep();
+      await within(dialog()).findByRole('button', { name: 'Change shortcut' });
+      expect(within(dialog()).getByText(HINT)).toBeInTheDocument();
+      press('Change shortcut');
+      await waitFor(() =>
+        expect(chrome.createdTabs).toEqual([
+          {
+            url: CHROME_SHORTCUTS_URL,
+            index: 1,
+            openerTabId: 10,
+            windowId: 1,
+          },
+        ])
+      );
+    });
+
+    test('in the full view the no-shortcut branch carries the hint too', async () => {
+      history.replaceState(null, '', '/?view=tab');
+      await render({
+        ...inTab,
+        commands: [{ name: '_execute_action', shortcut: '', description: '' }],
+      });
+      toShortcutStep();
+      await within(dialog()).findByRole('button', { name: 'Set a shortcut' });
+      expect(within(dialog()).getByText(HINT)).toBeInTheDocument();
+    });
+
+    test('in the popup there is no hint', async () => {
+      await render();
+      toShortcutStep();
+      await within(dialog()).findByRole('button', { name: 'Change shortcut' });
+      expect(within(dialog()).queryByText(HINT)).toBeNull();
+    });
   });
 });

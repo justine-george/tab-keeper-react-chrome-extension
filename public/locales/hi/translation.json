@@ -294,5 +294,6 @@
   "Show me around": "टूर शुरू करें",
   "See your saved sessions and open tabs side by side.": "अपने सहेजे गए सेशन और खुले टैब साथ-साथ देखें।",
   "Opens under the toolbar icon": "टूलबार आइकन के नीचे खुलता है",
-  "Opens in its own tab": "अपने अलग टैब में खुलता है"
+  "Opens in its own tab": "अपने अलग टैब में खुलता है",
+  "Opens next to this tab. Close it to come back.": "यह इस टैब के बगल में खुलता है। वापस आने के लिए इसे बंद करें।"
 }

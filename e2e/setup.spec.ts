@@ -272,6 +272,126 @@ for (const lang of ['en', 'de', 'ru']) {
   });
 }
 
+type TabRow = {
+  id?: number;
+  index: number;
+  windowId: number;
+  openerTabId?: number;
+  active: boolean;
+  url: string;
+  pendingUrl: string;
+};
+const tabRows = (worker: Worker) =>
+  worker.evaluate(async (): Promise<TabRow[]> => {
+    const tabs = await chrome.tabs.query({});
+    return tabs.map((tab) => ({
+      id: tab.id,
+      index: tab.index,
+      windowId: tab.windowId,
+      openerTabId: tab.openerTabId,
+      active: tab.active,
+      url: tab.url ?? '',
+      pendingUrl: tab.pendingUrl ?? '',
+    }));
+  });
+const isShortcutsPage = (tab: TabRow) =>
+  `${tab.url} ${tab.pendingUrl}`.includes('chrome://extensions/shortcuts');
+
+test('Change shortcut opens Chrome shortcuts right after Tab Keeper, as its child (KAN-423)', async ({
+  context,
+  extensionId,
+  serviceWorker,
+}) => {
+  await stubToolbarPin(context, { pinned: true });
+  await seedSettings(context, { setupState: 'pending' });
+  const page = await openFullView(context, extensionId);
+  await press(page, 'Next');
+  await press(page, 'Next');
+  await press(page, 'Next');
+  await expect(setup(page).locator('[data-shortcut-hint]')).toHaveText(
+    'Opens next to this tab. Close it to come back.'
+  );
+  const before = await tabRows(serviceWorker);
+  const mine = before.find((tab) => tab.url.endsWith('index.html?view=tab'));
+  if (mine === undefined) throw new Error('no full view tab');
+  expect(before.some(isShortcutsPage)).toBe(false);
+
+  await setup(page)
+    .getByRole('button', { name: /^(Change shortcut|Set a shortcut)$/ })
+    .click();
+  await expect
+    .poll(async () => (await tabRows(serviceWorker)).some(isShortcutsPage))
+    .toBe(true);
+  const opened = (await tabRows(serviceWorker)).find(isShortcutsPage);
+  if (opened === undefined) throw new Error('no shortcuts tab');
+  expect({
+    index: opened.index,
+    openerTabId: opened.openerTabId,
+    windowId: opened.windowId,
+  }).toEqual({
+    index: mine.index + 1,
+    openerTabId: mine.id,
+    windowId: mine.windowId,
+  });
+
+  // The new tab takes focus from Tab Keeper, and Chrome returns to the opener on its close.
+  expect(opened.active).toBe(true);
+  await serviceWorker.evaluate((id) => chrome.tabs.remove(id), opened.id ?? -1);
+  await expect
+    .poll(async () => {
+      const rows = await tabRows(serviceWorker);
+      return rows.find((tab) => tab.id === mine.id)?.active;
+    })
+    .toBe(true);
+  expect((await tabRows(serviceWorker)).some(isShortcutsPage)).toBe(false);
+});
+
+test('the shortcut shown follows a rebind when the page becomes visible again (KAN-423)', async ({
+  context,
+  extensionId,
+}) => {
+  await stubToolbarPin(context, { pinned: true });
+  await seedSettings(context, { setupState: 'pending' });
+  // The harness cannot rebind a command: the page asks a stand-in whose answer the test sets.
+  await context.addInitScript(() => {
+    Object.defineProperty(globalThis, '__boundKey', {
+      configurable: true,
+      writable: true,
+      value: 'Alt+Shift+K',
+    });
+    Object.defineProperty(chrome.commands, 'getAll', {
+      configurable: true,
+      value: () =>
+        Promise.resolve([
+          {
+            name: '_execute_action',
+            description: '',
+            shortcut: Reflect.get(globalThis, '__boundKey'),
+          },
+        ]),
+    });
+  });
+  const page = await openFullView(context, extensionId);
+  await press(page, 'Next');
+  await press(page, 'Next');
+  await press(page, 'Next');
+  const keys = () => setup(page).locator('[data-testid="setup-shortcut"] kbd');
+  await expect(keys()).toHaveText(['Alt', 'Shift', 'K']);
+
+  await page.evaluate(() => {
+    Reflect.set(globalThis, '__boundKey', 'Alt+Shift+J');
+    // The harness never fires it on a tab switch, so it is dispatched here.
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  await expect(keys()).toHaveText(['Alt', 'Shift', 'J']);
+
+  await page.evaluate(() => {
+    Reflect.set(globalThis, '__boundKey', 'Ctrl+Shift+M');
+    window.dispatchEvent(new Event('focus'));
+  });
+  await expect(keys()).toHaveText(['Ctrl', 'Shift', 'M']);
+});
+
 test('step 3 removes the popup as Settings does', async ({
   context,
   extensionId,
@@ -404,6 +524,10 @@ for (const [theme, palette] of THEMES) {
         expect(
           await card.evaluate((el) => getComputedStyle(el).borderTopWidth)
         ).toBe('1px');
+      }
+      if (step === 'shortcut') {
+        // The hint beside the button is in the read above, at LABEL_L1 on the page.
+        await expect(setup(page).locator('[data-shortcut-hint]')).toBeVisible();
       }
       if (step !== 'shortcut') await press(page, 'Next');
     }

@@ -289,5 +289,6 @@
   "Show me around": "둘러보기",
   "See your saved sessions and open tabs side by side.": "저장된 세션과 열린 탭을 나란히 보세요.",
   "Opens under the toolbar icon": "툴바 아이콘 아래에 열립니다",
-  "Opens in its own tab": "별도의 탭에서 열립니다"
+  "Opens in its own tab": "별도의 탭에서 열립니다",
+  "Opens next to this tab. Close it to come back.": "이 탭 옆에서 열립니다. 닫으면 돌아옵니다."
 }

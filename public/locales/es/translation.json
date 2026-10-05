@@ -299,5 +299,6 @@
   "Show me around": "Empezar el recorrido",
   "See your saved sessions and open tabs side by side.": "Ve tus sesiones guardadas y pestañas abiertas una al lado de la otra.",
   "Opens under the toolbar icon": "Se abre bajo el icono de la barra de herramientas",
-  "Opens in its own tab": "Se abre en su propia pestaña"
+  "Opens in its own tab": "Se abre en su propia pestaña",
+  "Opens next to this tab. Close it to come back.": "Se abre junto a esta pestaña. Ciérrala para volver."
 }
