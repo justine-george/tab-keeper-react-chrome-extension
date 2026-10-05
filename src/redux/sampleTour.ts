@@ -26,6 +26,7 @@ import {
 } from './slices/tabContainerDataStateSlice';
 import {
   buildSampleSession,
+  holdsOnlySampleTabs,
   type SampleNames,
 } from '../utils/functions/sampleSession';
 import { nextTourStep, type SampleTour } from '../utils/functions/sampleTour';
@@ -48,7 +49,8 @@ export type TourCheck =
   | 'here'
   | 'elsewhere'
   | 'unknown'
-  | 'ended';
+  | 'ended'
+  | 'kept';
 
 // Module state, as dragHold's is: a lock's release is no application data.
 let releaseLock: (() => void) | null = null;
@@ -201,6 +203,14 @@ export const endTourIfInterrupted =
     if (lock === 'unknown') return 'unknown';
     if (getState().settingsDataState.sampleTour?.sampleId !== tour.sampleId) {
       return 'none';
+    }
+    // A tab carried in is the user's, and this end has no undo: the sample stays as an ordinary session.
+    const sample = getState().tabContainerDataState.tabGroups.find(
+      (g) => g.tabGroupId === tour.sampleId
+    );
+    if (sample !== undefined && !holdsOnlySampleTabs(sample)) {
+      dispatch(clearSampleTour());
+      return 'kept';
     }
     // The user never deleted this sample, so ⌘Z must not bring it back.
     dispatch(endTour(deleteTabContainerWithoutHistory));

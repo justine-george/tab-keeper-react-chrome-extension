@@ -17,6 +17,7 @@ import {
   settingsDataStateSlice,
 } from '../../redux/slices/settingsDataStateSlice';
 import { holdTourLock } from '../../utils/functions/tourLock';
+import { buildSampleSession } from '../../utils/functions/sampleSession';
 
 // KAN-413. An interrupted tour, checked on a real open.
 
@@ -40,6 +41,7 @@ const seeded = (store: { dispatch: (action: unknown) => void }) => {
 };
 
 let locks: FakeLocks;
+let nextId = 0;
 beforeEach(() => {
   localStorage.clear();
   locks = installFakeLocks();
@@ -47,10 +49,18 @@ beforeEach(() => {
     'tabContainerData',
     JSON.stringify(
       buildContainer([
-        buildSession({
+        {
+          ...buildSampleSession(
+            {
+              title: 'Sample: Weekend trip',
+              gettingThere: 'Getting there',
+              thingsToDo: 'Things to do',
+            },
+            new Date(),
+            () => `id-${(nextId += 1)}`
+          ),
           tabGroupId: 'sample:left',
-          title: 'Sample: Weekend trip',
-        }),
+        },
         buildSession({ tabGroupId: 'mine', title: 'Mine' }),
       ])
     )

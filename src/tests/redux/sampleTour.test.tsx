@@ -17,6 +17,7 @@ import {
 import {
   deleteTabContainerInternal,
   hydrateFromOtherPage,
+  moveTabAcrossWindowsInternal,
   moveToSessionInternal,
   replaceState,
   saveToTabContainerInternal,
@@ -87,6 +88,13 @@ function diskSessions(): TabMasterContainer {
   return parsed;
 }
 const storedTitles = () => diskSessions().tabGroups.map((g) => g.title);
+
+const urlsOf = (session: TabMasterContainer['tabGroups'][number]) =>
+  session.windows.flatMap((w) => w.tabs.map((t) => t.url));
+const storedSampleTabs = (windowId: string) =>
+  diskSessions()
+    .tabGroups.flatMap((g) => g.windows)
+    .find((w) => w.windowId === windowId)?.tabs ?? [];
 
 // Another page's open: its first load and its settings, off the shared disk.
 function openAnotherPage(): Store {
@@ -473,6 +481,78 @@ describe('the next open, after an interruption', () => {
     expect(tourOf(other)).toBeNull();
     expect(storedTitles()).toEqual([]);
   });
+
+  test('a sample whose own tab was dragged within it is still removed', async () => {
+    const store = await started();
+    const sample = store.getState().tabContainerDataState.tabGroups[0];
+    const [from, to] = sample.windows;
+    store.dispatch(
+      moveTabAcrossWindowsInternal({
+        tabGroupId: sample.tabGroupId,
+        fromWindowId: from.windowId,
+        toWindowId: to.windowId,
+        tabId: from.tabs[0].tabId,
+        toIndex: 0,
+      })
+    );
+    expect(storedSampleTabs(to.windowId)).toHaveLength(to.tabs.length + 1);
+    locks.dropAll();
+    const other = openAnotherPage();
+    expect(await other.dispatch(endTourIfInterrupted())).toBe('ended');
+    expect(sampleIds(other)).toEqual([]);
+    expect(tourOf(other)).toBeNull();
+    expect(storedTitles()).toEqual([]);
+  });
+
+  // A carried-in item is the user's own, and this cleanup has no undo.
+  test.each(['tab', 'window'] as const)(
+    'a sample holding a %s carried in from the user’s session is kept as an ordinary session, and the record ends',
+    async (kind) => {
+      const { store } = makeTestStore();
+      store.dispatch(
+        replaceState(
+          buildContainer([buildSession({ tabGroupId: 'mine', title: 'Mine' })])
+        )
+      );
+      await store.dispatch(startSampleTour(NAMES));
+      const sample = store
+        .getState()
+        .tabContainerDataState.tabGroups.find((g) =>
+          isSampleSession(g.tabGroupId)
+        );
+      if (sample === undefined) throw new Error('no sample');
+      const mine = buildSession().windows[0];
+      store.dispatch(
+        kind === 'tab'
+          ? moveToSessionInternal({
+              carried: {
+                kind,
+                tabGroupId: 'mine',
+                windowId: mine.windowId,
+                tabId: mine.tabs[0].tabId,
+              },
+              to: {
+                tabGroupId: sample.tabGroupId,
+                windowId: sample.windows[0].windowId,
+                toIndex: 0,
+              },
+            })
+          : moveToSessionInternal({
+              carried: { kind, tabGroupId: 'mine', windowId: mine.windowId },
+              to: { tabGroupId: sample.tabGroupId, toIndex: 0 },
+            })
+      );
+      locks.dropAll();
+      const other = openAnotherPage();
+      expect(await other.dispatch(endTourIfInterrupted())).toBe('kept');
+      expect(sampleIds(other)).toEqual([sample.tabGroupId]);
+      expect(tourOf(other)).toBeNull();
+      expect(diskSessions().tabGroups.flatMap(urlsOf)).toContain(
+        mine.tabs[0].url
+      );
+      expect(other.getState().undoRedo.past).toEqual([]);
+    }
+  );
 
   // CONTROL: "Undo right after the tour’s end" above, where ⌘Z does bring it back.
   test('the cleanup syncs like any delete, and ⌘Z after it brings nothing back', async () => {

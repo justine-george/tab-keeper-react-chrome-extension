@@ -36,6 +36,10 @@ const THINGS_TO_DO: readonly SampleTab[] = [
   },
 ];
 
+const SAMPLE_URLS = new Set(
+  [...GETTING_THERE, ...THINGS_TO_DO].map((tab) => tab.url)
+);
+
 // Zero bounds, as a capture of an unmeasured window: restore falls back to its defaults.
 function sampleWindow(
   title: string,
@@ -88,4 +92,11 @@ export function buildSampleSession(
     isSelected: true,
     windows,
   };
+}
+
+// KAN-413. True while every tab is one of the sample's own, wherever it was dragged: nothing was carried in.
+export function holdsOnlySampleTabs(session: tabContainerData): boolean {
+  return session.windows.every((window) =>
+    window.tabs.every((tab) => SAMPLE_URLS.has(tab.url))
+  );
 }
