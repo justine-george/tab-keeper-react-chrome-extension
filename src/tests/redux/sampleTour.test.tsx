@@ -50,6 +50,7 @@ import {
 
 type Store = ReturnType<typeof makeTestStore>['store'];
 
+const BOOKING = 'https://www.booking.com/';
 const NAMES = {
   title: 'Sample: Weekend trip',
   gettingThere: 'Getting there',
@@ -553,6 +554,53 @@ describe('the next open, after an interruption', () => {
       expect(other.getState().undoRedo.past).toEqual([]);
     }
   );
+
+  // A sample's own URLs are distinct, so a second tab on one of them was carried in.
+  test('a sample holding a carried-in duplicate of one of its own URLs is kept, and the record ends', async () => {
+    const { store } = makeTestStore();
+    const base = buildSession({ tabGroupId: 'mine', title: 'Mine' });
+    const duplicate = { ...base.windows[0].tabs[0], url: BOOKING };
+    store.dispatch(
+      replaceState(
+        buildContainer([
+          {
+            ...base,
+            windows: [{ ...base.windows[0], tabs: [duplicate] }],
+          },
+        ])
+      )
+    );
+    await store.dispatch(startSampleTour(NAMES));
+    const sample = store
+      .getState()
+      .tabContainerDataState.tabGroups.find((g) =>
+        isSampleSession(g.tabGroupId)
+      );
+    if (sample === undefined) throw new Error('no sample');
+    store.dispatch(
+      moveToSessionInternal({
+        carried: {
+          kind: 'tab',
+          tabGroupId: 'mine',
+          windowId: base.windows[0].windowId,
+          tabId: duplicate.tabId,
+        },
+        to: {
+          tabGroupId: sample.tabGroupId,
+          windowId: sample.windows[0].windowId,
+          toIndex: 0,
+        },
+      })
+    );
+    expect(
+      urlsOf(diskSessions().tabGroups[0]).filter((u) => u === BOOKING)
+    ).toHaveLength(2);
+    locks.dropAll();
+    const other = openAnotherPage();
+    expect(await other.dispatch(endTourIfInterrupted())).toBe('kept');
+    expect(sampleIds(other)).toEqual([sample.tabGroupId]);
+    expect(tourOf(other)).toBeNull();
+  });
 
   // CONTROL: "Undo right after the tour’s end" above, where ⌘Z does bring it back.
   test('the cleanup syncs like any delete, and ⌘Z after it brings nothing back', async () => {

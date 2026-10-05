@@ -94,9 +94,14 @@ export function buildSampleSession(
   };
 }
 
-// KAN-413. True while every tab is one of the sample's own, wherever it was dragged: nothing was carried in.
+// KAN-413. True while every tab is one of the sample's own, wherever it was dragged, and none twice: its URLs are distinct.
 export function holdsOnlySampleTabs(session: tabContainerData): boolean {
+  const seen = new Set<string>();
   return session.windows.every((window) =>
-    window.tabs.every((tab) => SAMPLE_URLS.has(tab.url))
+    window.tabs.every((tab) => {
+      if (!SAMPLE_URLS.has(tab.url) || seen.has(tab.url)) return false;
+      seen.add(tab.url);
+      return true;
+    })
   );
 }
