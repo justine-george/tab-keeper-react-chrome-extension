@@ -16,11 +16,6 @@ import {
   loadFromLocalStorage,
   saveToLocalStorage,
 } from '../../utils/functions/local';
-import {
-  asSampleTour,
-  type SampleTour,
-  type TourStep,
-} from '../../utils/functions/sampleTour';
 // `import type`, so nothing is emitted: the generator imports this slice's
 // tabContainerData type in the other direction, and a value edge either way
 // would complete a cycle. Same reason as the RootState note in the container
@@ -162,8 +157,6 @@ export interface SettingsData {
   isFullViewCalloutSeen: boolean;
   // KAN-7 §7. Mirrored to chrome.storage.local for the service worker.
   defaultView: DefaultView;
-  // KAN-413. The sample tour running on this machine, if any; one per machine.
-  sampleTour: SampleTour | null;
   // The guided first run on this machine, running or ended; one per machine.
   firstRun: FirstRun | null;
   // Set when an upgrader's What's new Hello first shows; no later open starts one.
@@ -191,7 +184,6 @@ export type OnboardingSettings = Pick<
   | 'hasOpenedFullView'
   | 'isFullViewCalloutSeen'
   | 'defaultView'
-  | 'sampleTour'
   | 'firstRun'
   | 'isWhatsNew2Seen'
 >;
@@ -203,7 +195,6 @@ export const ONBOARDING_DEFAULTS: OnboardingSettings = {
   hasOpenedFullView: false,
   isFullViewCalloutSeen: false,
   defaultView: 'compact',
-  sampleTour: null,
   firstRun: null,
   isWhatsNew2Seen: false,
 };
@@ -240,7 +231,6 @@ export function guardOnboarding(
     hasOpenedFullView: read('hasOpenedFullView', asFlag),
     isFullViewCalloutSeen: read('isFullViewCalloutSeen', asFlag),
     defaultView: read('defaultView', asDefaultView),
-    sampleTour: read('sampleTour', asSampleTour),
     firstRun: read('firstRun', asFirstRun),
     isWhatsNew2Seen: read('isWhatsNew2Seen', asFlag),
   };
@@ -252,9 +242,28 @@ export function guardOnboarding(
  */
 export type SessionDateBasis = 'edited' | 'created';
 
+// Keys only dev builds of this branch wrote: dropped once, and settings written back without them.
+const RETIRED_KEYS: readonly string[] = ['sampleTour'];
+
+const withoutRetiredKeys = (stored: unknown): unknown =>
+  typeof stored === 'object' && stored !== null && !Array.isArray(stored)
+    ? Object.fromEntries(
+        Object.entries(stored).filter(([key]) => !RETIRED_KEYS.includes(key))
+      )
+    : stored;
+
+const storedSettings = loadFromLocalStorage('settingsData');
+const hasRetiredKeys =
+  typeof storedSettings === 'object' &&
+  storedSettings !== null &&
+  RETIRED_KEYS.some((key) => key in storedSettings);
+if (hasRetiredKeys) {
+  saveToLocalStorage('settingsData', withoutRetiredKeys(storedSettings));
+}
+
 // Retrieve settings from localStorage
 const settingsDataLocal = asPartialSettings<SettingsData>(
-  loadFromLocalStorage('settingsData')
+  withoutRetiredKeys(storedSettings)
 );
 
 export const SHIPPED_LANGUAGES = Object.values(Language);
@@ -529,26 +538,6 @@ export const settingsDataStateSlice = createSlice({
       saveToLocalStorage('settingsData', state);
     },
 
-    // KAN-413. One tour per machine: a new one replaces any other.
-    recordSampleTour: (state, action: PayloadAction<SampleTour>) => {
-      state.sampleTour = action.payload;
-      saveToLocalStorage('settingsData', state);
-    },
-
-    // Forward only, so Next and the step's own action together move it once.
-    setSampleTourStep: (state, action: PayloadAction<TourStep>) => {
-      if (state.sampleTour === null) return;
-      if (action.payload <= state.sampleTour.step) return;
-      state.sampleTour.step = action.payload;
-      saveToLocalStorage('settingsData', state);
-    },
-
-    clearSampleTour: (state) => {
-      if (state.sampleTour === null) return;
-      state.sampleTour = null;
-      saveToLocalStorage('settingsData', state);
-    },
-
     // Every start writes a new record, replacing any other.
     recordFirstRun: (state, action: PayloadAction<FirstRun>) => {
       state.firstRun = action.payload;
@@ -641,9 +630,6 @@ export const {
   markFullViewOpened,
   markFullViewCalloutSeen,
   setDefaultView,
-  recordSampleTour,
-  setSampleTourStep,
-  clearSampleTour,
   recordFirstRun,
   setFirstRunStep,
   setFirstRunSession,

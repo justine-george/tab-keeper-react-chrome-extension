@@ -12,13 +12,11 @@ import { classRulesFor } from '../setup/hoverRules';
 import type { ChromeSeed } from '../setup/chrome.fake';
 import {
   setHasTabGroupsPermission,
-  tourStartedHere,
-  tourStoppedHere,
+  runShownHere,
+  runStoppedHere,
 } from '../../redux/slices/globalStateSlice';
-import {
-  clearSampleTour,
-  recordSampleTour,
-} from '../../redux/slices/settingsDataStateSlice';
+import { recordFirstRun } from '../../redux/slices/settingsDataStateSlice';
+import { newRun } from '../../utils/functions/firstRun';
 import type { chromeTabGroupData } from '../../redux/slices/tabContainerDataStateSlice';
 import { useIsOpenBlockedByTour } from '../../hooks/useIsOpenBlockedByTour';
 
@@ -46,10 +44,8 @@ const SEED: ChromeSeed = {
 };
 
 const tourHere = (store: RenderWithProvidersResult['store']) => {
-  store.dispatch(
-    recordSampleTour({ sampleId: SAMPLE, step: 4, view: 'popup' })
-  );
-  store.dispatch(tourStartedHere(SAMPLE));
+  store.dispatch(recordFirstRun({ ...newRun('popup', 6), sessionId: SAMPLE }));
+  store.dispatch(runShownHere());
 };
 
 async function renderSampleWindow(onOpenWindow: () => void = () => undefined) {
@@ -78,8 +74,7 @@ async function renderSampleWindow(onOpenWindow: () => void = () => undefined) {
 type Rendered = Awaited<ReturnType<typeof renderSampleWindow>>;
 const endTour = ({ store }: Rendered) =>
   act(() => {
-    store.dispatch(clearSampleTour());
-    store.dispatch(tourStoppedHere());
+    store.dispatch(runStoppedHere());
   });
 // The fake answers tabs.query on a later task; both halves wait the same.
 const settle = () =>

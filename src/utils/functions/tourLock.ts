@@ -14,9 +14,6 @@ export type TourLockState = 'held' | 'free' | 'unknown';
 // One name for every page: the newest page to show the run takes it.
 export const RUN_LOCK = 'tab-keeper-first-run';
 
-export const tourLockName = (sampleId: string): string =>
-  `tab-keeper-sample-tour:${sampleId}`;
-
 // Read on every call: a test installs its own, and the worker never calls this.
 function lockApi(): LockApi | null {
   if (typeof navigator === 'undefined' || !('locks' in navigator)) return null;

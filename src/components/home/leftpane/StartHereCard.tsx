@@ -1,15 +1,10 @@
 import { useId } from 'react';
-import { useDispatch } from 'react-redux';
 import { useTranslation } from 'react-i18next';
 import { css } from '@emotion/react';
 
-import Button from '../../common/Button';
 import Icon from '../../common/Icon';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useFontFamily } from '../../../hooks/useFontFamily';
-import type { AppDispatch } from '../../../redux/store';
-import { startSampleTour } from '../../../redux/sampleTour';
-import { useSampleNames } from '../../../hooks/useSampleNames';
 import { ICON, TYPE } from '../../../styles/scale';
 
 // Where the save glyph goes in the translated step, split out as ShortcutSentence splits its keys.
@@ -20,9 +15,7 @@ export default function StartHereCard() {
   const COLORS = useThemeColors();
   const FONT_FAMILY = useFontFamily();
   const { t } = useTranslation();
-  const dispatch: AppDispatch = useDispatch();
   const titleId = useId();
-  const sampleNames = useSampleNames();
   const [beforeGlyph, afterGlyph = ''] = t(
     'Type a name, then press {{icon}} to save every open window.',
     { icon: GLYPH_SLOT }
@@ -75,10 +68,6 @@ export default function StartHereCard() {
         <li>{t('Pick a saved session to see its tabs.')}</li>
         <li>{t('Press Open to bring them all back, any time.')}</li>
       </ol>
-      <Button
-        text={t('Try it with an example')}
-        onClick={() => void dispatch(startSampleTour(sampleNames))}
-      />
     </section>
   );
 }

@@ -14,7 +14,6 @@ import {
   answerFullViewOffer,
   asSetupState,
   beginSetup,
-  clearSampleTour,
   countWelcomeShow,
   endFirstRun,
   dismissPinGuide,
@@ -25,11 +24,9 @@ import {
   markWhatsNew2Seen,
   ONBOARDING_DEFAULTS,
   recordFirstRun,
-  recordSampleTour,
   setFirstRunSession,
   setFirstRunStep,
   setDefaultView,
-  setSampleTourStep,
   settingsDataStateSlice,
   type SettingsData,
 } from '../../redux/slices/settingsDataStateSlice';
@@ -55,7 +52,6 @@ const GARBAGE = {
   hasOpenedFullView: 'true',
   isFullViewCalloutSeen: {},
   defaultView: 'tab',
-  sampleTour: { sampleId: 'abc', step: 9, view: 'tab' },
   firstRun: { view: 'tab', step: 1 },
   isWhatsNew2Seen: 'yes',
 };
@@ -67,7 +63,6 @@ const ALL_SET = {
   hasOpenedFullView: true,
   isFullViewCalloutSeen: true,
   defaultView: 'full',
-  sampleTour: { sampleId: 'sample:a', step: 3, view: 'full' },
   firstRun: {
     view: 'full',
     step: 3,
@@ -269,69 +264,6 @@ describe('applyOtherPageSettings carries the onboarding fields (KAN-279 D9)', ()
   });
 });
 
-describe('the sample tour record (KAN-413)', () => {
-  const TOUR = { sampleId: 'sample:a', step: 1, view: 'popup' } as const;
-  const reduce = (actions: UnknownAction[]) =>
-    actions.reduce(
-      (state, action) => settingsDataStateSlice.reducer(state, action),
-      settingsDataStateSlice.getInitialState()
-    );
-
-  it('recordSampleTour records and saves it, replacing any other', () => {
-    const state = reduce([
-      recordSampleTour({ ...TOUR, sampleId: 'sample:old' }),
-      recordSampleTour(TOUR),
-    ]);
-    expect(state.sampleTour).toEqual(TOUR);
-    expect(saved()).toMatchObject({ sampleTour: TOUR });
-  });
-
-  it('setSampleTourStep moves the recorded tour on and saves it', () => {
-    expect(
-      reduce([recordSampleTour(TOUR), setSampleTourStep(2)]).sampleTour
-    ).toEqual({ ...TOUR, step: 2 });
-    expect(saved()).toMatchObject({ sampleTour: { step: 2 } });
-  });
-
-  // Next and the step's own action can land together: they move it once.
-  it('a step that is not ahead changes nothing', () => {
-    expect(
-      reduce([
-        recordSampleTour(TOUR),
-        setSampleTourStep(3),
-        setSampleTourStep(3),
-        setSampleTourStep(2),
-      ]).sampleTour?.step
-    ).toBe(3);
-  });
-
-  it('with no tour recorded, a step records nothing', () => {
-    expect(reduce([setSampleTourStep(2)]).sampleTour).toBeNull();
-  });
-
-  it('clearSampleTour clears and saves', () => {
-    expect(
-      reduce([recordSampleTour(TOUR), clearSampleTour()]).sampleTour
-    ).toBeNull();
-    expect(saved()).toMatchObject({ sampleTour: null });
-  });
-
-  it('a write from an older page keeps this page’s tour', () => {
-    const { store } = makeTestStore();
-    store.dispatch(recordSampleTour(TOUR));
-    const older = Object.fromEntries(
-      Object.entries(store.getState().settingsDataState).filter(
-        ([key]) => key !== 'sampleTour'
-      )
-    );
-    localStorage.setItem(
-      'settingsData',
-      JSON.stringify({ ...older, lastSyncedTime: Date.now() })
-    );
-    store.dispatch(applyOtherPageSettings());
-    expect(store.getState().settingsDataState.sampleTour).toEqual(TOUR);
-  });
-});
 describe('the run record', () => {
   const reduce = (actions: UnknownAction[]) =>
     actions.reduce(
@@ -425,5 +357,36 @@ describe('the run record', () => {
     );
     store.dispatch(applyOtherPageSettings());
     expect(store.getState().settingsDataState.firstRun).toEqual(FULL);
+  });
+});
+
+describe('the KAN-413 record from dev builds (§11)', () => {
+  const SESSIONS = JSON.stringify({
+    lastModified: 1,
+    selectedTabGroupId: null,
+    tabGroups: [{ tabGroupId: 'sample:a', title: 'Sample: Weekend trip' }],
+  });
+
+  it('is dropped on load and written back once, leaving the sessions on disk alone', async () => {
+    localStorage.setItem('tabContainerData', SESSIONS);
+    localStorage.setItem(
+      'settingsData',
+      JSON.stringify({
+        theme: 'Blue',
+        sampleTour: { sampleId: 'sample:a', step: 2, view: 'popup' },
+      })
+    );
+    const { initialState } = await freshSlice();
+    expect(Object.keys(initialState)).not.toContain('sampleTour');
+    expect(saved()).toEqual({ theme: 'Blue' });
+    expect(localStorage.getItem('tabContainerData')).toBe(SESSIONS);
+  });
+
+  it('settings without it are not written at load', async () => {
+    localStorage.setItem('settingsData', JSON.stringify({ theme: 'Blue' }));
+    const setItem = vi.spyOn(localStorage, 'setItem');
+    setItem.mockClear();
+    await freshSlice();
+    expect(setItem).not.toHaveBeenCalled();
   });
 });

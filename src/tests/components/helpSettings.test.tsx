@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 
 import SettingsDetailsContainer from '../../components/settings/rightpane/SettingsDetailsContainer';
@@ -14,6 +14,8 @@ import {
   finishSetup,
 } from '../../redux/slices/settingsDataStateSlice';
 import { OPEN_IN_TAB_MESSAGE } from '../../utils/functions/popOut';
+import { newRun } from '../../utils/functions/firstRun';
+import { installFakeLocks, type FakeLocks } from '../setup/fakeLocks';
 
 // KAN-7 Help: setup, the pin guide and the tour again, in Settings' own section style.
 
@@ -33,7 +35,12 @@ const pinState = () =>
 const read = (state: string) => waitFor(() => expect(pinState()).toBe(state));
 const PIN_ROW = 'Pin to your toolbar';
 
+let locks: FakeLocks;
+beforeEach(() => {
+  locks = installFakeLocks();
+});
 afterEach(() => {
+  locks.uninstall();
   history.replaceState(null, '', '?');
   localStorage.clear();
 });
@@ -48,7 +55,7 @@ describe('the Help category', () => {
       PIN_ROW,
       'Show Tab Keeper next to the address bar, one click away.',
       'Learn the basics',
-      'A short tour on an example session, removed when you’re done.',
+      'A one-minute tour of this view. Your open tabs and saved sessions stay just as they are.',
     ]) {
       expect(screen.getByText(text)).toBeInTheDocument();
     }
@@ -151,17 +158,29 @@ describe('the Help category', () => {
     expect(chrome.sentMessages).toEqual([]);
   });
 
-  test('Show me around leaves Settings and starts the tour in this view', async () => {
+  test('Show me around leaves Settings and records the popup run at its save card (R11)', async () => {
     const { store } = await renderHelp();
     await read('unpinned');
     await store.dispatch(openSettingsPage(SettingsCategory.HELP));
     fireEvent.click(screen.getByRole('button', { name: 'Show me around' }));
     await waitFor(() =>
-      expect(store.getState().settingsDataState.sampleTour).toMatchObject({
-        step: 1,
-        view: 'popup',
-      })
+      expect(store.getState().settingsDataState.firstRun).toEqual(
+        newRun('popup', 1)
+      )
     );
     expect(store.getState().globalState.isSettingsPage).toBe(false);
+    expect(store.getState().globalState.isRunHere).toBe(true);
+  });
+
+  test('in the full view, Show me around records the run at its Hello (R11)', async () => {
+    history.replaceState(null, '', '?view=tab');
+    const { store } = await renderHelp();
+    await read('unpinned');
+    fireEvent.click(screen.getByRole('button', { name: 'Show me around' }));
+    await waitFor(() =>
+      expect(store.getState().settingsDataState.firstRun).toEqual(
+        newRun('full', 0, 'welcome')
+      )
+    );
   });
 });

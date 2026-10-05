@@ -48,6 +48,7 @@ async function render(props: Partial<Props> = {}) {
   await renderWithProviders(
     <CoachMark
       step={1}
+      total={5}
       text={TEXT}
       anchors={['[data-test-anchor]']}
       width={300}

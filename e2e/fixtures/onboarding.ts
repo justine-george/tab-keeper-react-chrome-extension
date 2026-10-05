@@ -82,3 +82,12 @@ export async function pageGround(page: Page): Promise<string> {
     })
   );
 }
+
+// Two frames after a barrier, so a negative is read after the page had its chance to draw.
+export const twoFrames = (page: Page) =>
+  page.evaluate(
+    () =>
+      new Promise<void>((done) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => done()))
+      )
+  );

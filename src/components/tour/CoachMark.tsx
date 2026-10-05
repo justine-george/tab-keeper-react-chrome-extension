@@ -21,11 +21,11 @@ import {
   type Size,
 } from './coachMarkPlacement';
 import type { AnchorBox, Spotlight } from './anchorBox';
-import { TOUR_STEPS, type TourStep } from '../../utils/functions/sampleTour';
 import { TYPE } from '../../styles/scale';
 
 interface CoachMarkProps {
-  step: TourStep;
+  step: number;
+  total: number;
   text: string;
   anchors: readonly string[];
   boxOf?: AnchorBox;
@@ -109,6 +109,7 @@ const swallow = (event: SyntheticEvent) => {
 // KAN-413. One step's coach mark in the callout's style; not modal, takes no focus.
 export default function CoachMark({
   step,
+  total,
   text,
   anchors,
   boxOf,
@@ -125,7 +126,7 @@ export default function CoachMark({
   const markRef = useRef<HTMLDivElement>(null);
   const frame = useCoachPlacement(markRef, anchors, place, boxOf, spotlight);
   const buttons = dialogButtonStyles(COLORS);
-  const isLast = step === TOUR_STEPS;
+  const isLast = step === total;
   const isPlaced = frame !== null;
 
   // Esc is Skip tutorial (Finish at step 5), only while the mark is drawn.
@@ -237,7 +238,7 @@ export default function CoachMark({
           />
         )}
         <p css={stepStyle}>
-          {t('Step {{n}} of {{total}}', { n: step, total: TOUR_STEPS })}
+          {t('Step {{n}} of {{total}}', { n: step, total })}
         </p>
         <p id={textId} css={textStyle}>
           {text}

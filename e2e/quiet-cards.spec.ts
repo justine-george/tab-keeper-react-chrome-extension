@@ -7,9 +7,13 @@ import {
   seedSessions,
   seedSettingsIfAbsent,
 } from './fixtures/seed';
-import { openFullView, openPopup, storedSettings } from './fixtures/onboarding';
+import {
+  openFullView,
+  openPopup,
+  storedSettings,
+  twoFrames,
+} from './fixtures/onboarding';
 import { stubToolbarPin } from './fixtures/toolbarPin';
-import { twoFrames } from './fixtures/tour';
 import { CARD_DELAY_MS } from '../src/utils/constants/cardDelay';
 import { EASE } from '../src/styles/scale';
 

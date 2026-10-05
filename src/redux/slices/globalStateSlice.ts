@@ -182,10 +182,6 @@ export interface Global {
   // beside Open now until the fold button is next pressed. Session-only, so
   // a new page opens as the stored setting says.
   isPeekingSavedSession: boolean;
-  // KAN-413. The sample this page runs the tour for; page-local, so a reload runs none.
-  tourSampleIdHere: string | null;
-  // KAN-413. Once a tour ran here, this open's first-open dialogs stand down.
-  hasTourRunHere: boolean;
   // The run shows in this page, which holds its lock; a reload shows it only by resuming.
   isRunHere: boolean;
   // Once the run showed here, this open's first-open dialogs and quiet cards stand down.
@@ -300,8 +296,6 @@ export const initialState: Global = {
   syncsInFlight: 0,
   isSyncQueued: false,
   isPeekingSavedSession: false,
-  tourSampleIdHere: null,
-  hasTourRunHere: false,
   isRunHere: false,
   hasRunShownHere: false,
   runSaveCard: null,
@@ -1230,15 +1224,6 @@ export const globalStateSlice = createSlice({
       state.isPeekingSavedSession = false;
     },
 
-    tourStartedHere: (state, action: PayloadAction<string>) => {
-      state.tourSampleIdHere = action.payload;
-      state.hasTourRunHere = true;
-    },
-
-    tourStoppedHere: (state) => {
-      state.tourSampleIdHere = null;
-    },
-
     runShownHere: (state) => {
       state.isRunHere = true;
       state.hasRunShownHere = true;
@@ -1402,8 +1387,6 @@ export const {
   setAllWindowsCollapsed,
   peekSavedSession,
   endSavedSessionPeek,
-  tourStartedHere,
-  tourStoppedHere,
   runShownHere,
   runStoppedHere,
   setRunSaveCard,

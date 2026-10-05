@@ -1,12 +1,7 @@
 import type { Page } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
-import {
-  buildContainer,
-  buildSession,
-  seedSessions,
-  seedSettingsIfAbsent,
-} from './fixtures/seed';
+import { seedSettingsIfAbsent } from './fixtures/seed';
 import {
   THEMES,
   openFullView,
@@ -17,7 +12,6 @@ import {
 } from './fixtures/onboarding';
 import { stubToolbarPin } from './fixtures/toolbarPin';
 import { expectReadable } from './fixtures/textContrast';
-import { coachAt, storedTitles } from './fixtures/tour';
 
 // KAN-7 Help on the real build: the rows, and where each leads from each view.
 
@@ -97,21 +91,19 @@ test('pinned: there is no pin row', async ({ context, extensionId }) => {
   await expect(row(popup, 'Run setup again')).toBeVisible();
 });
 
-test('popup: Show me around returns home and starts the tour beside the sessions there', async ({
+test('popup: Show me around returns home and records the popup run at its save card', async ({
   context,
   extensionId,
 }) => {
-  await seedSessions(
-    context,
-    buildContainer([buildSession({ title: 'Kept' })])
-  );
   const popup = await openPopup(context, extensionId);
   await openHelp(popup);
   await row(popup, 'Show me around').click();
-  await expect(coachAt(popup, 1)).toBeVisible();
+  await expect(
+    popup.locator('[aria-label="Sort sessions"]').first()
+  ).toBeVisible();
   await expect
-    .poll(() => storedTitles(popup))
-    .toEqual(['Sample: Weekend trip', 'Kept']);
+    .poll(async () => (await storedSettings(popup)).firstRun)
+    .toMatchObject({ view: 'popup', step: 1, sessionId: null, ended: null });
 });
 
 test.describe('contrast', () => {

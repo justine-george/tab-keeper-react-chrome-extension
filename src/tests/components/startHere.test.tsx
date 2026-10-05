@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, test } from 'vitest';
-import { act, screen, waitFor, within } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { act, screen, within } from '@testing-library/react';
 
 import TabGroupEntryContainer from '../../components/home/leftpane/TabGroupEntryContainer';
 import RightPane from '../../components/home/rightpane/RightPane';
@@ -8,20 +7,15 @@ import { renderWithProviders } from '../setup/renderWithProviders';
 import { buildContainer, buildSession } from '../fixtures/sessionFixture';
 import { replaceState } from '../../redux/slices/tabContainerDataStateSlice';
 import { setSearchInputText } from '../../redux/slices/globalStateSlice';
-import { recordValueMoment } from '../../redux/slices/settingsDataStateSlice';
-import {
-  IS_DIRTY_ACTION,
-  SAVE_TAB_CONTAINER_ACTION,
-} from '../../utils/constants/actionTypes';
 
-// The empty saved list starts here; the detail pane says where sessions will show; the example button starts the tour.
+// The empty saved list starts here; the detail pane says where sessions will show.
 
 const heading = () => screen.queryByRole('heading', { name: 'Start here' });
 
 afterEach(() => localStorage.clear());
 
 describe('the Start here card', () => {
-  test('an empty list shows three steps and the sample button', async () => {
+  test('an empty list shows three steps', async () => {
     await renderWithProviders(<TabGroupEntryContainer />);
 
     expect(heading()).toBeInTheDocument();
@@ -39,41 +33,13 @@ describe('the Start here card', () => {
         name: 'Save all open windows as a session',
       })
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: 'Try it with an example' })
-    ).toBeInTheDocument();
   });
 
-  test('Try it with an example starts the tour on one ordinary session: selected, saved, synced, and no value moment', async () => {
-    const { store, seen } = await renderWithProviders(
-      <TabGroupEntryContainer />
-    );
-
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Try it with an example' })
-    );
-
-    await waitFor(() =>
-      expect(store.getState().settingsDataState.sampleTour).not.toBeNull()
-    );
-    const { tabGroups, selectedTabGroupId } =
-      store.getState().tabContainerDataState;
-    expect(tabGroups.map((g) => g.title)).toEqual(['Sample: Weekend trip']);
-    expect(tabGroups[0].windows.map((w) => [w.title, w.tabs.length])).toEqual([
-      ['Getting there', 3],
-      ['Things to do', 2],
-    ]);
-    expect(selectedTabGroupId).toBe(tabGroups[0].tabGroupId);
-    expect(store.getState().settingsDataState.sampleTour).toEqual({
-      sampleId: tabGroups[0].tabGroupId,
-      step: 1,
-      view: 'popup',
-    });
-    expect(seen).toContain(SAVE_TAB_CONTAINER_ACTION);
-    expect(seen).toContain(IS_DIRTY_ACTION);
-    expect(seen).not.toContain(recordValueMoment.type);
-    expect(store.getState().settingsDataState.lastValueMomentTime).toBe('');
-    expect(heading()).not.toBeInTheDocument();
+  test('the card offers no example: the run is reached from Help', async () => {
+    await renderWithProviders(<TabGroupEntryContainer />);
+    expect(
+      screen.queryByRole('button', { name: 'Try it with an example' })
+    ).toBeNull();
   });
 
   test('a search with nothing saved shows no card', async () => {
