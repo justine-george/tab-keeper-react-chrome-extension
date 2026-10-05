@@ -92,6 +92,7 @@ afterEach(() => {
   locks.uninstall();
   localStorage.clear();
   history.replaceState(null, '', '?');
+  vi.useRealTimers();
   vi.restoreAllMocks();
 });
 
@@ -459,14 +460,15 @@ describe('no ending deletes what the user made (safety)', () => {
   );
 
   test('⌘Z of the user’s own save: the run ends quietly and removes nothing itself', async () => {
-    // One instant for both saves: the list orders by edit time, and a tick between them reorders it.
-    vi.spyOn(Date, 'now').mockReturnValue(5_000_000);
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(5_000_000);
     const { store, seen } = makeTestStore();
     store.dispatch(saveToTabContainerInternal(OLDER));
     await store.dispatch(startRun(newRun('popup', 1)));
+    vi.setSystemTime(5_001_000);
     store.dispatch(saveToTabContainerInternal(OWN));
     store.dispatch(takeRunSave('own'));
-    expect(ids(store)).toEqual(['older', 'own']);
+    expect(ids(store)).toEqual(['own', 'older']);
     store.dispatch(undo());
     expect(ids(store)).toEqual(['older']);
     store.dispatch(reconcileRunHere());
