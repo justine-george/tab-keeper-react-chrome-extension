@@ -1,8 +1,9 @@
-import { describe, expect, test } from 'vitest';
+import { afterEach, describe, expect, test } from 'vitest';
 
 import {
   LANGUAGE_OPTIONS,
   chromeLanguageFirst,
+  chromeLanguageOrder,
 } from '../../components/settings/rightpane/languageOptions';
 import { Language } from '../../redux/slices/settingsDataStateSlice';
 
@@ -37,5 +38,31 @@ describe('chromeLanguageFirst', () => {
 
   test.each(Object.values(Language))('%s: all thirteen, once each', (c) => {
     expect(new Set(chromeCodes(c)).size).toBe(13);
+  });
+});
+
+describe('chromeLanguageOrder reads Chrome’s tag', () => {
+  const g = globalThis as { chrome?: unknown };
+  const original = g.chrome;
+  afterEach(() => {
+    g.chrome = original;
+  });
+  const orderFor = (tag: string) => {
+    g.chrome = { i18n: { getUILanguage: () => tag } };
+    return chromeLanguageOrder().map(([code]) => code);
+  };
+
+  test.each(['zh-Hant-TW', 'zh-HK'])(
+    '%s puts Traditional Chinese first',
+    (tag) => {
+      expect(orderFor(tag)).toEqual([
+        'zh-TW',
+        ...pickerCodes.filter((c) => c !== 'zh-TW'),
+      ]);
+    }
+  );
+
+  test('a tag this build does not ship leaves the picker order exactly', () => {
+    expect(orderFor('pl-PL')).toEqual(pickerCodes);
   });
 });

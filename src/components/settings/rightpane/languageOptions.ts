@@ -29,8 +29,7 @@ export const LANGUAGE_OPTIONS: ReadonlyArray<[Language, string]> = [
   [Language.ZH_TW, '繁體中文'],
 ];
 
-// KAN-420. Chrome's language first when this build ships it, else the picker
-// order; a pick never moves, so this is read once and not from the setting.
+// Chrome's language first when this build ships it, else the picker order.
 export function chromeLanguageFirst(
   uiLanguage: Language | undefined
 ): ReadonlyArray<[Language, string]> {
@@ -40,7 +39,7 @@ export function chromeLanguageFirst(
   ];
 }
 
-// Chrome's language is read here, once, by whoever mounts the grid.
+// Reads Chrome's language on every call; callers read it once, in useState, so a pick never reorders.
 export function chromeLanguageOrder(): ReadonlyArray<[Language, string]> {
   return chromeLanguageFirst(
     matchUiLanguage(readUiLanguage(), SHIPPED_LANGUAGES)

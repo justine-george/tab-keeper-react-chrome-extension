@@ -20,6 +20,7 @@ import {
   settingsDataStateSlice,
   type SettingsData,
 } from '../../redux/slices/settingsDataStateSlice';
+import { LIGHT_THEME } from '../../hooks/useThemeColors';
 import { CHROME_SHORTCUTS_URL } from '../../hooks/usePopupShortcut';
 
 // KAN-7 §5. Four steps; each pick applies at once; Done, Skip setup, ✕ and Esc
@@ -133,6 +134,31 @@ describe('Make Tab Keeper yours', () => {
     expect(
       english?.querySelector('.material-symbols-outlined')?.textContent
     ).toBe('check');
+  });
+
+  test('the pressed language cell is filled TEXT with a PRIMARY label; the others stay unfilled', async () => {
+    await render();
+    press('Next');
+    const asWritten = (hex: string) => {
+      const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+      return new RegExp(`(${hex}|rgb\\(${r}, ?${g}, ?${b}\\))`, 'i');
+    };
+    const cell = (code: string) => {
+      const el = dialog().querySelector(`button[lang="${code}"]`);
+      if (!(el instanceof HTMLElement)) throw new Error(`no cell ${code}`);
+      return el;
+    };
+    const pressed = getComputedStyle(cell('en'));
+    expect(pressed.backgroundColor).toMatch(asWritten(LIGHT_THEME.TEXT_COLOR));
+    expect(pressed.color).toMatch(asWritten(LIGHT_THEME.PRIMARY_COLOR));
+    expect(
+      cell('en').querySelector('.material-symbols-outlined')
+    ).not.toBeNull();
+    const other = getComputedStyle(cell('de'));
+    expect(other.backgroundColor).not.toMatch(
+      asWritten(LIGHT_THEME.TEXT_COLOR)
+    );
+    expect(cell('de').querySelector('.material-symbols-outlined')).toBeNull();
   });
 
   test('Chrome in Japanese puts 日本語 first, even when the current language is another', async () => {
