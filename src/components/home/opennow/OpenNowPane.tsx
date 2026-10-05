@@ -56,6 +56,8 @@ export type OpenNowHeaderAction = {
   // Already translated; it is the control's accessible name and its tooltip.
   label: string;
   onClick: () => void;
+  // The run's coach mark finds this action by it.
+  tourAnchor?: string;
 };
 
 interface OpenNowPaneProps {
@@ -536,6 +538,7 @@ export default function OpenNowPane({
               tooltipText={action.label}
               ariaLabel={action.label}
               type={action.icon}
+              tourAnchor={action.tourAnchor}
               onClick={action.onClick}
             />
           ))}

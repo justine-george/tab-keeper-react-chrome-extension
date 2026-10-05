@@ -95,6 +95,38 @@ export const selectIsRunCardShown = (state: RootState): boolean => {
   return run.sessionId !== null && shown?.tabGroupId === run.sessionId;
 };
 
+const ROW_KINDS = ['row', 'open', 'switch', 'delete'] as const;
+
+// Spec delta 2: the row the run points at is drawn engaged, so its Open, Switch and Delete show.
+export const selectRunEngagedRowId = (state: RootState): string | null => {
+  const run = selectRunHere(state);
+  if (run === null || !selectIsRunCardShown(state)) return null;
+  const kind = runStepKind(run.view, run.step);
+  return ROW_KINDS.some((k) => k === kind) ? run.sessionId : null;
+};
+
+// Hard rule 2: while the Delete step shows, the run's Delete explains only.
+export const selectRunHoldsDelete = (
+  state: RootState,
+  tabGroupId: string
+): boolean => {
+  const run = selectRunHere(state);
+  return (
+    run !== null &&
+    run.sessionId === tabGroupId &&
+    runStepKind(run.view, run.step) === 'delete'
+  );
+};
+
+// The row button the current step lights, if it is one the run also blocks.
+export const selectRunLitRowButton = (
+  state: RootState
+): 'open' | 'switch' | null => {
+  const run = selectRunHere(state);
+  const kind = run === null ? null : runStepKind(run.view, run.step);
+  return kind === 'open' || kind === 'switch' ? kind : null;
+};
+
 const hasSession = (state: RootState, id: string): boolean =>
   state.tabContainerDataState.tabGroups.some((g) => g.tabGroupId === id);
 

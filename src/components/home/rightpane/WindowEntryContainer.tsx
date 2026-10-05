@@ -647,6 +647,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
           <Icon
             faviconUrl={resolveFaviconUrl(favicon, url)}
             type="globe"
+            tourAnchor="tab-dot"
             style={`&:hover {background-color: unset;}`}
           />
           <div css={windowChildLinkStyle}>

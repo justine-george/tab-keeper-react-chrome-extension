@@ -67,11 +67,13 @@ function OpenNowColumn({ folded }: OpenNowColumnProps) {
         icon: 'keyboard_double_arrow_right',
         label: t('Show the saved session'),
         onClick: () => setFolded(false),
+        tourAnchor: 'fold',
       }
     : {
         icon: 'keyboard_double_arrow_left',
         label: t('Fold the saved session away'),
         onClick: () => setFolded(true),
+        tourAnchor: 'fold',
       };
 
   // The windows are read here, above the swap, so a resize does not re-read.

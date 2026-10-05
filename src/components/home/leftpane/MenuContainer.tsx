@@ -345,6 +345,7 @@ export default function MenuContainer() {
           directly; see handleClickOpenInTab above for why. */}
         {!isTabView() && (
           <span
+            data-tour-anchor="expand"
             css={css`
               position: relative;
               display: inline-flex;

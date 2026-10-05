@@ -25,6 +25,11 @@ import { DURATION, TYPE } from '../../../styles/scale';
 import { springSweepStyle } from '../../common/springOpen';
 import { SAVED_TEXT_INSET } from './savedListInset';
 import { useIsOpenBlockedByTour } from '../../../hooks/useIsOpenBlockedByTour';
+import {
+  selectRunEngagedRowId,
+  selectRunHoldsDelete,
+  selectRunLitRowButton,
+} from '../../../redux/firstRun';
 
 /**
  * How far a row's action icon sits inside the row, per side, in CSS px.
@@ -102,9 +107,23 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
   const openBlockedBecause = isOpenBlocked
     ? t('Open works after the tour')
     : null;
-  const openIconStyle = `padding: 14px 10px; width: 57px;${
-    isOpenBlocked ? ' filter: opacity(0.3);' : ''
-  }`;
+  const isRunEngaged = useSelector(
+    (state: RootState) =>
+      selectRunEngagedRowId(state) === tabGroupData.tabGroupId
+  );
+  const holdsDelete = useSelector((state: RootState) =>
+    selectRunHoldsDelete(state, tabGroupData.tabGroupId)
+  );
+  // The button the step lights stays at full strength, though still blocked.
+  const litButton = useSelector((state: RootState) =>
+    selectRunEngagedRowId(state) === tabGroupData.tabGroupId
+      ? selectRunLitRowButton(state)
+      : null
+  );
+  const blockedStyle = (lit: boolean) =>
+    `padding: 14px 10px; width: 57px;${
+      isOpenBlocked && !lit ? ' filter: opacity(0.3);' : ''
+    }`;
 
   // A plain string, not css``, because it is handed to ClickableRow's `style`
   // prop, which composes it into the button's own reset.
@@ -326,6 +345,10 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
     &:has(:focus-visible) {
       ${engagedStyle}
     }
+    /* The run points at this row: one more condition for the same engaged look. */
+    &[data-run-engaged] {
+      ${engagedStyle}
+    }
     /* After the two rules above, so a press wins over a hover -- the pointer is
        necessarily hovering whatever it is pressing. */
     &:active {
@@ -390,6 +413,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
   return (
     <div
       css={containerStyle}
+      data-run-engaged={isRunEngaged ? '' : undefined}
       data-carry-target={carryTarget === undefined ? undefined : ''}
       data-carry-dwell={carryTarget?.dwellSweep ? '' : undefined}
       data-carry-origin={carryOrigin ? '' : undefined}
@@ -449,12 +473,13 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
             text={t('Open')}
             ariaLabel={t('Open')}
             type="reopen_window"
+            tourAnchor="row-open"
             disable={isOpenBlocked}
             onClick={(e) => {
               e.stopPropagation();
               onOpenAllClick(e);
             }}
-            style={openIconStyle}
+            style={blockedStyle(litButton === 'open')}
           />
           {/* KAN-279 D7. Switching closes the windows hosting Tab Keeper
               itself when this page IS the tab view, so hidden there. */}
@@ -464,12 +489,13 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
               text={t('Switch')}
               ariaLabel={t('Switch')}
               type="filter_center_focus"
+              tourAnchor="row-switch"
               disable={isOpenBlocked}
               onClick={(e) => {
                 e.stopPropagation();
                 onFocusClick(e);
               }}
-              style={openIconStyle}
+              style={blockedStyle(litButton === 'switch')}
             />
           )}
           <Icon
@@ -477,6 +503,8 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
             text={t('Delete')}
             ariaLabel={t('Delete')}
             type="delete"
+            tourAnchor="row-delete"
+            disable={holdsDelete}
             onClick={(e) => {
               e.stopPropagation();
               onDeleteClick(e);

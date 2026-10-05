@@ -185,7 +185,7 @@ export default function UserInputContainer() {
   `;
 
   return (
-    <div css={containerStyle}>
+    <div css={containerStyle} data-tour-anchor="save">
       <TextBox
         id="name"
         name="name"

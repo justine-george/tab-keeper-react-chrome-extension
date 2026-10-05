@@ -353,7 +353,7 @@ export default function TabGroupEntryContainer() {
   `;
 
   return (
-    <div css={listBoxStyle}>
+    <div css={listBoxStyle} data-tour-anchor="sessions">
       <SearchRow
         text={searchText}
         onTextChange={(text) => dispatch(setSearchInputText(text))}
