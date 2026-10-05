@@ -63,7 +63,7 @@ const twoGroupsUngranted = {
   tabs: [{ groupId: 11 }, { groupId: 12 }, { groupId: -1 }],
 };
 
-// KAN-74. Both modals are position:fixed at z-index 999, so they must never
+// KAN-74. Both modals are top-layer dialogs, so they must never
 // open together; openFirstDialog opens only the first yes in its ordered list.
 // The decisions are covered elsewhere; this pins the order App's list gives.
 describe('modal coordination on popup open', () => {

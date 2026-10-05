@@ -51,7 +51,7 @@ const brightBox = (page: Page) =>
     return { left, top, right, bottom };
   });
 
-// The ring's box, and the step-1 box: the window rows' union, RING_INSET outside.
+// The ring's box, the box it rings, and the step-4 box: the window rows' union.
 const measured = (page: Page) =>
   page.evaluate(
     ({ inset, rows }) => {
@@ -72,12 +72,20 @@ const measured = (page: Page) =>
       const first = document.querySelector(rows)?.getBoundingClientRect();
       return {
         ring: ring ? rect(ring.getBoundingClientRect()) : null,
+        ringed: ring
+          ? {
+              left: ring.getBoundingClientRect().left + inset,
+              top: ring.getBoundingClientRect().top + inset,
+              right: ring.getBoundingClientRect().right - inset,
+              bottom: ring.getBoundingClientRect().bottom - inset,
+            }
+          : null,
         firstTab: first ? rect(first) : null,
         rows: {
-          left: Math.min(...boxes.map((b) => b.left)) - inset,
-          top: Math.min(...boxes.map((b) => b.top)) - inset,
-          right: Math.max(...boxes.map((b) => b.right)) + inset,
-          bottom: Math.max(...boxes.map((b) => b.bottom)) + inset,
+          left: Math.min(...boxes.map((b) => b.left)),
+          top: Math.min(...boxes.map((b) => b.top)),
+          right: Math.max(...boxes.map((b) => b.right)),
+          bottom: Math.max(...boxes.map((b) => b.bottom)),
         },
       };
     },
@@ -174,7 +182,7 @@ const sampleWindows = async (page: Page): Promise<string[][]> => {
 
 for (const view of TOUR_VIEWS) {
   test.describe(view.name, () => {
-    test('step 1: outside the ring the page is under the theme’s scrim, inside it is not', async ({
+    test('step 1: outside the bright box the page is under the theme’s scrim, inside it is not', async ({
       context,
       extensionId,
     }) => {
@@ -184,7 +192,7 @@ for (const view of TOUR_VIEWS) {
       expect(ground).toBe(LIGHT_THEME.PRIMARY_COLOR);
       await expect
         .poll(async () =>
-          sameRect(await brightBox(page), (await measured(page)).ring)
+          sameRect(await brightBox(page), (await measured(page)).ringed)
         )
         .toBe(true);
       const ring = (await measured(page)).ring;
@@ -393,7 +401,12 @@ for (const view of TOUR_VIEWS) {
       await expect(card).toBeVisible();
       await expect.poll(() => cardIsUndimmed(page, card)).toBe(true);
       // Out over the session list, outside the bright box: a carry.
-      await page.mouse.move(180, 400, { steps: 25 });
+      const sessions = await boxOf(page.locator('[data-pane="sessions"]'));
+      await page.mouse.move(
+        sessions.x + sessions.width / 2,
+        sessions.y + sessions.height * 0.8,
+        { steps: 25 }
+      );
       const carried = page.locator('[data-carry-card]');
       await expect(carried).toBeVisible();
       const box = await boxOf(carried);
@@ -427,6 +440,29 @@ for (const view of TOUR_VIEWS) {
       await expect(coach(page)).toHaveCount(0);
       await expect(dim(page)).toHaveCount(0);
       expect(context.pages()).toHaveLength(pages);
+    });
+
+    test('step 5: a press just outside Delete’s box, on the item above it, does nothing', async ({
+      context,
+      extensionId,
+    }) => {
+      const page = await startTour(context, extensionId, view);
+      for (const step of [2, 3, 4, 5]) await nextTo(page, step);
+      const deleteItem = page.getByRole('menuitem', {
+        name: 'Delete session',
+        exact: true,
+      });
+      await expect(deleteItem).toBeVisible();
+      const box = await boxOf(deleteItem);
+      const [x, y] = [box.x + box.width / 2, box.y - 2];
+      expect(await hitAt(page, x, y)).toBe('dim');
+      await page.mouse.click(x, y);
+      await expect(deleteItem).toBeVisible();
+      await expect(coachAt(page, 5)).toBeVisible();
+      // CONTROL and barrier: a press just inside Delete's box takes the press and ends the tour.
+      expect(await hitAt(page, x, box.y + 2)).not.toBe('dim');
+      await page.mouse.click(x, box.y + 2);
+      await expect(coach(page)).toHaveCount(0);
     });
 
     test('a toast during the tour is drawn over the dim and takes the pointer', async ({

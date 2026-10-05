@@ -196,7 +196,7 @@ export default function CoachMark({
           data-coach-dim
           css={dimStyle}
           onMouseDown={swallow}
-          style={{ clipPath: clipPathWithHole(ringBox(frame.bright)) }}
+          style={{ clipPath: clipPathWithHole(frame.bright) }}
         />
       )}
       {frame && (

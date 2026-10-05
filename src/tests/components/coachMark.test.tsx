@@ -240,7 +240,7 @@ describe('the coach mark', () => {
   });
 
   // KAN-421. The page is dimmed and takes no press outside the bright box.
-  test('placed, the dim covers the page, takes the pointer, and leaves the ring’s box bright', async () => {
+  test('placed, the dim covers the page, takes the pointer, and leaves exactly the anchor’s box bright', async () => {
     await render();
     await placed();
     expect(ring()?.style).toMatchObject({
@@ -249,9 +249,11 @@ describe('the coach mark', () => {
       width: '208px',
       height: '48px',
     });
-    expect(dim()?.style.clipPath).toBe(hole(396, 96, 208, 48));
+    expect(dim()?.style.clipPath).toBe(hole(400, 100, 200, 40));
     expect(dim()).toHaveAttribute('aria-hidden', 'true');
-    const style = getComputedStyle(dim() as HTMLElement);
+    const dimEl = dim();
+    if (!(dimEl instanceof HTMLElement)) throw new Error('no dim');
+    const style = getComputedStyle(dimEl);
     expect({
       position: style.position,
       inset: style.getPropertyValue('inset'),
@@ -268,7 +270,7 @@ describe('the coach mark', () => {
     expect(dim()?.tabIndex).toBe(-1);
   });
 
-  test('a press on the dim moves no focus and reaches no listener outside it', async () => {
+  test('a press on the dim is default-prevented and reaches no listener outside it', async () => {
     await render();
     await placed();
     const outside = vi.fn();
@@ -295,7 +297,7 @@ describe('the coach mark', () => {
       bottom: 340,
     });
     await waitFor(() => expect(ring()?.style.top).toBe('296px'));
-    expect(dim()?.style.clipPath).toBe(hole(396, 296, 208, 48));
+    expect(dim()?.style.clipPath).toBe(hole(400, 300, 200, 40));
   });
 
   test('a spotlight lights its own box while the ring stays on the anchor, and follows it', async () => {
@@ -323,24 +325,24 @@ describe('the coach mark', () => {
     });
     await placed();
     await waitFor(() =>
-      expect(dim()?.style.clipPath).toBe(hole(376, 56, 308, 208))
+      expect(dim()?.style.clipPath).toBe(hole(380, 60, 300, 200))
     );
     expect(ring()?.style.top).toBe('96px');
     expect(ring()?.style.height).toBe('48px');
     litTop = 80;
     await waitFor(() =>
-      expect(dim()?.style.clipPath).toBe(hole(376, 76, 308, 208))
+      expect(dim()?.style.clipPath).toBe(hole(380, 80, 300, 200))
     );
     lit.remove();
   });
 
-  test('a spotlight with nothing drawn lights the ring’s box', async () => {
+  test('a spotlight with nothing drawn lights the anchor’s box', async () => {
     await render({
       spotlight: { anchors: ['[data-missing]'], boxOf: () => null },
     });
     await placed();
     await twoFrames();
-    expect(dim()?.style.clipPath).toBe(hole(396, 96, 208, 48));
+    expect(dim()?.style.clipPath).toBe(hole(400, 100, 200, 40));
   });
 
   test('unplaced again, the dim goes with the mark', async () => {
@@ -358,7 +360,9 @@ describe('the coach mark', () => {
     await placed();
     // jsdom drops the space after each comma.
     const plain = (shadow: string) => shadow.replace(/,\s*/g, ',');
-    expect(plain(getComputedStyle(mark() as HTMLElement).boxShadow)).toBe(
+    const markEl = mark();
+    if (!(markEl instanceof HTMLElement)) throw new Error('no mark');
+    expect(plain(getComputedStyle(markEl).boxShadow)).toBe(
       plain(LIGHT_THEME.FLOATING_SHADOW)
     );
   });
