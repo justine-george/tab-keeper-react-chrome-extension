@@ -62,6 +62,18 @@ describe('the pin guide', () => {
     );
   });
 
+  test('a line under the title says why to pin, and describes the dialog', async () => {
+    await render();
+    const why = openGuide().querySelector('[data-pin-why]');
+    expect(why).toHaveTextContent(
+      'Save your windows or bring back a session in one click, from any tab.'
+    );
+    expect(why?.previousElementSibling).toContainElement(
+      screen.getByRole('heading', { name: 'Pin Tab Keeper to your toolbar' })
+    );
+    expect(openGuide()).toHaveAccessibleDescription(why?.textContent ?? '');
+  });
+
   test("only steps 1 and 3 draw Chrome's ⋮", async () => {
     await render();
     const kebabs = [...openGuide().querySelectorAll('ol > li')].map(

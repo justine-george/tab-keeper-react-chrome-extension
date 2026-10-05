@@ -290,5 +290,6 @@
   "Opens next to this tab. Close it to come back.": "이 탭 옆에서 열립니다. 닫으면 돌아옵니다.",
   "A session keeps windows and tabs together. This one has 2 windows and 5 tabs. Fold a window with its arrow. Try it, or press Next.": "세션은 창과 탭을 함께 보관합니다. 이 세션에는 창 2개와 탭 5개가 있습니다. 화살표로 창을 접어 보세요. 직접 해 보거나 다음을 누르세요.",
   "Click the title to rename the session. Try it, or press Next.": "제목을 클릭하면 세션 이름을 바꿀 수 있습니다. 직접 해 보거나 다음을 누르세요.",
-  "Drag a tab to reorder it, or into the other window. Try it, or press Next.": "탭을 끌어서 순서를 바꾸거나 다른 창으로 옮길 수 있습니다. 직접 해 보거나 다음을 누르세요."
+  "Drag a tab to reorder it, or into the other window. Try it, or press Next.": "탭을 끌어서 순서를 바꾸거나 다른 창으로 옮길 수 있습니다. 직접 해 보거나 다음을 누르세요.",
+  "Save your windows or bring back a session in one click, from any tab.": "어느 탭에서든 한 번의 클릭으로 창을 저장하거나 세션을 되살릴 수 있습니다."
 }

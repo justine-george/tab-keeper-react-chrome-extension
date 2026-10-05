@@ -23,6 +23,7 @@ import { ICON, TYPE } from '../../styles/scale';
 import { dialogButtonStyles } from './dialogButtons';
 
 const TITLE_ID = 'pin-guide-title';
+const WHY_ID = 'pin-guide-why';
 // §4: the spec's value (the mock fixed none): long enough to read "Pinned".
 const CLOSE_AFTER_PIN_MS = 1500;
 // 107px: the puzzle piece's centre from the window's right edge in Justine's Chrome, left of profile and ⋮.
@@ -133,7 +134,12 @@ export const PinGuideModal: React.FC = () => {
     display: flex;
     align-items: center;
     gap: 8px;
+    margin: 0 0 6px 0;
+  `;
+  const whyStyle = css`
     margin: 0 0 16px 0;
+    font-size: ${TYPE.SECONDARY};
+    color: ${COLORS.LABEL_L1_COLOR};
   `;
   const titleStyle = css`
     flex: 1;
@@ -207,6 +213,7 @@ export const PinGuideModal: React.FC = () => {
       tabIndex={-1}
       css={dialogStyle}
       aria-labelledby={TITLE_ID}
+      aria-describedby={WHY_ID}
       onCancel={(e) => {
         e.preventDefault();
         dismiss();
@@ -230,6 +237,11 @@ export const PinGuideModal: React.FC = () => {
           onClick={dismiss}
         />
       </div>
+      <p id={WHY_ID} data-pin-why css={whyStyle}>
+        {t(
+          'Save your windows or bring back a session in one click, from any tab.'
+        )}
+      </p>
       <ol css={stepsStyle}>
         {steps.map((step, index) => (
           <li key={step.caption} css={stepStyle}>

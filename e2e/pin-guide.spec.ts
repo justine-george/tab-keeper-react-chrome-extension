@@ -392,6 +392,10 @@ for (const [theme, palette] of THEMES) {
     const page = await openFullView(context, extensionId);
     expect(await pageGround(page)).toBe(palette.PRIMARY_COLOR);
     await expectReadable(guide(page), `${theme} pin guide, waiting`);
+    await expectReadable(
+      guide(page).locator('[data-pin-why]'),
+      `${theme} pin guide, why line`
+    );
     await setPin(page, true);
     await expect(
       guide(page).getByRole('status').locator('[data-pin-status-words]')
