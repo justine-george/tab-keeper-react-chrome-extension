@@ -62,6 +62,30 @@ export async function nextTo(page: Page, step: number): Promise<void> {
   await expect(coachAt(page, step)).toBeVisible();
 }
 
+// The full view's saved list unfolded by its own button, a stored choice the next full view opens with.
+export async function keepSavedSessionShown(page: Page): Promise<void> {
+  await page
+    .getByRole('button', { name: 'Fold the saved session away', exact: true })
+    .click();
+  await page
+    .getByRole('button', { name: 'Show the saved session', exact: true })
+    .click();
+  await expect
+    .poll(async () => (await storedSettings(page)).foldSavedSessionInTabView)
+    .toBe(false);
+}
+
+// A folded full view's sample shown by clicking its row, as a user peeks it; its windows are then drawn.
+export async function peekSample(page: Page): Promise<void> {
+  await page
+    .locator('[data-pane="sessions"]')
+    .getByRole('button', { name: SAMPLE_TITLE, exact: true })
+    .click();
+  await expect(
+    page.locator('[data-pane="detail"] [data-tour-anchor="windows"]')
+  ).toBeVisible();
+}
+
 export async function storedTour(page: Page): Promise<unknown> {
   return (await storedSettings(page)).sampleTour ?? null;
 }

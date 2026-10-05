@@ -1,3 +1,5 @@
+import type { BrowserContext, Page } from '@playwright/test';
+
 import { test, expect } from './fixtures/extension';
 import { seedSettingsIfAbsent } from './fixtures/seed';
 import {
@@ -21,7 +23,9 @@ import {
   coachSeen,
   dragFirstTabDown,
   expectAimedAndClear,
+  keepSavedSessionShown,
   nextTo,
+  peekSample,
   startTour,
   storedTitles,
   storedTour,
@@ -157,6 +161,8 @@ for (const view of TOUR_VIEWS) {
       const page = await startTour(context, extensionId, view);
       await nextTo(page, 2);
       expect(await coachSeen(page)).toEqual(['1', '2']);
+      // A full view opens folded; unfolded for good, the next one draws the sample as it loads.
+      if (view.view === 'full') await keepSavedSessionShown(page);
       await page.close();
       const next = await openPage(
         context,
@@ -332,10 +338,7 @@ for (const view of TOUR_VIEWS) {
 }
 
 // The rows overflow a 380px-tall full view at a 20px root (Chrome's Large font size).
-test('full view, short window, Large font: step 1’s ring stays inside the windows box, scrolled or not', async ({
-  context,
-  extensionId,
-}) => {
+async function shortLargeTour(context: BrowserContext, extensionId: string) {
   const page = await openPage(context, extensionId, FULL_VIEW_PATH, {
     width: 1280,
     height: 380,
@@ -352,55 +355,73 @@ test('full view, short window, Large font: step 1’s ring stays inside the wind
     .getByRole('button', { name: 'Try it with an example', exact: true })
     .click();
   await expect(coachAt(page, 1)).toBeVisible();
+  return page;
+}
 
-  const measure = () =>
-    page.evaluate(() => {
-      const ring = document.querySelector('[data-coach-ring]');
-      const anchor = document.querySelector(
-        '[data-pane="detail"] [data-tour-anchor="windows"]'
-      );
-      const scroller = anchor?.parentElement;
-      if (!ring || !anchor || !scroller) return null;
-      const r = ring.getBoundingClientRect();
-      const top = scroller.getBoundingClientRect().top + scroller.clientTop;
-      const rows = [...anchor.querySelectorAll('[data-drag-row-id]')]
-        .map((row) => row.getBoundingClientRect())
-        .filter((b) => b.width > 0 && b.height > 0);
-      return {
-        ringTop: r.top,
-        ringBottom: r.bottom,
-        boxTop: top,
-        boxBottom: top + scroller.clientHeight,
-        rowsTop: Math.min(...rows.map((b) => b.top)),
-        rowsBottom: Math.max(...rows.map((b) => b.bottom)),
-      };
-    });
-  // 2/64px: a LayoutUnit each side of the inline px the ring is placed at.
-  const slack = COACH.RING_INSET + 2 / 64;
+// Step 1's ring against the windows scroll box and the rows inside it.
+const measureRing = (page: Page) =>
+  page.evaluate(() => {
+    const ring = document.querySelector('[data-coach-ring]');
+    const anchor = document.querySelector(
+      '[data-pane="detail"] [data-tour-anchor="windows"]'
+    );
+    const scroller = anchor?.parentElement;
+    if (!ring || !anchor || !scroller) return null;
+    const r = ring.getBoundingClientRect();
+    const top = scroller.getBoundingClientRect().top + scroller.clientTop;
+    const rows = [...anchor.querySelectorAll('[data-drag-row-id]')]
+      .map((row) => row.getBoundingClientRect())
+      .filter((b) => b.width > 0 && b.height > 0);
+    return {
+      ringTop: r.top,
+      ringBottom: r.bottom,
+      boxTop: top,
+      boxBottom: top + scroller.clientHeight,
+      rowsTop: Math.min(...rows.map((b) => b.top)),
+      rowsBottom: Math.max(...rows.map((b) => b.bottom)),
+    };
+  });
+// 2/64px: a LayoutUnit each side of the inline px the ring is placed at.
+const RING_SLACK = COACH.RING_INSET + 2 / 64;
 
-  // As the step starts. CONTROL: the rows themselves run past the box's bottom.
+test('full view, short window, Large font: as step 1 starts, its ring stops at the windows box’s bottom', async ({
+  context,
+  extensionId,
+}) => {
+  const page = await shortLargeTour(context, extensionId);
+  // CONTROL: the rows themselves run past the box's bottom.
   await expect
     .poll(async () => {
-      const m = await measure();
+      const m = await measureRing(page);
       return m !== null &&
         m.rowsBottom > m.boxBottom &&
-        m.ringBottom <= m.boxBottom + slack
+        m.ringBottom <= m.boxBottom + RING_SLACK
         ? 'ok'
         : JSON.stringify(m);
     })
     .toBe('ok');
+});
 
+test('full view, short window, Large font: scrolled to the bottom, step 1’s ring starts at the windows box’s top', async ({
+  context,
+  extensionId,
+}) => {
+  const page = await shortLargeTour(context, extensionId);
   await page.evaluate(() => {
     const scroller = document.querySelector(
       '[data-pane="detail"] [data-tour-anchor="windows"]'
     )?.parentElement;
     if (scroller) scroller.scrollTop = scroller.scrollHeight;
   });
-  // Scrolled to the bottom. CONTROL: the rows themselves start above the box's top.
+  // CONTROL: the rows start above the box's top; the ring, a frame late, must first wrap their bottom.
   await expect
     .poll(async () => {
-      const m = await measure();
-      return m !== null && m.rowsTop < m.boxTop && m.ringTop >= m.boxTop - slack
+      const m = await measureRing(page);
+      return m !== null &&
+        m.rowsTop < m.boxTop &&
+        m.rowsBottom <= m.boxBottom &&
+        Math.abs(m.ringBottom - COACH.RING_INSET - m.rowsBottom) <= 2 / 64 &&
+        m.ringTop >= m.boxTop - RING_SLACK
         ? 'ok'
         : JSON.stringify(m);
     })
@@ -460,11 +481,14 @@ test('two full views: only the one that started shows the tour; the other, even 
   const first = await startTour(context, extensionId, FULL_CASE);
   const second = await openFullView(context, extensionId);
   await tourCheck(second, 'elsewhere');
+  // The sample on screen in this page too, so only the tour's page decides the mark.
+  await peekSample(second);
   await twoFrames(second);
   expect(await coachSeen(second)).toEqual([]);
   await second.reload();
   await second.locator('[aria-label="Sort sessions"]').first().waitFor();
   await tourCheck(second, 'elsewhere');
+  await peekSample(second);
   await twoFrames(second);
   expect(await coachSeen(second)).toEqual([]);
   expect(await coachSeen(first)).toContain('1');
