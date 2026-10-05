@@ -269,5 +269,8 @@
   "Try it": "试试看",
   "Manage your open windows and tabs, and save them to bring back any time.": "管理打开的窗口和标签页，并保存下来，随时重新打开。",
   "Get started": "开始使用",
-  "Try it with an example": "用示例试一试"
+  "Try it with an example": "用示例试一试",
+  "Step {{n}} of {{total}}": "第 {{n}} 步，共 {{total}} 步",
+  "Skip tutorial": "跳过教程",
+  "Finish": "结束"
 }

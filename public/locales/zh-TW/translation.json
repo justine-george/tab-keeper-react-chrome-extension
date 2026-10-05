@@ -269,5 +269,8 @@
   "Try it": "試試看",
   "Manage your open windows and tabs, and save them to bring back any time.": "管理開啟的視窗和分頁，並儲存下來，隨時重新開啟。",
   "Get started": "開始使用",
-  "Try it with an example": "用範例試試看"
+  "Try it with an example": "用範例試試看",
+  "Step {{n}} of {{total}}": "第 {{n}} 步，共 {{total}} 步",
+  "Skip tutorial": "略過教學",
+  "Finish": "結束"
 }

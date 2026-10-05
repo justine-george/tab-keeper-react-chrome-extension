@@ -269,5 +269,8 @@
   "Try it": "사용해 보기",
   "Manage your open windows and tabs, and save them to bring back any time.": "열려 있는 창과 탭을 관리하고, 저장해 두었다가 언제든 다시 열 수 있습니다.",
   "Get started": "시작하기",
-  "Try it with an example": "예시로 사용해 보기"
+  "Try it with an example": "예시로 사용해 보기",
+  "Step {{n}} of {{total}}": "{{total}}단계 중 {{n}}단계",
+  "Skip tutorial": "튜토리얼 건너뛰기",
+  "Finish": "마치기"
 }

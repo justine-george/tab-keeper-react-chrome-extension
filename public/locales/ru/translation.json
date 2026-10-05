@@ -284,5 +284,8 @@
   "Try it": "Попробовать",
   "Manage your open windows and tabs, and save them to bring back any time.": "Управляйте открытыми окнами и вкладками и сохраняйте их, чтобы вернуть в любой момент.",
   "Get started": "Начать",
-  "Try it with an example": "Попробовать на примере"
+  "Try it with an example": "Попробовать на примере",
+  "Step {{n}} of {{total}}": "Шаг {{n}} из {{total}}",
+  "Skip tutorial": "Пропустить обучение",
+  "Finish": "Завершить"
 }

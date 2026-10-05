@@ -274,5 +274,8 @@
   "Try it": "Prova",
   "Manage your open windows and tabs, and save them to bring back any time.": "Hantera dina öppna fönster och flikar, och spara dem så att du kan ta fram dem igen när du vill.",
   "Get started": "Kom igång",
-  "Try it with an example": "Prova med ett exempel"
+  "Try it with an example": "Prova med ett exempel",
+  "Step {{n}} of {{total}}": "Steg {{n}} av {{total}}",
+  "Skip tutorial": "Hoppa över guiden",
+  "Finish": "Avsluta"
 }

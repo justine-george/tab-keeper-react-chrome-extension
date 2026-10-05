@@ -2,7 +2,7 @@ import { useEffect, useId } from 'react';
 import { useTranslation } from 'react-i18next';
 import { css } from '@emotion/react';
 
-import { isDragHeld } from '../../../redux/dragHold';
+import { isUnclaimedEscape } from '../../common/unclaimedEscape';
 import Icon from '../../common/Icon';
 import { dialogButtonStyles } from '../../modals/dialogButtons';
 import { useThemeColors } from '../../../hooks/useThemeColors';
@@ -33,9 +33,7 @@ export default function FullViewCallout({
   // modal dialog's cancel or a drag's own listener, so it stands aside for both.
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape' || event.defaultPrevented) return;
-      if (isDragHeld() || document.querySelector('dialog:modal') !== null)
-        return;
+      if (!isUnclaimedEscape(event)) return;
       event.preventDefault();
       onDismiss();
     };

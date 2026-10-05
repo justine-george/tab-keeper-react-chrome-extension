@@ -279,5 +279,8 @@
   "Try it": "Experimentar",
   "Manage your open windows and tabs, and save them to bring back any time.": "Gerencie suas janelas e abas abertas e salve-as para trazê-las de volta quando quiser.",
   "Get started": "Começar",
-  "Try it with an example": "Experimente com um exemplo"
+  "Try it with an example": "Experimente com um exemplo",
+  "Step {{n}} of {{total}}": "Passo {{n}} de {{total}}",
+  "Skip tutorial": "Pular tutorial",
+  "Finish": "Concluir"
 }

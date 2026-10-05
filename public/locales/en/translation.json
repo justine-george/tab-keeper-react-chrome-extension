@@ -274,5 +274,8 @@
   "Try it": "Try it",
   "Manage your open windows and tabs, and save them to bring back any time.": "Manage your open windows and tabs, and save them to bring back any time.",
   "Get started": "Get started",
-  "Try it with an example": "Try it with an example"
+  "Try it with an example": "Try it with an example",
+  "Step {{n}} of {{total}}": "Step {{n}} of {{total}}",
+  "Skip tutorial": "Skip tutorial",
+  "Finish": "Finish"
 }

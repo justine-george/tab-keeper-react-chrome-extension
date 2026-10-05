@@ -279,5 +279,8 @@
   "Try it": "Provala",
   "Manage your open windows and tabs, and save them to bring back any time.": "Gestisci le finestre e le schede aperte e salvale per riaprirle quando vuoi.",
   "Get started": "Inizia",
-  "Try it with an example": "Provalo con un esempio"
+  "Try it with an example": "Provalo con un esempio",
+  "Step {{n}} of {{total}}": "Passo {{n}} di {{total}}",
+  "Skip tutorial": "Salta il tutorial",
+  "Finish": "Termina"
 }

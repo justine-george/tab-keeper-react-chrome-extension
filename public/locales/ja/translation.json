@@ -269,5 +269,8 @@
   "Try it": "試す",
   "Manage your open windows and tabs, and save them to bring back any time.": "開いているウィンドウとタブを管理し、保存していつでも開き直せます。",
   "Get started": "はじめる",
-  "Try it with an example": "サンプルで試す"
+  "Try it with an example": "サンプルで試す",
+  "Step {{n}} of {{total}}": "ステップ {{n}}/{{total}}",
+  "Skip tutorial": "チュートリアルをスキップ",
+  "Finish": "終了"
 }

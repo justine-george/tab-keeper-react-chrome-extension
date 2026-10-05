@@ -279,5 +279,8 @@
   "Try it": "Essayer",
   "Manage your open windows and tabs, and save them to bring back any time.": "Gérez vos fenêtres et onglets ouverts, et enregistrez-les pour les rouvrir à tout moment.",
   "Get started": "Commencer",
-  "Try it with an example": "Essayer avec un exemple"
+  "Try it with an example": "Essayer avec un exemple",
+  "Step {{n}} of {{total}}": "Étape {{n}} sur {{total}}",
+  "Skip tutorial": "Passer le tutoriel",
+  "Finish": "Terminer"
 }
