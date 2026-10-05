@@ -6,7 +6,12 @@ import { initializeApp } from 'firebase/app';
 // Switching costs ~106 kB gzipped. Moving back to 'firebase/firestore' means
 // paying that again, so only do it if onSnapshot or offline reads are needed.
 import { doc, getDoc, getFirestore } from 'firebase/firestore/lite';
-import { getAuth, onAuthStateChanged, signInAnonymously } from 'firebase/auth';
+import {
+  type Auth,
+  getAuth,
+  onAuthStateChanged,
+  signInAnonymously,
+} from 'firebase/auth';
 
 import { AppDispatch } from '../redux/store';
 import { decompressFromBytes } from '../utils/functions/compression';
@@ -58,10 +63,13 @@ const app = initializeApp(firebaseConfig);
 // NULL rather than a half-built handle, so the type carries the fact and every
 // call site is made to say what it does without a cloud. A non-null type here
 // would put that back on whoever remembers.
-const auth = isCloudConfigured ? getAuth(app) : null;
 const db = isCloudConfigured ? getFirestore(app) : null;
 
-export { auth, db };
+export { db };
+
+// KAN-419. Built on first use, never at import: getAuth restores a stored user with a network call.
+export const cloudAuth = (): Auth | null =>
+  isCloudConfigured ? getAuth(app) : null;
 
 /** Thrown rather than returned: every caller is already inside a try/catch that
  * turns a failed sync into the `sync_problem` state, so this reuses the path
@@ -100,6 +108,7 @@ export const ensureCloudSession = (dispatch: AppDispatch) => {
 export const ensureCloudSessionReady = async (
   dispatch: AppDispatch
 ): Promise<void> => {
+  const auth = cloudAuth();
   if (auth === null) return;
   ensureCloudSession(dispatch);
   if (auth.currentUser) return;
@@ -110,6 +119,7 @@ export const observeAuthState = (dispatch: AppDispatch) => {
   // Silence, not setFirebaseUnauthed(): "not signed in" is a claim about an
   // auth system that exists. With no cloud there is nothing to be signed out
   // OF, and the flag stays at its initial false either way.
+  const auth = cloudAuth();
   if (auth === null) return;
 
   onAuthStateChanged(auth, (user) => {
@@ -136,6 +146,7 @@ let signInInFlight: Promise<string> | null = null;
 
 /** Resolves with the uid; rejects with the SDK's error when sign-in fails. */
 export const signInUserAnonymously = (): Promise<string> => {
+  const auth = cloudAuth();
   if (auth === null) return Promise.reject(cloudUnavailable());
 
   signInInFlight ??= signInAnonymously(auth)

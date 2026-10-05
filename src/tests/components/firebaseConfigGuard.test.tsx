@@ -67,7 +67,7 @@ describe('the app with no Firebase config', () => {
     expect(mod.isCloudConfigured).toBe(false);
     // Null rather than a half-built handle: the type is what forces every call
     // site to say what it does without a cloud.
-    expect(mod.auth).toBeNull();
+    expect(mod.cloudAuth()).toBeNull();
     expect(mod.db).toBeNull();
   });
 
@@ -101,7 +101,7 @@ describe('CONTROL: the app with a Firebase config', () => {
     const mod = await import('../../config/firebase');
 
     expect(mod.isCloudConfigured).toBe(true);
-    expect(mod.auth).not.toBeNull();
+    expect(mod.cloudAuth()).not.toBeNull();
     expect(mod.db).not.toBeNull();
   });
 });
