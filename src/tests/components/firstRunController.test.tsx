@@ -362,6 +362,11 @@ describe('a resume while sessions on disk are still loading', () => {
   test.each([
     ['a session step', { ...newRun('popup', 2), sessionId: 'own' }],
     ['the save step', newRun('full', 3)],
+    // No session in these steps' plans: only the settled gate holds them.
+    ['full step 1, Open now', { ...newRun('full', 1), sessionId: 'own' }],
+    ['full step 2, find and fit', { ...newRun('full', 2), sessionId: 'own' }],
+    ['full step 8, two views', { ...newRun('full', 8), sessionId: 'own' }],
+    ['popup step 7, ⤢', { ...newRun('popup', 7), sessionId: 'own' }],
   ])('%s: no card until the load; then the card', async (_, run) => {
     if (run.view === 'full') history.replaceState(null, '', '?view=tab');
     const row = document.createElement('div');
