@@ -20,6 +20,7 @@ import {
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { useThemeColors } from '../hooks/useThemeColors';
 import { useViewportWidth } from '../hooks/useViewportWidth';
+import { useDialogEscape } from '../hooks/useDialogEscape';
 import { APP_HEIGHT } from '../utils/constants/common';
 import { AppDispatch, RootState } from '../redux/store';
 import { redo, undo } from '../redux/slices/undoRedoSlice';
@@ -70,6 +71,7 @@ function isNativelyUndoableTarget(target: EventTarget | null): boolean {
 export default function MainContainer() {
   const COLORS = useThemeColors();
   const dispatch: AppDispatch = useDispatch();
+  useDialogEscape();
 
   const isSettingsPage = useSelector(
     (state: RootState) => state.globalState.isSettingsPage
