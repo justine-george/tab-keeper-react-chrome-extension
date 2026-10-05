@@ -24,6 +24,7 @@ import { useTranslation } from 'react-i18next';
 import { DURATION, TYPE } from '../../../styles/scale';
 import { springSweepStyle } from '../../common/springOpen';
 import { SAVED_TEXT_INSET } from './savedListInset';
+import { useIsOpenBlockedByTour } from '../../../hooks/useIsOpenBlockedByTour';
 
 /**
  * How far a row's action icon sits inside the row, per side, in CSS px.
@@ -95,6 +96,15 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
   // Folded, no session is shown: the selection is kept, not drawn.
   const folded = useSelector(selectIsSavedSessionFolded);
   const drawsSelection = tabGroupData.isSelected && !(isTabView() && folded);
+
+  // KAN-413. Open and Switch on the tour's sample wait for it; a filter dims them, since the row's reveal owns their opacity.
+  const isOpenBlocked = useIsOpenBlockedByTour(tabGroupData.tabGroupId);
+  const openBlockedBecause = isOpenBlocked
+    ? t('Open works after the tour')
+    : null;
+  const openIconStyle = `padding: 14px 10px; width: 57px;${
+    isOpenBlocked ? ' filter: opacity(0.3);' : ''
+  }`;
 
   // A plain string, not css``, because it is handed to ClickableRow's `style`
   // prop, which composes it into the button's own reset.
@@ -435,29 +445,31 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
       {!isSearching && (
         <div data-row-actions css={rightStyle}>
           <Icon
-            tooltipText={t('Open session')}
+            tooltipText={openBlockedBecause ?? t('Open session')}
             text={t('Open')}
-            ariaLabel={t('Open')}
+            ariaLabel={openBlockedBecause ?? t('Open')}
             type="reopen_window"
+            disable={isOpenBlocked}
             onClick={(e) => {
               e.stopPropagation();
               onOpenAllClick(e);
             }}
-            style="padding: 14px 10px; width: 57px;"
+            style={openIconStyle}
           />
           {/* KAN-279 D7. Switching closes the windows hosting Tab Keeper
               itself when this page IS the tab view, so hidden there. */}
           {!isTabView() && (
             <Icon
-              tooltipText={t('Switch to session')}
+              tooltipText={openBlockedBecause ?? t('Switch to session')}
               text={t('Switch')}
-              ariaLabel={t('Switch')}
+              ariaLabel={openBlockedBecause ?? t('Switch')}
               type="filter_center_focus"
+              disable={isOpenBlocked}
               onClick={(e) => {
                 e.stopPropagation();
                 onFocusClick(e);
               }}
-              style="padding: 14px 10px; width: 57px;"
+              style={openIconStyle}
             />
           )}
           <Icon

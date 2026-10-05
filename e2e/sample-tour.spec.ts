@@ -43,6 +43,30 @@ import { COACH } from '../src/components/tour/coachMarkPlacement';
 
 const FULL_CASE = TOUR_VIEWS[1];
 const FIRST_TAB = 'Open in new tab: Flights to Lisbon - Google Flights';
+const SAMPLE_TABS = 5;
+
+// From now on in this page: whether Switch's confirmation ever opened.
+const watchFocusConfirm = (page: Page) =>
+  page.evaluate(() => {
+    const seen = { opened: false };
+    Object.defineProperty(globalThis, '__focusConfirmSeen', { value: seen });
+    new MutationObserver(() => {
+      if (
+        document.querySelector(
+          'dialog[open][aria-labelledby="focus-confirm-title"]'
+        ) !== null
+      ) {
+        seen.opened = true;
+      }
+    }).observe(document, { subtree: true, childList: true, attributes: true });
+  });
+const focusConfirmSeen = (page: Page) =>
+  page.evaluate(() => {
+    const seen: unknown = Reflect.get(globalThis, '__focusConfirmSeen');
+    return typeof seen === 'object' && seen !== null
+      ? Reflect.get(seen, 'opened') === true
+      : null;
+  });
 
 for (const view of TOUR_VIEWS) {
   test.describe(view.name, () => {
@@ -250,7 +274,7 @@ for (const view of TOUR_VIEWS) {
         .toBe('ok');
     });
 
-    // CONTROL: after Finish and ⌘Z the same tab click opens a tab.
+    // CONTROL: after Finish and ⌘Z the same tab click opens a tab, and the row's Open and Switch work.
     test('the sample’s opens are dimmed and open nothing during the tour, while a tab still drags at step 4', async ({
       context,
       extensionId,
@@ -263,6 +287,24 @@ for (const view of TOUR_VIEWS) {
         .getByRole('button', { name: OPEN_BLOCKED, exact: true });
       await expect(open).toHaveAttribute('aria-disabled', 'true');
       await expect(open).toHaveCSS('opacity', '0.3');
+      // The saved list row's Open, and Switch where drawn; by key, as the popup's mark sits over the list.
+      const sessions = page.locator('[data-pane="sessions"]');
+      const rowOpens = sessions.getByRole('button', {
+        name: OPEN_BLOCKED,
+        exact: true,
+      });
+      await expect(rowOpens).toHaveCount(view.view === 'popup' ? 2 : 1);
+      await watchFocusConfirm(page);
+      const rowBefore = await tabCount(serviceWorker);
+      const rowDuring = tabCountsOver(serviceWorker, 1000);
+      for (const button of await rowOpens.all()) {
+        await expect(button).toHaveAttribute('aria-disabled', 'true');
+        await expect(button).toHaveCSS('filter', 'opacity(0.3)');
+        await button.focus();
+        await button.press('Enter');
+      }
+      expect(new Set(await rowDuring)).toEqual(new Set([rowBefore]));
+      expect(await focusConfirmSeen(page)).toBe(false);
       for (const step of [3, 4]) await nextTo(page, step);
 
       const tab = page
@@ -287,6 +329,27 @@ for (const view of TOUR_VIEWS) {
       const after = tabCountsOver(serviceWorker, 1000);
       await tab.click();
       expect(Math.max(...(await after))).toBe(before + 1);
+
+      await expect(rowOpens).toHaveCount(0);
+      const rowOpen = sessions.getByRole('button', {
+        name: 'Open',
+        exact: true,
+      });
+      await expect(rowOpen).toHaveCSS('filter', 'none');
+      const openedFrom = await tabCount(serviceWorker);
+      const opened = tabCountsOver(serviceWorker, 1500);
+      await rowOpen.focus();
+      await rowOpen.press('Enter');
+      expect(Math.max(...(await opened))).toBe(openedFrom + SAMPLE_TABS);
+      if (view.view === 'popup') {
+        const rowSwitch = sessions.getByRole('button', {
+          name: 'Switch',
+          exact: true,
+        });
+        await rowSwitch.focus();
+        await rowSwitch.press('Enter');
+        await expect.poll(() => focusConfirmSeen(page)).toBe(true);
+      }
     });
 
     // The toast watch's CONTROL, in this view.

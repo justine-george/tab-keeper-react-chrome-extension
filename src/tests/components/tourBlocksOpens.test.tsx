@@ -2,7 +2,13 @@ import { describe, expect, test, vi } from 'vitest';
 import { act, fireEvent, screen } from '@testing-library/react';
 
 import WindowEntryContainer from '../../components/home/rightpane/WindowEntryContainer';
-import { renderWithProviders } from '../setup/renderWithProviders';
+import TabGroupEntry from '../../components/home/leftpane/TabGroupEntry';
+import {
+  renderWithProviders,
+  type RenderWithProvidersResult,
+} from '../setup/renderWithProviders';
+import { buildSession } from '../fixtures/sessionFixture';
+import { classRulesFor } from '../setup/hoverRules';
 import type { ChromeSeed } from '../setup/chrome.fake';
 import {
   setHasTabGroupsPermission,
@@ -16,7 +22,7 @@ import {
 import type { chromeTabGroupData } from '../../redux/slices/tabContainerDataStateSlice';
 import { useIsOpenBlockedByTour } from '../../hooks/useIsOpenBlockedByTour';
 
-// KAN-413. A window's opens on the tour's sample wait for the tour; each CONTROL ends it and presses again.
+// KAN-413. The opens on the tour's sample wait for the tour; each CONTROL ends it and presses again.
 
 const SAMPLE = 'sample:x';
 const OPEN_BLOCKED = 'Open works after the tour';
@@ -39,6 +45,13 @@ const SEED: ChromeSeed = {
   tabs: [{ id: 1, active: true, url: 'https://added.test', title: 'Added' }],
 };
 
+const tourHere = (store: RenderWithProvidersResult['store']) => {
+  store.dispatch(
+    recordSampleTour({ sampleId: SAMPLE, step: 4, view: 'popup' })
+  );
+  store.dispatch(tourStartedHere(SAMPLE));
+};
+
 async function renderSampleWindow(onOpenWindow: () => void = () => undefined) {
   return renderWithProviders(
     <WindowEntryContainer
@@ -57,10 +70,7 @@ async function renderSampleWindow(onOpenWindow: () => void = () => undefined) {
       seed: SEED,
       seedStore: (store) => {
         store.dispatch(setHasTabGroupsPermission(true));
-        store.dispatch(
-          recordSampleTour({ sampleId: SAMPLE, step: 4, view: 'popup' })
-        );
-        store.dispatch(tourStartedHere(SAMPLE));
+        tourHere(store);
       },
     }
   );
@@ -124,6 +134,43 @@ describe('opens on the tour’s sample', () => {
     fireEvent.click(row);
     await settle();
     expect(r.chrome.createdTabs.map((t) => t.url)).toEqual(['https://a.co']);
+  });
+
+  test('the saved list row’s Open and Switch take the reason as their name, are dimmed and open nothing; after the tour they open', async () => {
+    const onOpenAllClick = vi.fn();
+    const onFocusClick = vi.fn();
+    const r = await renderWithProviders(
+      <TabGroupEntry
+        tabGroupData={buildSession({ tabGroupId: SAMPLE, isSelected: true })}
+        onTabGroupClick={() => undefined}
+        onOpenAllClick={onOpenAllClick}
+        onFocusClick={onFocusClick}
+        onDeleteClick={() => undefined}
+      />,
+      { seedStore: tourHere }
+    );
+    const blocked = screen.getAllByRole('button', { name: OPEN_BLOCKED });
+    expect(blocked).toHaveLength(2);
+    for (const button of blocked) {
+      expect(button).toHaveAttribute('aria-disabled', 'true');
+      expect(button).toHaveAttribute('title', OPEN_BLOCKED);
+      // A filter, not opacity: the row's own reveal sets these icons' opacity.
+      expect(classRulesFor(button)).toMatch(/filter:\s*opacity\(0\.3\)/);
+      fireEvent.click(button);
+    }
+    expect(onOpenAllClick).not.toHaveBeenCalled();
+    expect(onFocusClick).not.toHaveBeenCalled();
+
+    endTour(r);
+    expect(screen.queryAllByRole('button', { name: OPEN_BLOCKED })).toEqual([]);
+    for (const name of ['Open', 'Switch']) {
+      const button = screen.getByRole('button', { name });
+      expect(button).not.toHaveAttribute('aria-disabled');
+      expect(classRulesFor(button)).not.toMatch(/filter:\s*opacity/);
+      fireEvent.click(button);
+    }
+    expect(onOpenAllClick).toHaveBeenCalledTimes(1);
+    expect(onFocusClick).toHaveBeenCalledTimes(1);
   });
 
   test('no tour and no session is not blocked', async () => {
