@@ -288,6 +288,10 @@ export function isNameSourceNoise(tab: chrome.tabs.Tab): boolean {
   return NAME_SOURCE_NOISE.some((prefix) => address.startsWith(prefix));
 }
 
+// A name comes from neither Tab Keeper's own pages nor the store or New Tab page.
+export const isNotANameSource = (tab: chrome.tabs.Tab): boolean =>
+  isTabKeeperPage(tab) || isNameSourceNoise(tab);
+
 // Snapshots the open windows a scope covers as a session. Extracted from
 // UserInputContainer so focus mode can save what it is about to close using
 // exactly the same capture the "Save current session" button uses -- two

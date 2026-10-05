@@ -13,6 +13,7 @@ import { AppDispatch } from '../../../redux/store';
 import {
   captureOpenWindows,
   isNameSourceNoise,
+  isNotANameSource,
   isTabKeeperPage,
   type CaptureScope,
 } from '../../../utils/functions/capture';
@@ -48,10 +49,6 @@ export default function UserInputContainer() {
     function cleanSuggestion(title: string | undefined): string {
       return title ? dropNotificationCount(title) : t('New Tab Group');
     }
-
-    // A name comes from neither Tab Keeper's own pages nor the store or New Tab page.
-    const isNotANameSource = (tab: chrome.tabs.Tab) =>
-      isTabKeeperPage(tab) || isNameSourceNoise(tab);
 
     async function fetchSuggestedTitle(): Promise<string | undefined> {
       if (isTabView()) {

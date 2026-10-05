@@ -483,6 +483,16 @@ describe('an empty save’s name skips the store and the New Tab page (§8)', ()
     }
   );
 
+  test('popup, active tab is a Tab Keeper page: the fallback skips the store too', async () => {
+    expect(
+      await emptySaveName([
+        { ...GMAIL, lastAccessed: 2 },
+        { ...STORE, lastAccessed: 3 },
+        { ...TK, active: true, lastAccessed: 4 },
+      ])
+    ).toBe('Inbox – Gmail');
+  });
+
   test('CONTROL: popup on Gmail is named after it', async () => {
     expect(
       await emptySaveName([{ ...GMAIL, active: true, lastAccessed: 3 }])
