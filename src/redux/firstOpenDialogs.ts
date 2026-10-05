@@ -3,7 +3,6 @@ import type { AppDispatch, RootState } from './store';
 import {
   openCloudConsentModal,
   openFullViewCallout,
-  openFullViewOffer,
   openPinGuide,
   openRateAndReviewModal,
   openSetup,
@@ -16,13 +15,12 @@ import {
 } from './slices/settingsDataStateSlice';
 import { isValidDate } from '../utils/functions/local';
 import {
-  shouldOfferFullView,
   shouldShowFullViewCallout,
   shouldShowPinGuide,
   shouldShowSetup,
 } from '../utils/functions/onboarding';
 import { showWhenQuiet } from './quietCards';
-import { runOpener, startRun } from './firstRun';
+import { runOpener, showWelcome, startRun } from './firstRun';
 import { newRun, runAtOpen, type RunCheck } from '../utils/functions/firstRun';
 import { RUN_LOCK, tourLockState } from '../utils/functions/tourLock';
 import { shouldAskForReview } from '../utils/functions/reviewAsk';
@@ -78,20 +76,17 @@ export function firstOpenDialogs(
       if (isExisting) {
         return () => dispatch(openCloudConsentModal({ variant: 'existing' }));
       }
-      // KAN-410. Recorded as it opens: a popup closed unanswered stays local-only and mid-onboarding.
-      if (surface === 'popup') {
-        return () => {
-          dispatch(declineCloudConsent());
-          dispatch(beginSetup());
-          dispatch(openCloudConsentModal({ variant: 'welcome' }));
-        };
-      }
-      // The full view greets a new install with the run's own Hello, never the welcome.
+      // KAN-410 and Q7: recorded as it opens, the welcome being the popup run's step 0.
       reportRunCheck('started');
       return () => {
         dispatch(declineCloudConsent());
         dispatch(beginSetup());
-        void dispatch(startRun(newRun('full', 0, 'welcome')));
+        // The full view greets a new install with the run's own Hello, never the welcome.
+        void dispatch(
+          surface === 'popup'
+            ? showWelcome(newRun('popup', 0))
+            : startRun(newRun('full', 0, 'welcome'))
+        );
       };
     },
   };
@@ -111,15 +106,6 @@ export function firstOpenDialogs(
       if (decision.check === 'elsewhere') return STAND_DOWN;
       return runOpener(decision, dispatch);
     },
-  };
-
-  // KAN-7 §3. A popup closed before the answer asks again on the next open.
-  const fullViewOffer: DialogEntry = {
-    id: 'fullViewOffer',
-    decide: () =>
-      shouldOfferFullView(open.getState().settingsDataState)
-        ? () => dispatch(openFullViewOffer())
-        : null,
   };
 
   // §3. For an open with no run and no setup pending; asks Chrome, so it is async.
@@ -182,14 +168,7 @@ export function firstOpenDialogs(
   };
 
   const lists: Record<Surface, DialogEntry[]> = {
-    popup: [
-      cloudConsent,
-      firstRun,
-      fullViewOffer,
-      rate,
-      tabGroups,
-      fullViewCallout,
-    ],
+    popup: [cloudConsent, firstRun, rate, tabGroups, fullViewCallout],
     full: [cloudConsent, firstRun, setup, pinGuide, rate, tabGroups],
   };
   return lists[surface];

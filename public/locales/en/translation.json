@@ -248,8 +248,6 @@
   "Sample: Weekend trip": "Sample: Weekend trip",
   "Getting there": "Getting there",
   "Things to do": "Things to do",
-  "Try the full view": "Try the full view",
-  "See every open window and tab beside your saved sessions, with room to sort, move and tidy them.": "See every open window and tab beside your saved sessions, with room to sort, move and tidy them.",
   "Close": "Close",
   "Pin Tab Keeper to your toolbar": "Pin Tab Keeper to your toolbar",
   "Click the puzzle piece": "Click the puzzle piece",
@@ -271,7 +269,6 @@
   "No shortcut is set.": "No shortcut is set.",
   "Set a shortcut": "Set a shortcut",
   "Try it": "Try it",
-  "Manage your open windows and tabs, and save them to bring back any time.": "Manage your open windows and tabs, and save them to bring back any time.",
   "Get started": "Get started",
   "Step {{n}} of {{total}}": "Step {{n}} of {{total}}",
   "Skip tutorial": "Skip tutorial",
@@ -311,5 +308,7 @@
   "Switch saves the windows you have open, closes them, and opens this session in their place.": "Switch saves the windows you have open, closes them, and opens this session in their place.",
   "Want to see and search everything you have open? It's all in the full view. Press ⤢ to open it now, or any time later.": "Want to see and search everything you have open? It's all in the full view. Press ⤢ to open it now, or any time later.",
   "Saved. Press {{icon}} any time to save your windows again.": "Saved. Press {{icon}} any time to save your windows again.",
-  "This is an example. Press {{icon}} any time to save your own windows.": "This is an example. Press {{icon}} any time to save your own windows."
+  "This is an example. Press {{icon}} any time to save your own windows.": "This is an example. Press {{icon}} any time to save your own windows.",
+  "Save your open windows, close them, and bring them all back later.": "Save your open windows, close them, and bring them all back later.",
+  "Get started opens Tab Keeper in its own tab.": "Get started opens Tab Keeper in its own tab."
 }

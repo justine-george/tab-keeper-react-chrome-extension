@@ -6,6 +6,7 @@ import { css } from '@emotion/react';
 
 import Icon from '../common/Icon';
 import TabKeeperMark from '../common/TabKeeperMark';
+import WelcomeHero from './WelcomeHero';
 import { useFontFamily } from '../../hooks/useFontFamily';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { AppDispatch, RootState } from '../../redux/store';
@@ -18,7 +19,7 @@ import {
   grantCloudConsent,
   setAutoSync,
 } from '../../redux/slices/settingsDataStateSlice';
-import { followWelcome } from '../../redux/firstOpenFollowUps';
+import { welcomeGetStarted, welcomeNotNow } from '../../redux/firstRun';
 import { PRIVACY_POLICY_LINK } from '../../utils/constants/common';
 import { DIALOG, ICON, TYPE } from '../../styles/scale';
 import { dialogButtonStyles } from './dialogButtons';
@@ -35,10 +36,11 @@ const BODY_ID = 'cloud-consent-body';
 /**
  * The cloud question (KAN-259), asked before anything is uploaded.
  *
- * 'welcome' is a fresh install and asks nothing (KAN-410): one line on what
- * Tab Keeper does, and Get started. Its opening already recorded the device
- * as local-only; sync comes later, through 'enable'. 'existing' is a user
- * whose sessions are already synced: the current state first, then what is
+ * 'welcome' is a fresh install and asks nothing (KAN-410): what Tab Keeper
+ * does, Get started into the full view, or Not now into the popup run. Its
+ * opening already recorded the device as local-only; sync comes later,
+ * through 'enable'. 'existing' is a user whose sessions are already synced:
+ * the current state first, then what is
  * stored, then the question, then what turning it off does and does not do --
  * a preference, not a confession. 'enable' is the question asked when someone
  * reaches for sync without having said yes.
@@ -83,11 +85,7 @@ export const CloudConsentModal: React.FC = () => {
 
   if (!isOpen) return null;
 
-  // KAN-7 §8. Only the welcome (a new install) chains to what follows it.
-  const close = (offerEnters = false) => {
-    dispatch(closeCloudConsentModal());
-    if (variant === 'welcome') void dispatch(followWelcome({ offerEnters }));
-  };
+  const close = () => dispatch(closeCloudConsentModal());
   const decline = () => {
     dispatch(declineCloudConsent());
     close();
@@ -124,26 +122,31 @@ export const CloudConsentModal: React.FC = () => {
       prefersReducedMotion() ||
       !canAnimate(dialog)
     ) {
-      close();
+      void dispatch(welcomeGetStarted());
       return;
     }
     motion.current = playGetStarted({
       button,
-      shutter: dialog.querySelector('[data-mark-part="shutter"]'),
+      shutter: dialog.querySelector('[data-hero-part="shutter"]'),
       dialog,
     });
-    void motion.current.finished.then((completed) => {
+    // R12: cut short or not, Get started was chosen and completes.
+    void motion.current.finished.then(() => {
       motion.current = null;
-      if (completed) close(true);
+      void dispatch(welcomeGetStarted());
     });
   };
-  // Esc skips the moment: the welcome goes at once.
+  const notNow = () => void dispatch(welcomeNotNow());
+  // §5: Esc is Not now; during Get started's beat it cuts the beat short (R12).
   const leaveWelcome = () => {
-    motion.current?.cancel();
-    close();
+    if (motion.current !== null) {
+      motion.current.cancel();
+      return;
+    }
+    notNow();
   };
   // Escape never uploads: existing declines (KAN-410), enable changes nothing,
-  // and the welcome has nothing left to answer, so Escape is Get started without the moment.
+  // and the welcome's Escape is Not now.
   const handleCancel =
     variant === 'welcome'
       ? leaveWelcome
@@ -194,11 +197,21 @@ export const CloudConsentModal: React.FC = () => {
     line-height: 1.5;
     color: ${COLORS.LABEL_L1_COLOR};
   `;
-  // The welcome's one line sits where the others' fine print does, above the buttons.
-  const welcomeStyle = css`
+  // §5: the hint is smaller, in the fine print's style.
+  const hintStyle = css`
     margin: 0 0 20px 0;
+    font-size: ${TYPE.SECONDARY};
     line-height: 1.5;
     color: ${COLORS.LABEL_L1_COLOR};
+  `;
+  const welcomeActionsStyle = css`
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+  `;
+  const endStyle = css`
+    margin-left: auto;
   `;
   const questionStyle = css`
     margin: 0 0 12px 0;
@@ -252,16 +265,23 @@ export const CloudConsentModal: React.FC = () => {
             <TabKeeperMark size={ICON.DEFAULT} />
             {t('Welcome to Tab Keeper')}
           </h2>
-          <p id={BODY_ID} css={welcomeStyle}>
+          <WelcomeHero frame="end" />
+          <p id={BODY_ID} css={bodyStyle}>
             {t(
-              'Manage your open windows and tabs, and save them to bring back any time.'
+              'Save your open windows, close them, and bring them all back later.'
             )}
           </p>
-          <div css={actionsStyle}>
+          <p css={hintStyle}>
+            {t('Get started opens Tab Keeper in its own tab.')}
+          </p>
+          <div css={welcomeActionsStyle}>
+            <button type="button" css={buttons.link} onClick={notNow}>
+              {t('Not now')}
+            </button>
             <button
               ref={getStartedRef}
               type="button"
-              css={buttons.primary}
+              css={[buttons.filled, endStyle]}
               onClick={getStarted}
             >
               {t('Get started')}

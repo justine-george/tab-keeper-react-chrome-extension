@@ -106,7 +106,8 @@ export function playGetStarted(parts: GetStartedParts): Motion {
   };
 }
 
-export function playOfferEntrance(dialog: Animatable): void {
+// A dialog that follows Get started enters from 0.97 and transparent; Hello uses it.
+export function playDialogEntrance(dialog: Animatable): void {
   dialog.animate(
     [
       { opacity: 0, transform: `${CENTRED} scale(0.97)` },

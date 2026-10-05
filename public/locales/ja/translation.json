@@ -243,8 +243,6 @@
   "Sample: Weekend trip": "サンプル: 週末旅行",
   "Getting there": "行き方",
   "Things to do": "やりたいこと",
-  "Try the full view": "フルビューを試す",
-  "See every open window and tab beside your saved sessions, with room to sort, move and tidy them.": "開いているすべてのウィンドウとタブを保存したセッションの横に表示し、並べ替えや移動、整理をゆったり行えます。",
   "Close": "閉じる",
   "Pin Tab Keeper to your toolbar": "Tab Keeper をツールバーに固定",
   "Click the puzzle piece": "パズルのピースをクリック",
@@ -266,7 +264,6 @@
   "No shortcut is set.": "ショートカットは設定されていません。",
   "Set a shortcut": "ショートカットを設定",
   "Try it": "試す",
-  "Manage your open windows and tabs, and save them to bring back any time.": "開いているウィンドウとタブを管理し、保存していつでも開き直せます。",
   "Get started": "はじめる",
   "Step {{n}} of {{total}}": "ステップ {{n}}/{{total}}",
   "Skip tutorial": "チュートリアルをスキップ",
@@ -306,5 +303,7 @@
   "Switch saves the windows you have open, closes them, and opens this session in their place.": "「切り替え」を押すと、開いているウィンドウを保存して閉じ、代わりにこのセッションを開きます。",
   "Want to see and search everything you have open? It's all in the full view. Press ⤢ to open it now, or any time later.": "開いているものをすべて見て検索したいときは、フルビューを使いましょう。⤢ を押すと今すぐ開けます。あとからでもいつでも開けます。",
   "Saved. Press {{icon}} any time to save your windows again.": "保存しました。{{icon}} を押すと、いつでもウィンドウをもう一度保存できます。",
-  "This is an example. Press {{icon}} any time to save your own windows.": "これはサンプルです。{{icon}} を押すと、いつでもご自身のウィンドウを保存できます。"
+  "This is an example. Press {{icon}} any time to save your own windows.": "これはサンプルです。{{icon}} を押すと、いつでもご自身のウィンドウを保存できます。",
+  "Save your open windows, close them, and bring them all back later.": "開いているウィンドウを保存して閉じ、あとでまとめて元に戻せます。",
+  "Get started opens Tab Keeper in its own tab.": "「はじめる」を押すと、Tab Keeper が専用のタブで開きます。"
 }

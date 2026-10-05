@@ -51,7 +51,6 @@ const seeded = seededWith(RATE_DUE);
 const granted = seededWith({
   cloudConsent: 'granted',
   ...RUN_FINISHED_SETTINGS,
-  isFullViewOfferAnswered: true,
 });
 
 beforeEach(() => localStorage.clear());

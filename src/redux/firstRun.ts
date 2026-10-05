@@ -6,6 +6,7 @@ import { followWithSetup } from './firstOpenFollowUps';
 import { showSession } from './showSession';
 import { selectIsSavedSessionFolded } from './savedSessionFold';
 import {
+  closeCloudConsentModal,
   closeFullViewCallout,
   closeSettingsPage,
   openCloudConsentModal,
@@ -37,6 +38,7 @@ import {
 import {
   latestSession,
   needsSession,
+  newRun,
   nextRunStep,
   previousRunStep,
   runStepKind,
@@ -54,6 +56,7 @@ import {
 import { storedSessionCount } from '../utils/functions/storedSessions';
 import { hasTabsToSave } from '../utils/functions/capture';
 import { isTabView } from '../utils/functions/viewMode';
+import { requestTabView } from '../utils/functions/popOut';
 
 // The guided first run in this page: starting it, moving it, ending it.
 
@@ -209,6 +212,21 @@ export const showWelcome =
     else await dispatch(startRun(run));
     dispatch(openCloudConsentModal({ variant: 'welcome' }));
   };
+
+// Get started: the lock goes first so the new tab finds it free; the record is written before the tab can end this popup.
+export const welcomeGetStarted =
+  (): Thunk<Promise<void>> => async (dispatch) => {
+    dispatch(closeCloudConsentModal());
+    await dispatch(leaveRunHere());
+    dispatch(recordFirstRun(newRun('full', 0, 'welcome')));
+    await requestTabView();
+  };
+
+// Not now: the popup run, from its save card.
+export const welcomeNotNow = (): Thunk<Promise<void>> => async (dispatch) => {
+  dispatch(closeCloudConsentModal());
+  await dispatch(startRun(newRun('popup', 1)));
+};
 
 // Ends an unanswered welcome at once; else what the decision opens, null when nothing.
 export function runOpener(

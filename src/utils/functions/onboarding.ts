@@ -25,15 +25,6 @@ export function shouldShowFullViewCallout(
   return storedSessions > 0 && !s.isFullViewCalloutSeen && !hasUsedFullView(s);
 }
 
-// §3. A new install, until either answer or until the full view has been used.
-export function shouldOfferFullView(
-  s: Pick<SettingsData, 'setupState' | 'isFullViewOfferAnswered'> & FullViewUse
-): boolean {
-  return (
-    s.setupState !== 'none' && !s.isFullViewOfferAnswered && !hasUsedFullView(s)
-  );
-}
-
 // §4. Unpinned on this machine and not dismissed here; 'unknown' never shows it.
 export function shouldShowPinGuide(
   s: Pick<SettingsData, 'isPinGuideDismissed'>,

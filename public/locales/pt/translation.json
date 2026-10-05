@@ -253,8 +253,6 @@
   "Sample: Weekend trip": "Exemplo: Viagem de fim de semana",
   "Getting there": "Como chegar",
   "Things to do": "O que fazer",
-  "Try the full view": "Experimente a visualização completa",
-  "See every open window and tab beside your saved sessions, with room to sort, move and tidy them.": "Veja todas as janelas e abas abertas ao lado das suas sessões salvas, com espaço para ordenar, mover e organizar.",
   "Close": "Fechar",
   "Pin Tab Keeper to your toolbar": "Fixe o Tab Keeper na barra de ferramentas",
   "Click the puzzle piece": "Clique na peça de quebra-cabeça",
@@ -276,7 +274,6 @@
   "No shortcut is set.": "Nenhum atalho definido.",
   "Set a shortcut": "Definir um atalho",
   "Try it": "Experimentar",
-  "Manage your open windows and tabs, and save them to bring back any time.": "Gerencie suas janelas e abas abertas e salve-as para trazê-las de volta quando quiser.",
   "Get started": "Começar",
   "Step {{n}} of {{total}}": "Passo {{n}} de {{total}}",
   "Skip tutorial": "Pular tutorial",
@@ -316,5 +313,7 @@
   "Switch saves the windows you have open, closes them, and opens this session in their place.": "Mudar salva as janelas que você tem abertas, fecha-as e abre esta sessão no lugar delas.",
   "Want to see and search everything you have open? It's all in the full view. Press ⤢ to open it now, or any time later.": "Quer ver e pesquisar tudo o que tem aberto? Está tudo na visualização completa. Pressione ⤢ para abri-la agora, ou quando quiser.",
   "Saved. Press {{icon}} any time to save your windows again.": "Salvo. Pressione {{icon}} quando quiser para salvar suas janelas novamente.",
-  "This is an example. Press {{icon}} any time to save your own windows.": "Este é um exemplo. Pressione {{icon}} quando quiser para salvar suas próprias janelas."
+  "This is an example. Press {{icon}} any time to save your own windows.": "Este é um exemplo. Pressione {{icon}} quando quiser para salvar suas próprias janelas.",
+  "Save your open windows, close them, and bring them all back later.": "Salve suas janelas abertas, feche-as e traga todas de volta depois.",
+  "Get started opens Tab Keeper in its own tab.": "Começar abre o Tab Keeper em uma aba própria."
 }

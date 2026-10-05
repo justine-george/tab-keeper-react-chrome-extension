@@ -8,13 +8,14 @@ import {
   ENTER_EASE,
   GET_STARTED,
   SHUTTER_EASE,
+  playDialogEntrance,
   playGetStarted,
-  playOfferEntrance,
   prefersReducedMotion,
   type Animatable,
 } from '../../components/modals/getStartedMotion';
 import { openCloudConsentModal } from '../../redux/slices/globalStateSlice';
 import { beginSetup } from '../../redux/slices/settingsDataStateSlice';
+import { newRun } from '../../utils/functions/firstRun';
 
 // jsdom has no Web Animations: a fake records each run and the test finishes it.
 
@@ -48,8 +49,7 @@ const welcome = (store: { dispatch: (action: unknown) => void }) => {
 const getStarted = () => screen.getByRole('button', { name: 'Get started' });
 const welcomeDialog = () =>
   document.querySelector('dialog[aria-labelledby="cloud-consent-title"]');
-const offerDialog = () =>
-  document.querySelector('dialog[aria-labelledby="full-view-offer-title"]');
+const FULL_RUN = newRun('full', 0, 'welcome');
 const microtasks = () =>
   act(async () => {
     for (let i = 0; i < 5; i += 1) await Promise.resolve();
@@ -66,7 +66,7 @@ afterEach(() => {
 });
 
 describe('the moment on the welcome', () => {
-  test('press, then the shutter, then the welcome leaves; then the offer enters', async () => {
+  test('press, then the shutter, then the welcome leaves; then the full-view run is recorded', async () => {
     installAnimate();
     const { store } = await renderWithProviders(<MainContainer />, {
       seedStore: welcome,
@@ -76,21 +76,20 @@ describe('the moment on the welcome', () => {
 
     runs[0].release();
     await waitFor(() => expect(runs).toHaveLength(2));
-    expect(runs[1].target).toHaveAttribute('data-mark-part', 'shutter');
+    expect(runs[1].target).toHaveAttribute('data-hero-part', 'shutter');
 
     runs[1].release();
     await waitFor(() => expect(runs).toHaveLength(3));
     expect(runs[2].target).toBe(welcomeDialog());
     expect(store.getState().globalState.isCloudConsentModalOpen).toBe(true);
 
+    expect(store.getState().settingsDataState.firstRun).toBeNull();
+
     runs[2].release();
     await waitFor(() =>
-      expect(store.getState().globalState.isFullViewOfferOpen).toBe(true)
+      expect(store.getState().settingsDataState.firstRun).toEqual(FULL_RUN)
     );
     expect(store.getState().globalState.isCloudConsentModalOpen).toBe(false);
-    expect(store.getState().globalState.fullViewOfferEnters).toBe(true);
-    await waitFor(() => expect(runs).toHaveLength(4));
-    expect(runs[3].target).toBe(offerDialog());
   });
 
   test('a second press while it plays does nothing', async () => {
@@ -101,7 +100,7 @@ describe('the moment on the welcome', () => {
     expect(runs).toHaveLength(1);
   });
 
-  test('Esc while it plays closes the welcome at once; the offer comes with no entrance', async () => {
+  test('Esc while it plays cuts it short, and Get started completes (R12)', async () => {
     installAnimate();
     const { store } = await renderWithProviders(<MainContainer />, {
       seedStore: welcome,
@@ -114,17 +113,16 @@ describe('the moment on the welcome', () => {
       new Event('cancel', { bubbles: false, cancelable: true })
     );
     await waitFor(() =>
-      expect(store.getState().globalState.isFullViewOfferOpen).toBe(true)
+      expect(store.getState().settingsDataState.firstRun).toEqual(FULL_RUN)
     );
     expect(store.getState().globalState.isCloudConsentModalOpen).toBe(false);
-    expect(store.getState().globalState.fullViewOfferEnters).toBe(false);
     // The press it cancelled finishing late starts nothing after it.
     runs[0].release();
     await microtasks();
     expect(runs).toHaveLength(1);
   });
 
-  test('reduced motion: straight on to the offer, and nothing animates', async () => {
+  test('reduced motion: straight on to the full-view run, and nothing animates', async () => {
     installAnimate();
     vi.spyOn(window, 'matchMedia').mockImplementation(
       (query: string) =>
@@ -137,13 +135,14 @@ describe('the moment on the welcome', () => {
       seedStore: welcome,
     });
     fireEvent.click(getStarted());
-    await waitFor(() => expect(offerDialog()).not.toBeNull());
-    expect(store.getState().globalState.fullViewOfferEnters).toBe(false);
+    await waitFor(() =>
+      expect(store.getState().settingsDataState.firstRun).toEqual(FULL_RUN)
+    );
     expect(runs).toEqual([]);
   });
 });
 
-describe('playGetStarted and playOfferEntrance', () => {
+describe('playGetStarted and playDialogEntrance', () => {
   function fakeTarget(
     log: { keyframes: Keyframe[]; options: KeyframeAnimationOptions }[]
   ) {
@@ -221,10 +220,10 @@ describe('playGetStarted and playOfferEntrance', () => {
     expect(await motion.finished).toBe(true);
   });
 
-  test('the offer enters: opacity 0 to 1, scale 0.97 to 1, 220ms', () => {
+  test('a dialog after Get started enters: opacity 0 to 1, scale 0.97 to 1, 220ms', () => {
     const log: { keyframes: Keyframe[]; options: KeyframeAnimationOptions }[] =
       [];
-    playOfferEntrance(fakeTarget(log).target);
+    playDialogEntrance(fakeTarget(log).target);
     expect(log).toEqual([
       {
         keyframes: [

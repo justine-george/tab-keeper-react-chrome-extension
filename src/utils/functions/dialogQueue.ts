@@ -3,7 +3,6 @@
 export type DialogId =
   | 'cloudConsent'
   | 'firstRun'
-  | 'fullViewOffer'
   | 'pinGuide'
   | 'setup'
   | 'rate'

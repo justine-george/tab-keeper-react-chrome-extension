@@ -1,20 +1,13 @@
 import type { ThunkAction, UnknownAction } from '@reduxjs/toolkit';
 
 import type { RootState } from './store';
-import {
-  closeSetup,
-  openFullViewOffer,
-  openPinGuide,
-  openSetup,
-} from './slices/globalStateSlice';
+import { closeSetup, openPinGuide, openSetup } from './slices/globalStateSlice';
 import { finishSetup } from './slices/settingsDataStateSlice';
 import {
-  shouldOfferFullView,
   shouldShowPinGuide,
   shouldShowSetup,
 } from '../utils/functions/onboarding';
 import { readToolbarPin } from '../utils/functions/toolbarPin';
-import { isTabView } from '../utils/functions/viewMode';
 
 type Thunk<R> = ThunkAction<R, RootState, unknown, UnknownAction>;
 
@@ -44,20 +37,4 @@ export const leaveSetup =
     dispatch(finishSetup());
     dispatch(closeSetup());
     if (leadsToPinGuide) await dispatch(offerPinGuide());
-  };
-
-// KAN-7 §8. The welcome (a new install) closed; its opening set setup pending.
-// The popup offers the full view; the full view goes to setup.
-export const followWelcome =
-  (
-    { offerEnters }: { offerEnters: boolean } = { offerEnters: false }
-  ): Thunk<Promise<void>> =>
-  async (dispatch, getState) => {
-    if (isTabView()) {
-      await dispatch(followWithSetup());
-      return;
-    }
-    if (shouldOfferFullView(getState().settingsDataState)) {
-      dispatch(openFullViewOffer({ enters: offerEnters }));
-    }
   };

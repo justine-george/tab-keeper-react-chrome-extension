@@ -253,8 +253,6 @@
   "Sample: Weekend trip": "Esempio: Weekend fuori porta",
   "Getting there": "Come arrivare",
   "Things to do": "Cosa fare",
-  "Try the full view": "Prova la vista completa",
-  "See every open window and tab beside your saved sessions, with room to sort, move and tidy them.": "Vedi tutte le finestre e le schede aperte accanto alle sessioni salvate, con spazio per ordinarle, spostarle e riordinarle.",
   "Close": "Chiudi",
   "Pin Tab Keeper to your toolbar": "Fissa Tab Keeper alla barra degli strumenti",
   "Click the puzzle piece": "Fai clic sul pezzo del puzzle",
@@ -276,7 +274,6 @@
   "No shortcut is set.": "Nessuna scorciatoia impostata.",
   "Set a shortcut": "Imposta una scorciatoia",
   "Try it": "Provala",
-  "Manage your open windows and tabs, and save them to bring back any time.": "Gestisci le finestre e le schede aperte e salvale per riaprirle quando vuoi.",
   "Get started": "Inizia",
   "Step {{n}} of {{total}}": "Passo {{n}} di {{total}}",
   "Skip tutorial": "Salta il tutorial",
@@ -316,5 +313,7 @@
   "Switch saves the windows you have open, closes them, and opens this session in their place.": "Passa salva le finestre aperte, le chiude e apre questa sessione al loro posto.",
   "Want to see and search everything you have open? It's all in the full view. Press ⤢ to open it now, or any time later.": "Vuoi vedere e cercare tutto ciò che hai aperto? È tutto nella vista completa. Premi ⤢ per aprirla ora, o quando vuoi.",
   "Saved. Press {{icon}} any time to save your windows again.": "Salvato. Premi {{icon}} quando vuoi per salvare di nuovo le tue finestre.",
-  "This is an example. Press {{icon}} any time to save your own windows.": "Questo è un esempio. Premi {{icon}} quando vuoi per salvare le tue finestre."
+  "This is an example. Press {{icon}} any time to save your own windows.": "Questo è un esempio. Premi {{icon}} quando vuoi per salvare le tue finestre.",
+  "Save your open windows, close them, and bring them all back later.": "Salva le finestre aperte, chiudile e riaprile tutte più tardi.",
+  "Get started opens Tab Keeper in its own tab.": "Inizia apre Tab Keeper in una scheda tutta sua."
 }

@@ -46,15 +46,11 @@ const popupOf = (worker: Worker) =>
 async function welcomeThen(
   context: BrowserContext,
   extensionId: string,
-  answer: 'Open full view' | 'Not now'
+  answer: 'Get started' | 'Not now'
 ): Promise<Page> {
   const popup = await openPopup(context, extensionId);
   await popup
     .getByRole('dialog', { name: 'Welcome to Tab Keeper', exact: true })
-    .getByRole('button', { name: 'Get started', exact: true })
-    .click();
-  await popup
-    .getByRole('dialog', { name: 'Try the full view', exact: true })
     .getByRole('button', { name: answer, exact: true })
     .click();
   return popup;
@@ -68,7 +64,7 @@ test.describe('on a new install', () => {
     extensionId,
   }) => {
     await stubToolbarPin(context, { pinned: false });
-    await welcomeThen(context, extensionId, 'Open full view');
+    await welcomeThen(context, extensionId, 'Get started');
     const full = await waitForFullView(context);
     await finishFullRunFromHello(full);
 
@@ -105,7 +101,6 @@ test.describe('on a new install', () => {
     expect(await storedSettings(full)).toMatchObject({
       setupState: 'done',
       theme: 'Darkenheimer',
-      isFullViewOfferAnswered: true,
       hasOpenedFullView: true,
       isPinGuideDismissed: false,
     });

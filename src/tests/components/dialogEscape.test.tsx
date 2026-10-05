@@ -13,7 +13,6 @@ import {
   openCloudConsentModal,
   openDeleteCloudDataModal,
   openFocusModal,
-  openFullViewOffer,
   openPinGuide,
   openRateAndReviewModal,
   openSetup,
@@ -27,6 +26,7 @@ import {
 } from '../../redux/slices/settingsDataStateSlice';
 import { replaceState } from '../../redux/slices/tabContainerDataStateSlice';
 import { beginDragHold, endDragHold } from '../../redux/dragHold';
+import { newRun } from '../../utils/functions/firstRun';
 
 // KAN-426. Chrome closes the popup on an Esc keydown the page leaves unprevented, so every modal's Esc is claimed.
 
@@ -68,7 +68,7 @@ const CASES: Case[] = [
     },
   },
   {
-    name: 'welcome: Get started without the moment',
+    name: 'welcome: Not now',
     dialog: 'Welcome to Tab Keeper',
     open: (s) => {
       s.dispatch(beginSetup());
@@ -77,22 +77,10 @@ const CASES: Case[] = [
     outcome: async ({ store }) => {
       expect(store.getState().globalState.isCloudConsentModalOpen).toBe(false);
       await waitFor(() =>
-        expect(store.getState().globalState.isFullViewOfferOpen).toBe(true)
+        expect(store.getState().settingsDataState.firstRun).toEqual(
+          newRun('popup', 1)
+        )
       );
-      expect(store.getState().globalState.fullViewOfferEnters).toBe(false);
-    },
-  },
-  {
-    name: 'full view offer: Not now',
-    dialog: 'Try the full view',
-    seed: { windows: [{ id: 7 }] },
-    open: (s) => s.dispatch(openFullViewOffer()),
-    outcome: ({ store, chrome }) => {
-      expect(store.getState().settingsDataState.isFullViewOfferAnswered).toBe(
-        true
-      );
-      expect(store.getState().globalState.isFullViewOfferOpen).toBe(false);
-      expect(chrome.sentMessages).toEqual([]);
     },
   },
   {

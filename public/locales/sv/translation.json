@@ -248,8 +248,6 @@
   "Sample: Weekend trip": "Exempel: Helgresa",
   "Getting there": "Ta sig dit",
   "Things to do": "Att göra",
-  "Try the full view": "Prova helvyn",
-  "See every open window and tab beside your saved sessions, with room to sort, move and tidy them.": "Se alla öppna fönster och flikar bredvid dina sparade sessioner, med plats att sortera, flytta och städa.",
   "Close": "Stäng",
   "Pin Tab Keeper to your toolbar": "Fäst Tab Keeper i verktygsfältet",
   "Click the puzzle piece": "Klicka på pusselbiten",
@@ -271,7 +269,6 @@
   "No shortcut is set.": "Inget kortkommando är inställt.",
   "Set a shortcut": "Ange ett kortkommando",
   "Try it": "Prova",
-  "Manage your open windows and tabs, and save them to bring back any time.": "Hantera dina öppna fönster och flikar, och spara dem så att du kan ta fram dem igen när du vill.",
   "Get started": "Kom igång",
   "Step {{n}} of {{total}}": "Steg {{n}} av {{total}}",
   "Skip tutorial": "Hoppa över guiden",
@@ -311,5 +308,7 @@
   "Switch saves the windows you have open, closes them, and opens this session in their place.": "Byt sparar fönstren du har öppna, stänger dem och öppnar den här sessionen i stället.",
   "Want to see and search everything you have open? It's all in the full view. Press ⤢ to open it now, or any time later.": "Vill du se och söka bland allt du har öppet? Allt finns i helvyn. Tryck på ⤢ för att öppna den nu, eller när du vill.",
   "Saved. Press {{icon}} any time to save your windows again.": "Sparat. Tryck på {{icon}} när du vill för att spara dina fönster igen.",
-  "This is an example. Press {{icon}} any time to save your own windows.": "Det här är ett exempel. Tryck på {{icon}} när du vill för att spara dina egna fönster."
+  "This is an example. Press {{icon}} any time to save your own windows.": "Det här är ett exempel. Tryck på {{icon}} när du vill för att spara dina egna fönster.",
+  "Save your open windows, close them, and bring them all back later.": "Spara dina öppna fönster, stäng dem och ta tillbaka alla senare.",
+  "Get started opens Tab Keeper in its own tab.": "Kom igång öppnar Tab Keeper i en egen flik."
 }

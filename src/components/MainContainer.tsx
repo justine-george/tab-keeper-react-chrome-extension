@@ -39,7 +39,6 @@ import { FocusConfirmModal } from './modals/FocusConfirmModal';
 import { DeleteCloudDataModal } from './modals/DeleteCloudDataModal';
 import { LoadBackupModal } from './modals/LoadBackupModal';
 import { CloudConsentModal } from './modals/CloudConsentModal';
-import { FullViewOfferModal } from './modals/FullViewOfferModal';
 import { PinGuideModal } from './modals/PinGuideModal';
 import { SetupModal } from './modals/SetupModal';
 import { TabGroupsPermissionModal } from './modals/TabGroupsPermissionModal';
@@ -92,10 +91,6 @@ export default function MainContainer() {
   );
   const isCloudConsentModalOpen = useSelector(
     (state: RootState) => state.globalState.isCloudConsentModalOpen
-  );
-
-  const isFullViewOfferOpen = useSelector(
-    (state: RootState) => state.globalState.isFullViewOfferOpen
   );
 
   const isPinGuideOpen = useSelector(
@@ -453,7 +448,6 @@ export default function MainContainer() {
       {isDeleteCloudDataModalOpen && <DeleteCloudDataModal />}
       {pendingImport !== null && <LoadBackupModal />}
       {isCloudConsentModalOpen && <CloudConsentModal />}
-      {isFullViewOfferOpen && <FullViewOfferModal />}
       {isPinGuideOpen && <PinGuideModal />}
       {isSetupOpen && <SetupModal />}
     </div>

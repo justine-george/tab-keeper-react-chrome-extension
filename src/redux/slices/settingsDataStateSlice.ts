@@ -147,8 +147,6 @@ export interface SettingsData {
   openNowWidth: number | null;
   // KAN-7. 'pending' as the welcome opens, so a popup closed on it still gets setup.
   setupState: SetupState;
-  // KAN-7 §3. Either button of "Try the full view".
-  isFullViewOfferAnswered: boolean;
   // KAN-7 §4. Skip or ✕ on the pin guide; a pin does not set it.
   isPinGuideDismissed: boolean;
   // KAN-7 §6. Set when the full view mounts.
@@ -179,7 +177,6 @@ export function asOpenNowWidth(value: unknown): number | null {
 export type OnboardingSettings = Pick<
   SettingsData,
   | 'setupState'
-  | 'isFullViewOfferAnswered'
   | 'isPinGuideDismissed'
   | 'hasOpenedFullView'
   | 'isFullViewCalloutSeen'
@@ -190,7 +187,6 @@ export type OnboardingSettings = Pick<
 
 export const ONBOARDING_DEFAULTS: OnboardingSettings = {
   setupState: 'none',
-  isFullViewOfferAnswered: false,
   isPinGuideDismissed: false,
   hasOpenedFullView: false,
   isFullViewCalloutSeen: false,
@@ -226,7 +222,6 @@ export function guardOnboarding(
       : fallback[key];
   return {
     setupState: read('setupState', asSetupState),
-    isFullViewOfferAnswered: read('isFullViewOfferAnswered', asFlag),
     isPinGuideDismissed: read('isPinGuideDismissed', asFlag),
     hasOpenedFullView: read('hasOpenedFullView', asFlag),
     isFullViewCalloutSeen: read('isFullViewCalloutSeen', asFlag),
@@ -242,8 +237,11 @@ export function guardOnboarding(
  */
 export type SessionDateBasis = 'edited' | 'created';
 
-// Keys only dev builds of this branch wrote: dropped once, and settings written back without them.
-const RETIRED_KEYS: readonly string[] = ['sampleTour'];
+// Keys only unreleased builds wrote: dropped once, and settings written back without them.
+const RETIRED_KEYS: readonly string[] = [
+  'sampleTour',
+  'isFullViewOfferAnswered',
+];
 
 const withoutRetiredKeys = (stored: unknown): unknown =>
   typeof stored === 'object' && stored !== null && !Array.isArray(stored)
@@ -509,11 +507,6 @@ export const settingsDataStateSlice = createSlice({
       saveToLocalStorage('settingsData', state);
     },
 
-    answerFullViewOffer: (state) => {
-      state.isFullViewOfferAnswered = true;
-      saveToLocalStorage('settingsData', state);
-    },
-
     dismissPinGuide: (state) => {
       state.isPinGuideDismissed = true;
       saveToLocalStorage('settingsData', state);
@@ -625,7 +618,6 @@ export const {
   beginSetup,
   finishSetup,
   restartSetup,
-  answerFullViewOffer,
   dismissPinGuide,
   markFullViewOpened,
   markFullViewCalloutSeen,

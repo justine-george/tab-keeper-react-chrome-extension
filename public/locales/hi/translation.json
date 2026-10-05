@@ -248,8 +248,6 @@
   "Sample: Weekend trip": "नमूना: सप्ताहांत यात्रा",
   "Getting there": "वहाँ कैसे पहुँचें",
   "Things to do": "करने लायक चीज़ें",
-  "Try the full view": "पूरा व्यू आज़माएँ",
-  "See every open window and tab beside your saved sessions, with room to sort, move and tidy them.": "अपने सहेजे गए सेशन के साथ हर खुली विंडो और टैब देखें, और उन्हें छाँटने, खिसकाने और व्यवस्थित करने की जगह पाएँ।",
   "Close": "बंद करें",
   "Pin Tab Keeper to your toolbar": "Tab Keeper को अपने टूलबार पर पिन करें",
   "Click the puzzle piece": "पज़ल पीस पर क्लिक करें",
@@ -271,7 +269,6 @@
   "No shortcut is set.": "कोई शॉर्टकट सेट नहीं है।",
   "Set a shortcut": "शॉर्टकट सेट करें",
   "Try it": "आज़माएँ",
-  "Manage your open windows and tabs, and save them to bring back any time.": "अपनी खुली विंडो और टैब प्रबंधित करें, और उन्हें सहेजें ताकि कभी भी वापस ला सकें।",
   "Get started": "शुरू करें",
   "Step {{n}} of {{total}}": "चरण {{n}} / {{total}}",
   "Skip tutorial": "ट्यूटोरियल छोड़ें",
@@ -311,5 +308,7 @@
   "Switch saves the windows you have open, closes them, and opens this session in their place.": "\"बदलें\" आपकी खुली विंडो सहेजता है, उन्हें बंद करता है, और उनकी जगह यह सेशन खोलता है।",
   "Want to see and search everything you have open? It's all in the full view. Press ⤢ to open it now, or any time later.": "अपनी हर खुली चीज़ देखना और खोजना चाहते हैं? सब कुछ पूरे व्यू में है। अभी खोलने के लिए ⤢ दबाएँ, या बाद में कभी भी।",
   "Saved. Press {{icon}} any time to save your windows again.": "सहेज लिया गया। अपनी विंडो को फिर से सहेजने के लिए कभी भी {{icon}} दबाएँ।",
-  "This is an example. Press {{icon}} any time to save your own windows.": "यह एक उदाहरण है। अपनी खुली विंडो को सहेजने के लिए कभी भी {{icon}} दबाएँ।"
+  "This is an example. Press {{icon}} any time to save your own windows.": "यह एक उदाहरण है। अपनी खुली विंडो को सहेजने के लिए कभी भी {{icon}} दबाएँ।",
+  "Save your open windows, close them, and bring them all back later.": "अपनी खुली विंडो सहेजें, उन्हें बंद करें, और बाद में सब वापस लाएँ।",
+  "Get started opens Tab Keeper in its own tab.": "\"शुरू करें\" Tab Keeper को उसके अपने टैब में खोलता है।"
 }

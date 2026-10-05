@@ -243,8 +243,6 @@
   "Sample: Weekend trip": "샘플: 주말 여행",
   "Getting there": "가는 길",
   "Things to do": "할 일",
-  "Try the full view": "전체 보기 사용해 보기",
-  "See every open window and tab beside your saved sessions, with room to sort, move and tidy them.": "열려 있는 모든 창과 탭을 저장된 세션 옆에서 보고, 넉넉한 공간에서 정렬하고 옮기고 정리하세요.",
   "Close": "닫기",
   "Pin Tab Keeper to your toolbar": "Tab Keeper를 도구 모음에 고정하세요",
   "Click the puzzle piece": "퍼즐 조각을 클릭하세요",
@@ -266,7 +264,6 @@
   "No shortcut is set.": "설정된 단축키가 없습니다.",
   "Set a shortcut": "단축키 설정",
   "Try it": "사용해 보기",
-  "Manage your open windows and tabs, and save them to bring back any time.": "열려 있는 창과 탭을 관리하고, 저장해 두었다가 언제든 다시 열 수 있습니다.",
   "Get started": "시작하기",
   "Step {{n}} of {{total}}": "{{total}}단계 중 {{n}}단계",
   "Skip tutorial": "튜토리얼 건너뛰기",
@@ -306,5 +303,7 @@
   "Switch saves the windows you have open, closes them, and opens this session in their place.": "전환을 누르면 열려 있는 창을 저장하고 닫은 뒤, 그 자리에 이 세션을 엽니다.",
   "Want to see and search everything you have open? It's all in the full view. Press ⤢ to open it now, or any time later.": "열려 있는 모든 것을 보고 검색하고 싶나요? 모두 전체 보기에 있습니다. 지금 열려면 ⤢를 누르세요. 나중에 언제든 열 수도 있습니다.",
   "Saved. Press {{icon}} any time to save your windows again.": "저장했습니다. 창을 다시 저장하려면 언제든 {{icon}} 버튼을 누르세요.",
-  "This is an example. Press {{icon}} any time to save your own windows.": "이것은 예시입니다. 내 창을 저장하려면 언제든 {{icon}} 버튼을 누르세요."
+  "This is an example. Press {{icon}} any time to save your own windows.": "이것은 예시입니다. 내 창을 저장하려면 언제든 {{icon}} 버튼을 누르세요.",
+  "Save your open windows, close them, and bring them all back later.": "열려 있는 창을 저장하고 닫은 다음, 나중에 모두 되살릴 수 있습니다.",
+  "Get started opens Tab Keeper in its own tab.": "시작하기를 누르면 Tab Keeper가 별도의 탭에서 열립니다."
 }

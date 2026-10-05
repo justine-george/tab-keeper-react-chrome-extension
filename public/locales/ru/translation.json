@@ -258,8 +258,6 @@
   "Sample: Weekend trip": "Пример: Поездка на выходные",
   "Getting there": "Как добраться",
   "Things to do": "Чем заняться",
-  "Try the full view": "Попробуйте полный вид",
-  "See every open window and tab beside your saved sessions, with room to sort, move and tidy them.": "Все открытые окна и вкладки рядом с сохранёнными сессиями, и места хватает, чтобы сортировать, перемещать и наводить порядок.",
   "Close": "Закрыть",
   "Pin Tab Keeper to your toolbar": "Закрепите Tab Keeper на панели инструментов",
   "Click the puzzle piece": "Нажмите на значок пазла",
@@ -281,7 +279,6 @@
   "No shortcut is set.": "Сочетание клавиш не задано.",
   "Set a shortcut": "Задать сочетание",
   "Try it": "Попробовать",
-  "Manage your open windows and tabs, and save them to bring back any time.": "Управляйте открытыми окнами и вкладками и сохраняйте их, чтобы вернуть в любой момент.",
   "Get started": "Начать",
   "Step {{n}} of {{total}}": "Шаг {{n}} из {{total}}",
   "Skip tutorial": "Пропустить обучение",
@@ -321,5 +318,7 @@
   "Switch saves the windows you have open, closes them, and opens this session in their place.": "«Перейти» сохраняет открытые окна, закрывает их и открывает вместо них эту сессию.",
   "Want to see and search everything you have open? It's all in the full view. Press ⤢ to open it now, or any time later.": "Хотите видеть и искать всё, что у вас открыто? Всё это есть в полном виде. Нажмите ⤢, чтобы открыть его сейчас или в любой момент позже.",
   "Saved. Press {{icon}} any time to save your windows again.": "Сохранено. Нажмите {{icon}} в любой момент, чтобы снова сохранить свои окна.",
-  "This is an example. Press {{icon}} any time to save your own windows.": "Это пример. Нажмите {{icon}} в любой момент, чтобы сохранить свои окна."
+  "This is an example. Press {{icon}} any time to save your own windows.": "Это пример. Нажмите {{icon}} в любой момент, чтобы сохранить свои окна.",
+  "Save your open windows, close them, and bring them all back later.": "Сохраняйте открытые окна, закрывайте их и потом возвращайте все разом.",
+  "Get started opens Tab Keeper in its own tab.": "«Начать» откроет Tab Keeper в отдельной вкладке."
 }

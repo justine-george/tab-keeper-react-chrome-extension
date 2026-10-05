@@ -253,8 +253,6 @@
   "Sample: Weekend trip": "Exemple : escapade d'un week-end",
   "Getting there": "Le trajet",
   "Things to do": "À faire",
-  "Try the full view": "Essayez la vue complète",
-  "See every open window and tab beside your saved sessions, with room to sort, move and tidy them.": "Voyez toutes vos fenêtres et tous vos onglets ouverts à côté de vos sessions enregistrées, avec de la place pour les trier, les déplacer et les ranger.",
   "Close": "Fermer",
   "Pin Tab Keeper to your toolbar": "Épinglez Tab Keeper à votre barre d'outils",
   "Click the puzzle piece": "Cliquez sur la pièce de puzzle",
@@ -276,7 +274,6 @@
   "No shortcut is set.": "Aucun raccourci n’est défini.",
   "Set a shortcut": "Définir un raccourci",
   "Try it": "Essayer",
-  "Manage your open windows and tabs, and save them to bring back any time.": "Gérez vos fenêtres et onglets ouverts, et enregistrez-les pour les rouvrir à tout moment.",
   "Get started": "Commencer",
   "Step {{n}} of {{total}}": "Étape {{n}} sur {{total}}",
   "Skip tutorial": "Passer le tutoriel",
@@ -316,5 +313,7 @@
   "Switch saves the windows you have open, closes them, and opens this session in their place.": "Basculer enregistre vos fenêtres ouvertes, les ferme et ouvre cette session à leur place.",
   "Want to see and search everything you have open? It's all in the full view. Press ⤢ to open it now, or any time later.": "Vous voulez voir et rechercher tout ce que vous avez ouvert ? Tout est dans la vue complète. Appuyez sur ⤢ pour l’ouvrir maintenant, ou plus tard.",
   "Saved. Press {{icon}} any time to save your windows again.": "Enregistré. Appuyez sur {{icon}} à tout moment pour enregistrer de nouveau vos fenêtres.",
-  "This is an example. Press {{icon}} any time to save your own windows.": "Ceci est un exemple. Appuyez sur {{icon}} à tout moment pour enregistrer vos propres fenêtres."
+  "This is an example. Press {{icon}} any time to save your own windows.": "Ceci est un exemple. Appuyez sur {{icon}} à tout moment pour enregistrer vos propres fenêtres.",
+  "Save your open windows, close them, and bring them all back later.": "Enregistrez vos fenêtres ouvertes, fermez-les et retrouvez-les toutes plus tard.",
+  "Get started opens Tab Keeper in its own tab.": "Commencer ouvre Tab Keeper dans son propre onglet."
 }

@@ -199,68 +199,8 @@ const RATE_DUE = {
   lastValueMomentTime: Date.now() - 60 * 60 * 1000,
 };
 
-describe('Try the full view in the order (KAN-7 §3)', () => {
-  test('the welcome closing offers the full view, setup already pending', async () => {
-    const { store } = await renderWithProviders(<App />);
-    await waitFor(() =>
-      expect(store.getState().globalState.isCloudConsentModalOpen).toBe(true)
-    );
-
-    await userEvent.click(screen.getByRole('button', { name: 'Get started' }));
-
-    expect(store.getState().globalState.isFullViewOfferOpen).toBe(true);
-    expect(store.getState().settingsDataState.setupState).toBe('pending');
-  });
-
-  test('a popup closed before the answer asks again, ahead of the rate prompt', async () => {
-    const { store } = await renderWithProviders(<App />, {
-      seedStore: seedSettings({ ...RATE_DUE, setupState: 'pending' }),
-    });
-    await waitFor(() =>
-      expect(store.getState().globalState.isFullViewOfferOpen).toBe(true)
-    );
-    expect(store.getState().globalState.isRateAndReviewModalOpen).toBe(false);
-  });
-
-  test.each([
-    ['answered', { isFullViewOfferAnswered: true }],
-    ['the full view opened since KAN-7', { hasOpenedFullView: true }],
-    ['the full view used before KAN-7', { openNowWidth: 500 }],
-  ])(
-    'never once %s; the rate prompt gets the open instead',
-    async (_name, change) => {
-      const { store } = await renderWithProviders(<App />, {
-        seedStore: seedSettings({
-          ...RATE_DUE,
-          setupState: 'pending',
-          ...change,
-        }),
-      });
-      // CONTROL that the queue ran: the next entry opened.
-      await waitFor(() =>
-        expect(store.getState().globalState.isRateAndReviewModalOpen).toBe(true)
-      );
-      expect(store.getState().globalState.isFullViewOfferOpen).toBe(false);
-    }
-  );
-
-  test('never in the full view, which marks itself opened', async () => {
-    history.replaceState(null, '', '?view=tab');
-    try {
-      const { store } = await renderWithProviders(<App />, {
-        seedStore: seedSettings({ ...RATE_DUE, setupState: 'pending' }),
-      });
-      await waitFor(() =>
-        expect(store.getState().globalState.isSetupOpen).toBe(true)
-      );
-      expect(store.getState().globalState.isFullViewOfferOpen).toBe(false);
-      expect(store.getState().settingsDataState.hasOpenedFullView).toBe(true);
-    } finally {
-      history.replaceState(null, '', '?');
-    }
-  });
-
-  test('an existing user’s cloud question is not followed by the offer', async () => {
+describe('after the cloud question (KAN-7 §3)', () => {
+  test('an existing user’s cloud question is followed by no run', async () => {
     const { store } = await renderWithProviders(<App />, {
       seedStore: seedSettings({
         cloudConsent: '',
@@ -275,7 +215,7 @@ describe('Try the full view in the order (KAN-7 §3)', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Keep sync on' }));
 
-    expect(store.getState().globalState.isFullViewOfferOpen).toBe(false);
+    expect(store.getState().settingsDataState.firstRun).toBeNull();
     expect(store.getState().settingsDataState.setupState).toBe('none');
   });
 });
@@ -399,7 +339,6 @@ describe('setup in the order (KAN-7 §5)', () => {
       seedStore: seedSettings({
         ...RATE_DUE,
         setupState: 'pending',
-        isFullViewOfferAnswered: true,
       }),
     });
     await waitFor(() =>

@@ -11,7 +11,6 @@ vi.hoisted(() => {
 
 import { applyOtherPageSettings } from '../../redux/otherPageChanges';
 import {
-  answerFullViewOffer,
   asSetupState,
   beginSetup,
   countWelcomeShow,
@@ -47,7 +46,6 @@ const saved = (): unknown =>
 
 const GARBAGE = {
   setupState: 'later',
-  isFullViewOfferAnswered: 'yes',
   isPinGuideDismissed: 1,
   hasOpenedFullView: 'true',
   isFullViewCalloutSeen: {},
@@ -58,7 +56,6 @@ const GARBAGE = {
 
 const ALL_SET = {
   setupState: 'done',
-  isFullViewOfferAnswered: true,
   isPinGuideDismissed: true,
   hasOpenedFullView: true,
   isFullViewCalloutSeen: true,
@@ -180,11 +177,6 @@ describe('the onboarding reducers persist what they set', () => {
 
   it.each([
     ['finishSetup', finishSetup(), { setupState: 'done' }],
-    [
-      'answerFullViewOffer',
-      answerFullViewOffer(),
-      { isFullViewOfferAnswered: true },
-    ],
     ['dismissPinGuide', dismissPinGuide(), { isPinGuideDismissed: true }],
     ['markFullViewOpened', markFullViewOpened(), { hasOpenedFullView: true }],
     [
@@ -360,29 +352,31 @@ describe('the run record', () => {
   });
 });
 
-describe('the KAN-413 record from dev builds (§11)', () => {
+describe('keys only unreleased builds wrote: the KAN-413 record and the offer’s answer (§11)', () => {
   const SESSIONS = JSON.stringify({
     lastModified: 1,
     selectedTabGroupId: null,
     tabGroups: [{ tabGroupId: 'sample:a', title: 'Sample: Weekend trip' }],
   });
 
-  it('is dropped on load and written back once, leaving the sessions on disk alone', async () => {
+  it('are dropped on load and written back once, leaving the sessions on disk alone', async () => {
     localStorage.setItem('tabContainerData', SESSIONS);
     localStorage.setItem(
       'settingsData',
       JSON.stringify({
         theme: 'Blue',
         sampleTour: { sampleId: 'sample:a', step: 2, view: 'popup' },
+        isFullViewOfferAnswered: true,
       })
     );
     const { initialState } = await freshSlice();
     expect(Object.keys(initialState)).not.toContain('sampleTour');
+    expect(Object.keys(initialState)).not.toContain('isFullViewOfferAnswered');
     expect(saved()).toEqual({ theme: 'Blue' });
     expect(localStorage.getItem('tabContainerData')).toBe(SESSIONS);
   });
 
-  it('settings without it are not written at load', async () => {
+  it('settings without them are not written at load', async () => {
     localStorage.setItem('settingsData', JSON.stringify({ theme: 'Blue' }));
     const setItem = vi.spyOn(localStorage, 'setItem');
     setItem.mockClear();

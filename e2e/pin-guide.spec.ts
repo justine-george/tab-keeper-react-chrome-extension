@@ -189,7 +189,7 @@ test.describe('dismissals stick on this machine', () => {
     });
   }
 
-  test('a new install reaches it from Try the full view, after the run and setup', async ({
+  test('a new install reaches it from Get started, after the run and setup', async ({
     context,
     extensionId,
   }) => {
@@ -198,10 +198,6 @@ test.describe('dismissals stick on this machine', () => {
     await popup
       .getByRole('dialog', { name: 'Welcome to Tab Keeper', exact: true })
       .getByRole('button', { name: 'Get started', exact: true })
-      .click();
-    await popup
-      .getByRole('dialog', { name: 'Try the full view', exact: true })
-      .getByRole('button', { name: 'Open full view', exact: true })
       .click();
     const full = await waitForFullView(context);
     await finishFullRunFromHello(full);

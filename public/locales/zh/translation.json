@@ -243,8 +243,6 @@
   "Sample: Weekend trip": "示例：周末旅行",
   "Getting there": "交通安排",
   "Things to do": "游玩去处",
-  "Try the full view": "试试完整视图",
-  "See every open window and tab beside your saved sessions, with room to sort, move and tidy them.": "在已保存的会话旁查看所有打开的窗口和标签页，有足够的空间来排序、移动和整理。",
   "Close": "关闭",
   "Pin Tab Keeper to your toolbar": "将 Tab Keeper 固定到工具栏",
   "Click the puzzle piece": "点击拼图图标",
@@ -266,7 +264,6 @@
   "No shortcut is set.": "尚未设置快捷键。",
   "Set a shortcut": "设置快捷键",
   "Try it": "试试看",
-  "Manage your open windows and tabs, and save them to bring back any time.": "管理打开的窗口和标签页，并保存下来，随时重新打开。",
   "Get started": "开始使用",
   "Step {{n}} of {{total}}": "第 {{n}} 步，共 {{total}} 步",
   "Skip tutorial": "跳过教程",
@@ -306,5 +303,7 @@
   "Switch saves the windows you have open, closes them, and opens this session in their place.": "“切换”会保存您打开的窗口，将它们关闭，再打开这个会话代替它们。",
   "Want to see and search everything you have open? It's all in the full view. Press ⤢ to open it now, or any time later.": "想查看和搜索您打开的一切？都在完整视图里。按 ⤢ 立即打开，以后也随时可以打开。",
   "Saved. Press {{icon}} any time to save your windows again.": "已保存。随时按 {{icon}} 即可再次保存您的窗口。",
-  "This is an example. Press {{icon}} any time to save your own windows.": "这是一个示例。随时按 {{icon}} 即可保存您自己的窗口。"
+  "This is an example. Press {{icon}} any time to save your own windows.": "这是一个示例。随时按 {{icon}} 即可保存您自己的窗口。",
+  "Save your open windows, close them, and bring them all back later.": "保存您打开的窗口，关闭它们，之后再全部恢复。",
+  "Get started opens Tab Keeper in its own tab.": "“开始使用”会在单独的标签页中打开 Tab Keeper。"
 }

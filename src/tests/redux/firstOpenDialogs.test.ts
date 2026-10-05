@@ -4,6 +4,8 @@ vi.hoisted(() => {
   Object.assign(globalThis, {
     window: globalThis,
     screen: { height: 1080, width: 1920 },
+    // The cloud entry reports its run check on <html>, as the firstRun entry does.
+    document: { documentElement: { dataset: {} } },
   });
 });
 
@@ -30,7 +32,6 @@ describe('the first-open lists', () => {
     expect(listFor('popup')).toEqual([
       'cloudConsent',
       'firstRun',
-      'fullViewOffer',
       'rate',
       'tabGroups',
       'fullViewCallout',
@@ -111,7 +112,9 @@ describe('the cloud question entry (KAN-259, moved from App)', () => {
     });
     const open = await cloudConsent.decide();
     if (typeof open === 'function') open();
-    expect(store.getState().globalState.cloudConsentVariant).toBe('welcome');
+    await vi.waitFor(() =>
+      expect(store.getState().globalState.cloudConsentVariant).toBe('welcome')
+    );
     expect(store.getState().settingsDataState.cloudConsent).toBe('declined');
     expect(store.getState().settingsDataState.isAutoSync).toBe(false);
     expect(store.getState().settingsDataState.setupState).toBe('pending');

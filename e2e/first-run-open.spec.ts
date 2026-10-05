@@ -310,7 +310,6 @@ test.describe('with no Web Locks', () => {
     context,
     extensionId,
   }) => {
-    // No setup pending: the popup's full-view offer would sit over Help in the CONTROL.
     await seedRawSettingsIfAbsent(context, {
       ...ANSWERED,
       isWhatsNew2Seen: true,
@@ -333,7 +332,6 @@ test('no open deletes a session: a popup run on a sample, interrupted and reopen
   context,
   extensionId,
 }) => {
-  // No setup pending: the popup's full-view offer would sit over Help.
   await seedRawSettingsIfAbsent(context, {
     ...ANSWERED,
     isWhatsNew2Seen: true,
