@@ -275,6 +275,19 @@ export function isTabKeeperPage(tab: chrome.tabs.Tab): boolean {
   return resolveTabUrl(address).startsWith(chrome.runtime.getURL(''));
 }
 
+const NAME_SOURCE_NOISE = [
+  'https://chromewebstore.google.com/',
+  'https://chrome.google.com/webstore',
+  'chrome://newtab/',
+  'chrome://new-tab-page/',
+] as const;
+
+// §8. The Web Store and the New Tab page never name a session.
+export function isNameSourceNoise(tab: chrome.tabs.Tab): boolean {
+  const address = tab.url || tab.pendingUrl || '';
+  return NAME_SOURCE_NOISE.some((prefix) => address.startsWith(prefix));
+}
+
 // Snapshots the open windows a scope covers as a session. Extracted from
 // UserInputContainer so focus mode can save what it is about to close using
 // exactly the same capture the "Save current session" button uses -- two

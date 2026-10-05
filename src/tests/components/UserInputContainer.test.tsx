@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'vitest';
+import { afterEach, describe, expect, test } from 'vitest';
 import { act, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
@@ -7,6 +7,7 @@ import { renderWithProviders } from '../setup/renderWithProviders';
 import { toastTexts, newestToast } from '../setup/toasts';
 import { SAVE_TAB_CONTAINER_ACTION } from '../../utils/constants/actionTypes';
 import { TOAST_MESSAGES } from '../../utils/constants/common';
+import { buildChromeTab } from '../fixtures/chromeTab';
 
 const seed = {
   tabs: [
@@ -405,5 +406,86 @@ describe('a saved session always gets a name (KAN-84)', () => {
   test('a typed name is stored trimmed', async () => {
     const { store } = await typeNameAndSave('  Research  ');
     expect(savedTitle(store)).toBe('Research');
+  });
+});
+
+describe('an empty save’s name skips the store and the New Tab page (§8)', () => {
+  const STORE = {
+    url: 'https://chromewebstore.google.com/detail/tab-keeper/abc',
+    title: 'Tab Keeper - Chrome Web Store',
+  };
+  const GMAIL = {
+    url: 'https://mail.google.com/mail/u/0/',
+    title: 'Inbox – Gmail',
+  };
+  const NEW_TAB = { url: 'chrome://newtab/', title: 'New Tab' };
+  const TK = {
+    url: 'chrome-extension://faketestid/index.html?view=tab',
+    title: 'Tab Keeper',
+  };
+
+  const emptySaveName = async (
+    tabs: {
+      url: string;
+      title: string;
+      active?: boolean;
+      lastAccessed: number;
+    }[]
+  ) => {
+    const seeded = tabs.map((tab, i) =>
+      buildChromeTab({ id: i + 1, windowId: 7, ...tab })
+    );
+    const { store } = await renderWithProviders(<UserInputContainer />, {
+      seed: { tabs: seeded, windows: [{ id: 7, tabs: seeded }] },
+    });
+    await act(async () => {});
+    await userEvent.click(
+      screen.getByLabelText('Save all open windows as a session')
+    );
+    return store.getState().tabContainerDataState.tabGroups[0]?.title;
+  };
+
+  afterEach(() => history.replaceState(null, '', '?'));
+
+  test('full view: the store most recent, Gmail behind it: named after Gmail', async () => {
+    history.replaceState(null, '', '?view=tab');
+    expect(
+      await emptySaveName([
+        { ...GMAIL, lastAccessed: 2 },
+        { ...STORE, lastAccessed: 3 },
+        { ...TK, active: true, lastAccessed: 4 },
+      ])
+    ).toBe('Inbox – Gmail');
+  });
+
+  test('full view: only the store and Tab Keeper: New Tab Group', async () => {
+    history.replaceState(null, '', '?view=tab');
+    expect(
+      await emptySaveName([
+        { ...STORE, lastAccessed: 3 },
+        { ...TK, active: true, lastAccessed: 4 },
+      ])
+    ).toBe('New Tab Group');
+  });
+
+  test.each([
+    ['the store', STORE],
+    ['a New Tab', NEW_TAB],
+  ])(
+    'popup on %s: New Tab Group, whatever is behind it',
+    async (_name, active) => {
+      expect(
+        await emptySaveName([
+          { ...GMAIL, lastAccessed: 2 },
+          { ...active, active: true, lastAccessed: 3 },
+        ])
+      ).toBe('New Tab Group');
+    }
+  );
+
+  test('CONTROL: popup on Gmail is named after it', async () => {
+    expect(
+      await emptySaveName([{ ...GMAIL, active: true, lastAccessed: 3 }])
+    ).toBe('Inbox – Gmail');
   });
 });

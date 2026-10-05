@@ -12,6 +12,7 @@ import { useThemeColors } from '../../../hooks/useThemeColors';
 import { AppDispatch } from '../../../redux/store';
 import {
   captureOpenWindows,
+  isNameSourceNoise,
   isTabKeeperPage,
   type CaptureScope,
 } from '../../../utils/functions/capture';
@@ -48,33 +49,31 @@ export default function UserInputContainer() {
       return title ? dropNotificationCount(title) : t('New Tab Group');
     }
 
+    // A name comes from neither Tab Keeper's own pages nor the store or New Tab page.
+    const isNotANameSource = (tab: chrome.tabs.Tab) =>
+      isTabKeeperPage(tab) || isNameSourceNoise(tab);
+
     async function fetchSuggestedTitle(): Promise<string | undefined> {
       if (isTabView()) {
-        // In the tab, the active tab IS Tab Keeper, so the suggestion comes
-        // from the most recently used tab in this window that ISN'T one
-        // (D15) -- this page's own tab always qualifies for exclusion, being
-        // a Tab Keeper page itself.
+        // In the tab the active tab is Tab Keeper: the most recent tab that names something (D15).
         const tabsOfWindow = await new Promise<chrome.tabs.Tab[]>((resolve) =>
           chrome.tabs.query({ currentWindow: true }, (tabs) => resolve(tabs))
         );
-        return pickNameSourceTab(tabsOfWindow, isTabKeeperPage)?.title;
+        return pickNameSourceTab(tabsOfWindow, isNotANameSource)?.title;
       }
-      // KAN-299. The popup's active tab is USUALLY a real
-      // page, but Switch can restore a window whose active tab is Tab
-      // Keeper's own page (a pinned tab view) -- the same D15 fallback
-      // extended past the tab view: the most recently used tab in the
-      // window that isn't one. Otherwise, unchanged: the active tab's own
-      // title.
+      // KAN-299. A popup over Tab Keeper's own page falls back the same way.
       const [activeTab] = await new Promise<chrome.tabs.Tab[]>((resolve) =>
         chrome.tabs.query({ active: true, currentWindow: true }, (tabs) =>
           resolve(tabs)
         )
       );
-      if (!activeTab || !isTabKeeperPage(activeTab)) return activeTab?.title;
+      if (activeTab === undefined || isNameSourceNoise(activeTab))
+        return undefined;
+      if (!isTabKeeperPage(activeTab)) return activeTab.title;
       const tabsOfWindow = await new Promise<chrome.tabs.Tab[]>((resolve) =>
         chrome.tabs.query({ currentWindow: true }, (tabs) => resolve(tabs))
       );
-      return pickNameSourceTab(tabsOfWindow, isTabKeeperPage)?.title;
+      return pickNameSourceTab(tabsOfWindow, isNotANameSource)?.title;
     }
 
     async function loadSuggestion() {
