@@ -12,6 +12,8 @@ import { buildContainer, buildSession } from '../fixtures/sessionFixture';
 import { startRun, takeRunSave } from '../../redux/firstRun';
 import { setRunSaveEcho } from '../../redux/slices/globalStateSlice';
 import { replaceState } from '../../redux/slices/tabContainerDataStateSlice';
+import { recordFirstRun } from '../../redux/slices/settingsDataStateSlice';
+import { firstOpenDialogs } from '../../redux/firstOpenDialogs';
 import { newRun, type FirstRun as Run } from '../../utils/functions/firstRun';
 
 // The controller: Hello at full-view step 0, then the card each step names, with its buttons.
@@ -352,6 +354,45 @@ describe('the controller', () => {
         (b) => b.textContent
       )
     ).toEqual(['Skip tutorial', 'Use an example']);
+  });
+});
+
+// §13: the open's own resume, from the queue's entry, while the saved list is still to load.
+describe('a resume while sessions on disk are still loading', () => {
+  test.each([
+    ['a session step', { ...newRun('popup', 2), sessionId: 'own' }],
+    ['the save step', newRun('full', 3)],
+  ])('%s: no card until the load; then the card', async (_, run) => {
+    if (run.view === 'full') history.replaceState(null, '', '?view=tab');
+    const row = document.createElement('div');
+    row.dataset.dragRowId = 'own';
+    row.getBoundingClientRect = () => RECT;
+    anchors.querySelector('[data-pane="sessions"]')?.append(row);
+    localStorage.setItem(
+      'tabContainerData',
+      JSON.stringify(buildContainer([OWN()]))
+    );
+    const r = await renderWithProviders(<FirstRun />, { seed: SEED });
+    r.store.dispatch(recordFirstRun(run));
+    const entry = firstOpenDialogs(run.view, {
+      dispatch: r.store.dispatch,
+      storedAtOpen: { firstRun: run },
+      storedSessions: 1,
+      getState: r.store.getState,
+    }).find((e) => e.id === 'firstRun');
+    const open = await entry?.decide();
+    await act(async () => {
+      open?.();
+      await Promise.resolve();
+    });
+    expect(r.store.getState().globalState.isRunHere).toBe(true);
+    expect(mark()).toBeNull();
+    expect(r.store.getState().globalState.runSaveCard).toBeNull();
+    act(() => {
+      r.store.dispatch(replaceState(buildContainer([OWN()])));
+    });
+    await waitFor(() => expect(mark()).not.toBeNull());
+    expect(runOf(r)).toMatchObject({ step: run.step, sessionId: 'own' });
   });
 });
 
