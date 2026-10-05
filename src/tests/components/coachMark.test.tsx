@@ -8,10 +8,11 @@ import {
   type Size,
 } from '../../components/tour/coachMarkPlacement';
 import { renderWithProviders } from '../setup/renderWithProviders';
+import { FakeMediaQueryList } from '../setup/mediaQueryFake';
 import { beginDragHold, endDragHold } from '../../redux/dragHold';
 import { LIGHT_THEME } from '../../hooks/useThemeColors';
 
-// KAN-413. Not modal, takes no focus, and Esc is Skip.
+// KAN-413. Not modal, takes no focus; Esc is the card's own (§6).
 
 const TEXT = 'A session keeps windows and tabs together.';
 const RECT: DOMRect = {
@@ -25,8 +26,8 @@ const RECT: DOMRect = {
   height: 40,
   toJSON: () => ({}),
 };
-const place = (anchor: Box, mark: Size, viewport: Size) =>
-  placeBeside(anchor, mark, viewport, ['below', 'right', 'left']);
+const place = (anchor: Box, mark: Size, viewport: Size, bright: Box) =>
+  placeBeside(anchor, mark, viewport, ['below', 'right', 'left'], bright);
 
 let anchor: HTMLElement;
 beforeEach(() => {
@@ -41,24 +42,47 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+const line = () => screen.getByRole('progressbar');
+const animations: { el: Element; keyframes: Keyframe[] }[] = [];
+beforeEach(() => {
+  animations.length = 0;
+  Object.defineProperty(Element.prototype, 'animate', {
+    configurable: true,
+    value(this: Element, keyframes: Keyframe[]) {
+      animations.push({ el: this, keyframes });
+      return { cancel: () => undefined, finished: Promise.resolve() };
+    },
+  });
+});
+afterEach(() => {
+  Reflect.deleteProperty(Element.prototype, 'animate');
+});
+
 type Props = Parameters<typeof CoachMark>[0];
-async function render(props: Partial<Props> = {}) {
+async function render(overrides: Partial<Props> = {}) {
   const onNext = vi.fn();
-  const onEnd = vi.fn();
-  await renderWithProviders(
-    <CoachMark
-      step={1}
-      total={5}
-      text={TEXT}
-      anchors={['[data-test-anchor]']}
-      width={300}
-      place={place}
-      onNext={onNext}
-      onEnd={onEnd}
-      {...props}
-    />
-  );
-  return { onNext, onEnd };
+  const onSkip = vi.fn();
+  const onBack = vi.fn();
+  const onEscape = vi.fn();
+  const propsFor = (more: Partial<Props>): Props => ({
+    step: 1,
+    total: 8,
+    text: TEXT,
+    anchors: ['[data-test-anchor]'],
+    isLive: true,
+    width: 300,
+    place,
+    primary: { label: 'Next', onPress: onNext },
+    onSkip,
+    onBack,
+    onEscape,
+    ...overrides,
+    ...more,
+  });
+  const result = await renderWithProviders(<CoachMark {...propsFor({})} />);
+  const rerenderAt = (more: Partial<Props>) =>
+    result.rerender(<CoachMark {...propsFor(more)} />);
+  return { onNext, onSkip, onBack, onEscape, rerenderAt };
 }
 const mark = () => document.querySelector<HTMLElement>('[data-coach-mark]');
 const ring = () => document.querySelector<HTMLElement>('[data-coach-ring]');
@@ -91,29 +115,6 @@ const escape = () => {
 };
 
 describe('the coach mark', () => {
-  test('steps 1 to 4: the step, the text, Skip tutorial and Next', async () => {
-    const { onNext, onEnd } = await render({ step: 2 });
-    await placed();
-    expect(screen.getByRole('dialog', { name: TEXT })).toHaveTextContent(
-      'Step 2 of 5'
-    );
-    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
-    expect(onNext).toHaveBeenCalledTimes(1);
-    fireEvent.click(screen.getByRole('button', { name: 'Skip tutorial' }));
-    expect(onEnd).toHaveBeenCalledTimes(1);
-    expect(screen.queryByRole('button', { name: 'Finish' })).toBeNull();
-  });
-
-  test('step 5: Finish only, and it ends the tour', async () => {
-    const { onNext, onEnd } = await render({ step: 5 });
-    await placed();
-    expect(screen.queryByRole('button', { name: 'Next' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Skip tutorial' })).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Finish' }));
-    expect(onEnd).toHaveBeenCalledTimes(1);
-    expect(onNext).not.toHaveBeenCalled();
-  });
-
   test('appearing leaves the focus where it was', async () => {
     const elsewhere = document.createElement('button');
     document.body.append(elsewhere);
@@ -124,30 +125,30 @@ describe('the coach mark', () => {
     elsewhere.remove();
   });
 
-  test('Esc ends the tour, and is prevented so Chrome keeps the popup open (KAN-403)', async () => {
-    const { onEnd } = await render();
+  test('Esc is the card’s, and is prevented so Chrome keeps the popup open (KAN-403)', async () => {
+    const { onEscape } = await render();
     await placed();
     const event = escape();
     act(() => {
       document.dispatchEvent(event);
     });
-    expect(onEnd).toHaveBeenCalledTimes(1);
+    expect(onEscape).toHaveBeenCalledTimes(1);
     expect(event.defaultPrevented).toBe(true);
   });
 
   test('an Esc a field already used is left alone', async () => {
-    const { onEnd } = await render();
+    const { onEscape } = await render();
     await placed();
     const event = escape();
     event.preventDefault();
     act(() => {
       document.dispatchEvent(event);
     });
-    expect(onEnd).not.toHaveBeenCalled();
+    expect(onEscape).not.toHaveBeenCalled();
   });
 
   test('an Esc while a modal dialog is open is the dialog’s', async () => {
-    const { onEnd } = await render();
+    const { onEscape } = await render();
     await placed();
     const modal = document.createElement('dialog');
     vi.spyOn(document, 'querySelector').mockImplementation(
@@ -162,24 +163,24 @@ describe('the coach mark', () => {
     act(() => {
       document.dispatchEvent(event);
     });
-    expect(onEnd).not.toHaveBeenCalled();
+    expect(onEscape).not.toHaveBeenCalled();
     expect(event.defaultPrevented).toBe(false);
   });
 
   test('an Esc during a held drag or carry is the drag’s', async () => {
-    const { onEnd } = await render();
+    const { onEscape } = await render();
     await placed();
     beginDragHold();
     const event = escape();
     act(() => {
       document.dispatchEvent(event);
     });
-    expect(onEnd).not.toHaveBeenCalled();
+    expect(onEscape).not.toHaveBeenCalled();
     expect(event.defaultPrevented).toBe(false);
   });
 
   test('with no anchor on screen it draws nothing and takes no Esc', async () => {
-    const { onEnd } = await render({ anchors: ['[data-missing]'] });
+    const { onEscape } = await render({ anchors: ['[data-missing]'] });
     await act(
       () => new Promise<void>((done) => requestAnimationFrame(() => done()))
     );
@@ -191,7 +192,7 @@ describe('the coach mark', () => {
     act(() => {
       document.dispatchEvent(event);
     });
-    expect(onEnd).not.toHaveBeenCalled();
+    expect(onEscape).not.toHaveBeenCalled();
     expect(event.defaultPrevented).toBe(false);
   });
 
@@ -366,5 +367,199 @@ describe('the coach mark', () => {
     expect(plain(getComputedStyle(markEl).boxShadow)).toBe(
       plain(LIGHT_THEME.FLOATING_SHADOW)
     );
+  });
+});
+
+describe('the card’s footer and line (§6)', () => {
+  test('a middle step: the line says where, no number on screen; Skip, Back and a filled Next', async () => {
+    const { onNext, onSkip, onBack } = await render({ step: 2 });
+    await placed();
+    expect(line()).toHaveAttribute('aria-valuenow', '2');
+    expect(line()).toHaveAttribute('aria-valuemax', '8');
+    expect(line()).toHaveAttribute('aria-valuetext', 'Step 2 of 8');
+    expect(mark()).not.toHaveTextContent('Step 2 of 8');
+    expect(
+      document.querySelector<HTMLElement>('[data-progress-fill]')?.style
+        .transform
+    ).toBe('scaleX(0.25)');
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Skip tutorial' }));
+    expect([onNext, onBack, onSkip].map((f) => f.mock.calls.length)).toEqual([
+      1, 1, 1,
+    ]);
+  });
+
+  test('step 1: no Back', async () => {
+    await render({ step: 1, onBack: undefined });
+    await placed();
+    expect(screen.queryByRole('button', { name: 'Back' })).toBeNull();
+  });
+
+  test('the last step: no Skip; Back, the secondary, then the primary', async () => {
+    const onNotNow = vi.fn();
+    const onPin = vi.fn();
+    await render({
+      step: 8,
+      onSkip: undefined,
+      secondary: { label: 'Not now', onPress: onNotNow },
+      primary: { label: 'Pin this tab', onPress: onPin },
+    });
+    await placed();
+    expect(screen.queryByRole('button', { name: 'Skip tutorial' })).toBeNull();
+    expect(screen.getAllByRole('button').map((b) => b.textContent)).toEqual([
+      'Back',
+      'Not now',
+      'Pin this tab',
+    ]);
+    fireEvent.click(screen.getByRole('button', { name: 'Pin this tab' }));
+    expect(onPin).toHaveBeenCalledTimes(1);
+    expect(onNotNow).not.toHaveBeenCalled();
+  });
+
+  test('a fine line under the text', async () => {
+    await render({ fine: 'Saving keeps them safe even after you close them.' });
+    await placed();
+    expect(mark()).toHaveTextContent(
+      'Saving keeps them safe even after you close them.'
+    );
+  });
+
+  test('the filled Next carries the filled style: TEXT_COLOR ground, PRIMARY_COLOR letters', async () => {
+    await render();
+    await placed();
+    const next = screen.getByRole('button', { name: 'Next' });
+    // Paper's TEXT_COLOR #3B3D40 and PRIMARY_COLOR #F5F7FA.
+    expect(getComputedStyle(next).backgroundColor).toBe('rgb(59, 61, 64)');
+    expect(getComputedStyle(next).color).toBe('rgb(245, 247, 250)');
+  });
+});
+
+describe('IME and Esc (D1)', () => {
+  test('an Esc that ends IME composition is not the card’s', async () => {
+    const { onEscape } = await render();
+    await placed();
+    const composing = new KeyboardEvent('keydown', {
+      key: 'Escape',
+      isComposing: true,
+      bubbles: true,
+      cancelable: true,
+    });
+    act(() => {
+      document.dispatchEvent(composing);
+    });
+    expect(onEscape).not.toHaveBeenCalled();
+    expect(composing.defaultPrevented).toBe(false);
+    act(() => {
+      document.dispatchEvent(escape());
+    });
+    expect(onEscape).toHaveBeenCalledTimes(1);
+  });
+
+  test('a keyCode 229 Esc (a browser that does not set isComposing) is not the card’s either', async () => {
+    const { onEscape } = await render();
+    await placed();
+    act(() => {
+      document.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          key: 'Escape',
+          keyCode: 229,
+          bubbles: true,
+          cancelable: true,
+        })
+      );
+    });
+    expect(onEscape).not.toHaveBeenCalled();
+  });
+});
+
+describe('the free step and the still box', () => {
+  test('no anchors: the card sits at the top left, the whole page dimmed, no ring, no notch', async () => {
+    await render({ anchors: [] });
+    await placed();
+    expect(mark()).toHaveAttribute('data-coach-side', 'free');
+    expect(mark()?.style.left).toBe('40px');
+    expect(mark()?.style.top).toBe('20px');
+    expect(dim()).not.toBeNull();
+    expect(dim()?.style.clipPath).toBe('');
+    expect(ring()).toBeNull();
+    expect(document.querySelector('[data-coach-notch]')).toBeNull();
+  });
+
+  test('a look-only step draws a still box exactly over the bright box', async () => {
+    await render({ isLive: false });
+    await placed();
+    const still = document.querySelector<HTMLElement>('[data-coach-still]');
+    expect(still).not.toBeNull();
+    expect(still?.style).toMatchObject({
+      left: '400px',
+      top: '100px',
+      width: '200px',
+      height: '40px',
+    });
+    expect(still).toHaveAttribute('aria-hidden', 'true');
+  });
+
+  test('CONTROL: a live step draws no still box', async () => {
+    await render({ isLive: true });
+    await placed();
+    expect(document.querySelector('[data-coach-still]')).toBeNull();
+  });
+});
+
+describe('motion (§10)', () => {
+  test('the first appearance fades and grows from the side facing the anchor', async () => {
+    await render({ step: 2 });
+    await placed();
+    const appear = animations.find((a) => a.el === mark());
+    expect(appear?.keyframes[0]).toMatchObject({
+      opacity: 0,
+      transform: 'scale(0.97)',
+      transformOrigin: 'center top',
+    });
+  });
+
+  test('a new step glides the card and the ring from where they were', async () => {
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(
+      function (this: HTMLElement) {
+        const left = parseFloat(this.style.left) || 0;
+        const top = parseFloat(this.style.top) || 0;
+        return {
+          ...RECT,
+          left,
+          top,
+          x: left,
+          y: top,
+          right: left + 300,
+          bottom: top + 100,
+        };
+      }
+    );
+    const { rerenderAt } = await render({ step: 2 });
+    await placed();
+    animations.length = 0;
+    anchor.getBoundingClientRect = () => ({
+      ...RECT,
+      top: 300,
+      y: 300,
+      bottom: 340,
+    });
+    rerenderAt({ step: 3 });
+    await waitFor(() =>
+      expect(animations.some((a) => a.el === mark())).toBe(true)
+    );
+    const glide = animations.find((a) => a.el === mark());
+    expect(glide?.keyframes[0].transform).toBe('translate(0px, -200px)');
+    const ringGlide = animations.find((a) => a.el === ring());
+    expect(ringGlide?.keyframes[0].transform).toBe('translate(0px, -200px)');
+  });
+
+  test('reduced motion: nothing animates', async () => {
+    vi.spyOn(window, 'matchMedia').mockImplementation(
+      (query: string) => new FakeMediaQueryList(query, true)
+    );
+    await render({ step: 2 });
+    await placed();
+    expect(animations).toEqual([]);
   });
 });

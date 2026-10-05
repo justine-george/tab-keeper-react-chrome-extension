@@ -12,7 +12,13 @@ import {
 } from '../../redux/slices/globalStateSlice';
 import { saveToTabContainerInternal } from '../../redux/slices/tabContainerDataStateSlice';
 import { buildSession } from '../fixtures/sessionFixture';
-import { activeRulesFor, hoverRulesFor } from '../setup/hoverRules';
+import {
+  activeRulesFor,
+  classRulesFor,
+  hoverRulesFor,
+} from '../setup/hoverRules';
+import { dialogButtonStyles } from '../../components/modals/dialogButtons';
+import { mixHex } from '../../styles/mixHex';
 
 // KAN-259. The three bordered-button dialogs each carried a copy of one style
 // with a hover rung and no press rung, so pressing looked like hovering --
@@ -78,4 +84,81 @@ describe.each(DIALOGS)('$name buttons answer a press (KAN-259)', (dialog) => {
 
 test('CONTROL: the rungs are Button own tokens on Paper', () => {
   expect(LIGHT_THEME.ICON_ACTIVE_COLOR).not.toBe(LIGHT_THEME.ICON_HOVER_COLOR);
+});
+
+// KAN-7. The run's way forward: TEXT_COLOR ground, PRIMARY_COLOR letters. Its
+// rungs mix TEXT_COLOR over PRIMARY_COLOR (not opacity, which would fade the
+// ring and the border too), and its ring sits outside, in TEXT_COLOR.
+describe('the filled button', () => {
+  const COLORS = LIGHT_THEME;
+  const renderFilled = async () => {
+    const { container } = await renderWithProviders(
+      <button css={dialogButtonStyles(COLORS).filled}>Next</button>
+    );
+    const button = container.querySelector('button');
+    if (button === null) throw new Error('no button');
+    return button;
+  };
+  // jsdom may hand a colour back as rgb(); compare in one spelling.
+  const rgb = (hex: string) =>
+    `rgb(${[1, 3, 5]
+      .map((i) => parseInt(hex.slice(i, i + 2), 16))
+      .join(', ')})`;
+  const fills = (rules: string) =>
+    [...rules.matchAll(/(border-color|background-color):\s*([^;}]+)/g)].map(
+      (m) => [m[1], m[2].trim().toLowerCase()]
+    );
+  const asHex = (value: string) =>
+    value.startsWith('#') ? rgb(value.toUpperCase()) : value;
+
+  test('at rest: TEXT_COLOR border and ground, PRIMARY_COLOR letters', async () => {
+    const style = getComputedStyle(await renderFilled());
+    expect(style.borderTopColor).toBe(rgb(COLORS.TEXT_COLOR));
+    expect(style.backgroundColor).toBe(rgb(COLORS.TEXT_COLOR));
+    expect(style.color).toBe(rgb(COLORS.PRIMARY_COLOR));
+  });
+
+  test('hover mixes 88% of TEXT_COLOR over PRIMARY_COLOR, press 76%, both on border and ground', async () => {
+    const button = await renderFilled();
+    const hover = mixHex(COLORS.TEXT_COLOR, COLORS.PRIMARY_COLOR, 0.88);
+    const press = mixHex(COLORS.TEXT_COLOR, COLORS.PRIMARY_COLOR, 0.76);
+    expect(hover).not.toBe(press);
+    const seen = (rules: string) =>
+      fills(rules).map(([prop, value]) => [prop, asHex(value)]);
+    expect(seen(hoverRulesFor(button))).toEqual([
+      ['border-color', rgb(hover)],
+      ['background-color', rgb(hover)],
+    ]);
+    expect(seen(activeRulesFor(button))).toEqual([
+      ['border-color', rgb(press)],
+      ['background-color', rgb(press)],
+    ]);
+  });
+
+  test('hover and press never fade the element or recolour the letters', async () => {
+    const button = await renderFilled();
+    const rules = `${hoverRulesFor(button)}\n${activeRulesFor(button)}`;
+    expect(rules).not.toMatch(/opacity|color-mix|[^-]color:/);
+  });
+
+  test('the focus ring is 2px TEXT_COLOR, outside by 2px', async () => {
+    const button = await renderFilled();
+    // The last such rule wins the cascade.
+    const ring = classRulesFor(button)
+      .split('\n')
+      .filter((rule) => rule.includes(':focus-visible'))
+      .pop();
+    expect(ring).toMatch(/outline:\s*2px solid/);
+    expect(ring).toMatch(/outline-offset:\s*2px/);
+    expect(ring).not.toMatch(/outline-offset:\s*-/);
+  });
+
+  test('CONTROL: the other styles keep the inside ring', async () => {
+    const { container } = await renderWithProviders(
+      <button css={dialogButtonStyles(COLORS).primary}>Next</button>
+    );
+    const button = container.querySelector('button');
+    if (button === null) throw new Error('no button');
+    expect(classRulesFor(button)).toMatch(/outline-offset:\s*-4px/);
+  });
 });

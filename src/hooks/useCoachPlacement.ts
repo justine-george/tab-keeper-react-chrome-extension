@@ -7,10 +7,11 @@ import {
 } from 'react';
 
 import {
+  placeFree,
   sameFrame,
   type Box,
   type CoachFrame,
-  type CoachPlacement,
+  type AnchoredPlacement,
   type Size,
 } from '../components/tour/coachMarkPlacement';
 import {
@@ -24,7 +25,7 @@ type Place = (
   mark: Size,
   viewport: Size,
   bright: Box
-) => CoachPlacement;
+) => AnchoredPlacement;
 
 // The first anchor drawn with a box; one folded away or not rendered is skipped.
 function firstAnchor(
@@ -61,11 +62,14 @@ export function useCoachPlacement(
   const key = anchors.join('\n');
 
   useEffect(() => {
-    const selectors = key.split('\n');
+    const selectors = key === '' ? [] : key.split('\n');
     let id = 0;
     let scrolled = false;
     const read = () => {
-      const found = firstAnchor(selectors, boxOfRef.current);
+      const found =
+        selectors.length === 0
+          ? null
+          : firstAnchor(selectors, boxOfRef.current);
       const mark = markRef.current;
       // a step's anchor is brought into view once, when it starts.
       if (found !== null && !scrolled) {
@@ -73,13 +77,22 @@ export function useCoachPlacement(
         scrolled = true;
       }
       let next: CoachFrame | null = null;
-      if (found !== null && mark !== null) {
+      if (mark !== null && selectors.length === 0) {
+        next = {
+          kind: 'free',
+          placement: placeFree(
+            { width: mark.offsetWidth, height: mark.offsetHeight },
+            { width: window.innerWidth, height: window.innerHeight }
+          ),
+        };
+      } else if (found !== null && mark !== null) {
         const box = found.box;
         const lit = spotlightRef.current;
         const spot =
           lit === undefined ? null : firstAnchor(lit.anchors, lit.boxOf);
         const bright = spot?.box ?? box;
         next = {
+          kind: 'anchored',
           anchor: box,
           bright,
           placement: placeRef.current(
