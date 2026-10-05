@@ -79,6 +79,17 @@ if (typeof HTMLDialogElement !== 'undefined') {
       modalDialogs.delete(this);
     };
   }
+  const matches = Element.prototype.matches;
+  Object.defineProperty(Element.prototype, 'matches', {
+    configurable: true,
+    writable: true,
+    value(this: Element, selectors: string) {
+      if (selectors !== ':modal') return matches.call(this, selectors);
+      return (
+        this instanceof HTMLDialogElement && this.open && modalDialogs.has(this)
+      );
+    },
+  });
   const querySelector = Document.prototype.querySelector;
   Object.defineProperty(Document.prototype, 'querySelector', {
     configurable: true,

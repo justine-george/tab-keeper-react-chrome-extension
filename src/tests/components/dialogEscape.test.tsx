@@ -26,6 +26,7 @@ import {
   settingsDataStateSlice,
 } from '../../redux/slices/settingsDataStateSlice';
 import { replaceState } from '../../redux/slices/tabContainerDataStateSlice';
+import { beginDragHold, endDragHold } from '../../redux/dragHold';
 
 // KAN-426. Chrome closes the popup on an Esc keydown the page leaves unprevented, so every modal's Esc is claimed.
 
@@ -288,5 +289,68 @@ describe('the shared Esc claim (KAN-426)', () => {
 
     expect(bare.open).toBe(true);
     bare.remove();
+  });
+});
+
+describe('which Esc the claim takes (KAN-426)', () => {
+  const openBare = () => {
+    const dialog = document.createElement('dialog');
+    const field = document.createElement('input');
+    dialog.append(field);
+    document.body.append(dialog);
+    dialog.showModal();
+    return { dialog, field };
+  };
+
+  test('with two modals open, Esc cancels the one that holds focus', async () => {
+    await renderWithProviders(<MainContainer />);
+    const first = openBare();
+    const second = openBare();
+    const cancelled: string[] = [];
+    first.dialog.addEventListener('cancel', () => cancelled.push('first'));
+    second.dialog.addEventListener('cancel', () => cancelled.push('second'));
+
+    pressEscape(second.field);
+
+    expect(cancelled).toEqual(['second']);
+    expect(first.dialog.open).toBe(true);
+    expect(second.dialog.open).toBe(false);
+    first.dialog.remove();
+    second.dialog.remove();
+  });
+
+  test('a drag held leaves Esc to the drag', async () => {
+    await renderWithProviders(<MainContainer />);
+    const { dialog } = openBare();
+    let cancels = 0;
+    dialog.addEventListener('cancel', () => (cancels += 1));
+    beginDragHold();
+    try {
+      expect(pressEscape(dialog).defaultPrevented).toBe(false);
+    } finally {
+      endDragHold();
+    }
+    expect(cancels).toBe(0);
+    expect(dialog.open).toBe(true);
+    dialog.remove();
+  });
+
+  test('an Esc that ends IME composition is left alone', async () => {
+    await renderWithProviders(<MainContainer />);
+    const { dialog, field } = openBare();
+    let cancels = 0;
+    dialog.addEventListener('cancel', () => (cancels += 1));
+    const event = new KeyboardEvent('keydown', {
+      key: 'Escape',
+      isComposing: true,
+      bubbles: true,
+      cancelable: true,
+    });
+    fireEvent(field, event);
+
+    expect(event.defaultPrevented).toBe(false);
+    expect(cancels).toBe(0);
+    expect(dialog.open).toBe(true);
+    dialog.remove();
   });
 });
