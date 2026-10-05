@@ -13,7 +13,11 @@ import {
   type CoachPlacement,
   type Size,
 } from '../components/tour/coachMarkPlacement';
-import { ownBox, type AnchorBox } from '../components/tour/anchorBox';
+import {
+  ownBox,
+  type AnchorBox,
+  type Spotlight,
+} from '../components/tour/anchorBox';
 
 type Place = (anchor: Box, mark: Size, viewport: Size) => CoachPlacement;
 
@@ -37,14 +41,17 @@ export function useCoachPlacement(
   markRef: RefObject<HTMLElement>,
   anchors: readonly string[],
   place: Place,
-  boxOf: AnchorBox = ownBox
+  boxOf: AnchorBox = ownBox,
+  spotlight?: Spotlight
 ): CoachFrame | null {
   const [frame, setFrame] = useState<CoachFrame | null>(null);
   const placeRef = useRef(place);
   const boxOfRef = useRef(boxOf);
+  const spotlightRef = useRef(spotlight);
   useLayoutEffect(() => {
     placeRef.current = place;
     boxOfRef.current = boxOf;
+    spotlightRef.current = spotlight;
   });
   const key = anchors.join('\n');
 
@@ -63,8 +70,12 @@ export function useCoachPlacement(
       let next: CoachFrame | null = null;
       if (found !== null && mark !== null) {
         const box = found.box;
+        const lit = spotlightRef.current;
+        const bright =
+          lit === undefined ? null : firstAnchor(lit.anchors, lit.boxOf);
         next = {
           anchor: box,
+          bright: bright?.box ?? box,
           placement: placeRef.current(
             box,
             { width: mark.offsetWidth, height: mark.offsetHeight },

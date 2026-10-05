@@ -375,26 +375,42 @@ for (const view of TOUR_VIEWS) {
         .toBe(true);
     });
 
-    // The mark is drawn only while the sample is the session on screen.
-    test('a search or Settings hides the mark, and it comes back on the sample', async ({
+    // The mark, and the dim with it, are drawn only while the sample is the session on screen.
+    test('a search or Settings hides the mark and the dim, and they come back on the sample', async ({
       context,
       extensionId,
     }) => {
       const page = await startTour(context, extensionId, view);
+      const dim = page.locator('[data-coach-dim]');
+      const hidden = async () => {
+        await expect(coach(page)).toHaveCount(0);
+        await expect(dim).toHaveCount(0);
+      };
+      const back = async () => {
+        await expect(coachAt(page, 1)).toBeVisible();
+        await expect(dim).toHaveCount(1);
+      };
+      await back();
       const search = page.locator('[data-saved-search] input');
       await search.fill('zzz');
-      await expect(coach(page)).toHaveCount(0);
+      await hidden();
       await search.fill('');
-      await expect(coachAt(page, 1)).toBeVisible();
+      await back();
       // A search the sample matches hides it too: Open and ⋮ are hidden while searching.
       await search.fill('Weekend');
-      await expect(coach(page)).toHaveCount(0);
+      await hidden();
       await search.fill('');
-      await expect(coachAt(page, 1)).toBeVisible();
-      await page.getByRole('button', { name: 'Settings', exact: true }).click();
-      await expect(coach(page)).toHaveCount(0);
+      await back();
+      // By key: the dim takes a press on Settings.
+      const settings = page.getByRole('button', {
+        name: 'Settings',
+        exact: true,
+      });
+      await settings.focus();
+      await settings.press('Enter');
+      await hidden();
       await page.getByRole('button', { name: 'Go back', exact: true }).click();
-      await expect(coachAt(page, 1)).toBeVisible();
+      await back();
       expect(await storedTour(page)).toMatchObject({ step: 1 });
     });
   });

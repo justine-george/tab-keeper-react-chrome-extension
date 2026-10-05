@@ -63,13 +63,16 @@ export async function nextTo(page: Page, step: number): Promise<void> {
 }
 
 // The full view's saved list unfolded by its own button, a stored choice the next full view opens with.
+// By key: during the tour the dim takes every press outside the step's bright box.
 export async function keepSavedSessionShown(page: Page): Promise<void> {
-  await page
-    .getByRole('button', { name: 'Fold the saved session away', exact: true })
-    .click();
-  await page
-    .getByRole('button', { name: 'Show the saved session', exact: true })
-    .click();
+  for (const name of [
+    'Fold the saved session away',
+    'Show the saved session',
+  ]) {
+    const button = page.getByRole('button', { name, exact: true });
+    await button.focus();
+    await button.press('Enter');
+  }
   await expect
     .poll(async () => (await storedSettings(page)).foldSavedSessionInTabView)
     .toBe(false);

@@ -40,7 +40,7 @@ import { useDragCard } from '../../redux/dragCard';
 // arrow's tip, as the mock draws it.
 const CARD_OFFSET_X = 8;
 const CARD_OFFSET_Y = 4;
-// Above the toast (1000): the card is under the pointer, and a toast arriving
+// Above the toast (1050): the card is under the pointer, and a toast arriving
 // mid-carry must not cover what is being carried.
 const CARD_Z_INDEX = 1100;
 

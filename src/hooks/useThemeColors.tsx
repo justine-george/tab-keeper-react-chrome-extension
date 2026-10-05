@@ -36,6 +36,8 @@ export const LIGHT_THEME = {
   SCROLLBAR_THUMB_ACTIVE: '#787A7D',
   FLOATING_SHADOW:
     '0 1px 2px rgba(0, 0, 0, 0.12), 0 4px 12px rgba(0, 0, 0, 0.18)',
+  // KAN-421. The tour's dim outside the step's bright box; heavier on the dark grounds, as FLOATING_SHADOW is.
+  TOUR_SCRIM: 'rgba(0, 0, 0, 0.2)',
 };
 
 export const WARM_LIGHT_THEME = {
@@ -65,6 +67,7 @@ export const WARM_LIGHT_THEME = {
   SCROLLBAR_THUMB_ACTIVE: '#7B776F',
   FLOATING_SHADOW:
     '0 1px 2px rgba(0, 0, 0, 0.12), 0 4px 12px rgba(0, 0, 0, 0.18)',
+  TOUR_SCRIM: 'rgba(0, 0, 0, 0.2)',
 };
 
 export const BB_PINK_THEME = {
@@ -94,6 +97,7 @@ export const BB_PINK_THEME = {
   SCROLLBAR_THUMB_ACTIVE: '#8D6E79',
   FLOATING_SHADOW:
     '0 1px 2px rgba(0, 0, 0, 0.12), 0 4px 12px rgba(0, 0, 0, 0.18)',
+  TOUR_SCRIM: 'rgba(0, 0, 0, 0.2)',
 };
 
 export const DARKENHEIMER_THEME = {
@@ -123,6 +127,7 @@ export const DARKENHEIMER_THEME = {
   SCROLLBAR_THUMB_ACTIVE: '#878787',
   FLOATING_SHADOW:
     '0 1px 2px rgba(0, 0, 0, 0.4), 0 6px 16px rgba(0, 0, 0, 0.55)',
+  TOUR_SCRIM: 'rgba(0, 0, 0, 0.4)',
 };
 
 export const BLUE_THEME = {
@@ -152,6 +157,7 @@ export const BLUE_THEME = {
   SCROLLBAR_THUMB_ACTIVE: '#888897',
   FLOATING_SHADOW:
     '0 1px 2px rgba(0, 0, 0, 0.4), 0 6px 16px rgba(0, 0, 0, 0.55)',
+  TOUR_SCRIM: 'rgba(0, 0, 0, 0.4)',
 };
 
 /** The colour tokens every theme defines. */

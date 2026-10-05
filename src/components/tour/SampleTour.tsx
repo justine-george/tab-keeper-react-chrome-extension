@@ -9,7 +9,13 @@ import {
   type Box,
   type Size,
 } from './coachMarkPlacement';
-import { COACH_WIDTH, TOUR_ANCHORS, TOUR_BOX, TOUR_SIDES } from './tourSteps';
+import {
+  COACH_WIDTH,
+  TOUR_ANCHORS,
+  TOUR_BOX,
+  TOUR_SIDES,
+  TOUR_SPOTLIGHT,
+} from './tourSteps';
 import type { AppDispatch, RootState } from '../../redux/store';
 import {
   advanceSampleTour,
@@ -109,6 +115,7 @@ export default function SampleTour() {
       text={texts[tour.step]}
       anchors={TOUR_ANCHORS[tour.step]}
       boxOf={TOUR_BOX[tour.step]}
+      spotlight={TOUR_SPOTLIGHT[tour.step]}
       width={isFull ? COACH_WIDTH.full : COACH_WIDTH.popup}
       place={place}
       onNext={next}

@@ -2,6 +2,12 @@ import { intersectBox, unionBox, type Box } from './coachMarkPlacement';
 
 export type AnchorBox = (element: Element) => Box | null;
 
+// What a step lights instead of its ring's box: the first of `anchors` drawn, measured by `boxOf`.
+export interface Spotlight {
+  anchors: readonly string[];
+  boxOf: AnchorBox;
+}
+
 const fromRect = (rect: DOMRect): Box => ({
   left: rect.left,
   top: rect.top,

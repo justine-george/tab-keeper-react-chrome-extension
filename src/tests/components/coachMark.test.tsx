@@ -9,6 +9,7 @@ import {
 } from '../../components/tour/coachMarkPlacement';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { beginDragHold, endDragHold } from '../../redux/dragHold';
+import { LIGHT_THEME } from '../../hooks/useThemeColors';
 
 // KAN-413. Not modal, takes no focus, and Esc is Skip.
 
@@ -59,6 +60,24 @@ async function render(props: Partial<Props> = {}) {
   return { onNext, onEnd };
 }
 const mark = () => document.querySelector<HTMLElement>('[data-coach-mark]');
+const ring = () => document.querySelector<HTMLElement>('[data-coach-ring]');
+const dim = () => document.querySelector<HTMLElement>('[data-coach-dim]');
+// The dim's clip-path: the viewport, less a hole at left, top, width, height.
+const hole = (left: number, top: number, width: number, height: number) => {
+  const [right, bottom] = [left + width, top + height];
+  return (
+    'polygon(evenodd, 0 0, 100% 0, 100% 100%, 0 100%, 0 0, ' +
+    `${left}px ${top}px, ${right}px ${top}px, ${right}px ${bottom}px, ` +
+    `${left}px ${bottom}px, ${left}px ${top}px)`
+  );
+};
+const twoFrames = () =>
+  act(
+    () =>
+      new Promise<void>((done) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => done()))
+      )
+  );
 const placed = () =>
   waitFor(() => expect(mark()).not.toHaveAttribute('aria-hidden'));
 const escape = () => {
@@ -165,7 +184,8 @@ describe('the coach mark', () => {
     );
     expect(mark()).toHaveAttribute('aria-hidden', 'true');
     expect(screen.queryByRole('button', { name: 'Next' })).toBeNull();
-    expect(document.querySelector('[data-coach-ring]')).toBeNull();
+    expect(ring()).toBeNull();
+    expect(dim()).toBeNull();
     const event = escape();
     act(() => {
       document.dispatchEvent(event);
@@ -196,7 +216,6 @@ describe('the coach mark', () => {
   test('the ring and the mark follow the anchor, and the notch faces it', async () => {
     await render();
     await placed();
-    const ring = () => document.querySelector<HTMLElement>('[data-coach-ring]');
     expect(ring()?.style.top).toBe('96px');
     expect(mark()?.style.top).toBe('154px');
     expect(mark()).toHaveAttribute('data-coach-side', 'below');
@@ -216,8 +235,131 @@ describe('the coach mark', () => {
       boxOf: () => ({ left: 400, top: 100, width: 200, height: 120 }),
     });
     await placed();
-    const ring = document.querySelector<HTMLElement>('[data-coach-ring]');
-    expect(ring?.style.height).toBe('128px');
+    expect(ring()?.style.height).toBe('128px');
     expect(mark()?.style.top).toBe('234px');
+  });
+
+  // KAN-421. The page is dimmed and takes no press outside the bright box.
+  test('placed, the dim covers the page, takes the pointer, and leaves the ring’s box bright', async () => {
+    await render();
+    await placed();
+    expect(ring()?.style).toMatchObject({
+      left: '396px',
+      top: '96px',
+      width: '208px',
+      height: '48px',
+    });
+    expect(dim()?.style.clipPath).toBe(hole(396, 96, 208, 48));
+    expect(dim()).toHaveAttribute('aria-hidden', 'true');
+    const style = getComputedStyle(dim() as HTMLElement);
+    expect({
+      position: style.position,
+      inset: style.getPropertyValue('inset'),
+      background: style.backgroundColor,
+      cursor: style.cursor,
+      pointerEvents: style.pointerEvents,
+    }).toEqual({
+      position: 'fixed',
+      inset: '0px',
+      background: LIGHT_THEME.TOUR_SCRIM,
+      cursor: 'not-allowed',
+      pointerEvents: 'auto',
+    });
+    expect(dim()?.tabIndex).toBe(-1);
+  });
+
+  test('a press on the dim moves no focus and reaches no listener outside it', async () => {
+    await render();
+    await placed();
+    const outside = vi.fn();
+    document.addEventListener('mousedown', outside);
+    const press = new MouseEvent('mousedown', {
+      bubbles: true,
+      cancelable: true,
+    });
+    act(() => {
+      dim()?.dispatchEvent(press);
+    });
+    document.removeEventListener('mousedown', outside);
+    expect(press.defaultPrevented).toBe(true);
+    expect(outside).not.toHaveBeenCalled();
+  });
+
+  test('the dim’s hole follows the anchor', async () => {
+    await render();
+    await placed();
+    anchor.getBoundingClientRect = () => ({
+      ...RECT,
+      y: 300,
+      top: 300,
+      bottom: 340,
+    });
+    await waitFor(() => expect(ring()?.style.top).toBe('296px'));
+    expect(dim()?.style.clipPath).toBe(hole(396, 296, 208, 48));
+  });
+
+  test('a spotlight lights its own box while the ring stays on the anchor, and follows it', async () => {
+    const lit = document.createElement('div');
+    lit.setAttribute('data-test-lit', '');
+    let litTop = 60;
+    lit.getBoundingClientRect = () => ({
+      ...RECT,
+      x: 380,
+      y: litTop,
+      left: 380,
+      top: litTop,
+      width: 300,
+      height: 200,
+    });
+    document.body.append(lit);
+    await render({
+      spotlight: {
+        anchors: ['[data-missing]', '[data-test-lit]'],
+        boxOf: (element) => {
+          const r = element.getBoundingClientRect();
+          return { left: r.left, top: r.top, width: r.width, height: r.height };
+        },
+      },
+    });
+    await placed();
+    await waitFor(() =>
+      expect(dim()?.style.clipPath).toBe(hole(376, 56, 308, 208))
+    );
+    expect(ring()?.style.top).toBe('96px');
+    expect(ring()?.style.height).toBe('48px');
+    litTop = 80;
+    await waitFor(() =>
+      expect(dim()?.style.clipPath).toBe(hole(376, 76, 308, 208))
+    );
+    lit.remove();
+  });
+
+  test('a spotlight with nothing drawn lights the ring’s box', async () => {
+    await render({
+      spotlight: { anchors: ['[data-missing]'], boxOf: () => null },
+    });
+    await placed();
+    await twoFrames();
+    expect(dim()?.style.clipPath).toBe(hole(396, 96, 208, 48));
+  });
+
+  test('unplaced again, the dim goes with the mark', async () => {
+    await render();
+    await placed();
+    expect(dim()).not.toBeNull();
+    anchor.remove();
+    await waitFor(() => expect(mark()).toHaveAttribute('aria-hidden', 'true'));
+    expect(dim()).toBeNull();
+    expect(ring()).toBeNull();
+  });
+
+  test('the mark floats: it casts the theme’s floating shadow', async () => {
+    await render();
+    await placed();
+    // jsdom drops the space after each comma.
+    const plain = (shadow: string) => shadow.replace(/,\s*/g, ',');
+    expect(plain(getComputedStyle(mark() as HTMLElement).boxShadow)).toBe(
+      plain(LIGHT_THEME.FLOATING_SHADOW)
+    );
   });
 });

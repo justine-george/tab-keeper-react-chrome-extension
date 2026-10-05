@@ -78,7 +78,8 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
     position: fixed;
     bottom: 20px;
     ${isSettingsPage ? `right: 20px` : `left: 20px`};
-    z-index: 1000;
+    /* Over the menus (1000) and the tour's dim and mark (1010, 1020); under the drag card (1100). */
+    z-index: 1050;
   `;
 
   const toastStyle = css`

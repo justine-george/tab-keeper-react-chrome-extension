@@ -1,4 +1,10 @@
-import { useEffect, useId, useRef, type CSSProperties } from 'react';
+import {
+  useEffect,
+  useId,
+  useRef,
+  type CSSProperties,
+  type SyntheticEvent,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import { css } from '@emotion/react';
 
@@ -8,12 +14,13 @@ import { useThemeColors } from '../../hooks/useThemeColors';
 import { useFontFamily } from '../../hooks/useFontFamily';
 import { useCoachPlacement } from '../../hooks/useCoachPlacement';
 import {
-  COACH,
+  clipPathWithHole,
+  ringBox,
   type Box,
   type CoachPlacement,
   type Size,
 } from './coachMarkPlacement';
-import type { AnchorBox } from './anchorBox';
+import type { AnchorBox, Spotlight } from './anchorBox';
 import { TOUR_STEPS, type TourStep } from '../../utils/functions/sampleTour';
 import { TYPE } from '../../styles/scale';
 
@@ -22,6 +29,7 @@ interface CoachMarkProps {
   text: string;
   anchors: readonly string[];
   boxOf?: AnchorBox;
+  spotlight?: Spotlight;
   width: number;
   place: (anchor: Box, mark: Size, viewport: Size) => CoachPlacement;
   onNext: () => void;
@@ -85,12 +93,21 @@ function Notch({
   );
 }
 
+const Z = { DIM: 1010, MARK: 1020 } as const;
+
+// A press on the dim does nothing: no focus moves, and no menu sees it as a press outside.
+const swallow = (event: SyntheticEvent) => {
+  event.preventDefault();
+  event.stopPropagation();
+};
+
 // KAN-413. One step's coach mark in the callout's style; not modal, takes no focus.
 export default function CoachMark({
   step,
   text,
   anchors,
   boxOf,
+  spotlight,
   width,
   place,
   onNext,
@@ -101,7 +118,7 @@ export default function CoachMark({
   const { t } = useTranslation();
   const textId = useId();
   const markRef = useRef<HTMLDivElement>(null);
-  const frame = useCoachPlacement(markRef, anchors, place, boxOf);
+  const frame = useCoachPlacement(markRef, anchors, place, boxOf, spotlight);
   const buttons = dialogButtonStyles(COLORS);
   const isLast = step === TOUR_STEPS;
   const isPlaced = frame !== null;
@@ -118,10 +135,10 @@ export default function CoachMark({
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [isPlaced, onEnd]);
 
-  // Over the panes and Open now's rail (900), under the toasts (1000).
+  // The dim over the panes and their menus (1000), the mark and ring over it, all under the toasts (1050).
   const markStyle = css`
     position: fixed;
-    z-index: 950;
+    z-index: ${Z.MARK};
     box-sizing: border-box;
     display: grid;
     gap: 10px;
@@ -136,10 +153,20 @@ export default function CoachMark({
     line-height: 1.45;
     text-align: left;
     cursor: default;
+    box-shadow: ${COLORS.FLOATING_SHADOW};
+  `;
+  // One element dims and blocks: its clip-path hole cuts both the paint and the hit-test.
+  const dimStyle = css`
+    position: fixed;
+    inset: 0;
+    z-index: ${Z.DIM};
+    background-color: ${COLORS.TOUR_SCRIM};
+    pointer-events: auto;
+    cursor: not-allowed;
   `;
   const ringStyle = css`
     position: fixed;
-    z-index: 950;
+    z-index: ${Z.MARK};
     box-sizing: border-box;
     border: 2px dashed ${COLORS.TEXT_COLOR};
     pointer-events: none;
@@ -166,14 +193,18 @@ export default function CoachMark({
       {frame && (
         <div
           aria-hidden="true"
+          data-coach-dim
+          css={dimStyle}
+          onMouseDown={swallow}
+          style={{ clipPath: clipPathWithHole(ringBox(frame.bright)) }}
+        />
+      )}
+      {frame && (
+        <div
+          aria-hidden="true"
           data-coach-ring
           css={ringStyle}
-          style={{
-            left: frame.anchor.left - COACH.RING_INSET,
-            top: frame.anchor.top - COACH.RING_INSET,
-            width: frame.anchor.width + 2 * COACH.RING_INSET,
-            height: frame.anchor.height + 2 * COACH.RING_INSET,
-          }}
+          style={ringBox(frame.anchor)}
         />
       )}
       <div

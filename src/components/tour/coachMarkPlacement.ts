@@ -22,8 +22,10 @@ export interface CoachPlacement {
   notch: number;
 }
 
+// bright: the box left undimmed, the anchor's own unless the step lights more.
 export interface CoachFrame {
   anchor: Box;
+  bright: Box;
   placement: CoachPlacement;
 }
 
@@ -145,13 +147,38 @@ export function intersectBox(a: Box, b: Box): Box | null {
     : null;
 }
 
+// The ring's box: RING_INSET outside the box it rings.
+export function ringBox(box: Box): Box {
+  return {
+    left: box.left - COACH.RING_INSET,
+    top: box.top - COACH.RING_INSET,
+    width: box.width + 2 * COACH.RING_INSET,
+    height: box.height + 2 * COACH.RING_INSET,
+  };
+}
+
+// A clip-path keeping the whole element but `box`, in the element's own px.
+export function clipPathWithHole(box: Box): string {
+  const right = box.left + box.width;
+  const bottom = box.top + box.height;
+  return (
+    'polygon(evenodd, 0 0, 100% 0, 100% 100%, 0 100%, 0 0, ' +
+    `${box.left}px ${box.top}px, ${right}px ${box.top}px, ` +
+    `${right}px ${bottom}px, ${box.left}px ${bottom}px, ${box.left}px ${box.top}px)`
+  );
+}
+
+const sameBox = (a: Box, b: Box): boolean =>
+  a.left === b.left &&
+  a.top === b.top &&
+  a.width === b.width &&
+  a.height === b.height;
+
 export function sameFrame(a: CoachFrame | null, b: CoachFrame | null): boolean {
   if (a === null || b === null) return a === b;
   return (
-    a.anchor.left === b.anchor.left &&
-    a.anchor.top === b.anchor.top &&
-    a.anchor.width === b.anchor.width &&
-    a.anchor.height === b.anchor.height &&
+    sameBox(a.anchor, b.anchor) &&
+    sameBox(a.bright, b.bright) &&
     a.placement.side === b.placement.side &&
     a.placement.left === b.placement.left &&
     a.placement.top === b.placement.top &&

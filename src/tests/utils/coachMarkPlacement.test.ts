@@ -1,9 +1,11 @@
 import { describe, expect, test } from 'vitest';
 
 import {
+  clipPathWithHole,
   intersectBox,
   placeBeside,
   placeInPopupPane,
+  ringBox,
   sameFrame,
   unionBox,
   type Box,
@@ -213,9 +215,32 @@ describe('intersectBox', () => {
   });
 });
 
+describe('ringBox', () => {
+  test('RING_INSET outside the box on every side', () => {
+    expect(ringBox({ left: 400, top: 100, width: 200, height: 40 })).toEqual({
+      left: 396,
+      top: 96,
+      width: 208,
+      height: 48,
+    });
+  });
+});
+
+describe('clipPathWithHole', () => {
+  test('the whole element, less the box, by the even-odd rule', () => {
+    expect(
+      clipPathWithHole({ left: 396, top: 96, width: 208, height: 48.5 })
+    ).toBe(
+      'polygon(evenodd, 0 0, 100% 0, 100% 100%, 0 100%, 0 0, ' +
+        '396px 96px, 604px 96px, 604px 144.5px, 396px 144.5px, 396px 96px)'
+    );
+  });
+});
+
 describe('sameFrame', () => {
   const frame = {
     anchor: { left: 1, top: 2, width: 3, height: 4 },
+    bright: { left: 1, top: 2, width: 3, height: 4 },
     placement: { side: 'below' as const, left: 5, top: 6, notch: 24 },
   };
   test('equal frames, and two nulls, are the same', () => {
@@ -228,6 +253,9 @@ describe('sameFrame', () => {
     ).toBe(false);
     expect(
       sameFrame(frame, { ...frame, anchor: { ...frame.anchor, width: 9 } })
+    ).toBe(false);
+    expect(
+      sameFrame(frame, { ...frame, bright: { ...frame.bright, height: 9 } })
     ).toBe(false);
     expect(sameFrame(frame, null)).toBe(false);
   });

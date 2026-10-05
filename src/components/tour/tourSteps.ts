@@ -1,6 +1,6 @@
 import type { TourStep } from '../../utils/functions/sampleTour';
 import type { CoachSide } from './coachMarkPlacement';
-import { ownBox, rowsBox, type AnchorBox } from './anchorBox';
+import { ownBox, rowsBox, type AnchorBox, type Spotlight } from './anchorBox';
 
 // KAN-413. Each step's anchor in the pane drawing the sample; the first one drawn wins.
 const IN_DETAIL = '[data-pane="detail"]';
@@ -25,6 +25,11 @@ export const TOUR_BOX: Record<TourStep, AnchorBox> = {
   3: ownBox,
   4: ownBox,
   5: ownBox,
+};
+
+// Lit beyond the ring: step 4 lights both windows, so a drop into the other one is plainly allowed.
+export const TOUR_SPOTLIGHT: Partial<Record<TourStep, Spotlight>> = {
+  4: { anchors: TOUR_ANCHORS[1], boxOf: rowsBox },
 };
 
 // Full view, as mocked: beside steps 1 and 5, below steps 2 to 4; the first that fits.
