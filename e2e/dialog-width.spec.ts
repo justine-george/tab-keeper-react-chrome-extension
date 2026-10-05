@@ -1,7 +1,8 @@
-import type { BrowserContext, Page } from '@playwright/test';
+import type { BrowserContext, Locator, Page } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
-import { buildContainer, seedSessions } from './fixtures/seed';
+import { buildContainer, seedSessions, seedSettings } from './fixtures/seed';
+import { hello } from './fixtures/run';
 
 // KAN-301. The four confirm dialogs (CloudConsentModal, FocusConfirmModal,
 // DeleteCloudDataModal, LoadBackupModal) each set `width: 78%` on a fixed
@@ -12,12 +13,38 @@ import { buildContainer, seedSessions } from './fixtures/seed';
 // `min(78%, 616px)`, shared by all four, so every dialog stays the size it
 // was designed at wherever it opens.
 //
-// The sync-question dialog exercises the shared value for the popup and both
-// tab-view sizes; Delete cloud data is checked separately, in the tab view
-// only, as the one other dialog reachable without extra setup.
+// The sync-question dialog exercises the shared value for the popup (the
+// welcome) and both tab-view sizes (the plain question, from Auto Sync); the
+// run's Hello, a new install's first full-view dialog, shares it too; Delete
+// cloud data is checked in the tab view only.
 // FocusConfirmModal is unreachable in the tab view (Switch is hidden there,
 // D7) and LoadBackupModal needs a file pick -- both are covered by the
 // shared DIALOG.WIDTH token rather than faked here.
+
+const named = (page: Page, name: string) =>
+  page.getByRole('dialog', { name, exact: true });
+
+// The plain sync question, from a declined profile's Auto Sync On, in the tab view.
+async function enableQuestionInTab(
+  context: BrowserContext,
+  extensionId: string,
+  viewport: { width: number; height: number }
+): Promise<Page> {
+  await seedSettings(context, { cloudConsent: 'declined', isAutoSync: false });
+  const tab = await openPage(
+    context,
+    extensionId,
+    'index.html?view=tab',
+    viewport
+  );
+  await tab.locator('[aria-label="Settings"]').click();
+  await tab.locator('button[aria-label="Sync & Backup"]').click();
+  await tab
+    .getByRole('group', { name: 'Auto Sync' })
+    .getByRole('button', { name: 'On', exact: true })
+    .click();
+  return tab;
+}
 
 const POPUP_VIEWPORT = { width: 790, height: 550 };
 const TAB_1280 = { width: 1280, height: 800 };
@@ -40,12 +67,11 @@ async function openPage(
 // measured against page.viewportSize(), not the popup's 790px app box.
 async function dialogGeometry(
   page: Page,
-  name: string
+  dialog: Locator
 ): Promise<{ width: number; leftGap: number; rightGap: number }> {
-  const dialog = page.getByRole('dialog', { name });
   await expect(dialog).toBeVisible();
   const box = await dialog.boundingBox();
-  if (box === null) throw new Error(`no box for dialog "${name}"`);
+  if (box === null) throw new Error('no box for the dialog');
   const viewport = page.viewportSize();
   if (viewport === null) throw new Error('no viewport size');
   return {
@@ -67,13 +93,42 @@ function expectCapped(
   ).toBeLessThanOrEqual(1);
 }
 
-test.describe('confirm dialogs stay capped at the popup width (KAN-301)', () => {
+test.describe('the sync-question dialog stays capped at the popup width (KAN-301)', () => {
+  test('is 616±1px and centred in the tab view at 1280', async ({
+    context,
+    extensionId,
+  }) => {
+    const tab = await enableQuestionInTab(context, extensionId, TAB_1280);
+    expectCapped(
+      await dialogGeometry(
+        tab,
+        named(tab, 'Sync your sessions across devices?')
+      ),
+      'sync question, tab view @1280'
+    );
+  });
+
+  test('is 616±1px and centred in the tab view at 1920', async ({
+    context,
+    extensionId,
+  }) => {
+    const tab = await enableQuestionInTab(context, extensionId, TAB_1920);
+    expectCapped(
+      await dialogGeometry(
+        tab,
+        named(tab, 'Sync your sessions across devices?')
+      ),
+      'sync question, tab view @1920'
+    );
+  });
+});
+
+test.describe('on a new install (KAN-301)', () => {
   test.use({ freshProfile: true });
 
-  // Three separate tests, each its own fresh profile (the `context` fixture
-  // mints a new one per test): the welcome records its answer as it opens
+  // Each its own fresh profile: the welcome records its answer as it opens
   // (KAN-410), so a second page in the SAME profile is not welcomed again.
-  test('is 616±1px and centred in the popup (CONTROL)', async ({
+  test('the welcome is 616±1px and centred in the popup (CONTROL)', async ({
     context,
     extensionId,
   }) => {
@@ -84,12 +139,12 @@ test.describe('confirm dialogs stay capped at the popup width (KAN-301)', () => 
       POPUP_VIEWPORT
     );
     expectCapped(
-      await dialogGeometry(popup, 'Welcome to Tab Keeper'),
+      await dialogGeometry(popup, named(popup, 'Welcome to Tab Keeper')),
       'popup CONTROL'
     );
   });
 
-  test('is 616±1px and centred in the tab view at 1280', async ({
+  test('Hello is 616±1px and centred in the tab view at 1280', async ({
     context,
     extensionId,
   }) => {
@@ -99,13 +154,10 @@ test.describe('confirm dialogs stay capped at the popup width (KAN-301)', () => 
       'index.html?view=tab',
       TAB_1280
     );
-    expectCapped(
-      await dialogGeometry(tab1280, 'Welcome to Tab Keeper'),
-      'tab view @1280'
-    );
+    expectCapped(await dialogGeometry(tab1280, hello(tab1280)), 'Hello @1280');
   });
 
-  test('is 616±1px and centred in the tab view at 1920', async ({
+  test('Hello is 616±1px and centred in the tab view at 1920', async ({
     context,
     extensionId,
   }) => {
@@ -115,10 +167,7 @@ test.describe('confirm dialogs stay capped at the popup width (KAN-301)', () => 
       'index.html?view=tab',
       TAB_1920
     );
-    expectCapped(
-      await dialogGeometry(tab1920, 'Welcome to Tab Keeper'),
-      'tab view @1920'
-    );
+    expectCapped(await dialogGeometry(tab1920, hello(tab1920)), 'Hello @1920');
   });
 });
 
@@ -138,7 +187,10 @@ test.describe('Delete cloud data dialog stays capped in the tab view (KAN-301)',
     await tab.locator('button[aria-label="Sync & Backup"]').click();
     await tab.getByRole('button', { name: 'Delete cloud data' }).click();
 
-    const geo = await dialogGeometry(tab, 'Delete your cloud data?');
+    const geo = await dialogGeometry(
+      tab,
+      named(tab, 'Delete your cloud data?')
+    );
     expect(geo.width, 'tab view @1920: width').toBeGreaterThanOrEqual(615);
     expect(geo.width, 'tab view @1920: width').toBeLessThanOrEqual(617);
   });
