@@ -11,6 +11,7 @@ interface Run {
   target: Element;
   keyframes: unknown;
   options: unknown;
+  cancel: ReturnType<typeof vi.fn>;
   release: () => void;
 }
 let runs: Run[] = [];
@@ -23,19 +24,22 @@ function installAnimate(): void {
       const finished = new Promise<unknown>((resolve) => {
         release = () => resolve(undefined);
       });
-      runs.push({ target: this, keyframes, options, release });
-      return { finished, cancel: () => release() };
+      const cancel = vi.fn(() => release());
+      runs.push({ target: this, keyframes, options, cancel, release });
+      return { finished, cancel };
     },
   });
 }
 
 const setup = async () => {
-  const { container } = await renderWithProviders(<HeroContainerLeft />);
+  const { container, unmount } = await renderWithProviders(
+    <HeroContainerLeft />
+  );
   const mark = container.querySelector('svg');
   if (mark === null) throw new Error('no mark rendered');
   const shutter = mark.querySelector('[data-mark-part="shutter"]');
   if (shutter === null) throw new Error('no shutter rendered');
-  return { mark, shutter };
+  return { mark, shutter, unmount };
 };
 const settle = () =>
   act(async () => {
@@ -105,8 +109,28 @@ describe('clicking the header mark', () => {
   });
 
   test('without Web Animations a click is harmless', async () => {
+    // React reports a throwing handler as a window error, not to fireEvent.
+    const errors: unknown[] = [];
+    const record = (event: ErrorEvent) => {
+      event.preventDefault();
+      errors.push(event.error);
+    };
+    window.addEventListener('error', record);
     const { mark } = await setup();
-    expect(() => fireEvent.click(mark)).not.toThrow();
+    fireEvent.click(mark);
+    window.removeEventListener('error', record);
+
+    expect(errors).toEqual([]);
+  });
+
+  test('leaving while it plays cancels both animations', async () => {
+    installAnimate();
+    const { mark, unmount } = await setup();
+    fireEvent.click(mark);
+    expect(runs).toHaveLength(2);
+    unmount();
+
+    expect(runs.map((r) => r.cancel.mock.calls.length)).toEqual([1, 1]);
   });
 
   test('the mark stays decorative: hidden, no role, no tab stop', async () => {
