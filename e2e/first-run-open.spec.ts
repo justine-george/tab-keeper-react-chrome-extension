@@ -10,6 +10,7 @@ import {
   openPage,
   openPopup,
   POPUP,
+  storedSettings,
 } from './fixtures/onboarding';
 import {
   card,
@@ -349,4 +350,40 @@ test('no open deletes a session: a popup run on a sample, interrupted and reopen
   await expect(cardAt(again, 2)).toBeVisible();
   expect(await storedRun(again)).toMatchObject({ step: 2 });
   expect(await storedTitles(again)).toEqual(titles);
+});
+
+// The full view greets a new install with the run's Hello: the welcome and setup are never drawn.
+test('a fresh profile whose first open is the full view gets Hello, never the welcome or setup', async ({
+  context,
+  extensionId,
+}) => {
+  await watchRunDrawn(context);
+  const full = await openFullView(context, extensionId);
+  await runCheck(full, 'started');
+  await queueDone(full);
+  await expect(hello(full)).toHaveAccessibleName('Welcome to Tab Keeper');
+  expect(await runDrawn(full)).toEqual(['hello']);
+  expect(await storedSettings(full)).toMatchObject({
+    cloudConsent: 'declined',
+    setupState: 'pending',
+    firstRun: running('full', 0, null),
+  });
+  // Skip tutorial ends it as the welcome's Not now would have: skipped.
+  await hello(full)
+    .getByRole('button', { name: 'Skip tutorial', exact: true })
+    .click();
+  await expect.poll(() => storedRun(full)).toMatchObject({ ended: 'skipped' });
+});
+
+test('CONTROL: the same observer sees a fresh profile’s first popup open draw the welcome', async ({
+  context,
+  extensionId,
+}) => {
+  await watchRunDrawn(context);
+  const popup = await openPopup(context, extensionId);
+  await queueDone(popup);
+  await expect(
+    popup.getByRole('dialog', { name: 'Welcome to Tab Keeper', exact: true })
+  ).toBeVisible();
+  expect(await runDrawn(popup)).toEqual(['cloudConsent']);
 });

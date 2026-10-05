@@ -194,10 +194,11 @@ export async function seedRawSettingsIfAbsent(
   }, JSON.stringify(settings));
 }
 
-// What the observer names: the run's card, its Hello, and the setup and pin guide it must win over.
+// What the observer names: the run's card, its Hello, and the cloud dialog (a new install's welcome), setup and pin guide it must win over.
 const RUN_PARTS = {
   card: '[data-coach-mark]:not([aria-hidden])',
   hello: 'dialog[data-run-hello]',
+  cloudConsent: 'dialog[open][aria-labelledby="cloud-consent-title"]',
   setup: 'dialog[open][aria-labelledby="setup-title"]',
   pinGuide: 'dialog[open]:has([data-pin-why])',
 };

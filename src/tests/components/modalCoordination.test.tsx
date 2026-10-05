@@ -333,23 +333,6 @@ describe('the pin guide in the order (KAN-7 §4)', () => {
     );
     expect(store.getState().globalState.isPinGuideOpen).toBe(false);
   });
-
-  test('a welcome answered in the full view goes to setup, not the offer', async () => {
-    history.replaceState(null, '', '?view=tab');
-    const { store } = await renderWithProviders(<App />, {
-      seed: { action: { isOnToolbar: false } },
-    });
-    await waitFor(() =>
-      expect(store.getState().globalState.isCloudConsentModalOpen).toBe(true)
-    );
-    await userEvent.click(screen.getByRole('button', { name: 'Get started' }));
-
-    await waitFor(() =>
-      expect(store.getState().globalState.isSetupOpen).toBe(true)
-    );
-    expect(store.getState().globalState.isFullViewOfferOpen).toBe(false);
-    expect(store.getState().settingsDataState.setupState).toBe('pending');
-  });
 });
 
 describe('setup in the order (KAN-7 §5)', () => {
@@ -408,24 +391,6 @@ describe('setup in the order (KAN-7 §5)', () => {
       expect(store.getState().globalState.isRateAndReviewModalOpen).toBe(true)
     );
     expect(store.getState().globalState.isSetupOpen).toBe(false);
-  });
-
-  // The welcome itself shown in the full view: its close is what chains to setup.
-  test('the welcome answered in the full view on a pinned machine: setup opens next', async () => {
-    history.replaceState(null, '', '?view=tab');
-    const { store } = await renderWithProviders(<App />, {
-      seed: { action: { isOnToolbar: true } },
-    });
-    await waitFor(() =>
-      expect(store.getState().globalState.isCloudConsentModalOpen).toBe(true)
-    );
-
-    await userEvent.click(screen.getByRole('button', { name: 'Get started' }));
-
-    await waitFor(() =>
-      expect(store.getState().globalState.isSetupOpen).toBe(true)
-    );
-    expect(store.getState().globalState.isPinGuideOpen).toBe(false);
   });
 
   test('never in the popup', async () => {

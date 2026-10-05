@@ -188,6 +188,30 @@ describe('the firstRun entry', () => {
     ).toEqual(['sample:x']);
   });
 
+  // The full view greets a new install with the run's Hello: the welcome and setup wait.
+  test('a new install’s first open in the full view starts the run at Hello, declined and setup pending; no welcome, no setup', async () => {
+    const { store, seen, opened, check } = await openWith('full', {});
+    expect([opened, check]).toEqual(['cloudConsent', 'started']);
+    await expect.poll(() => store.getState().globalState.isRunHere).toBe(true);
+    expect(store.getState().settingsDataState).toMatchObject({
+      firstRun: newRun('full', 0, 'welcome'),
+      cloudConsent: 'declined',
+      setupState: 'pending',
+    });
+    expect(locks.held.has(RUN_LOCK)).toBe(true);
+    expect(seen).not.toContain('globalState/openCloudConsentModal');
+    expect(seen).not.toContain('globalState/openSetup');
+  });
+
+  test('CONTROL: a new install’s first open in the popup draws the welcome', async () => {
+    const { store, seen } = await openWith('popup', {});
+    await expect
+      .poll(() => store.getState().globalState.isCloudConsentModalOpen)
+      .toBe(true);
+    expect(store.getState().globalState.cloudConsentVariant).toBe('welcome');
+    expect(seen).toContain('globalState/openCloudConsentModal');
+  });
+
   test('the answered e2e profile opens no run, and the rest of the queue decides', async () => {
     const { check, opened } = await openWith('popup', {
       cloudConsent: 'granted',

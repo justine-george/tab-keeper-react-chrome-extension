@@ -22,14 +22,19 @@ import {
   shouldShowSetup,
 } from '../utils/functions/onboarding';
 import { showWhenQuiet } from './quietCards';
-import { runOpener } from './firstRun';
-import { runAtOpen } from '../utils/functions/firstRun';
+import { runOpener, startRun } from './firstRun';
+import { newRun, runAtOpen, type RunCheck } from '../utils/functions/firstRun';
 import { RUN_LOCK, tourLockState } from '../utils/functions/tourLock';
 import { shouldAskForReview } from '../utils/functions/reviewAsk';
 import { readToolbarPin } from '../utils/functions/toolbarPin';
 import { shouldOfferTabGroups } from '../utils/functions/tabGroupsOffer';
 
 export type Surface = 'popup' | 'full';
+
+// <html data-run-check>: what this open did about the run, the e2e barrier.
+const reportRunCheck = (check: RunCheck): void => {
+  document.documentElement.dataset.runCheck = check;
+};
 
 export interface FirstOpen {
   dispatch: AppDispatch;
@@ -74,10 +79,19 @@ export function firstOpenDialogs(
         return () => dispatch(openCloudConsentModal({ variant: 'existing' }));
       }
       // KAN-410. Recorded as it opens: a popup closed unanswered stays local-only and mid-onboarding.
+      if (surface === 'popup') {
+        return () => {
+          dispatch(declineCloudConsent());
+          dispatch(beginSetup());
+          dispatch(openCloudConsentModal({ variant: 'welcome' }));
+        };
+      }
+      // The full view greets a new install with the run's own Hello, never the welcome.
+      reportRunCheck('started');
       return () => {
         dispatch(declineCloudConsent());
         dispatch(beginSetup());
-        dispatch(openCloudConsentModal({ variant: 'welcome' }));
+        void dispatch(startRun(newRun('full', 0, 'welcome')));
       };
     },
   };
@@ -92,7 +106,7 @@ export function firstOpenDialogs(
         open.storedSessions,
         () => tourLockState(RUN_LOCK)
       );
-      document.documentElement.dataset.runCheck = decision.check;
+      reportRunCheck(decision.check);
       // §12: another page of this view shows the run; setup and the guide come after it there.
       if (decision.check === 'elsewhere') return STAND_DOWN;
       return runOpener(decision, dispatch);
