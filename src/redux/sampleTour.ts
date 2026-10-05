@@ -173,7 +173,7 @@ export const unfoldStepFourWindow = (): Thunk<void> => (dispatch, getState) => {
   );
 };
 
-// Ended another way: another page replaced the list, and its write already removed this sample.
+// Ended another way: an undo, a delete or another page's write took the sample away, or a tour started elsewhere replaced the record.
 export const reconcileTourHere = (): Thunk<void> => (dispatch, getState) => {
   const state = getState();
   const here = state.globalState.tourSampleIdHere;

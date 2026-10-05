@@ -1,7 +1,7 @@
 import type { tabContainerData } from '../../redux/slices/tabContainerDataStateSlice';
 import { isSampleSession } from './sampleSession';
 
-// KAN-413 §3. The tour's record, one per machine, and what counts as doing each step.
+// KAN-413. The tour's record, one per machine, and what counts as doing each step.
 
 export const TOUR_STEPS = 5;
 export type TourStep = 1 | 2 | 3 | 4 | 5;

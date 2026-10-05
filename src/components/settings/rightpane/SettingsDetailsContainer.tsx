@@ -1035,7 +1035,7 @@ const SettingsDetailsContainer: React.FC = () => {
   }
 
   // Keyed on the category so React remounts the panel instead of reconciling
-  // one against the next (KAN-44). The five branches above all render into this
+  // one against the next (KAN-44). Every branch above renders into this
   // one position, so without a key React matched them element by element and
   // handed the Display panel's first theme swatch <button> to Sync & Backup's
   // Auto Sync button. A swatch is hardcoded to LIGHT_THEME.PRIMARY_COLOR, and

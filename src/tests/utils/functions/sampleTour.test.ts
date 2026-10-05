@@ -9,7 +9,7 @@ import {
 } from '../../../utils/functions/sampleTour';
 import { buildSampleSession } from '../../../utils/functions/sampleSession';
 
-// KAN-413 §3. The tour's record, and what counts as doing each step.
+// KAN-413. The tour's record, and what counts as doing each step.
 
 const NAMES = {
   title: 'Sample: Weekend trip',

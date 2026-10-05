@@ -1,4 +1,4 @@
-// KAN-413 §3 Interrupted. The browser drops a page's lock when the page goes away.
+// KAN-413. The browser drops a page's lock when the page goes away.
 
 export interface LockApi {
   request(name: string, callback: () => Promise<void>): Promise<unknown>;

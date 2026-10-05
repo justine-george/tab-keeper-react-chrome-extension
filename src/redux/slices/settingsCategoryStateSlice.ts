@@ -14,10 +14,10 @@ export interface SettingsCategoryContainer {
   isSelected: boolean;
 }
 
-// Two pairs, then About (KAN-253): how it looks (Display, Language), then
-// what it does with your data (Sync & Backup, then Sessions -- the
-// consequential one first). Display stays first: it is the pane the gear
-// opens, and Sessions is one toggle on an otherwise empty pane.
+// Two pairs, then About and Help (KAN-253): how it looks (Display,
+// Language), then what it does with your data (Sync & Backup, then Sessions
+// -- the consequential one first). Display stays first: it is the pane the
+// gear opens, and Sessions is one toggle on an otherwise empty pane.
 export const initialState: SettingsCategoryContainer[] = [
   {
     name: SettingsCategory.DISPLAY,
