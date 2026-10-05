@@ -10,7 +10,6 @@ import {
 } from './onboarding';
 import { boxOf } from './savedWindows';
 import { COACH } from '../../src/components/tour/coachMarkPlacement';
-import { TOUR_SIDES } from '../../src/components/tour/tourSteps';
 import { isValidTabMasterContainer } from '../../src/utils/functions/local';
 
 // No seeding: a reopen must keep what the last page wrote, and an empty list shows Start here.
@@ -24,6 +23,15 @@ export const TOUR_VIEWS = [
   { name: 'full view', path: FULL_VIEW_PATH, viewport: FULL, view: 'full' },
 ] as const;
 export type TourViewCase = (typeof TOUR_VIEWS)[number];
+
+// The full view's sides as mocked, written out rather than read from TOUR_SIDES, so a wrong order there fails.
+const FULL_VIEW_SIDE = {
+  1: 'right',
+  2: 'below',
+  3: 'below',
+  4: 'below',
+  5: 'right',
+} as const;
 
 export const coach = (page: Page) =>
   page.locator('[data-coach-mark]:not([aria-hidden])');
@@ -73,7 +81,7 @@ export async function expectAimedAndClear(
   view: TourViewCase,
   step: 1 | 2 | 3 | 4 | 5
 ): Promise<void> {
-  const side = view.view === 'popup' ? 'left' : TOUR_SIDES[step][0];
+  const side = view.view === 'popup' ? 'left' : FULL_VIEW_SIDE[step];
   await expect
     .poll(() =>
       page.evaluate(
@@ -102,6 +110,13 @@ export async function expectAimedAndClear(
               : side === 'left'
                 ? cy >= a.top && cy <= a.bottom && n.right <= a.left + 1
                 : cy >= a.top && cy <= a.bottom && n.left >= a.right - 1;
+          // On the mark's edge that faces the anchor, not its far one.
+          const onFacingEdge =
+            side === 'below'
+              ? Math.abs(n.bottom - m.top) <= 1
+              : side === 'left'
+                ? Math.abs(n.left - m.right) <= 1
+                : Math.abs(n.right - m.left) <= 1;
           const covers =
             m.left < a.right &&
             m.right > a.left &&
@@ -115,7 +130,12 @@ export async function expectAimedAndClear(
           const onSide = mark.getAttribute('data-coach-side') === side;
           const inLeftPane =
             side !== 'left' || m.right <= pane.getBoundingClientRect().right;
-          return aimed && !covers && inside && onSide && inLeftPane
+          return aimed &&
+            onFacingEdge &&
+            !covers &&
+            inside &&
+            onSide &&
+            inLeftPane
             ? 'ok'
             : JSON.stringify({ side, mark: m, notch: n, anchor: a });
         },

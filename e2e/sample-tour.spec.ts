@@ -72,6 +72,13 @@ for (const view of TOUR_VIEWS) {
       await field.fill('Lisbon in May');
       await field.press('Enter');
       await expect(coachAt(page, 4)).toBeVisible();
+      // The window folded at step 1 opens again, so step 4 points at its first tab.
+      await expect(
+        page.getByRole('button', {
+          name: 'Collapse: Getting there',
+          exact: true,
+        })
+      ).toBeVisible();
 
       await dragFirstTabDown(page);
       await expect(coachAt(page, 5)).toBeVisible();

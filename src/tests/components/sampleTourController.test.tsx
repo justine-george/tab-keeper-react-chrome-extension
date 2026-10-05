@@ -202,6 +202,37 @@ describe('the tour, step by step', () => {
     expect(r.store.getState().settingsDataState.sampleTour?.step).toBe(3);
     await atStep(3);
   });
+
+  // Each step is measured from where it began, not from where the tour began.
+  test('a later step’s action done early does not skip that step', async () => {
+    const r = await touring();
+    act(() => {
+      r.store.dispatch(advanceSampleTour());
+      r.store.dispatch(advanceSampleTour());
+    });
+    await atStep(3);
+    const first = sampleOf(r, r.sampleId).windows[0];
+    act(() => {
+      r.store.dispatch(
+        deleteTabInternal({
+          tabGroupId: r.sampleId,
+          windowId: first.windowId,
+          tabId: first.tabs[0].tabId,
+        })
+      );
+    });
+    expect(r.store.getState().settingsDataState.sampleTour?.step).toBe(3);
+    act(() => {
+      r.store.dispatch(
+        updateTabGroupTitle({
+          tabGroupId: r.sampleId,
+          editableTitle: 'Lisbon in May',
+        })
+      );
+    });
+    expect(r.store.getState().settingsDataState.sampleTour?.step).toBe(4);
+    await atStep(4);
+  });
 });
 
 test('another session selected hides the mark and frees Esc; the sample again brings it back', async () => {
