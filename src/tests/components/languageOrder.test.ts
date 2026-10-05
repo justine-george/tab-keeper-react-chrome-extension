@@ -1,54 +1,41 @@
 import { describe, expect, test } from 'vitest';
 
-import { languageOrderFor } from '../../components/settings/rightpane/languageOptions';
+import {
+  LANGUAGE_OPTIONS,
+  chromeLanguageFirst,
+} from '../../components/settings/rightpane/languageOptions';
 import { Language } from '../../redux/slices/settingsDataStateSlice';
 
-// KAN-7 §5. The current language first; the other twelve keep picker order.
+// KAN-420. Chrome's language first; the other twelve keep picker order.
 
-const codes = (current: Language) =>
-  languageOrderFor(current).map(([code]) => code);
+const chromeCodes = (chrome: Language | undefined) =>
+  chromeLanguageFirst(chrome).map(([code]) => code);
+const pickerCodes = LANGUAGE_OPTIONS.map(([code]) => code);
 
-describe('languageOrderFor', () => {
-  test('English moves first from second', () => {
-    expect(codes(Language.EN)).toEqual([
-      'en',
-      'de',
-      'es',
+describe('chromeLanguageFirst', () => {
+  test('Chrome in French puts French first and keeps the other twelve in picker order', () => {
+    expect(chromeCodes(Language.FR)).toEqual([
       'fr',
-      'it',
-      'pt',
-      'sv',
-      'ru',
-      'hi',
-      'ko',
-      'ja',
-      'zh',
-      'zh-TW',
+      ...pickerCodes.filter((c) => c !== 'fr'),
     ]);
   });
 
-  test('Japanese moves first; the rest keep their order', () => {
-    expect(codes(Language.JA)).toEqual([
-      'ja',
-      'de',
+  test('Chrome in English puts English first', () => {
+    expect(chromeCodes(Language.EN)).toEqual([
       'en',
-      'es',
-      'fr',
-      'it',
-      'pt',
-      'sv',
-      'ru',
-      'hi',
-      'ko',
-      'zh',
-      'zh-TW',
+      ...pickerCodes.filter((c) => c !== 'en'),
     ]);
   });
 
-  test.each(Object.values(Language))(
-    '%s: all thirteen, once each',
-    (current) => {
-      expect(new Set(codes(current)).size).toBe(13);
-    }
-  );
+  test('Chrome in Traditional Chinese puts it first, ahead of Simplified', () => {
+    expect(chromeCodes(Language.ZH_TW).slice(0, 2)).toEqual(['zh-TW', 'de']);
+  });
+
+  test('a Chrome language that cannot be read leaves the picker order exactly', () => {
+    expect(chromeCodes(undefined)).toEqual(pickerCodes);
+  });
+
+  test.each(Object.values(Language))('%s: all thirteen, once each', (c) => {
+    expect(new Set(chromeCodes(c)).size).toBe(13);
+  });
 });

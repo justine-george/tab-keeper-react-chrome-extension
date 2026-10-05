@@ -1,4 +1,11 @@
-import { Language } from '../../../redux/slices/settingsDataStateSlice';
+import {
+  Language,
+  SHIPPED_LANGUAGES,
+} from '../../../redux/slices/settingsDataStateSlice';
+import {
+  matchUiLanguage,
+  readUiLanguage,
+} from '../../../utils/functions/uiLanguage';
 
 // KAN-244. Each language named in its own language, never through t(): the
 // language picker is the one screen that must be readable by someone who
@@ -22,12 +29,20 @@ export const LANGUAGE_OPTIONS: ReadonlyArray<[Language, string]> = [
   [Language.ZH_TW, '繁體中文'],
 ];
 
-// KAN-7 §5. The current language first, the other twelve in picker order.
-export function languageOrderFor(
-  current: Language
+// KAN-420. Chrome's language first when this build ships it, else the picker
+// order; a pick never moves, so this is read once and not from the setting.
+export function chromeLanguageFirst(
+  uiLanguage: Language | undefined
 ): ReadonlyArray<[Language, string]> {
   return [
-    ...LANGUAGE_OPTIONS.filter(([language]) => language === current),
-    ...LANGUAGE_OPTIONS.filter(([language]) => language !== current),
+    ...LANGUAGE_OPTIONS.filter(([language]) => language === uiLanguage),
+    ...LANGUAGE_OPTIONS.filter(([language]) => language !== uiLanguage),
   ];
+}
+
+// Chrome's language is read here, once, by whoever mounts the grid.
+export function chromeLanguageOrder(): ReadonlyArray<[Language, string]> {
+  return chromeLanguageFirst(
+    matchUiLanguage(readUiLanguage(), SHIPPED_LANGUAGES)
+  );
 }

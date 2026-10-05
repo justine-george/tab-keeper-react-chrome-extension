@@ -24,7 +24,7 @@ import ru from '../../../public/locales/ru/translation.json';
 // nothing, in pixels or in aria.
 //
 // Each language now names itself, in its own script, whatever the UI language;
-// the current one is aria-pressed and wears the KAN-95 marker; and the order
+// the current one is aria-pressed and filled with a check; and the order
 // is the endonyms' own collation, stated here so it cannot drift back to the
 // order they happened to be written in.
 
@@ -44,14 +44,19 @@ const ENDONYMS = [
   '繁體中文',
 ];
 
-const renderLanguagePane = () =>
+const renderLanguagePane = (uiLanguage?: string) =>
   renderWithProviders(<SettingsDetailsContainer />, {
+    seed: uiLanguage ? { uiLanguage } : undefined,
     seedStore: (store) => {
       store.dispatch(selectCategory(SettingsCategory.LANGUAGE));
     },
   });
 
 const option = (name: string) => screen.getByRole('button', { name });
+
+const checkIn = (name: string) =>
+  option(name).querySelector('.material-symbols-outlined')?.textContent ??
+  undefined;
 
 /** A colour as emotion wrote it, or as jsdom normalises it. */
 const asWritten = (hex: string) => {
@@ -96,7 +101,8 @@ describe('the language picker names each language in its own language (KAN-244)'
 
     const names = screen
       .getAllByRole('button')
-      .map((b) => b.textContent?.trim())
+      // The pressed cell's ✓ is a ligature whose text is its name.
+      .map((b) => b.textContent?.trim().replace(/^check/, ''))
       .filter((n): n is string => ENDONYMS.includes(n ?? ''));
 
     expect(names).toEqual(ENDONYMS);
@@ -120,20 +126,41 @@ describe('the language picker names each language in its own language (KAN-244)'
       expect(option(n).getAttribute('aria-pressed')).toBe('false');
     }
 
-    // The KAN-95 marker, as the theme swatch's tile wears it: the frame
-    // thickened to 2px in the page's LABEL_L3. Not weight: the popup keeps
-    // one (scaleConformance.test.ts), and bold is invisible in 中文 and 日本語,
-    // so a weight marker would mark some languages and not others. Every
-    // other option keeps the 1px BORDER frame.
-    const active = getComputedStyle(option('Русский'));
-    expect(active.borderTopWidth).toBe('2px');
-    expect(active.borderTopColor).toMatch(
-      asWritten(LIGHT_THEME.LABEL_L3_COLOR)
+    // Setup's pressed look: TEXT fill with a PRIMARY label, and a check. The
+    // rest keep the resting fill and no check.
+    const fill = (name: string) => getComputedStyle(option(name));
+    expect(fill('Русский').backgroundColor).toMatch(
+      asWritten(LIGHT_THEME.TEXT_COLOR)
     );
-    const rest = getComputedStyle(option('English'));
-    expect(rest.borderTopWidth).toBe('1px');
-    expect(rest.borderTopColor).toMatch(asWritten(LIGHT_THEME.BORDER_COLOR));
-    expect(LIGHT_THEME.LABEL_L3_COLOR).not.toBe(LIGHT_THEME.BORDER_COLOR);
+    expect(fill('Русский').color).toMatch(asWritten(LIGHT_THEME.PRIMARY_COLOR));
+    expect(fill('English').backgroundColor).toMatch(
+      asWritten(LIGHT_THEME.PRIMARY_COLOR)
+    );
+    expect(checkIn('Русский')).toBe('check');
+    for (const n of ENDONYMS) {
+      if (n !== 'Русский') expect(checkIn(n)).toBeUndefined();
+    }
+  });
+
+  test("with Chrome in French, Français is first, and picking Español changes no cell's place", async () => {
+    const user = userEvent.setup();
+    await renderLanguagePane('fr-FR');
+    const order = () =>
+      screen
+        .getAllByRole('button')
+        .map((b) => b.textContent?.trim().replace(/^check/, ''))
+        .filter((n): n is string => ENDONYMS.includes(n ?? ''));
+
+    const before = order();
+    expect(before).toEqual([
+      'Français',
+      ...ENDONYMS.filter((n) => n !== 'Français'),
+    ]);
+
+    await user.click(option('Español'));
+    expect(option('Español').getAttribute('aria-pressed')).toBe('true');
+    expect(order()).toEqual(before);
+    expect(order().indexOf('Español')).toBe(before.indexOf('Español'));
   });
 
   test('activating an option selects its language, in the store and in i18n', async () => {

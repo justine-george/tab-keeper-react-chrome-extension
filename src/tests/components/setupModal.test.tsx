@@ -110,12 +110,12 @@ describe('Make Tab Keeper yours', () => {
     expect(stepHeading()).toHaveTextContent('Pick a theme');
   });
 
-  test('the language step: the current one first, pressed with a ✓, the rest in picker order', async () => {
+  test('the language step: picker order when Chrome says nothing, the current one pressed with a ✓', async () => {
     await render();
     press('Next');
     expect(languageCodes()).toEqual([
-      'en',
       'de',
+      'en',
       'es',
       'fr',
       'it',
@@ -135,10 +135,40 @@ describe('Make Tab Keeper yours', () => {
     ).toBe('check');
   });
 
-  test('a Japanese machine sees 日本語 first', async () => {
-    await render(BOUND, { language: Language.JA });
+  test('Chrome in Japanese puts 日本語 first, even when the current language is another', async () => {
+    await render({ ...BOUND, uiLanguage: 'ja-JP' }, { language: Language.DE });
     press('Next');
     expect(languageCodes()[0]).toBe('ja');
+    expect(dialog().querySelector('button[lang="de"]')).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+  });
+
+  test('Chrome in French and German current: Français first, Deutsch pressed in its own slot', async () => {
+    await render({ ...BOUND, uiLanguage: 'fr-FR' }, { language: Language.DE });
+    press('Next');
+    const codes = languageCodes();
+    expect(codes).toEqual([
+      'fr',
+      'de',
+      'en',
+      'es',
+      'it',
+      'pt',
+      'sv',
+      'ru',
+      'hi',
+      'ko',
+      'ja',
+      'zh',
+      'zh-TW',
+    ]);
+    expect(dialog().querySelector('button[lang="de"]')).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+    expect(codes.indexOf('de')).toBe(1);
   });
 
   test('a language pick applies like Settings, presses its cell in place, and keeps the step', async () => {

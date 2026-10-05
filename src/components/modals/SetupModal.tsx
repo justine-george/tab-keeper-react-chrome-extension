@@ -7,8 +7,9 @@ import Icon from '../common/Icon';
 import TabKeeperMark from '../common/TabKeeperMark';
 import { KEYS_SLOT, ShortcutSentence } from '../common/ShortcutSentence';
 import { slidingPairColors } from '../common/slidingPairColors';
+import { pressedCellStyle } from '../common/pressedCellStyle';
 import ThemeSwatch from '../settings/rightpane/ThemeSwatch';
-import { languageOrderFor } from '../settings/rightpane/languageOptions';
+import { chromeLanguageOrder } from '../settings/rightpane/languageOptions';
 import { themeChoices } from '../settings/rightpane/themeChoices';
 import { CompactViewArt, FullViewArt } from './defaultViewArt';
 import { useFontFamily } from '../../hooks/useFontFamily';
@@ -53,8 +54,8 @@ export const SetupModal: React.FC = () => {
   const headingRef = useRef<HTMLHeadingElement>(null);
   const hasMoved = useRef(false);
   const [stepIndex, setStepIndex] = useState(0);
-  // Fixed for the dialog's life: a pick presses its cell where it is (§5).
-  const [languages] = useState(() => languageOrderFor(language));
+  // Chrome's language first, fixed for the dialog's life: a pick presses its cell where it is.
+  const [languages] = useState(chromeLanguageOrder);
   const step: Step = STEPS[stepIndex];
   const isLast = stepIndex === STEPS.length - 1;
 
@@ -160,15 +161,8 @@ export const SetupModal: React.FC = () => {
     height: 3rem;
     padding-block: 0;
   `;
-  // §5: the SlidingPair knob's look, plus a ✓.
-  const pressedCellStyle = css`
-    background-color: ${pressed.knob};
-    border-color: ${pressed.knob};
-    color: ${pressed.labelOnKnob};
-    &:hover,
-    &:active {
-      background-color: ${pressed.knob};
-    }
+  const pressedCell = css`
+    ${pressedCellStyle(COLORS)}
   `;
   const cardsStyle = css`
     display: flex;
@@ -341,7 +335,7 @@ export const SetupModal: React.FC = () => {
                 type="button"
                 lang={id}
                 aria-pressed={isActive}
-                css={[buttons.quiet, cellStyle, isActive && pressedCellStyle]}
+                css={[buttons.quiet, cellStyle, isActive && pressedCell]}
                 onClick={() => pickLanguage(id)}
               >
                 {isActive && (

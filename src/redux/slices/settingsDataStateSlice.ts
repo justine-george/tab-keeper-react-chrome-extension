@@ -240,7 +240,7 @@ const settingsDataLocal = asPartialSettings<SettingsData>(
   loadFromLocalStorage('settingsData')
 );
 
-const SHIPPED_LANGUAGES = Object.values(Language);
+export const SHIPPED_LANGUAGES = Object.values(Language);
 
 /**
  * The language the popup opens in (KAN-282): the one saved here, else the

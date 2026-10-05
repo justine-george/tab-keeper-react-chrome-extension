@@ -1,4 +1,4 @@
-import { Fragment, useId } from 'react';
+import { Fragment, useId, useState } from 'react';
 
 import { useDispatch, useSelector } from 'react-redux';
 
@@ -8,7 +8,9 @@ import Button from '../../common/Button';
 import Icon from '../../common/Icon';
 import HelpSettings from './HelpSettings';
 import ThemeSwatch from './ThemeSwatch';
-import { LANGUAGE_OPTIONS } from './languageOptions';
+import { chromeLanguageOrder } from './languageOptions';
+import { pressedCellStyle } from '../../common/pressedCellStyle';
+import { slidingPairColors } from '../../common/slidingPairColors';
 import { themeChoices } from './themeChoices';
 import { NormalLabel } from '../../common/Label';
 import { useThemeColors } from '../../../hooks/useThemeColors';
@@ -51,7 +53,7 @@ import { SettingsCategory } from '../../../redux/slices/settingsCategoryStateSli
 import SyncStatus from './Account/SyncStatus';
 import SlidingPair, { type SlidingPairMetrics } from '../../common/SlidingPair';
 import { useTranslation } from 'react-i18next';
-import { CONTROL, DURATION, RADIUS, TYPE } from '../../../styles/scale';
+import { CONTROL, DURATION, ICON, RADIUS, TYPE } from '../../../styles/scale';
 import {
   CHROME_SHORTCUTS_URL,
   usePopupShortcut,
@@ -91,6 +93,10 @@ const SettingsDetailsContainer: React.FC = () => {
   const { t } = useTranslation();
 
   const dispatch: AppDispatch = useDispatch();
+
+  // Chrome's language doesn't change while the page is open.
+  const [languageCells] = useState(chromeLanguageOrder);
+  const pressed = slidingPairColors(COLORS);
 
   const settingsCategoryList = useSelector(
     (state: RootState) => state.settingsCategoryState
@@ -821,26 +827,22 @@ const SettingsDetailsContainer: React.FC = () => {
               margin-top: 8px;
             `}
           >
-            {LANGUAGE_OPTIONS.map(([language, endonym]) => {
+            {languageCells.map(([language, endonym]) => {
               const isActive = settingsData.language === language;
               return (
                 <Button
                   key={language}
                   text={endonym}
                   ariaPressed={isActive}
+                  iconType={isActive ? 'check' : undefined}
+                  iconSize={ICON.SMALL}
+                  iconColor={pressed.labelOnKnob}
                   onClick={() => {
                     dispatch(chooseLanguage(language, i18n));
                   }}
-                  // The current one wears the KAN-95 marker as the theme
-                  // swatch's tile does: the frame thickened to 2px in
-                  // LABEL_L3. Not weight -- the popup keeps one, and bold is
-                  // invisible in the CJK names anyway. box-sizing is
-                  // border-box and the height fixed, so the frame moves
-                  // nothing.
+                  // Border-box and a fixed height, so the check moves nothing.
                   style={`width: 100%; min-width: 0; justify-content: center; ${
-                    isActive
-                      ? `border-color: ${COLORS.LABEL_L3_COLOR}; border-width: 2px;`
-                      : ''
+                    isActive ? pressedCellStyle(COLORS) : ''
                   }`}
                 />
               );

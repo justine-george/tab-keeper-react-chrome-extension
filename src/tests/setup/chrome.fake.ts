@@ -119,6 +119,8 @@ export type ChromeSeed = {
   // KAN-7. chrome.i18n, present only when seeded: name -> message. A name it
   // lacks answers '' as Chrome does.
   i18nMessages?: Record<string, string>;
+  // KAN-420. What chrome.i18n.getUILanguage() answers; seeding it adds i18n.
+  uiLanguage?: string;
 };
 
 export type ChromeFakeHandle = {
@@ -2366,11 +2368,12 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
     ...(seed.tabGroupsApiAbsent ? {} : { tabGroups: tabGroupsApi }),
 
     ...(seed.action ? { action: actionApi } : {}),
-    ...(seed.i18nMessages
+    ...(seed.i18nMessages || seed.uiLanguage
       ? {
           i18n: {
             getMessage: (name: string): string =>
               seed.i18nMessages?.[name] ?? '',
+            getUILanguage: (): string => seed.uiLanguage ?? 'en',
           },
         }
       : {}),
