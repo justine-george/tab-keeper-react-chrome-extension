@@ -286,6 +286,33 @@ export const endRun =
     dispatch(stopRunHere());
   };
 
+// The run's last step done: by its non-pin button, its Esc, or after a pin.
+export const finishRunHere = (): Thunk<Promise<void>> => async (dispatch) => {
+  dispatch(endRun('finished'));
+};
+
+// Pins Tab Keeper's own tab, only when pressed; already pinned or a refusal pins nothing, and the run ends either way.
+export const pinThisTab = (): Thunk<Promise<void>> => async (dispatch) => {
+  try {
+    const tab = await chrome.tabs.getCurrent();
+    if (tab?.id !== undefined && tab.pinned !== true) {
+      await chrome.tabs.update(tab.id, { pinned: true });
+    }
+  } catch (error) {
+    console.warn('Could not pin the Tab Keeper tab:', error);
+  }
+  await dispatch(finishRunHere());
+};
+
+// Popup step 7: ⤢ ends the run before the new tab can end this popup.
+export const endRunAtFullViewButton =
+  (): Thunk<void> => (dispatch, getState) => {
+    const run = selectRunHere(getState());
+    if (run !== null && runStepKind(run.view, run.step) === 'fullView') {
+      dispatch(endRun('finished'));
+    }
+  };
+
 // R2: the run's session gone ends it quietly; a record ended or replaced elsewhere stops it here.
 export const reconcileRunHere = (): Thunk<void> => (dispatch, getState) => {
   const state = getState();

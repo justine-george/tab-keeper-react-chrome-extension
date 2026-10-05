@@ -8,6 +8,7 @@ import { isTabView } from '../utils/functions/viewMode';
 import LeftPane from './home/leftpane/LeftPane';
 import { Toast } from './common/Toast';
 import { CarryLayer } from './home/CarryLayer';
+import FirstRun from './tour/FirstRun';
 import RightPane from './home/rightpane/RightPane';
 import OpenNowColumn from './home/opennow/OpenNowColumn';
 import OpenNowResizeGrip from './home/opennow/OpenNowResizeGrip';
@@ -444,6 +445,8 @@ export default function MainContainer() {
           drag started in. Draws nothing unless something is carried, or a
           saved list's drag shows its card at the pointer (KAN-354). */}
       <CarryLayer />
+      {/* Draws nothing unless this page shows the run; R3 hides its card while Settings is open. */}
+      <FirstRun />
       {isRateAndReviewModalOpen && <RateAndReviewModal />}
       {tabGroupsPromptCount !== null && <TabGroupsPermissionModal />}
       {focusRequest && <FocusConfirmModal />}

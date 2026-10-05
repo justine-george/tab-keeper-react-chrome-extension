@@ -1,5 +1,5 @@
 import { combineReducers, configureStore } from '@reduxjs/toolkit';
-import { afterEach, beforeEach, describe, expect, test } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 import { rootReducer } from '../../redux/storeConfig';
 import {
@@ -15,8 +15,11 @@ import {
   advanceRun,
   beginSaveStep,
   endRun,
+  endRunAtFullViewButton,
+  finishRunHere,
   goToRunStep,
   leaveRunHere,
+  pinThisTab,
   reconcileRunHere,
   resumeRunHere,
   selectIsRunCardShown,
@@ -500,5 +503,86 @@ describe('no ending deletes what the user made (safety)', () => {
     store.dispatch(endRun('skipped'));
     expect(ids(store)).toEqual(['sample:x']);
     expect(runOf(store)?.ended).toBe('skipped');
+  });
+});
+
+describe('the last steps', () => {
+  const TK_TAB = {
+    id: 7,
+    windowId: 1,
+    url: 'chrome-extension://faketestid/index.html?view=tab',
+  };
+
+  test('Pin this tab pins this page’s own tab, then the run ends', async () => {
+    history.replaceState(null, '', '?view=tab');
+    setupChromeFake({ windows: [OPEN_PAGE], tabs: [TK_TAB], currentTabId: 7 });
+    const update = vi.spyOn(chrome.tabs, 'update');
+    const store = withSessions(OWN);
+    await store.dispatch(startRun({ ...newRun('full', 8), sessionId: 'own' }));
+    await store.dispatch(pinThisTab());
+    expect(update).toHaveBeenCalledWith(7, { pinned: true });
+    expect(runOf(store)?.ended).toBe('finished');
+  });
+
+  test('with no tab of its own (a popup), Pin this tab pins nothing and the run ends', async () => {
+    history.replaceState(null, '', '?view=tab');
+    const update = vi.spyOn(chrome.tabs, 'update');
+    const store = withSessions(OWN);
+    await store.dispatch(startRun({ ...newRun('full', 8), sessionId: 'own' }));
+    await store.dispatch(pinThisTab());
+    expect(update).not.toHaveBeenCalled();
+    expect(runOf(store)?.ended).toBe('finished');
+  });
+
+  test('⤢ ends the popup run at its last step', async () => {
+    const store = withSessions(OWN);
+    await store.dispatch(startRun({ ...newRun('popup', 7), sessionId: 'own' }));
+    store.dispatch(endRunAtFullViewButton());
+    expect(runOf(store)?.ended).toBe('finished');
+  });
+
+  test('⤢ at any other step leaves the run alone', async () => {
+    const store = withSessions(OWN);
+    await store.dispatch(startRun({ ...newRun('popup', 6), sessionId: 'own' }));
+    store.dispatch(endRunAtFullViewButton());
+    expect(runOf(store)).toMatchObject({ step: 6, ended: null });
+  });
+
+  test.each([
+    ['Pin this tab', () => pinThisTab()],
+    ['Not now', () => finishRunHere()],
+  ] as const)('%s never deletes the user’s own session', async (_, end) => {
+    history.replaceState(null, '', '?view=tab');
+    const { store, seen } = makeTestStore();
+    store.dispatch(replaceState(buildContainer([OWN, OLDER])));
+    await store.dispatch(startRun(newRun('full', 3)));
+    await store.dispatch(beginSaveStep());
+    await store.dispatch(goToRunStep(8));
+    await store.dispatch(end());
+    expect(runOf(store)?.ended).toBe('finished');
+    expect(ids(store)).toEqual(['own', 'older']);
+    expect(seen).not.toContain(DELETE_TAB_CONTAINER_ACTION);
+  });
+
+  test('⤢ never deletes the user’s own session', async () => {
+    const { store, seen } = makeTestStore();
+    store.dispatch(replaceState(buildContainer([OWN, OLDER])));
+    await store.dispatch(startRun(newRun('popup', 1)));
+    store.dispatch(takeRunSave('own'));
+    store.dispatch(goToRunStep(7));
+    store.dispatch(endRunAtFullViewButton());
+    expect(runOf(store)?.ended).toBe('finished');
+    expect(ids(store)).toEqual(['own', 'older']);
+    expect(seen).not.toContain(DELETE_TAB_CONTAINER_ACTION);
+  });
+
+  test('the sample is removed when Pin this tab ends the run (R9)', async () => {
+    history.replaceState(null, '', '?view=tab');
+    const store = withSessions();
+    await store.dispatch(startRun(newRun('full', 3)));
+    store.dispatch(takeExampleForRun(NAMES));
+    store.dispatch(goToRunStep(8));
+    await store.dispatch(pinThisTab());
+    expect(ids(store)).toEqual([]);
   });
 });
