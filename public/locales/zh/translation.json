@@ -239,7 +239,6 @@
   "Type a name, then press {{icon}} to save every open window.": "输入名称，然后按 {{icon}} 保存所有打开的窗口。",
   "Pick a saved session to see its tabs.": "选择一个已保存的会话，查看其中的标签页。",
   "Press Open to bring them all back, any time.": "随时按“打开”即可全部恢复。",
-  "Add a sample session": "添加示例会话",
   "A saved session shows its windows and tabs here.": "已保存会话的窗口和标签页会显示在这里。",
   "Sample: Weekend trip": "示例：周末旅行",
   "Getting there": "交通安排",
@@ -269,5 +268,6 @@
   "See your sessions and open tabs side by side.": "并排查看会话和打开的标签页。",
   "Try it": "试试看",
   "Manage your open windows and tabs, and save them to bring back any time.": "管理打开的窗口和标签页，并保存下来，随时重新打开。",
-  "Get started": "开始使用"
+  "Get started": "开始使用",
+  "Try it with an example": "用示例试一试"
 }

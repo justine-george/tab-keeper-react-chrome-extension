@@ -1,29 +1,21 @@
 import { afterEach, describe, expect, test } from 'vitest';
-import { act, screen, within } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import TabGroupEntryContainer from '../../components/home/leftpane/TabGroupEntryContainer';
 import RightPane from '../../components/home/rightpane/RightPane';
 import { renderWithProviders } from '../setup/renderWithProviders';
-import { makeTestStore } from '../setup/makeStore';
 import { buildContainer, buildSession } from '../fixtures/sessionFixture';
 import { replaceState } from '../../redux/slices/tabContainerDataStateSlice';
 import { setSearchInputText } from '../../redux/slices/globalStateSlice';
 import { recordValueMoment } from '../../redux/slices/settingsDataStateSlice';
-import { addSampleSession } from '../../redux/addSampleSession';
 import {
   IS_DIRTY_ACTION,
   SAVE_TAB_CONTAINER_ACTION,
 } from '../../utils/constants/actionTypes';
 
-// KAN-7 §2. The empty saved list starts here; the detail pane says where
-// sessions will show; "Add a sample session" saves one ordinary session.
+// The empty saved list starts here; the detail pane says where sessions will show; the example button starts the tour.
 
-const NAMES = {
-  title: 'Sample: Weekend trip',
-  gettingThere: 'Getting there',
-  thingsToDo: 'Things to do',
-};
 const heading = () => screen.queryByRole('heading', { name: 'Start here' });
 
 afterEach(() => localStorage.clear());
@@ -48,19 +40,22 @@ describe('the Start here card', () => {
       })
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('button', { name: 'Add a sample session' })
+      screen.getByRole('button', { name: 'Try it with an example' })
     ).toBeInTheDocument();
   });
 
-  test('the sample is one ordinary session: selected, saved, synced, and no value moment', async () => {
+  test('Try it with an example starts the tour on one ordinary session: selected, saved, synced, and no value moment', async () => {
     const { store, seen } = await renderWithProviders(
       <TabGroupEntryContainer />
     );
 
     await userEvent.click(
-      screen.getByRole('button', { name: 'Add a sample session' })
+      screen.getByRole('button', { name: 'Try it with an example' })
     );
 
+    await waitFor(() =>
+      expect(store.getState().settingsDataState.sampleTour).not.toBeNull()
+    );
     const { tabGroups, selectedTabGroupId } =
       store.getState().tabContainerDataState;
     expect(tabGroups.map((g) => g.title)).toEqual(['Sample: Weekend trip']);
@@ -69,6 +64,11 @@ describe('the Start here card', () => {
       ['Things to do', 2],
     ]);
     expect(selectedTabGroupId).toBe(tabGroups[0].tabGroupId);
+    expect(store.getState().settingsDataState.sampleTour).toEqual({
+      sampleId: tabGroups[0].tabGroupId,
+      step: 1,
+      view: 'popup',
+    });
     expect(seen).toContain(SAVE_TAB_CONTAINER_ACTION);
     expect(seen).toContain(IS_DIRTY_ACTION);
     expect(seen).not.toContain(recordValueMoment.type);
@@ -132,26 +132,5 @@ describe('the right-pane line', () => {
       },
     });
     expect(screen.queryByText(LINE)).not.toBeInTheDocument();
-  });
-});
-
-// Review Focus 4: at most one sample per press of an empty list.
-describe('addSampleSession', () => {
-  test('a second press adds nothing', () => {
-    const { store } = makeTestStore();
-    store.dispatch(addSampleSession(NAMES));
-    store.dispatch(addSampleSession(NAMES));
-    expect(store.getState().tabContainerDataState.tabGroups).toHaveLength(1);
-  });
-
-  test('a session that landed in between means no sample', () => {
-    const { store } = makeTestStore();
-    store.dispatch(
-      replaceState(buildContainer([buildSession({ title: 'Synced' })]))
-    );
-    store.dispatch(addSampleSession(NAMES));
-    expect(
-      store.getState().tabContainerDataState.tabGroups.map((g) => g.title)
-    ).toEqual(['Synced']);
   });
 });

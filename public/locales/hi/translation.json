@@ -244,7 +244,6 @@
   "Type a name, then press {{icon}} to save every open window.": "नाम लिखें, फिर सभी खुली विंडो सहेजने के लिए {{icon}} दबाएँ।",
   "Pick a saved session to see its tabs.": "किसी सहेजे गए सेशन के टैब देखने के लिए उसे चुनें।",
   "Press Open to bring them all back, any time.": "जब चाहें, सब कुछ वापस लाने के लिए खोलें दबाएँ।",
-  "Add a sample session": "एक नमूना सेशन जोड़ें",
   "A saved session shows its windows and tabs here.": "सहेजा गया सेशन अपनी विंडो और टैब यहाँ दिखाता है।",
   "Sample: Weekend trip": "नमूना: सप्ताहांत यात्रा",
   "Getting there": "वहाँ कैसे पहुँचें",
@@ -274,5 +273,6 @@
   "See your sessions and open tabs side by side.": "अपने सेशन और खुले टैब साथ-साथ देखें।",
   "Try it": "आज़माएँ",
   "Manage your open windows and tabs, and save them to bring back any time.": "अपनी खुली विंडो और टैब प्रबंधित करें, और उन्हें सहेजें ताकि कभी भी वापस ला सकें।",
-  "Get started": "शुरू करें"
+  "Get started": "शुरू करें",
+  "Try it with an example": "एक उदाहरण के साथ आज़माएँ"
 }

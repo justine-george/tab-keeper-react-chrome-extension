@@ -249,7 +249,6 @@
   "Type a name, then press {{icon}} to save every open window.": "Digite um nome e pressione {{icon}} para salvar todas as janelas abertas.",
   "Pick a saved session to see its tabs.": "Escolha uma sessão salva para ver as abas dela.",
   "Press Open to bring them all back, any time.": "Pressione Abrir para trazer todas de volta, a qualquer momento.",
-  "Add a sample session": "Adicionar uma sessão de exemplo",
   "A saved session shows its windows and tabs here.": "Uma sessão salva mostra aqui as janelas e abas dela.",
   "Sample: Weekend trip": "Exemplo: Viagem de fim de semana",
   "Getting there": "Como chegar",
@@ -279,5 +278,6 @@
   "See your sessions and open tabs side by side.": "Veja suas sessões e abas abertas lado a lado.",
   "Try it": "Experimentar",
   "Manage your open windows and tabs, and save them to bring back any time.": "Gerencie suas janelas e abas abertas e salve-as para trazê-las de volta quando quiser.",
-  "Get started": "Começar"
+  "Get started": "Começar",
+  "Try it with an example": "Experimente com um exemplo"
 }

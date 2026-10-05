@@ -239,7 +239,6 @@
   "Type a name, then press {{icon}} to save every open window.": "輸入名稱，然後按 {{icon}} 儲存所有開啟的視窗。",
   "Pick a saved session to see its tabs.": "選擇已儲存的工作階段，即可查看其中的分頁。",
   "Press Open to bring them all back, any time.": "隨時按「開啟」就能全部還原。",
-  "Add a sample session": "新增範例工作階段",
   "A saved session shows its windows and tabs here.": "已儲存工作階段的視窗和分頁會顯示在這裡。",
   "Sample: Weekend trip": "範例：週末旅行",
   "Getting there": "交通安排",
@@ -269,5 +268,6 @@
   "See your sessions and open tabs side by side.": "並排查看工作階段和開啟的分頁。",
   "Try it": "試試看",
   "Manage your open windows and tabs, and save them to bring back any time.": "管理開啟的視窗和分頁，並儲存下來，隨時重新開啟。",
-  "Get started": "開始使用"
+  "Get started": "開始使用",
+  "Try it with an example": "用範例試試看"
 }

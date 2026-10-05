@@ -239,7 +239,6 @@
   "Type a name, then press {{icon}} to save every open window.": "名前を入力して {{icon}} を押すと、開いているウィンドウをすべて保存できます。",
   "Pick a saved session to see its tabs.": "保存したセッションを選ぶと、そのタブが表示されます。",
   "Press Open to bring them all back, any time.": "「開く」を押せば、いつでもすべて元に戻せます。",
-  "Add a sample session": "サンプルのセッションを追加",
   "A saved session shows its windows and tabs here.": "保存したセッションのウィンドウとタブがここに表示されます。",
   "Sample: Weekend trip": "サンプル: 週末旅行",
   "Getting there": "行き方",
@@ -269,5 +268,6 @@
   "See your sessions and open tabs side by side.": "セッションと開いているタブを並べて表示できます。",
   "Try it": "試す",
   "Manage your open windows and tabs, and save them to bring back any time.": "開いているウィンドウとタブを管理し、保存していつでも開き直せます。",
-  "Get started": "はじめる"
+  "Get started": "はじめる",
+  "Try it with an example": "サンプルで試す"
 }

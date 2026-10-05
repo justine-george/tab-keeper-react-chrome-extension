@@ -244,7 +244,6 @@
   "Type a name, then press {{icon}} to save every open window.": "Type a name, then press {{icon}} to save every open window.",
   "Pick a saved session to see its tabs.": "Pick a saved session to see its tabs.",
   "Press Open to bring them all back, any time.": "Press Open to bring them all back, any time.",
-  "Add a sample session": "Add a sample session",
   "A saved session shows its windows and tabs here.": "A saved session shows its windows and tabs here.",
   "Sample: Weekend trip": "Sample: Weekend trip",
   "Getting there": "Getting there",
@@ -274,5 +273,6 @@
   "See your sessions and open tabs side by side.": "See your sessions and open tabs side by side.",
   "Try it": "Try it",
   "Manage your open windows and tabs, and save them to bring back any time.": "Manage your open windows and tabs, and save them to bring back any time.",
-  "Get started": "Get started"
+  "Get started": "Get started",
+  "Try it with an example": "Try it with an example"
 }

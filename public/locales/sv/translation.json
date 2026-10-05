@@ -244,7 +244,6 @@
   "Type a name, then press {{icon}} to save every open window.": "Skriv ett namn och tryck sedan på {{icon}} för att spara alla öppna fönster.",
   "Pick a saved session to see its tabs.": "Välj en sparad session för att se dess flikar.",
   "Press Open to bring them all back, any time.": "Tryck på Öppna för att få tillbaka alla, när du vill.",
-  "Add a sample session": "Lägg till en exempelsession",
   "A saved session shows its windows and tabs here.": "En sparad session visar sina fönster och flikar här.",
   "Sample: Weekend trip": "Exempel: Helgresa",
   "Getting there": "Ta sig dit",
@@ -274,5 +273,6 @@
   "See your sessions and open tabs side by side.": "Se dina sessioner och öppna flikar sida vid sida.",
   "Try it": "Prova",
   "Manage your open windows and tabs, and save them to bring back any time.": "Hantera dina öppna fönster och flikar, och spara dem så att du kan ta fram dem igen när du vill.",
-  "Get started": "Kom igång"
+  "Get started": "Kom igång",
+  "Try it with an example": "Prova med ett exempel"
 }

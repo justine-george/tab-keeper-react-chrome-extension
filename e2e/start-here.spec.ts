@@ -86,7 +86,7 @@ const VIEWS = [
 ] as const;
 
 for (const view of VIEWS) {
-  test(`${view.name}: an empty list starts here, and the sample is added and shown`, async ({
+  test(`${view.name}: an empty list starts here, and the tour starts on the sample`, async ({
     context,
     extensionId,
   }) => {
@@ -102,7 +102,7 @@ for (const view of VIEWS) {
     await expect(hint(page)).toHaveCount(view.hasDetail ? 1 : 0);
 
     await page
-      .getByRole('button', { name: 'Add a sample session', exact: true })
+      .getByRole('button', { name: 'Try it with an example', exact: true })
       .click();
     await expect(card(page)).toHaveCount(0);
     await expect(hint(page)).toHaveCount(0);
@@ -110,9 +110,36 @@ for (const view of VIEWS) {
       page.getByText('Things to do in Lisbon - Time Out', { exact: true })
     ).toBeVisible();
     expect(await storedTitles(page)).toEqual(['Sample: Weekend trip']);
+    await expect
+      .poll(async () => (await storedSettings(page)).sampleTour)
+      .toMatchObject({
+        step: 1,
+        view: view.path === 'index.html' ? 'popup' : 'full',
+      });
     expect((await storedSettings(page)).lastValueMomentTime ?? '').toBe('');
   });
 }
+
+test('in German, the sample is named in German', async ({
+  context,
+  extensionId,
+}) => {
+  await seedSessions(context, buildContainer([]));
+  await seedSettings(context, { language: 'de' });
+  // Not openPage: it waits for the English "Sort sessions" label.
+  const page = await context.newPage();
+  await page.setViewportSize(POPUP);
+  await page.goto(`chrome-extension://${extensionId}/index.html`);
+  await page
+    .getByRole('button', {
+      name: 'Mit einem Beispiel ausprobieren',
+      exact: true,
+    })
+    .click();
+  await expect
+    .poll(() => storedTitles(page))
+    .toEqual(['Beispiel: Wochenendreise']);
+});
 
 for (const view of [VIEWS[0], VIEWS[2]]) {
   test(`${view.name}: an existing user's open never draws Start here, not for a frame`, async ({

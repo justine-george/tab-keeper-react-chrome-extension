@@ -8,19 +8,21 @@ import Icon from '../../common/Icon';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useFontFamily } from '../../../hooks/useFontFamily';
 import type { AppDispatch } from '../../../redux/store';
-import { addSampleSession } from '../../../redux/addSampleSession';
+import { startSampleTour } from '../../../redux/sampleTour';
+import { useSampleNames } from '../../../hooks/useSampleNames';
 import { ICON, TYPE } from '../../../styles/scale';
 
 // Where the save glyph goes in the translated step, split out as ShortcutSentence splits its keys.
 const GLYPH_SLOT = '\u2063';
 
-// KAN-7 §2. In the empty saved list, popup and full view; page content, so it sits behind any dialog.
+// In the empty saved list, popup and full view; page content, so it sits behind any dialog.
 export default function StartHereCard() {
   const COLORS = useThemeColors();
   const FONT_FAMILY = useFontFamily();
   const { t } = useTranslation();
   const dispatch: AppDispatch = useDispatch();
   const titleId = useId();
+  const sampleNames = useSampleNames();
   const [beforeGlyph, afterGlyph = ''] = t(
     'Type a name, then press {{icon}} to save every open window.',
     { icon: GLYPH_SLOT }
@@ -74,16 +76,8 @@ export default function StartHereCard() {
         <li>{t('Press Open to bring them all back, any time.')}</li>
       </ol>
       <Button
-        text={t('Add a sample session')}
-        onClick={() =>
-          dispatch(
-            addSampleSession({
-              title: t('Sample: Weekend trip'),
-              gettingThere: t('Getting there'),
-              thingsToDo: t('Things to do'),
-            })
-          )
-        }
+        text={t('Try it with an example')}
+        onClick={() => void dispatch(startSampleTour(sampleNames))}
       />
     </section>
   );
