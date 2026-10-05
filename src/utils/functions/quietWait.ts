@@ -1,15 +1,14 @@
-// Any of these before the delay ends means the user is busy; a scroll the app starts at open would count too.
+// Any of these before the delay ends means the user is busy; not scroll, which the app's own scroll at open fires too.
 export const QUIET_BREAKERS = [
   'keydown',
   'pointerdown',
   'wheel',
-  'scroll',
   'dragstart',
 ] as const;
 
 export type QuietOutcome = 'quiet' | 'interrupted';
 
-// Captured on document, so a scroll inside any pane counts; passive, so nothing is prevented.
+// Captured on document, so a press or wheel inside any pane counts; passive, so nothing is prevented.
 export function waitForQuiet(delayMs: number): Promise<QuietOutcome> {
   return new Promise((settle) => {
     let timer = 0;

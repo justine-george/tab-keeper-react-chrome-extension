@@ -6,7 +6,7 @@ import {
   type QuietOutcome,
 } from '../../../utils/functions/quietWait';
 
-// Quiet means no keydown, pointerdown, wheel, scroll or drag start for the whole delay.
+// Quiet means no keydown, pointerdown, wheel or drag start for the whole delay.
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -43,13 +43,14 @@ describe('waitForQuiet', () => {
     }
   );
 
-  test('a scroll inside any element counts, though scroll does not bubble', async () => {
+  test('a scroll alone leaves it quiet: the app scrolls the list itself at open', async () => {
     const outcome = watched(1500);
     const pane = document.createElement('div');
     document.body.append(pane);
     pane.dispatchEvent(new Event('scroll', { bubbles: false }));
-    await vi.advanceTimersByTimeAsync(0);
-    expect(outcome()).toBe('interrupted');
+    document.dispatchEvent(new Event('scroll'));
+    await vi.advanceTimersByTimeAsync(1500);
+    expect(outcome()).toBe('quiet');
     pane.remove();
   });
 
