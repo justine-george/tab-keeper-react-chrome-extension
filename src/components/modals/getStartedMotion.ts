@@ -106,7 +106,7 @@ export function playGetStarted(parts: GetStartedParts): Motion {
   };
 }
 
-// A dialog that follows Get started enters from 0.97 and transparent; Hello uses it.
+// A dialog that follows Get started enters from 0.97 and transparent; Hello will use it.
 export function playDialogEntrance(dialog: Animatable): void {
   dialog.animate(
     [

@@ -37,6 +37,7 @@ vi.mock('../../utils/functions/reviewAsk', async (importOriginal) => {
 
 import App from '../../App';
 import { RUN_FINISHED_SETTINGS } from '../fixtures/firstRunFixture';
+import { newRun } from '../../utils/functions/firstRun';
 import { leaveSetup } from '../../redux/firstOpenFollowUps';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { buildContainer, buildSession } from '../fixtures/sessionFixture';
@@ -200,6 +201,14 @@ const RATE_DUE = {
 };
 
 describe('after the cloud question (KAN-7 §3)', () => {
+  // The queue's barrier, then a macrotask: whatever the answer starts has landed.
+  const settled = async () => {
+    await waitFor(() =>
+      expect(document.documentElement.dataset.firstOpen).toBe('cloudConsent')
+    );
+    await act(() => new Promise<void>((done) => setTimeout(done, 0)));
+  };
+
   test('an existing user’s cloud question is followed by no run', async () => {
     const { store } = await renderWithProviders(<App />, {
       seedStore: seedSettings({
@@ -214,9 +223,22 @@ describe('after the cloud question (KAN-7 §3)', () => {
     );
 
     await userEvent.click(screen.getByRole('button', { name: 'Keep sync on' }));
+    await settled();
 
     expect(store.getState().settingsDataState.firstRun).toBeNull();
     expect(store.getState().settingsDataState.setupState).toBe('none');
+  });
+
+  test('CONTROL: the same check sees the run the welcome’s Not now starts', async () => {
+    const { store } = await renderWithProviders(<App />);
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Not now' })
+    );
+    await settled();
+
+    expect(store.getState().settingsDataState.firstRun).toEqual(
+      newRun('popup', 1)
+    );
   });
 });
 

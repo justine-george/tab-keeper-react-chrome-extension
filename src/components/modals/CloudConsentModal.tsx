@@ -40,10 +40,10 @@ const BODY_ID = 'cloud-consent-body';
  * does, Get started into the full view, or Not now into the popup run. Its
  * opening already recorded the device as local-only; sync comes later,
  * through 'enable'. 'existing' is a user whose sessions are already synced:
- * the current state first, then what is
- * stored, then the question, then what turning it off does and does not do --
- * a preference, not a confession. 'enable' is the question asked when someone
- * reaches for sync without having said yes.
+ * the current state first, then what is stored, then the question, then what
+ * turning it off does and does not do -- a preference, not a confession.
+ * 'enable' is the question asked when someone reaches for sync without having
+ * said yes.
  *
  * The questions give two complete answers and no "OK" hiding a default.
  * Escape never grants: for an existing user it is Turn off sync (KAN-410), as
@@ -85,6 +85,7 @@ export const CloudConsentModal: React.FC = () => {
 
   if (!isOpen) return null;
 
+  // 'enable' Not now and Escape only close: a re-ask leaves the earlier answer as it is.
   const close = () => dispatch(closeCloudConsentModal());
   const decline = () => {
     dispatch(declineCloudConsent());
@@ -105,11 +106,6 @@ export const CloudConsentModal: React.FC = () => {
       // failed sync. See syncNowWhenSignedIn.
       void dispatch(syncNowWhenSignedIn());
     }
-  };
-  // 'enable' is a re-ask from someone who declined or never answered: Not now
-  // leaves that as it is, rather than recording a fresh decline.
-  const dismiss = () => {
-    dispatch(closeCloudConsentModal());
   };
   // The moment plays once; a press while it plays does nothing.
   const getStarted = () => {
@@ -152,7 +148,7 @@ export const CloudConsentModal: React.FC = () => {
       ? leaveWelcome
       : variant === 'existing'
         ? decline
-        : dismiss;
+        : close;
 
   const buttons = dialogButtonStyles(COLORS);
 
@@ -302,7 +298,7 @@ export const CloudConsentModal: React.FC = () => {
             {policyLink}
           </p>
           <div css={actionsStyle}>
-            <button type="button" css={buttons.quiet} onClick={dismiss}>
+            <button type="button" css={buttons.quiet} onClick={close}>
               {t('Not now')}
             </button>
             <button type="button" css={buttons.primary} onClick={grant}>

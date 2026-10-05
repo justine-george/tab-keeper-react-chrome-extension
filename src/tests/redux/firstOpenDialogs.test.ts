@@ -113,8 +113,9 @@ describe('the cloud question entry (KAN-259, moved from App)', () => {
     const open = await cloudConsent.decide();
     if (typeof open === 'function') open();
     await vi.waitFor(() =>
-      expect(store.getState().globalState.cloudConsentVariant).toBe('welcome')
+      expect(store.getState().globalState.isCloudConsentModalOpen).toBe(true)
     );
+    expect(store.getState().globalState.cloudConsentVariant).toBe('welcome');
     expect(store.getState().settingsDataState.cloudConsent).toBe('declined');
     expect(store.getState().settingsDataState.isAutoSync).toBe(false);
     expect(store.getState().settingsDataState.setupState).toBe('pending');
