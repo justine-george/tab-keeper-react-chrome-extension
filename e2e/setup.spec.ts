@@ -272,6 +272,59 @@ for (const lang of ['en', 'de', 'ru']) {
   });
 }
 
+// KAN-428. Go back and Next/Done share one width, in any language at any root size.
+for (const lang of ['en', 'de', 'ru']) {
+  for (const root of [16, 20, 24]) {
+    test(`${lang} at a ${root}px root: Go back and Next/Done are one width, inside the dialog, on every step`, async ({
+      context,
+      extensionId,
+    }) => {
+      const strings = localeStrings(lang);
+      await stubToolbarPin(context, { pinned: true });
+      await seedSettings(context, { language: lang, setupState: 'pending' });
+      const page = await context.newPage();
+      await page.setViewportSize(FULL);
+      await page.goto(`chrome-extension://${extensionId}/${FULL_VIEW_PATH}`);
+      await setupAnyLanguage(page).waitFor();
+      await page.evaluate((px) => {
+        document.documentElement.style.fontSize = `${px}px`;
+      }, root);
+      const button = (name: string) =>
+        setupAnyLanguage(page).getByRole('button', { name, exact: true });
+      const widths = async (primary: string) => {
+        const [back, end, dialog] = await Promise.all([
+          button(strings['Go back']).evaluate((el) =>
+            el.getBoundingClientRect()
+          ),
+          button(primary).evaluate((el) => el.getBoundingClientRect()),
+          setupAnyLanguage(page).evaluate((el) => el.getBoundingClientRect()),
+        ]);
+        return {
+          back: back.width,
+          end: end.width,
+          inside:
+            back.left >= dialog.left &&
+            end.right <= dialog.right &&
+            back.right <= end.left,
+        };
+      };
+
+      // Step 1 has no Go back: the one button keeps its own width.
+      await expect(button(strings['Go back'])).toHaveCount(0);
+      await expect(button(strings.Next)).toBeVisible();
+      for (const primary of [strings.Next, strings.Next, strings.Done]) {
+        await button(strings.Next).or(button(strings.Done)).click();
+        await expect(button(strings['Go back'])).toBeVisible();
+        const seen = await widths(primary);
+        // CONTROL: both are drawn, so a width of zero would not pass for a match.
+        expect(seen.back).toBeGreaterThan(20);
+        expect(Math.abs(seen.back - seen.end)).toBeLessThanOrEqual(1);
+        expect(seen.inside).toBe(true);
+      }
+    });
+  }
+}
+
 type TabRow = {
   id?: number;
   index: number;

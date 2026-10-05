@@ -259,8 +259,11 @@ export const SetupModal: React.FC = () => {
     gap: 12px;
     margin-top: 12px;
   `;
+  // Equal columns: both buttons take the wider one's width in any language.
   const footerEndStyle = css`
-    display: inline-flex;
+    display: inline-grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
     gap: 8px;
   `;
 
