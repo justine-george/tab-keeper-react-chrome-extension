@@ -62,6 +62,14 @@ type Thunk<R> = ThunkAction<R, RootState, unknown, UnknownAction>;
 // A lock's release is no application data; one per store, so a test can stand up two pages.
 const locks = new WeakMap<() => RootState, Promise<() => void>>();
 
+// Leaves and ends in this page so far: a start or resume that waited for the lock across one stands down.
+const leavesAndEnds = new WeakMap<() => RootState, number>();
+const leavesAndEndsSoFar = (getState: () => RootState): number =>
+  leavesAndEnds.get(getState) ?? 0;
+const countLeaveOrEnd = (getState: () => RootState): void => {
+  leavesAndEnds.set(getState, leavesAndEndsSoFar(getState) + 1);
+};
+
 export const thisView = (): RunView => (isTabView() ? 'full' : 'popup');
 
 // The record, while it runs in this view and this page shows it.
@@ -158,14 +166,18 @@ const holdLock = (): Thunk<Promise<() => void>> => (dispatch, getState) => {
 };
 
 // The open-time resume shows the run here without writing it.
-export const resumeRunHere = (): Thunk<Promise<void>> => async (dispatch) => {
-  await dispatch(holdLock());
-  dispatch(runShownHere());
-};
+export const resumeRunHere =
+  (): Thunk<Promise<void>> => async (dispatch, getState) => {
+    const before = leavesAndEndsSoFar(getState);
+    await dispatch(holdLock());
+    if (leavesAndEndsSoFar(getState) !== before) return;
+    dispatch(runShownHere());
+  };
 
 // Lets the lock go and stops showing the run, leaving the record as it is; resolves once let go.
 export const leaveRunHere =
   (): Thunk<Promise<void>> => async (dispatch, getState) => {
+    countLeaveOrEnd(getState);
     const held = locks.get(getState);
     locks.delete(getState);
     if (getState().globalState.isRunHere) dispatch(runStoppedHere());
@@ -176,13 +188,15 @@ export const leaveRunHere =
 // Every start writes a new record; it never deletes the run it replaces (A4).
 export const startRun =
   (run: FirstRun): Thunk<Promise<void>> =>
-  async (dispatch) => {
+  async (dispatch, getState) => {
     dispatch(closeSettingsPage());
     dispatch(setSearchInputText(''));
     dispatch(closeFullViewCallout());
     dispatch(setRunSaveCard(null));
+    const before = leavesAndEndsSoFar(getState);
     // Held before the record is written: no page sees a record no page holds.
     await dispatch(holdLock());
+    if (leavesAndEndsSoFar(getState) !== before) return;
     dispatch(recordFirstRun(run));
     dispatch(runShownHere());
   };
@@ -345,6 +359,7 @@ export const takeExampleForRun =
 export const endRun =
   (ending: RunEnding): Thunk<void> =>
   (dispatch, getState) => {
+    countLeaveOrEnd(getState);
     const state = getState();
     const run = selectRunHere(state);
     if (run !== null) {

@@ -165,6 +165,47 @@ describe('startRun', () => {
   });
 });
 
+describe('a leave or end while a start waits for the lock', () => {
+  test('a leave: nothing is recorded or shown, and no lock is held', async () => {
+    const { store } = makeTestStore();
+    const started = store.dispatch(startRun(newRun('popup', 1)));
+    await Promise.all([started, store.dispatch(leaveRunHere())]);
+    expect(runOf(store)).toBeNull();
+    expect(store.getState().globalState.isRunHere).toBe(false);
+    expect(locks.held.has(RUN_LOCK)).toBe(false);
+  });
+
+  test('an end: nothing is recorded or shown, and no lock is held', async () => {
+    const { store } = makeTestStore();
+    const started = store.dispatch(startRun(newRun('popup', 1)));
+    store.dispatch(endRun('skipped'));
+    await started;
+    expect(runOf(store)).toBeNull();
+    expect(store.getState().globalState.isRunHere).toBe(false);
+    // An end lets the lock go a few microtasks later.
+    await expect.poll(() => locks.held.has(RUN_LOCK)).toBe(false);
+  });
+
+  test('a resume: the record stays as it was, not shown here, and no lock is held', async () => {
+    const { store } = makeTestStore();
+    store.dispatch(recordFirstRun(newRun('popup', 3)));
+    const resumed = store.dispatch(resumeRunHere());
+    await Promise.all([resumed, store.dispatch(leaveRunHere())]);
+    expect(runOf(store)).toEqual(newRun('popup', 3));
+    expect(store.getState().globalState.isRunHere).toBe(false);
+    expect(locks.held.has(RUN_LOCK)).toBe(false);
+  });
+
+  test('CONTROL: a leave after the start settles stops it the same way', async () => {
+    const { store } = makeTestStore();
+    await store.dispatch(startRun(newRun('popup', 1)));
+    expect(store.getState().globalState.isRunHere).toBe(true);
+    await store.dispatch(leaveRunHere());
+    expect(store.getState().globalState.isRunHere).toBe(false);
+    expect(locks.held.has(RUN_LOCK)).toBe(false);
+  });
+});
+
 describe('leaving and resuming', () => {
   test('leaveRunHere lets the lock go and stops showing the run, leaving the record exactly as it was', async () => {
     const { store } = makeTestStore();
