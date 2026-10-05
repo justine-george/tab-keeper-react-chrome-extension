@@ -301,5 +301,6 @@
   "A session keeps windows and tabs together. This one has 2 windows and 5 tabs. Fold a window with its arrow. Try it, or press Next.": "Une session regroupe des fenêtres et des onglets. Celle-ci contient 2 fenêtres et 5 onglets. Repliez une fenêtre avec sa flèche. Essayez, ou appuyez sur Suivant.",
   "Click the title to rename the session. Try it, or press Next.": "Cliquez sur le titre pour renommer la session. Essayez, ou appuyez sur Suivant.",
   "Drag a tab to reorder it, or into the other window. Try it, or press Next.": "Faites glisser un onglet pour le déplacer, ou dans l'autre fenêtre. Essayez, ou appuyez sur Suivant.",
-  "Save your windows or bring back a session in one click, from any tab.": "Enregistrez vos fenêtres ou retrouvez une session en un clic, depuis n'importe quel onglet."
+  "Save your windows or bring back a session in one click, from any tab.": "Enregistrez vos fenêtres ou retrouvez une session en un clic, depuis n'importe quel onglet.",
+  "Search looks in tab titles and links.": "La recherche porte sur les titres d’onglet et les liens."
 }

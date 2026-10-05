@@ -45,7 +45,8 @@ function RightPane() {
     height: 100%;
   `;
 
-  if (place === 'detail') return <NoMatchState query={query} inset={48} />;
+  if (place === 'detail')
+    return <NoMatchState query={query} inset={48} scope="saved" />;
   // KAN-7 §2. Zero sessions: say where they will show, instead of nothing.
   if (showsStartHere) return <StartHereHint />;
 

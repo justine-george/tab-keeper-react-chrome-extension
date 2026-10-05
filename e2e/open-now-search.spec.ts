@@ -668,6 +668,50 @@ test.describe('Open now search (KAN-330)', () => {
       0
     );
   });
+
+  test("KAN-430: no match draws the saved search's block, with Open now's own hint, centred under the row", async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    await openTab(serviceWorker, 'Kyoto maps');
+    const page = await openPage(context, extensionId, VIEW_TAB, {
+      width: 1600,
+      height: 800,
+    });
+    await expect(liveRow(page, 'Kyoto maps')).toBeVisible();
+    await field(page).fill('  zzz ');
+    const block = page.locator(`${OPEN_NOW} [data-no-match]`);
+    await expect(block).toBeVisible();
+    await expect(
+      block.getByText('No open tab matches "zzz"', { exact: true })
+    ).toBeVisible();
+    await expect(
+      block.getByText('Search looks in tab titles and links.', { exact: true })
+    ).toBeVisible();
+    await expect(block.locator('svg[aria-hidden="true"]')).toHaveCount(1);
+    await expect(page.locator(SESSIONS)).not.toContainText('Search looks in');
+    // Centred in the scroller under the search row, as the saved one is in its pane.
+    const g = await block.evaluate((el) => {
+      const kids = [...el.children].map((c) => c.getBoundingClientRect());
+      const own = el.getBoundingClientRect();
+      return {
+        cx:
+          (Math.min(...kids.map((r) => r.left)) +
+            Math.max(...kids.map((r) => r.right))) /
+          2,
+        paneCx: (own.left + own.right) / 2,
+        overflowsX: el.scrollWidth > el.clientWidth,
+        overflowsY: el.scrollHeight > el.clientHeight,
+      };
+    });
+    expect(Math.abs(g.cx - g.paneCx)).toBeLessThanOrEqual(1);
+    expect(g.overflowsX).toBe(false);
+    expect(g.overflowsY).toBe(false);
+    const row = await boxOf(page, `${OPEN_NOW} [data-open-now-search]`);
+    const blockBox = await boxOf(page, `${OPEN_NOW} [data-no-match]`);
+    expect(blockBox.top).toBeGreaterThanOrEqual(row.bottom);
+  });
 });
 
 // ---- 13 locales: the placeholder fits ----

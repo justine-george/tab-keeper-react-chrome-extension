@@ -12,10 +12,16 @@ interface NoMatchStateProps {
   query: string;
   // Side padding in px: 48 in the detail pane, 24 in the list.
   inset: 48 | 24;
+  // Which list was searched: the two differ in what they look in.
+  scope: 'saved' | 'open';
 }
 
-// The saved search's empty state, centred both ways in whatever holds it.
-export default function NoMatchState({ query, inset }: NoMatchStateProps) {
+// A search's empty state, centred both ways in whatever holds it.
+export default function NoMatchState({
+  query,
+  inset,
+  scope,
+}: NoMatchStateProps) {
   const COLORS = useThemeColors();
   const FONT_FAMILY = useFontFamily();
   const { t } = useTranslation();
@@ -47,15 +53,21 @@ export default function NoMatchState({ query, inset }: NoMatchStateProps) {
     <div css={blockStyle} data-no-match>
       <NoMatchArt />
       <NormalLabel
-        value={t('NoSavedTabMatches', { text: query })}
+        value={
+          scope === 'saved'
+            ? t('NoSavedTabMatches', { text: query })
+            : t('NoOpenTabMatches', { text: query })
+        }
         size={TYPE.BODY}
         color={COLORS.LABEL_L2_COLOR}
         style="max-width: 100%;"
       />
       <p css={hintStyle}>
-        {t(
-          'Search looks in session names, window names, tab titles and links.'
-        )}
+        {scope === 'saved'
+          ? t(
+              'Search looks in session names, window names, tab titles and links.'
+            )
+          : t('Search looks in tab titles and links.')}
       </p>
     </div>
   );

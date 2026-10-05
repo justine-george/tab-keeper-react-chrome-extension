@@ -291,5 +291,6 @@
   "A session keeps windows and tabs together. This one has 2 windows and 5 tabs. Fold a window with its arrow. Try it, or press Next.": "工作階段會把視窗和分頁放在一起。這個工作階段有 2 個視窗和 5 個分頁。用視窗的箭頭即可收合。試試看，或按一下「下一步」。",
   "Click the title to rename the session. Try it, or press Next.": "按一下標題即可重新命名工作階段。試試看，或按一下「下一步」。",
   "Drag a tab to reorder it, or into the other window. Try it, or press Next.": "拖曳分頁即可調整順序，也可以放到另一個視窗。試試看，或按一下「下一步」。",
-  "Save your windows or bring back a session in one click, from any tab.": "從任何分頁，一鍵儲存視窗或還原工作階段。"
+  "Save your windows or bring back a session in one click, from any tab.": "從任何分頁，一鍵儲存視窗或還原工作階段。",
+  "Search looks in tab titles and links.": "搜尋範圍包括分頁標題和連結。"
 }
