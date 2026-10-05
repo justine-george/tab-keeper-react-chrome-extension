@@ -296,5 +296,6 @@
   "A session keeps windows and tabs together. This one has 2 windows and 5 tabs. Fold a window with its arrow. Try it, or press Next.": "Eine Sitzung hält Fenster und Tabs zusammen. Diese hat 2 Fenster und 5 Tabs. Klappen Sie ein Fenster mit seinem Pfeil zu. Probieren Sie es aus oder drücken Sie Weiter.",
   "Click the title to rename the session. Try it, or press Next.": "Klicken Sie auf den Titel, um die Sitzung umzubenennen. Probieren Sie es aus oder drücken Sie Weiter.",
   "Drag a tab to reorder it, or into the other window. Try it, or press Next.": "Ziehen Sie einen Tab, um ihn zu verschieben, oder in das andere Fenster. Probieren Sie es aus oder drücken Sie Weiter.",
-  "Save your windows or bring back a session in one click, from any tab.": "Speichern Sie Ihre Fenster oder holen Sie eine Sitzung mit einem Klick zurück, von jedem Tab aus."
+  "Save your windows or bring back a session in one click, from any tab.": "Speichern Sie Ihre Fenster oder holen Sie eine Sitzung mit einem Klick zurück, von jedem Tab aus.",
+  "Search looks in tab titles and links.": "Die Suche umfasst Tab-Titel und Links."
 }

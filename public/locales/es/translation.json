@@ -301,5 +301,6 @@
   "A session keeps windows and tabs together. This one has 2 windows and 5 tabs. Fold a window with its arrow. Try it, or press Next.": "Una sesión mantiene juntas ventanas y pestañas. Esta tiene 2 ventanas y 5 pestañas. Pliega una ventana con su flecha. Pruébalo o pulsa Siguiente.",
   "Click the title to rename the session. Try it, or press Next.": "Haz clic en el título para cambiar el nombre de la sesión. Pruébalo o pulsa Siguiente.",
   "Drag a tab to reorder it, or into the other window. Try it, or press Next.": "Arrastra una pestaña para cambiarla de orden o a la otra ventana. Pruébalo o pulsa Siguiente.",
-  "Save your windows or bring back a session in one click, from any tab.": "Guarda tus ventanas o recupera una sesión con un clic, desde cualquier pestaña."
+  "Save your windows or bring back a session in one click, from any tab.": "Guarda tus ventanas o recupera una sesión con un clic, desde cualquier pestaña.",
+  "Search looks in tab titles and links.": "La búsqueda incluye títulos de pestañas y enlaces."
 }

@@ -296,5 +296,6 @@
   "A session keeps windows and tabs together. This one has 2 windows and 5 tabs. Fold a window with its arrow. Try it, or press Next.": "एक सेशन विंडो और टैब को साथ रखता है। इसमें 2 विंडो और 5 टैब हैं। किसी विंडो को उसके तीर से समेटें। आज़माएँ, या आगे दबाएँ।",
   "Click the title to rename the session. Try it, or press Next.": "सेशन का नाम बदलने के लिए शीर्षक पर क्लिक करें। आज़माएँ, या आगे दबाएँ।",
   "Drag a tab to reorder it, or into the other window. Try it, or press Next.": "किसी टैब का क्रम बदलने के लिए उसे खींचें, या दूसरी विंडो में छोड़ें। आज़माएँ, या आगे दबाएँ।",
-  "Save your windows or bring back a session in one click, from any tab.": "अपनी विंडो सहेजें या किसी भी टैब से एक क्लिक में सत्र वापस लाएँ।"
+  "Save your windows or bring back a session in one click, from any tab.": "अपनी विंडो सहेजें या किसी भी टैब से एक क्लिक में सत्र वापस लाएँ।",
+  "Search looks in tab titles and links.": "खोज टैब के शीर्षक और लिंक में होती है।"
 }

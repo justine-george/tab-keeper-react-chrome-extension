@@ -152,6 +152,21 @@ describe('a search draws only the matching tabs (O14a)', () => {
     expect(screen.getByText('No open tab matches "zzz"')).toBeInTheDocument();
   });
 
+  test('no match draws the shared block: art, message and its own hint', async () => {
+    await renderOpenNow(threeWindows());
+    await userEvent.setup().type(field(), '  zzz ');
+    const block = document.querySelector('[data-no-match]');
+    expect(block).not.toBeNull();
+    expect(block?.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
+    expect(block).toHaveTextContent('No open tab matches "zzz"');
+    expect(screen.getByText('Search looks in tab titles and links.')).toBe(
+      block?.querySelector('p')
+    );
+    expect(
+      screen.queryByText(/session names, window names/)
+    ).not.toBeInTheDocument();
+  });
+
   test("Enter switches to the first MATCH, which sits behind its window's front tab", async () => {
     await renderOpenNow(threeWindows());
     const user = userEvent.setup();

@@ -306,5 +306,6 @@
   "A session keeps windows and tabs together. This one has 2 windows and 5 tabs. Fold a window with its arrow. Try it, or press Next.": "Сессия хранит окна и вкладки вместе. В этой 2 окна и 5 вкладок. Сверните окно стрелкой. Попробуйте или нажмите «Далее».",
   "Click the title to rename the session. Try it, or press Next.": "Нажмите на название, чтобы переименовать сессию. Попробуйте или нажмите «Далее».",
   "Drag a tab to reorder it, or into the other window. Try it, or press Next.": "Перетащите вкладку, чтобы изменить порядок, или в другое окно. Попробуйте или нажмите «Далее».",
-  "Save your windows or bring back a session in one click, from any tab.": "Сохраняйте окна или возвращайте сессию одним щелчком, с любой вкладки."
+  "Save your windows or bring back a session in one click, from any tab.": "Сохраняйте окна или возвращайте сессию одним щелчком, с любой вкладки.",
+  "Search looks in tab titles and links.": "Поиск идёт по заголовкам вкладок и ссылкам."
 }

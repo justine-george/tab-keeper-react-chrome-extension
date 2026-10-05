@@ -6,7 +6,12 @@ import { localeDicts, tFor } from '../setup/localeT';
 // KAN-330. Four new phrases. i18next answers a missing key with the key
 // itself, so a locale that never got a translation still renders English with
 // no error; only reading the values sees it (as searchLabel.test.ts does).
-const KEYS = ['Search open tabs', 'Clear search', 'NoOpenTabMatches'] as const;
+const KEYS = [
+  'Search open tabs',
+  'Clear search',
+  'NoOpenTabMatches',
+  'Search looks in tab titles and links.',
+] as const;
 
 describe('Open now search phrases (KAN-330)', () => {
   test('every locale defines the three plain keys', () => {

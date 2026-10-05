@@ -291,5 +291,6 @@
   "A session keeps windows and tabs together. This one has 2 windows and 5 tabs. Fold a window with its arrow. Try it, or press Next.": "セッションはウィンドウとタブをひとまとめにします。このセッションには 2 つのウィンドウと 5 つのタブがあります。矢印でウィンドウを折りたためます。試すか、「次へ」を押してください。",
   "Click the title to rename the session. Try it, or press Next.": "タイトルをクリックするとセッション名を変更できます。試すか、「次へ」を押してください。",
   "Drag a tab to reorder it, or into the other window. Try it, or press Next.": "タブをドラッグして並べ替えたり、もう一方のウィンドウに移したりできます。試すか、「次へ」を押してください。",
-  "Save your windows or bring back a session in one click, from any tab.": "ウィンドウの保存やセッションの復元が、どのタブからでもワンクリックでできます。"
+  "Save your windows or bring back a session in one click, from any tab.": "ウィンドウの保存やセッションの復元が、どのタブからでもワンクリックでできます。",
+  "Search looks in tab titles and links.": "タブのタイトルとリンクを検索します。"
 }
