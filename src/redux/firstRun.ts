@@ -210,7 +210,7 @@ export const showWelcome =
     dispatch(openCloudConsentModal({ variant: 'welcome' }));
   };
 
-// What an open's decision opens; null when it opens nothing.
+// Ends an unanswered welcome at once; else what the decision opens, null when nothing.
 export function runOpener(
   decision: RunAtOpen,
   dispatch: AppDispatch
