@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
 
@@ -29,6 +29,7 @@ import {
   prefersReducedMotion,
   type Motion,
 } from './getStartedMotion';
+import { playWelcomeLoop, type HeroLoop } from './welcomeMotion';
 
 const TITLE_ID = 'cloud-consent-title';
 const BODY_ID = 'cloud-consent-body';
@@ -58,6 +59,13 @@ export const CloudConsentModal: React.FC = () => {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const getStartedRef = useRef<HTMLButtonElement>(null);
   const motion = useRef<Motion | null>(null);
+  const loop = useRef<HeroLoop | null>(null);
+  // Decided once: a still hero shows its end frame (reduced motion, or no Web Animations).
+  const [heroFrame] = useState<'start' | 'end'>(() =>
+    prefersReducedMotion() || typeof Element.prototype.animate !== 'function'
+      ? 'end'
+      : 'start'
+  );
   // Opens UNLIT, as the rate prompt does (KAN-243): the dialog itself takes
   // the focus (tabIndex -1), so Escape still works and the first Tab lands on
   // the first control, but no button wears a ring on open. A lit button on a
@@ -80,7 +88,12 @@ export const CloudConsentModal: React.FC = () => {
     if (dialog && !dialog.open) {
       dialog.showModal();
       dialog.focus();
+      const hero = dialog.querySelector<HTMLElement>(
+        '[data-hero-frame="start"]'
+      );
+      if (hero !== null) loop.current = playWelcomeLoop(hero);
     }
+    return () => loop.current?.finish();
   }, [isOpen]);
 
   if (!isOpen) return null;
@@ -110,6 +123,8 @@ export const CloudConsentModal: React.FC = () => {
   // The moment plays once; a press while it plays does nothing.
   const getStarted = () => {
     if (motion.current !== null) return;
+    loop.current?.finish();
+    loop.current = null;
     const dialog = dialogRef.current;
     const button = getStartedRef.current;
     if (
@@ -261,7 +276,7 @@ export const CloudConsentModal: React.FC = () => {
             <TabKeeperMark size={ICON.DEFAULT} />
             {t('Welcome to Tab Keeper')}
           </h2>
-          <WelcomeHero frame="end" />
+          <WelcomeHero frame={heroFrame} />
           <p id={BODY_ID} css={bodyStyle}>
             {t(
               'Save your open windows, close them, and bring them all back later.'

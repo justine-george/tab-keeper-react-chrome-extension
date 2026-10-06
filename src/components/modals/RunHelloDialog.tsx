@@ -11,6 +11,11 @@ import { markWhatsNew2Seen } from '../../redux/slices/settingsDataStateSlice';
 import type { RunHello } from '../../utils/functions/firstRun';
 import { DIALOG, ICON, TYPE } from '../../styles/scale';
 import { dialogButtonStyles } from './dialogButtons';
+import {
+  canAnimate,
+  playDialogEntrance,
+  prefersReducedMotion,
+} from './getStartedMotion';
 
 const TITLE_ID = 'run-hello-title';
 const BODY_ID = 'run-hello-body';
@@ -33,6 +38,10 @@ export const RunHelloDialog: React.FC<{
     if (dialog && !dialog.open) {
       dialog.showModal();
       dialog.focus();
+      // A7: Hello enters as the dialog after Get started does; reduced motion shows it at once.
+      if (!prefersReducedMotion() && canAnimate(dialog)) {
+        playDialogEntrance(dialog);
+      }
     }
   }, []);
 

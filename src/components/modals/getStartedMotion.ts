@@ -3,11 +3,11 @@
 // Web Animations durations, so not DURATION's (CSS transitions).
 export const GET_STARTED = {
   PRESS_MS: 150,
-  SHUTTER_MS: 450,
-  LEAVE_MS: 180,
+  SHUTTER_MS: 250,
+  LEAVE_MS: 150,
   ENTER_MS: 220,
 } as const;
-export const SHUTTER_EASE = 'cubic-bezier(0.65, 0, 0.35, 1)';
+export const SHUTTER_EASE = 'ease-in-out';
 export const ENTER_EASE = 'cubic-bezier(0.32, 0.72, 0, 1)';
 // The modals centre themselves with this transform, so every dialog frame keeps it.
 const CENTRED = 'translate(-50%, -50%)';
@@ -76,10 +76,9 @@ export function playGetStarted(parts: GetStartedParts): Motion {
         await run(
           parts.shutter,
           [
-            { transform: 'translateX(0)' },
-            { transform: 'translateX(-36px)', offset: 0.45 },
-            { transform: 'translateX(-36px)', offset: 0.55 },
-            { transform: 'translateX(0)' },
+            { transform: 'translateX(0px)' },
+            { transform: 'translateX(-14px)', offset: 0.5 },
+            { transform: 'translateX(0px)' },
           ],
           { duration: GET_STARTED.SHUTTER_MS, easing: SHUTTER_EASE }
         );
@@ -106,7 +105,7 @@ export function playGetStarted(parts: GetStartedParts): Motion {
   };
 }
 
-// A dialog that follows Get started enters from 0.97 and transparent; Hello will use it.
+// A dialog that follows Get started enters from 0.97 and transparent.
 export function playDialogEntrance(dialog: Animatable): void {
   dialog.animate(
     [

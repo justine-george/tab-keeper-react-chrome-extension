@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 
 import MainContainer from '../../components/MainContainer';
+import { RunHelloDialog } from '../../components/modals/RunHelloDialog';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { FakeMediaQueryList } from '../setup/mediaQueryFake';
 import {
@@ -23,6 +24,7 @@ interface Run {
   target: Element;
   keyframes: unknown;
   release: () => void;
+  isFinished: () => boolean;
 }
 let runs: Run[] = [];
 
@@ -32,12 +34,25 @@ function installAnimate(): void {
     value(this: Element, keyframes: unknown) {
       let release: () => void = () => undefined;
       let fail: () => void = () => undefined;
+      let isFinished = false;
       const finished = new Promise<unknown>((resolve, reject) => {
         release = () => resolve(undefined);
         fail = () => reject(new Error('cancelled'));
       });
-      runs.push({ target: this, keyframes, release });
-      return { finished, cancel: () => fail() };
+      const run: Run = {
+        target: this,
+        keyframes,
+        release,
+        isFinished: () => isFinished,
+      };
+      runs.push(run);
+      return {
+        finished,
+        cancel: () => fail(),
+        finish: () => {
+          isFinished = true;
+        },
+      };
     },
   });
 }
@@ -47,6 +62,12 @@ const welcome = (store: { dispatch: (action: unknown) => void }) => {
   store.dispatch(openCloudConsentModal({ variant: 'welcome' }));
 };
 const getStarted = () => screen.getByRole('button', { name: 'Get started' });
+// The loop plays on open; the moment's runs are the ones started by the press.
+function pressGetStarted(): { moment: () => Run[]; loop: Run[] } {
+  const loop = [...runs];
+  fireEvent.click(getStarted());
+  return { moment: () => runs.slice(loop.length), loop };
+}
 const welcomeDialog = () =>
   document.querySelector('dialog[aria-labelledby="cloud-consent-title"]');
 const FULL_RUN = newRun('full', 0, 'welcome');
@@ -66,26 +87,31 @@ afterEach(() => {
 });
 
 describe('the moment on the welcome', () => {
-  test('press, then the shutter, then the welcome leaves; then the full-view run is recorded', async () => {
+  test('the loop ends at once, then press, the shutter, the welcome leaves; then the full-view run is recorded', async () => {
     installAnimate();
     const { store } = await renderWithProviders(<MainContainer />, {
       seedStore: welcome,
     });
-    fireEvent.click(getStarted());
-    expect(runs.map((r) => r.target)).toEqual([getStarted()]);
+    expect(
+      document.querySelector('[data-hero-frame="start"]')
+    ).toBeInTheDocument();
+    const { moment, loop } = pressGetStarted();
+    expect(loop).toHaveLength(21);
+    expect(loop.every((r) => r.isFinished())).toBe(true);
+    expect(moment().map((r) => r.target)).toEqual([getStarted()]);
 
-    runs[0].release();
-    await waitFor(() => expect(runs).toHaveLength(2));
-    expect(runs[1].target).toHaveAttribute('data-hero-part', 'shutter');
+    moment()[0].release();
+    await waitFor(() => expect(moment()).toHaveLength(2));
+    expect(moment()[1].target).toHaveAttribute('data-hero-part', 'shutter');
 
-    runs[1].release();
-    await waitFor(() => expect(runs).toHaveLength(3));
-    expect(runs[2].target).toBe(welcomeDialog());
+    moment()[1].release();
+    await waitFor(() => expect(moment()).toHaveLength(3));
+    expect(moment()[2].target).toBe(welcomeDialog());
     expect(store.getState().globalState.isCloudConsentModalOpen).toBe(true);
 
     expect(store.getState().settingsDataState.firstRun).toBeNull();
 
-    runs[2].release();
+    moment()[2].release();
     await waitFor(() =>
       expect(store.getState().settingsDataState.firstRun).toEqual(FULL_RUN)
     );
@@ -95,9 +121,9 @@ describe('the moment on the welcome', () => {
   test('a second press while it plays does nothing', async () => {
     installAnimate();
     await renderWithProviders(<MainContainer />, { seedStore: welcome });
+    const { moment } = pressGetStarted();
     fireEvent.click(getStarted());
-    fireEvent.click(getStarted());
-    expect(runs).toHaveLength(1);
+    expect(moment()).toHaveLength(1);
   });
 
   test('Esc while it plays cuts it short, and Get started completes (R12)', async () => {
@@ -105,7 +131,7 @@ describe('the moment on the welcome', () => {
     const { store } = await renderWithProviders(<MainContainer />, {
       seedStore: welcome,
     });
-    fireEvent.click(getStarted());
+    const { moment } = pressGetStarted();
     const dialog = welcomeDialog();
     if (dialog === null) throw new Error('no welcome');
     fireEvent(
@@ -117,9 +143,9 @@ describe('the moment on the welcome', () => {
     );
     expect(store.getState().globalState.isCloudConsentModalOpen).toBe(false);
     // The press it cancelled finishing late starts nothing after it.
-    runs[0].release();
+    moment()[0].release();
     await microtasks();
-    expect(runs).toHaveLength(1);
+    expect(moment()).toHaveLength(1);
   });
 
   test('reduced motion: straight on to the full-view run, and nothing animates', async () => {
@@ -134,10 +160,45 @@ describe('the moment on the welcome', () => {
     const { store } = await renderWithProviders(<MainContainer />, {
       seedStore: welcome,
     });
+    expect(
+      document.querySelector('[data-hero-frame="end"]')
+    ).toBeInTheDocument();
     fireEvent.click(getStarted());
     await waitFor(() =>
       expect(store.getState().settingsDataState.firstRun).toEqual(FULL_RUN)
     );
+    expect(runs).toEqual([]);
+  });
+});
+
+describe('Hello enters (A7)', () => {
+  const renderHello = () =>
+    renderWithProviders(
+      <RunHelloDialog hello="welcome" onStart={vi.fn()} onSkip={vi.fn()} />
+    );
+
+  test('as the dialog: opacity 0 to 1 and scale 0.97 to 1, 220ms', async () => {
+    installAnimate();
+    await renderHello();
+    expect(runs).toHaveLength(1);
+    expect(runs[0].target).toBe(document.querySelector('[data-run-hello]'));
+    expect(runs[0].keyframes).toEqual([
+      { opacity: 0, transform: 'translate(-50%, -50%) scale(0.97)' },
+      { opacity: 1, transform: 'translate(-50%, -50%) scale(1)' },
+    ]);
+  });
+
+  test('reduced motion: it shows at once', async () => {
+    installAnimate();
+    vi.spyOn(window, 'matchMedia').mockImplementation(
+      (query: string) =>
+        new FakeMediaQueryList(
+          query,
+          query === '(prefers-reduced-motion: reduce)'
+        )
+    );
+    await renderHello();
+    expect(document.querySelector('[data-run-hello]')).toBeInTheDocument();
     expect(runs).toEqual([]);
   });
 });
@@ -187,21 +248,20 @@ describe('playGetStarted and playDialogEntrance', () => {
     });
     expect(log[1]).toEqual({
       keyframes: [
-        { transform: 'translateX(0)' },
-        { transform: 'translateX(-36px)', offset: 0.45 },
-        { transform: 'translateX(-36px)', offset: 0.55 },
-        { transform: 'translateX(0)' },
+        { transform: 'translateX(0px)' },
+        { transform: 'translateX(-14px)', offset: 0.5 },
+        { transform: 'translateX(0px)' },
       ],
-      options: { duration: GET_STARTED.SHUTTER_MS, easing: SHUTTER_EASE },
+      options: { duration: 250, easing: 'ease-in-out' },
     });
     expect(log[2]).toEqual({
       keyframes: [
         { opacity: 1, transform: 'translate(-50%, -50%)' },
         { opacity: 0, transform: 'translate(-50%, calc(-50% - 8px))' },
       ],
-      options: { duration: 180, easing: 'ease-in', fill: 'forwards' },
+      options: { duration: 150, easing: 'ease-in', fill: 'forwards' },
     });
-    expect(SHUTTER_EASE).toBe('cubic-bezier(0.65, 0, 0.35, 1)');
+    expect(SHUTTER_EASE).toBe('ease-in-out');
   });
 
   test('a mark without its shutter still presses and leaves', async () => {
