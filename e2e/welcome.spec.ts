@@ -246,6 +246,30 @@ const heroPlayStates = (page: import('@playwright/test').Page) =>
       .map((a) => a.playState)
   );
 
+// Each chip's offset from the right window, where the end frame draws it.
+const chipsHome = (dialog: import('@playwright/test').Locator) =>
+  dialog.evaluate((el) => {
+    const right = el
+      .querySelector('[data-hero-part="window-right"]')
+      ?.getBoundingClientRect();
+    if (right === undefined) throw new Error('no right window');
+    return [...el.querySelectorAll('[data-hero-part="chip"]')].map((chip) => {
+      const r = chip.getBoundingClientRect();
+      return [r.left - right.left, r.top - right.top];
+    });
+  });
+const HOME = [
+  [6, 5],
+  [56, 5],
+  [106, 5],
+];
+
+const expectHome = (home: number[][]) =>
+  home.forEach(([x, y], i) => {
+    expect(Math.abs(x - HOME[i][0])).toBeLessThan(0.5);
+    expect(Math.abs(y - HOME[i][1])).toBeLessThan(0.5);
+  });
+
 test('the loop plays its beats once, all done by 2.4s', async ({
   context,
   extensionId,
@@ -271,6 +295,7 @@ test('the loop plays its beats once, all done by 2.4s', async ({
       { timeout: 4000 }
     )
     .toBe(true);
+  expectHome(await chipsHome(welcome(page)));
 });
 
 test('Get started: the loop ends at once, the shutter beat and the exit play, and the full view opens on step 1', async ({
@@ -464,4 +489,80 @@ test('Sounds off: Get started plays no click', async ({
   await expect(cardAt(full, 1)).toBeVisible();
   // CONTROL: the click test above, where the same observer hears it.
   expect(await soundStarts(page)).toEqual([]);
+});
+
+// KAN-456: the full view's Hello, either variant, carries the welcome's drawing.
+const AT_HELLO = {
+  cloudConsent: 'declined',
+  isAutoSync: false,
+  isWhatsNew2Seen: true,
+  setupState: 'done',
+  hasOpenedFullView: true,
+  isPinGuideDismissed: true,
+  isFullViewCalloutSeen: true,
+};
+for (const variant of ['welcome', 'whatsNew'] as const) {
+  test(`the full view's ${variant} Hello: the loop plays once above the copy and rests with the chips home`, async ({
+    context,
+    extensionId,
+  }) => {
+    await seedRawSettingsIfAbsent(context, {
+      ...AT_HELLO,
+      firstRun: {
+        view: 'full',
+        step: 0,
+        sessionId: null,
+        hello: variant,
+        welcomeShows: null,
+        ended: null,
+      },
+    });
+    const page = await context.newPage();
+    await page.setViewportSize(FULL);
+    await page.goto(`chrome-extension://${extensionId}/${FULL_VIEW_PATH}`);
+    const dialog = hello(page);
+    await expect(dialog.locator('[data-hero-frame="start"]')).toBeVisible();
+    const order = await dialog.evaluate((el) =>
+      [...el.children].map((c) =>
+        c.hasAttribute('data-hero-frame') ? 'hero' : c.tagName.toLowerCase()
+      )
+    );
+    expect(order).toEqual(['h2', 'hero', 'p', 'div']);
+    expect(await heroPlayStates(page)).toContain('running');
+    await expect
+      .poll(
+        () =>
+          page.evaluate(() =>
+            document.getAnimations().every((a) => a.playState === 'finished')
+          ),
+        { timeout: 4000 }
+      )
+      .toBe(true);
+    expectHome(await chipsHome(dialog));
+  });
+}
+
+test("reduced motion: the full view's Hello shows a still hero at its end, chips home", async ({
+  context,
+  extensionId,
+}) => {
+  await seedRawSettingsIfAbsent(context, {
+    ...AT_HELLO,
+    firstRun: {
+      view: 'full',
+      step: 0,
+      sessionId: null,
+      hello: 'welcome',
+      welcomeShows: null,
+      ended: null,
+    },
+  });
+  const page = await context.newPage();
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.setViewportSize(FULL);
+  await page.goto(`chrome-extension://${extensionId}/${FULL_VIEW_PATH}`);
+  const dialog = hello(page);
+  await expect(dialog.locator('[data-hero-frame="end"]')).toBeVisible();
+  expect(await heroPlayStates(page)).toEqual([]);
+  expectHome(await chipsHome(dialog));
 });

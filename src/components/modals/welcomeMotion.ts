@@ -51,6 +51,11 @@ export function playWelcomeLoop(hero: HTMLElement): HeroLoop {
   ) => {
     running.push(el.animate(keyframes, { fill: 'forwards', ...timing }));
   };
+  // Rects are on screen: undo an ancestor's scale (Hello's entrance) or every arc lands short.
+  const scale =
+    hero.offsetWidth > 0
+      ? hero.getBoundingClientRect().width / hero.offsetWidth
+      : 1;
   const slot = floppy.getBoundingClientRect();
   const intoX = slot.left + slot.width / 2;
   const intoY = slot.top + 10;
@@ -58,10 +63,10 @@ export function playWelcomeLoop(hero: HTMLElement): HeroLoop {
 
   parts('chip').forEach((chip, i) => {
     const from = chip.getBoundingClientRect();
-    const dx = intoX - (from.left + from.width / 2);
-    const dy = intoY - from.top;
-    const outX = home.left + 6 + i * L.CHIP_STEP_PX - from.left;
-    const outY = home.top + 5 - from.top;
+    const dx = (intoX - (from.left + from.width / 2)) / scale;
+    const dy = (intoY - from.top) / scale;
+    const outX = (home.left - from.left) / scale + 6 + i * L.CHIP_STEP_PX;
+    const outY = (home.top - from.top) / scale + 5;
     const leaves = L.INTO_AT_MS + i * L.CHIP_STAGGER_MS;
     play(
       chip,

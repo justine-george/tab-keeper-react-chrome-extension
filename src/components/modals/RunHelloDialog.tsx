@@ -1,9 +1,11 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useDispatch } from 'react-redux';
 import { useTranslation } from 'react-i18next';
 import { css } from '@emotion/react';
 
 import TabKeeperMark from '../common/TabKeeperMark';
+import WelcomeHero from './WelcomeHero';
+import { playWelcomeLoop } from './welcomeMotion';
 import { useFontFamily } from '../../hooks/useFontFamily';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import type { AppDispatch } from '../../redux/store';
@@ -31,6 +33,12 @@ export const RunHelloDialog: React.FC<{
   const { t } = useTranslation();
   const dispatch: AppDispatch = useDispatch();
   const dialogRef = useRef<HTMLDialogElement>(null);
+  // Decided once, as the popup welcome's: a still hero shows its end frame.
+  const [heroFrame] = useState<'start' | 'end'>(() =>
+    prefersReducedMotion() || typeof Element.prototype.animate !== 'function'
+      ? 'end'
+      : 'start'
+  );
 
   // Opens unlit (KAN-243): the dialog holds the focus, not its first control.
   useEffect(() => {
@@ -43,6 +51,12 @@ export const RunHelloDialog: React.FC<{
         playHelloEntrance(dialog);
       }
     }
+    // Outside the open guard: StrictMode re-runs this with the dialog already open.
+    const hero = dialog?.querySelector<HTMLElement>(
+      '[data-hero-frame="start"]'
+    );
+    const loop = hero ? playWelcomeLoop(hero) : null;
+    return () => loop?.cancel();
   }, []);
 
   // Once an upgrader has seen What's new, no later open starts it again.
@@ -119,6 +133,7 @@ export const RunHelloDialog: React.FC<{
           ? t("What's new in Tab Keeper 2.0")
           : t('Welcome to Tab Keeper')}
       </h2>
+      <WelcomeHero frame={heroFrame} />
       <p id={BODY_ID} css={bodyStyle}>
         {hello === 'whatsNew'
           ? t(
