@@ -2,10 +2,10 @@
 // Playwright's --shard cuts the test list by count into contiguous runs, so a
 // file of slow tests lands whole in one shard: 692s against 272s on 6 shards.
 //
-//   node scripts/e2e_shards.mjs results-shard-*.json
+//   gh run download <run-id> -p 'timings-shard-*'
+//   node scripts/e2e_shards.mjs timings-shard-*/results-shard-*.json
 //
-// rewrites e2e/shard-weights.json from CI's per-shard JSON reports (the
-// "timings-shard-n" artifacts).
+// rewrites e2e/shard-weights.json from a green CI run's per-shard JSON reports.
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
@@ -15,18 +15,19 @@ export const WEIGHTS_FILE = fileURLToPath(
 
 /**
  * Mean seconds per test for each spec file in Playwright JSON reports. A test
- * counts once, by its last result.
+ * counts once, by its last result, and only if that passed: a skip weighs 0
+ * and a timeout weighs the whole timeout. A file with none is left out.
  * @param {Array<{ suites?: object[] }>} reports
  * @returns {Record<string, number>} file (relative to e2e/) -> mean seconds
  */
-export function meanSecondsPerFile(reports) {
+export function meanTestSecondsByFile(reports) {
   /** @type {Map<string, number[]>} */
   const byFile = new Map();
   const walk = (suite) => {
     for (const spec of suite.specs ?? []) {
       for (const test of spec.tests ?? []) {
         const last = test.results?.at(-1);
-        if (last === undefined) continue;
+        if (last?.status !== 'passed') continue;
         const list = byFile.get(spec.file) ?? [];
         list.push(last.duration / 1000);
         byFile.set(spec.file, list);
@@ -90,11 +91,13 @@ export function assignShards(files, weights, total) {
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const paths = process.argv.slice(2);
   if (paths.length === 0) {
-    console.error('usage: node scripts/e2e_shards.mjs results-shard-*.json');
+    console.error(
+      'usage: node scripts/e2e_shards.mjs timings-shard-*/results-shard-*.json'
+    );
     process.exit(1);
   }
   const reports = paths.map((p) => JSON.parse(readFileSync(p, 'utf8')));
-  const weights = meanSecondsPerFile(reports);
+  const weights = meanTestSecondsByFile(reports);
   writeFileSync(WEIGHTS_FILE, `${JSON.stringify(weights, null, 2)}\n`);
   console.log(`wrote ${Object.keys(weights).length} files to ${WEIGHTS_FILE}`);
 }
