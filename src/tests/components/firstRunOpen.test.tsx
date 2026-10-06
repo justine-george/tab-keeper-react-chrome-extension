@@ -110,7 +110,7 @@ describe('the firstRun entry', () => {
     expect(store.getState().globalState.isSetupOpen).toBe(true);
   });
 
-  test('Q7: the welcome reshows once, counted; the third open ends it unanswered', async () => {
+  test('Q7: the welcome reshows once, counted; the third open ends it unanswered and marks the callout seen', async () => {
     const second = await openWith('popup', {
       cloudConsent: 'declined',
       firstRun: newRun('popup', 0),
@@ -125,6 +125,9 @@ describe('the firstRun entry', () => {
     expect(
       second.store.getState().settingsDataState.firstRun?.welcomeShows
     ).toBe(2);
+    expect(
+      second.store.getState().settingsDataState.isFullViewCalloutSeen
+    ).toBe(false);
     locks.dropAll();
     const third = await openWith('popup', {
       cloudConsent: 'declined',
@@ -136,6 +139,9 @@ describe('the firstRun entry', () => {
     );
     expect(third.store.getState().globalState.isCloudConsentModalOpen).toBe(
       false
+    );
+    expect(third.store.getState().settingsDataState.isFullViewCalloutSeen).toBe(
+      true
     );
   });
 

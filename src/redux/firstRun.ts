@@ -238,6 +238,7 @@ export function runOpener(
       return null;
     case 'endUnanswered':
       dispatch(endFirstRun('unanswered'));
+      dispatch(markFullViewCalloutSeen());
       return null;
     case 'resume':
       return () => void dispatch(resumeRunHere());
