@@ -339,6 +339,67 @@ for (const lang of LANGS) {
   });
 }
 
+// The footers' wrap under stress: the longest words in a window too narrow for one row of buttons.
+// How far the second button sits below the first's bottom edge: on a row of its own when it is not negative.
+async function secondRowGap(dialog: Locator, first: string, second: string) {
+  const box = (name: string) =>
+    dialog
+      .getByRole('button', { name, exact: true })
+      .evaluate((el) => el.getBoundingClientRect().toJSON());
+  const [above, below] = await Promise.all([box(first), box(second)]);
+  return below.top - above.bottom;
+}
+
+// For each locale, a popup narrow enough that its two welcome buttons cannot share a row.
+for (const [lang, welcomeWidth] of [
+  ['de', 360],
+  ['ru', 360],
+  ['hi', 280],
+] as const) {
+  const say = (key: string) => localeStrings(lang)[key] ?? key;
+
+  test.describe(`${lang}, narrow, at a ${ROOT_PX}px root`, () => {
+    test.beforeEach(async ({ context }) => {
+      await rootAt(context, ROOT_PX);
+    });
+
+    test('the welcome’s buttons wrap onto two rows and still fit', async ({
+      context,
+      extensionId,
+    }) => {
+      await seedRawSettingsIfAbsent(context, { language: lang });
+      const page = await openIn(context, extensionId, {
+        ...POPUP_RUN,
+        viewport: { width: welcomeWidth, height: 900 },
+      });
+      await expect(welcome(page)).toBeVisible();
+      await expectFits(welcome(page), `${lang} narrow welcome`);
+      // CONTROL: this width does make them wrap.
+      expect(
+        await secondRowGap(welcome(page), say('Not now'), say('Get started'))
+      ).toBeGreaterThanOrEqual(0);
+    });
+
+    test('Hello’s buttons wrap onto two rows and still fit', async ({
+      context,
+      extensionId,
+    }) => {
+      await seedRawSettingsIfAbsent(context, { ...SETTLED, language: lang });
+      const page = await openIn(context, extensionId, {
+        ...FULL_RUN,
+        viewport: { width: 360, height: 800 },
+      });
+      await startRunFromHelp(page, say);
+      await expect(hello(page)).toBeVisible();
+      await expectFits(hello(page), `${lang} narrow Hello`);
+      // CONTROL: this width does make them wrap.
+      expect(
+        await secondRowGap(hello(page), say('Skip tutorial'), say('Start'))
+      ).toBeGreaterThanOrEqual(0);
+    });
+  });
+}
+
 // The filled button at rest, hovered and held, each read once its fill settles; the hold ends in a click.
 async function expectFilledReads(
   page: Page,

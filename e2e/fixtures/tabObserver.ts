@@ -35,7 +35,8 @@ export const tabLog = (worker: Worker): Promise<string[]> =>
     return Array.isArray(log) ? log.map(String) : [];
   });
 
-// The tab a page the test opened lives in: the harness's stand-in for the popup, or a full view it opened.
+export const FULL_VIEW = 'tk:index.html?view=tab';
+
 export async function tabIdOf(page: Page): Promise<number> {
   const id = await page.evaluate(
     async () => (await chrome.tabs.getCurrent())?.id
@@ -44,16 +45,88 @@ export async function tabIdOf(page: Page): Promise<number> {
   return id;
 }
 
-const FULL_VIEW = 'tk:index.html?view=tab';
+const asLogged = (url: string) =>
+  url.replace(/^chrome-extension:\/\/[^/]+\//, 'tk:');
 
-// The run's own changes: Get started's or ⤢'s full view opening, and Pin this tab on it; and the test's own pages loading.
-export function isRunsOwn(
-  entry: string,
-  testsOwn: readonly number[] = []
-): boolean {
-  const opened = /^(created|loading) (\d+) (.*)$/.exec(entry);
-  if (opened !== null) {
-    return opened[3] === FULL_VIEW || testsOwn.includes(Number(opened[2]));
+// The tabs the test itself opened, each with the address it opened it at, and those it closed.
+export class TestTabs {
+  readonly opened = new Map<number, string>();
+  readonly closed = new Set<number>();
+  private readonly ids = new Map<Page, number>();
+
+  async add(page: Page): Promise<void> {
+    const id = await tabIdOf(page);
+    this.ids.set(page, id);
+    this.opened.set(id, asLogged(page.url()));
   }
-  return /^pinned true \d+ (.*)$/.exec(entry)?.[1] === FULL_VIEW;
+
+  async close(page: Page): Promise<void> {
+    const id = this.ids.get(page);
+    if (id === undefined) throw new Error('not a page the test opened');
+    this.closed.add(id);
+    await page.close();
+  }
+}
+
+// What the run may do beyond nothing: open one full view of its own (Get started, ⤢), and pin it once (Pin this tab).
+export interface RunMay {
+  fullView: boolean;
+  pin: boolean;
+}
+
+// Every entry neither the run nor the test may cause, read in order.
+export function notTheRunsOwn(
+  log: readonly string[],
+  tests: TestTabs,
+  may: RunMay
+): string[] {
+  const reached = new Set<number>();
+  let runFullView: number | null = null;
+  let pins = 0;
+  return log.filter((entry) => {
+    const tab = /^(created|loading|removed) (\d+) ?(.*)$/.exec(entry);
+    const pinned = /^pinned true (\d+) (.*)$/.exec(entry);
+    if (tab !== null) {
+      const [, kind, idText, url] = tab;
+      const id = Number(idText);
+      const testUrl = tests.opened.get(id);
+      if (testUrl !== undefined) {
+        // Opened blank, then sent to its address; reloaded there; closed by the test.
+        if (kind === 'removed') return !tests.closed.has(id);
+        if (url === testUrl) {
+          reached.add(id);
+          return false;
+        }
+        return !(url === 'about:blank' || url === '') || reached.has(id);
+      }
+      if (kind === 'created' && url === FULL_VIEW) {
+        if (!may.fullView || runFullView !== null) return true;
+        runFullView = id;
+        return false;
+      }
+      return !(kind === 'loading' && id === runFullView && url === FULL_VIEW);
+    }
+    if (pinned !== null) {
+      const ok = may.pin && Number(pinned[1]) === runFullView && pins === 0;
+      pins += 1;
+      return !ok;
+    }
+    return true;
+  });
+}
+
+// CONTROL entries that are not the row's Open: anything but a new window, and the new tabs and what happens to them.
+export function notTheOpen(entries: readonly string[]): string[] {
+  const idOf = (entry: string) =>
+    /^(?:created|loading|removed|moved|attached|detached|pinned \w+) (\d+)/.exec(
+      entry
+    )?.[1];
+  const made = new Set(
+    entries.flatMap((e) => (e.startsWith('created ') ? idOf(e) ?? [] : []))
+  );
+  return entries.filter((entry) => {
+    if (/^window created \d+$/.test(entry)) return false;
+    const id = idOf(entry);
+    return id === undefined || !made.has(id);
+  });
 }

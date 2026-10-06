@@ -9,7 +9,16 @@ import {
   waitForFullView,
 } from './fixtures/onboarding';
 import { stubToolbarPin } from './fixtures/toolbarPin';
-import { isRunsOwn, tabIdOf, tabLog, watchTabs } from './fixtures/tabObserver';
+import {
+  FULL_VIEW,
+  TestTabs,
+  notTheOpen,
+  notTheRunsOwn,
+  tabIdOf,
+  tabLog,
+  watchTabs,
+  type RunMay,
+} from './fixtures/tabObserver';
 import {
   card,
   cardAt,
@@ -76,12 +85,13 @@ async function saveNow(page: Page) {
   await expect(rows).toHaveCount(before + 1);
 }
 
-// §14's negative, read after the caller's barrier and two frames; then its CONTROL: the same observer, in the same profile, records a row's Open.
+// §14's negative, read after the caller's barrier and two frames; then its CONTROL: the same observer, in the same profile, records a row's Open, and only that.
 async function expectOnlyTheRunsOwn(
   page: Page,
   worker: Worker,
-  testsOwn: readonly number[]
-) {
+  tests: TestTabs,
+  may: RunMay
+): Promise<string[]> {
   await twoFrames(page);
   const before = (await tabLog(worker)).length;
   const row = page.locator('[data-pane="sessions"] [data-drag-row-id]').first();
@@ -89,18 +99,43 @@ async function expectOnlyTheRunsOwn(
   await page.mouse.click(
     ...(await centreOf(row.locator('[data-tour-anchor="row-open"]')))
   );
+  // Grown, then quiet across two reads, so nothing the Open set off is still on its way.
+  let last = -1;
   await expect
-    .poll(async () => (await tabLog(worker)).length)
-    .toBeGreaterThan(before);
+    .poll(
+      async () => {
+        const now = (await tabLog(worker)).length;
+        const quiet = now > before && now === last;
+        last = now;
+        return quiet;
+      },
+      { intervals: [250] }
+    )
+    .toBe(true);
   const log = await tabLog(worker);
-  expect(log.slice(0, before).filter((e) => !isRunsOwn(e, testsOwn))).toEqual(
-    []
-  );
+  expect(notTheRunsOwn(log.slice(0, before), tests, may)).toEqual([]);
+  const control = log.slice(before);
   expect(
-    log.slice(before).filter((e) => !isRunsOwn(e, testsOwn)).length,
-    'CONTROL: the observer records a change outside the run'
+    control.filter((e) => /^created \d+/.test(e)).length,
+    'CONTROL: the observer records the Open'
   ).toBeGreaterThan(0);
+  expect(notTheOpen(control)).toEqual([]);
   await page.bringToFront();
+  return log.slice(0, before);
+}
+
+const NOTHING: RunMay = { fullView: false, pin: false };
+
+// The same negative as soon as the run's full view shows; the closing CONTROL proves this observer live.
+async function expectNothingElseYet(
+  page: Page,
+  worker: Worker,
+  tests: TestTabs
+) {
+  await twoFrames(page);
+  expect(
+    notTheRunsOwn(await tabLog(worker), tests, { fullView: true, pin: false })
+  ).toEqual([]);
 }
 
 test('new install, Get started, each step done by hand; then setup, then the pin guide; only the run’s own tab is touched', async ({
@@ -110,12 +145,14 @@ test('new install, Get started, each step done by hand; then setup, then the pin
 }) => {
   await stubToolbarPin(context, { pinned: false });
   await watchTabs(serviceWorker);
+  const tests = new TestTabs();
   const popup = await openPopup(context, extensionId);
-  const own = [await tabIdOf(popup)];
+  await tests.add(popup);
   await welcome(popup)
     .getByRole('button', { name: 'Get started', exact: true })
     .click();
   const full = await waitForFullView(context);
+  await expectNothingElseYet(full, serviceWorker, tests);
   await hello(full).getByRole('button', { name: 'Start', exact: true }).click();
   await nextTo(full, 2);
   const search = full.locator(
@@ -134,10 +171,14 @@ test('new install, Get started, each step done by hand; then setup, then the pin
   await skipSetupThenGuide(full);
   expect(await storedRun(full)).toMatchObject({ ended: 'finished' });
   expect(await storedTitles(full)).toHaveLength(1);
-  await expectOnlyTheRunsOwn(full, serviceWorker, own);
-  expect(await tabLog(serviceWorker)).toContain(
-    `pinned true ${await tabIdOf(full)} tk:index.html?view=tab`
-  );
+  const log = await expectOnlyTheRunsOwn(full, serviceWorker, tests, {
+    fullView: true,
+    pin: true,
+  });
+  // Exactly one pin, on the run's own full view.
+  expect(log.filter((e) => e.startsWith('pinned '))).toEqual([
+    `pinned true ${await tabIdOf(full)} ${FULL_VIEW}`,
+  ]);
 });
 
 test('new install, Get started, Next only (Use an example): the sample is gone after the run', async ({
@@ -147,12 +188,14 @@ test('new install, Get started, Next only (Use an example): the sample is gone a
 }) => {
   await stubToolbarPin(context, { pinned: false });
   await watchTabs(serviceWorker);
+  const tests = new TestTabs();
   const popup = await openPopup(context, extensionId);
-  const own = [await tabIdOf(popup)];
+  await tests.add(popup);
   await welcome(popup)
     .getByRole('button', { name: 'Get started', exact: true })
     .click();
   const full = await waitForFullView(context);
+  await expectNothingElseYet(full, serviceWorker, tests);
   await hello(full).getByRole('button', { name: 'Start', exact: true }).click();
   for (let step = 2; step <= 3; step++) await nextTo(full, step);
   await cardButton(full, 'Use an example').click();
@@ -163,7 +206,10 @@ test('new install, Get started, Next only (Use an example): the sample is gone a
   await skipSetupThenGuide(full);
   await expect.poll(() => storedTitles(full)).toEqual([]);
   await saveNow(full);
-  await expectOnlyTheRunsOwn(full, serviceWorker, own);
+  await expectOnlyTheRunsOwn(full, serviceWorker, tests, {
+    fullView: true,
+    pin: false,
+  });
 });
 
 test('new install, Not now: the popup run to ⤢, then the first full-view visit runs Hello, the run, setup and the pin guide', async ({
@@ -173,8 +219,9 @@ test('new install, Not now: the popup run to ⤢, then the first full-view visit
 }) => {
   await stubToolbarPin(context, { pinned: false });
   await watchTabs(serviceWorker);
+  const tests = new TestTabs();
   const popup = await openPopup(context, extensionId);
-  const own = [await tabIdOf(popup)];
+  await tests.add(popup);
   await welcome(popup)
     .getByRole('button', { name: 'Not now', exact: true })
     .click();
@@ -185,6 +232,7 @@ test('new install, Not now: the popup run to ⤢, then the first full-view visit
   await popup.locator('[data-tour-anchor="expand"] [role="button"]').click();
   const full = await waitForFullView(context);
   await runCheck(full, 'started');
+  await expectNothingElseYet(full, serviceWorker, tests);
   await hello(full).getByRole('button', { name: 'Start', exact: true }).click();
   for (let step = 2; step <= 3; step++) await nextTo(full, step);
   // R10: the popup run's sample is gone, so step 3 is the save card again.
@@ -196,7 +244,10 @@ test('new install, Not now: the popup run to ⤢, then the first full-view visit
   await skipSetupThenGuide(full);
   await expect.poll(() => storedTitles(full)).toEqual([]);
   await saveNow(full);
-  await expectOnlyTheRunsOwn(full, serviceWorker, own);
+  await expectOnlyTheRunsOwn(full, serviceWorker, tests, {
+    fullView: true,
+    pin: false,
+  });
 });
 
 // What's new on the latest session: step 3 with no save, then Not now, setup and the guide.
@@ -230,7 +281,9 @@ test('synced upgrader: the sync question first, then What’s new on the latest 
   await seedSessionsIfAbsent(context, KEPT);
   await watchRunDrawn(context);
   await watchTabs(serviceWorker);
+  const tests = new TestTabs();
   const popup = await openPopup(context, extensionId);
+  await tests.add(popup);
   const ask = popup.getByRole('dialog', {
     name: 'Your sessions are currently synced',
     exact: true,
@@ -240,11 +293,9 @@ test('synced upgrader: the sync question first, then What’s new on the latest 
   expect(await runDrawn(popup)).toEqual(['cloudConsent']);
   await ask.getByRole('button', { name: 'Turn off sync', exact: true }).click();
   const full = await openFullView(context, extensionId);
+  await tests.add(full);
   await upgraderRun(full);
-  await expectOnlyTheRunsOwn(full, serviceWorker, [
-    await tabIdOf(popup),
-    await tabIdOf(full),
-  ]);
+  await expectOnlyTheRunsOwn(full, serviceWorker, tests, NOTHING);
 });
 
 test('Auto-Sync-off upgrader: no question, then the same run', async ({
@@ -260,19 +311,19 @@ test('Auto-Sync-off upgrader: no question, then the same run', async ({
   await seedSessionsIfAbsent(context, KEPT);
   await watchRunDrawn(context);
   await watchTabs(serviceWorker);
+  const tests = new TestTabs();
   const popup = await openPopup(context, extensionId);
+  await tests.add(popup);
   await expect(popup.locator('html')).toHaveAttribute('data-first-open', /.+/);
   expect(await runDrawn(popup)).toEqual([]);
   const full = await openFullView(context, extensionId);
+  await tests.add(full);
   await upgraderRun(full);
   // CONTROL: the same observer, in this profile, saw the full view's Hello.
   expect(await runDrawn(full)).toEqual(
     expect.arrayContaining(['card', 'hello'])
   );
-  await expectOnlyTheRunsOwn(full, serviceWorker, [
-    await tabIdOf(popup),
-    await tabIdOf(full),
-  ]);
+  await expectOnlyTheRunsOwn(full, serviceWorker, tests, NOTHING);
 });
 
 const openView = (
@@ -290,14 +341,18 @@ for (const [view, last] of [
   ['full', 8],
 ] as const) {
   for (let at = view === 'full' ? 0 : 1; at < last; at++) {
-    test(`${view}: Skip at step ${at} ends the run for good and keeps the user’s sessions; Help runs it again`, async ({
+    test(`${view}: Skip at step ${at} ends the run for good, keeps the user’s sessions and touches no tab; Help runs it again`, async ({
       context,
       extensionId,
+      serviceWorker,
     }) => {
       await seedRawSettingsIfAbsent(context, SETTLED);
       await seedSessionsIfAbsent(context, KEPT);
       await watchRunDrawn(context);
+      await watchTabs(serviceWorker);
+      const tests = new TestTabs();
       const page = await openView(context, extensionId, view);
+      await tests.add(page);
       await startRunFromHelp(page);
       if (at === 0) {
         await hello(page)
@@ -326,10 +381,12 @@ for (const [view, last] of [
       // Review Focus 5: Skip removes only the run's example.
       await expect.poll(() => storedTitles(page)).toEqual(['Latest', 'Older']);
 
-      await page.close();
+      await tests.close(page);
       const again = await openView(context, extensionId, view);
+      await tests.add(again);
       await runCheck(again, 'ended');
       expect(await runDrawn(again)).toEqual([]);
+      await expectOnlyTheRunsOwn(again, serviceWorker, tests, NOTHING);
 
       // CONTROL, and §14's "Help after Skip": the same observer sees Help start it again.
       await startRunFromHelp(again);
