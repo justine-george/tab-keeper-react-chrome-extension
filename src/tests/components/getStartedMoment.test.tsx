@@ -1,3 +1,4 @@
+import { StrictMode } from 'react';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 
@@ -25,6 +26,7 @@ interface Run {
   keyframes: unknown;
   release: () => void;
   isFinished: () => boolean;
+  isCancelled: () => boolean;
 }
 let runs: Run[] = [];
 
@@ -35,6 +37,7 @@ function installAnimate(): void {
       let release: () => void = () => undefined;
       let fail: () => void = () => undefined;
       let isFinished = false;
+      let isCancelled = false;
       const finished = new Promise<unknown>((resolve, reject) => {
         release = () => resolve(undefined);
         fail = () => reject(new Error('cancelled'));
@@ -44,11 +47,16 @@ function installAnimate(): void {
         keyframes,
         release,
         isFinished: () => isFinished,
+        isCancelled: () => isCancelled,
       };
+      finished.catch(() => undefined);
       runs.push(run);
       return {
         finished,
-        cancel: () => fail(),
+        cancel: () => {
+          isCancelled = true;
+          fail();
+        },
         finish: () => {
           isFinished = true;
         },
@@ -116,6 +124,21 @@ describe('the moment on the welcome', () => {
       expect(store.getState().settingsDataState.firstRun).toEqual(FULL_RUN)
     );
     expect(store.getState().globalState.isCloudConsentModalOpen).toBe(false);
+  });
+
+  test('under StrictMode the loop still plays from its start, and Get started still finishes it', async () => {
+    installAnimate();
+    await renderWithProviders(
+      <StrictMode>
+        <MainContainer />
+      </StrictMode>,
+      { seedStore: welcome }
+    );
+    const live = runs.filter((r) => !r.isCancelled());
+    expect(live).toHaveLength(21);
+    expect(live.every((r) => !r.isFinished())).toBe(true);
+    pressGetStarted();
+    expect(live.every((r) => r.isFinished())).toBe(true);
   });
 
   test('a second press while it plays does nothing', async () => {

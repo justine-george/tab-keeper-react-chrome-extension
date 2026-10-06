@@ -26,9 +26,11 @@ export const WELCOME_LOOP = {
 export interface HeroLoop {
   // Get started: every running beat jumps to its end.
   finish(): void;
+  // A remount: drops the fill, so a replay starts from the start frame.
+  cancel(): void;
 }
 
-const NO_LOOP: HeroLoop = { finish: () => undefined };
+const NO_LOOP: HeroLoop = { finish: () => undefined, cancel: () => undefined };
 
 // §5's beats once, about 2.4s; measured on start, so any dialog width draws the same arcs.
 export function playWelcomeLoop(hero: HTMLElement): HeroLoop {
@@ -167,5 +169,8 @@ export function playWelcomeLoop(hero: HTMLElement): HeroLoop {
       }
     )
   );
-  return { finish: () => running.forEach((animation) => animation.finish()) };
+  return {
+    finish: () => running.forEach((animation) => animation.finish()),
+    cancel: () => running.forEach((animation) => animation.cancel()),
+  };
 }

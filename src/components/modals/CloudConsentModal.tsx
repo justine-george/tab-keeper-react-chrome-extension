@@ -88,12 +88,13 @@ export const CloudConsentModal: React.FC = () => {
     if (dialog && !dialog.open) {
       dialog.showModal();
       dialog.focus();
-      const hero = dialog.querySelector<HTMLElement>(
-        '[data-hero-frame="start"]'
-      );
-      if (hero !== null) loop.current = playWelcomeLoop(hero);
     }
-    return () => loop.current?.finish();
+    // Outside the open guard: StrictMode re-runs this with the dialog already open.
+    const hero = dialog?.querySelector<HTMLElement>(
+      '[data-hero-frame="start"]'
+    );
+    if (hero) loop.current = playWelcomeLoop(hero);
+    return () => loop.current?.cancel();
   }, [isOpen]);
 
   if (!isOpen) return null;
