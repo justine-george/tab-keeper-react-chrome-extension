@@ -23,6 +23,7 @@ import {
   type SessionMove,
   type TabMasterContainer,
 } from './slices/tabContainerDataStateSlice';
+import { landedRowId } from '../utils/functions/carriedView';
 import {
   groupItemIdOf,
   itemIdOf,
@@ -221,12 +222,7 @@ export function sessionMoveDrop(move: SessionMove): DropOnTop {
     return w.tabs.map((t) => t.tabId);
   };
 
-  const rowId =
-    carried.kind === 'tab'
-      ? carried.tabId
-      : carried.kind === 'group'
-        ? groupItemIdOf(carried.groupId)
-        : carried.windowId;
+  const rowId = landedRowId(carried);
 
   const rowExists = (s: TabMasterContainer): boolean => {
     const from = windowIn(s, carried.tabGroupId, carried.windowId);
