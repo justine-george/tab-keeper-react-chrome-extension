@@ -76,6 +76,16 @@ import { chooseDefaultView } from '../../../redux/defaultViewChoice';
 const SettingsDetailsContainer: React.FC = () => {
   const COLORS = useThemeColors();
   const FONT_FAMILY = useFontFamily();
+
+  // The settings secondary style: a help line 8px under its control, capped at a reading width.
+  const helpLineStyle = css`
+    margin: 8px 0 0;
+    max-width: 36rem;
+    font-family: ${FONT_FAMILY};
+    font-size: ${TYPE.SECONDARY};
+    line-height: 1.45;
+    color: ${COLORS.LABEL_L1_COLOR};
+  `;
   // The tab-history help line's id, which its pair points at (KAN-280).
   const tabHistoryHelpId = useId();
   const soundsHelpId = useId();
@@ -362,17 +372,7 @@ const SettingsDetailsContainer: React.FC = () => {
               describedBy={soundsHelpId}
             />
           </div>
-          <p
-            id={soundsHelpId}
-            css={css`
-              margin: 8px 0 0;
-              max-width: 36rem;
-              font-family: ${FONT_FAMILY};
-              font-size: ${TYPE.SECONDARY};
-              line-height: 1.45;
-              color: ${COLORS.LABEL_L1_COLOR};
-            `}
-          >
+          <p id={soundsHelpId} css={helpLineStyle}>
             {t('Play sounds as you use Tab Keeper.')}
           </p>
         </div>
@@ -701,17 +701,7 @@ const SettingsDetailsContainer: React.FC = () => {
               are, 8px under the control like every row here. Capped at a
               reading width, since the tab view's pane is far wider than a
               sentence should run. */}
-          <p
-            id={tabHistoryHelpId}
-            css={css`
-              margin: 8px 0 0;
-              max-width: 36rem;
-              font-family: ${FONT_FAMILY};
-              font-size: ${TYPE.SECONDARY};
-              line-height: 1.45;
-              color: ${COLORS.LABEL_L1_COLOR};
-            `}
-          >
+          <p id={tabHistoryHelpId} css={helpLineStyle}>
             {t(
               'Reopening a closed tab or window from Open now also brings back its Back and Forward pages, except for grouped tabs in a reopened window. It uses Chrome’s list of recently closed tabs.'
             )}
