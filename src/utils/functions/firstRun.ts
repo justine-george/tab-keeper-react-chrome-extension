@@ -207,7 +207,7 @@ export type RunAtOpen =
       action: 'nothing';
       check: 'none' | 'ended' | 'otherView' | 'elsewhere' | 'unknown';
     }
-  | { action: 'resume'; check: 'resumed'; run: FirstRun }
+  | { action: 'resume'; check: 'resumed' }
   | { action: 'reshowWelcome'; check: 'reshown' }
   | { action: 'endUnanswered'; check: 'unanswered' }
   | { action: 'start'; check: 'started'; run: FirstRun; beginsSetup: boolean };
@@ -236,7 +236,7 @@ export async function runAtOpen(
         return { action: 'reshowWelcome', check: 'reshown' };
       if (record.welcomeShows === 2)
         return { action: 'endUnanswered', check: 'unanswered' };
-      return { action: 'resume', check: 'resumed', run: record };
+      return { action: 'resume', check: 'resumed' };
     }
     if (view === 'full' && isFirstFullViewVisit(stored)) {
       return start(newRun('full', 0, 'welcome'), false);

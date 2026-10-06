@@ -225,7 +225,6 @@ describe('runAtOpen', () => {
     expect(await runAtOpen('full', stored, 0, free)).toEqual({
       action: 'resume',
       check: 'resumed',
-      run: FULL_AT_3,
     });
   });
 
