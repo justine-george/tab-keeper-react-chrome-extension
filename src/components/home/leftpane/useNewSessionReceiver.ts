@@ -1,8 +1,5 @@
-// KAN-394 P3. A carried saved item let go on the save row becomes a new session.
-// Registered at rest too (D19), so a drag that reaches the row hands off to a
-// carry here (KAN-352); never while searching (KAN-385), nor while this page
-// shows a guided run (F18): the row then stays the save row.
-import { useEffect, useRef, type RefObject } from 'react';
+// KAN-394 P3. A carry let go on the save row becomes a new session; not while searching or in a guided run.
+import { useEffect, useLayoutEffect, useRef, type RefObject } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
 
@@ -35,7 +32,7 @@ export function useNewSessionReceiver(
 
   // Read on the release, so typing does not re-register the receiver.
   const typedRef = useRef(typed);
-  useEffect(() => {
+  useLayoutEffect(() => {
     typedRef.current = typed;
   }, [typed]);
 
@@ -64,8 +61,7 @@ export function useNewSessionReceiver(
       leave() {
         if (lit) light(false);
       },
-      // Commits synchronously and says whether anything moved; the layer
-      // ends the carry after this either way.
+      // Commits synchronously; the layer ends the carry either way.
       take() {
         const carried = currentCarry()?.carried;
         if (carried === undefined) return false;

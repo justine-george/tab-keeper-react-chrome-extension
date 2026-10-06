@@ -63,8 +63,7 @@ export const selectTourHere = (state: RootState): SampleTour | null => {
     : null;
 };
 
-// Whether this page shows a guided run: what steps aside while one does
-// (KAN-394 F18) asks only this, so it holds when the first run replaces the tour.
+// Whether this page shows a guided run (KAN-394 F18).
 export const selectIsGuidedRunHere = (state: RootState): boolean =>
   selectTourHere(state) !== null;
 

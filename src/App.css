@@ -113,8 +113,7 @@ body {
   visibility: visible;
 }
 
-/* KAN-394 P3. A live carry (data-carrying) swaps the save row's controls for
-   its New session target, drawn only while the row takes a carry. */
+/* KAN-394 P3. A live carry swaps the save row's controls for its New session target. */
 [data-carrying]
   [data-save-row]:has(> [data-new-session-target])
   > :not([data-new-session-target]) {
