@@ -6,7 +6,7 @@ import { css } from '@emotion/react';
 
 import Divider from '../../common/Divider';
 import TabGroupEntry from './TabGroupEntry';
-import StartHereCard from './StartHereCard';
+import EmptySavedList from './EmptySavedList';
 import { SPRING_OPEN_MS } from '../../common/springOpen';
 import {
   SAVED_SEARCH_GLASS_INSET,
@@ -20,7 +20,7 @@ import { AppDispatch, RootState } from '../../../redux/store';
 import { filterTabGroups } from '../../../utils/functions/local';
 import { setSearchInputText } from '../../../redux/slices/globalStateSlice';
 import { useSavedSearch } from '../../../hooks/useSavedSearch';
-import { useShowsStartHere } from '../../../hooks/useShowsStartHere';
+import { useIsSavedListEmpty } from '../../../hooks/useIsSavedListEmpty';
 import {
   deleteTabContainer,
   openAllTabContainer,
@@ -69,7 +69,7 @@ export default function TabGroupEntryContainer() {
 
   const { text: searchText, term: searchTerm, isSearching } = useSavedSearch();
   const { query: noMatchQuery, place: noMatchPlace } = useNoMatchPlace();
-  const showsStartHere = useShowsStartHere();
+  const isEmpty = useIsSavedListEmpty();
 
   const hasTabGroupsPermission = useSelector(
     (state: RootState) => state.globalState.hasTabGroupsPermission
@@ -353,7 +353,7 @@ export default function TabGroupEntryContainer() {
   `;
 
   return (
-    <div css={listBoxStyle}>
+    <div css={listBoxStyle} data-tour-anchor="sessions">
       <SearchRow
         text={searchText}
         onTextChange={(text) => dispatch(setSearchInputText(text))}
@@ -367,11 +367,11 @@ export default function TabGroupEntryContainer() {
       <div css={scrollerStyle} ref={listRef}>
         {filteredTabGroups.length === 0 ? (
           // No match: the block is the detail pane's, or this list's when
-          // there is no detail pane. KAN-7 §2: an empty list starts here.
+          // there is no detail pane. An empty list says where sessions will appear.
           noMatchPlace === 'list' ? (
             <NoMatchState query={noMatchQuery} inset={24} scope="saved" />
-          ) : showsStartHere ? (
-            <StartHereCard />
+          ) : isEmpty ? (
+            <EmptySavedList />
           ) : null
         ) : (
           <div css={filledContainerStyle}>

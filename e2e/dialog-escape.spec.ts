@@ -10,6 +10,7 @@ import {
 import { openPopup, storedSettings } from './fixtures/onboarding';
 import { escapesPrevented, watchEscapes } from './fixtures/escapeProbe';
 import { hasCloudConfig } from './fixtures/cloud';
+import { cardAt, cardButton } from './fixtures/run';
 
 // KAN-426. Chrome closes the popup on an Esc keydown the page leaves unprevented, so each dialog's Esc must be
 // prevented and still do what it did. Headless cannot show the popup closing; the prevented keydown is the proof.
@@ -36,7 +37,7 @@ const autoSync = (page: Page, state: 'On' | 'Off') =>
 test.describe('a new install', () => {
   test.use({ freshProfile: true });
 
-  test('welcome: Esc is consumed, and the offer follows', async ({
+  test('welcome: Esc is consumed, and is Stay here', async ({
     context,
     extensionId,
   }) => {
@@ -47,25 +48,7 @@ test.describe('a new install', () => {
     await page.keyboard.press('Escape');
 
     await expect(dialog(page, 'Welcome to Tab Keeper')).toHaveCount(0);
-    await expect(dialog(page, 'Try the full view')).toBeVisible();
-    expect(await escapesPrevented(page)).toEqual([true]);
-  });
-
-  test('full view offer: Esc is consumed, and is Not now', async ({
-    context,
-    extensionId,
-  }) => {
-    await watchEscapes(context);
-    const page = await openPopup(context, extensionId);
-    await dialog(page, 'Welcome to Tab Keeper')
-      .getByRole('button', { name: 'Get started', exact: true })
-      .click();
-    await expect(dialog(page, 'Try the full view')).toBeVisible();
-
-    await page.keyboard.press('Escape');
-
-    await expect(dialog(page, 'Try the full view')).toHaveCount(0);
-    expect((await storedSettings(page)).isFullViewOfferAnswered).toBe(true);
+    await expect(cardAt(page, 1)).toBeVisible();
     expect(await escapesPrevented(page)).toEqual([true]);
   });
 
@@ -76,11 +59,10 @@ test.describe('a new install', () => {
     await watchEscapes(context);
     const page = await openPopup(context, extensionId);
     await dialog(page, 'Welcome to Tab Keeper')
-      .getByRole('button', { name: 'Get started', exact: true })
+      .getByRole('button', { name: 'Stay here', exact: true })
       .click();
-    await dialog(page, 'Try the full view')
-      .getByRole('button', { name: 'Not now', exact: true })
-      .click();
+    await expect(cardAt(page, 1)).toBeVisible();
+    await cardButton(page, 'Skip tutorial').click();
     await page.locator('[aria-label="Settings"]').click();
     await page.locator('button[aria-label="Sync & Backup"]').click();
     await autoSync(page, 'On').click();

@@ -9,6 +9,7 @@ import { useOpenWindows } from '../../../hooks/useOpenWindows';
 import { endSavedSessionPeek } from '../../../redux/slices/globalStateSlice';
 import { setFoldSavedSessionInTabView } from '../../../redux/slices/settingsDataStateSlice';
 import { AppDispatch, RootState } from '../../../redux/store';
+import { FOLD_ICON } from './foldIcon';
 import OpenNowPane from './OpenNowPane';
 import type { OpenNowHeaderAction } from './OpenNowPane';
 import OpenNowRail from './OpenNowRail';
@@ -64,14 +65,16 @@ function OpenNowColumn({ folded }: OpenNowColumnProps) {
 
   const foldAction: OpenNowHeaderAction = folded
     ? {
-        icon: 'keyboard_double_arrow_right',
+        icon: FOLD_ICON.folded,
         label: t('Show the saved session'),
         onClick: () => setFolded(false),
+        tourAnchor: 'fold',
       }
     : {
-        icon: 'keyboard_double_arrow_left',
+        icon: FOLD_ICON.unfolded,
         label: t('Fold the saved session away'),
         onClick: () => setFolded(true),
+        tourAnchor: 'fold',
       };
 
   // The windows are read here, above the swap, so a resize does not re-read.

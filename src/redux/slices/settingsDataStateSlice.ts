@@ -5,15 +5,18 @@ import {
   type DefaultView,
 } from '../../utils/functions/defaultView';
 import {
+  asFirstRun,
+  asRunStep,
+  nextWelcomeShows,
+  type FirstRun,
+  type RunEnding,
+  type RunStep,
+} from '../../utils/functions/firstRun';
+import {
   asPartialSettings,
   loadFromLocalStorage,
   saveToLocalStorage,
 } from '../../utils/functions/local';
-import {
-  asSampleTour,
-  type SampleTour,
-  type TourStep,
-} from '../../utils/functions/sampleTour';
 // `import type`, so nothing is emitted: the generator imports this slice's
 // tabContainerData type in the other direction, and a value edge either way
 // would complete a cycle. Same reason as the RootState note in the container
@@ -145,8 +148,6 @@ export interface SettingsData {
   openNowWidth: number | null;
   // KAN-7. 'pending' as the welcome opens, so a popup closed on it still gets setup.
   setupState: SetupState;
-  // KAN-7 §3. Either button of "Try the full view".
-  isFullViewOfferAnswered: boolean;
   // KAN-7 §4. Skip or ✕ on the pin guide; a pin does not set it.
   isPinGuideDismissed: boolean;
   // KAN-7 §6. Set when the full view mounts.
@@ -155,8 +156,12 @@ export interface SettingsData {
   isFullViewCalloutSeen: boolean;
   // KAN-7 §7. Mirrored to chrome.storage.local for the service worker.
   defaultView: DefaultView;
-  // KAN-413. The sample tour running on this machine, if any; one per machine.
-  sampleTour: SampleTour | null;
+  // The guided first run on this machine, running or ended; one per machine.
+  firstRun: FirstRun | null;
+  // Set when an upgrader's What's new Hello first shows; no later open starts one.
+  isWhatsNew2Seen: boolean;
+  // Settings → Sounds; on unless turned off, including for settings saved before it existed.
+  isUiSoundOn: boolean;
 }
 
 /**
@@ -175,22 +180,22 @@ export function asOpenNowWidth(value: unknown): number | null {
 export type OnboardingSettings = Pick<
   SettingsData,
   | 'setupState'
-  | 'isFullViewOfferAnswered'
   | 'isPinGuideDismissed'
   | 'hasOpenedFullView'
   | 'isFullViewCalloutSeen'
   | 'defaultView'
-  | 'sampleTour'
+  | 'firstRun'
+  | 'isWhatsNew2Seen'
 >;
 
 export const ONBOARDING_DEFAULTS: OnboardingSettings = {
   setupState: 'none',
-  isFullViewOfferAnswered: false,
   isPinGuideDismissed: false,
   hasOpenedFullView: false,
   isFullViewCalloutSeen: false,
   defaultView: 'compact',
-  sampleTour: null,
+  firstRun: null,
+  isWhatsNew2Seen: false,
 };
 
 export function asSetupState(value: unknown): SetupState {
@@ -220,12 +225,12 @@ export function guardOnboarding(
       : fallback[key];
   return {
     setupState: read('setupState', asSetupState),
-    isFullViewOfferAnswered: read('isFullViewOfferAnswered', asFlag),
     isPinGuideDismissed: read('isPinGuideDismissed', asFlag),
     hasOpenedFullView: read('hasOpenedFullView', asFlag),
     isFullViewCalloutSeen: read('isFullViewCalloutSeen', asFlag),
     defaultView: read('defaultView', asDefaultView),
-    sampleTour: read('sampleTour', asSampleTour),
+    firstRun: read('firstRun', asFirstRun),
+    isWhatsNew2Seen: read('isWhatsNew2Seen', asFlag),
   };
 }
 
@@ -235,9 +240,31 @@ export function guardOnboarding(
  */
 export type SessionDateBasis = 'edited' | 'created';
 
+// Keys only unreleased builds wrote: dropped once, and settings written back without them.
+const RETIRED_KEYS: readonly string[] = [
+  'sampleTour',
+  'isFullViewOfferAnswered',
+];
+
+const withoutRetiredKeys = (stored: unknown): unknown =>
+  typeof stored === 'object' && stored !== null && !Array.isArray(stored)
+    ? Object.fromEntries(
+        Object.entries(stored).filter(([key]) => !RETIRED_KEYS.includes(key))
+      )
+    : stored;
+
+const storedSettings = loadFromLocalStorage('settingsData');
+const hasRetiredKeys =
+  typeof storedSettings === 'object' &&
+  storedSettings !== null &&
+  RETIRED_KEYS.some((key) => key in storedSettings);
+if (hasRetiredKeys) {
+  saveToLocalStorage('settingsData', withoutRetiredKeys(storedSettings));
+}
+
 // Retrieve settings from localStorage
 const settingsDataLocal = asPartialSettings<SettingsData>(
-  loadFromLocalStorage('settingsData')
+  withoutRetiredKeys(storedSettings)
 );
 
 export const SHIPPED_LANGUAGES = Object.values(Language);
@@ -294,6 +321,7 @@ const defaultSettings: SettingsData = {
   // gets: initialState lays the stored object over these defaults.
   foldSavedSessionInTabView: true,
   openNowWidth: null,
+  isUiSoundOn: true,
   ...ONBOARDING_DEFAULTS,
 };
 
@@ -457,6 +485,11 @@ export const settingsDataStateSlice = createSlice({
       saveToLocalStorage('settingsData', state);
     },
 
+    setUiSoundOn: (state, action: PayloadAction<boolean>) => {
+      state.isUiSoundOn = action.payload;
+      saveToLocalStorage('settingsData', state);
+    },
+
     // KAN-321 O1a. The grip's release, an arrow key, or a double-click (null).
     setOpenNowWidth: (state, action: PayloadAction<number | null>) => {
       state.openNowWidth = action.payload;
@@ -480,11 +513,6 @@ export const settingsDataStateSlice = createSlice({
     // Run setup again: pending from any state, where beginSetup only starts it.
     restartSetup: (state) => {
       state.setupState = 'pending';
-      saveToLocalStorage('settingsData', state);
-    },
-
-    answerFullViewOffer: (state) => {
-      state.isFullViewOfferAnswered = true;
       saveToLocalStorage('settingsData', state);
     },
 
@@ -512,23 +540,52 @@ export const settingsDataStateSlice = createSlice({
       saveToLocalStorage('settingsData', state);
     },
 
-    // KAN-413. One tour per machine: a new one replaces any other.
-    recordSampleTour: (state, action: PayloadAction<SampleTour>) => {
-      state.sampleTour = action.payload;
+    // Every start writes a new record, replacing any other.
+    recordFirstRun: (state, action: PayloadAction<FirstRun>) => {
+      state.firstRun = action.payload;
       saveToLocalStorage('settingsData', state);
     },
 
-    // Forward only, so Next and the step's own action together move it once.
-    setSampleTourStep: (state, action: PayloadAction<TourStep>) => {
-      if (state.sampleTour === null) return;
-      if (action.payload <= state.sampleTour.step) return;
-      state.sampleTour.step = action.payload;
+    // Both ways: Next, Back and actions move it; only a start writes step 0.
+    setFirstRunStep: (state, action: PayloadAction<RunStep>) => {
+      const run = state.firstRun;
+      if (run === null || run.ended !== null || action.payload === 0) return;
+      const step = asRunStep(run.view, action.payload);
+      if (step === null || step === run.step) return;
+      run.step = step;
+      run.welcomeShows = null;
       saveToLocalStorage('settingsData', state);
     },
 
-    clearSampleTour: (state) => {
-      if (state.sampleTour === null) return;
-      state.sampleTour = null;
+    setFirstRunSession: (state, action: PayloadAction<string>) => {
+      const run = state.firstRun;
+      if (run === null || run.ended !== null) return;
+      run.sessionId = action.payload;
+      saveToLocalStorage('settingsData', state);
+    },
+
+    // Q7. One more opening of the welcome, up to the most it shows.
+    countWelcomeShow: (state) => {
+      const run = state.firstRun;
+      if (run === null || run.ended !== null || run.welcomeShows === null) {
+        return;
+      }
+      const next = nextWelcomeShows(run.welcomeShows);
+      if (next === null) return;
+      run.welcomeShows = next;
+      saveToLocalStorage('settingsData', state);
+    },
+
+    endFirstRun: (state, action: PayloadAction<RunEnding>) => {
+      const run = state.firstRun;
+      if (run === null || run.ended !== null) return;
+      run.ended = action.payload;
+      saveToLocalStorage('settingsData', state);
+    },
+
+    markWhatsNew2Seen: (state) => {
+      if (state.isWhatsNew2Seen) return;
+      state.isWhatsNew2Seen = true;
       saveToLocalStorage('settingsData', state);
     },
 
@@ -571,17 +628,20 @@ export const {
   setExportLayout,
   setFoldSavedSessionInTabView,
   setOpenNowWidth,
+  setUiSoundOn,
   beginSetup,
   finishSetup,
   restartSetup,
-  answerFullViewOffer,
   dismissPinGuide,
   markFullViewOpened,
   markFullViewCalloutSeen,
   setDefaultView,
-  recordSampleTour,
-  setSampleTourStep,
-  clearSampleTour,
+  recordFirstRun,
+  setFirstRunStep,
+  setFirstRunSession,
+  countWelcomeShow,
+  endFirstRun,
+  markWhatsNew2Seen,
   hydrateSettingsFromOtherPage,
 } = settingsDataStateSlice.actions;
 

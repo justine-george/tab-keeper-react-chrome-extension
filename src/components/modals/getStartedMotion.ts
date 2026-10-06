@@ -3,12 +3,14 @@
 // Web Animations durations, so not DURATION's (CSS transitions).
 export const GET_STARTED = {
   PRESS_MS: 150,
-  SHUTTER_MS: 450,
-  LEAVE_MS: 180,
-  ENTER_MS: 220,
+  SHUTTER_MS: 250,
+  LEAVE_MS: 150,
 } as const;
-export const SHUTTER_EASE = 'cubic-bezier(0.65, 0, 0.35, 1)';
-export const ENTER_EASE = 'cubic-bezier(0.32, 0.72, 0, 1)';
+export const SHUTTER_EASE = 'ease-in-out';
+export const HELLO_ENTRANCE = {
+  MS: 220,
+  EASE: 'cubic-bezier(0.32, 0.72, 0, 1)',
+} as const;
 // The modals centre themselves with this transform, so every dialog frame keeps it.
 const CENTRED = 'translate(-50%, -50%)';
 
@@ -28,6 +30,8 @@ export interface GetStartedParts {
   button: Animatable;
   shutter: Animatable | null;
   dialog: Animatable;
+  // Called once as the shutter starts to move; a beat cut short before then never calls it.
+  onShutter: () => void;
 }
 
 export interface Motion {
@@ -73,16 +77,17 @@ export function playGetStarted(parts: GetStartedParts): Motion {
         { duration: GET_STARTED.PRESS_MS, easing: 'ease-out' }
       );
       if (parts.shutter !== null) {
-        await run(
+        const shutter = run(
           parts.shutter,
           [
-            { transform: 'translateX(0)' },
-            { transform: 'translateX(-36px)', offset: 0.45 },
-            { transform: 'translateX(-36px)', offset: 0.55 },
-            { transform: 'translateX(0)' },
+            { transform: 'translateX(0px)' },
+            { transform: 'translateX(-14px)', offset: 0.5 },
+            { transform: 'translateX(0px)' },
           ],
           { duration: GET_STARTED.SHUTTER_MS, easing: SHUTTER_EASE }
         );
+        if (!isCancelled) parts.onShutter();
+        await shutter;
       }
       await run(
         parts.dialog,
@@ -106,12 +111,13 @@ export function playGetStarted(parts: GetStartedParts): Motion {
   };
 }
 
-export function playOfferEntrance(dialog: Animatable): void {
+// Hello enters from 0.97 and transparent.
+export function playHelloEntrance(dialog: Animatable): void {
   dialog.animate(
     [
       { opacity: 0, transform: `${CENTRED} scale(0.97)` },
       { opacity: 1, transform: `${CENTRED} scale(1)` },
     ],
-    { duration: GET_STARTED.ENTER_MS, easing: ENTER_EASE }
+    { duration: HELLO_ENTRANCE.MS, easing: HELLO_ENTRANCE.EASE }
   );
 }

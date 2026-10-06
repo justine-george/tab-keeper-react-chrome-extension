@@ -1,4 +1,13 @@
 import { afterEach, describe, expect, test, vi } from 'vitest';
+
+// Firebase is the only reason App cannot just be mounted; one test below mounts it.
+vi.mock('../../config/firebase', () => ({
+  observeAuthState: () => {},
+  signInUserAnonymously: () => {},
+  ensureCloudSession: () => {},
+  isCloudConfigured: false,
+}));
+
 import {
   act,
   fireEvent,
@@ -8,7 +17,9 @@ import {
 } from '@testing-library/react';
 import { useSelector } from 'react-redux';
 
+import App from '../../App';
 import { SetupModal } from '../../components/modals/SetupModal';
+import { useDialogEscape } from '../../hooks/useDialogEscape';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { testI18n } from '../setup/i18nForTests';
 import type { ChromeSeed } from '../setup/chrome.fake';
@@ -21,12 +32,17 @@ import {
   type SettingsData,
 } from '../../redux/slices/settingsDataStateSlice';
 import { LIGHT_THEME } from '../../hooks/useThemeColors';
+import { RUN_FINISHED_SETTINGS } from '../fixtures/firstRunFixture';
+import { classRulesFor } from '../setup/hoverRules';
+import { mirrorLanguageOnDocument } from '../../utils/functions/documentLanguage';
 import { CHROME_SHORTCUTS_URL } from '../../hooks/usePopupShortcut';
 
-// KAN-7 §5. Four steps; each pick applies at once; Done, Skip setup, ✕ and Esc
-// end it for good. Mounted behind its flag, as in MainContainer.
+// KAN-7 §5 and Q9. Five or six steps; each pick applies at once; Done, Skip
+// setup, ✕ and Esc end it for good. Mounted behind its flag, as in MainContainer.
 
 function Gate() {
+  // MainContainer's Esc claim, so a test can press Esc.
+  useDialogEscape();
   const isOpen = useSelector((s: RootState) => s.globalState.isSetupOpen);
   return isOpen ? <SetupModal /> : null;
 }
@@ -37,6 +53,13 @@ const BOUND: ChromeSeed = {
   commands: [
     { name: '_execute_action', shortcut: 'Alt+Shift+K', description: '' },
   ],
+  tabGroups: [],
+};
+const GROUPED: ChromeSeed = {
+  ...BOUND,
+  windows: [{ id: 1, tabs: [{ id: 5, groupId: 9, url: 'https://a.test/' }] }],
+  tabs: [{ id: 5, windowId: 1, groupId: 9, url: 'https://a.test/' }],
+  tabGroups: [{ id: 9, windowId: 1, title: 'Trip', color: 'blue' }],
 };
 
 const render = (
@@ -62,6 +85,20 @@ const dialog = () =>
 const stepHeading = () => within(dialog()).getByRole('heading', { level: 3 });
 const press = (name: string) =>
   fireEvent.click(within(dialog()).getByRole('button', { name }));
+const line = () => within(dialog()).getByRole('progressbar');
+// Next on the shortcut step asks Chrome before it moves, so each press is awaited.
+const toStep = async (heading: string) => {
+  for (let i = 0; i < 6 && stepHeading().textContent !== heading; i++) {
+    press('Next');
+    await act(async () => {});
+  }
+  expect(stepHeading()).toHaveTextContent(heading);
+};
+// The text link; the ✕ shares its name.
+const skipLink = () =>
+  within(dialog()).getByText('Skip setup', { exact: true });
+const pressEscape = () =>
+  fireEvent.keyDown(document.activeElement ?? dialog(), { key: 'Escape' });
 const languageCodes = () =>
   [...dialog().querySelectorAll('button[lang]')].map((b) =>
     b.getAttribute('lang')
@@ -248,7 +285,6 @@ describe('Make Tab Keeper yours', () => {
     expect(
       within(dialog()).getByText('Works in any window.')
     ).toBeInTheDocument();
-    expect(within(dialog()).queryByRole('button', { name: 'Next' })).toBeNull();
 
     press('Change shortcut');
     // The tab opens after the current tab has been asked for.
@@ -278,9 +314,7 @@ describe('Make Tab Keeper yours', () => {
 
   test('Done ends setup for good', async () => {
     const { store } = await render();
-    press('Next');
-    press('Next');
-    press('Next');
+    await toStep('Sync across your devices?');
     press('Done');
     expect(store.getState().settingsDataState.setupState).toBe('done');
     expect(screen.queryByRole('dialog')).toBeNull();
@@ -337,22 +371,6 @@ describe('Make Tab Keeper yours', () => {
     expect(store.getState().settingsDataState.setupState).toBe('done');
     expect(store.getState().settingsDataState.theme).toBe('Darkenheimer');
     expect(screen.queryByRole('dialog')).toBeNull();
-  });
-
-  test('four decorative step dots, the current one filled (D4)', async () => {
-    await render();
-    const dots = () => [...dialog().querySelectorAll('[data-step-dot]')];
-    const current = () =>
-      dots().map((dot) => dot.getAttribute('data-current') === 'true');
-
-    expect(dots()).toHaveLength(4);
-    expect(dots()[0].parentElement).toHaveAttribute('aria-hidden', 'true');
-    expect(current()).toEqual([true, false, false, false]);
-    press('Next');
-    expect(current()).toEqual([false, true, false, false]);
-    press('Next');
-    press('Next');
-    expect(current()).toEqual([false, false, false, true]);
   });
 
   test('the default view step: the pressed card carries a ✓ in its label strip, the other none (D2)', async () => {
@@ -459,5 +477,296 @@ describe('Make Tab Keeper yours', () => {
       await within(dialog()).findByRole('button', { name: 'Change shortcut' });
       expect(within(dialog()).queryByText(HINT)).toBeNull();
     });
+  });
+});
+
+describe('setup’s progress line (option A)', () => {
+  test('the line along the top edge says which step, of N; no dots', async () => {
+    await render();
+    await waitFor(() =>
+      expect(line()).toHaveAttribute('aria-valuetext', 'Step 1 of 5')
+    );
+    expect(dialog().querySelector('[data-step-dot]')).toBeNull();
+    press('Next');
+    expect(line()).toHaveAttribute('aria-valuenow', '2');
+  });
+
+  test('with a tab group open and no grant, N is 6', async () => {
+    await render(GROUPED);
+    await waitFor(() => expect(line()).toHaveAttribute('aria-valuemax', '6'));
+  });
+
+  test('a group opened during setup is counted again as the shortcut step is left: step 5 shows and N becomes 6', async () => {
+    const { chrome } = await render();
+    await waitFor(() => expect(line()).toHaveAttribute('aria-valuemax', '5'));
+    await toStep('Open Tab Keeper from the keyboard');
+    act(() => {
+      chrome.browser.openTab(1, { id: 6, groupId: 9, url: 'https://b.test/' });
+    });
+    press('Next');
+    await act(async () => {});
+    expect(stepHeading()).toHaveTextContent('Save tab groups too?');
+    expect(line()).toHaveAttribute('aria-valuetext', 'Step 5 of 6');
+  });
+});
+
+describe('step 5, Save tab groups too? (Q9)', () => {
+  test('shown with a group open and no grant: the Settings label, Off first, the caption', async () => {
+    await render(GROUPED);
+    await toStep('Save tab groups too?');
+    const pair = within(dialog()).getByRole('group', {
+      name: 'Save Tab Groups',
+    });
+    expect(
+      within(pair)
+        .getAllByRole('button')
+        .map((b) => b.textContent)
+    ).toEqual(['Off', 'On']);
+    expect(dialog()).toHaveTextContent(
+      "Saved sessions keep each tab group's name and colour. Chrome will ask you to allow it."
+    );
+  });
+
+  test('skipped with no group open: the shortcut step leads to sync', async () => {
+    await render();
+    await toStep('Open Tab Keeper from the keyboard');
+    press('Next');
+    await act(async () => {});
+    expect(stepHeading()).toHaveTextContent('Sync across your devices?');
+  });
+
+  test('skipped while the grant is held, though a group is open', async () => {
+    await render({ ...GROUPED, grantedPermissions: ['tabGroups'] });
+    await waitFor(() => expect(line()).toHaveAttribute('aria-valuemax', '5'));
+    await toStep('Open Tab Keeper from the keyboard');
+    press('Next');
+    await act(async () => {});
+    expect(stepHeading()).toHaveTextContent('Sync across your devices?');
+  });
+
+  test('Next with the switch Off is the answer: the pop-up offer is silenced', async () => {
+    const { store } = await render(GROUPED);
+    await toStep('Save tab groups too?');
+    press('Next');
+    await act(async () => {});
+    expect(store.getState().settingsDataState.isNeverAskAgainForTabGroups).toBe(
+      true
+    );
+    expect(stepHeading()).toHaveTextContent('Sync across your devices?');
+  });
+
+  for (const how of ['Go back', 'Skip setup', 'Esc'] as const) {
+    test(`${how} on step 5 is no answer: the pop-up offer stays armed`, async () => {
+      const { store } = await render(GROUPED);
+      await toStep('Save tab groups too?');
+      if (how === 'Go back') press('Go back');
+      else if (how === 'Skip setup') fireEvent.click(skipLink());
+      else pressEscape();
+      // Each did what it does, so the flag below is read after the action.
+      if (how === 'Go back') {
+        expect(stepHeading()).toHaveTextContent(
+          'Open Tab Keeper from the keyboard'
+        );
+      } else {
+        expect(screen.queryByRole('dialog')).toBeNull();
+        expect(store.getState().settingsDataState.setupState).toBe('done');
+      }
+      expect(
+        store.getState().settingsDataState.isNeverAskAgainForTabGroups
+      ).toBe(false);
+    });
+  }
+});
+
+describe('step 5 with App: the switch follows the grant (Q9, §14)', () => {
+  afterEach(() => {
+    history.replaceState(null, '', '?');
+    localStorage.clear();
+    delete document.documentElement.dataset.firstOpen;
+  });
+
+  test('On asks Chrome for tabGroups once and stays Off; App’s onAdded listener turns it On', async () => {
+    history.replaceState(null, '', '?view=tab&show=setup');
+    const settings = {
+      cloudConsent: 'granted' as const,
+      ...RUN_FINISHED_SETTINGS,
+    };
+    const { store } = await renderWithProviders(<App />, {
+      seed: GROUPED,
+      seedStore: (s) => {
+        s.dispatch(
+          settingsDataStateSlice.actions.replaceState({
+            ...settingsInitial,
+            ...settings,
+          })
+        );
+        localStorage.setItem('settingsData', JSON.stringify(settings));
+      },
+    });
+    await waitFor(() =>
+      expect(store.getState().globalState.isSetupOpen).toBe(true)
+    );
+    await waitFor(() => expect(line()).toHaveAttribute('aria-valuemax', '6'));
+    await toStep('Save tab groups too?');
+    const side = (name: 'On' | 'Off') =>
+      within(
+        within(dialog()).getByRole('group', { name: 'Save Tab Groups' })
+      ).getByRole('button', { name });
+    // Chrome's prompt, open and unanswered: the popup may die before it settles.
+    const request = vi
+      .spyOn(chrome.permissions, 'request')
+      .mockImplementationOnce(() => new Promise<boolean>(() => {}));
+
+    fireEvent.click(side('On'));
+    await act(async () => {});
+
+    expect(request.mock.calls).toEqual([[{ permissions: ['tabGroups'] }]]);
+    expect(side('Off')).toHaveAttribute('aria-pressed', 'true');
+    expect(store.getState().globalState.hasTabGroupsPermission).toBe(false);
+
+    // The grant lands: the fake adds it and fires onAdded, which App's listener carries to the store.
+    await act(async () => {
+      await chrome.permissions.request({ permissions: ['tabGroups'] });
+    });
+    expect(side('On')).toHaveAttribute('aria-pressed', 'true');
+  });
+});
+
+describe('step 6, Sync across your devices? (Q9)', () => {
+  test('Off first, pressed on a device that never said yes; the caption links the policy', async () => {
+    const { chrome } = await render();
+    await toStep('Sync across your devices?');
+    const pair = within(dialog()).getByRole('group', { name: 'Auto Sync' });
+    expect(
+      within(pair)
+        .getAllByRole('button')
+        .map((b) => b.textContent)
+    ).toEqual(['Off', 'On']);
+    expect(within(pair).getByRole('button', { name: 'Off' })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+    expect(dialog()).toHaveTextContent(
+      'Off: your sessions stay on this device. On asks you to confirm first, with what is stored and the privacy policy.'
+    );
+    const link = within(dialog()).getByRole('link', { name: 'privacy policy' });
+    fireEvent.click(link);
+    await waitFor(() =>
+      expect(chrome.createdTabs.map((tab) => tab.url)).toEqual([
+        link.getAttribute('href'),
+      ])
+    );
+    expect(
+      within(dialog()).getByRole('button', { name: 'Done' })
+    ).toBeInTheDocument();
+    expect(within(dialog()).queryByRole('button', { name: 'Next' })).toBeNull();
+  });
+
+  test('On without consent opens the enable question over setup and turns nothing on', async () => {
+    // A new install reaches setup having declined at the welcome.
+    const { store } = await render(BOUND, {
+      cloudConsent: 'declined',
+      isAutoSync: false,
+    });
+    await toStep('Sync across your devices?');
+    fireEvent.click(within(dialog()).getByRole('button', { name: 'On' }));
+    expect(store.getState().globalState.isCloudConsentModalOpen).toBe(true);
+    expect(store.getState().globalState.cloudConsentVariant).toBe('enable');
+    expect(store.getState().settingsDataState.cloudConsent).toBe('declined');
+    expect(store.getState().settingsDataState.isAutoSync).toBe(false);
+    expect(store.getState().globalState.isSetupOpen).toBe(true);
+    expect(
+      within(dialog()).getByRole('button', { name: 'Off' })
+    ).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  test('an upgrader with sync on sees On; Off turns it off as Settings does', async () => {
+    const { store } = await render(BOUND, {
+      cloudConsent: 'granted',
+      isAutoSync: true,
+    });
+    await toStep('Sync across your devices?');
+    expect(
+      within(dialog()).getByRole('button', { name: 'On' })
+    ).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.click(within(dialog()).getByRole('button', { name: 'Off' }));
+    expect(store.getState().settingsDataState.isAutoSync).toBe(false);
+    expect(store.getState().globalState.isCloudConsentModalOpen).toBe(false);
+  });
+});
+
+describe('Next answers one press at a time (review)', () => {
+  test('the second click of a double-click on step 5’s Next is no answer', async () => {
+    const { store } = await render(GROUPED);
+    await toStep('Save tab groups too?');
+    fireEvent.click(within(dialog()).getByRole('button', { name: 'Next' }), {
+      detail: 2,
+    });
+    await act(async () => {});
+    expect(stepHeading()).toHaveTextContent('Save tab groups too?');
+    expect(store.getState().settingsDataState.isNeverAskAgainForTabGroups).toBe(
+      false
+    );
+  });
+
+  test('Go back pressed before Chrome answers the re-ask keeps the user where Go back put them', async () => {
+    await render();
+    await waitFor(() => expect(line()).toHaveAttribute('aria-valuemax', '5'));
+    await toStep('Open Tab Keeper from the keyboard');
+    // Chrome has not answered yet: the grant check of the shortcut step's re-ask waits.
+    let answer: (held: boolean) => void = () => {};
+    vi.spyOn(chrome.permissions, 'contains').mockImplementationOnce(
+      () =>
+        new Promise<boolean>((resolve) => {
+          answer = resolve;
+        })
+    );
+    press('Next');
+    await act(async () => {});
+    expect(stepHeading()).toHaveTextContent(
+      'Open Tab Keeper from the keyboard'
+    );
+    press('Go back');
+    expect(stepHeading()).toHaveTextContent('When you click Tab Keeper, open…');
+
+    await act(async () => answer(false));
+    await act(async () => {});
+    expect(stepHeading()).toHaveTextContent('When you click Tab Keeper, open…');
+  });
+});
+
+describe('Korean captions keep their words whole (M5 B)', () => {
+  // The caption's own keep-all rules whose selector matches it in the document's language now.
+  const keepAllMatching = (el: Element) =>
+    classRulesFor(el)
+      .split('\n')
+      .filter((rule) => rule.includes('keep-all'))
+      .map((rule) => rule.slice(0, rule.indexOf('{')).trim())
+      .filter((selector) => el.matches(selector));
+  const syncCaption = async (lang: string) => {
+    mirrorLanguageOnDocument(testI18n, document.documentElement);
+    await render();
+    await act(async () => {
+      await testI18n.changeLanguage(lang);
+    });
+    expect(document.documentElement.lang).toBe(lang);
+    await toStep('Sync across your devices?');
+    const caption = within(dialog())
+      .getByRole('link', { name: 'privacy policy' })
+      .closest('p');
+    if (caption === null) throw new Error('no caption');
+    return caption;
+  };
+
+  test('in Korean the step caption breaks only between words', async () => {
+    const caption = await syncCaption('ko');
+    expect(keepAllMatching(caption)).not.toEqual([]);
+  });
+
+  test('CONTROL: in Japanese, which has no spaces, the same caption keeps the normal breaks', async () => {
+    const caption = await syncCaption('ja');
+    // The rule is there; it does not reach Japanese.
+    expect(classRulesFor(caption)).toContain('keep-all');
+    expect(keepAllMatching(caption)).toEqual([]);
   });
 });

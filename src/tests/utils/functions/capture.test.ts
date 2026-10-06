@@ -3,6 +3,7 @@ import { afterEach, describe, expect, test } from 'vitest';
 import {
   captureOpenWindows,
   isAlreadySaved,
+  isNameSourceNoise,
 } from '../../../utils/functions/capture';
 import { generatePlaceholderURL } from '../../../utils/functions/local';
 import { setupChromeFake } from '../../setup/chrome.fake';
@@ -899,5 +900,32 @@ describe('a captured window is saved unnamed (KAN-394 L4)', () => {
     expect(captured.windows.map((w) => w.title)).toEqual(
       firstTabTitles.map(() => '')
     );
+  });
+});
+
+describe('isNameSourceNoise (§8)', () => {
+  test.each([
+    'https://chromewebstore.google.com/detail/tab-keeper/abc',
+    'https://chrome.google.com/webstore/detail/abc',
+    'chrome://newtab/',
+    'chrome://new-tab-page/',
+  ])('%s names nothing', (url) => {
+    expect(isNameSourceNoise(buildChromeTab({ url }))).toBe(true);
+  });
+
+  test('a loading tab is judged by where it is going', () => {
+    expect(
+      isNameSourceNoise(
+        buildChromeTab({ url: '', pendingUrl: 'chrome://newtab/' })
+      )
+    ).toBe(true);
+  });
+
+  test.each([
+    'https://mail.google.com/mail/u/0/',
+    'https://www.google.com/search?q=webstore',
+    'chrome://settings/',
+  ])('%s is a name source', (url) => {
+    expect(isNameSourceNoise(buildChromeTab({ url }))).toBe(false);
   });
 });

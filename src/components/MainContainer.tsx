@@ -8,7 +8,7 @@ import { isTabView } from '../utils/functions/viewMode';
 import LeftPane from './home/leftpane/LeftPane';
 import { Toast } from './common/Toast';
 import { CarryLayer } from './home/CarryLayer';
-import SampleTour from './tour/SampleTour';
+import FirstRun from './tour/FirstRun';
 import RightPane from './home/rightpane/RightPane';
 import OpenNowColumn from './home/opennow/OpenNowColumn';
 import OpenNowResizeGrip from './home/opennow/OpenNowResizeGrip';
@@ -39,7 +39,6 @@ import { FocusConfirmModal } from './modals/FocusConfirmModal';
 import { DeleteCloudDataModal } from './modals/DeleteCloudDataModal';
 import { LoadBackupModal } from './modals/LoadBackupModal';
 import { CloudConsentModal } from './modals/CloudConsentModal';
-import { FullViewOfferModal } from './modals/FullViewOfferModal';
 import { PinGuideModal } from './modals/PinGuideModal';
 import { SetupModal } from './modals/SetupModal';
 import { TabGroupsPermissionModal } from './modals/TabGroupsPermissionModal';
@@ -92,10 +91,6 @@ export default function MainContainer() {
   );
   const isCloudConsentModalOpen = useSelector(
     (state: RootState) => state.globalState.isCloudConsentModalOpen
-  );
-
-  const isFullViewOfferOpen = useSelector(
-    (state: RootState) => state.globalState.isFullViewOfferOpen
   );
 
   const isPinGuideOpen = useSelector(
@@ -445,15 +440,14 @@ export default function MainContainer() {
           drag started in. Draws nothing unless something is carried, or a
           saved list's drag shows its card at the pointer (KAN-354). */}
       <CarryLayer />
-      {/* KAN-413. Only in the home view; it draws nothing unless this page runs the tour. */}
-      {!isSettingsPage && <SampleTour />}
+      {/* Draws nothing unless this page shows the run; R3 hides its card while Settings is open. */}
+      <FirstRun />
       {isRateAndReviewModalOpen && <RateAndReviewModal />}
       {tabGroupsPromptCount !== null && <TabGroupsPermissionModal />}
       {focusRequest && <FocusConfirmModal />}
       {isDeleteCloudDataModalOpen && <DeleteCloudDataModal />}
       {pendingImport !== null && <LoadBackupModal />}
       {isCloudConsentModalOpen && <CloudConsentModal />}
-      {isFullViewOfferOpen && <FullViewOfferModal />}
       {isPinGuideOpen && <PinGuideModal />}
       {isSetupOpen && <SetupModal />}
     </div>

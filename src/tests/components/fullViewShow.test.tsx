@@ -24,6 +24,7 @@ import {
   initialState as settingsInitial,
   settingsDataStateSlice,
 } from '../../redux/slices/settingsDataStateSlice';
+import { RUN_FINISHED_SETTINGS } from '../fixtures/firstRunFixture';
 
 // KAN-7, in the full view: asked on the address or by the worker's message.
 
@@ -31,6 +32,7 @@ const DAY = 24 * 60 * 60 * 1000;
 // Rate due, so a first-open queue that ran would open the rate prompt.
 const RATE_DUE = {
   cloudConsent: 'granted' as const,
+  ...RUN_FINISHED_SETTINGS,
   extensionInstalledTime: Date.now() - 2 * DAY,
   lastValueMomentTime: Date.now() - 60 * 60 * 1000,
 };
@@ -48,7 +50,7 @@ const seeded = seededWith(RATE_DUE);
 // Nothing due, so the first-open queue opens nothing in either view.
 const granted = seededWith({
   cloudConsent: 'granted',
-  isFullViewOfferAnswered: true,
+  ...RUN_FINISHED_SETTINGS,
 });
 
 beforeEach(() => localStorage.clear());

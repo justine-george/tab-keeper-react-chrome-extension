@@ -1,14 +1,14 @@
 import { useSelector } from 'react-redux';
 
 import type { RootState } from '../redux/store';
-import { selectTourHere } from '../redux/sampleTour';
+import { selectRunHere } from '../redux/firstRun';
 
-// KAN-413. True while this page's tour runs on this session: its opens wait for the tour to end.
+// True while this page's run points at this session: its opens wait for the run to end.
 export function useIsOpenBlockedByTour(
   tabGroupId: string | undefined
 ): boolean {
   return useSelector(
     (state: RootState) =>
-      tabGroupId !== undefined && selectTourHere(state)?.sampleId === tabGroupId
+      tabGroupId !== undefined && selectRunHere(state)?.sessionId === tabGroupId
   );
 }

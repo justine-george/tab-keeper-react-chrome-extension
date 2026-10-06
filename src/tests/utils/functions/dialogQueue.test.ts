@@ -2,6 +2,7 @@ import { afterEach, describe, expect, test, vi } from 'vitest';
 
 import {
   openFirstDialog,
+  STAND_DOWN,
   type DialogEntry,
 } from '../../../utils/functions/dialogQueue';
 
@@ -119,6 +120,23 @@ describe('standing down for a tour (KAN-413)', () => {
     );
     expect(opened).toBeNull();
     expect(log).toEqual(['decide tabGroups']);
+  });
+
+  test('an entry that stands down: nothing opens, and nothing after it is decided', async () => {
+    const log: string[] = [];
+    const opened = await openFirstDialog([
+      entry('cloudConsent', 'no', log),
+      {
+        id: 'firstRun',
+        decide: () => {
+          log.push('decide firstRun');
+          return STAND_DOWN;
+        },
+      },
+      entry('setup', 'yes', log),
+    ]);
+    expect(opened).toBeNull();
+    expect(log).toEqual(['decide cloudConsent', 'decide firstRun']);
   });
 
   test('a tour already running: nothing is decided', async () => {

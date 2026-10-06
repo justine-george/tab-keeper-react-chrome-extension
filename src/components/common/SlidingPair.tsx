@@ -31,8 +31,8 @@ export interface SlidingOption<T extends string> {
  * scan exempts them (export/slidingPairStyle.ts).
  */
 export interface SlidingPairMetrics {
-  /** The track's outer height. */
-  height: string;
+  /** The track's least outer height; it grows past it only when its words need more. */
+  minHeight: string;
   /** The track's corner. */
   radius: string;
   /** The knob's corner, and each cell's. */
@@ -143,7 +143,7 @@ export default function SlidingPair<T extends string>({
   const trackStyle = css`
     position: relative;
     box-sizing: border-box;
-    height: ${metrics.height};
+    min-height: ${metrics.minHeight};
     display: inline-flex;
     align-items: stretch;
     padding: ${TRACK_PADDING}px;

@@ -8,11 +8,11 @@ import { NormalLabel } from '../../common/Label';
 import type { IconName } from '../../common/iconNames';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useFontFamily } from '../../../hooks/useFontFamily';
-import { useSampleNames } from '../../../hooks/useSampleNames';
 import type { AppDispatch } from '../../../redux/store';
 import { showInFullView } from '../../../redux/fullViewShow';
 import { restartSetup } from '../../../redux/slices/settingsDataStateSlice';
-import { startSampleTour } from '../../../redux/sampleTour';
+import { startRun, thisView } from '../../../redux/firstRun';
+import { newRun } from '../../../utils/functions/firstRun';
 import { requestTabView } from '../../../utils/functions/popOut';
 import {
   readToolbarPin,
@@ -89,11 +89,10 @@ function HelpRow({
   );
 }
 
-// KAN-7 Help: setup, the pin guide and the sample tour, again.
+// KAN-7 Help: setup, the pin guide and the first run, again.
 export default function HelpSettings() {
   const { t } = useTranslation();
   const dispatch: AppDispatch = useDispatch();
-  const sampleNames = useSampleNames();
   // null until Chrome answers: nothing draws, so the pin row never pops in.
   const [pin, setPin] = useState<ToolbarPin | null>(null);
 
@@ -123,6 +122,8 @@ export default function HelpSettings() {
     if (isTabView()) dispatch(showInFullView('pinGuide'));
     else void requestTabView('pinGuide');
   };
+  // R11. This view's run from its first card, with no Hello: whoever opens Help has met Tab Keeper.
+  const showMeAround = () => void dispatch(startRun(newRun(thisView(), 1)));
 
   return (
     <div
@@ -162,11 +163,11 @@ export default function HelpSettings() {
             isFirst={false}
             label={t('Learn the basics')}
             description={t(
-              'A short tour on an example session, removed when you’re done.'
+              'A one-minute tour of this view. Your open tabs and saved sessions stay just as they are.'
             )}
             button={t('Show me around')}
             icon={HELP_ICONS.tour}
-            onClick={() => void dispatch(startSampleTour(sampleNames))}
+            onClick={showMeAround}
           />
         </>
       )}

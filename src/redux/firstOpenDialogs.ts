@@ -1,11 +1,8 @@
-import type { Dispatch, UnknownAction } from '@reduxjs/toolkit';
-
-import type { DialogEntry } from '../utils/functions/dialogQueue';
-import type { RootState } from './store';
+import { STAND_DOWN, type DialogEntry } from '../utils/functions/dialogQueue';
+import type { AppDispatch, RootState } from './store';
 import {
   openCloudConsentModal,
   openFullViewCallout,
-  openFullViewOffer,
   openPinGuide,
   openRateAndReviewModal,
   openSetup,
@@ -18,20 +15,27 @@ import {
 } from './slices/settingsDataStateSlice';
 import { isValidDate } from '../utils/functions/local';
 import {
-  shouldOfferFullView,
   shouldShowFullViewCallout,
   shouldShowPinGuide,
   shouldShowSetup,
 } from '../utils/functions/onboarding';
 import { showWhenQuiet } from './quietCards';
+import { runOpener, showWelcome, startRun } from './firstRun';
+import { newRun, runAtOpen, type RunCheck } from '../utils/functions/firstRun';
+import { RUN_LOCK, tourLockState } from '../utils/functions/tourLock';
 import { shouldAskForReview } from '../utils/functions/reviewAsk';
 import { readToolbarPin } from '../utils/functions/toolbarPin';
 import { shouldOfferTabGroups } from '../utils/functions/tabGroupsOffer';
 
 export type Surface = 'popup' | 'full';
 
+// <html data-run-check>: what this open did about the run, the e2e barrier.
+const reportRunCheck = (check: RunCheck): void => {
+  document.documentElement.dataset.runCheck = check;
+};
+
 export interface FirstOpen {
-  dispatch: Dispatch<UnknownAction>;
+  dispatch: AppDispatch;
   // settingsData as stored before this open wrote anything.
   storedAtOpen: Partial<SettingsData>;
   // Saved sessions on disk at this open; the store has not loaded them yet.
@@ -72,25 +76,39 @@ export function firstOpenDialogs(
       if (isExisting) {
         return () => dispatch(openCloudConsentModal({ variant: 'existing' }));
       }
-      // KAN-410. Recorded as it opens: a popup closed unanswered stays local-only and mid-onboarding.
+      // KAN-410 and Q7: recorded as it opens, the welcome being the popup run's step 0.
+      reportRunCheck('started');
       return () => {
         dispatch(declineCloudConsent());
         dispatch(beginSetup());
-        dispatch(openCloudConsentModal({ variant: 'welcome' }));
+        // The full view greets a new install with the run's own Hello, never the welcome.
+        void dispatch(
+          surface === 'popup'
+            ? showWelcome(newRun('popup', 0))
+            : startRun(newRun('full', 0, 'welcome'))
+        );
       };
     },
   };
 
-  // KAN-7 §3. A popup closed before the answer asks again on the next open.
-  const fullViewOffer: DialogEntry = {
-    id: 'fullViewOffer',
-    decide: () =>
-      shouldOfferFullView(open.getState().settingsDataState)
-        ? () => dispatch(openFullViewOffer())
-        : null,
+  // §11: resume this view's run, reshow or end the welcome, or start a run (R13, upgraders, Q8).
+  const firstRun: DialogEntry = {
+    id: 'firstRun',
+    decide: async () => {
+      const decision = await runAtOpen(
+        surface,
+        storedAtOpen,
+        open.storedSessions,
+        () => tourLockState(RUN_LOCK)
+      );
+      reportRunCheck(decision.check);
+      // §12: another page of this view shows the run; setup and the guide come after it there.
+      if (decision.check === 'elsewhere') return STAND_DOWN;
+      return runOpener(decision, dispatch);
+    },
   };
 
-  // KAN-7 §4. Asks Chrome, so it is the one async entry before the rate prompt.
+  // §3. For an open with no run and no setup pending; asks Chrome, so it is async.
   const pinGuide: DialogEntry = {
     id: 'pinGuide',
     decide: async () =>
@@ -102,7 +120,7 @@ export function firstOpenDialogs(
         : null,
   };
 
-  // KAN-7 §5. Reached here when the guide does not apply; else the guide's close opens it.
+  // §3. For an open with no run: setup when pending; its close offers the pin guide.
   const setup: DialogEntry = {
     id: 'setup',
     decide: () =>
@@ -150,8 +168,8 @@ export function firstOpenDialogs(
   };
 
   const lists: Record<Surface, DialogEntry[]> = {
-    popup: [cloudConsent, fullViewOffer, rate, tabGroups, fullViewCallout],
-    full: [cloudConsent, pinGuide, setup, rate, tabGroups],
+    popup: [cloudConsent, firstRun, rate, tabGroups, fullViewCallout],
+    full: [cloudConsent, firstRun, setup, pinGuide, rate, tabGroups],
   };
   return lists[surface];
 }

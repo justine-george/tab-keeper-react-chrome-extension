@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 
-import { isTabKeeperPage, toStoredTab } from './capture';
+import { isNotANameSource, toStoredTab } from './capture';
 import { getStringDate, normalizeTitle } from './local';
 import type { OpenWindow } from './openNow';
 import { dropNotificationCount } from './sessionExportHtml';
@@ -79,7 +79,7 @@ export function openWindowsToSession(
 }
 
 // The session name the tab view would suggest for this window (rule 1): the
-// most recently used tab that is not a Tab Keeper page, cleaned of an unread
+// most recently used tab that names something, cleaned of an unread
 // count, else `fallback` -- the caller's t('New Tab Group'). Blank is no name,
 // as in the name box (KAN-84), and a refused read names nothing: either way
 // the save still happens, under `fallback`.
@@ -93,6 +93,6 @@ export async function suggestTitleForWindow(
   } catch {
     return fallback;
   }
-  const picked = pickNameSourceTab(tabs, isTabKeeperPage);
+  const picked = pickNameSourceTab(tabs, isNotANameSource);
   return normalizeTitle(dropNotificationCount(picked?.title ?? '')) || fallback;
 }

@@ -1186,18 +1186,18 @@ test.describe('Open now heading and empty-list layout (KAN-280)', () => {
     expect(Math.abs(sessionsList.top - detailList.top)).toBeLessThanOrEqual(1);
   });
 
-  test('the Start here card sits under the search row in an empty session list', async ({
+  test('the empty list line sits under the search row in an empty session list', async ({
     context,
     extensionId,
   }, testInfo) => {
     await seedSessions(context, buildContainer([]));
     const page = await openPage(context, extensionId, VIEW_TAB, TAB_VIEWPORT);
-    const card = page.locator(SESSIONS).locator('[data-start-here]');
+    const card = page.locator(SESSIONS).locator('[data-empty-list]');
     await expect(card).toBeVisible();
     await expect(page.locator(SAVED_SEARCH)).toBeVisible();
     const facts = await page.evaluate((sel: string) => {
       const scroller = document.querySelector(sel)?.nextElementSibling;
-      const cardEl = scroller?.querySelector('[data-start-here]');
+      const cardEl = scroller?.querySelector('[data-empty-list]');
       if (!scroller || !cardEl) return null;
       return {
         cardTop: cardEl.getBoundingClientRect().top,
@@ -1206,8 +1206,8 @@ test.describe('Open now heading and empty-list layout (KAN-280)', () => {
           document.querySelector(sel)?.getBoundingClientRect().bottom ?? 0,
       };
     }, SAVED_SEARCH);
-    console.log(`[start-here] ${JSON.stringify(facts)}`);
-    await page.screenshot({ path: testInfo.outputPath('start-here.png') });
+    console.log(`[empty-list] ${JSON.stringify(facts)}`);
+    await page.screenshot({ path: testInfo.outputPath('empty-list.png') });
     if (facts === null) throw new Error('no scroller or card');
     // The scroller starts under the search row, and the card inside it.
     expect(facts.scrollerTop).toBeGreaterThanOrEqual(facts.rowBottom - 0.5);

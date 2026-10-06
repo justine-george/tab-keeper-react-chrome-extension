@@ -76,6 +76,8 @@ interface IconBaseProps {
    */
   boxSizedFor?: typeof ICON.DEFAULT;
   style?: string;
+  // The run's coach mark finds this control by it.
+  tourAnchor?: string;
   /**
    * Only meaningful on an actionable Icon, i.e. one with an onClick. A
    * presentational Icon is aria-hidden, so these would name nothing.
@@ -134,6 +136,7 @@ const Icon: React.FC<IconProps> = ({
   size = ICON.DEFAULT,
   boxSizedFor,
   style,
+  tourAnchor,
   ariaHasPopup,
   ariaExpanded,
 }) => {
@@ -247,6 +250,7 @@ const Icon: React.FC<IconProps> = ({
     // set role as button for accessibility
     <div
       title={tooltipText}
+      data-tour-anchor={tourAnchor}
       aria-label={ariaLabel}
       aria-description={
         ariaDescription ??

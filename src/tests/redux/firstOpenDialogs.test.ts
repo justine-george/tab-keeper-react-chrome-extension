@@ -4,6 +4,8 @@ vi.hoisted(() => {
   Object.assign(globalThis, {
     window: globalThis,
     screen: { height: 1080, width: 1920 },
+    // The cloud entry reports its run check on <html>, as the firstRun entry does.
+    document: { documentElement: { dataset: {} } },
   });
 });
 
@@ -29,7 +31,7 @@ describe('the first-open lists', () => {
   test('popup', () => {
     expect(listFor('popup')).toEqual([
       'cloudConsent',
-      'fullViewOffer',
+      'firstRun',
       'rate',
       'tabGroups',
       'fullViewCallout',
@@ -39,8 +41,9 @@ describe('the first-open lists', () => {
   test('full view', () => {
     expect(listFor('full')).toEqual([
       'cloudConsent',
-      'pinGuide',
+      'firstRun',
       'setup',
+      'pinGuide',
       'rate',
       'tabGroups',
     ]);
@@ -76,7 +79,7 @@ describe('the cloud question entry (KAN-259, moved from App)', () => {
       getState: store.getState,
     });
     const open = await cloudConsent.decide();
-    open?.();
+    if (typeof open === 'function') open();
     expect(store.getState().globalState.cloudConsentVariant).toBe('existing');
   });
 
@@ -89,7 +92,7 @@ describe('the cloud question entry (KAN-259, moved from App)', () => {
       getState: store.getState,
     });
     const open = await cloudConsent.decide();
-    open?.();
+    if (typeof open === 'function') open();
     expect(store.getState().globalState.cloudConsentVariant).toBe('existing');
     expect(store.getState().settingsDataState.cloudConsent).toBe('');
   });
@@ -108,7 +111,10 @@ describe('the cloud question entry (KAN-259, moved from App)', () => {
       getState: store.getState,
     });
     const open = await cloudConsent.decide();
-    open?.();
+    if (typeof open === 'function') open();
+    await vi.waitFor(() =>
+      expect(store.getState().globalState.isCloudConsentModalOpen).toBe(true)
+    );
     expect(store.getState().globalState.cloudConsentVariant).toBe('welcome');
     expect(store.getState().settingsDataState.cloudConsent).toBe('declined');
     expect(store.getState().settingsDataState.isAutoSync).toBe(false);

@@ -3,6 +3,7 @@ import {
   useId,
   useRef,
   type CSSProperties,
+  type ReactNode,
   type SyntheticEvent,
 } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -13,32 +14,40 @@ import { isUnclaimedEscape } from '../common/unclaimedEscape';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { useFontFamily } from '../../hooks/useFontFamily';
 import { useCoachPlacement } from '../../hooks/useCoachPlacement';
+import { useCardMotion } from '../../hooks/useCardMotion';
+import ProgressLine from '../common/ProgressLine';
 import {
   clipPathWithHole,
   ringBox,
+  type AnchoredPlacement,
   type Box,
-  type CoachPlacement,
+  type CoachAction,
   type Size,
 } from './coachMarkPlacement';
 import type { AnchorBox, Spotlight } from './anchorBox';
-import { TOUR_STEPS, type TourStep } from '../../utils/functions/sampleTour';
 import { TYPE } from '../../styles/scale';
 
 interface CoachMarkProps {
-  step: TourStep;
-  text: string;
+  step: number;
+  total: number;
+  text: ReactNode;
+  fine?: string;
   anchors: readonly string[];
   boxOf?: AnchorBox;
   spotlight?: Spotlight;
+  isLive: boolean;
   width: number;
   place: (
     anchor: Box,
     mark: Size,
     viewport: Size,
     bright: Box
-  ) => CoachPlacement;
-  onNext: () => void;
-  onEnd: () => void;
+  ) => AnchoredPlacement;
+  onSkip?: () => void;
+  onBack?: () => void;
+  secondary?: CoachAction;
+  primary: CoachAction;
+  onEscape: () => void;
 }
 
 // The callout's notch, turned toward the anchor: a BORDER triangle under a PRIMARY one.
@@ -47,7 +56,7 @@ function Notch({
   border,
   fill,
 }: {
-  placement: CoachPlacement;
+  placement: AnchoredPlacement;
   border: string;
   fill: string;
 }) {
@@ -106,39 +115,46 @@ const swallow = (event: SyntheticEvent) => {
   event.stopPropagation();
 };
 
-// KAN-413. One step's coach mark in the callout's style; not modal, takes no focus.
+// KAN-413's card on the run's steps: not modal, takes no focus; the dim blocks the pointer, never the keyboard.
 export default function CoachMark({
   step,
+  total,
   text,
+  fine,
   anchors,
   boxOf,
   spotlight,
+  isLive,
   width,
   place,
-  onNext,
-  onEnd,
+  onSkip,
+  onBack,
+  secondary,
+  primary,
+  onEscape,
 }: CoachMarkProps) {
   const COLORS = useThemeColors();
   const FONT_FAMILY = useFontFamily();
   const { t } = useTranslation();
   const textId = useId();
   const markRef = useRef<HTMLDivElement>(null);
+  const ringRef = useRef<HTMLDivElement>(null);
   const frame = useCoachPlacement(markRef, anchors, place, boxOf, spotlight);
+  useCardMotion(markRef, ringRef, step, frame);
   const buttons = dialogButtonStyles(COLORS);
-  const isLast = step === TOUR_STEPS;
   const isPlaced = frame !== null;
 
-  // Esc is Skip tutorial (Finish at step 5), only while the mark is drawn.
+  // Only while drawn; the last step's Esc is its non-pin button.
   useEffect(() => {
     if (!isPlaced) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (!isUnclaimedEscape(event)) return;
       event.preventDefault();
-      onEnd();
+      onEscape();
     };
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
-  }, [isPlaced, onEnd]);
+  }, [isPlaced, onEscape]);
 
   // The dim over the panes and their menus (1000), the mark and ring over it, all under the toasts (1050).
   const markStyle = css`
@@ -149,7 +165,7 @@ export default function CoachMark({
     gap: 10px;
     width: ${width}px;
     margin: 0;
-    padding: 14px 16px 12px;
+    padding: 18px 16px 12px;
     background-color: ${COLORS.PRIMARY_COLOR};
     border: 1px solid ${COLORS.BORDER_COLOR};
     color: ${COLORS.TEXT_COLOR};
@@ -176,13 +192,19 @@ export default function CoachMark({
     border: 2px dashed ${COLORS.TEXT_COLOR};
     pointer-events: none;
   `;
-  const stepStyle = css`
-    margin: 0;
-    font-size: ${TYPE.META};
-    color: ${COLORS.LABEL_L1_COLOR};
-  `;
   const textStyle = css`
     margin: 0;
+  `;
+  const stillStyle = css`
+    position: fixed;
+    z-index: ${Z.DIM};
+    cursor: default;
+  `;
+  const fineStyle = css`
+    margin: 0;
+    font-size: ${TYPE.SECONDARY};
+    line-height: 1.45;
+    color: ${COLORS.LABEL_L1_COLOR};
   `;
   const footStyle = css`
     display: flex;
@@ -191,9 +213,14 @@ export default function CoachMark({
     gap: 10px;
   `;
   const endStyle = css`
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 8px;
     margin-left: auto;
   `;
 
+  const bright = frame?.kind === 'anchored' ? frame.bright : null;
   return (
     <>
       {frame && (
@@ -202,11 +229,29 @@ export default function CoachMark({
           data-coach-dim
           css={dimStyle}
           onMouseDown={swallow}
-          style={{ clipPath: clipPathWithHole(frame.bright) }}
+          style={
+            bright === null ? undefined : { clipPath: clipPathWithHole(bright) }
+          }
         />
       )}
-      {frame && (
+      {bright !== null && !isLive && (
         <div
+          aria-hidden="true"
+          data-coach-still
+          css={stillStyle}
+          onMouseDown={swallow}
+          onClick={swallow}
+          style={{
+            left: bright.left,
+            top: bright.top,
+            width: bright.width,
+            height: bright.height,
+          }}
+        />
+      )}
+      {frame?.kind === 'anchored' && (
+        <div
+          ref={ringRef}
           aria-hidden="true"
           data-coach-ring
           css={ringStyle}
@@ -229,32 +274,51 @@ export default function CoachMark({
             : { left: 0, top: 0, visibility: 'hidden' }
         }
       >
-        {frame && (
+        <ProgressLine
+          n={step}
+          total={total}
+          label={t('Step {{n}} of {{total}}', { n: step, total })}
+        />
+        {frame?.kind === 'anchored' && (
           <Notch
             placement={frame.placement}
             border={COLORS.BORDER_COLOR}
             fill={COLORS.PRIMARY_COLOR}
           />
         )}
-        <p css={stepStyle}>
-          {t('Step {{n}} of {{total}}', { n: step, total: TOUR_STEPS })}
-        </p>
         <p id={textId} css={textStyle}>
           {text}
         </p>
+        {fine !== undefined && <p css={fineStyle}>{fine}</p>}
         <div css={footStyle}>
-          {!isLast && (
-            <button type="button" css={buttons.link} onClick={onEnd}>
+          {onSkip && (
+            <button type="button" css={buttons.link} onClick={onSkip}>
               {t('Skip tutorial')}
             </button>
           )}
-          <button
-            type="button"
-            css={[buttons.primary, endStyle]}
-            onClick={isLast ? onEnd : onNext}
-          >
-            {isLast ? t('Finish') : t('Next')}
-          </button>
+          <span css={endStyle}>
+            {onBack && (
+              <button type="button" css={buttons.quiet} onClick={onBack}>
+                {t('Back')}
+              </button>
+            )}
+            {secondary && (
+              <button
+                type="button"
+                css={buttons.quiet}
+                onClick={secondary.onPress}
+              >
+                {secondary.label}
+              </button>
+            )}
+            <button
+              type="button"
+              css={buttons.filled}
+              onClick={primary.onPress}
+            >
+              {primary.label}
+            </button>
+          </span>
         </div>
       </div>
     </>

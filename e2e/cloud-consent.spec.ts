@@ -4,6 +4,10 @@ import { countCloudRequests, hasCloudConfig } from './fixtures/cloud';
 import { test, expect } from './fixtures/extension';
 import { buildContainer, seedSessions, seedSettings } from './fixtures/seed';
 import { storedSettings } from './fixtures/onboarding';
+import { cardAt, cardButton } from './fixtures/run';
+import { rgbToHex } from './fixtures/pixels';
+import { mixHex } from '../src/styles/mixHex';
+import { LIGHT_THEME } from '../src/hooks/useThemeColors';
 
 // KAN-259. Nothing leaves the device until the user says yes. A new install
 // is welcomed without a question and recorded local-only (KAN-410); sync is
@@ -64,18 +68,16 @@ test.describe('the cloud question (KAN-259)', () => {
       await page.keyboard.press('Enter');
       await expect(dialog).toBeVisible();
       await page.keyboard.press('Tab');
-      await expect(page.locator(':focus')).toHaveAccessibleName('Get started');
+      await expect(page.locator(':focus')).toHaveAccessibleName('Stay here');
       expect((await lit()).litInside).toBe(1);
 
       await dialog
-        .getByRole('button', { name: 'Get started', exact: true })
+        .getByRole('button', { name: 'Stay here', exact: true })
         .click();
       await expect(dialog).toHaveCount(0);
-      // KAN-7 §3. The welcome is followed by the full-view offer.
-      await page
-        .getByRole('dialog', { name: 'Try the full view', exact: true })
-        .getByRole('button', { name: 'Not now', exact: true })
-        .click();
+      // §4. Stay here starts the popup run; Skip tutorial leaves the popup plain.
+      await expect(cardAt(page, 1)).toBeVisible();
+      await cardButton(page, 'Skip tutorial').click();
 
       await page.locator('[aria-label="Settings"]').click();
       await page.locator('button[aria-label="Sync & Backup"]').click();
@@ -101,13 +103,10 @@ test.describe('the cloud question (KAN-259)', () => {
       const first = await openPopup(context, extensionId);
       await first
         .getByRole('dialog', { name: 'Welcome to Tab Keeper' })
-        .getByRole('button', { name: 'Get started', exact: true })
+        .getByRole('button', { name: 'Stay here', exact: true })
         .click();
-      // KAN-7 §3. The welcome is followed by the full-view offer.
-      await first
-        .getByRole('dialog', { name: 'Try the full view', exact: true })
-        .getByRole('button', { name: 'Not now', exact: true })
-        .click();
+      await expect(cardAt(first, 1)).toBeVisible();
+      await cardButton(first, 'Skip tutorial').click();
 
       const again = await openPopup(context, extensionId);
       await expect(again.locator('[aria-label="Settings"]')).toBeVisible();
@@ -123,12 +122,10 @@ test.describe('the cloud question (KAN-259)', () => {
       const page = await openPopup(context, extensionId);
       await page
         .getByRole('dialog', { name: 'Welcome to Tab Keeper' })
-        .getByRole('button', { name: 'Get started', exact: true })
+        .getByRole('button', { name: 'Stay here', exact: true })
         .click();
-      await page
-        .getByRole('dialog', { name: 'Try the full view', exact: true })
-        .getByRole('button', { name: 'Not now', exact: true })
-        .click();
+      await expect(cardAt(page, 1)).toBeVisible();
+      await cardButton(page, 'Skip tutorial').click();
       await page.locator('[aria-label="Settings"]').click();
       await page.locator('button[aria-label="Sync & Backup"]').click();
       await page
@@ -220,11 +217,10 @@ test.describe('the cloud question (KAN-259)', () => {
       })
       .toEqual(['declined', false, 'pending']);
 
-    // The key that granted on the old "currently synced" screen.
+    // The key that granted on the old "currently synced" screen: here it is Not now.
     await page.keyboard.press('Escape');
-    await expect(
-      page.getByRole('dialog', { name: 'Try the full view', exact: true })
-    ).toBeVisible();
+    await expect(cardAt(page, 1)).toBeVisible();
+    expect((await storedSettings(page)).cloudConsent).toBe('declined');
     expect(cloudHits).toEqual([]);
   });
 
@@ -263,27 +259,37 @@ test.describe('the cloud question (KAN-259)', () => {
 test.describe('dialog buttons answer a press', () => {
   test.use({ freshProfile: true });
 
+  // The filled button: its letters stay PRIMARY while its fill mixes TEXT over PRIMARY, 88% then 76%.
   test('hover and a held press are two different fills', async ({
     context,
     extensionId,
   }) => {
+    const { TEXT_COLOR, PRIMARY_COLOR } = LIGHT_THEME;
     const page = await openPopup(context, extensionId);
     const button = page
       .getByRole('dialog', { name: 'Welcome to Tab Keeper' })
       .getByRole('button', { name: 'Get started', exact: true });
-    const fill = () =>
-      button.evaluate((el) => getComputedStyle(el).backgroundColor);
-    const rest = await fill();
+    const paint = () =>
+      button.evaluate((el) => {
+        const style = getComputedStyle(el);
+        return [style.backgroundColor, style.color];
+      });
+    const fill = async () => {
+      const [ground, letters] = await paint();
+      return [rgbToHex(ground), rgbToHex(letters)];
+    };
+    await expect.poll(fill).toEqual([TEXT_COLOR, PRIMARY_COLOR]);
 
     const box = (await button.boundingBox())!;
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-    await expect.poll(fill, { timeout: 2000 }).not.toBe(rest);
-    const hover = await fill();
+    await expect
+      .poll(fill, { timeout: 2000 })
+      .toEqual([mixHex(TEXT_COLOR, PRIMARY_COLOR, 0.88), PRIMARY_COLOR]);
 
     await page.mouse.down();
-    await expect.poll(fill, { timeout: 2000 }).not.toBe(hover);
-    const pressed = await fill();
-    expect(pressed).not.toBe(rest);
+    await expect
+      .poll(fill, { timeout: 2000 })
+      .toEqual([mixHex(TEXT_COLOR, PRIMARY_COLOR, 0.76), PRIMARY_COLOR]);
     // Release off the button, so the press is not also a click.
     await page.mouse.move(0, 0);
     await page.mouse.up();

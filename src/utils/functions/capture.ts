@@ -275,6 +275,23 @@ export function isTabKeeperPage(tab: chrome.tabs.Tab): boolean {
   return resolveTabUrl(address).startsWith(chrome.runtime.getURL(''));
 }
 
+const NAME_SOURCE_NOISE = [
+  'https://chromewebstore.google.com/',
+  'https://chrome.google.com/webstore',
+  'chrome://newtab/',
+  'chrome://new-tab-page/',
+] as const;
+
+// §8. The Web Store and the New Tab page never name a session.
+export function isNameSourceNoise(tab: chrome.tabs.Tab): boolean {
+  const address = tab.url || tab.pendingUrl || '';
+  return NAME_SOURCE_NOISE.some((prefix) => address.startsWith(prefix));
+}
+
+// A name comes from neither Tab Keeper's own pages nor the store or New Tab page.
+export const isNotANameSource = (tab: chrome.tabs.Tab): boolean =>
+  isTabKeeperPage(tab) || isNameSourceNoise(tab);
+
 // Snapshots the open windows a scope covers as a session. Extracted from
 // UserInputContainer so focus mode can save what it is about to close using
 // exactly the same capture the "Save current session" button uses -- two
@@ -337,4 +354,12 @@ export async function captureOpenWindows(
     isSelected: true,
     windows: windowsGroupData,
   };
+}
+
+// Q3. Whether a save now would capture anything: a tab outside Tab Keeper's own pages.
+export async function hasTabsToSave(): Promise<boolean> {
+  const windows = await windowsInScope('all-windows');
+  return windows.some((window) =>
+    (window.tabs ?? []).some((tab) => !isTabKeeperPage(tab))
+  );
 }

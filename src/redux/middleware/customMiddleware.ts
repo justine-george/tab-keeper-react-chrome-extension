@@ -14,7 +14,6 @@ import {
   ADD_CURR_TAB_TO_WINDOW_ACTION,
   DELETE_TAB_ACTION,
   DELETE_TAB_CONTAINER_ACTION,
-  DELETE_TAB_CONTAINER_WITHOUT_HISTORY_ACTION,
   DELETE_WINDOW_ACTION,
   EDIT_TABGROUP_TITLE_ACTION,
   IS_DIRTY_ACTION,
@@ -66,7 +65,6 @@ const actionsToCapture = [
   RECOLOUR_CHROME_GROUP_ACTION,
   DELETE_CHROME_GROUP_ACTION,
   DELETE_TAB_CONTAINER_ACTION,
-  DELETE_TAB_CONTAINER_WITHOUT_HISTORY_ACTION,
   DELETE_WINDOW_ACTION,
   DELETE_TAB_ACTION,
   MOVE_TAB_ACTION,
@@ -109,11 +107,6 @@ const isCapturableAction = (type: string) => actionsToCapture.includes(type);
 // capturable at all; search reaches both consequences only because
 // TabGroupEntryContainer selects the first filtered result on every keystroke.
 const viewStateOnlyActions = [SELECT_TAB_CONTAINER_ACTION];
-
-// Edits that sync but are no undo step: present moves, past and future stay.
-const editsWithoutHistoryActions = [
-  DELETE_TAB_CONTAINER_WITHOUT_HISTORY_ACTION,
-];
 
 const isUndoRedoAction = (type: string) =>
   [UNDO_ACTION, REDO_ACTION].includes(type);
@@ -276,11 +269,9 @@ export const customMiddleware: Middleware = (store) => {
     } else if (isDataStateChangeAction(action.type, prevState, nextState)) {
       const { tabContainerDataState } = nextState;
       const isViewStateOnly = viewStateOnlyActions.includes(action.type);
-      const isWithoutHistory =
-        isViewStateOnly || editsWithoutHistoryActions.includes(action.type);
 
       store.dispatch(
-        isWithoutHistory
+        isViewStateOnly
           ? setPresentWithoutHistory({ tabContainerDataState })
           : set({
               tabContainerDataState,
@@ -296,8 +287,7 @@ export const customMiddleware: Middleware = (store) => {
         // A new saved-session change: the most recent Tab Keeper action now,
         // so an Open now drop before it is no longer ⌘Z's (KAN-280 O11f,
         // ledger R23). An undo or redo step, above, is not a new change.
-        // An edit without history is not the user's step either.
-        if (!isWithoutHistory) noteTabKeeperAction();
+        noteTabKeeperAction();
         store.dispatch(setIsDirty());
       }
     }

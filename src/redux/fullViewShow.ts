@@ -13,7 +13,7 @@ export const showInFullView =
     if (document.querySelector('dialog:modal') !== null) return;
     if (show === 'setup') {
       dispatch(restartSetup());
-      dispatch(openSetup());
+      dispatch(openSetup({ leadsToPinGuide: false }));
       return;
     }
     dispatch(openPinGuide());

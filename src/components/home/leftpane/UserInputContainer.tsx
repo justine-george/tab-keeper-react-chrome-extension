@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 
 import { css } from '@emotion/react';
 
@@ -12,10 +12,13 @@ import { useThemeColors } from '../../../hooks/useThemeColors';
 import { AppDispatch } from '../../../redux/store';
 import {
   captureOpenWindows,
+  isNameSourceNoise,
+  isNotANameSource,
   isTabKeeperPage,
   type CaptureScope,
 } from '../../../utils/functions/capture';
 import { dropNotificationCount } from '../../../utils/functions/sessionExportHtml';
+import { selectRunAwaitsSave, takeRunSave } from '../../../redux/firstRun';
 import { saveToTabContainer } from '../../../redux/slices/tabContainerDataStateSlice';
 import { normalizeTitle } from '../../../utils/functions/local';
 import {
@@ -32,6 +35,17 @@ export default function UserInputContainer() {
 
   const [newTitle, setNewTitle] = useState<string>('');
   const [currentTabName, setCurrentTabName] = useState<string>('');
+  const awaitsRunSave = useSelector(selectRunAwaitsSave);
+  // Once touched, the field is the user's for the rest of the page's run.
+  const [isPrefillDropped, setPrefillDropped] = useState(false);
+  // §8: an untouched field shows the name an empty save would use right now.
+  const prefill =
+    awaitsRunSave &&
+    !isPrefillDropped &&
+    newTitle === '' &&
+    currentTabName !== ''
+      ? normalizeTitle(currentTabName) || t('New Tab Group')
+      : null;
 
   useEffect(() => {
     // Guards loadSuggestion below against setting state after this
@@ -50,31 +64,25 @@ export default function UserInputContainer() {
 
     async function fetchSuggestedTitle(): Promise<string | undefined> {
       if (isTabView()) {
-        // In the tab, the active tab IS Tab Keeper, so the suggestion comes
-        // from the most recently used tab in this window that ISN'T one
-        // (D15) -- this page's own tab always qualifies for exclusion, being
-        // a Tab Keeper page itself.
+        // In the tab the active tab is Tab Keeper: the most recent tab that names something (D15).
         const tabsOfWindow = await new Promise<chrome.tabs.Tab[]>((resolve) =>
           chrome.tabs.query({ currentWindow: true }, (tabs) => resolve(tabs))
         );
-        return pickNameSourceTab(tabsOfWindow, isTabKeeperPage)?.title;
+        return pickNameSourceTab(tabsOfWindow, isNotANameSource)?.title;
       }
-      // KAN-299. The popup's active tab is USUALLY a real
-      // page, but Switch can restore a window whose active tab is Tab
-      // Keeper's own page (a pinned tab view) -- the same D15 fallback
-      // extended past the tab view: the most recently used tab in the
-      // window that isn't one. Otherwise, unchanged: the active tab's own
-      // title.
+      // KAN-299. A popup over Tab Keeper's own page falls back the same way.
       const [activeTab] = await new Promise<chrome.tabs.Tab[]>((resolve) =>
         chrome.tabs.query({ active: true, currentWindow: true }, (tabs) =>
           resolve(tabs)
         )
       );
-      if (!activeTab || !isTabKeeperPage(activeTab)) return activeTab?.title;
+      if (activeTab === undefined || isNameSourceNoise(activeTab))
+        return undefined;
+      if (!isTabKeeperPage(activeTab)) return activeTab.title;
       const tabsOfWindow = await new Promise<chrome.tabs.Tab[]>((resolve) =>
         chrome.tabs.query({ currentWindow: true }, (tabs) => resolve(tabs))
       );
-      return pickNameSourceTab(tabsOfWindow, isTabKeeperPage)?.title;
+      return pickNameSourceTab(tabsOfWindow, isNotANameSource)?.title;
     }
 
     async function loadSuggestion() {
@@ -121,6 +129,7 @@ export default function UserInputContainer() {
 
   function updateUserInput(e: React.ChangeEvent<HTMLInputElement>) {
     setNewTitle(e.target.value);
+    if (awaitsRunSave) setPrefillDropped(true);
   }
 
   // The scope is the button's word, not a stored preference (KAN-5). Focus
@@ -139,7 +148,7 @@ export default function UserInputContainer() {
     // resort is translated, because it is a name the user will see and can
     // rename.
     const title =
-      normalizeTitle(newTitle) ||
+      normalizeTitle(prefill ?? newTitle) ||
       normalizeTitle(currentTabName) ||
       t('New Tab Group');
 
@@ -150,9 +159,11 @@ export default function UserInputContainer() {
     const containerData = await captureOpenWindows(title, scope);
     if (!containerData) return;
 
-    dispatch(saveToTabContainer({ container: containerData, scope }));
+    await dispatch(saveToTabContainer({ container: containerData, scope }));
     // Only a stored session consumes the name, and never text typed since.
     setNewTitle((now) => (now === typed ? '' : now));
+    // The run's save step takes its first save; any later one is ordinary (R6).
+    dispatch(takeRunSave(containerData.tabGroupId));
   }
 
   const containerStyle = css`
@@ -192,11 +203,11 @@ export default function UserInputContainer() {
   `;
 
   return (
-    <div css={containerStyle}>
+    <div css={containerStyle} data-tour-anchor="save">
       <TextBox
         id="name"
         name="name"
-        value={newTitle}
+        value={prefill ?? newTitle}
         placeholder={t('Name the new session')}
         autoComplete="off"
         onChange={updateUserInput}

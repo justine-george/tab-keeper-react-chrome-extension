@@ -42,6 +42,7 @@ import {
 import { isTabView } from '../../../utils/functions/viewMode';
 import { getPrettyDate } from '../../../utils/functions/local';
 import { requestTabView } from '../../../utils/functions/popOut';
+import { endRunAtFullViewButton } from '../../../redux/firstRun';
 
 export default function MenuContainer() {
   const syncStatus = useSelector(
@@ -124,6 +125,7 @@ export default function MenuContainer() {
   // the popup doing it.
   // requestTabView (popOut.ts) sends that request.
   function handleClickOpenInTab() {
+    dispatch(endRunAtFullViewButton());
     seeFullViewCallout();
     void requestTabView();
   }
@@ -345,6 +347,7 @@ export default function MenuContainer() {
           directly; see handleClickOpenInTab above for why. */}
         {!isTabView() && (
           <span
+            data-tour-anchor="expand"
             css={css`
               position: relative;
               display: inline-flex;

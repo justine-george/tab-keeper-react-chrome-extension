@@ -171,9 +171,11 @@ describe('settings toggles say which setting they control (KAN-88)', () => {
 });
 
 describe('the theme picker marks the active theme (KAN-88)', () => {
-  // The five swatches are the only buttons on the Display panel.
+  // The five swatches are the only buttons in the Display panel's first section, Themes.
   const swatches = (container: HTMLElement) => [
-    ...container.querySelectorAll('button'),
+    ...(container
+      .querySelector('[data-settings-section]')
+      ?.querySelectorAll('button') ?? []),
   ];
 
   test('exactly one swatch is pressed, and it is the active theme', async () => {

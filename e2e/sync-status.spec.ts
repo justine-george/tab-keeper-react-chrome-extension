@@ -2,6 +2,8 @@ import type { Page } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
 import { buildContainer, seedSessions, seedSettings } from './fixtures/seed';
+import { localeStrings } from './fixtures/locales';
+import { pairFit } from './fixtures/pairFit';
 
 // KAN-248. The sync status card used to say "Cloud Sync Active" whenever a
 // token existed -- under an Auto Sync button reading Off. It now derives from
@@ -162,3 +164,39 @@ test.describe('the status line shows when it last synced (KAN-255)', () => {
     );
   });
 });
+
+// M5 round 2 A. The pair grows only as its words need: hi at 24px grows, en keeps the 32px row.
+for (const [lang, root] of [
+  ['hi', 24],
+  ['en', 16],
+  ['en', 24],
+] as const) {
+  test(`Sync & Backup, ${lang} at a ${root}px root: the Off/On words sit inside the track, and the track is ${
+    lang === 'en' ? '32px' : 'as tall as they need'
+  }`, async ({ context, extensionId }) => {
+    const strings = localeStrings(lang);
+    await seedSessions(context, buildContainer());
+    await seedSettings(context, { language: lang, isAutoSync: false });
+    const page = await context.newPage();
+    await page.setViewportSize({ width: 790, height: 550 });
+    await page.goto(`chrome-extension://${extensionId}/index.html`);
+    await page.locator(`[aria-label="${strings.Settings}"]`).click();
+    await page
+      .locator(`button[aria-label="${strings['Sync & Backup']}"]`)
+      .click();
+    await expect(page.getByTestId('sync-status')).toBeVisible();
+    await page.evaluate((px) => {
+      document.documentElement.style.fontSize = `${px}px`;
+    }, root);
+    const group = page.getByRole('group', {
+      name: strings['Auto Sync'],
+      exact: true,
+    });
+    for (const word of [strings.Off, strings.On]) {
+      const fit = await pairFit(group, word);
+      expect(fit.clearTop, `${word} top`).toBeGreaterThanOrEqual(0);
+      expect(fit.clearBottom, `${word} bottom`).toBeGreaterThanOrEqual(0);
+      if (lang === 'en') expect(fit.height).toBe(32);
+    }
+  });
+}

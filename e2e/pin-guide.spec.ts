@@ -17,6 +17,7 @@ import {
 } from './fixtures/onboarding';
 import { setPin, stubToolbarPin } from './fixtures/toolbarPin';
 import { expectReadable } from './fixtures/textContrast';
+import { finishFullRun } from './fixtures/run';
 
 // KAN-7 §4 on the real build. The rate prompt, due in most of these seeds, is
 // the barrier for a negative: it is decided after the guide, so its dialog
@@ -141,7 +142,7 @@ test('an existing user who never pinned sees it; with setup not started, nothing
   await expect(page.locator('dialog[open]')).toHaveCount(0);
 });
 
-test('with setup pending, Skip opens it: the control for the test above', async ({
+test('with setup pending, unpinned: setup opens first, and the guide when it closes', async ({
   context,
   extensionId,
 }) => {
@@ -151,11 +152,15 @@ test('with setup pending, Skip opens it: the control for the test above', async 
     setupState: 'pending',
   });
   const page = await openFullView(context, extensionId);
-  await guide(page).getByRole('button', { name: 'Skip', exact: true }).click();
-  await expect(
-    page.getByRole('dialog', { name: 'Make Tab Keeper yours', exact: true })
-  ).toBeVisible();
+  const setup = page.getByRole('dialog', {
+    name: 'Make Tab Keeper yours',
+    exact: true,
+  });
+  await expect(setup).toBeVisible();
   await expect(guide(page)).toHaveCount(0);
+  await setup.getByText('Skip setup', { exact: true }).click();
+  await expect(guide(page)).toBeVisible();
+  await expect(setup).toHaveCount(0);
 });
 
 test.describe('dismissals stick on this machine', () => {
@@ -184,7 +189,7 @@ test.describe('dismissals stick on this machine', () => {
     });
   }
 
-  test('a new install reaches it from Try the full view', async ({
+  test('a new install reaches it from Get started, after the run and setup', async ({
     context,
     extensionId,
   }) => {
@@ -194,11 +199,13 @@ test.describe('dismissals stick on this machine', () => {
       .getByRole('dialog', { name: 'Welcome to Tab Keeper', exact: true })
       .getByRole('button', { name: 'Get started', exact: true })
       .click();
-    await popup
-      .getByRole('dialog', { name: 'Try the full view', exact: true })
-      .getByRole('button', { name: 'Open full view', exact: true })
-      .click();
     const full = await waitForFullView(context);
+    await finishFullRun(full);
+    await expect(guide(full)).toHaveCount(0);
+    await full
+      .getByRole('dialog', { name: 'Make Tab Keeper yours', exact: true })
+      .getByText('Skip setup', { exact: true })
+      .click();
     await expect(guide(full)).toBeVisible();
   });
 });

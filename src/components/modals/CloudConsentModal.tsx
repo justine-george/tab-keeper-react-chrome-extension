@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
 
@@ -6,6 +6,7 @@ import { css } from '@emotion/react';
 
 import Icon from '../common/Icon';
 import TabKeeperMark from '../common/TabKeeperMark';
+import WelcomeHero from './WelcomeHero';
 import { useFontFamily } from '../../hooks/useFontFamily';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { AppDispatch, RootState } from '../../redux/store';
@@ -18,7 +19,8 @@ import {
   grantCloudConsent,
   setAutoSync,
 } from '../../redux/slices/settingsDataStateSlice';
-import { followWelcome } from '../../redux/firstOpenFollowUps';
+import { welcomeGetStarted, welcomeStayHere } from '../../redux/firstRun';
+import { clickShutter } from '../../redux/uiSound';
 import { PRIVACY_POLICY_LINK } from '../../utils/constants/common';
 import { DIALOG, ICON, TYPE } from '../../styles/scale';
 import { dialogButtonStyles } from './dialogButtons';
@@ -28,6 +30,7 @@ import {
   prefersReducedMotion,
   type Motion,
 } from './getStartedMotion';
+import { playWelcomeLoop, type HeroLoop } from './welcomeMotion';
 
 const TITLE_ID = 'cloud-consent-title';
 const BODY_ID = 'cloud-consent-body';
@@ -35,13 +38,14 @@ const BODY_ID = 'cloud-consent-body';
 /**
  * The cloud question (KAN-259), asked before anything is uploaded.
  *
- * 'welcome' is a fresh install and asks nothing (KAN-410): one line on what
- * Tab Keeper does, and Get started. Its opening already recorded the device
- * as local-only; sync comes later, through 'enable'. 'existing' is a user
- * whose sessions are already synced: the current state first, then what is
- * stored, then the question, then what turning it off does and does not do --
- * a preference, not a confession. 'enable' is the question asked when someone
- * reaches for sync without having said yes.
+ * 'welcome' is a fresh install and asks nothing (KAN-410): what Tab Keeper
+ * does, Get started into the full view, or Stay here into the popup run. Its
+ * opening already recorded the device as local-only; sync comes later,
+ * through 'enable'. 'existing' is a user whose sessions are already synced:
+ * the current state first, then what is stored, then the question, then what
+ * turning it off does and does not do -- a preference, not a confession.
+ * 'enable' is the question asked when someone reaches for sync without having
+ * said yes.
  *
  * The questions give two complete answers and no "OK" hiding a default.
  * Escape never grants: for an existing user it is Turn off sync (KAN-410), as
@@ -56,6 +60,13 @@ export const CloudConsentModal: React.FC = () => {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const getStartedRef = useRef<HTMLButtonElement>(null);
   const motion = useRef<Motion | null>(null);
+  const loop = useRef<HeroLoop | null>(null);
+  // Decided once: a still hero shows its end frame (reduced motion, or no Web Animations).
+  const [heroFrame] = useState<'start' | 'end'>(() =>
+    prefersReducedMotion() || typeof Element.prototype.animate !== 'function'
+      ? 'end'
+      : 'start'
+  );
   // Opens UNLIT, as the rate prompt does (KAN-243): the dialog itself takes
   // the focus (tabIndex -1), so Escape still works and the first Tab lands on
   // the first control, but no button wears a ring on open. A lit button on a
@@ -79,15 +90,18 @@ export const CloudConsentModal: React.FC = () => {
       dialog.showModal();
       dialog.focus();
     }
+    // Outside the open guard: StrictMode re-runs this with the dialog already open.
+    const hero = dialog?.querySelector<HTMLElement>(
+      '[data-hero-frame="start"]'
+    );
+    if (hero) loop.current = playWelcomeLoop(hero);
+    return () => loop.current?.cancel();
   }, [isOpen]);
 
   if (!isOpen) return null;
 
-  // KAN-7 §8. Only the welcome (a new install) chains to what follows it.
-  const close = (offerEnters = false) => {
-    dispatch(closeCloudConsentModal());
-    if (variant === 'welcome') void dispatch(followWelcome({ offerEnters }));
-  };
+  // 'enable' Not now and Escape only close: a re-ask leaves the earlier answer as it is.
+  const close = () => dispatch(closeCloudConsentModal());
   const decline = () => {
     dispatch(declineCloudConsent());
     close();
@@ -108,14 +122,11 @@ export const CloudConsentModal: React.FC = () => {
       void dispatch(syncNowWhenSignedIn());
     }
   };
-  // 'enable' is a re-ask from someone who declined or never answered: Not now
-  // leaves that as it is, rather than recording a fresh decline.
-  const dismiss = () => {
-    dispatch(closeCloudConsentModal());
-  };
   // The moment plays once; a press while it plays does nothing.
   const getStarted = () => {
     if (motion.current !== null) return;
+    loop.current?.finish();
+    loop.current = null;
     const dialog = dialogRef.current;
     const button = getStartedRef.current;
     if (
@@ -124,32 +135,35 @@ export const CloudConsentModal: React.FC = () => {
       prefersReducedMotion() ||
       !canAnimate(dialog)
     ) {
-      close();
+      // No beat is drawn, so the click sounds at the press.
+      dispatch(clickShutter());
+      void dispatch(welcomeGetStarted());
       return;
     }
     motion.current = playGetStarted({
       button,
-      shutter: dialog.querySelector('[data-mark-part="shutter"]'),
+      shutter: dialog.querySelector('[data-hero-part="shutter"]'),
       dialog,
+      onShutter: () => dispatch(clickShutter()),
     });
-    void motion.current.finished.then((completed) => {
+    // R12: cut short or not, Get started was chosen and completes.
+    void motion.current.finished.then(() => {
       motion.current = null;
-      if (completed) close(true);
+      void dispatch(welcomeGetStarted());
     });
   };
-  // Esc skips the moment: the welcome goes at once.
-  const leaveWelcome = () => {
-    motion.current?.cancel();
-    close();
+  // Esc is Stay here (§5); during Get started's beat either cuts the beat short, and Get started completes (R12).
+  const stayHere = () => {
+    if (motion.current !== null) {
+      motion.current.cancel();
+      return;
+    }
+    void dispatch(welcomeStayHere());
   };
   // Escape never uploads: existing declines (KAN-410), enable changes nothing,
-  // and the welcome has nothing left to answer, so Escape is Get started without the moment.
+  // and the welcome's Escape is Stay here.
   const handleCancel =
-    variant === 'welcome'
-      ? leaveWelcome
-      : variant === 'existing'
-        ? decline
-        : dismiss;
+    variant === 'welcome' ? stayHere : variant === 'existing' ? decline : close;
 
   const buttons = dialogButtonStyles(COLORS);
 
@@ -194,11 +208,21 @@ export const CloudConsentModal: React.FC = () => {
     line-height: 1.5;
     color: ${COLORS.LABEL_L1_COLOR};
   `;
-  // The welcome's one line sits where the others' fine print does, above the buttons.
-  const welcomeStyle = css`
+  // §5: the hint is smaller, in the fine print's style.
+  const hintStyle = css`
     margin: 0 0 20px 0;
+    font-size: ${TYPE.SECONDARY};
     line-height: 1.5;
     color: ${COLORS.LABEL_L1_COLOR};
+  `;
+  const welcomeActionsStyle = css`
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+  `;
+  const endStyle = css`
+    margin-left: auto;
   `;
   const questionStyle = css`
     margin: 0 0 12px 0;
@@ -252,16 +276,23 @@ export const CloudConsentModal: React.FC = () => {
             <TabKeeperMark size={ICON.DEFAULT} />
             {t('Welcome to Tab Keeper')}
           </h2>
-          <p id={BODY_ID} css={welcomeStyle}>
+          <WelcomeHero frame={heroFrame} />
+          <p id={BODY_ID} css={bodyStyle}>
             {t(
-              'Manage your open windows and tabs, and save them to bring back any time.'
+              'Save your open windows, close them, and bring them all back later.'
             )}
           </p>
-          <div css={actionsStyle}>
+          <p css={hintStyle}>
+            {t('Get started opens Tab Keeper in its own tab.')}
+          </p>
+          <div css={welcomeActionsStyle}>
+            <button type="button" css={buttons.link} onClick={stayHere}>
+              {t('Stay here')}
+            </button>
             <button
               ref={getStartedRef}
               type="button"
-              css={buttons.primary}
+              css={[buttons.filled, endStyle]}
               onClick={getStarted}
             >
               {t('Get started')}
@@ -282,7 +313,7 @@ export const CloudConsentModal: React.FC = () => {
             {policyLink}
           </p>
           <div css={actionsStyle}>
-            <button type="button" css={buttons.quiet} onClick={dismiss}>
+            <button type="button" css={buttons.quiet} onClick={close}>
               {t('Not now')}
             </button>
             <button type="button" css={buttons.primary} onClick={grant}>

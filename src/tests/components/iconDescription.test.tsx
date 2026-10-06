@@ -130,7 +130,7 @@ describe('the other controls with a tooltip follow the same rule', () => {
         value="a"
         onChange={noop}
         metrics={{
-          height: '32px',
+          minHeight: '32px',
           radius: '0px',
           knobRadius: '0px',
           slide: '0ms',

@@ -13,7 +13,6 @@ import { setPresentStartup } from './redux/slices/undoRedoSlice';
 import { useThemeColors } from './hooks/useThemeColors';
 import { useDocumentTheme } from './hooks/useDocumentTheme';
 import { useOtherPageChanges } from './hooks/useOtherPageChanges';
-import { useInterruptedTourCleanup } from './hooks/useInterruptedTourCleanup';
 import { useFullViewShowRequests } from './hooks/useFullViewShowRequests';
 import { useTabCloudReads } from './hooks/useTabCloudReads';
 import { useDocumentTitle } from './hooks/useDocumentTitle';
@@ -65,7 +64,6 @@ function App() {
   // KAN-279 D9. Another open page's write to the saved sessions or settings
   // reaches this one. Once, at the root, so there is one listener per page.
   useOtherPageChanges();
-  useInterruptedTourCleanup();
   useFullViewShowRequests();
 
   // KAN-279 D11. The tab view's own periodic/on-focus cloud read; a no-op in
@@ -185,7 +183,7 @@ function App() {
       requested === null ? dialogs : [fullViewShowEntry(requested, dispatch)];
     void openFirstDialog(
       entries,
-      () => reduxStore.getState().globalState.hasTourRunHere
+      () => reduxStore.getState().globalState.hasRunShownHere
     ).then((opened) => {
       document.documentElement.dataset.firstOpen = opened ?? 'none';
     });

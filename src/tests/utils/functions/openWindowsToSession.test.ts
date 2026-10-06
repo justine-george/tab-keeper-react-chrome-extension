@@ -1,8 +1,13 @@
-import { describe, expect, test } from 'vitest';
+import { afterEach, describe, expect, test } from 'vitest';
 
-import { openWindowsToSession } from '../../../utils/functions/openWindowsToSession';
+import {
+  openWindowsToSession,
+  suggestTitleForWindow,
+} from '../../../utils/functions/openWindowsToSession';
 import type { OpenTab, OpenWindow } from '../../../utils/functions/openNow';
 import { getStringDate } from '../../../utils/functions/local';
+import { setupChromeFake } from '../../setup/chrome.fake';
+import { buildChromeTab } from '../../fixtures/chromeTab';
 
 // KAN-280 O13. Open now's snapshot as a saved session. Pure, so the windows
 // are written out as the pane holds them rather than read from the fake.
@@ -202,5 +207,52 @@ describe('openWindowsToSession (KAN-280 O13)', () => {
     );
 
     expect(session.windows[0].tabs[0].title).toBe('https://untitled.test/');
+  });
+});
+
+describe('suggestTitleForWindow skips the store and the New Tab page (§8)', () => {
+  const STORE = {
+    url: 'https://chromewebstore.google.com/detail/tab-keeper/abc',
+    title: 'Tab Keeper - Chrome Web Store',
+  };
+  const GMAIL = {
+    url: 'https://mail.google.com/mail/u/0/',
+    title: 'Inbox – Gmail',
+  };
+  const NEW_TAB = { url: 'chrome://newtab/', title: 'New Tab' };
+
+  let handle: ReturnType<typeof setupChromeFake> | undefined;
+  afterEach(() => {
+    handle?.restore();
+    handle = undefined;
+  });
+
+  const nameOf = async (
+    tabs: { url: string; title: string; lastAccessed: number }[]
+  ) => {
+    const seeded = tabs.map((tab, i) =>
+      buildChromeTab({ id: i + 1, windowId: 7, ...tab })
+    );
+    handle = setupChromeFake({
+      tabs: seeded,
+      windows: [{ id: 7, tabs: seeded }],
+    });
+    return suggestTitleForWindow(7, 'New Tab Group');
+  };
+
+  test('the store most recent, Gmail behind it: the Gmail title', async () => {
+    expect(
+      await nameOf([
+        { ...GMAIL, lastAccessed: 2 },
+        { ...STORE, lastAccessed: 3 },
+      ])
+    ).toBe('Inbox – Gmail');
+  });
+
+  test.each([
+    ['the store', STORE],
+    ['a New Tab', NEW_TAB],
+  ])('only %s: the fallback', async (_name, only) => {
+    expect(await nameOf([{ ...only, lastAccessed: 3 }])).toBe('New Tab Group');
   });
 });

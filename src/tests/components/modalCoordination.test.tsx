@@ -36,7 +36,9 @@ vi.mock('../../utils/functions/reviewAsk', async (importOriginal) => {
 });
 
 import App from '../../App';
-import { leavePinGuide } from '../../redux/firstOpenFollowUps';
+import { RUN_FINISHED_SETTINGS } from '../fixtures/firstRunFixture';
+import { newRun } from '../../utils/functions/firstRun';
+import { leaveSetup } from '../../redux/firstOpenFollowUps';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { buildContainer, buildSession } from '../fixtures/sessionFixture';
 import type { ChromeSeed } from '../setup/chrome.fake';
@@ -81,6 +83,7 @@ describe('modal coordination on popup open', () => {
         // KAN-259: a user who has answered the cloud question, or it would
         // take the screen first and both of these would stand down.
         cloudConsent: 'granted',
+        ...RUN_FINISHED_SETTINGS,
       })
     );
 
@@ -107,6 +110,7 @@ describe('modal coordination on popup open', () => {
         lastValueMomentTime: Date.now() - 60 * 60 * 1000,
         isNeverAskAgainToRate: true,
         cloudConsent: 'granted',
+        ...RUN_FINISHED_SETTINGS,
       })
     );
 
@@ -191,72 +195,21 @@ const seedSettings =
 
 const RATE_DUE = {
   cloudConsent: 'granted' as const,
+  ...RUN_FINISHED_SETTINGS,
   extensionInstalledTime: Date.now() - 2 * DAY,
   lastValueMomentTime: Date.now() - 60 * 60 * 1000,
 };
 
-describe('Try the full view in the order (KAN-7 §3)', () => {
-  test('the welcome closing offers the full view, setup already pending', async () => {
-    const { store } = await renderWithProviders(<App />);
+describe('after the cloud question (KAN-7 §3)', () => {
+  // The queue's barrier, then a macrotask: whatever the answer starts has landed.
+  const settled = async () => {
     await waitFor(() =>
-      expect(store.getState().globalState.isCloudConsentModalOpen).toBe(true)
+      expect(document.documentElement.dataset.firstOpen).toBe('cloudConsent')
     );
+    await act(() => new Promise<void>((done) => setTimeout(done, 0)));
+  };
 
-    await userEvent.click(screen.getByRole('button', { name: 'Get started' }));
-
-    expect(store.getState().globalState.isFullViewOfferOpen).toBe(true);
-    expect(store.getState().settingsDataState.setupState).toBe('pending');
-  });
-
-  test('a popup closed before the answer asks again, ahead of the rate prompt', async () => {
-    const { store } = await renderWithProviders(<App />, {
-      seedStore: seedSettings({ ...RATE_DUE, setupState: 'pending' }),
-    });
-    await waitFor(() =>
-      expect(store.getState().globalState.isFullViewOfferOpen).toBe(true)
-    );
-    expect(store.getState().globalState.isRateAndReviewModalOpen).toBe(false);
-  });
-
-  test.each([
-    ['answered', { isFullViewOfferAnswered: true }],
-    ['the full view opened since KAN-7', { hasOpenedFullView: true }],
-    ['the full view used before KAN-7', { openNowWidth: 500 }],
-  ])(
-    'never once %s; the rate prompt gets the open instead',
-    async (_name, change) => {
-      const { store } = await renderWithProviders(<App />, {
-        seedStore: seedSettings({
-          ...RATE_DUE,
-          setupState: 'pending',
-          ...change,
-        }),
-      });
-      // CONTROL that the queue ran: the next entry opened.
-      await waitFor(() =>
-        expect(store.getState().globalState.isRateAndReviewModalOpen).toBe(true)
-      );
-      expect(store.getState().globalState.isFullViewOfferOpen).toBe(false);
-    }
-  );
-
-  test('never in the full view, which marks itself opened', async () => {
-    history.replaceState(null, '', '?view=tab');
-    try {
-      const { store } = await renderWithProviders(<App />, {
-        seedStore: seedSettings({ ...RATE_DUE, setupState: 'pending' }),
-      });
-      await waitFor(() =>
-        expect(store.getState().globalState.isSetupOpen).toBe(true)
-      );
-      expect(store.getState().globalState.isFullViewOfferOpen).toBe(false);
-      expect(store.getState().settingsDataState.hasOpenedFullView).toBe(true);
-    } finally {
-      history.replaceState(null, '', '?');
-    }
-  });
-
-  test('an existing user’s cloud question is not followed by the offer', async () => {
+  test('an existing user’s cloud question is followed by no run', async () => {
     const { store } = await renderWithProviders(<App />, {
       seedStore: seedSettings({
         cloudConsent: '',
@@ -270,9 +223,22 @@ describe('Try the full view in the order (KAN-7 §3)', () => {
     );
 
     await userEvent.click(screen.getByRole('button', { name: 'Keep sync on' }));
+    await settled();
 
-    expect(store.getState().globalState.isFullViewOfferOpen).toBe(false);
+    expect(store.getState().settingsDataState.firstRun).toBeNull();
     expect(store.getState().settingsDataState.setupState).toBe('none');
+  });
+
+  test('CONTROL: the same check sees the run the welcome’s Stay here starts', async () => {
+    const { store } = await renderWithProviders(<App />);
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Stay here' })
+    );
+    await settled();
+
+    expect(store.getState().settingsDataState.firstRun).toEqual(
+      newRun('popup', 1)
+    );
   });
 });
 
@@ -329,23 +295,6 @@ describe('the pin guide in the order (KAN-7 §4)', () => {
     );
     expect(store.getState().globalState.isPinGuideOpen).toBe(false);
   });
-
-  test('a welcome answered in the full view goes to the guide, not the offer', async () => {
-    history.replaceState(null, '', '?view=tab');
-    const { store } = await renderWithProviders(<App />, {
-      seed: { action: { isOnToolbar: false } },
-    });
-    await waitFor(() =>
-      expect(store.getState().globalState.isCloudConsentModalOpen).toBe(true)
-    );
-    await userEvent.click(screen.getByRole('button', { name: 'Get started' }));
-
-    await waitFor(() =>
-      expect(store.getState().globalState.isPinGuideOpen).toBe(true)
-    );
-    expect(store.getState().globalState.isFullViewOfferOpen).toBe(false);
-    expect(store.getState().settingsDataState.setupState).toBe('pending');
-  });
 });
 
 describe('setup in the order (KAN-7 §5)', () => {
@@ -373,20 +322,20 @@ describe('setup in the order (KAN-7 §5)', () => {
     expect(store.getState().globalState.isRateAndReviewModalOpen).toBe(false);
   });
 
-  test('unpinned: the guide first, and setup when it closes', async () => {
+  test('pending and unpinned: setup first, and the guide when setup closes', async () => {
     const { store } = await full(
       { isOnToolbar: false },
       { setupState: 'pending' }
     );
     await waitFor(() =>
-      expect(store.getState().globalState.isPinGuideOpen).toBe(true)
+      expect(store.getState().globalState.isSetupOpen).toBe(true)
     );
-    expect(store.getState().globalState.isSetupOpen).toBe(false);
+    expect(store.getState().globalState.isPinGuideOpen).toBe(false);
 
-    act(() => {
-      store.dispatch(leavePinGuide());
+    await act(async () => {
+      await store.dispatch(leaveSetup());
     });
-    expect(store.getState().globalState.isSetupOpen).toBe(true);
+    expect(store.getState().globalState.isPinGuideOpen).toBe(true);
   });
 
   // §"Error and edge cases": no getUserSettings means no guide, and setup still shows.
@@ -406,31 +355,12 @@ describe('setup in the order (KAN-7 §5)', () => {
     expect(store.getState().globalState.isSetupOpen).toBe(false);
   });
 
-  // The welcome itself shown in the full view: its close is what chains to setup.
-  test('the welcome answered in the full view on a pinned machine: setup opens next', async () => {
-    history.replaceState(null, '', '?view=tab');
-    const { store } = await renderWithProviders(<App />, {
-      seed: { action: { isOnToolbar: true } },
-    });
-    await waitFor(() =>
-      expect(store.getState().globalState.isCloudConsentModalOpen).toBe(true)
-    );
-
-    await userEvent.click(screen.getByRole('button', { name: 'Get started' }));
-
-    await waitFor(() =>
-      expect(store.getState().globalState.isSetupOpen).toBe(true)
-    );
-    expect(store.getState().globalState.isPinGuideOpen).toBe(false);
-  });
-
   test('never in the popup', async () => {
     const { store } = await renderWithProviders(<App />, {
       seed: { action: { isOnToolbar: true } },
       seedStore: seedSettings({
         ...RATE_DUE,
         setupState: 'pending',
-        isFullViewOfferAnswered: true,
       }),
     });
     await waitFor(() =>

@@ -41,3 +41,16 @@ export const rowsBox: AnchorBox = (element) => {
     ? rows
     : intersectBox(rows, clientBox(scroller));
 };
+
+// Step 2: Open now's search row, its resize edge and fold button, as drawn; null when none is drawn.
+export const findAndFitBox: AnchorBox = (element) =>
+  element.matches('[data-open-now-search]')
+    ? unionBox(
+        [
+          element,
+          ...document.querySelectorAll(
+            '[data-resize-grip], [data-pane="open-now"] [data-tour-anchor="fold"]'
+          ),
+        ].map((part) => fromRect(part.getBoundingClientRect()))
+      )
+    : ownBox(element);

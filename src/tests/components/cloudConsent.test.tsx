@@ -35,6 +35,10 @@ import App from '../../App';
 import { CloudConsentModal } from '../../components/modals/CloudConsentModal';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { buildContainer, buildSession } from '../fixtures/sessionFixture';
+import { RUN_FINISHED_SETTINGS } from '../fixtures/firstRunFixture';
+import { installFakeLocks, type FakeLocks } from '../setup/fakeLocks';
+import { newRun } from '../../utils/functions/firstRun';
+import { RUN_LOCK } from '../../utils/functions/tourLock';
 import {
   openCloudConsentModal,
   setIsDirty,
@@ -78,11 +82,17 @@ const seedSettings =
 
 const DAY = 24 * 60 * 60 * 1000;
 
+// The welcome's opening holds the run's lock.
+let locks: FakeLocks;
 beforeEach(() => {
   localStorage.clear();
   mocks.ensureCloudSession.mockReset();
+  locks = installFakeLocks();
 });
-afterEach(() => localStorage.clear());
+afterEach(() => {
+  locks.uninstall();
+  localStorage.clear();
+});
 
 const consentModal = () =>
   screen.queryByRole('dialog', {
@@ -157,6 +167,7 @@ describe('who is asked, and which screen (KAN-259)', () => {
     const seed = seedSettings({
       extensionInstalledTime: Date.now() - 30 * DAY,
       cloudConsent: 'granted',
+      ...RUN_FINISHED_SETTINGS,
     });
     const { store } = await renderWithProviders(<App />, { seedStore: seed });
     await waitFor(() => expect(mocks.ensureCloudSession).toHaveBeenCalled());
@@ -235,7 +246,7 @@ describe('the welcome (KAN-410)', () => {
     return { ...rendered, dialog };
   };
 
-  test('the brand mark, one line and Get started; no sync wording', async () => {
+  test('the mark and title, the still hero, one line, the hint, Stay here and Get started; no sync wording', async () => {
     const { dialog } = await freshWelcome();
     const title = within(dialog).getByRole('heading', { level: 2 });
     expect(title).toHaveTextContent(/^Welcome to Tab Keeper$/);
@@ -244,14 +255,21 @@ describe('the welcome (KAN-410)', () => {
       '0 0 128 128'
     );
     expect(title.querySelector('.material-symbols-outlined')).toBeNull();
+    expect(dialog.querySelector('[data-hero-frame]')).toHaveAttribute(
+      'aria-hidden',
+      'true'
+    );
     expect(dialog).toHaveAccessibleDescription(
-      'Manage your open windows and tabs, and save them to bring back any time.'
+      'Save your open windows, close them, and bring them all back later.'
+    );
+    expect(dialog).toHaveTextContent(
+      'Get started opens Tab Keeper in its own tab.'
     );
     expect(
       within(dialog)
         .getAllByRole('button')
         .map((b) => b.textContent)
-    ).toEqual(['Get started']);
+    ).toEqual(['Stay here', 'Get started']);
     expect(within(dialog).queryByRole('link')).toBeNull();
     expect(dialog.textContent).not.toMatch(/sync|privacy|device|cloud/i);
     // Opens unlit (KAN-243).
@@ -276,30 +294,73 @@ describe('the welcome (KAN-410)', () => {
     expect(mocks.ensureCloudSession).not.toHaveBeenCalled();
   });
 
-  test('Get started closes it and offers the full view', async () => {
+  test('opening it records the popup run at the welcome, counted once (Q7)', async () => {
+    const { store } = await freshWelcome();
+    await waitFor(() =>
+      expect(store.getState().settingsDataState.firstRun).toEqual(
+        newRun('popup', 0)
+      )
+    );
+    expect(store.getState().globalState.isRunHere).toBe(true);
+  });
+
+  test('Stay here closes it and the popup run starts at its save card', async () => {
     const user = userEvent.setup();
     const { store, dialog } = await freshWelcome();
-    await user.click(
-      within(dialog).getByRole('button', { name: 'Get started' })
-    );
+    await user.click(within(dialog).getByRole('button', { name: 'Stay here' }));
     expect(
       screen.queryByRole('dialog', { name: 'Welcome to Tab Keeper' })
     ).toBeNull();
-    expect(store.getState().globalState.isFullViewOfferOpen).toBe(true);
+    await waitFor(() =>
+      expect(store.getState().settingsDataState.firstRun).toEqual(
+        newRun('popup', 1)
+      )
+    );
   });
 
-  test('Esc closes it the same way, and is consumed (KAN-403)', async () => {
+  test('Esc is Stay here, and is consumed (KAN-403, KAN-426)', async () => {
     const { store, dialog } = await freshWelcome();
     const notPrevented = fireEvent(
       dialog,
       new Event('cancel', { bubbles: false, cancelable: true })
     );
     expect(notPrevented).toBe(false);
-    expect(store.getState().globalState.isCloudConsentModalOpen).toBe(false);
-    expect(store.getState().settingsDataState.cloudConsent).toBe('declined');
     await waitFor(() =>
-      expect(store.getState().globalState.isFullViewOfferOpen).toBe(true)
+      expect(store.getState().settingsDataState.firstRun).toEqual(
+        newRun('popup', 1)
+      )
     );
+    expect(store.getState().settingsDataState.cloudConsent).toBe('declined');
+  });
+
+  test('Get started lets the lock go, then records the full-view run at step 1 (no Hello), then asks for the full view (Review Focus 1)', async () => {
+    const user = userEvent.setup();
+    const { store, dialog, chrome } = await freshWelcome();
+    await waitFor(() => expect(locks.held.has(RUN_LOCK)).toBe(true));
+    let heldAtRecord: boolean | null = null;
+    store.subscribe(() => {
+      if (
+        heldAtRecord === null &&
+        store.getState().settingsDataState.firstRun?.view === 'full'
+      ) {
+        heldAtRecord = locks.held.has(RUN_LOCK);
+      }
+    });
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Get started' })
+    );
+    await waitFor(() =>
+      expect(store.getState().settingsDataState.firstRun).toEqual(
+        newRun('full', 1)
+      )
+    );
+    expect(heldAtRecord).toBe(false);
+    await waitFor(() =>
+      expect(chrome.sentMessages).toContainEqual(
+        expect.objectContaining({ type: 'openInTab' })
+      )
+    );
+    expect(store.getState().globalState.isRunHere).toBe(false);
   });
 
   test('after it, the sync button asks the full question first, and only its Sync starts Firebase', async () => {
@@ -308,13 +369,11 @@ describe('the welcome (KAN-410)', () => {
       s.dispatch(setSignedIn());
       s.dispatch(setUserId('uuid-1'));
     });
-    await user.click(
-      within(dialog).getByRole('button', { name: 'Get started' })
-    );
-    await user.click(
-      within(
-        screen.getByRole('dialog', { name: 'Try the full view' })
-      ).getByRole('button', { name: 'Not now' })
+    await user.click(within(dialog).getByRole('button', { name: 'Stay here' }));
+    await waitFor(() =>
+      expect(store.getState().settingsDataState.firstRun).toEqual(
+        newRun('popup', 1)
+      )
     );
 
     await user.click(screen.getByRole('button', { name: 'Sync now' }));
@@ -355,6 +414,7 @@ describe('it is never a surprise (KAN-259)', () => {
       extensionInstalledTime: Date.now() - 30 * DAY,
       cloudConsent: 'declined',
       isAutoSync: false,
+      ...RUN_FINISHED_SETTINGS,
     });
     const { store } = await renderWithProviders(<App />, {
       seedStore: (s) => {
@@ -385,6 +445,7 @@ describe('it is never a surprise (KAN-259)', () => {
       extensionInstalledTime: Date.now() - 30 * DAY,
       cloudConsent: 'declined',
       isAutoSync: false,
+      ...RUN_FINISHED_SETTINGS,
     });
     const { store } = await renderWithProviders(<App />, {
       seedStore: (s) => {

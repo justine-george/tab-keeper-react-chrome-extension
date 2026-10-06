@@ -14,7 +14,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
  */
 export type PopoverAxis = 'vertical' | 'horizontal';
 
-// KAN-413. A press on the tour's coach mark is inside: its Finish must not close the menu it points at.
+// A press on the run's card counts as inside: its buttons must not close a menu open under it.
 const PRESS_INSIDE = '[data-coach-mark]';
 
 export function usePopoverList({
@@ -34,8 +34,6 @@ export function usePopoverList({
   // returns focus without the ring (KAN-405 2A). A key on the trigger, or a
   // key-activated click (detail 0), means the keyboard.
   const pointerOpened = useRef(false);
-  // KAN-413. An open asked for from outside leaves the focus where it was, once.
-  const focusOnOpen = useRef(true);
   useEffect(() => {
     const el = triggerRef.current;
     if (el === null) return;
@@ -81,17 +79,10 @@ export function usePopoverList({
     [setOpen]
   );
 
-  const openWithoutFocus = useCallback(() => {
-    if (isOpen) return;
-    focusOnOpen.current = false;
-    setOpen(true);
-  }, [isOpen, setOpen]);
-
   // Opening moves focus into the list, which is what makes it operable
   // without a pointer at all.
   useEffect(() => {
-    if (isOpen && focusOnOpen.current) itemRefs.current[0]?.focus();
-    focusOnOpen.current = true;
+    if (isOpen) itemRefs.current[0]?.focus();
   }, [isOpen]);
 
   useEffect(() => {
@@ -150,7 +141,6 @@ export function usePopoverList({
     isOpen,
     setOpen,
     close,
-    openWithoutFocus,
     wrapperRef,
     triggerRef,
     registerItem,

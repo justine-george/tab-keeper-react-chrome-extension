@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, { useLayoutEffect, useRef, useState } from 'react';
 
 import { css } from '@emotion/react';
 
@@ -86,8 +86,6 @@ interface OverflowMenuProps {
    * leaves a dead strip above and below it inside the group.
    */
   triggerStyle?: string;
-  /** KAN-413. Turning true opens the menu without moving focus; turning false closes it. */
-  openWhen?: boolean;
 }
 
 /**
@@ -129,7 +127,6 @@ const OverflowMenu: React.FC<OverflowMenuProps> = ({
   onOpenChange,
   align = 'end',
   triggerStyle,
-  openWhen,
 }) => {
   const COLORS = useThemeColors();
   const FONT_FAMILY = useFontFamily();
@@ -138,7 +135,6 @@ const OverflowMenu: React.FC<OverflowMenuProps> = ({
     isOpen,
     setOpen,
     close,
-    openWithoutFocus,
     wrapperRef,
     triggerRef,
     registerItem,
@@ -148,15 +144,6 @@ const OverflowMenu: React.FC<OverflowMenuProps> = ({
     axis: 'vertical',
     onOpenChange,
   });
-
-  // Unset at mount, so a remount at step 5 opens it; then only a change acts.
-  const lastOpenWhen = useRef<boolean | undefined>(undefined);
-  useEffect(() => {
-    if (openWhen === lastOpenWhen.current) return;
-    lastOpenWhen.current = openWhen;
-    if (openWhen === true) openWithoutFocus();
-    if (openWhen === false) close(false);
-  }, [openWhen, openWithoutFocus, close]);
 
   // A menu whose items report a current selection is a radio group, not a list
   // of commands. Derived rather than a separate prop so the two cannot disagree.

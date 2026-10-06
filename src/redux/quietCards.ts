@@ -12,11 +12,11 @@ export async function showWhenQuiet(
   const root = document.documentElement;
   root.dataset.firstOpenCard = 'waiting';
   const outcome = await waitForQuiet(CARD_DELAY_MS);
-  // A dialog or a tour can arrive with no gesture here: a Help request from the popup.
+  // A dialog or the run can arrive with no gesture here: a Help request from the popup.
   const isClear =
     outcome === 'quiet' &&
     document.querySelector('dialog:modal') === null &&
-    !getState().globalState.hasTourRunHere;
+    !getState().globalState.hasRunShownHere;
   if (isClear) open();
   const state: CardState = isClear ? 'shown' : 'skipped';
   root.dataset.firstOpenCard = state;

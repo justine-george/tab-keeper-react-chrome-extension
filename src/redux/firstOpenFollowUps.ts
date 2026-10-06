@@ -1,52 +1,40 @@
 import type { ThunkAction, UnknownAction } from '@reduxjs/toolkit';
 
 import type { RootState } from './store';
+import { closeSetup, openPinGuide, openSetup } from './slices/globalStateSlice';
+import { finishSetup } from './slices/settingsDataStateSlice';
 import {
-  closePinGuide,
-  openFullViewOffer,
-  openPinGuide,
-  openSetup,
-} from './slices/globalStateSlice';
-import {
-  shouldOfferFullView,
   shouldShowPinGuide,
   shouldShowSetup,
 } from '../utils/functions/onboarding';
 import { readToolbarPin } from '../utils/functions/toolbarPin';
-import { isTabView } from '../utils/functions/viewMode';
 
 type Thunk<R> = ThunkAction<R, RootState, unknown, UnknownAction>;
 
-// KAN-7 §8. The full view's first-open chain: the pin guide when it applies,
-// else setup when pending.
-export const followInFullView =
+// §3. The pin guide, only while unpinned here and not dismissed.
+export const offerPinGuide =
   (): Thunk<Promise<void>> => async (dispatch, getState) => {
     const pin = await readToolbarPin();
     if (shouldShowPinGuide(getState().settingsDataState, pin)) {
       dispatch(openPinGuide());
-      return;
-    }
-    if (shouldShowSetup(getState().settingsDataState)) dispatch(openSetup());
-  };
-
-// KAN-7 §8. The welcome (a new install) closed; its opening set setup pending.
-// The popup offers the full view; the full view runs its own chain.
-export const followWelcome =
-  (
-    { offerEnters }: { offerEnters: boolean } = { offerEnters: false }
-  ): Thunk<Promise<void>> =>
-  async (dispatch, getState) => {
-    if (isTabView()) {
-      await dispatch(followInFullView());
-      return;
-    }
-    if (shouldOfferFullView(getState().settingsDataState)) {
-      dispatch(openFullViewOffer({ enters: offerEnters }));
     }
   };
 
-// KAN-7 §4. The guide closing, by a pin, Skip, ✕ or Esc; setup follows when pending.
-export const leavePinGuide = (): Thunk<void> => (dispatch, getState) => {
-  dispatch(closePinGuide());
-  if (shouldShowSetup(getState().settingsDataState)) dispatch(openSetup());
-};
+// §3. Setup when pending; else straight to the pin guide.
+export const followWithSetup =
+  (): Thunk<Promise<void>> => async (dispatch, getState) => {
+    if (shouldShowSetup(getState().settingsDataState)) {
+      dispatch(openSetup());
+      return;
+    }
+    await dispatch(offerPinGuide());
+  };
+
+// §3. Done, Skip setup, ✕ or Esc ends setup for good; the pin guide follows unless Help opened it.
+export const leaveSetup =
+  (): Thunk<Promise<void>> => async (dispatch, getState) => {
+    const leadsToPinGuide = getState().globalState.doesSetupLeadToPinGuide;
+    dispatch(finishSetup());
+    dispatch(closeSetup());
+    if (leadsToPinGuide) await dispatch(offerPinGuide());
+  };

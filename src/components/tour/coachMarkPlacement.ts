@@ -15,18 +15,35 @@ export interface Size {
 }
 
 // notch: along the facing edge, from the mark's top (left, right) or left (below).
-export interface CoachPlacement {
+export interface AnchoredPlacement {
   side: CoachSide;
   left: number;
   top: number;
   notch: number;
 }
 
+// A card with no anchor: at the top of the page, with no notch.
+export interface FreePlacement {
+  side: 'free';
+  left: number;
+  top: number;
+}
+
+export type CoachPlacement = AnchoredPlacement | FreePlacement;
+
 // bright: the box left undimmed, the anchor's own unless the step lights more.
-export interface CoachFrame {
-  anchor: Box;
-  bright: Box;
-  placement: CoachPlacement;
+export type CoachFrame =
+  | {
+      kind: 'anchored';
+      anchor: Box;
+      bright: Box;
+      placement: AnchoredPlacement;
+    }
+  | { kind: 'free'; placement: FreePlacement };
+
+export interface CoachAction {
+  label: string;
+  onPress: () => void;
 }
 
 // Gaps measured off the picked mocks; the ring sits RING_INSET outside its anchor.
@@ -39,6 +56,8 @@ export const COACH = {
   BELOW_AIM: 46,
   POPUP_LEFT: 40,
   RING_INSET: 4,
+  FREE_LEFT: 40,
+  FREE_TOP: 20,
 } as const;
 
 const clamp = (value: number, low: number, high: number): number =>
@@ -69,7 +88,7 @@ function settle(
   anchor: Box,
   mark: Size,
   viewport: Size
-): CoachPlacement {
+): AnchoredPlacement {
   const left = clamp(
     raw.left,
     COACH.GUTTER,
@@ -102,7 +121,7 @@ export function placeBeside(
   viewport: Size,
   sides: readonly CoachSide[],
   bright: Box = anchor
-): CoachPlacement {
+): AnchoredPlacement {
   const fits = (side: CoachSide): boolean => {
     const raw = unclamped(side, anchor, mark, bright);
     return side === 'below'
@@ -125,12 +144,25 @@ export function placeInPopupPane(
   anchor: Box,
   mark: Size,
   viewport: Size
-): CoachPlacement {
+): AnchoredPlacement {
   const raw = {
     left: Math.min(COACH.POPUP_LEFT, anchor.left - COACH.GAP_SIDE - mark.width),
     top: aimY(anchor) - mark.height / 2,
   };
   return settle('left', raw, anchor, mark, viewport);
+}
+
+// Step 8 has no anchor: the card sits at the top of the page, under the tab strip.
+export function placeFree(mark: Size, viewport: Size): FreePlacement {
+  return {
+    side: 'free',
+    left: clamp(
+      COACH.FREE_LEFT,
+      COACH.GUTTER,
+      viewport.width - mark.width - COACH.GUTTER
+    ),
+    top: COACH.FREE_TOP,
+  };
 }
 
 // The smallest box holding every drawn box; null when none is drawn.
@@ -184,6 +216,13 @@ const sameBox = (a: Box, b: Box): boolean =>
 
 export function sameFrame(a: CoachFrame | null, b: CoachFrame | null): boolean {
   if (a === null || b === null) return a === b;
+  if (a.kind === 'free' || b.kind === 'free') {
+    return (
+      a.kind === b.kind &&
+      a.placement.left === b.placement.left &&
+      a.placement.top === b.placement.top
+    );
+  }
   return (
     sameBox(a.anchor, b.anchor) &&
     sameBox(a.bright, b.bright) &&

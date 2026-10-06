@@ -4,6 +4,7 @@ import {
   clipPathWithHole,
   intersectBox,
   placeBeside,
+  placeFree,
   placeInPopupPane,
   ringBox,
   sameFrame,
@@ -265,6 +266,7 @@ describe('clipPathWithHole', () => {
 
 describe('sameFrame', () => {
   const frame = {
+    kind: 'anchored' as const,
     anchor: { left: 1, top: 2, width: 3, height: 4 },
     bright: { left: 1, top: 2, width: 3, height: 4 },
     placement: { side: 'below' as const, left: 5, top: 6, notch: 24 },
@@ -284,5 +286,46 @@ describe('sameFrame', () => {
       sameFrame(frame, { ...frame, bright: { ...frame.bright, height: 9 } })
     ).toBe(false);
     expect(sameFrame(frame, null)).toBe(false);
+  });
+  const free = {
+    kind: 'free' as const,
+    placement: { side: 'free' as const, left: 40, top: 20 },
+  };
+  test('free frames: same place is the same, a moved one or an anchored one is not', () => {
+    expect(sameFrame(free, { ...free })).toBe(true);
+    expect(
+      sameFrame(free, { ...free, placement: { ...free.placement, left: 41 } })
+    ).toBe(false);
+    expect(
+      sameFrame(free, { ...free, placement: { ...free.placement, top: 21 } })
+    ).toBe(false);
+    const sameSpot = {
+      ...frame,
+      placement: { ...frame.placement, left: 40, top: 20 },
+    };
+    expect(sameFrame(free, sameSpot)).toBe(false);
+    expect(sameFrame(sameSpot, free)).toBe(false);
+    expect(sameFrame(free, frame)).toBe(false);
+    expect(sameFrame(frame, free)).toBe(false);
+    expect(sameFrame(free, null)).toBe(false);
+  });
+});
+
+describe('placeFree', () => {
+  test('40px in and 20px down, with no notch', () => {
+    expect(placeFree(POPUP_MARK, POPUP_VIEW)).toEqual({
+      side: 'free',
+      left: 40,
+      top: 20,
+    });
+  });
+
+  test('a narrow window keeps the card inside its gutter', () => {
+    expect(
+      placeFree({ width: 300, height: 150 }, { width: 320, height: 500 })
+    ).toMatchObject({ left: 12, top: 20 });
+    expect(
+      placeFree({ width: 400, height: 150 }, { width: 320, height: 500 })
+    ).toMatchObject({ left: 8 });
   });
 });

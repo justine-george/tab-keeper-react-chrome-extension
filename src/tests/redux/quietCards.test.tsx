@@ -5,7 +5,7 @@ import { showWhenQuiet } from '../../redux/quietCards';
 import { CARD_DELAY_MS } from '../../utils/constants/cardDelay';
 import {
   openFullViewCallout,
-  tourStartedHere,
+  runShownHere,
 } from '../../redux/slices/globalStateSlice';
 
 // The card's open waits for quiet; html[data-first-open-card] reports each stage.
@@ -65,13 +65,13 @@ describe('showWhenQuiet', () => {
     expect(store.getState().globalState.isFullViewCalloutOpen).toBe(false);
   });
 
-  test('a tour that started during the wait skips it', async () => {
+  test('a run that showed during the wait skips it', async () => {
     const { store } = makeTestStore();
     const shown = showWhenQuiet(
       () => store.dispatch(openFullViewCallout()),
       store.getState
     );
-    store.dispatch(tourStartedHere('sample:x'));
+    store.dispatch(runShownHere());
     await vi.advanceTimersByTimeAsync(CARD_DELAY_MS);
     expect(await shown).toBe('skipped');
     expect(store.getState().globalState.isFullViewCalloutOpen).toBe(false);

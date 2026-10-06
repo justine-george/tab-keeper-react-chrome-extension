@@ -279,9 +279,7 @@ describe('the recorded moment', () => {
   });
 });
 
-// KAN-7. The sample is the user's first look at the product, not
-// something they saved or that proved a restore worked: it must not spend the
-// rate prompt (KAN-149) when the Start here card's own step 3 restores it.
+// KAN-7. The run's example session is no save of the user's: restoring it must not spend the rate prompt (KAN-149).
 describe('the sample session is no value moment', () => {
   const SAMPLE = `${SAMPLE_ID_PREFIX}abc`;
   const seed = (store: ReturnType<typeof makeTestStore>['store']) =>

@@ -30,11 +30,8 @@ import {
 import { useSavedSearch } from '../../../hooks/useSavedSearch';
 import { useIsOpenBlockedByTour } from '../../../hooks/useIsOpenBlockedByTour';
 import {
-  deleteSessionFromMenu,
-  selectTourHere,
-} from '../../../redux/sampleTour';
-import {
   addCurrWindowToTabGroup,
+  deleteTabContainer,
   openAllTabContainer,
   requestFocusTabContainer,
   updateTabGroupTitle,
@@ -123,15 +120,6 @@ export default function HeroContainerRight() {
   const renameCancelled = useRef(false);
   useNewFirstWindowReceiver(newWindowTargetRef, selectedTabGroup?.tabGroupId);
 
-  // KAN-413. The tour opens this menu at its last step on its own sample, and closes it when it ends.
-  const isTourMenuStep = useSelector((state: RootState) => {
-    const tour = selectTourHere(state);
-    return (
-      tour !== null &&
-      tour.step === 5 &&
-      tour.sampleId === state.tabContainerDataState.selectedTabGroupId
-    );
-  });
   // KAN-413. Open and Switch on the tour's own sample wait for it, dimmed as Undo is.
   const isOpenBlocked = useIsOpenBlockedByTour(selectedTabGroup?.tabGroupId);
 
@@ -528,7 +516,6 @@ export default function HeroContainerRight() {
             >
               <OverflowMenu
                 ariaLabel={t('More actions')}
-                openWhen={isTourMenuStep}
                 // The trigger sits near the START of the row, so the menu opens
                 // rightward, inside this pane. End-aligned, it crossed the pane
                 // divider and covered the session list.
@@ -595,7 +582,8 @@ export default function HeroContainerRight() {
                     label: t('Delete session'),
                     icon: 'delete',
                     danger: true,
-                    onSelect: () => dispatch(deleteSessionFromMenu(tabGroupId)),
+                    onSelect: () =>
+                      void dispatch(deleteTabContainer(tabGroupId)),
                   },
                 ]}
               />

@@ -15,6 +15,7 @@ import { addToast } from '../toastStack';
 import type { ToastItem } from '../toastStack';
 import { startToastTimer } from '../toastTimers';
 import { selectCategory, SettingsCategory } from './settingsCategoryStateSlice';
+import type { RunSaveCard } from '../../utils/functions/firstRun';
 import {
   mergeSessionsFromBackupInternal,
   replaceState,
@@ -123,16 +124,14 @@ export interface Global {
   isCloudConsentModalOpen: boolean;
   cloudConsentVariant: CloudConsentVariant;
   cloudConsentThen: CloudConsentThen | null;
-  // KAN-7 §3. "Try the full view". Session-only, like every dialog flag here.
-  isFullViewOfferOpen: boolean;
-  // The offer animates in only after Get started's moment.
-  fullViewOfferEnters: boolean;
   // KAN-7 §6. The callout under ⤢, popup only.
   isFullViewCalloutOpen: boolean;
   // KAN-7 §4. The pin guide, full view only.
   isPinGuideOpen: boolean;
   // KAN-7 §5. The setup, full view only.
   isSetupOpen: boolean;
+  // Whether closing setup goes on to the pin guide: not when Help opened it.
+  doesSetupLeadToPinGuide: boolean;
   // "the tabGroups permission is granted right now". Mirrors
   // chrome.permissions.contains(), re-read on every popup mount and updated by
   // the permission change listeners -- never persisted, because the user can
@@ -181,10 +180,14 @@ export interface Global {
   // beside Open now until the fold button is next pressed. Session-only, so
   // a new page opens as the stored setting says.
   isPeekingSavedSession: boolean;
-  // KAN-413. The sample this page runs the tour for; page-local, so a reload runs none.
-  tourSampleIdHere: string | null;
-  // KAN-413. Once a tour ran here, this open's first-open dialogs stand down.
-  hasTourRunHere: boolean;
+  // The run shows in this page, which holds its lock; a reload shows it only by resuming.
+  isRunHere: boolean;
+  // Once the run showed here, this open's first-open dialogs and quiet cards stand down.
+  hasRunShownHere: boolean;
+  // The save step's card in this page, decided when the step first starts here.
+  runSaveCard: RunSaveCard | null;
+  // The session whose tabs echo the run's first save, until the echo plays.
+  runSaveEcho: string | null;
 }
 
 // The windows folded shut in one session. `windowIds` may hold ids that the
@@ -280,19 +283,20 @@ export const initialState: Global = {
   isCloudConsentModalOpen: false,
   cloudConsentVariant: 'welcome',
   cloudConsentThen: null,
-  isFullViewOfferOpen: false,
-  fullViewOfferEnters: false,
   isFullViewCalloutOpen: false,
   isPinGuideOpen: false,
   isSetupOpen: false,
+  doesSetupLeadToPinGuide: true,
   hasTabGroupsPermission: false,
   hasSessionsPermission: false,
   collapsedWindows: null,
   syncsInFlight: 0,
   isSyncQueued: false,
   isPeekingSavedSession: false,
-  tourSampleIdHere: null,
-  hasTourRunHere: false,
+  isRunHere: false,
+  hasRunShownHere: false,
+  runSaveCard: null,
+  runSaveEcho: null,
 };
 
 // save data to Firestore if dirty, saves latest to localStorage at the end
@@ -1007,25 +1011,16 @@ export const globalStateSlice = createSlice({
       state.isPinGuideOpen = false;
     },
 
-    openSetup: (state) => {
+    openSetup: (
+      state,
+      action: PayloadAction<{ leadsToPinGuide: boolean } | undefined>
+    ) => {
       state.isSetupOpen = true;
+      state.doesSetupLeadToPinGuide = action.payload?.leadsToPinGuide ?? true;
     },
 
     closeSetup: (state) => {
       state.isSetupOpen = false;
-    },
-
-    openFullViewOffer: (
-      state,
-      action: PayloadAction<{ enters: boolean } | undefined>
-    ) => {
-      state.isFullViewOfferOpen = true;
-      state.fullViewOfferEnters = action.payload?.enters ?? false;
-    },
-
-    closeFullViewOffer: (state) => {
-      state.isFullViewOfferOpen = false;
-      state.fullViewOfferEnters = false;
     },
 
     openFullViewCallout: (state) => {
@@ -1217,13 +1212,23 @@ export const globalStateSlice = createSlice({
       state.isPeekingSavedSession = false;
     },
 
-    tourStartedHere: (state, action: PayloadAction<string>) => {
-      state.tourSampleIdHere = action.payload;
-      state.hasTourRunHere = true;
+    runShownHere: (state) => {
+      state.isRunHere = true;
+      state.hasRunShownHere = true;
     },
 
-    tourStoppedHere: (state) => {
-      state.tourSampleIdHere = null;
+    runStoppedHere: (state) => {
+      state.isRunHere = false;
+      state.runSaveCard = null;
+      state.runSaveEcho = null;
+    },
+
+    setRunSaveCard: (state, action: PayloadAction<RunSaveCard | null>) => {
+      state.runSaveCard = action.payload;
+    },
+
+    setRunSaveEcho: (state, action: PayloadAction<string | null>) => {
+      state.runSaveEcho = action.payload;
     },
   },
 
@@ -1334,12 +1339,10 @@ export const {
   cancelReplaceSessions,
   openCloudConsentModal,
   closeCloudConsentModal,
-  openFullViewOffer,
   openPinGuide,
   closePinGuide,
   openSetup,
   closeSetup,
-  closeFullViewOffer,
   openFullViewCallout,
   closeFullViewCallout,
   setSearchInputText,
@@ -1370,8 +1373,10 @@ export const {
   setAllWindowsCollapsed,
   peekSavedSession,
   endSavedSessionPeek,
-  tourStartedHere,
-  tourStoppedHere,
+  runShownHere,
+  runStoppedHere,
+  setRunSaveCard,
+  setRunSaveEcho,
 } = globalStateSlice.actions;
 
 export default globalStateSlice.reducer;

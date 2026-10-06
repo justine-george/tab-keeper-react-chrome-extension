@@ -3,6 +3,7 @@ import { css } from '@emotion/react';
 import type { ThemeColors } from '../../hooks/useThemeColors';
 import { DURATION } from '../../styles/scale';
 import { focusRingCss } from '../common/focusRing';
+import { mixHex } from '../../styles/mixHex';
 
 /**
  * The buttons a confirm dialog offers (KAN-259), shared by the three dialogs
@@ -26,6 +27,9 @@ export function dialogButtonStyles(COLORS: ThemeColors) {
     transition: background-color ${DURATION.COLOR};
     ${focusRingCss(COLORS)}
   `;
+
+  const filledHover = mixHex(COLORS.TEXT_COLOR, COLORS.PRIMARY_COLOR, 0.88);
+  const filledPress = mixHex(COLORS.TEXT_COLOR, COLORS.PRIMARY_COLOR, 0.76);
 
   return {
     quiet: css`
@@ -60,6 +64,28 @@ export function dialogButtonStyles(COLORS: ThemeColors) {
       }
       &:active {
         background-color: ${COLORS.ICON_ACTIVE_COLOR};
+      }
+    `,
+    // The run's way forward: TEXT_COLOR ground, PRIMARY_COLOR letters; rungs are a mix, never opacity.
+    filled: css`
+      ${base}
+      transition:
+        background-color ${DURATION.COLOR},
+        border-color ${DURATION.COLOR};
+      border-color: ${COLORS.TEXT_COLOR};
+      background-color: ${COLORS.TEXT_COLOR};
+      color: ${COLORS.PRIMARY_COLOR};
+      &:hover {
+        border-color: ${filledHover};
+        background-color: ${filledHover};
+      }
+      &:active {
+        border-color: ${filledPress};
+        background-color: ${filledPress};
+      }
+      &:focus-visible {
+        outline: 2px solid ${COLORS.TEXT_COLOR};
+        outline-offset: 2px;
       }
     `,
     danger: css`

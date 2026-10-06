@@ -24,6 +24,7 @@ import {
 } from '../../../redux/slices/globalStateSlice';
 import {
   setTheme,
+  setUiSoundOn,
   setUserRatedAndReviewed,
   toggleAutoSync,
 } from '../../../redux/slices/settingsDataStateSlice';
@@ -51,9 +52,10 @@ import {
 } from '../../../utils/functions/permissions';
 import { SettingsCategory } from '../../../redux/slices/settingsCategoryStateSlice';
 import SyncStatus from './Account/SyncStatus';
-import SlidingPair, { type SlidingPairMetrics } from '../../common/SlidingPair';
+import SlidingPair from '../../common/SlidingPair';
+import { SETTINGS_PAIR_METRICS } from '../../common/slidingPairMetrics';
 import { useTranslation } from 'react-i18next';
-import { CONTROL, DURATION, ICON, RADIUS, TYPE } from '../../../styles/scale';
+import { CONTROL, ICON, TYPE } from '../../../styles/scale';
 import {
   openShortcutsBeside,
   usePopupShortcut,
@@ -66,18 +68,6 @@ import { chooseDefaultView } from '../../../redux/defaultViewChoice';
 // The theme picker's swatches live in ThemeSwatch (KAN-237), which also carries
 // the KAN-88/KAN-95 marker rule and its reasoning.
 
-// KAN-248. The Auto Sync pair on the popup's own scale: the row unit, square
-// corners, the two named durations. The export toolbar draws the same
-// component at 34px/3px/280ms (export/slidingPairStyle.ts); neither set lives
-// in the component.
-const SETTINGS_PAIR_METRICS: SlidingPairMetrics = {
-  height: CONTROL.ROW,
-  radius: RADIUS.SQUARE,
-  knobRadius: RADIUS.SQUARE,
-  slide: `${DURATION.MOVE} ease-out`,
-  press: `${DURATION.COLOR} ease-out`,
-};
-
 // Sections after the first on a pane sit 32px apart, the spacing About's
 // blocks use (KAN-241); the first keeps 20px from the pane top. Written on
 // each section rather than as a constant so a section reads as a unit; the
@@ -86,8 +76,19 @@ const SETTINGS_PAIR_METRICS: SlidingPairMetrics = {
 const SettingsDetailsContainer: React.FC = () => {
   const COLORS = useThemeColors();
   const FONT_FAMILY = useFontFamily();
+
+  // The settings secondary style: a help line 8px under its control, capped at a reading width.
+  const helpLineStyle = css`
+    margin: 8px 0 0;
+    max-width: 36rem;
+    font-family: ${FONT_FAMILY};
+    font-size: ${TYPE.SECONDARY};
+    line-height: 1.45;
+    color: ${COLORS.LABEL_L1_COLOR};
+  `;
   // The tab-history help line's id, which its pair points at (KAN-280).
   const tabHistoryHelpId = useId();
+  const soundsHelpId = useId();
   const popupShortcut = usePopupShortcut();
   const { i18n } = useTranslation();
   const { t } = useTranslation();
@@ -329,6 +330,51 @@ const SettingsDetailsContainer: React.FC = () => {
               />
             ))}
           </div>
+        </div>
+
+        {/* Sounds: the same pair and help line as the Sessions rows. */}
+        <div
+          data-settings-section
+          css={css`
+            padding-left: clamp(16px, 8%, 72px);
+            padding-right: clamp(16px, 8%, 72px);
+            width: 100%;
+            margin-top: 32px;
+          `}
+        >
+          <div
+            css={css`
+              display: flex;
+              align-items: flex-start;
+              width: 100%;
+            `}
+          >
+            <NormalLabel
+              value={t('Sounds')}
+              size={TYPE.BODY}
+              color={COLORS.LABEL_L1_COLOR}
+            />
+          </div>
+          <div
+            css={css`
+              margin-top: 8px;
+            `}
+          >
+            <SlidingPair
+              label={t('Sounds')}
+              options={[
+                { value: 'on', label: t('On') },
+                { value: 'off', label: t('Off') },
+              ]}
+              value={settingsData.isUiSoundOn ? 'on' : 'off'}
+              onChange={(next) => dispatch(setUiSoundOn(next === 'on'))}
+              metrics={SETTINGS_PAIR_METRICS}
+              describedBy={soundsHelpId}
+            />
+          </div>
+          <p id={soundsHelpId} css={helpLineStyle}>
+            {t('Play sounds as you use Tab Keeper.')}
+          </p>
         </div>
       </div>
     );
@@ -655,17 +701,7 @@ const SettingsDetailsContainer: React.FC = () => {
               are, 8px under the control like every row here. Capped at a
               reading width, since the tab view's pane is far wider than a
               sentence should run. */}
-          <p
-            id={tabHistoryHelpId}
-            css={css`
-              margin: 8px 0 0;
-              max-width: 36rem;
-              font-family: ${FONT_FAMILY};
-              font-size: ${TYPE.SECONDARY};
-              line-height: 1.45;
-              color: ${COLORS.LABEL_L1_COLOR};
-            `}
-          >
+          <p id={tabHistoryHelpId} css={helpLineStyle}>
             {t(
               'Reopening a closed tab or window from Open now also brings back its Back and Forward pages, except for grouped tabs in a reopened window. It uses Chrome’s list of recently closed tabs.'
             )}
