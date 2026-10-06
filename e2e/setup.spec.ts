@@ -24,6 +24,7 @@ import { expectReadable } from './fixtures/textContrast';
 import { contrast, rgbToHex } from './fixtures/pixels';
 import { localeStrings } from './fixtures/locales';
 import { finishFullRunFromHello } from './fixtures/run';
+import { pairFit } from './fixtures/pairFit';
 import { DARKENHEIMER_THEME } from '../src/hooks/useThemeColors';
 
 // KAN-7 §5 on the real build, and the whole first-open path end to end.
@@ -430,6 +431,51 @@ test('ko at a 24px root: step 6’s privacy policy link sits on one line', async
   expect(lines.captionLines).toBeGreaterThan(1);
   expect(lines.link).toBe(1);
 });
+
+// M5 round 2 A. The pair grows only as its words need: hi at 24px grows, en keeps the 32px row.
+for (const [lang, root] of [
+  ['hi', 24],
+  ['en', 16],
+  ['en', 24],
+] as const) {
+  test(`${lang} at a ${root}px root: step 6’s Off/On words sit inside the track, and the track is ${
+    lang === 'en' ? '32px' : 'as tall as they need'
+  }`, async ({ context, extensionId }) => {
+    const strings = localeStrings(lang);
+    await stubToolbarPin(context, { pinned: true });
+    await seedSettings(context, {
+      language: lang,
+      setupState: 'pending',
+      cloudConsent: 'declined',
+      isAutoSync: false,
+    });
+    const page = await context.newPage();
+    await page.setViewportSize(FULL);
+    await page.goto(`chrome-extension://${extensionId}/${FULL_VIEW_PATH}`);
+    await setupAnyLanguage(page).waitFor();
+    await page.evaluate((px) => {
+      document.documentElement.style.fontSize = `${px}px`;
+    }, root);
+    const next = setupAnyLanguage(page).getByRole('button', {
+      name: strings.Next,
+      exact: true,
+    });
+    for (let n = 0; n < 4; n++) await next.click();
+    await expect(
+      setupAnyLanguage(page).getByRole('heading', { level: 3 })
+    ).toHaveText(strings['Sync across your devices?']);
+    const group = setupAnyLanguage(page).getByRole('group', {
+      name: strings['Auto Sync'],
+      exact: true,
+    });
+    for (const word of [strings.Off, strings.On]) {
+      const fit = await pairFit(group, word);
+      expect(fit.clearTop, `${word} top`).toBeGreaterThanOrEqual(0);
+      expect(fit.clearBottom, `${word} bottom`).toBeGreaterThanOrEqual(0);
+      if (lang === 'en') expect(fit.height).toBe(32);
+    }
+  });
+}
 
 type TabRow = {
   id?: number;

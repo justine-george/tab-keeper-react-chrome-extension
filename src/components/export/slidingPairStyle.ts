@@ -17,7 +17,7 @@ export const KNOB_TRANSITION = '280ms cubic-bezier(0.3, 1.45, 0.6, 1)';
  * live here rather than in the component (KAN-248).
  */
 export const EXPORT_PAIR_METRICS: SlidingPairMetrics = {
-  height: '34px',
+  minHeight: '34px',
   radius: '3px',
   knobRadius: '2px',
   slide: KNOB_TRANSITION,

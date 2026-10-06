@@ -13,7 +13,7 @@ import { renderWithProviders } from '../setup/renderWithProviders';
 // Callers that pass nothing must get no attribute at all.
 
 const METRICS: SlidingPairMetrics = {
-  height: '32px',
+  minHeight: '32px',
   radius: '0px',
   knobRadius: '0px',
   slide: '200ms ease-out',
