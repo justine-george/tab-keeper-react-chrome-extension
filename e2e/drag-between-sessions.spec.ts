@@ -7559,7 +7559,7 @@ test.describe('a carried tab, group or window dropped on the save row makes a ne
     const page = await openPopup(context, extensionId);
     const before = await stored(page);
     await ontoSaveRow(page, groupHandle(page, 'alpha'));
-    await expect(sessionTarget(page)).toHaveAttribute('data-landing', '');
+    await expect.poll(() => saveRowNow(page)).toBe('lit');
     await page.mouse.up();
 
     const { after, made } = await newSession(page, before);
@@ -7596,7 +7596,7 @@ test.describe('a carried tab, group or window dropped on the save row makes a ne
       const before = await stored(page);
       const w2 = sessionOf(before, 'S1').windows[1];
       await ontoSaveRow(page, windowHandle(page, 'w2'));
-      await expect(sessionTarget(page)).toHaveAttribute('data-landing', '');
+      await expect.poll(() => saveRowNow(page)).toBe('lit');
       await page.mouse.up();
 
       const { after, made } = await newSession(page, before);
@@ -7703,7 +7703,7 @@ test.describe('a carried tab, group or window dropped on the save row makes a ne
       const page = await openPopup(context, extensionId);
       const before = await stored(page);
       await ontoSaveRow(page, tabHandle(page, 'a1'));
-      await expect(sessionTarget(page)).toHaveAttribute('data-landing', '');
+      await expect.poll(() => saveRowNow(page)).toBe('lit');
       await c.end(page);
 
       await expectSaveRowBack(page);
@@ -7835,7 +7835,7 @@ test.describe('a carried tab, group or window dropped on the save row makes a ne
     await ontoTitle(page, 'w2', at.x);
     await expect(tabHandle(page, 'b0')).toBeVisible();
     await page.mouse.move(aim.x, aim.y);
-    await expect(sessionTarget(page)).toHaveAttribute('data-landing', '');
+    await expect.poll(() => saveRowNow(page)).toBe('lit');
     await page.mouse.up();
     const { made } = await newSession(page, before);
     expect(layoutOf(made)).toEqual(['a1']);
@@ -7874,7 +7874,7 @@ test.describe('a carried tab, group or window dropped on the save row makes a ne
     );
     if (tabId === undefined) throw new Error('no tab mid-pane');
     await ontoSaveRow(page, tabHandle(page, tabId));
-    await expect(sessionTarget(page)).toHaveAttribute('data-landing', '');
+    await expect.poll(() => saveRowNow(page)).toBe('lit');
     await settled(page);
     expect((await detailPane(page)).scrollTop).toBe(200);
     await page.mouse.up();
