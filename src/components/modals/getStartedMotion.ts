@@ -5,10 +5,12 @@ export const GET_STARTED = {
   PRESS_MS: 150,
   SHUTTER_MS: 250,
   LEAVE_MS: 150,
-  ENTER_MS: 220,
 } as const;
 export const SHUTTER_EASE = 'ease-in-out';
-export const ENTER_EASE = 'cubic-bezier(0.32, 0.72, 0, 1)';
+export const HELLO_ENTRANCE = {
+  MS: 220,
+  EASE: 'cubic-bezier(0.32, 0.72, 0, 1)',
+} as const;
 // The modals centre themselves with this transform, so every dialog frame keeps it.
 const CENTRED = 'translate(-50%, -50%)';
 
@@ -106,12 +108,12 @@ export function playGetStarted(parts: GetStartedParts): Motion {
 }
 
 // Hello enters from 0.97 and transparent.
-export function playDialogEntrance(dialog: Animatable): void {
+export function playHelloEntrance(dialog: Animatable): void {
   dialog.animate(
     [
       { opacity: 0, transform: `${CENTRED} scale(0.97)` },
       { opacity: 1, transform: `${CENTRED} scale(1)` },
     ],
-    { duration: GET_STARTED.ENTER_MS, easing: ENTER_EASE }
+    { duration: HELLO_ENTRANCE.MS, easing: HELLO_ENTRANCE.EASE }
   );
 }

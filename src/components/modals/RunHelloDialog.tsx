@@ -13,7 +13,7 @@ import { DIALOG, ICON, TYPE } from '../../styles/scale';
 import { dialogButtonStyles } from './dialogButtons';
 import {
   canAnimate,
-  playDialogEntrance,
+  playHelloEntrance,
   prefersReducedMotion,
 } from './getStartedMotion';
 
@@ -40,7 +40,7 @@ export const RunHelloDialog: React.FC<{
       dialog.focus();
       // Hello enters from 0.97 and transparent; reduced motion shows it at once.
       if (!prefersReducedMotion() && canAnimate(dialog)) {
-        playDialogEntrance(dialog);
+        playHelloEntrance(dialog);
       }
     }
   }, []);

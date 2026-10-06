@@ -10,10 +10,9 @@ import {
 } from '../setup/renderWithProviders';
 import { FakeMediaQueryList } from '../setup/mediaQueryFake';
 import {
-  ENTER_EASE,
-  GET_STARTED,
+  HELLO_ENTRANCE,
   SHUTTER_EASE,
-  playDialogEntrance,
+  playHelloEntrance,
   playGetStarted,
   prefersReducedMotion,
   type Animatable,
@@ -287,7 +286,7 @@ describe('Hello enters (A7)', () => {
   });
 });
 
-describe('playGetStarted and playDialogEntrance', () => {
+describe('playGetStarted and playHelloEntrance', () => {
   function fakeTarget(
     log: { keyframes: Keyframe[]; options: KeyframeAnimationOptions }[]
   ) {
@@ -364,20 +363,20 @@ describe('playGetStarted and playDialogEntrance', () => {
     expect(await motion.finished).toBe(true);
   });
 
-  test('a dialog after Get started enters: opacity 0 to 1, scale 0.97 to 1, 220ms', () => {
+  test('Hello enters: opacity 0 to 1, scale 0.97 to 1, 220ms', () => {
     const log: { keyframes: Keyframe[]; options: KeyframeAnimationOptions }[] =
       [];
-    playDialogEntrance(fakeTarget(log).target);
+    playHelloEntrance(fakeTarget(log).target);
     expect(log).toEqual([
       {
         keyframes: [
           { opacity: 0, transform: 'translate(-50%, -50%) scale(0.97)' },
           { opacity: 1, transform: 'translate(-50%, -50%) scale(1)' },
         ],
-        options: { duration: GET_STARTED.ENTER_MS, easing: ENTER_EASE },
+        options: { duration: HELLO_ENTRANCE.MS, easing: HELLO_ENTRANCE.EASE },
       },
     ]);
-    expect(ENTER_EASE).toBe('cubic-bezier(0.32, 0.72, 0, 1)');
+    expect(HELLO_ENTRANCE.EASE).toBe('cubic-bezier(0.32, 0.72, 0, 1)');
   });
 
   test('prefersReducedMotion reads the media query', () => {

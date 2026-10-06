@@ -107,7 +107,6 @@ describe('Get started’s closing beat', () => {
       PRESS_MS: 150,
       SHUTTER_MS: 250,
       LEAVE_MS: 150,
-      ENTER_MS: 220,
     });
     expect(parts.shutter.animate.mock.calls[0][1]).toMatchObject({
       duration: 250,
