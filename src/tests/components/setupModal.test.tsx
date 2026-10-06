@@ -33,6 +33,8 @@ import {
 } from '../../redux/slices/settingsDataStateSlice';
 import { LIGHT_THEME } from '../../hooks/useThemeColors';
 import { RUN_FINISHED_SETTINGS } from '../fixtures/firstRunFixture';
+import { classRulesFor } from '../setup/hoverRules';
+import { mirrorLanguageOnDocument } from '../../utils/functions/documentLanguage';
 import { CHROME_SHORTCUTS_URL } from '../../hooks/usePopupShortcut';
 
 // KAN-7 §5 and Q9. Five or six steps; each pick applies at once; Done, Skip
@@ -690,5 +692,41 @@ describe('step 6, Sync across your devices? (Q9)', () => {
     fireEvent.click(within(dialog()).getByRole('button', { name: 'Off' }));
     expect(store.getState().settingsDataState.isAutoSync).toBe(false);
     expect(store.getState().globalState.isCloudConsentModalOpen).toBe(false);
+  });
+});
+
+describe('Korean captions keep their words whole (M5 B)', () => {
+  // The caption's own keep-all rules whose selector matches it in the document's language now.
+  const keepAllMatching = (el: Element) =>
+    classRulesFor(el)
+      .split('\n')
+      .filter((rule) => rule.includes('keep-all'))
+      .map((rule) => rule.slice(0, rule.indexOf('{')).trim())
+      .filter((selector) => el.matches(selector));
+  const syncCaption = async (lang: string) => {
+    mirrorLanguageOnDocument(testI18n, document.documentElement);
+    await render();
+    await act(async () => {
+      await testI18n.changeLanguage(lang);
+    });
+    expect(document.documentElement.lang).toBe(lang);
+    await toStep('Sync across your devices?');
+    const caption = within(dialog())
+      .getByRole('link', { name: 'privacy policy' })
+      .closest('p');
+    if (caption === null) throw new Error('no caption');
+    return caption;
+  };
+
+  test('in Korean the step caption breaks only between words', async () => {
+    const caption = await syncCaption('ko');
+    expect(keepAllMatching(caption)).not.toEqual([]);
+  });
+
+  test('CONTROL: in Japanese, which has no spaces, the same caption keeps the normal breaks', async () => {
+    const caption = await syncCaption('ja');
+    // The rule is there; it does not reach Japanese.
+    expect(classRulesFor(caption)).toContain('keep-all');
+    expect(keepAllMatching(caption)).toEqual([]);
   });
 });

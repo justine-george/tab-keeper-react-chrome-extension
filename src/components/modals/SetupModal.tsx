@@ -275,6 +275,10 @@ export const SetupModal: React.FC = () => {
     a {
       color: ${COLORS.TEXT_COLOR};
     }
+    /* Korean wraps mid-word otherwise; ja and zh have no spaces to break at. */
+    &:lang(ko) {
+      word-break: keep-all;
+    }
   `;
   const pairRowStyle = css`
     display: flex;

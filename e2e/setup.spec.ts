@@ -383,6 +383,54 @@ for (const lang of ['en', 'de', 'ru']) {
   }
 }
 
+// M5 B. Korean wraps between syllables unless told to keep words whole.
+test('ko at a 24px root: step 6’s privacy policy link sits on one line', async ({
+  context,
+  extensionId,
+}) => {
+  const strings = localeStrings('ko');
+  await stubToolbarPin(context, { pinned: true });
+  await seedSettings(context, {
+    language: 'ko',
+    setupState: 'pending',
+    cloudConsent: 'declined',
+    isAutoSync: false,
+  });
+  const page = await context.newPage();
+  await page.setViewportSize(FULL);
+  await page.goto(`chrome-extension://${extensionId}/${FULL_VIEW_PATH}`);
+  await setupAnyLanguage(page).waitFor();
+  await page.evaluate(() => {
+    document.documentElement.style.fontSize = '24px';
+  });
+  const next = setupAnyLanguage(page).getByRole('button', {
+    name: strings.Next,
+    exact: true,
+  });
+  for (let n = 0; n < 4; n++) await next.click();
+  await expect(
+    setupAnyLanguage(page).getByRole('heading', { level: 3 })
+  ).toHaveText(strings['Sync across your devices?']);
+  const link = setupAnyLanguage(page).getByRole('link', {
+    name: strings['privacy policy'],
+    exact: true,
+  });
+  // CONTROL: the caption itself wraps at this size, so a break was possible.
+  const lines = await link.evaluate((el) => {
+    const caption = el.closest('p');
+    const height = (node: Element) => node.getBoundingClientRect().height;
+    const lineHeight = caption
+      ? parseFloat(getComputedStyle(caption).lineHeight)
+      : 0;
+    return {
+      link: el.getClientRects().length,
+      captionLines: caption ? Math.round(height(caption) / lineHeight) : 0,
+    };
+  });
+  expect(lines.captionLines).toBeGreaterThan(1);
+  expect(lines.link).toBe(1);
+});
+
 type TabRow = {
   id?: number;
   index: number;
