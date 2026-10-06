@@ -239,6 +239,7 @@ describe('the moment on the welcome', () => {
 
   test('Stay here while it plays neither closes the welcome nor starts the popup run; Get started completes', async () => {
     installAnimate();
+    installFakeAudio();
     const { store } = await renderWithProviders(<MainContainer />, {
       seedStore: welcome,
     });
@@ -255,6 +256,7 @@ describe('the moment on the welcome', () => {
     );
     expect(store.getState().globalState.isCloudConsentModalOpen).toBe(false);
     expect(watch.read()).toEqual({ views: ['full'], cards: 0 });
+    expect(startedTicks()).toEqual([]);
   });
 
   test('CONTROL: Stay here with no beat playing starts the popup run, and the watch sees it', async () => {
@@ -412,6 +414,26 @@ describe('playGetStarted and playHelloEntrance', () => {
     await vi.waitFor(() => expect(log).toHaveLength(2));
     dialog.finishAll();
     expect(await motion.finished).toBe(true);
+    expect(onShutter).not.toHaveBeenCalled();
+  });
+
+  test('a cancel between the press finishing and the shutter moving never clicks', async () => {
+    const log: { keyframes: Keyframe[]; options: KeyframeAnimationOptions }[] =
+      [];
+    const button = fakeTarget(log);
+    const shutter = fakeTarget(log);
+    const dialog = fakeTarget(log);
+    const onShutter = vi.fn();
+    const motion = playGetStarted({
+      button: button.target,
+      shutter: shutter.target,
+      dialog: dialog.target,
+      onShutter,
+    });
+    // The press settles, and the cancel lands before the continuation runs.
+    button.finishAll();
+    motion.cancel();
+    expect(await motion.finished).toBe(false);
     expect(onShutter).not.toHaveBeenCalled();
   });
 
