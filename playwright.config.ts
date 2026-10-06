@@ -28,8 +28,10 @@ export default defineConfig({
   ],
 
   // Any test may run on any worker or shard: each launches its own browser on
-  // a fresh profile and only reads dist/ (KAN-444).
-  workers: 1,
+  // a fresh profile and only reads dist/ (KAN-444). Locally 4 workers ran the
+  // full suite in 10.2 min against ~35 at 1. CI keeps one browser per VM and
+  // gets its parallelism from shards.
+  workers: process.env.CI ? 1 : 4,
   fullyParallel: true,
 
   // Still zero now that CI runs this (KAN-146), and deliberately so. A retry
