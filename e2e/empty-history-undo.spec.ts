@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { hasCloudConfig } from './fixtures/cloud';
 import { test, expect } from './fixtures/extension';
 import {
   buildContainer,
@@ -25,8 +26,8 @@ test.use({ cloud: true });
 // session through the real dev cloud.
 //
 // Needs a build that carries the Firebase config (a local build with a .env).
-// PR CI builds without one (KAN-147) and makes no cloud request at all, so
-// the tests skip there rather than passing on nothing.
+// PR CI builds without one (KAN-147), so each test skips there before it
+// starts rather than passing on nothing.
 
 const DIST = fileURLToPath(new URL('../dist', import.meta.url));
 const CLOUD = /firestore\.googleapis\.com|identitytoolkit\.googleapis\.com/;
@@ -121,16 +122,13 @@ test.describe('Ctrl+Z with nothing to undo (KAN-292)', () => {
     context,
     extensionId,
   }, testInfo) => {
+    test.skip(!hasCloudConfig(), 'this build has no cloud config (CI)');
     await seedOnce(context);
     const { page, cloudRequests, commit } = await openPopup(
       context,
       extensionId
     );
     const synced = await commit;
-    test.skip(
-      !synced && cloudRequests.length === 0,
-      'this build has no cloud config (CI)'
-    );
     expect(synced, 'the startup sync never wrote').toBe(true);
     await page.waitForTimeout(3_000); // let the startup sync settle
 
@@ -170,16 +168,14 @@ test.describe('Ctrl+Z with nothing to undo (KAN-292)', () => {
     context,
     extensionId,
   }) => {
+    test.skip(!hasCloudConfig(), 'this build has no cloud config (CI)');
     await seedOnce(context);
     const { page, cloudRequests, commit } = await openPopup(
       context,
       extensionId
     );
     const synced = await commit;
-    test.skip(
-      !synced && cloudRequests.length === 0,
-      'this build has no cloud config (CI)'
-    );
+    expect(synced, 'the startup sync never wrote').toBe(true);
     await page.waitForTimeout(3_000);
 
     await page
@@ -203,14 +199,11 @@ test.describe('Ctrl+Z with nothing to undo (KAN-292)', () => {
     extensionId,
     serviceWorker,
   }, testInfo) => {
+    test.skip(!hasCloudConfig(), 'this build has no cloud config (CI)');
     // Device A (this one): one session, synced up.
     await seedOnce(context);
     const a = await openPopup(context, extensionId);
     const synced = await a.commit;
-    test.skip(
-      !synced && a.cloudRequests.length === 0,
-      'this build has no cloud config (CI)'
-    );
     expect(synced, 'the startup sync never wrote').toBe(true);
     await a.page.waitForTimeout(3_000);
     const token = await serviceWorker.evaluate(

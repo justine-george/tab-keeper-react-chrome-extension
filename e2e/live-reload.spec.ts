@@ -1,5 +1,6 @@
 import type { BrowserContext, Page, Route } from '@playwright/test';
 
+import { hasCloudConfig } from './fixtures/cloud';
 import { test, expect } from './fixtures/extension';
 import { localeStrings } from './fixtures/locales';
 import {
@@ -285,8 +286,8 @@ test.describe('open pages reload what another page changed (KAN-279 D9)', () => 
 // while the OTHER page's selection is the one in localStorage.
 //
 // Needs a build that carries the Firebase config (a local build with a
-// .env). PR CI builds without one (KAN-147) and makes no cloud request at
-// all, so the test skips there rather than passing on nothing.
+// .env). PR CI builds without one (KAN-147), so the test skips there before
+// it starts rather than passing on nothing.
 test.describe('a sync keeps each page its own selection (KAN-294)', () => {
   // Sync now, and wait for that sync to read the cloud and settle.
   async function syncNow(page: Page): Promise<void> {
@@ -303,6 +304,7 @@ test.describe('a sync keeps each page its own selection (KAN-294)', () => {
     context,
     extensionId,
   }, testInfo) => {
+    test.skip(!hasCloudConfig(), 'this build has no cloud config (CI)');
     await seedOnce(context, { cloudConsent: 'granted', isAutoSync: true });
     const cloudRequests: string[] = [];
     const page1 = await openPage(context, extensionId, cloudRequests);
@@ -313,10 +315,6 @@ test.describe('a sync keeps each page its own selection (KAN-294)', () => {
       .toHaveText('cloud_done', { timeout: 20_000 })
       .then(() => true)
       .catch(() => false);
-    test.skip(
-      !synced && cloudRequests.length === 0,
-      'this build has no cloud config (CI); nothing to sync'
-    );
     expect(synced, "page 1's startup sync never completed").toBe(true);
 
     const page2 = await openPage(context, extensionId, cloudRequests);
@@ -376,6 +374,7 @@ test.describe('a sync held by a drag still finishes after a cancel (KAN-297)', (
     context,
     extensionId,
   }, testInfo) => {
+    test.skip(!hasCloudConfig(), 'this build has no cloud config (CI)');
     await seedOnce(context, { cloudConsent: 'granted', isAutoSync: true });
     const cloudRequests: string[] = [];
     const page1 = await openPage(context, extensionId, cloudRequests);
@@ -383,10 +382,6 @@ test.describe('a sync held by a drag still finishes after a cancel (KAN-297)', (
       .toHaveText('cloud_done', { timeout: 20_000 })
       .then(() => true)
       .catch(() => false);
-    test.skip(
-      !synced && cloudRequests.length === 0,
-      'this build has no cloud config (CI); nothing to sync'
-    );
     expect(synced, "page 1's startup sync never completed").toBe(true);
 
     const page2 = await openPage(context, extensionId, cloudRequests);
@@ -483,6 +478,7 @@ test.describe('a local-only sync holds for a drag, and finishes after a cancel (
     context,
     extensionId,
   }, testInfo) => {
+    test.skip(!hasCloudConfig(), 'this build has no cloud config (CI)');
     await seedOnce(context);
     const cloudRequests: string[] = [];
     const page1 = await openPage(context, extensionId, cloudRequests);
@@ -507,8 +503,8 @@ test.describe('a local-only sync holds for a drag, and finishes after a cancel (
     });
 
     await syncControl(page1).click();
-    // Without a cloud config the sign-in fails and the sync ends on
-    // sync_problem (KAN-289) with no read: that ends the wait early.
+    // A failed sign-in ends the sync on sync_problem (KAN-289) with no read:
+    // that ends the wait early.
     let readArrived = false;
     void readWaiting.then(() => (readArrived = true));
     await expect
@@ -519,10 +515,6 @@ test.describe('a local-only sync holds for a drag, and finishes after a cancel (
         { timeout: 20_000 }
       )
       .toBe(true);
-    test.skip(
-      !readArrived && !cloudRequests.some((u) => CLOUD.test(u)),
-      'this build has no cloud config (CI); nothing to sync'
-    );
     expect(readArrived, "page 1's Sync now never read the cloud").toBe(true);
 
     // Pick up Alpha: pressed at its centre, moved far enough to start.

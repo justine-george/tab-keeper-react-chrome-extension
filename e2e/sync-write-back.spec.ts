@@ -1,5 +1,6 @@
 import type { BrowserContext, Page, Route } from '@playwright/test';
 
+import { hasCloudConfig } from './fixtures/cloud';
 import { test, expect } from './fixtures/extension';
 import { buildContainer, buildSession } from './fixtures/seed';
 
@@ -17,11 +18,10 @@ test.use({ cloud: true });
 // merge, the server -- is real.
 //
 // Needs a build that carries the Firebase config (a local build with a .env).
-// PR CI builds without one (KAN-147) and makes no cloud request at all, so
-// the test skips there rather than passing on nothing.
+// PR CI builds without one (KAN-147), so each test skips there before it
+// starts rather than passing on nothing.
 
 const COMMIT = /firestore\.googleapis\.com\/.*documents:commit/;
-const CLOUD = /firestore\.googleapis\.com|identitytoolkit\.googleapis\.com/;
 
 // Seeds once per profile rather than on every navigation (seedSessions'
 // init script re-runs on reload): the cloud read-back below clears the local
@@ -71,12 +71,8 @@ const storedTitle = (page: Page) =>
 async function openPopup(context: BrowserContext, extensionId: string) {
   const page = await context.newPage();
   await page.setViewportSize({ width: 790, height: 550 });
-  const cloudRequests: string[] = [];
-  page.on('request', (r) => {
-    if (CLOUD.test(r.url())) cloudRequests.push(r.url());
-  });
   await page.goto(`chrome-extension://${extensionId}/index.html`);
-  return { page, cloudRequests };
+  return { page };
 }
 
 async function rename(page: Page, from: string, to: string) {
@@ -103,10 +99,11 @@ test.describe('a sync write keeps an edit made while it was in flight (KAN-291)'
     context,
     extensionId,
   }) => {
+    test.skip(!hasCloudConfig(), 'this build has no cloud config (CI)');
     await seedOnce(context);
     const hold = holdFirstCommit(context);
     await hold.ready;
-    const { page, cloudRequests } = await openPopup(context, extensionId);
+    const { page } = await openPopup(context, extensionId);
 
     // The startup sync finds no cloud document for this fresh device and
     // writes the local copy ("Before"). That write is the one held.
@@ -114,10 +111,6 @@ test.describe('a sync write keeps an edit made while it was in flight (KAN-291)'
       hold.held.then(() => true),
       page.waitForTimeout(20_000).then(() => false),
     ]);
-    test.skip(
-      !reached && cloudRequests.length === 0,
-      'this build has no cloud config (CI); nothing to hold'
-    );
     expect(reached, 'the startup write never reached the cloud').toBe(true);
 
     await rename(page, 'Before', 'After');
@@ -156,19 +149,16 @@ test.describe('a sync write keeps an edit made while it was in flight (KAN-291)'
     context,
     extensionId,
   }) => {
+    test.skip(!hasCloudConfig(), 'this build has no cloud config (CI)');
     await seedOnce(context);
     const hold = holdFirstCommit(context);
     await hold.ready;
-    const { page, cloudRequests } = await openPopup(context, extensionId);
+    const { page } = await openPopup(context, extensionId);
 
     const reached = await Promise.race([
       hold.held.then(() => true),
       page.waitForTimeout(20_000).then(() => false),
     ]);
-    test.skip(
-      !reached && cloudRequests.length === 0,
-      'this build has no cloud config (CI); nothing to hold'
-    );
     expect(reached, 'the startup write never reached the cloud').toBe(true);
 
     hold.release();
