@@ -1,23 +1,15 @@
 import {
-  chromium,
   type BrowserContext,
   type Locator,
   type Page,
   type Route,
   type Worker,
 } from '@playwright/test';
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 
 import { hasCloudConfig } from './fixtures/cloud';
 import { test, expect } from './fixtures/extension';
-import {
-  buildContainer,
-  buildSession,
-  seedCloudConsentIfSettingsAbsent,
-} from './fixtures/seed';
+import { commitLanded, openSecondDevice, seedOnce } from './fixtures/cloud';
+import { buildSession } from './fixtures/seed';
 
 // Syncs with the dev cloud (KAN-383).
 test.use({ cloud: true });
@@ -37,9 +29,7 @@ test.use({ cloud: true });
 // PR CI builds without one (KAN-147), so each test skips there before it
 // starts rather than passing on nothing.
 
-const DIST = fileURLToPath(new URL('../dist', import.meta.url));
 const CLOUD = /firestore\.googleapis\.com|identitytoolkit\.googleapis\.com/;
-const COMMIT = /firestore\.googleapis\.com\/.*documents:commit/;
 // firebase/firestore/lite reads a document with one REST batchGet.
 const READ = /firestore\.googleapis\.com\/.*documents:batchGet/;
 
@@ -66,26 +56,6 @@ const TITLES = new Map(
   [A, B, C, D, N].map((s) => [s.tabGroupId, s.title] as const)
 );
 
-// Once per profile: init scripts re-run on every navigation, and this spec
-// reloads.
-async function seedOnce(
-  context: BrowserContext,
-  sessions: ReturnType<typeof buildSession>[]
-): Promise<void> {
-  await context.addInitScript(
-    (value: string) => {
-      try {
-        if (window.localStorage.getItem('e2e-seeded') !== null) return;
-        window.localStorage.setItem('e2e-seeded', '1');
-        window.localStorage.setItem('tabContainerData', value);
-      } catch {
-        // Storage blocked; the assertions below say so more clearly.
-      }
-    },
-    JSON.stringify(buildContainer(sessions))
-  );
-}
-
 async function openPopup(context: BrowserContext, extensionId: string) {
   const page = await context.newPage();
   await page.setViewportSize({ width: 790, height: 550 });
@@ -94,10 +64,7 @@ async function openPopup(context: BrowserContext, extensionId: string) {
     if (CLOUD.test(r.url())) cloudRequests.push(r.url());
   });
   // The RESPONSE, not the request: the write has landed in the cloud.
-  const committed = page.waitForResponse(COMMIT, { timeout: 20_000 }).then(
-    () => true,
-    () => false
-  );
+  const committed = commitLanded(page);
   await page.goto(`chrome-extension://${extensionId}/index.html`);
   return { page, cloudRequests, committed };
 }
@@ -218,28 +185,13 @@ async function stage(
 
   // 3. Device B: adopts A's id before it first opens, holds a-d plus n, and
   //    its startup sync merges and writes the union.
-  const dirB = mkdtempSync(join(tmpdir(), 'tabkeeper-e2e-b-'));
-  const b = await chromium.launchPersistentContext(dirB, {
-    headless: true,
-    channel: 'chromium',
-    args: [`--disable-extensions-except=${DIST}`, `--load-extension=${DIST}`],
-  });
+  const deviceB = await openSecondDevice(token, [N, A, B, C, D]);
   try {
-    await seedCloudConsentIfSettingsAbsent(b);
-    await seedOnce(b, [N, A, B, C, D]);
-    const workerB =
-      b.serviceWorkers()[0] ?? (await b.waitForEvent('serviceworker'));
-    await workerB.evaluate(
-      (t: string) => chrome.storage.sync.set({ tokenValue: t }),
-      token
-    );
-    const pageB = await openPopup(b, new URL(workerB.url()).host);
-    expect(await pageB.committed, 'device B never wrote to the cloud').toBe(
+    expect(await deviceB.committed, 'device B never wrote to the cloud').toBe(
       true
     );
   } finally {
-    await b.close();
-    rmSync(dirB, { recursive: true, force: true });
+    await deviceB.close();
   }
 
   // 4. Back on A: hold the next read, and reload so the startup sync makes
