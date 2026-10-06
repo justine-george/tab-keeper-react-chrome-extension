@@ -20,6 +20,7 @@ import {
   setAutoSync,
 } from '../../redux/slices/settingsDataStateSlice';
 import { welcomeGetStarted, welcomeStayHere } from '../../redux/firstRun';
+import { clickShutter } from '../../redux/uiSound';
 import { PRIVACY_POLICY_LINK } from '../../utils/constants/common';
 import { DIALOG, ICON, TYPE } from '../../styles/scale';
 import { dialogButtonStyles } from './dialogButtons';
@@ -134,6 +135,8 @@ export const CloudConsentModal: React.FC = () => {
       prefersReducedMotion() ||
       !canAnimate(dialog)
     ) {
+      // No beat is drawn, so the click sounds at the press.
+      dispatch(clickShutter());
       void dispatch(welcomeGetStarted());
       return;
     }
@@ -141,6 +144,7 @@ export const CloudConsentModal: React.FC = () => {
       button,
       shutter: dialog.querySelector('[data-hero-part="shutter"]'),
       dialog,
+      onShutter: () => dispatch(clickShutter()),
     });
     // R12: cut short or not, Get started was chosen and completes.
     void motion.current.finished.then(() => {

@@ -18,7 +18,15 @@ import {
   type Animatable,
 } from '../../components/modals/getStartedMotion';
 import { openCloudConsentModal } from '../../redux/slices/globalStateSlice';
-import { beginSetup } from '../../redux/slices/settingsDataStateSlice';
+import {
+  beginSetup,
+  setUiSoundOn,
+} from '../../redux/slices/settingsDataStateSlice';
+import {
+  installFakeAudio,
+  startedTicks,
+  uninstallFakeAudio,
+} from '../setup/audioFake';
 import { newRun } from '../../utils/functions/firstRun';
 
 // jsdom has no Web Animations: a fake records each run and the test finishes it.
@@ -92,6 +100,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   Reflect.deleteProperty(Element.prototype, 'animate');
+  uninstallFakeAudio();
   vi.restoreAllMocks();
   localStorage.clear();
 });
@@ -141,6 +150,39 @@ describe('the moment on the welcome', () => {
     expect(live.every((r) => !r.isFinished())).toBe(true);
     pressGetStarted();
     expect(live.every((r) => r.isFinished())).toBe(true);
+  });
+
+  test('the shutter click sounds once, as the shutter starts to move: never as the welcome opens, nor at the press', async () => {
+    installAnimate();
+    installFakeAudio();
+    await renderWithProviders(<MainContainer />, { seedStore: welcome });
+    expect(startedTicks()).toEqual([]);
+    const { moment } = pressGetStarted();
+    expect(startedTicks()).toEqual([]);
+    moment()[0].release();
+    await waitFor(() => expect(moment()).toHaveLength(2));
+    expect(moment()[1].target).toHaveAttribute('data-hero-part', 'shutter');
+    expect(startedTicks()).toEqual([2, expect.closeTo(2.035, 6)]);
+    moment()[1].release();
+    await waitFor(() => expect(moment()).toHaveLength(3));
+    moment()[2].release();
+    await microtasks();
+    expect(startedTicks()).toHaveLength(2);
+  });
+
+  test('Sounds turned off after the welcome opened: Get started plays no click', async () => {
+    installAnimate();
+    installFakeAudio();
+    const { store } = await renderWithProviders(<MainContainer />, {
+      seedStore: welcome,
+    });
+    store.dispatch(setUiSoundOn(false));
+    const { moment } = pressGetStarted();
+    moment()[0].release();
+    await waitFor(() => expect(moment()).toHaveLength(2));
+    moment()[1].release();
+    await waitFor(() => expect(moment()).toHaveLength(3));
+    expect(startedTicks()).toEqual([]);
   });
 
   test('a second press while it plays does nothing', async () => {
@@ -231,8 +273,9 @@ describe('the moment on the welcome', () => {
     expect(seen.cards).toBeGreaterThan(0);
   });
 
-  test('reduced motion: straight on to the full-view run, and nothing animates', async () => {
+  test('reduced motion: straight on to the full-view run, nothing animates, and the click sounds at the press', async () => {
     installAnimate();
+    installFakeAudio();
     vi.spyOn(window, 'matchMedia').mockImplementation(
       (query: string) =>
         new FakeMediaQueryList(
@@ -247,6 +290,8 @@ describe('the moment on the welcome', () => {
       document.querySelector('[data-hero-frame="end"]')
     ).toBeInTheDocument();
     fireEvent.click(getStarted());
+    // No beat is drawn, so the click sounds once at the press.
+    expect(startedTicks()).toEqual([2, expect.closeTo(2.035, 6)]);
     await waitFor(() =>
       expect(store.getState().settingsDataState.firstRun).toEqual(FULL_RUN)
     );
@@ -309,13 +354,17 @@ describe('playGetStarted and playHelloEntrance', () => {
     const button = fakeTarget(log);
     const shutter = fakeTarget(log);
     const dialog = fakeTarget(log);
+    const logAtShutter: number[] = [];
     const motion = playGetStarted({
       button: button.target,
       shutter: shutter.target,
       dialog: dialog.target,
+      onShutter: () => logAtShutter.push(log.length),
     });
     button.finishAll();
     await vi.waitFor(() => expect(log).toHaveLength(2));
+    // Once, as the shutter's animation starts: after the press, before the exit.
+    expect(logAtShutter).toEqual([2]);
     shutter.finishAll();
     await vi.waitFor(() => expect(log).toHaveLength(3));
     dialog.finishAll();
@@ -347,20 +396,23 @@ describe('playGetStarted and playHelloEntrance', () => {
     expect(SHUTTER_EASE).toBe('ease-in-out');
   });
 
-  test('a mark without its shutter still presses and leaves', async () => {
+  test('a mark without its shutter still presses and leaves, with no click', async () => {
     const log: { keyframes: Keyframe[]; options: KeyframeAnimationOptions }[] =
       [];
     const button = fakeTarget(log);
     const dialog = fakeTarget(log);
+    const onShutter = vi.fn();
     const motion = playGetStarted({
       button: button.target,
       shutter: null,
       dialog: dialog.target,
+      onShutter,
     });
     button.finishAll();
     await vi.waitFor(() => expect(log).toHaveLength(2));
     dialog.finishAll();
     expect(await motion.finished).toBe(true);
+    expect(onShutter).not.toHaveBeenCalled();
   });
 
   test('Hello enters: opacity 0 to 1, scale 0.97 to 1, 220ms', () => {

@@ -7,6 +7,7 @@ import {
   openPopup,
   pageGround,
   storedSettings,
+  twoFrames,
   waitForFullView,
 } from './fixtures/onboarding';
 import { seedSettings } from './fixtures/seed';
@@ -17,6 +18,7 @@ import {
   hello,
   runCheck,
   runDrawn,
+  seedRawSettingsIfAbsent,
   storedRun,
   watchRunDrawn,
 } from './fixtures/run';
@@ -379,4 +381,87 @@ test('Hello enters from 0.97 in 220ms; reduced motion shows it at once', async (
       )
     )
     .toBe(true);
+});
+
+// Every Web Audio source started in this page from document start, by the time it is scheduled for.
+async function watchSounds(context: import('@playwright/test').BrowserContext) {
+  await context.addInitScript(() => {
+    if (window.top !== window) return;
+    const starts: number[] = [];
+    Object.defineProperty(window, '__soundStarts', { value: starts });
+    const start = AudioBufferSourceNode.prototype.start;
+    AudioBufferSourceNode.prototype.start = function (
+      when?: number,
+      offset?: number,
+      duration?: number
+    ) {
+      starts.push(when ?? 0);
+      start.call(this, when, offset, duration);
+    };
+  });
+}
+// Read after the caller's barrier and two frames.
+const soundStarts = async (page: import('@playwright/test').Page) => {
+  await twoFrames(page);
+  const starts = await page.evaluate((): unknown =>
+    Reflect.get(window, '__soundStarts')
+  );
+  return Array.isArray(starts) ? starts.map(Number) : [];
+};
+// One shutter click: two ticks, the second 35ms after the first.
+const expectOneClick = (starts: number[]) => {
+  expect(starts).toHaveLength(2);
+  expect(starts[1] - starts[0]).toBeCloseTo(0.035, 6);
+};
+
+test('the welcome opens with no sound; Get started plays the shutter click once', async ({
+  context,
+  extensionId,
+}) => {
+  await watchSounds(context);
+  const page = await openPopup(context, extensionId);
+  await expect(welcome(page)).toBeVisible();
+  await queueDone(page);
+  expect(await soundStarts(page)).toEqual([]);
+  // CONTROL: the same observer, on the same page, hears Get started's click.
+  await welcome(page)
+    .getByRole('button', { name: 'Get started', exact: true })
+    .click();
+  const full = await waitForFullView(context);
+  await expect(cardAt(full, 1)).toBeVisible();
+  expectOneClick(await soundStarts(page));
+});
+
+test('reduced motion: no beat is drawn, and Get started still plays the click once', async ({
+  context,
+  extensionId,
+}) => {
+  await watchSounds(context);
+  const page = await context.newPage();
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.setViewportSize({ width: 790, height: 550 });
+  await page.goto(`chrome-extension://${extensionId}/index.html`);
+  await expect(welcome(page).locator('[data-hero-frame="end"]')).toBeVisible();
+  await welcome(page)
+    .getByRole('button', { name: 'Get started', exact: true })
+    .click();
+  await waitForFullView(context);
+  expectOneClick(await soundStarts(page));
+});
+
+test('Sounds off: Get started plays no click', async ({
+  context,
+  extensionId,
+}) => {
+  // Only Sounds is stored: the profile is otherwise a new install, so the welcome opens.
+  await seedRawSettingsIfAbsent(context, { isUiSoundOn: false });
+  await watchSounds(context);
+  const page = await openPopup(context, extensionId);
+  await welcome(page)
+    .getByRole('button', { name: 'Get started', exact: true })
+    .click();
+  const full = await waitForFullView(context);
+  await expect(cardAt(full, 1)).toBeVisible();
+  // CONTROL: the click test above, where the same observer hears it.
+  expect(await soundStarts(page)).toEqual([]);
 });

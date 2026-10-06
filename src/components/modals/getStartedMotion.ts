@@ -30,6 +30,8 @@ export interface GetStartedParts {
   button: Animatable;
   shutter: Animatable | null;
   dialog: Animatable;
+  // Called once as the shutter starts to move; a beat cut short before then never calls it.
+  onShutter: () => void;
 }
 
 export interface Motion {
@@ -75,7 +77,7 @@ export function playGetStarted(parts: GetStartedParts): Motion {
         { duration: GET_STARTED.PRESS_MS, easing: 'ease-out' }
       );
       if (parts.shutter !== null) {
-        await run(
+        const shutter = run(
           parts.shutter,
           [
             { transform: 'translateX(0px)' },
@@ -84,6 +86,8 @@ export function playGetStarted(parts: GetStartedParts): Motion {
           ],
           { duration: GET_STARTED.SHUTTER_MS, easing: SHUTTER_EASE }
         );
+        if (!isCancelled) parts.onShutter();
+        await shutter;
       }
       await run(
         parts.dialog,

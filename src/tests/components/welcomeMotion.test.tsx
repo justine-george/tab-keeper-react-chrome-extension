@@ -100,7 +100,12 @@ describe('Get started’s closing beat', () => {
         cancel: () => undefined,
       })),
     });
-    const parts = { button: fake(), shutter: fake(), dialog: fake() };
+    const parts = {
+      button: fake(),
+      shutter: fake(),
+      dialog: fake(),
+      onShutter: vi.fn(),
+    };
     const motion = playGetStarted(parts);
     expect(await motion.finished).toBe(true);
     expect(GET_STARTED).toEqual({

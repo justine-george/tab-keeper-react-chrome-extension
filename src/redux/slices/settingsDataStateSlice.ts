@@ -160,6 +160,8 @@ export interface SettingsData {
   firstRun: FirstRun | null;
   // Set when an upgrader's What's new Hello first shows; no later open starts one.
   isWhatsNew2Seen: boolean;
+  // Settings → Sounds; on unless turned off, including for settings saved before it existed.
+  isUiSoundOn: boolean;
 }
 
 /**
@@ -319,6 +321,7 @@ const defaultSettings: SettingsData = {
   // gets: initialState lays the stored object over these defaults.
   foldSavedSessionInTabView: true,
   openNowWidth: null,
+  isUiSoundOn: true,
   ...ONBOARDING_DEFAULTS,
 };
 
@@ -482,6 +485,11 @@ export const settingsDataStateSlice = createSlice({
       saveToLocalStorage('settingsData', state);
     },
 
+    setUiSoundOn: (state, action: PayloadAction<boolean>) => {
+      state.isUiSoundOn = action.payload;
+      saveToLocalStorage('settingsData', state);
+    },
+
     // KAN-321 O1a. The grip's release, an arrow key, or a double-click (null).
     setOpenNowWidth: (state, action: PayloadAction<number | null>) => {
       state.openNowWidth = action.payload;
@@ -620,6 +628,7 @@ export const {
   setExportLayout,
   setFoldSavedSessionInTabView,
   setOpenNowWidth,
+  setUiSoundOn,
   beginSetup,
   finishSetup,
   restartSetup,
