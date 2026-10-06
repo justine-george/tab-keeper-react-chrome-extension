@@ -113,6 +113,17 @@ body {
   visibility: visible;
 }
 
+/* KAN-394 P3. A live carry (data-carrying) swaps the save row's controls for
+   its New session target, drawn only while the row takes a carry. */
+[data-carrying]
+  [data-save-row]:has(> [data-new-session-target])
+  > :not([data-new-session-target]) {
+  visibility: hidden;
+}
+[data-carrying] [data-new-session-target] {
+  visibility: visible;
+}
+
 /* KAN-361/366 (Q4). In the same drags, when the list already scrolls at rest,
    its trailing block -- the empty block after its last window
    (TabGroupDetailsContainer), zero height at rest -- takes its border and one

@@ -46,3 +46,53 @@ export const groupHandle = (page: Page, groupId: string) =>
   );
 export const windowHandle = (page: Page, windowId: string) =>
   page.locator(`[data-drag-row-id="${windowId}"] [data-window-drag-handle]`);
+
+// Where a drag is aimed at the save row (KAN-394 P3): its name field's
+// centre, read at rest, which every build draws in the same place.
+export async function saveRowAim(page: Page): Promise<Point> {
+  const b = await boxOf(page.locator('#name'));
+  return { x: b.x + b.width / 2, y: b.y + b.height / 2 };
+}
+
+// Records, from now on, whether a carry ever marked the document
+// (data-carrying, on <html>) and whether a New session target was ever drawn.
+// Any write of the marker counts: it starts off, so a write turned it on,
+// even if it was turned off again before the observer ran.
+export async function watchSaveRow(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const root = document.documentElement;
+    const flags = root.dataset;
+    flags.sawCarrying = root.hasAttribute('data-carrying') ? '1' : '0';
+    flags.sawSessionTarget = '0';
+    const flagTarget = () => {
+      const t = document.querySelector('[data-new-session-target]');
+      if (
+        flags.sawSessionTarget !== '1' &&
+        t !== null &&
+        getComputedStyle(t).visibility === 'visible'
+      )
+        flags.sawSessionTarget = '1';
+    };
+    new MutationObserver(() => {
+      flags.sawCarrying = '1';
+      flagTarget();
+    }).observe(root, { attributes: true, attributeFilter: ['data-carrying'] });
+    new MutationObserver(flagTarget).observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+    });
+    flagTarget();
+  });
+}
+
+// What watchSaveRow saw, read two frames on, after every observer has run.
+export const saveRowSeen = (page: Page) =>
+  page.evaluate(async () => {
+    const frame = () =>
+      new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+    await frame();
+    await frame();
+    const flags = document.documentElement.dataset;
+    return { carrying: flags.sawCarrying, target: flags.sawSessionTarget };
+  });

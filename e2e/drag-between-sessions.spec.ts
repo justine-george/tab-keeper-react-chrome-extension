@@ -36,8 +36,11 @@ import {
   boxOf,
   groupHandle,
   pickUp,
+  saveRowAim,
+  saveRowSeen,
   stored,
   tabHandle,
+  watchSaveRow,
   windowHandle,
   type Point,
 } from './fixtures/sessionDrag';
@@ -7321,5 +7324,536 @@ test.describe('the window it lands in stays open (KAN-379 Q2, Q3)', () => {
       expect(await isFolded(page, 'w2')).toBe(true);
       await nothingMoved(page);
     });
+  });
+});
+
+// ---- the save row makes a new session (KAN-394 P3) --------------------------
+
+// S1 with w1 at bounds no other window has, so "w1's bounds" is checkable.
+const W1_BOUNDS = {
+  windowHeight: 700,
+  windowWidth: 900,
+  windowOffsetTop: 40,
+  windowOffsetLeft: 60,
+};
+const S1Placed = (): tabContainerData => {
+  const s = S1();
+  return {
+    ...s,
+    windows: s.windows.map((w) =>
+      w.windowId === 'w1' ? { ...w, ...W1_BOUNDS } : w
+    ),
+  };
+};
+const S1UnnamedW2 = (): tabContainerData => {
+  const s = S1();
+  return {
+    ...s,
+    windows: s.windows.map((w) =>
+      w.windowId === 'w2' ? { ...w, title: '' } : w
+    ),
+  };
+};
+
+const sessionTarget = (page: Page) => page.locator('[data-new-session-target]');
+
+// The save row as drawn now: one frame of the pane log.
+async function saveRowNow(page: Page): Promise<SaveRowShows> {
+  await logPane(page, []);
+  const frames = await paneLog(page);
+  const last = frames[frames.length - 1];
+  if (last === undefined) throw new Error('no frame logged');
+  return last.saveRow;
+}
+
+// Until the running pane log holds `n` frames with a carry's card up.
+const loggedCarryFrames = (page: Page, n: number) =>
+  expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (document.body.dataset.paneFrames ?? '').split('"card":true').length -
+          1
+      )
+    )
+    .toBeGreaterThanOrEqual(n);
+
+// The frame the carry starts in (its card's first) shows the target, and
+// every frame before it the save row's controls.
+function expectSwapAtCarryStart(frames: PaneFrame[]): number {
+  const start = frames.findIndex((f) => f.card);
+  // PREMISE: the log spans the carry's start.
+  expect(start).toBeGreaterThan(0);
+  expect(frames.slice(0, start).map((f) => f.saveRow)).toEqual(
+    frames.slice(0, start).map(() => 'controls')
+  );
+  expect(
+    frames
+      .slice(start)
+      .filter((f) => f.saveRow !== 'target' && f.saveRow !== 'lit')
+  ).toEqual([]);
+  return start;
+}
+
+// The target, lit: its fill, border and words.
+const targetLook = (page: Page) =>
+  sessionTarget(page).evaluate((el) => {
+    const cs = getComputedStyle(el);
+    return {
+      landing: el.hasAttribute('data-landing'),
+      fill: cs.backgroundColor,
+      border: cs.borderTopStyle,
+      label:
+        el.querySelector('[data-drop-label] > span:last-child')?.textContent ??
+        '',
+    };
+  });
+
+// Picks `handle` up and takes it straight onto the save row in one move, so
+// the pointer passes over no other receiver and no auto-scroll band.
+async function ontoSaveRow(page: Page, handle: Locator): Promise<Point> {
+  const aim = await saveRowAim(page);
+  await pickUp(page, handle);
+  await page.mouse.move(aim.x, aim.y);
+  await expect(page.locator(CARD)).toHaveCount(1);
+  return aim;
+}
+
+// After a drop: the new session, first in the list, selected.
+async function newSession(page: Page, before: TabMasterContainer) {
+  await expect
+    .poll(async () => (await stored(page)).tabGroups.length)
+    .toBe(before.tabGroups.length + 1);
+  const after = await stored(page);
+  const made = after.tabGroups[0];
+  if (made === undefined) throw new Error('no session first');
+  expect(before.tabGroups.map((g) => g.tabGroupId)).not.toContain(
+    made.tabGroupId
+  );
+  expect(after.selectedTabGroupId).toBe(made.tabGroupId);
+  return { after, made };
+}
+
+// Every session but `except`, every field as it was.
+function othersUnchanged(
+  before: TabMasterContainer,
+  after: TabMasterContainer,
+  except: string[]
+): void {
+  const keep = (c: TabMasterContainer) =>
+    c.tabGroups
+      .filter((g) => !except.includes(g.tabGroupId))
+      .map((g) => ({ ...g, isSelected: undefined }));
+  // PREMISE: there are others to compare.
+  expect(keep(before).length).toBeGreaterThan(0);
+  expect(keep(after)).toEqual(keep(before));
+}
+
+async function expectSaveRowBack(page: Page): Promise<void> {
+  await expect(page.locator('html[data-carrying]')).toHaveCount(0);
+  await expect.poll(() => saveRowNow(page)).toBe('controls');
+}
+
+test.describe('a carried tab, group or window dropped on the save row makes a new session (KAN-394 P3)', () => {
+  const views = [
+    {
+      name: 'the popup',
+      open: (context: BrowserContext, extensionId: string) =>
+        openPopup(context, extensionId, [S1Placed(), S2(), S3(), S4()]),
+    },
+    {
+      name: 'the tab view',
+      open: (context: BrowserContext, extensionId: string) =>
+        openTabView(context, extensionId, false, [
+          S1Placed(),
+          S2(),
+          S3(),
+          S4(),
+        ]),
+    },
+    {
+      name: 'the tab view folded, the detail peeked',
+      open: (context: BrowserContext, extensionId: string) =>
+        openTabView(context, extensionId, true, [S1Placed(), S2(), S3(), S4()]),
+    },
+  ];
+  for (const view of views) {
+    test(`a tab in ${view.name}: the target from the carry's first frame, lit; let go, a1 alone in a new session named for it, shown`, async ({
+      context,
+      extensionId,
+    }) => {
+      const page = await view.open(context, extensionId);
+      const before = await stored(page);
+      const seeded = sessionOf(before, 'S1');
+      const a1 = seeded.windows[0]?.tabs.find((t) => t.tabId === 'a1');
+      expect(await saveRowNow(page)).toBe('controls');
+
+      await logPane(page, ['a1', 'tab:a1']);
+      await ontoSaveRow(page, tabHandle(page, 'a1'));
+      await loggedCarryFrames(page, 6);
+      expectSwapAtCarryStart(await paneLog(page));
+      expect(await targetLook(page)).toEqual({
+        landing: true,
+        fill: expect.any(String),
+        border: 'solid',
+        label: 'New session',
+      });
+      expect(rgbToHex((await targetLook(page)).fill)).toBe(
+        LIGHT_THEME.HOVER_COLOR
+      );
+      await page.mouse.up();
+
+      const { after, made } = await newSession(page, before);
+      expect(made.title).toBe('Tab a1');
+      expect(made.windows).toHaveLength(1);
+      const w = made.windows[0];
+      expect(w?.title).toBe('');
+      expect(SEEDED_WINDOWS.has(w?.windowId ?? '')).toBe(false);
+      expect(w?.tabs).toEqual([a1]);
+      expect(w).toMatchObject(W1_BOUNDS);
+      expect(layoutOf(sessionOf(after, 'S1'))).toEqual([
+        'a0 a2 al0* al1*',
+        'b0 b1',
+      ]);
+      othersUnchanged(before, after, [made.tabGroupId, 'S1']);
+      // Shown: its one window, drawn "Window 1", holding a1.
+      const detail = page.locator('[data-pane="detail"]');
+      await expect(detail.locator('[data-drag-row-id="a1"]')).toBeVisible();
+      await expect(detail.locator('[data-drag-row-id="a0"]')).toHaveCount(0);
+      await expect(detail.getByText('Window 1', { exact: true })).toBeVisible();
+      expect(await toasts(page)).toEqual([]);
+      await expectSaveRowBack(page);
+    });
+  }
+
+  test('a group: the band moves into the new session’s window, which is named for it', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    const before = await stored(page);
+    await ontoSaveRow(page, groupHandle(page, 'alpha'));
+    await expect(sessionTarget(page)).toHaveAttribute('data-landing', '');
+    await page.mouse.up();
+
+    const { after, made } = await newSession(page, before);
+    expect(made.title).toBe('Alpha');
+    expect(layoutOf(made)).toEqual(['al0* al1*']);
+    expect(made.windows[0]?.chromeTabGroups?.map((g) => g.title)).toEqual([
+      'Alpha',
+    ]);
+    expect(layoutOf(sessionOf(after, 'S1'))).toEqual(['a0 a1 a2', 'b0 b1']);
+    await expect(
+      page.locator('[data-pane="detail"] [data-group-drag-handle]', {
+        hasText: 'Alpha',
+      })
+    ).toBeVisible();
+    expect(await toasts(page)).toEqual([]);
+    await expectSaveRowBack(page);
+  });
+
+  const windows = [
+    { name: 'named', seed: S1, title: 'w2', session: 'w2' },
+    { name: 'unnamed', seed: S1UnnamedW2, title: '', session: 'Tab b0' },
+  ];
+  for (const w of windows) {
+    test(`a window, ${w.name}: the new session holds it whole, and is named for it`, async ({
+      context,
+      extensionId,
+    }) => {
+      const page = await openPopup(context, extensionId, [
+        w.seed(),
+        S2(),
+        S3(),
+        S4(),
+      ]);
+      const before = await stored(page);
+      const w2 = sessionOf(before, 'S1').windows[1];
+      await ontoSaveRow(page, windowHandle(page, 'w2'));
+      await expect(sessionTarget(page)).toHaveAttribute('data-landing', '');
+      await page.mouse.up();
+
+      const { after, made } = await newSession(page, before);
+      expect(made.title).toBe(w.session);
+      expect(made.windows).toEqual([w2]);
+      expect(made.windows[0]?.title).toBe(w.title);
+      expect(layoutOf(sessionOf(after, 'S1'))).toEqual([W1_START]);
+      expect(await toasts(page)).toEqual([]);
+      await expectSaveRowBack(page);
+    });
+  }
+
+  test('N5a: a session’s only window empties it: removed with its toast, and the new session holds the window', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(
+      context,
+      extensionId,
+      [S1(), S2(), S3(), S4()],
+      'S3'
+    );
+    const before = await stored(page);
+    const f1 = sessionOf(before, 'S3').windows[0];
+    await ontoSaveRow(page, windowHandle(page, 'f1'));
+    await page.mouse.up();
+
+    await expect.poll(() => sessionIds(page)).not.toContain('S3');
+    const after = await stored(page);
+    const made = after.tabGroups[0];
+    expect(made?.windows).toEqual([f1]);
+    expect(made?.title).toBe('f1');
+    expect(after.selectedTabGroupId).toBe(made?.tabGroupId);
+    expect((after.deletedTabGroups ?? []).map((d) => d.tabGroupId)).toContain(
+      'S3'
+    );
+    await expect
+      .poll(() => toasts(page))
+      .toEqual([{ text: '“Third” was empty and was removed.', show: false }]);
+  });
+
+  test('one ⌘Z puts both sessions back and takes the new one away', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    const before = await stored(page);
+    await ontoSaveRow(page, tabHandle(page, 'a1'));
+    await page.mouse.up();
+    const { made } = await newSession(page, before);
+
+    await expectOneUndoRestores(page, sessionOf(before, 'S1'));
+    await expect
+      .poll(() => sessionIds(page))
+      .toEqual(before.tabGroups.map((g) => g.tabGroupId));
+    const back = await stored(page);
+    expect((back.deletedTabGroups ?? []).map((d) => d.tabGroupId)).toContain(
+      made.tabGroupId
+    );
+    othersUnchanged(before, back, ['S1']);
+  });
+
+  // N7. Each leaves the store as it was, adds no row, and gives the save
+  // row back.
+  const cancels = [
+    {
+      name: 'Esc while lit',
+      end: async (page: Page) => {
+        await page.keyboard.press('Escape');
+        await expect(page.locator(CARD)).toHaveCount(0);
+        await page.mouse.up();
+      },
+    },
+    {
+      name: 'pointercancel',
+      end: async (page: Page) => {
+        await page.evaluate(() =>
+          window.dispatchEvent(new PointerEvent('pointercancel'))
+        );
+        await expect(page.locator(CARD)).toHaveCount(0);
+        await page.mouse.up();
+      },
+    },
+    {
+      name: 'a release over nothing',
+      end: async (page: Page) => {
+        // Below the last session row, in the list's empty space.
+        const last = await boxOf(sessionRow(page, 'S4'));
+        await page.mouse.move(last.x + 100, last.y + last.height + 60, {
+          steps: 4,
+        });
+        await expect(sessionTarget(page)).not.toHaveAttribute(
+          'data-landing',
+          ''
+        );
+        await expect.poll(() => carryTargets(page)).toEqual([]);
+        await page.mouse.up();
+        await expect(page.locator(CARD)).toHaveCount(0);
+      },
+    },
+  ];
+  for (const c of cancels) {
+    test(`N7, ${c.name}: nothing changes`, async ({ context, extensionId }) => {
+      const page = await openPopup(context, extensionId);
+      const before = await stored(page);
+      await ontoSaveRow(page, tabHandle(page, 'a1'));
+      await expect(sessionTarget(page)).toHaveAttribute('data-landing', '');
+      await c.end(page);
+
+      await expectSaveRowBack(page);
+      await expect(
+        page.locator('[data-pane="sessions"] [data-drag-row-id]')
+      ).toHaveCount(before.tabGroups.length);
+      expect(await stored(page)).toEqual(before);
+      await expect(tabHandle(page, 'a1')).toBeVisible();
+    });
+  }
+
+  // N6. NEGATIVES, each watched over the whole gesture, after its CONTROL:
+  // the same watcher sees a tab carried onto the save row.
+  async function controlSeesTheTarget(page: Page): Promise<void> {
+    await watchSaveRow(page);
+    await ontoSaveRow(page, tabHandle(page, 'a1'));
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+    expect(await saveRowSeen(page)).toEqual({ carrying: '1', target: '1' });
+    await expectSaveRowBack(page);
+  }
+
+  test('N6: an ordinary tab drag inside the detail never draws it', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    await controlSeesTheTarget(page);
+
+    await watchSaveRow(page);
+    const at = await pickUp(page, tabHandle(page, 'a1'));
+    await expect(tabHandle(page, 'a1')).toHaveAttribute('data-drag-held', '');
+    const a2 = await boxOf(tabHandle(page, 'a2'));
+    await page.mouse.move(at.x, a2.y + a2.height * 0.75, { steps: 6 });
+    await page.mouse.up();
+    await expect
+      .poll(() => layout(page, 'S1'))
+      .toEqual(['a0 a2 a1 al0* al1*', 'b0 b1']);
+    expect(await saveRowSeen(page)).toEqual({ carrying: '0', target: '0' });
+  });
+
+  test('N6: an Open now tab let go on the save row draws nothing and changes nothing', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    const url = (title: string) =>
+      `data:text/html,${encodeURIComponent(`<title>${title}</title>`)}`;
+    await serviceWorker.evaluate(async (urls) => {
+      await chrome.windows.create({ focused: false, url: urls });
+    }, ['x0', 'x1'].map(url));
+    const page = await openTabView(context, extensionId, false);
+    await controlSeesTheTarget(page);
+    const before = await stored(page);
+    const chromeBefore = await chromeNow(serviceWorker);
+
+    await watchSaveRow(page);
+    const aim = await saveRowAim(page);
+    const x0 = page.locator('[data-pane="open-now"] [data-open-tab-id]', {
+      hasText: 'x0',
+    });
+    await pickUp(page, x0);
+    await expect(
+      page.locator('[data-pane="open-now"] [data-drag-held]')
+    ).toHaveCount(1);
+    await page.mouse.move(aim.x, aim.y, { steps: 8 });
+    await page.mouse.up();
+    await expect(page.locator('[data-drag-held]')).toHaveCount(0);
+    expect(await saveRowSeen(page)).toEqual({ carrying: '0', target: '0' });
+    expect(await stored(page)).toEqual(before);
+    expect(await chromeNow(serviceWorker)).toBe(chromeBefore);
+  });
+
+  test('N6: while searching, a press and move on a tab onto the save row draws nothing and changes nothing', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    await controlSeesTheTarget(page);
+    const before = await stored(page);
+    const aim = await saveRowAim(page);
+    const field = page.getByRole('textbox', {
+      name: 'Search saved tabs',
+      exact: true,
+    });
+    await field.fill('Tab a');
+    await expect(tabHandle(page, 'b0')).toHaveCount(0);
+
+    await watchSaveRow(page);
+    const b = await boxOf(tabHandle(page, 'a1'));
+    await page.mouse.move(b.x + 60, b.y + b.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(b.x + 60, b.y + b.height / 2 + 8, { steps: 2 });
+    await page.mouse.move(aim.x, aim.y, { steps: 8 });
+    await page.mouse.up();
+    expect(await saveRowSeen(page)).toEqual({ carrying: '0', target: '0' });
+    await field.fill('');
+    await expect(tabHandle(page, 'b0')).toBeVisible();
+    expect(await stored(page)).toEqual(before);
+  });
+
+  test('N8, reduced motion: lit in the first frame the pointer is on it', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await logPane(page, ['a1', 'tab:a1']);
+    await ontoSaveRow(page, tabHandle(page, 'a1'));
+    await loggedCarryFrames(page, 4);
+    const frames = await paneLog(page);
+    const start = expectSwapAtCarryStart(frames);
+    expect(frames.slice(start).map((f) => f.saveRow)).toEqual(
+      frames.slice(start).map(() => 'lit')
+    );
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+  });
+
+  test('a window the carry spring-opened on its way folds back after the drop (KAN-379)', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    const before = await stored(page);
+    const aim = await saveRowAim(page);
+    await collapseWindow(page, 'w2');
+    const at = await pickUp(page, tabHandle(page, 'a1'));
+    await ontoTitle(page, 'w2', at.x);
+    await expect(tabHandle(page, 'b0')).toBeVisible();
+    await page.mouse.move(aim.x, aim.y);
+    await expect(sessionTarget(page)).toHaveAttribute('data-landing', '');
+    await page.mouse.up();
+    const { made } = await newSession(page, before);
+    expect(layoutOf(made)).toEqual(['a1']);
+
+    // By its title: the row's middle is its Open button.
+    await sessionRow(page, 'S1').click({ position: { x: 16, y: 16 } });
+    await expect(tabHandle(page, 'a0')).toBeVisible();
+    expect(await isFolded(page, 'w2')).toBe(true);
+  });
+
+  test('scrolled: from a detail scrolled to 200, the scroll stays put until the release', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId, [
+      sixByFour('S1', 'Six', 'y'),
+      S2(),
+    ]);
+    const before = await stored(page);
+    expect(await setDetailScroll(page, 200)).toBe(200);
+    const pane = await detailPane(page);
+    // A tab clear of both 48px auto-scroll bands.
+    const tabId = await page.evaluate(
+      ({ top, bottom }) => {
+        for (const row of document.querySelectorAll<HTMLElement>(
+          '[data-pane="detail"] [data-drag-row-id^="y"]'
+        )) {
+          const id = row.dataset.dragRowId ?? '';
+          const b = row.getBoundingClientRect();
+          if (id.includes('-') && b.top > top + 80 && b.bottom < bottom - 80)
+            return id;
+        }
+        return undefined;
+      },
+      { top: pane.top, bottom: pane.bottom }
+    );
+    if (tabId === undefined) throw new Error('no tab mid-pane');
+    await ontoSaveRow(page, tabHandle(page, tabId));
+    await expect(sessionTarget(page)).toHaveAttribute('data-landing', '');
+    await settled(page);
+    expect((await detailPane(page)).scrollTop).toBe(200);
+    await page.mouse.up();
+
+    const { made } = await newSession(page, before);
+    expect(layoutOf(made)).toEqual([tabId]);
   });
 });
