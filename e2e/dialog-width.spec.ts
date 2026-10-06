@@ -70,6 +70,14 @@ async function dialogGeometry(
   dialog: Locator
 ): Promise<{ width: number; leftGap: number; rightGap: number }> {
   await expect(dialog).toBeVisible();
+  // Hello enters from scale(0.97) (KAN-443); the box is read once the dialog's own animations are done.
+  await expect
+    .poll(() =>
+      dialog.evaluate((el) =>
+        el.getAnimations().every((a) => a.playState === 'finished')
+      )
+    )
+    .toBe(true);
   const box = await dialog.boundingBox();
   if (box === null) throw new Error('no box for the dialog');
   const viewport = page.viewportSize();
