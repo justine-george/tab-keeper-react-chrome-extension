@@ -2,21 +2,22 @@ import type { Page } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
 import {
-  CLOUD,
   commitLanded,
+  hasCloudConfig,
   openSecondDevice,
   seedOnce,
 } from './fixtures/cloud';
 import { buildSession } from './fixtures/seed';
 import { pickUp, saveRowAim, stored, tabHandle } from './fixtures/sessionDrag';
 
-// Syncs with the dev cloud (KAN-383); skips without a cloud config (CI, KAN-147).
+// Syncs with the dev cloud (KAN-383).
 test.use({ cloud: true });
 
 // KAN-394 P3 across two devices: a tab let go on the save row's New session
 // target becomes a session on device A, and device B, which adopts A's id,
 // receives it. After A's undo, B receives its tombstone, not just its absence.
-// Run alone: each boot signs up an anonymous account (KAN-383).
+// Run alone: each boot signs up an anonymous account (KAN-383). Needs a build
+// with the Firebase config; it skips without one (CI, KAN-147).
 
 const tab = (id: string) => ({
   tabId: id,
@@ -64,7 +65,7 @@ const tabIdsOf = (c: Awaited<ReturnType<typeof stored>>, sessionId: string) =>
 const madeSession = (c: Awaited<ReturnType<typeof stored>>) =>
   c.tabGroups.find((g) => !['S1', 'S2'].includes(g.tabGroupId));
 
-const hasA1Session = (c: Awaited<ReturnType<typeof stored>>) => {
+const madeSessionSummary = (c: Awaited<ReturnType<typeof stored>>) => {
   const made = madeSession(c);
   return made === undefined
     ? null
@@ -74,14 +75,14 @@ const hasA1Session = (c: Awaited<ReturnType<typeof stored>>) => {
       };
 };
 
-const gesture = async (page: Page) => {
+const carryA1ToSaveRow = async (page: Page) => {
   const aim = await saveRowAim(page);
   await pickUp(page, tabHandle(page, 'a1'));
   await page.mouse.move(aim.x, aim.y);
-  return aim;
 };
 
 test.describe('a new session made by a drop on the save row, on two devices (KAN-394 P3)', () => {
+  test.skip(!hasCloudConfig(), 'this build has no cloud config (CI)');
   test.setTimeout(180_000);
 
   test('device B receives the session, then its tombstone after the undo', async ({
@@ -94,17 +95,8 @@ test.describe('a new session made by a drop on the save row, on two devices (KAN
     const page = await context.newPage();
     await page.setViewportSize({ width: 790, height: 550 });
     const started = commitLanded(page);
-    const cloudRequests: string[] = [];
-    page.on('request', (r) => {
-      if (CLOUD.test(r.url())) cloudRequests.push(r.url());
-    });
     await page.goto(`chrome-extension://${extensionId}/index.html`);
-    const startedOk = await started;
-    test.skip(
-      !startedOk && cloudRequests.length === 0,
-      'this build has no cloud config (CI)'
-    );
-    expect(startedOk, "device A's startup sync never wrote").toBe(true);
+    expect(await started, "device A's startup sync never wrote").toBe(true);
     await expect(tabHandle(page, 'a1')).toBeVisible();
 
     const token = await serviceWorker.evaluate(async () => {
@@ -114,26 +106,25 @@ test.describe('a new session made by a drop on the save row, on two devices (KAN
     if (token === null) throw new Error('device A has no tokenValue');
 
     // A drops a1 on New session, and the write lands.
-    await gesture(page);
+    await carryA1ToSaveRow(page);
     const dropped = commitLanded(page);
     await page.mouse.up();
     await expect
-      .poll(async () => hasA1Session(await stored(page))?.tabs)
+      .poll(async () => madeSessionSummary(await stored(page))?.tabs)
       .toEqual([['a1']]);
     expect(await dropped, "device A's drop never reached the cloud").toBe(true);
-    const made = hasA1Session(await stored(page));
+    const made = madeSessionSummary(await stored(page));
     if (made === null) throw new Error('no new session on A');
     expect(tabIdsOf(await stored(page), 'S1')).toEqual([['a0', 'a2']]);
 
     // B, with the old copy, receives the new session through the cloud.
     const deviceB = await openSecondDevice(token, [S1, S2]);
     try {
-      await deviceB.committed;
       await expect
-        .poll(async () => hasA1Session(await stored(deviceB.page))?.id)
+        .poll(async () => madeSessionSummary(await stored(deviceB.page))?.id)
         .toBe(made.id);
       const b = await stored(deviceB.page);
-      expect(hasA1Session(b)?.tabs).toEqual([['a1']]);
+      expect(madeSessionSummary(b)?.tabs).toEqual([['a1']]);
       expect(tabIdsOf(b, 'S1')).toEqual([['a0', 'a2']]);
       await expect(
         deviceB.page.locator(`[data-drag-row-id="${made.id}"]`)
