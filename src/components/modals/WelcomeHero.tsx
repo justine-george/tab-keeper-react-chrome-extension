@@ -19,7 +19,7 @@ const HERO = {
 } as const;
 const LINE_WIDTHS = [120, 96, 130, 80] as const;
 
-// §5's wordless loop: tabs saved into the floppy and back out. Task 12 moves it; still, it shows its end.
+// §5's wordless loop: tabs saved into the floppy and back out. Still, it shows its end frame.
 export default function WelcomeHero({ frame }: { frame: 'start' | 'end' }) {
   const COLORS = useThemeColors();
   const isEnd = frame === 'end';
