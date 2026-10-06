@@ -214,12 +214,12 @@ export const showWelcome =
     dispatch(openCloudConsentModal({ variant: 'welcome' }));
   };
 
-// Get started: the lock goes first so the new tab finds it free; the record is written before the tab can end this popup.
+// Get started: the welcome was the hello, so the run starts at step 1; the lock goes first so the new tab finds it free, and the record is written before the tab can end this popup.
 export const welcomeGetStarted =
   (): Thunk<Promise<void>> => async (dispatch) => {
     dispatch(closeCloudConsentModal());
     await dispatch(leaveRunHere());
-    dispatch(recordFirstRun(newRun('full', 0, 'welcome')));
+    dispatch(recordFirstRun(newRun('full', 1)));
     await requestTabView();
   };
 

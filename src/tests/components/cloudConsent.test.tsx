@@ -333,7 +333,7 @@ describe('the welcome (KAN-410)', () => {
     expect(store.getState().settingsDataState.cloudConsent).toBe('declined');
   });
 
-  test('Get started lets the lock go, then records the full-view run at Hello, then asks for the full view (Review Focus 1)', async () => {
+  test('Get started lets the lock go, then records the full-view run at step 1 (no Hello), then asks for the full view (Review Focus 1)', async () => {
     const user = userEvent.setup();
     const { store, dialog, chrome } = await freshWelcome();
     await waitFor(() => expect(locks.held.has(RUN_LOCK)).toBe(true));
@@ -351,7 +351,7 @@ describe('the welcome (KAN-410)', () => {
     );
     await waitFor(() =>
       expect(store.getState().settingsDataState.firstRun).toEqual(
-        newRun('full', 0, 'welcome')
+        newRun('full', 1)
       )
     );
     expect(heldAtRecord).toBe(false);

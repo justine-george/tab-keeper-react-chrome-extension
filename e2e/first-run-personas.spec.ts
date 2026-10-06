@@ -153,7 +153,7 @@ test('new install, Get started, each step done by hand; then setup, then the pin
     .click();
   const full = await waitForFullView(context);
   await expectNothingElseYet(full, serviceWorker, tests);
-  await hello(full).getByRole('button', { name: 'Start', exact: true }).click();
+  await expect(cardAt(full, 1)).toBeVisible();
   await nextTo(full, 2);
   const search = full.locator(
     '[data-pane="open-now"] [data-open-now-search] input'
@@ -196,7 +196,7 @@ test('new install, Get started, Next only (Use an example): the sample is gone a
     .click();
   const full = await waitForFullView(context);
   await expectNothingElseYet(full, serviceWorker, tests);
-  await hello(full).getByRole('button', { name: 'Start', exact: true }).click();
+  await expect(cardAt(full, 1)).toBeVisible();
   for (let step = 2; step <= 3; step++) await nextTo(full, step);
   await cardButton(full, 'Use an example').click();
   await expect(cardAt(full, 4)).toBeVisible();

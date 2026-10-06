@@ -38,7 +38,7 @@ export const RunHelloDialog: React.FC<{
     if (dialog && !dialog.open) {
       dialog.showModal();
       dialog.focus();
-      // A7: Hello enters as the dialog after Get started does; reduced motion shows it at once.
+      // Hello enters from 0.97 and transparent; reduced motion shows it at once.
       if (!prefersReducedMotion() && canAnimate(dialog)) {
         playDialogEntrance(dialog);
       }

@@ -110,12 +110,17 @@ export async function walkFullRunToLastStep(page: Page): Promise<void> {
   for (let step = 5; step <= 8; step++) await nextTo(page, step);
 }
 
-// A full-view run from Hello to Not now at its end, which goes on to setup.
-export async function finishFullRunFromHello(page: Page): Promise<void> {
-  await hello(page).getByRole('button', { name: 'Start', exact: true }).click();
+// A full-view run from its first card to Not now at its end, which goes on to setup.
+export async function finishFullRun(page: Page): Promise<void> {
   await expect(cardAt(page, 1)).toBeVisible();
   await walkFullRunToLastStep(page);
   await cardButton(page, 'Not now').click();
+}
+
+// A full-view run from Hello to Not now at its end, which goes on to setup.
+export async function finishFullRunFromHello(page: Page): Promise<void> {
+  await hello(page).getByRole('button', { name: 'Start', exact: true }).click();
+  await finishFullRun(page);
 }
 
 // openRunFromHelp in another language: every name is read from the locale on screen.

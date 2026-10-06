@@ -81,7 +81,7 @@ function pressGetStarted(): { moment: () => Run[]; loop: Run[] } {
 }
 const welcomeDialog = () =>
   document.querySelector('dialog[aria-labelledby="cloud-consent-title"]');
-const FULL_RUN = newRun('full', 0, 'welcome');
+const FULL_RUN = newRun('full', 1);
 const microtasks = () =>
   act(async () => {
     for (let i = 0; i < 5; i += 1) await Promise.resolve();

@@ -1,6 +1,9 @@
 import { test, expect } from './fixtures/extension';
 import {
+  FULL,
+  FULL_VIEW_PATH,
   THEMES,
+  openFullView,
   openPopup,
   pageGround,
   storedSettings,
@@ -80,19 +83,40 @@ test('Esc is Not now, and the popup keeps it (KAN-426)', async ({
 });
 
 for (const attempt of [1, 2, 3, 4, 5]) {
-  test(`Get started opens the full view on Hello, every time (Review Focus 1, run ${attempt})`, async ({
+  test(`Get started opens the full view on step 1's card, never Hello, every time (Review Focus 1, run ${attempt})`, async ({
     context,
     extensionId,
   }) => {
+    await watchRunDrawn(context);
     const page = await openPopup(context, extensionId);
     await welcome(page)
       .getByRole('button', { name: 'Get started', exact: true })
       .click();
     const full = await waitForFullView(context);
     await runCheck(full, 'resumed');
-    await expect(hello(full)).toHaveAccessibleName('Welcome to Tab Keeper');
+    await expect(cardAt(full, 1)).toBeVisible();
+    await queueDone(full);
+    // CONTROL: the same observer sees Hello on a fresh profile's first full-view open (below).
+    expect(await runDrawn(full)).toEqual(['card']);
+    expect(await storedRun(full)).toMatchObject({
+      view: 'full',
+      step: 1,
+      ended: null,
+    });
   });
 }
+
+test('CONTROL: a fresh profile whose first open is the full view gets Hello, and the same observer sees it', async ({
+  context,
+  extensionId,
+}) => {
+  await watchRunDrawn(context);
+  const full = await openFullView(context, extensionId);
+  await runCheck(full, 'started');
+  await expect(hello(full)).toHaveAccessibleName('Welcome to Tab Keeper');
+  await queueDone(full);
+  expect(await runDrawn(full)).toEqual(['hello']);
+});
 
 test('Q7: closed unanswered, it shows once more; closed again, it ends and the popup is plain', async ({
   context,
@@ -224,7 +248,7 @@ test('the loop plays its beats once, all done by 2.4s', async ({
     .toBe(true);
 });
 
-test('Get started: the loop ends at once, the shutter beat and the exit play, and Hello enters in the full view', async ({
+test('Get started: the loop ends at once, the shutter beat and the exit play, and the full view opens on step 1', async ({
   context,
   extensionId,
 }) => {
@@ -264,14 +288,7 @@ test('Get started: the loop ends at once, the shutter beat and the exit play, an
     })
     .toEqual([true, true]);
   const full = await waitForFullView(context);
-  await expect(hello(full)).toBeVisible();
-  await expect
-    .poll(async () =>
-      (await animationsIn(full)).some(
-        (a) => a.target === 'hello' && a.duration === 220
-      )
-    )
-    .toBe(true);
+  await expect(cardAt(full, 1)).toBeVisible();
 });
 
 test('Esc during the beat completes Get started (R12)', async ({
@@ -284,7 +301,7 @@ test('Esc during the beat completes Get started (R12)', async ({
     .click();
   await page.keyboard.press('Escape');
   const full = await waitForFullView(context);
-  await expect(hello(full)).toBeVisible();
+  await expect(cardAt(full, 1)).toBeVisible();
 });
 
 test('reduced motion: a still hero at its end, nothing animates, and Get started goes straight on', async ({
@@ -313,17 +330,30 @@ test('reduced motion: a still hero at its end, nothing animates, and Get started
     .getByRole('button', { name: 'Get started', exact: true })
     .click();
   const full = await waitForFullView(context);
-  await expect(hello(full)).toBeVisible();
+  await expect(cardAt(full, 1)).toBeVisible();
   expect(await animationsIn(page)).toEqual([]);
-  // Hello's own load had no emulation; reload it reduced, then not (the CONTROL), on the same page.
+});
+
+test('Hello enters from 0.97 in 220ms; reduced motion shows it at once', async ({
+  context,
+  extensionId,
+}) => {
+  await watchAnimations(context);
+  const full = await context.newPage();
   await full.emulateMedia({ reducedMotion: 'reduce' });
-  await full.reload();
+  await full.setViewportSize(FULL);
+  await full.goto(`chrome-extension://${extensionId}/${FULL_VIEW_PATH}`);
   await expect(hello(full)).toBeVisible();
   expect(await animationsIn(full)).toEqual([]);
+  // CONTROL: the same page, reloaded without reduced motion, records Hello's entrance.
   await full.emulateMedia({ reducedMotion: 'no-preference' });
   await full.reload();
   await expect(hello(full)).toBeVisible();
   await expect
-    .poll(async () => (await animationsIn(full)).map((a) => a.target))
-    .toContain('hello');
+    .poll(async () =>
+      (await animationsIn(full)).some(
+        (a) => a.target === 'hello' && a.duration === 220
+      )
+    )
+    .toBe(true);
 });
