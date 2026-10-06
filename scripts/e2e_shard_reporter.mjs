@@ -20,10 +20,14 @@ export default class ShardByTime {
     const tests = suite.allTests();
     const files = tests.map((t) => relative(config.rootDir, t.location.file));
     // Under half weighed means the keys stopped matching, not a few new files.
-    const weighed = files.filter((f) => Object.hasOwn(weights, f)).length;
-    if (weighed * 2 < files.length) {
+    const unweighed = files.filter((f) => !Object.hasOwn(weights, f));
+    if (unweighed.length * 2 > files.length) {
       throw new Error(
-        `${weighed} of ${files.length} tests have a weight in ${this.weightsFile} (first file: ${files[0]})`
+        `${files.length - unweighed.length} of ${
+          files.length
+        } tests have a weight in ${this.weightsFile} (one without: ${
+          unweighed[0]
+        })`
       );
     }
     const shards = assignShards(files, weights, total);

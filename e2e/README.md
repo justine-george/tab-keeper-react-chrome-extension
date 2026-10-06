@@ -78,4 +78,5 @@ All measured, not assumed — each cost a debugging cycle to find:
   serially (a unit test checks). Refresh `shard-weights.json` from a green run:
   `gh run download <run-id> -p 'timings-shard-*'`, then
   `node scripts/e2e_shards.mjs timings-shard-*/results-shard-*.json`. A shard
-  refuses to run when under half the tests have a weight.
+  refuses to run when under half the tests have a weight, so a PR that renames
+  most spec files renames their keys in `shard-weights.json` too.

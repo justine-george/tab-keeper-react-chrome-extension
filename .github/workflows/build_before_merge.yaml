@@ -134,8 +134,8 @@ jobs:
           PLAYWRIGHT_JSON_OUTPUT_NAME: results-shard-${{ matrix.shard }}.json
         run: npx playwright test --shard=${{ matrix.shard }}/${{ strategy.job-total }}
 
-      # Per-test times: `node scripts/e2e_shards.mjs results-shard-*.json`
-      # refreshes e2e/shard-weights.json from these.
+      # Per-test times: e2e/README.md has the steps that refresh
+      # e2e/shard-weights.json from these.
       - name: Upload per-test timing report
         if: always()
         uses: actions/upload-artifact@v4

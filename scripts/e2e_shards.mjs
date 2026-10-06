@@ -15,8 +15,8 @@ export const WEIGHTS_FILE = fileURLToPath(
 
 /**
  * Mean seconds per test for each spec file in Playwright JSON reports. A test
- * counts once, by its last result, and only if that passed: a skip weighs 0
- * and a timeout weighs the whole timeout. A file with none is left out.
+ * counts once, by its last result, if that passed or skipped (a failure or
+ * timeout would weigh its timeout). A weight is at least 0.01s.
  * @param {Array<{ suites?: object[] }>} reports
  * @returns {Record<string, number>} file (relative to e2e/) -> mean seconds
  */
@@ -27,7 +27,7 @@ export function meanTestSecondsByFile(reports) {
     for (const spec of suite.specs ?? []) {
       for (const test of spec.tests ?? []) {
         const last = test.results?.at(-1);
-        if (last?.status !== 'passed') continue;
+        if (last?.status !== 'passed' && last?.status !== 'skipped') continue;
         const list = byFile.get(spec.file) ?? [];
         list.push(last.duration / 1000);
         byFile.set(spec.file, list);
@@ -43,7 +43,11 @@ export function meanTestSecondsByFile(reports) {
       .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
       .map(([file, secs]) => [
         file,
-        Math.round((secs.reduce((a, b) => a + b, 0) / secs.length) * 100) / 100,
+        Math.max(
+          0.01,
+          Math.round((secs.reduce((a, b) => a + b, 0) / secs.length) * 100) /
+            100
+        ),
       ])
   );
 }

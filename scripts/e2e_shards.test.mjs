@@ -104,20 +104,25 @@ describe('meanTestSecondsByFile', () => {
     expect(meanTestSecondsByFile([report])).toEqual({ 'n.spec.ts': 1 });
   });
 
-  test('counts only passed results, and leaves out a file with none', () => {
+  test('counts passed and skipped results, not failures, with a 0.01s floor', () => {
     const report = {
       suites: [
         {
           specs: [
             spec('m.spec.ts', 2000),
-            ended('m.spec.ts', 'skipped', 0),
+            ended('m.spec.ts', 'skipped', 1000),
             ended('m.spec.ts', 'timedOut', 30000),
+            ended('m.spec.ts', 'failed', 9000),
             ended('s.spec.ts', 'skipped', 0),
+            ended('f.spec.ts', 'failed', 5000),
           ],
         },
       ],
     };
-    expect(meanTestSecondsByFile([report])).toEqual({ 'm.spec.ts': 2 });
+    expect(meanTestSecondsByFile([report])).toEqual({
+      'm.spec.ts': 1.5,
+      's.spec.ts': 0.01,
+    });
   });
 });
 
@@ -179,10 +184,17 @@ describe('the shard reporter', () => {
     expect(kept.sort((a, b) => a - b)).toEqual(FILES.map((_, i) => i));
   });
 
+  test('runs when exactly half the tests have a weight', async () => {
+    const files = ['new-a.spec.ts', FILES[0]];
+    const one = await run({ total: 2, current: 1 }, { files });
+    const two = await run({ total: 2, current: 2 }, { files });
+    expect([...one.kept, ...two.kept].sort()).toEqual([0, 1]);
+  });
+
   test('refuses to run when under half the tests have a weight', async () => {
-    const files = ['new-a.spec.ts', 'new-b.spec.ts', FILES[0]];
+    const files = [FILES[0], 'new-a.spec.ts', 'new-b.spec.ts'];
     await expect(run({ total: 2, current: 1 }, { files })).rejects.toThrow(
-      /1 of 3 tests have a weight/
+      /1 of 3 tests have a weight .* \(one without: new-a\.spec\.ts\)/
     );
   });
 
