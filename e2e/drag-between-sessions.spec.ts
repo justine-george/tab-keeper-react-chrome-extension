@@ -7553,6 +7553,34 @@ test.describe('a carried tab, group or window dropped on the save row makes a ne
     await expectSaveRowBack(page);
   });
 
+  // The most natural path: the carry goes live over the session list (the
+  // layer drives it), then moves onto the save row and lets go there.
+  test('a tab carried over the session list first, then moved onto the save row and let go: a new session', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    const before = await stored(page);
+    const aim = await saveRowAim(page);
+    const at = await pickUp(page, tabHandle(page, 'a1'));
+    await carryOutLeft(page, at);
+    // PREMISE: the carry is live over the list, not yet on the save row.
+    await expect(page.locator('html[data-carrying]')).toHaveCount(1);
+    expect(await saveRowNow(page)).toBe('target');
+    await page.mouse.move(aim.x, aim.y, { steps: 6 });
+    await expect.poll(() => saveRowNow(page)).toBe('lit');
+    await page.mouse.up();
+
+    const { made } = await newSession(page, before);
+    expect(layoutOf(made)).toEqual(['a1']);
+    expect(layoutOf(sessionOf(await stored(page), 'S1'))).toEqual([
+      'a0 a2 al0* al1*',
+      'b0 b1',
+    ]);
+    expect(await toasts(page)).toEqual([]);
+    await expectSaveRowBack(page);
+  });
+
   test('a group: the band moves into the new session’s window, which is named for it', async ({
     context,
     extensionId,
