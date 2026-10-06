@@ -170,7 +170,10 @@ describe('a window moves into a new session', () => {
     expect(made.title).toBe('Window w1');
     expect(made.windows.map((w) => w.windowId)).toEqual(['w1']);
     expect(made.windows[0].title).toBe('Window w1');
+    expect(made.windows[0].windowHeight).toBe(W1_BOUNDS.height);
     expect(made.windows[0].windowWidth).toBe(W1_BOUNDS.width);
+    expect(made.windows[0].windowOffsetTop).toBe(W1_BOUNDS.top);
+    expect(made.windows[0].windowOffsetLeft).toBe(W1_BOUNDS.left);
     expect(tabIds(made.windows[0])).toEqual(['t1', 'g1a', 'g1b', 't2', 't4']);
     expect(made.tabCount).toBe(5);
     expect(sessionIn(next, 'S1').windows.map((w) => w.windowId)).toEqual([
