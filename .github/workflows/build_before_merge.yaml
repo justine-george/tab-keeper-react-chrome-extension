@@ -5,10 +5,11 @@ on:
     branches:
       - main
 
-# KAN-227. Three kinds of job, so the slow part runs side by side:
+# KAN-227, KAN-444. Four kinds of job, so the slow parts run side by side:
 #
-#   checks  lint, unit tests, E2E typecheck             one runner
-#   e2e     the E2E suite, split into SHARD_TOTAL parts one runner per part
+#   checks  lint, E2E typecheck                         one runner
+#   unit    the vitest suite, in 2 shards               one runner per shard
+#   e2e     the E2E suite, in 10 shards                 one runner per shard
 #   gate    "Build before merge": passes only if every job above did
 #
 # This was one job of ~10 minutes, 7m17s of it the E2E suite running serially
@@ -19,7 +20,7 @@ on:
 
 jobs:
   checks:
-    name: Lint, unit tests, E2E typecheck
+    name: Lint, E2E typecheck
     runs-on: ubuntu-latest
 
     steps:
@@ -43,14 +44,35 @@ jobs:
       - name: Run lint
         run: npm run lint
 
-      - name: Run tests
-        run: npm run test
-
       # e2e/ sits outside tsconfig's `include` and has its own project file, so
       # `npm run test` typechecks none of it -- and vitest does not typecheck at
       # all. Without this a spec can be broken in a way no other step sees.
       - name: Typecheck E2E specs
         run: npm run typecheck:e2e
+
+  # ~4 min of vitest on one 4-vCPU runner was the floor once e2e got faster.
+  unit:
+    name: Unit tests shard ${{ matrix.shard }} of ${{ strategy.job-total }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        uses: bahmutov/npm-install@v1
+
+      - name: Run tests
+        run: npx vitest run --shard=${{ matrix.shard }}/${{ strategy.job-total }}
 
   e2e:
     name: E2E shard ${{ matrix.shard }} of ${{ strategy.job-total }}
@@ -144,16 +166,19 @@ jobs:
   gate:
     name: Build before merge
     runs-on: ubuntu-latest
-    needs: [checks, e2e]
+    needs: [checks, unit, e2e]
     if: always()
 
     steps:
       - name: Every job succeeded
         env:
           CHECKS: ${{ needs.checks.result }}
+          UNIT: ${{ needs.unit.result }}
           E2E: ${{ needs.e2e.result }}
         run: |
           echo "checks: $CHECKS"
+          echo "unit (all shards): $UNIT"
           echo "e2e (all shards): $E2E"
           test "$CHECKS" = success
+          test "$UNIT" = success
           test "$E2E" = success
