@@ -20,6 +20,7 @@ import {
   moveToNewSessionInternal,
   replaceState,
   type CarriedRef,
+  type TabMasterContainer,
   type tabContainerData,
 } from '../../redux/slices/tabContainerDataStateSlice';
 import { grantCloudConsent } from '../../redux/slices/settingsDataStateSlice';
@@ -35,9 +36,12 @@ import { DEBOUNCE_TIME_WINDOW } from '../../utils/constants/common';
 import {
   T0,
   container,
+  session,
   sessionIds,
   sessionIn,
+  tab,
   tabIds,
+  win,
   windowIn,
 } from '../fixtures/sessionMoveFixture';
 
@@ -54,9 +58,9 @@ const T1: CarriedRef = {
   tabId: 't1',
 };
 
-const ready = () => {
+const ready = (c: TabMasterContainer = container(undefined, 'S1')) => {
   const made = makeTestStore();
-  made.store.dispatch(replaceState(container(undefined, 'S1')));
+  made.store.dispatch(replaceState(c));
   made.store.dispatch(
     resetHistory({
       tabContainerDataState: made.store.getState().tabContainerDataState,
@@ -114,6 +118,38 @@ describe('moveToNewSessionInternal in the store', () => {
     vi.advanceTimersByTime(DEBOUNCE_TIME_WINDOW + 1);
 
     expect(seen).toContain(SYNC_PENDING_ACTION);
+  });
+
+  // The item empties S1: the move tombstones it, and the undo must lift that.
+  it('⌘Z over a lonely source restores S1 with no live tombstone, and tombstones the new session', () => {
+    const lonelyC = container(
+      [session('S1', 'Source', T0 - 3_600_000, [win('w2', [tab('t3')])])],
+      'S1'
+    );
+    const { store } = ready(lonelyC);
+    const carried: CarriedRef = {
+      kind: 'tab',
+      tabGroupId: 'S1',
+      windowId: 'w2',
+      tabId: 't3',
+    };
+
+    vi.setSystemTime(T0 + 1_000);
+    store.dispatch(move(carried));
+    expect(sessionIds(data(store))).toEqual([NEW]);
+    expect(
+      (data(store).deletedTabGroups ?? []).map((g) => g.tabGroupId)
+    ).toEqual(['S1']);
+
+    vi.setSystemTime(T0 + 2_000);
+    store.dispatch(undo());
+
+    const restored = data(store);
+    expect(sessionIds(restored)).toEqual(['S1']);
+    expect(tabIds(windowIn(restored, 'S1', 'w2'))).toEqual(['t3']);
+    expect((restored.deletedTabGroups ?? []).map((g) => g.tabGroupId)).toEqual([
+      NEW,
+    ]);
   });
 
   it('⌘Z restores the source exactly and tombstones the new session; ⌘⇧Z re-applies', () => {
