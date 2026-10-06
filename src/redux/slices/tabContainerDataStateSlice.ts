@@ -2535,6 +2535,7 @@ export const tabContainerDataStateSlice = createSlice({
           windows: [],
         });
 
+        // The tab and group branches repeat `to` so each narrows its own carried.
         const move: SessionMove =
           carried.kind === 'window'
             ? { carried, to: { tabGroupId, toIndex: 0 } }
