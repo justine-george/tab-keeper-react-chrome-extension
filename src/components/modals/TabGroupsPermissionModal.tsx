@@ -4,7 +4,6 @@ import { useDispatch, useSelector } from 'react-redux';
 
 import { css } from '@emotion/react';
 
-import Button from '../common/Button';
 import { useFontFamily } from '../../hooks/useFontFamily';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { AppDispatch, RootState } from '../../redux/store';
@@ -17,6 +16,7 @@ import {
 } from '../../redux/slices/settingsDataStateSlice';
 import { requestTabGroupsPermission } from '../../utils/functions/permissions';
 import { RADIUS, TYPE } from '../../styles/scale';
+import { dialogButtonStyles } from './dialogButtons';
 import {
   asPartialSettings,
   loadFromLocalStorage,
@@ -134,18 +134,19 @@ export const TabGroupsPermissionModal: React.FC<
       ? 'TabGroupsPromptBodyOne'
       : 'TabGroupsPromptBodyOther';
 
-  // The two dismissals are real <button>s, not NormalLabels with onClick.
-  //
-  // NormalLabel renders a bare `<div onClick>`: no role, no tab stop. Measured
-  // in a live popup, "Not now" appeared in the accessibility tree as
-  // StaticText, i.e. a control no keyboard user can reach -- the exact defect
-  // class KAN-66/67/68 went through this codebase to remove. RateAndReviewModal
-  // still dismisses that way and should be fixed too, but that is its own
-  // change; this one is not going to add a fourth instance.
-  //
-  // NormalLabel is also `white-space: nowrap`, which ran the body sentence off
-  // both edges of the 500px card. That is why the body below is a <p>.
-  const dismissStyle = css`
+  // Real <button>s, not NormalLabels with onClick: a bare div has no role and
+  // no tab stop (KAN-66/67/68). The body is a <p> because NormalLabel is
+  // nowrap and ran the sentence off the card.
+  const buttons = dialogButtonStyles(COLORS);
+  const footerStyle = css`
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+  `;
+  // The earned opt-out stays a quiet line under the footer.
+  const neverStyle = css`
     align-self: center;
     background: none;
     border: none;
@@ -235,32 +236,19 @@ export const TabGroupsPermissionModal: React.FC<
       >
         {t(bodyKey, { count: tabGroupsPromptCount })}
       </p>
-      {/* Full width, and that is a translation decision as much as a visual
-            one. The label is a whole phrase ("Enable tab group support") and
-            several locales run far longer -- fr is "Activer la prise en charge
-            des groupes d'onglets", es renders widest at 404px. A content-width
-            button left only ~48px of headroom in es; spanning the card gives
-            every locale the full 500px. Never reintroduce a fixed width: the
-            217px this started with clipped most of them.
-
-            The card is align-items: flex-start, so without width: 100% this
-            button would shrink to its own text and read as a stray chip in a
-            wide card -- which is what left-aligning the copy exposed. */}
-      <Button
-        text={t('TabGroupsPromptConfirm')}
-        onClick={handleEnable}
-        ariaLabel={t('TabGroupsPromptConfirm')}
-        iconType="check_circle"
-        style="width: 100%; max-width: 100%; margin-bottom: 10px; cursor: pointer; justify-content: center;"
-      />
-      <button type="button" css={dismissStyle} onClick={handleNotNow}>
-        {t('TabGroupsPromptDismiss')}
-      </button>
+      <div css={footerStyle}>
+        <button type="button" css={buttons.link} onClick={handleNotNow}>
+          {t('TabGroupsPromptDismiss')}
+        </button>
+        <button type="button" css={buttons.primary} onClick={handleEnable}>
+          {t('Turn on')}
+        </button>
+      </div>
       {/* Earned, not offered: the permanent opt-out appears only after the
             user has already said "not now" once. Same escalation as
             RateAndReviewModal's "Never Remind Again". */}
       {isTabGroupsPromptAnsweredOnce && (
-        <button type="button" css={dismissStyle} onClick={handleNeverAskAgain}>
+        <button type="button" css={neverStyle} onClick={handleNeverAskAgain}>
           {t('TabGroupsPromptNever')}
         </button>
       )}

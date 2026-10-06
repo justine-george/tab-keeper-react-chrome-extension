@@ -126,16 +126,17 @@ async function openRatePromptIn(
  * and whether the button has burst out of the card.
  *
  * Takes a Locator rather than an accessible name because the two CTAs are not
- * addressable the same way -- the tab-groups button carries an explicit
- * `ariaLabel`, the rate button does not and is named from its content.
+ * addressable the same way -- the tab-groups button is a bare <button> with
+ * no icon, the rate button wraps its label in a span.
  */
 async function ctaFit(cta: Locator) {
   return cta.evaluate((button: HTMLElement) => {
     // The label, not the leading icon: Material Symbols renders its glyph as
     // ligature TEXT in a span of its own, so the first span is the icon.
-    const label = Array.from(button.querySelectorAll('span')).find(
-      (s) => !s.className.includes('material-symbols')
-    );
+    const label =
+      Array.from(button.querySelectorAll('span')).find(
+        (s) => !s.className.includes('material-symbols')
+      ) ?? button;
     if (!label) return null;
     const range = document.createRange();
     range.selectNodeContents(label);
@@ -194,7 +195,7 @@ test.describe('translated UI still fits its layout', () => {
       // failed to load and fell back to English fails here rather than quietly
       // passing the layout assertions against English text.
       const cta = page.getByRole('button', {
-        name: t.TabGroupsPromptConfirm,
+        name: t['Turn on'],
         exact: true,
       });
       await expect(cta).toBeVisible();
