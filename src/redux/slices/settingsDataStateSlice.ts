@@ -7,6 +7,7 @@ import {
 import {
   asFirstRun,
   asRunStep,
+  nextWelcomeShows,
   type FirstRun,
   type RunEnding,
   type RunStep,
@@ -555,11 +556,15 @@ export const settingsDataStateSlice = createSlice({
       saveToLocalStorage('settingsData', state);
     },
 
-    // Q7. The welcome's second opening.
+    // Q7. One more opening of the welcome, up to the most it shows.
     countWelcomeShow: (state) => {
       const run = state.firstRun;
-      if (run === null || run.ended !== null || run.welcomeShows !== 1) return;
-      run.welcomeShows = 2;
+      if (run === null || run.ended !== null || run.welcomeShows === null) {
+        return;
+      }
+      const next = nextWelcomeShows(run.welcomeShows);
+      if (next === null) return;
+      run.welcomeShows = next;
       saveToLocalStorage('settingsData', state);
     },
 

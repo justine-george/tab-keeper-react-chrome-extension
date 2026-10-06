@@ -36,12 +36,15 @@ describe('asFirstRun', () => {
     expect(asFirstRun(ended)).toEqual(ended);
   });
 
-  test('keeps the popup welcome with its show count', () => {
-    expect(asFirstRun({ ...newRun('popup', 0), welcomeShows: 2 })).toEqual({
-      ...newRun('popup', 0),
-      welcomeShows: 2,
-    });
-  });
+  test.each([1, 2, 3, 4, 5])(
+    'keeps the popup welcome with its show count of %i',
+    (welcomeShows) => {
+      expect(asFirstRun({ ...newRun('popup', 0), welcomeShows })).toEqual({
+        ...newRun('popup', 0),
+        welcomeShows,
+      });
+    }
+  );
 
   test.each([
     ['null', null],
@@ -58,7 +61,9 @@ describe('asFirstRun', () => {
       { ...newRun('popup', 0), welcomeShows: null },
     ],
     ['a count off the welcome', { ...newRun('popup', 1), welcomeShows: 1 }],
-    ['a count of 3', { ...newRun('popup', 0), welcomeShows: 3 }],
+    ['a count of 0', { ...newRun('popup', 0), welcomeShows: 0 }],
+    ['a count of 6', { ...newRun('popup', 0), welcomeShows: 6 }],
+    ['a count of 2.5', { ...newRun('popup', 0), welcomeShows: 2.5 }],
   ])('reads %s as no record', (_name, value) => {
     expect(asFirstRun(value)).toBeNull();
   });
@@ -237,14 +242,25 @@ describe('runAtOpen', () => {
     expect(lock).not.toHaveBeenCalled();
   });
 
-  test('Q7: the welcome closed once shows again; closed twice it ends', async () => {
-    expect(
-      await runAtOpen('popup', { firstRun: newRun('popup', 0) }, 0, free)
-    ).toEqual({ action: 'reshowWelcome', check: 'reshown' });
+  test.each([1, 2, 3, 4])(
+    'Q7: the welcome closed unanswered after %i shows shows again',
+    async (welcomeShows) => {
+      expect(
+        await runAtOpen(
+          'popup',
+          { firstRun: { ...newRun('popup', 0), welcomeShows } },
+          0,
+          free
+        )
+      ).toEqual({ action: 'reshowWelcome', check: 'reshown' });
+    }
+  );
+
+  test('Q7: the open after the fifth show ends it unanswered', async () => {
     expect(
       await runAtOpen(
         'popup',
-        { firstRun: { ...newRun('popup', 0), welcomeShows: 2 } },
+        { firstRun: { ...newRun('popup', 0), welcomeShows: 5 } },
         0,
         free
       )

@@ -295,11 +295,14 @@ describe('the run record', () => {
     ).toMatchObject({ step: 1, welcomeShows: null });
   });
 
-  it('countWelcomeShow counts the second show, and only on the welcome', () => {
-    expect(
-      reduce([recordFirstRun(newRun('popup', 0)), countWelcomeShow()]).firstRun
-        ?.welcomeShows
-    ).toBe(2);
+  it('countWelcomeShow counts each show up to the fifth, and only on the welcome', () => {
+    const counted = (n: number) =>
+      reduce([
+        recordFirstRun(newRun('popup', 0)),
+        ...Array.from({ length: n }, () => countWelcomeShow()),
+      ]).firstRun?.welcomeShows;
+    expect([1, 2, 3, 4, 5].map(counted)).toEqual([2, 3, 4, 5, 5]);
+    expect(saved()).toMatchObject({ firstRun: { welcomeShows: 5 } });
     expect(
       reduce([recordFirstRun(newRun('popup', 2)), countWelcomeShow()]).firstRun
         ?.welcomeShows

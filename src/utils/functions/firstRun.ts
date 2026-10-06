@@ -8,7 +8,20 @@ import type { TourLockState } from './tourLock';
 export type RunView = 'popup' | 'full';
 export type RunHello = 'welcome' | 'whatsNew';
 export type RunEnding = 'finished' | 'skipped' | 'sessionGone' | 'unanswered';
-export type WelcomeShows = 1 | 2;
+// Q7: the welcome reopens while unanswered, up to this many shows; the next open ends it.
+const MAX_WELCOME_SHOWS = 5;
+export type WelcomeShows = 1 | 2 | 3 | 4 | 5;
+const WELCOME_SHOWS: readonly WelcomeShows[] = [1, 2, 3, 4, 5];
+
+function asWelcomeShows(value: unknown): WelcomeShows | null {
+  return WELCOME_SHOWS.find((n) => n === value) ?? null;
+}
+
+// The count after one more show; null once it is at the most.
+export function nextWelcomeShows(shows: WelcomeShows): WelcomeShows | null {
+  return asWelcomeShows(shows + 1);
+}
+
 export type RunStep = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 
 export interface FirstRun {
@@ -128,8 +141,7 @@ export function asFirstRun(value: unknown): FirstRun | null {
   const rawId: unknown = Reflect.get(value, 'sessionId');
   const sessionId = typeof rawId === 'string' ? rawId : null;
   const hello: unknown = Reflect.get(value, 'hello');
-  const shows: unknown = Reflect.get(value, 'welcomeShows');
-  const welcomeShows = shows === 1 || shows === 2 ? shows : null;
+  const welcomeShows = asWelcomeShows(Reflect.get(value, 'welcomeShows'));
   const rawEnded: unknown = Reflect.get(value, 'ended');
   const ended = ENDINGS.find((e) => e === rawEnded) ?? null;
   if (step === null) return null;
@@ -232,10 +244,11 @@ export async function runAtOpen(
     const lock = await lockState();
     if (lock === 'held') return { action: 'nothing', check: 'elsewhere' };
     if (lock === 'unknown') return { action: 'nothing', check: 'unknown' };
-    if (record.welcomeShows === 1)
-      return { action: 'reshowWelcome', check: 'reshown' };
-    if (record.welcomeShows === 2)
-      return { action: 'endUnanswered', check: 'unanswered' };
+    if (record.welcomeShows !== null) {
+      return record.welcomeShows < MAX_WELCOME_SHOWS
+        ? { action: 'reshowWelcome', check: 'reshown' }
+        : { action: 'endUnanswered', check: 'unanswered' };
+    }
     return { action: 'resume', check: 'resumed' };
   }
   if (view === 'full') {

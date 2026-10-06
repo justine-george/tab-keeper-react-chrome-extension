@@ -124,27 +124,38 @@ test('CONTROL: a fresh profile whose first open is the full view gets Hello, and
   expect(await runDrawn(full)).toEqual(['hello']);
 });
 
-test('Q7: closed unanswered, it shows once more; closed again, it ends and the popup is plain; the first full-view visit starts at step 1', async ({
+test('Q7: closed unanswered, it shows again up to five times; the sixth open ends it and the popup is plain; the first full-view visit starts at step 1', async ({
   context,
   extensionId,
 }) => {
   await watchRunDrawn(context);
   const first = await openPopup(context, extensionId);
   await expect(welcome(first)).toBeVisible();
-  // CONTROL for the third open: the same observer saw this one's welcome.
+  // CONTROL for the sixth open: the same observer saw this one's welcome.
   expect(await runDrawn(first)).toEqual(['cloudConsent']);
   await first.close();
-  const second = await openPopup(context, extensionId);
-  await runCheck(second, 'reshown');
-  await expect(welcome(second)).toBeVisible();
-  expect(await storedRun(second)).toMatchObject({ step: 0, welcomeShows: 2 });
-  await second.close();
-  const third = await openPopup(context, extensionId);
-  await runCheck(third, 'unanswered');
-  await queueDone(third);
-  expect(await runDrawn(third)).toEqual([]);
-  expect(await storedRun(third)).toMatchObject({ ended: 'unanswered' });
-  expect((await storedSettings(third)).cloudConsent).toBe('declined');
+  for (let shows = 2; shows <= 5; shows++) {
+    const again = await openPopup(context, extensionId);
+    await runCheck(again, 'reshown');
+    await expect(welcome(again)).toBeVisible();
+    expect(await storedRun(again)).toMatchObject({
+      step: 0,
+      welcomeShows: shows,
+    });
+    await again.close();
+  }
+  const sixth = await openPopup(context, extensionId);
+  await runCheck(sixth, 'unanswered');
+  await queueDone(sixth);
+  expect(await runDrawn(sixth)).toEqual([]);
+  expect(await storedRun(sixth)).toMatchObject({
+    welcomeShows: 5,
+    ended: 'unanswered',
+  });
+  expect(await storedSettings(sixth)).toMatchObject({
+    cloudConsent: 'declined',
+    isFullViewCalloutSeen: true,
+  });
   // The welcome was seen, so no Hello (CONTROL: the fresh full-view open above, same observer, sees it).
   const full = await openFullView(context, extensionId);
   await runCheck(full, 'started');
