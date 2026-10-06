@@ -25,9 +25,30 @@ export function useCardMotion(
   const shownStep = useRef(step);
   const wasPlaced = useRef(false);
 
+  const glideId = useRef(0);
+
   const cancelRunning = () => {
     running.current.forEach((animation) => animation.cancel());
     running.current = [];
+  };
+
+  // The card is under step 7's lit rows mid-glide, so it takes no pointer until the glide ends or is cancelled.
+  const passClicksThrough = (glides: Animation[], elements: HTMLElement[]) => {
+    const id = ++glideId.current;
+    const setPointer = (value: string) =>
+      elements.forEach((element) => {
+        element.style.pointerEvents = value;
+      });
+    setPointer('none');
+    let pending = glides.length;
+    const settle = () => {
+      pending -= 1;
+      if (pending === 0 && glideId.current === id) setPointer('');
+    };
+    glides.forEach((glide) => {
+      glide.addEventListener('finish', settle, { once: true });
+      glide.addEventListener('cancel', settle, { once: true });
+    });
   };
 
   // A new step: where the card and ring are now, before the next frame moves them.
@@ -59,9 +80,27 @@ export function useCardMotion(
     if (from === null) return;
     cancelRunning();
     const ring = ringRef.current;
-    running.current = [
-      playGlide(mark, from.mark),
-      ring !== null && from.ring !== null ? playGlide(ring, from.ring) : null,
-    ].filter((animation): animation is Animation => animation !== null);
+    const markGlide = playGlide(mark, from.mark);
+    const ringGlide =
+      ring !== null && from.ring !== null ? playGlide(ring, from.ring) : null;
+    running.current = [markGlide, ringGlide].filter(
+      (animation): animation is Animation => animation !== null
+    );
+    if (running.current.length === 0) return;
+    passClicksThrough(
+      running.current,
+      [
+        markGlide === null ? null : mark,
+        ringGlide === null ? null : ring,
+      ].filter((element): element is HTMLElement => element !== null)
+    );
   }, [frame, markRef, ringRef]);
+
+  // A card that unmounts mid-glide leaves no stale batch to settle.
+  useLayoutEffect(
+    () => () => {
+      glideId.current += 1;
+    },
+    []
+  );
 }

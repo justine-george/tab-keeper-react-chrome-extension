@@ -47,6 +47,7 @@ const animations: {
   el: Element;
   keyframes: Keyframe[];
   cancel: ReturnType<typeof vi.fn>;
+  events: EventTarget;
 }[] = [];
 beforeEach(() => {
   animations.length = 0;
@@ -54,8 +55,9 @@ beforeEach(() => {
     configurable: true,
     value(this: Element, keyframes: Keyframe[]) {
       const cancel = vi.fn();
-      animations.push({ el: this, keyframes, cancel });
-      return { cancel, finished: Promise.resolve() };
+      const events = new EventTarget();
+      animations.push({ el: this, keyframes, cancel, events });
+      return Object.assign(events, { cancel, finished: Promise.resolve() });
     },
   });
 });
@@ -557,6 +559,14 @@ describe('motion (§10)', () => {
     expect(glide?.keyframes[0].transform).toBe('translate(0px, -200px)');
     const ringGlide = animations.find((a) => a.el === ring());
     expect(ringGlide?.keyframes[0].transform).toBe('translate(0px, -200px)');
+    expect(mark()?.style.pointerEvents).toBe('none');
+    expect(ring()?.style.pointerEvents).toBe('none');
+    // The card takes the pointer back only once both glides have ended, one finished and one cancelled.
+    glide?.events.dispatchEvent(new Event('finish'));
+    expect(mark()?.style.pointerEvents).toBe('none');
+    ringGlide?.events.dispatchEvent(new Event('cancel'));
+    expect(mark()?.style.pointerEvents).toBe('');
+    expect(ring()?.style.pointerEvents).toBe('');
   });
 
   test('a re-placement mid-glide leaves the running glide alone', async () => {
@@ -599,5 +609,6 @@ describe('motion (§10)', () => {
     await render({ step: 2 });
     await placed();
     expect(animations).toEqual([]);
+    expect(mark()?.style.pointerEvents).toBe('');
   });
 });

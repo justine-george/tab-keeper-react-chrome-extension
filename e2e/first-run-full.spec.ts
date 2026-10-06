@@ -194,9 +194,9 @@ test('step 7: a window renamed from its title is stored, and a window folds and 
     exact: true,
   });
   const [tx, ty] = await centreOf(title);
-  await expect
-    .poll(() => landsOn(page, tx, ty, 'Rename window: Getting there'))
-    .toBe(true);
+  expect(await landsOn(page, tx, ty, 'Rename window: Getting there')).toBe(
+    true
+  );
   await page.mouse.click(tx, ty);
   const field = detail.getByPlaceholder('Name this window', { exact: true });
   await field.fill('Lisbon flights');
@@ -249,10 +249,7 @@ test('step 7: a window renamed from its title is stored, and a window folds and 
     exact: true,
   });
   const [cx, cy] = await centreOf(collapse);
-  // Polled: the card glides to its place at step 7, over these rows on the way.
-  await expect
-    .poll(() => landsOn(page, cx, cy, 'Collapse: Things to do'))
-    .toBe(true);
+  expect(await landsOn(page, cx, cy, 'Collapse: Things to do')).toBe(true);
   await page.mouse.click(cx, cy);
   const expand = detail.getByRole('button', {
     name: 'Expand: Things to do',
@@ -265,6 +262,122 @@ test('step 7: a window renamed from its title is stored, and a window folds and 
   await expect(collapse).toHaveAttribute('aria-expanded', 'true');
   await expect(cardAt(page, 7)).toBeVisible();
   expect(await storedRun(page)).toMatchObject({ step: 7, ended: null });
+});
+
+test('while the card glides from step 6 to step 7 it takes no pointer, and takes it again when it lands (KAN-453)', async ({
+  context,
+  extensionId,
+}) => {
+  const page = await openRunFromHelp(context, extensionId, FULL_RUN);
+  await nextTo(page, 2);
+  await nextTo(page, 3);
+  await cardButton(page, 'Use an example').click();
+  await expect(cardAt(page, 4)).toBeVisible();
+  for (let step = 5; step <= 6; step++) await nextTo(page, step);
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          document.querySelector('[data-coach-mark]')?.getAnimations().length ??
+          -1
+      )
+    )
+    .toBe(0);
+  // Rate 0 from before Next: the glide starts frozen and cannot end under the probes.
+  const cdp = await context.newCDPSession(page);
+  await cdp.send('Animation.enable');
+  await cdp.send('Animation.setPlaybackRate', { playbackRate: 0 });
+  await cardButton(page, 'Next').click();
+  await expect(cardAt(page, 7)).toBeVisible();
+  // Held in turn at points along the glide: paused, not finished or cancelled, so the card is still mid-glide.
+  const hold = (ms: number) =>
+    page.evaluate((ms) => {
+      const glides =
+        document.querySelector('[data-coach-mark]')?.getAnimations() ?? [];
+      glides.forEach((glide) => {
+        glide.pause();
+        glide.currentTime = ms;
+      });
+      return glides.length;
+    }, ms);
+  const detail = page.locator('[data-pane="detail"]');
+  const targets = [
+    'Rename window: Getting there',
+    'Rename window: Things to do',
+    'Collapse: Things to do',
+    'Collapse: Getting there',
+  ];
+  // The lit controls the card is over right now.
+  const coveredNow = () =>
+    page.evaluate((labels) => {
+      const rect = document
+        .querySelector('[data-coach-mark]')
+        ?.getBoundingClientRect();
+      return labels.filter((label) => {
+        const box = document
+          .querySelector(`[aria-label="${label}"]`)
+          ?.getBoundingClientRect();
+        if (rect === undefined || box === undefined) return false;
+        const x = box.left + box.width / 2;
+        const y = box.top + box.height / 2;
+        return (
+          x > rect.left && x < rect.right && y > rect.top && y < rect.bottom
+        );
+      });
+    }, targets);
+  const covered = new Set<string>();
+  for (const ms of [0, 40, 80, 120, 160]) {
+    await expect.poll(() => hold(ms)).toBe(1);
+    for (const label of await coveredNow()) {
+      covered.add(label);
+      const [x, y] = await centreOf(detail.getByLabel(label, { exact: true }));
+      expect(await landsOn(page, x, y, label)).toBe(true);
+    }
+  }
+  // CONTROL: the card does pass over a title and a fold arrow, so those hits are tests.
+  expect([...covered].some((label) => label.startsWith('Rename'))).toBe(true);
+  expect([...covered].some((label) => label.startsWith('Collapse'))).toBe(true);
+  await hold(100);
+  const fold = detail.getByRole('button', {
+    name: 'Collapse: Things to do',
+    exact: true,
+  });
+  const [fx, fy] = await centreOf(fold);
+  await page.mouse.click(fx, fy);
+  await expect(
+    detail.getByRole('button', { name: 'Expand: Things to do', exact: true })
+  ).toHaveAttribute('aria-expanded', 'false');
+  // Landed: the glide runs out at normal speed, and the card takes the pointer again.
+  await cdp.send('Animation.setPlaybackRate', { playbackRate: 1 });
+  await page.evaluate(
+    () =>
+      document
+        .querySelector('[data-coach-mark]')
+        ?.getAnimations()
+        .forEach((glide) => glide.play())
+  );
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          document.querySelector('[data-coach-mark]')?.getAnimations().length ??
+          -1
+      )
+    )
+    .toBe(0);
+  const [nx, ny] = await centreOf(cardButton(page, 'Next'));
+  // The finish event follows the frame the glide ends on.
+  await expect
+    .poll(() =>
+      page.evaluate(
+        ([x, y]) =>
+          document
+            .elementFromPoint(Number(x), Number(y))
+            ?.closest('[data-coach-mark] button') != null,
+        [nx, ny] as const
+      )
+    )
+    .toBe(true);
 });
 
 test('Next onto the save step glides the card there and never lifts the dim (KAN-436)', async ({
