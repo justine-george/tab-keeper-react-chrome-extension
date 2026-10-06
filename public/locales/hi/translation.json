@@ -314,5 +314,6 @@
   "Off: your sessions stay on this device. On asks you to confirm first, with what is stored and the {{policy}}.": "बंद: आपके सेशन इसी डिवाइस पर रहते हैं। चालू करने पर पहले पुष्टि माँगी जाती है, साथ में यह कि क्या सहेजा जाता है और {{policy}}।",
   "privacy policy": "गोपनीयता नीति",
   "Saved sessions appear here.": "सहेजे गए सेशन यहाँ दिखते हैं।",
-  "Search here to find an open tab fast. Press {{icon}} to show the saved session beside it.": "किसी खुले टैब को जल्दी ढूँढने के लिए यहाँ खोजें। सहेजा गया सेशन इसके बगल में दिखाने के लिए {{icon}} दबाएँ।"
+  "Search here to find an open tab fast. Press {{icon}} to show the saved session beside it.": "किसी खुले टैब को जल्दी ढूँढने के लिए यहाँ खोजें। सहेजा गया सेशन इसके बगल में दिखाने के लिए {{icon}} दबाएँ।",
+  "Stay here": "यहीं रहें"
 }

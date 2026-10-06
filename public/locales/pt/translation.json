@@ -319,5 +319,6 @@
   "Off: your sessions stay on this device. On asks you to confirm first, with what is stored and the {{policy}}.": "Desligado: suas sessões ficam neste dispositivo. Ligado pede sua confirmação primeiro, com o que é armazenado e a {{policy}}.",
   "privacy policy": "política de privacidade",
   "Saved sessions appear here.": "As sessões salvas aparecem aqui.",
-  "Search here to find an open tab fast. Press {{icon}} to show the saved session beside it.": "Pesquise aqui para achar uma aba aberta rapidamente. Pressione {{icon}} para mostrar a sessão salva ao lado."
+  "Search here to find an open tab fast. Press {{icon}} to show the saved session beside it.": "Pesquise aqui para achar uma aba aberta rapidamente. Pressione {{icon}} para mostrar a sessão salva ao lado.",
+  "Stay here": "Ficar aqui"
 }

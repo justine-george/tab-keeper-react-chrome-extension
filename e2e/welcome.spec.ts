@@ -30,7 +30,7 @@ const welcome = (page: import('@playwright/test').Page) =>
 const queueDone = (page: import('@playwright/test').Page) =>
   expect(page.locator('html')).toHaveAttribute('data-first-open', /.+/);
 
-test('the welcome: hero, one line, the hint, Not now and Get started; the run recorded at the welcome', async ({
+test('the welcome: hero, one line, the hint, Stay here and Get started (never Not now); the run recorded at the welcome', async ({
   context,
   extensionId,
 }) => {
@@ -43,6 +43,12 @@ test('the welcome: hero, one line, the hint, Not now and Get started; the run re
   await expect(welcome(page)).toContainText(
     'Get started opens Tab Keeper in its own tab.'
   );
+  await expect(
+    welcome(page).getByRole('button', { name: 'Stay here', exact: true })
+  ).toBeVisible();
+  await expect(
+    welcome(page).getByRole('button', { name: 'Not now', exact: true })
+  ).toHaveCount(0);
   await expect
     .poll(() => storedRun(page))
     .toEqual({
@@ -59,18 +65,18 @@ test('the welcome: hero, one line, the hint, Not now and Get started; the run re
   });
 });
 
-test('Not now: the popup run starts at its save card', async ({
+test('Stay here: the popup run starts at its save card', async ({
   context,
   extensionId,
 }) => {
   const page = await openPopup(context, extensionId);
   await welcome(page)
-    .getByRole('button', { name: 'Not now', exact: true })
+    .getByRole('button', { name: 'Stay here', exact: true })
     .click();
   await expect(cardAt(page, 1)).toBeVisible();
 });
 
-test('Esc is Not now, and the popup keeps it (KAN-426)', async ({
+test('Esc is Stay here, and the popup keeps it (KAN-426)', async ({
   context,
   extensionId,
 }) => {

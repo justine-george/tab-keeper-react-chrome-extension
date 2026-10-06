@@ -314,5 +314,6 @@
   "Off: your sessions stay on this device. On asks you to confirm first, with what is stored and the {{policy}}.": "Av: dina sessioner stannar på den här enheten. På ber dig bekräfta först, med vad som lagras och {{policy}}.",
   "privacy policy": "integritetspolicyn",
   "Saved sessions appear here.": "Sparade sessioner visas här.",
-  "Search here to find an open tab fast. Press {{icon}} to show the saved session beside it.": "Sök här för att snabbt hitta en öppen flik. Tryck på {{icon}} för att visa den sparade sessionen bredvid."
+  "Search here to find an open tab fast. Press {{icon}} to show the saved session beside it.": "Sök här för att snabbt hitta en öppen flik. Tryck på {{icon}} för att visa den sparade sessionen bredvid.",
+  "Stay here": "Stanna här"
 }

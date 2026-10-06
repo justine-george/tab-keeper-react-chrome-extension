@@ -223,8 +223,8 @@ export const welcomeGetStarted =
     await requestTabView();
   };
 
-// Not now: the popup run, from its save card.
-export const welcomeNotNow = (): Thunk<Promise<void>> => async (dispatch) => {
+// Stay here: the popup run, from its save card.
+export const welcomeStayHere = (): Thunk<Promise<void>> => async (dispatch) => {
   dispatch(closeCloudConsentModal());
   await dispatch(startRun(newRun('popup', 1)));
 };

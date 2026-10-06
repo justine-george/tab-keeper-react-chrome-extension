@@ -195,14 +195,14 @@ describe('the moment on the welcome', () => {
     };
   }
 
-  test('Not now while it plays neither closes the welcome nor starts the popup run; Get started completes', async () => {
+  test('Stay here while it plays neither closes the welcome nor starts the popup run; Get started completes', async () => {
     installAnimate();
     const { store } = await renderWithProviders(<MainContainer />, {
       seedStore: welcome,
     });
     const watch = watchRunStarts(store);
     const { moment } = pressGetStarted();
-    fireEvent.click(screen.getByRole('button', { name: 'Not now' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Stay here' }));
     // Whatever of the beat is still to play, played out.
     for (let i = 0; i < 3; i += 1) {
       moment()[i]?.release();
@@ -215,13 +215,13 @@ describe('the moment on the welcome', () => {
     expect(watch.read()).toEqual({ views: ['full'], cards: 0 });
   });
 
-  test('CONTROL: Not now with no beat playing starts the popup run, and the watch sees it', async () => {
+  test('CONTROL: Stay here with no beat playing starts the popup run, and the watch sees it', async () => {
     installAnimate();
     const { store } = await renderWithProviders(<MainContainer />, {
       seedStore: welcome,
     });
     const watch = watchRunStarts(store);
-    fireEvent.click(screen.getByRole('button', { name: 'Not now' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Stay here' }));
     await waitFor(() =>
       expect(store.getState().globalState.isRunHere).toBe(true)
     );

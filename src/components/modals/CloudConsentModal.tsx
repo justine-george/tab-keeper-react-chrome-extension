@@ -19,7 +19,7 @@ import {
   grantCloudConsent,
   setAutoSync,
 } from '../../redux/slices/settingsDataStateSlice';
-import { welcomeGetStarted, welcomeNotNow } from '../../redux/firstRun';
+import { welcomeGetStarted, welcomeStayHere } from '../../redux/firstRun';
 import { PRIVACY_POLICY_LINK } from '../../utils/constants/common';
 import { DIALOG, ICON, TYPE } from '../../styles/scale';
 import { dialogButtonStyles } from './dialogButtons';
@@ -38,7 +38,7 @@ const BODY_ID = 'cloud-consent-body';
  * The cloud question (KAN-259), asked before anything is uploaded.
  *
  * 'welcome' is a fresh install and asks nothing (KAN-410): what Tab Keeper
- * does, Get started into the full view, or Not now into the popup run. Its
+ * does, Get started into the full view, or Stay here into the popup run. Its
  * opening already recorded the device as local-only; sync comes later,
  * through 'enable'. 'existing' is a user whose sessions are already synced:
  * the current state first, then what is stored, then the question, then what
@@ -148,18 +148,18 @@ export const CloudConsentModal: React.FC = () => {
       void dispatch(welcomeGetStarted());
     });
   };
-  // Esc is Not now (§5); during Get started's beat either cuts the beat short, and Get started completes (R12).
-  const notNow = () => {
+  // Esc is Stay here (§5); during Get started's beat either cuts the beat short, and Get started completes (R12).
+  const stayHere = () => {
     if (motion.current !== null) {
       motion.current.cancel();
       return;
     }
-    void dispatch(welcomeNotNow());
+    void dispatch(welcomeStayHere());
   };
   // Escape never uploads: existing declines (KAN-410), enable changes nothing,
-  // and the welcome's Escape is Not now.
+  // and the welcome's Escape is Stay here.
   const handleCancel =
-    variant === 'welcome' ? notNow : variant === 'existing' ? decline : close;
+    variant === 'welcome' ? stayHere : variant === 'existing' ? decline : close;
 
   const buttons = dialogButtonStyles(COLORS);
 
@@ -282,8 +282,8 @@ export const CloudConsentModal: React.FC = () => {
             {t('Get started opens Tab Keeper in its own tab.')}
           </p>
           <div css={welcomeActionsStyle}>
-            <button type="button" css={buttons.link} onClick={notNow}>
-              {t('Not now')}
+            <button type="button" css={buttons.link} onClick={stayHere}>
+              {t('Stay here')}
             </button>
             <button
               ref={getStartedRef}

@@ -309,5 +309,6 @@
   "Off: your sessions stay on this device. On asks you to confirm first, with what is stored and the {{policy}}.": "關：你的工作階段只會保存在這台裝置上。開：會先請你確認，並說明儲存哪些內容以及{{policy}}。",
   "privacy policy": "隱私權政策",
   "Saved sessions appear here.": "已儲存的工作階段會顯示在這裡。",
-  "Search here to find an open tab fast. Press {{icon}} to show the saved session beside it.": "在這裡搜尋，快速找到開啟的分頁。按 {{icon}} 可在旁邊顯示已儲存的工作階段。"
+  "Search here to find an open tab fast. Press {{icon}} to show the saved session beside it.": "在這裡搜尋，快速找到開啟的分頁。按 {{icon}} 可在旁邊顯示已儲存的工作階段。",
+  "Stay here": "留在這裡"
 }

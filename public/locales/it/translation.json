@@ -319,5 +319,6 @@
   "Off: your sessions stay on this device. On asks you to confirm first, with what is stored and the {{policy}}.": "Spento: le sessioni restano su questo dispositivo. Acceso ti chiede prima di confermare, con cosa viene salvato e l’{{policy}}.",
   "privacy policy": "informativa sulla privacy",
   "Saved sessions appear here.": "Le sessioni salvate compaiono qui.",
-  "Search here to find an open tab fast. Press {{icon}} to show the saved session beside it.": "Cerca qui per trovare subito una scheda aperta. Premi {{icon}} per mostrare accanto la sessione salvata."
+  "Search here to find an open tab fast. Press {{icon}} to show the saved session beside it.": "Cerca qui per trovare subito una scheda aperta. Premi {{icon}} per mostrare accanto la sessione salvata.",
+  "Stay here": "Resta qui"
 }

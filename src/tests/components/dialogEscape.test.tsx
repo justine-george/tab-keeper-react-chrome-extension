@@ -68,7 +68,7 @@ const CASES: Case[] = [
     },
   },
   {
-    name: 'welcome: Not now',
+    name: 'welcome: Stay here',
     dialog: 'Welcome to Tab Keeper',
     open: (s) => {
       s.dispatch(beginSetup());

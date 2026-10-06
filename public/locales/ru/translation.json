@@ -324,5 +324,6 @@
   "Off: your sessions stay on this device. On asks you to confirm first, with what is stored and the {{policy}}.": "Выкл: ваши сессии остаются на этом устройстве. При «Вкл» мы сначала попросим подтвердить, показав, что хранится, и {{policy}}.",
   "privacy policy": "политику конфиденциальности",
   "Saved sessions appear here.": "Здесь появятся сохранённые сессии.",
-  "Search here to find an open tab fast. Press {{icon}} to show the saved session beside it.": "Ищите здесь, чтобы быстро найти открытую вкладку. Нажмите {{icon}}, чтобы показать сохранённую сессию рядом."
+  "Search here to find an open tab fast. Press {{icon}} to show the saved session beside it.": "Ищите здесь, чтобы быстро найти открытую вкладку. Нажмите {{icon}}, чтобы показать сохранённую сессию рядом.",
+  "Stay here": "Остаться здесь"
 }

@@ -309,5 +309,6 @@
   "Off: your sessions stay on this device. On asks you to confirm first, with what is stored and the {{policy}}.": "オフ：セッションはこのデバイスに残ります。オンにすると、保存される内容と{{policy}}を確認してから同期を始めます。",
   "privacy policy": "プライバシーポリシー",
   "Saved sessions appear here.": "保存したセッションはここに表示されます。",
-  "Search here to find an open tab fast. Press {{icon}} to show the saved session beside it.": "ここで検索すると、開いているタブをすばやく見つけられます。{{icon}} を押すと、保存済みのセッションが横に表示されます。"
+  "Search here to find an open tab fast. Press {{icon}} to show the saved session beside it.": "ここで検索すると、開いているタブをすばやく見つけられます。{{icon}} を押すと、保存済みのセッションが横に表示されます。",
+  "Stay here": "このまま使う"
 }

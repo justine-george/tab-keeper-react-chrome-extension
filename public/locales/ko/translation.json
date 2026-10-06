@@ -309,5 +309,6 @@
   "Off: your sessions stay on this device. On asks you to confirm first, with what is stored and the {{policy}}.": "끔: 세션이 이 기기에만 남습니다. 켬을 누르면 저장되는 내용과 {{policy}} 안내를 보여 드리고 먼저 확인을 받습니다.",
   "privacy policy": "개인정보처리방침",
   "Saved sessions appear here.": "저장된 세션이 여기에 표시됩니다.",
-  "Search here to find an open tab fast. Press {{icon}} to show the saved session beside it.": "여기서 검색하면 열린 탭을 빠르게 찾을 수 있습니다. 저장된 세션을 옆에 표시하려면 {{icon}} 버튼을 누르세요."
+  "Search here to find an open tab fast. Press {{icon}} to show the saved session beside it.": "여기서 검색하면 열린 탭을 빠르게 찾을 수 있습니다. 저장된 세션을 옆에 표시하려면 {{icon}} 버튼을 누르세요.",
+  "Stay here": "여기 머물기"
 }

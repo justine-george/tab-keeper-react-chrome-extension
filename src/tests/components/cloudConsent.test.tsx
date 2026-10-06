@@ -246,7 +246,7 @@ describe('the welcome (KAN-410)', () => {
     return { ...rendered, dialog };
   };
 
-  test('the mark and title, the still hero, one line, the hint, Not now and Get started; no sync wording', async () => {
+  test('the mark and title, the still hero, one line, the hint, Stay here and Get started; no sync wording', async () => {
     const { dialog } = await freshWelcome();
     const title = within(dialog).getByRole('heading', { level: 2 });
     expect(title).toHaveTextContent(/^Welcome to Tab Keeper$/);
@@ -269,7 +269,7 @@ describe('the welcome (KAN-410)', () => {
       within(dialog)
         .getAllByRole('button')
         .map((b) => b.textContent)
-    ).toEqual(['Not now', 'Get started']);
+    ).toEqual(['Stay here', 'Get started']);
     expect(within(dialog).queryByRole('link')).toBeNull();
     expect(dialog.textContent).not.toMatch(/sync|privacy|device|cloud/i);
     // Opens unlit (KAN-243).
@@ -304,10 +304,10 @@ describe('the welcome (KAN-410)', () => {
     expect(store.getState().globalState.isRunHere).toBe(true);
   });
 
-  test('Not now closes it and the popup run starts at its save card', async () => {
+  test('Stay here closes it and the popup run starts at its save card', async () => {
     const user = userEvent.setup();
     const { store, dialog } = await freshWelcome();
-    await user.click(within(dialog).getByRole('button', { name: 'Not now' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Stay here' }));
     expect(
       screen.queryByRole('dialog', { name: 'Welcome to Tab Keeper' })
     ).toBeNull();
@@ -318,7 +318,7 @@ describe('the welcome (KAN-410)', () => {
     );
   });
 
-  test('Esc is Not now, and is consumed (KAN-403, KAN-426)', async () => {
+  test('Esc is Stay here, and is consumed (KAN-403, KAN-426)', async () => {
     const { store, dialog } = await freshWelcome();
     const notPrevented = fireEvent(
       dialog,
@@ -369,7 +369,7 @@ describe('the welcome (KAN-410)', () => {
       s.dispatch(setSignedIn());
       s.dispatch(setUserId('uuid-1'));
     });
-    await user.click(within(dialog).getByRole('button', { name: 'Not now' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Stay here' }));
     await waitFor(() =>
       expect(store.getState().settingsDataState.firstRun).toEqual(
         newRun('popup', 1)

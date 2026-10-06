@@ -319,5 +319,6 @@
   "Off: your sessions stay on this device. On asks you to confirm first, with what is stored and the {{policy}}.": "Apagado: tus sesiones se quedan en este dispositivo. Encendido te pide confirmar primero, con lo que se guarda y la {{policy}}.",
   "privacy policy": "política de privacidad",
   "Saved sessions appear here.": "Las sesiones guardadas aparecen aquí.",
-  "Search here to find an open tab fast. Press {{icon}} to show the saved session beside it.": "Busca aquí para encontrar rápido una pestaña abierta. Pulsa {{icon}} para mostrar la sesión guardada a su lado."
+  "Search here to find an open tab fast. Press {{icon}} to show the saved session beside it.": "Busca aquí para encontrar rápido una pestaña abierta. Pulsa {{icon}} para mostrar la sesión guardada a su lado.",
+  "Stay here": "Quedarme aquí"
 }

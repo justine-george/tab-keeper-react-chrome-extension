@@ -196,7 +196,7 @@ test('a full view reloaded at Hello shows Hello again', async ({
   await expect(hello(full)).toBeVisible();
 });
 
-test('R13: a Not now user’s first full-view visit starts the run at step 1, never Hello; a later visit does not', async ({
+test('R13: a Stay here user’s first full-view visit starts the run at step 1, never Hello; a later visit does not', async ({
   context,
   extensionId,
 }) => {

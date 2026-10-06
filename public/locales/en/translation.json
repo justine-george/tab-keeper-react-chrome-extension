@@ -314,5 +314,6 @@
   "Off: your sessions stay on this device. On asks you to confirm first, with what is stored and the {{policy}}.": "Off: your sessions stay on this device. On asks you to confirm first, with what is stored and the {{policy}}.",
   "privacy policy": "privacy policy",
   "Saved sessions appear here.": "Saved sessions appear here.",
-  "Search here to find an open tab fast. Press {{icon}} to show the saved session beside it.": "Search here to find an open tab fast. Press {{icon}} to show the saved session beside it."
+  "Search here to find an open tab fast. Press {{icon}} to show the saved session beside it.": "Search here to find an open tab fast. Press {{icon}} to show the saved session beside it.",
+  "Stay here": "Stay here"
 }

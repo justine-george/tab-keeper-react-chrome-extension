@@ -37,7 +37,7 @@ const autoSync = (page: Page, state: 'On' | 'Off') =>
 test.describe('a new install', () => {
   test.use({ freshProfile: true });
 
-  test('welcome: Esc is consumed, and is Not now', async ({
+  test('welcome: Esc is consumed, and is Stay here', async ({
     context,
     extensionId,
   }) => {
@@ -59,7 +59,7 @@ test.describe('a new install', () => {
     await watchEscapes(context);
     const page = await openPopup(context, extensionId);
     await dialog(page, 'Welcome to Tab Keeper')
-      .getByRole('button', { name: 'Not now', exact: true })
+      .getByRole('button', { name: 'Stay here', exact: true })
       .click();
     await expect(cardAt(page, 1)).toBeVisible();
     await cardButton(page, 'Skip tutorial').click();

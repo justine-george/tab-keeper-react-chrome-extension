@@ -314,5 +314,6 @@
   "Off: your sessions stay on this device. On asks you to confirm first, with what is stored and the {{policy}}.": "Aus: Ihre Sitzungen bleiben auf diesem Gerät. Bei Ein bestätigen Sie zuerst, mit Angaben dazu, was gespeichert wird, und der {{policy}}.",
   "privacy policy": "Datenschutzerklärung",
   "Saved sessions appear here.": "Gespeicherte Sitzungen erscheinen hier.",
-  "Search here to find an open tab fast. Press {{icon}} to show the saved session beside it.": "Suchen Sie hier, um einen offenen Tab schnell zu finden. Drücken Sie {{icon}}, um die gespeicherte Sitzung daneben anzuzeigen."
+  "Search here to find an open tab fast. Press {{icon}} to show the saved session beside it.": "Suchen Sie hier, um einen offenen Tab schnell zu finden. Drücken Sie {{icon}}, um die gespeicherte Sitzung daneben anzuzeigen.",
+  "Stay here": "Hier bleiben"
 }

@@ -319,5 +319,6 @@
   "Off: your sessions stay on this device. On asks you to confirm first, with what is stored and the {{policy}}.": "Éteint : vos sessions restent sur cet appareil. Allumé vous demande d’abord de confirmer, avec ce qui est stocké et la {{policy}}.",
   "privacy policy": "politique de confidentialité",
   "Saved sessions appear here.": "Les sessions enregistrées apparaissent ici.",
-  "Search here to find an open tab fast. Press {{icon}} to show the saved session beside it.": "Cherchez ici pour trouver vite un onglet ouvert. Appuyez sur {{icon}} pour afficher la session enregistrée à côté."
+  "Search here to find an open tab fast. Press {{icon}} to show the saved session beside it.": "Cherchez ici pour trouver vite un onglet ouvert. Appuyez sur {{icon}} pour afficher la session enregistrée à côté.",
+  "Stay here": "Rester ici"
 }

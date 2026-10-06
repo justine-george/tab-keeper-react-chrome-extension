@@ -382,7 +382,7 @@ for (const [lang, welcomeWidth] of [
       await expectFits(welcome(page), `${lang} narrow welcome`);
       // CONTROL: this width does make them wrap.
       expect(
-        await secondRowGap(welcome(page), say('Not now'), say('Get started'))
+        await secondRowGap(welcome(page), say('Stay here'), say('Get started'))
       ).toBeGreaterThanOrEqual(0);
     });
 
