@@ -32,6 +32,7 @@ import {
 } from './slices/tabContainerDataStateSlice';
 import {
   buildSampleSession,
+  holdsOnlySampleTabs,
   isSampleSession,
   type SampleNames,
 } from '../utils/functions/sampleSession';
@@ -374,7 +375,7 @@ export const takeExampleForRun =
     void dispatch(advanceRun());
   };
 
-// R9: only a sample is removed, as an ordinary, undoable, synced delete with no toast.
+// R9: only a sample holding only its own tabs is removed, as an ordinary, undoable, synced delete with no toast.
 export const endRun =
   (ending: RunEnding): Thunk<void> =>
   (dispatch, getState) => {
@@ -383,13 +384,19 @@ export const endRun =
     const run = selectRunHere(state);
     if (run !== null) {
       const id = run.sessionId;
+      const sample =
+        id !== null && isSampleSession(id)
+          ? state.tabContainerDataState.tabGroups.find(
+              (g) => g.tabGroupId === id
+            )
+          : undefined;
+      // A sample the user moved a tab into is theirs now: it stays as an ordinary session.
       if (
-        id !== null &&
-        isSampleSession(id) &&
+        sample !== undefined &&
         !state.globalState.holdsPlaceholderSessions &&
-        hasSession(state, id)
+        holdsOnlySampleTabs(sample)
       ) {
-        dispatch(deleteTabContainerInternal(id));
+        dispatch(deleteTabContainerInternal(sample.tabGroupId));
       }
       dispatch(endFirstRun(ending));
       // Q6. The popup run has just pointed at ⤢; the callout would say it again.

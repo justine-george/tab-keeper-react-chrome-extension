@@ -35,6 +35,7 @@ import {
 } from '../../redux/firstRun';
 import {
   deleteTabContainerInternal,
+  moveToSessionInternal,
   replaceState,
   saveToTabContainerInternal,
   selectTabContainer,
@@ -53,7 +54,10 @@ import { SettingsCategory } from '../../redux/slices/settingsCategoryStateSlice'
 import { newRun } from '../../utils/functions/firstRun';
 import { RUN_LOCK } from '../../utils/functions/tourLock';
 import * as capture from '../../utils/functions/capture';
-import { isSampleSession } from '../../utils/functions/sampleSession';
+import {
+  buildSampleSession,
+  isSampleSession,
+} from '../../utils/functions/sampleSession';
 import { DELETE_TAB_CONTAINER_ACTION } from '../../utils/constants/actionTypes';
 
 // Two stores sharing localStorage and one fake lock manager stand for two open pages.
@@ -417,6 +421,48 @@ describe('endings', () => {
     }
   );
 
+  // CONTROL: the test above, where the same endings remove an untouched sample.
+  test.each(['finished', 'skipped'] as const)(
+    '%s on a sample holding a tab moved in from the user’s session: it stays, with that tab',
+    async (ending) => {
+      const { store, seen } = makeTestStore();
+      store.dispatch(replaceState(buildContainer([OWN])));
+      await store.dispatch(startRun(newRun('popup', 1)));
+      store.dispatch(takeExampleForRun(NAMES));
+      const sampleId = runOf(store)?.sessionId ?? '';
+      const sample = () =>
+        store
+          .getState()
+          .tabContainerDataState.tabGroups.find(
+            (g) => g.tabGroupId === sampleId
+          );
+      store.dispatch(
+        moveToSessionInternal({
+          carried: {
+            kind: 'tab',
+            tabGroupId: 'own',
+            windowId: 'window-1',
+            tabId: 'tab-1',
+          },
+          to: {
+            tabGroupId: sampleId,
+            windowId: sample()?.windows[0].windowId ?? '',
+            toIndex: 0,
+          },
+        })
+      );
+      const urls = () =>
+        sample()?.windows.flatMap((w) => w.tabs.map((t) => t.url)) ?? [];
+      expect(isSampleSession(sampleId)).toBe(true);
+      expect(urls()).toContain('https://example.com/');
+      store.dispatch(endRun(ending));
+      expect(ids(store)).toContain(sampleId);
+      expect(urls()).toContain('https://example.com/');
+      expect(seen).not.toContain(DELETE_TAB_CONTAINER_ACTION);
+      expect(runOf(store)?.ended).toBe(ending);
+    }
+  );
+
   test.each(['finished', 'skipped', 'sessionGone'] as const)(
     '%s never deletes the user’s own session',
     async (ending) => {
@@ -533,11 +579,8 @@ describe('no ending deletes what the user made (safety)', () => {
   });
 
   test('a sample still held among placeholder sessions is not deleted (R9 guard)', async () => {
-    const sample = buildSession({
-      tabGroupId: 'sample:x',
-      title: 'Sample',
-      createdAt: 3000,
-    });
+    let n = 0;
+    const sample = buildSampleSession(NAMES, new Date(3000), () => `x${n++}`);
     const base = combineReducers(rootReducer)(undefined, { type: '@@init' });
     const store = configureStore({
       reducer: combineReducers(rootReducer),
@@ -552,9 +595,9 @@ describe('no ending deletes what the user made (safety)', () => {
     });
     expect(store.getState().globalState.holdsPlaceholderSessions).toBe(true);
     await store.dispatch(startRun(newRun('popup', 1)));
-    store.dispatch(setFirstRunSession('sample:x'));
+    store.dispatch(setFirstRunSession(sample.tabGroupId));
     store.dispatch(endRun('skipped'));
-    expect(ids(store)).toEqual(['sample:x']);
+    expect(ids(store)).toEqual([sample.tabGroupId]);
     expect(runOf(store)?.ended).toBe('skipped');
   });
 });
