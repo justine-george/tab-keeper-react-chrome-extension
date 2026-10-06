@@ -1,9 +1,9 @@
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
 import { buildContainer, buildSession, seedSessions } from './fixtures/seed';
 import { pageGround, twoFrames } from './fixtures/onboarding';
-import { pixelsAt } from './fixtures/pixels';
+import { pixelsAt, rgbToHex } from './fixtures/pixels';
 import {
   RUN_VIEWS,
   card,
@@ -252,4 +252,64 @@ test('full view: the run’s save toast is drawn over the dim and takes the poin
   await expect(dim(page)).toHaveCount(0);
   // R2: nothing opens after it. CONTROL: first-run-open's setup test, where this observer sees setup.
   expect(await runDrawn(page)).toEqual(['card', 'hello']);
+});
+
+// A card's own fill, painted as is: a point inside its padding reads its computed background.
+async function isUndimmed(page: Page, card: Locator): Promise<boolean> {
+  const box = await card.boundingBox();
+  if (box === null) return false;
+  const fill = await card.evaluate(
+    (el) => getComputedStyle(el).backgroundColor
+  );
+  const [painted] = await pixelsAt(page, [[box.x + 5, box.y + 5]]);
+  return painted === rgbToHex(fill);
+}
+
+test('full view step 7: a tab drags with its card, and carried out over the dimmed list its carry card is drawn over the dim', async ({
+  context,
+  extensionId,
+}) => {
+  const page = await openRunFromHelp(context, extensionId, FULL_RUN);
+  await nextTo(page, 2);
+  await nextTo(page, 3);
+  await cardButton(page, 'Use an example').click();
+  await expect(cardAt(page, 4)).toBeVisible();
+  for (let step = 5; step <= 7; step++) await nextTo(page, step);
+  const from = await page
+    .locator(
+      '[data-pane="detail"] [data-tour-anchor="windows"] [data-window-tabs] [data-drag-row-id]'
+    )
+    .first()
+    .boundingBox();
+  if (from === null) throw new Error('no tab row');
+  const [x, y] = [from.x + 60, from.y + from.height / 2];
+  // Polled: the card glides to its place at step 7, over these rows on the way.
+  await expect
+    .poll(async () => (await hitAt(page, x, y)).includes('Flights to Lisbon'))
+    .toBe(true);
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x, y + 10, { steps: 3 });
+  await page.mouse.move(x, y + 40, { steps: 8 });
+  const dragCard = page.locator('[data-drag-card]');
+  await expect(dragCard).toBeVisible();
+  await expect.poll(() => isUndimmed(page, dragCard)).toBe(true);
+  // Out over the session list, outside the bright box: a carry.
+  const sessions = await page.locator('[data-pane="sessions"]').boundingBox();
+  if (sessions === null) throw new Error('no session list');
+  await page.mouse.move(
+    sessions.x + sessions.width / 2,
+    sessions.y + sessions.height * 0.8,
+    { steps: 25 }
+  );
+  const carried = page.locator('[data-carry-card]');
+  await expect(carried).toBeVisible();
+  const box = await carried.boundingBox();
+  if (box === null) throw new Error('no carry card');
+  // CONTROL: the page beside the card is under the dim.
+  expect(await hitAt(page, box.x - 10, box.y + box.height / 2)).toBe('dim');
+  await expect.poll(() => isUndimmed(page, carried)).toBe(true);
+  await page.keyboard.press('Escape');
+  await page.mouse.up();
+  await expect(cardAt(page, 7)).toBeVisible();
 });
