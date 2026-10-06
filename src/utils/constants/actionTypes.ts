@@ -50,8 +50,6 @@ export const DELETE_CHROME_GROUP_ACTION =
   'tabContainerDataState/deleteChromeTabGroupInternal';
 export const DELETE_TAB_CONTAINER_ACTION =
   'tabContainerDataState/deleteTabContainerInternal';
-export const DELETE_TAB_CONTAINER_WITHOUT_HISTORY_ACTION =
-  'tabContainerDataState/deleteTabContainerWithoutHistory';
 export const DELETE_WINDOW_ACTION =
   'tabContainerDataState/deleteWindowInternal';
 export const DELETE_TAB_ACTION = 'tabContainerDataState/deleteTabInternal';

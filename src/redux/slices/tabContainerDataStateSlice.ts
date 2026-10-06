@@ -1651,14 +1651,6 @@ export const tabContainerDataStateSlice = createSlice({
       deleteSessionById(state, action.payload);
     },
 
-    // Synced like any delete, but never an undo step.
-    deleteTabContainerWithoutHistory: (
-      state,
-      action: PayloadAction<string>
-    ) => {
-      deleteSessionById(state, action.payload);
-    },
-
     // delete window by (tabGroupId, windowId)
     deleteWindowInternal: (
       state,
@@ -2842,7 +2834,6 @@ export const {
   updateChromeTabGroupColor,
   deleteChromeTabGroupInternal,
   deleteTabContainerInternal,
-  deleteTabContainerWithoutHistory,
   deleteWindowInternal,
   deleteTabInternal,
   moveTabInternal,
