@@ -40,7 +40,7 @@ async function enableQuestionInTab(
   await tab.locator('[aria-label="Settings"]').click();
   await tab.locator('button[aria-label="Sync & Backup"]').click();
   await tab
-    .getByRole('group', { name: 'Auto Sync' })
+    .getByRole('group', { name: 'Auto Sync', exact: true })
     .getByRole('button', { name: 'On', exact: true })
     .click();
   return tab;

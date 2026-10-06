@@ -134,6 +134,7 @@ test('Back to the save card after the run’s save: it says it saved, and Next i
   await expect(
     card(page).getByRole('img', {
       name: 'Save all open windows as a session',
+      exact: true,
     })
   ).toBeVisible();
   await expect(card(page).locator('p')).toHaveCount(1);
@@ -177,7 +178,10 @@ test('Use an example, then Back: the card says it is an example, and Next adds n
   await expect(card(page)).toContainText('This is an example. Press');
   await expect(card(page)).not.toContainText('Saved.');
   await expect(
-    card(page).getByRole('img', { name: 'Save all open windows as a session' })
+    card(page).getByRole('img', {
+      name: 'Save all open windows as a session',
+      exact: true,
+    })
   ).toBeVisible();
   await expect(card(page).locator('p')).toHaveCount(1);
   await expect(cardButton(page, 'Use an example')).toHaveCount(0);

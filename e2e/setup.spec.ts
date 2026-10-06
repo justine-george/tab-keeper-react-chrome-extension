@@ -731,7 +731,10 @@ for (const [theme, palette] of THEMES) {
       }
       if (step === 'sync') {
         // The policy link sits in the caption, in TEXT on the page.
-        const link = setup(page).getByRole('link', { name: 'privacy policy' });
+        const link = setup(page).getByRole('link', {
+          name: 'privacy policy',
+          exact: true,
+        });
         expect(rgbToHex((await colours(link)).text)).toBe(palette.TEXT_COLOR);
       }
       if (step !== 'sync') await press(page, 'Next');
