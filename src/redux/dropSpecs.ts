@@ -26,6 +26,7 @@ import {
 import { landedRowId } from '../utils/functions/carriedView';
 import {
   groupItemIdOf,
+  isCarriedStillThere,
   itemIdOf,
   partitionTabsIntoItems,
 } from '../utils/functions/tabGroups';
@@ -224,19 +225,8 @@ export function sessionMoveDrop(move: SessionMove): DropOnTop {
 
   const rowId = landedRowId(carried);
 
-  const rowExists = (s: TabMasterContainer): boolean => {
-    const from = windowIn(s, carried.tabGroupId, carried.windowId);
-    if (!from) return false;
-    if (carried.kind === 'tab') {
-      return from.tabs.some((t) => t.tabId === carried.tabId);
-    }
-    if (carried.kind === 'group') {
-      return partitionTabsIntoItems(from.tabs, from.chromeTabGroups)
-        .map(itemIdOf)
-        .includes(rowId);
-    }
-    return true;
-  };
+  const rowExists = (s: TabMasterContainer): boolean =>
+    isCarriedStillThere(s.tabGroups, carried);
 
   return {
     rowId,
