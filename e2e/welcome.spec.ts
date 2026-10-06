@@ -104,7 +104,7 @@ for (const attempt of [1, 2, 3, 4, 5]) {
     await runCheck(full, 'resumed');
     await expect(cardAt(full, 1)).toBeVisible();
     await queueDone(full);
-    // CONTROL: the same observer sees Hello on a fresh profile's first full-view open (below).
+    // The CONTROL that Hello is drawn is the next test, 'a fresh profile whose first open is the full view gets Hello'.
     expect(await runDrawn(full)).toEqual(['card']);
     expect(await storedRun(full)).toMatchObject({
       view: 'full',
@@ -158,7 +158,7 @@ test('Q7: closed unanswered, it shows again up to five times; the sixth open end
     cloudConsent: 'declined',
     isFullViewCalloutSeen: true,
   });
-  // The welcome was seen, so no Hello (CONTROL: the fresh full-view open above, same observer, sees it).
+  // The welcome was seen, so no Hello; the CONTROL that Hello is drawn is the test 'a fresh profile whose first open is the full view gets Hello'.
   const full = await openFullView(context, extensionId);
   await runCheck(full, 'started');
   await expect(cardAt(full, 1)).toBeVisible();

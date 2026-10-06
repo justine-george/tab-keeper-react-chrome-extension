@@ -210,7 +210,7 @@ test('R13: a Stay here user’s first full-view visit starts the run at step 1, 
   await runCheck(full, 'started');
   await expect(cardAt(full, 1)).toBeVisible();
   await queueDone(full);
-  // No Hello (CONTROL: the fresh full-view open below, same observer, sees it); the card is the CONTROL for the later visit.
+  // No Hello; the CONTROL that Hello is drawn is the test 'a fresh profile whose first open is the full view gets Hello', and the card is the CONTROL for the later visit.
   expect(await runDrawn(full)).toEqual(['card']);
   expect(await storedRun(full)).toMatchObject({
     view: 'full',
